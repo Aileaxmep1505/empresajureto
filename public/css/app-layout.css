@@ -1,0 +1,180 @@
+:root{
+  /* Paleta suave, NO blanco, legible */
+  --bg: #e9eef6;
+  --surface: #f6f8ff;
+  --surface-2: #e7edfb;
+  --border: #d6def0;
+  --primary: #5b8def;
+  --primary-600:#3b6fde;
+  --accent: #ff7ab6;
+  --text: #1f2a44;
+  --muted:#6b7a99;
+  --success:#22c55e;
+  --warn:#f59e0b;
+
+  --shadow: 0 12px 38px rgba(23,36,71,.14);
+  --topbar-h: 56px;
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body.app{
+  margin:0; font-family:"Quicksand", system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial;
+  background: radial-gradient(1200px 800px at 10% -10%, #f4f7ff 0%, var(--bg) 60%), linear-gradient(180deg, var(--bg) 0%, #e5ecf8 100%);
+  color:var(--text);
+}
+
+/* ======== Shell ======== */
+.shell{ min-height:100vh; display:flex; flex-direction:column; transition: filter .28s ease; }
+.shell.xs-blur{ filter: blur(8px) saturate(1.05); } /* Se activa vía JS solo con sidebar en móvil */
+
+/* ======== Sidebar (off-canvas) ======== */
+.sidebar{
+  position:fixed; inset:0 auto 0 0; width:310px;
+  background:linear-gradient(180deg, #f7faff,#ecf1ff);
+  border-right:1px solid var(--border);
+  transform: translateX(-102%);
+  transition: transform .45s cubic-bezier(.16,1,.3,1), box-shadow .25s ease;
+  z-index:50; box-shadow: var(--shadow);
+  will-change: transform;
+}
+.sidebar.is-open{
+  transform: translateX(0);
+  animation: sidebarOvershoot .6s cubic-bezier(.2,.9,.2,1);
+}
+@keyframes sidebarOvershoot{
+  0%   { transform: translateX(-102%); }
+  65%  { transform: translateX(2%); }
+  100% { transform: translateX(0); }
+}
+
+/* Backdrop (solo para sidebar) */
+.backdrop{
+  position:fixed; inset:0; background:rgba(5,10,20,.55);
+  opacity:0; pointer-events:none; transition: opacity .32s cubic-bezier(.2,.8,.2,1);
+  z-index:40;
+}
+.backdrop.is-show{ opacity:1; pointer-events:auto; }
+
+/* ======== Sidebar: cabecera y usuario ======== */
+.sidebar__head{ display:flex; align-items:flex-start; gap:12px; padding:18px 16px 12px; border-bottom:1px solid var(--border); }
+.sidebar__close{
+  margin-left:auto; background:transparent; border:0; cursor:pointer; color:var(--muted);
+  width:36px; height:36px; border-radius:12px; display:grid; place-items:center;
+  transition:background .2s ease, transform .08s ease, color .2s ease;
+}
+.sidebar__close:hover{ background:rgba(91,141,239,.12); color:var(--primary); }
+.sidebar__close:active{ transform:scale(.98); }
+
+.user{ display:flex; gap:12px; align-items:center; }
+.avatar{
+  width:44px; height:44px; border-radius:12px; background:linear-gradient(135deg,#7ea8ff,#a8c9ff);
+  color:#fff; display:grid; place-items:center; font-weight:700; box-shadow:var(--shadow);
+}
+.avatar--sm{ width:32px; height:32px; border-radius:50%; background:linear-gradient(135deg,#7ea8ff,#a8c9ff); color:#fff; display:grid; place-items:center; font-weight:700; }
+
+.user__meta{ line-height:1.2 }
+.user__name{ font-weight:700 }
+.user__mail{ color:var(--muted); font-size:.92rem; }
+.user__roles{ margin-top:6px; display:flex; gap:6px; flex-wrap:wrap; }
+.chip{
+  padding:4px 8px; border-radius:999px; background:#e7ecfb; color:#3b4a6b; font-size:.78rem; border:1px solid var(--border);
+  transition: transform .12s ease;
+}
+.chip:hover{ transform: translateY(-1px); }
+
+/* ======== Navegación ======== */
+.nav{ display:flex; flex-direction:column; padding:10px; gap:4px; }
+.nav__link{
+  display:flex; gap:10px; align-items:center; padding:12px 12px;
+  border-radius:12px; color:#2b3756; text-decoration:none;
+  transition:background .18s ease, color .18s ease, transform .08s ease;
+}
+.nav__link:hover{ background:#eaf0ff; color:var(--primary); transform: translateX(2px); }
+.nav__link.is-active{ background:#e3ebff; color:var(--primary-600); font-weight:600; }
+
+.logout{ margin-top:auto; padding:10px; }
+.btn-logout{
+  width:100%; display:flex; align-items:center; gap:10px; padding:12px 12px; border-radius:12px;
+  background:#ffe8f3; color:#7b294a; border:1px solid #ffd0e6; cursor:pointer; font-weight:600;
+  transition:filter .18s ease, transform .06s ease;
+}
+.btn-logout:hover{ filter:brightness(1.03); }
+.btn-logout:active{ transform:scale(.99); }
+
+/* ======== Topbar ======== */
+.topbar{
+  position:sticky; top:0; z-index:30;
+  display:flex; align-items:center; gap:12px; padding:10px 14px;
+  background:linear-gradient(180deg,#f3f6ff,#eaf1ff);
+  border-bottom:1px solid var(--border);
+}
+.icon-btn{
+  background:transparent; border:0; cursor:pointer; color:#2b3756;
+  width:40px; height:40px; border-radius:12px; display:grid; place-items:center;
+  transition:background .18s ease, transform .06s ease, color .18s ease;
+}
+.icon-btn:hover{ background:rgba(91,141,239,.12); color:var(--primary); }
+.icon-btn:active{ transform:scale(.98); }
+
+.topbar__title{ font-weight:700; letter-spacing:.3px; }
+.topbar__right{ margin-left:auto; display:flex; align-items:center; gap:12px; }
+
+/* ======== Notificaciones (sin oscurecer ni blur) ======== */
+.notif{ position:relative; }
+.dot{
+  position:absolute; top:6px; right:6px; width:10px; height:10px; background:var(--accent); border-radius:999px; box-shadow:0 0 0 3px #fff7;
+  animation: dotPulse 2.2s infinite cubic-bezier(.66,0,0,1);
+}
+@keyframes dotPulse{
+  0%,100%{ transform:scale(1); opacity:1 }
+  50%{ transform:scale(1.25); opacity:.75 }
+}
+
+/* Desktop: panel flotante junto al icono */
+.notif__panel{
+  position:absolute; right:0; top:48px; width:320px; max-width:92vw;
+  background:var(--surface); border:1px solid var(--border); border-radius:16px; box-shadow:var(--shadow);
+  opacity:0; transform: translateY(-8px) scale(.98); pointer-events:none;
+  transition: opacity .18s ease, transform .22s cubic-bezier(.22,1,.36,1);
+  overflow:hidden; z-index: 35; /* sobre contenido, debajo del sidebar */
+}
+.notif__panel.is-open{ opacity:1; transform: translateY(0) scale(1); pointer-events:auto; }
+.notif__head{ display:flex; align-items:center; justify-content:space-between; padding:12px 12px; border-bottom:1px solid var(--border); }
+.notif__list{ max-height:300px; overflow:auto; overscroll-behavior:contain; }
+.notif__item{ display:grid; grid-template-columns:auto 1fr; column-gap:8px; row-gap:4px; padding:10px 12px; background:linear-gradient(180deg, #ffffff80, #ffffff00); }
+.notif__text{ color:#2b3756; }
+.notif__time{ color:var(--muted); font-size:.85rem; grid-column:2; }
+.pill{ padding:2px 8px; border-radius:999px; font-size:.72rem; border:1px solid var(--border); align-self:start; }
+.pill--info{ background:#e8f1ff; color:#2b4a7a; }
+.pill--warn{ background:#fff3cd; color:#8a6d1a; }
+.notif__link{ display:block; padding:10px 12px; text-decoration:none; color:var(--primary-600); border-top:1px solid var(--border); font-weight:600; }
+.notif__link:hover{ background:#eaf0ff; }
+
+/* ======== Contenido ======== */
+.content{ padding:18px; min-height:calc(100vh - var(--topbar-h)); }
+
+/* ======== Móvil/Tablet: panel NOTIFICACIONES como FIXED a pantalla ======== */
+/* ======== Móvil/Tablet: panel NOTIFICACIONES como FIXED a pantalla ======== */
+@media (max-width: 1023px){
+  /* Deja .notif con position:relative para que el punto (dot) se ancle al botón */
+  .notif{ position: relative; } /* <--- IMPORTANTE: antes estaba "static" */
+
+  .notif__panel{
+    position: fixed;            /* panel anclado a la ventana, sin cortes */
+    left: 8px;
+    right: 8px;
+    top: calc(var(--topbar-h) + 8px);
+    width: auto;
+    max-width: none;
+    max-height: calc(100vh - var(--topbar-h) - 24px);
+    z-index: 55;                /* sobre contenido y topbar */
+  }
+
+  /* Opcional: ajustar un poco el punto en móviles */
+  .dot{ top: 6px; right: 6px; }
+}
+
+
+/* Accesibilidad: reducir movimiento */
+.no-anim *{ transition:none !important; animation:none !important; }

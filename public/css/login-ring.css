@@ -1,0 +1,115 @@
+@import url("https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;600&display=swap");
+
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#111; --text:#fff; --muted:rgba(255,255,255,.75);
+  --gradient: linear-gradient(45deg, #ff357a, #fff172);
+}
+html,body{height:100%}
+body{
+  display:flex;justify-content:center;align-items:center;min-height:100vh;
+  background:var(--bg); width:100%; overflow:hidden; font-family:"Quicksand",sans-serif;
+}
+
+/* RING */
+.ring{
+  position:relative; width:500px; height:500px;
+  display:flex; justify-content:center; align-items:center;
+}
+.ring i{
+  position:absolute; inset:0; border:2px solid #fff; transition:.5s;
+}
+.ring i:nth-child(1){
+  border-radius:38% 62% 63% 37% / 41% 44% 56% 59%;
+  animation:animate 6s linear infinite;
+}
+.ring i:nth-child(2){
+  border-radius:41% 44% 56% 59%/38% 62% 63% 37%;
+  animation:animate 4s linear infinite;
+}
+.ring i:nth-child(3){
+  border-radius:41% 44% 56% 59%/38% 62% 63% 37%;
+  animation:animate2 10s linear infinite;
+}
+.ring:hover i{
+  border:6px solid var(--clr);
+  filter:drop-shadow(0 0 20px var(--clr));
+}
+@keyframes animate{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+@keyframes animate2{0%{transform:rotate(360deg)}100%{transform:rotate(0deg)}}
+
+/* LOGIN BOX */
+.login{
+  position:absolute; width:320px; height:100%;
+  display:flex; justify-content:center; align-items:center; flex-direction:column; gap:18px;
+}
+.login h2{font-size:2.1em; color:var(--text); letter-spacing:.5px; margin-bottom:6px}
+
+/* alerts */
+.alert{width:100%; padding:10px 14px; border-radius:12px; font-size:.95rem}
+.alert.success{background:rgba(34,197,94,.12); color:#d1fae5; border:1px solid rgba(34,197,94,.35)}
+.alert.error{background:rgba(239,68,68,.12); color:#fee2e2; border:1px solid rgba(239,68,68,.35)}
+
+.form{width:100%; display:grid; gap:14px}
+
+.inputBx{position:relative; width:100%}
+.inputBx input{
+  width:100%; padding:12px 20px; background:transparent; color:var(--text);
+  border:2px solid #fff; border-radius:40px; font-size:1.05em; outline:none; transition:border-color .25s ease, box-shadow .25s ease;
+}
+.inputBx input::placeholder{color:var(--muted)}
+.inputBx input:focus{
+  border-color:#ff357a;
+  box-shadow:0 0 0 6px rgba(255,53,122,.12);
+}
+
+/* submit */
+.inputBx input[type="submit"]{
+  background:var(--gradient);
+  border:none; cursor:pointer; font-weight:600; color:#222;
+  transition:transform .12s ease, box-shadow .25s ease, filter .25s ease;
+}
+.inputBx input[type="submit"]:hover{transform:translateY(-1px); filter:saturate(1.1)}
+.inputBx input[type="submit"]:active{transform:translateY(0)}
+
+/* links */
+.links{
+  display:flex; align-items:center; justify-content:space-between; padding:0 6px; margin-top:4px
+}
+.links a{color:#fff; text-decoration:none; opacity:.9}
+.links a:hover{opacity:1; text-decoration:underline}
+
+/* mobile */
+@media (max-width:520px){
+  .ring{width:92vw; height:92vw; max-width:420px; max-height:420px}
+  .login{width:min(82vw,340px)}
+  .login h2{font-size:1.8em}
+}
+
+/* ============ AGREGADOS ============ */
+
+/* Toggle de visibilidad dentro del input */
+.inputBx.has-toggle { position: relative; }
+.inputBx.has-toggle input{ padding-right:48px; } /* espacio para el botón */
+.toggle-visibility{
+  position:absolute; right:12px; top:50%; transform:translateY(-50%);
+  width:34px; height:34px; border:0; border-radius:50%;
+  display:grid; place-items:center; background:transparent; color:#fff; opacity:.9;
+  cursor:pointer; transition:opacity .2s ease, transform .08s ease;
+}
+.toggle-visibility:hover{ opacity:1 }
+.toggle-visibility:active{ transform:translateY(-50%) scale(.98) }
+.toggle-visibility .icon-eye, .toggle-visibility .icon-eye-off{ pointer-events:none; }
+
+/* Mensajes de error por campo (arriba del input) */
+.field-error{
+  color:#ffd1d1;
+  font-size:.92rem;
+  margin:0 2px 6px; /* espacio con el input */
+}
+
+/* Estilo del input cuando está inválido */
+.inputBx.invalid input{
+  border-color:#ff6b6b !important;
+  box-shadow:0 0 0 6px rgba(255,107,107,.12) !important;
+}
