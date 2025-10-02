@@ -9,6 +9,9 @@ use App\Http\Controllers\ProviderController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\CotizacionController;
 use App\Http\Controllers\VentaController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\MediaController;
+use App\Http\Controllers\NotificationController;
 
 /*
 |--------------------------------------------------------------------------
@@ -39,10 +42,7 @@ Route::middleware('guest')->group(function () {
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
 
 /*
-| Verificación de correo (Laravel)
-| - Aviso para verificar
-| - Confirmación desde el enlace del email
-| - Reenviar enlace de verificación
+| Verificación de correo
 */
 Route::middleware('auth')->group(function () {
     Route::get('/email/verify', [AuthController::class, 'verifyNotice'])->name('verification.notice');
@@ -58,8 +58,7 @@ Route::middleware('auth')->group(function () {
 
 /*
 |--------------------------------------------------------------------------
-| Dashboard (protegido)
-| Requiere: autenticado + correo verificado + aprobado por admin
+| Dashboard (auth + verified + approved)
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth', 'verified', 'approved'])->group(function () {
@@ -79,33 +78,111 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'approved', 'role:admin'
     Route::delete('/users/{user}/role/{role}', [UserManagementController::class, 'removeRole'])->name('admin.users.role.remove');
 });
 
-Route::middleware(['auth','approved'])->group(function () {
-    Route::resource('products', ProductController::class)->parameters(['products' => 'product']);
-});
-Route::middleware(['auth','approved'])->group(function () {
-    Route::resource('products', ProductController::class)->parameters(['products'=>'product']);
-    Route::get('products-export/pdf', [ProductController::class,'exportPdf'])->name('products.export.pdf');
-});
-Route::middleware(['auth','approved'])->group(function () {
-    Route::resource('providers', ProviderController::class)
-        ->names('providers'); // index, create, store, edit, update, destroy, show (no lo usamos)
-});
+/*
+|--------------------------------------------------------------------------
+| Rutas protegidas de la app (auth + approved)
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth', 'approved'])->group(function () {
 
+    // -------- Productos: rutas específicas ANTES del resource --------
+    Route::get('products/import', [ProductController::class, 'importForm'])->name('products.import.form');
+    Route::post('products/import', [ProductController::class, 'importStore'])->name('products.import.store');
 
-Route::middleware(['auth','approved'])->group(function () {
+    Route::get('products/export/pdf', [ProductController::class, 'exportPdf'])->name('products.export.pdf');
+
+    // Resource con restricción numérica para evitar colisión con /products/import
+    Route::resource('products', ProductController::class)
+        ->parameters(['products' => 'product'])
+        ->whereNumber('product');
+
+    // -------- Proveedores --------
+    Route::resource('providers', ProviderController::class)->names('providers');
+
+    // -------- Clientes --------
     Route::resource('clients', ClientController::class)->names('clients');
+
+    // -------- Cotizaciones --------
+    Route::resource('cotizaciones', CotizacionController::class);
+    Route::post('cotizaciones/{cotizacion}/aprobar', [CotizacionController::class,'aprobar'])->name('cotizaciones.aprobar');
+    Route::post('cotizaciones/{cotizacion}/rechazar', [CotizacionController::class,'rechazar'])->name('cotizaciones.rechazar');
+    Route::get('cotizaciones/{cotizacion}/pdf', [CotizacionController::class,'pdf'])->name('cotizaciones.pdf');
+    Route::post('cotizaciones/{cotizacion}/convertir-venta', [CotizacionController::class,'convertirAVenta'])->name('cotizaciones.convertir');
+
+    // IA / auto-cotización
+    Route::post('/cotizaciones/ai-parse', [CotizacionController::class, 'aiParse'])
+        ->name('cotizaciones.ai_parse');
+
+    // Guardar/crear desde la salida de AI — usa el método existente aiCreate
+    Route::post('/cotizaciones/ai-store', [CotizacionController::class, 'aiCreate'])
+        ->name('cotizaciones.ai_store');
+
+    // Alias opcional compatible (por si tu front lo usa así)
+    Route::post('/cotizaciones/store-from-ai', [CotizacionController::class, 'aiCreate'])
+        ->name('cotizaciones.store_from_ai');
+
+    // Form y creación automática
+    Route::get('/cotizaciones/auto', [CotizacionController::class, 'autoForm'])->name('cotizaciones.auto.form');
+    Route::post('/cotizaciones/auto', [CotizacionController::class, 'autoCreate'])->name('cotizaciones.auto.create');
+
+    // Buscador de productos (AJAX)
+    Route::get('/cotizaciones/buscar-productos', [CotizacionController::class,'buscarProductos'])
+        ->name('cotizaciones.buscar_productos');
+
+    // -------- Ventas (solo index/show) --------
+    Route::resource('ventas', VentaController::class)->only(['index','show']);
+
+    // -------- Perfil --------
+    Route::get('/perfil', [ProfileController::class, 'show'])->name('profile.show');
+    Route::put('/perfil/foto', [ProfileController::class, 'updatePhoto'])->name('profile.update.photo');
+    Route::put('/perfil/password', [ProfileController::class, 'updatePassword'])->name('profile.update.password');
 });
 
-Route::resource('cotizaciones', CotizacionController::class);
+/*
+|--------------------------------------------------------------------------
+| Media público (storage/app/public)
+|--------------------------------------------------------------------------
+*/
+Route::get('/media/{path}', [MediaController::class, 'show'])
+    ->where('path', '.*')
+    ->name('media.show');
 
-Route::post('cotizaciones/{cotizacion}/aprobar', [CotizacionController::class,'aprobar'])->name('cotizaciones.aprobar');
-Route::post('cotizaciones/{cotizacion}/rechazar', [CotizacionController::class,'rechazar'])->name('cotizaciones.rechazar');
-Route::get('cotizaciones/{cotizacion}/pdf', [CotizacionController::class,'pdf'])->name('cotizaciones.pdf');
-Route::post('cotizaciones/{cotizacion}/convertir-venta', [CotizacionController::class,'convertirAVenta'])->name('cotizaciones.convertir');
-Route::resource('ventas', VentaController::class)->only(['index','show']);
+/*
+|--------------------------------------------------------------------------
+| Notificaciones del usuario autenticado
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth'])->group(function () {
+    Route::get('/me/notifications', [NotificationController::class, 'index'])
+        ->name('me.notifications.index');
+    Route::post('/me/notifications/read-all', [NotificationController::class, 'readAll'])
+        ->name('me.notifications.readAll');
+});
 
-// routes/web.php
-Route::post('/cotizaciones/ai-parse', [CotizacionController::class, 'aiParse'])
-    ->name('cotizaciones.ai_parse');
-Route::get('/cotizaciones/auto', [\App\Http\Controllers\CotizacionController::class, 'autoForm'])->name('cotizaciones.auto.form');
-Route::post('/cotizaciones/auto', [\App\Http\Controllers\CotizacionController::class, 'autoCreate'])->name('cotizaciones.auto.create');
+Route::get('/diag/http', function () {
+    $out = [];
+
+    try {
+        $r1 = Http::timeout(15)->head('https://api.ocr.space/parse/image');
+        $out['ocr_head'] = ['ok' => $r1->successful() || $r1->clientError() || $r1->serverError(), 'status' => $r1->status()];
+    } catch (\Throwable $e) {
+        $out['ocr_head'] = ['ok' => false, 'error' => $e->getMessage()];
+    }
+
+    try {
+        $r2 = Http::timeout(15)->withHeaders(['Authorization' => 'Bearer x'])->get('https://api.openai.com/v1/models');
+        $out['openai_models'] = ['ok' => $r2->status() !== 0, 'status' => $r2->status()];
+    } catch (\Throwable $e) {
+        $out['openai_models'] = ['ok' => false, 'error' => $e->getMessage()];
+    }
+
+    try {
+        $path = storage_path('logs/http_diag.log');
+        file_put_contents($path, '['.date('c')."] diag ok\n", FILE_APPEND);
+        $out['write_logs'] = ['ok' => true, 'path' => $path];
+    } catch (\Throwable $e) {
+        $out['write_logs'] = ['ok' => false, 'error' => $e->getMessage()];
+    }
+
+    return response()->json($out);
+});

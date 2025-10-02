@@ -8,6 +8,14 @@
   <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ asset('css/app-layout.css') }}?v={{ time() }}">
   @stack('styles')
+  <style>
+    /* Avatares redondos, con imagen recortada y sin subrayado en link */
+    .avatar, .avatar.avatar--sm { position: relative; overflow: hidden; border-radius: 50%; }
+    .avatar img, .avatar.avatar--sm img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .avatar img + span, .avatar.avatar--sm img + span { display: none !important; }
+    .avatar-link{ display:inline-block; border-radius:50%; text-decoration:none; line-height:0; }
+    .avatar-link:focus{ outline:2px solid #7ea2ff; outline-offset:3px; }
+  </style>
 </head>
 <body class="app">
   <!-- Sidebar (Hamburguesa) -->
@@ -15,14 +23,71 @@
     <div class="sidebar__head">
       <div class="user">
         @php
-          $u = auth()->user();
-          $nm = $u->name ?? 'Usuario';
+          use Illuminate\Support\Facades\Route as LaravelRoute;
+
+          $u  = auth()->user();
+          $nm = $u?->name ?? 'Usuario';
           $ini = mb_strtoupper(mb_substr($nm,0,1));
+
+          // 1) URL base del avatar (guardada en perfil)
+          $baseAvatar = null;
+          if ($u && !empty($u->avatar_url)) {
+              $baseAvatar = $u->avatar_url;
+          }
+
+          // 2) Fallback: Gravatar si no hay avatar_url
+          if (!$baseAvatar && $u && !empty($u->email)) {
+              $hash = md5(strtolower(trim($u->email)));
+              $baseAvatar = "https://www.gravatar.com/avatar/{$hash}?s=300&d=mp";
+          }
+
+          // 3) Cache-busting: cambia la query cuando actualizas la foto
+          $ver = null;
+          if ($u && !empty($u->avatar_updated_at)) {
+              $ver = $u->avatar_updated_at instanceof \Illuminate\Support\Carbon ? $u->avatar_updated_at->timestamp : strtotime($u->avatar_updated_at);
+          } elseif ($u && !empty($u->updated_at)) {
+              $ver = $u->updated_at instanceof \Illuminate\Support\Carbon ? $u->updated_at->timestamp : strtotime($u->updated_at);
+          }
+
+          $avatarSrc = null;
+          if (!empty($baseAvatar)) {
+              $sep = (strpos($baseAvatar, '?') !== false) ? '&' : '?';
+              $avatarSrc = $baseAvatar . ($ver ? ($sep.'v='.$ver) : '');
+          }
+
+          // 4) Fallback final por si algo falla
+          if ($u && !empty($u->email)) {
+              $fallbackMp = "https://www.gravatar.com/avatar/".md5(strtolower(trim($u->email)))."?s=300&d=mp";
+          } else {
+              $fallbackMp = "https://www.gravatar.com/avatar/?s=300&d=mp";
+          }
+
+          // 5) Ruta al perfil (segura según nombre disponible)
+          if (LaravelRoute::has('profile.show')) {
+              $profileHref = route('profile.show');
+          } elseif (LaravelRoute::has('profile')) {
+              $profileHref = route('profile');
+          } else {
+              $profileHref = url('/perfil'); // cambia si tu ruta es otra
+          }
         @endphp
-        <div class="avatar" aria-hidden="true"><span>{{ $ini }}</span></div>
+
+        <!-- Avatar GRANDE (Sidebar) clicable -->
+        <a href="{{ $profileHref }}" class="avatar-link" title="Ver mi perfil">
+          <div class="avatar" aria-hidden="true">
+            @if($avatarSrc)
+              <img src="{{ $avatarSrc }}" alt="Avatar de {{ $nm }}" onerror="this.onerror=null;this.src='{{ $fallbackMp }}';">
+              <span>{{ $ini }}</span>
+            @else
+              <img src="{{ $fallbackMp }}" alt="Avatar de {{ $nm }}">
+              <span>{{ $ini }}</span>
+            @endif
+          </div>
+        </a>
+
         <div class="user__meta">
           <div class="user__name">{{ $nm }}</div>
-          <div class="user__mail">{{ $u->email ?? 'correo@dominio.com' }}</div>
+          <div class="user__mail">{{ $u?->email ?? 'correo@dominio.com' }}</div>
           @if($u && method_exists($u,'getRoleNames'))
             <div class="user__roles">
               @foreach($u->getRoleNames() as $r)
@@ -179,8 +244,18 @@
           </div>
         </div>
 
-        <!-- Avatar pequeño -->
-        <div class="avatar avatar--sm" title="{{ $nm }}" aria-hidden="true"><span>{{ $ini }}</span></div>
+        <!-- Avatar PEQUEÑO (Topbar) clicable -->
+        <a href="{{ $profileHref }}" class="avatar-link" title="Ver mi perfil">
+          <div class="avatar avatar--sm" aria-hidden="true">
+            @if($avatarSrc)
+              <img src="{{ $avatarSrc }}" alt="Avatar de {{ $nm }}" onerror="this.onerror=null;this.src='{{ $fallbackMp }}';">
+              <span>{{ $ini }}</span>
+            @else
+              <img src="{{ $fallbackMp }}" alt="Avatar de {{ $nm }}">
+              <span>{{ $ini }}</span>
+            @endif
+          </div>
+        </a>
       </div>
     </header>
 
@@ -203,12 +278,10 @@
       const notifPane = document.getElementById('notifPanel');
       const notifClose= document.getElementById('btnCloseNotif');
 
-      // Estado SOLO del sidebar; notificaciones no usan backdrop ni blur
       let sidebarOpen = false;
 
       const applyBackdropForSidebar = () => {
         backdrop.classList.toggle('is-show', sidebarOpen);
-        // Blur del contenido SOLO en pantallas pequeñas cuando el SIDEBAR está abierto
         shell.classList.toggle('xs-blur', sidebarOpen && mqSmall.matches);
       };
 
@@ -229,7 +302,7 @@
       btnClose.addEventListener('click', closeSidebar);
       backdrop.addEventListener('click', closeSidebar);
 
-      // Notificaciones: sin backdrop, sin blur
+      // Notificaciones (sin backdrop)
       const closeNotif = () => {
         notifPane.classList.remove('is-open');
         notifBtn.setAttribute('aria-expanded','false');
@@ -243,8 +316,6 @@
         e.stopPropagation();
         closeNotif();
       });
-
-      // Click-away para notificaciones
       document.addEventListener('click', (e)=>{
         const withinPanel = notifPane.contains(e.target);
         const withinButton = notifBtn.contains(e.target);
@@ -259,7 +330,6 @@
         }
       });
 
-      // Re-evaluar blur si cambia el tamaño
       mqSmall.addEventListener?.('change', applyBackdropForSidebar);
     })();
   </script>
