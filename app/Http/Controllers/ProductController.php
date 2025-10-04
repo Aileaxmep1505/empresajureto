@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Log;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Imports\ProductsImport;
+use Illuminate\Support\Str;
+
 
 class ProductController extends Controller
 {
@@ -270,49 +272,87 @@ public function importStore(Request $request)
     }
       /** API: listado paginado en JSON (para el frontend React) */
   public function apiIndex(Request $request)
-    {
-        $q = (string) $request->get('q', '');
-        $category = $request->get('category');
-        $sort = $request->get('sort');
-        $min = $request->get('min_price');
-        $max = $request->get('max_price');
-        $per = (int) $request->get('per_page', 24);
+{
+    $q        = (string) $request->get('q', '');
+    $category = $request->get('category');
+    $sort     = $request->get('sort');
+    $min      = $request->get('min_price');
+    $max      = $request->get('max_price');
+    $per      = (int) $request->get('per_page', 24);
 
-        // Reutiliza tu filtro de búsqueda
-        $query = $this->applySearch(Product::query(), $q);
+    $query = $this->applySearch(Product::query(), $q);
 
-        if (!empty($category)) {
-            $query->where('category', $category); // ajusta al campo que uses
-        }
-        if ($min !== null && $min !== '') $query->where('price', '>=', (float)$min);
-        if ($max !== null && $max !== '') $query->where('price', '<=', (float)$max);
+    if (!empty($category)) $query->where('category', $category);
+    if ($min !== null && $min !== '') $query->where(function($qq) use ($min){
+        $qq->where('price','>=',(float)$min)
+           ->orWhere('market_price','>=',(float)$min)
+           ->orWhere('bid_price','>=',(float)$min);
+    });
+    if ($max !== null && $max !== '') $query->where(function($qq) use ($max){
+        $qq->where('price','<=',(float)$max)
+           ->orWhere('market_price','<=',(float)$max)
+           ->orWhere('bid_price','<=',(float)$max);
+    });
 
-        switch ($sort) {
-            case 'newest':     $query->latest('id'); break; // o created_at
-            case 'price_asc':  $query->orderBy('price'); break;
-            case 'price_desc': $query->orderByDesc('price'); break;
-            default:           $query->latest('id'); break;
-        }
+    // 🔽 1) Ordena para que "con nombre y con precio" aparezcan primero
+    //    (sin romper tu sort elegido).
+    $query->orderByRaw("
+        (CASE WHEN (name IS NULL OR name='') THEN 1 ELSE 0 END) ASC,
+        (CASE WHEN COALESCE(price, market_price, bid_price, 0) = 0 THEN 1 ELSE 0 END) ASC
+    ");
 
-        $page = $query->paginate($per)->through(function (Product $p) {
-            return [
-                'id'                => $p->id,
-                'name'              => $p->name,
-                'sku'               => $p->sku,
-                'brand'             => $p->brand,
-                'category'          => $p->category,
-                'price'             => $p->price,
-                'list_price'        => $p->market_price ?? null,
-                'short_description' => $p->description ? Str::limit(strip_tags($p->description), 140) : null,
-                'image_src'         => $p->image_src, // usa tu accessor
-                'slug'              => $p->slug ?? (string)$p->id,
-                'active'            => (bool)$p->active,
-            ];
-        });
-
-        return response()->json($page);
+    switch ($sort) {
+        case 'newest':     $query->orderByDesc('id'); break;
+        case 'price_asc':  $query->orderByRaw('COALESCE(price, market_price, bid_price, 0) ASC'); break;
+        case 'price_desc': $query->orderByRaw('COALESCE(price, market_price, bid_price, 0) DESC'); break;
+        default:           $query->orderByDesc('id'); break;
     }
 
+    $page = $query->paginate($per)->through(function (\App\Models\Product $p) {
+        // 🔽 2) Coalesce de precio (valor crudo, numérico)
+        $priceRaw = $p->getRawOriginal('price');
+        if ($priceRaw === null || (float)$priceRaw == 0.0) {
+            $priceRaw = $p->getRawOriginal('market_price');
+        }
+        if ($priceRaw === null || (float)$priceRaw == 0.0) {
+            $priceRaw = $p->getRawOriginal('bid_price');
+        }
+
+        $listRaw  = $p->getRawOriginal('market_price');
+
+        // 🔽 3) Nombre/marca con fallback seguro
+        $name  = (string)($p->name ?? $p->getRawOriginal('name') ?? '');
+        $brand = (string)($p->brand ?? $p->getRawOriginal('brand') ?? '');
+
+        // 🔽 4) Imagen: si accessor no resuelve, manda placeholder absoluto
+        $img = $p->image_src ?: url('/placeholder.png');
+
+        return [
+            'id'         => $p->id,
+            'slug'       => $p->slug ?? (string)$p->id,
+            'name'       => ($name !== '' ? $name : 'Producto'),
+            'sku'        => $p->sku,
+            'brand'      => $brand,
+            'category'   => $p->category,
+            'price'      => $priceRaw !== null ? (float)$priceRaw : 0.0,
+            'list_price' => $listRaw  !== null ? (float)$listRaw  : null,
+            'short_description' => $p->description ? Str::limit(strip_tags($p->description), 140) : null,
+            'image_src'  => $img,
+            'active'     => (bool)$p->active,
+
+            // Extras UI
+            'rating'        => (float)($p->rating ?? 0),
+            'reviews_count' => (int)($p->reviews_count ?? 0),
+            'free_shipping' => (bool)($p->free_shipping ?? false),
+            'badge'         => $p->badge ?? null,
+        ];
+    });
+
+    // Log de verificación (verás ahora precio>0, brand/name reales en los primeros)
+    if ($page->count()) \Log::info('apiIndex sample', ['first' => $page->items()[0]]);
+
+    return response()->json($page);
+}
     /** GET /api/products/{product} -> detalle JSON */
     public function apiShow(Product $product)
     {
