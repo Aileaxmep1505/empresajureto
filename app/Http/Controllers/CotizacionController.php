@@ -320,7 +320,7 @@ class CotizacionController extends Controller
      * Params:
      *  - pages: "1,3-5,8" (opcional)
      */
-   public function aiParse(Request $r)
+  public function aiParse(Request $r)
 {
     // --- LOGS MUY VERBOSOS PARA DIAGNÓSTICO ---
     $logStepFile = storage_path('logs/ai_parse_steps.log');
@@ -330,20 +330,13 @@ class CotizacionController extends Controller
     register_shutdown_function(function () use ($logStepFile) {
         $e = error_get_last();
         if ($e && in_array($e['type'] ?? 0, [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
-            @file_put_contents(
-                storage_path('logs/ai_parse_fatal.log'),
-                '['.date('c')."] {$e['message']} in {$e['file']}:{$e['line']}\n",
-                FILE_APPEND
-            );
-            @file_put_contents(
-                $logStepFile,
-                '['.date('c')."] FATAL: {$e['message']} in {$e['file']}:{$e['line']}\n",
-                FILE_APPEND
-            );
+            @file_put_contents(storage_path('logs/ai_parse_fatal.log'),
+                '['.date('c')."] {$e['message']} in {$e['file']}:{$e['line']}\n", FILE_APPEND);
+            @file_put_contents($logStepFile,
+                '['.date('c')."] FATAL: {$e['message']} in {$e['file']}:{$e['line']}\n", FILE_APPEND);
         }
     });
 
-    // Log de errores nativos a archivo separado
     @ini_set('log_errors', '1');
     @ini_set('error_log', storage_path('logs/php_runtime.log'));
     @error_reporting(E_ALL);
@@ -353,14 +346,13 @@ class CotizacionController extends Controller
     $startedAt   = microtime(true);
     $deadline    = $startedAt + max(60, $softSeconds);
     DB::disableQueryLog();
-
     @set_time_limit($softSeconds + 60);
     ini_set('max_execution_time', (string)($softSeconds + 60));
 
     // Paso 1: validación
     @file_put_contents($logStepFile, '['.date('c')."] Paso 1: validación\n", FILE_APPEND);
     $r->validate([
-        'pdf'   => ['required','file','mimes:pdf','max:20480'], // 20 MB
+        'pdf'   => ['required','file','mimes:pdf','max:20480'],
         'pages' => ['nullable','string'],
     ]);
 
@@ -435,11 +427,133 @@ class CotizacionController extends Controller
         }
         $corpus = mb_substr(implode("\n\n", $joined), 0, 80000);
 
+        // ---------- (A) EXTRAER CONTACTO CLIENTE + LIMPIAR CORPUS ----------
+        $extractClient = function (string $raw): array {
+            $emailRe = '/[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}/i';
+            $telLbl  = '(?:cel|cel\.?|tel|tel\.?|telefono|teléfono|celular|whats|whatsapp|contacto)';
+            $telRe   = '/'.$telLbl.'[^0-9+]*([+]?[\d][\d\s\-\(\)\.]{7,})/iu';
+            $attRe   = '/\b(?:att|atn|atención|atte)\.?\s*[:\-]?\s*(.+)$/iu';
+
+            $email = null; $phone = null; $att = null;
+
+            // Buscar email
+            if (preg_match($emailRe, $raw, $m)) { $email = trim($m[0]); }
+            // Buscar teléfono con label
+            if (preg_match($telRe, $raw, $m)) {
+                $phone = preg_replace('/\D+/', '', $m[1]);
+            } else {
+                // fallback: número largo suelto
+                if (preg_match('/\+?\d[\d\-\s\(\)\.]{7,}/', $raw, $m)) {
+                    $digits = preg_replace('/\D+/', '', $m[0]);
+                    if (strlen($digits) >= 8) $phone = $digits;
+                }
+            }
+            // Buscar ATT/ATN
+            if (preg_match($attRe, $raw, $m)) {
+                $att = trim($m[1]);
+            }
+
+            // Si hay "contacto:" con un email, úsalo como nombre si no hay ATT
+            if (!$att && preg_match('/contacto\s*[:\-]\s*([^\n\r]+)/iu', $raw, $m)) {
+                $candidate = trim($m[1]);
+                if (!preg_match($emailRe, $candidate)) $att = $candidate;
+            }
+
+            return ['att'=>$att, 'email'=>$email, 'phone'=>$phone];
+        };
+
+        $stripContactLines = function (string $raw): string {
+            $emailRe = '/[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}/i';
+            $lbl = '(?:att|atn|atención|atte|cel|cel\.?|tel|tel\.?|telefono|teléfono|celular|whats|whatsapp|contacto|email|correo|correo empresarial)';
+            $lines = preg_split('/\R/u', $raw) ?: [];
+            $keep = [];
+            foreach ($lines as $L) {
+                $Ltrim = trim($L);
+                if ($Ltrim === '') continue;
+                if (preg_match('/^'.$lbl.'\b/iu', $Ltrim)) continue;
+                if (preg_match($emailRe, $Ltrim)) continue;
+                if (preg_match('/\+?\d[\d\-\s\(\)\.]{7,}/', $Ltrim)) continue;
+                $keep[] = $L;
+            }
+            return implode("\n", $keep);
+        };
+
+        $clientFromText = $extractClient($corpus);
+        $corpusNoContact = $stripContactLines($corpus);
+
+        // ---------- (B) Parser local heurístico (filtra contacto y respeta símbolos) ----------
+        $localExtract = function (string $raw) {
+            $txt   = preg_replace("/[ \t]+/u", " ", $raw);
+            $txt   = preg_replace("/\r\n|\r/u", "\n", $txt);
+            $lines = array_values(array_filter(array_map('trim', explode("\n", $txt)), fn($l)=>$l!==""));
+
+            // Quitar encabezados comunes de tabla
+            $isHdr = fn($L)=>preg_match("/^\s*(PRODUCTOS?|DESCRIPCION|DESCRIPCIÓN|CANTIDAD|CANT\.)\s*$/iu", $L);
+
+            $buf = [];
+            $current = "";
+            foreach ($lines as $L) {
+                if ($isHdr($L)) continue;
+
+                // Si termina en número, es fin de fila
+                if (preg_match("/\b\d+(?:[.,]\d+)?\s*$/u", $L)) {
+                    $current = $current ? ($current.' '.$L) : $L;
+                    $buf[] = trim($current);
+                    $current = "";
+                } else {
+                    $current = $current ? ($current.' '.$L) : $L;
+                }
+            }
+            if ($current !== "") $buf[] = trim($current);
+
+            // Convertir a filas (desc + cantidad)
+            $rows = [];
+            foreach ($buf as $rowLine) {
+                // desc ... cant
+                if (preg_match("/^(?P<desc>.+?)\s+(?P<cant>\d+(?:[.,]\d+)?)\s*$/u", $rowLine, $m)) {
+                    $desc = trim($m['desc']);
+                    // evita que pasen contactos
+                    if (preg_match('/@/',$desc) || preg_match('/\+?\d[\d\-\s\(\)\.]{7,}/',$desc)) continue;
+
+                    $rows[] = [
+                        'nombre'      => $desc,
+                        'descripcion' => $desc,
+                        'cantidad'    => (float) str_replace(',', '.', $m['cant']),
+                        'unidad'      => 'PIEZA'
+                    ];
+                // cant ... desc
+                } elseif (preg_match("/^(?P<cant>\d+(?:[.,]\d+)?)\s+(?P<desc>.+)$/u", $rowLine, $m)) {
+                    $desc = trim($m['desc']);
+                    if (preg_match('/@/',$desc) || preg_match('/\+?\d[\d\-\s\(\)\.]{7,}/',$desc)) continue;
+
+                    $rows[] = [
+                        'nombre'      => $desc,
+                        'descripcion' => $desc,
+                        'cantidad'    => (float) str_replace(',', '.', $m['cant']),
+                        'unidad'      => 'PIEZA'
+                    ];
+                } else {
+                    $desc = preg_replace('/\s{2,}/u',' ', $rowLine);
+                    if ($desc !== '' &&
+                        !preg_match('/@/', $desc) &&
+                        !preg_match('/\+?\d[\d\-\s\(\)\.]{7,}/', $desc)) {
+                        $rows[] = [
+                            'nombre'      => $desc,
+                            'descripcion' => $desc,
+                            'cantidad'    => 1,
+                            'unidad'      => 'PIEZA'
+                        ];
+                    }
+                }
+            }
+            return $rows;
+        };
+
         // Paso 7: extracción IA
         @file_put_contents($logStepFile, '['.date('c')."] Paso 7: extracción IA\n", FILE_APPEND);
         $parsed = [];
         if ($this->timeUp($deadline)) {
-            $parsed['items'] = $this->fallbackListExtractor($corpus);
+            $parsed['items'] = $this->fallbackListExtractor($corpusNoContact);
             $parsed['pages_overview'] = $this->buildPagesOverviewFallback($relevant, $pages);
             @file_put_contents($logStepFile, '['.date('c')."] Paso 7: fallback por tiempo\n", FILE_APPEND);
         } else {
@@ -470,22 +584,51 @@ Devuelve SOLO JSON con:
  "items": [ { "nombre": string, "descripcion": string|null, "cantidad": number|null, "unidad": string|null } ]
 }
 Reglas: NO tomes precios del PDF. Cantidad=1 si falta. Si es escuela o dependencia mexicana, menciónalo.
-TEXTO:
-{$corpus}
+TEXTO (sin líneas de contacto):
+{$corpusNoContact}
 PR);
             $parsed = $this->safeJson($extractJson) ?: [];
-            if (empty($parsed['items'])) $parsed['items'] = $this->fallbackListExtractor($corpus);
+            if (empty($parsed['items'])) $parsed['items'] = $this->fallbackListExtractor($corpusNoContact);
             if (empty($parsed['pages_overview']) || !is_array($parsed['pages_overview'])) {
                 $parsed['pages_overview'] = $this->buildPagesOverviewFallback($relevant, $pages);
             }
         }
-        @file_put_contents($logStepFile, '['.date('c')."] Paso 7 OK: items=".count($parsed['items'] ?? [])."\n", FILE_APPEND);
+        @file_put_contents($logStepFile, '['.date('c')."] Paso 7 OK: items_ia=".count($parsed['items'] ?? [])."\n", FILE_APPEND);
+
+        // Paso 7B: refuerzo local + fusión (evita contar contacto como producto)
+        $localItems = $localExtract($corpusNoContact);
+        @file_put_contents($logStepFile, '['.date('c')."] Paso 7B: items_local=".count($localItems)."\n", FILE_APPEND);
+
+        $byKey = [];
+        $norm = fn($s)=> preg_replace('~\s+~u',' ', mb_strtolower(trim((string)$s)));
+        foreach (($parsed['items'] ?? []) as $it) {
+            $k = $norm(($it['descripcion'] ?? '') ?: ($it['nombre'] ?? ''));
+            if ($k==='') continue;
+            $byKey[$k] = [
+                'nombre'      => $it['nombre'] ?? $it['descripcion'] ?? '',
+                'descripcion' => $it['descripcion'] ?? $it['nombre'] ?? '',
+                'cantidad'    => max(1,(float)($it['cantidad'] ?? 1)),
+                'unidad'      => $it['unidad'] ?? 'PIEZA',
+            ];
+        }
+        foreach ($localItems as $it) {
+            $k = $norm($it['descripcion']);
+            if (!isset($byKey[$k])) {
+                $byKey[$k] = $it;
+            } else {
+                if (($byKey[$k]['cantidad'] ?? 1) < ($it['cantidad'] ?? 1)) {
+                    $byKey[$k]['cantidad'] = $it['cantidad'];
+                }
+            }
+        }
+        $parsed['items'] = array_values($byKey);
+        @file_put_contents($logStepFile, '['.date('c')."] Paso 7B OK: items_fusionados=".count($parsed['items'])."\n", FILE_APPEND);
 
         // Paso 8: pool productos
         @file_put_contents($logStepFile, '['.date('c')."] Paso 8: getProductPool()\n", FILE_APPEND);
         $pool = $this->getProductPool();
 
-        // Paso 9: mapeo items
+        // Paso 9: mapeo items (usar nombre del catálogo en la descripción final)
         @file_put_contents($logStepFile, '['.date('c')."] Paso 9: mapear items\n", FILE_APPEND);
         $mapped = [];
         $pendientes = [];
@@ -496,6 +639,8 @@ PR);
         foreach (($parsed['items'] ?? []) as $row) {
             if ($this->timeUp($deadline)) { $timedOut = true; break; }
 
+            // Combinar para mejorar match
+            $row['descripcion'] = trim(($row['descripcion'] ?? '').' '.($row['nombre'] ?? '')) ?: ($row['nombre'] ?? null);
             $alts = $this->topCandidatesForRow($row, 6);
             $qty  = max(1,(float)($row['cantidad'] ?? 1));
 
@@ -524,9 +669,10 @@ PR);
                         'debug_score' => $best['score'] ?? 0,
                     ];
                 } else {
+                    // <<< clave: usar display del catálogo como descripción final >>>
                     $mapped[] = [
                         'producto_id'     => $best['id'],
-                        'descripcion'     => $row['descripcion'] ?? ($row['nombre'] ?? ''),
+                        'descripcion'     => $best['display'], // NO el texto del PDF
                         'cantidad'        => $qty,
                         'precio_unitario' => (float)$best['price'],
                         'descuento'       => 0,
@@ -554,11 +700,11 @@ PR);
             }
         }
 
-        // Paso 10: cliente
+        // Paso 10: cliente (preferimos lo detectado por reglas si está)
         @file_put_contents($logStepFile, '['.date('c')."] Paso 10: cliente\n", FILE_APPEND);
-        $clienteNombre = $parsed['cliente_nombre'] ?? ($parsed['licitacion']['dependencia_o_unidad'] ?? null);
-        $clienteEmail  = $parsed['cliente_email']  ?? null;
-        $clienteTel    = $parsed['cliente_telefono'] ?? null;
+        $clienteNombre = $parsed['cliente_nombre'] ?? ($parsed['licitacion']['dependencia_o_unidad'] ?? ($clientFromText['att'] ?? null));
+        $clienteEmail  = $parsed['cliente_email']  ?? ($clientFromText['email'] ?? null);
+        $clienteTel    = $parsed['cliente_telefono'] ?? ($clientFromText['phone'] ?? null);
 
         $issuerGuess = $this->detectIssuerKind($clienteNombre, implode("\n", $pages));
         $clienteId   = $this->createOrGetClientId(
@@ -612,26 +758,19 @@ PR);
             'pendientes_ai'      => $pendientes,
         ]);
     } catch (\Throwable $e) {
-        // Log completo del error con archivo/linea y body resumido
-        Log::error('AI_PARSE_PDF', [
-            'msg'=>$e->getMessage(),
-            'file'=>$e->getFile(),
-            'line'=>$e->getLine()
-        ]);
+        Log::error('AI_PARSE_PDF', ['msg'=>$e->getMessage(),'file'=>$e->getFile(),'line'=>$e->getLine()]);
         @file_put_contents($logStepFile, '['.date('c')."] CATCH: ".$e->getMessage()." @ ".$e->getFile().":".$e->getLine()."\n", FILE_APPEND);
 
         if (str_contains($e->getMessage(),'Smalot\\PdfParser\\Parser')) {
             return response()->json(['ok'=>false,'error'=>'Falta smalot/pdfparser. composer require smalot/pdfparser'],500);
         }
-
-        // Si es un problema de red/SSL con OCR u OpenAI, devuelve 422 legible
         if (preg_match('~(SSL|cURL|Connection|timed out|resolve host|certificate)~i', $e->getMessage())) {
             return response()->json(['ok'=>false,'error'=>'No fue posible contactar a los servicios externos (OCR/OpenAI). Revisa conectividad/SSL del servidor.'], 422);
         }
-
         return response()->json(['ok'=>false,'error'=>$e->getMessage()],500);
     }
 }
+
 
 
     /** true si se acabó el tiempo suave para devolver algo parcial */
