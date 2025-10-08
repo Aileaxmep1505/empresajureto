@@ -41,10 +41,20 @@ return [
         ],
     ],
 
-    // ===== FacturAPI (CFDI 4.0) =====
-    'facturapi' => [
-        // Coloca tu clave en .env: FACTURAPI_KEY=sk_test_xxx (o sk_live_xxx en producción)
-        'key' => env('FACTURAPI_KEY'),
-    ],
+ 'facturaapi' => [
+    'token'     => env('FACTURAAPI_KEY'),
+    'base_uri'  => rtrim(env('FACTURAAPI_BASE_URI', 'https://www.facturapi.io/v2'), '/'),
+    'auto'      => (bool) env('FACTURAAPI_AUTO', false),
+
+    // Defaults CFDI
+    'serie'             => env('FACT_SERIE', 'A'),
+    'tipo_comprobante'  => env('FACT_TIPO_COMPROBANTE', 'I'),
+    'moneda'            => env('FACT_MONEDA', 'MXN'),
+    'lugar_expedicion'  => env('FACT_LUGAR_EXP', '64000'),
+    'metodo_pago'       => env('FACT_METODO_PAGO', 'PPD'),
+    'forma_pago'        => env('FACT_FORMA_PAGO', '99'),
+    'uso_cfdi'          => env('FACT_USO_CFDI', 'G03'),
+],
+
 
 ];

@@ -190,3 +190,5 @@ Route::get('/diag/http', function () {
 Route::get('/dashboard', [DashboardController::class, 'index'])
     ->middleware('auth')
     ->name('dashboard');
+    Route::get('/ventas/{venta}/pdf', [\App\Http\Controllers\VentaController::class, 'pdf'])
+    ->name('ventas.pdf');

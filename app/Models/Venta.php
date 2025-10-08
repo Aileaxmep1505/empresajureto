@@ -10,21 +10,44 @@ class Venta extends Model
     protected $table = 'ventas';
 
     protected $fillable = [
-        'cliente_id','cotizacion_id','estado','notas',
+        'cliente_id','cotizacion_id','estado','fecha','notas',
         'subtotal','descuento','envio','iva','total',
-        'moneda','financiamiento_config'
+        'moneda','tipo_cambio','financiamiento_config','user_id',
+
+        // ===== Campos de factura que sí existen en tu tabla =====
+        'serie','folio','factura_id','factura_uuid',
+        'factura_pdf_url','factura_xml_url','timbrada_en',
     ];
 
     protected $casts = [
+        'subtotal' => 'float',
+        'descuento'=> 'float',
+        'envio'    => 'float',
+        'iva'      => 'float',
+        'total'    => 'float',
+        'tipo_cambio' => 'float',
         'financiamiento_config' => 'array',
+        'fecha'       => 'datetime',
+        'timbrada_en' => 'datetime',
     ];
 
-    protected $appends = ['folio'];
+    protected $appends = ['folio_display'];
 
+    // Si quieres seguir usando $venta->folio sin romper nada:
     public function getFolioAttribute(): int
     {
-        $key = $this->getKey();
-        return $key ? (int) $key : 0;
+        return (int) ($this->attributes['id'] ?? 0);
+    }
+
+    // y un alias "bonito" que combine serie+folio si existen:
+    public function getFolioDisplayAttribute(): string
+    {
+        $serie = trim((string)($this->serie ?? ''));
+        $folio = trim((string)($this->folio ?? ''));
+        if ($serie !== '' || $folio !== '') {
+            return trim($serie.' '.$folio);
+        }
+        return (string) $this->folio; // el accessor anterior (id)
     }
 
     public function cliente(): BelongsTo

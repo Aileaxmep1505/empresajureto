@@ -49,7 +49,7 @@
                   <tr>
                     <th style="width:34%">Producto</th>
                     <th style="width:10%">Cant.</th>
-                    <th style="width:14%">P. Unit.</th>
+                    <th style="width:14%">P. Unit. (desde costo)</th>
                     <th style="width:12%">Desc.</th>
                     <th style="width:10%">IVA%</th>
                     <th style="width:14%">Importe</th>
@@ -68,11 +68,15 @@
                   <label>Envío</label>
                   <input class="input" type="number" step="0.01" name="envio" id="envio" value="0">
                 </div>
+                <div>
+                  <label>Utilidad global (%)</label>
+                  <input class="input" type="number" step="0.01" min="0" name="utilidad_global" id="utilidad_global" value="0" placeholder="Ej. 10">
+                  <div class="small">Se aplica sobre el <strong>costo</strong> de cada producto. Ej: costo 20 con 10% ⇒ ganancia 2, P. Unit. = 22.</div>
+                </div>
               </div>
 
               <hr class="sep">
 
-        
               <div class="grid">
                 <div>
                   <label>Validez (días)</label>
@@ -121,8 +125,10 @@
               <div class="head"><h3>Resumen</h3></div>
               <div class="body">
                 <table>
-                  <tr><td>Subtotal</td><td class="sum" style="text-align:right" id="t_subtotal">$0.00</td></tr>
-                  <tr><td>IVA</td>     <td class="sum" style="text-align:right" id="t_iva">$0.00</td></tr>
+                  <tr><td>Inversión (costo)</td><td style="text-align:right" id="t_inversion">$0.00</td></tr>
+                  <tr><td>Ganancia estimada</td><td style="text-align:right" id="t_ganancia">$0.00</td></tr>
+                  <tr><td class="sum">Subtotal</td><td class="sum" style="text-align:right" id="t_subtotal">$0.00</td></tr>
+                  <tr><td>IVA</td>     <td style="text-align:right" id="t_iva">$0.00</td></tr>
                   <tr><td>Descuento</td><td style="text-align:right" id="t_desc_global">$0.00</td></tr>
                   <tr><td>Envío</td>   <td style="text-align:right" id="t_envio">$0.00</td></tr>
                   <tr><td class="sum">TOTAL</td><td class="sum" style="text-align:right" id="t_total">$0.00</td></tr>
@@ -281,6 +287,7 @@
 {!! json_encode([
     'clientesInfo'   => $clientesInfo->keyBy('id'),
     'clientesSelect' => $clientesSelect,
+    // IMPORTANTE: asegurar que cada producto traiga 'cost' (además de otros campos)
     'productos'      => $productos,
     'routes' => [
         'buscarProductos' => route('cotizaciones.buscar_productos'),
@@ -293,4 +300,3 @@
 {{-- Tu JS externo (defer para asegurar DOM listo) --}}
 <script defer src="{{ asset('js/cotizaciones.js') }}?v={{ time() }}"></script>
 @endsection
-

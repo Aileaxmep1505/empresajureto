@@ -15,7 +15,8 @@ class CotizacionPlazo extends Model
 
     protected $casts = [
         'vence_el' => 'date',
-        'pagado' => 'boolean',
+        'monto'    => 'float',
+        'pagado'   => 'boolean',
     ];
 
     public function cotizacion(): BelongsTo

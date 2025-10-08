@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use PDF;
 use Illuminate\Support\Facades\Http;
+use App\Services\FacturaApiService;
 
 // IA + PDF
 use Smalot\PdfParser\Parser as PdfParser;   // composer require smalot/pdfparser
@@ -25,217 +26,262 @@ class CotizacionController extends Controller
         return view('cotizaciones.index', compact('q'));
     }
 
-    public function create()
-    {
-        // CLIENTES (display dinámico)
-        $clientCols = array_values(array_filter(['name','nombre','razon_social'], fn($c)=>Schema::hasColumn('clients',$c)));
-        $clientDisplayExpr = $clientCols
-            ? 'COALESCE('.implode(',',array_map(fn($c)=>"`$c`",$clientCols)).", CONCAT('ID ', `id`))"
-            : "CONCAT('ID ', `id`)";
+public function create()
+{
+    // CLIENTES (display dinámico)
+    $clientCols = array_values(array_filter(['name','nombre','razon_social'], fn($c)=>Schema::hasColumn('clients',$c)));
+    $clientDisplayExpr = $clientCols
+        ? 'COALESCE('.implode(',',array_map(fn($c)=>"`$c`",$clientCols)).", CONCAT('ID ', `id`))"
+        : "CONCAT('ID ', `id`)";
 
-        $clientesSelect = Client::query()
-            ->select(['id', DB::raw("$clientDisplayExpr AS display")])
-            ->orderByRaw($clientDisplayExpr)->get();
+    $clientesSelect = Client::query()
+        ->select(['id', DB::raw("$clientDisplayExpr AS display")])
+        ->orderByRaw($clientDisplayExpr)->get();
 
-        $clientesInfo = Client::query()->get();
+    $clientesInfo = Client::query()->get();
 
-        // PRODUCTOS (nombre/price e info extra)
-        $prodNameCols = array_values(array_filter(['nombre','name','descripcion','titulo','title'], fn($c)=>Schema::hasColumn('products',$c)));
-        $prodNameExpr = $prodNameCols
-            ? 'COALESCE('.implode(',',array_map(fn($c)=>"`$c`",$prodNameCols)).", CONCAT('ID ', `id`))"
-            : "CONCAT('ID ', `id`)";
-        $priceCols = array_values(array_filter(['price','precio','precio_unitario'], fn($c)=>Schema::hasColumn('products',$c)));
-        $priceExpr = $priceCols
-            ? 'COALESCE('.implode(',',array_map(fn($c)=>"`$c`",$priceCols)).',0)'
-            : '0';
+    // PRODUCTOS (nombre + COSTO base y price de referencia)
+    $prodNameCols = array_values(array_filter(['nombre','name','descripcion','titulo','title'], fn($c)=>Schema::hasColumn('products',$c)));
+    $prodNameExpr = $prodNameCols
+        ? 'COALESCE('.implode(',',array_map(fn($c)=>"`$c`",$prodNameCols)).", CONCAT('ID ', `id`))"
+        : "CONCAT('ID ', `id`)";
+    // COSTO real (prioriza cost/costo/precio_compra)
+    $costCols = array_values(array_filter(['cost','costo','precio_costo','precio_compra'], fn($c)=>Schema::hasColumn('products',$c)));
+    $costExpr = $costCols
+        ? 'COALESCE('.implode(',',array_map(fn($c)=>"`$c`",$costCols)).',0)'
+        : '0';
+    // price de referencia (solo para mostrar; el cálculo usa cost)
+    $priceCols = array_values(array_filter(['price','precio','precio_unitario'], fn($c)=>Schema::hasColumn('products',$c)));
+    $priceExpr = $priceCols
+        ? 'COALESCE('.implode(',',array_map(fn($c)=>"`$c`",$priceCols)).',0)'
+        : '0';
 
-        $brandExpr    = $this->coalesceExpr('products',['brand','marca'],"NULL");
-        $categoryExpr = $this->coalesceExpr('products',['category','categoria'],"NULL");
-        $colorExpr    = $this->coalesceExpr('products',['color','colour'],"NULL");
-        $matExpr      = $this->coalesceExpr('products',['material'],"NULL");
-        $imgExpr      = $this->coalesceExpr('products',['image','imagen','foto','thumb','thumbnail','image_path'],"NULL");
-        $stockExpr    = $this->coalesceExpr('products',['stock','existencia'],"NULL");
+    $brandExpr    = $this->coalesceExpr('products',['brand','marca'],"NULL");
+    $categoryExpr = $this->coalesceExpr('products',['category','categoria'],"NULL");
+    $colorExpr    = $this->coalesceExpr('products',['color','colour'],"NULL");
+    $matExpr      = $this->coalesceExpr('products',['material'],"NULL");
+    $imgExpr      = $this->coalesceExpr('products',['image','imagen','foto','thumb','thumbnail','image_path'],"NULL");
+    $stockExpr    = $this->coalesceExpr('products',['stock','existencia'],"NULL");
 
-        $productos = Product::query()
-            ->select([
-                'id',
-                DB::raw("$prodNameExpr AS display"),
-                DB::raw("$priceExpr AS price"),
-                DB::raw("$brandExpr AS brand"),
-                DB::raw("$categoryExpr AS category"),
-                DB::raw("$colorExpr AS color"),
-                DB::raw("$matExpr AS material"),
-                DB::raw("$imgExpr AS image"),
-                DB::raw("$stockExpr AS stock"),
-            ])->orderByRaw($prodNameExpr)->get();
+    $productos = Product::query()
+        ->select([
+            'id',
+            DB::raw("$prodNameExpr AS display"),
+            DB::raw("$costExpr AS cost"),   // << COSTO base para el front
+            DB::raw("$priceExpr AS price"), //    (solo referencia visual)
+            DB::raw("$brandExpr AS brand"),
+            DB::raw("$categoryExpr AS category"),
+            DB::raw("$colorExpr AS color"),
+            DB::raw("$matExpr AS material"),
+            DB::raw("$imgExpr AS image"),
+            DB::raw("$stockExpr AS stock"),
+        ])->orderByRaw($prodNameExpr)->get();
 
-        return view('cotizaciones.create', compact('clientesSelect','clientesInfo','productos'));
-    }
+    return view('cotizaciones.create', compact('clientesSelect','clientesInfo','productos'));
+}
 
-    private function coalesceExpr(string $table, array $candidates, string $fallbackExpr="NULL"): string
-    {
-        $cols = array_values(array_filter($candidates, fn($c)=>Schema::hasColumn($table,$c)));
-        return $cols ? 'COALESCE('.implode(',',array_map(fn($c)=>"`$c`",$cols)).", $fallbackExpr)" : $fallbackExpr;
-    }
+private function coalesceExpr(string $table, array $candidates, string $fallbackExpr="NULL"): string
+{
+    $cols = array_values(array_filter($candidates, fn($c)=>Schema::hasColumn($table,$c)));
+    return $cols ? 'COALESCE('.implode(',',array_map(fn($c)=>"`$c`",$cols)).", $fallbackExpr)" : $fallbackExpr;
+}
 
-    public function store(Request $r)
-    {
-        $raw = $r->get('items');
-        if (is_string($raw)) $r->merge(['items'=>json_decode($raw,true) ?? []]);
+public function store(Request $r)
+{
+    // items puede venir como JSON string
+    $raw = $r->get('items');
+    if (is_string($raw)) $r->merge(['items'=>json_decode($raw,true) ?? []]);
 
-        $data = $r->validate([
-            'cliente_id' => ['required','exists:clients,id'],
-            'notas'      => ['nullable','string'],
-            'descuento'  => ['nullable','numeric'],
-            'envio'      => ['nullable','numeric'],
-            'validez_dias'=>['nullable','integer','min:0','max:365'],
-            'items'                   => ['required','array','min:1'],
-            'items.*.producto_id'     => ['required','exists:products,id'],
-            'items.*.descripcion'     => ['nullable','string'],
-            'items.*.cantidad'        => ['required','numeric','min:0.01'],
-            'items.*.precio_unitario' => ['required','numeric','min:0'],
-            'items.*.descuento'       => ['nullable','numeric','min:0'],
-            'items.*.iva_porcentaje'  => ['nullable','numeric','min:0','max:100'],
-        ]);
+    $data = $r->validate([
+        'cliente_id'      => ['required','exists:clients,id'],
+        'notas'           => ['nullable','string'],
+        'descuento'       => ['nullable','numeric'],   // descuento global (monto $)
+        'envio'           => ['nullable','numeric'],
+        'validez_dias'    => ['nullable','integer','min:0','max:365'],
+        'utilidad_global' => ['nullable','numeric','min:0'], // << NUEVO %
 
-        $cot = DB::transaction(function() use ($data){
-            $cot = new Cotizacion();
-            $cot->cliente_id   = $data['cliente_id'];
-            $cot->notas        = $data['notas'] ?? null;
-            $cot->descuento    = $data['descuento'] ?? 0;
-            $cot->envio        = $data['envio'] ?? 0;
-            $cot->validez_dias = (int)($data['validez_dias'] ?? 15);
-            $cot->setValidez();
-            $cot->save();
+        'items'                   => ['required','array','min:1'],
+        'items.*.producto_id'     => ['required','exists:products,id'],
+        'items.*.descripcion'     => ['nullable','string'],
+        'items.*.cantidad'        => ['required','numeric','min:0.01'],
+        // ahora exigimos COSTO y NO usamos P.Unit enviado por front
+        'items.*.cost'            => ['required','numeric','min:0'],
+        'items.*.descuento'       => ['nullable','numeric','min:0'], // monto $
+        'items.*.iva_porcentaje'  => ['nullable','numeric','min:0','max:100'],
+    ]);
 
-            $items = collect($data['items'])->map(function($it){
-                $pu   = (float)$it['precio_unitario'];
-                $cant = (float)$it['cantidad'];
-                $desc = (float)($it['descuento'] ?? 0);
-                $ivaP = (float)($it['iva_porcentaje'] ?? 16);
-                $base = max(0, ($pu*$cant) - $desc);
-                $iva  = round($base * ($ivaP/100), 2);
+    $cot = DB::transaction(function() use ($data){
+        $cot = new Cotizacion();
+        $cot->cliente_id      = $data['cliente_id'];
+        $cot->notas           = $data['notas'] ?? null;
+        $cot->descuento       = $data['descuento'] ?? 0; // global (monto)
+        $cot->envio           = $data['envio'] ?? 0;
+        $cot->validez_dias    = (int)($data['validez_dias'] ?? 15);
+        $cot->utilidad_global = (float)($data['utilidad_global'] ?? 0); // << %
+        $cot->setValidez();
+        $cot->save();
 
-                return new CotizacionProducto([
-                    'producto_id'     => $it['producto_id'],
-                    'descripcion'     => $it['descripcion'] ?? null,
-                    'cantidad'        => $cant,
-                    'precio_unitario' => $pu,
-                    'descuento'       => $desc,
-                    'iva_porcentaje'  => $ivaP,
-                    'importe'         => $base + $iva,
-                ]);
-            });
+        // Construimos items con COSTO y dejamos snapshots calculados
+        $items = collect($data['items'])->map(function($it) use ($cot){
+            $cost = (float)$it['cost'];
+            $qty  = (float)$it['cantidad'];
+            $desc = (float)($it['descuento'] ?? 0);     // monto por fila
+            $ivaP = (float)($it['iva_porcentaje'] ?? 16);
 
-            $cot->items()->saveMany($items);
-            $cot->load('items');
-            $cot->recalcularTotales();
-            $cot->save();
+            // Precio unitario desde costo + utilidad_global de la cabecera
+            $precioUnit = round($cost * (1 + ($cot->utilidad_global/100)), 2);
+            $base       = max(0, ($precioUnit * $qty) - $desc);
+            $ivaMonto   = round($base * ($ivaP/100), 2);
+            $totalFila  = round($base + $ivaMonto, 2);
 
-            return $cot;
-        });
-
-        return redirect()->route('cotizaciones.show', $cot)->with('ok','Cotización creada.');
-    }
-
-    public function show($id)
-    {
-        $cotizacion = Cotizacion::with('cliente','items.producto','plazos')->find($id);
-        if (!$cotizacion) return redirect()->route('cotizaciones.index')->with('error',"La cotización $id no existe.");
-        return view('cotizaciones.show', compact('cotizacion'));
-    }
-
-    public function edit(Cotizacion $cotizacion)
-    {
-        abort_unless(in_array($cotizacion->estado,['borrador','enviada']), 403);
-
-        $clientCols = array_values(array_filter(['name','nombre','razon_social'], fn($c)=>Schema::hasColumn('clients',$c)));
-        $clientDisplayExpr = $clientCols
-            ? 'COALESCE('.implode(',',array_map(fn($c)=>"`$c`",$clientCols)).", CONCAT('ID ', `id`))"
-            : "CONCAT('ID ', `id`)";
-        $clientesSelect = Client::query()->select(['id',DB::raw("$clientDisplayExpr AS display")])->orderByRaw($clientDisplayExpr)->get();
-        $clientesInfo   = Client::query()->get();
-
-        $prodNameCols = array_values(array_filter(['nombre','name','descripcion'], fn($c)=>Schema::hasColumn('products',$c)));
-        $prodNameExpr = $prodNameCols
-            ? 'COALESCE('.implode(',',array_map(fn($c)=>"`$c`",$prodNameCols)).", CONCAT('ID ', `id`))"
-            : "CONCAT('ID ', `id`)";
-        $priceCols = array_values(array_filter(['price','precio','precio_unitario'], fn($c)=>Schema::hasColumn('products',$c)));
-        $priceExpr = $priceCols ? 'COALESCE('.implode(',',array_map(fn($c)=>"`$c`",$priceCols)).',0)' : '0';
-        $productos = Product::query()->select(['id',DB::raw("$prodNameExpr AS display"),DB::raw("$priceExpr AS price")])->orderByRaw($prodNameExpr)->get();
-
-        $cotizacion->load('items','plazos');
-
-        return view('cotizaciones.edit', compact('cotizacion','clientesSelect','clientesInfo','productos'));
-    }
-
-    public function update(Request $r, Cotizacion $cotizacion)
-    {
-        abort_unless(in_array($cotizacion->estado,['borrador','enviada']), 403);
-
-        $raw = $r->get('items');
-        if (is_string($raw)) $r->merge(['items'=>json_decode($raw,true) ?? []]);
-
-        $data = $r->validate([
-            'cliente_id' => ['required','exists:clients,id'],
-            'notas'      => ['nullable','string'],
-            'descuento'  => ['nullable','numeric'],
-            'envio'      => ['nullable','numeric'],
-            'validez_dias'=>['nullable','integer','min:0','max:365'],
-            'items'                   => ['required','array','min:1'],
-            'items.*.producto_id'     => ['required','exists:products,id'],
-            'items.*.descripcion'     => ['nullable','string'],
-            'items.*.cantidad'        => ['required','numeric','min:0.01'],
-            'items.*.precio_unitario' => ['required','numeric','min:0'],
-            'items.*.descuento'       => ['nullable','numeric','min:0'],
-            'items.*.iva_porcentaje'  => ['nullable','numeric','min:0','max:100'],
-        ]);
-
-        DB::transaction(function() use ($cotizacion,$data){
-            $cotizacion->update([
-                'cliente_id'   => $data['cliente_id'],
-                'notas'        => $data['notas'] ?? null,
-                'descuento'    => $data['descuento'] ?? 0,
-                'envio'        => $data['envio'] ?? 0,
-                'validez_dias' => (int)($data['validez_dias'] ?? 15),
+            return new CotizacionProducto([
+                'producto_id'     => $it['producto_id'],
+                'descripcion'     => $it['descripcion'] ?? null,
+                'cantidad'        => $qty,
+                'cost'            => $cost,          // << guardamos COSTO
+                'precio_unitario' => $precioUnit,    // snapshot de venta
+                'descuento'       => $desc,          // monto $
+                'iva_porcentaje'  => $ivaP,
+                // snapshots de importes
+                'importe_sin_iva' => round($base, 2),
+                'iva_monto'       => $ivaMonto,
+                'importe_total'   => $totalFila,
+                // compatibilidad con tu campo previo:
+                'importe'         => $totalFila,
             ]);
-            $cotizacion->setValidez();
-            $cotizacion->items()->delete();
-
-            $items = collect($data['items'])->map(function($it){
-                $pu   = (float)$it['precio_unitario'];
-                $cant = (float)$it['cantidad'];
-                $desc = (float)($it['descuento'] ?? 0);
-                $ivaP = (float)($it['iva_porcentaje'] ?? 16);
-                $base = max(0, ($pu*$cant) - $desc);
-                $iva  = round($base * ($ivaP/100), 2);
-
-                return new CotizacionProducto([
-                    'producto_id'     => $it['producto_id'],
-                    'descripcion'     => $it['descripcion'] ?? null,
-                    'cantidad'        => $cant,
-                    'precio_unitario' => $pu,
-                    'descuento'       => $desc,
-                    'iva_porcentaje'  => $ivaP,
-                    'importe'         => $base + $iva,
-                ]);
-            });
-
-            $cotizacion->items()->saveMany($items);
-            $cotizacion->load('items');
-            $cotizacion->recalcularTotales();
-            $cotizacion->save();
         });
 
-        return redirect()->route('cotizaciones.show',$cotizacion)->with('ok','Cotización actualizada.');
-    }
+        $cot->items()->saveMany($items);
 
-    public function destroy(Cotizacion $cotizacion)
-    {
-        abort_unless(in_array($cotizacion->estado,['borrador','rechazada']), 403);
-        $cotizacion->delete();
-        return redirect()->route('cotizaciones.index')->with('ok','Cotización eliminada.');
-    }
+        // Recalcula totales en servidor (usa utilidad_global y cost)
+        $cot->load('items');
+        $cot->recalcularTotales();
+        $cot->save();
+
+        return $cot;
+    });
+
+    return redirect()->route('cotizaciones.show', $cot)->with('ok','Cotización creada.');
+}
+
+public function show($id)
+{
+    $cotizacion = Cotizacion::with('cliente','items.producto','plazos')->find($id);
+    if (!$cotizacion) return redirect()->route('cotizaciones.index')->with('error',"La cotización $id no existe.");
+    return view('cotizaciones.show', compact('cotizacion'));
+}
+
+public function edit(Cotizacion $cotizacion)
+{
+    abort_unless(in_array($cotizacion->estado,['borrador','enviada']), 403);
+
+    $clientCols = array_values(array_filter(['name','nombre','razon_social'], fn($c)=>Schema::hasColumn('clients',$c)));
+    $clientDisplayExpr = $clientCols
+        ? 'COALESCE('.implode(',',array_map(fn($c)=>"`$c`",$clientCols)).", CONCAT('ID ', `id`))"
+        : "CONCAT('ID ', `id`)";
+    $clientesSelect = Client::query()->select(['id',DB::raw("$clientDisplayExpr AS display")])->orderByRaw($clientDisplayExpr)->get();
+    $clientesInfo   = Client::query()->get();
+
+    // Productos con COSTO para el editor
+    $prodNameCols = array_values(array_filter(['nombre','name','descripcion','titulo','title'], fn($c)=>Schema::hasColumn('products',$c)));
+    $prodNameExpr = $prodNameCols
+        ? 'COALESCE('.implode(',',array_map(fn($c)=>"`$c`",$prodNameCols)).", CONCAT('ID ', `id`))"
+        : "CONCAT('ID ', `id`)";
+    $costCols = array_values(array_filter(['cost','costo','precio_costo','precio_compra'], fn($c)=>Schema::hasColumn('products',$c)));
+    $costExpr = $costCols ? 'COALESCE('.implode(',',array_map(fn($c)=>"`$c`",$costCols)).',0)' : '0';
+    $priceCols = array_values(array_filter(['price','precio','precio_unitario'], fn($c)=>Schema::hasColumn('products',$c)));
+    $priceExpr = $priceCols ? 'COALESCE('.implode(',',array_map(fn($c)=>"`$c`",$priceCols)).',0)' : '0';
+
+    $productos = Product::query()
+        ->select(['id', DB::raw("$prodNameExpr AS display"), DB::raw("$costExpr AS cost"), DB::raw("$priceExpr AS price")])
+        ->orderByRaw($prodNameExpr)->get();
+
+    $cotizacion->load('items','plazos');
+
+    return view('cotizaciones.edit', compact('cotizacion','clientesSelect','clientesInfo','productos'));
+}
+
+public function update(Request $r, Cotizacion $cotizacion)
+{
+    abort_unless(in_array($cotizacion->estado,['borrador','enviada']), 403);
+
+    $raw = $r->get('items');
+    if (is_string($raw)) $r->merge(['items'=>json_decode($raw,true) ?? []]);
+
+    $data = $r->validate([
+        'cliente_id'      => ['required','exists:clients,id'],
+        'notas'           => ['nullable','string'],
+        'descuento'       => ['nullable','numeric'],
+        'envio'           => ['nullable','numeric'],
+        'validez_dias'    => ['nullable','integer','min:0','max:365'],
+        'utilidad_global' => ['nullable','numeric','min:0'], // << NUEVO %
+
+        'items'                   => ['required','array','min:1'],
+        'items.*.producto_id'     => ['required','exists:products,id'],
+        'items.*.descripcion'     => ['nullable','string'],
+        'items.*.cantidad'        => ['required','numeric','min:0.01'],
+        'items.*.cost'            => ['required','numeric','min:0'],  // << COSTO requerido
+        'items.*.descuento'       => ['nullable','numeric','min:0'],
+        'items.*.iva_porcentaje'  => ['nullable','numeric','min:0','max:100'],
+    ]);
+
+    DB::transaction(function() use ($cotizacion,$data){
+        $cotizacion->update([
+            'cliente_id'      => $data['cliente_id'],
+            'notas'           => $data['notas'] ?? null,
+            'descuento'       => $data['descuento'] ?? 0,
+            'envio'           => $data['envio'] ?? 0,
+            'validez_dias'    => (int)($data['validez_dias'] ?? 15),
+            'utilidad_global' => (float)($data['utilidad_global'] ?? $cotizacion->utilidad_global ?? 0),
+        ]);
+        $cotizacion->setValidez();
+
+        // Reemplaza items
+        $cotizacion->items()->delete();
+
+        $items = collect($data['items'])->map(function($it) use ($cotizacion){
+            $cost = (float)$it['cost'];
+            $qty  = (float)$it['cantidad'];
+            $desc = (float)($it['descuento'] ?? 0);
+            $ivaP = (float)($it['iva_porcentaje'] ?? 16);
+
+            $precioUnit = round($cost * (1 + ($cotizacion->utilidad_global/100)), 2);
+            $base       = max(0, ($precioUnit * $qty) - $desc);
+            $ivaMonto   = round($base * ($ivaP/100), 2);
+            $totalFila  = round($base + $ivaMonto, 2);
+
+            return new CotizacionProducto([
+                'producto_id'     => $it['producto_id'],
+                'descripcion'     => $it['descripcion'] ?? null,
+                'cantidad'        => $qty,
+                'cost'            => $cost,
+                'precio_unitario' => $precioUnit,
+                'descuento'       => $desc,
+                'iva_porcentaje'  => $ivaP,
+                'importe_sin_iva' => round($base, 2),
+                'iva_monto'       => $ivaMonto,
+                'importe_total'   => $totalFila,
+                'importe'         => $totalFila, // compat
+            ]);
+        });
+
+        $cotizacion->items()->saveMany($items);
+
+        $cotizacion->load('items');
+        $cotizacion->recalcularTotales();
+        $cotizacion->save();
+    });
+
+    return redirect()->route('cotizaciones.show',$cotizacion)->with('ok','Cotización actualizada.');
+}
+
+public function destroy(Cotizacion $cotizacion)
+{
+    abort_unless(in_array($cotizacion->estado,['borrador','rechazada']), 403);
+    $cotizacion->delete();
+    return redirect()->route('cotizaciones.index')->with('ok','Cotización eliminada.');
+}
+
 
     public function aprobar(Cotizacion $cotizacion)
     {
@@ -1472,74 +1518,117 @@ PR);
         }
         return $out;
     }
+/**
+ * Convierte una cotización en venta y, si corresponde, timbra con FacturaAPI.
+ */
+public function convertirAVenta(Request $request, Cotizacion $cotizacion)
+{
+    // No convertir si ya está convertida/cancelada
+    if (in_array((string) $cotizacion->estado, ['converted', 'cancelled'], true)) {
+        return back()->withErrors(
+            'Esta cotización no puede convertirse (estado actual: ' . ($cotizacion->estado ?? '—') . ').'
+        );
+    }
 
-    public function convertirAVenta(Request $request, Cotizacion $cotizacion)
-    {
-        if (in_array($cotizacion->estado, ['converted','cancelled'])) {
-            return back()->withErrors('Esta cotización no puede convertirse (estado actual: '.$cotizacion->estado.').');
-        }
+    // Debe tener items
+    $cotizacion->loadMissing('items.producto');
+    if ($cotizacion->items->isEmpty()) {
+        return back()->withErrors('La cotización no tiene conceptos para convertir.');
+    }
 
+    try {
         $venta = DB::transaction(function () use ($cotizacion) {
+            // ===== Crear venta base
             $venta = new Venta();
-            $venta->cliente_id   = $cotizacion->cliente_id;
-            $venta->cotizacion_id= $cotizacion->id;
-            $venta->moneda       = $cotizacion->moneda ?? 'MXN';
-            $venta->notas        = $cotizacion->notas ?? null;
-            $venta->subtotal     = 0;
-            $venta->descuento    = (float) ($cotizacion->descuento ?? 0);
-            $venta->envio        = (float) ($cotizacion->envio ?? 0);
-            $venta->iva          = 0;
-            $venta->total        = 0;
-            $venta->estado       = 'emitida';
+            $venta->cliente_id    = $cotizacion->cliente_id;
+            $venta->cotizacion_id = $cotizacion->id;     // requiere la FK en ventas
+            $venta->moneda        = $cotizacion->moneda ?: 'MXN';
+            $venta->notas         = $cotizacion->notas ?: null;
+            $venta->subtotal      = 0;
+            $venta->descuento     = (float) ($cotizacion->descuento ?? 0);
+            $venta->envio         = (float) ($cotizacion->envio ?? 0);
+            $venta->iva           = 0;
+            $venta->total         = 0;
+            $venta->estado        = 'emitida';
+
             if (array_key_exists('financiamiento_config', $cotizacion->getAttributes())) {
                 $venta->financiamiento_config = $cotizacion->financiamiento_config;
             }
+
             $venta->save();
 
-            $items = $cotizacion->items ?? collect();
+            // ===== Mapear items de cotización -> venta
+            $rows = [];
+            foreach ($cotizacion->items as $it) {
+                $cantidad  = max(0.01, (float) ($it->cantidad ?? 1));
+                $pu        = round((float) ($it->precio_unitario ?? $it->precio ?? 0), 2);
+                $desc      = round((float) ($it->descuento ?? 0), 2);          // monto
+                $ivaPct    = round((float) ($it->iva_porcentaje ?? 0), 2);
 
-            foreach ($items as $it) {
-                $cantidad       = (float) ($it->cantidad ?? 1);
-                $precioUnit     = (float) ($it->precio_unitario ?? $it->precio ?? 0);
-                $descuentoItem  = (float) ($it->descuento ?? 0);
-                $ivaPct         = (float) ($it->iva_porcentaje ?? 0);
+                $base      = max(0, round($cantidad * $pu - $desc, 2));
+                $ivaMonto  = round($base * ($ivaPct / 100), 2);
+                $importe   = round($base + $ivaMonto, 2);
 
-                $base   = max(0, $cantidad * $precioUnit - $descuentoItem);
-                $ivaImp = round($base * ($ivaPct/100), 2);
-                $importe= $base + $ivaImp;
-
-                $vp = new VentaProducto();
-                $vp->venta_id        = $venta->id;
-                $vp->producto_id     = $it->producto_id ?? null;
-                $vp->descripcion     = $it->descripcion ?? ($it->producto->nombre ?? '');
-                $vp->cantidad        = $cantidad;
-                $vp->precio_unitario = $precioUnit;
-                $vp->descuento       = $descuentoItem;
-                $vp->iva_porcentaje  = $ivaPct;
-                $vp->importe         = $importe;
-                $vp->save();
+                $rows[] = [
+                    'venta_id'        => $venta->id,
+                    'producto_id'     => $it->producto_id,
+                    'descripcion'     => $it->descripcion ?? optional($it->producto)->nombre ?? 'Producto',
+                    'cantidad'        => $cantidad,
+                    'precio_unitario' => $pu,
+                    'descuento'       => $desc,
+                    'iva_porcentaje'  => $ivaPct,
+                    'importe'         => $importe,
+                    'created_at'      => now(),
+                    'updated_at'      => now(),
+                ];
             }
 
+            if (!empty($rows)) {
+                VentaProducto::insert($rows);
+            }
+
+            // ===== Totales
             $venta->load('items');
-            $venta->recalcularTotales();
+            if (method_exists($venta, 'recalcularTotales')) {
+                $venta->recalcularTotales();
+            }
             $venta->save();
 
+            // ===== Marcar cotización como convertida
             $cotizacion->estado = 'converted';
-            if (property_exists($cotizacion, 'converted_at') || \Schema::hasColumn($cotizacion->getTable(), 'converted_at')) {
+            if (Schema::hasColumn($cotizacion->getTable(), 'converted_at')) {
                 $cotizacion->converted_at = now();
             }
-            if (\Schema::hasColumn($cotizacion->getTable(), 'venta_id')) {
+            if (Schema::hasColumn($cotizacion->getTable(), 'venta_id')) {
                 $cotizacion->venta_id = $venta->id;
             }
             $cotizacion->save();
 
             return $venta;
         });
-
-        if (\Route::has('ventas.show')) {
-            return redirect()->route('ventas.show', $venta)->with('ok', 'Cotización convertida a venta correctamente.');
-        }
-
-        return back()->with('ok', 'Cotización convertida. Venta #'.$venta->id);
+    } catch (\Throwable $e) {
+        report($e);
+        return back()->withErrors('No se pudo convertir la cotización: ' . $e->getMessage());
     }
+
+    // === Timbrado inmediato si ?facturar=1 o FACTURAAPI_AUTO=true
+    $mustInvoice = $request->boolean('facturar') || (bool) config('facturaapi.auto', false);
+    if ($mustInvoice) {
+        try {
+            app(FacturaApiService::class)->facturarVenta($venta);
+            return redirect()
+                ->route('ventas.show', $venta)
+                ->with('ok', 'Venta creada y facturada correctamente.');
+        } catch (\Throwable $e) {
+            report($e);
+            return redirect()
+                ->route('ventas.show', $venta)
+                ->with('warn', 'Venta creada, pero la facturación falló: ' . $e->getMessage());
+        }
+    }
+
+    return redirect()
+        ->route('ventas.show', $venta)
+        ->with('ok', 'Cotización convertida a venta correctamente.');
+}
 }

@@ -20,6 +20,18 @@
       <span class="badge">{{ ucfirst($venta->estado) }}</span>
     </div>
     <div class="body">
+      <div class="flex gap-2">
+  <a href="{{ route('ventas.pdf', $venta) }}" class="btn">PDF de venta</a>
+
+  @if($venta->factura_pdf_url)
+    <a href="{{ $venta->factura_pdf_url }}" target="_blank" class="btn brand">Factura timbrada (PDF)</a>
+  @endif
+
+  @if($venta->factura_xml_url)
+    <a href="{{ $venta->factura_xml_url }}" target="_blank" class="btn">Factura (XML)</a>
+  @endif
+</div>
+
       @php $cli = $venta->cliente; @endphp
       <div><strong>Cliente:</strong> {{ $cli->name ?? $cli->nombre ?? $cli->razon_social ?? '—' }}</div>
       @if($venta->cotizacion)
