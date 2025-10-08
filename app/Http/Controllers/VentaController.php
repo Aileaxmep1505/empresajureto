@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\Venta;
+use App\Services\FacturaApiService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Log;
 use Barryvdh\DomPDF\Facade\Pdf; // <- Usa el facade correcto
 
 class VentaController extends Controller
@@ -37,7 +39,7 @@ class VentaController extends Controller
 
         $query = Venta::query()
             ->with(['cliente'])
-            // Búsqueda por id o por nombre del cliente (ajusta columna si tu tabla usa otra)
+            // Búsqueda por id o por nombre del cliente
             ->when($q !== '', function (Builder $qb) use ($q) {
                 $qb->where(function (Builder $sub) use ($q) {
                     if (ctype_digit($q)) {
@@ -119,5 +121,33 @@ class VentaController extends Controller
         $file = 'Venta-' . ($venta->folio ?? $venta->id) . '.pdf';
 
         return $pdf->download($file);
+    }
+
+    /**
+     * (Opcional) Timbrar manualmente una venta desde la UI (por si el automático falla).
+     * Ruta sugerida: POST /ventas/{venta}/facturar  -> name: ventas.facturar
+     */
+    public function facturar(Venta $venta, FacturaApiService $svc)
+    {
+        if ($venta->factura_uuid) {
+            return back()->with('ok', 'Esta venta ya está facturada (UUID: ' . $venta->factura_uuid . ').');
+        }
+
+        try {
+            $svc->facturarVenta($venta);
+            $svc->guardarArchivos($venta);
+
+            Log::info('Venta facturada manualmente', [
+                'venta_id' => $venta->id,
+                'uuid' => $venta->factura_uuid,
+            ]);
+
+            return redirect()->route('ventas.show', $venta)
+                ->with('ok', 'Factura generada correctamente.');
+        } catch (\Throwable $e) {
+            report($e);
+
+            return back()->with('error', 'No se pudo timbrar: ' . $e->getMessage());
+        }
     }
 }

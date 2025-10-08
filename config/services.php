@@ -44,7 +44,8 @@ return [
  'facturaapi' => [
     'token'     => env('FACTURAAPI_KEY'),
     'base_uri'  => rtrim(env('FACTURAAPI_BASE_URI', 'https://www.facturapi.io/v2'), '/'),
-    'auto'      => (bool) env('FACTURAAPI_AUTO', false),
+    
+    'auto'     => env('FACTURAAPI_AUTO', false), // <- controla el timbrado automático
 
     // Defaults CFDI
     'serie'             => env('FACT_SERIE', 'A'),
