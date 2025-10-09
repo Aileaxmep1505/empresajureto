@@ -11,7 +11,23 @@ class VentaProducto extends Model
 
     protected $fillable = [
         'venta_id','producto_id','descripcion',
-        'cantidad','precio_unitario','descuento','iva_porcentaje','importe'
+        'cantidad','precio_unitario','descuento','iva_porcentaje','importe',
+
+        // NUEVOS (ver migración sugerida)
+        'cost',              // costo unitario del producto al momento de vender
+        'importe_sin_iva',   // base de la fila (opcional)
+        'iva_monto',         // iva de la fila (opcional)
+    ];
+
+    protected $casts = [
+        'cantidad'        => 'float',
+        'precio_unitario' => 'float',
+        'descuento'       => 'float',
+        'iva_porcentaje'  => 'float',
+        'importe'         => 'float',
+        'cost'            => 'float',
+        'importe_sin_iva' => 'float',
+        'iva_monto'       => 'float',
     ];
 
     public function venta(): BelongsTo

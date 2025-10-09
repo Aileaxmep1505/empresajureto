@@ -9,6 +9,8 @@ use Illuminate\Support\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Log;
 use Barryvdh\DomPDF\Facade\Pdf; // <- Usa el facade correcto
+use App\Mail\VentaEnviada;
+use Illuminate\Support\Facades\Mail;
 
 class VentaController extends Controller
 {
@@ -149,5 +151,28 @@ class VentaController extends Controller
 
             return back()->with('error', 'No se pudo timbrar: ' . $e->getMessage());
         }
+    }
+     public function enviarPorCorreo(Request $request, Venta $venta)
+    {
+        $data = $request->validate([
+            'to'      => ['required','email'],
+            'subject' => ['nullable','string','max:200'],
+            'message' => ['nullable','string','max:5000'],
+            'cc'      => ['nullable','email'],
+            'bcc'     => ['nullable','email'],
+        ]);
+
+        $mailable = new VentaEnviada($venta, $data['subject'] ?? null, $data['message'] ?? '');
+
+        $mailer = Mail::to($data['to']);
+
+        if (!empty($data['cc']))  { $mailer->cc($data['cc']); }
+        if (!empty($data['bcc'])) { $mailer->bcc($data['bcc']); }
+
+        $mailer->send($mailable);
+
+        return redirect()
+            ->route('ventas.show', $venta)
+            ->with('ok', 'Correo enviado correctamente.');
     }
 }

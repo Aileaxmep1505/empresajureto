@@ -192,3 +192,7 @@ Route::get('/dashboard', [DashboardController::class, 'index'])
     ->name('dashboard');
     Route::get('/ventas/{venta}/pdf', [\App\Http\Controllers\VentaController::class, 'pdf'])
     ->name('ventas.pdf');
+
+   Route::post('/ventas/{venta}/email', [VentaController::class, 'enviarPorCorreo'])
+    ->name('ventas.email')
+    ->middleware('auth'); 

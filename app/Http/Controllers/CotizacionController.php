@@ -404,7 +404,7 @@ public function destroy(Cotizacion $cotizacion)
 
     // Paso 2: OPENAI key
     @file_put_contents($logStepFile, '['.date('c')."] Paso 2: checar OPENAI_API_KEY\n", FILE_APPEND);
-    if (!env('OPENAI_API_KEY')) {
+    if (!config('services.openai.api_key')) {
         @file_put_contents($logStepFile, '['.date('c')."] ERROR: OPENAI_API_KEY faltante\n", FILE_APPEND);
         return response()->json(['ok'=>false,'error'=>'OPENAI_API_KEY no configurado en .env'], 422);
     }
@@ -1159,7 +1159,7 @@ PR);
      */
     private function callOpenAIJson(string $prompt, ?int $timeout = null): ?string
     {
-        $key = env('OPENAI_API_KEY'); if(!$key) return null;
+        $key = config('services.openai.api_key'); if(!$key) return null;
 
         $payload = [
             'model' => 'gpt-4o-mini',
@@ -1518,129 +1518,187 @@ PR);
         }
         return $out;
     }
-  public function convertirAVenta(Request $request, Cotizacion $cotizacion)
-    {
-        // No convertir si ya está convertida/cancelada
-        if (in_array((string) $cotizacion->estado, ['converted', 'cancelled'], true)) {
-            return back()->withErrors(
-                'Esta cotización no puede convertirse (estado actual: ' . ($cotizacion->estado ?? '—') . ').'
-            );
-        }
+public function convertirAVenta(Request $request, Cotizacion $cotizacion)
+{
+    // No convertir si ya está convertida/cancelada
+    if (in_array((string) $cotizacion->estado, ['converted', 'cancelled'], true)) {
+        return back()->withErrors(
+            'Esta cotización no puede convertirse (estado actual: ' . ($cotizacion->estado ?? '—') . ').'
+        );
+    }
 
-        // Debe tener items
-        $cotizacion->loadMissing('items.producto');
-        if ($cotizacion->items->isEmpty()) {
-            return back()->withErrors('La cotización no tiene conceptos para convertir.');
-        }
+    // Debe tener items
+    $cotizacion->loadMissing('items.producto');
+    if ($cotizacion->items->isEmpty()) {
+        return back()->withErrors('La cotización no tiene conceptos para convertir.');
+    }
 
+    try {
+        $venta = DB::transaction(function () use ($cotizacion) {
+            // ===== Crear venta base
+            $venta = new Venta();
+            $venta->cliente_id    = $cotizacion->cliente_id;
+            $venta->cotizacion_id = $cotizacion->id;     // requiere la FK en ventas
+            $venta->moneda        = $cotizacion->moneda ?: 'MXN';
+            $venta->notas         = $cotizacion->notas ?: null;
+
+            // Copiamos directamente valores globales de la cotización si existen
+            $venta->utilidad_global = (float) ($cotizacion->utilidad_global ?? 0);
+            $venta->descuento       = (float) ($cotizacion->descuento ?? 0);
+            $venta->envio           = (float) ($cotizacion->envio ?? 0);
+            $venta->estado          = 'emitida';
+
+            if (array_key_exists('financiamiento_config', $cotizacion->getAttributes())) {
+                $venta->financiamiento_config = $cotizacion->financiamiento_config;
+            }
+
+            // Inicializamos totales (los recalculamos abajo)
+            $venta->subtotal = 0;
+            $venta->iva      = 0;
+            $venta->total    = 0;
+
+            $venta->save();
+
+            // ===== Mapear items de cotización -> venta
+            $rows = [];
+            $sumBase  = 0.0; // Σ base (sin IVA)
+            $sumIva   = 0.0; // Σ iva
+            $sumCosto = 0.0; // Σ (cost * cantidad)
+
+            // ¿Existe columna 'cost' en venta_productos?
+            $ventaProductoModel = new VentaProducto();
+            $ventaProductosTable = $ventaProductoModel->getTable();
+            $hasCostColumn = \Illuminate\Support\Facades\Schema::hasColumn($ventaProductosTable, 'cost');
+
+            foreach ($cotizacion->items as $it) {
+                $cantidad  = max(0.01, (float) ($it->cantidad ?? 1));
+                $pu        = round((float) ($it->precio_unitario ?? $it->precio ?? 0), 2);
+                $descFila  = round((float) ($it->descuento ?? 0), 2);   // Monto por fila
+                $ivaPct    = round((float) ($it->iva_porcentaje ?? 0), 2);
+                $cost      = round((float) ($it->cost ?? 0), 2);
+
+                $base      = max(0, round($cantidad * $pu - $descFila, 2));
+                $ivaMonto  = round($base * ($ivaPct / 100), 2);
+                $importe   = round($base + $ivaMonto, 2);
+
+                $sumBase  += $base;
+                $sumIva   += $ivaMonto;
+                $sumCosto += ($cost * $cantidad);
+
+                $row = [
+                    'venta_id'        => $venta->id,
+                    'producto_id'     => $it->producto_id,
+                    // En Product el nombre suele ser "name"
+                    'descripcion'     => $it->descripcion ?? optional($it->producto)->name ?? 'Producto',
+                    'cantidad'        => $cantidad,
+                    'precio_unitario' => $pu,
+                    'descuento'       => $descFila,
+                    'iva_porcentaje'  => $ivaPct,
+                    'importe'         => $importe,        // total con IVA de la fila
+                    'created_at'      => now(),
+                    'updated_at'      => now(),
+                ];
+
+                if ($hasCostColumn) {
+                    $row['cost'] = $cost;               // guardamos costo por ítem si la columna existe
+                }
+
+                // Si en tu tabla existe 'importe_sin_iva' o 'iva_monto', puedes guardarlos también:
+                if (\Illuminate\Support\Facades\Schema::hasColumn($ventaProductosTable, 'importe_sin_iva')) {
+                    $row['importe_sin_iva'] = $base;
+                }
+                if (\Illuminate\Support\Facades\Schema::hasColumn($ventaProductosTable, 'iva_monto')) {
+                    $row['iva_monto'] = $ivaMonto;
+                }
+
+                $rows[] = $row;
+            }
+
+            if (!empty($rows)) {
+                VentaProducto::insert($rows);
+            }
+
+            // ===== Totales finales en la venta
+            // Subtotal e IVA desde la suma de filas:
+            $venta->subtotal = round($sumBase, 2);
+            $venta->iva      = round($sumIva, 2);
+
+            // Total considerando descuento global y envío:
+            $venta->total = max(0, round($venta->subtotal - $venta->descuento + $venta->envio + $venta->iva, 2));
+
+            // Inversión por COSTO y ganancia estimada
+            // (si tu tabla ventas tiene estas columnas)
+            if (\Illuminate\Support\Facades\Schema::hasColumn($venta->getTable(), 'inversion_total')) {
+                $venta->inversion_total = round($sumCosto, 2);
+            }
+            if (\Illuminate\Support\Facades\Schema::hasColumn($venta->getTable(), 'ganancia_estimada')) {
+                // Preferimos el campo de la cotización si ya está calculado correctamente;
+                // de lo contrario, calculamos: subtotal - inversión_total
+                $gan = $cotizacion->ganancia_estimada;
+                if (is_null($gan)) {
+                    $gan = round($venta->subtotal - $sumCosto, 2);
+                }
+                $venta->ganancia_estimada = (float) $gan;
+            }
+
+            // Si prefieres clonar literalmente los totales de la cotización (cuando existen):
+            // (Descomenta si tu modelo de cotización garantiza estos snapshots)
+            // $venta->subtotal = (float) ($cotizacion->subtotal ?? $venta->subtotal);
+            // $venta->iva      = (float) ($cotizacion->iva ?? $venta->iva);
+            // $venta->total    = (float) ($cotizacion->total ?? $venta->total);
+
+            $venta->save();
+
+            // ===== Marcar cotización como convertida
+            $cotizacion->estado = 'converted';
+            if (\Illuminate\Support\Facades\Schema::hasColumn($cotizacion->getTable(), 'converted_at')) {
+                $cotizacion->converted_at = now();
+            }
+            if (\Illuminate\Support\Facades\Schema::hasColumn($cotizacion->getTable(), 'venta_id')) {
+                $cotizacion->venta_id = $venta->id;
+            }
+            $cotizacion->save();
+
+            return $venta;
+        });
+    } catch (\Throwable $e) {
+        report($e);
+        return back()->withErrors('No se pudo convertir la cotización: ' . $e->getMessage());
+    }
+
+    // === Timbrado inmediato si ?facturar=1 o services.facturaapi.auto=true
+    $mustInvoice = $request->boolean('facturar') || (bool) config('services.facturaapi.auto', false);
+
+    if ($mustInvoice) {
         try {
-            $venta = DB::transaction(function () use ($cotizacion) {
-                // ===== Crear venta base
-                $venta = new Venta();
-                $venta->cliente_id    = $cotizacion->cliente_id;
-                $venta->cotizacion_id = $cotizacion->id;     // requiere la FK en ventas
-                $venta->moneda        = $cotizacion->moneda ?: 'MXN';
-                $venta->notas         = $cotizacion->notas ?: null;
-                $venta->subtotal      = 0;
-                $venta->descuento     = (float) ($cotizacion->descuento ?? 0);
-                $venta->envio         = (float) ($cotizacion->envio ?? 0);
-                $venta->iva           = 0;
-                $venta->total         = 0;
-                $venta->estado        = 'emitida';
+            $svc = app(FacturaApiService::class);
+            $svc->facturarVenta($venta);
+            $svc->guardarArchivos($venta);
 
-                if (array_key_exists('financiamiento_config', $cotizacion->getAttributes())) {
-                    $venta->financiamiento_config = $cotizacion->financiamiento_config;
-                }
+            Log::info('Venta facturada automáticamente al convertir cotización', [
+                'venta_id' => $venta->id,
+                'uuid' => $venta->factura_uuid,
+            ]);
 
-                $venta->save();
-
-                // ===== Mapear items de cotización -> venta
-                $rows = [];
-                foreach ($cotizacion->items as $it) {
-                    $cantidad  = max(0.01, (float) ($it->cantidad ?? 1));
-                    $pu        = round((float) ($it->precio_unitario ?? $it->precio ?? 0), 2);
-                    $desc      = round((float) ($it->descuento ?? 0), 2);          // monto
-                    $ivaPct    = round((float) ($it->iva_porcentaje ?? 0), 2);
-
-                    $base      = max(0, round($cantidad * $pu - $desc, 2));
-                    $ivaMonto  = round($base * ($ivaPct / 100), 2);
-                    $importe   = round($base + $ivaMonto, 2);
-
-                    $rows[] = [
-                        'venta_id'        => $venta->id,
-                        'producto_id'     => $it->producto_id,
-                        // En Product tus campos son "name" (no "nombre"), usamos fallback al name.
-                        'descripcion'     => $it->descripcion ?? optional($it->producto)->name ?? 'Producto',
-                        'cantidad'        => $cantidad,
-                        'precio_unitario' => $pu,
-                        'descuento'       => $desc,
-                        'iva_porcentaje'  => $ivaPct,
-                        'importe'         => $importe,
-                        'created_at'      => now(),
-                        'updated_at'      => now(),
-                    ];
-                }
-
-                if (!empty($rows)) {
-                    VentaProducto::insert($rows);
-                }
-
-                // ===== Totales
-                $venta->load('items');
-                if (method_exists($venta, 'recalcularTotales')) {
-                    $venta->recalcularTotales();
-                }
-                $venta->save();
-
-                // ===== Marcar cotización como convertida
-                $cotizacion->estado = 'converted';
-                if (Schema::hasColumn($cotizacion->getTable(), 'converted_at')) {
-                    $cotizacion->converted_at = now();
-                }
-                if (Schema::hasColumn($cotizacion->getTable(), 'venta_id')) {
-                    $cotizacion->venta_id = $venta->id;
-                }
-                $cotizacion->save();
-
-                return $venta;
-            });
+            return redirect()
+                ->route('ventas.show', $venta)
+                ->with('ok', 'Venta creada y facturada correctamente.');
         } catch (\Throwable $e) {
             report($e);
-            return back()->withErrors('No se pudo convertir la cotización: ' . $e->getMessage());
+            Log::warning('Venta creada pero falló el timbrado automático', [
+                'venta_id' => $venta->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return redirect()
+                ->route('ventas.show', $venta)
+                ->with('warn', 'Venta creada, pero la facturación falló: ' . $e->getMessage());
         }
-
-        // === Timbrado inmediato si ?facturar=1 o services.facturaapi.auto=true
-        $mustInvoice = $request->boolean('facturar') || (bool) config('services.facturaapi.auto', false);
-
-        if ($mustInvoice) {
-            try {
-                $svc = app(FacturaApiService::class);
-                $svc->facturarVenta($venta);
-                $svc->guardarArchivos($venta);
-
-                Log::info('Venta facturada automáticamente al convertir cotización', [
-                    'venta_id' => $venta->id,
-                    'uuid' => $venta->factura_uuid,
-                ]);
-
-                return redirect()
-                    ->route('ventas.show', $venta)
-                    ->with('ok', 'Venta creada y facturada correctamente.');
-            } catch (\Throwable $e) {
-                report($e);
-                Log::warning('Venta creada pero falló el timbrado automático', [
-                    'venta_id' => $venta->id,
-                    'error' => $e->getMessage(),
-                ]);
-
-                return redirect()
-                    ->route('ventas.show', $venta)
-                    ->with('warn', 'Venta creada, pero la facturación falló: ' . $e->getMessage());
-            }
-        }
-
-        return redirect()
-            ->route('ventas.show', $venta)
-            ->with('ok', 'Cotización convertida a venta correctamente.');
     }
+
+    return redirect()
+        ->route('ventas.show', $venta)
+        ->with('ok', 'Cotización convertida a venta correctamente.');
+}
+
 }

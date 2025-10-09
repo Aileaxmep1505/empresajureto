@@ -8,7 +8,8 @@ return [
     |--------------------------------------------------------------------------
     |
     | Aquí guardamos credenciales de servicios de terceros (Mailgun, Postmark,
-    | AWS, FacturAPI, etc.). Usa variables de entorno para no exponer claves.
+    | AWS, OpenAI, FacturAPI, etc.). Usa variables de entorno para no exponer
+    | claves. Recuerda: en producción con config cache, lee SIEMPRE via config().
     |
     */
 
@@ -26,11 +27,14 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
-    // OpenAI (si lo usas)
+    // OpenAI
     'openai' => [
-        'key'   => env('OPENAI_API_KEY'),
-        'base'  => env('OPENAI_API_BASE', 'https://api.openai.com/v1'),
-        'model' => env('OPENAI_MODEL', 'gpt-5'),
+        // Usa 'api_key' para que puedas leer con: config('services.openai.api_key')
+        'api_key'  => env('OPENAI_API_KEY'),
+        'base_uri' => env('OPENAI_API_BASE', 'https://api.openai.com/v1'),
+        'model'    => env('OPENAI_MODEL', 'gpt-5'),
+        'timeout'  => (int) env('OPENAI_TIMEOUT', 300),
+        'retries'  => (int) env('OPENAI_RETRIES', 2),
     ],
 
     // Slack (notificaciones)
@@ -41,21 +45,22 @@ return [
         ],
     ],
 
- 'facturaapi' => [
-    'token'     => env('FACTURAAPI_KEY'),
-    'base_uri'  => rtrim(env('FACTURAAPI_BASE_URI', 'https://www.facturapi.io/v2'), '/'),
-    
-    'auto'     => env('FACTURAAPI_AUTO', false), // <- controla el timbrado automático
+    // FacturaAPI (CFDI 4.0)
+    'facturaapi' => [
+        'token'    => env('FACTURAAPI_KEY'),
+        'base_uri' => rtrim(env('FACTURAAPI_BASE_URI', 'https://www.facturapi.io/v2'), '/'),
 
-    // Defaults CFDI
-    'serie'             => env('FACT_SERIE', 'A'),
-    'tipo_comprobante'  => env('FACT_TIPO_COMPROBANTE', 'I'),
-    'moneda'            => env('FACT_MONEDA', 'MXN'),
-    'lugar_expedicion'  => env('FACT_LUGAR_EXP', '64000'),
-    'metodo_pago'       => env('FACT_METODO_PAGO', 'PPD'),
-    'forma_pago'        => env('FACT_FORMA_PAGO', '99'),
-    'uso_cfdi'          => env('FACT_USO_CFDI', 'G03'),
-],
+        // Controla el timbrado automático al convertir cotización -> venta
+        'auto' => (bool) env('FACTURAAPI_AUTO', false),
 
+        // Defaults CFDI
+        'serie'             => env('FACT_SERIE', 'A'),
+        'tipo_comprobante'  => env('FACT_TIPO_COMPROBANTE', 'I'),
+        'moneda'            => env('FACT_MONEDA', 'MXN'),
+        'lugar_expedicion'  => env('FACT_LUGAR_EXP', '64000'),
+        'metodo_pago'       => env('FACT_METODO_PAGO', 'PPD'),
+        'forma_pago'        => env('FACT_FORMA_PAGO', '99'),
+        'uso_cfdi'          => env('FACT_USO_CFDI', 'G03'),
+    ],
 
 ];
