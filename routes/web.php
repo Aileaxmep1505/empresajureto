@@ -17,6 +17,7 @@ use App\Http\Controllers\Web\HomeController;
 use App\Http\Controllers\Web\ContactController;
 use App\Http\Controllers\Web\ShopController;
 use App\Http\Controllers\Web\CustomerAuthController;
+use App\Http\Controllers\Panel\LandingSectionController;
 
 
 /*
@@ -229,3 +230,18 @@ Route::middleware('auth.customer')->group(function () {
     // carrito, checkout, pedidos, perfil, etc.
     // Route::get('/carrito', ...)->name('web.carrito');
 });
+
+Route::middleware(['auth']) // tu guard interno
+    ->prefix('panel/landing')
+    ->name('panel.landing.')
+    ->group(function () {
+        Route::get('/', [LandingSectionController::class, 'index'])->name('index');
+        Route::get('/create', [LandingSectionController::class, 'create'])->name('create');
+        Route::post('/', [LandingSectionController::class, 'store'])->name('store');
+        Route::get('/{section}/edit', [LandingSectionController::class, 'edit'])->name('edit');
+        Route::put('/{section}', [LandingSectionController::class, 'update'])->name('update');
+        Route::delete('/{section}', [LandingSectionController::class, 'destroy'])->name('destroy');
+
+        Route::post('/{section}/reorder', [LandingSectionController::class, 'reorder'])->name('reorder'); // AJAX
+        Route::post('/{section}/toggle',  [LandingSectionController::class, 'toggle'])->name('toggle');
+    });
