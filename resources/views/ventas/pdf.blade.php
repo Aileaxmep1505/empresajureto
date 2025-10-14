@@ -262,7 +262,7 @@
                 @endif
               </td>
               <td valign="middle" style="padding-right:18px;">
-                <div class="person-name">Anahí Tellez</div>
+                <div class="person-name">Rene Tort</div>
                 <div class="person-role">Gerente General</div>
               </td>
               <td valign="middle" style="width:1%;">
@@ -273,9 +273,9 @@
         </td>
         <td class="foot-right">
           <div class="contact" style="padding-left:18px;">
-            <div><b>Tel:</b> +52 722 448 5191</div>
-            <div><b>Email:</b> ventas@grupomedibuy.com</div>
-            <div><b>Web:</b> grupomedibuy.com</div>
+            <div><b>Tel:</b> +52 55 4193 7243</div>
+            <div><b>Email:</b> rtort@jureto.com.mx</div>
+            <div><b>Web:</b> jureto.com.mx</div>
             <div><b>Ubicación:</b> Estado de México C.P. 52060</div>
           </div>
         </td>

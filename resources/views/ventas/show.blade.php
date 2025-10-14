@@ -76,48 +76,95 @@
   }
   @media print{ .actions{display:none!important} .card{box-shadow:none;border-color:#cbd5e1} body{background:#fff} }
 
-  /* ===== SWEETALERT2: Redondeado & loader pro ===== */
+  /* ===== MODAL (dialog) ===== */
+  dialog#sendEmailModal{
+    border:none; border-radius:18px; padding:0; width:96%; max-width:640px;
+    box-shadow:0 28px 70px rgba(18,38,63,.22);
+    background:#fff; color:#0f172a;
+  }
+  dialog#sendEmailModal::backdrop{
+    background:rgba(15,23,42,.35);
+    -webkit-backdrop-filter: blur(2px);
+    backdrop-filter: blur(2px);
+  }
+  .modal-head{
+    padding:16px 18px; border-bottom:1px solid var(--line);
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+  }
+  .modal-foot{
+    padding:16px 18px; border-top:1px solid var(--line);
+    display:flex; align-items:center; justify-content:flex-end; gap:8px;
+  }
+  .input{
+    width:100%; padding:10px 12px;
+    border:1px solid var(--line); border-radius:10px;
+    background:#fff; color:#0f172a; outline:none;
+    transition:border-color .15s, box-shadow .15s;
+  }
+  .input:focus{ border-color:#94a3b8; box-shadow:0 0 0 3px rgba(148,163,184,.25) }
+  label{ display:block; font-size:12px; color:#64748b; margin-bottom:6px; }
+
+  /* ===== SWEETALERT2: Redondeado + sin scroll ===== */
   .swal2-popup.swal-rounded{
     border-radius:18px !important;
     border:1px solid var(--line);
     box-shadow:0 24px 64px rgba(18,38,63,.18);
+    overflow:visible !important;      /* quita scroll interno */
+  }
+  .swal2-html-container{
+    color:#334155; max-height:none !important; /* sin scroll */
   }
   .swal2-title{ font-weight:800; letter-spacing:.2px }
-  .swal2-html-container{ color:#334155 }
 
-  .loader-pro{ width:72px; height:72px; position:relative; display:inline-block; }
-  .loader-pro::before, .loader-pro::after{ content:""; position:absolute; inset:0; border-radius:50%; }
-  .loader-pro::before{
-    background: conic-gradient(from 0deg, #a5b4fc, #93c5fd, #6ee7b7, #fcd34d, #fda4af, #a5b4fc);
-    -webkit-mask: radial-gradient(closest-side, transparent 62%, #000 64%);
-            mask: radial-gradient(closest-side, transparent 62%, #000 64%);
-    animation: spin 1.05s linear infinite; filter: blur(.2px);
+  /* ===== Loader Gooey (SCOPED) ===== */
+  .goo-stage{
+    width:100%; display:flex; align-items:center; justify-content:center; flex-direction:column;
+    padding:6px 0;
   }
-  .loader-pro::after{
-    inset:12px; background:#fff; border-radius:50%;
-    box-shadow: inset 0 0 0 1px #eef2ff;
+  .goo-container{
+    width:200px; height:200px; position:relative; margin:auto;
+    filter:url('#goo');
+    animation: goo-rotate-move 2s ease-in-out infinite;
   }
-  @keyframes spin { to { transform: rotate(360deg) } }
-  .loader-caption{ margin-top:10px; font-size:13px; color:#64748b }
-  .dot{ animation: blink 1.2s infinite both }
-  .dot:nth-child(2){ animation-delay:.2s }
-  .dot:nth-child(3){ animation-delay:.4s }
-  @keyframes blink { 0%,80%,100%{opacity:.2} 40%{opacity:1} }
-
-  /* ===== Modal nativo estilizado ===== */
-  dialog#sendEmailModal{
-    border:none; border-radius:16px; max-width:640px; width:96%; padding:0;
-    box-shadow:0 28px 70px rgba(18,38,63,.20);
+  .goo-dot{
+    width:70px; height:70px; border-radius:50%; background-color:#000;
+    position:absolute; inset:0; margin:auto;
   }
-  dialog::backdrop{ background:rgba(15,23,42,.35) }
-  .modal-head, .modal-foot{ padding:16px 18px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:center }
-  .modal-foot{ border-bottom:none; border-top:1px solid var(--line) }
-  .input{
-    width:100%; padding:12px 12px; border-radius:12px; border:1px solid var(--line);
-    outline:none; transition:border-color .15s, box-shadow .15s; background:#fff
+  .goo-dot-3{ background-color:#f74d75; animation: goo-dot-3-move 2s ease infinite, goo-index 6s ease infinite; }
+  .goo-dot-2{ background-color:#10beae; animation: goo-dot-2-move 2s ease infinite, goo-index 6s -4s ease infinite; }
+  .goo-dot-1{ background-color:#ffe386; animation: goo-dot-1-move 2s ease infinite, goo-index 6s -2s ease infinite; }
+  @keyframes goo-dot-3-move{
+    20% {transform: scale(1)}
+    45% {transform: translateY(-18px) scale(.45)}
+    60% {transform: translateY(-90px) scale(.45)}
+    80% {transform: translateY(-90px) scale(.45)}
+    100%{transform: translateY(0) scale(1)}
   }
-  .input:focus{ border-color:#94a3b8; box-shadow:0 0 0 4px rgba(148,163,184,.15) }
-  label{ display:block; font-size:12px; color:#334155; margin-bottom:6px; font-weight:700 }
+  @keyframes goo-dot-2-move{
+    20% {transform: scale(1)}
+    45% {transform: translate(-16px, 12px) scale(.45)}
+    60% {transform: translate(-80px, 60px) scale(.45)}
+    80% {transform: translate(-80px, 60px) scale(.45)}
+    100%{transform: translate(0,0) scale(1)}
+  }
+  @keyframes goo-dot-1-move{
+    20% {transform: scale(1)}
+    45% {transform: translate(16px, 12px) scale(.45)}
+    60% {transform: translate(80px, 60px) scale(.45)}
+    80% {transform: translate(80px, 60px) scale(.45)}
+    100%{transform: translate(0,0) scale(1)}
+  }
+  @keyframes goo-rotate-move{
+    55% {transform: rotate(0deg)}
+    80% {transform: rotate(360deg)}
+    100%{transform: rotate(360deg)}
+  }
+  @keyframes goo-index{
+    0%,100% {z-index:3}
+    33.3%   {z-index:2}
+    66.6%   {z-index:1}
+  }
+  .goo-caption{ margin-top:6px; font-size:13px; color:#64748b; text-align:center }
 </style>
 
 @php
@@ -125,9 +172,8 @@
 
   $items = $venta->relationLoaded('items') ? $venta->items : $venta->items()->get();
 
-  // Inversión en COSTO (igual que en cotización): Σ (cost * cantidad)
+  // Inversión en COSTO: Σ (cost * cantidad)
   $inversion_costo = 0.0;
-
   // Subtotal como base de precios (referencia)
   $subtotal_precios = 0.0;
 
@@ -135,7 +181,6 @@
       $cost = (float)($it->cost ?? 0);
       $pu   = (float)($it->precio_unitario ?? $it->precio ?? 0);
       $qty  = (float)($it->cantidad ?? 0);
-
       $inversion_costo   += ($cost * $qty);
       $subtotal_precios  += ($pu   * $qty);
   }
@@ -147,12 +192,11 @@
   $envio           = (float)($venta->envio ?? 0);
   $total           = (float)($venta->total ?? max(0, round($subtotal - $descuentoGlobal + $envio + $iva, 2)));
 
-  // GANANCIA: usa el campo; si viene nulo/0 y hay costos, calcula para mostrar
+  // Ganancia estimada
   $ganancia_estimada = (float)($venta->ganancia_estimada ?? 0);
   if (!$ganancia_estimada && $inversion_costo > 0) {
       $ganancia_estimada = max(0, round($subtotal - $inversion_costo, 2));
   }
-
   $utilidad_global = (float)($venta->utilidad_global ?? 0);
   $utilidad_pct    = $inversion_costo > 0 ? ($ganancia_estimada / $inversion_costo) * 100 : 0;
 
@@ -179,7 +223,7 @@
         @endif
         @if(!empty($venta->factura_xml_url))
           <a href="{{ $venta->factura_xml_url }}" class="btn p6" target="_blank" rel="noopener">Factura (XML)</a>
-        @endif>
+        @endif
 
         <button class="btn p1" type="button" onclick="document.getElementById('sendEmailModal').showModal()">
           Enviar por email
@@ -264,7 +308,7 @@
         </div>
       </div>
 
-      <div class="modal-foot" style="justify-content:flex-end;gap:8px">
+      <div class="modal-foot">
         <button type="button" class="btn white" onclick="document.getElementById('sendEmailModal').close()">Cancelar</button>
         <button id="sendBtn" type="submit" class="btn p3">Enviar</button>
       </div>
@@ -399,30 +443,43 @@
 
     if (form) {
       form.addEventListener('submit', () => {
-        // Cierra el modal inmediatamente (UX)
+        // Cierra el modal inmediatamente
         if (modal && typeof modal.close === 'function' && modal.open) {
           modal.close();
         }
         if (sendBtn) sendBtn.disabled = true;
 
-        // En el próximo frame, muestra el loader pro
+        // Loader Gooey (SweetAlert sin scroll interno)
         requestAnimationFrame(() => {
           Swal.fire({
             title: 'Enviando…',
             html: `
-              <div class="loader-pro" aria-hidden="true"></div>
-              <div class="loader-caption">
-                Preparando adjuntos<span class="dot">.</span><span class="dot">.</span><span class="dot">.</span>
+              <div class="goo-stage" aria-live="polite">
+                <div class="goo-container">
+                  <div class="goo-dot goo-dot-1"></div>
+                  <div class="goo-dot goo-dot-2"></div>
+                  <div class="goo-dot goo-dot-3"></div>
+                </div>
+                <div class="goo-caption">Preparando adjuntos</div>
+                <svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute">
+                  <defs>
+                    <filter id="goo">
+                      <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="blur" />
+                      <feColorMatrix in="blur" mode="matrix"
+                        values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 21 -7"/>
+                    </filter>
+                  </defs>
+                </svg>
               </div>
             `,
             customClass: { popup: 'swal-rounded' },
             allowOutsideClick: false,
             allowEscapeKey: false,
             showConfirmButton: false,
-            backdrop: true
+            backdrop: true,
+            heightAuto: false   // evita reajuste y scroll
           });
         });
-        // Submit normal (sin preventDefault): el back redirige y muestra el Swal de éxito/alerta
       }, { passive: true });
     }
 
@@ -434,7 +491,8 @@
         text:"{{ session('ok') }}",
         timer:1800,
         showConfirmButton:false,
-        customClass:{ popup:'swal-rounded' }
+        customClass:{ popup:'swal-rounded' },
+        heightAuto:false
       });
     @endif
 
@@ -445,7 +503,8 @@
         text:"{{ session('warn') }}",
         timer:2200,
         showConfirmButton:false,
-        customClass:{ popup:'swal-rounded' }
+        customClass:{ popup:'swal-rounded' },
+        heightAuto:false
       });
     @endif
 
@@ -455,7 +514,8 @@
         title:'No se pudo enviar',
         html:`{!! implode('<br>', $errors->all()) !!}`,
         confirmButtonText:'Entendido',
-        customClass:{ popup:'swal-rounded' }
+        customClass:{ popup:'swal-rounded' },
+        heightAuto:false
       });
     @endif
   });

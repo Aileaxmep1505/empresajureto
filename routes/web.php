@@ -13,6 +13,11 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\MediaController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\Web\HomeController;
+use App\Http\Controllers\Web\ContactController;
+use App\Http\Controllers\Web\ShopController;
+use App\Http\Controllers\Web\CustomerAuthController;
+
 
 /*
 |--------------------------------------------------------------------------
@@ -196,3 +201,31 @@ Route::get('/dashboard', [DashboardController::class, 'index'])
    Route::post('/ventas/{venta}/email', [VentaController::class, 'enviarPorCorreo'])
     ->name('ventas.email')
     ->middleware('auth'); 
+
+/* ======= Web pública ======= */
+Route::get('/', [HomeController::class, 'index'])->name('web.home');
+
+Route::get('/contacto', [ContactController::class, 'show'])->name('web.contacto');
+Route::post('/contacto', [ContactController::class, 'send'])->name('web.contacto.send');
+
+Route::get('/ventas', [ShopController::class, 'index'])->name('web.ventas.index');
+Route::get('/ventas/{id}', [ShopController::class, 'show'])->name('web.ventas.show');
+
+/* Auth cliente (público) */
+Route::middleware('guest.customer')->group(function () {
+    Route::get('/cliente/login', [CustomerAuthController::class, 'showLogin'])->name('customer.login');
+    Route::post('/cliente/login', [CustomerAuthController::class, 'login'])->name('customer.login.post');
+
+    Route::get('/cliente/register', [CustomerAuthController::class, 'showRegister'])->name('customer.register');
+    Route::post('/cliente/register', [CustomerAuthController::class, 'register'])->name('customer.register.post');
+});
+
+Route::post('/cliente/logout', [CustomerAuthController::class, 'logout'])
+    ->middleware('auth.customer')
+    ->name('customer.logout');
+
+/* Ejemplo de rutas que requieren login de cliente (no chocan con tu interno) */
+Route::middleware('auth.customer')->group(function () {
+    // carrito, checkout, pedidos, perfil, etc.
+    // Route::get('/carrito', ...)->name('web.carrito');
+});
