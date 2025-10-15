@@ -1,6 +1,8 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Http;
+
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\Admin\UserManagementController;
@@ -13,63 +15,47 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\MediaController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\DashboardController;
+
 use App\Http\Controllers\Web\HomeController;
 use App\Http\Controllers\Web\ContactController;
 use App\Http\Controllers\Web\ShopController;
 use App\Http\Controllers\Web\CustomerAuthController;
+
 use App\Http\Controllers\Panel\LandingSectionController;
 
 /*
 |--------------------------------------------------------------------------
-| AUTENTICACIÓN (interno, guard por defecto)
+| AUTH INTERNA (guard por defecto)
 |--------------------------------------------------------------------------
-| GET /login -> muestra formulario (arregla MethodNotAllowed)
-| POST /login -> autentica
-| GET/POST registro, recuperación de contraseña
+| -> Se define GET /login para mostrar formulario (evita MethodNotAllowed)
 */
 Route::middleware('guest')->group(function () {
-    // Login (form + submit)
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
     Route::post('/login', [AuthController::class, 'login'])->name('login.post');
 
-    // Registro
     Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
     Route::post('/register', [AuthController::class, 'register'])->name('register.post');
 
-    // Olvidé/Restablecer contraseña
     Route::get('/forgot-password', [PasswordResetController::class, 'showForgot'])->name('password.request');
     Route::post('/forgot-password', [PasswordResetController::class, 'sendResetLink'])->name('password.email');
     Route::get('/reset-password/{token}', [PasswordResetController::class, 'showReset'])->name('password.reset');
     Route::post('/reset-password', [PasswordResetController::class, 'reset'])->name('password.update');
 });
 
-// Cerrar sesión (interno)
-Route::post('/logout', [AuthController::class, 'logout'])
-    ->middleware('auth')
-    ->name('logout');
+Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
 
-/*
-|--------------------------------------------------------------------------
-| Verificación de correo (interno)
-|--------------------------------------------------------------------------
-*/
 Route::middleware('auth')->group(function () {
     Route::get('/email/verify', [AuthController::class, 'verifyNotice'])->name('verification.notice');
-
     Route::get('/email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])
-        ->middleware(['signed', 'throttle:6,1'])
-        ->name('verification.verify');
-
+        ->middleware(['signed', 'throttle:6,1'])->name('verification.verify');
     Route::post('/email/verification-notification', [AuthController::class, 'resendVerification'])
-        ->middleware(['throttle:6,1'])
-        ->name('verification.send');
+        ->middleware(['throttle:6,1'])->name('verification.send');
 });
 
 /*
 |--------------------------------------------------------------------------
-| WEB PÚBLICA (sin autenticación)
+| WEB PÚBLICA
 |--------------------------------------------------------------------------
-| Página de inicio, ventas públicas, contacto.
 */
 Route::get('/', [HomeController::class, 'index'])->name('web.home');
 
@@ -81,7 +67,7 @@ Route::post('/contacto', [ContactController::class, 'send'])->name('web.contacto
 
 /*
 |--------------------------------------------------------------------------
-| AUTH CLIENTE (público, guard "customer")
+| AUTH CLIENTE (guard: customer) - PÚBLICO
 |--------------------------------------------------------------------------
 */
 Route::middleware('guest.customer')->group(function () {
@@ -93,42 +79,48 @@ Route::middleware('guest.customer')->group(function () {
 });
 
 Route::post('/cliente/logout', [CustomerAuthController::class, 'logout'])
-    ->middleware('auth.customer')
-    ->name('customer.logout');
+    ->middleware('auth.customer')->name('customer.logout');
 
-// Ejemplo de zona protegida para clientes (no choca con el interno)
 Route::middleware('auth.customer')->group(function () {
-    // e.g. carrito, pedidos, perfil del cliente...
-    // Route::get('/carrito', ...)->name('web.carrito');
+    // Ejemplos para carrito/pedidos de cliente
+    // Route::get('/mis-pedidos', ...)->name('web.pedidos');
 });
 
 /*
 |--------------------------------------------------------------------------
-| PANEL (interno) - requiere auth (y approved donde aplica)
+| PANEL INTERNO (auth + approved)  ***AQUÍ VIVE TU MÓDULO DE VENTAS INTERNO***
 |--------------------------------------------------------------------------
-| Se mueven rutas internas bajo /panel para no chocar con web pública.
+| URLs: /panel/...
+| NOMBRES: se conservan tus nombres históricos:
+|   ventas.index, ventas.show, ventas.pdf, ventas.email
+| Así no tienes que cambiar tus Blade de /resources/views/ventas/*
 */
 Route::middleware(['auth', 'approved'])->prefix('panel')->group(function () {
 
     // Dashboard interno
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
-    // Productos
+    // ====== Ventas internas ======
+    Route::resource('ventas', VentaController::class)
+        ->only(['index','show'])
+        ->names('ventas'); // mantiene ventas.index / ventas.show
+
+    Route::get('ventas/{venta}/pdf', [VentaController::class, 'pdf'])->name('ventas.pdf');
+    Route::post('ventas/{venta}/email', [VentaController::class, 'enviarPorCorreo'])->name('ventas.email');
+
+    // ====== Productos ======
     Route::get('products/import', [ProductController::class, 'importForm'])->name('products.import.form');
     Route::post('products/import', [ProductController::class, 'importStore'])->name('products.import.store');
     Route::get('products/export/pdf', [ProductController::class, 'exportPdf'])->name('products.export.pdf');
-
     Route::resource('products', ProductController::class)
         ->parameters(['products' => 'product'])
         ->whereNumber('product');
 
-    // Proveedores
+    // ====== Proveedores / Clientes ======
     Route::resource('providers', ProviderController::class)->names('providers');
-
-    // Clientes (internos del panel)
     Route::resource('clients', ClientController::class)->names('clients');
 
-    // Cotizaciones
+    // ====== Cotizaciones ======
     Route::resource('cotizaciones', CotizacionController::class);
     Route::post('cotizaciones/{cotizacion}/aprobar', [CotizacionController::class,'aprobar'])->name('cotizaciones.aprobar');
     Route::post('cotizaciones/{cotizacion}/rechazar', [CotizacionController::class,'rechazar'])->name('cotizaciones.rechazar');
@@ -142,19 +134,12 @@ Route::middleware(['auth', 'approved'])->prefix('panel')->group(function () {
     Route::get('cotizaciones/auto', [CotizacionController::class, 'autoForm'])->name('cotizaciones.auto.form');
     Route::post('cotizaciones/auto', [CotizacionController::class, 'autoCreate'])->name('cotizaciones.auto.create');
 
-    // Ventas internas (mover a /panel/ventas para no chocar con /ventas público)
-    Route::resource('ventas', VentaController::class)->only(['index','show'])->names('panel.ventas');
-
-    // Extras de ventas internas
-    Route::get('ventas/{venta}/pdf', [VentaController::class, 'pdf'])->name('panel.ventas.pdf');
-    Route::post('ventas/{venta}/email', [VentaController::class, 'enviarPorCorreo'])->name('panel.ventas.email');
-
-    // Perfil (interno)
+    // Perfil interno
     Route::get('/perfil', [ProfileController::class, 'show'])->name('profile.show');
     Route::put('/perfil/foto', [ProfileController::class, 'updatePhoto'])->name('profile.update.photo');
     Route::put('/perfil/password', [ProfileController::class, 'updatePassword'])->name('profile.update.password');
 
-    // Landing (ya estaba en /panel/landing, lo dejamos igual dentro del bloque /panel)
+    // Landing del panel
     Route::prefix('landing')->name('panel.landing.')->group(function () {
         Route::get('/', [LandingSectionController::class, 'index'])->name('index');
         Route::get('/create', [LandingSectionController::class, 'create'])->name('create');
@@ -169,7 +154,7 @@ Route::middleware(['auth', 'approved'])->prefix('panel')->group(function () {
 
 /*
 |--------------------------------------------------------------------------
-| ADMIN (solo admin)
+| ADMIN (role:admin)
 |--------------------------------------------------------------------------
 */
 Route::prefix('admin')->middleware(['auth', 'verified', 'approved', 'role:admin'])->group(function () {
@@ -182,7 +167,7 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'approved', 'role:admin'
 
 /*
 |--------------------------------------------------------------------------
-| Notificaciones del usuario autenticado (interno)
+| Notificaciones (interno)
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth'])->group(function () {
@@ -196,8 +181,7 @@ Route::middleware(['auth'])->group(function () {
 |--------------------------------------------------------------------------
 */
 Route::get('/media/{path}', [MediaController::class, 'show'])
-    ->where('path', '.*')
-    ->name('media.show');
+    ->where('path', '.*')->name('media.show');
 
 /*
 |--------------------------------------------------------------------------

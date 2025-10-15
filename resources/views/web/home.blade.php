@@ -51,36 +51,19 @@
     .feature__desc{ color:var(--muted); margin:2px 0 0; font-size:.95rem; }
 
     /* ====== SLIDER INFINITO DE MARCAS (FULL-BLEED) ====== */
-    .full-bleed{           /* rompe el contenedor para ir borde a borde */
-      width: 100vw;
-      margin-left: calc(50% - 50vw);
-      margin-right: calc(50% - 50vw);
-    }
-    .brands-marquee{
-      position: relative; width: 100vw; overflow: hidden;
-      padding: 14px 0; background: transparent;   /* sin borde/sombra/fondo */
-    }
-    .brands-track{
-      display:flex; align-items:center; width:max-content;
-      gap: clamp(36px, 6vw, 72px);
-      animation: brands-scroll 30s linear infinite;
-    }
-    @keyframes brands-scroll {
-      from { transform: translateX(0); }
-      to   { transform: translateX(-50%); } /* recorre exactamente la mitad al duplicar */
-    }
+    .full-bleed{ width:100vw; margin-left:calc(50% - 50vw); margin-right:calc(50% - 50vw); }
+    .brands-marquee{ position:relative; width:100vw; overflow:hidden; padding:14px 0; background:transparent; }
+    .brands-track{ display:flex; align-items:center; width:max-content; gap:clamp(36px, 6vw, 72px);
+      animation: brands-scroll 30s linear infinite; }
+    @keyframes brands-scroll { from{transform:translateX(0)} to{transform:translateX(-50%)} }
     .brands-marquee:hover .brands-track,
     .brands-marquee:focus-within .brands-track { animation-play-state: paused; }
     @media (prefers-reduced-motion: reduce){ .brands-track{ animation:none; } }
-
-    .brand-item{
-      display:flex; align-items:center; justify-content:center;
-      min-width: clamp(90px, 10vw, 140px); height: clamp(36px, 4.2vw, 50px);
-      opacity:.85; filter: grayscale(100%) contrast(105%);
-      transition: opacity .2s ease, filter .2s ease, transform .2s ease;
-    }
-    .brand-item:hover{ opacity:1; filter: grayscale(0%); transform: translateY(-1px); }
-    .brand-item img{ max-height:100%; max-width: 140px; object-fit:contain; display:block; }
+    .brand-item{ display:flex; align-items:center; justify-content:center;
+      min-width:clamp(90px, 10vw, 140px); height:clamp(36px, 4.2vw, 50px);
+      opacity:.85; filter:grayscale(100%) contrast(105%); transition:opacity .2s, filter .2s, transform .2s; }
+    .brand-item:hover{ opacity:1; filter:grayscale(0%); transform:translateY(-1px); }
+    .brand-item img{ max-height:100%; max-width:140px; object-fit:contain; display:block; }
   </style>
 
   {{-- ======= Hero ======= --}}
@@ -101,7 +84,8 @@
                 ->where('is_active',true)->orderBy('sort_order')->get();
   @endphp
   @foreach($sections as $section)
-    @include('landing.render',['section'=>$section])
+    {{-- Usa la primera vista que exista: landing.render o panel.landing.render --}}
+    @includeFirst(['landing.render','panel.landing.render'], ['section'=>$section])
   @endforeach
 
   {{-- ======= SLIDER INFINITO DE MARCAS (FULL-BLEED, SIN CONTENEDOR) ======= --}}

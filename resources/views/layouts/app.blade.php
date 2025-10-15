@@ -41,7 +41,7 @@
               $baseAvatar = "https://www.gravatar.com/avatar/{$hash}?s=300&d=mp";
           }
 
-          // 3) Cache-busting: cambia la query cuando actualizas la foto
+          // 3) Cache-busting
           $ver = null;
           if ($u && !empty($u->avatar_updated_at)) {
               $ver = $u->avatar_updated_at instanceof \Illuminate\Support\Carbon ? $u->avatar_updated_at->timestamp : strtotime($u->avatar_updated_at);
@@ -55,20 +55,20 @@
               $avatarSrc = $baseAvatar . ($ver ? ($sep.'v='.$ver) : '');
           }
 
-          // 4) Fallback final por si algo falla
+          // 4) Fallback final
           if ($u && !empty($u->email)) {
               $fallbackMp = "https://www.gravatar.com/avatar/".md5(strtolower(trim($u->email)))."?s=300&d=mp";
           } else {
               $fallbackMp = "https://www.gravatar.com/avatar/?s=300&d=mp";
           }
 
-          // 5) Ruta al perfil (segura según nombre disponible)
+          // 5) Ruta al perfil
           if (LaravelRoute::has('profile.show')) {
               $profileHref = route('profile.show');
           } elseif (LaravelRoute::has('profile')) {
               $profileHref = route('profile');
           } else {
-              $profileHref = url('/perfil'); // cambia si tu ruta es otra
+              $profileHref = url('/perfil');
           }
         @endphp
 
@@ -171,13 +171,24 @@
         <span>Nueva cotización</span>
       </a>
 
-      <!-- Ventas -->
+      <!-- Ventas (módulo interno) -->
       <a href="{{ route('ventas.index') }}" class="nav__link {{ request()->routeIs('ventas.*') ? 'is-active':'' }}">
         <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" aria-hidden="true">
           <path d="M3 7h18l-2 10a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3L3 7z"/>
           <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
         </svg>
         <span>Ventas</span>
+      </a>
+
+      <!-- ✅ Landing Section (editor de portada web) -->
+      <a href="{{ route('panel.landing.index') }}" class="nav__link {{ request()->routeIs('panel.landing.*') ? 'is-active':'' }}">
+        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" aria-hidden="true">
+          <!-- icono "layers" -->
+          <path d="M12 2l9 5-9 5-9-5 9-5z"/>
+          <path d="M3 12l9 5 9-5"/>
+          <path d="M3 17l9 5 9-5"/>
+        </svg>
+        <span>Landing (Inicio web)</span>
       </a>
     </nav>
 
