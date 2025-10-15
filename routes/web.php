@@ -19,15 +19,17 @@ use App\Http\Controllers\Web\ShopController;
 use App\Http\Controllers\Web\CustomerAuthController;
 use App\Http\Controllers\Panel\LandingSectionController;
 
-
 /*
 |--------------------------------------------------------------------------
-| Invitados
+| AUTENTICACIÓN (interno, guard por defecto)
 |--------------------------------------------------------------------------
+| GET /login -> muestra formulario (arregla MethodNotAllowed)
+| POST /login -> autentica
+| GET/POST registro, recuperación de contraseña
 */
 Route::middleware('guest')->group(function () {
-    // Login
-    Route::get('/', [AuthController::class, 'showLogin'])->name('login');
+    // Login (form + submit)
+    Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
     Route::post('/login', [AuthController::class, 'login'])->name('login.post');
 
     // Registro
@@ -41,15 +43,15 @@ Route::middleware('guest')->group(function () {
     Route::post('/reset-password', [PasswordResetController::class, 'reset'])->name('password.update');
 });
 
-/*
-|--------------------------------------------------------------------------
-| Autenticados
-|--------------------------------------------------------------------------
-*/
-Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
+// Cerrar sesión (interno)
+Route::post('/logout', [AuthController::class, 'logout'])
+    ->middleware('auth')
+    ->name('logout');
 
 /*
-| Verificación de correo
+|--------------------------------------------------------------------------
+| Verificación de correo (interno)
+|--------------------------------------------------------------------------
 */
 Route::middleware('auth')->group(function () {
     Route::get('/email/verify', [AuthController::class, 'verifyNotice'])->name('verification.notice');
@@ -65,16 +67,109 @@ Route::middleware('auth')->group(function () {
 
 /*
 |--------------------------------------------------------------------------
-| Dashboard (auth + verified + approved)
+| WEB PÚBLICA (sin autenticación)
+|--------------------------------------------------------------------------
+| Página de inicio, ventas públicas, contacto.
+*/
+Route::get('/', [HomeController::class, 'index'])->name('web.home');
+
+Route::get('/ventas', [ShopController::class, 'index'])->name('web.ventas.index');
+Route::get('/ventas/{id}', [ShopController::class, 'show'])->name('web.ventas.show');
+
+Route::get('/contacto', [ContactController::class, 'show'])->name('web.contacto');
+Route::post('/contacto', [ContactController::class, 'send'])->name('web.contacto.send');
+
+/*
+|--------------------------------------------------------------------------
+| AUTH CLIENTE (público, guard "customer")
 |--------------------------------------------------------------------------
 */
-Route::middleware(['auth', 'verified', 'approved'])->group(function () {
-   
+Route::middleware('guest.customer')->group(function () {
+    Route::get('/cliente/login', [CustomerAuthController::class, 'showLogin'])->name('customer.login');
+    Route::post('/cliente/login', [CustomerAuthController::class, 'login'])->name('customer.login.post');
+
+    Route::get('/cliente/register', [CustomerAuthController::class, 'showRegister'])->name('customer.register');
+    Route::post('/cliente/register', [CustomerAuthController::class, 'register'])->name('customer.register.post');
+});
+
+Route::post('/cliente/logout', [CustomerAuthController::class, 'logout'])
+    ->middleware('auth.customer')
+    ->name('customer.logout');
+
+// Ejemplo de zona protegida para clientes (no choca con el interno)
+Route::middleware('auth.customer')->group(function () {
+    // e.g. carrito, pedidos, perfil del cliente...
+    // Route::get('/carrito', ...)->name('web.carrito');
 });
 
 /*
 |--------------------------------------------------------------------------
-| Administración (solo admin)
+| PANEL (interno) - requiere auth (y approved donde aplica)
+|--------------------------------------------------------------------------
+| Se mueven rutas internas bajo /panel para no chocar con web pública.
+*/
+Route::middleware(['auth', 'approved'])->prefix('panel')->group(function () {
+
+    // Dashboard interno
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+    // Productos
+    Route::get('products/import', [ProductController::class, 'importForm'])->name('products.import.form');
+    Route::post('products/import', [ProductController::class, 'importStore'])->name('products.import.store');
+    Route::get('products/export/pdf', [ProductController::class, 'exportPdf'])->name('products.export.pdf');
+
+    Route::resource('products', ProductController::class)
+        ->parameters(['products' => 'product'])
+        ->whereNumber('product');
+
+    // Proveedores
+    Route::resource('providers', ProviderController::class)->names('providers');
+
+    // Clientes (internos del panel)
+    Route::resource('clients', ClientController::class)->names('clients');
+
+    // Cotizaciones
+    Route::resource('cotizaciones', CotizacionController::class);
+    Route::post('cotizaciones/{cotizacion}/aprobar', [CotizacionController::class,'aprobar'])->name('cotizaciones.aprobar');
+    Route::post('cotizaciones/{cotizacion}/rechazar', [CotizacionController::class,'rechazar'])->name('cotizaciones.rechazar');
+    Route::get('cotizaciones/{cotizacion}/pdf', [CotizacionController::class,'pdf'])->name('cotizaciones.pdf');
+    Route::post('cotizaciones/{cotizacion}/convertir-venta', [CotizacionController::class,'convertirAVenta'])->name('cotizaciones.convertir');
+
+    // IA / auto-cotización
+    Route::post('cotizaciones/ai-parse', [CotizacionController::class, 'aiParse'])->name('cotizaciones.ai_parse');
+    Route::post('cotizaciones/ai-store', [CotizacionController::class, 'aiCreate'])->name('cotizaciones.ai_store');
+    Route::post('cotizaciones/store-from-ai', [CotizacionController::class, 'aiCreate'])->name('cotizaciones.store_from_ai');
+    Route::get('cotizaciones/auto', [CotizacionController::class, 'autoForm'])->name('cotizaciones.auto.form');
+    Route::post('cotizaciones/auto', [CotizacionController::class, 'autoCreate'])->name('cotizaciones.auto.create');
+
+    // Ventas internas (mover a /panel/ventas para no chocar con /ventas público)
+    Route::resource('ventas', VentaController::class)->only(['index','show'])->names('panel.ventas');
+
+    // Extras de ventas internas
+    Route::get('ventas/{venta}/pdf', [VentaController::class, 'pdf'])->name('panel.ventas.pdf');
+    Route::post('ventas/{venta}/email', [VentaController::class, 'enviarPorCorreo'])->name('panel.ventas.email');
+
+    // Perfil (interno)
+    Route::get('/perfil', [ProfileController::class, 'show'])->name('profile.show');
+    Route::put('/perfil/foto', [ProfileController::class, 'updatePhoto'])->name('profile.update.photo');
+    Route::put('/perfil/password', [ProfileController::class, 'updatePassword'])->name('profile.update.password');
+
+    // Landing (ya estaba en /panel/landing, lo dejamos igual dentro del bloque /panel)
+    Route::prefix('landing')->name('panel.landing.')->group(function () {
+        Route::get('/', [LandingSectionController::class, 'index'])->name('index');
+        Route::get('/create', [LandingSectionController::class, 'create'])->name('create');
+        Route::post('/', [LandingSectionController::class, 'store'])->name('store');
+        Route::get('/{section}/edit', [LandingSectionController::class, 'edit'])->name('edit');
+        Route::put('/{section}', [LandingSectionController::class, 'update'])->name('update');
+        Route::delete('/{section}', [LandingSectionController::class, 'destroy'])->name('destroy');
+        Route::post('/{section}/reorder', [LandingSectionController::class, 'reorder'])->name('reorder');
+        Route::post('/{section}/toggle',  [LandingSectionController::class, 'toggle'])->name('toggle');
+    });
+});
+
+/*
+|--------------------------------------------------------------------------
+| ADMIN (solo admin)
 |--------------------------------------------------------------------------
 */
 Route::prefix('admin')->middleware(['auth', 'verified', 'approved', 'role:admin'])->group(function () {
@@ -87,62 +182,12 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'approved', 'role:admin'
 
 /*
 |--------------------------------------------------------------------------
-| Rutas protegidas de la app (auth + approved)
+| Notificaciones del usuario autenticado (interno)
 |--------------------------------------------------------------------------
 */
-Route::middleware(['auth', 'approved'])->group(function () {
-
-    // -------- Productos: rutas específicas ANTES del resource --------
-    Route::get('products/import', [ProductController::class, 'importForm'])->name('products.import.form');
-    Route::post('products/import', [ProductController::class, 'importStore'])->name('products.import.store');
-
-    Route::get('products/export/pdf', [ProductController::class, 'exportPdf'])->name('products.export.pdf');
-
-    // Resource con restricción numérica para evitar colisión con /products/import
-    Route::resource('products', ProductController::class)
-        ->parameters(['products' => 'product'])
-        ->whereNumber('product');
-
-    // -------- Proveedores --------
-    Route::resource('providers', ProviderController::class)->names('providers');
-
-    // -------- Clientes --------
-    Route::resource('clients', ClientController::class)->names('clients');
-
-    // -------- Cotizaciones --------
-    Route::resource('cotizaciones', CotizacionController::class);
-    Route::post('cotizaciones/{cotizacion}/aprobar', [CotizacionController::class,'aprobar'])->name('cotizaciones.aprobar');
-    Route::post('cotizaciones/{cotizacion}/rechazar', [CotizacionController::class,'rechazar'])->name('cotizaciones.rechazar');
-    Route::get('cotizaciones/{cotizacion}/pdf', [CotizacionController::class,'pdf'])->name('cotizaciones.pdf');
-    Route::post('cotizaciones/{cotizacion}/convertir-venta', [CotizacionController::class,'convertirAVenta'])->name('cotizaciones.convertir');
-
-    // IA / auto-cotización
-    Route::post('/cotizaciones/ai-parse', [CotizacionController::class, 'aiParse'])
-        ->name('cotizaciones.ai_parse');
-
-    // Guardar/crear desde la salida de AI — usa el método existente aiCreate
-    Route::post('/cotizaciones/ai-store', [CotizacionController::class, 'aiCreate'])
-        ->name('cotizaciones.ai_store');
-
-    // Alias opcional compatible (por si tu front lo usa así)
-    Route::post('/cotizaciones/store-from-ai', [CotizacionController::class, 'aiCreate'])
-        ->name('cotizaciones.store_from_ai');
-
-    // Form y creación automática
-    Route::get('/cotizaciones/auto', [CotizacionController::class, 'autoForm'])->name('cotizaciones.auto.form');
-    Route::post('/cotizaciones/auto', [CotizacionController::class, 'autoCreate'])->name('cotizaciones.auto.create');
-
-    // Buscador de productos (AJAX)
-    Route::get('/cotizaciones/buscar-productos', [CotizacionController::class,'buscarProductos'])
-        ->name('cotizaciones.buscar_productos');
-
-    // -------- Ventas (solo index/show) --------
-    Route::resource('ventas', VentaController::class)->only(['index','show']);
-
-    // -------- Perfil --------
-    Route::get('/perfil', [ProfileController::class, 'show'])->name('profile.show');
-    Route::put('/perfil/foto', [ProfileController::class, 'updatePhoto'])->name('profile.update.photo');
-    Route::put('/perfil/password', [ProfileController::class, 'updatePassword'])->name('profile.update.password');
+Route::middleware(['auth'])->group(function () {
+    Route::get('/me/notifications', [NotificationController::class, 'index'])->name('me.notifications.index');
+    Route::post('/me/notifications/read-all', [NotificationController::class, 'readAll'])->name('me.notifications.readAll');
 });
 
 /*
@@ -156,33 +201,23 @@ Route::get('/media/{path}', [MediaController::class, 'show'])
 
 /*
 |--------------------------------------------------------------------------
-| Notificaciones del usuario autenticado
+| Diagnóstico HTTP (opcional)
 |--------------------------------------------------------------------------
 */
-Route::middleware(['auth'])->group(function () {
-    Route::get('/me/notifications', [NotificationController::class, 'index'])
-        ->name('me.notifications.index');
-    Route::post('/me/notifications/read-all', [NotificationController::class, 'readAll'])
-        ->name('me.notifications.readAll');
-});
-
 Route::get('/diag/http', function () {
     $out = [];
-
     try {
         $r1 = Http::timeout(15)->head('https://api.ocr.space/parse/image');
         $out['ocr_head'] = ['ok' => $r1->successful() || $r1->clientError() || $r1->serverError(), 'status' => $r1->status()];
     } catch (\Throwable $e) {
         $out['ocr_head'] = ['ok' => false, 'error' => $e->getMessage()];
     }
-
     try {
         $r2 = Http::timeout(15)->withHeaders(['Authorization' => 'Bearer x'])->get('https://api.openai.com/v1/models');
         $out['openai_models'] = ['ok' => $r2->status() !== 0, 'status' => $r2->status()];
     } catch (\Throwable $e) {
         $out['openai_models'] = ['ok' => false, 'error' => $e->getMessage()];
     }
-
     try {
         $path = storage_path('logs/http_diag.log');
         file_put_contents($path, '['.date('c')."] diag ok\n", FILE_APPEND);
@@ -190,58 +225,5 @@ Route::get('/diag/http', function () {
     } catch (\Throwable $e) {
         $out['write_logs'] = ['ok' => false, 'error' => $e->getMessage()];
     }
-
     return response()->json($out);
 });
-Route::get('/dashboard', [DashboardController::class, 'index'])
-    ->middleware('auth')
-    ->name('dashboard');
-    Route::get('/ventas/{venta}/pdf', [\App\Http\Controllers\VentaController::class, 'pdf'])
-    ->name('ventas.pdf');
-
-   Route::post('/ventas/{venta}/email', [VentaController::class, 'enviarPorCorreo'])
-    ->name('ventas.email')
-    ->middleware('auth'); 
-
-/* ======= Web pública ======= */
-Route::get('/', [HomeController::class, 'index'])->name('web.home');
-
-Route::get('/contacto', [ContactController::class, 'show'])->name('web.contacto');
-Route::post('/contacto', [ContactController::class, 'send'])->name('web.contacto.send');
-
-Route::get('/ventas', [ShopController::class, 'index'])->name('web.ventas.index');
-Route::get('/ventas/{id}', [ShopController::class, 'show'])->name('web.ventas.show');
-
-/* Auth cliente (público) */
-Route::middleware('guest.customer')->group(function () {
-    Route::get('/cliente/login', [CustomerAuthController::class, 'showLogin'])->name('customer.login');
-    Route::post('/cliente/login', [CustomerAuthController::class, 'login'])->name('customer.login.post');
-
-    Route::get('/cliente/register', [CustomerAuthController::class, 'showRegister'])->name('customer.register');
-    Route::post('/cliente/register', [CustomerAuthController::class, 'register'])->name('customer.register.post');
-});
-
-Route::post('/cliente/logout', [CustomerAuthController::class, 'logout'])
-    ->middleware('auth.customer')
-    ->name('customer.logout');
-
-/* Ejemplo de rutas que requieren login de cliente (no chocan con tu interno) */
-Route::middleware('auth.customer')->group(function () {
-    // carrito, checkout, pedidos, perfil, etc.
-    // Route::get('/carrito', ...)->name('web.carrito');
-});
-
-Route::middleware(['auth']) // tu guard interno
-    ->prefix('panel/landing')
-    ->name('panel.landing.')
-    ->group(function () {
-        Route::get('/', [LandingSectionController::class, 'index'])->name('index');
-        Route::get('/create', [LandingSectionController::class, 'create'])->name('create');
-        Route::post('/', [LandingSectionController::class, 'store'])->name('store');
-        Route::get('/{section}/edit', [LandingSectionController::class, 'edit'])->name('edit');
-        Route::put('/{section}', [LandingSectionController::class, 'update'])->name('update');
-        Route::delete('/{section}', [LandingSectionController::class, 'destroy'])->name('destroy');
-
-        Route::post('/{section}/reorder', [LandingSectionController::class, 'reorder'])->name('reorder'); // AJAX
-        Route::post('/{section}/toggle',  [LandingSectionController::class, 'toggle'])->name('toggle');
-    });
