@@ -5,6 +5,7 @@
   <title>@yield('title','Jureto')</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link href="{{ asset('css/app.css') }}" rel="stylesheet">
+  @stack('styles')
   <style>
     :root{
       --ink:#0f172a; --muted:#475569; --line:#e5e9f2; --bg:#ffffff;
@@ -12,6 +13,7 @@
       --container:1180px;
       --sheet-bg:#ffffff; --sheet-radius:20px; --sheet-shadow: 0 18px 60px rgba(2,8,23,.22);
       --backdrop: rgba(15,23,42,.38);
+      --brand:#6ea8fe;
     }
 
     /* === Reset / layout base === */
@@ -33,10 +35,18 @@
     .nav-link.is-active::after{ background:#000; transform:scaleX(1); }
 
     .right-tools{ display:flex; align-items:center; gap:14px; }
-    .ico{ width:22px; height:22px; display:inline-flex; align-items:center; justify-content:center; text-decoration:none; }
+    .ico{ position:relative; min-width:22px; height:22px; display:inline-flex; align-items:center; justify-content:center; text-decoration:none; }
     .ico svg{ width:20px; height:20px; stroke:#111; fill:none; stroke-width:2; }
     .btn-pill{ appearance:none; border:0; border-radius:999px; padding:12px 24px; font-weight:700; background:var(--pill); color:#fff; cursor:pointer; transition:background .2s ease, transform .1s ease; }
     .btn-pill:hover{ background:var(--pill-hover); transform: translateY(-1px); }
+
+    /* Badge carrito */
+    .cart-badge{
+      position:absolute; top:-8px; right:-10px;
+      min-width:18px; height:18px; line-height:18px;
+      text-align:center; font-size:.72rem; background:#ef4444; color:#fff; border-radius:999px; padding:0 6px;
+      box-shadow:0 2px 8px rgba(239,68,68,.25);
+    }
 
     /* Mobile topbar */
     .mobile-topbar{ display:none; align-items:center; justify-content:space-between; max-width:var(--container); margin:0 auto; padding:10px 16px; }
@@ -62,7 +72,7 @@
     .sheet__content{ padding:14px 18px 18px; }
     .sheet__grid{ display:grid; gap:16px; }
     .sheet__nav a{ display:block; text-decoration:none; color:var(--ink); font-weight:800; font-size:1.05rem; padding:10px 6px; border-bottom:1px solid var(--line); }
-    .sheet__footer{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding-top:10px; }
+    .sheet__footer{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
     .sheet__icons{ display:flex; align-items:center; gap:12px; }
     .sheet__icons .ico svg{ stroke:#111; }
     .sheet-open .sheet{ transform: translateY(0); }
@@ -125,6 +135,15 @@
         <a class="ico" href="https://instagram.com" target="_blank" aria-label="Instagram" rel="noopener">
           <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><circle cx="17.5" cy="6.5" r="1"/></svg>
         </a>
+        {{-- Carrito móvil --}}
+        @php
+          $cart = session('cart', []);
+          $cartCount = is_array($cart) ? array_sum(array_column($cart, 'qty')) : 0;
+        @endphp
+        <a class="ico" href="{{ route('web.cart.index') }}" aria-label="Carrito">
+          <svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39A2 2 0 0 0 9.63 16h7.52a2 2 0 0 0 2-.79L23 12H6"/></svg>
+          <span class="cart-badge" data-cart-badge>{{ $cartCount }}</span>
+        </a>
       </div>
     </div>
     <button class="burger" id="burger" aria-label="Abrir menú">
@@ -140,6 +159,7 @@
 
     <nav class="nav-center" aria-label="Principal">
       <a href="{{ route('web.home') }}" class="nav-link {{ request()->routeIs('web.home') ? 'is-active' : '' }}">Inicio</a>
+      <a href="{{ route('web.catalog.index') }}" class="nav-link {{ request()->routeIs('web.catalog.*') ? 'is-active' : '' }}">Catálogo</a>
       <a href="{{ route('web.ventas.index') }}" class="nav-link {{ request()->routeIs('web.ventas.*') ? 'is-active' : '' }}">Ventas</a>
       <a href="{{ route('web.contacto') }}" class="nav-link {{ request()->routeIs('web.contacto') ? 'is-active' : '' }}">Contacto</a>
     </nav>
@@ -151,6 +171,17 @@
       <a class="ico" href="https://instagram.com" target="_blank" aria-label="Instagram" rel="noopener">
         <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><circle cx="17.5" cy="6.5" r="1"/></svg>
       </a>
+
+      {{-- Carrito desktop --}}
+      @php
+        $cart = session('cart', []);
+        $cartCount = is_array($cart) ? array_sum(array_column($cart, 'qty')) : 0;
+      @endphp
+      <a class="ico" href="{{ route('web.cart.index') }}" aria-label="Carrito">
+        <svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39A2 2 0 0 0 9.63 16h7.52a2 2 0 0 0 2-.79L23 12H6"/></svg>
+        <span class="cart-badge" data-cart-badge>{{ $cartCount }}</span>
+      </a>
+
       <a href="{{ url('/login') }}" class="btn-pill">Sistema</a>
     </div>
   </div>
@@ -164,8 +195,10 @@
     <div class="sheet__grid">
       <nav class="sheet__nav" aria-label="Menú móvil">
         <a href="{{ route('web.home') }}">Inicio</a>
+        <a href="{{ route('web.catalog.index') }}">Catálogo</a>
         <a href="{{ route('web.ventas.index') }}">Ventas</a>
         <a href="{{ route('web.contacto') }}">Contacto</a>
+        <a href="{{ route('web.cart.index') }}">Carrito</a>
       </nav>
       <div class="sheet__footer">
         <div class="sheet__icons">
@@ -333,5 +366,6 @@
   </div>
 </footer>
 
+@stack('scripts')
 </body>
 </html>

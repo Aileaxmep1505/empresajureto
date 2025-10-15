@@ -1,4 +1,4 @@
-<?php
+<?php 
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Http;
@@ -20,9 +20,12 @@ use App\Http\Controllers\Web\HomeController;
 use App\Http\Controllers\Web\ContactController;
 use App\Http\Controllers\Web\ShopController;
 use App\Http\Controllers\Web\CustomerAuthController;
+use App\Http\Controllers\Web\CatalogController; // <-- NUEVO: catálogo público
 
 use App\Http\Controllers\Panel\LandingSectionController;
-
+use App\Http\Controllers\Admin\CatalogItemController; // <-- NUEVO: CRUD admin catálogo
+use App\Models\CatalogItem;
+use App\Http\Controllers\Web\CartController; // <-- importar
 /*
 |--------------------------------------------------------------------------
 | AUTH INTERNA (guard por defecto)
@@ -64,6 +67,12 @@ Route::get('/ventas/{id}', [ShopController::class, 'show'])->name('web.ventas.sh
 
 Route::get('/contacto', [ContactController::class, 'show'])->name('web.contacto');
 Route::post('/contacto', [ContactController::class, 'send'])->name('web.contacto.send');
+
+/* ===== Catálogo público (CatalogItem) ===== */
+Route::prefix('catalogo')->name('web.catalog.')->group(function () {
+    Route::get('/', [CatalogController::class, 'index'])->name('index'); // listado público
+    Route::get('/{catalogItem:slug}', [CatalogController::class, 'show'])->name('show'); // detalle por slug
+});
 
 /*
 |--------------------------------------------------------------------------
@@ -108,7 +117,7 @@ Route::middleware(['auth', 'approved'])->prefix('panel')->group(function () {
     Route::get('ventas/{venta}/pdf', [VentaController::class, 'pdf'])->name('ventas.pdf');
     Route::post('ventas/{venta}/email', [VentaController::class, 'enviarPorCorreo'])->name('ventas.email');
 
-    // ====== Productos ======
+    // ====== Productos (tabla products, uso interno) ======
     Route::get('products/import', [ProductController::class, 'importForm'])->name('products.import.form');
     Route::post('products/import', [ProductController::class, 'importStore'])->name('products.import.store');
     Route::get('products/export/pdf', [ProductController::class, 'exportPdf'])->name('products.export.pdf');
@@ -163,6 +172,16 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'approved', 'role:admin'
     Route::post('/users/{user}/revoke', [UserManagementController::class, 'revoke'])->name('admin.users.revoke');
     Route::post('/users/{user}/role', [UserManagementController::class, 'assignRole'])->name('admin.users.role.assign');
     Route::delete('/users/{user}/role/{role}', [UserManagementController::class, 'removeRole'])->name('admin.users.role.remove');
+
+    /* ===== CRUD Catálogo web (CatalogItem) =====
+       Nombres de ruta: admin.catalog.index/create/store/edit/update/destroy
+       Además: admin.catalog.toggle (PATCH) para publicar/ocultar rápido */
+    Route::resource('catalog', CatalogItemController::class)
+        ->parameters(['catalog' => 'catalogItem'])
+        ->names('admin.catalog');
+
+    Route::patch('catalog/{catalogItem}/toggle', [CatalogItemController::class, 'toggleStatus'])
+        ->name('admin.catalog.toggle');
 });
 
 /*
@@ -210,4 +229,15 @@ Route::get('/diag/http', function () {
         $out['write_logs'] = ['ok' => false, 'error' => $e->getMessage()];
     }
     return response()->json($out);
+});
+/* ===== Carrito ===== */
+Route::prefix('carrito')->name('web.cart.')->group(function () {
+    Route::get('/',        [CartController::class, 'index'])->name('index');
+    Route::post('/agregar',[CartController::class, 'add'])->name('add');
+    Route::post('/actualizar',[CartController::class, 'update'])->name('update');
+    Route::post('/quitar', [CartController::class, 'remove'])->name('remove');
+    Route::post('/vaciar', [CartController::class, 'clear'])->name('clear');
+
+    // (Opcional) preview de checkout (sin pagos todavía)
+    Route::get('/checkout', [CartController::class, 'checkoutPreview'])->name('checkout');
 });

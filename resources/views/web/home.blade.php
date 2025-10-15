@@ -40,9 +40,14 @@
     /* Grid utilitario */
     .grid{ display:grid; gap:16px; grid-template-columns: repeat(12, 1fr); }
     .col-4{ grid-column: span 4 / span 4; }
+    .col-3{ grid-column: span 3 / span 3; }
+    @media (max-width: 1100px){ .col-3{ grid-column: span 4 / span 4; } }
     @media (max-width: 900px){ .col-4{ grid-column: span 12 / span 12; } }
+    @media (max-width: 780px){ .col-3{ grid-column: span 6 / span 6; } }
+    @media (max-width: 520px){ .col-3{ grid-column: span 12 / span 12; } }
 
-    /* Tarjetas de valores */
+    /* Tarjetas y tipografías */
+    .card{ background: var(--surface); border:1px solid var(--line); border-radius:16px; box-shadow: var(--shadow); }
     .feature{ background: var(--surface); border:1px solid var(--line); border-radius:16px; padding:18px;
       box-shadow: var(--shadow); display:flex; align-items:center; gap:12px; min-height:88px; }
     .feature__chip{ padding:6px 10px; border-radius:999px; background:var(--chip); color:var(--chip-ink);
@@ -64,6 +69,15 @@
       opacity:.85; filter:grayscale(100%) contrast(105%); transition:opacity .2s, filter .2s, transform .2s; }
     .brand-item:hover{ opacity:1; filter:grayscale(0%); transform:translateY(-1px); }
     .brand-item img{ max-height:100%; max-width:140px; object-fit:contain; display:block; }
+
+    /* Cards de productos */
+    .p-card{ overflow:hidden }
+    .p-thumb{ width:100%; aspect-ratio:4 / 3; object-fit:cover; background:#f6f8fc; border-bottom:1px solid var(--line); display:block }
+    .p-body{ padding:12px }
+    .p-name{ font-weight:800; color:var(--ink); text-decoration:none; display:block }
+    .p-sku{ color:var(--muted); font-size:.9rem }
+    .p-price{ font-weight:800; color:var(--ink) }
+    .p-sale{ color:#16a34a; font-weight:800 }
   </style>
 
   {{-- ======= Hero ======= --}}
@@ -87,6 +101,79 @@
     {{-- Usa la primera vista que exista: landing.render o panel.landing.render --}}
     @includeFirst(['landing.render','panel.landing.render'], ['section'=>$section])
   @endforeach
+
+  {{-- ======= Productos del catálogo (Destacados + Nuevos) ======= --}}
+  @php
+    /** Traemos desde aquí para no depender del HomeController */
+    $featured = \App\Models\CatalogItem::published()->featured()->ordered()->take(8)->get();
+    $latest   = \App\Models\CatalogItem::published()->ordered()->take(12)->get();
+  @endphp
+
+  @if($featured->count())
+    <div class="container" style="margin-top:22px;">
+      <div style="display:flex;justify-content:space-between;align-items:end;gap:10px;flex-wrap:wrap;">
+        <h2 style="margin:0;font-weight:800;color:var(--ink);">Destacados</h2>
+        <a class="btn btn-ghost" href="{{ route('web.catalog.index') }}">Ver catálogo</a>
+      </div>
+
+      <div class="grid" style="margin-top:12px;">
+        @foreach($featured as $p)
+          <article class="card p-card col-3">
+            <a href="{{ route('web.catalog.show', $p) }}">
+              <img class="p-thumb"
+                   src="{{ $p->image_url ?: asset('images/placeholder.png') }}"
+                   alt="{{ $p->name }}"
+                   loading="lazy"
+                   onerror="this.onerror=null;this.src='{{ asset('images/placeholder.png') }}'">
+            </a>
+            <div class="p-body">
+              <a href="{{ route('web.catalog.show', $p) }}" class="p-name">{{ $p->name }}</a>
+              <div class="p-sku">SKU: {{ $p->sku ?: '—' }}</div>
+              <div style="margin-top:6px;">
+                @if(!is_null($p->sale_price))
+                  <div class="p-sale">${{ number_format($p->sale_price,2) }}</div>
+                  <div class="p-sku" style="text-decoration:line-through;">${{ number_format($p->price,2) }}</div>
+                @else
+                  <div class="p-price">${{ number_format($p->price,2) }}</div>
+                @endif
+              </div>
+            </div>
+          </article>
+        @endforeach
+      </div>
+    </div>
+  @endif
+
+  @if($latest->count())
+    <div class="container" style="margin-top:22px;">
+      <h2 style="margin:0 0 12px;font-weight:800;color:var(--ink);">Novedades</h2>
+      <div class="grid">
+        @foreach($latest as $p)
+          <article class="card p-card col-3">
+            <a href="{{ route('web.catalog.show', $p) }}">
+              <img class="p-thumb"
+                   src="{{ $p->image_url ?: asset('images/placeholder.png') }}"
+                   alt="{{ $p->name }}"
+                   loading="lazy"
+                   onerror="this.onerror=null;this.src='{{ asset('images/placeholder.png') }}'">
+            </a>
+            <div class="p-body">
+              <a href="{{ route('web.catalog.show', $p) }}" class="p-name">{{ $p->name }}</a>
+              <div class="p-sku">SKU: {{ $p->sku ?: '—' }}</div>
+              <div style="margin-top:6px;">
+                @if(!is_null($p->sale_price))
+                  <div class="p-sale">${{ number_format($p->sale_price,2) }}</div>
+                  <div class="p-sku" style="text-decoration:line-through;">${{ number_format($p->price,2) }}</div>
+                @else
+                  <div class="p-price">${{ number_format($p->price,2) }}</div>
+                @endif
+              </div>
+            </div>
+          </article>
+        @endforeach
+      </div>
+    </div>
+  @endif
 
   {{-- ======= SLIDER INFINITO DE MARCAS (FULL-BLEED, SIN CONTENEDOR) ======= --}}
   @php
