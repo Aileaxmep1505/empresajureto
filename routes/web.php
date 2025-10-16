@@ -26,6 +26,7 @@ use App\Http\Controllers\Panel\LandingSectionController;
 use App\Http\Controllers\Admin\CatalogItemController; // <-- NUEVO: CRUD admin catálogo
 use App\Models\CatalogItem;
 use App\Http\Controllers\Web\CartController; // <-- importar
+use App\Http\Controllers\CheckoutController;
 /*
 |--------------------------------------------------------------------------
 | AUTH INTERNA (guard por defecto)
@@ -241,3 +242,13 @@ Route::prefix('carrito')->name('web.cart.')->group(function () {
     // (Opcional) preview de checkout (sin pagos todavía)
     Route::get('/checkout', [CartController::class, 'checkoutPreview'])->name('checkout');
 });
+Route::post('/checkout/item/{item}', [CheckoutController::class, 'checkoutItem'])
+    ->whereNumber('item')
+    ->name('checkout.item');
+
+Route::post('/checkout/cart', [CheckoutController::class, 'checkoutCart'])->name('checkout.cart');
+
+Route::get('/checkout/success', [CheckoutController::class, 'success'])->name('checkout.success');
+Route::get('/checkout/cancel',  [CheckoutController::class, 'cancel'])->name('checkout.cancel');
+
+Route::post('/stripe/webhook', [CheckoutController::class, 'webhook']); // sin CSRF

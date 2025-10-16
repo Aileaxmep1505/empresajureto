@@ -62,5 +62,14 @@ return [
         'forma_pago'        => env('FACT_FORMA_PAGO', '99'),
         'uso_cfdi'          => env('FACT_USO_CFDI', 'G03'),
     ],
+'stripe' => [
+        'key'            => env('STRIPE_KEY'),
+        'secret'         => env('STRIPE_SECRET'),
+        'webhook_secret' => env('STRIPE_WEBHOOK_SECRET', null),
+
+        // NO usar url() aquí. Usa solo ENV:
+        'success_url'    => env('STRIPE_SUCCESS_URL'),
+        'cancel_url'     => env('STRIPE_CANCEL_URL'),
+    ],
 
 ];
