@@ -1,4 +1,4 @@
-{{-- resources/views/web/home.blade.php (completo con slider 3D full-bleed) --}}
+{{-- resources/views/web/home.blade.php (completo con slider 3D + cards con círculo) --}}
 @extends('layouts.web') 
 @section('title','Inicio')
 
@@ -79,7 +79,7 @@
     .brand-item:hover{ opacity:1; filter:grayscale(0%); transform:translateY(-1px); }
     .brand-item img{ max-height:100%; max-width:140px; object-fit:contain; display:block; }
 
-    /* ===== PRODUCTO: Card estilo "Paul Atreides" ===== */
+    /* ===== PRODUCTO: Card estilo "Paul Atreides" (sección Destacados/Novedades) ===== */
     .product-card{
       --bg:#fff; --title:#fff; --title-hover:#000; --text:#666;
       --btn:#eee; --btn-hover:#ddd;
@@ -191,62 +191,51 @@
 
     <div class="cs-slider" id="sliderContainer">
       <div class="cs-track" id="sliderTrack">
-      {{-- Tarjetas de papelería (11) con imágenes de internet (Unsplash) --}}
-<div class="cs-card" data-title="Cuadernos & libretas" data-desc="Tamaños A4/A5, rayado y cuadriculado. Marcas originales.">
-  <img src="https://unsplash.com/photos/m_qYW5r5iWw/download?force=true&w=1200&h=800&fit=crop" alt="Cuadernos y libretas">
-  <div class="cs-hover"><span>Ver más</span></div>
-</div>
-
-<div class="cs-card" data-title="Plumas & marcatextos" data-desc="Tinta gel, roller y permanentes. Sets escolares y de oficina.">
-  <img src="https://unsplash.com/photos/VK620qNCUKo/download?force=true&w=1200&h=800&fit=crop" alt="Plumas y marcatextos">
-  <div class="cs-hover"><span>Ver más</span></div>
-</div>
-
-<div class="cs-card" data-title="Engrapadoras & perforadoras" data-desc="Metálicas de alto rendimiento para oficina.">
-  <img src="https://unsplash.com/photos/6WLcOFn4HKE/download?force=true&w=1200&h=800&fit=crop" alt="Engrapadora de oficina">
-  <div class="cs-hover"><span>Ver más</span></div>
-</div>
-
-<div class="cs-card" data-title="Organización" data-desc="Folders, clips y archiveros para mantener todo en orden">
-  <img src="https://unsplash.com/photos/SiJt15u6Yw4/download?force=true&w=1200&h=800&fit=crop" alt="Folders y archivos">
-  <div class="cs-hover"><span>Ver más</span></div>
-</div>
-
-<div class="cs-card" data-title="Arte & dibujo" data-desc="Acuarelas, pinceles y papeles artísticos.">
-  <img src="https://unsplash.com/photos/W_6LrBZhLJY/download?force=true&w=1200&h=800&fit=crop" alt="Material de arte y dibujo">
-  <div class="cs-hover"><span>Ver más</span></div>
-</div>
-
-<div class="cs-card" data-title="Impresión & tintas" data-desc="Cartuchos y tóner originales. Asesoría sin costo.">
-  <img src="https://unsplash.com/photos/wONAIYtLfPc/download?force=true&w=1200&h=800&fit=crop" alt="Tintas y cartuchos para impresora">
-  <div class="cs-hover"><span>Ver más</span></div>
-</div>
-
-<div class="cs-card" data-title="Escritorios & accesorios" data-desc="Pads, organizadores y gadgets para productividad.">
-  <img src="https://unsplash.com/photos/df9SD08fQfQ/download?force=true&w=1200&h=800&fit=crop" alt="Accesorios de escritorio y organización">
-  <div class="cs-hover"><span>Ver más</span></div>
-</div>
-
-<div class="cs-card" data-title="Listas escolares" data-desc="Armamos tu lista completa con entrega rápida.">
-  <img src="https://unsplash.com/photos/yg4cdXN_6P0/download?force=true&w=1200&h=800&fit=crop" alt="Surtido de útiles escolares">
-  <div class="cs-hover"><span>Ver más</span></div>
-</div>
-
-<div class="cs-card" data-title="Ofertas de temporada" data-desc="Descuentos semanales en papelería y oficina.">
-  <img src="https://unsplash.com/photos/pZiZyRuXJFE/download?force=true&w=1200&h=800&fit=crop" alt="Anuncio de ofertas y rebajas">
-  <div class="cs-hover"><span>Ver más</span></div>
-</div>
-
-<div class="cs-card" data-title="Envío hoy en Toluca*" data-desc="Pedidos antes de la 1:00 pm. Cobertura sujeta a zona.">
-  <img src="https://unsplash.com/photos/kkeHKhLNSXk/download?force=true&w=1200&h=800&fit=crop" alt="Mensajero entregando paquete a domicilio">
-  <div class="cs-hover"><span>Ver más</span></div>
-</div>
-
-<div class="cs-card" data-title="Mayoristas & empresas" data-desc="Precios por volumen y facturación inmediata.">
-  <img src="https://unsplash.com/photos/28b8xlTT5t4/download?force=true&w=1200&h=800&fit=crop" alt="Bodega con cajas para mayoreo">
-  <div class="cs-hover"><span>Ver más</span></div>
-</div>
-
+        {{-- Tarjetas de papelería (11) con imágenes de internet (Unsplash) --}}
+        <div class="cs-card" data-title="Cuadernos & libretas" data-desc="Tamaños A4/A5, rayado y cuadriculado. Marcas originales.">
+          <img src="https://unsplash.com/photos/m_qYW5r5iWw/download?force=true&w=1200&h=800&fit=crop" alt="Cuadernos y libretas">
+          <div class="cs-hover"><span>Ver más</span></div>
+        </div>
+        <div class="cs-card" data-title="Plumas & marcatextos" data-desc="Tinta gel, roller y permanentes. Sets escolares y de oficina.">
+          <img src="https://unsplash.com/photos/VK620qNCUKo/download?force=true&w=1200&h=800&fit=crop" alt="Plumas y marcatextos">
+          <div class="cs-hover"><span>Ver más</span></div>
+        </div>
+        <div class="cs-card" data-title="Engrapadoras & perforadoras" data-desc="Metálicas de alto rendimiento para oficina.">
+          <img src="https://unsplash.com/photos/6WLcOFn4HKE/download?force=true&w=1200&h=800&fit=crop" alt="Engrapadora de oficina">
+          <div class="cs-hover"><span>Ver más</span></div>
+        </div>
+        <div class="cs-card" data-title="Organización" data-desc="Folders, clips y archiveros para mantener todo en orden">
+          <img src="https://unsplash.com/photos/SiJt15u6Yw4/download?force=true&w=1200&h=800&fit=crop" alt="Folders y archivos">
+          <div class="cs-hover"><span>Ver más</span></div>
+        </div>
+        <div class="cs-card" data-title="Arte & dibujo" data-desc="Acuarelas, pinceles y papeles artísticos.">
+          <img src="https://unsplash.com/photos/W_6LrBZhLJY/download?force=true&w=1200&h=800&fit=crop" alt="Material de arte y dibujo">
+          <div class="cs-hover"><span>Ver más</span></div>
+        </div>
+        <div class="cs-card" data-title="Impresión & tintas" data-desc="Cartuchos y tóner originales. Asesoría sin costo.">
+          <img src="https://unsplash.com/photos/wONAIYtLfPc/download?force=true&w=1200&h=800&fit=crop" alt="Tintas y cartuchos para impresora">
+          <div class="cs-hover"><span>Ver más</span></div>
+        </div>
+        <div class="cs-card" data-title="Escritorios & accesorios" data-desc="Pads, organizadores y gadgets para productividad.">
+          <img src="https://unsplash.com/photos/df9SD08fQfQ/download?force=true&w=1200&h=800&fit=crop" alt="Accesorios de escritorio y organización">
+          <div class="cs-hover"><span>Ver más</span></div>
+        </div>
+        <div class="cs-card" data-title="Listas escolares" data-desc="Armamos tu lista completa con entrega rápida.">
+          <img src="https://unsplash.com/photos/yg4cdXN_6P0/download?force=true&w=1200&h=800&fit=crop" alt="Surtido de útiles escolares">
+          <div class="cs-hover"><span>Ver más</span></div>
+        </div>
+        <div class="cs-card" data-title="Ofertas de temporada" data-desc="Descuentos semanales en papelería y oficina.">
+          <img src="https://unsplash.com/photos/pZiZyRuXJFE/download?force=true&w=1200&h=800&fit=crop" alt="Anuncio de ofertas y rebajas">
+          <div class="cs-hover"><span>Ver más</span></div>
+        </div>
+        <div class="cs-card" data-title="Envío hoy en Toluca*" data-desc="Pedidos antes de la 1:00 pm. Cobertura sujeta a zona.">
+          <img src="https://unsplash.com/photos/kkeHKhLNSXk/download?force=true&w=1200&h=800&fit=crop" alt="Mensajero entregando paquete a domicilio">
+          <div class="cs-hover"><span>Ver más</span></div>
+        </div>
+        <div class="cs-card" data-title="Mayoristas & empresas" data-desc="Precios por volumen y facturación inmediata.">
+          <img src="https://unsplash.com/photos/28b8xlTT5t4/download?force=true&w=1200&h=800&fit=crop" alt="Bodega con cajas para mayoreo">
+          <div class="cs-hover"><span>Ver más</span></div>
+        </div>
       </div>
     </div>
 
@@ -471,12 +460,14 @@
           @php $off = $discountPct($p); @endphp
           <div class="col-3">
             <article class="product-card" tabindex="0">
+              {{-- Badges --}}
               <div class="pc-badges">
                 @if($isNew($p)) <span class="pc-badge pc-badge--new">Nuevo</span> @endif
                 @if(!is_null($p->sale_price)) <span class="pc-badge pc-badge--sale">Oferta</span> @endif
                 @if($off) <span class="pc-badge pc-badge--off">-{{ $off }}%</span> @endif
               </div>
 
+              {{-- Imagen --}}
               <a href="{{ route('web.catalog.show', $p) }}" aria-label="Ver {{ $p->name }}">
                 <img class="pc-img"
                      src="{{ $p->image_url ?: asset('images/placeholder.png') }}"
@@ -485,6 +476,7 @@
                      onerror="this.onerror=null;this.src='{{ asset('images/placeholder.png') }}'">
               </a>
 
+              {{-- Cuerpo --}}
               <section>
                 <h3 title="{{ $p->name }}">
                   <a href="{{ route('web.catalog.show', $p) }}" style="color:inherit; text-decoration:none;">{{ $p->name }}</a>
@@ -526,12 +518,14 @@
           @php $off = $discountPct($p); @endphp
           <div class="col-3">
             <article class="product-card" tabindex="0">
+              {{-- Badges --}}
               <div class="pc-badges">
                 @if($isNew($p)) <span class="pc-badge pc-badge--new">Nuevo</span> @endif
                 @if(!is_null($p->sale_price)) <span class="pc-badge pc-badge--sale">Oferta</span> @endif
                 @if($off) <span class="pc-badge pc-badge--off">-{{ $off }}%</span> @endif
               </div>
 
+              {{-- Imagen --}}
               <a href="{{ route('web.catalog.show', $p) }}" aria-label="Ver {{ $p->name }}">
                 <img class="pc-img"
                      src="{{ $p->image_url ?: asset('images/placeholder.png') }}"
@@ -540,6 +534,7 @@
                      onerror="this.onerror=null;this.src='{{ asset('images/placeholder.png') }}'">
               </a>
 
+              {{-- Cuerpo --}}
               <section>
                 <h3 title="{{ $p->name }}">
                   <a href="{{ route('web.catalog.show', $p) }}" style="color:inherit; text-decoration:none;">{{ $p->name }}</a>
@@ -573,7 +568,363 @@
     </div>
   @endif
 
-  {{-- ======= SLIDER INFINITO DE MARCAS ======= --}}
+ {{-- ===== Tarjetas de producto (full-width) sin estrellas + con descripción ===== --}}
+
+<style>
+  :root{
+    --ink:#0f172a; --muted:#6b7280; --line:#e5e7eb; --surface:#fff;
+    --accent:#f59e0b; --accent-ink:#9a3412;
+  }
+
+  /* Full-bleed: el contenedor ocupa todo el ancho de la pantalla */
+  .products-fullbleed{
+    width:100vw;
+    margin-left:calc(50% - 50vw);
+    margin-right:calc(50% - 50vw);
+    padding: 8px clamp(12px, 2.2vw, 28px);
+  }
+
+  /* Grid fluido: tantas columnas como quepan */
+  .grid-prods{
+    display:grid;
+    gap:18px;
+    grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));
+  }
+
+  /* Tarjeta */
+  .pc2{
+    display:flex; flex-direction:column; height:100%;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:14px;
+    box-shadow:0 6px 18px rgba(2,6,23,.06);
+    padding:14px;
+    box-sizing:border-box; /* evita que algo se “salga” */
+    overflow:hidden;
+  }
+
+  .pc2-figure{
+    display:flex; justify-content:center; align-items:center;
+    height:170px; border-radius:10px; background:#f8fafc;
+    margin-bottom:10px; overflow:hidden;
+  }
+  .pc2-figure img{max-width:100%;max-height:100%;object-fit:contain;display:block}
+
+  .pc2-brand{font-weight:900;text-transform:uppercase;color:#1d4ed8;font-size:.95rem;margin:4px 0 2px;text-decoration:none}
+  .pc2-title{font-weight:800;color:var(--ink);line-height:1.25;margin:0}
+  .pc2-title a{color:inherit;text-decoration:none}
+  .pc2-desc{
+    color:var(--muted); font-size:.95rem; margin:.45rem 0 .2rem;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+  }
+
+  .pc2-price{margin:.4rem 0 0.9rem;display:flex;align-items:baseline;gap:10px}
+  .pc2-price .now{font-weight:900;color:var(--ink);font-size:1.15rem}
+  .pc2-price .now--sale{color:#16a34a}
+  .pc2-price .old{color:#94a3b8;text-decoration:line-through}
+
+  /* Pie: se queda pegado abajo para que el botón no se salga */
+  .pc2-footer{margin-top:auto; display:flex; align-items:center; gap:10px; flex-wrap:nowrap}
+
+  .pc2-qty{display:flex; align-items:center; gap:8px; color:var(--muted); font-weight:700}
+  .pc2-qty input[type="number"]{
+    width:80px; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:#fff; color:var(--ink);
+    appearance:textfield; outline:none;
+  }
+  .pc2-qty input::-webkit-outer-spin-button,
+  .pc2-qty input::-webkit-inner-spin-button{ -webkit-appearance: none; margin: 0; }
+
+  .pc2-add{
+    display:inline-flex; align-items:center; gap:10px; white-space:nowrap;
+    border:2px solid #fde68a; background:#fff7ed; color:var(--accent-ink);
+    padding:12px 18px; border-radius:999px; font-weight:900; cursor:pointer;
+    box-shadow:0 8px 18px rgba(245,158,11,.18);
+    transition:transform .12s ease, box-shadow .2s ease, background .2s ease;
+  }
+  .pc2-add:hover{ transform:translateY(-1px); box-shadow:0 10px 22px rgba(245,158,11,.28) }
+  .pc2-add svg{width:20px;height:20px}
+
+  /* Un poco más compacto en pantallas muy pequeñas */
+  @media (max-width:420px){
+    .pc2-figure{height:150px}
+    .pc2-add{flex:1; justify-content:center}
+  }
+</style>
+
+@php
+  $products = \App\Models\CatalogItem::published()->ordered()->take(12)->get();
+@endphp
+
+@if($products->count())
+  <section class="products-fullbleed" aria-label="Productos">
+    <div class="grid-prods">
+      @foreach($products as $p)
+        @php
+          $img = $p->image_url ?: asset('images/placeholder.png');
+          $hasSale = !is_null($p->sale_price) && $p->sale_price > 0 && $p->sale_price < $p->price;
+          // descripción breve (2 líneas). Usa excerpt si existe; si no, recorta description sin HTML.
+          $desc = $p->excerpt ?: \Illuminate\Support\Str::limit(strip_tags($p->description ?? ''), 110);
+        @endphp
+
+        <article class="pc2">
+          <a class="pc2-figure" href="{{ route('web.catalog.show', $p) }}" aria-label="Ver {{ $p->name }}">
+            <img src="{{ $img }}" alt="{{ $p->name }}"
+                 onerror="this.onerror=null;this.src='{{ asset('images/placeholder.png') }}'">
+          </a>
+
+          <a class="pc2-brand" href="{{ route('web.catalog.show', $p) }}">{{ $p->brand ?? '—' }}</a>
+          <h3 class="pc2-title"><a href="{{ route('web.catalog.show', $p) }}">{{ $p->name }}</a></h3>
+
+          @if($desc)
+            <p class="pc2-desc">{{ $desc }}</p>
+          @endif
+
+          <div class="pc2-price">
+            @if($hasSale)
+              <span class="now now--sale">${{ number_format($p->sale_price,2) }}</span>
+              <span class="old">${{ number_format($p->price,2) }}</span>
+            @else
+              <span class="now">${{ number_format($p->price,2) }}</span>
+            @endif
+          </div>
+
+          <form class="pc2-footer" action="{{ route('web.cart.add') }}" method="POST">
+            @csrf
+            <input type="hidden" name="catalog_item_id" value="{{ $p->id }}">
+            <div class="pc2-qty">
+              <label for="qty-{{ $p->id }}" style="font-weight:700">Cant.</label>
+              <input id="qty-{{ $p->id }}" name="qty" type="number" min="1" value="1">
+            </div>
+
+            <button class="pc2-add" type="submit" aria-label="Agregar {{ $p->name }} al carrito">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="color:var(--accent-ink)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="9" cy="21" r="1"></circle>
+                <circle cx="20" cy="21" r="1"></circle>
+                <path d="M1 1h4l2.68 12.39a2 2 0 0 0 2 1.61h7.72a2 2 0 0 0 2-1.61L21 7H6"></path>
+              </svg>
+              Agregar
+            </button>
+          </form>
+        </article>
+      @endforeach
+    </div>
+  </section>
+@endif
+{{-- ===================== SLIDER CENTER-MODE: PAPELERÍA (FULL WIDTH + MOBILE-FIRST) ===================== --}}
+<section class="stc-wrap" aria-label="Explora categorías de papelería">
+  <div class="stc-head">
+    <h2>Todo para tu papelería y oficina</h2>
+    <div class="stc-ctrls">
+      <button id="stc-prev" class="stc-nav" aria-label="Anterior">‹</button>
+      <button id="stc-next" class="stc-nav" aria-label="Siguiente">›</button>
+    </div>
+  </div>
+
+  <div class="stc-slider">
+    <div class="stc-track" id="stc-track">
+
+      {{-- 1. Cuadernos --}}
+      <article class="stc-card" active>
+        <img class="stc-bg" src="https://images.unsplash.com/photo-1524578271613-d550eacf6090?q=80&w=1600&auto=format&fit=crop" alt="">
+        <div class="stc-content">
+          <img class="stc-thumb" src="https://images.unsplash.com/photo-1524578271613-d550eacf6090?q=80&w=480&auto=format&fit=crop" alt="">
+          <div>
+            <h3 class="stc-title">Cuadernos</h3>
+            <p class="stc-desc">A4/A5, rayado, cuadriculado y profesionales. Marcas Scribe, Norma y más.</p>
+            <a class="stc-btn" href="{{ route('web.catalog.index', ['q'=>'cuaderno']) }}">Ver catálogo</a>
+          </div>
+        </div>
+      </article>
+
+      {{-- 2. Escritura --}}
+      <article class="stc-card">
+        <img class="stc-bg" src="https://images.unsplash.com/photo-1526498460520-4c246339dccb?q=80&w=1600&auto=format&fit=crop" alt="">
+        <div class="stc-content">
+          <img class="stc-thumb" src="https://images.unsplash.com/photo-1526498460520-4c246339dccb?q=80&w=480&auto=format&fit=crop" alt="">
+          <div>
+            <h3 class="stc-title">Plumas & Marcatextos</h3>
+            <p class="stc-desc">Gel, roller, fineliner y permanentes. Sets escolares y de oficina.</p>
+            <a class="stc-btn" href="{{ route('web.catalog.index', ['q'=>'pluma']) }}">Ver escritura</a>
+          </div>
+        </div>
+      </article>
+
+      {{-- 3. Arte & Dibujo --}}
+      <article class="stc-card">
+        <img class="stc-bg" src="https://images.unsplash.com/photo-1513364776144-60967b0f800f?q=80&w=1600&auto=format&fit=crop" alt="">
+        <div class="stc-content">
+          <img class="stc-thumb" src="https://images.unsplash.com/photo-1513364776144-60967b0f800f?q=80&w=480&auto=format&fit=crop" alt="">
+          <div>
+            <h3 class="stc-title">Arte & Dibujo</h3>
+            <p class="stc-desc">Acuarelas, pinceles, papeles artísticos, lápices y marcadores.</p>
+            <a class="stc-btn" href="{{ route('web.catalog.index', ['q'=>'arte']) }}">Explorar arte</a>
+          </div>
+        </div>
+      </article>
+
+      {{-- 4. Organización --}}
+      <article class="stc-card">
+        <img class="stc-bg" src="https://images.unsplash.com/photo-1516542076529-1ea3854896e1?q=80&w=1600&auto=format&fit=crop" alt="">
+        <div class="stc-content">
+          <img class="stc-thumb" src="https://images.unsplash.com/photo-1516542076529-1ea3854896e1?q=80&w=480&auto=format&fit=crop" alt="">
+          <div>
+            <h3 class="stc-title">Organización</h3>
+            <p class="stc-desc">Folders, carpetas, clips, archiveros y todo para tu escritorio.</p>
+            <a class="stc-btn" href="{{ route('web.catalog.index', ['q'=>'folder']) }}">Ordenar ahora</a>
+          </div>
+        </div>
+      </article>
+
+      {{-- 5. Impresión & Tintas --}}
+      <article class="stc-card">
+        <img class="stc-bg" src="https://images.unsplash.com/photo-1586861635167-c8a7c4e3f3fa?q=80&w=1600&auto=format&fit=crop" alt="">
+        <div class="stc-content">
+          <img class="stc-thumb" src="https://images.unsplash.com/photo-1586861635167-c8a7c4e3f3fa?q=80&w=480&auto=format&fit=crop" alt="">
+          <div>
+            <h3 class="stc-title">Impresión & Tintas</h3>
+            <p class="stc-desc">Cartuchos y tóner originales. Asesoría para tu modelo y marca.</p>
+            <a class="stc-btn" href="{{ route('web.catalog.index', ['q'=>'tinta']) }}">Ver tintas</a>
+          </div>
+        </div>
+      </article>
+
+    </div>
+  </div>
+
+  <div class="stc-dots" id="stc-dots"></div>
+</section>
+
+<style>
+  /* ====== MOBILE-FIRST ====== */
+  .stc-wrap{width:100vw;margin-left:calc(50% - 50vw);margin-right:calc(50% - 50vw);background:#fff;padding:24px 14px}
+  .stc-head{max-width:1400px;margin:auto;display:flex;gap:.75rem;align-items:flex-start;justify-content:space-between}
+  .stc-head h2{margin:0;color:#0f172a;font-weight:900;font-size:clamp(20px,4.5vw,28px)}
+  .stc-ctrls{display:flex;gap:.5rem}
+  .stc-nav{width:40px;height:40px;border:1px solid #e5e7eb;background:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;color:#0f172a;cursor:pointer;transition:.2s}
+  .stc-nav:disabled{opacity:.4;cursor:default}
+  .stc-nav:hover{background:#0ea5e9;color:#fff;border-color:#0ea5e9}
+
+  .stc-slider{max-width:1400px;margin:auto;overflow:hidden;padding-top:10px}
+  .stc-track{display:flex;flex-direction:column;gap:12px;scroll-snap-type:y mandatory}
+  .stc-track::-webkit-scrollbar{display:none}
+
+  :root{--stc-closed:100%;--stc-open:100%;--stc-ease:.55s cubic-bezier(.25,.46,.45,.94)}
+  .stc-card{position:relative;flex:0 0 auto;width:100%;min-height:260px;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;background:#fff;scroll-snap-align:start;transition:transform var(--stc-ease)}
+  .stc-card[active]{box-shadow:0 14px 34px rgba(2,6,23,.12)}
+  .stc-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:brightness(.95) saturate(98%);transition:filter .3s,transform var(--stc-ease)}
+  .stc-card:hover .stc-bg{transform:scale(1.02)}
+
+  /* Contenido móvil: fila, título SIEMPRE visible horizontal */
+  .stc-content{position:absolute;inset:0;display:flex;align-items:flex-end;gap:.8rem;padding:1rem;background:linear-gradient(transparent 40%, rgba(0,0,0,.55) 90%);z-index:2}
+  .stc-title{color:#fff;font-weight:900;font-size:1.15rem;margin-right:auto}
+  .stc-thumb,.stc-desc,.stc-btn{display:none}
+
+  /* Al estar activa, mostramos más info en móvil */
+  .stc-card[active] .stc-content{align-items:flex-end;gap:1rem}
+  .stc-card[active] .stc-thumb{display:block;width:110px;height:170px;border-radius:10px;object-fit:cover;box-shadow:0 6px 16px rgba(0,0,0,.28)}
+  .stc-card[active] .stc-desc{display:block;color:#f1f5f9;line-height:1.45;max-width:100%}
+  .stc-card[active] .stc-btn{display:inline-block;background:#0ea5e9;border:0;color:#fff;padding:.55rem 1rem;border-radius:999px;font-weight:800;text-decoration:none;box-shadow:0 10px 24px rgba(14,165,233,.28)}
+
+  .stc-dots{display:none} /* en móvil ocultamos los dots para dejar limpio */
+
+  /* ====== DESKTOP / TABLET (mejoras visuales y center-mode real) ====== */
+  @media (min-width:768px){
+    .stc-wrap{padding: clamp(28px,4vw,44px) clamp(12px,2.4vw,28px)}
+    .stc-head{align-items:flex-end}
+    .stc-head h2{font-size:clamp(22px,3vw,34px)}
+    .stc-track{flex-direction:row;gap:1rem;align-items:flex-start;justify-content:center;scroll-snap-type:x mandatory;padding-bottom:12px}
+    :root{--stc-closed:5rem;--stc-open:30rem}
+    .stc-card{flex:0 0 var(--stc-closed);height:26rem;border-radius:18px}
+    .stc-card[active]{flex-basis:var(--stc-open);transform:translateY(-4px)}
+    .stc-content{flex-direction:column;justify-content:center;align-items:center;background:linear-gradient(transparent 45%, rgba(0,0,0,.55) 100%)}
+    .stc-title{writing-mode:vertical-rl;transform:rotate(180deg);font-size:1.2rem;margin:0}
+    .stc-thumb,.stc-desc,.stc-btn{display:none}
+    .stc-card[active] .stc-content{flex-direction:row;gap:1rem;padding:1.2rem 1.6rem;background:linear-gradient(transparent 10%, rgba(0,0,0,.65) 85%)}
+    .stc-card[active] .stc-title{writing-mode:horizontal-tb;transform:none;font-size:1.9rem}
+    .stc-card[active] .stc-thumb,.stc-card[active] .stc-desc,.stc-card[active] .stc-btn{display:block}
+    .stc-thumb{width:130px;height:210px}
+    .stc-desc{max-width:18rem}
+    .stc-dots{display:flex;gap:.45rem;justify-content:center;padding:6px 0}
+    .stc-dot{width:11px;height:11px;border-radius:50%;background:#cbd5e1;cursor:pointer;transition:.2s}
+    .stc-dot.active{background:#0ea5e9;transform:scale(1.15)}
+  }
+</style>
+
+<script>
+(() => {
+  const track = document.getElementById('stc-track');
+  const wrap  = track.parentElement;
+  const cards = Array.from(track.children);
+  const prev  = document.getElementById('stc-prev');
+  const next  = document.getElementById('stc-next');
+  const dotsBox = document.getElementById('stc-dots');
+
+  // Crear dots (sólo visibles en >=768px por CSS)
+  cards.forEach((_, i) => {
+    const d = document.createElement('span');
+    d.className = 'stc-dot';
+    d.addEventListener('click', () => activate(i, true));
+    dotsBox.appendChild(d);
+  });
+  const dots = Array.from(dotsBox.children);
+
+  const isMobile = () => matchMedia('(max-width:767px)').matches;
+  let current = 0;
+
+  function center(i){
+    const card  = cards[i];
+    const axis  = isMobile() ? 'top' : 'left';
+    const size  = isMobile() ? 'clientHeight' : 'clientWidth';
+    const start = isMobile() ? card.offsetTop : card.offsetLeft;
+    wrap.scrollTo({ [axis]: start - (wrap[size]/2 - card[size]/2), behavior:'smooth' });
+  }
+  function toggleUI(i){
+    cards.forEach((c,k) => c.toggleAttribute('active', k === i));
+    dots.forEach((d,k) => d.classList.toggle('active', k === i));
+    prev.disabled = (i === 0);
+    next.disabled = (i === cards.length - 1);
+  }
+  function activate(i, scroll){
+    if(i === current) return;
+    current = i;
+    toggleUI(i);
+    if(scroll) center(i);
+  }
+  function go(step){ activate(Math.min(Math.max(current + step, 0), cards.length - 1), true); }
+
+  prev.addEventListener('click', () => go(-1));
+  next.addEventListener('click', () => go(1));
+
+  // Hover / click
+  cards.forEach((card, i) => {
+    card.addEventListener('mouseenter', () => matchMedia('(hover:hover)').matches && activate(i, true));
+    card.addEventListener('click', () => activate(i, true));
+  });
+
+  // Swipe táctil
+  let sx=0, sy=0;
+  track.addEventListener('touchstart', e => { sx=e.touches[0].clientX; sy=e.touches[0].clientY; }, {passive:true});
+  track.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - sx;
+    const dy = e.changedTouches[0].clientY - sy;
+    const dist = isMobile()? Math.abs(dy) : Math.abs(dx);
+    if(dist > 60) go((isMobile()? dy : dx) > 0 ? -1 : 1);
+  }, {passive:true});
+
+  // Teclado
+  addEventListener('keydown', e => {
+    if(['ArrowRight','ArrowDown'].includes(e.key)) go(1);
+    if(['ArrowLeft','ArrowUp'].includes(e.key)) go(-1);
+  }, {passive:true});
+
+  addEventListener('resize', () => center(current));
+  toggleUI(0); center(0);
+})();
+</script>
+
+  {{-- ====== /GRID con cards de círculo ====== --}}
+
+  {{-- ====== SLIDER INFINITO DE MARCAS ====== --}}
   @php
     $brands = [
       asset('images/brands/aink.jpg'),
