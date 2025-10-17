@@ -71,5 +71,8 @@ return [
         'success_url'    => env('STRIPE_SUCCESS_URL'),
         'cancel_url'     => env('STRIPE_CANCEL_URL'),
     ],
-
+'skydropx' => [
+        'base' => env('SKYDROPX_API_BASE', 'https://api.skydropx.com/v2'),
+        'key' => env('SKYDROPX_API_KEY'),
+    ],
 ];

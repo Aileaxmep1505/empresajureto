@@ -27,6 +27,7 @@ use App\Http\Controllers\Admin\CatalogItemController; // <-- NUEVO: CRUD admin c
 use App\Models\CatalogItem;
 use App\Http\Controllers\Web\CartController; // <-- importar
 use App\Http\Controllers\CheckoutController;
+use App\Http\Controllers\ShippingController;
 /*
 |--------------------------------------------------------------------------
 | AUTH INTERNA (guard por defecto)
@@ -252,3 +253,5 @@ Route::get('/checkout/success', [CheckoutController::class, 'success'])->name('c
 Route::get('/checkout/cancel',  [CheckoutController::class, 'cancel'])->name('checkout.cancel');
 
 Route::post('/stripe/webhook', [CheckoutController::class, 'webhook']); // sin CSRF
+Route::post('/cart/shipping/options', [ShippingController::class, 'options'])->name('cart.shipping.options');
+Route::post('/cart/shipping/select',  [ShippingController::class, 'select'])->name('cart.shipping.select');
