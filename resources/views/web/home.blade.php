@@ -9,6 +9,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800;900&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js" defer></script>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@300..700" />
+
 
   {{-- ====== Estilos locales (lo que ya tenías) ====== --}}
   <style>
@@ -119,6 +121,85 @@
     .cs-close.visible{ opacity:1; pointer-events:auto; }
     .cs-close:hover{ background:#ff6b35; color:#fff; transform: rotate(90deg) scale(1.05); }
     .cs-close svg{ width:24px; height:24px; }
+    /* ===== Landing Sections (público) ===== */
+:root{
+  --lp-ink:#0e1726; --lp-muted:#6b7280; --lp-line:#e8eef6;
+  --lp-radius:16px; --lp-shadow:0 18px 50px rgba(2,8,23,.10);
+}
+
+.lp-wrap{margin:clamp(24px,5vw,48px) auto; padding:0 clamp(12px,3vw,16px); max-width:1200px}
+.lp-head{margin-bottom:12px}
+.lp-head h2{font-size:clamp(18px,2vw,22px); color:var(--lp-ink); margin:0}
+
+.lp-stage{
+  border:1px solid var(--lp-line);
+  border-radius:16px;
+  background:
+    radial-gradient(800px 400px at 0% 0%, #f1f6ff 0%, transparent 40%),
+    radial-gradient(800px 400px at 120% -20%, #fff0f5 0%, transparent 40%),
+    #fff;
+  padding:12px;
+}
+
+.lp-grid{display:grid; gap:12px}
+
+/* Plantillas de grid (igual que preview) */
+.lp-grid-banner{grid-template-columns:1fr}
+.lp-grid-1{grid-template-columns:1fr}
+.lp-grid-2{grid-template-columns:repeat(2,1fr)}
+.lp-grid-3{grid-template-columns:repeat(3,1fr)}
+@media (max-width:980px){
+  .lp-grid-2{grid-template-columns:1fr}
+  .lp-grid-3{grid-template-columns:repeat(2,1fr)}
+}
+@media (max-width:560px){
+  .lp-grid-3{grid-template-columns:1fr}
+}
+
+/* Card (igual que preview) */
+.lp-card{
+  position:relative; border-radius:16px; overflow:hidden; background:#fff;
+  border:1px solid #e9eef7; transform:translateZ(0);
+  transition: transform .18s ease, box-shadow .22s ease;
+}
+.lp-card:hover{ transform: translateY(-3px) scale(1.01); box-shadow: var(--lp-shadow); }
+
+.lp-card .img{
+  width:100%; aspect-ratio:16/9; object-fit:cover; display:block; background:#eef2f7;
+}
+
+/* Overlay texto */
+.lp-card .txt{
+  position:absolute; left:0; right:0; bottom:0;
+  padding:16px; color:#fff;
+  background:linear-gradient(180deg, transparent, rgba(0,0,0,.45));
+}
+.lp-card .t1{font-weight:700; font-size:clamp(14px,1.2vw,16px)}
+.lp-card .t2{opacity:.9; font-size:13px; margin-top:2px}
+
+/* CTA pill */
+.lp-card .cta{
+  display:inline-flex; gap:6px; align-items:center;
+  background:rgba(255,255,255,.95); color:#0b1220;
+  border-radius:999px; padding:6px 10px; margin-top:10px; font-size:13px;
+  text-decoration:none; border:1px solid #e5e7eb;
+  transition:transform .15s ease, box-shadow .2s ease, background .2s;
+}
+.lp-card .cta:hover{ transform:translateY(-1px); box-shadow:0 8px 20px rgba(2,8,23,.12); background:#fff }
+
+/* Estado vacío */
+.lp-empty{
+  padding:18px; color:var(--lp-muted); text-align:center; border:1px dashed var(--lp-line);
+  border-radius:12px; background:#f9fafb;
+}
+
+/* Aparecer al hacer scroll (Intersection Observer) */
+.ao{ opacity:0; transform:translateY(8px); transition: opacity .45s ease, transform .45s ease }
+.ao.in{ opacity:1; transform:none }
+
+/* Material Symbols minimal si la usas */
+.mi{ font-family:'Material Symbols Outlined', sans-serif; font-variation-settings: 'wght' 500; vertical-align:-2px }
+
   </style>
 
   <section class="cs-wrap full-bleed">
@@ -131,47 +212,47 @@
       <div class="cs-track" id="sliderTrack">
         {{-- Tarjetas de papelería (11) con imágenes de internet (Unsplash) --}}
         <div class="cs-card" data-title="Cuadernos & libretas" data-desc="Tamaños A4/A5, rayado y cuadriculado. Marcas originales.">
-          <img src="https://unsplash.com/photos/m_qYW5r5iWw/download?force=true&w=1200&h=800&fit=crop" alt="Cuadernos y libretas">
+          <img src="https://cdn5.coppel.com/mkp/17561629-1.jpg?iresize=width:846,height:677" alt="Cuadernos y libretas">
           <div class="cs-hover"><span>Ver más</span></div>
         </div>
         <div class="cs-card" data-title="Plumas & marcatextos" data-desc="Tinta gel, roller y permanentes. Sets escolares y de oficina.">
-          <img src="https://unsplash.com/photos/VK620qNCUKo/download?force=true&w=1200&h=800&fit=crop" alt="Plumas y marcatextos">
+          <img src="https://i.pinimg.com/736x/f9/c4/58/f9c458188e6b55170ba586aff21ddab3.jpg" alt="Plumas y marcatextos">
           <div class="cs-hover"><span>Ver más</span></div>
         </div>
         <div class="cs-card" data-title="Engrapadoras & perforadoras" data-desc="Metálicas de alto rendimiento para oficina.">
-          <img src="https://unsplash.com/photos/6WLcOFn4HKE/download?force=true&w=1200&h=800&fit=crop" alt="Engrapadora de oficina">
+          <img src="https://i.pinimg.com/1200x/45/65/57/4565575ad836ed53d1b104fb5ac3f401.jpg" alt="Engrapadora de oficina">
           <div class="cs-hover"><span>Ver más</span></div>
         </div>
         <div class="cs-card" data-title="Organización" data-desc="Folders, clips y archiveros para mantener todo en orden">
-          <img src="https://unsplash.com/photos/SiJt15u6Yw4/download?force=true&w=1200&h=800&fit=crop" alt="Folders y archivos">
+          <img src="https://i.pinimg.com/736x/8b/8a/05/8b8a054b0b816d11d774dbf08b731560.jpg" alt="Folders y archivos">
           <div class="cs-hover"><span>Ver más</span></div>
         </div>
         <div class="cs-card" data-title="Arte & dibujo" data-desc="Acuarelas, pinceles y papeles artísticos.">
-          <img src="https://unsplash.com/photos/W_6LrBZhLJY/download?force=true&w=1200&h=800&fit=crop" alt="Material de arte y dibujo">
+          <img src="https://i.pinimg.com/1200x/da/36/b5/da36b5b96325da41d86166af49c7bf2d.jpg" alt="Material de arte y dibujo">
           <div class="cs-hover"><span>Ver más</span></div>
         </div>
         <div class="cs-card" data-title="Impresión & tintas" data-desc="Cartuchos y tóner originales. Asesoría sin costo.">
-          <img src="https://unsplash.com/photos/wONAIYtLfPc/download?force=true&w=1200&h=800&fit=crop" alt="Tintas y cartuchos para impresora">
+          <img src="https://i.pinimg.com/1200x/d3/6b/49/d36b49eb68359dd27b2abc6235155fc7.jpg" alt="Tintas y cartuchos para impresora">
           <div class="cs-hover"><span>Ver más</span></div>
         </div>
         <div class="cs-card" data-title="Escritorios & accesorios" data-desc="Pads, organizadores y gadgets para productividad.">
-          <img src="https://unsplash.com/photos/df9SD08fQfQ/download?force=true&w=1200&h=800&fit=crop" alt="Accesorios de escritorio y organización">
+          <img src="https://i.pinimg.com/736x/de/6b/51/de6b51ba741fb89dc4296e6bc4aa309f.jpg" alt="Accesorios de escritorio y organización">
           <div class="cs-hover"><span>Ver más</span></div>
         </div>
         <div class="cs-card" data-title="Listas escolares" data-desc="Armamos tu lista completa con entrega rápida.">
-          <img src="https://unsplash.com/photos/yg4cdXN_6P0/download?force=true&w=1200&h=800&fit=crop" alt="Surtido de útiles escolares">
+          <img src="https://i.pinimg.com/736x/80/02/06/800206a7c0c1d577c26eaa740920bd72.jpg" alt="Surtido de útiles escolares">
           <div class="cs-hover"><span>Ver más</span></div>
         </div>
         <div class="cs-card" data-title="Ofertas de temporada" data-desc="Descuentos semanales en papelería y oficina.">
-          <img src="https://unsplash.com/photos/pZiZyRuXJFE/download?force=true&w=1200&h=800&fit=crop" alt="Anuncio de ofertas y rebajas">
+          <img src="https://i.pinimg.com/1200x/c0/cf/68/c0cf68f4508dad4537ade17e062bfb44.jpg" alt="Anuncio de ofertas y rebajas">
           <div class="cs-hover"><span>Ver más</span></div>
         </div>
         <div class="cs-card" data-title="Envío hoy en Toluca*" data-desc="Pedidos antes de la 1:00 pm. Cobertura sujeta a zona.">
-          <img src="https://unsplash.com/photos/kkeHKhLNSXk/download?force=true&w=1200&h=800&fit=crop" alt="Mensajero entregando paquete a domicilio">
+          <img src="https://i.pinimg.com/736x/99/73/ae/9973ae95495ad119d5ee1894ee121f1c.jpg" alt="Mensajero entregando paquete a domicilio">
           <div class="cs-hover"><span>Ver más</span></div>
         </div>
         <div class="cs-card" data-title="Mayoristas & empresas" data-desc="Precios por volumen y facturación inmediata.">
-          <img src="https://unsplash.com/photos/28b8xlTT5t4/download?force=true&w=1200&h=800&fit=crop" alt="Bodega con cajas para mayoreo">
+          <img src="https://i.pinimg.com/1200x/c1/d9/50/c1d9506263dc9c5f9fe4710ec3343de5.jpg" alt="Bodega con cajas para mayoreo">
           <div class="cs-hover"><span>Ver más</span></div>
         </div>
       </div>
@@ -361,13 +442,13 @@
   </section>
 
   {{-- ======= Secciones administrables (LandingSection) ======= --}}
-  @php
-    $sections = \App\Models\LandingSection::with('items')
-                ->where('is_active',true)->orderBy('sort_order')->get();
-  @endphp
-  @foreach($sections as $section)
-    @includeFirst(['landing.render','panel.landing.render'], ['section'=>$section])
-  @endforeach
+@php
+  $sections = \App\Models\LandingSection::with('items')
+              ->where('is_active',true)->orderBy('sort_order')->get();
+@endphp
+@foreach($sections as $section)
+  @includeFirst(['landing.render','panel.landing.render'], ['section'=>$section])
+@endforeach
 
 {{-- ===================== PRODUCT CARDS (Novedades & Ofertas) + ESQUINA REVELABLE ===================== --}}
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@400&display=swap"/>
@@ -903,9 +984,9 @@
 
       {{-- 1. Cuadernos --}}
       <article class="stc-card" active>
-        <img class="stc-bg" src="https://images.unsplash.com/photo-1524578271613-d550eacf6090?q=80&w=1600&auto=format&fit=crop" alt="">
+        <img class="stc-bg" src="https://i.pinimg.com/736x/ee/88/f7/ee88f7cf19772f93fa8b2f0f3c61217c.jpg" alt="">
         <div class="stc-content">
-          <img class="stc-thumb" src="https://images.unsplash.com/photo-1524578271613-d550eacf6090?q=80&w=480&auto=format&fit=crop" alt="">
+          <img class="stc-thumb" src="https://i.pinimg.com/736x/1c/c7/ce/1cc7cebc4cfd9bc33642930bdaf458d7.jpg" alt="">
           <div>
             <h3 class="stc-title">Cuadernos</h3>
             <p class="stc-desc">A4/A5, rayado, cuadriculado y profesionales. Marcas Scribe, Norma y más.</p>
@@ -916,9 +997,9 @@
 
       {{-- 2. Escritura --}}
       <article class="stc-card">
-        <img class="stc-bg" src="https://images.unsplash.com/photo-1526498460520-4c246339dccb?q=80&w=1600&auto=format&fit=crop" alt="">
+        <img class="stc-bg" src="https://i.pinimg.com/736x/8d/c4/76/8dc476ecf6d000208851de99f0695c90.jpg" alt="">
         <div class="stc-content">
-          <img class="stc-thumb" src="https://images.unsplash.com/photo-1526498460520-4c246339dccb?q=80&w=480&auto=format&fit=crop" alt="">
+          <img class="stc-thumb" src="https://ss327.liverpool.com.mx/xl/1135049880.jpg" alt="">
           <div>
             <h3 class="stc-title">Plumas & Marcatextos</h3>
             <p class="stc-desc">Gel, roller, fineliner y permanentes. Sets escolares y de oficina.</p>
@@ -929,9 +1010,9 @@
 
       {{-- 3. Arte & Dibujo --}}
       <article class="stc-card">
-        <img class="stc-bg" src="https://images.unsplash.com/photo-1513364776144-60967b0f800f?q=80&w=1600&auto=format&fit=crop" alt="">
+        <img class="stc-bg" src="https://i.pinimg.com/736x/d1/57/db/d157dbf11fa154179a4a7cce84e9ae6d.jpg" alt="">
         <div class="stc-content">
-          <img class="stc-thumb" src="https://images.unsplash.com/photo-1513364776144-60967b0f800f?q=80&w=480&auto=format&fit=crop" alt="">
+          <img class="stc-thumb" src="https://i.pinimg.com/736x/d9/ff/b8/d9ffb8f88d3121a96df6c8ccfe40f287.jpg" alt="">
           <div>
             <h3 class="stc-title">Arte & Dibujo</h3>
             <p class="stc-desc">Acuarelas, pinceles, papeles artísticos, lápices y marcadores.</p>
@@ -942,9 +1023,9 @@
 
       {{-- 4. Organización --}}
       <article class="stc-card">
-        <img class="stc-bg" src="https://images.unsplash.com/photo-1516542076529-1ea3854896e1?q=80&w=1600&auto=format&fit=crop" alt="">
+        <img class="stc-bg" src="https://i.pinimg.com/736x/5f/80/fd/5f80fdf7dfd375a1f81ab5760abfec7b.jpg" alt="">
         <div class="stc-content">
-          <img class="stc-thumb" src="https://images.unsplash.com/photo-1516542076529-1ea3854896e1?q=80&w=480&auto=format&fit=crop" alt="">
+          <img class="stc-thumb" src="https://i.pinimg.com/1200x/5e/53/ff/5e53ff058344dc39bd500c5951ec4c3c.jpg" alt="">
           <div>
             <h3 class="stc-title">Organización</h3>
             <p class="stc-desc">Folders, carpetas, clips, archiveros y todo para tu escritorio.</p>
@@ -955,9 +1036,9 @@
 
       {{-- 5. Impresión & Tintas --}}
       <article class="stc-card">
-        <img class="stc-bg" src="https://images.unsplash.com/photo-1586861635167-c8a7c4e3f3fa?q=80&w=1600&auto=format&fit=crop" alt="">
+        <img class="stc-bg" src="https://i.pinimg.com/736x/43/76/9e/43769eee587938a55b30b52cdabb985b.jpg" alt="">
         <div class="stc-content">
-          <img class="stc-thumb" src="https://images.unsplash.com/photo-1586861635167-c8a7c4e3f3fa?q=80&w=480&auto=format&fit=crop" alt="">
+          <img class="stc-thumb" src="https://i.pinimg.com/1200x/56/59/42/5659427eb0c1eabfdf9907d23ef2a3ed.jpg" alt="">
           <div>
             <h3 class="stc-title">Impresión & Tintas</h3>
             <p class="stc-desc">Cartuchos y tóner originales. Asesoría para tu modelo y marca.</p>
@@ -1174,4 +1255,21 @@
       setTimeout(() => btn.classList.add('is-added'), 150);
     });
   </script>
+  <script>
+(function(){
+  const obs = 'IntersectionObserver' in window ? new IntersectionObserver((entries, io)=>{
+    entries.forEach(e=>{
+      if(e.isIntersecting){
+        e.target.classList.add('in');
+        io.unobserve(e.target);
+      }
+    });
+  }, {rootMargin:'0px 0px -10% 0px'}) : null;
+
+  document.querySelectorAll('.lp-card.ao').forEach(el=>{
+    if(obs) obs.observe(el); else el.classList.add('in');
+  });
+})();
+</script>
+
 @endsection

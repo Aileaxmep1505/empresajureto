@@ -1,48 +1,61 @@
 @php
-  $id = $it['id'] ?? null;
-  $title = $it['title'] ?? '';
-  $subtitle = $it['subtitle'] ?? '';
-  $cta_text = $it['cta_text'] ?? '';
-  $cta_url = $it['cta_url'] ?? '';
-  $imgUrl = isset($it['image_path']) && $it['image_path'] ? asset('storage/'.$it['image_path']) : asset('images/placeholder.png');
+  // idx: índice del bloque
+  // it:  array con datos del bloque (title, subtitle, cta_text, cta_url, image_path, id)
+  $existing = $it['image_path'] ?? '';
 @endphp
 
-<div class="col-md-4" data-item>
-  <div class="preview-card p-2 h-100">
-    <div class="mb-2">
-      <img data-preview-img class="preview-img" src="{{ $imgUrl }}" alt="preview">
+<div class="item" data-item draggable="true" @if($existing) data-existing="{{ Storage::disk('public')->url($existing) }}" @endif>
+  <div class="item-head">
+    <div class="item-handle" title="Arrastrar para reordenar">
+      <span class="mi">drag_indicator</span>
+      <span class="dots">•••</span>
+      <strong>Bloque</strong>
+    </div>
+    <div>
+      <button type="button" class="item-del" data-delete-item>
+        <span class="mi">delete</span> Eliminar
+      </button>
+    </div>
+  </div>
+
+  <div class="item-body">
+    {{-- Dropzone imagen --}}
+    <div class="drop @if($existing) has-img @endif">
+      <input type="file" accept="image/*" name="items[{{ $idx }}][image]" data-preview>
+      <img src="@if($existing){{ Storage::disk('public')->url($existing) }}@endif" alt="Imagen">
+      <div class="ph">
+        <div class="mi" style="font-size:28px">image</div>
+        <div><strong>Arrastra una imagen</strong> o haz clic para seleccionar</div>
+        <small>JPG/PNG hasta 4 MB</small>
+      </div>
     </div>
 
-    @if($id)
-      <input type="hidden" name="items[{{ $idx }}][id]" value="{{ $id }}">
-      <input type="hidden" name="items[{{ $idx }}][_delete]" value="0">
-    @endif
+    {{-- Campos --}}
+    <div>
+      <div class="ls-field">
+        <label>Título</label>
+        <input class="ls-input" name="items[{{ $idx }}][title]" value="{{ old("items.$idx.title", $it['title'] ?? '') }}" placeholder="Ej. Equipos de laparoscopía">
+      </div>
 
-    <div class="mb-2">
-      <label class="form-label small">Imagen</label>
-      <input type="file" class="form-control" name="items[{{ $idx }}][image]" accept="image/*" data-preview>
+      <div class="ls-field">
+        <label>Subtítulo</label>
+        <textarea class="ls-textarea" rows="2" name="items[{{ $idx }}][subtitle]" placeholder="Texto descriptivo corto">{{ old("items.$idx.subtitle", $it['subtitle'] ?? '') }}</textarea>
+      </div>
+
+      <div class="subgrid">
+        <div class="ls-field">
+          <label>Texto del botón</label>
+          <input class="ls-input" name="items[{{ $idx }}][cta_text]" value="{{ old("items.$idx.cta_text", $it['cta_text'] ?? '') }}" placeholder="Ver más / Comprar ahora">
+        </div>
+        <div class="ls-field">
+          <label>URL del botón</label>
+          <input class="ls-input" type="url" name="items[{{ $idx }}][cta_url]" value="{{ old("items.$idx.cta_url", $it['cta_url'] ?? '') }}" placeholder="https://tusitio.com/ruta">
+        </div>
+      </div>
+
+      {{-- Hidden: id + _delete para soft delete visual --}}
+      <input type="hidden" name="items[{{ $idx }}][id]" value="{{ $it['id'] ?? '' }}">
+      <input type="hidden" name="items[{{ $idx }}][_delete]" value="">
     </div>
-
-    <div class="mb-2">
-      <label class="form-label small">Título</label>
-      <input class="form-control" name="items[{{ $idx }}][title]" value="{{ $title }}">
-    </div>
-
-    <div class="mb-2">
-      <label class="form-label small">Subtítulo</label>
-      <input class="form-control" name="items[{{ $idx }}][subtitle]" value="{{ $subtitle }}">
-    </div>
-
-    <div class="mb-2">
-      <label class="form-label small">Texto del botón</label>
-      <input class="form-control" name="items[{{ $idx }}][cta_text]" value="{{ $cta_text }}" placeholder="Conoce más">
-    </div>
-
-    <div class="mb-2">
-      <label class="form-label small">URL del botón</label>
-      <input class="form-control" name="items[{{ $idx }}][cta_url]" value="{{ $cta_url }}" placeholder="https://...">
-    </div>
-
-    <button type="button" class="btn btn-sm btn-outline-danger w-100" data-delete-item>Quitar</button>
   </div>
 </div>

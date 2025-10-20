@@ -11,6 +11,11 @@ class LandingItem extends Model
         'landing_section_id','image_path','title','subtitle','cta_text','cta_url','sort_order'
     ];
 
+    protected $casts = [
+        'landing_section_id' => 'integer',
+        'sort_order'         => 'integer',
+    ];
+
     public function section(): BelongsTo
     {
         return $this->belongsTo(LandingSection::class,'landing_section_id');

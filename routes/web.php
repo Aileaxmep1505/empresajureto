@@ -70,9 +70,8 @@ Route::get('/', [HomeController::class, 'index'])->name('web.home');
 Route::get('/ventas',      [ShopController::class, 'index'])->name('web.ventas.index');
 Route::get('/ventas/{id}', [ShopController::class, 'show'])->name('web.ventas.show');
 
-Route::get('/contacto',  [ContactController::class, 'show'])->name('web.contacto');
+Route::get('/contacto', [ContactController::class, 'show'])->name('web.contacto');
 Route::post('/contacto', [ContactController::class, 'send'])->name('web.contacto.send');
-
 /* ===== Catálogo público (CatalogItem) ===== */
 Route::prefix('catalogo')->name('web.catalog.')->group(function () {
     Route::get('/',                   [CatalogController::class, 'index'])->name('index'); // listado

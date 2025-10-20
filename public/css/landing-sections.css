@@ -1,0 +1,78 @@
+/* ===== Landing Sections (público) ===== */
+:root{
+  --lp-ink:#0e1726; --lp-muted:#6b7280; --lp-line:#e8eef6;
+  --lp-radius:16px; --lp-shadow:0 18px 50px rgba(2,8,23,.10);
+}
+
+.lp-wrap{margin:clamp(24px,5vw,48px) auto; padding:0 clamp(12px,3vw,16px); max-width:1200px}
+.lp-head{margin-bottom:12px}
+.lp-head h2{font-size:clamp(18px,2vw,22px); color:var(--lp-ink); margin:0}
+
+.lp-stage{
+  border:1px solid var(--lp-line);
+  border-radius:16px;
+  background:
+    radial-gradient(800px 400px at 0% 0%, #f1f6ff 0%, transparent 40%),
+    radial-gradient(800px 400px at 120% -20%, #fff0f5 0%, transparent 40%),
+    #fff;
+  padding:12px;
+}
+
+.lp-grid{display:grid; gap:12px}
+
+/* Plantillas de grid (igual que preview) */
+.lp-grid-banner{grid-template-columns:1fr}
+.lp-grid-1{grid-template-columns:1fr}
+.lp-grid-2{grid-template-columns:repeat(2,1fr)}
+.lp-grid-3{grid-template-columns:repeat(3,1fr)}
+@media (max-width:980px){
+  .lp-grid-2{grid-template-columns:1fr}
+  .lp-grid-3{grid-template-columns:repeat(2,1fr)}
+}
+@media (max-width:560px){
+  .lp-grid-3{grid-template-columns:1fr}
+}
+
+/* Card (igual que preview) */
+.lp-card{
+  position:relative; border-radius:16px; overflow:hidden; background:#fff;
+  border:1px solid #e9eef7; transform:translateZ(0);
+  transition: transform .18s ease, box-shadow .22s ease;
+}
+.lp-card:hover{ transform: translateY(-3px) scale(1.01); box-shadow: var(--lp-shadow); }
+
+.lp-card .img{
+  width:100%; aspect-ratio:16/9; object-fit:cover; display:block; background:#eef2f7;
+}
+
+/* Overlay texto */
+.lp-card .txt{
+  position:absolute; left:0; right:0; bottom:0;
+  padding:16px; color:#fff;
+  background:linear-gradient(180deg, transparent, rgba(0,0,0,.45));
+}
+.lp-card .t1{font-weight:700; font-size:clamp(14px,1.2vw,16px)}
+.lp-card .t2{opacity:.9; font-size:13px; margin-top:2px}
+
+/* CTA pill */
+.lp-card .cta{
+  display:inline-flex; gap:6px; align-items:center;
+  background:rgba(255,255,255,.95); color:#0b1220;
+  border-radius:999px; padding:6px 10px; margin-top:10px; font-size:13px;
+  text-decoration:none; border:1px solid #e5e7eb;
+  transition:transform .15s ease, box-shadow .2s ease, background .2s;
+}
+.lp-card .cta:hover{ transform:translateY(-1px); box-shadow:0 8px 20px rgba(2,8,23,.12); background:#fff }
+
+/* Estado vacío */
+.lp-empty{
+  padding:18px; color:var(--lp-muted); text-align:center; border:1px dashed var(--lp-line);
+  border-radius:12px; background:#f9fafb;
+}
+
+/* Aparecer al hacer scroll (Intersection Observer) */
+.ao{ opacity:0; transform:translateY(8px); transition: opacity .45s ease, transform .45s ease }
+.ao.in{ opacity:1; transform:none }
+
+/* Material Symbols minimal si la usas */
+.mi{ font-family:'Material Symbols Outlined', sans-serif; font-variation-settings: 'wght' 500; vertical-align:-2px }
