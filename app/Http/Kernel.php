@@ -50,24 +50,51 @@ class Kernel extends HttpKernel
      * @var array<string, class-string|string>
      */
     protected $routeMiddleware = [
-        'auth' => \App\Http\Middleware\Authenticate::class,
-        'auth.basic' => \Illuminate\Auth\Middleware\AuthenticateWithBasicAuth::class,
-        'cache.headers' => \Illuminate\Http\Middleware\SetCacheHeaders::class,
-        'can' => \Illuminate\Auth\Middleware\Authorize::class,
-        'guest' => \App\Http\Middleware\RedirectIfAuthenticated::class,
+        'auth'             => \App\Http\Middleware\Authenticate::class,
+        'auth.basic'       => \Illuminate\Auth\Middleware\AuthenticateWithBasicAuth::class,
+        'cache.headers'    => \Illuminate\Http\Middleware\SetCacheHeaders::class,
+        'can'              => \Illuminate\Auth\Middleware\Authorize::class,
+        'guest'            => \App\Http\Middleware\RedirectIfAuthenticated::class,
         'password.confirm' => \Illuminate\Auth\Middleware\RequirePassword::class,
-        'signed' => \Illuminate\Routing\Middleware\ValidateSignature::class,
-        'throttle' => \Illuminate\Routing\Middleware\ThrottleRequests::class,
-        'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
+        'signed'           => \Illuminate\Routing\Middleware\ValidateSignature::class,
+        'throttle'         => \Illuminate\Routing\Middleware\ThrottleRequests::class,
+        'verified'         => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
 
         // --- Custom ---
-        'approved' => \App\Http\Middleware\EnsureUserIsApproved::class,
+        'approved'         => \App\Http\Middleware\EnsureUserIsApproved::class,
 
         // --- Spatie Permission ---
-        'role' => \Spatie\Permission\Middlewares\RoleMiddleware::class,
-        'permission' => \Spatie\Permission\Middlewares\PermissionMiddleware::class,
-        'role_or_permission' => \Spatie\Permission\Middlewares\RoleOrPermissionMiddleware::class,
-        'auth.customer'     => \App\Http\Middleware\AuthenticateCustomer::class,
-        'guest.customer'    => \App\Http\Middleware\RedirectIfCustomerAuthenticated::class,
+        'role'                 => \Spatie\Permission\Middlewares\RoleMiddleware::class,
+        'permission'           => \Spatie\Permission\Middlewares\PermissionMiddleware::class,
+        'role_or_permission'   => \Spatie\Permission\Middlewares\RoleOrPermissionMiddleware::class,
+
+        // --- Clientes (guard: customer) ---
+        'guest.customer'   => \App\Http\Middleware\RedirectIfCustomerAuthenticated::class,
+        'auth.customer'    => \App\Http\Middleware\AuthenticateCustomer::class,
+    ];
+
+    /**
+     * (Opcional en Laravel 10/11) Middleware aliases modernos.
+     * Si tu proyecto tiene esta propiedad, mantenla sincronizada.
+     */
+    protected $middlewareAliases = [
+        'auth'             => \App\Http\Middleware\Authenticate::class,
+        'auth.basic'       => \Illuminate\Auth\Middleware\AuthenticateWithBasicAuth::class,
+        'cache.headers'    => \Illuminate\Http\Middleware\SetCacheHeaders::class,
+        'can'              => \Illuminate\Auth\Middleware\Authorize::class,
+        'guest'            => \App\Http\Middleware\RedirectIfAuthenticated::class,
+        'password.confirm' => \Illuminate\Auth\Middleware\RequirePassword::class,
+        'signed'           => \Illuminate\Routing\Middleware\ValidateSignature::class,
+        'throttle'         => \Illuminate\Routing\Middleware\ThrottleRequests::class,
+        'verified'         => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
+
+        'approved'         => \App\Http\Middleware\EnsureUserIsApproved::class,
+
+        'role'                 => \Spatie\Permission\Middlewares\RoleMiddleware::class,
+        'permission'           => \Spatie\Permission\Middlewares\PermissionMiddleware::class,
+        'role_or_permission'   => \Spatie\Permission\Middlewares\RoleOrPermissionMiddleware::class,
+
+        'guest.customer'   => \App\Http\Middleware\RedirectIfCustomerAuthenticated::class,
+        'auth.customer'    => \App\Http\Middleware\AuthenticateCustomer::class,
     ];
 }

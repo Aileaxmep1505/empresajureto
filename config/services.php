@@ -75,4 +75,7 @@ return [
         'base' => env('SKYDROPX_API_BASE', 'https://api.skydropx.com/v2'),
         'key' => env('SKYDROPX_API_KEY'),
     ],
+    'copomex' => [
+    'token' => env('COPOMEX_TOKEN'), // opcional
+],
 ];

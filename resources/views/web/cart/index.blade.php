@@ -35,6 +35,9 @@
   .btn-danger{background:#fff;border:1px solid #fee2e2;color:#b91c1c}
   .btn-danger:hover{background:#fff5f5}
 
+  .input{border:1px solid var(--line);border-radius:12px;padding:10px 12px;outline:0;background:#fff;transition:box-shadow .15s ease}
+  .input:focus{box-shadow:var(--focus)}
+
   .table{width:100%;border-collapse:collapse}
   .table th,.table td{padding:14px;border-bottom:1px solid var(--line);vertical-align:middle}
   .table th{font-size:.9rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.02em}
@@ -81,13 +84,16 @@
 
   @keyframes pulseRow{0%{background:transparent}50%{background:#f7fbff}100%{background:transparent}}
   .pulse{animation:pulseRow .8s ease}
+
+  .note{font-size:.85rem;color:var(--muted)}
 </style>
 
 <div class="wrap">
-  <div style="display:flex;align-items:center;gap:12px;margin:6px 0 18px;">
+  <div style="display:flex;align-items:center;gap:12px;margin:6px 0 6px;">
     <h1 style="font-weight:800;margin:0;font-size:clamp(24px,3vw,32px)">Tu carrito</h1>
     <span class="muted" id="cartBadgePill">{{ $totals['count'] }} artículo(s)</span>
   </div>
+  <div class="note" style="margin-bottom:16px;">Los precios ya incluyen IVA (16%).</div>
 
   <div class="grid">
     {{-- Lista de productos --}}
@@ -126,7 +132,7 @@
                 <td class="cell-qty" style="text-align:center">
                   <div class="qty">
                     <button type="button" aria-label="Disminuir" onclick="cartMinus({{ $row['id'] }})">−</button>
-                    <input type="number" min="1" max="999" value="{{ $row['qty'] }}" onchange="cartSet({{ $row['id'] }}, this.value)">
+                    <input class="input" type="number" min="1" max="999" value="{{ $row['qty'] }}" onchange="cartSet({{ $row['id'] }}, this.value)">
                     <button type="button" aria-label="Aumentar" onclick="cartPlus({{ $row['id'] }})">+</button>
                   </div>
                 </td>
@@ -167,7 +173,7 @@
             <span class="spark">✨</span>
             <span>¡Casi lo logras! Estás a 
               <strong id="freeMissing">${{ number_format($faltan,2) }}</strong> 
-              de obtener <span style="text-decoration:underline">envío gratis</span>.
+              de obtener envío gratis.
             </span>
           </div>
           <div class="progress" aria-label="Progreso hacia envío gratis" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ $pct }}">
@@ -184,8 +190,10 @@
         <div class="kv" style="margin-bottom:6px">
           <div class="muted">Artículos</div><div id="sumCount">{{ $totals['count'] }}</div>
         </div>
-        <div class="kv"><div class="muted">Subtotal</div><div id="sumSubtotal">${{ number_format($totals['subtotal'],2) }}</div></div>
-        <div class="kv"><div class="muted">IVA (16%)</div><div id="sumIva">${{ number_format($totals['iva'],2) }}</div></div>
+        <div class="kv">
+          <div class="muted">Subtotal</div>
+          <div id="sumSubtotal">${{ number_format($totals['subtotal'],2) }}</div>
+        </div>
 
         {{-- Bloque: Envío --}}
         <div class="kv" style="margin-top:6px"><div class="muted">Envío</div><div id="sumEnvio">$0.00</div></div>
@@ -217,9 +225,10 @@
           <div style="font-weight:900">Total</div>
           <div id="sumTotal" class="total" aria-live="polite">${{ number_format($totals['total'],2) }}</div>
         </div>
+        <div class="note" style="margin-top:6px;">Precios ya incluyen IVA (16%).</div>
 
         <div style="display:flex;flex-direction:column;gap:10px;margin-top:14px">
-          <a class="btn btn-primary" href="{{ route('web.cart.checkout') }}">Proceder al pago</a>
+          <a class="btn btn-primary" href="{{ route('checkout.start') }}">Proceder al pago</a>
           <a class="btn btn-ghost" href="{{ route('web.contacto') }}">Cotizar por WhatsApp/Correo</a>
         </div>
       </div>
@@ -244,11 +253,10 @@
   function updateSummary(totals){
     document.getElementById('sumCount').textContent    = totals.count;
     document.getElementById('sumSubtotal').textContent = totals.subtotal.toLocaleString('es-MX',{style:'currency',currency:'MXN'});
-    document.getElementById('sumIva').textContent      = totals.iva.toLocaleString('es-MX',{style:'currency',currency:'MXN'});
 
     toggleFreeUI(totals.subtotal);
 
-    const base = Number(totals.total);
+    const base = Number(totals.total); // total YA incluye IVA
     const elTotal = document.getElementById('sumTotal');
     elTotal.dataset.baseTotal = String(base.toFixed(2));
     const newTotal = base + (window.shippingPrice || 0);
@@ -307,7 +315,7 @@
     }
   }
 
-  // ---- Envío (Skydropx + reglas)
+  // ---- Envío
   let shippingPrice = 0;
   let shippingLabel = 'Sin seleccionar';
 
@@ -405,7 +413,7 @@
   // Init
   (function initPage(){
     const elTot = document.getElementById('sumTotal');
-    elTot.dataset.baseTotal = '{{ number_format($totals["total"],2,".","") }}';
+    elTot.dataset.baseTotal = '{{ number_format($totals["total"],2,".","") }}'; // incluye IVA
     toggleFreeUI({{ json_encode($totals['subtotal']) }});
     const seed = document.getElementById('ship-cp')?.value || '';
     if (seed && seed.length >= 5 && {{ json_encode($totals['subtotal']) }} < FREE_SHIP) refreshShipping();

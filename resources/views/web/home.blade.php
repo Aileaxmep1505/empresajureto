@@ -79,69 +79,7 @@
     .brand-item:hover{ opacity:1; filter:grayscale(0%); transform:translateY(-1px); }
     .brand-item img{ max-height:100%; max-width:140px; object-fit:contain; display:block; }
 
-    /* ===== PRODUCTO: Card estilo "Paul Atreides" (sección Destacados/Novedades) ===== */
-    .product-card{
-      --bg:#fff; --title:#fff; --title-hover:#000; --text:#666;
-      --btn:#eee; --btn-hover:#ddd;
-      background:var(--bg); border-radius:24px; padding:8px; height:30rem; width:100%;
-      position:relative; overflow:clip; box-shadow:var(--shadow); display:block;
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-      outline:none;
-    }
-    .product-card.dark{ --bg:#222; --title:#fff; --title-hover:#fff; --text:#ccc; --btn:#555; --btn-hover:#444; }
-    .product-card::before{
-      content:""; position:absolute; width:calc(100% - 1rem); height:30%;
-      bottom:.5rem; left:.5rem; border-radius:0 0 24px 24px;
-      mask:linear-gradient(#0000, #000f 80%); -webkit-mask:linear-gradient(#0000, #000f 80%);
-      backdrop-filter: blur(16px); translate:0 0; transition: translate .25s;
-    }
-    .product-card > .pc-img{
-      width:100%; aspect-ratio:2/3; object-fit:cover; object-position:50% 5%;
-      border-radius:20px; display:block; transition: aspect-ratio .25s, object-position .5s;
-      background:#f6f8fc;
-    }
-    .pc-badges{ position:absolute; top:12px; left:12px; display:flex; gap:8px; z-index:2; }
-    .pc-badge{
-      font-weight:800; font-size:12px; padding:6px 10px; border-radius:999px;
-      backdrop-filter:saturate(1.6) blur(4px);
-      border:1px solid rgba(255,255,255,.6); box-shadow:0 2px 10px rgba(0,0,0,.05);
-    }
-    .pc-badge--new{ background:rgba(110,168,254,.18); color:#1d4ed8; }
-    .pc-badge--sale{ background:rgba(22,163,74,.18); color:#166534; }
-    .pc-badge--off{ background:rgba(234,179,8,.18); color:#854d0e; }
-    .product-card > section{ margin:1rem; height:calc(33.333% - 1rem); display:flex; flex-direction:column; }
-    .product-card h3{
-      margin:0 0 1rem 0; font-size:1.15rem; line-height:1.2; font-weight:900;
-      color:var(--title); translate:0 -200%; opacity:1; transition: color .5s, margin .25s, opacity 1s, translate .25s;
-      display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
-    }
-    .product-card p{
-      font-size:.95rem; line-height:1.35; color:var(--text); margin:0;
-      translate:0 100%; opacity:0; transition: margin .25s, opacity 1s .2s, translate .25s .2s;
-    }
-    .pc-foot{ flex:1; display:flex; justify-content:space-between; align-items:flex-end; gap:8px;
-      translate:0 100%; opacity:0; transition: translate .25s .2s, opacity 1s; }
-    .pc-tag{ align-self:center; color:var(--title-hover); font-weight:800; font-size:.9rem; }
-    .pc-btn{
-      border:1px solid transparent; border-radius:20px 20px 24px 20px; font-weight:800;
-      font-size:1rem; padding:1rem 1.5rem 1rem 2.75rem; background:var(--btn);
-      transition: background .33s; outline-offset:2px; position:relative; color:var(--title-hover);
-    }
-    .pc-btn::before, .pc-btn::after{
-      content:""; width:.85rem; height:.1rem; background:currentColor; position:absolute; top:50%; left:1.33rem; border-radius:1rem;
-    }
-    .pc-btn::after{ rotate:90deg; transition: rotate .15s; }
-    .pc-btn.is-added::after{ rotate:0deg; }
-    .pc-btn:hover{ background:var(--btn-hover); }
-    .product-card:hover::before, .product-card:focus-within::before{ translate:0 100%; }
-    .product-card:hover > .pc-img, .product-card:focus-within > .pc-img{ aspect-ratio:1/1; object-position:50% 10%; }
-    .product-card:hover h3, .product-card:hover p,
-    .product-card:focus-within h3, .product-card:focus-within p{ translate:0 0; margin-bottom:.5rem; opacity:1; }
-    .product-card:hover h3, .product-card:focus-within h3{ color:var(--title-hover); }
-    .product-card:hover .pc-foot, .product-card:focus-within .pc-foot{ translate:0 0; opacity:1; }
-    .pc-price{ font-weight:900; }
-    .pc-price--old{ color:var(--muted); text-decoration:line-through; font-weight:700; margin-left:6px; font-size:.9rem; }
-  </style>
+ 
 
   {{-- ====== SLIDER 3D: Papelería (FULL-BLEED y full-height) ====== --}}
   <style>
@@ -431,142 +369,382 @@
     @includeFirst(['landing.render','panel.landing.render'], ['section'=>$section])
   @endforeach
 
-  {{-- ======= Productos del catálogo (Destacados + Novedades) ======= --}}
-  @php
-    $featured = \App\Models\CatalogItem::published()->featured()->ordered()->take(8)->get();
-    $latest   = \App\Models\CatalogItem::published()->ordered()->take(12)->get();
+{{-- ===================== PRODUCT CARDS (Novedades & Ofertas) + ESQUINA REVELABLE ===================== --}}
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@400&display=swap"/>
 
-    $isNew = function($item){
-      try{
-        return $item->published_at && \Illuminate\Support\Carbon::parse($item->published_at)->gte(now()->subDays(30));
-      }catch(\Throwable $e){ return false; }
-    };
-    $discountPct = function($item){
-      if(is_null($item->sale_price) || !$item->price || $item->sale_price >= $item->price) return null;
-      $pct = round(100 - (($item->sale_price / $item->price) * 100));
-      return max(1, $pct);
-    };
-  @endphp
+<style>
+/* === NAMESPACE: .pcards === */
+.pcards{
+  --ink:#0f172a; --muted:#64748b; --line:#e5e7eb; --ok:#16a34a;
+  --shadow:0 14px 32px rgba(2,6,23,.08);
+  --chip-new:rgba(59,130,246,.18); --chip-new-ink:#1d4ed8;
+  --chip-sale:rgba(34,197,94,.18);  --chip-sale-ink:#166534;
+  --chip-off:rgba(234,179,8,.18);   --chip-off-ink:#854d0e;
+}
+.pcards *{box-sizing:border-box}
+.pcards h1,.pcards h2,.pcards h3,.pcards h4,.pcards p{margin:0}
 
-  @if($featured->count())
-    <div class="container" style="margin-top:24px;">
-      <div style="display:flex;justify-content:space-between;align-items:end;gap:10px;flex-wrap:wrap;">
-        <h2 style="margin:0;font-weight:800;color:var(--ink);">Destacados</h2>
-        <a class="btn btn-ghost" href="{{ route('web.catalog.index') }}">Ver catálogo</a>
+/* Wrap + Head */
+.pcards .pcards-wrap{width:100vw;margin-left:calc(50% - 50vw);margin-right:calc(50% - 50vw);padding:20px 14px;background:#fff}
+.pcards .pcards-head{max-width:1400px;margin:auto;display:flex;justify-content:space-between;align-items:end;gap:10px}
+.pcards .pcards-head h2{color:var(--ink);font-weight:900;font-size:clamp(22px,3vw,32px)}
+
+/* Grid */
+.pcards .pcards-grid{max-width:1400px;margin:12px auto 6px;display:grid;gap:16px;grid-template-columns:repeat(12,1fr)}
+.pcards .pc-col{grid-column: span 3 / span 3}
+@media (max-width:1100px){ .pcards .pc-col{grid-column: span 4 / span 4} }
+@media (max-width:780px){  .pcards .pc-col{grid-column: span 6 / span 6} }
+@media (max-width:520px){  .pcards .pc-col{grid-column: span 12 / span 12} }
+
+/* Card */
+.pcards .pcard{
+  position:relative; width:100%; height:360px; border-radius:16px; overflow:hidden;
+  border:1px solid var(--line); background:#fff; box-shadow:var(--shadow); display:flex; flex-direction:column;
+}
+
+/* TOP (imagen) */
+.pcards .pc-top{position:relative; flex:1 1 auto; min-height:72%; background:#f6f8fc; overflow:hidden}
+.pcards .pc-top img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block}
+/* Si NO quieres la “mordida” blanca inferior, la quitamos: */
+.pcards .pc-top::after{ content:none !important; }
+
+/* Badges */
+.pcards .pc-badges{position:absolute; top:10px; left:10px; display:flex; gap:6px; z-index:3}
+.pcards .pc-badge{font-size:.72rem; font-weight:800; padding:.35rem .55rem; border-radius:999px; backdrop-filter:saturate(1.3) blur(4px); border:1px solid rgba(255,255,255,.55)}
+.pcards .pc-new{  background:var(--chip-new);  color:var(--chip-new-ink) }
+.pcards .pc-sale{ background:var(--chip-sale); color:var(--chip-sale-ink)}
+.pcards .pc-off{  background:var(--chip-off);  color:var(--chip-off-ink) }
+
+/* ====== ESQUINA REVELABLE (arriba derecha) ====== */
+.pcards .pc-corner{
+  position:absolute; top:-70px; right:-70px; width:140px; height:140px; background:#92879B;
+  border-radius:0 0 200px 200px; z-index:4;
+  transition: all .45s ease, border-radius 1.2s ease, top .7s ease;
+  overflow:hidden;
+}
+.pcards .pc-corner__icon{ position:absolute; right:85px; top:85px; color:#fff; opacity:1; pointer-events:none; }
+.pcards .pc-corner__panel{
+  position:absolute; inset:0; padding:12px 14px 14px; color:#fff; opacity:0; transform:translateY(-40%);
+  transition:opacity .25s ease, transform .5s cubic-bezier(.2,.7,.2,1);
+  display:flex; flex-direction:column; gap:6px;
+}
+.pcards .pc-corner__panel h4{font-size:1rem;font-weight:800}
+.pcards .pc-corner__list{font-size:.85rem; line-height:1.35; margin:0; padding-left:1rem}
+.pcards .pc-corner__close{
+  position:absolute; top:8px; right:8px; background:rgba(255,255,255,.18); border:0; color:#fff; border-radius:50%;
+  width:28px; height:28px; display:flex; align-items:center; justify-content:center; cursor:pointer;
+}
+
+/* hover/focus abre */
+.pcards .pcard:hover .pc-corner,
+.pcards .pcard:focus-within .pc-corner,
+.pcards .pc-corner.is-open{ top:0; right:0; width:100%; height:78%; border-radius:0; }
+.pcards .pcard:hover .pc-corner__icon,
+.pcards .pcard:focus-within .pc-corner__icon,
+.pcards .pc-corner.is-open .pc-corner__icon{ opacity:0; right:15px; top:15px }
+.pcards .pcard:hover .pc-corner__panel,
+.pcards .pcard:focus-within .pc-corner__panel,
+.pcards .pc-corner.is-open .pc-corner__panel{ opacity:1; transform:translateY(0) }
+
+/* BOTTOM (slide) */
+.pcards .pc-bottom{position:relative; height:28%; background:#fff; border-top:1px solid var(--line); width:200%; transition:transform .45s cubic-bezier(.2,.7,.2,1)}
+.pcards .pc-bottom.is-added{ transform: translateX(-50%) }
+.pcards .pc-left,.pcards .pc-right{position:relative; width:50%; height:100%; float:left; display:flex}
+.pcards .pc-left{ background:#f8fafc }
+.pcards .pc-right{ background:#dcfce7; color:#14532d }
+
+/* Left content */
+.pcards .pc-details{padding:10px; flex:1 1 auto; display:flex; flex-direction:column; gap:4px}
+.pcards .pc-name{font-weight:900; color:var(--ink); font-size:.98rem; line-height:1.25; display:-webkit-box; -webkit-line-clamp:1; -webkit-box-orient:vertical; overflow:hidden}
+.pcards .pc-desc{font-size:.86rem; color:#475569; line-height:1.35; display:-webkit-box; -webkit-line-clamp:1; -webkit-box-orient:vertical; overflow:hidden}
+.pcards .pc-price{margin-top:.25rem; display:flex; align-items:baseline; gap:6px}
+.pcards .pc-price .now{font-weight:900; color:var(--ok)}
+.pcards .pc-price .old{color:#94a3b8; text-decoration:line-through; font-weight:700; font-size:.9rem}
+
+/* Botón Agregar */
+.pcards .pc-buy{width:30%; min-width:76px; border-left:1px solid var(--line); display:flex; align-items:center; justify-content:center; background:#fff}
+.pcards .pc-btn{border:0; background:#0f172a; color:#fff; width:48px; height:48px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 10px 24px rgba(2,6,23,.18); transition:transform .2s ease}
+.pcards .pc-btn:active{ transform: scale(.96) }
+.pcards .material-symbols-outlined{ font-size:26px; line-height:1 }
+
+/* Right (added) */
+.pcards .pc-done,.pcards .pc-remove{width:30%; min-width:86px; display:flex; align-items:center; justify-content:center}
+.pcards .pc-done{ border-right:1px solid rgba(20,83,45,.22) }
+.pcards .pc-remove{ background:#fecaca; color:#7f1d1d; border:0; cursor:pointer }
+.pcards .pc-remove:hover{ background:#fca5a5 }
+.pcards .pc-right .pc-details{padding:14px; flex:1 1 auto; display:flex; flex-direction:column; justify-content:center; gap:6px}
+.pcards .pc-right .pc-title{font-weight:900; font-size:1rem}
+.pcards .pc-right .pc-msg{font-size:.92rem}
+
+/* Responsive tweaks */
+@media (max-width:640px){
+  .pcards .pcard{height:520px}
+  .pcards .pc-desc{-webkit-line-clamp:2}
+  .pcards .pcard:hover .pc-corner,
+  .pcards .pcard:focus-within .pc-corner,
+  .pcards .pc-corner.is-open{ height:70% }
+}
+</style>
+
+@php
+  // Colecciones
+  $novedades = \App\Models\CatalogItem::published()
+                ->when(\Schema::hasColumn('catalog_items','published_at'),
+                       fn($q) => $q->orderByDesc('published_at'))
+                ->ordered()->take(12)->get();
+
+  $ofertas = \App\Models\CatalogItem::published()
+              ->whereNotNull('sale_price')
+              ->whereColumn('sale_price','<','price')
+              ->ordered()->take(12)->get();
+
+  $isNew = fn($i) => ($i->published_at ?? null) && \Illuminate\Support\Carbon::parse($i->published_at)->gte(now()->subDays(30));
+  $discountPct = function($i){
+    return (!is_null($i->sale_price) && $i->price && $i->sale_price < $i->price)
+      ? max(1, round(100 - (($i->sale_price/$i->price)*100)))
+      : null;
+  };
+@endphp
+
+@if($novedades->count() || $ofertas->count())
+<section class="pcards">
+  <div class="pcards-wrap">
+
+    {{-- ===== Novedades ===== --}}
+    @if($novedades->count())
+      <div class="pcards-head">
+        <h2>Novedades</h2>
+        <a href="{{ route('web.catalog.index') }}" class="btn btn-ghost">Ver todo</a>
       </div>
+      <div class="pcards-grid">
+        @foreach($novedades as $p)
+          @php
+            $off  = $discountPct($p);
+            $img  = $p->image_url ?: asset('images/placeholder.png');
+            $desc = $p->excerpt ?: \Illuminate\Support\Str::limit(strip_tags($p->description ?? ''), 120);
+          @endphp
+          <div class="pc-col">
+            <article class="pcard">
+              <div class="pc-top">
+                <div class="pc-badges">
+                  @if($isNew($p))               <span class="pc-badge pc-new">Nuevo</span> @endif
+                  @if(!is_null($p->sale_price))  <span class="pc-badge pc-sale">Oferta</span> @endif
+                  @if($off)                      <span class="pc-badge pc-off">-{{ $off }}%</span> @endif
+                </div>
+                <a href="{{ route('web.catalog.show',$p) }}">
+                  <img src="{{ $img }}" alt="{{ $p->name }}" loading="lazy"
+                       onerror="this.onerror=null;this.src='{{ asset('images/placeholder.png') }}'">
+                </a>
 
-      <div class="grid" style="margin-top:12px;">
-        @foreach($featured as $p)
-          @php $off = $discountPct($p); @endphp
-          <div class="col-3">
-            <article class="product-card" tabindex="0">
-              {{-- Badges --}}
-              <div class="pc-badges">
-                @if($isNew($p)) <span class="pc-badge pc-badge--new">Nuevo</span> @endif
-                @if(!is_null($p->sale_price)) <span class="pc-badge pc-badge--sale">Oferta</span> @endif
-                @if($off) <span class="pc-badge pc-badge--off">-{{ $off }}%</span> @endif
+                {{-- Esquina revelable --}}
+                <aside class="pc-corner" data-corner>
+                  <div class="pc-corner__icon"><span class="material-symbols-outlined">info</span></div>
+                  <div class="pc-corner__panel">
+                    <button class="pc-corner__close" type="button" title="Cerrar" data-corner-close>
+                      <span class="material-symbols-outlined" style="font-size:18px">close</span>
+                    </button>
+                    <h4>{{ $p->brand ?: 'Detalles' }}</h4>
+                    <ul class="pc-corner__list">
+                      @if($p->sku)<li><strong>SKU:</strong> {{ $p->sku }}</li>@endif
+                      @if(!empty($p->category?->name))<li><strong>Categoría:</strong> {{ $p->category->name }}</li>@endif
+                      @if(!is_null($p->stock))<li><strong>Stock:</strong> {{ $p->stock }}</li>@endif
+                      <li><strong>Precio:</strong>
+                        @if(!is_null($p->sale_price))
+                          ${{ number_format($p->sale_price,2) }} <small style="opacity:.8">({{ number_format($p->price,2) }} antes)</small>
+                        @else
+                          ${{ number_format($p->price,2) }}
+                        @endif
+                      </li>
+                    </ul>
+                  </div>
+                </aside>
               </div>
 
-              {{-- Imagen --}}
-              <a href="{{ route('web.catalog.show', $p) }}" aria-label="Ver {{ $p->name }}">
-                <img class="pc-img"
-                     src="{{ $p->image_url ?: asset('images/placeholder.png') }}"
-                     alt="{{ $p->name }}"
-                     loading="lazy"
-                     onerror="this.onerror=null;this.src='{{ asset('images/placeholder.png') }}'">
-              </a>
-
-              {{-- Cuerpo --}}
-              <section>
-                <h3 title="{{ $p->name }}">
-                  <a href="{{ route('web.catalog.show', $p) }}" style="color:inherit; text-decoration:none;">{{ $p->name }}</a>
-                </h3>
-
-                <p>
-                  @if(!is_null($p->sale_price))
-                    <span class="pc-price" style="color:var(--success)">${{ number_format($p->sale_price,2) }}</span>
-                    <span class="pc-price--old">${{ number_format($p->price,2) }}</span>
-                  @else
-                    <span class="pc-price">${{ number_format($p->price,2) }}</span>
-                  @endif
-                </p>
-
-                <div class="pc-foot">
-                  <div class="pc-tag">SKU: {{ $p->sku ?: '—' }}</div>
-                  <form action="{{ route('web.cart.add') }}" method="POST"
-                        onsubmit="this.querySelector('.pc-btn').classList.add('is-added')">
-                    @csrf
-                    <input type="hidden" name="catalog_item_id" value="{{ $p->id }}">
-                    <button type="submit" class="pc-btn" aria-label="Añadir {{ $p->name }} al carrito">
-                      Añadir
-                    </button>
-                  </form>
+              <div class="pc-bottom" id="pcb-nov-{{ $p->id }}">
+                <div class="pc-left">
+                  <div class="pc-details">
+                    <h3 class="pc-name"><a href="{{ route('web.catalog.show',$p) }}" style="color:inherit;text-decoration:none">{{ $p->name }}</a></h3>
+                    @if($desc)<p class="pc-desc">{{ $desc }}</p>@endif
+                    <div class="pc-price">
+                      @if(!is_null($p->sale_price))
+                        <span class="now">${{ number_format($p->sale_price,2) }}</span>
+                        <span class="old">${{ number_format($p->price,2) }}</span>
+                      @else
+                        <span class="now" style="color:var(--ink)">${{ number_format($p->price,2) }}</span>
+                      @endif
+                    </div>
+                  </div>
+                  <div class="pc-buy">
+                    <form action="{{ route('web.cart.add') }}" method="POST" data-pc-cart data-target="pcb-nov-{{ $p->id }}">
+                      @csrf
+                      <input type="hidden" name="catalog_item_id" value="{{ $p->id }}">
+                      <button type="submit" class="pc-btn" aria-label="Agregar {{ $p->name }} al carrito">
+                        <span class="material-symbols-outlined">add_shopping_cart</span>
+                      </button>
+                    </form>
+                  </div>
                 </div>
-              </section>
+
+                <div class="pc-right">
+                  <div class="pc-done"><span class="material-symbols-outlined">check</span></div>
+                  <div class="pc-details">
+                    <h4 class="pc-title">¡Listo!</h4>
+                    <p class="pc-msg">Se agregó al carrito</p>
+                  </div>
+                  <button type="button" class="pc-remove" data-pc-close data-target="pcb-nov-{{ $p->id }}">
+                    <span class="material-symbols-outlined">close</span>
+                  </button>
+                </div>
+              </div>
             </article>
           </div>
         @endforeach
       </div>
-    </div>
-  @endif
+    @endif
 
-  @if($latest->count())
-    <div class="container" style="margin-top:26px;">
-      <h2 style="margin:0 0 12px;font-weight:800;color:var(--ink);">Novedades</h2>
-      <div class="grid">
-        @foreach($latest as $p)
-          @php $off = $discountPct($p); @endphp
-          <div class="col-3">
-            <article class="product-card" tabindex="0">
-              {{-- Badges --}}
-              <div class="pc-badges">
-                @if($isNew($p)) <span class="pc-badge pc-badge--new">Nuevo</span> @endif
-                @if(!is_null($p->sale_price)) <span class="pc-badge pc-badge--sale">Oferta</span> @endif
-                @if($off) <span class="pc-badge pc-badge--off">-{{ $off }}%</span> @endif
+    {{-- ===== Ofertas ===== --}}
+    @if($ofertas->count())
+      <div class="pcards-head" style="margin-top:10px">
+        <h2>Ofertas</h2>
+        <a href="{{ route('web.catalog.index', ['q'=>'oferta']) }}" class="btn btn-ghost">Ver todas</a>
+      </div>
+      <div class="pcards-grid">
+        @foreach($ofertas as $p)
+          @php
+            $off  = $discountPct($p);
+            $img  = $p->image_url ?: asset('images/placeholder.png');
+            $desc = $p->excerpt ?: \Illuminate\Support\Str::limit(strip_tags($p->description ?? ''), 120);
+          @endphp
+          <div class="pc-col">
+            <article class="pcard">
+              <div class="pc-top">
+                <div class="pc-badges">
+                  @if($isNew($p))               <span class="pc-badge pc-new">Nuevo</span> @endif
+                  @if(!is_null($p->sale_price))  <span class="pc-badge pc-sale">Oferta</span> @endif
+                  @if($off)                      <span class="pc-badge pc-off">-{{ $off }}%</span> @endif
+                </div>
+                <a href="{{ route('web.catalog.show',$p) }}">
+                  <img src="{{ $img }}" alt="{{ $p->name }}" loading="lazy"
+                       onerror="this.onerror=null;this.src='{{ asset('images/placeholder.png') }}'">
+                </a>
+
+                <aside class="pc-corner" data-corner>
+                  <div class="pc-corner__icon"><span class="material-symbols-outlined">info</span></div>
+                  <div class="pc-corner__panel">
+                    <button class="pc-corner__close" type="button" title="Cerrar" data-corner-close>
+                      <span class="material-symbols-outlined" style="font-size:18px">close</span>
+                    </button>
+                    <h4>{{ $p->brand ?: 'Detalles' }}</h4>
+                    <ul class="pc-corner__list">
+                      @if($p->sku)<li><strong>SKU:</strong> {{ $p->sku }}</li>@endif
+                      @if(!empty($p->category?->name))<li><strong>Categoría:</strong> {{ $p->category->name }}</li>@endif
+                      @if(!is_null($p->stock))<li><strong>Stock:</strong> {{ $p->stock }}</li>@endif
+                      <li><strong>Precio:</strong>
+                        @if(!is_null($p->sale_price))
+                          ${{ number_format($p->sale_price,2) }} <small style="opacity:.8">({{ number_format($p->price,2) }} antes)</small>
+                        @else
+                          ${{ number_format($p->price,2) }}
+                        @endif
+                      </li>
+                    </ul>
+                  </div>
+                </aside>
               </div>
 
-              {{-- Imagen --}}
-              <a href="{{ route('web.catalog.show', $p) }}" aria-label="Ver {{ $p->name }}">
-                <img class="pc-img"
-                     src="{{ $p->image_url ?: asset('images/placeholder.png') }}"
-                     alt="{{ $p->name }}"
-                     loading="lazy"
-                     onerror="this.onerror=null;this.src='{{ asset('images/placeholder.png') }}'">
-              </a>
-
-              {{-- Cuerpo --}}
-              <section>
-                <h3 title="{{ $p->name }}">
-                  <a href="{{ route('web.catalog.show', $p) }}" style="color:inherit; text-decoration:none;">{{ $p->name }}</a>
-                </h3>
-
-                <p>
-                  @if(!is_null($p->sale_price))
-                    <span class="pc-price" style="color:var(--success)">${{ number_format($p->sale_price,2) }}</span>
-                    <span class="pc-price--old">${{ number_format($p->price,2) }}</span>
-                  @else
-                    <span class="pc-price">${{ number_format($p->price,2) }}</span>
-                  @endif
-                </p>
-
-                <div class="pc-foot">
-                  <div class="pc-tag">SKU: {{ $p->sku ?: '—' }}</div>
-                  <form action="{{ route('web.cart.add') }}" method="POST"
-                        onsubmit="this.querySelector('.pc-btn').classList.add('is-added')">
-                    @csrf
-                    <input type="hidden" name="catalog_item_id" value="{{ $p->id }}">
-                    <button type="submit" class="pc-btn" aria-label="Añadir {{ $p->name }} al carrito">
-                      Añadir
-                    </button>
-                  </form>
+              <div class="pc-bottom" id="pcb-off-{{ $p->id }}">
+                <div class="pc-left">
+                  <div class="pc-details">
+                    <h3 class="pc-name"><a href="{{ route('web.catalog.show',$p) }}" style="color:inherit;text-decoration:none">{{ $p->name }}</a></h3>
+                    @if($desc)<p class="pc-desc">{{ $desc }}</p>@endif
+                    <div class="pc-price">
+                      @if(!is_null($p->sale_price))
+                        <span class="now">${{ number_format($p->sale_price,2) }}</span>
+                        <span class="old">${{ number_format($p->price,2) }}</span>
+                      @else
+                        <span class="now" style="color:var(--ink)">${{ number_format($p->price,2) }}</span>
+                      @endif
+                    </div>
+                  </div>
+                  <div class="pc-buy">
+                    <form action="{{ route('web.cart.add') }}" method="POST" data-pc-cart data-target="pcb-off-{{ $p->id }}">
+                      @csrf
+                      <input type="hidden" name="catalog_item_id" value="{{ $p->id }}">
+                      <button type="submit" class="pc-btn" aria-label="Agregar {{ $p->name }} al carrito">
+                        <span class="material-symbols-outlined">add_shopping_cart</span>
+                      </button>
+                    </form>
+                  </div>
                 </div>
-              </section>
+
+                <div class="pc-right">
+                  <div class="pc-done"><span class="material-symbols-outlined">check</span></div>
+                  <div class="pc-details">
+                    <h4 class="pc-title">¡Listo!</h4>
+                    <p class="pc-msg">Se agregó al carrito</p>
+                  </div>
+                  <button type="button" class="pc-remove" data-pc-close data-target="pcb-off-{{ $p->id }}">
+                    <span class="material-symbols-outlined">close</span>
+                  </button>
+                </div>
+              </div>
             </article>
           </div>
         @endforeach
       </div>
-    </div>
-  @endif
+    @endif
+
+  </div>
+</section>
+@endif
+
+<script>
+/* Namespace .pcards – sin jQuery */
+(() => {
+  const root = document.querySelector('.pcards');
+  if(!root) return;
+
+  // Slide added/close
+  root.addEventListener('click', e => {
+    const closeBtn = e.target.closest('[data-pc-close]');
+    if(closeBtn){
+      const id = closeBtn.getAttribute('data-target');
+      const panel = root.querySelector('#'+CSS.escape(id));
+      if(panel) panel.classList.remove('is-added');
+    }
+  });
+  root.querySelectorAll('form[data-pc-cart]').forEach(form => {
+    form.addEventListener('submit', e => {
+      e.preventDefault();
+      const id = form.getAttribute('data-target');
+      const panel = root.querySelector('#'+CSS.escape(id));
+      if(panel) panel.classList.add('is-added');
+      setTimeout(() => form.submit(), 320);
+    });
+  });
+
+  // Esquina revelable: click/focus en móvil, hover en desktop
+  root.addEventListener('click', e => {
+    const corner = e.target.closest('[data-corner]');
+    const close  = e.target.closest('[data-corner-close]');
+    if(corner && !close){
+      corner.classList.toggle('is-open');
+    }
+    if(close){
+      const cc = close.closest('[data-corner]');
+      cc && cc.classList.remove('is-open');
+    }
+  });
+
+  // Cerrar esquina con ESC
+  root.addEventListener('keydown', e => {
+    if(e.key === 'Escape'){
+      root.querySelectorAll('.pc-corner.is-open').forEach(c => c.classList.remove('is-open'));
+    }
+  });
+})();
+</script>
+
+
 
  {{-- ===== Tarjetas de producto (full-width) sin estrellas + con descripción ===== --}}
 

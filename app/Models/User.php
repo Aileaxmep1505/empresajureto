@@ -82,4 +82,23 @@ class User extends Authenticatable implements MustVerifyEmail
         }
         return null;
     }
+public function shippingAddresses()
+{
+    return $this->hasMany(\App\Models\ShippingAddress::class);
+}
+
+public function defaultShippingAddress()
+{
+    return $this->hasOne(\App\Models\ShippingAddress::class)
+        ->where('is_default', true);
+}
+// app/Models/User.php
+public function billingProfiles(){
+    return $this->hasMany(\App\Models\BillingProfile::class);
+}
+public function defaultBillingProfile(){
+    return $this->hasOne(\App\Models\BillingProfile::class)->where('is_default', true);
+}
+
+
 }

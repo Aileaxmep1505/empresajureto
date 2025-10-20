@@ -1,7 +1,8 @@
-<?php 
+<?php
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Auth;
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\PasswordResetController;
@@ -19,39 +20,41 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Web\HomeController;
 use App\Http\Controllers\Web\ContactController;
 use App\Http\Controllers\Web\ShopController;
-use App\Http\Controllers\Web\CustomerAuthController;
-use App\Http\Controllers\Web\CatalogController; // <-- NUEVO: catálogo público
+use App\Http\Controllers\Web\CatalogController;
 
 use App\Http\Controllers\Panel\LandingSectionController;
-use App\Http\Controllers\Admin\CatalogItemController; // <-- NUEVO: CRUD admin catálogo
-use App\Models\CatalogItem;
-use App\Http\Controllers\Web\CartController; // <-- importar
+use App\Http\Controllers\Admin\CatalogItemController;
+use App\Http\Controllers\Web\CartController;
+
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\ShippingController;
+use App\Http\Controllers\SearchController; // <- tu controlador actual
+
 /*
 |--------------------------------------------------------------------------
-| AUTH INTERNA (guard por defecto)
+| AUTH (ÚNICO login con AuthController)
 |--------------------------------------------------------------------------
-| -> Se define GET /login para mostrar formulario (evita MethodNotAllowed)
 */
 Route::middleware('guest')->group(function () {
-    Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
-    Route::post('/login', [AuthController::class, 'login'])->name('login.post');
+    Route::get('/login',    [AuthController::class, 'showLogin'])->name('login');
+    Route::post('/login',   [AuthController::class, 'login'])->name('login.post');
 
+    // Registro SOLO para personal interno (opcional)
     Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
-    Route::post('/register', [AuthController::class, 'register'])->name('register.post');
+    Route::post('/register',[AuthController::class, 'register'])->name('register.post');
 
-    Route::get('/forgot-password', [PasswordResetController::class, 'showForgot'])->name('password.request');
-    Route::post('/forgot-password', [PasswordResetController::class, 'sendResetLink'])->name('password.email');
+    // Reset de contraseña (ajusta a tu implementación)
+    Route::get('/forgot-password',        [PasswordResetController::class, 'showForgot'])->name('password.request');
+    Route::post('/forgot-password',       [PasswordResetController::class, 'sendResetLink'])->name('password.email');
     Route::get('/reset-password/{token}', [PasswordResetController::class, 'showReset'])->name('password.reset');
-    Route::post('/reset-password', [PasswordResetController::class, 'reset'])->name('password.update');
+    Route::post('/reset-password',        [PasswordResetController::class, 'reset'])->name('password.update');
 });
 
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
 
 Route::middleware('auth')->group(function () {
-    Route::get('/email/verify', [AuthController::class, 'verifyNotice'])->name('verification.notice');
-    Route::get('/email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])
+    Route::get('/email/verify',                 [AuthController::class, 'verifyNotice'])->name('verification.notice');
+    Route::get('/email/verify/{id}/{hash}',     [AuthController::class, 'verifyEmail'])
         ->middleware(['signed', 'throttle:6,1'])->name('verification.verify');
     Route::post('/email/verification-notification', [AuthController::class, 'resendVerification'])
         ->middleware(['throttle:6,1'])->name('verification.send');
@@ -64,100 +67,87 @@ Route::middleware('auth')->group(function () {
 */
 Route::get('/', [HomeController::class, 'index'])->name('web.home');
 
-Route::get('/ventas', [ShopController::class, 'index'])->name('web.ventas.index');
+Route::get('/ventas',      [ShopController::class, 'index'])->name('web.ventas.index');
 Route::get('/ventas/{id}', [ShopController::class, 'show'])->name('web.ventas.show');
 
-Route::get('/contacto', [ContactController::class, 'show'])->name('web.contacto');
+Route::get('/contacto',  [ContactController::class, 'show'])->name('web.contacto');
 Route::post('/contacto', [ContactController::class, 'send'])->name('web.contacto.send');
 
 /* ===== Catálogo público (CatalogItem) ===== */
 Route::prefix('catalogo')->name('web.catalog.')->group(function () {
-    Route::get('/', [CatalogController::class, 'index'])->name('index'); // listado público
-    Route::get('/{catalogItem:slug}', [CatalogController::class, 'show'])->name('show'); // detalle por slug
+    Route::get('/',                   [CatalogController::class, 'index'])->name('index'); // listado
+    Route::get('/{catalogItem:slug}', [CatalogController::class, 'show'])->name('show');   // detalle por slug
 });
 
 /*
 |--------------------------------------------------------------------------
-| AUTH CLIENTE (guard: customer) - PÚBLICO
+| BIENVENIDA DE “CLIENTE” (misma sesión web)
+| - El AuthController te puede redirigir aquí según rol o lógica
 |--------------------------------------------------------------------------
 */
-Route::middleware('guest.customer')->group(function () {
-    Route::get('/cliente/login', [CustomerAuthController::class, 'showLogin'])->name('customer.login');
-    Route::post('/cliente/login', [CustomerAuthController::class, 'login'])->name('customer.login.post');
-
-    Route::get('/cliente/register', [CustomerAuthController::class, 'showRegister'])->name('customer.register');
-    Route::post('/cliente/register', [CustomerAuthController::class, 'register'])->name('customer.register.post');
-});
-
-Route::post('/cliente/logout', [CustomerAuthController::class, 'logout'])
-    ->middleware('auth.customer')->name('customer.logout');
-
-Route::middleware('auth.customer')->group(function () {
-    // Ejemplos para carrito/pedidos de cliente
-    // Route::get('/mis-pedidos', ...)->name('web.pedidos');
-});
+Route::get('/customer/welcome', function () {
+    $customer = Auth::user();
+    $cart     = session('cart', []);
+    return view('web.customer.welcome', compact('customer', 'cart'));
+})->middleware('auth')->name('customer.welcome');
 
 /*
 |--------------------------------------------------------------------------
-| PANEL INTERNO (auth + approved)  ***AQUÍ VIVE TU MÓDULO DE VENTAS INTERNO***
+| PANEL INTERNO (auth + approved)  URLs: /panel/...
 |--------------------------------------------------------------------------
-| URLs: /panel/...
-| NOMBRES: se conservan tus nombres históricos:
-|   ventas.index, ventas.show, ventas.pdf, ventas.email
-| Así no tienes que cambiar tus Blade de /resources/views/ventas/*
 */
 Route::middleware(['auth', 'approved'])->prefix('panel')->group(function () {
 
     // Dashboard interno
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
-    // ====== Ventas internas ======
+    // Ventas internas
     Route::resource('ventas', VentaController::class)
         ->only(['index','show'])
-        ->names('ventas'); // mantiene ventas.index / ventas.show
+        ->names('ventas');
 
-    Route::get('ventas/{venta}/pdf', [VentaController::class, 'pdf'])->name('ventas.pdf');
-    Route::post('ventas/{venta}/email', [VentaController::class, 'enviarPorCorreo'])->name('ventas.email');
+    Route::get('ventas/{venta}/pdf',   [VentaController::class, 'pdf'])->name('ventas.pdf');
+    Route::post('ventas/{venta}/email',[VentaController::class, 'enviarPorCorreo'])->name('ventas.email');
 
-    // ====== Productos (tabla products, uso interno) ======
-    Route::get('products/import', [ProductController::class, 'importForm'])->name('products.import.form');
-    Route::post('products/import', [ProductController::class, 'importStore'])->name('products.import.store');
+    // Productos (uso interno)
+    Route::get('products/import',     [ProductController::class, 'importForm'])->name('products.import.form');
+    Route::post('products/import',    [ProductController::class, 'importStore'])->name('products.import.store');
     Route::get('products/export/pdf', [ProductController::class, 'exportPdf'])->name('products.export.pdf');
     Route::resource('products', ProductController::class)
         ->parameters(['products' => 'product'])
         ->whereNumber('product');
 
-    // ====== Proveedores / Clientes ======
+    // Proveedores / Clientes
     Route::resource('providers', ProviderController::class)->names('providers');
-    Route::resource('clients', ClientController::class)->names('clients');
+    Route::resource('clients',   ClientController::class)->names('clients');
 
-    // ====== Cotizaciones ======
+    // Cotizaciones
     Route::resource('cotizaciones', CotizacionController::class);
-    Route::post('cotizaciones/{cotizacion}/aprobar', [CotizacionController::class,'aprobar'])->name('cotizaciones.aprobar');
-    Route::post('cotizaciones/{cotizacion}/rechazar', [CotizacionController::class,'rechazar'])->name('cotizaciones.rechazar');
-    Route::get('cotizaciones/{cotizacion}/pdf', [CotizacionController::class,'pdf'])->name('cotizaciones.pdf');
+    Route::post('cotizaciones/{cotizacion}/aprobar',         [CotizacionController::class,'aprobar'])->name('cotizaciones.aprobar');
+    Route::post('cotizaciones/{cotizacion}/rechazar',        [CotizacionController::class,'rechazar'])->name('cotizaciones.rechazar');
+    Route::get('cotizaciones/{cotizacion}/pdf',              [CotizacionController::class,'pdf'])->name('cotizaciones.pdf');
     Route::post('cotizaciones/{cotizacion}/convertir-venta', [CotizacionController::class,'convertirAVenta'])->name('cotizaciones.convertir');
 
     // IA / auto-cotización
-    Route::post('cotizaciones/ai-parse', [CotizacionController::class, 'aiParse'])->name('cotizaciones.ai_parse');
-    Route::post('cotizaciones/ai-store', [CotizacionController::class, 'aiCreate'])->name('cotizaciones.ai_store');
+    Route::post('cotizaciones/ai-parse',      [CotizacionController::class, 'aiParse'])->name('cotizaciones.ai_parse');
+    Route::post('cotizaciones/ai-store',      [CotizacionController::class, 'aiCreate'])->name('cotizaciones.ai_store');
     Route::post('cotizaciones/store-from-ai', [CotizacionController::class, 'aiCreate'])->name('cotizaciones.store_from_ai');
-    Route::get('cotizaciones/auto', [CotizacionController::class, 'autoForm'])->name('cotizaciones.auto.form');
-    Route::post('cotizaciones/auto', [CotizacionController::class, 'autoCreate'])->name('cotizaciones.auto.create');
+    Route::get('cotizaciones/auto',           [CotizacionController::class, 'autoForm'])->name('cotizaciones.auto.form');
+    Route::post('cotizaciones/auto',          [CotizacionController::class, 'autoCreate'])->name('cotizaciones.auto.create');
 
     // Perfil interno
-    Route::get('/perfil', [ProfileController::class, 'show'])->name('profile.show');
-    Route::put('/perfil/foto', [ProfileController::class, 'updatePhoto'])->name('profile.update.photo');
-    Route::put('/perfil/password', [ProfileController::class, 'updatePassword'])->name('profile.update.password');
+    Route::get('/perfil',           [ProfileController::class, 'show'])->name('profile.show');
+    Route::put('/perfil/foto',      [ProfileController::class, 'updatePhoto'])->name('profile.update.photo');
+    Route::put('/perfil/password',  [ProfileController::class, 'updatePassword'])->name('profile.update.password');
 
     // Landing del panel
     Route::prefix('landing')->name('panel.landing.')->group(function () {
-        Route::get('/', [LandingSectionController::class, 'index'])->name('index');
-        Route::get('/create', [LandingSectionController::class, 'create'])->name('create');
-        Route::post('/', [LandingSectionController::class, 'store'])->name('store');
+        Route::get('/',               [LandingSectionController::class, 'index'])->name('index');
+        Route::get('/create',         [LandingSectionController::class, 'create'])->name('create');
+        Route::post('/',              [LandingSectionController::class, 'store'])->name('store');
         Route::get('/{section}/edit', [LandingSectionController::class, 'edit'])->name('edit');
-        Route::put('/{section}', [LandingSectionController::class, 'update'])->name('update');
-        Route::delete('/{section}', [LandingSectionController::class, 'destroy'])->name('destroy');
+        Route::put('/{section}',      [LandingSectionController::class, 'update'])->name('update');
+        Route::delete('/{section}',   [LandingSectionController::class, 'destroy'])->name('destroy');
         Route::post('/{section}/reorder', [LandingSectionController::class, 'reorder'])->name('reorder');
         Route::post('/{section}/toggle',  [LandingSectionController::class, 'toggle'])->name('toggle');
     });
@@ -169,15 +159,13 @@ Route::middleware(['auth', 'approved'])->prefix('panel')->group(function () {
 |--------------------------------------------------------------------------
 */
 Route::prefix('admin')->middleware(['auth', 'verified', 'approved', 'role:admin'])->group(function () {
-    Route::get('/users', [UserManagementController::class, 'index'])->name('admin.users.index');
-    Route::post('/users/{user}/approve', [UserManagementController::class, 'approve'])->name('admin.users.approve');
-    Route::post('/users/{user}/revoke', [UserManagementController::class, 'revoke'])->name('admin.users.revoke');
-    Route::post('/users/{user}/role', [UserManagementController::class, 'assignRole'])->name('admin.users.role.assign');
+    Route::get('/users',                       [UserManagementController::class, 'index'])->name('admin.users.index');
+    Route::post('/users/{user}/approve',       [UserManagementController::class, 'approve'])->name('admin.users.approve');
+    Route::post('/users/{user}/revoke',        [UserManagementController::class, 'revoke'])->name('admin.users.revoke');
+    Route::post('/users/{user}/role',          [UserManagementController::class, 'assignRole'])->name('admin.users.role.assign');
     Route::delete('/users/{user}/role/{role}', [UserManagementController::class, 'removeRole'])->name('admin.users.role.remove');
 
-    /* ===== CRUD Catálogo web (CatalogItem) =====
-       Nombres de ruta: admin.catalog.index/create/store/edit/update/destroy
-       Además: admin.catalog.toggle (PATCH) para publicar/ocultar rápido */
+    // CRUD Catálogo web (CatalogItem)
     Route::resource('catalog', CatalogItemController::class)
         ->parameters(['catalog' => 'catalogItem'])
         ->names('admin.catalog');
@@ -192,7 +180,7 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'approved', 'role:admin'
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth'])->group(function () {
-    Route::get('/me/notifications', [NotificationController::class, 'index'])->name('me.notifications.index');
+    Route::get('/me/notifications',           [NotificationController::class, 'index'])->name('me.notifications.index');
     Route::post('/me/notifications/read-all', [NotificationController::class, 'readAll'])->name('me.notifications.readAll');
 });
 
@@ -232,17 +220,57 @@ Route::get('/diag/http', function () {
     }
     return response()->json($out);
 });
-/* ===== Carrito ===== */
-Route::prefix('carrito')->name('web.cart.')->group(function () {
-    Route::get('/',        [CartController::class, 'index'])->name('index');
-    Route::post('/agregar',[CartController::class, 'add'])->name('add');
-    Route::post('/actualizar',[CartController::class, 'update'])->name('update');
-    Route::post('/quitar', [CartController::class, 'remove'])->name('remove');
-    Route::post('/vaciar', [CartController::class, 'clear'])->name('clear');
 
-    // (Opcional) preview de checkout (sin pagos todavía)
-    Route::get('/checkout', [CartController::class, 'checkoutPreview'])->name('checkout');
+/*
+|--------------------------------------------------------------------------
+| Carrito
+|--------------------------------------------------------------------------
+*/
+Route::prefix('carrito')->name('web.cart.')->group(function () {
+    Route::get('/',            [CartController::class, 'index'])->name('index');
+    Route::post('/agregar',    [CartController::class, 'add'])->name('add');
+
+    // Si alguien entra por GET a /carrito/agregar, redirige al carrito (evita 419)
+    Route::get('/agregar', function () {
+        return redirect()->route('web.cart.index');
+    })->name('add.get');
+
+    Route::post('/actualizar', [CartController::class, 'update'])->name('update');
+    Route::post('/quitar',     [CartController::class, 'remove'])->name('remove');
+    Route::post('/vaciar',     [CartController::class, 'clear'])->name('clear');
+
+    // (Opcional) preview de checkout
+    Route::get('/checkout',    [CartController::class, 'checkoutPreview'])->name('checkout');
 });
+
+/*
+|--------------------------------------------------------------------------
+| Checkout
+|--------------------------------------------------------------------------
+| Alineado con la vista start.blade.php y tu CheckoutController
+*/
+Route::middleware('auth')->group(function () {
+    // Paso 1
+    Route::get('/checkout/start', [CheckoutController::class, 'start'])->name('checkout.start');
+
+    // CP lookup (el front llama a route('checkout.cp'))
+    Route::get('/checkout/cp', [CheckoutController::class, 'cpLookup'])
+        ->middleware('throttle:20,1')
+        ->name('checkout.cp');
+
+    // Guardar dirección (AJAX)
+    Route::post('/checkout/address', [CheckoutController::class, 'addressStore'])
+        ->name('checkout.address.store');
+
+    // Paso 3: Envío
+    Route::get('/checkout/shipping', [CheckoutController::class, 'shipping'])->name('checkout.shipping');
+    Route::post('/checkout/shipping/select', [CheckoutController::class, 'shippingSelect'])->name('checkout.shipping.select');
+
+    // Paso 4: Pago
+    Route::get('/checkout/payment', [CheckoutController::class, 'payment'])->name('checkout.payment');
+});
+
+// Stripe: “comprar ahora” y “carrito”
 Route::post('/checkout/item/{item}', [CheckoutController::class, 'checkoutItem'])
     ->whereNumber('item')
     ->name('checkout.item');
@@ -252,6 +280,29 @@ Route::post('/checkout/cart', [CheckoutController::class, 'checkoutCart'])->name
 Route::get('/checkout/success', [CheckoutController::class, 'success'])->name('checkout.success');
 Route::get('/checkout/cancel',  [CheckoutController::class, 'cancel'])->name('checkout.cancel');
 
-Route::post('/stripe/webhook', [CheckoutController::class, 'webhook']); // sin CSRF
+// Webhook de Stripe (EXCEPTÚA DEL CSRF en App\Http\Middleware\VerifyCsrfToken)
+Route::post('/stripe/webhook', [CheckoutController::class, 'webhook'])->name('stripe.webhook');
+
+/*
+|--------------------------------------------------------------------------
+| Envíos (cotizador genérico, si lo usas aparte del checkout)
+|--------------------------------------------------------------------------
+*/
 Route::post('/cart/shipping/options', [ShippingController::class, 'options'])->name('cart.shipping.options');
 Route::post('/cart/shipping/select',  [ShippingController::class, 'select'])->name('cart.shipping.select');
+// Paso 2: Facturación (modal en 2 pasos)
+Route::get('/checkout/invoice',            [CheckoutController::class, 'invoice'])->name('checkout.invoice');              // página/listado
+Route::post('/checkout/invoice/validate',  [CheckoutController::class, 'invoiceValidateRFC'])->name('checkout.invoice.validate'); // AJAX: valida RFC
+Route::post('/checkout/invoice/store',     [CheckoutController::class, 'invoiceStore'])->name('checkout.invoice.store');  // AJAX: guarda perfil
+Route::post('/checkout/invoice/select',    [CheckoutController::class, 'invoiceSelect'])->name('checkout.invoice.select'); // usar perfil existente
+Route::delete('/checkout/invoice/delete',  [CheckoutController::class, 'invoiceDelete'])->name('checkout.invoice.delete'); // borrar perfil
+Route::post('/checkout/invoice/skip',      [CheckoutController::class, 'invoiceSkip'])->name('checkout.invoice.skip');     // omitir factura (solo sesión)
+
+    // CP lookup del modal de dirección (ya lo tienes, asegúrate del name):
+    Route::get('/checkout/cp-lookup', [CheckoutController::class, 'cpLookup'])->name('checkout.cp.lookup');
+
+// Página de resultados de búsqueda
+Route::get('/buscar', [SearchController::class, 'index'])->name('search.index');
+
+// Endpoint de sugerencias (AJAX)
+Route::get('/buscar/suggest', [SearchController::class, 'suggest'])->name('search.suggest');

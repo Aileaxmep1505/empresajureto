@@ -9,9 +9,16 @@ class AuthenticateCustomer
 {
     public function handle($request, Closure $next, $guard = 'customer')
     {
-        if (! Auth::guard($guard)->check()) {
-            return redirect()->route('customer.login')->with('error','Inicia sesión para continuar');
+        if (Auth::guard($guard)->check()) {
+            return $next($request);
         }
-        return $next($request);
+
+        if ($request->expectsJson()) {
+            return response()->json(['message' => 'Unauthenticated.'], 401);
+        }
+
+        // 👇 Redirige al ÚNICO login
+        return redirect()->guest(route('login'))
+            ->with('error', 'Inicia sesión para continuar');
     }
 }

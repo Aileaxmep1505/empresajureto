@@ -87,7 +87,7 @@
 
     {{-- Izquierda: Formulario --}}
     <div class="left">
-      <h1 class="title">Contact Us</h1>
+      <h1 class="title">Contactanos</h1>
       <p class="lead">Feel Free to contact us any time. We will get back to you as soon as we can!</p>
 
       @if(session('ok'))
@@ -127,21 +127,21 @@
 
     {{-- Derecha: Contact Info con las esquinas y espaciado correctos --}}
     <aside class="right">
-      <h2 class="r-title">Contact Info</h2>
+      <h2 class="r-title">Información de contacto</h2>
 
       <div class="info-row">
         <i class="fa-solid fa-headset" aria-hidden="true"></i>
-        <div><a href="tel:+525500000000">+52 55 0000 0000</a></div>
+        <div><a href="tel:+525500000000">+52 55 4193 7243</a></div>
       </div>
 
       <div class="info-row">
         <i class="fa-solid fa-envelope-open-text" aria-hidden="true"></i>
-        <div><a href="mailto:hola@tu-dominio.com">hola@tu-dominio.com</a></div>
+        <div><a href="mailto:hola@tu-dominio.com">rtort@jureto.com.mx</a></div>
       </div>
 
       <div class="info-row">
         <i class="fa-solid fa-map-location-dot" aria-hidden="true"></i>
-        <div>1000+ Travel partners and 65+ Service city across India, USA, Canada &amp; UAE</div>
+        <div>7CP5+34M San Jerónimo Chicahualco, Estado de México &amp; UAE</div>
       </div>
 
       <div class="social">
@@ -159,7 +159,7 @@
     <iframe
       loading="lazy"
       referrerpolicy="no-referrer-when-downgrade"
-      src="https://www.google.com/maps?q=Tu+Empresa,+CDMX&output=embed"
+      src="https://www.google.com/maps/embed?pb=!1m17!1m12!1m3!1d3765.9344777435253!2d-99.59477612478935!3d19.285215381962878!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m2!1m1!2zMTnCsDE3JzA2LjgiTiA5OcKwMzUnMzEuOSJX!5e0!3m2!1ses!2smx!4v1760821468860!5m2!1ses!2smx"
       aria-label="Google Map - Ubicación">
     </iframe>
   </div>
