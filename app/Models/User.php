@@ -99,6 +99,10 @@ public function billingProfiles(){
 public function defaultBillingProfile(){
     return $this->hasOne(\App\Models\BillingProfile::class)->where('is_default', true);
 }
+public function comments()
+{
+    return $this->hasMany(\App\Models\Comment::class);
+}
 
 
 }

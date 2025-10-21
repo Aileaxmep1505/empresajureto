@@ -483,7 +483,7 @@
       <section class="ft__col">
         <button class="ft__title" type="button" data-acc>Conócenos <span class="ft__chev"></span></button>
         <ul class="ft__list">
-          <li><a href="{{ url('/nosotros') }}">¿Quiénes somos?</a></li>
+          <li><a href="{{ url('/sobre-nosotros') }}">¿Quiénes somos?</a></li>
           <li><a href="{{ url('/comentarios') }}">Comentarios</a></li>
         </ul>
       </section>
@@ -543,7 +543,7 @@
           <li><a href="{{ url('/ayuda/soporte') }}">Soporte Técnico</a></li>
           <li><a href="{{ url('/ayuda/pago') }}">Forma de Pago</a></li>
           <li><a href="{{ url('/ayuda/envios') }}">Forma de Envíos</a></li>
-          <li><a href="{{ url('/ayuda/garantias') }}">Garantías & devoluciones</a></li>
+          <li><a href="{{ url('/garantias-y-devoluciones') }}">Garantías & devoluciones</a></li>
           <li><a href="{{ url('/ayuda/elegir-computadora') }}">¿Cómo escoger mi computadora?</a></li>
         </ul>
       </section>

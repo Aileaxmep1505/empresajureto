@@ -29,6 +29,7 @@ use App\Http\Controllers\Web\CartController;
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\ShippingController;
 use App\Http\Controllers\SearchController; // <- tu controlador actual
+use App\Http\Controllers\Web\CommentController;
 
 /*
 |--------------------------------------------------------------------------
@@ -305,3 +306,29 @@ Route::get('/buscar', [SearchController::class, 'index'])->name('search.index');
 
 // Endpoint de sugerencias (AJAX)
 Route::get('/buscar/suggest', [SearchController::class, 'suggest'])->name('search.suggest');
+
+Route::get('/sobre-nosotros', [HomeController::class, 'about'])->name('about');
+
+// ===== Comentarios (solo usuarios logeados pueden publicar/responder) =====
+// ===== Comentarios (solo usuarios logeados pueden publicar/responder) =====
+Route::prefix('comentarios')->name('comments.')->group(function () {
+    Route::get('/', [CommentController::class, 'index'])->name('index'); // lista
+    Route::post('/', [CommentController::class, 'store'])->middleware('auth')->name('store'); // nuevo
+    Route::post('/{comment}/reply', [CommentController::class, 'reply'])->middleware('auth')->name('reply'); // responder
+});
+
+Route::get('/garantias-y-devoluciones', function () {
+    // probar varias rutas de vista típicas
+    $candidatas = [
+        'web.politicas.garantias',
+        'web.garantias',
+        'garantias',
+        'web.politicas.garantias_y_devoluciones',
+        'web.politicas.garantias-devoluciones',
+    ];
+
+    return view()->first($candidatas);
+})->name('policy.returns');
+
+Route::view('/terminos-y-condiciones', 'web.politicas.terminos')
+     ->name('policy.terms');
