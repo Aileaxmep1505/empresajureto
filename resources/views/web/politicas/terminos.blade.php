@@ -7,7 +7,7 @@
 #terms{
   --ink:#1b2550; --muted:#6b7280; --line:#e7ecf5; --bg1:#f7fbff; --bg2:#fff6ef;
   --chip:#f4f7ff; --chip-ink:#11316a; --brand:#6ea8fe; --ok:#16a34a; --warn:#eab308; --danger:#ef4444;
-  --radius:18px;
+  --radius:18px; --shadow:0 12px 28px rgba(2,8,23,.06);
 }
 #terms{ position:relative; width:100%; color:var(--ink); }
 #terms::before{
@@ -17,7 +17,7 @@
     radial-gradient(1200px 700px at -10% 0%, var(--bg2) 0%, transparent 55%),
     #ffffff;
 }
-#terms .wrap{ max-width:1200px; margin:0 auto; padding: clamp(20px,2.8vw,34px) 16px 60px; }
+#terms .wrap{ max-width:1200px; margin:0 auto; padding: clamp(20px,2.8vw,34px) 16px 80px; }
 
 /* ===== Layout con sidebar ===== */
 #terms .grid{
@@ -39,7 +39,7 @@
 #terms .sidebar{
   position: sticky; top: 90px; align-self:start;
   background:#fff; border:1px solid var(--line); border-radius: var(--radius);
-  box-shadow: 0 12px 28px rgba(2,8,23,.06);
+  box-shadow: var(--shadow);
   padding: 16px 14px;
 }
 #terms .sidebar h3{ font-size:16px; margin: 4px 10px 10px; color:#0b1530; letter-spacing:.2px; }
@@ -61,7 +61,7 @@
 /* ===== Contenido ===== */
 #terms .content{
   background:#fff; border:1px solid var(--line); border-radius: var(--radius);
-  box-shadow: 0 12px 28px rgba(2,8,23,.06);
+  box-shadow: var(--shadow);
   padding: clamp(16px,2.2vw,26px);
 }
 #terms section{ padding-top: clamp(14px,1.8vw,20px); }
@@ -76,6 +76,46 @@
 /* Anchor scroll safe */
 #terms .anchor{ position:relative; scroll-margin-top:110px; }
 
+/* ===== Móvil: ocultar sidebar ===== */
+@media (max-width: 980px){
+  #terms .sidebar{ display:none; }
+}
+
+/* ===== Botón flotante (móvil) ===== */
+#terms .fab{
+  position: fixed; right: 18px; bottom: 18px; z-index: 50;
+  width: 56px; height:56px; border-radius: 999px;
+  display: grid; place-items: center;
+  border:1px solid var(--line); background:#fff; box-shadow: var(--shadow);
+  font-weight:700; text-decoration:none; color:#0b1530;
+  transform: translateY(20px); opacity:0; pointer-events:none;
+  transition: .25s ease;
+}
+#terms .fab.show{ transform: translateY(0); opacity:1; pointer-events:auto; }
+#terms .fab span{ font-size:22px; line-height:1; }
+
+/* ===== Mini índice flotante (overlay móvil) ===== */
+#terms .mtoc-backdrop{
+  position: fixed; inset:0; background: rgba(10,18,40,.38);
+  backdrop-filter: blur(2px); z-index: 49; opacity:0; pointer-events:none; transition:.2s;
+}
+#terms .mtoc-backdrop.open{ opacity:1; pointer-events:auto; }
+
+#terms .mtoc{
+  position: fixed; left: 12px; right:12px; bottom:12px; z-index: 50;
+  background:#fff; border:1px solid var(--line); border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(2,8,23,.20);
+  transform: translateY(18px); opacity:0; pointer-events:none; transition:.22s ease;
+  max-height: 60vh; overflow:auto;
+}
+#terms .mtoc.open{ transform: translateY(0); opacity:1; pointer-events:auto; }
+#terms .mtoc header{ display:flex; align-items:center; justify-content:space-between; padding:12px 14px; border-bottom:1px solid var(--line); }
+#terms .mtoc header h4{ margin:0; font-size:15px; }
+#terms .mtoc header button{ background:#f6f8fc; border:1px solid var(--line); border-radius:10px; padding:6px 10px; cursor:pointer; }
+#terms .mtoc ul{ list-style:none; margin:0; padding:8px; }
+#terms .mtoc li a{ display:block; padding:10px 12px; border-radius:10px; color:#0b1530; text-decoration:none; border:1px solid transparent; }
+#terms .mtoc li a:hover{ background:#f9fbff; border-color:var(--line); }
+
 /* Scroll suave */
 html{ scroll-behavior: smooth; }
 </style>
@@ -86,7 +126,7 @@ html{ scroll-behavior: smooth; }
     <!-- HERO -->
     <header class="hero">
       <h1 class="title">Términos y Condiciones</h1>
-      <p class="sub">Lee atentamente estos términos antes de utilizar nuestros servicios o realizar compras en nuestro sitio web.</p>
+      <p class="sub">Documento para el uso del sitio y compras de <strong>Jureto</strong>, empresa comercializadora de productos de papelería.</p>
       <div class="chips">
         <span class="chip">📅 Última actualización: 21 de octubre de 2025</span>
         <span class="chip">📜 Documento legal vigente</span>
@@ -94,10 +134,10 @@ html{ scroll-behavior: smooth; }
     </header>
 
     <div class="grid">
-      <!-- ===== SIDEBAR (ÍNDICE) ===== -->
+      <!-- ===== SIDEBAR (ÍNDICE) — se oculta en móvil ===== -->
       <aside class="sidebar">
         <h3>Índice</h3>
-        <ul class="toc">
+        <ul class="toc" id="toc-desktop">
           <li><a class="lvl1" href="#general">1. Información general</a></li>
           <li><a class="lvl1" href="#uso">2. Uso del sitio web</a></li>
           <li><a class="lvl1" href="#cuentas">3. Cuentas y seguridad</a></li>
@@ -117,8 +157,6 @@ html{ scroll-behavior: smooth; }
           <li><a class="lvl1" href="#menores">17. Menores de edad</a></li>
           <li><a class="lvl1" href="#ley">18. Legislación aplicable y jurisdicción</a></li>
           <li><a class="lvl1" href="#contacto">19. Contacto</a></li>
-
-          <!-- Subapartados visibles como lvl2 -->
           <li><a class="lvl2" href="#metodos-reembolso">• Métodos de reembolso</a></li>
           <li><a class="lvl2" href="#tiempos-servicio">• Tiempos de servicio/postventa</a></li>
         </ul>
@@ -128,7 +166,7 @@ html{ scroll-behavior: smooth; }
       <main class="content">
         <section id="general" class="anchor">
           <h2>1) Información general</h2>
-          <p>Este sitio web es operado por <strong>Grupo Medibuy / Jureto</strong>. Al acceder o utilizar nuestros servicios, el usuario acepta íntegramente estos Términos y Condiciones. Podremos actualizar este documento en cualquier momento, publicando la versión vigente en el sitio.</p>
+          <p>Este sitio web es operado por <strong>Jureto</strong>. Al acceder o utilizar nuestros servicios, el usuario acepta íntegramente estos Términos y Condiciones. Podremos actualizar este documento en cualquier momento, publicando la versión vigente en el sitio.</p>
         </section>
 
         <section id="uso" class="anchor">
@@ -150,7 +188,7 @@ html{ scroll-behavior: smooth; }
           <ul>
             <li>Subir o distribuir malware, spam, contenido difamatorio o ilegal.</li>
             <li>Eludir medidas técnicas de seguridad o realizar pruebas de penetración sin autorización previa y por escrito.</li>
-            <li>Suplantar identidades o manipular pedidos/ precios mediante vulneraciones técnicas.</li>
+            <li>Suplantar identidades o manipular pedidos/precios mediante vulneraciones técnicas.</li>
           </ul>
         </section>
 
@@ -238,15 +276,29 @@ html{ scroll-behavior: smooth; }
         <section id="contacto" class="anchor">
           <h2>19) Contacto</h2>
           <ul>
-            <li><strong>Email:</strong> contacto@grupomedibuy.com</li>
-            <li><strong>Teléfono:</strong> (55) 1234 5678</li>
-            <li><strong>Horario:</strong> Lunes a Viernes de 9:00 a 18:00 hrs</li>
+            <li><strong>Email:</strong> <a href="mailto:rtort@jureto.com.mx" style="color:var(--brand);text-decoration:none;font-weight:600;">rtort@jureto.com.mx</a></li>
+            <li><strong>Teléfono:</strong> <a href="tel:+525541937243" style="color:var(--brand);text-decoration:none;font-weight:600;">+52 55 4193 7243</a></li>
+            <li><strong>Ubicación:</strong> 7CP5+34M San Jerónimo Chicahualco, Estado de México &amp; UAE</li>
           </ul>
         </section>
-
       </main>
     </div>
   </div>
+
+  <!-- Botón flotante (solo móvil) -->
+  <button id="fab" class="fab" aria-label="Índice">
+    <span>☰</span>
+  </button>
+
+  <!-- Overlay mini índice (móvil) -->
+  <div id="mtoc-backdrop" class="mtoc-backdrop"></div>
+  <nav id="mtoc" class="mtoc" aria-label="Índice móvil">
+    <header>
+      <h4>Navegación</h4>
+      <button type="button" id="mtoc-close">Cerrar</button>
+    </header>
+    <ul id="toc-mobile"><!-- se clona desde el desktop --></ul>
+  </nav>
 </div>
 
 <script>
@@ -265,6 +317,54 @@ html{ scroll-behavior: smooth; }
   }, { rootMargin: '-40% 0px -55% 0px', threshold: [0, 0.3, 0.6, 1] });
 
   sections.forEach(sec => obs.observe(sec));
+})();
+
+// ===== Botón flotante que aparece "hasta abajo" (solo móvil) =====
+(function(){
+  const fab = document.getElementById('fab');
+  const mtoc = document.getElementById('mtoc');
+  const backdrop = document.getElementById('mtoc-backdrop');
+  const closeBtn = document.getElementById('mtoc-close');
+  const tocDesktop = document.getElementById('toc-desktop');
+  const tocMobile = document.getElementById('toc-mobile');
+
+  // Clona las entradas del índice al mini índice móvil
+  if (tocDesktop && tocMobile) {
+    tocMobile.innerHTML = tocDesktop.innerHTML;
+    // cerrar mini índice al hacer click en un enlace
+    tocMobile.querySelectorAll('a').forEach(a=>{
+      a.addEventListener('click', ()=> toggleMTOC(false));
+    });
+  }
+
+  function isMobile(){
+    return window.matchMedia('(max-width: 980px)').matches;
+  }
+
+  function toggleMTOC(force){
+    const open = (typeof force === 'boolean') ? force : !mtoc.classList.contains('open');
+    mtoc.classList.toggle('open', open);
+    backdrop.classList.toggle('open', open);
+  }
+
+  // Mostrar FAB solo cuando el usuario está casi hasta abajo
+  function onScroll(){
+    if (!isMobile()) { fab.classList.remove('show'); toggleMTOC(false); return; }
+    const scrollY = window.scrollY || window.pageYOffset;
+    const viewport = window.innerHeight;
+    const docH = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
+    const nearBottom = (scrollY + viewport) >= (docH - 600); // umbral
+    fab.classList.toggle('show', nearBottom);
+  }
+
+  window.addEventListener('scroll', onScroll, {passive:true});
+  window.addEventListener('resize', onScroll);
+  document.addEventListener('DOMContentLoaded', onScroll);
+
+  // Interacciones mini índice
+  fab.addEventListener('click', ()=> toggleMTOC(true));
+  backdrop.addEventListener('click', ()=> toggleMTOC(false));
+  closeBtn.addEventListener('click', ()=> toggleMTOC(false));
 })();
 </script>
 @endsection

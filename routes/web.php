@@ -330,5 +330,13 @@ Route::get('/garantias-y-devoluciones', function () {
     return view()->first($candidatas);
 })->name('policy.returns');
 
-Route::view('/terminos-y-condiciones', 'web.politicas.terminos')
-     ->name('policy.terms');
+Route::view('/terminos-y-condiciones', 'web.politicas.terminos')->name('policy.terms');
+Route::view('/aviso-de-privacidad',  'web.politicas.privacidad')->name('policy.privacy');
+Route::view('/envios-devoluciones-cancelaciones', 'web.politicas.envios')->name('policy.shipping');
+Route::view('/formas-de-pago', 'web.politicas.pagos')->name('policy.payments');
+// routes/web.php
+Route::view('/preguntas-frecuentes', 'web.politicas.faq')->name('policy.faq');
+Route::view('/formas-de-envio', 'web.politicas.envios-skydropx')->name('policy.shipping.methods');
+
+
+

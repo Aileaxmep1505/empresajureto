@@ -530,19 +530,19 @@
       <section class="ft__col">
         <button class="ft__title" type="button" data-acc>Políticas <span class="ft__chev"></span></button>
         <ul class="ft__list">
-          <li><a href="{{ url('/politicas/envios') }}">Envíos, devoluciones y cancelaciones</a></li>
-          <li><a href="{{ url('/politicas/terminos') }}">Términos y Condiciones</a></li>
-          <li><a href="{{ url('/politicas/privacidad') }}">Aviso de Privacidad</a></li>
+          <li><a href="{{ url('/envios-devoluciones-cancelaciones') }}">Envíos, devoluciones y cancelaciones</a></li>
+          <li><a href="{{ url('/terminos-y-condiciones') }}">Términos y Condiciones</a></li>
+          <li><a href="{{ url('/aviso-de-privacidad') }}">Aviso de Privacidad</a></li>
         </ul>
       </section>
 
       <section class="ft__col">
         <button class="ft__title" type="button" data-acc>Ayuda <span class="ft__chev"></span></button>
         <ul class="ft__list">
-          <li><a href="{{ url('/ayuda/facturacion') }}">Facturación</a></li>
-          <li><a href="{{ url('/ayuda/soporte') }}">Soporte Técnico</a></li>
-          <li><a href="{{ url('/ayuda/pago') }}">Forma de Pago</a></li>
-          <li><a href="{{ url('/ayuda/envios') }}">Forma de Envíos</a></li>
+          <li><a href="{{ url('/preguntas-frecuentes') }}">Preguntas frecuentes</a></li>
+          <li><a href="{{ url('/contacto') }}">Contacto</a></li>
+          <li><a href="{{ url('/formas-de-pago') }}">Forma de Pago</a></li>
+          <li><a href="{{ url('/formas-de-envio') }}">Forma de Envíos</a></li>
           <li><a href="{{ url('/garantias-y-devoluciones') }}">Garantías & devoluciones</a></li>
           <li><a href="{{ url('/ayuda/elegir-computadora') }}">¿Cómo escoger mi computadora?</a></li>
         </ul>
