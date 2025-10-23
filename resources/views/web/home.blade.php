@@ -430,16 +430,132 @@
   </script>
 
   {{-- ======= Hero (tu bloque original) ======= --}}
-  <section class="hero card">
-    <div class="container" style="position:relative; z-index:2;">
-      <h1>Equipo médico y soluciones profesionales</h1>
-      <p>Plataforma moderna para cotizar y comprar con confianza. Atención personalizada y soporte técnico.</p>
-      <div style="margin-top:18px; display:flex; gap:10px; flex-wrap:wrap;">
-        <a href="{{ route('web.ventas.index') }}" class="btn btn-primary">Ver ventas</a>
-        <a href="{{ route('web.contacto') }}" class="btn btn-ghost">Contáctanos</a>
+<section id="hero-full-pap">
+  <style>
+    /* ===== HERO PAPELERÍA FULL-BLEED (aislado por #hero-full-pap) ===== */
+    #hero-full-pap{
+      /* rompe el contenedor padre y se estira de orilla a orilla */
+      position: relative;
+      left: 50%;
+      right: 50%;
+      margin-left: -50vw;
+      margin-right: -50vw;
+      width: 100vw;
+
+      /* sin bordes redondos ni sombras en el contenedor */
+      border: 0; border-radius: 0; box-shadow: none;
+
+      /* fondo pastel en degradé */
+      --ink:#0e1726; --muted:#6b7280; --bg:#f6f8fc; --line:#e8eef6;
+      --brand:#6ea8fe; --accent:#ffc9de; --ok:#16a34a;
+      background:
+        radial-gradient(1200px 400px at 10% 0%, rgba(110,168,254,.25), transparent 60%),
+        radial-gradient(800px 300px at 90% 20%, rgba(255,201,222,.22), transparent 60%),
+        var(--bg);
+    }
+    /* contenido centrado; el fondo sí es 100% ancho */
+    #hero-full-pap .wrap{max-width:1200px;margin:0 auto;padding:clamp(26px,3vw,44px)}
+    #hero-full-pap .grid{display:grid;grid-template-columns:1.05fr .95fr;gap:clamp(18px,3vw,36px);align-items:center}
+
+    /* tipografías y acentos */
+    #hero-full-pap h1{margin:0 0 12px; color:var(--ink); letter-spacing:-.02em; line-height:1.05;
+      font-size:clamp(28px,4.2vw,52px)}
+    #hero-full-pap .grad{background:linear-gradient(90deg,var(--brand),var(--accent));
+      -webkit-background-clip:text;background-clip:text;color:transparent}
+    #hero-full-pap p.lead{color:var(--muted); font-size:clamp(15px,1.5vw,18px); line-height:1.6; margin:0 0 16px}
+
+    /* chips */
+    #hero-full-pap .chips{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0 18px}
+    #hero-full-pap .chip{background:#fff;border:1px dashed var(--line);padding:8px 12px;border-radius:999px;
+      font-size:13px;color:#0f172a;display:inline-flex;align-items:center;gap:8px;box-shadow:0 8px 24px rgba(2,8,23,.04)}
+    #hero-full-pap .dot{width:8px;height:8px;border-radius:50%}
+    #hero-full-pap .ok{background:var(--ok)} .brand{background:var(--brand)} .accent{background:var(--accent)}
+
+    /* bullets */
+    #hero-full-pap .bullets{display:grid;gap:10px;margin:16px 0 8px}
+    #hero-full-pap .bullet{display:flex;gap:10px;align-items:flex-start;color:var(--ink);font-size:15px}
+    #hero-full-pap .bullet i{flex:0 0 18px;height:18px;border-radius:6px;background:rgba(110,168,254,.25);
+      box-shadow:inset 0 0 0 2px rgba(110,168,254,.55)}
+
+    /* CTAs */
+    #hero-full-pap .cta{display:flex;gap:12px;flex-wrap:wrap;margin-top:16px}
+
+    /* tarjetas derechas */
+    #hero-full-pap .gallery{display:grid;gap:16px}
+    #hero-full-pap .card-img{position:relative;border-radius:22px;overflow:hidden;background:#fff;border:1px solid var(--line);
+      box-shadow:0 24px 60px rgba(2,8,23,.10);transition:transform .4s ease, box-shadow .4s ease}
+    #hero-full-pap .card-img:hover{transform:translateY(-4px);box-shadow:0 28px 70px rgba(2,8,23,.18)}
+    #hero-full-pap .card-img img{width:100%;height:100%;object-fit:cover;display:block}
+    #hero-full-pap .tag{position:absolute;top:12px;left:12px;background:rgba(255,255,255,.65);backdrop-filter:blur(8px);
+      border:1px solid rgba(255,255,255,.6);padding:6px 10px;border-radius:999px;font-size:12px;font-weight:600;color:#0b1220}
+    #hero-full-pap .note{position:absolute;right:12px;bottom:12px;background:#fff;border:1px dashed var(--line);
+      border-radius:12px;padding:8px 10px;font-size:12px;color:var(--muted)}
+    #hero-full-pap .top{aspect-ratio:4/3;min-height:220px}
+    #hero-full-pap .bottom{aspect-ratio:4/3;min-height:220px}
+
+    /* trust bar */
+    #hero-full-pap .trust{display:flex;gap:18px;flex-wrap:wrap;align-items:center;margin-top:16px}
+    #hero-full-pap .trust small{color:var(--muted)}
+    #hero-full-pap .logo{height:22px;opacity:.75;filter:grayscale(1);transition:opacity .25s ease,filter .25s ease}
+    #hero-full-pap .logo:hover{opacity:1;filter:grayscale(0)}
+
+    /* responsive */
+    @media (max-width:980px){
+      #hero-full-pap .grid{grid-template-columns:1fr}
+      #hero-full-pap .gallery{order:-1}
+    }
+  </style>
+
+  <div class="wrap">
+    <div class="grid">
+      <!-- Texto -->
+      <div>
+        <h1>Soluciones en <span class="grad">papelería y oficina</span> listas para trabajar</h1>
+        <p class="lead">Cotiza, compra y recibe con garantía. Atención personalizada, precios de mayoreo y entregas rápidas para empresas, escuelas y oficinas.</p>
+
+        <div class="chips">
+          <span class="chip"><span class="dot ok"></span> Factura CFDI 4.0</span>
+          <span class="chip"><span class="dot brand"></span> Envío a todo México</span>
+          <span class="chip"><span class="dot accent"></span> Mayoreo desde 5 piezas</span>
+        </div>
+
+        <div class="bullets">
+          <div class="bullet"><i></i> Papelería escolar y de oficina (cuadernos, bolígrafos, folders, archivadores)</div>
+          <div class="bullet"><i></i> Tintas y tóner para HP, Epson, Brother</div>
+          <div class="bullet"><i></i> Mobiliario, organización y kits corporativos con tu logotipo</div>
+        </div>
+
+        <div class="cta">
+          <a href="{{ route('web.ventas.index') }}" class="btn btn-primary">Ver catálogo</a>
+          <a href="{{ route('web.contacto') }}" class="btn btn-ghost">Cotizar pedido</a>
+        </div>
+
+        <div class="trust">
+          <small>Distribuimos marcas como</small>
+          <img class="logo" src="{{ asset('images/brands/hp.png') }}" alt="HP" loading="lazy">
+          <img class="logo" src="{{ asset('images/brands/epson.png') }}" alt="Epson" loading="lazy">
+          <img class="logo" src="{{ asset('images/brands/acer.png') }}" alt="BIC" loading="lazy">
+          <img class="logo" src="{{ asset('images/brands/asus.png') }}" alt="Pilot" loading="lazy">
+        </div>
+      </div>
+
+      <!-- Galería -->
+      <div class="gallery">
+        <figure class="card-img top">
+          <img src="{{ asset('images/hero/papeleria.jpg') }}" alt="Estante con útiles escolares" loading="eager" decoding="async">
+          <span class="tag">Listo para despacho</span>
+          <span class="note">Stock continuo + reposición</span>
+        </figure>
+        <figure class="card-img bottom">
+          <img src="{{ asset('images/hero/oficina.jpg') }}" alt="Escritorio de oficina con insumos" loading="lazy" decoding="async">
+          <span class="tag">Oficina & Corporativo</span>
+          <span class="note">Kits personalizados por área</span>
+        </figure>
       </div>
     </div>
-  </section>
+  </div>
+</section>
+
 
   {{-- ======= Secciones administrables (LandingSection) ======= --}}
 @php

@@ -544,17 +544,14 @@
           <li><a href="{{ url('/formas-de-pago') }}">Forma de Pago</a></li>
           <li><a href="{{ url('/formas-de-envio') }}">Forma de Envíos</a></li>
           <li><a href="{{ url('/garantias-y-devoluciones') }}">Garantías & devoluciones</a></li>
-          <li><a href="{{ url('/ayuda/elegir-computadora') }}">¿Cómo escoger mi computadora?</a></li>
         </ul>
       </section>
     </div>
 
     <div class="ft__payments">
-      <img src="{{ asset('images/payments/paypal.svg') }}" alt="PayPal">
-      <img src="{{ asset('images/payments/mercadopago.svg') }}" alt="Mercado Pago">
-      <img src="{{ asset('images/payments/visa.svg') }}" alt="Visa">
-      <img src="{{ asset('images/payments/mastercard.svg') }}" alt="Mastercard">
-      <img src="{{ asset('images/payments/amex.svg') }}" alt="American Express">
+      <img src="{{ asset('images/payments/visa.png') }}" alt="Visa">
+      <img src="{{ asset('images/payments/mastercard.jpg') }}" alt="Mastercard">
+      <img src="{{ asset('images/payments/amex.png') }}" alt="American Express">
     </div>
 
     <div class="ft__copy">
