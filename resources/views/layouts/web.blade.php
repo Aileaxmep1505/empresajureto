@@ -234,7 +234,7 @@
     <nav class="nav-center" aria-label="Principal">
       <a href="{{ route('web.home') }}" class="nav-link {{ request()->routeIs('web.home') ? 'is-active' : '' }}">Inicio</a>
       <a href="{{ route('web.catalog.index') }}" class="nav-link {{ request()->routeIs('web.catalog.*') ? 'is-active' : '' }}">Categorías</a>
-      <a href="{{ route('web.ventas.index') }}" class="nav-link {{ request()->routeIs('web.ventas.*') ? 'is-active' : '' }}">Ofertas</a>
+      <a href="{{ route('web.ofertas') }}" class="nav-link {{ request()->routeIs('web.ofertas.*') ? 'is-active' : '' }}">Ofertas</a>
       <a href="{{ url('/servicios') }}" class="nav-link {{ request()->is('servicios') ? 'is-active' : '' }}">Servicios</a>
     </nav>
 

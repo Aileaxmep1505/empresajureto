@@ -338,5 +338,5 @@ Route::view('/formas-de-pago', 'web.politicas.pagos')->name('policy.payments');
 Route::view('/preguntas-frecuentes', 'web.politicas.faq')->name('policy.faq');
 Route::view('/formas-de-envio', 'web.politicas.envios-skydropx')->name('policy.shipping.methods');
 
-
+Route::get('/ofertas', fn() => view('web.ofertas'))->name('web.ofertas');
 
