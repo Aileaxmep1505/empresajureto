@@ -286,7 +286,7 @@
     </div>
   </section>
 
-  {{-- FAB móvil (oculto si sheet del layout o el propio están abiertos) --}}
+  {{-- FAB móvil --}}
   <button id="ofr-open" class="ofr-filters-fab">
     <span class="material-symbols-outlined">tune</span> Filtros
   </button>
@@ -541,17 +541,17 @@
   @media (max-width:1024px){ #ofr .ofr-filters-fab{ display:inline-flex } }
   #ofr .ofr-filters-fab.ofr-hide{ display:none !important }
 
-  /* Bottom Sheet: sin esquinado + blur */
-  #ofr .ofr-sheet{ position:fixed; inset:0; z-index:1100; display:grid; grid-template-rows:1fr auto; pointer-events:none }
+  /* Bottom Sheet: z-index alto + blur + no “esquinado” */
+  #ofr .ofr-sheet{ position:fixed; inset:0; z-index:99998; display:grid; grid-template-rows:1fr auto; pointer-events:none }
   #ofr .ofr-sheet[aria-hidden="true"]{ display:none }
   #ofr .ofr-sheet-backdrop{
-    background:rgba(15,23,42,.30);
+    background:rgba(15,23,42,.35);
     -webkit-backdrop-filter: blur(10px);
     backdrop-filter: blur(10px);
-    opacity:0; transition:opacity .25s ease; pointer-events:auto;
+    opacity:0; transition:opacity .25s ease; pointer-events:auto; z-index:99998;
   }
   #ofr .ofr-sheet-panel{
-    width:100%;
+    width:100%; z-index:99999;
     align-self:end; background:#fff;
     border-top-left-radius:24px; border-top-right-radius:24px;
     border:1px solid #e5e7eb; border-bottom:0;
@@ -559,10 +559,7 @@
     transform: translate3d(0,100%,0);
     transition: transform .35s cubic-bezier(.25,.46,.45,.94);
     max-height: 78vh; overflow:auto; pointer-events:auto;
-    will-change: transform;
-    backface-visibility: hidden;
-    -webkit-font-smoothing: antialiased;
-    contain: layout paint;
+    will-change: transform; backface-visibility:hidden; -webkit-font-smoothing:antialiased; contain:layout paint;
   }
   #ofr .ofr-sheet[aria-hidden="false"] .ofr-sheet-backdrop{ opacity:1 }
   #ofr .ofr-sheet[aria-hidden="false"] .ofr-sheet-panel{ transform: translate3d(0,0,0) }
@@ -596,7 +593,7 @@
     }, {rootMargin:'0px 0px -10% 0px'}) : null;
     root.querySelectorAll('.ofr-grid-cards .ofr-card.ofr-ao').forEach(el=>{ if(io) io.observe(el); else el.classList.add('in'); });
 
-    // ----- Bottom sheet (ofertas) + FAB sync con sheet del layout -----
+    // ----- Bottom sheet (ofertas) + FAB sync -----
     const html     = document.documentElement;
     const openBtn  = root.querySelector('#ofr-open');
     const sheet    = root.querySelector('#ofr-sheet');
@@ -604,24 +601,64 @@
     const backdrop = root.querySelector('.ofr-sheet-backdrop');
     const closeEls = sheet ? sheet.querySelectorAll('[data-ofr-sheet-close]') : [];
 
-    function setFabHidden(hidden){ openBtn?.classList.toggle('ofr-hide', !!hidden); }
     function isLayoutSheetOpen(){ return html.classList.contains('sheet-open'); }
     function isOffersSheetOpen(){ return sheet && sheet.getAttribute('aria-hidden') === 'false'; }
+    function setFabHidden(h){ openBtn?.classList.toggle('ofr-hide', !!h); }
     function updateFab(){ setFabHidden(isLayoutSheetOpen() || isOffersSheetOpen()); }
+
+    // ----- Bloqueo de fondo (true/false) -----
+    const changed = new Set();
+    function lockBackground(lock){
+      if(lock){
+        // Inert + aria-hidden a todo el body excepto el sheet propio
+        Array.from(document.body.children).forEach(el=>{
+          if (el === sheet) return;
+          if (el.contains(sheet)) return;
+          if (!el.hasAttribute('inert')) { el.setAttribute('inert',''); changed.add(el); }
+          if (el.getAttribute('aria-hidden') !== 'true') { el.setAttribute('aria-hidden','true'); changed.add(el); }
+        });
+        // Evita scroll general
+        html.style.overscrollBehavior = 'none';
+        html.style.overflow = 'hidden';
+      }else{
+        changed.forEach(el=>{
+          el.removeAttribute('inert');
+          el.removeAttribute('aria-hidden');
+        });
+        changed.clear();
+        html.style.overscrollBehavior = '';
+        html.style.overflow = '';
+      }
+    }
+
+    // Focus trap dentro del panel
+    function trapFocus(e){
+      if(!isOffersSheetOpen()) return;
+      if(e.key !== 'Tab') return;
+      const focusables = panel.querySelectorAll('a,button,input,select,textarea,[tabindex]:not([tabindex="-1"])');
+      if(!focusables.length) return;
+      const first = focusables[0], last = focusables[focusables.length - 1];
+      if(e.shiftKey && document.activeElement === first){ last.focus(); e.preventDefault(); }
+      else if(!e.shiftKey && document.activeElement === last){ first.focus(); e.preventDefault(); }
+    }
 
     function openSheet(){
       if(!sheet) return;
       sheet.setAttribute('aria-hidden','false');
-      html.style.overflow = 'hidden';
+      lockBackground(true);
       updateFab();
-      // posición segura al abrir
       panel.scrollTop = 0;
       panel.style.transform = 'translate3d(0,0,0)';
+      // Enfocar algo dentro
+      setTimeout(()=> {
+        const el = panel.querySelector('select, input, button');
+        (el || panel).focus({preventScroll:true});
+      }, 60);
     }
     function closeSheet(){
       if(!sheet) return;
       sheet.setAttribute('aria-hidden','true');
-      html.style.overflow = '';
+      lockBackground(false);
       panel.style.transition = '';
       panel.style.transform = 'translate3d(0,100%,0)';
       updateFab();
@@ -637,7 +674,13 @@
     closeEls.forEach(el => el.addEventListener('click', closeSheet));
     backdrop && backdrop.addEventListener('click', closeSheet);
     document.addEventListener('keydown', (e) => { if(e.key === 'Escape' && isOffersSheetOpen()) closeSheet(); });
+    document.addEventListener('keydown', trapFocus);
     window.addEventListener('resize', () => { if(window.matchMedia('(min-width:1025px)').matches) closeSheet(); });
+
+    // Evitar scroll del fondo en iOS/Android mientras está abierto
+    const stopScroll = (e)=>{ if(isOffersSheetOpen()) e.preventDefault(); };
+    backdrop.addEventListener('touchmove', stopScroll, {passive:false});
+    backdrop.addEventListener('wheel',     stopScroll, {passive:false});
 
     // Cerrar al navegar dentro del módulo
     root.addEventListener('click', e => {
@@ -659,15 +702,10 @@
     const CLOSE_THRESHOLD = 90;   // px para cerrar
     const MAX_PULL = 240;         // límite visual
 
-    function canStartDrag() {
-      // solo permite iniciar drag si el panel está scrolleado arriba
-      return panel.scrollTop <= 0;
-    }
+    function canStartDrag() { return panel.scrollTop <= 0; }
 
     function onTouchStart(ev){
-      if(!isOffersSheetOpen()) return;
-      if(ev.touches.length !== 1) return;
-      if(!canStartDrag()) return;
+      if(!isOffersSheetOpen() || ev.touches.length !== 1 || !canStartDrag()) return;
       dragging   = true;
       dragStartY = ev.touches[0].clientY;
       panel.style.transition = 'none';
@@ -677,7 +715,6 @@
       const dy = Math.max(0, ev.touches[0].clientY - dragStartY);
       const pull = Math.min(dy, MAX_PULL);
       panel.style.transform = `translate3d(0, ${pull}px, 0)`;
-      // Evita scroll detrás si estamos arrastrando
       if(dy > 0) ev.preventDefault();
     }
     function onTouchEnd(){
@@ -686,31 +723,20 @@
       const current = panel.style.transform.match(/translate3d\(0,\s?([0-9.]+)px/i);
       const pulled = current ? parseFloat(current[1]) : 0;
       if(pulled > CLOSE_THRESHOLD){
-        // animar hacia abajo y cerrar
         panel.style.transition = 'transform .22s ease';
         panel.style.transform  = 'translate3d(0,100%,0)';
         setTimeout(closeSheet, 200);
       }else{
-        // snap back
         panel.style.transition = 'transform .22s ease';
         panel.style.transform  = 'translate3d(0,0,0)';
       }
     }
-
-    // Permitimos iniciar drag desde el handle y desde el panel (si está arriba)
     const handle = root.querySelector('.ofr-sheet-handle');
     [panel, handle].forEach(el=>{
       el?.addEventListener('touchstart', onTouchStart, {passive:false});
       el?.addEventListener('touchmove',  onTouchMove,  {passive:false});
       el?.addEventListener('touchend',   onTouchEnd,   {passive:true});
       el?.addEventListener('touchcancel',onTouchEnd,   {passive:true});
-    });
-
-    // Prevenir “esquinado”: resetea transform en apertura/scroll top
-    panel.addEventListener('scroll', ()=>{
-      if(panel.scrollTop <= 0 && !dragging && isOffersSheetOpen()){
-        panel.style.transform = 'translate3d(0,0,0)';
-      }
     });
 
     // ----- SweetAlert2 minimal (toast) al agregar al carrito -----

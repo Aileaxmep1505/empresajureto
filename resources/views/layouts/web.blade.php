@@ -1,4 +1,4 @@
-<!doctype html>
+<!doctype html> 
 <html lang="es">
 <head>
   <meta charset="utf-8">
@@ -133,9 +133,11 @@
       .ft__cta{ margin-top:10px }
       .ft__grid{ grid-template-columns: 1fr; gap:0; border-top:1px solid #e9eef6; margin-top:10px }
       .ft__col{ border-bottom:1px solid #e9eef6; padding:10px 0 }
-      .ft__title{ padding:12px 4px }
+      .ft__title{ padding:12px 4px; cursor:pointer; }
       .ft__chev{ opacity:1 }
-      .ft__col:not(.open) .ft__list{ display:none }
+      .ft__col:not(.open) .ft__list{ display:none }            /* cerrado por defecto en móvil */
+      .ft__col.open .ft__list{ display:grid }                  /* abierto en móvil */
+      .ft__col.open .ft__chev{ transform: rotate(45deg); }     /* chevron gira al abrir */
       .ft__payments{ justify-content:center }
       .ft__copy{ text-align:center }
     }
@@ -167,7 +169,7 @@
       display:flex; align-items:center; gap:8px; padding:10px 12px; border-radius:10px; cursor:pointer; text-decoration:none; color:var(--ink);
     }
     .sugg-item:hover{ background:#f7f9fe }
-    .sugg-empty{ color:var(--muted); padding:8px 12px }
+    .sugg-empty{ color:#6b7280; padding:8px 12px }
 
     .user-wrap{position:relative}
     .avatar-btn{
@@ -186,11 +188,9 @@
       color:var(--ink); text-decoration:none; font-weight:700;
     }
     .user-menu a:hover, .user-menu form button:hover{background:#f7f9fe}
-    .user-menu small{color:var(--muted); font-weight:600}
 
-    @media (max-width:980px){
-      .searchbar-wrap{max-width:none}
-    }
+    /* Evita scroll del fondo cuando el bottom sheet está abierto */
+    html.sheet-open{ overflow:hidden; }
   </style>
 </head>
 <body>
@@ -334,128 +334,6 @@
   </div>
 </section>
 
-<script>
-  // Bottom Sheet móvil
-  (function(){
-    const html = document.documentElement;
-    const burger = document.getElementById('burger');
-    const sheet = document.getElementById('sheet');
-    const backdrop = document.getElementById('sheet-backdrop');
-    let startY = 0, currentY = 0, dragging = false;
-
-    function openSheet(){ html.classList.add('sheet-open'); backdrop.hidden = false; sheet.removeAttribute('inert'); sheet.focus(); }
-    function closeSheet(){ html.classList.remove('sheet-open'); backdrop.hidden = true; sheet.setAttribute('inert',''); burger?.focus(); }
-
-    burger?.addEventListener('click', openSheet);
-    backdrop?.addEventListener('click', closeSheet);
-    document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') closeSheet(); });
-
-    sheet.addEventListener('touchstart', (e)=>{ if(e.touches.length !== 1) return; dragging = true; startY = e.touches[0].clientY; currentY = startY; }, {passive:true});
-    sheet.addEventListener('touchmove', (e)=>{ if(!dragging) return; currentY = e.touches[0].clientY; const d = Math.max(0, currentY - startY); sheet.style.transform = `translateY(${d}px)`; }, {passive:true});
-    sheet.addEventListener('touchend', ()=>{ if(!dragging) return; const d = Math.max(0, currentY - startY); dragging = false; sheet.style.transform = ''; if(d > 80) closeSheet(); });
-    sheet.addEventListener('click', (e)=>{ const a = e.target.closest('a'); if(a && a.getAttribute('href')) closeSheet(); });
-
-    sheet.setAttribute('inert','');
-  })();
-
-  // Avatar: abrir/cerrar menú
-  (function(){
-    const btn = document.getElementById('avatarBtn');
-    const menu = document.getElementById('userMenu');
-    if(!btn || !menu) return;
-
-    function toggle(open){
-      if(open===undefined) open = !menu.classList.contains('open');
-      menu.classList.toggle('open', open);
-      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-    }
-    btn.addEventListener('click', ()=> toggle());
-    document.addEventListener('click', (e)=>{
-      if(!menu.classList.contains('open')) return;
-      if(!e.target.closest('.user-wrap')) toggle(false);
-    });
-    document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') toggle(false); });
-  })();
-
-  // Buscador: sugerencias con IA (SearchController@suggest)
-  (function(){
-    const input = document.getElementById('qInput');
-    const panel = document.getElementById('sugg');
-    const list  = document.getElementById('suggItems');
-    const form  = document.getElementById('searchForm');
-    if(!input || !panel || !list) return;
-
-    let timer = null;
-    const SUGG_URL = @json(route('search.suggest'));
-
-    function hide(){ panel.hidden = true; list.innerHTML = ''; }
-    function show(){ panel.hidden = false; }
-    function pick(term){
-      input.value = term;
-      hide();
-      form.submit();
-    }
-
-    input.addEventListener('input', ()=>{
-      const q = input.value.trim();
-      if(timer) clearTimeout(timer);
-      if(q.length < 2){ hide(); return; }
-      timer = setTimeout(async ()=>{
-        try{
-          const url = new URL(SUGG_URL, window.location.origin);
-          url.searchParams.set('term', q);
-          const res = await fetch(url.toString(), { headers: { 'Accept':'application/json' } });
-          const data = await res.json();
-          const terms = Array.isArray(data.terms) ? data.terms : [];
-          const products = Array.isArray(data.products) ? data.products : [];
-          render(terms, products);
-        }catch(_){ /* no-op */ }
-      }, 180);
-    });
-
-    input.addEventListener('focus', ()=>{
-      if(list.children.length) show();
-    });
-    document.addEventListener('click', (e)=>{
-      if(!e.target.closest('#searchWrap')) hide();
-    });
-    document.addEventListener('keydown', (e)=>{
-      if(e.key === 'Escape') hide();
-    });
-
-    function render(terms, products){
-      let html = '';
-      if(terms.length){
-        html += terms.slice(0,6).map(t => `
-          <div class="sugg-item" role="option" onclick="(function(){document.getElementById('qInput').value=${JSON.stringify(t)}; document.getElementById('sugg').hidden=true; document.getElementById('searchForm').submit();})()">
-            <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:#111;fill:none;stroke-width:2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
-            <span>${t}</span>
-          </div>
-        `).join('');
-      }
-      if(products.length){
-        html += `<div class="sugg-item" style="cursor:default;opacity:.65"><small>Productos</small></div>`;
-        html += products.slice(0,5).map(p => `
-          <a class="sugg-item" href="{{ url('/producto') }}/${p.id}">
-            <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:#111;fill:none;stroke-width:2"><path d="M20 7H4"/><path d="M6 7v13a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7"/><path d="M9 7V5a3 3 0 0 1 6 0v2"/></svg>
-            <span>${p.name.replace(/</g,'&lt;')}</span>
-          </a>
-        `).join('');
-      }
-      if(!html) html = `<div class="sugg-empty">Sin sugerencias</div>`;
-      list.innerHTML = html;
-      show();
-    }
-  })();
-
-  // Utilidad: actualizar badge del carrito desde JS
-  window.updateCartBadge = function(count){
-    const el = document.querySelector('[data-cart-badge]');
-    if (!el) return;
-    el.textContent = String(count||0);
-  };
-</script>
-
 <main class="container" style="padding:28px 20px;">
   @if(session('ok'))
     <div class="wrap" style="max-width:var(--container);">
@@ -559,6 +437,165 @@
     </div>
   </div>
 </footer>
+
+{{-- ===== Scripts (al final para que el DOM exista) ===== --}}
+<script>
+  // Bottom Sheet móvil
+  (function(){
+    const html = document.documentElement;
+    const burger = document.getElementById('burger');
+    const sheet = document.getElementById('sheet');
+    const backdrop = document.getElementById('sheet-backdrop');
+    let startY = 0, currentY = 0, dragging = false;
+
+    function openSheet(){ html.classList.add('sheet-open'); backdrop.hidden = false; sheet.removeAttribute('inert'); sheet.focus(); }
+    function closeSheet(){ html.classList.remove('sheet-open'); backdrop.hidden = true; sheet.setAttribute('inert',''); burger?.focus(); }
+
+    burger?.addEventListener('click', openSheet);
+    backdrop?.addEventListener('click', closeSheet);
+    document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') closeSheet(); });
+
+    sheet.addEventListener('touchstart', (e)=>{ if(e.touches.length !== 1) return; dragging = true; startY = e.touches[0].clientY; currentY = startY; }, {passive:true});
+    sheet.addEventListener('touchmove', (e)=>{ if(!dragging) return; currentY = e.touches[0].clientY; const d = Math.max(0, currentY - startY); sheet.style.transform = `translateY(${d}px)`; }, {passive:true});
+    sheet.addEventListener('touchend', ()=>{ if(!dragging) return; const d = Math.max(0, currentY - startY); dragging = false; sheet.style.transform = ''; if(d > 80) closeSheet(); });
+    sheet.addEventListener('click', (e)=>{ const a = e.target.closest('a'); if(a && a.getAttribute('href')) closeSheet(); });
+
+    sheet.setAttribute('inert','');
+  })();
+
+  // Avatar: abrir/cerrar menú
+  (function(){
+    const btn = document.getElementById('avatarBtn');
+    const menu = document.getElementById('userMenu');
+    if(!btn || !menu) return;
+
+    function toggle(open){
+      if(open===undefined) open = !menu.classList.contains('open');
+      menu.classList.toggle('open', open);
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+    btn.addEventListener('click', ()=> toggle());
+    document.addEventListener('click', (e)=>{
+      if(!menu.classList.contains('open')) return;
+      if(!e.target.closest('.user-wrap')) toggle(false);
+    });
+    document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') toggle(false); });
+  })();
+
+  // Buscador: sugerencias con IA
+  (function(){
+    const input = document.getElementById('qInput');
+    const panel = document.getElementById('sugg');
+    const list  = document.getElementById('suggItems');
+    const form  = document.getElementById('searchForm');
+    if(!input || !panel || !list) return;
+
+    let timer = null;
+    const SUGG_URL = @json(route('search.suggest'));
+
+    function hide(){ panel.hidden = true; list.innerHTML = ''; }
+    function show(){ panel.hidden = false; }
+
+    input.addEventListener('input', ()=>{
+      const q = input.value.trim();
+      if(timer) clearTimeout(timer);
+      if(q.length < 2){ hide(); return; }
+      timer = setTimeout(async ()=>{
+        try{
+          const url = new URL(SUGG_URL, window.location.origin);
+          url.searchParams.set('term', q);
+          const res = await fetch(url.toString(), { headers: { 'Accept':'application/json' } });
+          const data = await res.json();
+          const terms = Array.isArray(data.terms) ? data.terms : [];
+          const products = Array.isArray(data.products) ? data.products : [];
+          let html = '';
+          if(terms.length){
+            html += terms.slice(0,6).map(t => `
+              <div class="sugg-item" role="option" onclick="(function(){document.getElementById('qInput').value=${JSON.stringify(t)}; document.getElementById('sugg').hidden=true; document.getElementById('searchForm').submit();})()">
+                <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:#111;fill:none;stroke-width:2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
+                <span>${t}</span>
+              </div>
+            `).join('');
+          }
+          if(products.length){
+            html += `<div class="sugg-item" style="cursor:default;opacity:.65"><small>Productos</small></div>`;
+            html += products.slice(0,5).map(p => `
+              <a class="sugg-item" href="{{ url('/producto') }}/${p.id}">
+                <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:#111;fill:none;stroke-width:2"><path d="M20 7H4"/><path d="M6 7v13a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7"/><path d="M9 7V5a3 3 0 0 1 6 0v2"/></svg>
+                <span>${p.name.replace(/</g,'&lt;')}</span>
+              </a>
+            `).join('');
+          }
+          if(!html) html = `<div class="sugg-empty">Sin sugerencias</div>`;
+          list.innerHTML = html;
+          show();
+        }catch(_){}
+      }, 180);
+    });
+
+    input.addEventListener('focus', ()=>{ if(list.children.length) panel.hidden = false; });
+    document.addEventListener('click', (e)=>{ if(!e.target.closest('#searchWrap')) panel.hidden = true; });
+    document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') panel.hidden = true; });
+  })();
+
+  // ===== Footer: acordeón móvil (Conócenos, Servicios, etc.) =====
+  (function(){
+    function initFooterAccordion(){
+      const root = document.getElementById('ft-accordion');
+      if(!root) return;
+
+      // ARIA
+      root.querySelectorAll('.ft__col').forEach((col, i) => {
+        const btn  = col.querySelector('[data-acc]');
+        const list = col.querySelector('.ft__list');
+        if(!btn || !list) return;
+        if(!list.id) list.id = 'ft-list-' + i;
+        btn.setAttribute('aria-controls', list.id);
+        btn.setAttribute('aria-expanded', col.classList.contains('open') ? 'true' : 'false');
+      });
+
+      // Delegación de eventos
+      root.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-acc]');
+        if(!btn || !root.contains(btn)) return;
+
+        const col    = btn.closest('.ft__col');
+        const isOpen = col.classList.contains('open');
+
+        // En móvil, colapsa otros
+        if (window.matchMedia('(max-width:980px)').matches) {
+          root.querySelectorAll('.ft__col.open').forEach(c => {
+            if(c !== col){
+              c.classList.remove('open');
+              const b = c.querySelector('[data-acc]');
+              if(b) b.setAttribute('aria-expanded','false');
+            }
+          });
+        }
+
+        col.classList.toggle('open', !isOpen);
+        btn.setAttribute('aria-expanded', !isOpen ? 'true' : 'false');
+      });
+    }
+
+    // Ejecutar cuando el DOM ya existe
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initFooterAccordion);
+    } else {
+      initFooterAccordion();
+    }
+    // Soporte opcional Livewire/Turbo
+    document.addEventListener('turbo:load', initFooterAccordion);
+    document.addEventListener('livewire:load', initFooterAccordion);
+  })();
+
+  // Utilidad: actualizar badge del carrito desde JS
+  window.updateCartBadge = function(count){
+    const el = document.querySelector('[data-cart-badge]');
+    if (!el) return;
+    el.textContent = String(count||0);
+  };
+</script>
 
 @stack('scripts')
 </body>
