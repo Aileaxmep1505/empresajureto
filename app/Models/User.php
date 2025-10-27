@@ -103,6 +103,9 @@ public function comments()
 {
     return $this->hasMany(\App\Models\Comment::class);
 }
+public function favorites() {
+    return $this->belongsToMany(\App\Models\CatalogItem::class, 'favorites')->withTimestamps();
+}
 
 
 }

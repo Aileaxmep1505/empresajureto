@@ -8,28 +8,35 @@ use Illuminate\Http\Request;
 
 class CartController extends Controller
 {
+    /**
+     * Obtiene el carrito desde sesión.
+     * Estructura: [id => ['id','name','price','qty','image','slug','sku']]
+     */
     private function getCart(): array
     {
-        return session()->get('cart', []); // [id => ['id'=>, 'name'=>, 'price'=>, 'qty'=>, 'image'=>, 'slug'=>]]
+        return session()->get('cart', []);
     }
 
+    /** Guarda el carrito en sesión. */
     private function saveCart(array $cart): void
     {
         session(['cart' => $cart]);
     }
 
+    /** Precio unitario considerando oferta si existe. */
     private function unitPrice(CatalogItem $item): float
     {
         return (float)($item->sale_price ?? $item->price ?? 0);
     }
 
+    /** Totales del carrito. Ajusta IVA según tu caso. */
     private function totals(array $cart): array
     {
-        $subtotal = 0;
+        $subtotal = 0.0;
         foreach ($cart as $row) {
             $subtotal += ((float)$row['price']) * ((int)$row['qty']);
         }
-        $ivaRate  = 0.16; // ajusta si no aplicas IVA
+        $ivaRate  = 0.16; // cambia a 0 si no aplicas IVA
         $iva      = round($subtotal * $ivaRate, 2);
         $total    = round($subtotal + $iva, 2);
 
@@ -41,6 +48,7 @@ class CartController extends Controller
         ];
     }
 
+    /** Vista del carrito. */
     public function index()
     {
         $cart   = $this->getCart();
@@ -48,6 +56,7 @@ class CartController extends Controller
         return view('web.cart.index', compact('cart', 'totals'));
     }
 
+    /** Agregar item al carrito (AJAX-friendly). */
     public function add(Request $request)
     {
         $data = $request->validate([
@@ -56,7 +65,6 @@ class CartController extends Controller
         ]);
 
         $item = CatalogItem::published()->findOrFail($data['catalog_item_id']);
-
         $cart = $this->getCart();
 
         if (isset($cart[$item->id])) {
@@ -76,12 +84,16 @@ class CartController extends Controller
         $this->saveCart($cart);
         $totals = $this->totals($cart);
 
-        if ($request->wantsJson()) {
-            return response()->json(['ok'=>true,'cart'=>$cart,'totals'=>$totals]);
+        // Para peticiones AJAX/Fetch -> no redirige
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json(['ok' => true, 'cart' => $cart, 'totals' => $totals]);
         }
+
+        // Fallback si alguien envía sin JS
         return back()->with('ok', 'Producto agregado al carrito.');
     }
 
+    /** Actualiza cantidad de un item (siempre JSON). */
     public function update(Request $request)
     {
         $data = $request->validate([
@@ -93,6 +105,7 @@ class CartController extends Controller
         if (!isset($cart[$data['catalog_item_id']])) {
             return response()->json(['ok'=>false,'msg'=>'Item no existe en carrito'], 404);
         }
+
         $cart[$data['catalog_item_id']]['qty'] = (int)$data['qty'];
         $this->saveCart($cart);
         $totals = $this->totals($cart);
@@ -100,6 +113,7 @@ class CartController extends Controller
         return response()->json(['ok'=>true,'cart'=>$cart,'totals'=>$totals]);
     }
 
+    /** Elimina un item del carrito (AJAX-friendly). */
     public function remove(Request $request)
     {
         $data = $request->validate([
@@ -111,21 +125,25 @@ class CartController extends Controller
         $this->saveCart($cart);
         $totals = $this->totals($cart);
 
-        if ($request->wantsJson()) {
+        if ($request->ajax() || $request->wantsJson()) {
             return response()->json(['ok'=>true,'cart'=>$cart,'totals'=>$totals]);
         }
         return back()->with('ok', 'Producto eliminado del carrito.');
     }
 
+    /** Vacía el carrito (AJAX-friendly). */
     public function clear(Request $request)
     {
         $this->saveCart([]);
-        if ($request->wantsJson()) {
-            return response()->json(['ok'=>true,'cart'=>[],'totals'=>['count'=>0,'subtotal'=>0,'iva'=>0,'total'=>0]]);
+        $json = ['ok'=>true,'cart'=>[],'totals'=>['count'=>0,'subtotal'=>0,'iva'=>0,'total'=>0]];
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json($json);
         }
         return back()->with('ok', 'Carrito vaciado.');
     }
 
+    /** Previsualización de checkout. */
     public function checkoutPreview()
     {
         $cart   = $this->getCart();
@@ -133,7 +151,6 @@ class CartController extends Controller
         if ($totals['count'] < 1) {
             return redirect()->route('web.cart.index')->with('ok','Tu carrito está vacío.');
         }
-        // Aquí podrías pedir datos de envío/facturación o redirigir a un “checkout”
         return view('web.cart.checkout', compact('cart','totals'));
     }
 }

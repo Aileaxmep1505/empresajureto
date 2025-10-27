@@ -30,7 +30,8 @@ use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\ShippingController;
 use App\Http\Controllers\SearchController; // <- tu controlador actual
 use App\Http\Controllers\Web\CommentController;
-
+use App\Http\Controllers\Web\FavoriteController;
+use App\Http\Controllers\Customer\CustomerAreaController;
 /*
 |--------------------------------------------------------------------------
 | AUTH (ÚNICO login con AuthController)
@@ -340,3 +341,17 @@ Route::view('/formas-de-envio', 'web.politicas.envios-skydropx')->name('policy.s
 
 Route::get('/ofertas', fn() => view('web.ofertas'))->name('web.ofertas');
 
+Route::middleware('auth')->group(function () {
+    Route::get('/favoritos', [FavoriteController::class, 'index'])->name('favoritos.index');
+    Route::post('/favoritos/toggle/{item}', [FavoriteController::class, 'toggle'])->name('favoritos.toggle');
+    Route::delete('/favoritos/{item}', [FavoriteController::class, 'destroy'])->name('favoritos.destroy');
+});
+
+
+Route::middleware('auth')->group(function () {
+    Route::get('/mi-cuenta', [CustomerAreaController::class, 'profile'])
+        ->name('customer.profile');
+
+    Route::post('/mi-cuenta/reordenar/{order}', [CustomerAreaController::class, 'reorder'])
+        ->name('customer.orders.reorder');
+});

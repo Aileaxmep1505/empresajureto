@@ -61,4 +61,8 @@ class CatalogItem extends Model
     {
         return $q->orderByDesc('published_at')->orderBy('name');
     }
+    public function favoredBy() {
+    return $this->belongsToMany(\App\Models\User::class, 'favorites')->withTimestamps();
+}
+
 }

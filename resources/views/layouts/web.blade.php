@@ -1,4 +1,4 @@
-<!doctype html> 
+<!doctype html>
 <html lang="es">
 <head>
   <meta charset="utf-8">
@@ -23,6 +23,8 @@
   </script>
 
   <link href="{{ asset('css/app.css') }}" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+
   @stack('styles')
 
   <style>
@@ -33,13 +35,36 @@
       --sheet-bg:#ffffff; --sheet-radius:20px; --sheet-shadow: 0 18px 60px rgba(2,8,23,.22);
       --backdrop: rgba(15,23,42,.38);
       --brand:#6ea8fe;
+
+      --header-solid-bg:#ffffff;
+      --header-glass-bg: rgba(255,255,255,.42);
+      --header-glass-border: rgba(15,23,42,.05);
+      --header-transition: background-color .25s ease, backdrop-filter .25s ease, box-shadow .25s ease, border-color .25s ease;
     }
     *{ box-sizing:border-box }
     html,body{ margin:0; padding:0 }
     body{ font-family: ui-sans-serif, system-ui, -apple-system; background:var(--bg); color:var(--ink); overflow-x:hidden }
 
     /* ===== Header base ===== */
-    header.header{ position:sticky; top:0; left:0; right:0; width:100%; background:#fff; box-shadow:var(--shadow); z-index:40 }
+    header.header{
+      position:sticky; top:0; left:0; right:0; width:100%;
+      background:var(--header-solid-bg);
+      box-shadow:var(--shadow);
+      z-index:40;
+      border-bottom:1px solid transparent;
+      transition: var(--header-transition);
+    }
+    header.header.header--glass{
+      background:var(--header-glass-bg);
+      backdrop-filter: saturate(120%) blur(8px);
+      -webkit-backdrop-filter: saturate(120%) blur(8px);
+      border-bottom-color: var(--header-glass-border);
+      box-shadow: 0 10px 28px rgba(2,8,23,.10);
+    }
+    @media (prefers-reduced-transparency: reduce) {
+      header.header.header--glass{ backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
+    }
+
     .wrap{ max-width:var(--container); margin:0 auto; padding:14px 20px }
     .navbar{ display:flex; align-items:center; gap:18px }
     .brand{ display:flex; align-items:center; gap:12px; white-space:nowrap; text-decoration:none; color:var(--ink) }
@@ -72,10 +97,9 @@
 
     /* ===== Mobile topbar ===== */
     .mobile-topbar{ display:none; align-items:center; justify-content:space-between; max-width:var(--container); margin:0 auto; padding:10px 16px }
-    .m-left{ display:flex; align-items:center; gap:12px }
     .m-brand{ display:flex; align-items:center; gap:8px; text-decoration:none; color:var(--ink) }
     .m-logo{ height:26px; width:auto; display:block }
-    .m-icons{ display:flex; align-items:center; gap:10px; margin-left:8px }
+    .m-right{ display:flex; align-items:center; gap:10px } /* NUEVO: grupo carrito + burger a la derecha */
     .burger{ display:none; background:transparent; border:0; padding:6px }
     .burger svg{ width:24px; height:24px }
 
@@ -99,50 +123,51 @@
     .sheet__nav a{ display:block; text-decoration:none; color:var(--ink); font-weight:800; font-size:1.05rem; padding:10px 6px; border-bottom:1px solid var(--line) }
     .sheet__footer{ display:flex; align-items:center; justify-content:space-between; gap:12px }
     .sheet__icons{ display:flex; align-items:center; gap:12px }
-    .sheet__icons .ico svg{ stroke:#111 }
     .sheet-open .sheet{ transform: translateY(0) }
     .sheet-open .sheet-backdrop{ opacity:1; pointer-events:auto }
     @media (max-height: 700px){ .sheet{ max-height: 86vh; overflow:auto } }
 
     /* ===== Footer ===== */
     .ft{ background:#fff; border-top:1px solid #e9eef6; margin-top:30px }
-    .ft__wrap{ max-width:1180px; margin:0 auto; padding:24px 20px 36px }
-    .ft__head{ display:flex; align-items:center; justify-content:space-between; gap:16px }
+    .ft__wrap{ max-width:1180px; margin:0 auto; padding:24px 20px 36px; display:flex; flex-direction:column; align-items:center; }
+    .ft__head{ width:100%; display:flex; flex-direction:column; align-items:center; text-align:center; gap:16px; }
     .ft__brand{ display:flex; align-items:center; gap:12px; text-decoration:none; color:#0f172a }
-    .ft__logo{ height:38px; width:auto; display:block }
-    .ft__slogan{ font-size:.95rem; color:#6b7280 }
-    .ft__cta{ display:inline-flex; align-items:center; justify-content:center; background:#3b5bcc; color:#fff; font-weight:800; text-decoration:none; padding:12px 22px; border-radius:999px; box-shadow:0 10px 28px rgba(59,91,204,.22); transition:transform .12s, box-shadow .2s, background .2s }
-    .ft__cta:hover{ transform:translateY(-1px); background:#4b69d6 }
+    .ft__logo{ height:38px; width:auto; display:block } /* desktop */
+    .ft__slogan{ font-size:.95rem; color:#6b7280; max-width:720px }
     .ft__divider{ border:0; border-top:1px solid #e9eef6; margin:18px 0 12px }
 
-    .ft__grid{ display:grid; gap:24px; grid-template-columns: repeat(6, minmax(160px,1fr)) }
+    .ft__grid{ display:grid; gap:24px; grid-template-columns: repeat(4, minmax(220px,260px)); justify-content:center }
     .ft__title{ background:transparent; border:0; padding:0; margin:0 0 10px 0; font-weight:800; color:#0f172a; font-size:1rem; display:flex; align-items:center; justify-content:space-between; width:100% }
     .ft__chev{ width:16px; height:16px; border-right:2px solid #6b7280; border-bottom:2px solid #6b7280; transform: rotate(-45deg); opacity:0; transition:transform .2s, opacity .2s }
     .ft__list{ list-style:none; padding:0; margin:0; display:grid; gap:10px }
     .ft__list a{ color:#0f172a; text-decoration:none }
     .ft__list a:hover{ text-decoration:underline }
 
-    .ft__payments{ display:flex; gap:18px; align-items:center; flex-wrap:wrap; border-top:1px solid #e9eef6; margin-top:22px; padding-top:16px }
+    .ft__payments{ display:flex; gap:18px; align-items:center; flex-wrap:wrap; border-top:1px solid #e9eef6; margin-top:22px; padding-top:16px; justify-content:center }
     .ft__payments img{ height:26px; width:auto }
     .ft__copy{ margin-top:16px; color:#6b7280 }
 
+    .ft__social{ display:flex; gap:14px; align-items:center; margin-top:8px }
+    .ft__social a{ color:inherit; opacity:.9; transition:opacity .2s, transform .1s }
+    .ft__social a:hover{ opacity:1; transform:translateY(-1px) }
+
+    /* Solo móvil: logo del footer más compacto y centrado */
     @media (max-width: 980px){
-      .ft__wrap{ padding:22px 16px 28px }
-      .ft__head{ flex-direction:column; align-items:center; text-align:center }
-      .ft__brand{ flex-direction:column }
-      .ft__cta{ margin-top:10px }
+      .ft__wrap{ padding:22px 16px 28px; align-items:stretch }
+      .ft__head{ align-items:flex-start; text-align:left }
       .ft__grid{ grid-template-columns: 1fr; gap:0; border-top:1px solid #e9eef6; margin-top:10px }
       .ft__col{ border-bottom:1px solid #e9eef6; padding:10px 0 }
       .ft__title{ padding:12px 4px; cursor:pointer; }
       .ft__chev{ opacity:1 }
-      .ft__col:not(.open) .ft__list{ display:none }            /* cerrado por defecto en móvil */
-      .ft__col.open .ft__list{ display:grid }                  /* abierto en móvil */
-      .ft__col.open .ft__chev{ transform: rotate(45deg); }     /* chevron gira al abrir */
+      .ft__col:not(.open) .ft__list{ display:none }
+      .ft__col.open .ft__list{ display:grid }
+      .ft__col.open .ft__chev{ transform: rotate(45deg); }
       .ft__payments{ justify-content:center }
       .ft__copy{ text-align:center }
+      .ft__logo{ height:28px; max-width:180px; margin:0 auto 8px; display:block } /* <= ajuste pedido */
     }
 
-    /* ===== Search pill + sugerencias + avatar ===== */
+    /* ===== Search & user (existente) ===== */
     .searchbar-wrap{ position:relative; flex:1; max-width:720px; }
     .searchbar{
       display:flex; align-items:center; gap:10px;
@@ -150,26 +175,9 @@
       padding:10px 14px; box-shadow:0 8px 22px rgba(2,8,23,.06);
     }
     .searchbar .s-ico{width:20px;height:20px;display:inline-flex}
-    .searchbar input{
-      flex:1; border:0; outline:0; background:transparent;
-      font-size:1rem; color:var(--ink);
-    }
+    .searchbar input{ flex:1; border:0; outline:0; background:transparent; font-size:1rem; color:var(--ink); }
     .searchbar .vdiv{width:1px; height:22px; background:#d9e0ec}
-    .searchbar .chip{
-      display:inline-flex; align-items:center; justify-content:center;
-      font-weight:800; font-size:.9rem; color:#2f4fb8;
-      border:2px solid #2f4fb8; border-radius:999px; width:34px; height:34px;
-    }
-    .sugg{
-      position:absolute; left:0; right:0; top:calc(100% + 8px);
-      background:#fff; border:1px solid var(--line); border-radius:14px;
-      box-shadow:0 18px 46px rgba(2,8,23,.12); padding:6px; z-index:55;
-    }
-    .sugg-item{
-      display:flex; align-items:center; gap:8px; padding:10px 12px; border-radius:10px; cursor:pointer; text-decoration:none; color:var(--ink);
-    }
-    .sugg-item:hover{ background:#f7f9fe }
-    .sugg-empty{ color:#6b7280; padding:8px 12px }
+    .searchbar .chip{ display:inline-flex; align-items:center; justify-content:center; font-weight:800; font-size:.9rem; color:#2f4fb8; border:2px solid #2f4fb8; border-radius:999px; width:34px; height:34px; }
 
     .user-wrap{position:relative}
     .avatar-btn{
@@ -189,7 +197,6 @@
     }
     .user-menu a:hover, .user-menu form button:hover{background:#f7f9fe}
 
-    /* Evita scroll del fondo cuando el bottom sheet está abierto */
     html.sheet-open{ overflow:hidden; }
   </style>
 </head>
@@ -198,27 +205,27 @@
 <header class="header">
   {{-- Topbar móvil --}}
   <div class="mobile-topbar">
-    <div class="m-left">
-      <a href="{{ route('web.home') }}" class="m-brand" aria-label="Ir a inicio">
-        <img class="m-logo" src="{{ asset('images/logo-mail.png') }}" alt="Jureto" onerror="this.style.opacity=.2">
+    <!-- Izquierda: logo -->
+    <a href="{{ route('web.home') }}" class="m-brand" aria-label="Ir a inicio">
+      <img class="m-logo" src="{{ asset('images/logo-mail.png') }}" alt="Jureto" onerror="this.style.opacity=.2">
+    </a>
+    <!-- Derecha: carrito + burger (NUEVO ORDEN) -->
+    <div class="m-right">
+      @php
+        $cart = session('cart', []);
+        $cartCount = is_array($cart) ? array_sum(array_map(fn($r)=> (int)($r['qty'] ?? 0), $cart)) : 0;
+      @endphp
+      <a class="icon-btn" href="{{ route('web.cart.index') }}" aria-label="Carrito">
+        <svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39A2 2 0 0 0 9.63 16h7.52a2 2 0 0 0 2-.79L23 12H6"/></svg>
+        <span class="cart-badge" data-cart-badge>{{ $cartCount }}</span>
       </a>
-      <div class="m-icons">
-        @php
-          $cart = session('cart', []);
-          $cartCount = is_array($cart) ? array_sum(array_map(fn($r)=> (int)($r['qty'] ?? 0), $cart)) : 0;
-        @endphp
-        <a class="icon-btn" href="{{ route('web.cart.index') }}" aria-label="Carrito">
-          <svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39A2 2 0 0 0 9.63 16h7.52a2 2 0 0 0 2-.79L23 12H6"/></svg>
-          <span class="cart-badge" data-cart-badge>{{ $cartCount }}</span>
-        </a>
-      </div>
+      <button class="burger" id="burger" aria-label="Abrir menú">
+        <svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18" stroke="#111" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
     </div>
-    <button class="burger" id="burger" aria-label="Abrir menú">
-      <svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18" stroke="#111" stroke-width="2" stroke-linecap="round"/></svg>
-    </button>
   </div>
 
-  {{-- Navbar desktop con buscador + avatar --}}
+  {{-- Navbar desktop (SIN CAMBIOS) --}}
   @php
     $cart = session('cart', []);
     $cartCount = is_array($cart) ? array_sum(array_map(fn($r)=> (int)($r['qty'] ?? 0), $cart)) : 0;
@@ -233,12 +240,10 @@
 
     <nav class="nav-center" aria-label="Principal">
       <a href="{{ route('web.home') }}" class="nav-link {{ request()->routeIs('web.home') ? 'is-active' : '' }}">Inicio</a>
-      <a href="{{ route('web.catalog.index') }}" class="nav-link {{ request()->routeIs('web.catalog.*') ? 'is-active' : '' }}">Categorías</a>
       <a href="{{ route('web.ofertas') }}" class="nav-link {{ request()->routeIs('web.ofertas.*') ? 'is-active' : '' }}">Ofertas</a>
       <a href="{{ url('/servicios') }}" class="nav-link {{ request()->is('servicios') ? 'is-active' : '' }}">Servicios</a>
     </nav>
 
-    {{-- Buscador + sugerencias --}}
     <div class="searchbar-wrap" id="searchWrap">
       <form class="searchbar" action="{{ route('search.index') }}" method="get" role="search" aria-label="Buscar" id="searchForm">
         <span class="s-ico" aria-hidden="true">
@@ -249,13 +254,11 @@
         <span class="chip" title="Asistente">AI</span>
       </form>
 
-      {{-- Panel de sugerencias --}}
       <div class="sugg" id="sugg" hidden>
         <div id="suggItems"></div>
       </div>
     </div>
 
-    {{-- Acciones laterales --}}
     <div class="right-tools">
       <a class="icon-btn" href="{{ url('/favoritos') }}" title="Favoritos" aria-label="Favoritos">
         <svg viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 22l7.8-8.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
@@ -289,7 +292,7 @@
             <form method="POST" action="{{ route('logout') }}" role="none">
               @csrf
               <button type="submit" role="menuitem">
-                <svg viewBox="0 0 24 24" style="width:18px;height:18px"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                <svg viewBox="0 0 24 24" style="width:18px;height:18px"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y1="12"/></svg>
                 Cerrar sesión
               </button>
             </form>
@@ -310,10 +313,10 @@
     <div class="sheet__grid">
       <nav class="sheet__nav" aria-label="Menú móvil">
         <a href="{{ route('web.home') }}">Inicio</a>
-        <a href="{{ route('web.catalog.index') }}">Catálogo</a>
+        <a href="{{ route('web.ofertas') }}">Ofertas</a>
         <a href="{{ route('web.ventas.index') }}">Ventas</a>
         <a href="{{ route('web.contacto') }}">Contacto</a>
-        <a href="{{ route('web.cart.index') }}">Carrito</a>
+        <a href="{{ route('favoritos.index') }}">Favoritos</a>
       </nav>
       <div class="sheet__footer">
         <div class="sheet__icons">
@@ -335,46 +338,33 @@
 </section>
 
 <main class="container" style="padding:28px 20px;">
-  @if(session('ok'))
-    <div class="wrap" style="max-width:var(--container);">
-      <div class="card" style="border-left:4px solid #e4ba16; margin-bottom:16px; padding:12px 14px;">{{ session('ok') }}</div>
-    </div>
-  @endif
+
   @yield('content')
 </main>
 
+<!-- ===== FOOTER CENTRADO ===== -->
 <footer class="ft">
   <div class="ft__wrap">
+    <img src="{{ asset('images/logo-mail.png') }}" alt="Jureto" class="ft__logo">
     <div class="ft__head">
-      <a href="{{ route('web.home') }}" class="ft__brand" aria-label="Jureto inicio">
-        <img src="{{ asset('images/logo-mail.png') }}" alt="Jureto" class="ft__logo">
-        <span class="ft__slogan">soluciones para tu espacio de trabajo.</span>
-      </a>
-      @if(Route::has('register'))
-        <a href="{{ route('register') }}" class="ft__cta">Regístrate</a>
-      @endif
+      <div>
+        <a href="{{ route('web.home') }}" class="ft__brand" aria-label="Jureto inicio" style="gap:14px;">
+          <span class="ft__slogan">
+            Jureto es el aliado B2B para equipar oficinas y dependencias públicas con soluciones integrales:
+            papelería, cómputo, y muebles. Sin fricción, sin complicaciones.
+          </span>
+        </a>
+      </div>
     </div>
 
     <hr class="ft__divider">
 
     <div class="ft__grid" id="ft-accordion">
-      <section class="ft__col">
+      <section class="ft__col open">
         <button class="ft__title" type="button" data-acc>Conócenos <span class="ft__chev"></span></button>
-        <ul class="ft__list">
+        <ul class="ft__list" id="ft-about">
           <li><a href="{{ url('/sobre-nosotros') }}">¿Quiénes somos?</a></li>
           <li><a href="{{ url('/comentarios') }}">Comentarios</a></li>
-        </ul>
-      </section>
-
-      <section class="ft__col">
-        <button class="ft__title" type="button" data-acc>Servicios <span class="ft__chev"></span></button>
-        <ul class="ft__list">
-          <li><a href="{{ url('/servicios/pickup') }}">Pick Up Center</a></li>
-          <li><a href="{{ url('/empresas') }}">Para empresas</a></li>
-          <li><a href="{{ url('/proteccion') }}">Planes de protección</a></li>
-          <li><a href="{{ url('/reciclaje') }}">Programa de reciclaje</a></li>
-          <li><a href="{{ url('/imprime-gratis') }}">Imprime Gratis</a></li>
-          <li><a href="{{ url('/club-precios') }}">Club de Precios</a></li>
         </ul>
       </section>
 
@@ -397,15 +387,6 @@
       </section>
 
       <section class="ft__col">
-        <button class="ft__title" type="button" data-acc>Promociones <span class="ft__chev"></span></button>
-        <ul class="ft__list">
-          <li><a href="{{ url('/promos/hot-sale') }}">Hot Sale 2025</a></li>
-          <li><a href="{{ url('/promos/buen-fin') }}">Buen Fin 2025</a></li>
-          <li><a href="{{ url('/promos/cyberdays') }}">CyberDays</a></li>
-        </ul>
-      </section>
-
-      <section class="ft__col">
         <button class="ft__title" type="button" data-acc>Políticas <span class="ft__chev"></span></button>
         <ul class="ft__list">
           <li><a href="{{ url('/envios-devoluciones-cancelaciones') }}">Envíos, devoluciones y cancelaciones</a></li>
@@ -419,8 +400,8 @@
         <ul class="ft__list">
           <li><a href="{{ url('/preguntas-frecuentes') }}">Preguntas frecuentes</a></li>
           <li><a href="{{ url('/contacto') }}">Contacto</a></li>
-          <li><a href="{{ url('/formas-de-pago') }}">Forma de Pago</a></li>
-          <li><a href="{{ url('/formas-de-envio') }}">Forma de Envíos</a></li>
+          <li><a href="{{ url('/formas-de-pago') }}">Formas de Pago</a></li>
+          <li><a href="{{ url('/formas-de-envio') }}">Formas de Envío</a></li>
           <li><a href="{{ url('/garantias-y-devoluciones') }}">Garantías & devoluciones</a></li>
         </ul>
       </section>
@@ -432,15 +413,34 @@
       <img src="{{ asset('images/payments/amex.png') }}" alt="American Express">
     </div>
 
-    <div class="ft__copy">
+    <div class="ft__copy" style="margin-top:18px;display:flex;justify-content:center;flex-wrap:wrap;align-items:center;gap:16px;text-align:center;">
       <small>© {{ date('Y') }} Jureto — Todos los derechos reservados.</small>
+      <div style="display:flex; gap:16px; align-items:center;">
+        <a href="https://x.com" target="_blank" aria-label="X / Twitter" style="color:inherit;"><i class="fa-brands fa-x-twitter"></i></a>
+        <a href="https://discord.com" target="_blank" aria-label="Discord" style="color:inherit;"><i class="fa-brands fa-discord"></i></a>
+        <a href="https://linkedin.com" target="_blank" aria-label="LinkedIn" style="color:inherit;"><i class="fa-brands fa-linkedin-in"></i></a>
+        <a href="https://reddit.com" target="_blank" aria-label="Reddit" style="color:inherit;"><i class="fa-brands fa-reddit-alien"></i></a>
+      </div>
     </div>
   </div>
 </footer>
 
-{{-- ===== Scripts (al final para que el DOM exista) ===== --}}
+{{-- ===== Scripts ===== --}}
 <script>
-  // Bottom Sheet móvil
+  (function(){
+    const header = document.querySelector('header.header');
+    if(!header) return;
+    const THRESHOLD = 32;
+    function applyGlass(){
+      if(window.scrollY > THRESHOLD){ header.classList.add('header--glass'); }
+      else{ header.classList.remove('header--glass'); }
+    }
+    applyGlass();
+    window.addEventListener('scroll', applyGlass, { passive:true });
+    window.addEventListener('resize', applyGlass);
+    window.addEventListener('pageshow', applyGlass);
+  })();
+
   (function(){
     const html = document.documentElement;
     const burger = document.getElementById('burger');
@@ -463,12 +463,10 @@
     sheet.setAttribute('inert','');
   })();
 
-  // Avatar: abrir/cerrar menú
   (function(){
     const btn = document.getElementById('avatarBtn');
     const menu = document.getElementById('userMenu');
     if(!btn || !menu) return;
-
     function toggle(open){
       if(open===undefined) open = !menu.classList.contains('open');
       menu.classList.toggle('open', open);
@@ -482,7 +480,6 @@
     document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') toggle(false); });
   })();
 
-  // Buscador: sugerencias con IA
   (function(){
     const input = document.getElementById('qInput');
     const panel = document.getElementById('sugg');
@@ -538,13 +535,11 @@
     document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') panel.hidden = true; });
   })();
 
-  // ===== Footer: acordeón móvil (Conócenos, Servicios, etc.) =====
   (function(){
     function initFooterAccordion(){
       const root = document.getElementById('ft-accordion');
       if(!root) return;
 
-      // ARIA
       root.querySelectorAll('.ft__col').forEach((col, i) => {
         const btn  = col.querySelector('[data-acc]');
         const list = col.querySelector('.ft__list');
@@ -554,7 +549,6 @@
         btn.setAttribute('aria-expanded', col.classList.contains('open') ? 'true' : 'false');
       });
 
-      // Delegación de eventos
       root.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-acc]');
         if(!btn || !root.contains(btn)) return;
@@ -562,7 +556,6 @@
         const col    = btn.closest('.ft__col');
         const isOpen = col.classList.contains('open');
 
-        // En móvil, colapsa otros
         if (window.matchMedia('(max-width:980px)').matches) {
           root.querySelectorAll('.ft__col.open').forEach(c => {
             if(c !== col){
@@ -578,25 +571,136 @@
       });
     }
 
-    // Ejecutar cuando el DOM ya existe
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', initFooterAccordion);
     } else {
       initFooterAccordion();
     }
-    // Soporte opcional Livewire/Turbo
     document.addEventListener('turbo:load', initFooterAccordion);
     document.addEventListener('livewire:load', initFooterAccordion);
   })();
 
-  // Utilidad: actualizar badge del carrito desde JS
   window.updateCartBadge = function(count){
     const el = document.querySelector('[data-cart-badge]');
     if (!el) return;
     el.textContent = String(count||0);
   };
 </script>
+<!-- ========== TOAST + AJAX CART (pegar antes de </body>) ========== -->
+<style>
+  #toaststack{position:fixed;top:14px;right:14px;z-index:9999;display:flex;flex-direction:column;gap:10px}
+  .toast2{
+    background:#fff;color:#111827;border:1px solid #e6eaf2;border-radius:14px;
+    box-shadow:0 16px 40px rgba(2,8,23,.08);
+    padding:12px 14px;min-width:280px;max-width:360px;
+    display:grid;grid-template-columns:28px 1fr auto;gap:10px;
+    animation:toast2in .2s ease-out both
+  }
+  .toast2__ring{width:26px;height:26px;border-radius:999px;border:3px solid #d1e7dd;box-sizing:border-box}
+  .toast2--success .toast2__ring{border-color:#86efac}
+  .toast2--warning .toast2__ring{border-color:#fcd34d}
+  .toast2--info    .toast2__ring{border-color:#93c5fd}
+  .toast2__title{font-weight:800;margin-top:2px}
+  .toast2__msg{font-size:.92rem;color:#334155}
+  .toast2__close{border:0;background:transparent;width:30px;height:30px;border-radius:10px;cursor:pointer}
+  .toast2__close:hover{background:#f3f4f6}
+  .toast2__bar{grid-column:1/-1;height:3px;border-radius:999px;background:#34d399;transform-origin:left;animation:toast2bar var(--dur,3200ms) linear forwards}
+  .toast2--warning .toast2__bar{background:#f59e0b}
+  .toast2--info .toast2__bar{background:#60a5fa}
+  @keyframes toast2in{from{transform:translateY(-6px);opacity:0}to{transform:translateY(0);opacity:1}}
+  @keyframes toast2out{to{transform:translateY(-6px);opacity:0}}
+  @keyframes toast2bar{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+</style>
+
+<div id="toaststack" aria-live="polite" aria-atomic="true"></div>
+
+<script>
+(function(){
+  // ===== Toast minimal tipo "Agregado"
+  const stack = document.getElementById('toaststack');
+  window.showToast = function({title='Agregado', message='', kind='success', duration=3200}={}){
+    const el = document.createElement('div');
+    el.className = `toast2 toast2--${kind}`;
+    el.style.setProperty('--dur', duration+'ms');
+    el.innerHTML = `
+      <div class="toast2__ring" aria-hidden="true"></div>
+      <div>
+        <div class="toast2__title">${title}</div>
+        ${message ? `<div class="toast2__msg">${message}</div>` : ''}
+      </div>
+      <button class="toast2__close" type="button" aria-label="Cerrar">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="#0f172a" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+      <div class="toast2__bar"></div>
+    `;
+    stack.appendChild(el);
+    const close = () => { el.style.animation = 'toast2out .18s ease-in forwards'; setTimeout(()=> el.remove(), 160); };
+    const timer = setTimeout(close, duration);
+    el.querySelector('.toast2__close').addEventListener('click', ()=>{ clearTimeout(timer); close(); });
+  };
+
+  // ===== Actualiza TODAS las badgets de carrito
+  window.updateCartBadge = function(count){
+    document.querySelectorAll('[data-cart-badge]').forEach(b=> b.textContent = String(count||0));
+  };
+
+  // ===== Interceptar "Agregar al carrito" SIN recargar
+  const RUTA_ADD = @json(route('web.cart.add'));
+  const CSRF = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+  function esFormCartAdd(form){
+    try{
+      const a = new URL(form.getAttribute('action') || form.action, location.origin).href;
+      const b = new URL(RUTA_ADD, location.origin).href;
+      return a === b;
+    }catch(_){ return false; }
+  }
+
+  // Delegación global: vale para TODAS las vistas y para formularios dinámicos
+  document.addEventListener('submit', async (e)=>{
+    const form = e.target;
+    if(!(form instanceof HTMLFormElement)) return;
+    if(!esFormCartAdd(form)) return;
+
+    e.preventDefault(); // <- evita recarga
+
+    try{
+      const fd = new FormData(form);
+      const res = await fetch(form.action, {
+        method:'POST',
+        headers:{ 'Accept':'application/json', 'X-Requested-With':'XMLHttpRequest', 'X-CSRF-TOKEN': CSRF },
+        body: fd,
+        credentials:'same-origin'
+      });
+
+      // Si el backend redirige (302) por algo, intenta leer JSON igualmente
+      const data = await res.json().catch(()=> ({}));
+
+      if(!res.ok || !data.ok){
+        const msg = (data && (data.msg || data.message)) || 'No se pudo agregar.';
+        throw new Error(msg);
+      }
+
+      // OK: actualiza badge y muestra toast
+      window.updateCartBadge(data?.totals?.count || 0);
+      window.showToast({ title:'Agregado', message:'El producto se añadió al carrito.', kind:'success', duration:3000 });
+    }catch(err){
+      window.showToast({ title:'Ups', message: String(err.message||'Error inesperado'), kind:'warning', duration:3500 });
+      console.error('Cart add error:', err);
+    }
+  }, true); // useCapture para interceptar antes de que algo más lo procese
+
+  // Si llega un flash desde el servidor, muéstralo como toast (opcional)
+  @if(session('ok'))
+    window.addEventListener('DOMContentLoaded', ()=>{
+      window.showToast({ title:'Aviso', message: @json(session('ok')), kind:'info', duration:3000 });
+    });
+  @endif
+})();
+</script>
+<!-- ========== /TOAST + AJAX CART ========== -->
 
 @stack('scripts')
+
 </body>
 </html>
