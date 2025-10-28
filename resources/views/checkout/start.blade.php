@@ -7,7 +7,7 @@
   $cart     = is_array($cart ?? null) ? $cart : (array)session('cart', []);
   $subtotal = 0;
   foreach ($cart as $r) { $subtotal += (float)($r['price'] ?? 0) * (int)($r['qty'] ?? 1); }
-  $total = $subtotal; // (el envío se suma en el paso 3)
+  $total = $subtotal; // (el envío se suma cuando el cliente elige opción)
 @endphp
 
 <style>
@@ -17,22 +17,28 @@
     --accent:#10b981;
     --muted:#6b7280;
     --line:#eef2f7;
+    --surface:#ffffff;
   }
   .ck-wrap{display:grid;grid-template-columns:2fr 1fr;gap:18px}
   @media(max-width: 980px){ .ck-wrap{grid-template-columns:1fr} }
+
   .card{background:#fff;border:1px solid #e5e7eb;border-radius:16px;box-shadow:0 8px 24px rgba(2,8,23,.04)}
   .card-h{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px}
   .card-b{padding:16px 18px}
+
   .btn{display:inline-flex;align-items:center;justify-content:center;border-radius:12px;padding:10px 14px;font-weight:800;text-decoration:none;border:1px solid #dbe2ea;background:#fff;cursor:pointer}
   .btn:disabled{opacity:.5;cursor:not-allowed}
   .btn-primary{background:var(--brand);border-color:var(--brand);color:#fff}
   .btn-ghost{background:#fff}
   .muted{color:var(--muted)}
+
   .stepper{display:flex;gap:22px;align-items:center;margin:0 0 18px}
   .step{display:flex;align-items:center;gap:10px;font-weight:800;color:#334155}
   .dot{width:28px;height:28px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;border:2px solid var(--brand)}
   .dot.active{background:var(--brand);color:#fff}
+
   .addr-empty{display:flex;gap:12px;align-items:flex-start;background:#f5f8ff;border:1px dashed #c4d1ff;padding:14px;border-radius:12px;color:#1f2a44}
+
   .sum-row{display:flex;justify-content:space-between;margin:8px 0;font-weight:800}
   .line{border:0;border-top:1px solid var(--line);margin:16px 0}
 
@@ -47,6 +53,19 @@
   .fi label{font-size:.9rem;color:#334155;font-weight:800}
   .fi input,.fi select,.fi textarea{border:1px solid #dbe2ea;border-radius:12px;padding:12px 12px;font-size:.98rem;background:#fff}
   .fi input[readonly]{background:#f8fafc}
+
+  /* ===== Shipping options ===== */
+  #ship-box{margin-top:18px}
+  .ship-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+  .ship-list{display:grid;gap:10px}
+  .ship-item{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:12px;border:1px solid #e9eef6;background:#fff;border-radius:12px}
+  .ship-item.active{border-color:#bfd2ff;box-shadow:0 10px 24px rgba(31,76,240,.06)}
+  .ship-brand{font-weight:900;color:#0f172a}
+  .ship-note{font-size:.88rem;color:var(--muted)}
+  .ship-price{font-weight:900}
+  .chip{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:#eef2ff;color:#22396b;font-weight:800;border:1px solid #d9e3ff}
+  .skel{background:linear-gradient(90deg,#f6f7f9, #eef1f5, #f6f7f9);background-size:200% 100%;animation:shine 1.2s infinite linear}
+  @keyframes shine{0%{background-position:200% 0}100%{background-position:-200% 0}}
 </style>
 
 <div class="stepper" aria-label="Progreso de compra">
@@ -90,6 +109,16 @@
       @empty
         <div class="muted">Tu carrito está vacío.</div>
       @endforelse
+
+      {{-- Opciones de envío (se llena al guardar/seleccionar dirección) --}}
+      <section id="ship-box" aria-live="polite" style="display:none">
+        <div class="ship-head">
+          <h3 style="margin:14px 0 6px;font-weight:900;color:var(--brand-ink)">Opciones de envío</h3>
+          <span class="chip" id="ship-summary" style="display:none"></span>
+        </div>
+        <div id="ship-list" class="ship-list"></div>
+        <div id="ship-help" class="muted" style="margin-top:8px;display:none"></div>
+      </section>
     </div>
   </div>
 
@@ -97,7 +126,7 @@
   <aside class="card" aria-label="Resumen">
     <div class="card-b">
       <div class="sum-row"><span>Subtotal</span><span id="sum-subtotal">${{ number_format($subtotal,2) }}</span></div>
-      <div class="sum-row"><span>Envío</span><span class="muted">Se calcula en el paso 3</span></div>
+      <div class="sum-row"><span>Envío</span><span id="sum-shipping" class="muted">A elegir</span></div>
       <hr class="line">
       <div class="sum-row" style="font-size:1.12rem"><span>Total</span><span id="sum-total">${{ number_format($total,2) }}</span></div>
       <div class="muted" style="margin-top:6px;">Precios incluyen IVA</div>
@@ -117,7 +146,6 @@
   <div class="card-b">
     <form id="addr-form" class="f" autocomplete="off">
       @csrf
-
       <div class="g2">
         <div class="fi">
           <label for="nombre_recibe">¿Quién recibe? (opcional)</label>
@@ -213,34 +241,51 @@
   const $$ = s => Array.from(document.querySelectorAll(s));
   const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 
-  // === Rutas backend (ajusta names si difieren)
-  const ROUTE_CP       = @json(route('checkout.cp.lookup'));
-  const ROUTE_ADDRESS  = @json(route('checkout.address.store'));
-  const ROUTE_SHIPPING = @json(route('checkout.shipping'));
-  const ROUTE_INV      = @json(route('checkout.invoice'));
-  const ROUTE_INV_SKIP = @json(route('checkout.invoice.skip'));
+  // === Números
+  const SUBTOTAL  = @json($subtotal);
+  const THRESHOLD = Number(@json(env('FREE_SHIPPING_THRESHOLD', 5000)));
 
-  // ======= Helpers modales =======
+  // === Rutas backend (ajusta names si difieren)
+  const ROUTE_CP          = @json(route('checkout.cp.lookup'));
+  const ROUTE_ADDRESS     = @json(route('checkout.address.store'));
+  const ROUTE_INV         = @json(route('checkout.invoice'));
+  const ROUTE_INV_SKIP    = @json(route('checkout.invoice.skip'));
+  const ROUTE_NEXT_STEP   = @json(route('checkout.shipping')); // o route('checkout.payment') si prefieres
+  // Endpoints de envío (ShippingController)
+  const ROUTE_SHIP_OPTIONS= @json(route('shipping.options'));
+  const ROUTE_SHIP_SELECT = @json(route('shipping.select'));
+
+  // ======= Helpers UI =======
+  function pesos(n){ try{ return n.toLocaleString('es-MX',{style:'currency',currency:'MXN'}); }catch(_){ return '$'+(Number(n||0).toFixed(2)); } }
+  function showToast(text){
+    const el = document.createElement('div');
+    el.textContent = text;
+    el.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--accent);color:#fff;padding:10px 14px;border-radius:10px;font-weight:800;box-shadow:0 10px 30px rgba(2,8,23,.25);z-index:80';
+    document.body.appendChild(el);
+    setTimeout(()=>el.remove(), 2200);
+  }
+  function showMsg(text){
+    const m = $('#addr-msg'); m.textContent = text; m.style.display='block';
+    setTimeout(()=>{ m.style.display='none'; }, 4500);
+  }
+
+  // ======= Modales =======
   const addrModal = $('#addr-modal'), addrBack = $('#addr-backdrop');
   const invModal  = $('#inv-modal'),  invBack  = $('#inv-backdrop');
 
   function openAddr(){ addrModal.classList.add('open'); addrBack.classList.add('open'); addrModal.focus(); }
   function closeAddr(){ addrModal.classList.remove('open'); addrBack.classList.remove('open'); }
-
   function openInv(){ invModal.classList.add('open'); invBack.classList.add('open'); invModal.focus(); }
   function closeInv(){ invModal.classList.remove('open'); invBack.classList.remove('open'); }
 
-  // Botones modal dirección
   $('#btn-open-modal')?.addEventListener('click', openAddr);
   $('#addr-close')?.addEventListener('click', closeAddr);
   $('#addr-cancel')?.addEventListener('click', closeAddr);
   addrBack?.addEventListener('click', closeAddr);
 
-  // Botones modal factura
   $('#inv-close')?.addEventListener('click', closeInv);
   invBack?.addEventListener('click', closeInv);
 
-  // Escape cierra el modal que esté abierto
   document.addEventListener('keydown', e=>{
     if(e.key==='Escape'){
       if(invModal.classList.contains('open')) closeInv();
@@ -248,7 +293,7 @@
     }
   });
 
-  // ===== CP lookup (contra TU backend) =====
+  // ======= CP lookup =======
   const cp = $('#cp'), estado = $('#estado'), municipio = $('#municipio'), colonia = $('#colonia');
   const datalist = $('#colonias-list');
 
@@ -256,7 +301,6 @@
     if(ro){ estado.setAttribute('readonly',''); municipio.setAttribute('readonly',''); }
     else { estado.removeAttribute('readonly'); municipio.removeAttribute('readonly'); }
   }
-
   async function lookupCP(code){
     estado.value=''; municipio.value=''; datalist.innerHTML=''; setEditable(true);
     if(!/^\d{5}$/.test(code||'')) return;
@@ -276,6 +320,142 @@
     }
   }
   cp?.addEventListener('input', e=>{ if((e.target.value||'').length===5) lookupCP(e.target.value) });
+
+  // ======= Shipping UI refs =======
+  const shipBox   = $('#ship-box');
+  const shipList  = $('#ship-list');
+  const shipHelp  = $('#ship-help');
+  const shipSumEl = $('#ship-summary');
+  const sumShip   = $('#sum-shipping');
+  const sumTotal  = $('#sum-total');
+  const btnContinue = $('#btn-continue');
+
+  let selectedShipping = null;
+  let savedAddress     = null; // último addr usado para cotizar
+
+  function resetShippingUI(){
+    selectedShipping = null;
+    sumShip.textContent = 'A elegir';
+    sumShip.classList.add('muted');
+    sumTotal.textContent = pesos(SUBTOTAL);
+    shipList.innerHTML = '';
+    shipHelp.style.display = 'none';
+    shipSumEl.style.display = 'none';
+  }
+
+  function setShippingSkeleton(){
+    shipBox.style.display = 'block';
+    shipList.innerHTML = `
+      <div class="ship-item skel" style="height:56px;border-radius:12px"></div>
+      <div class="ship-item skel" style="height:56px;border-radius:12px"></div>
+      <div class="ship-item skel" style="height:56px;border-radius:12px"></div>
+    `;
+  }
+
+  function renderShippingOptions(list){
+    shipList.innerHTML = '';
+    if(!Array.isArray(list) || !list.length){
+      shipHelp.textContent = 'No encontramos paqueterías para esa dirección. Verifica el C.P. o intenta más tarde.';
+      shipHelp.style.display = 'block';
+      return;
+    }
+    shipHelp.style.display = 'none';
+
+    list.forEach((opt, idx)=>{
+      const id = `ship_${idx}_${String(opt.id).replace(/[^a-zA-Z0-9_-]/g,'')}`;
+      const html = `
+        <label class="ship-item" for="${id}" data-id="${opt.id}">
+          <input type="radio" name="shipOption" id="${id}" style="margin:0 4px 0 0">
+          <div>
+            <div class="ship-brand">${(opt.carrier||'Paquetería').toUpperCase()} <span class="ship-note">· ${opt.service||'Servicio'}</span></div>
+            <div class="ship-note">${opt.eta ? ('Entrega estimada: '+opt.eta) : ''}</div>
+          </div>
+          <div class="ship-price">${pesos(opt.price||0)}</div>
+        </label>
+      `;
+      shipList.insertAdjacentHTML('beforeend', html);
+    });
+
+    // Selección
+    shipList.addEventListener('change', e=>{
+      const r = e.target.closest('input[type="radio"][name="shipOption"]');
+      if(!r) return;
+      const label = r.closest('.ship-item');
+      $$('.ship-item').forEach(el=>el.classList.remove('active'));
+      label.classList.add('active');
+
+      // Arma objeto seleccionado
+      const idx = $$('.ship-item').indexOf ? $$('.ship-item').indexOf(label) : Array.prototype.indexOf.call($$('.ship-item'), label);
+      const opt = list[idx];
+      selectedShipping = opt;
+
+      // Refresca sidebar y resumen
+      sumShip.textContent = opt.price === 0 ? 'Envío gratis' : pesos(opt.price);
+      sumShip.classList.remove('muted');
+      sumTotal.textContent = pesos(SUBTOTAL + Number(opt.price||0));
+      shipSumEl.textContent = `${(opt.carrier||'Paquetería').toUpperCase()} · ${opt.service||'Servicio'}`;
+      shipSumEl.style.display = 'inline-flex';
+
+      btnContinue.disabled = false;
+    }, { once:true }); // attach una vez por render
+  }
+
+  // Convierte addr => payload "to" para /shipping/options
+  function addressToToPayload(addr){
+    return {
+      postal_code : String(addr.cp||'').trim(),
+      state       : String(addr.estado||'').trim(),
+      municipality: String(addr.municipio||'').trim(),
+      colony      : String(addr.colonia||'').trim(),
+      street      : [addr.calle, addr.num_ext, addr.num_int ? `Int ${addr.num_int}` : null].filter(Boolean).join(' '),
+      contact_name: String(addr.nombre_recibe||'Cliente'),
+      phone       : String(addr.telefono||'5555555555')
+    };
+  }
+
+  // Carga cotizaciones (usa /shipping/options)
+  async function loadShippingOptions(addrLike){
+    try{
+      resetShippingUI();
+      setShippingSkeleton();
+
+      const to = addressToToPayload(addrLike);
+      const body = {
+        subtotal: SUBTOTAL,
+        to,
+        package: { weight_kg: 1, length_cm: 10, width_cm: 10, height_cm: 10 }
+      };
+
+      const res = await fetch(ROUTE_SHIP_OPTIONS, {
+        method:'POST',
+        headers:{ 'X-CSRF-TOKEN': csrf, 'Accept':'application/json', 'Content-Type':'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+
+      if(!res.ok || data.ok === false){
+        shipList.innerHTML = '';
+        shipHelp.textContent = (data.error || 'No se pudo cotizar el envío. Inténtalo más tarde.');
+        shipHelp.style.display = 'block';
+        return;
+      }
+
+      shipBox.style.display = 'block';
+      const options = Array.isArray(data.options) ? data.options : [];
+      renderShippingOptions(options);
+
+      // Si hay free shipping por umbral, muéstralo en chips
+      if(data.free_shipping){
+        shipSumEl.textContent = 'Envío gratis disponible';
+        shipSumEl.style.display = 'inline-flex';
+      }
+    }catch(err){
+      console.error(err);
+      shipList.innerHTML = '';
+      shipHelp.textContent = 'No se pudo consultar paqueterías.';
+      shipHelp.style.display = 'block';
+    }
+  }
 
   // ===== Pintar la tarjeta de dirección =====
   function renderAddressCard(addr){
@@ -305,13 +485,15 @@
     $('#addr-empty')?.remove();
     box.querySelector('[data-addr-card]')?.remove();
     box.insertAdjacentHTML('afterbegin', html);
-    subtitle.textContent = 'Revisa tu entrega y continúa tu compra.';
-    $('#btn-continue').disabled = false;
-    // Marca state para el botón Continuar
+    subtitle.textContent = 'Elige tu opción de envío y continúa.';
     document.body.dataset.hasAddress = '1';
+
+    // Lanza cotización
+    savedAddress = addr;
+    loadShippingOptions(addr);
   }
 
-  // ===== Guardar dirección (AJAX)
+  // ===== Guardar dirección (AJAX) y cotizar
   $('#addr-form')?.addEventListener('submit', async (e)=>{
     e.preventDefault();
     const fd = new FormData(e.target);
@@ -347,50 +529,54 @@
     }
   });
 
-  function showMsg(text){
-    const m = $('#addr-msg'); m.textContent = text; m.style.display='block';
-    setTimeout(()=>{ m.style.display='none'; }, 4500);
-  }
-  function showToast(text){
-    const el = document.createElement('div');
-    el.textContent = text;
-    el.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--accent);color:#fff;padding:10px 14px;border-radius:10px;font-weight:800;box-shadow:0 10px 30px rgba(2,8,23,.25);z-index:80';
-    document.body.appendChild(el);
-    setTimeout(()=>el.remove(), 2200);
-  }
-
-  // ===== Botón Continuar → abre modal de factura (SIN redirects previos)
-  const btnContinue = $('#btn-continue');
-  btnContinue?.addEventListener('click', (e)=>{
+  // ===== Botón Continuar
+  btnContinue?.addEventListener('click', async (e)=>{
     e.preventDefault();
 
-    // Si no hay dirección, abre el modal de dirección
     const hasAddr = document.body.dataset.hasAddress === '1';
-    if(!hasAddr){
-      openAddr();
+    if(!hasAddr){ openAddr(); return; }
+    if(!selectedShipping){
+      showToast('Selecciona una opción de envío');
       return;
     }
-    // Mostrar decisión de factura
+
+    // Abre decisión de factura
     openInv();
   });
 
-  // Decisión de factura
-  $('#btn-no-invoice')?.addEventListener('click', ()=>{
+  // ===== Decisión de factura -> guardamos shipping y seguimos
+  async function persistShippingAndGo(nextUrl){
+    try{
+      await fetch(ROUTE_SHIP_SELECT, {
+        method:'POST',
+        headers:{ 'X-CSRF-TOKEN': csrf, 'Accept':'application/json', 'Content-Type':'application/json' },
+        body: JSON.stringify({
+          option_id   : selectedShipping.id,
+          option_label: `${(selectedShipping.carrier||'Paquetería').toUpperCase()} — ${selectedShipping.service||'Servicio'}`,
+          price       : Number(selectedShipping.price||0),
+          currency    : selectedShipping.currency || 'MXN',
+          raw         : selectedShipping
+        })
+      });
+    }catch(err){ console.warn('No se pudo guardar selección de envío, seguimos:', err); }
+    window.location.href = nextUrl;
+  }
+
+  $('#btn-no-invoice')?.addEventListener('click', async ()=>{
     closeInv();
-    fetch(ROUTE_INV_SKIP, {
-      method:'POST',
-      headers:{'X-CSRF-TOKEN': csrf, 'Accept':'application/json'}
-    }).finally(()=>{
-      window.location.href = ROUTE_SHIPPING;
-    });
+    // Marca "no factura" en backend y redirige
+    try{
+      await fetch(ROUTE_INV_SKIP, { method:'POST', headers:{'X-CSRF-TOKEN': csrf, 'Accept':'application/json'} });
+    }catch(_){}
+    await persistShippingAndGo(ROUTE_NEXT_STEP);
   });
 
-  $('#btn-yes-invoice')?.addEventListener('click', ()=>{
+  $('#btn-yes-invoice')?.addEventListener('click', async ()=>{
     closeInv();
-    window.location.href = ROUTE_INV;
+    await persistShippingAndGo(ROUTE_INV);
   });
 
-  // ===== Precargar tarjeta si ya hay dirección en sesión
+  // ===== Precarga tarjeta si hay dirección en la sesión
   const pre = @json($address ?? null);
   if(pre){
     const addr = {
@@ -410,8 +596,14 @@
     };
     renderAddressCard(addr);
   } else {
-    // Marca sin dirección
     document.body.dataset.hasAddress = '0';
+    // Si el subtotal ya supera el umbral, puedes anunciarlo
+    if(SUBTOTAL >= THRESHOLD){
+      const el = document.createElement('div');
+      el.className = 'chip';
+      el.textContent = '¡Aplica envío gratis! (elige para confirmar)';
+      $('#address-box').appendChild(el);
+    }
   }
 })(); // IIFE
 </script>

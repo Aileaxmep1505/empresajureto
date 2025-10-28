@@ -35,6 +35,7 @@ use App\Http\Controllers\Web\FavoriteController;
 use App\Http\Controllers\Customer\CustomerAreaController;
 use App\Http\Controllers\Web\HelpCenterController;
 use App\Http\Controllers\Admin\HelpDeskAdminController;
+use App\Http\Controllers\SkydropxDebugController;
 /*
 |--------------------------------------------------------------------------
 | AUTH (ÚNICO login con AuthController)
@@ -394,4 +395,17 @@ Route::prefix('panel/ayuda')->name('admin.help.')
       Artisan::call('knowledge:sync', ['--rebuild' => true]);
       return back()->with('ok', 'Conocimiento reindexado.');
     })->name('sync');
+});
+
+Route::get('/debug/skydropx/carriers', [SkydropxDebugController::class, 'carriers']); // ->middleware('auth')
+Route::get('/debug/skydropx/quote',    [SkydropxDebugController::class, 'quote']);    // ->middleware('auth')
+
+Route::middleware(['web','auth'])->group(function () {
+    // Opciones de envío (cotiza y devuelve lista)
+    Route::post('/shipping/options', [ShippingController::class, 'options'])
+        ->name('shipping.options');
+
+    // Guardar selección de envío en sesión/orden
+    Route::post('/shipping/select',  [ShippingController::class, 'select'])
+        ->name('shipping.select');
 });

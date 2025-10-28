@@ -120,7 +120,6 @@
       <p class="ofr-eyebrow">OFERTAS</p>
       <h1 class="ofr-display">Las <span class="accent">ofertas</span> no deberían esperar</h1>
       <p class="ofr-sub">Descuentos en papelería y oficina con estilo enterprise: rápidos, claros y listos para tu carrito.</p>
-      <a href="#ofr-layout" class="ofr-cta-hero">Hablemos de tu proyecto</a>
     </div>
   </section>
 
@@ -643,3 +642,4 @@
 })();
 </script>
 @endsection
+

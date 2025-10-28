@@ -4,7 +4,7 @@ return [
     [
       'slug'   => 'garantias-y-devoluciones',
       'title'  => 'Garantías y Devoluciones',
-      'url'    => url('/garantias-y-devoluciones'),
+      'url'    => env('APP_URL') . '/garantias-y-devoluciones',
       'content'=> <<<TXT
 POLÍTICA DE GARANTÍAS Y DEVOLUCIONES
 
@@ -38,7 +38,7 @@ TXT
     [
       'slug'   => 'formas-de-envio',
       'title'  => 'Formas de Envío',
-      'url'    => url('/formas-de-envio'),
+      'url'    => env('APP_URL') . '/formas-de-envio',
       'content'=> <<<TXT
 FORMAS DE ENVÍO
 

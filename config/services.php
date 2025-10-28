@@ -28,15 +28,36 @@ return [
     ],
 
     // OpenAI
-    'openai' => [
-        // Usa 'api_key' para que puedas leer con: config('services.openai.api_key')
-        'api_key'  => env('OPENAI_API_KEY'),
-        'base_uri' => env('OPENAI_API_BASE', 'https://api.openai.com/v1'),
-        'model'    => env('OPENAI_MODEL', 'gpt-5'),
-        'timeout'  => (int) env('OPENAI_TIMEOUT', 300),
-        'retries'  => (int) env('OPENAI_RETRIES', 2),
-          'embed_model' => env('OPENAI_EMBED_MODEL','text-embedding-3-small'),
-    ],
+'openai' => [
+    // === Credenciales ===
+    'api_key' => env('OPENAI_API_KEY'),
+
+    // Usa base_url SIN /v1 si tu servicio concatena el path (/v1/chat/completions)
+    'base_url'  => rtrim(env('OPENAI_BASE_URL', 'https://api.openai.com'), '/'),
+
+    // Compatibilidad con código antiguo que espera /v1 en la base
+    'base_uri'  => rtrim(env('OPENAI_API_BASE', 'https://api.openai.com/v1'), '/'),
+
+    // Opcionales (Organizations / Projects)
+    'org_id'     => env('OPENAI_ORG_ID'),
+    'project_id' => env('OPENAI_PROJECT_ID'),
+
+    // === Selección de modelos con Fallback ===
+    // El servicio usará 'primary' y 'fallbacks'. Se conserva 'model' por compatibilidad.
+    'primary'   => env('OPENAI_PRIMARY_MODEL', env('OPENAI_MODEL', 'gpt-5')),
+    'fallbacks' => array_filter(array_map('trim', explode(',', env('OPENAI_FALLBACK_MODELS', 'gpt-4o,gpt-4o-mini')))),
+    'model'     => env('OPENAI_MODEL', 'gpt-5'), // legacy
+
+    // === Timeouts y reintentos (para 429/5xx) ===
+    'timeout'              => (int) env('OPENAI_TIMEOUT', 30),
+    'connect_timeout'      => (int) env('OPENAI_CONNECT_TIMEOUT', 10),
+    'max_retries_per_model'=> (int) env('OPENAI_RETRIES_PER_MODEL', 2),
+    'retry_base_delay_ms'  => (int) env('OPENAI_RETRY_BASE_MS', 400),
+    'max_total_attempts'   => (int) env('OPENAI_MAX_TOTAL_ATTEMPTS', 6),
+
+    // === Embeddings ===
+    'embed_model' => env('OPENAI_EMBED_MODEL', 'text-embedding-3-small'),
+],
 
     // Slack (notificaciones)
     'slack' => [
@@ -72,9 +93,14 @@ return [
         'success_url'    => env('STRIPE_SUCCESS_URL'),
         'cancel_url'     => env('STRIPE_CANCEL_URL'),
     ],
-'skydropx' => [
-        'base' => env('SKYDROPX_API_BASE', 'https://api.skydropx.com/v2'),
-        'key' => env('SKYDROPX_API_KEY'),
+'skydropx_pro' => [
+        'client_id'  => env('SKYDROPX_CLIENT_ID'),
+        'secret'     => env('SKYDROPX_CLIENT_SECRET'),
+        'token_url'  => env('SKYDROPX_PRO_TOKEN_URL'),
+        'api_base'   => env('SKYDROPX_PRO_API_BASE', 'https://sb-pro.skydropx.com/api/v1'),
+        'scope'      => env('SKYDROPX_SCOPE', ''),
+        'origin_cp'  => env('ORIGIN_POSTAL_CODE', '52060'),
+        'free_ship'  => (float) env('FREE_SHIPPING_THRESHOLD', 5000.00),
     ],
     'copomex' => [
     'token' => env('COPOMEX_TOKEN'), // opcional

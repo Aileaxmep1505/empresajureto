@@ -8,17 +8,26 @@ use Illuminate\Support\Str;
 class RagSearch
 {
     /**
-     * Busca en knowledge_documents con keyword prefilter + similitud (si hay embeddings).
-     * Devuelve top-K con score normalizado [0..1].
+     * @param string $query
+     * @param int    $k
+     * @param array  $opts ['allow'=>['pages','static'], 'deny'=>['products']]
      * @return array<int, array{doc:KnowledgeDocument, score:float}>
      */
-    public static function search(string $query, int $k = 6): array
+    public static function search(string $query, int $k = 6, array $opts = []): array
     {
         $tokens = self::tokens($query);
 
-        // Prefiltro por keywords; calculamos un "kwscore" (#matches por chunk)
         $base = KnowledgeDocument::query()->where('is_active', true);
 
+        // Filtros por tipo de fuente
+        if (!empty($opts['allow'])) {
+            $base->whereIn('source_type', (array)$opts['allow']);
+        }
+        if (!empty($opts['deny'])) {
+            $base->whereNotIn('source_type', (array)$opts['deny']);
+        }
+
+        // Prefiltro keyword
         if ($tokens) {
             $base->select('*')->selectRaw(
                 '(' . collect($tokens)->map(fn($t)=>"CASE WHEN content LIKE ? THEN 1 ELSE 0 END")->implode(' + ') . ') AS kwscore',
@@ -30,27 +39,43 @@ class RagSearch
 
         $candidates = $base->limit(250)->get();
 
-        // Si NO hay API key o embeddings del query => hacemos scoring SOLO por keywords
-        $qvec = Embeddings::embed($query);
-        if (empty($qvec)) {
-            $scored = [];
-            foreach ($candidates as $doc) {
-                $kw = (float)($doc->kwscore ?? 0);
-                // Convierto kwscore (0..N) a [0.35 .. 0.90] para que si hay al menos 1 match pase el threshold
-                $score = min(0.35 + 0.18 * $kw, 0.90);
-                $scored[] = ['doc' => $doc, 'score' => $score];
-            }
-            usort($scored, fn($a,$b)=> $b['score'] <=> $a['score']);
-            return array_slice($scored, 0, $k);
-        }
+        // Intent para re-ranqueo
+        $intent = QueryIntent::detect($query);
+        $domain = $intent['domain'] ?? 'general';
 
-        // Sí hay vector de query: mezclamos similitud coseno + pequeño bonus por kw
+        // Scoring con o sin embeddings
+        $qvec = Embeddings::embed($query);
         $scored = [];
+
         foreach ($candidates as $doc) {
-            $dvec  = $doc->embeddingArray();
-            $sim   = $dvec ? Embeddings::cosine($qvec, $dvec) : 0.0; // 0..1 aprox
-            $kw    = (float)($doc->kwscore ?? 0);
-            $score = $sim + min($kw * 0.03, 0.20); // bonus por kw
+            $dscore = 0.0;
+
+            if (!empty($qvec)) {
+                $dvec = $doc->embeddingArray();
+                $sim  = $dvec ? Embeddings::cosine($qvec, $dvec) : 0.0;
+                $dscore = $sim;
+            } else {
+                $kw = (float)($doc->kwscore ?? 0);
+                $dscore = min(0.35 + 0.18 * $kw, 0.90); // base sin embeddings
+            }
+
+            // Re-ranqueo por dominio
+            $titleNorm = QueryIntent::norm(($doc->title ?? '').' '.($doc->content ?? ''));
+            $boost = 0.0;
+
+            // Para dominios de políticas, BOOST a páginas/estáticos y términos clave
+            if (in_array($domain, ['terms','returns','shipping','privacy'])) {
+                if (in_array($doc->source_type, ['pages','static'])) $boost += 0.18;
+                if (Str::contains($titleNorm, ['terminos','condiciones','devolucion','garantia','envio','privacidad'])) $boost += 0.12;
+                if ($doc->source_type === 'products') $boost -= 0.40; // castigo a productos
+            }
+
+            // Para productos, boost a 'products'
+            if ($domain === 'products' && $doc->source_type === 'products') {
+                $boost += 0.18;
+            }
+
+            $score = max(0.0, min(1.0, $dscore + $boost));
             $scored[] = ['doc' => $doc, 'score' => $score];
         }
 
@@ -60,9 +85,10 @@ class RagSearch
 
     public static function tokens(string $q): array
     {
-        $q = Str::of($q)->lower()->replaceMatches('/[^a-z0-9áéíóúñ ]/u',' ');
-        $parts = preg_split('/\s+/u', (string)$q);
+        $norm = QueryIntent::norm($q);
+        $parts = preg_split('/\s+/u', $norm);
         $parts = array_filter($parts, fn($w)=> mb_strlen($w)>=3);
-        return array_values(array_unique($parts));
+        $parts = array_values(array_unique($parts));
+        return $parts;
     }
 }
