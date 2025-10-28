@@ -35,6 +35,7 @@ return [
         'model'    => env('OPENAI_MODEL', 'gpt-5'),
         'timeout'  => (int) env('OPENAI_TIMEOUT', 300),
         'retries'  => (int) env('OPENAI_RETRIES', 2),
+          'embed_model' => env('OPENAI_EMBED_MODEL','text-embedding-3-small'),
     ],
 
     // Slack (notificaciones)

@@ -1,4 +1,5 @@
 <?php
+use Illuminate\Support\Facades\Artisan;
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Http;
@@ -32,6 +33,8 @@ use App\Http\Controllers\SearchController; // <- tu controlador actual
 use App\Http\Controllers\Web\CommentController;
 use App\Http\Controllers\Web\FavoriteController;
 use App\Http\Controllers\Customer\CustomerAreaController;
+use App\Http\Controllers\Web\HelpCenterController;
+use App\Http\Controllers\Admin\HelpDeskAdminController;
 /*
 |--------------------------------------------------------------------------
 | AUTH (ÚNICO login con AuthController)
@@ -354,4 +357,41 @@ Route::middleware('auth')->group(function () {
 
     Route::post('/mi-cuenta/reordenar/{order}', [CustomerAreaController::class, 'reorder'])
         ->name('customer.orders.reorder');
+});
+
+Route::middleware('auth')->group(function () {
+  Route::get('/ayuda', [HelpCenterController::class,'create'])->name('help.create');
+
+  // Crear ticket (AJAX). Throttle evita spam.
+  Route::post('/ayuda/start', [HelpCenterController::class,'start'])
+       ->middleware('throttle:12,1')
+       ->name('help.start');
+
+  Route::get('/ayuda/t/{ticket}', [HelpCenterController::class,'show'])
+       ->name('help.show');
+
+  // Enviar mensaje al hilo (AJAX). Límite más alto para conversación fluida.
+  Route::post('/ayuda/t/{ticket}/message', [HelpCenterController::class,'message'])
+       ->middleware('throttle:30,1')
+       ->name('help.message');
+
+  // Escalar a humano (AJAX). Límite más bajo.
+  Route::post('/ayuda/t/{ticket}/escalar', [HelpCenterController::class,'escalar'])
+       ->middleware('throttle:6,1')
+       ->name('help.escalar');
+});
+
+Route::prefix('panel/ayuda')->name('admin.help.')
+  ->middleware(['auth','role:admin|soporte|profesor'])
+  ->group(function(){
+    Route::get('/', [HelpDeskAdminController::class,'index'])->name('index');
+    Route::get('/{ticket}', [HelpDeskAdminController::class,'show'])->name('show');
+    Route::post('/{ticket}/responder', [HelpDeskAdminController::class,'reply'])->name('reply');
+    Route::post('/{ticket}/cerrar', [HelpDeskAdminController::class,'close'])->name('close');
+
+    // 🔄 Reindexar el índice RAG (usa tu comando knowledge:sync)
+    Route::post('/sync-knowledge', function () {
+      Artisan::call('knowledge:sync', ['--rebuild' => true]);
+      return back()->with('ok', 'Conocimiento reindexado.');
+    })->name('sync');
 });
