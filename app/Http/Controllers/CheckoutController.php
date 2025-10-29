@@ -6,23 +6,30 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Stripe\StripeClient;
 use App\Models\CatalogItem;
 use App\Models\BillingProfile;
 use App\Models\ShippingAddress;
+use App\Services\FacturapiWebClient;
 
 class CheckoutController extends Controller
 {
     private StripeClient $stripe;
+    private FacturapiWebClient $facturapi;
+    protected float $threshold;
 
-    public function __construct()
+    public function __construct(FacturapiWebClient $facturapi)
     {
         $secret = config('services.stripe.secret');
         if (blank($secret)) {
             throw new \RuntimeException('Falta STRIPE_SECRET en el .env o en config/services.php');
         }
-        $this->stripe = new StripeClient($secret);
+        $this->stripe    = new StripeClient($secret);
+        $this->facturapi = $facturapi;
+        $this->threshold = (float) env('FREE_SHIPPING_THRESHOLD', 5000);
     }
 
     /* ===========================================================
@@ -51,14 +58,18 @@ class CheckoutController extends Controller
             $address = ShippingAddress::where('user_id', $user->id)->find($id);
         }
 
-        // Si ya tiene algún perfil, asumimos que quiere factura (a menos que lo haya omitido en esta orden)
+        // Listado de direcciones guardadas
+        $addresses = ShippingAddress::where('user_id', $user->id)
+            ->orderByDesc('is_default')->orderByDesc('id')->get();
+
+        // Pref de factura
         $hasBilling  = $user->billingProfiles()->exists();
         $invoicePref = $hasBilling ? true : null;
         if (session()->has('checkout.invoice_required')) {
             $invoicePref = (bool) session('checkout.invoice_required');
         }
 
-        return view('checkout.start', compact('cart', 'totals', 'user', 'address', 'invoicePref'));
+        return view('checkout.start', compact('cart', 'totals', 'user', 'address', 'addresses', 'invoicePref'));
     }
 
     /* ===========================================================
@@ -90,8 +101,8 @@ class CheckoutController extends Controller
     public function invoiceValidateRFC(Request $request)
     {
         $rfc = strtoupper(trim((string)$request->input('rfc')));
-        $pattern = '/^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$/i'; // 12 PM / 13 PF
-        if (!preg_match($pattern, $rfc)) {
+        $pattern = '/^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$/i'; // 12 PM / 13 PF (permite genéricos vía step 2)
+        if (!preg_match($pattern, $rfc) && !in_array($rfc, ['XAXX010101000','XEXX010101000'], true)) {
             return response()->json(['ok'=>false,'message'=>'RFC inválido. Verifica tu constancia.'], 422);
         }
         $tipo = strlen($rfc) === 12 ? 'PM' : 'PF';
@@ -110,7 +121,7 @@ class CheckoutController extends Controller
 
         $data = $request->validate([
             'rfc'       => ['required','string','max:13','regex:/^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$/i'],
-            'razon'     => ['required','string','max:190'],
+            'razon'     => ['required','string','max:190'], // se guarda tal cual lo escribió el usuario
             'uso_cfdi'  => ['required', Rule::in(array_keys($this->usoCfdiOptions()))],
             'regimen'   => ['required', Rule::in(array_keys($this->regimenOptions()))],
             'contacto'  => ['nullable','string','max:120'],
@@ -130,24 +141,25 @@ class CheckoutController extends Controller
         $profile               = new BillingProfile();
         $profile->user_id      = $user->id;
         $profile->rfc          = strtoupper($data['rfc']);
-        $profile->razon_social = $data['razon'];
+        $profile->razon_social = $data['razon']; // sin cambios
         $profile->uso_cfdi     = $data['uso_cfdi'];  // CÓDIGO
         $profile->regimen      = $data['regimen'];   // CÓDIGO
         $profile->contacto     = $data['contacto'] ?? null;
         $profile->telefono     = $data['telefono'] ?? null;
         $profile->email        = $data['email'] ?? null;
         $profile->direccion    = $data['direccion'] ?? null;
-        $profile->zip          = $data['cp'];
+        $profile->zip          = preg_replace('/\D+/', '', (string) $data['cp']); // solo dígitos
         $profile->colonia      = $data['colonia'] ?? null;
         $profile->estado       = $data['estado'] ?? null;
         $profile->metodo_pago  = 'Tarjeta';
         $profile->is_default   = !BillingProfile::where('user_id',$user->id)->exists();
         $profile->save();
 
-        session(['checkout.billing_profile_id' => $profile->id,
-                 'checkout.invoice_required'   => true]);
+        session([
+            'checkout.billing_profile_id' => $profile->id,
+            'checkout.invoice_required'   => true
+        ]);
 
-        // Si la petición espera JSON (fetch), devolvemos redirect para que el front decida
         if ($request->wantsJson()) {
             return response()->json([
                 'ok'       => true,
@@ -156,7 +168,6 @@ class CheckoutController extends Controller
             ]);
         }
 
-        // Fallback clásico (sin AJAX)
         return redirect()->route('checkout.shipping')->with('ok', 'Datos de facturación guardados.');
     }
 
@@ -251,6 +262,46 @@ class CheckoutController extends Controller
     }
 
     /* ===========================================================
+     * Seleccionar dirección guardada (AJAX)
+     * =========================================================== */
+    public function addressSelect(Request $request)
+    {
+        $data = $request->validate([
+            'id' => ['required','integer'],
+        ]);
+
+        $addr = ShippingAddress::where('user_id', Auth::id())->find($data['id']);
+        if (!$addr) {
+            return response()->json(['ok'=>false,'error'=>'Dirección no encontrada'], 404);
+        }
+
+        // Persistir selección
+        session([
+            'checkout.address_id' => $addr->id,
+            'checkout.address'    => [
+                'id'               => $addr->id,
+                'street'           => $addr->street ?? $addr->calle,
+                'ext_number'       => $addr->ext_number ?? $addr->num_ext,
+                'int_number'       => $addr->int_number ?? $addr->num_int,
+                'colony'           => $addr->colony ?? $addr->colonia,
+                'postal_code'      => $addr->postal_code ?? $addr->cp,
+                'municipality'     => $addr->municipality ?? $addr->municipio,
+                'state'            => $addr->state ?? $addr->estado,
+                'between_street_1' => $addr->between_street_1 ?? null,
+                'between_street_2' => $addr->between_street_2 ?? null,
+                'references'       => $addr->references ?? $addr->referencias,
+                'contact_name'     => $addr->contact_name ?? $addr->nombre_recibe,
+                'phone'            => $addr->phone ?? $addr->telefono,
+            ],
+        ]);
+
+        // Si cambió la dirección, descartamos selección de envío previa
+        session()->forget('checkout.shipping');
+
+        return response()->json(['ok'=>true]);
+    }
+
+    /* ===========================================================
      * CP lookup (Copomex si tienes token)
      * =========================================================== */
     public function cpLookup(Request $req)
@@ -292,21 +343,64 @@ class CheckoutController extends Controller
     public function shipping(Request $req)
     {
         $cart = $this->getCartRows();
-        if (empty($cart)) return redirect()->route('web.cart.index')->with('ok','Tu carrito está vacío.');
+        if (empty($cart)) {
+            return redirect()->route('web.cart.index')->with('ok','Tu carrito está vacío.');
+        }
 
-        $subtotal = array_reduce($cart, fn($c,$r)=> $c + ($r['price']*$r['qty']), 0);
+        $subtotal  = array_reduce($cart, fn($c,$r)=> $c + ($r['price']*$r['qty']), 0);
+        $threshold = $this->threshold;
 
+        // Dirección actual (si hay)
         $address = null;
         if ($id = session('checkout.address_id')) {
             $address = ShippingAddress::where('user_id', Auth::id())->find($id);
         }
 
-        $carriers = [
-            ['code'=>'dhl',     'name'=>'DHL Express', 'eta'=>'2 a 5 días hábiles', 'price'=>329.57],
-            ['code'=>'fedex',   'name'=>'FedEx',       'eta'=>'2 a 4 días hábiles', 'price'=>289.99],
-            ['code'=>'estafeta','name'=>'Estafeta',    'eta'=>'3 a 6 días hábiles', 'price'=>249.00],
-        ];
-        $selected = session('checkout.shipping', ['code'=>null,'price'=>0.0]);
+        // 1) Todas las opciones normalizadas dejadas por el cotizador (Skydropx) en sesión
+        // Estructura esperada por opción:
+        // ['code'=>'dhl:express', 'carrier'=>'DHL', 'name'=>'DHL Express', 'service'=>'Express', 'eta'=>'2-4 días', 'price'=>289.99]
+        $all = session('shipping.options', []);
+
+        // Fallback de emergencia para no dejar la vista vacía
+        if (empty($all)) {
+            $all = [
+                ['code'=>'dhl-express',     'name'=>'DHL',     'service'=>'Express',  'eta'=>'2 a 5 días hábiles', 'price'=>329.57],
+                ['code'=>'fedex-ground',    'name'=>'FedEx',   'service'=>'Ground',   'eta'=>'2 a 4 días hábiles', 'price'=>289.99],
+                ['code'=>'estafeta-econo',  'name'=>'Estafeta','service'=>'Económico','eta'=>'3 a 6 días hábiles', 'price'=>249.00],
+            ];
+        }
+
+        // 2) Mostrar al cliente: excluir $0 (esas son para "store_pays" cuando hay umbral)
+        $carriers = array_values(array_filter($all, fn($o) => (float)($o['price'] ?? 0) > 0));
+
+        // Guarda la versión mostrada para validar después el POST
+        session(['shipping.options_norm' => $carriers]);
+
+        // 3) Si supera el umbral, autoselecciona la más barata y manda directo a pago (store pays)
+        if ($subtotal >= $threshold && !empty($carriers)) {
+            usort($carriers, fn($a,$b) => (float)$a['price'] <=> (float)$b['price']);
+            $best = $carriers[0];
+
+            session(['checkout.shipping' => [
+                'code'        => $best['code'],
+                'name'        => $best['name']    ?? ($best['carrier'] ?? 'Paquetería'),
+                'service'     => $best['service'] ?? null,
+                'eta'         => $best['eta']     ?? null,
+                'price'       => 0.0, // el cliente no paga
+                'store_pays'  => true,
+                'carrier_cost'=> (float)($best['price'] ?? 0),
+                'auto_applied'=> true,
+            ]]);
+
+            return redirect()
+                ->route('checkout.payment')
+                ->with('ok', 'Envío gratis aplicado (cubierto por la tienda con la paquetería más económica).');
+        }
+
+        // 4) Si no supera el umbral, mostrar para que el cliente elija y pague su envío
+        $selected = session('checkout.shipping', [
+            'code'=>null,'price'=>0.0,'name'=>null,'eta'=>null,'service'=>null
+        ]);
 
         return view('checkout.shipping', compact('cart','subtotal','address','carriers','selected'));
     }
@@ -314,13 +408,54 @@ class CheckoutController extends Controller
     public function shippingSelect(Request $req)
     {
         $data = $req->validate([
-            'code'  => 'required|string',
-            'price' => 'required|numeric|min:0',
-            'name'  => 'required|string',
-            'eta'   => 'nullable|string',
+            'code'    => 'required|string',
+            'price'   => 'nullable', // ignorado, se recalcula
+            'name'    => 'nullable',
+            'service' => 'nullable',
+            'eta'     => 'nullable',
         ]);
 
-        session(['checkout.shipping' => $data]);
+        // Buscar la opción válida entre las que se mostraron
+        $norm = collect(session('shipping.options_norm', []));
+        $opt  = $norm->firstWhere('code', $data['code']);
+
+        // Si no está en las mostradas, intentar en todas (por si hubo refresco)
+        if (!$opt) {
+            $all = collect(session('shipping.options', []));
+            $opt = $all->firstWhere('code', $data['code']);
+        }
+
+        if (!$opt) {
+            return back()->withErrors(['code'=>'Opción de envío no válida o expirada.']);
+        }
+
+        // Recalcular umbral
+        $cart = $this->getCartRows();
+        $subtotal  = array_reduce($cart, fn($c,$r)=> $c + ($r['price']*$r['qty']), 0);
+        $threshold = $this->threshold;
+
+        if ($subtotal >= $threshold) {
+            // Cliente no paga: price 0, pero guardamos el costo real para administración
+            session(['checkout.shipping' => [
+                'code'        => $opt['code'],
+                'name'        => $opt['name']    ?? ($opt['carrier'] ?? 'Paquetería'),
+                'service'     => $opt['service'] ?? null,
+                'eta'         => $opt['eta']     ?? null,
+                'price'       => 0.0,
+                'store_pays'  => true,
+                'carrier_cost'=> (float)($opt['price'] ?? 0),
+                'auto_applied'=> false, // aquí fue elección del cliente
+            ]]);
+        } else {
+            // Cliente sí paga el precio validado del cotizador
+            session(['checkout.shipping' => [
+                'code'    => $opt['code'],
+                'name'    => $opt['name']    ?? ($opt['carrier'] ?? 'Paquetería'),
+                'service' => $opt['service'] ?? null,
+                'eta'     => $opt['eta']     ?? null,
+                'price'   => (float)($opt['price'] ?? 0),
+            ]]);
+        }
 
         return $req->wantsJson()
             ? response()->json(['ok'=>true])
@@ -337,7 +472,7 @@ class CheckoutController extends Controller
 
         $subtotal = array_reduce($cart, fn($c,$r)=> $c + ($r['price']*$r['qty']), 0);
 
-        $shipping = session('checkout.shipping', ['price'=>0,'name'=>null,'code'=>null,'eta'=>null]);
+        $shipping = session('checkout.shipping', ['price'=>0,'name'=>null,'code'=>null,'eta'=>null,'service'=>null]);
         $total    = $subtotal + (float)($shipping['price'] ?? 0);
 
         $address = null;
@@ -463,15 +598,204 @@ class CheckoutController extends Controller
         }
     }
 
+    /* ===========================================================
+     * SUCCESS: confirmar pago, timbrar CFDI y limpiar sesión
+     * =========================================================== */
     public function success(Request $req)
     {
-        $sessionId = $req->query('session_id');
-        return view('checkout.success', compact('sessionId'));
+        $sessionId = (string) $req->query('session_id');
+        $invoice   = null;
+
+        if ($sessionId) {
+            try {
+                // 1) Confirmar pago en Stripe
+                $session = $this->stripe->checkout->sessions->retrieve($sessionId);
+                $paid    = ($session->payment_status ?? null) === 'paid';
+
+                if ($paid && (bool) session('checkout.invoice_required', false)) {
+                    // 2) Armar datos del receptor + partidas
+                    $user    = Auth::user();
+                    $profile = null;
+                    if ($pid = session('checkout.billing_profile_id')) {
+                        $profile = BillingProfile::where('user_id', $user->id)->find($pid);
+                    }
+
+                    // === Cliente / Receptor (CFDI v4)
+                    $isGeneric = !$profile || empty($profile->rfc);
+                    $rfc       = $isGeneric ? 'XAXX010101000' : strtoupper(trim((string) $profile->rfc));
+
+                    // Respetamos el régimen del usuario si es válido para su tipo; si no, normalizamos.
+                    $taxSystem = $this->normalizeTaxSystemForRfc($rfc, $isGeneric ? '616' : ($profile->regimen ?? null));
+
+                    // Nombre: se usa EXACTO el del usuario en BD, pero normalizado SOLO para el timbrado (mayúsculas sin acentos, sin “S.A. de C.V.”, etc.)
+                    $rawName   = $isGeneric
+                        ? 'PUBLICO EN GENERAL'
+                        : ($profile->razon_social ?: ($user->name ?? 'CLIENTE'));
+                    $legalName = $this->satLegalName($rawName, $rfc);
+
+                    $customer = [
+                        'legal_name' => $legalName,
+                        'tax_id'     => $rfc,
+                        'tax_system' => $taxSystem,
+                        'address'    => ['zip' => $isGeneric
+                            ? '64000'
+                            : preg_replace('/\D+/', '', (string)($profile->zip ?? '64000'))],
+                    ];
+                    $email = $profile?->email ?: ($user->email ?? null);
+                    if (!empty($email)) {
+                        $customer['email'] = $email;
+                    }
+
+                    // === Items (precios con IVA incluido 16%)
+                    $cart  = $this->getCartRows();
+                    $items = [];
+                    foreach ($cart as $row) {
+                        $cid   = $row['id'] ?? null;
+                        $qty   = max(1, (float)($row['qty'] ?? 1));
+                        $price = round((float)($row['price'] ?? 0), 2);
+
+                        $product_key = '01010101';
+                        $unit_key    = 'H87';
+                        $desc        = (string)($row['name'] ?? 'Producto');
+
+                        if ($cid && ($p = CatalogItem::find($cid))) {
+                            $product_key = $p->clave_prod_serv ?: $product_key;
+                            $unit_key    = $p->clave_unidad   ?: $unit_key;
+                            $desc        = $p->name ?: $desc;
+                        }
+
+                        $items[] = [
+                            'product'  => [
+                                'description'  => $desc,
+                                'product_key'  => $product_key,
+                                'unit_key'     => $unit_key,
+                                'price'        => $price,
+                                'tax_included' => true,
+                                'taxes'        => [[ 'type'=>'IVA', 'rate'=>0.16 ]],
+                            ],
+                            'quantity' => $qty,
+                        ];
+                    }
+
+                    // Envío (solo si lo pagó el cliente)
+                    $shipping = session('checkout.shipping', []);
+                    $shipPrice = (float)($shipping['price'] ?? 0);
+                    $storePays = (bool)($shipping['store_pays'] ?? false);
+                    if ($shipPrice > 0 && !$storePays) {
+                        $items[] = [
+                            'product'  => [
+                                'description'  => 'Envío',
+                                'product_key'  => '78101800', // Mensajería
+                                'unit_key'     => 'E48',
+                                'price'        => round($shipPrice, 2),
+                                'tax_included' => true,
+                                'taxes'        => [[ 'type'=>'IVA', 'rate'=>0.16 ]],
+                            ],
+                            'quantity' => 1,
+                        ];
+                    }
+
+                    // === Opciones de timbrado
+                    $opts = [
+                        'payment_method' => config('services.facturaapi_web.metodo', 'PUE'),
+                        'payment_form'   => config('services.facturaapi_web.forma',  '04'), // 04=TC, 28=TD, 03=Transfer
+                        'use'            => $isGeneric
+                            ? 'S01'
+                            : (string)($profile->uso_cfdi ?? config('services.facturaapi_web.uso', 'G03')),
+                        'series'         => (string) config('services.facturaapi_web.series', 'F'),
+                    ];
+
+                    // Información Global obligatoria si es Público en General (XAXX…)
+                    if ($rfc === 'XAXX010101000') {
+                        $opts['global'] = [
+                            'periodicity' => 'month',
+                            'months'      => [date('m')],
+                            'year'        => (int) date('Y'),
+                        ];
+                    }
+
+                    // 3) Timbrar + enviar por correo
+                    $invoice = $this->facturapi->createInvoice($customer, $items, $opts);
+                    if (!empty($invoice['id'])) {
+                        $this->facturapi->sendInvoiceEmail($invoice['id']);
+                        // Guarda datos mínimos para la vista
+                        session(['checkout.invoice' => $invoice]);
+                        Session::flash('ok', '¡Pago recibido! Tu factura fue timbrada y enviada a tu correo.');
+                    }
+
+                    // 4) Limpieza
+                    Session::forget([
+                        'cart',
+                        'checkout.address_id',
+                        'checkout.address',
+                        'checkout.billing_profile_id',
+                        'checkout.invoice_required',
+                        'checkout.shipping',
+                        'shipping.options',
+                        'shipping.options_norm',
+                    ]);
+                } else {
+                    Session::flash('ok', 'Pago confirmado.');
+                }
+            } catch (\Throwable $e) {
+                Log::error('Checkout success error: '.$e->getMessage(), ['session_id'=>$sessionId]);
+                Session::flash('error',
+                    'Pago realizado. Hubo un problema al generar/enviar la factura (validación SAT). '.
+                    'Si necesitas el CFDI de este pago, contáctanos.');
+            }
+        }
+
+        return view('checkout.success', compact('sessionId', 'invoice'));
     }
 
     public function cancel()
     {
         return redirect()->route('web.cart.index')->with('ok', 'Pago cancelado.');
+    }
+
+    /* ===========================================================
+     * DESCARGAS/RE-ENVÍO DE CFDI (para la página de éxito)
+     * =========================================================== */
+    public function invoicePdf(Request $req, string $invoiceId)
+    {
+        try {
+            $pdf = $this->facturapi->downloadPdf($invoiceId);
+            if (!$pdf) abort(404, 'No disponible.');
+            $disposition = $req->boolean('dl') ? 'attachment' : 'inline';
+            return response($pdf, 200, [
+                'Content-Type'        => 'application/pdf',
+                'Content-Disposition' => $disposition . '; filename="factura-'.$invoiceId.'.pdf"',
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('invoicePdf error: '.$e->getMessage(), ['invoice_id'=>$invoiceId]);
+            abort(404, 'No disponible.');
+        }
+    }
+
+    public function invoiceXml(string $invoiceId)
+    {
+        try {
+            $xml = $this->facturapi->downloadXml($invoiceId);
+            if (!$xml) abort(404, 'No disponible.');
+            return response($xml, 200, [
+                'Content-Type'        => 'application/xml; charset=UTF-8',
+                'Content-Disposition' => 'attachment; filename="factura-'.$invoiceId.'.xml"',
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('invoiceXml error: '.$e->getMessage(), ['invoice_id'=>$invoiceId]);
+            abort(404, 'No disponible.');
+        }
+    }
+
+    public function invoiceResendEmail(string $invoiceId)
+    {
+        try {
+            $this->facturapi->sendInvoiceEmail($invoiceId);
+            return back()->with('ok', 'Factura re-enviada por correo.');
+        } catch (\Throwable $e) {
+            Log::warning('invoiceResendEmail error: '.$e->getMessage(), ['invoice_id'=>$invoiceId]);
+            return back()->with('error', 'No se pudo re-enviar la factura por correo.');
+        }
     }
 
     /* ===========================================================
@@ -485,7 +809,6 @@ class CheckoutController extends Controller
 
     private function usoCfdiOptions(): array
     {
-        // Códigos SAT => etiqueta (incluye los solicitados)
         return [
             'G01'=>'Adquisición de mercancías',
             'G02'=>'Devoluciones, descuentos o bonificaciones',
@@ -586,5 +909,86 @@ class CheckoutController extends Controller
 
         return $rows;
     }
+
+    // ===== Helpers de régimen fiscal vs tipo de RFC =====
+    private function pmRegimens(): array {
+        // Regímenes típicos de PM
+        return ['601','603','620','622','623','624','626'];
+    }
+
+    private function pfRegimens(): array {
+        // Regímenes típicos de PF
+        return ['605','606','607','608','610','612','614','615','616','621','625','626'];
+    }
+
+    /**
+     * Corrige/normaliza el tax_system (régimen) con base en el RFC.
+     * - 12 chars => PM (default 601)
+     * - 13 chars => PF (default 612)
+     * - Genéricos XAXX/XEXX => 616
+     * Respeta el valor del usuario si es compatible; solo ajusta si es inválido.
+     */
+    private function normalizeTaxSystemForRfc(string $rfc, ?string $regimen): string {
+        $rfc = strtoupper(trim($rfc));
+        // Genéricos
+        if (in_array($rfc, ['XAXX010101000','XEXX010101000'], true)) {
+            return '616';
+        }
+        $len = strlen($rfc);
+        $regimen = $regimen ? (string)$regimen : '';
+        if ($len === 12) { // PM
+            return in_array($regimen, $this->pmRegimens(), true) ? $regimen : '601';
+        }
+        if ($len === 13) { // PF
+            return in_array($regimen, $this->pfRegimens(), true) ? $regimen : '612';
+        }
+        // Si el RFC no cuadra, por seguridad manda PF 612
+        return '612';
+    }
+
+    /**
+     * Normaliza la razón social SOLO para timbrar (no toca BD):
+     * - Mayúsculas, sin acentos ni caracteres raros (conserva Ñ y &)
+     * - Quita denominaciones sociales comunes (S.A. de C.V., S. de R.L., etc.)
+     * - Elimina dobles espacios
+     * - Si RFC genérico, fuerza "PUBLICO EN GENERAL"
+     */
+    private function satLegalName(string $rawName, string $taxId): string
+    {
+        $taxId = strtoupper(trim($taxId));
+        if (in_array($taxId, ['XAXX010101000', 'XEXX010101000'], true)) {
+            return 'PUBLICO EN GENERAL';
+        }
+
+        $u = mb_strtoupper(trim($rawName), 'UTF-8');
+
+        // Quitar acentos (conservando Ñ)
+        $map = [
+            'Á'=>'A','É'=>'E','Í'=>'I','Ó'=>'O','Ú'=>'U','Ä'=>'A','Ë'=>'E','Ï'=>'I','Ö'=>'O','Ü'=>'U',
+            'á'=>'A','é'=>'E','í'=>'I','ó'=>'O','ú'=>'U','ä'=>'A','ë'=>'E','ï'=>'I','ö'=>'O','ü'=>'U'
+        ];
+        $u = strtr($u, $map);
+        // Mantener letras, números, espacios, Ñ y &
+        $u = preg_replace('/[^A-Z0-9Ñ&\s]/u', ' ', $u);
+
+        // Quitar denominaciones sociales comunes
+        $patterns = [
+            '~\bS\.?\s*A\.?\s*P\.?\s*I\.?B?\.?\s*(DE)?\s*C\.?\s*V\.?\b~u',
+            '~\bS\.?\s*DE\s*R\.?\s*L\.?\s*(DE)?\s*C\.?\s*V\.?\b~u',
+            '~\bS\.?\s*DE\s*R\.?\s*L\.?\b~u',
+            '~\bS\.?\s*A\.?\s*(DE)?\s*C\.?\s*V\.?\b~u',
+            '~\bS\.?\s*A\.?\b~u',
+            '~\bA\.?\s*C\.?\b~u',
+            '~\bS\.?\s*C\.?\b~u',
+            '~\bS\.?\s*EN\s*C\.?\b~u',
+            '~\bS\.?\s*EN\s*N\.?\s*C\.?\b~u',
+        ];
+        $u = preg_replace($patterns, ' ', $u);
+
+        // Compactar espacios
+        $u = preg_replace('/\s{2,}/', ' ', $u);
+        $u = trim($u);
+
+        return $u !== '' ? $u : 'PUBLICO EN GENERAL';
+    }
 }
-            

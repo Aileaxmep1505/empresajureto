@@ -4,20 +4,18 @@
 
 @section('content')
 @php
-  $cart     = is_array($cart ?? null) ? $cart : (array)session('cart', []);
-  $subtotal = 0;
+  $cart      = is_array($cart ?? null) ? $cart : (array)session('cart', []);
+  $subtotal  = 0;
   foreach ($cart as $r) { $subtotal += (float)($r['price'] ?? 0) * (int)($r['qty'] ?? 1); }
-  $total = $subtotal; // (el envío se suma cuando el cliente elige opción)
+  $total = $subtotal; // El envío se suma en checkout/shipping
+  // Espera que el controlador pase $addresses (colección/array) y $address (última usada)
 @endphp
 
 <style>
   :root{
-    --brand:#1f4cf0;
-    --brand-ink:#0b1a5a;
-    --accent:#10b981;
-    --muted:#6b7280;
-    --line:#eef2f7;
-    --surface:#ffffff;
+    --brand:#1f4cf0; --brand-ink:#0b1a5a;
+    --accent:#10b981; --muted:#6b7280;
+    --line:#eef2f7; --surface:#ffffff;
   }
   .ck-wrap{display:grid;grid-template-columns:2fr 1fr;gap:18px}
   @media(max-width: 980px){ .ck-wrap{grid-template-columns:1fr} }
@@ -54,18 +52,11 @@
   .fi input,.fi select,.fi textarea{border:1px solid #dbe2ea;border-radius:12px;padding:12px 12px;font-size:.98rem;background:#fff}
   .fi input[readonly]{background:#f8fafc}
 
-  /* ===== Shipping options ===== */
-  #ship-box{margin-top:18px}
-  .ship-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
-  .ship-list{display:grid;gap:10px}
-  .ship-item{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:12px;border:1px solid #e9eef6;background:#fff;border-radius:12px}
-  .ship-item.active{border-color:#bfd2ff;box-shadow:0 10px 24px rgba(31,76,240,.06)}
-  .ship-brand{font-weight:900;color:#0f172a}
-  .ship-note{font-size:.88rem;color:var(--muted)}
-  .ship-price{font-weight:900}
+  /* ===== Saved addresses ===== */
+  .addr-list{display:grid;gap:10px}
+  .addr-item{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:12px;border:1px solid #e9eef6;background:#fff;border-radius:12px}
+  .addr-item.active{border-color:#bfd2ff;box-shadow:0 10px 24px rgba(31,76,240,.06)}
   .chip{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:#eef2ff;color:#22396b;font-weight:800;border:1px solid #d9e3ff}
-  .skel{background:linear-gradient(90deg,#f6f7f9, #eef1f5, #f6f7f9);background-size:200% 100%;animation:shine 1.2s infinite linear}
-  @keyframes shine{0%{background-position:200% 0}100%{background-position:-200% 0}}
 </style>
 
 <div class="stepper" aria-label="Progreso de compra">
@@ -81,19 +72,29 @@
     <div class="card-h">
       <div>
         <h2 style="margin:0 0 2px;font-weight:900;color:var(--brand-ink)">Dirección de entrega</h2>
-        <div class="muted" id="addr-subtitle">Agrega una dirección para tu entrega.</div>
+        <div class="muted" id="addr-subtitle">Selecciona tu dirección o agrega una nueva.</div>
       </div>
       <button class="btn btn-ghost" id="btn-open-modal">Agregar / Cambiar</button>
     </div>
+
     <div class="card-b" id="address-box">
-      {{-- Estado inicial: vacío --}}
-      <div class="addr-empty" id="addr-empty">
+      {{-- Listado de direcciones guardadas --}}
+      <section id="saved-addrs" style="display:none">
+        <h3 style="margin:0 0 10px;font-weight:900;color:var(--brand-ink)">Mis direcciones</h3>
+        <div class="addr-list" id="saved-list"></div>
+      </section>
+
+      {{-- Estado inicial si no hay nada seleccionado --}}
+      <div class="addr-empty" id="addr-empty" style="display:none">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 22s8-4 8-10a8 8 0 10-16 0c0 6 8 10 8 10z" stroke="var(--brand)" stroke-width="2"/><circle cx="12" cy="12" r="3" stroke="var(--brand)" stroke-width="2"/></svg>
         <div>
           <strong>Sin dirección seleccionada</strong>
           <div class="muted">Usa “Agregar / Cambiar” para capturarla.</div>
         </div>
       </div>
+
+      {{-- Tarjeta de dirección seleccionada (se inyecta por JS) --}}
+      <div id="current-addr-anchor"></div>
 
       {{-- Resumen del pedido --}}
       <h3 style="margin:18px 0 10px;font-weight:900;color:var(--brand-ink)">Resumen de tu pedido</h3>
@@ -110,15 +111,10 @@
         <div class="muted">Tu carrito está vacío.</div>
       @endforelse
 
-      {{-- Opciones de envío (se llena al guardar/seleccionar dirección) --}}
-      <section id="ship-box" aria-live="polite" style="display:none">
-        <div class="ship-head">
-          <h3 style="margin:14px 0 6px;font-weight:900;color:var(--brand-ink)">Opciones de envío</h3>
-          <span class="chip" id="ship-summary" style="display:none"></span>
-        </div>
-        <div id="ship-list" class="ship-list"></div>
-        <div id="ship-help" class="muted" style="margin-top:8px;display:none"></div>
-      </section>
+      {{-- Aviso: la paquetería se elige en el siguiente paso --}}
+      <div style="margin-top:14px">
+        <span class="chip">La paquetería se elige en el siguiente paso</span>
+      </div>
     </div>
   </div>
 
@@ -126,7 +122,7 @@
   <aside class="card" aria-label="Resumen">
     <div class="card-b">
       <div class="sum-row"><span>Subtotal</span><span id="sum-subtotal">${{ number_format($subtotal,2) }}</span></div>
-      <div class="sum-row"><span>Envío</span><span id="sum-shipping" class="muted">A elegir</span></div>
+      <div class="sum-row"><span>Envío</span><span id="sum-shipping" class="muted">A elegir en el siguiente paso</span></div>
       <hr class="line">
       <div class="sum-row" style="font-size:1.12rem"><span>Total</span><span id="sum-total">${{ number_format($total,2) }}</span></div>
       <div class="muted" style="margin-top:6px;">Precios incluyen IVA</div>
@@ -243,17 +239,14 @@
 
   // === Números
   const SUBTOTAL  = @json($subtotal);
-  const THRESHOLD = Number(@json(env('FREE_SHIPPING_THRESHOLD', 5000)));
 
   // === Rutas backend (ajusta names si difieren)
-  const ROUTE_CP          = @json(route('checkout.cp.lookup'));
-  const ROUTE_ADDRESS     = @json(route('checkout.address.store'));
-  const ROUTE_INV         = @json(route('checkout.invoice'));
-  const ROUTE_INV_SKIP    = @json(route('checkout.invoice.skip'));
-  const ROUTE_NEXT_STEP   = @json(route('checkout.shipping')); // o route('checkout.payment') si prefieres
-  // Endpoints de envío (ShippingController)
-  const ROUTE_SHIP_OPTIONS= @json(route('shipping.options'));
-  const ROUTE_SHIP_SELECT = @json(route('shipping.select'));
+  const ROUTE_CP             = @json(route('checkout.cp.lookup'));
+  const ROUTE_ADDRESS_STORE  = @json(route('checkout.address.store'));     // guarda nueva dirección
+  const ROUTE_ADDRESS_SELECT = @json(route('checkout.address.select'));    // selecciona una guardada (por id) para la sesión
+  const ROUTE_INV            = @json(route('checkout.invoice'));
+  const ROUTE_INV_SKIP       = @json(route('checkout.invoice.skip'));
+  const ROUTE_NEXT_STEP      = @json(route('checkout.shipping'));          // aquí se elige paquetería
 
   // ======= Helpers UI =======
   function pesos(n){ try{ return n.toLocaleString('es-MX',{style:'currency',currency:'MXN'}); }catch(_){ return '$'+(Number(n||0).toFixed(2)); } }
@@ -321,156 +314,30 @@
   }
   cp?.addEventListener('input', e=>{ if((e.target.value||'').length===5) lookupCP(e.target.value) });
 
-  // ======= Shipping UI refs =======
-  const shipBox   = $('#ship-box');
-  const shipList  = $('#ship-list');
-  const shipHelp  = $('#ship-help');
-  const shipSumEl = $('#ship-summary');
-  const sumShip   = $('#sum-shipping');
-  const sumTotal  = $('#sum-total');
-  const btnContinue = $('#btn-continue');
+  // ======= Direcciones guardadas =======
+  const savedAddrsSection = $('#saved-addrs');
+  const savedList         = $('#saved-list');
+  const addrEmpty         = $('#addr-empty');
+  const currentAnchor     = $('#current-addr-anchor');
+  const btnContinue       = $('#btn-continue');
+  const sumTotal          = $('#sum-total');
 
-  let selectedShipping = null;
-  let savedAddress     = null; // último addr usado para cotizar
+  let ADDRS = @json($addresses ?? []);
+  const LAST = @json($address ?? null); // última usada (si existe)
+  let selectedAddr = null;
 
-  function resetShippingUI(){
-    selectedShipping = null;
-    sumShip.textContent = 'A elegir';
-    sumShip.classList.add('muted');
-    sumTotal.textContent = pesos(SUBTOTAL);
-    shipList.innerHTML = '';
-    shipHelp.style.display = 'none';
-    shipSumEl.style.display = 'none';
-  }
-
-  function setShippingSkeleton(){
-    shipBox.style.display = 'block';
-    shipList.innerHTML = `
-      <div class="ship-item skel" style="height:56px;border-radius:12px"></div>
-      <div class="ship-item skel" style="height:56px;border-radius:12px"></div>
-      <div class="ship-item skel" style="height:56px;border-radius:12px"></div>
-    `;
-  }
-
-  function renderShippingOptions(list){
-    shipList.innerHTML = '';
-    if(!Array.isArray(list) || !list.length){
-      shipHelp.textContent = 'No encontramos paqueterías para esa dirección. Verifica el C.P. o intenta más tarde.';
-      shipHelp.style.display = 'block';
-      return;
-    }
-    shipHelp.style.display = 'none';
-
-    list.forEach((opt, idx)=>{
-      const id = `ship_${idx}_${String(opt.id).replace(/[^a-zA-Z0-9_-]/g,'')}`;
-      const html = `
-        <label class="ship-item" for="${id}" data-id="${opt.id}">
-          <input type="radio" name="shipOption" id="${id}" style="margin:0 4px 0 0">
-          <div>
-            <div class="ship-brand">${(opt.carrier||'Paquetería').toUpperCase()} <span class="ship-note">· ${opt.service||'Servicio'}</span></div>
-            <div class="ship-note">${opt.eta ? ('Entrega estimada: '+opt.eta) : ''}</div>
-          </div>
-          <div class="ship-price">${pesos(opt.price||0)}</div>
-        </label>
-      `;
-      shipList.insertAdjacentHTML('beforeend', html);
-    });
-
-    // Selección
-    shipList.addEventListener('change', e=>{
-      const r = e.target.closest('input[type="radio"][name="shipOption"]');
-      if(!r) return;
-      const label = r.closest('.ship-item');
-      $$('.ship-item').forEach(el=>el.classList.remove('active'));
-      label.classList.add('active');
-
-      // Arma objeto seleccionado
-      const idx = $$('.ship-item').indexOf ? $$('.ship-item').indexOf(label) : Array.prototype.indexOf.call($$('.ship-item'), label);
-      const opt = list[idx];
-      selectedShipping = opt;
-
-      // Refresca sidebar y resumen
-      sumShip.textContent = opt.price === 0 ? 'Envío gratis' : pesos(opt.price);
-      sumShip.classList.remove('muted');
-      sumTotal.textContent = pesos(SUBTOTAL + Number(opt.price||0));
-      shipSumEl.textContent = `${(opt.carrier||'Paquetería').toUpperCase()} · ${opt.service||'Servicio'}`;
-      shipSumEl.style.display = 'inline-flex';
-
-      btnContinue.disabled = false;
-    }, { once:true }); // attach una vez por render
-  }
-
-  // Convierte addr => payload "to" para /shipping/options
-  function addressToToPayload(addr){
-    return {
-      postal_code : String(addr.cp||'').trim(),
-      state       : String(addr.estado||'').trim(),
-      municipality: String(addr.municipio||'').trim(),
-      colony      : String(addr.colonia||'').trim(),
-      street      : [addr.calle, addr.num_ext, addr.num_int ? `Int ${addr.num_int}` : null].filter(Boolean).join(' '),
-      contact_name: String(addr.nombre_recibe||'Cliente'),
-      phone       : String(addr.telefono||'5555555555')
-    };
-  }
-
-  // Carga cotizaciones (usa /shipping/options)
-  async function loadShippingOptions(addrLike){
-    try{
-      resetShippingUI();
-      setShippingSkeleton();
-
-      const to = addressToToPayload(addrLike);
-      const body = {
-        subtotal: SUBTOTAL,
-        to,
-        package: { weight_kg: 1, length_cm: 10, width_cm: 10, height_cm: 10 }
-      };
-
-      const res = await fetch(ROUTE_SHIP_OPTIONS, {
-        method:'POST',
-        headers:{ 'X-CSRF-TOKEN': csrf, 'Accept':'application/json', 'Content-Type':'application/json' },
-        body: JSON.stringify(body)
-      });
-      const data = await res.json();
-
-      if(!res.ok || data.ok === false){
-        shipList.innerHTML = '';
-        shipHelp.textContent = (data.error || 'No se pudo cotizar el envío. Inténtalo más tarde.');
-        shipHelp.style.display = 'block';
-        return;
-      }
-
-      shipBox.style.display = 'block';
-      const options = Array.isArray(data.options) ? data.options : [];
-      renderShippingOptions(options);
-
-      // Si hay free shipping por umbral, muéstralo en chips
-      if(data.free_shipping){
-        shipSumEl.textContent = 'Envío gratis disponible';
-        shipSumEl.style.display = 'inline-flex';
-      }
-    }catch(err){
-      console.error(err);
-      shipList.innerHTML = '';
-      shipHelp.textContent = 'No se pudo consultar paqueterías.';
-      shipHelp.style.display = 'block';
-    }
-  }
-
-  // ===== Pintar la tarjeta de dirección =====
-  function renderAddressCard(addr){
-    const box = $('#address-box');
-    const subtitle = $('#addr-subtitle');
-
-    const line1 = [addr.calle, addr.num_ext, addr.num_int ? `Int ${addr.num_int}` : null].filter(Boolean).join(' ');
-    const line2 = [addr.colonia, addr.cp].filter(Boolean).join(', ');
-    const line3 = [addr.municipio, addr.estado].filter(Boolean).join(', ');
+  function fmtAddrLines(addr){
+    const line1 = [addr.calle || addr.street, addr.num_ext || addr.ext_number, (addr.num_int || addr.int_number) ? `Int ${addr.num_int || addr.int_number}` : null].filter(Boolean).join(' ');
+    const line2 = [addr.colonia || addr.colony, addr.cp || addr.postal_code].filter(Boolean).join(', ');
+    const line3 = [addr.municipio || addr.municipality, addr.estado || addr.state].filter(Boolean).join(', ');
     const extra1 = addr.entre_calles ? `Entre: ${addr.entre_calles}` : null;
-    const extra2 = addr.referencias ? `Ref.: ${addr.referencias}` : null;
-    const contact = addr.nombre_recibe ? `Contacto: ${addr.nombre_recibe}${addr.telefono ? ' · '+addr.telefono : ''}` : null;
+    const extra2 = addr.referencias || addr.references ? `Ref.: ${addr.referencias || addr.references}` : null;
+    const contact = (addr.nombre_recibe || addr.contact_name) ? `Contacto: ${(addr.nombre_recibe || addr.contact_name)}${(addr.telefono || addr.phone) ? ' · '+(addr.telefono || addr.phone) : ''}` : null;
+    return [line1,line2,line3,extra1,extra2,contact].filter(Boolean);
+  }
 
-    const lines = [line1,line2,line3,extra1,extra2,contact].filter(Boolean);
-
+  function renderCurrentAddrCard(addr){
+    const lines = fmtAddrLines(addr);
     const html = `
       <div class="card" style="border:1px dashed #c4d1ff;background:#f8fbff" data-addr-card>
         <div class="card-b" style="display:flex;gap:12px;align-items:flex-start">
@@ -480,20 +347,101 @@
             <div class="muted" style="margin-top:4px;white-space:pre-line">${lines.join('\n')}</div>
           </div>
         </div>
-      </div>
-    `;
-    $('#addr-empty')?.remove();
-    box.querySelector('[data-addr-card]')?.remove();
-    box.insertAdjacentHTML('afterbegin', html);
-    subtitle.textContent = 'Elige tu opción de envío y continúa.';
-    document.body.dataset.hasAddress = '1';
-
-    // Lanza cotización
-    savedAddress = addr;
-    loadShippingOptions(addr);
+      </div>`;
+    $('[data-addr-card]')?.remove();
+    currentAnchor.insertAdjacentHTML('afterend', html);
+    $('#addr-subtitle').textContent = 'Dirección lista. Continúa para elegir paquetería.';
+    btnContinue.disabled = false;
   }
 
-  // ===== Guardar dirección (AJAX) y cotizar
+  async function persistSelectedAddressById(id){
+    try{
+      await fetch(ROUTE_ADDRESS_SELECT, {
+        method:'POST',
+        headers:{'X-CSRF-TOKEN': csrf, 'Accept':'application/json','Content-Type':'application/json'},
+        body: JSON.stringify({ id })
+      });
+    }catch(err){ console.warn('No se pudo persistir la dirección seleccionada:', err); }
+  }
+
+  function renderSavedList(){
+    savedList.innerHTML = '';
+    if(!Array.isArray(ADDRS)) ADDRS = [];
+
+    if(ADDRS.length){
+      savedAddrsSection.style.display = 'block';
+      addrEmpty.style.display = 'none';
+    }else{
+      savedAddrsSection.style.display = 'none';
+      addrEmpty.style.display = 'flex';
+      return;
+    }
+
+    ADDRS.forEach((a, i)=>{
+      const idAttr = `addr_${a.id ?? i}`;
+      const label = [
+        a.alias ? `<strong>${a.alias}</strong>` : '<strong>Dirección</strong>',
+        [a.calle || a.street, a.num_ext || a.ext_number].filter(Boolean).join(' '),
+        [a.colonia || a.colony, a.cp || a.postal_code].filter(Boolean).join(', '),
+        [a.municipio || a.municipality, a.estado || a.state].filter(Boolean).join(', ')
+      ].filter(Boolean).join(' · ');
+
+      const isDefault = !!a.is_default;
+      const html = `
+        <label class="addr-item" for="${idAttr}" data-id="${a.id ?? i}">
+          <input type="radio" name="addrOption" id="${idAttr}" style="margin:0 4px 0 0">
+          <div>
+            <div>${label} ${isDefault ? '<span class="chip" style="margin-left:6px">Predeterminada</span>' : ''}</div>
+            ${a.nombre_recibe || a.contact_name ? `<div class="muted">Contacto: ${a.nombre_recibe || a.contact_name}</div>` : ''}
+          </div>
+          <div class="muted">Elegir</div>
+        </label>
+      `;
+      savedList.insertAdjacentHTML('beforeend', html);
+    });
+
+    savedList.addEventListener('change', async (e)=>{
+      const r = e.target.closest('input[type="radio"][name="addrOption"]');
+      if(!r) return;
+      $$('.addr-item').forEach(el=>el.classList.remove('active'));
+      const item = r.closest('.addr-item'); item.classList.add('active');
+
+      const idx = $$('.addr-item').indexOf ? $$('.addr-item').indexOf(item) : Array.prototype.indexOf.call($$('.addr-item'), item);
+      const chosen = ADDRS[idx];
+      selectedAddr = chosen;
+      renderCurrentAddrCard(chosen);
+
+      // Persiste la selección en sesión
+      if(chosen?.id != null){ await persistSelectedAddressById(chosen.id); }
+    }, { once:true });
+  }
+
+  function autoSelectInitial(){
+    // 1) última usada ($address), 2) is_default, 3) primera
+    if(LAST){
+      selectedAddr = LAST;
+    }else if(Array.isArray(ADDRS) && ADDRS.length){
+      const def = ADDRS.find(a=>a.is_default) || ADDRS[0];
+      selectedAddr = def;
+    }else{
+      selectedAddr = null;
+    }
+
+    renderSavedList();
+
+    if(selectedAddr){
+      // marcar radio correspondiente
+      const idx = Array.isArray(ADDRS) ? ADDRS.findIndex(a=>(a?.id ?? -1) === (selectedAddr?.id ?? -2)) : -1;
+      const radio = idx >= 0 ? savedList.querySelectorAll('input[type="radio"]')[idx] : null;
+      if(radio){ radio.checked = true; radio.dispatchEvent(new Event('change',{bubbles:true})); }
+      else{ renderCurrentAddrCard(selectedAddr); btnContinue.disabled = false; }
+    }else{
+      addrEmpty.style.display = 'flex';
+      btnContinue.disabled = true;
+    }
+  }
+
+  // ===== Guardar nueva dirección -> agregar a lista y seleccionar
   $('#addr-form')?.addEventListener('submit', async (e)=>{
     e.preventDefault();
     const fd = new FormData(e.target);
@@ -510,7 +458,7 @@
     }
 
     try{
-      const res = await fetch(ROUTE_ADDRESS, {
+      const res = await fetch(ROUTE_ADDRESS_STORE, {
         method:'POST',
         headers:{'X-CSRF-TOKEN': csrf, 'Accept':'application/json', 'Content-Type':'application/json'},
         body: JSON.stringify(payload)
@@ -519,9 +467,25 @@
 
       const data = await res.json();
       const addr = data?.addr || payload;
+      // intenta conservar id si viene del backend
+      if(!addr.id && data?.id) addr.id = data.id;
+
+      // Inserta en memoria y re-renderiza lista
+      if(!Array.isArray(ADDRS)) ADDRS = [];
+      ADDRS.unshift(addr); // al principio
+      selectedAddr = addr;
 
       closeAddr();
-      renderAddressCard(addr);
+      renderSavedList();
+      renderCurrentAddrCard(addr);
+
+      // marca radio nuevo (primer elemento)
+      const firstRadio = savedList.querySelector('input[type="radio"]');
+      if(firstRadio){ firstRadio.checked = true; }
+
+      // Persiste selección
+      if(addr?.id != null){ await persistSelectedAddressById(addr.id); }
+
       showToast('Dirección guardada');
     }catch(err){
       console.error(err);
@@ -530,82 +494,39 @@
   });
 
   // ===== Botón Continuar
-  btnContinue?.addEventListener('click', async (e)=>{
+  $('#btn-continue')?.addEventListener('click', async (e)=>{
     e.preventDefault();
-
-    const hasAddr = document.body.dataset.hasAddress === '1';
-    if(!hasAddr){ openAddr(); return; }
-    if(!selectedShipping){
-      showToast('Selecciona una opción de envío');
+    if(!selectedAddr){
+      showToast('Selecciona o agrega una dirección');
       return;
     }
-
-    // Abre decisión de factura
+    // Asegura persistencia por id si procede
+    if(selectedAddr?.id != null){
+      await persistSelectedAddressById(selectedAddr.id);
+    }
+    // Abrir decisión de factura
     openInv();
   });
 
-  // ===== Decisión de factura -> guardamos shipping y seguimos
-  async function persistShippingAndGo(nextUrl){
-    try{
-      await fetch(ROUTE_SHIP_SELECT, {
-        method:'POST',
-        headers:{ 'X-CSRF-TOKEN': csrf, 'Accept':'application/json', 'Content-Type':'application/json' },
-        body: JSON.stringify({
-          option_id   : selectedShipping.id,
-          option_label: `${(selectedShipping.carrier||'Paquetería').toUpperCase()} — ${selectedShipping.service||'Servicio'}`,
-          price       : Number(selectedShipping.price||0),
-          currency    : selectedShipping.currency || 'MXN',
-          raw         : selectedShipping
-        })
-      });
-    }catch(err){ console.warn('No se pudo guardar selección de envío, seguimos:', err); }
-    window.location.href = nextUrl;
+  // ===== Decisión de factura -> redirige a SHIPPING (ahí eligen paquetería)
+  async function goNext(url){
+    window.location.href = url;
   }
 
   $('#btn-no-invoice')?.addEventListener('click', async ()=>{
     closeInv();
-    // Marca "no factura" en backend y redirige
-    try{
-      await fetch(ROUTE_INV_SKIP, { method:'POST', headers:{'X-CSRF-TOKEN': csrf, 'Accept':'application/json'} });
-    }catch(_){}
-    await persistShippingAndGo(ROUTE_NEXT_STEP);
+    try{ await fetch(ROUTE_INV_SKIP, { method:'POST', headers:{'X-CSRF-TOKEN': csrf, 'Accept':'application/json'} }); }catch(_){}
+    await goNext(ROUTE_NEXT_STEP);
   });
 
   $('#btn-yes-invoice')?.addEventListener('click', async ()=>{
     closeInv();
-    await persistShippingAndGo(ROUTE_INV);
+    await goNext(ROUTE_INV);
   });
 
-  // ===== Precarga tarjeta si hay dirección en la sesión
-  const pre = @json($address ?? null);
-  if(pre){
-    const addr = {
-      calle: pre.street ?? pre.calle ?? '',
-      num_ext: pre.ext_number ?? pre.num_ext ?? '',
-      num_int: pre.int_number ?? pre.num_int ?? '',
-      colonia: pre.colony ?? pre.colonia ?? '',
-      cp: pre.postal_code ?? pre.cp ?? '',
-      estado: pre.state ?? '',
-      municipio: pre.municipality ?? '',
-      entre_calles: pre.between_street_1 && pre.between_street_2
-        ? `${pre.between_street_1} y ${pre.between_street_2}`
-        : (pre.entre_calles ?? ''),
-      referencias: pre.references ?? '',
-      nombre_recibe: pre.contact_name ?? '',
-      telefono: pre.phone ?? '',
-    };
-    renderAddressCard(addr);
-  } else {
-    document.body.dataset.hasAddress = '0';
-    // Si el subtotal ya supera el umbral, puedes anunciarlo
-    if(SUBTOTAL >= THRESHOLD){
-      const el = document.createElement('div');
-      el.className = 'chip';
-      el.textContent = '¡Aplica envío gratis! (elige para confirmar)';
-      $('#address-box').appendChild(el);
-    }
-  }
-})(); // IIFE
+  // ===== Precarga automática
+  autoSelectInitial();
+})();
 </script>
 @endpush
 @endsection

@@ -38,7 +38,7 @@ class SkydropxProClient
                     'scope'      => $this->scope,
                 ]));
 
-            // Intento B: credenciales en el body (algunas configuraciones lo piden)
+            // Intento B: credenciales en el body
             if ($resp->failed() || !data_get($resp->json(), 'access_token')) {
                 $resp = Http::asForm()->post($this->tokenUrl, array_filter([
                     'grant_type'    => 'client_credentials',
@@ -83,86 +83,164 @@ class SkydropxProClient
         return $this->decode($res);
     }
 
-    /** POST /quotations */
-public function quote(string $zipTo, array $parcel, ?array $carriers = null, int $waitSeconds = 8): array
-{
-    // Direcciones: ajusta defaults si quieres (áreas, nombres, etc.)
-    $from = [
-        'country_code' => 'MX',
-        'postal_code'  => (string) config('services.skydropx_pro.origin_cp', '52060'),
-        'area_level1'  => $parcel['from_area_level1'] ?? 'Estado de México',
-        'area_level2'  => $parcel['from_area_level2'] ?? 'Metepec',
-        'area_level3'  => $parcel['from_area_level3'] ?? 'Centro',
-        'line1'        => $parcel['from_line1']       ?? 'Calle Demo 123',
-        'name'         => $parcel['from_name']        ?? 'Jureto',
-        'phone'        => $parcel['from_phone']       ?? '5555555555',
-        // 'email'      => $parcel['from_email']       ?? null, // opcional
-    ];
+    /** POST /quotations (PRO) con polling corto hasta is_completed */
+    public function quote(string $zipTo, array $parcel, ?array $carriers = null, int $waitSeconds = 8): array
+    {
+        // Direcciones: ajusta defaults si quieres (áreas, nombres, etc.)
+        $from = [
+            'country_code' => 'MX',
+            'postal_code'  => (string) config('services.skydropx_pro.origin_cp', '52060'),
+            'area_level1'  => $parcel['from_area_level1'] ?? 'Estado de México',
+            'area_level2'  => $parcel['from_area_level2'] ?? 'Metepec',
+            'area_level3'  => $parcel['from_area_level3'] ?? 'Centro',
+            'line1'        => $parcel['from_line1']       ?? 'Calle Demo 123',
+            'name'         => $parcel['from_name']        ?? 'Jureto',
+            'phone'        => $parcel['from_phone']       ?? '5555555555',
+        ];
 
-    $to = [
-        'country_code' => 'MX',
-        'postal_code'  => $zipTo,
-        'area_level1'  => $parcel['to_area_level1'] ?? 'Ciudad de México',
-        'area_level2'  => $parcel['to_area_level2'] ?? 'Cuauhtémoc',
-        'area_level3'  => $parcel['to_area_level3'] ?? 'Roma Norte',
-        'line1'        => $parcel['to_line1']       ?? 'Av. Test 456',
-        'name'         => $parcel['to_name']        ?? 'Cliente Demo',
-        'phone'        => $parcel['to_phone']       ?? '5555555555',
-        // 'email'      => $parcel['to_email']        ?? null, // opcional
-    ];
+        $to = [
+            'country_code' => 'MX',
+            'postal_code'  => $zipTo,
+            'area_level1'  => $parcel['to_area_level1'] ?? 'Ciudad de México',
+            'area_level2'  => $parcel['to_area_level2'] ?? 'Cuauhtémoc',
+            'area_level3'  => $parcel['to_area_level3'] ?? 'Roma Norte',
+            'line1'        => $parcel['to_line1']       ?? 'Av. Test 456',
+            'name'         => $parcel['to_name']        ?? 'Cliente Demo',
+            'phone'        => $parcel['to_phone']       ?? '5555555555',
+        ];
 
-    $pkg = [
-        'weight'         => (float) ($parcel['weight'] ?? 1),
-        'length'         => (float) ($parcel['length'] ?? 10),
-        'width'          => (float) ($parcel['width']  ?? 10),
-        'height'         => (float) ($parcel['height'] ?? 10),
-        'weight_unit'    => 'kg',
-        'dimension_unit' => 'cm',
-    ];
+        $pkg = [
+            'weight'         => (float) ($parcel['weight'] ?? 1),
+            'length'         => (float) ($parcel['length'] ?? 10),
+            'width'          => (float) ($parcel['width']  ?? 10),
+            'height'         => (float) ($parcel['height'] ?? 10),
+            'weight_unit'    => 'kg',
+            'dimension_unit' => 'cm',
+        ];
 
-    // PRO requiere envoltura "quotation" + "parcel" (singular)
-    $body = [
-        'quotation' => [
-            'address_from' => array_filter($from, fn($v) => !is_null($v)),
-            'address_to'   => array_filter($to,   fn($v) => !is_null($v)),
-            'parcel'       => $pkg,
-        ],
-    ];
-    if ($carriers) {
-        $body['quotation']['carriers'] = array_values($carriers);
-    }
-
-    // 1) Crear cotización
-    $created = $this->http()->post('quotations', $body);
-    if ($created->failed()) {
-        return $this->decode($created); // 400/422, etc.
-    }
-
-    $createdJson = $created->json();
-    $id = data_get($createdJson, 'id'); // la API de sb-pro regresa id en la raíz
-    if (!$id) {
-        // En caso de variante que regrese bajo data.id (por si cambia):
-        $id = data_get($createdJson, 'data.id');
-    }
-    if (!$id) {
-        return $this->decode($created); // devolvemos tal cual por transparencia
-    }
-
-    // 2) Poll (GET /quotations/{id}) hasta is_completed = true o timeout
-    $deadline = microtime(true) + max(1, $waitSeconds);
-    $lastGet  = null;
-
-    do {
-        $lastGet = $this->http()->get("quotations/{$id}");
-        if ($lastGet->ok() && (data_get($lastGet->json(), 'is_completed') === true)) {
-            break;
+        // PRO requiere envoltura "quotation" + "parcel" (singular)
+        $body = [
+            'quotation' => [
+                'address_from' => array_filter($from, fn($v) => !is_null($v)),
+                'address_to'   => array_filter($to,   fn($v) => !is_null($v)),
+                'parcel'       => $pkg,
+            ],
+        ];
+        if ($carriers) {
+            $body['quotation']['carriers'] = array_values($carriers);
         }
-        usleep(400_000); // 400ms entre intentos
-    } while (microtime(true) < $deadline);
 
-    return $this->decode($lastGet ?? $created);
-}
+        // 1) Crear cotización
+        $created = $this->http()->post('quotations', $body);
+        if ($created->failed()) {
+            return $this->decode($created); // 400/422, etc.
+        }
 
+        $createdJson = $created->json();
+        $id = data_get($createdJson, 'id') ?: data_get($createdJson, 'data.id');
+        if (!$id) {
+            return $this->decode($created); // devolvemos tal cual por transparencia
+        }
+
+        // 2) Poll (GET /quotations/{id}) hasta is_completed = true o timeout
+        $deadline = microtime(true) + max(1, $waitSeconds);
+        $lastGet  = null;
+
+        do {
+            $lastGet = $this->http()->get("quotations/{$id}");
+            if ($lastGet->ok() && (data_get($lastGet->json(), 'is_completed') === true)) {
+                break;
+            }
+            usleep(400_000); // 400ms entre intentos
+        } while (microtime(true) < $deadline);
+
+        return $this->decode($lastGet ?? $created);
+    }
+
+    /**
+     * quoteBest: devuelve las tarifas ya NORMALIZADAS y ORDENADAS por precio ascendente.
+     * Formato:
+     * [
+     *   ['id'=>..., 'carrier'=>'dhl', 'service'=>'Express', 'days'=>1, 'currency'=>'MXN', 'price'=>299.0, '_raw'=>{...}],
+     *   ...
+     * ]
+     */
+    public function quoteBest(string $zipTo, array $parcel, ?array $carriers = null, int $waitSeconds = 8): array
+    {
+        $res = $this->quote($zipTo, $parcel, $carriers, $waitSeconds);
+        if (!($res['ok'] ?? false)) {
+            return []; // si falló la cotización, regresamos vacío
+        }
+
+        $json  = $res['json'] ?? [];
+        // PRO suele regresar rates en la raíz; dejamos fallbacks por si cambia
+        $rates = data_get($json, 'rates', []);
+        if (!is_array($rates) || empty($rates)) {
+            $rates = data_get($json, 'data.rates', []);
+        }
+        if (!is_array($rates)) $rates = [];
+
+        $options = [];
+        foreach ($rates as $r) {
+            // Filtra explícitos "success: false"
+            $success = data_get($r, 'success');
+            if ($success === false) continue;
+
+            $id = (string) (data_get($r, 'id') ?? data_get($r, 'rate_id') ?? md5(json_encode($r)));
+
+            $carrier = (string) (
+                data_get($r, 'provider_name') ??
+                data_get($r, 'attributes.provider') ??
+                data_get($r, 'carrier') ??
+                'carrier'
+            );
+
+            $service = (string) (
+                data_get($r, 'provider_service_name') ??
+                data_get($r, 'service') ??
+                data_get($r, 'service_level_name') ??
+                data_get($r, 'attributes.service_level_name') ??
+                data_get($r, 'servicelevel.name') ??
+                'Servicio'
+            );
+
+            $days = data_get($r, 'days');
+            if ($days === null) $days = data_get($r, 'attributes.delivery_days');
+
+            $currency = (string) (
+                data_get($r, 'currency_code') ??
+                data_get($r, 'currency') ??
+                data_get($r, 'attributes.currency') ??
+                'MXN'
+            );
+
+            $priceRaw = data_get($r, 'total') ??
+                        data_get($r, 'amount') ??
+                        data_get($r, 'total_pricing') ??
+                        data_get($r, 'amount_local') ??
+                        data_get($r, 'price') ?? 0;
+
+            $price = is_numeric($priceRaw)
+                ? (float) $priceRaw
+                : (float) preg_replace('/[^\d\.]/', '', (string)$priceRaw);
+
+            if ($price <= 0) continue;
+
+            $options[] = [
+                'id'       => $id,
+                'carrier'  => $carrier,
+                'service'  => $service,
+                'days'     => is_null($days) ? null : (int) $days,
+                'currency' => $currency ?: 'MXN',
+                'price'    => $price,
+                '_raw'     => $r,
+            ];
+        }
+
+        usort($options, fn($a, $b) => $a['price'] <=> $b['price']);
+
+        return $options;
+    }
 
     /** Util: decodifica respuesta */
     private function decode(Response $res): array

@@ -67,22 +67,31 @@ return [
         ],
     ],
 
-    // FacturaAPI (CFDI 4.0)
-    'facturaapi' => [
-        'token'    => env('FACTURAAPI_KEY'),
-        'base_uri' => rtrim(env('FACTURAAPI_BASE_URI', 'https://www.facturapi.io/v2'), '/'),
+   // === FACTURACIÓN: Sitio web (checkout) ===
+    'facturaapi_web' => [
+        'key'        => env('FACTURAAPI_WEB_KEY'),
+        'base_uri'   => rtrim(env('FACTURAAPI_WEB_BASE_URI', 'https://www.facturapi.io/v2'), '/'),
+        'series'     => env('FACT_WEB_SERIE', 'F'),
+        'metodo'     => env('FACT_WEB_METODO_PAGO', 'PUE'), // payment_method
+        'forma'      => env('FACT_WEB_FORMA_PAGO', '04'),   // payment_form
+        'uso'        => env('FACT_WEB_USO_CFDI', 'G03'),    // use
+    ],
 
-        // Controla el timbrado automático al convertir cotización -> venta
-        'auto' => (bool) env('FACTURAAPI_AUTO', false),
-
-        // Defaults CFDI
-        'serie'             => env('FACT_SERIE', 'A'),
-        'tipo_comprobante'  => env('FACT_TIPO_COMPROBANTE', 'I'),
-        'moneda'            => env('FACT_MONEDA', 'MXN'),
-        'lugar_expedicion'  => env('FACT_LUGAR_EXP', '64000'),
-        'metodo_pago'       => env('FACT_METODO_PAGO', 'PPD'),
-        'forma_pago'        => env('FACT_FORMA_PAGO', '99'),
-        'uso_cfdi'          => env('FACT_USO_CFDI', 'G03'),
+    // === FACTURACIÓN: Sistema interno (backoffice) ===
+    'facturaapi_internal' => [
+        'key'              => env('FACTURAAPI_INT_KEY'),
+        'base_uri'         => rtrim(env('FACTURAAPI_INT_BASE_URI', 'https://www.facturapi.io/v2'), '/'),
+        'auto'             => (bool) env('FACT_INT_AUTO', false),
+        'serie'            => env('FACT_INT_SERIE', 'A'),
+        'tipo'             => env('FACT_INT_TIPO_COMPROBANTE', 'I'),
+        'moneda'           => env('FACT_INT_MONEDA', 'MXN'),
+        'lugar_expedicion' => env('FACT_INT_LUGAR_EXP', '64000'), // opcional (v2 usa "branch")
+        'metodo'           => env('FACT_INT_METODO_PAGO', 'PPD'),
+        'forma'            => env('FACT_INT_FORMA_PAGO', '99'),
+        'uso'              => env('FACT_INT_USO_CFDI', 'G03'),
+        'disk'             => env('FACTURAAPI_INT_DISK', 'public'),
+        // Si te interesa default de "regimen" receptor cuando no venga en cliente:
+        'regimen_default'  => '601',
     ],
 'stripe' => [
         'key'            => env('STRIPE_KEY'),

@@ -36,6 +36,8 @@ use App\Http\Controllers\Customer\CustomerAreaController;
 use App\Http\Controllers\Web\HelpCenterController;
 use App\Http\Controllers\Admin\HelpDeskAdminController;
 use App\Http\Controllers\SkydropxDebugController;
+use App\Http\Controllers\Web\ServicioController;
+use App\Http\Controllers\Checkout\InvoiceDownloadController;
 /*
 |--------------------------------------------------------------------------
 | AUTH (ÚNICO login con AuthController)
@@ -409,3 +411,37 @@ Route::middleware(['web','auth'])->group(function () {
     Route::post('/shipping/select',  [ShippingController::class, 'select'])
         ->name('shipping.select');
 });
+Route::middleware(['web','auth'])->group(function () {
+    Route::prefix('checkout')->name('checkout.')->group(function () {
+        Route::get('/start',          [CheckoutController::class,'start'])->name('start');
+
+        // Autocompletar CP (si ya lo tienes, deja el tuyo)
+        Route::get('/cp-lookup',      [CheckoutController::class,'cpLookup'])->name('cp.lookup');
+
+        // Dirección
+        Route::post('/address',       [CheckoutController::class,'addressStore'])->name('address.store');
+        Route::post('/address/select',[CheckoutController::class,'addressSelect'])->name('address.select');
+
+        // Envío
+        Route::get('/shipping',       [CheckoutController::class,'shipping'])->name('shipping');
+        Route::post('/shipping/select',[CheckoutController::class,'shippingSelect'])->name('shipping.select');
+
+        // Factura
+        Route::get('/invoice',        [CheckoutController::class,'invoice'])->name('invoice');
+        Route::post('/invoice/skip',  [CheckoutController::class,'invoiceSkip'])->name('invoice.skip');
+
+        // Pago
+        Route::get('/payment',        [CheckoutController::class,'payment'])->name('payment');
+    });
+});
+
+
+Route::get('/servicios', [ServicioController::class, 'index'])
+    ->name('web.servicios');
+
+    
+Route::get('/checkout/invoices/{id}/pdf', [InvoiceDownloadController::class, 'pdf'])
+    ->name('checkout.invoice.pdf');
+
+Route::get('/checkout/invoices/{id}/xml', [InvoiceDownloadController::class, 'xml'])
+    ->name('checkout.invoice.xml');
