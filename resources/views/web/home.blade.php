@@ -199,6 +199,22 @@
 
 /* Material Symbols minimal si la usas */
 .mi{ font-family:'Material Symbols Outlined', sans-serif; font-variation-settings: 'wght' 500; vertical-align:-2px }
+/* 1) Permitir scroll vertical natural en el área del slider por defecto */
+.cs-slider{
+  touch-action: pan-y;          /* clave para que el navegador maneje scroll vertical */
+  -ms-touch-action: pan-y;
+}
+
+/* 2) Opcional: evitar rebotes extraños si el slider estuviera dentro de un contenedor con scroll propio */
+.cs-wrap{
+  overscroll-behavior-y: contain; /* no propagues el "pull to refresh" dentro del slider */
+}
+
+/* 3) Bloquear scroll del fondo cuando una tarjeta está expandida */
+.cs-lock{
+  overflow: hidden;              /* bloquea scroll en HTML */
+  touch-action: none;            /* evita gestos mientras está el modal/clone abierto */
+}
 
   </style>
 
@@ -269,183 +285,251 @@
       <p id="cardDesc"></p>
     </div>
   </section>
+<script>
+  // ====== Posiciones y animación del carrusel 3D (igual que antes) ======
+  const csPositions = [
+    { height:620, z:220, rotateY:48,  y:0, clip:"polygon(0px 0px, 100% 10%, 100% 90%, 0px 100%)" },
+    { height:580, z:165, rotateY:35,  y:0, clip:"polygon(0px 0px, 100% 8%, 100% 92%, 0px 100%)" },
+    { height:495, z:110, rotateY:15,  y:0, clip:"polygon(0px 0px, 100% 7%, 100% 93%, 0px 100%)" },
+    { height:420, z:66,  rotateY:15,  y:0, clip:"polygon(0px 0px, 100% 7%, 100% 93%, 0px 100%)" },
+    { height:353, z:46,  rotateY:6,   y:0, clip:"polygon(0px 0px, 100% 7%, 100% 93%, 0px 100%)" },
+    { height:310, z:0,   rotateY:0,   y:0, clip:"polygon(0 0, 100% 0, 100% 100%, 0 100%)" },
+    { height:353, z:54,  rotateY:348, y:0, clip:"polygon(0px 7%, 100% 0px, 100% 100%, 0px 93%)" },
+    { height:420, z:89,  rotateY:-15, y:0, clip:"polygon(0px 7%, 100% 0px, 100% 100%, 0px 93%)" },
+    { height:495, z:135, rotateY:-15, y:1, clip:"polygon(0px 7%, 100% 0px, 100% 100%, 0px 93%)" },
+    { height:580, z:195, rotateY:325, y:0, clip:"polygon(0px 8%, 100% 0px, 100% 100%, 0px 92%)" },
+    { height:620, z:240, rotateY:312, y:0, clip:"polygon(0px 10%, 100% 0px, 100% 100%, 0px 90%)" }
+  ];
 
-  <script>
-    // Posiciones y animación del carrusel 3D
-    const csPositions = [
-      { height:620, z:220, rotateY:48,  y:0, clip:"polygon(0px 0px, 100% 10%, 100% 90%, 0px 100%)" },
-      { height:580, z:165, rotateY:35,  y:0, clip:"polygon(0px 0px, 100% 8%, 100% 92%, 0px 100%)" },
-      { height:495, z:110, rotateY:15,  y:0, clip:"polygon(0px 0px, 100% 7%, 100% 93%, 0px 100%)" },
-      { height:420, z:66,  rotateY:15,  y:0, clip:"polygon(0px 0px, 100% 7%, 100% 93%, 0px 100%)" },
-      { height:353, z:46,  rotateY:6,   y:0, clip:"polygon(0px 0px, 100% 7%, 100% 93%, 0px 100%)" },
-      { height:310, z:0,   rotateY:0,   y:0, clip:"polygon(0 0, 100% 0, 100% 100%, 0 100%)" },
-      { height:353, z:54,  rotateY:348, y:0, clip:"polygon(0px 7%, 100% 0px, 100% 100%, 0px 93%)" },
-      { height:420, z:89,  rotateY:-15, y:0, clip:"polygon(0px 7%, 100% 0px, 100% 100%, 0px 93%)" },
-      { height:495, z:135, rotateY:-15, y:1, clip:"polygon(0px 7%, 100% 0px, 100% 100%, 0px 93%)" },
-      { height:580, z:195, rotateY:325, y:0, clip:"polygon(0px 8%, 100% 0px, 100% 100%, 0px 92%)" },
-      { height:620, z:240, rotateY:312, y:0, clip:"polygon(0px 10%, 100% 0px, 100% 100%, 0px 90%)" }
-    ];
+  class CircularSlider {
+    constructor(){
+      this.container   = document.getElementById('sliderContainer');
+      this.track       = document.getElementById('sliderTrack');
+      this.cards       = Array.from(document.querySelectorAll('.cs-card'));
+      this.total       = this.cards.length;
 
-    class CircularSlider {
-      constructor(){
-        this.container = document.getElementById('sliderContainer');
-        this.track     = document.getElementById('sliderTrack');
-        this.cards     = Array.from(document.querySelectorAll('.cs-card'));
-        this.total     = this.cards.length;
-        this.isDragging=false; this.startX=0; this.dragDistance=0; this.threshold=60; this.processedSteps=0;
-        this.expandedCard=null; this.cardInfo=document.getElementById('cardInfo');
-        this.cardTitle=document.getElementById('cardTitle'); this.cardDesc=document.getElementById('cardDesc');
-        this.closeBtn=document.getElementById('closeBtn');
-        this.init();
-      }
-      init(){ this.applyPositions(); this.attachEvents(); }
-      applyPositions(){
-        this.cards.forEach((card, i) => {
-          const pos = csPositions[i % csPositions.length];
-          gsap.set(card, {
-            height: pos.height,
-            clipPath: pos.clip,
-            transform: `translateZ(${pos.z}px) rotateY(${pos.rotateY}deg) translateY(${pos.y}px)`
-          });
+      // Estado de drag
+      this.pointerId   = null;
+      this.axisLocked  = null; // 'x' o 'y'
+      this.isDragging  = false;
+      this.startX      = 0;
+      this.startY      = 0;
+      this.dragDistance= 0;
+      this.threshold   = 60;   // distancia para avanzar 1 tarjeta
+      this.processedSteps = 0;
+      this.expandedCard   = null;
+
+      // UI info/close
+      this.cardInfo   = document.getElementById('cardInfo');
+      this.cardTitle  = document.getElementById('cardTitle');
+      this.cardDesc   = document.getElementById('cardDesc');
+      this.closeBtn   = document.getElementById('closeBtn');
+
+      this.init();
+    }
+
+    init(){ this.applyPositions(); this.attachEvents(); }
+
+    applyPositions(){
+      this.cards.forEach((card, i) => {
+        const pos = csPositions[i % csPositions.length];
+        gsap.set(card, {
+          height: pos.height,
+          clipPath: pos.clip,
+          transform: `translateZ(${pos.z}px) rotateY(${pos.rotateY}deg) translateY(${pos.y}px)`
         });
-      }
-      expandCard(card){
-        if(this.expandedCard) return;
-        this.expandedCard = card;
-        this.cardTitle.textContent = card.dataset.title || '';
-        this.cardDesc.textContent  = card.dataset.desc  || '';
+      });
+    }
 
-        const rect  = card.getBoundingClientRect();
-        const clone = card.cloneNode(true);
-        const overlay = clone.querySelector('.cs-hover'); if(overlay) overlay.remove();
+    expandCard(card){
+      if(this.expandedCard) return;
+      this.expandedCard = card;
+      this.cardTitle.textContent = card.dataset.title || '';
+      this.cardDesc.textContent  = card.dataset.desc  || '';
 
-        Object.assign(clone.style, {
-          position:'fixed', left: rect.left+'px', top: rect.top+'px',
-          width: rect.width+'px', height: rect.height+'px', margin:'0', zIndex:'1000'
-        });
-        clone.classList.add('clone');
-        document.body.appendChild(clone);
-        this.cardClone = clone;
+      const rect   = card.getBoundingClientRect();
+      const clone  = card.cloneNode(true);
+      const hover  = clone.querySelector('.cs-hover'); if(hover) hover.remove();
 
-        gsap.set(card, { opacity:0 });
-        this.track.classList.add('blurred');
+      Object.assign(clone.style, {
+        position:'fixed', left: rect.left+'px', top: rect.top+'px',
+        width: rect.width+'px', height: rect.height+'px', margin:'0', zIndex:'1000'
+      });
+      clone.classList.add('clone');
+      document.body.appendChild(clone);
+      this.cardClone = clone;
 
-        const maxHeight = window.innerHeight * 0.8;
-        const finalWidth = Math.min(520, window.innerWidth - 32);
-        const finalHeight = Math.min(650, maxHeight);
-        const centerX = window.innerWidth / 2;
-        const centerY = window.innerHeight / 2;
+      gsap.set(card, { opacity:0 });
+      this.track.classList.add('blurred');
 
-        gsap.to(clone, {
-          width: finalWidth, height: finalHeight,
-          left: centerX - finalWidth/2, top: centerY - finalHeight/2,
-          clipPath: 'polygon(0 0, 100% 0, 100% 100%, 0 100%)',
-          transform: 'translateZ(0) rotateY(0deg)',
-          duration: .8, ease: 'power2.out',
-          onComplete: () => { this.cardInfo.classList.add('visible'); this.closeBtn.classList.add('visible'); }
-        });
-      }
-      closeCard(){
-        if(!this.expandedCard) return;
-        this.cardInfo.classList.remove('visible'); this.closeBtn.classList.remove('visible');
-        const card = this.expandedCard; const clone = this.cardClone;
-        const rect = card.getBoundingClientRect();
-        const index = this.cards.indexOf(card);
-        const pos = csPositions[index % csPositions.length];
+      // Bloquear scroll del fondo mientras está expandida (solo aquí)
+      document.documentElement.classList.add('cs-lock');
 
-        gsap.to(clone, {
-          width: rect.width, height: rect.height, left: rect.left, top: rect.top, clipPath: pos.clip,
-          duration:.8, ease:'power2.out',
-          onComplete: () => {
-            clone.remove(); gsap.set(card, { opacity:1 }); this.track.classList.remove('blurred');
-            this.expandedCard=null; this.cardClone=null;
-          }
-        });
-      }
-      rotate(direction){
-        if(this.expandedCard) return;
+      const maxHeight   = window.innerHeight * 0.8;
+      const finalWidth  = Math.min(520, window.innerWidth - 32);
+      const finalHeight = Math.min(650, maxHeight);
+      const centerX     = window.innerWidth / 2;
+      const centerY     = window.innerHeight / 2;
 
-        this.cards.forEach((card, index) => {
-          const newIndex = direction === 'next'
-            ? (index - 1 + this.total) % this.total
-            : (index + 1) % this.total;
-          const pos = csPositions[newIndex];
-
-          gsap.set(card, { clipPath: pos.clip });
-          gsap.to(card, { height: pos.height, duration:.5, ease:'power2.out' });
-          gsap.to(card, { transform: `translateZ(${pos.z}px) rotateY(${pos.rotateY}deg) translateY(${pos.y}px)`, duration:.5, ease:'power2.out' });
-        });
-
-        if(direction === 'next'){
-          const first = this.cards.shift(); this.cards.push(first); this.track.appendChild(first);
-        }else{
-          const last = this.cards.pop(); this.cards.unshift(last); this.track.prepend(last);
+      gsap.to(clone, {
+        width: finalWidth, height: finalHeight,
+        left: centerX - finalWidth/2, top: centerY - finalHeight/2,
+        clipPath: 'polygon(0 0, 100% 0, 100% 100%, 0 100%)',
+        transform: 'translateZ(0) rotateY(0deg)',
+        duration: .8, ease: 'power2.out',
+        onComplete: () => {
+          this.cardInfo.classList.add('visible');
+          this.closeBtn.classList.add('visible');
         }
-      }
-      attachEvents(){
-        this.cards.forEach(card => {
-          card.addEventListener('click', () => { if(!this.isDragging && !this.expandedCard){ this.expandCard(card); } });
-        });
-        this.closeBtn.addEventListener('click', () => this.closeCard());
+      });
+    }
 
-        this.container.addEventListener('mousedown', e => this.handleDragStart(e));
-        this.container.addEventListener('touchstart', e => this.handleDragStart(e), { passive:false });
+    closeCard(){
+      if(!this.expandedCard) return;
+      this.cardInfo.classList.remove('visible');
+      this.closeBtn.classList.remove('visible');
 
-        document.addEventListener('mousemove', e => this.handleDragMove(e));
-        document.addEventListener('touchmove', e => this.handleDragMove(e), { passive:false });
+      const card = this.expandedCard;
+      const clone= this.cardClone;
+      const rect = card.getBoundingClientRect();
+      const index= this.cards.indexOf(card);
+      const pos  = csPositions[index % csPositions.length];
 
-        document.addEventListener('mouseup', () => this.handleDragEnd());
-        document.addEventListener('touchend', () => this.handleDragEnd());
-
-        document.addEventListener('keydown', e => {
-          if(e.key === 'Escape' && this.expandedCard) this.closeCard();
-          else if(e.key === 'ArrowLeft' && !this.expandedCard) this.rotate('prev');
-          else if(e.key === 'ArrowRight' && !this.expandedCard) this.rotate('next');
-        });
-      }
-      handleDragStart(e){
-        if(this.expandedCard) return;
-        this.isDragging = true; this.container.classList.add('dragging');
-        this.startX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
-        this.dragDistance = 0; this.processedSteps = 0;
-      }
-      handleDragMove(e){
-        if(!this.isDragging) return;
-        e.preventDefault();
-        const currentX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
-        this.dragDistance = currentX - this.startX;
-        const steps = Math.floor(Math.abs(this.dragDistance) / this.threshold);
-        if(steps > this.processedSteps){
-          const dir = this.dragDistance > 0 ? 'prev' : 'next';
-          this.rotate(dir); this.processedSteps = steps;
+      gsap.to(clone, {
+        width: rect.width, height: rect.height, left: rect.left, top: rect.top, clipPath: pos.clip,
+        duration:.8, ease:'power2.out',
+        onComplete: () => {
+          clone.remove();
+          gsap.set(card, { opacity:1 });
+          this.track.classList.remove('blurred');
+          this.expandedCard=null; this.cardClone=null;
+          // Rehabilitar scroll del fondo
+          document.documentElement.classList.remove('cs-lock');
         }
-      }
-      handleDragEnd(){
-        if(!this.isDragging) return;
-        this.isDragging = false; this.container.classList.remove('dragging');
+      });
+    }
+
+    rotate(direction){
+      if(this.expandedCard) return;
+
+      this.cards.forEach((card, index) => {
+        const newIndex = direction === 'next'
+          ? (index - 1 + this.total) % this.total
+          : (index + 1) % this.total;
+        const pos = csPositions[newIndex];
+
+        gsap.set(card, { clipPath: pos.clip });
+        gsap.to(card, { height: pos.height, duration:.5, ease:'power2.out' });
+        gsap.to(card, { transform: `translateZ(${pos.z}px) rotateY(${pos.rotateY}deg) translateY(${pos.y}px)`, duration:.5, ease:'power2.out' });
+      });
+
+      if(direction === 'next'){
+        const first = this.cards.shift(); this.cards.push(first); this.track.appendChild(first);
+      } else {
+        const last = this.cards.pop(); this.cards.unshift(last); this.track.prepend(last);
       }
     }
 
-    document.addEventListener('DOMContentLoaded', () => new CircularSlider());
-  </script>
+    attachEvents(){
+      // Click en tarjetas para expandir
+      this.cards.forEach(card => {
+        card.addEventListener('click', () => { if(!this.isDragging && !this.expandedCard){ this.expandCard(card); } });
+      });
 
-  {{-- ======= Hero (tu bloque original) ======= --}}
+      this.closeBtn.addEventListener('click', () => this.closeCard());
+
+      // ====== NUEVO: Pointer Events con bloqueo de eje ======
+      // Permite scroll vertical natural en móvil y solo bloquea cuando el gesto es horizontal.
+      this.container.addEventListener('pointerdown', (e) => this.onPointerDown(e));
+      this.container.addEventListener('pointermove', (e) => this.onPointerMove(e));
+      this.container.addEventListener('pointerup',   ()  => this.onPointerUp());
+      this.container.addEventListener('pointercancel', () => this.onPointerUp());
+
+      // Teclado (igual)
+      document.addEventListener('keydown', e => {
+        if(e.key === 'Escape' && this.expandedCard) this.closeCard();
+        else if(e.key === 'ArrowLeft' && !this.expandedCard) this.rotate('prev');
+        else if(e.key === 'ArrowRight' && !this.expandedCard) this.rotate('next');
+      });
+    }
+
+    onPointerDown(e){
+      if(this.expandedCard) return;
+      this.pointerId  = e.pointerId;
+      this.axisLocked = null;
+      this.isDragging = false;
+      this.startX     = e.clientX;
+      this.startY     = e.clientY;
+      this.dragDistance = 0;
+      this.processedSteps=0;
+      // Importante: NO capturamos aquí para no interferir con scroll vertical
+      // La captura se hace cuando detectamos gesto horizontal.
+    }
+
+    onPointerMove(e){
+      if(this.expandedCard || e.pointerId !== this.pointerId) return;
+
+      const dx = e.clientX - this.startX;
+      const dy = e.clientY - this.startY;
+
+      // Bloqueo de eje al primer movimiento significativo
+      if(this.axisLocked === null){
+        const min = 8; // px
+        if(Math.abs(dx) < min && Math.abs(dy) < min) return;
+
+        if(Math.abs(dx) > Math.abs(dy) + 4){
+          // Gesto horizontal → activamos drag y capturamos
+          this.axisLocked = 'x';
+          this.isDragging = true;
+          this.container.classList.add('dragging');
+          // Mientras se arrastra horizontalmente, deshabilitamos manejo táctil del UA
+          this.container.setPointerCapture(this.pointerId);
+          this.container.style.touchAction = 'none';
+        } else {
+          // Gesto vertical → dejamos que el navegador haga scroll
+          this.axisLocked = 'y';
+          this.isDragging = false;
+          return;
+        }
+      }
+
+      if(this.axisLocked === 'x' && this.isDragging){
+        this.dragDistance = dx;
+        const steps = Math.floor(Math.abs(this.dragDistance) / this.threshold);
+        if(steps > this.processedSteps){
+          const dir = this.dragDistance > 0 ? 'prev' : 'next';
+          this.rotate(dir);
+          this.processedSteps = steps;
+        }
+      }
+    }
+
+    onPointerUp(){
+      if(this.axisLocked === 'x'){
+        try { this.container.releasePointerCapture(this.pointerId); } catch(_) {}
+      }
+      this.pointerId = null;
+      this.axisLocked = null;
+      this.isDragging = false;
+      this.container.classList.remove('dragging');
+      // Restaurar comportamiento táctil por defecto (permitir scroll vertical)
+      this.container.style.touchAction = '';
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => new CircularSlider());
+</script>
+{{-- ======= Hero (tu bloque original, ajustado para móvil) ======= --}}
 <section id="hero-full-pap">
   <style>
     /* ===== HERO PAPELERÍA FULL-BLEED (aislado por #hero-full-pap) ===== */
     #hero-full-pap{
-      /* rompe el contenedor padre y se estira de orilla a orilla */
       position: relative;
-      left: 50%;
-      right: 50%;
-      margin-left: -50vw;
-      margin-right: -50vw;
+      left: 50%; right: 50%;
+      margin-left: -50vw; margin-right: -50vw;
       width: 100vw;
-
-      /* sin bordes redondos ni sombras en el contenedor */
       border: 0; border-radius: 0; box-shadow: none;
 
-      /* fondo pastel en degradé */
       --ink:#0e1726; --muted:#6b7280; --bg:#f6f8fc; --line:#e8eef6;
       --brand:#6ea8fe; --accent:#ffc9de; --ok:#16a34a;
       background:
@@ -453,31 +537,26 @@
         radial-gradient(800px 300px at 90% 20%, rgba(255,201,222,.22), transparent 60%),
         var(--bg);
     }
-    /* contenido centrado; el fondo sí es 100% ancho */
     #hero-full-pap .wrap{max-width:1200px;margin:0 auto;padding:clamp(26px,3vw,44px)}
     #hero-full-pap .grid{display:grid;grid-template-columns:1.05fr .95fr;gap:clamp(18px,3vw,36px);align-items:center}
 
-    /* tipografías y acentos */
     #hero-full-pap h1{margin:0 0 12px; color:var(--ink); letter-spacing:-.02em; line-height:1.05;
       font-size:clamp(28px,4.2vw,52px)}
     #hero-full-pap .grad{background:linear-gradient(90deg,var(--brand),var(--accent));
       -webkit-background-clip:text;background-clip:text;color:transparent}
     #hero-full-pap p.lead{color:var(--muted); font-size:clamp(15px,1.5vw,18px); line-height:1.6; margin:0 0 16px}
 
-    /* chips */
     #hero-full-pap .chips{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0 18px}
     #hero-full-pap .chip{background:#fff;border:1px dashed var(--line);padding:8px 12px;border-radius:999px;
       font-size:13px;color:#0f172a;display:inline-flex;align-items:center;gap:8px;box-shadow:0 8px 24px rgba(2,8,23,.04)}
     #hero-full-pap .dot{width:8px;height:8px;border-radius:50%}
     #hero-full-pap .ok{background:var(--ok)} .brand{background:var(--brand)} .accent{background:var(--accent)}
 
-    /* bullets */
     #hero-full-pap .bullets{display:grid;gap:10px;margin:16px 0 8px}
     #hero-full-pap .bullet{display:flex;gap:10px;align-items:flex-start;color:var(--ink);font-size:15px}
     #hero-full-pap .bullet i{flex:0 0 18px;height:18px;border-radius:6px;background:rgba(110,168,254,.25);
       box-shadow:inset 0 0 0 2px rgba(110,168,254,.55)}
 
-    /* CTAs */
     #hero-full-pap .cta{display:flex;gap:12px;flex-wrap:wrap;margin-top:16px}
 
     /* tarjetas derechas */
@@ -489,21 +568,27 @@
     #hero-full-pap .tag{position:absolute;top:12px;left:12px;background:rgba(255,255,255,.65);backdrop-filter:blur(8px);
       border:1px solid rgba(255,255,255,.6);padding:6px 10px;border-radius:999px;font-size:12px;font-weight:600;color:#0b1220}
     #hero-full-pap .note{position:absolute;right:12px;bottom:12px;background:#fff;border:1px dashed var(--line);
-      border-radius:12px;padding:8px 10px;font-size:12px;color:var(--muted)}
+      border-radius:12px;padding:8px 10px;font-size:12px;color:#6b7280}
     #hero-full-pap .top{aspect-ratio:4/3;min-height:220px}
     #hero-full-pap .bottom{aspect-ratio:4/3;min-height:220px}
 
     /* trust bar */
     #hero-full-pap .trust{display:flex;gap:18px;flex-wrap:wrap;align-items:center;margin-top:16px}
-    #hero-full-pap .trust small{color:var(--muted)}
+    #hero-full-pap .trust small{color:#6b7280}
     #hero-full-pap .logo{height:22px;opacity:.75;filter:grayscale(1);transition:opacity .25s ease,filter .25s ease}
     #hero-full-pap .logo:hover{opacity:1;filter:grayscale(0)}
 
-    /* responsive */
-    @media (max-width:980px){
-      #hero-full-pap .grid{grid-template-columns:1fr}
-      #hero-full-pap .gallery{order:-1}
-    }
+    /* ===== Responsive =====
+       - En móvil: texto arriba (order 1), galería abajo (order 2).
+       - Se oculta la imagen "top" (Listo para despacho).
+       - Se mantiene visible la imagen "bottom" (Oficina & Corporativo). */
+@media (max-width:980px){
+  #hero-full-pap .grid{ grid-template-columns:1fr }
+  #hero-full-pap .grid > :first-child{ order:1 }   /* texto arriba */
+  #hero-full-pap .gallery{ display:none !important } /* ocultar toda la galería (ambas fotos) */
+}
+
+    
   </style>
 
   <div class="wrap">
@@ -555,7 +640,6 @@
     </div>
   </div>
 </section>
-
 
   {{-- ======= Secciones administrables (LandingSection) ======= --}}
 @php
@@ -680,6 +764,22 @@
   .pcards .pcard:hover .pc-corner,
   .pcards .pcard:focus-within .pc-corner,
   .pcards .pc-corner.is-open{ height:70% }
+}
+
+/* Evita reclics mientras se envía */
+.pcards .pc-btn[disabled]{ opacity:.55; cursor:not-allowed; pointer-events:none; }
+
+/* === BLOQUEO ANTI-REAPERTURA DE ESQUINA (hover/focus) === */
+.pcards .pcard.corner-closed .pc-corner{
+  top:-70px; right:-70px; width:140px; height:140px; border-radius:0 0 200px 200px;
+}
+.pcards .pcard.corner-closed .pc-corner__icon{ opacity:1; right:85px; top:85px; }
+.pcards .pcard.corner-closed .pc-corner__panel{ opacity:0; transform:translateY(-40%); }
+
+/* Mantener cerrada incluso con :hover / :focus-within */
+.pcards .pcard.corner-closed:hover .pc-corner,
+.pcards .pcard.corner-closed:focus-within .pc-corner{
+  top:-70px; right:-70px; width:140px; height:140px; border-radius:0 0 200px 200px;
 }
 </style>
 
@@ -895,46 +995,131 @@
 @endif
 
 <script>
-/* Namespace .pcards – sin jQuery */
 (() => {
   const root = document.querySelector('.pcards');
-  if(!root) return;
+  if (!root) return;
 
-  // Slide added/close
+  // --- Patch suave: si existe window.showToast, emite evento para sincronizar UI local ---
+  (function patchToast(){
+    if (typeof window.showToast === 'function' && !window._toastPatchedForPcards){
+      const orig = window.showToast;
+      window.showToast = function(opts = {}){
+        const out = orig.call(this, opts);
+        try { window.dispatchEvent(new CustomEvent('toast:show', { detail: opts })); } catch(_) {}
+        return out;
+      };
+      window._toastPatchedForPcards = true;
+    }
+  })();
+
+  // === Cerrar slide verde (botón tache) ===
   root.addEventListener('click', e => {
     const closeBtn = e.target.closest('[data-pc-close]');
-    if(closeBtn){
-      const id = closeBtn.getAttribute('data-target');
-      const panel = root.querySelector('#'+CSS.escape(id));
-      if(panel) panel.classList.remove('is-added');
+    if (!closeBtn) return;
+    const id = closeBtn.getAttribute('data-target');
+    const panel = document.getElementById(id);
+    if (panel) panel.classList.remove('is-added');
+
+    // Rehabilitar botón de su form asociado
+    const form = root.querySelector(`form[data-pc-cart][data-target="${CSS.escape(id)}"]`);
+    if (form) {
+      form.dataset.pcardsBusy = '0';
+      const btn = form.querySelector('.pc-btn');
+      btn && btn.removeAttribute('disabled');
     }
   });
+
+  // === Esquina revelable (abrir/cerrar con bloqueo anti-reapertura) ===
+  root.addEventListener('click', e => {
+    // Cerrar con el tache
+    const close = e.target.closest('[data-corner-close]');
+    if (close) {
+      e.stopPropagation();
+
+      const corner = close.closest('[data-corner]');
+      const card   = close.closest('.pcard');
+
+      // Quitar estado abierto
+      corner && corner.classList.remove('is-open');
+
+      // Quitar foco para evitar :focus-within
+      try { close.blur(); } catch(_) {}
+      try {
+        card.querySelectorAll('a,button,input,textarea,select,[tabindex]')
+            .forEach(el => el.blur && el.blur());
+      } catch(_) {}
+
+      // Bloqueo temporal para que hover/focus no reabran de inmediato
+      if (card) {
+        card.classList.add('corner-closed');
+        const unlock = () => {
+          card.classList.remove('corner-closed');
+          card.removeEventListener('mouseleave', unlock);
+        };
+        card.addEventListener('mouseleave', unlock, { once:true });
+        setTimeout(unlock, 900); // fallback en touch
+      }
+      return;
+    }
+
+    // Toggle por click en la esquina (respetando bloqueo)
+    const corner = e.target.closest('[data-corner]');
+    if (corner) {
+      const card = corner.closest('.pcard');
+      if (card && card.classList.contains('corner-closed')) return;
+      corner.classList.toggle('is-open');
+    }
+  });
+
+  // === Integración con GLOBAL: NO interceptamos submit; SOLO UI + gating ===
   root.querySelectorAll('form[data-pc-cart]').forEach(form => {
-    form.addEventListener('submit', e => {
-      e.preventDefault();
-      const id = form.getAttribute('data-target');
-      const panel = root.querySelector('#'+CSS.escape(id));
-      if(panel) panel.classList.add('is-added');
-      setTimeout(() => form.submit(), 320);
+    const btn   = form.querySelector('.pc-btn');
+    const id    = form.getAttribute('data-target');
+    const panel = id ? document.getElementById(id) : null;
+
+    // Bloquear reclics mientras está ocupado (captura, antes de global)
+    btn?.addEventListener('click', (e) => {
+      if (form.dataset.pcardsBusy === '1') {
+        e.preventDefault(); e.stopImmediatePropagation(); e.stopPropagation();
+      }
+    }, { capture:true });
+
+    // En submit: NO preventDefault -> deja que el GLOBAL haga el fetch
+    form.addEventListener('submit', () => {
+      if (form.dataset.pcardsBusy === '1') return;
+      form.dataset.pcardsBusy = '1';
+      btn && btn.setAttribute('disabled','disabled');
+
+      // Mostrar "añadido" optimista; si falla, lo revertimos al escuchar el toast warning/error
+      panel && panel.classList.add('is-added');
     });
   });
 
-  // Esquina revelable: click/focus en móvil, hover en desktop
-  root.addEventListener('click', e => {
-    const corner = e.target.closest('[data-corner]');
-    const close  = e.target.closest('[data-corner-close]');
-    if(corner && !close){
-      corner.classList.toggle('is-open');
+  // === Escucha el toast del GLOBAL para confirmar/revertir UI ===
+  window.addEventListener('toast:show', (e) => {
+    const kind = (e.detail && e.detail.kind) || 'info';
+    // Tomamos el primer form ocupado dentro del grid (lo normal es 1 por el gating)
+    const busyForm = root.querySelector('form[data-pc-cart][data-pcards-busy="1"]');
+    if (!busyForm) return;
+
+    const btn   = busyForm.querySelector('.pc-btn');
+    const id    = busyForm.getAttribute('data-target');
+    const panel = id ? document.getElementById(id) : null;
+
+    if (kind === 'warning' || kind === 'error') {
+      // Revertir slide si el GLOBAL reporta problema
+      panel && panel.classList.remove('is-added');
     }
-    if(close){
-      const cc = close.closest('[data-corner]');
-      cc && cc.classList.remove('is-open');
-    }
+    // Liberar gating un instante después del toast para evitar reclic por inercia
+    setTimeout(() => {
+      busyForm.dataset.pcardsBusy = '0';
+      btn && btn.removeAttribute('disabled');
+    }, 500);
   });
 
-  // Cerrar esquina con ESC
-  root.addEventListener('keydown', e => {
-    if(e.key === 'Escape'){
+  // === Cerrar esquinas con ESC (opcional) ===
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
       root.querySelectorAll('.pc-corner.is-open').forEach(c => c.classList.remove('is-open'));
     }
   });

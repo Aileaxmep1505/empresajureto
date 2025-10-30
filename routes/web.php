@@ -38,6 +38,7 @@ use App\Http\Controllers\Admin\HelpDeskAdminController;
 use App\Http\Controllers\SkydropxDebugController;
 use App\Http\Controllers\Web\ServicioController;
 use App\Http\Controllers\Checkout\InvoiceDownloadController;
+use App\Http\Controllers\StripeWebhookController;
 /*
 |--------------------------------------------------------------------------
 | AUTH (ÚNICO login con AuthController)
@@ -445,3 +446,5 @@ Route::get('/checkout/invoices/{id}/pdf', [InvoiceDownloadController::class, 'pd
 
 Route::get('/checkout/invoices/{id}/xml', [InvoiceDownloadController::class, 'xml'])
     ->name('checkout.invoice.xml');
+
+Route::post('/webhooks/stripe', [StripeWebhookController::class,'handle'])->name('webhooks.stripe');

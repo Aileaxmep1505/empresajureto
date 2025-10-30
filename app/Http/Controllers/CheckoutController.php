@@ -88,12 +88,12 @@ class CheckoutController extends Controller
         $subtotal = array_reduce($cart, fn($c,$r)=> $c + ($r['price']*$r['qty']), 0);
 
         return view('checkout.invoice_select', [
-            'profiles'        => $profiles,
+            'profiles'        => $profiles,                   // <-- listado para elegir o agregar otro
             'subtotal'        => $subtotal,
             'shipping'        => session('checkout.shipping', null),
             'address'         => $this->currentAddress(),
-            'usoCfdiOptions'  => $this->usoCfdiOptions(),   // code => label
-            'regimenOptions'  => $this->regimenOptions(),   // code => label
+            'usoCfdiOptions'  => $this->usoCfdiOptions(),     // code => label
+            'regimenOptions'  => $this->regimenOptions(),     // code => label
         ]);
     }
 
@@ -484,7 +484,7 @@ class CheckoutController extends Controller
     }
 
     /* ===========================================================
-     * Stripe: Buy now / Carrito
+     * Stripe: Buy now / Carrito (con envío en Stripe)
      * =========================================================== */
     public function checkoutItem(Request $req, $item)
     {
@@ -500,7 +500,10 @@ class CheckoutController extends Controller
             $successUrl = config('services.stripe.success_url') ?: route('checkout.success', ['session_id' => '{CHECKOUT_SESSION_ID}']);
             $cancelUrl  = config('services.stripe.cancel_url')  ?: route('checkout.cancel');
 
-            $session = $this->stripe->checkout->sessions->create([
+            // Construye la(s) opción(es) de envío para Stripe desde la sesión
+            $shippingOptions = $this->buildStripeShippingOptions();
+
+            $params = [
                 'mode'                   => 'payment',
                 'payment_method_types'   => ['card'],
                 'locale'                 => 'es-419',
@@ -528,7 +531,13 @@ class CheckoutController extends Controller
                 'shipping_address_collection' => ['allowed_countries' => ['MX']],
                 'allow_promotion_codes'       => true,
                 'automatic_tax'               => ['enabled' => false],
-            ]);
+            ];
+
+            if (!empty($shippingOptions)) {
+                $params['shipping_options'] = $shippingOptions;
+            }
+
+            $session = $this->stripe->checkout->sessions->create($params);
 
             return response()->json(['url' => $session->url], 200);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
@@ -574,22 +583,32 @@ class CheckoutController extends Controller
             $successUrl = config('services.stripe.success_url') ?: route('checkout.success', ['session_id' => '{CHECKOUT_SESSION_ID}']);
             $cancelUrl  = config('services.stripe.cancel_url')  ?: route('checkout.cancel');
 
-            $session = $this->stripe->checkout->sessions->create([
-                'mode'                         => 'payment',
-                'payment_method_types'         => ['card'],
-                'locale'                       => 'es-419',
-                'customer_email'               => $email,
-                'success_url'                  => $successUrl,
-                'cancel_url'                   => $cancelUrl,
-                'metadata'                     => [
+            // Construye la(s) opción(es) de envío para Stripe desde la sesión
+            $shippingOptions = $this->buildStripeShippingOptions();
+
+            $params = [
+                'mode'                        => 'payment',
+                'payment_method_types'        => ['card'],
+                'locale'                      => 'es-419',
+                'customer_email'              => $email,
+                'success_url'                 => $successUrl,
+                'cancel_url'                  => $cancelUrl,
+                'metadata'                    => [
                     'type'    => 'cart',
                     'user_id' => (string)($uid ?? ''),
                     'items'   => implode(',', $metadataItems),
                 ],
-                'line_items'                   => $lineItems,
-                'allow_promotion_codes'        => true,
-                'shipping_address_collection'  => ['allowed_countries' => ['MX']],
-            ]);
+                'line_items'                  => $lineItems,
+                'allow_promotion_codes'       => true,
+                'shipping_address_collection' => ['allowed_countries' => ['MX']],
+                'automatic_tax'               => ['enabled' => false],
+            ];
+
+            if (!empty($shippingOptions)) {
+                $params['shipping_options'] = $shippingOptions;
+            }
+
+            $session = $this->stripe->checkout->sessions->create($params);
 
             return response()->json(['url' => $session->url], 200);
         } catch (\Throwable $e) {
@@ -627,7 +646,7 @@ class CheckoutController extends Controller
                     // Respetamos el régimen del usuario si es válido para su tipo; si no, normalizamos.
                     $taxSystem = $this->normalizeTaxSystemForRfc($rfc, $isGeneric ? '616' : ($profile->regimen ?? null));
 
-                    // Nombre: se usa EXACTO el del usuario en BD, pero normalizado SOLO para el timbrado (mayúsculas sin acentos, sin “S.A. de C.V.”, etc.)
+                    // Nombre: exacto de BD, pero normalizado SOLO para timbrar.
                     $rawName   = $isGeneric
                         ? 'PUBLICO EN GENERAL'
                         : ($profile->razon_social ?: ($user->name ?? 'CLIENTE'));
@@ -919,6 +938,46 @@ class CheckoutController extends Controller
     private function pfRegimens(): array {
         // Regímenes típicos de PF
         return ['605','606','607','608','610','612','614','615','616','621','625','626'];
+    }
+
+    /**
+     * Convierte la selección de envío (guardada en sesión) en shipping_options para Stripe Checkout.
+     * Incluye el campo obligatorio "type" => "fixed_amount".
+     */
+    private function buildStripeShippingOptions(): array
+    {
+        $s = session('checkout.shipping');
+        if (!$s || !array_key_exists('price', (array)$s)) {
+            return [];
+        }
+
+        // Monto que pagará el cliente (centavos MXN)
+        $amount = (int) round(max(0, (float) ($s['price'] ?? 0)) * 100);
+
+        // Texto que verá el cliente en Stripe
+        $display = ($amount === 0)
+            ? 'Envío gratis'
+            : trim(($s['name'] ?? 'Envío') . (isset($s['service']) && $s['service'] ? ' — ' . $s['service'] : ''));
+
+        $rate = [
+            'shipping_rate_data' => [
+                'type'         => 'fixed_amount', // <-- OBLIGATORIO
+                'fixed_amount' => ['amount' => $amount, 'currency' => 'mxn'],
+                'display_name' => $display,
+            ],
+        ];
+
+        // (Opcional) Estimación de entrega: intenta parsear "2 a 5 días"
+        if (!empty($s['eta']) && preg_match('/(\d+).*?(\d+)/', (string) $s['eta'], $m)) {
+            $min = max(1, (int) $m[1]);
+            $max = max($min, (int) ($m[2] ?? $m[1]));
+            $rate['shipping_rate_data']['delivery_estimate'] = [
+                'minimum' => ['unit' => 'business_day', 'value' => $min],
+                'maximum' => ['unit' => 'business_day', 'value' => $max],
+            ];
+        }
+
+        return [$rate];
     }
 
     /**

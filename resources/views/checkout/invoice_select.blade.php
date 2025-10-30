@@ -8,10 +8,12 @@
     --bg:#ffffff; --card:#ffffff; --ink:#0b1220; --ink-soft:#22304a;
     --muted:#667085; --line:#eceff4; --brand:#1f4cf0; --ring: rgba(31,76,240,.10);
     --chip:#f3f6ff;
+    --danger:#ef4444; --ok:#16a34a;
   }
   html,body{background:var(--bg); overflow-x:hidden;}
   .wrap{max-width:980px;margin:24px auto;padding:0 16px}
   .card{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:0 12px 32px rgba(2,8,23,.06)}
+  .card + .card{margin-top:16px}
   .card-head{padding:18px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px}
   .card-body{padding:18px 20px}
   .page-title{margin:0;font-weight:900;color:var(--ink);letter-spacing:-.01em}
@@ -22,6 +24,8 @@
   .btn:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(15,23,42,.08)}
   .btn-primary{background:var(--brand);border-color:var(--brand);color:#fff}
   .btn-outline{background:#fff;border-color:#dfe6ee;color:#0b1220}
+  .btn-danger{background:#fff;border-color:#f3d1d1;color:#b42318}
+  .btn-danger:hover{box-shadow:0 6px 18px rgba(180,35,24,.12)}
   .fi{display:grid;gap:6px}
   .fi label{font-size:.95rem;color:var(--ink-soft);font-weight:800}
   .input,.select{border:1px solid #dfe6ee;border-radius:12px;padding:.7rem .9rem;font-size:1rem;background:#fff;transition:border-color .18s ease, box-shadow .18s ease; width:100%}
@@ -46,14 +50,33 @@
   .fade-in{animation:fade .25s ease-out}
   @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
   .pill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;font-weight:800;border:1px solid #e5e7eb;background:#f9fafb}
+
+  /* ====== LISTA DE PERFILES ====== */
+  .profiles{display:grid;gap:10px}
+  .profile{
+    display:flex;gap:12px;align-items:flex-start;justify-content:space-between;
+    padding:14px;border:1px solid var(--line);border-radius:14px;background:#fff;
+    transition:box-shadow .18s ease,border-color .18s ease; position:relative;
+  }
+  .profile:hover{box-shadow:0 8px 22px rgba(2,8,23,.06)}
+  .profile.selected{border-color:var(--brand); box-shadow:0 0 0 4px var(--ring)}
+  .profile .left{display:flex;gap:12px;align-items:flex-start}
+  .radio{margin:4px 0 0 0; width:20px; height:20px}
+  .meta{line-height:1.3}
+  .meta .razon{font-weight:900; color:var(--ink)}
+  .meta .small{font-size:.92rem; color:var(--muted)}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+  .chip{background:#f8fafc;border:1px solid #e2e8f0;padding:4px 8px;border-radius:999px;font-size:.85rem;color:#0b1220}
+  .actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 </style>
 
 <div class="wrap">
+  {{-- ================== HEADER ================== --}}
   <div class="card fade-in">
     <div class="card-head">
       <div>
         <h1 class="page-title">Datos de facturación</h1>
-        <div class="muted" style="margin-top:4px">Se guardarán como <strong>perfil predeterminado</strong> para futuras compras.</div>
+        <div class="muted" style="margin-top:4px">Usa un perfil guardado o agrega uno nuevo. Podrás cambiarlo después.</div>
       </div>
       <a href="{{ route('checkout.shipping') }}" class="btn btn-outline">Omitir ahora</a>
     </div>
@@ -70,20 +93,92 @@
         </div>
       @endif
 
-      <div class="row">
+      <div class="row" style="margin-bottom:10px">
         <div class="badges">
           <span class="badge">Validación de RFC</span>
           <span class="badge">CFDI 4.0</span>
           <span class="badge">Autocompleta C.P.</span>
           <span class="badge">Pago: Tarjeta</span>
         </div>
-        <button id="open-modal" class="btn btn-primary">Capturar datos</button>
+        <button id="open-modal" class="btn btn-primary">Agregar nuevo</button>
       </div>
     </div>
   </div>
+
+  {{-- ================== LISTA DE PERFILES GUARDADOS ================== --}}
+  @php
+    $hasProfiles = isset($profiles) && $profiles->count() > 0;
+    $regimenLabels = $regimenOptions ?? [];
+    $usoLabels     = $usoCfdiOptions ?? [];
+    $defaultId = $hasProfiles ? ($profiles->firstWhere('is_default', true)->id ?? $profiles->first()->id) : null;
+  @endphp
+
+  @if($hasProfiles)
+    <div class="card fade-in">
+      <div class="card-head">
+        <div>
+          <h2 class="page-title" style="font-size:1.25rem">Perfiles guardados</h2>
+          <div class="muted" style="margin-top:4px">{{ $profiles->count() }} perfil{{ $profiles->count()===1?'':'es' }} disponibles</div>
+        </div>
+        <form id="form-select" method="POST" action="{{ route('checkout.invoice.select') }}">
+          @csrf
+          <input type="hidden" name="id" id="selected_id" value="{{ $defaultId }}">
+          <button type="submit" class="btn btn-primary">Usar seleccionado</button>
+        </form>
+      </div>
+
+      <div class="card-body">
+        <div class="profiles" id="profiles">
+          @foreach($profiles as $p)
+            @php
+              $isDefault = (bool)$p->is_default;
+              $rid = 'profile_'.$p->id;
+              $reg = $p->regimen ? ($regimenLabels[$p->regimen] ?? $p->regimen) : '—';
+              $uso = $p->uso_cfdi ? ($usoLabels[$p->uso_cfdi] ?? $p->uso_cfdi) : '—';
+              $addr = trim(($p->direccion ?? '').' C.P. '.($p->zip ?? ''));
+            @endphp
+            <div class="profile {{ $defaultId===$p->id ? 'selected':'' }}" data-id="{{ $p->id }}">
+              <div class="left">
+                <input class="radio" type="radio" name="profile_radio" id="{{ $rid }}" {{ $defaultId===$p->id ? 'checked':'' }}>
+                <label for="{{ $rid }}" class="meta">
+                  <div class="razon">{{ $p->razon_social ?? '—' }}</div>
+                  <div class="small">RFC: <strong>{{ $p->rfc }}</strong> • Régimen: {{ $reg }} • Uso: {{ $uso }}</div>
+                  <div class="small">Dirección fiscal: {{ $addr }}</div>
+                  @if($p->email || $p->telefono || $p->contacto)
+                    <div class="chips">
+                      @if($p->email)<span class="chip">Email: {{ $p->email }}</span>@endif
+                      @if($p->telefono)<span class="chip">Tel: {{ $p->telefono }}</span>@endif
+                      @if($p->contacto)<span class="chip">Contacto: {{ $p->contacto }}</span>@endif
+                      @if($isDefault)<span class="chip" style="border-color:#c7e3ff;background:#eef6ff;color:#1e40af">Predeterminado</span>@endif
+                    </div>
+                  @endif
+                </label>
+              </div>
+              <div class="actions">
+                <form method="POST" action="{{ route('checkout.invoice.select') }}" onsubmit="return confirm('¿Usar este perfil?')">
+                  @csrf
+                  <input type="hidden" name="id" value="{{ $p->id }}">
+                  <button type="submit" class="btn btn-outline">Usar este</button>
+                </form>
+                <form method="POST" action="{{ route('checkout.invoice.delete') }}" onsubmit="return confirm('¿Eliminar este perfil de facturación?')">
+                  @csrf
+                  @method('DELETE')
+                  <input type="hidden" name="id" value="{{ $p->id }}">
+                  <button type="submit" class="btn btn-danger">Eliminar</button>
+                </form>
+              </div>
+            </div>
+          @endforeach
+        </div>
+
+        <div class="muted" style="margin-top:12px">¿Otro RFC? &nbsp;<button id="open-modal-2" class="btn btn-outline">Agregar otro</button></div>
+      </div>
+    </div>
+  @endif
+
 </div>
 
-{{-- Modal 2 pasos --}}
+{{-- ================== MODAL: ALTA NUEVO PERFIL (2 pasos) ================== --}}
 <div id="backdrop" class="modal-backdrop"></div>
 <section id="invoice-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="inv-title" aria-describedby="inv-desc">
   <header class="modal-head">
@@ -115,7 +210,6 @@
       <form id="invoice-form" method="POST" action="{{ route('checkout.invoice.store') }}" autocomplete="off" novalidate>
         @csrf
         <input type="hidden" name="rfc" id="rfc_final" value="{{ old('rfc') }}">
-        {{-- NUEVO: dirección consolidada que espera el controlador --}}
         <input type="hidden" name="direccion" id="direccion">
 
         <div class="grid">
@@ -137,7 +231,6 @@
           </div>
         </div>
 
-        {{-- ===== Régimen y Uso (filtrados por tipo de persona) ===== --}}
         <div class="grid g2">
           <div class="fi">
             <label>Régimen fiscal (SAT) *</label>
@@ -152,7 +245,6 @@
           </div>
         </div>
 
-        {{-- CONTACTO / ENTREGA (opcional para el perfil) --}}
         <div class="grid g2">
           <div class="fi">
             <label>Contacto (quien recibe)</label>
@@ -223,16 +315,18 @@
 <script>
 (function(){
   const $ = s => document.querySelector(s);
+  const $$ = s => Array.from(document.querySelectorAll(s));
   const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 
-  // Rutas backend
+  // ===== Rutas backend
   const ROUTE_CP   = @json(route('checkout.cp'));            // GET ?cp=XXXXX
   const ROUTE_ADDR = @json(route('checkout.address.store')); // POST JSON
 
-  // Modal
+  // ===== Modal
   const backdrop = $('#backdrop');
   const modal = $('#invoice-modal');
   const openBtn = $('#open-modal');
+  const openBtn2 = $('#open-modal-2');
   const closeBtn = $('#close-modal');
   const cancel1 = $('#cancel-1');
 
@@ -248,18 +342,19 @@
     document.body.style.overflow = '';
   }
   openBtn?.addEventListener('click', openModal);
+  openBtn2?.addEventListener('click', openModal);
   closeBtn?.addEventListener('click', closeModal);
   cancel1?.addEventListener('click', closeModal);
   backdrop?.addEventListener('click', e => { if(e.target === backdrop) closeModal(); });
   document.addEventListener('keydown', e => { if(e.key === 'Escape') closeModal(); });
 
-  // Steps
+  // ===== Steps
   const step1 = $('#step1'), step2 = $('#step2');
   const dot1 = $('#dot1'), dot2 = $('#dot2');
   function go1(){ step1.style.display='grid'; step2.style.display='none'; dot1.classList.add('active'); dot2.classList.remove('active'); }
   function go2(){ step1.style.display='none'; step2.style.display='grid'; dot1.classList.remove('active'); dot2.classList.add('active'); }
 
-  // ===== Catálogos (filtrado por persona) =====
+  // ===== Catálogos (filtrado por persona)
   const REGIMEN_PM = {
     '601':'General de Ley Personas Morales',
     '603':'Personas Morales con Fines no Lucrativos',
@@ -308,7 +403,7 @@
     'D09':'Depósitos para el ahorro, planes de pensiones',
     'D10':'Pagos por servicios educativos (colegiaturas)',
   };
-  const USO_PM = USO_BASE; // sin Dxx
+  const USO_PM = USO_BASE;
   const USO_PF = Object.assign({}, USO_BASE, USO_D_PF);
   const USO_GEN = {'S01':'Sin efectos fiscales'};
 
@@ -362,7 +457,7 @@
     }
   }
 
-  // Validación RFC
+  // ===== Validación RFC
   const rfcInput = $('#rfc');
   const rfcErr   = $('#rfc-error');
   const rfcFinal = $('#rfc_final');
@@ -390,7 +485,7 @@
 
   $('#btn-back')?.addEventListener('click', go1);
 
-  // CP Lookup
+  // ===== CP Lookup
   const zip = $('#zip'), state = $('#state'), municipality = $('#municipality'), colony = $('#colony');
   const datalist = $('#colonies-list');
 
@@ -410,7 +505,7 @@
   }
   zip?.addEventListener('input', e => { if((e.target.value||'').length===5) lookupCP(e.target.value); });
 
-  // Guardar dirección y componer "direccion" ANTES del submit
+  // ===== Guardar dirección auxiliar y componer "direccion" ANTES del submit
   const formInvoice = document.getElementById('invoice-form');
   const btnSave = document.getElementById('btn-save');
   const btnText = document.getElementById('btn-text');
@@ -431,7 +526,6 @@
       return;
     }
 
-    // Componer el campo que valida el backend: "direccion"
     const dir = `${must.street} #${must.ext}${($('#int_number').value||'') ? ' Int. '+$('#int_number').value : ''}, ${must.col}, ${must.mun}, ${must.st}, C.P. ${must.z}`;
     document.getElementById('direccion').value = dir;
 
@@ -450,16 +544,35 @@
         estado: must.st,
         municipio: must.mun,
       };
-      console.log('POST address payload', payload);
       fetch(ROUTE_ADDR, {
         method:'POST',
         headers:{'X-CSRF-TOKEN': csrf, 'Accept':'application/json', 'Content-Type':'application/json'},
         body: JSON.stringify(payload)
-      }).catch(err => console.warn('address save failed (non-blocking)', err));
-    }catch(err){ console.warn('address save error', err); }
+      }).catch(()=>{});
+    }catch(err){}
   });
 
-  // Si tu layout no imprime @stack('scripts'), este JS no corre
+  // ===== Radios y selección rápida en la lista
+  const rows = $$('#profiles .profile');
+  const hiddenId = $('#selected_id');
+  rows.forEach(row=>{
+    const radio = row.querySelector('.radio');
+    const id = row.getAttribute('data-id');
+    function selectRow(){
+      rows.forEach(r=>r.classList.remove('selected'));
+      row.classList.add('selected');
+      hiddenId.value = id;
+      radio.checked = true;
+    }
+    row.addEventListener('click', (e)=>{
+      // Evitar conflicto con botones de acción
+      const target = e.target;
+      if (target.closest('form')) return;
+      selectRow();
+    });
+    radio?.addEventListener('change', selectRow);
+  });
+
   console.log('invoice_select blade JS loaded');
 })();
 </script>

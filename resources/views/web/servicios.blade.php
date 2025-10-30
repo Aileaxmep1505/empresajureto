@@ -13,35 +13,35 @@
         'lead'    => 'Recomendamos cómputo, escritorios y periféricos según el tamaño y crecimiento.',
         'bullets' => ['Levantamiento y layout básico','Comparativas con TCO','Kits por área'],
         'service' => 'Asesoría en equipamiento',
-        'img'     => asset('images/equipamiento.jpg'),
+        'img'     => 'https://i.pinimg.com/736x/a2/aa/63/a2aa637c64d380340051c4f421e150a6.jpg',
       ],
       [
         'title'   => 'Mantenimiento básico de equipos',
         'lead'    => 'Instalación de software, antivirus y limpieza interna.',
         'bullets' => ['Paquetes por hora o por lote','Hardening de antivirus','Pruebas de salud'],
         'service' => 'Mantenimiento básico',
-        'img'     => asset('images/mantenimiento.jpg'),
+        'img'     => 'https://i.pinimg.com/1200x/41/91/c2/4191c23dda39edd7119cfb70d191eb79.jpg',
       ],
       [
         'title'   => 'Impresoras y redes locales',
         'lead'    => 'Instalamos impresoras, Wi-Fi y redes LAN para oficinas o campus.',
         'bullets' => ['Colas de impresión','Segmentación y cobertura Wi-Fi','Capacitación'],
         'service' => 'Impresoras y redes',
-        'img'     => asset('images/redes.jpg'),
+        'img'     => 'https://i.pinimg.com/1200x/6e/1f/46/6e1f4653a312ca8aaab5e90275494cbd.jpg',
       ],
       [
         'title'   => 'Tienda para instituciones educativas',
         'lead'    => 'Convenios con listas escolares prearmadas y compras centralizadas.',
         'bullets' => ['Listas por grado/semestre','Códigos institucionales','Facturación consolidada'],
         'service' => 'Tienda institucional',
-        'img'     => asset('images/escuelas.jpg'),
+        'img'     => 'https://i.pinimg.com/1200x/94/ef/d0/94efd07f4d43ba5761724b2ed2716684.jpg',
       ],
       [
         'title'   => 'Venta por mayoreo',
         'lead'    => 'Precios preferenciales para compras grandes y reabastecimientos periódicos.',
         'bullets' => ['Descuentos por volumen','Logística por sucursal','Equivalentes y marcas alternas'],
         'service' => 'Mayoreo',
-          'link'    => url('https://upload.wikimedia.org/wikipedia/commons/thumb/3/38/The_Woodlands_College_Park_Front_Image.jpg/250px-The_Woodlands_College_Park_Front_Image.jpg'), // <-- opcional: a dónde abrir
+        'img'     => 'https://i.pinimg.com/736x/3c/c9/70/3cc9707a8460bb29a3835eb3ee21d87c.jpg',
       ],
     ];
   }
@@ -64,7 +64,7 @@
 /* ====== HERO (full-bleed, sin sombras) ====== */
 #svc .hero{ margin:0; padding:0 }
 #svc .hero .cover{
-  width:100vw; margin-left:calc(50% - 50vw); margin-right:calc(50% - 50vw);
+  width:100vw; margin-left:calc(50% - 50vw); margin-top:-50px; margin-right:calc(50% - 50vw);
   border-radius:0 0 40px 40px; border:0; text-align:center;
   background: linear-gradient(180deg, #cfe9f3 0%, #f6fbff 30%, #ffffff 55%, #ffe1cc 100%);
   padding: clamp(40px, 9vw, 110px) 16px clamp(50px, 10vw, 130px);
@@ -83,7 +83,6 @@
 #svc .slab{
   position:relative; overflow:hidden; border-radius:36px; border:1px solid var(--line);
   background: var(--surface);
-  /* 80% de ancho, centrado */
   width: min(1200px, 80vw);
   margin: clamp(28px,5vw,56px) auto 0;
   padding: clamp(28px,4vw,48px);
@@ -123,7 +122,7 @@
   background:#fff; border:1px solid #e6eaf2;
 }
 
-/* >>> Burbuja dentro de la foto (NO QUITAR) <<< */
+/* >>> Burbuja dentro de la foto (Desktop ON / Mobile OFF) <<< */
 #svc .bubble{
   position:absolute; right:min(4%,28px); bottom:min(4%,28px);
   background:#fff; border-radius:18px; padding:12px 14px;
@@ -139,9 +138,6 @@
 }
 #svc .bubble .chip::after{ content:""; position:absolute; inset:0; border-radius:inherit; box-shadow: inset 0 1px 0 rgba(255,255,255,.8) }
 #svc .bubble .chip:hover{ background:#f7faff; border-color:#cfe1ff }
-@media (max-width:640px){
-  #svc .bubble{ left:50%; right:auto; transform:translateX(-50%); bottom:10px }
-}
 
 /* Columna copy */
 #svc .copy h3{ font-size: clamp(32px,5vw,56px); line-height:1.02; margin:0 0 12px; color:var(--ink); font-weight:800; letter-spacing:-.02em }
@@ -162,6 +158,43 @@
 #svc .slab.alt .copy{ order:1 }
 @media (max-width:980px){
   #svc .slab.alt .media, #svc .slab.alt .copy{ order:unset }
+}
+
+/* ======================= FIXES SOLO MÓVIL ======================= */
+@media (max-width: 640px){
+
+  /* Prompt del héroe */
+  #svc .prompt{ width:100%; overflow:visible; }
+  #svc .prompt input{
+    font-size:16px;       /* evita zoom iOS */
+    padding-right:72px;   /* espacio para el botón */
+  }
+  #svc .send{
+    right:6px; bottom:6px;
+    width:40px; height:40px;
+  }
+
+  /* Slab más ancho y compacto en móvil */
+  #svc .slab{
+    width:min(1200px, 92vw);
+    padding:18px;
+    border-radius:24px;
+  }
+  #svc .slab .grid{ gap:18px; }
+
+  /* Visual sin burbuja en móvil */
+  #svc .device{
+    aspect-ratio: 4 / 3;
+    padding:10px;
+  }
+  #svc .device img{ display:block; }
+
+  /* Ocultar burbuja/chips SOLO en móvil */
+  #svc .bubble{ display:none !important; }
+
+  /* Tipografía del copy en móvil */
+  #svc .copy h3{ font-size: clamp(24px, 8vw, 30px); }
+  #svc .copy p.lead{ font-size:14px; }
 }
 </style>
 
@@ -202,8 +235,14 @@
       <div class="grid">
         <div class="media">
           <div class="device">
-            <img src="{{ $f['img'] }}" alt="Referencia - {{ $f['service'] }}">
-            {{-- BURBUJA DENTRO DE LA FOTO (con chips) --}}
+            <img
+              src="{{ $f['img'] }}"
+              alt="Referencia - {{ $f['service'] }}"
+              loading="lazy"
+              referrerpolicy="no-referrer"
+              onerror="this.onerror=null;this.src='https://placehold.co/1600x1000?text=Imagen+no+disponible';"
+            >
+            {{-- BURBUJA DENTRO DE LA FOTO (desktop sí, móvil no) --}}
             <div class="bubble">
               <p>Cuéntanos tu caso: <strong>{{ $f['service'] }}</strong></p>
               <div class="chips">
