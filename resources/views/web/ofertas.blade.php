@@ -279,7 +279,8 @@
                       @csrf
                       <input type="hidden" name="catalog_item_id" value="{{ $p->id }}">
 
-                      <button type="submit" class="add-to-cart add-to-cart--sm" data-submit-delay="900" title="Agregar al carrito">
+                      {{-- IMPORTANTE: type="button" para no disparar submit (evita doble envío) --}}
+                      <button type="button" class="add-to-cart add-to-cart--sm" data-submit-delay="900" title="Agregar al carrito">
                         <span>Agregar</span>
                         <svg class="morph" viewBox="0 0 64 13" aria-hidden="true">
                           <path d="M0 12C6 12 17 12 32 12C47.9024 12 58 12 64 12V13H0V12Z" />
@@ -320,7 +321,7 @@
   </section>
 </div>
 
-{{-- GSAP sólo para la animación del botón (no genera toasts) --}}
+{{-- GSAP sólo para la animación del botón --}}
 <script defer src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
 
 <style>
@@ -512,7 +513,40 @@
     const el = document.querySelector('[data-cart-badge]'); if (el) el.textContent = String(count||0);
   }
 
-  /* ===== Botón animado (evita doble click) ===== */
+  /* ===== POST AJAX (sin disparar submit) ===== */
+  async function ajaxAdd(form, submitBtn){
+    if (!form || form.dataset.submitting === '1') return;
+    form.dataset.submitting = '1';
+    try{
+      const fd = new FormData(form);
+      const res = await fetch(form.action, {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': csrf(), 'Accept':'application/json' },
+        body: fd,
+      });
+      const data = await res.json().catch(()=>({}));
+
+      if (res.ok && data.ok !== false){
+        updateBadge(data?.totals?.count ?? null);
+
+        // Mantener UX: si existe tu toast global, lo usamos
+        if (window.showToast){
+          window.showToast({ title:'Agregado', message:'El producto se añadió al carrito.', kind:'success', duration:3000 });
+        }
+
+        if (window.onCartAdd) window.onCartAdd(data);
+      }else{
+        if (window.onCartError) window.onCartError(data?.msg || 'Ocurrió un problema.');
+      }
+    }catch(_){
+      if (window.onCartError) window.onCartError('Error de red.');
+    }finally{
+      form.dataset.submitting = '';
+      if (submitBtn) submitBtn.dataset.busy = '';
+    }
+  }
+
+  /* ===== Botón animado (click -> animación + ajaxAdd) ===== */
   function bindAnimatedCartButtons(){
     root.querySelectorAll('#ofr .add-to-cart').forEach(btn=>{
       if (btn.dataset.bound) return; btn.dataset.bound = "1";
@@ -522,9 +556,9 @@
         if (btn.dataset.busy === '1') return;        // evita doble click
         btn.dataset.busy = '1';
 
-        const form = btn.closest('form'); if(!form) return;
+        const form = btn.closest('form'); if(!form){ btn.dataset.busy=''; return; }
 
-        // Animación
+        // Animación (idéntica a la que ya tenías)
         if (window.gsap){
           btn.classList.add('active'); btn.style.pointerEvents = 'none'; btn.style.setProperty('--text-o', 0);
           gsap.to(btn, { keyframes:[
@@ -547,48 +581,8 @@
           ], onComplete(){ btn.classList.remove('active'); btn.style.pointerEvents=''; }});
         }
 
-        // Dispara submit (interceptado por AJAX abajo)
-        if (typeof form.requestSubmit === 'function') form.requestSubmit();
-        else form.dispatchEvent(new Event('submit', { cancelable:true, bubbles:true }));
-      });
-    });
-  }
-
-  /* ===== Carrito AJAX (sin toasts locales) ===== */
-  function bindAjaxCart(){
-    root.querySelectorAll('form.ofr-cart').forEach(form=>{
-      if (form.dataset.bound) return; form.dataset.bound = "1";
-
-      form.addEventListener('submit', async (ev)=>{
-        ev.preventDefault(); ev.stopPropagation();
-
-        if (form.dataset.submitting === '1') return;   // evita duplicado
-        form.dataset.submitting = '1';
-
-        const submitBtn = form.querySelector('.add-to-cart');
-        try{
-          const fd = new FormData(form);
-          const res = await fetch(form.action, {
-            method: 'POST',
-            headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': csrf(), 'Accept':'application/json' },
-            body: fd,
-          });
-
-          const data = await res.json().catch(()=>({}));
-          if (res.ok && data.ok !== false){
-            updateBadge(data?.totals?.count ?? null);
-            // Aquí no mostramos ningún toast local a propósito
-            if (window.onCartAdd) window.onCartAdd(data); // opcional: hook global si lo tienes
-          }else{
-            if (window.onCartError) window.onCartError(data?.msg || 'Ocurrió un problema.');
-            // Sin toast local
-          }
-        }catch(e){
-          if (window.onCartError) window.onCartError('Error de red.');
-        }finally{
-          form.dataset.submitting = '';          // libera el submit
-          if (submitBtn) submitBtn.dataset.busy = ''; // libera el botón
-        }
+        // Enviar AJAX directo (sin submit → sin duplicado)
+        ajaxAdd(form, btn);
       });
     });
   }
@@ -618,9 +612,8 @@
           const added = (typeof data.favorited !== 'undefined') ? !!data.favorited
                         : (btn.getAttribute('aria-pressed') !== 'true'); // fallback
           btn.setAttribute('aria-pressed', added ? 'true':'false');
-          // Sin toast local
-        }catch(e){
-          // Sin toast local
+        }catch(_){
+          /* noop */
         }finally{
           btn.dataset.busy = '';
         }
@@ -634,7 +627,7 @@
   }, {rootMargin:'0px 0px -10% 0px'}) : null;
   root.querySelectorAll('.ofr-grid-cards .ofr-card').forEach(el=>{ if(io) io.observe(el); });
 
-  function init(){ bindAnimatedCartButtons(); bindAjaxCart(); bindFavButtons(); }
+  function init(){ bindAnimatedCartButtons(); bindFavButtons(); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
   document.addEventListener('turbo:load', init);
@@ -642,4 +635,3 @@
 })();
 </script>
 @endsection
-

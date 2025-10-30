@@ -29,7 +29,7 @@
 
   <style>
     :root{
-      --ink:#0f172a; --muted:#475569; --line:#e5e9f2; --bg:#ffffff;
+      --ink:#0f172a; --muted:#475569; --line:#e5e9f2;
       --pill:#b6332f; --pill-hover:#a02a27; --shadow:0 8px 24px rgba(2,8,23,.06);
       --container:1180px;
       --sheet-bg:#ffffff; --sheet-radius:20px; --sheet-shadow: 0 18px 60px rgba(2,8,23,.22);
@@ -43,14 +43,18 @@
     }
     *{ box-sizing:border-box }
     html,body{ margin:0; padding:0 }
-    body{ font-family: ui-sans-serif, system-ui, -apple-system; background:var(--bg); color:var(--ink); overflow-x:hidden }
+    /* No forzamos background global para no romper tus degradados */
+    body{ font-family: ui-sans-serif, system-ui, -apple-system; color:var(--ink); overflow-x:hidden }
+    html.sheet-open{ overflow:hidden; }
+    /* Scroll lock específico del buscador (sin tocar tus pantallas) */
+    .jrt-scroll-lock{ overflow:hidden; padding-right: var(--jrt-pr, 0px); }
 
     /* ===== Header base ===== */
     header.header{
       position:sticky; top:0; left:0; right:0; width:100%;
       background:var(--header-solid-bg);
       box-shadow:var(--shadow);
-      z-index:40;
+      z-index:90; /* por encima del backdrop del buscador */
       border-bottom:1px solid transparent;
       transition: var(--header-transition);
     }
@@ -76,7 +80,7 @@
     .nav-link:hover::after{ background:#000; transform:scaleX(1) }
     .nav-link.is-active::after{ background:#000; transform:scaleX(1) }
 
-    .right-tools{ display:flex; align-items:center; gap:12px }
+    .right-tools{ display:flex; align-items:center; gap:12px; z-index:95 } /* sobre el backdrop */
     .icon-btn{
       position:relative; display:inline-flex; align-items:center; justify-content:center;
       width:36px; height:36px; border-radius:999px; border:1px solid #dfe6ee; background:#fff;
@@ -99,7 +103,7 @@
     .mobile-topbar{ display:none; align-items:center; justify-content:space-between; max-width:var(--container); margin:0 auto; padding:10px 16px }
     .m-brand{ display:flex; align-items:center; gap:8px; text-decoration:none; color:var(--ink) }
     .m-logo{ height:26px; width:auto; display:block }
-    .m-right{ display:flex; align-items:center; gap:10px } /* NUEVO: grupo carrito + burger a la derecha */
+    .m-right{ display:flex; align-items:center; gap:10px } /* carrito + burger a la derecha */
     .burger{ display:none; background:transparent; border:0; padding:6px }
     .burger svg{ width:24px; height:24px }
 
@@ -151,7 +155,7 @@
     .ft__social a{ color:inherit; opacity:.9; transition:opacity .2s, transform .1s }
     .ft__social a:hover{ opacity:1; transform:translateY(-1px) }
 
-    /* Solo móvil: logo del footer más compacto y centrado */
+    /* Solo móvil: acordeón en footer */
     @media (max-width: 980px){
       .ft__wrap{ padding:22px 16px 28px; align-items:stretch }
       .ft__head{ align-items:flex-start; text-align:left }
@@ -162,24 +166,60 @@
       .ft__col:not(.open) .ft__list{ display:none }
       .ft__col.open .ft__list{ display:grid }
       .ft__col.open .ft__chev{ transform: rotate(45deg); }
-      .ft__payments{ justify-content:center }
+      --ft__payments{ justify-content:center }
       .ft__copy{ text-align:center }
-      .ft__logo{ height:28px; max-width:180px; margin:0 auto 8px; display:block } /* <= ajuste pedido */
+      .ft__logo{ height:28px; max-width:180px; margin:0 auto 8px; display:block }
     }
 
-    /* ===== Search & user (existente) ===== */
-    .searchbar-wrap{ position:relative; flex:1; max-width:720px; }
+    /* ===== Search & user (MEJORADO) ===== */
+    .searchbar-wrap{ position:relative; flex:1 1 720px; max-width:720px; z-index:100 } /* por encima de header y backdrop */
     .searchbar{
       display:flex; align-items:center; gap:10px;
       background:#fff; border:1px solid var(--line); border-radius:999px;
       padding:10px 14px; box-shadow:0 8px 22px rgba(2,8,23,.06);
+      transition: box-shadow .18s, border-color .18s;
     }
     .searchbar .s-ico{width:20px;height:20px;display:inline-flex}
-    .searchbar input{ flex:1; border:0; outline:0; background:transparent; font-size:1rem; color:var(--ink); }
+    .searchbar input{ flex:1; border:0; outline:0; background:transparent; font-size:1rem; color:var(--ink) }
     .searchbar .vdiv{width:1px; height:22px; background:#d9e0ec}
     .searchbar .chip{ display:inline-flex; align-items:center; justify-content:center; font-weight:800; font-size:.9rem; color:#2f4fb8; border:2px solid #2f4fb8; border-radius:999px; width:34px; height:34px; }
+    .searchbar:focus-within{ border-color:#c7d2fe; box-shadow:0 10px 28px rgba(59,130,246,.15) }
 
-    .user-wrap{position:relative}
+    /* Backdrop del buscador: SOLO fondo; ni header ni panel */
+    .sugg-backdrop{
+      position:fixed; inset:0; background:rgba(15,23,42,.38);
+      opacity:0; pointer-events:none; transition:opacity .18s; z-index:80; /* < header (90) y < panel (110) */
+    }
+    .sugg-backdrop.is-open{ opacity:1; pointer-events:auto }
+
+    /* Panel de sugerencias flotante */
+    #sugg{
+      position:absolute; top:calc(100% + 10px); left:0; right:0;
+      background:#fff; border:1px solid var(--line); border-radius:16px;
+      box-shadow:0 24px 60px rgba(2,8,23,.16); padding:8px; z-index:110; /* sobre header/backdrop */
+      max-height:420px; overflow:auto;
+      opacity:0; transform: translateY(-6px); transition: opacity .16s ease, transform .16s ease;
+    }
+    #sugg.is-open{ opacity:1; transform: translateY(0) }
+    #sugg[hidden]{ display:none !important }
+    #sugg .sugg-section{ padding:6px 8px 4px; color:#6b7280; font-size:.8rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em }
+    #sugg .sugg-item{
+      display:flex; gap:10px; align-items:center; padding:10px 12px;
+      border-radius:12px; text-decoration:none; color:var(--ink); cursor:pointer;
+    }
+    #sugg .sugg-item:hover{ background:#f7f9fe }
+    #sugg .sugg-item[aria-selected="true"]{ background:#eef2ff }
+    #sugg .sugg-empty{ padding:12px; color:#6b7280; text-align:center }
+
+    /* Móvil: panel fijo bajo el header, ancho completo */
+    @media (max-width:980px){
+      #sugg{
+        position:fixed; left:12px; right:12px; top:calc(var(--hdr-h,64px) + 8px);
+        border-radius:14px; max-height:70vh;
+      }
+    }
+
+    .user-wrap{position:relative; z-index:100}
     .avatar-btn{
       width:38px;height:38px;border-radius:999px;border:2px solid #dfe6ee;background:#eef2ff;
       color:#2f3e7d; font-weight:900; display:inline-flex; align-items:center; justify-content:center;
@@ -187,7 +227,7 @@
     }
     .user-menu{
       position:absolute; right:0; top:48px; min-width:220px; background:#fff; border:1px solid var(--line);
-      border-radius:14px; box-shadow:0 18px 46px rgba(2,8,23,.18); padding:8px; display:none; z-index:60;
+      border-radius:14px; box-shadow:0 18px 46px rgba(2,8,23,.18); padding:8px; display:none; z-index:105;
     }
     .user-menu.open{display:block}
     .user-menu a, .user-menu form button{
@@ -196,8 +236,6 @@
       color:var(--ink); text-decoration:none; font-weight:700;
     }
     .user-menu a:hover, .user-menu form button:hover{background:#f7f9fe}
-
-    html.sheet-open{ overflow:hidden; }
   </style>
 </head>
 <body>
@@ -205,11 +243,9 @@
 <header class="header">
   {{-- Topbar móvil --}}
   <div class="mobile-topbar">
-    <!-- Izquierda: logo -->
     <a href="{{ route('web.home') }}" class="m-brand" aria-label="Ir a inicio">
       <img class="m-logo" src="{{ asset('images/logo-mail.png') }}" alt="Jureto" onerror="this.style.opacity=.2">
     </a>
-    <!-- Derecha: carrito + burger (NUEVO ORDEN) -->
     <div class="m-right">
       @php
         $cart = session('cart', []);
@@ -225,7 +261,7 @@
     </div>
   </div>
 
-  {{-- Navbar desktop (SIN CAMBIOS) --}}
+  {{-- Navbar desktop --}}
   @php
     $cart = session('cart', []);
     $cartCount = is_array($cart) ? array_sum(array_map(fn($r)=> (int)($r['qty'] ?? 0), $cart)) : 0;
@@ -249,7 +285,7 @@
         <span class="s-ico" aria-hidden="true">
           <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
         </span>
-        <input type="search" name="q" id="qInput" value="{{ request('q') }}" placeholder="¿Qué quieres encontrar?" autocomplete="off" aria-autocomplete="list" aria-controls="suggList">
+        <input type="search" name="q" id="qInput" value="{{ request('q') }}" placeholder="¿Qué quieres encontrar?" autocomplete="off" aria-autocomplete="list" aria-controls="sugg">
         <div class="vdiv" aria-hidden="true"></div>
         <span class="chip" title="Asistente">AI</span>
       </form>
@@ -305,6 +341,9 @@
   </div>
 </header>
 
+<!-- Backdrop del buscador (oscurece SOLO el fondo) -->
+<div class="sugg-backdrop" id="suggBackdrop" hidden></div>
+
 {{-- Backdrop + Bottom Sheet (móvil) --}}
 <div class="sheet-backdrop" id="sheet-backdrop" hidden></div>
 <section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Menú" tabindex="-1">
@@ -338,7 +377,6 @@
 </section>
 
 <main class="container" style="padding:28px 20px;">
-
   @yield('content')
 </main>
 
@@ -427,6 +465,7 @@
 
 {{-- ===== Scripts ===== --}}
 <script>
+  // Header glass + variable de altura (para anclar sugerencias en móvil)
   (function(){
     const header = document.querySelector('header.header');
     if(!header) return;
@@ -435,12 +474,19 @@
       if(window.scrollY > THRESHOLD){ header.classList.add('header--glass'); }
       else{ header.classList.remove('header--glass'); }
     }
-    applyGlass();
+    function setHdrVar(){
+      document.documentElement.style.setProperty('--hdr-h', (header.offsetHeight || 64) + 'px');
+    }
+    applyGlass(); setHdrVar();
     window.addEventListener('scroll', applyGlass, { passive:true });
-    window.addEventListener('resize', applyGlass);
-    window.addEventListener('pageshow', applyGlass);
+    window.addEventListener('resize', ()=>{ applyGlass(); setHdrVar(); }, { passive:true });
+    window.addEventListener('pageshow', ()=>{ applyGlass(); setHdrVar(); });
+    if ('ResizeObserver' in window){
+      new ResizeObserver(()=> setHdrVar()).observe(header);
+    }
   })();
 
+  // Bottom Sheet móvil
   (function(){
     const html = document.documentElement;
     const burger = document.getElementById('burger');
@@ -463,6 +509,7 @@
     sheet.setAttribute('inert','');
   })();
 
+  // Menú de usuario
   (function(){
     const btn = document.getElementById('avatarBtn');
     const menu = document.getElementById('userMenu');
@@ -480,61 +527,183 @@
     document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') toggle(false); });
   })();
 
+  // === BUSCADOR: backdrop solo en fondo + sin saltos de scroll
   (function(){
     const input = document.getElementById('qInput');
     const panel = document.getElementById('sugg');
     const list  = document.getElementById('suggItems');
     const form  = document.getElementById('searchForm');
-    if(!input || !panel || !list) return;
+    const wrap  = document.getElementById('searchWrap');
+    const backdrop = document.getElementById('suggBackdrop');
+    const sheetBackdrop = document.getElementById('sheet-backdrop');
+    const body = document.body;
+    if(!input || !panel || !list || !wrap) return;
 
-    let timer = null;
+    let timer = null, activeIndex = -1, savedScroll = 0;
     const SUGG_URL = @json(route('search.suggest'));
 
-    function hide(){ panel.hidden = true; list.innerHTML = ''; }
-    function show(){ panel.hidden = false; }
+    function scrollbarWidth(){ return window.innerWidth - document.documentElement.clientWidth; }
 
+    function lock(){
+      if(body.classList.contains('jrt-scroll-lock')) return;
+      savedScroll = window.scrollY || 0;
+      body.style.setProperty('--jrt-pr', scrollbarWidth() + 'px'); /* evita “salto” por barra */
+      body.classList.add('jrt-scroll-lock');
+    }
+    function unlock(){
+      if(!body.classList.contains('jrt-scroll-lock')) return;
+      body.classList.remove('jrt-scroll-lock');
+      body.style.removeProperty('--jrt-pr');
+      window.scrollTo(0, savedScroll||0);
+    }
+
+    function openUI(){
+      // Cierra bottom-sheet si estaba abierto (evita overlays simultáneos)
+      const html = document.documentElement;
+      if (html.classList.contains('sheet-open')) {
+        html.classList.remove('sheet-open');
+        if (sheetBackdrop) sheetBackdrop.hidden = true;
+      }
+      panel.hidden = false;
+      panel.classList.add('is-open');
+      backdrop.hidden = false;
+      backdrop.classList.add('is-open');
+      input.setAttribute('aria-expanded','true');
+      lock();
+    }
+    function closeUI(){
+      panel.classList.remove('is-open');
+      panel.hidden = true;
+      list.innerHTML = '';
+      setActive(-1);
+      input.setAttribute('aria-expanded','false');
+      input.removeAttribute('aria-activedescendant');
+      backdrop.classList.remove('is-open');
+      backdrop.hidden = true;
+      unlock();
+    }
+
+    function setActive(idx){
+      const items = Array.from(list.querySelectorAll('.sugg-item'));
+      items.forEach((el,i)=>{
+        const sel = i===idx;
+        el.setAttribute('aria-selected', sel ? 'true' : 'false');
+        if(sel){ el.id = 'sugg-opt-'+i; input.setAttribute('aria-activedescendant', el.id); }
+        else if(el.id?.startsWith('sugg-opt-')){ el.removeAttribute('id'); }
+      });
+      activeIndex = idx;
+    }
+    function move(delta){
+      const items = Array.from(list.querySelectorAll('.sugg-item'));
+      if(!items.length) return;
+      let next = activeIndex + delta;
+      if(next < 0) next = items.length-1;
+      if(next >= items.length) next = 0;
+      setActive(next);
+      items[next].scrollIntoView({block:'nearest'});
+    }
+    function activateCurrent(){
+      const el = list.querySelector('.sugg-item[aria-selected="true"]') || list.querySelector('.sugg-item');
+      if(!el) return;
+      const term = el.getAttribute('data-term');
+      const href = el.getAttribute('href');
+      if(term){
+        input.value = term;
+        closeUI();
+        form.submit();
+      }else if(href){
+        closeUI();
+        window.location.href = href;
+      }
+    }
+
+    // A11y base
+    input.setAttribute('role','combobox');
+    input.setAttribute('aria-autocomplete','list');
+    input.setAttribute('aria-expanded','false');
+    input.setAttribute('aria-controls','sugg');
+
+    // Input + fetch
     input.addEventListener('input', ()=>{
       const q = input.value.trim();
       if(timer) clearTimeout(timer);
-      if(q.length < 2){ hide(); return; }
+      if(q.length < 2){ closeUI(); return; }
       timer = setTimeout(async ()=>{
         try{
           const url = new URL(SUGG_URL, window.location.origin);
           url.searchParams.set('term', q);
           const res = await fetch(url.toString(), { headers: { 'Accept':'application/json' } });
-          const data = await res.json();
+          const data = await res.json().catch(()=> ({}));
           const terms = Array.isArray(data.terms) ? data.terms : [];
           const products = Array.isArray(data.products) ? data.products : [];
+
           let html = '';
           if(terms.length){
-            html += terms.slice(0,6).map(t => `
-              <div class="sugg-item" role="option" onclick="(function(){document.getElementById('qInput').value=${JSON.stringify(t)}; document.getElementById('sugg').hidden=true; document.getElementById('searchForm').submit();})()">
+            html += `<div class="sugg-section">Búsquedas</div>`;
+            html += terms.slice(0,6).map(t=>`
+              <div class="sugg-item" role="option" tabindex="-1" data-term="${String(t).replace(/"/g,'&quot;')}">
                 <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:#111;fill:none;stroke-width:2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
-                <span>${t}</span>
+                <span>${String(t).replace(/</g,'&lt;')}</span>
               </div>
             `).join('');
           }
           if(products.length){
-            html += `<div class="sugg-item" style="cursor:default;opacity:.65"><small>Productos</small></div>`;
-            html += products.slice(0,5).map(p => `
-              <a class="sugg-item" href="{{ url('/producto') }}/${p.id}">
+            html += `<div class="sugg-section">Productos</div>`;
+            html += products.slice(0,5).map(p=>`
+              <a class="sugg-item" role="option" tabindex="-1" href="{{ url('/producto') }}/${p.id}">
                 <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:#111;fill:none;stroke-width:2"><path d="M20 7H4"/><path d="M6 7v13a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7"/><path d="M9 7V5a3 3 0 0 1 6 0v2"/></svg>
-                <span>${p.name.replace(/</g,'&lt;')}</span>
+                <span>${String(p.name||'Producto').replace(/</g,'&lt;')}</span>
               </a>
             `).join('');
           }
           if(!html) html = `<div class="sugg-empty">Sin sugerencias</div>`;
           list.innerHTML = html;
-          show();
-        }catch(_){}
+          openUI();
+          setActive(terms.length || products.length ? 0 : -1);
+        }catch(_){ /* noop */ }
       }, 180);
     });
 
-    input.addEventListener('focus', ()=>{ if(list.children.length) panel.hidden = false; });
-    document.addEventListener('click', (e)=>{ if(!e.target.closest('#searchWrap')) panel.hidden = true; });
-    document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') panel.hidden = true; });
+    input.addEventListener('focus', ()=>{ if(list.children.length){ openUI(); } });
+
+    // Abrir con Cmd/Ctrl+K sin mover scroll
+    document.addEventListener('keydown', (e)=>{
+      if((e.ctrlKey||e.metaKey) && (e.key==='k' || e.key==='K')){
+        e.preventDefault();
+        try{ input.focus({preventScroll:true}); }catch(_){ input.focus(); }
+        input.select();
+      }
+    });
+
+    // Cerrar con click-fuera, backdrop y ESC
+    document.addEventListener('click', (e)=>{ 
+      if(panel.hidden) return;
+      if(!e.target.closest('#searchWrap') && !e.target.closest('#sugg')) closeUI();
+    });
+    backdrop?.addEventListener('click', closeUI);
+    document.addEventListener('keydown', (e)=>{
+      if(e.key === 'Escape'){ closeUI(); input.blur(); }
+      if(panel.hidden) return;
+      if(e.key === 'ArrowDown'){ e.preventDefault(); move(1); }
+      if(e.key === 'ArrowUp'){ e.preventDefault(); move(-1); }
+      if(e.key === 'Enter'){ e.preventDefault(); activateCurrent(); }
+    });
+
+    // Click en término
+    panel.addEventListener('click', (e)=>{
+      const item = e.target.closest('.sugg-item');
+      if(!item) return;
+      const term = item.getAttribute('data-term');
+      if(term){
+        input.value = term;
+        closeUI();
+        form.submit();
+        e.preventDefault();
+      }
+    });
   })();
 
+  // Footer acordeón
   (function(){
     function initFooterAccordion(){
       const root = document.getElementById('ft-accordion');
@@ -580,12 +749,12 @@
     document.addEventListener('livewire:load', initFooterAccordion);
   })();
 
+  // Badge de carrito helper
   window.updateCartBadge = function(count){
-    const el = document.querySelector('[data-cart-badge]');
-    if (!el) return;
-    el.textContent = String(count||0);
+    document.querySelectorAll('[data-cart-badge]').forEach(b=> b.textContent = String(count||0));
   };
 </script>
+
 <!-- ========== TOAST + AJAX CART (pegar antes de </body>) ========== -->
 <style>
   #toaststack{position:fixed;top:14px;right:14px;z-index:9999;display:flex;flex-direction:column;gap:10px}
@@ -616,7 +785,7 @@
 
 <script>
 (function(){
-  // ===== Toast minimal tipo "Agregado"
+  // Toast minimal
   const stack = document.getElementById('toaststack');
   window.showToast = function({title='Agregado', message='', kind='success', duration=3200}={}){
     const el = document.createElement('div');
@@ -639,12 +808,12 @@
     el.querySelector('.toast2__close').addEventListener('click', ()=>{ clearTimeout(timer); close(); });
   };
 
-  // ===== Actualiza TODAS las badgets de carrito
+  // Actualiza TODAS las badges de carrito
   window.updateCartBadge = function(count){
     document.querySelectorAll('[data-cart-badge]').forEach(b=> b.textContent = String(count||0));
   };
 
-  // ===== Interceptar "Agregar al carrito" SIN recargar
+  // Interceptar "Agregar al carrito" SIN recargar
   const RUTA_ADD = @json(route('web.cart.add'));
   const CSRF = document.querySelector('meta[name="csrf-token"]')?.content || '';
 
@@ -656,13 +825,12 @@
     }catch(_){ return false; }
   }
 
-  // Delegación global: vale para TODAS las vistas y para formularios dinámicos
   document.addEventListener('submit', async (e)=>{
     const form = e.target;
     if(!(form instanceof HTMLFormElement)) return;
     if(!esFormCartAdd(form)) return;
 
-    e.preventDefault(); // <- evita recarga
+    e.preventDefault();
 
     try{
       const fd = new FormData(form);
@@ -673,7 +841,6 @@
         credentials:'same-origin'
       });
 
-      // Si el backend redirige (302) por algo, intenta leer JSON igualmente
       const data = await res.json().catch(()=> ({}));
 
       if(!res.ok || !data.ok){
@@ -681,16 +848,14 @@
         throw new Error(msg);
       }
 
-      // OK: actualiza badge y muestra toast
       window.updateCartBadge(data?.totals?.count || 0);
       window.showToast({ title:'Agregado', message:'El producto se añadió al carrito.', kind:'success', duration:3000 });
     }catch(err){
       window.showToast({ title:'Ups', message: String(err.message||'Error inesperado'), kind:'warning', duration:3500 });
       console.error('Cart add error:', err);
     }
-  }, true); // useCapture para interceptar antes de que algo más lo procese
+  }, true);
 
-  // Si llega un flash desde el servidor, muéstralo como toast (opcional)
   @if(session('ok'))
     window.addEventListener('DOMContentLoaded', ()=>{
       window.showToast({ title:'Aviso', message: @json(session('ok')), kind:'info', duration:3000 });
@@ -698,7 +863,6 @@
   @endif
 })();
 </script>
-<!-- ========== /TOAST + AJAX CART ========== -->
 
 @stack('scripts')
 
