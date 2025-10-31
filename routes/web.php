@@ -62,11 +62,18 @@ Route::middleware('guest')->group(function () {
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
 
 Route::middleware('auth')->group(function () {
-    Route::get('/email/verify',                 [AuthController::class, 'verifyNotice'])->name('verification.notice');
-    Route::get('/email/verify/{id}/{hash}',     [AuthController::class, 'verifyEmail'])
-        ->middleware(['signed', 'throttle:6,1'])->name('verification.verify');
-    Route::post('/email/verification-notification', [AuthController::class, 'resendVerification'])
-        ->middleware(['throttle:6,1'])->name('verification.send');
+// ===== Verificación por código (OTP) =====
+Route::get('/email/verify-code', [AuthController::class, 'verifyNotice'])
+    ->middleware('auth')
+    ->name('verification.code.show');
+
+Route::post('/email/verify-code', [AuthController::class, 'verifyCode'])
+    ->middleware(['auth','throttle:10,1']) // 10 intentos por minuto en la ruta, además del contador interno
+    ->name('verification.code.verify');
+
+Route::post('/email/resend-code', [AuthController::class, 'resendVerificationCode'])
+    ->middleware(['auth','throttle:3,1']) // reenvíos: 3 por min
+    ->name('verification.code.resend');
 });
 
 /*
@@ -448,3 +455,4 @@ Route::get('/checkout/invoices/{id}/xml', [InvoiceDownloadController::class, 'xm
     ->name('checkout.invoice.xml');
 
 Route::post('/webhooks/stripe', [StripeWebhookController::class,'handle'])->name('webhooks.stripe');
+

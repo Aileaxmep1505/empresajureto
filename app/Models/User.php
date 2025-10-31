@@ -8,11 +8,17 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Carbon;
 
 class User extends Authenticatable implements MustVerifyEmail
 {
     use HasFactory, Notifiable, HasRoles;
 
+    /**
+     * Campos asignables masivamente.
+     * (No incluimos campos del OTP para mantenerlos protegidos;
+     * se actualizan con forceFill() en el controlador).
+     */
     protected $fillable = [
         'name',
         'email',
@@ -20,20 +26,32 @@ class User extends Authenticatable implements MustVerifyEmail
         'status',
         'approved_at',
         'avatar_path',
-        // si quieres, agrega aquí 'avatar_updated_at' si tienes la columna
-    ];
-
-    protected $hidden = ['password', 'remember_token'];
-
-    protected $casts = [
-        'email_verified_at' => 'datetime',
-        'approved_at'       => 'datetime',
-        'password'          => 'hashed',
-        // 'avatar_updated_at' => 'datetime', // solo si la columna existe
+        // agrega aquí otros campos persistentes que manejes (p.ej. phone, role, etc.)
     ];
 
     /**
-     * ¿Cuenta aprobada?
+     * Campos ocultos al serializar.
+     */
+    protected $hidden = [
+        'password',
+        'remember_token',
+        'email_verification_code_hash', // hash del OTP
+    ];
+
+    /**
+     * Casts de atributos.
+     */
+    protected $casts = [
+        'password'                           => 'hashed',
+        'email_verified_at'                  => 'datetime',
+        'approved_at'                        => 'datetime',
+        'email_verification_expires_at'      => 'datetime', // OTP
+        'email_verification_code_sent_at'    => 'datetime', // OTP
+        // 'avatar_updated_at' => 'datetime', // solo si existe columna; normalmente calculamos por mtime
+    ];
+
+    /**
+     * ¿Cuenta aprobada por un admin?
      */
     public function isApproved(): bool
     {
@@ -42,21 +60,18 @@ class User extends Authenticatable implements MustVerifyEmail
 
     /**
      * URL pública del avatar con fallback estable.
-     * - Si existe el archivo en el disco 'public', se sirve por la ruta /media (media.show)
-     *   anexando ?v=timestamp para forzar refresh del cache del navegador.
-     * - Si no hay archivo, usa Gravatar.
+     * - Si existe en disco 'public', se sirve por la ruta /media (media.show) con cache-busting (?v=mtime).
+     * - Si no hay archivo, usa Gravatar (default mp).
      */
     public function getAvatarUrlAttribute(): string
     {
         if ($this->avatar_path && Storage::disk('public')->exists($this->avatar_path)) {
-            $ts  = Storage::disk('public')->lastModified($this->avatar_path);
+            $ts = Storage::disk('public')->lastModified($this->avatar_path);
 
-            // Opción estable: ruta controlada /media/{path}
-            // Asegúrate de tener una ruta nombrada 'media.show'
-            // que lea del disco 'public' y devuelva el archivo.
+            // Ruta controlada recomendada (debes tener la ruta 'media.show' definida)
             return route('media.show', ['path' => $this->avatar_path, 'v' => $ts]);
 
-            // Si prefieres servir /storage (symlink):
+            // Alternativa si usas symlink /storage:
             // $url = Storage::disk('public')->url($this->avatar_path);
             // return $url.'?v='.$ts;
         }
@@ -66,46 +81,63 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
-     * Accessor auxiliar: "avatar_updated_at"
-     * Devuelve un Carbon (o null) a partir del mtime del archivo del avatar.
-     * Útil para cache-busting en vistas incluso si no existe la columna en BD.
+     * Accessor virtual: avatar_updated_at (Carbon|null) calculado desde mtime.
+     * Útil para invalidar caché en vistas aunque no exista la columna en BD.
      */
     public function getAvatarUpdatedAtAttribute()
     {
         if ($this->avatar_path && Storage::disk('public')->exists($this->avatar_path)) {
-            $ts = Storage::disk('public')->lastModified($this->avatar_path);
             try {
-                return \Illuminate\Support\Carbon::createFromTimestamp($ts);
+                $ts = Storage::disk('public')->lastModified($this->avatar_path);
+                return Carbon::createFromTimestamp($ts);
             } catch (\Throwable $e) {
                 return null;
             }
         }
         return null;
     }
-public function shippingAddresses()
-{
-    return $this->hasMany(\App\Models\ShippingAddress::class);
-}
 
-public function defaultShippingAddress()
-{
-    return $this->hasOne(\App\Models\ShippingAddress::class)
-        ->where('is_default', true);
-}
-// app/Models/User.php
-public function billingProfiles(){
-    return $this->hasMany(\App\Models\BillingProfile::class);
-}
-public function defaultBillingProfile(){
-    return $this->hasOne(\App\Models\BillingProfile::class)->where('is_default', true);
-}
-public function comments()
-{
-    return $this->hasMany(\App\Models\Comment::class);
-}
-public function favorites() {
-    return $this->belongsToMany(\App\Models\CatalogItem::class, 'favorites')->withTimestamps();
-}
+    /**
+     * Relaciones de direcciones de envío.
+     */
+    public function shippingAddresses()
+    {
+        return $this->hasMany(\App\Models\ShippingAddress::class);
+    }
 
+    public function defaultShippingAddress()
+    {
+        return $this->hasOne(\App\Models\ShippingAddress::class)
+            ->where('is_default', true);
+    }
 
+    /**
+     * Perfiles de facturación (CFDI).
+     */
+    public function billingProfiles()
+    {
+        return $this->hasMany(\App\Models\BillingProfile::class);
+    }
+
+    public function defaultBillingProfile()
+    {
+        return $this->hasOne(\App\Models\BillingProfile::class)
+            ->where('is_default', true);
+    }
+
+    /**
+     * Comentarios (si manejas reviews u observaciones).
+     */
+    public function comments()
+    {
+        return $this->hasMany(\App\Models\Comment::class);
+    }
+
+    /**
+     * Favoritos (pivot 'favorites' con catalog_items).
+     */
+    public function favorites()
+    {
+        return $this->belongsToMany(\App\Models\CatalogItem::class, 'favorites')->withTimestamps();
+    }
 }
