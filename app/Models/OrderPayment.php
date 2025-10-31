@@ -1,5 +1,4 @@
 <?php
-// app/Models/OrderPayment.php
 
 namespace App\Models;
 
@@ -10,33 +9,15 @@ class OrderPayment extends Model
 {
     protected $table = 'order_payments';
 
-    // Abierto para create([...]) desde el controlador
-    protected $guarded = [];
+    protected $fillable = [
+        'order_id','provider','amount','currency','status',
+        'provider_session_id','provider_payment_intent','raw_payload'
+    ];
 
     protected $casts = [
         'amount' => 'float',
-        // Guardes lo que guardes (array o JSON string), al leer obtendrás array si es JSON válido
-        'raw'    => 'array',
+        'raw_payload' => 'array',
     ];
 
-    protected static function booted(): void
-    {
-        static::saving(function (self $m) {
-            if (empty($m->currency)) {
-                $m->currency = 'MXN';
-            }
-            if (empty($m->status)) {
-                $m->status = 'paid';
-            }
-            if (is_string($m->raw)) {
-                // Si llega string JSON, lo dejamos; si llega array, Eloquent lo serializa.
-                // No hacemos nada extra para no doble-serializar.
-            }
-        });
-    }
-
-    public function order(): BelongsTo
-    {
-        return $this->belongsTo(Order::class);
-    }
+    public function order(): BelongsTo { return $this->belongsTo(Order::class); }
 }

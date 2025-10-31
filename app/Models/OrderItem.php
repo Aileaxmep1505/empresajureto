@@ -1,5 +1,4 @@
 <?php
-// app/Models/OrderItem.php
 
 namespace App\Models;
 
@@ -10,35 +9,15 @@ class OrderItem extends Model
 {
     protected $table = 'order_items';
 
-    // Abrimos mass assignment para el uso con ::create([...]) si lo requieres
-    protected $guarded = [];
-
-    protected $casts = [
-        'price'    => 'float',
-        'qty'      => 'integer',
-        'amount'   => 'float',
-        'tax_rate' => 'float',
-        'discount' => 'float',
-        'meta'     => 'array',   // TEXT/JSON: Laravel lo serializa/deserializa
+    protected $fillable = [
+        'order_id','catalog_item_id','name','sku','qty','unit_price','total'
     ];
 
-    protected static function booted(): void
-    {
-        static::saving(function (self $m) {
-            // Normaliza cantidad y calcula el total de la línea
-            $m->qty = max(1, (int) $m->qty);
-            $line = ((float) $m->price * $m->qty) - (float) ($m->discount ?? 0);
-            $m->amount = round(max(0, $line), 2);
+    protected $casts = [
+        'qty' => 'integer',
+        'unit_price' => 'float',
+        'total' => 'float',
+    ];
 
-            // Moneda por defecto si viene vacía
-            if (empty($m->currency)) {
-                $m->currency = 'MXN';
-            }
-        });
-    }
-
-    public function order(): BelongsTo
-    {
-        return $this->belongsTo(Order::class);
-    }
+    public function order(): BelongsTo { return $this->belongsTo(Order::class); }
 }

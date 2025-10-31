@@ -1,33 +1,64 @@
 <?php
-// app/Models/Order.php
 
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Order extends Model
 {
     protected $table = 'orders';
 
-    /**
-     * Evita problemas de MassAssignment en creates/updates programáticos.
-     * (Alternativa a $fillable: dejamos todo liberado y validamos en controlador)
-     */
-    protected $guarded = [];
+    protected $fillable = [
+        'user_id',
+        'billing_profile_id',
+        'customer_name',
+        'customer_email',
+
+        'subtotal',
+        'shipping_amount',
+        'tax',
+        'total',
+        'currency',
+        'status',
+
+        'address_json',
+        'shipping_code',
+        'shipping_name',
+        'shipping_service',
+        'shipping_eta',
+        'shipping_store_pays',
+        'shipping_carrier_cost',
+
+        'stripe_session_id',
+        'stripe_payment_intent',
+        'invoice_id',
+    ];
 
     protected $casts = [
-        'subtotal' => 'float',
-        'shipping' => 'float',
-        'tax'      => 'float',
-        'total'    => 'float',
+        'subtotal'              => 'float',
+        'shipping_amount'       => 'float',
+        'tax'                   => 'float',
+        'total'                 => 'float',
 
         'shipping_store_pays'   => 'boolean',
         'shipping_carrier_cost' => 'float',
-        'shipping_address_json' => 'array',
+
+        'address_json'          => 'array',
     ];
 
     /* ================= Relaciones ================= */
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function billingProfile(): BelongsTo
+    {
+        return $this->belongsTo(BillingProfile::class);
+    }
 
     public function items(): HasMany
     {
@@ -49,10 +80,19 @@ class Order extends Model
         }
     }
 
-    /** Búsqueda idempotente por sesión de Stripe (si tienes la columna). */
+    /** Búsqueda idempotente por sesión de Stripe. */
     public static function findByStripeSession(?string $sid): ?self
     {
         if (!$sid) return null;
         return static::where('stripe_session_id', $sid)->first();
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (self $m) {
+            if (empty($m->currency)) {
+                $m->currency = 'MXN';
+            }
+        });
     }
 }

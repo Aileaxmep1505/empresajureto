@@ -6,25 +6,85 @@
 @php
   use App\Models\Venta;
 
-  // ===== Datos básicos de la página =====
-  $sessionId = $sessionId ?? request('session_id');
+  /** =========================
+   * 1) RESOLVER ORIGEN DE DATOS
+   * ==========================*/
+  /** @var \App\Models\Order|null $order */
+  $hasOrder   = isset($order) && $order;
 
-  // Totales a partir del carrito en sesión (antes de limpiar)
-  $cart      = (array) session('cart', []);
-  $subtotal  = array_reduce($cart, fn($c,$r)=> $c + (float)($r['price']??0) * (int)($r['qty']??1), 0);
-  $shipping  = (array) session('checkout.shipping', ['price'=>0]);
-  $total     = $subtotal + (float)($shipping['price'] ?? 0);
+  // ID de sesión (prioriza el de la orden)
+  $sessionId  = $sessionId
+                ?? request('session_id')
+                ?? ($hasOrder ? ($order->stripe_session_id ?? null) : null);
 
-  // ===== Factura enviada por el controlador (Facturapi) =====
-  // Estructura esperada: ['id'=>..., 'uuid'=>..., 'series'=>..., 'folio_number'=>..., 'links'=>[...]...]
-  $invoice    = $invoice ?? (array) session('checkout.invoice', []);
-  $invoiceId  = $invoice['id']         ?? null;
-  $invoiceUUID= $invoice['uuid']       ?? null;
-  $series     = $invoice['series']     ?? null;
+  // --------- Cuando VIENE ORDEN (preferido) ----------
+  if ($hasOrder) {
+      $itemsCol   = $order->relationLoaded('items') ? $order->items : $order->items()->get();
+      $items      = collect($itemsCol ?? []);
+      $subtotal   = (float) ($order->subtotal ?? 0);
+      $shipAmount = (float) ($order->shipping_amount ?? 0);
+      $total      = (float) ($order->total ?? ($subtotal + $shipAmount));
+
+      $shipName   = $order->shipping_name ?? null;
+      $shipSrv    = $order->shipping_service ?? null;
+      $shipEta    = $order->shipping_eta ?? null;
+
+      $addrArr    = (array) ($order->address_json ?? []);
+      $addrTx     = trim(
+                      ($addrArr['street'] ?? '') . ' ' .
+                      ($addrArr['ext_number'] ?? '') . ' ' .
+                      ($addrArr['colony'] ?? '') . ', ' .
+                      ($addrArr['municipality'] ?? '') . ', ' .
+                      ($addrArr['state'] ?? '') . ' CP ' .
+                      ($addrArr['postal_code'] ?? '')
+                    );
+  }
+  // --------- Fallback: usar SESIÓN (si no hay orden) ----------
+  else {
+      $cart       = (array) session('cart', []);
+      $subtotal   = array_reduce($cart, fn($c,$r)=> $c + (float)($r['price']??0) * max(1,(int)($r['qty']??1)), 0);
+      $shipping   = (array) session('checkout.shipping', ['price'=>0]);
+      $shipAmount = (float) ($shipping['price'] ?? 0);
+      $total      = $subtotal + $shipAmount;
+
+      $shipName   = $shipping['name']    ?? ($shipping['carrier'] ?? null);
+      $shipSrv    = $shipping['service'] ?? null;
+      $shipEta    = $shipping['eta']     ?? null;
+
+      $addr       = (array) session('checkout.address', []);
+      $addrTx     = trim(
+                      ($addr['street'] ?? '') . ' ' .
+                      ($addr['ext_number'] ?? '') . ' ' .
+                      ($addr['colony'] ?? '') . ', ' .
+                      ($addr['municipality'] ?? '') . ', ' .
+                      ($addr['state'] ?? '') . ' CP ' .
+                      ($addr['postal_code'] ?? '')
+                    );
+
+      // para pintar items con el mismo markup que la orden
+      $items = collect(array_map(function($r){
+          return (object)[
+              'name'   => $r['name'] ?? 'Producto',
+              'qty'    => (int) max(1, (int)($r['qty'] ?? 1)),
+              'price'  => (float) ($r['price'] ?? 0),
+              'amount' => (float) ($r['price'] ?? 0) * max(1, (int)($r['qty'] ?? 1)),
+              'meta'   => ['image' => $r['image'] ?? null],
+          ];
+      }, $cart));
+  }
+
+  /** =========================
+   * 2) FACTURA (si se timbró)
+   * ==========================*/
+  // Estructura esperada: ['id','uuid','series','folio_number', ...]
+  $invoice    = (array) ($invoice ?? session('checkout.invoice', []));
+  $invoiceId  = $invoice['id']           ?? null;
+  $invoiceUUID= $invoice['uuid']         ?? null;
+  $series     = $invoice['series']       ?? null;
   $folioNum   = $invoice['folio_number'] ?? null;
   $folioFull  = trim(($series ? $series : '').'-'.($folioNum ? $folioNum : ''), '-');
 
-  // ===== Fallback con tu modelo Venta (si lo usas) =====
+  // Fallback a tu modelo Venta (si lo usas)
   $ventaIdFromSession = session('venta_id');
   $venta = null;
   if ($ventaIdFromSession) {
@@ -45,7 +105,6 @@
   $facturaId   = $venta->factura_id        ?? null;
   $facturaUUID = $venta->factura_uuid      ?? null;
 
-  // Para mostrar etiqueta de folio/uuid priorizando lo del `invoice` (si vino)
   $tagFolio = $folioFull ?: ($venta->serie ?? '');
   $tagFolio = trim($tagFolio . (isset($venta->folio) ? '-'.$venta->folio : ''), '-');
   $tagUUID  = $invoiceUUID ?: $facturaUUID;
@@ -113,23 +172,49 @@
         </div>
         @endif
 
-        {{-- Resumen del pedido --}}
+        {{-- Envío + dirección (si existen) --}}
+        @if(($shipName ?? null) || ($addrTx ?? null))
+          <div class="line"></div>
+          <div style="font-weight:900;margin-bottom:6px">Envío</div>
+          <div class="muted" style="margin-bottom:6px;">
+            @if($shipName)<strong>{{ $shipName }}</strong>@endif
+            @if($shipSrv) — {{ $shipSrv }}@endif
+            @if($shipEta) <span style="color:#94a3b8">({{ $shipEta }})</span>@endif
+          </div>
+          @if(!empty($addrTx))
+            <div><strong>Dirección:</strong> {{ $addrTx }}</div>
+          @endif
+        @endif
+
+        {{-- Resumen del pedido (desde ORDEN si existe; si no, desde sesión) --}}
         <div class="line"></div>
         <h3 style="margin:0 0 6px;font-weight:900">Tu pedido</h3>
 
-        @if(count($cart))
+        @if($items->count())
           <div class="sx-grid-items">
-            @foreach($cart as $row)
+            @foreach($items as $it)
+              @php
+                $img = data_get($it, 'meta.image');
+                if (is_string($it->meta ?? null)) {
+                  $decoded = json_decode($it->meta, true);
+                  $img = $img ?: data_get($decoded, 'image');
+                }
+              @endphp
               <div class="sx-item">
-                <img src="{{ $row['image'] ?? asset('images/placeholder.png') }}"
+                <img src="{{ $img ?: asset('images/placeholder.png') }}"
                      alt="" width="56" height="56"
                      style="width:56px;height:56px;border-radius:10px;border:1px solid #e5e7eb;object-fit:cover">
                 <div>
-                  <div style="font-weight:800">{{ $row['name'] ?? 'Producto' }}</div>
-                  <div class="muted">x{{ $row['qty'] ?? 1 }}</div>
+                  <div style="font-weight:800">{{ $it->name ?? 'Producto' }}</div>
+                  <div class="muted">x{{ (int)($it->qty ?? 1) }}</div>
                 </div>
-                <div style="font-weight:900">
-                  ${{ number_format(($row['price'] ?? 0)*($row['qty'] ?? 1),2) }}
+                <div style="text-align:right">
+                  <div class="muted" style="font-size:.9rem">
+                    ${{ number_format((float)($it->price ?? 0), 2) }} c/u
+                  </div>
+                  <div style="font-weight:900">
+                    ${{ number_format((float)($it->amount ?? ((float)($it->price ?? 0) * (int)($it->qty ?? 1))), 2) }}
+                  </div>
                 </div>
               </div>
             @endforeach
@@ -140,12 +225,13 @@
 
         {{-- Totales --}}
         <div class="line"></div>
-        <div class="sum"><span>Subtotal</span><span>${{ number_format($subtotal,2) }}</span></div>
-        <div class="sum"><span>Envío</span>
-          <span>{{ ($shipping['price'] ?? 0) > 0 ? '$'.number_format($shipping['price'],2) : '—' }}</span>
+        <div class="sum"><span>Subtotal</span><span>${{ number_format($subtotal,2) }} MXN</span></div>
+        <div class="sum">
+          <span>Envío</span>
+          <span>{{ $shipAmount > 0 ? '$'.number_format($shipAmount,2).' MXN' : '—' }}</span>
         </div>
         <div class="line"></div>
-        <div class="sum" style="font-size:1.1rem"><span>Total pagado</span><span>${{ number_format($total,2) }}</span></div>
+        <div class="sum" style="font-size:1.1rem"><span>Total pagado</span><span>${{ number_format($total,2) }} MXN</span></div>
 
         {{-- CTAs --}}
         <div class="line"></div>

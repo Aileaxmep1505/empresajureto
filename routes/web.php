@@ -41,18 +41,16 @@ use App\Http\Controllers\Checkout\InvoiceDownloadController;
 use App\Http\Controllers\StripeWebhookController;
 /*
 |--------------------------------------------------------------------------
-| AUTH (ÚNICO login con AuthController)
+| AUTH
 |--------------------------------------------------------------------------
 */
 Route::middleware('guest')->group(function () {
     Route::get('/login',    [AuthController::class, 'showLogin'])->name('login');
     Route::post('/login',   [AuthController::class, 'login'])->name('login.post');
 
-    // Registro SOLO para personal interno (opcional)
     Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
     Route::post('/register',[AuthController::class, 'register'])->name('register.post');
 
-    // Reset de contraseña (ajusta a tu implementación)
     Route::get('/forgot-password',        [PasswordResetController::class, 'showForgot'])->name('password.request');
     Route::post('/forgot-password',       [PasswordResetController::class, 'sendResetLink'])->name('password.email');
     Route::get('/reset-password/{token}', [PasswordResetController::class, 'showReset'])->name('password.reset');
@@ -61,19 +59,11 @@ Route::middleware('guest')->group(function () {
 
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
 
+/* Verificación por código (OTP) */
 Route::middleware('auth')->group(function () {
-// ===== Verificación por código (OTP) =====
-Route::get('/email/verify-code', [AuthController::class, 'verifyNotice'])
-    ->middleware('auth')
-    ->name('verification.code.show');
-
-Route::post('/email/verify-code', [AuthController::class, 'verifyCode'])
-    ->middleware(['auth','throttle:10,1']) // 10 intentos por minuto en la ruta, además del contador interno
-    ->name('verification.code.verify');
-
-Route::post('/email/resend-code', [AuthController::class, 'resendVerificationCode'])
-    ->middleware(['auth','throttle:3,1']) // reenvíos: 3 por min
-    ->name('verification.code.resend');
+    Route::get('/email/verify-code',   [AuthController::class, 'verifyNotice'])->name('verification.code.show');
+    Route::post('/email/verify-code',  [AuthController::class, 'verifyCode'])->middleware('throttle:10,1')->name('verification.code.verify');
+    Route::post('/email/resend-code',  [AuthController::class, 'resendVerificationCode'])->middleware('throttle:3,1')->name('verification.code.resend');
 });
 
 /*
@@ -88,43 +78,190 @@ Route::get('/ventas/{id}', [ShopController::class, 'show'])->name('web.ventas.sh
 
 Route::get('/contacto', [ContactController::class, 'show'])->name('web.contacto');
 Route::post('/contacto', [ContactController::class, 'send'])->name('web.contacto.send');
-/* ===== Catálogo público (CatalogItem) ===== */
+
+/* Catálogo público */
 Route::prefix('catalogo')->name('web.catalog.')->group(function () {
-    Route::get('/',                   [CatalogController::class, 'index'])->name('index'); // listado
-    Route::get('/{catalogItem:slug}', [CatalogController::class, 'show'])->name('show');   // detalle por slug
+    Route::get('/',                   [CatalogController::class, 'index'])->name('index');
+    Route::get('/{catalogItem:slug}', [CatalogController::class, 'show'])->name('show');
+});
+
+/* Búsqueda */
+Route::get('/buscar',           [SearchController::class, 'index'])->name('search.index');
+Route::get('/buscar/suggest',   [SearchController::class, 'suggest'])->name('search.suggest');
+
+/* Páginas estáticas */
+Route::get('/sobre-nosotros', [HomeController::class, 'about'])->name('about');
+Route::view('/terminos-y-condiciones', 'web.politicas.terminos')->name('policy.terms');
+Route::view('/aviso-de-privacidad',    'web.politicas.privacidad')->name('policy.privacy');
+Route::view('/envios-devoluciones-cancelaciones', 'web.politicas.envios')->name('policy.shipping');
+Route::view('/formas-de-pago', 'web.politicas.pagos')->name('policy.payments');
+Route::view('/preguntas-frecuentes', 'web.politicas.faq')->name('policy.faq');
+Route::view('/formas-de-envio', 'web.politicas.envios-skydropx')->name('policy.shipping.methods');
+Route::get('/garantias-y-devoluciones', function () {
+    return view()->first([
+        'web.politicas.garantias',
+        'web.garantias',
+        'garantias',
+        'web.politicas.garantias_y_devoluciones',
+        'web.politicas.garantias-devoluciones',
+    ]);
+})->name('policy.returns');
+
+Route::get('/servicios', [ServicioController::class, 'index'])->name('web.servicios');
+Route::get('/ofertas', fn() => view('web.ofertas'))->name('web.ofertas');
+
+/* Media público (storage/app/public) */
+Route::get('/media/{path}', [MediaController::class, 'show'])->where('path', '.*')->name('media.show');
+
+/*
+|--------------------------------------------------------------------------
+| CARRITO
+|--------------------------------------------------------------------------
+*/
+Route::prefix('carrito')->name('web.cart.')->group(function () {
+    Route::get('/',            [CartController::class, 'index'])->name('index');
+    Route::post('/agregar',    [CartController::class, 'add'])->name('add');
+    Route::get('/agregar',     fn() => redirect()->route('web.cart.index'))->name('add.get'); // evita 419
+    Route::post('/actualizar', [CartController::class, 'update'])->name('update');
+    Route::post('/quitar',     [CartController::class, 'remove'])->name('remove');
+    Route::post('/vaciar',     [CartController::class, 'clear'])->name('clear');
+    Route::get('/checkout',    [CartController::class, 'checkoutPreview'])->name('checkout');
 });
 
 /*
 |--------------------------------------------------------------------------
-| BIENVENIDA DE “CLIENTE” (misma sesión web)
-| - El AuthController te puede redirigir aquí según rol o lógica
+| CHECKOUT (auth)
 |--------------------------------------------------------------------------
 */
-Route::get('/customer/welcome', function () {
-    $customer = Auth::user();
-    $cart     = session('cart', []);
-    return view('web.customer.welcome', compact('customer', 'cart'));
-})->middleware('auth')->name('customer.welcome');
+Route::middleware('auth')->group(function () {
+    /* Paso 1 */
+    Route::get('/checkout/start', [CheckoutController::class, 'start'])->name('checkout.start');
+
+    /* CP lookup (AJAX) + alias */
+    Route::get('/checkout/cp',         [CheckoutController::class, 'cpLookup'])->middleware('throttle:20,1')->name('checkout.cp');
+    Route::get('/checkout/cp-lookup',  [CheckoutController::class, 'cpLookup'])->middleware('throttle:20,1')->name('checkout.cp.lookup');
+
+    /* Dirección (AJAX) */
+    Route::post('/checkout/address',         [CheckoutController::class, 'addressStore'])->name('checkout.address.store');
+    Route::post('/checkout/address/select',  [CheckoutController::class, 'addressSelect'])->name('checkout.address.select');
+
+    /* Paso 2: Facturación (modal 2 pasos) */
+    Route::get('/checkout/invoice',            [CheckoutController::class, 'invoice'])->name('checkout.invoice');
+    Route::post('/checkout/invoice/validate',  [CheckoutController::class, 'invoiceValidateRFC'])->name('checkout.invoice.validate');
+    Route::post('/checkout/invoice/store',     [CheckoutController::class, 'invoiceStore'])->name('checkout.invoice.store');
+    Route::post('/checkout/invoice/select',    [CheckoutController::class, 'invoiceSelect'])->name('checkout.invoice.select');
+    Route::delete('/checkout/invoice/delete',  [CheckoutController::class, 'invoiceDelete'])->name('checkout.invoice.delete');
+    Route::post('/checkout/invoice/skip',      [CheckoutController::class, 'invoiceSkip'])->name('checkout.invoice.skip');
+
+    /* Paso 3: Envío */
+    Route::get('/checkout/shipping',            [CheckoutController::class, 'shipping'])->name('checkout.shipping');
+    Route::post('/checkout/shipping/select',    [CheckoutController::class, 'shippingSelect'])->name('checkout.shipping.select');
+
+    /* Paso 4: Pago (UI) */
+    Route::get('/checkout/payment', [CheckoutController::class, 'payment'])->name('checkout.payment');
+});
+
+/* Stripe: crear sesiones (buy now / cart) */
+Route::post('/checkout/item/{item}', [CheckoutController::class, 'checkoutItem'])
+    ->whereNumber('item')->name('checkout.item');
+Route::post('/checkout/cart',        [CheckoutController::class, 'checkoutCart'])->name('checkout.cart');
+
+/* Resultados de Stripe */
+Route::get('/checkout/success', [CheckoutController::class, 'success'])->name('checkout.success');
+Route::get('/checkout/cancel',  [CheckoutController::class, 'cancel'])->name('checkout.cancel');
+
+/* Descargas/reenvío de CFDI desde la página de éxito */
+Route::get('/checkout/invoices/{id}/pdf',    [CheckoutController::class, 'invoicePdf'])->name('checkout.invoice.pdf');
+Route::get('/checkout/invoices/{id}/xml',    [CheckoutController::class, 'invoiceXml'])->name('checkout.invoice.xml');
+Route::post('/checkout/invoices/{id}/email', [CheckoutController::class, 'invoiceResendEmail'])->name('checkout.invoice.email');
 
 /*
 |--------------------------------------------------------------------------
-| PANEL INTERNO (auth + approved)  URLs: /panel/...
+| ENVÍOS (cotizador externo al checkout)
+|--------------------------------------------------------------------------
+*/
+/* Alias estilo carrito (si los usa tu front) */
+Route::post('/cart/shipping/options', [ShippingController::class, 'options'])->name('cart.shipping.options');
+Route::post('/cart/shipping/select',  [ShippingController::class, 'select'])->name('cart.shipping.select');
+
+/* Canonical */
+Route::middleware(['web','auth'])->group(function () {
+    Route::post('/shipping/options', [ShippingController::class, 'options'])->name('shipping.options');
+    Route::post('/shipping/select',  [ShippingController::class, 'select'])->name('shipping.select');
+});
+
+/*
+|--------------------------------------------------------------------------
+| ÁREA DE CLIENTE (auth)
+|--------------------------------------------------------------------------
+*/
+Route::middleware('auth')->group(function () {
+    Route::get('/customer/welcome', function () {
+        $customer = Auth::user();
+        $cart     = session('cart', []);
+        return view('web.customer.welcome', compact('customer', 'cart'));
+    })->name('customer.welcome');
+
+    Route::get('/mi-cuenta',                         [CustomerAreaController::class, 'profile'])->name('customer.profile');
+    Route::post('/mi-cuenta/reordenar/{order}',      [CustomerAreaController::class, 'reorder'])->name('customer.orders.reorder');
+
+    /* Favoritos */
+    Route::get('/favoritos',                   [FavoriteController::class, 'index'])->name('favoritos.index');
+    Route::post('/favoritos/toggle/{item}',    [FavoriteController::class, 'toggle'])->name('favoritos.toggle');
+    Route::delete('/favoritos/{item}',         [FavoriteController::class, 'destroy'])->name('favoritos.destroy');
+
+    /* Comentarios */
+    Route::prefix('comentarios')->name('comments.')->group(function () {
+        Route::get('/',                    [CommentController::class, 'index'])->name('index');
+        Route::post('/',                   [CommentController::class, 'store'])->name('store');
+        Route::post('/{comment}/reply',    [CommentController::class, 'reply'])->name('reply');
+    });
+
+    /* Notificaciones */
+    Route::get('/me/notifications',           [NotificationController::class, 'index'])->name('me.notifications.index');
+    Route::post('/me/notifications/read-all', [NotificationController::class, 'readAll'])->name('me.notifications.readAll');
+});
+
+/*
+|--------------------------------------------------------------------------
+| HELP CENTER (usuario) + ADMIN HELP DESK
+|--------------------------------------------------------------------------
+*/
+Route::middleware('auth')->group(function () {
+    Route::get('/ayuda',                       [HelpCenterController::class,'create'])->name('help.create');
+    Route::post('/ayuda/start',                [HelpCenterController::class,'start'])->middleware('throttle:12,1')->name('help.start');
+    Route::get('/ayuda/t/{ticket}',            [HelpCenterController::class,'show'])->name('help.show');
+    Route::post('/ayuda/t/{ticket}/message',   [HelpCenterController::class,'message'])->middleware('throttle:30,1')->name('help.message');
+    Route::post('/ayuda/t/{ticket}/escalar',   [HelpCenterController::class,'escalar'])->middleware('throttle:6,1')->name('help.escalar');
+});
+
+Route::prefix('panel/ayuda')->name('admin.help.')
+    ->middleware(['auth','role:admin|soporte|profesor'])
+    ->group(function(){
+        Route::get('/',                   [HelpDeskAdminController::class,'index'])->name('index');
+        Route::get('/{ticket}',           [HelpDeskAdminController::class,'show'])->name('show');
+        Route::post('/{ticket}/responder',[HelpDeskAdminController::class,'reply'])->name('reply');
+        Route::post('/{ticket}/cerrar',   [HelpDeskAdminController::class,'close'])->name('close');
+        Route::post('/sync-knowledge',    function () {
+            Artisan::call('knowledge:sync', ['--rebuild' => true]);
+            return back()->with('ok', 'Conocimiento reindexado.');
+        })->name('sync');
+    });
+
+/*
+|--------------------------------------------------------------------------
+| PANEL INTERNO (auth + approved)
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth', 'approved'])->prefix('panel')->group(function () {
-
-    // Dashboard interno
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
-    // Ventas internas
-    Route::resource('ventas', VentaController::class)
-        ->only(['index','show'])
-        ->names('ventas');
+    /* Ventas internas (solo lectura + PDF/email) */
+    Route::resource('ventas', VentaController::class)->only(['index','show'])->names('ventas');
+    Route::get('ventas/{venta}/pdf',    [VentaController::class, 'pdf'])->name('ventas.pdf');
+    Route::post('ventas/{venta}/email', [VentaController::class, 'enviarPorCorreo'])->name('ventas.email');
 
-    Route::get('ventas/{venta}/pdf',   [VentaController::class, 'pdf'])->name('ventas.pdf');
-    Route::post('ventas/{venta}/email',[VentaController::class, 'enviarPorCorreo'])->name('ventas.email');
-
-    // Productos (uso interno)
+    /* Productos internos */
     Route::get('products/import',     [ProductController::class, 'importForm'])->name('products.import.form');
     Route::post('products/import',    [ProductController::class, 'importStore'])->name('products.import.store');
     Route::get('products/export/pdf', [ProductController::class, 'exportPdf'])->name('products.export.pdf');
@@ -132,30 +269,28 @@ Route::middleware(['auth', 'approved'])->prefix('panel')->group(function () {
         ->parameters(['products' => 'product'])
         ->whereNumber('product');
 
-    // Proveedores / Clientes
+    /* Proveedores / Clientes */
     Route::resource('providers', ProviderController::class)->names('providers');
     Route::resource('clients',   ClientController::class)->names('clients');
 
-    // Cotizaciones
+    /* Cotizaciones + AI */
     Route::resource('cotizaciones', CotizacionController::class);
     Route::post('cotizaciones/{cotizacion}/aprobar',         [CotizacionController::class,'aprobar'])->name('cotizaciones.aprobar');
     Route::post('cotizaciones/{cotizacion}/rechazar',        [CotizacionController::class,'rechazar'])->name('cotizaciones.rechazar');
     Route::get('cotizaciones/{cotizacion}/pdf',              [CotizacionController::class,'pdf'])->name('cotizaciones.pdf');
     Route::post('cotizaciones/{cotizacion}/convertir-venta', [CotizacionController::class,'convertirAVenta'])->name('cotizaciones.convertir');
-
-    // IA / auto-cotización
     Route::post('cotizaciones/ai-parse',      [CotizacionController::class, 'aiParse'])->name('cotizaciones.ai_parse');
     Route::post('cotizaciones/ai-store',      [CotizacionController::class, 'aiCreate'])->name('cotizaciones.ai_store');
     Route::post('cotizaciones/store-from-ai', [CotizacionController::class, 'aiCreate'])->name('cotizaciones.store_from_ai');
     Route::get('cotizaciones/auto',           [CotizacionController::class, 'autoForm'])->name('cotizaciones.auto.form');
     Route::post('cotizaciones/auto',          [CotizacionController::class, 'autoCreate'])->name('cotizaciones.auto.create');
 
-    // Perfil interno
+    /* Perfil interno */
     Route::get('/perfil',           [ProfileController::class, 'show'])->name('profile.show');
     Route::put('/perfil/foto',      [ProfileController::class, 'updatePhoto'])->name('profile.update.photo');
     Route::put('/perfil/password',  [ProfileController::class, 'updatePassword'])->name('profile.update.password');
 
-    // Landing del panel
+    /* Landing del panel */
     Route::prefix('landing')->name('panel.landing.')->group(function () {
         Route::get('/',               [LandingSectionController::class, 'index'])->name('index');
         Route::get('/create',         [LandingSectionController::class, 'create'])->name('create');
@@ -180,36 +315,15 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'approved', 'role:admin'
     Route::post('/users/{user}/role',          [UserManagementController::class, 'assignRole'])->name('admin.users.role.assign');
     Route::delete('/users/{user}/role/{role}', [UserManagementController::class, 'removeRole'])->name('admin.users.role.remove');
 
-    // CRUD Catálogo web (CatalogItem)
     Route::resource('catalog', CatalogItemController::class)
         ->parameters(['catalog' => 'catalogItem'])
         ->names('admin.catalog');
-
-    Route::patch('catalog/{catalogItem}/toggle', [CatalogItemController::class, 'toggleStatus'])
-        ->name('admin.catalog.toggle');
+    Route::patch('catalog/{catalogItem}/toggle', [CatalogItemController::class, 'toggleStatus'])->name('admin.catalog.toggle');
 });
 
 /*
 |--------------------------------------------------------------------------
-| Notificaciones (interno)
-|--------------------------------------------------------------------------
-*/
-Route::middleware(['auth'])->group(function () {
-    Route::get('/me/notifications',           [NotificationController::class, 'index'])->name('me.notifications.index');
-    Route::post('/me/notifications/read-all', [NotificationController::class, 'readAll'])->name('me.notifications.readAll');
-});
-
-/*
-|--------------------------------------------------------------------------
-| Media público (storage/app/public)
-|--------------------------------------------------------------------------
-*/
-Route::get('/media/{path}', [MediaController::class, 'show'])
-    ->where('path', '.*')->name('media.show');
-
-/*
-|--------------------------------------------------------------------------
-| Diagnóstico HTTP (opcional)
+| DIAGNÓSTICO / DEBUG
 |--------------------------------------------------------------------------
 */
 Route::get('/diag/http', function () {
@@ -217,242 +331,25 @@ Route::get('/diag/http', function () {
     try {
         $r1 = Http::timeout(15)->head('https://api.ocr.space/parse/image');
         $out['ocr_head'] = ['ok' => $r1->successful() || $r1->clientError() || $r1->serverError(), 'status' => $r1->status()];
-    } catch (\Throwable $e) {
-        $out['ocr_head'] = ['ok' => false, 'error' => $e->getMessage()];
-    }
+    } catch (\Throwable $e) { $out['ocr_head'] = ['ok' => false, 'error' => $e->getMessage()]; }
     try {
         $r2 = Http::timeout(15)->withHeaders(['Authorization' => 'Bearer x'])->get('https://api.openai.com/v1/models');
         $out['openai_models'] = ['ok' => $r2->status() !== 0, 'status' => $r2->status()];
-    } catch (\Throwable $e) {
-        $out['openai_models'] = ['ok' => false, 'error' => $e->getMessage()];
-    }
+    } catch (\Throwable $e) { $out['openai_models'] = ['ok' => false, 'error' => $e->getMessage()]; }
     try {
         $path = storage_path('logs/http_diag.log');
         file_put_contents($path, '['.date('c')."] diag ok\n", FILE_APPEND);
         $out['write_logs'] = ['ok' => true, 'path' => $path];
-    } catch (\Throwable $e) {
-        $out['write_logs'] = ['ok' => false, 'error' => $e->getMessage()];
-    }
+    } catch (\Throwable $e) { $out['write_logs'] = ['ok' => false, 'error' => $e->getMessage()]; }
     return response()->json($out);
 });
 
-/*
-|--------------------------------------------------------------------------
-| Carrito
-|--------------------------------------------------------------------------
-*/
-Route::prefix('carrito')->name('web.cart.')->group(function () {
-    Route::get('/',            [CartController::class, 'index'])->name('index');
-    Route::post('/agregar',    [CartController::class, 'add'])->name('add');
-
-    // Si alguien entra por GET a /carrito/agregar, redirige al carrito (evita 419)
-    Route::get('/agregar', function () {
-        return redirect()->route('web.cart.index');
-    })->name('add.get');
-
-    Route::post('/actualizar', [CartController::class, 'update'])->name('update');
-    Route::post('/quitar',     [CartController::class, 'remove'])->name('remove');
-    Route::post('/vaciar',     [CartController::class, 'clear'])->name('clear');
-
-    // (Opcional) preview de checkout
-    Route::get('/checkout',    [CartController::class, 'checkoutPreview'])->name('checkout');
-});
+Route::get('/debug/skydropx/carriers', [SkydropxDebugController::class, 'carriers']);
+Route::get('/debug/skydropx/quote',    [SkydropxDebugController::class, 'quote']);
 
 /*
 |--------------------------------------------------------------------------
-| Checkout
-|--------------------------------------------------------------------------
-| Alineado con la vista start.blade.php y tu CheckoutController
-*/
-Route::middleware('auth')->group(function () {
-    // Paso 1
-    Route::get('/checkout/start', [CheckoutController::class, 'start'])->name('checkout.start');
-
-    // CP lookup (el front llama a route('checkout.cp'))
-    Route::get('/checkout/cp', [CheckoutController::class, 'cpLookup'])
-        ->middleware('throttle:20,1')
-        ->name('checkout.cp');
-
-    // Guardar dirección (AJAX)
-    Route::post('/checkout/address', [CheckoutController::class, 'addressStore'])
-        ->name('checkout.address.store');
-
-    // Paso 3: Envío
-    Route::get('/checkout/shipping', [CheckoutController::class, 'shipping'])->name('checkout.shipping');
-    Route::post('/checkout/shipping/select', [CheckoutController::class, 'shippingSelect'])->name('checkout.shipping.select');
-
-    // Paso 4: Pago
-    Route::get('/checkout/payment', [CheckoutController::class, 'payment'])->name('checkout.payment');
-});
-
-// Stripe: “comprar ahora” y “carrito”
-Route::post('/checkout/item/{item}', [CheckoutController::class, 'checkoutItem'])
-    ->whereNumber('item')
-    ->name('checkout.item');
-
-Route::post('/checkout/cart', [CheckoutController::class, 'checkoutCart'])->name('checkout.cart');
-
-Route::get('/checkout/success', [CheckoutController::class, 'success'])->name('checkout.success');
-Route::get('/checkout/cancel',  [CheckoutController::class, 'cancel'])->name('checkout.cancel');
-
-// Webhook de Stripe (EXCEPTÚA DEL CSRF en App\Http\Middleware\VerifyCsrfToken)
-Route::post('/stripe/webhook', [CheckoutController::class, 'webhook'])->name('stripe.webhook');
-
-/*
-|--------------------------------------------------------------------------
-| Envíos (cotizador genérico, si lo usas aparte del checkout)
+| WEBHOOKS
 |--------------------------------------------------------------------------
 */
-Route::post('/cart/shipping/options', [ShippingController::class, 'options'])->name('cart.shipping.options');
-Route::post('/cart/shipping/select',  [ShippingController::class, 'select'])->name('cart.shipping.select');
-// Paso 2: Facturación (modal en 2 pasos)
-Route::get('/checkout/invoice',            [CheckoutController::class, 'invoice'])->name('checkout.invoice');              // página/listado
-Route::post('/checkout/invoice/validate',  [CheckoutController::class, 'invoiceValidateRFC'])->name('checkout.invoice.validate'); // AJAX: valida RFC
-Route::post('/checkout/invoice/store',     [CheckoutController::class, 'invoiceStore'])->name('checkout.invoice.store');  // AJAX: guarda perfil
-Route::post('/checkout/invoice/select',    [CheckoutController::class, 'invoiceSelect'])->name('checkout.invoice.select'); // usar perfil existente
-Route::delete('/checkout/invoice/delete',  [CheckoutController::class, 'invoiceDelete'])->name('checkout.invoice.delete'); // borrar perfil
-Route::post('/checkout/invoice/skip',      [CheckoutController::class, 'invoiceSkip'])->name('checkout.invoice.skip');     // omitir factura (solo sesión)
-
-    // CP lookup del modal de dirección (ya lo tienes, asegúrate del name):
-    Route::get('/checkout/cp-lookup', [CheckoutController::class, 'cpLookup'])->name('checkout.cp.lookup');
-
-// Página de resultados de búsqueda
-Route::get('/buscar', [SearchController::class, 'index'])->name('search.index');
-
-// Endpoint de sugerencias (AJAX)
-Route::get('/buscar/suggest', [SearchController::class, 'suggest'])->name('search.suggest');
-
-Route::get('/sobre-nosotros', [HomeController::class, 'about'])->name('about');
-
-// ===== Comentarios (solo usuarios logeados pueden publicar/responder) =====
-// ===== Comentarios (solo usuarios logeados pueden publicar/responder) =====
-Route::prefix('comentarios')->name('comments.')->group(function () {
-    Route::get('/', [CommentController::class, 'index'])->name('index'); // lista
-    Route::post('/', [CommentController::class, 'store'])->middleware('auth')->name('store'); // nuevo
-    Route::post('/{comment}/reply', [CommentController::class, 'reply'])->middleware('auth')->name('reply'); // responder
-});
-
-Route::get('/garantias-y-devoluciones', function () {
-    // probar varias rutas de vista típicas
-    $candidatas = [
-        'web.politicas.garantias',
-        'web.garantias',
-        'garantias',
-        'web.politicas.garantias_y_devoluciones',
-        'web.politicas.garantias-devoluciones',
-    ];
-
-    return view()->first($candidatas);
-})->name('policy.returns');
-
-Route::view('/terminos-y-condiciones', 'web.politicas.terminos')->name('policy.terms');
-Route::view('/aviso-de-privacidad',  'web.politicas.privacidad')->name('policy.privacy');
-Route::view('/envios-devoluciones-cancelaciones', 'web.politicas.envios')->name('policy.shipping');
-Route::view('/formas-de-pago', 'web.politicas.pagos')->name('policy.payments');
-// routes/web.php
-Route::view('/preguntas-frecuentes', 'web.politicas.faq')->name('policy.faq');
-Route::view('/formas-de-envio', 'web.politicas.envios-skydropx')->name('policy.shipping.methods');
-
-Route::get('/ofertas', fn() => view('web.ofertas'))->name('web.ofertas');
-
-Route::middleware('auth')->group(function () {
-    Route::get('/favoritos', [FavoriteController::class, 'index'])->name('favoritos.index');
-    Route::post('/favoritos/toggle/{item}', [FavoriteController::class, 'toggle'])->name('favoritos.toggle');
-    Route::delete('/favoritos/{item}', [FavoriteController::class, 'destroy'])->name('favoritos.destroy');
-});
-
-
-Route::middleware('auth')->group(function () {
-    Route::get('/mi-cuenta', [CustomerAreaController::class, 'profile'])
-        ->name('customer.profile');
-
-    Route::post('/mi-cuenta/reordenar/{order}', [CustomerAreaController::class, 'reorder'])
-        ->name('customer.orders.reorder');
-});
-
-Route::middleware('auth')->group(function () {
-  Route::get('/ayuda', [HelpCenterController::class,'create'])->name('help.create');
-
-  // Crear ticket (AJAX). Throttle evita spam.
-  Route::post('/ayuda/start', [HelpCenterController::class,'start'])
-       ->middleware('throttle:12,1')
-       ->name('help.start');
-
-  Route::get('/ayuda/t/{ticket}', [HelpCenterController::class,'show'])
-       ->name('help.show');
-
-  // Enviar mensaje al hilo (AJAX). Límite más alto para conversación fluida.
-  Route::post('/ayuda/t/{ticket}/message', [HelpCenterController::class,'message'])
-       ->middleware('throttle:30,1')
-       ->name('help.message');
-
-  // Escalar a humano (AJAX). Límite más bajo.
-  Route::post('/ayuda/t/{ticket}/escalar', [HelpCenterController::class,'escalar'])
-       ->middleware('throttle:6,1')
-       ->name('help.escalar');
-});
-
-Route::prefix('panel/ayuda')->name('admin.help.')
-  ->middleware(['auth','role:admin|soporte|profesor'])
-  ->group(function(){
-    Route::get('/', [HelpDeskAdminController::class,'index'])->name('index');
-    Route::get('/{ticket}', [HelpDeskAdminController::class,'show'])->name('show');
-    Route::post('/{ticket}/responder', [HelpDeskAdminController::class,'reply'])->name('reply');
-    Route::post('/{ticket}/cerrar', [HelpDeskAdminController::class,'close'])->name('close');
-
-    // 🔄 Reindexar el índice RAG (usa tu comando knowledge:sync)
-    Route::post('/sync-knowledge', function () {
-      Artisan::call('knowledge:sync', ['--rebuild' => true]);
-      return back()->with('ok', 'Conocimiento reindexado.');
-    })->name('sync');
-});
-
-Route::get('/debug/skydropx/carriers', [SkydropxDebugController::class, 'carriers']); // ->middleware('auth')
-Route::get('/debug/skydropx/quote',    [SkydropxDebugController::class, 'quote']);    // ->middleware('auth')
-
-Route::middleware(['web','auth'])->group(function () {
-    // Opciones de envío (cotiza y devuelve lista)
-    Route::post('/shipping/options', [ShippingController::class, 'options'])
-        ->name('shipping.options');
-
-    // Guardar selección de envío en sesión/orden
-    Route::post('/shipping/select',  [ShippingController::class, 'select'])
-        ->name('shipping.select');
-});
-Route::middleware(['web','auth'])->group(function () {
-    Route::prefix('checkout')->name('checkout.')->group(function () {
-        Route::get('/start',          [CheckoutController::class,'start'])->name('start');
-
-        // Autocompletar CP (si ya lo tienes, deja el tuyo)
-        Route::get('/cp-lookup',      [CheckoutController::class,'cpLookup'])->name('cp.lookup');
-
-        // Dirección
-        Route::post('/address',       [CheckoutController::class,'addressStore'])->name('address.store');
-        Route::post('/address/select',[CheckoutController::class,'addressSelect'])->name('address.select');
-
-        // Envío
-        Route::get('/shipping',       [CheckoutController::class,'shipping'])->name('shipping');
-        Route::post('/shipping/select',[CheckoutController::class,'shippingSelect'])->name('shipping.select');
-
-        // Factura
-        Route::get('/invoice',        [CheckoutController::class,'invoice'])->name('invoice');
-        Route::post('/invoice/skip',  [CheckoutController::class,'invoiceSkip'])->name('invoice.skip');
-
-        // Pago
-        Route::get('/payment',        [CheckoutController::class,'payment'])->name('payment');
-    });
-});
-
-
-Route::get('/servicios', [ServicioController::class, 'index'])
-    ->name('web.servicios');
-
-    
-Route::get('/checkout/invoices/{id}/pdf', [InvoiceDownloadController::class, 'pdf'])
-    ->name('checkout.invoice.pdf');
-
-Route::get('/checkout/invoices/{id}/xml', [InvoiceDownloadController::class, 'xml'])
-    ->name('checkout.invoice.xml');
-
 Route::post('/webhooks/stripe', [StripeWebhookController::class,'handle'])->name('webhooks.stripe');
-
