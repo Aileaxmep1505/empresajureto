@@ -13,7 +13,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             RolesSeeder::class,     // ← crea los roles (incluye 'admin')
-
+            CategorySeeder::class,  // ← crea categorías iniciales
             // PermissionsSeeder::class, // opcional, si luego quieres permisos finos
         ]);
     }

@@ -64,5 +64,12 @@ class CatalogItem extends Model
     public function favoredBy() {
     return $this->belongsToMany(\App\Models\User::class, 'favorites')->withTimestamps();
 }
+// app/Models/CatalogItem.php
+
+public function category()
+{
+    return $this->belongsTo(\App\Models\Category::class, 'category_id');
+}
+
 
 }

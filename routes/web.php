@@ -39,6 +39,7 @@ use App\Http\Controllers\SkydropxDebugController;
 use App\Http\Controllers\Web\ServicioController;
 use App\Http\Controllers\Checkout\InvoiceDownloadController;
 use App\Http\Controllers\StripeWebhookController;
+use App\Http\Controllers\Web\CategoryController;
 /*
 |--------------------------------------------------------------------------
 | AUTH
@@ -353,3 +354,8 @@ Route::get('/debug/skydropx/quote',    [SkydropxDebugController::class, 'quote']
 |--------------------------------------------------------------------------
 */
 Route::post('/webhooks/stripe', [StripeWebhookController::class,'handle'])->name('webhooks.stripe');
+
+Route::get('/categoria/{category:slug}', [CategoryController::class, 'show'])
+     ->name('web.categorias.show');
+
+     
