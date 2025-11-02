@@ -358,4 +358,11 @@ Route::post('/webhooks/stripe', [StripeWebhookController::class,'handle'])->name
 Route::get('/categoria/{category:slug}', [CategoryController::class, 'show'])
      ->name('web.categorias.show');
 
-     
+     Route::middleware(['auth'])->prefix('mi-cuenta')->name('customer.')->group(function () {
+    Route::get('/', [CustomerAreaController::class, 'profile'])->name('profile');
+    Route::post('/pedidos/{order}/repetir', [CustomerAreaController::class, 'reorder'])->name('orders.reorder');
+    Route::get('/pedidos/{order}/rastreo', [CustomerAreaController::class, 'tracking'])->name('orders.tracking');
+
+    // Opcional: solo si agregas shipping_label_url a orders
+    Route::get('/pedidos/{order}/guia',    [CustomerAreaController::class, 'label'])->name('orders.label');
+});

@@ -781,6 +781,7 @@
 .pcards .pcard.corner-closed:focus-within .pc-corner{
   top:-70px; right:-70px; width:140px; height:140px; border-radius:0 0 200px 200px;
 }
+
 </style>
 
 @php

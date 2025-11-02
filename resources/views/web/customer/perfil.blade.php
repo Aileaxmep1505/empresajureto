@@ -105,6 +105,33 @@
 
   #account .pill{ display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; border:1px solid var(--line); font-weight:800; font-size:.85rem }
   #account .empty{ padding:24px; border:1px dashed var(--line); border-radius:14px; color:var(--muted); text-align:center; background:#fff }
+
+  /* ===== Modal Seguimiento ===== */
+  #account .modal{ position:fixed; inset:0; z-index:9999; display:none; }
+  #account .modal[data-open="1"]{ display:block; }
+  #account .modal__backdrop{
+    position:absolute; inset:0; background:rgba(2,8,23,.45); backdrop-filter:blur(2px);
+  }
+  #account .modal__panel{
+    position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+    width:min(760px, 92vw); background:#fff; border:1px solid var(--line); border-radius:18px; box-shadow:var(--shadow);
+    overflow:hidden;
+  }
+  #account .modal__head{ padding:16px 18px; border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; gap:10px }
+  #account .modal__body{ padding:16px 18px; max-height:min(70vh, 70dvh); overflow:auto }
+  #account .close{ appearance:none; border:1px solid var(--line); background:#fff; border-radius:10px; padding:8px 10px; font-weight:800; cursor:pointer }
+
+  /* Timeline */
+  #account .trk-meta{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px }
+  #account .trk-meta .pill{ background:#f8fafc }
+  #account .progress{
+    position:relative; height:10px; border-radius:999px; background:#f1f5f9; border:1px solid var(--line); overflow:hidden; margin:8px 0 16px;
+  }
+  #account .progress b{ position:absolute; height:100%; left:0; top:0; width:0%; background:#0f172a }
+  #account .tl{ list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:10px }
+  #account .tl__item{ border:1px solid var(--line); border-radius:14px; padding:12px; background:#fff }
+  #account .tl__item .h{ font-weight:900 }
+  #account .tl__item time{ color:var(--muted); font-size:.9rem }
 </style>
 
 <div id="account">
@@ -188,15 +215,33 @@
                       <td>
                         @php $st = strtolower((string)$o->status); @endphp
                         <span class="status {{ $st==='cancelado'?'cancel':($st==='entregado'?'ok':'proc') }}">{{ ucfirst($o->status ?? '—') }}</span>
+
+                        @if(!empty($o->shipping_code))
+                          <div class="pill" style="margin-top:6px">Guía: {{ $o->shipping_code }}</div>
+                        @endif
+
+                        @if(!empty($o->shipping_name) || !empty($o->shipping_service))
+                          <div class="pill" style="margin-top:6px">
+                            {{ $o->shipping_name ?? '' }}{{ $o->shipping_service ? ' — '.$o->shipping_service : '' }}
+                          </div>
+                        @endif
+
+                        @if(!empty($o->shipping_eta))
+                          <div class="pill" style="margin-top:6px">ETA: {{ $o->shipping_eta }}</div>
+                        @endif
                       </td>
                       <td>${{ number_format($o->total,2) }}</td>
-                      <td style="text-align:right">
+                      <td style="text-align:right; display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap">
                         @if(route_has('customer.orders.reorder'))
                           <form action="{{ route('customer.orders.reorder',$o) }}" method="post" style="display:inline">@csrf
                             <button class="btn btn-brand">Agregar a carrito</button>
                           </form>
-                        @else
-                          <span class="pill">Activa la ruta <b>customer.orders.reorder</b></span>
+                        @endif
+                        @if(route_has('customer.orders.tracking'))
+                          <button class="btn js-track" data-url="{{ route('customer.orders.tracking',$o) }}">Seguimiento</button>
+                        @endif
+                        @if(route_has('customer.orders.label') && !empty($o->shipping_label_url))
+                          <a class="btn btn-ghost" href="{{ route('customer.orders.label',$o) }}" target="_blank" rel="noopener">Guía PDF</a>
                         @endif
                       </td>
                     </tr>
@@ -222,14 +267,34 @@
                       <td>
                         @php $st = strtolower((string)$o->status); @endphp
                         <span class="status {{ $st==='cancelado'?'cancel':($st==='entregado'?'ok':'proc') }}">{{ ucfirst($o->status ?? '—') }}</span>
+
+                        @if(!empty($o->shipping_code))
+                          <div class="pill" style="margin-top:6px">Guía: {{ $o->shipping_code }}</div>
+                        @endif
+
+                        @if(!empty($o->shipping_name) || !empty($o->shipping_service))
+                          <div class="pill" style="margin-top:6px">
+                            {{ $o->shipping_name ?? '' }}{{ $o->shipping_service ? ' — '.$o->shipping_service : '' }}
+                          </div>
+                        @endif
+
+                        @if(!empty($o->shipping_eta))
+                          <div class="pill" style="margin-top:6px">ETA: {{ $o->shipping_eta }}</div>
+                        @endif
                       </td>
                       <td><span class="pill">—</span></td>
                       <td>${{ number_format($o->total,2) }}</td>
-                      <td style="text-align:right">
+                      <td style="text-align:right; display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap">
                         @if(route_has('customer.orders.reorder'))
                           <form action="{{ route('customer.orders.reorder',$o) }}" method="post" style="display:inline">@csrf
                             <button class="btn btn-brand">Agregar a carrito</button>
                           </form>
+                        @endif
+                        @if(route_has('customer.orders.tracking'))
+                          <button class="btn js-track" data-url="{{ route('customer.orders.tracking',$o) }}">Seguimiento</button>
+                        @endif
+                        @if(route_has('customer.orders.label') && !empty($o->shipping_label_url))
+                          <a class="btn btn-ghost" href="{{ route('customer.orders.label',$o) }}" target="_blank" rel="noopener">Guía PDF</a>
                         @endif
                       </td>
                     </tr>
@@ -311,6 +376,26 @@
       </section>
     </div>
   </div>
+
+  {{-- ===== Modal Seguimiento ===== --}}
+  <div class="modal" id="trkModal" data-open="0" aria-hidden="true">
+    <div class="modal__backdrop"></div>
+    <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="trkTitle">
+      <div class="modal__head">
+        <div style="font-weight:900" id="trkTitle">Seguimiento del envío</div>
+        <button class="close" id="trkClose">Cerrar</button>
+      </div>
+      <div class="modal__body">
+        <div class="trk-meta" id="trkMeta">
+          <span class="pill">Cargando…</span>
+        </div>
+        <div class="progress"><b id="trkProgress" style="width:0%"></b></div>
+        <ul class="tl" id="trkList">
+          <li class="tl__item"><div class="h">Obteniendo eventos…</div><time>—</time></li>
+        </ul>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -345,6 +430,72 @@
 
   const fromHash = (location.hash||'').slice(1);
   if(fromHash && root.querySelector('#'+fromHash)) setActive(fromHash);
+
+  // ===== Seguimiento (modal + fetch) =====
+  const modal = document.getElementById('trkModal');
+  const closeBtn = document.getElementById('trkClose');
+  const meta = document.getElementById('trkMeta');
+  const list = document.getElementById('trkList');
+  const bar  = document.getElementById('trkProgress');
+
+  function openModal(){ modal.dataset.open = "1"; modal.setAttribute('aria-hidden','false'); }
+  function closeModal(){ modal.dataset.open = "0"; modal.setAttribute('aria-hidden','true'); }
+
+  closeBtn.addEventListener('click', closeModal);
+  modal.querySelector('.modal__backdrop').addEventListener('click', closeModal);
+  document.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && modal.dataset.open==="1") closeModal(); });
+
+  function renderTracking(data){
+    meta.innerHTML = '';
+    const pills = [];
+    if(data.carrier) pills.push(`<span class="pill">Carrier: <b>${data.carrier}</b></span>`);
+    if(data.service) pills.push(`<span class="pill">Servicio: <b>${data.service}</b></span>`);
+    if(data.code)    pills.push(`<span class="pill">Guía: <b>${data.code}</b></span>`);
+    if(data.status)  pills.push(`<span class="pill">Estatus: <b>${(data.status||'').toString().toUpperCase()}</b></span>`);
+    if(data.eta)     pills.push(`<span class="pill">ETA: <b>${data.eta}</b></span>`);
+    meta.innerHTML = pills.join('');
+
+    bar.style.width = (Number(data.progress||0)) + '%';
+
+    list.innerHTML = '';
+    const evs = Array.isArray(data.events) ? data.events : [];
+    if(evs.length === 0){
+      list.innerHTML = '<li class="tl__item"><div class="h">Sin eventos todavía</div><time>—</time></li>';
+      return;
+    }
+    evs.forEach(ev=>{
+      const t = ev.time ? new Date(ev.time) : null;
+      const date = t ? t.toLocaleString() : '—';
+      const where = ev.location ? ` — <i>${ev.location}</i>` : '';
+      const details = ev.details ? `<div style="color:var(--muted);margin-top:4px">${ev.details}</div>` : '';
+      const item = document.createElement('li');
+      item.className = 'tl__item';
+      item.innerHTML = `<div class="h">${ev.status || 'Evento'}</div><time>${date}${where}</time>${details}`;
+      list.appendChild(item);
+    });
+  }
+
+  root.querySelectorAll('.js-track').forEach(btn=>{
+    btn.addEventListener('click', async (e)=>{
+      e.preventDefault();
+      const url = btn.getAttribute('data-url');
+      if(!url) return;
+      openModal();
+      meta.innerHTML = '<span class="pill">Cargando…</span>';
+      list.innerHTML = '<li class="tl__item"><div class="h">Obteniendo eventos…</div><time>—</time></li>';
+      bar.style.width = '0%';
+      try{
+        const res = await fetch(url, {headers:{'X-Requested-With':'XMLHttpRequest'}});
+        const data = await res.json();
+        if(data && data.ok) renderTracking(data);
+        else{
+          meta.innerHTML = '<span class="pill">No fue posible obtener el seguimiento</span>';
+        }
+      }catch(err){
+        meta.innerHTML = '<span class="pill">Error al cargar seguimiento</span>';
+      }
+    });
+  });
 })();
 </script>
 @endsection

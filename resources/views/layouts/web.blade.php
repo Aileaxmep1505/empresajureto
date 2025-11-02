@@ -237,6 +237,7 @@
       color:var(--ink); text-decoration:none; font-weight:700;
     }
     .user-menu a:hover, .user-menu form button:hover{background:#f7f9fe}
+    
   </style>
 </head>
 <body>
@@ -318,11 +319,11 @@
               <div style="font-weight:900">{{ $user->name ?? 'Mi cuenta' }}</div>
               <small>{{ $user->email }}</small>
             </div>
-            <a href="{{ route('customer.welcome') }}" role="menuitem">
+            <a href="{{ route('customer.profile') }}" role="menuitem">
               <svg viewBox="0 0 24 24" style="width:18px;height:18px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-              Mi perfil
+              Mi cuenta
             </a>
-            <a href="{{ route('web.cart.index') }}" role="menuitem">
+            <a href="{{ url('/mi-cuenta#t-pedidos') }}" role="menuitem">
               <svg viewBox="0 0 24 24" style="width:18px;height:18px"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39A2 2 0 0 0 9.63 16h7.52a2 2 0 0 0 2-.79L23 12H6"/></svg>
               Mis pedidos
             </a>
