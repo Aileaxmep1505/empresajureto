@@ -114,4 +114,16 @@ return [
     'copomex' => [
     'token' => env('COPOMEX_TOKEN'), // opcional
 ],
+'osrm' => [
+    'base' => env('OSRM_BASE_URL', 'http://localhost:5000'),
+],
+'traffic' => [
+    'provider' => env('TRAFFIC_PROVIDER', null), // 'google' | 'here' | null
+    'api_key'  => env('TRAFFIC_API_KEY', null),
+],
+'ai' => [
+    'enabled' => env('AI_ENABLED', false),
+    'model'   => env('AI_MODEL', 'gpt-4o-mini'),
+],
+
 ];

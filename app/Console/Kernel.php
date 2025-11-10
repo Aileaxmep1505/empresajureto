@@ -27,6 +27,8 @@ class Kernel extends ConsoleKernel
 
         // (Opcional) Reindexar conocimiento todos los días a las 03:00
         // $schedule->command('knowledge:sync --rebuild')->dailyAt('03:00');
+          $schedule->command('tickets:sla-scan')->everyFifteenMinutes();
+              $schedule->command('agenda:run')->everyMinute()->withoutOverlapping();
     }
 
     /**

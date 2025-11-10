@@ -71,6 +71,7 @@ class Kernel extends HttpKernel
         // --- Clientes (guard: customer) ---
         'guest.customer'   => \App\Http\Middleware\RedirectIfCustomerAuthenticated::class,
         'auth.customer'    => \App\Http\Middleware\AuthenticateCustomer::class,
+
     ];
 
     /**
@@ -96,5 +97,6 @@ class Kernel extends HttpKernel
 
         'guest.customer'   => \App\Http\Middleware\RedirectIfCustomerAuthenticated::class,
         'auth.customer'    => \App\Http\Middleware\AuthenticateCustomer::class,
+        'internal' => \App\Http\Middleware\EnsureInternal::class,
     ];
 }

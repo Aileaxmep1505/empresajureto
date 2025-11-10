@@ -1,10 +1,8 @@
 <?php
 use Illuminate\Support\Facades\Artisan;
-
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Auth;
-
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\Admin\UserManagementController;
@@ -17,19 +15,16 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\MediaController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\DashboardController;
-
 use App\Http\Controllers\Web\HomeController;
 use App\Http\Controllers\Web\ContactController;
 use App\Http\Controllers\Web\ShopController;
 use App\Http\Controllers\Web\CatalogController;
-
 use App\Http\Controllers\Panel\LandingSectionController;
 use App\Http\Controllers\Admin\CatalogItemController;
 use App\Http\Controllers\Web\CartController;
-
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\ShippingController;
-use App\Http\Controllers\SearchController; // <- tu controlador actual
+use App\Http\Controllers\SearchController; 
 use App\Http\Controllers\Web\CommentController;
 use App\Http\Controllers\Web\FavoriteController;
 use App\Http\Controllers\Customer\CustomerAreaController;
@@ -40,6 +35,16 @@ use App\Http\Controllers\Web\ServicioController;
 use App\Http\Controllers\Checkout\InvoiceDownloadController;
 use App\Http\Controllers\StripeWebhookController;
 use App\Http\Controllers\Web\CategoryController;
+use App\Http\Controllers\Logistics\RoutePlanController;
+
+
+use App\Http\Controllers\Tickets\TicketController;
+use App\Http\Controllers\Tickets\TicketStageController;
+use App\Http\Controllers\Tickets\TicketCommentController;
+use App\Http\Controllers\Tickets\TicketDocumentController;
+use App\Http\Controllers\Tickets\TicketChecklistController;
+use App\Http\Controllers\Mail\MailboxController;
+use App\Http\Controllers\AgendaEventController;
 /*
 |--------------------------------------------------------------------------
 | AUTH
@@ -107,7 +112,6 @@ Route::get('/garantias-y-devoluciones', function () {
         'web.politicas.garantias-devoluciones',
     ]);
 })->name('policy.returns');
-
 Route::get('/servicios', [ServicioController::class, 'index'])->name('web.servicios');
 Route::get('/ofertas', fn() => view('web.ofertas'))->name('web.ofertas');
 
@@ -365,4 +369,187 @@ Route::get('/categoria/{category:slug}', [CategoryController::class, 'show'])
 
     // Opcional: solo si agregas shipping_label_url a orders
     Route::get('/pedidos/{order}/guia',    [CustomerAreaController::class, 'label'])->name('orders.label');
+});
+Route::get('/admin/rutas/demo', [RouteController::class, 'demo'])->name('routing.demo');
+
+
+Route::middleware(['auth'])->group(function () {
+    // Supervisor / Logística
+    Route::get('/logi/routes', [RoutePlanController::class, 'index'])->name('routes.index');
+    Route::get('/logi/routes/create', [RoutePlanController::class, 'create'])->name('routes.create');
+    Route::post('/logi/routes', [RoutePlanController::class, 'store'])->name('routes.store');
+    Route::get('/logi/routes/{routePlan}', [RoutePlanController::class, 'show'])->name('routes.show');
+
+    // Vista del chofer (mis rutas)
+    Route::get('/driver/routes/{routePlan}', [RoutePlanController::class, 'driver'])->name('driver.routes.show');
+
+    // API internas (protegidas por auth)
+    Route::post('/api/routes/{routePlan}/compute', [RoutePlanController::class, 'compute'])->name('api.routes.compute');
+    Route::post('/api/routes/{routePlan}/recompute', [RoutePlanController::class, 'recompute'])->name('api.routes.recompute');
+    Route::post('/api/routes/{routePlan}/stops/{stop}/done', [RoutePlanController::class, 'markStopDone'])->name('api.routes.stop.done');
+    Route::post('/api/driver/location', [RoutePlanController::class, 'saveDriverLocation'])
+        ->name('api.driver.location.save');
+
+    // (opcional) para leer última ubicación
+    Route::get('/api/driver/location', [RoutePlanController::class, 'getDriverLocation'])
+        ->name('api.driver.location.get');
+        Route::post('/api/driver/location/save', [RoutePlanController::class,'saveDriverLocation'])->name('api.driver.location.save');
+Route::get ('/api/driver/location/last', [RoutePlanController::class,'getDriverLocation'])->name('api.driver.location.last');
+
+
+});
+Route::get('cotizaciones/buscar-productos', [CotizacionController::class, 'buscarProductos'])->name('cotizaciones.buscar_productos');
+
+
+Route::middleware(['auth'])->group(function () {
+
+    // ===== Tickets CRUD básico =====
+    Route::get('/tickets',                       [TicketController::class,'index'])->name('tickets.index');
+    Route::get('/tickets/create',                [TicketController::class,'create'])->name('tickets.create');
+    Route::post('/tickets',                      [TicketController::class,'store'])->name('tickets.store');
+    Route::get('/tickets/{ticket}',              [TicketController::class,'show'])->name('tickets.show')->whereNumber('ticket');
+    Route::put('/tickets/{ticket}',              [TicketController::class,'update'])->name('tickets.update')->whereNumber('ticket');
+    Route::post('/tickets/{ticket}/close',       [TicketController::class,'close'])->name('tickets.close')->whereNumber('ticket');
+
+    // ===== Dashboard (opcional) =====
+    Route::get('/tickets-dashboard',             [DashboardController::class,'index'])->name('tickets.dashboard');
+
+    // ===== Tiempo real por AJAX (poll + acciones de etapa) =====
+    Route::get ('/tickets/{ticket}/poll',                      [TicketController::class,'poll'])->name('tickets.poll')->whereNumber('ticket');
+    Route::post('/tickets/{ticket}/stages/{stage}/start',      [TicketController::class,'ajaxStartStage'])->name('tickets.ajax.stage.start')->whereNumber('ticket')->whereNumber('stage');
+    Route::post('/tickets/{ticket}/stages/{stage}/complete',   [TicketController::class,'ajaxCompleteStage'])->name('tickets.ajax.stage.complete')->whereNumber('ticket')->whereNumber('stage');
+    Route::post('/tickets/{ticket}/stages/{stage}/evidence',   [TicketController::class,'ajaxUploadEvidence'])->name('tickets.ajax.stage.evidence')->whereNumber('ticket')->whereNumber('stage');
+
+    // ===== Etapas =====
+    Route::post  ('/tickets/{ticket}/stages',                  [TicketStageController::class,'store'])->name('tickets.stages.store')->whereNumber('ticket');
+    Route::put   ('/tickets/{ticket}/stages/{stage}',          [TicketStageController::class,'update'])->name('tickets.stages.update')->whereNumber('ticket')->whereNumber('stage');
+    Route::delete('/tickets/{ticket}/stages/{stage}',          [TicketController::class,'destroyStage'])->name('tickets.stages.destroy')->whereNumber('ticket')->whereNumber('stage');
+
+    // ===== Comentarios =====
+    Route::post('/tickets/{ticket}/comments',                  [TicketCommentController::class,'store'])->name('tickets.comments.store')->whereNumber('ticket');
+
+    // ===== Documentos =====
+    Route::post  ('/tickets/{ticket}/documents',               [TicketDocumentController::class,'store'])->name('tickets.documents.store')->whereNumber('ticket');
+    Route::get   ('/tickets/{ticket}/documents/{doc}/download',[TicketDocumentController::class,'download'])->name('tickets.documents.download')->whereNumber('ticket')->whereNumber('doc');
+    Route::delete('/tickets/{ticket}/documents/{doc}',         [TicketController::class,'destroyDocument'])->name('tickets.documents.destroy')->whereNumber('ticket')->whereNumber('doc');
+
+    // ===== Checklists (CRUD) =====
+    Route::post  ('/tickets/{ticket}/checklists',              [TicketChecklistController::class,'store'])->name('tickets.checklists.store')->whereNumber('ticket');
+    Route::put   ('/checklists/{checklist}',                   [TicketChecklistController::class,'update'])->name('checklists.update')->whereNumber('checklist');
+    Route::delete('/checklists/{checklist}',                   [TicketChecklistController::class,'destroy'])->name('checklists.destroy')->whereNumber('checklist');
+
+    // Ítems de checklist
+    Route::post  ('/checklists/{checklist}/items',             [TicketChecklistController::class,'addItem'])->name('checklists.items.add')->whereNumber('checklist');
+    Route::put   ('/checklist-items/{item}',                   [TicketChecklistController::class,'updateItem'])->name('checklists.items.update')->whereNumber('item');
+    Route::delete('/checklist-items/{item}',                   [TicketChecklistController::class,'destroyItem'])->name('checklists.items.destroy')->whereNumber('item');
+    Route::post  ('/checklists/{checklist}/items/reorder',     [TicketChecklistController::class,'reorderItems'])->name('checklists.items.reorder')->whereNumber('checklist');
+    Route::post  ('/checklists/{checklist}/toggle-all',        [TicketChecklistController::class,'toggleAll'])->name('checklists.items.toggleAll')->whereNumber('checklist');
+
+    // ===== Exports =====
+    Route::get('/checklists/{checklist}/export/pdf',           [TicketChecklistController::class,'exportPdf'])->name('checklists.export.pdf')->whereNumber('checklist');
+    Route::get('/checklists/{checklist}/export/word',          [TicketChecklistController::class,'exportWord'])->name('checklists.export.word')->whereNumber('checklist');
+
+    // ===== IA (100% OpenAI) =====
+    // Sugerir (devuelve JSON: title, instructions, items[])
+    Route::post('/tickets/{ticket}/stages/{stage}/ai/suggest', [TicketChecklistController::class,'suggestFromPrompt'])->name('tickets.ai.suggest')->whereNumber('ticket')->whereNumber('stage');
+    // Crear checklist desde IA
+    Route::post('/tickets/{ticket}/checklists/ai',             [TicketChecklistController::class,'createFromAi'])->name('tickets.ai.create')->whereNumber('ticket');
+});
+// ====== MAILBOX (todas bajo /mail) ======
+Route::middleware(['auth']) // quítalo si aún no usas auth
+    ->prefix('mail')
+    ->name('mail.')
+    ->group(function () {
+
+        // Lista (usa query ?folder=...&uid=... para el preview en el panel derecho)
+        Route::get('/', [MailboxController::class, 'index'])->name('index');
+
+        // Listar una carpeta específica (soporta nombres con "/" o ".")
+        Route::get('/folder/{folder}', [MailboxController::class, 'folder'])
+            ->where('folder', '.*')
+            ->name('folder');
+
+        // Ver un mensaje en página independiente (opcional si usas el panel derecho)
+        Route::get('/show/{folder}/{uid}', [MailboxController::class, 'show'])
+            ->where('folder', '.*')
+            ->whereNumber('uid')
+            ->name('show');
+
+        // Descargar adjunto por "part"
+        Route::get('/download/{folder}/{uid}/{part}', [MailboxController::class, 'downloadAttachment'])
+            ->where('folder', '.*')
+            ->whereNumber('uid')
+            ->name('download');
+
+        // Redactar / Enviar
+        Route::get('/compose', [MailboxController::class, 'compose'])->name('compose');
+        Route::post('/send',   [MailboxController::class, 'send'])->name('send');
+
+        // Responder / Reenviar
+        Route::post('/reply/{folder}/{uid}', [MailboxController::class, 'reply'])
+            ->where('folder', '.*')
+            ->whereNumber('uid')
+            ->name('reply');
+
+        Route::post('/forward/{folder}/{uid}', [MailboxController::class, 'forward'])
+            ->where('folder', '.*')
+            ->whereNumber('uid')
+            ->name('forward');
+
+        // Acciones: importante / leído
+        Route::post('/toggle-flag/{folder}/{uid}', [MailboxController::class, 'toggleFlag'])
+            ->where('folder', '.*')
+            ->whereNumber('uid')
+            ->name('toggleFlag');   // <-- este nombre es el que usa la vista
+
+        Route::post('/mark-read/{folder}/{uid}', [MailboxController::class, 'markRead'])
+            ->where('folder', '.*')
+            ->whereNumber('uid')
+            ->name('markRead');     // <-- este nombre es el que usa la vista
+            // === API en tiempo real ===
+// Lista de mensajes (soporta ?folder=INBOX&limit=80&after_uid=12345&q=texto)
+Route::get('/api/messages', [MailboxController::class, 'apiMessages'])
+    ->name('api.messages');
+
+// Contadores por carpeta (INBOX, PRIORITY, SENT, etc.)
+Route::get('/api/counts', [MailboxController::class, 'apiCounts'])
+    ->name('api.counts');
+// === Acciones rápidas por mensaje ===
+Route::post('/move/{folder}/{uid}',   [MailboxController::class, 'move'])->where('folder','.*')->whereNumber('uid')->name('move');       // mover a ARCHIVE, SPAM, TRASH...
+Route::post('/delete/{folder}/{uid}', [MailboxController::class, 'delete'])->where('folder','.*')->whereNumber('uid')->name('delete');   // eliminar (mover a TRASH o \Deleted)
+
+// === Long-polling en tiempo (casi) real ===
+// Espera hasta 25s a que lleguen nuevos correos (o devuelve antes si hay nuevos)
+Route::get('/api/wait', [MailboxController::class, 'apiMessagesWait'])->name('api.wait');
+// JSON rápido (lista)
+Route::get('/mail/api/messages', [MailboxController::class, 'apiMessages'])->name('mail.api.messages');
+// Long-polling "push-like"
+Route::get('/mail/api/wait',     [MailboxController::class, 'apiWait'])->name('mail.api.wait');
+// Contadores
+Route::get('/mail/api/counts',   [MailboxController::class, 'apiCounts'])->name('mail.api.counts');
+
+// Mover (archivar, etc.)
+Route::post('/mail/move/{folder}/{uid}',   [MailboxController::class, 'move'])
+    ->where('folder','.*')->whereNumber('uid')->name('mail.move');
+
+// Eliminar (mueve a TRASH o purga si ya estás en TRASH)
+Route::post('/mail/delete/{folder}/{uid}', [MailboxController::class, 'delete'])
+    ->where('folder','.*')->whereNumber('uid')->name('mail.delete');
+Route::post('/mail/send', [MailController::class, 'send'])->name('mail.send');
+    });
+Route::middleware(['auth'])->group(function () {
+    // Vista calendario
+    Route::get('/agenda', [AgendaEventController::class,'calendar'])->name('agenda.calendar');
+
+    // Feed JSON
+    Route::get('/agenda/feed', [AgendaEventController::class,'feed'])->name('agenda.feed');
+
+    // CRUD AJAX
+    Route::post('/agenda', [AgendaEventController::class,'store'])->name('agenda.store');
+    Route::get('/agenda/{agenda}', [AgendaEventController::class,'show'])->name('agenda.show');
+    Route::put('/agenda/{agenda}', [AgendaEventController::class,'update'])->name('agenda.update');
+    Route::delete('/agenda/{agenda}', [AgendaEventController::class,'destroy'])->name('agenda.destroy');
+
+    // Drag/resize
+    Route::put('/agenda/{agenda}/move', [AgendaEventController::class,'move'])->name('agenda.move');
 });

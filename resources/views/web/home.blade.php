@@ -81,212 +81,486 @@
     .brand-item:hover{ opacity:1; filter:grayscale(0%); transform:translateY(-1px); }
     .brand-item img{ max-height:100%; max-width:140px; object-fit:contain; display:block; }
 
- 
+ </style>
 
-  {{-- ====== SLIDER 3D: Papelería (FULL-BLEED y full-height) ====== --}}
-  <style>
-    /* Full-bleed + buen responsive */
-    .cs-wrap{ font-family:"Poppins",system-ui,Segoe UI,Arial; background:#fafafa; }
-    .cs-wrap.full-bleed{
-      width:100vw; margin-left:calc(50% - 50vw); margin-right:calc(50% - 50vw);
-      padding-left:clamp(8px,2.5vw,32px); padding-right:clamp(8px,2.5vw,32px);
-      padding-top:40px; padding-bottom:20px; min-height:100vh; /* alto “pantalla” */
-      display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
-    }
-    .cs-header{ text-align:center; margin-bottom: clamp(24px,5vw,48px); }
-    .cs-subtitle{ color:#ff6b35; font-size:14px; font-weight:700; text-transform:uppercase; letter-spacing:2px; margin-bottom:12px; }
-    .cs-title{ font-size: clamp(28px, 6vw, 56px); font-weight:900; color:#0a0a0a; line-height:1.1; margin:0; }
+  
+  {{-- ====== /GRID con cards de círculo ====== --}}
 
-    .cs-slider{ perspective:1500px; perspective-origin:50% 50%; cursor:grab; width:100%; max-width:none; overflow:hidden; }
-    .cs-slider.dragging{ cursor:grabbing; }
-    .cs-track{ display:flex; align-items:center; justify-content:center; gap:8px; transform-style:preserve-3d; }
+  {{-- ====== SLIDER INFINITO DE MARCAS ====== --}}
+  @php
+    $brands = [
+      asset('images/brands/aink.jpg'),
+      asset('images/brands/azor.jpg'),
+      asset('images/brands/barrilito.png'),
+      asset('images/brands/kronaline.png'),
+      asset('images/brands/kyma.png'),
+      asset('images/brands/mae.png'),
+      asset('images/brands/pascua.png'),
+      asset('images/brands/scribe.png'),
+    ];
+  @endphp
 
-    .cs-card{
-      flex-shrink:0; width:clamp(160px, 16vw, 240px); background:#fff; overflow:hidden;
-      transform-style:preserve-3d; position:relative; cursor:pointer; border-radius:8px;
-    }
-    .cs-card::before{ content:""; position:absolute; inset:0; background:linear-gradient(to right, rgba(0,0,0,.15), transparent 30%, transparent 70%, rgba(0,0,0,.15)); transform: translateZ(-8px); pointer-events:none; }
-    .cs-card::after{ content:""; position:absolute; inset:0; background:#e0e0e0; transform: translateZ(-16px); box-shadow:0 0 40px rgba(0,0,0,.3); pointer-events:none; }
-    .cs-card img{ width:100%; height:100%; object-fit:cover; display:block; pointer-events:none; position:relative; z-index:1; }
-    .cs-card .cs-hover{ position:absolute; inset:0; background:rgba(0,0,0,.7); display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity .3s ease; z-index:2; }
-    .cs-card:hover .cs-hover{ opacity:1; }
-    .cs-hover span{ color:#fff; font-size:16px; font-weight:600; text-transform:uppercase; letter-spacing:1px; }
-    .cs-track.blurred .cs-card:not(.expanded){ filter: blur(8px); transition: filter .6s ease; }
-    .cs-card.expanded{ z-index:1000 !important; }
-    .cs-info{ position:fixed; bottom: clamp(16px,4vw,80px); left:50%; transform:translateX(-50%); text-align:center; opacity:0; pointer-events:none; transition:opacity .6s ease; z-index:1001; max-width:min(600px, 90vw); padding:1.25rem; background:#ff6b35; box-shadow:4px 3px 18px 4px #b7b7b721; border-radius:12px; }
-    .cs-info.visible{ opacity:1; pointer-events:auto; }
-    .cs-info h2{ font-size:clamp(20px,3.2vw,32px); font-weight:900; color:#0a0a0a; margin:0 0 8px; }
-    .cs-info p{ font-size:clamp(14px,2.6vw,18px); color:#080808; line-height:1.6; margin:0; }
-    .cs-close{ position:fixed; top:clamp(12px,3vw,40px); right:clamp(12px,3vw,40px); width:clamp(44px,3.6vw,60px); height:clamp(44px,3.6vw,60px); background:#fff; border:0; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:1002; opacity:0; pointer-events:none; transition: all .3s ease; box-shadow:0 8px 25px rgba(0,0,0,.2); }
-    .cs-close.visible{ opacity:1; pointer-events:auto; }
-    .cs-close:hover{ background:#ff6b35; color:#fff; transform: rotate(90deg) scale(1.05); }
-    .cs-close svg{ width:24px; height:24px; }
-    /* ===== Landing Sections (público) ===== */
-:root{
-  --lp-ink:#0e1726; --lp-muted:#6b7280; --lp-line:#e8eef6;
-  --lp-radius:16px; --lp-shadow:0 18px 50px rgba(2,8,23,.10);
-}
-
-.lp-wrap{margin:clamp(24px,5vw,48px) auto; padding:0 clamp(12px,3vw,16px); max-width:1200px}
-.lp-head{margin-bottom:12px}
-.lp-head h2{font-size:clamp(18px,2vw,22px); color:var(--lp-ink); margin:0}
-
-.lp-stage{
-  border:1px solid var(--lp-line);
-  border-radius:16px;
-  background:
-    radial-gradient(800px 400px at 0% 0%, #f1f6ff 0%, transparent 40%),
-    radial-gradient(800px 400px at 120% -20%, #fff0f5 0%, transparent 40%),
-    #fff;
-  padding:12px;
-}
-
-.lp-grid{display:grid; gap:12px}
-
-/* Plantillas de grid (igual que preview) */
-.lp-grid-banner{grid-template-columns:1fr}
-.lp-grid-1{grid-template-columns:1fr}
-.lp-grid-2{grid-template-columns:repeat(2,1fr)}
-.lp-grid-3{grid-template-columns:repeat(3,1fr)}
-@media (max-width:980px){
-  .lp-grid-2{grid-template-columns:1fr}
-  .lp-grid-3{grid-template-columns:repeat(2,1fr)}
-}
-@media (max-width:560px){
-  .lp-grid-3{grid-template-columns:1fr}
-}
-
-/* Card (igual que preview) */
-.lp-card{
-  position:relative; border-radius:16px; overflow:hidden; background:#fff;
-  border:1px solid #e9eef7; transform:translateZ(0);
-  transition: transform .18s ease, box-shadow .22s ease;
-}
-.lp-card:hover{ transform: translateY(-3px) scale(1.01); box-shadow: var(--lp-shadow); }
-
-.lp-card .img{
-  width:100%; aspect-ratio:16/9; object-fit:cover; display:block; background:#eef2f7;
-}
-
-/* Overlay texto */
-.lp-card .txt{
-  position:absolute; left:0; right:0; bottom:0;
-  padding:16px; color:#fff;
-  background:linear-gradient(180deg, transparent, rgba(0,0,0,.45));
-}
-.lp-card .t1{font-weight:700; font-size:clamp(14px,1.2vw,16px)}
-.lp-card .t2{opacity:.9; font-size:13px; margin-top:2px}
-
-/* CTA pill */
-.lp-card .cta{
-  display:inline-flex; gap:6px; align-items:center;
-  background:rgba(255,255,255,.95); color:#0b1220;
-  border-radius:999px; padding:6px 10px; margin-top:10px; font-size:13px;
-  text-decoration:none; border:1px solid #e5e7eb;
-  transition:transform .15s ease, box-shadow .2s ease, background .2s;
-}
-.lp-card .cta:hover{ transform:translateY(-1px); box-shadow:0 8px 20px rgba(2,8,23,.12); background:#fff }
-
-/* Estado vacío */
-.lp-empty{
-  padding:18px; color:var(--lp-muted); text-align:center; border:1px dashed var(--lp-line);
-  border-radius:12px; background:#f9fafb;
-}
-
-/* Aparecer al hacer scroll (Intersection Observer) */
-.ao{ opacity:0; transform:translateY(8px); transition: opacity .45s ease, transform .45s ease }
-.ao.in{ opacity:1; transform:none }
-
-/* Material Symbols minimal si la usas */
-.mi{ font-family:'Material Symbols Outlined', sans-serif; font-variation-settings: 'wght' 500; vertical-align:-2px }
-/* 1) Permitir scroll vertical natural en el área del slider por defecto */
-.cs-slider{
-  touch-action: pan-y;          /* clave para que el navegador maneje scroll vertical */
-  -ms-touch-action: pan-y;
-}
-
-/* 2) Opcional: evitar rebotes extraños si el slider estuviera dentro de un contenedor con scroll propio */
-.cs-wrap{
-  overscroll-behavior-y: contain; /* no propagues el "pull to refresh" dentro del slider */
-}
-
-/* 3) Bloquear scroll del fondo cuando una tarjeta está expandida */
-.cs-lock{
-  overflow: hidden;              /* bloquea scroll en HTML */
-  touch-action: none;            /* evita gestos mientras está el modal/clone abierto */
-}
-
-  </style>
-
-  <section class="cs-wrap full-bleed">
-    <div class="cs-header">
-      <p class="cs-subtitle">Papelería & Oficina</p>
-      <h1 class="cs-title">Descubre todo lo que tenemos para tu día a día</h1>
-    </div>
-
-    <div class="cs-slider" id="sliderContainer">
-      <div class="cs-track" id="sliderTrack">
-        {{-- Tarjetas de papelería (11) con imágenes de internet (Unsplash) --}}
-        <div class="cs-card" data-title="Cuadernos & libretas" data-desc="Tamaños A4/A5, rayado y cuadriculado. Marcas originales.">
-          <img src="https://cdn5.coppel.com/mkp/17561629-1.jpg?iresize=width:846,height:677" alt="Cuadernos y libretas">
-          <div class="cs-hover"><span>Ver más</span></div>
-        </div>
-        <div class="cs-card" data-title="Plumas & marcatextos" data-desc="Tinta gel, roller y permanentes. Sets escolares y de oficina.">
-          <img src="https://i.pinimg.com/736x/f9/c4/58/f9c458188e6b55170ba586aff21ddab3.jpg" alt="Plumas y marcatextos">
-          <div class="cs-hover"><span>Ver más</span></div>
-        </div>
-        <div class="cs-card" data-title="Engrapadoras & perforadoras" data-desc="Metálicas de alto rendimiento para oficina.">
-          <img src="https://i.pinimg.com/1200x/45/65/57/4565575ad836ed53d1b104fb5ac3f401.jpg" alt="Engrapadora de oficina">
-          <div class="cs-hover"><span>Ver más</span></div>
-        </div>
-        <div class="cs-card" data-title="Organización" data-desc="Folders, clips y archiveros para mantener todo en orden">
-          <img src="https://i.pinimg.com/736x/8b/8a/05/8b8a054b0b816d11d774dbf08b731560.jpg" alt="Folders y archivos">
-          <div class="cs-hover"><span>Ver más</span></div>
-        </div>
-        <div class="cs-card" data-title="Arte & dibujo" data-desc="Acuarelas, pinceles y papeles artísticos.">
-          <img src="https://i.pinimg.com/1200x/da/36/b5/da36b5b96325da41d86166af49c7bf2d.jpg" alt="Material de arte y dibujo">
-          <div class="cs-hover"><span>Ver más</span></div>
-        </div>
-        <div class="cs-card" data-title="Impresión & tintas" data-desc="Cartuchos y tóner originales. Asesoría sin costo.">
-          <img src="https://i.pinimg.com/1200x/d3/6b/49/d36b49eb68359dd27b2abc6235155fc7.jpg" alt="Tintas y cartuchos para impresora">
-          <div class="cs-hover"><span>Ver más</span></div>
-        </div>
-        <div class="cs-card" data-title="Escritorios & accesorios" data-desc="Pads, organizadores y gadgets para productividad.">
-          <img src="https://i.pinimg.com/736x/de/6b/51/de6b51ba741fb89dc4296e6bc4aa309f.jpg" alt="Accesorios de escritorio y organización">
-          <div class="cs-hover"><span>Ver más</span></div>
-        </div>
-        <div class="cs-card" data-title="Listas escolares" data-desc="Armamos tu lista completa con entrega rápida.">
-          <img src="https://i.pinimg.com/736x/80/02/06/800206a7c0c1d577c26eaa740920bd72.jpg" alt="Surtido de útiles escolares">
-          <div class="cs-hover"><span>Ver más</span></div>
-        </div>
-        <div class="cs-card" data-title="Ofertas de temporada" data-desc="Descuentos semanales en papelería y oficina.">
-          <img src="https://i.pinimg.com/1200x/c0/cf/68/c0cf68f4508dad4537ade17e062bfb44.jpg" alt="Anuncio de ofertas y rebajas">
-          <div class="cs-hover"><span>Ver más</span></div>
-        </div>
-        <div class="cs-card" data-title="Envío hoy en Toluca*" data-desc="Pedidos antes de la 1:00 pm. Cobertura sujeta a zona.">
-          <img src="https://i.pinimg.com/736x/99/73/ae/9973ae95495ad119d5ee1894ee121f1c.jpg" alt="Mensajero entregando paquete a domicilio">
-          <div class="cs-hover"><span>Ver más</span></div>
-        </div>
-        <div class="cs-card" data-title="Mayoristas & empresas" data-desc="Precios por volumen y facturación inmediata.">
-          <img src="https://i.pinimg.com/1200x/c1/d9/50/c1d9506263dc9c5f9fe4710ec3343de5.jpg" alt="Bodega con cajas para mayoreo">
-          <div class="cs-hover"><span>Ver más</span></div>
-        </div>
+  <section class="full-bleed" aria-label="Nuestras marcas">
+    <div class="brands-marquee" role="region" aria-roledescription="carrusel" aria-label="Marcas" tabindex="0">
+      <div class="brands-track">
+        @foreach($brands as $logo)
+          <div class="brand-item">
+            <img src="{{ $logo }}" alt="Logotipo de marca" loading="lazy">
+          </div>
+        @endforeach
+        @foreach($brands as $logo)
+          <div class="brand-item" aria-hidden="true">
+            <img src="{{ $logo }}" alt="" loading="lazy">
+          </div>
+        @endforeach
       </div>
     </div>
-
-    <button class="cs-close" id="closeBtn" aria-label="Cerrar">
-      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
-      </svg>
-    </button>
-
-    <div class="cs-info" id="cardInfo" aria-live="polite">
-      <h2 id="cardTitle"></h2>
-      <p id="cardDesc"></p>
-    </div>
   </section>
+<link rel="stylesheet" href="https://unpkg.com/swiper@9/swiper-bundle.min.css">
+<script src="https://unpkg.com/swiper@9/swiper-bundle.min.js"></script>
+
+<div id="morning-steps">
+  <div class="wrapper">
+    <section class="section">
+      <h2 class="section-title reveal">Papelería a Mayoreo y Menudeo</h2>
+      <p class="section-desc reveal delay-1">
+        Factura al instante, envíos rápidos y seguros, y surtido inteligente. Todo en un solo lugar.
+      </p>
+
+      <div class="swiper steps reveal delay-2">
+        <div class="swiper-wrapper">
+          <!-- 1) Factura al instante -->
+          <div class="swiper-slide">
+            <article class="card-wrapper">
+              <div class="card-circle">1</div>
+              <div class="card reveal">
+                <h3 class="card-title">Factura al instante (CFDI 4.0)</h3>
+                <p class="card-desc">Genera tu CFDI al momento. Datos guardados y complemento de pago.</p>
+                <figure class="card-figure">
+                  <video class="card-video"
+                         preload="auto" muted playsinline webkit-playsinline
+                         autoplay loop
+                         poster="https://images.unsplash.com/photo-1519074069444-1ba4fff66d16?q=80&w=1200&auto=format&fit=crop">
+                    <source src="/videos/factura.mp4" type="video/mp4">
+                  </video>
+                </figure>
+              </div>
+            </article>
+          </div>
+
+          <!-- 2) Envíos rápidos y seguros -->
+          <div class="swiper-slide">
+            <article class="card-wrapper">
+              <div class="card-circle">2</div>
+              <div class="card reveal">
+                <h3 class="card-title">Envíos rápidos y seguros</h3>
+                <p class="card-desc">Cobertura nacional, guía de rastreo y opciones express.</p>
+                <figure class="card-figure">
+                  <video class="card-video"
+                         preload="auto" muted playsinline webkit-playsinline
+                         autoplay loop
+                         poster="https://images.unsplash.com/photo-1547407139-3c03a4b5498c?q=80&w=1200&auto=format&fit=crop">
+                    <source src="/videos/envios.mp4" type="video/mp4">
+                  </video>
+                </figure>
+              </div>
+            </article>
+          </div>
+
+          <!-- 3) Surtido inteligente -->
+          <div class="swiper-slide">
+            <article class="card-wrapper">
+              <div class="card-circle">3</div>
+              <div class="card reveal">
+                <h3 class="card-title">Surtido inteligente</h3>
+                <p class="card-desc">Básicos de oficina y escolares con stock en tiempo real y precios de volumen.</p>
+                <figure class="card-figure">
+                  <video class="card-video"
+                         preload="auto" muted playsinline webkit-playsinline
+                         autoplay loop
+                         poster="https://images.unsplash.com/photo-1516383607781-913a19294fd1?q=80&w=1200&auto=format&fit=crop">
+                    <source src="/videos/surtido.mp4" type="video/mp4">
+                  </video>
+                </figure>
+              </div>
+            </article>
+          </div>
+        </div>
+
+        <div class="swiper-pagination"></div>
+      </div>
+    </section>
+  </div>
+
+  <div class="no-support">
+    <h2>Tu navegador no soporta <code>shape()</code> aún.</h2>
+    <p>Para ver los ejemplos, usa un navegador compatible.</p>
+  </div>
+</div>
+
+<style>
+  /* ===== SCOPE: #morning-steps (Base44 + reveal 1 vez) ===== */
+  #morning-steps *{ box-sizing:border-box }
+  #morning-steps h1,#morning-steps h2,#morning-steps h3,#morning-steps p{ margin:0 }
+
+  #morning-steps{
+    --ink:#0e1726; --muted:#5b6b7a;
+    --sky-top:#cde9f4; --sky-mid:#e6f1f5; --sky-bot:#f6f8f9;
+    --radial-a: color-mix(in oklab, #a7d3e7 18%, transparent);
+    --radial-b: color-mix(in oklab, #d9d7ff 14%, transparent);
+    font-family:"Inter", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    color:var(--ink);
+  }
+
+  /* Full-bleed centrado */
+  #morning-steps .section{
+    width:100vw;
+    margin-left:calc(50% - 50vw);
+    margin-right:calc(50% - 50vw);
+    padding:56px clamp(16px,5vw,56px);
+    text-align:center;
+    position:relative; overflow:hidden;
+    background:
+      radial-gradient(1200px 600px at 50% -10%, var(--radial-a) 0%, transparent 70%),
+      radial-gradient(1000px 520px at 80% 90%, var(--radial-b) 0%, transparent 70%),
+      linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 45%, var(--sky-bot) 100%);
+  }
+  #morning-steps .section::before{
+    content:""; position:absolute; inset:0; pointer-events:none; opacity:.05;
+    background-image: repeating-linear-gradient(0deg, rgba(0,0,0,.02) 0, rgba(0,0,0,.02) 1px, transparent 1px, transparent 2px);
+    mask-image: linear-gradient(180deg, #000 0%, #000 70%, transparent 100%);
+  }
+
+  #morning-steps .wrapper{ width:100%; min-height:100vh; display:flex; align-items:center; }
+
+  /* Tipos */
+  #morning-steps .section-title{ font-size:clamp(1.9rem, 4.5vw, 3.2rem); line-height:1.2; font-weight:800; margin-bottom:12px; }
+  #morning-steps .section-desc{ color:var(--muted); font-size:clamp(1rem,1.3vw,1.125rem); line-height:1.65; margin-bottom:40px; max-width:980px; margin-inline:auto; }
+
+  /* Swiper */
+  #morning-steps .steps{ width:100%; }
+  #morning-steps .swiper-wrapper{ align-items:stretch; }
+  #morning-steps .swiper-slide{ height:auto; display:flex; }
+
+  /* Tarjetas */
+  #morning-steps .card-wrapper{ position:relative; height:100%; width:100%; }
+  #morning-steps .card{
+    --r:30px; --s:40px;
+    background:#fff; padding:clamp(18px,2vw,24px);
+    width:100%; text-align:left; border-radius:30px; height:100%;
+    box-shadow: 0 12px 36px rgba(2, 8, 23, 0.06);
+    clip-path: shape(
+      from 0 0,
+      hline to calc(100% - var(--s) - 2 * var(--r)),
+      arc by var(--r) var(--r) of var(--r) cw,
+      arc by var(--s) var(--s) of var(--s),
+      arc by var(--r) var(--r) of var(--r) cw,
+      vline to 100%,
+      hline to 0
+    );
+  }
+  #morning-steps .card-circle{
+    width:60px;height:60px;background:#fff;position:absolute;top:0;right:0;
+    border-radius:50%;font-size:1.5rem;display:flex;justify-content:center;align-items:center;font-weight:700;
+    box-shadow: 0 6px 20px rgba(2, 8, 23, 0.08);
+  }
+  #morning-steps .card-title{ font-size:clamp(1.05rem,1.4vw,1.25rem);font-weight:700;margin-bottom:10px;padding-right:70px; }
+  #morning-steps .card-desc{ font-size:.95rem;line-height:1.6;color:#475569;margin-bottom:14px;padding-right:65px; }
+
+  /* Media */
+  #morning-steps .card-figure{ height:clamp(180px,24vw,240px); background:#eef2f7; border-radius:20px; position:relative; overflow:hidden; }
+  #morning-steps .card-video{ width:100%; height:100%; object-fit:cover; display:block; background:#000; }
+
+  #morning-steps .swiper-pagination{ position:static; margin-top:24px; }
+
+  /* Reveal una vez (suave) */
+  @keyframes fadeUpOnce{ from{opacity:0; transform: translateY(12px) scale(.995);} to{opacity:1; transform: translateY(0) scale(1);} }
+  #morning-steps .reveal{ opacity:0; transform: translateY(8px) scale(.997); }
+  #morning-steps .reveal.played{ opacity:1; transform:none; animation:none; }
+  #morning-steps .reveal.in-view{ animation: fadeUpOnce .5s cubic-bezier(.22,.8,.2,1) forwards; }
+  #morning-steps .delay-1.in-view{ animation-delay:.06s; }
+  #morning-steps .delay-2.in-view{ animation-delay:.12s; }
+
+  @media (prefers-reduced-motion: reduce){
+    #morning-steps .reveal{ opacity:1 !important; transform:none !important; animation:none !important; }
+  }
+
+  @supports not (background: color-mix(in oklab, #fff 50%, #000 50%)) {
+    #morning-steps{ --radial-a: rgba(141,192,216,.18); --radial-b: rgba(198,195,255,.14); }
+  }
+
+  #morning-steps .no-support{
+    position:fixed; inset:0; background:#000d; display:grid; place-items:center; align-content:center; gap:1em;
+    z-index:9999; color:#fff; text-align:center; padding:24px;
+  }
+  @supports (clip-path: shape(from 0 0, move to 0 0)) { #morning-steps .no-support{ display:none; } }
+</style>
+
 <script>
-  // ====== Posiciones y animación del carrusel 3D (igual que antes) ======
+  // ===== Swiper =====
+  const msSwiper = new Swiper('#morning-steps .steps', {
+    slidesPerView: 1,
+    spaceBetween: 20,
+    autoHeight: true,
+    pagination: { el: '#morning-steps .swiper-pagination', clickable: true },
+    breakpoints: {
+      768:  { slidesPerView: 2, spaceBetween: 24 },
+      1024: { slidesPerView: 3, spaceBetween: 28 }
+    },
+    on: { init: ensureAllPlaying, slideChange: ensureAllPlaying }
+  });
+
+  // ===== Robust autoplay muted & loop (siempre activos) =====
+  function forcePlay(v){
+    if (!v) return;
+    v.muted = true; // clave para autoplay en móviles
+    const tryPlay = () => v.play().catch(()=>{ /* reintenta luego */ });
+    if (v.readyState >= 2) { tryPlay(); }
+    else {
+      v.addEventListener('canplay', tryPlay, { once:true });
+      // fallback si nunca dispara canplay
+      setTimeout(tryPlay, 700);
+    }
+  }
+
+  function ensureAllPlaying(){
+    document.querySelectorAll('#morning-steps .card-video').forEach(v => forcePlay(v));
+  }
+
+  // Reintentos extra: al cargar, al recuperar foco y visibilidad
+  window.addEventListener('load', ensureAllPlaying);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) ensureAllPlaying(); });
+  window.addEventListener('focus', ensureAllPlaying);
+
+  // Pequeño retry inicial (por si el navegador bloquea el 1er intento)
+  let retries = 0;
+  const retryTimer = setInterval(()=>{
+    ensureAllPlaying();
+    if (++retries >= 4) clearInterval(retryTimer);
+  }, 1200);
+
+  // ===== Reveal una sola vez =====
+  (function(){
+    const els = document.querySelectorAll('#morning-steps .reveal');
+    const io = new IntersectionObserver((entries, obs)=>{
+      entries.forEach(entry=>{
+        if (entry.isIntersecting){
+          const el = entry.target;
+          el.classList.add('in-view');
+          el.addEventListener('animationend', ()=>{
+            el.classList.remove('in-view');
+            el.classList.add('played');
+          }, { once:true });
+          obs.unobserve(el);
+        }
+      });
+    }, { threshold: 0.12, rootMargin: '0px 0px -5% 0px' });
+    els.forEach(el=>io.observe(el));
+  })();
+</script>
+
+{{-- ====== SLIDER 3D: Papelería (FULL-BLEED y full-height) ====== --}}
+<style>
+  /* Full-bleed + buen responsive */
+  .cs-wrap{ font-family:"Poppins",system-ui,Segoe UI,Arial; background:#fafafa; }
+  .cs-wrap.full-bleed{
+    width:100vw; margin-left:calc(50% - 50vw); margin-right:calc(50% - 50vw);
+    padding-left:clamp(8px,2.5vw,32px); padding-right:clamp(8px,2.5vw,32px);
+    padding-top:40px; padding-bottom:20px; min-height:100vh; /* alto “pantalla” */
+    display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
+  }
+  .cs-header{ text-align:center; margin-bottom: clamp(24px,5vw,48px); }
+  .cs-subtitle{ color:#ff6b35; font-size:14px; font-weight:700; text-transform:uppercase; letter-spacing:2px; margin-bottom:12px; }
+  .cs-title{ font-size: clamp(28px, 6vw, 56px); font-weight:900; color:#0a0a0a; line-height:1.1; margin:0; }
+
+  .cs-slider{ perspective:1500px; perspective-origin:50% 50%; cursor:grab; width:100%; max-width:none; overflow:hidden; }
+  .cs-slider.dragging{ cursor:grabbing; }
+  .cs-track{ display:flex; align-items:center; justify-content:center; gap:8px; transform-style:preserve-3d; }
+
+  .cs-card{
+    flex-shrink:0; width:clamp(160px, 16vw, 240px); background:#fff; overflow:hidden;
+    transform-style:preserve-3d; position:relative; cursor:pointer; border-radius:8px;
+  }
+  .cs-card::before{ content:""; position:absolute; inset:0; background:linear-gradient(to right, rgba(0,0,0,.15), transparent 30%, transparent 70%, rgba(0,0,0,.15)); transform: translateZ(-8px); pointer-events:none; }
+  .cs-card::after{ content:""; position:absolute; inset:0; background:#e0e0e0; transform: translateZ(-16px); box-shadow:0 0 40px rgba(0,0,0,.3); pointer-events:none; }
+  .cs-card img{ width:100%; height:100%; object-fit:cover; display:block; pointer-events:none; position:relative; z-index:1; }
+  .cs-card .cs-hover{ position:absolute; inset:0; background:rgba(0,0,0,.7); display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity .3s ease; z-index:2; }
+  .cs-card:hover .cs-hover{ opacity:1; }
+  .cs-hover span{ color:#fff; font-size:16px; font-weight:600; text-transform:uppercase; letter-spacing:1px; }
+  .cs-track.blurred .cs-card:not(.expanded){ filter: blur(8px); transition: filter .6s ease; }
+  .cs-card.expanded{ z-index:1000 !important; }
+  .cs-info{ position:fixed; bottom: clamp(16px,4vw,80px); left:50%; transform:translateX(-50%); text-align:center; opacity:0; pointer-events:none; transition:opacity .6s ease; z-index:1001; max-width:min(600px, 90vw); padding:1.25rem; background:#ff6b35; box-shadow:4px 3px 18px 4px #b7b7b721; border-radius:12px; }
+  .cs-info.visible{ opacity:1; pointer-events:auto; }
+  .cs-info h2{ font-size:clamp(20px,3.2vw,32px); font-weight:900; color:#0a0a0a; margin:0 0 8px; }
+  .cs-info p{ font-size:clamp(14px,2.6vw,18px); color:#080808; line-height:1.6; margin:0; }
+  .cs-close{ position:fixed; top:clamp(12px,3vw,40px); right:clamp(12px,3vw,40px); width:clamp(44px,3.6vw,60px); height:clamp(44px,3.6vw,60px); background:#fff; border:0; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:1002; opacity:0; pointer-events:none; transition: all .3s ease; box-shadow:0 8px 25px rgba(0,0,0,.2); }
+  .cs-close.visible{ opacity:1; pointer-events:auto; }
+  .cs-close:hover{ background:#ff6b35; color:#fff; transform: rotate(90deg) scale(1.05); }
+  .cs-close svg{ width:24px; height:24px; }
+
+  /* ===== Landing Sections (público) ===== */
+  :root{
+    --lp-ink:#0e1726; --lp-muted:#6b7280; --lp-line:#e8eef6;
+    --lp-radius:16px; --lp-shadow:0 18px 50px rgba(2,8,23,.10);
+  }
+
+  .lp-wrap{margin:clamp(24px,5vw,48px) auto; padding:0 clamp(12px,3vw,16px); max-width:1200px}
+  .lp-head{margin-bottom:12px}
+  .lp-head h2{font-size:clamp(18px,2vw,22px); color:var(--lp-ink); margin:0}
+
+  .lp-stage{
+    border:1px solid var(--lp-line);
+    border-radius:16px;
+    background:
+      radial-gradient(800px 400px at 0% 0%, #f1f6ff 0%, transparent 40%),
+      radial-gradient(800px 400px at 120% -20%, #fff0f5 0%, transparent 40%),
+      #fff;
+    padding:12px;
+  }
+
+  .lp-grid{display:grid; gap:12px}
+  /* Plantillas de grid (igual que preview) */
+  .lp-grid-banner{grid-template-columns:1fr}
+  .lp-grid-1{grid-template-columns:1fr}
+  .lp-grid-2{grid-template-columns:repeat(2,1fr)}
+  .lp-grid-3{grid-template-columns:repeat(3,1fr)}
+  @media (max-width:980px){
+    .lp-grid-2{grid-template-columns:1fr}
+    .lp-grid-3{grid-template-columns:repeat(2,1fr)}
+  }
+  @media (max-width:560px){
+    .lp-grid-3{grid-template-columns:1fr}
+  }
+
+  /* Card (igual que preview) */
+  .lp-card{
+    position:relative; border-radius:16px; overflow:hidden; background:#fff;
+    border:1px solid #e9eef7; transform:translateZ(0);
+    transition: transform .18s ease, box-shadow .22s ease;
+  }
+  .lp-card:hover{ transform: translateY(-3px) scale(1.01); box-shadow: var(--lp-shadow); }
+  .lp-card .img{
+    width:100%; aspect-ratio:16/9; object-fit:cover; display:block; background:#eef2f7;
+  }
+
+  /* Overlay texto */
+  .lp-card .txt{
+    position:absolute; left:0; right:0; bottom:0;
+    padding:16px; color:#fff;
+    background:linear-gradient(180deg, transparent, rgba(0,0,0,.45));
+  }
+  .lp-card .t1{font-weight:700; font-size:clamp(14px,1.2vw,16px)}
+  .lp-card .t2{opacity:.9; font-size:13px; margin-top:2px}
+
+  /* CTA pill */
+  .lp-card .cta{
+    display:inline-flex; gap:6px; align-items:center;
+    background:rgba(255,255,255,.95); color:#0b1220;
+    border-radius:999px; padding:6px 10px; margin-top:10px; font-size:13px;
+    text-decoration:none; border:1px solid #e5e7eb;
+    transition:transform .15s ease, box-shadow .2s ease, background .2s;
+  }
+  .lp-card .cta:hover{ transform:translateY(-1px); box-shadow:0 8px 20px rgba(2,8,23,.12); background:#fff }
+
+  /* Estado vacío */
+  .lp-empty{
+    padding:18px; color:var(--lp-muted); text-align:center; border:1px dashed var(--lp-line);
+    border-radius:12px; background:#f9fafb;
+  }
+
+  /* Aparecer al hacer scroll (Intersection Observer) */
+  .ao{ opacity:0; transform:translateY(8px); transition: opacity .45s ease, transform .45s ease }
+  .ao.in{ opacity:1; transform:none }
+
+  /* Material Symbols minimal si la usas */
+  .mi{ font-family:'Material Symbols Outlined', sans-serif; font-variation-settings: 'wght' 500; vertical-align:-2px }
+
+  /* 1) Permitir scroll vertical natural en el área del slider por defecto */
+  .cs-slider{
+    touch-action: pan-y;          /* clave para que el navegador maneje scroll vertical */
+    -ms-touch-action: pan-y;
+  }
+  /* 2) Opcional: evitar rebotes extraños si el slider estuviera dentro de un contenedor con scroll propio */
+  .cs-wrap{
+    overscroll-behavior-y: contain; /* no propagues el "pull to refresh" dentro del slider */
+  }
+  /* 3) Bloquear scroll del fondo cuando una tarjeta está expandida */
+  .cs-lock{
+    overflow: hidden;              /* bloquea scroll en HTML */
+    touch-action: none;            /* evita gestos mientras está el modal/clone abierto */
+  }
+</style>
+
+<section class="cs-wrap full-bleed">
+  <div class="cs-header">
+    <p class="cs-subtitle">Papelería & Oficina</p>
+    <h1 class="cs-title">Descubre todo lo que tenemos para tu día a día</h1>
+  </div>
+
+  <div class="cs-slider" id="sliderContainer">
+    <div class="cs-track" id="sliderTrack">
+      {{-- Tarjetas de papelería (11) con imágenes de internet (Unsplash) --}}
+      <div class="cs-card" data-title="Cuadernos & libretas" data-desc="Tamaños A4/A5, rayado y cuadriculado. Marcas originales.">
+        <img src="https://cdn5.coppel.com/mkp/17561629-1.jpg?iresize=width:846,height:677" alt="Cuadernos y libretas">
+        <div class="cs-hover"><span>Ver más</span></div>
+      </div>
+      <div class="cs-card" data-title="Plumas & marcatextos" data-desc="Tinta gel, roller y permanentes. Sets escolares y de oficina.">
+        <img src="https://i.pinimg.com/736x/f9/c4/58/f9c458188e6b55170ba586aff21ddab3.jpg" alt="Plumas y marcatextos">
+        <div class="cs-hover"><span>Ver más</span></div>
+      </div>
+      <div class="cs-card" data-title="Engrapadoras & perforadoras" data-desc="Metálicas de alto rendimiento para oficina.">
+        <img src="https://i.pinimg.com/1200x/45/65/57/4565575ad836ed53d1b104fb5ac3f401.jpg" alt="Engrapadora de oficina">
+        <div class="cs-hover"><span>Ver más</span></div>
+      </div>
+      <div class="cs-card" data-title="Organización" data-desc="Folders, clips y archiveros para mantener todo en orden">
+        <img src="https://i.pinimg.com/736x/8b/8a/05/8b8a054b0b816d11d774dbf08b731560.jpg" alt="Folders y archivos">
+        <div class="cs-hover"><span>Ver más</span></div>
+      </div>
+      <div class="cs-card" data-title="Arte & dibujo" data-desc="Acuarelas, pinceles y papeles artísticos.">
+        <img src="https://i.pinimg.com/1200x/da/36/b5/da36b5b96325da41d86166af49c7bf2d.jpg" alt="Material de arte y dibujo">
+        <div class="cs-hover"><span>Ver más</span></div>
+      </div>
+      <div class="cs-card" data-title="Impresión & tintas" data-desc="Cartuchos y tóner originales. Asesoría sin costo.">
+        <img src="https://i.pinimg.com/1200x/d3/6b/49/d36b49eb68359dd27b2abc6235155fc7.jpg" alt="Tintas y cartuchos para impresora">
+        <div class="cs-hover"><span>Ver más</span></div>
+      </div>
+      <div class="cs-card" data-title="Escritorios & accesorios" data-desc="Pads, organizadores y gadgets para productividad.">
+        <img src="https://i.pinimg.com/736x/de/6b/51/de6b51ba741fb89dc4296e6bc4aa309f.jpg" alt="Accesorios de escritorio y organización">
+        <div class="cs-hover"><span>Ver más</span></div>
+      </div>
+      <div class="cs-card" data-title="Listas escolares" data-desc="Armamos tu lista completa con entrega rápida.">
+        <img src="https://i.pinimg.com/736x/80/02/06/800206a7c0c1d577c26eaa740920bd72.jpg" alt="Surtido de útiles escolares">
+        <div class="cs-hover"><span>Ver más</span></div>
+      </div>
+      <div class="cs-card" data-title="Ofertas de temporada" data-desc="Descuentos semanales en papelería y oficina.">
+        <img src="https://i.pinimg.com/1200x/c0/cf/68/c0cf68f4508dad4537ade17e062bfb44.jpg" alt="Anuncio de ofertas y rebajas">
+        <div class="cs-hover"><span>Ver más</span></div>
+      </div>
+      <div class="cs-card" data-title="Envío hoy en Toluca*" data-desc="Pedidos antes de la 1:00 pm. Cobertura sujeta a zona.">
+        <img src="https://i.pinimg.com/736x/99/73/ae/9973ae95495ad119d5ee1894ee121f1c.jpg" alt="Mensajero entregando paquete a domicilio">
+        <div class="cs-hover"><span>Ver más</span></div>
+      </div>
+      <div class="cs-card" data-title="Mayoristas & empresas" data-desc="Precios por volumen y facturación inmediata.">
+        <img src="https://i.pinimg.com/1200x/c1/d9/50/c1d9506263dc9c5f9fe4710ec3343de5.jpg" alt="Bodega con cajas para mayoreo">
+        <div class="cs-hover"><span>Ver más</span></div>
+      </div>
+    </div>
+  </div>
+
+  <button class="cs-close" id="closeBtn" aria-label="Cerrar">
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+    </svg>
+  </button>
+
+  <div class="cs-info" id="cardInfo" aria-live="polite">
+    <h2 id="cardTitle"></h2>
+    <p id="cardDesc"></p>
+  </div>
+</section>
+
+<script>
+  // ====== Posiciones y animación del carrusel 3D (idénticas a las tuyas) ======
   const csPositions = [
     { height:620, z:220, rotateY:48,  y:0, clip:"polygon(0px 0px, 100% 10%, 100% 90%, 0px 100%)" },
     { height:580, z:165, rotateY:35,  y:0, clip:"polygon(0px 0px, 100% 8%, 100% 92%, 0px 100%)" },
@@ -325,10 +599,20 @@
       this.cardDesc   = document.getElementById('cardDesc');
       this.closeBtn   = document.getElementById('closeBtn');
 
+      // ===== AUTOPLAY (añadido, no invasivo) =====
+      this.autoplayMs      = 3500;  // cambia el intervalo si quieres
+      this.autoTimer       = null;
+      this.resumeTimeout   = null;
+      this.autoplayEnabled = true;
+
       this.init();
     }
 
-    init(){ this.applyPositions(); this.attachEvents(); }
+    init(){
+      this.applyPositions();
+      this.attachEvents();
+      this.startAutoplay(); // inicia autoplay
+    }
 
     applyPositions(){
       this.cards.forEach((card, i) => {
@@ -343,6 +627,10 @@
 
     expandCard(card){
       if(this.expandedCard) return;
+
+      // Pausa autoplay durante expandido
+      this.stopAutoplay();
+
       this.expandedCard = card;
       this.cardTitle.textContent = card.dataset.title || '';
       this.cardDesc.textContent  = card.dataset.desc  || '';
@@ -362,7 +650,7 @@
       gsap.set(card, { opacity:0 });
       this.track.classList.add('blurred');
 
-      // Bloquear scroll del fondo mientras está expandida (solo aquí)
+      // Bloquear scroll del fondo mientras está expandida
       document.documentElement.classList.add('cs-lock');
 
       const maxHeight   = window.innerHeight * 0.8;
@@ -405,6 +693,8 @@
           this.expandedCard=null; this.cardClone=null;
           // Rehabilitar scroll del fondo
           document.documentElement.classList.remove('cs-lock');
+          // Reanudar autoplay suave
+          this.resetAutoplay(800);
         }
       });
     }
@@ -430,26 +720,60 @@
       }
     }
 
+    // ===== AUTOPLAY: helpers (no tocan tu lógica 3D) =====
+    startAutoplay(){
+      if(!this.autoplayEnabled || this.autoTimer || this.expandedCard) return;
+      this.autoTimer = setInterval(() => {
+        if (document.visibilityState !== 'visible') return;
+        if (this.isDragging || this.expandedCard || this.axisLocked === 'x') return;
+        this.rotate('next');
+      }, this.autoplayMs);
+    }
+
+    stopAutoplay(){
+      if(this.autoTimer){ clearInterval(this.autoTimer); this.autoTimer = null; }
+      if(this.resumeTimeout){ clearTimeout(this.resumeTimeout); this.resumeTimeout = null; }
+    }
+
+    resetAutoplay(delay = 1600){
+      this.stopAutoplay();
+      this.resumeTimeout = setTimeout(() => this.startAutoplay(), delay);
+    }
+
     attachEvents(){
       // Click en tarjetas para expandir
       this.cards.forEach(card => {
-        card.addEventListener('click', () => { if(!this.isDragging && !this.expandedCard){ this.expandCard(card); } });
+        card.addEventListener('click', () => {
+          if(!this.isDragging && !this.expandedCard){ this.expandCard(card); }
+        });
       });
 
       this.closeBtn.addEventListener('click', () => this.closeCard());
 
-      // ====== NUEVO: Pointer Events con bloqueo de eje ======
-      // Permite scroll vertical natural en móvil y solo bloquea cuando el gesto es horizontal.
+      // Autoplay pausado por interacción del usuario (hover / drag / visibilidad)
+      this.container.addEventListener('mouseenter', () => this.stopAutoplay());
+      this.container.addEventListener('mouseleave', () => this.resetAutoplay(600));
+      this.container.addEventListener('pointerdown', () => this.stopAutoplay());
+      this.container.addEventListener('pointerup',   () => this.resetAutoplay());
+
+      document.addEventListener('visibilitychange', () => {
+        if(document.visibilityState === 'visible') this.resetAutoplay(800);
+        else this.stopAutoplay();
+      });
+      window.addEventListener('blur',  () => this.stopAutoplay());
+      window.addEventListener('focus', () => this.resetAutoplay(800));
+
+      // ====== Pointer Events con bloqueo de eje (como lo tenías) ======
       this.container.addEventListener('pointerdown', (e) => this.onPointerDown(e));
       this.container.addEventListener('pointermove', (e) => this.onPointerMove(e));
       this.container.addEventListener('pointerup',   ()  => this.onPointerUp());
       this.container.addEventListener('pointercancel', () => this.onPointerUp());
 
-      // Teclado (igual)
+      // Teclado
       document.addEventListener('keydown', e => {
         if(e.key === 'Escape' && this.expandedCard) this.closeCard();
-        else if(e.key === 'ArrowLeft' && !this.expandedCard) this.rotate('prev');
-        else if(e.key === 'ArrowRight' && !this.expandedCard) this.rotate('next');
+        else if(e.key === 'ArrowLeft' && !this.expandedCard){ this.rotate('prev');  this.resetAutoplay(); }
+        else if(e.key === 'ArrowRight' && !this.expandedCard){ this.rotate('next');  this.resetAutoplay(); }
       });
     }
 
@@ -462,8 +786,7 @@
       this.startY     = e.clientY;
       this.dragDistance = 0;
       this.processedSteps=0;
-      // Importante: NO capturamos aquí para no interferir con scroll vertical
-      // La captura se hace cuando detectamos gesto horizontal.
+      // No capturamos aún: dejamos que el scroll vertical fluya hasta detectar gesto horizontal
     }
 
     onPointerMove(e){
@@ -472,21 +795,19 @@
       const dx = e.clientX - this.startX;
       const dy = e.clientY - this.startY;
 
-      // Bloqueo de eje al primer movimiento significativo
       if(this.axisLocked === null){
         const min = 8; // px
         if(Math.abs(dx) < min && Math.abs(dy) < min) return;
 
         if(Math.abs(dx) > Math.abs(dy) + 4){
-          // Gesto horizontal → activamos drag y capturamos
           this.axisLocked = 'x';
           this.isDragging = true;
           this.container.classList.add('dragging');
-          // Mientras se arrastra horizontalmente, deshabilitamos manejo táctil del UA
           this.container.setPointerCapture(this.pointerId);
           this.container.style.touchAction = 'none';
+          // pausamos autoplay durante el drag
+          this.stopAutoplay();
         } else {
-          // Gesto vertical → dejamos que el navegador haga scroll
           this.axisLocked = 'y';
           this.isDragging = false;
           return;
@@ -512,13 +833,16 @@
       this.axisLocked = null;
       this.isDragging = false;
       this.container.classList.remove('dragging');
-      // Restaurar comportamiento táctil por defecto (permitir scroll vertical)
       this.container.style.touchAction = '';
+      // reanudar autoplay al soltar
+      this.resetAutoplay();
     }
   }
 
-  document.addEventListener('DOMContentLoaded', () => new CircularSlider());
+  // Inicialización (igual que tenías). Exponemos la instancia para depurar si quieres.
+  document.addEventListener('DOMContentLoaded', () => { window.__cs = new CircularSlider(); });
 </script>
+
 {{-- ======= Hero (tu bloque original, ajustado para móvil) ======= --}}
 <section id="hero-full-pap">
   <style>
@@ -1483,38 +1807,7 @@
 })();
 </script>
 
-  {{-- ====== /GRID con cards de círculo ====== --}}
 
-  {{-- ====== SLIDER INFINITO DE MARCAS ====== --}}
-  @php
-    $brands = [
-      asset('images/brands/aink.jpg'),
-      asset('images/brands/azor.jpg'),
-      asset('images/brands/barrilito.png'),
-      asset('images/brands/kronaline.png'),
-      asset('images/brands/kyma.png'),
-      asset('images/brands/mae.png'),
-      asset('images/brands/pascua.png'),
-      asset('images/brands/scribe.png'),
-    ];
-  @endphp
-
-  <section class="full-bleed" aria-label="Nuestras marcas">
-    <div class="brands-marquee" role="region" aria-roledescription="carrusel" aria-label="Marcas" tabindex="0">
-      <div class="brands-track">
-        @foreach($brands as $logo)
-          <div class="brand-item">
-            <img src="{{ $logo }}" alt="Logotipo de marca" loading="lazy">
-          </div>
-        @endforeach
-        @foreach($brands as $logo)
-          <div class="brand-item" aria-hidden="true">
-            <img src="{{ $logo }}" alt="" loading="lazy">
-          </div>
-        @endforeach
-      </div>
-    </div>
-  </section>
 
   {{-- ======= 3 valores rápidos ======= --}}
   <div class="container">

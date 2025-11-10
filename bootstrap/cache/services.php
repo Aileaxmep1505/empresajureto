@@ -34,7 +34,8 @@
     30 => 'Termwind\\Laravel\\TermwindServiceProvider',
     31 => 'Phiki\\Adapters\\Laravel\\PhikiServiceProvider',
     32 => 'Spatie\\Permission\\PermissionServiceProvider',
-    33 => 'App\\Providers\\AppServiceProvider',
+    33 => 'Webklex\\IMAP\\Providers\\LaravelServiceProvider',
+    34 => 'App\\Providers\\AppServiceProvider',
   ),
   'eager' => 
   array (
@@ -56,7 +57,8 @@
     15 => 'Termwind\\Laravel\\TermwindServiceProvider',
     16 => 'Phiki\\Adapters\\Laravel\\PhikiServiceProvider',
     17 => 'Spatie\\Permission\\PermissionServiceProvider',
-    18 => 'App\\Providers\\AppServiceProvider',
+    18 => 'Webklex\\IMAP\\Providers\\LaravelServiceProvider',
+    19 => 'App\\Providers\\AppServiceProvider',
   ),
   'deferred' => 
   array (
