@@ -25,6 +25,7 @@ class VerifyCsrfToken extends Middleware
     protected $except = [
         // Webhook de Stripe (POST)
         'webhooks/stripe',
+         'meli/notifications',      // webhook ML
 
         // Si prefieres excluir todos tus webhooks:
         // 'webhooks/*',

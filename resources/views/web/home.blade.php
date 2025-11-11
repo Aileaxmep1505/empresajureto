@@ -160,7 +160,7 @@
                          preload="auto" muted playsinline webkit-playsinline
                          autoplay loop
                          poster="https://images.unsplash.com/photo-1547407139-3c03a4b5498c?q=80&w=1200&auto=format&fit=crop">
-                    <source src="/videos/envios.mp4" type="video/mp4">
+                    <source src="/videos/paqueteria.mp4" type="video/mp4">
                   </video>
                 </figure>
               </div>
@@ -179,7 +179,7 @@
                          preload="auto" muted playsinline webkit-playsinline
                          autoplay loop
                          poster="https://images.unsplash.com/photo-1516383607781-913a19294fd1?q=80&w=1200&auto=format&fit=crop">
-                    <source src="/videos/surtido.mp4" type="video/mp4">
+                    <source src="/videos/envio.mp4" type="video/mp4">
                   </video>
                 </figure>
               </div>
@@ -359,611 +359,7 @@
   })();
 </script>
 
-{{-- ====== SLIDER 3D: Papelería (FULL-BLEED y full-height) ====== --}}
-<style>
-  /* Full-bleed + buen responsive */
-  .cs-wrap{ font-family:"Poppins",system-ui,Segoe UI,Arial; background:#fafafa; }
-  .cs-wrap.full-bleed{
-    width:100vw; margin-left:calc(50% - 50vw); margin-right:calc(50% - 50vw);
-    padding-left:clamp(8px,2.5vw,32px); padding-right:clamp(8px,2.5vw,32px);
-    padding-top:40px; padding-bottom:20px; min-height:100vh; /* alto “pantalla” */
-    display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
-  }
-  .cs-header{ text-align:center; margin-bottom: clamp(24px,5vw,48px); }
-  .cs-subtitle{ color:#ff6b35; font-size:14px; font-weight:700; text-transform:uppercase; letter-spacing:2px; margin-bottom:12px; }
-  .cs-title{ font-size: clamp(28px, 6vw, 56px); font-weight:900; color:#0a0a0a; line-height:1.1; margin:0; }
 
-  .cs-slider{ perspective:1500px; perspective-origin:50% 50%; cursor:grab; width:100%; max-width:none; overflow:hidden; }
-  .cs-slider.dragging{ cursor:grabbing; }
-  .cs-track{ display:flex; align-items:center; justify-content:center; gap:8px; transform-style:preserve-3d; }
-
-  .cs-card{
-    flex-shrink:0; width:clamp(160px, 16vw, 240px); background:#fff; overflow:hidden;
-    transform-style:preserve-3d; position:relative; cursor:pointer; border-radius:8px;
-  }
-  .cs-card::before{ content:""; position:absolute; inset:0; background:linear-gradient(to right, rgba(0,0,0,.15), transparent 30%, transparent 70%, rgba(0,0,0,.15)); transform: translateZ(-8px); pointer-events:none; }
-  .cs-card::after{ content:""; position:absolute; inset:0; background:#e0e0e0; transform: translateZ(-16px); box-shadow:0 0 40px rgba(0,0,0,.3); pointer-events:none; }
-  .cs-card img{ width:100%; height:100%; object-fit:cover; display:block; pointer-events:none; position:relative; z-index:1; }
-  .cs-card .cs-hover{ position:absolute; inset:0; background:rgba(0,0,0,.7); display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity .3s ease; z-index:2; }
-  .cs-card:hover .cs-hover{ opacity:1; }
-  .cs-hover span{ color:#fff; font-size:16px; font-weight:600; text-transform:uppercase; letter-spacing:1px; }
-  .cs-track.blurred .cs-card:not(.expanded){ filter: blur(8px); transition: filter .6s ease; }
-  .cs-card.expanded{ z-index:1000 !important; }
-  .cs-info{ position:fixed; bottom: clamp(16px,4vw,80px); left:50%; transform:translateX(-50%); text-align:center; opacity:0; pointer-events:none; transition:opacity .6s ease; z-index:1001; max-width:min(600px, 90vw); padding:1.25rem; background:#ff6b35; box-shadow:4px 3px 18px 4px #b7b7b721; border-radius:12px; }
-  .cs-info.visible{ opacity:1; pointer-events:auto; }
-  .cs-info h2{ font-size:clamp(20px,3.2vw,32px); font-weight:900; color:#0a0a0a; margin:0 0 8px; }
-  .cs-info p{ font-size:clamp(14px,2.6vw,18px); color:#080808; line-height:1.6; margin:0; }
-  .cs-close{ position:fixed; top:clamp(12px,3vw,40px); right:clamp(12px,3vw,40px); width:clamp(44px,3.6vw,60px); height:clamp(44px,3.6vw,60px); background:#fff; border:0; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:1002; opacity:0; pointer-events:none; transition: all .3s ease; box-shadow:0 8px 25px rgba(0,0,0,.2); }
-  .cs-close.visible{ opacity:1; pointer-events:auto; }
-  .cs-close:hover{ background:#ff6b35; color:#fff; transform: rotate(90deg) scale(1.05); }
-  .cs-close svg{ width:24px; height:24px; }
-
-  /* ===== Landing Sections (público) ===== */
-  :root{
-    --lp-ink:#0e1726; --lp-muted:#6b7280; --lp-line:#e8eef6;
-    --lp-radius:16px; --lp-shadow:0 18px 50px rgba(2,8,23,.10);
-  }
-
-  .lp-wrap{margin:clamp(24px,5vw,48px) auto; padding:0 clamp(12px,3vw,16px); max-width:1200px}
-  .lp-head{margin-bottom:12px}
-  .lp-head h2{font-size:clamp(18px,2vw,22px); color:var(--lp-ink); margin:0}
-
-  .lp-stage{
-    border:1px solid var(--lp-line);
-    border-radius:16px;
-    background:
-      radial-gradient(800px 400px at 0% 0%, #f1f6ff 0%, transparent 40%),
-      radial-gradient(800px 400px at 120% -20%, #fff0f5 0%, transparent 40%),
-      #fff;
-    padding:12px;
-  }
-
-  .lp-grid{display:grid; gap:12px}
-  /* Plantillas de grid (igual que preview) */
-  .lp-grid-banner{grid-template-columns:1fr}
-  .lp-grid-1{grid-template-columns:1fr}
-  .lp-grid-2{grid-template-columns:repeat(2,1fr)}
-  .lp-grid-3{grid-template-columns:repeat(3,1fr)}
-  @media (max-width:980px){
-    .lp-grid-2{grid-template-columns:1fr}
-    .lp-grid-3{grid-template-columns:repeat(2,1fr)}
-  }
-  @media (max-width:560px){
-    .lp-grid-3{grid-template-columns:1fr}
-  }
-
-  /* Card (igual que preview) */
-  .lp-card{
-    position:relative; border-radius:16px; overflow:hidden; background:#fff;
-    border:1px solid #e9eef7; transform:translateZ(0);
-    transition: transform .18s ease, box-shadow .22s ease;
-  }
-  .lp-card:hover{ transform: translateY(-3px) scale(1.01); box-shadow: var(--lp-shadow); }
-  .lp-card .img{
-    width:100%; aspect-ratio:16/9; object-fit:cover; display:block; background:#eef2f7;
-  }
-
-  /* Overlay texto */
-  .lp-card .txt{
-    position:absolute; left:0; right:0; bottom:0;
-    padding:16px; color:#fff;
-    background:linear-gradient(180deg, transparent, rgba(0,0,0,.45));
-  }
-  .lp-card .t1{font-weight:700; font-size:clamp(14px,1.2vw,16px)}
-  .lp-card .t2{opacity:.9; font-size:13px; margin-top:2px}
-
-  /* CTA pill */
-  .lp-card .cta{
-    display:inline-flex; gap:6px; align-items:center;
-    background:rgba(255,255,255,.95); color:#0b1220;
-    border-radius:999px; padding:6px 10px; margin-top:10px; font-size:13px;
-    text-decoration:none; border:1px solid #e5e7eb;
-    transition:transform .15s ease, box-shadow .2s ease, background .2s;
-  }
-  .lp-card .cta:hover{ transform:translateY(-1px); box-shadow:0 8px 20px rgba(2,8,23,.12); background:#fff }
-
-  /* Estado vacío */
-  .lp-empty{
-    padding:18px; color:var(--lp-muted); text-align:center; border:1px dashed var(--lp-line);
-    border-radius:12px; background:#f9fafb;
-  }
-
-  /* Aparecer al hacer scroll (Intersection Observer) */
-  .ao{ opacity:0; transform:translateY(8px); transition: opacity .45s ease, transform .45s ease }
-  .ao.in{ opacity:1; transform:none }
-
-  /* Material Symbols minimal si la usas */
-  .mi{ font-family:'Material Symbols Outlined', sans-serif; font-variation-settings: 'wght' 500; vertical-align:-2px }
-
-  /* 1) Permitir scroll vertical natural en el área del slider por defecto */
-  .cs-slider{
-    touch-action: pan-y;          /* clave para que el navegador maneje scroll vertical */
-    -ms-touch-action: pan-y;
-  }
-  /* 2) Opcional: evitar rebotes extraños si el slider estuviera dentro de un contenedor con scroll propio */
-  .cs-wrap{
-    overscroll-behavior-y: contain; /* no propagues el "pull to refresh" dentro del slider */
-  }
-  /* 3) Bloquear scroll del fondo cuando una tarjeta está expandida */
-  .cs-lock{
-    overflow: hidden;              /* bloquea scroll en HTML */
-    touch-action: none;            /* evita gestos mientras está el modal/clone abierto */
-  }
-</style>
-
-<section class="cs-wrap full-bleed">
-  <div class="cs-header">
-    <p class="cs-subtitle">Papelería & Oficina</p>
-    <h1 class="cs-title">Descubre todo lo que tenemos para tu día a día</h1>
-  </div>
-
-  <div class="cs-slider" id="sliderContainer">
-    <div class="cs-track" id="sliderTrack">
-      {{-- Tarjetas de papelería (11) con imágenes de internet (Unsplash) --}}
-      <div class="cs-card" data-title="Cuadernos & libretas" data-desc="Tamaños A4/A5, rayado y cuadriculado. Marcas originales.">
-        <img src="https://cdn5.coppel.com/mkp/17561629-1.jpg?iresize=width:846,height:677" alt="Cuadernos y libretas">
-        <div class="cs-hover"><span>Ver más</span></div>
-      </div>
-      <div class="cs-card" data-title="Plumas & marcatextos" data-desc="Tinta gel, roller y permanentes. Sets escolares y de oficina.">
-        <img src="https://i.pinimg.com/736x/f9/c4/58/f9c458188e6b55170ba586aff21ddab3.jpg" alt="Plumas y marcatextos">
-        <div class="cs-hover"><span>Ver más</span></div>
-      </div>
-      <div class="cs-card" data-title="Engrapadoras & perforadoras" data-desc="Metálicas de alto rendimiento para oficina.">
-        <img src="https://i.pinimg.com/1200x/45/65/57/4565575ad836ed53d1b104fb5ac3f401.jpg" alt="Engrapadora de oficina">
-        <div class="cs-hover"><span>Ver más</span></div>
-      </div>
-      <div class="cs-card" data-title="Organización" data-desc="Folders, clips y archiveros para mantener todo en orden">
-        <img src="https://i.pinimg.com/736x/8b/8a/05/8b8a054b0b816d11d774dbf08b731560.jpg" alt="Folders y archivos">
-        <div class="cs-hover"><span>Ver más</span></div>
-      </div>
-      <div class="cs-card" data-title="Arte & dibujo" data-desc="Acuarelas, pinceles y papeles artísticos.">
-        <img src="https://i.pinimg.com/1200x/da/36/b5/da36b5b96325da41d86166af49c7bf2d.jpg" alt="Material de arte y dibujo">
-        <div class="cs-hover"><span>Ver más</span></div>
-      </div>
-      <div class="cs-card" data-title="Impresión & tintas" data-desc="Cartuchos y tóner originales. Asesoría sin costo.">
-        <img src="https://i.pinimg.com/1200x/d3/6b/49/d36b49eb68359dd27b2abc6235155fc7.jpg" alt="Tintas y cartuchos para impresora">
-        <div class="cs-hover"><span>Ver más</span></div>
-      </div>
-      <div class="cs-card" data-title="Escritorios & accesorios" data-desc="Pads, organizadores y gadgets para productividad.">
-        <img src="https://i.pinimg.com/736x/de/6b/51/de6b51ba741fb89dc4296e6bc4aa309f.jpg" alt="Accesorios de escritorio y organización">
-        <div class="cs-hover"><span>Ver más</span></div>
-      </div>
-      <div class="cs-card" data-title="Listas escolares" data-desc="Armamos tu lista completa con entrega rápida.">
-        <img src="https://i.pinimg.com/736x/80/02/06/800206a7c0c1d577c26eaa740920bd72.jpg" alt="Surtido de útiles escolares">
-        <div class="cs-hover"><span>Ver más</span></div>
-      </div>
-      <div class="cs-card" data-title="Ofertas de temporada" data-desc="Descuentos semanales en papelería y oficina.">
-        <img src="https://i.pinimg.com/1200x/c0/cf/68/c0cf68f4508dad4537ade17e062bfb44.jpg" alt="Anuncio de ofertas y rebajas">
-        <div class="cs-hover"><span>Ver más</span></div>
-      </div>
-      <div class="cs-card" data-title="Envío hoy en Toluca*" data-desc="Pedidos antes de la 1:00 pm. Cobertura sujeta a zona.">
-        <img src="https://i.pinimg.com/736x/99/73/ae/9973ae95495ad119d5ee1894ee121f1c.jpg" alt="Mensajero entregando paquete a domicilio">
-        <div class="cs-hover"><span>Ver más</span></div>
-      </div>
-      <div class="cs-card" data-title="Mayoristas & empresas" data-desc="Precios por volumen y facturación inmediata.">
-        <img src="https://i.pinimg.com/1200x/c1/d9/50/c1d9506263dc9c5f9fe4710ec3343de5.jpg" alt="Bodega con cajas para mayoreo">
-        <div class="cs-hover"><span>Ver más</span></div>
-      </div>
-    </div>
-  </div>
-
-  <button class="cs-close" id="closeBtn" aria-label="Cerrar">
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
-    </svg>
-  </button>
-
-  <div class="cs-info" id="cardInfo" aria-live="polite">
-    <h2 id="cardTitle"></h2>
-    <p id="cardDesc"></p>
-  </div>
-</section>
-
-<script>
-  // ====== Posiciones y animación del carrusel 3D (idénticas a las tuyas) ======
-  const csPositions = [
-    { height:620, z:220, rotateY:48,  y:0, clip:"polygon(0px 0px, 100% 10%, 100% 90%, 0px 100%)" },
-    { height:580, z:165, rotateY:35,  y:0, clip:"polygon(0px 0px, 100% 8%, 100% 92%, 0px 100%)" },
-    { height:495, z:110, rotateY:15,  y:0, clip:"polygon(0px 0px, 100% 7%, 100% 93%, 0px 100%)" },
-    { height:420, z:66,  rotateY:15,  y:0, clip:"polygon(0px 0px, 100% 7%, 100% 93%, 0px 100%)" },
-    { height:353, z:46,  rotateY:6,   y:0, clip:"polygon(0px 0px, 100% 7%, 100% 93%, 0px 100%)" },
-    { height:310, z:0,   rotateY:0,   y:0, clip:"polygon(0 0, 100% 0, 100% 100%, 0 100%)" },
-    { height:353, z:54,  rotateY:348, y:0, clip:"polygon(0px 7%, 100% 0px, 100% 100%, 0px 93%)" },
-    { height:420, z:89,  rotateY:-15, y:0, clip:"polygon(0px 7%, 100% 0px, 100% 100%, 0px 93%)" },
-    { height:495, z:135, rotateY:-15, y:1, clip:"polygon(0px 7%, 100% 0px, 100% 100%, 0px 93%)" },
-    { height:580, z:195, rotateY:325, y:0, clip:"polygon(0px 8%, 100% 0px, 100% 100%, 0px 92%)" },
-    { height:620, z:240, rotateY:312, y:0, clip:"polygon(0px 10%, 100% 0px, 100% 100%, 0px 90%)" }
-  ];
-
-  class CircularSlider {
-    constructor(){
-      this.container   = document.getElementById('sliderContainer');
-      this.track       = document.getElementById('sliderTrack');
-      this.cards       = Array.from(document.querySelectorAll('.cs-card'));
-      this.total       = this.cards.length;
-
-      // Estado de drag
-      this.pointerId   = null;
-      this.axisLocked  = null; // 'x' o 'y'
-      this.isDragging  = false;
-      this.startX      = 0;
-      this.startY      = 0;
-      this.dragDistance= 0;
-      this.threshold   = 60;   // distancia para avanzar 1 tarjeta
-      this.processedSteps = 0;
-      this.expandedCard   = null;
-
-      // UI info/close
-      this.cardInfo   = document.getElementById('cardInfo');
-      this.cardTitle  = document.getElementById('cardTitle');
-      this.cardDesc   = document.getElementById('cardDesc');
-      this.closeBtn   = document.getElementById('closeBtn');
-
-      // ===== AUTOPLAY (añadido, no invasivo) =====
-      this.autoplayMs      = 3500;  // cambia el intervalo si quieres
-      this.autoTimer       = null;
-      this.resumeTimeout   = null;
-      this.autoplayEnabled = true;
-
-      this.init();
-    }
-
-    init(){
-      this.applyPositions();
-      this.attachEvents();
-      this.startAutoplay(); // inicia autoplay
-    }
-
-    applyPositions(){
-      this.cards.forEach((card, i) => {
-        const pos = csPositions[i % csPositions.length];
-        gsap.set(card, {
-          height: pos.height,
-          clipPath: pos.clip,
-          transform: `translateZ(${pos.z}px) rotateY(${pos.rotateY}deg) translateY(${pos.y}px)`
-        });
-      });
-    }
-
-    expandCard(card){
-      if(this.expandedCard) return;
-
-      // Pausa autoplay durante expandido
-      this.stopAutoplay();
-
-      this.expandedCard = card;
-      this.cardTitle.textContent = card.dataset.title || '';
-      this.cardDesc.textContent  = card.dataset.desc  || '';
-
-      const rect   = card.getBoundingClientRect();
-      const clone  = card.cloneNode(true);
-      const hover  = clone.querySelector('.cs-hover'); if(hover) hover.remove();
-
-      Object.assign(clone.style, {
-        position:'fixed', left: rect.left+'px', top: rect.top+'px',
-        width: rect.width+'px', height: rect.height+'px', margin:'0', zIndex:'1000'
-      });
-      clone.classList.add('clone');
-      document.body.appendChild(clone);
-      this.cardClone = clone;
-
-      gsap.set(card, { opacity:0 });
-      this.track.classList.add('blurred');
-
-      // Bloquear scroll del fondo mientras está expandida
-      document.documentElement.classList.add('cs-lock');
-
-      const maxHeight   = window.innerHeight * 0.8;
-      const finalWidth  = Math.min(520, window.innerWidth - 32);
-      const finalHeight = Math.min(650, maxHeight);
-      const centerX     = window.innerWidth / 2;
-      const centerY     = window.innerHeight / 2;
-
-      gsap.to(clone, {
-        width: finalWidth, height: finalHeight,
-        left: centerX - finalWidth/2, top: centerY - finalHeight/2,
-        clipPath: 'polygon(0 0, 100% 0, 100% 100%, 0 100%)',
-        transform: 'translateZ(0) rotateY(0deg)',
-        duration: .8, ease: 'power2.out',
-        onComplete: () => {
-          this.cardInfo.classList.add('visible');
-          this.closeBtn.classList.add('visible');
-        }
-      });
-    }
-
-    closeCard(){
-      if(!this.expandedCard) return;
-      this.cardInfo.classList.remove('visible');
-      this.closeBtn.classList.remove('visible');
-
-      const card = this.expandedCard;
-      const clone= this.cardClone;
-      const rect = card.getBoundingClientRect();
-      const index= this.cards.indexOf(card);
-      const pos  = csPositions[index % csPositions.length];
-
-      gsap.to(clone, {
-        width: rect.width, height: rect.height, left: rect.left, top: rect.top, clipPath: pos.clip,
-        duration:.8, ease:'power2.out',
-        onComplete: () => {
-          clone.remove();
-          gsap.set(card, { opacity:1 });
-          this.track.classList.remove('blurred');
-          this.expandedCard=null; this.cardClone=null;
-          // Rehabilitar scroll del fondo
-          document.documentElement.classList.remove('cs-lock');
-          // Reanudar autoplay suave
-          this.resetAutoplay(800);
-        }
-      });
-    }
-
-    rotate(direction){
-      if(this.expandedCard) return;
-
-      this.cards.forEach((card, index) => {
-        const newIndex = direction === 'next'
-          ? (index - 1 + this.total) % this.total
-          : (index + 1) % this.total;
-        const pos = csPositions[newIndex];
-
-        gsap.set(card, { clipPath: pos.clip });
-        gsap.to(card, { height: pos.height, duration:.5, ease:'power2.out' });
-        gsap.to(card, { transform: `translateZ(${pos.z}px) rotateY(${pos.rotateY}deg) translateY(${pos.y}px)`, duration:.5, ease:'power2.out' });
-      });
-
-      if(direction === 'next'){
-        const first = this.cards.shift(); this.cards.push(first); this.track.appendChild(first);
-      } else {
-        const last = this.cards.pop(); this.cards.unshift(last); this.track.prepend(last);
-      }
-    }
-
-    // ===== AUTOPLAY: helpers (no tocan tu lógica 3D) =====
-    startAutoplay(){
-      if(!this.autoplayEnabled || this.autoTimer || this.expandedCard) return;
-      this.autoTimer = setInterval(() => {
-        if (document.visibilityState !== 'visible') return;
-        if (this.isDragging || this.expandedCard || this.axisLocked === 'x') return;
-        this.rotate('next');
-      }, this.autoplayMs);
-    }
-
-    stopAutoplay(){
-      if(this.autoTimer){ clearInterval(this.autoTimer); this.autoTimer = null; }
-      if(this.resumeTimeout){ clearTimeout(this.resumeTimeout); this.resumeTimeout = null; }
-    }
-
-    resetAutoplay(delay = 1600){
-      this.stopAutoplay();
-      this.resumeTimeout = setTimeout(() => this.startAutoplay(), delay);
-    }
-
-    attachEvents(){
-      // Click en tarjetas para expandir
-      this.cards.forEach(card => {
-        card.addEventListener('click', () => {
-          if(!this.isDragging && !this.expandedCard){ this.expandCard(card); }
-        });
-      });
-
-      this.closeBtn.addEventListener('click', () => this.closeCard());
-
-      // Autoplay pausado por interacción del usuario (hover / drag / visibilidad)
-      this.container.addEventListener('mouseenter', () => this.stopAutoplay());
-      this.container.addEventListener('mouseleave', () => this.resetAutoplay(600));
-      this.container.addEventListener('pointerdown', () => this.stopAutoplay());
-      this.container.addEventListener('pointerup',   () => this.resetAutoplay());
-
-      document.addEventListener('visibilitychange', () => {
-        if(document.visibilityState === 'visible') this.resetAutoplay(800);
-        else this.stopAutoplay();
-      });
-      window.addEventListener('blur',  () => this.stopAutoplay());
-      window.addEventListener('focus', () => this.resetAutoplay(800));
-
-      // ====== Pointer Events con bloqueo de eje (como lo tenías) ======
-      this.container.addEventListener('pointerdown', (e) => this.onPointerDown(e));
-      this.container.addEventListener('pointermove', (e) => this.onPointerMove(e));
-      this.container.addEventListener('pointerup',   ()  => this.onPointerUp());
-      this.container.addEventListener('pointercancel', () => this.onPointerUp());
-
-      // Teclado
-      document.addEventListener('keydown', e => {
-        if(e.key === 'Escape' && this.expandedCard) this.closeCard();
-        else if(e.key === 'ArrowLeft' && !this.expandedCard){ this.rotate('prev');  this.resetAutoplay(); }
-        else if(e.key === 'ArrowRight' && !this.expandedCard){ this.rotate('next');  this.resetAutoplay(); }
-      });
-    }
-
-    onPointerDown(e){
-      if(this.expandedCard) return;
-      this.pointerId  = e.pointerId;
-      this.axisLocked = null;
-      this.isDragging = false;
-      this.startX     = e.clientX;
-      this.startY     = e.clientY;
-      this.dragDistance = 0;
-      this.processedSteps=0;
-      // No capturamos aún: dejamos que el scroll vertical fluya hasta detectar gesto horizontal
-    }
-
-    onPointerMove(e){
-      if(this.expandedCard || e.pointerId !== this.pointerId) return;
-
-      const dx = e.clientX - this.startX;
-      const dy = e.clientY - this.startY;
-
-      if(this.axisLocked === null){
-        const min = 8; // px
-        if(Math.abs(dx) < min && Math.abs(dy) < min) return;
-
-        if(Math.abs(dx) > Math.abs(dy) + 4){
-          this.axisLocked = 'x';
-          this.isDragging = true;
-          this.container.classList.add('dragging');
-          this.container.setPointerCapture(this.pointerId);
-          this.container.style.touchAction = 'none';
-          // pausamos autoplay durante el drag
-          this.stopAutoplay();
-        } else {
-          this.axisLocked = 'y';
-          this.isDragging = false;
-          return;
-        }
-      }
-
-      if(this.axisLocked === 'x' && this.isDragging){
-        this.dragDistance = dx;
-        const steps = Math.floor(Math.abs(this.dragDistance) / this.threshold);
-        if(steps > this.processedSteps){
-          const dir = this.dragDistance > 0 ? 'prev' : 'next';
-          this.rotate(dir);
-          this.processedSteps = steps;
-        }
-      }
-    }
-
-    onPointerUp(){
-      if(this.axisLocked === 'x'){
-        try { this.container.releasePointerCapture(this.pointerId); } catch(_) {}
-      }
-      this.pointerId = null;
-      this.axisLocked = null;
-      this.isDragging = false;
-      this.container.classList.remove('dragging');
-      this.container.style.touchAction = '';
-      // reanudar autoplay al soltar
-      this.resetAutoplay();
-    }
-  }
-
-  // Inicialización (igual que tenías). Exponemos la instancia para depurar si quieres.
-  document.addEventListener('DOMContentLoaded', () => { window.__cs = new CircularSlider(); });
-</script>
-
-{{-- ======= Hero (tu bloque original, ajustado para móvil) ======= --}}
-<section id="hero-full-pap">
-  <style>
-    /* ===== HERO PAPELERÍA FULL-BLEED (aislado por #hero-full-pap) ===== */
-    #hero-full-pap{
-      position: relative;
-      left: 50%; right: 50%;
-      margin-left: -50vw; margin-right: -50vw;
-      width: 100vw;
-      border: 0; border-radius: 0; box-shadow: none;
-
-      --ink:#0e1726; --muted:#6b7280; --bg:#f6f8fc; --line:#e8eef6;
-      --brand:#6ea8fe; --accent:#ffc9de; --ok:#16a34a;
-      background:
-        radial-gradient(1200px 400px at 10% 0%, rgba(110,168,254,.25), transparent 60%),
-        radial-gradient(800px 300px at 90% 20%, rgba(255,201,222,.22), transparent 60%),
-        var(--bg);
-    }
-    #hero-full-pap .wrap{max-width:1200px;margin:0 auto;padding:clamp(26px,3vw,44px)}
-    #hero-full-pap .grid{display:grid;grid-template-columns:1.05fr .95fr;gap:clamp(18px,3vw,36px);align-items:center}
-
-    #hero-full-pap h1{margin:0 0 12px; color:var(--ink); letter-spacing:-.02em; line-height:1.05;
-      font-size:clamp(28px,4.2vw,52px)}
-    #hero-full-pap .grad{background:linear-gradient(90deg,var(--brand),var(--accent));
-      -webkit-background-clip:text;background-clip:text;color:transparent}
-    #hero-full-pap p.lead{color:var(--muted); font-size:clamp(15px,1.5vw,18px); line-height:1.6; margin:0 0 16px}
-
-    #hero-full-pap .chips{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0 18px}
-    #hero-full-pap .chip{background:#fff;border:1px dashed var(--line);padding:8px 12px;border-radius:999px;
-      font-size:13px;color:#0f172a;display:inline-flex;align-items:center;gap:8px;box-shadow:0 8px 24px rgba(2,8,23,.04)}
-    #hero-full-pap .dot{width:8px;height:8px;border-radius:50%}
-    #hero-full-pap .ok{background:var(--ok)} .brand{background:var(--brand)} .accent{background:var(--accent)}
-
-    #hero-full-pap .bullets{display:grid;gap:10px;margin:16px 0 8px}
-    #hero-full-pap .bullet{display:flex;gap:10px;align-items:flex-start;color:var(--ink);font-size:15px}
-    #hero-full-pap .bullet i{flex:0 0 18px;height:18px;border-radius:6px;background:rgba(110,168,254,.25);
-      box-shadow:inset 0 0 0 2px rgba(110,168,254,.55)}
-
-    #hero-full-pap .cta{display:flex;gap:12px;flex-wrap:wrap;margin-top:16px}
-
-    /* tarjetas derechas */
-    #hero-full-pap .gallery{display:grid;gap:16px}
-    #hero-full-pap .card-img{position:relative;border-radius:22px;overflow:hidden;background:#fff;border:1px solid var(--line);
-      box-shadow:0 24px 60px rgba(2,8,23,.10);transition:transform .4s ease, box-shadow .4s ease}
-    #hero-full-pap .card-img:hover{transform:translateY(-4px);box-shadow:0 28px 70px rgba(2,8,23,.18)}
-    #hero-full-pap .card-img img{width:100%;height:100%;object-fit:cover;display:block}
-    #hero-full-pap .tag{position:absolute;top:12px;left:12px;background:rgba(255,255,255,.65);backdrop-filter:blur(8px);
-      border:1px solid rgba(255,255,255,.6);padding:6px 10px;border-radius:999px;font-size:12px;font-weight:600;color:#0b1220}
-    #hero-full-pap .note{position:absolute;right:12px;bottom:12px;background:#fff;border:1px dashed var(--line);
-      border-radius:12px;padding:8px 10px;font-size:12px;color:#6b7280}
-    #hero-full-pap .top{aspect-ratio:4/3;min-height:220px}
-    #hero-full-pap .bottom{aspect-ratio:4/3;min-height:220px}
-
-    /* trust bar */
-    #hero-full-pap .trust{display:flex;gap:18px;flex-wrap:wrap;align-items:center;margin-top:16px}
-    #hero-full-pap .trust small{color:#6b7280}
-    #hero-full-pap .logo{height:22px;opacity:.75;filter:grayscale(1);transition:opacity .25s ease,filter .25s ease}
-    #hero-full-pap .logo:hover{opacity:1;filter:grayscale(0)}
-
-    /* ===== Responsive =====
-       - En móvil: texto arriba (order 1), galería abajo (order 2).
-       - Se oculta la imagen "top" (Listo para despacho).
-       - Se mantiene visible la imagen "bottom" (Oficina & Corporativo). */
-@media (max-width:980px){
-  #hero-full-pap .grid{ grid-template-columns:1fr }
-  #hero-full-pap .grid > :first-child{ order:1 }   /* texto arriba */
-  #hero-full-pap .gallery{ display:none !important } /* ocultar toda la galería (ambas fotos) */
-}
-
-    
-  </style>
-
-  <div class="wrap">
-    <div class="grid">
-      <!-- Texto -->
-      <div>
-        <h1>Soluciones en <span class="grad">papelería y oficina</span> listas para trabajar</h1>
-        <p class="lead">Cotiza, compra y recibe con garantía. Atención personalizada, precios de mayoreo y entregas rápidas para empresas, escuelas y oficinas.</p>
-
-        <div class="chips">
-          <span class="chip"><span class="dot ok"></span> Factura CFDI 4.0</span>
-          <span class="chip"><span class="dot brand"></span> Envío a todo México</span>
-          <span class="chip"><span class="dot accent"></span> Mayoreo desde 5 piezas</span>
-        </div>
-
-        <div class="bullets">
-          <div class="bullet"><i></i> Papelería escolar y de oficina (cuadernos, bolígrafos, folders, archivadores)</div>
-          <div class="bullet"><i></i> Tintas y tóner para HP, Epson, Brother</div>
-          <div class="bullet"><i></i> Mobiliario, organización y kits corporativos con tu logotipo</div>
-        </div>
-
-        <div class="cta">
-          <a href="{{ route('web.ventas.index') }}" class="btn btn-primary">Ver catálogo</a>
-          <a href="{{ route('web.contacto') }}" class="btn btn-ghost">Cotizar pedido</a>
-        </div>
-
-        <div class="trust">
-          <small>Distribuimos marcas como</small>
-          <img class="logo" src="{{ asset('images/brands/hp.png') }}" alt="HP" loading="lazy">
-          <img class="logo" src="{{ asset('images/brands/epson.png') }}" alt="Epson" loading="lazy">
-          <img class="logo" src="{{ asset('images/brands/acer.png') }}" alt="BIC" loading="lazy">
-          <img class="logo" src="{{ asset('images/brands/asus.png') }}" alt="Pilot" loading="lazy">
-        </div>
-      </div>
-
-      <!-- Galería -->
-      <div class="gallery">
-        <figure class="card-img top">
-          <img src="{{ asset('images/hero/papeleria.jpg') }}" alt="Estante con útiles escolares" loading="eager" decoding="async">
-          <span class="tag">Listo para despacho</span>
-          <span class="note">Stock continuo + reposición</span>
-        </figure>
-        <figure class="card-img bottom">
-          <img src="{{ asset('images/hero/oficina.jpg') }}" alt="Escritorio de oficina con insumos" loading="lazy" decoding="async">
-          <span class="tag">Oficina & Corporativo</span>
-          <span class="note">Kits personalizados por área</span>
-        </figure>
-      </div>
-    </div>
-  </div>
-</section>
 
   {{-- ======= Secciones administrables (LandingSection) ======= --}}
 @php
@@ -1318,6 +714,128 @@
   </div>
 </section>
 @endif
+{{-- ======= Hero (tu bloque original, ajustado para móvil) ======= --}}
+<section id="hero-full-pap">
+  <style>
+    /* ===== HERO PAPELERÍA FULL-BLEED (aislado por #hero-full-pap) ===== */
+    #hero-full-pap{
+      position: relative;
+      left: 50%; right: 50%;
+      margin-left: -50vw; margin-right: -50vw;
+      width: 100vw;
+      border: 0; border-radius: 0; box-shadow: none;
+
+      --ink:#0e1726; --muted:#6b7280; --bg:#f6f8fc; --line:#e8eef6;
+      --brand:#6ea8fe; --accent:#ffc9de; --ok:#16a34a;
+      background:
+        radial-gradient(1200px 400px at 10% 0%, rgba(110,168,254,.25), transparent 60%),
+        radial-gradient(800px 300px at 90% 20%, rgba(255,201,222,.22), transparent 60%),
+        var(--bg);
+    }
+    #hero-full-pap .wrap{max-width:1200px;margin:0 auto;padding:clamp(26px,3vw,44px)}
+    #hero-full-pap .grid{display:grid;grid-template-columns:1.05fr .95fr;gap:clamp(18px,3vw,36px);align-items:center}
+
+    #hero-full-pap h1{margin:0 0 12px; color:var(--ink); letter-spacing:-.02em; line-height:1.05;
+      font-size:clamp(28px,4.2vw,52px)}
+    #hero-full-pap .grad{background:linear-gradient(90deg,var(--brand),var(--accent));
+      -webkit-background-clip:text;background-clip:text;color:transparent}
+    #hero-full-pap p.lead{color:var(--muted); font-size:clamp(15px,1.5vw,18px); line-height:1.6; margin:0 0 16px}
+
+    #hero-full-pap .chips{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0 18px}
+    #hero-full-pap .chip{background:#fff;border:1px dashed var(--line);padding:8px 12px;border-radius:999px;
+      font-size:13px;color:#0f172a;display:inline-flex;align-items:center;gap:8px;box-shadow:0 8px 24px rgba(2,8,23,.04)}
+    #hero-full-pap .dot{width:8px;height:8px;border-radius:50%}
+    #hero-full-pap .ok{background:var(--ok)} .brand{background:var(--brand)} .accent{background:var(--accent)}
+
+    #hero-full-pap .bullets{display:grid;gap:10px;margin:16px 0 8px}
+    #hero-full-pap .bullet{display:flex;gap:10px;align-items:flex-start;color:var(--ink);font-size:15px}
+    #hero-full-pap .bullet i{flex:0 0 18px;height:18px;border-radius:6px;background:rgba(110,168,254,.25);
+      box-shadow:inset 0 0 0 2px rgba(110,168,254,.55)}
+
+    #hero-full-pap .cta{display:flex;gap:12px;flex-wrap:wrap;margin-top:16px}
+
+    /* tarjetas derechas */
+    #hero-full-pap .gallery{display:grid;gap:16px}
+    #hero-full-pap .card-img{position:relative;border-radius:22px;overflow:hidden;background:#fff;border:1px solid var(--line);
+      box-shadow:0 24px 60px rgba(2,8,23,.10);transition:transform .4s ease, box-shadow .4s ease}
+    #hero-full-pap .card-img:hover{transform:translateY(-4px);box-shadow:0 28px 70px rgba(2,8,23,.18)}
+    #hero-full-pap .card-img img{width:100%;height:100%;object-fit:cover;display:block}
+    #hero-full-pap .tag{position:absolute;top:12px;left:12px;background:rgba(255,255,255,.65);backdrop-filter:blur(8px);
+      border:1px solid rgba(255,255,255,.6);padding:6px 10px;border-radius:999px;font-size:12px;font-weight:600;color:#0b1220}
+    #hero-full-pap .note{position:absolute;right:12px;bottom:12px;background:#fff;border:1px dashed var(--line);
+      border-radius:12px;padding:8px 10px;font-size:12px;color:#6b7280}
+    #hero-full-pap .top{aspect-ratio:4/3;min-height:220px}
+    #hero-full-pap .bottom{aspect-ratio:4/3;min-height:220px}
+
+    /* trust bar */
+    #hero-full-pap .trust{display:flex;gap:18px;flex-wrap:wrap;align-items:center;margin-top:16px}
+    #hero-full-pap .trust small{color:#6b7280}
+    #hero-full-pap .logo{height:22px;opacity:.75;filter:grayscale(1);transition:opacity .25s ease,filter .25s ease}
+    #hero-full-pap .logo:hover{opacity:1;filter:grayscale(0)}
+
+    /* ===== Responsive =====
+       - En móvil: texto arriba (order 1), galería abajo (order 2).
+       - Se oculta la imagen "top" (Listo para despacho).
+       - Se mantiene visible la imagen "bottom" (Oficina & Corporativo). */
+@media (max-width:980px){
+  #hero-full-pap .grid{ grid-template-columns:1fr }
+  #hero-full-pap .grid > :first-child{ order:1 }   /* texto arriba */
+  #hero-full-pap .gallery{ display:none !important } /* ocultar toda la galería (ambas fotos) */
+}
+
+    
+  </style>
+
+  <div class="wrap">
+    <div class="grid">
+      <!-- Texto -->
+      <div>
+        <h1>Soluciones en <span class="grad">papelería y oficina</span> listas para trabajar</h1>
+        <p class="lead">Cotiza, compra y recibe con garantía. Atención personalizada, precios de mayoreo y entregas rápidas para empresas, escuelas y oficinas.</p>
+
+        <div class="chips">
+          <span class="chip"><span class="dot ok"></span> Factura CFDI 4.0</span>
+          <span class="chip"><span class="dot brand"></span> Envío a todo México</span>
+          <span class="chip"><span class="dot accent"></span> Mayoreo desde 5 piezas</span>
+        </div>
+
+        <div class="bullets">
+          <div class="bullet"><i></i> Papelería escolar y de oficina (cuadernos, bolígrafos, folders, archivadores)</div>
+          <div class="bullet"><i></i> Tintas y tóner para HP, Epson, Brother</div>
+          <div class="bullet"><i></i> Mobiliario, organización y kits corporativos con tu logotipo</div>
+        </div>
+
+        <div class="cta">
+          <a href="{{ route('web.ventas.index') }}" class="btn btn-primary">Ver catálogo</a>
+          <a href="{{ route('web.contacto') }}" class="btn btn-ghost">Cotizar pedido</a>
+        </div>
+
+        <div class="trust">
+          <small>Distribuimos marcas como</small>
+          <img class="logo" src="{{ asset('images/brands/hp.png') }}" alt="HP" loading="lazy">
+          <img class="logo" src="{{ asset('images/brands/epson.png') }}" alt="Epson" loading="lazy">
+          <img class="logo" src="{{ asset('images/brands/acer.png') }}" alt="BIC" loading="lazy">
+          <img class="logo" src="{{ asset('images/brands/asus.png') }}" alt="Pilot" loading="lazy">
+        </div>
+      </div>
+
+      <!-- Galería -->
+      <div class="gallery">
+        <figure class="card-img top">
+          <img src="{{ asset('images/hero/papeleria.jpg') }}" alt="Estante con útiles escolares" loading="eager" decoding="async">
+          <span class="tag">Listo para despacho</span>
+          <span class="note">Stock continuo + reposición</span>
+        </figure>
+        <figure class="card-img bottom">
+          <img src="{{ asset('images/hero/oficina.jpg') }}" alt="Escritorio de oficina con insumos" loading="lazy" decoding="async">
+          <span class="tag">Oficina & Corporativo</span>
+          <span class="note">Kits personalizados por área</span>
+        </figure>
+      </div>
+    </div>
+  </div>
+</section>
+
 
 <script>
 (() => {

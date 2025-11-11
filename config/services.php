@@ -125,5 +125,9 @@ return [
     'enabled' => env('AI_ENABLED', false),
     'model'   => env('AI_MODEL', 'gpt-4o-mini'),
 ],
+'meli' => [
+        'client_id'     => env('MELI_CLIENT_ID'),
+        'client_secret' => env('MELI_CLIENT_SECRET'),
+    ],
 
 ];

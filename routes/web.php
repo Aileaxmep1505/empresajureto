@@ -45,6 +45,8 @@ use App\Http\Controllers\Tickets\TicketDocumentController;
 use App\Http\Controllers\Tickets\TicketChecklistController;
 use App\Http\Controllers\Mail\MailboxController;
 use App\Http\Controllers\AgendaEventController;
+
+use App\Http\Controllers\MeliController;
 /*
 |--------------------------------------------------------------------------
 | AUTH
@@ -553,3 +555,7 @@ Route::middleware(['auth'])->group(function () {
     // Drag/resize
     Route::put('/agenda/{agenda}/move', [AgendaEventController::class,'move'])->name('agenda.move');
 });
+
+
+Route::get('/meli/callback', [MeliController::class, 'callback'])->name('meli.callback');        // https://ai.jureto.com.mx/meli/callback
+Route::post('/meli/notifications', [MeliController::class, 'notifications'])->name('meli.notifications'); // https://ai.jureto.com.mx/meli/notifications
