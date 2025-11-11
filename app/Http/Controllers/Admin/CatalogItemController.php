@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Str;
+use App\Jobs\PublishCatalogItemToMeli;
 
 class CatalogItemController extends Controller implements HasMiddleware
 {
@@ -61,13 +62,15 @@ class CatalogItemController extends Controller implements HasMiddleware
             'sku'         => ['nullable','string','max:120'],
             'price'       => ['required','numeric','min:0'],
             'sale_price'  => ['nullable','numeric','min:0'],
-            'status'      => ['required','integer','in:0,1,2'],
+            'status'      => ['required','integer','in:0,1,2'], // 0=borrador 1=publicado 2=oculto
             'image_url'   => ['nullable','string','max:2048'],
             'images'      => ['nullable','array'],
             'images.*'    => ['nullable','url'],
             'is_featured' => ['nullable','boolean'],
             'brand_id'    => ['nullable','integer'],
             'category_id' => ['nullable','integer'],
+            'brand_name'  => ['nullable','string','max:120'], // requerido por ML como fallback (BRAND)
+            'model_name'  => ['nullable','string','max:120'], // requerido por ML como fallback (MODEL)
             'excerpt'     => ['nullable','string'],
             'description' => ['nullable','string'],
             'published_at'=> ['nullable','date'],
@@ -81,9 +84,12 @@ class CatalogItemController extends Controller implements HasMiddleware
 
         $item = CatalogItem::create($data);
 
+        // Encola sincronización con Mercado Libre (creación/actualización)
+        $this->dispatchMeliSync($item);
+
         return redirect()
             ->route('admin.catalog.edit', $item->id)
-            ->with('ok', 'Producto web creado correctamente.');
+            ->with('ok', 'Producto web creado correctamente. Sincronización con Mercado Libre encolada.');
     }
 
     public function edit(CatalogItem $catalogItem)
@@ -106,6 +112,8 @@ class CatalogItemController extends Controller implements HasMiddleware
             'is_featured' => ['nullable','boolean'],
             'brand_id'    => ['nullable','integer'],
             'category_id' => ['nullable','integer'],
+            'brand_name'  => ['nullable','string','max:120'],
+            'model_name'  => ['nullable','string','max:120'],
             'excerpt'     => ['nullable','string'],
             'description' => ['nullable','string'],
             'published_at'=> ['nullable','date'],
@@ -116,12 +124,19 @@ class CatalogItemController extends Controller implements HasMiddleware
 
         $catalogItem->update($data);
 
-        return back()->with('ok', 'Producto web actualizado.');
+        // Encola sincronización con Mercado Libre (si está publicado actualiza; si no, puede pausar)
+        $this->dispatchMeliSync($catalogItem);
+
+        return back()->with('ok', 'Producto web actualizado. Sincronización con Mercado Libre encolada.');
     }
 
     public function destroy(CatalogItem $catalogItem)
     {
         $catalogItem->delete();
+
+        // Si existe en ML, el Job sabrá pausarlo/cancelarlo según tu lógica (opcional)
+        $this->dispatchMeliSync($catalogItem);
+
         return redirect()->route('admin.catalog.index')->with('ok', 'Producto web eliminado.');
     }
 
@@ -134,6 +149,16 @@ class CatalogItemController extends Controller implements HasMiddleware
         }
         $catalogItem->save();
 
-        return back()->with('ok', 'Estado actualizado.');
+        // Al cambiar estado, sincroniza/pausa en Mercado Libre
+        $this->dispatchMeliSync($catalogItem);
+
+        return back()->with('ok', 'Estado actualizado. Sincronización con Mercado Libre encolada.');
+    }
+
+    /** Encola el Job que publica/actualiza/pausa en Mercado Libre */
+    private function dispatchMeliSync(CatalogItem $item): void
+    {
+        // El Job PublishCatalogItemToMeli decide: crear, actualizar o pausar según status y meli_item_id.
+        PublishCatalogItemToMeli::dispatch($item->id);
     }
 }

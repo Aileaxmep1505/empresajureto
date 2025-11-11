@@ -1,5 +1,5 @@
 <?php
-
+// app/Models/CatalogItem.php
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
@@ -13,20 +13,13 @@ class CatalogItem extends Model
     protected $table = 'catalog_items';
 
     protected $fillable = [
-        'name',
-        'slug',
-        'sku',
-        'price',
-        'sale_price',
-        'status',        // 0=borrador 1=publicado 2=oculto
-        'excerpt',
-        'description',
-        'brand_id',
-        'category_id',
-        'image_url',     // portada
-        'images',        // JSON de URLs
-        'is_featured',   // destacado para Home
-        'published_at',
+        'name','slug','sku','price','sale_price','status',
+        'excerpt','description','brand_id','category_id',
+        'brand_name','model_name',
+        'image_url','images','is_featured','published_at',
+        // ML
+        'meli_item_id','meli_category_id','meli_listing_type_id',
+        'meli_synced_at','meli_status','meli_last_error',
     ];
 
     protected $casts = [
@@ -35,41 +28,26 @@ class CatalogItem extends Model
         'images'       => 'array',
         'is_featured'  => 'boolean',
         'published_at' => 'datetime',
+        'meli_synced_at' => 'datetime',
     ];
 
-    public function getRouteKeyName()
-    {
-        return 'slug';
+    public function getRouteKeyName(){ return 'slug'; }
+
+    /* Scopes */
+    public function scopePublished($q){
+        return $q->where('status', 1)->where(function ($qq) {
+            $qq->whereNull('published_at')->orWhere('published_at','<=',now());
+        });
     }
+    public function scopeFeatured($q){ return $q->where('is_featured', true); }
+    public function scopeOrdered($q){ return $q->orderByDesc('published_at')->orderBy('name'); }
 
-    /* ===== Scopes ===== */
-    public function scopePublished($q)
-    {
-        return $q->where('status', 1)
-                 ->where(function ($qq) {
-                     $qq->whereNull('published_at')
-                        ->orWhere('published_at', '<=', now());
-                 });
+    /* Relaciones de ejemplo */
+    public function favoredBy(){ return $this->belongsToMany(\App\Models\User::class, 'favorites')->withTimestamps(); }
+    public function category(){ return $this->belongsTo(\App\Models\Category::class, 'category_id'); }
+
+    /* Helpers mínimos */
+    public function mainPicture(): ?string {
+        return $this->image_url ?: ($this->images[0] ?? null);
     }
-
-    public function scopeFeatured($q)
-    {
-        return $q->where('is_featured', true);
-    }
-
-    public function scopeOrdered($q)
-    {
-        return $q->orderByDesc('published_at')->orderBy('name');
-    }
-    public function favoredBy() {
-    return $this->belongsToMany(\App\Models\User::class, 'favorites')->withTimestamps();
-}
-// app/Models/CatalogItem.php
-
-public function category()
-{
-    return $this->belongsTo(\App\Models\Category::class, 'category_id');
-}
-
-
 }
