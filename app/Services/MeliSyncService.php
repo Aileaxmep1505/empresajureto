@@ -9,13 +9,10 @@ use Illuminate\Support\Facades\Log;
 
 class MeliSyncService
 {
-    /** Construye el endpoint según SANDBOX o PRODUCCIÓN */
+    /** Siempre usa el host real; el “sandbox” se simula con usuarios de test */
     private function api(string $path): string
     {
-        $base = config('services.meli.sandbox')
-            ? 'https://api.mercadolibre.com.sandbox/'
-            : 'https://api.mercadolibre.com/';
-        return rtrim($base, '/').'/'.ltrim($path, '/');
+        return 'https://api.mercadolibre.com/'.ltrim($path, '/');
     }
 
     /** Publica o actualiza en ML y marca campos en DB */
@@ -46,7 +43,7 @@ class MeliSyncService
             $categoryId = $pred[0]['category_id'] ?? 'MLM3530'; // fallback genérico “Otros”
         }
 
-        // 3) pictures: portada + extras
+        // 3) pictures
         $pics = [];
         if ($item->mainPicture()) $pics[] = ['source' => $item->mainPicture()];
         foreach (($item->images ?? []) as $u) {
@@ -54,11 +51,10 @@ class MeliSyncService
             if (count($pics) >= 6) break;
         }
         if (empty($pics)) {
-            // placeholder pública para evitar rechazo por falta de imagen
             $pics[] = ['source'=>'https://http2.mlstatic.com/storage/developers-site-cms-admin/openapi/319102622313-testimage.jpeg'];
         }
 
-        // 4) atributos mínimos requeridos (defaults)
+        // 4) atributos mínimos
         $attributes = [];
         $brand = trim((string)($item->brand_name ?? 'Genérica'));
         $model = trim((string)($item->model_name ?? $item->sku ?? 'Modelo Único'));
@@ -67,11 +63,11 @@ class MeliSyncService
 
         // 5) payload común
         $price = (float)($item->sale_price ?? $item->price ?? 0);
-        if ($price < 5) $price = 5.00; // mínimos prácticos
+        if ($price < 5) $price = 5.00;
         $qty = max(1, (int)1);
 
         $payload = [
-            'title'              => mb_strimwidth($item->name, 0, 60), // mejor tasa de aceptación
+            'title'              => mb_strimwidth($item->name, 0, 60),
             'category_id'        => $categoryId,
             'price'              => $price,
             'currency_id'        => 'MXN',
@@ -102,7 +98,7 @@ class MeliSyncService
                 'meli_category_id' => $categoryId,
                 'meli_listing_type_id' => $listingType,
             ]);
-            Log::warning('ML publish error', ['catalog_item_id'=>$item->id, 'resp'=>$j, 'sandbox'=>config('services.meli.sandbox')]);
+            Log::warning('ML publish error', ['catalog_item_id'=>$item->id, 'resp'=>$j]);
             return ['ok'=>false, 'json'=>$j];
         }
 
@@ -138,7 +134,6 @@ class MeliSyncService
     {
         $base = $i->excerpt ?: strip_tags((string)$i->description);
         $base = trim($base) ?: "{$i->name}.\n\nVendido por JURETO. Factura disponible. Garantía estándar.\n";
-        // ML recomienda <= 5000 chars, sin HTML
         return mb_substr(preg_replace('/\s+/', ' ', $base), 0, 4800);
     }
 }
