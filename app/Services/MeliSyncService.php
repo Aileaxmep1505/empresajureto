@@ -9,40 +9,56 @@ use Illuminate\Support\Facades\Log;
 
 class MeliSyncService
 {
+    /** Construye el endpoint según SANDBOX o PRODUCCIÓN */
+    private function api(string $path): string
+    {
+        $base = config('services.meli.sandbox')
+            ? 'https://api.mercadolibre.com.sandbox/'
+            : 'https://api.mercadolibre.com/';
+        return rtrim($base, '/').'/'.ltrim($path, '/');
+    }
+
     /** Publica o actualiza en ML y marca campos en DB */
     public function sync(CatalogItem $item): array
     {
         $http = MeliHttp::withFreshToken();
 
         // 0) Estado de la cuenta (para shipping)
-        $me = $http->get('https://api.mercadolibre.com/users/me')->json();
+        $meResp = $http->get($this->api('users/me'));
+        $me = $meResp->ok() ? $meResp->json() : [];
         $env = Arr::get($me, 'status.mercadoenvios', 'not_accepted'); // accepted|not_accepted|mandatory
-        $shippingMode = $env === 'accepted' || $env === 'mandatory' ? 'me2' : 'custom';
+        $shippingMode = ($env === 'accepted' || $env === 'mandatory') ? 'me2' : 'custom';
 
         // 1) listing_type_id permitido
-        $listings = $http->get("https://api.mercadolibre.com/users/".Arr::get($me, 'id')."/available_listing_types", ['site_id'=>'MLM'])->json();
+        $userId = Arr::get($me, 'id');
+        $listings = [];
+        if ($userId) {
+            $ltResp = $http->get($this->api("users/{$userId}/available_listing_types"), ['site_id'=>'MLM']);
+            $listings = $ltResp->ok() ? $ltResp->json() : [];
+        }
         $listingType = $item->meli_listing_type_id ?: ($listings[0]['id'] ?? 'gold_special');
 
         // 2) category_id (usa el guardado o predice por título)
         $categoryId = $item->meli_category_id;
         if (!$categoryId) {
-            $pred = $http->get('https://api.mercadolibre.com/sites/MLM/domain_discovery/search', ['q'=>$item->name])->json();
+            $predResp = $http->get($this->api('sites/MLM/domain_discovery/search'), ['q'=>$item->name]);
+            $pred = $predResp->ok() ? $predResp->json() : [];
             $categoryId = $pred[0]['category_id'] ?? 'MLM3530'; // fallback genérico “Otros”
         }
 
-        // 3) armar pictures: portada + extras (URL absolutas)
+        // 3) pictures: portada + extras
         $pics = [];
         if ($item->mainPicture()) $pics[] = ['source' => $item->mainPicture()];
         foreach (($item->images ?? []) as $u) {
             if ($u && $u !== $item->mainPicture()) $pics[] = ['source'=>$u];
-            if (count($pics) >= 6) break; // ML recomienda pocas, 6 es suficiente
+            if (count($pics) >= 6) break;
         }
         if (empty($pics)) {
             // placeholder pública para evitar rechazo por falta de imagen
             $pics[] = ['source'=>'https://http2.mlstatic.com/storage/developers-site-cms-admin/openapi/319102622313-testimage.jpeg'];
         }
 
-        // 4) atributos mínimos requeridos (defaults seguros)
+        // 4) atributos mínimos requeridos (defaults)
         $attributes = [];
         $brand = trim((string)($item->brand_name ?? 'Genérica'));
         $model = trim((string)($item->model_name ?? $item->sku ?? 'Modelo Único'));
@@ -68,14 +84,14 @@ class MeliSyncService
             'attributes'         => $attributes,
             'shipping'           => $shippingMode === 'me2'
                 ? ['mode'=>'me2','local_pick_up'=>true,'free_shipping'=>false]
-                : ['mode'=>'custom']
+                : ['mode'=>'custom'],
         ];
 
         // 6) crear o actualizar
         if ($item->meli_item_id) {
-            $resp = $http->put("https://api.mercadolibre.com/items/{$item->meli_item_id}", $payload);
+            $resp = $http->put($this->api("items/{$item->meli_item_id}"), $payload);
         } else {
-            $resp = $http->post('https://api.mercadolibre.com/items', $payload);
+            $resp = $http->post($this->api('items'), $payload);
         }
 
         $j = $resp->json();
@@ -86,7 +102,7 @@ class MeliSyncService
                 'meli_category_id' => $categoryId,
                 'meli_listing_type_id' => $listingType,
             ]);
-            Log::warning('ML publish error', ['id'=>$item->id, 'resp'=>$j]);
+            Log::warning('ML publish error', ['catalog_item_id'=>$item->id, 'resp'=>$j, 'sandbox'=>config('services.meli.sandbox')]);
             return ['ok'=>false, 'json'=>$j];
         }
 
@@ -108,10 +124,10 @@ class MeliSyncService
     {
         if (!$item->meli_item_id) return ['ok'=>true,'json'=>['msg'=>'sin meli_item_id']];
         $http = MeliHttp::withFreshToken();
-        $resp = $http->put("https://api.mercadolibre.com/items/{$item->meli_item_id}", ['status'=>'paused']);
+        $resp = $http->put($this->api("items/{$item->meli_item_id}"), ['status'=>'paused']);
         $j = $resp->json();
         if ($resp->failed()) {
-            $item->update(['meli_status'=>'error','meli_last_error'=>substr(json_encode($j),0,2000)]);
+            $item->update(['meli_status'=>'error','meli_last_error'=>substr(json_encode($j,JSON_UNESCAPED_UNICODE),0,2000)]);
             return ['ok'=>false,'json'=>$j];
         }
         $item->update(['meli_status'=>'paused','meli_synced_at'=>now(),'meli_last_error'=>null]);

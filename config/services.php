@@ -126,8 +126,11 @@ return [
     'model'   => env('AI_MODEL', 'gpt-4o-mini'),
 ],
 'meli' => [
-        'client_id'     => env('MELI_CLIENT_ID'),
-        'client_secret' => env('MELI_CLIENT_SECRET'),
-    ],
+    'client_id'     => env('MELI_CLIENT_ID'),
+    'client_secret' => env('MELI_CLIENT_SECRET'),
+    'redirect'      => env('MELI_REDIRECT'),
+    'sandbox'       => (bool) env('MELI_SANDBOX', true),
+],
+
 
 ];
