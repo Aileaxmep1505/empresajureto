@@ -69,8 +69,8 @@ class CatalogItemController extends Controller implements HasMiddleware
             'is_featured' => ['nullable','boolean'],
             'brand_id'    => ['nullable','integer'],
             'category_id' => ['nullable','integer'],
-            'brand_name'  => ['nullable','string','max:120'], // requerido por ML como fallback (BRAND)
-            'model_name'  => ['nullable','string','max:120'], // requerido por ML como fallback (MODEL)
+            'brand_name'  => ['nullable','string','max:120'], // fallback ML (BRAND)
+            'model_name'  => ['nullable','string','max:120'], // fallback ML (MODEL)
             'excerpt'     => ['nullable','string'],
             'description' => ['nullable','string'],
             'published_at'=> ['nullable','date'],
@@ -84,12 +84,12 @@ class CatalogItemController extends Controller implements HasMiddleware
 
         $item = CatalogItem::create($data);
 
-        // Encola sincronización con Mercado Libre (creación/actualización)
-        $this->dispatchMeliSync($item);
+        // Encola sincronización con Mercado Libre (creación)
+        $this->dispatchMeliSync($item, true);
 
         return redirect()
             ->route('admin.catalog.edit', $item->id)
-            ->with('ok', 'Producto web creado correctamente. Sincronización con Mercado Libre encolada.');
+            ->with('ok', 'Producto web creado. Sincronización con Mercado Libre encolada.');
     }
 
     public function edit(CatalogItem $catalogItem)
@@ -124,8 +124,8 @@ class CatalogItemController extends Controller implements HasMiddleware
 
         $catalogItem->update($data);
 
-        // Encola sincronización con Mercado Libre (si está publicado actualiza; si no, puede pausar)
-        $this->dispatchMeliSync($catalogItem);
+        // Encola sincronización con Mercado Libre (update)
+        $this->dispatchMeliSync($catalogItem, true);
 
         return back()->with('ok', 'Producto web actualizado. Sincronización con Mercado Libre encolada.');
     }
@@ -134,7 +134,7 @@ class CatalogItemController extends Controller implements HasMiddleware
     {
         $catalogItem->delete();
 
-        // Si existe en ML, el Job sabrá pausarlo/cancelarlo según tu lógica (opcional)
+        // Opcional: pausar/cerrar en ML desde el Job
         $this->dispatchMeliSync($catalogItem);
 
         return redirect()->route('admin.catalog.index')->with('ok', 'Producto web eliminado.');
@@ -149,16 +149,46 @@ class CatalogItemController extends Controller implements HasMiddleware
         }
         $catalogItem->save();
 
-        // Al cambiar estado, sincroniza/pausa en Mercado Libre
-        $this->dispatchMeliSync($catalogItem);
+        // Sincroniza con Mercado Libre
+        $this->dispatchMeliSync($catalogItem, true);
 
         return back()->with('ok', 'Estado actualizado. Sincronización con Mercado Libre encolada.');
     }
 
-    /** Encola el Job que publica/actualiza/pausa en Mercado Libre */
-    private function dispatchMeliSync(CatalogItem $item): void
+    /** === Acciones Mercado Libre desde UI === */
+
+    public function publishToMeli(CatalogItem $catalogItem)
     {
-        // El Job PublishCatalogItemToMeli decide: crear, actualizar o pausar según status y meli_item_id.
-        PublishCatalogItemToMeli::dispatch($item->id);
+        PublishCatalogItemToMeli::dispatch($catalogItem->id, [
+            'activate' => true,
+            'ensure_picture' => true,
+            'update_description' => true,
+        ]);
+
+        return back()->with('ok', 'Publicación/actualización en Mercado Libre encolada.');
+    }
+
+    public function pauseMeli(CatalogItem $catalogItem)
+    {
+        PublishCatalogItemToMeli::dispatch($catalogItem->id, ['pause' => true]);
+
+        return back()->with('ok', 'Pausa en Mercado Libre encolada.');
+    }
+
+    public function activateMeli(CatalogItem $catalogItem)
+    {
+        PublishCatalogItemToMeli::dispatch($catalogItem->id, ['activate' => true]);
+
+        return back()->with('ok', 'Activación en Mercado Libre encolada.');
+    }
+
+    /** Encola el Job que publica/actualiza/pausa en Mercado Libre */
+    private function dispatchMeliSync(CatalogItem $item, bool $activateIfPublished = false): void
+    {
+        $opts = [];
+        if ($activateIfPublished && (int)$item->status === 1) {
+            $opts = ['activate' => true, 'ensure_picture' => true, 'update_description' => true];
+        }
+        PublishCatalogItemToMeli::dispatch($item->id, $opts);
     }
 }

@@ -7,6 +7,8 @@
     <h1 style="font-weight:800;margin:0;">Editar: {{ $item->name }}</h1>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
       <a class="btn btn-ghost" href="{{ route('admin.catalog.index') }}">← Volver</a>
+
+      {{-- Toggle publicar/ocultar --}}
       <form action="{{ route('admin.catalog.toggle', $item) }}" method="POST"
             onsubmit="return confirm('¿Cambiar estado de publicación?')">
         @csrf @method('PATCH')
@@ -14,6 +16,25 @@
           {{ $item->status == 1 ? 'Ocultar' : 'Publicar' }}
         </button>
       </form>
+
+      {{-- Mercado Libre: acciones rápidas --}}
+      <form method="POST" action="{{ route('admin.catalog.meli.publish', $item) }}">
+        @csrf
+        <button class="btn btn-primary" type="submit">ML: Publicar/Actualizar</button>
+      </form>
+
+      @if($item->meli_item_id)
+        <form method="POST" action="{{ route('admin.catalog.meli.pause', $item) }}">
+          @csrf
+          <button class="btn btn-ghost" type="submit">ML: Pausar</button>
+        </form>
+        <form method="POST" action="{{ route('admin.catalog.meli.activate', $item) }}">
+          @csrf
+          <button class="btn btn-ghost" type="submit">ML: Activar</button>
+        </form>
+      @endif
+
+      {{-- Eliminar --}}
       <form action="{{ route('admin.catalog.destroy', $item) }}" method="POST"
             onsubmit="return confirm('¿Eliminar este producto?')">
         @csrf @method('DELETE')
@@ -22,12 +43,28 @@
     </div>
   </div>
 
+  {{-- Banner de resultado/errores --}}
   @if(session('ok'))
     <div class="alert" style="padding:10px 12px;border:1px solid #e8eef6;border-radius:12px;background:#f8fffb;color:#0b6b3a;margin-bottom:12px;">
       {{ session('ok') }}
     </div>
   @endif
 
+  @if($item->meli_item_id || $item->meli_last_error)
+    <div class="alert" style="padding:10px 12px;border:1px solid #e8eef6;border-radius:12px;background:#fbfeff;color:#0b4b6b;margin-bottom:12px;">
+      <strong>Mercado Libre</strong>:
+      @if($item->meli_item_id)
+        ID: {{ $item->meli_item_id }} · Estado: {{ $item->meli_status ?: '—' }}
+      @else
+        Sin publicación en ML.
+      @endif
+      @if($item->meli_last_error)
+        <div style="color:#b91c1c;margin-top:6px;white-space:normal;">Último error: {{ $item->meli_last_error }}</div>
+      @endif
+    </div>
+  @endif
+
+  {{-- Errores de validación --}}
   @if($errors->any())
     <div class="alert" style="padding:10px 12px;border:1px solid #e8eef6;border-radius:12px;background:#fff4f4;color:#991b1b;margin-bottom:12px;">
       <strong>Corrige los siguientes campos:</strong>

@@ -9,14 +9,20 @@ use Illuminate\Support\Facades\Log;
 
 class MeliSyncService
 {
-    /** Siempre usa el host real; el “sandbox” se simula con usuarios de test */
+    /** Siempre usa el host real; el “sandbox” se simula con usuarios de prueba */
     private function api(string $path): string
     {
         return 'https://api.mercadolibre.com/' . ltrim($path, '/');
     }
 
-    /** Publica o actualiza en ML y marca campos en DB */
-    public function sync(CatalogItem $item): array
+    /**
+     * Publica o actualiza en ML y marca campos en DB.
+     * $options:
+     *  - 'activate' => bool   Fuerza activar (status=active) si es posible
+     *  - 'update_description' => bool  Actualiza la descripción usando el endpoint específico
+     *  - 'ensure_picture' => bool      Reemplaza imágenes con una estable si hay sub_status picture_download_pending
+     */
+    public function sync(CatalogItem $item, array $options = []): array
     {
         $http = MeliHttp::withFreshToken();
 
@@ -30,10 +36,7 @@ class MeliSyncService
         $userId = Arr::get($me, 'id');
         $listings = [];
         if ($userId) {
-            $ltResp = $http->get(
-                $this->api("users/{$userId}/available_listing_types"),
-                ['site_id' => 'MLM']
-            );
+            $ltResp = $http->get($this->api("users/{$userId}/available_listing_types"), ['site_id' => 'MLM']);
             $listings = $ltResp->ok() ? (array) $ltResp->json() : [];
         }
         $listingType = $item->meli_listing_type_id ?: ($listings[0]['id'] ?? 'gold_special');
@@ -60,7 +63,7 @@ class MeliSyncService
             if (count($pics) >= 6) break;
         }
         if (empty($pics)) {
-            // placeholder pública para evitar rechazo por falta de imagen
+            // Placeholder pública para evitar rechazo por falta de imagen
             $pics[] = ['source' => 'https://http2.mlstatic.com/storage/developers-site-cms-admin/openapi/319102622313-testimage.jpeg'];
         }
 
@@ -71,7 +74,7 @@ class MeliSyncService
         $attributes[] = ['id' => 'BRAND', 'value_name' => $brand];
         $attributes[] = ['id' => 'MODEL', 'value_name' => $model];
 
-        // 👇 Autocompletar los atributos requeridos por la categoría (ej. FAN_TYPE)
+        // Autocompletar los atributos requeridos por la categoría (ej. FAN_TYPE)
         $attributes = $this->fillRequiredCategoryAttributes($http, $categoryId, $attributes);
 
         // 5) payload común
@@ -96,15 +99,80 @@ class MeliSyncService
                 : ['mode' => 'custom'],
         ];
 
-        // 6) crear o actualizar
+        // 6) crear o actualizar (UPDATE SEGURO)
         if (!empty($item->meli_item_id)) {
-            $resp = $http->put($this->api("items/{$item->meli_item_id}"), $payload);
+            // UPDATE: no enviar campos no-modificables
+            $update = $payload;
+            unset(
+                $update['listing_type_id'],
+                $update['category_id'],
+                $update['buying_mode'],
+                $update['currency_id'],
+                $update['condition'],
+                $update['description']  // descripción se actualiza con endpoint dedicado
+            );
+
+            // Activar si se pidió
+            if (!empty($options['activate'])) {
+                $update['status'] = 'active';
+            }
+
+            $resp = $http->put($this->api("items/{$item->meli_item_id}"), $update);
+            $j = (array) $resp->json();
+
+            // Si hay sub_status picture_download_pending y pidieron asegurar imagen, reemplazamos y reintento de activar
+            if ($resp->ok() && !empty($options['ensure_picture'])) {
+                $check = $http->get($this->api("items/{$item->meli_item_id}"))->json();
+                $sub = $check['sub_status'] ?? [];
+                if (in_array('picture_download_pending', (array) $sub, true)) {
+                    $http->put($this->api("items/{$item->meli_item_id}"), [
+                        'pictures' => [
+                            ['source' => 'https://http2.mlstatic.com/storage/developers-site-cms-admin/openapi/319102622313-testimage.jpeg']
+                        ],
+                    ]);
+                    if (!empty($options['activate'])) {
+                        $http->put($this->api("items/{$item->meli_item_id}"), ['status' => 'active']);
+                    }
+                }
+            }
+
+            // Descripción por endpoint dedicado (si se pidió)
+            if (!empty($options['update_description'])) {
+                $this->upsertDescription($http, $item->meli_item_id, $this->plainText($item));
+            }
+
         } else {
+            // CREATE: enviar payload completo
             $resp = $http->post($this->api('items'), $payload);
+            $j = (array) $resp->json();
+
+            // Si se pidió activar inmediatamente (y ML lo permite)
+            if ($resp->ok() && !empty($j['id']) && !empty($options['activate'])) {
+                $http->put($this->api("items/{$j['id']}"), ['status' => 'active']);
+            }
+            // Si se pidió asegurar imagen
+            if ($resp->ok() && !empty($j['id']) && !empty($options['ensure_picture'])) {
+                $check = $http->get($this->api("items/{$j['id']}"))->json();
+                $sub = $check['sub_status'] ?? [];
+                if (in_array('picture_download_pending', (array) $sub, true)) {
+                    $http->put($this->api("items/{$j['id']}"), [
+                        'pictures' => [
+                            ['source' => 'https://http2.mlstatic.com/storage/developers-site-cms-admin/openapi/319102622313-testimage.jpeg']
+                        ],
+                    ]);
+                    if (!empty($options['activate'])) {
+                        $http->put($this->api("items/{$j['id']}"), ['status' => 'active']);
+                    }
+                }
+            }
+            // Descripción por endpoint dedicado (si se pidió)
+            if ($resp->ok() && !empty($j['id']) && !empty($options['update_description'])) {
+                $this->upsertDescription($http, $j['id'], $this->plainText($item));
+            }
         }
 
-        $j = (array) $resp->json();
-        if ($resp->failed() || empty($j['id'])) {
+        // Manejo de errores
+        if ($resp->failed()) {
             $item->update([
                 'meli_status'           => 'error',
                 'meli_last_error'       => substr(json_encode($j, JSON_UNESCAPED_UNICODE), 0, 2000),
@@ -115,10 +183,10 @@ class MeliSyncService
             return ['ok' => false, 'json' => $j];
         }
 
-        // 7) éxito
+        // Éxito → reflejar en DB
         $item->update([
-            'meli_item_id'          => $j['id'],
-            'meli_status'           => $j['status'] ?? 'active',
+            'meli_item_id'          => $j['id'] ?? $item->meli_item_id,
+            'meli_status'           => $j['status'] ?? $item->meli_status ?? 'active',
             'meli_category_id'      => $categoryId,
             'meli_listing_type_id'  => $listingType,
             'meli_synced_at'        => now(),
@@ -147,7 +215,30 @@ class MeliSyncService
             return ['ok' => false, 'json' => $j];
         }
 
-        $item->update(['meli_status' => 'paused', 'meli_synced_at' => now(), 'meli_last_error' => null]);
+        $item->update([
+            'meli_status'    => 'paused',
+            'meli_synced_at' => now(),
+            'meli_last_error'=> null
+        ]);
+        return ['ok' => true, 'json' => $j];
+    }
+
+    /** Activar en ML (helper para botones en interfaz) */
+    public function activate(CatalogItem $item): array
+    {
+        if (empty($item->meli_item_id)) {
+            return ['ok' => false, 'json' => ['message' => 'sin meli_item_id']];
+        }
+        $http = MeliHttp::withFreshToken();
+        $resp = $http->put($this->api("items/{$item->meli_item_id}"), ['status' => 'active']);
+        $j = (array) $resp->json();
+
+        if ($resp->failed()) {
+            $item->update(['meli_status' => 'error', 'meli_last_error' => substr(json_encode($j, JSON_UNESCAPED_UNICODE), 0, 2000)]);
+            return ['ok' => false, 'json' => $j];
+        }
+
+        $item->update(['meli_status' => 'active', 'meli_synced_at' => now(), 'meli_last_error' => null]);
         return ['ok' => true, 'json' => $j];
     }
 
@@ -206,5 +297,24 @@ class MeliSyncService
         }
 
         return $attributesPayload;
+    }
+
+    /**
+     * Crear/actualizar descripción por el endpoint correcto.
+     * Algunos vendedores requieren POST la primera vez y PUT después; aquí probamos PUT y si falla, POST.
+     */
+    private function upsertDescription($http, string $itemId, string $plainText): void
+    {
+        try {
+            $put = $http->put($this->api("items/{$itemId}/description"), ['plain_text' => $plainText]);
+            if ($put->failed()) {
+                $post = $http->post($this->api("items/{$itemId}/description"), ['plain_text' => $plainText]);
+                if ($post->failed()) {
+                    Log::warning('ML description upsert failed', ['id' => $itemId, 'put' => $put->json(), 'post' => $post->json()]);
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::error('ML description upsert exception: '.$e->getMessage(), ['item' => $itemId]);
+        }
     }
 }

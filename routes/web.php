@@ -561,3 +561,7 @@ Route::get('/meli/connect', [MeliController::class, 'connect'])->name('meli.conn
 Route::get('/meli/callback', [MeliController::class, 'callback'])->name('meli.callback');
 // webhook de notificaciones
 Route::post('/meli/notifications', [MeliController::class, 'notifications'])->name('meli.notifications');
+  // === Acciones Mercado Libre desde la UI ===
+    Route::post('/admin/catalog/{catalogItem}/meli/publish',  [CatalogItemController::class, 'publishToMeli'])->name('admin.catalog.meli.publish');
+    Route::post('/admin/catalog/{catalogItem}/meli/pause',    [CatalogItemController::class, 'pauseMeli'])->name('admin.catalog.meli.pause');
+    Route::post('/admin/catalog/{catalogItem}/meli/activate', [CatalogItemController::class, 'activateMeli'])->name('admin.catalog.meli.activate');

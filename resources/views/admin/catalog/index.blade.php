@@ -46,7 +46,7 @@
   .sticky-tools{position:sticky; top:0; z-index:5; background:linear-gradient(#ffffff, #ffffffcc 60%, transparent); padding-bottom:6px}
   .alert{padding:10px 12px; border-radius:12px; border:1px solid var(--line); background:#f8fffb; color:#0b6b3a}
   @media (max-width: 780px){
-    th:nth-child(5), td:nth-child(5), /* brand/cat si lo agregas después */
+    th:nth-child(5), td:nth-child(5),
     th:nth-child(7), td:nth-child(7){ display:none; }
   }
 </style>
@@ -84,7 +84,7 @@
       <button class="btn btn-ghost btn-small" type="submit">Aplicar</button>
       @if(request()->hasAny(['s','status','featured_only']))
         <a class="btn btn-ghost btn-small" href="{{ route('admin.catalog.index') }}">Limpiar</a>
-      @endif>
+      @endif
     </form>
   </div>
 
@@ -119,6 +119,18 @@
                 <strong style="color:var(--ink)">{{ $it->name }}</strong>
                 <span class="sku">SKU: {{ $it->sku ?: '—' }}</span>
                 <span class="muted" style="font-size:.82rem;">Slug: {{ $it->slug }}</span>
+
+                {{-- Info de Mercado Libre --}}
+                @if($it->meli_item_id)
+                  <div class="muted" style="font-size:.82rem;">
+                    ML ID: {{ $it->meli_item_id }} · Estado ML: {{ $it->meli_status ?: '—' }}
+                  </div>
+                @endif
+                @if($it->meli_last_error)
+                  <div class="muted" style="font-size:.78rem;color:#b91c1c;max-width:560px;white-space:normal;">
+                    Último error ML: {{ $it->meli_last_error }}
+                  </div>
+                @endif
               </div>
             </td>
             <td>
@@ -161,6 +173,23 @@
                     {{ $it->status == 1 ? 'Ocultar' : 'Publicar' }}
                   </button>
                 </form>
+
+                {{-- ===== Mercado Libre ===== --}}
+                <form method="POST" action="{{ route('admin.catalog.meli.publish', $it) }}">
+                  @csrf
+                  <button class="btn btn-primary btn-small" type="submit">ML: Publicar/Actualizar</button>
+                </form>
+
+                @if($it->meli_item_id)
+                  <form method="POST" action="{{ route('admin.catalog.meli.pause', $it) }}">
+                    @csrf
+                    <button class="btn btn-ghost btn-small" type="submit">ML: Pausar</button>
+                  </form>
+                  <form method="POST" action="{{ route('admin.catalog.meli.activate', $it) }}">
+                    @csrf
+                    <button class="btn btn-ghost btn-small" type="submit">ML: Activar</button>
+                  </form>
+                @endif
 
                 {{-- Eliminar --}}
                 <form method="POST" action="{{ route('admin.catalog.destroy', $it) }}"
