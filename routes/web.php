@@ -565,3 +565,9 @@ Route::post('/meli/notifications', [MeliController::class, 'notifications'])->na
     Route::post('/admin/catalog/{catalogItem}/meli/publish',  [CatalogItemController::class, 'publishToMeli'])->name('admin.catalog.meli.publish');
     Route::post('/admin/catalog/{catalogItem}/meli/pause',    [CatalogItemController::class, 'pauseMeli'])->name('admin.catalog.meli.pause');
     Route::post('/admin/catalog/{catalogItem}/meli/activate', [CatalogItemController::class, 'activateMeli'])->name('admin.catalog.meli.activate');
+    Route::middleware('auth')->prefix('admin/catalog')->name('admin.catalog.')->group(function () {
+    Route::post('{catalogItem}/meli/publish', [\App\Http\Controllers\Admin\CatalogItemController::class,'meliPublish'])->name('meli.publish');
+    Route::post('{catalogItem}/meli/pause',   [\App\Http\Controllers\Admin\CatalogItemController::class,'meliPause'])->name('meli.pause');
+    Route::post('{catalogItem}/meli/activate',[\App\Http\Controllers\Admin\CatalogItemController::class,'meliActivate'])->name('meli.activate');
+    Route::get ('{catalogItem}/meli/view',    [\App\Http\Controllers\Admin\CatalogItemController::class,'meliView'])->name('meli.view'); // ← nuevo
+});

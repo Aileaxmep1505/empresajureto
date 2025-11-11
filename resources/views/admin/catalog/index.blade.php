@@ -133,6 +133,10 @@
                 @endif
               </div>
             </td>
+            @if($it->meli_item_id)
+  <a class="btn btn-ghost btn-small" href="{{ route('admin.catalog.meli.view', $it) }}">ML: Ver</a>
+@endif
+
             <td>
               @if(!is_null($it->sale_price))
                 <div class="sale">${{ number_format($it->sale_price,2) }}</div>

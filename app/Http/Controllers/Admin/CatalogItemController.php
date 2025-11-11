@@ -9,6 +9,8 @@ use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Str;
 use App\Jobs\PublishCatalogItemToMeli;
+use App\Services\MeliHttp;
+use Illuminate\Support\Facades\Http;
 
 class CatalogItemController extends Controller implements HasMiddleware
 {
@@ -191,4 +193,17 @@ class CatalogItemController extends Controller implements HasMiddleware
         }
         PublishCatalogItemToMeli::dispatch($item->id, $opts);
     }
+    public function meliView(CatalogItem $catalogItem)
+{
+    if (!$catalogItem->meli_item_id) {
+        return back()->with('ok', 'Este producto aún no tiene publicación en ML.');
+    }
+    $http = MeliHttp::withFreshToken();
+    $resp = $http->get("https://api.mercadolibre.com/items/{$catalogItem->meli_item_id}");
+    if ($resp->failed()) {
+        return back()->with('ok', 'No se pudo obtener el permalink desde ML.');
+    }
+    $permalink = $resp->json('permalink');
+    return $permalink ? redirect()->away($permalink) : back()->with('ok','Este ítem no tiene permalink disponible.');
+}
 }
