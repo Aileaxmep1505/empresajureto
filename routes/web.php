@@ -557,6 +557,7 @@ Route::middleware(['auth'])->group(function () {
 });
 
 
-Route::get('/meli/connect', [MeliController::class,'connect'])->name('meli.connect');
-Route::get('/meli/callback', [MeliController::class,'callback'])->name('meli.callback');
-Route::post('/meli/notifications', [MeliController::class,'notifications'])->name('meli.notifications');
+Route::get('/meli/connect', [MeliController::class, 'connect'])->name('meli.connect');
+Route::get('/meli/callback', [MeliController::class, 'callback'])->name('meli.callback');
+// webhook de notificaciones
+Route::post('/meli/notifications', [MeliController::class, 'notifications'])->name('meli.notifications');
