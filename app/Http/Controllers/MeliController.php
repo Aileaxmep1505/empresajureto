@@ -3,24 +3,63 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
-use App\Models\MercadolibreAccount; // crea este modelo si no lo tienes (tabla para tokens)
+use App\Models\MercadolibreAccount;
+use App\Jobs\ProcessMeliNotification;
 
 class MeliController extends Controller
 {
+    /**
+     * 1) Redirección a la página de autorización de Mercado Libre (México).
+     *    Asegúrate de que la Redirect URI en el DevCenter coincida con route('meli.callback').
+     *    URL de autorización por país:
+     *      - MX: https://auth.mercadolibre.com.mx/authorization
+     *      - AR: https://auth.mercadolibre.com.ar/authorization
+     *      - BR: https://auth.mercadolivre.com.br/authorization
+     */
+    public function connect()
+    {
+        $clientId    = config('services.meli.client_id');
+        $redirectUri = route('meli.callback');
+
+        if (!$clientId || !$redirectUri) {
+            abort(500, 'Falta configurar MELI_CLIENT_ID o la ruta meli.callback.');
+        }
+
+        $authBase = 'https://auth.mercadolibre.com.mx/authorization';
+
+        $query = http_build_query([
+            'response_type' => 'code',
+            'client_id'     => $clientId,
+            'redirect_uri'  => $redirectUri,
+            // Si en el DevCenter marcaste offline_access, inclúyelo:
+            'scope'         => 'offline_access',
+        ]);
+
+        return redirect($authBase.'?'.$query);
+    }
+
+    /**
+     * 2) Callback OAuth: recibe ?code= y lo intercambia por access_token + refresh_token.
+     *    Guarda tokens y expiración en la tabla mercadolibre_accounts.
+     */
     public function callback(Request $request)
     {
-        // GET https://ai.jureto.com.mx/meli/callback?code=XXXX
         $code = $request->get('code');
         if (!$code) {
-            return redirect('/')->with('error', 'Falta code en callback de Mercado Libre.');
+            Log::warning('ML Callback sin code', ['query' => $request->query()]);
+            return redirect('/')->with('error', 'Falta el parámetro "code" en el callback de Mercado Libre.');
         }
 
         $clientId     = config('services.meli.client_id');
         $clientSecret = config('services.meli.client_secret');
         $redirectUri  = route('meli.callback');
+
+        if (!$clientId || !$clientSecret) {
+            return redirect('/')->with('error', 'Falta configurar MELI_CLIENT_ID / MELI_CLIENT_SECRET.');
+        }
 
         $resp = Http::asForm()->post('https://api.mercadolibre.com/oauth/token', [
             'grant_type'    => 'authorization_code',
@@ -31,12 +70,12 @@ class MeliController extends Controller
         ]);
 
         if ($resp->failed()) {
-            Log::error('ML OAuth token error', ['body' => $resp->body()]);
+            Log::error('ML OAuth token error', ['status' => $resp->status(), 'body' => $resp->body()]);
             return redirect('/')->with('error', 'No se pudo obtener el access_token de Mercado Libre.');
         }
 
         $data = $resp->json();
-        // Estructura típica: access_token, token_type, expires_in, scope, user_id, refresh_token
+        // Estructura típica: access_token, token_type, expires_in, scope, user_id, refresh_token, site_id
         MercadolibreAccount::updateOrCreate(
             ['meli_user_id' => $data['user_id'] ?? null],
             [
@@ -47,47 +86,27 @@ class MeliController extends Controller
             ]
         );
 
-        return redirect('/')->with('success', 'Cuenta de Mercado Libre vinculada correctamente.');
+        return redirect('/')->with('success', 'Cuenta de Mercado Libre vinculada correctamente ✅');
     }
 
+    /**
+     * 3) Webhook de notificaciones.
+     *    Mercado Libre hará POST a esta URL con JSON: { id, resource, user_id, topic, application_id, sent, attempts }
+     *    Responder rápido 200 y procesar en background (Job).
+     */
     public function notifications(Request $request)
     {
-        // POST https://ai.jureto.com.mx/meli/notifications
-        // Mercado Libre envía JSON con: { "id": "NN", "resource": "/orders/123", "user_id": 000, "topic": "orders", "application_id": "...", "sent": "...", "attempts": 1 }
-        $payload = $request->all();
+        // IMPORTANTE: Exenta esta ruta del CSRF en app/Http/Middleware/VerifyCsrfToken.php
+        // protected $except = ['meli/notifications'];
 
-        // Log para depurar
+        $payload = $request->all();
         Log::info('ML Notification received', $payload);
 
-        // Responder rápido 200 OK para evitar reintentos excesivos
-        // (Puedes despachar un Job para procesar en background)
         try {
-            $topic    = $payload['topic']    ?? null;
-            $resource = $payload['resource'] ?? null;
-
-            if ($topic && $resource) {
-                // (Opcional) ejemplo: fetch del recurso para sincronizar
-                $account = MercadolibreAccount::first(); // ajusta si manejas múltiples
-                if ($account) {
-                    $url  = 'https://api.mercadolibre.com' . $resource;
-                    $resp = Http::withToken($account->access_token)->get($url);
-                    if ($resp->ok()) {
-                        $data = $resp->json();
-                        // TODO: según $topic, actualiza tu DB:
-                        // - items: sincroniza publicación
-                        // - orders: crear/actualizar pedido interno
-                        // - shipments: estado de envío
-                        // - messages: inbox post-venta
-                        Log::info('ML Resource fetched', ['topic' => $topic, 'resource' => $resource, 'sample' => array_slice($data, 0, 5)]);
-                    } else {
-                        Log::warning('ML Resource fetch failed', ['resource' => $resource, 'status' => $resp->status(), 'body' => $resp->body()]);
-                    }
-                } else {
-                    Log::warning('ML Notification: no account configured to fetch resource.');
-                }
-            }
+            // Despacha a cola para procesar el recurso completo en background
+            ProcessMeliNotification::dispatch($payload);
         } catch (\Throwable $e) {
-            Log::error('ML Notification processing error: '.$e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            Log::error('ML Notification dispatch error: '.$e->getMessage(), ['trace' => $e->getTraceAsString()]);
         }
 
         return response()->json(['status' => 'ok']); // 200
