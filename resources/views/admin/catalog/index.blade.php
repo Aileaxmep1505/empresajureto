@@ -114,6 +114,7 @@
                 <img class="thumb" src="{{ asset('images/placeholder.png') }}" alt="Sin imagen">
               @endif
             </td>
+
             <td>
               <div style="display:flex; flex-direction:column; gap:4px;">
                 <strong style="color:var(--ink)">{{ $it->name }}</strong>
@@ -133,9 +134,6 @@
                 @endif
               </div>
             </td>
-            @if($it->meli_item_id)
-  <a class="btn btn-ghost btn-small" href="{{ route('admin.catalog.meli.view', $it) }}">ML: Ver</a>
-@endif
 
             <td>
               @if(!is_null($it->sale_price))
@@ -145,6 +143,7 @@
                 <div class="price">${{ number_format($it->price,2) }}</div>
               @endif
             </td>
+
             <td>
               @if($it->status === 1)
                 <span class="badge badge-live">Publicado</span>
@@ -154,6 +153,7 @@
                 <span class="badge badge-draft">Borrador</span>
               @endif
             </td>
+
             <td>
               @if($it->is_featured)
                 <span class="chip">Destacado</span>
@@ -161,9 +161,11 @@
                 <span class="muted">—</span>
               @endif
             </td>
+
             <td>
               <span class="muted">{{ $it->published_at ? $it->published_at->format('Y-m-d H:i') : '—' }}</span>
             </td>
+
             <td style="text-align:right;">
               <div class="actions">
                 <a class="btn btn-ghost btn-small" href="{{ route('admin.catalog.edit', $it) }}">Editar</a>
@@ -185,6 +187,7 @@
                 </form>
 
                 @if($it->meli_item_id)
+                  <a class="btn btn-ghost btn-small" href="{{ route('admin.catalog.meli.view', $it) }}">ML: Ver</a>
                   <form method="POST" action="{{ route('admin.catalog.meli.pause', $it) }}">
                     @csrf
                     <button class="btn btn-ghost btn-small" type="submit">ML: Pausar</button>

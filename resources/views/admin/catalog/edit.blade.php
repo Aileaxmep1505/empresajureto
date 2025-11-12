@@ -32,10 +32,7 @@
           @csrf
           <button class="btn btn-ghost" type="submit">ML: Activar</button>
         </form>
-        @if($item->meli_item_id)
-  <a class="btn btn-ghost" href="{{ route('admin.catalog.meli.view', $item) }}">ML: Ver</a>
-@endif
-
+        <a class="btn btn-ghost" href="{{ route('admin.catalog.meli.view', $item) }}">ML: Ver</a>
       @endif
 
       {{-- Eliminar --}}

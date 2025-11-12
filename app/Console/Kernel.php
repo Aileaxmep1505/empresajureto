@@ -8,38 +8,50 @@ use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 class Kernel extends ConsoleKernel
 {
     /**
-     * Artisan commands registrados manualmente.
+     * Lista de comandos registrados manualmente.
+     *
+     * Aquí puedes registrar clases de comandos personalizados
+     * que no quieras que Laravel descubra automáticamente.
      *
      * @var array<class-string>
      */
     protected $commands = [
         \App\Console\Commands\SyncKnowledge::class,
-        // Agrega aquí otros comandos manuales...
+        \App\Console\Commands\RunAgenda::class, // 👈 tu comando de agenda
     ];
 
     /**
-     * Define la programación (scheduler) de comandos.
+     * Define el schedule (programación) de comandos recurrentes.
+     *
+     * Este método se ejecuta cuando corre `php artisan schedule:run`
      */
     protected function schedule(Schedule $schedule): void
     {
-        // Ejemplo: comando inspiracional cada hora
-        // $schedule->command('inspire')->hourly();
+        // Escaneo de SLA de tickets cada 15 minutos
+        $schedule->command('tickets:sla-scan')
+                 ->everyFifteenMinutes()
+                 ->withoutOverlapping()
+                 ->runInBackground();
 
-        // (Opcional) Reindexar conocimiento todos los días a las 03:00
+        // 👇 Agenda: envía recordatorios cada minuto
+        $schedule->command('agenda:run --limit=200')
+                 ->everyMinute()
+                 ->withoutOverlapping()
+                 ->runInBackground();
+
+        // Ejemplo opcional: sincronización de conocimiento diaria a las 3:00am
         // $schedule->command('knowledge:sync --rebuild')->dailyAt('03:00');
-          $schedule->command('tickets:sla-scan')->everyFifteenMinutes();
-              $schedule->command('agenda:run')->everyMinute()->withoutOverlapping();
     }
 
     /**
-     * Registra los comandos de la aplicación.
+     * Registra todos los comandos y rutas de consola.
      */
     protected function commands(): void
     {
-        // Carga automática de todos los comandos en app/Console/Commands
+        // Carga automática de comandos en app/Console/Commands
         $this->load(__DIR__ . '/Commands');
 
-        // Rutas para comandos definidos en routes/console.php
+        // Permite definir closures de comandos en routes/console.php
         require base_path('routes/console.php');
     }
 }

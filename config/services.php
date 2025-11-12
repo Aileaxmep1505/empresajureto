@@ -131,6 +131,12 @@ return [
     'redirect'      => env('MELI_REDIRECT'),
     'sandbox'       => (bool) env('MELI_SANDBOX', true),
 ],
+'whatsapp' => [
+    'version' => env('WHATSAPP_API_VERSION', 'v21.0'),
+    'phone_id' => env('WHATSAPP_PHONE_NUMBER_ID'),
+    'token' => env('WHATSAPP_ACCESS_TOKEN'),
+    'template_agenda' => env('WHATSAPP_TEMPLATE_AGENDA', 'agenda_recordatorio'),
+],
 
 
 ];
