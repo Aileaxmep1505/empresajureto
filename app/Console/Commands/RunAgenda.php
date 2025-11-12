@@ -3,7 +3,8 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-use App\Models\Event;
+use App\Models\AgendaEvent;
+use Carbon\Carbon;
 
 class RunAgenda extends Command
 {
@@ -19,14 +20,15 @@ class RunAgenda extends Command
 
         $this->info("Buscando eventos con next_reminder_at <= {$now}");
 
-        $events = Event::where('next_reminder_at', '<=', $now)
-                       ->take($limit)
-                       ->get();
+        // Usar el modelo correcto: AgendaEvent
+        $events = AgendaEvent::where('next_reminder_at', '<=', $now)
+                             ->take($limit)
+                             ->get();
 
         $this->info("Eventos a notificar: {$events->count()}");
 
         foreach ($events as $event) {
-            // Aquí despacha tus notificaciones (email, SMS, etc.)
+            // Aquí despacha tus notificaciones (correo, WhatsApp, etc.)
             $this->info("Despachado SYNC event_id={$event->id} -> {$event->title}");
         }
 
