@@ -44,26 +44,21 @@ class SendAgendaReminderJob implements ShouldQueue
                     Log::info("Agenda: correo enviado", ['event_id' => $event->id, 'to' => $event->attendee_email]);
                 } catch (Throwable $mailEx) {
                     Log::error("Agenda: error enviando correo", ['event_id' => $event->id, 'error' => $mailEx->getMessage()]);
-                    // no rethrow; permitimos que WA intente igualmente
                 }
-            } else {
-                Log::info("Agenda: correo omitido (send_email o attendee_email faltante)", ['event_id' => $event->id]);
             }
 
-            // ===== WhatsApp (FORZAR plantilla) =====
+            // ===== WhatsApp =====
             if ($event->send_whatsapp && $event->attendee_phone) {
                 try {
                     if (! class_exists(\App\Services\WhatsAppService::class)) {
                         Log::warning('WhatsAppService no disponible; omitiendo WA', ['event_id' => $event->id]);
                     } else {
                         $wa = app(\App\Services\WhatsAppService::class);
-
                         $templateName = config('services.whatsapp.template_agenda', 'agenda_recordatorio');
 
                         $params = [
                             $event->attendee_name ?: 'Cliente',
                             $event->title,
-                            // formateamos fecha/hora en la zona del evento
                             optional($event->start_at)->setTimezone($event->timezone ?? 'America/Mexico_City')->format('d/m/Y H:i'),
                             $event->timezone ?? 'America/Mexico_City',
                         ];
@@ -71,34 +66,29 @@ class SendAgendaReminderJob implements ShouldQueue
                         if (method_exists($wa, 'sendTemplate')) {
                             $resp = $wa->sendTemplate($event->attendee_phone, $templateName, $params, 'es');
                             Log::info('WhatsApp template response', ['event_id' => $event->id, 'response' => $resp]);
-                        } else {
-                            // no hacemos sendText automáticamente para evitar ventanas 24h, etc.
-                            Log::error('WhatsAppService no implementa sendTemplate(); no se enviará WA para evitar fallback', ['event_id' => $event->id, 'class' => get_class($wa)]);
                         }
                     }
                 } catch (Throwable $waEx) {
                     Log::error('Error enviando WhatsApp (template)', ['event_id' => $event->id, 'error' => $waEx->getMessage()]);
                 }
-            } else {
-                Log::info("Agenda: WhatsApp omitido (send_whatsapp o attendee_phone faltante)", ['event_id' => $event->id]);
             }
 
-            // ===== Marcar envío y programar siguiente =====
+            // ===== Marcar envío y calcular siguiente =====
             $event->last_reminder_sent_at = now('UTC');
-            $event->advanceAfterSending(); // prepara siguiente ciclo según repeat_rule
+            $event->advanceAfterSending();
             $event->save();
 
             Log::info("SendAgendaReminderJob: terminado correctamente", ['event_id' => $event->id]);
         } catch (Throwable $e) {
             Log::error('SendAgendaReminderJob excepción', ['event_id' => $event->id, 'error' => $e->getMessage()]);
             report($e);
-            throw $e; // para que la cola pueda reintentar según $tries
+            throw $e;
         }
     }
 
     public function failed(Throwable $e): void
     {
-        report($e);
         Log::error('SendAgendaReminderJob failed', ['error' => $e->getMessage(), 'event_id' => $this->event->id ?? null]);
+        report($e);
     }
 }
