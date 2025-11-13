@@ -28,14 +28,20 @@ class Kernel extends ConsoleKernel
         // Escaneo de SLA de tickets cada 15 minutos
         $schedule->command('tickets:sla-scan')
                  ->everyFifteenMinutes()
-                 ->runInBackground();
-                 // ->withoutOverlapping(); // Comentar temporalmente si quieres forzar ejecución
+                 ->runInBackground()
+                 ->withoutOverlapping();
 
         // Agenda: envía recordatorios cada minuto
         $schedule->command('agenda:run --limit=200')
                  ->everyMinute()
-                 ->runInBackground();
-                 // ->withoutOverlapping(); // comentar para pruebas
+                 ->runInBackground()
+                 ->withoutOverlapping();
+
+        // Cola: procesa trabajos pendientes cada minuto
+        $schedule->command('queue:work --once --tries=3 --timeout=90')
+                 ->everyMinute()
+                 ->runInBackground()
+                 ->withoutOverlapping();
 
         // Ejemplo opcional: sincronización de conocimiento diaria a las 3:00 am
         // $schedule->command('knowledge:sync --rebuild')->dailyAt('03:00');
