@@ -14,7 +14,7 @@ class RunAgenda extends Command
     public function handle()
     {
         $limit = (int) $this->option('limit');
-        $now = now('America/Mexico_City');
+        $now = now('America/Mexico_City'); // coincide con APP_TIMEZONE
 
         $this->info("Buscando eventos con next_reminder_at <= {$now}");
 
