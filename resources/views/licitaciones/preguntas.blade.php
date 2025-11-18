@@ -264,7 +264,7 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
 }
 </style>
 
-<div class="wizard-wrap-wide">
+<div class="wizard-wrap-wide" style="margin-top:-5px;">
     {{-- Header --}}
     <div class="header-row">
         <div>

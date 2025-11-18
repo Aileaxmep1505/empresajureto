@@ -83,7 +83,8 @@ class MeliSyncService
         $qty = max(1, (int) 1);
 
         $payload = [
-            'title'              => mb_strimwidth($item->name, 0, 60),
+            // IMPORTANTE: título enriquecido para evitar item.title.minimum_length
+            'title'              => $this->buildMeliTitle($item),
             'category_id'        => $categoryId,
             'price'              => $price,
             'currency_id'        => 'MXN',
@@ -250,6 +251,57 @@ class MeliSyncService
         $base = trim($base) ?: "{$i->name}.\n\nVendido por JURETO. Factura disponible. Garantía estándar.\n";
         // ML recomienda <= 5000 chars, sin HTML
         return mb_substr(preg_replace('/\s+/', ' ', $base), 0, 4800);
+    }
+
+    /**
+     * Construye un título “bonito” para Mercado Libre
+     * incluyendo nombre, marca, modelo/SKU y algún extra corto.
+     */
+    private function buildMeliTitle(CatalogItem $item): string
+    {
+        $parts = [];
+
+        // Parte base: nombre del producto
+        if (!empty($item->name)) {
+            $parts[] = trim($item->name);
+        }
+
+        // Marca
+        if (!empty($item->brand_name)) {
+            $parts[] = trim($item->brand_name);
+        }
+
+        // Modelo o SKU
+        if (!empty($item->model_name)) {
+            $parts[] = trim($item->model_name);
+        } elseif (!empty($item->sku)) {
+            $parts[] = trim($item->sku);
+        }
+
+        // Algún extra corto (ej. "Caja con 12 piezas" en excerpt)
+        if (!empty($item->excerpt)) {
+            $extra = trim($item->excerpt);
+            if (mb_strlen($extra) > 30) {
+                $extra = mb_substr($extra, 0, 30);
+            }
+            $parts[] = $extra;
+        }
+
+        $title = trim(preg_replace('/\s+/', ' ', implode(' ', $parts)));
+
+        // Si quedó muy corto, rellenamos con marca/modelo de forma fija
+        if (mb_strlen($title) < 20 && !empty($item->name)) {
+            $brand = $item->brand_name ?: 'Genérica';
+            $model = $item->model_name ?: ($item->sku ?: 'Modelo Único');
+            $title = "{$item->name} {$brand} {$model}";
+        }
+
+        // Recomendado ~60 caracteres
+        if (mb_strlen($title) > 60) {
+            $title = mb_substr($title, 0, 60);
+        }
+
+        return $title;
     }
 
     /** Devuelve attributes completos de la categoría o [] */

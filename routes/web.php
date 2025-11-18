@@ -563,22 +563,21 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/agenda/{agenda}/move', [AgendaEventController::class,'move'])->name('agenda.move');
 });
 
-
+// OAuth + webhook
 Route::get('/meli/connect', [MeliController::class, 'connect'])->name('meli.connect');
 Route::get('/meli/callback', [MeliController::class, 'callback'])->name('meli.callback');
-// webhook de notificaciones
 Route::post('/meli/notifications', [MeliController::class, 'notifications'])->name('meli.notifications');
-  // === Acciones Mercado Libre desde la UI ===
-    Route::post('/admin/catalog/{catalogItem}/meli/publish',  [CatalogItemController::class, 'publishToMeli'])->name('admin.catalog.meli.publish');
-    Route::post('/admin/catalog/{catalogItem}/meli/pause',    [CatalogItemController::class, 'pauseMeli'])->name('admin.catalog.meli.pause');
-    Route::post('/admin/catalog/{catalogItem}/meli/activate', [CatalogItemController::class, 'activateMeli'])->name('admin.catalog.meli.activate');
-    Route::middleware('auth')->prefix('admin/catalog')->name('admin.catalog.')->group(function () {
-    Route::post('{catalogItem}/meli/publish', [\App\Http\Controllers\Admin\CatalogItemController::class,'meliPublish'])->name('meli.publish');
-    Route::post('{catalogItem}/meli/pause',   [\App\Http\Controllers\Admin\CatalogItemController::class,'meliPause'])->name('meli.pause');
-    Route::post('{catalogItem}/meli/activate',[\App\Http\Controllers\Admin\CatalogItemController::class,'meliActivate'])->name('meli.activate');
-    Route::get ('{catalogItem}/meli/view',    [\App\Http\Controllers\Admin\CatalogItemController::class,'meliView'])->name('meli.view'); // ← nuevo
-});
 
+// Rutas Mercado Libre por producto (panel admin)
+Route::middleware('auth')
+    ->prefix('admin/catalog')
+    ->name('admin.catalog.')
+    ->group(function () {
+        Route::post('{catalogItem}/meli/publish',  [CatalogItemController::class,'meliPublish'])->name('meli.publish');
+        Route::post('{catalogItem}/meli/pause',    [CatalogItemController::class,'meliPause'])->name('meli.pause');
+        Route::post('{catalogItem}/meli/activate', [CatalogItemController::class,'meliActivate'])->name('meli.activate');
+        Route::get ('{catalogItem}/meli/view',     [CatalogItemController::class,'meliView'])->name('meli.view');
+    });
 
 
 Route::get('posts', [PostController::class, 'index'])->name('posts.index');

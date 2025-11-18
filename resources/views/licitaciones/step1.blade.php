@@ -95,7 +95,7 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
 .alert-error li{margin:2px 0;}
 </style>
 
-<div class="wizard-wrap">
+<div class="wizard-wrap" style="margin-top:-5px;">
     <div class="panel">
         <div class="panel-head">
             <div class="hgroup">
