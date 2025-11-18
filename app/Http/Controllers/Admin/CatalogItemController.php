@@ -9,9 +9,8 @@ use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Str;
 
-// NEW: servicios para Mercado Libre
+// Servicios para Mercado Libre
 use App\Services\MeliSyncService;
-use App\Services\MeliHttp;
 
 class CatalogItemController extends Controller implements HasMiddleware
 {
@@ -87,7 +86,7 @@ class CatalogItemController extends Controller implements HasMiddleware
 
         $item = CatalogItem::create($data);
 
-        // Encolar sync a ML
+        // Encolar / disparar sync a ML (no interrumpe flujo si truena)
         $this->dispatchMeliSync($item);
 
         return redirect()
@@ -136,7 +135,8 @@ class CatalogItemController extends Controller implements HasMiddleware
     public function destroy(CatalogItem $catalogItem)
     {
         $catalogItem->delete();
-        // Si quieres pausar/eliminar en ML puedes decidirlo en el Job
+
+        // Si quieres pausar/eliminar en ML puedes decidirlo en el Job/servicio
         $this->dispatchMeliSync($catalogItem);
 
         return redirect()->route('admin.catalog.index')->with('ok', 'Producto web eliminado.');
@@ -163,75 +163,87 @@ class CatalogItemController extends Controller implements HasMiddleware
     // POST admin/catalog/{catalogItem}/meli/publish
     public function meliPublish(CatalogItem $catalogItem, MeliSyncService $svc)
     {
-        $res = $svc->sync($catalogItem);
-        return back()->with('ok', $res['ok']
-            ? 'Publicado/actualizado en Mercado Libre.'
-            : ('No se pudo publicar en ML: '.substr(json_encode($res['json'],JSON_UNESCAPED_UNICODE),0,300)));
+        $res = $svc->sync($catalogItem, [
+            'activate'           => true,
+            'update_description' => true,
+            'ensure_picture'     => true,
+        ]);
+
+        if ($res['ok']) {
+            $msg = 'Publicado/actualizado en Mercado Libre.';
+
+            if ($catalogItem->meli_item_id || !empty($res['json']['id'] ?? null)) {
+                $mlId = $res['json']['id'] ?? $catalogItem->meli_item_id;
+                $mlSt = $res['json']['status'] ?? $catalogItem->meli_status ?? '—';
+                $msg .= " Mercado Libre: ID: {$mlId} · Estado: {$mlSt}";
+            }
+
+            return back()->with('ok', $msg);
+        }
+
+        // Mensaje amigable desde el servicio (si viene)
+        $friendly = $res['message'] ?? 'No se pudo publicar en Mercado Libre. Revisa los datos del producto.';
+
+        return back()->with('ok', $friendly);
     }
 
     // POST admin/catalog/{catalogItem}/meli/pause
     public function meliPause(CatalogItem $catalogItem, MeliSyncService $svc)
     {
         $res = $svc->pause($catalogItem);
-        return back()->with('ok', $res['ok']
-            ? 'Publicación pausada en Mercado Libre.'
-            : ('No se pudo pausar en ML: '.substr(json_encode($res['json'],JSON_UNESCAPED_UNICODE),0,300)));
+
+        if ($res['ok']) {
+            return back()->with('ok', 'Publicación pausada en Mercado Libre.');
+        }
+
+        $friendly = $res['message'] ?? 'No se pudo pausar la publicación en Mercado Libre.';
+        return back()->with('ok', $friendly);
     }
 
     // POST admin/catalog/{catalogItem}/meli/activate
-    public function meliActivate(CatalogItem $catalogItem)
+    public function meliActivate(CatalogItem $catalogItem, MeliSyncService $svc)
     {
-        if (!$catalogItem->meli_item_id) {
-            return back()->with('ok', 'Este producto aún no tiene meli_item_id. Primero publícalo.');
+        $res = $svc->activate($catalogItem);
+
+        if ($res['ok']) {
+            return back()->with('ok', 'Publicación activada en Mercado Libre.');
         }
 
-        $http = MeliHttp::withFreshToken();
-        $resp = $http->put("https://api.mercadolibre.com/items/{$catalogItem->meli_item_id}", ['status' => 'active']);
-        if ($resp->failed()) {
-            $catalogItem->update([
-                'meli_status'     => 'error',
-                'meli_last_error' => substr($resp->body(),0,2000),
-            ]);
-            return back()->with('ok', 'No se pudo activar en ML: '.substr($resp->body(),0,300));
-        }
-
-        $catalogItem->update([
-            'meli_status' => 'active',
-            'meli_last_error' => null,
-            'meli_synced_at' => now(),
-        ]);
-
-        return back()->with('ok', 'Publicación activada en Mercado Libre.');
+        $friendly = $res['message'] ?? 'No se pudo activar la publicación en Mercado Libre.';
+        return back()->with('ok', $friendly);
     }
 
     // GET admin/catalog/{catalogItem}/meli/view
-    public function meliView(CatalogItem $catalogItem)
+    public function meliView(CatalogItem $catalogItem, MeliSyncService $svc)
     {
         if (!$catalogItem->meli_item_id) {
             return back()->with('ok', 'Este producto aún no tiene publicación en ML.');
         }
 
-        $http = MeliHttp::withFreshToken();
+        // Solo usamos el HTTP del servicio
+        $http = \App\Services\MeliHttp::withFreshToken();
         $resp = $http->get("https://api.mercadolibre.com/items/{$catalogItem->meli_item_id}");
         if ($resp->failed()) {
             return back()->with('ok', 'No se pudo obtener el permalink desde ML.');
         }
 
         $permalink = $resp->json('permalink');
-        return $permalink ? redirect()->away($permalink)
-                          : back()->with('ok','Este ítem no tiene permalink disponible.');
+        return $permalink
+            ? redirect()->away($permalink)
+            : back()->with('ok','Este ítem no tiene permalink disponible.');
     }
 
-    /** Encola el Job que publica/actualiza/pausa en Mercado Libre */
+    /** Dispara el sync con ML sin romper la UI si algo truena */
     private function dispatchMeliSync(CatalogItem $item): void
     {
-        // Si ya creaste el Job PublishCatalogItemToMeli, usa ese.
-        // Si aún no, puedes llamar al servicio directamente aquí.
         try {
-            // \App\Jobs\PublishCatalogItemToMeli::dispatch($item->id);
-            app(MeliSyncService::class)->sync($item); // fallback inmediato
+            app(MeliSyncService::class)->sync($item, [
+                'activate'           => false,
+                'update_description' => false,
+                'ensure_picture'     => false,
+            ]);
         } catch (\Throwable $e) {
-            // no rompas el flujo de la UI
+            // No romper flujo de interfaz
         }
     }
 }

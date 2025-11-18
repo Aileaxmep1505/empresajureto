@@ -44,10 +44,54 @@
   .sku{color:var(--muted); font-size:.85rem}
   .actions{display:flex; gap:8px; flex-wrap:wrap}
   .sticky-tools{position:sticky; top:0; z-index:5; background:linear-gradient(#ffffff, #ffffffcc 60%, transparent); padding-bottom:6px}
-  .alert{padding:10px 12px; border-radius:12px; border:1px solid var(--line); background:#f8fffb; color:#0b6b3a}
+  .alert{padding:10px 12px; border-radius:12px; border:1px solid var(--line); background:#f8fffb; color:#0b6b3a; font-size:.9rem}
+
+  .alert-ml-summary{
+    margin:8px 0 16px;
+    display:flex;
+    gap:12px;
+    align-items:flex-start;
+    padding:12px 14px;
+    border-radius:14px;
+    border:1px solid #fee2e2;
+    background:#fef2f2;
+    color:#991b1b;
+    font-size:.9rem;
+  }
+  .alert-ml-summary-title{font-weight:700; margin-bottom:4px;}
+  .alert-ml-summary ul{margin:4px 0 0 18px; padding:0; font-size:.86rem;}
+
+  .ml-pill-error{
+    display:inline-flex;
+    align-items:center;
+    padding:4px 10px;
+    border-radius:999px;
+    background:#fee2e2;
+    color:#991b1b;
+    font-size:.75rem;
+    font-weight:700;
+    margin-top:4px;
+  }
+  .ml-error-text{
+    margin-top:4px;
+    font-size:.78rem;
+    color:#991b1b;
+    white-space:normal;
+    max-width:560px;
+  }
+  .ml-error-hints{
+    margin:4px 0 0;
+    padding:0;
+    list-style:disc;
+    padding-left:16px;
+    font-size:.76rem;
+    color:#6b7280;
+  }
+
   @media (max-width: 780px){
     th:nth-child(5), td:nth-child(5),
     th:nth-child(7), td:nth-child(7){ display:none; }
+    .alert-ml-summary{flex-direction:column;}
   }
 </style>
 @endpush
@@ -55,14 +99,44 @@
 @section('content')
 <div class="wrap">
   <div class="head" style="margin: 14px 0 10px;">
-    <h1 class="title">Productos Web <span class="muted" style="font-weight:600;">(Catálogo público)</span></h1>
+    <div>
+      <h1 class="title">Productos Web <span class="muted" style="font-weight:600;">(Catálogo público)</span></h1>
+      <p class="muted" style="margin-top:4px;font-size:.9rem;">
+        Gestiona el catálogo que se muestra en tu sitio y sincronízalo con Mercado Libre desde un solo lugar.
+      </p>
+    </div>
     <div class="toolbar">
       <a href="{{ route('admin.catalog.create') }}" class="btn btn-primary">+ Nuevo producto</a>
     </div>
   </div>
 
   @if(session('ok'))
-    <div class="alert" style="margin:10px 0 16px;">{{ session('ok') }}</div>
+    <div class="alert" style="margin:10px 0 12px;">
+      {{ session('ok') }}
+    </div>
+  @endif
+
+  {{-- Resumen general de errores de ML en la página --}}
+  @php
+    $firstMeliErrorItem = $items->first(function ($row) {
+        return !empty($row->meli_last_error);
+    });
+  @endphp
+
+  @if($firstMeliErrorItem)
+    <div class="alert-ml-summary">
+      <div>
+        <div class="alert-ml-summary-title">Algunos productos no se pudieron sincronizar con Mercado Libre.</div>
+        <p style="margin:0 0 4px;">
+          Revisa la columna de “Nombre” para ver el detalle del error en cada producto y ajusta los campos sugeridos.
+        </p>
+        <ul>
+          <li><strong>Título demasiado corto o genérico:</strong> incluye tipo de producto, marca y modelo (ejemplo: “Lapicero bolígrafo azul Bic 0.7mm”).</li>
+          <li><strong>Precio insuficiente:</strong> algunas categorías exigen un precio mínimo (por ejemplo, desde 35 MXN).</li>
+          <li><strong>Publicación cerrada:</strong> si Mercado Libre ya cerró la publicación, deberás crear una nueva desde este panel.</li>
+        </ul>
+      </div>
+    </div>
   @endif
 
   {{-- ======= Filtros / Buscador ======= --}}
@@ -122,15 +196,33 @@
                 <span class="muted" style="font-size:.82rem;">Slug: {{ $it->slug }}</span>
 
                 {{-- Info de Mercado Libre --}}
-                @if($it->meli_item_id)
-                  <div class="muted" style="font-size:.82rem;">
-                    ML ID: {{ $it->meli_item_id }} · Estado ML: {{ $it->meli_status ?: '—' }}
+                @if($it->meli_item_id || $it->meli_status)
+                  <div class="muted" style="font-size:.82rem;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+                    <span>ML ID: {{ $it->meli_item_id ?: '—' }}</span>
+                    @if($it->meli_status === 'active')
+                      <span class="badge badge-live">ML: Activo</span>
+                    @elseif($it->meli_status === 'paused')
+                      <span class="badge badge-draft" style="background:#fef9c3;color:#854d0e;">ML: Pausado</span>
+                    @elseif($it->meli_status === 'error')
+                      <span class="badge badge-hidden">ML: Error</span>
+                    @elseif($it->meli_status)
+                      <span class="badge badge-draft">ML: {{ ucfirst($it->meli_status) }}</span>
+                    @endif
                   </div>
                 @endif
+
                 @if($it->meli_last_error)
-                  <div class="muted" style="font-size:.78rem;color:#b91c1c;max-width:560px;white-space:normal;">
-                    Último error ML: {{ $it->meli_last_error }}
+                  <div class="ml-pill-error">
+                    Problema al sincronizar con Mercado Libre
                   </div>
+                  <div class="ml-error-text">
+                    {{ $it->meli_last_error }}
+                  </div>
+                  <ul class="ml-error-hints">
+                    <li>Revisa el título del producto: incluye tipo, marca y modelo.</li>
+                    <li>Verifica que el precio cumpla el mínimo exigido por la categoría.</li>
+                    <li>Si la publicación anterior está cerrada, vuelve a publicar desde este botón.</li>
+                  </ul>
                 @endif
               </div>
             </td>
@@ -172,7 +264,7 @@
 
                 {{-- Publicar / Ocultar (toggle) --}}
                 <form method="POST" action="{{ route('admin.catalog.toggle', $it) }}"
-                      onsubmit="return confirm('¿Cambiar estado de publicación?')">
+                      onsubmit="return confirm('¿Cambiar estado de publicación en el sitio web?')">
                   @csrf
                   @method('PATCH')
                   <button class="btn btn-ghost btn-small" type="submit">
@@ -180,7 +272,7 @@
                   </button>
                 </form>
 
-                {{-- ===== Mercado Libre ===== --}}
+                {{-- Mercado Libre --}}
                 <form method="POST" action="{{ route('admin.catalog.meli.publish', $it) }}">
                   @csrf
                   <button class="btn btn-primary btn-small" type="submit">ML: Publicar/Actualizar</button>
@@ -200,7 +292,7 @@
 
                 {{-- Eliminar --}}
                 <form method="POST" action="{{ route('admin.catalog.destroy', $it) }}"
-                      onsubmit="return confirm('¿Eliminar este producto?')">
+                      onsubmit="return confirm('¿Eliminar este producto del catálogo web? Esta acción no se puede deshacer.')">
                   @csrf
                   @method('DELETE')
                   <button class="btn btn-danger btn-small" type="submit">Eliminar</button>
