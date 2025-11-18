@@ -47,6 +47,13 @@ use App\Http\Controllers\Mail\MailboxController;
 use App\Http\Controllers\AgendaEventController;
 
 use App\Http\Controllers\MeliController;
+use App\Http\Controllers\PartContableController;
+use App\Http\Controllers\PostController;
+
+use App\Http\Controllers\LicitacionWizardController;
+use App\Http\Controllers\LicitacionPreguntaController;
+use App\Http\Controllers\LicitacionChecklistController;
+use App\Http\Controllers\LicitacionExportController;
 /*
 |--------------------------------------------------------------------------
 | AUTH
@@ -570,4 +577,152 @@ Route::post('/meli/notifications', [MeliController::class, 'notifications'])->na
     Route::post('{catalogItem}/meli/pause',   [\App\Http\Controllers\Admin\CatalogItemController::class,'meliPause'])->name('meli.pause');
     Route::post('{catalogItem}/meli/activate',[\App\Http\Controllers\Admin\CatalogItemController::class,'meliActivate'])->name('meli.activate');
     Route::get ('{catalogItem}/meli/view',    [\App\Http\Controllers\Admin\CatalogItemController::class,'meliView'])->name('meli.view'); // ← nuevo
+});
+
+
+
+Route::get('posts', [PostController::class, 'index'])->name('posts.index');
+Route::get('posts/create', [PostController::class, 'create'])->name('posts.create');
+Route::post('posts', [PostController::class, 'store'])->name('posts.store');
+Route::get('posts/{post}', [PostController::class, 'show'])->name('posts.show');
+Route::post('posts/{post}/comment', [PostController::class, 'storeComment'])->name('posts.comment');
+
+Route::middleware(['web','auth'])->group(function () {
+    Route::get('part-contable', [PartContableController::class, 'index'])->name('partcontable.index');
+    Route::get('part-contable/{company:slug}', [PartContableController::class, 'showCompany'])->name('partcontable.company');
+
+    Route::get('part-contable/{company:slug}/documents/create', [PartContableController::class, 'createDocument'])->name('partcontable.documents.create');
+    Route::post('part-contable/{company:slug}/documents', [PartContableController::class, 'storeDocument'])->name('partcontable.documents.store');
+
+ 
+Route::get('partcontable/documents/{document}/raw', [PartContableController::class, 'raw'])->name('partcontable.documents.raw');
+Route::get('partcontable/documents/{document}/preview', [PartContableController::class, 'preview'])->name('partcontable.documents.preview');
+Route::get('partcontable/documents/{document}/download', [PartContableController::class, 'download'])->name('partcontable.documents.download');
+Route::delete('partcontable/documents/{document}', [PartContableController::class, 'destroy'])->name('partcontable.documents.destroy');
+    Route::post('/company/{company:slug}/documents', [PartContableController::class, 'storeDocument'])->name('partcontable.documents.store');
+
+});
+
+
+Route::middleware(['auth'])->group(function () {
+
+    /*
+    |--------------------------------------------------------------------------
+    | RUTAS WIZARD LICITACIONES
+    |--------------------------------------------------------------------------
+    */
+
+    // Listado y detalle
+    Route::get('/licitaciones', [LicitacionWizardController::class, 'index'])
+        ->name('licitaciones.index');
+
+    Route::get('/licitaciones/{licitacion}', [LicitacionWizardController::class, 'show'])
+        ->name('licitaciones.show');
+
+    // Paso 1
+    Route::get('/licitaciones/create/step-1', [LicitacionWizardController::class, 'createStep1'])
+        ->name('licitaciones.create.step1');
+
+    Route::post('/licitaciones/store/step-1', [LicitacionWizardController::class, 'storeStep1'])
+        ->name('licitaciones.store.step1');
+
+    // Paso 2
+    Route::get('/licitaciones/{licitacion}/step-2', [LicitacionWizardController::class, 'editStep2'])
+        ->name('licitaciones.edit.step2');
+
+    Route::post('/licitaciones/{licitacion}/step-2', [LicitacionWizardController::class, 'updateStep2'])
+        ->name('licitaciones.update.step2');
+
+    // Paso 3
+    Route::get('/licitaciones/{licitacion}/step-3', [LicitacionWizardController::class, 'editStep3'])
+        ->name('licitaciones.edit.step3');
+
+    Route::post('/licitaciones/{licitacion}/step-3', [LicitacionWizardController::class, 'updateStep3'])
+        ->name('licitaciones.update.step3');
+
+    // Paso 5
+    Route::get('/licitaciones/{licitacion}/step-5', [LicitacionWizardController::class, 'editStep5'])
+        ->name('licitaciones.edit.step5');
+
+    Route::post('/licitaciones/{licitacion}/step-5', [LicitacionWizardController::class, 'updateStep5'])
+        ->name('licitaciones.update.step5');
+
+    // Paso 6
+    Route::get('/licitaciones/{licitacion}/step-6', [LicitacionWizardController::class, 'editStep6'])
+        ->name('licitaciones.edit.step6');
+
+    Route::post('/licitaciones/{licitacion}/step-6', [LicitacionWizardController::class, 'updateStep6'])
+        ->name('licitaciones.update.step6');
+
+    // Paso 7
+    Route::get('/licitaciones/{licitacion}/step-7', [LicitacionWizardController::class, 'editStep7'])
+        ->name('licitaciones.edit.step7');
+
+    Route::post('/licitaciones/{licitacion}/step-7', [LicitacionWizardController::class, 'updateStep7'])
+        ->name('licitaciones.update.step7');
+
+    // Paso 8
+    Route::get('/licitaciones/{licitacion}/step-8', [LicitacionWizardController::class, 'editStep8'])
+        ->name('licitaciones.edit.step8');
+
+    Route::post('/licitaciones/{licitacion}/step-8', [LicitacionWizardController::class, 'updateStep8'])
+        ->name('licitaciones.update.step8');
+
+    // Paso 9
+    Route::get('/licitaciones/{licitacion}/step-9', [LicitacionWizardController::class, 'editStep9'])
+        ->name('licitaciones.edit.step9');
+
+    Route::post('/licitaciones/{licitacion}/step-9', [LicitacionWizardController::class, 'updateStep9'])
+        ->name('licitaciones.update.step9');
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | PREGUNTAS DE LICITACIÓN (Paso 4 lógico)
+    |--------------------------------------------------------------------------
+    */
+
+    Route::post('/licitaciones/{licitacion}/preguntas', [LicitacionPreguntaController::class, 'store'])
+        ->name('licitaciones.preguntas.store');
+
+    // Exportar todas las preguntas a PDF
+    Route::get('/licitaciones/{licitacion}/preguntas/export-pdf', [LicitacionExportController::class, 'exportPreguntasPdf'])
+        ->name('licitaciones.preguntas.exportPdf');
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | CHECKLISTS Y CONTABILIDAD (Pasos 10, 11, 12)
+    |--------------------------------------------------------------------------
+    */
+
+    // Paso 10: checklist compras
+    Route::get('/licitaciones/{licitacion}/checklist-compras', [LicitacionChecklistController::class, 'editCompras'])
+        ->name('licitaciones.checklist.compras.edit');
+
+    Route::post('/licitaciones/{licitacion}/checklist-compras', [LicitacionChecklistController::class, 'storeCompras'])
+        ->name('licitaciones.checklist.compras.store');
+
+    Route::patch('/licitaciones/{licitacion}/checklist-compras/{item}', [LicitacionChecklistController::class, 'updateCompras'])
+        ->name('licitaciones.checklist.compras.update');
+
+    // Paso 11: checklist facturación
+    Route::get('/licitaciones/{licitacion}/checklist-facturacion', [LicitacionChecklistController::class, 'editFacturacion'])
+        ->name('licitaciones.checklist.facturacion.edit');
+
+    Route::post('/licitaciones/{licitacion}/checklist-facturacion', [LicitacionChecklistController::class, 'storeFacturacion'])
+        ->name('licitaciones.checklist.facturacion.store');
+
+    // Paso 12: contabilidad
+    Route::get('/licitaciones/{licitacion}/contabilidad', [LicitacionChecklistController::class, 'editContabilidad'])
+        ->name('licitaciones.contabilidad.edit');
+
+    Route::post('/licitaciones/{licitacion}/contabilidad', [LicitacionChecklistController::class, 'storeContabilidad'])
+        ->name('licitaciones.contabilidad.store');
+           // PREGUNTAS DE LA LICITACIÓN
+    Route::get('licitaciones/{licitacion}/preguntas', [LicitacionPreguntaController::class, 'index'])
+        ->name('licitaciones.preguntas.index');
+
+    Route::post('licitaciones/{licitacion}/preguntas', [LicitacionPreguntaController::class, 'store'])
+        ->name('licitaciones.preguntas.store');
 });
