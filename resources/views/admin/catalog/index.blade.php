@@ -97,6 +97,10 @@
 @endpush
 
 @section('content')
+@php
+  use Illuminate\Support\Str;
+@endphp
+
 <div class="wrap">
   <div class="head" style="margin: 14px 0 10px;">
     <div>
@@ -132,8 +136,9 @@
         </p>
         <ul>
           <li><strong>Título demasiado corto o genérico:</strong> incluye tipo de producto, marca y modelo (ejemplo: “Lapicero bolígrafo azul Bic 0.7mm”).</li>
-          <li><strong>Precio insuficiente:</strong> algunas categorías exigen un precio mínimo (por ejemplo, desde 35 MXN).</li>
-          <li><strong>Publicación cerrada:</strong> si Mercado Libre ya cerró la publicación, deberás crear una nueva desde este panel.</li>
+          <li><strong>Precio insuficiente:</strong> algunas categorías exigen un precio mínimo. Si el mensaje menciona un monto, ajusta el precio para superarlo.</li>
+          <li><strong>Falta GTIN / código de barras:</strong> en varias categorías es obligatorio. Captura el GTIN en la edición del producto.</li>
+          <li><strong>Publicación cerrada:</strong> si Mercado Libre ya cerró la publicación, será necesario crear una nueva desde este panel.</li>
         </ul>
       </div>
     </div>
@@ -212,6 +217,9 @@
                 @endif
 
                 @if($it->meli_last_error)
+                  @php
+                    $errText = Str::lower($it->meli_last_error);
+                  @endphp
                   <div class="ml-pill-error">
                     Problema al sincronizar con Mercado Libre
                   </div>
@@ -219,9 +227,19 @@
                     {{ $it->meli_last_error }}
                   </div>
                   <ul class="ml-error-hints">
-                    <li>Revisa el título del producto: incluye tipo, marca y modelo.</li>
-                    <li>Verifica que el precio cumpla el mínimo exigido por la categoría.</li>
-                    <li>Si la publicación anterior está cerrada, vuelve a publicar desde este botón.</li>
+                    @if(Str::contains($errText, 'gtin'))
+                      <li>El mensaje indica que falta el <strong>GTIN/código de barras</strong>. Edita el producto y captura el código impreso en el empaque.</li>
+                    @endif
+
+                    @if(Str::contains($errText, 'title') || Str::contains($errText, 'título'))
+                      <li>El <strong>Nombre</strong> es demasiado corto o genérico. Incluye tipo de producto, marca y modelo (por ejemplo: “Lapicero bolígrafo azul Bic 0.7mm”).</li>
+                    @endif
+
+                    @if(Str::contains($errText, 'price'))
+                      <li>El <strong>Precio</strong> está por debajo del mínimo de la categoría. Sube el precio hasta el mínimo que menciona el mensaje.</li>
+                    @endif
+
+                    <li>Después de corregir, vuelve a pulsar <strong>“ML: Publicar/Actualizar”</strong> para reintentar el envío.</li>
                   </ul>
                 @endif
               </div>

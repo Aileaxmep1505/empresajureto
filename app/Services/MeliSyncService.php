@@ -17,9 +17,9 @@ class MeliSyncService
     /**
      * Publica o actualiza en ML y marca campos en DB.
      * $options:
-     *  - 'activate' => bool   Fuerza activar (status=active) si es posible
-     *  - 'update_description' => bool  Actualiza la descripción usando el endpoint específico
-     *  - 'ensure_picture' => bool      Reemplaza imágenes con una estable si hay sub_status picture_download_pending
+     *  - 'activate'           => bool   Fuerza activar (status=active) si es posible
+     *  - 'update_description' => bool   Actualiza la descripción usando el endpoint específico
+     *  - 'ensure_picture'     => bool   Reemplaza imágenes con una estable si hay sub_status picture_download_pending
      */
     public function sync(CatalogItem $item, array $options = []): array
     {
@@ -27,8 +27,8 @@ class MeliSyncService
 
         // 0) Estado de la cuenta (para shipping)
         $meResp = $http->get($this->api('users/me'));
-        $me = $meResp->ok() ? (array) $meResp->json() : [];
-        $env = Arr::get($me, 'status.mercadoenvios', 'not_accepted'); // accepted|not_accepted|mandatory
+        $me     = $meResp->ok() ? (array) $meResp->json() : [];
+        $env    = Arr::get($me, 'status.mercadoenvios', 'not_accepted'); // accepted|not_accepted|mandatory
         $shippingMode = ($env === 'accepted' || $env === 'mandatory') ? 'me2' : 'custom';
 
         // 0.b) Si ya tengo meli_item_id, ver si el item remoto está CERRADO / CANCELADO
@@ -36,14 +36,14 @@ class MeliSyncService
             try {
                 $remoteResp = $http->get($this->api("items/{$item->meli_item_id}"));
                 if ($remoteResp->ok()) {
-                    $remote = (array) $remoteResp->json();
+                    $remote       = (array) $remoteResp->json();
                     $remoteStatus = $remote['status'] ?? null;
 
                     // Estados que NO se pueden actualizar: tratar como "muerto"
                     if (in_array($remoteStatus, ['closed', 'canceled', 'cancelled', 'deleted'], true)) {
                         $item->update([
                             'meli_status'     => $remoteStatus,
-                            'meli_last_error' => "La publicación anterior en ML ({$item->meli_item_id}) está en estado '{$remoteStatus}' y ya no se puede modificar. Se creará una nueva publicación al volver a sincronizar.",
+                            'meli_last_error' => "La publicación anterior en Mercado Libre ({$item->meli_item_id}) está en estado '{$remoteStatus}' y ya no se puede modificar. Se creará una nueva publicación al volver a sincronizar.",
                         ]);
 
                         // Limpiamos solo en el objeto actual para que esta sync haga POST
@@ -60,10 +60,10 @@ class MeliSyncService
         }
 
         // 1) listing_type_id permitido
-        $userId = Arr::get($me, 'id');
+        $userId   = Arr::get($me, 'id');
         $listings = [];
         if ($userId) {
-            $ltResp = $http->get($this->api("users/{$userId}/available_listing_types"), ['site_id' => 'MLM']);
+            $ltResp   = $http->get($this->api("users/{$userId}/available_listing_types"), ['site_id' => 'MLM']);
             $listings = $ltResp->ok() ? (array) $ltResp->json() : [];
         }
         $listingType = $item->meli_listing_type_id ?: ($listings[0]['id'] ?? 'gold_special');
@@ -72,7 +72,7 @@ class MeliSyncService
         $categoryId = $item->meli_category_id;
         if (!$categoryId) {
             $predResp = $http->get($this->api('sites/MLM/domain_discovery/search'), ['q' => $item->name]);
-            $pred = $predResp->ok() ? (array) $predResp->json() : [];
+            $pred     = $predResp->ok() ? (array) $predResp->json() : [];
             $categoryId = $pred[0]['category_id'] ?? 'MLM3530'; // fallback genérico “Otros”
         }
 
@@ -87,19 +87,28 @@ class MeliSyncService
             if ($u && (!isset($pics[0]['source']) || $u !== $pics[0]['source'])) {
                 $pics[] = ['source' => $u];
             }
-            if (count($pics) >= 6) break;
+            if (count($pics) >= 6) {
+                break;
+            }
         }
         if (empty($pics)) {
             // Placeholder pública para evitar rechazo por falta de imagen
             $pics[] = ['source' => 'https://http2.mlstatic.com/storage/developers-site-cms-admin/openapi/319102622313-testimage.jpeg'];
         }
 
-        // 4) atributos mínimos (BRAND, MODEL)
+        // 4) atributos mínimos (BRAND, MODEL, GTIN)
         $attributes = [];
-        $brand = trim((string) ($item->brand_name ?? 'Genérica'));
-        $model = trim((string) ($item->model_name ?? $item->sku ?? 'Modelo Único'));
+        $brand      = trim((string) ($item->brand_name ?? 'Genérica'));
+        $model      = trim((string) ($item->model_name ?? $item->sku ?? 'Modelo Único'));
+
         $attributes[] = ['id' => 'BRAND', 'value_name' => $brand];
         $attributes[] = ['id' => 'MODEL', 'value_name' => $model];
+
+        // GTIN si lo tiene el producto
+        $gtin = trim((string) ($item->meli_gtin ?? ''));
+        if ($gtin !== '') {
+            $attributes[] = ['id' => 'GTIN', 'value_name' => $gtin];
+        }
 
         // Autocompletar los atributos requeridos por la categoría
         $attributes = $this->fillRequiredCategoryAttributes($http, $categoryId, $attributes);
@@ -140,9 +149,9 @@ class MeliSyncService
         // Validación local de título para evitar el error 3705
         $title = $payload['title'] ?? '';
         if (mb_strlen($title) < 25 || str_word_count($title) < 4) {
-            $msg = "Mercado Libre rechazó la publicación. El título del producto es demasiado corto o genérico. ".
-                   "Agrega marca, modelo y características importantes (ej. \"Lapicero bolígrafo azul Bic 0.7mm\"). ".
-                   "Título actual: \"{$title}\"";
+            $msg = "Mercado Libre rechazó la publicación. El título del producto es demasiado corto o genérico. " .
+                "Agrega marca, modelo y características importantes (ej. \"Lapicero bolígrafo azul Bic 0.7mm\"). " .
+                "Título actual: \"{$title}\"";
 
             $item->update([
                 'meli_status'          => 'error',
@@ -164,7 +173,7 @@ class MeliSyncService
                 $update['buying_mode'],
                 $update['currency_id'],
                 $update['condition'],
-                $update['description']  // descripción se actualiza con endpoint dedicado
+                $update['description'] // descripción se actualiza con endpoint dedicado
             );
 
             if (!empty($options['activate'])) {
@@ -172,16 +181,16 @@ class MeliSyncService
             }
 
             $resp = $http->put($this->api("items/{$item->meli_item_id}"), $update);
-            $j = (array) $resp->json();
+            $j    = (array) $resp->json();
 
             // picture_download_pending
             if ($resp->ok() && !empty($options['ensure_picture'])) {
                 $check = $http->get($this->api("items/{$item->meli_item_id}"))->json();
-                $sub = $check['sub_status'] ?? [];
+                $sub   = $check['sub_status'] ?? [];
                 if (in_array('picture_download_pending', (array) $sub, true)) {
                     $http->put($this->api("items/{$item->meli_item_id}"), [
                         'pictures' => [
-                            ['source' => 'https://http2.mlstatic.com/storage/developers-site-cms-admin/openapi/319102622313-testimage.jpeg']
+                            ['source' => 'https://http2.mlstatic.com/storage/developers-site-cms-admin/openapi/319102622313-testimage.jpeg'],
                         ],
                     ]);
                     if (!empty($options['activate'])) {
@@ -196,7 +205,7 @@ class MeliSyncService
         } else {
             // CREATE
             $resp = $http->post($this->api('items'), $payload);
-            $j = (array) $resp->json();
+            $j    = (array) $resp->json();
 
             if ($resp->ok() && !empty($j['id']) && !empty($options['activate'])) {
                 $http->put($this->api("items/{$j['id']}"), ['status' => 'active']);
@@ -204,11 +213,11 @@ class MeliSyncService
 
             if ($resp->ok() && !empty($j['id']) && !empty($options['ensure_picture'])) {
                 $check = $http->get($this->api("items/{$j['id']}"))->json();
-                $sub = $check['sub_status'] ?? [];
+                $sub   = $check['sub_status'] ?? [];
                 if (in_array('picture_download_pending', (array) $sub, true)) {
                     $http->put($this->api("items/{$j['id']}"), [
                         'pictures' => [
-                            ['source' => 'https://http2.mlstatic.com/storage/developers-site-cms-admin/openapi/319102622313-testimage.jpeg']
+                            ['source' => 'https://http2.mlstatic.com/storage/developers-site-cms-admin/openapi/319102622313-testimage.jpeg'],
                         ],
                     ]);
                     if (!empty($options['activate'])) {
@@ -227,10 +236,10 @@ class MeliSyncService
             $friendly = $this->humanMeliError($j);
 
             $item->update([
-                'meli_status'           => 'error',
-                'meli_last_error'       => $friendly,
-                'meli_category_id'      => $categoryId,
-                'meli_listing_type_id'  => $listingType,
+                'meli_status'          => 'error',
+                'meli_last_error'      => $friendly,
+                'meli_category_id'     => $categoryId,
+                'meli_listing_type_id' => $listingType,
             ]);
 
             Log::warning('ML publish error', ['catalog_item_id' => $item->id, 'resp' => $j]);
@@ -260,7 +269,7 @@ class MeliSyncService
 
         $http = MeliHttp::withFreshToken();
         $resp = $http->put($this->api("items/{$item->meli_item_id}"), ['status' => 'paused']);
-        $j = (array) $resp->json();
+        $j    = (array) $resp->json();
 
         if ($resp->failed()) {
             $friendly = $this->humanMeliError($j);
@@ -273,10 +282,11 @@ class MeliSyncService
         }
 
         $item->update([
-            'meli_status'    => 'paused',
-            'meli_synced_at' => now(),
-            'meli_last_error'=> null
+            'meli_status'     => 'paused',
+            'meli_synced_at'  => now(),
+            'meli_last_error' => null,
         ]);
+
         return ['ok' => true, 'json' => $j];
     }
 
@@ -290,7 +300,7 @@ class MeliSyncService
 
         $http = MeliHttp::withFreshToken();
         $resp = $http->put($this->api("items/{$item->meli_item_id}"), ['status' => 'active']);
-        $j = (array) $resp->json();
+        $j    = (array) $resp->json();
 
         if ($resp->failed()) {
             $friendly = $this->humanMeliError($j);
@@ -303,10 +313,11 @@ class MeliSyncService
         }
 
         $item->update([
-            'meli_status'    => 'active',
-            'meli_synced_at' => now(),
-            'meli_last_error'=> null
+            'meli_status'     => 'active',
+            'meli_synced_at'  => now(),
+            'meli_last_error' => null,
         ]);
+
         return ['ok' => true, 'json' => $j];
     }
 
@@ -318,6 +329,7 @@ class MeliSyncService
     {
         $base = $i->excerpt ?: strip_tags((string) $i->description);
         $base = trim($base) ?: "{$i->name}.\n\nVendido por JURETO. Factura disponible. Garantía estándar.\n";
+
         // ML recomienda <= 5000 chars, sin HTML
         return mb_substr(preg_replace('/\s+/', ' ', $base), 0, 4800);
     }
@@ -387,8 +399,9 @@ class MeliSyncService
 
         $defs = $this->fetchCategoryAttributes($http, $categoryId);
         foreach ($defs as $def) {
-            $attrId = $def['id'] ?? null;
+            $attrId     = $def['id'] ?? null;
             $isRequired = !empty($def['tags']['required']);
+
             if (!$isRequired || !$attrId || isset($present[$attrId])) {
                 continue;
             }
@@ -426,7 +439,7 @@ class MeliSyncService
                 }
             }
         } catch (\Throwable $e) {
-            Log::error('ML description upsert exception: '.$e->getMessage(), ['item' => $itemId]);
+            Log::error('ML description upsert exception: ' . $e->getMessage(), ['item' => $itemId]);
         }
     }
 
@@ -443,6 +456,12 @@ class MeliSyncService
         foreach ($causes as $c) {
             $code = $c['code'] ?? '';
             $msg  = $c['message'] ?? '';
+
+            // Detección especial de GTIN requerido
+            if ($msg && stripos($msg, 'gtin') !== false && stripos($msg, 'required') !== false) {
+                $lines[] = 'Esta categoría exige el código de barras (GTIN) del producto. Captura el GTIN en el campo "GTIN / Código de barras" y vuelve a intentar publicar.';
+                continue;
+            }
 
             switch ($code) {
                 case 'item.title.minimum_length':
@@ -479,12 +498,12 @@ class MeliSyncService
             if (!empty($j['message'])) {
                 $lines[] = $j['message'];
             } else {
-                $lines[] = 'Revisa título, precio, categoría y stock del producto.';
+                $lines[] = 'Revisa título, precio, categoría, código de barras (GTIN) y stock del producto.';
             }
         }
 
         $lines = array_unique($lines);
 
-        return $base.' '.implode(' ', $lines);
+        return $base . ' ' . implode(' ', $lines);
     }
 }

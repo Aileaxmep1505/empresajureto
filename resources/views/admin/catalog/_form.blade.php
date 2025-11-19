@@ -147,12 +147,22 @@
         Se envía al atributo <strong>MODEL</strong>. Si no tienes modelo, puedes dejarlo vacío y usaremos el SKU como respaldo.
       </p>
 
+      <label class="lbl">GTIN / Código de barras</label>
+      <input name="meli_gtin" class="inp"
+             placeholder="Ejemplo: 7501035910107"
+             value="{{ old('meli_gtin', $item->meli_gtin ?? '') }}">
+      <p class="hint">
+        En varias categorías de Mercado Libre es obligatorio el código de barras (GTIN, EAN, UPC, etc.).
+        Lo encuentras impreso junto al código de barras del producto o la caja.
+      </p>
+
       <div class="ml-tips">
         <p class="hint-title">Para evitar errores al publicar en Mercado Libre:</p>
         <ul class="hint-list">
           <li>El título debe incluir tipo, marca y modelo. Evita nombres genéricos como “Lapicero” solamente.</li>
           <li>Revisa que el precio sea suficiente para la categoría (algunas exigen un mínimo).</li>
           <li>Asegúrate de tener al menos una imagen válida y accesible por URL.</li>
+          <li>Completa el GTIN cuando el sistema te lo pida; si falta, verás un mensaje que lo menciona.</li>
         </ul>
       </div>
     </div>

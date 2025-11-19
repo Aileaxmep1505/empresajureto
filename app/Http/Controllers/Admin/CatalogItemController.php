@@ -8,8 +8,6 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Str;
-
-// Servicios para Mercado Libre
 use App\Services\MeliSyncService;
 
 class CatalogItemController extends Controller implements HasMiddleware
@@ -23,16 +21,16 @@ class CatalogItemController extends Controller implements HasMiddleware
     {
         $q = CatalogItem::query();
 
-        $s = trim((string)$request->get('s', ''));
+        $s = trim((string) $request->get('s', ''));
         if ($s !== '') {
             $q->where(function ($qq) use ($s) {
                 $qq->where('name', 'like', "%{$s}%")
-                   ->orWhere('sku', 'like', "%{$s}%");
+                    ->orWhere('sku', 'like', "%{$s}%");
             });
         }
 
         if ($request->filled('status')) {
-            $q->where('status', (int)$request->integer('status'));
+            $q->where('status', (int) $request->integer('status'));
         }
 
         if ($request->boolean('featured_only')) {
@@ -42,10 +40,10 @@ class CatalogItemController extends Controller implements HasMiddleware
         $items = $q->orderByDesc('id')->paginate(20)->withQueryString();
 
         return view('admin.catalog.index', [
-            'items' => $items,
+            'items'   => $items,
             'filters' => [
-                's' => $s,
-                'status' => $request->get('status'),
+                's'             => $s,
+                'status'        => $request->get('status'),
                 'featured_only' => $request->boolean('featured_only'),
             ],
         ]);
@@ -59,34 +57,36 @@ class CatalogItemController extends Controller implements HasMiddleware
     public function store(Request $request)
     {
         $data = $request->validate([
-            'name'        => ['required','string','max:255'],
-            'slug'        => ['nullable','string','max:255','unique:catalog_items,slug'],
-            'sku'         => ['nullable','string','max:120'],
-            'price'       => ['required','numeric','min:0'],
-            'sale_price'  => ['nullable','numeric','min:0'],
-            'status'      => ['required','integer','in:0,1,2'], // 0=borrador 1=publicado 2=oculto
-            'image_url'   => ['nullable','string','max:2048'],
-            'images'      => ['nullable','array'],
-            'images.*'    => ['nullable','url'],
-            'is_featured' => ['nullable','boolean'],
-            'brand_id'    => ['nullable','integer'],
-            'category_id' => ['nullable','integer'],
-            'brand_name'  => ['nullable','string','max:120'], // usados por ML
-            'model_name'  => ['nullable','string','max:120'],
-            'excerpt'     => ['nullable','string'],
-            'description' => ['nullable','string'],
-            'published_at'=> ['nullable','date'],
+            'name'        => ['required', 'string', 'max:255'],
+            'slug'        => ['nullable', 'string', 'max:255', 'unique:catalog_items,slug'],
+            'sku'         => ['nullable', 'string', 'max:120'],
+            'price'       => ['required', 'numeric', 'min:0'],
+            'sale_price'  => ['nullable', 'numeric', 'min:0'],
+            'status'      => ['required', 'integer', 'in:0,1,2'], // 0=borrador 1=publicado 2=oculto
+            'image_url'   => ['nullable', 'string', 'max:2048'],
+            'images'      => ['nullable', 'array'],
+            'images.*'    => ['nullable', 'url'],
+            'is_featured' => ['nullable', 'boolean'],
+            'brand_id'    => ['nullable', 'integer'],
+            'category_id' => ['nullable', 'integer'],
+            'brand_name'  => ['nullable', 'string', 'max:120'], // usados por ML
+            'model_name'  => ['nullable', 'string', 'max:120'],
+            'meli_gtin'   => ['nullable', 'string', 'max:50'],  // GTIN / código de barras para ML
+            'excerpt'     => ['nullable', 'string'],
+            'description' => ['nullable', 'string'],
+            'published_at'=> ['nullable', 'date'],
         ]);
 
         $data['slug'] = $data['slug'] ?: Str::slug($data['name']);
         if (CatalogItem::where('slug', $data['slug'])->exists()) {
-            $data['slug'] = Str::slug($data['name'].'-'.Str::random(4));
+            $data['slug'] = Str::slug($data['name'] . '-' . Str::random(4));
         }
-        $data['is_featured'] = (bool)($data['is_featured'] ?? false);
+
+        $data['is_featured'] = (bool) ($data['is_featured'] ?? false);
 
         $item = CatalogItem::create($data);
 
-        // Encolar / disparar sync a ML (no interrumpe flujo si truena)
+        // Disparar sync a ML (no interrumpe flujo si truena)
         $this->dispatchMeliSync($item);
 
         return redirect()
@@ -102,27 +102,28 @@ class CatalogItemController extends Controller implements HasMiddleware
     public function update(Request $request, CatalogItem $catalogItem)
     {
         $data = $request->validate([
-            'name'        => ['required','string','max:255'],
-            'slug'        => ['nullable','string','max:255','unique:catalog_items,slug,'.$catalogItem->id],
-            'sku'         => ['nullable','string','max:120'],
-            'price'       => ['required','numeric','min:0'],
-            'sale_price'  => ['nullable','numeric','min:0'],
-            'status'      => ['required','integer','in:0,1,2'],
-            'image_url'   => ['nullable','string','max:2048'],
-            'images'      => ['nullable','array'],
-            'images.*'    => ['nullable','url'],
-            'is_featured' => ['nullable','boolean'],
-            'brand_id'    => ['nullable','integer'],
-            'category_id' => ['nullable','integer'],
-            'brand_name'  => ['nullable','string','max:120'],
-            'model_name'  => ['nullable','string','max:120'],
-            'excerpt'     => ['nullable','string'],
-            'description' => ['nullable','string'],
-            'published_at'=> ['nullable','date'],
+            'name'        => ['required', 'string', 'max:255'],
+            'slug'        => ['nullable', 'string', 'max:255', 'unique:catalog_items,slug,' . $catalogItem->id],
+            'sku'         => ['nullable', 'string', 'max:120'],
+            'price'       => ['required', 'numeric', 'min:0'],
+            'sale_price'  => ['nullable', 'numeric', 'min:0'],
+            'status'      => ['required', 'integer', 'in:0,1,2'],
+            'image_url'   => ['nullable', 'string', 'max:2048'],
+            'images'      => ['nullable', 'array'],
+            'images.*'    => ['nullable', 'url'],
+            'is_featured' => ['nullable', 'boolean'],
+            'brand_id'    => ['nullable', 'integer'],
+            'category_id' => ['nullable', 'integer'],
+            'brand_name'  => ['nullable', 'string', 'max:120'],
+            'model_name'  => ['nullable', 'string', 'max:120'],
+            'meli_gtin'   => ['nullable', 'string', 'max:50'], // GTIN / código de barras para ML
+            'excerpt'     => ['nullable', 'string'],
+            'description' => ['nullable', 'string'],
+            'published_at'=> ['nullable', 'date'],
         ]);
 
-        $data['slug'] = $data['slug'] ?: Str::slug($data['name']);
-        $data['is_featured'] = (bool)($data['is_featured'] ?? false);
+        $data['slug']        = $data['slug'] ?: Str::slug($data['name']);
+        $data['is_featured'] = (bool) ($data['is_featured'] ?? false);
 
         $catalogItem->update($data);
 
@@ -139,7 +140,9 @@ class CatalogItemController extends Controller implements HasMiddleware
         // Si quieres pausar/eliminar en ML puedes decidirlo en el Job/servicio
         $this->dispatchMeliSync($catalogItem);
 
-        return redirect()->route('admin.catalog.index')->with('ok', 'Producto web eliminado.');
+        return redirect()
+            ->route('admin.catalog.index')
+            ->with('ok', 'Producto web eliminado.');
     }
 
     /** Publicar/Ocultar rápido */
@@ -181,9 +184,7 @@ class CatalogItemController extends Controller implements HasMiddleware
             return back()->with('ok', $msg);
         }
 
-        // Mensaje amigable desde el servicio (si viene)
         $friendly = $res['message'] ?? 'No se pudo publicar en Mercado Libre. Revisa los datos del producto.';
-
         return back()->with('ok', $friendly);
     }
 
@@ -214,13 +215,12 @@ class CatalogItemController extends Controller implements HasMiddleware
     }
 
     // GET admin/catalog/{catalogItem}/meli/view
-    public function meliView(CatalogItem $catalogItem, MeliSyncService $svc)
+    public function meliView(CatalogItem $catalogItem)
     {
         if (!$catalogItem->meli_item_id) {
             return back()->with('ok', 'Este producto aún no tiene publicación en ML.');
         }
 
-        // Solo usamos el HTTP del servicio
         $http = \App\Services\MeliHttp::withFreshToken();
         $resp = $http->get("https://api.mercadolibre.com/items/{$catalogItem->meli_item_id}");
         if ($resp->failed()) {
@@ -230,7 +230,7 @@ class CatalogItemController extends Controller implements HasMiddleware
         $permalink = $resp->json('permalink');
         return $permalink
             ? redirect()->away($permalink)
-            : back()->with('ok','Este ítem no tiene permalink disponible.');
+            : back()->with('ok', 'Este ítem no tiene permalink disponible.');
     }
 
     /** Dispara el sync con ML sin romper la UI si algo truena */

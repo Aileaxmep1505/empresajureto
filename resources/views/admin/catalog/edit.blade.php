@@ -1,8 +1,25 @@
 @extends('layouts.app')
 @section('title','Editar producto web')
 
+@push('styles')
+<style>
+  .wrap-page{max-width:1100px;margin-inline:auto;}
+  .btn{display:inline-flex;align-items:center;gap:8px;border-radius:12px;padding:9px 14px;font-weight:700;border:1px solid #e5e7eb;background:#fff;cursor:pointer;text-decoration:none;font-size:.9rem;}
+  .btn-primary{background:#6ea8fe;border-color:#6ea8fe;color:#0b1220;box-shadow:0 8px 18px rgba(37,99,235,.14);}
+  .btn-ghost{background:#fff;border-color:#e5e7eb;color:#111827;}
+  .alert{padding:10px 12px;border-radius:12px;border:1px solid #e5e7eb;margin-bottom:12px;font-size:.9rem;}
+  .alert-success{background:#f8fffb;color:#0b6b3a;}
+  .alert-error{background:#fff4f4;color:#b91c1c;}
+  .alert-ml{background:#fbfeff;color:#0b4b6b;border-color:#e5e7eb;}
+</style>
+@endpush
+
 @section('content')
-<div class="wrap" style="max-width:1100px;margin-inline:auto;">
+@php
+  use Illuminate\Support\Str;
+@endphp
+
+<div class="wrap-page">
   <div class="head" style="display:flex;justify-content:space-between;align-items:center;margin:14px 0 10px;">
     <div>
       <h1 style="font-weight:800;margin:0;">Editar: {{ $item->name }}</h1>
@@ -44,21 +61,24 @@
       <form action="{{ route('admin.catalog.destroy', $item) }}" method="POST"
             onsubmit="return confirm('¿Eliminar este producto del catálogo web? Esta acción no se puede deshacer.')">
         @csrf @method('DELETE')
-        <button class="btn" style="background:#ef4444;color:#fff;">Eliminar</button>
+        <button class="btn" style="background:#ef4444;color:#fff;border-color:#ef4444;">Eliminar</button>
       </form>
     </div>
   </div>
 
   {{-- Banner de resultado/errores global --}}
   @if(session('ok'))
-    <div class="alert" style="padding:10px 12px;border:1px solid #e8eef6;border-radius:12px;background:#f8fffb;color:#0b6b3a;margin-bottom:12px;font-size:.9rem;">
+    <div class="alert alert-success">
       {{ session('ok') }}
     </div>
   @endif
 
   {{-- Panel de estado Mercado Libre --}}
   @if($item->meli_item_id || $item->meli_last_error)
-    <div class="alert" style="padding:12px 14px;border:1px solid #e8eef6;border-radius:14px;background:#fbfeff;color:#0b4b6b;margin-bottom:12px;font-size:.9rem;">
+    @php
+      $errText = Str::lower((string)$item->meli_last_error);
+    @endphp
+    <div class="alert alert-ml">
       <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;">
         <div style="flex:1 1 260px;">
           <strong>Mercado Libre</strong><br>
@@ -87,21 +107,30 @@
           @endif
         </div>
 
-        <div style="flex:1 1 260px;">
-          <div style="font-size:.86rem;color:#4b5563;">
-            <strong>Consejos rápidos</strong>
-            <ul style="margin:4px 0 0 18px;padding:0;">
-              <li>Asegúrate de que el <strong>Nombre</strong> incluya tipo de producto, marca y modelo.</li>
-              <li>Verifica que el <strong>Precio</strong> sea suficiente para la categoría (Ej.: mínimo 35 MXN en algunas categorías).</li>
-              <li>Si la publicación está cerrada, vuelve a publicar desde el botón “ML: Publicar/Actualizar”.</li>
-            </ul>
-          </div>
+        <div style="flex:1 1 260px;font-size:.86rem;color:#4b5563;">
+          <strong>Qué revisar en este producto:</strong>
+          <ul style="margin:4px 0 0 18px;padding:0;">
+            @if(Str::contains($errText, 'gtin'))
+              <li>Completa el campo <strong>GTIN / código de barras</strong> en esta pantalla. Es obligatorio para esta categoría.</li>
+            @endif
+
+            @if(Str::contains($errText, 'title') || Str::contains($errText, 'título'))
+              <li>Mejora el <strong>Nombre</strong>: incluye tipo de producto, marca y modelo (ejemplo: “Lapicero bolígrafo azul Bic 0.7mm”).</li>
+            @endif
+
+            @if(Str::contains($errText, 'price'))
+              <li>Ajusta el <strong>Precio</strong> para alcanzar el mínimo que indica el mensaje de Mercado Libre.</li>
+            @endif
+
+            <li>Verifica que haya al menos una <strong>imagen con URL válida</strong>.</li>
+            <li>Después de corregir, pulsa <strong>“ML: Publicar/Actualizar”</strong> para reintentar la sincronización.</li>
+          </ul>
         </div>
       </div>
 
       @if($item->meli_last_error)
         <div style="color:#b91c1c;margin-top:8px;white-space:normal;font-size:.86rem;">
-          <strong>Último error detectado:</strong><br>
+          <strong>Mensaje técnico de Mercado Libre:</strong><br>
           {{ $item->meli_last_error }}
         </div>
       @endif
@@ -110,7 +139,7 @@
 
   {{-- Errores de validación de formulario --}}
   @if($errors->any())
-    <div class="alert" style="padding:10px 12px;border:1px solid #e8eef6;border-radius:12px;background:#fff4f4;color:#991b1b;margin-bottom:12px;font-size:.9rem;">
+    <div class="alert alert-error">
       <strong>Revisa estos campos antes de guardar:</strong>
       <ul style="margin:6px 0 0 18px;">
         @foreach($errors->all() as $e) <li>{{ $e }}</li> @endforeach

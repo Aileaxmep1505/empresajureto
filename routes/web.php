@@ -54,6 +54,7 @@ use App\Http\Controllers\LicitacionWizardController;
 use App\Http\Controllers\LicitacionPreguntaController;
 use App\Http\Controllers\LicitacionChecklistController;
 use App\Http\Controllers\LicitacionExportController;
+use App\Http\Controllers\LicitacionFileController;
 /*
 |--------------------------------------------------------------------------
 | AUTH
@@ -465,7 +466,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/tickets/{ticket}/checklists/ai',             [TicketChecklistController::class,'createFromAi'])->name('tickets.ai.create')->whereNumber('ticket');
 });
 // ====== MAILBOX (todas bajo /mail) ======
-Route::middleware(['auth']) // quítalo si aún no usas auth
+Route::middleware(['auth']) 
     ->prefix('mail')
     ->name('mail.')
     ->group(function () {
@@ -725,3 +726,31 @@ Route::middleware(['auth'])->group(function () {
     Route::post('licitaciones/{licitacion}/preguntas', [LicitacionPreguntaController::class, 'store'])
         ->name('licitaciones.preguntas.store');
 });
+
+Route::prefix('licitaciones-ai')
+    ->name('licitaciones-ai.')
+    ->group(function () {
+        // Lista de archivos procesados
+        Route::get('/', [LicitacionFileController::class, 'index'])
+            ->name('index');
+
+        // Formulario para subir nuevo archivo
+        Route::get('/crear', [LicitacionFileController::class, 'create'])
+            ->name('create');
+
+        // Guardar archivo y procesar
+        Route::post('/', [LicitacionFileController::class, 'store'])
+            ->name('store');
+
+        // Tabla global (todos los items fusionados)
+        Route::get('/tabla-global', [LicitacionFileController::class, 'tablaGlobal'])
+            ->name('tabla-global');
+
+        // Actualizar MARCA y MODELO de un item global
+        Route::post('/tabla-global/{itemGlobal}', [LicitacionFileController::class, 'actualizarMarcaModelo'])
+            ->name('tabla-global.update');
+
+        // Detalle de un archivo y sus items originales
+        Route::get('/{licitacionFile}', [LicitacionFileController::class, 'show'])
+            ->name('show');
+    });
