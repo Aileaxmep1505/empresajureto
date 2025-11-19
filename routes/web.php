@@ -611,7 +611,8 @@ Route::middleware(['auth'])->group(function () {
     | RUTAS WIZARD LICITACIONES
     |--------------------------------------------------------------------------
     */
-
+Route::get('/companies/create', [CompanyController::class, 'create'])
+    ->name('companies.create');
     // Listado y detalle
     Route::get('/licitaciones', [LicitacionWizardController::class, 'index'])
         ->name('licitaciones.index');
@@ -726,13 +727,17 @@ Route::middleware(['auth'])->group(function () {
     Route::post('licitaciones/{licitacion}/preguntas', [LicitacionPreguntaController::class, 'store'])
         ->name('licitaciones.preguntas.store');
 });
-
 Route::prefix('licitaciones-ai')
     ->name('licitaciones-ai.')
     ->group(function () {
+
         // Lista de archivos procesados
         Route::get('/', [LicitacionFileController::class, 'index'])
             ->name('index');
+
+        // Eliminar licitación AI
+        Route::delete('/{licitacionFile}', [LicitacionFileController::class, 'destroy'])
+            ->name('destroy');
 
         // Formulario para subir nuevo archivo
         Route::get('/crear', [LicitacionFileController::class, 'create'])
@@ -742,15 +747,31 @@ Route::prefix('licitaciones-ai')
         Route::post('/', [LicitacionFileController::class, 'store'])
             ->name('store');
 
-        // Tabla global (todos los items fusionados)
+        // 🔹 Tabla global
         Route::get('/tabla-global', [LicitacionFileController::class, 'tablaGlobal'])
             ->name('tabla-global');
 
-        // Actualizar MARCA y MODELO de un item global
+        // 🔹 Excel de tabla global
+        Route::get('/tabla-global-excel', [LicitacionFileController::class, 'exportarExcelGlobal'])
+            ->name('tabla-global.excel');
+
+        // 🔹 Actualizar MARCA y MODELO de un item global
         Route::post('/tabla-global/{itemGlobal}', [LicitacionFileController::class, 'actualizarMarcaModelo'])
             ->name('tabla-global.update');
 
-        // Detalle de un archivo y sus items originales
+        // 🔹 EXPORTAR A EXCEL todos los items de una licitación
+        Route::get('/{licitacionFile}/excel', [LicitacionFileController::class, 'exportarExcel'])
+            ->name('excel');
+
+        // 🔹 Detalle de un archivo y sus items originales
         Route::get('/{licitacionFile}', [LicitacionFileController::class, 'show'])
             ->name('show');
+
+        // 🔁 Regenerar tabla global
+        Route::post('/tabla-global-regenerar', [LicitacionFileController::class, 'regenerarTablaGlobal'])
+            ->name('tabla-global.regenerar');
+
+        // 🔹 Actualizar un item original (modal)
+        Route::post('/items/{itemOriginal}', [LicitacionFileController::class, 'actualizarItemOriginal'])
+            ->name('items.update');
     });

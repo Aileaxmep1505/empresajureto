@@ -9,6 +9,12 @@ use App\Services\LicitacionOpenAIService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Maatwebsite\Excel\Facades\Excel;
+use Maatwebsite\Excel\Concerns\FromArray;
+use Maatwebsite\Excel\Concerns\WithHeadings;
+use Maatwebsite\Excel\Concerns\WithStyles;
+use Maatwebsite\Excel\Concerns\ShouldAutoSize;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
 class LicitacionFileController extends Controller
 {
@@ -29,10 +35,8 @@ class LicitacionFileController extends Controller
      */
     public function index()
     {
-        // Usamos $licitaciones para que coincida con la vista index
         $licitaciones = LicitacionFile::latest()->paginate(20);
 
-        // Vista: resources/views/licitaciones_ai/index.blade.php
         return view('licitaciones_ai.index', compact('licitaciones'));
     }
 
@@ -41,7 +45,6 @@ class LicitacionFileController extends Controller
      */
     public function create()
     {
-        // Vista: resources/views/licitaciones_ai/create.blade.php
         return view('licitaciones_ai.create');
     }
 
@@ -80,27 +83,29 @@ class LicitacionFileController extends Controller
     {
         $items = $licitacionFile->itemsOriginales()
             ->orderBy('requisicion')
+            ->orderByRaw('CAST(partida AS UNSIGNED) ASC')
+            ->orderBy('id')
             ->get();
 
-        // Vista: resources/views/licitaciones_ai/show.blade.php
         return view('licitaciones_ai.show', compact('licitacionFile', 'items'));
     }
 
     /**
      * Procesar archivo: extraer items con OpenAI (vía servicio).
-     * Si se acerca al límite de tiempo de PHP, se corta y se marca como procesado_parcial
-     * para que al menos tengas lo que ya alcanzó a extraer.
+     * Si se acerca al límite de tiempo de PHP, se corta y se marca como procesado_parcial.
      */
     public function procesar(LicitacionFile $licitacionFile)
     {
+        // Hasta 20 minutos para este proceso
+        @set_time_limit(1200);
+
         $licitacionFile->update([
             'estado'        => 'procesando',
             'error_mensaje' => null,
         ]);
 
-        // Medición de tiempo para evitar llegar al max_execution_time (600s)
         $inicio     = microtime(true);
-        $maxSeconds = 480; // 8 minutos aprox; ajustable según tu servidor
+        $maxSeconds = 1100; // ~18 minutos, margen antes de 1200s
 
         try {
             // 1) Leer el archivo (PDF / Word) y sacar texto/tablas
@@ -109,12 +114,10 @@ class LicitacionFileController extends Controller
             $bloquesTablas = $this->extraerTablasDesdeDocumento($rutaAbsoluta);
 
             // 2) Por cada bloque, llamar al servicio OpenAI para convertir a JSON estructurado
-            $totalItems       = 0;
+            $totalItems        = 0;
             $bloquesProcesados = 0;
 
             foreach ($bloquesTablas as $index => $bloque) {
-
-                // Si ya nos acercamos mucho al límite, cortamos aquí y guardamos progreso
                 $elapsed = microtime(true) - $inicio;
                 if ($elapsed > $maxSeconds) {
                     $licitacionFile->update([
@@ -123,7 +126,6 @@ class LicitacionFileController extends Controller
                         'error_mensaje' => 'Procesamiento detenido por límite de tiempo. Puedes reintentar para seguir procesando más bloques.',
                     ]);
 
-                    // No llamamos a fusionarItemsGlobales aquí para evitar más tiempo.
                     return;
                 }
 
@@ -150,7 +152,6 @@ class LicitacionFileController extends Controller
                 $bloquesProcesados++;
             }
 
-            // Antes de fusionar, revisamos otra vez el tiempo
             $elapsed = microtime(true) - $inicio;
             if ($elapsed > $maxSeconds) {
                 $licitacionFile->update([
@@ -175,8 +176,6 @@ class LicitacionFileController extends Controller
                 'estado'        => 'error',
                 'error_mensaje' => $e->getMessage(),
             ]);
-
-            // Aquí puedes loguear el error con Log::error($e);
         }
     }
 
@@ -185,12 +184,24 @@ class LicitacionFileController extends Controller
      */
     public function tablaGlobal()
     {
-        $itemsGlobales = ItemGlobal::orderBy('clave_verificacion')
+        $itemsGlobales = ItemGlobal::with('itemsOriginales')
+            ->orderBy('clave_verificacion')
             ->orderBy('descripcion_global')
             ->get();
 
-        // Vista: resources/views/licitaciones_ai/tabla-global.blade.php
         return view('licitaciones_ai.tabla-global', compact('itemsGlobales'));
+    }
+
+    /**
+     * Regenerar tabla global desde cero.
+     */
+    public function regenerarTablaGlobal()
+    {
+        $this->fusionarItemsGlobales();
+
+        return redirect()
+            ->route('licitaciones-ai.tabla-global')
+            ->with('success', 'Tabla global regenerada a partir de todos los items originales.');
     }
 
     /**
@@ -209,82 +220,274 @@ class LicitacionFileController extends Controller
     }
 
     /**
-     * Lógica para fusionar todos los items originales en items globales.
-     * Versión simple: agrupar por clave_verificacion + unidad_medida,
-     * y si no hay clave, por descripción + unidad.
+     * Exportar a Excel TODOS los items originales de una licitación específica.
+     * Aquí ya se incluye MARCA y MODELO tomados del ItemGlobal.
+     */
+    public function exportarExcel(LicitacionFile $licitacionFile)
+    {
+        $itemsBase = $licitacionFile->itemsOriginales()
+            ->with('itemGlobal')
+            ->orderBy('requisicion')
+            ->orderByRaw('CAST(partida AS UNSIGNED) ASC')
+            ->orderBy('id')
+            ->get()
+            ->map(function (ItemOriginal $item) {
+                $global = $item->itemGlobal;
+
+                return [
+                    'requisicion'        => $item->requisicion,
+                    'partida'            => $item->partida,
+                    'clave_verificacion' => $item->clave_verificacion,
+                    'descripcion'        => $item->descripcion_bien,
+                    'especificaciones'   => $item->especificaciones,
+                    'cantidad'           => (int) $item->cantidad,
+                    'unidad'             => $item->unidad_medida,
+                    'marca'              => $global->marca  ?? null,
+                    'modelo'             => $global->modelo ?? null,
+                ];
+            })
+            ->toArray();
+
+        // Normaliza encabezados / formato con el servicio
+        $rows = $this->openAIService->prepararFilasParaExcel($itemsBase);
+
+        if (empty($rows)) {
+            $rows[] = [
+                'REQUISICION'        => '',
+                'PARTIDA'            => '',
+                'CLAVE_VERIFICACION' => '',
+                'DESCRIPCION'        => '',
+                'ESPECIFICACIONES'   => '',
+                'CANTIDAD'           => 0,
+                'UNIDAD'             => '',
+                'MARCA'              => '',
+                'MODELO'             => '',
+            ];
+        }
+
+        $export = new class($rows) implements FromArray, WithHeadings, WithStyles, ShouldAutoSize {
+            protected $rows;
+
+            public function __construct(array $rows)
+            {
+                $this->rows = $rows;
+            }
+
+            public function array(): array
+            {
+                return $this->rows;
+            }
+
+            public function headings(): array
+            {
+                return array_keys($this->rows[0] ?? []);
+            }
+
+            public function styles(Worksheet $sheet)
+            {
+                // Encabezado (fila 1) en negritas
+                $highestColumn = $sheet->getHighestColumn();
+                $sheet->getStyle('A1:' . $highestColumn . '1')->getFont()->setBold(true);
+
+                return [];
+            }
+        };
+
+        $fileName = 'items_licitacion_' . $licitacionFile->id . '.xlsx';
+
+        return Excel::download($export, $fileName);
+    }
+
+    /**
+     * Exportar a Excel la TABLA GLOBAL completa.
+     * Incluye marca y modelo, encabezados en negritas y autosize.
+     */
+    public function exportarExcelGlobal()
+    {
+        $itemsBase = ItemGlobal::orderBy('clave_verificacion')
+            ->orderBy('descripcion_global')
+            ->get()
+            ->map(function (ItemGlobal $item) {
+                $requisiciones = is_array($item->requisiciones)
+                    ? $item->requisiciones
+                    : (array) json_decode($item->requisiciones ?? '[]', true);
+
+                return [
+                    'clave_verificacion' => $item->clave_verificacion,
+                    'descripcion'        => $item->descripcion_global,
+                    'especificaciones'   => $item->especificaciones_global,
+                    'cantidad_total'     => (int) $item->cantidad_total,
+                    'unidad'             => $item->unidad_medida,
+                    'requisiciones'      => implode(', ', $requisiciones),
+                    'marca'              => $item->marca,
+                    'modelo'             => $item->modelo,
+                ];
+            })
+            ->toArray();
+
+        // Puedes reutilizar el mismo formateador si quieres encabezados limpios
+        $rows = $this->openAIService->prepararFilasParaExcel($itemsBase);
+
+        if (empty($rows)) {
+            $rows[] = [
+                'CLAVE_VERIFICACION' => '',
+                'DESCRIPCION'        => '',
+                'ESPECIFICACIONES'   => '',
+                'CANTIDAD_TOTAL'     => 0,
+                'UNIDAD'             => '',
+                'REQUISICIONES'      => '',
+                'MARCA'              => '',
+                'MODELO'             => '',
+            ];
+        }
+
+        $export = new class($rows) implements FromArray, WithHeadings, WithStyles, ShouldAutoSize {
+            protected $rows;
+
+            public function __construct(array $rows)
+            {
+                $this->rows = $rows;
+            }
+
+            public function array(): array
+            {
+                return $this->rows;
+            }
+
+            public function headings(): array
+            {
+                return array_keys($this->rows[0] ?? []);
+            }
+
+            public function styles(Worksheet $sheet)
+            {
+                $highestColumn = $sheet->getHighestColumn();
+                $sheet->getStyle('A1:' . $highestColumn . '1')->getFont()->setBold(true);
+
+                return [];
+            }
+        };
+
+        $fileName = 'items_globales.xlsx';
+
+        return Excel::download($export, $fileName);
+    }
+
+    /**
+     * Fusionar todos los items originales en items globales.
+     * - Recalcula SIEMPRE desde cero.
+     * - Evita duplicar cantidades si existen renglones repetidos.
      */
     public function fusionarItemsGlobales()
     {
         DB::transaction(function () {
-            $items = ItemOriginal::with('itemGlobal')->get();
+            // 1) Guardar marcas/modelos existentes para no perderlos
+            $existentes = ItemGlobal::all()->keyBy(function (ItemGlobal $g) {
+                return ($g->clave_verificacion ?? '') . '|' .
+                    mb_strtoupper($g->descripcion_global ?? '') . '|' .
+                    ($g->unidad_medida ?? '');
+            });
+
+            // 2) Romper relaciones y limpiar tabla global
+            ItemOriginal::query()->update(['item_global_id' => null]);
+            ItemGlobal::query()->delete();
+
+            // 3) Recalcular desde todos los ItemOriginal
+            $items = ItemOriginal::orderBy('clave_verificacion')
+                ->orderBy('descripcion_bien')
+                ->orderBy('requisicion')
+                ->orderByRaw('CAST(partida AS UNSIGNED) ASC')
+                ->orderBy('id')
+                ->get();
+
+            $seenOriginal = [];
 
             foreach ($items as $item) {
-                // Definir "llave" de agrupación básica
-                $clave  = $item->clave_verificacion ?: null;
-                $unidad = $item->unidad_medida;
+                $originalKey = implode('|', [
+                    $item->licitacion_file_id,
+                    $item->requisicion,
+                    $item->partida,
+                    $item->clave_verificacion,
+                    mb_strtoupper($item->descripcion_bien ?? ''),
+                ]);
 
-                // Si no hay clave, aquí podrías usar una lógica de similitud de texto / embeddings.
-                $query = ItemGlobal::query()
-                    ->where('unidad_medida', $unidad);
+                if (isset($seenOriginal[$originalKey])) {
+                    $item->item_global_id = $seenOriginal[$originalKey];
+                    $item->save();
+                    continue;
+                }
+
+                $clave       = $item->clave_verificacion ?: null;
+                $unidad      = $item->unidad_medida;
+                $descripcion = $item->descripcion_bien;
+
+                $groupKey = ($clave ?? '') . '|' . mb_strtoupper($descripcion) . '|' . $unidad;
+
+                $query = ItemGlobal::query()->where('unidad_medida', $unidad);
 
                 if ($clave) {
                     $query->where('clave_verificacion', $clave);
                 } else {
                     $query->whereNull('clave_verificacion')
-                          ->where('descripcion_global', $item->descripcion_bien);
+                          ->where('descripcion_global', $descripcion);
                 }
 
                 $global = $query->first();
 
                 if (! $global) {
-                    // Crear un nuevo item global
+                    $marcaPrev  = null;
+                    $modeloPrev = null;
+
+                    if ($existentes->has($groupKey)) {
+                        $marcaPrev  = $existentes[$groupKey]->marca ?? null;
+                        $modeloPrev = $existentes[$groupKey]->modelo ?? null;
+                    }
+
                     $global = ItemGlobal::create([
                         'clave_verificacion'      => $clave,
-                        'descripcion_global'      => $item->descripcion_bien,
+                        'descripcion_global'      => $descripcion,
                         'especificaciones_global' => $item->especificaciones,
                         'unidad_medida'           => $unidad,
                         'cantidad_total'          => 0,
                         'requisiciones'           => [],
+                        'marca'                   => $marcaPrev,
+                        'modelo'                  => $modeloPrev,
                     ]);
                 }
 
-                // Sumar cantidad
-                $global->cantidad_total = $global->cantidad_total + $item->cantidad;
+                // Cantidad numérica segura
+                $cantidad = $item->cantidad;
+                if (!is_numeric($cantidad)) {
+                    $cantidad = (float) str_replace([',', ' '], ['', ''], $cantidad);
+                } else {
+                    $cantidad = (float) $cantidad;
+                }
+
+                $global->cantidad_total = $global->cantidad_total + $cantidad;
 
                 // Actualizar lista de requisiciones
                 $reqs = $global->requisiciones ?: [];
-                if (! in_array($item->requisicion, $reqs)) {
+                if (!in_array($item->requisicion, $reqs)) {
                     $reqs[] = $item->requisicion;
                 }
+                sort($reqs);
                 $global->requisiciones = $reqs;
 
                 $global->save();
 
-                // Relacionar item original con item global
                 $item->item_global_id = $global->id;
                 $item->save();
+                $seenOriginal[$originalKey] = $global->id;
             }
         });
     }
 
     /**
-     * === Helpers privados ===
-     */
-
-    /**
      * Extrae bloques de tablas desde un PDF/Word.
      * Devuelve bloques pequeños (~40 líneas) por cada REQUISICIÓN.
-     *
-     * [
-     *   ['requisicion' => 'CA-0232-2025', 'texto_tabla' => '...'],
-     *   ['requisicion' => 'CA-0232-2025', 'texto_tabla' => '...otro bloque...'],
-     *   ...
-     * ]
      */
     protected function extraerTablasDesdeDocumento(string $path): array
     {
-        // Usa smalot/pdfparser para leer el PDF:
-        // composer require smalot/pdfparser
         $parser = new \Smalot\PdfParser\Parser();
 
         try {
@@ -308,23 +511,21 @@ class LicitacionFileController extends Controller
             for ($i = 0; $i < $total; $i++) {
                 $requisicion = trim($matches[1][$i][0]);
 
-                $start = $matches[0][$i][1]; // posición donde inicia "REQUISICIÓN: ..."
+                $start = $matches[0][$i][1];
                 $end   = ($i + 1 < $total)
-                    ? $matches[0][$i + 1][1] // siguiente "REQUISICIÓN:"
-                    : strlen($text);         // o fin del documento
+                    ? $matches[0][$i + 1][1]
+                    : strlen($text);
 
                 $chunk = substr($text, $start, $end - $start);
 
-                // Intentar recortar desde la cabecera de tabla (PARTIDA / CLAVE / BIENES / ...)
                 $posCabecera = mb_stripos($chunk, 'PARTIDA', 0, 'UTF-8');
                 if ($posCabecera !== false) {
                     $chunk = mb_substr($chunk, $posCabecera);
                 }
 
-                // Partir el chunk en grupos de líneas para no mandar todo de golpe
                 $lines    = preg_split("/\r\n|\n|\r/", $chunk);
                 $buffer   = [];
-                $maxLines = 40; // aprox 20–25 renglones por bloque
+                $maxLines = 40;
 
                 foreach ($lines as $line) {
                     $buffer[] = $line;
@@ -338,8 +539,7 @@ class LicitacionFileController extends Controller
                     }
                 }
 
-                // Último bloque de esa requisición
-                if (! empty($buffer)) {
+                if (!empty($buffer)) {
                     $blocks[] = [
                         'requisicion' => $requisicion,
                         'texto_tabla' => implode("\n", $buffer),
@@ -347,7 +547,7 @@ class LicitacionFileController extends Controller
                 }
             }
         } else {
-            // Fallback: si no encontramos "REQUISICIÓN:", cortar todo el texto en bloques
+            // Fallback: cortar todo el texto en bloques genéricos
             $lines    = preg_split("/\r\n|\n|\r/", $text);
             $buffer   = [];
             $maxLines = 40;
@@ -364,7 +564,7 @@ class LicitacionFileController extends Controller
                 }
             }
 
-            if (! empty($buffer)) {
+            if (!empty($buffer)) {
                 $blocks[] = [
                     'requisicion' => '',
                     'texto_tabla' => implode("\n", $buffer),
@@ -373,5 +573,46 @@ class LicitacionFileController extends Controller
         }
 
         return $blocks;
+    }
+
+    /**
+     * Eliminar una licitación AI y todos sus ítems originales.
+     */
+    public function destroy(LicitacionFile $licitacionFile)
+    {
+        DB::transaction(function () use ($licitacionFile) {
+            ItemOriginal::where('licitacion_file_id', $licitacionFile->id)->delete();
+            $licitacionFile->delete();
+        });
+
+        return redirect()
+            ->route('licitaciones-ai.index')
+            ->with('success', 'Licitación eliminada correctamente. Puedes regenerar la tabla global si lo necesitas.');
+    }
+
+    /**
+     * Actualizar un ítem original desde el modal de edición.
+     */
+    public function actualizarItemOriginal(ItemOriginal $itemOriginal, Request $request)
+    {
+        $data = $request->validate([
+            'requisicion'        => ['nullable', 'string', 'max:255'],
+            'partida'            => ['nullable', 'string', 'max:255'],
+            'clave_verificacion' => ['nullable', 'string', 'max:255'],
+            'descripcion_bien'   => ['required', 'string'],
+            'especificaciones'   => ['nullable', 'string'],
+            'cantidad'           => ['required', 'numeric', 'min:0'],
+            // importantísimo: no mandar null a la BD si no se edita
+            'unidad_medida'      => ['sometimes', 'string', 'max:255'],
+        ]);
+
+        // Si no viene unidad_medida o viene vacía, no la actualizamos
+        if (!array_key_exists('unidad_medida', $data) || $data['unidad_medida'] === '') {
+            unset($data['unidad_medida']);
+        }
+
+        $itemOriginal->update($data);
+
+        return back()->with('success', 'Ítem actualizado correctamente.');
     }
 }

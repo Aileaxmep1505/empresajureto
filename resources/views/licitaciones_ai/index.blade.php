@@ -389,6 +389,52 @@
             background: #ef4444;
         }
 
+        /* ====== Píldora de requisición y duplicados ====== */
+        .la-pill-req{
+            display:inline-flex;
+            align-items:center;
+            padding:3px 10px;
+            border-radius:999px;
+            background:#e0f2fe;
+            color:#0369a1;
+            font-size:0.78rem;
+            font-weight:500;
+        }
+        .la-pill-req-dup{
+            background:#fee2e2;
+            color:#b91c1c;
+        }
+        .la-dup-tag{
+            display:block;
+            margin-top:3px;
+            font-size:0.72rem;
+            color:#b91c1c;
+            font-weight:500;
+        }
+
+        /* ====== Botón eliminar ====== */
+        .la-btn-delete{
+            border:none;
+            background:none;
+            color:#ef4444;
+            font-size:0.78rem;
+            cursor:pointer;
+            padding:4px 6px;
+            border-radius:999px;
+            display:inline-flex;
+            align-items:center;
+            gap:4px;
+            transition:background .12s ease-out, transform .12s ease-out;
+        }
+        .la-btn-delete:hover{
+            background:rgba(248,113,113,0.12);
+            transform:translateY(-1px);
+        }
+        .la-btn-delete-icon{
+            width:14px;
+            height:14px;
+        }
+
         /* ====== Paginación ====== */
         .la-pagination-wrapper {
             margin: 12px 4px 4px;
@@ -456,6 +502,24 @@
         }
     </style>
 
+    @php
+        // Sacar una requisición principal por archivo (la primera encontrada)
+        $reqCollection = collect($licitaciones->items());
+        $requisicionPorArchivo = $reqCollection->mapWithKeys(function ($archivo) {
+            $firstItem = $archivo->itemsOriginales()
+                ->whereNotNull('requisicion')
+                ->orderBy('requisicion')
+                ->first();
+
+            return [$archivo->id => optional($firstItem)->requisicion];
+        });
+
+        // Contar cuántas veces se repite cada requisición
+        $requisicionCounts = $requisicionPorArchivo
+            ->filter(fn($v) => !empty($v))
+            ->countBy();
+    @endphp
+
     {{-- Alert de éxito --}}
     @if (session('success'))
         <div class="la-alert la-alert-success">
@@ -504,7 +568,7 @@
 
         <div class="la-toolbar-right">
             <div class="la-search">
-                {{-- Sólo UI por ahora, sin lógica de backend --}}
+                {{-- UI del buscador (puedes conectar al backend cuando quieras) --}}
                 <span class="la-search-icon">🔍</span>
                 <input type="text" placeholder="Buscar por nombre..." disabled>
             </div>
@@ -517,18 +581,36 @@
             <table class="la-table">
                 <thead>
                     <tr>
-                        <th style="width: 60px;">ID</th>
+                        <th style="width: 150px;">Requisición</th>
                         <th>Archivo</th>
                         <th style="width: 140px;">Estado</th>
                         <th style="width: 110px;">Total ítems</th>
                         <th style="width: 160px;">Fecha</th>
-                        <th class="la-col-actions" style="width: 120px;">Acciones</th>
+                        <th class="la-col-actions" style="width: 160px;">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
                 @forelse ($licitaciones as $archivo)
+                    @php
+                        $req = $requisicionPorArchivo[$archivo->id] ?? null;
+                        $dupCount = $req ? ($requisicionCounts[$req] ?? 0) : 0;
+                        $esDuplicado = $req && $dupCount > 1;
+                    @endphp
                     <tr>
-                        <td>#{{ $archivo->id }}</td>
+                        <td>
+                            @if($req)
+                                <span class="la-pill-req {{ $esDuplicado ? 'la-pill-req-dup' : '' }}">
+                                    {{ $req }}
+                                </span>
+                                @if($esDuplicado)
+                                    <span class="la-dup-tag">
+                                        Duplicado ({{ $dupCount }})
+                                    </span>
+                                @endif
+                            @else
+                                <span class="la-file-meta">Sin requisición</span>
+                            @endif
+                        </td>
                         <td>
                             <div class="la-file-name">{{ $archivo->nombre_original }}</div>
                             <div class="la-file-meta">
@@ -564,10 +646,31 @@
                             </span>
                         </td>
                         <td class="la-col-actions">
-                            <a href="{{ route('licitaciones-ai.show', $archivo) }}" class="la-link-row">
-                                <span class="icon">👁</span>
-                                <span>Ver detalle</span>
-                            </a>
+                            <div style="display:flex; justify-content:flex-end; gap:6px; flex-wrap:wrap;">
+                                <a href="{{ route('licitaciones-ai.show', $archivo) }}" class="la-link-row">
+                                    <span class="icon">
+                                        {{-- icono ojo simple --}}
+                                        <svg class="la-btn-delete-icon" viewBox="0 0 20 20" fill="none">
+                                            <path d="M2.5 10s2.5-4.5 7.5-4.5S17.5 10 17.5 10s-2.5 4.5-7.5 4.5S2.5 10 2.5 10Z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                                            <circle cx="10" cy="10" r="2.5" stroke="currentColor" stroke-width="1.4"/>
+                                        </svg>
+                                    </span>
+                                    <span>Ver detalle</span>
+                                </a>
+
+                                <form method="POST"
+                                      action="{{ route('licitaciones-ai.destroy', $archivo) }}"
+                                      onsubmit="return confirm('¿Eliminar esta licitación y todos sus ítems IA?');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="la-btn-delete">
+                                        <svg class="la-btn-delete-icon" viewBox="0 0 20 20" fill="none">
+                                            <path d="M4.5 6.5h11M8 9v5M12 9v5M7.5 6.5l.5-2h4l.5 2M8 4.5h4M6.5 6.5l.5 9h6l.5-9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                                        </svg>
+                                        <span>Eliminar</span>
+                                    </button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
                 @empty
