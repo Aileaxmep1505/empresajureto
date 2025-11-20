@@ -20,10 +20,11 @@ class PartContableController extends Controller
         return view('partcontable.index', compact('companies'));
     }
 
-    // Show create form to upload documents for a company
+    // Mostrar formulario para subir documentos de una empresa
     public function createDocument(Company $company)
     {
-        $sections = DocumentSection::orderBy('name')->get();
+        // Secciones con subtipos (para el combo dependiente)
+        $sections = DocumentSection::with('subtypes')->orderBy('name')->get();
         $subtypes = DocumentSubtype::orderBy('name')->get();
         $defaultSection = $sections->first();
 
@@ -33,54 +34,106 @@ class PartContableController extends Controller
     // Vista de empresa con documentos filtrados
     public function showCompany(Request $request, Company $company)
     {
-        $sections = DocumentSection::orderBy('name')->get();
+        // Traemos todas las secciones con sus subtipos
+        $sections = DocumentSection::with('subtypes')->orderBy('name')->get();
+
         if ($sections->isEmpty()) {
             return view('partcontable.company', compact('company'))
-                ->with('warning','No hay secciones configuradas. Crea secciones en el panel.');
+                ->with('warning', 'No hay secciones configuradas. Crea secciones en el panel.');
         }
 
-        $sectionKey = $request->get('section', $sections->first()->key);
-        $section = DocumentSection::where('key', $sectionKey)->first() ?: $sections->first();
+        // IMPORTANTE: mismo default que la vista → 'declaracion_anual'
+        $sectionKey = $request->get('section', 'declaracion_anual');
+        /** @var \App\Models\DocumentSection $section */
+        $section = $sections->firstWhere('key', $sectionKey) ?: $sections->first();
 
-        $year = $request->get('year');
+        // Subtabs por defecto según sección (para primera carga)
+        $defaultSubtabBySection = [
+            'declaracion_anual'   => 'acuse_anual',
+            'declaracion_mensual' => 'acuse_mensual',
+            'constancias'         => 'csf',
+            'estados_financieros' => 'balance_general',
+        ];
+
+        // Subtipos de esta sección, indexados por key
+        $sectionSubtypes = $section->subtypes->keyBy('key');
+
+        // Key de subtipo actual (URL o default)
+        $subtipoKey = $request->get(
+            'subtipo',
+            $defaultSubtabBySection[$section->key] ?? optional($sectionSubtypes->first())->key
+        );
+
+        // Si el subtipo no existe para esta sección, usamos el primero disponible
+        if (!$subtipoKey || !$sectionSubtypes->has($subtipoKey)) {
+            $subtipoKey = optional($sectionSubtypes->first())->key;
+        }
+
+        $currentSubtype = $sectionSubtypes->get($subtipoKey);
+
+        // Filtros adicionales
+        $year  = $request->get('year');
         $month = $request->get('month');
 
         $query = Document::where('company_id', $company->id)
             ->where('section_id', $section->id);
 
-        if ($year) $query->whereYear('date', $year);
-        if ($month) $query->whereMonth('date', $month);
+        // *** FILTRO POR SUBTIPO (sub-tab) ***
+        if ($currentSubtype) {
+            $query->where('subtype_id', $currentSubtype->id);
+        }
+
+        if ($year) {
+            $query->whereYear('date', $year);
+        }
+        if ($month) {
+            $query->whereMonth('date', $month);
+        }
 
         $documents = $query->orderByDesc('date')->paginate(12)->withQueryString();
-        $subtypes = $section->subtypes()->orderBy('name')->get();
 
-        return view('partcontable.company', compact('company','sections','section','documents','subtypes','year','month'));
+        // Subtipos sólo de esta sección (para el modal de subir)
+        $subtypes = $sectionSubtypes->values();
+
+        return view('partcontable.company', [
+            'company'           => $company,
+            'sections'          => $sections,
+            'section'           => $section,
+            'documents'         => $documents,
+            'subtypes'          => $subtypes,
+            'year'              => $year,
+            'month'             => $month,
+            // estos los usa la vista para marcar tabs activos
+            'currentSectionKey' => $section->key,
+            'currentSubKey'     => $subtipoKey,
+            'currentSubLabel'   => $currentSubtype->name ?? '',
+        ]);
     }
 
     // Store uploaded document(s)
     public function storeDocument(Request $request, Company $company)
     {
-        $isSingle = $request->hasFile('file') && ! $request->hasFile('files');
+        $isSingle = $request->hasFile('file') && !$request->hasFile('files');
         $isMulti  = $request->hasFile('files');
 
-        if (! $isSingle && ! $isMulti) {
+        if (!$isSingle && !$isMulti) {
             return response()->json(['ok' => false, 'message' => 'No se detectó archivo.'], 422);
         }
 
         $request->validate([
-            'section_id'  => 'required|exists:document_sections,id',
-            'subtype_id'  => 'nullable|exists:document_subtypes,id',
-            'title'       => 'nullable|string|max:255',
-            'title_global'=> 'nullable|string|max:255',
-            'description' => 'nullable|string',
+            'section_id'         => 'required|exists:document_sections,id',
+            'subtype_id'         => 'nullable|exists:document_subtypes,id',
+            'title'              => 'nullable|string|max:255',
+            'title_global'       => 'nullable|string|max:255',
+            'description'        => 'nullable|string',
             'description_global' => 'nullable|string',
-            'date'        => 'nullable|date',
+            'date'               => 'nullable|date',
         ]);
 
-        $section = DocumentSection::findOrFail($request->input('section_id'));
-        $metaTitle = $request->input('title') ?: $request->input('title_global');
+        $section         = DocumentSection::findOrFail($request->input('section_id'));
+        $metaTitle       = $request->input('title') ?: $request->input('title_global');
         $metaDescription = $request->input('description') ?: $request->input('description_global');
-        $metaDate = $request->input('date') ?: now()->toDateString();
+        $metaDate        = $request->input('date') ?: now()->toDateString();
 
         $storedDocs = [];
         DB::beginTransaction();
@@ -89,20 +142,27 @@ class PartContableController extends Controller
             $filesToProcess = $isSingle ? [$request->file('file')] : $request->file('files');
 
             foreach ($filesToProcess as $file) {
-                if (! $file->isValid()) throw new \Exception('Archivo inválido: '.$file->getClientOriginalName());
+                if (!$file->isValid()) {
+                    throw new \Exception('Archivo inválido: ' . $file->getClientOriginalName());
+                }
 
                 $allowed = ['jpg','jpeg','png','gif','webp','svg','mp4','mov','pdf','doc','docx','xls','xlsx'];
                 $ext = strtolower($file->getClientOriginalExtension());
-                if (! in_array($ext, $allowed)) throw new \Exception('Formato no permitido: '.$file->getClientOriginalName());
-                if ($file->getSize() > 30*1024*1024) throw new \Exception('Archivo muy grande: '.$file->getClientOriginalName());
 
-                $d = \Carbon\Carbon::parse($metaDate);
-                $year = $d->year;
+                if (!in_array($ext, $allowed)) {
+                    throw new \Exception('Formato no permitido: ' . $file->getClientOriginalName());
+                }
+                if ($file->getSize() > 30 * 1024 * 1024) {
+                    throw new \Exception('Archivo muy grande: ' . $file->getClientOriginalName());
+                }
+
+                $d     = \Carbon\Carbon::parse($metaDate);
+                $year  = $d->year;
                 $month = $d->month;
 
-                $slug = Str::slug($metaTitle ?: pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME));
-                $filename = $slug.'_'.time().'_'.uniqid().'.'.$file->getClientOriginalExtension();
-                $subdir = "partcontable/{$company->id}/{$section->key}/{$year}/{$month}";
+                $slug     = Str::slug($metaTitle ?: pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME));
+                $filename = $slug . '_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                $subdir   = "partcontable/{$company->id}/{$section->key}/{$year}/{$month}";
 
                 $storedPath = $file->storeAs($subdir, $filename, 'public');
 
@@ -128,43 +188,54 @@ class PartContableController extends Controller
             DB::commit();
         } catch (\Throwable $e) {
             DB::rollBack();
+
             foreach ($storedDocs as $sd) {
                 Storage::disk('public')->delete($sd->file_path);
                 $sd->delete();
             }
-            \Log::error('storeDocument error: '.$e->getMessage());
-            return response()->json(['ok' => false, 'message' => 'Error al subir: '.$e->getMessage()], 500);
+
+            \Log::error('storeDocument error: ' . $e->getMessage());
+
+            return response()->json([
+                'ok'      => false,
+                'message' => 'Error al subir: ' . $e->getMessage(),
+            ], 500);
         }
 
         return response()->json([
-            'ok' => true,
-            'uploaded' => count($storedDocs),
-            'documents' => collect($storedDocs)->map->only(['id','title','file_path','file_type','mime_type'])->all()
+            'ok'        => true,
+            'uploaded'  => count($storedDocs),
+            'documents' => collect($storedDocs)->map->only([
+                'id','title','file_path','file_type','mime_type'
+            ])->all(),
         ]);
     }
 
     // Detecta tipo (foto/video/documento)
     protected function detectType($mime)
     {
-        if (str_starts_with($mime,'image/')) return 'foto';
-        if (str_starts_with($mime,'video/')) return 'video';
+        if (str_starts_with($mime, 'image/')) return 'foto';
+        if (str_starts_with($mime, 'video/')) return 'video';
         return 'documento';
     }
 
     // Descargar archivo
     public function download(Document $document)
     {
-        if (!Storage::disk('public')->exists($document->file_path)) abort(404);
+        if (!Storage::disk('public')->exists($document->file_path)) {
+            abort(404);
+        }
+
         $filename = $document->title . '.' . pathinfo($document->file_path, PATHINFO_EXTENSION);
+
         return Storage::disk('public')->download($document->file_path, $filename);
     }
 
     // Preview inline para imágenes, videos o PDFs
-  public function preview($id)
+    public function preview($id)
     {
         $document = Document::findOrFail($id);
 
-        // Verificar que el archivo exista en storage
         if (!Storage::disk('public')->exists($document->file_path)) {
             abort(404, 'El archivo no existe.');
         }
@@ -184,11 +255,18 @@ class PartContableController extends Controller
             DB::commit();
         } catch (\Throwable $e) {
             DB::rollBack();
-            if ($request->ajax()) return response()->json(['ok' => false, 'message' => 'No se pudo eliminar.'],500);
-            return back()->withErrors(['file'=>'No se pudo eliminar.']);
+
+            if ($request->ajax()) {
+                return response()->json(['ok' => false, 'message' => 'No se pudo eliminar.'], 500);
+            }
+
+            return back()->withErrors(['file' => 'No se pudo eliminar.']);
         }
 
-        if ($request->ajax()) return response()->json(['ok'=>true]);
-        return back()->with('success','Documento eliminado.');
+        if ($request->ajax()) {
+            return response()->json(['ok' => true]);
+        }
+
+        return back()->with('success', 'Documento eliminado.');
     }
 }

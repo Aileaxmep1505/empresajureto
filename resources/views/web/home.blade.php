@@ -1384,5 +1384,376 @@
   });
 })();
 </script>
+@if(isset($marqueeComments) && $marqueeComments->count())
+<section id="home-cmt-marquee">
+  <style>
+    /* ====== TESTIMONIOS FULL-WIDTH (aislado por #home-cmt-marquee) ====== */
+    #home-cmt-marquee{
+      position:relative;
+      left:50%; right:50%;
+      margin-left:-50vw; margin-right:-50vw;
+      width:100vw;
+      padding:40px 0 46px;
+      background:
+        radial-gradient(1200px 420px at 50% 0%, #fefce8 0%, rgba(254,252,232,0) 60%),
+        linear-gradient(to bottom, #fdfdfb 0%, #f4ffe8 40%, #fdfdfb 100%);
+      border-top:1px solid #e5e7eb;
+      border-bottom:1px solid #e5e7eb;
+      --ink:#020617;
+      --muted:#6b7280;
+      --brand:#22c55e;
+    }
+    #home-cmt-marquee .wrap{
+      max-width:1200px;
+      margin:0 auto;
+      padding:0 18px;
+    }
+
+    /* ===== HEADER ===== */
+    #home-cmt-marquee header{
+      text-align:center;
+      max-width:640px;
+      margin:0 auto 20px;
+    }
+    #home-cmt-marquee h2{
+      margin:0 0 4px;
+      font-size:clamp(26px,3.1vw,34px);
+      letter-spacing:-.03em;
+      color:var(--ink);
+    }
+    #home-cmt-marquee .grad{
+      background:linear-gradient(90deg,#22c55e,#0ea5e9);
+      -webkit-background-clip:text;
+      background-clip:text;
+      color:transparent;
+    }
+    #home-cmt-marquee p.lead{
+      margin:0;
+      font-size:14px;
+      color:var(--muted);
+    }
+    #home-cmt-marquee .header-actions{
+      margin-top:14px;
+      display:flex;
+      justify-content:center;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    #home-cmt-marquee .tagline{
+      font-size:12px;
+      padding:7px 11px;
+      border-radius:999px;
+      border:1px dashed rgba(148,163,184,.7);
+      background:rgba(255,255,255,.9);
+      color:#0f172a;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+    }
+    #home-cmt-marquee .tagline span.dot{
+      width:7px;height:7px;border-radius:999px;
+      background:#22c55e;
+    }
+    #home-cmt-marquee .btn-ghost{
+      font-size:13px;
+      padding:8px 14px;
+      border-radius:999px;
+      border:1px solid #020617;
+      background:#020617;
+      color:#f9fafb;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      transition:background .15s ease,color .15s ease,transform .15s ease,box-shadow .15s ease;
+      box-shadow:0 14px 30px rgba(15,23,42,.25);
+    }
+    #home-cmt-marquee .btn-ghost:hover{
+      background:#f9fafb;
+      color:#020617;
+      transform:translateY(-1px);
+      box-shadow:0 18px 40px rgba(15,23,42,.3);
+    }
+
+    /* ===== FAJA DEL MARQUEE ===== */
+    #home-cmt-marquee .rows{
+      position:relative;
+      overflow:hidden;
+      margin-top:18px;
+    }
+    #home-cmt-marquee .rows::before,
+    #home-cmt-marquee .rows::after{
+      content:"";
+      position:absolute;
+      inset-y:0;
+      width:80px;
+      z-index:2;
+      pointer-events:none;
+    }
+    #home-cmt-marquee .rows::before{
+      left:0;
+      background:linear-gradient(to right, #f4ffe8 0%, rgba(244,255,232,0) 80%);
+    }
+    #home-cmt-marquee .rows::after{
+      right:0;
+      background:linear-gradient(to left, #f4ffe8 0%, rgba(244,255,232,0) 80%);
+    }
+
+    #home-cmt-marquee .row{
+      display:flex;
+      align-items:center;
+      padding-block:7px;
+      will-change:transform;
+    }
+    #home-cmt-marquee .track{
+      display:flex;
+      align-items:stretch;
+      gap:16px;
+      animation: home-cmt-left 32s linear infinite;
+    }
+    #home-cmt-marquee .row-2 .track{
+      animation-name: home-cmt-right;
+      animation-duration: 38s;
+    }
+    #home-cmt-marquee .row:hover .track{
+      animation-play-state:paused;
+    }
+
+    /* loop suave: del 0% al -50% de su propio ancho (2 copias) */
+    @keyframes home-cmt-left{
+      0%{ transform:translateX(0); }
+      100%{ transform:translateX(-50%); }
+    }
+    @keyframes home-cmt-right{
+      0%{ transform:translateX(0); }
+      100%{ transform:translateX(50%); }
+    }
+
+    /* ===== TARJETAS (todas mismo tamaño) ===== */
+    #home-cmt-marquee .card{
+      flex:0 0 280px;          /* ancho fijo para todas */
+      width:280px;
+      min-height:150px;        /* alto mínimo */
+      padding:14px 16px 12px;
+      border-radius:22px;
+      background:#ffffff;
+      border:1px solid rgba(148,163,184,.35);
+      box-shadow:
+        0 18px 45px rgba(15,23,42,.08),
+        0 0 0 1px rgba(255,255,255,.8) inset;
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+    }
+    #home-cmt-marquee .card-head{
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+
+    /* ===== AVATARES PASTELES ===== */
+    #home-cmt-marquee .avatar{
+      flex:0 0 32px;
+      width:32px;height:32px;
+      border-radius:999px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:13px;
+      font-weight:700;
+      color:#f9fafb;
+    }
+    #home-cmt-marquee .avatar.c0{
+      background:radial-gradient(circle at 30% 0%,#fee2e2 0,#f9a8d4 30%,#a5b4fc 85%);
+    }
+    #home-cmt-marquee .avatar.c1{
+      background:radial-gradient(circle at 30% 0%,#dbeafe 0,#bfdbfe 35%,#bbf7d0 90%);
+    }
+    #home-cmt-marquee .avatar.c2{
+      background:radial-gradient(circle at 30% 0%,#fef3c7 0,#fdba74 35%,#fbcfe8 90%);
+    }
+    #home-cmt-marquee .avatar.c3{
+      background:radial-gradient(circle at 30% 0%,#ede9fe 0,#c4b5fd 35%,#a7f3d0 90%);
+    }
+
+    #home-cmt-marquee .meta{
+      display:flex;
+      flex-direction:column;
+      gap:1px;
+    }
+    #home-cmt-marquee .name{
+      font-size:13px;
+      font-weight:700;
+      color:var(--ink);
+    }
+    #home-cmt-marquee .user{
+      font-size:11px;
+      color:var(--muted);
+    }
+    #home-cmt-marquee .body{
+      margin-top:4px;
+      font-size:13px;
+      line-height:1.55;
+      color:#0f172a;
+      flex:1;
+      max-height:3.4em;       /* 2 líneas aprox */
+      overflow:hidden;
+    }
+    #home-cmt-marquee .pill{
+      margin-top:4px;
+      align-self:flex-start;
+      font-size:11px;
+      padding:4px 8px;
+      border-radius:999px;
+      border:1px solid rgba(37,99,235,.25);
+      background:linear-gradient(90deg,rgba(219,234,254,.9),rgba(187,247,208,.9));
+      color:#1d4ed8;
+      display:inline-flex;
+      align-items:center;
+      gap:5px;
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width:960px){
+      #home-cmt-marquee{
+        padding:28px 0 32px;
+      }
+    }
+    @media (max-width:768px){
+      #home-cmt-marquee .card{
+        flex:0 0 80vw;
+        width:80vw;
+      }
+      #home-cmt-marquee .row-2{
+        display:none; /* en móvil solo una fila */
+      }
+      #home-cmt-marquee .track{
+        animation-duration:40s;
+      }
+    }
+  </style>
+
+  <div class="wrap">
+    <header>
+      <h2>Lo que <span class="grad">dicen de nosotros</span></h2>
+      <p class="lead">Comentarios reales de clientes que ya compran con Jureto.</p>
+      <div class="header-actions">
+        <span class="tagline">
+          <span class="dot"></span> Comentarios verificados
+        </span>
+        <a href="{{ route('comments.index') }}" class="btn-ghost">
+          Ver todos los comentarios
+        </a>
+      </div>
+    </header>
+
+    @php
+      // colección única y dividida en 2 filas
+      $items = $marqueeComments->unique('id')->values();
+      $count = $items->count();
+      $half  = (int) ceil($count / 2);
+      $row1  = $items->slice(0, $half)->values();
+      $row2  = $items->slice($half)->values();
+      $colorIndex1 = 0;
+      $colorIndex2 = 0;
+    @endphp
+
+    <div class="rows">
+      {{-- ===== FILA 1 ===== --}}
+      <div class="row row-1">
+        <div class="track">
+          {{-- Dos copias del mismo orden → loop continuo sin cortes visibles --}}
+          @foreach([$row1, $row1] as $set)
+            @foreach($set as $comment)
+              @php
+                $name = $comment->nombre
+                  ?? ($comment->user->name ?? ($comment->user->email ?? 'Cliente'));
+
+                $parts = preg_split('/\s+/', trim($name));
+                $initials = '';
+                if ($parts) {
+                  foreach (array_slice($parts, 0, 2) as $p) {
+                    $initials .= mb_strtoupper(mb_substr($p, 0, 1));
+                  }
+                }
+
+                $email = $comment->email ?? optional($comment->user)->email;
+                $username = $email ? '@'.\Illuminate\Support\Str::before($email, '@') : '@cliente';
+
+                $body = \Illuminate\Support\Str::limit($comment->contenido, 140);
+
+                $colorClass = 'c'.($colorIndex1 % 4);
+                $colorIndex1++;
+              @endphp
+
+              <article class="card">
+                <div class="card-head">
+                  <div class="avatar {{ $colorClass }}">{{ $initials ?: 'CL' }}</div>
+                  <div class="meta">
+                    <div class="name">{{ $name }}</div>
+                    <div class="user">{{ $username }}</div>
+                  </div>
+                </div>
+                <div class="body">“{{ $body }}”</div>
+                <div class="pill">
+                  <span>📦</span>
+                  <span>Pedido reciente</span>
+                </div>
+              </article>
+            @endforeach
+          @endforeach
+        </div>
+      </div>
+
+      {{-- ===== FILA 2 (si hay más comentarios) ===== --}}
+      @if($row2->count())
+      <div class="row row-2">
+        <div class="track">
+          @foreach([$row2, $row2] as $set)
+            @foreach($set as $comment)
+              @php
+                $name = $comment->nombre
+                  ?? ($comment->user->name ?? ($comment->user->email ?? 'Cliente'));
+
+                $parts = preg_split('/\s+/', trim($name));
+                $initials = '';
+                if ($parts) {
+                  foreach (array_slice($parts, 0, 2) as $p) {
+                    $initials .= mb_strtoupper(mb_substr($p, 0, 1));
+                  }
+                }
+
+                $email = $comment->email ?? optional($comment->user)->email;
+                $username = $email ? '@'.\Illuminate\Support\Str::before($email, '@') : '@cliente';
+
+                $body = \Illuminate\Support\Str::limit($comment->contenido, 140);
+
+                $colorClass = 'c'.($colorIndex2 % 4);
+                $colorIndex2++;
+              @endphp
+
+              <article class="card">
+                <div class="card-head">
+                  <div class="avatar {{ $colorClass }}">{{ $initials ?: 'CL' }}</div>
+                  <div class="meta">
+                    <div class="name">{{ $name }}</div>
+                    <div class="user">{{ $username }}</div>
+                  </div>
+                </div>
+                <div class="body">“{{ $body }}”</div>
+                <div class="pill">
+                  <span>🧾</span>
+                  <span>Factura incluida</span>
+                </div>
+              </article>
+            @endforeach
+          @endforeach
+        </div>
+      </div>
+      @endif
+    </div>
+  </div>
+</section>
+@endif
 
 @endsection

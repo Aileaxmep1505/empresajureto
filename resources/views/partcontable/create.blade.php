@@ -2,6 +2,22 @@
 @section('title','Subir documentos - '.$company->name)
 
 @section('content')
+@php
+    // Preparamos las secciones + subtipos para JS (evita el error de corchetes)
+    $sectionsForJs = $sections->map(function($s){
+        return [
+            'id'   => $s->id,
+            'name' => $s->name,
+            'subtypes' => $s->subtypes->map(function($st){
+                return [
+                    'id'   => $st->id,
+                    'name' => $st->name,
+                ];
+            })->values()->all(),
+        ];
+    })->values()->all();
+@endphp
+
 <meta name="csrf-token" content="{{ csrf_token() }}">
 <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
 
@@ -38,7 +54,12 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
 .field input, .field select, .field textarea{width:100%;border:0;outline:0;background:transparent;font-size:14px;color:var(--ink);padding-top:8px;}
 .field label{position:absolute;left:14px;top:12px;color:var(--muted);font-size:12px;pointer-events:none;transition:all .14s;}
 .field input::placeholder{color:transparent;}
-.field input:focus + label, .field textarea:focus + label, .field input:not(:placeholder-shown) + label, .field textarea:not(:placeholder-shown) + label{top:6px;font-size:11px;color:var(--mint-dark);transform:translateY(-6px)}
+.field input:focus + label,
+.field textarea:focus + label,
+.field input:not(:placeholder-shown) + label,
+.field textarea:not(:placeholder-shown) + label{
+  top:6px;font-size:11px;color:var(--mint-dark);transform:translateY(-6px)
+}
 
 /* dropzone / preview */
 .block{border-radius:12px;padding:14px;background:#fbfdff;border:1px dashed var(--line);}
@@ -85,7 +106,7 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
     <div class="panel-head">
       <div class="hgroup">
         <h2>Subir documentos — {{ $company->name }}</h2>
-        <p>Selecciona varios archivos (imágenes, videos, PDF, Word, Excel). Cada archivo se subirá individualmente y verás progreso.</p>
+        <p>Selecciona varios archivos (imágenes, videos, PDF, Word, Excel). Cada archivo se sube individualmente y verás el progreso.</p>
       </div>
 
       <a href="{{ route('partcontable.company', $company->slug) }}" class="back-link" title="Volver">
@@ -97,24 +118,27 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
       @csrf
 
       <div class="grid">
+        {{-- SECCIÓN (Declaración Anual, Declaración Mensual, etc.) --}}
         <div>
           <div class="field">
             <select name="section_id" id="section_id" required>
               @foreach($sections as $s)
-                <option value="{{ $s->id }}">{{ $s->name }}</option>
+                <option value="{{ $s->id }}"
+                  {{ isset($defaultSection) && $defaultSection->id === $s->id ? 'selected' : '' }}>
+                  {{ $s->name }}
+                </option>
               @endforeach
             </select>
             <label for="section_id">Sección</label>
           </div>
         </div>
 
+        {{-- SUBCATEGORÍA (depende de la sección) --}}
         <div>
           <div class="field">
             <select name="subtype_id" id="subtype_id">
               <option value="">— Ninguno —</option>
-              @foreach($subtypes as $st)
-                <option value="{{ $st->id }}">{{ $st->name }}</option>
-              @endforeach
+              {{-- El JS llenará el resto según la sección --}}
             </select>
             <label for="subtype_id">Subcategoría (opcional)</label>
           </div>
@@ -130,7 +154,7 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
         <div>
           <div class="field">
             <input type="text" name="title_global" id="title_global" placeholder=" " />
-            <label for="title_global">Título (opcional) — aplicado a todos si se deja</label>
+            <label for="title_global">Título (opcional) — aplicado a todos si se llena</label>
           </div>
         </div>
 
@@ -150,7 +174,7 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
               <input id="files" type="file"
                 accept=".jpg,.jpeg,.png,.gif,.webp,.svg,.mp4,.mov,.pdf,.doc,.docx,.xls,.xlsx"
                 multiple style="display:none;">
-              <div class="small">Formatos permitidos: imágenes, video, pdf, doc, xls. Tamaño máximo por archivo: 30MB (ajustable en servidor).</div>
+              <div class="small">Formatos permitidos: imágenes, video, pdf, doc, xls. Tamaño máximo por archivo: 30MB.</div>
             </div>
 
             <div class="preview" id="preview" aria-live="polite" aria-atomic="true"></div>
@@ -174,245 +198,283 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
 (function(){
   'use strict';
 
-  const input = document.getElementById('files');
-  const preview = document.getElementById('preview');
-  const startBtn = document.getElementById('startUpload');
-  const cancelBtn = document.getElementById('cancelUpload');
-  const status = document.getElementById('globalStatus');
-  const summary = document.getElementById('uploadSummary');
+  /* ============================================
+   *  MAPA SECCIONES → SUBTIPOS (desde backend)
+   * ============================================ */
+  const pcSections = @json($sectionsForJs);
 
-  const maxSizeBytes = 30 * 1024 * 1024; // 30MB
-  const allowedTypes = [
-    'image/jpeg','image/png','image/gif','image/webp','image/svg+xml',
-    'video/mp4','video/quicktime',
-    'application/pdf',
-    'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'application/vnd.ms-excel',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-  ];
+  function renderSubtypes(sectionId){
+    const select = document.getElementById('subtype_id');
+    if(!select) return;
 
-  let queue = []; // { id, file, url, tile, progressBar, statusNode }
-  let uploading = false;
-  let currentXhr = null;
-  let aborted = false;
+    // Limpiar y poner "Ninguno"
+    select.innerHTML = '';
+    const optNone = document.createElement('option');
+    optNone.value = '';
+    optNone.textContent = '— Ninguno —';
+    select.appendChild(optNone);
 
-  function fmtSize(b){
-    if(b < 1024) return b + ' B';
-    if(b < 1024*1024) return Math.round(b/1024) + ' KB';
-    return (b/(1024*1024)).toFixed(2) + ' MB';
+    const sec = pcSections.find(s => String(s.id) === String(sectionId));
+    if(!sec) return;
+
+    sec.subtypes.forEach(st => {
+      const opt = document.createElement('option');
+      opt.value = st.id;
+      opt.textContent = st.name;
+      select.appendChild(opt);
+    });
   }
 
-  function createTile(file, idx){
-    const id = 'f' + Date.now() + '_' + idx;
-    const tile = document.createElement('div'); tile.className = 'tile'; tile.dataset.id = id;
-
-    const remove = document.createElement('div'); remove.className = 'remove'; remove.title = 'Eliminar';
-    remove.innerHTML = '×';
-    tile.appendChild(remove);
-
-    const media = document.createElement('div'); media.className = 'tile-media';
-    let url = null;
-    const type = file.type || '';
-    if(type.startsWith('image/')){
-      url = URL.createObjectURL(file);
-      const img = document.createElement('img'); img.src = url; media.appendChild(img);
-    } else if(type.startsWith('video/')){
-      url = URL.createObjectURL(file);
-      const vid = document.createElement('video'); vid.src = url; vid.muted = true; vid.loop = true; vid.autoplay = true; media.appendChild(vid);
-    } else {
-      const icon = document.createElement('div'); icon.style.fontSize = '28px'; icon.textContent = '📄'; media.appendChild(icon);
+  document.addEventListener('DOMContentLoaded', function(){
+    /* ============================
+     *   INICIALIZAR SUBCATEGORÍAS
+     * ============================ */
+    const sectionSelect = document.getElementById('section_id');
+    if(sectionSelect){
+      renderSubtypes(sectionSelect.value);
+      sectionSelect.addEventListener('change', function(e){
+        renderSubtypes(e.target.value);
+      });
     }
-    tile.appendChild(media);
 
-    const body = document.createElement('div'); body.className = 'tile-body';
-    const name = document.createElement('div'); name.className = 'name'; name.textContent = file.name;
-    const meta = document.createElement('div'); meta.className = 'meta'; meta.textContent = fmtSize(file.size) + ' • ' + (file.type || 'document');
-    const prog = document.createElement('div'); prog.className = 'progress'; const bar = document.createElement('span'); prog.appendChild(bar);
-    const st = document.createElement('div'); st.className = 'meta'; st.style.marginTop='6px'; st.textContent = 'En cola';
+    /* ============================
+     *   LÓGICA DE SUBIDA MULTIPLE
+     * ============================ */
+    const input   = document.getElementById('files');
+    const preview = document.getElementById('preview');
+    const startBtn = document.getElementById('startUpload');
+    const cancelBtn = document.getElementById('cancelUpload');
+    const status = document.getElementById('globalStatus');
+    const summary = document.getElementById('uploadSummary');
 
-    body.appendChild(name); body.appendChild(meta); body.appendChild(prog); body.appendChild(st);
-    tile.appendChild(body);
+    const maxSizeBytes = 30 * 1024 * 1024; // 30MB
+    const allowedTypes = [
+      'image/jpeg','image/png','image/gif','image/webp','image/svg+xml',
+      'video/mp4','video/quicktime',
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ];
 
-    // remove handler
-    remove.addEventListener('click', () => {
-      if(uploading){ alert('No puedes eliminar durante la subida. Cancela primero.'); return; }
-      // revoke object URL if exists
-      if(url) URL.revokeObjectURL(url);
-      queue = queue.filter(q => q.id !== id);
+    let queue = []; // { id, file, url, tile, progressBar, statusNode }
+    let uploading = false;
+    let currentXhr = null;
+    let aborted = false;
+
+    function fmtSize(b){
+      if(b < 1024) return b + ' B';
+      if(b < 1024*1024) return Math.round(b/1024) + ' KB';
+      return (b/(1024*1024)).toFixed(2) + ' MB';
+    }
+
+    function createTile(file, idx){
+      const id = 'f' + Date.now() + '_' + idx;
+      const tile = document.createElement('div'); tile.className = 'tile'; tile.dataset.id = id;
+
+      const remove = document.createElement('div'); remove.className = 'remove'; remove.title = 'Eliminar';
+      remove.innerHTML = '×';
+      tile.appendChild(remove);
+
+      const media = document.createElement('div'); media.className = 'tile-media';
+      let url = null;
+      const type = file.type || '';
+      if(type.startsWith('image/')){
+        url = URL.createObjectURL(file);
+        const img = document.createElement('img'); img.src = url; media.appendChild(img);
+      } else if(type.startsWith('video/')){
+        url = URL.createObjectURL(file);
+        const vid = document.createElement('video'); vid.src = url; vid.muted = true; vid.loop = true; vid.autoplay = true; media.appendChild(vid);
+      } else {
+        const icon = document.createElement('div'); icon.style.fontSize = '28px'; icon.textContent = '📄'; media.appendChild(icon);
+      }
+      tile.appendChild(media);
+
+      const body = document.createElement('div'); body.className = 'tile-body';
+      const name = document.createElement('div'); name.className = 'name'; name.textContent = file.name;
+      const meta = document.createElement('div'); meta.className = 'meta'; meta.textContent = fmtSize(file.size) + ' • ' + (file.type || 'document');
+      const prog = document.createElement('div'); prog.className = 'progress'; const bar = document.createElement('span'); prog.appendChild(bar);
+      const st = document.createElement('div'); st.className = 'meta'; st.style.marginTop='6px'; st.textContent = 'En cola';
+
+      body.appendChild(name); body.appendChild(meta); body.appendChild(prog); body.appendChild(st);
+      tile.appendChild(body);
+
+      // remove handler
+      remove.addEventListener('click', () => {
+        if(uploading){ alert('No puedes eliminar durante la subida. Cancela primero.'); return; }
+        if(url) URL.revokeObjectURL(url);
+        queue = queue.filter(q => q.id !== id);
+        renderPreview();
+      });
+
+      return { id, file, url, tile, progressBar: bar, statusNode: st };
+    }
+
+    function renderPreview(){
+      preview.innerHTML = '';
+      queue.forEach(q => preview.appendChild(q.tile));
+      status.textContent = queue.length ? (queue.length + ' archivo(s) en cola') : 'No hay archivos en cola.';
+      startBtn.disabled = !queue.length || uploading;
+    }
+
+    input.addEventListener('change', (e) => {
+      const chosen = Array.from(e.target.files || []);
+      if(!chosen.length) return;
+      const initial = queue.length;
+      chosen.forEach((f,i) => {
+        if(!allowedTypes.includes(f.type)){
+          alert('Formato no permitido: ' + f.name);
+          return;
+        }
+        if(f.size > maxSizeBytes){
+          alert('El archivo ' + f.name + ' supera el límite de ' + (maxSizeBytes/1024/1024) + 'MB');
+          return;
+        }
+        const tileObj = createTile(f, initial + i);
+        queue.push(tileObj);
+      });
+      input.value = '';
       renderPreview();
     });
 
-    return { id, file, url, tile, progressBar: bar, statusNode: st };
-  }
+    // Metadatos globales
+    function gatherMeta(){
+      return {
+        section_id: document.getElementById('section_id').value,
+        subtype_id: document.getElementById('subtype_id').value,
+        title: document.getElementById('title_global').value,
+        description: document.getElementById('description_global').value,
+        date: document.getElementById('date').value,
+        _token: document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+      };
+    }
 
-  function renderPreview(){
-    preview.innerHTML = '';
-    queue.forEach(q => preview.appendChild(q.tile));
-    status.textContent = queue.length ? (queue.length + ' archivo(s) en cola') : 'No hay archivos en cola.';
-    startBtn.disabled = !queue.length || uploading;
-  }
-
-  input.addEventListener('change', (e) => {
-    const chosen = Array.from(e.target.files || []);
-    if(!chosen.length) return;
-    const initial = queue.length;
-    chosen.forEach((f,i) => {
-      if(!allowedTypes.includes(f.type)){
-        alert('Formato no permitido: ' + f.name);
-        return;
+    function parseResponse(xhr){
+      try {
+        if(xhr.responseType === 'json') return xhr.response;
+        return JSON.parse(xhr.responseText || '{}');
+      } catch (e){
+        return { message: xhr.responseText || 'Respuesta inválida' };
       }
-      if(f.size > maxSizeBytes){
-        alert('El archivo ' + f.name + ' supera el límite de ' + (maxSizeBytes/1024/1024) + 'MB');
-        return;
+    }
+
+    function uploadOne(item, meta){
+      return new Promise((resolve) => {
+        const formData = new FormData();
+        formData.append('file', item.file);
+        formData.append('section_id', meta.section_id);
+        if(meta.subtype_id)    formData.append('subtype_id', meta.subtype_id);
+        if(meta.title)        formData.append('title_global', meta.title);
+        if(meta.description)  formData.append('description_global', meta.description);
+        if(meta.date)         formData.append('date', meta.date);
+        formData.append('_token', meta._token);
+
+        const xhr = new XMLHttpRequest();
+        currentXhr = xhr;
+        xhr.open('POST', '{{ route("partcontable.documents.store", $company->slug) }}', true);
+
+        try { xhr.responseType = 'json'; } catch(e){}
+
+        xhr.upload.onprogress = function(e){
+          if(e.lengthComputable && item.progressBar){
+            const pct = Math.round((e.loaded / e.total) * 100);
+            item.progressBar.style.width = pct + '%';
+          }
+        };
+
+        xhr.onload = function(){
+          currentXhr = null;
+          const ok = xhr.status >= 200 && xhr.status < 300;
+          const res = parseResponse(xhr);
+          if(ok){
+            item.statusNode.textContent = 'Subido';
+            item.progressBar.style.width = '100%';
+            if(item.url) { URL.revokeObjectURL(item.url); item.url = null; }
+            resolve({ ok:true, status: xhr.status, body: res });
+          } else {
+            let message = res && (res.message || (res.errors && Object.values(res.errors).flat().join('; '))) || ('Error al subir (status ' + xhr.status + ')');
+            item.statusNode.textContent = message;
+            item.progressBar.style.width = '0%';
+            resolve({ ok:false, status:xhr.status, body: res });
+          }
+        };
+
+        xhr.onerror = function(){
+          currentXhr = null;
+          item.statusNode.textContent = 'Error de red';
+          resolve({ ok:false, error:'network' });
+        };
+
+        xhr.onabort = function(){
+          currentXhr = null;
+          item.statusNode.textContent = 'Cancelado';
+          resolve({ ok:false, error:'aborted' });
+        };
+
+        xhr.send(formData);
+      });
+    }
+
+    async function startUpload(){
+      if(!queue.length) { alert('Selecciona primero archivos.'); return; }
+      uploading = true;
+      aborted = false;
+      startBtn.disabled = true;
+      cancelBtn.disabled = false;
+      status.textContent = 'Iniciando subida...';
+      summary.innerHTML = '';
+
+      const meta = gatherMeta();
+      const results = [];
+
+      for(let i=0;i<queue.length;i++){
+        if(aborted) break;
+        const item = queue[i];
+        status.textContent = `Subiendo ${i+1} de ${queue.length}: ${item.file.name}`;
+        item.statusNode.textContent = 'Subiendo...';
+        const res = await uploadOne(item, meta);
+        results.push(res);
+        await new Promise(r => setTimeout(r, 180));
       }
-      const tileObj = createTile(f, initial + i);
-      queue.push(tileObj);
+
+      uploading = false;
+      cancelBtn.disabled = true;
+      startBtn.disabled = false;
+      currentXhr = null;
+
+      const ok = results.filter(r => r.ok).length;
+      const failed = results.length - ok;
+      status.textContent = `Finalizado — ${ok} subidos, ${failed} con error.`;
+      summary.innerHTML = `<div style="font-size:13px;margin-top:8px;color:${failed? 'var(--danger)': 'var(--mint-dark)'}">${ok} ok — ${failed} fallidos</div>`;
+
+      if(ok > 0){
+        setTimeout(()=> {
+          window.location.href = '{{ route("partcontable.company", $company->slug) }}';
+        }, 900);
+      }
+    }
+
+    startBtn.addEventListener('click', startUpload);
+
+    cancelBtn.addEventListener('click', function(){
+      if(!uploading) return;
+      aborted = true;
+      if(currentXhr) currentXhr.abort();
+      cancelBtn.disabled = true;
+      startBtn.disabled = false;
+      status.textContent = 'Cancelando subida...';
+      queue.forEach(q => {
+        if(q.statusNode && q.statusNode.textContent === 'En cola')
+          q.statusNode.textContent = 'Cancelado';
+      });
     });
-    // clear input so user can re-select same files later
-    input.value = '';
-    renderPreview();
-  });
 
-  // gather global meta
-  function gatherMeta(){
-    return {
-      section_id: document.getElementById('section_id').value,
-      subtype_id: document.getElementById('subtype_id').value,
-      title: document.getElementById('title_global').value,
-      description: document.getElementById('description_global').value,
-      date: document.getElementById('date').value,
-      _token: document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-    };
-  }
-
-  function parseResponse(xhr){
-    try {
-      // try JSON first
-      if(xhr.responseType === 'json') return xhr.response;
-      return JSON.parse(xhr.responseText || '{}');
-    } catch (e){
-      return { message: xhr.responseText || 'Respuesta inválida' };
-    }
-  }
-
-  function uploadOne(item, meta){
-    return new Promise((resolve) => {
-      const formData = new FormData();
-      formData.append('file', item.file);
-      formData.append('section_id', meta.section_id);
-      if(meta.subtype_id) formData.append('subtype_id', meta.subtype_id);
-      if(meta.title) formData.append('title_global', meta.title);
-      if(meta.description) formData.append('description_global', meta.description);
-      if(meta.date) formData.append('date', meta.date);
-      formData.append('_token', meta._token);
-
-      const xhr = new XMLHttpRequest();
-      currentXhr = xhr;
-      xhr.open('POST', '{{ route("partcontable.documents.store", $company->slug) }}', true);
-
-      // try to get JSON response
-      try { xhr.responseType = 'json'; } catch(e){}
-
-      xhr.upload.onprogress = function(e){
-        if(e.lengthComputable && item.progressBar){
-          const pct = Math.round((e.loaded / e.total) * 100);
-          item.progressBar.style.width = pct + '%';
-        }
-      };
-
-      xhr.onload = function(){
-        currentXhr = null;
-        const ok = xhr.status >= 200 && xhr.status < 300;
-        const res = parseResponse(xhr);
-        if(ok){
-          item.statusNode.textContent = 'Subido';
-          item.progressBar.style.width = '100%';
-          // revoke object URL now that uploaded
-          if(item.url) { URL.revokeObjectURL(item.url); item.url = null; }
-          resolve({ ok:true, status: xhr.status, body: res });
-        } else {
-          let message = res && (res.message || (res.errors && Object.values(res.errors).flat().join('; '))) || ('Error al subir (status ' + xhr.status + ')');
-          item.statusNode.textContent = message;
-          item.progressBar.style.width = '0%';
-          resolve({ ok:false, status:xhr.status, body: res });
-        }
-      };
-
-      xhr.onerror = function(){
-        currentXhr = null;
-        item.statusNode.textContent = 'Error de red';
-        resolve({ ok:false, error:'network' });
-      };
-
-      xhr.onabort = function(){
-        currentXhr = null;
-        item.statusNode.textContent = 'Cancelado';
-        resolve({ ok:false, error:'aborted' });
-      };
-
-      xhr.send(formData);
+    document.getElementById('upload-form').addEventListener('submit', function(e){
+      e.preventDefault();
+      startUpload();
     });
-  }
-
-  async function startUpload(){
-    if(!queue.length) { alert('Selecciona primero archivos.'); return; }
-    uploading = true;
-    aborted = false;
-    startBtn.disabled = true;
-    cancelBtn.disabled = false;
-    status.textContent = 'Iniciando subida...';
-    summary.innerHTML = '';
-
-    const meta = gatherMeta();
-    const results = [];
-
-    for(let i=0;i<queue.length;i++){
-      if(aborted) break;
-      const item = queue[i];
-      status.textContent = `Subiendo ${i+1} de ${queue.length}: ${item.file.name}`;
-      item.statusNode.textContent = 'Subiendo...';
-      const res = await uploadOne(item, meta);
-      results.push(res);
-      // small UI gap
-      await new Promise(r => setTimeout(r, 180));
-    }
-
-    uploading = false;
-    cancelBtn.disabled = true;
-    startBtn.disabled = false;
-    currentXhr = null;
-
-    const ok = results.filter(r => r.ok).length;
-    const failed = results.length - ok;
-    status.textContent = `Finalizado — ${ok} subidos, ${failed} con error.`;
-    summary.innerHTML = `<div style="font-size:13px;margin-top:8px;color:${failed? 'var(--danger)': 'var(--mint-dark)'}">${ok} ok — ${failed} fallidos</div>`;
-
-    if(ok > 0){
-      setTimeout(()=> {
-        window.location.href = '{{ route("partcontable.company", $company->slug) }}';
-      }, 900);
-    }
-  }
-
-  startBtn.addEventListener('click', startUpload);
-
-  cancelBtn.addEventListener('click', function(){
-    if(!uploading) return;
-    aborted = true;
-    if(currentXhr) currentXhr.abort();
-    cancelBtn.disabled = true;
-    startBtn.disabled = false;
-    status.textContent = 'Cancelando subida...';
-    queue.forEach(q => { if(q.statusNode && q.statusNode.textContent === 'En cola') q.statusNode.textContent = 'Cancelado'; });
   });
-
-  // block native submit (we use our button)
-  document.getElementById('upload-form').addEventListener('submit', function(e){
-    e.preventDefault();
-    startUpload();
-  });
-
 })();
 </script>
 

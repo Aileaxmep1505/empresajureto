@@ -221,35 +221,34 @@ class LicitacionFileController extends Controller
 
     /**
      * Exportar a Excel TODOS los items originales de una licitación específica.
-     * Aquí ya se incluye MARCA y MODELO tomados del ItemGlobal.
+     * Incluye MARCA y MODELO tomados del ItemGlobal.
      */
     public function exportarExcel(LicitacionFile $licitacionFile)
     {
-        $itemsBase = $licitacionFile->itemsOriginales()
+        $items = $licitacionFile->itemsOriginales()
             ->with('itemGlobal')
             ->orderBy('requisicion')
             ->orderByRaw('CAST(partida AS UNSIGNED) ASC')
             ->orderBy('id')
-            ->get()
-            ->map(function (ItemOriginal $item) {
-                $global = $item->itemGlobal;
+            ->get();
 
-                return [
-                    'requisicion'        => $item->requisicion,
-                    'partida'            => $item->partida,
-                    'clave_verificacion' => $item->clave_verificacion,
-                    'descripcion'        => $item->descripcion_bien,
-                    'especificaciones'   => $item->especificaciones,
-                    'cantidad'           => (int) $item->cantidad,
-                    'unidad'             => $item->unidad_medida,
-                    'marca'              => $global->marca  ?? null,
-                    'modelo'             => $global->modelo ?? null,
-                ];
-            })
-            ->toArray();
+        $rows = [];
 
-        // Normaliza encabezados / formato con el servicio
-        $rows = $this->openAIService->prepararFilasParaExcel($itemsBase);
+        foreach ($items as $item) {
+            $global = $item->itemGlobal;
+
+            $rows[] = [
+                'REQUISICION'        => $item->requisicion,
+                'PARTIDA'            => $item->partida,
+                'CLAVE_VERIFICACION' => $item->clave_verificacion,
+                'DESCRIPCION'        => $item->descripcion_bien,
+                'ESPECIFICACIONES'   => $item->especificaciones,
+                'CANTIDAD'           => (int) $item->cantidad,
+                'UNIDAD'             => $item->unidad_medida,
+                'MARCA'              => $global->marca  ?? '',
+                'MODELO'             => $global->modelo ?? '',
+            ];
+        }
 
         if (empty($rows)) {
             $rows[] = [
@@ -285,7 +284,7 @@ class LicitacionFileController extends Controller
 
             public function styles(Worksheet $sheet)
             {
-                // Encabezado (fila 1) en negritas
+                // Encabezado en negritas
                 $highestColumn = $sheet->getHighestColumn();
                 $sheet->getStyle('A1:' . $highestColumn . '1')->getFont()->setBold(true);
 
@@ -304,29 +303,28 @@ class LicitacionFileController extends Controller
      */
     public function exportarExcelGlobal()
     {
-        $itemsBase = ItemGlobal::orderBy('clave_verificacion')
+        $items = ItemGlobal::orderBy('clave_verificacion')
             ->orderBy('descripcion_global')
-            ->get()
-            ->map(function (ItemGlobal $item) {
-                $requisiciones = is_array($item->requisiciones)
-                    ? $item->requisiciones
-                    : (array) json_decode($item->requisiciones ?? '[]', true);
+            ->get();
 
-                return [
-                    'clave_verificacion' => $item->clave_verificacion,
-                    'descripcion'        => $item->descripcion_global,
-                    'especificaciones'   => $item->especificaciones_global,
-                    'cantidad_total'     => (int) $item->cantidad_total,
-                    'unidad'             => $item->unidad_medida,
-                    'requisiciones'      => implode(', ', $requisiciones),
-                    'marca'              => $item->marca,
-                    'modelo'             => $item->modelo,
-                ];
-            })
-            ->toArray();
+        $rows = [];
 
-        // Puedes reutilizar el mismo formateador si quieres encabezados limpios
-        $rows = $this->openAIService->prepararFilasParaExcel($itemsBase);
+        foreach ($items as $item) {
+            $requisiciones = is_array($item->requisiciones)
+                ? $item->requisiciones
+                : (array) json_decode($item->requisiciones ?? '[]', true);
+
+            $rows[] = [
+                'CLAVE_VERIFICACION' => $item->clave_verificacion,
+                'DESCRIPCION'        => $item->descripcion_global,
+                'ESPECIFICACIONES'   => $item->especificaciones_global,
+                'CANTIDAD_TOTAL'     => (int) $item->cantidad_total,
+                'UNIDAD'             => $item->unidad_medida,
+                'REQUISICIONES'      => implode(', ', $requisiciones),
+                'MARCA'              => $item->marca,
+                'MODELO'             => $item->modelo,
+            ];
+        }
 
         if (empty($rows)) {
             $rows[] = [
@@ -434,7 +432,7 @@ class LicitacionFileController extends Controller
 
                 $global = $query->first();
 
-                if (! $global) {
+                if (!$global) {
                     $marcaPrev  = null;
                     $modeloPrev = null;
 

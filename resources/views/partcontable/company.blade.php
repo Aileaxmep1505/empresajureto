@@ -4,6 +4,65 @@
 @php
   use Illuminate\Support\Str;
   use Illuminate\Support\Facades\Storage;
+
+  // ============================
+  //   Configuración de tabs UI
+  // ============================
+  $pcTabs = [
+    'declaracion_anual' => [
+      'label'   => 'Declaración Anual',
+      'subtabs' => [
+        'acuse_anual'       => 'Acuse anual',
+        'pago_anual'        => 'Pago anual',
+        'declaracion_anual' => 'Declaración anual',
+      ],
+    ],
+    'declaracion_mensual' => [
+      'label'   => 'Declaración Mensual',
+      'subtabs' => [
+        'acuse_mensual'       => 'Acuse mensual',
+        'pago_mensual'        => 'Pago mensual',
+        'declaracion_mensual' => 'Declaración mensual',
+      ],
+    ],
+    'constancias' => [
+      'label'   => 'Constancias / Opiniones',
+      'subtabs' => [
+        'csf'            => 'Constancia de situación fiscal',
+        'opinion_nl'     => 'Opinión estatal Nuevo León',
+        'opinion_edomex' => 'Opinión estatal Estado de México',
+        '32d_sat'        => '32-D SAT',
+        'infonavit'      => 'INFONAVIT',
+        'opinion_imss'   => 'Opinión IMSS',
+      ],
+    ],
+    'estados_financieros' => [
+      'label'   => 'Estados Financieros',
+      'subtabs' => [
+        'balance_general'   => 'Balance general',
+        'estado_resultados' => 'Estado de resultados',
+      ],
+    ],
+  ];
+
+  // Año / mes actuales
+  $year  = $year  ?? request('year');
+  $month = $month ?? request('month');
+
+  // Valores que manda el controlador (si no, usamos defaults)
+  $currentSectionKey = $currentSectionKey ?? request('section', 'declaracion_anual');
+  if (!isset($pcTabs[$currentSectionKey])) {
+    $currentSectionKey = 'declaracion_anual';
+  }
+
+  $currentSubtabs = $pcTabs[$currentSectionKey]['subtabs'];
+
+  $currentSubKey = $currentSubKey ?? request('subtipo', array_key_first($currentSubtabs));
+  if (!isset($currentSubtabs[$currentSubKey])) {
+    $currentSubKey = array_key_first($currentSubtabs);
+  }
+
+  $currentSubLabel = $currentSubLabel ?? $currentSubtabs[$currentSubKey];
 @endphp
 
 @section('content')
@@ -20,39 +79,67 @@
     <div class="pc-flash pc-flash-warning">{{ session('warning') }}</div>
   @endif
 
-  {{-- Menu de secciones --}}
-  <nav class="pc-sections" aria-label="Secciones">
-    @forelse($sections as $s)
+  {{-- Tabs principales --}}
+  <nav class="pc-sections pc-main-tabs" aria-label="Secciones principales">
+    @foreach($pcTabs as $key => $conf)
       @php
-        $url = route('partcontable.company', $company->slug) . '?section=' . $s->key
-             . ($year ? '&year=' . $year : '') . ($month ? '&month=' . $month : '');
+        $url = route('partcontable.company', $company->slug)
+              . '?section='.$key
+              . '&subtipo='.array_key_first($conf['subtabs'])
+              . ($year ? '&year='.$year : '')
+              . ($month ? '&month='.$month : '');
       @endphp
-      <a href="{{ $url }}" class="pc-section-item {{ ($section && $section->id == $s->id) ? 'active' : '' }}">
-        {{ $s->name }}
+      <a href="{{ $url }}"
+         class="pc-section-item {{ $currentSectionKey === $key ? 'active' : '' }}">
+        {{ $conf['label'] }}
       </a>
-    @empty
-      <div class="pc-no-sections">No hay secciones configuradas.</div>
-    @endforelse
+    @endforeach
+  </nav>
+
+  {{-- Sub-tabs --}}
+  <nav class="pc-subtabs" aria-label="Subtipo de documentos">
+    @foreach($currentSubtabs as $subKey => $label)
+      @php
+        $url = route('partcontable.company', $company->slug)
+              . '?section='.$currentSectionKey
+              . '&subtipo='.$subKey
+              . ($year ? '&year='.$year : '')
+              . ($month ? '&month='.$month : '');
+      @endphp
+      <a href="{{ $url }}"
+         class="pc-subtab-item {{ $currentSubKey === $subKey ? 'active' : '' }}">
+        {{ $label }}
+      </a>
+    @endforeach
   </nav>
 
   {{-- Controles: filtros + subir --}}
   <div class="pc-controls">
-    <form method="GET" id="pc-filter-form" action="{{ route('partcontable.company', $company->slug) }}" class="pc-filter-form" role="search">
-      <input type="hidden" name="section" value="{{ $section?->key ?? '' }}">
+    <form method="GET" id="pc-filter-form"
+          action="{{ route('partcontable.company', $company->slug) }}"
+          class="pc-filter-form" role="search">
+
+      <input type="hidden" name="section" value="{{ $currentSectionKey }}">
+      <input type="hidden" name="subtipo" value="{{ $currentSubKey }}">
+
       <input type="number" name="year" placeholder="Año" min="2000" max="2099" value="{{ $year ?? '' }}">
       <input type="number" name="month" placeholder="Mes" min="1" max="12" value="{{ $month ?? '' }}">
+
       <button type="submit" class="pc-btn pc-btn-filter">Filtrar</button>
-      <a href="{{ route('partcontable.company', $company->slug) . ($section ? '?section='.$section->key : '') }}" class="pc-btn pc-btn-reset">Limpiar</a>
+      <a href="{{ route('partcontable.company', $company->slug) . '?section='.$currentSectionKey.'&subtipo='.$currentSubKey }}"
+         class="pc-btn pc-btn-reset">
+        Limpiar
+      </a>
     </form>
 
     <div>
-      {{-- Botón SUBIR estilo Btn (píldora negra animada) --}}
-      <a href="{{ route('partcontable.documents.create', $company->slug) }}" 
+      {{-- Botón SUBIR --}}
+      <a href="{{ route('partcontable.documents.create', $company->slug) }}?section={{ $currentSectionKey }}&subtipo={{ $currentSubKey }}" 
          class="Btn pc-upload-btn"
-         aria-label="Subir {{ $section?->name ?? 'documento' }}">
+         aria-label="Subir {{ $currentSubLabel }}">
         <div class="sign">+</div>
         <div class="text">
-          Subir {{ $section?->name ?? 'documento' }}
+          Subir {{ $currentSubLabel }}
         </div>
       </a>
     </div>
@@ -62,47 +149,53 @@
   <div class="pc-grid" aria-live="polite">
     @forelse($documents as $doc)
       @php
-        // Nombre y extensión
         $filename = $doc->filename ?? basename($doc->file_path ?? '');
         if (!Str::contains($filename, '.')) {
           $extFromPath = pathinfo($doc->file_path ?? '', PATHINFO_EXTENSION);
           if ($extFromPath) $filename .= '.' . $extFromPath;
         }
 
-        // decidir displayUrl y mime
         $displayUrl = null;
         $mime = $doc->mime_type ?? null;
 
         if (!empty($doc->url) && Str::startsWith($doc->url, ['http://','https://'])) {
-          // URL externa (CDN)
           $displayUrl = $doc->url;
         } elseif ($doc->file_path && Storage::disk('public')->exists($doc->file_path)) {
           $displayUrl = Storage::disk('public')->url($doc->file_path);
           if (!$mime) {
-            try { $mime = Storage::disk('public')->mimeType($doc->file_path); } catch (\Throwable $_) { $mime = $doc->mime_type ?? null; }
+            try { $mime = Storage::disk('public')->mimeType($doc->file_path); }
+            catch (\Throwable $_) { $mime = $doc->mime_type ?? null; }
           }
         } else {
-          // fallback: usar doc->url o vacío
           $displayUrl = $doc->url ?? '';
         }
 
-        $dateLabel = $doc->date ? \Carbon\Carbon::parse($doc->date)->format('d M Y') : \Carbon\Carbon::parse($doc->created_at)->format('d M Y');
+        $dateLabel = $doc->date
+          ? \Carbon\Carbon::parse($doc->date)->format('d M Y')
+          : \Carbon\Carbon::parse($doc->created_at)->format('d M Y');
 
-        // helper booleans
-        $isImage = $mime ? Str::startsWith($mime, 'image/') : in_array(strtolower($ext ?? ''), ['jpg','jpeg','png','gif','webp','svg']);
-        $isVideo = $mime ? Str::startsWith($mime, 'video/') : in_array(strtolower($ext ?? ''), ['mp4','mov','webm','mkv']);
-        $isPdf   = Str::lower(pathinfo($filename, PATHINFO_EXTENSION)) === 'pdf';
+        $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+
+        $isImage = $mime
+          ? Str::startsWith($mime, 'image/')
+          : in_array($ext, ['jpg','jpeg','png','gif','webp','svg']);
+
+        $isVideo = $mime
+          ? Str::startsWith($mime, 'video/')
+          : in_array($ext, ['mp4','mov','webm','mkv']);
+
+        $isPdf = $ext === 'pdf';
       @endphp
 
       <article class="card pc-doc-card" aria-labelledby="doc-{{ $doc->id }}" data-id="{{ $doc->id }}" tabindex="0">
-        {{-- overlay non-interactive --}}
         <a class="card__link" href="{{ route('partcontable.documents.preview', $doc) }}" target="_blank" rel="noopener"></a>
 
         <div class="card__hero">
           <header class="card__hero-header">
-            <span class="pc-doc-badge">{{ strtoupper(pathinfo($filename, PATHINFO_EXTENSION) ?: ($doc->file_type ?? 'FILE')) }}</span>
+            <span class="pc-doc-badge {{ $isPdf ? 'pc-doc-badge-pdf' : '' }}">
+              {{ strtoupper($ext ?: ($doc->file_type ?? 'FILE')) }}
+            </span>
 
-            {{-- eliminar en esquina superior derecha --}}
             <div class="pc-card-top-actions" role="group" aria-label="Acciones del documento">
               <form method="POST" action="{{ route('partcontable.documents.destroy', $doc) }}" class="pc-delete-form-inline" style="display:inline;">
                 @csrf
@@ -122,9 +215,7 @@
 
           {{-- preview media --}}
           <div class="pc-hero-media" role="img" aria-label="{{ $doc->title }}">
-            @php
-              $url = $displayUrl ?? '';
-            @endphp
+            @php $url = $displayUrl ?? ''; @endphp
 
             @if($isImage)
               <img src="{{ asset('storage/' . $doc->file_path) }}" alt="{{ $doc->title }}" style="max-width:100%;">
@@ -134,24 +225,26 @@
                 Tu navegador no soporta video.
               </video>
             @elseif($isPdf && $url)
-              {{-- PDF: placeholder --}}
               <div class="pc-doc-placeholder" title="{{ $doc->title }}">
                 <div class="pc-doc-placeholder-inner">
-                  <strong class="pc-doc-ext">PDF</strong>
+                  <strong class="pc-doc-ext pc-doc-ext-pdf">PDF</strong>
                   <div class="pc-doc-fileinfo">
                     <div class="pc-doc-title-ellipsis">{{ \Illuminate\Support\Str::limit($doc->title, 80) }}</div>
-                    <div class="pc-doc-meta small-muted">{{ $dateLabel }} • {{ $doc->subtype?->name ?? ($section?->name ?? '') }}</div>
+                    <div class="pc-doc-meta small-muted">
+                      {{ $dateLabel }} • {{ $doc->subtype?->name ?? $currentSubLabel }}
+                    </div>
                   </div>
                 </div>
               </div>
             @else
-              {{-- Otros tipos: placeholder --}}
               <div class="pc-doc-placeholder" title="{{ $doc->title }}">
                 <div class="pc-doc-placeholder-inner">
-                  <strong class="pc-doc-ext">{{ strtoupper(pathinfo($filename, PATHINFO_EXTENSION) ?: 'FILE') }}</strong>
+                  <strong class="pc-doc-ext">{{ strtoupper($ext ?: 'FILE') }}</strong>
                   <div class="pc-doc-fileinfo">
                     <div class="pc-doc-title-ellipsis">{{ \Illuminate\Support\Str::limit($doc->title, 80) }}</div>
-                    <div class="pc-doc-meta small-muted">{{ $dateLabel }} • {{ $doc->subtype?->name ?? ($section?->name ?? '') }}</div>
+                    <div class="pc-doc-meta small-muted">
+                      {{ $dateLabel }} • {{ $doc->subtype?->name ?? $currentSubLabel }}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -163,7 +256,6 @@
 
         <footer class="card__footer">
           <div class="card__job-summary">
-            {{-- icono circular según tipo --}}
             <div class="pc-small-logo" aria-hidden="true">
               @if($isImage)
                 <span class="pc-type-badge pc-type-img" aria-hidden="true">
@@ -180,7 +272,7 @@
                   </svg>
                 </span>
               @else
-                <span class="pc-type-badge pc-type-doc" aria-hidden="true">
+                <span class="pc-type-badge {{ $isPdf ? 'pc-type-doc-pdf' : 'pc-type-doc' }}" aria-hidden="true">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                     <path d="M14 2v6h6"></path>
@@ -193,7 +285,9 @@
 
             <div class="card__job">
               <p class="card__job-title pc-doc-title">{{ \Illuminate\Support\Str::limit($doc->title, 48) }}</p>
-              <div class="pc-doc-meta small-muted">{{ $dateLabel }} • {{ $doc->subtype?->name ?? ($section?->name ?? '') }}</div>
+              <div class="pc-doc-meta small-muted">
+                {{ $dateLabel }} • {{ $doc->subtype?->name ?? $currentSubLabel }}
+              </div>
             </div>
           </div>
 
@@ -215,17 +309,16 @@
     @endforelse
   </div>
 
-  {{-- paginación --}}
   <div class="pc-pagination" style="margin-top:18px;">
     {{ $documents->withQueryString()->links() }}
   </div>
 </div>
 
-{{-- Modal upload --}}
+{{-- Modal upload igual que antes (no lo toco) --}}
 <div class="pc-modal" id="pcUploadModal" aria-hidden="true" aria-labelledby="pcUploadTitle" role="dialog">
   <div class="pc-modal-backdrop" id="pcModalClose" data-action="close"></div>
   <div class="pc-modal-panel" role="document">
-    <h3 id="pcUploadTitle">Subir documento - <span id="pcModalSectionName">{{ $section?->name ?? '' }}</span></h3>
+    <h3 id="pcUploadTitle">Subir documento - <span id="pcModalSectionName">{{ $currentSubLabel }}</span></h3>
 
     <form id="pcUploadForm" method="POST" enctype="multipart/form-data" action="{{ route('partcontable.documents.store', $company->slug) }}">
       @csrf
@@ -277,15 +370,13 @@
 .pc-title{font-size:26px;margin:0;font-weight:800;color:#111827;}
 .small-muted{font-size:13px;color:var(--muted);}
 
-/* Sections + Controls */
+/* Tabs principales */
 .pc-sections{
   display:flex;
   gap:10px;
-  margin-bottom:14px;
+  margin-bottom:10px;
   flex-wrap:wrap;
 }
-
-/* BOTONES DE ARRIBA: blancos, hover/activo negro */
 .pc-section-item{
   position:relative;
   padding:8px 16px;
@@ -300,7 +391,6 @@
   overflow:hidden;
   z-index:0;
 }
-
 .pc-section-item::before{
   content:"";
   position:absolute;
@@ -312,30 +402,46 @@
   z-index:-1;
   transition:width .25s ease;
 }
-
-.pc-section-item:hover{
-  color:#ffffff;
-}
-
-.pc-section-item:hover::before{
-  width:100%;
-}
-
+.pc-section-item:hover{ color:#ffffff; }
+.pc-section-item:hover::before{ width:100%; }
 .pc-section-item.active{
   color:#ffffff;
   border-color:#111827;
 }
-
 .pc-section-item.active::before{
   width:100%;
   background:#111827;
 }
 
+/* SUBTABS */
+.pc-subtabs{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-bottom:16px;
+}
+.pc-subtab-item{
+  padding:6px 14px;
+  border-radius:999px;
+  border:1px solid #e5e7eb;
+  background:#f9fafb;
+  font-size:13px;
+  font-weight:600;
+  text-decoration:none;
+  color:#374151;
+  transition:all .18s ease;
+}
+.pc-subtab-item:hover{ background:#e5e7eb; }
+.pc-subtab-item.active{
+  background:#111827;
+  color:#ffffff;
+  border-color:#111827;
+}
+
+/* Controles */
 .pc-controls{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:12px;flex-wrap:wrap;}
 .pc-filter-form{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
 .pc-filter-form input{padding:8px;border-radius:8px;border:1px solid #e5e7eb;width:110px;}
-
-/* Botones simples Filtrar / Limpiar */
 .pc-btn{
   padding:8px 14px;
   border-radius:999px;
@@ -348,36 +454,37 @@
   color:#111827;
   transition:all .2s ease;
 }
-.pc-btn:hover{
-  background:#111827;
-  color:#ffffff;
-}
+.pc-btn:hover{ background:#111827;color:#ffffff; }
+.pc-upload-btn{ text-decoration:none; }
 
-/* variantes */
-.pc-btn-filter{}
-.pc-btn-reset{}
-
-/* Subir: sólo para ajustar que se vea inline con Btn */
-.pc-upload-btn{
-  text-decoration:none;
-}
-
-/* GRID DOCUMENTOS */
+/* GRID */
 .pc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;align-items:start;}
 
 /* Card */
 .card{background:var(--bg);border-radius:var(--radius);padding:0;border:1px solid rgba(15,23,42,0.04);box-shadow:var(--card-shadow);overflow:hidden;display:block;text-decoration:none;color:inherit;transition:transform .14s ease,box-shadow .14s ease;position:relative;}
 .card:focus-within, .card:hover{transform:translateY(-6px);box-shadow:0 20px 40px rgba(2,6,23,0.08);}
-
-/* overlay link */
 .card__link{position:absolute;inset:0;z-index:1;pointer-events:none;}
 
 /* Hero */
 .card__hero{padding:14px;display:flex;flex-direction:column;gap:10px;position:relative;z-index:2;}
 .card__hero-header{display:flex;justify-content:space-between;align-items:center;gap:8px;}
-.pc-doc-badge{display:inline-block;background:rgba(255,255,255,0.95);padding:6px 8px;border-radius:999px;font-weight:800;font-size:12px;color:#0f172a;border:1px solid rgba(15,23,42,0.04);}
+.pc-doc-badge{
+  display:inline-block;
+  background:rgba(255,255,255,0.95);
+  padding:6px 8px;
+  border-radius:999px;
+  font-weight:800;
+  font-size:12px;
+  color:#0f172a;
+  border:1px solid rgba(15,23,42,0.04);
+}
+/* PDF badge en rojo */
+.pc-doc-badge-pdf{
+  background:#fee2e2;
+  color:#b91c1c;
+  border-color:#fecaca;
+}
 
-/* top actions */
 .card .pc-card-top-actions{ position:absolute; top:12px; right:12px; z-index:6; }
 
 /* Media preview */
@@ -386,7 +493,19 @@
 .pc-hero-media video{background:#000;}
 .pc-doc-placeholder{display:flex;align-items:center;justify-content:center;padding:18px;background:linear-gradient(180deg,#f8fafc,#ffffff);height:100%;}
 .pc-doc-placeholder-inner{display:flex;gap:12px;align-items:center;}
-.pc-doc-ext{display:block;font-size:22px;font-weight:900;padding:10px 14px;border-radius:10px;background:#0b1220;color:#fff;}
+.pc-doc-ext{
+  display:block;
+  font-size:22px;
+  font-weight:900;
+  padding:10px 14px;
+  border-radius:10px;
+  background:#0b1220;
+  color:#fff;
+}
+/* Bloque grande PDF en rojo */
+.pc-doc-ext-pdf{
+  background:#dc2626;
+}
 .pc-doc-fileinfo{max-width:calc(100% - 80px);}
 .pc-doc-title-ellipsis{font-weight:700;line-height:1.1;font-size:15px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;text-overflow:ellipsis;}
 .pc-doc-meta{font-weight:600;color:var(--muted);font-size:13px;margin-top:6px;}
@@ -406,33 +525,27 @@
 .pc-type-doc{background:#1f6feb;}
 .pc-type-img{background:#b48f00;}
 .pc-type-video{background:#0ea5a4;}
-.pc-type-badge svg{display:block;}
+/* PDF circulito rojo */
+.pc-type-doc-pdf{background:#dc2626;}
 
-/* Job/title */
+.pc-type-badge svg{display:block;}
 .card__job .pc-doc-title{margin:0;font-weight:800;font-size:14px;color:#0b1220;}
 .card__job .pc-doc-meta{font-weight:600;color:var(--muted);font-size:13px;}
 
 /* Icon-only buttons */
 .pc-icon-btn{display:inline-flex;align-items:center;justify-content:center;padding:8px;border-radius:10px;border:none;background:transparent;color:inherit;cursor:pointer;text-decoration:none;z-index:4;}
 .pc-icon-btn svg{display:block;}
-
-/* download button (negro) */
 .pc-btn-download{background:#111827;color:#fff;padding:8px;border-radius:10px;width:40px;height:40px;display:inline-flex;align-items:center;justify-content:center;}
 .pc-btn-download svg{stroke:#fff;width:18px;height:18px;}
-
-/* delete button top-right (rojo) */
 .pc-delete-form-inline{margin:0;}
 .pc-btn-delete{background:transparent;border-radius:8px;width:36px;height:36px;display:inline-flex;align-items:center;justify-content:center;color:#ef4444;border:1px solid rgba(239,68,68,0.12);box-shadow:0 4px 10px rgba(239,68,68,0.06);}
 
 /* Empty */
 .pc-empty{grid-column:1/-1;background:#fff;border-radius:12px;padding:20px;border:1px dashed #eee;text-align:center;color:#666;}
 
-/* Responsive tweaks */
+/* Responsive */
 @media(max-width:900px){ .pc-grid{grid-template-columns:repeat(2,1fr);} }
 @media(max-width:560px){ .pc-grid{grid-template-columns:1fr;} .pc-hero-media{min-height:120px;max-height:220px;} }
-
-/* Focus */
-.card:focus-within{outline:3px solid rgba(99,102,241,0.12);}
 
 /* Modal */
 .pc-modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:60;}
@@ -443,9 +556,7 @@
 .pc-btn-primary{background:#007BFF;color:#fff;padding:8px 12px;border-radius:8px;border:none;cursor:pointer;}
 .pc-btn-secondary{background:#eee;padding:8px 12px;border-radius:8px;border:none;cursor:pointer;}
 
-/* ============================= */
-/*   BOTÓN SUBIR estilo Btn      */
-/* ============================= */
+/* Botón subir */
 .Btn { 
   display:flex;
   align-items:center;
@@ -453,7 +564,7 @@
   width: 46px;
   height: 46px;
   border: none;
-  border-radius: 999px;           /* píldora */
+  border-radius: 999px;
   cursor: pointer;
   position: relative;
   overflow: hidden;
@@ -461,8 +572,6 @@
   box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.199);
   background-color: black;
 }
-
-/* plus sign */
 .sign {
   width: 100%;
   font-size: 2em;
@@ -472,8 +581,6 @@
   align-items: center;
   justify-content: center;
 }
-
-/* text */
 .text {
   position: absolute;
   right: 0%;
@@ -485,32 +592,10 @@
   transition-duration: .3s;
   white-space: nowrap;
 }
-
-/* hover effect on button width */
-.Btn:hover {
-  width: 190px;              /* ancho suficiente para "Subir Declaración Anual" */
-  border-radius: 999px;
-  transition-duration: .3s;
-}
-
-.Btn:hover .sign {
-  width: 30%;
-  transition-duration: .3s;
-  padding-left: 16px;
-}
-
-/* hover effect button's text */
-.Btn:hover .text {
-  opacity: 1;
-  width: 70%;
-  transition-duration: .3s;
-  padding-right: 16px;
-}
-
-/* button click effect*/
-.Btn:active {
-  transform: translate(2px ,2px);
-}
+.Btn:hover { width: 190px; border-radius: 999px; }
+.Btn:hover .sign { width: 30%; transition-duration: .3s; padding-left: 16px; }
+.Btn:hover .text { opacity: 1; width: 70%; transition-duration: .3s; padding-right: 16px; }
+.Btn:active { transform: translate(2px ,2px); }
 </style>
 
 {{-- JS: delete + click en tarjeta --}}
@@ -519,14 +604,12 @@
   'use strict';
 
   document.addEventListener('DOMContentLoaded', function(){
-    // stopPropagation para botones/links de acción
     document.querySelectorAll('.pc-btn-download, .pc-btn-delete, .pc-icon-btn').forEach((el) => {
       el.addEventListener('click', function(e){
         e.stopPropagation();
       });
     });
 
-    // Delete via AJAX
     document.querySelectorAll('.pc-delete-form-inline').forEach(function(form){
       form.addEventListener('submit', function(ev){
         ev.preventDefault();
@@ -556,7 +639,6 @@
       });
     });
 
-    // Abrir preview al click en la tarjeta
     document.querySelectorAll('.pc-doc-card').forEach(card => {
       card.setAttribute('tabindex','0');
 
@@ -569,7 +651,7 @@
         }
       });
 
-      card.addEventListener('click', function(e){
+      card.addEventListener('click', function(){
         const link = card.querySelector('.card__link');
         if(link) window.open(link.href, '_blank');
       });
