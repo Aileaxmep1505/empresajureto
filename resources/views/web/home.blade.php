@@ -1385,7 +1385,7 @@
 })();
 </script>
 @if(isset($marqueeComments) && $marqueeComments->count())
-<section id="home-cmt-marquee">
+<section id="home-cmt-marquee" style="margin-top:40px;">
   <style>
     /* ====== TESTIMONIOS FULL-WIDTH (aislado por #home-cmt-marquee) ====== */
     #home-cmt-marquee{
@@ -1475,18 +1475,22 @@
       box-shadow:0 18px 40px rgba(15,23,42,.3);
     }
 
-    /* ===== FAJA DEL MARQUEE ===== */
+    /* ===== FAJA DEL MARQUEE (FULL WIDTH) ===== */
     #home-cmt-marquee .rows{
       position:relative;
       overflow:hidden;
       margin-top:18px;
+      width:100vw;
+      left:50%;
+      margin-left:-50vw;
+      padding-inline:clamp(16px,5vw,40px);
     }
     #home-cmt-marquee .rows::before,
     #home-cmt-marquee .rows::after{
       content:"";
       position:absolute;
       inset-y:0;
-      width:80px;
+      width:90px;
       z-index:2;
       pointer-events:none;
     }
@@ -1505,35 +1509,32 @@
       padding-block:7px;
       will-change:transform;
     }
-    #home-cmt-marquee .track{
-      display:flex;
-      align-items:stretch;
-      gap:16px;
-      animation: home-cmt-left 32s linear infinite;
-    }
-    #home-cmt-marquee .row-2 .track{
-      animation-name: home-cmt-right;
-      animation-duration: 38s;
-    }
+#home-cmt-marquee .track{
+  display:flex;
+  align-items:stretch;
+  gap:16px;
+  animation: home-cmt-left 32s linear infinite;
+}
+
+    /* Fila 2: misma animación que la de arriba, solo un pelín más lenta */
+  #home-cmt-marquee .row-2 .track{
+  animation: home-cmt-left 36s linear infinite;
+  animation-direction: reverse;
+}
     #home-cmt-marquee .row:hover .track{
       animation-play-state:paused;
     }
 
-    /* loop suave: del 0% al -50% de su propio ancho (2 copias) */
     @keyframes home-cmt-left{
       0%{ transform:translateX(0); }
       100%{ transform:translateX(-50%); }
     }
-    @keyframes home-cmt-right{
-      0%{ transform:translateX(0); }
-      100%{ transform:translateX(50%); }
-    }
 
-    /* ===== TARJETAS (todas mismo tamaño) ===== */
+    /* ===== TARJETAS ===== */
     #home-cmt-marquee .card{
-      flex:0 0 280px;          /* ancho fijo para todas */
+      flex:0 0 280px;
       width:280px;
-      min-height:150px;        /* alto mínimo */
+      min-height:150px;
       padding:14px 16px 12px;
       border-radius:22px;
       background:#ffffff;
@@ -1596,7 +1597,7 @@
       line-height:1.55;
       color:#0f172a;
       flex:1;
-      max-height:3.4em;       /* 2 líneas aprox */
+      max-height:3.4em;
       overflow:hidden;
     }
     #home-cmt-marquee .pill{
@@ -1607,7 +1608,7 @@
       border-radius:999px;
       border:1px solid rgba(37,99,235,.25);
       background:linear-gradient(90deg,rgba(219,234,254,.9),rgba(187,247,208,.9));
-      color:#1d4ed8;
+      color:#1f2933;
       display:inline-flex;
       align-items:center;
       gap:5px;
@@ -1624,11 +1625,11 @@
         flex:0 0 80vw;
         width:80vw;
       }
-      #home-cmt-marquee .row-2{
-        display:none; /* en móvil solo una fila */
-      }
       #home-cmt-marquee .track{
         animation-duration:40s;
+      }
+      #home-cmt-marquee .row-2 .track{
+        animation-duration:44s;
       }
     }
   </style>
@@ -1646,114 +1647,156 @@
         </a>
       </div>
     </header>
+  </div>
 
-    @php
-      // colección única y dividida en 2 filas
-      $items = $marqueeComments->unique('id')->values();
-      $count = $items->count();
-      $half  = (int) ceil($count / 2);
-      $row1  = $items->slice(0, $half)->values();
-      $row2  = $items->slice($half)->values();
-      $colorIndex1 = 0;
-      $colorIndex2 = 0;
-    @endphp
+  @php
+    // colección única y dividida en 2 filas
+    $items = $marqueeComments->unique('id')->values();
+    $count = $items->count();
+    $half  = (int) ceil($count / 2);
+    $row1  = $items->slice(0, $half)->values();
+    $row2  = $items->slice($half)->values();
 
-    <div class="rows">
-      {{-- ===== FILA 1 ===== --}}
-      <div class="row row-1">
-        <div class="track">
-          {{-- Dos copias del mismo orden → loop continuo sin cortes visibles --}}
-          @foreach([$row1, $row1] as $set)
-            @foreach($set as $comment)
-              @php
-                $name = $comment->nombre
-                  ?? ($comment->user->name ?? ($comment->user->email ?? 'Cliente'));
+    // Ancho virtual grande para asegurar que llene pantallas anchas
+    $cardWidth    = 296;
+    $virtualWidth = 2600;
 
-                $parts = preg_split('/\s+/', trim($name));
-                $initials = '';
-                if ($parts) {
-                  foreach (array_slice($parts, 0, 2) as $p) {
-                    $initials .= mb_strtoupper(mb_substr($p, 0, 1));
-                  }
+    $seg1 = max(1, $row1->count()) * $cardWidth;
+    $rep1 = (int) ceil($virtualWidth / $seg1);
+    if ($rep1 < 2) $rep1 = 2;
+    if ($rep1 % 2 === 1) $rep1++;
+
+    $seg2 = max(1, $row2->count()) * $cardWidth;
+    $rep2 = (int) ceil($virtualWidth / $seg2);
+    if ($rep2 < 2) $rep2 = 2;
+    if ($rep2 % 2 === 1) $rep2++;
+
+    $colorIndex1 = 0;
+    $colorIndex2 = 0;
+
+    // Badges rotativos (mínimo 15)
+    $badges = [
+      ['icon' => '📦', 'text' => 'Entrega rápida'],
+      ['icon' => '💳', 'text' => 'Pago seguro'],
+      ['icon' => '🧾', 'text' => 'Factura CFDI 4.0'],
+      ['icon' => '📞', 'text' => 'Atención personalizada'],
+      ['icon' => '🏫', 'text' => 'Ideal para escuelas'],
+      ['icon' => '🏢', 'text' => 'Soluciones corporativas'],
+      ['icon' => '💼', 'text' => 'Proveedores para empresas'],
+      ['icon' => '🎯', 'text' => 'Pedidos a la medida'],
+      ['icon' => '🛠️', 'text' => 'Soporte postventa'],
+      ['icon' => '🚚', 'text' => 'Envío a todo México'],
+      ['icon' => '💰', 'text' => 'Precios de mayoreo'],
+      ['icon' => '⭐', 'text' => 'Clientes recurrentes'],
+      ['icon' => '🕒', 'text' => 'Respuesta rápida'],
+      ['icon' => '📚', 'text' => 'Papelería completa'],
+      ['icon' => '🧃', 'text' => 'Kits armados para oficina'],
+    ];
+    $badgeIndex1 = 0;
+    $badgeIndex2 = 0;
+  @endphp
+
+  <div class="rows">
+    {{-- ===== FILA 1 ===== --}}
+    <div class="row row-1">
+      <div class="track">
+        @for($r = 0; $r < $rep1; $r++)
+          @foreach($row1 as $comment)
+            @php
+              $name = $comment->nombre
+                ?? ($comment->user->name ?? ($comment->user->email ?? 'Cliente'));
+
+              $parts = preg_split('/\s+/', trim($name));
+              $initials = '';
+              if ($parts) {
+                foreach (array_slice($parts, 0, 2) as $p) {
+                  $initials .= mb_strtoupper(mb_substr($p, 0, 1));
                 }
+              }
 
-                $email = $comment->email ?? optional($comment->user)->email;
-                $username = $email ? '@'.\Illuminate\Support\Str::before($email, '@') : '@cliente';
+              $email = $comment->email ?? optional($comment->user)->email;
+              $username = $email ? '@'.\Illuminate\Support\Str::before($email, '@') : '@cliente';
 
-                $body = \Illuminate\Support\Str::limit($comment->contenido, 140);
+              $body = \Illuminate\Support\Str::limit($comment->contenido, 140);
 
-                $colorClass = 'c'.($colorIndex1 % 4);
-                $colorIndex1++;
-              @endphp
+              $colorClass = 'c'.($colorIndex1 % 4);
+              $colorIndex1++;
 
-              <article class="card">
-                <div class="card-head">
-                  <div class="avatar {{ $colorClass }}">{{ $initials ?: 'CL' }}</div>
-                  <div class="meta">
-                    <div class="name">{{ $name }}</div>
-                    <div class="user">{{ $username }}</div>
-                  </div>
+              $badge = $badges[$badgeIndex1 % count($badges)];
+              $badgeIndex1++;
+            @endphp
+
+            <article class="card">
+              <div class="card-head">
+                <div class="avatar {{ $colorClass }}">{{ $initials ?: 'CL' }}</div>
+                <div class="meta">
+                  <div class="name">{{ $name }}</div>
+                  <div class="user">{{ $username }}</div>
                 </div>
-                <div class="body">“{{ $body }}”</div>
-                <div class="pill">
-                  <span>📦</span>
-                  <span>Pedido reciente</span>
-                </div>
-              </article>
-            @endforeach
+              </div>
+              <div class="body">“{{ $body }}”</div>
+              <div class="pill">
+                <span>{{ $badge['icon'] }}</span>
+                <span>{{ $badge['text'] }}</span>
+              </div>
+            </article>
           @endforeach
-        </div>
+        @endfor
       </div>
-
-      {{-- ===== FILA 2 (si hay más comentarios) ===== --}}
-      @if($row2->count())
-      <div class="row row-2">
-        <div class="track">
-          @foreach([$row2, $row2] as $set)
-            @foreach($set as $comment)
-              @php
-                $name = $comment->nombre
-                  ?? ($comment->user->name ?? ($comment->user->email ?? 'Cliente'));
-
-                $parts = preg_split('/\s+/', trim($name));
-                $initials = '';
-                if ($parts) {
-                  foreach (array_slice($parts, 0, 2) as $p) {
-                    $initials .= mb_strtoupper(mb_substr($p, 0, 1));
-                  }
-                }
-
-                $email = $comment->email ?? optional($comment->user)->email;
-                $username = $email ? '@'.\Illuminate\Support\Str::before($email, '@') : '@cliente';
-
-                $body = \Illuminate\Support\Str::limit($comment->contenido, 140);
-
-                $colorClass = 'c'.($colorIndex2 % 4);
-                $colorIndex2++;
-              @endphp
-
-              <article class="card">
-                <div class="card-head">
-                  <div class="avatar {{ $colorClass }}">{{ $initials ?: 'CL' }}</div>
-                  <div class="meta">
-                    <div class="name">{{ $name }}</div>
-                    <div class="user">{{ $username }}</div>
-                  </div>
-                </div>
-                <div class="body">“{{ $body }}”</div>
-                <div class="pill">
-                  <span>🧾</span>
-                  <span>Factura incluida</span>
-                </div>
-              </article>
-            @endforeach
-          @endforeach
-        </div>
-      </div>
-      @endif
     </div>
+
+    {{-- ===== FILA 2 ===== --}}
+    @if($row2->count())
+    <div class="row row-2">
+      <div class="track">
+        @for($r = 0; $r < $rep2; $r++)
+          @foreach($row2 as $comment)
+            @php
+              $name = $comment->nombre
+                ?? ($comment->user->name ?? ($comment->user->email ?? 'Cliente'));
+
+              $parts = preg_split('/\s+/', trim($name));
+              $initials = '';
+              if ($parts) {
+                foreach (array_slice($parts, 0, 2) as $p) {
+                  $initials .= mb_strtoupper(mb_substr($p, 0, 1));
+                }
+              }
+
+              $email = $comment->email ?? optional($comment->user)->email;
+              $username = $email ? '@'.\Illuminate\Support\Str::before($email, '@') : '@cliente';
+
+              $body = \Illuminate\Support\Str::limit($comment->contenido, 140);
+
+              $colorClass = 'c'.($colorIndex2 % 4);
+              $colorIndex2++;
+
+              $badge = $badges[$badgeIndex2 % count($badges)];
+              $badgeIndex2++;
+            @endphp
+
+            <article class="card">
+              <div class="card-head">
+                <div class="avatar {{ $colorClass }}">{{ $initials ?: 'CL' }}</div>
+                <div class="meta">
+                  <div class="name">{{ $name }}</div>
+                  <div class="user">{{ $username }}</div>
+                </div>
+              </div>
+              <div class="body">“{{ $body }}”</div>
+              <div class="pill">
+                <span>{{ $badge['icon'] }}</span>
+                <span>{{ $badge['text'] }}</span>
+              </div>
+            </article>
+          @endforeach
+        @endfor
+      </div>
+    </div>
+    @endif
   </div>
 </section>
 @endif
+
 
 @endsection
