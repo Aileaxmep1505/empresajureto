@@ -1,651 +1,533 @@
 @extends('layouts.app')
 
 @section('content')
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+
 <style>
-    /* --- Layout general de la página --- */
-    .page-container {
-        max-width: 1120px;
-        margin: 0 auto;
-        padding: 40px 16px;
-        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        color: #111827;
-    }
+:root{
+  --indigo-50:#eef2ff; --indigo-100:#e0e7ff; --indigo-600:#4f46e5; --indigo-700:#4338ca;
+  --mint-50:#ecfdf7; --mint-100:#d1fae5; --mint-600:#10b981; --mint-700:#059669;
+  --amber-50:#fffbeb; --amber-200:#fde68a; --amber-800:#92400e;
+  --sky-50:#eff6ff; --sky-200:#bfdbfe; --sky-700:#1d4ed8;
+  --stone-50:#fafafa; --stone-100:#f5f6f8; --stone-200:#e6eef6; --stone-300:#d7dee7;
 
-    .page-header {
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
-    }
+  --ink:#0f172a;
+  --muted:#6b7280;
+  --muted-2:#94a3b8;
+  --line:#e6eef6;
+  --card:#ffffff;
 
-    @media (min-width: 768px) {
-        .page-header {
-            flex-direction: row;
-            align-items: center;
-            justify-content: space-between;
-        }
-    }
+  --shadow-lg: 0 18px 50px rgba(12,18,30,0.07);
+  --shadow-md: 0 8px 20px rgba(12,18,30,0.06);
+  --radius-xl:18px;
+  --radius-lg:14px;
+}
 
-    .page-title {
-        font-size: 26px;
-        font-weight: 600;
-        letter-spacing: -0.02em;
-        color: #111827;
-        margin: 0;
-    }
+*{ box-sizing:border-box; }
+body{
+  font-family:"Open Sans",system-ui,-apple-system,Segoe UI,sans-serif;
+  color:var(--ink);
+}
 
-    .page-subtitle {
-        margin-top: 6px;
-        font-size: 13px;
-        color: #6b7280;
-    }
+/* ---------- Icons ---------- */
+.svg-ico{
+  width:16px;height:16px;display:inline-block;vertical-align:middle;
+  stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round;
+}
+.svg-ico.sm{ width:14px; height:14px; }
+.svg-ico.lg{ width:18px; height:18px; }
 
-    .badge-counter {
-        display: inline-flex;
-        align-items: center;
-        border-radius: 999px;
-        border: 1px solid #e5e7eb;
-        padding: 4px 10px;
-        font-size: 11px;
-        color: #6b7280;
-        background-color: #f9fafb;
-    }
+/* ---------- Page ---------- */
+.page{
+  max-width:1140px;
+  margin:56px auto;
+  padding:0 16px 28px;
+}
+.header{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  margin-bottom:16px;
+}
+.hgroup h1{
+  margin:0;
+  font-size:26px;
+  font-weight:700;
+  letter-spacing:-0.02em;
+}
+.hgroup p{
+  margin:6px 0 0;
+  font-size:13px;
+  color:var(--muted);
+  max-width:680px;
+}
 
-    .badge-counter span {
-        margin-left: 4px;
-        font-weight: 500;
-        color: #374151;
-    }
+/* ---------- Badges ---------- */
+.badge{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:5px 10px;
+  font-size:11px;
+  border-radius:999px;
+  background:var(--stone-50);
+  color:var(--muted);
+  border:1px solid var(--line);
+}
+.badge strong{ color:var(--ink); font-weight:700; }
 
-    /* --- Botones --- */
-    .btn {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 999px;
-        border: 1px solid transparent;
-        font-size: 13px;
-        font-weight: 500;
-        padding: 8px 16px;
-        cursor: pointer;
-        text-decoration: none;
-        transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
-        white-space: nowrap;
-    }
+/* ---------- Buttons (pastel + vivid text) ---------- */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  padding:9px 14px;border-radius:999px;border:1px solid transparent;
+  font-size:13px;font-weight:700;text-decoration:none;cursor:pointer;white-space:nowrap;
+  transition:transform .18s ease, box-shadow .18s ease, background-color .18s ease, border-color .18s ease, color .18s ease;
+  will-change:transform;
+}
+.btn:active{ transform:translateY(1px) scale(.98); }
 
-    .btn-primary {
-        background-color: #4f46e5;
-        color: #ffffff;
-        box-shadow: 0 8px 20px rgba(79, 70, 229, 0.15);
-    }
+.btn-pastel-indigo{
+  background:var(--indigo-50);
+  color:var(--indigo-700);
+  border-color:var(--indigo-100);
+  box-shadow:0 8px 18px rgba(79,70,229,0.12);
+}
+.btn-pastel-indigo:hover{
+  background:var(--indigo-100);
+  box-shadow:0 12px 26px rgba(79,70,229,0.18);
+  transform:translateY(-1px);
+}
 
-    .btn-primary:hover {
-        background-color: #4338ca;
-        border-color: #4338ca;
-    }
+.btn-pastel-mint{
+  background:var(--mint-50);
+  color:var(--mint-700);
+  border-color:var(--mint-100);
+  box-shadow:0 8px 18px rgba(16,185,129,0.12);
+}
+.btn-pastel-mint:hover{
+  background:var(--mint-100);
+  box-shadow:0 12px 26px rgba(16,185,129,0.18);
+  transform:translateY(-1px);
+}
 
-    .btn-primary:active {
-        background-color: #3730a3;
-        border-color: #3730a3;
-        box-shadow: 0 3px 10px rgba(79, 70, 229, 0.25);
-    }
+.btn-ghost{
+  background:#fff;
+  color:var(--ink);
+  border-color:var(--line);
+}
+.btn-ghost:hover{
+  background:var(--stone-50);
+  transform:translateY(-1px);
+}
 
-    .btn-outline {
-        background-color: #ffffff;
-        color: #374151;
-        border-color: #e5e7eb;
-    }
+.btn-xs{ padding:6px 12px; font-size:12px; font-weight:700; }
 
-    .btn-outline:hover {
-        background-color: #eef2ff;
-        color: #4338ca;
-        border-color: #c7d2fe;
-    }
+/* icon bubble inside buttons */
+.btn .ico{
+  width:26px;height:26px;border-radius:999px;display:grid;place-items:center;
+  background:#fff;border:1px solid var(--line);
+}
+.btn .ico .svg-ico{ width:14px;height:14px; }
 
-    .btn-xs {
-        padding: 6px 12px;
-        font-size: 12px;
-        border-radius: 999px;
-    }
+/* ---------- Card ---------- */
+.card{
+  background:var(--card);
+  border:1px solid var(--line);
+  border-radius:var(--radius-xl);
+  box-shadow:var(--shadow-lg);
+  overflow:hidden;
+  animation:cardIn .45s ease both;
+}
+@keyframes cardIn{
+  from{opacity:0; transform:translateY(8px);}
+  to{opacity:1; transform:translateY(0);}
+}
 
-    .btn-icon-plus {
-        font-size: 18px;
-        line-height: 1;
-        margin-right: 6px;
-    }
+/* toolbar */
+.toolbar{
+  padding:12px 16px;
+  border-bottom:1px solid var(--line);
+  display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;
+  background:
+    radial-gradient(800px 120px at 0% 0%, rgba(79,70,229,.06), transparent 40%),
+    radial-gradient(700px 120px at 110% -10%, rgba(16,185,129,.06), transparent 38%),
+    #fff;
+}
+.chip{
+  display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;
+  font-size:11px;color:var(--muted);background:var(--stone-50);border:1px dashed var(--line);
+}
+.chip .dot{
+  width:8px;height:8px;border-radius:999px;background:var(--mint-600);
+  box-shadow:0 0 0 3px var(--mint-50);
+}
 
-    /* --- Alertas --- */
-    .alert {
-        border-radius: 12px;
-        padding: 10px 12px;
-        font-size: 13px;
-        display: flex;
-        align-items: flex-start;
-        gap: 8px;
-        margin-top: 16px;
-    }
+/* search */
+.search{
+  position:relative;
+}
+.search input{
+  width:240px;max-width:280px;
+  padding:8px 10px 8px 30px;border-radius:999px;border:1px solid var(--line);
+  background:var(--stone-50);font-size:12px;color:var(--ink);outline:none;
+  transition:border-color .18s ease, box-shadow .18s ease, background-color .18s ease;
+}
+.search input:focus{
+  background:#fff;border-color:var(--indigo-600);
+  box-shadow:0 0 0 4px rgba(79,70,229,.08);
+}
+.search .icon{
+  position:absolute;left:10px;top:50%;transform:translateY(-50%);
+  color:var(--muted-2);
+}
+.search input[disabled]{opacity:.6;cursor:not-allowed;}
 
-    .alert-success {
-        background-color: #ecfdf3;
-        border: 1px solid #bbf7d0;
-        color: #166534;
-    }
+/* ---------- Table ---------- */
+.table-wrap{ overflow-x:auto; }
+.table{
+  width:100%;
+  border-collapse:separate;border-spacing:0;
+  font-size:13px;
+}
+.table thead th{
+  text-align:left;
+  font-size:11px;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--muted);font-weight:700;
+  padding:10px 16px;border-bottom:1px solid var(--line);
+  background:rgba(250,250,250,.9);
+  position:sticky;top:0;z-index:1;
+}
+.table tbody td{
+  padding:14px 16px;border-top:1px solid #f1f5f9;vertical-align:top;
+}
+.table tbody tr{
+  background:#fff;
+  transition:background-color .16s ease, transform .18s ease, box-shadow .18s ease, opacity .3s ease;
+  opacity:0; transform:translateY(6px);
+}
+.table tbody tr.reveal{
+  opacity:1; transform:translateY(0);
+}
+.table tbody tr:hover{
+  background:var(--stone-50);
+  box-shadow:inset 0 0 0 9999px rgba(79,70,229,0.02);
+}
 
-    .alert-success-icon {
-        margin-top: 2px;
-    }
+/* Licitacion cell */
+.l-main{ display:flex; flex-direction:column; gap:6px; max-width:520px; }
+.l-head{ display:flex; align-items:center; gap:10px; }
+.avatar{
+  width:30px;height:30px;border-radius:999px;
+  display:grid;place-items:center;
+  font-size:11px;font-weight:800;letter-spacing:.02em;
+  background:var(--indigo-50);color:var(--indigo-700);border:1px solid var(--indigo-100);
+}
+.l-title{
+  font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.l-desc{
+  padding-left:40px;
+  font-size:11px;color:var(--muted);
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+}
 
-    /* --- Card principal --- */
-    .card {
-        margin-top: 24px;
-        background-color: #ffffff;
-        border-radius: 18px;
-        border: 1px solid #e5e7eb;
-        box-shadow: 0 18px 45px rgba(15, 23, 42, 0.04);
-        overflow: hidden;
-    }
+/* Pills */
+.pill{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:4px 9px;border-radius:999px;font-size:11px;font-weight:700;border:1px solid transparent;
+  white-space:nowrap;
+}
+.pill .dot{width:7px;height:7px;border-radius:999px;}
+.pill-presencial{ background:var(--sky-50); color:var(--sky-700); border-color:var(--sky-200); }
+.pill-presencial .dot{ background:var(--sky-700); }
+.pill-linea{ background:var(--mint-50); color:var(--mint-700); border-color:var(--mint-100); }
+.pill-linea .dot{ background:var(--mint-700); }
+.pill-borrador{ background:var(--amber-50); color:var(--amber-800); border-color:var(--amber-200); }
+.pill-proceso{ background:var(--indigo-50); color:var(--indigo-700); border-color:var(--indigo-100); }
+.pill-cerrado{ background:var(--stone-100); color:#475569; border-color:var(--stone-300); }
 
-    .card-header {
-        padding: 12px 18px;
-        border-bottom: 1px solid #e5e7eb;
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-    }
+/* Progress */
+.progress{
+  display:flex;flex-direction:column;gap:6px;min-width:160px;
+}
+.progress-top{
+  display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--muted);
+}
+.progress-bar{
+  height:7px;border-radius:999px;background:var(--stone-100);overflow:hidden;border:1px solid var(--stone-200);
+}
+.progress-fill{
+  height:100%;
+  border-radius:999px;
+  background:linear-gradient(90deg, var(--indigo-600), #0ea5e9, var(--mint-600));
+  transition:width .6s cubic-bezier(.2,.8,.2,1);
+  position:relative;
+}
+.progress-fill:after{
+  content:"";
+  position:absolute;inset:0;
+  background:linear-gradient(90deg, rgba(255,255,255,.25), transparent 60%);
+  animation:shine 1.8s ease-in-out infinite;
+}
+@keyframes shine{
+  0%{transform:translateX(-80%);}
+  60%{transform:translateX(80%);}
+  100%{transform:translateX(80%);}
+}
 
-    @media (min-width: 640px) {
-        .card-header {
-            flex-direction: row;
-            align-items: center;
-            justify-content: space-between;
-        }
-    }
+.actions{ text-align:right;white-space:nowrap; }
+.actions .stack{
+  display:inline-flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap;
+}
 
-    .chip {
-        display: inline-flex;
-        align-items: center;
-        padding: 4px 10px;
-        border-radius: 999px;
-        font-size: 11px;
-        color: #6b7280;
-        background-color: #f3f4f6;
-        border: 1px dashed #e5e7eb;
-    }
+/* Empty state */
+.empty{
+  padding:44px 16px;text-align:center;color:var(--muted);
+}
+.empty .bubble{
+  width:56px;height:56px;border-radius:18px;margin:0 auto 10px;
+  display:grid;place-items:center;
+  background:var(--stone-50);border:1px dashed var(--line);
+  color:#64748b;
+}
+.empty h3{ margin:0; font-size:14px; font-weight:700; color:var(--ink); }
+.empty p{ margin:6px 0 10px; font-size:12px; }
 
-    .dot {
-        width: 7px;
-        height: 7px;
-        border-radius: 999px;
-        margin-right: 6px;
-        background-color: #10b981;
-    }
+/* Footer */
+.footer{
+  padding:10px 16px;border-top:1px solid var(--line);
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;
+  font-size:11px;color:var(--muted);
+  background:#fff;
+}
 
-    .toolbar-right {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-    }
-
-    .search-input-wrapper {
-        position: relative;
-    }
-
-    .search-input {
-        width: 220px;
-        max-width: 260px;
-        border-radius: 999px;
-        border: 1px solid #e5e7eb;
-        background-color: #f9fafb;
-        font-size: 12px;
-        color: #6b7280;
-        padding: 7px 10px 7px 26px;
-        outline: none;
-        transition: background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
-    }
-
-    .search-input:focus {
-        background-color: #ffffff;
-        border-color: #4f46e5;
-        box-shadow: 0 0 0 1px rgba(79, 70, 229, 0.2);
-    }
-
-    .search-input[disabled] {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-
-    .search-input-icon {
-        position: absolute;
-        top: 50%;
-        left: 8px;
-        transform: translateY(-50%);
-        font-size: 13px;
-        color: #9ca3af;
-    }
-
-    /* --- Tabla --- */
-    .table-wrapper {
-        overflow-x: auto;
-    }
-
-    .table {
-        width: 100%;
-        border-collapse: separate;
-        border-spacing: 0;
-        font-size: 13px;
-    }
-
-    .table thead {
-        background-color: rgba(249, 250, 251, 0.94);
-    }
-
-    .table thead th {
-        padding: 10px 20px;
-        text-align: left;
-        font-size: 11px;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        font-weight: 600;
-        color: #6b7280;
-        border-bottom: 1px solid #e5e7eb;
-        white-space: nowrap;
-    }
-
-    .table tbody tr {
-        transition: background-color 0.15s ease;
-    }
-
-    .table tbody tr:hover {
-        background-color: #f9fafb;
-    }
-
-    .table tbody td {
-        padding: 14px 20px;
-        border-top: 1px solid #f3f4f6;
-        vertical-align: top;
-    }
-
-    .licitacion-main {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-    }
-
-    .licitacion-header {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .avatar-circle {
-        width: 26px;
-        height: 26px;
-        border-radius: 999px;
-        background-color: #eef2ff;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 11px;
-        font-weight: 600;
-        color: #4f46e5;
-    }
-
-    .licitacion-title {
-        font-weight: 500;
-        color: #111827;
-        max-width: 360px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    .licitacion-description {
-        padding-left: 34px;
-        font-size: 11px;
-        color: #6b7280;
-        max-width: 380px;
-        display: -webkit-box;
-        -webkit-box-orient: vertical;
-        -webkit-line-clamp: 2;
-        overflow: hidden;
-    }
-
-    .text-muted {
-        font-size: 11px;
-        color: #9ca3af;
-        margin-top: 2px;
-    }
-
-    .status-pill {
-        display: inline-flex;
-        align-items: center;
-        border-radius: 999px;
-        font-size: 11px;
-        font-weight: 500;
-        padding: 3px 9px;
-        border: 1px solid transparent;
-        white-space: nowrap;
-    }
-
-    .status-modalidad-presencial {
-        background-color: #eff6ff;
-        color: #1d4ed8;
-        border-color: #dbeafe;
-    }
-
-    .status-modalidad-linea {
-        background-color: #ecfdf3;
-        color: #047857;
-        border-color: #bbf7d0;
-    }
-
-    .status-dot {
-        width: 6px;
-        height: 6px;
-        border-radius: 999px;
-        margin-right: 5px;
-    }
-
-    .status-dot-blue {
-        background-color: #3b82f6;
-    }
-
-    .status-dot-green {
-        background-color: #10b981;
-    }
-
-    .status-general-borrador {
-        background-color: #fffbeb;
-        color: #92400e;
-        border-color: #fde68a;
-    }
-
-    .status-general-proceso {
-        background-color: #eef2ff;
-        color: #4338ca;
-        border-color: #c7d2fe;
-    }
-
-    .status-general-cerrado {
-        background-color: #f3f4f6;
-        color: #4b5563;
-        border-color: #d1d5db;
-    }
-
-    .progress-container {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-    }
-
-    .progress-header {
-        display: flex;
-        justify-content: space-between;
-        font-size: 11px;
-        color: #6b7280;
-    }
-
-    .progress-bar-bg {
-        width: 100%;
-        height: 6px;
-        border-radius: 999px;
-        background-color: #f3f4f6;
-        overflow: hidden;
-    }
-
-    .progress-bar-fill {
-        height: 100%;
-        border-radius: 999px;
-        background: linear-gradient(90deg, #4f46e5, #0ea5e9, #10b981);
-        transition: width 0.18s ease-out;
-    }
-
-    .actions-cell {
-        text-align: right;
-    }
-
-    /* --- Estado vacío --- */
-    .empty-state {
-        padding: 40px 20px;
-        text-align: center;
-        color: #9ca3af;
-    }
-
-    .empty-icon {
-        width: 40px;
-        height: 40px;
-        border-radius: 999px;
-        border: 1px dashed #d1d5db;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 18px;
-        margin-bottom: 10px;
-        background-color: #f9fafb;
-    }
-
-    .empty-title {
-        font-size: 13px;
-        margin-bottom: 4px;
-        color: #6b7280;
-    }
-
-    /* --- Paginación wrapper --- */
-    .card-footer {
-        padding: 10px 18px 12px 18px;
-        border-top: 1px solid #e5e7eb;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        font-size: 11px;
-        color: #6b7280;
-    }
-
-    @media (min-width: 640px) {
-        .card-footer {
-            flex-direction: row;
-            align-items: center;
-            justify-content: space-between;
-        }
-    }
-
-    .pagination-wrapper {
-        text-align: right;
-    }
+/* reduced motion */
+@media (prefers-reduced-motion: reduce){
+  .card, .table tbody tr, .progress-fill:after{ animation:none !important; transition:none !important; }
+}
 </style>
 
-<div class="page-container">
-
-    {{-- Encabezado --}}
-    <div class="page-header">
-        <div>
-            <h1 class="page-title">Licitaciones</h1>
-            <p class="page-subtitle">
-                Administra el ciclo completo de tus licitaciones: convocatoria, aclaraciones, fallo y seguimiento.
-            </p>
-        </div>
-        <div style="display: flex; align-items: center; gap: 12px;">
-            @if(method_exists($licitaciones, 'total'))
-                <span class="badge-counter">
-                    Total: <span>{{ $licitaciones->total() }}</span>
-                </span>
-            @endif
-            <a href="{{ route('licitaciones.create.step1') }}" class="btn btn-primary">
-                <span class="btn-icon-plus">＋</span>
-                Nueva licitación
-            </a>
-        </div>
+<div class="page">
+  {{-- Header --}}
+  <div class="header">
+    <div class="hgroup">
+      <h1>Licitaciones</h1>
+      <p>Administra el ciclo completo de tus licitaciones: convocatoria, aclaraciones, fallo y seguimiento.</p>
     </div>
 
-    {{-- Alerta de éxito --}}
-    @if(session('success'))
-        <div class="alert alert-success">
-            <span class="alert-success-icon">✅</span>
-            <div>{{ session('success') }}</div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      @if(method_exists($licitaciones,'total'))
+        <span class="badge">Total <strong>{{ $licitaciones->total() }}</strong></span>
+      @endif
+
+      <a href="{{ route('licitaciones.create.step1') }}" class="btn btn-pastel-indigo">
+        <span class="ico" aria-hidden="true">
+          {{-- plus icon --}}
+          <svg class="svg-ico sm" viewBox="0 0 24 24">
+            <path d="M12 5v14M5 12h14"/>
+          </svg>
+        </span>
+        Nueva licitación
+      </a>
+    </div>
+  </div>
+
+  {{-- success --}}
+  @if(session('success'))
+    <div style="margin:12px 0 0;">
+      <div class="badge" style="background:var(--mint-50);border-color:var(--mint-100);color:var(--mint-700);font-weight:700;">
+        {{-- check-circle icon --}}
+        <svg class="svg-ico sm" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="9"></circle>
+          <path d="M8.5 12.5l2.2 2.2 4.8-4.8"></path>
+        </svg>
+        <span>{{ session('success') }}</span>
+      </div>
+    </div>
+  @endif
+
+  <div class="card" style="margin-top:14px;">
+    {{-- Toolbar --}}
+    <div class="toolbar">
+      <div class="chip"><span class="dot"></span> Flujo activo de licitaciones</div>
+
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <div class="search">
+          <span class="icon" aria-hidden="true">
+            {{-- search icon --}}
+            <svg class="svg-ico sm" viewBox="0 0 24 24">
+              <circle cx="11" cy="11" r="7"></circle>
+              <path d="M20 20l-3.5-3.5"></path>
+            </svg>
+          </span>
+          <input type="text" placeholder="Buscar (próximamente)" disabled>
         </div>
-    @endif
+      </div>
+    </div>
 
-    {{-- Card principal --}}
-    <div class="card">
+    {{-- Table --}}
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Licitación</th>
+            <th>Convocatoria</th>
+            <th>Modalidad</th>
+            <th>Estatus</th>
+            <th>Progreso</th>
+            <th style="text-align:right;">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+        @forelse($licitaciones as $licitacion)
+          @php
+            $totalSteps = 12;
+            $step = $licitacion->current_step ?? 0;
+            $progress = $totalSteps > 0 ? min(100, max(0, ($step / $totalSteps) * 100)) : 0;
 
-        {{-- Toolbar superior --}}
-        <div class="card-header">
-            <div>
-                <span class="chip">
-                    <span class="dot"></span>
-                    Flujo activo de licitaciones
-                </span>
-            </div>
+            $status = $licitacion->estatus;
+            $statusLabel = ucfirst(str_replace('_',' ',$status));
+            $statusClass = match($status){
+              'borrador' => 'pill-borrador',
+              'en_proceso' => 'pill-proceso',
+              'cerrado' => 'pill-cerrado',
+              default => 'pill-cerrado'
+            };
 
-            <div class="toolbar-right">
-                <div class="search-input-wrapper">
-                    <input
-                        type="text"
-                        class="search-input"
-                        placeholder="Buscar (visual, aún no funcional)"
-                        disabled
-                    >
-                    <span class="search-input-icon">🔍</span>
+            $isPresencial = $licitacion->modalidad === 'presencial';
+
+            if ($step <= 9) {
+              $continuarRoute = route('licitaciones.edit.step'.$step, $licitacion);
+            } elseif ($step === 10) {
+              $continuarRoute = route('licitaciones.checklist.compras.edit', $licitacion);
+            } elseif ($step === 11) {
+              $continuarRoute = route('licitaciones.checklist.facturacion.edit', $licitacion);
+            } else {
+              $continuarRoute = route('licitaciones.contabilidad.edit', $licitacion);
+            }
+          @endphp
+
+          <tr>
+            {{-- Licitación --}}
+            <td>
+              <div class="l-main">
+                <div class="l-head">
+                  <span class="avatar">{{ strtoupper(substr($licitacion->titulo,0,2)) }}</span>
+                  <div class="l-title" title="{{ $licitacion->titulo }}">
+                    {{ $licitacion->titulo }}
+                  </div>
                 </div>
-            </div>
-        </div>
+                <div class="l-desc">{{ $licitacion->descripcion }}</div>
+              </div>
+            </td>
 
-        {{-- Tabla --}}
-        <div class="table-wrapper">
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>Licitación</th>
-                        <th>Convocatoria</th>
-                        <th>Modalidad</th>
-                        <th>Estatus</th>
-                        <th>Progreso</th>
-                        <th style="text-align:right;">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse($licitaciones as $licitacion)
-                        @php
-                            $totalSteps = 12;
-                            $step = $licitacion->current_step ?? 0;
-                            $progress = $totalSteps > 0 ? min(100, max(0, ($step / $totalSteps) * 100)) : 0;
-                            $status = $licitacion->estatus;
-                            $statusLabel = ucfirst(str_replace('_', ' ', $status));
-                            $statusClass = '';
+            {{-- Convocatoria --}}
+            <td>
+              @if($licitacion->fecha_convocatoria)
+                <div style="font-weight:700;color:var(--ink);">
+                  {{ $licitacion->fecha_convocatoria->format('d/m/Y') }}
+                </div>
+                <div style="font-size:11px;color:var(--muted-2);margin-top:2px;">
+                  {{ $licitacion->fecha_convocatoria->diffForHumans() }}
+                </div>
+              @else
+                <span style="font-size:11px;color:var(--muted-2);">Sin fecha</span>
+              @endif
+            </td>
 
-                            if ($status === 'borrador') {
-                                $statusClass = 'status-general-borrador';
-                            } elseif ($status === 'en_proceso') {
-                                $statusClass = 'status-general-proceso';
-                            } elseif ($status === 'cerrado') {
-                                $statusClass = 'status-general-cerrado';
-                            } else {
-                                $statusClass = '';
-                            }
-                        @endphp
-                        <tr>
-                            {{-- Licitación --}}
-                            <td>
-                                <div class="licitacion-main">
-                                    <div class="licitacion-header">
-                                        <span class="avatar-circle">
-                                            {{ strtoupper(substr($licitacion->titulo, 0, 2)) }}
-                                        </span>
-                                        <div class="licitacion-title" title="{{ $licitacion->titulo }}">
-                                            {{ $licitacion->titulo }}
-                                        </div>
-                                    </div>
-                                    <div class="licitacion-description">
-                                        {{ $licitacion->descripcion }}
-                                    </div>
-                                </div>
-                            </td>
+            {{-- Modalidad --}}
+            <td>
+              <span class="pill {{ $isPresencial ? 'pill-presencial' : 'pill-linea' }}">
+                <span class="dot"></span>
+                {{ $isPresencial ? 'Presencial' : 'En línea' }}
+              </span>
+            </td>
 
-                            {{-- Convocatoria --}}
-                            <td>
-                                @if($licitacion->fecha_convocatoria)
-                                    <div style="font-size: 13px; font-weight: 500; color: #111827;">
-                                        {{ $licitacion->fecha_convocatoria->format('d/m/Y') }}
-                                    </div>
-                                    <div class="text-muted">
-                                        {{ $licitacion->fecha_convocatoria->diffForHumans() }}
-                                    </div>
-                                @else
-                                    <span class="text-muted">Sin fecha</span>
-                                @endif
-                            </td>
+            {{-- Estatus --}}
+            <td>
+              <span class="pill {{ $statusClass }}">{{ $statusLabel }}</span>
+            </td>
 
-                            {{-- Modalidad --}}
-                            <td>
-                                @php
-                                    $isPresencial = $licitacion->modalidad === 'presencial';
-                                @endphp
-                                <span class="status-pill {{ $isPresencial ? 'status-modalidad-presencial' : 'status-modalidad-linea' }}">
-                                    <span class="status-dot {{ $isPresencial ? 'status-dot-blue' : 'status-dot-green' }}"></span>
-                                    {{ $licitacion->modalidad === 'en_linea' ? 'En línea' : 'Presencial' }}
-                                </span>
-                            </td>
+            {{-- Progreso --}}
+            <td>
+              <div class="progress" data-progress="{{ $progress }}">
+                <div class="progress-top">
+                  <span>Paso {{ $step ?: '—' }} / {{ $totalSteps }}</span>
+                  <span>{{ number_format($progress,0) }}%</span>
+                </div>
+                <div class="progress-bar">
+                  <div class="progress-fill" style="width: {{ $progress }}%"></div>
+                </div>
+              </div>
+            </td>
 
-                            {{-- Estatus --}}
-                            <td>
-                                <span class="status-pill {{ $statusClass }}">
-                                    {{ $statusLabel }}
-                                </span>
-                            </td>
-
-                            {{-- Progreso --}}
-                            <td>
-                                <div class="progress-container">
-                                    <div class="progress-header">
-                                        <span>Paso {{ $step ?: '—' }} / {{ $totalSteps }}</span>
-                                        <span>{{ number_format($progress, 0) }}%</span>
-                                    </div>
-                                    <div class="progress-bar-bg">
-                                        <div class="progress-bar-fill" style="width: {{ $progress }}%;"></div>
-                                    </div>
-                                </div>
-                            </td>
-
-                            {{-- Acciones --}}
-                            <td class="actions-cell">
-                                <a href="{{ route('licitaciones.show', $licitacion) }}" class="btn btn-outline btn-xs">
-                                    Ver detalle
-                                </a>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="6">
-                                <div class="empty-state">
-                                    <div class="empty-icon">📄</div>
-                                    <div class="empty-title">Aún no hay licitaciones registradas.</div>
-                                    <a href="{{ route('licitaciones.create.step1') }}" class="btn btn-primary btn-xs" style="margin-top: 8px;">
-                                        Crear la primera licitación
-                                    </a>
-                                </div>
-                            </td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-
-        {{-- Footer con paginación --}}
-        <div class="card-footer">
-            <div>
-                @if(method_exists($licitaciones, 'firstItem') && $licitaciones->total() > 0)
-                    Mostrando
-                    <span style="font-weight: 500; color: #374151;">{{ $licitaciones->firstItem() }}</span>
-                    –
-                    <span style="font-weight: 500; color: #374151;">{{ $licitaciones->lastItem() }}</span>
-                    de
-                    <span style="font-weight: 500; color: #374151;">{{ $licitaciones->total() }}</span>
-                    licitación(es)
-                @endif
-            </div>
-            <div class="pagination-wrapper">
-                {{ $licitaciones->links() }}
-            </div>
-        </div>
+            {{-- Acciones --}}
+            <td class="actions">
+              <div class="stack">
+                <a href="{{ route('licitaciones.show', $licitacion) }}" class="btn btn-ghost btn-xs">
+                  Ver detalle
+                </a>
+                <a href="{{ $continuarRoute }}" class="btn btn-pastel-mint btn-xs">
+                  Continuar
+                </a>
+              </div>
+            </td>
+          </tr>
+        @empty
+          <tr>
+            <td colspan="6">
+              <div class="empty">
+                <div class="bubble" aria-hidden="true">
+                  {{-- document icon --}}
+                  <svg class="svg-ico lg" viewBox="0 0 24 24">
+                    <path d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/>
+                    <path d="M14 2v6h6"/>
+                    <path d="M9 13h6M9 17h6M9 9h2"/>
+                  </svg>
+                </div>
+                <h3>Aún no hay licitaciones</h3>
+                <p>Crea tu primera licitación para comenzar el flujo.</p>
+                <a href="{{ route('licitaciones.create.step1') }}" class="btn btn-pastel-indigo btn-xs">
+                  <span class="ico" aria-hidden="true">
+                    <svg class="svg-ico sm" viewBox="0 0 24 24">
+                      <path d="M12 5v14M5 12h14"/>
+                    </svg>
+                  </span>
+                  Crear licitación
+                </a>
+              </div>
+            </td>
+          </tr>
+        @endforelse
+        </tbody>
+      </table>
     </div>
+
+    {{-- Footer --}}
+    <div class="footer">
+      <div>
+        @if(method_exists($licitaciones,'firstItem') && $licitaciones->total() > 0)
+          Mostrando <strong style="color:var(--ink)">{{ $licitaciones->firstItem() }}</strong>–
+          <strong style="color:var(--ink)">{{ $licitaciones->lastItem() }}</strong>
+          de <strong style="color:var(--ink)">{{ $licitaciones->total() }}</strong>
+          licitación(es)
+        @endif
+      </div>
+      <div>{{ $licitaciones->links() }}</div>
+    </div>
+  </div>
 </div>
+
+<script>
+(function(){
+  const rows = document.querySelectorAll('.table tbody tr');
+  rows.forEach((tr, i) => {
+    requestAnimationFrame(() => {
+      setTimeout(() => tr.classList.add('reveal'), 60 * i);
+    });
+  });
+})();
+</script>
 @endsection

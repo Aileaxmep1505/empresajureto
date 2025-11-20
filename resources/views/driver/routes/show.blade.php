@@ -277,6 +277,9 @@
   /* ===== Config: pedir alternativas ===== */
   const REQUEST_ALTS = { include_alternatives: true, max_alternatives: 2, steps: true };
 
+  /* ===== Si API está en otro subdominio, pon true para mandar cookies ===== */
+  const USE_CREDENTIALS = true;
+
   /* ===== Datos servidor ===== */
   const planId        = {{ $routePlan->id }};
   const initialStops  = @json($stops);
@@ -296,8 +299,27 @@
   const km = (m)=> (m||0)/1000;
   const fmtClock = (d)=> `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
   const mdToHtml = (md)=> (md? String(md).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>') : '');
-  function showToast(text, ok=true){ const t=document.getElementById('toast'); t.textContent=text|| (ok?'Listo':'Error'); t.style.background= ok?'#111827':'#991b1b'; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2000); }
-  function mapToast(html){ const el=document.getElementById('navToast'); el.innerHTML=html||'Listo'; el.classList.add('show'); clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('show'),4000); }
+
+  function showToast(text, ok=true){
+    const t=document.getElementById('toast');
+    t.textContent=text|| (ok?'Listo':'Error');
+    t.style.background= ok?'#111827':'#991b1b';
+    t.classList.add('show');
+    setTimeout(()=>t.classList.remove('show'),2000);
+  }
+  function mapToast(html){
+    const el=document.getElementById('navToast');
+    el.innerHTML=html||'Listo';
+    el.classList.add('show');
+    clearTimeout(el._t);
+    el._t=setTimeout(()=>el.classList.remove('show'),4000);
+  }
+
+  /* ===== Helper fetch con credenciales opcionales ===== */
+  function fopts(extra={}){
+    const base = USE_CREDENTIALS ? { credentials:'include' } : {};
+    return Object.assign(base, extra);
+  }
 
   /* ===== Mapa ===== */
   function addStopFlags(stops){
@@ -517,93 +539,230 @@
   /* ===== Persistencia y watcher ===== */
   async function saveDriverLocation(pos){
     try{
-      await fetch(URL_SAVE_LOC, { method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN': csrf}, body: JSON.stringify({ lat: pos.lat, lng: pos.lng, captured_at: new Date().toISOString() }) });
-    }catch(e){}
+      await fetch(URL_SAVE_LOC, fopts({
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'Accept':'application/json',
+          'X-CSRF-TOKEN': csrf
+        },
+        body: JSON.stringify({
+          lat: pos.lat,
+          lng: pos.lng,
+          captured_at: new Date().toISOString()
+        })
+      }));
+    }catch(e){
+      console.warn('saveDriverLocation error', e);
+    }
   }
+
   function startWatching(){
-    if (!navigator.geolocation){ showToast('Tu dispositivo no soporta GPS', false); return; }
+    if (!navigator.geolocation){
+      showToast('Tu dispositivo no soporta GPS', false);
+      return;
+    }
+
+    // Si prod NO es HTTPS, geolocation se bloquea
+    if (!window.isSecureContext){
+      showToast('GPS bloqueado: el sitio debe estar en HTTPS', false);
+      return;
+    }
+
     if (watcherId !== null) return;
+
     let lastSent=0, lastPos=currentPos;
-    watcherId = navigator.geolocation.watchPosition(async (p)=>{
-      currentPos={ lat:p.coords.latitude, lng:p.coords.longitude };
-      if (!didAutoZoom && lastPos){
-        const toRad=d=>d*Math.PI/180, R=6371000;
-        const dLat=toRad(currentPos.lat-lastPos.lat), dLon=toRad(currentPos.lng-lastPos.lng);
-        const lat1=toRad(lastPos.lat), lat2=toRad(currentPos.lat);
-        const x=Math.sin(dLat/2)**2 + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLon/2)**2;
-        const d=2*R*Math.asin(Math.sqrt(x));
-        if (d >= 30){ didAutoZoom=true; try{ map.flyTo([currentPos.lat,currentPos.lng],15,{duration:.6}); }catch{} }
-      }
-      lastPos=currentPos;
-      if (followMode && didAutoZoom){ map.panTo([currentPos.lat,currentPos.lng],{animate:true,duration:.3}); }
-      if (meMarker) map.removeLayer(meMarker);
-      meMarker=L.circleMarker([currentPos.lat,currentPos.lng],{ radius:8, color:'#1d4ed8', fillColor:'#60a5fa', fillOpacity:.9 }).addTo(map);
-      const now=Date.now(); if (now-lastSent>15000){ lastSent=now; await saveDriverLocation(currentPos); try{ await recompute(); }catch{} }
-      updateNavLinks();
-    }, ()=>{}, { enableHighAccuracy:true, maximumAge:5000, timeout:20000 });
+
+    watcherId = navigator.geolocation.watchPosition(
+      async (p)=>{
+        currentPos={ lat:p.coords.latitude, lng:p.coords.longitude };
+
+        // auto-zoom al moverte un poco
+        if (!didAutoZoom && lastPos){
+          const toRad=d=>d*Math.PI/180, R=6371000;
+          const dLat=toRad(currentPos.lat-lastPos.lat), dLon=toRad(currentPos.lng-lastPos.lng);
+          const lat1=toRad(lastPos.lat), lat2=toRad(currentPos.lat);
+          const x=Math.sin(dLat/2)**2 + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLon/2)**2;
+          const d=2*R*Math.asin(Math.sqrt(x));
+          if (d >= 30){
+            didAutoZoom=true;
+            try{ map.flyTo([currentPos.lat,currentPos.lng],15,{duration:.6}); }catch{}
+          }
+        }
+
+        lastPos=currentPos;
+
+        if (followMode && didAutoZoom){
+          map.panTo([currentPos.lat,currentPos.lng],{animate:true,duration:.3});
+        }
+
+        if (meMarker) map.removeLayer(meMarker);
+        meMarker=L.circleMarker([currentPos.lat,currentPos.lng],{
+          radius:8, color:'#1d4ed8', fillColor:'#60a5fa', fillOpacity:.9
+        }).addTo(map);
+
+        const now=Date.now();
+        if (now-lastSent>15000){
+          lastSent=now;
+          await saveDriverLocation(currentPos);
+          try{ await recompute(); }catch{}
+        }
+
+        updateNavLinks();
+      },
+      (err)=>{
+        console.warn("GPS ERROR", err.code, err.message);
+        const msg =
+          err.code===1 ? 'Permiso de ubicación denegado. Actívalo en tu navegador.' :
+          err.code===2 ? 'No se pudo obtener señal GPS.' :
+          err.code===3 ? 'El GPS tardó demasiado (timeout).' :
+          (err.message || 'Error de GPS');
+        showToast(msg, false);
+      },
+      { enableHighAccuracy:true, maximumAge:5000, timeout:20000 }
+    );
   }
-  function stopWatching(){ if (watcherId !== null){ navigator.geolocation.clearWatch(watcherId); watcherId=null; } }
+
+  function stopWatching(){
+    if (watcherId !== null){
+      navigator.geolocation.clearWatch(watcherId);
+      watcherId=null;
+    }
+  }
 
   /* ===== API ===== */
   async function compute(start){
-    const res=await fetch(URL_COMPUTE,{
+    const res=await fetch(URL_COMPUTE, fopts({
       method:'POST',
-      headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN': csrf},
+      headers:{
+        'Content-Type':'application/json',
+        'Accept':'application/json',
+        'X-CSRF-TOKEN': csrf
+      },
       body: JSON.stringify({ start_lat:start.lat, start_lng:start.lng, ...REQUEST_ALTS })
-    });
-    const ct=res.headers.get('content-type')||''; if(!ct.includes('application/json')){ showToast('Respuesta inesperada del servidor', false); return; }
-    const data=await res.json(); if(!res.ok){ showToast(data?.message||'No se pudo calcular la ruta', false); return; }
-    drawAll(data); lastPayload=data; document.getElementById('btnRecalc')?.removeAttribute('disabled');
-  }
-  async function recompute(){
-    if(!currentPos) return;
-    const res=await fetch(URL_RECOMPUTE,{
-      method:'POST',
-      headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN': csrf},
-      body: JSON.stringify({ start_lat: currentPos.lat, start_lng: currentPos.lng, ...REQUEST_ALTS })
-    });
-    const data=await res.json(); if(!res.ok){ showToast(data?.message||'No se pudo recalcular', false); return; }
-    drawAll(data); lastPayload=data;
+    }));
+
+    const ct=res.headers.get('content-type')||'';
+    if(!ct.includes('application/json')){
+      showToast('Respuesta inesperada del servidor', false);
+      return;
+    }
+
+    const data=await res.json();
+    if(!res.ok){
+      showToast(data?.message||'No se pudo calcular la ruta', false);
+      return;
+    }
+
+    drawAll(data);
+    lastPayload=data;
+    document.getElementById('btnRecalc')?.removeAttribute('disabled');
   }
 
-  /* ===== Auto-boot ===== */
+  async function recompute(){
+    if(!currentPos) return;
+
+    const res=await fetch(URL_RECOMPUTE, fopts({
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'Accept':'application/json',
+        'X-CSRF-TOKEN': csrf
+      },
+      body: JSON.stringify({ start_lat: currentPos.lat, start_lng: currentPos.lng, ...REQUEST_ALTS })
+    }));
+
+    const data=await res.json();
+    if(!res.ok){
+      showToast(data?.message||'No se pudo recalcular', false);
+      return;
+    }
+
+    drawAll(data);
+    lastPayload=data;
+  }
+
+  /* ===== Auto-boot (FIX: SIEMPRE arranca watcher para que salga el prompt) ===== */
   async function autoBoot(){
+    // 1) Usa última ubicación guardada si existe
     try{
-      const r=await fetch(URL_LAST_LOC,{headers:{'Accept':'application/json'}}); const j=await r.json();
-      if (j?.lat && j?.lng){ currentPos={ lat:Number(j.lat), lng:Number(j.lng) }; await compute(currentPos); }
-    }catch(e){}
-    try{
-      if (navigator.permissions?.query){
-        const st=await navigator.permissions.query({ name:'geolocation' });
-        if (st.state==='granted'){ startWatching(); }
-        st.onchange=()=>{ if(st.state==='granted'){ startWatching(); } };
+      const r=await fetch(URL_LAST_LOC, fopts({ headers:{'Accept':'application/json'} }));
+      if (r.ok){
+        const j=await r.json();
+        if (j?.lat && j?.lng){
+          currentPos={ lat:Number(j.lat), lng:Number(j.lng) };
+          await compute(currentPos);
+        }
       }
     }catch(e){}
+
+    // 2) En dominio nuevo esto dispara la solicitud de permisos
+    startWatching();
   }
 
   /* ===== Eventos ===== */
   document.addEventListener('click', async (e)=>{
-    const btn=e.target.closest('[data-done]'); if(!btn) return;
+    const btn=e.target.closest('[data-done]');
+    if(!btn) return;
+
     const doneId=btn.getAttribute('data-done');
     const url=`${URL_DONE_BASE}/${doneId}/done`;
-    const res=await fetch(url,{ method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN': csrf} });
-    const data=await res.json(); if(data.ok){ await recompute(); showToast('Punto marcado como hecho'); }
+
+    const res=await fetch(url, fopts({
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'Accept':'application/json',
+        'X-CSRF-TOKEN': csrf
+      }
+    }));
+
+    const data=await res.json();
+    if(data.ok){
+      await recompute();
+      showToast('Punto marcado como hecho');
+    }else{
+      showToast(data?.message||'No se pudo marcar', false);
+    }
   });
 
   document.getElementById('btnStart')?.addEventListener('click', async ()=>{
     try{
       const pos=await new Promise((resolve,reject)=>{
-        navigator.geolocation.getCurrentPosition(p=>resolve({lat:p.coords.latitude,lng:p.coords.longitude}), err=>reject(err.message||'No se pudo obtener ubicación'), {enableHighAccuracy:true, timeout:12000, maximumAge:5000});
+        navigator.geolocation.getCurrentPosition(
+          p=>resolve({lat:p.coords.latitude,lng:p.coords.longitude}),
+          err=>reject(err.message||'No se pudo obtener ubicación'),
+          {enableHighAccuracy:true, timeout:12000, maximumAge:5000}
+        );
       });
-      currentPos=pos; await saveDriverLocation(pos); await compute(pos); startWatching(); showToast('GPS activado'); mapToast('Navegación iniciada');
-    }catch(e){ showToast('GPS: '+e, false); }
+
+      currentPos=pos;
+      await saveDriverLocation(pos);
+      await compute(pos);
+      startWatching();
+      showToast('GPS activado');
+      mapToast('Navegación iniciada');
+    }catch(e){
+      showToast('GPS: '+e, false);
+    }
   });
 
   document.getElementById('btnRecalc')?.addEventListener('click', async ()=>{
     if (!currentPos){
-      try{ const p=await new Promise((resolve,reject)=>{ navigator.geolocation.getCurrentPosition(x=>resolve({lat:x.coords.latitude,lng:x.coords.longitude}), err=>reject(err.message||'No se pudo obtener ubicación'), {enableHighAccuracy:true, timeout:12000, maximumAge:5000}); }); currentPos=p; await saveDriverLocation(p); }catch(e){}
+      try{
+        const p=await new Promise((resolve,reject)=>{
+          navigator.geolocation.getCurrentPosition(
+            x=>resolve({lat:x.coords.latitude,lng:x.coords.longitude}),
+            err=>reject(err.message||'No se pudo obtener ubicación'),
+            {enableHighAccuracy:true, timeout:12000, maximumAge:5000}
+          );
+        });
+        currentPos=p;
+        await saveDriverLocation(p);
+      }catch(e){}
     }
-    await recompute(); showToast('Ruta actualizada');
+    await recompute();
+    showToast('Ruta actualizada');
   });
 
   window.addEventListener('beforeunload', stopWatching);
