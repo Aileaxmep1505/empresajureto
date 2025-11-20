@@ -103,7 +103,6 @@
       border:1px solid var(--line);border-radius:12px;background:#fff;padding:10px 12px;
       display:grid; gap:.4rem;
     }
-    /* Encabezado: nombre + estado + botón a la derecha */
     #rp-driver-pro .tl-top{
       display:grid; grid-template-columns:1fr auto auto; align-items:center; gap:.5rem;
     }
@@ -114,13 +113,7 @@
     #rp-driver-pro .tl-badges{display:flex; gap:.35rem; align-items:center}
     #rp-driver-pro .badge-ok{background:var(--ok);color:var(--ok-ink);border-radius:999px;padding:.15rem .55rem;font-weight:800;font-size:.75rem}
     #rp-driver-pro .badge-pending{background:#f3f4f6;color:#111827;border-radius:999px;padding:.15rem .55rem;font-weight:800;font-size:.75rem}
-
-    #rp-driver-pro .tl-btn{
-      justify-self:end;
-      white-space:nowrap;
-    }
-
-    /* Metadatos ordenados en filas: coords y ETA/llegada */
+    #rp-driver-pro .tl-btn{ justify-self:end; white-space:nowrap; }
     #rp-driver-pro .tl-meta{
       display:grid; grid-template-columns:1fr 1fr; gap:.35rem .75rem; align-items:center;
     }
@@ -133,7 +126,11 @@
     }
 
     /* Toast + HUD */
-    #rp-driver-pro .toastx{position:fixed;left:50%;transform:translateX(-50%);bottom:24px;background:#111827;color:#fff;padding:.7rem 1rem;border-radius:12px;z-index:20;display:none;box-shadow:0 14px 32px rgba(2,8,23,.22)}
+    #rp-driver-pro .toastx{
+      position:fixed;left:50%;transform:translateX(-50%);bottom:24px;
+      background:#111827;color:#fff;padding:.7rem 1rem;border-radius:12px;z-index:20;display:none;
+      box-shadow:0 14px 32px rgba(2,8,23,.22)
+    }
     #rp-driver-pro .toastx.show{display:block}
     #rp-driver-pro .map-hud{position:absolute; left:50%; top:14px; transform:translateX(-50%); z-index:500; display:flex; gap:8px; pointer-events:none;}
     #rp-driver-pro .nav-toast{background:#111827; color:#fff; border-radius:12px; padding:.6rem .9rem; box-shadow:0 18px 40px rgba(2,8,23,.18); font-weight:700; display:none;}
@@ -141,7 +138,10 @@
 
     /* Botones */
     #rp-driver-pro .btn{ border-radius:12px; border:1px solid transparent; font-weight:700; box-shadow:0 6px 16px rgba(2,8,23,.06); transition:.18s; }
-    #rp-driver-pro .btn:hover{ background:#fff !important; color:#0b1220 !important; box-shadow:0 18px 42px rgba(2,8,23,.16) !important; transform:scale(1.03); }
+    #rp-driver-pro .btn:hover{
+      background:#fff !important; color:#0b1220 !important;
+      box-shadow:0 18px 42px rgba(2,8,23,.16) !important; transform:scale(1.03);
+    }
     #rp-driver-pro .btn-fab{position:fixed; right:18px; bottom:18px; z-index:10}
 
     /* Flags numerados */
@@ -165,8 +165,20 @@
         <div>
           <div class="fw-bold">{{ $routePlan->name ?? ('Ruta #'.$routePlan->id) }}</div>
           <div class="text-muted small">Chofer: {{ $routePlan->driver->name ?? '—' }}</div>
+
+          {{-- Controls GPS (solo se muestran si el navegador está en "prompt") --}}
+          <div id="gpsControls" class="d-flex gap-2 mt-2" style="display:none">
+            <button id="btnStart" class="btn btn-sm btn-primary">
+              <i class="bi bi-crosshair"></i> Usar mi ubicación
+            </button>
+            <button id="btnRecalc" class="btn btn-sm btn-outline-primary" disabled>
+              <i class="bi bi-arrow-repeat"></i> Recalcular
+            </button>
+          </div>
         </div>
-        <div class="d-flex align-items-center" style="gap:.5rem;background:#f3f6fb;border:1px dashed var(--line);border-radius:999px;padding:.4rem .8rem;font-weight:700">
+
+        <div class="d-flex align-items-center"
+             style="gap:.5rem;background:#f3f6fb;border:1px dashed var(--line);border-radius:999px;padding:.4rem .8rem;font-weight:700">
           <i class="bi bi-stopwatch"></i> <span id="kpiTotal">—</span>
         </div>
       </div>
@@ -189,7 +201,7 @@
         <div class="card metric"><div class="card-body"><div class="label">Pendientes</div><div class="value"><span id="pendingCount">—</span>/<span id="totalCount">—</span></div><div class="muted small">Paradas</div></div></div>
         <div class="card metric"><div class="card-body"><div class="label">Distancia</div><div class="value"><span id="totalKm">—</span> km</div><div class="muted small">Ruta activa</div></div></div>
 
-        {{-- Timeline MEJORADO --}}
+        {{-- Timeline --}}
         <div class="card" style="grid-column:1/-1">
           <div class="card-body">
             <div class="d-flex justify-content-between align-items-center mb-2">
@@ -197,7 +209,6 @@
               <div class="muted small">Marca “Hecho” al llegar; se recalcula la agenda.</div>
             </div>
             <ul id="timeline" class="timeline">
-              {{-- skeleton --}}
               @for($i=0;$i<3;$i++)
                 <li class="tl-item">
                   <div class="dot sk"></div>
@@ -230,12 +241,11 @@
       </div>
     </div>
 
-    {{-- DERECHA (75%): Mapa con tarjeta + overlays --}}
+    {{-- DERECHA (75%): Mapa --}}
     <div class="col-lg-9">
       <div class="map-card">
         <div id="map" class="map"></div>
 
-        {{-- Leyenda sobre el mapa --}}
         <div class="map-legend">
           <span class="chip"><i class="bi bi-square-fill" style="color:#2563eb"></i> Principal</span>
           <span class="chip alt"><i class="bi bi-square-fill" style="color:#10b981"></i> Alternativa</span>
@@ -245,7 +255,6 @@
           <span class="chip"><i class="bi bi-circle-fill" style="color:#ef4444"></i> Congestión</span>
         </div>
 
-        {{-- Panel de rutas (flotante) --}}
         <div class="routes-panel">
           <div style="font-weight:800; margin-bottom:.35rem">Rutas</div>
           <div id="routesCards" class="routes-list">
@@ -261,7 +270,6 @@
           </div>
         </div>
 
-        {{-- HUD navegación --}}
         <div class="map-hud"><div id="navToast" class="nav-toast">Listo</div></div>
       </div>
     </div>
@@ -277,7 +285,7 @@
   /* ===== Config: pedir alternativas ===== */
   const REQUEST_ALTS = { include_alternatives: true, max_alternatives: 2, steps: true };
 
-  /* ===== Si API está en otro subdominio, pon true para mandar cookies ===== */
+  /* ===== Si API está en otro subdominio, deja true ===== */
   const USE_CREDENTIALS = true;
 
   /* ===== Datos servidor ===== */
@@ -321,6 +329,14 @@
     return Object.assign(base, extra);
   }
 
+  /* ===== Mostrar/ocultar controles GPS ===== */
+  const gpsControls = () => document.getElementById('gpsControls');
+  function showGpsControls(show){
+    const el = gpsControls();
+    if (!el) return;
+    el.style.display = show ? 'flex' : 'none';
+  }
+
   /* ===== Mapa ===== */
   function addStopFlags(stops){
     if (!Array.isArray(stops)) return;
@@ -339,7 +355,6 @@
 
     if (initialStops.length){
       addStopFlags(initialStops);
-      // bounds de cálculo (marcadores temporales)
       const grp = L.featureGroup(initialStops.map(s => L.marker([s.lat, s.lng])));
       map.fitBounds(grp.getBounds().pad(0.2));
     }
@@ -464,7 +479,6 @@
       `);
     });
 
-    // KPIs
     const pending=ordered.filter(s=>s.status!=='done');
     const totalRemainingSec=pending.reduce((sum,s)=>{const idxO=ordered.indexOf(s);return sum+(perStopSec[idxO]||0);},0);
     const mins=Math.max(1,Math.round(totalRemainingSec/60));
@@ -475,7 +489,6 @@
     document.getElementById('totalCount').textContent=ordered.length;
     document.getElementById('pendingCount').textContent=pending.length;
 
-    // Next + FAB
     if (pending.length){
       const first=pending[0]; const idxFirst=ordered.indexOf(first);
       const seg=perStopSec[idxFirst]||0; const at=new Date(now.getTime()+seg*1000);
@@ -536,7 +549,7 @@
     g.classList.remove('disabled'); w.classList.remove('disabled');
   }
 
-  /* ===== Persistencia y watcher ===== */
+  /* ===== Persistencia ===== */
   async function saveDriverLocation(pos){
     try{
       await fetch(URL_SAVE_LOC, fopts({
@@ -557,18 +570,16 @@
     }
   }
 
+  /* ===== Watcher continuo ===== */
   function startWatching(){
     if (!navigator.geolocation){
       showToast('Tu dispositivo no soporta GPS', false);
       return;
     }
-
-    // Si prod NO es HTTPS, geolocation se bloquea
     if (!window.isSecureContext){
       showToast('GPS bloqueado: el sitio debe estar en HTTPS', false);
       return;
     }
-
     if (watcherId !== null) return;
 
     let lastSent=0, lastPos=currentPos;
@@ -577,7 +588,6 @@
       async (p)=>{
         currentPos={ lat:p.coords.latitude, lng:p.coords.longitude };
 
-        // auto-zoom al moverte un poco
         if (!didAutoZoom && lastPos){
           const toRad=d=>d*Math.PI/180, R=6371000;
           const dLat=toRad(currentPos.lat-lastPos.lat), dLon=toRad(currentPos.lng-lastPos.lng);
@@ -627,6 +637,38 @@
     if (watcherId !== null){
       navigator.geolocation.clearWatch(watcherId);
       watcherId=null;
+    }
+  }
+
+  /* ===== Pedir GPS UNA sola vez (prompt) y luego ocultar controles ===== */
+  async function requestGpsOnce(){
+    if (!navigator.geolocation){
+      showToast('Tu dispositivo no soporta GPS', false);
+      return;
+    }
+    try{
+      const pos = await new Promise((resolve, reject)=>{
+        navigator.geolocation.getCurrentPosition(
+          p=>resolve({lat:p.coords.latitude,lng:p.coords.longitude}),
+          err=>reject(err),
+          { enableHighAccuracy:true, timeout:12000, maximumAge:5000 }
+        );
+      });
+
+      currentPos = pos;
+      await saveDriverLocation(pos);
+      await compute(pos);
+      startWatching();
+      showGpsControls(false);          // <- ya concedió, ocultamos
+      showToast('GPS activado');
+      mapToast('Navegación iniciada');
+    }catch(err){
+      const msg =
+        err?.code===1 ? 'Permiso denegado. Actívalo desde el candado del navegador.' :
+        err?.code===2 ? 'No se pudo obtener señal GPS.' :
+        err?.code===3 ? 'El GPS tardó demasiado.' :
+        (err?.message || 'No se pudo obtener ubicación');
+      showToast(msg, false);
     }
   }
 
@@ -682,9 +724,12 @@
     lastPayload=data;
   }
 
-  /* ===== Auto-boot (FIX: SIEMPRE arranca watcher para que salga el prompt) ===== */
+  /* ===== Auto-boot:
+     - Si permission = prompt -> muestra botones y DISPARA el prompt una vez.
+     - Si = granted/denied -> oculta botones.
+  ===== */
   async function autoBoot(){
-    // 1) Usa última ubicación guardada si existe
+    // 1) última ubicación guardada (por si ya estaba en ruta)
     try{
       const r=await fetch(URL_LAST_LOC, fopts({ headers:{'Accept':'application/json'} }));
       if (r.ok){
@@ -696,8 +741,40 @@
       }
     }catch(e){}
 
-    // 2) En dominio nuevo esto dispara la solicitud de permisos
-    startWatching();
+    // 2) permisos
+    try{
+      if (navigator.permissions?.query){
+        const p = await navigator.permissions.query({ name:'geolocation' });
+
+        const applyState = async ()=>{
+          if (p.state === 'prompt'){
+            showGpsControls(true);
+
+            // Dispara el prompt automáticamente SOLO la primera vez
+            // (si el usuario lo cierra, puede dar click en el botón)
+            setTimeout(()=> requestGpsOnce(), 600);
+          } else if (p.state === 'granted'){
+            showGpsControls(false);
+            startWatching();
+
+            // Si no había ubicación previa guardada, toma la actual sin prompt
+            if (!currentPos){
+              requestGpsOnce();
+            }
+          } else { // denied
+            showGpsControls(false);
+            showToast('Permiso de ubicación denegado. Actívalo en tu navegador.', false);
+          }
+        };
+
+        await applyState();
+        p.onchange = applyState;
+        return;
+      }
+    }catch(e){}
+
+    // Fallback si no hay permissions API
+    showGpsControls(true);
   }
 
   /* ===== Eventos ===== */
@@ -727,39 +804,13 @@
   });
 
   document.getElementById('btnStart')?.addEventListener('click', async ()=>{
-    try{
-      const pos=await new Promise((resolve,reject)=>{
-        navigator.geolocation.getCurrentPosition(
-          p=>resolve({lat:p.coords.latitude,lng:p.coords.longitude}),
-          err=>reject(err.message||'No se pudo obtener ubicación'),
-          {enableHighAccuracy:true, timeout:12000, maximumAge:5000}
-        );
-      });
-
-      currentPos=pos;
-      await saveDriverLocation(pos);
-      await compute(pos);
-      startWatching();
-      showToast('GPS activado');
-      mapToast('Navegación iniciada');
-    }catch(e){
-      showToast('GPS: '+e, false);
-    }
+    await requestGpsOnce();
   });
 
   document.getElementById('btnRecalc')?.addEventListener('click', async ()=>{
     if (!currentPos){
-      try{
-        const p=await new Promise((resolve,reject)=>{
-          navigator.geolocation.getCurrentPosition(
-            x=>resolve({lat:x.coords.latitude,lng:x.coords.longitude}),
-            err=>reject(err.message||'No se pudo obtener ubicación'),
-            {enableHighAccuracy:true, timeout:12000, maximumAge:5000}
-          );
-        });
-        currentPos=p;
-        await saveDriverLocation(p);
-      }catch(e){}
+      await requestGpsOnce();
+      return;
     }
     await recompute();
     showToast('Ruta actualizada');
