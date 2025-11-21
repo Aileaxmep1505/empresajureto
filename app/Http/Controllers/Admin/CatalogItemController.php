@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\CatalogItem;
+use App\Models\CatalogAiIntake;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
@@ -86,7 +87,6 @@ class CatalogItemController extends Controller implements HasMiddleware
 
         $item = CatalogItem::create($data);
 
-        // Disparar sync a ML (no interrumpe flujo si truena)
         $this->dispatchMeliSync($item);
 
         return redirect()
@@ -127,7 +127,6 @@ class CatalogItemController extends Controller implements HasMiddleware
 
         $catalogItem->update($data);
 
-        // Encolar sync a ML
         $this->dispatchMeliSync($catalogItem);
 
         return back()->with('ok', 'Producto web actualizado. Sincronización con Mercado Libre encolada.');
@@ -136,8 +135,6 @@ class CatalogItemController extends Controller implements HasMiddleware
     public function destroy(CatalogItem $catalogItem)
     {
         $catalogItem->delete();
-
-        // Si quieres pausar/eliminar en ML puedes decidirlo en el Job/servicio
         $this->dispatchMeliSync($catalogItem);
 
         return redirect()
@@ -163,7 +160,6 @@ class CatalogItemController extends Controller implements HasMiddleware
      |  ACCIONES MERCADO LIBRE
      ==========================*/
 
-    // POST admin/catalog/{catalogItem}/meli/publish
     public function meliPublish(CatalogItem $catalogItem, MeliSyncService $svc)
     {
         $res = $svc->sync($catalogItem, [
@@ -188,7 +184,6 @@ class CatalogItemController extends Controller implements HasMiddleware
         return back()->with('ok', $friendly);
     }
 
-    // POST admin/catalog/{catalogItem}/meli/pause
     public function meliPause(CatalogItem $catalogItem, MeliSyncService $svc)
     {
         $res = $svc->pause($catalogItem);
@@ -201,7 +196,6 @@ class CatalogItemController extends Controller implements HasMiddleware
         return back()->with('ok', $friendly);
     }
 
-    // POST admin/catalog/{catalogItem}/meli/activate
     public function meliActivate(CatalogItem $catalogItem, MeliSyncService $svc)
     {
         $res = $svc->activate($catalogItem);
@@ -214,7 +208,6 @@ class CatalogItemController extends Controller implements HasMiddleware
         return back()->with('ok', $friendly);
     }
 
-    // GET admin/catalog/{catalogItem}/meli/view
     public function meliView(CatalogItem $catalogItem)
     {
         if (!$catalogItem->meli_item_id) {
@@ -231,6 +224,39 @@ class CatalogItemController extends Controller implements HasMiddleware
         return $permalink
             ? redirect()->away($permalink)
             : back()->with('ok', 'Este ítem no tiene permalink disponible.');
+    }
+
+    /* =========================
+     |  IA: Captura desde QR
+     ==========================*/
+
+    // POST /admin/catalog/ai/start
+    public function aiStart(Request $r)
+    {
+        $intake = CatalogAiIntake::create([
+            'token'      => Str::random(40),
+            'created_by' => $r->user()->id,
+            'status'     => 0,
+            'source_type'=> $r->get('source_type','factura'),
+            'notes'      => $r->get('notes'),
+        ]);
+
+        return response()->json([
+            'ok'         => true,
+            'intake_id'  => $intake->id,
+            'token'      => $intake->token,
+            'mobile_url' => route('intake.mobile', $intake->token),
+        ]);
+    }
+
+    // GET /admin/catalog/ai/{intake}/status
+    public function aiStatus(CatalogAiIntake $intake)
+    {
+        return response()->json([
+            'status'    => $intake->status,
+            'extracted' => $intake->extracted,
+            'meta'      => $intake->meta,
+        ]);
     }
 
     /** Dispara el sync con ML sin romper la UI si algo truena */

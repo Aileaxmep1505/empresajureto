@@ -178,6 +178,7 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
                             <option value="">Selecciona una opción</option>
                             <option value="presencial" {{ old('modalidad') === 'presencial' ? 'selected' : '' }}>Presencial</option>
                             <option value="en_linea" {{ old('modalidad') === 'en_linea' ? 'selected' : '' }}>En línea</option>
+                            <option value="mixto" {{ old('modalidad') === 'mixto' ? 'selected' : '' }}>Mixto</option>
                         </select>
                         <label for="modalidad">Modalidad</label>
                     </div>

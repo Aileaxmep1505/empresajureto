@@ -55,6 +55,9 @@ use App\Http\Controllers\LicitacionPreguntaController;
 use App\Http\Controllers\LicitacionChecklistController;
 use App\Http\Controllers\LicitacionExportController;
 use App\Http\Controllers\LicitacionFileController;
+
+
+use App\Http\Controllers\Mobile\CatalogAiIntakePublicController;
 /*
 |--------------------------------------------------------------------------
 | AUTH
@@ -727,17 +730,19 @@ Route::get('/companies/create', [CompanyController::class, 'create'])
     Route::post('licitaciones/{licitacion}/preguntas', [LicitacionPreguntaController::class, 'store'])
         ->name('licitaciones.preguntas.store');
 });
+
+
 Route::prefix('licitaciones-ai')
     ->name('licitaciones-ai.')
     ->group(function () {
 
+        // =========================
+        // LISTA / CREAR / SUBIR
+        // =========================
+
         // Lista de archivos procesados
         Route::get('/', [LicitacionFileController::class, 'index'])
             ->name('index');
-
-        // Eliminar licitación AI
-        Route::delete('/{licitacionFile}', [LicitacionFileController::class, 'destroy'])
-            ->name('destroy');
 
         // Formulario para subir nuevo archivo
         Route::get('/crear', [LicitacionFileController::class, 'create'])
@@ -747,31 +752,86 @@ Route::prefix('licitaciones-ai')
         Route::post('/', [LicitacionFileController::class, 'store'])
             ->name('store');
 
-        // 🔹 Tabla global
+        // =========================
+        // TABLA GLOBAL
+        // =========================
+
+        // Tabla global
         Route::get('/tabla-global', [LicitacionFileController::class, 'tablaGlobal'])
             ->name('tabla-global');
 
-        // 🔹 Excel de tabla global
+        // Excel de tabla global
         Route::get('/tabla-global-excel', [LicitacionFileController::class, 'exportarExcelGlobal'])
             ->name('tabla-global.excel');
 
-        // 🔹 Actualizar MARCA y MODELO de un item global
-        Route::post('/tabla-global/{itemGlobal}', [LicitacionFileController::class, 'actualizarMarcaModelo'])
-            ->name('tabla-global.update');
-
-        // 🔹 EXPORTAR A EXCEL todos los items de una licitación
-        Route::get('/{licitacionFile}/excel', [LicitacionFileController::class, 'exportarExcel'])
-            ->name('excel');
-
-        // 🔹 Detalle de un archivo y sus items originales
-        Route::get('/{licitacionFile}', [LicitacionFileController::class, 'show'])
-            ->name('show');
-
-        // 🔁 Regenerar tabla global
+        // Regenerar tabla global
         Route::post('/tabla-global-regenerar', [LicitacionFileController::class, 'regenerarTablaGlobal'])
             ->name('tabla-global.regenerar');
 
-        // 🔹 Actualizar un item original (modal)
+        // Actualizar MARCA y MODELO de un item global
+        Route::post('/tabla-global/{itemGlobal}', [LicitacionFileController::class, 'actualizarMarcaModelo'])
+            ->name('tabla-global.update');
+
+        // =========================
+        // ITEMS ORIGINALES (AGREGAR / EDITAR / ELIMINAR)
+        // =========================
+
+        // ✅ Agregar item manual a ESTA licitación
+        Route::post('/{licitacionFile}/items', [LicitacionFileController::class, 'storeItemOriginal'])
+            ->name('items.store');
+
+        // ✅ Actualizar un item original (modal)
+        // (lo dejamos POST para tu form actual)
         Route::post('/items/{itemOriginal}', [LicitacionFileController::class, 'actualizarItemOriginal'])
             ->name('items.update');
+
+        // ✅ Eliminar un item original
+        Route::delete('/items/{itemOriginal}', [LicitacionFileController::class, 'destroyItemOriginal'])
+            ->name('items.destroy');
+
+        // =========================
+        // EXCEL INDIVIDUAL / SHOW / DELETE LICITACION
+        // =========================
+
+        // EXPORTAR A EXCEL todos los items de una licitación
+        Route::get('/{licitacionFile}/excel', [LicitacionFileController::class, 'exportarExcel'])
+            ->name('excel');
+
+        // Detalle de un archivo y sus items originales
+        Route::get('/{licitacionFile}', [LicitacionFileController::class, 'show'])
+            ->name('show');
+
+        // Eliminar licitación AI completa
+        Route::delete('/{licitacionFile}', [LicitacionFileController::class, 'destroy'])
+            ->name('destroy');
     });
+
+
+// ====== PÚBLICO CELULAR (sin auth) ======
+Route::get('/i/{token}', [CatalogAiIntakePublicController::class, 'capture'])
+    ->name('intake.mobile');
+
+Route::post('/i/{token}/upload', [CatalogAiIntakePublicController::class, 'upload'])
+    ->name('intake.upload');
+
+Route::get('/i/{token}/status', [CatalogAiIntakePublicController::class, 'status'])
+    ->name('intake.status');
+
+
+// ====== ADMIN ======
+Route::middleware(['auth','role:admin'])  // o lo que uses
+  ->prefix('admin')
+  ->name('admin.')
+  ->group(function () {
+
+    // ...todas tus rutas admin existentes de catalog
+
+    // IA para captura de factura/remisión
+    Route::post('/catalog/ai/start', [CatalogItemController::class, 'aiStart'])
+        ->name('catalog.ai.start');
+
+    Route::get('/catalog/ai/{intake}/status', [CatalogItemController::class, 'aiStatus'])
+        ->name('catalog.ai.status');
+});
+
+
