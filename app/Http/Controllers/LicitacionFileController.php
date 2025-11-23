@@ -616,39 +616,38 @@ class LicitacionFileController extends Controller
     /**
  * Agregar un ítem original manualmente desde el modal
  */
-public function storeItemOriginal(LicitacionFile $licitacionFile, Request $request)
-{
-    $data = $request->validate([
-        'requisicion'        => ['nullable', 'string', 'max:255'],
-        'partida'            => ['nullable', 'string', 'max:255'],
-        'clave_verificacion' => ['nullable', 'string', 'max:255'],
-        'descripcion_bien'   => ['required', 'string'],
-        'especificaciones'   => ['nullable', 'string'],
-        'cantidad'           => ['required', 'integer', 'min:0'],
-        'unidad_medida'      => ['required', 'string', 'max:255'], // REQUIRED para evitar null
-    ]);
+    public function storeItemOriginal(LicitacionFile $licitacionFile, Request $request)
+    {
+        $data = $request->validate([
+            'requisicion'        => ['nullable', 'string', 'max:255'],
+            'partida'            => ['nullable', 'string', 'max:255'],
+            'clave_verificacion' => ['nullable', 'string', 'max:255'],
+            'descripcion_bien'   => ['required', 'string'],
+            'especificaciones'   => ['nullable', 'string'],
+            'cantidad'           => ['required', 'integer', 'min:0'],
+            'unidad_medida'      => ['required', 'string', 'max:255'], // REQUIRED para evitar null
+        ]);
 
-    $data['licitacion_file_id'] = $licitacionFile->id;
+        $data['licitacion_file_id'] = $licitacionFile->id;
 
-    ItemOriginal::create($data);
+        ItemOriginal::create($data);
 
-    // Recalcula globales para que agarre relación/marca/modelo
-    $this->fusionarItemsGlobales();
+        // Recalcula globales para que agarre relación/marca/modelo
+        $this->fusionarItemsGlobales();
 
-    return back()->with('success', 'Ítem agregado correctamente.');
-}
+        return back()->with('success', 'Ítem agregado correctamente.');
+    }
 
-/**
- * Eliminar ítem original (desde botón en fila)
- */
-public function destroyItemOriginal(ItemOriginal $itemOriginal)
-{
-    $itemOriginal->delete();
+    /**
+     * Eliminar ítem original (desde botón en fila)
+     */
+    public function destroyItemOriginal(ItemOriginal $itemOriginal)
+    {
+        $itemOriginal->delete();
 
-    // Recalcula globales para quitarlo de la suma y relaciones
-    $this->fusionarItemsGlobales();
+        // Recalcula globales para quitarlo de la suma y relaciones
+        $this->fusionarItemsGlobales();
 
-    return back()->with('success', 'Ítem eliminado correctamente.');
-}
-
+        return back()->with('success', 'Ítem eliminado correctamente.');
+    }
 }

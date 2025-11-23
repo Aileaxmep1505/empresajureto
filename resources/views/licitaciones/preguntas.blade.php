@@ -81,13 +81,8 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
   font-size:13px;
   color:#b91c1c;
 }
-.alert-error ul{
-  margin:0;
-  padding-left:18px;
-}
-.alert-error li{
-  margin:2px 0;
-}
+.alert-error ul{ margin:0; padding-left:18px; }
+.alert-error li{ margin:2px 0; }
 
 /* Tarjeta info fechas */
 .info-card{
@@ -103,21 +98,14 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
   justify-content:space-between;
   gap:16px;
 }
-.info-main{
-  font-size:13px;
-}
+.info-main{ font-size:13px; }
 .info-title{
   font-weight:600;
   color:var(--ink);
   margin-bottom:3px;
 }
-.info-text{
-  color:var(--muted);
-  margin:1px 0;
-}
-.info-text strong{
-  color:var(--ink);
-}
+.info-text{ color:var(--muted); margin:1px 0; }
+.info-text strong{ color:var(--ink); }
 .info-actions{
   display:flex;
   flex-direction:column;
@@ -138,17 +126,13 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
   background:#fff;
   color:var(--ink);
 }
-.btn-small:hover{
-  background:#f9fafb;
-}
+.btn-small:hover{ background:#f9fafb; }
 .btn-small-outline{
   border-color:#c7d2fe;
   color:#4338ca;
   background:#f5f3ff;
 }
-.btn-small-outline:hover{
-  background:#e0e7ff;
-}
+.btn-small-outline:hover{ background:#e0e7ff; }
 
 /* Grid columnas */
 .two-col-grid{
@@ -158,9 +142,7 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
   margin-top:20px;
 }
 @media(max-width:860px){
-  .two-col-grid{
-    grid-template-columns:1fr;
-  }
+  .two-col-grid{ grid-template-columns:1fr; }
 }
 
 /* Tarjetas generales */
@@ -188,13 +170,38 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
 .question-item{
   border-radius:12px;
   border:1px solid #edf1f7;
-  padding:9px 10px;
+  padding:10px 12px;
   margin-bottom:8px;
   background:#fff;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+.question-ref{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:11px;
+  color:var(--muted);
+}
+.question-ref .ref-pill{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:3px 8px;
+  border-radius:999px;
+  background:#f8fafc;
+  border:1px dashed #e5e7eb;
+  color:#334155;
+  font-weight:600;
+}
+.question-ref .ref-dot{
+  width:6px;height:6px;border-radius:999px;background:var(--mint-dark);
 }
 .question-text{
   color:var(--ink);
-  margin-bottom:4px;
+  font-size:14px;
+  line-height:1.45;
 }
 .question-meta{
   display:flex;
@@ -202,11 +209,6 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
   font-size:11px;
   color:var(--muted);
   margin-top:2px;
-}
-.question-notes{
-  margin-top:4px;
-  font-size:11px;
-  color:var(--muted);
 }
 
 /* Formulario derecha */
@@ -249,9 +251,7 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
   cursor:pointer;
   box-shadow:0 10px 24px rgba(72,207,173,0.18);
 }
-.btn-primary:hover{
-  background:var(--mint-dark);
-}
+.btn-primary:hover{ background:var(--mint-dark); }
 
 /* Mensaje bloqueo */
 .lock-message{
@@ -281,9 +281,7 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
 
     {{-- Alertas --}}
     @if(session('success'))
-        <div class="alert-success">
-            {{ session('success') }}
-        </div>
+        <div class="alert-success">{{ session('success') }}</div>
     @endif
 
     @if($errors->any())
@@ -299,9 +297,7 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
     {{-- Info fechas --}}
     <div class="info-card">
         <div class="info-main">
-            <div class="info-title">
-                {{ $licitacion->titulo }}
-            </div>
+            <div class="info-title">{{ $licitacion->titulo }}</div>
             <div class="info-text">
                 Junta de aclaraciones:
                 <strong>{{ optional($licitacion->fecha_junta_aclaraciones)->format('d/m/Y H:i') ?? '—' }}</strong>
@@ -313,24 +309,17 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
         </div>
 
         <div class="info-actions">
-            @php
-                $convocatoria = $licitacion->archivos->firstWhere('tipo', 'convocatoria');
-            @endphp
-
+            @php $convocatoria = $licitacion->archivos->firstWhere('tipo', 'convocatoria'); @endphp
             @if($convocatoria)
-                <a
-                    href="{{ Storage::disk('public')->url($convocatoria->path) }}"
-                    target="_blank"
-                    class="btn-small"
-                >
+                <a href="{{ Storage::disk('public')->url($convocatoria->path) }}"
+                   target="_blank"
+                   class="btn-small">
                     Ver documento de convocatoria
                 </a>
             @endif
 
-            <a
-                href="{{ route('licitaciones.preguntas.exportPdf', $licitacion) }}"
-                class="btn-small btn-small-outline"
-            >
+            <a href="{{ route('licitaciones.preguntas.exportPdf', $licitacion) }}"
+               class="btn-small btn-small-outline">
                 Descargar preguntas en PDF
             </a>
         </div>
@@ -338,25 +327,34 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
 
     {{-- Grid principal --}}
     <div class="two-col-grid">
-        {{-- Columna izquierda: preguntas --}}
+        {{-- Izquierda: preguntas --}}
         <div class="card">
             <h2 class="card-title">Preguntas registradas</h2>
 
             <div class="questions-list">
                 @forelse($preguntas as $pregunta)
                     <div class="question-item">
+
+                        {{-- Referencia ARRIBA --}}
+                        <div class="question-ref">
+                            <span class="ref-pill {{ $pregunta->notas_internas ? '' : 'opacity:.6;' }}">
+                                <span class="ref-dot"></span>
+                                Referencia a bases (Requisición / Partida):
+                                <span style="font-weight:700;color:#0f172a;">
+                                    {{ $pregunta->notas_internas ?: '—' }}
+                                </span>
+                            </span>
+                        </div>
+
+                        {{-- Pregunta ABAJO --}}
                         <div class="question-text">
                             {{ $pregunta->texto_pregunta }}
                         </div>
+
                         <div class="question-meta">
                             <span>{{ optional($pregunta->fecha_pregunta)->format('d/m/Y H:i') }}</span>
                             <span>Por: {{ $pregunta->usuario->name ?? 'Usuario' }}</span>
                         </div>
-                        @if($pregunta->notas_internas)
-                            <div class="question-notes">
-                                Notas internas: {{ $pregunta->notas_internas }}
-                            </div>
-                        @endif
                     </div>
                 @empty
                     <p style="font-size:13px;color:var(--muted);margin-top:4px;">
@@ -366,7 +364,7 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
             </div>
         </div>
 
-        {{-- Columna derecha: formulario --}}
+        {{-- Derecha: formulario --}}
         <div class="card">
             <h2 class="card-title">Agregar nueva pregunta</h2>
 
@@ -375,33 +373,31 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
                     La fecha límite para enviar preguntas ya pasó. No es posible registrar nuevas preguntas.
                 </div>
             @else
-                <form
-                    action="{{ route('licitaciones.preguntas.store', $licitacion) }}"
-                    method="POST"
-                    class="form-stack"
-                >
+                <form action="{{ route('licitaciones.preguntas.store', $licitacion) }}"
+                      method="POST"
+                      class="form-stack">
                     @csrf
 
+                    {{-- Referencia ARRIBA --}}
                     <div>
-                        <label class="field-label" for="texto_pregunta">Pregunta</label>
-                        <textarea
-                            id="texto_pregunta"
-                            name="texto_pregunta"
-                            rows="4"
-                            class="field-textarea"
-                            placeholder="Escribe aquí la pregunta que quieras agregar..."
-                        >{{ old('texto_pregunta') }}</textarea>
+                        <label class="field-label" for="notas_internas">
+                            Referencia a bases (Requisición / No. de partida)
+                        </label>
+                        <textarea id="notas_internas"
+                                  name="notas_internas"
+                                  rows="2"
+                                  class="field-textarea"
+                                  placeholder="Ej: Req. 12345 / Partida 07 / Anexo B / Página 12">{{ old('notas_internas') }}</textarea>
                     </div>
 
+                    {{-- Pregunta ABAJO --}}
                     <div>
-                        <label class="field-label" for="notas_internas">Notas internas (opcional)</label>
-                        <textarea
-                            id="notas_internas"
-                            name="notas_internas"
-                            rows="3"
-                            class="field-textarea"
-                            placeholder="Comentarios internos, contexto adicional, etc."
-                        >{{ old('notas_internas') }}</textarea>
+                        <label class="field-label" for="texto_pregunta">Pregunta</label>
+                        <textarea id="texto_pregunta"
+                                  name="texto_pregunta"
+                                  rows="4"
+                                  class="field-textarea"
+                                  placeholder="Escribe aquí la pregunta que quieras agregar...">{{ old('texto_pregunta') }}</textarea>
                     </div>
 
                     <button type="submit" class="btn-primary">

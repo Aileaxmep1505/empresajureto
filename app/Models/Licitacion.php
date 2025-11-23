@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Models\User;
 
 class Licitacion extends Model
 {
@@ -20,8 +21,16 @@ class Licitacion extends Model
     protected $fillable = [
         'titulo',
         'descripcion',
+
+        // ✅ compatibilidad: primera fecha
         'fecha_convocatoria',
+        // ✅ nuevo: múltiples fechas seleccionadas
+        'fechas_convocatoria',
+
+        // ✅ modalidades: presencial | en_linea | mixta
         'modalidad',
+        'recordatorio_emails',
+
         'fecha_junta_aclaraciones',
         'fecha_limite_preguntas',
         'lugar_junta',
@@ -48,6 +57,10 @@ class Licitacion extends Model
      */
     protected $casts = [
         'fecha_convocatoria'        => 'date',
+        'recordatorio_emails' => 'array',
+        // ✅ JSON <-> array
+        'fechas_convocatoria'       => 'array',
+
         'fecha_junta_aclaraciones'  => 'datetime',
         'fecha_limite_preguntas'    => 'datetime',
         'fecha_apertura_propuesta'  => 'datetime',
@@ -113,5 +126,15 @@ class Licitacion extends Model
     public function contabilidad()
     {
         return $this->hasOne(LicitacionContabilidad::class);
+    }
+
+    /**
+     * Helper opcional: regresa siempre un array ordenado de fechas
+     */
+    public function getFechasConvocatoriaOrdenadasAttribute(): array
+    {
+        $fechas = $this->fechas_convocatoria ?? [];
+        sort($fechas);
+        return $fechas;
     }
 }
