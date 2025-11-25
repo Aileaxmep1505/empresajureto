@@ -181,6 +181,7 @@
 .questions-box{
   max-height:260px;
   overflow-y:auto;
+  padding-right:4px;
 }
 .q-item{
   border-radius:12px;
@@ -188,7 +189,23 @@
   padding:8px 9px;
   margin-bottom:6px;
   font-size:12px;
+  background:#fff;
+  display:flex;
+  gap:8px;
+  align-items:flex-start;
 }
+.q-idx{
+  flex:0 0 auto;
+  width:22px;height:22px;
+  border-radius:999px;
+  display:inline-flex;
+  align-items:center;justify-content:center;
+  font-size:11px;font-weight:700;
+  background:#f1f5f9;border:1px solid #e2e8f0;
+  color:#0f172a;
+  margin-top:1px;
+}
+.q-body{ flex:1 1 auto; }
 .q-text{
   color:var(--ink);
 }
@@ -239,9 +256,15 @@
   font-size:11px;
   color:#4f46e5;
   text-decoration:none;
+  font-weight:600;
 }
 .link-mini:hover{
   color:#3730a3;
+}
+.mini-actions{
+  display:flex;
+  align-items:center;
+  gap:8px;
 }
 </style>
 
@@ -274,19 +297,33 @@
 
         <div class="l-actions">
             @php
-                $step = $licitacion->current_step ?? 1;
+                /**
+                 * ✅ Continuar al siguiente paso pendiente SIN usar step4.
+                 * current_step = último paso COMPLETADO.
+                 */
+                $lastStep = (int)($licitacion->current_step ?? 1);
+                $nextStep = min($lastStep + 1, 12);
 
-                if ($step <= 9) {
-                    // Pasos 1 a 9 del wizard principal
-                    $continuarRoute = route('licitaciones.edit.step'.$step, $licitacion);
-                } elseif ($step === 10) {
-                    // Paso 10: checklist de compras
+                // Paso 4 lógico = preguntas
+                if ($nextStep === 4) {
+                    $continuarRoute = route('licitaciones.preguntas.index', $licitacion);
+
+                // Pasos 1-3,5-9
+                } elseif ($nextStep <= 9) {
+                    // blindaje: si por algo intentara step4, lo redirigimos a preguntas
+                    if ($nextStep === 4) {
+                        $continuarRoute = route('licitaciones.preguntas.index', $licitacion);
+                    } else {
+                        $continuarRoute = route('licitaciones.edit.step'.$nextStep, $licitacion);
+                    }
+
+                } elseif ($nextStep === 10) {
                     $continuarRoute = route('licitaciones.checklist.compras.edit', $licitacion);
-                } elseif ($step === 11) {
-                    // Paso 11: checklist de facturación
+
+                } elseif ($nextStep === 11) {
                     $continuarRoute = route('licitaciones.checklist.facturacion.edit', $licitacion);
+
                 } else {
-                    // Paso 12 o superior: contabilidad
                     $continuarRoute = route('licitaciones.contabilidad.edit', $licitacion);
                 }
             @endphp
@@ -393,26 +430,50 @@
             <div class="card">
                 <div class="section-header-actions">
                     <h2 class="card-title">Preguntas</h2>
-                    <a href="{{ route('licitaciones.preguntas.exportPdf', $licitacion) }}" class="link-mini">
-                        Descargar PDF
-                    </a>
+
+                    <div class="mini-actions">
+                        @if(Route::has('licitaciones.preguntas.exportPdf'))
+                            <a href="{{ route('licitaciones.preguntas.exportPdf', $licitacion) }}" class="link-mini">
+                                PDF
+                            </a>
+                        @endif
+
+                        @if(Route::has('licitaciones.preguntas.exportWord'))
+                            <a href="{{ route('licitaciones.preguntas.exportWord', $licitacion) }}" class="link-mini">
+                                Word
+                            </a>
+                        @endif
+                    </div>
                 </div>
+
+                @php
+                    $preguntasCount = $licitacion->preguntas->count();
+                    $showIndex = $preguntasCount > 7;
+                @endphp
 
                 <div class="questions-box">
                     @forelse($licitacion->preguntas as $pregunta)
                         <div class="q-item">
-                            <div class="q-text">
-                                {{ $pregunta->texto_pregunta }}
-                            </div>
-                            <div class="q-meta">
-                                <span>{{ optional($pregunta->fecha_pregunta)->format('d/m/Y H:i') }}</span>
-                                <span>Por: {{ $pregunta->usuario->name ?? 'Usuario' }}</span>
-                            </div>
-                            @if($pregunta->notas_internas)
-                                <div class="q-notes">
-                                    Notas: {{ $pregunta->notas_internas }}
-                                </div>
+                            @if($showIndex)
+                                <div class="q-idx">{{ $loop->iteration }}</div>
                             @endif
+
+                            <div class="q-body">
+                                <div class="q-text">
+                                    {{ $pregunta->texto_pregunta }}
+                                </div>
+
+                                <div class="q-meta">
+                                    <span>{{ optional($pregunta->fecha_pregunta)->format('d/m/Y H:i') }}</span>
+                                    <span>Por: {{ $pregunta->usuario->name ?? 'Usuario' }}</span>
+                                </div>
+
+                                @if($pregunta->notas_internas)
+                                    <div class="q-notes">
+                                        Referencia a bases: {{ $pregunta->notas_internas }}
+                                    </div>
+                                @endif
+                            </div>
                         </div>
                     @empty
                         <p class="section-empty">

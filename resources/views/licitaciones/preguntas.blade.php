@@ -366,7 +366,7 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
 
         {{-- Derecha: formulario --}}
         <div class="card">
-            <h2 class="card-title">Agregar nueva pregunta</h2>
+            <h2 class="card-title">Agregar nuev</h2>
 
             @if(!$puedePreguntar)
                 <div class="lock-message">

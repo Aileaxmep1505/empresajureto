@@ -6,21 +6,36 @@ use App\Models\Licitacion;
 use App\Models\LicitacionPregunta;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Carbon\Carbon;
 
 class LicitacionPreguntaController extends Controller
 {
+    /**
+     * Paso 4 (Preguntas): listado + formulario
+     */
     public function index(Licitacion $licitacion)
     {
+        $licitacion->load(['preguntas.usuario', 'archivos']);
+
+        // Límite = fecha límite o, si no hay, fecha junta
+        $limite = $licitacion->fecha_limite_preguntas
+            ? Carbon::parse($licitacion->fecha_limite_preguntas)
+            : ($licitacion->fecha_junta_aclaraciones ? Carbon::parse($licitacion->fecha_junta_aclaraciones) : null);
+
+        $puedePreguntar = !$limite || now()->lte($limite);
+
+        // ✅ Si entró al Paso 4, lo marcamos como hecho
+        if (($licitacion->current_step ?? 0) < 4) {
+            $licitacion->update(['current_step' => 4]);
+        }
+
         $preguntas = $licitacion->preguntas()
-            ->with('usuario') // para poder usar ->usuario->name en la vista
-            ->latest('created_at')
+            ->with('usuario')
+            ->orderByDesc('fecha_pregunta')
+            ->orderByDesc('id')
             ->get();
 
-        // calculas límite y puedePreguntar como lo estés haciendo:
-        $limite = $licitacion->fecha_limite_preguntas;
-        $puedePreguntar = ! $limite || now()->lte($limite);
-
-        return view('licitaciones.preguntas.index', compact(
+        return view('licitaciones.preguntas', compact(
             'licitacion',
             'preguntas',
             'limite',
@@ -28,31 +43,40 @@ class LicitacionPreguntaController extends Controller
         ));
     }
 
+    /**
+     * Guardar una pregunta
+     */
     public function store(Request $request, Licitacion $licitacion)
     {
-        $data = $request->validate([
-            'texto_pregunta' => 'required|string|max:2000',
-            'notas_internas' => 'nullable|string|max:2000',
-        ]);
+        // Recalcular límite
+        $limite = $licitacion->fecha_limite_preguntas
+            ? Carbon::parse($licitacion->fecha_limite_preguntas)
+            : ($licitacion->fecha_junta_aclaraciones ? Carbon::parse($licitacion->fecha_junta_aclaraciones) : null);
 
-        // Validar fecha límite
-        if ($licitacion->fecha_limite_preguntas && now()->gt($licitacion->fecha_limite_preguntas)) {
+        if ($limite && now()->gt($limite)) {
             return back()->withErrors([
-                'texto_pregunta' => 'La fecha límite para enviar preguntas ya venció.',
-            ])->withInput();
+                'texto_pregunta' => 'La fecha límite para enviar preguntas ya pasó.'
+            ]);
         }
 
-        LicitacionPregunta::create([
-            'licitacion_id'  => $licitacion->id,
-            // ⬅⬅ ESTE ES EL CAMBIO IMPORTANTE:
-            'user_id'        => Auth::id(),  // tiene que coincidir con el nombre de tu columna
-            'texto_pregunta' => $data['texto_pregunta'],
-            'notas_internas' => $data['notas_internas'] ?? null,
-            'fecha_pregunta' => now(),
+        $data = $request->validate([
+            'texto_pregunta' => 'required|string|max:2000',
+            'notas_internas' => 'nullable|string|max:1000',
         ]);
 
-        return redirect()
-            ->route('licitaciones.preguntas.index', $licitacion)
-            ->with('success', 'Pregunta registrada correctamente.');
+        LicitacionPregunta::create([
+            'licitacion_id'   => $licitacion->id,
+            'texto_pregunta'  => $data['texto_pregunta'],
+            'notas_internas'  => $data['notas_internas'] ?? null,
+            'fecha_pregunta'  => now(),
+            'user_id'         => Auth::id(), // ✅ debe coincidir con $pregunta->usuario
+        ]);
+
+        // ✅ Paso 4 hecho
+        if (($licitacion->current_step ?? 0) < 4) {
+            $licitacion->update(['current_step' => 4]);
+        }
+
+        return back()->with('success', 'Pregunta guardada correctamente.');
     }
 }

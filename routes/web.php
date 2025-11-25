@@ -692,6 +692,8 @@ Route::get('/companies/create', [CompanyController::class, 'create'])
     // Exportar todas las preguntas a PDF
     Route::get('/licitaciones/{licitacion}/preguntas/export-pdf', [LicitacionExportController::class, 'exportPreguntasPdf'])
         ->name('licitaciones.preguntas.exportPdf');
+Route::get('/licitaciones/{licitacion}/preguntas/export-word', [LicitacionExportController::class, 'exportPreguntasWord'])
+    ->name('licitaciones.preguntas.exportWord');
 
 
     /*
