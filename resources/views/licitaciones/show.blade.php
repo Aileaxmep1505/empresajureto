@@ -297,32 +297,19 @@
 
         <div class="l-actions">
             @php
-                /**
-                 * ✅ Continuar al siguiente paso pendiente SIN usar step4.
-                 * current_step = último paso COMPLETADO.
-                 */
-                $lastStep = (int)($licitacion->current_step ?? 1);
-                $nextStep = min($lastStep + 1, 12);
+                // current_step = último paso completado
+                $lastStep = (int) ($licitacion->current_step ?? 0);
+                $nextStep = max(1, min($lastStep + 1, 12));
 
-                // Paso 4 lógico = preguntas
                 if ($nextStep === 4) {
+                    // Paso 4 lógico = preguntas
                     $continuarRoute = route('licitaciones.preguntas.index', $licitacion);
-
-                // Pasos 1-3,5-9
-                } elseif ($nextStep <= 9) {
-                    // blindaje: si por algo intentara step4, lo redirigimos a preguntas
-                    if ($nextStep === 4) {
-                        $continuarRoute = route('licitaciones.preguntas.index', $licitacion);
-                    } else {
-                        $continuarRoute = route('licitaciones.edit.step'.$nextStep, $licitacion);
-                    }
-
+                } elseif ($nextStep <= 3 || ($nextStep >= 5 && $nextStep <= 9)) {
+                    $continuarRoute = route('licitaciones.edit.step'.$nextStep, $licitacion);
                 } elseif ($nextStep === 10) {
                     $continuarRoute = route('licitaciones.checklist.compras.edit', $licitacion);
-
                 } elseif ($nextStep === 11) {
                     $continuarRoute = route('licitaciones.checklist.facturacion.edit', $licitacion);
-
                 } else {
                     $continuarRoute = route('licitaciones.contabilidad.edit', $licitacion);
                 }
@@ -427,34 +414,37 @@
 
         {{-- Columna derecha: Preguntas y resumen contable --}}
         <div style="display:flex;flex-direction:column;gap:16px;">
+
+            {{-- Preguntas --}}
             <div class="card">
+                @php
+                    $allPreguntas = $licitacion->preguntas->sortByDesc('fecha_pregunta');
+                    $topPreguntas = $allPreguntas->take(7);
+                    $hayMas = $allPreguntas->count() > 7;
+                @endphp
+
                 <div class="section-header-actions">
                     <h2 class="card-title">Preguntas</h2>
 
                     <div class="mini-actions">
-                        @if(Route::has('licitaciones.preguntas.exportPdf'))
-                            <a href="{{ route('licitaciones.preguntas.exportPdf', $licitacion) }}" class="link-mini">
-                                PDF
-                            </a>
-                        @endif
-
-                        @if(Route::has('licitaciones.preguntas.exportWord'))
-                            <a href="{{ route('licitaciones.preguntas.exportWord', $licitacion) }}" class="link-mini">
-                                Word
+                        <a href="{{ route('licitaciones.preguntas.exportPdf', $licitacion) }}" class="link-mini">
+                            PDF
+                        </a>
+                        <a href="{{ route('licitaciones.preguntas.exportWord', $licitacion) }}" class="link-mini">
+                            Word
+                        </a>
+                        @if($hayMas)
+                            <a href="{{ route('licitaciones.preguntas.index', $licitacion) }}" class="link-mini">
+                                Ver todas
                             </a>
                         @endif
                     </div>
                 </div>
 
-                @php
-                    $preguntasCount = $licitacion->preguntas->count();
-                    $showIndex = $preguntasCount > 7;
-                @endphp
-
                 <div class="questions-box">
-                    @forelse($licitacion->preguntas as $pregunta)
+                    @forelse($topPreguntas as $pregunta)
                         <div class="q-item">
-                            @if($showIndex)
+                            @if($hayMas)
                                 <div class="q-idx">{{ $loop->iteration }}</div>
                             @endif
 
@@ -481,8 +471,15 @@
                         </p>
                     @endforelse
                 </div>
+
+                @if($hayMas)
+                    <p class="section-empty" style="margin-top:6px;">
+                        Mostrando 7 de {{ $allPreguntas->count() }} preguntas.
+                    </p>
+                @endif
             </div>
 
+            {{-- Resumen contable --}}
             <div class="card">
                 <h2 class="card-title">Resumen contable</h2>
                 @if($licitacion->contabilidad)

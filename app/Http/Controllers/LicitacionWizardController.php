@@ -142,7 +142,7 @@ class LicitacionWizardController extends Controller
             // convocatoria: requerida solo si no existe previa
             'archivo_convocatoria'   => 'nullable|file|mimes:pdf,doc,docx,xls,xlsx',
 
-            // antecedente ahora aquí
+            // antecedente
             'acta_antecedente'       => 'nullable|file|mimes:pdf',
 
             // muestras
@@ -192,11 +192,13 @@ class LicitacionWizardController extends Controller
             ? Carbon::createFromFormat('Y-m-d\TH:i', $data['fecha_entrega_muestras'])
             : null;
 
+        $current = (int)($licitacion->current_step ?? 1);
+
         $licitacion->update([
             'requiere_muestras'      => $requiere,
             'fecha_entrega_muestras' => $fechaMuestras,
             'lugar_entrega_muestras' => $data['lugar_entrega_muestras'] ?? null,
-            'current_step'           => 2,
+            'current_step'           => max($current, 2),
         ]);
 
         // limpiar evento previo de muestras
@@ -288,13 +290,15 @@ class LicitacionWizardController extends Controller
             ->values()
             ->all();
 
+        $current = (int)($licitacion->current_step ?? 1);
+
         $licitacion->update([
             'fecha_junta_aclaraciones' => $fechaJunta,
             'fecha_limite_preguntas'   => $fechaLimite,
             'lugar_junta'              => $data['lugar_junta'] ?? null,
             'link_junta'               => $data['link_junta'] ?? null,
             'recordatorio_emails'      => $emailsArr,   // ✅ se guardan en la licitación
-            'current_step'             => 3,
+            'current_step'             => max($current, 3),
         ]);
 
         // limpiar eventos viejos
@@ -350,32 +354,69 @@ class LicitacionWizardController extends Controller
             'tipo'            => 'recordatorio_preguntas',
         ]);
 
-        // paso 4 es preguntas (otro controlador), brincamos al 5
+        // paso 4 es preguntas (otro controlador), aquí brincamos al 5
         return redirect()->route('licitaciones.edit.step5', $licitacion);
     }
 
     /* ============================================================
-     * PASO 5: Apertura de propuesta
+     * PASO 5: Apertura de propuesta + Acta junta de aclaraciones
+     * ============================================================ */
+
+  // ...
+
+    /* ============================================================
+     * PASO 5: Apertura de propuesta + Acta junta de aclaraciones
      * ============================================================ */
 
     public function editStep5(Licitacion $licitacion)
     {
-        return view('licitaciones.step5', compact('licitacion'));
+        // Cargamos archivos para saber si ya hay un acta de junta de aclaraciones
+        $licitacion->load('archivos');
+
+        $actaJunta = $licitacion->archivos()
+            ->where('tipo', 'acta_junta_aclaraciones')
+            ->latest()
+            ->first();
+
+        return view('licitaciones.step5', compact('licitacion', 'actaJunta'));
     }
 
     public function updateStep5(Request $request, Licitacion $licitacion)
     {
         $data = $request->validate([
-            'fecha_apertura_propuesta' => 'required|date_format:Y-m-d\TH:i',
+            'fecha_apertura_propuesta'   => 'required|date_format:Y-m-d\TH:i',
+            'acta_junta_aclaraciones'    => 'nullable|file|mimes:pdf',
         ]);
 
         $fechaApertura = Carbon::createFromFormat('Y-m-d\TH:i', $data['fecha_apertura_propuesta']);
 
+        $current = (int)($licitacion->current_step ?? 1);
+
         $licitacion->update([
             'fecha_apertura_propuesta' => $fechaApertura,
-            'current_step'             => 5,
+            'current_step'             => max($current, 5),
         ]);
 
+        // Si subieron acta de junta de aclaraciones, la guardamos (reemplaza la anterior)
+        if ($request->hasFile('acta_junta_aclaraciones')) {
+            $this->replaceArchivo(
+                $licitacion,
+                'acta_junta_aclaraciones',
+                $request->file('acta_junta_aclaraciones'),
+                'acta_junta_aclaraciones'
+            );
+        }
+
+        // Limpiar eventos previos de apertura (para no duplicar en agenda)
+        $prev = $licitacion->eventos()->where('tipo', 'apertura_propuesta')->get();
+        foreach ($prev as $e) {
+            if ($e->agenda_event_id) {
+                AgendaEvent::where('id', $e->agenda_event_id)->delete();
+            }
+            $e->delete();
+        }
+
+        // Crear evento de apertura
         $eventApertura = new AgendaEvent([
             'title'       => 'Apertura de propuesta: '.$licitacion->titulo,
             'description' => 'Apertura de propuesta de la licitación '.$licitacion->titulo,
@@ -396,67 +437,107 @@ class LicitacionWizardController extends Controller
         return redirect()->route('licitaciones.edit.step6', $licitacion);
     }
 
+// ...
+
     /* ============================================================
      * PASO 6: solo avanzar (ya no hay archivo aquí)
      * ============================================================ */
 
-    public function editStep6(Licitacion $licitacion)
-    {
-        return view('licitaciones.step6', compact('licitacion'));
+   public function editStep6(Licitacion $licitacion)
+{
+    // Para tener ya el archivo cargado y evitar N+1
+    $actaApertura = $licitacion->archivos()
+        ->where('tipo', 'acta_apertura')
+        ->latest()
+        ->first();
+
+    return view('licitaciones.step6', compact('licitacion', 'actaApertura'));
+}
+
+public function updateStep6(Request $request, Licitacion $licitacion)
+{
+    $data = $request->validate([
+        'fecha_acta_apertura' => 'nullable|date',          // 👈 fecha opcional tipo date (Y-m-d)
+        'acta_apertura'       => 'nullable|file|mimes:pdf' // 👈 archivo opcional
+    ]);
+
+    // Si sube un nuevo PDF, reemplazamos el anterior
+    if ($request->hasFile('acta_apertura')) {
+        $this->replaceArchivo(
+            $licitacion,
+            'acta_apertura',                          // tipo
+            $request->file('acta_apertura'),
+            'acta_apertura'                           // carpeta
+        );
     }
 
-    public function updateStep6(Request $request, Licitacion $licitacion)
-    {
-        $licitacion->update([
-            'current_step' => 6,
-        ]);
+    // Guardar la fecha en la licitación
+    $licitacion->update([
+        'fecha_acta_apertura' => $data['fecha_acta_apertura'] ?? $licitacion->fecha_acta_apertura,
+        'current_step'        => 6,
+    ]);
 
-        return redirect()->route('licitaciones.edit.step7', $licitacion);
+    return redirect()->route('licitaciones.edit.step7', $licitacion);
+}
+
+   /* ============================================================
+ * PASO 7: Fallo + resultado (ya sin acta de apertura)
+ * ============================================================ */
+
+public function editStep7(Licitacion $licitacion)
+{
+    return view('licitaciones.step7', compact('licitacion'));
+}
+
+public function updateStep7(Request $request, Licitacion $licitacion)
+{
+    $data = $request->validate([
+        // Solo el archivo de fallo en este paso
+        'archivo_fallo'       => 'nullable|file|mimes:pdf',
+
+        // Resultado oficial del procedimiento
+        'resultado'           => 'required|in:ganado,no_ganado',
+
+        // Fecha del fallo (la que viene en el acta oficial)
+        'fecha_fallo'         => 'required|date',
+
+        // Notas internas / motivos / comentarios
+        'observaciones_fallo' => 'nullable|string',
+    ]);
+
+    // Si sube el PDF de fallo, reemplazamos el anterior
+    if ($request->hasFile('archivo_fallo')) {
+        $this->replaceArchivo(
+            $licitacion,
+            'fallo',                           // tipo
+            $request->file('archivo_fallo'),
+            'fallo'                            // carpeta
+        );
     }
 
-    /* ============================================================
-     * PASO 7: Acta apertura + fallo + resultado
-     * ============================================================ */
+    // Asegurar que no retroceda el current_step
+    $current = (int) ($licitacion->current_step ?? 1);
 
-    public function editStep7(Licitacion $licitacion)
-    {
-        return view('licitaciones.step7', compact('licitacion'));
+    $licitacion->update([
+        'resultado'           => $data['resultado'],
+        'fecha_fallo'         => $data['fecha_fallo'],
+        'observaciones_fallo' => $data['observaciones_fallo'] ?? null,
+        'current_step'        => max($current, 7),
+        'estatus'             => $data['resultado'] === 'ganado'
+                                    ? 'en_proceso'   // sigue el flujo (contrato, etc.)
+                                    : 'cerrado',     // se terminó la licitación
+    ]);
+
+    // Si no se ganó, regresamos al show y cerramos flujo
+    if ($data['resultado'] === 'no_ganado') {
+        return redirect()
+            ->route('licitaciones.show', $licitacion)
+            ->with('info', 'La licitación no se ganó, flujo cerrado.');
     }
 
-    public function updateStep7(Request $request, Licitacion $licitacion)
-    {
-        $data = $request->validate([
-            'acta_apertura'       => 'nullable|file|mimes:pdf',
-            'archivo_fallo'       => 'nullable|file|mimes:pdf',
-            'resultado'           => 'required|in:ganado,no_ganado',
-            'fecha_fallo'         => 'required|date',
-            'observaciones_fallo' => 'nullable|string',
-        ]);
-
-        if ($request->hasFile('acta_apertura')) {
-            $this->replaceArchivo($licitacion, 'acta_apertura', $request->file('acta_apertura'), 'acta_apertura');
-        }
-
-        if ($request->hasFile('archivo_fallo')) {
-            $this->replaceArchivo($licitacion, 'fallo', $request->file('archivo_fallo'), 'fallo');
-        }
-
-        $licitacion->update([
-            'resultado'           => $data['resultado'],
-            'fecha_fallo'         => $data['fecha_fallo'],
-            'observaciones_fallo' => $data['observaciones_fallo'] ?? null,
-            'current_step'        => 7,
-            'estatus'             => $data['resultado'] === 'ganado' ? 'en_proceso' : 'cerrado',
-        ]);
-
-        if ($data['resultado'] === 'no_ganado') {
-            return redirect()
-                ->route('licitaciones.show', $licitacion)
-                ->with('info', 'La licitación no se ganó, flujo cerrado.');
-        }
-
-        return redirect()->route('licitaciones.edit.step8', $licitacion);
-    }
+    // Si se ganó, seguimos al paso 8 (presentación del fallo / contrato, etc.)
+    return redirect()->route('licitaciones.edit.step8', $licitacion);
+}
 
     /* ============================================================
      * PASO 8: Presentación del fallo
@@ -480,11 +561,13 @@ class LicitacionWizardController extends Controller
 
         $fechaPresentacion = Carbon::createFromFormat('Y-m-d\TH:i', $data['fecha_presentacion_fallo']);
 
+        $current = (int)($licitacion->current_step ?? 1);
+
         $licitacion->update([
             'fecha_presentacion_fallo' => $fechaPresentacion,
             'lugar_presentacion_fallo' => $data['lugar_presentacion_fallo'],
             'docs_presentar_fallo'     => $data['docs_presentar_fallo'] ?? null,
-            'current_step'             => 8,
+            'current_step'             => max($current, 8),
         ]);
 
         $event = new AgendaEvent([
@@ -529,10 +612,12 @@ class LicitacionWizardController extends Controller
 
         $this->replaceArchivo($licitacion, 'contrato', $request->file('contrato'), 'contrato');
 
+        $current = (int)($licitacion->current_step ?? 1);
+
         $licitacion->update([
             'fecha_emision_contrato' => $data['fecha_emision_contrato'],
             'fecha_fianza'           => $data['fecha_fianza'],
-            'current_step'           => 9,
+            'current_step'           => max($current, 9),
         ]);
 
         $fechaFianza = Carbon::parse($data['fecha_fianza']);

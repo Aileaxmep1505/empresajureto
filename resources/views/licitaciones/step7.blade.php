@@ -1,5 +1,5 @@
-@extends('layouts.app')
-@section('title','Acta de apertura y fallo')
+@extends('layouts.app') 
+@section('title','Fallo de la licitación')
 
 @section('content')
 <style>
@@ -33,7 +33,14 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
 @media(max-width:720px){ .grid-2{grid-template-columns:1fr;} }
 
 /* Floating fields */
-.field{position:relative;background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;transition:box-shadow .15s,border-color .15s;}
+.field{
+  position:relative;
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:12px;
+  padding:12px;
+  transition:box-shadow .15s,border-color .15s;
+}
 .field:focus-within{border-color:#d1e7de;box-shadow:0 8px 20px rgba(52,194,158,0.06);}
 .field input,
 .field select,
@@ -73,7 +80,7 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
   font-size:11px;
 }
 
-/* Uploader blocks */
+/* Uploader block */
 .block{
   border-radius:12px;
   padding:16px;
@@ -100,6 +107,17 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
   color:var(--muted);
 }
 .small{color:var(--muted);font-size:12px;}
+
+/* Info tip */
+.info-tip{
+  margin-top:12px;
+  padding:10px 12px;
+  border-radius:10px;
+  background:#f1f5f9;
+  border:1px dashed #d1d5db;
+  font-size:11px;
+  color:#475569;
+}
 
 /* Error box */
 .alert-error{
@@ -169,9 +187,12 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
     <div class="panel">
         <div class="panel-head">
             <div class="hgroup">
-                <div class="step-tag">Paso 7 de 9</div>
-                <h2>Acta de apertura y fallo</h2>
-                <p>Sube el acta de apertura (opcional) y registra el resultado del fallo.</p>
+                <div class="step-tag">Paso 7 de 12</div>
+                <h2>Fallo de la licitación</h2>
+                <p>
+                    Adjunta el archivo de fallo emitido por la dependencia y registra el resultado oficial
+                    (ganado / no ganado) de la licitación pública.
+                </p>
             </div>
 
             <a href="{{ route('licitaciones.edit.step6', $licitacion) }}" class="back-link" title="Volver al paso anterior">
@@ -193,32 +214,12 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
             </div>
         @endif
 
-        <form class="form" action="{{ route('licitaciones.update.step7', $licitacion) }}" method="POST" enctype="multipart/form-data" novalidate>
+        <form class="form"
+              action="{{ route('licitaciones.update.step7', $licitacion) }}"
+              method="POST"
+              enctype="multipart/form-data"
+              novalidate>
             @csrf
-
-            {{-- Acta de apertura --}}
-            <div class="block">
-                <div class="uploader">
-                    <div class="uploader-top">
-                        <label for="acta_apertura" class="btn-file">
-                            Seleccionar acta de apertura (PDF)
-                        </label>
-                        <input
-                            id="acta_apertura"
-                            type="file"
-                            name="acta_apertura"
-                            accept=".pdf"
-                            style="display:none;"
-                        >
-                        <span id="file-name-apertura" class="file-chosen">
-                            Ningún archivo seleccionado
-                        </span>
-                    </div>
-                    <p class="small">
-                        Opcional, solo formato <strong>PDF</strong>.
-                    </p>
-                </div>
-            </div>
 
             {{-- Archivo de fallo --}}
             <div class="block">
@@ -239,7 +240,8 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
                         </span>
                     </div>
                     <p class="small">
-                        Opcional, solo formato <strong>PDF</strong>.
+                        Idealmente el acta de fallo oficial publicada en Compranet / portal de la dependencia,
+                        en formato <strong>PDF</strong>.
                     </p>
                 </div>
             </div>
@@ -276,9 +278,19 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
                         name="observaciones_fallo"
                         id="observaciones_fallo"
                         rows="3"
-                        placeholder="Motivos, comentarios, hallazgos..."
+                        placeholder="Motivos, comentarios, inconformidades, notas internas..."
                     >{{ old('observaciones_fallo', $licitacion->observaciones_fallo) }}</textarea>
-                    <label for="observaciones_fallo">Observaciones (si no se ganó)</label>
+                    <label for="observaciones_fallo">Observaciones del fallo</label>
+                </div>
+
+                <div class="info-tip">
+                    Úsalo para documentar puntos clave del fallo, por ejemplo:
+                    <ul style="margin:4px 0 0 16px;padding:0;">
+                        <li>Si fue adjudicación total, parcial o desierta.</li>
+                        <li>Motivos de descalificación o no adjudicación.</li>
+                        <li>Comentarios relevantes del comité de evaluación.</li>
+                        <li>Cualquier posible inconformidad o riesgo futuro.</li>
+                    </ul>
                 </div>
             </div>
 
@@ -303,22 +315,18 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
 
 <script>
 (function(){
-    function bindFileLabel(inputId, labelId){
-        const input = document.getElementById(inputId);
-        const label = document.getElementById(labelId);
-        if(!input || !label) return;
+    const input = document.getElementById('archivo_fallo');
+    const label = document.getElementById('file-name-fallo');
 
-        input.addEventListener('change', function(){
-            if(this.files && this.files.length > 0){
-                label.textContent = this.files[0].name;
-            } else {
-                label.textContent = 'Ningún archivo seleccionado';
-            }
-        });
-    }
+    if(!input || !label) return;
 
-    bindFileLabel('acta_apertura', 'file-name-apertura');
-    bindFileLabel('archivo_fallo', 'file-name-fallo');
+    input.addEventListener('change', function(){
+        if(this.files && this.files.length > 0){
+            label.textContent = this.files[0].name;
+        } else {
+            label.textContent = 'Ningún archivo seleccionado';
+        }
+    });
 })();
 </script>
 @endsection

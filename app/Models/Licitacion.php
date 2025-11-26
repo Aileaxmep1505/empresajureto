@@ -35,7 +35,12 @@ class Licitacion extends Model
         'fecha_limite_preguntas',
         'lugar_junta',
         'link_junta',
+
         'fecha_apertura_propuesta',
+
+        // ✅ NUEVO: fecha del acta de apertura
+        'fecha_acta_apertura',
+
         'requiere_muestras',
         'fecha_entrega_muestras',
         'lugar_entrega_muestras',
@@ -57,9 +62,14 @@ class Licitacion extends Model
      */
     protected $casts = [
         'fecha_convocatoria'        => 'date',
-        'recordatorio_emails' => 'array',
+
         // ✅ JSON <-> array
         'fechas_convocatoria'       => 'array',
+
+        'recordatorio_emails'       => 'array',
+
+        // ✅ NUEVO: cast de fecha del acta
+        'fecha_acta_apertura'       => 'date',
 
         'fecha_junta_aclaraciones'  => 'datetime',
         'fecha_limite_preguntas'    => 'datetime',

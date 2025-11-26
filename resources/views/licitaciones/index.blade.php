@@ -384,28 +384,47 @@ body{
         @forelse($licitaciones as $licitacion)
           @php
             $totalSteps = 12;
-            $step = $licitacion->current_step ?? 0;
+
+            // current_step = último paso COMPLETADO
+            $lastStep = (int) ($licitacion->current_step ?: 1);
+            $step     = $lastStep;
+
             $progress = $totalSteps > 0 ? min(100, max(0, ($step / $totalSteps) * 100)) : 0;
 
-            $status = $licitacion->estatus;
+            $status      = $licitacion->estatus;
             $statusLabel = ucfirst(str_replace('_',' ',$status));
             $statusClass = match($status){
-              'borrador' => 'pill-borrador',
+              'borrador'   => 'pill-borrador',
               'en_proceso' => 'pill-proceso',
-              'cerrado' => 'pill-cerrado',
-              default => 'pill-cerrado'
+              'cerrado'    => 'pill-cerrado',
+              default      => 'pill-cerrado'
             };
 
             $isPresencial = $licitacion->modalidad === 'presencial';
 
-            if ($step <= 9) {
-              $continuarRoute = route('licitaciones.edit.step'.$step, $licitacion);
-            } elseif ($step === 10) {
-              $continuarRoute = route('licitaciones.checklist.compras.edit', $licitacion);
-            } elseif ($step === 11) {
-              $continuarRoute = route('licitaciones.checklist.facturacion.edit', $licitacion);
+            // siguiente paso pendiente
+            $nextStep = $lastStep + 1;
+            if ($nextStep > 12) {
+                $nextStep = 12;
+            }
+
+            if ($nextStep === 4) {
+                // Paso 4 lógico = preguntas
+                $continuarRoute = route('licitaciones.preguntas.index', $licitacion);
+
+            } elseif (($nextStep >= 2 && $nextStep <= 3) || ($nextStep >= 5 && $nextStep <= 9)) {
+                // pasos 2-3 y 5-9 usan edit.stepX
+                $continuarRoute = route('licitaciones.edit.step'.$nextStep, $licitacion);
+
+            } elseif ($nextStep === 10) {
+                $continuarRoute = route('licitaciones.checklist.compras.edit', $licitacion);
+
+            } elseif ($nextStep === 11) {
+                $continuarRoute = route('licitaciones.checklist.facturacion.edit', $licitacion);
+
             } else {
-              $continuarRoute = route('licitaciones.contabilidad.edit', $licitacion);
+                // 12 en adelante: contabilidad
+                $continuarRoute = route('licitaciones.contabilidad.edit', $licitacion);
             }
           @endphp
 

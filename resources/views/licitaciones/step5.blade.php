@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title','Apertura de propuesta y muestras')
+@section('title','Apertura de propuesta')
 
 @section('content')
 <style>
@@ -29,11 +29,17 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
 /* Form container */
 .form{padding:20px;}
 .grid{display:grid;grid-template-columns:1fr;gap:18px;}
-.grid-2{grid-template-columns:repeat(2,minmax(0,1fr));}
-@media(max-width:720px){ .grid-2{grid-template-columns:1fr;} }
+@media(max-width:720px){ .grid{grid-template-columns:1fr;} }
 
-/* Field */
-.field{position:relative;background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;transition:box-shadow .15s,border-color .15s;}
+/* Field base */
+.field{
+  position:relative;
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:12px;
+  padding:12px;
+  transition:box-shadow .15s,border-color .15s;
+}
 .field:focus-within{border-color:#d1e7de;box-shadow:0 8px 20px rgba(52,194,158,0.06);}
 .field input,
 .field textarea{
@@ -64,46 +70,115 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
   color:var(--mint-dark);
   transform:translateY(-6px);
 }
-/* datetime-local, como antes */
+/* datetime-local como antes */
 .field input[type="datetime-local"] + label{
   top:6px;
   font-size:11px;
 }
 
-/* Hint */
-.hint{font-size:11px;color:var(--muted);margin-top:6px;}
-
-/* Checkbox switch-ish */
-.checkbox-row{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  margin-top:4px;
+/* Campo de archivo: label estático y dropzone */
+.field.file-field{
+  padding-top:14px;
 }
-.checkbox-inline{
-  display:inline-flex;
-  align-items:center;
-  gap:8px;
-}
-.checkbox-inline input[type="checkbox"]{
-  width:16px;
-  height:16px;
-  border-radius:4px;
-  border:1px solid #d1d5db;
-  cursor:pointer;
-}
-.checkbox-inline label{
+.field.file-field label{
+  position:static;
+  display:block;
+  margin-bottom:6px;
   font-size:13px;
   color:var(--ink);
 }
-
-/* Muestras group */
-.muestras-group{
-  margin-top:12px;
-}
-.hidden-block{
+.field.file-field input[type="file"]{
   display:none;
 }
+
+/* Archivo actual */
+.current-file{
+  margin-bottom:10px;
+  padding:10px 12px;
+  border-radius:10px;
+  border:1px dashed var(--line);
+  background:#f9fafb;
+  font-size:12px;
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+.current-file strong{
+  font-size:13px;
+  color:var(--ink);
+}
+.current-file a{
+  color:#2563eb;
+  text-decoration:none;
+  font-weight:600;
+  font-size:12px;
+}
+.current-file a:hover{text-decoration:underline;}
+.current-file small{color:var(--muted);font-size:11px;}
+
+/* Dropzone diseño */
+.file-drop{
+  width:100%;
+  border-radius:11px;
+  border:1px dashed var(--line);
+  background:#f9fafb;
+  padding:12px 14px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  cursor:pointer;
+  transition:border-color .16s ease, background-color .16s ease, box-shadow .16s ease, transform .12s ease;
+}
+.file-drop:hover{
+  border-color:var(--mint);
+  background:#f0fdf4;
+  box-shadow:0 8px 20px rgba(72,207,173,0.12);
+  transform:translateY(-1px);
+}
+.file-drop.dragover{
+  border-color:var(--mint-dark);
+  background:#ecfeff;
+  box-shadow:0 10px 26px rgba(37,99,235,0.16);
+}
+.file-icon-bubble{
+  flex:0 0 auto;
+  width:38px;height:38px;border-radius:999px;
+  display:grid;place-items:center;
+  background:#eef2ff;
+  border:1px solid #e0e7ff;
+  color:#4f46e5;
+}
+.file-icon-bubble svg{
+  width:18px;height:18px;
+}
+.file-drop-text{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+.file-drop-main{
+  font-size:13px;
+  color:var(--ink);
+}
+.file-drop-main span.action{
+  font-weight:700;
+  color:#2563eb;
+}
+.file-drop-sub{
+  font-size:11px;
+  color:var(--muted);
+}
+.file-selected{
+  margin-top:6px;
+  font-size:11px;
+  color:var(--muted);
+}
+.file-selected strong{
+  color:var(--ink);
+}
+
+/* Hint */
+.hint{font-size:11px;color:var(--muted);margin-top:6px;}
 
 /* Error box */
 .alert-error{
@@ -173,9 +248,12 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
     <div class="panel">
         <div class="panel-head">
             <div class="hgroup">
-                <div class="step-tag">Paso 5 de 9</div>
-                <h2>Apertura de propuesta y muestras</h2>
-                <p>Define la fecha de apertura de la propuesta y, si aplica, los datos para la entrega de muestras.</p>
+                <div class="step-tag">Paso 5 de 12</div>
+                <h2>Apertura de propuesta</h2>
+                <p>
+                    Define la fecha de apertura de la propuesta y adjunta el acta de la junta de aclaraciones
+                    (si ya la tienes disponible).
+                </p>
             </div>
 
             <a href="{{ route('licitaciones.edit.step3', $licitacion) }}" class="back-link" title="Volver al paso anterior">
@@ -197,63 +275,92 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
             </div>
         @endif
 
-        <form class="form" action="{{ route('licitaciones.update.step5', $licitacion) }}" method="POST" novalidate>
+        <form class="form"
+              action="{{ route('licitaciones.update.step5', $licitacion) }}"
+              method="POST"
+              enctype="multipart/form-data"
+              novalidate>
             @csrf
 
-            {{-- Fecha apertura --}}
-            <div class="field">
-                <input
-                    type="datetime-local"
-                    name="fecha_apertura_propuesta"
-                    id="fecha_apertura_propuesta"
-                    value="{{ old('fecha_apertura_propuesta', optional($licitacion->fecha_apertura_propuesta)->format('Y-m-d\TH:i')) }}"
-                    placeholder=" "
-                >
-                <label for="fecha_apertura_propuesta">Fecha y hora de apertura de propuesta</label>
-            </div>
-
-            {{-- Checkbox requiere muestras --}}
-            <div class="checkbox-row">
-                <div class="checkbox-inline">
+            <div class="grid" style="gap:18px;">
+                {{-- Fecha apertura --}}
+                <div class="field">
                     <input
-                        type="checkbox"
-                        id="requiere_muestras"
-                        name="requiere_muestras"
-                        value="1"
-                        {{ old('requiere_muestras', $licitacion->requiere_muestras) ? 'checked' : '' }}
+                        type="datetime-local"
+                        name="fecha_apertura_propuesta"
+                        id="fecha_apertura_propuesta"
+                        value="{{ old('fecha_apertura_propuesta', optional($licitacion->fecha_apertura_propuesta)->format('Y-m-d\TH:i')) }}"
+                        placeholder=" "
                     >
-                    <label for="requiere_muestras">¿Requiere entrega de muestras?</label>
+                    <label for="fecha_apertura_propuesta">Fecha y hora de apertura de propuesta</label>
+                    <div class="hint">
+                        Esta fecha también se usará para generar el evento de recordatorio en la agenda.
+                    </div>
                 </div>
-            </div>
 
-            {{-- Campos de muestras --}}
-            <div id="muestras_fields"
-                 class="muestras-group {{ old('requiere_muestras', $licitacion->requiere_muestras) ? '' : 'hidden-block' }}">
-                <div class="grid grid-2">
-                    <div>
-                        <div class="field">
-                            <input
-                                type="datetime-local"
-                                name="fecha_entrega_muestras"
-                                id="fecha_entrega_muestras"
-                                value="{{ old('fecha_entrega_muestras', optional($licitacion->fecha_entrega_muestras)->format('Y-m-d\TH:i')) }}"
-                                placeholder=" "
-                            >
-                            <label for="fecha_entrega_muestras">Fecha y hora límite de entrega</label>
+                {{-- Acta de junta de aclaraciones --}}
+                <div class="field file-field">
+                    <label for="acta_junta_aclaraciones">
+                        Acta de junta de aclaraciones (PDF)
+                    </label>
+
+                    @php
+                        // Usa $actaJunta si viene del controlador; si no, lo busca directo
+                        $existingActa = isset($actaJunta)
+                            ? $actaJunta
+                            : $licitacion->archivos()->where('tipo','acta_junta_aclaraciones')->latest()->first();
+                    @endphp
+
+                    @if($existingActa)
+                        <div class="current-file">
+                            <strong>Acta actual guardada</strong>
+                            <a href="{{ Storage::disk('public')->url($existingActa->path) }}" target="_blank">
+                                {{ $existingActa->nombre_original }}
+                            </a>
+                            <small>Si no adjuntas otro archivo, se conservará este PDF.</small>
+                        </div>
+                    @endif
+
+                    <div id="fileDropZone" class="file-drop">
+                        <div class="file-icon-bubble" aria-hidden="true">
+                            {{-- icono documento flecha arriba --}}
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                                 stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/>
+                                <path d="M14 2v6h6"/>
+                                <path d="M12 17V9"/>
+                                <path d="M9.5 11.5 12 9l2.5 2.5"/>
+                            </svg>
+                        </div>
+                        <div class="file-drop-text">
+                            <div class="file-drop-main">
+                                <span class="action">Haz clic para seleccionar</span> o arrastra un PDF aquí
+                            </div>
+                            <div class="file-drop-sub">
+                                Solo se acepta un archivo .pdf (tamaño razonable).
+                            </div>
                         </div>
                     </div>
-                    <div>
-                        <div class="field">
-                            <input
-                                type="text"
-                                name="lugar_entrega_muestras"
-                                id="lugar_entrega_muestras"
-                                value="{{ old('lugar_entrega_muestras', $licitacion->lugar_entrega_muestras) }}"
-                                placeholder="Ej. Almacén central, puerta 2"
-                                autocomplete="off"
-                            >
-                            <label for="lugar_entrega_muestras">Lugar de entrega de muestras</label>
-                        </div>
+
+                    <input
+                        type="file"
+                        name="acta_junta_aclaraciones"
+                        id="acta_junta_aclaraciones"
+                        accept="application/pdf"
+                    >
+
+                    <div id="fileSelectedInfo" class="file-selected">
+                        @if($existingActa)
+                            Se conservará el archivo actual:
+                            <strong>{{ $existingActa->nombre_original }}</strong>
+                            si no adjuntas uno nuevo.
+                        @else
+                            Ningún archivo seleccionado.
+                        @endif
+                    </div>
+
+                    <div class="hint">
+                        Opcional. Puedes subirla más adelante si aún no la emiten.
                     </div>
                 </div>
             </div>
@@ -280,22 +387,67 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    const checkbox = document.getElementById('requiere_muestras');
-    const fields = document.getElementById('muestras_fields');
+    const dropZone   = document.getElementById('fileDropZone');
+    const fileInput  = document.getElementById('acta_junta_aclaraciones');
+    const infoLabel  = document.getElementById('fileSelectedInfo');
 
-    if (!checkbox || !fields) return;
+    if (!dropZone || !fileInput || !infoLabel) return;
 
-    function toggleMuestras(){
-        if (checkbox.checked) {
-            fields.classList.remove('hidden-block');
-        } else {
-            fields.classList.add('hidden-block');
+    const defaultText = infoLabel.innerHTML;
+
+    function setFileNameLabel(file) {
+        if (!file) {
+            infoLabel.innerHTML = defaultText;
+            return;
         }
+
+        if (file.type !== 'application/pdf') {
+            infoLabel.innerHTML = '<span style="color:#b91c1c;">El archivo debe ser un PDF.</span>';
+            return;
+        }
+
+        infoLabel.innerHTML = 'Archivo seleccionado: <strong>' + file.name + '</strong>';
     }
 
-    checkbox.addEventListener('change', toggleMuestras);
-    // Asegurar estado inicial correcto
-    toggleMuestras();
+    // Click en el dropzone abre el selector
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    // Cuando se selecciona archivo por el input
+    fileInput.addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files[0] ? e.target.files[0] : null;
+        setFileNameLabel(file);
+    });
+
+    // Drag & drop
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.add('dragover');
+        });
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.remove('dragover');
+        });
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        const dt = e.dataTransfer;
+        if (!dt || !dt.files || !dt.files.length) return;
+
+        const file = dt.files[0];
+
+        // Crear un DataTransfer para asignar programáticamente al input
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(file);
+        fileInput.files = dataTransfer.files;
+
+        setFileNameLabel(file);
+    });
 });
 </script>
 @endpush
