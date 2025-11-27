@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title','Presentación del fallo')
+@section('title','Firma de Contrato')
 
 @section('content')
 <style>
@@ -140,7 +140,7 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
         <div class="panel-head">
             <div class="hgroup">
                 <div class="step-tag">Paso 8 de 9</div>
-                <h2>Presentación del fallo</h2>
+                <h2>Firma de Contrato</h2>
                 <p>Registra los detalles de la reunión donde se presentará el fallo y los documentos que debes llevar.</p>
             </div>
 

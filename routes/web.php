@@ -694,6 +694,8 @@ Route::get('/companies/create', [CompanyController::class, 'create'])
         ->name('licitaciones.preguntas.exportPdf');
 Route::get('/licitaciones/{licitacion}/preguntas/export-word', [LicitacionExportController::class, 'exportPreguntasWord'])
     ->name('licitaciones.preguntas.exportWord');
+Route::get('licitaciones/{licitacion}/resumen-pdf', [LicitacionWizardController::class, 'resumenPdf'])
+    ->name('licitaciones.resumen.pdf');
 
 
     /*
@@ -725,6 +727,8 @@ Route::get('/licitaciones/{licitacion}/preguntas/export-word', [LicitacionExport
 
     Route::post('/licitaciones/{licitacion}/contabilidad', [LicitacionChecklistController::class, 'storeContabilidad'])
         ->name('licitaciones.contabilidad.store');
+Route::get('/licitaciones/{licitacion}/contabilidad/pdf', [LicitacionWizardController::class, 'contabilidadPdf'])
+    ->name('licitaciones.contabilidad.pdf');
            // PREGUNTAS DE LA LICITACIÓN
     Route::get('licitaciones/{licitacion}/preguntas', [LicitacionPreguntaController::class, 'index'])
         ->name('licitaciones.preguntas.index');

@@ -84,6 +84,22 @@
 .btn-primary:hover{
   background:var(--mint-dark);
 }
+.btn-outline{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:7px 12px;
+  border-radius:999px;
+  border:1px solid var(--line);
+  background:#fff;
+  color:var(--ink);
+  font-size:12px;
+  font-weight:600;
+  text-decoration:none;
+}
+.btn-outline:hover{
+  border-color:#cbd5e1;
+}
 .link-back{
   font-size:11px;
   color:var(--muted);
@@ -91,6 +107,16 @@
 }
 .link-back:hover{
   color:var(--ink);
+}
+
+/* Badge flujo cerrado */
+.badge-closed{
+  font-size:11px;
+  padding:4px 10px;
+  border-radius:999px;
+  background:#fef2f2;
+  color:#b91c1c;
+  border:1px solid #fecaca;
 }
 
 /* Grid columnas */
@@ -232,6 +258,7 @@
 .dl-row{
   display:flex;
   justify-content:space-between;
+  gap:10px;
 }
 .dl-row dt{
   color:var(--muted);
@@ -239,6 +266,7 @@
 .dl-row dd{
   margin:0;
   font-weight:600;
+  text-align:right;
 }
 
 /* Etiquetas pequeñas */
@@ -268,6 +296,40 @@
 }
 </style>
 
+@php
+    // Detectar si el usuario es admin (Spatie o campo is_admin)
+    $user = auth()->user();
+    $esAdmin = false;
+    if ($user) {
+        if (method_exists($user, 'hasRole')) {
+            $esAdmin = $user->hasRole('admin') || $user->hasRole('Admin');
+        } elseif (isset($user->is_admin)) {
+            $esAdmin = (bool) $user->is_admin;
+        }
+    }
+
+    $cont = $licitacion->contabilidad;
+    $detalle = $cont && is_array($cont->detalle_costos ?? null) ? $cont->detalle_costos : [];
+
+    $monto = $cont ? (float)($cont->monto_inversion_estimado ?? 0) : 0;
+    $costoTotal = $cont ? (float)($cont->costo_total ?? 0) : 0;
+    $utilidad = $cont ? (float)($cont->utilidad_estimada ?? ($monto - $costoTotal)) : 0;
+
+    $gastoProductos = isset($detalle['productos']) && is_numeric($detalle['productos'])
+        ? (float)$detalle['productos'] : 0;
+
+    $keysOperativos = [
+        'renta','luz','agua','nominas','imss','gasolina','viaticos',
+        'casetas','pagos_gobierno','mantenimiento_camionetas','libre_1','libre_2'
+    ];
+    $gastosOperativos = 0.0;
+    foreach ($keysOperativos as $k) {
+        $gastosOperativos += (isset($detalle[$k]) && is_numeric($detalle[$k])) ? (float)$detalle[$k] : 0;
+    }
+
+    $margen = $monto > 0 ? ($utilidad / $monto) * 100 : 0;
+@endphp
+
 <div class="licitacion-show-wrap">
     <div class="l-header">
         <div>
@@ -285,6 +347,10 @@
                     &nbsp;{{ ucfirst($licitacion->modalidad) }}
                 </span>
                 <span class="chip">
+                    Resultado:
+                    &nbsp;{{ $licitacion->resultado ? ucfirst(str_replace('_',' ',$licitacion->resultado)) : '—' }}
+                </span>
+                <span class="chip">
                     Estatus:
                     &nbsp;{{ ucfirst(str_replace('_', ' ', $licitacion->estatus)) }}
                 </span>
@@ -297,27 +363,53 @@
 
         <div class="l-actions">
             @php
-                // current_step = último paso completado
-                $lastStep = (int) ($licitacion->current_step ?? 0);
-                $nextStep = max(1, min($lastStep + 1, 12));
+                $cerrada = ($licitacion->resultado === 'no_ganado') || ($licitacion->estatus === 'cerrado');
 
-                if ($nextStep === 4) {
-                    // Paso 4 lógico = preguntas
-                    $continuarRoute = route('licitaciones.preguntas.index', $licitacion);
-                } elseif ($nextStep <= 3 || ($nextStep >= 5 && $nextStep <= 9)) {
-                    $continuarRoute = route('licitaciones.edit.step'.$nextStep, $licitacion);
-                } elseif ($nextStep === 10) {
-                    $continuarRoute = route('licitaciones.checklist.compras.edit', $licitacion);
-                } elseif ($nextStep === 11) {
-                    $continuarRoute = route('licitaciones.checklist.facturacion.edit', $licitacion);
+                if ($cerrada) {
+                    $continuarRoute = null;
                 } else {
-                    $continuarRoute = route('licitaciones.contabilidad.edit', $licitacion);
+                    // current_step = último paso completado
+                    $lastStep = (int) ($licitacion->current_step ?? 0);
+                    $nextStep = max(1, min($lastStep + 1, 12));
+
+                    if ($nextStep === 4) {
+                        // Paso 4 lógico = preguntas
+                        $continuarRoute = route('licitaciones.preguntas.index', $licitacion);
+                    } elseif ($nextStep <= 3 || ($nextStep >= 5 && $nextStep <= 9)) {
+                        $continuarRoute = route('licitaciones.edit.step'.$nextStep, $licitacion);
+                    } elseif ($nextStep === 10) {
+                        $continuarRoute = route('licitaciones.checklist.compras.edit', $licitacion);
+                    } elseif ($nextStep === 11) {
+                        $continuarRoute = route('licitaciones.checklist.facturacion.edit', $licitacion);
+                    } else {
+                        $continuarRoute = route('licitaciones.contabilidad.edit', $licitacion);
+                    }
                 }
             @endphp
 
-            <a href="{{ $continuarRoute }}" class="btn-primary">
-                Continuar wizard
+            {{-- Resumen general PDF (visible para todos) --}}
+            <a href="{{ route('licitaciones.resumen.pdf', $licitacion) }}" class="btn-outline" target="_blank">
+                Descargar resumen PDF
             </a>
+
+            {{-- PDF de estado financiero SOLO ADMIN --}}
+            @if($esAdmin && $cont)
+                <a href="{{ route('licitaciones.contabilidad.pdf', $licitacion) }}"
+                   class="btn-outline" target="_blank">
+                    Descargar estado financiero (PDF)
+                </a>
+            @endif
+
+            @if(!$cerrada && $continuarRoute)
+                <a href="{{ $continuarRoute }}" class="btn-primary">
+                    Continuar wizard
+                </a>
+            @else
+                <span class="badge-closed">
+                    Flujo cerrado (licitación no ganada o concluida)
+                </span>
+            @endif
+
             <a href="{{ route('licitaciones.index') }}" class="link-back">
                 Volver al listado
             </a>
@@ -355,6 +447,12 @@
                         </dd>
                     </div>
                     <div>
+                        <dt class="dl-label">Fecha acta de apertura</dt>
+                        <dd class="dl-value">
+                            {{ optional($licitacion->fecha_acta_apertura)->format('d/m/Y') ?? '—' }}
+                        </dd>
+                    </div>
+                    <div>
                         <dt class="dl-label">Fallo</dt>
                         <dd class="dl-value">
                             {{ optional($licitacion->fecha_fallo)->format('d/m/Y') ?? '—' }}
@@ -376,6 +474,24 @@
                         <dt class="dl-label">Fianza</dt>
                         <dd class="dl-value">
                             {{ optional($licitacion->fecha_fianza)->format('d/m/Y') ?? '—' }}
+                        </dd>
+                    </div>
+                    <div>
+                        <dt class="dl-label">Tipo de fianza</dt>
+                        <dd class="dl-value">
+                            {{ $licitacion->tipo_fianza ? ucfirst(str_replace('_',' ', $licitacion->tipo_fianza)) : '—' }}
+                        </dd>
+                    </div>
+                    <div>
+                        <dt class="dl-label">Fechas de cobro</dt>
+                        <dd class="dl-value">
+                            @if(is_array($licitacion->fechas_cobro) && count($licitacion->fechas_cobro))
+                                @foreach($licitacion->fechas_cobro as $fc)
+                                    {{ \Carbon\Carbon::parse($fc)->format('d/m/Y') }}@if(!$loop->last), @endif
+                                @endforeach
+                            @else
+                                —
+                            @endif
                         </dd>
                     </div>
                 </dl>
@@ -479,34 +595,71 @@
                 @endif
             </div>
 
-            {{-- Resumen contable --}}
+            {{-- Resumen contable (solo visible completo para admin) --}}
             <div class="card">
-                <h2 class="card-title">Resumen contable</h2>
-                @if($licitacion->contabilidad)
-                    <dl class="dl-vertical">
-                        <div class="dl-row">
-                            <dt>Inversión estimada</dt>
-                            <dd>
-                                ${{ number_format($licitacion->contabilidad->monto_inversion_estimado, 2) }}
-                            </dd>
-                        </div>
-                        <div class="dl-row">
-                            <dt>Costo total</dt>
-                            <dd>
-                                ${{ number_format($licitacion->contabilidad->costo_total, 2) }}
-                            </dd>
-                        </div>
-                        <div class="dl-row">
-                            <dt>Utilidad estimada</dt>
-                            <dd>
-                                ${{ number_format($licitacion->contabilidad->utilidad_estimada, 2) }}
-                            </dd>
-                        </div>
-                    </dl>
-                @else
+                <div class="section-header-actions">
+                    <h2 class="card-title">Resumen contable</h2>
+
+                    @if($esAdmin && $cont)
+                        <a href="{{ route('licitaciones.contabilidad.edit', $licitacion) }}" class="link-mini">
+                            Editar contabilidad
+                        </a>
+                    @endif
+                </div>
+
+                @if(!$cont)
                     <p class="section-empty">
                         Aún no se ha registrado la información contable.
                     </p>
+                @else
+                    @if(!$esAdmin)
+                        <p class="section-empty" style="margin-bottom:10px;">
+                            La información contable solo es visible para administradores.
+                        </p>
+                    @endif
+
+                    @if($esAdmin)
+                        <dl class="dl-vertical">
+                            <div class="dl-row">
+                                <dt>Importe adjudicado (ingreso)</dt>
+                                <dd>${{ number_format($monto, 2) }}</dd>
+                            </div>
+                            <div class="dl-row">
+                                <dt>Inversión en productos</dt>
+                                <dd>${{ number_format($gastoProductos, 2) }}</dd>
+                            </div>
+                            <div class="dl-row">
+                                <dt>Gastos operativos</dt>
+                                <dd>${{ number_format($gastosOperativos, 2) }}</dd>
+                            </div>
+                            <div class="dl-row">
+                                <dt>Costo total estimado</dt>
+                                <dd>${{ number_format($costoTotal, 2) }}</dd>
+                            </div>
+                            <div class="dl-row">
+                                <dt>Utilidad estimada</dt>
+                                <dd>${{ number_format($utilidad, 2) }}</dd>
+                            </div>
+                            <div class="dl-row">
+                                <dt>Margen sobre licitación</dt>
+                                <dd>{{ number_format($margen, 1) }} %</dd>
+                            </div>
+                            <div class="dl-row">
+                                <dt>Observaciones contrato / fianza</dt>
+                                <dd style="max-width:260px;">
+                                    {{ $licitacion->observaciones_contrato ?: '—' }}
+                                </dd>
+                            </div>
+                        </dl>
+
+                        <div style="margin-top:10px;">
+                            <a href="{{ route('licitaciones.contabilidad.pdf', $licitacion) }}"
+                               target="_blank"
+                               class="link-mini">
+                                Descargar estado financiero (PDF)
+                            </a>
+                        </div>
+                    @endif
                 @endif
             </div>
         </div>

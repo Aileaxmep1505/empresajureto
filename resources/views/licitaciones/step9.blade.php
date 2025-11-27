@@ -1,7 +1,9 @@
-@extends('layouts.app')
+@extends('layouts.app') 
 @section('title','Contrato y fianza')
 
 @section('content')
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+
 <style>
 :root{
   --mint:#48cfad;
@@ -67,7 +69,6 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
   color:var(--mint-dark);
   transform:translateY(-6px);
 }
-/* date inputs */
 .field input[type="date"] + label{
   top:6px;
   font-size:11px;
@@ -112,6 +113,121 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
 }
 .alert-error ul{margin:0;padding-left:18px;}
 .alert-error li{margin:2px 0;}
+
+/* Toggle tipo fianza */
+.toggle-group{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:8px;
+}
+.toggle-pill{
+  position:relative;
+}
+.toggle-pill input{
+  display:none;
+}
+.toggle-pill label{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:8px 12px;
+  border-radius:999px;
+  border:1px solid var(--line);
+  font-size:12px;
+  cursor:pointer;
+  background:#fff;
+  color:var(--muted);
+  transition:all .15s;
+}
+.toggle-pill input:checked + label{
+  border-color:var(--mint-dark);
+  background:rgba(72,207,173,0.1);
+  color:var(--ink);
+  box-shadow:0 6px 14px rgba(72,207,173,0.18);
+}
+
+/* Calendar for fechas de cobro */
+.calendar-box{
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:12px;
+  padding:12px;
+}
+.cal-head{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+}
+.cal-title{
+  font-weight:700;font-size:14px;
+}
+.cal-nav{
+  border:1px solid var(--line);
+  background:#fff;
+  width:34px;height:34px;
+  border-radius:10px;
+  display:grid;place-items:center;
+  cursor:pointer;transition:all .15s;
+}
+.cal-nav:hover{border-color:#dbe7ef;transform:translateY(-1px)}
+.cal-week{
+  margin-top:8px;
+  display:grid;grid-template-columns:repeat(7,1fr);
+  font-size:11px;color:var(--muted);
+  text-align:center;
+}
+.cal-grid{
+  margin-top:6px;
+  display:grid;grid-template-columns:repeat(7,1fr);
+  gap:6px;
+}
+.cal-day{
+  height:38px;border-radius:10px;
+  border:1px solid transparent;
+  background:#f8fafc;
+  display:grid;place-items:center;
+  font-size:13px;cursor:pointer;
+  transition:background .12s,border-color .12s,transform .12s,box-shadow .12s;
+  user-select:none;
+}
+.cal-day:hover{
+  background:#eefbf6;
+  border-color:#cfeee5;
+  transform:translateY(-1px);
+}
+.cal-day.is-out{opacity:.35;cursor:default;background:#f3f4f6;}
+.cal-day.is-selected{
+  background:rgba(72,207,173,.18);
+  border-color:rgba(52,194,158,.6);
+  color:var(--mint-dark);
+  font-weight:700;
+  box-shadow:0 6px 14px rgba(52,194,158,.18);
+}
+.cal-day.is-today{
+  outline:2px solid #d1fae5;
+}
+.cal-actions{
+  margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;
+}
+.cal-note{font-size:12px;color:var(--muted);margin-top:6px}
+
+/* Chips selected dates */
+.chips{
+  display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;
+}
+.chip-date{
+  background:#f3faf7;
+  border:1px solid #d1fae5;
+  color:#0f766e;
+  padding:4px 8px;border-radius:999px;
+  font-size:12px;font-weight:700;
+  display:inline-flex;align-items:center;gap:6px;
+}
+.chip-date button{
+  border:0;background:transparent;cursor:pointer;
+  width:18px;height:18px;display:grid;place-items:center;
+  border-radius:999px;color:#0f766e;
+}
+.chip-date button:hover{background:#e7f7f1}
 
 /* Actions */
 .actions-line{
@@ -164,13 +280,24 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
 }
 </style>
 
+@php
+    $tipoFianza = old('tipo_fianza', $licitacion->tipo_fianza ?? null);
+    $fechasCobro = old('fechas_cobro', $licitacion->fechas_cobro ?? []);
+    if (!is_array($fechasCobro)) {
+        $fechasCobro = (array) $fechasCobro;
+    }
+@endphp
+
 <div class="wizard-wrap" style="margin-top:-5px;">
     <div class="panel">
         <div class="panel-head">
             <div class="hgroup">
                 <div class="step-tag">Paso 9 de 9</div>
                 <h2>Contrato y fianza</h2>
-                <p>Sube el contrato y registra las fechas clave de emisión y fianza. Se programará un recordatorio en la agenda.</p>
+                <p>
+                    Sube el contrato, define el tipo de fianza, registra las fechas clave y selecciona las
+                    fechas de cobro esperadas. Se programarán recordatorios en la agenda.
+                </p>
             </div>
 
             <a href="{{ route('licitaciones.edit.step8', $licitacion) }}" class="back-link" title="Volver al paso anterior">
@@ -219,7 +346,7 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
                 </div>
             </div>
 
-            {{-- Fechas --}}
+            {{-- Fechas principales --}}
             <div class="grid grid-2" style="margin-top:10px;">
                 <div>
                     <div class="field">
@@ -247,6 +374,104 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
                 </div>
             </div>
 
+            {{-- Tipo de fianza --}}
+            <div style="margin-top:14px;">
+                <div class="small" style="margin-bottom:4px;">Tipo de fianza</div>
+                <div class="toggle-group">
+                    <div class="toggle-pill">
+                        <input
+                            type="radio"
+                            name="tipo_fianza"
+                            id="tipo_fianza_cumplimiento"
+                            value="cumplimiento"
+                            {{ $tipoFianza === 'cumplimiento' ? 'checked' : '' }}
+                        >
+                        <label for="tipo_fianza_cumplimiento">
+                            <span>✔</span>
+                            <span>Fianza de cumplimiento</span>
+                        </label>
+                    </div>
+
+                    <div class="toggle-pill">
+                        <input
+                            type="radio"
+                            name="tipo_fianza"
+                            id="tipo_fianza_vicios"
+                            value="vicios_ocultos"
+                            {{ $tipoFianza === 'vicios_ocultos' ? 'checked' : '' }}
+                        >
+                        <label for="tipo_fianza_vicios">
+                            <span>✔</span>
+                            <span>Fianza por vicios ocultos</span>
+                        </label>
+                    </div>
+                </div>
+                <p class="small" style="margin-top:4px;">
+                    Selecciona el tipo de fianza aplicable a este contrato. Se usará en la descripción del recordatorio en la agenda.
+                </p>
+            </div>
+
+            {{-- Observaciones --}}
+            <div style="margin-top:14px;">
+                <div class="field">
+                    <textarea
+                        name="observaciones_contrato"
+                        id="observaciones_contrato"
+                        placeholder=" "
+                    >{{ old('observaciones_contrato', $licitacion->observaciones_contrato ?? '') }}</textarea>
+                    <label for="observaciones_contrato">Observaciones / notas internas de contrato y fianza</label>
+                </div>
+            </div>
+
+            {{-- Fechas de cobro con calendario (multi selección) --}}
+            <div style="margin-top:18px;">
+                <div class="calendar-box">
+                    <div style="font-weight:700;font-size:12px;color:var(--muted);margin-bottom:6px;">
+                        Fechas de cobro / pagos esperados (selecciona varias)
+                    </div>
+
+                    <div class="cal-head">
+                        <button type="button" class="cal-nav" id="cobCalPrev" aria-label="Mes anterior">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="15 18 9 12 15 6"></polyline>
+                            </svg>
+                        </button>
+
+                        <div class="cal-title" id="cobCalTitle">—</div>
+
+                        <button type="button" class="cal-nav" id="cobCalNext" aria-label="Mes siguiente">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="9 18 15 12 9 6"></polyline>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <div class="cal-week" id="cobCalWeek"></div>
+                    <div class="cal-grid" id="cobCalGrid"></div>
+
+                    <div class="cal-actions">
+                        <button type="button" id="cobCalClear" class="btn btn-ghost" style="padding:7px 10px;font-size:12px;border-radius:999px;">
+                            Limpiar selección
+                        </button>
+                        <button type="button" id="cobCalToday" class="btn btn-ghost" style="padding:7px 10px;font-size:12px;border-radius:999px;">
+                            Agregar hoy
+                        </button>
+                    </div>
+
+                    <div class="cal-note">
+                        Ejemplo: del {{ now()->format('d/m/Y') }} al 12/12/2025 puedes marcar varios días.
+                        Cada fecha se guardará también como evento de cobro en la agenda.
+                    </div>
+
+                    <div class="chips" id="cobCalSelected"></div>
+
+                    {{-- inputs dinámicos para enviar array --}}
+                    <div id="cobFechasInputs"></div>
+                </div>
+            </div>
+
             {{-- Acciones --}}
             <div class="actions-line">
                 <a href="{{ route('licitaciones.edit.step8', $licitacion) }}" class="link-back">
@@ -268,18 +493,170 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
 
 <script>
 (function(){
-    const input = document.getElementById('contrato');
-    const label = document.getElementById('file-name-contrato');
+    // Nombre del archivo de contrato
+    const inputContrato = document.getElementById('contrato');
+    const labelContrato = document.getElementById('file-name-contrato');
 
-    if(input && label){
-        input.addEventListener('change', function(){
+    if(inputContrato && labelContrato){
+        inputContrato.addEventListener('change', function(){
             if(this.files && this.files.length > 0){
-                label.textContent = this.files[0].name;
+                labelContrato.textContent = this.files[0].name;
             } else {
-                label.textContent = 'Ningún archivo seleccionado';
+                labelContrato.textContent = 'Ningún archivo seleccionado';
             }
         });
     }
+
+    // ----- Calendario de fechas de cobro (similar al paso 1) -----
+    'use strict';
+
+    const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    const weekNames  = ['do','lu','ma','mi','ju','vi','sá'];
+
+    const calTitle   = document.getElementById('cobCalTitle');
+    const calWeek    = document.getElementById('cobCalWeek');
+    const calGrid    = document.getElementById('cobCalGrid');
+    const calPrev    = document.getElementById('cobCalPrev');
+    const calNext    = document.getElementById('cobCalNext');
+    const calClear   = document.getElementById('cobCalClear');
+    const calToday   = document.getElementById('cobCalToday');
+
+    const chipsWrap  = document.getElementById('cobCalSelected');
+    const inputsWrap = document.getElementById('cobFechasInputs');
+
+    // Fechas que vienen de old() o de BD (Blade → JS)
+    const initialSelected = @json($fechasCobro);
+
+    let viewDate = new Date();
+    viewDate.setDate(1);
+
+    const selected = new Set(
+        (initialSelected || []).filter(Boolean)
+    ); // YYYY-MM-DD
+
+    function pad(n){ return String(n).padStart(2,'0'); }
+    function toISO(y,m,d){ return `${y}-${pad(m+1)}-${pad(d)}`; }
+    function isSameDay(a,b){ return a.getFullYear()==b.getFullYear() && a.getMonth()==b.getMonth() && a.getDate()==b.getDate(); }
+
+    function renderWeek(){
+        calWeek.innerHTML = '';
+        weekNames.forEach(w => {
+            const el = document.createElement('div');
+            el.textContent = w;
+            calWeek.appendChild(el);
+        });
+    }
+
+    function renderCalendar(){
+        const y = viewDate.getFullYear();
+        const m = viewDate.getMonth();
+        calTitle.textContent = `${monthNames[m]} ${y}`;
+
+        calGrid.innerHTML = '';
+
+        const firstDayIdx  = new Date(y,m,1).getDay();
+        const daysInMonth  = new Date(y,m+1,0).getDate();
+        const today        = new Date();
+
+        // blanks (no-días) al inicio
+        for(let i=0; i<firstDayIdx; i++){
+            const ghost = document.createElement('div');
+            ghost.className = 'cal-day is-out';
+            ghost.textContent = '';
+            calGrid.appendChild(ghost);
+        }
+
+        for(let d=1; d<=daysInMonth; d++){
+            const iso = toISO(y,m,d);
+            const cell = document.createElement('button');
+            cell.type = 'button';
+            cell.className = 'cal-day';
+            cell.textContent = d;
+            cell.dataset.date = iso;
+
+            if(selected.has(iso)) cell.classList.add('is-selected');
+            if(isSameDay(new Date(y,m,d), today)) cell.classList.add('is-today');
+
+            cell.addEventListener('click', () => {
+                if(selected.has(iso)) selected.delete(iso);
+                else selected.add(iso);
+                renderCalendar();
+                renderSelected();
+            });
+
+            calGrid.appendChild(cell);
+        }
+    }
+
+    function renderSelected(){
+        const arr = Array.from(selected).sort();
+        chipsWrap.innerHTML = '';
+        inputsWrap.innerHTML = '';
+
+        arr.forEach(date => {
+            // chip visible
+            const chip = document.createElement('div');
+            chip.className = 'chip-date';
+            chip.innerHTML = `
+                <span>${date.split('-').reverse().join('/')}</span>
+                <button type="button" aria-label="Quitar fecha">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            `;
+            chip.querySelector('button').addEventListener('click', () => {
+                selected.delete(date);
+                renderCalendar();
+                renderSelected();
+            });
+            chipsWrap.appendChild(chip);
+
+            // input hidden para enviar al servidor
+            const inp = document.createElement('input');
+            inp.type  = 'hidden';
+            inp.name  = 'fechas_cobro[]';
+            inp.value = date;
+            inputsWrap.appendChild(inp);
+        });
+    }
+
+    if(calPrev){
+        calPrev.addEventListener('click', () => {
+            viewDate.setMonth(viewDate.getMonth() - 1);
+            renderCalendar();
+        });
+    }
+    if(calNext){
+        calNext.addEventListener('click', () => {
+            viewDate.setMonth(viewDate.getMonth() + 1);
+            renderCalendar();
+        });
+    }
+    if(calClear){
+        calClear.addEventListener('click', () => {
+            selected.clear();
+            renderCalendar();
+            renderSelected();
+        });
+    }
+    if(calToday){
+        calToday.addEventListener('click', () => {
+            const t   = new Date();
+            const iso = toISO(t.getFullYear(), t.getMonth(), t.getDate());
+            selected.add(iso);
+            // mover la vista al mes actual para que se vea
+            viewDate = new Date(t.getFullYear(), t.getMonth(), 1);
+            renderCalendar();
+            renderSelected();
+        });
+    }
+
+    renderWeek();
+    renderCalendar();
+    renderSelected();
 })();
 </script>
 @endsection

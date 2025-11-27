@@ -1,4 +1,4 @@
-<?php
+<?php 
 
 namespace App\Http\Controllers;
 
@@ -6,11 +6,13 @@ use App\Models\Licitacion;
 use App\Models\LicitacionArchivo;
 use App\Models\LicitacionEvento;
 use App\Models\AgendaEvent;
+use App\Models\LicitacionContabilidad;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
+use PDF;
 
 class LicitacionWizardController extends Controller
 {
@@ -362,12 +364,6 @@ class LicitacionWizardController extends Controller
      * PASO 5: Apertura de propuesta + Acta junta de aclaraciones
      * ============================================================ */
 
-  // ...
-
-    /* ============================================================
-     * PASO 5: Apertura de propuesta + Acta junta de aclaraciones
-     * ============================================================ */
-
     public function editStep5(Licitacion $licitacion)
     {
         // Cargamos archivos para saber si ya hay un acta de junta de aclaraciones
@@ -437,107 +433,105 @@ class LicitacionWizardController extends Controller
         return redirect()->route('licitaciones.edit.step6', $licitacion);
     }
 
-// ...
-
     /* ============================================================
-     * PASO 6: solo avanzar (ya no hay archivo aquí)
+     * PASO 6: Acta de apertura (opcional) + avanzar
      * ============================================================ */
 
-   public function editStep6(Licitacion $licitacion)
-{
-    // Para tener ya el archivo cargado y evitar N+1
-    $actaApertura = $licitacion->archivos()
-        ->where('tipo', 'acta_apertura')
-        ->latest()
-        ->first();
+    public function editStep6(Licitacion $licitacion)
+    {
+        // Para tener ya el archivo cargado y evitar N+1
+        $actaApertura = $licitacion->archivos()
+            ->where('tipo', 'acta_apertura')
+            ->latest()
+            ->first();
 
-    return view('licitaciones.step6', compact('licitacion', 'actaApertura'));
-}
-
-public function updateStep6(Request $request, Licitacion $licitacion)
-{
-    $data = $request->validate([
-        'fecha_acta_apertura' => 'nullable|date',          // 👈 fecha opcional tipo date (Y-m-d)
-        'acta_apertura'       => 'nullable|file|mimes:pdf' // 👈 archivo opcional
-    ]);
-
-    // Si sube un nuevo PDF, reemplazamos el anterior
-    if ($request->hasFile('acta_apertura')) {
-        $this->replaceArchivo(
-            $licitacion,
-            'acta_apertura',                          // tipo
-            $request->file('acta_apertura'),
-            'acta_apertura'                           // carpeta
-        );
+        return view('licitaciones.step6', compact('licitacion', 'actaApertura'));
     }
 
-    // Guardar la fecha en la licitación
-    $licitacion->update([
-        'fecha_acta_apertura' => $data['fecha_acta_apertura'] ?? $licitacion->fecha_acta_apertura,
-        'current_step'        => 6,
-    ]);
+    public function updateStep6(Request $request, Licitacion $licitacion)
+    {
+        $data = $request->validate([
+            'fecha_acta_apertura' => 'nullable|date',          // fecha opcional tipo date (Y-m-d)
+            'acta_apertura'       => 'nullable|file|mimes:pdf' // archivo opcional
+        ]);
 
-    return redirect()->route('licitaciones.edit.step7', $licitacion);
-}
+        // Si sube un nuevo PDF, reemplazamos el anterior
+        if ($request->hasFile('acta_apertura')) {
+            $this->replaceArchivo(
+                $licitacion,
+                'acta_apertura',                          // tipo
+                $request->file('acta_apertura'),
+                'acta_apertura'                           // carpeta
+            );
+        }
 
-   /* ============================================================
- * PASO 7: Fallo + resultado (ya sin acta de apertura)
- * ============================================================ */
+        // Guardar la fecha en la licitación
+        $licitacion->update([
+            'fecha_acta_apertura' => $data['fecha_acta_apertura'] ?? $licitacion->fecha_acta_apertura,
+            'current_step'        => 6,
+        ]);
 
-public function editStep7(Licitacion $licitacion)
-{
-    return view('licitaciones.step7', compact('licitacion'));
-}
-
-public function updateStep7(Request $request, Licitacion $licitacion)
-{
-    $data = $request->validate([
-        // Solo el archivo de fallo en este paso
-        'archivo_fallo'       => 'nullable|file|mimes:pdf',
-
-        // Resultado oficial del procedimiento
-        'resultado'           => 'required|in:ganado,no_ganado',
-
-        // Fecha del fallo (la que viene en el acta oficial)
-        'fecha_fallo'         => 'required|date',
-
-        // Notas internas / motivos / comentarios
-        'observaciones_fallo' => 'nullable|string',
-    ]);
-
-    // Si sube el PDF de fallo, reemplazamos el anterior
-    if ($request->hasFile('archivo_fallo')) {
-        $this->replaceArchivo(
-            $licitacion,
-            'fallo',                           // tipo
-            $request->file('archivo_fallo'),
-            'fallo'                            // carpeta
-        );
+        return redirect()->route('licitaciones.edit.step7', $licitacion);
     }
 
-    // Asegurar que no retroceda el current_step
-    $current = (int) ($licitacion->current_step ?? 1);
+    /* ============================================================
+     * PASO 7: Fallo + resultado
+     * ============================================================ */
 
-    $licitacion->update([
-        'resultado'           => $data['resultado'],
-        'fecha_fallo'         => $data['fecha_fallo'],
-        'observaciones_fallo' => $data['observaciones_fallo'] ?? null,
-        'current_step'        => max($current, 7),
-        'estatus'             => $data['resultado'] === 'ganado'
-                                    ? 'en_proceso'   // sigue el flujo (contrato, etc.)
-                                    : 'cerrado',     // se terminó la licitación
-    ]);
-
-    // Si no se ganó, regresamos al show y cerramos flujo
-    if ($data['resultado'] === 'no_ganado') {
-        return redirect()
-            ->route('licitaciones.show', $licitacion)
-            ->with('info', 'La licitación no se ganó, flujo cerrado.');
+    public function editStep7(Licitacion $licitacion)
+    {
+        return view('licitaciones.step7', compact('licitacion'));
     }
 
-    // Si se ganó, seguimos al paso 8 (presentación del fallo / contrato, etc.)
-    return redirect()->route('licitaciones.edit.step8', $licitacion);
-}
+    public function updateStep7(Request $request, Licitacion $licitacion)
+    {
+        $data = $request->validate([
+            // Solo el archivo de fallo en este paso
+            'archivo_fallo'       => 'nullable|file|mimes:pdf',
+
+            // Resultado oficial del procedimiento
+            'resultado'           => 'required|in:ganado,no_ganado',
+
+            // Fecha del fallo (la que viene en el acta oficial)
+            'fecha_fallo'         => 'required|date',
+
+            // Notas internas / motivos / comentarios
+            'observaciones_fallo' => 'nullable|string',
+        ]);
+
+        // Si sube el PDF de fallo, reemplazamos el anterior
+        if ($request->hasFile('archivo_fallo')) {
+            $this->replaceArchivo(
+                $licitacion,
+                'fallo',                           // tipo
+                $request->file('archivo_fallo'),
+                'fallo'                            // carpeta
+            );
+        }
+
+        // Asegurar que no retroceda el current_step
+        $current = (int) ($licitacion->current_step ?? 1);
+
+        $licitacion->update([
+            'resultado'           => $data['resultado'],
+            'fecha_fallo'         => $data['fecha_fallo'],
+            'observaciones_fallo' => $data['observaciones_fallo'] ?? null,
+            'current_step'        => max($current, 7),
+            'estatus'             => $data['resultado'] === 'ganado'
+                                        ? 'en_proceso'   // sigue el flujo (contrato, etc.)
+                                        : 'cerrado',     // se terminó la licitación
+        ]);
+
+        // Si no se ganó, regresamos al show y cerramos flujo
+        if ($data['resultado'] === 'no_ganado') {
+            return redirect()
+                ->route('licitaciones.show', $licitacion)
+                ->with('info', 'La licitación no se ganó, flujo cerrado.');
+        }
+
+        // Si se ganó, seguimos al paso 8 (presentación del fallo / contrato, etc.)
+        return redirect()->route('licitaciones.edit.step8', $licitacion);
+    }
 
     /* ============================================================
      * PASO 8: Presentación del fallo
@@ -591,7 +585,7 @@ public function updateStep7(Request $request, Licitacion $licitacion)
     }
 
     /* ============================================================
-     * PASO 9: Contrato + fechas emisión y fianza
+     * PASO 9: Contrato + fechas emisión, fianza y cobros
      * ============================================================ */
 
     public function editStep9(Licitacion $licitacion)
@@ -608,25 +602,67 @@ public function updateStep7(Request $request, Licitacion $licitacion)
             'contrato'               => 'required|file|mimes:pdf',
             'fecha_emision_contrato' => 'required|date',
             'fecha_fianza'           => 'required|date',
+
+            // Nuevo: tipo de fianza
+            'tipo_fianza'            => 'nullable|in:cumplimiento,vicios_ocultos',
+
+            // Observaciones contrato/fianza
+            'observaciones_contrato' => 'nullable|string',
+
+            // Fechas de cobro múltiples
+            'fechas_cobro'           => 'nullable|array',
+            'fechas_cobro.*'         => 'nullable|date',
         ]);
 
+        // Guardar / reemplazar contrato
         $this->replaceArchivo($licitacion, 'contrato', $request->file('contrato'), 'contrato');
 
         $current = (int)($licitacion->current_step ?? 1);
 
+        // Normalizar fechas de cobro (limpia vacíos, ordena, deja Y-m-d)
+        $fechasCobro = collect($data['fechas_cobro'] ?? [])
+            ->filter()
+            ->map(fn($f) => Carbon::parse($f)->toDateString())
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
+
+        // Actualizar licitación con los nuevos campos
         $licitacion->update([
             'fecha_emision_contrato' => $data['fecha_emision_contrato'],
             'fecha_fianza'           => $data['fecha_fianza'],
+            'tipo_fianza'            => $data['tipo_fianza'] ?? null,
+            'observaciones_contrato' => $data['observaciones_contrato'] ?? null,
+            'fechas_cobro'           => $fechasCobro,
             'current_step'           => max($current, 9),
         ]);
 
+        // Limpiar eventos previos de fianza / cobro para no duplicar
+        $prevEventos = $licitacion->eventos()
+            ->whereIn('tipo', ['fianza', 'cobro'])
+            ->get();
+
+        foreach ($prevEventos as $e) {
+            if ($e->agenda_event_id) {
+                AgendaEvent::where('id', $e->agenda_event_id)->delete();
+            }
+            $e->delete();
+        }
+
+        // Evento de fianza
         $fechaFianza = Carbon::parse($data['fecha_fianza']);
+
+        $descripcionFianza = 'Recordatorio para revisar/entregar fianza del contrato de la licitación '.$licitacion->titulo;
+        if (!empty($data['tipo_fianza'])) {
+            $descripcionFianza .= ' (tipo: '.str_replace('_', ' ', $data['tipo_fianza']).')';
+        }
 
         $eventFianza = new AgendaEvent([
             'title'       => 'Entrega de fianza: '.$licitacion->titulo,
-            'description' => 'Recordatorio para revisar/entregar fianza del contrato de la licitación '.$licitacion->titulo,
+            'description' => $descripcionFianza,
             'start_at'    => $fechaFianza,
-            'remind_offset_minutes' => 1440,
+            'remind_offset_minutes' => 1440, // 1 día antes
             'repeat_rule' => 'none',
             'timezone'    => config('app.timezone'),
         ]);
@@ -639,6 +675,179 @@ public function updateStep7(Request $request, Licitacion $licitacion)
             'tipo'            => 'fianza',
         ]);
 
+        // Crear eventos de cobro en agenda (uno por fecha)
+        foreach ($fechasCobro as $fechaCobro) {
+            $fecha = Carbon::parse($fechaCobro);
+
+            $eventCobro = new AgendaEvent([
+                'title'       => 'Cobro contrato: '.$licitacion->titulo,
+                'description' => 'Fecha objetivo de cobro de la licitación '.$licitacion->titulo,
+                'start_at'    => $fecha,
+                'remind_offset_minutes' => 1440, // 1 día antes
+                'repeat_rule' => 'none',
+                'timezone'    => config('app.timezone'),
+            ]);
+            $eventCobro->computeNextReminder();
+            $eventCobro->save();
+
+            LicitacionEvento::create([
+                'licitacion_id'   => $licitacion->id,
+                'agenda_event_id' => $eventCobro->id,
+                'tipo'            => 'cobro',
+            ]);
+        }
+
         return redirect()->route('licitaciones.checklist.compras.edit', $licitacion);
+    }
+
+    /* ============================================================
+     * PASO 12: Contabilidad (estado financiero final)
+     * ============================================================ */
+
+    /**
+     * Editar contabilidad de la licitación (vista paso 12).
+     */
+    public function contabilidadEdit(Licitacion $licitacion)
+    {
+        $contabilidad = $licitacion->contabilidad; // puede ser null
+        return view('licitaciones.contabilidad', compact('licitacion', 'contabilidad'));
+    }
+
+    /**
+     * Guardar contabilidad de la licitación.
+     * Ruta sugerida: licitaciones.contabilidad.store
+     */
+    public function contabilidadStore(Request $request, Licitacion $licitacion)
+    {
+        $data = $request->validate([
+            'monto_inversion_estimado'   => 'nullable|numeric|min:0',
+            'costo_total'                => 'nullable|numeric|min:0',
+            'utilidad_estimada'          => 'nullable|numeric',
+
+            'detalle_costos'             => 'nullable|array',
+            'detalle_costos.productos'   => 'nullable|numeric|min:0',
+            'detalle_costos.renta'       => 'nullable|numeric|min:0',
+            'detalle_costos.luz'         => 'nullable|numeric|min:0',
+            'detalle_costos.agua'        => 'nullable|numeric|min:0',
+            'detalle_costos.nominas'     => 'nullable|numeric|min:0',
+            'detalle_costos.imss'        => 'nullable|numeric|min:0',
+            'detalle_costos.gasolina'    => 'nullable|numeric|min:0',
+            'detalle_costos.viaticos'    => 'nullable|numeric|min:0',
+            'detalle_costos.casetas'     => 'nullable|numeric|min:0',
+            'detalle_costos.pagos_gobierno'          => 'nullable|numeric|min:0',
+            'detalle_costos.mantenimiento_camionetas'=> 'nullable|numeric|min:0',
+            'detalle_costos.libre_1'     => 'nullable|numeric|min:0',
+            'detalle_costos.libre_2'     => 'nullable|numeric|min:0',
+            'detalle_costos.libre_1_label' => 'nullable|string|max:255',
+            'detalle_costos.libre_2_label' => 'nullable|string|max:255',
+
+            'notas'                      => 'nullable|string',
+        ]);
+
+        $detalle = $data['detalle_costos'] ?? [];
+
+        // Helper para leer monto numérico
+        $num = function ($key) use ($detalle) {
+            if (!array_key_exists($key, $detalle)) {
+                return 0.0;
+            }
+            return is_numeric($detalle[$key]) ? (float)$detalle[$key] : 0.0;
+        };
+
+        $montoLicitado = isset($data['monto_inversion_estimado'])
+            ? (float)$data['monto_inversion_estimado']
+            : 0.0;
+
+        $gastoProductos = $num('productos');
+
+        $keysOperativos = [
+            'renta',
+            'luz',
+            'agua',
+            'nominas',
+            'imss',
+            'gasolina',
+            'viaticos',
+            'casetas',
+            'pagos_gobierno',
+            'mantenimiento_camionetas',
+            'libre_1',
+            'libre_2',
+        ];
+
+        $gastosOperativos = 0.0;
+        foreach ($keysOperativos as $k) {
+            $gastosOperativos += $num($k);
+        }
+
+        $costoTotal = $gastoProductos + $gastosOperativos;
+        $utilidad   = $montoLicitado - $costoTotal;
+
+        // Guardar / actualizar registro de contabilidad
+        /** @var LicitacionContabilidad $cont */
+        $cont = $licitacion->contabilidad()->firstOrNew([]);
+
+        $cont->monto_inversion_estimado = $montoLicitado;
+        $cont->costo_total              = $costoTotal;
+        $cont->utilidad_estimada        = $utilidad;
+        $cont->detalle_costos           = $detalle;
+        $cont->notas                    = $data['notas'] ?? null;
+        $cont->save();
+
+        // Actualizar licitación como cerrada (último paso del flujo)
+        $current = (int)($licitacion->current_step ?? 1);
+
+        $licitacion->update([
+            'current_step' => max($current, 12),
+            'estatus'      => 'cerrado',
+        ]);
+
+        return redirect()
+            ->route('licitaciones.show', $licitacion)
+            ->with('success', 'Estado financiero guardado correctamente. La licitación se marcó como cerrada.');
+    }
+
+    /**
+     * PDF de estado financiero (resumen contable).
+     * Ruta sugerida: licitaciones.contabilidad.pdf
+     */
+    public function contabilidadPdf(Licitacion $licitacion)
+    {
+        $licitacion->load(['contabilidad']);
+
+        $contabilidad = $licitacion->contabilidad;
+
+        $pdf = PDF::loadView('licitaciones.pdf.contabilidad', [
+                'licitacion'   => $licitacion,
+                'contabilidad' => $contabilidad,
+            ])
+            ->setPaper('letter', 'portrait');
+
+        $filename = 'Licitacion_'.$licitacion->id.'_estado_financiero.pdf';
+
+        return $pdf->download($filename);
+    }
+
+    /* ============================================================
+     * RESUMEN GENERAL EN PDF
+     * ============================================================ */
+
+    public function resumenPdf(Licitacion $licitacion)
+    {
+        // Cargar relaciones para el resumen
+        $licitacion->load([
+            'archivos',
+            'preguntas.usuario',
+            'contabilidad',
+        ]);
+
+        $pdf = PDF::loadView('licitaciones.pdf.resumen', [
+                'licitacion' => $licitacion,
+            ])
+            ->setPaper('letter', 'portrait');
+
+        $filename = 'Licitacion_'.$licitacion->id.'_resumen.pdf';
+
+        return $pdf->download($filename);
     }
 }

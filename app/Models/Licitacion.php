@@ -52,6 +52,12 @@ class Licitacion extends Model
         'docs_presentar_fallo',
         'fecha_emision_contrato',
         'fecha_fianza',
+
+        // 🔀 NUEVOS CAMPOS CONTRATO / FIANZA
+        'tipo_fianza',
+        'observaciones_contrato',
+        'fechas_cobro',
+
         'estatus',
         'current_step',
         'created_by',
@@ -65,7 +71,6 @@ class Licitacion extends Model
 
         // ✅ JSON <-> array
         'fechas_convocatoria'       => 'array',
-
         'recordatorio_emails'       => 'array',
 
         // ✅ NUEVO: cast de fecha del acta
@@ -79,6 +84,10 @@ class Licitacion extends Model
         'fecha_presentacion_fallo'  => 'datetime',
         'fecha_emision_contrato'    => 'date',
         'fecha_fianza'              => 'date',
+
+        // 💰 NUEVO: fechas de cobro como array (JSON)
+        'fechas_cobro'              => 'array',
+
         'requiere_muestras'         => 'boolean',
     ];
 
@@ -107,7 +116,7 @@ class Licitacion extends Model
     }
 
     /**
-     * Eventos de agenda asociados (junta, apertura, muestras, fallo, fianza, etc.)
+     * Eventos de agenda asociados (junta, apertura, muestras, fallo, fianza, cobros, etc.)
      */
     public function eventos()
     {
@@ -139,11 +148,21 @@ class Licitacion extends Model
     }
 
     /**
-     * Helper opcional: regresa siempre un array ordenado de fechas
+     * Helper opcional: regresa siempre un array ordenado de fechas de convocatoria
      */
     public function getFechasConvocatoriaOrdenadasAttribute(): array
     {
         $fechas = $this->fechas_convocatoria ?? [];
+        sort($fechas);
+        return $fechas;
+    }
+
+    /**
+     * Helper opcional: fechas de cobro ordenadas (por si quieres usarlas en vistas)
+     */
+    public function getFechasCobroOrdenadasAttribute(): array
+    {
+        $fechas = $this->fechas_cobro ?? [];
         sort($fechas);
         return $fechas;
     }
