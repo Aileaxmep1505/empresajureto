@@ -12,7 +12,7 @@
 
 .page{ max-width:1140px; margin:12px auto 22px; padding:0 14px }
 
-/* ================= HERO (Encabezado azul) ================= */
+/* ================= HERO ================= */
 .hero{
   position:relative; border-radius:22px; padding:16px 18px;
   background:
@@ -58,7 +58,7 @@
   .searchbar{ width:100%; max-width:100% }
 }
 
-/* Botón Nuevo (sin subrayado) */
+/* Botón Nuevo */
 .pbtn{
   display:inline-flex; align-items:center; gap:8px; height:46px; padding:0 14px;
   border-radius:14px; font-weight:800; color:#0f1f47; background:var(--primary-soft); border:1px solid #cfe0ff;
@@ -73,6 +73,9 @@ table{ width:100%; border-collapse:collapse }
 th, td{ padding:12px 14px; vertical-align:middle; border-bottom:1px solid var(--border) }
 th{ text-align:left; font-size:.86rem; color:#6b7280; background:#fff; position:sticky; top:0; z-index:1 }
 tr:hover td{ background:#fafcff }
+
+.client-name-main{ font-weight:600; color:#111827; }
+.client-name-sub{ font-size:.78rem; color:#6b7280; }
 
 /* Badges / tags */
 .badge{
@@ -133,7 +136,7 @@ tr:hover td{ background:#fafcff }
       </div>
       <div>
         <h1 class="h4">Clientes</h1>
-        <div class="subtle">Gestiona clientes, contactos y estados.</div>
+        <div class="subtle">Gestiona datos comerciales, fiscales y estatus.</div>
       </div>
     </div>
 
@@ -144,7 +147,12 @@ tr:hover td{ background:#fafcff }
             <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
           </svg>
         </span>
-        <input id="liveSearch" class="sb-input" type="search" placeholder="Buscar por nombre, correo, RFC, tipo (gobierno/empresa), ciudad, estado…">
+        <input
+          id="liveSearch"
+          class="sb-input"
+          type="search"
+          value="{{ $q ?? '' }}"
+          placeholder="Buscar por nombre, correo, RFC, régimen, tipo, ciudad, estado…">
         <button type="button" class="sb-clear" id="sbClear" aria-label="Limpiar">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M18 6L6 18M6 6l12 12"/>
@@ -167,8 +175,10 @@ tr:hover td{ background:#fafcff }
       <table id="clientsTable">
         <thead>
           <tr>
-            <th>Nombre</th>
+            <th>Nombre fiscal / comercial</th>
             <th>Correo</th>
+            <th>Persona</th>
+            <th>Régimen</th>
             <th>Tipo</th>
             <th>RFC</th>
             <th>Contacto</th>
@@ -181,19 +191,32 @@ tr:hover td{ background:#fafcff }
         <tbody id="clientsBody">
           @foreach($clients as $c)
             <tr data-id="{{ $c->id }}">
-              <td data-th="Nombre">{{ $c->nombre }}</td>
+              <td data-th="Nombre fiscal / comercial">
+                <div class="client-name-main">{{ $c->nombre_fiscal }}</div>
+                @if($c->razon_social && $c->razon_social !== $c->nombre)
+                  <div class="client-name-sub">Comercial: {{ $c->nombre }}</div>
+                @endif
+              </td>
               <td data-th="Correo">{{ $c->email }}</td>
+              <td data-th="Persona">
+                {{ $c->etiqueta_persona }}
+              </td>
+              <td data-th="Régimen">
+                {{ $c->regimen_fiscal ?: '—' }}
+              </td>
               <td data-th="Tipo">
                 @if($c->tipo_cliente)
                   <span class="tag">{{ $c->etiqueta_tipo }}</span>
                 @else
-                  — 
+                  —
                 @endif
               </td>
               <td data-th="RFC">{{ $c->rfc ?: '—' }}</td>
               <td data-th="Contacto">{{ $c->contacto ?: '—' }}</td>
               <td data-th="Teléfono">{{ $c->telefono ?: '—' }}</td>
-              <td data-th="Ciudad/Estado">{{ trim(($c->ciudad ?: '').' / '.($c->estado ?: ''), ' /') ?: '—' }}</td>
+              <td data-th="Ciudad/Estado">
+                {{ trim(($c->ciudad ?: '').' / '.($c->estado ?: ''), ' /') ?: '—' }}
+              </td>
               <td data-th="Estatus">
                 <span class="badge {{ $c->estatus ? 'activo' : 'inactivo' }}">{{ $c->etiqueta_estatus }}</span>
               </td>
@@ -230,26 +253,32 @@ tr:hover td{ background:#fafcff }
   const clearBtn = document.getElementById('sbClear');
   const body  = document.getElementById('clientsBody');
   const toastArea = document.getElementById('toastArea');
-  const csrf = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+  const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+  const csrf = csrfMeta ? csrfMeta.getAttribute('content') : '';
 
-  const norm = s => (s||'').toString().toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'').trim();
+  const norm = s => (s||'').toString()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu,'')
+    .trim();
 
   // Filtro en vivo
   let t=null;
   function filter(){
     const q = norm(input?.value);
-    clearBtn.style.visibility = q ? 'visible':'hidden';
+    if(clearBtn) clearBtn.style.visibility = q ? 'visible':'hidden';
     [...body.querySelectorAll('tr')].forEach(tr=>{
       const cells = [...tr.children].map(td => norm(td.textContent));
       tr.style.display = !q || cells.some(txt => txt.includes(q)) ? '' : 'none';
     });
   }
   input?.addEventListener('input', ()=>{ clearTimeout(t); t=setTimeout(filter,160); });
-  clearBtn?.addEventListener('click', ()=>{ input.value=''; filter(); input.focus(); });
+  clearBtn?.addEventListener('click', ()=>{ if(!input) return; input.value=''; filter(); input.focus(); });
   filter();
 
   // Toast helper
   function showToast(type, text, sub=''){
+    if(!toastArea) return;
     const el = document.createElement('div');
     el.className = 'toast ' + (type==='ok'?'toast--ok':'toast--err');
     el.innerHTML = `<div>${type==='ok'?'✅':'⚠️'}</div><div><strong>${text}</strong><div style="color:#667085;font-size:.9rem">${sub||''}</div></div>`;
@@ -283,8 +312,12 @@ tr:hover td{ background:#fafcff }
       body: new URLSearchParams({ _method:'DELETE' })
     });
 
-    if(res.ok){ row?.remove(); showToast('ok','Cliente eliminado'); }
-    else { showToast('err','No se pudo eliminar'); }
+    if(res.ok){
+      row?.remove();
+      showToast('ok','Cliente eliminado');
+    } else {
+      showToast('err','No se pudo eliminar');
+    }
   });
 })();
 </script>

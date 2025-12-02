@@ -11,10 +11,6 @@ use Illuminate\Support\Facades\Storage;
 
 class CatalogAiIntakePublicController extends Controller
 {
-    /**
-     * Pantalla móvil (abre cámara).
-     * GET /i/{token}
-     */
     public function capture(string $token)
     {
         $intake = CatalogAiIntake::where('token', $token)->firstOrFail();
@@ -26,17 +22,13 @@ class CatalogAiIntakePublicController extends Controller
         return view('public.intake.capture', compact('intake'));
     }
 
-    /**
-     * Recibe fotos desde el celular.
-     * POST /i/{token}/upload
-     */
     public function upload(Request $r, string $token)
     {
         $intake = CatalogAiIntake::where('token', $token)->firstOrFail();
 
         $r->validate([
             'images'   => ['required', 'array', 'min:1', 'max:8'],
-            'images.*' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:10240'], // 10MB c/u
+            'images.*' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
         ]);
 
         $page = ($intake->files()->max('page_no') ?? 0) + 1;
@@ -55,20 +47,22 @@ class CatalogAiIntakePublicController extends Controller
             ]);
         }
 
-        $intake->status = 1; // uploaded
+        // ======= ACTUALIZAMOS ESTADO =======
+        $intake->status      = 1;       // fotos subidas
         $intake->uploaded_at = now();
         $intake->save();
 
-        // Encolar proceso IA
-        ProcessCatalogAiIntakeJob::dispatch($intake->id);
+        // ======= AQUÍ ESTABA TU PROBLEMA =======
+        // Antes:
+        // ProcessCatalogAiIntakeJob::dispatch($intake->id);
+
+        // Ahora: lo ejecutamos SIN cola, en el mismo request:
+        ProcessCatalogAiIntakeJob::dispatchSync($intake->id);
+        // (esto llama al handle() del job inmediatamente)
 
         return response()->json(['ok' => true]);
     }
 
-    /**
-     * Devuelve estado para polling desde el celular.
-     * GET /i/{token}/status
-     */
     public function status(string $token)
     {
         $intake = CatalogAiIntake::where('token', $token)

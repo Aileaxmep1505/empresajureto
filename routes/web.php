@@ -55,7 +55,7 @@ use App\Http\Controllers\LicitacionPreguntaController;
 use App\Http\Controllers\LicitacionChecklistController;
 use App\Http\Controllers\LicitacionExportController;
 use App\Http\Controllers\LicitacionFileController;
-
+use App\Http\Controllers\ManualInvoiceController;
 
 use App\Http\Controllers\Mobile\CatalogAiIntakePublicController;
 /*
@@ -840,4 +840,26 @@ Route::middleware(['auth','role:admin'])  // o lo que uses
         ->name('catalog.ai.status');
 });
 
+Route::post('/products/bulk-clave-sat', [ProductController::class, 'bulkClaveSat'])
+    ->name('products.bulk-clave-sat');
+    
+Route::post('/products/ai-suggest-clave-sat', [ProductController::class, 'aiSuggestClaveSat'])
+    ->name('products.ai-suggest-clave-sat');
 
+Route::middleware(['auth'])->group(function () {
+    Route::resource('facturas', ManualInvoiceController::class)
+        ->parameters(['facturas' => 'manualInvoice'])
+        ->names('manual_invoices');
+
+    // Acción extra para timbrar (desde borrador)
+    Route::post('facturas/{manualInvoice}/timbrar', [ManualInvoiceController::class, 'stamp'])
+        ->name('manual_invoices.stamp');
+});
+
+Route::post('manual-invoices/{manualInvoice}/stamp', [ManualInvoiceController::class, 'stamp'])
+    ->name('manual_invoices.stamp');
+Route::get('manual-invoices/{manualInvoice}/pdf', [ManualInvoiceController::class, 'downloadPdf'])
+    ->name('manual_invoices.download_pdf');
+
+Route::get('manual-invoices/{manualInvoice}/xml', [ManualInvoiceController::class, 'downloadXml'])
+    ->name('manual_invoices.download_xml');

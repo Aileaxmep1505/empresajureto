@@ -60,12 +60,12 @@ th.th-actions, td.t-actions{ position:sticky; right:0; background:var(--surface)
 /* Miniatura */
 .thumb{ width:88px; height:66px; object-fit:cover; border-radius:10px; background:#f1f5f9; border:1px solid var(--border) }
 
-/* Bloque Info: encabezado fuerte y lista de pares clave:valor */
+/* Bloque Info */
 .info-head{ font-weight:800; line-height:1.25; margin-bottom:6px }
 .info-sub{ display:flex; flex-wrap:wrap; gap:10px; margin-bottom:8px }
 .badge{ padding:.22rem .5rem; border-radius:999px; font-weight:800; font-size:.75rem; background:#eef2f7; color:#334155; border:1px solid #e5e7eb }
-.badge-strong{ background:#e6efff; color:#1d4ed8; border-color:#cfe0ff } /* para unit */
-.badge-color{ background:#e6fff4; color:#047857; border-color:#cfeedd } /* para color */
+.badge-strong{ background:#e6efff; color:#1d4ed8; border-color:#cfe0ff }
+.badge-color{ background:#e6fff4; color:#047857; border-color:#cfeedd }
 
 .kv{
   display:grid; grid-template-columns: max(140px) 1fr; gap:4px 12px;
@@ -75,6 +75,26 @@ th.th-actions, td.t-actions{ position:sticky; right:0; background:var(--surface)
 .kv .v{ color:#111827; word-break:break-word }
 .kv code{ font-size:.82rem; background:#f8fafc; padding:.08rem .3rem; border-radius:6px; border:1px solid #e5e7eb }
 
+/* Botón mini IA */
+.ia-pill{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  font-size:11px;
+  padding:3px 8px;
+  border-radius:999px;
+  border:1px solid #c7d2fe;
+  background:#eef2ff;
+  color:#3730a3;
+  cursor:pointer;
+  margin-left:6px;
+}
+.ia-pill svg{
+  width:12px;
+  height:12px;
+}
+
+/* bulk bar */
 @media (max-width: 960px){
   .page{ padding:0 8px }
   .table-wrap{ border:0; background:transparent; overflow:visible }
@@ -87,11 +107,105 @@ th.th-actions, td.t-actions{ position:sticky; right:0; background:var(--surface)
   .kv{ grid-template-columns: max(42%) 1fr }
 }
 
-.pbtn{ font-weight:800; border-radius:14px; padding:10px 14px; display:inline-flex; align-items:center; gap:8px; text-decoration:none; border:2px solid transparent }
-.pbtn-blue{ color:var(--btn-blue); background:var(--btn-blue-soft); border-color:#cfe0ff }
-.pbtn-green{ color:var(--btn-green); background:var(--btn-green-soft); border-color:#cfeedd }
-.btn-icon{ width:36px; height:36px; display:inline-grid; place-items:center; padding:0; border-radius:12px; border:0; cursor:pointer }
-.btn-icon.blue{ background:var(--btn-blue); color:#fff } .btn-icon.red{ background:var(--btn-red); color:#fff }
+/* Bulk Clave SAT bar */
+.bulk-bar{
+  margin-top:12px;
+  background:linear-gradient(135deg,#f9fafb,#e5f9f4);
+  border-radius:14px;
+  padding:8px 12px;
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:10px;
+  border:1px solid #d1fae5;
+}
+.bulk-badge{
+  font-size:12px;
+  font-weight:600;
+  color:#047857;
+  background:#ecfdf3;
+  border-radius:999px;
+  padding:4px 10px;
+}
+.bulk-input{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  font-size:13px;
+}
+.bulk-input input{
+  border-radius:999px;
+  border:1px solid var(--border);
+  padding:7px 10px;
+  font-size:13px;
+  outline:none;
+  width:160px;
+}
+.bulk-note{
+  font-size:11px;
+  color:#6b7280;
+}
+.bulk-btn{
+  padding:7px 12px;
+  font-size:12px;
+}
+.status-flash{
+  margin-top:10px;
+  font-size:12px;
+  padding:8px 12px;
+  border-radius:999px;
+  background:#ecfdf3;
+  color:#047857;
+  border:1px solid #bbf7d0;
+}
+
+/* SweetAlert2 minimal / pro */
+.swal-jrt-popup{
+  border-radius:18px !important;
+  padding:22px 24px !important;
+  box-shadow:0 20px 50px rgba(15,23,42,0.25) !important;
+}
+.swal-jrt-title{
+  font-size:20px !important;
+  font-weight:700 !important;
+  color:#0f172a !important;
+}
+.swal-jrt-html{
+  font-size:14px !important;
+  color:#4b5563 !important;
+}
+.swal-jrt-confirm{
+  border-radius:999px !important;
+  padding:8px 18px !important;
+  font-weight:600 !important;
+  background:#2563eb !important;
+  color:#fff !important;
+  border:0 !important;
+}
+.swal-jrt-cancel{
+  border-radius:999px !important;
+  padding:8px 18px !important;
+  font-weight:500 !important;
+  background:#e5e7eb !important;
+  color:#111827 !important;
+  border:0 !important;
+}
+.swal-jrt-icon{
+  border-radius:999px !important;
+  border-width:2px !important;
+}
+.swal-jrt-icon.swal2-info{
+  border-color:#bfdbfe !important;
+  color:#2563eb !important;
+}
+.swal-jrt-icon.swal2-warning{
+  border-color:#fed7aa !important;
+  color:#f97316 !important;
+}
+.swal-jrt-icon.swal2-error{
+  border-color:#fecaca !important;
+  color:#dc2626 !important;
+}
 </style>
 @endpush
 
@@ -127,10 +241,46 @@ th.th-actions, td.t-actions{ position:sticky; right:0; background:var(--surface)
     </div>
   </div>
 
+  @if(session('status'))
+    <div class="status-flash">
+      {{ session('status') }}
+    </div>
+  @endif
+
+  {{-- Barra bulk Clave SAT (form independiente) --}}
+  <form id="bulkSatForm" method="POST" action="{{ route('products.bulk-clave-sat') }}">
+    @csrf
+    <div class="bulk-bar">
+      <div class="bulk-badge">
+        <span id="bulkSelectedCount">0</span> seleccionados
+      </div>
+
+      <div class="bulk-input">
+        <span>Clave SAT para aplicar:</span>
+        <input type="text" name="clave_sat" id="bulkClaveSat" placeholder="Ej. 01010101">
+      </div>
+
+      <button type="submit" class="pbtn pbtn-green bulk-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 5v14M5 12h14"/>
+        </svg>
+        Aplicar a seleccionados
+      </button>
+
+      <div class="bulk-note">
+        Consejo: filtra primero (por ejemplo solo lápiz), selecciona todos y aplica la misma clave SAT a ese grupo.
+        Afecta solo los productos seleccionados en esta vista.
+      </div>
+    </div>
+  </form>
+
   <div class="table-wrap">
     <table id="prodTable">
       <thead>
         <tr>
+          <th style="width:36px">
+            <input type="checkbox" id="selectAll">
+          </th>
           <th style="width:110px">Imagen</th>
           <th>Información</th>
           <th class="th-actions" style="width:130px">Acciones</th>
@@ -145,23 +295,9 @@ th.th-actions, td.t-actions{ position:sticky; right:0; background:var(--surface)
               {$p->cost} {$p->price} {$p->market_price} {$p->bid_price} {$p->dimensions}
               {$p->color} {$p->pieces_per_unit} {$state} {$p->brand} {$p->category}
               {$p->material} {$p->description} {$p->notes} {$p->tags} {$p->image_path} {$p->image_url}
+              {$p->clave_sat}
             "))->lower();
             $fmtDate = optional($p->created_at)->format('Y-m-d');
-
-            // Imagen: storage > url > drive thumb
-            $imgSrc = null;
-            if ($p->image_path) {
-              $imgSrc = asset('storage/'.$p->image_path);
-            } elseif ($p->image_url) {
-              $u = $p->image_url;
-              if (preg_match('#drive\.google\.com#i', $u)) {
-                if (preg_match('#/d/([^/]+)/#', $u, $m))       $fid = $m[1];
-                elseif (preg_match('#[?&]id=([^&]+)#', $u, $m)) $fid = $m[1];
-                else $fid = null;
-                $imgSrc = $fid ? "https://drive.google.com/thumbnail?id={$fid}" : $u;
-              } else { $imgSrc = $u; }
-            }
-
             $val = fn($v,$fallback='—') => (isset($v) && $v!=='' ? $v : $fallback);
           @endphp
           @continue(empty($p->name) && empty($p->sku))
@@ -176,20 +312,23 @@ th.th-actions, td.t-actions{ position:sticky; right:0; background:var(--surface)
             data-tags="{{ $p->tags }}"
             data-desc="{{ $p->description }}"
           >
-<td data-col="img" data-label="Imagen">
-  @php $src = $p->image_src; @endphp
-  @if($src)
-    <img class="thumb" src="{{ $src }}" alt="Imagen de {{ $p->name }}"
-         onerror="this.onerror=null;this.src='{{ asset('images/placeholder.png') }}';">
-  @else
-    <img class="thumb" src="{{ asset('images/placeholder.png') }}" alt="Sin imagen">
-  @endif
-</td>
+            {{-- Checkbox selección múltiple --}}
+            <td>
+              <input type="checkbox" class="js-row-check" data-id="{{ $p->id }}">
+            </td>
 
-
+            <td data-col="img" data-label="Imagen">
+              @php $src = $p->image_src; @endphp
+              @if($src)
+                <img class="thumb" src="{{ $src }}" alt="Imagen de {{ $p->name }}"
+                     onerror="this.onerror=null;this.src='{{ asset('images/placeholder.png') }}';">
+              @else
+                <img class="thumb" src="{{ asset('images/placeholder.png') }}" alt="Sin imagen">
+              @endif
+            </td>
 
             <td>
-              <!-- Encabezado: lo MÁS relevante en negritas -->
+              <!-- Encabezado -->
               <div class="info-head">
                 {{ $val($p->name) }}
               </div>
@@ -203,7 +342,7 @@ th.th-actions, td.t-actions{ position:sticky; right:0; background:var(--surface)
                 <span class="badge">{{ $p->active ? 'Activo' : 'Inactivo' }}</span>
               </div>
 
-              <!-- Debajo: TODOS los campos en lista clave:valor -->
+              <!-- Lista clave:valor -->
               <div class="kv">
                 <div class="k">ID</div>               <div class="v">{{ $p->id }}</div>
                 <div class="k">Supplier SKU</div>      <div class="v">{{ $val($p->supplier_sku) }}</div>
@@ -215,6 +354,23 @@ th.th-actions, td.t-actions{ position:sticky; right:0; background:var(--surface)
                 <div class="k">Dimensiones</div>       <div class="v">{{ $val($p->dimensions) }}</div>
                 <div class="k">Piezas por unidad</div> <div class="v">{{ $val($p->pieces_per_unit) }}</div>
                 <div class="k">Material</div>          <div class="v">{{ $val($p->material) }}</div>
+                <div class="k">Clave SAT</div>
+                <div class="v">
+                  <span class="js-clave-sat-text">{{ $p->clave_sat ?? '—' }}</span>
+                  {{-- Botón IA sugerir --}}
+                  <button type="button"
+                          class="ia-pill js-ia-suggest"
+                          data-id="{{ $p->id }}"
+                          data-name="{{ $p->name }}"
+                          data-desc="{{ $p->description }}"
+                          data-category="{{ $p->category }}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M12 3l1.9 3.9L18 9l-3.9 1.9L12 15l-1.9-4.1L6 9l4.1-.1L12 3z"/>
+                      <path d="M4 19h16"/>
+                    </svg>
+                    IA sugerir
+                  </button>
+                </div>
                 <div class="k">Descripción</div>       <div class="v">{{ \Illuminate\Support\Str::limit($val($p->description), 220) }}</div>
                 <div class="k">Notas</div>             <div class="v">{{ \Illuminate\Support\Str::limit($val($p->notes), 220) }}</div>
                 <div class="k">Tags</div>              <div class="v">{{ $val($p->tags) }}</div>
@@ -260,7 +416,6 @@ th.th-actions, td.t-actions{ position:sticky; right:0; background:var(--surface)
   const input    = document.getElementById('liveSearch');
   const clearBtn = document.getElementById('sbClear');
 
-  // crea si no existe (por si quitaste el formulario)
   if(!input){
     const sb = document.createElement('input');
     sb.id='liveSearch'; sb.placeholder='Buscar...'; sb.style.cssText='display:none';
@@ -335,21 +490,238 @@ th.th-actions, td.t-actions{ position:sticky; right:0; background:var(--surface)
   }
 
   document.getElementById('liveSearch')?.addEventListener('input', applyFilter);
-  document.getElementById('sbClear')?.addEventListener('click', ()=>{ const i=document.getElementById('liveSearch'); if(i){ i.value=''; applyFilter(); i.focus(); }});
+  document.getElementById('sbClear')?.addEventListener('click', ()=>{
+    const i=document.getElementById('liveSearch');
+    if(i){ i.value=''; applyFilter(); i.focus(); }
+  });
   applyFilter();
 
-  // Confirmación eliminar
+  // ===== Confirmación eliminar (SweetAlert pro) =====
   document.querySelectorAll('form.js-del').forEach(f=>{
     f.addEventListener('submit', function(e){
       e.preventDefault();
       Swal.fire({
-        title:'¿Eliminar producto?', icon:'warning', showCancelButton:true,
-        confirmButtonText:'Sí, eliminar', cancelButtonText:'Cancelar',
-        customClass:{ popup:'swal-rounded', confirmButton:'swal-confirm', cancelButton:'swal-cancel' },
-        buttonsStyling:false
+        icon:'warning',
+        title:'¿Eliminar producto?',
+        html:'Esta acción no se puede deshacer.',
+        showCancelButton:true,
+        confirmButtonText:'Sí, eliminar',
+        cancelButtonText:'Cancelar',
+        buttonsStyling:false,
+        customClass:{
+          popup:'swal-jrt-popup',
+          title:'swal-jrt-title',
+          htmlContainer:'swal-jrt-html',
+          confirmButton:'swal-jrt-confirm',
+          cancelButton:'swal-jrt-cancel',
+          icon:'swal-jrt-icon'
+        }
       }).then(res=>{ if(res.isConfirmed) this.submit(); });
     });
   });
+
+  // ===== Bulk Clave SAT: selección múltiple + validaciones =====
+  const selectAll   = document.getElementById('selectAll');
+  const rowChecks   = Array.from(document.querySelectorAll('.js-row-check'));
+  const countEl     = document.getElementById('bulkSelectedCount');
+  const bulkForm    = document.getElementById('bulkSatForm');
+  const claveInput  = document.getElementById('bulkClaveSat');
+
+  function updateCount(){
+    const selected = rowChecks.filter(cb => cb.checked).length;
+    if (countEl) countEl.textContent = selected;
+  }
+
+  if (selectAll) {
+    selectAll.addEventListener('change', () => {
+      rowChecks.forEach(cb => cb.checked = selectAll.checked);
+      updateCount();
+    });
+  }
+
+  rowChecks.forEach(cb => {
+    cb.addEventListener('change', () => {
+      if (!cb.checked && selectAll && selectAll.checked) {
+        selectAll.checked = false;
+      }
+      updateCount();
+    });
+  });
+
+  if (bulkForm) {
+    bulkForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+
+      const selected = rowChecks.filter(cb => cb.checked).map(cb => cb.dataset.id);
+      if (!selected.length) {
+        Swal.fire({
+          icon:'warning',
+          title:'Selecciona productos',
+          html:'Marca al menos un producto para aplicar la clave SAT.',
+          buttonsStyling:false,
+          customClass:{
+            popup:'swal-jrt-popup',
+            title:'swal-jrt-title',
+            htmlContainer:'swal-jrt-html',
+            confirmButton:'swal-jrt-confirm',
+            icon:'swal-jrt-icon'
+          }
+        });
+        return;
+      }
+
+      if (!claveInput.value.trim()) {
+        Swal.fire({
+          icon:'info',
+          title:'Falta la clave SAT',
+          html:'Escribe la clave SAT que deseas aplicar.',
+          buttonsStyling:false,
+          customClass:{
+            popup:'swal-jrt-popup',
+            title:'swal-jrt-title',
+            htmlContainer:'swal-jrt-html',
+            confirmButton:'swal-jrt-confirm',
+            icon:'swal-jrt-icon'
+          }
+        }).then(()=> claveInput.focus());
+        return;
+      }
+
+      // Limpia ids ocultos anteriores
+      Array.from(bulkForm.querySelectorAll('.js-hidden-id')).forEach(el => el.remove());
+
+      // Crea inputs hidden con los IDs seleccionados
+      selected.forEach(id => {
+        const h = document.createElement('input');
+        h.type = 'hidden';
+        h.name = 'product_ids[]';
+        h.value = id;
+        h.classList.add('js-hidden-id');
+        bulkForm.appendChild(h);
+      });
+
+      bulkForm.submit();
+    });
+  }
+
+  updateCount();
+
+  // ===== IA sugerir clave SAT (por producto, igual que el que te funciona) =====
+  const iaButtons = document.querySelectorAll('.js-ia-suggest');
+
+  function getCsrf() {
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    return meta ? meta.getAttribute('content') : '';
+  }
+
+  iaButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const name = btn.dataset.name || '';
+      const desc = btn.dataset.desc || '';
+      const cat  = btn.dataset.category || '';
+
+      if (!name && !desc) {
+        Swal.fire({
+          icon:'info',
+          title:'Sin datos',
+          html:'Este producto no tiene nombre ni descripción para sugerir clave SAT.',
+          buttonsStyling:false,
+          customClass:{
+            popup:'swal-jrt-popup',
+            title:'swal-jrt-title',
+            htmlContainer:'swal-jrt-html',
+            confirmButton:'swal-jrt-confirm',
+            icon:'swal-jrt-icon'
+          }
+        });
+        return;
+      }
+
+      Swal.fire({
+        title: 'Consultando IA…',
+        html: 'Generando sugerencia de clave SAT según nombre y descripción.',
+        allowOutsideClick:false,
+        didOpen: () => { Swal.showLoading(); },
+        showConfirmButton:false,
+        customClass:{
+          popup:'swal-jrt-popup',
+          title:'swal-jrt-title',
+          htmlContainer:'swal-jrt-html'
+        }
+      });
+
+      // ⚠️ IMPORTANTE: payload PLANO, como en tu versión que sí funciona
+      fetch("{{ route('products.ai-suggest-clave-sat') }}", {
+        method: "POST",
+        headers: {
+          "Content-Type":"application/json",
+          "Accept":"application/json",
+          "X-CSRF-TOKEN": getCsrf()
+        },
+        body: JSON.stringify({
+          name: name,
+          description: desc,
+          category: cat
+        })
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (!data || !data.suggestion) {
+          throw new Error(data.message || 'La IA no pudo sugerir una clave SAT.');
+        }
+
+        const suggestion = data.suggestion;
+
+        Swal.fire({
+          icon:'info',
+          title:'Sugerencia de clave SAT',
+          html: `
+            <p style="margin-bottom:4px;"><strong>Producto:</strong> ${name || '(sin nombre)'}</p>
+            <p style="margin-bottom:8px;"><strong>Descripción:</strong> ${desc ? desc.substring(0,180) + (desc.length>180?'…':'') : '(sin descripción)'}</p>
+            <p style="margin-top:10px">La IA sugiere usar la clave SAT:</p>
+            <p style="font-size:22px;font-weight:700;letter-spacing:.10em;margin:4px 0 8px;">${suggestion}</p>
+            <p style="font-size:12px;margin-top:0;color:#6b7280;">
+              Esta clave <strong>no se guarda aún</strong>.<br>
+              Puedes usarla en la barra bulk para aplicarla a uno o varios productos seleccionados.
+            </p>
+          `,
+          showCancelButton:true,
+          confirmButtonText:'Usar en barra bulk',
+          cancelButtonText:'Cerrar',
+          buttonsStyling:false,
+          customClass:{
+            popup:'swal-jrt-popup',
+            title:'swal-jrt-title',
+            htmlContainer:'swal-jrt-html',
+            confirmButton:'swal-jrt-confirm',
+            cancelButton:'swal-jrt-cancel',
+            icon:'swal-jrt-icon'
+          }
+        }).then(res => {
+          if(res.isConfirmed && claveInput){
+            claveInput.value = suggestion;
+            claveInput.focus();
+          }
+        });
+      })
+      .catch(err => {
+        Swal.fire({
+          icon:'error',
+          title:'Error con la IA',
+          html: err.message || 'No se pudo obtener una sugerencia de la IA.',
+          buttonsStyling:false,
+          customClass:{
+            popup:'swal-jrt-popup',
+            title:'swal-jrt-title',
+            htmlContainer:'swal-jrt-html',
+            confirmButton:'swal-jrt-confirm',
+            icon:'swal-jrt-icon'
+          }
+        });
+      });
+    });
+  });
+
 })();
 </script>
 @endpush

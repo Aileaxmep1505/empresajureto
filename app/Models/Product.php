@@ -14,6 +14,7 @@ class Product extends Model
         'name','sku','supplier_sku','unit','weight','cost','price','market_price','bid_price',
         'dimensions','color','pieces_per_unit','active','brand','category','material',
         'description','notes','tags','image_path','image_url',
+        'clave_sat', // 👈 nuevo campo
     ];
 
     protected $casts = [

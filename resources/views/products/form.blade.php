@@ -129,7 +129,7 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
     <div class="panel-head">
       <div class="hgroup">
         <h2>{{ $isEdit ? 'Editar producto' : 'Agregar producto' }}</h2>
-       <p class="subtitle">{{ $isEdit ? 'Actualiza los datos del producto.' : 'Crea un nuevo producto y sube su archivo/imagen.' }}</p>
+        <p class="subtitle">{{ $isEdit ? 'Actualiza los datos del producto.' : 'Crea un nuevo producto y sube su archivo/imagen.' }}</p>
       </div>
       <a href="{{ route('products.index') }}" class="back-link" title="Volver">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
@@ -255,28 +255,35 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
         </div>
       </div>
 
-      {{-- ===== Fila: Piezas por unidad / Categoría / Material ===== --}}
+      {{-- ===== Fila: Piezas por unidad / Categoría / Material / Clave SAT ===== --}}
       <div class="row gy-3 section-gap">
-        <div class="col col-12 col-md-4">
+        <div class="col col-12 col-md-3">
           <div class="field @error('pieces_per_unit') is-invalid @enderror">
             <input type="number" step="1" name="pieces_per_unit" id="f-ppu" value="{{ $v('pieces_per_unit') }}" placeholder=" ">
             <label for="f-ppu">Piezas por unidad</label>
           </div>
           @error('pieces_per_unit')<div class="error">{{ $message }}</div>@enderror
         </div>
-        <div class="col col-12 col-md-4">
+        <div class="col col-12 col-md-3">
           <div class="field @error('category') is-invalid @enderror">
             <input type="text" name="category" id="f-cat" value="{{ $v('category') }}" placeholder=" ">
             <label for="f-cat">Categoría</label>
           </div>
           @error('category')<div class="error">{{ $message }}</div>@enderror
         </div>
-        <div class="col col-12 col-md-4">
+        <div class="col col-12 col-md-3">
           <div class="field @error('material') is-invalid @enderror">
             <input type="text" name="material" id="f-mat" value="{{ $v('material') }}" placeholder=" ">
             <label for="f-mat">Material</label>
           </div>
           @error('material')<div class="error">{{ $message }}</div>@enderror
+        </div>
+        <div class="col col-12 col-md-3">
+          <div class="field @error('clave_sat') is-invalid @enderror">
+            <input type="text" name="clave_sat" id="f-clave-sat" value="{{ $v('clave_sat') }}" placeholder=" ">
+            <label for="f-clave-sat">Clave SAT</label>
+          </div>
+          @error('clave_sat')<div class="error">{{ $message }}</div>@enderror
         </div>
       </div>
 

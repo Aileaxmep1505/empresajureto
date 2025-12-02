@@ -30,7 +30,7 @@ Devuelve SOLO JSON con el esquema (strict)."
         foreach ($absolutePaths as $p) {
             if (!is_file($p)) continue;
 
-            $b64 = base64_encode(file_get_contents($p));
+            $b64  = base64_encode(file_get_contents($p));
             $mime = $this->guessMime($p);
 
             $content[] = [
@@ -41,38 +41,60 @@ Devuelve SOLO JSON con el esquema (strict)."
             ];
         }
 
+        // ====== SCHEMA CORREGIDO ======
         $schema = [
             "type" => "object",
             "additionalProperties" => false,
             "properties" => [
                 "supplier_name" => ["type" => "string"],
-                "folio" => ["type" => "string"],
-                "invoice_date" => ["type" => "string"],
-                "currency" => ["type" => "string"],
-                "subtotal" => ["type" => "number"],
-                "tax" => ["type" => "number"],
-                "total" => ["type" => "number"],
-                "items" => [
-                    "type" => "array",
+                "folio"         => ["type" => "string"],
+                "invoice_date"  => ["type" => "string"],
+                "currency"      => ["type" => "string"],
+                "subtotal"      => ["type" => "number"],
+                "tax"           => ["type" => "number"],
+                "total"         => ["type" => "number"],
+                "items"         => [
+                    "type"  => "array",
                     "items" => [
-                        "type" => "object",
+                        "type"                 => "object",
                         "additionalProperties" => false,
                         "properties" => [
-                            "sku" => ["type" => "string"],
-                            "description" => ["type" => "string"],
-                            "quantity" => ["type" => "number"],
-                            "unit" => ["type" => "string"],
+                            "sku"        => ["type" => "string"],
+                            "description"=> ["type" => "string"],
+                            "quantity"   => ["type" => "number"],
+                            "unit"       => ["type" => "string"],
                             "unit_price" => ["type" => "number"],
                             "line_total" => ["type" => "number"],
-                            "brand" => ["type" => "string"],
-                            "model" => ["type" => "string"],
+                            "brand"      => ["type" => "string"],
+                            "model"      => ["type" => "string"],
                             "confidence" => ["type" => "number"]
                         ],
-                        "required" => ["description","quantity","unit_price","line_total","confidence"]
+                        // 🔴 REQUIRED DEBE CONTENER TODAS LAS KEYS DE PROPERTIES
+                        "required" => [
+                            "sku",
+                            "description",
+                            "quantity",
+                            "unit",
+                            "unit_price",
+                            "line_total",
+                            "brand",
+                            "model",
+                            "confidence",
+                        ],
                     ]
                 ]
             ],
-            "required" => ["supplier_name","items","total"]
+            // 🔴 IGUAL AQUÍ: TODAS LAS KEYS DE PROPERTIES
+            "required" => [
+                "supplier_name",
+                "folio",
+                "invoice_date",
+                "currency",
+                "subtotal",
+                "tax",
+                "total",
+                "items",
+            ]
         ];
 
         $payload = [
@@ -83,7 +105,7 @@ Devuelve SOLO JSON con el esquema (strict)."
             "response_format" => [
                 "type" => "json_schema",
                 "json_schema" => [
-                    "name" => "invoice_extract",
+                    "name"   => "invoice_extract",
                     "schema" => $schema,
                     "strict" => true
                 ]
