@@ -10,6 +10,8 @@ use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Str;
 use App\Services\MeliSyncService;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class CatalogItemController extends Controller implements HasMiddleware
 {
@@ -257,6 +259,251 @@ class CatalogItemController extends Controller implements HasMiddleware
             'extracted' => $intake->extracted,
             'meta'      => $intake->meta,
         ]);
+    }
+
+    /* ===============================================
+     |  IA: Captura desde archivos / imágenes / PDF
+     |  POST /admin/catalog/ai-from-upload
+     ================================================*/
+       /* ===============================================
+     |  IA: Captura desde archivos / imágenes / PDF
+     |  POST /admin/catalog/ai-from-upload
+     ================================================*/
+    public function aiFromUpload(Request $request)
+    {
+        $request->validate([
+            'files.*' => 'required|file|max:8192|mimes:jpg,jpeg,png,webp,pdf',
+        ]);
+
+        $files = $request->file('files', []);
+
+        if (empty($files)) {
+            return response()->json([
+                'error' => 'No se recibieron archivos.',
+            ], 422);
+        }
+
+        // === Config OpenAI ===
+        $apiKey  = config('services.openai.api_key') ?: config('services.openai.key');
+        $baseUrl = rtrim(config('services.openai.base_url', 'https://api.openai.com'), '/');
+
+        // Modelo rápido (AJUSTA ESTO si tu proyecto no tiene este modelo)
+        $modelId = 'gpt-4.1-mini';
+
+        if (!$apiKey) {
+            Log::warning('AI catalog error: missing OpenAI API key');
+            return response()->json([
+                'error' => 'Falta configurar la API key de OpenAI en el servidor.',
+            ], 500);
+        }
+
+        // ==========================================
+        // 1) Subir todos los archivos a /v1/files
+        //    IMPORTANTE: usar attach() con filename
+        // ==========================================
+        $fileInputs = [];
+
+        foreach ($files as $file) {
+            if (!$file) {
+                continue;
+            }
+
+            try {
+                $uploadResponse = Http::withToken($apiKey)
+                    ->attach(
+                        'file',
+                        file_get_contents($file->getRealPath()),
+                        $file->getClientOriginalName() // aquí va el nombre con .pdf/.jpg/etc
+                    )
+                    ->post($baseUrl . '/v1/files', [
+                        'purpose' => 'user_data',
+                    ]);
+
+                if (!$uploadResponse->ok()) {
+                    Log::warning('AI catalog file upload error', [
+                        'status' => $uploadResponse->status(),
+                        'body'   => $uploadResponse->body(),
+                    ]);
+
+                    return response()->json([
+                        'error' => 'Error subiendo archivo(s) a OpenAI.',
+                    ], 500);
+                }
+
+                $fileId = $uploadResponse->json('id');
+                if (!$fileId) {
+                    Log::warning('AI catalog file upload without id', [
+                        'body' => $uploadResponse->json(),
+                    ]);
+
+                    return response()->json([
+                        'error' => 'OpenAI no regresó un ID de archivo.',
+                    ], 500);
+                }
+
+                // Este objeto es lo que se manda como "input_file" al modelo
+                $fileInputs[] = [
+                    'type'    => 'input_file',
+                    'file_id' => $fileId,
+                ];
+            } catch (\Throwable $e) {
+                Log::error('AI catalog error uploading file', [
+                    'error' => $e->getMessage(),
+                ]);
+
+                return response()->json([
+                    'error' => 'Error al subir archivo(s) a OpenAI.',
+                ], 500);
+            }
+        }
+
+        if (empty($fileInputs)) {
+            return response()->json([
+                'error' => 'No se pudieron preparar los archivos para la IA.',
+            ], 500);
+        }
+
+        // ==========================================
+        // 2) Llamar a /v1/responses con input_file
+        // ==========================================
+        $systemPrompt = <<<TXT
+Eres un asistente experto en catálogo de productos, comercio electrónico y Mercado Libre.
+
+A partir de los archivos (PDF o imágenes) que te envío:
+- Identifica el PRODUCTO principal (no la tienda).
+- Responde con un JSON ESTRICTO con ESTA estructura (y solo esa):
+
+{
+  "name": "Nombre completo del producto",
+  "slug": "slug-sugerido-en-kebab-case",
+  "description": "Descripción larga en español, ordenada y con frases cortas.",
+  "excerpt": "Resumen corto en una o dos frases.",
+  "price": 0,
+  "brand_name": "",
+  "model_name": "",
+  "meli_gtin": ""
+}
+
+Reglas:
+- Responde ÚNICAMENTE con ese JSON y nada más.
+- "price": en MXN, numérico (sin símbolos). Si no ves un precio claro, deja 0.
+- "brand_name": marca comercial que ve el cliente (si no aparece, deja cadena vacía).
+- "model_name": modelo si aparece; si no, cadena vacía.
+- "meli_gtin": código de barras EAN/UPC si lo detectas completo; si no, cadena vacía.
+TXT;
+
+        $userText = "Analiza los archivos adjuntos (PDFs/imágenes) y genera SOLO el JSON del producto principal.";
+
+        try {
+            $response = Http::withToken($apiKey)
+                ->timeout(config('services.openai.timeout', 60))
+                ->withHeaders([
+                    'Content-Type' => 'application/json',
+                ])
+                ->post($baseUrl . '/v1/responses', [
+                    'model'        => $modelId,
+                    'instructions' => $systemPrompt,
+                    'input'        => [
+                        [
+                            'role'    => 'user',
+                            'content' => array_merge(
+                                [
+                                    [
+                                        'type' => 'input_text',
+                                        'text' => $userText,
+                                    ],
+                                ],
+                                $fileInputs
+                            ),
+                        ],
+                    ],
+                    'max_output_tokens' => 1024,
+                    'temperature'       => 0.1,
+                ]);
+
+            if (!$response->ok()) {
+                Log::warning('AI catalog error', [
+                    'status' => $response->status(),
+                    'body'   => $response->body(),
+                ]);
+
+                return response()->json([
+                    'error' => 'La IA respondió con un error.',
+                ], 500);
+            }
+
+            $json = $response->json();
+
+            // ==========================================
+            // Extraer el texto de salida del Response
+            // ==========================================
+            $rawText = null;
+
+            if (isset($json['output']) && is_array($json['output'])) {
+                foreach ($json['output'] as $outItem) {
+                    if (($outItem['type'] ?? null) === 'message' && isset($outItem['content'])) {
+                        foreach ($outItem['content'] as $c) {
+                            if (($c['type'] ?? null) === 'output_text' && isset($c['text'])) {
+                                $rawText .= $c['text'];
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Fallback por si el formato cambia
+            if (!$rawText && isset($json['output'][0]['content'][0]['text'])) {
+                $rawText = $json['output'][0]['content'][0]['text'];
+            }
+
+            if (!$rawText) {
+                Log::warning('AI catalog: no se pudo encontrar texto en la respuesta', ['json' => $json]);
+
+                return response()->json([
+                    'error' => 'No se pudo interpretar la respuesta de la IA.',
+                ], 500);
+            }
+
+            $data = json_decode($rawText, true);
+            if (!is_array($data)) {
+                Log::warning('AI catalog: JSON inválido en salida de IA', [
+                    'raw' => $rawText,
+                ]);
+
+                return response()->json([
+                    'error' => 'La IA no devolvió un JSON válido.',
+                ], 500);
+            }
+
+            // Normalizar un poco el price si viene como string con símbolos
+            $price = $data['price'] ?? null;
+            if (is_string($price)) {
+                $clean = preg_replace('/[^0-9.,]/', '', $price);
+                $clean = str_replace(',', '.', $clean);
+                $price = is_numeric($clean) ? (float) $clean : null;
+            }
+
+            return response()->json([
+                'suggestions' => [
+                    'name'       => $data['name']        ?? null,
+                    'slug'       => $data['slug']        ?? null,
+                    'description'=> $data['description'] ?? null,
+                    'excerpt'    => $data['excerpt']     ?? null,
+                    'price'      => $price,
+                    'brand_name' => $data['brand_name']  ?? null,
+                    'model_name' => $data['model_name']  ?? null,
+                    'meli_gtin'  => $data['meli_gtin']   ?? null,
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Error llamando a OpenAI (Files + Responses) para catálogo', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'error' => 'Ocurrió un error al contactar la IA.',
+            ], 500);
+        }
     }
 
     /** Dispara el sync con ML sin romper la UI si algo truena */

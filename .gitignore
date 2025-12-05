@@ -1,24 +1,43 @@
+# Logs
 *.log
+
+# Sistema / OS
 .DS_Store
+Thumbs.db
+
+# Entorno / configuración sensible
 .env
 .env.backup
 .env.production
+.env.*
+
+auth.json
+
+# Herramientas de desarrollo
 .phpactor.json
 .phpunit.result.cache
+/.phpunit.cache
 /.fleet
 /.idea
 /.nova
-/.phpunit.cache
 /.vscode
 /.zed
-/auth.json
+
+# Dependencias
 /node_modules
+/vendor
+
+# Laravel storage/public
 /public/build
 /public/hot
 /public/storage
 /storage/*.key
 /storage/pail
-/vendor
+
+# Vagrant / Homestead
 Homestead.json
 Homestead.yaml
-Thumbs.db
+
+# Cache de Laravel (⚠️ aquí es donde estaba tu problema)
+bootstrap/cache/*.php
+!bootstrap/cache/.gitignore

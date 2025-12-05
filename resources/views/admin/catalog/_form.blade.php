@@ -1,4 +1,4 @@
-@php
+@php 
   /** @var \App\Models\CatalogItem|null $item */
   $isEdit = isset($item);
 @endphp
@@ -7,6 +7,41 @@
 @if($isEdit)
   @method('PUT')
 @endif
+
+{{-- 🔹 BLOQUE DE CAPTURA ASISTIDA POR IA (ARCHIVOS / IMÁGENES / PDF) --}}
+<div class="ai-helper">
+  <div class="ai-helper-icon">🤖</div>
+
+  <div class="ai-helper-main">
+    <div class="ai-helper-title">Captura asistida por IA (archivos / imágenes / PDF)</div>
+    <p class="ai-helper-text">
+      Sube fotos del producto, tickets, remisiones o PDFs con imágenes. La IA leerá lo que vea
+      y te sugerirá automáticamente: nombre, descripción, extracto, precio, marca, modelo y GTIN.
+      Tú siempre puedes revisar y corregir antes de guardar.
+    </p>
+
+    <div class="ai-helper-row">
+      <div class="ai-helper-input">
+        <label class="lbl" style="margin-top:0;">Archivos para IA</label>
+        <input id="ai_files" name="ai_files[]" type="file" multiple
+               accept="image/*,.pdf"
+               class="inp">
+        <p class="hint">
+          Acepta varias imágenes y PDFs (max. ~8 MB c/u). Se usan solo para generar sugerencias.
+        </p>
+      </div>
+
+      <div class="ai-helper-actions">
+        <button type="button" id="btn-ai-analyze" class="btn btn-primary">
+          Analizar con IA
+        </button>
+        <p id="ai-helper-status" class="hint" style="margin-top:6px;">
+          La IA no sustituye tu revisión, solo te ahorra tecleo repetitivo.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
 
 <div class="grid" style="display:grid;gap:16px;grid-template-columns:repeat(12,1fr)">
   {{-- Columna izquierda: contenido principal --}}
@@ -259,6 +294,55 @@
     font-size:.78rem;
     color:#4b5563;
   }
+
+  /* 🔹 Estilos IA */
+  .ai-helper{
+    margin-bottom:18px;
+    padding:12px 14px;
+    background:#eff6ff;
+    border-radius:16px;
+    border:1px dashed #93c5fd;
+    display:flex;
+    gap:10px;
+    align-items:flex-start;
+    flex-wrap:wrap;
+  }
+  .ai-helper-icon{
+    font-size:1.6rem;
+    line-height:1;
+  }
+  .ai-helper-main{
+    flex:1 1 260px;
+  }
+  .ai-helper-title{
+    font-size:.9rem;
+    font-weight:700;
+    color:#1d4ed8;
+    margin-bottom:2px;
+  }
+  .ai-helper-text{
+    margin:0 0 8px;
+    font-size:.8rem;
+    color:#334155;
+  }
+  .ai-helper-row{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    align-items:flex-end;
+  }
+  .ai-helper-input{
+    flex:1 1 260px;
+  }
+  .ai-helper-actions{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+  }
+  .ai-suggested{
+    border-color:#22c55e !important;
+    box-shadow:0 0 0 1px rgba(34,197,94,.35);
+  }
 </style>
 @endpush
 
@@ -274,5 +358,75 @@
       <button type="button" class="btn btn-ghost" onclick="this.parentElement.remove()">Quitar</button>`;
     list.appendChild(wrap);
   }
+
+  // ================================
+  // 🔹 IA: subir archivos y rellenar campos
+  // ================================
+  document.addEventListener('DOMContentLoaded', function () {
+    const btnAi = document.getElementById('btn-ai-analyze');
+    const inputFiles = document.getElementById('ai_files');
+    const statusEl = document.getElementById('ai-helper-status');
+
+    if (!btnAi || !inputFiles) return;
+
+    btnAi.addEventListener('click', function () {
+      if (!inputFiles.files || !inputFiles.files.length) {
+        alert('Sube al menos un archivo (imagen o PDF) para que la IA pueda analizarlo.');
+        return;
+      }
+
+      const formData = new FormData();
+      Array.from(inputFiles.files).forEach(f => formData.append('files[]', f));
+      formData.append('_token', '{{ csrf_token() }}');
+
+      btnAi.disabled = true;
+      const originalText = btnAi.textContent;
+      btnAi.textContent = 'Analizando...';
+      statusEl.textContent = 'Enviando archivos a la IA, esto puede tardar unos segundos...';
+
+      fetch("{{ route('admin.catalog.ai-from-upload') }}", {
+        method: "POST",
+        body: formData
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.error) {
+          statusEl.textContent = 'Error: ' + (data.error || 'No fue posible obtener sugerencias.');
+          return;
+        }
+
+        const s = data.suggestions || {};
+        applyAiSuggestion('name', s.name);
+        applyAiSuggestion('slug', s.slug);
+        applyAiSuggestion('description', s.description);
+        applyAiSuggestion('excerpt', s.excerpt);
+        applyAiSuggestion('price', s.price);
+        applyAiSuggestion('brand_name', s.brand_name);
+        applyAiSuggestion('model_name', s.model_name);
+        applyAiSuggestion('meli_gtin', s.meli_gtin);
+
+        statusEl.textContent = 'Listo: revisa y ajusta las sugerencias marcadas en verde antes de guardar.';
+      })
+      .catch(err => {
+        console.error(err);
+        statusEl.textContent = 'Ocurrió un error al llamar a la IA.';
+      })
+      .finally(() => {
+        btnAi.disabled = false;
+        btnAi.textContent = originalText;
+      });
+    });
+
+    function applyAiSuggestion(fieldName, value) {
+      if (value === undefined || value === null || value === '') return;
+      const el = document.querySelector('[name="' + fieldName + '"]');
+      if (!el) return;
+
+      // Si el campo está vacío, lo llenamos. Si ya trae algo, lo sobrescribimos
+      // (puedes cambiar este comportamiento si prefieres no sobrescribir).
+      el.value = value;
+      el.classList.add('ai-suggested');
+    }
+  });
 </script>
 @endpush
