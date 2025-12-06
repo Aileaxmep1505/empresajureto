@@ -17,13 +17,16 @@ class SendAgendaReminderJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    // Reintentos / timeout
+    /** Número de reintentos y timeout */
     public int $tries = 3;
     public int $timeout = 120;
 
-    /** ID del evento (no pasamos el modelo completo) */
-    public int $eventId;
+    /** ID del evento (nullable para evitar error con jobs viejos) */
+    public ?int $eventId = null;
 
+    /**
+     * Recibimos SOLO el ID del evento, no el modelo completo.
+     */
     public function __construct(int $eventId)
     {
         $this->eventId = $eventId;
@@ -31,6 +34,11 @@ class SendAgendaReminderJob implements ShouldQueue
 
     public function handle(): void
     {
+        if (!$this->eventId) {
+            Log::warning('SendAgendaReminderJob: eventId nulo, abortando.');
+            return;
+        }
+
         // Volvemos a cargar el evento desde la BD
         $event = AgendaEvent::find($this->eventId);
 
@@ -68,6 +76,7 @@ class SendAgendaReminderJob implements ShouldQueue
                         'to'       => $event->attendee_email,
                     ]);
                 } catch (Throwable $mailEx) {
+                    // NO tumba el job, solo loguea
                     Log::error("Agenda: error enviando correo", [
                         'event_id' => $event->id,
                         'error'    => $mailEx->getMessage(),
@@ -127,15 +136,13 @@ class SendAgendaReminderJob implements ShouldQueue
             }
 
             // ==============
-            //  ACTUALIZAR ESTADO / SIGUIENTE RECORDATORIO
+            //  ACTUALIZAR SIGUIENTE RECORDATORIO
             // ==============
             $event->last_reminder_sent_at = now('UTC');
 
             if (method_exists($event, 'advanceAfterSending')) {
-                // tu método para mover start_at / next_reminder_at al siguiente ciclo
                 $event->advanceAfterSending();
             } elseif (method_exists($event, 'computeNextReminder')) {
-                // alternativa: si solo tienes computeNextReminder()
                 $event->computeNextReminder();
             }
 
@@ -147,19 +154,19 @@ class SendAgendaReminderJob implements ShouldQueue
             ]);
         } catch (Throwable $e) {
             Log::error('SendAgendaReminderJob excepción', [
-                'event_id' => $event->id,
+                'event_id' => $this->eventId,
                 'error'    => $e->getMessage(),
             ]);
             report($e);
-            throw $e; // para que pase a failed_jobs si truena
+            throw $e; // para que se marque como failed si algo muy grave truena
         }
     }
 
     public function failed(Throwable $e): void
     {
         Log::error('SendAgendaReminderJob failed', [
+            'event_id' => $this->eventId,
             'error'    => $e->getMessage(),
-            'event_id' => $this->eventId ?? null,
         ]);
         report($e);
     }
