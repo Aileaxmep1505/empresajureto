@@ -28,7 +28,7 @@ class CatalogItemController extends Controller implements HasMiddleware
         if ($s !== '') {
             $q->where(function ($qq) use ($s) {
                 $qq->where('name', 'like', "%{$s}%")
-                    ->orWhere('sku', 'like', "%{$s}%");
+                   ->orWhere('sku', 'like', "%{$s}%");
             });
         }
 
@@ -61,11 +61,11 @@ class CatalogItemController extends Controller implements HasMiddleware
     {
         $data = $request->validate([
             'name'        => ['required', 'string', 'max:255'],
-            'slug'        => ['nullable', 'string', 'max:255', 'unique:catalog_items,slug'],
+            'slug'        => ['nullable', 'string', 'max:255'], // 👈 sin unique
             'sku'         => ['nullable', 'string', 'max:120'],
             'price'       => ['required', 'numeric', 'min:0'],
             'sale_price'  => ['nullable', 'numeric', 'min:0'],
-            'stock'       => ['nullable', 'integer', 'min:0'], // 👈 NUEVO
+            'stock'       => ['nullable', 'integer', 'min:0'],
             'status'      => ['required', 'integer', 'in:0,1,2'], // 0=borrador 1=publicado 2=oculto
             'image_url'   => ['nullable', 'string', 'max:2048'],
             'images'      => ['nullable', 'array'],
@@ -73,29 +73,52 @@ class CatalogItemController extends Controller implements HasMiddleware
             'is_featured' => ['nullable', 'boolean'],
             'brand_id'    => ['nullable', 'integer'],
             'category_id' => ['nullable', 'integer'],
-            'brand_name'  => ['nullable', 'string', 'max:120'], // usados por ML
+            'brand_name'  => ['nullable', 'string', 'max:120'],
             'model_name'  => ['nullable', 'string', 'max:120'],
-            'meli_gtin'   => ['nullable', 'string', 'max:50'],  // GTIN / código de barras para ML
+            'meli_gtin'   => ['nullable', 'string', 'max:50'],
             'excerpt'     => ['nullable', 'string'],
             'description' => ['nullable', 'string'],
             'published_at'=> ['nullable', 'date'],
         ]);
 
-        $data['slug'] = $data['slug'] ?: Str::slug($data['name']);
-        if (CatalogItem::where('slug', $data['slug'])->exists()) {
-            $data['slug'] = Str::slug($data['name'] . '-' . Str::random(4));
+        // 🔹 Slug base: slug enviado o nombre
+        $baseSlug = isset($data['slug']) && trim($data['slug']) !== ''
+            ? Str::slug($data['slug'])
+            : Str::slug($data['name']);
+
+        if ($baseSlug === '') {
+            $baseSlug = Str::slug(Str::random(8));
         }
+
+        // 🔹 Asegurar slug ÚNICO (slug, slug-1, slug-2, ...)
+        $slug = $baseSlug;
+        $i = 1;
+        while (CatalogItem::where('slug', $slug)->exists()) {
+            $slug = $baseSlug . '-' . ($i++);
+        }
+        $data['slug'] = $slug;
 
         $data['is_featured'] = (bool) ($data['is_featured'] ?? false);
         $data['stock']       = $data['stock'] ?? 0;
 
         $item = CatalogItem::create($data);
 
+        // Sincronización con Mercado Libre (no rompe la UI si falla)
         $this->dispatchMeliSync($item);
 
+        // 👉 Para peticiones AJAX (fetch desde la vista)
+        if ($request->wantsJson()) {
+            return response()->json([
+                'ok'   => true,
+                'item' => $item,
+                'msg'  => 'Producto web creado.',
+            ]);
+        }
+
+        // 👉 Flujo normal: regresar a create para seguir capturando
         return redirect()
-            ->route('admin.catalog.edit', $item->id)
-            ->with('ok', 'Producto web creado. Sincronización con Mercado Libre encolada.');
+            ->route('admin.catalog.create')
+            ->with('ok', 'Producto web creado. Puedes seguir capturando más productos.');
     }
 
     public function edit(CatalogItem $catalogItem)
@@ -107,11 +130,11 @@ class CatalogItemController extends Controller implements HasMiddleware
     {
         $data = $request->validate([
             'name'        => ['required', 'string', 'max:255'],
-            'slug'        => ['nullable', 'string', 'max:255', 'unique:catalog_items,slug,' . $catalogItem->id],
+            'slug'        => ['nullable', 'string', 'max:255'], // 👈 sin unique
             'sku'         => ['nullable', 'string', 'max:120'],
             'price'       => ['required', 'numeric', 'min:0'],
             'sale_price'  => ['nullable', 'numeric', 'min:0'],
-            'stock'       => ['nullable', 'integer', 'min:0'], // 👈 NUEVO
+            'stock'       => ['nullable', 'integer', 'min:0'],
             'status'      => ['required', 'integer', 'in:0,1,2'],
             'image_url'   => ['nullable', 'string', 'max:2048'],
             'images'      => ['nullable', 'array'],
@@ -121,13 +144,32 @@ class CatalogItemController extends Controller implements HasMiddleware
             'category_id' => ['nullable', 'integer'],
             'brand_name'  => ['nullable', 'string', 'max:120'],
             'model_name'  => ['nullable', 'string', 'max:120'],
-            'meli_gtin'   => ['nullable', 'string', 'max:50'], // GTIN / código de barras para ML
+            'meli_gtin'   => ['nullable', 'string', 'max:50'],
             'excerpt'     => ['nullable', 'string'],
             'description' => ['nullable', 'string'],
             'published_at'=> ['nullable', 'date'],
         ]);
 
-        $data['slug']        = $data['slug'] ?: Str::slug($data['name']);
+        // 🔹 Slug base igual que en store
+        $baseSlug = isset($data['slug']) && trim($data['slug']) !== ''
+            ? Str::slug($data['slug'])
+            : Str::slug($data['name']);
+
+        if ($baseSlug === '') {
+            $baseSlug = Str::slug(Str::random(8));
+        }
+
+        // 🔹 Slug único ignorando el propio registro
+        $slug = $baseSlug;
+        $i = 1;
+        while (
+            CatalogItem::where('slug', $slug)
+                ->where('id', '!=', $catalogItem->id)
+                ->exists()
+        ) {
+            $slug = $baseSlug . '-' . ($i++);
+        }
+        $data['slug']        = $slug;
         $data['is_featured'] = (bool) ($data['is_featured'] ?? false);
         $data['stock']       = $data['stock'] ?? 0;
 
@@ -298,9 +340,7 @@ class CatalogItemController extends Controller implements HasMiddleware
             ], 500);
         }
 
-        // ==========================================
-        // 1) Subir todos los archivos a /v1/files
-        // ==========================================
+        // 1) Subir archivos a /v1/files
         $fileInputs = [];
 
         foreach ($files as $file) {
@@ -315,7 +355,7 @@ class CatalogItemController extends Controller implements HasMiddleware
                         file_get_contents($file->getRealPath()),
                         $file->getClientOriginalName()
                     )
-                    ->post($baseUrl . '/v1/files', [
+                    ->post($baseUrl.'/v1/files', [
                         'purpose' => 'user_data',
                     ]);
 
@@ -362,10 +402,7 @@ class CatalogItemController extends Controller implements HasMiddleware
             ], 500);
         }
 
-        // ==========================================
-        // 2) Llamar a /v1/responses con input_file
-        //    PIDIENDO VARIOS PRODUCTOS (items[])
-        // ==========================================
+        // 2) Llamar a /v1/responses pidiendo varios productos
         $systemPrompt = <<<TXT
 Eres un asistente experto en catálogo de productos, papelería, equipo médico y comercio electrónico (México).
 
@@ -382,7 +419,8 @@ A partir de los archivos (PDF o imágenes) que te envío (facturas, remisiones, 
   "price": 0,
   "brand_name": "",
   "model_name": "",
-  "meli_gtin": ""
+  "meli_gtin": "",
+  "quantity": 0
 }
 
 La RESPUESTA FINAL debe ser EXCLUSIVAMENTE un JSON con esta forma:
@@ -403,6 +441,7 @@ Reglas:
 - "brand_name": marca comercial que ve el cliente (Bic, Azor, Steris, Olympus, etc.). Si no aparece, cadena vacía.
 - "model_name": modelo o referencia del producto (por ejemplo 1488, Vision Pro, etc.). Si no aparece, cadena vacía.
 - "meli_gtin": código de barras EAN/UPC si lo detectas completo (solo dígitos); si no, cadena vacía.
+- "quantity": número de piezas/unidades compradas según el renglón (por ejemplo, si dice 3 cajas, quantity = 3). Si no se ve claro, usa 1.
 - Si solo se ve un producto, devuelve un array con un solo elemento en "items".
 - No inventes datos que claramente no aparezcan.
 TXT;
@@ -415,7 +454,7 @@ TXT;
                 ->withHeaders([
                     'Content-Type' => 'application/json',
                 ])
-                ->post($baseUrl . '/v1/responses', [
+                ->post($baseUrl.'/v1/responses', [
                     'model'        => $modelId,
                     'instructions' => $systemPrompt,
                     'input'        => [
@@ -449,9 +488,7 @@ TXT;
 
             $json = $response->json();
 
-            // ==========================================
-            // Extraer el texto de salida del Response
-            // ==========================================
+            // Extraer texto del output
             $rawText = null;
 
             if (isset($json['output']) && is_array($json['output'])) {
@@ -466,7 +503,6 @@ TXT;
                 }
             }
 
-            // Fallback por si el formato cambia
             if (!$rawText && isset($json['output'][0]['content'][0]['text'])) {
                 $rawText = $json['output'][0]['content'][0]['text'];
             }
@@ -490,18 +526,14 @@ TXT;
                 ], 500);
             }
 
-            // ==========================================
             // Normalizar a lista de items
-            // ==========================================
             $items = [];
 
             if (isset($data['items']) && is_array($data['items'])) {
                 $items = $data['items'];
             } elseif (is_array($data) && array_is_list($data)) {
-                // Por si regresara directamente un array
                 $items = $data;
             } else {
-                // Por si regresara un solo objeto suelto
                 $items = [$data];
             }
 
@@ -512,11 +544,22 @@ TXT;
                     continue;
                 }
 
+                // Normalizar precio
                 $price = $row['price'] ?? null;
                 if (is_string($price)) {
                     $clean = preg_replace('/[^0-9.,]/', '', $price);
                     $clean = str_replace(',', '.', $clean);
                     $price = is_numeric($clean) ? (float) $clean : null;
+                }
+
+                // 🔹 Normalizar cantidad → stock sugerido
+                $qty = $row['quantity'] ?? ($row['qty'] ?? ($row['cantidad'] ?? ($row['stock'] ?? null)));
+                if (is_string($qty)) {
+                    $cleanQty = preg_replace('/[^0-9]/', '', $qty);
+                    $qty = is_numeric($cleanQty) ? (int) $cleanQty : null;
+                }
+                if ($qty !== null) {
+                    $qty = max(0, (int) $qty);
                 }
 
                 $normalizedItems[] = [
@@ -528,6 +571,7 @@ TXT;
                     'brand_name'  => $row['brand_name']  ?? null,
                     'model_name'  => $row['model_name']  ?? null,
                     'meli_gtin'   => $row['meli_gtin']   ?? null,
+                    'stock'       => $qty,
                 ];
             }
 
@@ -537,9 +581,6 @@ TXT;
                 ], 500);
             }
 
-            // suggestions = primer producto (para rellenar formulario rápido)
-            // items       = lista completa (para mostrar tabla "captura con IA"
-            //             y permitir que vayas guardando uno por uno sin re-subir PDF)
             $first = $normalizedItems[0];
 
             return response()->json([
@@ -567,7 +608,7 @@ TXT;
                 'ensure_picture'     => false,
             ]);
         } catch (\Throwable $e) {
-            // No romper flujo de interfaz
+            // no romper la interfaz
         }
     }
 }

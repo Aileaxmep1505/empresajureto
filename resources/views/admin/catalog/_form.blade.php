@@ -29,18 +29,42 @@
     </div>
 
     <p class="ai-helper-text">
-      La IA leerá lo que vea y te sugerirá automáticamente: <strong>nombre, descripción, extracto, precio, marca, modelo y GTIN</strong>.
+      La IA leerá lo que vea y te sugerirá automáticamente:
+      <strong>nombre, descripción, extracto, precio, marca, modelo, GTIN y cantidad (stock)</strong>.
       Siempre puedes revisar, corregir y complementar antes de guardar.
     </p>
 
     <div class="ai-helper-row">
       <div class="ai-helper-input">
         <label class="lbl" style="margin-top:0;">Archivos para IA</label>
-        <input id="ai_files" name="ai_files[]" type="file" multiple
-               accept="image/*,.pdf"
-               class="inp">
+
+        {{-- 🔹 Dropzone moderna / arrastrar y soltar --}}
+        <div id="ai-dropzone" class="ai-dropzone">
+          <div class="ai-dropzone-icon">📄</div>
+          <div class="ai-dropzone-body">
+            <div class="ai-dropzone-title">Arrastra aquí tus PDFs o imágenes</div>
+            <div class="ai-dropzone-sub">
+              o
+              <button type="button" class="ai-dropzone-btn">Elegir archivos</button>
+            </div>
+            <div class="ai-dropzone-hint">JPG, PNG, WEBP o PDF · máx. ~8 MB c/u</div>
+          </div>
+
+          {{-- input real (oculto visualmente pero funcional) --}}
+          <input id="ai_files"
+                 name="ai_files[]"
+                 type="file"
+                 multiple
+                 accept="image/*,.pdf"
+                 class="ai-dropzone-input">
+        </div>
+
+        <div id="ai-files-list" class="ai-files-list">
+          {{-- chips con archivos seleccionados --}}
+        </div>
+
         <p class="hint">
-          Acepta varias imágenes y PDFs (máx. ~8 MB c/u). Se usan solo para generar sugerencias, no se guardan en tu sistema.
+          Se usan solo para generar sugerencias, <strong>no se guardan</strong> en tu sistema.
         </p>
       </div>
 
@@ -58,7 +82,7 @@
 </div>
 
 {{-- =========================================================
-   🔹 TABLA DE PRODUCTOS DETECTADOS POR IA (CAPTURAR CON IA)
+   🔹 TABLA DE PRODUCTOS DETECTADOS POR IA
    ========================================================= --}}
 <div id="ai-items-panel" class="ai-items-panel" style="display:none;">
   <div class="ai-items-header">
@@ -69,7 +93,15 @@
         Haz clic en <strong>“Usar este”</strong> para rellenar el formulario con ese producto sin volver a subir el archivo.
       </p>
     </div>
-    <span class="ai-items-badge" id="ai-items-count"></span>
+
+    <div class="ai-items-header-right">
+      <span class="ai-items-badge" id="ai-items-count"></span>
+      <button type="button"
+              id="ai-clear-list"
+              class="btn btn-ghost btn-xs ai-clear-btn">
+        Limpiar lista
+      </button>
+    </div>
   </div>
 
   <div class="ai-items-table-wrapper">
@@ -166,7 +198,7 @@
           <input name="stock" type="number" step="1" min="0" class="inp"
                  value="{{ old('stock', $item->stock ?? 0) }}">
           <p class="hint">
-            Existencias disponibles. Puedes ajustarlo más adelante desde tu módulo de inventarios.
+            Unidades disponibles. La IA puede sugerir la cantidad comprada según el documento.
           </p>
         </div>
       </div>
@@ -651,6 +683,111 @@
   }
 
   /* =========================================================
+     🔹 Dropzone IA
+     ========================================================= */
+  .ai-dropzone{
+    position:relative;
+    border-radius:16px;
+    border:1.5px dashed rgba(148,163,184,.9);
+    background:linear-gradient(135deg, rgba(239,246,255,.9), #ffffff);
+    padding:10px 12px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    cursor:pointer;
+    transition:border-color .18s ease, background .18s ease, box-shadow .18s ease, transform .1s ease;
+  }
+  .ai-dropzone:hover{
+    border-color:#60a5fa;
+    box-shadow:0 10px 25px rgba(37,99,235,.16);
+    transform:translateY(-1px);
+  }
+  .ai-dropzone.is-dragover{
+    border-color:#2563eb;
+    background:radial-gradient(circle at top left,#dbeafe 0,#eff6ff 45%,#ffffff 100%);
+    box-shadow:0 14px 32px rgba(37,99,235,.25);
+  }
+  .ai-dropzone-icon{
+    width:36px;
+    height:36px;
+    border-radius:999px;
+    background:#1d4ed8;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:1.2rem;
+    color:#e0f2fe;
+    box-shadow:0 12px 24px rgba(30,64,175,.55);
+    flex:0 0 auto;
+  }
+  .ai-dropzone-body{
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+  }
+  .ai-dropzone-title{
+    font-size:.86rem;
+    font-weight:600;
+    color:#0f172a;
+  }
+  .ai-dropzone-sub{
+    font-size:.8rem;
+    color:#475569;
+  }
+  .ai-dropzone-btn{
+    border:0;
+    border-radius:999px;
+    padding:4px 10px;
+    font-size:.78rem;
+    font-weight:600;
+    margin-left:4px;
+    background:#0f172a;
+    color:#f9fafb;
+    cursor:pointer;
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+  }
+  .ai-dropzone-btn:hover{
+    background:#111827;
+  }
+  .ai-dropzone-hint{
+    font-size:.75rem;
+    color:#6b7280;
+  }
+  .ai-dropzone-input{
+    position:absolute;
+    inset:0;
+    opacity:0;
+    cursor:pointer;
+  }
+
+  .ai-files-list{
+    margin-top:6px;
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+  }
+  .ai-file-chip{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:3px 8px;
+    font-size:.75rem;
+    border-radius:999px;
+    background:#eff6ff;
+    color:#1e293b;
+    border:1px solid #dbeafe;
+    max-width:100%;
+  }
+  .ai-file-chip span{
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    max-width:180px;
+  }
+
+  /* =========================================================
      🔹 Panel de productos IA (lista)
      ========================================================= */
   .ai-items-panel{
@@ -668,6 +805,11 @@
     justify-content:space-between;
     gap:10px;
     margin-bottom:10px;
+  }
+  .ai-items-header-right{
+    display:flex;
+    align-items:center;
+    gap:8px;
   }
   .ai-items-title{
     font-size:.9rem;
@@ -688,6 +830,9 @@
     color:#15803d;
     font-weight:600;
     white-space:nowrap;
+  }
+  .ai-clear-btn{
+    font-size:.75rem;
   }
   .ai-items-table-wrapper{
     width:100%;
@@ -768,10 +913,55 @@
       display:none;
     }
   }
+
+  /* =========================================================
+     🔹 SweetAlert minimalista / moderno
+     ========================================================= */
+  .swal2-popup-compact{
+    border-radius:18px !important;
+    padding:12px 16px !important;
+    box-shadow:0 18px 40px rgba(15,23,42,.18) !important;
+    backdrop-filter:blur(16px);
+    background:radial-gradient(circle at top left,#eff6ff 0,#ffffff 60%) !important;
+    border:1px solid rgba(148,163,184,.35);
+    font-family:"Söhne","Circular Std","Poppins",system-ui,-apple-system,"Segoe UI","Helvetica Neue",Arial,sans-serif;
+  }
+  .swal2-title{
+    font-size:.9rem !important;
+    font-weight:700 !important;
+    color:#0f172a !important;
+  }
+  .swal2-html-container{
+    font-size:.8rem !important;
+    color:#4b5563 !important;
+    margin-top:4px !important;
+  }
+  /* solo ajustamos márgenes, NO tamaños del ícono para que la palomita/tache se vean bien */
+  .swal2-icon{
+    margin:0 0 8px 0 !important;
+  }
+  .swal2-actions{
+    margin-top:10px !important;
+  }
+  .swal2-styled.swal2-confirm{
+    border-radius:999px !important;
+    padding:7px 16px !important;
+    font-size:.78rem !important;
+    font-weight:600 !important;
+    background:#2563eb !important;
+  }
+  .swal2-styled.swal2-cancel{
+    border-radius:999px !important;
+    padding:7px 16px !important;
+    font-size:.78rem !important;
+    font-weight:500 !important;
+  }
 </style>
 @endpush
 
 @push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <script>
   function addImageRow(){
     const list = document.getElementById('images-list');
@@ -785,7 +975,45 @@
   }
 
   // ================================
-  // 🔹 IA: subir archivos y rellenar campos + lista de items
+  // 🔹 Config base de SweetAlert UI
+  // ================================
+  const uiToast = Swal.mixin({
+    toast: true,
+    position: 'top-end',
+    showConfirmButton: false,
+    timer: 3200,
+    timerProgressBar: true,
+    customClass: {
+      popup: 'swal2-popup-compact',
+    }
+  });
+
+  const AiAlerts = {
+    success(title, text){
+      uiToast.fire({
+        icon: 'success',
+        title: title || 'Listo',
+        text: text || ''
+      });
+    },
+    error(title, text){
+      uiToast.fire({
+        icon: 'error',
+        title: title || 'Error',
+        text: text || ''
+      });
+    },
+    info(title, text){
+      uiToast.fire({
+        icon: 'info',
+        title: title || 'Info',
+        text: text || ''
+      });
+    }
+  };
+
+  // ================================
+  // 🔹 IA: subir archivos + dropzone + rellenar campos
   // ================================
   document.addEventListener('DOMContentLoaded', function () {
     const btnAi      = document.getElementById('btn-ai-analyze');
@@ -797,13 +1025,201 @@
     const tbody      = document.getElementById('ai-items-tbody');
     const countEl    = document.getElementById('ai-items-count');
 
+    const dropzone   = document.getElementById('ai-dropzone');
+    const filesList  = document.getElementById('ai-files-list');
+    const clearBtn   = document.getElementById('ai-clear-list');
+
+    // 🔐 claves para localStorage
+    const LS_KEY_ITEMS = 'catalog_ai_items';
+    const LS_KEY_INDEX = 'catalog_ai_index';
+
     let aiItems = [];
 
+    // ========= helpers de almacenamiento =========
+    function saveAiItemsToStorage() {
+      try {
+        localStorage.setItem(LS_KEY_ITEMS, JSON.stringify(aiItems || []));
+      } catch (e) {
+        console.error('No se pudo guardar ai_items en localStorage', e);
+      }
+    }
+
+    function saveAiIndexToStorage(idx) {
+      try {
+        localStorage.setItem(LS_KEY_INDEX, String(idx ?? 0));
+      } catch (e) {}
+    }
+
+    function loadAiItemsFromStorage() {
+      try {
+        const raw = localStorage.getItem(LS_KEY_ITEMS);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (e) {
+        console.error('No se pudieron leer ai_items de localStorage', e);
+        return [];
+      }
+    }
+
+    function loadAiIndexFromStorage() {
+      try {
+        const raw = localStorage.getItem(LS_KEY_INDEX);
+        const idx = parseInt(raw ?? '0', 10);
+        return isNaN(idx) ? 0 : Math.max(0, idx);
+      } catch (e) {
+        return 0;
+      }
+    }
+
+    // ========= Dropzone: arrastrar / soltar =========
+    function refreshFileChips(files) {
+      if (!filesList) return;
+      filesList.innerHTML = '';
+      if (!files || !files.length) return;
+
+      Array.from(files).forEach(file => {
+        const chip = document.createElement('div');
+        chip.className = 'ai-file-chip';
+        chip.innerHTML = `<span>${file.name}</span>`;
+        filesList.appendChild(chip);
+      });
+    }
+
+    if (dropzone && inputFiles) {
+      dropzone.addEventListener('click', function (e) {
+        // evitamos doble apertura, pero siempre que hagas click en el área abre el picker
+        if (e.target.closest('.ai-dropzone-btn')) {
+          e.preventDefault();
+        }
+        inputFiles.click();
+      });
+
+      inputFiles.addEventListener('change', function () {
+        refreshFileChips(inputFiles.files);
+      });
+
+      ['dragenter','dragover'].forEach(evt => {
+        dropzone.addEventListener(evt, function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          dropzone.classList.add('is-dragover');
+        });
+      });
+
+      ['dragleave','dragend','drop'].forEach(evt => {
+        dropzone.addEventListener(evt, function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          dropzone.classList.remove('is-dragover');
+        });
+      });
+
+      dropzone.addEventListener('drop', function (e) {
+        const dt = new DataTransfer();
+        Array.from(e.dataTransfer.files || []).forEach(file => {
+          if (file.type.startsWith('image/') || file.type === 'application/pdf') {
+            dt.items.add(file);
+          }
+        });
+        if (dt.files.length) {
+          inputFiles.files = dt.files;
+          refreshFileChips(dt.files);
+        }
+      });
+    }
+
+    // ========= limpiar lista IA manualmente =========
+    if (clearBtn) {
+      clearBtn.addEventListener('click', function () {
+        aiItems = [];
+        try {
+          localStorage.removeItem(LS_KEY_ITEMS);
+          localStorage.removeItem(LS_KEY_INDEX);
+        } catch (e) {}
+        if (tbody) tbody.innerHTML = '';
+        if (panel) panel.style.display = 'none';
+        if (filesList) filesList.innerHTML = '';
+        if (inputFiles) inputFiles.value = '';
+        if (statusEl) statusEl.textContent = 'Se limpió la lista de productos IA. Puedes subir un nuevo PDF o imágenes.';
+        AiAlerts.info('Lista limpia', 'La lista de productos sugeridos por IA se reinició.');
+      });
+    }
+
+    // ========= reconstruir lista desde localStorage al cargar =========
+    function attachUseButtons() {
+      if (!tbody) return;
+      tbody.querySelectorAll('button[data-ai-index]').forEach(btn => {
+        btn.addEventListener('click', function () {
+          const i = parseInt(this.getAttribute('data-ai-index'), 10);
+          const item = aiItems[i];
+          if (!item) return;
+          saveAiIndexToStorage(i); // recordamos cuál usaste
+          fillFromItem(item, { markSuggested: true });
+          if (statusEl) {
+            statusEl.textContent = 'Se cargó el producto #' + (i + 1) + ' desde la lista IA. Revisa y ajusta antes de guardar.';
+          }
+          AiAlerts.info('Producto cargado', 'Se llenó el formulario con el producto #' + (i + 1) + '.');
+        });
+      });
+    }
+
+    function renderAiTable() {
+      if (!tbody || !panel) return;
+      tbody.innerHTML = '';
+
+      aiItems.forEach((item, idx) => {
+        const tr = document.createElement('tr');
+        const precio = item.price != null && item.price !== ''
+          ? '$ ' + Number(item.price).toFixed(2)
+          : '—';
+
+        tr.innerHTML = `
+          <td>${idx + 1}</td>
+          <td>${escapeHtml(item.name || '')}</td>
+          <td>${precio}</td>
+          <td>${escapeHtml(item.brand_name || '')}</td>
+          <td>${escapeHtml(item.model_name || '')}</td>
+          <td>${escapeHtml(item.meli_gtin || '')}</td>
+          <td>
+            <button type="button"
+                    class="btn btn-ghost btn-xs"
+                    data-ai-index="${idx}">Usar este</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      if (countEl) {
+        countEl.textContent = aiItems.length === 1
+          ? '1 producto detectado'
+          : aiItems.length + ' productos detectados';
+      }
+
+      panel.style.display = aiItems.length ? 'block' : 'none';
+      attachUseButtons();
+    }
+
+    aiItems = loadAiItemsFromStorage();
+    if (aiItems.length) {
+      renderAiTable();
+      if (statusEl) {
+        statusEl.textContent = 'Se restauraron los productos detectados por IA. Puedes seguir capturando sin volver a subir el PDF.';
+      }
+      const idx = loadAiIndexFromStorage();
+      const item = aiItems[idx] || aiItems[0];
+      if (item) {
+        fillFromItem(item, { markSuggested: true });
+      }
+    }
+
+    // ========= botón Analizar con IA =========
     if (!btnAi || !inputFiles) return;
 
     btnAi.addEventListener('click', function () {
       if (!inputFiles.files || !inputFiles.files.length) {
-        alert('Sube al menos un archivo (imagen o PDF) para que la IA pueda analizarlo.');
+        AiAlerts.info('Sube un archivo', 'Necesito al menos una imagen o PDF para analizar con IA.');
+        if (statusEl) statusEl.textContent = 'Sube un archivo para que la IA pueda analizarlo.';
         return;
       }
 
@@ -827,7 +1243,7 @@
         statusEl.textContent = 'Enviando archivos a la IA, esto puede tardar unos segundos...';
       }
 
-      // Limpiar tabla anterior
+      // Limpiar tabla anterior (en memoria, pero aún no tocamos localStorage)
       aiItems = [];
       if (tbody) tbody.innerHTML = '';
       if (panel) panel.style.display = 'none';
@@ -840,72 +1256,30 @@
       .then(data => {
         if (data.error) {
           if (statusEl) statusEl.textContent = 'Error: ' + (data.error || 'No fue posible obtener sugerencias.');
+          AiAlerts.error('Error al analizar con IA', data.error || 'No fue posible obtener sugerencias.');
           return;
         }
 
-        // 1) Rellenar el formulario con el primer producto (suggestions)
         const s = data.suggestions || {};
         fillFromItem(s, { markSuggested: true });
 
-        // 2) Pintar la lista completa de productos (items[])
         aiItems = Array.isArray(data.items) ? data.items : [];
+        saveAiItemsToStorage();
+        saveAiIndexToStorage(0);
 
-        if (aiItems.length && tbody && panel) {
-          tbody.innerHTML = '';
-
-          aiItems.forEach((item, idx) => {
-            const tr = document.createElement('tr');
-            const precio = item.price != null && item.price !== ''
-              ? '$ ' + Number(item.price).toFixed(2)
-              : '—';
-
-            tr.innerHTML = `
-              <td>${idx + 1}</td>
-              <td>${escapeHtml(item.name || '')}</td>
-              <td>${precio}</td>
-              <td>${escapeHtml(item.brand_name || '')}</td>
-              <td>${escapeHtml(item.model_name || '')}</td>
-              <td>${escapeHtml(item.meli_gtin || '')}</td>
-              <td>
-                <button type="button"
-                        class="btn btn-ghost btn-xs"
-                        data-ai-index="${idx}">
-                  Usar este
-                </button>
-              </td>
-            `;
-            tbody.appendChild(tr);
-          });
-
-          if (countEl) {
-            countEl.textContent = aiItems.length === 1
-              ? '1 producto detectado'
-              : aiItems.length + ' productos detectados';
-          }
-
-          panel.style.display = 'block';
-
-          // Delegar eventos "Usar este"
-          tbody.querySelectorAll('button[data-ai-index]').forEach(btn => {
-            btn.addEventListener('click', function () {
-              const i = parseInt(this.getAttribute('data-ai-index'), 10);
-              const item = aiItems[i];
-              if (!item) return;
-              fillFromItem(item, { markSuggested: true });
-              if (statusEl) {
-                statusEl.textContent = 'Se cargó el producto #' + (i + 1) + ' desde la lista IA. Revisa y ajusta antes de guardar.';
-              }
-            });
-          });
+        if (aiItems.length) {
+          renderAiTable();
         }
 
         if (statusEl) {
           statusEl.textContent = 'Listo: revisa y ajusta las sugerencias marcadas en verde antes de guardar.';
         }
+        AiAlerts.success('Sugerencias listas', 'La IA completó los campos principales del producto.');
       })
       .catch(err => {
         console.error(err);
         if (statusEl) statusEl.textContent = 'Ocurrió un error al llamar a la IA.';
+        AiAlerts.error('Error de conexión', 'Ocurrió un problema al contactar la IA.');
       })
       .finally(() => {
         btnAi.disabled = false;
@@ -926,14 +1300,12 @@
       el.value = value;
       if (markSuggested) {
         el.classList.add('ai-suggested');
-        // quitar highlight suave después de unos segundos
         setTimeout(() => el.classList.remove('ai-suggested'), 7000);
       }
     }
 
     function fillFromItem(item, opts = {}) {
       const markSuggested = !!opts.markSuggested;
-
       if (!item || typeof item !== 'object') return;
 
       applyAiSuggestion('name',        item.name,        markSuggested);
@@ -944,6 +1316,10 @@
       applyAiSuggestion('brand_name',  item.brand_name,  markSuggested);
       applyAiSuggestion('model_name',  item.model_name,  markSuggested);
       applyAiSuggestion('meli_gtin',   item.meli_gtin,   markSuggested);
+
+      // 🔹 llenar stock/cantidad sugerida por la IA si viene
+      const qty = item.stock ?? item.quantity ?? item.qty ?? item.cantidad;
+      applyAiSuggestion('stock', qty, markSuggested);
     }
 
     function escapeHtml(str) {
@@ -957,4 +1333,57 @@
     }
   });
 </script>
+
+@if(session('ok'))
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    // 🔹 Consumir el último producto usado de localStorage (se asume que sí se guardó)
+    try {
+      const LS_KEY_ITEMS = 'catalog_ai_items';
+      const LS_KEY_INDEX = 'catalog_ai_index';
+      const rawItems = localStorage.getItem(LS_KEY_ITEMS);
+      if (rawItems) {
+        let items = JSON.parse(rawItems);
+        if (!Array.isArray(items)) items = [];
+        const rawIdx = localStorage.getItem(LS_KEY_INDEX);
+        let idx = parseInt(rawIdx ?? '0', 10);
+        if (isNaN(idx) || idx < 0 || idx >= items.length) {
+          idx = 0;
+        }
+        if (items.length) {
+          items.splice(idx, 1); // quitamos el que se acaba de guardar
+          localStorage.setItem(LS_KEY_ITEMS, JSON.stringify(items));
+          localStorage.setItem(LS_KEY_INDEX, '0');
+        }
+      }
+    } catch (e) {}
+
+    Swal.fire({
+      icon: 'success',
+      title: 'Listo ✨',
+      text: @json(session('ok')),
+      customClass: {
+        popup: 'swal2-popup-compact'
+      },
+      confirmButtonText: 'Continuar'
+    });
+  });
+</script>
+@endif
+
+@if($errors->any())
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    Swal.fire({
+      icon: 'error',
+      title: 'Hay campos por revisar',
+      html: `{!! implode('<br>', $errors->all()) !!}`,
+      customClass: {
+        popup: 'swal2-popup-compact'
+      },
+      confirmButtonText: 'Entendido'
+    });
+  });
+</script>
+@endif
 @endpush
