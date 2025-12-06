@@ -34,11 +34,14 @@ class RunAgenda extends Command
         $this->info("Eventos a notificar: {$events->count()}");
 
         foreach ($events as $event) {
-            SendAgendaReminderJob::dispatch($event);
+            // 🚨 IMPORTANTE: mandamos SOLO el ID, no el modelo completo
+            SendAgendaReminderJob::dispatch($event->id);
+
             Log::info("agenda:run → Job despachado", [
                 'event_id' => $event->id,
                 'title'    => $event->title,
             ]);
+
             $this->info("Job despachado para event_id={$event->id} -> {$event->title}");
         }
 
