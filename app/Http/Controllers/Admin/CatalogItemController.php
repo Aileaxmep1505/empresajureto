@@ -65,6 +65,7 @@ class CatalogItemController extends Controller implements HasMiddleware
             'sku'         => ['nullable', 'string', 'max:120'],
             'price'       => ['required', 'numeric', 'min:0'],
             'sale_price'  => ['nullable', 'numeric', 'min:0'],
+            'stock'       => ['nullable', 'integer', 'min:0'], // 👈 NUEVO
             'status'      => ['required', 'integer', 'in:0,1,2'], // 0=borrador 1=publicado 2=oculto
             'image_url'   => ['nullable', 'string', 'max:2048'],
             'images'      => ['nullable', 'array'],
@@ -86,6 +87,7 @@ class CatalogItemController extends Controller implements HasMiddleware
         }
 
         $data['is_featured'] = (bool) ($data['is_featured'] ?? false);
+        $data['stock']       = $data['stock'] ?? 0;
 
         $item = CatalogItem::create($data);
 
@@ -109,6 +111,7 @@ class CatalogItemController extends Controller implements HasMiddleware
             'sku'         => ['nullable', 'string', 'max:120'],
             'price'       => ['required', 'numeric', 'min:0'],
             'sale_price'  => ['nullable', 'numeric', 'min:0'],
+            'stock'       => ['nullable', 'integer', 'min:0'], // 👈 NUEVO
             'status'      => ['required', 'integer', 'in:0,1,2'],
             'image_url'   => ['nullable', 'string', 'max:2048'],
             'images'      => ['nullable', 'array'],
@@ -126,6 +129,7 @@ class CatalogItemController extends Controller implements HasMiddleware
 
         $data['slug']        = $data['slug'] ?: Str::slug($data['name']);
         $data['is_featured'] = (bool) ($data['is_featured'] ?? false);
+        $data['stock']       = $data['stock'] ?? 0;
 
         $catalogItem->update($data);
 
@@ -264,10 +268,7 @@ class CatalogItemController extends Controller implements HasMiddleware
     /* ===============================================
      |  IA: Captura desde archivos / imágenes / PDF
      |  POST /admin/catalog/ai-from-upload
-     ================================================*/
-       /* ===============================================
-     |  IA: Captura desde archivos / imágenes / PDF
-     |  POST /admin/catalog/ai-from-upload
+     |  => soporta múltiples productos (items[])
      ================================================*/
     public function aiFromUpload(Request $request)
     {
@@ -287,7 +288,7 @@ class CatalogItemController extends Controller implements HasMiddleware
         $apiKey  = config('services.openai.api_key') ?: config('services.openai.key');
         $baseUrl = rtrim(config('services.openai.base_url', 'https://api.openai.com'), '/');
 
-        // Modelo rápido (AJUSTA ESTO si tu proyecto no tiene este modelo)
+        // Modelo rápido (ajustable)
         $modelId = 'gpt-4.1-mini';
 
         if (!$apiKey) {
@@ -299,7 +300,6 @@ class CatalogItemController extends Controller implements HasMiddleware
 
         // ==========================================
         // 1) Subir todos los archivos a /v1/files
-        //    IMPORTANTE: usar attach() con filename
         // ==========================================
         $fileInputs = [];
 
@@ -313,7 +313,7 @@ class CatalogItemController extends Controller implements HasMiddleware
                     ->attach(
                         'file',
                         file_get_contents($file->getRealPath()),
-                        $file->getClientOriginalName() // aquí va el nombre con .pdf/.jpg/etc
+                        $file->getClientOriginalName()
                     )
                     ->post($baseUrl . '/v1/files', [
                         'purpose' => 'user_data',
@@ -341,7 +341,6 @@ class CatalogItemController extends Controller implements HasMiddleware
                     ], 500);
                 }
 
-                // Este objeto es lo que se manda como "input_file" al modelo
                 $fileInputs[] = [
                     'type'    => 'input_file',
                     'file_id' => $fileId,
@@ -365,13 +364,15 @@ class CatalogItemController extends Controller implements HasMiddleware
 
         // ==========================================
         // 2) Llamar a /v1/responses con input_file
+        //    PIDIENDO VARIOS PRODUCTOS (items[])
         // ==========================================
         $systemPrompt = <<<TXT
-Eres un asistente experto en catálogo de productos, comercio electrónico y Mercado Libre.
+Eres un asistente experto en catálogo de productos, papelería, equipo médico y comercio electrónico (México).
 
-A partir de los archivos (PDF o imágenes) que te envío:
-- Identifica el PRODUCTO principal (no la tienda).
-- Responde con un JSON ESTRICTO con ESTA estructura (y solo esa):
+A partir de los archivos (PDF o imágenes) que te envío (facturas, remisiones, listados):
+- Ignora datos de la tienda, RFC, direcciones, totales, impuestos y notas generales.
+- Identifica TODOS los renglones que describan productos (conceptos de venta).
+- Para cada producto, genera un objeto con esta estructura EXACTA:
 
 {
   "name": "Nombre completo del producto",
@@ -384,15 +385,29 @@ A partir de los archivos (PDF o imágenes) que te envío:
   "meli_gtin": ""
 }
 
+La RESPUESTA FINAL debe ser EXCLUSIVAMENTE un JSON con esta forma:
+
+{
+  "items": [
+    { ...producto_1... },
+    { ...producto_2... },
+    { ...producto_3... }
+  ]
+}
+
 Reglas:
-- Responde ÚNICAMENTE con ese JSON y nada más.
-- "price": en MXN, numérico (sin símbolos). Si no ves un precio claro, deja 0.
-- "brand_name": marca comercial que ve el cliente (si no aparece, deja cadena vacía).
-- "model_name": modelo si aparece; si no, cadena vacía.
-- "meli_gtin": código de barras EAN/UPC si lo detectas completo; si no, cadena vacía.
+- Responde ÚNICAMENTE ese JSON y nada más (sin texto adicional).
+- "name": debe ser claro: tipo de producto + marca + modelo + medida o presentación si aplica.
+- "slug": en kebab-case, basado en el nombre (sin tildes, sin símbolos, solo letras, números y guiones).
+- "price": en MXN, numérico (sin símbolo $). Usa el precio unitario si aparece; si no hay, usa 0.
+- "brand_name": marca comercial que ve el cliente (Bic, Azor, Steris, Olympus, etc.). Si no aparece, cadena vacía.
+- "model_name": modelo o referencia del producto (por ejemplo 1488, Vision Pro, etc.). Si no aparece, cadena vacía.
+- "meli_gtin": código de barras EAN/UPC si lo detectas completo (solo dígitos); si no, cadena vacía.
+- Si solo se ve un producto, devuelve un array con un solo elemento en "items".
+- No inventes datos que claramente no aparezcan.
 TXT;
 
-        $userText = "Analiza los archivos adjuntos (PDFs/imágenes) y genera SOLO el JSON del producto principal.";
+        $userText = "Analiza los archivos adjuntos (PDFs/imágenes) y genera SOLO el JSON con items[], uno por producto encontrado.";
 
         try {
             $response = Http::withToken($apiKey)
@@ -417,7 +432,7 @@ TXT;
                             ),
                         ],
                     ],
-                    'max_output_tokens' => 1024,
+                    'max_output_tokens' => 2048,
                     'temperature'       => 0.1,
                 ]);
 
@@ -475,25 +490,61 @@ TXT;
                 ], 500);
             }
 
-            // Normalizar un poco el price si viene como string con símbolos
-            $price = $data['price'] ?? null;
-            if (is_string($price)) {
-                $clean = preg_replace('/[^0-9.,]/', '', $price);
-                $clean = str_replace(',', '.', $clean);
-                $price = is_numeric($clean) ? (float) $clean : null;
+            // ==========================================
+            // Normalizar a lista de items
+            // ==========================================
+            $items = [];
+
+            if (isset($data['items']) && is_array($data['items'])) {
+                $items = $data['items'];
+            } elseif (is_array($data) && array_is_list($data)) {
+                // Por si regresara directamente un array
+                $items = $data;
+            } else {
+                // Por si regresara un solo objeto suelto
+                $items = [$data];
             }
 
+            $normalizedItems = [];
+
+            foreach ($items as $row) {
+                if (!is_array($row)) {
+                    continue;
+                }
+
+                $price = $row['price'] ?? null;
+                if (is_string($price)) {
+                    $clean = preg_replace('/[^0-9.,]/', '', $price);
+                    $clean = str_replace(',', '.', $clean);
+                    $price = is_numeric($clean) ? (float) $clean : null;
+                }
+
+                $normalizedItems[] = [
+                    'name'        => $row['name']        ?? null,
+                    'slug'        => $row['slug']        ?? null,
+                    'description' => $row['description'] ?? null,
+                    'excerpt'     => $row['excerpt']     ?? null,
+                    'price'       => $price,
+                    'brand_name'  => $row['brand_name']  ?? null,
+                    'model_name'  => $row['model_name']  ?? null,
+                    'meli_gtin'   => $row['meli_gtin']   ?? null,
+                ];
+            }
+
+            if (empty($normalizedItems)) {
+                return response()->json([
+                    'error' => 'La IA no devolvió productos reconocibles.',
+                ], 500);
+            }
+
+            // suggestions = primer producto (para rellenar formulario rápido)
+            // items       = lista completa (para mostrar tabla "captura con IA"
+            //             y permitir que vayas guardando uno por uno sin re-subir PDF)
+            $first = $normalizedItems[0];
+
             return response()->json([
-                'suggestions' => [
-                    'name'       => $data['name']        ?? null,
-                    'slug'       => $data['slug']        ?? null,
-                    'description'=> $data['description'] ?? null,
-                    'excerpt'    => $data['excerpt']     ?? null,
-                    'price'      => $price,
-                    'brand_name' => $data['brand_name']  ?? null,
-                    'model_name' => $data['model_name']  ?? null,
-                    'meli_gtin'  => $data['meli_gtin']   ?? null,
-                ],
+                'suggestions' => $first,
+                'items'       => $normalizedItems,
             ]);
         } catch (\Throwable $e) {
             Log::error('Error llamando a OpenAI (Files + Responses) para catálogo', [

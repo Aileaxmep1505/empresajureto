@@ -1,4 +1,4 @@
-<?php
+<?php 
 
 // app/Models/CatalogItem.php
 namespace App\Models;
@@ -19,6 +19,7 @@ class CatalogItem extends Model
         'sku',
         'price',
         'sale_price',
+        'stock',          // 👈 NUEVO: stock global del producto
         'status',
         'excerpt',
         'description',
@@ -44,6 +45,7 @@ class CatalogItem extends Model
     protected $casts = [
         'price'          => 'decimal:2',
         'sale_price'     => 'decimal:2',
+        'stock'          => 'integer',   // 👈 casteamos como entero
         'images'         => 'array',
         'is_featured'    => 'boolean',
         'published_at'   => 'datetime',

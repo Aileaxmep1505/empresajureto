@@ -863,3 +863,5 @@ Route::get('manual-invoices/{manualInvoice}/pdf', [ManualInvoiceController::clas
 
 Route::get('manual-invoices/{manualInvoice}/xml', [ManualInvoiceController::class, 'downloadXml'])
     ->name('manual_invoices.download_xml');
+Route::post('/admin/catalog/ai-from-upload', [CatalogItemController::class, 'aiFromUpload'])
+    ->name('admin.catalog.ai-from-upload');
