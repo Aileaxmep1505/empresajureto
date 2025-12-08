@@ -17,18 +17,19 @@ use App\Models\{
     TicketAudit
 };
 
-// Servicio de IA (si lo tienes)
 use App\Services\AiDynamicChecklistService;
 
 class TicketStageController extends Controller
 {
-    /** Crear etapa manual (con assignee, SLA y prompt IA opcional) */
+    /* =========================================================
+     * 1) CREAR ETAPA MANUAL (configurador)
+     * ========================================================= */
     public function store(Request $r, Ticket $ticket)
     {
         $data = $r->validate([
             'name'              => ['required','string','max:180'],
             'assignee_id'       => ['nullable','integer'],
-            'due_at'            => ['nullable','date'],
+            'due_at'            => ['nullable','date'], // si luego quieres datetime-local, se cambia aquí
             'ai_prompt'         => ['nullable','string','max:2000'],
             'requires_evidence' => ['nullable','boolean'],
         ]);
@@ -41,6 +42,7 @@ class TicketStageController extends Controller
             'status'      => 'pendiente',
             'assignee_id' => $data['assignee_id'] ?? null,
         ];
+
         if (!empty($data['due_at'])) {
             $attrs['due_at'] = $data['due_at'];
         }
@@ -57,136 +59,215 @@ class TicketStageController extends Controller
             'ticket_id' => $ticket->id,
             'user_id'   => auth()->id(),
             'action'    => 'stage_created',
-            'diff'      => ['stage_id'=>$stage->id],
+            'diff'      => ['stage_id' => $stage->id],
         ]);
 
         return back()->with('ok','Etapa creada');
     }
 
-    /** Generar checklist con IA (o fallback local) para una etapa */
-    public function generateChecklist(Request $r, Ticket $ticket, TicketStage $stage, AiDynamicChecklistService $ai = null)
-    {
+    /* =========================================================
+     * 2) IA – SUGERIR CHECKLIST (para la vista con preview)
+     *    Ruta sugerida: tickets.ai.suggest
+     * ========================================================= */
+    public function aiSuggest(
+        Request $r,
+        Ticket $ticket,
+        TicketStage $stage,
+        AiDynamicChecklistService $ai = null
+    ) {
         abort_unless($stage->ticket_id === $ticket->id, 404);
 
         $data = $r->validate([
             'prompt' => ['required','string','max:2000'],
         ]);
 
-        // 1) Intentar servicio real (si se inyecta o existe)
-        $title = 'Checklist generado';
-        $instructions = 'Sigue los puntos y adjunta evidencia si aplica.';
-        $items = collect();
+        $prompt = $data['prompt'];
+
+        // Construir contexto para la IA
+        $context = [
+            'ticket' => [
+                'folio'    => $ticket->folio,
+                'type'     => $ticket->type,
+                'priority' => $ticket->priority,
+                'client'   => $ticket->client_name ?? optional($ticket->client)->name,
+            ],
+            'stage' => [
+                'name'     => $stage->name,
+                'position' => $stage->position,
+            ],
+            'current_year' => now()->year,
+        ];
+
+        $title        = 'Checklist sugerido';
+        $instructions = 'Sigue los puntos y adjunta evidencia cuando aplique.';
+        $items        = collect();
 
         try {
-            if (!$ai && class_exists(\App\Services\AiDynamicChecklistService::class)) {
-                $ai = app(\App\Services\AiDynamicChecklistService::class);
+            if (!$ai) {
+                $ai = app(AiDynamicChecklistService::class);
             }
-            if ($ai) {
-                $out = $ai->suggestChecklist([
-                    'contexto' => [
-                        'ticket_folio' => $ticket->folio,
-                        'etapa'        => $stage->name,
-                        'tipo'         => $ticket->type,
-                        'prioridad'    => $ticket->priority,
-                    ],
-                    'tarea' => $data['prompt'],
-                ]);
-                $title        = $out['title'] ?? $title;
-                $instructions = $out['instructions'] ?? $instructions;
-                $items        = collect($out['items'] ?? [])->filter()->values();
-            }
+
+            $out = $ai->checklistFor($prompt, $context);
+
+            $title        = (string) ($out['title'] ?? $title);
+            $instructions = (string) ($out['instructions'] ?? $instructions);
+
+            $items = collect($out['items'] ?? [])
+                ->map(fn($it) => trim((string) ($it['text'] ?? '')))
+                ->filter()
+                ->values();
         } catch (\Throwable $e) {
-            // sigue al fallback si falla el servicio
+            // Si falla la IA, usamos fallback local
         }
 
-        // 2) Fallback simple si no hubo ítems
+        // Fallback local si IA no dio nada útil
         if ($items->isEmpty()) {
-            $items = $this->fallbackItemsFromPrompt($data['prompt']);
-            if (mb_strlen(trim($data['prompt'])) <= 120) {
-                $title = trim($data['prompt']) ?: $title;
+            $items = $this->fallbackItemsFromPrompt($prompt);
+            if ($items->isEmpty()) {
+                return response()->json([
+                    'ok'      => false,
+                    'message' => 'La IA no pudo generar un checklist útil. Ajusta el texto.',
+                ], 422);
             }
         }
 
-        DB::transaction(function () use ($ticket, $stage, $title, $instructions, $items) {
-            // Construir atributos del checklist, respetando columnas existentes
-            $chkAttrs = [
-                'ticket_id' => $ticket->id,
-                'stage_id'  => $stage->id,
-                'title'     => $title,
-            ];
-            if (Schema::hasColumn('ticket_checklists','instructions')) {
-                $chkAttrs['instructions'] = $instructions;
-            } else {
-                // Si no existe columna instructions, guarda en meta si existe
-                if (Schema::hasColumn('ticket_checklists','meta')) {
-                    $chkAttrs['meta'] = ['instructions'=>$instructions];
-                }
-            }
-            if (Schema::hasColumn('ticket_checklists','assigned_to')) {
-                $chkAttrs['assigned_to'] = $stage->assignee_id;
-            }
-
-            $chk = TicketChecklist::create($chkAttrs);
-
-            $pos = 1;
-            foreach ($items as $text) {
-                $it = [
-                    'checklist_id' => $chk->id,
-                    'label'        => (string) $text,
-                    'is_done'      => false,
-                ];
-                // campos opcionales
-                if (Schema::hasColumn('ticket_checklist_items','position')) {
-                    $it['position'] = $pos++;
-                }
-                if (Schema::hasColumn('ticket_checklist_items','type')) {
-                    $it['type'] = 'checkbox';
-                }
-                TicketChecklistItem::create($it);
-            }
-
-            // Guardar info IA en la etapa si hay columnas
-            $upd = [];
-            if (Schema::hasColumn('ticket_stages', 'ai_prompt') && empty($stage->ai_prompt)) {
-                $upd['ai_prompt'] = $title;
-            }
-            if (Schema::hasColumn('ticket_stages', 'ai_instructions')) {
-                $upd['ai_instructions'] = $instructions;
-            }
-            if (!empty($upd)) {
-                $stage->update($upd);
-            }
-
-            TicketAudit::create([
-                'ticket_id' => $ticket->id,
-                'user_id'   => auth()->id(),
-                'action'    => 'checklist_generated',
-                'diff'      => ['stage_id'=>$stage->id, 'checklist_title'=>$title],
-            ]);
-        });
-
-        return response()->json(['ok'=>true]);
+        // Aquí NO guardamos nada aún: solo devolvemos para preview
+        return response()->json([
+            'ok'           => true,
+            'title'        => $title,
+            'instructions' => $instructions,
+            'items'        => $items->values()->all(),
+        ]);
     }
 
-    /** Marcar item del checklist (AJAX) */
+    /* =========================================================
+     * 3) IA – CREAR CHECKLIST DESDE EL PREVIEW
+     *    Ruta sugerida: tickets.ai.create
+     * ========================================================= */
+    public function aiCreate(Request $r, Ticket $ticket)
+    {
+        $data = $r->validate([
+            'stage_id'     => ['required','integer'],
+            'title'        => ['required','string','max:180'],
+            'items'        => ['required','array','min:8','max:12'],
+            'items.*'      => ['required','string','max:500'],
+        ]);
+
+        $stage = TicketStage::where('id', $data['stage_id'])
+            ->where('ticket_id', $ticket->id)
+            ->firstOrFail();
+
+        $items = collect($data['items'])
+            ->map(fn($s) => trim($s))
+            ->filter()
+            ->values();
+
+        if ($items->count() < 8 || $items->count() > 12) {
+            return response()->json([
+                'ok'      => false,
+                'message' => 'Debes tener entre 8 y 12 puntos.',
+            ], 422);
+        }
+
+        $title        = $data['title'];
+        $instructions = "Checklist generado automáticamente para la etapa {$stage->name} de la licitación.";
+
+        $this->createChecklistForStage($ticket, $stage, $title, $instructions, $items->all());
+
+        return response()->json(['ok' => true]);
+    }
+
+    /* =========================================================
+     * 4) BACKCOMPAT – Generar y crear checklist en un solo paso
+     *    (si aún tienes una ruta vieja apuntando aquí)
+     * ========================================================= */
+    public function generateChecklist(
+        Request $r,
+        Ticket $ticket,
+        TicketStage $stage,
+        AiDynamicChecklistService $ai = null
+    ) {
+        abort_unless($stage->ticket_id === $ticket->id, 404);
+
+        $data = $r->validate([
+            'prompt' => ['required','string','max:2000'],
+        ]);
+
+        $prompt = $data['prompt'];
+
+        $context = [
+            'ticket' => [
+                'folio'    => $ticket->folio,
+                'type'     => $ticket->type,
+                'priority' => $ticket->priority,
+                'client'   => $ticket->client_name ?? optional($ticket->client)->name,
+            ],
+            'stage' => [
+                'name'     => $stage->name,
+                'position' => $stage->position,
+            ],
+            'current_year' => now()->year,
+        ];
+
+        $title        = 'Checklist generado';
+        $instructions = 'Sigue los puntos y adjunta evidencia cuando aplique.';
+        $items        = collect();
+
+        try {
+            if (!$ai) {
+                $ai = app(AiDynamicChecklistService::class);
+            }
+
+            $out = $ai->checklistFor($prompt, $context);
+
+            $title        = (string) ($out['title'] ?? $title);
+            $instructions = (string) ($out['instructions'] ?? $instructions);
+
+            $items = collect($out['items'] ?? [])
+                ->map(fn($it) => trim((string) ($it['text'] ?? '')))
+                ->filter()
+                ->values();
+        } catch (\Throwable $e) {
+            // deja seguir a fallback
+        }
+
+        if ($items->isEmpty()) {
+            $items = $this->fallbackItemsFromPrompt($prompt);
+        }
+
+        if ($items->isEmpty()) {
+            return back()->with('err', 'La IA no pudo generar un checklist. Ajusta el texto.');
+        }
+
+        $this->createChecklistForStage($ticket, $stage, $title, $instructions, $items->all());
+
+        return back()->with('ok','Checklist generado para la etapa.');
+    }
+
+    /* =========================================================
+     * 5) Marcar ítem de checklist (AJAX)
+     * ========================================================= */
     public function toggleItem(Request $r, Ticket $ticket, TicketChecklistItem $item)
     {
         $r->validate(['done' => ['required','boolean']]);
 
-        $chk = $item->checklist;
+        $chk   = $item->checklist;
         $stage = $chk->stage;
 
         abort_unless($chk->ticket_id === $ticket->id, 404);
 
-        // Si hay responsable, solo él marca; puedes adaptar a permisos/roles
+        // Solo el responsable de la etapa (o ajusta según roles/permisos)
         if ($stage->assignee_id && $stage->assignee_id !== auth()->id()) {
-            return response()->json(['ok'=>false,'msg'=>'No eres el responsable de esta etapa.'], 403);
+            return response()->json([
+                'ok'  => false,
+                'msg' => 'No eres el responsable de esta etapa.',
+            ], 403);
         }
 
         $isDone = (bool) $r->boolean('done');
+
         $item->is_done = $isDone;
 
-        // Guardar marcas de auditoría si existen columnas
         if (Schema::hasColumn('ticket_checklist_items','done_at')) {
             $item->done_at = $isDone ? now() : null;
         }
@@ -196,16 +277,25 @@ class TicketStageController extends Controller
 
         $item->save();
 
-        return response()->json(['ok'=>true,'item_id'=>$item->id,'is_done'=>$item->is_done]);
+        return response()->json([
+            'ok'       => true,
+            'item_id'  => $item->id,
+            'is_done'  => $item->is_done,
+        ]);
     }
 
-    /** Iniciar etapa (bloqueo secuencial) */
+    /* =========================================================
+     * 6) Iniciar etapa (secuencial)
+     * ========================================================= */
     public function start(Request $r, Ticket $ticket, TicketStage $stage)
     {
         abort_unless($stage->ticket_id === $ticket->id, 404);
 
         if (!$this->prevStageIsDone($ticket, $stage)) {
-            return response()->json(['ok'=>false,'msg'=>'Debes completar la etapa anterior.'], 422);
+            return response()->json([
+                'ok'  => false,
+                'msg' => 'Debes completar la etapa anterior.',
+            ], 422);
         }
 
         if ($stage->status === 'pendiente') {
@@ -216,33 +306,45 @@ class TicketStageController extends Controller
             $stage->update($upd);
 
             TicketAudit::create([
-                'ticket_id'=>$ticket->id,'user_id'=>auth()->id(),
-                'action'=>'stage_started','diff'=>['stage_id'=>$stage->id]
+                'ticket_id' => $ticket->id,
+                'user_id'   => auth()->id(),
+                'action'    => 'stage_started',
+                'diff'      => ['stage_id'=>$stage->id],
             ]);
         }
 
         return response()->json([
-            'ok'=>true,
-            'stage_id'=>$stage->id,
-            'status'=>$stage->status,
-            'started_at'=>Schema::hasColumn('ticket_stages','started_at') ? $stage->started_at : null
+            'ok'         => true,
+            'stage_id'   => $stage->id,
+            'status'     => $stage->status,
+            'started_at' => Schema::hasColumn('ticket_stages','started_at')
+                ? $stage->started_at
+                : null,
         ]);
     }
 
-    /** Completar etapa (valida checklist y evidencia requerida) */
+    /* =========================================================
+     * 7) Completar etapa (valida checklist + evidencia)
+     * ========================================================= */
     public function complete(Request $r, Ticket $ticket, TicketStage $stage)
     {
         abort_unless($stage->ticket_id === $ticket->id, 404);
 
         if ($this->checklistPendingCount($stage) > 0) {
-            return response()->json(['ok'=>false,'msg'=>'Faltan items del checklist.'], 422);
+            return response()->json([
+                'ok'  => false,
+                'msg' => 'Faltan items del checklist.',
+            ], 422);
         }
 
         if ($this->requiresEvidence($stage) && !$stage->documents()->exists()) {
-            return response()->json(['ok'=>false,'msg'=>'Debes subir evidencia para cerrar la etapa.'], 422);
+            return response()->json([
+                'ok'  => false,
+                'msg' => 'Debes subir evidencia para cerrar la etapa.',
+            ], 422);
         }
 
-        $upd = ['status'=>'terminado'];
+        $upd = ['status' => 'terminado'];
         if (Schema::hasColumn('ticket_stages','finished_at')) {
             $upd['finished_at'] = now();
         }
@@ -251,14 +353,21 @@ class TicketStageController extends Controller
         $ticket->refreshProgress();
 
         TicketAudit::create([
-            'ticket_id'=>$ticket->id,'user_id'=>auth()->id(),
-            'action'=>'stage_completed','diff'=>['stage_id'=>$stage->id]
+            'ticket_id' => $ticket->id,
+            'user_id'   => auth()->id(),
+            'action'    => 'stage_completed',
+            'diff'      => ['stage_id'=>$stage->id],
         ]);
 
-        return response()->json(['ok'=>true,'progress'=>$ticket->progress]);
+        return response()->json([
+            'ok'       => true,
+            'progress' => $ticket->progress,
+        ]);
     }
 
-    /** Subir evidencia (archivo o link) a la etapa */
+    /* =========================================================
+     * 8) Subir evidencia (archivo o link) a la etapa
+     * ========================================================= */
     public function evidence(Request $r, Ticket $ticket, TicketStage $stage)
     {
         abort_unless($stage->ticket_id === $ticket->id, 404);
@@ -295,16 +404,93 @@ class TicketStageController extends Controller
             ]);
         }
 
-        return response()->json(['ok'=>true]);
+        return response()->json(['ok' => true]);
     }
 
-    /* ========================= Helpers ========================= */
+    /* =========================================================
+     * Helpers internos
+     * ========================================================= */
+
+    /** Crea checklist + items + actualiza etapa & auditoría */
+    protected function createChecklistForStage(
+        Ticket $ticket,
+        TicketStage $stage,
+        string $title,
+        ?string $instructions,
+        array $items
+    ): void {
+        DB::transaction(function () use ($ticket, $stage, $title, $instructions, $items) {
+            $chkAttrs = [
+                'ticket_id' => $ticket->id,
+                'stage_id'  => $stage->id,
+                'title'     => $title,
+            ];
+
+            if (Schema::hasColumn('ticket_checklists','instructions')) {
+                $chkAttrs['instructions'] = $instructions ?? '';
+            } elseif (Schema::hasColumn('ticket_checklists','meta')) {
+                $chkAttrs['meta'] = ['instructions'=>$instructions];
+            }
+
+            if (Schema::hasColumn('ticket_checklists','assigned_to')) {
+                $chkAttrs['assigned_to'] = $stage->assignee_id;
+            }
+
+            $chk = TicketChecklist::create($chkAttrs);
+
+            $pos = 1;
+            foreach ($items as $text) {
+                $text = trim((string) $text);
+                if ($text === '') continue;
+
+                $itemAttrs = [
+                    'checklist_id' => $chk->id,
+                    'label'        => $text,
+                    'is_done'      => false,
+                ];
+
+                if (Schema::hasColumn('ticket_checklist_items','position')) {
+                    $itemAttrs['position'] = $pos++;
+                }
+                if (Schema::hasColumn('ticket_checklist_items','type')) {
+                    $itemAttrs['type'] = 'checkbox';
+                }
+
+                TicketChecklistItem::create($itemAttrs);
+            }
+
+            // Guardar meta IA en la etapa si hay columnas
+            $upd = [];
+            if (Schema::hasColumn('ticket_stages','ai_prompt') && empty($stage->ai_prompt)) {
+                $upd['ai_prompt'] = $title;
+            }
+            if (Schema::hasColumn('ticket_stages','ai_instructions')) {
+                $upd['ai_instructions'] = $instructions;
+            }
+            if (!empty($upd)) {
+                $stage->update($upd);
+            }
+
+            TicketAudit::create([
+                'ticket_id' => $ticket->id,
+                'user_id'   => auth()->id(),
+                'action'    => 'checklist_generated',
+                'diff'      => [
+                    'stage_id'        => $stage->id,
+                    'checklist_title' => $title,
+                ],
+            ]);
+        });
+    }
 
     /** True si la etapa anterior está terminada (o no hay anterior) */
     protected function prevStageIsDone(Ticket $ticket, TicketStage $stage): bool
     {
-        $prev = $ticket->stages()->where('position','<',$stage->position)
-            ->orderByDesc('position')->first();
+        $prev = $ticket->stages()
+            ->where('position','<',$stage->position)
+            ->orderByDesc('position')
+            ->first();
+
         if (!$prev) return true;
         return $prev->status === 'terminado';
     }
@@ -314,7 +500,10 @@ class TicketStageController extends Controller
     {
         $ids = $stage->checklists()->pluck('id');
         if ($ids->isEmpty()) return 0;
-        return TicketChecklistItem::whereIn('checklist_id',$ids)->where('is_done',false)->count();
+
+        return TicketChecklistItem::whereIn('checklist_id',$ids)
+            ->where('is_done',false)
+            ->count();
     }
 
     /** Si la etapa requiere evidencia (solo si existe la columna) */
@@ -324,13 +513,14 @@ class TicketStageController extends Controller
         return (bool) $stage->requires_evidence;
     }
 
-    /** Fallback local: convierte prompt en bullets básicos */
+    /** Fallback local: separa el prompt en bullets básicos */
     protected function fallbackItemsFromPrompt(string $prompt)
     {
         $parts = preg_split('/[\.\n\r;•\-]+/u', $prompt) ?: [];
+
         return collect($parts)
-            ->map(fn($s)=>trim(preg_replace('/\s+/', ' ', $s)))
-            ->filter(fn($s)=>mb_strlen($s) >= 3)
+            ->map(fn($s) => trim(preg_replace('/\s+/', ' ', $s)))
+            ->filter(fn($s) => mb_strlen($s) >= 3)
             ->take(10)
             ->values();
     }
