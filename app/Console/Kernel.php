@@ -22,7 +22,7 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        // Usa la zona horaria de la app
+        // Usa la zona horaria configurada en config/app.php
         $schedule->timezone(config('app.timezone', 'America/Mexico_City'));
 
         // Escaneo de SLA de tickets cada 15 minutos
@@ -31,19 +31,22 @@ class Kernel extends ConsoleKernel
                  ->withoutOverlapping()
                  ->appendOutputTo(storage_path('logs/tickets-sla.log'));
 
-        // Agenda: envía recordatorios cada minuto
+        // Agenda: envía recordatorios cada minuto (ejecuta SendAgendaReminderJob en modo sync)
         $schedule->command('agenda:run --limit=200')
                  ->everyMinute()
                  ->withoutOverlapping()
                  ->appendOutputTo(storage_path('logs/agenda.log'));
 
-        // 👇 Ya NO programes aquí el queue:work, porque ya lo tienes como cron aparte
+        // 👇 Ya NO programamos aquí el queue:work para la agenda,
+        // porque los recordatorios se envían en modo sync (sin cola).
+        // Si usas queue:work para otras cosas, puedes tenerlo como CRON aparte en el hosting.
+        //
         // $schedule->command('queue:work --once --tries=3 --timeout=90')
         //          ->everyMinute()
         //          ->withoutOverlapping()
         //          ->appendOutputTo(storage_path('logs/queue-worker.log'));
 
-        // Test: para verificar que el scheduler corre
+        // Ping de prueba para confirmar que el scheduler está corriendo
         $schedule->call(function () {
                 \Illuminate\Support\Facades\Log::info('⏰ Scheduler vivo: ' . now());
             })
@@ -57,6 +60,7 @@ class Kernel extends ConsoleKernel
     protected function commands(): void
     {
         $this->load(__DIR__ . '/Commands');
+
         require base_path('routes/console.php');
     }
 }
