@@ -3,408 +3,284 @@
 
 @section('content')
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"/>
 
 <div id="agenda-cal">
   <style>
     #agenda-cal{
       --ink:#0f172a;
       --muted:#6b7280;
-      --line:#e2e8f0;
-      --bg:#f3f4f6;
+      --line:#e5e7eb;
+      --bg:#f4f5fb;
       --card:#ffffff;
       --brand:#2563eb;
-      --brand-soft:#e0edff;
-      --brand-ink:#0b1220;
-      --ok:#16a34a;
-      --danger:#ef4444;
-      --radius-lg:18px;
-      --radius-md:12px;
-      font-family:'Outfit', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background:radial-gradient(circle at top left,#dbeafe 0,#f9fafb 40%,#f3f4f6 100%);
-      min-height: calc(100vh - 80px);
-      padding: clamp(16px, 3vw, 28px);
-    }
+      --brand-soft:#dbeafe;
 
-    #agenda-cal .wrap{
-      max-width:1200px;
-      margin:0 auto;
+      font-family:'Outfit',system-ui,-apple-system,blinkmacsystemfont,"Segoe UI",sans-serif;
+      background:radial-gradient(circle at top,#eef2ff,#f9fafb);
+      min-height:calc(100vh - 80px);
+      padding:clamp(16px,3vw,28px);
     }
+    #agenda-cal .wrap{max-width:1200px;margin:0 auto}
 
-    /* ====== HEADER SUPERIOR ====== */
+    /* ---------- HEADER ---------- */
     #agenda-cal .top{
       display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:16px;
-      margin-bottom:18px;
       flex-wrap:wrap;
-    }
-
-    #agenda-cal .top-left h1{
-      margin:0;
-      font-size:clamp(22px,2.5vw,28px);
-      font-weight:700;
-      color:var(--ink);
-    }
-
-    #agenda-cal .top-left p{
-      margin:4px 0 0;
-      color:var(--muted);
-      font-size:14px;
-    }
-
-    #agenda-cal .badge{
-      display:inline-flex;
       align-items:center;
-      gap:6px;
-      padding:4px 10px;
-      border-radius:999px;
-      background:rgba(37,99,235,0.06);
-      color:#1d4ed8;
-      font-size:12px;
-      margin-top:8px;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:14px;
     }
-
-    #agenda-cal .badge-dot{
-      width:8px;
-      height:8px;
-      border-radius:999px;
-      background:#22c55e;
-      box-shadow:0 0 0 4px rgba(34,197,94,0.25);
+    #agenda-cal h1{
+      margin:0;
+      font-size:clamp(20px,2.4vw,28px);
+      color:var(--ink);
+      letter-spacing:.02em;
     }
-
-    #agenda-cal .actions{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      justify-content:flex-end;
+    #agenda-cal .top-sub{
+      font-size:13px;
+      color:var(--muted);
     }
-
+    #agenda-cal .actions{display:flex;gap:10px;flex-wrap:wrap}
     #agenda-cal .btn{
       display:inline-flex;
       align-items:center;
       gap:8px;
-      padding:10px 14px;
-      border-radius:var(--radius-md);
-      border:1px solid var(--line);
-      background:var(--card);
+      padding:9px 14px;
+      border-radius:999px;
+      border:1px solid #d1d5db;
+      background:#fff;
       color:var(--ink);
+      font-size:13px;
       text-decoration:none;
-      font-size:14px;
       cursor:pointer;
-      transition:all .15s ease-out;
+      transition:.18s ease all;
     }
-
-    #agenda-cal .btn i{
-      font-size:14px;
+    #agenda-cal .btn span.icon{
+      display:inline-flex;
+      width:18px;
+      height:18px;
+      border-radius:999px;
+      align-items:center;
+      justify-content:center;
+      border:1px solid #dbeafe;
+      background:#eff6ff;
+      font-size:11px;
     }
-
-    #agenda-cal .btn:hover{
-      background:#f9fafb;
-      box-shadow:0 8px 22px rgba(15,23,42,0.08);
-      transform:translateY(-1px);
-    }
-
     #agenda-cal .btn.primary{
-      background:linear-gradient(135deg,#2563eb,#60a5fa);
+      background:linear-gradient(120deg,#2563eb,#4f46e5);
+      color:#f9fafb;
       border-color:transparent;
-      color:white;
+      box-shadow:0 16px 35px rgba(37,99,235,.35);
       font-weight:600;
-      box-shadow:0 12px 35px rgba(37,99,235,0.45);
     }
-
+    #agenda-cal .btn:hover{
+      transform:translateY(-1px);
+      box-shadow:0 12px 28px rgba(15,23,42,.12);
+    }
     #agenda-cal .btn.primary:hover{
-      filter:brightness(1.03);
+      box-shadow:0 18px 40px rgba(37,99,235,.4);
     }
 
-    /* ====== FULLCALENDAR THEME ====== */
-
+    /* ---------- FULLCALENDAR --------- */
     .fc{
       background:var(--card);
+      border-radius:18px;
       border:1px solid var(--line);
-      border-radius:var(--radius-lg);
-      padding:8px;
-      box-shadow:0 18px 50px rgba(15,23,42,0.08);
+      padding:6px;
+      box-shadow:0 20px 55px rgba(15,23,42,.07);
     }
-
-    .fc .fc-toolbar{
-      padding:4px 6px 10px;
+    .fc .fc-toolbar.fc-header-toolbar{
+      padding:8px 10px 6px;
+      margin-bottom:4px;
     }
-
     .fc .fc-toolbar-title{
-      font-weight:600;
+      font-weight:700;
       color:var(--ink);
-      font-size:18px;
+      font-size:16px;
     }
-
     .fc .fc-button{
       border-radius:999px;
-      border:1px solid var(--line);
-      background:#ffffff;
-      color:var(--ink);
+      padding:4px 10px;
+      border:1px solid #e5e7eb;
+      background:#fff;
+      color:#111827;
       font-size:12px;
-      padding:6px 10px;
+      box-shadow:none;
     }
-
     .fc .fc-button-primary{
-      background:var(--brand);
-      border-color:var(--brand);
-      color:var(--card);
+      background:#eff6ff;
+      border-color:#dbeafe;
+      color:#1d4ed8;
     }
-
-    .fc .fc-button-primary:not(:disabled):hover{
-      filter:brightness(1.05);
+    .fc .fc-button-primary:not(:disabled).fc-button-active{
+      background:#2563eb;
+      border-color:#2563eb;
+      color:#f9fafb;
     }
-
     .fc .fc-daygrid-day-number{
-      color:#0f172a;
-      font-size:12px;
+      color:#4b5563;
+      font-size:11px;
+      padding:4px 6px;
     }
-
-    .fc .fc-day-today{
-      background:linear-gradient(180deg,#eff6ff,#ffffff);
-    }
-
-    .fc .fc-daygrid-event{
-      border-radius:10px;
-      padding:2px 6px;
-      border:none;
-      color:#0f172a;
-      font-size:12px;
-    }
-
-    .fc .fc-event-title{
+    .fc .fc-col-header-cell-cushion{
+      padding:6px 4px;
+      font-size:11px;
       font-weight:600;
+      color:#6b7280;
+      text-transform:uppercase;
+      letter-spacing:.08em;
+    }
+    .fc .fc-day-today{
+      background:rgba(219,234,254,.6);
     }
 
-    /* Colores alternos para eventos (por clase) */
-    .agenda-event-tag-1{
-      background:linear-gradient(135deg,#e0edff,#dbeafe);
+    /* ---------- EVENTOS (PILLS) ---------- */
+    .agenda-event-pill{
+      border-radius:999px !important;
+      border-width:1px !important;
+      padding:2px 6px !important;
+      font-size:11px !important;
+      line-height:1.25 !important;
+      display:flex;
+      align-items:center;
+      gap:4px;
+      overflow:hidden;
+      white-space:nowrap;
     }
-    .agenda-event-tag-2{
-      background:linear-gradient(135deg,#dcfce7,#bbf7d0);
+    .agenda-event-pill .time-dot{
+      display:inline-block;
+      width:6px;
+      height:6px;
+      border-radius:999px;
+      margin-right:4px;
+      flex-shrink:0;
     }
-    .agenda-event-tag-3{
-      background:linear-gradient(135deg,#fee2e2,#fecaca);
-    }
-    .agenda-event-tag-4{
-      background:linear-gradient(135deg,#fef3c7,#fde68a);
-    }
-    .agenda-event-tag-5{
-      background:linear-gradient(135deg,#f3e8ff,#e9d5ff);
+    .agenda-event-pill .title{
+      font-weight:600;
+      flex:1;
+      min-width:0;
+      text-overflow:ellipsis;
+      overflow:hidden;
     }
 
-    /* ====== MODAL ====== */
-
+    /* ---------- MODAL ---------- */
     #agenda-modal-backdrop{
       position:fixed;
       inset:0;
       display:none;
       align-items:center;
       justify-content:center;
-      background:rgba(15,23,42,0.45);
+      background:rgba(15,23,42,.32);
       z-index:50;
-      backdrop-filter:blur(3px);
+      backdrop-filter:blur(2px);
     }
-
     #agenda-modal{
-      width:min(720px,92vw);
+      width:min(680px,92vw);
       background:#ffffff;
-      border-radius:22px;
-      border:1px solid var(--line);
-      box-shadow:0 24px 60px rgba(15,23,42,0.45);
+      border-radius:20px;
+      border:1px solid #e5e7eb;
+      box-shadow:0 26px 70px rgba(15,23,42,.35);
       overflow:hidden;
     }
-
     #agenda-modal .head{
       display:flex;
       align-items:center;
       justify-content:space-between;
-      padding:16px 20px;
-      background:linear-gradient(180deg,#eff6ff,#ffffff);
+      padding:14px 18px;
+      background:linear-gradient(120deg,#eff6ff,#ffffff);
+      border-bottom:1px solid #e5e7eb;
     }
-
     #agenda-modal .head h3{
       margin:0;
-      font-size:18px;
-      font-weight:600;
+      font-size:17px;
       color:var(--ink);
     }
-
-    #agenda-modal .head small{
-      display:block;
-      font-size:12px;
-      color:var(--muted);
-      margin-top:2px;
-    }
-
-    #agenda-modal .body{
-      padding:18px 20px 12px;
-    }
-
+    #agenda-modal .body{padding:18px}
     #agenda-modal .grid{
       display:grid;
       grid-template-columns:1fr 1fr;
-      gap:12px 16px;
+      gap:12px;
     }
-
-    @media (max-width: 768px){
-      #agenda-modal .grid{
-        grid-template-columns:1fr;
-      }
-      #agenda-cal .top{
-        flex-direction:column;
-        align-items:flex-start;
-      }
-      #agenda-cal .actions{
-        width:100%;
-        justify-content:flex-start;
-      }
-    }
-
     #agenda-modal label{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
+      display:block;
       font-weight:600;
-      margin:10px 0 4px;
-      color:var(--ink);
       font-size:13px;
+      margin:10px 0 5px;
+      color:var(--ink);
     }
-
-    #agenda-modal label span.hint{
-      font-weight:400;
-      color:var(--muted);
-      font-size:11px;
-      margin-left:8px;
-    }
-
     #agenda-modal input,
     #agenda-modal select,
     #agenda-modal textarea{
       width:100%;
       padding:9px 11px;
-      border:1px solid var(--line);
       border-radius:12px;
-      background:#ffffff;
-      color:var(--ink);
-      font-size:14px;
+      border:1px solid #e5e7eb;
+      background:#f9fafb;
+      font-size:13px;
     }
-
-    #agenda-modal textarea{
-      resize:vertical;
-      min-height:70px;
-    }
-
-    #agenda-modal input:focus,
-    #agenda-modal select:focus,
-    #agenda-modal textarea:focus{
-      outline:none;
-      border-color:var(--brand);
-      box-shadow:0 0 0 1px rgba(37,99,235,0.2);
-    }
-
-    #agenda-modal .channels{
+    #agenda-modal textarea{resize:vertical;min-height:70px}
+    #agenda-modal .foot{
       display:flex;
-      flex-wrap:wrap;
       gap:10px;
-      margin-top:6px;
+      justify-content:flex-end;
+      padding:14px 18px;
+      background:#f9fafb;
+      border-top:1px solid #e5e7eb;
     }
-
     #agenda-modal .chip{
       display:inline-flex;
       align-items:center;
       gap:6px;
       padding:6px 10px;
       border-radius:999px;
-      border:1px solid var(--line);
-      background:#f9fafb;
-      font-size:13px;
-      color:var(--ink);
-      cursor:pointer;
+      border:1px solid #e5e7eb;
+      background:#fff;
+      font-size:12px;
     }
-
-    #agenda-modal .chip input{
-      width:auto;
-    }
-
-    #agenda-modal .foot{
-      display:flex;
-      gap:10px;
-      justify-content:flex-end;
-      padding:14px 20px;
-      background:#f9fafb;
-      border-top:1px solid var(--line);
-      flex-wrap:wrap;
-    }
-
     #agenda-modal .btn{
-      border-radius:var(--radius-md);
-      border:1px solid var(--line);
-      background:#ffffff;
-      color:var(--ink);
-      padding:9px 14px;
-      font-size:14px;
+      border-radius:999px;
+      padding:8px 14px;
+      border:1px solid #d1d5db;
+      background:#fff;
+      font-size:13px;
       cursor:pointer;
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
     }
-
     #agenda-modal .btn.danger{
       border-color:#fecaca;
       background:#fef2f2;
-      color:#7f1d1d;
+      color:#b91c1c;
     }
-
     #agenda-modal .btn.primary{
-      background:var(--brand);
-      color:#ffffff;
-      border-color:var(--brand);
+      background:linear-gradient(120deg,#2563eb,#4f46e5);
+      border-color:transparent;
+      color:#f9fafb;
       font-weight:600;
     }
 
-    /* Mensajito pequeño encima del calendario */
-    #agenda-cal .helper{
-      margin-bottom:10px;
-      font-size:13px;
-      color:var(--muted);
-      display:flex;
-      align-items:center;
-      gap:6px;
-      flex-wrap:wrap;
-    }
-    #agenda-cal .helper-dot{
-      width:8px;
-      height:8px;
-      border-radius:999px;
-      background:#f97316;
+    @media (max-width:768px){
+      #agenda-cal{padding:14px}
+      #agenda-modal .grid{grid-template-columns:1fr}
+      .fc{padding:4px}
     }
   </style>
 
   <div class="wrap">
     <div class="top">
-      <div class="top-left">
+      <div>
         <h1>Agenda de recordatorios</h1>
-        <p>Programa recordatorios automáticos por correo y WhatsApp para tus citas, seguimientos o tareas internas.</p>
-        <div class="badge">
-          <span class="badge-dot"></span> Recordatorios activos
+        <div class="top-sub">
+          Programa llamadas, seguimientos y tareas. Los recordatorios se envían por correo y WhatsApp.
         </div>
       </div>
       <div class="actions">
         <button id="btn-new" class="btn primary">
-          <i class="fa-solid fa-plus"></i>
+          <span class="icon">+</span>
           <span>Nuevo evento</span>
         </button>
       </div>
-    </div>
-
-    <div class="helper">
-      <span class="helper-dot"></span>
-      <span>Haz clic en un día para crear un evento. Haz clic sobre un evento para editarlo o arrástralo para cambiar la fecha.</span>
     </div>
 
     <div id="calendar"></div>
@@ -414,51 +290,34 @@
   <div id="agenda-modal-backdrop">
     <div id="agenda-modal" role="dialog" aria-modal="true">
       <div class="head">
-        <div>
-          <h3 id="modal-title">Nuevo evento</h3>
-          <small>Estos datos se usarán para los recordatorios automáticos.</small>
-        </div>
-        <button id="btn-close" class="btn" style="border:none;background:transparent;font-size:18px">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
+        <h3 id="modal-title">Nuevo evento</h3>
+        <button id="btn-close" class="btn" style="border:none;background:transparent;font-size:18px;">✕</button>
       </div>
       <div class="body">
         <form id="agenda-form">
           @csrf
           <input type="hidden" name="id" id="ev-id">
 
-          <label>
-            <span>Título *</span>
-            <span class="hint">Ej. “Llamar al cliente”, “Consulta de seguimiento”</span>
-          </label>
+          <label>Título *</label>
           <input name="title" id="ev-title" required>
 
-          <label>
-            <span>Descripción</span>
-            <span class="hint">Notas internas o detalles adicionales</span>
-          </label>
+          <label>Descripción</label>
           <textarea name="description" id="ev-desc" rows="3"></textarea>
 
           <div class="grid">
             <div>
-              <label>
-                <span>Fecha y hora *</span>
-                <span class="hint">Hora local según zona horaria</span>
-              </label>
+              <label>Fecha y hora *</label>
               <input type="datetime-local" name="start_at" id="ev-start" required>
             </div>
             <div>
-              <label>
-                <span>Recordar (minutos antes) *</span>
-                <span class="hint">Ej. 60 = 1 hora antes</span>
-              </label>
+              <label>Recordar (minutos antes) *</label>
               <input type="number" name="remind_offset_minutes" id="ev-offset" value="60" min="1" max="10080" required>
             </div>
           </div>
 
           <div class="grid">
             <div>
-              <label><span>Repetición *</span></label>
+              <label>Repetición *</label>
               <select name="repeat_rule" id="ev-repeat">
                 <option value="none">Sin repetición</option>
                 <option value="daily">Diaria</option>
@@ -467,39 +326,30 @@
               </select>
             </div>
             <div>
-              <label>
-                <span>Zona horaria *</span>
-                <span class="hint">Ej. America/Mexico_City</span>
-              </label>
+              <label>Zona horaria *</label>
               <input name="timezone" id="ev-tz" value="America/Mexico_City" required>
             </div>
           </div>
 
           <div class="grid">
             <div>
-              <label><span>Nombre del destinatario</span></label>
+              <label>Nombre del destinatario</label>
               <input name="attendee_name" id="ev-name">
             </div>
             <div>
-              <label>
-                <span>Email del destinatario</span>
-                <span class="hint">Para enviar recordatorio por correo</span>
-              </label>
+              <label>Email del destinatario</label>
               <input type="email" name="attendee_email" id="ev-email">
             </div>
           </div>
 
           <div class="grid">
             <div>
-              <label>
-                <span>Teléfono WhatsApp</span>
-                <span class="hint">Incluye código de país, ej. 521XXXXXXXXXX</span>
-              </label>
+              <label>Teléfono WhatsApp (con código de país)</label>
               <input name="attendee_phone" id="ev-phone">
             </div>
             <div>
-              <label><span>Canales de recordatorio</span></label>
-              <div class="channels">
+              <label>Canales de envío</label>
+              <div style="display:flex; gap:12px; align-items:center; margin-top:8px;">
                 <label class="chip">
                   <input type="checkbox" name="send_email" id="ev-email-on" checked> Email
                 </label>
@@ -512,14 +362,8 @@
         </form>
       </div>
       <div class="foot">
-        <button id="btn-delete" class="btn danger" style="display:none">
-          <i class="fa-solid fa-trash-can"></i>
-          <span>Eliminar</span>
-        </button>
-        <button id="btn-save" class="btn primary">
-          <i class="fa-solid fa-floppy-disk"></i>
-          <span>Guardar evento</span>
-        </button>
+        <button id="btn-delete" class="btn danger" style="display:none">Eliminar</button>
+        <button id="btn-save" class="btn primary">Guardar</button>
       </div>
     </div>
   </div>
@@ -530,10 +374,10 @@
 document.addEventListener('DOMContentLoaded', () => {
   const csrf = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
   const modalBackdrop = document.getElementById('agenda-modal-backdrop');
-  const btnNew   = document.getElementById('btn-new');
+  const btnNew = document.getElementById('btn-new');
   const btnClose = document.getElementById('btn-close');
-  const btnSave  = document.getElementById('btn-save');
-  const btnDelete= document.getElementById('btn-delete');
+  const btnSave = document.getElementById('btn-save');
+  const btnDelete = document.getElementById('btn-delete');
 
   const f = {
     id:      document.getElementById('ev-id'),
@@ -549,17 +393,6 @@ document.addEventListener('DOMContentLoaded', () => {
     emailOn: document.getElementById('ev-email-on'),
     waOn:    document.getElementById('ev-wa-on'),
   };
-
-  function toLocalInputValue(date){
-    if(!date) return '';
-    const d = new Date(date);
-    const y = d.getFullYear();
-    const m = String(d.getMonth()+1).padStart(2,'0');
-    const day = String(d.getDate()).padStart(2,'0');
-    const h = String(d.getHours()).padStart(2,'0');
-    const min = String(d.getMinutes()).padStart(2,'0');
-    return `${y}-${m}-${day}T${h}:${min}`;
-  }
 
   function openModal(mode='new', data=null) {
     modalBackdrop.style.display = 'flex';
@@ -583,32 +416,49 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (data) {
       document.getElementById('modal-title').textContent = 'Editar evento';
       btnDelete.style.display = 'inline-flex';
-      f.id.value    = data.id;
+
+      f.id.value = data.id;
       f.title.value = data.title || '';
       f.desc.value  = data.extendedProps?.description || '';
-      f.start.value = toLocalInputValue(data.start);
-      f.offset.value= data.extendedProps?.remind_offset_minutes ?? 60;
-      f.repeat.value= data.extendedProps?.repeat_rule ?? 'none';
-      f.tz.value    = data.extendedProps?.timezone ?? 'America/Mexico_City';
-      f.name.value  = data.extendedProps?.attendee_name ?? '';
-      f.email.value = data.extendedProps?.attendee_email ?? '';
-      f.phone.value = data.extendedProps?.attendee_phone ?? '';
+
+      const dt = new Date(data.start);
+      dt.setMinutes(dt.getMinutes() - dt.getTimezoneOffset());
+      f.start.value = dt.toISOString().slice(0,16);
+
+      f.offset.value = data.extendedProps?.remind_offset_minutes ?? 60;
+      f.repeat.value = data.extendedProps?.repeat_rule ?? 'none';
+      f.tz.value     = data.extendedProps?.timezone ?? 'America/Mexico_City';
+      f.name.value   = data.extendedProps?.attendee_name ?? '';
+      f.email.value  = data.extendedProps?.attendee_email ?? '';
+      f.phone.value  = data.extendedProps?.attendee_phone ?? '';
       f.emailOn.checked = !!data.extendedProps?.send_email;
       f.waOn.checked    = !!data.extendedProps?.send_whatsapp;
     }
   }
 
-  function closeModal(){
-    modalBackdrop.style.display='none';
-    document.body.style.overflow='auto';
+  function closeModal() {
+    modalBackdrop.style.display = 'none';
+    document.body.style.overflow = 'auto';
   }
 
-  btnNew.addEventListener('click', ()=>openModal('new'));
+  btnNew.addEventListener('click', () => openModal('new'));
   btnClose.addEventListener('click', closeModal);
-  modalBackdrop.addEventListener('click', (e)=>{ if(e.target===modalBackdrop) closeModal(); });
+  modalBackdrop.addEventListener('click', (e) => {
+    if (e.target === modalBackdrop) closeModal();
+  });
 
-  // ====== CALENDARIO ======
   const calendarEl = document.getElementById('calendar');
+
+  // Paleta de colores fija y contrastada
+  const palette = [
+    { bg: '#fee2e2', border: '#fecaca' }, // rojo suave
+    { bg: '#dbeafe', border: '#bfdbfe' }, // azul
+    { bg: '#dcfce7', border: '#bbf7d0' }, // verde
+    { bg: '#fef3c7', border: '#fde68a' }, // amarillo
+    { bg: '#ede9fe', border: '#ddd6fe' }, // morado
+    { bg: '#cffafe', border: '#a5f3fc' }, // cian
+  ];
+
   const calendar = new FullCalendar.Calendar(calendarEl, {
     initialView: 'dayGridMonth',
     height: 'auto',
@@ -620,69 +470,59 @@ document.addEventListener('DOMContentLoaded', () => {
       right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
     },
     selectable: true,
-    editable: true,
-    eventStartEditable: true,
+    editable: false,          // ❌ desactiva drag & drop
+    eventStartEditable: false,
     eventDurationEditable: false,
-    eventDisplay: 'block',
+
     events: {
       url: "{{ route('agenda.feed') }}",
-      failure(){ alert('No se pudo cargar la agenda.'); }
-    },
-    eventClick(info){
-      openModal('edit', info.event.toPlainObject());
-    },
-    dateClick(info){
-      openModal('new');
-      // Prefijar hora 09:00 local para ese día
-      f.start.value = info.dateStr + 'T09:00';
-    },
-    eventDrop: async (info) => {
-      try{
-        const startLocal = toLocalInputValue(info.event.start);
-        const tz = info.event.extendedProps?.timezone || 'America/Mexico_City';
-
-        const res = await fetch("{{ url('/agenda') }}/"+info.event.id+"/move",{
-          method:'PUT',
-          headers:{
-            'X-CSRF-TOKEN':csrf,
-            'Content-Type':'application/json',
-            'Accept':'application/json'
-          },
-          body: JSON.stringify({
-            start_at: startLocal,
-            timezone: tz
-          })
-        });
-
-        if(!res.ok){ throw new Error('Move failed'); }
-      }catch(e){
-        alert('No se pudo mover el evento. Se deshará el cambio.');
-        info.revert();
+      failure() {
+        alert('No se pudo cargar la agenda.');
       }
     },
-    eventDidMount: function(info){
-      // Asignar color distinto según el id del evento
-      let id = parseInt(info.event.id || 0, 10);
-      if (isNaN(id)) id = 0;
-      const idx = (id % 5) + 1; // 1..5
-      info.el.classList.add('agenda-event-tag-' + idx);
-    }
+
+    dateClick(info) {
+      openModal('new');
+      const dt = new Date(info.dateStr + 'T09:00');
+      dt.setMinutes(dt.getMinutes() - dt.getTimezoneOffset());
+      f.start.value = dt.toISOString().slice(0,16);
+    },
+
+    eventClick(info) {
+      openModal('edit', info.event.toPlainObject());
+    },
+
+    eventDidMount(info) {
+      // Color estable según el id del evento
+      const idNum = parseInt(info.event.id || '0', 10);
+      const color = palette[idNum % palette.length];
+      const el = info.el;
+
+      el.classList.add('agenda-event-pill');
+      el.style.backgroundColor = color.bg;
+      el.style.borderColor = color.border;
+      el.style.color = '#0f172a';
+
+      // Decorar contenido tiempo + título
+      const title = info.event.title || '';
+      const timeText = info.timeText || '';
+
+      el.innerHTML = `
+        <span class="time-dot" style="background:${color.border};"></span>
+        <span class="title">${timeText ? timeText + ' ' : ''}${title}</span>
+      `;
+    },
   });
 
   calendar.render();
 
-  // ====== GUARDAR (CREAR / EDITAR) ======
-  btnSave.addEventListener('click', async ()=>{
-    if(!f.start.value){
-      alert('Por favor selecciona una fecha y hora.');
-      return;
-    }
-
+  // Guardar (crear/editar)
+  btnSave.addEventListener('click', async () => {
     const payload = {
       title: f.title.value,
       description: f.desc.value,
-      start_at: f.start.value, // el backend interpreta según timezone
-      remind_offset_minutes: parseInt(f.offset.value||'60',10),
+      start_at: new Date(f.start.value).toISOString(),
+      remind_offset_minutes: parseInt(f.offset.value || '60', 10),
       repeat_rule: f.repeat.value,
       timezone: f.tz.value,
       attendee_name: f.name.value || null,
@@ -692,55 +532,57 @@ document.addEventListener('DOMContentLoaded', () => {
       send_whatsapp: f.waOn.checked ? 1 : 0,
     };
 
-    try{
-      let res;
-      if(f.id.value){
-        res = await fetch("{{ url('/agenda') }}/"+f.id.value, {
-          method:'PUT',
-          headers:{
-            'X-CSRF-TOKEN':csrf,
-            'Content-Type':'application/json',
-            'Accept':'application/json'
+    try {
+      if (f.id.value) {
+        const res = await fetch("{{ url('/agenda') }}/" + f.id.value, {
+          method: 'PUT',
+          headers: {
+            'X-CSRF-TOKEN': csrf,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
           },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payload),
         });
-      }else{
-        res = await fetch("{{ route('agenda.store') }}",{
-          method:'POST',
-          headers:{
-            'X-CSRF-TOKEN':csrf,
-            'Content-Type':'application/json',
-            'Accept':'application/json'
+        if (!res.ok) throw new Error('Error al actualizar');
+      } else {
+        const res = await fetch("{{ route('agenda.store') }}", {
+          method: 'POST',
+          headers: {
+            'X-CSRF-TOKEN': csrf,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
           },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payload),
         });
+        if (!res.ok) throw new Error('Error al guardar');
       }
-      if(!res.ok) throw new Error('Error al guardar');
 
       closeModal();
       calendar.refetchEvents();
-    }catch(e){
-      alert('Revisa los campos. No se pudo guardar el evento.');
+    } catch (e) {
+      console.error(e);
+      alert('No se pudo guardar el evento. Revisa los campos.');
     }
   });
 
-  // ====== ELIMINAR ======
-  btnDelete.addEventListener('click', async ()=>{
-    if(!f.id.value) return;
-    if(!confirm('¿Eliminar este evento de la agenda?')) return;
+  // Eliminar
+  btnDelete.addEventListener('click', async () => {
+    if (!f.id.value) return;
+    if (!confirm('¿Eliminar el evento de forma permanente?')) return;
 
-    try{
-      const res = await fetch("{{ url('/agenda') }}/"+f.id.value, {
-        method:'DELETE',
-        headers:{
-          'X-CSRF-TOKEN':csrf,
-          'Accept':'application/json'
-        }
+    try {
+      const res = await fetch("{{ url('/agenda') }}/" + f.id.value, {
+        method: 'DELETE',
+        headers: {
+          'X-CSRF-TOKEN': csrf,
+          'Accept': 'application/json',
+        },
       });
-      if(!res.ok) throw new Error('Delete failed');
+      if (!res.ok) throw new Error('Error al eliminar');
       closeModal();
       calendar.refetchEvents();
-    }catch(e){
+    } catch (e) {
+      console.error(e);
       alert('No se pudo eliminar el evento.');
     }
   });
