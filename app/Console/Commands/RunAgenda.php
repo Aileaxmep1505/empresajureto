@@ -51,7 +51,7 @@ class RunAgenda extends Command
 
             try {
                 // 🔹 Ejecuta el Job al instante, SIN pasar por la cola
-                SendAgendaReminderJob::dispatchSync($event);
+                SendAgendaReminderJob::dispatchSync($event->id);
 
                 Log::info('agenda:run → Job ejecutado en modo sync', [
                     'event_id' => $event->id,
