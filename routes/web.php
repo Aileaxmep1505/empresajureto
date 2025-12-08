@@ -58,6 +58,7 @@ use App\Http\Controllers\LicitacionFileController;
 use App\Http\Controllers\ManualInvoiceController;
 
 use App\Http\Controllers\Mobile\CatalogAiIntakePublicController;
+use App\Http\Controllers\CronController;
 /*
 |--------------------------------------------------------------------------
 | AUTH
@@ -865,3 +866,6 @@ Route::get('manual-invoices/{manualInvoice}/xml', [ManualInvoiceController::clas
     ->name('manual_invoices.download_xml');
 Route::post('/admin/catalog/ai-from-upload', [CatalogItemController::class, 'aiFromUpload'])
     ->name('admin.catalog.ai-from-upload');
+
+Route::get('/cron/agenda-run/{token}', [CronController::class, 'runAgenda'])
+    ->name('cron.agenda.run');

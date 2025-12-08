@@ -71,4 +71,15 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Token para cron de agenda vía HTTP
+    |--------------------------------------------------------------------------
+    |
+    | Se usa para proteger la ruta:
+    |   /cron/agenda-run/{token}
+    |
+    */
+    'agenda_cron_token' => env('AGENDA_CRON_TOKEN'),
+
 ];
