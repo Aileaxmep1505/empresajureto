@@ -52,7 +52,7 @@
       border-right:1px solid var(--border);
       transform: translateX(-102%);
       transition: transform .45s cubic-bezier(.16,1,.3,1);
-      z-index:60; box-shadow: var(--shadow);
+      z-index:60; box-shadow:var(--shadow);
       will-change: transform;
       display:flex; flex-direction:column;
     }
@@ -386,6 +386,48 @@
         <span>Ventas</span>
       </a>
 
+      <!-- Facturas manuales -->
+      <details class="nav__group" {{ request()->routeIs('manual_invoices.*') ? 'open' : '' }}>
+        <summary class="{{ request()->routeIs('manual_invoices.*') ? 'is-active':'' }}">
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
+            <rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 7h6M9 11h4M9 15h6"/>
+          </svg>
+          <span>Facturas</span>
+          <svg class="nav__chev" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+        </summary>
+        <div class="nav__submenu">
+          <a href="{{ route('manual_invoices.index') }}" class="nav__sublink {{ request()->routeIs('manual_invoices.index') || request()->routeIs('manual_invoices.show') ? 'is-active':'' }}">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+            <span>Listado</span>
+          </a>
+          <a href="{{ route('manual_invoices.create') }}" class="nav__sublink {{ request()->routeIs('manual_invoices.create') ? 'is-active':'' }}">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>
+            <span>Nueva factura</span>
+          </a>
+        </div>
+      </details>
+
+      <!-- Publicaciones -->
+      <details class="nav__group" {{ request()->routeIs('posts.*') ? 'open' : '' }}>
+        <summary class="{{ request()->routeIs('posts.*') ? 'is-active':'' }}">
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
+            <rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h5M8 15h8"/>
+          </svg>
+          <span>Publicaciones</span>
+          <svg class="nav__chev" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+        </summary>
+        <div class="nav__submenu">
+          <a href="{{ route('posts.index') }}" class="nav__sublink {{ request()->routeIs('posts.index') || request()->routeIs('posts.show') ? 'is-active':'' }}">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+            <span>Listado</span>
+          </a>
+          <a href="{{ route('posts.create') }}" class="nav__sublink {{ request()->routeIs('posts.create') ? 'is-active':'' }}">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>
+            <span>Nueva publicación</span>
+          </a>
+        </div>
+      </details>
+
       <!-- Part. contable (principal: listado) -->
       <a href="{{ route('partcontable.index') }}" class="nav__link {{ request()->routeIs('partcontable.*') ? 'is-active':'' }}">
         <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
@@ -395,9 +437,9 @@
         <span>Part. contable</span>
       </a>
 
-      <!-- Licitaciones (solo rutas principales) -->
-      <details class="nav__group" {{ request()->routeIs('licitaciones.*') ? 'open' : '' }}>
-        <summary class="{{ request()->routeIs('licitaciones.*') ? 'is-active':'' }}">
+      <!-- Licitaciones (incluye IA) -->
+      <details class="nav__group" {{ request()->routeIs('licitaciones.*') || request()->routeIs('licitaciones-ai.*') ? 'open' : '' }}>
+        <summary class="{{ request()->routeIs('licitaciones.*') || request()->routeIs('licitaciones-ai.*') ? 'is-active':'' }}">
           <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
             <rect x="4" y="3" width="16" height="18" rx="2"/>
             <path d="M8 7h8M8 11h8M8 15h5"/>
@@ -421,8 +463,30 @@
             </svg>
             <span>Nueva licitación</span>
           </a>
+
+          {{-- Licitaciones IA --}}
+          <a href="{{ route('licitaciones-ai.index') }}" class="nav__sublink {{ request()->routeIs('licitaciones-ai.index') || request()->routeIs('licitaciones-ai.show') ? 'is-active':'' }}">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
+              <path d="M4 5h16v6H4z"/><path d="M4 17h8v2H4z"/><path d="M14 15h6v4h-6z"/>
+            </svg>
+            <span>Licitaciones IA</span>
+          </a>
+          <a href="{{ route('licitaciones-ai.tabla-global') }}" class="nav__sublink {{ request()->routeIs('licitaciones-ai.tabla-global') ? 'is-active':'' }}">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
+              <rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16M3 12h18"/>
+            </svg>
+            <span>Tabla global IA</span>
+          </a>
         </div>
       </details>
+
+      <!-- Agenda -->
+      <a href="{{ route('agenda.calendar') }}" class="nav__link {{ request()->routeIs('agenda.*') ? 'is-active':'' }}">
+        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
+          <rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4"/><path d="M3 10h18"/>
+        </svg>
+        <span>Agenda</span>
+      </a>
 
       <!-- Tickets -->
       <details class="nav__group" {{ request()->routeIs('tickets.*') || request()->routeIs('tickets.dashboard') ? 'open' : '' }}>
