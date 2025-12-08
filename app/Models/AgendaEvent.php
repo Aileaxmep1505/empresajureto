@@ -14,10 +14,10 @@ class AgendaEvent extends Model
     ];
 
     // NOTA: no casteamos 'start_at' ni 'next_reminder_at' a datetime automáticamente
-    // para evitar conversiones automáticas inesperadas. Usaremos accessors/mutators.
+    // para evitar conversiones automáticas inesperadas. Usamos accessors/mutators.
     protected $casts = [
-        'send_email' => 'boolean',
-        'send_whatsapp' => 'boolean',
+        'send_email'   => 'boolean',
+        'send_whatsapp'=> 'boolean',
     ];
 
     /**
@@ -77,71 +77,83 @@ class AgendaEvent extends Model
         return Carbon::createFromFormat('Y-m-d H:i:s', $value, $tz)->setTimezone($tz);
     }
 
-    /** Recalcula next_reminder_at (trabaja en la zona local del evento; guarda valores "naive" en DB) */
+    /**
+     * Recalcula next_reminder_at.
+     *
+     * 🔹 IMPORTANTE:
+     * - SIEMPRE fija el primer recordatorio en start_at - offset.
+     * - YA NO se “brinca” automáticamente al siguiente día si el reminder quedó en el pasado.
+     *   Eso permite que si creas uno muy cerca (ej. 2 min antes), igual lo dispare hoy.
+     */
     public function computeNextReminder(): void
     {
-        // Asegurar start_at existe y es Carbon (local tz) via accessor
         $tz = $this->timezone ?: config('app.timezone');
+
+        /** @var Carbon|null $start */
         $start = $this->start_at; // accessor devuelve Carbon o null
 
-        if (! $start) {
+        if (! $start || ! $this->remind_offset_minutes) {
             $this->next_reminder_at = null;
             return;
         }
 
-        // start ya es Carbon en zona $tz; clonar para manipular
+        // Aseguramos que trabajamos en la zona del evento
         $start = $start->copy()->setTimezone($tz);
-        $reminder = $start->copy()->subMinutes((int)$this->remind_offset_minutes);
 
-        $now = Carbon::now($tz);
-
-        // Si pasó, y tiene regla, avanzar hasta la siguiente ocurrencia que deje reminder >= now
-        if ($reminder->lt($now) && $this->repeat_rule !== 'none') {
-            // intentar avanzar hasta quedar en futuro (limit guard rails)
-            $attempts = 0;
-            while ($reminder->lt($now) && $attempts < 3650) { // safety: no loop infinito
-                match($this->repeat_rule) {
-                    'daily'   => $start->addDay(),
-                    'weekly'  => $start->addWeek(),
-                    'monthly' => $start->addMonth(),
-                    default   => null
-                };
-                $reminder = $start->copy()->subMinutes((int)$this->remind_offset_minutes);
-                $attempts++;
-            }
-        }
+        // Recordatorio = start - offset (sin lógica de "si ya pasó")
+        $reminder = $start->copy()->subMinutes((int) $this->remind_offset_minutes);
 
         // Guardar start_at y next_reminder_at como strings "Y-m-d H:i:s" (naive local)
-        // start puede haber cambiado (por repetición)
         $this->attributes['start_at'] = $start->format('Y-m-d H:i:s');
         $this->attributes['next_reminder_at'] = $reminder->format('Y-m-d H:i:s');
     }
 
-    /** Después de enviar (marcar enviado y avanzar si es repetitivo) */
+    /**
+     * Después de enviar el recordatorio:
+     *  - Si NO hay repetición → se apaga (next_reminder_at = null).
+     *  - Si hay repetición diaria/semanal/mensual → mueve start_at y recalcula next_reminder_at.
+     */
     public function advanceAfterSending(): void
     {
         $tz = $this->timezone ?: config('app.timezone');
-        $start = $this->start_at; // Carbon local or null
-        if (! $start) {
+
+        /** @var Carbon|null $start */
+        $start = $this->start_at; // accessor (Carbon) o null
+
+        if (! $start || ! $this->remind_offset_minutes) {
             $this->next_reminder_at = null;
             return;
         }
 
         if ($this->repeat_rule === 'none') {
+            // Solo un recordatorio
             $this->next_reminder_at = null;
             return;
         }
 
-        // Avanzar el start según regla
-        match($this->repeat_rule) {
-            'daily'   => $start = $start->copy()->addDay(),
-            'weekly'  => $start = $start->copy()->addWeek(),
-            'monthly' => $start = $start->copy()->addMonth(),
-            default   => $start = $start->copy()
-        };
+        // Avanzar el start según regla, en la zona del evento
+        $start = $start->copy()->setTimezone($tz);
 
+        switch ($this->repeat_rule) {
+            case 'daily':
+                $start->addDay();
+                break;
+            case 'weekly':
+                $start->addWeek();
+                break;
+            case 'monthly':
+                $start->addMonth();
+                break;
+            default:
+                // regla desconocida → no repetimos
+                $this->next_reminder_at = null;
+                return;
+        }
+
+        // Nuevo start y nuevo reminder
         $this->attributes['start_at'] = $start->format('Y-m-d H:i:s');
-        $next = $start->copy()->subMinutes((int)$this->remind_offset_minutes);
+
+        $next = $start->copy()->subMinutes((int) $this->remind_offset_minutes);
         $this->attributes['next_reminder_at'] = $next->format('Y-m-d H:i:s');
     }
 }
