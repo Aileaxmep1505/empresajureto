@@ -10,50 +10,51 @@ use Illuminate\Support\Facades\Log;
 class RunAgenda extends Command
 {
     /**
-     * Comando para ejecutar los recordatorios de agenda.
+     * Llama:
+     *   php artisan agenda:run --limit=200 --window=5
      *
-     * --limit indica cuántos eventos máximo procesar por corrida.
+     *  - limit  = máximo de eventos a procesar
+     *  - window = ventana (en minutos) hacia atrás para considerar recordatorios.
      */
-    protected $signature = 'agenda:run {--limit=200}';
+    protected $signature = 'agenda:run {--limit=200} {--window=5}';
 
-    /**
-     * Descripción que aparece en "php artisan list".
-     */
-    protected $description = 'Envía recordatorios de agenda (correo y WhatsApp) de forma inmediata, sin cola';
+    protected $description = 'Envía recordatorios de agenda';
 
-    public function handle(): int
+    public function handle()
     {
-        // Usamos la zona horaria de la app (config/app.php → timezone)
-        $now = now(config('app.timezone', 'America/Mexico_City'));
-        $limit = (int) $this->option('limit');
+        $limit  = (int) $this->option('limit');
+        $window = max(1, (int) $this->option('window')); // al menos 1 minuto
 
-        Log::info("agenda:run → buscando eventos con next_reminder_at <= {$now}");
-        $this->info("Buscando eventos con next_reminder_at <= {$now}");
+        $tz   = config('app.timezone', 'America/Mexico_City');
+        $now  = now($tz);
+        $from = $now->copy()->subMinutes($window);
 
-        // Buscar eventos que ya deberían haberse recordado
+        Log::info("agenda:run → ventana {$window} min. Buscando eventos con next_reminder_at entre {$from} y {$now}");
+        $this->info("Buscando eventos con next_reminder_at entre {$from} y {$now}");
+
         $events = AgendaEvent::query()
             ->whereNotNull('next_reminder_at')
-            ->where('next_reminder_at', '<=', $now)
+            ->whereBetween('next_reminder_at', [$from, $now]) // ⬅️ SOLO esta ventana
             ->where(function ($q) {
                 $q->where('send_email', true)
                   ->orWhere('send_whatsapp', true);
             })
             ->orderBy('next_reminder_at')
-            ->take($limit)
+            ->limit($limit)
             ->get();
 
-        $count = $events->count();
-        Log::info('agenda:run → eventos encontrados', ['count' => $count]);
-        $this->info("Eventos a notificar: {$count}");
+        Log::info("agenda:run → eventos encontrados", ['count' => $events->count()]);
+        $this->info("Eventos a notificar: {$events->count()}");
 
         foreach ($events as $event) {
             $this->info("Enviando recordatorio INMEDIATO para event_id={$event->id} → {$event->title}");
 
             try {
-                // 🔹 Ejecuta el Job al instante, SIN pasar por la cola
-                SendAgendaReminderJob::dispatchSync($event->id);
+                // Llamamos el Job en modo sync (sin cola)
+                $job = new SendAgendaReminderJob($event->id);
+                $job->handle();
 
-                Log::info('agenda:run → Job ejecutado en modo sync', [
+                Log::info("agenda:run → Job ejecutado en modo sync", [
                     'event_id' => $event->id,
                     'title'    => $event->title,
                 ]);
@@ -68,9 +69,7 @@ class RunAgenda extends Command
             }
         }
 
-        $this->info('Terminó agenda:run');
-        Log::info('agenda:run → terminado');
-
-        return self::SUCCESS;
+        $this->info("Terminó agenda:run");
+        Log::info("agenda:run → terminado");
     }
 }
