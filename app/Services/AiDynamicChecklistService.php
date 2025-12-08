@@ -54,21 +54,44 @@ class AiDynamicChecklistService
             throw new RuntimeException('Falta OPENAI_API_KEY en .env');
         }
 
+        // Año actual (solo contexto, no queremos que lo invente en los puntos)
+        $year = now()->year;
+
         $sys = <<<SYS
-Eres un asistente que genera checklists operativos VERIFICABLES para equipos de trabajo.
+Eres un asistente que genera checklists operativos VERIFICABLES para equipos
+que trabajan en licitaciones públicas en México.
+
 Responde EXCLUSIVAMENTE un JSON válido con ESTA ESTRUCTURA EXACTA:
 {
   "title": "string",
   "instructions": "string",
   "items": [{"text":"string"}, ...]
 }
+
 Reglas:
-- 8 a 12 items máximo.
-- Cada "text" debe ser una ACCIÓN breve y MEDIBLE que empiece con verbo en imperativo.
-- Nada fuera del JSON. Nada de comentarios.
+- Entre 8 y 12 items máximo.
+- Cada "text" debe ser una ACCIÓN breve y MEDIBLE que empiece con un verbo en imperativo
+  (ej. "Verificar que...", "Confirmar que...", "Registrar...", "Comparar...").
+- Usa siempre español claro, profesional y conciso.
+- Adapta los puntos a la FASE de la licitación que se indique en el contexto
+  (por ejemplo: análisis de bases, preguntas/aclaraciones, cotización, muestras, entrega, etc.).
+- No mezcles tareas de otras fases: concéntrate en la fase indicada.
+- NO inventes años concretos (2023, 2022, etc.) salvo que aparezcan
+  EXPLÍCITAMENTE en el texto del usuario.
+  Si necesitas hablar de vigencia, usa expresiones como:
+  "vigentes", "actualizados", "del año en curso" o "última versión".
+- NO inventes folios ni números de licitación ni de ticket
+  (por ejemplo "TKT-2025-0001" u otros).
+  Si necesitas referirte a la licitación, usa:
+  "esta licitación", "el procedimiento" o términos genéricos.
+- Aunque recibas el folio del ticket en el contexto, NO lo repitas dentro de los puntos.
+- Nada fuera del JSON. Nada de comentarios, texto extra ni explicaciones.
 SYS;
 
-        $usr = $this->buildUserPrompt($prompt, $context);
+        $usr = $this->buildUserPrompt($prompt, $context, $year);
+
+        // Para corregir casos donde la IA menciona 2023 sin que el usuario lo haya pedido
+        $promptHas2023 = str_contains($prompt, '2023');
 
         $lastErr = null;
         $attempts = 0;
@@ -76,24 +99,58 @@ SYS;
         foreach ($this->models as $model) {
             $tries = 0;
             while ($tries <= $this->retriesPerModel && $attempts < $this->maxTotalAttempts) {
-                $attempts++; $tries++;
+                $attempts++;
+                $tries++;
                 try {
                     $json = $this->callChatCompletions($model, $sys, $usr);
-                    // Validación mínima
-                    $title = (string) data_get($json, 'title', '');
+
+                    // Validación mínima + saneo de texto
+                    $title        = (string) data_get($json, 'title', '');
                     $instructions = (string) data_get($json, 'instructions', '');
+
                     $items = collect((array) data_get($json, 'items', []))
                         ->map(fn($it) => ['text' => trim((string) data_get($it, 'text', ''))])
+                        // Saneamos folios inventados y años 2023 raros
+                        ->map(function ($it) use ($promptHas2023) {
+                            $t = $it['text'];
+
+                            if ($t === '') {
+                                return $it;
+                            }
+
+                            // 1) Quitar folios inventados tipo TKT-2025-0001
+                            $t = preg_replace('/TKT-\d{4}-\d{4}/i', 'esta licitación', $t);
+
+                            // 2) Si el usuario NUNCA mencionó 2023, pero la IA lo mete, lo corregimos
+                            if (!$promptHas2023 && str_contains($t, '2023')) {
+                                // Caso típico: "actualizados a 2023"
+                                $t = preg_replace(
+                                    '/actualizad[oa]s?\s+a\s+2023\b/i',
+                                    'actualizados al año en curso',
+                                    $t
+                                );
+
+                                // Si aún quedó un "2023" suelto, lo volvemos genérico
+                                if (str_contains($t, '2023')) {
+                                    $t = preg_replace('/\b2023\b/', 'año en curso', $t);
+                                }
+                            }
+
+                            $it['text'] = trim($t);
+                            return $it;
+                        })
                         ->filter(fn($it) => $it['text'] !== '')
-                        ->values()->all();
+                        ->values()
+                        ->all();
 
                     if ($title === '' || count($items) < 8 || count($items) > 12) {
                         throw new RuntimeException('La IA no devolvió 8–12 acciones medibles.');
                     }
 
-                    return compact('title','instructions','items');
+                    return compact('title', 'instructions', 'items');
                 } catch (\Throwable $e) {
                     $lastErr = $e;
+
                     // 403/404: cambiar de modelo de inmediato
                     if ($e instanceof RuntimeException && str_contains($e->getMessage(), 'HTTP 403')) break;
                     if ($e instanceof RuntimeException && str_contains($e->getMessage(), 'HTTP 404')) break;
@@ -102,7 +159,7 @@ SYS;
                     usleep(($this->retryBaseMs * 1000) * $tries);
                 }
             }
-            // probar siguiente modelo
+            // pasar al siguiente modelo
         }
 
         // Llegamos aquí: todos fallaron
@@ -129,15 +186,15 @@ SYS;
             ->post($url, [
                 'model' => $model,
                 'messages' => [
-                    ['role'=>'system', 'content'=>$system],
-                    ['role'=>'user',   'content'=>$user],
+                    ['role' => 'system', 'content' => $system],
+                    ['role' => 'user',   'content' => $user],
                 ],
-                'temperature' => 0.2,
-                'response_format' => ['type'=>'json_object'],
+                'temperature'      => 0.2,
+                'response_format'  => ['type' => 'json_object'],
             ]);
 
         if (!$resp->ok()) {
-            $body = $resp->json() ?: ['error'=>['message'=>$resp->body()]];
+            $body = $resp->json() ?: ['error' => ['message' => $resp->body()]];
             $err  = Arr::get($body, 'error.message', 'Error OpenAI');
             throw new RuntimeException("OpenAI error: HTTP {$resp->status()} {$err}");
         }
@@ -150,17 +207,64 @@ SYS;
         return $json;
     }
 
-    protected function buildUserPrompt(string $prompt, array $ctx): string
+    /**
+     * Construye el prompt de usuario con contexto de licitación pública.
+     *
+     * Espera cosas como:
+     * - $context['ticket']['folio']
+     * - $context['ticket']['type']
+     * - $context['ticket']['priority']
+     * - $context['ticket']['client']
+     * - $context['ticket']['licitacion_phase']
+     * - $context['stage']['name']
+     */
+    protected function buildUserPrompt(string $prompt, array $ctx, int $year): string
     {
         $parts = [];
-        if ($folio = data_get($ctx, 'ticket.folio'))     $parts[] = "Ticket: {$folio}";
-        if ($etapa = data_get($ctx, 'stage.name'))       $parts[] = "Etapa: {$etapa}";
-        if ($tipo = data_get($ctx, 'ticket.type'))       $parts[] = "Tipo: {$tipo}";
-        if ($prio = data_get($ctx, 'ticket.priority'))   $parts[] = "Prioridad: {$prio}";
-        if ($cli  = data_get($ctx, 'ticket.client'))     $parts[] = "Cliente: {$cli}";
 
-        $ctxStr = empty($parts) ? '' : ("Contexto:\n- ".implode("\n- ", $parts)."\n\n");
-        return $ctxStr . "Genera un checklist VERIFICABLE (8–12 puntos) para:\n\"{$prompt}\"";
+        if ($folio = data_get($ctx, 'ticket.folio')) {
+            $parts[] = "Ticket interno (solo contexto, NO repetir en los puntos): {$folio}";
+        }
+        if ($etapa = data_get($ctx, 'stage.name')) {
+            $parts[] = "Etapa del flujo interno: {$etapa}";
+        }
+        if ($tipo = data_get($ctx, 'ticket.type')) {
+            $parts[] = "Tipo interno de ticket: {$tipo}";
+        }
+        if ($prio = data_get($ctx, 'ticket.priority')) {
+            $parts[] = "Prioridad interna: {$prio}";
+        }
+        if ($cli = data_get($ctx, 'ticket.client')) {
+            $parts[] = "Cliente o institución: {$cli}";
+        }
+
+        // Fase de licitación pública (clave interna, ej. analisis_bases, cotizacion, etc.)
+        if ($phase = data_get($ctx, 'ticket.licitacion_phase')) {
+            $map = [
+                'analisis_bases' => 'Análisis de bases y documentos de la licitación',
+                'preguntas'      => 'Preguntas y aclaraciones con la convocante',
+                'cotizacion'     => 'Preparación y revisión de la cotización',
+                'muestras'       => 'Preparación y entrega de muestras',
+                'ir_por_pedido'  => 'Gestión para ir por el pedido / contrato',
+                'entrega'        => 'Entrega de bienes o servicios',
+                'seguimiento'    => 'Seguimiento posterior y cierre operativo',
+            ];
+            $faseTexto = $map[$phase] ?? $phase;
+            $parts[] = "Fase de licitación pública: {$faseTexto}. "
+                     . "TODOS los puntos deben enfocarse en esta fase.";
+        }
+
+        $parts[] = "Año de trabajo actual: {$year}. "
+                 . "En los puntos, evita mencionar el año como número salvo que el usuario lo haya escrito.";
+
+        $ctxStr = '';
+        if (!empty($parts)) {
+            $ctxStr = "Contexto de la licitación:\n- " . implode("\n- ", $parts) . "\n\n";
+        }
+
+        return $ctxStr
+            . "Genera un checklist VERIFICABLE (8–12 puntos) específicamente para:\n"
+            . "\"{$prompt}\"";
     }
 
     protected function explainOpenAIError($e): string

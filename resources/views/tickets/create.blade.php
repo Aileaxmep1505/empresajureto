@@ -1,9 +1,14 @@
 {{-- resources/views/tickets/create.blade.php --}}
 @extends('layouts.app')
-@section('title','Nuevo ticket')
+@section('title','Nuevo ticket de licitación')
 
 @section('content')
 <div id="tkt-create" class="container-fluid p-0">
+  @php
+    /** @var \Illuminate\Database\Eloquent\Collection|\App\Models\User[] $users */
+    $users = $users ?? collect();
+  @endphp
+
   <style>
     /* =========================
        NAMESPACE: #tkt-create
@@ -254,6 +259,23 @@
       font-weight:600;
     }
 
+    /* Colores por prioridad (chips y preview) */
+    #tkt-create .chip-prio-alta.active{
+      background:#fee2e2;
+      border-color:#fecaca;
+      color:#b91c1c;
+    }
+    #tkt-create .chip-prio-media.active{
+      background:#fef3c7;
+      border-color:#fed7aa;
+      color:#92400e;
+    }
+    #tkt-create .chip-prio-baja.active{
+      background:#dcfce7;
+      border-color:#bbf7d0;
+      color:#166534;
+    }
+
     #tkt-create .badge{
       display:inline-flex;
       align-items:center;
@@ -386,6 +408,33 @@
       transition:width .25s ease-out;
     }
 
+    .priority-pill{
+      display:inline-flex;
+      align-items:center;
+      padding:.2rem .65rem;
+      border-radius:999px;
+      font-size:.78rem;
+      font-weight:600;
+      border:1px solid transparent;
+      background:#f4f4f5;
+      color:#44403c;
+    }
+    .priority-pill--alta{
+      background:#fee2e2;
+      border-color:#fecaca;
+      color:#b91c1c;
+    }
+    .priority-pill--media{
+      background:#fef3c7;
+      border-color:#fed7aa;
+      color:#92400e;
+    }
+    .priority-pill--baja{
+      background:#dcfce7;
+      border-color:#bbf7d0;
+      color:#166534;
+    }
+
     /* Secciones */
     #tkt-create .section-title{
       font-weight:700;
@@ -450,8 +499,8 @@
   <div class="wrap">
     <div class="top">
       <div>
-        <h1 class="h h-main">Nuevo ticket</h1>
-        <p class="sub">Completa los datos básicos para registrar el ticket.</p>
+        <h1 class="h h-main">Nuevo ticket de licitación</h1>
+        <p class="sub">Registra una tarea puntual dentro del flujo de una licitación pública.</p>
       </div>
       <div class="shortcut-pill" aria-label="Atajo para guardar el ticket">
         <span class="shortcut-label">Atajo de guardado</span>
@@ -463,14 +512,17 @@
       {{-- ======== COLUMNA FORMULARIO ======== --}}
       <form id="tktForm" method="POST" action="{{ route('tickets.store') }}" class="card card-main" enctype="multipart/form-data" novalidate>
         @csrf
+        {{-- Todos los tickets son de licitación --}}
+        <input type="hidden" name="type" value="licitacion">
+
         <div class="head">
           <div class="head-main">
             <div class="h h-small">Datos del ticket</div>
             <div class="steps">
               <span class="step is-active">1 Datos</span>
-              <span class="step">2 Tipo</span>
+              <span class="step">2 Proceso</span>
               <span class="step">3 Responsable</span>
-              <span class="step">4 Detalles</span>
+              <span class="step">4 Fechas y links</span>
             </div>
           </div>
           <div class="right" style="display:flex;gap:8px;align-items:center">
@@ -526,23 +578,38 @@
             </div>
           </div>
 
-          {{-- 2) Tipo y prioridad --}}
-          <div class="section-title">2. Tipo y prioridad</div>
+          {{-- 2) Proceso y prioridad --}}
+          <div class="section-title">2. Proceso dentro de la licitación y prioridad</div>
           <div class="grid">
             <div class="row">
-              <label for="type">Tipo de ticket</label>
-              <select id="type" name="type" required>
-                @foreach(['licitacion'=>'Licitación','pedido'=>'Pedido','cotizacion'=>'Cotización','entrega'=>'Entrega','queja'=>'Queja'] as $val=>$label)
-                  <option value="{{ $val }}" @selected(old('type')===$val)>{{ $label }}</option>
+              <label for="licitacion_phase">Proceso</label>
+              <select id="licitacion_phase" name="licitacion_phase" required>
+                @php
+                  $phaseOptions = [
+                    'analisis_bases'   => 'Análisis de bases',
+                    'preguntas'        => 'Preguntas / aclaraciones',
+                    'cotizacion'       => 'Cotización',
+                    'muestras'         => 'Muestras',
+                    'ir_por_pedido'    => 'Ir por pedido',
+                    'entrega'          => 'Entrega',
+                    'seguimiento'      => 'Seguimiento / otros',
+                  ];
+                @endphp
+                <option value="">Selecciona proceso</option>
+                @foreach($phaseOptions as $val => $label)
+                  <option value="{{ $val }}" @selected(old('licitacion_phase')===$val)>{{ $label }}</option>
                 @endforeach
               </select>
-              @error('type') <div class="error">{{ $message }}</div> @enderror
-              <div class="chips" data-sync-select="#type" style="margin-top:8px">
-                <span class="chip" data-value="licitacion">Licitación</span>
-                <span class="chip" data-value="pedido">Pedido</span>
+              @error('licitacion_phase') <div class="error">{{ $message }}</div> @enderror
+
+              <div class="chips" data-sync-select="#licitacion_phase" style="margin-top:8px">
+                <span class="chip" data-value="analisis_bases">Análisis de bases</span>
+                <span class="chip" data-value="preguntas">Preguntas</span>
                 <span class="chip" data-value="cotizacion">Cotización</span>
+                <span class="chip" data-value="muestras">Muestras</span>
+                <span class="chip" data-value="ir_por_pedido">Ir por pedido</span>
                 <span class="chip" data-value="entrega">Entrega</span>
-                <span class="chip" data-value="queja">Queja</span>
+                <span class="chip" data-value="seguimiento">Seguimiento</span>
               </div>
             </div>
 
@@ -556,10 +623,11 @@
               @error('priority') <div class="error">{{ $message }}</div> @enderror
 
               <div class="chips" data-sync-select="#priority" style="margin-top:8px">
-                <span class="chip" data-value="alta">Alta</span>
-                <span class="chip" data-value="media">Media</span>
-                <span class="chip" data-value="baja">Baja</span>
+                <span class="chip chip-prio-alta chip-prio"  data-value="alta">Alta</span>
+                <span class="chip chip-prio-media chip-prio" data-value="media">Media</span>
+                <span class="chip chip-prio-baja chip-prio"  data-value="baja">Baja</span>
               </div>
+              <div class="hint">Cada ticket tomará un color según la prioridad.</div>
             </div>
           </div>
 
@@ -567,16 +635,20 @@
           <div class="section-title">3. Responsable y tiempo</div>
           <div class="grid">
             <div class="row">
-              <label for="owner_id">Responsable asignado (ID)</label>
-              <input
-                id="owner_id"
-                type="number"
-                name="owner_id"
-                value="{{ old('owner_id', auth()->id()) }}"
-                placeholder="Ej. {{ auth()->id() }}"
-              >
+              <label for="owner_id">Responsable del proceso</label>
+              <select id="owner_id" name="owner_id">
+                <option value="">Sin asignar</option>
+                @foreach($users as $user)
+                  <option
+                    value="{{ $user->id }}"
+                    @selected(old('owner_id', auth()->id()) == $user->id)
+                  >
+                    {{ $user->name }} (ID {{ $user->id }})
+                  </option>
+                @endforeach
+              </select>
               @error('owner_id') <div class="error">{{ $message }}</div> @enderror
-              <div class="hint">Puedes ajustarlo después.</div>
+              <div class="hint">Persona que llevará este paso (cotización, muestras, entrega, etc.).</div>
             </div>
 
             <div class="row">
@@ -598,8 +670,8 @@
             </div>
           </div>
 
-          {{-- 4) (Opcional) Licitación y link --}}
-          <div class="section-title">4. Información adicional (opcional)</div>
+          {{-- 4) Información de licitación y links --}}
+          <div class="section-title">4. Datos de licitación y notas</div>
           <div class="grid">
             <div class="row">
               <label for="numero_licitacion">Número de licitación</label>
@@ -614,7 +686,10 @@
             </div>
 
             <div class="row">
-              <label for="monto_propuesta">Monto de la propuesta</label>
+              <label for="monto_propuesta">
+                Monto de la propuesta
+                <span class="hint">(opcional)</span>
+              </label>
               <input
                 id="monto_propuesta"
                 type="number"
@@ -635,18 +710,19 @@
                 value="{{ old('link_inicial') }}"
                 placeholder="https://..."
               >
-              <div class="hint">Podrás agregar más enlaces dentro del ticket.</div>
+              <div class="hint">Compranet, Drive, correo, etc.</div>
             </div>
 
             <div class="row">
-              <label for="nota">Notas rápidas (temporal)</label>
+              <label for="quick_notes">Notas rápidas</label>
               <textarea
-                id="nota"
+                id="quick_notes"
+                name="quick_notes"
                 rows="3"
-                placeholder="Zona temporal para copiar/pegar (no se guarda)"
+                placeholder="Contexto corto, acuerdos, pendientes."
                 spellcheck="false"
-              ></textarea>
-              <div class="hint">Solo uso temporal; no se guarda.</div>
+              >{{ old('quick_notes') }}</textarea>
+              <div class="hint">Se guardan dentro del ticket.</div>
             </div>
           </div>
 
@@ -674,16 +750,19 @@
               <div class="h h-small">Previsualización</div>
               <div class="hint">Resumen en vivo del ticket.</div>
             </div>
-            <span class="label-pill">Vista previa</span>
+            <span class="label-pill">Licitación</span>
           </div>
           <div class="body" style="display:flex;flex-direction:column;gap:14px">
             <div class="kv">
               <div class="k">Folio estimado</div><div class="v">Se asigna al guardar</div>
               <div class="k">Título</div><div class="v" id="pv-title">—</div>
               <div class="k">Cliente</div><div class="v" id="pv-client">—</div>
-              <div class="k">Tipo</div><div class="v" id="pv-type">—</div>
-              <div class="k">Prioridad</div><div class="v" id="pv-priority">—</div>
-              <div class="k">Responsable</div><div class="v" id="pv-owner">ID {{ auth()->id() }}</div>
+              <div class="k">Proceso</div><div class="v" id="pv-process">No definido</div>
+              <div class="k">Prioridad</div>
+              <div class="v">
+                <span id="pv-priority" class="priority-pill">Sin definir</span>
+              </div>
+              <div class="k">Responsable</div><div class="v" id="pv-owner">Sin asignar</div>
               <div class="k">Fecha límite</div><div class="v" id="pv-due">—</div>
             </div>
 
@@ -698,13 +777,13 @@
             <div class="section" style="margin-top:2px">
               <div class="section-title" style="margin:0 0 4px">Etapas base</div>
               <ol id="pv-stages" style="margin:0 0 4px 1.2rem;padding:0;line-height:1.45;font-size:.86rem">
-                <li>Recepción de ticket</li>
+                <li>Recepción de bases / documentos</li>
                 <li>Análisis técnico / comercial</li>
                 <li>Cotización y envío</li>
-                <li>Aprobación y seguimiento</li>
-                <li>Entrega y cierre</li>
+                <li>Muestras / pedido / entrega</li>
+                <li>Aprobación y cierre</li>
               </ol>
-              <div class="hint">Más adelante podrás ajustar etapas y checklists.</div>
+              <div class="hint">Después podrás ajustar etapas y checklists por licitación.</div>
             </div>
           </div>
         </div>
@@ -722,7 +801,7 @@
   const form       = $('#tktForm');
   const submitBtns = $$('#submitBtn, #submitBtn2');
 
-  // 1) Chips que sincronizan con selects (tipo / prioridad)
+  // 1) Chips que sincronizan con selects (proceso / prioridad)
   $$(".chips[data-sync-select]").forEach(group => {
     const sel      = group.getAttribute('data-sync-select');
     const selectEl = document.querySelector(sel);
@@ -781,9 +860,9 @@
     update();
   }
 
-  // 3) Preview de cliente, tipo, prioridad, responsable y SLA
+  // 3) Preview de cliente, proceso, prioridad, responsable y SLA
   const pvClient   = $("#pv-client");
-  const pvType     = $("#pv-type");
+  const pvProcess  = $("#pv-process");
   const pvPriority = $("#pv-priority");
   const pvOwner    = $("#pv-owner");
   const pvDue      = $("#pv-due");
@@ -793,19 +872,35 @@
     pvClient.textContent = e.target.value.trim() || '—';
   });
 
-  $("#type")?.addEventListener('change', e => {
+  $("#licitacion_phase")?.addEventListener('change', e => {
     const opt = e.target.options[e.target.selectedIndex];
-    pvType.textContent = opt?.text || '—';
+    pvProcess.textContent = opt?.value ? (opt.text || 'No definido') : 'No definido';
+    if (opt && opt.value) {
+      progressTo(24, 'Proceso definido • 24%');
+    }
   });
 
   $("#priority")?.addEventListener('change', e => {
     const opt = e.target.options[e.target.selectedIndex];
-    pvPriority.textContent = opt?.text || '—';
+    const val = opt?.value || '';
+    const text = opt?.text || 'Sin definir';
+
+    pvPriority.textContent = text;
+
+    pvPriority.classList.remove(
+      'priority-pill--alta',
+      'priority-pill--media',
+      'priority-pill--baja'
+    );
+    if (val === 'alta')  pvPriority.classList.add('priority-pill--alta');
+    if (val === 'media') pvPriority.classList.add('priority-pill--media');
+    if (val === 'baja')  pvPriority.classList.add('priority-pill--baja');
   });
 
-  $("#owner_id")?.addEventListener('input', e => {
-    const val = e.target.value || "{{ auth()->id() }}";
-    pvOwner.textContent = "ID " + val;
+  const ownerSelect = $("#owner_id");
+  ownerSelect?.addEventListener('change', e => {
+    const opt = e.target.selectedOptions[0];
+    pvOwner.textContent = opt && opt.value ? opt.textContent : 'Sin asignar';
   });
 
   const fmtLocal = (dt) => {
@@ -870,10 +965,10 @@
   });
 
   // Inicializar previews con valores existentes
-  $("#type")?.dispatchEvent(new Event('change'));
+  $("#licitacion_phase")?.dispatchEvent(new Event('change'));
   $("#priority")?.dispatchEvent(new Event('change'));
+  ownerSelect?.dispatchEvent(new Event('change'));
   $("#client_name")?.dispatchEvent(new Event('input'));
-  $("#owner_id")?.dispatchEvent(new Event('input'));
   if (due?.value) due.dispatchEvent(new Event('input'));
 })();
 </script>
