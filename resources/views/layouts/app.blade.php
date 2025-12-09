@@ -169,16 +169,33 @@
     .topbar__title{ font-weight:700; letter-spacing:.3px; }
     .topbar__right{ margin-left:auto; display:flex; align-items:center; gap:12px; }
 
-    /* Notificaciones */
+    /* ========== Notificaciones ========== */
     .notif{ position:relative; }
+
+    /* badge con número */
     .dot{
-      position:absolute; top:6px; right:6px; width:10px; height:10px; background:var(--accent); border-radius:999px; box-shadow:0 0 0 3px #fff7;
+      position:absolute;
+      top:6px;
+      right:6px;
+      min-width:18px;
+      height:18px;
+      padding:0 4px;
+      background:var(--accent);
+      border-radius:999px;
+      box-shadow:0 0 0 3px #fff7;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:10px;
+      font-weight:700;
+      color:#fff;
       animation: dotPulse 2.2s infinite cubic-bezier(.66,0,0,1);
     }
     @keyframes dotPulse{
       0%,100%{ transform:scale(1); opacity:1 }
       50%{ transform:scale(1.25); opacity:.75 }
     }
+
     .notif__panel{
       position:absolute; right:0; top:48px; width:320px; max-width:92vw;
       background:var(--surface); border:1px solid var(--border); border-radius:16px; box-shadow:var(--shadow);
@@ -187,16 +204,82 @@
       overflow:hidden; z-index: 35;
     }
     .notif__panel.is-open{ opacity:1; transform: translateY(0) scale(1); pointer-events:auto; }
-    .notif__head{ display:flex; align-items:center; justify-content:space-between; padding:12px 12px; border-bottom:1px solid var(--border); }
-    .notif__list{ max-height:300px; overflow:auto; overscroll-behavior:contain; }
-    .notif__item{ display:grid; grid-template-columns:auto 1fr; column-gap:8px; row-gap:4px; padding:10px 12px; background:linear-gradient(180deg, #ffffff80, #ffffff00); }
+    .notif__head{
+      display:flex; align-items:center; justify-content:space-between;
+      padding:12px 12px; border-bottom:1px solid var(--border);
+    }
+    .notif__list{
+      max-height:300px; overflow:auto; overscroll-behavior:contain;
+      background:var(--surface);
+    }
+
+    .notif__item{
+      position:relative;
+      display:grid;
+      grid-template-columns:auto 1fr;
+      column-gap:8px;
+      row-gap:2px;
+      padding:8px 12px;
+      border-bottom:1px solid rgba(214,222,240,.9);
+      background:linear-gradient(180deg,#ffffff,#f9fbff);
+      padding-right:32px; /* espacio para el botón X */
+    }
+    .notif__item:last-child{
+      border-bottom:none;
+    }
+    .notif__item.is-unread{
+      background:linear-gradient(180deg,#ffffff,#f0f4ff);
+    }
+    .notif__item.is-read{
+      opacity:.9;
+    }
+
     .notif__text{ color:#2b3756; }
     .notif__time{ color:#6b7a99; font-size:.85rem; grid-column:2; }
-    .pill{ padding:2px 8px; border-radius:999px; font-size:.72rem; border:1px solid var(--border); align-self:start; }
+
+    .pill{
+      padding:2px 8px; border-radius:999px; font-size:.72rem;
+      border:1px solid var(--border); align-self:start;
+    }
     .pill--info{ background:#e8f1ff; color:#2b4a7a; }
     .pill--warn{ background:#fff3cd; color:#8a6d1a; }
-    .notif__link{ display:block; padding:10px 12px; text-decoration:none; color:#3b6fde; border-top:1px solid var(--border); font-weight:600; }
+    .pill--error{ background:#fde2e1; color:#8a1f1f; }
+
+    .notif__link{
+      display:block; padding:10px 12px;
+      text-decoration:none; color:#3b6fde;
+      border-top:1px solid var(--border);
+      font-weight:600; text-align:left;
+      background:none; width:100%; cursor:pointer;
+    }
     .notif__link:hover{ background:#eaf0ff; }
+    .notif__empty{ padding:12px; font-size:.88rem; color:var(--muted); }
+
+    /* botón para marcar una sola como leída */
+    .notif__item-close{
+      position:absolute;
+      top:8px;
+      right:8px;
+      width:20px;
+      height:20px;
+      border-radius:999px;
+      border:none;
+      background:transparent;
+      cursor:pointer;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:13px;
+      color:var(--muted);
+      transition:background .16s ease,color .16s ease,transform .08s ease;
+    }
+    .notif__item-close:hover{
+      background:rgba(91,141,239,.08);
+      color:var(--primary);
+    }
+    .notif__item-close:active{
+      transform:scale(.94);
+    }
 
     /* Contenido */
     .content{ padding:18px; min-height:calc(100vh - var(--topbar-h)); }
@@ -242,6 +325,25 @@
               $profileHref = route('profile');
           } else {
               $profileHref = url('/panel/perfil');
+          }
+
+          // URLs para el feed de notificaciones
+          if (\Illuminate\Support\Facades\Route::has('notifications.feed')) {
+              $notifFeedUrl = route('notifications.feed');
+          } else {
+              $notifFeedUrl = url('/notifications/feed');
+          }
+          if (\Illuminate\Support\Facades\Route::has('notifications.read-all')) {
+              $notifReadAllUrl = route('notifications.read-all');
+          } else {
+              $notifReadAllUrl = url('/notifications/read-all');
+          }
+
+          if (\Illuminate\Support\Facades\Route::has('notifications.read-one')) {
+              // usamos __ID__ como placeholder y lo sustituimos en JS
+              $notifReadOneUrl = route('notifications.read-one', ['notification' => '__ID__']);
+          } else {
+              $notifReadOneUrl = url('/notifications/__ID__/read');
           }
         @endphp
 
@@ -346,8 +448,7 @@
       <!-- Clientes -->
       <a href="{{ route('clients.index') }}" class="nav__link {{ request()->routeIs('clients.*') ? 'is-active':'' }}">
         <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
-          <path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-          <circle cx="12" cy="7" r="4"/>
+          <path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
         </svg>
         <span>Clientes</span>
       </a>
@@ -698,7 +799,7 @@
               <path d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5"/>
               <path d="M9 21h6"/>
             </svg>
-            <span class="dot" aria-hidden="true"></span>
+            <span id="notifBadge" class="dot" aria-hidden="true" style="display:none;"></span>
           </button>
 
           <div id="notifPanel" class="notif__panel" role="menu" aria-label="Panel de notificaciones">
@@ -710,19 +811,10 @@
                 </svg>
               </button>
             </div>
-            <div class="notif__list">
-              <div class="notif__item">
-                <span class="pill pill--info">Info</span>
-                <div class="notif__text">Bienvenido, {{ $nm }}</div>
-                <div class="notif__time">Ahora</div>
-              </div>
-              <div class="notif__item">
-                <span class="pill pill--warn">Aviso</span>
-                <div class="notif__text">Recuerda completar tu perfil.</div>
-                <div class="notif__time">Hace 1 h</div>
-              </div>
+            <div id="notifList" class="notif__list">
+              <div class="notif__empty">Cargando…</div>
             </div>
-            <a href="#" class="notif__link">Ver todas</a>
+            <button type="button" id="btnMarkAll" class="notif__link">Marcar todas como leídas</button>
           </div>
         </div>
 
@@ -756,12 +848,24 @@
       const btnOpen    = document.getElementById('btnSidebar');
       const btnClose   = document.getElementById('btnCloseSidebar');
 
-      const notifBtn   = document.getElementById('btnNotif');
-      const notifPane  = document.getElementById('notifPanel');
-      const notifClose = document.getElementById('btnCloseNotif');
+      const notifBtn     = document.getElementById('btnNotif');
+      const notifPane    = document.getElementById('notifPanel');
+      const notifClose   = document.getElementById('btnCloseNotif');
+      const notifList    = document.getElementById('notifList');
+      const notifBadge   = document.getElementById('notifBadge');
+      const notifMarkAll = document.getElementById('btnMarkAll');
 
-      let sidebarOpen = false;
+      const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 
+      const NOTIF_FEED_URL    = @json($notifFeedUrl);
+      const NOTIF_READALL_URL = @json($notifReadAllUrl);
+      const NOTIF_READONE_URL = @json($notifReadOneUrl);
+
+      let sidebarOpen    = false;
+      let notifLoaded    = false;
+      let lastPayloadKey = null;
+
+      /* ========== Sidebar ========== */
       const applyOverlay = () => {
         backdrop.classList.toggle('is-show', sidebarOpen);
         shell.classList.toggle('dimmed', sidebarOpen);
@@ -782,48 +886,220 @@
         applyOverlay();
       };
 
-      btnOpen.addEventListener('click', openSidebar);
-      btnClose.addEventListener('click', closeSidebar);
-      backdrop.addEventListener('click', closeSidebar);
+      if (btnOpen)  btnOpen.addEventListener('click', openSidebar);
+      if (btnClose) btnClose.addEventListener('click', closeSidebar);
+      if (backdrop) backdrop.addEventListener('click', closeSidebar);
 
-      // Cerrar solo cuando es navegación real (no al abrir/cerrar submenú)
-      sidebarNav.addEventListener('click', (e)=>{
-        const summary = e.target.closest('summary');
-        if (summary) { return; } // toggle submenu -> no cerrar
-        const link = e.target.closest('a');
-        if (!link) return;
+      if (sidebarNav){
+        sidebarNav.addEventListener('click', (e)=>{
+          const summary = e.target.closest('summary');
+          if (summary) { return; }
+          const link = e.target.closest('a');
+          if (!link) return;
 
-        const href = link.getAttribute('href') || '';
-        const keep = link.hasAttribute('data-keep-open');
-        const isAnchorOnly = href.startsWith('#') || href === '' || href.startsWith('javascript');
+          const href = link.getAttribute('href') || '';
+          const keep = link.hasAttribute('data-keep-open');
+          const isAnchorOnly = href.startsWith('#') || href === '' || href.startsWith('javascript');
 
-        if (!keep && !isAnchorOnly) { closeSidebar(); }
-      });
+          if (!keep && !isAnchorOnly) { closeSidebar(); }
+        });
+      }
 
-      // Notificaciones
-      const closeNotif = () => {
+      /* ========== Notificaciones ========== */
+
+      function buildPayloadKey(payload){
+        if (!payload || !Array.isArray(payload.items)) return '';
+        return payload.items.map(n => n.id + (n.read_at ? '1' : '0')).join('|') + '|' + (payload.unread || 0);
+      }
+
+      function renderNotifItems(payload){
+        if (!notifList) return;
+        const items  = (payload && payload.items)  ? payload.items  : [];
+        const unread = (payload && payload.unread) ? payload.unread : 0;
+
+        // Badge con número
+        if (notifBadge){
+          if (unread > 0){
+            notifBadge.style.display = '';
+            notifBadge.textContent = unread > 9 ? '9+' : unread;
+          } else {
+            notifBadge.style.display = 'none';
+            notifBadge.textContent = '';
+          }
+        }
+
+        notifList.innerHTML = '';
+
+        if (!items.length){
+          const empty = document.createElement('div');
+          empty.className = 'notif__empty';
+          empty.textContent = 'No tienes notificaciones.';
+          notifList.appendChild(empty);
+          return;
+        }
+
+        items.forEach(n => {
+          const level = n.status || 'info';
+          let pillClass = 'pill--info';
+          let pillText  = 'Info';
+          if (level === 'warn'){ pillClass = 'pill--warn'; pillText = 'Aviso'; }
+          else if (level === 'error'){ pillClass = 'pill--error'; pillText = 'Alerta'; }
+
+          const item = document.createElement('div');
+          item.className = 'notif__item ' + (n.read_at ? 'is-read' : 'is-unread');
+          item.dataset.id = n.id;
+
+          item.innerHTML = `
+            <span class="pill ${pillClass}">${pillText}</span>
+            <div class="notif__text">${(n.title || 'Notificación')}</div>
+            <div class="notif__time">${n.time || ''}</div>
+            <button type="button" class="notif__item-close" aria-label="Marcar como leída" data-id="${n.id}">&times;</button>
+          `;
+          notifList.appendChild(item);
+        });
+      }
+
+      async function loadNotifications(){
+        if (!NOTIF_FEED_URL || !notifList) return;
+
+        if (!notifLoaded){
+          notifList.innerHTML = '<div class="notif__empty">Cargando…</div>';
+        }
+
+        try{
+          const res  = await fetch(NOTIF_FEED_URL, { headers:{ 'Accept':'application/json' } });
+          const json = await res.json();
+
+          if (!res.ok){
+            throw new Error(json.message || 'Error al cargar notificaciones');
+          }
+
+          const key = buildPayloadKey(json);
+          if (key !== lastPayloadKey){
+            lastPayloadKey = key;
+            renderNotifItems(json);
+          }
+          notifLoaded = true;
+        }catch(e){
+          console.error(e);
+          notifList.innerHTML = '<div class="notif__empty">No se pudieron cargar las notificaciones.</div>';
+        }
+      }
+
+      async function markAllNotifications(){
+        if (!NOTIF_READALL_URL || !csrf) return;
+        try{
+          await fetch(NOTIF_READALL_URL, {
+            method:'POST',
+            headers:{
+              'X-CSRF-TOKEN': csrf,
+              'Accept':'application/json'
+            }
+          });
+          loadNotifications();
+        }catch(e){
+          console.error(e);
+        }
+      }
+
+      async function markOneNotification(id, itemEl){
+        if (!NOTIF_READONE_URL || !csrf) return;
+        try{
+          const url = NOTIF_READONE_URL.replace('__ID__', encodeURIComponent(id));
+          await fetch(url, {
+            method:'POST',
+            headers:{
+              'X-CSRF-TOKEN': csrf,
+              'Accept':'application/json'
+            }
+          });
+
+          if (itemEl){
+            itemEl.classList.remove('is-unread');
+            itemEl.classList.add('is-read');
+            itemEl.remove(); // como Facebook: desaparece del panel
+          }
+
+          loadNotifications();
+        }catch(e){
+          console.error(e);
+        }
+      }
+
+      function openNotifPanel(){
+        if (!notifPane || !notifBtn) return;
+        notifPane.classList.add('is-open');
+        notifPane.setAttribute('aria-hidden','false');
+        notifBtn.setAttribute('aria-expanded','true');
+        loadNotifications();
+      }
+      function closeNotifPanel(){
+        if (!notifPane || !notifBtn) return;
         notifPane.classList.remove('is-open');
+        notifPane.setAttribute('aria-hidden','true');
         notifBtn.setAttribute('aria-expanded','false');
-      };
-      notifBtn.addEventListener('click', (e)=>{
-        e.stopPropagation();
-        const open = notifPane.classList.toggle('is-open');
-        notifBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
-      });
-      notifClose?.addEventListener('click', (e)=>{ e.stopPropagation(); closeNotif(); });
-      document.addEventListener('click', (e)=>{
-        const withinPanel = notifPane.contains(e.target);
-        const withinButton = notifBtn.contains(e.target);
-        if (!withinPanel && !withinButton) closeNotif();
+      }
+
+      if (notifBtn){
+        notifBtn.addEventListener('click', function(e){
+          e.stopPropagation();
+          if (!notifPane) return;
+          const isOpen = notifPane.classList.contains('is-open');
+          if (isOpen){
+            closeNotifPanel();
+          }else{
+            openNotifPanel();
+          }
+        });
+      }
+
+      if (notifClose){
+        notifClose.addEventListener('click', function(e){
+          e.stopPropagation();
+          closeNotifPanel();
+        });
+      }
+
+      if (notifMarkAll){
+        notifMarkAll.addEventListener('click', function(e){
+          e.preventDefault();
+          markAllNotifications();
+        });
+      }
+
+      // Click en la X de cada item (delegado)
+      if (notifList){
+        notifList.addEventListener('click', function(e){
+          const closeBtn = e.target.closest('.notif__item-close');
+          if (!closeBtn) return;
+          const id     = closeBtn.getAttribute('data-id');
+          const itemEl = closeBtn.closest('.notif__item');
+          if (id){
+            markOneNotification(id, itemEl);
+          }
+          e.stopPropagation();
+        });
+      }
+
+      document.addEventListener('click', function(e){
+        if (!notifPane || !notifBtn) return;
+        if (!notifPane.contains(e.target) && !notifBtn.contains(e.target)){
+          closeNotifPanel();
+        }
       });
 
-      // ESC para cerrar
-      window.addEventListener('keydown', (e)=>{
-        if (e.key === 'Escape') {
-          closeNotif();
+      window.addEventListener('keydown', function(e){
+        if (e.key === 'Escape'){
+          closeNotifPanel();
           closeSidebar();
         }
       });
+
+      // Polling cada 10s para "tiempo real"
+      if (NOTIF_FEED_URL){
+        loadNotifications();
+        setInterval(loadNotifications, 10000);
+      }
     })();
   </script>
 </body>

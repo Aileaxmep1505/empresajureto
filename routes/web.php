@@ -236,11 +236,19 @@ Route::middleware('auth')->group(function () {
         Route::post('/{comment}/reply',    [CommentController::class, 'reply'])->name('reply');
     });
 
-    /* Notificaciones */
-    Route::get('/me/notifications',           [NotificationController::class, 'index'])->name('me.notifications.index');
-    Route::post('/me/notifications/read-all', [NotificationController::class, 'readAll'])->name('me.notifications.readAll');
-});
 
+});
+Route::middleware(['auth'])->group(function () {
+    Route::get('/notifications/feed', [NotificationController::class, 'index'])
+        ->name('notifications.feed');
+
+    Route::post('/notifications/read-all', [NotificationController::class, 'readAll'])
+        ->name('notifications.read-all');
+
+    // para marcar UNA como leída
+    Route::post('/notifications/{notification}/read', [NotificationController::class, 'readOne'])
+        ->name('notifications.read-one');
+});
 /*
 |--------------------------------------------------------------------------
 | HELP CENTER (usuario) + ADMIN HELP DESK
