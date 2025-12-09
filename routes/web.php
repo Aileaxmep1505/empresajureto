@@ -1,8 +1,10 @@
 <?php
+
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Auth;
+
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\Admin\UserManagementController;
@@ -24,7 +26,7 @@ use App\Http\Controllers\Admin\CatalogItemController;
 use App\Http\Controllers\Web\CartController;
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\ShippingController;
-use App\Http\Controllers\SearchController; 
+use App\Http\Controllers\SearchController;
 use App\Http\Controllers\Web\CommentController;
 use App\Http\Controllers\Web\FavoriteController;
 use App\Http\Controllers\Customer\CustomerAreaController;
@@ -36,8 +38,6 @@ use App\Http\Controllers\Checkout\InvoiceDownloadController;
 use App\Http\Controllers\StripeWebhookController;
 use App\Http\Controllers\Web\CategoryController;
 use App\Http\Controllers\Logistics\RoutePlanController;
-
-
 use App\Http\Controllers\Tickets\TicketController;
 use App\Http\Controllers\Tickets\TicketStageController;
 use App\Http\Controllers\Tickets\TicketCommentController;
@@ -45,20 +45,23 @@ use App\Http\Controllers\Tickets\TicketDocumentController;
 use App\Http\Controllers\Tickets\TicketChecklistController;
 use App\Http\Controllers\Mail\MailboxController;
 use App\Http\Controllers\AgendaEventController;
-
 use App\Http\Controllers\MeliController;
 use App\Http\Controllers\PartContableController;
 use App\Http\Controllers\PostController;
-
 use App\Http\Controllers\LicitacionWizardController;
 use App\Http\Controllers\LicitacionPreguntaController;
 use App\Http\Controllers\LicitacionChecklistController;
 use App\Http\Controllers\LicitacionExportController;
 use App\Http\Controllers\LicitacionFileController;
 use App\Http\Controllers\ManualInvoiceController;
-
 use App\Http\Controllers\Mobile\CatalogAiIntakePublicController;
 use App\Http\Controllers\CronController;
+use App\Http\Controllers\CompanyController;
+
+// 🔹 NUEVOS CONTROLADORES ADMIN LICITACIONES (PDF + PROPUESTAS)
+use App\Http\Controllers\Admin\LicitacionPdfController;
+use App\Http\Controllers\Admin\LicitacionPropuestaController;
+
 /*
 |--------------------------------------------------------------------------
 | AUTH
@@ -106,17 +109,18 @@ Route::prefix('catalogo')->name('web.catalog.')->group(function () {
 });
 
 /* Búsqueda */
-Route::get('/buscar',           [SearchController::class, 'index'])->name('search.index');
-Route::get('/buscar/suggest',   [SearchController::class, 'suggest'])->name('search.suggest');
+Route::get('/buscar',         [SearchController::class, 'index'])->name('search.index');
+Route::get('/buscar/suggest', [SearchController::class, 'suggest'])->name('search.suggest');
 
 /* Páginas estáticas */
 Route::get('/sobre-nosotros', [HomeController::class, 'about'])->name('about');
-Route::view('/terminos-y-condiciones', 'web.politicas.terminos')->name('policy.terms');
-Route::view('/aviso-de-privacidad',    'web.politicas.privacidad')->name('policy.privacy');
-Route::view('/envios-devoluciones-cancelaciones', 'web.politicas.envios')->name('policy.shipping');
-Route::view('/formas-de-pago', 'web.politicas.pagos')->name('policy.payments');
-Route::view('/preguntas-frecuentes', 'web.politicas.faq')->name('policy.faq');
-Route::view('/formas-de-envio', 'web.politicas.envios-skydropx')->name('policy.shipping.methods');
+Route::view('/terminos-y-condiciones',           'web.politicas.terminos')->name('policy.terms');
+Route::view('/aviso-de-privacidad',              'web.politicas.privacidad')->name('policy.privacy');
+Route::view('/envios-devoluciones-cancelaciones','web.politicas.envios')->name('policy.shipping');
+Route::view('/formas-de-pago',                   'web.politicas.pagos')->name('policy.payments');
+Route::view('/preguntas-frecuentes',             'web.politicas.faq')->name('policy.faq');
+Route::view('/formas-de-envio',                  'web.politicas.envios-skydropx')->name('policy.shipping.methods');
+
 Route::get('/garantias-y-devoluciones', function () {
     return view()->first([
         'web.politicas.garantias',
@@ -126,6 +130,7 @@ Route::get('/garantias-y-devoluciones', function () {
         'web.politicas.garantias-devoluciones',
     ]);
 })->name('policy.returns');
+
 Route::get('/servicios', [ServicioController::class, 'index'])->name('web.servicios');
 Route::get('/ofertas', fn() => view('web.ofertas'))->name('web.ofertas');
 
@@ -157,8 +162,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/checkout/start', [CheckoutController::class, 'start'])->name('checkout.start');
 
     /* CP lookup (AJAX) + alias */
-    Route::get('/checkout/cp',         [CheckoutController::class, 'cpLookup'])->middleware('throttle:20,1')->name('checkout.cp');
-    Route::get('/checkout/cp-lookup',  [CheckoutController::class, 'cpLookup'])->middleware('throttle:20,1')->name('checkout.cp.lookup');
+    Route::get('/checkout/cp',        [CheckoutController::class, 'cpLookup'])->middleware('throttle:20,1')->name('checkout.cp');
+    Route::get('/checkout/cp-lookup', [CheckoutController::class, 'cpLookup'])->middleware('throttle:20,1')->name('checkout.cp.lookup');
 
     /* Dirección (AJAX) */
     Route::post('/checkout/address',         [CheckoutController::class, 'addressStore'])->name('checkout.address.store');
@@ -173,8 +178,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/checkout/invoice/skip',      [CheckoutController::class, 'invoiceSkip'])->name('checkout.invoice.skip');
 
     /* Paso 3: Envío */
-    Route::get('/checkout/shipping',            [CheckoutController::class, 'shipping'])->name('checkout.shipping');
-    Route::post('/checkout/shipping/select',    [CheckoutController::class, 'shippingSelect'])->name('checkout.shipping.select');
+    Route::get('/checkout/shipping',          [CheckoutController::class, 'shipping'])->name('checkout.shipping');
+    Route::post('/checkout/shipping/select',  [CheckoutController::class, 'shippingSelect'])->name('checkout.shipping.select');
 
     /* Paso 4: Pago (UI) */
     Route::get('/checkout/payment', [CheckoutController::class, 'payment'])->name('checkout.payment');
@@ -183,7 +188,7 @@ Route::middleware('auth')->group(function () {
 /* Stripe: crear sesiones (buy now / cart) */
 Route::post('/checkout/item/{item}', [CheckoutController::class, 'checkoutItem'])
     ->whereNumber('item')->name('checkout.item');
-Route::post('/checkout/cart',        [CheckoutController::class, 'checkoutCart'])->name('checkout.cart');
+Route::post('/checkout/cart', [CheckoutController::class, 'checkoutCart'])->name('checkout.cart');
 
 /* Resultados de Stripe */
 Route::get('/checkout/success', [CheckoutController::class, 'success'])->name('checkout.success');
@@ -199,7 +204,7 @@ Route::post('/checkout/invoices/{id}/email', [CheckoutController::class, 'invoic
 | ENVÍOS (cotizador externo al checkout)
 |--------------------------------------------------------------------------
 */
-/* Alias estilo carrito (si los usa tu front) */
+/* Alias estilo carrito */
 Route::post('/cart/shipping/options', [ShippingController::class, 'options'])->name('cart.shipping.options');
 Route::post('/cart/shipping/select',  [ShippingController::class, 'select'])->name('cart.shipping.select');
 
@@ -221,23 +226,27 @@ Route::middleware('auth')->group(function () {
         return view('web.customer.welcome', compact('customer', 'cart'));
     })->name('customer.welcome');
 
-    Route::get('/mi-cuenta',                         [CustomerAreaController::class, 'profile'])->name('customer.profile');
-    Route::post('/mi-cuenta/reordenar/{order}',      [CustomerAreaController::class, 'reorder'])->name('customer.orders.reorder');
+    Route::get('/mi-cuenta',                    [CustomerAreaController::class, 'profile'])->name('customer.profile');
+    Route::post('/mi-cuenta/reordenar/{order}', [CustomerAreaController::class, 'reorder'])->name('customer.orders.reorder');
 
     /* Favoritos */
-    Route::get('/favoritos',                   [FavoriteController::class, 'index'])->name('favoritos.index');
-    Route::post('/favoritos/toggle/{item}',    [FavoriteController::class, 'toggle'])->name('favoritos.toggle');
-    Route::delete('/favoritos/{item}',         [FavoriteController::class, 'destroy'])->name('favoritos.destroy');
+    Route::get('/favoritos',                 [FavoriteController::class, 'index'])->name('favoritos.index');
+    Route::post('/favoritos/toggle/{item}',  [FavoriteController::class, 'toggle'])->name('favoritos.toggle');
+    Route::delete('/favoritos/{item}',       [FavoriteController::class, 'destroy'])->name('favoritos.destroy');
 
     /* Comentarios */
     Route::prefix('comentarios')->name('comments.')->group(function () {
-        Route::get('/',                    [CommentController::class, 'index'])->name('index');
-        Route::post('/',                   [CommentController::class, 'store'])->name('store');
-        Route::post('/{comment}/reply',    [CommentController::class, 'reply'])->name('reply');
+        Route::get('/',                 [CommentController::class, 'index'])->name('index');
+        Route::post('/',                [CommentController::class, 'store'])->name('store');
+        Route::post('/{comment}/reply', [CommentController::class, 'reply'])->name('reply');
     });
-
-
 });
+
+/*
+|--------------------------------------------------------------------------
+| NOTIFICACIONES (panel)
+|--------------------------------------------------------------------------
+*/
 Route::middleware(['auth'])->group(function () {
     Route::get('/notifications/feed', [NotificationController::class, 'index'])
         ->name('notifications.feed');
@@ -245,21 +254,21 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/notifications/read-all', [NotificationController::class, 'readAll'])
         ->name('notifications.read-all');
 
-    // para marcar UNA como leída
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'readOne'])
         ->name('notifications.read-one');
 });
+
 /*
 |--------------------------------------------------------------------------
 | HELP CENTER (usuario) + ADMIN HELP DESK
 |--------------------------------------------------------------------------
 */
 Route::middleware('auth')->group(function () {
-    Route::get('/ayuda',                       [HelpCenterController::class,'create'])->name('help.create');
-    Route::post('/ayuda/start',                [HelpCenterController::class,'start'])->middleware('throttle:12,1')->name('help.start');
-    Route::get('/ayuda/t/{ticket}',            [HelpCenterController::class,'show'])->name('help.show');
-    Route::post('/ayuda/t/{ticket}/message',   [HelpCenterController::class,'message'])->middleware('throttle:30,1')->name('help.message');
-    Route::post('/ayuda/t/{ticket}/escalar',   [HelpCenterController::class,'escalar'])->middleware('throttle:6,1')->name('help.escalar');
+    Route::get('/ayuda',                     [HelpCenterController::class,'create'])->name('help.create');
+    Route::post('/ayuda/start',              [HelpCenterController::class,'start'])->middleware('throttle:12,1')->name('help.start');
+    Route::get('/ayuda/t/{ticket}',          [HelpCenterController::class,'show'])->name('help.show');
+    Route::post('/ayuda/t/{ticket}/message', [HelpCenterController::class,'message'])->middleware('throttle:30,1')->name('help.message');
+    Route::post('/ayuda/t/{ticket}/escalar', [HelpCenterController::class,'escalar'])->middleware('throttle:6,1')->name('help.escalar');
 });
 
 Route::prefix('panel/ayuda')->name('admin.help.')
@@ -313,9 +322,9 @@ Route::middleware(['auth', 'approved'])->prefix('panel')->group(function () {
     Route::post('cotizaciones/auto',          [CotizacionController::class, 'autoCreate'])->name('cotizaciones.auto.create');
 
     /* Perfil interno */
-    Route::get('/perfil',           [ProfileController::class, 'show'])->name('profile.show');
-    Route::put('/perfil/foto',      [ProfileController::class, 'updatePhoto'])->name('profile.update.photo');
-    Route::put('/perfil/password',  [ProfileController::class, 'updatePassword'])->name('profile.update.password');
+    Route::get('/perfil',          [ProfileController::class, 'show'])->name('profile.show');
+    Route::put('/perfil/foto',     [ProfileController::class, 'updatePhoto'])->name('profile.update.photo');
+    Route::put('/perfil/password', [ProfileController::class, 'updatePassword'])->name('profile.update.password');
 
     /* Landing del panel */
     Route::prefix('landing')->name('panel.landing.')->group(function () {
@@ -345,7 +354,42 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'approved', 'role:admin'
     Route::resource('catalog', CatalogItemController::class)
         ->parameters(['catalog' => 'catalogItem'])
         ->names('admin.catalog');
-    Route::patch('catalog/{catalogItem}/toggle', [CatalogItemController::class, 'toggleStatus'])->name('admin.catalog.toggle');
+
+    Route::patch('catalog/{catalogItem}/toggle', [CatalogItemController::class, 'toggleStatus'])
+        ->name('admin.catalog.toggle');
+
+    /*
+    |--------------------------------------------------------------------------
+    | LICITACIONES – PDFs de requisición
+    |--------------------------------------------------------------------------
+    | URL base:   /admin/licitacion-pdfs
+    | Nombres:    admin.licitacion-pdfs.index, admin.licitacion-pdfs.show, etc.
+    */
+    Route::resource('licitacion-pdfs', LicitacionPdfController::class)
+        ->parameters(['licitacion-pdfs' => 'licitacionPdf'])
+        ->names('admin.licitacion-pdfs');
+
+    // Acción extra: recortar rango de páginas (usada en el blade)
+    Route::post('licitacion-pdfs/{licitacionPdf}/split', [LicitacionPdfController::class, 'split'])
+        ->name('admin.licitacion-pdfs.split');
+
+    Route::get('licitacion-pdfs/{licitacionPdf}/preview', [LicitacionPdfController::class, 'preview'])
+        ->name('admin.licitacion-pdfs.preview');
+        
+Route::get('licitacion-pdfs/{licitacionPdf}/splits/{index}/{format}', [LicitacionPdfController::class, 'downloadSplit'])
+    ->whereIn('format', ['pdf', 'word', 'excel'])
+    ->name('admin.licitacion-pdfs.splits.download');
+
+    /*
+    |--------------------------------------------------------------------------
+    | LICITACIONES – Propuestas económicas comparativas
+    |--------------------------------------------------------------------------
+    | URL base:   /admin/licitacion-propuestas
+    | Nombres:    admin.licitacion-propuestas.index, etc.
+    */
+    Route::resource('licitacion-propuestas', LicitacionPropuestaController::class)
+        ->parameters(['licitacion-propuestas' => 'licitacionPropuesta'])
+        ->names('admin.licitacion-propuestas');
 });
 
 /*
@@ -381,74 +425,92 @@ Route::get('/debug/skydropx/quote',    [SkydropxDebugController::class, 'quote']
 */
 Route::post('/webhooks/stripe', [StripeWebhookController::class,'handle'])->name('webhooks.stripe');
 
+/* Categorías web */
 Route::get('/categoria/{category:slug}', [CategoryController::class, 'show'])
-     ->name('web.categorias.show');
+    ->name('web.categorias.show');
 
-     Route::middleware(['auth'])->prefix('mi-cuenta')->name('customer.')->group(function () {
+/*
+|--------------------------------------------------------------------------
+| ÁREA DE CLIENTE (prefijo /mi-cuenta)
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth'])->prefix('mi-cuenta')->name('customer.')->group(function () {
     Route::get('/', [CustomerAreaController::class, 'profile'])->name('profile');
     Route::post('/pedidos/{order}/repetir', [CustomerAreaController::class, 'reorder'])->name('orders.reorder');
     Route::get('/pedidos/{order}/rastreo', [CustomerAreaController::class, 'tracking'])->name('orders.tracking');
 
     // Opcional: solo si agregas shipping_label_url a orders
-    Route::get('/pedidos/{order}/guia',    [CustomerAreaController::class, 'label'])->name('orders.label');
+    Route::get('/pedidos/{order}/guia', [CustomerAreaController::class, 'label'])->name('orders.label');
 });
-Route::get('/admin/rutas/demo', [RouteController::class, 'demo'])->name('routing.demo');
 
+/*
+|--------------------------------------------------------------------------
+| LOGÍSTICA / RUTAS
+|--------------------------------------------------------------------------
+*/
+// Demo de rutas para el menú de "Logística"
+Route::middleware('auth')->get('/admin/rutas/demo', [RoutePlanController::class, 'demo'])->name('routing.demo');
 
 Route::middleware(['auth'])->group(function () {
     // Supervisor / Logística
-    Route::get('/logi/routes', [RoutePlanController::class, 'index'])->name('routes.index');
-    Route::get('/logi/routes/create', [RoutePlanController::class, 'create'])->name('routes.create');
-    Route::post('/logi/routes', [RoutePlanController::class, 'store'])->name('routes.store');
-    Route::get('/logi/routes/{routePlan}', [RoutePlanController::class, 'show'])->name('routes.show');
+    Route::get('/logi/routes',              [RoutePlanController::class, 'index'])->name('routes.index');
+    Route::get('/logi/routes/create',       [RoutePlanController::class, 'create'])->name('routes.create');
+    Route::post('/logi/routes',             [RoutePlanController::class, 'store'])->name('routes.store');
+    Route::get('/logi/routes/{routePlan}',  [RoutePlanController::class, 'show'])->name('routes.show');
 
     // Vista del chofer (mis rutas)
     Route::get('/driver/routes/{routePlan}', [RoutePlanController::class, 'driver'])->name('driver.routes.show');
 
     // API internas (protegidas por auth)
-    Route::post('/api/routes/{routePlan}/compute', [RoutePlanController::class, 'compute'])->name('api.routes.compute');
+    Route::post('/api/routes/{routePlan}/compute',   [RoutePlanController::class, 'compute'])->name('api.routes.compute');
     Route::post('/api/routes/{routePlan}/recompute', [RoutePlanController::class, 'recompute'])->name('api.routes.recompute');
     Route::post('/api/routes/{routePlan}/stops/{stop}/done', [RoutePlanController::class, 'markStopDone'])->name('api.routes.stop.done');
-    Route::post('/api/driver/location', [RoutePlanController::class, 'saveDriverLocation'])
-        ->name('api.driver.location.save');
 
-    // (opcional) para leer última ubicación
-    Route::get('/api/driver/location', [RoutePlanController::class, 'getDriverLocation'])
-        ->name('api.driver.location.get');
-        Route::post('/api/driver/location/save', [RoutePlanController::class,'saveDriverLocation'])->name('api.driver.location.save');
-Route::get ('/api/driver/location/last', [RoutePlanController::class,'getDriverLocation'])->name('api.driver.location.last');
-
-
+    // Ubicación del chofer
+    Route::post('/api/driver/location',       [RoutePlanController::class, 'saveDriverLocation'])->name('api.driver.location.save');
+    Route::get('/api/driver/location',        [RoutePlanController::class, 'getDriverLocation'])->name('api.driver.location.get');
+    Route::get('/api/driver/location/last',   [RoutePlanController::class, 'getDriverLocation'])->name('api.driver.location.last');
 });
+
 Route::get('cotizaciones/buscar-productos', [CotizacionController::class, 'buscarProductos'])->name('cotizaciones.buscar_productos');
 
-
+/*
+|--------------------------------------------------------------------------
+| TICKETS (licitaciones) + IA checklist
+|--------------------------------------------------------------------------
+*/
 Route::middleware(['auth'])->group(function () {
 
     // ===== Tickets CRUD básico =====
-    Route::get('/tickets',                       [TicketController::class,'index'])->name('tickets.index');
-    Route::get('/tickets/create',                [TicketController::class,'create'])->name('tickets.create');
-    Route::post('/tickets',                      [TicketController::class,'store'])->name('tickets.store');
-    Route::get('/tickets/{ticket}',              [TicketController::class,'show'])->name('tickets.show')->whereNumber('ticket');
-    Route::put('/tickets/{ticket}',              [TicketController::class,'update'])->name('tickets.update')->whereNumber('ticket');
-    Route::post('/tickets/{ticket}/close',       [TicketController::class,'close'])->name('tickets.close')->whereNumber('ticket');
+    Route::get('/tickets',                 [TicketController::class,'index'])->name('tickets.index');
+    Route::get('/tickets/create',          [TicketController::class,'create'])->name('tickets.create');
+    Route::post('/tickets',                [TicketController::class,'store'])->name('tickets.store');
+    Route::get('/tickets/{ticket}',        [TicketController::class,'show'])->name('tickets.show')->whereNumber('ticket');
 
-    // ===== Dashboard (opcional) =====
-    Route::get('/tickets-dashboard',             [DashboardController::class,'index'])->name('tickets.dashboard');
+    // 👇 NUEVA: vista de trabajo para el usuario asignado (checklist / flujo)
+    Route::get('/tickets/{ticket}/work',   [TicketController::class,'work'])
+        ->name('tickets.work')
+        ->whereNumber('ticket');
+
+    Route::put('/tickets/{ticket}',        [TicketController::class,'update'])->name('tickets.update')->whereNumber('ticket');
+    Route::post('/tickets/{ticket}/close', [TicketController::class,'close'])->name('tickets.close')->whereNumber('ticket');
+
+    // ===== Dashboard =====
+    Route::get('/tickets-dashboard', [DashboardController::class,'index'])->name('tickets.dashboard');
 
     // ===== Tiempo real por AJAX (poll + acciones de etapa) =====
-    Route::get ('/tickets/{ticket}/poll',                      [TicketController::class,'poll'])->name('tickets.poll')->whereNumber('ticket');
-    Route::post('/tickets/{ticket}/stages/{stage}/start',      [TicketController::class,'ajaxStartStage'])->name('tickets.ajax.stage.start')->whereNumber('ticket')->whereNumber('stage');
-    Route::post('/tickets/{ticket}/stages/{stage}/complete',   [TicketController::class,'ajaxCompleteStage'])->name('tickets.ajax.stage.complete')->whereNumber('ticket')->whereNumber('stage');
-    Route::post('/tickets/{ticket}/stages/{stage}/evidence',   [TicketController::class,'ajaxUploadEvidence'])->name('tickets.ajax.stage.evidence')->whereNumber('ticket')->whereNumber('stage');
+    Route::get ('/tickets/{ticket}/poll',                    [TicketController::class,'poll'])->name('tickets.poll')->whereNumber('ticket');
+    Route::post('/tickets/{ticket}/stages/{stage}/start',    [TicketController::class,'ajaxStartStage'])->name('tickets.ajax.stage.start')->whereNumber('ticket')->whereNumber('stage');
+    Route::post('/tickets/{ticket}/stages/{stage}/complete', [TicketController::class,'ajaxCompleteStage'])->name('tickets.ajax.stage.complete')->whereNumber('ticket')->whereNumber('stage');
+    Route::post('/tickets/{ticket}/stages/{stage}/evidence', [TicketController::class,'ajaxUploadEvidence'])->name('tickets.ajax.stage.evidence')->whereNumber('ticket')->whereNumber('stage');
 
     // ===== Etapas =====
-    Route::post  ('/tickets/{ticket}/stages',                  [TicketStageController::class,'store'])->name('tickets.stages.store')->whereNumber('ticket');
-    Route::put   ('/tickets/{ticket}/stages/{stage}',          [TicketStageController::class,'update'])->name('tickets.stages.update')->whereNumber('ticket')->whereNumber('stage');
-    Route::delete('/tickets/{ticket}/stages/{stage}',          [TicketController::class,'destroyStage'])->name('tickets.stages.destroy')->whereNumber('ticket')->whereNumber('stage');
+    Route::post  ('/tickets/{ticket}/stages',         [TicketStageController::class,'store'])->name('tickets.stages.store')->whereNumber('ticket');
+    Route::put   ('/tickets/{ticket}/stages/{stage}', [TicketStageController::class,'update'])->name('tickets.stages.update')->whereNumber('ticket')->whereNumber('stage');
+    Route::delete('/tickets/{ticket}/stages/{stage}', [TicketController::class,'destroyStage'])->name('tickets.stages.destroy')->whereNumber('ticket')->whereNumber('stage');
 
     // ===== Comentarios =====
-    Route::post('/tickets/{ticket}/comments',                  [TicketCommentController::class,'store'])->name('tickets.comments.store')->whereNumber('ticket');
+    Route::post('/tickets/{ticket}/comments', [TicketCommentController::class,'store'])->name('tickets.comments.store')->whereNumber('ticket');
 
     // ===== Documentos =====
     Route::post  ('/tickets/{ticket}/documents',               [TicketDocumentController::class,'store'])->name('tickets.documents.store')->whereNumber('ticket');
@@ -456,48 +518,51 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/tickets/{ticket}/documents/{doc}',         [TicketController::class,'destroyDocument'])->name('tickets.documents.destroy')->whereNumber('ticket')->whereNumber('doc');
 
     // ===== Checklists (CRUD) =====
-    Route::post  ('/tickets/{ticket}/checklists',              [TicketChecklistController::class,'store'])->name('tickets.checklists.store')->whereNumber('ticket');
-    Route::put   ('/checklists/{checklist}',                   [TicketChecklistController::class,'update'])->name('checklists.update')->whereNumber('checklist');
-    Route::delete('/checklists/{checklist}',                   [TicketChecklistController::class,'destroy'])->name('checklists.destroy')->whereNumber('checklist');
+    Route::post  ('/tickets/{ticket}/checklists',          [TicketChecklistController::class,'store'])->name('tickets.checklists.store')->whereNumber('ticket');
+    Route::put   ('/checklists/{checklist}',               [TicketChecklistController::class,'update'])->name('checklists.update')->whereNumber('checklist');
+    Route::delete('/checklists/{checklist}',               [TicketChecklistController::class,'destroy'])->name('checklists.destroy')->whereNumber('checklist');
 
     // Ítems de checklist
-    Route::post  ('/checklists/{checklist}/items',             [TicketChecklistController::class,'addItem'])->name('checklists.items.add')->whereNumber('checklist');
-    Route::put   ('/checklist-items/{item}',                   [TicketChecklistController::class,'updateItem'])->name('checklists.items.update')->whereNumber('item');
-    Route::delete('/checklist-items/{item}',                   [TicketChecklistController::class,'destroyItem'])->name('checklists.items.destroy')->whereNumber('item');
-    Route::post  ('/checklists/{checklist}/items/reorder',     [TicketChecklistController::class,'reorderItems'])->name('checklists.items.reorder')->whereNumber('checklist');
-    Route::post  ('/checklists/{checklist}/toggle-all',        [TicketChecklistController::class,'toggleAll'])->name('checklists.items.toggleAll')->whereNumber('checklist');
+    Route::post  ('/checklists/{checklist}/items',         [TicketChecklistController::class,'addItem'])->name('checklists.items.add')->whereNumber('checklist');
+    Route::put   ('/checklist-items/{item}',               [TicketChecklistController::class,'updateItem'])->name('checklists.items.update')->whereNumber('item');
+    Route::delete('/checklist-items/{item}',               [TicketChecklistController::class,'destroyItem'])->name('checklists.items.destroy')->whereNumber('item');
+    Route::post  ('/checklists/{checklist}/items/reorder', [TicketChecklistController::class,'reorderItems'])->name('checklists.items.reorder')->whereNumber('checklist');
+    Route::post  ('/checklists/{checklist}/toggle-all',    [TicketChecklistController::class,'toggleAll'])->name('checklists.items.toggleAll')->whereNumber('checklist');
 
     // ===== Exports =====
-    Route::get('/checklists/{checklist}/export/pdf',           [TicketChecklistController::class,'exportPdf'])->name('checklists.export.pdf')->whereNumber('checklist');
-    Route::get('/checklists/{checklist}/export/word',          [TicketChecklistController::class,'exportWord'])->name('checklists.export.word')->whereNumber('checklist');
+    Route::get('/checklists/{checklist}/export/pdf',  [TicketChecklistController::class,'exportPdf'])->name('checklists.export.pdf')->whereNumber('checklist');
+    Route::get('/checklists/{checklist}/export/word', [TicketChecklistController::class,'exportWord'])->name('checklists.export.word')->whereNumber('checklist');
 
     // ===== IA (100% OpenAI) =====
-    // Sugerir (devuelve JSON: title, instructions, items[])
     Route::post('/tickets/{ticket}/stages/{stage}/ai/suggest', [TicketChecklistController::class,'suggestFromPrompt'])->name('tickets.ai.suggest')->whereNumber('ticket')->whereNumber('stage');
-    // Crear checklist desde IA
     Route::post('/tickets/{ticket}/checklists/ai',             [TicketChecklistController::class,'createFromAi'])->name('tickets.ai.create')->whereNumber('ticket');
 });
-// ====== MAILBOX (todas bajo /mail) ======
-Route::middleware(['auth']) 
+
+/*
+|--------------------------------------------------------------------------
+| MAILBOX (todas bajo /mail)
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth'])
     ->prefix('mail')
     ->name('mail.')
     ->group(function () {
 
-        // Lista (usa query ?folder=...&uid=... para el preview en el panel derecho)
+        // Lista principal
         Route::get('/', [MailboxController::class, 'index'])->name('index');
 
-        // Listar una carpeta específica (soporta nombres con "/" o ".")
+        // Listar carpeta específica
         Route::get('/folder/{folder}', [MailboxController::class, 'folder'])
             ->where('folder', '.*')
             ->name('folder');
 
-        // Ver un mensaje en página independiente (opcional si usas el panel derecho)
+        // Ver mensaje en página independiente
         Route::get('/show/{folder}/{uid}', [MailboxController::class, 'show'])
             ->where('folder', '.*')
             ->whereNumber('uid')
             ->name('show');
 
-        // Descargar adjunto por "part"
+        // Descargar adjunto
         Route::get('/download/{folder}/{uid}/{part}', [MailboxController::class, 'downloadAttachment'])
             ->where('folder', '.*')
             ->whereNumber('uid')
@@ -522,43 +587,31 @@ Route::middleware(['auth'])
         Route::post('/toggle-flag/{folder}/{uid}', [MailboxController::class, 'toggleFlag'])
             ->where('folder', '.*')
             ->whereNumber('uid')
-            ->name('toggleFlag');   // <-- este nombre es el que usa la vista
+            ->name('toggleFlag');
 
         Route::post('/mark-read/{folder}/{uid}', [MailboxController::class, 'markRead'])
             ->where('folder', '.*')
             ->whereNumber('uid')
-            ->name('markRead');     // <-- este nombre es el que usa la vista
-            // === API en tiempo real ===
-// Lista de mensajes (soporta ?folder=INBOX&limit=80&after_uid=12345&q=texto)
-Route::get('/api/messages', [MailboxController::class, 'apiMessages'])
-    ->name('api.messages');
+            ->name('markRead');
 
-// Contadores por carpeta (INBOX, PRIORITY, SENT, etc.)
-Route::get('/api/counts', [MailboxController::class, 'apiCounts'])
-    ->name('api.counts');
-// === Acciones rápidas por mensaje ===
-Route::post('/move/{folder}/{uid}',   [MailboxController::class, 'move'])->where('folder','.*')->whereNumber('uid')->name('move');       // mover a ARCHIVE, SPAM, TRASH...
-Route::post('/delete/{folder}/{uid}', [MailboxController::class, 'delete'])->where('folder','.*')->whereNumber('uid')->name('delete');   // eliminar (mover a TRASH o \Deleted)
+        // === API en tiempo real (todas bajo /mail/api/...) ===
+        Route::get('/api/messages', [MailboxController::class, 'apiMessages'])->name('api.messages');
+        Route::get('/api/counts',   [MailboxController::class, 'apiCounts'])->name('api.counts');
+        Route::get('/api/wait',     [MailboxController::class, 'apiWait'])->name('api.wait');
 
-// === Long-polling en tiempo (casi) real ===
-// Espera hasta 25s a que lleguen nuevos correos (o devuelve antes si hay nuevos)
-Route::get('/api/wait', [MailboxController::class, 'apiMessagesWait'])->name('api.wait');
-// JSON rápido (lista)
-Route::get('/mail/api/messages', [MailboxController::class, 'apiMessages'])->name('mail.api.messages');
-// Long-polling "push-like"
-Route::get('/mail/api/wait',     [MailboxController::class, 'apiWait'])->name('mail.api.wait');
-// Contadores
-Route::get('/mail/api/counts',   [MailboxController::class, 'apiCounts'])->name('mail.api.counts');
+        // Acciones rápidas por mensaje
+        Route::post('/move/{folder}/{uid}',   [MailboxController::class, 'move'])
+            ->where('folder','.*')->whereNumber('uid')->name('move');
 
-// Mover (archivar, etc.)
-Route::post('/mail/move/{folder}/{uid}',   [MailboxController::class, 'move'])
-    ->where('folder','.*')->whereNumber('uid')->name('mail.move');
-
-// Eliminar (mueve a TRASH o purga si ya estás en TRASH)
-Route::post('/mail/delete/{folder}/{uid}', [MailboxController::class, 'delete'])
-    ->where('folder','.*')->whereNumber('uid')->name('mail.delete');
-Route::post('/mail/send', [MailController::class, 'send'])->name('mail.send');
+        Route::post('/delete/{folder}/{uid}', [MailboxController::class, 'delete'])
+            ->where('folder','.*')->whereNumber('uid')->name('delete');
     });
+
+/*
+|--------------------------------------------------------------------------
+| AGENDA
+|--------------------------------------------------------------------------
+*/
 Route::middleware(['auth'])->group(function () {
     // Vista calendario
     Route::get('/agenda', [AgendaEventController::class,'calendar'])->name('agenda.calendar');
@@ -567,18 +620,23 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/agenda/feed', [AgendaEventController::class,'feed'])->name('agenda.feed');
 
     // CRUD AJAX
-    Route::post('/agenda', [AgendaEventController::class,'store'])->name('agenda.store');
-    Route::get('/agenda/{agenda}', [AgendaEventController::class,'show'])->name('agenda.show');
-    Route::put('/agenda/{agenda}', [AgendaEventController::class,'update'])->name('agenda.update');
-    Route::delete('/agenda/{agenda}', [AgendaEventController::class,'destroy'])->name('agenda.destroy');
+    Route::post('/agenda',             [AgendaEventController::class,'store'])->name('agenda.store');
+    Route::get('/agenda/{agenda}',     [AgendaEventController::class,'show'])->name('agenda.show');
+    Route::put('/agenda/{agenda}',     [AgendaEventController::class,'update'])->name('agenda.update');
+    Route::delete('/agenda/{agenda}',  [AgendaEventController::class,'destroy'])->name('agenda.destroy');
 
     // Drag/resize
     Route::put('/agenda/{agenda}/move', [AgendaEventController::class,'move'])->name('agenda.move');
 });
 
+/*
+|--------------------------------------------------------------------------
+| MERCADO LIBRE
+|--------------------------------------------------------------------------
+*/
 // OAuth + webhook
-Route::get('/meli/connect', [MeliController::class, 'connect'])->name('meli.connect');
-Route::get('/meli/callback', [MeliController::class, 'callback'])->name('meli.callback');
+Route::get('/meli/connect',     [MeliController::class, 'connect'])->name('meli.connect');
+Route::get('/meli/callback',    [MeliController::class, 'callback'])->name('meli.callback');
 Route::post('/meli/notifications', [MeliController::class, 'notifications'])->name('meli.notifications');
 
 // Rutas Mercado Libre por producto (panel admin)
@@ -592,269 +650,179 @@ Route::middleware('auth')
         Route::get ('{catalogItem}/meli/view',     [CatalogItemController::class,'meliView'])->name('meli.view');
     });
 
-
-Route::get('posts', [PostController::class, 'index'])->name('posts.index');
-Route::get('posts/create', [PostController::class, 'create'])->name('posts.create');
-Route::post('posts', [PostController::class, 'store'])->name('posts.store');
-Route::get('posts/{post}', [PostController::class, 'show'])->name('posts.show');
+/*
+|--------------------------------------------------------------------------
+| BLOG / POSTS
+|--------------------------------------------------------------------------
+*/
+Route::get('posts',                 [PostController::class, 'index'])->name('posts.index');
+Route::get('posts/create',          [PostController::class, 'create'])->name('posts.create');
+Route::post('posts',                [PostController::class, 'store'])->name('posts.store');
+Route::get('posts/{post}',          [PostController::class, 'show'])->name('posts.show');
 Route::post('posts/{post}/comment', [PostController::class, 'storeComment'])->name('posts.comment');
 
+/*
+|--------------------------------------------------------------------------
+| PARTIDA CONTABLE
+|--------------------------------------------------------------------------
+*/
 Route::middleware(['web','auth'])->group(function () {
-    Route::get('part-contable', [PartContableController::class, 'index'])->name('partcontable.index');
-    Route::get('part-contable/{company:slug}', [PartContableController::class, 'showCompany'])->name('partcontable.company');
+    Route::get('part-contable',                          [PartContableController::class, 'index'])->name('partcontable.index');
+    Route::get('part-contable/{company:slug}',           [PartContableController::class, 'showCompany'])->name('partcontable.company');
 
     Route::get('part-contable/{company:slug}/documents/create', [PartContableController::class, 'createDocument'])->name('partcontable.documents.create');
-    Route::post('part-contable/{company:slug}/documents', [PartContableController::class, 'storeDocument'])->name('partcontable.documents.store');
+    Route::post('part-contable/{company:slug}/documents',       [PartContableController::class, 'storeDocument'])->name('partcontable.documents.store');
 
- 
-Route::get('partcontable/documents/{document}/raw', [PartContableController::class, 'raw'])->name('partcontable.documents.raw');
-Route::get('partcontable/documents/{document}/preview', [PartContableController::class, 'preview'])->name('partcontable.documents.preview');
-Route::get('partcontable/documents/{document}/download', [PartContableController::class, 'download'])->name('partcontable.documents.download');
-Route::delete('partcontable/documents/{document}', [PartContableController::class, 'destroy'])->name('partcontable.documents.destroy');
-    Route::post('/company/{company:slug}/documents', [PartContableController::class, 'storeDocument'])->name('partcontable.documents.store');
-
+    Route::get   ('partcontable/documents/{document}/raw',      [PartContableController::class, 'raw'])->name('partcontable.documents.raw');
+    Route::get   ('partcontable/documents/{document}/preview',  [PartContableController::class, 'preview'])->name('partcontable.documents.preview');
+    Route::get   ('partcontable/documents/{document}/download', [PartContableController::class, 'download'])->name('partcontable.documents.download');
+    Route::delete('partcontable/documents/{document}',          [PartContableController::class, 'destroy'])->name('partcontable.documents.destroy');
 });
 
-
+/*
+|--------------------------------------------------------------------------
+| WIZARD LICITACIONES (clásico)
+|--------------------------------------------------------------------------
+*/
 Route::middleware(['auth'])->group(function () {
 
-    /*
-    |--------------------------------------------------------------------------
-    | RUTAS WIZARD LICITACIONES
-    |--------------------------------------------------------------------------
-    */
-Route::get('/companies/create', [CompanyController::class, 'create'])
-    ->name('companies.create');
-    // Listado y detalle
-    Route::get('/licitaciones', [LicitacionWizardController::class, 'index'])
-        ->name('licitaciones.index');
+    // (opcional) Empresas
+    Route::get('/companies/create', [CompanyController::class, 'create'])
+        ->name('companies.create');
 
-    Route::get('/licitaciones/{licitacion}', [LicitacionWizardController::class, 'show'])
-        ->name('licitaciones.show');
+    // Listado y detalle
+    Route::get('/licitaciones',              [LicitacionWizardController::class, 'index'])->name('licitaciones.index');
+    Route::get('/licitaciones/{licitacion}', [LicitacionWizardController::class, 'show'])->name('licitaciones.show');
 
     // Paso 1
-    Route::get('/licitaciones/create/step-1', [LicitacionWizardController::class, 'createStep1'])
-        ->name('licitaciones.create.step1');
-
-    Route::post('/licitaciones/store/step-1', [LicitacionWizardController::class, 'storeStep1'])
-        ->name('licitaciones.store.step1');
+    Route::get('/licitaciones/create/step-1', [LicitacionWizardController::class, 'createStep1'])->name('licitaciones.create.step1');
+    Route::post('/licitaciones/store/step-1', [LicitacionWizardController::class, 'storeStep1'])->name('licitaciones.store.step1');
 
     // Paso 2
-    Route::get('/licitaciones/{licitacion}/step-2', [LicitacionWizardController::class, 'editStep2'])
-        ->name('licitaciones.edit.step2');
-
-    Route::post('/licitaciones/{licitacion}/step-2', [LicitacionWizardController::class, 'updateStep2'])
-        ->name('licitaciones.update.step2');
+    Route::get('/licitaciones/{licitacion}/step-2',  [LicitacionWizardController::class, 'editStep2'])->name('licitaciones.edit.step2');
+    Route::post('/licitaciones/{licitacion}/step-2', [LicitacionWizardController::class, 'updateStep2'])->name('licitaciones.update.step2');
 
     // Paso 3
-    Route::get('/licitaciones/{licitacion}/step-3', [LicitacionWizardController::class, 'editStep3'])
-        ->name('licitaciones.edit.step3');
-
-    Route::post('/licitaciones/{licitacion}/step-3', [LicitacionWizardController::class, 'updateStep3'])
-        ->name('licitaciones.update.step3');
+    Route::get('/licitaciones/{licitacion}/step-3',  [LicitacionWizardController::class, 'editStep3'])->name('licitaciones.edit.step3');
+    Route::post('/licitaciones/{licitacion}/step-3', [LicitacionWizardController::class, 'updateStep3'])->name('licitaciones.update.step3');
 
     // Paso 5
-    Route::get('/licitaciones/{licitacion}/step-5', [LicitacionWizardController::class, 'editStep5'])
-        ->name('licitaciones.edit.step5');
-
-    Route::post('/licitaciones/{licitacion}/step-5', [LicitacionWizardController::class, 'updateStep5'])
-        ->name('licitaciones.update.step5');
+    Route::get('/licitaciones/{licitacion}/step-5',  [LicitacionWizardController::class, 'editStep5'])->name('licitaciones.edit.step5');
+    Route::post('/licitaciones/{licitacion}/step-5', [LicitacionWizardController::class, 'updateStep5'])->name('licitaciones.update.step5');
 
     // Paso 6
-    Route::get('/licitaciones/{licitacion}/step-6', [LicitacionWizardController::class, 'editStep6'])
-        ->name('licitaciones.edit.step6');
-
-    Route::post('/licitaciones/{licitacion}/step-6', [LicitacionWizardController::class, 'updateStep6'])
-        ->name('licitaciones.update.step6');
+    Route::get('/licitaciones/{licitacion}/step-6',  [LicitacionWizardController::class, 'editStep6'])->name('licitaciones.edit.step6');
+    Route::post('/licitaciones/{licitacion}/step-6', [LicitacionWizardController::class, 'updateStep6'])->name('licitaciones.update.step6');
 
     // Paso 7
-    Route::get('/licitaciones/{licitacion}/step-7', [LicitacionWizardController::class, 'editStep7'])
-        ->name('licitaciones.edit.step7');
-
-    Route::post('/licitaciones/{licitacion}/step-7', [LicitacionWizardController::class, 'updateStep7'])
-        ->name('licitaciones.update.step7');
+    Route::get('/licitaciones/{licitacion}/step-7',  [LicitacionWizardController::class, 'editStep7'])->name('licitaciones.edit.step7');
+    Route::post('/licitaciones/{licitacion}/step-7', [LicitacionWizardController::class, 'updateStep7'])->name('licitaciones.update.step7');
 
     // Paso 8
-    Route::get('/licitaciones/{licitacion}/step-8', [LicitacionWizardController::class, 'editStep8'])
-        ->name('licitaciones.edit.step8');
-
-    Route::post('/licitaciones/{licitacion}/step-8', [LicitacionWizardController::class, 'updateStep8'])
-        ->name('licitaciones.update.step8');
+    Route::get('/licitaciones/{licitacion}/step-8',  [LicitacionWizardController::class, 'editStep8'])->name('licitaciones.edit.step8');
+    Route::post('/licitaciones/{licitacion}/step-8', [LicitacionWizardController::class, 'updateStep8'])->name('licitaciones.update.step8');
 
     // Paso 9
-    Route::get('/licitaciones/{licitacion}/step-9', [LicitacionWizardController::class, 'editStep9'])
-        ->name('licitaciones.edit.step9');
+    Route::get('/licitaciones/{licitacion}/step-9',  [LicitacionWizardController::class, 'editStep9'])->name('licitaciones.edit.step9');
+    Route::post('/licitaciones/{licitacion}/step-9', [LicitacionWizardController::class, 'updateStep9'])->name('licitaciones.update.step9');
 
-    Route::post('/licitaciones/{licitacion}/step-9', [LicitacionWizardController::class, 'updateStep9'])
-        ->name('licitaciones.update.step9');
+    // PREGUNTAS DE LICITACIÓN (Paso 4 lógico)
+    Route::get ('/licitaciones/{licitacion}/preguntas',            [LicitacionPreguntaController::class, 'index'])->name('licitaciones.preguntas.index');
+    Route::post('/licitaciones/{licitacion}/preguntas',            [LicitacionPreguntaController::class, 'store'])->name('licitaciones.preguntas.store');
+    Route::get ('/licitaciones/{licitacion}/preguntas/export-pdf', [LicitacionExportController::class, 'exportPreguntasPdf'])->name('licitaciones.preguntas.exportPdf');
+    Route::get ('/licitaciones/{licitacion}/preguntas/export-word',[LicitacionExportController::class, 'exportPreguntasWord'])->name('licitaciones.preguntas.exportWord');
 
+    // Resumen / contabilidad PDFs
+    Route::get('licitaciones/{licitacion}/resumen-pdf',       [LicitacionWizardController::class, 'resumenPdf'])->name('licitaciones.resumen.pdf');
+    Route::get('/licitaciones/{licitacion}/contabilidad/pdf', [LicitacionWizardController::class, 'contabilidadPdf'])->name('licitaciones.contabilidad.pdf');
 
-    /*
-    |--------------------------------------------------------------------------
-    | PREGUNTAS DE LICITACIÓN (Paso 4 lógico)
-    |--------------------------------------------------------------------------
-    */
-
-    Route::post('/licitaciones/{licitacion}/preguntas', [LicitacionPreguntaController::class, 'store'])
-        ->name('licitaciones.preguntas.store');
-
-    // Exportar todas las preguntas a PDF
-    Route::get('/licitaciones/{licitacion}/preguntas/export-pdf', [LicitacionExportController::class, 'exportPreguntasPdf'])
-        ->name('licitaciones.preguntas.exportPdf');
-Route::get('/licitaciones/{licitacion}/preguntas/export-word', [LicitacionExportController::class, 'exportPreguntasWord'])
-    ->name('licitaciones.preguntas.exportWord');
-Route::get('licitaciones/{licitacion}/resumen-pdf', [LicitacionWizardController::class, 'resumenPdf'])
-    ->name('licitaciones.resumen.pdf');
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | CHECKLISTS Y CONTABILIDAD (Pasos 10, 11, 12)
-    |--------------------------------------------------------------------------
-    */
-
+    // CHECKLISTS Y CONTABILIDAD (Pasos 10, 11, 12)
     // Paso 10: checklist compras
-    Route::get('/licitaciones/{licitacion}/checklist-compras', [LicitacionChecklistController::class, 'editCompras'])
-        ->name('licitaciones.checklist.compras.edit');
-
-    Route::post('/licitaciones/{licitacion}/checklist-compras', [LicitacionChecklistController::class, 'storeCompras'])
-        ->name('licitaciones.checklist.compras.store');
-
-    Route::patch('/licitaciones/{licitacion}/checklist-compras/{item}', [LicitacionChecklistController::class, 'updateCompras'])
-        ->name('licitaciones.checklist.compras.update');
+    Route::get('/licitaciones/{licitacion}/checklist-compras',        [LicitacionChecklistController::class, 'editCompras'])->name('licitaciones.checklist.compras.edit');
+    Route::post('/licitaciones/{licitacion}/checklist-compras',       [LicitacionChecklistController::class, 'storeCompras'])->name('licitaciones.checklist.compras.store');
+    Route::patch('/licitaciones/{licitacion}/checklist-compras/{item}', [LicitacionChecklistController::class, 'updateCompras'])->name('licitaciones.checklist.compras.update');
 
     // Paso 11: checklist facturación
-    Route::get('/licitaciones/{licitacion}/checklist-facturacion', [LicitacionChecklistController::class, 'editFacturacion'])
-        ->name('licitaciones.checklist.facturacion.edit');
-
-    Route::post('/licitaciones/{licitacion}/checklist-facturacion', [LicitacionChecklistController::class, 'storeFacturacion'])
-        ->name('licitaciones.checklist.facturacion.store');
+    Route::get('/licitaciones/{licitacion}/checklist-facturacion',  [LicitacionChecklistController::class, 'editFacturacion'])->name('licitaciones.checklist.facturacion.edit');
+    Route::post('/licitaciones/{licitacion}/checklist-facturacion', [LicitacionChecklistController::class, 'storeFacturacion'])->name('licitaciones.checklist.facturacion.store');
 
     // Paso 12: contabilidad
-    Route::get('/licitaciones/{licitacion}/contabilidad', [LicitacionChecklistController::class, 'editContabilidad'])
-        ->name('licitaciones.contabilidad.edit');
-
-    Route::post('/licitaciones/{licitacion}/contabilidad', [LicitacionChecklistController::class, 'storeContabilidad'])
-        ->name('licitaciones.contabilidad.store');
-Route::get('/licitaciones/{licitacion}/contabilidad/pdf', [LicitacionWizardController::class, 'contabilidadPdf'])
-    ->name('licitaciones.contabilidad.pdf');
-           // PREGUNTAS DE LA LICITACIÓN
-    Route::get('licitaciones/{licitacion}/preguntas', [LicitacionPreguntaController::class, 'index'])
-        ->name('licitaciones.preguntas.index');
-
-    Route::post('licitaciones/{licitacion}/preguntas', [LicitacionPreguntaController::class, 'store'])
-        ->name('licitaciones.preguntas.store');
+    Route::get('/licitaciones/{licitacion}/contabilidad',  [LicitacionChecklistController::class, 'editContabilidad'])->name('licitaciones.contabilidad.edit');
+    Route::post('/licitaciones/{licitacion}/contabilidad', [LicitacionChecklistController::class, 'storeContabilidad'])->name('licitaciones.contabilidad.store');
 });
 
-
-Route::prefix('licitaciones-ai')
+/*
+|--------------------------------------------------------------------------
+| LICITACIONES AI
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth'])
+    ->prefix('licitaciones-ai')
     ->name('licitaciones-ai.')
     ->group(function () {
 
-        // =========================
         // LISTA / CREAR / SUBIR
-        // =========================
+        Route::get('/',      [LicitacionFileController::class, 'index'])->name('index');
+        Route::get('/crear', [LicitacionFileController::class, 'create'])->name('create');
+        Route::post('/',     [LicitacionFileController::class, 'store'])->name('store');
 
-        // Lista de archivos procesados
-        Route::get('/', [LicitacionFileController::class, 'index'])
-            ->name('index');
-
-        // Formulario para subir nuevo archivo
-        Route::get('/crear', [LicitacionFileController::class, 'create'])
-            ->name('create');
-
-        // Guardar archivo y procesar
-        Route::post('/', [LicitacionFileController::class, 'store'])
-            ->name('store');
-
-        // =========================
         // TABLA GLOBAL
-        // =========================
+        Route::get('/tabla-global',             [LicitacionFileController::class, 'tablaGlobal'])->name('tabla-global');
+        Route::get('/tabla-global-excel',       [LicitacionFileController::class, 'exportarExcelGlobal'])->name('tabla-global.excel');
+        Route::post('/tabla-global-regenerar',  [LicitacionFileController::class, 'regenerarTablaGlobal'])->name('tabla-global.regenerar');
+        Route::post('/tabla-global/{itemGlobal}', [LicitacionFileController::class, 'actualizarMarcaModelo'])->name('tabla-global.update');
 
-        // Tabla global
-        Route::get('/tabla-global', [LicitacionFileController::class, 'tablaGlobal'])
-            ->name('tabla-global');
-
-        // Excel de tabla global
-        Route::get('/tabla-global-excel', [LicitacionFileController::class, 'exportarExcelGlobal'])
-            ->name('tabla-global.excel');
-
-        // Regenerar tabla global
-        Route::post('/tabla-global-regenerar', [LicitacionFileController::class, 'regenerarTablaGlobal'])
-            ->name('tabla-global.regenerar');
-
-        // Actualizar MARCA y MODELO de un item global
-        Route::post('/tabla-global/{itemGlobal}', [LicitacionFileController::class, 'actualizarMarcaModelo'])
-            ->name('tabla-global.update');
-
-        // =========================
         // ITEMS ORIGINALES (AGREGAR / EDITAR / ELIMINAR)
-        // =========================
+        Route::post('/{licitacionFile}/items',  [LicitacionFileController::class, 'storeItemOriginal'])->name('items.store');
+        Route::post('/items/{itemOriginal}',    [LicitacionFileController::class, 'actualizarItemOriginal'])->name('items.update');
+        Route::delete('/items/{itemOriginal}',  [LicitacionFileController::class, 'destroyItemOriginal'])->name('items.destroy');
 
-        // ✅ Agregar item manual a ESTA licitación
-        Route::post('/{licitacionFile}/items', [LicitacionFileController::class, 'storeItemOriginal'])
-            ->name('items.store');
-
-        // ✅ Actualizar un item original (modal)
-        // (lo dejamos POST para tu form actual)
-        Route::post('/items/{itemOriginal}', [LicitacionFileController::class, 'actualizarItemOriginal'])
-            ->name('items.update');
-
-        // ✅ Eliminar un item original
-        Route::delete('/items/{itemOriginal}', [LicitacionFileController::class, 'destroyItemOriginal'])
-            ->name('items.destroy');
-
-        // =========================
         // EXCEL INDIVIDUAL / SHOW / DELETE LICITACION
-        // =========================
-
-        // EXPORTAR A EXCEL todos los items de una licitación
-        Route::get('/{licitacionFile}/excel', [LicitacionFileController::class, 'exportarExcel'])
-            ->name('excel');
-
-        // Detalle de un archivo y sus items originales
-        Route::get('/{licitacionFile}', [LicitacionFileController::class, 'show'])
-            ->name('show');
-
-        // Eliminar licitación AI completa
-        Route::delete('/{licitacionFile}', [LicitacionFileController::class, 'destroy'])
-            ->name('destroy');
+        Route::get   ('/{licitacionFile}/excel', [LicitacionFileController::class, 'exportarExcel'])->name('excel');
+        Route::get   ('/{licitacionFile}',       [LicitacionFileController::class, 'show'])->name('show');
+        Route::delete('/{licitacionFile}',       [LicitacionFileController::class, 'destroy'])->name('destroy');
     });
 
+/*
+|--------------------------------------------------------------------------
+| PÚBLICO CELULAR (sin auth) – captura AI
+|--------------------------------------------------------------------------
+*/
+Route::get('/i/{token}',         [CatalogAiIntakePublicController::class, 'capture'])->name('intake.mobile');
+Route::post('/i/{token}/upload', [CatalogAiIntakePublicController::class, 'upload'])->name('intake.upload');
+Route::get('/i/{token}/status',  [CatalogAiIntakePublicController::class, 'status'])->name('intake.status');
 
-// ====== PÚBLICO CELULAR (sin auth) ======
-Route::get('/i/{token}', [CatalogAiIntakePublicController::class, 'capture'])
-    ->name('intake.mobile');
+/*
+|--------------------------------------------------------------------------
+| ADMIN – IA para captura de catálogo
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth','role:admin'])
+    ->prefix('admin')
+    ->name('admin.')
+    ->group(function () {
 
-Route::post('/i/{token}/upload', [CatalogAiIntakePublicController::class, 'upload'])
-    ->name('intake.upload');
+        // IA para captura de factura/remisión
+        Route::post('/catalog/ai/start', [CatalogItemController::class, 'aiStart'])
+            ->name('catalog.ai.start');
 
-Route::get('/i/{token}/status', [CatalogAiIntakePublicController::class, 'status'])
-    ->name('intake.status');
+        Route::get('/catalog/ai/{intake}/status', [CatalogItemController::class, 'aiStatus'])
+            ->name('catalog.ai.status');
+    });
 
+/*
+|--------------------------------------------------------------------------
+| PRODUCTOS – CLAVE SAT masivo
+|--------------------------------------------------------------------------
+*/
+Route::post('/products/bulk-clave-sat',       [ProductController::class, 'bulkClaveSat'])->name('products.bulk-clave-sat');
+Route::post('/products/ai-suggest-clave-sat', [ProductController::class, 'aiSuggestClaveSat'])->name('products.ai-suggest-clave-sat');
 
-// ====== ADMIN ======
-Route::middleware(['auth','role:admin'])  // o lo que uses
-  ->prefix('admin')
-  ->name('admin.')
-  ->group(function () {
-
-    // ...todas tus rutas admin existentes de catalog
-
-    // IA para captura de factura/remisión
-    Route::post('/catalog/ai/start', [CatalogItemController::class, 'aiStart'])
-        ->name('catalog.ai.start');
-
-    Route::get('/catalog/ai/{intake}/status', [CatalogItemController::class, 'aiStatus'])
-        ->name('catalog.ai.status');
-});
-
-Route::post('/products/bulk-clave-sat', [ProductController::class, 'bulkClaveSat'])
-    ->name('products.bulk-clave-sat');
-    
-Route::post('/products/ai-suggest-clave-sat', [ProductController::class, 'aiSuggestClaveSat'])
-    ->name('products.ai-suggest-clave-sat');
-
+/*
+|--------------------------------------------------------------------------
+| FACTURAS MANUALES (ManualInvoice)
+|--------------------------------------------------------------------------
+*/
 Route::middleware(['auth'])->group(function () {
     Route::resource('facturas', ManualInvoiceController::class)
         ->parameters(['facturas' => 'manualInvoice'])
@@ -865,15 +833,27 @@ Route::middleware(['auth'])->group(function () {
         ->name('manual_invoices.stamp');
 });
 
-Route::post('manual-invoices/{manualInvoice}/stamp', [ManualInvoiceController::class, 'stamp'])
-    ->name('manual_invoices.stamp');
+// Descargas por slug "manual-invoices/..."
 Route::get('manual-invoices/{manualInvoice}/pdf', [ManualInvoiceController::class, 'downloadPdf'])
     ->name('manual_invoices.download_pdf');
 
 Route::get('manual-invoices/{manualInvoice}/xml', [ManualInvoiceController::class, 'downloadXml'])
     ->name('manual_invoices.download_xml');
+
+/*
+|--------------------------------------------------------------------------
+| IA desde upload de catálogo
+|--------------------------------------------------------------------------
+*/
 Route::post('/admin/catalog/ai-from-upload', [CatalogItemController::class, 'aiFromUpload'])
     ->name('admin.catalog.ai-from-upload');
 
+/*
+|--------------------------------------------------------------------------
+| CRON AGENDA
+|--------------------------------------------------------------------------
+*/
 Route::get('/cron/agenda-run/{token}', [CronController::class, 'runAgenda'])
     ->name('cron.agenda.run');
+   Route::get('/tickets/{ticket}/work', [TicketController::class, 'work'])
+        ->name('tickets.work');

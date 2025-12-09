@@ -65,8 +65,8 @@
         ],
     ];
 
-    $phaseKey   = $ticket->licitacion_phase ?? 'analisis_bases';
-    $phaseLabel = $phaseOptions[$phaseKey] ?? 'Sin fase asignada';
+    $phaseKey        = $ticket->licitacion_phase ?? 'analisis_bases';
+    $phaseLabel      = $phaseOptions[$phaseKey] ?? 'Sin fase asignada';
     $suggestedStages = $phaseStageTemplates[$phaseKey] ?? [];
 
     $priorityClass = match ($ticket->priority) {
@@ -75,6 +75,8 @@
         'baja'  => 'tag-prio-baja',
         default => 'tag-prio-neutral',
     };
+
+    $progressValue = isset($ticket->progress) ? (int) $ticket->progress : null;
 @endphp
 
 <div id="tktshow" class="container-fluid p-0">
@@ -110,6 +112,95 @@
       padding:0 16px 32px;
     }
 
+    /* Top bar / breadcrumb */
+    #tktshow .topbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:10px;
+    }
+    #tktshow .crumb{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      font-size:.82rem;
+      color:var(--muted);
+    }
+    #tktshow .crumb a{
+      color:var(--accent-ink);
+      text-decoration:none;
+      font-weight:500;
+    }
+    #tktshow .crumb a:hover{text-decoration:underline;}
+    #tktshow .crumb span.sep{opacity:.6;}
+
+    #tktshow .btn-ghost{
+      appearance:none;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.6);
+      padding:.4rem .8rem;
+      background:rgba(255,255,255,.6);
+      font-size:.82rem;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      cursor:pointer;
+      transition:background .15s ease, transform .1s ease, box-shadow .15s ease;
+    }
+    #tktshow .btn-ghost:hover{
+      background:#ffffff;
+      transform:translateY(-1px);
+      box-shadow:0 10px 22px rgba(15,23,42,.08);
+    }
+
+    /* Flash toast */
+    #tktshow .toast{
+      position:fixed;
+      right:16px;
+      bottom:16px;
+      z-index:40;
+      min-width:220px;
+      max-width:320px;
+      padding:.7rem .9rem;
+      border-radius:14px;
+      background:#ecfdf5;
+      border:1px solid #bbf7d0;
+      box-shadow:0 18px 40px rgba(22,163,74,.2);
+      display:flex;
+      align-items:flex-start;
+      gap:8px;
+      font-size:.84rem;
+      animation:toastIn .25s ease-out forwards;
+    }
+    #tktshow .toast--ok-icon{
+      font-size:1.1rem;
+    }
+    #tktshow .toast--title{
+      font-weight:600;
+      margin-bottom:2px;
+      color:#166534;
+    }
+    #tktshow .toast--msg{
+      color:#166534;
+    }
+    #tktshow .toast--close{
+      margin-left:auto;
+      border:none;
+      background:transparent;
+      cursor:pointer;
+      font-size:1rem;
+      color:#166534;
+      padding:0 0 0 4px;
+    }
+    @keyframes toastIn{
+      from{opacity:0;transform:translateY(10px) scale(.98);}
+      to{opacity:1;transform:translateY(0) scale(1);}
+    }
+    @keyframes toastOut{
+      to{opacity:0;transform:translateY(10px) scale(.96);}
+    }
+
     #tktshow .grid{
       display:grid;
       grid-template-columns:1.4fr .9fr;
@@ -137,6 +228,18 @@
       background:linear-gradient(135deg,#f3f6ff,#ffffff);
       border:1px solid var(--accent-border);
       box-shadow:0 18px 40px rgba(15,23,42,.10);
+      position:relative;
+      overflow:hidden;
+    }
+    #tktshow .head-main::after{
+      content:'';
+      position:absolute;
+      inset:auto -80px -80px auto;
+      width:180px;
+      height:180px;
+      background:radial-gradient(circle at center,rgba(129,140,248,.16),transparent 60%);
+      opacity:.9;
+      pointer-events:none;
     }
 
     #tktshow .body{padding:16px 18px 18px;}
@@ -147,6 +250,17 @@
       color:var(--ink);
       letter-spacing:.03em;
       font-size:1.25rem;
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+    #tktshow .h span.badge-id{
+      font-size:.74rem;
+      font-weight:600;
+      padding:.17rem .5rem;
+      border-radius:999px;
+      background:#e5e7eb;
+      color:#4b5563;
     }
     #tktshow .sub{
       margin-top:4px;
@@ -170,12 +284,49 @@
       font-size:.78rem;
       color:var(--muted);
       white-space:nowrap;
+      display:inline-flex;
+      align-items:center;
+      gap:4px;
     }
     #tktshow .pill-strong{
       border-color:var(--accent-border);
       background:var(--accent-soft);
       color:var(--accent-ink);
       font-weight:600;
+    }
+
+    /* Tiny progress bar (overall ticket) */
+    #tktshow .ticket-progress-wrap{
+      margin-top:8px;
+    }
+    #tktshow .ticket-progress-label{
+      font-size:.78rem;
+      color:var(--muted);
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:8px;
+      margin-bottom:3px;
+    }
+    #tktshow .ticket-progress-bar{
+      position:relative;
+      width:100%;
+      height:6px;
+      border-radius:999px;
+      background:#e5e7eb;
+      overflow:hidden;
+    }
+    #tktshow .ticket-progress-bar span{
+      position:absolute;
+      inset:0 auto 0 0;
+      border-radius:999px;
+      background:linear-gradient(90deg,#4f46e5,#22c55e);
+      transform-origin:left center;
+      transform:scaleX(0);
+      transition:transform .4s cubic-bezier(.22,1,.36,1);
+    }
+    #tktshow .ticket-progress-bar[data-pct] span{
+      transform:scaleX(calc(var(--pct,0)/100));
     }
 
     /* Prioridad */
@@ -185,6 +336,9 @@
       font-size:.78rem;
       font-weight:600;
       border:1px solid transparent;
+      display:inline-flex;
+      align-items:center;
+      gap:5px;
     }
     #tktshow .tag-prio-alta{
       background:#fee2e2;
@@ -213,6 +367,8 @@
       flex-direction:column;
       gap:8px;
       min-width:260px;
+      position:relative;
+      z-index:1;
     }
     #tktshow .row-inline{
       display:flex;
@@ -258,6 +414,14 @@
       font-size:.8rem;
       font-weight:600;
       color:var(--muted);
+      display:flex;
+      align-items:center;
+      gap:4px;
+    }
+    #tktshow label span.label-hint{
+      font-weight:400;
+      font-size:.75rem;
+      color:#9ca3af;
     }
 
     /* Buttons */
@@ -297,7 +461,35 @@
       background-image:linear-gradient(120deg,#e0edff,#f5f7ff);
       color:var(--accent-ink);
     }
+    #tktshow .btn.outline{
+      background:#ffffff;
+      border-color:var(--line);
+    }
     #tktshow .btn[disabled]{opacity:.7;cursor:not-allowed;}
+
+    /* Fase timeline mini */
+    #tktshow .phase-strip{
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+      margin-top:6px;
+    }
+    #tktshow .phase-pill{
+      padding:.23rem .55rem;
+      border-radius:999px;
+      font-size:.72rem;
+      border:1px dashed rgba(148,163,184,.9);
+      color:#6b7280;
+      opacity:.7;
+    }
+    #tktshow .phase-pill.is-active{
+      border-style:solid;
+      border-color:var(--accent-border);
+      background:var(--accent-soft);
+      color:var(--accent-ink);
+      opacity:1;
+      font-weight:600;
+    }
 
     /* Etapas */
     #tktshow .section-title{
@@ -305,6 +497,29 @@
       font-weight:700;
       margin:0 0 8px;
       color:var(--ink);
+      display:flex;
+      align-items:center;
+      gap:6px;
+    }
+    #tktshow .section-title span.badge{
+      font-size:.72rem;
+      font-weight:500;
+      padding:.13rem .5rem;
+      border-radius:999px;
+      border:1px solid #e5e7eb;
+      color:#6b7280;
+      background:#f9fafb;
+    }
+    #tktshow .section-caption{
+      font-size:.78rem;
+      color:var(--muted);
+      margin-bottom:6px;
+    }
+
+    #tktshow .stage-list{
+      border-left:2px solid #e5e7eb;
+      margin-left:2px;
+      padding-left:8px;
     }
     #tktshow .stage{
       border:1px dashed var(--line);
@@ -316,15 +531,71 @@
       align-items:flex-start;
       gap:10px;
       background:#ffffff;
+      position:relative;
+      overflow:hidden;
     }
+    #tktshow .stage::before{
+      content:'';
+      position:absolute;
+      left:-10px;
+      top:14px;
+      width:8px;
+      height:8px;
+      border-radius:999px;
+      background:#e5e7eb;
+      box-shadow:0 0 0 4px #f9fafb;
+    }
+    #tktshow .stage--status-en_progreso::before{background:#facc15;}
+    #tktshow .stage--status-terminado::before{background:#22c55e;}
+    #tktshow .stage--status-pendiente::before{background:#e5e7eb;}
+
     #tktshow .stage-main{
       flex:1;
       min-width:0;
     }
+    #tktshow .stage-title-line{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:6px;
+    }
+    #tktshow .stage-name{
+      font-size:.9rem;
+      font-weight:600;
+      color:var(--ink);
+    }
+    #tktshow .stage-status-badge{
+      font-size:.72rem;
+      padding:.14rem .45rem;
+      border-radius:999px;
+      background:#f9fafb;
+      border:1px solid #e5e7eb;
+      color:#4b5563;
+      text-transform:capitalize;
+    }
+    #tktshow .stage-status-badge.is-done{
+      background:#dcfce7;
+      border-color:#bbf7d0;
+      color:#166534;
+    }
+    #tktshow .stage-status-badge.is-progress{
+      background:#fef9c3;
+      border-color:#facc15;
+      color:#92400e;
+    }
+
     #tktshow .stage-meta{
-      font-size:.8rem;
+      font-size:.78rem;
       color:var(--muted);
       margin-top:2px;
+    }
+    #tktshow .stage-meta span.dot{
+      width:4px;
+      height:4px;
+      border-radius:999px;
+      background:#cbd5e1;
+      display:inline-block;
+      margin:0 4px;
     }
     #tktshow .stage-actions{
       display:flex;
@@ -344,6 +615,12 @@
       display:inline-flex;
       align-items:center;
       gap:4px;
+      transition:background .12s ease, transform .08s ease, box-shadow .12s ease;
+    }
+    #tktshow .chip:hover{
+      background:#f9fafb;
+      transform:translateY(-1px);
+      box-shadow:0 6px 14px rgba(15,23,42,.08);
     }
     #tktshow .chip-button{
       background:#f9fafb;
@@ -361,7 +638,28 @@
     #tktshow ul{padding-left:1.1rem;margin:0;}
     #tktshow li{margin-bottom:4px;}
 
-    /* Animación */
+    /* Datos claves list */
+    #tktshow .inline-kv{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px 12px;
+      margin-top:6px;
+      font-size:.78rem;
+      color:var(--muted);
+    }
+    #tktshow .inline-kv span.key{
+      font-weight:600;
+      color:#4b5563;
+    }
+
+    /* IA preview inputs */
+    #tktshow .ai-row-edit{
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:8px;
+    }
+
+    /* Animación general */
     @keyframes fadeIn{
       from{opacity:0;transform:translateY(12px) scale(.98);}
       to{opacity:1;transform:translateY(0) scale(1);}
@@ -378,10 +676,40 @@
   </style>
 
   <div class="wrap">
+    {{-- TOP BAR / BREADCRUMB --}}
+    <div class="topbar">
+      <div class="crumb">
+        @if(Route::has('tickets.index'))
+          <a href="{{ route('tickets.index') }}">← Volver a tickets</a>
+          <span class="sep">/</span>
+        @endif
+        <span>Detalle de ticket</span>
+      </div>
+
+      <button type="button" class="btn-ghost" onclick="window.location.reload()">
+        ⟳ Actualizar vista
+      </button>
+    </div>
+
+    {{-- TOAST FLASH (ticket creado / actualizado) --}}
+    @if(session('ok'))
+      <div class="toast" id="tkt-toast" data-autohide>
+        <div class="toast--ok-icon">✅</div>
+        <div>
+          <div class="toast--title">Listo</div>
+          <div class="toast--msg">{{ session('ok') }}</div>
+        </div>
+        <button class="toast--close" type="button" aria-label="Cerrar" onclick="dismissTktToast()">&times;</button>
+      </div>
+    @endif
+
     {{-- CABECERA --}}
     <div class="head-main">
       <div>
-        <div class="h">{{ $ticket->folio }}</div>
+        <div class="h">
+          {{ $ticket->folio }}
+          <span class="badge-id">#{{ $ticket->id }}</span>
+        </div>
         <p class="sub">
           Ticket de licitación pública ·
           Cliente:
@@ -391,15 +719,17 @@
         </p>
 
         <div class="pill-row">
-          <span class="pill pill-strong">{{ $phaseLabel }}</span>
+          <span class="pill pill-strong">
+            📌 {{ $phaseLabel }}
+          </span>
           <span class="tag-prio {{ $priorityClass }}">
-            Prioridad: {{ ucfirst($ticket->priority ?? '—') }}
+            🚨 Prioridad: {{ ucfirst($ticket->priority ?? '—') }}
           </span>
           <span class="pill">
-            Estado: <strong>{{ ucfirst($ticket->status) }}</strong>
+            🔁 Estado: <strong>{{ ucfirst($ticket->status) }}</strong>
           </span>
           <span class="pill">
-            Responsable:
+            👤 Responsable:
             <strong>
               @if(method_exists($ticket, 'owner') && $ticket->owner)
                 {{ $ticket->owner->name }}
@@ -411,10 +741,36 @@
             </strong>
           </span>
           <span class="pill">
-            Fecha límite:
+            ⏰ Fecha límite:
             <strong>{{ optional($ticket->due_at)->format('d/m/Y H:i') ?? 'Sin definir' }}</strong>
           </span>
         </div>
+
+        {{-- Mini timeline de fases --}}
+        <div class="phase-strip">
+          @foreach($phaseOptions as $k => $lbl)
+            <span class="phase-pill {{ $k === $phaseKey ? 'is-active' : '' }}">
+              {{ $lbl }}
+            </span>
+          @endforeach
+        </div>
+
+        {{-- Progreso general del ticket --}}
+        @if(!is_null($progressValue))
+          <div class="ticket-progress-wrap">
+            <div class="ticket-progress-label">
+              <span>Progreso del ticket</span>
+              <span>{{ $progressValue }}%</span>
+            </div>
+            <div
+              class="ticket-progress-bar"
+              data-pct="{{ $progressValue }}"
+              style="--pct:{{ $progressValue }};"
+            >
+              <span></span>
+            </div>
+          </div>
+        @endif
       </div>
 
       {{-- Edición rápida --}}
@@ -423,7 +779,10 @@
         @method('PUT')
 
         <div>
-          <label for="title">Título</label>
+          <label for="title">
+            Título
+            <span class="label-hint">Nombre corto para identificar el ticket</span>
+          </label>
           <input
             id="title"
             type="text"
@@ -490,7 +849,10 @@
 
         <div class="row-inline">
           <div style="flex:1;min-width:170px;">
-            <label for="due_at">Fecha límite</label>
+            <label for="due_at">
+              Fecha límite
+              <span class="label-hint">Para no dejar pasar la licitación</span>
+            </label>
             <input
               id="due_at"
               type="datetime-local"
@@ -499,8 +861,15 @@
             >
           </div>
           <div style="align-self:flex-end;">
-            <button class="btn primary" type="submit">Guardar cambios</button>
+            <button class="btn primary" type="submit">
+              💾 Guardar cambios
+            </button>
           </div>
+        </div>
+
+        <div class="inline-kv">
+          <span><span class="key">Creado:</span> {{ optional($ticket->created_at)->format('d/m/Y H:i') ?? '—' }}</span>
+          <span><span class="key">Última actualización:</span> {{ optional($ticket->updated_at)->format('d/m/Y H:i') ?? '—' }}</span>
         </div>
       </form>
     </div>
@@ -509,12 +878,18 @@
       {{-- IZQUIERDA: Etapas y plantillas por fase --}}
       <div class="card">
         <div class="body">
-          <div class="section-title">Etapas del ticket</div>
+          <div class="section-title">
+            🧩 Etapas del ticket
+            <span class="badge">{{ $ticket->stages->count() }} etapa(s)</span>
+          </div>
+          <p class="section-caption">
+            Sigue la línea de tiempo de la licitación y usa las sugerencias para no olvidar ningún paso.
+          </p>
 
           {{-- Sugerencias según fase --}}
           @if(count($suggestedStages))
             <div class="mini">
-              Sugerencias de etapas para esta fase. Puedes agregarlas con un clic.
+              Sugerencias de etapas para esta fase. Da clic para agregarlas directamente.
             </div>
             <div class="mt-sm" style="display:flex;flex-wrap:wrap;gap:6px;">
               @foreach($suggestedStages as $name)
@@ -535,77 +910,104 @@
           @endif
 
           {{-- Etapas creadas --}}
-          @forelse($ticket->stages as $st)
-            <div class="stage" id="stage-{{ $st->id }}">
-              <div class="stage-main">
-                <div class="section-title" style="margin-bottom:2px;">
-                  {{ $st->position }}. {{ $st->name }}
-                </div>
-                <div class="stage-meta">
-                  Estado:
-                  <strong>{{ ucfirst(str_replace('_',' ',$st->status)) }}</strong>
-                  · Responsable:
-                  <strong>{{ optional($st->assignee)->name ?? 'Sin asignar' }}</strong>
-                </div>
+          <div class="stage-list">
+            @forelse($ticket->stages as $st)
+              @php
+                $status = $st->status;
+                $statusBadgeClass = '';
+                if ($status === 'terminado') $statusBadgeClass = 'is-done';
+                elseif ($status === 'en_progreso') $statusBadgeClass = 'is-progress';
+              @endphp
 
-                @foreach($st->checklists as $chk)
-                  <div class="mt-sm mini">
-                    <span class="chip">{{ $chk->title }}</span>
-                    <a class="chip" href="{{ route('checklists.export.pdf',$chk) }}">PDF</a>
-                    <a class="chip" href="{{ route('checklists.export.word',$chk) }}">Word</a>
-                    <form
-                      method="POST"
-                      action="{{ route('checklists.destroy',$chk) }}"
-                      onsubmit="return confirm('¿Eliminar esta checklist?')"
-                      style="display:inline"
-                    >
-                      @csrf
-                      @method('DELETE')
-                      <button class="chip chip-button" type="submit">Eliminar</button>
-                    </form>
+              <div class="stage stage--status-{{ $status }}" id="stage-{{ $st->id }}">
+                <div class="stage-main">
+                  <div class="stage-title-line">
+                    <div class="stage-name">
+                      {{ $st->position }}. {{ $st->name }}
+                    </div>
+                    <div class="stage-status-badge {{ $statusBadgeClass }}">
+                      {{ ucfirst(str_replace('_',' ',$st->status)) }}
+                    </div>
                   </div>
-                @endforeach
-
-                {{-- Nueva checklist para la etapa --}}
-                <form
-                  class="mt-sm"
-                  method="POST"
-                  action="{{ route('tickets.checklists.store',$ticket) }}"
-                >
-                  @csrf
-                  <input type="hidden" name="stage_id" value="{{ $st->id }}">
-                  <div class="row-inline">
-                    <input
-                      type="text"
-                      name="title"
-                      placeholder="Checklist para esta etapa"
-                    >
-                    <button class="chip chip-button" type="submit">
-                      Agregar checklist
-                    </button>
+                  <div class="stage-meta">
+                    Responsable:
+                    <strong>{{ optional($st->assignee)->name ?? 'Sin asignar' }}</strong>
+                    <span class="dot"></span>
+                    Checklist:
+                    <strong>{{ $st->checklists->count() }}</strong>
+                    @if(method_exists($st,'documents'))
+                      <span class="dot"></span>
+                      Evidencias:
+                      <strong>{{ $st->documents()->count() }}</strong>
+                    @endif
                   </div>
-                </form>
-              </div>
 
-              <div class="stage-actions">
-                <form
-                  method="POST"
-                  action="{{ route('tickets.stages.destroy',[$ticket,$st]) }}"
-                  onsubmit="return confirm('¿Eliminar la etapa \"{{ $st->name }}\"? Se borrarán sus checklists, items y evidencias.')"
-                >
-                  @csrf
-                  @method('DELETE')
-                  <button class="btn" type="submit">Eliminar etapa</button>
-                </form>
+                  {{-- Checklists de la etapa --}}
+                  @foreach($st->checklists as $chk)
+                    <div class="mt-sm mini">
+                      <span class="chip">✅ {{ $chk->title }}</span>
+                      <a class="chip" href="{{ route('checklists.export.pdf',$chk) }}">PDF</a>
+                      <a class="chip" href="{{ route('checklists.export.word',$chk) }}">Word</a>
+                      <form
+                        method="POST"
+                        action="{{ route('checklists.destroy',$chk) }}"
+                        onsubmit="return confirm('¿Eliminar esta checklist?')"
+                        style="display:inline"
+                      >
+                        @csrf
+                        @method('DELETE')
+                        <button class="chip chip-button" type="submit">Eliminar</button>
+                      </form>
+                    </div>
+                  @endforeach
+
+                  {{-- Nueva checklist para la etapa --}}
+                  <form
+                    class="mt-sm"
+                    method="POST"
+                    action="{{ route('tickets.checklists.store',$ticket) }}"
+                  >
+                    @csrf
+                    <input type="hidden" name="stage_id" value="{{ $st->id }}">
+                    <div class="row-inline">
+                      <input
+                        type="text"
+                        name="title"
+                        placeholder="Checklist para esta etapa (ej. Documentación a revisar)"
+                      >
+                      <button class="chip chip-button" type="submit">
+                        ➕ Agregar checklist
+                      </button>
+                    </div>
+                  </form>
+                </div>
+
+                <div class="stage-actions">
+                  <form
+                    method="POST"
+                    action="{{ route('tickets.stages.destroy',[$ticket,$st]) }}"
+                    onsubmit="return confirm('¿Eliminar la etapa \"{{ $st->name }}\"? Se borrarán sus checklists, items y evidencias.')"
+                  >
+                    @csrf
+                    @method('DELETE')
+                    <button class="btn outline" type="submit">Eliminar etapa</button>
+                  </form>
+                </div>
               </div>
-            </div>
-          @empty
-            <p class="mini">Sin etapas configuradas. Usa las sugerencias de la fase o crea una etapa nueva.</p>
-          @endforelse
+            @empty
+              <p class="mini">Sin etapas configuradas. Usa las sugerencias de la fase o crea una etapa nueva.</p>
+            @endforelse
+          </div>
 
           {{-- Nueva etapa manual --}}
           <form class="mt-md" method="POST" action="{{ route('tickets.stages.store',$ticket) }}">
             @csrf
+            <div class="section-title">
+              ➕ Nueva etapa
+            </div>
+            <p class="section-caption">
+              Agrega pasos específicos para tu flujo (por ejemplo, “Validación jurídica interna”).
+            </p>
             <div class="row-inline">
               <input
                 type="text"
@@ -623,14 +1025,20 @@
       <div class="card">
         <div class="body">
           {{-- Asistente de checklist IA --}}
-          <div class="section-title">Asistente para checklist</div>
-          <div class="mini" id="ai-phase-hint">
-            Genera una checklist enfocada a la fase actual de la licitación.
+          <div class="section-title">
+            🤖 Asistente para checklist
+            <span class="badge">IA</span>
           </div>
+          <p class="section-caption" id="ai-phase-hint">
+            Genera una checklist enfocada a la fase actual de la licitación.
+          </p>
 
           <div class="row-inline mt-sm">
             <div style="flex:1;min-width:140px;">
-              <label for="ai-stage">Etapa</label>
+              <label for="ai-stage">
+                Etapa
+                <span class="label-hint">Dónde quieres crear la checklist</span>
+              </label>
               <select id="ai-stage">
                 @foreach($ticket->stages as $st)
                   <option value="{{ $st->id }}">
@@ -642,7 +1050,10 @@
           </div>
 
           <div class="mt-sm">
-            <label for="ai-prompt">Descripción breve</label>
+            <label for="ai-prompt">
+              Descripción breve
+              <span class="label-hint">Cuéntale a la IA qué debe lograrse</span>
+            </label>
             <textarea
               id="ai-prompt"
               rows="4"
@@ -652,7 +1063,7 @@
 
           <div class="row-inline" style="justify-content:flex-end;margin-top:8px;">
             <button class="btn primary" type="button" id="btnSuggest">
-              Sugerir con IA
+              ✨ Sugerir con IA
             </button>
           </div>
 
@@ -665,7 +1076,7 @@
             <div class="row-inline" style="justify-content:space-between;margin-top:8px;">
               <span class="mini">Puedes editar los puntos antes de guardar.</span>
               <button class="btn primary" type="button" id="btnCreate">
-                Crear checklist en la etapa
+                💾 Crear checklist en la etapa
               </button>
             </div>
           </div>
@@ -673,13 +1084,21 @@
           <hr class="divider">
 
           {{-- Datos de licitación y notas --}}
-          <div class="section-title">Datos de la licitación</div>
+          <div class="section-title">
+            📄 Datos de la licitación
+          </div>
+          <p class="section-caption">
+            Información clave para identificar esta licitación y su estado.
+          </p>
           <form method="POST" action="{{ route('tickets.update',$ticket) }}">
             @csrf
             @method('PUT')
 
             <div class="mt-sm">
-              <label for="numero_licitacion">Número de licitación</label>
+              <label for="numero_licitacion">
+                Número de licitación
+                <span class="label-hint">Tal como aparece en la convocatoria</span>
+              </label>
               <input
                 id="numero_licitacion"
                 type="text"
@@ -690,7 +1109,10 @@
             </div>
 
             <div class="mt-sm">
-              <label for="monto_propuesta">Monto de la propuesta</label>
+              <label for="monto_propuesta">
+                Monto de la propuesta
+                <span class="label-hint">Solo número, sin comas</span>
+              </label>
               <input
                 id="monto_propuesta"
                 type="number"
@@ -714,7 +1136,10 @@
             </div>
 
             <div class="mt-sm">
-              <label for="quick_notes">Notas rápidas</label>
+              <label for="quick_notes">
+                Notas rápidas
+                <span class="label-hint">Puntos clave, acuerdos, cosas a no olvidar</span>
+              </label>
               <textarea
                 id="quick_notes"
                 name="quick_notes"
@@ -724,13 +1149,15 @@
             </div>
 
             <div class="row-inline" style="justify-content:flex-end;margin-top:10px;">
-              <button class="btn primary" type="submit">Guardar datos</button>
+              <button class="btn primary" type="submit">💾 Guardar datos</button>
             </div>
           </form>
 
           @if($ticket->links->count())
             <div class="mt-md">
-              <div class="section-title" style="margin-bottom:6px;">Enlaces relacionados</div>
+              <div class="section-title" style="margin-bottom:6px;">
+                🔗 Enlaces relacionados
+              </div>
               <ul>
                 @foreach($ticket->links as $lnk)
                   <li class="mini">
@@ -744,7 +1171,12 @@
           <hr class="divider">
 
           {{-- Documentos --}}
-          <div class="section-title">Documentos del ticket</div>
+          <div class="section-title">
+            📁 Documentos del ticket
+          </div>
+          <p class="section-caption">
+            Sube propuestas, bases, cotizaciones o evidencia de entrega.
+          </p>
 
           <form
             method="POST"
@@ -778,7 +1210,7 @@
                 placeholder="o URL externa (Drive, etc.)"
                 style="flex:1;min-width:180px;"
               >
-              <button class="btn" type="submit">Subir</button>
+              <button class="btn" type="submit">⬆ Subir</button>
             </div>
           </form>
 
@@ -987,9 +1419,7 @@
 
     AI_CACHE.items.forEach((text, index) => {
       const row = document.createElement('div');
-      row.style.display = 'grid';
-      row.style.gridTemplateColumns = '1fr auto';
-      row.style.gap = '8px';
+      row.className = 'ai-row-edit';
 
       const input = document.createElement('input');
       input.type = 'text';
@@ -1022,5 +1452,20 @@
 
     list.appendChild(add);
   }
+
+  // Toast helper
+  function dismissTktToast(){
+    const toast = document.getElementById('tkt-toast');
+    if (!toast) return;
+    toast.style.animation = 'toastOut .2s forwards';
+    setTimeout(()=> toast.remove(), 180);
+  }
+  (function autoToast(){
+    const toast = document.getElementById('tkt-toast');
+    if (!toast) return;
+    if (toast.hasAttribute('data-autohide')){
+      setTimeout(dismissTktToast, 3800);
+    }
+  })();
 </script>
 @endsection

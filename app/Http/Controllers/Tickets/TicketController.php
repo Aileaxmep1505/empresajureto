@@ -18,6 +18,7 @@ use App\Models\{
     TicketChecklistItem,
     User
 };
+use App\Notifications\TicketAssigned;
 
 class TicketController extends Controller
 {
@@ -78,6 +79,7 @@ class TicketController extends Controller
 
     /**
      * Guarda ticket de licitación + etapas por defecto.
+     * Aquí ya DISPARAMOS la notificación al responsable.
      */
     public function store(Request $r)
     {
@@ -155,13 +157,27 @@ class TicketController extends Controller
                 'diff'      => ['payload' => $data],
             ]);
 
+            // ===== Notificar al responsable asignado (o al usuario actual) =====
+            $owner = null;
+            if (!empty($data['owner_id'])) {
+                $owner = User::find($data['owner_id']);
+            }
+            if (!$owner) {
+                $owner = auth()->user();
+            }
+
+            if ($owner) {
+                $owner->notify(new TicketAssigned($ticket));
+            }
+            // ==================================================================
+
             return redirect()
                 ->route('tickets.show', $ticket)
-                ->with('ok', 'Ticket creado');
+                ->with('ok', 'Ticket generado correctamente.');
         });
     }
 
-    /** Detalle del ticket */
+    /** Detalle del ticket (vista coordinador / configuración) */
     public function show(Ticket $ticket)
     {
         $ticket->load([
@@ -170,37 +186,73 @@ class TicketController extends Controller
             'documents.uploader',
             'links',
             'audits',
+            'owner',
+            'client',
         ]);
 
-        return view('tickets.show', compact('ticket'));
+        // Para dropdown de responsables en la vista
+        $users = User::orderBy('name')->get();
+
+        return view('tickets.show', compact('ticket', 'users'));
+    }
+
+    /**
+     * Vista de EJECUCIÓN para la persona asignada.
+     * Aquí no se configuran etapas ni checklists, solo se trabaja el ticket.
+     */
+    public function work(Ticket $ticket)
+    {
+        $ticket->load([
+            'stages.checklists.items',
+            'owner',
+            'client',
+            'links',
+        ]);
+
+        return view('tickets.work', [
+            'ticket' => $ticket,
+        ]);
     }
 
     /**
      * Actualiza campos básicos del ticket de licitación.
+     * Si cambia el owner, también lanzamos notificación al nuevo responsable.
      */
     public function update(Request $r, Ticket $ticket)
     {
         $phaseKeys = implode(',', array_keys(self::PHASES));
 
         $data = $r->validate([
-            'title'             => ['nullable', 'string', 'max:180'],
-            'priority'          => ['nullable', 'in:alta,media,baja'],
-            'status'            => ['nullable', 'in:revision,proceso,finalizado,cerrado'],
-            'owner_id'          => ['nullable', 'integer', 'exists:users,id'],
-            'due_at'            => ['nullable', 'date'],
-            'numero_licitacion' => ['nullable', 'string', 'max:120'],
-            'monto_propuesta'   => ['nullable', 'numeric'],
+            'title'                => ['nullable', 'string', 'max:180'],
+            'priority'             => ['nullable', 'in:alta,media,baja'],
+            'status'               => ['nullable', 'in:revision,proceso,finalizado,cerrado'],
+            'owner_id'             => ['nullable', 'integer', 'exists:users,id'],
+            'due_at'               => ['nullable', 'date'],
+            'numero_licitacion'    => ['nullable', 'string', 'max:120'],
+            'monto_propuesta'      => ['nullable', 'numeric'],
             'estatus_adjudicacion' => ['nullable', 'in:en_espera,ganada,perdida'],
 
-            'licitacion_phase'  => ['nullable', "in:{$phaseKeys}"],
-            'quick_notes'       => ['nullable', 'string'],
+            'licitacion_phase'     => ['nullable', "in:{$phaseKeys}"],
+            'quick_notes'          => ['nullable', 'string'],
         ]);
 
-        $before = $ticket->toArray();
+        // desde la vista podemos mandar redirect=stay|index
+        $redirect = $r->input('redirect', 'stay');
+
+        $before        = $ticket->toArray();
+        $beforeOwnerId = $ticket->owner_id;
 
         // Solo llenamos lo que venga no nulo
         $ticket->fill(array_filter($data, fn($v) => !is_null($v)))->save();
         $ticket->refreshProgress();
+
+        // Si cambió el responsable, notificar al nuevo owner
+        if (!empty($ticket->owner_id) && $ticket->owner_id !== $beforeOwnerId) {
+            $newOwner = User::find($ticket->owner_id);
+            if ($newOwner) {
+                $newOwner->notify(new TicketAssigned($ticket));
+            }
+        }
 
         TicketAudit::create([
             'ticket_id' => $ticket->id,
@@ -212,7 +264,13 @@ class TicketController extends Controller
             ],
         ]);
 
-        return back()->with('ok', 'Actualizado');
+        if ($redirect === 'index') {
+            return redirect()
+                ->route('tickets.index')
+                ->with('ok', 'Ticket actualizado.');
+        }
+
+        return back()->with('ok', 'Ticket actualizado.');
     }
 
     /** Cerrar ticket (usado por ruta tickets.close) */
@@ -337,7 +395,7 @@ class TicketController extends Controller
         return back()->with('ok', 'Documento eliminado');
     }
 
-    /** Poll básico (vista ejecutor) */
+    /** Poll básico (vista ejecutor o dashboards) */
     public function poll(Request $r, Ticket $ticket)
     {
         $ticket->load(['stages.checklists.items', 'documents', 'comments']);

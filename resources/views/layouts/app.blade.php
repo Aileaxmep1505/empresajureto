@@ -417,7 +417,7 @@
           <svg class="nav__chev" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
         </summary>
         <div class="nav__submenu">
-          <a href="{{ route('products.index') }}" class="nav__sublink {{ request()->routeIs('products.index') ? 'is-active':'' }}">
+          <a href="{{ route('products.index') }}" class="nav__sublink {{ request()->routeIs('products.index') || request()->routeIs('products.show') ? 'is-active':'' }}">
             <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
             <span>Listado</span>
           </a>
@@ -456,6 +456,7 @@
       <!-- Cotizaciones -->
       <details class="nav__group" {{ request()->routeIs('cotizaciones.*') ? 'open' : '' }}>
         <summary class="{{ request()->routeIs('cotizaciones.*') ? 'is-active':'' }}">
+
           <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
             <rect x="3" y="4" width="18" height="14" rx="2"/>
           </svg>
@@ -538,19 +539,31 @@
         <span>Part. contable</span>
       </a>
 
-      <!-- Licitaciones (incluye IA) -->
-      <details class="nav__group" {{ request()->routeIs('licitaciones.*') || request()->routeIs('licitaciones-ai.*') ? 'open' : '' }}>
-        <summary class="{{ request()->routeIs('licitaciones.*') || request()->routeIs('licitaciones-ai.*') ? 'is-active':'' }}">
+      <!-- Licitaciones (incluye IA y admin PDFs / propuestas) -->
+      <details class="nav__group"
+        {{ request()->routeIs('licitaciones.*')
+            || request()->routeIs('licitaciones-ai.*')
+            || request()->routeIs('admin.licitacion-pdfs.*')
+            || request()->routeIs('admin.licitacion-propuestas.*')
+            ? 'open' : '' }}>
+        <summary class="{{ request()->routeIs('licitaciones.*')
+                          || request()->routeIs('licitaciones-ai.*')
+                          || request()->routeIs('admin.licitacion-pdfs.*')
+                          || request()->routeIs('admin.licitacion-propuestas.*')
+                          ? 'is-active':'' }}">
           <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
             <rect x="4" y="3" width="16" height="18" rx="2"/>
             <path d="M8 7h8M8 11h8M8 15h5"/>
           </svg>
           <span>Licitaciones</span>
-          <svg class="nav__chev" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+          <svg class="nav__chev" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2">
+            <path d="M9 6l6 6-6 6"/>
+          </svg>
         </summary>
         <div class="nav__submenu">
           {{-- Listado / detalle --}}
-          <a href="{{ route('licitaciones.index') }}" class="nav__sublink {{ request()->routeIs('licitaciones.index') || request()->routeIs('licitaciones.show') ? 'is-active':'' }}">
+          <a href="{{ route('licitaciones.index') }}"
+             class="nav__sublink {{ request()->routeIs('licitaciones.index') || request()->routeIs('licitaciones.show') ? 'is-active':'' }}">
             <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
               <path d="M4 6h16M4 12h16M4 18h10"/>
             </svg>
@@ -558,25 +571,56 @@
           </a>
 
           {{-- Crear nueva (step 1 del wizard) --}}
-          <a href="{{ route('licitaciones.create.step1') }}" class="nav__sublink {{ request()->routeIs('licitaciones.create.step1') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
+          <a href="{{ route('licitaciones.create.step1') }}"
+             class="nav__sublink {{ request()->routeIs('licitaciones.create.step1') ? 'is-active':'' }}">
+            <svg viewBox="0 0 24 24" width="18" height="18"
+                 stroke="currentColor" fill="none" stroke-width="1.8">
               <path d="M12 5v14M5 12h14"/>
             </svg>
             <span>Nueva licitación</span>
           </a>
 
           {{-- Licitaciones IA --}}
-          <a href="{{ route('licitaciones-ai.index') }}" class="nav__sublink {{ request()->routeIs('licitaciones-ai.index') || request()->routeIs('licitaciones-ai.show') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
+          <a href="{{ route('licitaciones-ai.index') }}"
+             class="nav__sublink {{ request()->routeIs('licitaciones-ai.index') || request()->routeIs('licitaciones-ai.show') ? 'is-active':'' }}">
+            <svg viewBox="0 0 24 24" width="18" height="18"
+                 stroke="currentColor" fill="none" stroke-width="1.8">
               <path d="M4 5h16v6H4z"/><path d="M4 17h8v2H4z"/><path d="M14 15h6v4h-6z"/>
             </svg>
             <span>Licitaciones IA</span>
           </a>
-          <a href="{{ route('licitaciones-ai.tabla-global') }}" class="nav__sublink {{ request()->routeIs('licitaciones-ai.tabla-global') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
-              <rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16M3 12h18"/>
+
+          <a href="{{ route('licitaciones-ai.tabla-global') }}"
+             class="nav__sublink {{ request()->routeIs('licitaciones-ai.tabla-global') ? 'is-active':'' }}">
+            <svg viewBox="0 0 24 24" width="18" height="18"
+                 stroke="currentColor" fill="none" stroke-width="1.8">
+              <rect x="3" y="4" width="18" height="16" rx="2"/>
+              <path d="M9 4v16M15 4v16M3 12h18"/>
             </svg>
             <span>Tabla global IA</span>
+          </a>
+
+          {{-- NUEVO: PDFs de requisiciones (admin.licitacion-pdfs.*) --}}
+          <a href="{{ route('admin.licitacion-pdfs.index') }}"
+             class="nav__sublink {{ request()->routeIs('admin.licitacion-pdfs.*') ? 'is-active':'' }}">
+            <svg viewBox="0 0 24 24" width="18" height="18"
+                 stroke="currentColor" fill="none" stroke-width="1.8">
+              <rect x="5" y="3" width="14" height="18" rx="2"/>
+              <path d="M9 7h6M9 11h6M9 15h4"/>
+            </svg>
+            <span>PDFs de requisiciones</span>
+          </a>
+
+          {{-- NUEVO: Propuestas / comparativas (admin.licitacion-propuestas.*) --}}
+          <a href="{{ route('admin.licitacion-propuestas.index') }}"
+             class="nav__sublink {{ request()->routeIs('admin.licitacion-propuestas.*') ? 'is-active':'' }}">
+            <svg viewBox="0 0 24 24" width="18" height="18"
+                 stroke="currentColor" fill="none" stroke-width="1.8">
+              <rect x="3" y="4" width="18" height="16" rx="2"/>
+              <path d="M7 14h3.5a2 2 0 1 0 0-4H7z"/>
+              <path d="M14.5 10H17a2 2 0 1 1 0 4h-2.5z"/>
+            </svg>
+            <span>Propuestas / comparativas</span>
           </a>
         </div>
       </details>
@@ -756,7 +800,7 @@
             <span>Carriers SkydropX</span>
           </a>
           <a href="{{ url('/debug/skydropx/quote') }}" class="nav__sublink {{ request()->is('debug/skydropx/quote') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M3 12h18"/><path d="M7 12l-4 4 4 4"/></svg>
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M3 12h18M7 12l-4 4 4 4"/></svg>
             <span>Quote SkydropX</span>
           </a>
         </div>
@@ -838,269 +882,301 @@
     </main>
   </div>
 
-  @stack('scripts')
-  <script>
-    (function(){
-      const shell      = document.getElementById('shell');
-      const sidebar    = document.getElementById('sidebar');
-      const sidebarNav = document.getElementById('sidebarNav');
-      const backdrop   = document.getElementById('backdrop');
-      const btnOpen    = document.getElementById('btnSidebar');
-      const btnClose   = document.getElementById('btnCloseSidebar');
+@stack('scripts')
+<script>
+  (function(){
+    const shell      = document.getElementById('shell');
+    const sidebar    = document.getElementById('sidebar');
+    const sidebarNav = document.getElementById('sidebarNav');
+    const backdrop   = document.getElementById('backdrop');
+    const btnOpen    = document.getElementById('btnSidebar');
+    const btnClose   = document.getElementById('btnCloseSidebar');
 
-      const notifBtn     = document.getElementById('btnNotif');
-      const notifPane    = document.getElementById('notifPanel');
-      const notifClose   = document.getElementById('btnCloseNotif');
-      const notifList    = document.getElementById('notifList');
-      const notifBadge   = document.getElementById('notifBadge');
-      const notifMarkAll = document.getElementById('btnMarkAll');
+    const notifBtn     = document.getElementById('btnNotif');
+    const notifPane    = document.getElementById('notifPanel');
+    const notifClose   = document.getElementById('btnCloseNotif');
+    const notifList    = document.getElementById('notifList');
+    const notifBadge   = document.getElementById('notifBadge');
+    const notifMarkAll = document.getElementById('btnMarkAll');
 
-      const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+    const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 
-      const NOTIF_FEED_URL    = @json($notifFeedUrl);
-      const NOTIF_READALL_URL = @json($notifReadAllUrl);
-      const NOTIF_READONE_URL = @json($notifReadOneUrl);
+    const NOTIF_FEED_URL    = @json($notifFeedUrl);
+    const NOTIF_READALL_URL = @json($notifReadAllUrl);
+    const NOTIF_READONE_URL = @json($notifReadOneUrl);
 
-      let sidebarOpen    = false;
-      let notifLoaded    = false;
-      let lastPayloadKey = null;
+    let sidebarOpen    = false;
+    let notifLoaded    = false;
+    let lastPayloadKey = null;
 
-      /* ========== Sidebar ========== */
-      const applyOverlay = () => {
-        backdrop.classList.toggle('is-show', sidebarOpen);
-        shell.classList.toggle('dimmed', sidebarOpen);
-        document.body.classList.toggle('lock-scroll', sidebarOpen);
-        sidebar.setAttribute('aria-hidden', sidebarOpen ? 'false' : 'true');
-      };
+    /* ========== Sidebar ========== */
+    const applyOverlay = () => {
+      if (!backdrop || !shell || !sidebar) return;
+      backdrop.classList.toggle('is-show', sidebarOpen);
+      shell.classList.toggle('dimmed', sidebarOpen);
+      document.body.classList.toggle('lock-scroll', sidebarOpen);
+      sidebar.setAttribute('aria-hidden', sidebarOpen ? 'false' : 'true');
+    };
 
-      const openSidebar = () => {
-        if (sidebarOpen) return;
-        sidebarOpen = true;
-        sidebar.classList.add('is-open');
-        applyOverlay();
-      };
-      const closeSidebar = () => {
-        if (!sidebarOpen) return;
-        sidebarOpen = false;
-        sidebar.classList.remove('is-open');
-        applyOverlay();
-      };
+    const openSidebar = () => {
+      if (!sidebar || sidebarOpen) return;
+      sidebarOpen = true;
+      sidebar.classList.add('is-open');
+      applyOverlay();
+    };
+    const closeSidebar = () => {
+      if (!sidebar || !sidebarOpen) return;
+      sidebarOpen = false;
+      sidebar.classList.remove('is-open');
+      applyOverlay();
+    };
 
-      if (btnOpen)  btnOpen.addEventListener('click', openSidebar);
-      if (btnClose) btnClose.addEventListener('click', closeSidebar);
-      if (backdrop) backdrop.addEventListener('click', closeSidebar);
+    if (btnOpen)  btnOpen.addEventListener('click', openSidebar);
+    if (btnClose) btnClose.addEventListener('click', closeSidebar);
+    if (backdrop) backdrop.addEventListener('click', closeSidebar);
 
-      if (sidebarNav){
-        sidebarNav.addEventListener('click', (e)=>{
-          const summary = e.target.closest('summary');
-          if (summary) { return; }
-          const link = e.target.closest('a');
-          if (!link) return;
+    if (sidebarNav){
+      sidebarNav.addEventListener('click', (e)=>{
+        const summary = e.target.closest('summary');
+        if (summary) { return; }
+        const link = e.target.closest('a');
+        if (!link) return;
 
-          const href = link.getAttribute('href') || '';
-          const keep = link.hasAttribute('data-keep-open');
-          const isAnchorOnly = href.startsWith('#') || href === '' || href.startsWith('javascript');
+        const href = link.getAttribute('href') || '';
+        const keep = link.hasAttribute('data-keep-open');
+        const isAnchorOnly = href.startsWith('#') || href === '' || href.startsWith('javascript');
 
-          if (!keep && !isAnchorOnly) { closeSidebar(); }
-        });
+        if (!keep && !isAnchorOnly) { closeSidebar(); }
+      });
+    }
+
+    /* ========== Notificaciones ========== */
+
+    function buildPayloadKey(payload){
+      if (!payload || !Array.isArray(payload.items)) return '';
+      return payload.items.map(n => n.id + (n.read_at ? '1' : '0')).join('|') + '|' + (payload.unread || 0);
+    }
+
+    function renderNotifItems(payload){
+      if (!notifList) return;
+      const items  = (payload && payload.items)  ? payload.items  : [];
+      const unread = (payload && payload.unread) ? payload.unread : 0;
+
+      // Badge con número
+      if (notifBadge){
+        if (unread > 0){
+          notifBadge.style.display = '';
+          notifBadge.textContent = unread > 9 ? '9+' : unread;
+        } else {
+          notifBadge.style.display = 'none';
+          notifBadge.textContent = '';
+        }
       }
 
-      /* ========== Notificaciones ========== */
+      notifList.innerHTML = '';
 
-      function buildPayloadKey(payload){
-        if (!payload || !Array.isArray(payload.items)) return '';
-        return payload.items.map(n => n.id + (n.read_at ? '1' : '0')).join('|') + '|' + (payload.unread || 0);
+      if (!items.length){
+        const empty = document.createElement('div');
+        empty.className = 'notif__empty';
+        empty.textContent = 'No tienes notificaciones.';
+        notifList.appendChild(empty);
+        return;
       }
 
-      function renderNotifItems(payload){
-        if (!notifList) return;
-        const items  = (payload && payload.items)  ? payload.items  : [];
-        const unread = (payload && payload.unread) ? payload.unread : 0;
+      items.forEach(n => {
+        const level = n.status || 'info';
+        let pillClass = 'pill--info';
+        let pillText  = 'Info';
+        if (level === 'warn'){ pillClass = 'pill--warn'; pillText = 'Aviso'; }
+        else if (level === 'error'){ pillClass = 'pill--error'; pillText = 'Alerta'; }
 
-        // Badge con número
-        if (notifBadge){
-          if (unread > 0){
-            notifBadge.style.display = '';
-            notifBadge.textContent = unread > 9 ? '9+' : unread;
-          } else {
-            notifBadge.style.display = 'none';
-            notifBadge.textContent = '';
-          }
+        const item = document.createElement('div');
+        item.className = 'notif__item ' + (n.read_at ? 'is-read' : 'is-unread');
+        item.dataset.id = n.id;
+        if (n.url) {
+          item.dataset.url = n.url;
         }
 
-        notifList.innerHTML = '';
-
-        if (!items.length){
-          const empty = document.createElement('div');
-          empty.className = 'notif__empty';
-          empty.textContent = 'No tienes notificaciones.';
-          notifList.appendChild(empty);
-          return;
-        }
-
-        items.forEach(n => {
-          const level = n.status || 'info';
-          let pillClass = 'pill--info';
-          let pillText  = 'Info';
-          if (level === 'warn'){ pillClass = 'pill--warn'; pillText = 'Aviso'; }
-          else if (level === 'error'){ pillClass = 'pill--error'; pillText = 'Alerta'; }
-
-          const item = document.createElement('div');
-          item.className = 'notif__item ' + (n.read_at ? 'is-read' : 'is-unread');
-          item.dataset.id = n.id;
-
-          item.innerHTML = `
+        item.innerHTML = `
+          <div class="notif__body">
             <span class="pill ${pillClass}">${pillText}</span>
-            <div class="notif__text">${(n.title || 'Notificación')}</div>
-            <div class="notif__time">${n.time || ''}</div>
-            <button type="button" class="notif__item-close" aria-label="Marcar como leída" data-id="${n.id}">&times;</button>
-          `;
-          notifList.appendChild(item);
+            <div class="notif__main">
+              <div class="notif__text">${(n.title || 'Notificación')}</div>
+              <div class="notif__msg">${(n.message || '')}</div>
+              <div class="notif__time">${(n.time || '')}</div>
+            </div>
+          </div>
+          <button type="button"
+                  class="notif__item-close"
+                  aria-label="Marcar como leída"
+                  data-id="${n.id}">&times;</button>
+        `;
+        notifList.appendChild(item);
+      });
+    }
+
+    async function loadNotifications(){
+      if (!NOTIF_FEED_URL || !notifList) return;
+
+      if (!notifLoaded){
+        notifList.innerHTML = '<div class="notif__empty">Cargando…</div>';
+      }
+
+      try{
+        const res  = await fetch(NOTIF_FEED_URL, { headers:{ 'Accept':'application/json' } });
+        const json = await res.json();
+
+        if (!res.ok){
+          throw new Error(json.message || 'Error al cargar notificaciones');
+        }
+
+        const key = buildPayloadKey(json);
+        if (key !== lastPayloadKey){
+          lastPayloadKey = key;
+          renderNotifItems(json);
+        }
+        notifLoaded = true;
+      }catch(e){
+        console.error(e);
+        notifList.innerHTML = '<div class="notif__empty">No se pudieron cargar las notificaciones.</div>';
+      }
+    }
+
+    async function markAllNotifications(){
+      if (!NOTIF_READALL_URL || !csrf) return;
+      try{
+        await fetch(NOTIF_READALL_URL, {
+          method:'POST',
+          headers:{
+            'X-CSRF-TOKEN': csrf,
+            'Accept':'application/json'
+          }
         });
-      }
-
-      async function loadNotifications(){
-        if (!NOTIF_FEED_URL || !notifList) return;
-
-        if (!notifLoaded){
-          notifList.innerHTML = '<div class="notif__empty">Cargando…</div>';
-        }
-
-        try{
-          const res  = await fetch(NOTIF_FEED_URL, { headers:{ 'Accept':'application/json' } });
-          const json = await res.json();
-
-          if (!res.ok){
-            throw new Error(json.message || 'Error al cargar notificaciones');
-          }
-
-          const key = buildPayloadKey(json);
-          if (key !== lastPayloadKey){
-            lastPayloadKey = key;
-            renderNotifItems(json);
-          }
-          notifLoaded = true;
-        }catch(e){
-          console.error(e);
-          notifList.innerHTML = '<div class="notif__empty">No se pudieron cargar las notificaciones.</div>';
-        }
-      }
-
-      async function markAllNotifications(){
-        if (!NOTIF_READALL_URL || !csrf) return;
-        try{
-          await fetch(NOTIF_READALL_URL, {
-            method:'POST',
-            headers:{
-              'X-CSRF-TOKEN': csrf,
-              'Accept':'application/json'
-            }
-          });
-          loadNotifications();
-        }catch(e){
-          console.error(e);
-        }
-      }
-
-      async function markOneNotification(id, itemEl){
-        if (!NOTIF_READONE_URL || !csrf) return;
-        try{
-          const url = NOTIF_READONE_URL.replace('__ID__', encodeURIComponent(id));
-          await fetch(url, {
-            method:'POST',
-            headers:{
-              'X-CSRF-TOKEN': csrf,
-              'Accept':'application/json'
-            }
-          });
-
-          if (itemEl){
-            itemEl.classList.remove('is-unread');
-            itemEl.classList.add('is-read');
-            itemEl.remove(); // como Facebook: desaparece del panel
-          }
-
-          loadNotifications();
-        }catch(e){
-          console.error(e);
-        }
-      }
-
-      function openNotifPanel(){
-        if (!notifPane || !notifBtn) return;
-        notifPane.classList.add('is-open');
-        notifPane.setAttribute('aria-hidden','false');
-        notifBtn.setAttribute('aria-expanded','true');
         loadNotifications();
+      }catch(e){
+        console.error(e);
       }
-      function closeNotifPanel(){
-        if (!notifPane || !notifBtn) return;
-        notifPane.classList.remove('is-open');
-        notifPane.setAttribute('aria-hidden','true');
-        notifBtn.setAttribute('aria-expanded','false');
-      }
+    }
 
-      if (notifBtn){
-        notifBtn.addEventListener('click', function(e){
-          e.stopPropagation();
-          if (!notifPane) return;
-          const isOpen = notifPane.classList.contains('is-open');
-          if (isOpen){
-            closeNotifPanel();
-          }else{
-            openNotifPanel();
+    async function markOneNotification(id, itemEl){
+      if (!NOTIF_READONE_URL || !csrf || !id) return;
+      try{
+        const url = NOTIF_READONE_URL.replace('__ID__', encodeURIComponent(id));
+        await fetch(url, {
+          method:'POST',
+          headers:{
+            'X-CSRF-TOKEN': csrf,
+            'Accept':'application/json'
           }
         });
-      }
 
-      if (notifClose){
-        notifClose.addEventListener('click', function(e){
-          e.stopPropagation();
+        if (itemEl){
+          itemEl.classList.remove('is-unread');
+          itemEl.classList.add('is-read');
+        }
+
+        loadNotifications();
+      }catch(e){
+        console.error(e);
+      }
+    }
+
+    function openNotifPanel(){
+      if (!notifPane || !notifBtn) return;
+      notifPane.classList.add('is-open');
+      notifPane.setAttribute('aria-hidden','false');
+      notifBtn.setAttribute('aria-expanded','true');
+      loadNotifications();
+    }
+    function closeNotifPanel(){
+      if (!notifPane || !notifBtn) return;
+      notifPane.classList.remove('is-open');
+      notifPane.setAttribute('aria-hidden','true');
+      notifBtn.setAttribute('aria-expanded','false');
+    }
+
+    if (notifBtn){
+      notifBtn.addEventListener('click', function(e){
+        e.stopPropagation();
+        if (!notifPane) return;
+        const isOpen = notifPane.classList.contains('is-open');
+        if (isOpen){
           closeNotifPanel();
-        });
-      }
+        }else{
+          openNotifPanel();
+        }
+      });
+    }
 
-      if (notifMarkAll){
-        notifMarkAll.addEventListener('click', function(e){
-          e.preventDefault();
-          markAllNotifications();
-        });
-      }
+    if (notifClose){
+      notifClose.addEventListener('click', function(e){
+        e.stopPropagation();
+        closeNotifPanel();
+      });
+    }
 
-      // Click en la X de cada item (delegado)
-      if (notifList){
-        notifList.addEventListener('click', function(e){
-          const closeBtn = e.target.closest('.notif__item-close');
-          if (!closeBtn) return;
+    if (notifMarkAll){
+      notifMarkAll.addEventListener('click', function(e){
+        e.preventDefault();
+        markAllNotifications();
+      });
+    }
+
+    // Click delegado en la lista:
+    //  - Click en la X => solo marcar como leída
+    //  - Click en el resto del item => marcar como leída y navegar a n.url
+    if (notifList){
+      notifList.addEventListener('click', function(e){
+        const closeBtn = e.target.closest('.notif__item-close');
+        if (closeBtn){
           const id     = closeBtn.getAttribute('data-id');
           const itemEl = closeBtn.closest('.notif__item');
           if (id){
             markOneNotification(id, itemEl);
           }
           e.stopPropagation();
-        });
-      }
-
-      document.addEventListener('click', function(e){
-        if (!notifPane || !notifBtn) return;
-        if (!notifPane.contains(e.target) && !notifBtn.contains(e.target)){
-          closeNotifPanel();
+          return;
         }
-      });
 
-      window.addEventListener('keydown', function(e){
-        if (e.key === 'Escape'){
-          closeNotifPanel();
-          closeSidebar();
-        }
-      });
+        const row = e.target.closest('.notif__item');
+        if (!row) return;
 
-      // Polling cada 10s para "tiempo real"
-      if (NOTIF_FEED_URL){
-        loadNotifications();
-        setInterval(loadNotifications, 10000);
+        const id  = row.dataset.id;
+        const url = row.dataset.url || '';
+
+        if (!url) return; // si no hay URL solo la marcamos desde la X
+
+        e.preventDefault();
+        (async () => {
+          if (id) {
+            await markOneNotification(id, row);
+          }
+          window.location.href = url;
+        })();
+      });
+    }
+
+    document.addEventListener('click', function(e){
+      if (!notifPane || !notifBtn) return;
+      if (!notifPane.contains(e.target) && !notifBtn.contains(e.target)){
+        closeNotifPanel();
       }
-    })();
-  </script>
+    });
+
+    window.addEventListener('keydown', function(e){
+      if (e.key === 'Escape'){
+        closeNotifPanel();
+        closeSidebar();
+      }
+    });
+
+    // Polling cada 10s para "tiempo real"
+    if (NOTIF_FEED_URL){
+      loadNotifications();
+      setInterval(loadNotifications, 10000);
+    }
+  })();
+</script>
+
 </body>
 </html>

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Ticket extends Model
 {
@@ -28,7 +29,7 @@ class Ticket extends Model
         'monto_propuesta',
         'estatus_adjudicacion',
 
-        // NUEVO: proceso y notas de licitación
+        // Proceso y notas de licitación
         'licitacion_phase',
         'quick_notes',
     ];
@@ -40,26 +41,74 @@ class Ticket extends Model
         'progress'         => 'integer',
         'monto_propuesta'  => 'decimal:2',
         'meta'             => 'array',
-        // Strings se castean solos, no es necesario declararlos
     ];
 
-    public function stages(): HasMany   { return $this->hasMany(TicketStage::class)->orderBy('position'); }
-    public function comments(): HasMany  { return $this->hasMany(TicketComment::class)->latest(); }
-    public function documents(): HasMany { return $this->hasMany(TicketDocument::class)->latest(); }
-    public function links(): HasMany     { return $this->hasMany(TicketLink::class); }
-    public function audits(): HasMany    { return $this->hasMany(TicketAudit::class)->latest(); }
-    public function followers(): HasMany { return $this->hasMany(TicketFollower::class); }
-    public function slaEvents(): HasMany { return $this->hasMany(TicketSlaEvent::class); }
+    /* =======================
+     * RELACIONES PRINCIPALES
+     * ======================= */
 
-    public function creator()
+    public function stages(): HasMany
     {
-        return $this->belongsTo(\App\Models\User::class, 'created_by');
+        return $this->hasMany(TicketStage::class)->orderBy('position');
     }
 
-    public function client()
+    public function comments(): HasMany
     {
-        return $this->belongsTo(\App\Models\Client::class, 'client_id');
+        return $this->hasMany(TicketComment::class)->latest();
     }
+
+    public function documents(): HasMany
+    {
+        return $this->hasMany(TicketDocument::class)->latest();
+    }
+
+    public function links(): HasMany
+    {
+        return $this->hasMany(TicketLink::class);
+    }
+
+    public function audits(): HasMany
+    {
+        return $this->hasMany(TicketAudit::class)->latest();
+    }
+
+    public function followers(): HasMany
+    {
+        return $this->hasMany(TicketFollower::class);
+    }
+
+    public function slaEvents(): HasMany
+    {
+        return $this->hasMany(TicketSlaEvent::class);
+    }
+
+    /**
+     * Usuario que creó el ticket (campo created_by)
+     */
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * Cliente asociado al ticket (campo client_id)
+     */
+    public function client(): BelongsTo
+    {
+        return $this->belongsTo(Client::class, 'client_id');
+    }
+
+    /**
+     * Usuario responsable / dueño del ticket (campo owner_id)
+     */
+    public function owner(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'owner_id');
+    }
+
+    /* =======================
+     * LÓGICA DE SLA / PROGRESO
+     * ======================= */
 
     // Accessor: úsalo como $ticket->sla_signal
     public function getSlaSignalAttribute(): string
@@ -81,6 +130,9 @@ class Ticket extends Model
         return 'ok';
     }
 
+    /**
+     * Recalcula el progreso en base a etapas terminadas.
+     */
     public function refreshProgress(): void
     {
         $total = max(1, $this->stages()->count());
