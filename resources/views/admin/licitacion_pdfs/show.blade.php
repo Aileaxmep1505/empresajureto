@@ -19,9 +19,9 @@
         --lp-soft:#f9fafb;
         --lp-soft-2:#eff6ff;
         --lp-border:#e5e7eb;
-        --lp-accent:#2563eb;           /* azul pastel fuerte */
-        --lp-accent-soft:#dbeafe;      /* fondo pastel azul */
-        --lp-accent-2:#22c55e;         /* verde pastel */
+        --lp-accent:#2563eb;
+        --lp-accent-soft:#dbeafe;
+        --lp-accent-2:#22c55e;
         --lp-bg:#f5f7ff;
         --lp-radius:20px;
         --lp-shadow:0 22px 50px rgba(148,163,184,.35);
@@ -83,11 +83,6 @@
         font-weight:700;
         font-size:1.15rem;
     }
-    .lp-head-sub{
-        font-size:.9rem;
-        color:var(--lp-muted);
-    }
-
     .lp-head-tags{
         display:flex;
         flex-wrap:wrap;
@@ -108,23 +103,6 @@
         color:#15803d;
     }
 
-    .lp-meta{
-        display:flex;
-        flex-wrap:wrap;
-        gap:8px;
-        font-size:.82rem;
-        color:var(--lp-muted);
-        margin-top:6px;
-    }
-    .lp-meta span{
-        display:inline-flex;
-        align-items:center;
-        gap:5px;
-        padding:4px 8px;
-        border-radius:999px;
-        background:rgba(248,250,252,.8);
-    }
-
     .lp-main{
         display:grid;
         grid-template-columns:minmax(0, 360px) minmax(0, 1fr);
@@ -136,7 +114,6 @@
         }
     }
 
-    /* Panel rango */
     .lp-card{
         border-radius:var(--lp-radius);
         background: radial-gradient(circle at 0 0,#eff6ff,#ffffff);
@@ -166,11 +143,6 @@
         align-items:center;
         gap:8px;
         margin-bottom:4px;
-    }
-    .lp-card-sub{
-        font-size:.83rem;
-        color:var(--lp-muted);
-        margin-bottom:14px;
     }
 
     .lp-range-fields{
@@ -273,27 +245,12 @@
         transform:translateY(-1px);
         box-shadow:0 20px 48px rgba(37,99,235,.45);
     }
-    .lp-btn-primary:active{
-        transform:translateY(0);
-        box-shadow:0 10px 26px rgba(37,99,235,.3);
-    }
     .lp-btn-ghost{
         background:linear-gradient(135deg,#f0fdf4,#dcfce7);
         color:#15803d;
         box-shadow:0 10px 26px rgba(34,197,94,.24);
     }
-    .lp-btn-ghost:hover{
-        transform:translateY(-1px);
-        box-shadow:0 16px 36px rgba(34,197,94,.3);
-    }
 
-    .lp-hint{
-        font-size:.8rem;
-        color:var(--lp-muted);
-        margin-top:6px;
-    }
-
-    /* Preview */
     .lp-preview-card{
         border-radius:var(--lp-radius);
         background:#020617;
@@ -322,7 +279,6 @@
         background:#020617;
     }
 
-    /* Splits */
     .lp-splits-card{
         margin-top:18px;
         border-radius:var(--lp-radius);
@@ -420,14 +376,6 @@
     .lp-split-link--pdf{
         background:linear-gradient(135deg,#eff6ff,#e0f2fe);
         color:#1d4ed8;
-    }
-    .lp-split-link--word{
-        background:linear-gradient(135deg,#eef2ff,#e0e7ff);
-        color:#4338ca;
-    }
-    .lp-split-link--excel{
-        background:linear-gradient(135deg,#dcfce7,#bbf7d0);
-        color:#166534;
     }
 
     .lp-alert{
@@ -649,26 +597,13 @@
                                 </div>
 
                                 <div class="lp-split-actions">
+                                    {{-- Solo mostramos PDF, Word y Excel quedan ocultos --}}
                                     <a
                                         href="{{ route('admin.licitacion-pdfs.splits.download', ['licitacionPdf' => $pdf->id, 'index' => $split['index'], 'format' => 'pdf']) }}"
                                         class="lp-split-link lp-split-link--pdf"
                                         target="_blank"
                                     >
                                         PDF
-                                    </a>
-                                    <a
-                                        href="{{ route('admin.licitacion-pdfs.splits.download', ['licitacionPdf' => $pdf->id, 'index' => $split['index'], 'format' => 'word']) }}"
-                                        class="lp-split-link lp-split-link--word"
-                                        target="_blank"
-                                    >
-                                        Word
-                                    </a>
-                                    <a
-                                        href="{{ route('admin.licitacion-pdfs.splits.download', ['licitacionPdf' => $pdf->id, 'index' => $split['index'], 'format' => 'excel']) }}"
-                                        class="lp-split-link lp-split-link--excel"
-                                        target="_blank"
-                                    >
-                                        Excel
                                     </a>
                                 </div>
                             </div>

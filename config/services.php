@@ -137,6 +137,10 @@ return [
     'token' => env('WHATSAPP_ACCESS_TOKEN'),
     'template_agenda' => env('WHATSAPP_TEMPLATE_AGENDA', 'agenda_recordatorio'),
 ],
+'ilovepdf' => [
+    'public_key' => env('ILOVEPDF_PUBLIC_KEY'),
+    'secret_key' => env('ILOVEPDF_SECRET_KEY'),
+],
 
 
 ];

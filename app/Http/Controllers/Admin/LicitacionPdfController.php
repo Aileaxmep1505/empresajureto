@@ -9,13 +9,7 @@ use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\Storage;
 use setasign\Fpdi\Fpdi;
-
-// 🔹 Para convertir el PDF recortado a Word / Excel
-use Smalot\PdfParser\Parser as PdfParser;
-use PhpOffice\PhpWord\PhpWord;
-use PhpOffice\PhpWord\IOFactory as WordIOFactory;
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use App\Services\IlovePdfService;
 
 class LicitacionPdfController extends Controller implements HasMiddleware
 {
@@ -187,7 +181,7 @@ class LicitacionPdfController extends Controller implements HasMiddleware
             return back()->with('status', 'El archivo físico no existe en el servidor.');
         }
 
-        // Crear nuevo PDF recortado
+        // Crear nuevo PDF recortado localmente con FPDI
         $pdf = new Fpdi();
         $totalPages = $pdf->setSourceFile($filePath);
 
@@ -251,7 +245,8 @@ class LicitacionPdfController extends Controller implements HasMiddleware
         Request $request,
         LicitacionPdf $licitacionPdf,
         int $index,
-        string $format
+        string $format,
+        IlovePdfService $ilovePdf
     ) {
         $meta   = $licitacionPdf->meta ?? [];
         $splits = $meta['splits'] ?? [];
@@ -283,79 +278,32 @@ class LicitacionPdfController extends Controller implements HasMiddleware
                 );
 
             case 'word':
-                // Crear .docx temporal
-                $tmpPath = storage_path('app/tmp/'.$baseName.'.docx');
-                $this->ensureDirectory(dirname($tmpPath));
-                $this->createWordFromPdf($pdfFullPath, $tmpPath);
+                // Conversión a Word usando IlovePdfService (texto plano)
+                $tmpPath = $ilovePdf->pdfToWord($pdfFullPath, $baseName);
 
-                return response()->download($tmpPath, $baseName.'.docx')->deleteFileAfterSend(true);
+                if (!$tmpPath || !file_exists($tmpPath)) {
+                    abort(500, 'No se pudo convertir el archivo a Word.');
+                }
+
+                return response()
+                    ->download($tmpPath, $baseName.'.docx')
+                    ->deleteFileAfterSend(true);
 
             case 'excel':
-                // Crear .xlsx temporal
-                $tmpPath = storage_path('app/tmp/'.$baseName.'.xlsx');
-                $this->ensureDirectory(dirname($tmpPath));
-                $this->createExcelFromPdf($pdfFullPath, $tmpPath);
+                // Conversión a Excel usando IlovePdfService (texto plano)
+                $tmpPath = $ilovePdf->pdfToExcel($pdfFullPath, $baseName);
 
-                return response()->download($tmpPath, $baseName.'.xlsx')->deleteFileAfterSend(true);
+                if (!$tmpPath || !file_exists($tmpPath)) {
+                    abort(500, 'No se pudo convertir el archivo a Excel.');
+                }
+
+                return response()
+                    ->download($tmpPath, $baseName.'.xlsx')
+                    ->deleteFileAfterSend(true);
 
             default:
                 abort(400, 'Formato no soportado.');
         }
-    }
-
-    /**
-     * Asegura que exista el directorio dado.
-     */
-    protected function ensureDirectory(string $dir): void
-    {
-        if (!is_dir($dir)) {
-            mkdir($dir, 0755, true);
-        }
-    }
-
-    /**
-     * Crear un .docx a partir del texto del PDF.
-     */
-    protected function createWordFromPdf(string $pdfFullPath, string $outputPath): void
-    {
-        $parser = new PdfParser();
-        $pdf    = $parser->parseFile($pdfFullPath);
-        $text   = $pdf->getText();
-
-        $phpWord = new PhpWord();
-        $section = $phpWord->addSection();
-
-        $lines = preg_split("/\r\n|\n|\r/", $text);
-        foreach ($lines as $line) {
-            $section->addText($line);
-        }
-
-        $writer = WordIOFactory::createWriter($phpWord, 'Word2007');
-        $writer->save($outputPath);
-    }
-
-    /**
-     * Crear un .xlsx a partir del texto del PDF (una línea por fila en la columna A).
-     */
-    protected function createExcelFromPdf(string $pdfFullPath, string $outputPath): void
-    {
-        $parser = new PdfParser();
-        $pdf    = $parser->parseFile($pdfFullPath);
-        $text   = $pdf->getText();
-
-        $spreadsheet = new Spreadsheet();
-        $sheet       = $spreadsheet->getActiveSheet();
-
-        $lines = preg_split("/\r\n|\n|\r/", $text);
-        $row   = 1;
-
-        foreach ($lines as $line) {
-            $sheet->setCellValue('A'.$row, $line);
-            $row++;
-        }
-
-        $writer = new Xlsx($spreadsheet);
-        $writer->save($outputPath);
     }
 
     public function edit(LicitacionPdf $licitacionPdf)
