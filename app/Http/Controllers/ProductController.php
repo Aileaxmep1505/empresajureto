@@ -601,24 +601,40 @@ SYS;
     }
 
     /** Exportación a PDF profesional / minimalista */
-    public function exportPdf(Request $request)
-    {
-        $q = (string) $request->get('q','');
+   public function exportPdf(Request $request)
+{
+    $q = (string) $request->get('q','');
 
-        $products = $this->applySearch(Product::query(), $q)
-            ->orderBy('name')
-            ->get();
+    // ⚙️ subir memoria y tiempo solo para este proceso
+    @ini_set('memory_limit', '512M');
+    @set_time_limit(120);
 
-        $pdf = Pdf::loadView('products.export-pdf', [
-            'products'     => $products,
-            'q'            => $q,
-            'generated_at' => now(),
-        ])->setPaper('letter', 'portrait');
+    // Query base solo con las columnas que usamos en el PDF
+    $baseQuery = $this->applySearch(
+        Product::select('id','name','sku','brand','category','unit','color','cost','price','clave_sat'),
+        $q
+    )->orderBy('name');
 
-        $fileName = 'productos_' . now()->format('Ymd_His') . '.pdf';
+    // total real (por si quieres mostrar "mostrando X de Y")
+    $totalCount = (clone $baseQuery)->count();
 
-        return $pdf->download($fileName);
-    }
+    // ⚠️ Limitar productos para que DomPDF no muera
+    $maxRows = 1500; // puedes bajarlo/subirlo si ves problemas
+    $products = $baseQuery->limit($maxRows)->get();
+
+    $generated_at = now();
+
+    $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('products.export-pdf', [
+        'products'     => $products,
+        'q'            => $q,
+        'generated_at' => $generated_at,
+        'totalCount'   => $totalCount,
+        'maxRows'      => $maxRows,
+    ])->setPaper('a4', 'landscape');
+
+    return $pdf->download('productos.pdf');
+}
+
 
     /** Exportación a Excel profesional / minimalista */
    public function exportExcel(Request $request)

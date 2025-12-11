@@ -65,7 +65,14 @@
 <div class="header">
     <div>
         <h1 class="title">Listado de productos</h1>
-        <p class="subtitle">Resumen general del catálogo</p>
+        <p class="subtitle">
+            Resumen general del catálogo
+            @isset($totalCount)
+                <br>
+                @php $shown = isset($products) ? $products->count() : 0; @endphp
+                Mostrando {{ $shown }} de {{ $totalCount }} productos.
+            @endisset
+        </p>
     </div>
     <div class="meta">
         @if(!empty($q))
@@ -96,11 +103,6 @@
             <td>{{ $p->id }}</td>
             <td>
                 <strong>{{ $p->name }}</strong>
-                @if($p->description)
-                    <div class="text-muted">
-                        {{ \Illuminate\Support\Str::limit($p->description, 60) }}
-                    </div>
-                @endif
             </td>
             <td class="sku">{{ $p->sku }}</td>
             <td>{{ $p->brand }}</td>
