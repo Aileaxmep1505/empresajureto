@@ -600,14 +600,13 @@ SYS;
         return null;
     }
 
-    /** Exportación a PDF profesional / minimalista */
    public function exportPdf(Request $request)
 {
     $q = (string) $request->get('q','');
 
-    // ⚙️ subir memoria y tiempo solo para este proceso
-    @ini_set('memory_limit', '512M');
-    @set_time_limit(120);
+    // ⚙️ Subir memoria y tiempo SOLO para este proceso
+    @ini_set('memory_limit', '1024M'); // 1 GB
+    @set_time_limit(180);
 
     // Query base solo con las columnas que usamos en el PDF
     $baseQuery = $this->applySearch(
@@ -615,13 +614,12 @@ SYS;
         $q
     )->orderBy('name');
 
-    // total real (por si quieres mostrar "mostrando X de Y")
+    // total real
     $totalCount = (clone $baseQuery)->count();
 
     // ⚠️ Limitar productos para que DomPDF no muera
-    $maxRows = 1500; // puedes bajarlo/subirlo si ves problemas
-    $products = $baseQuery->limit($maxRows)->get();
-
+    $maxRows   = 500; // <- RESUMEN PARA PDF
+    $products  = $baseQuery->limit($maxRows)->get();
     $generated_at = now();
 
     $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('products.export-pdf', [
