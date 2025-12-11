@@ -857,3 +857,8 @@ Route::get('/cron/agenda-run/{token}', [CronController::class, 'runAgenda'])
     ->name('cron.agenda.run');
    Route::get('/tickets/{ticket}/work', [TicketController::class, 'work'])
         ->name('tickets.work');
+
+
+          // EXPORTACIONES
+    Route::get('/products/export/pdf',   [ProductController::class, 'exportPdf'])->name('products.export.pdf');
+    Route::get('/products/export/excel', [ProductController::class, 'exportExcel'])->name('products.export.excel');

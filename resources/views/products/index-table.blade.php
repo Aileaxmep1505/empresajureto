@@ -1,4 +1,4 @@
-@extends('layouts.app')
+@extends('layouts.app') 
 @section('title','Productos')
 @section('header','Productos')
 
@@ -26,6 +26,8 @@
 .pbtn{ font-weight:800; border-radius:14px; padding:10px 14px; display:inline-flex; align-items:center; gap:8px; text-decoration:none; border:2px solid transparent }
 .pbtn-blue{ color:var(--btn-blue); background:var(--btn-blue-soft); border-color:#cfe0ff }
 .pbtn-green{ color:var(--btn-green); background:var(--btn-green-soft); border-color:#cfeedd }
+.pbtn-gray{ color:var(--btn-gray); background:var(--btn-gray-soft); border-color:#d0d7e2; }
+.pbtn-gray:hover{ background:#e2e8f0; border-color:#cbd5e1; }
 .btn-icon{ width:36px; height:36px; display:inline-grid; place-items:center; padding:0; border-radius:12px; border:0; cursor:pointer }
 .btn-icon.blue{ background:var(--btn-blue); color:#fff } .btn-icon.red{ background:var(--btn-red); color:#fff }
 
@@ -229,6 +231,28 @@ th.th-actions, td.t-actions{ position:sticky; right:0; background:var(--surface)
         Importar
       </a>
 
+      {{-- Export PDF --}}
+      <a href="{{ route('products.export.pdf', ['q' => $q ?? '']) }}" class="pbtn pbtn-gray" title="Descargar PDF" target="_blank">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"/>
+          <path d="M14 2v4a2 2 0 0 0 2 2h4"/>
+          <path d="M8 15h2.5a1.5 1.5 0 0 0 0-3H8v3z"/>
+          <path d="M13 12v6"/>
+          <path d="M13 15h1.5a1.5 1.5 0 0 0 0-3H13"/>
+          <path d="M17 18v-6h2a1.5 1.5 0 0 1 0 3h-2"/>
+        </svg>
+        PDF
+      </a>
+
+      {{-- Export Excel --}}
+      <a href="{{ route('products.export.excel', ['q' => $q ?? '']) }}" class="pbtn pbtn-gray" title="Descargar Excel">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+          <path d="M9 8l6 8M15 8l-6 8"/>
+        </svg>
+        Excel
+      </a>
+
       <form id="searchForm" class="searchbar" onsubmit="return false;">
         <span class="sb-icon">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
@@ -404,6 +428,13 @@ th.th-actions, td.t-actions{ position:sticky; right:0; background:var(--surface)
       </tbody>
     </table>
   </div>
+
+  {{-- Paginación si usas paginate() --}}
+  @if(method_exists($products, 'links'))
+    <div class="mt-3">
+      {{ $products->links() }}
+    </div>
+  @endif
 
 </div>
 @endsection

@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Http; // IA OpenAI
 use Barryvdh\DomPDF\Facade\Pdf;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Imports\ProductsImport;
+use App\Exports\ProductsExport;
 use Illuminate\Support\Str;
 
 class ProductController extends Controller
@@ -599,24 +600,36 @@ SYS;
         return null;
     }
 
-    /** Exportación a PDF */
+    /** Exportación a PDF profesional / minimalista */
     public function exportPdf(Request $request)
     {
         $q = (string) $request->get('q','');
 
-        $items = $this->applySearch(Product::query(), $q)
+        $products = $this->applySearch(Product::query(), $q)
             ->orderBy('name')
             ->get();
 
-        $pdf = Pdf::loadView('products.pdf', [
-            'items' => $items,
-            'q'     => $q,
-            'now'   => now(),
-        ])->setPaper('a4', 'landscape');
+        $pdf = Pdf::loadView('products.export-pdf', [
+            'products'     => $products,
+            'q'            => $q,
+            'generated_at' => now(),
+        ])->setPaper('letter', 'portrait');
 
-        return $pdf->download('productos.pdf');
+        $fileName = 'productos_' . now()->format('Ymd_His') . '.pdf';
+
+        return $pdf->download($fileName);
     }
 
+    /** Exportación a Excel profesional / minimalista */
+   public function exportExcel(Request $request)
+{
+    $q = (string) $request->get('q','');
+
+    $fileName = 'productos_' . now()->format('Ymd_His') . '.xlsx';
+
+    // Pasamos el filtro al export
+    return Excel::download(new ProductsExport($q), $fileName);
+}
     public function show(Product $product)
     {
         return view('products.show', compact('product'));
