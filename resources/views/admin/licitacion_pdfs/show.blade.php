@@ -1,4 +1,4 @@
-@extends('layouts.app')
+@extends('layouts.app') 
 
 @section('title', 'Separar PDF de licitación')
 @section('header', 'Separar PDF (Licitación)')
@@ -103,6 +103,13 @@
         color:#15803d;
     }
 
+    .lp-head-actions{
+        display:flex;
+        align-items:center;
+        gap:10px;
+        flex-wrap:wrap;
+    }
+
     .lp-main{
         display:grid;
         grid-template-columns:minmax(0, 360px) minmax(0, 1fr);
@@ -111,6 +118,10 @@
     @media (max-width: 1024px){
         .lp-main{
             grid-template-columns:minmax(0,1fr);
+        }
+        .lp-head{
+            flex-direction:column;
+            align-items:flex-start;
         }
     }
 
@@ -234,6 +245,7 @@
         gap:8px;
         letter-spacing:.01em;
         transition:transform .08s ease, box-shadow .18s ease, filter .18s ease;
+        text-decoration:none;
     }
     .lp-btn-primary{
         background:linear-gradient(135deg,#eff6ff,#dbeafe);
@@ -249,6 +261,31 @@
         background:linear-gradient(135deg,#f0fdf4,#dcfce7);
         color:#15803d;
         box-shadow:0 10px 26px rgba(34,197,94,.24);
+    }
+
+    .lp-btn-cta{
+        background:linear-gradient(135deg,#22c55e,#16a34a);
+        color:#f0fdf4;
+        box-shadow:0 16px 40px rgba(22,163,74,.45);
+        font-size:.9rem;
+        padding:9px 20px;
+    }
+    .lp-btn-cta:hover{
+        filter:brightness(1.03);
+        transform:translateY(-1px);
+        box-shadow:0 20px 52px rgba(21,128,61,.55);
+    }
+    .lp-btn-cta[aria-disabled="true"]{
+        opacity:.5;
+        cursor:not-allowed;
+        box-shadow:none;
+        transform:none;
+    }
+
+    .lp-hint{
+        font-size:.8rem;
+        color:var(--lp-muted);
+        margin-top:6px;
     }
 
     .lp-preview-card{
@@ -284,7 +321,7 @@
         border-radius:var(--lp-radius);
         background:linear-gradient(135deg,#ecfeff,#f1f5f9);
         border:1px solid rgba(219,234,254,1);
-        padding:14px 16px 14px;
+        padding:14px 16px 16px;
         box-shadow:0 14px 34px rgba(148,163,184,.35);
     }
     .lp-splits-head{
@@ -315,6 +352,7 @@
         flex-direction:column;
         gap:8px;
         margin-top:4px;
+        margin-bottom:10px;
     }
     .lp-split-item{
         border-radius:999px;
@@ -376,6 +414,17 @@
     .lp-split-link--pdf{
         background:linear-gradient(135deg,#eff6ff,#e0f2fe);
         color:#1d4ed8;
+    }
+
+    .lp-cta-wrapper{
+        margin-top:6px;
+        border-top:1px dashed rgba(191,219,254,.8);
+        padding-top:8px;
+    }
+    .lp-cta-hint{
+        font-size:.78rem;
+        color:var(--lp-muted);
+        margin-top:4px;
     }
 
     .lp-alert{
@@ -461,6 +510,18 @@
                     @endif
                 </div>
             </div>
+        </div>
+
+        {{-- CTA superior opcional (misma ruta que abajo, solo accesible si hay splits) --}}
+        <div class="lp-head-actions">
+            @if(!$splits->isEmpty())
+                <a
+                    href="{{ route('admin.licitacion-pdfs.propuesta', ['licitacionPdf' => $pdf->id]) }}"
+                    class="lp-btn lp-btn-cta"
+                >
+                    Ir a propuesta económica
+                </a>
+            @endif
         </div>
     </div>
 
@@ -597,7 +658,6 @@
                                 </div>
 
                                 <div class="lp-split-actions">
-                                    {{-- Solo mostramos PDF, Word y Excel quedan ocultos --}}
                                     <a
                                         href="{{ route('admin.licitacion-pdfs.splits.download', ['licitacionPdf' => $pdf->id, 'index' => $split['index'], 'format' => 'pdf']) }}"
                                         class="lp-split-link lp-split-link--pdf"
@@ -608,6 +668,19 @@
                                 </div>
                             </div>
                         @endforeach
+                    </div>
+
+                    {{-- CTA hacia la propuesta económica --}}
+                    <div class="lp-cta-wrapper">
+                        <a
+                            href="{{ route('admin.licitacion-pdfs.propuesta', ['licitacionPdf' => $pdf->id]) }}"
+                            class="lp-btn lp-btn-cta"
+                        >
+                            Crear propuesta económica con estos recortes
+                        </a>
+                        <div class="lp-cta-hint">
+                            Te llevaremos a la vista de cotización económica usando todos los PDFs recortados de esta licitación.
+                        </div>
                     </div>
                 @endif
             </div>

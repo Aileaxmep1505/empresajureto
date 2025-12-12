@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 
 class LicitacionPdf extends Model
 {
@@ -23,20 +24,55 @@ class LicitacionPdf extends Model
 
     protected $casts = [
         'pages_count' => 'integer',
-        'meta'        => 'array',
+        'meta'        => 'array',   // aquí vive "splits"
     ];
 
     /**
-     * Páginas del PDF (texto por página, si algún día vuelves a usar IA).
+     * Accessor: $licitacionPdf->splits
+     * Los recortes se guardan dentro de meta['splits'].
      */
+    public function getSplitsAttribute(): array
+    {
+        $meta = $this->meta ?? [];
+
+        if ($meta instanceof Collection) {
+            $meta = $meta->toArray();
+        }
+
+        $splits = $meta['splits'] ?? [];
+
+        if ($splits instanceof Collection) {
+            $splits = $splits->toArray();
+        }
+
+        if (!is_array($splits)) {
+            $decoded = json_decode($splits, true);
+            $splits  = is_array($decoded) ? $decoded : [];
+        }
+
+        return $splits;
+    }
+
+    /**
+     * Mutator: $licitacionPdf->splits = [...]
+     */
+    public function setSplitsAttribute($value): void
+    {
+        $meta = $this->meta ?? [];
+
+        if ($meta instanceof Collection) {
+            $meta = $meta->toArray();
+        }
+
+        $meta['splits'] = $value;
+        $this->meta     = $meta;
+    }
+
     public function pages()
     {
         return $this->hasMany(LicitacionPdfPage::class);
     }
 
-    /**
-     * Items solicitados extraídos del PDF (through pages).
-     */
     public function requestItems()
     {
         return $this->hasManyThrough(

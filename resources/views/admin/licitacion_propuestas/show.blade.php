@@ -3,8 +3,6 @@
 @section('title', $propuesta->codigo.' - Propuesta económica')
 
 @section('content')
-<script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
-
 <style>
     :root{
         --ink:#0f172a;
@@ -84,27 +82,27 @@
     .status-no_adjudicada{ color:var(--danger); background:#fef2f2; }
 
     .summary-card{
-        margin-bottom:18px;
-        border-radius:var(--radius);
+        margin-bottom:16px;
+        border-radius:16px;
         background:white;
         border:1px solid var(--border);
         box-shadow:var(--shadow-soft);
-        padding:14px 16px;
+        padding:10px 14px;
         display:flex;
         flex-wrap:wrap;
-        gap:12px 24px;
+        gap:8px 24px;
         align-items:center;
+        font-size:12px;
     }
     .summary-item{
-        font-size:12px;
         color:var(--muted);
     }
     .summary-item strong{
         color:var(--ink);
     }
     .total-badge{
-        border-radius:14px;
-        padding:8px 14px;
+        border-radius:20px;
+        padding:8px 16px;
         background:linear-gradient(135deg,#22c55e,#16a34a);
         color:white;
         font-size:13px;
@@ -112,6 +110,121 @@
         display:inline-flex;
         align-items:center;
         gap:8px;
+    }
+
+    /* PDF + splits */
+    .pdf-card{
+        margin-bottom:12px;
+        border-radius:16px;
+        background:white;
+        border:1px solid var(--border);
+        box-shadow:var(--shadow-soft);
+        padding:10px 14px;
+        display:flex;
+        flex-direction:column;
+        gap:10px;
+        font-size:12px;
+    }
+    .pdf-top{
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        gap:8px;
+    }
+    .pdf-name{
+        color:var(--ink);
+        font-weight:500;
+    }
+    .pdf-link{
+        font-size:12px;
+        color:#2563eb;
+        text-decoration:none;
+        font-weight:500;
+    }
+
+    .splits-row{
+        display:flex;
+        flex-direction:column;
+        gap:6px;
+        margin-top:4px;
+    }
+
+    .split-item{
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        gap:10px;
+        padding:6px 8px;
+        border-radius:999px;
+        background:#f9fafb;
+        border:1px solid #e5e7eb;
+        font-size:11px;
+    }
+    .split-meta{
+        display:flex;
+        align-items:center;
+        gap:6px;
+        flex-wrap:wrap;
+    }
+    .split-badge{
+        padding:2px 8px;
+        border-radius:999px;
+        font-size:11px;
+        background:#eef2ff;
+        color:#4f46e5;
+    }
+    .split-pages{
+        background:#ecfdf5;
+        color:#15803d;
+    }
+    .split-pending{
+        background:#fef3c7;
+        color:#92400e;
+    }
+    .split-current{
+        background:#dbeafe;
+        color:#1d4ed8;
+    }
+    .split-done{
+        background:#dcfce7;
+        color:#166534;
+    }
+
+    .btn-small{
+        border-radius:999px;
+        border:none;
+        padding:5px 10px;
+        font-size:11px;
+        font-weight:500;
+        background:#4f46e5;
+        color:white;
+        display:inline-flex;
+        align-items:center;
+        gap:4px;
+        cursor:pointer;
+    }
+    .btn-small-outline{
+        border-radius:999px;
+        border:1px solid #d1d5db;
+        padding:5px 10px;
+        font-size:11px;
+        background:#ffffff;
+        color:#4b5563;
+    }
+    .btn-small[disabled]{
+        opacity:.55;
+        cursor:not-allowed;
+        box-shadow:none;
+    }
+
+    .merge-row{
+        margin-bottom:16px;
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:10px;
+        font-size:11px;
+        color:#6b7280;
     }
 
     .table-wrapper{
@@ -206,16 +319,29 @@
         'adjudicada' => 'Adjudicada',
         'no_adjudicada' => 'No adjudicada',
     ];
+
+    // ✅ Definir $allSplitsProcessed para que no marque undefined
+    $allSplitsProcessed = false;
+    if (!empty($splitsInfo) && is_array($splitsInfo)) {
+        $allSplitsProcessed = true;
+        foreach ($splitsInfo as $s) {
+            if (!in_array($s['state'] ?? null, ['done', 'done-current'], true)) {
+                $allSplitsProcessed = false;
+                break;
+            }
+        }
+    }
 @endphp
 
 <div class="page-wrapper">
+
     <div class="header">
         <div class="title-block">
             <div class="title-icon">📊</div>
             <div>
                 <div class="title-main">{{ $propuesta->codigo }} · {{ $propuesta->titulo }}</div>
                 <div class="title-sub">
-                    Propuesta económica comparativa &mdash; Fecha {{ $propuesta->fecha?->format('d/m/Y') }}
+                    Propuesta económica comparativa — Fecha {{ $propuesta->fecha?->format('d/m/Y') }}
                 </div>
                 <div class="meta-grid">
                     @if($propuesta->licitacion_id)
@@ -236,20 +362,119 @@
         </div>
     </div>
 
-    <div class="summary-card">
-        <div class="summary-item">
-            Subtotal: <strong>{{ $propuesta->moneda ?? 'MXN' }} {{ number_format($propuesta->subtotal,2) }}</strong>
+    {{-- PDF asociado + splits --}}
+    @if($licitacionPdf)
+        <div class="pdf-card">
+            <div class="pdf-top">
+                <div>
+                    <div style="font-size:12px; color:#6b7280; margin-bottom:2px;">
+                        PDF de licitación asociado:
+                    </div>
+                    <div class="pdf-name">
+                        {{ $licitacionPdf->id }}. {{ $licitacionPdf->original_filename ?? 'Archivo de licitación' }}
+                    </div>
+                </div>
+                <a
+                    href="{{ route('admin.licitacion-pdfs.preview', $licitacionPdf) }}"
+                    target="_blank"
+                    class="pdf-link"
+                >
+                    Ver PDF completo
+                </a>
+            </div>
+
+            @if(!empty($splitsInfo))
+                <div class="splits-row">
+                    @foreach($splitsInfo as $i => $s)
+                        @php
+                            $stateClass = match($s['state']) {
+                                'done', 'done-current' => 'split-done',
+                                'current'              => 'split-current',
+                                default                => 'split-pending',
+                            };
+                        @endphp
+                        <div class="split-item">
+                            <div class="split-meta">
+                                <span class="split-badge {{ $stateClass }}">
+                                    Req. {{ $i+1 }}
+                                    @if($s['state'] === 'done' || $s['state'] === 'done-current')
+                                        · procesada
+                                    @elseif($s['state'] === 'current')
+                                        · en curso
+                                    @else
+                                        · pendiente
+                                    @endif
+                                </span>
+                                @if($s['from'] && $s['to'])
+                                    <span class="split-badge">
+                                        págs {{ $s['from'] }}–{{ $s['to'] }}
+                                    </span>
+                                @endif
+                                @if($s['pages'])
+                                    <span class="split-badge split-pages">
+                                        {{ $s['pages'] }} pág.
+                                    </span>
+                                @endif
+                            </div>
+
+                            <form
+                                method="POST"
+                                action="{{ route('admin.licitacion-propuestas.splits.process', [
+                                    'licitacionPropuesta' => $propuesta->id,
+                                    'splitIndex'          => $s['index'],
+                                ]) }}"
+                            >
+                                @csrf
+                                <button
+                                    type="submit"
+                                    class="btn-small"
+                                >
+                                    @if($s['state'] === 'done' || $s['state'] === 'done-current')
+                                        Reprocesar con IA
+                                    @else
+                                        Procesar con IA
+                                    @endif
+                                </button>
+                            </form>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
         </div>
-        <div class="summary-item">
-            IVA: <strong>{{ $propuesta->moneda ?? 'MXN' }} {{ number_format($propuesta->iva,2) }}</strong>
+    @endif
+
+    {{-- resumen + merge --}}
+    <div class="merge-row">
+        <div class="summary-card">
+            <div class="summary-item">
+                Subtotal: <strong>{{ $propuesta->moneda ?? 'MXN' }} {{ number_format($propuesta->subtotal,2) }}</strong>
+            </div>
+            <div class="summary-item">
+                IVA: <strong>{{ $propuesta->moneda ?? 'MXN' }} {{ number_format($propuesta->iva,2) }}</strong>
+            </div>
+            <div class="summary-item">
+                <span class="total-badge">
+                    Total: {{ $propuesta->moneda ?? 'MXN' }} {{ number_format($propuesta->total,2) }}
+                </span>
+            </div>
         </div>
-        <div class="summary-item">
-            <span class="total-badge">
-                Total: {{ $propuesta->moneda ?? 'MXN' }} {{ number_format($propuesta->total,2) }}
-            </span>
-        </div>
+
+        <form
+            method="POST"
+            action="{{ route('admin.licitacion-propuestas.merge', $propuesta) }}"
+        >
+            @csrf
+            <button
+                type="submit"
+                class="btn-small"
+                {{ !$allSplitsProcessed ? 'disabled' : '' }}
+            >
+                Hacer merge global
+            </button>
+        </form>
     </div>
 
+    {{-- tabla --}}
     <div class="table-wrapper">
         <table>
             <thead>
@@ -347,7 +572,7 @@
                 @if($propuesta->items->isEmpty())
                     <tr>
                         <td colspan="7" style="text-align:center; font-size:13px; color:var(--muted); padding:16px;">
-                            Esta propuesta aún no tiene renglones generados.
+                            Esta propuesta aún no tiene renglones generados. Procesa un PDF con IA en el bloque superior.
                         </td>
                     </tr>
                 @endif

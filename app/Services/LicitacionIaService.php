@@ -2,239 +2,196 @@
 
 namespace App\Services;
 
+use App\Models\LicitacionPropuesta;
+use App\Models\LicitacionPdf;
 use App\Models\LicitacionPdfPage;
-use App\Models\LicitacionRequestItem;
-use App\Models\Product;
-use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Http;
 
 class LicitacionIaService
 {
-    public function __construct(
-        protected IaClient $client
-    ) {
-    }
-
     /**
-     * EXTRAER renglones de una página del PDF.
-     *
-     * Devuelve un arreglo tipo:
-     * [
-     *   [
-     *     'line_raw'    => '200 BORRADORES PIZARRÓN BLANCO ...',
-     *     'descripcion' => '200 BORRADORES PIZARRÓN BLANCO ...',
-     *     'cantidad'    => 200,
-     *     'unidad'      => 'PZA',
-     *     'renglon'     => 1
-     *   ],
-     *   ...
-     * ]
+     * Procesa un split (requisición) con IA
      */
-    public function extractItemsFromPage(LicitacionPdfPage $page): array
+    public function processSplitWithAi(LicitacionPropuesta $propuesta, int $splitIndex)
     {
-        $system = <<<SYS
-Eres un asistente experto en licitaciones y requisiciones.
+        $pdf = $propuesta->licitacionPdf;
 
-TU TAREA:
-- Recibir el TEXTO COMPLETO de una página de un PDF de requisición.
-- Identificar las LÍNEAS que representan renglones de productos/servicios.
-- NO debes inventar ni modificar palabras.
-- line_raw debe contener el texto EXACTO de la línea original.
-
-DEVUELVE EXCLUSIVAMENTE un JSON con esta forma:
-
-{
-  "items": [
-    {
-      "line_raw": "texto original completo de la línea",
-      "descripcion": "igual que line_raw o solo la parte descriptiva",
-      "cantidad": 123.0,
-      "unidad": "PZA",
-      "renglon": 1
-    }
-  ]
-}
-
-REGLAS:
-- Si no puedes detectar cantidad/unidad, pon null en esos campos.
-- Nunca inventes datos.
-- No añadas comentarios fuera del JSON.
-SYS;
-
-        $user = <<<USER
-Texto de la página de la requisición:
-
-{$page->raw_text}
-
-Recuerda: responde SOLO el JSON con la lista "items".
-USER;
-
-        $response = $this->client->chatJson([
-            ['role' => 'system', 'content' => $system],
-            ['role' => 'user',   'content' => $user],
-        ]);
-
-        $items = $response['items'] ?? [];
-
-        if (! is_array($items)) {
-            $items = [];
+        if (!$pdf) {
+            throw new \Exception("La propuesta no tiene PDF asignado.");
         }
 
-        return $items;
-    }
+        $splits = $pdf->splits;
+        if (!isset($splits[$splitIndex])) {
+            throw new \Exception("El split {$splitIndex} no existe.");
+        }
 
-    /**
-     * EXTRAER renglones de una página y GUARDARLOS en licitacion_request_items.
-     *
-     * Útil para correr desde un Job que procese cada página.
-     *
-     * @return LicitacionRequestItem[]
-     */
-    public function extractItemsFromPageAndPersist(
-        LicitacionPdfPage $page,
-        ?int $licitacionId = null,
-        ?int $requisicionId = null
-    ): array {
-        $itemsData = $this->extractItemsFromPage($page);
-        $created   = [];
+        $split = $splits[$splitIndex];
 
-        foreach ($itemsData as $index => $item) {
-            if (! is_array($item)) {
-                continue;
+        $from = $split['from'] ?? $split['from_page'] ?? null;
+        $to   = $split['to']   ?? $split['to_page']   ?? null;
+
+        if (!$from || !$to) {
+            throw new \Exception("Split sin rangos de páginas.");
+        }
+
+        // ================================
+        // 1. Traer páginas y su texto
+        // ================================
+        $pages = LicitacionPdfPage::where('licitacion_pdf_id', $pdf->id)
+            ->whereBetween('page_number', [$from, $to])
+            ->orderBy('page_number')
+            ->get();
+
+        if ($pages->isEmpty()) {
+            throw new \Exception("No existen registros de páginas en BD para este PDF.");
+        }
+
+        $finalText = "";
+
+        foreach ($pages as $page) {
+            $text = trim($page->text ?? "");
+
+            // ===============================================
+            // 2. SI EL TEXTO ESTÁ VACÍO → HACER OCR CON IA
+            // ===============================================
+            if ($text === "") {
+                try {
+                    $imagePath = $this->generatePageImage($pdf, $page->page_number);
+                    $text = $this->ocrWithAi($imagePath);
+
+                    // Guardamos OCR en la BD para no repetirlo
+                    $page->text = $text;
+                    $page->save();
+
+                } catch (\Throwable $e) {
+                    Log::error("OCR-IA fallo en página {$page->page_number}", [
+                        'error' => $e->getMessage()
+                    ]);
+                }
             }
 
-            $lineRaw  = $item['line_raw']    ?? null;
-            $desc     = $item['descripcion'] ?? null;
-            $cantidad = $item['cantidad']    ?? null;
-            $unidad   = $item['unidad']      ?? null;
-            $renglon  = $item['renglon']     ?? null;
+            $finalText .= "\n\n" . $text;
+        }
 
-            if (! $lineRaw || ! is_string($lineRaw)) {
-                // Sin texto original, no tiene sentido guardar
-                continue;
-            }
+        if (trim($finalText) === "") {
+            throw new \Exception("La IA no pudo extraer contenido útil del PDF.");
+        }
 
-            if ($desc === null) {
-                $desc = $lineRaw;
-            }
+        // ============================================
+        // 3. Llamada a OpenAI para procesar el renglón
+        // ============================================
+        $items = $this->extractItemsWithAi($finalText);
 
-            if (! is_numeric($cantidad)) {
-                $cantidad = null;
-            }
-
-            if ($renglon === null || ! is_numeric($renglon)) {
-                $renglon = $index + 1;
-            }
-
-            $created[] = LicitacionRequestItem::create([
-                'licitacion_id'          => $licitacionId,
-                'requisicion_id'         => $requisicionId,
-                'licitacion_pdf_page_id' => $page->id,
-                'line_raw'               => $lineRaw,
-                'descripcion'            => $desc,
-                'cantidad'               => $cantidad,
-                'unidad'                 => $unidad,
-                'renglon'                => (int) $renglon,
-                'status'                 => 'pending_match',
+        // ============================================
+        // 4. Guardar items en BD
+        // ============================================
+        foreach ($items as $it) {
+            $propuesta->items()->create([
+                'request_item_id' => null,
+                'product_id'      => null,
+                'descripcion_raw' => $it['descripcion'] ?? '',
+                'cantidad_propuesta' => $it['cantidad'] ?? null,
+                'precio_unitario'    => $it['precio'] ?? null,
+                'subtotal'           => isset($it['cantidad'], $it['precio'])
+                    ? $it['cantidad'] * $it['precio']
+                    : 0,
             ]);
         }
+    }
 
-        return $created;
+
+    /**
+     * Convierte una página de PDF a imagen PNG temporal
+     */
+    private function generatePageImage(LicitacionPdf $pdf, int $page)
+    {
+        $output = storage_path("app/tmp/pdf_page_{$pdf->id}_{$page}.png");
+
+        // Uso de Imagick para extraer la página
+        $imagick = new \Imagick();
+        $imagick->setResolution(200, 200);
+        $imagick->readImage($pdf->storage_path . "[{$page}]");
+        $imagick->setImageFormat('png');
+        $imagick->writeImage($output);
+
+        return $output;
     }
 
     /**
-     * SUGERIR el mejor producto de catálogo para un item de requisición,
-     * recibiendo una lista de posibles candidatos desde tu BD.
-     *
-     * Devuelve un arreglo:
-     * [
-     *   'product_id'       => 123 | null,
-     *   'match_score'      => 95  | null,
-     *   'motivo_seleccion' => 'Coincide descripción, medida y uso'
-     * ]
+     * OCR con IA usando OpenAI Vision
      */
-    public function suggestProductMatch(
-        LicitacionRequestItem $requestItem,
-        Collection $candidateProducts
-    ): array {
-        if ($candidateProducts->isEmpty()) {
-            return [
-                'product_id'       => null,
-                'match_score'      => 0,
-                'motivo_seleccion' => 'No se proporcionaron candidatos',
-            ];
+    private function ocrWithAi(string $imagePath): string
+    {
+        $base64 = base64_encode(file_get_contents($imagePath));
+
+        $resp = Http::withToken(env('OPENAI_API_KEY'))->post(
+            env('OPENAI_BASE_URL') . "/v1/chat/completions",
+            [
+                "model" => env('OPENAI_PRIMARY_MODEL', 'gpt-4o-mini'),
+                "messages" => [
+                    [
+                        "role" => "user",
+                        "content" => [
+                            [
+                                "type" => "input_image",
+                                "image_url" => "data:image/png;base64," . $base64
+                            ],
+                            [
+                                "type" => "text",
+                                "text" => "Extrae TODO el texto que veas en esta página. No omitas nada."
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+        );
+
+        if (!$resp->ok()) {
+            return "";
         }
 
-        // Armamos una lista de candidatos en texto
-        $listText = $candidateProducts
-            ->values()
-            ->map(function (Product $p, int $index) {
-                $n = $index + 1;
+        return $resp->json()['choices'][0]['message']['content'] ?? "";
+    }
 
-                return sprintf(
-                    "%d) ID: %d | SKU: %s | Nombre: %s | Marca: %s | Unidad: %s | Descripción: %s",
-                    $n,
-                    $p->id,
-                    $p->sku         ?? '-',
-                    $p->name        ?? '-',
-                    $p->brand       ?? '-',
-                    $p->unit        ?? '-',
-                    $p->description ?? '-'
-                );
-            })
-            ->implode("\n");
 
-        $system = <<<SYS
-Eres un experto en catálogo de papelería, cómputo y suministros para licitaciones.
+    /**
+     * Extrae renglones usando IA (texto → items)
+     */
+    private function extractItemsWithAi(string $text): array
+    {
+        $resp = Http::withToken(env('OPENAI_API_KEY'))->post(
+            env('OPENAI_BASE_URL') . "/v1/chat/completions",
+            [
+                "model" => env('OPENAI_PRIMARY_MODEL', 'gpt-4o-mini'),
+                "messages" => [
+                    [
+                        "role" => "user",
+                        "content" => "Del siguiente texto, extrae renglones con formato JSON:
+                        [
+                          { descripcion: \"...\", cantidad: X, precio: Y }
+                        ]
+                        Si algún dato no aparece, déjalo null.
+                        
+                        Texto:
+                        ----------------
+                        {$text}
+                        ----------------"
+                    ]
+                ]
+            ]
+        );
 
-TU TAREA:
-- Recibir un renglón de una requisición (texto original).
-- Recibir una lista de productos de catálogo (ID, nombre, descripción, marca, unidad).
-- Elegir EL PRODUCTO MÁS PARECIDO de la lista de candidatos.
+        if (!$resp->ok()) {
+            return [];
+        }
 
-CRITERIOS:
-- Compara por descripción, medida, uso, tipo de producto y marca cuando sea relevante.
-- Si ninguno es razonablemente parecido, devuelve product_id = null y match_score = 0.
+        $raw = $resp->json()['choices'][0]['message']['content'];
 
-FORMATO DE RESPUESTA:
-Devuelve EXCLUSIVAMENTE un JSON con esta forma:
-
-{
-  "product_id": 123,
-  "match_score": 95,
-  "motivo_seleccion": "Explicación breve en español"
-}
-
-Reglas:
-- match_score es un entero de 0 a 100.
-- Si no hay buena coincidencia, product_id = null, match_score = 0 y explica por qué.
-- No escribas nada fuera del JSON.
-SYS;
-
-        $user = <<<USER
-Producto solicitado en la licitación (texto original):
-
-{$requestItem->line_raw}
-
-Lista de productos candidatos del catálogo:
-
-{$listText}
-
-Recuerda: responde SOLO el JSON con product_id, match_score y motivo_seleccion.
-USER;
-
-        $response = $this->client->chatJson([
-            ['role' => 'system', 'content' => $system],
-            ['role' => 'user',   'content' => $user],
-        ]);
-
-        $productId = $response['product_id']       ?? null;
-        $match     = $response['match_score']      ?? null;
-        $motivo    = $response['motivo_seleccion'] ?? null;
-
-        return [
-            'product_id'       => is_numeric($productId) ? (int) $productId : null,
-            'match_score'      => is_numeric($match) ? (int) $match : null,
-            'motivo_seleccion' => is_string($motivo) ? $motivo : null,
-        ];
+        try {
+            return json_decode($raw, true) ?: [];
+        } catch (\Throwable $e) {
+            return [];
+        }
     }
 }

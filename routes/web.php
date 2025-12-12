@@ -1,6 +1,6 @@
-<?php
+<?php 
 
-use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Artisan; 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Auth;
@@ -61,6 +61,9 @@ use App\Http\Controllers\CompanyController;
 // 🔹 NUEVOS CONTROLADORES ADMIN LICITACIONES (PDF + PROPUESTAS)
 use App\Http\Controllers\Admin\LicitacionPdfController;
 use App\Http\Controllers\Admin\LicitacionPropuestaController;
+
+// 🔹 MODELOS
+use App\Models\LicitacionPdf;
 
 /*
 |--------------------------------------------------------------------------
@@ -375,10 +378,29 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'approved', 'role:admin'
 
     Route::get('licitacion-pdfs/{licitacionPdf}/preview', [LicitacionPdfController::class, 'preview'])
         ->name('admin.licitacion-pdfs.preview');
-        
-Route::get('licitacion-pdfs/{licitacionPdf}/splits/{index}/{format}', [LicitacionPdfController::class, 'downloadSplit'])
-    ->whereIn('format', ['pdf', 'word', 'excel'])
-    ->name('admin.licitacion-pdfs.splits.download');
+
+    Route::get('licitacion-pdfs/{licitacionPdf}/splits/{index}/{format}', [LicitacionPdfController::class, 'downloadSplit'])
+        ->whereIn('format', ['pdf', 'word', 'excel'])
+        ->name('admin.licitacion-pdfs.splits.download');
+
+    // 🔹 NUEVA RUTA: desde el recorte de PDF hacia la vista "Nueva propuesta económica"
+// 🔹 RUTA: desde el recorte de PDF hacia la vista "Nueva propuesta económica"
+Route::get('licitacion-pdfs/{licitacionPdf}/propuesta', function (LicitacionPdf $licitacionPdf) {
+    $params = [];
+
+    if ($licitacionPdf->licitacion_id) {
+        $params['licitacion_id'] = $licitacionPdf->licitacion_id;
+    }
+
+    if ($licitacionPdf->requisicion_id) {
+        $params['requisicion_id'] = $licitacionPdf->requisicion_id;
+    }
+
+    // 👉 Muy importante: mandamos el PDF original que tiene los splits
+    $params['licitacion_pdf_id'] = $licitacionPdf->id;
+
+    return redirect()->route('admin.licitacion-propuestas.create', $params);
+})->name('admin.licitacion-pdfs.propuesta');
 
     /*
     |--------------------------------------------------------------------------
@@ -855,10 +877,26 @@ Route::post('/admin/catalog/ai-from-upload', [CatalogItemController::class, 'aiF
 */
 Route::get('/cron/agenda-run/{token}', [CronController::class, 'runAgenda'])
     ->name('cron.agenda.run');
-   Route::get('/tickets/{ticket}/work', [TicketController::class, 'work'])
-        ->name('tickets.work');
+
+// (repetido tickets.work fuera del grupo grande, lo dejo tal como lo tenías)
+Route::get('/tickets/{ticket}/work', [TicketController::class, 'work'])
+    ->name('tickets.work');
 
 
-          // EXPORTACIONES
-    Route::get('/products/export/pdf',   [ProductController::class, 'exportPdf'])->name('products.export.pdf');
-    Route::get('/products/export/excel', [ProductController::class, 'exportExcel'])->name('products.export.excel');
+/*
+|--------------------------------------------------------------------------
+| EXPORTACIONES PRODUCTOS
+|--------------------------------------------------------------------------
+*/
+Route::get('/products/export/pdf',   [ProductController::class, 'exportPdf'])->name('products.export.pdf');
+Route::get('/products/export/excel', [ProductController::class, 'exportExcel'])->name('products.export.excel');
+
+
+// 👇 agrega debajo:
+Route::post('licitacion-propuestas/{licitacionPropuesta}/splits/{splitIndex}/process', 
+    [LicitacionPropuestaController::class, 'processSplit'])
+    ->name('admin.licitacion-propuestas.splits.process');
+
+Route::post('licitacion-propuestas/{licitacionPropuesta}/merge',
+    [LicitacionPropuestaController::class, 'merge'])
+    ->name('admin.licitacion-propuestas.merge');

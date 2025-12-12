@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\LicitacionPdf;
+use App\Models\LicitacionPdfPage;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
@@ -87,6 +88,24 @@ class LicitacionPdfController extends Controller implements HasMiddleware
             'status'            => 'uploaded',
             'meta'              => [],
         ]);
+
+        // ======================================================
+        // 🔹 Crear registros de páginas para la IA (una por hoja)
+        // ======================================================
+        if ($pageCount > 0) {
+            // Evitar duplicar si ya existieran
+            $exists = LicitacionPdfPage::where('licitacion_pdf_id', $pdf->id)->count();
+
+            if ($exists === 0) {
+                for ($p = 1; $p <= $pageCount; $p++) {
+                    LicitacionPdfPage::create([
+                        'licitacion_pdf_id' => $pdf->id,
+                        'page_number'       => $p,
+                        'text'              => null,   // lo llenará la IA/OCR cuando haga falta
+                    ]);
+                }
+            }
+        }
 
         return redirect()
             ->route('admin.licitacion-pdfs.show', $pdf)
@@ -236,10 +255,6 @@ class LicitacionPdfController extends Controller implements HasMiddleware
 
     /**
      * Descargar uno de los recortes generados en PDF / Word / Excel.
-     *
-     * Ruta sugerida:
-     * admin.licitacion-pdfs.splits.download
-     * /admin/licitacion-pdfs/{licitacionPdf}/splits/{index}/{format}
      */
     public function downloadSplit(
         Request $request,
@@ -270,7 +285,6 @@ class LicitacionPdfController extends Controller implements HasMiddleware
 
         switch ($format) {
             case 'pdf':
-                // Descargar el PDF recortado original
                 return Storage::download(
                     $pdfRelativePath,
                     $baseName.'.pdf',
@@ -278,7 +292,6 @@ class LicitacionPdfController extends Controller implements HasMiddleware
                 );
 
             case 'word':
-                // Conversión a Word usando IlovePdfService (texto plano)
                 $tmpPath = $ilovePdf->pdfToWord($pdfFullPath, $baseName);
 
                 if (!$tmpPath || !file_exists($tmpPath)) {
@@ -290,7 +303,6 @@ class LicitacionPdfController extends Controller implements HasMiddleware
                     ->deleteFileAfterSend(true);
 
             case 'excel':
-                // Conversión a Excel usando IlovePdfService (texto plano)
                 $tmpPath = $ilovePdf->pdfToExcel($pdfFullPath, $baseName);
 
                 if (!$tmpPath || !file_exists($tmpPath)) {
