@@ -15,7 +15,16 @@ class LicitacionPropuestaItem extends Model
         'licitacion_propuesta_id',
         'licitacion_request_item_id',
         'product_id',
+
+        // IA
+        'descripcion_raw',
+        'suggested_product_id',
         'match_score',
+        'match_status',
+        'match_reason',
+        'manual_selected',
+
+        // Cotización
         'motivo_seleccion',
         'unidad_propuesta',
         'cantidad_propuesta',
@@ -26,33 +35,30 @@ class LicitacionPropuestaItem extends Model
 
     protected $casts = [
         'match_score'        => 'integer',
+        'manual_selected'    => 'boolean',
         'cantidad_propuesta' => 'decimal:2',
         'precio_unitario'    => 'decimal:2',
         'subtotal'           => 'decimal:2',
     ];
 
-    /**
-     * Propuesta económica a la que pertenece este renglón.
-     */
     public function propuesta()
     {
         return $this->belongsTo(LicitacionPropuesta::class, 'licitacion_propuesta_id');
     }
 
-    /**
-     * Renglón original solicitado en la requisición (texto del PDF).
-     */
     public function requestItem()
     {
         return $this->belongsTo(LicitacionRequestItem::class, 'licitacion_request_item_id');
     }
 
-    /**
-     * Producto de catálogo sugerido/ofertado.
-     */
     public function product()
     {
-        // Model Product en tabla products
         return $this->belongsTo(Product::class, 'product_id');
+    }
+
+    // ✅ esta relación es la que te faltaba (por eso el error suggestedProduct)
+    public function suggestedProduct()
+    {
+        return $this->belongsTo(Product::class, 'suggested_product_id');
     }
 }

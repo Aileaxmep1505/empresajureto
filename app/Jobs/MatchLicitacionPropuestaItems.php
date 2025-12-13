@@ -3,171 +3,256 @@
 namespace App\Jobs;
 
 use App\Models\LicitacionPropuesta;
-use App\Models\LicitacionPropuestaItem;
 use App\Models\Product;
-use App\Services\LicitacionIaService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class MatchLicitacionPropuestaItems implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    /**
-     * @var \App\Models\LicitacionPropuesta
-     */
-    public LicitacionPropuesta $propuesta;
+    public function __construct(public int $propuestaId) {}
 
-    /**
-     * Por defecto usamos 16% de IVA, ajusta si en tu sistema usas otra tasa.
-     */
-    protected float $ivaRate = 0.16;
-
-    /**
-     * Create a new job instance.
-     */
-    public function __construct(LicitacionPropuesta $propuesta)
+    public function handle(): void
     {
-        $this->propuesta = $propuesta;
-    }
-
-    /**
-     * Execute the job.
-     *
-     * @param  \App\Services\LicitacionIaService  $ia
-     * @return void
-     */
-    public function handle(LicitacionIaService $ia): void
-    {
-        $propuesta = LicitacionPropuesta::with(['items.requestItem'])
-            ->find($this->propuesta->id);
-
-        if (! $propuesta) {
-            Log::warning('MatchLicitacionPropuestaItems: propuesta no encontrada', [
-                'id' => $this->propuesta->id,
-            ]);
+        $propuesta = LicitacionPropuesta::with(['items'])->find($this->propuestaId);
+        if (!$propuesta) {
             return;
         }
 
-        Log::info('MatchLicitacionPropuestaItems: iniciando match IA', [
-            'propuesta_id' => $propuesta->id,
-        ]);
+        $apiKey  = config('services.openai.api_key') ?: config('services.openai.key');
+        $baseUrl = rtrim(config('services.openai.base_url', 'https://api.openai.com'), '/');
+        $model   = config('services.openai.model_match', 'gpt-4.1-mini');
 
-        $subtotal = 0;
-
-        foreach ($propuesta->items as $item) {
-            /** @var LicitacionPropuestaItem $item */
-            $requestItem = $item->requestItem;
-
-            if (! $requestItem) {
-                Log::warning('MatchLicitacionPropuestaItems: item sin requestItem', [
-                    'propuesta_item_id' => $item->id,
-                ]);
-                continue;
-            }
-
-            // Buscar candidatos en products (ajusta campos según tu modelo)
-            $searchTerm = $requestItem->descripcion ?: $requestItem->line_raw;
-
-            $candidatos = Product::query()
-                ->when($searchTerm, function ($q) use ($searchTerm) {
-                    $q->where(function ($qq) use ($searchTerm) {
-                        $qq->where('name', 'like', '%' . $searchTerm . '%')
-                           ->orWhere('description', 'like', '%' . $searchTerm . '%');
-                    });
-                })
-                ->limit(12)
-                ->get();
-
-            if ($candidatos->isEmpty()) {
-                Log::info('MatchLicitacionPropuestaItems: sin candidatos para item', [
-                    'propuesta_item_id' => $item->id,
-                    'search'            => $searchTerm,
-                ]);
-                continue;
-            }
-
-            try {
-                $match = $ia->suggestProductMatch($requestItem, $candidatos);
-            } catch (\Throwable $e) {
-                Log::error('MatchLicitacionPropuestaItems: error IA al sugerir producto', [
-                    'propuesta_item_id' => $item->id,
-                    'exception'         => $e->getMessage(),
-                ]);
-                continue;
-            }
-
-            $productId = $match['product_id']       ?? null;
-            $score     = $match['match_score']      ?? null;
-            $motivo    = $match['motivo_seleccion'] ?? null;
-
-            // Si la IA no encontró nada razonable, seguimos al siguiente
-            if (! $productId) {
-                Log::info('MatchLicitacionPropuestaItems: IA no encontró match razonable', [
-                    'propuesta_item_id' => $item->id,
-                    'search'            => $searchTerm,
-                    'match'             => $match,
-                ]);
-                continue;
-            }
-
-            $product = Product::find($productId);
-
-            if (! $product) {
-                Log::warning('MatchLicitacionPropuestaItems: product_id sugerido no existe', [
-                    'propuesta_item_id' => $item->id,
-                    'product_id'        => $productId,
-                ]);
-                continue;
-            }
-
-            // Si no hay cantidad_propuesta, usamos la de la requisición
-            $cantidad = $item->cantidad_propuesta ?? $requestItem->cantidad ?? 1;
-
-            // Aquí decides de dónde sacar el precio: price, price_public, etc.
-            $precioUnit = $item->precio_unitario;
-
-            if (! $precioUnit || $precioUnit <= 0) {
-                // Ajusta al nombre de tu campo real
-                $precioUnit = $product->price ?? $product->precio ?? 0;
-            }
-
-            $subtotalItem = (float) $cantidad * (float) $precioUnit;
-
-            $item->update([
-                'product_id'       => $product->id,
-                'match_score'      => $score,
-                'motivo_seleccion' => $motivo,
-                'unidad_propuesta' => $item->unidad_propuesta ?: $requestItem->unidad,
-                'cantidad_propuesta' => $cantidad,
-                'precio_unitario'  => $precioUnit,
-                'subtotal'         => $subtotalItem,
-            ]);
-
-            $subtotal += $subtotalItem;
+        if (!$apiKey) {
+            Log::warning('MatchLicitacionPropuestaItems: falta OpenAI API key');
+            return;
         }
 
-        // Actualizamos totales de la propuesta
-        $iva   = $subtotal * $this->ivaRate;
-        $total = $subtotal + $iva;
+        foreach ($propuesta->items as $item) {
 
-        $propuesta->update([
-            'subtotal' => $subtotal,
-            'iva'      => $iva,
-            'total'    => $total,
-            // opcional: cambiar status
-            'status'   => 'revisar',
-        ]);
+            // ✅ Si ya lo decidiste manualmente o ya está aplicado a product_id → no tocar
+            if (!empty($item->manual_selected) || !empty($item->product_id)) {
+                continue;
+            }
 
-        Log::info('MatchLicitacionPropuestaItems: match completado', [
-            'propuesta_id' => $propuesta->id,
-            'subtotal'     => $subtotal,
-            'iva'          => $iva,
-            'total'        => $total,
-        ]);
+            $queryText = trim((string)($item->descripcion_raw ?? ''));
+            if ($queryText === '') {
+                continue;
+            }
+
+            // =========================
+            // 1) CANDIDATOS desde BD
+            // =========================
+            $cands = $this->findCandidates($queryText);
+
+            if ($cands->isEmpty()) {
+                // sin candidatos: lo dejamos como pending (sin sugerencia)
+                $item->match_status = 'pending';
+                $item->save();
+                continue;
+            }
+
+            // payload candidatos (máx 12)
+            $payloadCands = $cands->map(fn($p) => [
+                'id'          => (int)$p->id,
+                'sku'         => (string)($p->sku ?? ''),
+                'name'        => (string)($p->name ?? ''),
+                'brand'       => (string)($p->brand ?? ''),
+                'unit'        => (string)($p->unit ?? ''),
+                'description' => $p->description ? mb_substr((string)$p->description, 0, 240) : null,
+                'price'       => is_numeric($p->price) ? (float)$p->price : null,
+            ])->values()->all();
+
+            // =========================
+            // 2) OpenAI decide best_id
+            // =========================
+            $instructions = <<<TXT
+Eres un experto en compras y catálogo (México).
+Debes elegir el mejor producto del catálogo para cubrir el renglón de licitación.
+
+Devuelve SOLO JSON válido:
+{
+  "best_id": 123,
+  "score": 0-100,
+  "reason": "breve"
+}
+
+Reglas:
+- best_id debe ser UNO de los candidatos (o null si ninguno sirve).
+- score alto solo si coincide tipo/medida/unidad/marca.
+- Si ninguno sirve, best_id=null y score<=30.
+TXT;
+
+            $userText =
+                "RENGLÓN LICITACIÓN:\n{$queryText}\n\n".
+                "CANDIDATOS (JSON):\n".
+                json_encode($payloadCands, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+
+            $resp = Http::withToken($apiKey)
+                ->timeout(120)
+                ->withHeaders(['Content-Type' => 'application/json'])
+                ->post($baseUrl.'/v1/responses', [
+                    'model'        => $model,
+                    'instructions' => $instructions,
+                    'input'        => [[
+                        'role'    => 'user',
+                        'content' => [
+                            ['type' => 'input_text', 'text' => $userText],
+                        ],
+                    ]],
+                    'temperature'       => 0.1,
+                    'max_output_tokens' => 800,
+                ]);
+
+            if (!$resp->ok()) {
+                Log::warning('Match IA falló', [
+                    'item_id' => $item->id,
+                    'status'  => $resp->status(),
+                    'body'    => $resp->body(),
+                ]);
+                continue;
+            }
+
+            $raw = $this->extractOutputText($resp->json());
+            $raw = $this->cleanupJsonText($raw);
+
+            $data = json_decode($raw, true);
+            if (!is_array($data)) {
+                Log::warning('Match IA: JSON inválido', [
+                    'item_id' => $item->id,
+                    'raw'     => mb_substr((string)$raw, 0, 2500),
+                ]);
+                continue;
+            }
+
+            $bestId = $data['best_id'] ?? null;
+            $score  = (int)($data['score'] ?? 0);
+            $reason = trim((string)($data['reason'] ?? ''));
+
+            // asegurar que bestId sea candidato
+            $candIds = array_map(fn($x) => (int)$x['id'], $payloadCands);
+            if ($bestId !== null && !in_array((int)$bestId, $candIds, true)) {
+                $bestId = null;
+                $score  = min($score, 30);
+                $reason = $reason ?: 'best_id fuera de candidatos';
+            }
+
+            // =========================
+            // 3) Guardar sugerencia (NO aplicar automático)
+            // =========================
+            $item->suggested_product_id = $bestId ? (int)$bestId : null;
+            $item->match_score          = $score;
+            $item->match_reason         = $reason ?: null;
+            $item->match_status         = ($bestId && $score >= 40) ? 'suggested' : 'pending';
+            $item->manual_selected      = false;
+            $item->save();
+        }
+    }
+
+    private function findCandidates(string $queryText)
+    {
+        // LIKE directo (limit 12)
+        $cands = Product::query()
+            ->select(['id','sku','name','description','brand','unit','price'])
+            ->where(function($q) use ($queryText){
+                $short = mb_substr($queryText, 0, 90);
+                $q->where('name', 'like', '%'.$short.'%')
+                  ->orWhere('sku', 'like', '%'.$short.'%')
+                  ->orWhere('description', 'like', '%'.$short.'%');
+            })
+            ->limit(12)
+            ->get();
+
+        if ($cands->isNotEmpty()) {
+            return $cands;
+        }
+
+        // keywords 3 palabras (>=4 chars)
+        $words = preg_split('/\s+/', mb_strtolower($queryText));
+        $words = array_values(array_filter($words, fn($w)=> mb_strlen($w) >= 4));
+        $words = array_slice($words, 0, 3);
+
+        if (empty($words)) {
+            return $cands;
+        }
+
+        $q2 = Product::query()->select(['id','sku','name','description','brand','unit','price']);
+        foreach ($words as $w) {
+            $q2->where(function($q) use ($w){
+                $q->where('name','like','%'.$w.'%')
+                  ->orWhere('description','like','%'.$w.'%')
+                  ->orWhere('sku','like','%'.$w.'%');
+            });
+        }
+
+        return $q2->limit(12)->get();
+    }
+
+    private function extractOutputText(array $json): string
+    {
+        $raw = '';
+
+        if (isset($json['output']) && is_array($json['output'])) {
+            foreach ($json['output'] as $out) {
+                if (($out['type'] ?? null) === 'message') {
+                    foreach (($out['content'] ?? []) as $c) {
+                        if (($c['type'] ?? null) === 'output_text' && isset($c['text'])) {
+                            $raw .= $c['text'];
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!$raw && isset($json['output'][0]['content'][0]['text'])) {
+            $raw = (string)$json['output'][0]['content'][0]['text'];
+        }
+
+        return trim($raw);
+    }
+
+    private function cleanupJsonText(?string $raw): string
+    {
+        $raw = trim((string)$raw);
+        if ($raw === '') return '';
+
+        // quitar fences
+        $raw = preg_replace('/^```(?:json)?/i', '', $raw);
+        $raw = preg_replace('/```$/', '', $raw);
+        $raw = trim($raw);
+
+        // recortar a primer { o [
+        $firstObj = strpos($raw, '{');
+        $firstArr = strpos($raw, '[');
+
+        $start = null;
+        if ($firstObj !== false && $firstArr !== false) $start = min($firstObj, $firstArr);
+        elseif ($firstObj !== false) $start = $firstObj;
+        elseif ($firstArr !== false) $start = $firstArr;
+
+        if ($start !== null) {
+            $raw = substr($raw, $start);
+        }
+
+        // recortar a último } o ]
+        $lastObj = strrpos($raw, '}');
+        $lastArr = strrpos($raw, ']');
+
+        $end = null;
+        if ($lastObj !== false && $lastArr !== false) $end = max($lastObj, $lastArr);
+        elseif ($lastObj !== false) $end = $lastObj;
+        elseif ($lastArr !== false) $end = $lastArr;
+
+        if ($end !== null) {
+            $raw = substr($raw, 0, $end + 1);
+        }
+
+        return trim($raw);
     }
 }

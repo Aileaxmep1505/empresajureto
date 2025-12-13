@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class LicitacionPdfPage extends Model
 {
+    protected $table = 'licitacion_pdf_pages';
+
     protected $fillable = [
         'licitacion_pdf_id',
         'page_number',

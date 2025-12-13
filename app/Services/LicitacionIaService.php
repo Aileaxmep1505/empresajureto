@@ -3,195 +3,314 @@
 namespace App\Services;
 
 use App\Models\LicitacionPropuesta;
-use App\Models\LicitacionPdf;
-use App\Models\LicitacionPdfPage;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class LicitacionIaService
 {
-    /**
-     * Procesa un split (requisición) con IA
-     */
-    public function processSplitWithAi(LicitacionPropuesta $propuesta, int $splitIndex)
+    public function processSplitWithAi(LicitacionPropuesta $propuesta, int $splitIndex): void
     {
         $pdf = $propuesta->licitacionPdf;
-
         if (!$pdf) {
-            throw new \Exception("La propuesta no tiene PDF asignado.");
+            throw new \Exception('La propuesta no tiene PDF asociado.');
         }
 
-        $splits = $pdf->splits;
+        $meta   = $pdf->meta ?? [];
+        $splits = $meta['splits'] ?? [];
+
         if (!isset($splits[$splitIndex])) {
-            throw new \Exception("El split {$splitIndex} no existe.");
+            throw new \Exception("Split {$splitIndex} no existe.");
         }
 
         $split = $splits[$splitIndex];
+        $path  = $split['path'] ?? null;
 
-        $from = $split['from'] ?? $split['from_page'] ?? null;
-        $to   = $split['to']   ?? $split['to_page']   ?? null;
-
-        if (!$from || !$to) {
-            throw new \Exception("Split sin rangos de páginas.");
+        if (!$path || !Storage::exists($path)) {
+            throw new \Exception('No se encontró el PDF recortado para este split.');
         }
 
-        // ================================
-        // 1. Traer páginas y su texto
-        // ================================
-        $pages = LicitacionPdfPage::where('licitacion_pdf_id', $pdf->id)
-            ->whereBetween('page_number', [$from, $to])
-            ->orderBy('page_number')
-            ->get();
+        $apiKey  = config('services.openai.api_key') ?: config('services.openai.key');
+        $baseUrl = rtrim(config('services.openai.base_url', 'https://api.openai.com'), '/');
+        $model   = config('services.openai.model_extract', 'gpt-4.1-mini');
 
-        if ($pages->isEmpty()) {
-            throw new \Exception("No existen registros de páginas en BD para este PDF.");
+        if (!$apiKey) {
+            throw new \Exception('Falta API key de OpenAI.');
         }
 
-        $finalText = "";
+        // 1) subir pdf
+        $upload = Http::withToken($apiKey)
+            ->timeout(240)
+            ->attach('file', Storage::get($path), basename($path))
+            ->post($baseUrl.'/v1/files', ['purpose' => 'user_data']);
 
-        foreach ($pages as $page) {
-            $text = trim($page->text ?? "");
+        if (!$upload->ok()) {
+            Log::error('Error subiendo PDF a OpenAI', [
+                'status' => $upload->status(),
+                'body'   => $upload->body(),
+            ]);
+            throw new \Exception('No se pudo subir el PDF a OpenAI.');
+        }
 
-            // ===============================================
-            // 2. SI EL TEXTO ESTÁ VACÍO → HACER OCR CON IA
-            // ===============================================
-            if ($text === "") {
-                try {
-                    $imagePath = $this->generatePageImage($pdf, $page->page_number);
-                    $text = $this->ocrWithAi($imagePath);
+        $fileId = $upload->json('id');
+        if (!$fileId) {
+            throw new \Exception('OpenAI no devolvió file_id.');
+        }
 
-                    // Guardamos OCR en la BD para no repetirlo
-                    $page->text = $text;
-                    $page->save();
+        // 2) prompt
+        $systemPrompt = <<<TXT
+Eres un asistente experto en análisis de licitaciones públicas en México.
 
-                } catch (\Throwable $e) {
-                    Log::error("OCR-IA fallo en página {$page->page_number}", [
-                        'error' => $e->getMessage()
-                    ]);
-                }
+Analiza el PDF adjunto (puede contener texto, tablas o escaneos).
+Extrae TODOS los renglones solicitados (productos/servicios).
+Ignora encabezados, bases legales, firmas, sellos, texto administrativo.
+
+DEVUELVE ÚNICAMENTE JSON VÁLIDO (sin markdown, sin explicación) con esta forma EXACTA:
+
+{
+  "items": [
+    {
+      "descripcion": "Descripción completa del renglón",
+      "cantidad": 1,
+      "unidad": "PIEZA / CAJA / SERVICIO / etc (o null)",
+      "precio_referencia": null
+    }
+  ]
+}
+
+Reglas:
+- Solo JSON. Nada más.
+- cantidad: número entero. Si no se ve, usa 1.
+- unidad: texto o null.
+- No inventes datos.
+TXT;
+
+        // 3) responses
+        $response = Http::withToken($apiKey)
+            ->timeout(300)
+            ->withHeaders(['Content-Type' => 'application/json'])
+            ->post($baseUrl.'/v1/responses', [
+                'model'        => $model,
+                'instructions' => $systemPrompt,
+                'input'        => [[
+                    'role'    => 'user',
+                    'content' => [
+                        ['type' => 'input_text', 'text' => 'Devuelve SOLO el JSON solicitado.'],
+                        ['type' => 'input_file', 'file_id' => $fileId],
+                    ],
+                ]],
+                'temperature'       => 0.0,
+                'max_output_tokens' => 7000,
+            ]);
+
+        if (!$response->ok()) {
+            Log::error('Error OpenAI Responses', [
+                'status' => $response->status(),
+                'body'   => $response->body(),
+            ]);
+            throw new \Exception('Error procesando PDF con OpenAI.');
+        }
+
+        // 4) texto
+        $raw = $this->extractOutputText($response->json());
+        if (!$raw) {
+            throw new \Exception('OpenAI no devolvió texto interpretable.');
+        }
+
+        $raw = $this->cleanupJsonText($raw);
+
+        // 5) parse + repair si falla
+        $data = $this->decodeJsonLenient($raw);
+
+        if (!is_array($data)) {
+            Log::warning('JSON inválido de OpenAI (primer intento)', [
+                'raw' => mb_substr($raw, 0, 8000),
+            ]);
+
+            $rawFixed = $this->repairJsonWithOpenAi($apiKey, $baseUrl, $model, $raw);
+            $rawFixed = $this->cleanupJsonText($rawFixed);
+
+            $data = $this->decodeJsonLenient($rawFixed);
+
+            if (!is_array($data)) {
+                Log::warning('JSON inválido de OpenAI (después de repair)', [
+                    'raw_fixed' => mb_substr($rawFixed, 0, 8000),
+                ]);
+                throw new \Exception('La IA no devolvió JSON válido.');
+            }
+        }
+
+        // normalizar items
+        $items = [];
+        if (isset($data['items']) && is_array($data['items'])) {
+            $items = $data['items'];
+        } elseif (array_is_list($data)) {
+            $items = $data;
+        }
+
+        if (empty($items)) {
+            throw new \Exception('La IA no devolvió items[] en el JSON.');
+        }
+
+        // 6) guardar items (usa tus columnas reales)
+        foreach ($items as $row) {
+            if (!is_array($row)) continue;
+
+            $desc = trim((string)($row['descripcion'] ?? ''));
+            if ($desc === '') continue;
+
+            $qty = $row['cantidad'] ?? 1;
+            if (is_string($qty)) {
+                $clean = preg_replace('/[^0-9]/', '', $qty);
+                $qty = is_numeric($clean) ? (int)$clean : 1;
+            }
+            $qty = max(1, (int)$qty);
+
+            $unidad = $row['unidad'] ?? null;
+            if (is_string($unidad)) {
+                $unidad = trim($unidad);
+                if ($unidad === '') $unidad = null;
             }
 
-            $finalText .= "\n\n" . $text;
-        }
-
-        if (trim($finalText) === "") {
-            throw new \Exception("La IA no pudo extraer contenido útil del PDF.");
-        }
-
-        // ============================================
-        // 3. Llamada a OpenAI para procesar el renglón
-        // ============================================
-        $items = $this->extractItemsWithAi($finalText);
-
-        // ============================================
-        // 4. Guardar items en BD
-        // ============================================
-        foreach ($items as $it) {
             $propuesta->items()->create([
-                'request_item_id' => null,
-                'product_id'      => null,
-                'descripcion_raw' => $it['descripcion'] ?? '',
-                'cantidad_propuesta' => $it['cantidad'] ?? null,
-                'precio_unitario'    => $it['precio'] ?? null,
-                'subtotal'           => isset($it['cantidad'], $it['precio'])
-                    ? $it['cantidad'] * $it['precio']
-                    : 0,
+                'licitacion_request_item_id' => null,   // ✅ tu tabla debe permitir NULL
+                'product_id'                 => null,
+                'suggested_product_id'       => null,
+                'match_score'                => null,
+                'motivo_seleccion'           => null,
+                'match_reason'               => null,
+                'match_status'               => 'pending',
+                'manual_selected'            => false,
+
+                'unidad_propuesta'           => $unidad,
+                'cantidad_propuesta'         => $qty,
+                'precio_unitario'            => null,
+                'subtotal'                   => 0,
+                'notas'                      => null,
+
+                'descripcion_raw'            => $desc,
             ]);
         }
     }
 
-
-    /**
-     * Convierte una página de PDF a imagen PNG temporal
-     */
-    private function generatePageImage(LicitacionPdf $pdf, int $page)
+    private function extractOutputText(array $json): string
     {
-        $output = storage_path("app/tmp/pdf_page_{$pdf->id}_{$page}.png");
+        $raw = '';
 
-        // Uso de Imagick para extraer la página
-        $imagick = new \Imagick();
-        $imagick->setResolution(200, 200);
-        $imagick->readImage($pdf->storage_path . "[{$page}]");
-        $imagick->setImageFormat('png');
-        $imagick->writeImage($output);
+        if (isset($json['output']) && is_array($json['output'])) {
+            foreach ($json['output'] as $out) {
+                if (($out['type'] ?? null) === 'message') {
+                    foreach (($out['content'] ?? []) as $c) {
+                        if (($c['type'] ?? null) === 'output_text' && isset($c['text'])) {
+                            $raw .= $c['text'];
+                        }
+                    }
+                }
+            }
+        }
 
-        return $output;
+        if (!$raw && isset($json['output'][0]['content'][0]['text'])) {
+            $raw = (string)$json['output'][0]['content'][0]['text'];
+        }
+
+        return trim((string)$raw);
+    }
+
+    private function cleanupJsonText(string $raw): string
+    {
+        $raw = trim($raw);
+
+        $raw = preg_replace('/^```(?:json)?/i', '', $raw);
+        $raw = preg_replace('/```$/', '', $raw);
+        $raw = trim($raw);
+
+        $firstObj = strpos($raw, '{');
+        $firstArr = strpos($raw, '[');
+
+        $start = null;
+        if ($firstObj !== false && $firstArr !== false) $start = min($firstObj, $firstArr);
+        elseif ($firstObj !== false) $start = $firstObj;
+        elseif ($firstArr !== false) $start = $firstArr;
+
+        if ($start !== null) $raw = substr($raw, $start);
+
+        $lastObj = strrpos($raw, '}');
+        $lastArr = strrpos($raw, ']');
+
+        $end = null;
+        if ($lastObj !== false && $lastArr !== false) $end = max($lastObj, $lastArr);
+        elseif ($lastObj !== false) $end = $lastObj;
+        elseif ($lastArr !== false) $end = $lastArr;
+
+        if ($end !== null) $raw = substr($raw, 0, $end + 1);
+
+        return trim($raw);
     }
 
     /**
-     * OCR con IA usando OpenAI Vision
+     * Decodifica JSON incluso si viene como string con escapes: "{ \"items\": [...] }"
      */
-    private function ocrWithAi(string $imagePath): string
+    private function decodeJsonLenient(string $raw)
     {
-        $base64 = base64_encode(file_get_contents($imagePath));
+        $raw = trim($raw);
+        if ($raw === '') return null;
 
-        $resp = Http::withToken(env('OPENAI_API_KEY'))->post(
-            env('OPENAI_BASE_URL') . "/v1/chat/completions",
-            [
-                "model" => env('OPENAI_PRIMARY_MODEL', 'gpt-4o-mini'),
-                "messages" => [
-                    [
-                        "role" => "user",
-                        "content" => [
-                            [
-                                "type" => "input_image",
-                                "image_url" => "data:image/png;base64," . $base64
-                            ],
-                            [
-                                "type" => "text",
-                                "text" => "Extrae TODO el texto que veas en esta página. No omitas nada."
-                            ]
-                        ]
-                    ]
-                ]
-            ]
-        );
+        $data = json_decode($raw, true);
+        if (is_array($data)) return $data;
 
-        if (!$resp->ok()) {
-            return "";
+        // a veces viene JSON dentro de string con comillas escapadas
+        if (str_starts_with($raw, '"') && str_ends_with($raw, '"')) {
+            $unquoted = json_decode($raw, true); // esto quita escapes
+            if (is_string($unquoted)) {
+                $unquoted = $this->cleanupJsonText($unquoted);
+                $data2 = json_decode($unquoted, true);
+                if (is_array($data2)) return $data2;
+            }
         }
 
-        return $resp->json()['choices'][0]['message']['content'] ?? "";
+        return null;
     }
 
-
-    /**
-     * Extrae renglones usando IA (texto → items)
-     */
-    private function extractItemsWithAi(string $text): array
+    private function repairJsonWithOpenAi(string $apiKey, string $baseUrl, string $model, string $raw): string
     {
-        $resp = Http::withToken(env('OPENAI_API_KEY'))->post(
-            env('OPENAI_BASE_URL') . "/v1/chat/completions",
-            [
-                "model" => env('OPENAI_PRIMARY_MODEL', 'gpt-4o-mini'),
-                "messages" => [
-                    [
-                        "role" => "user",
-                        "content" => "Del siguiente texto, extrae renglones con formato JSON:
-                        [
-                          { descripcion: \"...\", cantidad: X, precio: Y }
-                        ]
-                        Si algún dato no aparece, déjalo null.
-                        
-                        Texto:
-                        ----------------
-                        {$text}
-                        ----------------"
-                    ]
-                ]
-            ]
-        );
+        $prompt = <<<TXT
+Devuelve ÚNICAMENTE JSON VÁLIDO (sin texto extra, sin markdown).
+Repara el siguiente contenido para que sea JSON válido con forma EXACTA:
+
+{
+  "items": [
+    {"descripcion":"", "cantidad":1, "unidad":null, "precio_referencia":null}
+  ]
+}
+
+Contenido a reparar:
+TXT;
+
+        $resp = Http::withToken($apiKey)
+            ->timeout(180)
+            ->withHeaders(['Content-Type' => 'application/json'])
+            ->post($baseUrl.'/v1/responses', [
+                'model'        => $model,
+                'instructions' => 'Eres un validador y reparador de JSON. Regresa SOLO JSON válido.',
+                'input'        => [[
+                    'role'    => 'user',
+                    'content' => [
+                        ['type' => 'input_text', 'text' => $prompt."\n\n".$raw],
+                    ],
+                ]],
+                'temperature'       => 0.0,
+                'max_output_tokens' => 4500,
+            ]);
 
         if (!$resp->ok()) {
-            return [];
+            Log::warning('OpenAI repair JSON falló', [
+                'status' => $resp->status(),
+                'body'   => $resp->body(),
+            ]);
+            return $raw;
         }
 
-        $raw = $resp->json()['choices'][0]['message']['content'];
-
-        try {
-            return json_decode($raw, true) ?: [];
-        } catch (\Throwable $e) {
-            return [];
-        }
+        $fixed = $this->extractOutputText($resp->json());
+        return $fixed ?: $raw;
     }
 }
