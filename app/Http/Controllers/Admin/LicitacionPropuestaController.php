@@ -7,6 +7,7 @@ use App\Jobs\MatchLicitacionPropuestaItems;
 use App\Models\LicitacionPropuesta;
 use App\Models\LicitacionPropuestaItem;
 use App\Models\LicitacionPdf;
+use App\Models\Product;
 use App\Services\LicitacionIaService;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
@@ -26,15 +27,9 @@ class LicitacionPropuestaController extends Controller implements HasMiddleware
     {
         $query = LicitacionPropuesta::query()->latest('fecha');
 
-        if ($request->filled('licitacion_id')) {
-            $query->where('licitacion_id', $request->integer('licitacion_id'));
-        }
-        if ($request->filled('requisicion_id')) {
-            $query->where('requisicion_id', $request->integer('requisicion_id'));
-        }
-        if ($request->filled('status')) {
-            $query->where('status', $request->get('status'));
-        }
+        if ($request->filled('licitacion_id'))  $query->where('licitacion_id', $request->integer('licitacion_id'));
+        if ($request->filled('requisicion_id')) $query->where('requisicion_id', $request->integer('requisicion_id'));
+        if ($request->filled('status'))         $query->where('status', $request->get('status'));
 
         $propuestas = $query->paginate(20);
 
@@ -108,17 +103,30 @@ class LicitacionPropuestaController extends Controller implements HasMiddleware
 
     public function show(LicitacionPropuesta $licitacionPropuesta)
     {
-        // ✅ Cargar relaciones que existen
         $propuesta = $licitacionPropuesta->load([
             'items.requestItem.page',
             'items.product',
-            // si agregas suggested_product_id + relación, aquí lo puedes activar:
-            // 'items.suggestedProduct',
             'licitacionPdf',
         ]);
 
         $licitacionPdf = $propuesta->licitacionPdf;
 
+        // ==========================================================
+        // ✅ 5 coincidencias por item desde TU tabla products
+        // ==========================================================
+        $candidatesByItem = [];
+        foreach ($propuesta->items as $item) {
+            if ($item->product_id) continue;
+
+            $text = trim((string)($item->descripcion_raw ?: ($item->requestItem?->line_raw ?? '')));
+            if ($text === '') continue;
+
+            $candidatesByItem[$item->id] = $this->findCandidates($text, 5);
+        }
+
+        // ==========================================================
+        // Splits (para UI)
+        // ==========================================================
         $splitsInfo = [];
         $allSplitsProcessed = false;
 
@@ -151,7 +159,7 @@ class LicitacionPropuestaController extends Controller implements HasMiddleware
             }
 
             $allSplitsProcessed = !empty($splitsInfo)
-                && collect($splitsInfo)->every(fn($s)=> ($s['state'] ?? null) === 'done');
+                && collect($splitsInfo)->every(fn ($s) => ($s['state'] ?? null) === 'done');
         }
 
         return view('admin.licitacion_propuestas.show', [
@@ -159,6 +167,7 @@ class LicitacionPropuestaController extends Controller implements HasMiddleware
             'licitacionPdf'      => $licitacionPdf,
             'splitsInfo'         => $splitsInfo,
             'allSplitsProcessed' => $allSplitsProcessed,
+            'candidatesByItem'   => $candidatesByItem,
         ]);
     }
 
@@ -179,29 +188,28 @@ class LicitacionPropuestaController extends Controller implements HasMiddleware
         }
 
         try {
-            // ✅ si reprocesas: borra items previos de ese split (opcional)
-            // (si NO quieres duplicados cuando “Reprocesar”, descomenta esto)
-            // $propuesta->items()->whereNull('licitacion_request_item_id')->delete();
+            // ✅ IA: crea items y retorna IDs creados (para que puedas hacer matching SYNC solo a esos)
+            $createdIds = $iaService->processSplitWithAi($propuesta, $splitIndex);
 
-            $iaService->processSplitWithAi($propuesta, $splitIndex);
-
+            // marcar split como procesado
             $processed = $propuesta->processed_split_indexes ?? [];
             if ($processed instanceof Collection) $processed = $processed->toArray();
             if (!is_array($processed)) $processed = [];
 
-            if (!in_array($splitIndex, $processed, true)) {
-                $processed[] = $splitIndex;
-            }
+            if (!in_array($splitIndex, $processed, true)) $processed[] = $splitIndex;
 
             $propuesta->processed_split_indexes = $processed;
             $propuesta->save();
 
-            // ✅ matching automático (sugerencias)
-            MatchLicitacionPropuestaItems::dispatch($propuesta->id);
+            // ⚠️ Esto te estaba tronando por timeout cuando había muchos items.
+            // Si lo quieres dejar en SYNC, al menos limítalo a los IDs recién creados:
+            if (!empty($createdIds)) {
+                MatchLicitacionPropuestaItems::dispatchSync($propuesta->id, $createdIds);
+            }
 
             return redirect()
                 ->route('admin.licitacion-propuestas.show', ['licitacionPropuesta' => $propuesta->id])
-                ->with('status', "Split {$splitIndex} procesado. Matching en cola.");
+                ->with('status', "Split {$splitIndex} procesado.");
         } catch (\Throwable $e) {
             Log::error('Error al procesar split de licitación con IA', [
                 'propuesta_id' => $propuesta->id,
@@ -213,15 +221,11 @@ class LicitacionPropuestaController extends Controller implements HasMiddleware
         }
     }
 
-    /**
-     * ✅ APLICAR coincidencia (tú decides "sí aplica")
-     * POST admin/licitacion-propuestas/items/{item}/apply
-     */
     public function applyMatch(Request $request, LicitacionPropuestaItem $item)
     {
         $data = $request->validate([
-            'product_id'      => ['required','integer'],
-            'precio_unitario' => ['nullable','numeric','min:0'],
+            'product_id'      => ['required', 'integer'],
+            'precio_unitario' => ['nullable', 'numeric', 'min:0'],
         ]);
 
         $item->product_id = (int) $data['product_id'];
@@ -237,47 +241,22 @@ class LicitacionPropuestaController extends Controller implements HasMiddleware
         $pu  = (float) ($item->precio_unitario ?? 0);
         $item->subtotal = $qty * $pu;
 
-        if (property_exists($item, 'manual_selected') || isset($item->manual_selected)) {
-            $item->manual_selected = true;
-        }
-        if (property_exists($item, 'match_status') || isset($item->match_status)) {
-            $item->match_status = 'applied';
-        }
-
-        if (empty($item->motivo_seleccion)) {
-            $item->motivo_seleccion = 'Seleccionado manualmente';
-        }
-
+        if (empty($item->motivo_seleccion)) $item->motivo_seleccion = 'Seleccionado manualmente';
         $item->save();
 
         $this->recalcTotals($item->propuesta);
 
-        return back()->with('status', 'Coincidencia aplicada.');
+        return back()->with('status', 'Producto aplicado.');
     }
 
-    /**
-     * ❌ NO APLICA (rechazar sugerencia)
-     * POST admin/licitacion-propuestas/items/{item}/reject
-     */
     public function rejectMatch(Request $request, LicitacionPropuestaItem $item)
     {
-        $item->product_id = null;
-        $item->match_score = null;
-
-        if (property_exists($item, 'manual_selected') || isset($item->manual_selected)) {
-            $item->manual_selected = true;
-        }
-        if (property_exists($item, 'match_status') || isset($item->match_status)) {
-            $item->match_status = 'rejected';
-        }
-
-        if (empty($item->motivo_seleccion)) {
-            $item->motivo_seleccion = 'No aplica / rechazado';
-        }
-
+        $item->product_id      = null;
+        $item->match_score     = null;
         $item->precio_unitario = null;
-        $item->subtotal = 0;
+        $item->subtotal        = 0;
 
+        if (empty($item->motivo_seleccion)) $item->motivo_seleccion = 'No aplica / rechazado';
         $item->save();
 
         $this->recalcTotals($item->propuesta);
@@ -298,12 +277,8 @@ class LicitacionPropuestaController extends Controller implements HasMiddleware
         if ($processed instanceof Collection) $processed = $processed->toArray();
         if (!is_array($processed)) $processed = [];
 
-        if (count($splits) === 0) {
-            return back()->with('error', 'No hay splits configurados.');
-        }
-        if (count($processed) < count($splits)) {
-            return back()->with('error', 'Faltan splits por procesar.');
-        }
+        if (count($splits) === 0) return back()->with('error', 'No hay splits configurados.');
+        if (count($processed) < count($splits)) return back()->with('error', 'Faltan splits por procesar.');
 
         $this->recalcTotals($propuesta);
         $propuesta->merge_status = 'merged';
@@ -314,11 +289,8 @@ class LicitacionPropuestaController extends Controller implements HasMiddleware
 
     public function edit(LicitacionPropuesta $licitacionPropuesta)
     {
-        $licitacionPropuesta->load(['items.requestItem.page','items.product']);
-
-        return view('admin.licitacion_propuestas.edit', [
-            'propuesta' => $licitacionPropuesta
-        ]);
+        $licitacionPropuesta->load(['items.requestItem.page', 'items.product']);
+        return view('admin.licitacion_propuestas.edit', ['propuesta' => $licitacionPropuesta]);
     }
 
     public function update(Request $request, LicitacionPropuesta $licitacionPropuesta)
@@ -338,7 +310,6 @@ class LicitacionPropuestaController extends Controller implements HasMiddleware
     public function destroy(LicitacionPropuesta $licitacionPropuesta)
     {
         $licitacionPropuesta->delete();
-
         return back()->with('status', 'Propuesta eliminada.');
     }
 
@@ -357,7 +328,105 @@ class LicitacionPropuestaController extends Controller implements HasMiddleware
     protected function generarCodigo(): string
     {
         $nextId = (LicitacionPropuesta::max('id') ?? 0) + 1;
-
         return 'PRO-' . now()->format('Y') . '-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
+    }
+
+    // ==========================================================
+    // ✅ Helpers: busca candidatos en products (máx 5)
+    // ==========================================================
+    protected function findCandidates(string $text, int $limit = 5): Collection
+    {
+        $limit = max(1, min(5, $limit));
+
+        $keywords = $this->extractKeywords($text);
+
+        // 1) intento: frase corta (primeros 60 chars)
+        $short = mb_substr($this->normalizeText($text), 0, 60);
+
+        $q = Product::query()
+            ->select(['id', 'sku', 'name', 'brand', 'unit', 'price'])
+            ->where('active', true);
+
+        if ($short !== '') {
+            $q->where(function ($qq) use ($short) {
+                $qq->where('name', 'like', "%{$short}%")
+                    ->orWhere('sku', 'like', "%{$short}%")
+                    ->orWhere('description', 'like', "%{$short}%")
+                    ->orWhere('tags', 'like', "%{$short}%")
+                    ->orWhere('brand', 'like', "%{$short}%");
+            });
+        }
+
+        $cands = $q->limit($limit)->get();
+
+        // 2) si no encontró, buscar por keywords (AND suave)
+        if ($cands->isEmpty() && !empty($keywords)) {
+            $q2 = Product::query()
+                ->select(['id', 'sku', 'name', 'brand', 'unit', 'price'])
+                ->where('active', true);
+
+            foreach ($keywords as $w) {
+                $q2->where(function ($qq) use ($w) {
+                    $qq->where('name', 'like', "%{$w}%")
+                        ->orWhere('sku', 'like', "%{$w}%")
+                        ->orWhere('description', 'like', "%{$w}%")
+                        ->orWhere('tags', 'like', "%{$w}%")
+                        ->orWhere('brand', 'like', "%{$w}%");
+                });
+            }
+
+            $cands = $q2->limit($limit)->get();
+        }
+
+        // 3) fallback: OR por keywords
+        if ($cands->isEmpty() && !empty($keywords)) {
+            $q3 = Product::query()
+                ->select(['id', 'sku', 'name', 'brand', 'unit', 'price'])
+                ->where('active', true)
+                ->where(function ($qq) use ($keywords) {
+                    foreach ($keywords as $w) {
+                        $qq->orWhere('name', 'like', "%{$w}%")
+                            ->orWhere('sku', 'like', "%{$w}%")
+                            ->orWhere('description', 'like', "%{$w}%")
+                            ->orWhere('tags', 'like', "%{$w}%")
+                            ->orWhere('brand', 'like', "%{$w}%");
+                    }
+                });
+
+            $cands = $q3->limit($limit)->get();
+        }
+
+        return $cands;
+    }
+
+    protected function extractKeywords(string $text): array
+    {
+        $t = mb_strtolower($this->normalizeText($text));
+        $t = preg_replace('/[^a-z0-9áéíóúñü\s]/iu', ' ', $t);
+        $parts = preg_split('/\s+/', trim($t)) ?: [];
+
+        $stop = [
+            'de','del','la','las','el','los','y','o','u','en','con','para','por','a','al','un','una','unos','unas',
+            'tipo','color','medida','medidas','aprox','aproximadas','fabricada','fabricado','incluye','incluido',
+            'capacidad','hasta','garantia','meses','años','debera','cumplir','norma','nmx','nom','ance',
+            'cm','mm','pulgadas','pulgada','mts','metro','metros','volt','volts','hertz','hz','amperes','cc'
+        ];
+
+        $words = [];
+        foreach ($parts as $w) {
+            if (mb_strlen($w) < 4) continue;
+            if (in_array($w, $stop, true)) continue;
+            $words[] = $w;
+        }
+
+        $words = array_values(array_unique($words));
+        return array_slice($words, 0, 6);
+    }
+
+    protected function normalizeText(string $text): string
+    {
+        $text = trim($text);
+        $text = preg_replace('/\s+/u', ' ', $text);
+        return $text;
     }
 }

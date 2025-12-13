@@ -71,12 +71,14 @@
         background: linear-gradient(135deg, var(--lp-accent-soft), #ffffff);
         border:1px solid rgba(191,219,254,1);
         box-shadow: 0 10px 26px rgba(37,99,235,.10);
+        flex:0 0 auto;
     }
 
     .lp-title{
         font-weight:700;
         font-size:1.05rem;
         line-height:1.2;
+        word-break:break-word;
     }
     .lp-sub{
         margin-top:6px;
@@ -97,6 +99,7 @@
         background:#fff;
         font-size:.78rem;
         color:var(--lp-muted);
+        white-space:nowrap;
     }
 
     .lp-badge--ok{
@@ -253,6 +256,7 @@
         margin-top:10px;
         font-size:.84rem;
         color:var(--lp-muted);
+        flex-wrap:wrap;
     }
 
     .lp-quick{
@@ -342,6 +346,7 @@
         background: #eff6ff;
         color:#1d4ed8;
         transition:transform .08s ease, box-shadow .18s ease;
+        white-space:nowrap;
     }
     .lp-link:hover{
         transform: translateY(-1px);
@@ -549,15 +554,9 @@
                         </div>
 
                         <div class="lp-quick">
-                            <button type="button" class="lp-chip" x-on:click="setAll()">
-                                Todo
-                            </button>
-                            <button type="button" class="lp-chip" x-on:click="setFirstHalf()">
-                                Primera mitad
-                            </button>
-                            <button type="button" class="lp-chip" x-on:click="setSecondHalf()">
-                                Segunda mitad
-                            </button>
+                            <button type="button" class="lp-chip" x-on:click="setAll()">Todo</button>
+                            <button type="button" class="lp-chip" x-on:click="setFirstHalf()">Primera mitad</button>
+                            <button type="button" class="lp-chip" x-on:click="setSecondHalf()">Segunda mitad</button>
                         </div>
 
                         <div class="lp-note">
@@ -653,24 +652,6 @@
                 class="lp-iframe"
                 src="{{ route('admin.licitacion-pdfs.preview', ['licitacionPdf' => $pdf->id]) }}"
             ></iframe>
-        </div>
-    </div>
-</div>
-
-<script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
-@endsection
- para ubicar en qué páginas cortar.
-                        </div>
-                    </div>
-                    <div style="font-size:.75rem; opacity:.9;">
-                        {{ $pageCount }} páginas
-                    </div>
-                </div>
-                <iframe
-                    class="lp-preview-frame"
-                    src="{{ route('admin.licitacion-pdfs.preview', ['licitacionPdf' => $pdf->id]) }}"
-                ></iframe>
-            </div>
         </div>
     </div>
 </div>

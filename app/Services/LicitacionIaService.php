@@ -9,7 +9,11 @@ use Illuminate\Support\Facades\Storage;
 
 class LicitacionIaService
 {
-    public function processSplitWithAi(LicitacionPropuesta $propuesta, int $splitIndex): void
+    /**
+     * Procesa un split con OpenAI y CREA items.
+     * ✅ Retorna array de IDs creados para poder hacer matching SYNC solo a esos renglones.
+     */
+    public function processSplitWithAi(LicitacionPropuesta $propuesta, int $splitIndex): array
     {
         $pdf = $propuesta->licitacionPdf;
         if (!$pdf) {
@@ -42,7 +46,7 @@ class LicitacionIaService
         $upload = Http::withToken($apiKey)
             ->timeout(240)
             ->attach('file', Storage::get($path), basename($path))
-            ->post($baseUrl.'/v1/files', ['purpose' => 'user_data']);
+            ->post($baseUrl . '/v1/files', ['purpose' => 'user_data']);
 
         if (!$upload->ok()) {
             Log::error('Error subiendo PDF a OpenAI', [
@@ -89,7 +93,7 @@ TXT;
         $response = Http::withToken($apiKey)
             ->timeout(300)
             ->withHeaders(['Content-Type' => 'application/json'])
-            ->post($baseUrl.'/v1/responses', [
+            ->post($baseUrl . '/v1/responses', [
                 'model'        => $model,
                 'instructions' => $systemPrompt,
                 'input'        => [[
@@ -153,6 +157,8 @@ TXT;
         }
 
         // 6) guardar items (usa tus columnas reales)
+        $createdIds = [];
+
         foreach ($items as $row) {
             if (!is_array($row)) continue;
 
@@ -172,25 +178,28 @@ TXT;
                 if ($unidad === '') $unidad = null;
             }
 
-            $propuesta->items()->create([
-                'licitacion_request_item_id' => null,   // ✅ tu tabla debe permitir NULL
+            // ✅ OJO: aquí NO metemos columnas que no existen en tu tabla.
+            // Tu tabla tiene: product_id, descripcion_raw, match_score, motivo_seleccion, unidad_propuesta, cantidad_propuesta, precio_unitario, subtotal, notas.
+            // (Si luego agregas suggested_products/match_status/match_reason, ya lo puedes añadir.)
+            $created = $propuesta->items()->create([
+                'licitacion_request_item_id' => null,   // debe ser nullable en BD
                 'product_id'                 => null,
-                'suggested_product_id'       => null,
+
+                'descripcion_raw'            => $desc,
                 'match_score'                => null,
                 'motivo_seleccion'           => null,
-                'match_reason'               => null,
-                'match_status'               => 'pending',
-                'manual_selected'            => false,
 
                 'unidad_propuesta'           => $unidad,
                 'cantidad_propuesta'         => $qty,
                 'precio_unitario'            => null,
                 'subtotal'                   => 0,
                 'notas'                      => null,
-
-                'descripcion_raw'            => $desc,
             ]);
+
+            $createdIds[] = $created->id;
         }
+
+        return $createdIds;
     }
 
     private function extractOutputText(array $json): string
@@ -210,20 +219,22 @@ TXT;
         }
 
         if (!$raw && isset($json['output'][0]['content'][0]['text'])) {
-            $raw = (string)$json['output'][0]['content'][0]['text'];
+            $raw = (string) $json['output'][0]['content'][0]['text'];
         }
 
-        return trim((string)$raw);
+        return trim((string) $raw);
     }
 
     private function cleanupJsonText(string $raw): string
     {
         $raw = trim($raw);
 
+        // quitar fences
         $raw = preg_replace('/^```(?:json)?/i', '', $raw);
         $raw = preg_replace('/```$/', '', $raw);
         $raw = trim($raw);
 
+        // recortar antes del primer { o [
         $firstObj = strpos($raw, '{');
         $firstArr = strpos($raw, '[');
 
@@ -234,6 +245,7 @@ TXT;
 
         if ($start !== null) $raw = substr($raw, $start);
 
+        // recortar hasta el último } o ]
         $lastObj = strrpos($raw, '}');
         $lastArr = strrpos($raw, ']');
 
@@ -260,7 +272,7 @@ TXT;
 
         // a veces viene JSON dentro de string con comillas escapadas
         if (str_starts_with($raw, '"') && str_ends_with($raw, '"')) {
-            $unquoted = json_decode($raw, true); // esto quita escapes
+            $unquoted = json_decode($raw, true); // quita escapes
             if (is_string($unquoted)) {
                 $unquoted = $this->cleanupJsonText($unquoted);
                 $data2 = json_decode($unquoted, true);
@@ -271,6 +283,9 @@ TXT;
         return null;
     }
 
+    /**
+     * 2º llamada a OpenAI para reparar JSON (cuando viene cortado o malformado)
+     */
     private function repairJsonWithOpenAi(string $apiKey, string $baseUrl, string $model, string $raw): string
     {
         $prompt = <<<TXT
@@ -289,13 +304,13 @@ TXT;
         $resp = Http::withToken($apiKey)
             ->timeout(180)
             ->withHeaders(['Content-Type' => 'application/json'])
-            ->post($baseUrl.'/v1/responses', [
+            ->post($baseUrl . '/v1/responses', [
                 'model'        => $model,
                 'instructions' => 'Eres un validador y reparador de JSON. Regresa SOLO JSON válido.',
                 'input'        => [[
                     'role'    => 'user',
                     'content' => [
-                        ['type' => 'input_text', 'text' => $prompt."\n\n".$raw],
+                        ['type' => 'input_text', 'text' => $prompt . "\n\n" . $raw],
                     ],
                 ]],
                 'temperature'       => 0.0,
