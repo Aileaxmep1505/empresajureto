@@ -900,3 +900,15 @@ Route::post('licitacion-propuestas/{licitacionPropuesta}/splits/{splitIndex}/pro
 Route::post('licitacion-propuestas/{licitacionPropuesta}/merge',
     [LicitacionPropuestaController::class, 'merge'])
     ->name('admin.licitacion-propuestas.merge');
+
+Route::middleware(['auth'])
+    ->prefix('admin')
+    ->name('admin.')
+    ->group(function () {
+
+        Route::get('/products/search', [LicitacionPropuestaController::class, 'searchProducts'])
+            ->name('products.search');
+
+        Route::post('/licitacion-propuesta-items/{item}/apply-product', [LicitacionPropuestaController::class, 'applyProductAjax'])
+            ->name('licitacion-propuesta-items.apply-product');
+    });

@@ -429,4 +429,127 @@ class LicitacionPropuestaController extends Controller implements HasMiddleware
         $text = preg_replace('/\s+/u', ' ', $text);
         return $text;
     }
+        // ==========================================================
+    // ✅ AJAX: buscador server-side (products) para dropdown/modal
+    // ==========================================================
+    public function searchProducts(Request $request)
+    {
+        $q     = trim((string) $request->get('q', ''));
+        $page  = max(1, (int) $request->get('page', 1));
+        $limit = min(30, max(10, (int) $request->get('limit', 20)));
+
+        $query = Product::query()
+            ->select(['id','sku','name','brand','unit','price','cost']) // 👈 cost si existe
+            ->where('active', true)
+            ->when($q !== '', function ($qq) use ($q) {
+                $qq->where(function ($w) use ($q) {
+                    $w->where('name', 'like', "%{$q}%")
+                      ->orWhere('sku', 'like', "%{$q}%")
+                      ->orWhere('brand', 'like', "%{$q}%")
+                      ->orWhere('description', 'like', "%{$q}%")
+                      ->orWhere('tags', 'like', "%{$q}%");
+                });
+            })
+            ->orderBy('name');
+
+        $total = (clone $query)->count();
+
+        $items = $query->forPage($page, $limit)->get()->map(function ($p) {
+            return [
+                'id' => $p->id,
+                'text' => trim(($p->sku ? $p->sku.' — ' : '').$p->name.' — '.$p->brand),
+                'meta' => [
+                    'sku'   => $p->sku,
+                    'name'  => $p->name,
+                    'brand' => $p->brand,
+                    'unit'  => $p->unit,
+                    'price' => (float) ($p->price ?? 0),
+                    'cost'  => (float) ($p->cost ?? 0), // si no tienes cost, quedará 0
+                ],
+            ];
+        });
+
+        return response()->json([
+            'results' => $items,
+            'pagination' => [
+                'more' => ($page * $limit) < $total,
+            ],
+        ]);
+    }
+
+    // ==========================================================
+    // ✅ AJAX: aplicar producto seleccionado + autocalcular
+    // ==========================================================
+    public function applyProductAjax(Request $request, LicitacionPropuestaItem $item)
+    {
+        $data = $request->validate([
+            'product_id'      => ['required', 'integer', 'exists:products,id'],
+            'precio_unitario' => ['nullable', 'numeric', 'min:0'],
+            'motivo'          => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $productId = (int) $data['product_id'];
+
+        // cargar relaciones necesarias
+        $item->loadMissing(['propuesta', 'product']);
+
+        $product = Product::select(['id','sku','name','brand','unit','price','cost'])
+            ->where('active', true)
+            ->findOrFail($productId);
+
+        // aplicar
+        $item->product_id = $product->id;
+
+        // precio unitario: si viene manual, úsalo; si no, usa price del producto
+        if (array_key_exists('precio_unitario', $data) && $data['precio_unitario'] !== null) {
+            $item->precio_unitario = (float) $data['precio_unitario'];
+        } else {
+            $item->precio_unitario = (float) ($product->price ?? 0);
+        }
+
+        // ✅ costo automático (si tu tabla tiene columna)
+        // Si tu columna se llama diferente (ej: costo_jureto), cámbiala aquí:
+        if (property_exists($item, 'costo') || \Illuminate\Support\Facades\Schema::hasColumn($item->getTable(), 'costo')) {
+            $item->costo = (float) ($product->cost ?? 0);
+        }
+        if (\Illuminate\Support\Facades\Schema::hasColumn($item->getTable(), 'costo_jureto')) {
+            $item->costo_jureto = (float) ($product->cost ?? 0);
+        }
+
+        // subtotal
+        $qty = (float) ($item->cantidad_propuesta ?? 0);
+        $pu  = (float) ($item->precio_unitario ?? 0);
+        $item->subtotal = $qty * $pu;
+
+        $item->match_score = $item->match_score ?? null;
+
+        $item->motivo_seleccion = $data['motivo']
+            ?? ($item->motivo_seleccion ?: 'Seleccionado manualmente');
+
+        $item->save();
+
+        // recalcular totales propuesta
+        $this->recalcTotals($item->propuesta);
+
+        return response()->json([
+            'ok' => true,
+            'row' => [
+                'item_id'        => $item->id,
+                'product_id'     => $product->id,
+                'sku'            => $product->sku,
+                'name'           => $product->name,
+                'brand'          => $product->brand,
+                'unit'           => $product->unit,
+                'cost'           => (float) ($product->cost ?? 0),
+                'precio_unitario'=> (float) ($item->precio_unitario ?? 0),
+                'subtotal'       => (float) ($item->subtotal ?? 0),
+            ],
+            'totals' => [
+                'subtotal' => (float) $item->propuesta->subtotal,
+                'iva'      => (float) $item->propuesta->iva,
+                'total'    => (float) $item->propuesta->total,
+            ],
+        ]);
+    }
+
 }
