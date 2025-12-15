@@ -65,6 +65,8 @@ use App\Http\Controllers\Admin\LicitacionPropuestaController;
 // 🔹 MODELOS
 use App\Models\LicitacionPdf;
 
+use App\Http\Controllers\DebugOpenAiController;
+
 /*
 |--------------------------------------------------------------------------
 | AUTH
@@ -912,3 +914,8 @@ Route::middleware(['auth'])
         Route::post('/licitacion-propuesta-items/{item}/apply-product', [LicitacionPropuestaController::class, 'applyProductAjax'])
             ->name('licitacion-propuesta-items.apply-product');
     });
+
+
+
+    Route::get('/debug/openai/models', [DebugOpenAiController::class, 'models']);
+Route::get('/debug/openai/ticker', [DebugOpenAiController::class, 'ticker']);

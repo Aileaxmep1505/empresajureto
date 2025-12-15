@@ -87,7 +87,6 @@
           'brand' => $p->brand ?? null,
           'unit'  => $p->unit ?? null,
           'price' => (float)($p->price ?? 0),
-          // si tienes "cost" en products, descomenta:
           // 'cost'  => (float)($p->cost ?? 0),
         ],
       ];
@@ -392,6 +391,32 @@
     white-space:nowrap;
   }
 
+  /* ✅ badge de match para candidatos */
+  .pe-matchbadge{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    padding:6px 10px;
+    border-radius:999px;
+    border:1px solid rgba(15,23,42,.12);
+    background:#fff;
+    font-size:.78rem;
+    font-weight:950;
+    color:var(--ink);
+    white-space:nowrap;
+  }
+  .pe-matchbadge small{ font-weight:900; color:var(--muted); }
+  .pe-mini-reason{
+    margin-top:6px;
+    font-size:.76rem;
+    color:#64748b;
+    line-height:1.25;
+    display:-webkit-box;
+    -webkit-line-clamp:2;
+    -webkit-box-orient:vertical;
+    overflow:hidden;
+  }
+
   .pe-suggest{
     margin-top:8px;
     padding:10px 10px;
@@ -414,8 +439,8 @@
   }
   .modal-j{
     width:min(980px, 96vw);
-    height:min(78vh, 760px);     /* ✅ MÁS ALTO */
-    min-height:520px;            /* ✅ evita “delgado” */
+    height:min(78vh, 760px);
+    min-height:520px;
     background:#fff;
     border-radius:18px;
     box-shadow:0 28px 80px rgba(0,0,0,.35);
@@ -447,17 +472,17 @@
   .btn-x{
     border:1px solid rgba(15,23,42,.12);
     background:#fff;
-
     border-radius:10px;
-    font-weight:80;
+    font-weight:800;
     cursor:pointer;
+    padding:8px 10px;
     transition: background .16s ease, color .16s ease, border-color .16s ease, transform .12s ease;
   }
   .btn-x:hover{ background:#0f172a; color:#fff; border-color:#0f172a; transform: translateY(-1px); }
 
   .modal-body{
     padding:16px;
-    overflow:auto;        /* ✅ scroll interno */
+    overflow:auto;
     flex:1 1 auto;
   }
   .modal-label{
@@ -505,10 +530,10 @@
   }
   .btn-solid:hover{ background:#111827; border-color:#111827; transform: translateY(-1px); }
 
-  /* ===================== TOM SELECT (GRANDE + BONITO) ===================== */
+  /* ===================== TOM SELECT ===================== */
   .ts-wrapper{ width:100%; }
   .ts-control{
-    min-height:32px !important;     /* ✅ MÁS ALTO */
+    min-height:32px !important;
     border-radius:14px !important;
     border:1px solid rgba(15,23,42,.14) !important;
     padding:12px 12px !important;
@@ -521,7 +546,7 @@
     box-shadow:0 18px 50px rgba(2,6,23,.18) !important;
     overflow:hidden;
   }
-  .ts-dropdown .ts-dropdown-content{ max-height:250px !important; } /* ✅ más resultados */
+  .ts-dropdown .ts-dropdown-content{ max-height:250px !important; }
   .ts-dropdown .option{
     padding:10px 10px !important;
     border-bottom:1px solid rgba(229,231,235,.7);
@@ -742,6 +767,12 @@
 
                 $candidates = $candidatesByItem[$item->id] ?? collect();
 
+                // ✅ Score “previo” (si el item no tiene match_score, muestra el top candidato)
+                $topCandidateScore = null;
+                if (is_null($scorePercent) && $candidates instanceof \Illuminate\Support\Collection && $candidates->isNotEmpty()) {
+                  $topCandidateScore = (int) max(0, min(100, (int)($candidates->first()->match_score ?? 0)));
+                }
+
                 $hasSuggestedCol = array_key_exists('suggested_product_id', $item->getAttributes());
                 $suggested = null;
                 if ($hasSuggestedCol) {
@@ -798,66 +829,41 @@
                     @endif
                   </div>
 
-                  {{-- Sugerencia IA --}}
-                  @if($hasSuggestedCol && empty($item->product_id) && !empty($item->suggested_product_id))
-                    <div class="pe-suggest">
-                      <div class="pe-suggest-row">
-                        <div class="pe-suggest-left">
-                          <div style="font-weight:950; margin-bottom:6px;">Sugerencia IA</div>
-
-                          @if($suggested)
-                            <div class="pe-prod">{{ trim(($suggested->sku ?? '').' '.($suggested->name ?? '')) }}</div>
-                            <div class="pe-prod-meta">
-                              @if(!empty($suggested->brand)) Marca: {{ $suggested->brand }} · @endif
-                              Unidad: {{ $suggested->unit ?? '—' }}
-                              @if(!is_null($suggested->price)) · Precio: {{ $propuesta->moneda ?? 'MXN' }} {{ number_format((float)$suggested->price,2) }} @endif
-                            </div>
-                          @else
-                            <div class="pe-prod">Producto ID: {{ $item->suggested_product_id }}</div>
-                            <div class="pe-prod-meta">Activa relación suggestedProduct() para ver nombre/SKU.</div>
-                          @endif
-
-                          @if(!empty($item->match_reason))
-                            <div class="pe-mini" style="margin-top:8px;">{{ $item->match_reason }}</div>
-                          @endif
-                        </div>
-
-                        <div class="pe-cand-actions">
-                          @if($routeApply)
-                            <form method="POST" action="{{ route($routeApply, $item) }}">
-                              @csrf
-                              <input type="hidden" name="product_id" value="{{ $item->suggested_product_id }}">
-                              <button class="pe-btn pe-btn--black pe-btn-mini" type="submit">Aplicar</button>
-                            </form>
-                          @endif
-
-                          @if($routeReject)
-                            <form method="POST" action="{{ route($routeReject, $item) }}">
-                              @csrf
-                              <button class="pe-btn pe-btn--danger pe-btn-mini" type="submit">No aplica</button>
-                            </form>
-                          @endif
-                        </div>
-                      </div>
-                    </div>
-                  @endif
-
-                  {{-- 5 coincidencias --}}
+                  {{-- 5 coincidencias (con score + razón) --}}
                   @if(empty($item->product_id))
                     @if($candidates->isNotEmpty())
                       <div style="margin-top:10px; display:flex; flex-direction:column; gap:10px;">
                         @foreach($candidates as $cand)
+                          @php
+                            $cScore = (int) max(0, min(100, (int)($cand->match_score ?? 0)));
+                            $cReason = $cand->match_reason ?? null;
+                          @endphp
+
                           <div style="border:1px solid rgba(229,231,235,.9); border-radius:14px; padding:10px 12px; background:#fff; display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;">
                             <div style="min-width:240px; flex:1 1 420px;">
-                              <div class="pe-prod">{{ trim(($cand->sku ?? '').' '.($cand->name ?? '')) }}</div>
+                              <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+                                <div class="pe-prod">{{ trim(($cand->sku ?? '').' '.($cand->name ?? '')) }}</div>
+
+                                <span class="pe-matchbadge" title="{{ $cReason ? $cReason : '' }}">
+                                  <span>Coincide {{ $cScore }}%</span>
+                                  <span class="pe-bar" style="width:64px; height:7px;">
+                                    <div style="transform:scaleX({{ $cScore/100 }});"></div>
+                                  </span>
+                                </span>
+                              </div>
+
                               <div class="pe-prod-meta">
                                 @if(!empty($cand->brand)) Marca: {{ $cand->brand }} · @endif
                                 Unidad: {{ $cand->unit ?? '—' }}
                                 @if(!is_null($cand->price)) · Precio: {{ $propuesta->moneda ?? 'MXN' }} {{ number_format((float)$cand->price,2) }} @endif
                               </div>
+
+                              @if($cReason)
+                                <div class="pe-mini-reason">{{ $cReason }}</div>
+                              @endif
                             </div>
 
-                            <div class="pe-cand-actions">
+                            <div class="pe-cand-actions" style="display:flex; gap:8px; align-items:center;">
                               @if($routeProductsSearch && $routeApplyAjaxName)
                                 <button type="button" class="pe-btn pe-btn--black pe-btn-mini" onclick="applyProductToItem({{ $item->id }}, {{ $cand->id }}, false)">
                                   Elegir
@@ -888,6 +894,13 @@
                     @if($item->motivo_seleccion)
                       <div class="pe-mini" style="margin-top:6px;">{{ $item->motivo_seleccion }}</div>
                     @endif
+                  @elseif(!is_null($topCandidateScore))
+                    {{-- ✅ Si el item no tiene match_score, al menos muestra el top de coincidencias --}}
+                    <div class="pe-match">
+                      <div class="pe-bar"><div style="transform:scaleX({{ $topCandidateScore/100 }});"></div></div>
+                      <strong style="color:var(--ink);">{{ $topCandidateScore }}%</strong>
+                    </div>
+                    <div class="pe-mini" style="margin-top:6px;">Top sugerencia (aún no aplicado)</div>
                   @else
                     <span class="pe-tag">IA pendiente</span>
                   @endif
@@ -972,7 +985,6 @@
   const routeProductsSearch = @json($routeProductsSearch ? route($routeProductsSearch) : null);
   const routeApplyAjaxTemplate = @json($routeApplyAjaxName ? route($routeApplyAjaxName, ['item' => '__ID__']) : null);
 
-  // ✅ Mapas desde PHP (solicitado + preselección)
   const solicitadoByItem = @json($solicitadoByItem);
   const preselectedByItem = @json($preselectedByItem);
 
@@ -1017,12 +1029,10 @@
     const solicitado = (solicitadoByItem[itemId] || '—').toString();
     document.getElementById('pickerSubtitle').textContent = solicitado;
 
-    // abrir modal
     const backdrop = document.getElementById('pickerBackdrop');
     backdrop.style.display = 'flex';
     backdrop.setAttribute('aria-hidden', 'false');
 
-    // limpiar card
     const metaBox = document.getElementById('pickedMeta');
     if(metaBox){ metaBox.style.display = 'none'; metaBox.innerHTML = ''; }
 
@@ -1074,7 +1084,6 @@
       picker.clearOptions();
     }
 
-    // ✅ si ya hay producto seleccionado, precargarlo y mostrar meta
     const pre = preselectedByItem[itemId] || null;
     if(pre && pre.id){
       picker.addOption(pre);

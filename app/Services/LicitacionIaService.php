@@ -15,6 +15,11 @@ class LicitacionIaService
      */
     public function processSplitWithAi(LicitacionPropuesta $propuesta, int $splitIndex): array
     {
+        // ✅ SYNC sin que PHP mate la ejecución
+        @set_time_limit(0);
+        @ini_set('max_execution_time', '0');
+        @ini_set('default_socket_timeout', '900');
+
         $pdf = $propuesta->licitacionPdf;
         if (!$pdf) {
             throw new \Exception('La propuesta no tiene PDF asociado.');
@@ -34,19 +39,34 @@ class LicitacionIaService
             throw new \Exception('No se encontró el PDF recortado para este split.');
         }
 
+        // ✅ OpenAI config
         $apiKey  = config('services.openai.api_key') ?: config('services.openai.key');
         $baseUrl = rtrim(config('services.openai.base_url', 'https://api.openai.com'), '/');
-        $model   = config('services.openai.model_extract', 'gpt-4.1-mini');
 
         if (!$apiKey) {
             throw new \Exception('Falta API key de OpenAI.');
         }
 
-        // 1) subir pdf
+        // ✅ SOLO GPT-5 (según tus modelos visibles)
+        // Tip: pon esto en services.openai.primary / fallbacks (pero aquí dejamos defaults seguros).
+        $primary   = config('services.openai.primary', 'gpt-5-chat-latest');
+        $fallbacks = config('services.openai.fallbacks', ['gpt-5-2025-08-07', 'gpt-5-mini']);
+        $models    = array_values(array_filter(array_merge([$primary], (array)$fallbacks)));
+
+        // ✅ modelo barato/rápido para repair
+        $repairModel = config('services.openai.json_repair_model', 'gpt-5-mini');
+
+        // ==========================================================
+        // 1) Subir PDF
+        // ==========================================================
         $upload = Http::withToken($apiKey)
-            ->timeout(240)
+            ->timeout(420)
+            ->connectTimeout(30)
             ->attach('file', Storage::get($path), basename($path))
-            ->post($baseUrl . '/v1/files', ['purpose' => 'user_data']);
+            ->post($baseUrl . '/v1/files', [
+                // purpose recomendado para uso “ad-hoc” en prompts con archivos
+                'purpose' => 'user_data',
+            ]);
 
         if (!$upload->ok()) {
             Log::error('Error subiendo PDF a OpenAI', [
@@ -61,13 +81,24 @@ class LicitacionIaService
             throw new \Exception('OpenAI no devolvió file_id.');
         }
 
-        // 2) prompt
+        // ✅ Espera + validación de propiedad (mitiga “Unknown error while validating file ownership”)
+        $this->waitForFileReady($apiKey, $baseUrl, $fileId);
+
+        // ==========================================================
+        // 2) Prompt (mejorado para renglones)
+        // ==========================================================
         $systemPrompt = <<<TXT
 Eres un asistente experto en análisis de licitaciones públicas en México.
 
-Analiza el PDF adjunto (puede contener texto, tablas o escaneos).
-Extrae TODOS los renglones solicitados (productos/servicios).
-Ignora encabezados, bases legales, firmas, sellos, texto administrativo.
+Tarea:
+- Analiza el PDF adjunto (puede contener texto, tablas o escaneos).
+- Extrae TODOS los renglones solicitados (productos/servicios).
+- Ignora: encabezados, bases legales, firmas, sellos, texto administrativo, notas generales.
+
+Importante:
+- Si el documento tiene tablas, cada fila/celda relevante debe convertirse en un item.
+- Si un renglón viene partido en varias líneas, júntalo en una sola "descripcion".
+- NO inventes unidades ni cantidades: si no se ve, usa cantidad=1 y unidad=null.
 
 DEVUELVE ÚNICAMENTE JSON VÁLIDO (sin markdown, sin explicación) con esta forma EXACTA:
 
@@ -81,41 +112,84 @@ DEVUELVE ÚNICAMENTE JSON VÁLIDO (sin markdown, sin explicación) con esta form
     }
   ]
 }
-
-Reglas:
-- Solo JSON. Nada más.
-- cantidad: número entero. Si no se ve, usa 1.
-- unidad: texto o null.
-- No inventes datos.
 TXT;
 
-        // 3) responses
-        $response = Http::withToken($apiKey)
-            ->timeout(300)
-            ->withHeaders(['Content-Type' => 'application/json'])
-            ->post($baseUrl . '/v1/responses', [
-                'model'        => $model,
-                'instructions' => $systemPrompt,
-                'input'        => [[
-                    'role'    => 'user',
-                    'content' => [
-                        ['type' => 'input_text', 'text' => 'Devuelve SOLO el JSON solicitado.'],
-                        ['type' => 'input_file', 'file_id' => $fileId],
-                    ],
-                ]],
-                'temperature'       => 0.0,
-                'max_output_tokens' => 7000,
-            ]);
+        // ==========================================================
+        // 3) Responses (SIN temperature; GPT-5 puede rechazarlo)
+        // ==========================================================
+        $response  = null;
+        $lastErr   = null;
+        $usedModel = null;
 
-        if (!$response->ok()) {
-            Log::error('Error OpenAI Responses', [
-                'status' => $response->status(),
-                'body'   => $response->body(),
-            ]);
+        foreach ($models as $tryModel) {
+            $usedModel = $tryModel;
+
+            $attempts = 0;
+            $maxAttempts = 3;
+
+            while ($attempts < $maxAttempts) {
+                $attempts++;
+
+                $response = Http::withToken($apiKey)
+                    ->timeout(720)
+                    ->connectTimeout(30)
+                    ->withHeaders(['Content-Type' => 'application/json'])
+                    ->post($baseUrl . '/v1/responses', [
+                        'model'        => $tryModel,
+                        'instructions' => $systemPrompt,
+                        'input'        => [[
+                            'role'    => 'user',
+                            'content' => [
+                                ['type' => 'input_text', 'text' => 'Devuelve SOLO el JSON solicitado.'],
+                                ['type' => 'input_file', 'file_id' => $fileId],
+                            ],
+                        ]],
+                        // ⚠️ GPT-5: NO mandar temperature/presence_penalty
+                        'max_output_tokens' => 6500,
+                    ]);
+
+                if ($response->ok()) {
+                    Log::info('OpenAI OK', [
+                        'model' => $tryModel,
+                        'propuesta_id' => $propuesta->id,
+                        'split_index' => $splitIndex,
+                    ]);
+                    break 2;
+                }
+
+                $lastErr = [
+                    'model'   => $tryModel,
+                    'status'  => $response->status(),
+                    'attempt' => $attempts,
+                    'body'    => $response->body(),
+                ];
+                Log::warning('OpenAI intento falló', $lastErr);
+
+                $status = $response->status();
+                $body   = $response->body();
+
+                // Reintentos útiles:
+                // - 5xx
+                // - 429 rate limit
+                // - ownership validation intermitente (a veces lo tira como 500)
+                if ($status >= 500 || $status === 429 || str_contains($body, 'file ownership')) {
+                    usleep(700000 * $attempts); // 0.7s / 1.4s / 2.1s
+                    continue;
+                }
+
+                // 4xx “real”: no reintentar este modelo
+                break;
+            }
+        }
+
+        if (!$response || !$response->ok()) {
+            Log::error('Error OpenAI Responses (todos los modelos fallaron)', $lastErr ?? []);
             throw new \Exception('Error procesando PDF con OpenAI.');
         }
 
-        // 4) texto
+        // ==========================================================
+        // 4) Texto
+        // ==========================================================
         $raw = $this->extractOutputText($response->json());
         if (!$raw) {
             throw new \Exception('OpenAI no devolvió texto interpretable.');
@@ -123,15 +197,18 @@ TXT;
 
         $raw = $this->cleanupJsonText($raw);
 
-        // 5) parse + repair si falla
+        // ==========================================================
+        // 5) Parse + repair si falla
+        // ==========================================================
         $data = $this->decodeJsonLenient($raw);
 
         if (!is_array($data)) {
             Log::warning('JSON inválido de OpenAI (primer intento)', [
+                'model' => $usedModel,
                 'raw' => mb_substr($raw, 0, 8000),
             ]);
 
-            $rawFixed = $this->repairJsonWithOpenAi($apiKey, $baseUrl, $model, $raw);
+            $rawFixed = $this->repairJsonWithOpenAi($apiKey, $baseUrl, $repairModel, $raw);
             $rawFixed = $this->cleanupJsonText($rawFixed);
 
             $data = $this->decodeJsonLenient($rawFixed);
@@ -156,7 +233,9 @@ TXT;
             throw new \Exception('La IA no devolvió items[] en el JSON.');
         }
 
-        // 6) guardar items (usa tus columnas reales)
+        // ==========================================================
+        // 6) Guardar items
+        // ==========================================================
         $createdIds = [];
 
         foreach ($items as $row) {
@@ -178,11 +257,8 @@ TXT;
                 if ($unidad === '') $unidad = null;
             }
 
-            // ✅ OJO: aquí NO metemos columnas que no existen en tu tabla.
-            // Tu tabla tiene: product_id, descripcion_raw, match_score, motivo_seleccion, unidad_propuesta, cantidad_propuesta, precio_unitario, subtotal, notas.
-            // (Si luego agregas suggested_products/match_status/match_reason, ya lo puedes añadir.)
             $created = $propuesta->items()->create([
-                'licitacion_request_item_id' => null,   // debe ser nullable en BD
+                'licitacion_request_item_id' => null,
                 'product_id'                 => null,
 
                 'descripcion_raw'            => $desc,
@@ -202,8 +278,40 @@ TXT;
         return $createdIds;
     }
 
+    /**
+     * Espera a que OpenAI “reconozca” el archivo antes de usarlo en Responses.
+     * Mitiga errores intermitentes de ownership/validación.
+     */
+    private function waitForFileReady(string $apiKey, string $baseUrl, string $fileId): void
+    {
+        // Espera mínima + retries cortos
+        usleep(350000); // 0.35s
+
+        $tries = 0;
+        $maxTries = 6;
+
+        while ($tries < $maxTries) {
+            $tries++;
+
+            $r = Http::withToken($apiKey)
+                ->timeout(30)
+                ->connectTimeout(10)
+                ->get($baseUrl . '/v1/files/' . $fileId);
+
+            if ($r->ok()) return;
+
+            // si falla, dormimos un poco y reintentamos
+            usleep(250000 * $tries); // 0.25 / 0.5 / 0.75 / ...
+        }
+    }
+
     private function extractOutputText(array $json): string
     {
+        // ✅ Algunas respuestas traen output_text directo
+        if (isset($json['output_text']) && is_string($json['output_text']) && trim($json['output_text']) !== '') {
+            return trim($json['output_text']);
+        }
+
         $raw = '';
 
         if (isset($json['output']) && is_array($json['output'])) {
@@ -303,6 +411,7 @@ TXT;
 
         $resp = Http::withToken($apiKey)
             ->timeout(180)
+            ->connectTimeout(30)
             ->withHeaders(['Content-Type' => 'application/json'])
             ->post($baseUrl . '/v1/responses', [
                 'model'        => $model,
@@ -313,7 +422,6 @@ TXT;
                         ['type' => 'input_text', 'text' => $prompt . "\n\n" . $raw],
                     ],
                 ]],
-                'temperature'       => 0.0,
                 'max_output_tokens' => 4500,
             ]);
 

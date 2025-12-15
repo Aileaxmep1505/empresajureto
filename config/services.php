@@ -29,35 +29,55 @@ return [
 
     // OpenAI
 'openai' => [
-    // === Credenciales ===
+    // ==========================
+    // Credenciales
+    // ==========================
     'api_key' => env('OPENAI_API_KEY'),
 
-    // Usa base_url SIN /v1 si tu servicio concatena el path (/v1/chat/completions)
-    'base_url'  => rtrim(env('OPENAI_BASE_URL', 'https://api.openai.com'), '/'),
+    // Base URL SIEMPRE sin /v1
+    'base_url' => rtrim(env('OPENAI_BASE_URL', 'https://api.openai.com'), '/'),
 
-    // Compatibilidad con código antiguo que espera /v1 en la base
-    'base_uri'  => rtrim(env('OPENAI_API_BASE', 'https://api.openai.com/v1'), '/'),
+    // Compatibilidad legacy (solo si algún código viejo lo usa)
+    'base_uri' => rtrim(env('OPENAI_API_BASE', 'https://api.openai.com/v1'), '/'),
 
-    // Opcionales (Organizations / Projects)
+    // Opcionales (solo si usas múltiples orgs/proyectos)
     'org_id'     => env('OPENAI_ORG_ID'),
     'project_id' => env('OPENAI_PROJECT_ID'),
 
-    // === Selección de modelos con Fallback ===
-    // El servicio usará 'primary' y 'fallbacks'. Se conserva 'model' por compatibilidad.
-    'primary'   => env('OPENAI_PRIMARY_MODEL', env('OPENAI_MODEL', 'gpt-5')),
-    'fallbacks' => array_filter(array_map('trim', explode(',', env('OPENAI_FALLBACK_MODELS', 'gpt-4o,gpt-4o-mini')))),
-    'model'     => env('OPENAI_MODEL', 'gpt-5'), // legacy
+    // ==========================
+    // Selección de modelos (GPT-5 ONLY ✅)
+    // Confirmado por openai:check
+    // ==========================
+    // Modelo principal para análisis pesado / PDFs
+    'primary' => env('OPENAI_PRIMARY_MODEL', 'gpt-5-2025-08-07'),
 
-    // === Timeouts y reintentos (para 429/5xx) ===
-    'timeout'              => (int) env('OPENAI_TIMEOUT', 30),
-    'connect_timeout'      => (int) env('OPENAI_CONNECT_TIMEOUT', 10),
-    'max_retries_per_model'=> (int) env('OPENAI_RETRIES_PER_MODEL', 2),
-    'retry_base_delay_ms'  => (int) env('OPENAI_RETRY_BASE_MS', 400),
-    'max_total_attempts'   => (int) env('OPENAI_MAX_TOTAL_ATTEMPTS', 6),
+    // Fallback seguro (chat, estable)
+    'fallbacks' => array_filter(array_map(
+        'trim',
+        explode(',', env('OPENAI_FALLBACK_MODELS', 'gpt-5-chat-latest'))
+    )),
 
-    // === Embeddings ===
-    'embed_model' => env('OPENAI_EMBED_MODEL', 'text-embedding-3-small'),
+    // Legacy (para código viejo que lea services.openai.model)
+    'model' => env('OPENAI_PRIMARY_MODEL', 'gpt-5-2025-08-07'),
+
+    // Modelo barato/rápido para reparaciones de JSON
+    'json_repair_model' => env('OPENAI_JSON_REPAIR_MODEL', 'gpt-5-mini'),
+
+    // ==========================
+    // Timeouts y reintentos
+    // ==========================
+    'timeout'               => (int) env('OPENAI_TIMEOUT', 300),
+    'connect_timeout'       => (int) env('OPENAI_CONNECT_TIMEOUT', 30),
+    'max_retries_per_model' => (int) env('OPENAI_RETRIES_PER_MODEL', 3),
+    'retry_base_delay_ms'   => (int) env('OPENAI_RETRY_BASE_MS', 400),
+    'max_total_attempts'    => (int) env('OPENAI_MAX_TOTAL_ATTEMPTS', 8),
+
+    // ==========================
+    // Embeddings (actual)
+    // ==========================
+    'embed_model' => env('OPENAI_EMBED_MODEL', 'text-embedding-3-large'),
 ],
+
 
     // Slack (notificaciones)
     'slack' => [

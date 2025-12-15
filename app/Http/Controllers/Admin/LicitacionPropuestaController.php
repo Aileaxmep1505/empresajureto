@@ -13,8 +13,11 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Schema;
 
 class LicitacionPropuestaController extends Controller implements HasMiddleware
 {
@@ -112,7 +115,7 @@ class LicitacionPropuestaController extends Controller implements HasMiddleware
         $licitacionPdf = $propuesta->licitacionPdf;
 
         // ==========================================================
-        // ✅ 5 coincidencias por item desde TU tabla products
+        // ✅ 5 coincidencias por item desde products (SMART)
         // ==========================================================
         $candidatesByItem = [];
         foreach ($propuesta->items as $item) {
@@ -121,7 +124,7 @@ class LicitacionPropuestaController extends Controller implements HasMiddleware
             $text = trim((string)($item->descripcion_raw ?: ($item->requestItem?->line_raw ?? '')));
             if ($text === '') continue;
 
-            $candidatesByItem[$item->id] = $this->findCandidates($text, 5);
+            $candidatesByItem[$item->id] = $this->findCandidatesSmart($text, 5);
         }
 
         // ==========================================================
@@ -188,7 +191,7 @@ class LicitacionPropuestaController extends Controller implements HasMiddleware
         }
 
         try {
-            // ✅ IA: crea items y retorna IDs creados (para que puedas hacer matching SYNC solo a esos)
+            // ✅ IA: crea items y retorna IDs creados
             $createdIds = $iaService->processSplitWithAi($propuesta, $splitIndex);
 
             // marcar split como procesado
@@ -201,8 +204,7 @@ class LicitacionPropuestaController extends Controller implements HasMiddleware
             $propuesta->processed_split_indexes = $processed;
             $propuesta->save();
 
-            // ⚠️ Esto te estaba tronando por timeout cuando había muchos items.
-            // Si lo quieres dejar en SYNC, al menos limítalo a los IDs recién creados:
+            // ✅ matching SYNC solo a lo recién creado
             if (!empty($createdIds)) {
                 MatchLicitacionPropuestaItems::dispatchSync($propuesta->id, $createdIds);
             }
@@ -332,104 +334,358 @@ class LicitacionPropuestaController extends Controller implements HasMiddleware
     }
 
     // ==========================================================
-    // ✅ Helpers: busca candidatos en products (máx 5)
+    // ✅ SMART MATCHING (sin entrenar, “piensa” y busca)
     // ==========================================================
-    protected function findCandidates(string $text, int $limit = 5): Collection
+
+    protected function findCandidatesSmart(string $text, int $limit = 5): Collection
     {
-        $limit = max(1, min(5, $limit));
+        $limit = max(1, min(10, $limit));
+        $raw   = trim($text);
+        $norm  = $this->norm($raw);
+        if ($norm === '') return collect();
 
-        $keywords = $this->extractKeywords($text);
+        // ✅ Cache: evita llamar IA cada refresh (7 días)
+        $cacheKey = 'lp_matchplan:' . md5($norm);
+        $plan = Cache::remember($cacheKey, now()->addDays(7), function () use ($raw, $norm) {
+            // 1) quick local parse (códigos y números)
+            $codes = $this->extractCodes($raw);
 
-        // 1) intento: frase corta (primeros 60 chars)
-        $short = mb_substr($this->normalizeText($text), 0, 60);
+            // 2) IA: que “entienda” tipo + keywords + negativos + estrategia
+            $ai = $this->aiBuildSearchPlan($raw);
 
+            // 3) merge
+            return [
+                'codes'    => $codes,
+                'type'     => $ai['type'] ?? null,
+                'keywords' => $ai['keywords'] ?? [],
+                'negatives'=> $ai['negatives'] ?? [],
+                'brand'    => $ai['brand'] ?? null,
+                'notes'    => $ai['notes'] ?? null,
+            ];
+        });
+
+        $codes     = $plan['codes'] ?? [];
+        $type      = $plan['type'] ?? null;
+        $keywords  = array_values(array_unique(array_filter($plan['keywords'] ?? [])));
+        $negatives = array_values(array_unique(array_filter($plan['negatives'] ?? [])));
+        $brandHint = $plan['brand'] ?? null;
+
+        // ✅ 0) Si hay código fuerte, intenta por SKU exacto / contains (PRIORIDAD)
+        if (!empty($codes)) {
+            $qCode = Product::query()
+                ->select(['id','sku','name','brand','unit','price'])
+                ->where('active', true)
+                ->where(function ($qq) use ($codes) {
+                    foreach ($codes as $c) {
+                        $qq->orWhere('sku', $c)
+                           ->orWhere('sku', 'like', "%{$c}%");
+                    }
+                })
+                ->limit($limit)
+                ->get();
+
+            if ($qCode->isNotEmpty()) return $qCode;
+        }
+
+        // ✅ 1) Query base
         $q = Product::query()
-            ->select(['id', 'sku', 'name', 'brand', 'unit', 'price'])
+            ->select(['id','sku','name','brand','unit','price','description','tags'])
             ->where('active', true);
 
-        if ($short !== '') {
-            $q->where(function ($qq) use ($short) {
-                $qq->where('name', 'like', "%{$short}%")
-                    ->orWhere('sku', 'like', "%{$short}%")
-                    ->orWhere('description', 'like', "%{$short}%")
-                    ->orWhere('tags', 'like', "%{$short}%")
-                    ->orWhere('brand', 'like', "%{$short}%");
+        // ✅ 2) Si detectó tipo, úsalo como “ancla”
+        if ($type) {
+            $q->where(function ($qq) use ($type) {
+                $qq->where('name', 'like', "%{$type}%")
+                   ->orWhere('tags', 'like', "%{$type}%")
+                   ->orWhere('description', 'like', "%{$type}%");
             });
         }
 
-        $cands = $q->limit($limit)->get();
-
-        // 2) si no encontró, buscar por keywords (AND suave)
-        if ($cands->isEmpty() && !empty($keywords)) {
-            $q2 = Product::query()
-                ->select(['id', 'sku', 'name', 'brand', 'unit', 'price'])
-                ->where('active', true);
-
-            foreach ($keywords as $w) {
-                $q2->where(function ($qq) use ($w) {
-                    $qq->where('name', 'like', "%{$w}%")
-                        ->orWhere('sku', 'like', "%{$w}%")
-                        ->orWhere('description', 'like', "%{$w}%")
-                        ->orWhere('tags', 'like', "%{$w}%")
-                        ->orWhere('brand', 'like', "%{$w}%");
-                });
-            }
-
-            $cands = $q2->limit($limit)->get();
+        // ✅ 3) Brand hint (si lo detecta)
+        if ($brandHint) {
+            $q->where(function ($qq) use ($brandHint) {
+                $qq->where('brand', 'like', "%{$brandHint}%")
+                   ->orWhere('name', 'like', "%{$brandHint}%");
+            });
         }
 
-        // 3) fallback: OR por keywords
+        // ✅ 4) Si hay keywords, agrega OR (pero ordena por score)
+        if (!empty($keywords)) {
+            $q->where(function ($qq) use ($keywords) {
+                foreach (array_slice($keywords, 0, 10) as $w) {
+                    $qq->orWhere('name', 'like', "%{$w}%")
+                       ->orWhere('sku', 'like', "%{$w}%")
+                       ->orWhere('tags', 'like', "%{$w}%")
+                       ->orWhere('description', 'like', "%{$w}%")
+                       ->orWhere('brand', 'like', "%{$w}%");
+                }
+            });
+        }
+
+        // ✅ 5) Scoring inteligente (name > sku > tags > description)
+        $scoreSql = [];
+        $bind = [];
+
+        if ($type) {
+            $scoreSql[] = "CASE WHEN name LIKE ? THEN 120 ELSE 0 END"; $bind[] = "%{$type}%";
+            $scoreSql[] = "CASE WHEN tags LIKE ? THEN 70 ELSE 0 END";  $bind[] = "%{$type}%";
+            $scoreSql[] = "CASE WHEN description LIKE ? THEN 30 ELSE 0 END"; $bind[] = "%{$type}%";
+        }
+
+        if ($brandHint) {
+            $scoreSql[] = "CASE WHEN brand LIKE ? THEN 30 ELSE 0 END"; $bind[] = "%{$brandHint}%";
+            $scoreSql[] = "CASE WHEN name LIKE ? THEN 15 ELSE 0 END";  $bind[] = "%{$brandHint}%";
+        }
+
+        foreach (array_slice($keywords, 0, 10) as $w) {
+            $scoreSql[] = "CASE WHEN name LIKE ? THEN 25 ELSE 0 END"; $bind[] = "%{$w}%";
+            $scoreSql[] = "CASE WHEN sku LIKE ? THEN 18 ELSE 0 END";  $bind[] = "%{$w}%";
+            $scoreSql[] = "CASE WHEN tags LIKE ? THEN 12 ELSE 0 END"; $bind[] = "%{$w}%";
+            $scoreSql[] = "CASE WHEN description LIKE ? THEN 6 ELSE 0 END"; $bind[] = "%{$w}%";
+        }
+
+        // ✅ negativos (mata matches absurdos: perforadora vs silicón)
+        foreach (array_slice($negatives, 0, 10) as $bad) {
+            $scoreSql[] = "CASE WHEN name LIKE ? OR tags LIKE ? OR description LIKE ? THEN -250 ELSE 0 END";
+            $bind[] = "%{$bad}%"; $bind[] = "%{$bad}%"; $bind[] = "%{$bad}%";
+        }
+
+        $scoreExpr = '(' . implode(' + ', $scoreSql ?: ['0']) . ')';
+        $q->orderByRaw($scoreExpr . ' DESC', $bind);
+
+        // trae más para que el score tenga sentido
+        $cands = $q->limit(max($limit * 8, 40))->get()->take($limit)->values();
+
+        // ✅ Fallback final: si no salió nada, busca por tokens sin ancla
         if ($cands->isEmpty() && !empty($keywords)) {
-            $q3 = Product::query()
-                ->select(['id', 'sku', 'name', 'brand', 'unit', 'price'])
+            $q2 = Product::query()
+                ->select(['id','sku','name','brand','unit','price'])
                 ->where('active', true)
                 ->where(function ($qq) use ($keywords) {
-                    foreach ($keywords as $w) {
+                    foreach (array_slice($keywords, 0, 8) as $w) {
                         $qq->orWhere('name', 'like', "%{$w}%")
-                            ->orWhere('sku', 'like', "%{$w}%")
-                            ->orWhere('description', 'like', "%{$w}%")
-                            ->orWhere('tags', 'like', "%{$w}%")
-                            ->orWhere('brand', 'like', "%{$w}%");
+                           ->orWhere('sku', 'like', "%{$w}%")
+                           ->orWhere('tags', 'like', "%{$w}%")
+                           ->orWhere('description', 'like', "%{$w}%");
                     }
-                });
+                })
+                ->limit($limit)
+                ->get();
 
-            $cands = $q3->limit($limit)->get();
+            return $q2;
         }
 
         return $cands;
     }
 
-    protected function extractKeywords(string $text): array
+    protected function aiBuildSearchPlan(string $rawText): array
     {
-        $t = mb_strtolower($this->normalizeText($text));
-        $t = preg_replace('/[^a-z0-9áéíóúñü\s]/iu', ' ', $t);
-        $parts = preg_split('/\s+/', trim($t)) ?: [];
+        $apiKey  = config('services.openai.api_key') ?: config('services.openai.key');
+        $baseUrl = rtrim(config('services.openai.base_url', 'https://api.openai.com'), '/');
+
+        // ✅ usa mini para “entender” (rápido)
+        $model = config('services.openai.plan_model', 'gpt-5-mini');
+
+        if (!$apiKey) {
+            return $this->localPlanFallback($rawText);
+        }
+
+        $sys = <<<SYS
+Eres un asistente de matching para un catálogo de papelería/oficina.
+Tu tarea: entender el "solicitado" y generar un plan de búsqueda en base de datos.
+
+Devuelve SOLO JSON válido con esta forma:
+{
+  "type": "palabra ancla del tipo de producto (ej. perforadora, engrapadora, toner...) o null",
+  "brand": "marca si aparece o null",
+  "keywords": ["palabras útiles para buscar (sin genéricos)"],
+  "negatives": ["palabras que indicarían otro tipo (para penalizar)"],
+  "notes": "muy corto"
+}
+
+Reglas:
+- keywords: máximo 10, sin palabras genéricas (acero, base, garantía, etc.)
+- type: 1 palabra preferible (en singular)
+- negatives: máximo 8 (ej. si es perforadora -> silicón, pegamento, corrector...)
+- No inventes marca.
+SYS;
+
+        try {
+            $resp = Http::withToken($apiKey)
+                ->timeout(35)
+                ->connectTimeout(10)
+                ->withHeaders(['Content-Type' => 'application/json'])
+                ->post($baseUrl . '/v1/responses', [
+                    'model' => $model,
+                    'instructions' => $sys,
+                    'input' => [[
+                        'role' => 'user',
+                        'content' => [
+                            ['type' => 'input_text', 'text' => $rawText],
+                        ],
+                    ]],
+                    'max_output_tokens' => 600,
+                ]);
+
+            if (!$resp->ok()) {
+                Log::warning('aiBuildSearchPlan falló', ['status' => $resp->status(), 'body' => $resp->body()]);
+                return $this->localPlanFallback($rawText);
+            }
+
+            $raw = $this->extractOutputText($resp->json());
+            $raw = $this->cleanupJsonText($raw);
+            $data = json_decode($raw, true);
+
+            if (!is_array($data)) return $this->localPlanFallback($rawText);
+
+            // saneo
+            $data['type'] = isset($data['type']) && is_string($data['type']) ? trim($data['type']) : null;
+            $data['brand'] = isset($data['brand']) && is_string($data['brand']) ? trim($data['brand']) : null;
+
+            $data['keywords'] = is_array($data['keywords'] ?? null) ? array_values(array_filter(array_map('strval', $data['keywords']))) : [];
+            $data['negatives'] = is_array($data['negatives'] ?? null) ? array_values(array_filter(array_map('strval', $data['negatives']))) : [];
+
+            return $data;
+        } catch (\Throwable $e) {
+            Log::warning('aiBuildSearchPlan exception', ['e' => $e->getMessage()]);
+            return $this->localPlanFallback($rawText);
+        }
+    }
+
+    protected function localPlanFallback(string $text): array
+    {
+        // fallback sin IA: extrae keywords + intenta detectar “tipo” por heurística
+        $norm = $this->norm($text);
+        $kw = $this->basicKeywords($norm);
+
+        $type = null;
+        foreach (['perforadora','engrapadora','grapadora','tijeras','cutter','marcador','resaltador','toner','cartucho','papel','etiquetas','carpeta','folder','archivero','silicon','silicón','pegamento'] as $k) {
+            if (str_contains($norm, $k)) { $type = $k; break; }
+        }
+
+        $neg = [];
+        if ($type === 'perforadora') $neg = ['silicon','silicón','pegamento','adhesivo','corrector','cinta'];
+        if ($type === 'silicón' || $type === 'silicon') $neg = ['perforadora','engrapadora','grapadora','tijeras'];
+
+        return [
+            'type' => $type,
+            'brand' => null,
+            'keywords' => $kw,
+            'negatives' => $neg,
+            'notes' => 'fallback',
+        ];
+    }
+
+    protected function extractCodes(string $text): array
+    {
+        // códigos tipo 2112010381 o A-P3-12 etc.
+        $codes = [];
+
+        // números largos (8-14)
+        if (preg_match_all('/\b\d{8,14}\b/', $text, $m)) {
+            foreach ($m[0] as $c) $codes[] = $c;
+        }
+
+        // alfanum con guiones (A-P3-12)
+        if (preg_match_all('/\b[A-Z]{1,4}-[A-Z0-9]{1,6}(?:-[A-Z0-9]{1,6})+\b/i', $text, $m2)) {
+            foreach ($m2[0] as $c) $codes[] = $c;
+        }
+
+        $codes = array_values(array_unique($codes));
+        return array_slice($codes, 0, 6);
+    }
+
+    protected function basicKeywords(string $norm): array
+    {
+        $parts = preg_split('/\s+/', trim($norm)) ?: [];
 
         $stop = [
             'de','del','la','las','el','los','y','o','u','en','con','para','por','a','al','un','una','unos','unas',
             'tipo','color','medida','medidas','aprox','aproximadas','fabricada','fabricado','incluye','incluido',
-            'capacidad','hasta','garantia','meses','años','debera','cumplir','norma','nmx','nom','ance',
-            'cm','mm','pulgadas','pulgada','mts','metro','metros','volt','volts','hertz','hz','amperes','cc'
+            'capacidad','hasta','garantia','garantía','meses','años','ano','debera','deberá','cumplir','norma',
+            'cm','mm','pulgadas','pulgada','mts','metro','metros','volt','volts','hertz','hz','amperes','cc',
+            'acero','base','integrada','integrado','antiderrapante','regleta','separacion','separación',
         ];
 
-        $words = [];
+        $keep = [];
         foreach ($parts as $w) {
+            $w = trim($w);
+            if ($w === '') continue;
             if (mb_strlen($w) < 4) continue;
             if (in_array($w, $stop, true)) continue;
-            $words[] = $w;
+            $keep[] = $w;
         }
 
-        $words = array_values(array_unique($words));
-        return array_slice($words, 0, 6);
+        $keep = array_values(array_unique($keep));
+        return array_slice($keep, 0, 10);
     }
 
-    protected function normalizeText(string $text): string
+    protected function norm(string $s): string
     {
-        $text = trim($text);
-        $text = preg_replace('/\s+/u', ' ', $text);
-        return $text;
+        $s = mb_strtolower(trim($s), 'UTF-8');
+        $s = preg_replace('/[^\p{L}\p{N}\s]+/u', ' ', $s);
+        $s = preg_replace('/\s+/u', ' ', $s);
+        return trim($s);
     }
-        // ==========================================================
+
+    protected function extractOutputText(array $json): string
+    {
+        if (isset($json['output_text']) && is_string($json['output_text']) && trim($json['output_text']) !== '') {
+            return trim($json['output_text']);
+        }
+
+        $raw = '';
+        if (isset($json['output']) && is_array($json['output'])) {
+            foreach ($json['output'] as $out) {
+                if (($out['type'] ?? null) === 'message') {
+                    foreach (($out['content'] ?? []) as $c) {
+                        if (($c['type'] ?? null) === 'output_text' && isset($c['text'])) {
+                            $raw .= $c['text'];
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!$raw && isset($json['output'][0]['content'][0]['text'])) {
+            $raw = (string) $json['output'][0]['content'][0]['text'];
+        }
+
+        return trim((string) $raw);
+    }
+
+    protected function cleanupJsonText(string $raw): string
+    {
+        $raw = trim($raw);
+
+        $raw = preg_replace('/^```(?:json)?/i', '', $raw);
+        $raw = preg_replace('/```$/', '', $raw);
+        $raw = trim($raw);
+
+        $firstObj = strpos($raw, '{');
+        $firstArr = strpos($raw, '[');
+
+        $start = null;
+        if ($firstObj !== false && $firstArr !== false) $start = min($firstObj, $firstArr);
+        elseif ($firstObj !== false) $start = $firstObj;
+        elseif ($firstArr !== false) $start = $firstArr;
+
+        if ($start !== null) $raw = substr($raw, $start);
+
+        $lastObj = strrpos($raw, '}');
+        $lastArr = strrpos($raw, ']');
+
+        $end = null;
+        if ($lastObj !== false && $lastArr !== false) $end = max($lastObj, $lastArr);
+        elseif ($lastObj !== false) $end = $lastObj;
+        elseif ($lastArr !== false) $end = $lastArr;
+
+        if ($end !== null) $raw = substr($raw, 0, $end + 1);
+
+        return trim($raw);
+    }
+
+    // ==========================================================
     // ✅ AJAX: buscador server-side (products) para dropdown/modal
     // ==========================================================
     public function searchProducts(Request $request)
@@ -439,7 +695,7 @@ class LicitacionPropuestaController extends Controller implements HasMiddleware
         $limit = min(30, max(10, (int) $request->get('limit', 20)));
 
         $query = Product::query()
-            ->select(['id','sku','name','brand','unit','price','cost']) // 👈 cost si existe
+            ->select(['id','sku','name','brand','unit','price','cost'])
             ->where('active', true)
             ->when($q !== '', function ($qq) use ($q) {
                 $qq->where(function ($w) use ($q) {
@@ -464,7 +720,7 @@ class LicitacionPropuestaController extends Controller implements HasMiddleware
                     'brand' => $p->brand,
                     'unit'  => $p->unit,
                     'price' => (float) ($p->price ?? 0),
-                    'cost'  => (float) ($p->cost ?? 0), // si no tienes cost, quedará 0
+                    'cost'  => (float) ($p->cost ?? 0),
                 ],
             ];
         });
@@ -490,45 +746,36 @@ class LicitacionPropuestaController extends Controller implements HasMiddleware
 
         $productId = (int) $data['product_id'];
 
-        // cargar relaciones necesarias
         $item->loadMissing(['propuesta', 'product']);
 
         $product = Product::select(['id','sku','name','brand','unit','price','cost'])
             ->where('active', true)
             ->findOrFail($productId);
 
-        // aplicar
         $item->product_id = $product->id;
 
-        // precio unitario: si viene manual, úsalo; si no, usa price del producto
         if (array_key_exists('precio_unitario', $data) && $data['precio_unitario'] !== null) {
             $item->precio_unitario = (float) $data['precio_unitario'];
         } else {
             $item->precio_unitario = (float) ($product->price ?? 0);
         }
 
-        // ✅ costo automático (si tu tabla tiene columna)
-        // Si tu columna se llama diferente (ej: costo_jureto), cámbiala aquí:
-        if (property_exists($item, 'costo') || \Illuminate\Support\Facades\Schema::hasColumn($item->getTable(), 'costo')) {
+        if (Schema::hasColumn($item->getTable(), 'costo')) {
             $item->costo = (float) ($product->cost ?? 0);
         }
-        if (\Illuminate\Support\Facades\Schema::hasColumn($item->getTable(), 'costo_jureto')) {
+        if (Schema::hasColumn($item->getTable(), 'costo_jureto')) {
             $item->costo_jureto = (float) ($product->cost ?? 0);
         }
 
-        // subtotal
         $qty = (float) ($item->cantidad_propuesta ?? 0);
         $pu  = (float) ($item->precio_unitario ?? 0);
         $item->subtotal = $qty * $pu;
-
-        $item->match_score = $item->match_score ?? null;
 
         $item->motivo_seleccion = $data['motivo']
             ?? ($item->motivo_seleccion ?: 'Seleccionado manualmente');
 
         $item->save();
 
-        // recalcular totales propuesta
         $this->recalcTotals($item->propuesta);
 
         return response()->json([
@@ -551,5 +798,4 @@ class LicitacionPropuestaController extends Controller implements HasMiddleware
             ],
         ]);
     }
-
 }
