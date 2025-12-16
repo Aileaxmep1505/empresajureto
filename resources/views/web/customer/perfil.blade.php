@@ -79,6 +79,7 @@
   #account .btn{
     appearance:none; border:1px solid var(--line); background:#fff; border-radius:12px;
     padding:10px 14px; cursor:pointer; font-weight:800; box-shadow:0 6px 18px rgba(2,8,23,.05);
+    text-decoration:none; display:inline-flex; align-items:center; gap:8px;
   }
   #account .btn:hover{ transform:translateY(-1px) }
   #account .btn-brand{ background:#0f172a; color:#fff; border-color:#0f172a }
@@ -92,6 +93,10 @@
   #account .kpi strong{ display:block; font-size:clamp(20px,2.5vw,24px); margin-top:6px }
 
   #account .hr{ border:0; border-top:1px solid var(--line); margin:16px 0 }
+
+  /* ✅ Panels */
+  #account .tpanel{ display:none; }
+  #account .tpanel.active{ display:block; }
 
   /* Table */
   #account .table{ width:100%; border-collapse:separate; border-spacing:0 10px }
@@ -210,7 +215,15 @@
                   @foreach($orders->take(5) as $o)
                     <tr class="tr">
                       <td>{{ $o->id }}</td>
-                      <td>#{{ str_pad($o->id,6,'0',STR_PAD_LEFT) }}</td>
+                      <td>
+                        @if(route_has('customer.orders.show'))
+                          <a class="btn btn-ghost" href="{{ route('customer.orders.show',$o) }}">
+                            #{{ str_pad($o->id,6,'0',STR_PAD_LEFT) }}
+                          </a>
+                        @else
+                          #{{ str_pad($o->id,6,'0',STR_PAD_LEFT) }}
+                        @endif
+                      </td>
                       <td>{{ $o->created_at?->format('d/m/Y') ?? '—' }}</td>
                       <td>
                         @php $st = strtolower((string)$o->status); @endphp
@@ -232,14 +245,24 @@
                       </td>
                       <td>${{ number_format($o->total,2) }}</td>
                       <td style="text-align:right; display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap">
+                        @if(route_has('customer.orders.show'))
+                          <a class="btn btn-ghost" href="{{ route('customer.orders.show',$o) }}">Ver detalle</a>
+                        @endif
+
                         @if(route_has('customer.orders.reorder'))
                           <form action="{{ route('customer.orders.reorder',$o) }}" method="post" style="display:inline">@csrf
                             <button class="btn btn-brand">Agregar a carrito</button>
                           </form>
                         @endif
+
                         @if(route_has('customer.orders.tracking'))
-                          <button class="btn js-track" data-url="{{ route('customer.orders.tracking',$o) }}">Seguimiento</button>
+                          <button class="btn js-track"
+                                  data-url="{{ route('customer.orders.tracking',$o) }}"
+                                  data-label="{{ $o->shipping_label_url ?? '' }}">
+                            Seguimiento
+                          </button>
                         @endif
+
                         @if(route_has('customer.orders.label') && !empty($o->shipping_label_url))
                           <a class="btn btn-ghost" href="{{ route('customer.orders.label',$o) }}" target="_blank" rel="noopener">Guía PDF</a>
                         @endif
@@ -262,7 +285,15 @@
                   @foreach($orders as $o)
                     <tr class="tr">
                       <td>{{ $o->id }}</td>
-                      <td>#{{ str_pad($o->id,6,'0',STR_PAD_LEFT) }}</td>
+                      <td>
+                        @if(route_has('customer.orders.show'))
+                          <a class="btn btn-ghost" href="{{ route('customer.orders.show',$o) }}">
+                            #{{ str_pad($o->id,6,'0',STR_PAD_LEFT) }}
+                          </a>
+                        @else
+                          #{{ str_pad($o->id,6,'0',STR_PAD_LEFT) }}
+                        @endif
+                      </td>
                       <td>{{ $o->created_at?->format('d/m/Y') ?? '—' }}</td>
                       <td>
                         @php $st = strtolower((string)$o->status); @endphp
@@ -282,17 +313,30 @@
                           <div class="pill" style="margin-top:6px">ETA: {{ $o->shipping_eta }}</div>
                         @endif
                       </td>
+
                       <td><span class="pill">—</span></td>
+
                       <td>${{ number_format($o->total,2) }}</td>
+
                       <td style="text-align:right; display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap">
+                        @if(route_has('customer.orders.show'))
+                          <a class="btn btn-ghost" href="{{ route('customer.orders.show',$o) }}">Ver detalle</a>
+                        @endif
+
                         @if(route_has('customer.orders.reorder'))
                           <form action="{{ route('customer.orders.reorder',$o) }}" method="post" style="display:inline">@csrf
                             <button class="btn btn-brand">Agregar a carrito</button>
                           </form>
                         @endif
+
                         @if(route_has('customer.orders.tracking'))
-                          <button class="btn js-track" data-url="{{ route('customer.orders.tracking',$o) }}">Seguimiento</button>
+                          <button class="btn js-track"
+                                  data-url="{{ route('customer.orders.tracking',$o) }}"
+                                  data-label="{{ $o->shipping_label_url ?? '' }}">
+                            Seguimiento
+                          </button>
                         @endif
+
                         @if(route_has('customer.orders.label') && !empty($o->shipping_label_url))
                           <a class="btn btn-ghost" href="{{ route('customer.orders.label',$o) }}" target="_blank" rel="noopener">Guía PDF</a>
                         @endif
@@ -315,7 +359,10 @@
                 <div class="kpi"><small>Último acceso</small><strong>{{ $user->last_login_at?->format('d/m/Y H:i') ?? '—' }}</strong></div>
               </div>
               <div style="margin-top:14px;display:flex;gap:8px">
-                <a href="{{ route('customer.welcome') }}" class="btn btn-ghost">Inicio cliente</a>
+               @if(\Illuminate\Support\Facades\Route::has('customer.welcome'))
+  <a href="{{ route('customer.welcome') }}" class="btn btn-ghost">Inicio cliente</a>
+@endif
+
               </div>
             </div>
 
@@ -389,6 +436,10 @@
         <div class="trk-meta" id="trkMeta">
           <span class="pill">Cargando…</span>
         </div>
+
+        {{-- ✅ Acciones dentro del modal --}}
+        <div id="trkActions" style="display:flex; gap:8px; flex-wrap:wrap; margin:10px 0 12px;"></div>
+
         <div class="progress"><b id="trkProgress" style="width:0%"></b></div>
         <ul class="tl" id="trkList">
           <li class="tl__item"><div class="h">Obteniendo eventos…</div><time>—</time></li>
@@ -437,6 +488,7 @@
   const meta = document.getElementById('trkMeta');
   const list = document.getElementById('trkList');
   const bar  = document.getElementById('trkProgress');
+  const actions = document.getElementById('trkActions');
 
   function openModal(){ modal.dataset.open = "1"; modal.setAttribute('aria-hidden','false'); }
   function closeModal(){ modal.dataset.open = "0"; modal.setAttribute('aria-hidden','true'); }
@@ -445,15 +497,33 @@
   modal.querySelector('.modal__backdrop').addEventListener('click', closeModal);
   document.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && modal.dataset.open==="1") closeModal(); });
 
-  function renderTracking(data){
+  function escHtml(s){
+    return (s ?? '').toString().replace(/[&<>"']/g, m => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'
+    }[m]));
+  }
+
+  function renderTracking(data, labelUrl){
     meta.innerHTML = '';
+    actions.innerHTML = '';
+
     const pills = [];
-    if(data.carrier) pills.push(`<span class="pill">Carrier: <b>${data.carrier}</b></span>`);
-    if(data.service) pills.push(`<span class="pill">Servicio: <b>${data.service}</b></span>`);
-    if(data.code)    pills.push(`<span class="pill">Guía: <b>${data.code}</b></span>`);
-    if(data.status)  pills.push(`<span class="pill">Estatus: <b>${(data.status||'').toString().toUpperCase()}</b></span>`);
-    if(data.eta)     pills.push(`<span class="pill">ETA: <b>${data.eta}</b></span>`);
+    if(data.carrier) pills.push(`<span class="pill">Carrier: <b>${escHtml(data.carrier)}</b></span>`);
+    if(data.service) pills.push(`<span class="pill">Servicio: <b>${escHtml(data.service)}</b></span>`);
+    if(data.code)    pills.push(`<span class="pill">Guía: <b>${escHtml(data.code)}</b></span>`);
+    if(data.status)  pills.push(`<span class="pill">Estatus: <b>${escHtml((data.status||'').toString().toUpperCase())}</b></span>`);
+    if(data.eta)     pills.push(`<span class="pill">ETA: <b>${escHtml(data.eta)}</b></span>`);
     meta.innerHTML = pills.join('');
+
+    if(labelUrl){
+      const a = document.createElement('a');
+      a.className = 'btn btn-ghost';
+      a.href = labelUrl;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      a.textContent = 'Guía PDF';
+      actions.appendChild(a);
+    }
 
     bar.style.width = (Number(data.progress||0)) + '%';
 
@@ -466,11 +536,11 @@
     evs.forEach(ev=>{
       const t = ev.time ? new Date(ev.time) : null;
       const date = t ? t.toLocaleString() : '—';
-      const where = ev.location ? ` — <i>${ev.location}</i>` : '';
-      const details = ev.details ? `<div style="color:var(--muted);margin-top:4px">${ev.details}</div>` : '';
+      const where = ev.location ? ` — <i>${escHtml(ev.location)}</i>` : '';
+      const details = ev.details ? `<div style="color:var(--muted);margin-top:4px">${escHtml(ev.details)}</div>` : '';
       const item = document.createElement('li');
       item.className = 'tl__item';
-      item.innerHTML = `<div class="h">${ev.status || 'Evento'}</div><time>${date}${where}</time>${details}`;
+      item.innerHTML = `<div class="h">${escHtml(ev.status || 'Evento')}</div><time>${escHtml(date)}${where}</time>${details}`;
       list.appendChild(item);
     });
   }
@@ -479,18 +549,20 @@
     btn.addEventListener('click', async (e)=>{
       e.preventDefault();
       const url = btn.getAttribute('data-url');
+      const labelUrl = (btn.getAttribute('data-label') || '').trim();
       if(!url) return;
+
       openModal();
       meta.innerHTML = '<span class="pill">Cargando…</span>';
+      actions.innerHTML = '';
       list.innerHTML = '<li class="tl__item"><div class="h">Obteniendo eventos…</div><time>—</time></li>';
       bar.style.width = '0%';
+
       try{
         const res = await fetch(url, {headers:{'X-Requested-With':'XMLHttpRequest'}});
         const data = await res.json();
-        if(data && data.ok) renderTracking(data);
-        else{
-          meta.innerHTML = '<span class="pill">No fue posible obtener el seguimiento</span>';
-        }
+        if(data && data.ok) renderTracking(data, labelUrl);
+        else meta.innerHTML = '<span class="pill">No fue posible obtener el seguimiento</span>';
       }catch(err){
         meta.innerHTML = '<span class="pill">Error al cargar seguimiento</span>';
       }

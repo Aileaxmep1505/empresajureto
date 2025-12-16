@@ -21,7 +21,7 @@ class SkydropxProClient
         $this->secret   = (string) ($cfg['secret'] ?? '');
         $this->tokenUrl = (string) ($cfg['token_url'] ?? '');
         $this->apiBase  = rtrim((string) ($cfg['api_base'] ?? ''), '/') . '/';
-        $this->scope    = $cfg['scope'] !== '' ? (string)$cfg['scope'] : null;
+        $this->scope    = ($cfg['scope'] ?? '') !== '' ? (string)$cfg['scope'] : null;
     }
 
     /** Obtiene y cachea el access_token usando client_credentials */
@@ -73,7 +73,7 @@ class SkydropxProClient
         return Http::withToken($this->accessToken())
             ->acceptJson()
             ->baseUrl($this->apiBase)
-            ->timeout(15);
+            ->timeout(20);
     }
 
     /** GET /carriers */
@@ -86,7 +86,6 @@ class SkydropxProClient
     /** POST /quotations (PRO) con polling corto hasta is_completed */
     public function quote(string $zipTo, array $parcel, ?array $carriers = null, int $waitSeconds = 8): array
     {
-        // Direcciones: ajusta defaults si quieres (áreas, nombres, etc.)
         $from = [
             'country_code' => 'MX',
             'postal_code'  => (string) config('services.skydropx_pro.origin_cp', '52060'),
@@ -118,7 +117,6 @@ class SkydropxProClient
             'dimension_unit' => 'cm',
         ];
 
-        // PRO requiere envoltura "quotation" + "parcel" (singular)
         $body = [
             'quotation' => [
                 'address_from' => array_filter($from, fn($v) => !is_null($v)),
@@ -130,19 +128,17 @@ class SkydropxProClient
             $body['quotation']['carriers'] = array_values($carriers);
         }
 
-        // 1) Crear cotización
         $created = $this->http()->post('quotations', $body);
         if ($created->failed()) {
-            return $this->decode($created); // 400/422, etc.
+            return $this->decode($created);
         }
 
         $createdJson = $created->json();
         $id = data_get($createdJson, 'id') ?: data_get($createdJson, 'data.id');
         if (!$id) {
-            return $this->decode($created); // devolvemos tal cual por transparencia
+            return $this->decode($created);
         }
 
-        // 2) Poll (GET /quotations/{id}) hasta is_completed = true o timeout
         $deadline = microtime(true) + max(1, $waitSeconds);
         $lastGet  = null;
 
@@ -151,29 +147,18 @@ class SkydropxProClient
             if ($lastGet->ok() && (data_get($lastGet->json(), 'is_completed') === true)) {
                 break;
             }
-            usleep(400_000); // 400ms entre intentos
+            usleep(400_000);
         } while (microtime(true) < $deadline);
 
         return $this->decode($lastGet ?? $created);
     }
 
-    /**
-     * quoteBest: devuelve las tarifas ya NORMALIZADAS y ORDENADAS por precio ascendente.
-     * Formato:
-     * [
-     *   ['id'=>..., 'carrier'=>'dhl', 'service'=>'Express', 'days'=>1, 'currency'=>'MXN', 'price'=>299.0, '_raw'=>{...}],
-     *   ...
-     * ]
-     */
     public function quoteBest(string $zipTo, array $parcel, ?array $carriers = null, int $waitSeconds = 8): array
     {
         $res = $this->quote($zipTo, $parcel, $carriers, $waitSeconds);
-        if (!($res['ok'] ?? false)) {
-            return []; // si falló la cotización, regresamos vacío
-        }
+        if (!($res['ok'] ?? false)) return [];
 
         $json  = $res['json'] ?? [];
-        // PRO suele regresar rates en la raíz; dejamos fallbacks por si cambia
         $rates = data_get($json, 'rates', []);
         if (!is_array($rates) || empty($rates)) {
             $rates = data_get($json, 'data.rates', []);
@@ -182,7 +167,6 @@ class SkydropxProClient
 
         $options = [];
         foreach ($rates as $r) {
-            // Filtra explícitos "success: false"
             $success = data_get($r, 'success');
             if ($success === false) continue;
 
@@ -238,8 +222,34 @@ class SkydropxProClient
         }
 
         usort($options, fn($a, $b) => $a['price'] <=> $b['price']);
-
         return $options;
+    }
+
+    /* ============================================================
+     * ✅ COMPRA DE GUÍA + TRACKING (ENDPOINTS A AJUSTAR SI TU DOC VARÍA)
+     * ============================================================ */
+
+    /** Comprar guía con quotation_id + rate_id */
+    public function buyLabel(string $quotationId, string $rateId): array
+    {
+        // 🔧 Si tu doc dice otro endpoint, cambia SOLO "labels"
+        $body = [
+            'label' => [
+                'quotation_id' => $quotationId,
+                'rate_id'      => $rateId,
+            ],
+        ];
+
+        $res = $this->http()->post('labels', $body);
+        return $this->decode($res);
+    }
+
+    /** Tracking por número de guía */
+    public function trackingByCode(string $code): array
+    {
+        // 🔧 Si tu doc dice otro endpoint, cambia SOLO esta ruta
+        $res = $this->http()->get("trackings/{$code}");
+        return $this->decode($res);
     }
 
     /** Util: decodifica respuesta */

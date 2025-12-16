@@ -24,7 +24,7 @@ class Order extends Model
         'status',
 
         'address_json',
-        'shipping_code',
+        'shipping_code',         // tracking / guía
         'shipping_name',
         'shipping_service',
         'shipping_eta',
@@ -34,6 +34,12 @@ class Order extends Model
         'stripe_session_id',
         'stripe_payment_intent',
         'invoice_id',
+
+        // ✅ Skydropx PRO
+        'skydropx_quotation_id',
+        'skydropx_rate_id',
+        'shipping_label_url',    // PDF
+        'shipment_status',
     ];
 
     protected $casts = [

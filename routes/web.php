@@ -66,6 +66,7 @@ use App\Http\Controllers\Admin\LicitacionPropuestaController;
 use App\Models\LicitacionPdf;
 
 use App\Http\Controllers\DebugOpenAiController;
+use App\Http\Controllers\Admin\AdminOrderController;
 
 /*
 |--------------------------------------------------------------------------
@@ -919,3 +920,17 @@ Route::middleware(['auth'])
 
     Route::get('/debug/openai/models', [DebugOpenAiController::class, 'models']);
 Route::get('/debug/openai/ticker', [DebugOpenAiController::class, 'ticker']);
+
+
+Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/orders', [AdminOrderController::class,'index'])->name('orders.index');
+    Route::get('/orders/{order}', [AdminOrderController::class,'show'])->name('orders.show');
+
+    Route::post('/orders/{order}/skydropx/quote', [AdminOrderController::class,'skydropxQuote'])->name('orders.skydropx.quote');
+    Route::post('/orders/{order}/skydropx/buy',   [AdminOrderController::class,'skydropxBuy'])->name('orders.skydropx.buy');
+});
+// routes/web.php
+Route::middleware(['auth'])->group(function () {
+  Route::get('/mi-cuenta/pedidos/{order}', [\App\Http\Controllers\Customer\CustomerOrdersController::class, 'show'])
+    ->name('customer.orders.show');
+});

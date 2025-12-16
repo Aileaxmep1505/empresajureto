@@ -4,235 +4,565 @@
 @section('content')
 @php
   $FREE_SHIP = (float) env('FREE_SHIPPING_THRESHOLD', 5000);
-  $subtotal  = (float) $totals['subtotal'];
+
+  $subtotal  = (float) ($totals['subtotal'] ?? 0);
+  $count     = (int)   ($totals['count'] ?? 0);
+  $total     = (float) ($totals['total'] ?? 0);
+
   $faltan    = max(0, $FREE_SHIP - $subtotal);
-  $pct       = $FREE_SHIP > 0 ? min(100, round(($subtotal / $FREE_SHIP)*100)) : 100;
+  $pct       = $FREE_SHIP > 0 ? min(100, (int) round(($subtotal / $FREE_SHIP)*100)) : 100;
 @endphp
 
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+
 <style>
-  :root{
-    --bg:#f6f8fc; --ink:#0e1726; --muted:#6b7280; --line:#e8eef6; --surface:#ffffff;
-    --brand:#6ea8fe; --brand-ink:#0b1220; --success:#10b981; --warn:#f59e0b; --danger:#ef4444;
-    --shadow:0 12px 30px rgba(13,23,38,.06); --radius:16px; --radius-sm:12px;
-    --focus:0 0 0 3px rgba(110,168,254,.35);
-  }
-  html,body{background:var(--bg);color:var(--ink)}
-  .wrap{width:min(1200px,95%);margin-inline:auto;padding:clamp(14px,2vw,24px)}
-  .grid{display:grid;gap:18px;grid-template-columns:repeat(12,1fr)}
-  .col-main{grid-column:span 8} .col-aside{grid-column:span 4}
-  @media (max-width: 980px){.grid{grid-template-columns:1fr}.col-main,.col-aside{grid-column:1/-1}}
+  /* ====================== SCOPE: #cart ====================== */
+  #cart{
+    --bg:#f6f8fc;
+    --surface:rgba(255,255,255,.72);
+    --card:#ffffff;
+    --ink:#0e1726;
+    --muted:#6b7280;
+    --line:#e8eef6;
 
-  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
-  .card-body{padding:16px}
-  .sticky{position:sticky;top:16px}
+    --brand:#111827;
+    --brand-2:#0f172a;
 
-  .btn{border:0;border-radius:12px;padding:10px 14px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:10px;text-decoration:none;transition:transform .15s ease, box-shadow .2s ease, background .2s ease}
-  .btn:focus-visible{outline:none;box-shadow:var(--focus)}
-  .btn-primary{background:var(--brand);color:var(--brand-ink);box-shadow:0 8px 18px rgba(29,78,216,.12)}
-  .btn-primary:hover{transform:translateY(-1px)}
-  .btn-ghost{background:#fff;border:1px solid var(--line);color:var(--ink)}
-  .btn-ghost:hover{background:#f9fafb}
-  .btn-danger{background:#fff;border:1px solid #fee2e2;color:#b91c1c}
-  .btn-danger:hover{background:#fff5f5}
+    --success:#10b981;
+    --success-soft:#ecfdf5;
 
-  .input{border:1px solid var(--line);border-radius:12px;padding:10px 12px;outline:0;background:#fff;transition:box-shadow .15s ease}
-  .input:focus{box-shadow:var(--focus)}
+    --danger:#b91c1c;
+    --danger-soft:#fff5f5;
 
-  .table{width:100%;border-collapse:collapse}
-  .table th,.table td{padding:14px;border-bottom:1px solid var(--line);vertical-align:middle}
-  .table th{font-size:.9rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.02em}
-  .row{display:flex;align-items:center;gap:12px}
-  .thumb{width:84px;height:84px;object-fit:cover;border-radius:14px;border:1px solid var(--line);background:#f1f5fb}
-  .prod-name{font-weight:800;color:var(--ink);text-decoration:none}
-  .prod-name:hover{opacity:.9}
-  @media (max-width: 720px){
-    .table thead{display:none}
-    .table tr{display:grid;grid-template-columns:1fr auto;gap:10px;padding:10px 12px}
-    .table td{border:0;padding:6px 0}
-    .cell-actions{grid-column:1/-1;display:flex;gap:8px;justify-content:flex-end}
-    .row{align-items:flex-start}
-    .thumb{width:68px;height:68px}
-    .cell-price,.cell-importe{text-align:right}
-    .cell-qty{justify-self:end}
+    --radius:22px;
+    --radius-sm:14px;
+
+    --shadow-soft:0 16px 46px rgba(2,8,23,.08);
+    --shadow:0 14px 36px rgba(2,8,23,.08);
+    --focus:0 0 0 3px rgba(17,24,39,.14);
+
+    font-family:"Quicksand", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color:var(--ink);
   }
 
-  .qty{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff}
-  .qty button{border:0;background:#fff;padding:8px 12px;min-width:36px;font-size:18px;line-height:1}
-  .qty input{width:56px;text-align:center;border:0;border-left:1px solid var(--line);border-right:1px solid var(--line);height:38px;outline:0;font-weight:700}
-
-  .muted{color:var(--muted)}
-  .hr{border:none;border-top:1px solid var(--line);margin:12px 0}
-  .kv{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}
-  .total{font-weight:900;font-size:1.2rem}
-  .badge-free{padding:4px 8px;border-radius:999px;background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;font-size:.78rem;font-weight:700}
-  .ship-list{display:grid;gap:8px}
-  .ship-item{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--line);border-radius:12px;transition:background .2s ease}
-  .ship-item:hover{background:#fafcff}
-
-  /* Banner motivacional mejorado (dentro del resumen) */
-  .motivation{
-    border:1px solid #e9eefc;border-radius:14px;padding:12px;background:linear-gradient(135deg,#f4f8ff 0%,#f7fffb 100%);
-    box-shadow: inset 0 0 0 1px #f2f6ff;
+  #cart .bg{
+    position:fixed; inset:0; z-index:0; pointer-events:none;
+    background:
+      radial-gradient(900px 520px at 50% -220px, #eaf3ff 0%, rgba(234,243,255,0) 60%),
+      radial-gradient(900px 520px at 110% 10%, rgba(167,243,208,.35) 0%, rgba(167,243,208,0) 55%),
+      linear-gradient(180deg, #f3f7ff 0%, #f7fff5 60%, #ffffff 100%);
+    background-attachment:fixed;
   }
-  .motivation .headline{display:flex;align-items:center;gap:10px;font-weight:900}
-  .motivation .headline .spark{width:24px;height:24px;border-radius:8px;background:#eef6ff;border:1px solid #dbeafe;display:inline-flex;align-items:center;justify-content:center;font-size:14px}
-  .progress{height:10px;background:#eef2ff;border-radius:999px;overflow:hidden;border:1px solid #e5e7eb}
-  .progress>div{height:100%;width:0%;background:linear-gradient(90deg,#93c5fd,#86efac);transition:width .35s ease}
-  .mini-cta{display:flex;gap:8px;flex-wrap:wrap}
-  .mini-link{color:#1d4ed8;text-decoration:none;font-weight:800}
-  .mini-link:hover{text-decoration:underline}
 
-  @keyframes pulseRow{0%{background:transparent}50%{background:#f7fbff}100%{background:transparent}}
-  .pulse{animation:pulseRow .8s ease}
+  #cart .wrap{ width:min(1200px,95%); margin:0 auto; padding: clamp(14px,2vw,24px); position:relative; z-index:1; }
 
-  .note{font-size:.85rem;color:var(--muted)}
+  /* ===== Header ===== */
+  #cart .top{
+    position:relative;
+    overflow:hidden;
+    display:flex; align-items:flex-end; justify-content:space-between; gap:14px; flex-wrap:wrap;
+    padding:18px 18px;
+    border:1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    backdrop-filter: blur(10px);
+    box-shadow: var(--shadow-soft);
+  }
+  /* degradado SOLO en esquinas superiores */
+  #cart .top::before{
+    content:"";
+    position:absolute; inset:0;
+    pointer-events:none;
+    border-radius: inherit;
+    background:
+      radial-gradient(320px 190px at 0% 0%,
+        rgba(147,197,253,.35) 0%,
+        rgba(147,197,253,.18) 32%,
+        rgba(147,197,253,0) 72%),
+      radial-gradient(320px 190px at 100% 0%,
+        rgba(134,239,172,.28) 0%,
+        rgba(134,239,172,.14) 32%,
+        rgba(134,239,172,0) 72%);
+    opacity:.9;
+  }
+  #cart .top > *{ position:relative; z-index:1; }
+
+  #cart h1{ margin:0; font-weight:900; letter-spacing:-.02em; font-size: clamp(26px,3vw,40px); }
+  #cart .sub{ margin:6px 0 0; color:var(--muted); font-weight:600; }
+  #cart .note{ font-size:.92rem; color: var(--muted); font-weight:700; }
+
+  #cart .pill{
+    display:inline-flex; align-items:center; gap:10px;
+    padding:10px 14px;
+    border-radius:999px;
+    border:1px solid var(--line);
+    background:rgba(255,255,255,.7);
+    box-shadow:0 10px 26px rgba(2,8,23,.06);
+    color:var(--muted);
+    font-weight:800;
+    white-space:nowrap;
+  }
+  #cart .icon{ width:18px; height:18px; opacity:.9; display:inline-block; vertical-align:middle; }
+  #cart .icon-lg{ width:20px; height:20px; opacity:.95; }
+
+  /* Layout */
+  #cart .grid{ display:grid; gap:18px; grid-template-columns: repeat(12,1fr); margin-top:16px; }
+  #cart .col-main{ grid-column: span 8; }
+  #cart .col-aside{ grid-column: span 4; }
+  @media (max-width: 980px){
+    #cart .grid{ grid-template-columns:1fr; }
+    #cart .col-main, #cart .col-aside{ grid-column: 1/-1; }
+  }
+
+  /* Cards */
+  #cart .card{
+    background: rgba(255,255,255,.78);
+    border:1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow:hidden;
+    backdrop-filter: blur(10px);
+  }
+  #cart .card-body{ padding:18px; }
+  #cart .sticky{ position:sticky; top:16px; }
+
+  /* Buttons */
+  #cart .btn{
+    appearance:none;
+    border:1px solid transparent;
+    border-radius: 14px;
+    padding: 11px 14px;
+    font-weight:900;
+    cursor:pointer;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    text-decoration:none;
+    transition: transform .15s ease, box-shadow .2s ease, background .2s ease, border-color .2s ease, opacity .2s ease;
+    user-select:none;
+  }
+  #cart .btn:focus-visible{ outline:none; box-shadow: var(--focus); }
+  #cart .btn:hover{ transform: translateY(-1px); }
+
+  #cart .btn-primary{
+    background: linear-gradient(180deg, #111827 0%, #0b1220 100%);
+    border-color: rgba(255,255,255,.12);
+    color:#fff;
+    box-shadow: 0 14px 34px rgba(17,24,39,.22);
+  }
+  #cart .btn-primary:hover{ box-shadow: 0 16px 38px rgba(17,24,39,.28); }
+
+  #cart .btn-ghost{
+    background: rgba(255,255,255,.88);
+    border-color: var(--line);
+    color: var(--ink);
+  }
+  #cart .btn-ghost:hover{ background: rgba(255,255,255,.96); }
+
+  #cart .btn-danger{
+    background: var(--danger-soft);
+    border-color: #fee2e2;
+    color: var(--danger);
+  }
+  #cart .btn-danger:hover{ opacity:.95; }
+
+  /* Text link help */
+  #cart .help-link{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    padding:6px 2px;
+    font-weight:900;
+    color: var(--muted);
+    text-decoration:none;
+    width:fit-content;
+    transition: color .15s ease, transform .15s ease;
+  }
+  #cart .help-link:hover{ color: var(--ink); transform: translateY(-1px); }
+  #cart .help-link .icon{ opacity:.85; }
+
+  /* Table */
+  #cart .table{ width:100%; border-collapse:collapse; }
+  #cart .table th, #cart .table td{
+    padding: 16px;
+    border-bottom:1px solid var(--line);
+    vertical-align:middle;
+  }
+  #cart .table thead th{
+    font-size:.82rem;
+    color: var(--muted);
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    background: rgba(255,255,255,.55);
+  }
+  #cart .row{ display:flex; align-items:center; gap:14px; }
+  #cart .thumb{
+    width:86px; height:86px;
+    border-radius: 18px;
+    object-fit: cover;
+    border:1px solid var(--line);
+    background:#f1f5fb;
+  }
+  #cart .prod-name{
+    display:inline-block;
+    font-weight: 900;
+    color: var(--ink);
+    text-decoration:none;
+    line-height:1.2;
+  }
+  #cart .prod-name:hover{ opacity:.9; }
+  #cart .sku{ color: var(--muted); font-weight:700; margin-top:6px; font-size:.9rem; }
+
+  /* Qty */
+  #cart .qty{
+    display:inline-flex; align-items:center;
+    border:1px solid var(--line);
+    border-radius: 14px;
+    overflow:hidden;
+    background: rgba(255,255,255,.92);
+    box-shadow: 0 10px 26px rgba(2,8,23,.06);
+  }
+  #cart .qty button{
+    border:0; background:transparent;
+    padding: 10px 12px;
+    min-width:40px;
+    font-size:18px;
+    font-weight:900;
+    cursor:pointer;
+    color: var(--ink);
+  }
+  #cart .qty button:hover{ background: rgba(2,8,23,.04); }
+  #cart .qty input{
+    width:60px;
+    text-align:center;
+    border:0;
+    border-left:1px solid var(--line);
+    border-right:1px solid var(--line);
+    height:40px;
+    outline:0;
+    font-weight:900;
+    background: transparent;
+  }
+
+  #cart .muted{ color: var(--muted); }
+  #cart .hr{ border:0; border-top:1px solid var(--line); margin:14px 0; }
+
+  #cart .kv{
+    display:grid;
+    grid-template-columns: 1fr auto;
+    gap:10px;
+    align-items:center;
+    font-weight:800;
+  }
+  #cart .kv .k{ color: var(--muted); font-weight:900; }
+  #cart .total{
+    font-weight: 1000;
+    font-size: 1.25rem;
+    letter-spacing: -.01em;
+  }
+
+  /* Free shipping inside summary */
+  #cart .freebox{
+    border:1px solid #e9eefc;
+    border-radius: 16px;
+    background: rgba(255,255,255,.7);
+    box-shadow: 0 12px 28px rgba(2,8,23,.06);
+    overflow:hidden;
+    margin: 12px 0;
+  }
+  #cart .freebox__inner{
+    padding: 12px 12px 10px;
+    display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap;
+  }
+  #cart .freebox__title{
+    font-weight:1000;
+    display:flex; align-items:center; gap:10px;
+    letter-spacing:-.01em;
+  }
+  #cart .spark{
+    width:26px; height:26px; border-radius:10px;
+    display:grid; place-items:center;
+    background:#eef6ff;
+    border:1px solid #dbeafe;
+    font-size:14px;
+  }
+  #cart .freebox__text{ color:var(--muted); font-weight:800; margin-top:2px; }
+  #cart .progress{
+    height:10px;
+    background:#eef2ff;
+    border-top:1px solid #edf2ff;
+    overflow:hidden;
+  }
+  #cart .progress > div{
+    height:100%;
+    width:0%;
+    background: linear-gradient(90deg, rgba(147,197,253,1), rgba(134,239,172,1));
+    transition: width .35s ease;
+  }
+  #cart .badge-ok{
+    display:inline-flex; align-items:center; gap:8px;
+    padding:8px 12px;
+    border-radius:999px;
+    background: var(--success-soft);
+    border:1px solid #bbf7d0;
+    color:#065f46;
+    font-weight:1000;
+    white-space:nowrap;
+  }
+
+  /* Empty */
+  #cart .empty{
+    padding: 22px;
+    border:1px dashed var(--line);
+    border-radius: var(--radius);
+    background: rgba(255,255,255,.65);
+    color: var(--muted);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:14px;
+    flex-wrap:wrap;
+  }
+
+  /* Responsive table -> cards */
+  @media (max-width: 760px){
+    #cart .table thead{ display:none; }
+    #cart .table tr{
+      display:grid;
+      grid-template-columns: 1fr auto;
+      gap:10px;
+      padding: 12px;
+      border-bottom:1px solid var(--line);
+    }
+    #cart .table td{ border:0; padding: 6px 0; }
+    #cart .cell-actions{ grid-column: 1/-1; display:flex; justify-content:flex-end; gap:10px; }
+    #cart .thumb{ width:70px; height:70px; border-radius:16px; }
+  }
+
+  /* Anim pulse */
+  @keyframes pulseRow{0%{background:transparent}50%{background:rgba(59,130,246,.06)}100%{background:transparent}}
+  #cart .pulse{ animation:pulseRow .8s ease; }
 </style>
 
-<div class="wrap">
-  <div style="display:flex;align-items:center;gap:12px;margin:6px 0 6px;">
-    <h1 style="font-weight:800;margin:0;font-size:clamp(24px,3vw,32px)">Tu carrito</h1>
-    <span class="muted" id="cartBadgePill">{{ $totals['count'] }} artículo(s)</span>
-  </div>
-  <div class="note" style="margin-bottom:16px;">Los precios ya incluyen IVA (16%).</div>
+<div id="cart">
+  <div class="bg" aria-hidden="true"></div>
 
-  <div class="grid">
-    {{-- Lista de productos --}}
-    <div class="card col-main">
-      @if(count($cart) === 0)
-        <div class="card-body" style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center">
-          <p class="muted" style="margin:0">Tu carrito está vacío.</p>
-          <a class="btn btn-primary" href="{{ route('web.catalog.index') }}">Explorar catálogo</a>
-        </div>
-      @else
-        <div class="card-body" style="padding:0">
-          <table class="table" id="cartTable">
-            <thead>
-              <tr>
-                <th>Producto</th>
-                <th style="text-align:right">Precio</th>
-                <th style="text-align:center">Cantidad</th>
-                <th style="text-align:right">Importe</th>
-                <th style="width:1%"></th>
-              </tr>
-            </thead>
-            <tbody id="cartRows">
-              @foreach($cart as $row)
-              <tr data-id="{{ $row['id'] }}">
-                <td>
-                  <div class="row">
-                    <img class="thumb" src="{{ $row['image'] ?: asset('images/placeholder.png') }}"
-                         alt="{{ $row['name'] }}" onerror="this.onerror=null;this.src='{{ asset('images/placeholder.png') }}'">
-                    <div>
-                      <a class="prod-name" href="{{ route('web.catalog.show', $row['slug']) }}">{{ $row['name'] }}</a>
-                      <div class="muted small">SKU: {{ $row['sku'] ?: '—' }}</div>
-                    </div>
-                  </div>
-                </td>
-                <td class="cell-price" style="text-align:right">${{ number_format($row['price'],2) }}</td>
-                <td class="cell-qty" style="text-align:center">
-                  <div class="qty">
-                    <button type="button" aria-label="Disminuir" onclick="cartMinus({{ $row['id'] }})">−</button>
-                    <input class="input" type="number" min="1" max="999" value="{{ $row['qty'] }}" onchange="cartSet({{ $row['id'] }}, this.value)">
-                    <button type="button" aria-label="Aumentar" onclick="cartPlus({{ $row['id'] }})">+</button>
-                  </div>
-                </td>
-                <td class="row-total cell-importe" style="text-align:right">
-                  ${{ number_format($row['price'] * $row['qty'], 2) }}
-                </td>
-                <td class="cell-actions">
-                  <form method="POST" action="{{ route('web.cart.remove') }}" onsubmit="return confirm('¿Quitar del carrito?')">
-                    @csrf
-                    <input type="hidden" name="catalog_item_id" value="{{ $row['id'] }}">
-                    <button class="btn btn-danger" type="submit">Quitar</button>
-                  </form>
-                </td>
-              </tr>
-              @endforeach
-            </tbody>
-          </table>
-
-          <div class="card-body" style="display:flex;gap:10px;justify-content:space-between;flex-wrap:wrap">
-            <form method="POST" action="{{ route('web.cart.clear') }}" onsubmit="return confirm('¿Vaciar carrito por completo?')">
-              @csrf
-              <button class="btn btn-danger" type="submit">Vaciar carrito</button>
-            </form>
-            <a class="btn btn-ghost" href="{{ route('web.catalog.index') }}">← Seguir comprando</a>
-          </div>
-        </div>
-      @endif
-    </div>
-
-    {{-- RESUMEN (con banner motivacional mejorado adentro) --}}
-    <aside class="card col-aside sticky" aria-label="Resumen de compra">
-      <div class="card-body">
-        <h3 style="margin:0 0 10px;font-weight:900">Resumen</h3>
-
-        {{-- Banner motivacional dentro del resumen (se oculta al alcanzar el umbral) --}}
-        <div id="freeBanner" class="motivation" style="display: {{ $faltan>0 ? 'grid':'none' }}; gap:10px; margin-bottom:10px;">
-          <div class="headline">
-            <span class="spark">✨</span>
-            <span>¡Casi lo logras! Estás a 
-              <strong id="freeMissing">${{ number_format($faltan,2) }}</strong> 
-              de obtener envío gratis.
-            </span>
-          </div>
-          <div class="progress" aria-label="Progreso hacia envío gratis" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ $pct }}">
-            <div id="freeProgress" style="width: {{ $pct }}%"></div>
-          </div>
-          <div class="mini-cta">
-            <a class="mini-link" href="{{ route('web.catalog.index') }}">Sigue explorando</a>
-            <span class="muted">·</span>
-            <span class="muted">Agrega artículos y desbloquea el beneficio</span>
-          </div>
-        </div>
-
-        {{-- Key/values --}}
-        <div class="kv" style="margin-bottom:6px">
-          <div class="muted">Artículos</div><div id="sumCount">{{ $totals['count'] }}</div>
-        </div>
-        <div class="kv">
-          <div class="muted">Subtotal</div>
-          <div id="sumSubtotal">${{ number_format($totals['subtotal'],2) }}</div>
-        </div>
-
-        {{-- Bloque: Envío --}}
-        <div class="kv" style="margin-top:6px"><div class="muted">Envío</div><div id="sumEnvio">$0.00</div></div>
-
-        {{-- Si YA alcanzó el umbral: mensaje bonito y oculta cotizador --}}
-        <div id="shipFreeBlock" style="display: {{ $faltan>0 ? 'none':'block' }}; margin:10px 0 0;">
-          <div class="ship-item" style="border:1px dashed var(--line);background:#f8fffb">
-            <div>
-              <div><strong>Envío Gratis</strong> — <span class="badge-free">Aplicado</span></div>
-              <div class="muted">Superaste ${{ number_format($FREE_SHIP,2) }}. Nosotros nos encargamos del envío 🎉</div>
-            </div>
-          </div>
-        </div>
-
-        {{-- Cotizador (solo si NO ha alcanzado el umbral) --}}
-        <div id="shipCotizadorBlock" style="display: {{ $faltan>0 ? 'block':'none' }}; margin-top:10px">
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <label for="ship-cp" class="muted"><strong>CP destino:</strong></label>
-            <input id="ship-cp" class="input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="5"
-                   placeholder="Ej. 54000" value="{{ $cliente_cp ?? '' }}" style="width:130px">
-            <button class="btn btn-ghost" type="button" onclick="refreshShipping()">Cotizar envío</button>
-          </div>
-          <div id="shipOptions" class="ship-list" style="margin-top:10px"></div>
-        </div>
-
-        <div class="hr"></div>
-
-        <div class="kv">
-          <div style="font-weight:900">Total</div>
-          <div id="sumTotal" class="total" aria-live="polite">${{ number_format($totals['total'],2) }}</div>
-        </div>
-        <div class="note" style="margin-top:6px;">Precios ya incluyen IVA (16%).</div>
-
-        <div style="display:flex;flex-direction:column;gap:10px;margin-top:14px">
-          <a class="btn btn-primary" href="{{ route('checkout.start') }}">Proceder al pago</a>
-          <a class="btn btn-ghost" href="{{ route('web.contacto') }}">Cotizar por WhatsApp/Correo</a>
+  <div class="wrap">
+    {{-- Header --}}
+    <div class="top">
+      <div>
+        <h1>Tu carrito</h1>
+        <div class="sub">
+          Revisa tu compra y continúa al pago.
+          <div class="note">Los precios ya incluyen IVA (16%).</div>
         </div>
       </div>
-    </aside>
+
+      <div class="pill" id="cartBadgePill" title="Artículos en carrito">
+        {{-- cart icon --}}
+        <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M6.5 6h14l-1.5 8h-11L6.5 6Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+          <path d="M6.5 6 5.8 3.8H3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          <path d="M9 21a1.2 1.2 0 1 0 0-2.4A1.2 1.2 0 0 0 9 21Zm9 0a1.2 1.2 0 1 0 0-2.4A1.2 1.2 0 0 0 18 21Z" fill="currentColor"/>
+        </svg>
+        <span>{{ $count }} artículo(s)</span>
+      </div>
+    </div>
+
+    <div class="grid">
+      {{-- Main --}}
+      <div class="card col-main">
+        @if(count($cart ?? []) === 0)
+          <div class="card-body">
+            <div class="empty">
+              <div>
+                <div style="font-weight:1000;color:var(--ink);font-size:1.05rem;">Tu carrito está vacío</div>
+                <div class="note" style="margin-top:6px;">Explora el catálogo y agrega productos.</div>
+              </div>
+              <a class="btn btn-primary" href="{{ route('web.catalog.index') }}">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M4 7h16M4 12h16M4 17h10" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>
+                </svg>
+                Explorar catálogo
+              </a>
+            </div>
+          </div>
+        @else
+          <div class="card-body" style="padding:0">
+            <table class="table" id="cartTable">
+              <thead>
+                <tr>
+                  <th>Producto</th>
+                  <th style="text-align:right">Precio</th>
+                  <th style="text-align:center">Cantidad</th>
+                  <th style="text-align:right">Importe</th>
+                  <th style="width:1%"></th>
+                </tr>
+              </thead>
+              <tbody id="cartRows">
+                @foreach(($cart ?? []) as $row)
+                <tr data-id="{{ $row['id'] }}">
+                  <td>
+                    <div class="row">
+                      <img class="thumb"
+                           src="{{ $row['image'] ?: asset('images/placeholder.png') }}"
+                           alt="{{ $row['name'] }}"
+                           onerror="this.onerror=null;this.src='{{ asset('images/placeholder.png') }}'">
+                      <div>
+                        <a class="prod-name" href="{{ route('web.catalog.show', $row['slug']) }}">{{ $row['name'] }}</a>
+                        <div class="sku">SKU: {{ $row['sku'] ?: '—' }}</div>
+                      </div>
+                    </div>
+                  </td>
+
+                  <td class="cell-price" style="text-align:right; font-weight:900;">
+                    ${{ number_format($row['price'],2) }}
+                  </td>
+
+                  <td class="cell-qty" style="text-align:center;">
+                    <div class="qty">
+                      <button type="button" aria-label="Disminuir" onclick="cartMinus({{ $row['id'] }})">−</button>
+                      <input type="number" min="1" max="999" value="{{ $row['qty'] }}"
+                             onchange="cartSet({{ $row['id'] }}, this.value)">
+                      <button type="button" aria-label="Aumentar" onclick="cartPlus({{ $row['id'] }})">+</button>
+                    </div>
+                  </td>
+
+                  <td class="row-total cell-importe" style="text-align:right; font-weight:1000;">
+                    ${{ number_format($row['price'] * $row['qty'], 2) }}
+                  </td>
+
+                  <td class="cell-actions" style="text-align:right;">
+                    <form method="POST" action="{{ route('web.cart.remove') }}" onsubmit="return confirm('¿Quitar del carrito?')">
+                      @csrf
+                      <input type="hidden" name="catalog_item_id" value="{{ $row['id'] }}">
+                      <button class="btn btn-danger" type="submit">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                          <path d="M9 3h6m-8 4h10m-9 0 1 14h6l1-14" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>
+                        </svg>
+                        Quitar
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+                @endforeach
+              </tbody>
+            </table>
+
+            <div class="card-body" style="display:flex; gap:10px; justify-content:space-between; flex-wrap:wrap;">
+              <form method="POST" action="{{ route('web.cart.clear') }}" onsubmit="return confirm('¿Vaciar carrito por completo?')">
+                @csrf
+                <button class="btn btn-danger" type="submit">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M4 7h16M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>
+                    <path d="M7 7l1 14h8l1-14" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>
+                  </svg>
+                  Vaciar carrito
+                </button>
+              </form>
+              <a class="btn btn-ghost" href="{{ route('web.catalog.index') }}">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Seguir comprando
+              </a>
+            </div>
+          </div>
+        @endif
+      </div>
+
+      {{-- Aside --}}
+      <aside class="card col-aside sticky" aria-label="Resumen de compra">
+        <div class="card-body">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+            <h3 style="margin:0; font-weight:1000; letter-spacing:-.01em;">Resumen</h3>
+            <span class="pill" style="padding:8px 12px;">MXN</span>
+          </div>
+
+          {{-- ✅ Barra de envío gratis AHORA dentro del resumen --}}
+          @if($FREE_SHIP > 0)
+            <div class="freebox" id="freebox">
+              <div class="freebox__inner">
+                @if($faltan > 0)
+                  <div>
+                    <div class="freebox__title">
+                      <span class="spark">✨</span>
+                      <span>Envío gratis</span>
+                    </div>
+                    <div class="freebox__text">
+                      Te faltan <b id="freeMissing">${{ number_format($faltan,2) }}</b> para llegar a
+                      <b>${{ number_format($FREE_SHIP,2) }}</b>.
+                    </div>
+                  </div>
+                  <div class="pill" style="padding:8px 12px; font-weight:1000;">
+                    <span id="freePct">{{ $pct }}%</span>
+                  </div>
+                @else
+                  <div class="badge-ok">✅ Envío gratis aplicado</div>
+                @endif
+              </div>
+              <div class="progress" aria-label="Progreso hacia envío gratis" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ $pct }}">
+                <div id="freeProgress" style="width: {{ $pct }}%"></div>
+              </div>
+            </div>
+          @endif
+
+          <div class="kv">
+            <div class="k">Artículos</div>
+            <div id="sumCount">{{ $count }}</div>
+          </div>
+
+          <div class="kv" style="margin-top:10px;">
+            <div class="k">Subtotal</div>
+            <div id="sumSubtotal">${{ number_format($subtotal,2) }}</div>
+          </div>
+
+          <div class="kv" style="margin-top:10px;">
+            <div class="k">Envío</div>
+            <div class="muted" style="font-weight:900;">Se calcula en checkout</div>
+          </div>
+
+          <div class="hr"></div>
+
+          <div class="kv">
+            <div style="font-weight:1000;">Total</div>
+            <div id="sumTotal" class="total">${{ number_format($total,2) }}</div>
+          </div>
+
+          <div class="note" style="margin-top:8px;">
+            * El total final puede variar según el envío en el checkout.
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:10px; margin-top:14px;">
+            <a class="btn btn-primary" href="{{ route('checkout.start') }}">
+              <svg class="icon icon-lg" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M8 12h8m-8 4h5M9 3h6l3 3v15a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              Proceder al pago
+            </a>
+
+            <a class="btn btn-ghost" href="{{ route('web.catalog.index') }}">
+              <svg class="icon icon-lg" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              Seguir comprando
+            </a>
+
+            {{-- ✅ Link sin fondo, debajo de seguir comprando --}}
+            <a class="help-link" href="{{ route('web.contacto') }}">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 18h.01M9.5 9.5a2.5 2.5 0 1 1 4.1 2c-.8.6-1.6 1.1-1.6 2.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                <path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z" stroke="currentColor" stroke-width="1.8"/>
+              </svg>
+              ¿Necesitas ayuda? Contáctanos
+            </a>
+          </div>
+        </div>
+      </aside>
+    </div>
   </div>
 </div>
 
@@ -243,31 +573,58 @@
   async function postJson(url, data) {
     const res = await fetch(url, {
       method: 'POST',
-      headers: {'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept':'application/json','Content-Type':'application/json'},
+      headers: {
+        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+        'Accept':'application/json',
+        'Content-Type':'application/json'
+      },
       body: JSON.stringify(data)
     });
     return res.json();
   }
-  function pulse(el){ if(!el) return; el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse'); }
+
+  function pulse(el){
+    if(!el) return;
+    el.classList.remove('pulse');
+    void el.offsetWidth;
+    el.classList.add('pulse');
+  }
+
+  function money(n){
+    return Number(n||0).toLocaleString('es-MX',{style:'currency',currency:'MXN'});
+  }
+
+  function setFreeBar(subtotal){
+    if (!FREE_SHIP || FREE_SHIP <= 0) return;
+
+    const faltan = Math.max(0, FREE_SHIP - subtotal);
+    const pct = FREE_SHIP > 0 ? Math.min(100, Math.round((subtotal / FREE_SHIP)*100)) : 100;
+
+    const missingEl = document.getElementById('freeMissing');
+    const pctEl = document.getElementById('freePct');
+    const bar = document.getElementById('freeProgress');
+
+    if (missingEl) missingEl.textContent = money(faltan);
+    if (pctEl) pctEl.textContent = pct + '%';
+    if (bar) bar.style.width = pct + '%';
+  }
 
   function updateSummary(totals){
-    document.getElementById('sumCount').textContent    = totals.count;
-    document.getElementById('sumSubtotal').textContent = totals.subtotal.toLocaleString('es-MX',{style:'currency',currency:'MXN'});
+    const count = totals.count ?? 0;
+    const subtotal = totals.subtotal ?? 0;
+    const total = totals.total ?? 0;
 
-    toggleFreeUI(totals.subtotal);
-
-    const base = Number(totals.total); // total YA incluye IVA
-    const elTotal = document.getElementById('sumTotal');
-    elTotal.dataset.baseTotal = String(base.toFixed(2));
-    const newTotal = base + (window.shippingPrice || 0);
-    elTotal.textContent = newTotal.toLocaleString('es-MX',{style:'currency',currency:'MXN'});
-    pulse(elTotal);
+    document.getElementById('sumCount').textContent = count;
+    document.getElementById('sumSubtotal').textContent = money(subtotal);
+    document.getElementById('sumTotal').textContent = money(total);
 
     const pill = document.getElementById('cartBadgePill');
-    if (pill) pill.textContent = `${totals.count} artículo(s)`;
+    if (pill) pill.querySelector('span').textContent = `${count} artículo(s)`;
 
-    const cp = document.getElementById('ship-cp')?.value || '';
-    if (cp.length >= 5 && totals.subtotal < FREE_SHIP) refreshShipping();
+    setFreeBar(subtotal);
+
+    pulse(document.getElementById('sumSubtotal'));
+    pulse(document.getElementById('sumTotal'));
   }
 
   async function cartSet(id, qty){
@@ -278,145 +635,32 @@
     const row = document.querySelector(`tr[data-id="${id}"]`);
     if (row){
       row.querySelector('input[type="number"]').value = qty;
-      const price = parseFloat(row.querySelector('.cell-price').textContent.replace(/[^0-9.]/g,'') || '0');
-      row.querySelector('.row-total').textContent = (price * qty).toLocaleString('es-MX',{style:'currency',currency:'MXN'});
-      row.classList.add('pulse'); setTimeout(()=>row.classList.remove('pulse'), 600);
+      const price = parseFloat((row.querySelector('.cell-price')?.textContent || '').replace(/[^0-9.]/g,'') || '0');
+      const totalCell = row.querySelector('.row-total');
+      if (totalCell) totalCell.textContent = money(price * qty);
+
+      row.classList.add('pulse');
+      setTimeout(()=>row.classList.remove('pulse'), 650);
     }
-    updateSummary(json.totals);
-  }
-  function cartPlus(id){ const input = document.querySelector(`tr[data-id="${id}"] input[type="number"]`); if (!input) return; cartSet(id, (parseInt(input.value||'1',10)+1)); }
-  function cartMinus(id){ const input = document.querySelector(`tr[data-id="${id}"] input[type="number"]`); if (!input) return; cartSet(id, Math.max(1,(parseInt(input.value||'1',10)-1))); }
 
-  // ---- UI: banner + cotizador dentro del RESUMEN
-  function toggleFreeUI(subtotal){
-    const faltan = Math.max(0, FREE_SHIP - subtotal);
-    const pct    = FREE_SHIP > 0 ? Math.min(100, Math.round((subtotal / FREE_SHIP)*100)) : 100;
-
-    const banner = document.getElementById('freeBanner');
-    const freeBlock = document.getElementById('shipFreeBlock');
-    const cotBlock  = document.getElementById('shipCotizadorBlock');
-
-    if (faltan > 0){
-      if (banner){
-        banner.style.display = 'grid';
-        const missingEl = document.getElementById('freeMissing');
-        if (missingEl) missingEl.textContent = faltan.toLocaleString('es-MX',{style:'currency',currency:'MXN'});
-        const bar = document.getElementById('freeProgress'); if (bar) bar.style.width = pct + '%';
-      }
-      if (cotBlock) cotBlock.style.display = 'block';
-      if (freeBlock) freeBlock.style.display = 'none';
-    } else {
-      if (banner) banner.style.display = 'none';
-      if (cotBlock) cotBlock.style.display = 'none';
-      if (freeBlock) freeBlock.style.display = 'block';
-      window.shippingPrice = 0;
-      window.shippingLabel = 'Envío Gratis — Aplicado';
-      updateShippingSummary();
-    }
+    updateSummary(json.totals || {});
   }
 
-  // ---- Envío
-  let shippingPrice = 0;
-  let shippingLabel = 'Sin seleccionar';
-
-  async function refreshShipping(){
-    const subtotalTxt = document.getElementById('sumSubtotal').textContent.replace(/[^\d.]/g,'');
-    const subtotalVal = Number(subtotalTxt||0);
-    if (subtotalVal >= FREE_SHIP) return;
-
-    const cp = (document.getElementById('ship-cp')?.value || '').trim();
-    const box = document.getElementById('shipOptions');
-    if (!cp || cp.length < 5) { box.innerHTML = '<div class="muted">Escribe un CP válido (5 dígitos).</div>'; return; }
-
-    const packageData = { weight_kg: 1, length_cm: 20, width_cm: 20, height_cm: 10 };
-    const subtotalStr = document.getElementById('sumSubtotal').textContent.replace(/[^\d.]/g,'');
-    const subtotalNum = Number(subtotalStr || {{ json_encode($totals['subtotal']) }}) || 0;
-
-    box.innerHTML = '<div class="muted">Cotizando envío…</div>';
-    try{
-      const res = await fetch('{{ route('cart.shipping.options') }}', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json','X-CSRF-TOKEN':'{{ csrf_token() }}'},
-        body: JSON.stringify({ subtotal: subtotalNum, to: { postal_code: cp, country_code: 'MX' }, package: packageData })
-      });
-      const data = await res.json();
-      if (data.error) { box.innerHTML = '<div style="color:#b91c1c">Error al cotizar: '+data.error+'</div>'; return; }
-      renderShipOptions(data);
-    }catch(e){ box.innerHTML = '<div style="color:#b91c1c">No se pudo cotizar. Intenta de nuevo.</div>'; }
+  function cartPlus(id){
+    const input = document.querySelector(`tr[data-id="${id}"] input[type="number"]`);
+    if (!input) return;
+    cartSet(id, (parseInt(input.value||'1',10)+1));
   }
 
-  function renderShipOptions(data){
-    const box = document.getElementById('shipOptions');
-    box.innerHTML = '';
-    if (data.free_shipping) {
-      const o = data.options?.[0];
-      if(!o){ box.innerHTML = '<div class="muted">No hay opciones disponibles.</div>'; return; }
-      shippingPrice = 0; shippingLabel = `${o.carrier} — ${o.service}`;
-      box.innerHTML = `
-        <div class="ship-item" style="border:1px dashed var(--line);background:#f8fffb">
-          <input type="radio" name="shipOpt" value="${o.id}" checked>
-          <div>
-            <div><strong>${o.carrier}</strong> — ${o.service} <span class="badge-free">Gratis</span></div>
-            ${o.eta ? `<div class="muted">ETA: ${o.eta}</div>` : ''}
-          </div>
-        </div>`;
-      updateShippingSummary();
-      return selectShipping(o.id, shippingLabel, 0, o);
-    }
-    if (!data.options?.length){
-      box.innerHTML = '<div class="muted">No hay opciones disponibles para el CP indicado.</div>';
-      shippingPrice = 0; shippingLabel = 'Sin seleccionar';
-      return updateShippingSummary();
-    }
-    const frag = document.createDocumentFragment();
-    data.options.forEach(o=>{
-      const div = document.createElement('label');
-      div.className = 'ship-item';
-      div.innerHTML = `
-        <input type="radio" name="shipOpt" value="${o.id}">
-        <div>
-          <div><strong>${o.carrier}</strong> — ${o.service}</div>
-          <div class="muted">${Number(o.price||0).toLocaleString('es-MX',{style:'currency',currency:'MXN'})}${o.eta ? ' · ETA: '+o.eta : ''}</div>
-        </div>`;
-      div.addEventListener('change',()=>{
-        shippingPrice = Number(o.price||0);
-        shippingLabel = `${o.carrier} — ${o.service}`;
-        updateShippingSummary();
-        selectShipping(o.id, shippingLabel, shippingPrice, o);
-      });
-      frag.appendChild(div);
-    });
-    box.appendChild(frag);
-    const first = box.querySelector('input[name="shipOpt"]'); if(first){ first.checked = true; first.dispatchEvent(new Event('change')); }
-  }
-
-  async function selectShipping(optionId, label, price, raw){
-    try {
-      await fetch('{{ route('cart.shipping.select') }}', {
-        method:'POST', headers: {'Content-Type':'application/json','X-CSRF-TOKEN':'{{ csrf_token() }}'},
-        body: JSON.stringify({ option_id: optionId, option_label: label, price: price, raw: raw || null })
-      });
-    } catch(e) { console.warn('No se pudo guardar la selección de envío', e); }
-  }
-
-  function updateShippingSummary(){
-    const elEnvio = document.getElementById('sumEnvio');
-    elEnvio.textContent = (shippingPrice||0).toLocaleString('es-MX',{style:'currency',currency:'MXN'});
-    const baseStr = document.getElementById('sumTotal').dataset.baseTotal;
-    const base = Number(baseStr || {{ json_encode($totals['total']) }}) || 0;
-    const newTotal = base + (shippingPrice||0);
-    const elTotal = document.getElementById('sumTotal');
-    elTotal.textContent = newTotal.toLocaleString('es-MX',{style:'currency',currency:'MXN'});
-    pulse(elEnvio); pulse(elTotal);
+  function cartMinus(id){
+    const input = document.querySelector(`tr[data-id="${id}"] input[type="number"]`);
+    if (!input) return;
+    cartSet(id, Math.max(1,(parseInt(input.value||'1',10)-1)));
   }
 
   // Init
-  (function initPage(){
-    const elTot = document.getElementById('sumTotal');
-    elTot.dataset.baseTotal = '{{ number_format($totals["total"],2,".","") }}'; // incluye IVA
-    toggleFreeUI({{ json_encode($totals['subtotal']) }});
-    const seed = document.getElementById('ship-cp')?.value || '';
-    if (seed && seed.length >= 5 && {{ json_encode($totals['subtotal']) }} < FREE_SHIP) refreshShipping();
+  (function(){
+    setFreeBar({{ json_encode($subtotal) }});
   })();
 </script>
 @endpush
