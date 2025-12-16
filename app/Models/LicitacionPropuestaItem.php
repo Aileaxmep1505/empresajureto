@@ -16,6 +16,10 @@ class LicitacionPropuestaItem extends Model
         'licitacion_request_item_id',
         'product_id',
 
+        // ✅ NUEVO (orden exacto PDF / evitar duplicados por split)
+        'split_index',
+        'split_order',
+
         // IA
         'descripcion_raw',
         'suggested_product_id',
@@ -34,6 +38,9 @@ class LicitacionPropuestaItem extends Model
     ];
 
     protected $casts = [
+        'split_index'        => 'integer',
+        'split_order'        => 'integer',
+
         'match_score'        => 'integer',
         'manual_selected'    => 'boolean',
         'cantidad_propuesta' => 'decimal:2',
@@ -56,7 +63,7 @@ class LicitacionPropuestaItem extends Model
         return $this->belongsTo(Product::class, 'product_id');
     }
 
-    // ✅ esta relación es la que te faltaba (por eso el error suggestedProduct)
+    // ✅ sugerido por IA
     public function suggestedProduct()
     {
         return $this->belongsTo(Product::class, 'suggested_product_id');
