@@ -114,9 +114,7 @@ class LicitacionPropuestaController extends Controller implements HasMiddleware
 
         $licitacionPdf = $propuesta->licitacionPdf;
 
-        // ==========================================================
-        // ✅ 5 coincidencias por item desde products (SMART)
-        // ==========================================================
+        // ======================== 5 coincidencias por item ========================
         $candidatesByItem = [];
         foreach ($propuesta->items as $item) {
             if ($item->product_id) continue;
@@ -127,9 +125,7 @@ class LicitacionPropuestaController extends Controller implements HasMiddleware
             $candidatesByItem[$item->id] = $this->findCandidatesSmart($text, 5);
         }
 
-        // ==========================================================
-        // Splits (para UI)
-        // ==========================================================
+        // ======================== Splits para UI ========================
         $splitsInfo = [];
         $allSplitsProcessed = false;
 
@@ -190,7 +186,6 @@ class LicitacionPropuestaController extends Controller implements HasMiddleware
             return back()->with('error', 'Esta propuesta no tiene PDF asociado.');
         }
 
-        // ✅ Validación adicional: splitIndex existe
         $meta   = $propuesta->licitacionPdf->meta ?? [];
         $splits = $meta['splits'] ?? [];
         if ($splits instanceof Collection) $splits = $splits->toArray();
@@ -198,7 +193,6 @@ class LicitacionPropuestaController extends Controller implements HasMiddleware
             return back()->with('error', "Split {$splitIndex} no existe en meta->splits.");
         }
 
-        // ✅ Si ya estaba procesado, no reprocesar accidentalmente
         $processed = $propuesta->processed_split_indexes ?? [];
         if ($processed instanceof Collection) $processed = $processed->toArray();
         if (!is_array($processed)) $processed = [];
@@ -208,15 +202,12 @@ class LicitacionPropuestaController extends Controller implements HasMiddleware
         }
 
         try {
-            // ✅ IA: crea items y retorna IDs creados
             $createdIds = $iaService->processSplitWithAi($propuesta, $splitIndex);
 
-            // marcar split como procesado
             $processed[] = $splitIndex;
             $propuesta->processed_split_indexes = array_values(array_unique($processed));
             $propuesta->save();
 
-            // ✅ matching SYNC solo a lo recién creado (requiere Job que acepte IDs)
             if (!empty($createdIds)) {
                 MatchLicitacionPropuestaItems::dispatchSync($propuesta->id, $createdIds);
             }
@@ -253,7 +244,19 @@ class LicitacionPropuestaController extends Controller implements HasMiddleware
 
         $qty = (float) ($item->cantidad_propuesta ?? 0);
         $pu  = (float) ($item->precio_unitario ?? 0);
-        $item->subtotal = $qty * $pu;
+        $subtotalBase = $qty * $pu;
+        $item->subtotal = $subtotalBase;
+
+        if (Schema::hasColumn($item->getTable(), 'utilidad_pct')) {
+            $pct = (float) ($item->utilidad_pct ?? 0);
+            $util = $subtotalBase * ($pct / 100.0);
+            if (Schema::hasColumn($item->getTable(), 'utilidad_monto')) {
+                $item->utilidad_monto = $util;
+            }
+            if (Schema::hasColumn($item->getTable(), 'subtotal_con_utilidad')) {
+                $item->subtotal_con_utilidad = $subtotalBase + $util;
+            }
+        }
 
         if (empty($item->motivo_seleccion)) $item->motivo_seleccion = 'Seleccionado manualmente';
         $item->save();
@@ -269,6 +272,16 @@ class LicitacionPropuestaController extends Controller implements HasMiddleware
         $item->match_score     = null;
         $item->precio_unitario = null;
         $item->subtotal        = 0;
+
+        if (Schema::hasColumn($item->getTable(), 'utilidad_pct')) {
+            $item->utilidad_pct = 0;
+        }
+        if (Schema::hasColumn($item->getTable(), 'utilidad_monto')) {
+            $item->utilidad_monto = 0;
+        }
+        if (Schema::hasColumn($item->getTable(), 'subtotal_con_utilidad')) {
+            $item->subtotal_con_utilidad = 0;
+        }
 
         if (empty($item->motivo_seleccion)) $item->motivo_seleccion = 'No aplica / rechazado';
         $item->save();
@@ -327,15 +340,249 @@ class LicitacionPropuestaController extends Controller implements HasMiddleware
         return back()->with('status', 'Propuesta eliminada.');
     }
 
+    // ======================== CRUD renglones manuales ========================
+
+    public function storeItem(Request $request, LicitacionPropuesta $licitacionPropuesta)
+    {
+        $data = $request->validate([
+            'descripcion_raw'    => ['required', 'string'],
+            'unidad_propuesta'   => ['nullable', 'string', 'max:50'],
+            'cantidad_propuesta' => ['nullable', 'numeric', 'min:0'],
+            'precio_unitario'    => ['nullable', 'numeric', 'min:0'],
+            'utilidad_pct'       => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+        $qty = (float) ($data['cantidad_propuesta'] ?? 0);
+        $pu  = (float) ($data['precio_unitario'] ?? 0);
+        $subtotalBase = $qty * $pu;
+        $pct  = (float) ($data['utilidad_pct'] ?? 0);
+        $util = $subtotalBase * ($pct / 100.0);
+        $subtotalConUtil = $subtotalBase + $util;
+
+        $item = new LicitacionPropuestaItem();
+        $item->licitacion_propuesta_id    = $licitacionPropuesta->id;
+        $item->licitacion_request_item_id = null;
+        $item->product_id                 = null;
+        $item->descripcion_raw            = $data['descripcion_raw'];
+        $item->unidad_propuesta           = $data['unidad_propuesta'] ?? null;
+        $item->cantidad_propuesta         = $qty;
+        $item->precio_unitario            = $pu;
+        $item->subtotal                   = $subtotalBase;
+
+        if (Schema::hasColumn($item->getTable(), 'utilidad_pct')) {
+            $item->utilidad_pct = $pct;
+        }
+        if (Schema::hasColumn($item->getTable(), 'utilidad_monto')) {
+            $item->utilidad_monto = $util;
+        }
+        if (Schema::hasColumn($item->getTable(), 'subtotal_con_utilidad')) {
+            $item->subtotal_con_utilidad = $subtotalConUtil;
+        }
+
+        $item->save();
+
+        $this->recalcTotals($licitacionPropuesta);
+
+        return back()->with('status', 'Renglón agregado.');
+    }
+
+    public function updateItem(Request $request, LicitacionPropuestaItem $item)
+    {
+        $data = $request->validate([
+            'descripcion_raw'    => ['nullable', 'string'],
+            'unidad_propuesta'   => ['nullable', 'string', 'max:50'],
+            'cantidad_propuesta' => ['nullable', 'numeric', 'min:0'],
+            'precio_unitario'    => ['nullable', 'numeric', 'min:0'],
+            'utilidad_pct'       => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+        if (isset($data['descripcion_raw'])) {
+            $item->descripcion_raw = $data['descripcion_raw'];
+        }
+        if (isset($data['unidad_propuesta'])) {
+            $item->unidad_propuesta = $data['unidad_propuesta'];
+        }
+        if (isset($data['cantidad_propuesta'])) {
+            $item->cantidad_propuesta = (float) $data['cantidad_propuesta'];
+        }
+        if (isset($data['precio_unitario'])) {
+            $item->precio_unitario = (float) $data['precio_unitario'];
+        }
+
+        $qty = (float) ($item->cantidad_propuesta ?? 0);
+        $pu  = (float) ($item->precio_unitario ?? 0);
+        $subtotalBase = $qty * $pu;
+        $item->subtotal = $subtotalBase;
+
+        $pct = isset($data['utilidad_pct'])
+            ? (float) $data['utilidad_pct']
+            : (float) ($item->utilidad_pct ?? 0);
+
+        if (Schema::hasColumn($item->getTable(), 'utilidad_pct')) {
+            $item->utilidad_pct = max(0, $pct);
+        }
+        $util = $subtotalBase * (max(0, $pct) / 100.0);
+
+        if (Schema::hasColumn($item->getTable(), 'utilidad_monto')) {
+            $item->utilidad_monto = $util;
+        }
+        if (Schema::hasColumn($item->getTable(), 'subtotal_con_utilidad')) {
+            $item->subtotal_con_utilidad = $subtotalBase + $util;
+        }
+
+        $item->save();
+
+        $this->recalcTotals($item->propuesta);
+
+        return back()->with('status', 'Renglón actualizado.');
+    }
+
+    public function destroyItem(LicitacionPropuestaItem $item)
+    {
+        $propuesta = $item->propuesta;
+        $item->delete();
+
+        if ($propuesta) {
+            $this->recalcTotals($propuesta);
+        }
+
+        return back()->with('status', 'Renglón eliminado.');
+    }
+
+    // ======================== AJAX utilidad por renglón ========================
+
+    public function updateItemUtilityAjax(Request $request, LicitacionPropuestaItem $item)
+    {
+        $data = $request->validate([
+            'utilidad_pct' => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+        $item->loadMissing('propuesta');
+
+        $pct = isset($data['utilidad_pct']) ? max(0, (float) $data['utilidad_pct']) : 0.0;
+
+        if (!Schema::hasColumn($item->getTable(), 'utilidad_pct')) {
+            return response()->json([
+                'ok'    => false,
+                'error' => 'La columna utilidad_pct no existe en la tabla de items.',
+            ], 422);
+        }
+
+        $qty = (float) ($item->cantidad_propuesta ?? 0);
+        $pu  = (float) ($item->precio_unitario ?? 0);
+        $subtotalBase = $qty * $pu;
+
+        $item->subtotal     = $subtotalBase;
+        $item->utilidad_pct = $pct;
+
+        $utilidadMonto = $subtotalBase * ($pct / 100.0);
+
+        if (Schema::hasColumn($item->getTable(), 'utilidad_monto')) {
+            $item->utilidad_monto = $utilidadMonto;
+        }
+        if (Schema::hasColumn($item->getTable(), 'subtotal_con_utilidad')) {
+            $item->subtotal_con_utilidad = $subtotalBase + $utilidadMonto;
+        }
+
+        $item->save();
+
+        $this->recalcTotals($item->propuesta);
+        $propuesta = $item->propuesta->fresh();
+
+        $itemsBuilder = $propuesta->items();
+        $subtotalBaseTotal = (float) $itemsBuilder->sum('subtotal');
+        $utilidadTotal = Schema::hasColumn((new LicitacionPropuestaItem)->getTable(), 'utilidad_monto')
+            ? (float) $propuesta->items()->sum('utilidad_monto')
+            : 0.0;
+
+        return response()->json([
+            'ok' => true,
+            'row' => [
+                'item_id'               => $item->id,
+                'utilidad_pct'          => (float) ($item->utilidad_pct ?? 0),
+                'subtotal_base'         => (float) ($item->subtotal ?? 0),
+                'utilidad_monto'        => (float) ($item->utilidad_monto ?? 0),
+                'subtotal_con_utilidad' => (float) ($item->subtotal_con_utilidad ?? (($item->subtotal ?? 0) + ($item->utilidad_monto ?? 0))),
+            ],
+            'totals' => [
+                'subtotal_base'         => (float) ($propuesta->subtotal_base ?? $subtotalBaseTotal),
+                'utilidad'              => (float) ($propuesta->utilidad_total ?? $utilidadTotal),
+                'subtotal_con_utilidad' => (float) $propuesta->subtotal,
+                'iva'                   => (float) $propuesta->iva,
+                'total'                 => (float) $propuesta->total,
+            ],
+        ]);
+    }
+
+    // ======================== Exportar PDF / Word ========================
+
+    public function exportPdf(LicitacionPropuesta $licitacionPropuesta)
+    {
+        $propuesta = $licitacionPropuesta->load([
+            'items.requestItem.page',
+            'items.product',
+        ]);
+
+        if (!class_exists(\Barryvdh\DomPDF\Facade\Pdf::class)) {
+            abort(501, 'Exportar a PDF no está configurado.');
+        }
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView(
+            'admin.licitacion_propuestas.export_pdf',
+            ['propuesta' => $propuesta]
+        );
+
+        return $pdf->download('propuesta-'.$propuesta->codigo.'.pdf');
+    }
+
+    public function exportWord(LicitacionPropuesta $licitacionPropuesta)
+    {
+        $propuesta = $licitacionPropuesta->load([
+            'items.requestItem.page',
+            'items.product',
+        ]);
+
+        $html = view('admin.licitacion_propuestas.export_word', [
+            'propuesta' => $propuesta,
+        ])->render();
+
+        return response($html)
+            ->header('Content-Type', 'application/msword')
+            ->header('Content-Disposition', 'attachment; filename="propuesta-'.$propuesta->codigo.'.doc"');
+    }
+
+    // ======================== Totales (con utilidad) ========================
+
     protected function recalcTotals(LicitacionPropuesta $propuesta): void
     {
-        $subtotal = (float) $propuesta->items()->sum('subtotal');
-        $iva      = $subtotal * 0.16;
-        $total    = $subtotal + $iva;
+        $itemsBuilder = $propuesta->items();
+        $itemsTable   = (new LicitacionPropuestaItem())->getTable();
+        $propTable    = $propuesta->getTable();
 
-        $propuesta->subtotal = $subtotal;
-        $propuesta->iva      = $iva;
-        $propuesta->total    = $total;
+        $hasUtilidadMonto   = Schema::hasColumn($itemsTable, 'utilidad_monto');
+        $hasSubtotalConUtil = Schema::hasColumn($itemsTable, 'subtotal_con_utilidad');
+
+        $subtotalBase = (float) $itemsBuilder->sum('subtotal');
+        $utilidadTotal = $hasUtilidadMonto
+            ? (float) $propuesta->items()->sum('utilidad_monto')
+            : 0.0;
+
+        $subtotalConUtil = $hasSubtotalConUtil
+            ? (float) $propuesta->items()->sum('subtotal_con_utilidad')
+            : ($subtotalBase + $utilidadTotal);
+
+        if (Schema::hasColumn($propTable, 'subtotal_base')) {
+            $propuesta->subtotal_base = $subtotalBase;
+        }
+        if (Schema::hasColumn($propTable, 'utilidad_total')) {
+            $propuesta->utilidad_total = $utilidadTotal;
+        }
+
+        $ivaRate = (float) (config('app.iva_rate', 0.16));
+
+        $propuesta->subtotal = $subtotalConUtil;
+        $propuesta->iva      = $subtotalConUtil * $ivaRate;
+        $propuesta->total    = $propuesta->subtotal + $propuesta->iva;
         $propuesta->save();
     }
 
@@ -345,9 +592,7 @@ class LicitacionPropuestaController extends Controller implements HasMiddleware
         return 'PRO-' . now()->format('Y') . '-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
     }
 
-    // ==========================================================
-    // ✅ SMART MATCHING (sin entrenar, “piensa” y busca)
-    // ==========================================================
+    // ======================== SMART MATCHING ========================
 
     protected function findCandidatesSmart(string $text, int $limit = 5): Collection
     {
@@ -356,7 +601,6 @@ class LicitacionPropuestaController extends Controller implements HasMiddleware
         $norm  = $this->norm($raw);
         if ($norm === '') return collect();
 
-        // ✅ Cache: evita llamar IA cada refresh (7 días)
         $cacheKey = 'lp_matchplan:' . md5($norm);
         $plan = Cache::remember($cacheKey, now()->addDays(7), function () use ($raw, $norm) {
             $codes = $this->extractCodes($raw);
@@ -378,7 +622,7 @@ class LicitacionPropuestaController extends Controller implements HasMiddleware
         $negatives = array_values(array_unique(array_filter($plan['negatives'] ?? [])));
         $brandHint = $plan['brand'] ?? null;
 
-        // ✅ 0) Si hay código fuerte, intenta por SKU exacto / contains (PRIORIDAD)
+        // 0) códigos (SKU)
         if (!empty($codes)) {
             $qCode = Product::query()
                 ->select(['id','sku','name','brand','unit','price'])
@@ -395,12 +639,10 @@ class LicitacionPropuestaController extends Controller implements HasMiddleware
             if ($qCode->isNotEmpty()) return $qCode;
         }
 
-        // ✅ 1) Query base
         $q = Product::query()
             ->select(['id','sku','name','brand','unit','price','description','tags'])
             ->where('active', true);
 
-        // ✅ 2) Si detectó tipo, úsalo como “ancla”
         if ($type) {
             $q->where(function ($qq) use ($type) {
                 $qq->where('name', 'like', "%{$type}%")
@@ -409,7 +651,6 @@ class LicitacionPropuestaController extends Controller implements HasMiddleware
             });
         }
 
-        // ✅ 3) Brand hint (si lo detecta)
         if ($brandHint) {
             $q->where(function ($qq) use ($brandHint) {
                 $qq->where('brand', 'like', "%{$brandHint}%")
@@ -417,7 +658,6 @@ class LicitacionPropuestaController extends Controller implements HasMiddleware
             });
         }
 
-        // ✅ 4) Si hay keywords, agrega OR (pero ordena por score)
         if (!empty($keywords)) {
             $q->where(function ($qq) use ($keywords) {
                 foreach (array_slice($keywords, 0, 10) as $w) {
@@ -430,7 +670,6 @@ class LicitacionPropuestaController extends Controller implements HasMiddleware
             });
         }
 
-        // ✅ 5) Scoring inteligente (name > sku > tags > description)
         $scoreSql = [];
         $bind = [];
 
@@ -452,7 +691,6 @@ class LicitacionPropuestaController extends Controller implements HasMiddleware
             $scoreSql[] = "CASE WHEN description LIKE ? THEN 6 ELSE 0 END"; $bind[] = "%{$w}%";
         }
 
-        // ✅ negativos (mata matches absurdos)
         foreach (array_slice($negatives, 0, 10) as $bad) {
             $scoreSql[] = "CASE WHEN name LIKE ? OR tags LIKE ? OR description LIKE ? THEN -250 ELSE 0 END";
             $bind[] = "%{$bad}%"; $bind[] = "%{$bad}%"; $bind[] = "%{$bad}%";
@@ -463,7 +701,6 @@ class LicitacionPropuestaController extends Controller implements HasMiddleware
 
         $cands = $q->limit(max($limit * 8, 40))->get()->take($limit)->values();
 
-        // ✅ Fallback final
         if ($cands->isEmpty() && !empty($keywords)) {
             $q2 = Product::query()
                 ->select(['id','sku','name','brand','unit','price'])
@@ -493,7 +730,6 @@ class LicitacionPropuestaController extends Controller implements HasMiddleware
         $timeout = (int) config('services.openai.timeout', 35);
         $connectTimeout = (int) config('services.openai.connect_timeout', 10);
 
-        // ✅ por default usa tu primary (GPT-5) para que no te meta mini si no quieres
         $model = config('services.openai.plan_model', config('services.openai.primary', 'gpt-5-2025-08-07'));
 
         if (!$apiKey) {
@@ -586,7 +822,11 @@ SYS;
         $kw = $this->basicKeywords($norm);
 
         $type = null;
-        foreach (['perforadora','engrapadora','grapadora','tijeras','cutter','marcador','resaltador','toner','cartucho','papel','etiquetas','carpeta','folder','archivero','silicon','silicón','pegamento'] as $k) {
+        foreach ([
+            'perforadora','engrapadora','grapadora','tijeras','cutter','marcador','resaltador',
+            'toner','cartucho','papel','etiquetas','carpeta','folder','archivero',
+            'silicon','silicón','pegamento'
+        ] as $k) {
             if (str_contains($norm, $k)) { $type = $k; break; }
         }
 
@@ -624,7 +864,7 @@ SYS;
         $parts = preg_split('/\s+/', trim($norm)) ?: [];
 
         $stop = [
-            'de','del','la','las','el','los','y','o','u','en','con','para','por','a','al','un','una','unos','unas',
+            'de','del','la','las','el','los','y',' o','u','en','con','para','por','a','al','un','una','unos','unas',
             'tipo','color','medida','medidas','aprox','aproximadas','fabricada','fabricado','incluye','incluido',
             'capacidad','hasta','garantia','garantía','meses','años','ano','debera','deberá','cumplir','norma',
             'cm','mm','pulgadas','pulgada','mts','metro','metros','volt','volts','hertz','hz','amperes','cc',
@@ -709,9 +949,6 @@ SYS;
         return trim($raw);
     }
 
-    /**
-     * Decodifica JSON “tolerante”: normal, string escapado, o JSON con \" sin wrapper.
-     */
     protected function decodeJsonLenient(string $raw)
     {
         $raw = trim($raw);
@@ -720,7 +957,6 @@ SYS;
         $data = json_decode($raw, true);
         if (is_array($data)) return $data;
 
-        // Caso: viene como string con escapes
         if (str_starts_with($raw, '"') && str_ends_with($raw, '"')) {
             $unquoted = json_decode($raw, true);
             if (is_string($unquoted)) {
@@ -733,7 +969,6 @@ SYS;
             }
         }
 
-        // Caso: JSON con \" sin wrapper
         $raw2 = stripslashes($raw);
         $data4 = json_decode($raw2, true);
         if (is_array($data4)) return $data4;
@@ -741,9 +976,8 @@ SYS;
         return null;
     }
 
-    // ==========================================================
-    // ✅ AJAX: buscador server-side (products) para dropdown/modal
-    // ==========================================================
+    // ======================== AJAX buscador de productos ========================
+
     public function searchProducts(Request $request)
     {
         $q     = trim((string) $request->get('q', ''));
@@ -789,15 +1023,15 @@ SYS;
         ]);
     }
 
-    // ==========================================================
-    // ✅ AJAX: aplicar producto seleccionado + autocalcular
-    // ==========================================================
+    // ======================== AJAX aplicar producto ========================
+
     public function applyProductAjax(Request $request, LicitacionPropuestaItem $item)
     {
         $data = $request->validate([
             'product_id'      => ['required', 'integer', 'exists:products,id'],
             'precio_unitario' => ['nullable', 'numeric', 'min:0'],
             'motivo'          => ['nullable', 'string', 'max:255'],
+            // 'utilidad_pct'   => ['nullable', 'numeric', 'min:0'], // opcional si luego quieres usarla
         ]);
 
         $productId = (int) $data['product_id'];
@@ -825,7 +1059,21 @@ SYS;
 
         $qty = (float) ($item->cantidad_propuesta ?? 0);
         $pu  = (float) ($item->precio_unitario ?? 0);
-        $item->subtotal = $qty * $pu;
+        $subtotalBase = $qty * $pu;
+        $item->subtotal = $subtotalBase;
+
+        $pct = Schema::hasColumn($item->getTable(), 'utilidad_pct')
+            ? (float) ($item->utilidad_pct ?? 0)
+            : 0.0;
+
+        $util = $subtotalBase * ($pct / 100.0);
+
+        if (Schema::hasColumn($item->getTable(), 'utilidad_monto')) {
+            $item->utilidad_monto = $util;
+        }
+        if (Schema::hasColumn($item->getTable(), 'subtotal_con_utilidad')) {
+            $item->subtotal_con_utilidad = $subtotalBase + $util;
+        }
 
         $item->motivo_seleccion = $data['motivo']
             ?? ($item->motivo_seleccion ?: 'Seleccionado manualmente');
@@ -833,24 +1081,36 @@ SYS;
         $item->save();
 
         $this->recalcTotals($item->propuesta);
+        $propuesta = $item->propuesta->fresh();
+
+        $itemsBuilder = $propuesta->items();
+        $subtotalBaseTotal = (float) $itemsBuilder->sum('subtotal');
+        $utilidadTotal = Schema::hasColumn((new LicitacionPropuestaItem)->getTable(), 'utilidad_monto')
+            ? (float) $propuesta->items()->sum('utilidad_monto')
+            : 0.0;
 
         return response()->json([
             'ok' => true,
             'row' => [
-                'item_id'        => $item->id,
-                'product_id'     => $product->id,
-                'sku'            => $product->sku,
-                'name'           => $product->name,
-                'brand'          => $product->brand,
-                'unit'           => $product->unit,
-                'cost'           => (float) ($product->cost ?? 0),
-                'precio_unitario'=> (float) ($item->precio_unitario ?? 0),
-                'subtotal'       => (float) ($item->subtotal ?? 0),
+                'item_id'               => $item->id,
+                'product_id'            => $product->id,
+                'sku'                   => $product->sku,
+                'name'                  => $product->name,
+                'brand'                 => $product->brand,
+                'unit'                  => $product->unit,
+                'cost'                  => (float) ($product->cost ?? 0),
+                'precio_unitario'       => (float) ($item->precio_unitario ?? 0),
+                'subtotal'              => (float) ($item->subtotal ?? 0),
+                'utilidad_pct'          => (float) ($item->utilidad_pct ?? 0),
+                'utilidad_monto'        => (float) ($item->utilidad_monto ?? 0),
+                'subtotal_con_utilidad' => (float) ($item->subtotal_con_utilidad ?? (($item->subtotal ?? 0) + ($item->utilidad_monto ?? 0))),
             ],
             'totals' => [
-                'subtotal' => (float) $item->propuesta->subtotal,
-                'iva'      => (float) $item->propuesta->iva,
-                'total'    => (float) $item->propuesta->total,
+                'subtotal_base'         => (float) ($propuesta->subtotal_base ?? $subtotalBaseTotal),
+                'utilidad'              => (float) ($propuesta->utilidad_total ?? $utilidadTotal),
+                'subtotal_con_utilidad' => (float) $propuesta->subtotal,
+                'iva'                   => (float) $propuesta->iva,
+                'total'                 => (float) $propuesta->total,
             ],
         ]);
     }

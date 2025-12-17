@@ -16,7 +16,7 @@ class LicitacionPropuestaItem extends Model
         'licitacion_request_item_id',
         'product_id',
 
-        // ✅ NUEVO (orden exacto PDF / evitar duplicados por split)
+        // Orden exacto en el PDF / split
         'split_index',
         'split_order',
 
@@ -35,6 +35,13 @@ class LicitacionPropuestaItem extends Model
         'precio_unitario',
         'subtotal',
         'notas',
+
+        // ✅ NUEVO: utilidad y costos
+        'utilidad_pct',
+        'utilidad_monto',
+        'subtotal_con_utilidad',
+        'costo',
+        'costo_jureto',
     ];
 
     protected $casts = [
@@ -43,9 +50,17 @@ class LicitacionPropuestaItem extends Model
 
         'match_score'        => 'integer',
         'manual_selected'    => 'boolean',
+
         'cantidad_propuesta' => 'decimal:2',
         'precio_unitario'    => 'decimal:2',
         'subtotal'           => 'decimal:2',
+
+        // ✅ NUEVO
+        'utilidad_pct'        => 'decimal:2',
+        'utilidad_monto'      => 'decimal:2',
+        'subtotal_con_utilidad' => 'decimal:2',
+        'costo'               => 'decimal:2',
+        'costo_jureto'        => 'decimal:2',
     ];
 
     public function propuesta()
@@ -63,7 +78,7 @@ class LicitacionPropuestaItem extends Model
         return $this->belongsTo(Product::class, 'product_id');
     }
 
-    // ✅ sugerido por IA
+    // sugerido por IA
     public function suggestedProduct()
     {
         return $this->belongsTo(Product::class, 'suggested_product_id');

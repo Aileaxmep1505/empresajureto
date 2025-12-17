@@ -934,3 +934,57 @@ Route::middleware(['auth'])->group(function () {
   Route::get('/mi-cuenta/pedidos/{order}', [\App\Http\Controllers\Customer\CustomerOrdersController::class, 'show'])
     ->name('customer.orders.show');
 });
+Route::middleware(['auth'])
+    ->prefix('admin')
+    ->name('admin.')
+    ->group(function () {
+
+        // ... aquí seguramente ya tienes otras rutas ...
+
+        // Propuestas (resource o lo que tengas)
+        // Route::resource('licitacion-propuestas', LicitacionPropuestaController::class);
+
+        // 🔽 Descarga PDF
+        Route::get(
+            'licitacion-propuestas/{licitacionPropuesta}/export/pdf',
+            [LicitacionPropuestaController::class, 'exportPdf']
+        )->name('licitacion-propuestas.export.pdf');
+
+        // 🔽 Descarga Word
+        Route::get(
+            'licitacion-propuestas/{licitacionPropuesta}/export/word',
+            [LicitacionPropuestaController::class, 'exportWord']
+        )->name('licitacion-propuestas.export.word');
+        // ================= RUTAS NUEVAS PARA RENGLONES (ITEMS) =================
+
+// Crear renglón (botón "Agregar renglón" -> modal NUEVO)
+Route::post(
+    'licitacion-propuestas/{licitacionPropuesta}/items',
+    [\App\Http\Controllers\Admin\LicitacionPropuestaController::class, 'storeItem']
+)->name('licitacion-propuestas.items.store');
+
+// Actualizar renglón (modal "Editar renglón", manda _method=PUT)
+Route::put(
+    'licitacion-propuesta-items/{item}',
+    [\App\Http\Controllers\Admin\LicitacionPropuestaController::class, 'updateItem']
+)->name('licitacion-propuesta-items.update');
+
+// Eliminar renglón (botón "Eliminar")
+Route::delete(
+    'licitacion-propuesta-items/{item}',
+    [\App\Http\Controllers\Admin\LicitacionPropuestaController::class, 'destroyItem']
+)->name('licitacion-propuesta-items.destroy');
+
+// AJAX: actualizar % de utilidad por renglón
+Route::post(
+    'licitacion-propuesta-items/{item}/update-utility',
+    [\App\Http\Controllers\Admin\LicitacionPropuestaController::class, 'updateItemUtilityAjax']
+)->name('licitacion-propuesta-items.update-utility');
+
+// AJAX: aplicar producto al renglón (picker / sugerencias)
+Route::post(
+    'licitacion-propuesta-items/{item}/apply-product',
+    [\App\Http\Controllers\Admin\LicitacionPropuestaController::class, 'applyProductAjax']
+)->name('licitacion-propuesta-items.apply-product');
+
+    });

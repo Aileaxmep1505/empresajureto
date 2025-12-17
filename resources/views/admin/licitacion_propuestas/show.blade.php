@@ -6,7 +6,7 @@
 @php
   use Illuminate\Support\Facades\Route;
 
-  // ✅ Fallbacks para rutas (evita RouteNotFoundException)
+  // ===================== RUTAS =====================
   $routeShow = Route::has('admin.licitacion-propuestas.show')
     ? 'admin.licitacion-propuestas.show'
     : (Route::has('licitacion-propuestas.show') ? 'licitacion-propuestas.show' : null);
@@ -27,34 +27,76 @@
     ? 'admin.licitacion-propuestas.splits.process'
     : (Route::has('licitacion-propuestas.splits.process') ? 'licitacion-propuestas.splits.process' : null);
 
-  // ✅ AJAX (fallback con/sin admin.)
+  // AJAX productos
   $routeProductsSearch = Route::has('admin.products.search')
     ? 'admin.products.search'
     : (Route::has('products.search') ? 'products.search' : null);
 
-  $routeApplyAjaxName  = Route::has('admin.licitacion-propuesta-items.apply-product')
+  $routeApplyAjaxName = Route::has('admin.licitacion-propuesta-items.apply-product')
     ? 'admin.licitacion-propuesta-items.apply-product'
     : (Route::has('licitacion-propuesta-items.apply-product') ? 'licitacion-propuesta-items.apply-product' : null);
 
-  // Status UI
+  // AJAX utilidad por renglón
+  $routeUtilityAjaxName = Route::has('admin.licitacion-propuesta-items.update-utility')
+    ? 'admin.licitacion-propuesta-items.update-utility'
+    : (Route::has('licitacion-propuesta-items.update-utility') ? 'licitacion-propuesta-items.update-utility' : null);
+
+  // CRUD renglones (para modal)
+  $routeItemStore = Route::has('admin.licitacion-propuestas.items.store')
+    ? 'admin.licitacion-propuestas.items.store'
+    : (Route::has('licitacion-propuestas.items.store') ? 'licitacion-propuestas.items.store' : null);
+
+  $routeItemUpdate = Route::has('admin.licitacion-propuesta-items.update')
+    ? 'admin.licitacion-propuesta-items.update'
+    : (Route::has('licitacion-propuesta-items.update') ? 'licitacion-propuesta-items.update' : null);
+
+  $routeItemDestroy = Route::has('admin.licitacion-propuesta-items.destroy')
+    ? 'admin.licitacion-propuesta-items.destroy'
+    : (Route::has('licitacion-propuesta-items.destroy') ? 'licitacion-propuesta-items.destroy' : null);
+
+  // Exportar PDF (soporta nombres tipo export.pdf y export-pdf)
+  $routeExportPdf = null;
+  if (Route::has('admin.licitacion-propuestas.export.pdf')) {
+      $routeExportPdf = 'admin.licitacion-propuestas.export.pdf';
+  } elseif (Route::has('admin.licitacion-propuestas.export-pdf')) {
+      $routeExportPdf = 'admin.licitacion-propuestas.export-pdf';
+  } elseif (Route::has('licitacion-propuestas.export.pdf')) {
+      $routeExportPdf = 'licitacion-propuestas.export.pdf';
+  } elseif (Route::has('licitacion-propuestas.export-pdf')) {
+      $routeExportPdf = 'licitacion-propuestas.export-pdf';
+  }
+
+  // Exportar Word
+  $routeExportWord = null;
+  if (Route::has('admin.licitacion-propuestas.export.word')) {
+      $routeExportWord = 'admin.licitacion-propuestas.export.word';
+  } elseif (Route::has('admin.licitacion-propuestas.export-word')) {
+      $routeExportWord = 'admin.licitacion-propuestas.export-word';
+  } elseif (Route::has('licitacion-propuestas.export.word')) {
+      $routeExportWord = 'licitacion-propuestas.export.word';
+  } elseif (Route::has('licitacion-propuestas.export-word')) {
+      $routeExportWord = 'licitacion-propuestas.export-word';
+  }
+
+  // ===================== STATUS =====================
   $statusClass = match($propuesta->status) {
-      'draft' => 'st-draft',
-      'revisar' => 'st-revisar',
-      'enviada' => 'st-enviada',
-      'adjudicada' => 'st-adjudicada',
+      'draft'         => 'st-draft',
+      'revisar'       => 'st-revisar',
+      'enviada'       => 'st-enviada',
+      'adjudicada'    => 'st-adjudicada',
       'no_adjudicada' => 'st-no_adjudicada',
-      default => 'st-draft',
+      default         => 'st-draft',
   };
 
   $statusLabels = [
-      'draft' => 'Borrador',
-      'revisar' => 'En revisión',
-      'enviada' => 'Enviada',
-      'adjudicada' => 'Adjudicada',
+      'draft'         => 'Borrador',
+      'revisar'       => 'En revisión',
+      'enviada'       => 'Enviada',
+      'adjudicada'    => 'Adjudicada',
       'no_adjudicada' => 'No adjudicada',
   ];
 
-  // All splits processed?
+  // Splits completos?
   $allSplitsProcessed = false;
   if (!empty($splitsInfo) && is_array($splitsInfo)) {
       $allSplitsProcessed = true;
@@ -66,12 +108,12 @@
       }
   }
 
-  // ✅ Mapas para el modal: solicitado + producto actual (si existe)
-  $solicitadoByItem = [];
+  // Mapas para modal de buscador
+  $solicitadoByItem  = [];
   $preselectedByItem = [];
 
   foreach ($propuesta->items as $it) {
-    $req = $it->requestItem;
+    $req    = $it->requestItem;
     $solTxt = trim((string)($req?->line_raw ?: ($it->descripcion_raw ?: '—')));
     $solicitadoByItem[$it->id] = $solTxt;
 
@@ -87,7 +129,6 @@
           'brand' => $p->brand ?? null,
           'unit'  => $p->unit ?? null,
           'price' => (float)($p->price ?? 0),
-          // 'cost'  => (float)($p->cost ?? 0),
         ],
       ];
     } else {
@@ -98,484 +139,10 @@
 
 <meta name="csrf-token" content="{{ csrf_token() }}">
 
-{{-- ✅ Tom Select --}}
+{{-- Tom Select --}}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.css">
 <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
-
-<style>
-  :root{
-    --ink:#0f172a;
-    --muted:#6b7280;
-    --border:#e5e7eb;
-    --soft:#f8fafc;
-    --success:#16a34a;
-    --success-soft:#dcfce7;
-    --warning:#f59e0b;
-    --warning-soft:#fffbeb;
-    --danger:#ef4444;
-    --danger-soft:#fef2f2;
-    --radius:18px;
-    --shadow:0 18px 44px rgba(15,23,42,.10);
-  }
-
-  .pe-wrap{
-    color:var(--ink);
-    max-width:1180px;
-    margin:0 auto;
-    padding:16px;
-    display:flex;
-    flex-direction:column;
-    gap:14px;
-  }
-
-  .pe-top{
-    display:flex;
-    align-items:flex-start;
-    justify-content:space-between;
-    gap:12px;
-    flex-wrap:wrap;
-  }
-
-  .pe-title{
-    display:flex;
-    align-items:flex-start;
-    gap:12px;
-    min-width:0;
-  }
-
-  .pe-icon{
-    width:44px; height:44px;
-    border-radius:14px;
-    display:grid; place-items:center;
-    background:linear-gradient(135deg,#f1f5f9,#fff);
-    border:1px solid var(--border);
-    box-shadow:0 10px 26px rgba(15,23,42,.06);
-    flex:0 0 auto;
-  }
-
-  .pe-h1{
-    font-weight:900;
-    font-size:1.05rem;
-    line-height:1.2;
-    margin:0;
-    word-break:break-word;
-  }
-
-  .pe-sub{
-    margin-top:6px;
-    display:flex;
-    flex-wrap:wrap;
-    gap:8px;
-    color:var(--muted);
-    font-size:.82rem;
-  }
-
-  .pe-badge{
-    display:inline-flex;
-    align-items:center;
-    gap:6px;
-    padding:4px 10px;
-    border-radius:999px;
-    border:1px solid var(--border);
-    background:#fff;
-    font-size:.78rem;
-    color:var(--muted);
-  }
-
-  .pe-actions{
-    display:flex;
-    gap:10px;
-    flex-wrap:wrap;
-    align-items:center;
-  }
-
-  /* ===================== BOTONES (MINIMAL) ===================== */
-  .pe-btn{
-    appearance:none;
-    border-radius:12px;
-    padding:8px 11px;
-    font-weight:800;
-    font-size:.82rem;
-    display:inline-flex;
-    align-items:center;
-    gap:8px;
-    cursor:pointer;
-    text-decoration:none;
-    border:1px solid rgba(15,23,42,.12);
-    background:#fff;
-    color:var(--ink);
-    transition: background .16s ease, color .16s ease, border-color .16s ease, transform .12s ease;
-    white-space:nowrap;
-  }
-  .pe-btn:hover{
-    background:#0f172a;
-    color:#fff;
-    border-color:#0f172a;
-    transform: translateY(-1px);
-  }
-  .pe-btn:active{ transform: translateY(0); }
-  .pe-btn[disabled], .pe-btn[aria-disabled="true"]{ opacity:.55; cursor:not-allowed; transform:none !important; }
-
-  .pe-btn-mini{ padding:7px 10px; font-size:.78rem; border-radius:11px; }
-
-  .pe-btn--black{ background:#0f172a; color:#fff; border-color:#0f172a; }
-  .pe-btn--black:hover{ background:#111827; border-color:#111827; }
-
-  .pe-btn--danger{
-    background:#fff;
-    color:#991b1b;
-    border-color:#fecaca;
-  }
-  .pe-btn--danger:hover{
-    background:#991b1b;
-    border-color:#991b1b;
-    color:#fff;
-  }
-
-  .pe-link{
-    text-decoration:none;
-    border-radius:12px;
-    padding:8px 11px;
-    font-size:.82rem;
-    font-weight:800;
-    border:1px solid rgba(15,23,42,.12);
-    background:#fff;
-    color:var(--ink);
-    transition: background .16s ease, color .16s ease, border-color .16s ease, transform .12s ease;
-    white-space:nowrap;
-  }
-  .pe-link:hover{
-    background:#0f172a;
-    color:#fff;
-    border-color:#0f172a;
-    transform: translateY(-1px);
-  }
-
-  /* ===================== STATUS ===================== */
-  .pe-status{
-    display:inline-flex;
-    align-items:center;
-    gap:8px;
-    padding:6px 12px;
-    border-radius:999px;
-    font-size:.8rem;
-    font-weight:900;
-    border:1px solid var(--border);
-    background:#fff;
-    color:var(--muted);
-  }
-  .pe-dot{ width:8px; height:8px; border-radius:999px; background:currentColor; }
-  .st-draft{ color:var(--warning); background:var(--warning-soft); border-color:#fde68a; }
-  .st-revisar{ color:#1d4ed8; background:#eff6ff; border-color:#bfdbfe; }
-  .st-enviada{ color:#0284c7; background:#e0f2fe; border-color:#bae6fd; }
-  .st-adjudicada{ color:var(--success); background:var(--success-soft); border-color:#bbf7d0; }
-  .st-no_adjudicada{ color:var(--danger); background:var(--danger-soft); border-color:#fecaca; }
-
-  /* ===================== CARDS ===================== */
-  .pe-card{
-    border-radius:var(--radius);
-    background:#fff;
-    border:1px solid var(--border);
-    box-shadow:var(--shadow);
-    overflow:hidden;
-  }
-  .pe-card-h{
-    padding:12px 14px;
-    border-bottom:1px solid rgba(229,231,235,.85);
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:10px;
-    flex-wrap:wrap;
-  }
-  .pe-card-title{
-    display:flex;
-    align-items:center;
-    gap:10px;
-    font-weight:900;
-    font-size:.92rem;
-  }
-  .pe-card-b{ padding:14px; }
-
-  /* ===================== SPLITS ===================== */
-  .pe-splits{ display:flex; flex-direction:column; gap:10px; margin-top:12px; }
-  .pe-split{
-    border:1px solid rgba(229,231,235,.9);
-    border-radius:14px;
-    background:#fff;
-    padding:10px 12px;
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    gap:10px;
-    flex-wrap:wrap;
-  }
-  .pe-split-left{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-  .pe-pill{
-    display:inline-flex;
-    align-items:center;
-    gap:6px;
-    padding:5px 10px;
-    border-radius:999px;
-    border:1px solid var(--border);
-    background:var(--soft);
-    font-size:.78rem;
-    color:var(--muted);
-    white-space:nowrap;
-  }
-  .pe-pill strong{ color:var(--ink); }
-
-  .pe-state{ border:1px solid transparent; font-weight:900; }
-  .pe-state--done{ background:var(--success-soft); border-color:#bbf7d0; color:#166534; }
-  .pe-state--pending{ background:var(--warning-soft); border-color:#fde68a; color:#92400e; }
-  .pe-state--current{ background:#dbeafe; border-color:#bfdbfe; color:#1d4ed8; }
-
-  /* ===================== TOTALES ===================== */
-  .pe-summary-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
-  .pe-summary{ display:flex; gap:10px 18px; flex-wrap:wrap; align-items:center; font-size:.88rem; color:var(--muted); }
-  .pe-summary strong{ color:var(--ink); }
-  .pe-total{
-    display:inline-flex;
-    align-items:center;
-    gap:10px;
-    padding:8px 12px;
-    border-radius:999px;
-    background:#0f172a;
-    color:#fff;
-    font-weight:900;
-    font-size:.9rem;
-  }
-
-  /* ===================== TABLA ===================== */
-  .pe-table{ width:100%; border-collapse:separate; border-spacing:0; font-size:.88rem; }
-  .pe-table thead th{
-    position:sticky; top:0; z-index:2;
-    background:#f8fafc;
-    border-bottom:1px solid var(--border);
-    font-size:.78rem;
-    color:var(--muted);
-    text-align:left;
-    padding:10px 12px;
-    white-space:nowrap;
-  }
-  .pe-table td{
-    border-bottom:1px solid rgba(229,231,235,.85);
-    padding:10px 12px;
-    vertical-align:top;
-  }
-  .pe-table tbody tr:hover{ background:#fbfdff; }
-
-  .pe-req{ white-space:pre-wrap; color:var(--ink); line-height:1.35; font-size:.9rem; }
-  .pe-mini{ margin-top:4px; font-size:.78rem; color:var(--muted); }
-
-  .pe-prod{ font-weight:900; color:var(--ink); font-size:.9rem; line-height:1.25; }
-  .pe-prod-meta{ margin-top:4px; font-size:.78rem; color:var(--muted); line-height:1.25; }
-
-  .pe-amount{ text-align:right; white-space:nowrap; }
-
-  .pe-match{ display:flex; align-items:center; gap:8px; font-size:.82rem; color:var(--muted); white-space:nowrap; }
-  .pe-bar{ width:54px; height:6px; border-radius:999px; background:#e5e7eb; overflow:hidden; }
-  .pe-bar > div{ height:100%; border-radius:999px; background:linear-gradient(90deg,#22c55e,#4ade80); transform-origin:left; }
-
-  .pe-tag{
-    display:inline-flex;
-    align-items:center;
-    gap:6px;
-    border-radius:999px;
-    padding:5px 10px;
-    font-size:.78rem;
-    border:1px solid rgba(15,23,42,.12);
-    background:#fff;
-    color:var(--ink);
-    font-weight:900;
-    white-space:nowrap;
-  }
-
-  /* ✅ badge de match para candidatos */
-  .pe-matchbadge{
-    display:inline-flex;
-    align-items:center;
-    gap:8px;
-    padding:6px 10px;
-    border-radius:999px;
-    border:1px solid rgba(15,23,42,.12);
-    background:#fff;
-    font-size:.78rem;
-    font-weight:950;
-    color:var(--ink);
-    white-space:nowrap;
-  }
-  .pe-matchbadge small{ font-weight:900; color:var(--muted); }
-  .pe-mini-reason{
-    margin-top:6px;
-    font-size:.76rem;
-    color:#64748b;
-    line-height:1.25;
-    display:-webkit-box;
-    -webkit-line-clamp:2;
-    -webkit-box-orient:vertical;
-    overflow:hidden;
-  }
-
-  .pe-suggest{
-    margin-top:8px;
-    padding:10px 10px;
-    border-radius:14px;
-    border:1px dashed rgba(15,23,42,.18);
-    background:#fafafa;
-  }
-
-  .pe-suggest-row{ display:flex; gap:10px; flex-wrap:wrap; align-items:flex-start; justify-content:space-between; }
-  .pe-suggest-left{ min-width:260px; flex:1 1 420px; }
-
-  /* ===================== MODAL (ALTURA PRO) ===================== */
-  .modal-backdrop-j{
-    position:fixed; inset:0;
-    background:rgba(2,6,23,.58);
-    display:none;
-    align-items:center; justify-content:center;
-    padding:18px;
-    z-index:9999;
-  }
-  .modal-j{
-    width:min(980px, 96vw);
-    height:min(78vh, 760px);
-    min-height:520px;
-    background:#fff;
-    border-radius:18px;
-    box-shadow:0 28px 80px rgba(0,0,0,.35);
-    overflow:hidden;
-    display:flex;
-    flex-direction:column;
-    border:1px solid rgba(229,231,235,.9);
-  }
-  .modal-head{
-    padding:14px 16px;
-    border-bottom:1px solid rgba(229,231,235,.9);
-    display:flex;
-    justify-content:space-between;
-    gap:12px;
-  }
-  .modal-title{ font-weight:950; font-size:1.05rem; letter-spacing:-.01em; }
-  .modal-subtitle{
-    margin-top:6px;
-    color:#64748b;
-    font-size:.86rem;
-    line-height:1.25;
-    max-width:820px;
-    display:-webkit-box;
-    -webkit-line-clamp:3;
-    -webkit-box-orient:vertical;
-    overflow:hidden;
-  }
-
-  .btn-x{
-    border:1px solid rgba(15,23,42,.12);
-    background:#fff;
-    border-radius:10px;
-    font-weight:800;
-    cursor:pointer;
-    padding:8px 10px;
-    transition: background .16s ease, color .16s ease, border-color .16s ease, transform .12s ease;
-  }
-  .btn-x:hover{ background:#0f172a; color:#fff; border-color:#0f172a; transform: translateY(-1px); }
-
-  .modal-body{
-    padding:16px;
-    overflow:auto;
-    flex:1 1 auto;
-  }
-  .modal-label{
-    font-weight:900;
-    font-size:.85rem;
-    margin-bottom:10px;
-    display:block;
-  }
-
-  .picked-card{
-    margin-top:14px;
-    border:1px solid rgba(229,231,235,.9);
-    background:#f8fafc;
-    border-radius:16px;
-    padding:12px 14px;
-  }
-  .picked-card strong{ display:block; font-weight:950; margin-bottom:6px; }
-  .picked-card .mut{ color:#64748b; font-size:.85rem; line-height:1.25; }
-
-  .modal-foot{
-    padding:12px 16px;
-    border-top:1px solid rgba(229,231,235,.9);
-    display:flex;
-    justify-content:flex-end;
-    gap:8px;
-  }
-  .btn-ghost, .btn-solid{
-    border-radius:999px;
-    padding:9px 14px;
-    font-weight:900;
-    font-size:.85rem;
-    cursor:pointer;
-    transition: background .16s ease, color .16s ease, border-color .16s ease, transform .12s ease;
-  }
-  .btn-ghost{
-    background:#fff;
-    color:var(--ink);
-    border:1px solid rgba(15,23,42,.12);
-  }
-  .btn-ghost:hover{ background:#0f172a; color:#fff; border-color:#0f172a; transform: translateY(-1px); }
-  .btn-solid{
-    background:#0f172a;
-    color:#fff;
-    border:1px solid #0f172a;
-  }
-  .btn-solid:hover{ background:#111827; border-color:#111827; transform: translateY(-1px); }
-
-  /* ===================== TOM SELECT ===================== */
-  .ts-wrapper{ width:100%; }
-  .ts-control{
-    min-height:32px !important;
-    border-radius:14px !important;
-    border:1px solid rgba(15,23,42,.14) !important;
-    padding:12px 12px !important;
-    box-shadow:none !important;
-  }
-  .ts-control input{ font-size:.95rem !important; }
-  .ts-dropdown{
-    border-radius:14px !important;
-    border:1px solid rgba(15,23,42,.14) !important;
-    box-shadow:0 18px 50px rgba(2,6,23,.18) !important;
-    overflow:hidden;
-  }
-  .ts-dropdown .ts-dropdown-content{ max-height:250px !important; }
-  .ts-dropdown .option{
-    padding:10px 10px !important;
-    border-bottom:1px solid rgba(229,231,235,.7);
-    font-size:.92rem;
-    line-height:1.25;
-  }
-  .ts-dropdown .option:last-child{ border-bottom:none; }
-  .ts-dropdown .option.active{ background:#0f172a !important; color:#fff !important; }
-  .ts-dropdown .opt-title{ font-weight:950; }
-  .ts-dropdown .opt-sub{ font-size:.82rem; opacity:.8; margin-top:4px; }
-  .ts-dropdown .opt-meta{ font-size:.82rem; opacity:.85; margin-top:4px; }
-
-  @media (max-width: 860px){
-    .pe-table thead{ display:none; }
-    .pe-table, .pe-table tbody, .pe-table tr, .pe-table td{ display:block; width:100%; }
-    .pe-table tr{ border-bottom:1px solid var(--border); padding:10px 0; }
-    .pe-table td{ border:none; padding:6px 12px; }
-    .pe-table td::before{
-      content:attr(data-label);
-      display:block;
-      font-size:.74rem;
-      color:var(--muted);
-      font-weight:900;
-      margin-bottom:4px;
-    }
-    .pe-amount{ text-align:left; }
-    .modal-j{ height: min(85vh, 860px); min-height: 520px; }
-  }
-</style>
+<link rel="stylesheet" href="{{ asset('css/propuestas.css') }}?v={{ time() }}">
 
 <div class="pe-wrap">
 
@@ -607,6 +174,18 @@
         <span class="pe-dot"></span>
         {{ $statusLabels[$propuesta->status] ?? $propuesta->status }}
       </span>
+
+      @if($routeExportPdf)
+        <a href="{{ route($routeExportPdf, $propuesta) }}" class="pe-btn pe-btn-mini">
+          PDF
+        </a>
+      @endif
+
+      @if($routeExportWord)
+        <a href="{{ route($routeExportWord, $propuesta) }}" class="pe-btn pe-btn-mini">
+          Word
+        </a>
+      @endif
 
       <a href="{{ url()->previous() }}" class="pe-btn pe-btn-mini">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -692,35 +271,60 @@
     </div>
   @endif
 
-  {{-- Totales + Merge --}}
+  {{-- Totales + Merge + utilidad global --}}
   <div class="pe-card">
     <div class="pe-card-h">
       <div class="pe-card-title">Totales</div>
 
-      @if($routeMerge)
-        <form method="POST" action="{{ route($routeMerge, $propuesta) }}">
-          @csrf
-          <button type="submit" class="pe-btn pe-btn--black" {{ !$allSplitsProcessed ? 'disabled' : '' }}>
-            Merge global
-          </button>
-        </form>
-      @endif
+      <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+        @if($routeMerge)
+          <form method="POST" action="{{ route($routeMerge, $propuesta) }}">
+            @csrf
+            <button type="submit" class="pe-btn pe-btn--black" {{ !$allSplitsProcessed ? 'disabled' : '' }}>
+              Merge global
+            </button>
+          </form>
+        @endif
+      </div>
     </div>
 
     <div class="pe-card-b">
       <div class="pe-summary-row">
         <div class="pe-summary">
           <div>
-            Subtotal:
-            <strong id="total-subtotal">{{ $propuesta->moneda ?? 'MXN' }} {{ number_format((float)$propuesta->subtotal,2) }}</strong>
+            Subtotal base:
+            <strong id="total-subtotal-base">
+              {{ $propuesta->moneda ?? 'MXN' }}
+              {{ number_format((float)($propuesta->subtotal_base ?? $propuesta->items->sum('subtotal')),2) }}
+            </strong>
+          </div>
+          <div>
+            Utilidad total:
+            <strong id="total-utilidad">
+              {{ $propuesta->moneda ?? 'MXN' }}
+              {{ number_format((float)($propuesta->utilidad_total ?? 0),2) }}
+            </strong>
+          </div>
+          <div>
+            Subtotal + utl.:
+            <strong id="total-subtotal">
+              {{ $propuesta->moneda ?? 'MXN' }}
+              {{ number_format((float)$propuesta->subtotal,2) }}
+            </strong>
           </div>
           <div>
             IVA:
-            <strong id="total-iva">{{ $propuesta->moneda ?? 'MXN' }} {{ number_format((float)$propuesta->iva,2) }}</strong>
+            <strong id="total-iva">
+              {{ $propuesta->moneda ?? 'MXN' }}
+              {{ number_format((float)$propuesta->iva,2) }}
+            </strong>
           </div>
           <div class="pe-total">
             Total:
-            <span id="total-total">{{ $propuesta->moneda ?? 'MXN' }} {{ number_format((float)$propuesta->total,2) }}</span>
+            <span id="total-total">
+              {{ $propuesta->moneda ?? 'MXN' }}
+              {{ number_format((float)$propuesta->total,2) }}
+            </span>
           </div>
         </div>
 
@@ -730,6 +334,15 @@
           </div>
         @endif
       </div>
+
+      {{-- utilidad global --}}
+      <div class="pe-global-util">
+        <label for="global-util-input">% utilidad global:</label>
+        <input id="global-util-input" type="number" step="0.01" min="0" class="pe-input-util-global" placeholder="10">
+        <button type="button" class="pe-btn pe-btn-mini" onclick="applyGlobalUtility()">
+          Aplicar a todos
+        </button>
+      </div>
     </div>
   </div>
 
@@ -737,7 +350,15 @@
   <div class="pe-card">
     <div class="pe-card-h">
       <div class="pe-card-title">Comparativo</div>
-      <span class="pe-badge">{{ $propuesta->items->count() }} renglones</span>
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <span class="pe-badge">{{ $propuesta->items->count() }} renglones</span>
+
+        @if($routeItemStore)
+          <button type="button" class="pe-btn pe-btn-mini" onclick="openRowModal(null)">
+            + Agregar renglón
+          </button>
+        @endif
+      </div>
     </div>
 
     <div class="pe-card-b" style="padding:0;">
@@ -745,13 +366,15 @@
         <table class="pe-table">
           <thead>
             <tr>
-              <th style="width:56px;">#</th>
+              <th style="width:80px;">#</th>
               <th>Solicitado</th>
               <th>Producto ofertado / Coincidencias</th>
               <th style="width:150px;">Match</th>
               <th style="width:90px; text-align:right;">Cant.</th>
               <th style="width:140px; text-align:right;">Precio unit.</th>
-              <th style="width:140px; text-align:right;">Subtotal</th>
+              <th style="width:90px; text-align:right;">Utl. %</th>
+              <th style="width:120px; text-align:right;">Utilidad</th>
+              <th style="width:140px; text-align:right;">Subt. + utl.</th>
             </tr>
           </thead>
 
@@ -767,24 +390,61 @@
 
                 $candidates = $candidatesByItem[$item->id] ?? collect();
 
-                // ✅ Score “previo” (si el item no tiene match_score, muestra el top candidato)
                 $topCandidateScore = null;
                 if (is_null($scorePercent) && $candidates instanceof \Illuminate\Support\Collection && $candidates->isNotEmpty()) {
                   $topCandidateScore = (int) max(0, min(100, (int)($candidates->first()->match_score ?? 0)));
                 }
 
-                $hasSuggestedCol = array_key_exists('suggested_product_id', $item->getAttributes());
-                $suggested = null;
-                if ($hasSuggestedCol) {
-                  $suggested = method_exists($item, 'suggestedProduct') ? $item->suggestedProduct : null;
-                }
+                $utilPct   = (float)($item->utilidad_pct ?? 0);
+                $utilMonto = (float)($item->utilidad_monto ?? 0);
+                $hasUtil   = $utilPct > 0 && ($item->subtotal ?? 0) > 0;
+                $subtotalConUtil = $hasUtil
+                  ? (float)($item->subtotal_con_utilidad ?? (($item->subtotal ?? 0) + $utilMonto))
+                  : 0.0;
               @endphp
 
               <tr id="row-{{ $item->id }}">
+                {{-- # + acciones (editar/eliminar) --}}
                 <td data-label="#" style="color:var(--muted); font-weight:900;">
-                  {{ $req?->renglon ?? $loop->iteration }}
+                  <div style="display:flex; flex-direction:column; gap:4px; align-items:flex-start;">
+                    <span>{{ $req?->renglon ?? $loop->iteration }}</span>
+
+                    <div style="display:flex; gap:4px; flex-wrap:wrap; margin-top:4px;">
+                      {{-- Editar en modal (usando data-* para evitar JSON en el onclick) --}}
+                      <button
+                        type="button"
+                        class="pe-btn pe-btn-mini"
+                        style="padding:3px 8px; font-size:.7rem;"
+                        onclick="openRowModalFromButton(this)"
+                        data-item-id="{{ $item->id }}"
+                        data-descripcion="{{ $item->descripcion_raw ?? ($req?->line_raw ?? '') }}"
+                        data-unidad="{{ $item->unidad_propuesta ?? '' }}"
+                        data-cantidad="{{ (float)($item->cantidad_propuesta ?? ($req?->cantidad ?? 0)) }}"
+                        data-precio="{{ (float)($item->precio_unitario ?? 0) }}"
+                        data-utilidad="{{ (float)($item->utilidad_pct ?? 0) }}"
+                      >
+                        Editar
+                      </button>
+
+                      {{-- Eliminar --}}
+                      @if($routeItemDestroy)
+                        <form method="POST"
+                              action="{{ route($routeItemDestroy, $item) }}"
+                              onsubmit="return confirm('¿Eliminar este renglón?');">
+                          @csrf
+                          @method('DELETE')
+                          <button type="submit"
+                                  class="pe-btn pe-btn-mini pe-btn--danger"
+                                  style="padding:3px 8px; font-size:.7rem;">
+                            Eliminar
+                          </button>
+                        </form>
+                      @endif
+                    </div>
+                  </div>
                 </td>
 
+                {{-- Solicitado --}}
                 <td data-label="Solicitado">
                   @if($req)
                     <div class="pe-req">{{ $req->line_raw }}</div>
@@ -795,6 +455,7 @@
                   @endif
                 </td>
 
+                {{-- Producto + coincidencias --}}
                 <td data-label="Producto ofertado / Coincidencias">
                   <div id="prod-block-{{ $item->id }}">
                     @if($prod)
@@ -829,13 +490,13 @@
                     @endif
                   </div>
 
-                  {{-- 5 coincidencias (con score + razón) --}}
+                  {{-- Coincidencias sugeridas (solo si aún no hay producto) --}}
                   @if(empty($item->product_id))
                     @if($candidates->isNotEmpty())
                       <div style="margin-top:10px; display:flex; flex-direction:column; gap:10px;">
                         @foreach($candidates as $cand)
                           @php
-                            $cScore = (int) max(0, min(100, (int)($cand->match_score ?? 0)));
+                            $cScore  = (int) max(0, min(100, (int)($cand->match_score ?? 0)));
                             $cReason = $cand->match_reason ?? null;
                           @endphp
 
@@ -865,7 +526,7 @@
 
                             <div class="pe-cand-actions" style="display:flex; gap:8px; align-items:center;">
                               @if($routeProductsSearch && $routeApplyAjaxName)
-                                <button type="button" class="pe-btn pe-btn--black pe-btn-mini" onclick="applyProductToItem({{ $item->id }}, {{ $cand->id }}, false)">
+                                <button type="button" class="pe-btn pe-btn--black pe-btn-mini" onclick="applyProductToItem({{ $item->id }}, {{ $cand->id }})">
                                   Elegir
                                 </button>
                               @elseif($routeApply)
@@ -885,6 +546,7 @@
                   @endif
                 </td>
 
+                {{-- Match --}}
                 <td data-label="Match">
                   @if(!is_null($scorePercent))
                     <div class="pe-match">
@@ -895,7 +557,6 @@
                       <div class="pe-mini" style="margin-top:6px;">{{ $item->motivo_seleccion }}</div>
                     @endif
                   @elseif(!is_null($topCandidateScore))
-                    {{-- ✅ Si el item no tiene match_score, al menos muestra el top de coincidencias --}}
                     <div class="pe-match">
                       <div class="pe-bar"><div style="transform:scaleX({{ $topCandidateScore/100 }});"></div></div>
                       <strong style="color:var(--ink);">{{ $topCandidateScore }}%</strong>
@@ -906,10 +567,12 @@
                   @endif
                 </td>
 
+                {{-- Cantidad --}}
                 <td data-label="Cant." class="pe-amount">
                   {{ $qtyInt > 0 ? $qtyInt : '—' }}
                 </td>
 
+                {{-- Precio unitario --}}
                 <td data-label="Precio unit." class="pe-amount">
                   <span id="pu-{{ $item->id }}">
                     @if($item->precio_unitario)
@@ -920,10 +583,38 @@
                   </span>
                 </td>
 
-                <td data-label="Subtotal" class="pe-amount">
-                  <span id="sub-{{ $item->id }}">
-                    @if($item->subtotal)
-                      {{ $propuesta->moneda ?? 'MXN' }} {{ number_format((float)$item->subtotal,2) }}
+                {{-- Utilidad % (input AJAX) --}}
+                <td data-label="Utl. %" class="pe-amount">
+                  @if($routeUtilityAjaxName)
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      class="pe-input-util js-util-input"
+                      data-item-id="{{ $item->id }}"
+                      value="{{ $utilPct > 0 ? $utilPct : '' }}"
+                      placeholder="0">
+                  @else
+                    —
+                  @endif
+                </td>
+
+                {{-- Utilidad monto --}}
+                <td data-label="Utilidad" class="pe-amount">
+                  <span id="util-monto-{{ $item->id }}">
+                    @if($hasUtil && $utilMonto > 0)
+                      {{ $propuesta->moneda ?? 'MXN' }} {{ number_format($utilMonto,2) }}
+                    @else
+                      —
+                    @endif
+                  </span>
+                </td>
+
+                {{-- Subtotal + utilidad --}}
+                <td data-label="Subt. + utl." class="pe-amount">
+                  <span id="sub-totalutil-{{ $item->id }}">
+                    @if($hasUtil && $subtotalConUtil > 0)
+                      {{ $propuesta->moneda ?? 'MXN' }} {{ number_format($subtotalConUtil,2) }}
                     @else
                       —
                     @endif
@@ -934,7 +625,7 @@
 
             @if($propuesta->items->isEmpty())
               <tr>
-                <td colspan="7" style="text-align:center; padding:16px; color:var(--muted);">
+                <td colspan="9" style="text-align:center; padding:16px; color:var(--muted);">
                   No hay renglones aún. Procesa requisiciones con IA desde el bloque superior.
                 </td>
               </tr>
@@ -947,7 +638,7 @@
 
 </div>
 
-{{-- ===================== MODAL PICKER (BUSCADOR) ===================== --}}
+{{-- MODAL PICKER PRODUCTOS --}}
 <div class="modal-backdrop-j" id="pickerBackdrop" aria-hidden="true">
   <div class="modal-j">
     <header class="modal-head">
@@ -978,17 +669,81 @@
   </div>
 </div>
 
+{{-- MODAL RENGLÓN (agregar / editar) --}}
+<div class="modal-backdrop-j" id="rowBackdrop" aria-hidden="true">
+  <div class="modal-j">
+    <header class="modal-head">
+      <div style="min-width:0;">
+        <div class="modal-title" id="rowModalTitle">Renglón</div>
+        <div class="modal-subtitle" id="rowModalSubtitle">
+          Captura o edita la descripción, cantidad, precio y utilidad de este renglón.
+        </div>
+      </div>
+      <button class="btn-x" type="button" onclick="closeRowModal()">Cerrar</button>
+    </header>
+
+    <form id="rowForm" method="POST" action="">
+      @csrf
+      <input type="hidden" name="_method" id="rowFormMethod" value="POST">
+      <input type="hidden" name="item_id" id="rowItemId" value="">
+
+      <div class="modal-body">
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <div>
+            <label class="modal-label" for="rowDescripcion">Descripción</label>
+            <textarea id="rowDescripcion" name="descripcion_raw" rows="3"
+                      style="width:100%; border-radius:12px; border:1px solid var(--border); padding:8px; font-size:.9rem;"></textarea>
+          </div>
+
+          <div style="display:flex; flex-wrap:wrap; gap:12px;">
+            <div style="flex:1 1 120px;">
+              <label class="modal-label" for="rowUnidad">Unidad</label>
+              <input id="rowUnidad" name="unidad_propuesta" type="text"
+                     style="width:100%; border-radius:12px; border:1px solid var(--border); padding:6px 8px; font-size:.9rem;">
+            </div>
+            <div style="flex:1 1 120px;">
+              <label class="modal-label" for="rowCantidad">Cantidad</label>
+              <input id="rowCantidad" name="cantidad_propuesta" type="number" step="0.01" min="0"
+                     style="width:100%; border-radius:12px; border:1px solid var(--border); padding:6px 8px; font-size:.9rem;">
+            </div>
+            <div style="flex:1 1 120px;">
+              <label class="modal-label" for="rowPrecio">Precio unitario</label>
+              <input id="rowPrecio" name="precio_unitario" type="number" step="0.0001" min="0"
+                     style="width:100%; border-radius:12px; border:1px solid var(--border); padding:6px 8px; font-size:.9rem;">
+            </div>
+            <div style="flex:1 1 120px;">
+              <label class="modal-label" for="rowUtilidad">% utilidad</label>
+              <input id="rowUtilidad" name="utilidad_pct" type="number" step="0.01" min="0"
+                     style="width:100%; border-radius:12px; border:1px solid var(--border); padding:6px 8px; font-size:.9rem;">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <footer class="modal-foot">
+        <button type="button" class="btn-ghost" onclick="closeRowModal()">Cancelar</button>
+        <button type="submit" class="btn-solid">Guardar renglón</button>
+      </footer>
+    </form>
+  </div>
+</div>
+
 <script>
   const CSRF = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
   const CURRENCY = @json($propuesta->moneda ?? 'MXN');
-  const routeProductsSearch = @json($routeProductsSearch ? route($routeProductsSearch) : null);
-  const routeApplyAjaxTemplate = @json($routeApplyAjaxName ? route($routeApplyAjaxName, ['item' => '__ID__']) : null);
 
-  const solicitadoByItem = @json($solicitadoByItem);
+
+  const routeProductsSearch      = "{{ $routeProductsSearch      ? route($routeProductsSearch)                             : '' }}";
+  const routeApplyAjaxTemplate   = "{{ $routeApplyAjaxName       ? route($routeApplyAjaxName,       ['item' => 'ITEM_ID']) : '' }}";
+  const routeUtilityAjaxTemplate = "{{ $routeUtilityAjaxName     ? route($routeUtilityAjaxName,     ['item' => 'ITEM_ID']) : '' }}";
+  const routeItemStore           = "{{ $routeItemStore           ? route($routeItemStore,           $propuesta)           : '' }}";
+  const routeItemUpdateTemplate  = "{{ $routeItemUpdate          ? route($routeItemUpdate,          ['item' => 'ITEM_ID']) : '' }}";
+
+  const solicitadoByItem  = @json($solicitadoByItem);
   const preselectedByItem = @json($preselectedByItem);
 
-  let picker = null;
+  let picker  = null;
   let current = { itemId: null, selectedId: null };
 
   function money(n){
@@ -1003,10 +758,10 @@
     const box = document.getElementById('pickedMeta');
     if(!box) return;
 
-    const sku = meta?.sku ? (meta.sku + ' — ') : '';
-    const name = meta?.name || 'Producto';
+    const sku   = meta?.sku ? (meta.sku + ' — ') : '';
+    const name  = meta?.name || 'Producto';
     const brand = meta?.brand || '—';
-    const unit = meta?.unit || '—';
+    const unit  = meta?.unit || '—';
     const price = money(meta?.price || 0);
 
     box.style.display = 'block';
@@ -1023,18 +778,23 @@
       return;
     }
 
-    current.itemId = itemId;
+    current.itemId     = itemId;
     current.selectedId = null;
 
     const solicitado = (solicitadoByItem[itemId] || '—').toString();
-    document.getElementById('pickerSubtitle').textContent = solicitado;
+    const subtitleEl = document.getElementById('pickerSubtitle');
+    if(subtitleEl) subtitleEl.textContent = solicitado;
 
     const backdrop = document.getElementById('pickerBackdrop');
+    if(!backdrop) return;
     backdrop.style.display = 'flex';
     backdrop.setAttribute('aria-hidden', 'false');
 
     const metaBox = document.getElementById('pickedMeta');
-    if(metaBox){ metaBox.style.display = 'none'; metaBox.innerHTML = ''; }
+    if(metaBox){
+      metaBox.style.display = 'none';
+      metaBox.innerHTML = '';
+    }
 
     if(!picker){
       picker = new TomSelect('#productPicker', {
@@ -1045,8 +805,8 @@
         maxOptions: 50,
         render: {
           option: function(data, escape){
-            const m = data.meta || {};
-            const t = escape(data.text || '');
+            const m     = data.meta || {};
+            const t     = escape(data.text || '');
             const brand = escape(m.brand || '—');
             const unit  = escape(m.unit || '—');
             const price = money(m.price || 0);
@@ -1098,6 +858,7 @@
 
   function closePicker(){
     const backdrop = document.getElementById('pickerBackdrop');
+    if(!backdrop) return;
     backdrop.style.display = 'none';
     backdrop.setAttribute('aria-hidden', 'true');
   }
@@ -1110,8 +871,21 @@
     applyProductToItem(current.itemId, current.selectedId, true);
   }
 
-  function applyProductToItem(itemId, productId, closeAfter=false){
-    const url = routeApplyAjaxTemplate.replace('__ID__', itemId);
+  function applyProductToItem(itemId, productId, closeAfter = false){
+    if(!routeApplyAjaxTemplate){
+      alert('No hay ruta configurada para apply-product AJAX.');
+      return;
+    }
+
+    const url = routeApplyAjaxTemplate.replace('ITEM_ID', itemId);
+
+    // Leer utilidad % del input de ese renglón (si ya la capturaste)
+    let utilidadPct = null;
+    const utlInput = document.querySelector('.js-util-input[data-item-id="'+itemId+'"]');
+    if(utlInput && utlInput.value !== ''){
+      const v = parseFloat(utlInput.value);
+      if(!isNaN(v)) utilidadPct = v;
+    }
 
     fetch(url, {
       method: 'POST',
@@ -1120,7 +894,10 @@
         'Accept':'application/json',
         'X-CSRF-TOKEN': CSRF
       },
-      body: JSON.stringify({ product_id: productId })
+      body: JSON.stringify({
+        product_id: productId,
+        utilidad_pct: utilidadPct
+      })
     })
     .then(async (r) => {
       const json = await r.json().catch(() => ({}));
@@ -1128,6 +905,7 @@
       return json;
     })
     .then(({row, totals}) => {
+      // Bloque producto
       const tagEl  = document.getElementById('prod-tag-' + row.item_id);
       const nameEl = document.getElementById('prod-name-' + row.item_id);
       const metaEl = document.getElementById('prod-meta-' + row.item_id);
@@ -1144,17 +922,29 @@
         metaEl.textContent = `Marca: ${row.brand || '—'} · Unidad: ${row.unit || '—'}`;
       }
 
-      const puEl  = document.getElementById('pu-' + row.item_id);
-      const subEl = document.getElementById('sub-' + row.item_id);
-      if(puEl)  puEl.textContent  = money(row.precio_unitario || 0);
-      if(subEl) subEl.textContent = money(row.subtotal || 0);
+      // Precios y utilidades
+      const puEl    = document.getElementById('pu-' + row.item_id);
+      const utilEl  = document.getElementById('util-monto-' + row.item_id);
+      const subEl   = document.getElementById('sub-totalutil-' + row.item_id);
+      const utlInp  = document.querySelector('.js-util-input[data-item-id="'+row.item_id+'"]');
 
-      const tSub = document.getElementById('total-subtotal');
-      const tIva = document.getElementById('total-iva');
-      const tTot = document.getElementById('total-total');
-      if(tSub) tSub.textContent = money(totals?.subtotal || 0);
-      if(tIva) tIva.textContent = money(totals?.iva || 0);
-      if(tTot) tTot.textContent = money(totals?.total || 0);
+      if(puEl) puEl.textContent = money(row.precio_unitario || 0);
+
+      const hasUtil = (row.utilidad_monto || 0) > 0;
+      if(utilEl){
+        utilEl.textContent = hasUtil ? money(row.utilidad_monto || 0) : '—';
+      }
+      if(subEl){
+        const val = hasUtil
+          ? (row.subtotal_con_utilidad || (row.subtotal + (row.utilidad_monto || 0)))
+          : 0;
+        subEl.textContent = val > 0 ? money(val) : '—';
+      }
+      if(utlInp && typeof row.utilidad_pct !== 'undefined' && row.utilidad_pct !== null){
+        utlInp.value = row.utilidad_pct;
+      }
+
+      updateTotalsFromResponse(totals);
 
       if(closeAfter) closePicker();
     })
@@ -1164,10 +954,215 @@
     });
   }
 
-  // ✅ cerrar con ESC + click fuera
-  document.addEventListener('keydown', (e) => { if(e.key === 'Escape') closePicker(); });
-  document.getElementById('pickerBackdrop')?.addEventListener('click', (e) => {
-    if(e.target?.id === 'pickerBackdrop') closePicker();
+  // ===== UTILIDAD POR RENGLÓN (AJAX) =====
+  function sendUtilityUpdate(itemId, pct){
+    if(!routeUtilityAjaxTemplate){
+      alert('Falta ruta AJAX para actualizar utilidad (update-utility).');
+      return;
+    }
+
+    const url = routeUtilityAjaxTemplate.replace('ITEM_ID', itemId);
+
+    fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type':'application/json',
+        'Accept':'application/json',
+        'X-CSRF-TOKEN': CSRF
+      },
+      body: JSON.stringify({ utilidad_pct: pct })
+    })
+    .then(async (r) => {
+      const json = await r.json().catch(() => ({}));
+      if(!r.ok) throw json;
+      return json;
+    })
+    .then(({ row, totals }) => {
+      const utilEl    = document.getElementById('util-monto-' + row.item_id);
+      const subUtilEl = document.getElementById('sub-totalutil-' + row.item_id);
+
+      const hasUtil = (row.utilidad_monto || 0) > 0;
+
+      if(utilEl){
+        utilEl.textContent = hasUtil ? money(row.utilidad_monto || 0) : '—';
+      }
+      if(subUtilEl){
+        const val = hasUtil
+          ? (row.subtotal_con_utilidad || (row.subtotal_base + (row.utilidad_monto || 0)))
+          : 0;
+        subUtilEl.textContent = val > 0 ? money(val) : '—';
+      }
+
+      updateTotalsFromResponse(totals);
+    })
+    .catch(err => {
+      console.error(err);
+      alert('No se pudo actualizar la utilidad. Revisa consola y laravel.log.');
+    });
+  }
+
+  function updateTotalsFromResponse(totals){
+    if(!totals) return;
+
+    const tSubBaseEl = document.getElementById('total-subtotal-base');
+    const tUtilEl    = document.getElementById('total-utilidad');
+    const tSubUtilEl = document.getElementById('total-subtotal');
+    const tIvaEl     = document.getElementById('total-iva');
+    const tTotalEl   = document.getElementById('total-total');
+
+    if(tSubBaseEl && typeof totals.subtotal_base !== 'undefined'){
+      tSubBaseEl.textContent = money(totals.subtotal_base || 0);
+    }
+    if(tUtilEl && typeof totals.utilidad !== 'undefined'){
+      tUtilEl.textContent = money(totals.utilidad || totals.utilidad_total || 0);
+    }
+    if(tSubUtilEl && typeof totals.subtotal_con_utilidad !== 'undefined'){
+      tSubUtilEl.textContent = money(totals.subtotal_con_utilidad || 0);
+    } else if(tSubUtilEl && typeof totals.subtotal !== 'undefined'){
+      tSubUtilEl.textContent = money(totals.subtotal || 0);
+    }
+    if(tIvaEl && typeof totals.iva !== 'undefined'){
+      tIvaEl.textContent = money(totals.iva || 0);
+    }
+    if(tTotalEl && typeof totals.total !== 'undefined'){
+      tTotalEl.textContent = money(totals.total || 0);
+    }
+  }
+
+  // Utilidad global -> aplica al input de todos los renglones + AJAX
+  function applyGlobalUtility(){
+    const input = document.getElementById('global-util-input');
+    if(!input) return;
+    const val = parseFloat(input.value);
+    if(isNaN(val) || val < 0){
+      alert('Introduce un porcentaje de utilidad válido.');
+      return;
+    }
+
+    document.querySelectorAll('.js-util-input').forEach(el => {
+      el.value = val.toString();
+      const id = el.dataset.itemId;
+      if(id) sendUtilityUpdate(id, val);
+    });
+  }
+
+  // ===== MODAL RENGLÓN (AGREGAR / EDITAR) =====
+
+  // Helper: toma los data-* del botón y arma el objeto para openRowModal
+  function openRowModalFromButton(btn){
+    const d = btn.dataset;
+
+    openRowModal({
+      id: d.itemId ? Number(d.itemId) : null,
+      descripcion: d.descripcion || '',
+      unidad: d.unidad || '',
+      cantidad: d.cantidad || '',
+      precio: d.precio || '',
+      utilidad: d.utilidad || '',
+    });
+  }
+
+  function openRowModal(data){
+    const backdrop = document.getElementById('rowBackdrop');
+    const titleEl  = document.getElementById('rowModalTitle');
+    const idInput  = document.getElementById('rowItemId');
+    const methodEl = document.getElementById('rowFormMethod');
+    const formEl   = document.getElementById('rowForm');
+
+    const descEl   = document.getElementById('rowDescripcion');
+    const unidadEl = document.getElementById('rowUnidad');
+    const cantEl   = document.getElementById('rowCantidad');
+    const precioEl = document.getElementById('rowPrecio');
+    const utilEl   = document.getElementById('rowUtilidad');
+
+    if(data && data.id){
+      // Editar
+      titleEl.textContent = 'Editar renglón';
+      idInput.value       = data.id;
+      methodEl.value      = 'PUT';
+
+      if(routeItemUpdateTemplate){
+        formEl.action = routeItemUpdateTemplate.replace('ITEM_ID', data.id);
+      } else {
+        alert('No hay ruta definida para actualizar renglones.');
+      }
+
+      descEl.value   = data.descripcion || '';
+      unidadEl.value = data.unidad      || '';
+      cantEl.value   = data.cantidad    || '';
+      precioEl.value = data.precio      || '';
+      utilEl.value   = data.utilidad    || '';
+    } else {
+      // Nuevo
+      titleEl.textContent = 'Nuevo renglón';
+      idInput.value       = '';
+      methodEl.value      = 'POST';
+
+      if(routeItemStore){
+        formEl.action = routeItemStore;
+      } else {
+        alert('No hay ruta definida para crear renglones.');
+      }
+
+      descEl.value   = '';
+      unidadEl.value = '';
+      cantEl.value   = '';
+      precioEl.value = '';
+      utilEl.value   = '';
+    }
+
+    backdrop.style.display = 'flex';
+    backdrop.setAttribute('aria-hidden', 'false');
+  }
+
+  function closeRowModal(){
+    const backdrop = document.getElementById('rowBackdrop');
+    if(!backdrop) return;
+    backdrop.style.display = 'none';
+    backdrop.setAttribute('aria-hidden', 'true');
+  }
+
+  // Eventos DOM
+  document.addEventListener('DOMContentLoaded', () => {
+    // change / blur en inputs de utilidad
+    document.querySelectorAll('.js-util-input').forEach(el => {
+      el.addEventListener('change', () => {
+        const id = el.dataset.itemId;
+        if(!id) return;
+        const val = parseFloat(el.value);
+        if(isNaN(val) || val < 0){
+          el.value = '';
+          sendUtilityUpdate(id, 0);
+        } else {
+          sendUtilityUpdate(id, val);
+        }
+      });
+      el.addEventListener('blur', () => {
+        const id = el.dataset.itemId;
+        if(!id) return;
+        const val = parseFloat(el.value);
+        if(isNaN(val) || val < 0){
+          el.value = '';
+          sendUtilityUpdate(id, 0);
+        }
+      });
+    });
+
+    // Cerrar modales con click fuera
+    document.getElementById('pickerBackdrop')?.addEventListener('click', (e) => {
+      if(e.target?.id === 'pickerBackdrop') closePicker();
+    });
+    document.getElementById('rowBackdrop')?.addEventListener('click', (e) => {
+      if(e.target?.id === 'rowBackdrop') closeRowModal();
+    });
+  });
+
+  // Cerrar con ESC ambos modales
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'Escape'){
+      closePicker();
+      closeRowModal();
+    }
   });
 </script>
 @endsection
