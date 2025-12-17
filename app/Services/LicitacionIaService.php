@@ -55,7 +55,6 @@ class LicitacionIaService
         $retryBaseDelayMs   = (int) config('services.openai.retry_base_delay_ms', 700);
 
         // ✅ SOLO GPT-5 para extracción principal
-        // Forzamos gpt-5-2025-08-07 como modelo principal
         $primary   = 'gpt-5-2025-08-07';
         $fallbacks = config('services.openai.fallbacks', ['gpt-5-chat-latest']);
         $models    = array_values(array_unique(array_merge([$primary], (array) $fallbacks)));
@@ -99,7 +98,7 @@ class LicitacionIaService
         $this->waitForFileReady($apiKey, $baseUrl, $fileId, $timeoutSec, $connectTimeoutSec);
 
         // ==========================================================
-        // 2) Prompt (más estricto y descripción corta)
+        // 2) Prompt (SIN resumir: texto literal)
         // ==========================================================
         $systemPrompt = <<<TXT
 Eres un asistente experto en análisis de licitaciones públicas en México.
@@ -113,16 +112,26 @@ Reglas IMPORTANTES para NO perder renglones:
 - Si hay tablas: cada FILA de producto/servicio = 1 item.
 - Si hay “Partida / Renglón / No. / Concepto”: inclúyelos dentro de "descripcion" si ayudan a identificar el renglón.
 - Si un renglón viene partido en varias líneas, júntalo en una sola "descripcion".
-- Si hay listas con viñetas o numeradas: cada elemento relevante = 1 item.
-- NO inventes datos: si no se ve cantidad o unidad, usa cantidad=1 y unidad=null.
-- "descripcion" debe ser CONCISA (máx 280 caracteres), sin repetir todo el párrafo literal; solo la información clave para identificar el producto.
+
+MUY IMPORTANTE SOBRE "descripcion":
+- "descripcion" debe ser una COPIA TEXTUAL del contenido del PDF.
+- NO resumas, NO reformules, NO cambies el orden de las palabras.
+- NO elimines palabras, NO sustituyas por sinónimos, NO agregues texto inventado.
+- Solo puedes:
+  - Unir líneas cortadas por saltos de línea.
+  - Normalizar espacios en blanco (ej. reemplazar saltos de línea por un solo espacio).
+- Mantén las mismas palabras, en el mismo orden, con el mismo contenido semántico.
+
+Sobre otros campos:
+- Si no se ve claramente cantidad o unidad, usa cantidad=1 y unidad=null.
+- "precio_referencia" siempre null (no lo inventes).
 
 DEVUELVE ÚNICAMENTE JSON VÁLIDO (sin markdown, sin explicación) con esta forma EXACTA:
 
 {
   "items": [
     {
-      "descripcion": "Descripción concisa del renglón",
+      "descripcion": "Texto literal del renglón copiado del PDF",
       "cantidad": 1,
       "unidad": "PIEZA / CAJA / SERVICIO / etc (o null)",
       "precio_referencia": null
@@ -158,12 +167,11 @@ TXT;
                                 'content' => [
                                     [
                                         'type' => 'input_text',
-                                        'text' => 'Devuelve SOLO el JSON solicitado. No omitas ningún renglón. Recuerda que la descripción debe ser concisa (máx 280 caracteres).',
+                                        'text' => 'Devuelve SOLO el JSON solicitado. No omitas ningún renglón. MUY IMPORTANTE: la "descripcion" debe ser copia TEXTUAL del PDF, sin resumir ni cambiar palabras.',
                                     ],
                                     ['type' => 'input_file', 'file_id' => $fileId],
                                 ],
                             ]],
-                            // más tokens por si hay muchos renglones
                             'max_output_tokens' => 9000,
                         ]);
                 } catch (ConnectionException $e) {
