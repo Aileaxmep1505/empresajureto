@@ -1114,4 +1114,10 @@ SYS;
             ],
         ]);
     }
+    public function merge(Request $request, LicitacionPropuesta $licitacionPropuesta)
+{
+    // Simplemente reusa la lógica de mergeGlobal
+    return $this->mergeGlobal($request, $licitacionPropuesta);
+}
+
 }
