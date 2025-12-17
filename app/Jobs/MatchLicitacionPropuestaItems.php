@@ -27,7 +27,9 @@ class MatchLicitacionPropuestaItems implements ShouldQueue
 
         $apiKey  = config('services.openai.api_key') ?: config('services.openai.key');
         $baseUrl = rtrim(config('services.openai.base_url', 'https://api.openai.com'), '/');
-        $model   = config('services.openai.model_match', 'gpt-4.1-mini');
+
+        // ✅ FORZAR GPT-5-2025-08-07 (nada de 4.1 / nada de mini)
+        $model = 'gpt-5-2025-08-07';
 
         if (!$apiKey) {
             Log::warning('MatchLicitacionPropuestaItems: falta OpenAI API key');
@@ -95,7 +97,7 @@ TXT;
                 json_encode($payloadCands, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
 
             $resp = Http::withToken($apiKey)
-                ->timeout(120)
+                ->timeout(180)
                 ->withHeaders(['Content-Type' => 'application/json'])
                 ->post($baseUrl.'/v1/responses', [
                     'model'        => $model,
@@ -106,8 +108,8 @@ TXT;
                             ['type' => 'input_text', 'text' => $userText],
                         ],
                     ]],
-                    'temperature'       => 0.1,
-                    'max_output_tokens' => 800,
+                    // ⚠️ GPT-5: NO mandar temperature
+                    'max_output_tokens' => 900,
                 ]);
 
             if (!$resp->ok()) {
@@ -198,6 +200,11 @@ TXT;
     {
         $raw = '';
 
+        // ✅ Algunas respuestas traen output_text directo
+        if (isset($json['output_text']) && is_string($json['output_text']) && trim($json['output_text']) !== '') {
+            return trim($json['output_text']);
+        }
+
         if (isset($json['output']) && is_array($json['output'])) {
             foreach ($json['output'] as $out) {
                 if (($out['type'] ?? null) === 'message') {
@@ -214,7 +221,7 @@ TXT;
             $raw = (string)$json['output'][0]['content'][0]['text'];
         }
 
-        return trim($raw);
+        return trim((string)$raw);
     }
 
     private function cleanupJsonText(?string $raw): string
