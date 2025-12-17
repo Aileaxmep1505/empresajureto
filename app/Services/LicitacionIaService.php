@@ -236,7 +236,7 @@ TXT;
         $raw = $this->cleanupJsonText($raw);
 
         // ==========================================================
-        // 5) Parse + repair si falla
+        // 5) Parse + repair si falla (con salvage local primero)
         // ==========================================================
         $data = $this->decodeJsonLenient($raw);
 
@@ -246,6 +246,7 @@ TXT;
                 'raw'   => mb_substr($raw, 0, 8000),
             ]);
 
+            // Intento de reparación vía OpenAI SOLO si el salvage local no sirvió
             $rawFixed = $this->repairJsonWithOpenAi(
                 $apiKey,
                 $baseUrl,
@@ -460,7 +461,8 @@ TXT;
     }
 
     /**
-     * Decodifica JSON incluso si viene como string con escapes: "{ \"items\": [...] }"
+     * Decodifica JSON incluso si viene como string con escapes
+     * y hace un "salvamento" de items si el JSON está cortado.
      */
     private function decodeJsonLenient(string $raw)
     {
@@ -469,24 +471,91 @@ TXT;
             return null;
         }
 
-        $data = json_decode($raw, true);
+        // 1) Intento normal con tolerancia a UTF-8
+        $data = json_decode($raw, true, 512, JSON_INVALID_UTF8_SUBSTITUTE);
         if (is_array($data)) {
             return $data;
         }
 
-        // a veces viene JSON dentro de un string con comillas escapadas
+        // 2) Salvamento local: extraer objetos completos dentro de items[]
+        $items = $this->salvageItemsFromRaw($raw);
+        if (!empty($items)) {
+            Log::info('JSON salvado parcialmente desde raw (items completos encontrados)', [
+                'items_count' => count($items),
+            ]);
+            return ['items' => $items];
+        }
+
+        // 3) a veces viene JSON dentro de un string con comillas escapadas
         if (str_starts_with($raw, '"') && str_ends_with($raw, '"')) {
-            $unquoted = json_decode($raw, true); // quita escapes
+            $unquoted = json_decode($raw, true, 512, JSON_INVALID_UTF8_SUBSTITUTE); // quita escapes
             if (is_string($unquoted)) {
                 $unquoted = $this->cleanupJsonText($unquoted);
-                $data2    = json_decode($unquoted, true);
+                $data2    = json_decode($unquoted, true, 512, JSON_INVALID_UTF8_SUBSTITUTE);
                 if (is_array($data2)) {
                     return $data2;
+                }
+
+                $items2 = $this->salvageItemsFromRaw($unquoted);
+                if (!empty($items2)) {
+                    Log::info('JSON salvado parcialmente desde unquoted raw (items completos encontrados)', [
+                        'items_count' => count($items2),
+                    ]);
+                    return ['items' => $items2];
                 }
             }
         }
 
         return null;
+    }
+
+    /**
+     * Recorre el texto y extrae todos los objetos { ... } completos
+     * dentro de "items": [ ... ] aunque el último venga cortado.
+     */
+    private function salvageItemsFromRaw(string $raw): array
+    {
+        $items = [];
+
+        // localizar "items" y el [
+        $pos = strpos($raw, '"items"');
+        if ($pos === false) {
+            return [];
+        }
+
+        $startBracket = strpos($raw, '[', $pos);
+        if ($startBracket === false) {
+            return [];
+        }
+
+        $len           = strlen($raw);
+        $depth         = 0;
+        $currentStart  = null;
+
+        for ($i = $startBracket + 1; $i < $len; $i++) {
+            $ch = $raw[$i];
+
+            if ($ch === '{') {
+                if ($depth === 0) {
+                    $currentStart = $i;
+                }
+                $depth++;
+            } elseif ($ch === '}') {
+                $depth--;
+                if ($depth === 0 && $currentStart !== null) {
+                    $objStr = substr($raw, $currentStart, $i - $currentStart + 1);
+                    $obj    = json_decode($objStr, true, 512, JSON_INVALID_UTF8_SUBSTITUTE);
+                    if (is_array($obj)) {
+                        $items[] = $obj;
+                    }
+                    $currentStart = null;
+                }
+            } elseif ($ch === ']' && $depth === 0) {
+                break;
+            }
+        }
+
+        return $items;
     }
 
     /**
