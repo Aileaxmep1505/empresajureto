@@ -55,6 +55,7 @@ class LicitacionIaService
         $retryBaseDelayMs   = (int) config('services.openai.retry_base_delay_ms', 700);
 
         // ✅ SOLO GPT-5 para extracción principal
+        // Forzamos gpt-5-2025-08-07 como modelo principal
         $primary   = 'gpt-5-2025-08-07';
         $fallbacks = config('services.openai.fallbacks', ['gpt-5-chat-latest']);
         $models    = array_values(array_unique(array_merge([$primary], (array) $fallbacks)));
@@ -98,7 +99,7 @@ class LicitacionIaService
         $this->waitForFileReady($apiKey, $baseUrl, $fileId, $timeoutSec, $connectTimeoutSec);
 
         // ==========================================================
-        // 2) Prompt (SIN resumir: texto literal)
+        // 2) Prompt (MISMAS REGLAS DE EXTRACCIÓN, PERO TEXTO LITERAL)
         // ==========================================================
         $systemPrompt = <<<TXT
 Eres un asistente experto en análisis de licitaciones públicas en México.
@@ -112,15 +113,17 @@ Reglas IMPORTANTES para NO perder renglones:
 - Si hay tablas: cada FILA de producto/servicio = 1 item.
 - Si hay “Partida / Renglón / No. / Concepto”: inclúyelos dentro de "descripcion" si ayudan a identificar el renglón.
 - Si un renglón viene partido en varias líneas, júntalo en una sola "descripcion".
+- Si hay listas con viñetas o numeradas: cada elemento relevante = 1 item.
+- NO inventes datos: si no se ve cantidad o unidad, usa cantidad=1 y unidad=null.
 
-MUY IMPORTANTE SOBRE "descripcion":
-- "descripcion" debe ser una COPIA TEXTUAL del contenido del PDF.
+SOBRE EL CAMPO "descripcion":
+- La "descripcion" debe ser una COPIA TEXTUAL del contenido del PDF que describe el renglón.
 - NO resumas, NO reformules, NO cambies el orden de las palabras.
 - NO elimines palabras, NO sustituyas por sinónimos, NO agregues texto inventado.
 - Solo puedes:
-  - Unir líneas cortadas por saltos de línea.
-  - Normalizar espacios en blanco (ej. reemplazar saltos de línea por un solo espacio).
-- Mantén las mismas palabras, en el mismo orden, con el mismo contenido semántico.
+  - Unir varias líneas de un mismo renglón en una sola línea.
+  - Normalizar espacios en blanco (por ejemplo, reemplazar saltos de línea por un espacio).
+- El objetivo es conservar exactamente la redacción original del renglón, como está en el PDF.
 
 Sobre otros campos:
 - Si no se ve claramente cantidad o unidad, usa cantidad=1 y unidad=null.
@@ -131,7 +134,7 @@ DEVUELVE ÚNICAMENTE JSON VÁLIDO (sin markdown, sin explicación) con esta form
 {
   "items": [
     {
-      "descripcion": "Texto literal del renglón copiado del PDF",
+      "descripcion": "Texto literal del renglón copiado del PDF (mismas palabras, solo sin saltos de línea internos)",
       "cantidad": 1,
       "unidad": "PIEZA / CAJA / SERVICIO / etc (o null)",
       "precio_referencia": null
@@ -167,11 +170,12 @@ TXT;
                                 'content' => [
                                     [
                                         'type' => 'input_text',
-                                        'text' => 'Devuelve SOLO el JSON solicitado. No omitas ningún renglón. MUY IMPORTANTE: la "descripcion" debe ser copia TEXTUAL del PDF, sin resumir ni cambiar palabras.',
+                                        'text' => 'Devuelve SOLO el JSON solicitado. No omitas ningún renglón. MUY IMPORTANTE: la "descripcion" debe ser copia TEXTUAL del PDF (mismas palabras, solo une líneas).',
                                     ],
                                     ['type' => 'input_file', 'file_id' => $fileId],
                                 ],
                             ]],
+                            // más tokens por si hay muchos renglones
                             'max_output_tokens' => 9000,
                         ]);
                 } catch (ConnectionException $e) {
@@ -236,7 +240,7 @@ TXT;
         $raw = $this->cleanupJsonText($raw);
 
         // ==========================================================
-        // 5) Parse + repair si falla (con salvage local primero)
+        // 5) Parse + repair si falla
         // ==========================================================
         $data = $this->decodeJsonLenient($raw);
 
@@ -246,7 +250,6 @@ TXT;
                 'raw'   => mb_substr($raw, 0, 8000),
             ]);
 
-            // Intento de reparación vía OpenAI SOLO si el salvage local no sirvió
             $rawFixed = $this->repairJsonWithOpenAi(
                 $apiKey,
                 $baseUrl,
@@ -461,8 +464,7 @@ TXT;
     }
 
     /**
-     * Decodifica JSON incluso si viene como string con escapes
-     * y hace un "salvamento" de items si el JSON está cortado.
+     * Decodifica JSON incluso si viene como string con escapes: "{ \"items\": [...] }"
      */
     private function decodeJsonLenient(string $raw)
     {
@@ -471,22 +473,13 @@ TXT;
             return null;
         }
 
-        // 1) Intento normal con tolerancia a UTF-8
+        // Intento con tolerancia a UTF-8 raro
         $data = json_decode($raw, true, 512, JSON_INVALID_UTF8_SUBSTITUTE);
         if (is_array($data)) {
             return $data;
         }
 
-        // 2) Salvamento local: extraer objetos completos dentro de items[]
-        $items = $this->salvageItemsFromRaw($raw);
-        if (!empty($items)) {
-            Log::info('JSON salvado parcialmente desde raw (items completos encontrados)', [
-                'items_count' => count($items),
-            ]);
-            return ['items' => $items];
-        }
-
-        // 3) a veces viene JSON dentro de un string con comillas escapadas
+        // a veces viene JSON dentro de un string con comillas escapadas
         if (str_starts_with($raw, '"') && str_ends_with($raw, '"')) {
             $unquoted = json_decode($raw, true, 512, JSON_INVALID_UTF8_SUBSTITUTE); // quita escapes
             if (is_string($unquoted)) {
@@ -495,67 +488,10 @@ TXT;
                 if (is_array($data2)) {
                     return $data2;
                 }
-
-                $items2 = $this->salvageItemsFromRaw($unquoted);
-                if (!empty($items2)) {
-                    Log::info('JSON salvado parcialmente desde unquoted raw (items completos encontrados)', [
-                        'items_count' => count($items2),
-                    ]);
-                    return ['items' => $items2];
-                }
             }
         }
 
         return null;
-    }
-
-    /**
-     * Recorre el texto y extrae todos los objetos { ... } completos
-     * dentro de "items": [ ... ] aunque el último venga cortado.
-     */
-    private function salvageItemsFromRaw(string $raw): array
-    {
-        $items = [];
-
-        // localizar "items" y el [
-        $pos = strpos($raw, '"items"');
-        if ($pos === false) {
-            return [];
-        }
-
-        $startBracket = strpos($raw, '[', $pos);
-        if ($startBracket === false) {
-            return [];
-        }
-
-        $len           = strlen($raw);
-        $depth         = 0;
-        $currentStart  = null;
-
-        for ($i = $startBracket + 1; $i < $len; $i++) {
-            $ch = $raw[$i];
-
-            if ($ch === '{') {
-                if ($depth === 0) {
-                    $currentStart = $i;
-                }
-                $depth++;
-            } elseif ($ch === '}') {
-                $depth--;
-                if ($depth === 0 && $currentStart !== null) {
-                    $objStr = substr($raw, $currentStart, $i - $currentStart + 1);
-                    $obj    = json_decode($objStr, true, 512, JSON_INVALID_UTF8_SUBSTITUTE);
-                    if (is_array($obj)) {
-                        $items[] = $obj;
-                    }
-                    $currentStart = null;
-                }
-            } elseif ($ch === ']' && $depth === 0) {
-                break;
-            }
-        }
-
-        return $items;
     }
 
     /**
