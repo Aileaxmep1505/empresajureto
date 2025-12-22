@@ -67,6 +67,7 @@ use App\Models\LicitacionPdf;
 
 use App\Http\Controllers\DebugOpenAiController;
 use App\Http\Controllers\Admin\AdminOrderController;
+use App\Http\Controllers\Admin\LicitacionPdfAiController;
 
 /*
 |--------------------------------------------------------------------------
@@ -988,3 +989,11 @@ Route::post(
 )->name('licitacion-propuesta-items.apply-product');
 
     });
+
+Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('licitacion-pdfs/{licitacionPdf}/ai', [LicitacionPdfAiController::class, 'show'])
+        ->name('licitacion-pdfs.ai');
+
+    Route::post('licitacion-pdfs/{licitacionPdf}/ai/message', [LicitacionPdfAiController::class, 'message'])
+        ->name('licitacion-pdfs.ai.message');
+});

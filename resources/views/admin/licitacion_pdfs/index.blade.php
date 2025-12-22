@@ -509,7 +509,8 @@
               };
             @endphp
 
-            <a href="{{ route('admin.licitacion-pdfs.show', $pdf) }}" class="rq-item">
+            {{-- ✅ Ya NO es <a> para poder tener 2 botones (Abrir + Chat IA) --}}
+            <div class="rq-item" tabindex="0">
               <div class="rq-toprow">
                 <div class="rq-icon" aria-hidden="true">
                   <svg class="rq-ico" viewBox="0 0 24 24" fill="none">
@@ -555,15 +556,27 @@
               </div>
 
               <div class="rq-foot">
-                <span class="rq-hint">Abrir detalle</span>
-                <span class="rq-open" aria-hidden="true">
-                  Abrir
-                  <svg class="rq-ico" viewBox="0 0 24 24" fill="none">
-                    <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                  </svg>
-                </span>
+                <span class="rq-hint">Acciones</span>
+
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                  <a class="rq-open" href="{{ route('admin.licitacion-pdfs.show', $pdf) }}">
+                    Abrir
+                    <svg class="rq-ico" viewBox="0 0 24 24" fill="none">
+                      <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </a>
+
+                  {{-- ✅ Nuevo botón: Chat IA del PDF --}}
+                  <a class="rq-open" href="{{ route('admin.licitacion-pdfs.ai', $pdf) }}">
+                    Chat IA
+                    <svg class="rq-ico" viewBox="0 0 24 24" fill="none">
+                      <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"
+                            stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                    </svg>
+                  </a>
+                </div>
               </div>
-            </a>
+            </div>
           @endforeach
         </div>
 
