@@ -990,10 +990,17 @@ Route::post(
 
     });
 
-Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
+Route::middleware(['auth'])->prefix('admin')->group(function () {
     Route::get('licitacion-pdfs/{licitacionPdf}/ai', [LicitacionPdfAiController::class, 'show'])
-        ->name('licitacion-pdfs.ai');
+        ->name('admin.licitacion-pdfs.ai.show');
 
     Route::post('licitacion-pdfs/{licitacionPdf}/ai/message', [LicitacionPdfAiController::class, 'message'])
-        ->name('licitacion-pdfs.ai.message');
+        ->name('admin.licitacion-pdfs.ai.message');
+
+    Route::post('licitacion-pdfs/{licitacionPdf}/ai/notes/pdf', [LicitacionPdfAiController::class, 'notesPdf'])
+        ->name('admin.licitacion-pdfs.ai.notes.pdf');
+
+    // ✅ viewer con highlight
+    Route::get('licitacion-pdfs/{licitacionPdf}/ai/viewer', [LicitacionPdfAiController::class, 'viewer'])
+        ->name('admin.licitacion-pdfs.ai.viewer');
 });
