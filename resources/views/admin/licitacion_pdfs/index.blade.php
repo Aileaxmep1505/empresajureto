@@ -566,8 +566,8 @@
                     </svg>
                   </a>
 
-                  {{-- ✅ Nuevo botón: Chat IA del PDF --}}
-                  <a class="rq-open" href="{{ route('admin.licitacion-pdfs.ai', $pdf) }}">
+                  {{-- ✅ Botón: Chat IA del PDF (RUTA CORRECTA) --}}
+                  <a class="rq-open" href="{{ route('admin.licitacion-pdfs.ai.show', $pdf) }}">
                     Chat IA
                     <svg class="rq-ico" viewBox="0 0 24 24" fill="none">
                       <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"
