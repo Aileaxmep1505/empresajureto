@@ -41,21 +41,24 @@
       --header-glass-bg: rgba(255,255,255,.42);
       --header-glass-border: rgba(15,23,42,.05);
       --header-transition: background-color .25s ease, backdrop-filter .25s ease, box-shadow .25s ease, border-color .25s ease;
+
+      /* ✅ dropdown pro */
+      --dd-bg: rgba(255,255,255,.92);
+      --dd-border: rgba(15,23,42,.08);
+      --dd-shadow: 0 26px 70px rgba(2,8,23,.18);
+      --dd-radius: 18px;
     }
     *{ box-sizing:border-box }
     html,body{ margin:0; padding:0 }
-    /* No forzamos background global para no romper tus degradados */
     body{ font-family: ui-sans-serif, system-ui, -apple-system; color:var(--ink); overflow-x:hidden }
     html.sheet-open{ overflow:hidden; }
-    /* Scroll lock específico del buscador (sin tocar tus pantallas) */
     .jrt-scroll-lock{ overflow:hidden; padding-right: var(--jrt-pr, 0px); }
 
-    /* ===== Header base ===== */
     header.header{
       position:sticky; top:0; left:0; right:0; width:100%;
       background:var(--header-solid-bg);
       box-shadow:var(--shadow);
-      z-index:90; /* por encima del backdrop del buscador */
+      z-index:90;
       border-bottom:1px solid transparent;
       transition: var(--header-transition);
     }
@@ -72,16 +75,195 @@
 
     .wrap{ max-width:var(--container); margin:0 auto; padding:14px 20px }
     .navbar{ display:flex; align-items:center; gap:18px }
-    .brand{ display:flex; align-items:center; gap:12px; white-space:nowrap; text-decoration:none; color:var(--ink) }
+
+    .brand{
+      display:flex; align-items:center; gap:12px; white-space:nowrap;
+      text-decoration:none; color:var(--ink);
+      -webkit-tap-highlight-color: transparent;
+    }
     .brand img{ height:34px; display:block }
+    .brand:focus,
+    .brand:focus-visible{
+      outline: none !important;
+      box-shadow: none !important;
+    }
 
     .nav-center{ display:flex; justify-content:center; align-items:center; gap:32px; }
-    .nav-link{ position:relative; text-decoration:none; color:var(--ink); font-weight:700; padding:8px 4px; display:inline-flex; align-items:center }
-    .nav-link::after{ content:""; position:absolute; left:0; right:0; bottom:-6px; height:3px; border-radius:3px; background:transparent; transform:scaleX(0); transition:transform .18s ease, background .18s ease }
+    .nav-link{
+      position:relative; text-decoration:none; color:var(--ink);
+      font-weight:700; padding:8px 4px; display:inline-flex; align-items:center;
+    }
+    .nav-link::after{
+      content:""; position:absolute; left:0; right:0; bottom:-6px; height:3px; border-radius:3px;
+      background:transparent; transform:scaleX(0); transition:transform .18s ease, background .18s ease
+    }
     .nav-link:hover::after{ background:#000; transform:scaleX(1) }
     .nav-link.is-active::after{ background:#000; transform:scaleX(1) }
 
-    .right-tools{ display:flex; align-items:center; gap:12px; z-index:95 } /* sobre el backdrop */
+    /* =========================================================
+       ✅ DROPDOWN PRODUCTOS (PRO + MINIMALISTA) - SOLO DESKTOP
+       ========================================================= */
+    .nav-dd{ position:relative; display:inline-flex; align-items:center; }
+
+    /* trigger como botón para UX pro (y no navegar sin querer) */
+    .nav-dd__trigger{
+      background:transparent; border:0; cursor:pointer;
+      gap:8px;
+    }
+    .nav-dd__trigger:focus-visible{
+      outline:none;
+      box-shadow:0 0 0 3px rgba(59,130,246,.25);
+      border-radius:10px;
+    }
+
+    .nav-dd__caret{
+      width:10px; height:10px; display:inline-block;
+      border-right:2px solid currentColor;
+      border-bottom:2px solid currentColor;
+      transform: rotate(45deg);
+      margin-top:-2px;
+      opacity:.75;
+      transition: transform .22s ease, opacity .22s ease;
+    }
+
+    /* panel */
+    .nav-dd__menu{
+      position:absolute;
+      top:calc(100% + 12px);
+      left:-14px;
+      width:min(560px, 72vw);
+      background:var(--dd-bg);
+      border:1px solid var(--dd-border);
+      border-radius: var(--dd-radius);
+      box-shadow: var(--dd-shadow);
+      padding:12px;
+      z-index:130;
+
+      /* animación */
+      opacity:0;
+      visibility:hidden;
+      pointer-events:none;
+      transform: translateY(10px) scale(.985);
+      transform-origin: top left;
+      transition: opacity .16s ease, transform .18s ease, visibility .16s ease;
+      backdrop-filter: blur(10px) saturate(120%);
+      -webkit-backdrop-filter: blur(10px) saturate(120%);
+    }
+
+    /* flechita sutil */
+    .nav-dd__menu::before{
+      content:"";
+      position:absolute;
+      top:-7px; left:34px;
+      width:14px; height:14px;
+      background:var(--dd-bg);
+      border-left:1px solid var(--dd-border);
+      border-top:1px solid var(--dd-border);
+      transform: rotate(45deg);
+      border-top-left-radius:4px;
+    }
+
+    .nav-dd__head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding:8px 10px 10px;
+    }
+    .nav-dd__title{
+      font-weight:900;
+      font-size:.98rem;
+      letter-spacing:.01em;
+      margin:0;
+    }
+    .nav-dd__meta{
+      font-size:.82rem;
+      color:#64748b;
+      margin-top:2px;
+      line-height:1.25;
+    }
+    .nav-dd__all{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      text-decoration:none;
+      font-weight:800;
+      font-size:.9rem;
+      color:#0f172a;
+      border:1px solid rgba(15,23,42,.10);
+      background:rgba(255,255,255,.65);
+      padding:8px 10px;
+      border-radius:999px;
+      transition: transform .12s ease, box-shadow .18s ease, background .18s ease;
+      white-space:nowrap;
+    }
+    .nav-dd__all:hover{
+      transform: translateY(-1px);
+      box-shadow:0 10px 22px rgba(2,8,23,.10);
+      background:#fff;
+    }
+
+    .nav-dd__divider{
+      height:1px;
+      background:rgba(15,23,42,.08);
+      margin:2px 8px 10px;
+    }
+
+    /* lista en grid 2 columnas */
+    .nav-dd__list{
+      list-style:none;
+      padding:0;
+      margin:0;
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:6px 10px;
+      padding: 0 6px 6px;
+    }
+
+    .nav-dd__item a{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:10px 10px;
+      border-radius:12px;
+      text-decoration:none;
+      color:var(--ink);
+      font-weight:750;
+      transition: background .14s ease, transform .12s ease;
+    }
+    .nav-dd__dot{
+      width:8px; height:8px;
+      border-radius:999px;
+      background:rgba(15,23,42,.18);
+      flex:0 0 8px;
+    }
+    .nav-dd__item a:hover{
+      background:rgba(59,130,246,.06);
+      transform: translateY(-1px);
+    }
+
+    /* abrir en hover/focus y también por clase open (click) */
+    .nav-dd:hover .nav-dd__menu,
+    .nav-dd:focus-within .nav-dd__menu,
+    .nav-dd.open .nav-dd__menu{
+      opacity:1;
+      visibility:visible;
+      pointer-events:auto;
+      transform: translateY(0) scale(1);
+    }
+    .nav-dd:hover .nav-dd__caret,
+    .nav-dd.open .nav-dd__caret{
+      transform: rotate(225deg);
+      opacity:.95;
+    }
+
+    /* Solo desktop */
+    @media (max-width: 980px){
+      .nav-dd{ display:none !important; }
+    }
+    /* ========================================================= */
+
+    .right-tools{ display:flex; align-items:center; gap:12px; z-index:95 }
     .icon-btn{
       position:relative; display:inline-flex; align-items:center; justify-content:center;
       width:36px; height:36px; border-radius:999px; border:1px solid #dfe6ee; background:#fff;
@@ -97,14 +279,29 @@
       box-shadow:0 2px 8px rgba(239,68,68,.25);
     }
 
-    .btn-pill{ appearance:none; border:0; border-radius:999px; padding:12px 24px; font-weight:700; background:var(--pill); color:#fff; cursor:pointer; transition:background .2s, transform .1s }
-    .btn-pill:hover{ background:var(--pill-hover); transform: translateY(-1px) }
+    .btn-pill{
+      appearance:none; border:0; border-radius:999px; padding:12px 24px; font-weight:700;
+      background:var(--pill); color:#fff; cursor:pointer; transition:background .2s, transform .1s;
+      text-decoration:none !important;
+      display:inline-flex; align-items:center; justify-content:center;
+    }
+    .btn-pill:hover{
+      background:var(--pill-hover); transform: translateY(-1px);
+      text-decoration:none !important;
+    }
+    .btn-pill:visited{ color:#fff; text-decoration:none !important; }
+    .btn-pill:active{ text-decoration:none !important; }
+    .btn-pill:focus,
+    .btn-pill:focus-visible{
+      outline:none !important;
+      box-shadow:none !important;
+      text-decoration:none !important;
+    }
 
-    /* ===== Mobile topbar ===== */
     .mobile-topbar{ display:none; align-items:center; justify-content:space-between; max-width:var(--container); margin:0 auto; padding:10px 16px }
     .m-brand{ display:flex; align-items:center; gap:8px; text-decoration:none; color:var(--ink) }
     .m-logo{ height:26px; width:auto; display:block }
-    .m-right{ display:flex; align-items:center; gap:10px } /* carrito + burger a la derecha */
+    .m-right{ display:flex; align-items:center; gap:10px }
     .burger{ display:none; background:transparent; border:0; padding:6px }
     .burger svg{ width:24px; height:24px }
 
@@ -119,8 +316,8 @@
     }
 
     /* ===== Bottom Sheet (móvil) ===== */
-    .sheet-backdrop{ position:fixed; inset:0; background:var(--backdrop); opacity:0; pointer-events:none; transition:opacity .2s ease; backdrop-filter: blur(2px); z-index:49 }
-    .sheet{ position:fixed; left:0; right:0; bottom:0; z-index:50; transform: translateY(100%); background:var(--sheet-bg); border-top-left-radius: var(--sheet-radius); border-top-right-radius: var(--sheet-radius); box-shadow: var(--sheet-shadow); transition: transform .26s ease; will-change: transform; touch-action: none }
+    .sheet-backdrop{ position:fixed; inset:0; background:rgba(15,23,42,.38); opacity:0; pointer-events:none; transition:opacity .2s ease; backdrop-filter: blur(2px); z-index:49 }
+    .sheet{ position:fixed; left:0; right:0; bottom:0; z-index:50; transform: translateY(100%); background:#fff; border-top-left-radius: 20px; border-top-right-radius: 20px; box-shadow: 0 18px 60px rgba(2,8,23,.22); transition: transform .26s ease; will-change: transform; touch-action: none }
     .sheet__drag{ display:flex; justify-content:center; padding-top:10px }
     .sheet__handle{ width:48px; height:5px; border-radius:999px; background:#d1d5db }
     .sheet__content{ padding:14px 18px 18px }
@@ -137,7 +334,7 @@
     .ft__wrap{ max-width:1180px; margin:0 auto; padding:24px 20px 36px; display:flex; flex-direction:column; align-items:center; }
     .ft__head{ width:100%; display:flex; flex-direction:column; align-items:center; text-align:center; gap:16px; }
     .ft__brand{ display:flex; align-items:center; gap:12px; text-decoration:none; color:#0f172a }
-    .ft__logo{ height:38px; width:auto; display:block } /* desktop */
+    .ft__logo{ height:38px; width:auto; display:block }
     .ft__slogan{ font-size:.95rem; color:#6b7280; max-width:720px }
     .ft__divider{ border:0; border-top:1px solid #e9eef6; margin:18px 0 12px }
 
@@ -152,11 +349,6 @@
     .ft__payments img{ height:26px; width:auto }
     .ft__copy{ margin-top:16px; color:#6b7280 }
 
-    .ft__social{ display:flex; gap:14px; align-items:center; margin-top:8px }
-    .ft__social a{ color:inherit; opacity:.9; transition:opacity .2s, transform .1s }
-    .ft__social a:hover{ opacity:1; transform:translateY(-1px) }
-
-    /* Solo móvil: acordeón en footer */
     @media (max-width: 980px){
       .ft__wrap{ padding:22px 16px 28px; align-items:stretch }
       .ft__head{ align-items:flex-start; text-align:left }
@@ -167,13 +359,11 @@
       .ft__col:not(.open) .ft__list{ display:none }
       .ft__col.open .ft__list{ display:grid }
       .ft__col.open .ft__chev{ transform: rotate(45deg); }
-      --ft__payments{ justify-content:center }
-      .ft__copy{ text-align:center }
       .ft__logo{ height:28px; max-width:180px; margin:0 auto 8px; display:block }
     }
 
     /* ===== Search & user (MEJORADO) ===== */
-    .searchbar-wrap{ position:relative; flex:1 1 720px; max-width:720px; z-index:100 } /* por encima de header y backdrop */
+    .searchbar-wrap{ position:relative; flex:1 1 720px; max-width:720px; z-index:100 }
     .searchbar{
       display:flex; align-items:center; gap:10px;
       background:#fff; border:1px solid var(--line); border-radius:999px;
@@ -186,18 +376,16 @@
     .searchbar .chip{ display:inline-flex; align-items:center; justify-content:center; font-weight:800; font-size:.9rem; color:#2f4fb8; border:2px solid #2f4fb8; border-radius:999px; width:34px; height:34px; }
     .searchbar:focus-within{ border-color:#c7d2fe; box-shadow:0 10px 28px rgba(59,130,246,.15) }
 
-    /* Backdrop del buscador: SOLO fondo; ni header ni panel */
     .sugg-backdrop{
       position:fixed; inset:0; background:rgba(15,23,42,.38);
-      opacity:0; pointer-events:none; transition:opacity .18s; z-index:80; /* < header (90) y < panel (110) */
+      opacity:0; pointer-events:none; transition:opacity .18s; z-index:80;
     }
     .sugg-backdrop.is-open{ opacity:1; pointer-events:auto }
 
-    /* Panel de sugerencias flotante */
     #sugg{
       position:absolute; top:calc(100% + 10px); left:0; right:0;
       background:#fff; border:1px solid var(--line); border-radius:16px;
-      box-shadow:0 24px 60px rgba(2,8,23,.16); padding:8px; z-index:110; /* sobre header/backdrop */
+      box-shadow:0 24px 60px rgba(2,8,23,.16); padding:8px; z-index:110;
       max-height:420px; overflow:auto;
       opacity:0; transform: translateY(-6px); transition: opacity .16s ease, transform .16s ease;
     }
@@ -212,7 +400,6 @@
     #sugg .sugg-item[aria-selected="true"]{ background:#eef2ff }
     #sugg .sugg-empty{ padding:12px; color:#6b7280; text-align:center }
 
-    /* Móvil: panel fijo bajo el header, ancho completo */
     @media (max-width:980px){
       #sugg{
         position:fixed; left:12px; right:12px; top:calc(var(--hdr-h,64px) + 8px);
@@ -237,7 +424,6 @@
       color:var(--ink); text-decoration:none; font-weight:700;
     }
     .user-menu a:hover, .user-menu form button:hover{background:#f7f9fe}
-    
   </style>
 </head>
 <body>
@@ -280,6 +466,50 @@
       <a href="{{ route('web.home') }}" class="nav-link {{ request()->routeIs('web.home') ? 'is-active' : '' }}">Inicio</a>
       <a href="{{ route('web.ofertas') }}" class="nav-link {{ request()->routeIs('web.ofertas.*') ? 'is-active' : '' }}">Ofertas</a>
       <a href="{{ url('/servicios') }}" class="nav-link {{ request()->is('servicios') ? 'is-active' : '' }}">Servicios</a>
+
+      <!-- ✅ PRODUCTOS (desktop) PRO + MINIMAL -->
+      <div class="nav-dd" id="prodDD">
+        <button
+          type="button"
+          class="nav-link nav-dd__trigger {{ request()->is('categoria/*') ? 'is-active' : '' }}"
+          id="prodTrigger"
+          aria-haspopup="menu"
+          aria-expanded="false"
+        >
+          Productos <span class="nav-dd__caret" aria-hidden="true"></span>
+        </button>
+
+        <div class="nav-dd__menu" role="menu" aria-labelledby="prodTrigger">
+          <div class="nav-dd__head">
+            <div>
+              <div class="nav-dd__title">Principales</div>
+              <div class="nav-dd__meta">Categorías recomendadas</div>
+            </div>
+            <a class="nav-dd__all" href="{{ url('/categoria/productos-oficina') }}">
+              Ver todo
+              <span aria-hidden="true" style="display:inline-block;transform:translateY(-1px)">→</span>
+            </a>
+          </div>
+
+          <div class="nav-dd__divider" aria-hidden="true"></div>
+
+          <ul class="nav-dd__list">
+            <li class="nav-dd__item"><a href="{{ url('/categoria/papeleria') }}"><span class="nav-dd__dot"></span>Artículos de Papelería</a></li>
+            <li class="nav-dd__item"><a href="{{ url('/categoria/hojas') }}"><span class="nav-dd__dot"></span>Hojas para imprimir</a></li>
+            <li class="nav-dd__item"><a href="{{ url('/categoria/hardware') }}"><span class="nav-dd__dot"></span>Hardware</a></li>
+            <li class="nav-dd__item"><a href="{{ url('/categoria/laptops') }}"><span class="nav-dd__dot"></span>Computadoras Laptop</a></li>
+            <li class="nav-dd__item"><a href="{{ url('/categoria/oficina') }}"><span class="nav-dd__dot"></span>Equipo de Cómputo para Oficina</a></li>
+            <li class="nav-dd__item"><a href="{{ url('/categoria/desktop') }}"><span class="nav-dd__dot"></span>Computadoras de Escritorio</a></li>
+            <li class="nav-dd__item"><a href="{{ url('/categoria/monitores') }}"><span class="nav-dd__dot"></span>Monitores</a></li>
+            <li class="nav-dd__item"><a href="{{ url('/categoria/brother') }}"><span class="nav-dd__dot"></span>Impresoras Brother</a></li>
+            <li class="nav-dd__item"><a href="{{ url('/categoria/epson') }}"><span class="nav-dd__dot"></span>Impresoras Epson</a></li>
+            <li class="nav-dd__item"><a href="{{ url('/categoria/hp') }}"><span class="nav-dd__dot"></span>Tienda Oficial HP</a></li>
+            <li class="nav-dd__item"><a href="{{ url('/categoria/productos-oficina') }}"><span class="nav-dd__dot"></span>Productos para Oficina</a></li>
+            <li class="nav-dd__item"><a href="{{ url('/categoria/muebles') }}"><span class="nav-dd__dot"></span>Muebles para Oficina</a></li>
+          </ul>
+        </div>
+      </div>
+      <!-- /Productos -->
     </nav>
 
     <div class="searchbar-wrap" id="searchWrap">
@@ -488,6 +718,41 @@
     }
   })();
 
+  // ✅ Dropdown Productos: toggle por click (solo desktop) + click afuera + ESC
+  (function(){
+    const dd = document.getElementById('prodDD');
+    const btn = document.getElementById('prodTrigger');
+    if(!dd || !btn) return;
+
+    function isDesktop(){ return window.matchMedia('(min-width:981px)').matches; }
+
+    function setOpen(open){
+      dd.classList.toggle('open', open);
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+
+    btn.addEventListener('click', (e)=>{
+      if(!isDesktop()) return;
+      e.preventDefault();
+      setOpen(!dd.classList.contains('open'));
+    });
+
+    document.addEventListener('click', (e)=>{
+      if(!isDesktop()) return;
+      if(!dd.classList.contains('open')) return;
+      if(!e.target.closest('#prodDD')) setOpen(false);
+    });
+
+    document.addEventListener('keydown', (e)=>{
+      if(!isDesktop()) return;
+      if(e.key === 'Escape') setOpen(false);
+    });
+
+    window.addEventListener('resize', ()=>{
+      if(!isDesktop()) setOpen(false);
+    });
+  })();
+
   // Bottom Sheet móvil
   (function(){
     const html = document.documentElement;
@@ -549,7 +814,7 @@
     function lock(){
       if(body.classList.contains('jrt-scroll-lock')) return;
       savedScroll = window.scrollY || 0;
-      body.style.setProperty('--jrt-pr', scrollbarWidth() + 'px'); /* evita “salto” por barra */
+      body.style.setProperty('--jrt-pr', scrollbarWidth() + 'px');
       body.classList.add('jrt-scroll-lock');
     }
     function unlock(){
@@ -560,7 +825,6 @@
     }
 
     function openUI(){
-      // Cierra bottom-sheet si estaba abierto (evita overlays simultáneos)
       const html = document.documentElement;
       if (html.classList.contains('sheet-open')) {
         html.classList.remove('sheet-open');
@@ -577,7 +841,6 @@
       panel.classList.remove('is-open');
       panel.hidden = true;
       list.innerHTML = '';
-      setActive(-1);
       input.setAttribute('aria-expanded','false');
       input.removeAttribute('aria-activedescendant');
       backdrop.classList.remove('is-open');
@@ -585,47 +848,11 @@
       unlock();
     }
 
-    function setActive(idx){
-      const items = Array.from(list.querySelectorAll('.sugg-item'));
-      items.forEach((el,i)=>{
-        const sel = i===idx;
-        el.setAttribute('aria-selected', sel ? 'true' : 'false');
-        if(sel){ el.id = 'sugg-opt-'+i; input.setAttribute('aria-activedescendant', el.id); }
-        else if(el.id?.startsWith('sugg-opt-')){ el.removeAttribute('id'); }
-      });
-      activeIndex = idx;
-    }
-    function move(delta){
-      const items = Array.from(list.querySelectorAll('.sugg-item'));
-      if(!items.length) return;
-      let next = activeIndex + delta;
-      if(next < 0) next = items.length-1;
-      if(next >= items.length) next = 0;
-      setActive(next);
-      items[next].scrollIntoView({block:'nearest'});
-    }
-    function activateCurrent(){
-      const el = list.querySelector('.sugg-item[aria-selected="true"]') || list.querySelector('.sugg-item');
-      if(!el) return;
-      const term = el.getAttribute('data-term');
-      const href = el.getAttribute('href');
-      if(term){
-        input.value = term;
-        closeUI();
-        form.submit();
-      }else if(href){
-        closeUI();
-        window.location.href = href;
-      }
-    }
-
-    // A11y base
     input.setAttribute('role','combobox');
     input.setAttribute('aria-autocomplete','list');
     input.setAttribute('aria-expanded','false');
     input.setAttribute('aria-controls','sugg');
 
-    // Input + fetch
     input.addEventListener('input', ()=>{
       const q = input.value.trim();
       if(timer) clearTimeout(timer);
@@ -661,23 +888,12 @@
           if(!html) html = `<div class="sugg-empty">Sin sugerencias</div>`;
           list.innerHTML = html;
           openUI();
-          setActive(terms.length || products.length ? 0 : -1);
         }catch(_){ /* noop */ }
       }, 180);
     });
 
     input.addEventListener('focus', ()=>{ if(list.children.length){ openUI(); } });
 
-    // Abrir con Cmd/Ctrl+K sin mover scroll
-    document.addEventListener('keydown', (e)=>{
-      if((e.ctrlKey||e.metaKey) && (e.key==='k' || e.key==='K')){
-        e.preventDefault();
-        try{ input.focus({preventScroll:true}); }catch(_){ input.focus(); }
-        input.select();
-      }
-    });
-
-    // Cerrar con click-fuera, backdrop y ESC
     document.addEventListener('click', (e)=>{ 
       if(panel.hidden) return;
       if(!e.target.closest('#searchWrap') && !e.target.closest('#sugg')) closeUI();
@@ -685,13 +901,8 @@
     backdrop?.addEventListener('click', closeUI);
     document.addEventListener('keydown', (e)=>{
       if(e.key === 'Escape'){ closeUI(); input.blur(); }
-      if(panel.hidden) return;
-      if(e.key === 'ArrowDown'){ e.preventDefault(); move(1); }
-      if(e.key === 'ArrowUp'){ e.preventDefault(); move(-1); }
-      if(e.key === 'Enter'){ e.preventDefault(); activateCurrent(); }
     });
 
-    // Click en término
     panel.addEventListener('click', (e)=>{
       const item = e.target.closest('.sugg-item');
       if(!item) return;
@@ -751,119 +962,9 @@
     document.addEventListener('livewire:load', initFooterAccordion);
   })();
 
-  // Badge de carrito helper
   window.updateCartBadge = function(count){
     document.querySelectorAll('[data-cart-badge]').forEach(b=> b.textContent = String(count||0));
   };
-</script>
-
-<!-- ========== TOAST + AJAX CART (pegar antes de </body>) ========== -->
-<style>
-  #toaststack{position:fixed;top:14px;right:14px;z-index:9999;display:flex;flex-direction:column;gap:10px}
-  .toast2{
-    background:#fff;color:#111827;border:1px solid #e6eaf2;border-radius:14px;
-    box-shadow:0 16px 40px rgba(2,8,23,.08);
-    padding:12px 14px;min-width:280px;max-width:360px;
-    display:grid;grid-template-columns:28px 1fr auto;gap:10px;
-    animation:toast2in .2s ease-out both
-  }
-  .toast2__ring{width:26px;height:26px;border-radius:999px;border:3px solid #d1e7dd;box-sizing:border-box}
-  .toast2--success .toast2__ring{border-color:#86efac}
-  .toast2--warning .toast2__ring{border-color:#fcd34d}
-  .toast2--info    .toast2__ring{border-color:#93c5fd}
-  .toast2__title{font-weight:800;margin-top:2px}
-  .toast2__msg{font-size:.92rem;color:#334155}
-  .toast2__close{border:0;background:transparent;width:30px;height:30px;border-radius:10px;cursor:pointer}
-  .toast2__close:hover{background:#f3f4f6}
-  .toast2__bar{grid-column:1/-1;height:3px;border-radius:999px;background:#34d399;transform-origin:left;animation:toast2bar var(--dur,3200ms) linear forwards}
-  .toast2--warning .toast2__bar{background:#f59e0b}
-  .toast2--info .toast2__bar{background:#60a5fa}
-  @keyframes toast2in{from{transform:translateY(-6px);opacity:0}to{transform:translateY(0);opacity:1}}
-  @keyframes toast2out{to{transform:translateY(-6px);opacity:0}}
-  @keyframes toast2bar{from{transform:scaleX(1)}to{transform:scaleX(0)}}
-</style>
-
-<div id="toaststack" aria-live="polite" aria-atomic="true"></div>
-
-<script>
-(function(){
-  // Toast minimal
-  const stack = document.getElementById('toaststack');
-  window.showToast = function({title='Agregado', message='', kind='success', duration=3200}={}){
-    const el = document.createElement('div');
-    el.className = `toast2 toast2--${kind}`;
-    el.style.setProperty('--dur', duration+'ms');
-    el.innerHTML = `
-      <div class="toast2__ring" aria-hidden="true"></div>
-      <div>
-        <div class="toast2__title">${title}</div>
-        ${message ? `<div class="toast2__msg">${message}</div>` : ''}
-      </div>
-      <button class="toast2__close" type="button" aria-label="Cerrar">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="#0f172a" stroke-width="2" stroke-linecap="round"/></svg>
-      </button>
-      <div class="toast2__bar"></div>
-    `;
-    stack.appendChild(el);
-    const close = () => { el.style.animation = 'toast2out .18s ease-in forwards'; setTimeout(()=> el.remove(), 160); };
-    const timer = setTimeout(close, duration);
-    el.querySelector('.toast2__close').addEventListener('click', ()=>{ clearTimeout(timer); close(); });
-  };
-
-  // Actualiza TODAS las badges de carrito
-  window.updateCartBadge = function(count){
-    document.querySelectorAll('[data-cart-badge]').forEach(b=> b.textContent = String(count||0));
-  };
-
-  // Interceptar "Agregar al carrito" SIN recargar
-  const RUTA_ADD = @json(route('web.cart.add'));
-  const CSRF = document.querySelector('meta[name="csrf-token"]')?.content || '';
-
-  function esFormCartAdd(form){
-    try{
-      const a = new URL(form.getAttribute('action') || form.action, location.origin).href;
-      const b = new URL(RUTA_ADD, location.origin).href;
-      return a === b;
-    }catch(_){ return false; }
-  }
-
-  document.addEventListener('submit', async (e)=>{
-    const form = e.target;
-    if(!(form instanceof HTMLFormElement)) return;
-    if(!esFormCartAdd(form)) return;
-
-    e.preventDefault();
-
-    try{
-      const fd = new FormData(form);
-      const res = await fetch(form.action, {
-        method:'POST',
-        headers:{ 'Accept':'application/json', 'X-Requested-With':'XMLHttpRequest', 'X-CSRF-TOKEN': CSRF },
-        body: fd,
-        credentials:'same-origin'
-      });
-
-      const data = await res.json().catch(()=> ({}));
-
-      if(!res.ok || !data.ok){
-        const msg = (data && (data.msg || data.message)) || 'No se pudo agregar.';
-        throw new Error(msg);
-      }
-
-      window.updateCartBadge(data?.totals?.count || 0);
-      window.showToast({ title:'Agregado', message:'El producto se añadió al carrito.', kind:'success', duration:3000 });
-    }catch(err){
-      window.showToast({ title:'Ups', message: String(err.message||'Error inesperado'), kind:'warning', duration:3500 });
-      console.error('Cart add error:', err);
-    }
-  }, true);
-
-  @if(session('ok'))
-    window.addEventListener('DOMContentLoaded', ()=>{
-      window.showToast({ title:'Aviso', message: @json(session('ok')), kind:'info', duration:3000 });
-    });
-  @endif
-})();
 </script>
 
 @stack('scripts')

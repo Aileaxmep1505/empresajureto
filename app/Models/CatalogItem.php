@@ -132,4 +132,17 @@ class CatalogItem extends Model
 
         return mb_substr($txt, 0, $limit - 3) . '...';
     }
+    // use App\Models\Location;
+// use App\Models\Inventory;
+
+public function primaryLocation()
+{
+    return $this->belongsTo(Location::class, 'primary_location_id');
+}
+
+public function inventoryRows()
+{
+    return $this->hasMany(Inventory::class, 'catalog_item_id');
+}
+
 }

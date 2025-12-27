@@ -684,6 +684,83 @@
         </div>
       </details>
 
+      <!-- ✅ NUEVO: WMS (Bodega) -->
+      <details class="nav__group" {{ request()->routeIs('admin.wms.*') ? 'open' : '' }}>
+        <summary class="{{ request()->routeIs('admin.wms.*') ? 'is-active':'' }}">
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
+            <path d="M3 10l9-6 9 6v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V10z"/>
+            <path d="M7 22v-8h10v8"/>
+            <path d="M9 14h6"/>
+          </svg>
+          <span>WMS (Bodega)</span>
+          <svg class="nav__chev" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+        </summary>
+        <div class="nav__submenu">
+
+          <a href="{{ route('admin.wms.home') }}" class="nav__sublink {{ request()->routeIs('admin.wms.home') ? 'is-active':'' }}">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
+              <path d="M3 12l9-9 9 9"/><path d="M9 21V9h6v12"/>
+            </svg>
+            <span>Inicio WMS</span>
+          </a>
+
+          <a href="{{ route('admin.wms.search.view') }}" class="nav__sublink {{ request()->routeIs('admin.wms.search.view') ? 'is-active':'' }}">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
+              <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+            </svg>
+            <span>Buscar + Llévame</span>
+          </a>
+
+          <a href="{{ route('admin.wms.pick.waves.page') }}" class="nav__sublink {{ request()->routeIs('admin.wms.pick.waves.page') || request()->routeIs('admin.wms.pick.show') ? 'is-active':'' }}">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
+              <path d="M3 7h18l-2 10a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3L3 7z"/>
+              <path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/>
+            </svg>
+            <span>Picking (Waves)</span>
+          </a>
+
+          <a href="{{ route('admin.wms.locations.index') }}" class="nav__sublink {{ request()->routeIs('admin.wms.locations.*') ? 'is-active':'' }}">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
+              <path d="M12 21s7-4.5 7-11a7 7 0 0 0-14 0c0 6.5 7 11 7 11z"/>
+              <circle cx="12" cy="10" r="2.5"/>
+            </svg>
+            <span>Ubicaciones</span>
+          </a>
+
+          <a href="{{ route('admin.wms.qr.print.batch') }}" class="nav__sublink {{ request()->routeIs('admin.wms.qr.print.*') ? 'is-active':'' }}">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
+              <rect x="3" y="3" width="8" height="8" rx="2"/><path d="M7 7h.01"/>
+              <rect x="13" y="3" width="8" height="8" rx="2"/><path d="M17 7h.01"/>
+              <rect x="3" y="13" width="8" height="8" rx="2"/><path d="M7 17h.01"/>
+              <path d="M13 13h8v8h-8z"/>
+            </svg>
+            <span>Imprimir QRs</span>
+          </a>
+
+          <!-- ✅ NUEVO: Layout Builder -->
+          <a href="{{ route('admin.wms.layout.editor') }}"
+             class="nav__sublink {{ request()->routeIs('admin.wms.layout.*') ? 'is-active':'' }}">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
+              <rect x="3" y="3" width="8" height="8" rx="2"/>
+              <rect x="13" y="3" width="8" height="8" rx="2"/>
+              <rect x="3" y="13" width="8" height="8" rx="2"/>
+              <rect x="13" y="13" width="8" height="8" rx="2"/>
+            </svg>
+            <span>Layout (Editor)</span>
+          </a>
+
+          <!-- ✅ NUEVO: Heatmap -->
+          <a href="{{ route('admin.wms.heatmap.view') }}"
+             class="nav__sublink {{ request()->routeIs('admin.wms.heatmap.*') ? 'is-active':'' }}">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
+              <path d="M4 18V6"/><path d="M8 18V10"/><path d="M12 18V4"/><path d="M16 18V12"/><path d="M20 18V8"/>
+            </svg>
+            <span>Heatmap (Calor)</span>
+          </a>
+
+        </div>
+      </details>
+
       <!-- Help Desk -->
       <details class="nav__group" {{ request()->routeIs('admin.help.*') ? 'open' : '' }}>
         <summary class="{{ request()->routeIs('admin.help.*') ? 'is-active':'' }}">
@@ -820,6 +897,7 @@
       </button>
     </form>
   </aside>
+
 
   <!-- Backdrop -->
   <div id="backdrop" class="backdrop" tabindex="-1" aria-hidden="true"></div>

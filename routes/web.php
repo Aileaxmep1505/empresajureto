@@ -68,6 +68,9 @@ use App\Models\LicitacionPdf;
 use App\Http\Controllers\DebugOpenAiController;
 use App\Http\Controllers\Admin\AdminOrderController;
 use App\Http\Controllers\Admin\LicitacionPdfAiController;
+use App\Http\Controllers\Admin\WmsController;
+use App\Http\Controllers\Admin\WmsSearchController;
+use App\Http\Controllers\Admin\WmsPickingController;
 
 /*
 |--------------------------------------------------------------------------
@@ -1003,4 +1006,420 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
     // ✅ viewer con highlight
     Route::get('licitacion-pdfs/{licitacionPdf}/ai/viewer', [LicitacionPdfAiController::class, 'viewer'])
         ->name('admin.licitacion-pdfs.ai.viewer');
+});
+
+Route::middleware(['auth'])->prefix('admin/wms')->name('admin.wms.')->group(function () {
+
+    /* =========================
+     |  VISTAS (BLADES)
+     ========================= */
+    Route::get('/', fn () => view('admin.wms.home'))->name('home');
+
+    // Buscador UI
+    Route::get('/search', fn () => view('admin.wms.search'))->name('search.view');
+
+    // ✅ Alias para compatibilidad con el home.blade.php (DEBE IR ANTES de /pick/{wave})
+    Route::get('/pick/entry', function () {
+        $warehouseId = (int) (\App\Models\Warehouse::query()->value('id') ?? 1);
+        $waves = \App\Models\PickWave::query()->orderByDesc('id')->limit(25)->get();
+        return view('admin.wms.pick_waves', compact('waves', 'warehouseId'));
+    })->name('pick.entry');
+
+    // Waves UI (lista + crear)
+    Route::get('/pick', function () {
+        $warehouseId = (int) (\App\Models\Warehouse::query()->value('id') ?? 1);
+        $waves = \App\Models\PickWave::query()->orderByDesc('id')->limit(25)->get();
+        return view('admin.wms.pick_waves', compact('waves', 'warehouseId'));
+    })->name('pick.waves.page');
+
+    // Picking UI (wave)
+    Route::get('/pick/{wave}', function (\App\Models\PickWave $wave) {
+        return view('admin.wms.pick_show', compact('wave'));
+    })->whereNumber('wave')->name('pick.show');
+
+    // Página HTML por QR (Ubicación)
+    Route::get('/locations/{location}/page', function (\App\Models\Location $location) {
+        $rows = \App\Models\Inventory::where('location_id', $location->id)
+            ->with('item:id,name,sku,price,meli_gtin')
+            ->orderByDesc('qty')
+            ->get();
+
+        return view('admin.wms.location_show', compact('location', 'rows'));
+    })->name('location.page');
+
+    // Imprimir 1 QR
+    Route::get('/qr/print/{location}', function (\App\Models\Location $location) {
+        $locations = collect([$location]);
+        $qrMap = [];
+
+        if (class_exists(\SimpleSoftwareIO\QrCode\Facades\QrCode::class)) {
+            $url = route('admin.wms.location.page', ['location' => $location->id]);
+            $qrMap[$location->id] = \SimpleSoftwareIO\QrCode\Facades\QrCode::size(220)->margin(1)->generate($url);
+        }
+
+        return view('admin.wms.qr_print', compact('locations', 'qrMap'));
+    })->name('qr.print.one');
+
+    // Imprimir lote de QRs (opcional: ?type=stand o ?s=A-03)
+    Route::get('/qr/print', function (\Illuminate\Http\Request $r) {
+        $q = \App\Models\Location::query()->orderBy('code');
+
+        if ($r->filled('type')) $q->where('type', $r->get('type'));
+        if ($r->filled('s')) {
+            $s = trim((string) $r->get('s'));
+            $q->where('code', 'like', "%{$s}%");
+        }
+
+        $locations = $q->limit(60)->get();
+        $qrMap = [];
+
+        if (class_exists(\SimpleSoftwareIO\QrCode\Facades\QrCode::class)) {
+            foreach ($locations as $loc) {
+                $url = route('admin.wms.location.page', ['location' => $loc->id]);
+                $qrMap[$loc->id] = \SimpleSoftwareIO\QrCode\Facades\QrCode::size(220)->margin(1)->generate($url);
+            }
+        }
+
+        return view('admin.wms.qr_print', compact('locations', 'qrMap'));
+    })->name('qr.print.batch');
+
+
+    /* =========================
+     |  VISTAS: LAYOUT + HEATMAP
+     ========================= */
+
+    // Editor de Layout (usa resources/views/admin/wms/layout.blade.php)
+    Route::get('/layout', function (\Illuminate\Http\Request $r) {
+        $warehouses = \App\Models\Warehouse::query()->orderBy('id')->get();
+        $warehouseId = (int) ($r->get('warehouse_id') ?? ($warehouses->first()->id ?? 1));
+        $warehouse = \App\Models\Warehouse::query()->find($warehouseId);
+
+        return view('admin.wms.layout', compact('warehouse', 'warehouseId', 'warehouses'));
+    })->name('layout.editor');
+
+    // Heatmap (calor) (usa resources/views/admin/wms/heatmap.blade.php)
+    Route::get('/heatmap', function (\Illuminate\Http\Request $r) {
+        $warehouses = \App\Models\Warehouse::query()->orderBy('id')->get();
+        $warehouseId = (int) ($r->get('warehouse_id') ?? ($warehouses->first()->id ?? 1));
+        $warehouse = \App\Models\Warehouse::query()->find($warehouseId);
+
+        $locations = \App\Models\Location::query()
+            ->where('warehouse_id', $warehouseId)
+            ->orderBy('code')
+            ->get();
+
+        return view('admin.wms.heatmap', compact('warehouse','warehouseId','warehouses','locations'));
+    })->name('heatmap.view');
+
+
+    /* =========================
+     |  API: LAYOUT
+     ========================= */
+
+    // GET /admin/wms/layout/data?warehouse_id=...
+    Route::get('/layout/data', function (\Illuminate\Http\Request $r) {
+        $data = $r->validate([
+            'warehouse_id' => ['required','integer','exists:warehouses,id'],
+        ]);
+
+        $locations = \App\Models\Location::query()
+            ->where('warehouse_id', (int)$data['warehouse_id'])
+            ->orderBy('aisle')
+            ->orderBy('section')
+            ->orderBy('stand')
+            ->orderBy('rack')
+            ->orderBy('level')
+            ->orderBy('bin')
+            ->get()
+            ->map(function ($l) {
+                return [
+                    'id' => $l->id,
+                    'warehouse_id' => $l->warehouse_id,
+                    'parent_id' => $l->parent_id,
+                    'type' => $l->type,
+                    'code' => $l->code,
+                    'aisle' => $l->aisle,
+                    'section' => $l->section,
+                    'stand' => $l->stand,
+                    'rack' => $l->rack,
+                    'level' => $l->level,
+                    'bin' => $l->bin,
+                    'name' => $l->name,
+                    'meta' => $l->meta ?? [],
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'ok' => true,
+            'locations' => $locations,
+        ]);
+    })->name('layout.data');
+
+    // POST /admin/wms/layout/cell (crear/actualizar 1 ubicación)
+    Route::post('/layout/cell', function (\Illuminate\Http\Request $r) {
+        $payload = $r->validate([
+            'id' => ['nullable','integer','exists:locations,id'],
+            'warehouse_id' => ['required','integer','exists:warehouses,id'],
+
+            'type' => ['nullable','string','max:40'],
+            'code' => ['required','string','max:80'],
+            'name' => ['nullable','string','max:255'],
+
+            'aisle' => ['nullable','string','max:40'],
+            'section' => ['nullable','string','max:40'],
+            'stand' => ['nullable','string','max:40'],
+            'rack' => ['nullable','string','max:40'],
+            'level' => ['nullable','string','max:40'],
+            'bin' => ['nullable','string','max:40'],
+
+            'meta' => ['nullable','array'],
+            'meta.x' => ['nullable','integer','min:0'],
+            'meta.y' => ['nullable','integer','min:0'],
+            'meta.w' => ['nullable','integer','min:1'],
+            'meta.h' => ['nullable','integer','min:1'],
+            'meta.notes' => ['nullable','string','max:2000'],
+        ]);
+
+        $id = $payload['id'] ?? null;
+
+        $attrs = [
+            'warehouse_id' => (int)$payload['warehouse_id'],
+            'type' => $payload['type'] ?? 'bin',
+            'code' => $payload['code'],
+            'name' => $payload['name'] ?? null,
+
+            'aisle' => $payload['aisle'] ?? null,
+            'section' => $payload['section'] ?? null,
+            'stand' => $payload['stand'] ?? null,
+            'rack' => $payload['rack'] ?? null,
+            'level' => $payload['level'] ?? null,
+            'bin' => $payload['bin'] ?? null,
+
+            'meta' => $payload['meta'] ?? [],
+        ];
+
+        if ($id) {
+            $loc = \App\Models\Location::query()->findOrFail($id);
+            $loc->update($attrs);
+        } else {
+            $loc = \App\Models\Location::query()->create($attrs);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'location' => [
+                'id' => $loc->id,
+                'warehouse_id' => $loc->warehouse_id,
+                'type' => $loc->type,
+                'code' => $loc->code,
+                'aisle' => $loc->aisle,
+                'section' => $loc->section,
+                'stand' => $loc->stand,
+                'rack' => $loc->rack,
+                'level' => $loc->level,
+                'bin' => $loc->bin,
+                'name' => $loc->name,
+                'meta' => $loc->meta ?? [],
+            ],
+        ]);
+    })->name('layout.cell');
+
+    // POST /admin/wms/layout/generate-rack (generar en lote)
+    Route::post('/layout/generate-rack', function (\Illuminate\Http\Request $r) {
+        $p = $r->validate([
+            'warehouse_id' => ['required','integer','exists:warehouses,id'],
+
+            'prefix' => ['required','string','max:10'], // pasillo
+            'stand' => ['nullable','string','max:10'],
+
+            'rack_count' => ['required','integer','min:1','max:200'],
+            'levels' => ['required','integer','min:1','max:10'],
+            'bins' => ['required','integer','min:1','max:10'],
+
+            'start_x' => ['required','integer','min:0'],
+            'start_y' => ['required','integer','min:0'],
+            'cell_w' => ['required','integer','min:1'],
+            'cell_h' => ['required','integer','min:1'],
+            'gap_x' => ['required','integer','min:0'],
+            'gap_y' => ['required','integer','min:0'],
+
+            'direction' => ['required','in:right,down'],
+        ]);
+
+        $whId = (int)$p['warehouse_id'];
+        $prefix = strtoupper(trim((string)$p['prefix']));
+        $stand = $p['stand'] !== null ? trim((string)$p['stand']) : null;
+
+        $rackCount = (int)$p['rack_count'];
+        $levels = (int)$p['levels'];
+        $bins = (int)$p['bins'];
+
+        $startX = (int)$p['start_x'];
+        $startY = (int)$p['start_y'];
+        $cellW = (int)$p['cell_w'];
+        $cellH = (int)$p['cell_h'];
+        $gapX = (int)$p['gap_x'];
+        $gapY = (int)$p['gap_y'];
+        $direction = $p['direction'];
+
+        // Para que no se encimen los racks cuando hay muchos bins por nivel
+        $binInnerGap = 1; // separación interna entre bins en el plano
+        $rackSpanX = ($bins * $cellW) + (($bins - 1) * $binInnerGap);
+        $rackSpanY = ($levels * $cellH) + (($levels - 1) * $gapY);
+
+        $created = 0;
+
+        for ($rIdx = 1; $rIdx <= $rackCount; $rIdx++) {
+            $rackNo = str_pad((string)$rIdx, 2, '0', STR_PAD_LEFT);
+
+            // base del rack según dirección
+            if ($direction === 'right') {
+                $rackBaseX = $startX + (($rIdx - 1) * ($rackSpanX + $gapX));
+                $rackBaseY = $startY;
+            } else { // down
+                $rackBaseX = $startX;
+                $rackBaseY = $startY + (($rIdx - 1) * ($rackSpanY + $gapY));
+            }
+
+            for ($lvl = 1; $lvl <= $levels; $lvl++) {
+                $lvlNo = str_pad((string)$lvl, 2, '0', STR_PAD_LEFT);
+
+                for ($b = 1; $b <= $bins; $b++) {
+                    $binNo = str_pad((string)$b, 2, '0', STR_PAD_LEFT);
+
+                    $code = $prefix;
+                    if ($stand !== null && $stand !== '') $code .= '-S'.$stand;
+                    $code .= '-R'.$rackNo.'-L'.$lvlNo.'-B'.$binNo;
+
+                    $x = $rackBaseX + (($b - 1) * ($cellW + $binInnerGap));
+                    $y = $rackBaseY + (($lvl - 1) * ($cellH + $gapY));
+
+                    // upsert por code (para que puedas regenerar sin duplicar)
+                    $loc = \App\Models\Location::query()
+                        ->where('warehouse_id', $whId)
+                        ->where('code', $code)
+                        ->first();
+
+                    $data = [
+                        'warehouse_id' => $whId,
+                        'type' => 'bin',
+                        'code' => $code,
+                        'aisle' => $prefix,
+                        'stand' => $stand,
+                        'rack' => $rackNo,
+                        'level' => $lvlNo,
+                        'bin' => $binNo,
+                        'meta' => [
+                            'x' => $x,
+                            'y' => $y,
+                            'w' => $cellW,
+                            'h' => $cellH,
+                        ],
+                    ];
+
+                    if ($loc) {
+                        $loc->update($data);
+                    } else {
+                        \App\Models\Location::query()->create($data);
+                        $created++;
+                    }
+                }
+            }
+        }
+
+        return response()->json([
+            'ok' => true,
+            'created' => $created,
+        ]);
+    })->name('layout.generate-rack');
+
+
+    /* =========================
+     |  API: HEATMAP  ✅ (esto quita el error admin.wms.heatmap.data)
+     ========================= */
+
+    // GET /admin/wms/heatmap/data?warehouse_id=...
+    Route::get('/heatmap/data', function (\Illuminate\Http\Request $r) {
+        $data = $r->validate([
+            'warehouse_id' => ['required','integer','exists:warehouses,id'],
+        ]);
+
+        $warehouseId = (int)$data['warehouse_id'];
+
+        $locations = \App\Models\Location::query()
+            ->where('warehouse_id', $warehouseId)
+            ->orderBy('code')
+            ->get();
+
+        // Suma de inventario por location_id
+        $qtyByLoc = \App\Models\Inventory::query()
+            ->selectRaw('location_id, SUM(qty) as qty_sum')
+            ->whereIn('location_id', $locations->pluck('id')->all())
+            ->groupBy('location_id')
+            ->pluck('qty_sum', 'location_id');
+
+        $out = $locations->map(function ($l) use ($qtyByLoc) {
+            $sum = (int)($qtyByLoc[$l->id] ?? 0);
+
+            return [
+                'id' => $l->id,
+                'code' => $l->code,
+                'type' => $l->type,
+                'aisle' => $l->aisle,
+                'section' => $l->section,
+                'stand' => $l->stand,
+                'rack' => $l->rack,
+                'level' => $l->level,
+                'bin' => $l->bin,
+                'meta' => $l->meta ?? [],
+                'heat' => $sum,
+            ];
+        })->values();
+
+        return response()->json([
+            'ok' => true,
+            'locations' => $out,
+        ]);
+    })->name('heatmap.data');
+
+
+    /* =========================
+     |  API WMS BASE (TU BLOQUE)
+     ========================= */
+    Route::get('warehouses', [\App\Http\Controllers\Admin\WmsController::class, 'warehousesIndex'])->name('warehouses.index');
+    Route::post('warehouses', [\App\Http\Controllers\Admin\WmsController::class, 'warehousesStore'])->name('warehouses.store');
+
+    Route::get('locations', [\App\Http\Controllers\Admin\WmsController::class, 'locationsIndex'])->name('locations.index');
+    Route::post('locations', [\App\Http\Controllers\Admin\WmsController::class, 'locationsStore'])->name('locations.store');
+
+    // 👇 IMPORTANTE: scan SIEMPRE antes de locations/{location}
+    Route::get('locations/scan', [\App\Http\Controllers\Admin\WmsController::class, 'locationScan'])->name('locations.scan');
+
+    Route::put('locations/{location}', [\App\Http\Controllers\Admin\WmsController::class, 'locationsUpdate'])->name('locations.update');
+    Route::delete('locations/{location}', [\App\Http\Controllers\Admin\WmsController::class, 'locationsDestroy'])->name('locations.destroy');
+    Route::get('locations/{location}', [\App\Http\Controllers\Admin\WmsController::class, 'locationShow'])->name('locations.show');
+
+    Route::post('inventory/adjust', [\App\Http\Controllers\Admin\WmsController::class, 'inventoryAdjust'])->name('inventory.adjust');
+    Route::post('inventory/transfer', [\App\Http\Controllers\Admin\WmsController::class, 'inventoryTransfer'])->name('inventory.transfer');
+
+    Route::post('items/{catalogItem}/primary-location', [\App\Http\Controllers\Admin\WmsController::class, 'setPrimaryLocation'])->name('items.primary-location');
+
+
+    /* =========================
+     |  API: BUSCAR + LLEVAME
+     ========================= */
+    Route::get('search/products', [\App\Http\Controllers\Admin\WmsSearchController::class, 'products'])->name('search.products');
+    Route::get('nav', [\App\Http\Controllers\Admin\WmsSearchController::class, 'nav'])->name('nav');
+
+
+    /* =========================
+     |  API: PICKING
+     ========================= */
+    Route::post('pick/waves', [\App\Http\Controllers\Admin\WmsPickingController::class, 'createWave'])->name('pick.waves.create');
+    Route::post('pick/waves/{wave}/start', [\App\Http\Controllers\Admin\WmsPickingController::class, 'startWave'])->name('pick.waves.start');
+    Route::get('pick/waves/{wave}/next', [\App\Http\Controllers\Admin\WmsPickingController::class, 'next'])->name('pick.waves.next');
+    Route::post('pick/waves/{wave}/scan-location', [\App\Http\Controllers\Admin\WmsPickingController::class, 'scanLocation'])->name('pick.waves.scan-location');
+    Route::post('pick/waves/{wave}/scan-item', [\App\Http\Controllers\Admin\WmsPickingController::class, 'scanItem'])->name('pick.waves.scan-item');
+    Route::post('pick/waves/{wave}/finish', [\App\Http\Controllers\Admin\WmsPickingController::class, 'finish'])->name('pick.waves.finish');
 });

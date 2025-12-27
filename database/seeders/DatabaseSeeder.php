@@ -12,10 +12,14 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
-            RolesSeeder::class,     // ← crea los roles (incluye 'admin')
-            CategorySeeder::class,  // ← crea categorías iniciales
-            // PermissionsSeeder::class, // opcional, si luego quieres permisos finos
-            PartContableSeeder::class,
+            RolesSeeder::class,          // roles (incluye 'admin')
+            CategorySeeder::class,       // categorías iniciales
+            PartContableSeeder::class,   // tus partidas contables
+
+            // ✅ WMS (sin CatalogItemSeeder porque ya tienes productos)
+            WarehouseSeeder::class,      // crea bodegas
+            LocationSeeder::class,       // crea ubicaciones con meta[x,y,w,h] para el layout
+            InventorySeeder::class,      // mete stock en ubicaciones usando tus CatalogItems existentes
         ]);
     }
 }

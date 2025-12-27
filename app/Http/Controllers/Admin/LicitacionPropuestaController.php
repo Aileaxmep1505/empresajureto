@@ -696,7 +696,9 @@ class LicitacionPropuestaController extends Controller implements HasMiddleware
             $bind[] = "%{$bad}%"; $bind[] = "%{$bad}%"; $bind[] = "%{$bad}%";
         }
 
-        $scoreExpr = '(' . implode(' + ', $scoreSql ?: ['0']) . ')';
+        // ✅ FIX (solo esto): evita que entre "0" / valores raros y evita ORDER BY 0
+        $scoreSql = array_values(array_filter($scoreSql, fn ($x) => is_string($x) && trim($x) !== ''));
+        $scoreExpr = '(' . implode(' + ', $scoreSql ?: ['1']) . ')';
         $q->orderByRaw($scoreExpr . ' DESC', $bind);
 
         $cands = $q->limit(max($limit * 8, 40))->get()->take($limit)->values();
@@ -1114,10 +1116,10 @@ SYS;
             ],
         ]);
     }
-    public function merge(Request $request, LicitacionPropuesta $licitacionPropuesta)
-{
-    // Simplemente reusa la lógica de mergeGlobal
-    return $this->mergeGlobal($request, $licitacionPropuesta);
-}
 
+    public function merge(Request $request, LicitacionPropuesta $licitacionPropuesta)
+    {
+        // Simplemente reusa la lógica de mergeGlobal
+        return $this->mergeGlobal($request, $licitacionPropuesta);
+    }
 }
