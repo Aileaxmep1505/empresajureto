@@ -1224,6 +1224,30 @@ Route::middleware(['auth'])->prefix('admin/wms')->name('admin.wms.')->group(func
         ]);
     })->name('layout.cell');
 
+    // ✅ DELETE /admin/wms/layout/delete (BORRAR 1 ubicación)  <<<< ESTA ES LA QUE TE FALTABA
+    Route::post('/layout/delete', function (\Illuminate\Http\Request $r) {
+        $data = $r->validate([
+            'warehouse_id' => ['required','integer','exists:warehouses,id'],
+            'id' => ['required','integer','exists:locations,id'],
+        ]);
+
+        $whId = (int)$data['warehouse_id'];
+        $id   = (int)$data['id'];
+
+        $loc = \App\Models\Location::query()
+            ->where('warehouse_id', $whId)
+            ->where('id', $id)
+            ->first();
+
+        if (!$loc) {
+            return response()->json(['ok'=>false,'error'=>'No encontrado en esa bodega.'], 404);
+        }
+
+        $loc->delete();
+
+        return response()->json(['ok'=>true]);
+    })->name('layout.delete');
+
     // POST /admin/wms/layout/generate-rack (generar en lote)
     Route::post('/layout/generate-rack', function (\Illuminate\Http\Request $r) {
         $p = $r->validate([
@@ -1335,98 +1359,68 @@ Route::middleware(['auth'])->prefix('admin/wms')->name('admin.wms.')->group(func
      |  API: HEATMAP
      ========================= */
 
-// GET /admin/wms/heatmap/data?warehouse_id=...&metric=inv_qty|primary_stock
-Route::get('/heatmap/data', function (\Illuminate\Http\Request $r) {
+    // GET /admin/wms/heatmap/data?warehouse_id=...&metric=inv_qty|primary_stock
+    Route::get('/heatmap/data', function (\Illuminate\Http\Request $r) {
 
-    $data = $r->validate([
-        'warehouse_id' => ['required','integer','exists:warehouses,id'],
-        'metric' => ['nullable','in:inv_qty,primary_stock'],
-    ]);
+        $data = $r->validate([
+            'warehouse_id' => ['required','integer','exists:warehouses,id'],
+            'metric' => ['nullable','in:inv_qty,primary_stock'],
+        ]);
 
-    $warehouseId = (int)$data['warehouse_id'];
-    $metric = $data['metric'] ?? 'inv_qty';
+        $warehouseId = (int)$data['warehouse_id'];
+        $metric = $data['metric'] ?? 'inv_qty';
 
-    // Convierte meta a array SIEMPRE (por si viene string JSON)
-    $metaArr = function ($meta) {
-        if (is_array($meta)) return $meta;
-        if (is_object($meta)) return (array)$meta;
+        $metaArr = function ($meta) {
+            if (is_array($meta)) return $meta;
+            if (is_object($meta)) return (array)$meta;
+            if (is_string($meta) && trim($meta) !== '') {
+                $d = json_decode($meta, true);
+                return is_array($d) ? $d : [];
+            }
+            return [];
+        };
 
-        if (is_string($meta) && trim($meta) !== '') {
-            $d = json_decode($meta, true);
-            return is_array($d) ? $d : [];
-        }
+        $locations = \App\Models\Location::query()
+            ->where('warehouse_id', $warehouseId)
+            ->orderBy('code')
+            ->get(['id','code','meta']);
 
-        return [];
-    };
+        $ids = $locations->pluck('id')->all();
 
-    $locations = \App\Models\Location::query()
-        ->where('warehouse_id', $warehouseId)
-        ->orderBy('code')
-        ->get(['id','code','meta']);
-
-    $ids = $locations->pluck('id')->all();
-
-    // ===== value por ubicación =====
-    $valueByLoc = collect();
-
-    if ($metric === 'primary_stock') {
-        // Usa CatalogItem si existe, si no Product
-        $ItemClass = null;
-        if (class_exists(\App\Models\CatalogItem::class)) {
-            $ItemClass = \App\Models\CatalogItem::class;
-        } elseif (class_exists(\App\Models\Product::class)) {
-            $ItemClass = \App\Models\Product::class;
-        }
-
-        if ($ItemClass) {
-            // Asume columnas: primary_location_id y stock
-            $valueByLoc = $ItemClass::query()
-                ->selectRaw('primary_location_id as location_id, SUM(stock) as sum_stock')
-                ->whereNotNull('primary_location_id')
-                ->whereIn('primary_location_id', $ids)
-                ->groupBy('primary_location_id')
-                ->pluck('sum_stock', 'location_id');
-        }
-    } else {
-        // inv_qty = suma Inventory.qty por location_id
-        $valueByLoc = \App\Models\Inventory::query()
+        // inv_qty
+        $qtyByLoc = \App\Models\Inventory::query()
             ->selectRaw('location_id, SUM(qty) as sum_qty')
             ->whereIn('location_id', $ids)
             ->groupBy('location_id')
             ->pluck('sum_qty', 'location_id');
-    }
 
-    // ===== Construcción de celdas =====
-    $cells = $locations->map(function ($l) use ($metaArr, $valueByLoc) {
-        $m = $metaArr($l->meta);
+        $cells = $locations->map(function ($l) use ($metaArr, $qtyByLoc) {
+            $m = $metaArr($l->meta);
 
-        // usa array_key_exists para soportar x=0/y=0
-        $hasX = array_key_exists('x', $m);
-        $hasY = array_key_exists('y', $m);
+            // Soporta x=0 y y=0
+            if (!array_key_exists('x', $m) || !array_key_exists('y', $m)) return null;
 
-        if (!$hasX || !$hasY) return null;
+            return [
+                'id' => (int)$l->id,
+                'code' => (string)$l->code,
+                'x' => (int)($m['x'] ?? 0),
+                'y' => (int)($m['y'] ?? 0),
+                'w' => (int)($m['w'] ?? 1),
+                'h' => (int)($m['h'] ?? 1),
+                'value' => (int)($qtyByLoc[$l->id] ?? 0),
+            ];
+        })->filter()->values();
 
-        return [
-            'id' => (int)$l->id,
-            'code' => (string)$l->code,
-            'x' => (int)($m['x'] ?? 0),
-            'y' => (int)($m['y'] ?? 0),
-            'w' => (int)($m['w'] ?? 1),
-            'h' => (int)($m['h'] ?? 1),
-            'value' => (int)($valueByLoc[$l->id] ?? 0), // puede ser 0 y aun así debe dibujar
-        ];
-    })->filter()->values();
+        $max = (int)($cells->max('value') ?? 0);
 
-    $max = (int)($cells->max('value') ?? 0);
+        return response()->json([
+            'ok' => true,
+            'metric' => $metric,
+            'max' => $max,
+            'cells' => $cells,
+        ]);
 
-    return response()->json([
-        'ok' => true,
-        'metric' => $metric,
-        'max' => $max,
-        'cells' => $cells,
-    ]);
-
-})->name('heatmap.data');
+    })->name('heatmap.data');
 
 
 
@@ -1480,4 +1474,23 @@ Route::get('/heatmap/data', function (\Illuminate\Http\Request $r) {
     Route::post('pick/waves/{wave}/scan-location', [\App\Http\Controllers\Admin\WmsPickingController::class, 'scanLocation'])->name('pick.waves.scan-location');
     Route::post('pick/waves/{wave}/scan-item', [\App\Http\Controllers\Admin\WmsPickingController::class, 'scanItem'])->name('pick.waves.scan-item');
     Route::post('pick/waves/{wave}/finish', [\App\Http\Controllers\Admin\WmsPickingController::class, 'finish'])->name('pick.waves.finish');
+
+    // UI: movimiento masivo (entradas/salidas)
+    Route::get('/move', [\App\Http\Controllers\Admin\WmsMoveController::class, 'view'])->name('move.view');
+
+    // API: buscar productos rápido
+    Route::get('/move/products', [\App\Http\Controllers\Admin\WmsMoveController::class, 'products'])->name('move.products');
+
+    // API: ejecutar movimiento
+    Route::post('/move/commit', [\App\Http\Controllers\Admin\WmsMoveController::class, 'commit'])->name('move.commit');
+
+    // UI movimientos
+    Route::get('/movements', [\App\Http\Controllers\Admin\WmsMoveController::class, 'movementsView'])->name('movements.view');
+
+    // API
+    Route::get('/movements/data', [\App\Http\Controllers\Admin\WmsMoveController::class, 'movementsData'])->name('movements.data');
+
+    Route::get('movements/{movement}/pdf', [\App\Http\Controllers\Admin\WmsMoveController::class, 'movementPdf'])
+        ->name('movements.pdf');
+
 });
