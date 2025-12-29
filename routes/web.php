@@ -1007,7 +1007,6 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
     Route::get('licitacion-pdfs/{licitacionPdf}/ai/viewer', [LicitacionPdfAiController::class, 'viewer'])
         ->name('admin.licitacion-pdfs.ai.viewer');
 });
-
 Route::middleware(['auth'])->prefix('admin/wms')->name('admin.wms.')->group(function () {
 
     /* =========================
@@ -1263,8 +1262,7 @@ Route::middleware(['auth'])->prefix('admin/wms')->name('admin.wms.')->group(func
         $gapY = (int)$p['gap_y'];
         $direction = $p['direction'];
 
-        // Para que no se encimen los racks cuando hay muchos bins por nivel
-        $binInnerGap = 1; // separación interna entre bins en el plano
+        $binInnerGap = 1;
         $rackSpanX = ($bins * $cellW) + (($bins - 1) * $binInnerGap);
         $rackSpanY = ($levels * $cellH) + (($levels - 1) * $gapY);
 
@@ -1273,11 +1271,10 @@ Route::middleware(['auth'])->prefix('admin/wms')->name('admin.wms.')->group(func
         for ($rIdx = 1; $rIdx <= $rackCount; $rIdx++) {
             $rackNo = str_pad((string)$rIdx, 2, '0', STR_PAD_LEFT);
 
-            // base del rack según dirección
             if ($direction === 'right') {
                 $rackBaseX = $startX + (($rIdx - 1) * ($rackSpanX + $gapX));
                 $rackBaseY = $startY;
-            } else { // down
+            } else {
                 $rackBaseX = $startX;
                 $rackBaseY = $startY + (($rIdx - 1) * ($rackSpanY + $gapY));
             }
@@ -1295,7 +1292,6 @@ Route::middleware(['auth'])->prefix('admin/wms')->name('admin.wms.')->group(func
                     $x = $rackBaseX + (($b - 1) * ($cellW + $binInnerGap));
                     $y = $rackBaseY + (($lvl - 1) * ($cellH + $gapY));
 
-                    // upsert por code (para que puedas regenerar sin duplicar)
                     $loc = \App\Models\Location::query()
                         ->where('warehouse_id', $whId)
                         ->where('code', $code)
@@ -1336,61 +1332,123 @@ Route::middleware(['auth'])->prefix('admin/wms')->name('admin.wms.')->group(func
 
 
     /* =========================
-     |  API: HEATMAP  ✅ (esto quita el error admin.wms.heatmap.data)
+     |  API: HEATMAP
      ========================= */
 
-    // GET /admin/wms/heatmap/data?warehouse_id=...
-    Route::get('/heatmap/data', function (\Illuminate\Http\Request $r) {
-        $data = $r->validate([
-            'warehouse_id' => ['required','integer','exists:warehouses,id'],
-        ]);
+// GET /admin/wms/heatmap/data?warehouse_id=...&metric=inv_qty|primary_stock
+Route::get('/heatmap/data', function (\Illuminate\Http\Request $r) {
 
-        $warehouseId = (int)$data['warehouse_id'];
+    $data = $r->validate([
+        'warehouse_id' => ['required','integer','exists:warehouses,id'],
+        'metric' => ['nullable','in:inv_qty,primary_stock'],
+    ]);
 
-        $locations = \App\Models\Location::query()
-            ->where('warehouse_id', $warehouseId)
-            ->orderBy('code')
-            ->get();
+    $warehouseId = (int)$data['warehouse_id'];
+    $metric = $data['metric'] ?? 'inv_qty';
 
-        // Suma de inventario por location_id
-        $qtyByLoc = \App\Models\Inventory::query()
-            ->selectRaw('location_id, SUM(qty) as qty_sum')
-            ->whereIn('location_id', $locations->pluck('id')->all())
+    // Convierte meta a array SIEMPRE (por si viene string JSON)
+    $metaArr = function ($meta) {
+        if (is_array($meta)) return $meta;
+        if (is_object($meta)) return (array)$meta;
+
+        if (is_string($meta) && trim($meta) !== '') {
+            $d = json_decode($meta, true);
+            return is_array($d) ? $d : [];
+        }
+
+        return [];
+    };
+
+    $locations = \App\Models\Location::query()
+        ->where('warehouse_id', $warehouseId)
+        ->orderBy('code')
+        ->get(['id','code','meta']);
+
+    $ids = $locations->pluck('id')->all();
+
+    // ===== value por ubicación =====
+    $valueByLoc = collect();
+
+    if ($metric === 'primary_stock') {
+        // Usa CatalogItem si existe, si no Product
+        $ItemClass = null;
+        if (class_exists(\App\Models\CatalogItem::class)) {
+            $ItemClass = \App\Models\CatalogItem::class;
+        } elseif (class_exists(\App\Models\Product::class)) {
+            $ItemClass = \App\Models\Product::class;
+        }
+
+        if ($ItemClass) {
+            // Asume columnas: primary_location_id y stock
+            $valueByLoc = $ItemClass::query()
+                ->selectRaw('primary_location_id as location_id, SUM(stock) as sum_stock')
+                ->whereNotNull('primary_location_id')
+                ->whereIn('primary_location_id', $ids)
+                ->groupBy('primary_location_id')
+                ->pluck('sum_stock', 'location_id');
+        }
+    } else {
+        // inv_qty = suma Inventory.qty por location_id
+        $valueByLoc = \App\Models\Inventory::query()
+            ->selectRaw('location_id, SUM(qty) as sum_qty')
+            ->whereIn('location_id', $ids)
             ->groupBy('location_id')
-            ->pluck('qty_sum', 'location_id');
+            ->pluck('sum_qty', 'location_id');
+    }
 
-        $out = $locations->map(function ($l) use ($qtyByLoc) {
-            $sum = (int)($qtyByLoc[$l->id] ?? 0);
+    // ===== Construcción de celdas =====
+    $cells = $locations->map(function ($l) use ($metaArr, $valueByLoc) {
+        $m = $metaArr($l->meta);
 
-            return [
-                'id' => $l->id,
-                'code' => $l->code,
-                'type' => $l->type,
-                'aisle' => $l->aisle,
-                'section' => $l->section,
-                'stand' => $l->stand,
-                'rack' => $l->rack,
-                'level' => $l->level,
-                'bin' => $l->bin,
-                'meta' => $l->meta ?? [],
-                'heat' => $sum,
-            ];
-        })->values();
+        // usa array_key_exists para soportar x=0/y=0
+        $hasX = array_key_exists('x', $m);
+        $hasY = array_key_exists('y', $m);
 
-        return response()->json([
-            'ok' => true,
-            'locations' => $out,
-        ]);
-    })->name('heatmap.data');
+        if (!$hasX || !$hasY) return null;
+
+        return [
+            'id' => (int)$l->id,
+            'code' => (string)$l->code,
+            'x' => (int)($m['x'] ?? 0),
+            'y' => (int)($m['y'] ?? 0),
+            'w' => (int)($m['w'] ?? 1),
+            'h' => (int)($m['h'] ?? 1),
+            'value' => (int)($valueByLoc[$l->id] ?? 0), // puede ser 0 y aun así debe dibujar
+        ];
+    })->filter()->values();
+
+    $max = (int)($cells->max('value') ?? 0);
+
+    return response()->json([
+        'ok' => true,
+        'metric' => $metric,
+        'max' => $max,
+        'cells' => $cells,
+    ]);
+
+})->name('heatmap.data');
+
 
 
     /* =========================
-     |  API WMS BASE (TU BLOQUE)
+     |  API WMS BASE
      ========================= */
     Route::get('warehouses', [\App\Http\Controllers\Admin\WmsController::class, 'warehousesIndex'])->name('warehouses.index');
     Route::post('warehouses', [\App\Http\Controllers\Admin\WmsController::class, 'warehousesStore'])->name('warehouses.store');
 
-    Route::get('locations', [\App\Http\Controllers\Admin\WmsController::class, 'locationsIndex'])->name('locations.index');
+    /**
+     * ✅ FIX PRINCIPAL:
+     * - /admin/wms/locations => VISTA HTML
+     * - /admin/wms/locations/data => JSON (lo que antes veías en el navegador)
+     */
+    Route::get('locations', function (\Illuminate\Http\Request $r) {
+        // Vista HTML del listado (cambia el nombre si tu vista se llama diferente)
+        return view('admin.wms.locations_index');
+    })->name('locations.index');
+
+    Route::get('locations/data', [\App\Http\Controllers\Admin\WmsController::class, 'locationsIndex'])
+        ->name('locations.data');
+
     Route::post('locations', [\App\Http\Controllers\Admin\WmsController::class, 'locationsStore'])->name('locations.store');
 
     // 👇 IMPORTANTE: scan SIEMPRE antes de locations/{location}
