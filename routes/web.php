@@ -1016,6 +1016,15 @@ Route::middleware(['auth'])->prefix('admin/wms')->name('admin.wms.')->group(func
 
     // Buscador UI
     Route::get('/search', fn () => view('admin.wms.search'))->name('search.view');
+    // APIs (buscador + navegación)
+    Route::get('/search/products', [WmsSearchController::class, 'products'])->name('search.products');
+    Route::get('/nav', [WmsSearchController::class, 'nav'])->name('nav');
+
+    // ✅ Escaneo (acepta raw/id/code)
+    Route::get('/locations/scan', [WmsSearchController::class, 'locationScan'])->name('locations.scan');
+
+    // ✅ Escaneo de producto (acepta raw/id/sku/gtin)
+    Route::get('/products/scan', [WmsSearchController::class, 'productScan'])->name('products.scan');
 
     // ✅ Alias para compatibilidad con el home.blade.php (DEBE IR ANTES de /pick/{wave})
     Route::get('/pick/entry', function () {

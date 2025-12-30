@@ -408,9 +408,10 @@
   // ----------------------------
   // Config
   // ----------------------------
-  const API_SEARCH   = @json(route('admin.wms.search.products'));
-  const API_LOC_SCAN = @json(route('admin.wms.locations.scan'));
-  const LS_FROM      = 'wms_from_code';
+  const API_SEARCH    = @json(route('admin.wms.search.products'));
+  const API_LOC_SCAN  = @json(route('admin.wms.locations.scan'));   // -> locationScan() (acepta raw/id/code)
+  const API_ITEM_SCAN = @json(route('admin.wms.products.scan'));    // -> productScan()  (acepta raw/id/sku/gtin)
+  const LS_FROM       = 'wms_from_code';
 
   // ----------------------------
   // Helpers UX
@@ -461,7 +462,7 @@
   }
 
   // ----------------------------
-  // State: from_code
+  // State: from_code (localStorage)
   // ----------------------------
   const chipFrom = document.getElementById('chipFrom');
   const fromInp  = document.getElementById('from_code');
@@ -479,18 +480,62 @@
     loadFrom();
   }
 
-  async function validateLocationCode(code){
-    code = (code||'').trim();
-    if(!code) return {ok:true, code:''};
+  // ----------------------------
+  // Scan parsing & validation (Location)
+  // ----------------------------
+  function extractLocationToken(raw){
+    const v = String(raw || '').trim();
+    if(!v) return {type:'empty', value:''};
 
-    const url = API_LOC_SCAN + '?code=' + encodeURIComponent(code);
-    const res = await fetch(url, {headers:{'Accept':'application/json'}});
+    // 1) code con guiones
+    const mCode = v.match(/([A-Z0-9]+(?:-[A-Z0-9]+){3,10})/i);
+    if(mCode) return {type:'code', value: mCode[1].toUpperCase()};
+
+    // 2) URL /locations/{id}
+    const mId = v.match(/\/locations\/(\d+)/i);
+    if(mId) return {type:'id', value: mId[1]};
+
+    return {type:'raw', value:v};
+  }
+
+  async function validateLocationAny(raw){
+    const tok = extractLocationToken(raw);
+    if(tok.type === 'empty') return {ok:true, code:''};
+
+    const url = new URL(API_LOC_SCAN, window.location.origin);
+    if(tok.type === 'code') url.searchParams.set('code', tok.value);
+    else if(tok.type === 'id') url.searchParams.set('id', tok.value);
+    else url.searchParams.set('raw', tok.value);
+
+    const res = await fetch(url.toString(), {headers:{'Accept':'application/json'}});
     if(!res.ok) return {ok:false, error:'Ubicación no encontrada.'};
 
     const data = await res.json();
-    if(!data.ok) return {ok:false, error:data.error||'Ubicación inválida'};
+    if(!data.ok) return {ok:false, error:data.error || 'Ubicación inválida'};
 
-    return {ok:true, code:data.location?.code || code};
+    return {ok:true, code:data.location?.code || ''};
+  }
+
+  // ----------------------------
+  // Scan validation (Product)
+  // ----------------------------
+  async function resolveProductFromRaw(raw){
+    const v = String(raw || '').trim();
+    if(!v) return {ok:false, error:'Lectura vacía.'};
+
+    const url = new URL(API_ITEM_SCAN, window.location.origin);
+    url.searchParams.set('raw', v);
+
+    const res = await fetch(url.toString(), {headers:{'Accept':'application/json'}});
+    if(!res.ok) return {ok:false, error:'Producto no encontrado.'};
+
+    const data = await res.json();
+    if(!data.ok) return {ok:false, error:data.error || 'Producto no encontrado.'};
+
+    // regresamos algo que sirva para búsqueda (gtin si hay, si no sku, si no name)
+    const item = data.item || {};
+    const token = (item.gtin || item.sku || item.name || v);
+    return {ok:true, token, item};
   }
 
   // ----------------------------
@@ -628,11 +673,12 @@
     }
   });
 
+  // set/clear from
   document.getElementById('btnSetFrom')?.addEventListener('click', async ()=>{
     const val = (fromInp.value||'').trim();
     if(!val){ saveFrom(''); return; }
 
-    const v = await validateLocationCode(val);
+    const v = await validateLocationAny(val);
     if(!v.ok){
       chipFrom.textContent = 'Inválida';
       chipFrom.classList.add('wms-pill-soft');
@@ -650,7 +696,7 @@
   });
 
   // ----------------------------
-  // Scanner (NO se cae si ZXing está bloqueado por CSP)
+  // Scanner (BarcodeDetector + ZXing fallback)
   // ----------------------------
   const btnOpenScanner = document.getElementById('btnOpenScanner');
   const video = document.getElementById('video');
@@ -662,6 +708,9 @@
   let stream = null;
   let scanning = false;
   let lastValue = '';
+
+  // auto-apply para iPhone
+  let autoApplied = false;
 
   // ZXing fallback
   let zxingReader = null;
@@ -731,13 +780,11 @@
 
     video.srcObject = stream;
 
-    // En algunos navegadores no dispara loadedmetadata; damos timeout.
     await Promise.race([
       new Promise(res => video.addEventListener('loadedmetadata', res, {once:true})),
       new Promise(res => setTimeout(res, 900))
     ]);
 
-    // Si play() falla por política, NO tumbamos la cámara; solo seguimos (el stream ya está).
     try{ await video.play(); }catch(e){}
 
     setScanStatus('Escaneando…', true);
@@ -762,13 +809,52 @@
     video.srcObject = null;
   }
 
+  async function applyDecodedNow(raw){
+    if(autoApplied) return;
+    autoApplied = true;
+
+    if(scanMode === 'loc'){
+      const v = await validateLocationAny(raw);
+      if(!v.ok){
+        autoApplied = false;
+        beep(false); vibrate(80);
+        alert(v.error || 'Ubicación inválida');
+        return;
+      }
+      saveFrom(v.code);
+      setModal('scanModal', false);
+      stopCamera();
+      beep(true); vibrate(30);
+      return;
+    }
+
+    // item mode: resolver producto y buscar
+    const prod = await resolveProductFromRaw(raw);
+    if(!prod.ok){
+      autoApplied = false;
+      beep(false); vibrate(80);
+      alert(prod.error || 'Producto no encontrado.');
+      return;
+    }
+
+    qInp.value = prod.token;
+    setModal('scanModal', false);
+    stopCamera();
+    beep(true); vibrate(30);
+    runSearch();
+  }
+
   function onDecoded(val){
     val = (val || '').trim();
     if(!val) return;
     if(val === lastValue) return;
+
     lastValue = val;
     setScanStatus(val, true);
     beep(true); vibrate(25);
+
+    // ✅ auto aplicar
+    applyDecodedNow(val);
   }
 
   async function loopScanBarcodeDetector(){
@@ -776,7 +862,7 @@
 
     let detector = null;
     try{
-      detector = new BarcodeDetector({formats:['qr_code','ean_13','ean_8','code_128','upc_a','upc_e','code_39','itf']});
+      detector = new BarcodeDetector({formats:['qr_code','ean_13','ean_8','code_128','upc_a','upc_e','code_39','itf','pdf417','data_matrix']});
     }catch(e){
       try{ detector = new BarcodeDetector(); }
       catch(_e){ return false; }
@@ -784,8 +870,6 @@
 
     scanning = true;
 
-    // Si BarcodeDetector lanza error por implementación, regresamos false para intentar ZXing,
-    // pero NO tumbamos la cámara.
     while(scanning){
       try{
         const codes = await detector.detect(video);
@@ -799,7 +883,6 @@
   }
 
   async function startZXingFallback(){
-    // Si CSP bloquea, regresamos false SIN tirar la cámara.
     try{
       if(!window.ZXingBrowser){
         await loadScriptTry([
@@ -822,7 +905,6 @@
         return true;
       }
 
-      // Fallback loop
       (async ()=>{
         while(scanning){
           try{
@@ -843,29 +925,26 @@
     setModal('scanModal', true);
     setScanMode('loc');
     lastValue = '';
+    autoApplied = false;
     setScanStatus('Solicitando cámara…', true);
 
-    // 1) cámara
     try{
       await startCamera();
     }catch(e){
-      // Si el usuario negó permisos, aquí cae. No tumbamos modal, solo mostramos estado.
       console.warn('Camera error:', e);
       return;
     }
 
-    // 2) Detector nativo
     const okNative = await loopScanBarcodeDetector();
     if(okNative) return;
 
-    // 3) Fallback ZXing (si CSP lo bloquea, NO rompemos; solo mostramos aviso)
     const okZX = await startZXingFallback();
     if(okZX){
       setScanStatus('Escaneando…', true);
       return;
     }
 
-    setScanStatus('No se pudo cargar el lector (CSP/navegador). Puedes copiar/pegar el código.', false);
+    setScanStatus('No se pudo cargar el lector (CSP/navegador). Puedes copiar/pegar el valor.', false);
   }
 
   btnOpenScanner.addEventListener('click', startScanner);
@@ -876,32 +955,15 @@
     beep(true);
   });
 
+  // Botón "Usar" (por si quieres manual)
   btnUseScan.addEventListener('click', async ()=>{
     const val = (lastValue || lastScan.textContent || '').trim();
     if(!val || val === 'Listo para escanear' || val === 'Escaneando…' || val === 'Detenido'){
       beep(false); vibrate(80);
       return;
     }
-
-    if(scanMode === 'loc'){
-      const v = await validateLocationCode(val);
-      if(!v.ok){
-        beep(false); vibrate(90);
-        alert(v.error || 'Ubicación inválida');
-        return;
-      }
-      saveFrom(v.code);
-      setModal('scanModal', false);
-      stopCamera();
-      beep(true); vibrate(30);
-      return;
-    }
-
-    qInp.value = val;
-    setModal('scanModal', false);
-    stopCamera();
-    beep(true); vibrate(30);
-    runSearch();
+    autoApplied = false;
+    await applyDecodedNow(val);
   });
 
   // init

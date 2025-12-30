@@ -49,13 +49,11 @@ class WmsSearchController extends Controller implements HasMiddleware
             ->limit($limit)
             ->get();
 
-        // Preload primary locations
         $primaryLocIds = $items->pluck('primary_location_id')->filter()->unique()->values()->all();
         $primaryLocs = Location::whereIn('id', $primaryLocIds)->get()->keyBy('id');
 
         $out = [];
         foreach ($items as $it) {
-            // Ubicaciones con stock (y opcionalmente filtrado por warehouse)
             $invQ = Inventory::query()
                 ->where('catalog_item_id', $it->id)
                 ->where('qty','>',0)
@@ -77,7 +75,6 @@ class WmsSearchController extends Controller implements HasMiddleware
 
             $totalQty = $rows->sum('qty');
 
-            // recommended: 1) primary si tiene stock, 2) mayor stock, 3) null
             $recommended = null;
 
             if ($it->primary_location_id) {
@@ -125,7 +122,7 @@ class WmsSearchController extends Controller implements HasMiddleware
                 'total_qty' => (int)$totalQty,
                 'locations' => $locations,
                 'recommended_location' => $recommended,
-                'nav' => $nav, // <- esto alimenta el botón “Llévame”
+                'nav' => $nav,
             ];
         }
 
@@ -137,8 +134,7 @@ class WmsSearchController extends Controller implements HasMiddleware
     }
 
     /**
-     * GET /admin/wms/nav?from_code=A-01...&to_code=B-03...
-     * Devuelve instrucciones simples (ruta por pasillo/sección).
+     * GET /admin/wms/nav?from_code=...&to_code=...
      */
     public function nav(Request $r)
     {
@@ -160,9 +156,192 @@ class WmsSearchController extends Controller implements HasMiddleware
         ]);
     }
 
+    /**
+     * ✅ GET /admin/wms/locations/scan?code=...  OR ?id=... OR ?raw=...
+     * Acepta:
+     * - Código ubicación (A-S01-R01-L03-B01)
+     * - QR con URL (http://.../admin/wms/locations/6/...)
+     * - raw cualquiera (intenta extraer code o id)
+     */
+    public function locationScan(Request $r)
+    {
+        $data = $r->validate([
+            'id'  => ['nullable','integer','min:1'],
+            'code'=> ['nullable','string','max:120'],
+            'raw' => ['nullable','string','max:2000'],
+        ]);
+
+        $id   = (int)($data['id'] ?? 0);
+        $code = trim((string)($data['code'] ?? ''));
+        $raw  = trim((string)($data['raw'] ?? ''));
+
+        // Si viene RAW, intenta extraer ID o CODE
+        if (!$id && $raw) {
+            $id = $this->extractLocationIdFromRaw($raw) ?: 0;
+        }
+        if ($code === '' && $raw) {
+            $code = $this->extractLocationCodeFromRaw($raw);
+        }
+
+        $loc = null;
+
+        if ($id) {
+            $loc = Location::query()->find($id);
+        }
+
+        if (!$loc && $code !== '') {
+            $loc = Location::query()->where('code', $code)->first();
+        }
+
+        if (!$loc) {
+            return response()->json(['ok'=>false,'error'=>'Ubicación no encontrada.'], 404);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'location' => [
+                'id' => $loc->id,
+                'warehouse_id' => $loc->warehouse_id ?? null,
+                'code' => $loc->code,
+                'type' => $loc->type ?? null,
+                'aisle' => $loc->aisle ?? null,
+                'section' => $loc->section ?? null,
+                'stand' => $loc->stand ?? null,
+                'rack' => $loc->rack ?? null,
+                'level' => $loc->level ?? null,
+                'bin' => $loc->bin ?? null,
+            ],
+        ]);
+    }
+
+    /**
+     * ✅ GET /admin/wms/products/scan?raw=...
+     * Acepta:
+     * - Código de barras (EAN/UPC/Code128) => normalmente números
+     * - SKU
+     * - QR con URL (..../catalog-items/123.. o ..../products/123.. o ..../items/123..)
+     *
+     * Devuelve el item (id, name, sku, gtin) listo para meterlo al buscador.
+     */
+    public function productScan(Request $r)
+    {
+        $data = $r->validate([
+            'id'  => ['nullable','integer','min:1'],
+            'sku' => ['nullable','string','max:255'],
+            'gtin'=> ['nullable','string','max:255'],
+            'raw' => ['nullable','string','max:2000'],
+        ]);
+
+        $id   = (int)($data['id'] ?? 0);
+        $sku  = trim((string)($data['sku'] ?? ''));
+        $gtin = trim((string)($data['gtin'] ?? ''));
+        $raw  = trim((string)($data['raw'] ?? ''));
+
+        // Si viene raw, intenta sacar ID desde URL
+        if (!$id && $raw) {
+            $id = $this->extractCatalogItemIdFromRaw($raw) ?: 0;
+        }
+
+        // Si no hay sku/gtin pero hay raw, úsalo
+        if ($sku === '' && $gtin === '' && $raw) {
+            $candidate = $this->extractCodeLikeFromRaw($raw);
+            // Si parece código de barras (solo dígitos) -> GTIN
+            if ($candidate !== '' && preg_match('/^\d{8,18}$/', $candidate)) {
+                $gtin = $candidate;
+            } else {
+                $sku = $candidate ?: $raw;
+            }
+        }
+
+        $q = CatalogItem::query()->select(['id','name','sku','meli_gtin','price']);
+
+        $item = null;
+
+        if ($id) {
+            $item = $q->find($id);
+        }
+
+        if (!$item && $gtin !== '') {
+            $item = (clone $q)->where('meli_gtin', $gtin)->first();
+        }
+
+        if (!$item && $sku !== '') {
+            // SKU exacto primero, luego like
+            $item = (clone $q)->where('sku', $sku)->first()
+                 ?: (clone $q)->where('sku','like',"%{$sku}%")->orderBy('sku')->first();
+        }
+
+        if (!$item) {
+            return response()->json(['ok'=>false,'error'=>'Producto no encontrado.'], 404);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'item' => [
+                'id' => $item->id,
+                'name' => $item->name,
+                'sku' => $item->sku,
+                'gtin' => $item->meli_gtin,
+                'price' => $item->price,
+            ],
+        ]);
+    }
+
+    // =========================
+    // Helpers: parsing RAW
+    // =========================
+
+    private function extractLocationIdFromRaw(string $raw): ?int
+    {
+        // /locations/6  o /locations/6/page
+        if (preg_match('~\/locations\/(\d+)~i', $raw, $m)) {
+            return (int)$m[1];
+        }
+        return null;
+    }
+
+    private function extractCatalogItemIdFromRaw(string $raw): ?int
+    {
+        // Soporta varias rutas posibles
+        // /catalog-items/123  /catalog_items/123  /products/123  /items/123
+        if (preg_match('~\/(catalog-items|catalog_items|products|items)\/(\d+)~i', $raw, $m)) {
+            return (int)$m[2];
+        }
+        return null;
+    }
+
+    private function extractLocationCodeFromRaw(string $raw): string
+    {
+        // Extrae algo como A-S01-R01-L03-B01 / A-03-S2-R1-N4-B07 etc.
+        if (preg_match('~([A-Z0-9]+(?:-[A-Z0-9]+){3,10})~i', $raw, $m)) {
+            return strtoupper($m[1]);
+        }
+        return '';
+    }
+
+    private function extractCodeLikeFromRaw(string $raw): string
+    {
+        $raw = trim($raw);
+        if ($raw === '') return '';
+
+        // 1) Si viene URL, intenta extraer algo "code-like" dentro
+        if (preg_match('~([A-Z0-9]+(?:-[A-Z0-9]+){3,10})~i', $raw, $m)) {
+            return strtoupper($m[1]);
+        }
+
+        // 2) Si viene solo números (barcode)
+        if (preg_match('~^\d{6,18}$~', $raw)) {
+            return $raw;
+        }
+
+        return $raw;
+    }
+
+    // =========================
+    // Nav helpers (igual que tu versión)
+    // =========================
     private function buildNav(Location $from, Location $to): array
     {
-        // Ruta simple “humana” (no mapa): pasillo + sección
         $fromA = (string)($from->aisle ?? '');
         $toA   = (string)($to->aisle ?? '');
         $fromS = (string)($from->section ?? '');
@@ -196,7 +375,6 @@ class WmsSearchController extends Controller implements HasMiddleware
         $as = is_numeric($a->section) ? (int)$a->section : 0;
         $bs = is_numeric($b->section) ? (int)$b->section : 0;
 
-        // Peso fuerte al pasillo
         return abs($ai - $bi) * 100 + abs($as - $bs);
     }
 
@@ -205,12 +383,10 @@ class WmsSearchController extends Controller implements HasMiddleware
         $aisle = strtoupper(trim((string)$aisle));
         if ($aisle === '') return 0;
 
-        // A-Z => 1..26
         if (preg_match('/^[A-Z]$/', $aisle)) {
             return ord($aisle) - ord('A') + 1;
         }
 
-        // numérico si existe
         if (is_numeric($aisle)) return (int)$aisle;
 
         return 0;
