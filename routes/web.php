@@ -645,7 +645,7 @@ Route::middleware(['auth'])
 Route::middleware(['auth'])->group(function () {
     // Vista calendario
     Route::get('/agenda', [AgendaEventController::class,'calendar'])->name('agenda.calendar');
-
+   Route::get('/agenda/users', [AgendaEventController::class, 'users'])->name('agenda.users');
     // Feed JSON
     Route::get('/agenda/feed', [AgendaEventController::class,'feed'])->name('agenda.feed');
 
@@ -1484,3 +1484,4 @@ Route::middleware(['auth'])->prefix('admin/wms')->name('admin.wms.')->group(func
     Route::get('movements/{movement}/pdf', [WmsMoveController::class, 'movementPdf'])->name('movements.pdf');
 
 });
+

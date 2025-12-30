@@ -14,8 +14,6 @@
       --line:#e5e7eb;
       --bg:#f4f5fb;
       --card:#ffffff;
-      --brand:#2563eb;
-      --brand-soft:#dbeafe;
 
       font-family:'Outfit',system-ui,-apple-system,blinkmacsystemfont,"Segoe UI",sans-serif;
       background:radial-gradient(circle at top,#eef2ff,#f9fafb);
@@ -177,6 +175,8 @@
       z-index:50;
       backdrop-filter:blur(2px);
     }
+
+    /* ✅ Modal con scroll interno + footer fijo */
     #agenda-modal{
       width:min(680px,92vw);
       background:#ffffff;
@@ -184,8 +184,13 @@
       border:1px solid #e5e7eb;
       box-shadow:0 26px 70px rgba(15,23,42,.35);
       overflow:hidden;
+
+      max-height:min(84vh,760px);
+      display:flex;
+      flex-direction:column;
     }
     #agenda-modal .head{
+      flex:0 0 auto;
       display:flex;
       align-items:center;
       justify-content:space-between;
@@ -198,7 +203,14 @@
       font-size:17px;
       color:var(--ink);
     }
-    #agenda-modal .body{padding:18px}
+    #agenda-modal .body{
+      flex:1 1 auto;
+      overflow:auto;
+      -webkit-overflow-scrolling:touch;
+      padding:18px;
+      background:#ffffff;
+    }
+
     #agenda-modal .grid{
       display:grid;
       grid-template-columns:1fr 1fr;
@@ -222,23 +234,20 @@
       font-size:13px;
     }
     #agenda-modal textarea{resize:vertical;min-height:70px}
+
     #agenda-modal .foot{
+      flex:0 0 auto;
+      position:sticky;
+      bottom:0;
+      z-index:2;
+
       display:flex;
       gap:10px;
       justify-content:flex-end;
       padding:14px 18px;
       background:#f9fafb;
       border-top:1px solid #e5e7eb;
-    }
-    #agenda-modal .chip{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      padding:6px 10px;
-      border-radius:999px;
-      border:1px solid #e5e7eb;
-      background:#fff;
-      font-size:12px;
+      box-shadow:0 -10px 25px rgba(15,23,42,.08);
     }
     #agenda-modal .btn{
       border-radius:999px;
@@ -260,10 +269,104 @@
       font-weight:600;
     }
 
+    /* ---------- Selector usuarios pro ---------- */
+    .users-hint{
+      font-size:12px;
+      color:#6b7280;
+      margin-top:6px;
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+    .users-hint .badge{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid #e5e7eb;
+      background:#fff;
+      font-size:12px;
+      color:#0f172a;
+    }
+    .users-hint .dot{
+      width:8px;height:8px;border-radius:999px;background:#22c55e;display:inline-block;
+    }
+    .users-error{
+      display:none;
+      margin-top:8px;
+      padding:10px 12px;
+      border-radius:12px;
+      border:1px solid #fecaca;
+      background:#fef2f2;
+      color:#991b1b;
+      font-size:12px;
+    }
+
+    /* ---------- CHIPS (invitados) ---------- */
+    .chips{
+      margin-top:10px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      max-height:240px; /* ✅ evita que crezca demasiado */
+      overflow:auto;    /* ✅ scroll propio */
+      padding-right:4px;
+    }
+    .chip-row{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:10px 12px;
+      border:1px solid #e5e7eb;
+      background:#fff;
+      border-radius:14px;
+      box-shadow:0 10px 20px rgba(15,23,42,.06);
+    }
+    .chip-avatar{
+      width:34px;height:34px;border-radius:999px;
+      display:flex;align-items:center;justify-content:center;
+      font-weight:800;font-size:12px;
+      background:#2563eb;color:#fff;
+      flex-shrink:0;
+    }
+    .chip-meta{flex:1;min-width:0}
+    .chip-name{
+      font-weight:700;
+      color:#0f172a;
+      font-size:13px;
+      line-height:1.1;
+    }
+    .chip-sub{
+      color:#6b7280;
+      font-size:12px;
+      margin-top:2px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .chip-x{
+      border:none;
+      background:#f3f4f6;
+      color:#111827;
+      width:30px;height:30px;
+      border-radius:999px;
+      cursor:pointer;
+      font-size:16px;
+      line-height:1;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+    .chip-x:hover{background:#fee2e2;color:#b91c1c}
+
     @media (max-width:768px){
       #agenda-cal{padding:14px}
       #agenda-modal .grid{grid-template-columns:1fr}
       .fc{padding:4px}
+      #agenda-modal{max-height:88vh}
+      .chips{max-height:220px}
     }
   </style>
 
@@ -272,7 +375,7 @@
       <div>
         <h1>Agenda de recordatorios</h1>
         <div class="top-sub">
-          Programa llamadas, seguimientos y tareas. Los recordatorios se envían por correo y WhatsApp.
+          Programa llamadas, seguimientos y tareas. Los recordatorios se envían por <b>Email + WhatsApp</b> a los usuarios seleccionados.
         </div>
       </div>
       <div class="actions">
@@ -293,6 +396,7 @@
         <h3 id="modal-title">Nuevo evento</h3>
         <button id="btn-close" class="btn" style="border:none;background:transparent;font-size:18px;">✕</button>
       </div>
+
       <div class="body">
         <form id="agenda-form">
           @csrf
@@ -325,42 +429,31 @@
                 <option value="monthly">Mensual</option>
               </select>
             </div>
-            <div>
-              <label>Zona horaria *</label>
-              <input name="timezone" id="ev-tz" value="America/Mexico_City" required>
-            </div>
-          </div>
 
-          <div class="grid">
             <div>
-              <label>Nombre del destinatario</label>
-              <input name="attendee_name" id="ev-name">
-            </div>
-            <div>
-              <label>Email del destinatario</label>
-              <input type="email" name="attendee_email" id="ev-email">
-            </div>
-          </div>
+              <label>Invitados *</label>
 
-          <div class="grid">
-            <div>
-              <label>Teléfono WhatsApp (con código de país)</label>
-              <input name="attendee_phone" id="ev-phone">
-            </div>
-            <div>
-              <label>Canales de envío</label>
-              <div style="display:flex; gap:12px; align-items:center; margin-top:8px;">
-                <label class="chip">
-                  <input type="checkbox" name="send_email" id="ev-email-on" checked> Email
-                </label>
-                <label class="chip">
-                  <input type="checkbox" name="send_whatsapp" id="ev-wa-on"> WhatsApp
-                </label>
+              <!-- SOLO NOMBRES en el modal -->
+              <select id="ev-users" size="7" style="height:auto"></select>
+
+              <div class="users-hint">
+                <span class="badge"><span class="dot"></span> Se enviará por Email + WhatsApp</span>
+                <span class="badge" id="users-count">0 usuario(s)</span>
               </div>
+
+              <div class="users-error" id="users-error">
+                Selecciona al menos 1 usuario para enviar la notificación.
+              </div>
+
+              <!-- chips: nombre + email + teléfono -->
+              <div id="ev-chips" class="chips"></div>
+
+              <input type="hidden" id="ev-user-ids" name="user_ids" value="[]">
             </div>
           </div>
         </form>
       </div>
+
       <div class="foot">
         <button id="btn-delete" class="btn danger" style="display:none">Eliminar</button>
         <button id="btn-save" class="btn primary">Guardar</button>
@@ -379,6 +472,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnSave = document.getElementById('btn-save');
   const btnDelete = document.getElementById('btn-delete');
 
+  const usersSelect   = document.getElementById('ev-users');
+  const usersCount    = document.getElementById('users-count');
+  const usersError    = document.getElementById('users-error');
+  const chipsWrap     = document.getElementById('ev-chips');
+  const userIdsHidden = document.getElementById('ev-user-ids');
+
   const f = {
     id:      document.getElementById('ev-id'),
     title:   document.getElementById('ev-title'),
@@ -386,17 +485,136 @@ document.addEventListener('DOMContentLoaded', () => {
     start:   document.getElementById('ev-start'),
     offset:  document.getElementById('ev-offset'),
     repeat:  document.getElementById('ev-repeat'),
-    tz:      document.getElementById('ev-tz'),
-    name:    document.getElementById('ev-name'),
-    email:   document.getElementById('ev-email'),
-    phone:   document.getElementById('ev-phone'),
-    emailOn: document.getElementById('ev-email-on'),
-    waOn:    document.getElementById('ev-wa-on'),
   };
+
+  let USERS_CACHE = [];        // [{id,name,email,phone}]
+  let selectedIds = new Set(); // ids seleccionados
+
+  function initials(name=''){
+    const parts = String(name).trim().split(/\s+/).filter(Boolean);
+    const a = (parts[0]?.[0] || '').toUpperCase();
+    const b = (parts[1]?.[0] || '').toUpperCase();
+    return (a + b) || 'U';
+  }
+
+  function syncHidden(){
+    const arr = Array.from(selectedIds);
+    userIdsHidden.value = JSON.stringify(arr);
+    usersCount.textContent = `${arr.length} usuario(s)`;
+    usersError.style.display = arr.length ? 'none' : 'none';
+  }
+
+  function renderChips(){
+    chipsWrap.innerHTML = '';
+    const ids = Array.from(selectedIds);
+
+    ids.forEach(id => {
+      const u = USERS_CACHE.find(x => Number(x.id) === Number(id));
+      if (!u) return;
+
+      const chip = document.createElement('div');
+      chip.className = 'chip-row';
+      chip.dataset.id = id;
+
+      const sub = [u.email, u.phone].filter(Boolean).join(' • ');
+
+      chip.innerHTML = `
+        <div class="chip-avatar">${initials(u.name)}</div>
+        <div class="chip-meta">
+          <div class="chip-name">${u.name || ''}</div>
+          <div class="chip-sub">${sub}</div>
+        </div>
+        <button type="button" class="chip-x" aria-label="Quitar">×</button>
+      `;
+
+      chip.querySelector('.chip-x').addEventListener('click', () => {
+        selectedIds.delete(Number(id));
+        const opt = usersSelect.querySelector(`option[value="${id}"]`);
+        if (opt) opt.disabled = false;
+        renderChips();
+        syncHidden();
+      });
+
+      chipsWrap.appendChild(chip);
+    });
+  }
+
+  function addUserToSelection(id){
+    id = Number(id);
+    if (!id) return;
+    if (selectedIds.has(id)) return;
+
+    selectedIds.add(id);
+
+    const opt = usersSelect.querySelector(`option[value="${id}"]`);
+    if (opt) {
+      opt.disabled = true;
+      usersSelect.value = ''; // reset
+    }
+
+    renderChips();
+    syncHidden();
+  }
+
+  function setSelectedUserIds(ids){
+    selectedIds = new Set((ids || []).map(n => Number(n)).filter(Boolean));
+
+    Array.from(usersSelect.options).forEach(opt => {
+      if (!opt.value) return;
+      opt.disabled = false;
+    });
+
+    selectedIds.forEach(id => {
+      const opt = usersSelect.querySelector(`option[value="${id}"]`);
+      if (opt) opt.disabled = true;
+    });
+
+    renderChips();
+    syncHidden();
+  }
+
+  usersSelect.addEventListener('change', () => {
+    addUserToSelection(usersSelect.value);
+  });
+
+  async function loadUsersOnce(){
+    if (USERS_CACHE.length) return;
+
+    usersSelect.innerHTML = `<option value="" disabled selected>Cargando usuarios...</option>`;
+
+    try{
+      const res = await fetch("{{ route('agenda.users') }}", {
+        method:'GET',
+        credentials:'same-origin',
+        headers:{'Accept':'application/json'}
+      });
+
+      const ct = res.headers.get('content-type') || '';
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      if(!ct.includes('application/json')) throw new Error('Respuesta no JSON');
+
+      USERS_CACHE = await res.json();
+
+      usersSelect.innerHTML = `<option value="" selected disabled>Selecciona un usuario...</option>`;
+      USERS_CACHE.forEach(u => {
+        const opt = document.createElement('option');
+        opt.value = u.id;
+        opt.textContent = (u.name || 'Sin nombre'); // ✅ solo nombres
+        usersSelect.appendChild(opt);
+      });
+
+      syncHidden();
+    }catch(e){
+      console.error(e);
+      usersSelect.innerHTML = `<option value="" disabled>Error cargando usuarios</option>`;
+    }
+  }
 
   function openModal(mode='new', data=null) {
     modalBackdrop.style.display = 'flex';
     document.body.style.overflow = 'hidden';
+
+    loadUsersOnce();
 
     if (mode === 'new') {
       document.getElementById('modal-title').textContent = 'Nuevo evento';
@@ -407,12 +625,7 @@ document.addEventListener('DOMContentLoaded', () => {
       f.start.value = '';
       f.offset.value = 60;
       f.repeat.value = 'none';
-      f.tz.value = 'America/Mexico_City';
-      f.name.value = '';
-      f.email.value = '';
-      f.phone.value = '';
-      f.emailOn.checked = true;
-      f.waOn.checked = false;
+      setSelectedUserIds([]);
     } else if (data) {
       document.getElementById('modal-title').textContent = 'Editar evento';
       btnDelete.style.display = 'inline-flex';
@@ -427,18 +640,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
       f.offset.value = data.extendedProps?.remind_offset_minutes ?? 60;
       f.repeat.value = data.extendedProps?.repeat_rule ?? 'none';
-      f.tz.value     = data.extendedProps?.timezone ?? 'America/Mexico_City';
-      f.name.value   = data.extendedProps?.attendee_name ?? '';
-      f.email.value  = data.extendedProps?.attendee_email ?? '';
-      f.phone.value  = data.extendedProps?.attendee_phone ?? '';
-      f.emailOn.checked = !!data.extendedProps?.send_email;
-      f.waOn.checked    = !!data.extendedProps?.send_whatsapp;
+
+      const ids = data.extendedProps?.user_ids || [];
+      setTimeout(() => setSelectedUserIds(ids), 0);
     }
   }
 
   function closeModal() {
     modalBackdrop.style.display = 'none';
     document.body.style.overflow = 'auto';
+    usersError.style.display = 'none';
   }
 
   btnNew.addEventListener('click', () => openModal('new'));
@@ -449,14 +660,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const calendarEl = document.getElementById('calendar');
 
-  // Paleta de colores fija y contrastada
   const palette = [
-    { bg: '#fee2e2', border: '#fecaca' }, // rojo suave
-    { bg: '#dbeafe', border: '#bfdbfe' }, // azul
-    { bg: '#dcfce7', border: '#bbf7d0' }, // verde
-    { bg: '#fef3c7', border: '#fde68a' }, // amarillo
-    { bg: '#ede9fe', border: '#ddd6fe' }, // morado
-    { bg: '#cffafe', border: '#a5f3fc' }, // cian
+    { bg: '#fee2e2', border: '#fecaca' },
+    { bg: '#dbeafe', border: '#bfdbfe' },
+    { bg: '#dcfce7', border: '#bbf7d0' },
+    { bg: '#fef3c7', border: '#fde68a' },
+    { bg: '#ede9fe', border: '#ddd6fe' },
+    { bg: '#cffafe', border: '#a5f3fc' },
   ];
 
   const calendar = new FullCalendar.Calendar(calendarEl, {
@@ -470,15 +680,13 @@ document.addEventListener('DOMContentLoaded', () => {
       right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
     },
     selectable: true,
-    editable: false,          // ❌ desactiva drag & drop
+    editable: false,
     eventStartEditable: false,
     eventDurationEditable: false,
 
     events: {
       url: "{{ route('agenda.feed') }}",
-      failure() {
-        alert('No se pudo cargar la agenda.');
-      }
+      failure() { alert('No se pudo cargar la agenda.'); }
     },
 
     dateClick(info) {
@@ -493,7 +701,6 @@ document.addEventListener('DOMContentLoaded', () => {
     },
 
     eventDidMount(info) {
-      // Color estable según el id del evento
       const idNum = parseInt(info.event.id || '0', 10);
       const color = palette[idNum % palette.length];
       const el = info.el;
@@ -503,10 +710,8 @@ document.addEventListener('DOMContentLoaded', () => {
       el.style.borderColor = color.border;
       el.style.color = '#0f172a';
 
-      // Decorar contenido tiempo + título
       const title = info.event.title || '';
       const timeText = info.timeText || '';
-
       el.innerHTML = `
         <span class="time-dot" style="background:${color.border};"></span>
         <span class="title">${timeText ? timeText + ' ' : ''}${title}</span>
@@ -518,18 +723,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Guardar (crear/editar)
   btnSave.addEventListener('click', async () => {
+    let userIds = [];
+    try { userIds = JSON.parse(userIdsHidden.value || '[]'); } catch(e) { userIds = []; }
+
+    if (!userIds.length) {
+      usersError.style.display = 'block';
+      usersSelect.focus();
+      return;
+    }
+
     const payload = {
       title: f.title.value,
       description: f.desc.value,
       start_at: new Date(f.start.value).toISOString(),
       remind_offset_minutes: parseInt(f.offset.value || '60', 10),
       repeat_rule: f.repeat.value,
-      timezone: f.tz.value,
-      attendee_name: f.name.value || null,
-      attendee_email: f.email.value || null,
-      attendee_phone: f.phone.value || null,
-      send_email: f.emailOn.checked ? 1 : 0,
-      send_whatsapp: f.waOn.checked ? 1 : 0,
+
+      user_ids: userIds,
+
+      send_email: 1,
+      send_whatsapp: 1,
+      timezone: 'America/Mexico_City',
     };
 
     try {
