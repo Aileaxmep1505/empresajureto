@@ -71,6 +71,7 @@ use App\Http\Controllers\Admin\LicitacionPdfAiController;
 use App\Http\Controllers\Admin\WmsController;
 use App\Http\Controllers\Admin\WmsSearchController;
 use App\Http\Controllers\Admin\WmsPickingController;
+use App\Http\Controllers\Admin\WmsMoveController;
 
 /*
 |--------------------------------------------------------------------------
