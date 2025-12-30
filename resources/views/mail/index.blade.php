@@ -3,39 +3,47 @@
 @section('title','Correo')
 
 @section('content')
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+{{-- Tipografía: usa la global del layout (NO Outfit) --}}
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@300..700&display=swap"/>
 
 <div id="mailx">
   <style>
-    /* ====================== MailX UI (Clean Pro) ====================== */
+    /* ====================== MailX UI (Formal pastel + global font) ====================== */
     #mailx{
-      --ink:#0f172a; --muted:#667085; --muted2:#94a3b8;
+      --ink:#0f172a; --muted:#667085;
       --line:#e8eef6; --line2:#eef2f7;
       --bg:#f6f8fc; --card:#ffffff;
-      --brand:#6ea8fe; --brand2:#4f8df6; --brand-ink:#06101f;
-      --chip:#eef4ff; --hover:#f6f9ff; --ring:#cfe0ff;
+
+      /* Pastel formal */
+      --p1:#e8f1ff;         /* pastel base */
+      --p2:#d7e8ff;         /* hover */
+      --p3:#c6dcff;         /* primary */
+      --p4:#b7d1ff;         /* primary hover */
+      --ring:#cfe0ff;
+
       --shadow:0 18px 46px rgba(2,8,23,.08);
-      --shadow2:0 10px 26px rgba(2,8,23,.10);
       --radius:18px;
       --ease:cubic-bezier(.2,.8,.2,1);
 
-      font-family:'Outfit', system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+      /* usar tipografía global */
+      font-family: inherit;
       color:var(--ink);
+
       background:
-        radial-gradient(900px 520px at -10% -15%, #eaf2ff66, transparent 60%),
-        radial-gradient(900px 520px at 110% 110%, #eaf2ff33, transparent 60%),
+        radial-gradient(900px 520px at -10% -15%, rgba(232,241,255,.55), transparent 60%),
+        radial-gradient(900px 520px at 110% 110%, rgba(232,241,255,.30), transparent 60%),
         var(--bg);
+
       min-height:calc(100vh - 64px);
     }
 
     #mailx .wrap{
       max-width:1600px; margin:0 auto; padding:16px;
-      display:grid; grid-template-columns: 280px 480px 1fr; gap:16px;
-      align-items:start;
+      display:grid; grid-template-columns: 280px 480px 1fr;
+      gap:16px; align-items:start;
     }
 
+    /* Panels SOLO para lista + preview */
     #mailx .panel{
       background:var(--card);
       border:1px solid var(--line);
@@ -44,52 +52,62 @@
       overflow:hidden;
     }
 
-    /* ====================== Sidebar (solo Redactar + Carpetas) ====================== */
+    /* ====================== Sidebar SIN contenedor ====================== */
     #mailx .nav{
       position:sticky; top:16px;
       height:calc(100vh - 32px);
       display:flex; flex-direction:column;
+
+      /* NO card */
+      background:transparent;
+      border:0;
+      box-shadow:none;
+      border-radius:0;
+      overflow:visible;
     }
 
     #mailx .compose{
-      padding:14px;
-      border-bottom:1px solid var(--line);
-      background:linear-gradient(180deg,#fff,#f9fbff);
+      padding:0 0 12px 0;
+      margin:0 0 10px 0;
+      border-bottom:1px solid rgba(232,238,246,.9);
     }
 
+    /* Botones pastel formales */
     #mailx .btn{
       appearance:none;
-      border:1px solid #dfe6fa;
-      background:#f7f9ff;
-      color:#0b1220;
+      border:1px solid rgba(198,220,255,.95);
+      background:var(--p1);
+      color:var(--ink);
       padding:12px 14px;
       border-radius:14px;
       display:inline-flex;
       gap:10px;
       align-items:center;
-      font-weight:800;
+      font-weight:700;
       cursor:pointer;
       text-decoration:none;
-      transition:transform .18s var(--ease), box-shadow .18s var(--ease), background .18s var(--ease);
+      transition:transform .15s var(--ease), background .15s var(--ease), box-shadow .15s var(--ease);
       user-select:none;
     }
-    #mailx .btn:focus{ outline:none; }
-    #mailx .btn:focus-visible{ box-shadow:0 0 0 3px var(--ring); }
-    #mailx .btn:hover{ transform:translateY(-1px); box-shadow:0 10px 22px rgba(2,8,23,.08); }
+    #mailx .btn:hover{ background:var(--p2); transform:translateY(-1px); box-shadow:0 10px 18px rgba(2,8,23,.08); }
+    #mailx .btn:focus-visible{ outline:none; box-shadow:0 0 0 3px var(--ring); }
+
     #mailx .btn.primary{
       width:100%;
       justify-content:center;
-      background:linear-gradient(180deg,var(--brand),var(--brand2));
-      border-color:transparent;
-      color:var(--brand-ink);
+      background:var(--p3);
+      border-color:rgba(183,209,255,.95);
+      color:var(--ink);
     }
+    #mailx .btn.primary:hover{ background:var(--p4); }
 
     #mailx .folders{
-      padding:10px;
+      padding:4px 0;
       overflow:auto;
       flex:1;
     }
 
+    /* Items sidebar SIN “card” */
     #mailx .folder{
       position:relative;
       display:flex; align-items:center; justify-content:space-between;
@@ -101,20 +119,22 @@
       border:1px solid transparent;
       transition:background .15s var(--ease), border-color .15s var(--ease), transform .15s var(--ease);
     }
-    #mailx .folder:hover{ background:var(--hover); transform:translateY(-1px); }
-    #mailx .folder:focus-visible{ outline:none; box-shadow:0 0 0 3px var(--ring); }
-    #mailx .folder .l{ display:flex; align-items:center; gap:10px; font-weight:800; }
-    #mailx .folder .text{ font-weight:800; }
+    #mailx .folder:hover{
+      background:rgba(232,241,255,.65);
+      transform:translateY(-1px);
+    }
+    #mailx .folder .l{ display:flex; align-items:center; gap:10px; font-weight:700; }
+    #mailx .folder .text{ font-weight:700; }
 
     #mailx .folder.active{
-      background:linear-gradient(180deg,#eef5ff,#ffffff);
-      border-color:var(--line);
+      background:rgba(214,232,255,.75);
+      border-color:rgba(198,220,255,.95);
     }
     #mailx .folder.active::before{
       content:"";
       position:absolute; left:6px; top:10px; bottom:10px;
       width:4px; border-radius:99px;
-      background:linear-gradient(180deg,var(--brand),var(--brand2));
+      background:rgba(148,182,255,.95);
     }
     #mailx .folder.active .l{ padding-left:6px; }
 
@@ -123,9 +143,9 @@
       border-radius:999px;
       display:grid; place-items:center;
       font-size:.78rem;
-      font-weight:800;
-      background:#eef4ff;
-      border:1px solid var(--line);
+      font-weight:700;
+      background:rgba(232,241,255,.95);
+      border:1px solid rgba(198,220,255,.95);
       color:#22314a;
     }
 
@@ -150,11 +170,11 @@
       background:#fff;
       transition:transform .15s var(--ease), background .15s var(--ease), box-shadow .15s var(--ease);
     }
-    #mailx .iconbtn:hover{ transform:translateY(-1px); background:#f6f9ff; box-shadow:0 10px 22px rgba(2,8,23,.08); }
+    #mailx .iconbtn:hover{ transform:translateY(-1px); background:#f6f9ff; box-shadow:0 10px 18px rgba(2,8,23,.08); }
     #mailx .iconbtn:focus-visible{ outline:none; box-shadow:0 0 0 3px var(--ring); }
 
     #mailx .title{
-      font-weight:900;
+      font-weight:800;
       display:flex; align-items:center; gap:8px;
       white-space:nowrap;
     }
@@ -182,20 +202,20 @@
     #mailx .chip{
       display:inline-flex; align-items:center; gap:6px;
       padding:8px 12px;
-      border:1px solid var(--line);
+      border:1px solid rgba(198,220,255,.85);
       border-radius:999px;
-      background:var(--chip);
+      background:rgba(232,241,255,.9);
       font-size:.86rem;
-      font-weight:900;
+      font-weight:700;
       cursor:pointer;
-      transition:transform .15s var(--ease), background .15s var(--ease), border-color .15s var(--ease);
+      transition:transform .15s var(--ease), background .15s var(--ease);
       user-select:none;
     }
-    #mailx .chip:hover{ transform:translateY(-1px); }
+    #mailx .chip:hover{ transform:translateY(-1px); background:rgba(214,232,255,.9); }
     #mailx .chip.active{
-      background:linear-gradient(180deg,var(--brand),var(--brand2));
-      border-color:transparent;
-      color:var(--brand-ink);
+      background:rgba(198,220,255,.95);
+      border-color:rgba(183,209,255,.95);
+      color:var(--ink);
     }
 
     #mailx .groups{ overflow:auto; max-height:calc(100vh - 240px); background:#fff; }
@@ -207,7 +227,7 @@
       font-size:.86rem;
       color:var(--muted);
       border-bottom:1px solid var(--line);
-      font-weight:800;
+      font-weight:700;
     }
 
     #mailx .row{
@@ -221,36 +241,27 @@
       transition:background .15s var(--ease);
       background:#fff;
     }
-    #mailx .row:hover{ background:var(--hover); }
+    #mailx .row:hover{ background:rgba(232,241,255,.55); }
 
     #mailx .row.is-selected{
-      background:linear-gradient(90deg,#eef5ff, #ffffff 60%);
+      background:linear-gradient(90deg, rgba(232,241,255,.85), #ffffff 60%);
     }
     #mailx .row.is-selected::before{
       content:"";
       position:absolute; left:0; top:0; bottom:0;
       width:3px;
-      background:linear-gradient(180deg,var(--brand),var(--brand2));
+      background:rgba(148,182,255,.95);
     }
 
-    #mailx .row:not(.read) .from::after{
-      content:"";
-      display:inline-block;
-      width:7px; height:7px;
-      border-radius:99px;
-      margin-left:8px;
-      background:var(--brand2);
-      vertical-align:middle;
-    }
-
-    #mailx .from{ font-weight:900; letter-spacing:.1px; }
-    #mailx .subject{ font-weight:900; margin-top:2px; }
+    #mailx .from{ font-weight:800; }
+    #mailx .subject{ font-weight:800; margin-top:2px; }
     #mailx .snippet{ color:var(--muted); margin-top:4px; font-size:.92rem; line-height:1.25; }
-    #mailx .meta{ display:flex; align-items:center; gap:10px; color:var(--muted); font-size:.86rem; font-weight:700; }
+    #mailx .meta{ display:flex; align-items:center; gap:10px; color:var(--muted); font-size:.86rem; font-weight:600; }
+
     #mailx .star button{ all:unset; cursor:pointer; display:grid; place-items:center; width:30px; height:30px; border-radius:12px; }
     #mailx .star button:hover{ background:#fff; box-shadow:0 6px 16px rgba(2,8,23,.08); border:1px solid var(--line); }
 
-    /* Acciones rápidas (desktop hover) */
+    /* Acciones rápidas */
     #mailx .quick{
       position:absolute; right:8px; top:50%;
       transform:translateY(-50%);
@@ -277,12 +288,12 @@
       border-bottom:1px solid var(--line);
       background:linear-gradient(180deg,#fff,#f9fbff);
     }
-    #mailx .preview .subject{ font-size:1.22rem; font-weight:1000; line-height:1.18; }
+    #mailx .preview .subject{ font-size:1.18rem; font-weight:800; line-height:1.18; }
     #mailx .preview .meta{
       margin-top:8px;
       color:var(--muted);
       display:flex; gap:12px; flex-wrap:wrap;
-      font-weight:700;
+      font-weight:600;
     }
     #mailx .preview .actions{ margin-top:12px; display:flex; gap:10px; flex-wrap:wrap; }
     #mailx .preview .body{ padding:16px; min-height:52vh; overflow:auto; }
@@ -291,7 +302,7 @@
       border-top:1px dashed var(--line);
       background:#fbfdff;
     }
-    #mailx .attachment{ display:flex; align-items:center; gap:10px; padding:8px 0; font-weight:700; }
+    #mailx .attachment{ display:flex; align-items:center; gap:10px; padding:8px 0; font-weight:600; }
     #mailx .attachment a{ color:#1f4fd8; text-decoration:none; }
     #mailx .attachment a:hover{ text-decoration:underline; }
 
@@ -301,20 +312,10 @@
       justify-content:center;
       height:calc(100vh - 240px);
       color:var(--muted);
-      font-weight:900;
+      font-weight:700;
     }
 
-    /* Skeleton */
-    #mailx .skeleton{
-      animation:mxpulse 1.2s ease-in-out infinite;
-      background:linear-gradient(90deg,#f1f5ff 25%,#e9effc 37%,#f1f5ff 63%);
-      background-size:400% 100%;
-      border-radius:10px;
-    }
-    @keyframes mxpulse{ 0%{background-position:100% 0} 100%{background-position:-100% 0} }
-    #mailx .loading{ padding:18px } .bar{ height:14px; border-radius:10px; margin:10px 0 }
-
-    /* ====================== Mobile UX: Nav drawer + Preview sheet ====================== */
+    /* Mobile UX: overlay + drawer de nav + preview sheet */
     #mailx .overlay{
       display:none;
       position:fixed; inset:0;
@@ -325,7 +326,7 @@
     @media (max-width:1280px){
       #mailx .wrap{ grid-template-columns: 1fr; }
 
-      /* Nav drawer */
+      /* Drawer del sidebar (sin contenedor, pero flotante en móvil) */
       #mailx .nav{
         position:fixed;
         inset:64px auto 0 0;
@@ -334,14 +335,17 @@
         z-index:90;
         transform:translateX(-105%);
         transition:transform .22s var(--ease);
-        box-shadow:var(--shadow2);
-        border-radius:0 18px 18px 0;
         height:calc(100vh - 64px);
+
+        /* En móvil sí le damos base blanca para legibilidad */
+        padding:14px;
+        background:#fff;
+        border-right:1px solid var(--line);
+        box-shadow:0 18px 46px rgba(2,8,23,.15);
       }
       #mailx.nav-open .nav{ transform:translateX(0); }
       #mailx.nav-open .overlay{ display:block; }
 
-      /* Preview sheet */
       #mailx .preview{
         position:fixed;
         inset:64px 0 0 0;
@@ -353,7 +357,6 @@
       }
       #mailx .preview.is-open{ transform:translateY(0); }
 
-      /* Quick actions visible better on touch */
       #mailx .quick{ opacity:1; pointer-events:auto; position:static; transform:none; margin-left:auto; }
       #mailx .row{ grid-template-columns:36px 1fr; }
       #mailx .meta{ display:none; }
@@ -361,8 +364,6 @@
   </style>
 
   @php
-    use Illuminate\Support\Str;
-
     $folderParam = $current ?? request()->route('folder') ?? request('folder') ?? env('IMAP_DEFAULT_FOLDER','INBOX');
     $folderName  = strtoupper($folderParam);
 
@@ -452,8 +453,8 @@
   <div class="overlay" id="mx-overlay"></div>
 
   <div class="wrap" data-folder="{{ $folderName }}">
-    {{-- NAV (sin header “Correo”, solo lo útil) --}}
-    <aside class="panel nav" id="mx-nav" aria-label="Carpetas">
+    {{-- NAV (SIN contenedor) --}}
+    <aside class="nav" id="mx-nav" aria-label="Carpetas">
       <div class="compose">
         <a class="btn primary" href="{{ route('mail.compose') }}">
           <span class="material-symbols-outlined">edit</span>
@@ -545,9 +546,7 @@
                     <div class="subject">{{ $r['subject'] }}</div>
                     <div class="snippet">
                       @if($r['hasAtt'])
-                        <span class="chip" style="padding:3px 8px">
-                          <span class="material-symbols-outlined" style="font-size:16px">attach_file</span>Adjuntos
-                        </span>
+                        <span class="chip" style="padding:3px 8px"><span class="material-symbols-outlined" style="font-size:16px">attach_file</span>Adjuntos</span>
                       @endif
                       {{ $r['snippet'] }}
                     </div>
@@ -617,7 +616,6 @@
     let filterKind = 'all';
     let currentQuery = '';
 
-    // Endpoints
     const URL_WAIT   = `{{ route('mail.api.wait') }}`;
     const URL_LIST   = `{{ route('mail.api.messages') }}`;
     const URL_COUNTS = `{{ route('mail.api.counts') }}`;
@@ -627,26 +625,16 @@
     function tpl(url, f, u){ return url.replace('__F__', encodeURIComponent(f)).replace('__U__', encodeURIComponent(u)); }
     function esc(s){ return (s||'').replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])) }
 
-    // Abort long-poll on folder change
     let waitAbort = null;
     function abortWait(){ if(waitAbort){ waitAbort.abort(); waitAbort=null; } }
 
-    // Mobile nav drawer
     function isMobile(){ return window.matchMedia('(max-width:1280px)').matches; }
     function openNav(){ root.classList.add('nav-open'); }
     function closeNav(){ root.classList.remove('nav-open'); }
-    navBtn?.addEventListener('click', ()=>{
-      if (isMobile()){
-        root.classList.toggle('nav-open');
-      } else {
-        // En desktop el botón solo sirve como acceso rápido (no colapsamos ya que quitamos header)
-        // Si quieres colapsar en desktop, dime y te lo agrego como modo compacto.
-      }
-    });
+    navBtn?.addEventListener('click', ()=>{ if (isMobile()) root.classList.toggle('nav-open'); });
     overlay?.addEventListener('click', closeNav);
     document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeNav(); pane.classList.remove('is-open'); } });
 
-    // UI filter helper
     function applyFilter(){
       listWrap.querySelectorAll('.mx-item').forEach(it=>{
         const unread = !it.classList.contains('read');
@@ -665,7 +653,6 @@
       triggerServerReload();
     }));
 
-    // POST helper
     async function post(url, bodyObj=null){
       try{
         const res = await fetch(url, {
@@ -684,11 +671,11 @@
     }
 
     function setLoadingPreview(){
-      bodyEl.innerHTML = `<div class="loading">
-        <div class="bar skeleton" style="width:60%"></div>
-        <div class="bar skeleton" style="width:40%"></div>
-        <div class="bar skeleton" style="width:90%"></div>
-        <div class="bar skeleton" style="width:75%"></div>
+      bodyEl.innerHTML = `<div style="padding:18px">
+        <div style="height:14px;border-radius:10px;background:#e9effc;margin:10px 0;width:60%"></div>
+        <div style="height:14px;border-radius:10px;background:#e9effc;margin:10px 0;width:40%"></div>
+        <div style="height:14px;border-radius:10px;background:#e9effc;margin:10px 0;width:90%"></div>
+        <div style="height:14px;border-radius:10px;background:#e9effc;margin:10px 0;width:75%"></div>
       </div>`;
       subjectEl.textContent = 'Cargando…';
       metaEl.style.display='none';
@@ -753,7 +740,7 @@
         if (atts.length){
           const frag = document.createDocumentFragment();
           const title = document.createElement('div');
-          title.style.fontWeight='900';
+          title.style.fontWeight='800';
           title.style.marginBottom='8px';
           title.textContent = `Adjuntos (${atts.length})`;
           frag.appendChild(title);
@@ -780,7 +767,6 @@
       }
     }
 
-    // Delegado clicks en lista
     listWrap.addEventListener('click', async (e)=>{
       const row = e.target.closest('.mx-item');
       if (!row) return;
@@ -817,7 +803,6 @@
       if (currentRow) currentRow.classList.add('read');
     });
 
-    // ===== Helpers para llamadas al servidor con filtros =====
     function buildListURL(base, withLimit=true){
       const url = new URL(base);
       url.searchParams.set('folder', folder);
@@ -862,6 +847,7 @@
         arr.forEach(r=>{
           const kind = (folder==='SENT') ? 'Enviado' : 'Recibido';
           const tooltip = `${kind}: ${r.dateTxt||''}`;
+
           const art = document.createElement('article');
           art.className = 'row mx-item ' + (r.seen ? 'read':'');
 
@@ -903,7 +889,6 @@
         listWrap.appendChild(g);
       });
 
-      // recalcular maxUid
       maxUid = 0;
       listWrap.querySelectorAll('.mx-item').forEach(it=>{
         const v=parseInt(it.dataset.uid||'0',10);
@@ -921,7 +906,6 @@
       updateCounts();
     }
 
-    // Clic en carpetas: navegación instantánea + cierra drawer en móvil
     const foldersEl = root.querySelector('#mx-folders');
     foldersEl.addEventListener('click', async (e)=>{
       const a = e.target.closest('a.folder');
@@ -953,7 +937,6 @@
       startWaitLoop();
     });
 
-    // Búsqueda server-side con debounce
     let searchDebounce=null;
     searchEl?.addEventListener('input', (e)=>{
       currentQuery = e.target.value || '';
@@ -961,13 +944,11 @@
       searchDebounce = setTimeout(triggerServerReload, 250);
     });
 
-    // Forzar refresh
     btnForce?.addEventListener('click', async (e)=>{
       e.preventDefault();
       await triggerServerReload();
     });
 
-    // Contadores
     async function updateCounts(){
       try{
         const res = await fetch(URL_COUNTS, { headers:{'X-Requested-With':'XMLHttpRequest'} });
@@ -982,7 +963,6 @@
       }catch(e){}
     }
 
-    // Long-polling con filtros
     async function waitLoop(signal){
       try{
         const url = buildListURL(URL_WAIT, false);
@@ -997,7 +977,6 @@
           if (currentQuery.trim()!=='') {
             renderFull(data.items||[]);
           } else if (data.items && data.items.length){
-            // Inserta en “Hoy”
             let group = listWrap.querySelector('[data-group="Hoy"]');
             if(!group){
               const g=document.createElement('div');
@@ -1015,12 +994,8 @@
 
               const art = document.createElement('article');
               art.className='row mx-item '+(r.seen?'read':'');
-              art.dataset.uid=r.uid;
-              art.dataset.priority=r.priority?'1':'0';
-              art.dataset.hasatt=r.hasAtt?'1':'0';
-              art.dataset.flag=r.flagUrl;
-              art.dataset.read=r.readUrl;
-              art.dataset.show=r.showUrl;
+              art.dataset.uid=r.uid; art.dataset.priority=r.priority?'1':'0'; art.dataset.hasatt=r.hasAtt?'1':'0';
+              art.dataset.flag=r.flagUrl; art.dataset.read=r.readUrl; art.dataset.show=r.showUrl;
 
               art.innerHTML = `
                 <div class="star">
@@ -1067,7 +1042,6 @@
       waitLoop(waitAbort.signal);
     }
 
-    // Estado inicial
     listWrap.querySelectorAll('.mx-item').forEach(it=>{
       const v=parseInt(it.dataset.uid||'0',10);
       if(v>maxUid) maxUid=v;
@@ -1076,7 +1050,6 @@
     if (first) first.click();
     startWaitLoop();
 
-    // Historial
     window.addEventListener('popstate', async ()=>{
       const urlp = new URL(window.location.href);
       const f = (urlp.searchParams.get('folder')||'INBOX').toUpperCase();
