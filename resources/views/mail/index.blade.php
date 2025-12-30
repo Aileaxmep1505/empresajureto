@@ -9,12 +9,18 @@
 
 <div id="mailx">
   <style>
-    /* =============== MailX UI (Pastel Pro + Performance) =============== */
+    /* ====================== MailX UI (Clean Pro) ====================== */
     #mailx{
-      --ink:#0f172a; --muted:#667085; --line:#e8eef6;
-      --bg:#f6f8fc; --card:#fff; --brand:#6ea8fe; --brand-ink:#0b1220;
-      --chip:#eef4ff; --hover:#f6f9ff; --ring:#cfe0ff; --warn:#f59e0b;
-      --shadow:0 20px 48px rgba(2,8,23,.08);
+      --ink:#0f172a; --muted:#667085; --muted2:#94a3b8;
+      --line:#e8eef6; --line2:#eef2f7;
+      --bg:#f6f8fc; --card:#ffffff;
+      --brand:#6ea8fe; --brand2:#4f8df6; --brand-ink:#06101f;
+      --chip:#eef4ff; --hover:#f6f9ff; --ring:#cfe0ff;
+      --shadow:0 18px 46px rgba(2,8,23,.08);
+      --shadow2:0 10px 26px rgba(2,8,23,.10);
+      --radius:18px;
+      --ease:cubic-bezier(.2,.8,.2,1);
+
       font-family:'Outfit', system-ui, -apple-system, "Segoe UI", Roboto, Arial;
       color:var(--ink);
       background:
@@ -23,83 +29,334 @@
         var(--bg);
       min-height:calc(100vh - 64px);
     }
-    #mailx .wrap{ max-width:1600px; margin:0 auto; padding:16px; display:grid; grid-template-columns: 280px 480px 1fr; gap:16px; }
-    #mailx .panel{ background:var(--card); border:1px solid var(--line); border-radius:18px; box-shadow:var(--shadow); overflow:hidden }
 
-    /* NAV */
-    #mailx .nav{ position:sticky; top:16px; height:calc(100vh - 32px); display:flex; flex-direction:column; }
-    #mailx .nav .brand{ display:flex; align-items:center; gap:10px; padding:14px; border-bottom:1px solid var(--line); background:linear-gradient(180deg,#fff,#f9fbff) }
-    #mailx .nav .menu{ width:38px;height:38px;border-radius:12px;border:1px solid var(--line);display:grid;place-items:center; cursor:pointer; transition:.18s }
-    #mailx .nav .menu:hover{ background:#f3f6fc }
-    #mailx .brand-title{ font-weight:800; letter-spacing:.2px }
-    #mailx .compose{ margin:12px 12px 2px; display:flex; gap:8px; }
-    #mailx .btn{ appearance:none; border:1px solid #dfe6fa; background:#f7f9ff; color:#0b1220; padding:10px 12px; border-radius:14px; display:inline-flex; gap:8px; align-items:center; font-weight:700; cursor:pointer; text-decoration:none; transition:.18s transform }
-    #mailx .btn:hover{ transform:translateY(-1px) }
-    #mailx .btn.primary{ background:var(--brand); border-color:var(--brand); color:var(--brand-ink) }
-    #mailx .folders{ padding:8px 8px 12px; overflow:auto; flex:1 }
-    #mailx .folder{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px; border-radius:12px; color:inherit; text-decoration:none; }
-    #mailx .folder:hover{ background:var(--hover) }
-    #mailx .folder.active{ background:linear-gradient(180deg,#eef5ff,#fff); border:1px solid var(--line) }
-    #mailx .folder .l{ display:flex; align-items:center; gap:10px; font-weight:600 }
-    #mailx .badge{ min-width:22px; height:22px; padding:0 6px; border-radius:999px; display:grid; place-items:center; font-size:.78rem; background:#eef4ff; border:1px solid var(--line) }
-    #mailx .meta-nav{ padding:10px; border-top:1px dashed var(--line); color:var(--muted); font-size:.9rem }
+    #mailx .wrap{
+      max-width:1600px; margin:0 auto; padding:16px;
+      display:grid; grid-template-columns: 280px 480px 1fr; gap:16px;
+      align-items:start;
+    }
 
-    #mailx.nav-collapsed .wrap{ grid-template-columns: 84px 520px 1fr }
-    #mailx.nav-collapsed .brand-title, #mailx.nav-collapsed .compose .txt, #mailx.nav-collapsed .folder .text, #mailx.nav-collapsed .meta-nav { display:none }
-    #mailx.nav-collapsed .compose{ justify-content:center }
-    #mailx.nav-collapsed .folder{ justify-content:center }
+    #mailx .panel{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
 
-    /* LISTA */
-    #mailx .list{ display:flex; flex-direction:column; min-height:60vh }
-    #mailx .list .top{ display:flex; align-items:center; gap:10px; padding:12px; border-bottom:1px solid var(--line); background:linear-gradient(180deg,#fff,#f9fbff) }
-    #mailx .search{ flex:1; display:flex; align-items:center; gap:8px; background:#f3f6fc; border:1px solid var(--line); border-radius:12px; padding:8px 10px }
-    #mailx .search:focus-within{ box-shadow:0 0 0 3px var(--ring) }
-    #mailx .search input{ all:unset; width:100%; color:var(--ink); font-weight:500 }
-    #mailx .filters{ display:flex; gap:8px; padding:10px 12px; border-bottom:1px dashed var(--line); flex-wrap:wrap }
-    #mailx .chip{ display:inline-flex; align-items:center; gap:6px; padding:8px 12px; border:1px solid var(--line); border-radius:999px; background:var(--chip); font-size:.86rem; font-weight:700; cursor:pointer; transition:.18s }
-    #mailx .chip.active{ background:var(--brand); border-color:var(--brand); color:var(--brand-ink) }
+    /* ====================== Sidebar (solo Redactar + Carpetas) ====================== */
+    #mailx .nav{
+      position:sticky; top:16px;
+      height:calc(100vh - 32px);
+      display:flex; flex-direction:column;
+    }
 
-    #mailx .groups{ overflow:auto; max-height:calc(100vh - 240px) }
-    #mailx .group-title{ position:sticky; top:0; background:#fff; z-index:2; padding:8px 12px; font-size:.86rem; color:var(--muted); border-bottom:1px solid var(--line) }
+    #mailx .compose{
+      padding:14px;
+      border-bottom:1px solid var(--line);
+      background:linear-gradient(180deg,#fff,#f9fbff);
+    }
 
-    #mailx .row{ position:relative; display:grid; grid-template-columns:32px 1fr auto; gap:12px; padding:14px 12px; border-bottom:1px solid var(--line); cursor:pointer; transition:background .15s ease }
-    #mailx .row:hover{ background:var(--hover) }
-    #mailx .row.read .from, #mailx .row.read .subject{ font-weight:600; opacity:.9 }
-    #mailx .from{ font-weight:700 }
-    #mailx .subject{ font-weight:700; margin-top:2px }
-    #mailx .snippet{ color:var(--muted); margin-top:3px; font-size:.92rem }
-    #mailx .meta{ display:flex; align-items:center; gap:8px; color:var(--muted); font-size:.86rem }
-    #mailx .star button{ all:unset; cursor:pointer; display:grid; place-items:center; width:28px; height:28px; border-radius:10px }
+    #mailx .btn{
+      appearance:none;
+      border:1px solid #dfe6fa;
+      background:#f7f9ff;
+      color:#0b1220;
+      padding:12px 14px;
+      border-radius:14px;
+      display:inline-flex;
+      gap:10px;
+      align-items:center;
+      font-weight:800;
+      cursor:pointer;
+      text-decoration:none;
+      transition:transform .18s var(--ease), box-shadow .18s var(--ease), background .18s var(--ease);
+      user-select:none;
+    }
+    #mailx .btn:focus{ outline:none; }
+    #mailx .btn:focus-visible{ box-shadow:0 0 0 3px var(--ring); }
+    #mailx .btn:hover{ transform:translateY(-1px); box-shadow:0 10px 22px rgba(2,8,23,.08); }
+    #mailx .btn.primary{
+      width:100%;
+      justify-content:center;
+      background:linear-gradient(180deg,var(--brand),var(--brand2));
+      border-color:transparent;
+      color:var(--brand-ink);
+    }
 
-    /* Acciones rápidas */
-    #mailx .quick{ position:absolute; right:8px; top:50%; transform:translateY(-50%); display:flex; gap:6px; opacity:0; pointer-events:none; transition:.15s }
+    #mailx .folders{
+      padding:10px;
+      overflow:auto;
+      flex:1;
+    }
+
+    #mailx .folder{
+      position:relative;
+      display:flex; align-items:center; justify-content:space-between;
+      gap:10px;
+      padding:12px 12px;
+      border-radius:14px;
+      color:inherit;
+      text-decoration:none;
+      border:1px solid transparent;
+      transition:background .15s var(--ease), border-color .15s var(--ease), transform .15s var(--ease);
+    }
+    #mailx .folder:hover{ background:var(--hover); transform:translateY(-1px); }
+    #mailx .folder:focus-visible{ outline:none; box-shadow:0 0 0 3px var(--ring); }
+    #mailx .folder .l{ display:flex; align-items:center; gap:10px; font-weight:800; }
+    #mailx .folder .text{ font-weight:800; }
+
+    #mailx .folder.active{
+      background:linear-gradient(180deg,#eef5ff,#ffffff);
+      border-color:var(--line);
+    }
+    #mailx .folder.active::before{
+      content:"";
+      position:absolute; left:6px; top:10px; bottom:10px;
+      width:4px; border-radius:99px;
+      background:linear-gradient(180deg,var(--brand),var(--brand2));
+    }
+    #mailx .folder.active .l{ padding-left:6px; }
+
+    #mailx .badge{
+      min-width:24px; height:24px; padding:0 7px;
+      border-radius:999px;
+      display:grid; place-items:center;
+      font-size:.78rem;
+      font-weight:800;
+      background:#eef4ff;
+      border:1px solid var(--line);
+      color:#22314a;
+    }
+
+    /* ====================== Lista ====================== */
+    #mailx .list{ display:flex; flex-direction:column; min-height:60vh; }
+
+    #mailx .list .top{
+      display:flex; align-items:center; gap:10px;
+      padding:12px;
+      border-bottom:1px solid var(--line);
+      background:linear-gradient(180deg,#fff,#f9fbff);
+    }
+
+    #mailx .iconbtn{
+      all:unset;
+      cursor:pointer;
+      display:grid;
+      place-items:center;
+      width:42px; height:42px;
+      border-radius:14px;
+      border:1px solid var(--line);
+      background:#fff;
+      transition:transform .15s var(--ease), background .15s var(--ease), box-shadow .15s var(--ease);
+    }
+    #mailx .iconbtn:hover{ transform:translateY(-1px); background:#f6f9ff; box-shadow:0 10px 22px rgba(2,8,23,.08); }
+    #mailx .iconbtn:focus-visible{ outline:none; box-shadow:0 0 0 3px var(--ring); }
+
+    #mailx .title{
+      font-weight:900;
+      display:flex; align-items:center; gap:8px;
+      white-space:nowrap;
+    }
+
+    #mailx .search{
+      flex:1;
+      display:flex;
+      align-items:center;
+      gap:8px;
+      background:#f3f6fc;
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:10px 12px;
+    }
+    #mailx .search:focus-within{ box-shadow:0 0 0 3px var(--ring); }
+    #mailx .search input{ all:unset; width:100%; color:var(--ink); font-weight:600; }
+
+    #mailx .filters{
+      display:flex; gap:8px;
+      padding:10px 12px;
+      border-bottom:1px dashed var(--line);
+      flex-wrap:wrap;
+      background:#fff;
+    }
+    #mailx .chip{
+      display:inline-flex; align-items:center; gap:6px;
+      padding:8px 12px;
+      border:1px solid var(--line);
+      border-radius:999px;
+      background:var(--chip);
+      font-size:.86rem;
+      font-weight:900;
+      cursor:pointer;
+      transition:transform .15s var(--ease), background .15s var(--ease), border-color .15s var(--ease);
+      user-select:none;
+    }
+    #mailx .chip:hover{ transform:translateY(-1px); }
+    #mailx .chip.active{
+      background:linear-gradient(180deg,var(--brand),var(--brand2));
+      border-color:transparent;
+      color:var(--brand-ink);
+    }
+
+    #mailx .groups{ overflow:auto; max-height:calc(100vh - 240px); background:#fff; }
+    #mailx .group-title{
+      position:sticky; top:0;
+      background:#fff;
+      z-index:2;
+      padding:9px 12px;
+      font-size:.86rem;
+      color:var(--muted);
+      border-bottom:1px solid var(--line);
+      font-weight:800;
+    }
+
+    #mailx .row{
+      position:relative;
+      display:grid;
+      grid-template-columns:36px 1fr auto;
+      gap:12px;
+      padding:14px 12px;
+      border-bottom:1px solid var(--line2);
+      cursor:pointer;
+      transition:background .15s var(--ease);
+      background:#fff;
+    }
+    #mailx .row:hover{ background:var(--hover); }
+
+    #mailx .row.is-selected{
+      background:linear-gradient(90deg,#eef5ff, #ffffff 60%);
+    }
+    #mailx .row.is-selected::before{
+      content:"";
+      position:absolute; left:0; top:0; bottom:0;
+      width:3px;
+      background:linear-gradient(180deg,var(--brand),var(--brand2));
+    }
+
+    #mailx .row:not(.read) .from::after{
+      content:"";
+      display:inline-block;
+      width:7px; height:7px;
+      border-radius:99px;
+      margin-left:8px;
+      background:var(--brand2);
+      vertical-align:middle;
+    }
+
+    #mailx .from{ font-weight:900; letter-spacing:.1px; }
+    #mailx .subject{ font-weight:900; margin-top:2px; }
+    #mailx .snippet{ color:var(--muted); margin-top:4px; font-size:.92rem; line-height:1.25; }
+    #mailx .meta{ display:flex; align-items:center; gap:10px; color:var(--muted); font-size:.86rem; font-weight:700; }
+    #mailx .star button{ all:unset; cursor:pointer; display:grid; place-items:center; width:30px; height:30px; border-radius:12px; }
+    #mailx .star button:hover{ background:#fff; box-shadow:0 6px 16px rgba(2,8,23,.08); border:1px solid var(--line); }
+
+    /* Acciones rápidas (desktop hover) */
+    #mailx .quick{
+      position:absolute; right:8px; top:50%;
+      transform:translateY(-50%);
+      display:flex; gap:6px;
+      opacity:0; pointer-events:none;
+      transition:.15s var(--ease);
+    }
     #mailx .row:hover .quick{ opacity:1; pointer-events:auto; }
-    #mailx .qbtn{ all:unset; cursor:pointer; display:grid; place-items:center; width:30px;height:30px; border:1px solid var(--line); border-radius:10px; background:#fff }
+    #mailx .qbtn{
+      all:unset; cursor:pointer;
+      display:grid; place-items:center;
+      width:34px; height:34px;
+      border:1px solid var(--line);
+      border-radius:12px;
+      background:#fff;
+      transition:transform .15s var(--ease), box-shadow .15s var(--ease);
+    }
+    #mailx .qbtn:hover{ transform:translateY(-1px); box-shadow:0 10px 18px rgba(2,8,23,.10); }
 
-    /* PREVIEW */
-    #mailx .preview{ display:grid; grid-template-rows:auto 1fr auto; min-height:60vh }
-    #mailx .preview .head{ padding:14px 16px; border-bottom:1px solid var(--line); background:linear-gradient(180deg,#fff,#f9fbff) }
-    #mailx .preview .subject{ font-size:1.28rem; font-weight:800; line-height:1.18 }
-    #mailx .preview .meta{ margin-top:6px; color:var(--muted); display:flex; gap:12px; flex-wrap:wrap }
-    #mailx .preview .actions{ margin-top:10px; display:flex; gap:10px; flex-wrap:wrap }
-    #mailx .preview .body{ padding:16px; min-height:52vh; overflow:auto }
-    #mailx .attachments{ padding:12px 16px; border-top:1px dashed var(--line); background:#fbfdff }
-    #mailx .attachment{ display:flex; align-items:center; gap:10px; padding:8px 0 }
-    #mailx .empty{ display:flex; align-items:center; justify-content:center; height:calc(100vh - 240px); color:var(--muted); font-weight:700 }
+    /* ====================== Preview ====================== */
+    #mailx .preview{ display:grid; grid-template-rows:auto 1fr auto; min-height:60vh; background:#fff; }
+    #mailx .preview .head{
+      padding:14px 16px;
+      border-bottom:1px solid var(--line);
+      background:linear-gradient(180deg,#fff,#f9fbff);
+    }
+    #mailx .preview .subject{ font-size:1.22rem; font-weight:1000; line-height:1.18; }
+    #mailx .preview .meta{
+      margin-top:8px;
+      color:var(--muted);
+      display:flex; gap:12px; flex-wrap:wrap;
+      font-weight:700;
+    }
+    #mailx .preview .actions{ margin-top:12px; display:flex; gap:10px; flex-wrap:wrap; }
+    #mailx .preview .body{ padding:16px; min-height:52vh; overflow:auto; }
+    #mailx .attachments{
+      padding:12px 16px;
+      border-top:1px dashed var(--line);
+      background:#fbfdff;
+    }
+    #mailx .attachment{ display:flex; align-items:center; gap:10px; padding:8px 0; font-weight:700; }
+    #mailx .attachment a{ color:#1f4fd8; text-decoration:none; }
+    #mailx .attachment a:hover{ text-decoration:underline; }
+
+    #mailx .empty{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      height:calc(100vh - 240px);
+      color:var(--muted);
+      font-weight:900;
+    }
 
     /* Skeleton */
-    #mailx .skeleton{ animation:mxpulse 1.2s ease-in-out infinite; background:linear-gradient(90deg,#f1f5ff 25%,#e9effc 37%,#f1f5ff 63%); background-size:400% 100% }
+    #mailx .skeleton{
+      animation:mxpulse 1.2s ease-in-out infinite;
+      background:linear-gradient(90deg,#f1f5ff 25%,#e9effc 37%,#f1f5ff 63%);
+      background-size:400% 100%;
+      border-radius:10px;
+    }
     @keyframes mxpulse{ 0%{background-position:100% 0} 100%{background-position:-100% 0} }
-    #mailx .loading{ padding:18px } .bar{ height:14px; border-radius:8px; margin:10px 0 }
+    #mailx .loading{ padding:18px } .bar{ height:14px; border-radius:10px; margin:10px 0 }
 
-    /* Mobile */
+    /* ====================== Mobile UX: Nav drawer + Preview sheet ====================== */
+    #mailx .overlay{
+      display:none;
+      position:fixed; inset:0;
+      background:rgba(2,8,23,.35);
+      z-index:80;
+    }
+
     @media (max-width:1280px){
-      #mailx .wrap{ grid-template-columns: 84px 1fr; }
-      #mailx .preview{
-        position:fixed; inset:64px 0 0 0; z-index:50; background:#fff; border-radius:18px 18px 0 0;
-        transform:translateY(100%); transition:transform .25s ease; box-shadow:0 -18px 48px rgba(2,8,23,.18)
+      #mailx .wrap{ grid-template-columns: 1fr; }
+
+      /* Nav drawer */
+      #mailx .nav{
+        position:fixed;
+        inset:64px auto 0 0;
+        width:320px;
+        max-width:86vw;
+        z-index:90;
+        transform:translateX(-105%);
+        transition:transform .22s var(--ease);
+        box-shadow:var(--shadow2);
+        border-radius:0 18px 18px 0;
+        height:calc(100vh - 64px);
       }
-      #mailx .preview.is-open{ transform:translateY(0) }
+      #mailx.nav-open .nav{ transform:translateX(0); }
+      #mailx.nav-open .overlay{ display:block; }
+
+      /* Preview sheet */
+      #mailx .preview{
+        position:fixed;
+        inset:64px 0 0 0;
+        z-index:70;
+        border-radius:18px 18px 0 0;
+        transform:translateY(100%);
+        transition:transform .25s var(--ease);
+        box-shadow:0 -18px 48px rgba(2,8,23,.18);
+      }
+      #mailx .preview.is-open{ transform:translateY(0); }
+
+      /* Quick actions visible better on touch */
+      #mailx .quick{ opacity:1; pointer-events:auto; position:static; transform:none; margin-left:auto; }
+      #mailx .row{ grid-template-columns:36px 1fr; }
+      #mailx .meta{ display:none; }
     }
   </style>
 
@@ -151,9 +408,9 @@
       try{
         if($dateVal){
           $dt=\Carbon\Carbon::parse($dateVal)->locale('es');
-          $dateTxt  = $dt->isoFormat('DD MMM HH:mm');                 // visible
-          $dateIso  = $dt->toIso8601String();                         // machine
-          $dateFull = $dt->translatedFormat('d \\de M Y, H:i:s');     // tooltip
+          $dateTxt  = $dt->isoFormat('DD MMM HH:mm');
+          $dateIso  = $dt->toIso8601String();
+          $dateFull = $dt->translatedFormat('d \\de M Y, H:i:s');
           $dateTs   = $dt->timestamp;
         }
       }catch(\Throwable $e){}
@@ -192,23 +449,18 @@
     ];
   @endphp
 
+  <div class="overlay" id="mx-overlay"></div>
+
   <div class="wrap" data-folder="{{ $folderName }}">
-    {{-- NAV --}}
-    <aside class="panel nav" id="mx-nav">
-      <div class="brand">
-        <button class="menu" id="mx-toggle-nav" title="Ocultar/mostrar">
-          <span class="material-symbols-outlined">menu</span>
-        </button>
-        <div class="brand-title">Correo</div>
-      </div>
+    {{-- NAV (sin header “Correo”, solo lo útil) --}}
+    <aside class="panel nav" id="mx-nav" aria-label="Carpetas">
       <div class="compose">
         <a class="btn primary" href="{{ route('mail.compose') }}">
-          <span class="material-symbols-outlined">edit</span><span class="txt">Redactar</span>
-        </a>
-        <a class="btn" href="#" id="mx-refresh" title="Forzar sincronización">
-          <span class="material-symbols-outlined">refresh</span>
+          <span class="material-symbols-outlined">edit</span>
+          <span class="txt">Redactar</span>
         </a>
       </div>
+
       <div class="folders" id="mx-folders">
         @foreach($FOLDERS as $f)
           @php $isActive = $folderName === $f['key']; @endphp
@@ -218,17 +470,24 @@
               <span class="text">{{ $f['text'] }}</span>
             </div>
             @php $c = $countOf($f['key']); @endphp
-            @if($c>0)<span class="badge" data-count="{{ $f['key'] }}">{{ $c }}</span>@else <span class="badge" data-count="{{ $f['key'] }}" style="display:none">0</span>@endif
+            @if($c>0)
+              <span class="badge" data-count="{{ $f['key'] }}">{{ $c }}</span>
+            @else
+              <span class="badge" data-count="{{ $f['key'] }}" style="display:none">0</span>
+            @endif
           </a>
         @endforeach
       </div>
-      <div class="meta-nav">⭐ Marca con prioritario para enviarlo a “Prioritarios”.</div>
     </aside>
 
     {{-- LISTA --}}
     <section class="panel list" id="mx-list">
       <div class="top">
-        <div class="title" style="font-weight:800;display:flex;align-items:center;gap:8px">
+        <button class="iconbtn" id="mx-toggle-nav" title="Carpetas">
+          <span class="material-symbols-outlined">menu</span>
+        </button>
+
+        <div class="title">
           <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1,'wght' 700">mail</span>
           <span id="mx-folder-title">
             @if($folderName==='PRIORITY') Prioritarios
@@ -243,10 +502,15 @@
             @endif
           </span>
         </div>
-        <label class="search" role="search">
+
+        <label class="search" role="search" aria-label="Buscar correo">
           <span class="material-symbols-outlined">search</span>
           <input id="mx-search" type="text" placeholder="Buscar remitente, asunto o contenido…"/>
         </label>
+
+        <button class="iconbtn" id="mx-refresh" title="Actualizar">
+          <span class="material-symbols-outlined">refresh</span>
+        </button>
       </div>
 
       <div class="filters">
@@ -275,22 +539,27 @@
                       <span class="material-symbols-outlined" style="color:{{ $r['flagged'] ? '#f59e0b':'#9aa3af' }}">{{ $r['flagged'] ? 'star' : 'star_rate' }}</span>
                     </button>
                   </div>
+
                   <div>
                     <div class="from">{{ $r['from'] }}</div>
                     <div class="subject">{{ $r['subject'] }}</div>
                     <div class="snippet">
                       @if($r['hasAtt'])
-                        <span class="chip" style="padding:3px 8px"><span class="material-symbols-outlined" style="font-size:16px">attach_file</span>Adjuntos</span>
+                        <span class="chip" style="padding:3px 8px">
+                          <span class="material-symbols-outlined" style="font-size:16px">attach_file</span>Adjuntos
+                        </span>
                       @endif
                       {{ $r['snippet'] }}
                     </div>
                   </div>
+
                   <div class="meta">
                     <time datetime="{{ $r['dateIso'] }}" title="{{ $r['kind'] }}: {{ $r['dateFull'] }}">{{ $r['dateTxt'] }}</time>
                     <button class="mx-read" title="Marcar leído" style="all:unset; cursor:pointer">
                       <span class="material-symbols-outlined">done_all</span>
                     </button>
                   </div>
+
                   <div class="quick">
                     <button class="qbtn mx-archive" title="Archivar"><span class="material-symbols-outlined">archive</span></button>
                     <button class="qbtn mx-delete"  title="Eliminar"><span class="material-symbols-outlined">delete</span></button>
@@ -335,10 +604,10 @@
     const bodyEl   = pane.querySelector('#mx-body');
     const attsEl   = pane.querySelector('#mx-atts');
     const formRead = pane.querySelector('#mx-form-read');
-    const btnReply = pane.querySelector('#mx-reply');
-    const btnFwd   = pane.querySelector('#mx-forward');
     const btnForce = root.querySelector('#mx-refresh');
     const navBtn   = root.querySelector('#mx-toggle-nav');
+    const overlay  = root.querySelector('#mx-overlay');
+
     const folderBadges = root.querySelectorAll('[data-count]');
     const folderTitle  = root.querySelector('#mx-folder-title');
 
@@ -362,12 +631,20 @@
     let waitAbort = null;
     function abortWait(){ if(waitAbort){ waitAbort.abort(); waitAbort=null; } }
 
-    // Sidebar persistencia
-    try{ if(localStorage.getItem('mx_nav_collapsed')==='1') root.classList.add('nav-collapsed'); }catch(e){}
+    // Mobile nav drawer
+    function isMobile(){ return window.matchMedia('(max-width:1280px)').matches; }
+    function openNav(){ root.classList.add('nav-open'); }
+    function closeNav(){ root.classList.remove('nav-open'); }
     navBtn?.addEventListener('click', ()=>{
-      root.classList.toggle('nav-collapsed');
-      try{ localStorage.setItem('mx_nav_collapsed', root.classList.contains('nav-collapsed') ? '1':'0'); }catch(e){}
+      if (isMobile()){
+        root.classList.toggle('nav-open');
+      } else {
+        // En desktop el botón solo sirve como acceso rápido (no colapsamos ya que quitamos header)
+        // Si quieres colapsar en desktop, dime y te lo agrego como modo compacto.
+      }
     });
+    overlay?.addEventListener('click', closeNav);
+    document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeNav(); pane.classList.remove('is-open'); } });
 
     // UI filter helper
     function applyFilter(){
@@ -385,7 +662,6 @@
     chips.forEach(ch=> ch.addEventListener('click', ()=>{
       chips.forEach(c=>c.classList.remove('active')); ch.classList.add('active');
       filterKind = ch.dataset.filter; applyFilter();
-      // disparar recarga desde servidor para filtros que lo requieren
       triggerServerReload();
     }));
 
@@ -414,7 +690,10 @@
         <div class="bar skeleton" style="width:90%"></div>
         <div class="bar skeleton" style="width:75%"></div>
       </div>`;
-      subjectEl.textContent = 'Cargando…'; metaEl.style.display='none'; actionsEl.style.display='none'; attsEl.style.display='none';
+      subjectEl.textContent = 'Cargando…';
+      metaEl.style.display='none';
+      actionsEl.style.display='none';
+      attsEl.style.display='none';
     }
 
     async function openPreview(row){
@@ -422,20 +701,29 @@
       listWrap.querySelectorAll('.mx-item').forEach(it => it.classList.remove('is-selected'));
       row.classList.add('is-selected');
       setLoadingPreview();
-      if (window.matchMedia('(max-width:1280px)').matches) pane.classList.add('is-open');
+
+      if (isMobile()){
+        pane.classList.add('is-open');
+        closeNav();
+      }
 
       try{
         const res = await fetch(row.dataset.show, { headers:{'X-Requested-With':'XMLHttpRequest'} });
         const html = await res.text();
         const tmp = document.createElement('div'); tmp.innerHTML = html;
         const payload = tmp.querySelector('#mx-payload');
-        if(!payload){ subjectEl.textContent='(sin contenido)'; bodyEl.innerHTML='<div class="empty">No se pudo cargar el contenido.</div>'; return; }
+        if(!payload){
+          subjectEl.textContent='(sin contenido)';
+          bodyEl.innerHTML='<div class="empty">No se pudo cargar el contenido.</div>';
+          return;
+        }
 
         subjectEl.textContent = payload.dataset.subject || '(sin asunto)';
         const from = payload.dataset.from || '(desconocido)';
         const to   = payload.dataset.to   || '';
         const cc   = payload.dataset.cc   || '';
         const when = payload.dataset.when || '';
+
         metaEl.innerHTML = `
           <div><strong>De:</strong> ${esc(from)}</div>
           ${to ? `<div><strong>Para:</strong> ${esc(to)}</div>`:''}
@@ -451,29 +739,48 @@
         const textBody = payload.querySelector('[data-body-text]');
         bodyEl.innerHTML = '';
         if (htmlBody) bodyEl.appendChild(htmlBody.cloneNode(true));
-        else if (textBody){ const pre=document.createElement('pre'); pre.textContent=textBody.textContent||''; bodyEl.appendChild(pre); }
-        else bodyEl.innerHTML = '<div class="empty">Sin contenido</div>';
+        else if (textBody){
+          const pre=document.createElement('pre');
+          pre.style.whiteSpace='pre-wrap';
+          pre.style.fontFamily='inherit';
+          pre.textContent=textBody.textContent||'';
+          bodyEl.appendChild(pre);
+        } else {
+          bodyEl.innerHTML = '<div class="empty">Sin contenido</div>';
+        }
 
         const atts = payload.querySelectorAll('[data-att]');
         if (atts.length){
           const frag = document.createDocumentFragment();
-          const title = document.createElement('div'); title.style.fontWeight='800'; title.style.marginBottom='8px'; title.textContent = `Adjuntos (${atts.length})`;
+          const title = document.createElement('div');
+          title.style.fontWeight='900';
+          title.style.marginBottom='8px';
+          title.textContent = `Adjuntos (${atts.length})`;
           frag.appendChild(title);
+
           atts.forEach(a=>{
             const r = document.createElement('div');
             r.className = 'attachment';
-            r.innerHTML = `<span class="material-symbols-outlined">attachment</span><a href="${a.dataset.href}">${esc(a.dataset.name||'archivo')}</a><span style="color:var(--muted);font-size:.86rem">· ${esc(a.dataset.mime||'')}</span>`;
+            r.innerHTML = `<span class="material-symbols-outlined">attachment</span>
+              <a href="${a.dataset.href}">${esc(a.dataset.name||'archivo')}</a>
+              <span style="color:var(--muted);font-size:.86rem">· ${esc(a.dataset.mime||'')}</span>`;
             frag.appendChild(r);
           });
-          attsEl.innerHTML=''; attsEl.appendChild(frag); attsEl.style.display='block';
+          attsEl.innerHTML='';
+          attsEl.appendChild(frag);
+          attsEl.style.display='block';
         } else attsEl.style.display='none';
 
         await post(row.dataset.read);
         row.classList.add('read');
-      }catch(err){ console.error(err); subjectEl.textContent='Error'; bodyEl.innerHTML='<div class="empty">No se pudo cargar el mensaje.</div>'; }
+      }catch(err){
+        console.error(err);
+        subjectEl.textContent='Error';
+        bodyEl.innerHTML='<div class="empty">No se pudo cargar el mensaje.</div>';
+      }
     }
 
-    // Delegado de clicks en lista
+    // Delegado clicks en lista
     listWrap.addEventListener('click', async (e)=>{
       const row = e.target.closest('.mx-item');
       if (!row) return;
@@ -542,23 +849,35 @@
         }
         groups[key].push(r);
       });
+
       listWrap.innerHTML='';
       Object.keys(groups).forEach(title=>{
         const arr = groups[title];
         if (!arr.length) return;
+
         const g = document.createElement('div');
         g.className='group'; g.setAttribute('data-group', title);
         g.innerHTML = `<div class="group-title">${title}</div>`;
+
         arr.forEach(r=>{
-          // Para items que vienen del API (no traen dateIso/kind), fabricamos tooltip simple
           const kind = (folder==='SENT') ? 'Enviado' : 'Recibido';
           const tooltip = `${kind}: ${r.dateTxt||''}`;
           const art = document.createElement('article');
           art.className = 'row mx-item ' + (r.seen ? 'read':'');
-          art.dataset.uid=r.uid; art.dataset.priority=r.priority?'1':'0'; art.dataset.hasatt=r.hasAtt?'1':'0';
-          art.dataset.flag=r.flagUrl; art.dataset.read=r.readUrl; art.dataset.show=r.showUrl;
+
+          art.dataset.uid=r.uid;
+          art.dataset.priority=r.priority?'1':'0';
+          art.dataset.hasatt=r.hasAtt?'1':'0';
+          art.dataset.flag=r.flagUrl;
+          art.dataset.read=r.readUrl;
+          art.dataset.show=r.showUrl;
+
           art.innerHTML = `
-            <div class="star"><button class="mx-flag" aria-label="Prioritario"><span class="material-symbols-outlined" style="color:${r.flagged ? '#f59e0b':'#9aa3af'}">${r.flagged ? 'star' : 'star_rate'}</span></button></div>
+            <div class="star">
+              <button class="mx-flag" aria-label="Prioritario">
+                <span class="material-symbols-outlined" style="color:${r.flagged ? '#f59e0b':'#9aa3af'}">${r.flagged ? 'star' : 'star_rate'}</span>
+              </button>
+            </div>
             <div>
               <div class="from">${esc(r.from)}</div>
               <div class="subject">${esc(r.subject)}</div>
@@ -569,19 +888,27 @@
             </div>
             <div class="meta">
               <time title="${esc(tooltip)}">${esc(r.dateTxt || '')}</time>
-              <button class="mx-read" title="Marcar leído" style="all:unset; cursor:pointer"><span class="material-symbols-outlined">done_all</span></button>
+              <button class="mx-read" title="Marcar leído" style="all:unset; cursor:pointer">
+                <span class="material-symbols-outlined">done_all</span>
+              </button>
             </div>
             <div class="quick">
               <button class="qbtn mx-archive" title="Archivar"><span class="material-symbols-outlined">archive</span></button>
               <button class="qbtn mx-delete"  title="Eliminar"><span class="material-symbols-outlined">delete</span></button>
-            </div>`;
+            </div>
+          `;
           g.appendChild(art);
         });
+
         listWrap.appendChild(g);
       });
+
       // recalcular maxUid
       maxUid = 0;
-      listWrap.querySelectorAll('.mx-item').forEach(it=>{ const v=parseInt(it.dataset.uid||'0',10); if(v>maxUid) maxUid=v; });
+      listWrap.querySelectorAll('.mx-item').forEach(it=>{
+        const v=parseInt(it.dataset.uid||'0',10);
+        if(v>maxUid) maxUid=v;
+      });
       applyFilter();
     }
 
@@ -594,14 +921,15 @@
       updateCounts();
     }
 
-    // Clic en carpetas: navegación instantánea
+    // Clic en carpetas: navegación instantánea + cierra drawer en móvil
     const foldersEl = root.querySelector('#mx-folders');
     foldersEl.addEventListener('click', async (e)=>{
       const a = e.target.closest('a.folder');
       if (!a) return;
       e.preventDefault();
+
       const key = a.dataset.key;
-      if (!key || key===folder) return;
+      if (!key || key===folder) { closeNav(); return; }
 
       root.querySelectorAll('.folder').forEach(f=>f.classList.remove('active'));
       a.classList.add('active');
@@ -609,22 +937,26 @@
       abortWait();
       folder = key;
       setFolderTitle(folder);
+
       bodyEl.innerHTML = '<div class="empty">Selecciona un correo de la lista</div>';
-      actionsEl.style.display='none'; metaEl.style.display='none'; attsEl.style.display='none';
+      actionsEl.style.display='none';
+      metaEl.style.display='none';
+      attsEl.style.display='none';
 
       await triggerServerReload();
 
       if (window.history && window.history.pushState) {
         window.history.pushState({}, '', `{{ route('mail.index') }}?folder=${encodeURIComponent(folder)}`);
       }
+
+      closeNav();
       startWaitLoop();
     });
 
-    // Búsqueda (server-side) con debounce (INBOX + q ⇒ búsqueda global en backend)
+    // Búsqueda server-side con debounce
     let searchDebounce=null;
     searchEl?.addEventListener('input', (e)=>{
-      const q = e.target.value || '';
-      currentQuery = q;
+      currentQuery = e.target.value || '';
       if (searchDebounce) clearTimeout(searchDebounce);
       searchDebounce = setTimeout(triggerServerReload, 250);
     });
@@ -670,34 +1002,54 @@
             if(!group){
               const g=document.createElement('div');
               g.className='group'; g.setAttribute('data-group','Hoy');
-              g.innerHTML='<div class="group-title">Hoy</div>'; listWrap.prepend(g); group=g;
+              g.innerHTML='<div class="group-title">Hoy</div>';
+              listWrap.prepend(g);
+              group=g;
             }
             const title = group.querySelector('.group-title');
             data.items.forEach(r=>{
               if (listWrap.querySelector(`.mx-item[data-uid="${r.uid}"]`)) return;
+
               const kind = (folder==='SENT') ? 'Enviado' : 'Recibido';
               const tooltip = `${kind}: ${r.dateTxt||''}`;
+
               const art = document.createElement('article');
               art.className='row mx-item '+(r.seen?'read':'');
-              art.dataset.uid=r.uid; art.dataset.priority=r.priority?'1':'0'; art.dataset.hasatt=r.hasAtt?'1':'0';
-              art.dataset.flag=r.flagUrl; art.dataset.read=r.readUrl; art.dataset.show=r.showUrl;
+              art.dataset.uid=r.uid;
+              art.dataset.priority=r.priority?'1':'0';
+              art.dataset.hasatt=r.hasAtt?'1':'0';
+              art.dataset.flag=r.flagUrl;
+              art.dataset.read=r.readUrl;
+              art.dataset.show=r.showUrl;
+
               art.innerHTML = `
-                <div class="star"><button class="mx-flag" aria-label="Prioritario"><span class="material-symbols-outlined" style="color:${r.flagged ? '#f59e0b':'#9aa3af'}">${r.flagged ? 'star' : 'star_rate'}</span></button></div>
+                <div class="star">
+                  <button class="mx-flag" aria-label="Prioritario">
+                    <span class="material-symbols-outlined" style="color:${r.flagged ? '#f59e0b':'#9aa3af'}">${r.flagged ? 'star' : 'star_rate'}</span>
+                  </button>
+                </div>
                 <div>
                   <div class="from">${esc(r.from)}</div>
                   <div class="subject">${esc(r.subject)}</div>
-                  <div class="snippet">${r.hasAtt?`<span class="chip" style="padding:3px 8px"><span class="material-symbols-outlined" style="font-size:16px">attach_file</span>Adjuntos</span>`:''} ${esc(r.snippet||'')}</div>
+                  <div class="snippet">
+                    ${r.hasAtt ? `<span class="chip" style="padding:3px 8px"><span class="material-symbols-outlined" style="font-size:16px">attach_file</span>Adjuntos</span>` : ''}
+                    ${esc(r.snippet||'')}
+                  </div>
                 </div>
                 <div class="meta">
                   <time title="${esc(tooltip)}">${esc(r.dateTxt||'')}</time>
-                  <button class="mx-read" title="Marcar leído" style="all:unset; cursor:pointer"><span class="material-symbols-outlined">done_all</span></button>
+                  <button class="mx-read" title="Marcar leído" style="all:unset; cursor:pointer">
+                    <span class="material-symbols-outlined">done_all</span>
+                  </button>
                 </div>
                 <div class="quick">
                   <button class="qbtn mx-archive" title="Archivar"><span class="material-symbols-outlined">archive</span></button>
                   <button class="qbtn mx-delete"  title="Eliminar"><span class="material-symbols-outlined">delete</span></button>
-                </div>`;
+                </div>
+              `;
               title.after(art);
             });
+
             maxUid = Math.max(maxUid||0, data.max_uid||0);
             applyFilter();
           }
@@ -716,10 +1068,13 @@
     }
 
     // Estado inicial
-    listWrap.querySelectorAll('.mx-item').forEach(it=>{ const v=parseInt(it.dataset.uid||'0',10); if(v>maxUid) maxUid=v; });
-    const first = listWrap.querySelector('.mx-item'); if (first) first.click();
+    listWrap.querySelectorAll('.mx-item').forEach(it=>{
+      const v=parseInt(it.dataset.uid||'0',10);
+      if(v>maxUid) maxUid=v;
+    });
+    const first = listWrap.querySelector('.mx-item');
+    if (first) first.click();
     startWaitLoop();
-    document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') pane.classList.remove('is-open'); });
 
     // Historial
     window.addEventListener('popstate', async ()=>{
