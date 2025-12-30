@@ -127,7 +127,7 @@
 
     <div class="wms-scan">
       <div class="wms-scan-cam">
-        <video id="video" playsinline webkit-playsinline muted></video>
+        <video id="video" playsinline webkit-playsinline muted autoplay></video>
         <div class="wms-scan-overlay" aria-hidden="true">
           <div class="wms-scan-frame"></div>
           <div class="wms-scan-hint">Centra el código dentro del cuadro</div>
@@ -159,15 +159,12 @@
 
         <div class="wms-mini">
           <div class="wms-mini-tt">Estado / lectura</div>
-          <div class="wms-pill wms-pill-block" id="lastScan">Listo</div>
-
+          <div class="wms-pill wms-pill-block" id="lastScan">Listo para escanear</div>
           <div class="wms-mini-row">
             <button class="wms-btn wms-btn-primary" type="button" id="btnUseScan">Usar</button>
-            <button class="wms-btn wms-btn-ghost" type="button" id="btnOpenLink" style="display:none;">Abrir enlace</button>
             <button class="wms-btn wms-btn-ghost" type="button" id="btnStopScan">Detener</button>
           </div>
-
-          <div class="wms-hint" id="scanTechHint">—</div>
+          <div class="wms-hint" id="scanTech">Tecnología: —</div>
         </div>
 
         <div class="wms-mini">
@@ -415,11 +412,10 @@
   const API_SEARCH    = @json(route('admin.wms.search.products'));
   const API_LOC_SCAN  = @json(route('admin.wms.locations.scan'));
   const API_ITEM_SCAN = @json(route('admin.wms.products.scan'));
-  const ZXING_LOCAL   = @json(asset('vendor/zxing/index.min.js')); // ✅ tu archivo local
   const LS_FROM       = 'wms_from_code';
 
   // ----------------------------
-  // UX
+  // Helpers UX
   // ----------------------------
   function beep(ok=true){
     try{
@@ -431,7 +427,7 @@
       o.frequency.value = ok ? 880 : 220;
       g.gain.value = 0.06;
       o.start();
-      setTimeout(()=>{o.stop();ctx.close();}, ok ? 70 : 140);
+      setTimeout(()=>{o.stop();ctx.close();}, ok ? 80 : 140);
     }catch(e){}
   }
   function vibrate(ms=40){ try{ if(navigator.vibrate) navigator.vibrate(ms);}catch(e){} }
@@ -442,13 +438,13 @@
     m.setAttribute('aria-hidden', open ? 'false' : 'true');
   }
 
-  // cerrar modales
+  // Cerrar modales (backdrop o botones con data-close)
   document.addEventListener('click', (e)=>{
     const close = e.target?.getAttribute?.('data-close');
     if(close){
       setModal('navModal', false);
       setModal('scanModal', false);
-      stopScannerAll();
+      stopCamera();
     }
   });
 
@@ -457,10 +453,6 @@
     return String(str)
       .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
       .replace(/"/g,"&quot;").replace(/'/g,"&#039;");
-  }
-
-  function isUrl(s){
-    try{ return !!new URL(s); }catch(e){ return false; }
   }
 
   function qtyBadge(total){
@@ -490,17 +482,19 @@
   }
 
   // ----------------------------
-  // Scan parsing Location
+  // Helpers para parsear RAW de ubicación
   // ----------------------------
   function extractLocationToken(raw){
     const v = String(raw || '').trim();
     if(!v) return {type:'empty', value:''};
 
+    // Código con guiones
     const mCode = v.match(/([A-Z0-9]+(?:-[A-Z0-9]+){3,10})/i);
-    if(mCode) return {type:'code', value: mCode[1].toUpperCase()};
+    if(mCode) return {type:'code', value:mCode[1].toUpperCase()};
 
-    const mId = v.match(/\/locations\/(\d+)/i);
-    if(mId) return {type:'id', value: mId[1]};
+    // URL /locations/{id} o /locations/{id}/page
+    const mId = v.match(/\/locations\/(\d+)(?:\/page)?/i);
+    if(mId) return {type:'id', value:mId[1]};
 
     return {type:'raw', value:v};
   }
@@ -523,6 +517,9 @@
     return {ok:true, code:data.location?.code || ''};
   }
 
+  // ----------------------------
+  // Resolver producto desde lectura RAW
+  // ----------------------------
   async function resolveProductFromRaw(raw){
     const v = String(raw || '').trim();
     if(!v) return {ok:false, error:'Lectura vacía.'};
@@ -542,7 +539,7 @@
   }
 
   // ----------------------------
-  // Search UI
+  // Search
   // ----------------------------
   const qInp       = document.getElementById('q');
   const btnSearch  = document.getElementById('btnSearch');
@@ -626,12 +623,16 @@
 
       resultsEl.querySelectorAll('button[data-nav]').forEach(btn=>{
         btn.addEventListener('click', ()=>{
-          try{ openNav(JSON.parse(btn.getAttribute('data-nav'))); }catch(e){}
+          try{
+            const nav = JSON.parse(btn.getAttribute('data-nav'));
+            openNav(nav);
+          }catch(e){}
         });
       });
 
       beep(true); vibrate(30);
     }catch(e){
+      console.error(e);
       resultsEl.innerHTML = `<div class="wms-hint">Error de conexión.</div>`;
       beep(false); vibrate(80);
     }finally{
@@ -648,8 +649,11 @@
   let currentNav = null;
   function openNav(nav){
     currentNav = nav;
-    document.getElementById('navSubtitle').textContent = `${nav.from?.code || '—'} → ${nav.to?.code || '—'}`;
-    document.getElementById('navSteps').innerHTML = (nav.steps||[]).map((s,i)=>`
+    const sub = document.getElementById('navSubtitle');
+    const steps = document.getElementById('navSteps');
+
+    sub.textContent = `${nav.from?.code || '—'} → ${nav.to?.code || '—'}`;
+    steps.innerHTML = (nav.steps||[]).map((s,i)=>`
       <div class="wms-step">
         <div class="wms-dot">${i+1}</div>
         <div>
@@ -658,6 +662,7 @@
         </div>
       </div>
     `).join('');
+
     setModal('navModal', true);
   }
 
@@ -691,29 +696,26 @@
   });
 
   // ----------------------------
-  // Scanner (Native + ZXing LOCAL)
+  // Scanner
   // ----------------------------
   const btnOpenScanner = document.getElementById('btnOpenScanner');
   const video = document.getElementById('video');
   const lastScan = document.getElementById('lastScan');
   const btnUseScan = document.getElementById('btnUseScan');
   const btnStopScan = document.getElementById('btnStopScan');
-  const btnOpenLink = document.getElementById('btnOpenLink');
-  const scanTechHint = document.getElementById('scanTechHint');
+  const scanTech = document.getElementById('scanTech');
 
-  let scanMode = 'loc';
+  let scanMode = 'loc'; // loc|item
   let stream = null;
   let scanning = false;
   let lastValue = '';
   let autoApplied = false;
 
-  // ZXing
+  let zxingControls = null; // para detener decodeFromVideoDevice
   let zxingReader = null;
-  let usingZXing = false;
 
   function setScanMode(m){
     scanMode = m;
-    autoApplied = false;
 
     const bLoc = document.getElementById('scanModeLoc');
     const bIt  = document.getElementById('scanModeItem');
@@ -730,26 +732,31 @@
   function setScanStatus(msg, ok=true){
     lastScan.textContent = msg;
     lastScan.classList.toggle('wms-pill-soft', !ok);
-    btnOpenLink.style.display = (isUrl(msg) ? 'inline-flex' : 'none');
   }
 
   function isSecureContextOk(){
     return window.isSecureContext || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
   }
 
-  async function ensureZXingLoaded(){
-    if (window.ZXingBrowser || window.ZXing) return true;
-
-    await new Promise((res, rej)=>{
-      const s = document.createElement('script');
-      s.src = ZXING_LOCAL + '?v=' + Date.now();
-      s.async = true;
-      s.onload = res;
-      s.onerror = rej;
-      document.head.appendChild(s);
+  function loadScriptTry(srcs){
+    return new Promise(async (resolve, reject)=>{
+      for(const src of srcs){
+        try{
+          await new Promise((res, rej)=>{
+            const s = document.createElement('script');
+            s.src = src;
+            s.async = true;
+            s.onload = res;
+            s.onerror = rej;
+            document.head.appendChild(s);
+          });
+          return resolve(true);
+        }catch(e){
+          console.warn('No se pudo cargar', src, e);
+        }
+      }
+      reject(new Error('No se pudo cargar ZXing'));
     });
-
-    return !!(window.ZXingBrowser || window.ZXing);
   }
 
   async function startCamera(){
@@ -778,63 +785,50 @@
       new Promise(res => setTimeout(res, 900))
     ]);
 
-    try{ await video.play(); }catch(e){ /* iOS puede bloquear, pero el stream ya está */ }
+    try{ await video.play(); }catch(e){}
+
+    setScanStatus('Escaneando…', true);
   }
 
-  function stopScannerAll(){
+  function stopCamera(){
     scanning = false;
 
-    try{
-      if(usingZXing && zxingReader){
-        zxingReader.reset?.();
-      }
-    }catch(e){}
-
-    usingZXing = false;
+    if(zxingControls && typeof zxingControls.stop === 'function'){
+      try{ zxingControls.stop(); }catch(e){}
+    }
+    zxingControls = null;
     zxingReader = null;
 
     if(stream){
-      try{ stream.getTracks().forEach(t=>t.stop()); }catch(e){}
+      stream.getTracks().forEach(t=>t.stop());
       stream = null;
     }
-    try{ video.srcObject = null; }catch(e){}
+    video.srcObject = null;
   }
 
   async function applyDecodedNow(raw){
     if(autoApplied) return;
     autoApplied = true;
 
-    // Si es URL y el usuario quiere abrirlo, lo mostramos (también auto-abrible con botón)
-    if(isUrl(raw)) btnOpenLink.style.display = 'inline-flex';
-
     if(scanMode === 'loc'){
       const v = await validateLocationAny(raw);
       if(!v.ok){
         autoApplied = false;
-        // Si venía URL y no era ubicación, no lo mates: deja al usuario abrirlo
-        if(isUrl(raw)){
-          setScanStatus(raw, true);
-          return;
-        }
         beep(false); vibrate(80);
         alert(v.error || 'Ubicación inválida');
         return;
       }
       saveFrom(v.code);
       setModal('scanModal', false);
-      stopScannerAll();
+      stopCamera();
       beep(true); vibrate(30);
       return;
     }
 
-    // Producto
+    // modo producto
     const prod = await resolveProductFromRaw(raw);
     if(!prod.ok){
       autoApplied = false;
-      if(isUrl(raw)){
-        setScanStatus(raw, true);
-        return;
-      }
       beep(false); vibrate(80);
       alert(prod.error || 'Producto no encontrado.');
       return;
@@ -842,7 +836,7 @@
 
     qInp.value = prod.token;
     setModal('scanModal', false);
-    stopScannerAll();
+    stopCamera();
     beep(true); vibrate(30);
     runSearch();
   }
@@ -852,11 +846,11 @@
     if(!val) return;
     if(val === lastValue) return;
 
+    console.log('Código detectado:', val);
     lastValue = val;
     setScanStatus(val, true);
-    beep(true); vibrate(20);
+    beep(true); vibrate(25);
 
-    // ✅ auto-aplicar
     applyDecodedNow(val);
   }
 
@@ -865,64 +859,91 @@
 
     let detector = null;
     try{
-      detector = new BarcodeDetector({formats:[
-        'qr_code','ean_13','ean_8','code_128','upc_a','upc_e','code_39','itf','pdf417','data_matrix'
-      ]});
+      detector = new BarcodeDetector({formats:['qr_code','ean_13','ean_8','code_128','upc_a','upc_e','code_39','itf','pdf417','data_matrix']});
     }catch(e){
       try{ detector = new BarcodeDetector(); }
       catch(_e){ return false; }
     }
 
-    scanning = true;
-    scanTechHint.textContent = 'Tecnología: detector nativo';
+    console.log('Usando BarcodeDetector nativo');
+    scanTech.textContent = 'Tecnología: BarcodeDetector';
 
+    scanning = true;
     while(scanning){
       try{
         const codes = await detector.detect(video);
-        if(codes && codes.length) onDecoded(codes[0]?.rawValue || '');
+        if(codes && codes.length){
+          onDecoded(codes[0]?.rawValue || '');
+        }
       }catch(e){
+        console.warn('Error BarcodeDetector:', e);
         return false;
       }
-      await new Promise(r=>setTimeout(r, 110));
+      await new Promise(r=>setTimeout(r, 120));
     }
     return true;
   }
 
-  async function startZXing(){
-    const ok = await ensureZXingLoaded();
-    if(!ok) return false;
-
-    const mod = window.ZXingBrowser || window.ZXing;
-    const Reader = mod?.BrowserMultiFormatReader;
-    if(!Reader) return false;
-
-    usingZXing = true;
-    scanning = true;
-    scanTechHint.textContent = 'Tecnología: ZXing local';
-
-    zxingReader = new Reader();
-
-    // Si existe el método continuo, úsalo
-    if (zxingReader.decodeFromVideoElementContinuously) {
-      zxingReader.decodeFromVideoElementContinuously(video, (result, err) => {
-        if(!scanning) return;
-        if(result?.getText) onDecoded(result.getText());
-      });
-      return true;
-    }
-
-    // Fallback loop (por si la lib trae otra firma)
-    (async ()=>{
-      while(scanning){
-        try{
-          const res = await zxingReader.decodeFromVideoElement(video);
-          if(res?.getText) onDecoded(res.getText());
-        }catch(e){}
-        await new Promise(r=>setTimeout(r, 140));
+  async function startZXingFallback(){
+    try{
+      if(!window.ZXingBrowser && !window.ZXing){
+        // 1) local
+        const localSrc = @json(asset('vendor/zxing/index.min.js'));
+        await loadScriptTry([
+          localSrc,
+          'https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/umd/index.min.js',
+          'https://unpkg.com/@zxing/browser@0.1.5/umd/index.min.js'
+        ]);
       }
-    })();
 
-    return true;
+      const ns = window.ZXingBrowser || window.ZXing;
+      if(!ns){
+        console.warn('ZXing no disponible en window');
+        return false;
+      }
+
+      const Reader = ns.BrowserMultiFormatReader || ns.BrowserQRCodeReader;
+      if(!Reader){
+        console.warn('BrowserMultiFormatReader no disponible');
+        return false;
+      }
+
+      zxingReader = new Reader();
+      scanning = true;
+
+      console.log('Usando ZXing', ns === window.ZXingBrowser ? 'ZXingBrowser' : 'ZXing');
+      scanTech.textContent = 'Tecnología: ZXing';
+
+      if(typeof zxingReader.decodeFromVideoDevice === 'function'){
+        // Versión oficial: deviceId=null, videoElementId-string
+        zxingControls = await zxingReader.decodeFromVideoDevice(
+          null,
+          'video',
+          (result, err) => {
+            if(!scanning) return;
+            if(result && result.getText){
+              onDecoded(result.getText());
+            }
+            // err suele ser NotFoundException cuando no hay código; no pasa nada
+          }
+        );
+      }else if(typeof zxingReader.decodeFromVideoElementContinuously === 'function'){
+        zxingReader.decodeFromVideoElementContinuously(video, (result, err) => {
+          if(!scanning) return;
+          if(result && result.getText){
+            onDecoded(result.getText());
+          }
+        });
+      }else{
+        console.warn('Método de ZXing no encontrado');
+        return false;
+      }
+
+      return true;
+    }catch(e){
+      console.error('Error ZXing:', e);
+      return false;
+    }
   }
 
   async function startScanner(){
@@ -930,54 +951,47 @@
     setScanMode('loc');
     lastValue = '';
     autoApplied = false;
-    btnOpenLink.style.display = 'none';
-
+    scanTech.textContent = 'Tecnología: detectando…';
     setScanStatus('Solicitando cámara…', true);
-    scanTechHint.textContent = '—';
 
     try{
       await startCamera();
     }catch(e){
-      setScanStatus('No se pudo abrir la cámara. Revisa permisos del navegador.', false);
+      console.warn('Camera error:', e);
       return;
     }
 
-    setScanStatus('Escaneando…', true);
-
-    // 1) Intentar nativo si existe
+    // 1) Intentar BarcodeDetector
     const okNative = await loopScanBarcodeDetector();
     if(okNative) return;
 
-    // 2) ZXing LOCAL (siempre)
-    const okZX = await startZXing();
-    if(okZX) return;
+    // 2) Fallback ZXing
+    const okZX = await startZXingFallback();
+    if(okZX){
+      setScanStatus('Escaneando…', true);
+      return;
+    }
 
-    setScanStatus('No se pudo iniciar el lector. Revisa que exista vendor/zxing/index.min.js', false);
+    scanTech.textContent = 'Tecnología: ninguna disponible';
+    setScanStatus('No se pudo cargar el lector. Copia/pega el valor.', false);
   }
 
   btnOpenScanner.addEventListener('click', startScanner);
 
   btnStopScan.addEventListener('click', ()=>{
-    stopScannerAll();
+    stopCamera();
     setScanStatus('Detenido', false);
-    scanTechHint.textContent = '—';
     beep(true);
   });
 
   btnUseScan.addEventListener('click', async ()=>{
-    const val = (lastValue || '').trim();
-    if(!val){
+    const val = (lastValue || lastScan.textContent || '').trim();
+    if(!val || val === 'Listo para escanear' || val === 'Escaneando…' || val === 'Detenido' || val.startsWith('No se pudo')){
       beep(false); vibrate(80);
       return;
     }
     autoApplied = false;
     await applyDecodedNow(val);
-  });
-
-  btnOpenLink.addEventListener('click', ()=>{
-    const val = (lastValue || lastScan.textContent || '').trim();
-    if(!isUrl(val)) return;
-    window.open(val, '_blank', 'noopener');
   });
 
   // init
