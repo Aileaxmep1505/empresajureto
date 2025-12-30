@@ -404,569 +404,546 @@
 @endpush
 
 @push('scripts')
-<script>
-  // ----------------------------
-  // Config
-  // ----------------------------
-  const API_SEARCH    = @json(route('admin.wms.search.products'));
-  const API_LOC_SCAN  = @json(route('admin.wms.locations.scan'));   // -> locationScan() (acepta raw/id/code)
-  const API_ITEM_SCAN = @json(route('admin.wms.products.scan'));    // -> productScan()  (acepta raw/id/sku/gtin)
-  const LS_FROM       = 'wms_from_code';
+  {{-- ✅ ZXing LOCAL (no CDN, evita CSP) --}}
+  <script src="{{ asset('vendor/zxing/index.min.js') }}" defer></script>
 
-  // ----------------------------
-  // Helpers UX
-  // ----------------------------
-  function beep(ok=true){
-    try{
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const o = ctx.createOscillator();
-      const g = ctx.createGain();
-      o.connect(g); g.connect(ctx.destination);
-      o.type = 'sine';
-      o.frequency.value = ok ? 880 : 220;
-      g.gain.value = 0.06;
-      o.start();
-      setTimeout(()=>{o.stop();ctx.close();}, ok ? 80 : 140);
-    }catch(e){}
-  }
-  function vibrate(ms=40){ try{ if(navigator.vibrate) navigator.vibrate(ms);}catch(e){} }
+  <script>
+    // ----------------------------
+    // Config
+    // ----------------------------
+    const API_SEARCH    = @json(route('admin.wms.search.products'));
+    const API_LOC_SCAN  = @json(route('admin.wms.locations.scan'));   // -> locationScan() (acepta raw/id/code)
+    const API_ITEM_SCAN = @json(route('admin.wms.products.scan'));    // -> productScan()  (acepta raw/id/sku/gtin)
+    const LS_FROM       = 'wms_from_code';
 
-  function setModal(id, open){
-    const m = document.getElementById(id);
-    if(!m) return;
-    m.setAttribute('aria-hidden', open ? 'false' : 'true');
-  }
-
-  // Cerrar modales (backdrop o botones con data-close)
-  document.addEventListener('click', (e)=>{
-    const close = e.target?.getAttribute?.('data-close');
-    if(close){
-      setModal('navModal', false);
-      setModal('scanModal', false);
-      stopCamera();
+    // ----------------------------
+    // Helpers UX
+    // ----------------------------
+    function beep(ok=true){
+      try{
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.connect(g); g.connect(ctx.destination);
+        o.type = 'sine';
+        o.frequency.value = ok ? 880 : 220;
+        g.gain.value = 0.06;
+        o.start();
+        setTimeout(()=>{o.stop();ctx.close();}, ok ? 80 : 140);
+      }catch(e){}
     }
-  });
+    function vibrate(ms=40){ try{ if(navigator.vibrate) navigator.vibrate(ms);}catch(e){} }
 
-  function escapeHtml(str){
-    if(str === null || str === undefined) return '';
-    return String(str)
-      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
-      .replace(/"/g,"&quot;").replace(/'/g,"&#039;");
-  }
-
-  function qtyBadge(total){
-    total = Number(total||0);
-    if(total <= 0) return `<span class="wms-badge wms-badge-bad">Sin stock</span>`;
-    if(total <= 3) return `<span class="wms-badge wms-badge-warn">Bajo (${total})</span>`;
-    return `<span class="wms-badge wms-badge-ok">Stock (${total})</span>`;
-  }
-
-  // ----------------------------
-  // State: from_code (localStorage)
-  // ----------------------------
-  const chipFrom = document.getElementById('chipFrom');
-  const fromInp  = document.getElementById('from_code');
-
-  function loadFrom(){
-    const v = localStorage.getItem(LS_FROM) || '';
-    fromInp.value = v;
-    chipFrom.textContent = v ? v : 'No definida';
-    chipFrom.classList.toggle('wms-pill-soft', !v);
-  }
-  function saveFrom(v){
-    v = (v||'').trim();
-    if(v) localStorage.setItem(LS_FROM, v);
-    else localStorage.removeItem(LS_FROM);
-    loadFrom();
-  }
-
-  // ----------------------------
-  // Scan parsing & validation (Location)
-  // ----------------------------
-  function extractLocationToken(raw){
-    const v = String(raw || '').trim();
-    if(!v) return {type:'empty', value:''};
-
-    // 1) code con guiones
-    const mCode = v.match(/([A-Z0-9]+(?:-[A-Z0-9]+){3,10})/i);
-    if(mCode) return {type:'code', value: mCode[1].toUpperCase()};
-
-    // 2) URL /locations/{id}
-    const mId = v.match(/\/locations\/(\d+)/i);
-    if(mId) return {type:'id', value: mId[1]};
-
-    return {type:'raw', value:v};
-  }
-
-  async function validateLocationAny(raw){
-    const tok = extractLocationToken(raw);
-    if(tok.type === 'empty') return {ok:true, code:''};
-
-    const url = new URL(API_LOC_SCAN, window.location.origin);
-    if(tok.type === 'code') url.searchParams.set('code', tok.value);
-    else if(tok.type === 'id') url.searchParams.set('id', tok.value);
-    else url.searchParams.set('raw', tok.value);
-
-    const res = await fetch(url.toString(), {headers:{'Accept':'application/json'}});
-    if(!res.ok) return {ok:false, error:'Ubicación no encontrada.'};
-
-    const data = await res.json();
-    if(!data.ok) return {ok:false, error:data.error || 'Ubicación inválida'};
-
-    return {ok:true, code:data.location?.code || ''};
-  }
-
-  // ----------------------------
-  // Scan validation (Product)
-  // ----------------------------
-  async function resolveProductFromRaw(raw){
-    const v = String(raw || '').trim();
-    if(!v) return {ok:false, error:'Lectura vacía.'};
-
-    const url = new URL(API_ITEM_SCAN, window.location.origin);
-    url.searchParams.set('raw', v);
-
-    const res = await fetch(url.toString(), {headers:{'Accept':'application/json'}});
-    if(!res.ok) return {ok:false, error:'Producto no encontrado.'};
-
-    const data = await res.json();
-    if(!data.ok) return {ok:false, error:data.error || 'Producto no encontrado.'};
-
-    // regresamos algo que sirva para búsqueda (gtin si hay, si no sku, si no name)
-    const item = data.item || {};
-    const token = (item.gtin || item.sku || item.name || v);
-    return {ok:true, token, item};
-  }
-
-  // ----------------------------
-  // Search
-  // ----------------------------
-  const qInp       = document.getElementById('q');
-  const btnSearch  = document.getElementById('btnSearch');
-  const spinSearch = document.getElementById('spinSearch');
-  const resultsEl  = document.getElementById('results');
-  const chipCount  = document.getElementById('chipCount');
-
-  function setLoading(on){
-    spinSearch.style.display = on ? 'inline-block' : 'none';
-    btnSearch.disabled = !!on;
-  }
-
-  async function runSearch(){
-    const q = (qInp.value||'').trim();
-    if(!q){
-      resultsEl.innerHTML = `<div class="wms-hint">Escribe algo para buscar.</div>`;
-      chipCount.textContent = '0 resultados';
-      return;
+    function setModal(id, open){
+      const m = document.getElementById(id);
+      if(!m) return;
+      m.setAttribute('aria-hidden', open ? 'false' : 'true');
     }
 
-    const from = (localStorage.getItem(LS_FROM) || '').trim();
-    setLoading(true);
-    resultsEl.innerHTML = `<div class="wms-hint">Buscando…</div>`;
+    // Cerrar modales (backdrop o botones con data-close)
+    document.addEventListener('click', (e)=>{
+      const close = e.target?.getAttribute?.('data-close');
+      if(close){
+        setModal('navModal', false);
+        setModal('scanModal', false);
+        stopCamera();
+      }
+    });
 
-    const url = new URL(API_SEARCH, window.location.origin);
-    url.searchParams.set('q', q);
-    if(from) url.searchParams.set('from_code', from);
-    url.searchParams.set('limit', '20');
+    function escapeHtml(str){
+      if(str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+        .replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+    }
 
-    try{
+    function qtyBadge(total){
+      total = Number(total||0);
+      if(total <= 0) return `<span class="wms-badge wms-badge-bad">Sin stock</span>`;
+      if(total <= 3) return `<span class="wms-badge wms-badge-warn">Bajo (${total})</span>`;
+      return `<span class="wms-badge wms-badge-ok">Stock (${total})</span>`;
+    }
+
+    // ----------------------------
+    // State: from_code (localStorage)
+    // ----------------------------
+    const chipFrom = document.getElementById('chipFrom');
+    const fromInp  = document.getElementById('from_code');
+
+    function loadFrom(){
+      const v = localStorage.getItem(LS_FROM) || '';
+      fromInp.value = v;
+      chipFrom.textContent = v ? v : 'No definida';
+      chipFrom.classList.toggle('wms-pill-soft', !v);
+    }
+    function saveFrom(v){
+      v = (v||'').trim();
+      if(v) localStorage.setItem(LS_FROM, v);
+      else localStorage.removeItem(LS_FROM);
+      loadFrom();
+    }
+
+    // ----------------------------
+    // Scan parsing & validation (Location)
+    // ----------------------------
+    function extractLocationToken(raw){
+      const v = String(raw || '').trim();
+      if(!v) return {type:'empty', value:''};
+
+      // 1) code con guiones
+      const mCode = v.match(/([A-Z0-9]+(?:-[A-Z0-9]+){3,10})/i);
+      if(mCode) return {type:'code', value: mCode[1].toUpperCase()};
+
+      // 2) URL /locations/{id}
+      const mId = v.match(/\/locations\/(\d+)/i);
+      if(mId) return {type:'id', value: mId[1]};
+
+      return {type:'raw', value:v};
+    }
+
+    async function validateLocationAny(raw){
+      const tok = extractLocationToken(raw);
+      if(tok.type === 'empty') return {ok:true, code:''};
+
+      const url = new URL(API_LOC_SCAN, window.location.origin);
+      if(tok.type === 'code') url.searchParams.set('code', tok.value);
+      else if(tok.type === 'id') url.searchParams.set('id', tok.value);
+      else url.searchParams.set('raw', tok.value);
+
       const res = await fetch(url.toString(), {headers:{'Accept':'application/json'}});
+      if(!res.ok) return {ok:false, error:'Ubicación no encontrada.'};
+
       const data = await res.json();
+      if(!data.ok) return {ok:false, error:data.error || 'Ubicación inválida'};
 
-      if(!data.ok){
-        resultsEl.innerHTML = `<div class="wms-hint">Error: ${escapeHtml(data.error||'No se pudo buscar')}</div>`;
+      return {ok:true, code:data.location?.code || ''};
+    }
+
+    // ----------------------------
+    // Scan validation (Product)
+    // ----------------------------
+    async function resolveProductFromRaw(raw){
+      const v = String(raw || '').trim();
+      if(!v) return {ok:false, error:'Lectura vacía.'};
+
+      const url = new URL(API_ITEM_SCAN, window.location.origin);
+      url.searchParams.set('raw', v);
+
+      const res = await fetch(url.toString(), {headers:{'Accept':'application/json'}});
+      if(!res.ok) return {ok:false, error:'Producto no encontrado.'};
+
+      const data = await res.json();
+      if(!data.ok) return {ok:false, error:data.error || 'Producto no encontrado.'};
+
+      const item = data.item || {};
+      const token = (item.gtin || item.sku || item.name || v);
+      return {ok:true, token, item};
+    }
+
+    // ----------------------------
+    // Search
+    // ----------------------------
+    const qInp       = document.getElementById('q');
+    const btnSearch  = document.getElementById('btnSearch');
+    const spinSearch = document.getElementById('spinSearch');
+    const resultsEl  = document.getElementById('results');
+    const chipCount  = document.getElementById('chipCount');
+
+    function setLoading(on){
+      spinSearch.style.display = on ? 'inline-block' : 'none';
+      btnSearch.disabled = !!on;
+    }
+
+    async function runSearch(){
+      const q = (qInp.value||'').trim();
+      if(!q){
+        resultsEl.innerHTML = `<div class="wms-hint">Escribe algo para buscar.</div>`;
         chipCount.textContent = '0 resultados';
-        beep(false); vibrate(80);
         return;
       }
 
-      const list = Array.isArray(data.results) ? data.results : [];
-      chipCount.textContent = list.length + ' resultados';
+      const from = (localStorage.getItem(LS_FROM) || '').trim();
+      setLoading(true);
+      resultsEl.innerHTML = `<div class="wms-hint">Buscando…</div>`;
 
-      if(!list.length){
-        resultsEl.innerHTML = `<div class="wms-hint">Sin resultados.</div>`;
-        beep(false);
-        return;
-      }
+      const url = new URL(API_SEARCH, window.location.origin);
+      url.searchParams.set('q', q);
+      if(from) url.searchParams.set('from_code', from);
+      url.searchParams.set('limit', '20');
 
-      resultsEl.innerHTML = list.map(r => {
-        const rec = r.recommended_location;
-        const nav = r.nav;
-        const recCode = rec?.code ? escapeHtml(rec.code) : '—';
+      try{
+        const res = await fetch(url.toString(), {headers:{'Accept':'application/json'}});
+        const data = await res.json();
 
-        const locs = (r.locations||[]).slice(0, 8).map(l =>
-          `<span class="wms-locchip"><strong>${escapeHtml(l.code||'—')}</strong> <small>x${Number(l.qty||0)}</small></span>`
-        ).join('');
+        if(!data.ok){
+          resultsEl.innerHTML = `<div class="wms-hint">Error: ${escapeHtml(data.error||'No se pudo buscar')}</div>`;
+          chipCount.textContent = '0 resultados';
+          beep(false); vibrate(80);
+          return;
+        }
 
-        const metaBits = [];
-        if(r.sku) metaBits.push('SKU: ' + escapeHtml(r.sku));
-        if(r.meli_gtin) metaBits.push('GTIN: ' + escapeHtml(r.meli_gtin));
-        if(r.primary_location?.code) metaBits.push('Principal: ' + escapeHtml(r.primary_location.code));
+        const list = Array.isArray(data.results) ? data.results : [];
+        chipCount.textContent = list.length + ' resultados';
 
-        return `
-          <div class="wms-r">
-            <div class="wms-r-top">
-              <div style="min-width:240px">
-                <div class="wms-r-name">${escapeHtml(r.name||'—')}</div>
-                <div class="wms-r-meta">${metaBits.join(' · ') || '—'}</div>
+        if(!list.length){
+          resultsEl.innerHTML = `<div class="wms-hint">Sin resultados.</div>`;
+          beep(false);
+          return;
+        }
+
+        resultsEl.innerHTML = list.map(r => {
+          const rec = r.recommended_location;
+          const nav = r.nav;
+          const recCode = rec?.code ? escapeHtml(rec.code) : '—';
+
+          const locs = (r.locations||[]).slice(0, 8).map(l =>
+            `<span class="wms-locchip"><strong>${escapeHtml(l.code||'—')}</strong> <small>x${Number(l.qty||0)}</small></span>`
+          ).join('');
+
+          const metaBits = [];
+          if(r.sku) metaBits.push('SKU: ' + escapeHtml(r.sku));
+          if(r.meli_gtin) metaBits.push('GTIN: ' + escapeHtml(r.meli_gtin));
+          if(r.primary_location?.code) metaBits.push('Principal: ' + escapeHtml(r.primary_location.code));
+
+          return `
+            <div class="wms-r">
+              <div class="wms-r-top">
+                <div style="min-width:240px">
+                  <div class="wms-r-name">${escapeHtml(r.name||'—')}</div>
+                  <div class="wms-r-meta">${metaBits.join(' · ') || '—'}</div>
+                </div>
+                <div class="wms-r-actions">
+                  ${qtyBadge(r.total_qty)}
+                  ${rec?.code ? `<span class="wms-badge">Sugerida: <b>${recCode}</b></span>` : `<span class="wms-badge">Sin sugerencia</span>`}
+                  ${nav?.steps?.length ? `<button class="wms-btn wms-btn-primary" type="button" data-nav='${escapeHtml(JSON.stringify(nav))}'>Llévame</button>` : ``}
+                </div>
               </div>
-              <div class="wms-r-actions">
-                ${qtyBadge(r.total_qty)}
-                ${rec?.code ? `<span class="wms-badge">Sugerida: <b>${recCode}</b></span>` : `<span class="wms-badge">Sin sugerencia</span>`}
-                ${nav?.steps?.length ? `<button class="wms-btn wms-btn-primary" type="button" data-nav='${escapeHtml(JSON.stringify(nav))}'>Llévame</button>` : ``}
-              </div>
+              <div class="wms-locs">${locs || `<span class="wms-hint">Sin ubicaciones con stock.</span>`}</div>
             </div>
-            <div class="wms-locs">${locs || `<span class="wms-hint">Sin ubicaciones con stock.</span>`}</div>
-          </div>
-        `;
-      }).join('');
+          `;
+        }).join('');
 
-      resultsEl.querySelectorAll('button[data-nav]').forEach(btn=>{
-        btn.addEventListener('click', ()=>{
-          try{
-            const nav = JSON.parse(btn.getAttribute('data-nav'));
-            openNav(nav);
-          }catch(e){}
-        });
-      });
-
-      beep(true); vibrate(30);
-    }catch(e){
-      resultsEl.innerHTML = `<div class="wms-hint">Error de conexión.</div>`;
-      beep(false); vibrate(80);
-    }finally{
-      setLoading(false);
-    }
-  }
-
-  btnSearch.addEventListener('click', runSearch);
-  qInp.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') runSearch(); });
-
-  // ----------------------------
-  // Nav modal
-  // ----------------------------
-  let currentNav = null;
-  function openNav(nav){
-    currentNav = nav;
-    const sub = document.getElementById('navSubtitle');
-    const steps = document.getElementById('navSteps');
-
-    sub.textContent = `${nav.from?.code || '—'} → ${nav.to?.code || '—'}`;
-    steps.innerHTML = (nav.steps||[]).map((s,i)=>`
-      <div class="wms-step">
-        <div class="wms-dot">${i+1}</div>
-        <div>
-          <div class="tx">${escapeHtml(s)}</div>
-          <div class="sm">Paso ${i+1} de ${(nav.steps||[]).length}</div>
-        </div>
-      </div>
-    `).join('');
-
-    setModal('navModal', true);
-  }
-
-  document.getElementById('btnMarkHere')?.addEventListener('click', ()=>{
-    if(currentNav?.to?.code){
-      saveFrom(currentNav.to.code);
-      setModal('navModal', false);
-      beep(true); vibrate(35);
-    }
-  });
-
-  // set/clear from
-  document.getElementById('btnSetFrom')?.addEventListener('click', async ()=>{
-    const val = (fromInp.value||'').trim();
-    if(!val){ saveFrom(''); return; }
-
-    const v = await validateLocationAny(val);
-    if(!v.ok){
-      chipFrom.textContent = 'Inválida';
-      chipFrom.classList.add('wms-pill-soft');
-      beep(false); vibrate(90);
-      alert(v.error || 'Ubicación inválida');
-      return;
-    }
-    saveFrom(v.code);
-    beep(true); vibrate(30);
-  });
-
-  document.getElementById('btnClearFrom')?.addEventListener('click', ()=>{
-    saveFrom('');
-    beep(true); vibrate(20);
-  });
-
-  // ----------------------------
-  // Scanner (BarcodeDetector + ZXing fallback)
-  // ----------------------------
-  const btnOpenScanner = document.getElementById('btnOpenScanner');
-  const video = document.getElementById('video');
-  const lastScan = document.getElementById('lastScan');
-  const btnUseScan = document.getElementById('btnUseScan');
-  const btnStopScan = document.getElementById('btnStopScan');
-
-  let scanMode = 'loc'; // loc|item
-  let stream = null;
-  let scanning = false;
-  let lastValue = '';
-
-  // auto-apply para iPhone
-  let autoApplied = false;
-
-  // ZXing fallback
-  let zxingReader = null;
-  let usingZXing = false;
-
-  function setScanMode(m){
-    scanMode = m;
-
-    const bLoc = document.getElementById('scanModeLoc');
-    const bIt  = document.getElementById('scanModeItem');
-
-    bLoc.classList.toggle('wms-btn-primary', m==='loc');
-    bLoc.classList.toggle('wms-btn-ghost', m!=='loc');
-
-    bIt.classList.toggle('wms-btn-primary', m==='item');
-    bIt.classList.toggle('wms-btn-ghost', m!=='item');
-  }
-  document.getElementById('scanModeLoc')?.addEventListener('click', ()=>setScanMode('loc'));
-  document.getElementById('scanModeItem')?.addEventListener('click', ()=>setScanMode('item'));
-
-  function setScanStatus(msg, ok=true){
-    lastScan.textContent = msg;
-    lastScan.classList.toggle('wms-pill-soft', !ok);
-  }
-
-  function isSecureContextOk(){
-    return window.isSecureContext || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-  }
-
-  function loadScriptTry(srcs){
-    return new Promise(async (resolve, reject)=>{
-      for(const src of srcs){
-        try{
-          await new Promise((res, rej)=>{
-            const s = document.createElement('script');
-            s.src = src;
-            s.async = true;
-            s.onload = res;
-            s.onerror = rej;
-            document.head.appendChild(s);
+        resultsEl.querySelectorAll('button[data-nav]').forEach(btn=>{
+          btn.addEventListener('click', ()=>{
+            try{
+              const nav = JSON.parse(btn.getAttribute('data-nav'));
+              openNav(nav);
+            }catch(e){}
           });
-          return resolve(true);
-        }catch(e){}
-      }
-      reject(new Error('No se pudo cargar script externo (CSP/red/URL).'));
-    });
-  }
+        });
 
-  async function startCamera(){
-    if(!isSecureContextOk()){
-      setScanStatus('La cámara requiere HTTPS.', false);
-      throw new Error('InsecureContext');
-    }
-    if(!navigator.mediaDevices?.getUserMedia){
-      setScanStatus('Este navegador no soporta cámara.', false);
-      throw new Error('NoGetUserMedia');
-    }
-
-    stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode: { ideal: 'environment' },
-        width: { ideal: 1280 },
-        height: { ideal: 720 }
-      },
-      audio: false
-    });
-
-    video.srcObject = stream;
-
-    await Promise.race([
-      new Promise(res => video.addEventListener('loadedmetadata', res, {once:true})),
-      new Promise(res => setTimeout(res, 900))
-    ]);
-
-    try{ await video.play(); }catch(e){}
-
-    setScanStatus('Escaneando…', true);
-  }
-
-  function stopCamera(){
-    scanning = false;
-
-    try{
-      if(usingZXing && zxingReader){
-        zxingReader.reset?.();
-      }
-    }catch(e){}
-
-    usingZXing = false;
-    zxingReader = null;
-
-    if(stream){
-      stream.getTracks().forEach(t=>t.stop());
-      stream = null;
-    }
-    video.srcObject = null;
-  }
-
-  async function applyDecodedNow(raw){
-    if(autoApplied) return;
-    autoApplied = true;
-
-    if(scanMode === 'loc'){
-      const v = await validateLocationAny(raw);
-      if(!v.ok){
-        autoApplied = false;
+        beep(true); vibrate(30);
+      }catch(e){
+        resultsEl.innerHTML = `<div class="wms-hint">Error de conexión.</div>`;
         beep(false); vibrate(80);
+      }finally{
+        setLoading(false);
+      }
+    }
+
+    btnSearch.addEventListener('click', runSearch);
+    qInp.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') runSearch(); });
+
+    // ----------------------------
+    // Nav modal
+    // ----------------------------
+    let currentNav = null;
+    function openNav(nav){
+      currentNav = nav;
+      const sub = document.getElementById('navSubtitle');
+      const steps = document.getElementById('navSteps');
+
+      sub.textContent = `${nav.from?.code || '—'} → ${nav.to?.code || '—'}`;
+      steps.innerHTML = (nav.steps||[]).map((s,i)=>`
+        <div class="wms-step">
+          <div class="wms-dot">${i+1}</div>
+          <div>
+            <div class="tx">${escapeHtml(s)}</div>
+            <div class="sm">Paso ${i+1} de ${(nav.steps||[]).length}</div>
+          </div>
+        </div>
+      `).join('');
+
+      setModal('navModal', true);
+    }
+
+    document.getElementById('btnMarkHere')?.addEventListener('click', ()=>{
+      if(currentNav?.to?.code){
+        saveFrom(currentNav.to.code);
+        setModal('navModal', false);
+        beep(true); vibrate(35);
+      }
+    });
+
+    // set/clear from
+    document.getElementById('btnSetFrom')?.addEventListener('click', async ()=>{
+      const val = (fromInp.value||'').trim();
+      if(!val){ saveFrom(''); return; }
+
+      const v = await validateLocationAny(val);
+      if(!v.ok){
+        chipFrom.textContent = 'Inválida';
+        chipFrom.classList.add('wms-pill-soft');
+        beep(false); vibrate(90);
         alert(v.error || 'Ubicación inválida');
         return;
       }
       saveFrom(v.code);
+      beep(true); vibrate(30);
+    });
+
+    document.getElementById('btnClearFrom')?.addEventListener('click', ()=>{
+      saveFrom('');
+      beep(true); vibrate(20);
+    });
+
+    // ----------------------------
+    // Scanner (BarcodeDetector + ZXing LOCAL fallback)
+    // ----------------------------
+    const btnOpenScanner = document.getElementById('btnOpenScanner');
+    const video = document.getElementById('video');
+    const lastScan = document.getElementById('lastScan');
+    const btnUseScan = document.getElementById('btnUseScan');
+    const btnStopScan = document.getElementById('btnStopScan');
+
+    let scanMode = 'loc'; // loc|item
+    let stream = null;
+    let scanning = false;
+    let lastValue = '';
+
+    // auto-apply para iPhone
+    let autoApplied = false;
+
+    // ZXing
+    let zxingReader = null;
+    let usingZXing = false;
+
+    function setScanMode(m){
+      scanMode = m;
+
+      const bLoc = document.getElementById('scanModeLoc');
+      const bIt  = document.getElementById('scanModeItem');
+
+      bLoc.classList.toggle('wms-btn-primary', m==='loc');
+      bLoc.classList.toggle('wms-btn-ghost', m!=='loc');
+
+      bIt.classList.toggle('wms-btn-primary', m==='item');
+      bIt.classList.toggle('wms-btn-ghost', m!=='item');
+    }
+    document.getElementById('scanModeLoc')?.addEventListener('click', ()=>setScanMode('loc'));
+    document.getElementById('scanModeItem')?.addEventListener('click', ()=>setScanMode('item'));
+
+    function setScanStatus(msg, ok=true){
+      lastScan.textContent = msg;
+      lastScan.classList.toggle('wms-pill-soft', !ok);
+    }
+
+    function isSecureContextOk(){
+      return window.isSecureContext || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    }
+
+    async function startCamera(){
+      if(!isSecureContextOk()){
+        setScanStatus('La cámara requiere HTTPS.', false);
+        throw new Error('InsecureContext');
+      }
+      if(!navigator.mediaDevices?.getUserMedia){
+        setScanStatus('Este navegador no soporta cámara.', false);
+        throw new Error('NoGetUserMedia');
+      }
+
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        audio: false
+      });
+
+      video.srcObject = stream;
+
+      await Promise.race([
+        new Promise(res => video.addEventListener('loadedmetadata', res, {once:true})),
+        new Promise(res => setTimeout(res, 900))
+      ]);
+
+      try{ await video.play(); }catch(e){}
+
+      setScanStatus('Escaneando…', true);
+    }
+
+    function stopCamera(){
+      scanning = false;
+
+      try{
+        if(usingZXing && zxingReader){
+          zxingReader.reset?.();
+        }
+      }catch(e){}
+
+      usingZXing = false;
+      zxingReader = null;
+
+      if(stream){
+        stream.getTracks().forEach(t=>t.stop());
+        stream = null;
+      }
+      video.srcObject = null;
+    }
+
+    async function applyDecodedNow(raw){
+      if(autoApplied) return;
+      autoApplied = true;
+
+      if(scanMode === 'loc'){
+        const v = await validateLocationAny(raw);
+        if(!v.ok){
+          autoApplied = false;
+          beep(false); vibrate(80);
+          alert(v.error || 'Ubicación inválida');
+          return;
+        }
+        saveFrom(v.code);
+        setModal('scanModal', false);
+        stopCamera();
+        beep(true); vibrate(30);
+        return;
+      }
+
+      const prod = await resolveProductFromRaw(raw);
+      if(!prod.ok){
+        autoApplied = false;
+        beep(false); vibrate(80);
+        alert(prod.error || 'Producto no encontrado.');
+        return;
+      }
+
+      qInp.value = prod.token;
       setModal('scanModal', false);
       stopCamera();
       beep(true); vibrate(30);
-      return;
+      runSearch();
     }
 
-    // item mode: resolver producto y buscar
-    const prod = await resolveProductFromRaw(raw);
-    if(!prod.ok){
-      autoApplied = false;
-      beep(false); vibrate(80);
-      alert(prod.error || 'Producto no encontrado.');
-      return;
+    function onDecoded(val){
+      val = (val || '').trim();
+      if(!val) return;
+      if(val === lastValue) return;
+
+      lastValue = val;
+      setScanStatus(val, true);
+      beep(true); vibrate(25);
+
+      // ✅ auto aplicar
+      applyDecodedNow(val);
     }
 
-    qInp.value = prod.token;
-    setModal('scanModal', false);
-    stopCamera();
-    beep(true); vibrate(30);
-    runSearch();
-  }
+    async function loopScanBarcodeDetector(){
+      if(!('BarcodeDetector' in window)) return false;
 
-  function onDecoded(val){
-    val = (val || '').trim();
-    if(!val) return;
-    if(val === lastValue) return;
-
-    lastValue = val;
-    setScanStatus(val, true);
-    beep(true); vibrate(25);
-
-    // ✅ auto aplicar
-    applyDecodedNow(val);
-  }
-
-  async function loopScanBarcodeDetector(){
-    if(!('BarcodeDetector' in window)) return false;
-
-    let detector = null;
-    try{
-      detector = new BarcodeDetector({formats:['qr_code','ean_13','ean_8','code_128','upc_a','upc_e','code_39','itf','pdf417','data_matrix']});
-    }catch(e){
-      try{ detector = new BarcodeDetector(); }
-      catch(_e){ return false; }
-    }
-
-    scanning = true;
-
-    while(scanning){
+      let detector = null;
       try{
-        const codes = await detector.detect(video);
-        if(codes && codes.length) onDecoded(codes[0]?.rawValue || '');
+        detector = new BarcodeDetector({formats:['qr_code','ean_13','ean_8','code_128','upc_a','upc_e','code_39','itf','pdf417','data_matrix']});
+      }catch(e){
+        try{ detector = new BarcodeDetector(); }
+        catch(_e){ return false; }
+      }
+
+      scanning = true;
+
+      while(scanning){
+        try{
+          const codes = await detector.detect(video);
+          if(codes && codes.length) onDecoded(codes[0]?.rawValue || '');
+        }catch(e){
+          return false;
+        }
+        await new Promise(r=>setTimeout(r, 120));
+      }
+      return true;
+    }
+
+    // ✅ ZXing fallback local (NO CDN)
+    async function startZXingFallback(){
+      try{
+        const Reader = window.ZXingBrowser?.BrowserMultiFormatReader;
+        if(!Reader) return false;
+
+        usingZXing = true;
+        zxingReader = new Reader();
+        scanning = true;
+
+        if(zxingReader.decodeFromVideoElementContinuously){
+          zxingReader.decodeFromVideoElementContinuously(video, (result, err) => {
+            if(!scanning) return;
+            if(result?.getText) onDecoded(result.getText());
+          });
+          return true;
+        }
+
+        (async ()=>{
+          while(scanning){
+            try{
+              const result = await zxingReader.decodeFromVideoElement(video);
+              if(result?.getText) onDecoded(result.getText());
+            }catch(e){}
+            await new Promise(r=>setTimeout(r, 150));
+          }
+        })();
+
+        return true;
       }catch(e){
         return false;
       }
-      await new Promise(r=>setTimeout(r, 120));
     }
-    return true;
-  }
 
-  async function startZXingFallback(){
-    try{
-      if(!window.ZXingBrowser){
-        await loadScriptTry([
-          'https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/umd/index.min.js',
-          'https://unpkg.com/@zxing/browser@0.1.5/umd/index.min.js'
-        ]);
-      }
-      const Reader = window.ZXingBrowser?.BrowserMultiFormatReader;
-      if(!Reader) return false;
+    async function startScanner(){
+      setModal('scanModal', true);
+      setScanMode('loc');
+      lastValue = '';
+      autoApplied = false;
+      setScanStatus('Solicitando cámara…', true);
 
-      usingZXing = true;
-      zxingReader = new Reader();
-      scanning = true;
-
-      if(zxingReader.decodeFromVideoElementContinuously){
-        zxingReader.decodeFromVideoElementContinuously(video, (result, err) => {
-          if(!scanning) return;
-          if(result?.getText) onDecoded(result.getText());
-        });
-        return true;
+      try{
+        await startCamera();
+      }catch(e){
+        console.warn('Camera error:', e);
+        return;
       }
 
-      (async ()=>{
-        while(scanning){
-          try{
-            const result = await zxingReader.decodeFromVideoElement(video);
-            if(result?.getText) onDecoded(result.getText());
-          }catch(e){}
-          await new Promise(r=>setTimeout(r, 150));
-        }
-      })();
+      const okNative = await loopScanBarcodeDetector();
+      if(okNative) return;
 
-      return true;
-    }catch(e){
-      return false;
-    }
-  }
+      const okZX = await startZXingFallback();
+      if(okZX){
+        setScanStatus('Escaneando…', true);
+        return;
+      }
 
-  async function startScanner(){
-    setModal('scanModal', true);
-    setScanMode('loc');
-    lastValue = '';
-    autoApplied = false;
-    setScanStatus('Solicitando cámara…', true);
-
-    try{
-      await startCamera();
-    }catch(e){
-      console.warn('Camera error:', e);
-      return;
+      setScanStatus('No se pudo iniciar el lector. Verifica que ZXing esté cargado.', false);
     }
 
-    const okNative = await loopScanBarcodeDetector();
-    if(okNative) return;
+    btnOpenScanner.addEventListener('click', startScanner);
 
-    const okZX = await startZXingFallback();
-    if(okZX){
-      setScanStatus('Escaneando…', true);
-      return;
-    }
+    btnStopScan.addEventListener('click', ()=>{
+      stopCamera();
+      setScanStatus('Detenido', false);
+      beep(true);
+    });
 
-    setScanStatus('No se pudo cargar el lector (CSP/navegador). Puedes copiar/pegar el valor.', false);
-  }
+    // Botón "Usar" (manual)
+    btnUseScan.addEventListener('click', async ()=>{
+      const val = (lastValue || lastScan.textContent || '').trim();
+      if(!val || val === 'Listo para escanear' || val === 'Escaneando…' || val === 'Detenido'){
+        beep(false); vibrate(80);
+        return;
+      }
+      autoApplied = false;
+      await applyDecodedNow(val);
+    });
 
-  btnOpenScanner.addEventListener('click', startScanner);
-
-  btnStopScan.addEventListener('click', ()=>{
-    stopCamera();
-    setScanStatus('Detenido', false);
-    beep(true);
-  });
-
-  // Botón "Usar" (por si quieres manual)
-  btnUseScan.addEventListener('click', async ()=>{
-    const val = (lastValue || lastScan.textContent || '').trim();
-    if(!val || val === 'Listo para escanear' || val === 'Escaneando…' || val === 'Detenido'){
-      beep(false); vibrate(80);
-      return;
-    }
-    autoApplied = false;
-    await applyDecodedNow(val);
-  });
-
-  // init
-  loadFrom();
-</script>
+    // init
+    loadFrom();
+  </script>
 @endpush
