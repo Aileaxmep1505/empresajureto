@@ -23,6 +23,41 @@ class SendAgendaReminderJob implements ShouldQueue
     public int $tries   = 3;
     public int $timeout = 120;
 
+    /**
+     * Normaliza teléfono a México fijo (52 + 10 dígitos).
+     * Acepta:
+     *  - "2205381046" -> "522205381046"
+     *  - "+52 220 538 1046" -> "522205381046"
+     *  - "52 2205381046" -> "522205381046"
+     *  - Cualquier cosa rara -> intenta tomar últimos 10 y prefijar 52
+     */
+    protected function normalizeMxPhone(?string $value): ?string
+    {
+        if (!$value) return null;
+
+        $digits = preg_replace('/\D+/', '', $value);
+        if (!$digits) return null;
+
+        // Si viene 10 dígitos, se asume MX sin prefijo
+        if (strlen($digits) === 10) {
+            return '52' . $digits;
+        }
+
+        // Si ya viene con 52 al inicio y tiene 12 dígitos (52 + 10)
+        if (substr($digits, 0, 2) === '52' && strlen($digits) >= 12) {
+            // Nos quedamos con 52 + últimos 10 por si viene más largo
+            return '52' . substr($digits, -10);
+        }
+
+        // Si viene sin 52 o viene con otro país, forzamos a MX: 52 + últimos 10
+        $last10 = substr($digits, -10);
+        if (strlen($last10) === 10) {
+            return '52' . $last10;
+        }
+
+        return null;
+    }
+
     public function handle(): void
     {
         $event = AgendaEvent::find($this->eventId);
@@ -72,7 +107,10 @@ class SendAgendaReminderJob implements ShouldQueue
             if ($event->send_email) {
                 foreach ($users as $u) {
                     if (!$u->email) {
-                        Log::warning("Agenda: usuario sin email, omitido", ['event_id' => $event->id, 'user_id' => $u->id]);
+                        Log::warning("Agenda: usuario sin email, omitido", [
+                            'event_id' => $event->id,
+                            'user_id'  => $u->id
+                        ]);
                         continue;
                     }
 
@@ -102,8 +140,14 @@ class SendAgendaReminderJob implements ShouldQueue
                     $templateName = config('services.whatsapp.template_agenda', 'agenda_recordatorio');
 
                     foreach ($users as $u) {
-                        if (!$u->phone) {
-                            Log::warning("Agenda: usuario sin phone, omitido WA", ['event_id' => $event->id, 'user_id' => $u->id]);
+                        $to = $this->normalizeMxPhone($u->phone);
+
+                        if (!$to) {
+                            Log::warning("Agenda: usuario sin phone válido MX, omitido WA", [
+                                'event_id' => $event->id,
+                                'user_id'  => $u->id,
+                                'phone'    => $u->phone,
+                            ]);
                             continue;
                         }
 
@@ -117,12 +161,13 @@ class SendAgendaReminderJob implements ShouldQueue
                             ];
 
                             if (method_exists($wa, 'sendTemplate')) {
-                                $resp = $wa->sendTemplate($u->phone, $templateName, $params, 'es');
+                                $resp = $wa->sendTemplate($to, $templateName, $params, 'es');
 
                                 Log::info('WhatsApp template response', [
                                     'event_id' => $event->id,
                                     'user_id'  => $u->id,
-                                    'phone'    => $u->phone,
+                                    'phone'    => $to,
+                                    'raw_phone'=> $u->phone,
                                     'response' => $resp,
                                 ]);
                             } else {
@@ -132,6 +177,7 @@ class SendAgendaReminderJob implements ShouldQueue
                             Log::error('Error enviando WhatsApp (template)', [
                                 'event_id' => $event->id,
                                 'user_id'  => $u->id,
+                                'phone'    => $to,
                                 'error'    => $waEx->getMessage(),
                             ]);
                         }
