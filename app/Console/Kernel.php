@@ -15,6 +15,9 @@ class Kernel extends ConsoleKernel
     protected $commands = [
         \App\Console\Commands\SyncKnowledge::class,
         \App\Console\Commands\RunAgenda::class,
+
+        // ✅ NUEVO: notificaciones por correo
+        \App\Console\Commands\PollMailboxNotifications::class,
     ];
 
     /**
@@ -37,14 +40,13 @@ class Kernel extends ConsoleKernel
                  ->withoutOverlapping()
                  ->appendOutputTo(storage_path('logs/agenda.log'));
 
-        // 👇 Ya NO programamos aquí el queue:work para la agenda,
-        // porque los recordatorios se envían en modo sync (sin cola).
-        // Si usas queue:work para otras cosas, puedes tenerlo como CRON aparte en el hosting.
-        //
-        // $schedule->command('queue:work --once --tries=3 --timeout=90')
-        //          ->everyMinute()
-        //          ->withoutOverlapping()
-        //          ->appendOutputTo(storage_path('logs/queue-worker.log'));
+        // ✅ NUEVO: revisar correo y crear notificaciones (campanita)
+        // - Primer corrida solo inicializa last_uid y NO notifica (evita inundar)
+        // - Luego notifica solo nuevos UIDs
+        $schedule->command('mailbox:poll-notifications --folder=INBOX --limit=25 --sinceDays=7')
+                 ->everyMinute()
+                 ->withoutOverlapping()
+                 ->appendOutputTo(storage_path('logs/mailbox-notifs.log'));
 
         // Ping de prueba para confirmar que el scheduler está corriendo
         $schedule->call(function () {
