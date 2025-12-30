@@ -122,7 +122,133 @@
 <div id="morning-steps">
   <div class="wrapper">
     <section class="section">
-      <h2 class="section-title reveal">Papelería a Mayoreo y Menudeo</h2>
+<h2 class="section-title reveal video-text"
+    data-text="Papelería a Mayoreo y Menudeo"
+    data-video="https://cdn.magicui.design/ocean-small.webm">
+  <span class="sr-only">Papelería a Mayoreo y Menudeo</span>
+</h2>
+
+<script>
+  (function () {
+    const els = document.querySelectorAll(".video-text");
+
+    function setMask(el){
+      const text = el.dataset.text || el.textContent.trim();
+      const fontFamily = getComputedStyle(el).fontFamily || "sans-serif";
+      const fontWeight = getComputedStyle(el).fontWeight || "800";
+
+      // 👇 toma el tamaño desde CSS (desktop/móvil) y cae a 64 si no existe
+      const cssFont = getComputedStyle(el).getPropertyValue("--vt-font").trim();
+      const fontSize = cssFont || el.dataset.fontsize || "64";
+
+      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='100%' height='100%'>
+        <text x='50%' y='50%'
+          font-size='${fontSize}'
+          font-weight='${fontWeight}'
+          text-anchor='middle'
+          dominant-baseline='middle'
+          font-family='${fontFamily}'>${text}</text>
+      </svg>`;
+
+      el.style.setProperty("--mask", `url("data:image/svg+xml,${encodeURIComponent(svg)}")`);
+    }
+
+    els.forEach(el => {
+      setMask(el);
+
+      if (!el.querySelector("video")) {
+        const v = document.createElement("video");
+        v.className = "video-text__video";
+        v.autoplay = true;
+        v.muted = true;
+        v.loop = true;
+        v.playsInline = true;
+
+        const s = document.createElement("source");
+        s.src = el.dataset.video || "";
+        v.appendChild(s);
+
+        el.appendChild(v);
+      }
+    });
+
+    window.addEventListener("resize", () => els.forEach(setMask));
+  })();
+</script>
+
+<style>
+  /* accesibilidad */
+  .sr-only{
+    position:absolute;
+    width:1px;height:1px;
+    padding:0;margin:-1px;
+    overflow:hidden;
+    clip:rect(0,0,0,0);
+    white-space:nowrap;border:0;
+  }
+
+  /* contenedor del titulo */
+  .video-text{
+    position: relative;
+    display: block;
+    width: 100%;
+    height: 110px;
+    line-height: 110px;
+    margin: 0;
+    color: transparent;
+
+    /* ✅ desktop: igual que antes */
+    --vt-font: 64;
+  }
+
+  /* ✅ solo móvil: letras más pequeñas (ajusta a gusto) */
+  @media (max-width: 520px){
+    .video-text{
+      --vt-font: 20;      /* antes 64 */
+      height: 72px;       /* opcional: un poquito menos alto */
+      line-height: 72px;  /* opcional */
+    }
+  }
+
+  .video-text__video{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    object-fit: cover;
+
+    -webkit-mask-image: var(--mask);
+    mask-image: var(--mask);
+
+    -webkit-mask-size: contain;
+    mask-size: contain;
+
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+
+    -webkit-mask-position: center;
+    mask-position: center;
+  }
+
+  .video-text::after{
+    content:"";
+    position:absolute; inset:0;
+    pointer-events:none;
+    background: radial-gradient(60% 120% at 50% 50%,
+      rgba(0,0,0,.10) 0%,
+      rgba(0,0,0,0) 60%);
+    -webkit-mask-image: var(--mask);
+    mask-image: var(--mask);
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+  }
+</style>
+
+
       <p class="section-desc reveal delay-1">
         Factura al instante, envíos rápidos y seguros, y surtido inteligente. Todo en un solo lugar.
       </p>
