@@ -5,10 +5,13 @@
 @section('content')
 <div class="wms-page">
   <div class="wms-shell">
+
     {{-- Header --}}
     <div class="wms-header">
-      <a href="{{ route('admin.wms.home') }}" class="wms-back">
-        <span class="wms-back-ic">←</span>
+      <a href="{{ route('admin.wms.home') }}" class="wms-back" aria-label="Volver a WMS">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
         <span>WMS</span>
       </a>
 
@@ -19,7 +22,10 @@
 
       <div class="wms-head-actions">
         <button class="wms-btn wms-btn-ghost" type="button" id="btnOpenScanner">
-          <span class="ic">📷</span>
+          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 7V6a2 2 0 0 1 2-2h1M20 7V6a2 2 0 0 0-2-2h-1M4 17v1a2 2 0 0 0 2 2h1M20 17v1a2 2 0 0 1-2 2h-1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M7 12h10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
           <span>Escanear</span>
         </button>
       </div>
@@ -27,6 +33,7 @@
 
     {{-- Cards --}}
     <div class="wms-grid">
+
       {{-- Ubicación actual --}}
       <section class="wms-card">
         <div class="wms-card-h">
@@ -72,6 +79,7 @@
 
         <div class="wms-results" id="results"></div>
       </section>
+
     </div>
   </div>
 </div>
@@ -85,19 +93,23 @@
         <div class="wms-modal-tt">Ruta “Llévame”</div>
         <div class="wms-modal-tx" id="navSubtitle">—</div>
       </div>
-      <button class="wms-x" type="button" data-close="1" aria-label="Cerrar">✕</button>
+      <button class="wms-x" type="button" data-close="1" aria-label="Cerrar">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
     </div>
 
     <div class="wms-steps" id="navSteps"></div>
 
     <div class="wms-modal-ft">
       <button class="wms-btn wms-btn-ghost" type="button" data-close="1">Cerrar</button>
-      <button class="wms-btn wms-btn-primary" type="button" id="btnMarkHere">✅ Ya estoy aquí</button>
+      <button class="wms-btn wms-btn-primary" type="button" id="btnMarkHere">Ya estoy aquí</button>
     </div>
   </div>
 </div>
 
-{{-- Modal: Scanner cámara --}}
+{{-- Modal: Scanner --}}
 <div class="wms-modal" id="scanModal" aria-hidden="true">
   <div class="wms-modal-backdrop" data-close="1"></div>
   <div class="wms-modal-card wms-modal-wide">
@@ -106,7 +118,11 @@
         <div class="wms-modal-tt">Escanear</div>
         <div class="wms-modal-tx">Apunta al QR de ubicación o al código del producto.</div>
       </div>
-      <button class="wms-x" type="button" data-close="1" aria-label="Cerrar">✕</button>
+      <button class="wms-x" type="button" data-close="1" aria-label="Cerrar">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
     </div>
 
     <div class="wms-scan">
@@ -122,15 +138,28 @@
         <div class="wms-mini">
           <div class="wms-mini-tt">Modo</div>
           <div class="wms-mini-row">
-            <button class="wms-btn wms-btn-ghost wms-btn-sm" type="button" id="scanModeLoc">📍 Ubicación</button>
-            <button class="wms-btn wms-btn-ghost wms-btn-sm" type="button" id="scanModeItem">🏷️ Producto</button>
+            <button class="wms-btn wms-btn-ghost wms-btn-sm" type="button" id="scanModeLoc">
+              <svg class="ico" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 21s7-4.5 7-11a7 7 0 1 0-14 0c0 6.5 7 11 7 11z" fill="none" stroke="currentColor" stroke-width="2"/>
+                <path d="M12 10.5a2.2 2.2 0 1 0 0 .1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+              <span>Ubicación</span>
+            </button>
+            <button class="wms-btn wms-btn-ghost wms-btn-sm" type="button" id="scanModeItem">
+              <svg class="ico" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M20 10V7a2 2 0 0 0-2-2h-3l-2-2H8a2 2 0 0 0-2 2v3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                <path d="M4 10h16v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8z" fill="none" stroke="currentColor" stroke-width="2"/>
+                <path d="M9 14h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+              <span>Producto</span>
+            </button>
           </div>
           <div class="wms-hint">Ubicación llena “Tu ubicación actual”. Producto llena el buscador.</div>
         </div>
 
         <div class="wms-mini">
-          <div class="wms-mini-tt">Última lectura</div>
-          <div class="wms-pill wms-pill-block" id="lastScan">—</div>
+          <div class="wms-mini-tt">Estado / última lectura</div>
+          <div class="wms-pill wms-pill-block" id="lastScan">Listo para escanear</div>
           <div class="wms-mini-row">
             <button class="wms-btn wms-btn-primary" type="button" id="btnUseScan">Usar</button>
             <button class="wms-btn wms-btn-ghost" type="button" id="btnStopScan">Detener</button>
@@ -139,7 +168,7 @@
 
         <div class="wms-mini">
           <div class="wms-mini-tt">Consejo</div>
-          <div class="wms-hint">Si el dispositivo no detecta automático, aun así puedes copiar/pegar el valor manualmente.</div>
+          <div class="wms-hint">Si no detecta automáticamente (por navegador/CSP), puedes copiar/pegar el valor manualmente.</div>
         </div>
       </aside>
     </div>
@@ -154,33 +183,28 @@
 @push('styles')
 <style>
   :root{
-    --bg:#f6f8fc;
-    --card:#ffffff;
     --ink:#0b1220;
     --muted:#64748b;
     --line:#e6eaf2;
     --line2:#eef2f7;
     --brand:#2563eb;
     --brand2:#1d4ed8;
-    --ok:#16a34a;
-    --warn:#f59e0b;
-    --bad:#ef4444;
     --shadow:0 18px 55px rgba(2,6,23,.08);
     --radius:18px;
     --ease:cubic-bezier(.2,.8,.2,1);
   }
 
-  /* Page bg */
+  .ico{width:18px;height:18px;display:inline-block}
+
   .wms-page{
     background:
-      radial-gradient(520px 260px at 0% 0%, rgba(37,99,235,.15) 0%, rgba(37,99,235,0) 72%),
-      radial-gradient(520px 260px at 100% 0%, rgba(16,185,129,.12) 0%, rgba(16,185,129,0) 72%),
+      radial-gradient(520px 260px at 0% 0%, rgba(37,99,235,.14) 0%, rgba(37,99,235,0) 72%),
+      radial-gradient(520px 260px at 100% 0%, rgba(16,185,129,.10) 0%, rgba(16,185,129,0) 72%),
       linear-gradient(180deg, #f3f7ff 0%, #f6f8fc 100%);
     min-height: calc(100vh - 1px);
   }
   .wms-shell{max-width:1120px;margin:0 auto;padding:18px 14px 30px}
 
-  /* Header */
   .wms-header{
     display:flex;gap:12px;align-items:center;justify-content:space-between;
     flex-wrap:wrap;margin-bottom:12px;
@@ -188,23 +212,22 @@
   .wms-back{
     display:inline-flex;gap:10px;align-items:center;
     padding:10px 12px;border-radius:999px;
-    background:rgba(255,255,255,.8);
-    border:1px solid rgba(226,232,240,.9);
+    background:rgba(255,255,255,.85);
+    border:1px solid rgba(226,232,240,.95);
     color:var(--ink);font-weight:950;text-decoration:none;
     box-shadow:0 10px 22px rgba(2,6,23,.06);
     transition:transform .14s var(--ease), box-shadow .14s var(--ease), background .14s var(--ease);
   }
   .wms-back:hover{transform:translateY(-1px);box-shadow:0 16px 34px rgba(2,6,23,.10);background:#fff}
-  .wms-back-ic{font-size:1.05rem;opacity:.85}
+
   .wms-head-mid{flex:1 1 340px;min-width:240px}
   .wms-head-title{font-weight:1000;color:var(--ink);font-size:1.12rem;letter-spacing:.2px}
   .wms-head-sub{color:var(--muted);font-size:.92rem;margin-top:2px;line-height:1.3}
   .wms-head-actions{display:flex;gap:10px;flex-wrap:wrap}
 
-  /* Layout cards */
   .wms-grid{display:grid;grid-template-columns:360px 1fr;gap:12px;align-items:start}
   .wms-card{
-    background:rgba(255,255,255,.86);
+    background:rgba(255,255,255,.88);
     border:1px solid rgba(226,232,240,.95);
     border-radius:22px;
     padding:14px 14px;
@@ -216,8 +239,6 @@
   .wms-card-tt{font-weight:1000;color:var(--ink);letter-spacing:.1px}
   .wms-card-tx{color:var(--muted);font-size:.88rem;margin-top:4px;line-height:1.35}
 
-  /* Form */
-  .wms-form{margin-top:2px}
   .wms-lbl{display:block;font-weight:950;color:var(--ink);font-size:.86rem;margin-bottom:7px}
   .wms-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
   .wms-inp{
@@ -229,7 +250,7 @@
     padding:11px 12px;
     background:rgba(248,250,252,.92);
     color:#0f172a;
-    transition:border-color .14s var(--ease), box-shadow .14s var(--ease), background .14s var(--ease), transform .12s var(--ease);
+    transition:border-color .14s var(--ease), box-shadow .14s var(--ease), background .14s var(--ease);
   }
   .wms-inp:focus{
     outline:none;border-color:rgba(147,197,253,.95);
@@ -238,14 +259,12 @@
   }
   .wms-hint{color:var(--muted);font-size:.78rem;margin-top:8px;line-height:1.35}
 
-  /* Buttons */
   .wms-btn{
     border:0;border-radius:999px;padding:11px 14px;font-weight:950;
     display:inline-flex;gap:8px;align-items:center;cursor:pointer;
     transition:transform .14s var(--ease), box-shadow .14s var(--ease), background .14s var(--ease), border-color .14s var(--ease), opacity .14s var(--ease);
     white-space:nowrap;
   }
-  .wms-btn .ic{opacity:.95}
   .wms-btn-primary{
     background:linear-gradient(180deg, var(--brand) 0%, var(--brand2) 100%);
     color:#eff6ff;
@@ -254,7 +273,7 @@
   .wms-btn-primary:hover{transform:translateY(-1px);box-shadow:0 24px 55px rgba(37,99,235,.34)}
   .wms-btn-primary:disabled{opacity:.7;cursor:not-allowed;transform:none}
   .wms-btn-ghost{
-    background:rgba(255,255,255,.9);
+    background:rgba(255,255,255,.92);
     border:1px solid rgba(226,232,240,.95);
     color:var(--ink);
     box-shadow:0 10px 22px rgba(2,6,23,.05);
@@ -262,7 +281,6 @@
   .wms-btn-ghost:hover{transform:translateY(-1px);box-shadow:0 16px 34px rgba(2,6,23,.09);background:#fff}
   .wms-btn-sm{padding:9px 10px;font-size:.82rem}
 
-  /* Pills */
   .wms-pill{
     font-size:.78rem;font-weight:1000;
     padding:7px 11px;border-radius:999px;
@@ -274,7 +292,6 @@
   }
   .wms-pill-block{display:block;white-space:normal;word-break:break-word}
 
-  /* Spinner */
   .wms-spin{
     width:16px;height:16px;border-radius:999px;
     border:2px solid rgba(255,255,255,.45);
@@ -283,7 +300,6 @@
   }
   @keyframes wmsSp{to{transform:rotate(360deg)}}
 
-  /* Results */
   .wms-results{display:flex;flex-direction:column;gap:10px;margin-top:12px}
   .wms-r{
     border:1px solid rgba(226,232,240,.95);
@@ -316,7 +332,6 @@
   .wms-locchip small{font-weight:950;color:var(--muted)}
   .wms-locchip strong{color:var(--brand2)}
 
-  /* Modals */
   .wms-modal{position:fixed;inset:0;display:none;z-index:9999}
   .wms-modal[aria-hidden="false"]{display:block}
   .wms-modal-backdrop{position:absolute;inset:0;background:rgba(2,6,23,.55);backdrop-filter:blur(12px)}
@@ -334,14 +349,13 @@
   }
   .wms-modal-tt{font-weight:1000;color:var(--ink)}
   .wms-modal-tx{color:var(--muted);font-size:.86rem;margin-top:2px}
-  .wms-x{border:0;background:transparent;font-size:1.2rem;cursor:pointer;padding:6px 10px;border-radius:12px}
+  .wms-x{border:0;background:transparent;cursor:pointer;padding:6px 10px;border-radius:12px;color:var(--ink)}
   .wms-x:hover{background:#f1f5f9}
   .wms-modal-ft{
     display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;
     padding:12px 16px;border-top:1px solid rgba(226,232,240,.9);
   }
 
-  /* Steps */
   .wms-steps{padding:12px 16px;display:flex;flex-direction:column;gap:8px}
   .wms-step{
     display:flex;gap:10px;align-items:flex-start;
@@ -354,7 +368,6 @@
   .wms-step .tx{font-weight:950;color:#0f172a}
   .wms-step .sm{color:var(--muted);font-size:.82rem;margin-top:2px}
 
-  /* Scanner */
   .wms-scan{display:grid;grid-template-columns:1.25fr .75fr;gap:12px;padding:12px 16px}
   .wms-scan-cam{
     position:relative;border-radius:20px;overflow:hidden;border:1px solid rgba(226,232,240,.9);
@@ -373,7 +386,6 @@
   .wms-mini-tt{font-weight:1000;color:var(--ink);margin-bottom:6px}
   .wms-mini-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 
-  /* Responsive */
   @media (max-width: 980px){
     .wms-grid{grid-template-columns:1fr}
     .wms-modal-card{margin:16px 10px}
@@ -385,7 +397,6 @@
   @media (max-width: 520px){
     .wms-shell{padding:14px 10px 24px}
     .wms-card{padding:12px 12px}
-    .wms-row{gap:8px}
     .wms-btn{width:100%;justify-content:center}
     .wms-row .wms-inp{flex:1 1 100%}
   }
@@ -398,7 +409,6 @@
   // Config
   // ----------------------------
   const API_SEARCH   = @json(route('admin.wms.search.products'));
-  const API_NAV      = @json(route('admin.wms.nav'));
   const API_LOC_SCAN = @json(route('admin.wms.locations.scan'));
   const LS_FROM      = 'wms_from_code';
 
@@ -426,6 +436,7 @@
     m.setAttribute('aria-hidden', open ? 'false' : 'true');
   }
 
+  // Cerrar modales (backdrop o botones con data-close)
   document.addEventListener('click', (e)=>{
     const close = e.target?.getAttribute?.('data-close');
     if(close){
@@ -457,7 +468,7 @@
 
   function loadFrom(){
     const v = localStorage.getItem(LS_FROM) || '';
-    if(fromInp) fromInp.value = v;
+    fromInp.value = v;
     chipFrom.textContent = v ? v : 'No definida';
     chipFrom.classList.toggle('wms-pill-soft', !v);
   }
@@ -492,8 +503,8 @@
   const chipCount  = document.getElementById('chipCount');
 
   function setLoading(on){
-    if(spinSearch) spinSearch.style.display = on ? 'inline-block' : 'none';
-    if(btnSearch) btnSearch.disabled = !!on;
+    spinSearch.style.display = on ? 'inline-block' : 'none';
+    btnSearch.disabled = !!on;
   }
 
   async function runSearch(){
@@ -557,10 +568,9 @@
               <div class="wms-r-actions">
                 ${qtyBadge(r.total_qty)}
                 ${rec?.code ? `<span class="wms-badge">Sugerida: <b>${recCode}</b></span>` : `<span class="wms-badge">Sin sugerencia</span>`}
-                ${nav?.steps?.length ? `<button class="wms-btn wms-btn-primary" type="button" data-nav='${escapeHtml(JSON.stringify(nav))}'>🧭 Llévame</button>` : ``}
+                ${nav?.steps?.length ? `<button class="wms-btn wms-btn-primary" type="button" data-nav='${escapeHtml(JSON.stringify(nav))}'>Llévame</button>` : ``}
               </div>
             </div>
-
             <div class="wms-locs">${locs || `<span class="wms-hint">Sin ubicaciones con stock.</span>`}</div>
           </div>
         `;
@@ -584,7 +594,12 @@
     }
   }
 
+  btnSearch.addEventListener('click', runSearch);
+  qInp.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') runSearch(); });
+
+  // ----------------------------
   // Nav modal
+  // ----------------------------
   let currentNav = null;
   function openNav(nav){
     currentNav = nav;
@@ -613,7 +628,6 @@
     }
   });
 
-  // set/clear from
   document.getElementById('btnSetFrom')?.addEventListener('click', async ()=>{
     const val = (fromInp.value||'').trim();
     if(!val){ saveFrom(''); return; }
@@ -635,11 +649,8 @@
     beep(true); vibrate(20);
   });
 
-  btnSearch?.addEventListener('click', runSearch);
-  qInp?.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') runSearch(); });
-
   // ----------------------------
-  // Scanner (BarcodeDetector + fallback ZXing)
+  // Scanner (NO se cae si ZXing está bloqueado por CSP)
   // ----------------------------
   const btnOpenScanner = document.getElementById('btnOpenScanner');
   const video = document.getElementById('video');
@@ -658,37 +669,55 @@
 
   function setScanMode(m){
     scanMode = m;
-    document.getElementById('scanModeLoc')?.classList.toggle('wms-btn-primary', m==='loc');
-    document.getElementById('scanModeLoc')?.classList.toggle('wms-btn-ghost', m!=='loc');
-    document.getElementById('scanModeItem')?.classList.toggle('wms-btn-primary', m==='item');
-    document.getElementById('scanModeItem')?.classList.toggle('wms-btn-ghost', m!=='item');
+
+    const bLoc = document.getElementById('scanModeLoc');
+    const bIt  = document.getElementById('scanModeItem');
+
+    bLoc.classList.toggle('wms-btn-primary', m==='loc');
+    bLoc.classList.toggle('wms-btn-ghost', m!=='loc');
+
+    bIt.classList.toggle('wms-btn-primary', m==='item');
+    bIt.classList.toggle('wms-btn-ghost', m!=='item');
   }
   document.getElementById('scanModeLoc')?.addEventListener('click', ()=>setScanMode('loc'));
   document.getElementById('scanModeItem')?.addEventListener('click', ()=>setScanMode('item'));
+
+  function setScanStatus(msg, ok=true){
+    lastScan.textContent = msg;
+    lastScan.classList.toggle('wms-pill-soft', !ok);
+  }
 
   function isSecureContextOk(){
     return window.isSecureContext || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
   }
 
-  function loadScript(src){
-    return new Promise((resolve, reject)=>{
-      const s = document.createElement('script');
-      s.src = src;
-      s.async = true;
-      s.onload = resolve;
-      s.onerror = reject;
-      document.head.appendChild(s);
+  function loadScriptTry(srcs){
+    return new Promise(async (resolve, reject)=>{
+      for(const src of srcs){
+        try{
+          await new Promise((res, rej)=>{
+            const s = document.createElement('script');
+            s.src = src;
+            s.async = true;
+            s.onload = res;
+            s.onerror = rej;
+            document.head.appendChild(s);
+          });
+          return resolve(true);
+        }catch(e){}
+      }
+      reject(new Error('No se pudo cargar script externo (CSP/red/URL).'));
     });
   }
 
   async function startCamera(){
     if(!isSecureContextOk()){
-      alert('La cámara requiere HTTPS (o localhost). Abre esta página con https://');
-      throw new Error('Insecure context');
+      setScanStatus('La cámara requiere HTTPS.', false);
+      throw new Error('InsecureContext');
     }
     if(!navigator.mediaDevices?.getUserMedia){
-      alert('Tu navegador no soporta cámara.');
-      throw new Error('No getUserMedia');
+      setScanStatus('Este navegador no soporta cámara.', false);
+      throw new Error('NoGetUserMedia');
     }
 
     stream = await navigator.mediaDevices.getUserMedia({
@@ -702,12 +731,16 @@
 
     video.srcObject = stream;
 
-    await new Promise((res)=> {
-      const on = ()=>{ video.removeEventListener('loadedmetadata', on); res(); };
-      video.addEventListener('loadedmetadata', on);
-    });
+    // En algunos navegadores no dispara loadedmetadata; damos timeout.
+    await Promise.race([
+      new Promise(res => video.addEventListener('loadedmetadata', res, {once:true})),
+      new Promise(res => setTimeout(res, 900))
+    ]);
 
-    await video.play();
+    // Si play() falla por política, NO tumbamos la cámara; solo seguimos (el stream ya está).
+    try{ await video.play(); }catch(e){}
+
+    setScanStatus('Escaneando…', true);
   }
 
   function stopCamera(){
@@ -726,7 +759,7 @@
       stream.getTracks().forEach(t=>t.stop());
       stream = null;
     }
-    if(video) video.srcObject = null;
+    video.srcObject = null;
   }
 
   function onDecoded(val){
@@ -734,7 +767,7 @@
     if(!val) return;
     if(val === lastValue) return;
     lastValue = val;
-    lastScan.textContent = val;
+    setScanStatus(val, true);
     beep(true); vibrate(25);
   }
 
@@ -743,9 +776,7 @@
 
     let detector = null;
     try{
-      detector = new BarcodeDetector({
-        formats: ['qr_code','ean_13','ean_8','code_128','upc_a','upc_e','code_39','itf']
-      });
+      detector = new BarcodeDetector({formats:['qr_code','ean_13','ean_8','code_128','upc_a','upc_e','code_39','itf']});
     }catch(e){
       try{ detector = new BarcodeDetector(); }
       catch(_e){ return false; }
@@ -753,15 +784,14 @@
 
     scanning = true;
 
+    // Si BarcodeDetector lanza error por implementación, regresamos false para intentar ZXing,
+    // pero NO tumbamos la cámara.
     while(scanning){
       try{
         const codes = await detector.detect(video);
-        if(codes && codes.length){
-          onDecoded(codes[0]?.rawValue || '');
-        }
+        if(codes && codes.length) onDecoded(codes[0]?.rawValue || '');
       }catch(e){
-        scanning = false;
-        return false; // runtime fail -> fallback ZXing
+        return false;
       }
       await new Promise(r=>setTimeout(r, 120));
     }
@@ -769,32 +799,43 @@
   }
 
   async function startZXingFallback(){
-    if(!window.ZXingBrowser){
-      await loadScript('https://unpkg.com/@zxing/browser@0.1.5/umd/index.min.js');
-    }
+    // Si CSP bloquea, regresamos false SIN tirar la cámara.
+    try{
+      if(!window.ZXingBrowser){
+        await loadScriptTry([
+          'https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/umd/index.min.js',
+          'https://unpkg.com/@zxing/browser@0.1.5/umd/index.min.js'
+        ]);
+      }
+      const Reader = window.ZXingBrowser?.BrowserMultiFormatReader;
+      if(!Reader) return false;
 
-    usingZXing = true;
+      usingZXing = true;
+      zxingReader = new Reader();
+      scanning = true;
 
-    const Reader = window.ZXingBrowser?.BrowserMultiFormatReader;
-    if(!Reader) throw new Error('ZXing no disponible');
+      if(zxingReader.decodeFromVideoElementContinuously){
+        zxingReader.decodeFromVideoElementContinuously(video, (result, err) => {
+          if(!scanning) return;
+          if(result?.getText) onDecoded(result.getText());
+        });
+        return true;
+      }
 
-    zxingReader = new Reader();
-    scanning = true;
+      // Fallback loop
+      (async ()=>{
+        while(scanning){
+          try{
+            const result = await zxingReader.decodeFromVideoElement(video);
+            if(result?.getText) onDecoded(result.getText());
+          }catch(e){}
+          await new Promise(r=>setTimeout(r, 150));
+        }
+      })();
 
-    if(zxingReader.decodeFromVideoElementContinuously){
-      zxingReader.decodeFromVideoElementContinuously(video, (result, err) => {
-        if(!scanning) return;
-        if(result?.getText) onDecoded(result.getText());
-      });
-      return;
-    }
-
-    while(scanning){
-      try{
-        const result = await zxingReader.decodeFromVideoElement(video);
-        if(result?.getText) onDecoded(result.getText());
-      }catch(e){}
-      await new Promise(r=>setTimeout(r, 150));
+      return true;
+    }catch(e){
+      return false;
     }
   }
 
@@ -802,31 +843,42 @@
     setModal('scanModal', true);
     setScanMode('loc');
     lastValue = '';
-    lastScan.textContent = '—';
+    setScanStatus('Solicitando cámara…', true);
 
+    // 1) cámara
     try{
       await startCamera();
-
-      const ok = await loopScanBarcodeDetector();
-      if(ok) return;
-
-      await startZXingFallback();
     }catch(e){
-      alert('No se pudo abrir o usar la cámara. Revisa permisos y que estés en HTTPS.');
-      stopCamera();
+      // Si el usuario negó permisos, aquí cae. No tumbamos modal, solo mostramos estado.
+      console.warn('Camera error:', e);
+      return;
     }
+
+    // 2) Detector nativo
+    const okNative = await loopScanBarcodeDetector();
+    if(okNative) return;
+
+    // 3) Fallback ZXing (si CSP lo bloquea, NO rompemos; solo mostramos aviso)
+    const okZX = await startZXingFallback();
+    if(okZX){
+      setScanStatus('Escaneando…', true);
+      return;
+    }
+
+    setScanStatus('No se pudo cargar el lector (CSP/navegador). Puedes copiar/pegar el código.', false);
   }
 
-  btnOpenScanner?.addEventListener('click', startScanner);
+  btnOpenScanner.addEventListener('click', startScanner);
 
-  btnStopScan?.addEventListener('click', ()=>{
+  btnStopScan.addEventListener('click', ()=>{
     stopCamera();
+    setScanStatus('Detenido', false);
     beep(true);
   });
 
-  btnUseScan?.addEventListener('click', async ()=>{
-    const val = (lastScan.textContent || '').trim();
-    if(!val || val === '—'){
+  btnUseScan.addEventListener('click', async ()=>{
+    const val = (lastValue || lastScan.textContent || '').trim();
+    if(!val || val === 'Listo para escanear' || val === 'Escaneando…' || val === 'Detenido'){
       beep(false); vibrate(80);
       return;
     }
