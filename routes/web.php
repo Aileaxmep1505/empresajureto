@@ -1007,6 +1007,9 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
     Route::get('licitacion-pdfs/{licitacionPdf}/ai/viewer', [LicitacionPdfAiController::class, 'viewer'])
         ->name('admin.licitacion-pdfs.ai.viewer');
 });
+
+
+
 Route::middleware(['auth'])->prefix('admin/wms')->name('admin.wms.')->group(function () {
 
     /* =========================
@@ -1016,15 +1019,22 @@ Route::middleware(['auth'])->prefix('admin/wms')->name('admin.wms.')->group(func
 
     // Buscador UI
     Route::get('/search', fn () => view('admin.wms.search'))->name('search.view');
-    // APIs (buscador + navegación)
+
+    /* =========================
+     |  API: BUSCAR + LLEVAME + SCANNER (✅ SOLO UNA VEZ)
+     ========================= */
     Route::get('/search/products', [WmsSearchController::class, 'products'])->name('search.products');
     Route::get('/nav', [WmsSearchController::class, 'nav'])->name('nav');
 
-    // ✅ Escaneo (acepta raw/id/code)
+    // ✅ Escaneo ubicación (acepta raw/id/code)
     Route::get('/locations/scan', [WmsSearchController::class, 'locationScan'])->name('locations.scan');
 
-    // ✅ Escaneo de producto (acepta raw/id/sku/gtin)
+    // ✅ Escaneo producto (acepta raw/id/sku/gtin)
     Route::get('/products/scan', [WmsSearchController::class, 'productScan'])->name('products.scan');
+
+    /* =========================
+     |  PICKING
+     ========================= */
 
     // ✅ Alias para compatibilidad con el home.blade.php (DEBE IR ANTES de /pick/{wave})
     Route::get('/pick/entry', function () {
@@ -1044,6 +1054,10 @@ Route::middleware(['auth'])->prefix('admin/wms')->name('admin.wms.')->group(func
     Route::get('/pick/{wave}', function (\App\Models\PickWave $wave) {
         return view('admin.wms.pick_show', compact('wave'));
     })->whereNumber('wave')->name('pick.show');
+
+    /* =========================
+     |  QR: PÁGINA + IMPRESIÓN
+     ========================= */
 
     // Página HTML por QR (Ubicación)
     Route::get('/locations/{location}/page', function (\App\Models\Location $location) {
@@ -1091,12 +1105,11 @@ Route::middleware(['auth'])->prefix('admin/wms')->name('admin.wms.')->group(func
         return view('admin.wms.qr_print', compact('locations', 'qrMap'));
     })->name('qr.print.batch');
 
-
     /* =========================
      |  VISTAS: LAYOUT + HEATMAP
      ========================= */
 
-    // Editor de Layout (usa resources/views/admin/wms/layout.blade.php)
+    // Editor de Layout
     Route::get('/layout', function (\Illuminate\Http\Request $r) {
         $warehouses = \App\Models\Warehouse::query()->orderBy('id')->get();
         $warehouseId = (int) ($r->get('warehouse_id') ?? ($warehouses->first()->id ?? 1));
@@ -1105,7 +1118,7 @@ Route::middleware(['auth'])->prefix('admin/wms')->name('admin.wms.')->group(func
         return view('admin.wms.layout', compact('warehouse', 'warehouseId', 'warehouses'));
     })->name('layout.editor');
 
-    // Heatmap (calor) (usa resources/views/admin/wms/heatmap.blade.php)
+    // Heatmap (calor)
     Route::get('/heatmap', function (\Illuminate\Http\Request $r) {
         $warehouses = \App\Models\Warehouse::query()->orderBy('id')->get();
         $warehouseId = (int) ($r->get('warehouse_id') ?? ($warehouses->first()->id ?? 1));
@@ -1118,7 +1131,6 @@ Route::middleware(['auth'])->prefix('admin/wms')->name('admin.wms.')->group(func
 
         return view('admin.wms.heatmap', compact('warehouse','warehouseId','warehouses','locations'));
     })->name('heatmap.view');
-
 
     /* =========================
      |  API: LAYOUT
@@ -1233,7 +1245,7 @@ Route::middleware(['auth'])->prefix('admin/wms')->name('admin.wms.')->group(func
         ]);
     })->name('layout.cell');
 
-    // ✅ DELETE /admin/wms/layout/delete (BORRAR 1 ubicación)  <<<< ESTA ES LA QUE TE FALTABA
+    // DELETE /admin/wms/layout/delete (BORRAR 1 ubicación)
     Route::post('/layout/delete', function (\Illuminate\Http\Request $r) {
         $data = $r->validate([
             'warehouse_id' => ['required','integer','exists:warehouses,id'],
@@ -1363,12 +1375,9 @@ Route::middleware(['auth'])->prefix('admin/wms')->name('admin.wms.')->group(func
         ]);
     })->name('layout.generate-rack');
 
-
     /* =========================
      |  API: HEATMAP
      ========================= */
-
-    // GET /admin/wms/heatmap/data?warehouse_id=...&metric=inv_qty|primary_stock
     Route::get('/heatmap/data', function (\Illuminate\Http\Request $r) {
 
         $data = $r->validate([
@@ -1396,7 +1405,6 @@ Route::middleware(['auth'])->prefix('admin/wms')->name('admin.wms.')->group(func
 
         $ids = $locations->pluck('id')->all();
 
-        // inv_qty
         $qtyByLoc = \App\Models\Inventory::query()
             ->selectRaw('location_id, SUM(qty) as sum_qty')
             ->whereIn('location_id', $ids)
@@ -1405,8 +1413,6 @@ Route::middleware(['auth'])->prefix('admin/wms')->name('admin.wms.')->group(func
 
         $cells = $locations->map(function ($l) use ($metaArr, $qtyByLoc) {
             $m = $metaArr($l->meta);
-
-            // Soporta x=0 y y=0
             if (!array_key_exists('x', $m) || !array_key_exists('y', $m)) return null;
 
             return [
@@ -1431,75 +1437,49 @@ Route::middleware(['auth'])->prefix('admin/wms')->name('admin.wms.')->group(func
 
     })->name('heatmap.data');
 
-
-
     /* =========================
      |  API WMS BASE
      ========================= */
-    Route::get('warehouses', [\App\Http\Controllers\Admin\WmsController::class, 'warehousesIndex'])->name('warehouses.index');
-    Route::post('warehouses', [\App\Http\Controllers\Admin\WmsController::class, 'warehousesStore'])->name('warehouses.store');
+    Route::get('warehouses', [WmsController::class, 'warehousesIndex'])->name('warehouses.index');
+    Route::post('warehouses', [WmsController::class, 'warehousesStore'])->name('warehouses.store');
 
-    /**
-     * ✅ FIX PRINCIPAL:
-     * - /admin/wms/locations => VISTA HTML
-     * - /admin/wms/locations/data => JSON (lo que antes veías en el navegador)
-     */
     Route::get('locations', function (\Illuminate\Http\Request $r) {
-        // Vista HTML del listado (cambia el nombre si tu vista se llama diferente)
         return view('admin.wms.locations_index');
     })->name('locations.index');
 
-    Route::get('locations/data', [\App\Http\Controllers\Admin\WmsController::class, 'locationsIndex'])
-        ->name('locations.data');
+    Route::get('locations/data', [WmsController::class, 'locationsIndex'])->name('locations.data');
+    Route::post('locations', [WmsController::class, 'locationsStore'])->name('locations.store');
 
-    Route::post('locations', [\App\Http\Controllers\Admin\WmsController::class, 'locationsStore'])->name('locations.store');
+    // ⚠️ OJO: aquí YA NO repetimos locations/scan (ya está arriba con WmsSearchController)
+    Route::put('locations/{location}', [WmsController::class, 'locationsUpdate'])->name('locations.update');
+    Route::delete('locations/{location}', [WmsController::class, 'locationsDestroy'])->name('locations.destroy');
+    Route::get('locations/{location}', [WmsController::class, 'locationShow'])->name('locations.show');
 
-    // 👇 IMPORTANTE: scan SIEMPRE antes de locations/{location}
-    Route::get('locations/scan', [\App\Http\Controllers\Admin\WmsController::class, 'locationScan'])->name('locations.scan');
+    Route::post('inventory/adjust', [WmsController::class, 'inventoryAdjust'])->name('inventory.adjust');
+    Route::post('inventory/transfer', [WmsController::class, 'inventoryTransfer'])->name('inventory.transfer');
 
-    Route::put('locations/{location}', [\App\Http\Controllers\Admin\WmsController::class, 'locationsUpdate'])->name('locations.update');
-    Route::delete('locations/{location}', [\App\Http\Controllers\Admin\WmsController::class, 'locationsDestroy'])->name('locations.destroy');
-    Route::get('locations/{location}', [\App\Http\Controllers\Admin\WmsController::class, 'locationShow'])->name('locations.show');
-
-    Route::post('inventory/adjust', [\App\Http\Controllers\Admin\WmsController::class, 'inventoryAdjust'])->name('inventory.adjust');
-    Route::post('inventory/transfer', [\App\Http\Controllers\Admin\WmsController::class, 'inventoryTransfer'])->name('inventory.transfer');
-
-    Route::post('items/{catalogItem}/primary-location', [\App\Http\Controllers\Admin\WmsController::class, 'setPrimaryLocation'])->name('items.primary-location');
-
-
-    /* =========================
-     |  API: BUSCAR + LLEVAME
-     ========================= */
-    Route::get('search/products', [\App\Http\Controllers\Admin\WmsSearchController::class, 'products'])->name('search.products');
-    Route::get('nav', [\App\Http\Controllers\Admin\WmsSearchController::class, 'nav'])->name('nav');
-
+    Route::post('items/{catalogItem}/primary-location', [WmsController::class, 'setPrimaryLocation'])->name('items.primary-location');
 
     /* =========================
      |  API: PICKING
      ========================= */
-    Route::post('pick/waves', [\App\Http\Controllers\Admin\WmsPickingController::class, 'createWave'])->name('pick.waves.create');
-    Route::post('pick/waves/{wave}/start', [\App\Http\Controllers\Admin\WmsPickingController::class, 'startWave'])->name('pick.waves.start');
-    Route::get('pick/waves/{wave}/next', [\App\Http\Controllers\Admin\WmsPickingController::class, 'next'])->name('pick.waves.next');
-    Route::post('pick/waves/{wave}/scan-location', [\App\Http\Controllers\Admin\WmsPickingController::class, 'scanLocation'])->name('pick.waves.scan-location');
-    Route::post('pick/waves/{wave}/scan-item', [\App\Http\Controllers\Admin\WmsPickingController::class, 'scanItem'])->name('pick.waves.scan-item');
-    Route::post('pick/waves/{wave}/finish', [\App\Http\Controllers\Admin\WmsPickingController::class, 'finish'])->name('pick.waves.finish');
+    Route::post('pick/waves', [WmsPickingController::class, 'createWave'])->name('pick.waves.create');
+    Route::post('pick/waves/{wave}/start', [WmsPickingController::class, 'startWave'])->name('pick.waves.start');
+    Route::get('pick/waves/{wave}/next', [WmsPickingController::class, 'next'])->name('pick.waves.next');
+    Route::post('pick/waves/{wave}/scan-location', [WmsPickingController::class, 'scanLocation'])->name('pick.waves.scan-location');
+    Route::post('pick/waves/{wave}/scan-item', [WmsPickingController::class, 'scanItem'])->name('pick.waves.scan-item');
+    Route::post('pick/waves/{wave}/finish', [WmsPickingController::class, 'finish'])->name('pick.waves.finish');
 
-    // UI: movimiento masivo (entradas/salidas)
-    Route::get('/move', [\App\Http\Controllers\Admin\WmsMoveController::class, 'view'])->name('move.view');
+    /* =========================
+     |  MOVIMIENTOS
+     ========================= */
+    Route::get('/move', [WmsMoveController::class, 'view'])->name('move.view');
+    Route::get('/move/products', [WmsMoveController::class, 'products'])->name('move.products');
+    Route::post('/move/commit', [WmsMoveController::class, 'commit'])->name('move.commit');
 
-    // API: buscar productos rápido
-    Route::get('/move/products', [\App\Http\Controllers\Admin\WmsMoveController::class, 'products'])->name('move.products');
+    Route::get('/movements', [WmsMoveController::class, 'movementsView'])->name('movements.view');
+    Route::get('/movements/data', [WmsMoveController::class, 'movementsData'])->name('movements.data');
 
-    // API: ejecutar movimiento
-    Route::post('/move/commit', [\App\Http\Controllers\Admin\WmsMoveController::class, 'commit'])->name('move.commit');
-
-    // UI movimientos
-    Route::get('/movements', [\App\Http\Controllers\Admin\WmsMoveController::class, 'movementsView'])->name('movements.view');
-
-    // API
-    Route::get('/movements/data', [\App\Http\Controllers\Admin\WmsMoveController::class, 'movementsData'])->name('movements.data');
-
-    Route::get('movements/{movement}/pdf', [\App\Http\Controllers\Admin\WmsMoveController::class, 'movementPdf'])
-        ->name('movements.pdf');
+    Route::get('movements/{movement}/pdf', [WmsMoveController::class, 'movementPdf'])->name('movements.pdf');
 
 });
