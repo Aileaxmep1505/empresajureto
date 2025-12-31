@@ -1,11 +1,29 @@
 {{-- resources/views/tickets/work.blade.php --}}
 @extends('layouts.app')
 
-@section('title', $ticket->folio . ' · Trabajo')
+@section('title', ($ticket->folio ?? 'Ticket') . ' · Trabajo')
 
 @section('content')
 @php
-    $progress = (int) ($ticket->progress ?? 0);
+  use App\Models\TicketChecklist;
+
+  $progress = (int) ($ticket->progress ?? 0);
+
+  // Helper local: asegura colección
+  $asCollection = function($value){
+    if ($value instanceof \Illuminate\Support\Collection) return $value;
+    if (is_array($value)) return collect($value);
+    if (is_null($value)) return collect();
+    return collect($value); // por si viene iterable
+  };
+
+  // ✅ Checklists generales: ticket_id pero SIN stage_id (muy común que se "pierdan" así)
+  $generalChecklists = TicketChecklist::query()
+    ->where('ticket_id', $ticket->id)
+    ->whereNull('stage_id')
+    ->with(['items' => fn($q) => $q->orderBy('position')])
+    ->orderBy('id')
+    ->get();
 @endphp
 
 <div id="tktwork" class="container-fluid p-0">
@@ -90,18 +108,10 @@
       font-weight:600;
       border:1px solid transparent;
     }
-    #tktwork .tag-prio-alta{
-      background:#fee2e2;border-color:#fecaca;color:#b91c1c;
-    }
-    #tktwork .tag-prio-media{
-      background:#fef9c3;border-color:#facc15;color:#92400e;
-    }
-    #tktwork .tag-prio-baja{
-      background:#dcfce7;border-color:#bbf7d0;color:#166534;
-    }
-    #tktwork .tag-prio-neutral{
-      background:#e5e7eb;border-color:#d1d5db;color:#374151;
-    }
+    #tktwork .tag-prio-alta{ background:#fee2e2;border-color:#fecaca;color:#b91c1c; }
+    #tktwork .tag-prio-media{ background:#fef9c3;border-color:#facc15;color:#92400e; }
+    #tktwork .tag-prio-baja{ background:#dcfce7;border-color:#bbf7d0;color:#166534; }
+    #tktwork .tag-prio-neutral{ background:#e5e7eb;border-color:#d1d5db;color:#374151; }
 
     /* PROGRESO GLOBAL */
     #tktwork .progress-card{
@@ -116,19 +126,9 @@
       align-items:center;
       margin-bottom:18px;
     }
-    #tktwork .progress-title{
-      font-size:.9rem;
-      font-weight:600;
-    }
-    #tktwork .progress-sub{
-      font-size:.78rem;
-      color:var(--muted);
-      margin-top:2px;
-    }
-    #tktwork .progress-bar-wrap{
-      flex:1;
-      min-width:180px;
-    }
+    #tktwork .progress-title{ font-size:.9rem; font-weight:600; }
+    #tktwork .progress-sub{ font-size:.78rem; color:var(--muted); margin-top:2px; }
+    #tktwork .progress-bar-wrap{ flex:1; min-width:180px; }
     #tktwork .progress-bar-outer{
       width:100%;
       height:8px;
@@ -400,6 +400,17 @@
       margin-top:6px;
     }
 
+    /* Debug box */
+    #tktwork .debugBox{
+      border:1px dashed #c7d2fe;
+      background:#eef2ff;
+      border-radius:12px;
+      padding:10px 12px;
+      margin:10px 0 14px;
+      font-size:.78rem;
+      color:#1e3a8a;
+    }
+
     @keyframes fadeUp{
       from{opacity:0;transform:translateY(12px) scale(.98);}
       to{opacity:1;transform:translateY(0) scale(1);}
@@ -414,11 +425,11 @@
     {{-- HEADER --}}
     <div class="head">
       <div class="head-main">
-        <h1>{{ $ticket->folio }}</h1>
+        <h1>{{ $ticket->folio ?? 'Ticket' }}</h1>
         <p>
           Orden de trabajo de licitación ·
           Cliente:
-          <strong>{{ $ticket->client_name ?? ($ticket->client->name ?? 'Sin cliente') }}</strong>
+          <strong>{{ $ticket->client_name ?? optional($ticket->client)->name ?? 'Sin cliente' }}</strong>
         </p>
 
         <div class="head-badges">
@@ -452,6 +463,25 @@
       </div>
     </div>
 
+    {{-- DEBUG (solo si APP_DEBUG=true) --}}
+    @if(config('app.debug'))
+      @php
+        $stagesDbg = $asCollection($ticket->stages ?? []);
+        $firstStage = $stagesDbg->first();
+        $firstStageChecklists = $asCollection(data_get($firstStage, 'checklists', []));
+        $firstChecklist = $firstStageChecklists->first();
+        $firstChecklistItems = $asCollection(data_get($firstChecklist, 'items', []));
+      @endphp
+      <div class="debugBox">
+        <b>DEBUG</b> · stages: {{ $stagesDbg->count() }}
+        | checklists(1ra etapa): {{ $firstStageChecklists->count() }}
+        | items(1ra checklist): {{ $firstChecklistItems->count() }}
+        <div style="margin-top:6px">
+          generales (stage_id NULL): {{ $generalChecklists->count() }}
+        </div>
+      </div>
+    @endif
+
     {{-- PROGRESO GLOBAL --}}
     <div class="progress-card">
       <div>
@@ -466,9 +496,7 @@
         </div>
       </div>
       <div>
-        <span class="progress-badge">
-          {{ $progress }}%
-        </span>
+        <span class="progress-badge">{{ $progress }}%</span>
       </div>
     </div>
 
@@ -480,24 +508,34 @@
           Sigue el orden propuesto. Inicia una etapa, completa su checklist, sube evidencia y márcala como terminada.
         </div>
 
-        @forelse($ticket->stages as $stage)
+        @php
+          $stages = $asCollection($ticket->stages ?? []);
+        @endphp
+
+        @forelse($stages as $stage)
           @php
-            $items = $stage->checklists->flatMap->items;
-            $done  = $items->where('is_done', true)->count();
-            $total = max(1, $items->count());
+            // ✅ Si NO viene eager loaded, lo cargamos aquí con items ordenados
+            $stageChecklists = $stage->relationLoaded('checklists')
+              ? $asCollection($stage->checklists)
+              : $asCollection($stage->checklists()->with(['items' => fn($q) => $q->orderBy('position')])->orderBy('id')->get());
+
+            $stageItems = $stageChecklists->flatMap(fn($c) => $asCollection($c->items ?? []));
+            $done  = $stageItems->where('is_done', true)->count();
+            $totalRaw = $stageItems->count();
+            $total = max(1, $totalRaw);
             $pct   = (int) round($done * 100 / $total);
-            $isCurrent = $stage->status !== 'terminado';
+            $isCurrent = ($stage->status ?? null) !== 'terminado';
           @endphp
 
           <section class="stage {{ $isCurrent ? 'is-current' : '' }}" data-stage-id="{{ $stage->id }}">
             <header class="stage-header">
               <div>
                 <div class="stage-name">
-                  {{ $stage->position }}. {{ $stage->name }}
+                  {{ $stage->position ?? $loop->iteration }}. {{ $stage->name ?? 'Etapa' }}
                 </div>
                 <div class="stage-meta">
                   Estado:
-                  <strong>{{ ucfirst(str_replace('_',' ',$stage->status)) }}</strong>
+                  <strong>{{ ucfirst(str_replace('_',' ', $stage->status ?? 'pendiente')) }}</strong>
                   @if($stage->assignee)
                     · Encargado: <strong>{{ $stage->assignee->name }}</strong>
                   @endif
@@ -506,37 +544,41 @@
             </header>
 
             <div class="stage-progress">
-              <span>{{ $done }} / {{ $items->count() ?: '—' }} puntos completados</span>
+              <span>{{ $done }} / {{ $totalRaw ?: '—' }} puntos completados</span>
               <div class="stage-progress-bar">
                 <div class="stage-progress-inner" style="width: {{ $pct }}%;"></div>
               </div>
             </div>
 
             {{-- CHECKLISTS --}}
-            @foreach($stage->checklists as $chk)
+            @forelse($stageChecklists as $chk)
+              @php
+                $chkItems = $asCollection($chk->items ?? []);
+                $chkDone  = $chkItems->where('is_done', true)->count();
+                $chkTotal = $chkItems->count();
+                $chkTitle = $chk->title ?? 'Checklist';
+              @endphp
+
               <div class="checklist">
                 <div class="checklist-title">
-                  <span>{{ $chk->title }}</span>
-                  <span class="mini">
-                    {{ $chk->items->where('is_done',true)->count() }} / {{ $chk->items->count() }} hechos
-                  </span>
+                  <span>{{ $chkTitle }}</span>
+                  <span class="mini">{{ $chkDone }} / {{ $chkTotal }} hechos</span>
                 </div>
+
                 <ul class="checklist-items">
-                  @forelse($chk->items as $item)
+                  @forelse($chkItems as $item)
                     @php
-                      $label =
-                        $item->label
-                        ?? $item->text
-                        ?? $item->name
-                        ?? ('Punto '.$loop->iteration);
+                      $label = $item->label ?? $item->text ?? $item->name ?? ('Punto '.$loop->iteration);
+                      $isDone = (bool) ($item->is_done ?? false);
                     @endphp
-                    <li class="checklist-item {{ $item->is_done ? 'is-done' : '' }}">
+
+                    <li class="checklist-item {{ $isDone ? 'is-done' : '' }}">
                       <label>
                         <input
                           type="checkbox"
                           class="js-check-item"
                           data-item-id="{{ $item->id }}"
-                          @checked($item->is_done)
+                          @checked($isDone)
                         >
                         <span class="text">{{ $label }}</span>
                       </label>
@@ -546,7 +588,11 @@
                   @endforelse
                 </ul>
               </div>
-            @endforeach
+            @empty
+              <div class="mini" style="margin-top:8px">
+                Esta etapa no tiene checklists configuradas.
+              </div>
+            @endforelse
 
             {{-- EVIDENCIA --}}
             <div class="evidence">
@@ -571,7 +617,7 @@
                   type="button"
                   class="btn btn-ghost js-start-stage"
                   data-stage-id="{{ $stage->id }}"
-                  @disabled($stage->status !== 'pendiente')
+                  @disabled(($stage->status ?? 'pendiente') !== 'pendiente')
                 >
                   Iniciar etapa
                 </button>
@@ -580,7 +626,7 @@
                   type="button"
                   class="btn primary js-complete-stage"
                   data-stage-id="{{ $stage->id }}"
-                  @disabled($stage->status === 'terminado')
+                  @disabled(($stage->status ?? null) === 'terminado')
                 >
                   Marcar etapa como terminada
                 </button>
@@ -590,6 +636,54 @@
         @empty
           <p class="mini">Este ticket aún no tiene etapas configuradas. El coordinador debe definirlas.</p>
         @endforelse
+
+        {{-- ✅ CHECKLISTS GENERALES --}}
+        <div style="margin-top:16px">
+          <h3 class="card-title" style="margin:0 0 6px">Checklists generales</h3>
+          <div class="card-sub">
+            Estas checklists no están asociadas a una etapa (stage_id = NULL). Si aquí aparecen, tu problema es que se están creando “sueltas”.
+          </div>
+
+          @forelse($generalChecklists as $chk)
+            @php
+              $chkItems = $asCollection($chk->items ?? []);
+              $chkDone  = $chkItems->where('is_done', true)->count();
+              $chkTotal = $chkItems->count();
+              $chkTitle = $chk->title ?? 'Checklist';
+            @endphp
+
+            <div class="checklist">
+              <div class="checklist-title">
+                <span>{{ $chkTitle }}</span>
+                <span class="mini">{{ $chkDone }} / {{ $chkTotal }} hechos</span>
+              </div>
+
+              <ul class="checklist-items">
+                @forelse($chkItems as $item)
+                  @php
+                    $label = $item->label ?? $item->text ?? $item->name ?? ('Punto '.$loop->iteration);
+                    $isDone = (bool) ($item->is_done ?? false);
+                  @endphp
+                  <li class="checklist-item {{ $isDone ? 'is-done' : '' }}">
+                    <label>
+                      <input
+                        type="checkbox"
+                        class="js-check-item"
+                        data-item-id="{{ $item->id }}"
+                        @checked($isDone)
+                      >
+                      <span class="text">{{ $label }}</span>
+                    </label>
+                  </li>
+                @empty
+                  <li class="mini">Esta checklist aún no tiene puntos definidos.</li>
+                @endforelse
+              </ul>
+            </div>
+          @empty
+            <div class="mini">No hay checklists generales.</div>
+          @endforelse
+        </div>
       </div>
 
       {{-- DERECHA: RESUMEN / NOTAS --}}
@@ -635,13 +729,15 @@
             </div>
           </div>
 
-          @if($ticket->links->count())
+          @if(($ticket->links ?? collect())->count())
             <div>
               <div class="summary-label">Enlaces clave</div>
               <ul class="mini" style="margin-top:2px;padding-left:1.1rem;">
                 @foreach($ticket->links as $lnk)
                   <li>
-                    <a href="{{ $lnk->url }}" target="_blank">{{ $lnk->label }}</a>
+                    <a href="{{ $lnk->url }}" target="_blank" rel="noopener">
+                      {{ $lnk->label }}
+                    </a>
                   </li>
                 @endforeach
               </ul>
@@ -649,7 +745,6 @@
           @endif
         </div>
 
-        {{-- Notas del operador: reutilizamos quick_notes --}}
         <form method="POST" action="{{ route('tickets.update',$ticket) }}" class="summary-notes">
           @csrf
           @method('PUT')
@@ -701,7 +796,11 @@
 
   async function toggleChecklistItem(input){
     const itemId = input.dataset.itemId;
-    if (!itemId) return;
+    if (!itemId){
+      alert('No se encontró el item_id. Revisa que el item tenga id.');
+      input.checked = !input.checked;
+      return;
+    }
 
     const url = ITEM_UPDATE_URL_TPL.replace('__ITEM__', encodeURIComponent(itemId));
     const formData = new FormData();
@@ -718,6 +817,7 @@
         },
         body:formData,
       });
+
       const j = await res.json().catch(()=> ({}));
 
       if (!res.ok || (j.ok === false)){
@@ -728,9 +828,8 @@
       if (li){
         li.classList.toggle('is-done', input.checked);
       }
+
       toast('Checklist actualizado');
-      // Opcional: podríamos volver a cargar para refrescar contadores
-      // location.reload();
     }catch(e){
       console.error(e);
       alert(e.message || 'Error al actualizar el checklist.');
@@ -754,7 +853,7 @@
           'X-Requested-With':'XMLHttpRequest',
         }
       });
-      const j = await res.json();
+      const j = await res.json().catch(()=> ({}));
 
       if (!res.ok || !j.ok){
         throw new Error(j.msg || 'No se pudo iniciar la etapa.');
@@ -786,7 +885,7 @@
           'X-Requested-With':'XMLHttpRequest',
         }
       });
-      const j = await res.json();
+      const j = await res.json().catch(()=> ({}));
 
       if (!res.ok || !j.ok){
         throw new Error(j.msg || 'No se pudo cerrar la etapa.');
@@ -810,8 +909,7 @@
     const btn = form.querySelector('.js-evidence-btn');
 
     const fd = new FormData(form); // incluye file + link
-
-    btn && (btn.disabled = true);
+    if (btn) btn.disabled = true;
 
     try{
       const res = await fetch(url, {
@@ -823,7 +921,8 @@
         },
         body:fd,
       });
-      const j = await res.json();
+
+      const j = await res.json().catch(()=> ({}));
 
       if (!res.ok || !j.ok){
         throw new Error(j.message || 'No se pudo subir la evidencia.');
@@ -835,7 +934,7 @@
       console.error(e);
       alert(e.message || 'Error al subir la evidencia.');
     }finally{
-      btn && (btn.disabled = false);
+      if (btn) btn.disabled = false;
     }
   }
 

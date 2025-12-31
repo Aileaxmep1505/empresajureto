@@ -72,7 +72,7 @@ use App\Http\Controllers\Admin\WmsController;
 use App\Http\Controllers\Admin\WmsSearchController;
 use App\Http\Controllers\Admin\WmsPickingController;
 use App\Http\Controllers\Admin\WmsMoveController;
-
+use App\Http\Controllers\Tickets\TicketWorkController;
 /*
 |--------------------------------------------------------------------------
 | AUTH
@@ -1497,4 +1497,9 @@ Route::get('/cron/schedule-run/{token}', function (string $token) {
         'ts'     => now()->toIso8601String(),
         'output' => Artisan::output(),
     ]);
+});
+
+Route::middleware(['auth'])->group(function () {
+    Route::get('/tickets/{ticket}/work', [TicketWorkController::class, 'show'])
+        ->name('tickets.work');
 });
