@@ -1486,10 +1486,9 @@ Route::middleware(['auth'])->prefix('admin/wms')->name('admin.wms.')->group(func
 });
 
 Route::get('/cron/schedule-run/{token}', function (string $token) {
-    abort_unless(
-        $token && hash_equals((string) config('app.scheduler_cron_token'), (string) $token),
-        403
-    );
+    $expected = (string) config('app.scheduler_cron_token');
+
+    abort_unless($expected !== '' && hash_equals($expected, (string)$token), 403);
 
     Artisan::call('schedule:run');
 
