@@ -78,6 +78,18 @@
       $routeExportWord = 'licitacion-propuestas.export-word';
   }
 
+  // ✅ Exportar Excel (nuevo)
+  $routeExportExcel = null;
+  if (Route::has('admin.licitacion-propuestas.export.excel')) {
+      $routeExportExcel = 'admin.licitacion-propuestas.export.excel';
+  } elseif (Route::has('admin.licitacion-propuestas.export-excel')) {
+      $routeExportExcel = 'admin.licitacion-propuestas.export-excel';
+  } elseif (Route::has('licitacion-propuestas.export.excel')) {
+      $routeExportExcel = 'licitacion-propuestas.export.excel';
+  } elseif (Route::has('licitacion-propuestas.export-excel')) {
+      $routeExportExcel = 'licitacion-propuestas.export-excel';
+  }
+
   // ===================== STATUS =====================
   $statusClass = match($propuesta->status) {
       'draft'         => 'st-draft',
@@ -184,6 +196,13 @@
       @if($routeExportWord)
         <a href="{{ route($routeExportWord, $propuesta) }}" class="pe-btn pe-btn-mini">
           Word
+        </a>
+      @endif
+
+      {{-- ✅ Excel --}}
+      @if($routeExportExcel)
+        <a href="{{ route($routeExportExcel, $propuesta) }}" class="pe-btn pe-btn-mini">
+          Excel
         </a>
       @endif
 
@@ -732,7 +751,6 @@
   const CSRF = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
   const CURRENCY = @json($propuesta->moneda ?? 'MXN');
-
 
   const routeProductsSearch      = "{{ $routeProductsSearch      ? route($routeProductsSearch)                             : '' }}";
   const routeApplyAjaxTemplate   = "{{ $routeApplyAjaxName       ? route($routeApplyAjaxName,       ['item' => 'ITEM_ID']) : '' }}";

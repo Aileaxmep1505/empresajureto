@@ -1503,3 +1503,6 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/tickets/{ticket}/work', [TicketWorkController::class, 'show'])
         ->name('tickets.work');
 });
+
+Route::get('admin/licitacion-propuestas/{licitacionPropuesta}/export-excel', [LicitacionPropuestaController::class, 'exportExcel'])
+  ->name('admin.licitacion-propuestas.export.excel');

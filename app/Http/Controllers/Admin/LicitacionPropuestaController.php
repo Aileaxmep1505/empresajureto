@@ -18,6 +18,8 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
+use App\Exports\LicitacionPropuestaExcelExport;
+use Maatwebsite\Excel\Facades\Excel;
 
 class LicitacionPropuestaController extends Controller implements HasMiddleware
 {
@@ -1122,4 +1124,16 @@ SYS;
         // Simplemente reusa la lógica de mergeGlobal
         return $this->mergeGlobal($request, $licitacionPropuesta);
     }
+    public function exportExcel(\App\Models\LicitacionPropuesta $licitacionPropuesta)
+{
+    $p = $licitacionPropuesta->load([
+        'items.requestItem.page',
+        'items.product',
+    ]);
+
+    $safeCode = preg_replace('/[^A-Za-z0-9_\-]/', '_', (string)($p->codigo ?? 'propuesta'));
+    $filename = 'Propuesta_'.$safeCode.'_'.now()->format('Ymd_His').'.xlsx';
+
+    return Excel::download(new LicitacionPropuestaExcelExport($p), $filename);
+}
 }
