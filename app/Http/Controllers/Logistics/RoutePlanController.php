@@ -91,29 +91,73 @@ class RoutePlanController extends Controller
             ->orderBy($orderCol)
             ->get();
 
+        /**
+         * ✅ Providers: ahora NO se filtran por lat/lng.
+         * Se filtran por tener dirección (calle/colonia/ciudad/estado/cp),
+         * y si existen lat/lng se traen (pueden venir NULL).
+         */
         $providers = collect();
+
         if (Schema::hasTable('providers')) {
+            $cols = Schema::getColumnListing('providers');
+
+            // Posibles nombres de columnas
             $nameCols = ['name','nombre','razon_social','razon','empresa','provider_name','title'];
             $latCols  = ['lat','latitude','latitud','latitud_gps'];
             $lngCols  = ['lng','lon','long','longitude','longitud','longitud_gps'];
 
-            $cols  = Schema::getColumnListing('providers');
+            // Columnas de dirección (las que ya tienes)
+            $addrCols = [
+                'calle','street',
+                'colonia','neighborhood',
+                'ciudad','city',
+                'estado','state',
+                'cp','zip','codigo_postal',
+            ];
+
             $pName = collect($nameCols)->first(fn($c) => in_array($c, $cols, true));
             $pLat  = collect($latCols)->first(fn($c) => in_array($c, $cols, true));
             $pLng  = collect($lngCols)->first(fn($c) => in_array($c, $cols, true));
 
-            if ($pLat && $pLng) {
-                $select = ['id'];
-                $select[] = $pName ? DB::raw("`{$pName}` as `name`") : DB::raw("'' as `name`");
-                $select[] = DB::raw("`{$pLat}` as `lat`");
-                $select[] = DB::raw("`{$pLng}` as `lng`");
+            // Dirección: columnas realmente existentes en tu tabla
+            $addrPresent = collect($addrCols)->filter(fn($c) => in_array($c, $cols, true))->values()->all();
 
-                $providers = DB::table('providers')
-                    ->select($select)
-                    ->whereNotNull($pLat)
-                    ->whereNotNull($pLng)
-                    ->get();
+            $select = ['id'];
+
+            // Alias uniformes para tu blade
+            $select[] = $pName ? DB::raw("`{$pName}` as `name`") : DB::raw("CONCAT('Proveedor #', id) as `name`");
+            $select[] = $pLat  ? DB::raw("`{$pLat}` as `lat`")   : DB::raw("NULL as `lat`");
+            $select[] = $pLng  ? DB::raw("`{$pLng}` as `lng`")   : DB::raw("NULL as `lng`");
+
+            // Address armado (bonito) para mostrar en UI si no hay lat/lng
+            if (!empty($addrPresent)) {
+                $parts = array_map(fn($c) => "NULLIF(TRIM(`{$c}`),'')", $addrPresent);
+                $select[] = DB::raw("CONCAT_WS(', ', " . implode(', ', $parts) . ") as `address`");
+            } else {
+                $select[] = DB::raw("'' as `address`");
             }
+
+            $q = DB::table('providers')->select($select);
+
+            // ✅ FILTRO: que tenga dirección útil (cualquiera de esas columnas)
+            if (!empty($addrPresent)) {
+                $q->where(function ($w) use ($addrPresent) {
+                    foreach ($addrPresent as $c) {
+                        $w->orWhere(function ($ww) use ($c) {
+                            $ww->whereNotNull($c)->whereRaw("TRIM(`{$c}`) <> ''");
+                        });
+                    }
+                });
+            }
+
+            // Opcional: primero los que ya tienen lat/lng (si existen)
+            if ($pLat && $pLng) {
+                $q->orderByRaw("(`{$pLat}` is not null and `{$pLng}` is not null) desc");
+            }
+
+            $q->orderBy('name');
+
+            $providers = $q->get();
         }
 
         return view('logistics.routes.create', compact('drivers','providers'));
@@ -233,20 +277,13 @@ class RoutePlanController extends Controller
      | Cálculo / Re-cálculo (API)
      * ============================ */
 
-    /**
-     * Cálculo inicial o desde última ubicación guardada:
-     * - Si viene start_lat/lng los usa.
-     * - Si NO vienen, intenta última posición persistida del chofer.
-     */
     public function compute(Request $r, RoutePlan $routePlan)
     {
         $this->canDrive($routePlan);
 
-        // start_lat/lng SON OPCIONALES (para permitir autostart desde posición guardada)
         $startLat = $r->input('start_lat');
         $startLng = $r->input('start_lng');
 
-        // Paradas pendientes
         $stops = $routePlan->stops()
             ->where('status','pending')
             ->orderByRaw('COALESCE(sequence_index, 999999), id')
@@ -256,7 +293,6 @@ class RoutePlanController extends Controller
             return response()->json(['message'=>'No hay paradas pendientes','routes'=>[]], 200);
         }
 
-        // Tomar ubicación: request -> última guardada
         if (!is_numeric($startLat) || !is_numeric($startLng)) {
             $last = DriverPosition::where('user_id', Auth::id())->latest('captured_at')->first();
             if (!$last) {
@@ -266,7 +302,6 @@ class RoutePlanController extends Controller
             $startLng = $last->lng;
         }
 
-        // 1) Origen + paradas
         $coords = [];
         $coords[] = ['lat'=>$startLat,'lng'=>$startLng];
         foreach ($stops as $s) {
@@ -280,7 +315,6 @@ class RoutePlanController extends Controller
         $steps     = [];
 
         try {
-            // 2) OSRM /trip para orden óptimo (con steps + geojson)
             $trip = $this->osrm->trip($coords, [
                 'roundtrip'   => 'false',
                 'destination' => 'last',
@@ -303,7 +337,6 @@ class RoutePlanController extends Controller
                 }
                 if (count($tmp) >= 2) $ordered = $tmp;
 
-                // Legs
                 $osrmLegs = $route['legs'] ?? [];
                 $legs = [];
                 for ($k = 0; $k < count($osrmLegs); $k++) {
@@ -319,11 +352,9 @@ class RoutePlanController extends Controller
                     ];
                 }
 
-                // Tráfico
                 $legs = $this->traffic->applyDelays($legs);
                 $totalAdj = collect($legs)->sum('adj_duration');
 
-                // Steps (primer ruta)
                 $steps = $this->formatStepsFromOsrm($route);
 
                 $principal = [
@@ -336,7 +367,6 @@ class RoutePlanController extends Controller
                 ];
             }
 
-            // 3) Fallback si /trip no devolvió ruta utilizable
             if (!$principal) {
                 $routeAltSimple = $this->osrm->route($ordered, [
                     'alternatives'=>'false',
@@ -352,7 +382,6 @@ class RoutePlanController extends Controller
                 }
                 $r0 = $routeAltSimple['routes'][0];
 
-                // Legs
                 $legs = [];
                 $rlegs = $r0['legs'] ?? [];
                 if (!empty($rlegs)) {
@@ -377,11 +406,9 @@ class RoutePlanController extends Controller
                     ];
                 }
 
-                // Tráfico
                 $legs = $this->traffic->applyDelays($legs);
                 $totalAdj = collect($legs)->sum('adj_duration');
 
-                // Steps
                 $steps = $this->formatStepsFromOsrm($r0);
 
                 $principal = [
@@ -394,7 +421,6 @@ class RoutePlanController extends Controller
                 ];
             }
 
-            // 4) Alternativas (best-effort)
             try {
                 $routeAlt = $this->osrm->route($ordered, [
                     'alternatives'=>'true',
@@ -408,7 +434,7 @@ class RoutePlanController extends Controller
                         $alts[] = [
                             'label'     => 'alternativa_'.$idx,
                             'geometry'  => $rr['geometry'] ?? null,
-                            'legs'      => $principal['legs'], // usamos mismas legs para pintar tráfico
+                            'legs'      => $principal['legs'],
                             'total_sec' => (int) round($rr['duration'] ?? ($principal['total_sec'] + 120*$idx)),
                             'total_m'   => (int) round($rr['distance'] ?? $principal['total_m'] ),
                         ];
@@ -419,7 +445,6 @@ class RoutePlanController extends Controller
                 // Ignorar si el backend no soporta alternativas
             }
 
-            // 5) ETAs por stop (protegiendo índices)
             $seqStops = $routePlan->stops()
                 ->whereNotNull('sequence_index')
                 ->orderBy('sequence_index')
@@ -430,14 +455,12 @@ class RoutePlanController extends Controller
                 $stop->update(['eta_seconds' => $eta]);
             }
 
-            // 6) IA
             $advice = $this->advisor->advise(array_merge([$principal], $alts), [
                 'driver' => $routePlan->driver?->name,
                 'route'  => $routePlan->name,
             ]);
 
-            // 7) Links de navegación a siguiente punto
-            $exportLinks = $this->buildNavLinks($principal, $stops, $startLat, $startLng);
+            $exportLinks = $this->buildNavLinks($principal, $stops, (float)$startLat, (float)$startLng);
 
             return response()->json([
                 'plan_id'       => $routePlan->id,
@@ -458,11 +481,9 @@ class RoutePlanController extends Controller
         }
     }
 
-    /** Recalcular en marcha (ya NO exige start_lat/lng; usa última guardada si faltan). */
     public function recompute(Request $r, RoutePlan $routePlan)
     {
         $this->canDrive($routePlan);
-        // Reutilizamos compute() que ya soporta fallback a última ubicación
         return $this->compute($r, $routePlan);
     }
 
@@ -476,8 +497,6 @@ class RoutePlanController extends Controller
         $pending = $routePlan->stops()->where('status','pending')->count();
         $routePlan->update(['status' => $pending === 0 ? 'done' : 'in_progress']);
 
-// Opcional: si quieres avanzar automáticamente sequence_index, aquí podrías reordenar o marcar next.
-
         return response()->json(['ok' => true], 200);
     }
 
@@ -485,10 +504,6 @@ class RoutePlanController extends Controller
      | Helpers privados
      * ========================= */
 
-    /**
-     * Convierte la estructura de steps devuelta por OSRM (ya sea en /trip o /route)
-     * a un arreglo simple: {instruction, name, distance, duration}
-     */
     private function formatStepsFromOsrm(array $route): array
     {
         $out = [];
@@ -514,7 +529,6 @@ class RoutePlanController extends Controller
         return $out;
     }
 
-    /** Construye una instrucción legible a partir del tipo de maniobra OSRM */
     private function humanInstruction(string $type, string $modifier, string $name): string
     {
         $dir = match($modifier) {
@@ -543,13 +557,8 @@ class RoutePlanController extends Controller
         };
     }
 
-    /**
-     * Devuelve links de navegación (Google/Waze) al siguiente punto pendiente,
-     * dados el origen (startLat/Lng) y las paradas pendientes.
-     */
     private function buildNavLinks(array $principal, $pendingStops, float $startLat, float $startLng): array
     {
-        // Encuentra el siguiente stop pendiente de forma simple: el primero por sequence_index o por id
         $ordered = collect($pendingStops)->sortBy(function($s){
             $si = $s->sequence_index ?? 999999;
             return sprintf("%06d-%06d", $si, $s->id);
@@ -566,7 +575,6 @@ class RoutePlanController extends Controller
                . '&destination=' . urlencode($dest)
                . '&travelmode=driving&dir_action=navigate';
 
-        // Nota: Waze no requiere origin, usa la ubicación actual del dispositivo.
         $waze  = 'https://waze.com/ul?ll=' . urlencode($dest) . '&navigate=yes&zoom=17';
 
         return [
