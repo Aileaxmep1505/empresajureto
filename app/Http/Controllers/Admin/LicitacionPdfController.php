@@ -61,7 +61,8 @@ class LicitacionPdfController extends Controller implements HasMiddleware
         $data = $request->validate([
             'licitacion_id'  => ['nullable', 'integer'],
             'requisicion_id' => ['nullable', 'integer'],
-            'pdf'            => ['required', 'file', 'mimes:pdf', 'max:30720'],
+            'pdf' => ['required', 'file', 'mimes:pdf', 'max:512000'], // 500MB
+
         ]);
 
         /** @var \Illuminate\Http\UploadedFile $file */

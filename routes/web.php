@@ -73,6 +73,8 @@ use App\Http\Controllers\Admin\WmsSearchController;
 use App\Http\Controllers\Admin\WmsPickingController;
 use App\Http\Controllers\Admin\WmsMoveController;
 use App\Http\Controllers\Tickets\TicketWorkController;
+use App\Http\Controllers\PublicationController;
+use App\Http\Controllers\Logistics\RouteSupervisorController;
 /*
 |--------------------------------------------------------------------------
 | AUTH
@@ -1506,3 +1508,53 @@ Route::middleware(['auth'])->group(function () {
 
 Route::get('admin/licitacion-propuestas/{licitacionPropuesta}/export-excel', [LicitacionPropuestaController::class, 'exportExcel'])
   ->name('admin.licitacion-propuestas.export.excel');
+
+Route::get('/publicaciones', [PublicationController::class, 'index'])->name('publications.index');
+Route::get('/publicaciones/{publication}', [PublicationController::class, 'show'])->name('publications.show');
+Route::get('/publicaciones/{publication}/descargar', [PublicationController::class, 'download'])->name('publications.download');
+
+// Si quieres que solo admin suba/elimine:
+Route::middleware(['auth'])->group(function () {
+    Route::get('/publicaciones-subir', [PublicationController::class, 'create'])->name('publications.create');
+    Route::post('/publicaciones', [PublicationController::class, 'store'])->name('publications.store');
+    Route::delete('/publicaciones/{publication}', [PublicationController::class, 'destroy'])->name('publications.destroy');
+});
+
+
+
+Route::middleware(['auth'])->group(function () {
+  Route::post('/driver/location', [RoutePlanController::class, 'saveDriverLocation'])->name('api.driver.location.save');
+  Route::get('/driver/location/last', [RoutePlanController::class, 'getDriverLocation'])->name('api.driver.location.last');
+
+  Route::post('/routes/{routePlan}/compute', [RoutePlanController::class, 'compute'])->name('api.routes.compute');
+  Route::post('/routes/{routePlan}/recompute', [RoutePlanController::class, 'recompute'])->name('api.routes.recompute');
+
+  Route::post('/routes/{routePlan}/stops/{stop}/done', [RoutePlanController::class, 'markStopDone'])->name('api.routes.stop.done');
+
+  // supervisor realtime
+  Route::get('/routes/{routePlan}/live', [RoutePlanController::class, 'live'])->name('api.routes.live');
+});
+
+Route::middleware(['auth'])->group(function () {
+
+    // Supervisor: ver ruta (stops + ubicación actual del chofer)
+    Route::get('/supervisor/routes/{routePlan}', [RouteSupervisorController::class, 'show'])
+        ->name('api.supervisor.routes.show');
+
+    // Supervisor: polling (cada X segundos) para ubicación + stops
+    Route::get('/supervisor/routes/{routePlan}/poll', [RouteSupervisorController::class, 'poll'])
+        ->name('api.supervisor.routes.poll');
+
+});
+
+
+Route::middleware(['auth'])->group(function () {
+    Route::post('/routes/{routePlan}/start',   [RoutePlanController::class, 'start'])->name('api.routes.start');
+    Route::post('/routes/{routePlan}/compute', [RoutePlanController::class, 'compute'])->name('api.routes.compute');
+    Route::post('/routes/{routePlan}/recompute', [RoutePlanController::class, 'recompute'])->name('api.routes.recompute');
+
+    Route::post('/routes/{routePlan}/stops/{stop}/done', [RoutePlanController::class, 'markStopDone'])->name('api.routes.stops.done');
+
+    Route::post('/driver/location', [RoutePlanController::class, 'saveDriverLocation'])->name('api.driver.location.save');
+    Route::get('/driver/location/last', [RoutePlanController::class, 'getDriverLocation'])->name('api.driver.location.last');
+});
