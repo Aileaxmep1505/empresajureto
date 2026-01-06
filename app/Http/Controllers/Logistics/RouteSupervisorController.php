@@ -35,14 +35,25 @@ class RouteSupervisorController extends Controller
         $routePlan->load('driver');
 
         return response()->json([
-            'plan_id' => $routePlan->id,
-            'name'    => $routePlan->name,
-            'status'  => $routePlan->status,
-            'driver'  => [
-                'id'   => $routePlan->driver_id,
+            'plan' => [
+                'id' => $routePlan->id,
+                'name' => $routePlan->name,
+                'status' => $routePlan->status,
+
+                'started_at' => optional($routePlan->started_at)->toIso8601String(),
+                'sequence_locked' => (bool)($routePlan->sequence_locked ?? false),
+
+                'start' => [
+                    'lat' => $routePlan->start_lat !== null ? (float)$routePlan->start_lat : null,
+                    'lng' => $routePlan->start_lng !== null ? (float)$routePlan->start_lng : null,
+                ],
+            ],
+            'driver' => [
+                'id' => $routePlan->driver_id,
                 'name' => $routePlan->driver?->name,
             ],
-        ]);
+            'server_time' => now()->toIso8601String(),
+        ], 200);
     }
 
     public function poll(RoutePlan $routePlan, Request $r)
@@ -56,14 +67,15 @@ class RouteSupervisorController extends Controller
             ->get(['id','name','lat','lng','sequence_index','status','done_at','eta_seconds']);
 
         $lastPos = null;
+
         if ($routePlan->driver_id) {
             $last = DriverPosition::where('user_id', $routePlan->driver_id)
                 ->latest('captured_at')
                 ->first();
 
             $lastPos = $last ? [
-                'lat' => (float)$last->lat,
-                'lng' => (float)$last->lng,
+                'lat' => $last->lat !== null ? (float)$last->lat : null,
+                'lng' => $last->lng !== null ? (float)$last->lng : null,
                 'accuracy' => $last->accuracy,
                 'speed' => $last->speed,
                 'heading' => $last->heading,
@@ -71,26 +83,40 @@ class RouteSupervisorController extends Controller
             ] : null;
         }
 
-        $done = $stops->where('status','done')->count();
-        $pending = $stops->count() - $done;
+        $done = (int) $stops->where('status', 'done')->count();
+        $total = (int) $stops->count();
+        $pending = max(0, $total - $done);
 
         return response()->json([
             'plan' => [
                 'id' => $routePlan->id,
                 'name' => $routePlan->name,
                 'status' => $routePlan->status,
+
+                'started_at' => optional($routePlan->started_at)->toIso8601String(),
+                'sequence_locked' => (bool)($routePlan->sequence_locked ?? false),
+
+                'start' => [
+                    'lat' => $routePlan->start_lat !== null ? (float)$routePlan->start_lat : null,
+                    'lng' => $routePlan->start_lng !== null ? (float)$routePlan->start_lng : null,
+                ],
             ],
+
             'driver' => [
                 'id' => $routePlan->driver_id,
                 'name' => $routePlan->driver?->name,
                 'last_position' => $lastPos,
             ],
+
             'stops' => $stops,
+
             'kpis' => [
-                'total' => $stops->count(),
+                'total' => $total,
                 'done' => $done,
                 'pending' => $pending,
+                'done_pct' => $total > 0 ? (int) round(($done / $total) * 100) : 0,
             ],
+
             'server_time' => now()->toIso8601String(),
         ], 200);
     }
