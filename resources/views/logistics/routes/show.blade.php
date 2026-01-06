@@ -2,241 +2,504 @@
 @section('title','Ruta #'.$routePlan->id)
 
 @section('content')
-<div id="route-show" class="rs-wrap">
-  {{-- ================== ESTILOS ENCAPSULADOS ================== --}}
+@php
+  use Illuminate\Support\Str;
+  use Carbon\Carbon;
+
+  $status = $routePlan->status ?? 'scheduled';
+  $statusHuman = [
+    'draft'       => 'Borrador',
+    'scheduled'   => 'Programada',
+    'in_progress' => 'En progreso',
+    'done'        => 'Completada',
+    'cancelled'   => 'Cancelada',
+  ][$status] ?? ucfirst($status);
+
+  $planned = $routePlan->planned_at ? Carbon::parse($routePlan->planned_at) : null;
+
+  $stopsSorted = $routePlan->stops
+    ->sortBy(function($s){
+      $si = $s->sequence_index ?? 999999;
+      return sprintf('%06d-%06d', $si, $s->id);
+    })
+    ->values();
+
+  $totalStops = $routePlan->stops_count ?? $stopsSorted->count();
+  $doneStops  = $routePlan->done_stops_count ?? $stopsSorted->where('status','done')->count();
+  $pending    = max(0, $totalStops - $doneStops);
+  $pct        = $totalStops ? intval(($doneStops / $totalStops) * 100) : 0;
+
+  $stopLabel = ['done'=>'Hecho','pending'=>'Pendiente','skipped'=>'Omitida'];
+
+  $driverLabel = $routePlan->driver->name ?? ($routePlan->driver->email ?? 'N/D');
+@endphp
+
+<div id="route-show" class="rs">
   <style>
-    #route-show{
-      --rs-ink:#0e1726; --rs-muted:#6b7280; --rs-line:#e5e7eb; --rs-bg:#f5f7fb; --rs-card:#ffffff;
-      --rs-brand:#2563eb; --rs-ok:#16a34a; --rs-warn:#f59e0b; --rs-danger:#ef4444; --rs-info:#0ea5e9;
-      font-family: system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Inter",sans-serif;
-      color:var(--rs-ink); background:var(--rs-bg);
-      padding:24px 16px;
+    /* =========================
+       Minimal / Modern UI
+       Namespace: #route-show.rs
+       ========================= */
+    #route-show.rs{
+      --ink:#0b1220;
+      --muted:#6b7280;
+      --line:#e7eef7;
+      --bg:#f7f9fc;
+      --card:#ffffff;
+
+      --brand:#a6d3ff;
+      --brand-ink:#0b1220;
+
+      --ok:#c6f6d5;
+      --warn:#ffe8b2;
+      --danger:#ffd6e7;
+      --info:#b7f0e2;
+
+      --radius:16px;
+      --shadow:0 14px 40px rgba(2,8,23,.08);
+
+      color:var(--ink);
+      background:var(--bg);
+      padding:20px 14px;
     }
-    #route-show a{ color:var(--rs-brand); text-decoration:none }
-    #route-show a:hover{ text-decoration:underline }
+    #route-show.rs *{ box-sizing:border-box; }
+    #route-show.rs a{ color:inherit; text-decoration:none; }
+    #route-show.rs a:hover{ text-decoration:underline; }
 
-    #route-show .rs-container{ max-width:1200px; margin:0 auto }
-    /* Titlebar */
-    #route-show .rs-titlebar{ display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap; margin-bottom:16px }
-    #route-show .rs-title{ font-weight:800; font-size:clamp(18px,3vw,24px); letter-spacing:.2px }
-    #route-show .rs-actions{ display:flex; gap:8px; flex-wrap:wrap }
-    #route-show .rs-btn{
-      appearance:none; border:1px solid var(--rs-line); background:var(--rs-card); color:var(--rs-ink);
-      padding:.5rem .75rem; border-radius:10px; font-weight:700; line-height:1; cursor:pointer;
-      display:inline-flex; align-items:center; gap:.5rem;
-      transition:transform .2s ease, box-shadow .2s ease, border-color .2s ease, background .2s ease;
+    .wrap{ max-width:1200px; margin:0 auto; }
+
+    /* Header */
+    .head{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+      margin-bottom:14px;
     }
-    #route-show .rs-btn:hover{ transform:translateY(-1px); box-shadow:0 10px 24px rgba(2,8,23,.06); border-color:#dbeafe }
-    #route-show .rs-btn--primary{ background:var(--rs-brand); color:#fff; border-color:var(--rs-brand) }
-    #route-show .rs-btn--primary:hover{ box-shadow:0 12px 28px rgba(37,99,235,.25) }
-
-    /* Header card */
-    #route-show .rs-card{
-      border:1px solid var(--rs-line); background:var(--rs-card); border-radius:16px;
-      padding:14px; box-shadow:0 12px 32px rgba(2,8,23,.06);
+    .title{
+      font-weight:900;
+      letter-spacing:.2px;
+      font-size:clamp(18px,2.2vw,26px);
+      line-height:1.1;
     }
-    #route-show .rs-grid{ display:grid; gap:12px }
-    #route-show .g3{ grid-template-columns:repeat(3,minmax(0,1fr)) }
+    .sub{
+      color:var(--muted);
+      margin-top:6px;
+      font-size:.95rem;
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      align-items:center;
+    }
 
-    #route-show .rs-meta{ color:var(--rs-muted); font-size:.92rem }
-    #route-show .rs-kpis{ display:grid; gap:10px; grid-template-columns:repeat(4,minmax(0,1fr)) }
-    #route-show .rs-kpi{ border:1px solid var(--rs-line); border-radius:12px; padding:.65rem .8rem; background:#fff }
-    #route-show .rs-kpi .lbl{ font-size:.73rem; color:var(--rs-muted); text-transform:uppercase; letter-spacing:.02em }
-    #route-show .rs-kpi .val{ font-weight:800; font-size:1.15rem; margin-top:.15rem }
+    /* Buttons */
+    .actions{ display:flex; gap:8px; flex-wrap:wrap; }
+    .btnx{
+      border:1px solid var(--line);
+      background:var(--card);
+      color:var(--ink);
+      border-radius:999px;
+      padding:.48rem .85rem;
+      font-weight:800;
+      line-height:1;
+      display:inline-flex;
+      align-items:center;
+      gap:.45rem;
+      transition:.18s;
+      box-shadow:0 6px 18px rgba(2,8,23,.06);
+      user-select:none;
+      white-space:nowrap;
+    }
+    .btnx:hover{
+      transform:translateY(-1px);
+      background:#fff;
+      box-shadow:var(--shadow);
+      border-color:#d6ecff;
+      text-decoration:none;
+    }
+    .btnx.primary{
+      background:var(--brand);
+      border-color:#d6ecff;
+      color:var(--brand-ink);
+    }
 
-    /* Chips de estado */
-    #route-show .rs-chip{display:inline-flex; align-items:center; gap:.4rem; font-weight:700; font-size:.8rem;
-      border-radius:999px; padding:.2rem .6rem; border:1px solid var(--rs-line); background:#fff}
-    #route-show .rs-dot{width:8px;height:8px;border-radius:50%;background:#94a3b8}
-    #route-show .status-scheduled .rs-dot{background:var(--rs-info)}
-    #route-show .status-in_progress .rs-dot{background:var(--rs-warn)}
-    #route-show .status-done .rs-dot{background:var(--rs-ok)}
-    #route-show .status-cancelled .rs-dot{background:var(--rs-danger)}
+    /* Cards */
+    .card{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+    .card .hd{
+      padding:12px 14px;
+      border-bottom:1px solid var(--line);
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      background:linear-gradient(180deg,#fbfdff,transparent);
+    }
+    .card .bd{ padding:14px; }
 
-    /* Progreso */
-    #route-show .rs-prog{ height:10px; background:#eef2f7; border-radius:999px; overflow:hidden }
-    #route-show .rs-prog > span{ display:block; height:100%; width:0%; background:linear-gradient(90deg,#60a5fa,#2563eb) }
+    /* Status chip */
+    .chip{
+      display:inline-flex;
+      align-items:center;
+      gap:.45rem;
+      padding:.22rem .65rem;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:#fff;
+      font-weight:900;
+      font-size:.82rem;
+      white-space:nowrap;
+    }
+    .dot{ width:8px; height:8px; border-radius:50%; background:#94a3b8; }
+    .st-scheduled .dot{ background:var(--info); }
+    .st-draft .dot{ background:#cbd5e1; }
+    .st-in_progress .dot{ background:var(--warn); }
+    .st-done .dot{ background:var(--ok); }
+    .st-cancelled .dot{ background:var(--danger); }
 
-    /* Search */
-    #route-show .rs-toolbar{ display:flex; align-items:center; gap:10px; margin:14px 0 10px }
-    #route-show .rs-search{ display:flex; align-items:center; gap:.5rem; background:#fff; border:1px solid var(--rs-line);
-      border-radius:12px; padding:.4rem .6rem; min-width:260px }
-    #route-show .rs-search input{ border:0; outline:none; width:220px; font-size:.95rem; color:var(--rs-ink) }
-    #route-show .rs-icon{ color:var(--rs-muted) }
+    /* KPI row */
+    .kpis{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+    }
+    .kpi{
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:10px 12px;
+      background:#fff;
+    }
+    .kpi .lbl{
+      color:var(--muted);
+      font-size:.74rem;
+      font-weight:800;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+    }
+    .kpi .val{
+      margin-top:4px;
+      font-weight:900;
+      font-size:1.15rem;
+      letter-spacing:.2px;
+    }
+    .kpi .mini{
+      margin-top:4px;
+      color:var(--muted);
+      font-size:.9rem;
+    }
 
-    /* Tabla / tarjetas de paradas */
-    #route-show .rs-table-wrap{ border:1px solid var(--rs-line); background:#fff; border-radius:16px; overflow:hidden }
-    #route-show table{ width:100%; border-collapse:separate; border-spacing:0 }
-    #route-show thead th{ background:#f9fafb; border-bottom:1px solid var(--rs-line); padding:10px 12px; color:#334155; font-weight:700; text-align:left }
-    #route-show tbody td{ padding:12px; border-bottom:1px solid #f1f5f9; vertical-align:middle }
-    #route-show tbody tr:hover{ background:#f8fafc }
-    #route-show .td-idx{ width:60px }
+    /* Progress */
+    .prog{
+      height:10px;
+      border-radius:999px;
+      background:#eef2f7;
+      overflow:hidden;
+      border:1px solid #eef2f7;
+      margin-top:8px;
+    }
+    .prog > span{
+      display:block;
+      height:100%;
+      width:0%;
+      background:linear-gradient(90deg,#cfe4ff,#7fb7ff);
+      transition:width .6s ease;
+    }
 
-    /* badge de parada */
-    #route-show .rs-badge{ font-weight:700; border-radius:999px; padding:.18rem .6rem; border:1px solid var(--rs-line); background:#fff }
-    #route-show .rs-badge.done{ color:#065f46; background:#dcfce7; border-color:#bbf7d0 }
-    #route-show .rs-badge.pending{ color:#111827; background:#f3f4f6; border-color:#e5e7eb }
-    #route-show .rs-badge.skipped{ color:#92400e; background:#ffedd5; border-color:#fed7aa }
+    /* Toolbar */
+    .toolbar{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      flex-wrap:wrap;
+      gap:10px;
+      margin:14px 0 10px;
+    }
+    .search{
+      display:flex;
+      align-items:center;
+      gap:.5rem;
+      background:#fff;
+      border:1px solid var(--line);
+      border-radius:999px;
+      padding:.42rem .7rem;
+      box-shadow:0 8px 22px rgba(2,8,23,.04);
+      min-width:260px;
+    }
+    .search input{
+      border:0;
+      outline:none;
+      background:transparent;
+      width:min(420px, 52vw);
+      color:var(--ink);
+      font-size:.95rem;
+    }
+    .xbtn{
+      border:0;
+      background:transparent;
+      padding:.2rem .35rem;
+      border-radius:999px;
+      cursor:pointer;
+      color:var(--muted);
+      display:none;
+    }
+    .xbtn:hover{ background:#f3f6fb; color:var(--ink); }
+
+    /* Table */
+    .table-wrap{
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      overflow:hidden;
+      background:#fff;
+    }
+    table{ width:100%; border-collapse:separate; border-spacing:0; }
+    thead th{
+      text-align:left;
+      font-weight:900;
+      color:#334155;
+      background:#f9fbff;
+      border-bottom:1px solid var(--line);
+      padding:10px 12px;
+      font-size:.92rem;
+    }
+    tbody td{
+      padding:12px;
+      border-bottom:1px solid #f1f5f9;
+      vertical-align:middle;
+      font-size:.95rem;
+    }
+    tbody tr:hover{ background:#f8fbff; }
+    .td-idx{ width:70px; color:var(--muted); }
+    .muted{ color:var(--muted); font-size:.9rem; }
+    .nowrap{ white-space:nowrap; }
+
+    /* Stop badge */
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      gap:.4rem;
+      padding:.18rem .65rem;
+      border-radius:999px;
+      border:1px solid var(--line);
+      font-weight:900;
+      font-size:.82rem;
+      background:#fff;
+      white-space:nowrap;
+    }
+    .badge.done{ background:#eefcf7; border-color:#bbf7d0; color:#065f46; }
+    .badge.pending{ background:#f8fafc; border-color:#e5e7eb; color:#111827; }
+    .badge.skipped{ background:#fff7ed; border-color:#fed7aa; color:#92400e; }
+
+    /* Lat/Lng display -> más útil que “0.000000,0.000000” */
+    .coord{
+      display:flex;
+      flex-direction:column;
+      gap:2px;
+      line-height:1.1;
+    }
+    .coord .addr{
+      font-weight:800;
+      color:#111827;
+      font-size:.92rem;
+    }
+    .coord .ll{
+      color:var(--muted);
+      font-size:.86rem;
+    }
 
     /* Mobile cards */
-    #route-show .rs-mgrid{ display:grid; gap:10px }
-    #route-show .rs-mcard{ border:1px solid var(--rs-line); background:#fff; border-radius:14px; padding:10px }
-    #route-show .rs-mrow{ display:flex; justify-content:space-between; align-items:center; gap:10px }
-    #route-show .rs-muted{ color:var(--rs-muted); font-size:.9rem }
+    .mgrid{ display:grid; gap:10px; }
+    .mcard{
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:10px 12px;
+      background:#fff;
+      box-shadow:0 10px 24px rgba(2,8,23,.05);
+    }
+    .mrow{ display:flex; justify-content:space-between; gap:10px; align-items:flex-start; }
+    .mname{ font-weight:900; }
+    .mmeta{ margin-top:6px; color:var(--muted); font-size:.92rem; }
 
     /* Responsive */
+    .only-desktop{ display:block; }
+    .only-mobile{ display:none; }
     @media (max-width: 991.98px){
-      #route-show{ padding:18px 12px }
-      #route-show .rs-kpis{ grid-template-columns:repeat(2,minmax(0,1fr)) }
-      #route-show .only-desktop{ display:none!important }
-      #route-show .only-mobile{ display:block!important }
+      #route-show.rs{ padding:18px 12px; }
+      .kpis{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .only-desktop{ display:none; }
+      .only-mobile{ display:block; }
     }
-    @media (min-width: 992px){
-      #route-show .only-desktop{ display:block!important }
-      #route-show .only-mobile{ display:none!important }
-    }
-
-    /* Animaciones */
-    #route-show .fade-in{ animation:rs-fade .28s ease both }
-    @keyframes rs-fade{ from{opacity:0; transform:translateY(4px)} to{opacity:1; transform:translateY(0)} }
   </style>
 
-  <div class="rs-container fade-in">
-    {{-- ============ TITLE / ACTIONS ============ --}}
-    <div class="rs-titlebar">
-      <div class="rs-title">
-        {{ $routePlan->name ?? 'Ruta #'.$routePlan->id }}
+  <div class="wrap">
+    {{-- Header --}}
+    <div class="head">
+      <div>
+        <div class="title">{{ $routePlan->name ?? ('Ruta #'.$routePlan->id) }}</div>
+        <div class="sub">
+          <span class="chip st-{{ $status }}"><span class="dot"></span>{{ $statusHuman }}</span>
+          <span class="muted"><i class="bi bi-person"></i> {{ $driverLabel }}</span>
+          @if($planned)
+            <span class="muted nowrap"><i class="bi bi-calendar-event"></i> {{ $planned->format('Y-m-d H:i') }}</span>
+          @endif
+          <span class="muted nowrap"><i class="bi bi-geo"></i> {{ $totalStops }} paradas</span>
+        </div>
       </div>
-      <div class="rs-actions">
-        <a href="{{ route('driver.routes.show',$routePlan) }}" class="rs-btn rs-btn--primary">
+
+      <div class="actions">
+        <a href="{{ route('driver.routes.show',$routePlan) }}" class="btnx primary">
           <i class="bi bi-phone"></i> Ver como chofer
         </a>
-        <a href="{{ route('routes.index') }}" class="rs-btn">
+        <a href="{{ route('routes.index') }}" class="btnx">
           <i class="bi bi-arrow-left"></i> Volver
         </a>
       </div>
     </div>
 
-    {{-- ============ HEADER SUMMARY ============ --}}
-    @php
-      $status = $routePlan->status ?? 'scheduled';
-      $statusHuman = [
-        'draft'       => 'Borrador',
-        'scheduled'   => 'Programada',
-        'in_progress' => 'En progreso',
-        'done'        => 'Completada',
-        'cancelled'   => 'Cancelada',
-      ][$status] ?? ucfirst($status);
-
-      $totalStops = $routePlan->stops_count ?? $routePlan->stops->count();
-      $doneStops  = $routePlan->done_stops_count ?? $routePlan->stops->where('status','done')->count();
-      $pending    = max(0, $totalStops - $doneStops);
-      $pct        = $totalStops ? intval(($doneStops/$totalStops)*100) : 0;
-
-      // Etiquetas en español para paradas:
-      $stopLabel = ['done'=>'Hecho','pending'=>'Pendiente','skipped'=>'Omitida'];
-    @endphp
-
-    <div class="rs-card rs-grid g3">
-      <div style="grid-column:1/-1">
-        <div class="d-flex flex-wrap align-items-center gap-2">
-          <span class="rs-chip status-{{ $status }}"><span class="rs-dot"></span>{{ $statusHuman }}</span>
-          <span class="rs-meta"><i class="bi bi-person"></i> Chofer: <strong>{{ $routePlan->driver->name ?? 'N/D' }}</strong></span>
-          @if($routePlan->planned_at)
-            <span class="rs-meta"><i class="bi bi-calendar-event"></i> Programada: {{ $routePlan->planned_at->format('Y-m-d H:i') }}</span>
-          @endif
-          <span class="rs-meta"><i class="bi bi-geo"></i> Paradas: <strong>{{ $totalStops }}</strong></span>
-        </div>
+    {{-- Resumen / KPIs --}}
+    <div class="card" style="margin-bottom:12px;">
+      <div class="hd">
+        <div class="muted" style="font-weight:800;">Resumen</div>
+        <div class="muted">ID: <strong>#{{ $routePlan->id }}</strong></div>
       </div>
+      <div class="bd">
+        <div class="kpis">
+          <div class="kpi">
+            <div class="lbl">Progreso</div>
+            <div class="val">{{ $pct }}%</div>
+            <div class="prog" title="{{ $pct }}%">
+              <span id="rsProgBar" style="width: {{ $pct }}%"></span>
+            </div>
+            <div class="mini"><strong>{{ $doneStops }}</strong> / {{ $totalStops }} hechas</div>
+          </div>
 
-      <div class="rs-kpis" style="grid-column:1/-1">
-        <div class="rs-kpi">
-          <div class="lbl">Progreso</div>
-          <div class="rs-prog" title="{{ $pct }}%"><span style="width: {{ $pct }}%"></span></div>
-          <div class="rs-meta mt-1"><strong>{{ $doneStops }}</strong> / {{ $totalStops }} hechas</div>
-        </div>
-        <div class="rs-kpi">
-          <div class="lbl">Pendientes</div>
-          <div class="val">{{ $pending }}</div>
-          <div class="rs-meta">Paradas por completar</div>
-        </div>
-        <div class="rs-kpi">
-          <div class="lbl">Estado</div>
-          <div class="val">{{ $statusHuman }}</div>
-          <div class="rs-meta">Actual</div>
-        </div>
-        <div class="rs-kpi">
-          <div class="lbl">ID ruta</div>
-          <div class="val">#{{ $routePlan->id }}</div>
-          <div class="rs-meta">Referencia</div>
+          <div class="kpi">
+            <div class="lbl">Pendientes</div>
+            <div class="val">{{ $pending }}</div>
+            <div class="mini">Paradas por completar</div>
+          </div>
+
+          <div class="kpi">
+            <div class="lbl">Estado</div>
+            <div class="val">{{ $statusHuman }}</div>
+            <div class="mini">Actual</div>
+          </div>
+
+          <div class="kpi">
+            <div class="lbl">Chofer</div>
+            <div class="val" style="font-size:1rem;">{{ Str::limit($driverLabel, 22) }}</div>
+            <div class="mini">Asignado</div>
+          </div>
         </div>
       </div>
     </div>
 
-    {{-- ============ TOOLBAR PARADAS ============ --}}
-    <div class="rs-toolbar">
-      <div class="rs-search">
-        <i class="bi bi-search rs-icon"></i>
-        <input id="rs-q" type="text" placeholder="Buscar parada por nombre o estado… (Hecho, Pendiente, Omitida)">
-        <button id="rs-clear" class="rs-btn" style="padding:.25rem .45rem"><i class="bi bi-x-lg"></i></button>
+    {{-- Toolbar --}}
+    <div class="toolbar">
+      <div class="search">
+        <i class="bi bi-search" style="color:var(--muted)"></i>
+        <input id="rsQ" type="text" placeholder="Buscar parada (nombre / estado)…">
+        <button id="rsClear" class="xbtn" type="button" title="Limpiar">✕</button>
       </div>
-      <div class="rs-meta">Total: {{ $totalStops }}</div>
+      <div class="muted">Mostrando: <strong id="rsCount">{{ $stopsSorted->count() }}</strong></div>
     </div>
 
-    {{-- ============ PARADAS (tabla desktop / tarjetas mobile) ============ --}}
+    {{-- Stops: Desktop --}}
     <div class="only-desktop">
-      <div class="rs-table-wrap">
-        <table id="rs-table">
+      <div class="table-wrap">
+        <table>
           <thead>
             <tr>
               <th class="td-idx">#</th>
               <th>Punto</th>
-              <th>Lat / Lng</th>
-              <th>ETA</th>
+              <th>Ubicación</th>
+              <th class="nowrap">ETA</th>
               <th>Estatus</th>
             </tr>
           </thead>
-          <tbody id="rs-tbody">
-          @foreach($routePlan->stops as $s)
-            @php
-              $idx = $s->sequence_index !== null ? $s->sequence_index + 1 : '—';
-              $eta = $s->eta_seconds ? round($s->eta_seconds/60).' min' : '—';
-              $st  = $s->status ?? 'pending';
-              $stEs = $stopLabel[$st] ?? ucfirst($st);
-              $searchHay = Str::lower(trim(($s->name ?? 'punto').' '.$stEs));
-            @endphp
-            <tr data-rs-search="{{ $searchHay }}">
-              <td class="text-muted">#{{ $idx }}</td>
-              <td class="fw-semibold">{{ $s->name }}</td>
-              <td><span class="rs-meta">{{ $s->lat }}, {{ $s->lng }}</span></td>
-              <td>{{ $eta }}</td>
-              <td>
-                <span class="rs-badge {{ $st }}">{{ $stEs }}</span>
-              </td>
-            </tr>
-          @endforeach
+          <tbody id="rsTbody">
+            @foreach($stopsSorted as $s)
+              @php
+                $idx = $s->sequence_index !== null ? ($s->sequence_index + 1) : '—';
+                $eta = $s->eta_seconds ? (int) round($s->eta_seconds/60) . ' min' : '—';
+                $st  = $s->status ?? 'pending';
+                $stEs = $stopLabel[$st] ?? ucfirst($st);
+
+                $lat = is_numeric($s->lat ?? null) ? (float)$s->lat : null;
+                $lng = is_numeric($s->lng ?? null) ? (float)$s->lng : null;
+
+                // Si tienes columna address en route_stops úsala, si no, quedará vacío.
+                $addr = trim((string)($s->address ?? ''));
+
+                // Si por alguna razón te quedaron 0,0 viejos, se ven como "—"
+                $latTxt = ($lat !== null && abs($lat) > 0.000001) ? number_format($lat, 6) : '—';
+                $lngTxt = ($lng !== null && abs($lng) > 0.000001) ? number_format($lng, 6) : '—';
+
+                $hay = Str::of(trim(($s->name ?? 'punto').' '.$stEs.' '.$addr.' '.$latTxt.' '.$lngTxt))->lower()->ascii();
+              @endphp
+              <tr data-hay="{{ $hay }}">
+                <td class="td-idx">#{{ $idx }}</td>
+                <td style="font-weight:900;">{{ $s->name ?? '—' }}</td>
+                <td>
+                  <div class="coord">
+                    @if($addr)
+                      <div class="addr">{{ $addr }}</div>
+                    @else
+                      <div class="addr" style="color:var(--muted); font-weight:800;">Dirección no disponible</div>
+                    @endif
+                    <div class="ll">{{ $latTxt }}, {{ $lngTxt }}</div>
+                  </div>
+                </td>
+                <td class="nowrap">{{ $eta }}</td>
+                <td><span class="badge {{ $st }}"><span class="dot" style="width:7px;height:7px;"></span>{{ $stEs }}</span></td>
+              </tr>
+            @endforeach
           </tbody>
         </table>
       </div>
     </div>
 
+    {{-- Stops: Mobile --}}
     <div class="only-mobile">
-      <div id="rs-cards" class="rs-mgrid">
-        @foreach($routePlan->stops as $s)
+      <div id="rsCards" class="mgrid">
+        @foreach($stopsSorted as $s)
           @php
-            $idx = $s->sequence_index !== null ? $s->sequence_index + 1 : '—';
-            $eta = $s->eta_seconds ? round($s->eta_seconds/60).' min' : '—';
+            $idx = $s->sequence_index !== null ? ($s->sequence_index + 1) : '—';
+            $eta = $s->eta_seconds ? (int) round($s->eta_seconds/60) . ' min' : '—';
             $st  = $s->status ?? 'pending';
             $stEs = $stopLabel[$st] ?? ucfirst($st);
-            $searchHay = Str::lower(trim(($s->name ?? 'punto').' '.$stEs));
+
+            $lat = is_numeric($s->lat ?? null) ? (float)$s->lat : null;
+            $lng = is_numeric($s->lng ?? null) ? (float)$s->lng : null;
+
+            $addr = trim((string)($s->address ?? ''));
+
+            $latTxt = ($lat !== null && abs($lat) > 0.000001) ? number_format($lat, 6) : '—';
+            $lngTxt = ($lng !== null && abs($lng) > 0.000001) ? number_format($lng, 6) : '—';
+
+            $hay = Str::of(trim(($s->name ?? 'punto').' '.$stEs.' '.$addr.' '.$latTxt.' '.$lngTxt))->lower()->ascii();
           @endphp
-          <div class="rs-mcard" data-rs-search="{{ $searchHay }}">
-            <div class="rs-mrow">
-              <div><strong>#{{ $idx }}.</strong> {{ $s->name }}</div>
-              <span class="rs-badge {{ $st }}">{{ $stEs }}</span>
+          <div class="mcard" data-hay="{{ $hay }}">
+            <div class="mrow">
+              <div style="min-width:0;">
+                <div class="mname">#{{ $idx }} · {{ $s->name ?? '—' }}</div>
+
+                @if($addr)
+                  <div class="mmeta" style="color:#111827; font-weight:800;">{{ $addr }}</div>
+                @else
+                  <div class="mmeta">Dirección no disponible</div>
+                @endif
+
+                <div class="mmeta">{{ $latTxt }}, {{ $lngTxt }}</div>
+                <div class="mmeta"><strong>ETA:</strong> {{ $eta }}</div>
+              </div>
+              <span class="badge {{ $st }}">{{ $stEs }}</span>
             </div>
-            <div class="rs-muted mt-1">{{ $s->lat }}, {{ $s->lng }}</div>
-            <div class="mt-1"><strong>ETA:</strong> {{ $eta }}</div>
           </div>
         @endforeach
       </div>
@@ -244,47 +507,69 @@
 
   </div>
 
-  {{-- Bootstrap Icons (por si tu layout no los incluye) --}}
+  {{-- Icons --}}
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"/>
 
-  {{-- ================== JS ENCAPSULADO ================== --}}
   <script>
     (function(){
-      const root   = document.getElementById('route-show');
+      const root = document.getElementById('route-show');
       if(!root) return;
 
-      // Progreso animado
-      const bar = root.querySelector('.rs-prog > span');
+      // Progress animate
+      const bar = document.getElementById('rsProgBar');
       if(bar){
         const w = bar.style.width || '0%';
         bar.style.width = '0%';
-        setTimeout(()=>{ bar.style.transition = 'width .6s ease'; bar.style.width = w; }, 40);
+        requestAnimationFrame(()=>{ bar.style.width = w; });
       }
 
-      // Búsqueda client-side (tabla + tarjetas)
-      const q       = root.querySelector('#rs-q');
-      const clear   = root.querySelector('#rs-clear');
-      const rows    = root.querySelectorAll('#rs-tbody tr');
-      const cards   = root.querySelectorAll('#rs-cards .rs-mcard');
+      // Search
+      const q = document.getElementById('rsQ');
+      const clear = document.getElementById('rsClear');
+      const tbody = document.getElementById('rsTbody');
+      const cardsWrap = document.getElementById('rsCards');
+      const countEl = document.getElementById('rsCount');
 
-      function norm(s){ return (s||'').toString().toLowerCase().trim(); }
+      const rows = tbody ? Array.from(tbody.querySelectorAll('tr')) : [];
+      const cards = cardsWrap ? Array.from(cardsWrap.querySelectorAll('.mcard')) : [];
+
+      const norm = (s)=> (s||'').toString().toLowerCase().trim();
+
       function filter(){
         const needle = norm(q.value);
-        rows.forEach(r=>{
-          const hay = norm(r.getAttribute('data-rs-search'));
-          r.style.display = hay.includes(needle) ? '' : 'none';
-        });
-        cards.forEach(c=>{
-          const hay = norm(c.getAttribute('data-rs-search'));
-          c.style.display = hay.includes(needle) ? '' : 'none';
-        });
-        clear.style.display = needle ? '' : 'none';
+        if(clear) clear.style.display = needle ? '' : 'none';
+
+        let shown = 0;
+
+        if(rows.length){
+          rows.forEach(r=>{
+            const hay = norm(r.getAttribute('data-hay'));
+            const ok = hay.includes(needle);
+            r.style.display = ok ? '' : 'none';
+            if(ok) shown++;
+          });
+        }
+
+        if(cards.length){
+          shown = 0;
+          cards.forEach(c=>{
+            const hay = norm(c.getAttribute('data-hay'));
+            const ok = hay.includes(needle);
+            c.style.display = ok ? '' : 'none';
+            if(ok) shown++;
+          });
+        }
+
+        if(countEl) countEl.textContent = shown;
       }
 
-      q?.addEventListener('input', filter);
-      clear?.addEventListener('click', ()=>{ q.value=''; filter(); q.focus(); });
+      if(q) q.addEventListener('input', filter);
+      if(clear) clear.addEventListener('click', ()=>{
+        q.value = '';
+        filter();
+        q.focus();
+      });
 
-      // Inicializa estado del botón limpiar
       filter();
     })();
   </script>

@@ -3,6 +3,11 @@
 @section('title','Rutas programadas')
 
 @section('content')
+@php
+  use Illuminate\Support\Str;
+  use Carbon\Carbon;
+@endphp
+
 <div id="routes-index" class="ri-wrap">
   {{-- ================== ESTILOS ENCAPSULADOS ================== --}}
   <style>
@@ -123,7 +128,9 @@
         <div class="ri-search">
           <i class="bi bi-search ri-icon"></i>
           <input id="ri-q" type="text" placeholder="Buscar por nombre, chofer o estado…">
-          <button id="ri-clear" class="ri-btn" title="Borrar búsqueda" style="padding:.25rem .45rem"><i class="bi bi-x-lg"></i></button>
+          <button id="ri-clear" class="ri-btn" title="Borrar búsqueda" style="padding:.25rem .45rem; display:none">
+            <i class="bi bi-x-lg"></i>
+          </button>
         </div>
         <a href="{{ route('routes.create') }}" class="ri-btn ri-btn--primary" title="Crear nueva ruta">
           <i class="bi bi-plus-lg"></i> Nueva ruta
@@ -151,8 +158,8 @@
         <div id="ri-cards" class="ri-grid">
           @foreach($plans as $plan)
             @php
-              $totalStops = $plan->stops_count ?? $plan->stops()->count();
-              $doneStops  = $plan->done_stops_count ?? $plan->stops()->where('status','done')->count();
+              $totalStops = $plan->stops_count ?? 0;
+              $doneStops  = $plan->done_stops_count ?? 0;
               $pending    = max(0, $totalStops - $doneStops);
               $pct        = $totalStops ? intval(($doneStops / $totalStops) * 100) : 0;
 
@@ -173,11 +180,14 @@
                 'cancelled'   => 'cancelada',
               ][$status_key] ?? 'programada';
 
-              $driver     = $plan->driver->name ?? '—';
+              $driver = $plan->driver->name ?? ($plan->driver->email ?? '—');
+
+              $labelSearch = Str::of(($plan->name ?? 'ruta '.$plan->id).' '.$driver.' '.$status_es)
+                ->lower()->ascii();
+              $planned = $plan->planned_at ? Carbon::parse($plan->planned_at) : null;
             @endphp
 
-            <div class="ri-card"
-                 data-ri-search="{{ Str::lower(($plan->name ?? 'ruta '.$plan->id).' '.$driver.' '.$status_es) }}">
+            <div class="ri-card" data-ri-search="{{ $labelSearch }}">
               <div class="d-flex justify-content-between align-items-start mb-1">
                 <div class="ri-title-sm">
                   <a href="{{ route('routes.show', $plan) }}">{{ $plan->name ?? ('Ruta #'.$plan->id) }}</a>
@@ -187,8 +197,8 @@
 
               <div class="ri-meta mb-2">
                 <i class="bi bi-person"></i> {{ $driver }}
-                @if($plan->planned_at)
-                  <span class="ms-2"><i class="bi bi-calendar-event"></i> {{ $plan->planned_at->format('Y-m-d H:i') }}</span>
+                @if($planned)
+                  <span class="ms-2"><i class="bi bi-calendar-event"></i> {{ $planned->format('Y-m-d H:i') }}</span>
                 @endif
               </div>
 
@@ -234,8 +244,8 @@
             <tbody id="ri-tbody">
               @foreach($plans as $plan)
                 @php
-                  $totalStops = $plan->stops_count ?? $plan->stops()->count();
-                  $doneStops  = $plan->done_stops_count ?? $plan->stops()->where('status','done')->count();
+                  $totalStops = $plan->stops_count ?? 0;
+                  $doneStops  = $plan->done_stops_count ?? 0;
                   $pending    = max(0, $totalStops - $doneStops);
                   $pct        = $totalStops ? intval(($doneStops / $totalStops) * 100) : 0;
 
@@ -256,10 +266,15 @@
                     'cancelled'   => 'cancelada',
                   ][$status_key] ?? 'programada';
 
-                  $driver = $plan->driver->name ?? '—';
+                  $driver = $plan->driver->name ?? ($plan->driver->email ?? '—');
+
+                  $labelSearch = Str::of(($plan->name ?? 'ruta '.$plan->id).' '.$driver.' '.$status_es)
+                    ->lower()->ascii();
+
+                  $planned = $plan->planned_at ? Carbon::parse($plan->planned_at) : null;
                 @endphp
 
-                <tr data-ri-search="{{ Str::lower(($plan->name ?? 'ruta '.$plan->id).' '.$driver.' '.$status_es) }}">
+                <tr data-ri-search="{{ $labelSearch }}">
                   <td class="text-muted">#{{ $plan->id }}</td>
                   <td>
                     <a href="{{ route('routes.show', $plan) }}" class="fw-semibold">{{ $plan->name ?? ('Ruta #'.$plan->id) }}</a>
@@ -276,8 +291,8 @@
                     <span class="ri-chip {{ $chip_class }}"><span class="ri-dot"></span>{{ $status_es }}</span>
                   </td>
                   <td>
-                    @if($plan->planned_at)
-                      <span class="ri-meta"><i class="bi bi-calendar-event"></i> {{ $plan->planned_at->format('Y-m-d H:i') }}</span>
+                    @if($planned)
+                      <span class="ri-meta"><i class="bi bi-calendar-event"></i> {{ $planned->format('Y-m-d H:i') }}</span>
                     @else
                       <span class="ri-meta">—</span>
                     @endif
