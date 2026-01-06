@@ -679,57 +679,35 @@ class RoutePlanController extends Controller
     }
 
     /* ==========================================================
-     | START (bloquea orden 1 vez) + roundtrip SIEMPRE
-     | Regla:
-     | - Inicio = GPS actual del chofer
-     | - Primera parada = la más cercana al GPS (nearest-first)
-     | - Luego OSRM TRIP ordena el resto (ciclo)
+     | LOCK SEQUENCE (nearest-first + OSRM trip) — interno
+     | - Inicio = GPS actual del chofer (o start_lat/lng)
+     | - Primera parada = la más cercana al GPS
+     | - Luego OSRM TRIP ordena el resto (roundtrip=true)
      | - Guardamos sequence_index + start_lat/start_lng + sequence_locked
      * ========================================================== */
-    public function start(Request $r, RoutePlan $routePlan)
+    private function lockSequence(RoutePlan $routePlan, float $startLat, float $startLng): void
     {
-        $this->canDrive($routePlan);
+        if (!empty($routePlan->sequence_locked)) return;
 
-        // Si ya está bloqueada, no recalculamos orden
-        if (!empty($routePlan->sequence_locked)) {
-            return response()->json(['ok'=>true,'message'=>'Orden ya bloqueado'], 200);
-        }
-
-        $startLat = $this->normalizeCoord($r->input('start_lat'));
-        $startLng = $this->normalizeCoord($r->input('start_lng'));
-
-        if (!$this->validLatLng($startLat, $startLng)) {
-            $last = DriverPosition::where('user_id', Auth::id())->latest('captured_at')->first();
-            if (!$last) return response()->json(['message'=>'No hay ubicación actual del chofer.'], 422);
-            $startLat = $this->normalizeCoord($last->lat);
-            $startLng = $this->normalizeCoord($last->lng);
-        }
-
-        if (!$this->validLatLng($startLat, $startLng)) {
-            return response()->json(['message'=>'Ubicación de inicio inválida.'], 422);
-        }
-
-        $stops = $routePlan->stops()
+        $pending = $routePlan->stops()
             ->where('status','pending')
             ->orderByRaw('COALESCE(sequence_index, 999999), id')
             ->get();
 
-        $stopsValid = $stops->filter(function ($s) {
+        $stopsValid = $pending->filter(function ($s) {
             $lat = $this->normalizeCoord($s->lat);
             $lng = $this->normalizeCoord($s->lng);
             return $this->validLatLng($lat, $lng);
         })->values();
 
-        if ($stopsValid->isEmpty()) {
-            return response()->json(['message'=>'No hay paradas válidas para iniciar.'], 422);
-        }
+        if ($stopsValid->isEmpty()) return;
 
-        // nearest-first seed
+        // nearest-first
         $nearest = null; $nearestD = INF;
         foreach ($stopsValid as $s) {
             $lat = (float)$this->normalizeCoord($s->lat);
             $lng = (float)$this->normalizeCoord($s->lng);
-            $d = $this->haversineMeters((float)$startLat, (float)$startLng, $lat, $lng);
+            $d = $this->haversineMeters($startLat, $startLng, $lat, $lng);
             if ($d < $nearestD) { $nearestD = $d; $nearest = $s; }
         }
 
@@ -752,10 +730,8 @@ class RoutePlanController extends Controller
         ]);
 
         if (($trip['code'] ?? '') !== 'Ok' || empty($trip['trips'][0]['waypoint_indices'])) {
-            return response()->json([
-                'message'=>'OSRM trip no devolvió un orden válido.',
-                'detail'=>$trip,
-            ], 422);
+            Log::warning('lockSequence() OSRM trip invalid', ['plan_id'=>$routePlan->id, 'detail'=>$trip]);
+            return;
         }
 
         $indices = $trip['trips'][0]['waypoint_indices']; // índices sobre $tripCoords
@@ -765,13 +741,11 @@ class RoutePlanController extends Controller
             ->values();
 
         DB::transaction(function () use ($routePlan, $orderedStops, $startLat, $startLng) {
-            // Guardar orden
             foreach ($orderedStops as $i => $s) {
-                $s->sequence_index = $i + 1; // 1..N
+                $s->sequence_index = $i + 1;
                 $s->save();
             }
 
-            // Guardar inicio y lock
             $routePlan->update([
                 'start_lat' => (float)$startLat,
                 'start_lng' => (float)$startLng,
@@ -780,33 +754,64 @@ class RoutePlanController extends Controller
                 'sequence_locked' => true,
             ]);
         });
+    }
+
+    /* ==========================================================
+     | START (API) — llama lockSequence() y responde JSON
+     * ========================================================== */
+    public function start(Request $r, RoutePlan $routePlan)
+    {
+        $this->canDrive($routePlan);
+
+        if (!empty($routePlan->sequence_locked)) {
+            return response()->json(['ok'=>true,'message'=>'Orden ya bloqueado'], 200);
+        }
+
+        $startLat = $this->normalizeCoord($r->input('start_lat'));
+        $startLng = $this->normalizeCoord($r->input('start_lng'));
+
+        if (!$this->validLatLng($startLat, $startLng)) {
+            $last = DriverPosition::where('user_id', Auth::id())->latest('captured_at')->first();
+            if (!$last) return response()->json(['message'=>'No hay ubicación actual del chofer.'], 422);
+            $startLat = $this->normalizeCoord($last->lat);
+            $startLng = $this->normalizeCoord($last->lng);
+        }
+
+        if (!$this->validLatLng($startLat, $startLng)) {
+            return response()->json(['message'=>'Ubicación de inicio inválida.'], 422);
+        }
+
+        $this->lockSequence($routePlan->fresh(), (float)$startLat, (float)$startLng);
 
         return response()->json([
             'ok'=>true,
             'message'=>'Ruta iniciada, orden bloqueado (roundtrip).',
             'start'=>['lat'=>(float)$startLat,'lng'=>(float)$startLng],
+            'sequence_locked' => true,
         ], 200);
     }
 
     /* ==========================================================
-     | COMPUTE / RECOMPUTE
+     | COMPUTE / RECOMPUTE (roundtrip SIEMPRE)
      | - NO cambia el orden si ya está bloqueado
      | - SIEMPRE cierra regresando al inicio (roundtrip)
      * ========================================================== */
     public function compute(Request $r, RoutePlan $routePlan)
     {
         $this->canDrive($routePlan);
+        $routePlan->load('driver');
 
-        // Si ya iniciaron y guardaron start, úsalo
+        // 1) start preferido: el guardado en plan
         $startLat = $this->normalizeCoord($routePlan->start_lat);
         $startLng = $this->normalizeCoord($routePlan->start_lng);
 
-        // Si no, toma request o última ubicación del chofer
+        // 2) si no existe, request
         if (!$this->validLatLng($startLat, $startLng)) {
             $startLat = $this->normalizeCoord($r->input('start_lat'));
             $startLng = $this->normalizeCoord($r->input('start_lng'));
         }
 
+        // 3) si no, última ubicación
         if (!$this->validLatLng($startLat, $startLng)) {
             $last = DriverPosition::where('user_id', Auth::id())->latest('captured_at')->first();
             if (!$last) {
@@ -818,6 +823,12 @@ class RoutePlanController extends Controller
 
         if (!$this->validLatLng($startLat, $startLng)) {
             return response()->json(['message' => 'Ubicación de inicio inválida.'], 422);
+        }
+
+        // Si NO está bloqueado, bloquea aquí (sin “llamar” a start() para no romper el flujo)
+        if (empty($routePlan->sequence_locked)) {
+            $this->lockSequence($routePlan->fresh(), (float)$startLat, (float)$startLng);
+            $routePlan = $routePlan->fresh();
         }
 
         $stops = $routePlan->stops()
@@ -839,20 +850,7 @@ class RoutePlanController extends Controller
             return response()->json(['message' => 'No hay paradas pendientes con coordenadas válidas.', 'routes' => []], 200);
         }
 
-        // Si NO está bloqueado, puedes iniciar automáticamente (bloquear) y luego seguir
-        if (empty($routePlan->sequence_locked)) {
-            // intentamos iniciar/bloquear con este start
-            $this->start(new Request(['start_lat'=>$startLat,'start_lng'=>$startLng]), $routePlan->fresh());
-            $routePlan = $routePlan->fresh();
-            $stopsValid = $routePlan->stops()
-                ->where('status','pending')
-                ->orderByRaw('COALESCE(sequence_index, 999999), id')
-                ->get()
-                ->filter(fn($s)=>$this->validLatLng($this->normalizeCoord($s->lat), $this->normalizeCoord($s->lng)))
-                ->values();
-        }
-
-        // coords: start + orderedStops + start (cierre 100%)
+        // coords: start + stops + start (cierre 100%)
         $routeCoords = [];
         $routeCoords[] = ['lat'=>(float)$startLat, 'lng'=>(float)$startLng];
         foreach ($stopsValid as $s) {
@@ -881,6 +879,7 @@ class RoutePlanController extends Controller
 
         $r0 = $routeRes['routes'][0];
 
+        // Legs
         $legs = [];
         $rlegs = $r0['legs'] ?? [];
         for ($k=0; $k<count($rlegs); $k++) {
@@ -897,6 +896,7 @@ class RoutePlanController extends Controller
             ];
         }
 
+        // tráfico
         $legs = $this->traffic->applyDelays($legs);
         $totalAdj = (int) collect($legs)->sum('adj_duration');
 
@@ -930,17 +930,17 @@ class RoutePlanController extends Controller
         $exportLinks = $this->buildNavLinks($principal, $routePlan->stops()->where('status','pending')->get(), (float)$startLat, (float)$startLng);
 
         return response()->json([
-            'plan_id'       => $routePlan->id,
+            'plan_id'         => $routePlan->id,
             'sequence_locked' => (bool)($routePlan->sequence_locked ?? false),
-            'roundtrip'     => true,
-            'start'         => ['lat'=>(float)$startLat,'lng'=>(float)$startLng],
-            'ordered_stops' => $routePlan->stops()
+            'roundtrip'       => true,
+            'start'           => ['lat'=>(float)$startLat,'lng'=>(float)$startLng],
+            'ordered_stops'   => $routePlan->stops()
                 ->orderByRaw('COALESCE(sequence_index, 999999), id')
                 ->get(['id','name','lat','lng','sequence_index','eta_seconds','status','done_at']),
-            'routes'        => [$principal],
-            'advice_md'     => $advice ?: "Ruta optimizada y cierre al inicio.",
-            'total_minutes' => (int) round(($principal['total_sec'] ?? 0) / 60),
-            'export_links'  => $exportLinks,
+            'routes'          => [$principal],
+            'advice_md'       => $advice ?: "Ruta optimizada y cierre al inicio.",
+            'total_minutes'   => (int) round(($principal['total_sec'] ?? 0) / 60),
+            'export_links'    => $exportLinks,
         ], 200);
     }
 
@@ -953,10 +953,14 @@ class RoutePlanController extends Controller
     public function markStopDone(Request $r, RoutePlan $routePlan, RouteStop $stop)
     {
         $this->canDrive($routePlan);
-        abort_unless($stop->route_plan_id === $routePlan->id, 404);
+
+        // evita que marquen un stop de otra ruta
+        if ((int)$stop->route_plan_id !== (int)$routePlan->id) {
+            return response()->json(['message'=>'Stop no pertenece a esta ruta'], 404);
+        }
 
         $stop->update([
-            'status' => 'done',
+            'status'  => 'done',
             'done_at' => now(),
         ]);
 
