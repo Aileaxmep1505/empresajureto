@@ -6,18 +6,19 @@
 @php
   /**
    * ✅ Debug server-side (Laravel log)
-   * - Se imprime en storage/logs/laravel.log
-   * - Útil para saber si la vista trae stops/lat/lng
    */
   try {
     \Illuminate\Support\Facades\Log::info('driver.routes.show view boot', [
       'plan_id' => $routePlan->id ?? null,
       'stops_count' => isset($stops) ? (is_countable($stops) ? count($stops) : null) : null,
       'has_driver' => isset($routePlan->driver),
+      'sequence_locked' => (bool)($routePlan->sequence_locked ?? false),
+      'start' => [
+        'lat' => $routePlan->start_lat ?? null,
+        'lng' => $routePlan->start_lng ?? null,
+      ],
     ]);
-  } catch (\Throwable $e) {
-    // no-op
-  }
+  } catch (\Throwable $e) {}
 @endphp
 
 <div class="container-fluid p-0" id="rp-driver-pro">
@@ -208,13 +209,19 @@
           <div class="fw-bold">{{ $routePlan->name ?? ('Ruta #'.$routePlan->id) }}</div>
           <div class="text-muted small">Chofer: {{ $routePlan->driver->name ?? '—' }}</div>
 
+          {{-- ✅ Controles GPS (solo si no se ha iniciado / no está bloqueado) --}}
           <div id="gpsControls" class="d-flex gap-2 mt-2" style="display:none">
             <button id="btnStart" class="btn btn-sm btn-primary" type="button">
-              <i class="bi bi-crosshair"></i> Usar mi ubicación
+              <i class="bi bi-play-circle"></i> Iniciar ruta (usar mi ubicación)
             </button>
             <button id="btnRecalc" class="btn btn-sm btn-outline-primary" type="button" disabled>
               <i class="bi bi-arrow-repeat"></i> Recalcular
             </button>
+          </div>
+
+          {{-- ✅ Estado / lock --}}
+          <div class="small mt-2" id="lockBadgeWrap" style="display:none">
+            <span class="badge-ok" id="lockBadge"><i class="bi bi-shield-check"></i> Orden bloqueado</span>
           </div>
         </div>
 
@@ -264,7 +271,7 @@
           <div class="card-body">
             <div class="d-flex justify-content-between align-items-center mb-2">
               <h6 class="m-0">Paradas</h6>
-              <div class="muted small">Marca “Hecho” al llegar; se recalcula la agenda.</div>
+              <div class="muted small">Marca “Hecho” al llegar.</div>
             </div>
 
             <ul id="timeline" class="timeline">
@@ -319,14 +326,19 @@
           <div style="font-weight:800; margin-bottom:.35rem">Rutas</div>
           <div id="routesCards" class="routes-list">
             <div class="sk" style="height:46px;border-radius:12px"></div>
-            <div class="sk" style="height:46px;border-radius:12px"></div>
           </div>
           <div id="routesEmpty" class="small-muted" style="display:none;margin-top:.45rem">
             Solo llegó una ruta. Recalcula o abre en Google/Waze.
           </div>
+
           <div class="d-flex gap-2 mt-2">
             <a id="linkGmaps" href="#" target="_blank" class="btn btn-outline-primary disabled"><i class="bi bi-map"></i> Google Maps</a>
             <a id="linkWaze" href="#" target="_blank" class="btn btn-outline-dark disabled"><i class="bi bi-sign-turn-right"></i> Waze</a>
+          </div>
+
+          {{-- ✅ info de roundtrip (siempre) --}}
+          <div class="small-muted mt-2">
+            <i class="bi bi-arrow-90deg-left"></i> Cierre: regresa al inicio (roundtrip)
           </div>
         </div>
 
@@ -342,12 +354,9 @@
 </div>
 
 <script>
-  /**
-   * ✅ DEBUG:
-   * - En consola verás logs con prefijo [ROUTE_DEBUG]
-   * - Si existe window.csrfFetch (tu layout lo define), mandamos logs al backend:
-   *   POST /api/client-log  (debes crear la ruta + controller, te dejo snippet abajo)
-   */
+  /* =========================
+   * CONFIG
+   * ========================= */
   const DEBUG_ROUTE = true;
 
   function dlog(label, payload){
@@ -359,12 +368,11 @@
     try { console.warn('[ROUTE_DEBUG] ' + label, payload ?? ''); } catch(e){}
   }
 
-  const DBG_URL = @json(url('/api/client-log')); // ✅ crea esta ruta (snippet abajo)
+  const DBG_URL = @json(url('/api/client-log'));
 
   async function sendClientLog(level, message, meta){
     if (!DEBUG_ROUTE) return;
-    if (typeof window.csrfFetch !== 'function') return; // si no existe, no rompemos nada
-
+    if (typeof window.csrfFetch !== 'function') return;
     try{
       await window.csrfFetch(DBG_URL, {
         method:'POST',
@@ -376,9 +384,7 @@
           meta: meta || {}
         })
       });
-    }catch(e){
-      // no-op
-    }
+    }catch(e){}
   }
 
   function dbgChip(text, isError=false){
@@ -391,26 +397,32 @@
     el._t = setTimeout(()=>{ el.style.display='none'; }, 5000);
   }
 
-  /* ===== Config ===== */
-  const REQUEST_ALTS = { include_alternatives: true, max_alternatives: 2, steps: true };
+  const REQUEST_ALTS = { include_alternatives: false, max_alternatives: 0, steps: true };
   const USE_CREDENTIALS = true;
 
   /* ===== Datos servidor ===== */
   const planId        = {{ $routePlan->id }};
   const initialStops  = @json($stops);
   const csrf          = @json(csrf_token());
+
+  // ✅ Nuevas rutas: start bloquea el orden 1 vez
+  const URL_START     = @json(route('api.routes.start', $routePlan));
   const URL_COMPUTE   = @json(route('api.routes.compute', $routePlan));
   const URL_RECOMPUTE = @json(route('api.routes.recompute', $routePlan));
   const URL_DONE_BASE = @json(url('/api/routes/'.$routePlan->id.'/stops'));
   const URL_SAVE_LOC  = @json(route('api.driver.location.save'));
   const URL_LAST_LOC  = @json(route('api.driver.location.last'));
+  const URL_LIVE      = @json(route('api.routes.live', $routePlan));
 
-  dlog('boot', { planId, initialStopsCount: (initialStops||[]).length, URL_COMPUTE, URL_RECOMPUTE });
+  dlog('boot', { planId, initialStopsCount: (initialStops||[]).length, URL_START, URL_COMPUTE, URL_RECOMPUTE });
 
   /* ===== Estado ===== */
   let map, base, meMarker, mainLine, alt1Line, alt2Line, segLines = [];
   let currentPos = null, lastPayload = null, watcherId = null;
   let routeSteps = [], stepIdx = 0, didAutoZoom = false, followMode = true;
+
+  // ✅ Estado de lock (server)
+  let serverLocked = false;
 
   /* ===== Utils ===== */
   const mm = (s)=> Math.round((s||0)/60);
@@ -428,7 +440,7 @@
   };
   const isValidLatLng = (lat,lng)=> {
     if (lat === null || lng === null) return false;
-    if (Math.abs(lat) < 0.000001 && Math.abs(lng) < 0.000001) return false; // evita 0,0
+    if (Math.abs(lat) < 0.000001 && Math.abs(lng) < 0.000001) return false;
     return Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
   };
 
@@ -453,9 +465,7 @@
   }
 
   async function safeJsonFetch(url, options){
-    const startedAt = Date.now();
     let res;
-
     try{
       res = await fetch(url, options);
     }catch(e){
@@ -466,9 +476,7 @@
     }
 
     const ct = (res.headers.get('content-type')||'').toLowerCase();
-    const ms = Date.now() - startedAt;
 
-    // Si devolvió HTML (login/CSRF)
     if (!ct.includes('application/json')){
       const text = await res.text().catch(()=> '');
       const isLogin = text.includes('<html') || text.includes('<!doctype') || text.includes('login');
@@ -481,11 +489,11 @@
         isLogin ? 'HTML (login?)' :
         'non-json';
 
-      dwarn('non-json response', { url, status: code, ct, ms, hint, sample: text.slice(0,400) });
-      await sendClientLog('error', 'non-json response', { url, status: code, ct, ms, hint, sample: text.slice(0,400) });
+      dwarn('non-json response', { url, status: code, ct, hint, sample: text.slice(0,220) });
+      await sendClientLog('error', 'non-json response', { url, status: code, ct, hint, sample: text.slice(0,220) });
 
-      if (code === 401) showToast('Sesión no válida (401). Re-ingresa.', false);
-      else if (code === 419) showToast('CSRF expirado (419). Recarga la página.', false);
+      if (code === 401) showToast('Sesión no válida (401).', false);
+      else if (code === 419) showToast('CSRF expirado (419). Recarga.', false);
       else if (code === 403) showToast('No tienes permiso (403).', false);
       else showToast('Respuesta no-JSON del servidor ('+code+').', false);
 
@@ -497,19 +505,31 @@
 
     if (!res.ok){
       const msg = data?.message || ('Error HTTP '+res.status);
-      dwarn('api error', { url, status: res.status, ms, data });
-      await sendClientLog('error', 'api error', { url, status: res.status, ms, data });
+      dwarn('api error', { url, status: res.status, data });
+      await sendClientLog('error', 'api error', { url, status: res.status, data });
       dbgChip('API error ' + res.status + ': ' + (data?.message || 'sin mensaje'), true);
       showToast(msg, false);
       return { ok:false, status:res.status, data };
     }
 
-    dlog('api ok', { url, status: res.status, ms, keys: data ? Object.keys(data) : null });
-    await sendClientLog('info', 'api ok', { url, status: res.status, ms });
     return { ok:true, status:res.status, data };
   }
 
   /* ===== Mostrar/ocultar controles GPS ===== */
+  function setLockUI(locked){
+    serverLocked = !!locked;
+    const wrap = document.getElementById('lockBadgeWrap');
+    if (wrap) wrap.style.display = locked ? 'block' : 'none';
+
+    // si está locked, ocultamos "Iniciar" y dejamos "Recalcular"
+    const controls = document.getElementById('gpsControls');
+    if (!controls) return;
+
+    // si ya está locked, no mostramos iniciar (pero recalc queda disponible si hay GPS)
+    const btnStart = document.getElementById('btnStart');
+    if (btnStart) btnStart.style.display = locked ? 'none' : 'inline-flex';
+  }
+
   function showGpsControls(show){
     const el = document.getElementById('gpsControls');
     if (!el) return;
@@ -522,26 +542,31 @@
     stopMarkers.forEach(m=>{ try{ map.removeLayer(m); }catch(e){} });
     stopMarkers.length = 0;
 
-    (stops||[]).forEach((s, idx) => {
+    // ✅ Numeración usando sequence_index (1..N) si existe
+    const ordered = (stops||[]).slice().sort((a,b)=>
+      (a.sequence_index??999999)-(b.sequence_index??999999) || (a.id-b.id)
+    );
+
+    ordered.forEach((s, idx) => {
       const lat = toNum(s.lat), lng = toNum(s.lng);
       if (!isValidLatLng(lat,lng)) return;
 
-      const n = (idx+1);
+      const n = (s.sequence_index != null && Number.isFinite(Number(s.sequence_index)))
+        ? (Number(s.sequence_index)) // ya viene 1..N en el controller
+        : (idx+1);
+
       const html = `<div class="flagpin ${s.status==='done' ? 'done' : ''}">${n}</div>`;
       const icon = L.divIcon({ html, className:'', iconAnchor:[10, 18] });
       const m = L.marker([lat, lng], { icon }).addTo(map);
       stopMarkers.push(m);
       m.bindPopup((s.name||'Punto') + (s.status==='done' ? ' • hecho' : ''));
     });
-
-    dlog('markers', { count: stopMarkers.length });
   }
 
   function initMap(){
     map = L.map('map', { zoomSnap: 0.5 }).setView([20.6736,-103.344], 12);
     base = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ attribution:'© OpenStreetMap' }).addTo(map);
 
-    // ✅ Importante para layouts flex (map gris / sin tiles)
     setTimeout(()=>{ try{ map.invalidateSize(true); }catch(e){} }, 200);
     window.addEventListener('resize', ()=>{ try{ map.invalidateSize(true); }catch(e){} });
 
@@ -582,35 +607,16 @@
     }
   }
 
-  function drawTrafficSegments(legs){
-    (legs||[]).forEach((leg)=>{
-      const from=leg.from, to=leg.to; if (!from||!to) return;
-      const fl = { lat: toNum(from.lat), lng: toNum(from.lng) };
-      const tl = { lat: toNum(to.lat), lng: toNum(to.lng) };
-      if (!isValidLatLng(fl.lat, fl.lng) || !isValidLatLng(tl.lat, tl.lng)) return;
-
-      const s=leg.severity||'ok';
-      const color = s==='heavy' ? '#ef4444' : (s==='slow' ? '#f59e0b' : '#10b981');
-      const line = L.polyline([[fl.lat,fl.lng],[tl.lat,tl.lng]], { color, weight:7, opacity:.5 }).addTo(map);
-      segLines.push(line);
-    });
-  }
-
   function fitAll(){
     const layers=[];
     if (mainLine) layers.push(mainLine);
-    if (alt1Line) layers.push(alt1Line);
-    if (alt2Line) layers.push(alt2Line);
-    segLines.forEach(l=>layers.push(l));
     if (meMarker) layers.push(meMarker);
     if (!layers.length) return;
 
     try{
       const grp=L.featureGroup(layers);
       map.fitBounds(grp.getBounds().pad(0.18));
-    }catch(e){
-      dwarn('fitAll failed', e);
-    }
+    }catch(e){}
   }
 
   /* ===== Render UI ===== */
@@ -623,21 +629,20 @@
     if (!routes.length){ empty.style.display='block'; return; }
 
     routes.forEach((r,i)=>{
-      const cls = i===0 ? 'route-card active' : 'route-card';
-      const badge = i===0 ? 'rb-blue' : (i===1 ? 'rb-amber' : 'rb-red');
+      const cls = 'route-card active';
+      const badge = 'rb-blue';
       const mins = Math.round((r.total_sec||0)/60), h=Math.floor(mins/60), m=mins%60;
       const time = h? `${h} h ${m} min`:`${m} min`;
       const dist = `${km(r.total_m||0).toFixed(1)} km`;
-      const toll = r.toll?.has_toll ? ` · Peaje: ~$${r.toll.estimated_mxn} MXN` : ' · Libre';
 
       wrap.insertAdjacentHTML('beforeend', `
         <div class="${cls}">
           <div class="route-head">
-            <span class="route-badge ${badge}"><i class="bi bi-route"></i> ${i===0?'Principal':(i===1?'Alternativa':'Evitar')}</span>
+            <span class="route-badge ${badge}"><i class="bi bi-route"></i> Principal</span>
             <span class="small-muted"><i class="bi bi-signpost-2"></i> ${dist}</span>
           </div>
           <div class="small-muted" style="margin-top:.25rem">
-            <i class="bi bi-stopwatch"></i> <strong>${time}</strong>${toll}
+            <i class="bi bi-stopwatch"></i> <strong>${time}</strong> · Roundtrip
           </div>
         </div>
       `);
@@ -657,10 +662,11 @@
 
     routeSteps.forEach((st, idx)=>{
       const name = st.name || '';
-      const instr = st.instruction || st.maneuver || '';
+      const instr = st.instruction || '';
       const dist = st.distance ? (st.distance/1000).toFixed(1)+' km' : '';
       list.insertAdjacentHTML('beforeend', `<li>${idx+1}. ${instr} <span class="muted">${name ? ' • '+name : ''} ${dist ? ' • '+dist : ''}</span></li>`);
     });
+
     mapToast('Empezamos • ' + (routeSteps[0]?.instruction || 'Sigue la ruta'));
   }
 
@@ -672,29 +678,21 @@
 
     const tl=document.getElementById('timeline'); tl.innerHTML='';
 
-    const legs=(payload.routes?.[0]?.legs||[]).map(l=>Number(l.adj_duration||l.duration||0));
-    const perStopSec=[]; let legIdx=0;
+    // ✅ usar eta_seconds ya calculado por backend (parejo y consistente)
+    const now=new Date();
 
-    ordered.forEach(s=>{
-      if(s.status==='done'){ perStopSec.push(0); return; }
-      const eta=Number(s.eta_seconds||0)||legs[legIdx]||0;
-      perStopSec.push(eta);
-      legIdx++;
-    });
-
-    const now=new Date(); let acc=0;
-    ordered.forEach((s, idx)=>{
-      const seq=(s.sequence_index??idx)+1;
+    ordered.forEach((s)=>{
       const dotCls=s.status==='done'?'dot done':'dot';
 
       let etaMinTxt='—', arriveTxt='—';
       if (s.status!=='done'){
-        const sec=perStopSec[idx]||0;
-        const at=new Date(now.getTime()+(acc+sec)*1000);
+        const sec=Number(s.eta_seconds||0)||0;
+        const at=new Date(now.getTime()+sec*1000);
         etaMinTxt=`${mm(sec)} min`;
         arriveTxt=fmtClock(at);
-        acc+=sec;
       }
+
+      const seq = (s.sequence_index != null ? Number(s.sequence_index) : null);
 
       const statusChip = s.status==='done'
         ? '<span class="badge-ok">hecho</span>'
@@ -712,7 +710,7 @@
           <div class="${dotCls}"></div>
           <div class="tl-card">
             <div class="tl-top">
-              <div class="tl-title">#${seq}. ${ (s.name||'Punto') }</div>
+              <div class="tl-title">${seq ? '#'+seq+'. ' : ''}${ (s.name||'Punto') }</div>
               <div class="tl-badges">${statusChip}</div>
               ${button}
             </div>
@@ -726,28 +724,16 @@
     });
 
     const pending=ordered.filter(s=>s.status!=='done');
-    const totalRemainingSec=pending.reduce((sum,s)=> {
-      const i = ordered.findIndex(x=>x.id===s.id);
-      return sum + (perStopSec[i]||0);
-    }, 0);
-
-    const mins=Math.max(1,Math.round(totalRemainingSec/60));
-    document.getElementById('kpiTotal').textContent=`${mins} min`;
-
-    const finishAt=new Date(now.getTime()+totalRemainingSec*1000);
-    document.getElementById('etaFinish').textContent=pending.length?fmtClock(finishAt):'Completado';
-    document.getElementById('etaFinishHint').textContent=pending.length?`En ${mins} min aprox.`:'Todas las paradas hechas';
     document.getElementById('totalCount').textContent=ordered.length;
     document.getElementById('pendingCount').textContent=pending.length;
 
     if (pending.length){
       const first=pending[0];
-      const idxFirst=ordered.findIndex(x=>x.id===first.id);
-      const seg=perStopSec[idxFirst]||0;
-      const at=new Date(now.getTime()+seg*1000);
+      const sec=Number(first.eta_seconds||0)||0;
+      const at=new Date(now.getTime()+sec*1000);
 
       document.getElementById('nextName').textContent=first.name||'Punto';
-      document.getElementById('nextEta').textContent=`${mm(seg)} min`;
+      document.getElementById('nextEta').textContent=`${mm(sec)} min`;
       document.getElementById('nextAt').textContent=fmtClock(at);
 
       const fab=document.getElementById('fabDone');
@@ -768,6 +754,8 @@
   function renderKPIsDistance(payload){
     const m=Number(payload?.routes?.[0]?.total_m||0);
     document.getElementById('totalKm').textContent=m?(m/1000).toFixed(1):'—';
+    const mins = Math.max(1, Math.round(Number(payload?.routes?.[0]?.total_sec||0)/60));
+    document.getElementById('kpiTotal').textContent = `${mins} min`;
   }
 
   function drawAll(payload){
@@ -776,10 +764,6 @@
     const R = payload.routes||[];
 
     if (R[0]) mainLine = drawGeo(R[0], '#2563eb', 6, false);
-    if (R[1]) alt1Line = drawGeo(R[1], '#10b981', 5, true);
-    if (R[2]) alt2Line = drawGeo(R[2], '#ef4444', 5, true);
-
-    if (R[0]?.legs?.length) drawTrafficSegments(R[0].legs);
 
     if (currentPos && isValidLatLng(currentPos.lat, currentPos.lng)){
       if (meMarker) map.removeLayer(meMarker);
@@ -790,8 +774,10 @@
       addStopFlags(payload.ordered_stops);
     }
 
-    // Ajusta bounds SOLO si hay líneas
-    if (mainLine || alt1Line || alt2Line) fitAll();
+    if (mainLine) fitAll();
+
+    // ✅ lock UI
+    setLockUI(!!payload.sequence_locked);
 
     renderRoutesCards(payload);
     renderTimeline(payload);
@@ -817,7 +803,6 @@
     if (stop && stop.lat != null && stop.lng != null){
       dest=`${stop.lat},${stop.lng}`;
     }
-
     const origin = currentPos ? `${currentPos.lat},${currentPos.lng}` : null;
 
     if (!dest || !origin){
@@ -834,13 +819,7 @@
 
   /* ===== Persistencia ===== */
   async function saveDriverLocation(pos){
-    const payload = {
-      lat: pos.lat,
-      lng: pos.lng,
-      captured_at: new Date().toISOString()
-    };
-
-    dlog('saveDriverLocation', payload);
+    const payload = { lat: pos.lat, lng: pos.lng, captured_at: new Date().toISOString() };
 
     const r = await safeJsonFetch(URL_SAVE_LOC, fopts({
       method:'POST',
@@ -853,7 +832,6 @@
     }));
 
     if (!r.ok){
-      dwarn('saveDriverLocation failed', r);
       await sendClientLog('error', 'saveDriverLocation failed', { r });
     }
   }
@@ -886,7 +864,6 @@
             try{ map.flyTo([currentPos.lat,currentPos.lng],15,{duration:.6}); }catch{}
           }
         }
-
         lastPos=currentPos;
 
         if (followMode && didAutoZoom){
@@ -903,7 +880,6 @@
           lastSent=now;
           await saveDriverLocation(currentPos);
           try{ await recompute(); }catch(e){
-            dwarn('recompute failed inside watcher', e);
             await sendClientLog('error', 'recompute failed in watcher', { err: String(e) });
           }
         }
@@ -911,9 +887,6 @@
         updateNavLinks();
       },
       async (err)=>{
-        dwarn("GPS ERROR", { code: err.code, message: err.message });
-        await sendClientLog('error', 'gps error', { code: err.code, message: err.message });
-
         const msg =
           err.code===1 ? 'Permiso de ubicación denegado. Actívalo en tu navegador.' :
           err.code===2 ? 'No se pudo obtener señal GPS.' :
@@ -922,6 +895,7 @@
 
         showToast(msg, false);
         dbgChip('GPS: ' + msg, true);
+        await sendClientLog('error', 'gps error', { code: err.code, message: err.message });
       },
       { enableHighAccuracy:true, maximumAge:5000, timeout:20000 }
     );
@@ -937,11 +911,11 @@
   async function requestGpsOnce(){
     if (!navigator.geolocation){
       showToast('Tu dispositivo no soporta GPS', false);
-      return;
+      return null;
     }
     if (!window.isSecureContext){
       showToast('El GPS requiere HTTPS', false);
-      return;
+      return null;
     }
 
     try{
@@ -954,43 +928,57 @@
       });
 
       currentPos = pos;
-
-      await sendClientLog('info', 'gps acquired', { currentPos });
       dbgChip('GPS listo: ' + pos.lat.toFixed(5) + ', ' + pos.lng.toFixed(5));
-
       await saveDriverLocation(pos);
-      await compute(pos);
-      startWatching();
-      showGpsControls(false);
-
-      showToast('GPS activado');
-      mapToast('Navegación iniciada');
+      return pos;
     }catch(err){
       const msg =
-        err?.code===1 ? 'Permiso denegado. Actívalo desde el candado del navegador.' :
+        err?.code===1 ? 'Permiso denegado. Actívalo desde el candado.' :
         err?.code===2 ? 'No se pudo obtener señal GPS.' :
         err?.code===3 ? 'El GPS tardó demasiado.' :
         (err?.message || 'No se pudo obtener ubicación');
 
-      dwarn('requestGpsOnce failed', { err: String(err), msg });
-      await sendClientLog('error', 'requestGpsOnce failed', { err: String(err), msg });
-
       showToast(msg, false);
       dbgChip('GPS error: ' + msg, true);
+      await sendClientLog('error', 'requestGpsOnce failed', { err: String(err), msg });
+      return null;
     }
   }
 
   /* ===== API ===== */
+  async function startRoute(start){
+    if (!start || !isValidLatLng(toNum(start.lat), toNum(start.lng))){
+      showToast('Ubicación inválida para iniciar.', false);
+      return false;
+    }
+
+    const payloadOut = { start_lat:start.lat, start_lng:start.lng };
+    dlog('start request', payloadOut);
+
+    const r = await safeJsonFetch(URL_START, fopts({
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'Accept':'application/json',
+        'X-CSRF-TOKEN': csrf
+      },
+      body: JSON.stringify(payloadOut)
+    }));
+
+    if (!r.ok) return false;
+
+    showToast('Ruta iniciada. Orden bloqueado.');
+    setLockUI(true);
+    return true;
+  }
+
   async function compute(start){
     if (!start || !isValidLatLng(toNum(start.lat), toNum(start.lng))){
-      dwarn('compute called with invalid start', start);
-      await sendClientLog('error', 'compute invalid start', { start });
       showToast('Ubicación inválida para calcular.', false);
       return;
     }
 
     const payloadOut = { start_lat:start.lat, start_lng:start.lng, ...REQUEST_ALTS };
-    dlog('compute request', payloadOut);
 
     const r = await safeJsonFetch(URL_COMPUTE, fopts({
       method:'POST',
@@ -1004,7 +992,6 @@
 
     if (!r.ok || !r.data) return;
 
-    dlog('compute response', r.data);
     drawAll(r.data);
     lastPayload=r.data;
     document.getElementById('btnRecalc')?.removeAttribute('disabled');
@@ -1014,7 +1001,6 @@
     if(!currentPos) return;
 
     const payloadOut = { start_lat: currentPos.lat, start_lng: currentPos.lng, ...REQUEST_ALTS };
-    dlog('recompute request', payloadOut);
 
     const r = await safeJsonFetch(URL_RECOMPUTE, fopts({
       method:'POST',
@@ -1028,60 +1014,53 @@
 
     if (!r.ok || !r.data) return;
 
-    dlog('recompute response', r.data);
     drawAll(r.data);
     lastPayload=r.data;
   }
 
+  async function fetchLive(){
+    const r = await safeJsonFetch(URL_LIVE, fopts({ headers:{ 'Accept':'application/json' } }));
+    if (!r.ok || !r.data) return null;
+    return r.data;
+  }
+
   /* ===== Auto-boot ===== */
   async function autoBoot(){
-    // 0) sanity: stops válidos
+    // 1) preguntar al server si ya está bloqueado y si hay start guardado
     try{
-      const validStops = (initialStops||[]).filter(s=> isValidLatLng(toNum(s.lat), toNum(s.lng)));
-      dlog('stops validity', { total: (initialStops||[]).length, valid: validStops.length });
-      if (!validStops.length){
-        dbgChip('Sin coords válidas en paradas', true);
-        await sendClientLog('warning', 'no valid stops coords', { total: (initialStops||[]).length });
-      }
+      const live = await fetchLive();
+      if (live?.sequence_locked != null) setLockUI(!!live.sequence_locked);
     }catch(e){}
 
-    // 1) última ubicación guardada
+    // 2) última ubicación guardada
     try{
       const r = await safeJsonFetch(URL_LAST_LOC, fopts({ headers:{'Accept':'application/json'} }));
       if (r.ok && r.data?.lat && r.data?.lng){
         currentPos={ lat:Number(r.data.lat), lng:Number(r.data.lng) };
-        dlog('last location found', currentPos);
         await compute(currentPos);
-      } else {
-        dlog('no last location', r.data);
       }
-    }catch(e){
-      dwarn('autoBoot last loc error', e);
-      await sendClientLog('error', 'autoBoot last loc error', { err: String(e) });
-    }
+    }catch(e){}
 
-    // 2) permisos
+    // 3) permisos
     try{
       if (navigator.permissions?.query){
         const p = await navigator.permissions.query({ name:'geolocation' });
 
         const applyState = async ()=>{
-          dlog('geolocation permission', { state: p.state });
-
           if (p.state === 'prompt'){
+            // si NO está bloqueado, mostramos iniciar
             showGpsControls(true);
-            setTimeout(()=> requestGpsOnce(), 600);
           } else if (p.state === 'granted'){
-            showGpsControls(false);
+            showGpsControls(true); // deja visible recalc; iniciar se oculta si locked
             startWatching();
             if (!currentPos){
-              requestGpsOnce();
+              const pos = await requestGpsOnce();
+              if (pos) await compute(pos);
             }
           } else {
             showGpsControls(false);
-            showToast('Permiso de ubicación denegado. Actívalo en tu navegador.', false);
+            showToast('Permiso de ubicación denegado.', false);
             dbgChip('GPS denied', true);
-            await sendClientLog('warning', 'gps denied', {});
           }
         };
 
@@ -1089,12 +1068,8 @@
         p.onchange = applyState;
         return;
       }
-    }catch(e){
-      dwarn('permissions api error', e);
-      await sendClientLog('error', 'permissions api error', { err: String(e) });
-    }
+    }catch(e){}
 
-    // fallback
     showGpsControls(true);
   }
 
@@ -1105,8 +1080,6 @@
 
     const doneId=btn.getAttribute('data-done');
     const url=`${URL_DONE_BASE}/${doneId}/done`;
-
-    dlog('mark done', { doneId, url });
 
     const r = await safeJsonFetch(url, fopts({
       method:'POST',
@@ -1126,9 +1099,27 @@
     }
   });
 
-  document.getElementById('btnStart')?.addEventListener('click', async ()=>{ await requestGpsOnce(); });
+  // ✅ Iniciar ruta: bloquea orden 1 vez en backend
+  document.getElementById('btnStart')?.addEventListener('click', async ()=>{
+    const pos = await requestGpsOnce();
+    if (!pos) return;
+
+    const ok = await startRoute(pos);
+    if (!ok) return;
+
+    await compute(pos);
+    startWatching();
+    mapToast('Ruta iniciada (orden fijo)');
+  });
+
   document.getElementById('btnRecalc')?.addEventListener('click', async ()=>{
-    if (!currentPos){ await requestGpsOnce(); return; }
+    if (!currentPos){
+      const pos = await requestGpsOnce();
+      if (!pos) return;
+      await compute(pos);
+      startWatching();
+      return;
+    }
     await recompute();
     showToast('Ruta actualizada');
   });
@@ -1138,10 +1129,12 @@
     const id = e.currentTarget.getAttribute('data-done');
     if (!id) return;
     const url=`${URL_DONE_BASE}/${id}/done`;
+
     const r = await safeJsonFetch(url, fopts({
       method:'POST',
       headers:{ 'Accept':'application/json', 'X-CSRF-TOKEN': csrf }
     }));
+
     if (r.ok && r.data?.ok){
       await recompute();
       showToast('Punto marcado como hecho');
@@ -1153,6 +1146,8 @@
   });
 
   window.addEventListener('beforeunload', stopWatching);
+
+  // ✅ refresco suave
   setInterval(async ()=>{ if(currentPos){ await recompute(); } }, 60000);
 
   // Init
@@ -1161,8 +1156,8 @@
 </script>
 
 {{-- ============================
-   ✅ SNIPPET BACKEND (OBLIGATORIO PARA LOGS DEL CLIENTE)
-   Pégalo en tu routes/api.php (esto NO se ejecuta en Blade)
+   ✅ SNIPPET BACKEND (OPCIONAL PARA LOGS DEL CLIENTE)
+   Pégalo en routes/api.php
 ============================ --}}
 {{--
 Route::middleware(['auth'])->post('/client-log', function (\Illuminate\Http\Request $r) {
