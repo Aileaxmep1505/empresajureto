@@ -26,7 +26,7 @@ class MailboxController extends Controller
         return view('mail.index', [
             'counts'  => $this->mailbox->counts(),
             'current' => $folder,
-            'messages'=> [], // tu blade se llena por API
+            'messages'=> [],
         ]);
     }
 
@@ -36,41 +36,23 @@ class MailboxController extends Controller
     }
 
     /* =========================
-     |  SHOW (partial que tu JS necesita)
+     |  SHOW (✅ FIX $msg undefined)
      ========================= */
 
     public function show(Request $r, string $folder, string $uid)
     {
         $folder = strtoupper($folder);
+
         $msg = $this->mailbox->getMessage($folder, (string)$uid);
         abort_unless($msg, 404);
 
-        if ($r->get('partial') == '1') {
-            $fromObj = optional($msg->getFrom())->first();
-            $from    = $this->mailbox->decodeHeader($fromObj?->personal ?: $fromObj?->mail ?: '(desconocido)');
-
-            $toObj = optional($msg->getTo())->first();
-            $ccObj = optional($msg->getCc())->first();
-
-            $to      = (string)($toObj?->mail ?? '');
-            $cc      = (string)($ccObj?->mail ?? '');
-            $subject = $this->mailbox->decodeHeader((string)($msg->getSubject() ?: '(sin asunto)'));
-            $when    = $this->mailbox->formatWhen($msg);
-
-            $html = $msg->hasHTMLBody() ? (string)$msg->getHTMLBody() : null;
-            $text = (string)($msg->getTextBody() ?? '');
-
-            $attachments = [];
-            try { $attachments = $msg->getAttachments() ?? []; } catch (\Throwable $e) {}
-
-            // ✅ Tu JS busca #mx-payload. Esta vista debe renderizarlo.
-            return response()->view('mail.partials.show', compact(
-                'folder','uid','from','to','cc','subject','when','html','text','attachments'
-            ));
-        }
-
         $attachments = [];
         try { $attachments = $msg->getAttachments() ?? []; } catch (\Throwable $e) {}
+
+        // ✅ IMPORTANTE: si es partial=1, devolvemos mail.show (tu vista ya soporta partial)
+        if ($r->get('partial') == '1') {
+            return response()->view('mail.show', compact('msg','folder','uid','attachments'));
+        }
 
         return view('mail.show', compact('msg','folder','uid','attachments'));
     }
@@ -123,7 +105,6 @@ class MailboxController extends Controller
 
         MailFacade::send($mailable);
 
-        // ✅ Hostinger a veces NO guarda enviado por SMTP -> APPEND a SENT
         if ($rawSent) {
             $this->mailbox->appendToSentIfPossible($rawSent);
         }

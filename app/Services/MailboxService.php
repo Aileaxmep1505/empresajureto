@@ -14,7 +14,7 @@ class MailboxService
     protected int $shortTtl   = 25;   // counts
     protected int $foldersTtl = 600;  // folders
 
-    protected int $windowDefaultMonths   = 18; // amplio para que no “desaparezcan”
+    protected int $windowDefaultMonths   = 18;
     protected int $windowTrashSpamMonths = 2;
 
     protected string $account;
@@ -73,7 +73,7 @@ class MailboxService
             'ALL'     => [],
         ];
 
-        // Overrides por .env (si existen, se intentan primero)
+        // Overrides por .env (si existen, los intentamos primero)
         $envMap = [
             'INBOX'   => env('IMAP_FOLDER_INBOX'),
             'SENT'    => env('IMAP_FOLDER_SENT'),
@@ -178,7 +178,6 @@ class MailboxService
             if ($found) return $found;
         }
 
-        // fallback duro para INBOX
         if ($logical === 'INBOX') {
             try { return $this->client->getFolder('INBOX'); } catch (\Throwable $e) {}
         }
@@ -206,9 +205,27 @@ class MailboxService
     {
         $logical = strtoupper($logical);
         if (in_array($logical, ['TRASH','SPAM'], true)) {
-            return max(1, (int) env('MAILBOX_WINDOW_TRASH_SPAM', $this->windowTrashSpamMonths));
+            return (int) env('MAILBOX_WINDOW_TRASH_SPAM', $this->windowTrashSpamMonths);
         }
-        return max(1, (int) env('MAILBOX_WINDOW_DEFAULT', $this->windowDefaultMonths));
+        return (int) env('MAILBOX_WINDOW_DEFAULT', $this->windowDefaultMonths);
+    }
+
+    /* =========================
+     |  Query helpers (FIX SEARCH vacío)
+     ========================= */
+
+    protected function applyAllCriteria($query): void
+    {
+        // ✅ Esta función evita: "UID SEARCH: Missing search parameters"
+        try {
+            if (method_exists($query, 'all')) { $query->all(); return; }
+        } catch (\Throwable $e) {}
+
+        try {
+            if (method_exists($query, 'whereAll')) { $query->whereAll(); return; }
+        } catch (\Throwable $e) {}
+
+        // Si no existe, no hacemos nada; pero normalmente sí existe en Webklex.
     }
 
     /* =========================
@@ -337,30 +354,7 @@ class MailboxService
     }
 
     /* =========================
-     |  Query helper (EVITA "Missing search parameters")
-     ========================= */
-
-    protected function ensureAll($query): void
-    {
-        // ✅ CLAVE: Hostinger truena si SEARCH va vacío
-        try {
-            if (method_exists($query, 'all')) {
-                $query->all();
-                return;
-            }
-        } catch (\Throwable $e) {}
-
-        // Fallback por compat (por si alguna versión no trae all)
-        try {
-            if (method_exists($query, 'whereAll')) {
-                $query->whereAll();
-                return;
-            }
-        } catch (\Throwable $e) {}
-    }
-
-    /* =========================
-     |  List messages
+     |  List messages (FIX SEARCH vacío)
      ========================= */
 
     public function listFromFolder(string $folderKey, array $opts = [])
@@ -380,29 +374,24 @@ class MailboxService
         $box = $this->resolveFolder($folderKey);
         if (!$box) return collect();
 
-        // ✅ SIEMPRE arranca con ALL para que nunca sea "SEARCH vacío"
-        $query = $box->query()->setFetchOrder('desc');
-        $this->ensureAll($query);
+        $query = $box->query();
 
-        // Solo acotar por tiempo SPAM/TRASH (reduce costo)
+        // ✅ SIEMPRE forzar ALL para evitar SEARCH vacío
+        $this->applyAllCriteria($query);
+
+        // Solo acotar por tiempo en SPAM/TRASH
         if (in_array($folderKey, ['SPAM','TRASH'], true)) {
             $months = max(1, (int)($opts['months'] ?? $this->windowMonths($folderKey)));
-            try { $query->since(now()->subMonths($months)); } catch (\Throwable $e) {}
+            if (method_exists($query, 'since')) {
+                $query->since(now()->subMonths($months));
+            }
         }
 
-        if ($unseen && method_exists($query, 'unseen')) {
-            try { $query->unseen(); } catch (\Throwable $e) {}
-        }
+        if ($unseen && method_exists($query, 'unseen')) $query->unseen();
 
-        // IMPORTANTE: limit antes de get
-        try {
-            $messages = $query->limit($limit)->get();
-        } catch (\Throwable $e) {
-            // fallback ultra-defensivo
-            $query = $box->query()->setFetchOrder('desc');
-            $this->ensureAll($query);
-            $messages = $query->limit($limit)->get();
-        }
+        if (method_exists($query, 'setFetchOrder')) $query->setFetchOrder('desc');
+
+        $messages = $query->limit($limit)->get();
 
         if ($afterUid > 0) {
             $messages = $messages->filter(fn($m)=>(int)$m->getUid() > $afterUid);
@@ -465,11 +454,8 @@ class MailboxService
         $box = $this->resolveFolder($folderKey);
         if (!$box) return null;
 
-        // ✅ también aquí garantizamos ALL antes de uid
-        $q = $box->query();
-        $this->ensureAll($q);
-
-        return $q->uid($uid)->get()->first();
+        // ✅ uid() ya pone criterio, no falla
+        return $box->query()->uid($uid)->get()->first();
     }
 
     public function toggleFlag(string $folderKey, string $uid): bool
@@ -498,10 +484,7 @@ class MailboxService
         $destF = $this->resolveFolder($dest);
         if (!$srcF || !$destF) return false;
 
-        $q = $srcF->query();
-        $this->ensureAll($q);
-
-        $m = $q->uid($uid)->get()->first();
+        $m = $srcF->query()->uid($uid)->get()->first();
         if (!$m) return false;
 
         $m->move($destF);
@@ -516,10 +499,7 @@ class MailboxService
         $box = $this->resolveFolder($folderKey);
         if (!$box) return ['ok'=>false];
 
-        $q = $box->query();
-        $this->ensureAll($q);
-
-        $m = $q->uid($uid)->get()->first();
+        $m = $box->query()->uid($uid)->get()->first();
         if (!$m) return ['ok'=>false];
 
         $isTrash = $folderKey === 'TRASH';
@@ -558,7 +538,7 @@ class MailboxService
         $mime = 'application/octet-stream';
         $content = '';
 
-        try { $name = $this->decodeHeader($att->getName() ?: $name); } catch (\Throwable $e) {}
+        try { $name = $att->getName() ?: $name; } catch (\Throwable $e) {}
         try { $mime = $att->getMimeType() ?: $mime; } catch (\Throwable $e) {}
         try { $content = $att->getContent(); } catch (\Throwable $e) {}
 
@@ -618,7 +598,6 @@ class MailboxService
                     $box = $this->resolveFolder($k);
                     if (!$box) { $out[$k]=0; continue; }
 
-                    // INBOX como unread (si falla, cae al examine)
                     if ($k === 'INBOX') {
                         try {
                             $out[$k] = (int)$box->messages()->unseen()->count();
