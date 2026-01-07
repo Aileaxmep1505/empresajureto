@@ -23,11 +23,10 @@ class MailboxController extends Controller
     {
         $folder = strtoupper((string)$r->get('folder', env('IMAP_DEFAULT_FOLDER','INBOX')));
 
-        // Solo counts + la vista ya se llena con API (tu blade actual)
         return view('mail.index', [
             'counts'  => $this->mailbox->counts(),
             'current' => $folder,
-            'messages'=> [], // tu blade puede ignorarlo porque recarga por API
+            'messages'=> [], // tu blade se llena por API
         ]);
     }
 
@@ -47,9 +46,14 @@ class MailboxController extends Controller
         abort_unless($msg, 404);
 
         if ($r->get('partial') == '1') {
-            $from    = $this->mailbox->decodeHeader(optional($msg->getFrom())->first()?->personal ?: optional($msg->getFrom())->first()?->mail ?: '(desconocido)');
-            $to      = (string)(optional($msg->getTo())->first()?->mail ?? '');
-            $cc      = (string)(optional($msg->getCc())->first()?->mail ?? '');
+            $fromObj = optional($msg->getFrom())->first();
+            $from    = $this->mailbox->decodeHeader($fromObj?->personal ?: $fromObj?->mail ?: '(desconocido)');
+
+            $toObj = optional($msg->getTo())->first();
+            $ccObj = optional($msg->getCc())->first();
+
+            $to      = (string)($toObj?->mail ?? '');
+            $cc      = (string)($ccObj?->mail ?? '');
             $subject = $this->mailbox->decodeHeader((string)($msg->getSubject() ?: '(sin asunto)'));
             $when    = $this->mailbox->formatWhen($msg);
 
@@ -59,13 +63,12 @@ class MailboxController extends Controller
             $attachments = [];
             try { $attachments = $msg->getAttachments() ?? []; } catch (\Throwable $e) {}
 
-            // 👇 ESTE ES EL PARCIAL QUE TU JS ESPERA (#mx-payload)
+            // ✅ Tu JS busca #mx-payload. Esta vista debe renderizarlo.
             return response()->view('mail.partials.show', compact(
                 'folder','uid','from','to','cc','subject','when','html','text','attachments'
             ));
         }
 
-        // Si abres sin partial, puedes dejarlo como una vista normal
         $attachments = [];
         try { $attachments = $msg->getAttachments() ?? []; } catch (\Throwable $e) {}
 
@@ -120,6 +123,7 @@ class MailboxController extends Controller
 
         MailFacade::send($mailable);
 
+        // ✅ Hostinger a veces NO guarda enviado por SMTP -> APPEND a SENT
         if ($rawSent) {
             $this->mailbox->appendToSentIfPossible($rawSent);
         }
@@ -143,7 +147,6 @@ class MailboxController extends Controller
         $mailable = new SimpleMail([(string)$to], $subject, $data['body']);
 
         $mailable->withSymfonyMessage(function ($symfonyEmail) use (&$rawSent, $msg) {
-            // Thread headers
             try {
                 if (method_exists($symfonyEmail, 'getHeaders')) {
                     $headers = $symfonyEmail->getHeaders();
