@@ -536,14 +536,23 @@ Route::middleware(['auth'])->group(function () {
         ->name('api.driver.location.get');
 
     /* =========================
-     |  SUPERVISOR REALTIME / POLL
-     ========================= */
+    |  SUPERVISOR REALTIME / POLL
+    ========================= */
     Route::get('/api/routes/{routePlan}/live', [\App\Http\Controllers\Logistics\RoutePlanController::class, 'live'])
         ->name('api.routes.live');
 
+    /**
+     * ✅ VISTA (HTML Blade)
+     * OJO: NO le pongas "api." al name porque es una vista, no un endpoint JSON.
+     * Así cuando entres a /supervisor/routes/{id} ya NO verás el JSON.
+     */
     Route::get('/supervisor/routes/{routePlan}', [\App\Http\Controllers\Logistics\RouteSupervisorController::class, 'show'])
-        ->name('api.supervisor.routes.show');
+        ->name('supervisor.routes.show');
 
+    /**
+     * ✅ ENDPOINT JSON (POLL)
+     * Este sí es JSON para tu fetch.
+     */
     Route::get('/supervisor/routes/{routePlan}/poll', [\App\Http\Controllers\Logistics\RouteSupervisorController::class, 'poll'])
         ->name('api.supervisor.routes.poll');
 

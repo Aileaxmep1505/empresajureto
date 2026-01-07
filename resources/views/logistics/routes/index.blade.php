@@ -11,96 +11,203 @@
 <div id="routes-index" class="ri-wrap">
   {{-- ================== ESTILOS ENCAPSULADOS ================== --}}
   <style>
-    /* Ámbito local */
+    /* ✅ Usa fuente global (NO declaramos font-family aquí) */
     #routes-index{
-      --ri-ink:#0e1726; --ri-muted:#6b7280; --ri-line:#e7eef7;
-      --ri-bg:#f7f9fc; --ri-card:#ffffff;
+      --ri-ink:#0f172a;
+      --ri-muted:#64748b;
+      --ri-line:#e8eef7;
 
-      /* Pasteles */
-      --ri-brand:#a6d3ff;         /* azul pastel */
-      --ri-brand-ink:#0b1220;
-      --ri-info:#b7f0e2;          /* menta pastel */
-      --ri-warn:#ffe8b2;          /* ámbar pastel */
-      --ri-ok:#c6f6d5;            /* verde pastel */
-      --ri-danger:#ffd6e7;        /* rosa pastel */
+      --ri-bg:#f7f9fc;
+      --ri-card:#ffffff;
 
-      --ri-shadow:0 16px 40px rgba(2,8,23,.08);
-      color:var(--ri-ink); background:var(--ri-bg);
-      padding:24px 16px;
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Inter", sans-serif;
+      /* Pasteles profesionales / minimalistas */
+      --ri-primary:#b9ddff;     /* azul pastel */
+      --ri-mint:#bff3e7;        /* menta pastel */
+      --ri-lilac:#d9d4ff;       /* lila pastel */
+      --ri-amber:#ffe6b8;       /* ámbar pastel */
+      --ri-rose:#ffd1e1;        /* rosa pastel */
+
+      --ri-shadow:0 14px 34px rgba(2,8,23,.08);
+      --ri-shadow2:0 20px 48px rgba(2,8,23,.10);
+
+      color:var(--ri-ink);
+      background:linear-gradient(180deg,#fbfdff,var(--ri-bg));
+      padding:22px 14px;
     }
-    #routes-index a{ color:#374151; text-decoration:none }
+
+    #routes-index a{ color:inherit; text-decoration:none }
     #routes-index a:hover{ text-decoration:underline }
     #routes-index .ri-container{ max-width:1200px; margin:0 auto }
 
     /* Encabezado */
-    #routes-index .ri-titlebar{display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap; margin-bottom:16px}
-    #routes-index .ri-title{font-weight:900; font-size:clamp(20px,2.6vw,30px); letter-spacing:.2px}
-    #routes-index .ri-actions{display:flex; gap:10px; flex-wrap:wrap}
-
-    /* Botones (pastel -> hover blanco) */
-    #routes-index .ri-btn{
-      appearance:none; border:1px solid var(--ri-line); background:var(--ri-card); color:var(--ri-ink);
-      padding:.55rem .8rem; border-radius:12px; font-weight:800; cursor:pointer; line-height:1;
-      display:inline-flex; align-items:center; gap:.5rem; transition:.18s; box-shadow:0 6px 18px rgba(2,8,23,.06)
+    #routes-index .ri-titlebar{
+      display:flex; gap:12px; align-items:center; justify-content:space-between;
+      flex-wrap:wrap; margin-bottom:14px
     }
-    #routes-index .ri-btn:hover{ transform:translateY(-1px); background:#fff; box-shadow:var(--ri-shadow); border-color:#d6ecff }
-    #routes-index .ri-btn--primary{ background:var(--ri-brand); border-color:#d6ecff; color:var(--ri-brand-ink) }
+    #routes-index .ri-title{
+      font-weight:900; font-size:clamp(20px,2.6vw,30px);
+      letter-spacing:.2px
+    }
+    #routes-index .ri-actions{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
 
-    /* Búsqueda */
+    /* Buscador */
     #routes-index .ri-search{
-      display:flex; align-items:center; gap:.5rem; background:#fff; border:1px solid var(--ri-line);
-      border-radius:12px; padding:.35rem .55rem; min-width:280px; box-shadow:0 8px 22px rgba(2,8,23,.04)
+      display:flex; align-items:center; gap:.55rem;
+      background:#fff; border:1px solid var(--ri-line);
+      border-radius:14px; padding:.45rem .6rem;
+      min-width:280px;
+      box-shadow:0 10px 26px rgba(2,8,23,.05)
     }
-    #routes-index .ri-search input{ border:0; outline:none; width:220px; font-size:.95rem; color:var(--ri-ink); background:transparent }
+    #routes-index .ri-search input{
+      border:0; outline:none; width:220px; font-size:.95rem;
+      color:var(--ri-ink); background:transparent
+    }
     #routes-index .ri-search .ri-icon{ color:var(--ri-muted); font-size:1rem }
+
+    /* Botones (pastel, minimalistas) */
+    #routes-index .ri-btn{
+      appearance:none;
+      border:1px solid var(--ri-line);
+      background:#fff;
+      color:var(--ri-ink);
+      padding:.56rem .86rem;
+      border-radius:14px;
+      font-weight:800;
+      cursor:pointer;
+      line-height:1;
+      display:inline-flex; align-items:center; gap:.5rem;
+      transition:transform .14s ease, box-shadow .14s ease, background .14s ease, border-color .14s ease;
+      box-shadow:0 8px 22px rgba(2,8,23,.06)
+    }
+    #routes-index .ri-btn:hover{
+      transform:translateY(-1px);
+      box-shadow:var(--ri-shadow);
+      border-color:#d6e6ff;
+    }
+    #routes-index .ri-btn:active{ transform:translateY(0px) }
+
+    /* Variantes pastel */
+    #routes-index .ri-btn--primary{
+      background:linear-gradient(180deg, #eaf4ff, #ffffff);
+      border-color:#d6e6ff;
+      box-shadow:0 10px 24px rgba(2,8,23,.07)
+    }
+    #routes-index .ri-btn--primary .ri-bullet{
+      width:8px;height:8px;border-radius:999px;background:var(--ri-primary); display:inline-block
+    }
+
+    #routes-index .ri-btn--super{
+      background:linear-gradient(180deg, #ecfffa, #ffffff);
+      border-color:#c9f1e8;
+    }
+
+    #routes-index .ri-btn--soft{
+      background:#fff;
+      border-color:var(--ri-line);
+      box-shadow:none;
+    }
+
+    /* Botón mini (clear) */
+    #routes-index .ri-btn--mini{
+      padding:.28rem .48rem;
+      border-radius:12px;
+      box-shadow:none;
+    }
 
     /* Alertas */
     #routes-index .ri-alert{
-      background:#eefcf7; border:1px solid #bbf7d0; color:#065f46;
-      padding:.6rem .8rem; border-radius:12px; margin-bottom:12px; font-weight:700
+      background:#ecfffa;
+      border:1px solid #c9f1e8;
+      color:#0f4c3a;
+      padding:.65rem .8rem;
+      border-radius:14px;
+      margin-bottom:12px;
+      font-weight:800;
+      display:flex; align-items:center; gap:.5rem
     }
 
-    /* Chips / etiquetas */
+    /* Chips / estados */
     #routes-index .ri-chip{
-      display:inline-flex; align-items:center; gap:.35rem; font-weight:800; font-size:.78rem;
-      border-radius:999px; padding:.22rem .6rem; border:1px solid var(--ri-line); background:#fff; color:#111827
+      display:inline-flex; align-items:center; gap:.4rem;
+      font-weight:900; font-size:.78rem;
+      border-radius:999px; padding:.22rem .62rem;
+      border:1px solid var(--ri-line);
+      background:#fff; color:#0f172a;
+      white-space:nowrap;
     }
     #routes-index .ri-dot{width:8px; height:8px; border-radius:50%}
-    #routes-index .ri-chip.borrador   {background:#f8fafc}
-    #routes-index .ri-chip.programada {background:var(--ri-info);   border-color:#9be7d3}
-    #routes-index .ri-chip.en-curso   {background:var(--ri-warn);   border-color:#ffd887}
-    #routes-index .ri-chip.completada {background:var(--ri-ok);     border-color:#93e6b5}
-    #routes-index .ri-chip.cancelada  {background:var(--ri-danger); border-color:#ffb3cc}
 
-    /* Barra de progreso */
-    #routes-index .ri-prog{height:8px; background:#eef2f7; border-radius:999px; overflow:hidden}
-    #routes-index .ri-prog > span{display:block; height:100%; background:linear-gradient(90deg,#cfe4ff,#7fb7ff); width:0%}
+    #routes-index .ri-chip.borrador   {background:#f8fafc}
+    #routes-index .ri-chip.programada {background:var(--ri-mint);  border-color:#a8ecd9}
+    #routes-index .ri-chip.en-curso   {background:var(--ri-amber); border-color:#ffd48a}
+    #routes-index .ri-chip.completada {background:#d7f9e1;         border-color:#a8f0bd}
+    #routes-index .ri-chip.cancelada  {background:var(--ri-rose);  border-color:#ffb7cf}
+
+    /* Progreso */
+    #routes-index .ri-prog{
+      height:8px; background:#eef2f7; border-radius:999px; overflow:hidden
+    }
+    #routes-index .ri-prog > span{
+      display:block; height:100%;
+      background:linear-gradient(90deg,#d9ecff,#9cc9ff);
+      width:0%;
+    }
 
     /* Tarjetas (móvil) */
     #routes-index .ri-grid{display:grid; gap:12px}
     #routes-index .ri-card{
-      border:1px solid var(--ri-line); background:var(--ri-card); border-radius:16px; padding:12px;
-      transition:.22s; box-shadow:0 12px 28px rgba(2,8,23,.06)
+      border:1px solid var(--ri-line);
+      background:rgba(255,255,255,.92);
+      backdrop-filter:saturate(1.1) blur(6px);
+      border-radius:18px;
+      padding:12px;
+      transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+      box-shadow:0 12px 28px rgba(2,8,23,.06)
     }
-    #routes-index .ri-card:hover{ transform:translateY(-2px); border-color:#d6ecff; box-shadow:0 18px 40px rgba(2,8,23,.10) }
-    #routes-index .ri-card .ri-title-sm{font-weight:800; font-size:1rem}
+    #routes-index .ri-card:hover{
+      transform:translateY(-2px);
+      border-color:#d6e6ff;
+      box-shadow:var(--ri-shadow2);
+    }
+    #routes-index .ri-card .ri-title-sm{font-weight:900; font-size:1rem}
     #routes-index .ri-meta{ color:var(--ri-muted); font-size:.9rem }
-    #routes-index .ri-tags{ display:flex; gap:8px; flex-wrap:wrap; margin:.35rem 0 .6rem }
+    #routes-index .ri-tags{ display:flex; gap:8px; flex-wrap:wrap; margin:.45rem 0 .75rem }
     #routes-index .ri-card-actions{ display:flex; gap:8px; flex-wrap:wrap }
 
     /* Tabla (escritorio) */
-    #routes-index .ri-table-wrap{ border:1px solid var(--ri-line); background:var(--ri-card); border-radius:16px; overflow:hidden }
+    #routes-index .ri-table-wrap{
+      border:1px solid var(--ri-line);
+      background:rgba(255,255,255,.92);
+      backdrop-filter:saturate(1.1) blur(6px);
+      border-radius:18px;
+      overflow:hidden;
+      box-shadow:0 14px 34px rgba(2,8,23,.07)
+    }
     #routes-index table{ width:100%; border-collapse:separate; border-spacing:0 }
-    #routes-index thead th{ background:#f9fbff; border-bottom:1px solid var(--ri-line); color:#334155; font-weight:800; padding:10px 12px; text-align:left }
-    #routes-index tbody td{ padding:12px; border-bottom:1px solid #f1f5f9; vertical-align:middle }
+    #routes-index thead th{
+      background:linear-gradient(180deg,#fbfdff,#f6f9ff);
+      border-bottom:1px solid var(--ri-line);
+      color:#334155;
+      font-weight:900;
+      padding:10px 12px;
+      text-align:left;
+      white-space:nowrap;
+    }
+    #routes-index tbody td{
+      padding:12px;
+      border-bottom:1px solid #f1f5f9;
+      vertical-align:middle
+    }
     #routes-index tbody tr:hover{ background:#f8fbff }
 
     /* Vacío */
     #routes-index .ri-empty{
-      border:1px dashed var(--ri-line); border-radius:16px;
+      border:1px dashed var(--ri-line);
+      border-radius:18px;
       background:linear-gradient(180deg,#f8fbff,transparent);
-      padding:26px; text-align:center; color:var(--ri-muted)
+      padding:26px;
+      text-align:center;
+      color:var(--ri-muted)
     }
 
     /* Responsive */
@@ -113,27 +220,36 @@
       #routes-index .ri-desktop{display:none!important}
       #routes-index .ri-mobile{display:block!important}
       #routes-index .ri-grid{ grid-template-columns:1fr }
+      #routes-index .ri-search{ min-width:unset; width:100% }
+      #routes-index .ri-search input{ width:100% }
     }
 
-    /* Animación suave */
+    /* Animación */
     #routes-index .ri-fade{ animation:ri-fade .28s ease both }
-    @keyframes ri-fade{ from{opacity:0; transform:translateY(4px)} to{opacity:1; transform:translateY(0)} }
+    @keyframes ri-fade{
+      from{opacity:0; transform:translateY(4px)}
+      to{opacity:1; transform:translateY(0)}
+    }
   </style>
 
   <div class="ri-container">
     {{-- Encabezado / acciones --}}
     <div class="ri-titlebar">
       <div class="ri-title">Rutas programadas</div>
+
       <div class="ri-actions">
         <div class="ri-search">
           <i class="bi bi-search ri-icon"></i>
           <input id="ri-q" type="text" placeholder="Buscar por nombre, chofer o estado…">
-          <button id="ri-clear" class="ri-btn" title="Borrar búsqueda" style="padding:.25rem .45rem; display:none">
+          <button id="ri-clear" class="ri-btn ri-btn--soft ri-btn--mini" title="Borrar búsqueda" style="display:none">
             <i class="bi bi-x-lg"></i>
           </button>
         </div>
+
         <a href="{{ route('routes.create') }}" class="ri-btn ri-btn--primary" title="Crear nueva ruta">
-          <i class="bi bi-plus-lg"></i> Nueva ruta
+          <span class="ri-bullet"></span>
+          <i class="bi bi-plus-lg"></i>
+          Nueva ruta
         </a>
       </div>
     </div>
@@ -150,7 +266,9 @@
       <div class="ri-empty ri-fade">
         <div class="h5 mb-1" style="font-weight:900;">Aún no tienes rutas</div>
         <div class="mb-3">Crea la primera con “Nueva ruta”.</div>
-        <a href="{{ route('routes.create') }}" class="ri-btn"><i class="bi bi-plus-circle"></i> Crear ruta</a>
+        <a href="{{ route('routes.create') }}" class="ri-btn ri-btn--primary">
+          <span class="ri-bullet"></span><i class="bi bi-plus-circle"></i> Crear ruta
+        </a>
       </div>
     @else
       {{-- ===== MÓVIL: tarjetas ===== --}}
@@ -184,7 +302,11 @@
 
               $labelSearch = Str::of(($plan->name ?? 'ruta '.$plan->id).' '.$driver.' '.$status_es)
                 ->lower()->ascii();
+
               $planned = $plan->planned_at ? Carbon::parse($plan->planned_at) : null;
+
+              // ✅ Supervisor (VISTA) - ajusta el name si el tuyo es diferente
+              $supervisorUrl = route('supervisor.routes.show', $plan);
             @endphp
 
             <div class="ri-card" data-ri-search="{{ $labelSearch }}">
@@ -215,7 +337,21 @@
 
               <div class="ri-card-actions">
                 <a href="{{ route('routes.show', $plan) }}" class="ri-btn"><i class="bi bi-eye"></i> Ver</a>
-                <a href="{{ route('driver.routes.show', $plan) }}" class="ri-btn"><i class="bi bi-phone"></i> Ver como chofer</a>
+
+                <a href="{{ route('driver.routes.show', $plan) }}" class="ri-btn">
+                  <i class="bi bi-phone"></i> Chofer
+                </a>
+
+                {{-- ✅ Supervisor (VISTA HTML) --}}
+                <a href="{{ $supervisorUrl }}" class="ri-btn ri-btn--super" title="Supervisor (vista en tiempo real)">
+                  <i class="bi bi-broadcast-pin"></i> Supervisor
+                </a>
+
+                {{-- (Opcional) Live JSON --}}
+                <a href="{{ route('api.supervisor.routes.poll', $plan) }}" target="_blank" class="ri-btn ri-btn--soft"
+                   title="Endpoint de polling (JSON)">
+                  <i class="bi bi-activity"></i>
+                </a>
               </div>
             </div>
           @endforeach
@@ -238,9 +374,10 @@
                 <th style="width:220px">Progreso</th>
                 <th>Estado</th>
                 <th>Fecha programada</th>
-                <th style="width:240px; text-align:right">Acciones</th>
+                <th style="width:360px; text-align:right">Acciones</th>
               </tr>
             </thead>
+
             <tbody id="ri-tbody">
               @foreach($plans as $plan)
                 @php
@@ -272,24 +409,34 @@
                     ->lower()->ascii();
 
                   $planned = $plan->planned_at ? Carbon::parse($plan->planned_at) : null;
+
+                  // ✅ Supervisor (VISTA)
+                  $supervisorUrl = route('supervisor.routes.show', $plan);
                 @endphp
 
                 <tr data-ri-search="{{ $labelSearch }}">
                   <td class="text-muted">#{{ $plan->id }}</td>
+
                   <td>
-                    <a href="{{ route('routes.show', $plan) }}" class="fw-semibold">{{ $plan->name ?? ('Ruta #'.$plan->id) }}</a>
+                    <a href="{{ route('routes.show', $plan) }}" class="fw-semibold">
+                      {{ $plan->name ?? ('Ruta #'.$plan->id) }}
+                    </a>
                     <div class="ri-meta">Pendientes: {{ $pending }} • Hechas: {{ $doneStops }}</div>
                   </td>
+
                   <td>{{ $driver }}</td>
+
                   <td>
                     <div class="ri-prog" title="{{ $pct }}%">
                       <span style="width: {{ $pct }}%"></span>
                     </div>
                     <div class="ri-meta mt-1">{{ $doneStops }}/{{ $totalStops }}</div>
                   </td>
+
                   <td>
                     <span class="ri-chip {{ $chip_class }}"><span class="ri-dot"></span>{{ $status_es }}</span>
                   </td>
+
                   <td>
                     @if($planned)
                       <span class="ri-meta"><i class="bi bi-calendar-event"></i> {{ $planned->format('Y-m-d H:i') }}</span>
@@ -297,9 +444,22 @@
                       <span class="ri-meta">—</span>
                     @endif
                   </td>
-                  <td style="text-align:right">
+
+                  <td style="text-align:right; white-space:nowrap">
                     <a href="{{ route('routes.show', $plan) }}" class="ri-btn"><i class="bi bi-eye"></i> Ver</a>
-                    <a href="{{ route('driver.routes.show', $plan) }}" class="ri-btn"><i class="bi bi-phone"></i> Ver como chofer</a>
+
+                    <a href="{{ route('driver.routes.show', $plan) }}" class="ri-btn">
+                      <i class="bi bi-phone"></i> Chofer
+                    </a>
+
+                    <a href="{{ $supervisorUrl }}" class="ri-btn ri-btn--super" title="Supervisor (vista en tiempo real)">
+                      <i class="bi bi-broadcast-pin"></i> Supervisor
+                    </a>
+
+                    <a href="{{ route('api.supervisor.routes.poll', $plan) }}" target="_blank" class="ri-btn ri-btn--soft"
+                       title="Endpoint de polling (JSON)">
+                      <i class="bi bi-activity"></i>
+                    </a>
                   </td>
                 </tr>
               @endforeach
@@ -314,7 +474,7 @@
     @endif
   </div>
 
-  {{-- Bootstrap Icons (si tu layout no las trae) --}}
+  {{-- Icons (si tu layout no las trae) --}}
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"/>
 
   {{-- ================== JS ENCAPSULADO ================== --}}
@@ -331,14 +491,14 @@
       const norm = s => (s||'').toString().trim().toLowerCase();
 
       function filtrar(){
-        const x = norm(q.value);
+        const x = norm(q?.value);
         cards.forEach(c => c.style.display = norm(c.getAttribute('data-ri-search')).includes(x) ? '' : 'none');
         rows.forEach(r  => r.style.display  = norm(r.getAttribute('data-ri-search')).includes(x) ? '' : 'none');
-        clearBtn.style.display = x ? '' : 'none';
+        if(clearBtn) clearBtn.style.display = x ? '' : 'none';
       }
 
       q?.addEventListener('input', filtrar);
-      clearBtn?.addEventListener('click', ()=>{ q.value=''; filtrar(); q.focus(); });
+      clearBtn?.addEventListener('click', ()=>{ if(q){ q.value=''; } filtrar(); q?.focus(); });
 
       // animación de barras
       root.querySelectorAll('.ri-prog > span').forEach(el=>{

@@ -3,7 +3,6 @@
 @section('title','Correo')
 
 @section('content')
-{{-- Tipografía: usa la global del layout (NO Outfit) --}}
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@300..700&display=swap"/>
 
 <div id="mailx">
@@ -15,17 +14,16 @@
       --bg:#f6f8fc; --card:#ffffff;
 
       /* Pastel formal */
-      --p1:#e8f1ff;         /* pastel base */
-      --p2:#d7e8ff;         /* hover */
-      --p3:#c6dcff;         /* primary */
-      --p4:#b7d1ff;         /* primary hover */
+      --p1:#e8f1ff;
+      --p2:#d7e8ff;
+      --p3:#c6dcff;
+      --p4:#b7d1ff;
       --ring:#cfe0ff;
 
       --shadow:0 18px 46px rgba(2,8,23,.08);
       --radius:18px;
       --ease:cubic-bezier(.2,.8,.2,1);
 
-      /* usar tipografía global */
       font-family: inherit;
       color:var(--ink);
 
@@ -58,7 +56,6 @@
       height:calc(100vh - 32px);
       display:flex; flex-direction:column;
 
-      /* NO card */
       background:transparent;
       border:0;
       box-shadow:none;
@@ -107,7 +104,6 @@
       flex:1;
     }
 
-    /* Items sidebar SIN “card” */
     #mailx .folder{
       position:relative;
       display:flex; align-items:center; justify-content:space-between;
@@ -315,7 +311,7 @@
       font-weight:700;
     }
 
-    /* Mobile UX: overlay + drawer de nav + preview sheet */
+    /* Mobile UX */
     #mailx .overlay{
       display:none;
       position:fixed; inset:0;
@@ -326,7 +322,6 @@
     @media (max-width:1280px){
       #mailx .wrap{ grid-template-columns: 1fr; }
 
-      /* Drawer del sidebar (sin contenedor, pero flotante en móvil) */
       #mailx .nav{
         position:fixed;
         inset:64px auto 0 0;
@@ -337,7 +332,6 @@
         transition:transform .22s var(--ease);
         height:calc(100vh - 64px);
 
-        /* En móvil sí le damos base blanca para legibilidad */
         padding:14px;
         background:#fff;
         border-right:1px solid var(--line);
@@ -394,27 +388,52 @@
       return $v;
     };
 
-    $rows = collect($messages ?? [])->map(function($m) use ($decode, $folderName){
+    $appTz = config('app.timezone', 'America/Mexico_City');
+    $now   = \Carbon\Carbon::now($appTz);
+
+    $rows = collect($messages ?? [])->map(function($m) use ($decode, $folderName, $appTz){
       $fromObj  = optional($m->getFrom())->first();
       $rawFrom  = $fromObj?->personal ?: $fromObj?->mail ?: '(desconocido)';
       $from     = $decode($rawFrom);
+
       $subject  = $decode($m->getSubject() ?: '(sin asunto)');
       $hasAtt   = $m->hasAttachments();
       $seen     = $m->hasFlag('Seen');
       $flagged  = $m->hasFlag('Flagged');
 
-      $dateHeader = optional($m->get('date'))->first();
-      $dateVal    = method_exists($dateHeader,'getValue') ? (string)$dateHeader->getValue() : null;
-      $dateTxt    = ''; $dateTs=null; $dateIso=null; $dateFull=null;
+      // ===== Fecha (robusta) =====
+      $dateTxt=''; $dateTs=null; $dateIso=null; $dateFull=null;
+
       try{
-        if($dateVal){
-          $dt=\Carbon\Carbon::parse($dateVal)->locale('es');
-          $dateTxt  = $dt->isoFormat('DD MMM HH:mm');
+        $dt = null;
+
+        if (method_exists($m, 'getDate')) {
+          $d = $m->getDate(); // Carbon|DateTime|string|null
+          if ($d instanceof \Carbon\Carbon) {
+            $dt = $d->copy();
+          } elseif ($d instanceof \DateTimeInterface) {
+            $dt = \Carbon\Carbon::instance($d);
+          } elseif (is_string($d) && trim($d) !== '') {
+            $dt = \Carbon\Carbon::parse($d);
+          }
+        }
+
+        if (!$dt) {
+          $dateHeader = optional($m->get('date'))->first();
+          $dateVal    = method_exists($dateHeader,'getValue') ? (string)$dateHeader->getValue() : null;
+          if ($dateVal) $dt = \Carbon\Carbon::parse($dateVal);
+        }
+
+        if ($dt) {
+          $dt = $dt->setTimezone($appTz)->locale('es');
+          $dateTxt  = $dt->isoFormat('DD MMM HH:mm'); // 12 dic 09:12
           $dateIso  = $dt->toIso8601String();
-          $dateFull = $dt->translatedFormat('d \\de M Y, H:i:s');
+          $dateFull = $dt->translatedFormat('d \\de F \\de Y, H:i'); // 12 de diciembre de 2025, 09:12
           $dateTs   = $dt->timestamp;
         }
-      }catch(\Throwable $e){}
+      }catch(\Throwable $e){
+        // deja vacíos
+      }
 
       $bodySample = $m->hasHTMLBody() ? strip_tags($m->getHTMLBody()) : $m->getTextBody();
       $snippet = \Illuminate\Support\Str::limit(trim(preg_replace('/\s+/',' ', $bodySample ?? '')), 140);
@@ -422,38 +441,58 @@
       $kind = ($folderName==='SENT') ? 'Enviado' : 'Recibido';
 
       return [
-        'uid'=>$m->getUid(),
-        'from'=>$from,
-        'subject'=>$subject,
-        'snippet'=>$snippet,
-        'dateTxt'=>$dateTxt,
-        'dateIso'=>$dateIso,
-        'dateFull'=>$dateFull,
-        'kind'=>$kind,
-        'dateTs'=>$dateTs,
-        'hasAtt'=>$hasAtt,
-        'seen'=>$seen,
-        'flagged'=>$flagged,
-        'priority'=>$flagged?1:0,
-        'showUrl'=>route('mail.show',[$folderName,$m->getUid()]).'?partial=1',
-        'flagUrl'=>route('mail.toggleFlag',[$folderName,$m->getUid()]),
-        'readUrl'=>route('mail.markRead',[$folderName,$m->getUid()]),
+        'uid'     => $m->getUid(),
+        'from'    => $from,
+        'subject' => $subject,
+        'snippet' => $snippet,
+        'dateTxt' => $dateTxt,
+        'dateIso' => $dateIso,
+        'dateFull'=> $dateFull,
+        'kind'    => $kind,
+        'dateTs'  => $dateTs,
+        'hasAtt'  => $hasAtt,
+        'seen'    => $seen,
+        'flagged' => $flagged,
+        'priority'=> $flagged ? 1 : 0,
+        'showUrl' => route('mail.show',[$folderName,$m->getUid()]).'?partial=1',
+        'flagUrl' => route('mail.toggleFlag',[$folderName,$m->getUid()]),
+        'readUrl' => route('mail.markRead',[$folderName,$m->getUid()]),
       ];
     });
 
-    $now = \Carbon\Carbon::now();
+    // ===== Agrupar SIN PERDER MENSAJES (incluye "Sin fecha") =====
     $grouped = [
-      'Hoy'         => $rows->filter(fn($r)=> $r['dateTs'] && \Carbon\Carbon::createFromTimestamp($r['dateTs'])->isSameDay($now)),
-      'Ayer'        => $rows->filter(fn($r)=> $r['dateTs'] && \Carbon\Carbon::createFromTimestamp($r['dateTs'])->isYesterday()),
-      'Esta semana' => $rows->filter(fn($r)=> $r['dateTs'] && \Carbon\Carbon::createFromTimestamp($r['dateTs'])->isSameWeek($now)),
-      'Anteriores'  => $rows->filter(fn($r)=> $r['dateTs'] && \Carbon\Carbon::createFromTimestamp($r['dateTs'])->lt($now->startOfWeek())),
+      'Hoy'         => collect(),
+      'Ayer'        => collect(),
+      'Esta semana' => collect(),
+      'Anteriores'  => collect(),
+      'Sin fecha'   => collect(),
     ];
+
+    foreach ($rows as $r) {
+      if (!$r['dateTs']) {
+        $grouped['Sin fecha']->push($r);
+        continue;
+      }
+
+      $dt = \Carbon\Carbon::createFromTimestamp($r['dateTs'], $appTz);
+
+      if ($dt->isSameDay($now)) {
+        $grouped['Hoy']->push($r);
+      } elseif ($dt->isYesterday()) {
+        $grouped['Ayer']->push($r);
+      } elseif ($dt->isSameWeek($now)) {
+        $grouped['Esta semana']->push($r);
+      } else {
+        $grouped['Anteriores']->push($r);
+      }
+    }
   @endphp
 
   <div class="overlay" id="mx-overlay"></div>
 
   <div class="wrap" data-folder="{{ $folderName }}">
-    {{-- NAV (SIN contenedor) --}}
+    {{-- NAV --}}
     <aside class="nav" id="mx-nav" aria-label="Carpetas">
       <div class="compose">
         <a class="btn primary" href="{{ route('mail.compose') }}">
@@ -526,6 +565,7 @@
           @if($items->count())
             <div class="group" data-group="{{ $gTitle }}">
               <div class="group-title">{{ $gTitle }}</div>
+
               @foreach($items as $r)
                 <article class="row mx-item {{ $r['seen'] ? 'read' : '' }}"
                   data-uid="{{ $r['uid'] }}"
@@ -534,6 +574,10 @@
                   data-flag="{{ $r['flagUrl'] }}"
                   data-read="{{ $r['readUrl'] }}"
                   data-show="{{ $r['showUrl'] }}"
+                  data-from="{{ e($r['from']) }}"
+                  data-subject="{{ e($r['subject']) }}"
+                  data-when="{{ e($r['dateFull'] ?: '') }}"
+                  data-whenshort="{{ e($r['dateTxt'] ?: '') }}"
                 >
                   <div class="star" title="Marcar prioritario">
                     <button class="mx-flag" aria-label="Prioritario">
@@ -554,9 +598,6 @@
 
                   <div class="meta">
                     <time datetime="{{ $r['dateIso'] }}" title="{{ $r['kind'] }}: {{ $r['dateFull'] }}">{{ $r['dateTxt'] }}</time>
-                    <button class="mx-read" title="Marcar leído" style="all:unset; cursor:pointer">
-                      <span class="material-symbols-outlined">done_all</span>
-                    </button>
                   </div>
 
                   <div class="quick">
@@ -576,14 +617,14 @@
       <div class="head">
         <div class="subject">Previsualización</div>
         <div class="meta" id="mx-meta" style="display:none"></div>
+
+        {{-- ✅ Sin botón "Marcar leído" --}}
         <div class="actions" id="mx-actions" style="display:none">
-          <form id="mx-form-read" method="POST" style="display:inline">@csrf
-            <button class="btn"><span class="material-symbols-outlined">done_all</span> Marcar leído</button>
-          </form>
           <a class="btn primary" href="#" id="mx-reply"><span class="material-symbols-outlined">reply</span> Responder</a>
           <a class="btn" href="#" id="mx-forward"><span class="material-symbols-outlined">forward</span> Reenviar</a>
         </div>
       </div>
+
       <div class="body" id="mx-body"><div class="empty">Selecciona un correo de la lista</div></div>
       <div class="attachments" id="mx-atts" style="display:none"></div>
     </section>
@@ -602,10 +643,12 @@
     const actionsEl= pane.querySelector('#mx-actions');
     const bodyEl   = pane.querySelector('#mx-body');
     const attsEl   = pane.querySelector('#mx-atts');
-    const formRead = pane.querySelector('#mx-form-read');
     const btnForce = root.querySelector('#mx-refresh');
     const navBtn   = root.querySelector('#mx-toggle-nav');
     const overlay  = root.querySelector('#mx-overlay');
+
+    const btnReply   = root.querySelector('#mx-reply');
+    const btnForward = root.querySelector('#mx-forward');
 
     const folderBadges = root.querySelectorAll('[data-count]');
     const folderTitle  = root.querySelector('#mx-folder-title');
@@ -621,9 +664,19 @@
     const URL_COUNTS = `{{ route('mail.api.counts') }}`;
     const URL_MOVE_T = `{{ route('mail.move',   ['folder'=>'__F__','uid'=>'__U__']) }}`;
     const URL_DEL_T  = `{{ route('mail.delete', ['folder'=>'__F__','uid'=>'__U__']) }}`;
+    const URL_COMPOSE = `{{ route('mail.compose') }}`;
 
     function tpl(url, f, u){ return url.replace('__F__', encodeURIComponent(f)).replace('__U__', encodeURIComponent(u)); }
     function esc(s){ return (s||'').replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])) }
+
+    function looksBrokenWhen(s){
+      if(!s) return false;
+      // heurísticas: duplicados raros como "DecemberDecember" o "0909:1212"
+      if (/(January|February|March|April|May|June|July|August|September|October|November|December)\1/i.test(s)) return true;
+      if (/(\d{2})\1:\s*(\d{2})\2/.test(s.replace(/\s+/g,''))) return true;
+      if (/([A-Za-z]{3,})\1/.test(s)) return true;
+      return false;
+    }
 
     let waitAbort = null;
     function abortWait(){ if(waitAbort){ waitAbort.abort(); waitAbort=null; } }
@@ -647,6 +700,7 @@
         it.style.display = show ? '' : 'none';
       });
     }
+
     chips.forEach(ch=> ch.addEventListener('click', ()=>{
       chips.forEach(c=>c.classList.remove('active')); ch.classList.add('active');
       filterKind = ch.dataset.filter; applyFilter();
@@ -683,6 +737,14 @@
       attsEl.style.display='none';
     }
 
+    function buildComposeUrl(mode, uid){
+      const u = new URL(URL_COMPOSE, window.location.origin);
+      u.searchParams.set('mode', mode);          // reply | forward
+      u.searchParams.set('folder', folder);
+      u.searchParams.set('uid', String(uid||''));
+      return u.toString();
+    }
+
     async function openPreview(row){
       currentRow = row;
       listWrap.querySelectorAll('.mx-item').forEach(it => it.classList.remove('is-selected'));
@@ -694,22 +756,39 @@
         closeNav();
       }
 
+      // ✅ hacer funcionar responder/reenviar (links reales)
+      btnReply.setAttribute('href', buildComposeUrl('reply', row.dataset.uid));
+      btnForward.setAttribute('href', buildComposeUrl('forward', row.dataset.uid));
+
       try{
         const res = await fetch(row.dataset.show, { headers:{'X-Requested-With':'XMLHttpRequest'} });
         const html = await res.text();
         const tmp = document.createElement('div'); tmp.innerHTML = html;
         const payload = tmp.querySelector('#mx-payload');
+
+        // fallback si el partial no trae payload
+        const fallbackSubject = row.dataset.subject || '(sin asunto)';
+        const fallbackFrom    = row.dataset.from || '(desconocido)';
+        const fallbackWhen    = row.dataset.when || row.dataset.whenshort || '';
+
         if(!payload){
-          subjectEl.textContent='(sin contenido)';
+          subjectEl.textContent = fallbackSubject;
+          metaEl.innerHTML = `<div><strong>De:</strong> ${esc(fallbackFrom)}</div>${fallbackWhen ? `<div>· ${esc(fallbackWhen)}</div>`:''}`;
+          metaEl.style.display='flex';
+          actionsEl.style.display='flex';
           bodyEl.innerHTML='<div class="empty">No se pudo cargar el contenido.</div>';
           return;
         }
 
-        subjectEl.textContent = payload.dataset.subject || '(sin asunto)';
-        const from = payload.dataset.from || '(desconocido)';
+        subjectEl.textContent = payload.dataset.subject || fallbackSubject;
+
+        const from = payload.dataset.from || fallbackFrom;
         const to   = payload.dataset.to   || '';
         const cc   = payload.dataset.cc   || '';
-        const when = payload.dataset.when || '';
+
+        // ✅ aquí se arregla la “fecha rara”: si viene rota del partial, usamos la del row
+        let when = payload.dataset.when || '';
+        if (!when || looksBrokenWhen(when)) when = fallbackWhen;
 
         metaEl.innerHTML = `
           <div><strong>De:</strong> ${esc(from)}</div>
@@ -718,8 +797,6 @@
           ${when ? `<div>· ${esc(when)}</div>`:''}
         `;
         metaEl.style.display='flex';
-
-        formRead.setAttribute('action', row.dataset.read);
         actionsEl.style.display='flex';
 
         const htmlBody = payload.querySelector('[data-body-html]');
@@ -758,6 +835,7 @@
           attsEl.style.display='block';
         } else attsEl.style.display='none';
 
+        // ✅ marcar leído automáticamente (sin botón)
         await post(row.dataset.read);
         row.classList.add('read');
       }catch(err){
@@ -780,11 +858,6 @@
         row.dataset.priority = on ? '0' : '1';
         return;
       }
-      if (e.target.closest('.mx-read')) {
-        await post(row.dataset.read);
-        row.classList.add('read');
-        return;
-      }
       if (e.target.closest('.mx-archive')) {
         await post(tpl(URL_MOVE_T, folder, row.dataset.uid), { dest: 'ARCHIVE' });
         row.remove(); updateCounts(); return;
@@ -793,14 +866,8 @@
         await post(tpl(URL_DEL_T, folder, row.dataset.uid));
         row.remove(); updateCounts(); return;
       }
-      openPreview(row);
-    });
 
-    formRead?.addEventListener('submit', async (e)=>{
-      e.preventDefault();
-      const url = formRead.getAttribute('action');
-      await post(url);
-      if (currentRow) currentRow.classList.add('read');
+      openPreview(row);
     });
 
     function buildListURL(base, withLimit=true){
@@ -819,17 +886,20 @@
     }
 
     function renderFull(items){
-      const groups = { 'Hoy':[], 'Ayer':[], 'Esta semana':[], 'Anteriores':[] };
+      const groups = { 'Hoy':[], 'Ayer':[], 'Esta semana':[], 'Anteriores':[], 'Sin fecha':[] };
       const now = new Date();
+
       items.forEach(r=>{
         const ts = r.dateTs ? (r.dateTs*1000) : null;
-        let key = 'Hoy';
+        let key = 'Sin fecha';
+
         if (ts){
           const d = new Date(ts);
           const isSameDay = d.toDateString()===now.toDateString();
           const yd = new Date(now); yd.setDate(now.getDate()-1);
           const isYesterday = d.toDateString()===yd.toDateString();
-          const ws = new Date(now); ws.setDate(now.getDate() - ((now.getDay()+6)%7));
+          const ws = new Date(now); ws.setDate(now.getDate() - ((now.getDay()+6)%7)); ws.setHours(0,0,0,0);
+
           key = isSameDay ? 'Hoy' : isYesterday ? 'Ayer' : (d>=ws ? 'Esta semana' : 'Anteriores');
         }
         groups[key].push(r);
@@ -846,7 +916,7 @@
 
         arr.forEach(r=>{
           const kind = (folder==='SENT') ? 'Enviado' : 'Recibido';
-          const tooltip = `${kind}: ${r.dateTxt||''}`;
+          const tooltip = `${kind}: ${r.dateFull || r.dateTxt || ''}`;
 
           const art = document.createElement('article');
           art.className = 'row mx-item ' + (r.seen ? 'read':'');
@@ -857,6 +927,10 @@
           art.dataset.flag=r.flagUrl;
           art.dataset.read=r.readUrl;
           art.dataset.show=r.showUrl;
+          art.dataset.from=r.from || '';
+          art.dataset.subject=r.subject || '';
+          art.dataset.when=r.dateFull || '';
+          art.dataset.whenshort=r.dateTxt || '';
 
           art.innerHTML = `
             <div class="star">
@@ -874,9 +948,6 @@
             </div>
             <div class="meta">
               <time title="${esc(tooltip)}">${esc(r.dateTxt || '')}</time>
-              <button class="mx-read" title="Marcar leído" style="all:unset; cursor:pointer">
-                <span class="material-symbols-outlined">done_all</span>
-              </button>
             </div>
             <div class="quick">
               <button class="qbtn mx-archive" title="Archivar"><span class="material-symbols-outlined">archive</span></button>
@@ -974,9 +1045,11 @@
         const res = await fetch(url, { headers:{'X-Requested-With':'XMLHttpRequest'}, signal });
         if (res.ok){
           const data = await res.json();
+
           if (currentQuery.trim()!=='') {
             renderFull(data.items||[]);
           } else if (data.items && data.items.length){
+            // inserta en "Hoy" por defecto (si quieres exacto por fecha, se haría renderFull con merge)
             let group = listWrap.querySelector('[data-group="Hoy"]');
             if(!group){
               const g=document.createElement('div');
@@ -986,16 +1059,26 @@
               group=g;
             }
             const title = group.querySelector('.group-title');
+
             data.items.forEach(r=>{
               if (listWrap.querySelector(`.mx-item[data-uid="${r.uid}"]`)) return;
 
               const kind = (folder==='SENT') ? 'Enviado' : 'Recibido';
-              const tooltip = `${kind}: ${r.dateTxt||''}`;
+              const tooltip = `${kind}: ${r.dateFull || r.dateTxt || ''}`;
 
               const art = document.createElement('article');
               art.className='row mx-item '+(r.seen?'read':'');
-              art.dataset.uid=r.uid; art.dataset.priority=r.priority?'1':'0'; art.dataset.hasatt=r.hasAtt?'1':'0';
-              art.dataset.flag=r.flagUrl; art.dataset.read=r.readUrl; art.dataset.show=r.showUrl;
+
+              art.dataset.uid=r.uid;
+              art.dataset.priority=r.priority?'1':'0';
+              art.dataset.hasatt=r.hasAtt?'1':'0';
+              art.dataset.flag=r.flagUrl;
+              art.dataset.read=r.readUrl;
+              art.dataset.show=r.showUrl;
+              art.dataset.from=r.from || '';
+              art.dataset.subject=r.subject || '';
+              art.dataset.when=r.dateFull || '';
+              art.dataset.whenshort=r.dateTxt || '';
 
               art.innerHTML = `
                 <div class="star">
@@ -1013,9 +1096,6 @@
                 </div>
                 <div class="meta">
                   <time title="${esc(tooltip)}">${esc(r.dateTxt||'')}</time>
-                  <button class="mx-read" title="Marcar leído" style="all:unset; cursor:pointer">
-                    <span class="material-symbols-outlined">done_all</span>
-                  </button>
                 </div>
                 <div class="quick">
                   <button class="qbtn mx-archive" title="Archivar"><span class="material-symbols-outlined">archive</span></button>
@@ -1042,10 +1122,12 @@
       waitLoop(waitAbort.signal);
     }
 
+    // init maxUid
     listWrap.querySelectorAll('.mx-item').forEach(it=>{
       const v=parseInt(it.dataset.uid||'0',10);
       if(v>maxUid) maxUid=v;
     });
+
     const first = listWrap.querySelector('.mx-item');
     if (first) first.click();
     startWaitLoop();

@@ -28,34 +28,24 @@ class RouteSupervisorController extends Controller
         abort_unless($this->canUserManage(), 403);
     }
 
+    /**
+     * ✅ VISTA HTML (BLADE)
+     * Esta ruta DEBE regresar view(), NO JSON.
+     */
     public function show(RoutePlan $routePlan)
     {
         $this->canManage();
 
         $routePlan->load('driver');
 
-        return response()->json([
-            'plan' => [
-                'id' => $routePlan->id,
-                'name' => $routePlan->name,
-                'status' => $routePlan->status,
-
-                'started_at' => optional($routePlan->started_at)->toIso8601String(),
-                'sequence_locked' => (bool)($routePlan->sequence_locked ?? false),
-
-                'start' => [
-                    'lat' => $routePlan->start_lat !== null ? (float)$routePlan->start_lat : null,
-                    'lng' => $routePlan->start_lng !== null ? (float)$routePlan->start_lng : null,
-                ],
-            ],
-            'driver' => [
-                'id' => $routePlan->driver_id,
-                'name' => $routePlan->driver?->name,
-            ],
-            'server_time' => now()->toIso8601String(),
-        ], 200);
+        // 👇 Asegúrate de que exista: resources/views/supervisor/routes/show.blade.php
+        return view('supervisor.routes.show', compact('routePlan'));
     }
 
+    /**
+     * ✅ ENDPOINT JSON (POLL)
+     * El front (fetch) debe pegarle a .../poll
+     */
     public function poll(RoutePlan $routePlan, Request $r)
     {
         $this->canManage();
@@ -74,8 +64,8 @@ class RouteSupervisorController extends Controller
                 ->first();
 
             $lastPos = $last ? [
-                'lat' => $last->lat !== null ? (float)$last->lat : null,
-                'lng' => $last->lng !== null ? (float)$last->lng : null,
+                'lat' => $last->lat !== null ? (float) $last->lat : null,
+                'lng' => $last->lng !== null ? (float) $last->lng : null,
                 'accuracy' => $last->accuracy,
                 'speed' => $last->speed,
                 'heading' => $last->heading,
@@ -94,11 +84,11 @@ class RouteSupervisorController extends Controller
                 'status' => $routePlan->status,
 
                 'started_at' => optional($routePlan->started_at)->toIso8601String(),
-                'sequence_locked' => (bool)($routePlan->sequence_locked ?? false),
+                'sequence_locked' => (bool) ($routePlan->sequence_locked ?? false),
 
                 'start' => [
-                    'lat' => $routePlan->start_lat !== null ? (float)$routePlan->start_lat : null,
-                    'lng' => $routePlan->start_lng !== null ? (float)$routePlan->start_lng : null,
+                    'lat' => $routePlan->start_lat !== null ? (float) $routePlan->start_lat : null,
+                    'lng' => $routePlan->start_lng !== null ? (float) $routePlan->start_lng : null,
                 ],
             ],
 
