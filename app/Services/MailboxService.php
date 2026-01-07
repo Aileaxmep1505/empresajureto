@@ -1,5 +1,4 @@
 <?php
-// app/Services/MailboxService.php
 
 namespace App\Services;
 
@@ -10,30 +9,24 @@ use Carbon\Carbon;
 
 class MailboxService
 {
-    /** @var \Webklex\IMAP\Client|null */
     protected $client = null;
 
-    /** Cache corto para counts/mapas */
-    protected int $shortTtl = 25;
+    protected int $shortTtl   = 25;   // counts
+    protected int $foldersTtl = 600;  // folders
 
-    /** Cache de carpetas (más largo) */
-    protected int $foldersTtl = 600;
-
-    /** Ventanas */
-    protected int $windowDefaultMonths = 12;   // 👈 antes 6, ahora más seguro (no te “come” correos)
+    protected int $windowDefaultMonths   = 18; // más amplio para que no “desaparezcan”
     protected int $windowTrashSpamMonths = 2;
 
-    /** Cuenta IMAP */
-    protected string $account = 'account_default';
+    protected string $account;
 
     public function __construct()
     {
         $this->account = env('IMAP_ACCOUNT', 'account_default');
     }
 
-    /* =========================================================
-     |                    CONEXION / CLIENTE
-     * =======================================================*/
+    /* =========================
+     |  Core
+     ========================= */
 
     public function connect(): self
     {
@@ -62,14 +55,26 @@ class MailboxService
         return "mailbox:{$uid}:{$base}";
     }
 
-    /* =========================================================
-     |                       FOLDERS
-     * =======================================================*/
+    /* =========================
+     |  Folder resolution
+     ========================= */
 
     public function folderAliases(): array
     {
-        // Permite override por ENV (lo primero que intenta)
-        $env = [
+        $aliases = [
+            'INBOX'   => ['INBOX','Inbox','Bandeja de entrada'],
+            'DRAFTS'  => ['Drafts','Borradores','INBOX.Drafts','INBOX/Drafts','[Gmail]/Drafts'],
+            'SENT'    => ['Sent','Sent Mail','Enviados','INBOX.Sent','INBOX/Sent','Sent Items','INBOX/Sent Items','[Gmail]/Sent Mail'],
+            'ARCHIVE' => ['Archive','All Mail','Archivados','Archivo','INBOX.Archive','INBOX/Archive','[Gmail]/All Mail'],
+            'OUTBOX'  => ['Outbox','Bandeja de salida','INBOX.Outbox','INBOX/Outbox'],
+            'SPAM'    => ['Spam','Junk','Junk Email','Correo no deseado','INBOX.Junk','INBOX/Spam','[Gmail]/Spam'],
+            'TRASH'   => ['Trash','Deleted Items','Papelera','INBOX.Trash','INBOX/Trash','[Gmail]/Trash'],
+            'PRIORITY'=> [],
+            'ALL'     => [],
+        ];
+
+        // Overrides por .env (si existen, los intentamos primero)
+        $envMap = [
             'INBOX'   => env('IMAP_FOLDER_INBOX'),
             'SENT'    => env('IMAP_FOLDER_SENT'),
             'DRAFTS'  => env('IMAP_FOLDER_DRAFTS'),
@@ -78,21 +83,7 @@ class MailboxService
             'SPAM'    => env('IMAP_FOLDER_SPAM'),
             'TRASH'   => env('IMAP_FOLDER_TRASH'),
         ];
-
-        $aliases = [
-            'INBOX'    => ['INBOX','Inbox','Bandeja de entrada'],
-            'DRAFTS'   => ['Drafts','Borradores','INBOX.Drafts','INBOX/Drafts','[Gmail]/Drafts'],
-            'SENT'     => ['Sent','Sent Mail','Enviados','INBOX.Sent','INBOX/Sent','INBOX/Sent Items','Sent Items','[Gmail]/Sent Mail'],
-            'ARCHIVE'  => ['Archive','All Mail','Archivados','Archivo','INBOX.Archive','INBOX/Archive','[Gmail]/All Mail'],
-            'OUTBOX'   => ['Outbox','Bandeja de salida','INBOX.Outbox','INBOX/Outbox'],
-            'SPAM'     => ['Spam','Junk','Junk Email','Correo no deseado','INBOX.Junk','INBOX/Spam','[Gmail]/Spam'],
-            'TRASH'    => ['Trash','Deleted Items','Papelera','INBOX.Trash','INBOX/Trash','[Gmail]/Trash'],
-            'PRIORITY' => [],
-            'ALL'      => [],
-        ];
-
-        // Prepend env overrides si existen
-        foreach ($env as $k => $v) {
+        foreach ($envMap as $k => $v) {
             if ($v) array_unshift($aliases[$k], $v);
         }
 
@@ -109,10 +100,26 @@ class MailboxService
         });
     }
 
-    /**
-     * Resuelve carpeta lógica → Folder real.
-     * Soporta comparar por name/path/full_name (según versión de Webklex).
-     */
+    protected function folderCandidates($f): array
+    {
+        $vals = [];
+
+        foreach (['name','path','full_name','fullName'] as $prop) {
+            try {
+                if (isset($f->$prop) && is_string($f->$prop) && $f->$prop !== '') $vals[] = $f->$prop;
+            } catch (\Throwable $e) {}
+        }
+
+        try {
+            if (method_exists($f, 'path')) {
+                $p = $f->path();
+                if (is_string($p) && $p !== '') $vals[] = $p;
+            }
+        } catch (\Throwable $e) {}
+
+        return array_values(array_unique(array_filter($vals)));
+    }
+
     public function resolveFolder(string $logical)
     {
         $this->connect();
@@ -124,24 +131,11 @@ class MailboxService
         $aliases = $this->folderAliases()[$logical] ?? [$logical];
         $all = $this->allFolders();
 
-        $candidates = function ($f) {
-            $vals = [];
-            foreach (['name','path','full_name','fullName'] as $p) {
-                try {
-                    if (isset($f->$p) && is_string($f->$p) && $f->$p !== '') $vals[] = $f->$p;
-                } catch (\Throwable $e) {}
-            }
-            try {
-                if (method_exists($f, 'path') && is_string($f->path())) $vals[] = $f->path();
-            } catch (\Throwable $e) {}
-            return array_values(array_unique(array_filter($vals)));
-        };
-
         $norm = fn($s)=>Str::of((string)$s)->lower()->replace(['/','.','\\',' '],'')->toString();
 
-        // 1) exacto CI en cualquiera de los campos
-        $found = $all->first(function($f) use ($aliases, $candidates){
-            $vals = $candidates($f);
+        // 1) exacto CI
+        $found = $all->first(function($f) use ($aliases){
+            $vals = $this->folderCandidates($f);
             foreach ($aliases as $a) {
                 foreach ($vals as $v) {
                     if (strcasecmp($v, $a) === 0) return true;
@@ -152,8 +146,8 @@ class MailboxService
         if ($found) return $found;
 
         // 2) normalizado
-        $found = $all->first(function($f) use ($aliases, $candidates, $norm){
-            $vals = $candidates($f);
+        $found = $all->first(function($f) use ($aliases, $norm){
+            $vals = $this->folderCandidates($f);
             foreach ($aliases as $a) {
                 $na = $norm($a);
                 foreach ($vals as $v) {
@@ -164,20 +158,18 @@ class MailboxService
         });
         if ($found) return $found;
 
-        // 3) heurística
+        // 3) heurística suave
         $keywords = [
             'SENT'    => ['sent','enviado','enviados','sentitems'],
             'DRAFTS'  => ['draft','borrador'],
             'ARCHIVE' => ['archive','allmail','archivo'],
-            'OUTBOX'  => ['outbox','salida'],
             'SPAM'    => ['spam','junk','nodejado'],
             'TRASH'   => ['trash','deleted','papelera'],
         ];
 
         if (isset($keywords[$logical])) {
-            $found = $all->first(function($f) use ($keywords, $logical, $candidates){
-                $vals = $candidates($f);
-                $joined = Str::lower(implode(' | ', $vals));
+            $found = $all->first(function($f) use ($keywords, $logical){
+                $joined = Str::lower(implode(' | ', $this->folderCandidates($f)));
                 foreach ($keywords[$logical] as $kw) {
                     if (Str::contains($joined, Str::lower($kw))) return true;
                 }
@@ -186,7 +178,7 @@ class MailboxService
             if ($found) return $found;
         }
 
-        // fallback INBOX duro
+        // fallback duro para INBOX
         if ($logical === 'INBOX') {
             try { return $this->client->getFolder('INBOX'); } catch (\Throwable $e) {}
         }
@@ -194,16 +186,34 @@ class MailboxService
         return null;
     }
 
+    protected function folderPath($folder): string
+    {
+        foreach (['path','full_name','name'] as $p) {
+            try {
+                if (isset($folder->$p) && is_string($folder->$p) && $folder->$p !== '') return $folder->$p;
+            } catch (\Throwable $e) {}
+        }
+        try {
+            if (method_exists($folder, 'path')) {
+                $x = $folder->path();
+                if (is_string($x) && $x !== '') return $x;
+            }
+        } catch (\Throwable $e) {}
+        return 'INBOX';
+    }
+
     protected function windowMonths(string $logical): int
     {
         $logical = strtoupper($logical);
-        if (in_array($logical, ['TRASH','SPAM'], true)) return (int) env('MAILBOX_WINDOW_TRASH_SPAM', $this->windowTrashSpamMonths);
+        if (in_array($logical, ['TRASH','SPAM'], true)) {
+            return (int) env('MAILBOX_WINDOW_TRASH_SPAM', $this->windowTrashSpamMonths);
+        }
         return (int) env('MAILBOX_WINDOW_DEFAULT', $this->windowDefaultMonths);
     }
 
-    /* =========================================================
-     |                     DECODERS / FECHAS
-     * =======================================================*/
+    /* =========================
+     |  Header decode + Date
+     ========================= */
 
     public function decodeHeader(?string $v): string
     {
@@ -213,7 +223,6 @@ class MailboxService
             $d = @iconv_mime_decode($v, 0, 'UTF-8');
             if ($d !== false) return $d;
         }
-
         if (function_exists('mb_decode_mimeheader')) {
             $d = @mb_decode_mimeheader($v);
             if (is_string($d) && $d !== '') return $d;
@@ -228,7 +237,6 @@ class MailboxService
                 $v = str_replace($full, $data, $v);
             }
         }
-
         return $v;
     }
 
@@ -262,71 +270,53 @@ class MailboxService
         return null;
     }
 
-    public function formatMessageWhen($m): string
+    public function formatWhen($m): string
     {
         $dt = $this->parseMessageDate($m);
         if (!$dt) return '';
-        $dt = $dt->copy()->setTimezone($this->tz())->locale('es');
-        return $dt->translatedFormat('d \\de F \\de Y, H:i');
+        return $dt->copy()->setTimezone($this->tz())->locale('es')
+            ->translatedFormat('d \\de F \\de Y, H:i');
     }
 
-    public function messageFrom($m): string
+    /* =========================
+     |  Normalize
+     ========================= */
+
+    public function normalize($m, string $folderKey): array
     {
+        $folderKey = strtoupper($folderKey ?: 'INBOX');
+
         $fromObj = optional($m->getFrom())->first();
-        $raw = $fromObj?->personal ?: $fromObj?->mail ?: '(desconocido)';
-        return $this->decodeHeader((string)$raw);
-    }
+        $rawFrom = $fromObj?->personal ?: $fromObj?->mail ?: '(desconocido)';
+        $from    = $this->decodeHeader((string)$rawFrom);
 
-    public function messageTo($m): string
-    {
-        $toObj = optional($m->getTo())->first();
-        return (string)($toObj?->mail ?: '');
-    }
+        $subject = $this->decodeHeader((string)($m->getSubject() ?: '(sin asunto)'));
 
-    public function messageCc($m): string
-    {
-        $ccObj = optional($m->getCc())->first();
-        return (string)($ccObj?->mail ?: '');
-    }
-
-    /* =========================================================
-     |                       NORMALIZE
-     * =======================================================*/
-
-    public function normalize($m, string $folderName): array
-    {
-        $folderName = strtoupper($folderName ?: 'INBOX');
-
-        $fromObj  = optional($m->getFrom())->first();
-        $rawFrom  = $fromObj?->personal ?: $fromObj?->mail ?: '(desconocido)';
-        $from     = $this->decodeHeader((string)$rawFrom);
-
-        $subject  = $this->decodeHeader((string)($m->getSubject() ?: '(sin asunto)'));
-
-        $hasAtt   = (bool) $m->hasAttachments();
-        $seen     = (bool) $m->hasFlag('Seen');
-        $flagged  = (bool) $m->hasFlag('Flagged');
+        $hasAtt  = (bool)$m->hasAttachments();
+        $seen    = (bool)$m->hasFlag('Seen');
+        $flagged = (bool)$m->hasFlag('Flagged');
 
         $dt = $this->parseMessageDate($m);
-        $dateTxt = ''; $dateFull=''; $dateIso=''; $dateTs=null;
+        $dateTxt=''; $dateFull=''; $dateIso=''; $dateTs=null;
 
         if ($dt) {
             $dt = $dt->copy()->setTimezone($this->tz())->locale('es');
-            $dateTxt  = $dt->isoFormat('DD MMM HH:mm');               // 12 dic 09:12
-            $dateFull = $dt->translatedFormat('d \\de F \\de Y, H:i'); // 12 de diciembre de 2025, 09:12
+            $dateTxt  = $dt->isoFormat('DD MMM HH:mm');
+            $dateFull = $dt->translatedFormat('d \\de F \\de Y, H:i');
             $dateIso  = $dt->toIso8601String();
             $dateTs   = $dt->timestamp;
         }
 
-        $bodySample = $m->hasHTMLBody() ? strip_tags((string)$m->getHTMLBody()) : (string)($m->getTextBody() ?? '');
+        $bodySample = $m->hasHTMLBody()
+            ? strip_tags((string)$m->getHTMLBody())
+            : (string)($m->getTextBody() ?? '');
+
         $bodySample = html_entity_decode($bodySample, ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $bodySample = trim(preg_replace('/\s+/u', ' ', $bodySample));
         $snippet    = Str::limit($bodySample, 140);
 
-        $kind = ($folderName === 'SENT') ? 'Enviado' : 'Recibido';
-
         return [
-            'uid'      => (int) $m->getUid(),
+            'uid'      => (int)$m->getUid(),
             'from'     => $from,
             'subject'  => $subject,
             'snippet'  => $snippet,
@@ -334,137 +324,239 @@ class MailboxService
             'dateIso'  => $dateIso,
             'dateFull' => $dateFull,
             'dateTs'   => $dateTs,
-            'kind'     => $kind,
             'hasAtt'   => $hasAtt,
             'seen'     => $seen,
             'flagged'  => $flagged,
             'priority' => $flagged ? 1 : 0,
-            'showUrl'  => route('mail.show', [$folderName, $m->getUid()]).'?partial=1',
-            'flagUrl'  => route('mail.toggleFlag', [$folderName, $m->getUid()]),
-            'readUrl'  => route('mail.markRead',  [$folderName, $m->getUid()]),
-            'folder'   => $folderName,
+            'kind'     => ($folderKey === 'SENT') ? 'Enviado' : 'Recibido',
+            'folder'   => $folderKey,
+            'showUrl'  => route('mail.show', [$folderKey, $m->getUid()]).'?partial=1',
+            'flagUrl'  => route('mail.toggleFlag', [$folderKey, $m->getUid()]),
+            'readUrl'  => route('mail.markRead',  [$folderKey, $m->getUid()]),
         ];
     }
 
-    /* =========================================================
-     |                       LISTADOS
-     * =======================================================*/
+    /* =========================
+     |  List messages
+     ========================= */
 
-    public function listFromFolder(string $logical, array $opts = [])
+    public function listFromFolder(string $folderKey, array $opts = [])
     {
         $this->connect();
 
-        $logical   = strtoupper($logical ?: 'INBOX');
-        $limit     = (int)($opts['limit'] ?? 80);
+        $folderKey = strtoupper($folderKey ?: 'INBOX');
+        $limit     = max(10, (int)($opts['limit'] ?? 80));
         $afterUid  = (int)($opts['after_uid'] ?? 0);
         $onlyAtt   = (bool)($opts['only_with_attachments'] ?? false);
         $priority  = (bool)($opts['priority_only'] ?? false);
         $unseen    = (bool)($opts['unseen_only'] ?? false);
         $q         = Str::lower((string)($opts['q'] ?? ''));
 
-        if ($logical === 'PRIORITY') {
-            $logical = 'INBOX';
-            $priority = true;
-        }
+        if ($folderKey === 'PRIORITY') { $folderKey = 'INBOX'; $priority = true; }
 
-        $box = $this->resolveFolder($logical);
+        $box = $this->resolveFolder($folderKey);
         if (!$box) return collect();
 
-        // Ventana amplia (para que no te aparezcan “solo 2”)
-        $months = max(1, (int)($opts['months'] ?? $this->windowMonths($logical)));
+        // 👇 CLAVE: para evitar “Enviados vacío” o “solo 2”, NO dependemos de since() en carpetas normales.
+        // Solo acotamos por tiempo en SPAM/TRASH.
+        $query = $box->query()->setFetchOrder('desc');
 
-        $query = $box->query()
-            ->since(now()->subMonths($months))
-            ->setFetchOrder('desc')
-            ->limit(max(10, $limit));
-
-        if ($unseen && method_exists($query, 'unseen')) {
-            $query->unseen();
+        if (in_array($folderKey, ['SPAM','TRASH'], true)) {
+            $months = max(1, (int)($opts['months'] ?? $this->windowMonths($folderKey)));
+            $query->since(now()->subMonths($months));
+        } else {
+            // ENVIADOS / INBOX / DRAFTS / ARCHIVE => ALL sin ventana (pero limit sí)
+            if (method_exists($query, 'all')) $query->all();
         }
 
-        // Ejecutar y filtrar (compatibilidad entre versiones)
-        $coll = $query->get();
+        if ($unseen && method_exists($query, 'unseen')) $query->unseen();
+
+        $messages = $query->limit($limit)->get();
 
         if ($afterUid > 0) {
-            $coll = $coll->filter(fn($m)=>(int)$m->getUid() > $afterUid);
+            $messages = $messages->filter(fn($m)=>(int)$m->getUid() > $afterUid);
         }
 
-        $rows = $coll->map(fn($m)=>$this->normalize($m, $logical));
+        $rows = $messages->map(fn($m)=>$this->normalize($m, $folderKey));
 
-        if ($priority) {
-            $rows = $rows->filter(fn($r)=>!empty($r['priority']))->values();
-        }
-        if ($onlyAtt) {
-            $rows = $rows->filter(fn($r)=>!empty($r['hasAtt']))->values();
-        }
+        if ($priority) $rows = $rows->filter(fn($r)=>!empty($r['priority']))->values();
+        if ($onlyAtt)  $rows = $rows->filter(fn($r)=>!empty($r['hasAtt']))->values();
+
         if ($q !== '') {
-            $rows = $rows->filter(function ($r) use ($q) {
+            $rows = $rows->filter(function($r) use ($q){
                 return Str::contains(Str::lower($r['from']), $q)
                     || Str::contains(Str::lower($r['subject']), $q)
                     || Str::contains(Str::lower($r['snippet']), $q);
             })->values();
         }
 
-        // Orden correcto si faltan timestamps
-        $rows = $rows->sortByDesc(fn($r)=>$r['dateTs'] ?? 0)->values();
-
-        return $rows->take($limit)->values();
+        return $rows->sortByDesc(fn($r)=>$r['dateTs'] ?? 0)->values()->take($limit);
     }
 
-    public function listUnified(array $opts = [])
+    public function apiList(string $folderKey, array $opts = []): array
     {
-        $buckets = $opts['buckets'] ?? ['INBOX','SENT','ARCHIVE'];
-        $limit   = (int)($opts['limit'] ?? 120);
+        $folderKey = strtoupper($folderKey ?: 'INBOX');
+        $limit = max(10, (int)($opts['limit'] ?? 80));
+        $after = (int)($opts['after_uid'] ?? 0);
 
-        $merged = collect();
-        $per = max(20, (int) ceil($limit / max(1, count($buckets))));
-
-        foreach ($buckets as $b) {
-            $merged = $merged->concat(
-                $this->listFromFolder($b, array_merge($opts, ['limit'=>$per]))
-            );
-        }
-
-        return $merged->sortByDesc(fn($r)=>$r['dateTs'] ?? 0)->values()->take($limit);
-    }
-
-    /**
-     * API principal
-     */
-    public function apiList(string $logical, array $opts = []): array
-    {
-        $logical = strtoupper($logical ?: 'INBOX');
-        $limit   = (int)($opts['limit'] ?? 80);
-        $after   = (int)($opts['after_uid'] ?? 0);
-        $q       = (string)($opts['q'] ?? '');
-
-        if ($logical === 'ALL') {
-            $items = $this->listUnified($opts);
-        } elseif ($logical === 'PRIORITY') {
-            $items = $this->listFromFolder('INBOX', array_merge($opts, ['priority_only'=>true]));
+        if ($folderKey === 'ALL') {
+            $items = collect()
+                ->concat($this->listFromFolder('INBOX', $opts))
+                ->concat($this->listFromFolder('SENT',  $opts))
+                ->concat($this->listFromFolder('ARCHIVE',$opts))
+                ->sortByDesc(fn($r)=>$r['dateTs'] ?? 0)
+                ->values()
+                ->take($limit);
         } else {
-            // Si estás en INBOX y haces búsqueda, busca global (opcional)
-            if ($logical === 'INBOX' && Str::of($q)->trim()->isNotEmpty()) {
-                $items = $this->listUnified($opts);
-            } else {
-                $items = $this->listFromFolder($logical, $opts);
-            }
+            $items = $this->listFromFolder($folderKey, $opts);
         }
 
         $maxUid = (int)($items->max('uid') ?? $after);
 
         return [
             'ok'      => true,
-            'folder'  => $logical,
+            'folder'  => $folderKey,
             'count'   => (int)$items->count(),
             'max_uid' => $maxUid,
             'items'   => $items->values(),
         ];
     }
 
-    /* =========================================================
-     |                       COUNTS
-     * =======================================================*/
+    /* =========================
+     |  Message operations
+     ========================= */
+
+    public function getMessage(string $folderKey, string $uid)
+    {
+        $this->connect();
+        $folderKey = strtoupper($folderKey);
+
+        $box = $this->resolveFolder($folderKey);
+        if (!$box) return null;
+
+        return $box->query()->uid($uid)->get()->first();
+    }
+
+    public function toggleFlag(string $folderKey, string $uid): bool
+    {
+        $m = $this->getMessage($folderKey, $uid);
+        if (!$m) return false;
+
+        if ($m->hasFlag('Flagged')) $m->unsetFlag('Flagged');
+        else $m->setFlag('Flagged');
+
+        return true;
+    }
+
+    public function markRead(string $folderKey, string $uid): bool
+    {
+        $m = $this->getMessage($folderKey, $uid);
+        if (!$m) return false;
+        $m->setFlag('Seen');
+        return true;
+    }
+
+    public function move(string $src, string $uid, string $dest): bool
+    {
+        $this->connect();
+        $srcF  = $this->resolveFolder($src);
+        $destF = $this->resolveFolder($dest);
+        if (!$srcF || !$destF) return false;
+
+        $m = $srcF->query()->uid($uid)->get()->first();
+        if (!$m) return false;
+
+        $m->move($destF);
+        return true;
+    }
+
+    public function delete(string $folderKey, string $uid): array
+    {
+        $this->connect();
+        $folderKey = strtoupper($folderKey);
+
+        $box = $this->resolveFolder($folderKey);
+        if (!$box) return ['ok'=>false];
+
+        $m = $box->query()->uid($uid)->get()->first();
+        if (!$m) return ['ok'=>false];
+
+        $isTrash = $folderKey === 'TRASH';
+
+        if (!$isTrash) {
+            $trash = $this->resolveFolder('TRASH');
+            if ($trash) {
+                $m->move($trash);
+                return ['ok'=>true,'moved'=>'TRASH'];
+            }
+            $m->delete();
+            try { $box->expunge(); } catch (\Throwable $e) {}
+            return ['ok'=>true,'deleted'=>true];
+        }
+
+        $m->delete();
+        try { $box->expunge(); } catch (\Throwable $e) {}
+        return ['ok'=>true,'purged'=>true];
+    }
+
+    public function downloadAttachment(string $folderKey, string $uid, string $part): ?array
+    {
+        $m = $this->getMessage($folderKey, $uid);
+        if (!$m) return null;
+
+        $att = null;
+        try {
+            $att = collect($m->getAttachments() ?? [])->first(function($a) use ($part){
+                try { return (string)$a->getPartNumber() === (string)$part; } catch (\Throwable $e) { return false; }
+            });
+        } catch (\Throwable $e) {}
+
+        if (!$att) return null;
+
+        $name = 'adjunto-'.Str::random(6);
+        $mime = 'application/octet-stream';
+        $content = '';
+
+        try { $name = $att->getName() ?: $name; } catch (\Throwable $e) {}
+        try { $mime = $att->getMimeType() ?: $mime; } catch (\Throwable $e) {}
+        try { $content = $att->getContent(); } catch (\Throwable $e) {}
+
+        return ['name'=>$name,'mime'=>$mime,'content'=>$content];
+    }
+
+    /* =========================
+     |  APPEND a Enviados
+     ========================= */
+
+    public function appendToSentIfPossible(string $rawMime): bool
+    {
+        $this->connect();
+        $sent = $this->resolveFolder('SENT');
+        if (!$sent) return false;
+
+        $sentPath = $this->folderPath($sent);
+
+        // Variantes según versión Webklex:
+        try {
+            if (method_exists($this->client, 'appendMessage')) {
+                $this->client->appendMessage($sentPath, $rawMime, ['Seen']);
+                return true;
+            }
+        } catch (\Throwable $e) {}
+
+        try {
+            if (method_exists($sent, 'appendMessage')) {
+                $sent->appendMessage($rawMime, ['Seen']);
+                return true;
+            }
+        } catch (\Throwable $e) {}
+
+        return false;
+    }
+
+    /* =========================
+     |  Counts / Health
+     ========================= */
 
     public function counts(): array
     {
@@ -478,7 +570,7 @@ class MailboxService
             foreach ($keys as $k) {
                 try {
                     if ($k === 'PRIORITY') {
-                        $rows = $this->listFromFolder('INBOX', ['limit'=>200, 'months'=>6]);
+                        $rows = $this->listFromFolder('INBOX', ['limit'=>200]);
                         $out[$k] = (int)$rows->where('priority', 1)->count();
                         continue;
                     }
@@ -486,7 +578,7 @@ class MailboxService
                     $box = $this->resolveFolder($k);
                     if (!$box) { $out[$k]=0; continue; }
 
-                    // Unseen en INBOX (más útil)
+                    // INBOX como unread
                     if ($k === 'INBOX') {
                         try {
                             $out[$k] = (int)$box->messages()->unseen()->count();
@@ -504,205 +596,11 @@ class MailboxService
         });
     }
 
-    /* =========================================================
-     |                    GET MESSAGE / ACCIONES
-     * =======================================================*/
-
-    public function getMessage(string $folder, string $uid)
-    {
-        $this->connect();
-        $box = $this->resolveFolder($folder);
-        if (!$box) return null;
-
-        return $box->query()->uid($uid)->get()->first();
-    }
-
-    public function markRead(string $folder, string $uid): bool
-    {
-        $msg = $this->getMessage($folder, $uid);
-        if (!$msg) return false;
-        $msg->setFlag('Seen');
-        return true;
-    }
-
-    public function toggleFlag(string $folder, string $uid): bool
-    {
-        $msg = $this->getMessage($folder, $uid);
-        if (!$msg) return false;
-
-        if ($msg->hasFlag('Flagged')) $msg->unsetFlag('Flagged');
-        else $msg->setFlag('Flagged');
-
-        return true;
-    }
-
-    public function move(string $srcFolder, string $uid, string $destFolder): bool
-    {
-        $this->connect();
-        $src  = $this->resolveFolder($srcFolder);
-        $dest = $this->resolveFolder($destFolder);
-        if (!$src || !$dest) return false;
-
-        $msg = $src->query()->uid($uid)->get()->first();
-        if (!$msg) return false;
-
-        $msg->move($dest);
-        return true;
-    }
-
-    public function delete(string $folder, string $uid): array
-    {
-        $this->connect();
-        $box = $this->resolveFolder($folder);
-        if (!$box) return ['ok'=>false];
-
-        $msg = $box->query()->uid($uid)->get()->first();
-        if (!$msg) return ['ok'=>false];
-
-        $isTrash = strtoupper($folder) === 'TRASH';
-
-        if (!$isTrash) {
-            $trash = $this->resolveFolder('TRASH');
-            if ($trash) {
-                $msg->move($trash);
-                return ['ok'=>true,'moved'=>'TRASH'];
-            }
-
-            $msg->delete();
-            try { $box->expunge(); } catch (\Throwable $e) {}
-            return ['ok'=>true,'deleted'=>true];
-        }
-
-        $msg->delete();
-        try { $box->expunge(); } catch (\Throwable $e) {}
-        return ['ok'=>true,'purged'=>true];
-    }
-
-    public function downloadAttachment(string $folder, string $uid, string $part): ?array
-    {
-        $msg = $this->getMessage($folder, $uid);
-        if (!$msg) return null;
-
-        $att = null;
-        try {
-            $att = collect($msg->getAttachments() ?? [])
-                ->first(function($a) use ($part) {
-                    $pn = null;
-                    try { $pn = (string)$a->getPartNumber(); } catch (\Throwable $e) {}
-                    return $pn === (string)$part;
-                });
-        } catch (\Throwable $e) {}
-
-        if (!$att) return null;
-
-        $name = 'adjunto-'.Str::random(6);
-        try { $name = $att->getName() ?: $name; } catch (\Throwable $e) {}
-
-        $mime = 'application/octet-stream';
-        try { $mime = $att->getMimeType() ?: $mime; } catch (\Throwable $e) {}
-
-        $content = '';
-        try { $content = $att->getContent(); } catch (\Throwable $e) {}
-
-        return ['name'=>$name,'mime'=>$mime,'content'=>$content];
-    }
-
-    /* =========================================================
-     |            APPEND A ENVIADOS (SMTP -> IMAP)
-     * =======================================================*/
-
-    public function appendToSentIfPossible(string $rawMime): bool
-    {
-        $this->connect();
-
-        $sent = $this->resolveFolder('SENT');
-        if (!$sent) return false;
-
-        // Webklex cambia según versión: intentamos varias formas sin romper.
-        try {
-            if (method_exists($sent, 'appendMessage')) {
-                // Algunas versiones: appendMessage($raw, $flags = [], $date = null)
-                $sent->appendMessage($rawMime, ['Seen']);
-                return true;
-            }
-        } catch (\Throwable $e) {}
-
-        try {
-            if (method_exists($this->client, 'appendMessage')) {
-                // Algunas versiones: appendMessage($folderPath, $raw, $flags = [], $date = null)
-                $path = $sent->path ?? $sent->name ?? 'Sent';
-                $this->client->appendMessage($path, $rawMime, ['Seen']);
-                return true;
-            }
-        } catch (\Throwable $e) {}
-
-        return false;
-    }
-
-    /* =========================================================
-     |               PREFILL (reply/forward) + THREAD
-     * =======================================================*/
-
-    public function buildPrefill(string $mode, string $folder, string $uid): array
-    {
-        $mode = strtolower($mode);
-        $msg = $this->getMessage($folder, $uid);
-        if (!$msg) return ['to'=>'','subject'=>'','body'=>''];
-
-        $subject = $this->decodeHeader((string)($msg->getSubject() ?: '(sin asunto)'));
-        $fromMail = optional($msg->getFrom())->first()?->mail ?? '';
-        $replyTo  = optional($msg->getReplyTo())->first()?->mail ?? $fromMail;
-
-        if ($mode === 'reply') {
-            $sub = Str::startsWith(Str::lower($subject), 're:') ? $subject : 'Re: '.$subject;
-            return [
-                'to'      => (string)$replyTo,
-                'subject' => $sub,
-                'body'    => "",
-            ];
-        }
-
-        if ($mode === 'forward') {
-            $sub = Str::startsWith(Str::lower($subject), 'fwd:') ? $subject : 'Fwd: '.$subject;
-            return [
-                'to'      => '',
-                'subject' => $sub,
-                'body'    => "",
-            ];
-        }
-
-        return ['to'=>'','subject'=>$subject,'body'=>''];
-    }
-
-    public function threadHeaders(string $folder, string $uid): array
-    {
-        $msg = $this->getMessage($folder, $uid);
-        if (!$msg) return ['in_reply_to'=>'','references'=>''];
-
-        $inReplyTo = '';
-        $refs = '';
-
-        try { $inReplyTo = (string)($msg->getMessageId() ?: ''); } catch (\Throwable $e) {}
-
-        try {
-            $refsHeader = optional($msg->get('References'))->first();
-            $refsValue  = $refsHeader && method_exists($refsHeader,'getValue') ? (string)$refsHeader->getValue() : '';
-            $refs = trim($refsValue.' '.$inReplyTo);
-        } catch (\Throwable $e) {}
-
-        return ['in_reply_to'=>$inReplyTo,'references'=>$refs];
-    }
-
-    /* =========================================================
-     |                         HEALTH
-     * =======================================================*/
-
     public function health(): bool
     {
         try {
             $this->connect();
-            $inbox = $this->resolveFolder('INBOX');
-            return (bool) $inbox;
+            return (bool)$this->resolveFolder('INBOX');
         } catch (\Throwable $e) {
             return false;
         }

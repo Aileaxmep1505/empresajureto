@@ -54,7 +54,6 @@
   };
 
   // ============ Cabeceras seguras ============
-
   $fromObj   = optional($msg->getFrom())->first();
   $fromMail  = null; $fromName = null;
   if ($fromObj) {
@@ -63,57 +62,71 @@
   }
   $fromLabel = $decodeHeader($fromName ?: ($fromMail ?: '(desconocido)'));
 
-  $to  = $addressesToString($msg->getTo());
-  $cc  = $addressesToString($msg->getCc());
-  $subj= $decodeHeader($msg->getSubject() ?: '(sin asunto)');
+  $to   = $addressesToString($msg->getTo());
+  $cc   = $addressesToString($msg->getCc());
+  $subj = $decodeHeader($msg->getSubject() ?: '(sin asunto)');
 
-  $attr  = $msg->getDate();
+  /**
+   * ✅ Fecha robusta (arregla cosas tipo: "26262626 Fri [26e] DecemberDecember12, 0909:1212")
+   * Intentamos: getDate() -> header Date -> internalDate
+   */
+  $when = '';
   try {
-    $when = $attr ? \Illuminate\Support\Carbon::parse($attr->toString())->translatedFormat('dddd D [de] MMM, HH:mm') : '';
-  } catch (\Throwable $e) { $when = $attr ? e($attr->toString()) : ''; }
+      $dt = null;
+
+      // 1) Webklex getDate()
+      try {
+          $d = $msg->getDate();
+          if ($d instanceof \Carbon\Carbon) $dt = $d;
+          elseif ($d instanceof \DateTimeInterface) $dt = \Carbon\Carbon::instance($d);
+          elseif (is_object($d) && method_exists($d,'toString')) $dt = \Carbon\Carbon::parse((string)$d);
+          elseif (is_string($d) && trim($d) !== '') $dt = \Carbon\Carbon::parse($d);
+      } catch (\Throwable $e) {}
+
+      // 2) Header Date (raw)
+      if (!$dt) {
+          $h = optional($msg->get('date'))->first();
+          $v = $h && method_exists($h,'getValue') ? (string)$h->getValue() : (string)$h;
+          if (trim($v) !== '') $dt = \Carbon\Carbon::parse($v);
+      }
+
+      // 3) Internal date
+      if (!$dt && method_exists($msg,'getInternalDate')) {
+          $id = $msg->getInternalDate();
+          if ($id instanceof \DateTimeInterface) $dt = \Carbon\Carbon::instance($id);
+          elseif (is_string($id) && trim($id) !== '') $dt = \Carbon\Carbon::parse($id);
+      }
+
+      if ($dt) {
+          $dt = $dt->copy()->setTimezone(config('app.timezone', 'America/Mexico_City'))->locale('es');
+          $when = $dt->translatedFormat('d \\de F \\de Y, H:i');
+      }
+  } catch (\Throwable $e) { $when = ''; }
 
   // ============ Adjuntos y rutas ============
-
-  $attachments = $attachments ?? $msg->getAttachments();
+  $attachments = $attachments ?? ($msg->getAttachments() ?? []);
   $replyUrl    = route('mail.reply',   [$folder, $msg->getUid()]);
   $forwardUrl  = route('mail.forward', [$folder, $msg->getUid()]);
 
   // ============ Optimización del cuerpo HTML ============
-
-  /**
-   * Limpia y optimiza el HTML:
-   * - Elimina <script>...</script>
-   * - Añade lazy/async/referrerpolicy/estilos a <img>
-   * - Colapsa blockquotes y gmail_quote en <details>
-   * - Normaliza tablas anchas
-   */
   $optimizeHtml = function (string $html): string {
-      // Quitar scripts por seguridad y rendimiento
       $html = preg_replace('#<script\b[^>]*>.*?</script>#is', '', $html) ?? $html;
 
-      // Colapsar citas largas (gmail_quote o blockquote anidados)
-      // Envuelve <blockquote> en <details> si no está ya dentro de un details
+      // Colapsar blockquotes (citas largas)
       $html = preg_replace_callback('#(<blockquote[\s\S]*?</blockquote>)#i', function($m){
           $block = $m[1];
-          // Evitar doble wrap si ya está en details
           if (stripos($block, '<details') !== false) return $block;
-          // Acorta el summary
-          $summary = 'Mostrar cita';
-          return '<details class="mx-quote"><summary>'.$summary.'</summary>'.$block.'</details>';
+          return '<details class="mx-quote"><summary>Mostrar cita</summary>'.$block.'</details>';
       }, $html) ?? $html;
 
-      // Lazy en imágenes: añade atributos si no existen
+      // Lazy/async en imágenes
       $html = preg_replace_callback('#<img\b([^>]*?)>#i', function($m){
           $attrs = $m[1] ?? '';
-          // loading
           if (!preg_match('/\sloading=/', $attrs)) $attrs .= ' loading="lazy"';
-          // decoding
           if (!preg_match('/\sdecoding=/', $attrs)) $attrs .= ' decoding="async"';
-          // referrerpolicy
           if (!preg_match('/\sreferrerpolicy=/', $attrs)) $attrs .= ' referrerpolicy="no-referrer"';
-          // style responsive
+
           if (preg_match('/\sstyle=/', $attrs)) {
-              // inserta max-width si no existe
               if (!preg_match('/max-width\s*:/i', $attrs)) {
                   $attrs = preg_replace('/style\s*=\s*"/i', 'style="max-width:100%;height:auto; ', $attrs, 1);
               }
@@ -123,15 +136,15 @@
           return '<img'.$attrs.'>';
       }, $html) ?? $html;
 
-      // Tablas: agrega estilo responsivo a tablas sin estilo
+      // Tablas responsivas
       $html = preg_replace_callback('#<table\b([^>]*)>#i', function($m){
           $attrs = $m[1] ?? '';
           if (preg_match('/\sstyle=/', $attrs)) {
-              if (!preg_match('/table-layout\s*:/i', $attrs)) {
-                  $attrs = preg_replace('/style\s*=\s*"/i', 'style="table-layout:auto; width:100%; ', $attrs, 1);
+              if (!preg_match('/width\s*:/i', $attrs)) {
+                  $attrs = preg_replace('/style\s*=\s*"/i', 'style="width:100%; table-layout:auto; ', $attrs, 1);
               }
           } else {
-              $attrs .= ' style="table-layout:auto;width:100%"';
+              $attrs .= ' style="width:100%;table-layout:auto"';
           }
           return '<table'.$attrs.'>';
       }, $html) ?? $html;
@@ -139,9 +152,12 @@
       return $html;
   };
 
-  $hasHtml   = $msg->hasHTMLBody();
-  $rawHtml   = $hasHtml ? (string)$msg->getHTMLBody() : '';
-  $safeHtml  = $hasHtml ? $optimizeHtml($rawHtml) : '';
+  $hasHtml  = (bool) $msg->hasHTMLBody();
+  $rawHtml  = $hasHtml ? (string)$msg->getHTMLBody() : '';
+  $safeHtml = $hasHtml ? $optimizeHtml($rawHtml) : '';
+
+  // Texto (por si no hay HTML)
+  $textBody = (string)($msg->getTextBody() ?? '');
 @endphp
 
 @if(request()->has('partial'))
@@ -157,8 +173,7 @@
 
     {{-- Estilos encapsulados para el fragmento HTML --}}
     <style>
-      /* Se aplican solo dentro del fragmento clonado por index.blade.php */
-      .mail-html, .mail-text { color: #0f172a; font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial; }
+      .mail-html, .mail-text { color:#0f172a; font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial; }
       .mail-html img{ max-width:100%; height:auto; }
       .mail-html table{ width:100%; table-layout:auto; border-collapse:collapse; }
       .mail-html iframe, .mail-html embed, .mail-html object{ max-width:100%; }
@@ -166,14 +181,14 @@
       .mail-html blockquote{ margin:8px 0 8px 12px; padding-left:12px; border-left:3px solid #e5e7eb; color:#475569; }
       details.mx-quote{ margin:.5rem 0; border:1px dashed #e5e7eb; border-radius:8px; padding:.4rem .6rem; background:#fbfdff; }
       details.mx-quote > summary{ cursor:pointer; font-weight:600; color:#334155; }
-      /* Evitar que contenidos extremos rompan el layout */
-      .mail-html * { max-width: 100%; }
+      .mail-html * { max-width:100%; }
     </style>
 
     @if($hasHtml)
       <div class="mail-html" data-body-html>{!! $safeHtml !!}</div>
     @else
-      <div class="mail-text" data-body-text style="white-space:pre-wrap">{{ $msg->getTextBody() }}</div>
+      {{-- ✅ Tu index.js ya maneja data-body-text como <pre>, así que aquí lo damos en un div oculto --}}
+      <div class="mail-text" data-body-text style="display:none">{{ $textBody }}</div>
     @endif
 
     @foreach($attachments as $att)
@@ -181,7 +196,9 @@
         $attName = method_exists($att,'getName') ? $decodeHeader($att->getName()) : null;
         $attMime = method_exists($att,'getMimeType') ? $att->getMimeType() : null;
         $part    = (string) (method_exists($att,'getPartNumber') ? $att->getPartNumber() : '');
-        $href    = route('mail.download', [$folder, $msg->getUid(), $part]);
+        // ✅ OJO: usa el nombre de ruta que tengas. Si en tu sistema es mail.download, déjalo así.
+        // Si lo cambiaste a mail.attachment, ajusta aquí.
+        $href    = route('mail.download', [$folder, $msg->getUid(), $part ?: '1']);
       @endphp
       <div data-att
            data-href="{{ $href }}"
@@ -189,8 +206,9 @@
            data-mime="{{ e($attMime ?: '') }}"></div>
     @endforeach
   </div>
+
 @else
-  {{-- ========= Página completa (opcional si entras directo a /mail/show) ========= --}}
+  {{-- ========= Página completa ========= --}}
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@300..700&display=swap"/>
   <div class="container py-4">
     <style>
@@ -205,6 +223,7 @@
     <div class="card shadow-sm mx-mail-wrap">
       <div class="card-body">
         <h1 class="h4 mb-2">{{ $subj }}</h1>
+
         <div class="text-muted small mb-3">
           <strong>De:</strong> {{ $fromLabel }}
           @if($to) <span class="mx-2">·</span> <strong>Para:</strong> {{ $to }} @endif
@@ -212,11 +231,11 @@
           @if($when) <span class="mx-2">·</span> {{ $when }} @endif
         </div>
 
-        <div class="mb-3 mail-html">
+        <div class="mb-3">
           @if($hasHtml)
-            {!! $safeHtml !!}
+            <div class="mail-html">{!! $safeHtml !!}</div>
           @else
-            <pre class="mail-text">{{ $msg->getTextBody() }}</pre>
+            <pre class="mail-text" style="white-space:pre-wrap">{{ $textBody }}</pre>
           @endif
         </div>
 
@@ -228,7 +247,7 @@
                 $attName = method_exists($att,'getName') ? $decodeHeader($att->getName()) : null;
                 $attMime = method_exists($att,'getMimeType') ? $att->getMimeType() : null;
                 $part    = (string) (method_exists($att,'getPartNumber') ? $att->getPartNumber() : '');
-                $href    = route('mail.download', [$folder, $msg->getUid(), $part]);
+                $href    = route('mail.download', [$folder, $msg->getUid(), $part ?: '1']);
               @endphp
               <div class="d-flex align-items-center gap-2 py-1">
                 <span class="material-symbols-outlined">attachment</span>
@@ -240,8 +259,12 @@
         @endif
 
         <div class="mt-3 d-flex gap-2">
-          <a class="btn btn-primary" href="{{ $replyUrl }}"><span class="material-symbols-outlined align-middle">reply</span> Responder</a>
-          <a class="btn btn-outline-secondary" href="{{ $forwardUrl }}"><span class="material-symbols-outlined align-middle">forward</span> Reenviar</a>
+          <a class="btn btn-primary" href="{{ $replyUrl }}">
+            <span class="material-symbols-outlined align-middle">reply</span> Responder
+          </a>
+          <a class="btn btn-outline-secondary" href="{{ $forwardUrl }}">
+            <span class="material-symbols-outlined align-middle">forward</span> Reenviar
+          </a>
         </div>
       </div>
     </div>

@@ -1,5 +1,4 @@
 <?php
-// app/Http/Controllers/Mail/MailboxController.php
 
 namespace App\Http\Controllers\Mail;
 
@@ -12,9 +11,6 @@ use App\Services\MailboxService;
 
 class MailboxController extends Controller
 {
-    /* =========================================================
-     |               LIMITES / AJUSTES “ENTERPRISE”
-     * =======================================================*/
     protected const LIMIT_MIN = 10;
     protected const LIMIT_MAX = 200;
 
@@ -23,28 +19,15 @@ class MailboxController extends Controller
 
     public function __construct(protected MailboxService $mailbox) {}
 
-    /* =========================================================
-     |                       VISTAS
-     * =======================================================*/
-
     public function index(Request $r)
     {
-        $folder = strtoupper($r->get('folder', env('IMAP_DEFAULT_FOLDER', 'INBOX')));
+        $folder = strtoupper((string)$r->get('folder', env('IMAP_DEFAULT_FOLDER','INBOX')));
 
-        // Lista inicial (para que la vista cargue algo aun si el API tarda)
-        $list = $this->mailbox->apiList($folder, [
-            'limit'                 => 80,
-            'after_uid'             => 0,
-            'q'                     => '',
-            'only_with_attachments' => false,
-            'priority_only'         => false,
-            'unseen_only'           => false,
-        ]);
-
+        // Solo counts + la vista ya se llena con API (tu blade actual)
         return view('mail.index', [
-            'messages' => $list['raw_messages'] ?? [], // opcional (si tu blade usa mensajes IMAP). Si no, no pasa nada.
-            'counts'   => $this->mailbox->counts(),
-            'current'  => $folder,
+            'counts'  => $this->mailbox->counts(),
+            'current' => $folder,
+            'messages'=> [], // tu blade puede ignorarlo porque recarga por API
         ]);
     }
 
@@ -53,37 +36,61 @@ class MailboxController extends Controller
         return redirect()->route('mail.index', ['folder' => strtoupper($name)]);
     }
 
-    /**
-     * Compose mejorado:
-     * - Soporta ?mode=reply|forward&folder=INBOX&uid=123 para precargar
-     */
-    public function compose(Request $r)
+    /* =========================
+     |  SHOW (partial que tu JS necesita)
+     ========================= */
+
+    public function show(Request $r, string $folder, string $uid)
     {
-        $mode   = strtolower((string)$r->get('mode', 'new')); // new|reply|forward
-        $folder = strtoupper((string)$r->get('folder', 'INBOX'));
-        $uid    = (string)$r->get('uid', '');
+        $folder = strtoupper($folder);
+        $msg = $this->mailbox->getMessage($folder, (string)$uid);
+        abort_unless($msg, 404);
 
-        $prefill = [
-            'mode'    => $mode,
-            'folder'  => $folder,
-            'uid'     => $uid,
-            'to'      => '',
-            'subject' => '',
-            'body'    => '',
-            'cc'      => '',
-            'bcc'     => '',
-        ];
+        if ($r->get('partial') == '1') {
+            $from    = $this->mailbox->decodeHeader(optional($msg->getFrom())->first()?->personal ?: optional($msg->getFrom())->first()?->mail ?: '(desconocido)');
+            $to      = (string)(optional($msg->getTo())->first()?->mail ?? '');
+            $cc      = (string)(optional($msg->getCc())->first()?->mail ?? '');
+            $subject = $this->mailbox->decodeHeader((string)($msg->getSubject() ?: '(sin asunto)'));
+            $when    = $this->mailbox->formatWhen($msg);
 
-        if (in_array($mode, ['reply','forward'], true) && $uid !== '') {
-            $prefill = array_merge($prefill, $this->mailbox->buildPrefill($mode, $folder, $uid));
+            $html = $msg->hasHTMLBody() ? (string)$msg->getHTMLBody() : null;
+            $text = (string)($msg->getTextBody() ?? '');
+
+            $attachments = [];
+            try { $attachments = $msg->getAttachments() ?? []; } catch (\Throwable $e) {}
+
+            // 👇 ESTE ES EL PARCIAL QUE TU JS ESPERA (#mx-payload)
+            return response()->view('mail.partials.show', compact(
+                'folder','uid','from','to','cc','subject','when','html','text','attachments'
+            ));
         }
 
-        return view('mail.compose', compact('prefill'));
+        // Si abres sin partial, puedes dejarlo como una vista normal
+        $attachments = [];
+        try { $attachments = $msg->getAttachments() ?? []; } catch (\Throwable $e) {}
+
+        return view('mail.show', compact('msg','folder','uid','attachments'));
     }
 
-    /* =========================================================
-     |                          ENVIO
-     * =======================================================*/
+    public function downloadAttachment(Request $r, string $folder, string $uid, string $part)
+    {
+        $out = $this->mailbox->downloadAttachment(strtoupper($folder), (string)$uid, (string)$part);
+        abort_unless($out, 404);
+
+        return response($out['content'], 200, [
+            'Content-Type'        => $out['mime'],
+            'Content-Disposition' => 'attachment; filename="'.$out['name'].'"',
+        ]);
+    }
+
+    /* =========================
+     |  Envío + APPEND a Enviados
+     ========================= */
+
+    public function compose()
+    {
+        return view('mail.compose');
+    }
 
     public function send(Request $r)
     {
@@ -93,7 +100,7 @@ class MailboxController extends Controller
             'body'    => ['required','string'],
             'cc'      => ['nullable','string'],
             'bcc'     => ['nullable','string'],
-            'files.*' => ['nullable','file','max:15360'], // 15MB por archivo
+            'files.*' => ['nullable','file','max:15360'],
         ]);
 
         $to    = SimpleMail::splitEmails($data['to']);
@@ -105,7 +112,6 @@ class MailboxController extends Controller
 
         $mailable = new SimpleMail($to, $data['subject'], $data['body'], $cc, $bcc, $files);
 
-        // Capturar MIME para poder APPEND a Enviados (si el servidor no lo hace solo)
         $mailable->withSymfonyMessage(function ($symfonyEmail) use (&$rawSent) {
             if (is_object($symfonyEmail) && method_exists($symfonyEmail, 'toString')) {
                 $rawSent = $symfonyEmail->toString();
@@ -114,7 +120,6 @@ class MailboxController extends Controller
 
         MailFacade::send($mailable);
 
-        // Intentar guardar copia en Enviados (IMAP APPEND)
         if ($rawSent) {
             $this->mailbox->appendToSentIfPossible($rawSent);
         }
@@ -122,30 +127,36 @@ class MailboxController extends Controller
         return back()->with('ok', 'Correo enviado correctamente.');
     }
 
-    /* =========================================================
-     |                   RESPONDER / REENVIAR
-     * =======================================================*/
-
     public function reply(Request $r, string $folder, string $uid)
     {
         $data = $r->validate(['body'=>['required','string']]);
 
-        $prefill = $this->mailbox->buildPrefill('reply', strtoupper($folder), (string)$uid);
+        $msg = $this->mailbox->getMessage(strtoupper($folder), (string)$uid);
+        abort_unless($msg, 404);
 
-        $to = SimpleMail::splitEmails($prefill['to'] ?: '');
-        if (!$to) return back()->with('err','No se pudo determinar destinatario para responder.');
+        $to = optional($msg->getReplyTo())->first()?->mail
+           ?? optional($msg->getFrom())->first()?->mail;
+
+        $subject = 'Re: ' . $this->mailbox->decodeHeader((string)($msg->getSubject() ?: '(sin asunto)'));
 
         $rawSent = null;
-        $mailable = new SimpleMail($to, $prefill['subject'] ?: '(sin asunto)', $data['body']);
+        $mailable = new SimpleMail([(string)$to], $subject, $data['body']);
 
-        // Headers threading (In-Reply-To / References)
-        $thread = $this->mailbox->threadHeaders(strtoupper($folder), (string)$uid);
-        $mailable->withSymfonyMessage(function ($symfonyEmail) use (&$rawSent, $thread) {
-            if (is_object($symfonyEmail) && method_exists($symfonyEmail, 'getHeaders')) {
-                $headers = $symfonyEmail->getHeaders();
-                if (!empty($thread['in_reply_to'])) $headers->addTextHeader('In-Reply-To', $thread['in_reply_to']);
-                if (!empty($thread['references']))  $headers->addTextHeader('References',  $thread['references']);
-            }
+        $mailable->withSymfonyMessage(function ($symfonyEmail) use (&$rawSent, $msg) {
+            // Thread headers
+            try {
+                if (method_exists($symfonyEmail, 'getHeaders')) {
+                    $headers = $symfonyEmail->getHeaders();
+                    $mid = (string)($msg->getMessageId() ?: '');
+                    if ($mid) $headers->addTextHeader('In-Reply-To', $mid);
+
+                    $refsHeader = optional($msg->get('References'))->first();
+                    $refsVal = $refsHeader && method_exists($refsHeader,'getValue') ? (string)$refsHeader->getValue() : '';
+                    $refs = trim($refsVal.' '.$mid);
+                    if ($refs) $headers->addTextHeader('References', $refs);
+                }
+            } catch (\Throwable $e) {}
+
             if (is_object($symfonyEmail) && method_exists($symfonyEmail, 'toString')) {
                 $rawSent = $symfonyEmail->toString();
             }
@@ -168,26 +179,22 @@ class MailboxController extends Controller
         ]);
 
         $msg = $this->mailbox->getMessage(strtoupper($folder), (string)$uid);
-        if (!$msg) abort(404);
+        abort_unless($msg, 404);
 
-        $subject = 'Fwd: ' . ($this->mailbox->decodeHeader((string)($msg->getSubject() ?: '(sin asunto)')));
+        $subject = 'Fwd: ' . $this->mailbox->decodeHeader((string)($msg->getSubject() ?: '(sin asunto)'));
 
         $origText = $msg->hasHTMLBody()
             ? strip_tags((string)$msg->getHTMLBody())
             : (string)($msg->getTextBody() ?? '');
 
-        $origText = html_entity_decode($origText, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        $origText = preg_replace('/\s+/u', ' ', trim($origText));
-
         $body = ($data['note'] ? "Nota: ".$data['note']."\n\n" : '')
-              . $origText;
+              . trim(preg_replace('/\s+/u', ' ', html_entity_decode($origText, ENT_QUOTES | ENT_HTML5, 'UTF-8')));
 
         $to = SimpleMail::splitEmails($data['to']);
 
         $rawSent = null;
         $mailable = new SimpleMail($to, $subject, $body);
 
-        // Adjuntar archivos originales
         try {
             foreach ($msg->getAttachments() as $att) {
                 $mailable->attachData(
@@ -213,20 +220,22 @@ class MailboxController extends Controller
         return back()->with('ok','Reenviado ✔️');
     }
 
-    /* =========================================================
-     |                          ACCIONES
-     * =======================================================*/
+    /* =========================
+     |  Acciones rápidas
+     ========================= */
 
     public function toggleFlag(Request $r, string $folder, string $uid)
     {
-        $ok = $this->mailbox->toggleFlag(strtoupper($folder), (string)$uid);
-        return $ok ? response()->noContent() : response()->json(['ok'=>false], 500);
+        return $this->mailbox->toggleFlag(strtoupper($folder), (string)$uid)
+            ? response()->noContent()
+            : response()->json(['ok'=>false], 500);
     }
 
     public function markRead(Request $r, string $folder, string $uid)
     {
-        $ok = $this->mailbox->markRead(strtoupper($folder), (string)$uid);
-        return $ok ? response()->noContent() : response()->json(['ok'=>false], 500);
+        return $this->mailbox->markRead(strtoupper($folder), (string)$uid)
+            ? response()->noContent()
+            : response()->json(['ok'=>false], 500);
     }
 
     public function move(Request $r, string $folder, string $uid)
@@ -241,56 +250,9 @@ class MailboxController extends Controller
         return response()->json($this->mailbox->delete(strtoupper($folder), (string)$uid));
     }
 
-    /* =========================================================
-     |                          SHOW + ADJUNTOS
-     * =======================================================*/
-
-    public function show(Request $r, string $folder, string $uid)
-    {
-        $folder = strtoupper($folder);
-        $msg = $this->mailbox->getMessage($folder, (string)$uid);
-        abort_unless($msg, 404);
-
-        // Siempre formatear "when" acá para evitar strings raros
-        $when = $this->mailbox->formatMessageWhen($msg);
-
-        if ($r->get('partial') == '1') {
-            $from = $this->mailbox->messageFrom($msg);
-            $to   = $this->mailbox->messageTo($msg);
-            $cc   = $this->mailbox->messageCc($msg);
-            $subject = $this->mailbox->decodeHeader((string)($msg->getSubject() ?: '(sin asunto)'));
-
-            $html = $msg->hasHTMLBody() ? (string)$msg->getHTMLBody() : null;
-            $text = (string)($msg->getTextBody() ?? '');
-
-            $attachments = [];
-            try { $attachments = $msg->getAttachments() ?? []; } catch (\Throwable $e) {}
-
-            return response()->view('mail.partials.show', compact(
-                'folder','uid','from','to','cc','subject','when','html','text','attachments'
-            ));
-        }
-
-        $attachments = [];
-        try { $attachments = $msg->getAttachments() ?? []; } catch (\Throwable $e) {}
-
-        return view('mail.show', compact('msg','folder','uid','attachments'));
-    }
-
-    public function downloadAttachment(Request $r, string $folder, string $uid, string $part)
-    {
-        $out = $this->mailbox->downloadAttachment(strtoupper($folder), (string)$uid, (string)$part);
-        abort_unless($out, 404);
-
-        return response($out['content'], 200, [
-            'Content-Type'        => $out['mime'],
-            'Content-Disposition' => 'attachment; filename="'.$out['name'].'"',
-        ]);
-    }
-
-    /* =========================================================
-     |                          APIS
-     * =======================================================*/
+    /* =========================
+     |  APIs
+     ========================= */
 
     protected function clampLimit(int $n): int
     {
@@ -302,16 +264,16 @@ class MailboxController extends Controller
         $folder = strtoupper((string)$r->get('folder', env('IMAP_DEFAULT_FOLDER','INBOX')));
         $limit  = $this->clampLimit((int)$r->get('limit', 80));
 
-        $payload = $this->mailbox->apiList($folder, [
-            'limit'                 => $limit,
-            'after_uid'             => (int)$r->get('after_uid', 0),
-            'q'                     => (string)$r->get('q', ''),
-            'only_with_attachments' => (bool)$r->boolean('only_with_attachments', false),
-            'priority_only'         => (bool)$r->boolean('priority_only', false),
-            'unseen_only'           => (bool)$r->boolean('unseen_only', false),
-        ]);
-
-        return response()->json($payload);
+        return response()->json(
+            $this->mailbox->apiList($folder, [
+                'limit'                 => $limit,
+                'after_uid'             => (int)$r->get('after_uid', 0),
+                'q'                     => (string)$r->get('q', ''),
+                'only_with_attachments' => (bool)$r->boolean('only_with_attachments', false),
+                'priority_only'         => (bool)$r->boolean('priority_only', false),
+                'unseen_only'           => (bool)$r->boolean('unseen_only', false),
+            ])
+        );
     }
 
     public function apiWait(Request $r)
@@ -328,7 +290,6 @@ class MailboxController extends Controller
         $prio    = (bool)$r->boolean('priority_only', false);
 
         $start = microtime(true);
-        $items = [];
 
         do {
             $resp = $this->mailbox->apiList($folder, [
@@ -339,19 +300,13 @@ class MailboxController extends Controller
                 'priority_only'         => $prio,
             ]);
 
-            if (!empty($resp['items'])) {
-                return response()->json($resp);
-            }
+            if (!empty($resp['items'])) return response()->json($resp);
 
-            usleep($tick * 250000); // 0.25s * tick
+            usleep($tick * 250000);
         } while ((microtime(true) - $start) < $timeout);
 
         return response()->json([
-            'ok'      => true,
-            'folder'  => $folder,
-            'count'   => 0,
-            'max_uid' => $after,
-            'items'   => [],
+            'ok'=>true,'folder'=>$folder,'count'=>0,'max_uid'=>$after,'items'=>[]
         ]);
     }
 
