@@ -103,6 +103,29 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
 }
 
 /* =========================
+   ✅ TOP BAR
+   ========================= */
+.inv-topbar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:10px 6px 2px;
+}
+.inv-title{
+  font-weight:950;
+  letter-spacing:-.02em;
+  margin:0;
+  font-size:1.05rem;
+}
+.inv-sub{
+  margin:2px 0 0;
+  color:var(--muted);
+  font-size:.88rem;
+  font-weight:700;
+}
+
+/* =========================
    ✅ LAYOUT 2 columnas (grid)
    ========================= */
 .inv-grid{
@@ -113,6 +136,7 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
 }
 @media (max-width: 991.98px){
   .inv-grid{ grid-template-columns: 1fr; gap:16px; }
+  .inv-topbar{ padding-top:12px; }
 }
 
 /* neutraliza bootstrap cols dentro de nuestro grid */
@@ -223,9 +247,7 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
 
 /* =========================
    ✅ DROPDOWN (CLIENTE/PRODUCTO)
-   - fixed debajo del input
-   - centrado (misma anchura que input)
-   - encima de todo
+   - lo “portalizamos” al body en JS
    ========================= */
 .modern-dropdown,
 .dropdown-menu.modern-dropdown{
@@ -240,11 +262,10 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
   overflow:auto;
   overflow-x:hidden;
   z-index:99999 !important;
-
-  /* el JS lo posiciona fixed */
   position:fixed !important;
   transform:none !important;
   inset:auto auto auto auto;
+  display:none; /* controlado por JS */
 }
 
 .modern-dropdown::before,
@@ -331,11 +352,11 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
 }
 
 /* =========================
-   ✅ TABLA sin scroll lateral feo
+   ✅ TABLA
    ========================= */
 .table-responsive{ overflow-x:auto; }
 @media (min-width: 992px){
-  .table-responsive{ overflow-x:hidden; } /* desktop: intentamos evitar scroll */
+  .table-responsive{ overflow-x:hidden; }
 }
 
 .modern-table{
@@ -386,39 +407,42 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
   transform:translateY(-1px);
 }
 
-/* ✅ producto: clic para cambiar + corta texto largo */
-.prod-chip{
+/* ✅ Producto pill */
+.prod-cell{
   display:flex;
   align-items:center;
   gap:10px;
-}
-.prod-change{
-  width:34px;
-  height:34px;
-  border-radius:12px;
-  border:1px solid rgba(37,99,235,.20);
-  background:rgba(234,242,255,0.95);
-  color:var(--soft-blue-ink);
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
+  min-width:0;
 }
 .prod-name-btn{
-  background:transparent;
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
   border:none;
-  padding:0;
-  margin:0;
-  text-align:left;
-  cursor:pointer;
+  background:rgba(234,242,255,0.70);
+  border:1px solid rgba(37,99,235,.18);
   color:#0b1220;
-  font-weight:800;
-  line-height:1.2;
-  display:-webkit-box;
-  -webkit-line-clamp: 4;
-  -webkit-box-orient: vertical;
+  font-weight:900;
+  border-radius:999px;
+  padding:8px 12px;
+  max-width:100%;
+  cursor:pointer;
+  transition:transform .12s var(--ease), box-shadow .12s var(--ease), background-color .12s var(--ease);
   overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
 }
-.prod-name-btn:hover{ color:var(--soft-blue-ink); text-decoration:underline; }
+.prod-name-btn:hover{
+  background:rgba(219,234,254,1);
+  transform:translateY(-1px);
+  box-shadow:0 12px 26px rgba(37,99,235,0.12);
+}
+.prod-name-btn .clip{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
 
 .line-pill{
   display:inline-block;
@@ -432,7 +456,7 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
 }
 
 /* =========================
-   ✅ BOTONES PASTEL (sin degradado)
+   ✅ BOTONES
    ========================= */
 .btn-soft{
   border-radius:999px !important;
@@ -478,7 +502,27 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
 }
 
 /* =========================
-   ✅ SWEETALERT + IMAGE PREVIEW + MODAL (lo que tenías)
+   ✅ HACER INPUTS CLIENTE/PRODUCTO MÁS GRANDES Y AL 100%
+   ========================= */
+.inv-aside .dropdown,
+.inv-main .dropdown{
+  width:100% !important;
+}
+#search-client-inv,
+#buscarProductoInv{
+  width:100% !important;
+  height:48px !important;
+  font-size:1rem !important;
+  padding:.80rem .95rem !important;
+  border-radius:16px !important;
+}
+#search-client-inv::placeholder,
+#buscarProductoInv::placeholder{
+  font-weight:700;
+}
+
+/* =========================
+   ✅ SWEETALERT + IMAGE PREVIEW (lo que tenías)
    ========================= */
 .swal2-popup.custom-swal{
   border-radius:16px;
@@ -579,6 +623,19 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
 </style>
 
 <div class="container" style="margin-top:80px;">
+
+  {{-- ✅ Arriba: botón Volver --}}
+  <div class="inv-topbar">
+    <div>
+      <h2 class="inv-title">{{ $isEdit ? 'Editar factura' : 'Nueva factura' }}</h2>
+      <div class="inv-sub">Captura rápida · selecciona cliente, agrega productos y guarda borrador</div>
+    </div>
+
+    <a href="{{ route('manual_invoices.index') }}" class="btn btn-soft">
+      <i class="fa-solid fa-arrow-left"></i> Volver
+    </a>
+  </div>
+
   <form id="form-invoice"
         method="POST"
         action="{{ $isEdit ? route('manual_invoices.update', $invoice) : route('manual_invoices.store') }}">
@@ -600,8 +657,7 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
               <input
                 type="text"
                 id="search-client-inv"
-                class="form-control modern-input dropdown-toggle"
-                data-bs-toggle="dropdown"
+                class="form-control modern-input"
                 placeholder="Buscar cliente..."
                 autocomplete="off"
                 value="{{ old('client_label', $currentClientLabel) }}"
@@ -730,8 +786,7 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
               <input
                 type="text"
                 id="buscarProductoInv"
-                class="form-control modern-input dropdown-toggle"
-                data-bs-toggle="dropdown"
+                class="form-control modern-input"
                 placeholder="Buscar producto por SKU o nombre..."
                 autocomplete="off"
               >
@@ -771,7 +826,7 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
             </div>
 
             <div class="tip">
-              Tip: selecciona un producto para agregarlo. Para cambiar uno existente, haz clic en el nombre del producto en la tabla.
+              Tip: selecciona un producto para agregarlo. Para cambiar uno existente, haz clic en el “Producto” dentro de la tabla.
             </div>
           </div>
         </div>
@@ -800,7 +855,7 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
                 <tbody id="itemsTbody">
                   @foreach($rows as $i => $row)
                     @php
-                      $pLabel = 'Manual';
+                      $pLabel = 'Selecciona producto';
                       if (!empty($row['product_id'])) {
                         $pp = $products->firstWhere('id', (int)$row['product_id']);
                         if ($pp) $pLabel = trim(($pp->sku ?? '').' — '.Str::limit($pp->name ?? '', 120));
@@ -812,9 +867,11 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
                       @endif
 
                       <td>
-                        <div class="prod-chip">
-                          <span class="prod-change" title="Cambiar producto"><i class="fa-solid fa-rotate"></i></span>
-                          <button type="button" class="prod-name-btn js-change-label">{{ $pLabel }}</button>
+                        <div class="prod-cell">
+                          <button type="button" class="prod-name-btn js-change-label" title="Cambiar / elegir producto">
+                            <i class="fa-solid fa-magnifying-glass" style="color:var(--accent-2)"></i>
+                            <span class="clip">{{ $pLabel }}</span>
+                          </button>
                         </div>
 
                         <input type="hidden" class="js-product-id" name="items[{{ $i }}][product_id]" value="{{ $row['product_id'] ?? '' }}">
@@ -852,42 +909,33 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
           </div>
         </div>
 
-        <div class="d-flex flex-column flex-md-row gap-3">
-          {{-- Resumen --}}
-          <div class="card modern-card w-100">
-            <div class="card-header modern-header">
-              <i class="fa-solid fa-receipt me-2" style="color:var(--accent-2)"></i> Resumen
-            </div>
-            <div class="card-body">
-              <div class="d-flex justify-content-between align-items-center py-2" style="border-bottom:1px dashed rgba(148,163,184,.35)">
-                <div class="text-muted fw-bold">Subtotal</div>
-                <div class="fw-black">$<span id="sum_sub">0.00</span></div>
-              </div>
-              <div class="d-flex justify-content-between align-items-center py-2" style="border-bottom:1px dashed rgba(148,163,184,.35)">
-                <div class="text-muted fw-bold">Descuento</div>
-                <div class="fw-black">$<span id="sum_disc">0.00</span></div>
-              </div>
-              <div class="d-flex justify-content-between align-items-center py-2" style="border-bottom:1px dashed rgba(148,163,184,.35)">
-                <div class="text-muted fw-bold">Impuestos</div>
-                <div class="fw-black">$<span id="sum_tax">0.00</span></div>
-              </div>
-
-              <div class="d-flex justify-content-between align-items-center pt-3">
-                <div style="font-weight:950;font-size:1.05rem;">Total</div>
-                <div style="font-weight:950;font-size:1.15rem;">$<span id="sum_total">0.00</span></div>
-              </div>
-            </div>
+        {{-- Resumen --}}
+        <div class="card modern-card w-100">
+          <div class="card-header modern-header">
+            <i class="fa-solid fa-receipt me-2" style="color:var(--accent-2)"></i> Resumen
           </div>
-
-          {{-- Acciones --}}
-          <div class="card modern-card w-100">
-            <div class="card-header modern-header">
-              <i class="fa-solid fa-bolt me-2" style="color:var(--accent-2)"></i> Acciones
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center py-2" style="border-bottom:1px dashed rgba(148,163,184,.35)">
+              <div class="text-muted fw-bold">Subtotal</div>
+              <div class="fw-black">$<span id="sum_sub">0.00</span></div>
             </div>
-            <div class="card-body d-flex justify-content-end gap-2 flex-wrap">
-              <a href="{{ route('manual_invoices.index') }}" class="btn btn-soft">
-                <i class="fa-solid fa-arrow-left"></i> Cancelar
-              </a>
+            <div class="d-flex justify-content-between align-items-center py-2" style="border-bottom:1px dashed rgba(148,163,184,.35)">
+              <div class="text-muted fw-bold">Descuento</div>
+              <div class="fw-black">$<span id="sum_disc">0.00</span></div>
+            </div>
+            <div class="d-flex justify-content-between align-items-center py-2" style="border-bottom:1px dashed rgba(148,163,184,.35)">
+              <div class="text-muted fw-bold">Impuestos</div>
+              <div class="fw-black">$<span id="sum_tax">0.00</span></div>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center pt-3">
+              <div style="font-weight:950;font-size:1.05rem;">Total</div>
+              <div style="font-weight:950;font-size:1.15rem;">$<span id="sum_total">0.00</span></div>
+            </div>
+
+            <hr style="border-color:rgba(148,163,184,.25);margin:14px 0 12px">
+
+            <div class="d-flex justify-content-end gap-2 flex-wrap">
               <button type="submit" class="btn btn-soft" id="btnSaveInv">
                 <i class="fa-solid fa-check"></i>
                 <span class="btn-label">{{ $isEdit ? 'Guardar cambios' : 'Guardar borrador' }}</span>
@@ -908,42 +956,66 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
   const money = (n) => (Number(n||0)).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});
 
   /* =========================
-     ✅ DROPDOWN: fixed debajo del input + siempre encima
+     ✅ DROPDOWN: PORTAL AL BODY + FIXED REAL (NO SE VA ABAJO)
      ========================= */
+  function portalize(menu){
+    if (!menu || menu.dataset.portalized === '1') return;
+
+    const ph = document.createComment('dropdown-placeholder');
+    menu.__placeholder = ph;
+
+    if (menu.parentNode) menu.parentNode.insertBefore(ph, menu);
+    document.body.appendChild(menu);
+
+    menu.dataset.portalized = '1';
+    menu.style.position = 'fixed';
+    menu.style.zIndex = '99999';
+  }
+
   function placeMenuUnderInput(input, menu){
     if (!input || !menu) return;
+
     const r = input.getBoundingClientRect();
     const gap = 8;
 
     const vw = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
     const vh = Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0);
 
-    // ancho igual al input (pero sin salir del viewport)
     let left = Math.max(10, r.left);
     let width = Math.min(r.width, vw - left - 10);
-    // si el input está muy a la derecha, corrige left
     if (left + width > vw - 10) left = Math.max(10, vw - width - 10);
 
-    const top = Math.min(r.bottom + gap, vh - 120);
+    let top = r.bottom + gap;
+
+    const estimatedHeight = Math.min(340, vh - 20);
+    if (top + 180 > vh - 10) {
+      const up = r.top - gap - estimatedHeight;
+      if (up > 10) top = up;
+    }
 
     menu.style.left = left + 'px';
-    menu.style.top = top + 'px';
+    menu.style.top = Math.max(10, Math.min(top, vh - 60)) + 'px';
     menu.style.width = width + 'px';
-    menu.style.maxHeight = Math.max(180, vh - top - 16) + 'px';
+    menu.style.maxHeight = Math.max(180, vh - (parseFloat(menu.style.top) || top) - 16) + 'px';
   }
 
   function openDropdown(input, menu){
+    if (!input || !menu) return;
+    portalize(menu);
     placeMenuUnderInput(input, menu);
     menu.classList.add('show');
     menu.style.display = 'block';
   }
+
   function closeDropdown(menu){
+    if (!menu) return;
     menu.classList.remove('show');
     menu.style.display = 'none';
   }
+
   function closeOnOutside(input, menu){
-    document.addEventListener('click', (e) => {
-      if (menu.style.display === 'none') return;
+    document.addEventListener('mousedown', (e) => {
+      if (!menu || menu.style.display === 'none') return;
       if (menu.contains(e.target) || input === e.target) return;
       closeDropdown(menu);
     });
@@ -951,7 +1023,8 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
 
   function attachReposition(input, menu){
     const handler = () => {
-      if (menu.style.display !== 'none') placeMenuUnderInput(input, menu);
+      if (!menu || menu.style.display === 'none') return;
+      placeMenuUnderInput(input, menu);
     };
     window.addEventListener('scroll', handler, true);
     window.addEventListener('resize', handler);
@@ -1089,13 +1162,15 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
     const tr = document.createElement('tr');
     tr.dataset.idx = idx;
 
-    const label = data.label || 'Manual';
+    const label = data.label || 'Selecciona producto';
 
     tr.innerHTML = `
       <td>
-        <div class="prod-chip">
-          <span class="prod-change" title="Cambiar producto"><i class="fa-solid fa-rotate"></i></span>
-          <button type="button" class="prod-name-btn js-change-label">${label}</button>
+        <div class="prod-cell">
+          <button type="button" class="prod-name-btn js-change-label" title="Cambiar / elegir producto">
+            <i class="fa-solid fa-magnifying-glass" style="color:var(--accent-2)"></i>
+            <span class="clip">${label}</span>
+          </button>
         </div>
 
         <input type="hidden" class="js-product-id" name="items[${idx}][product_id]" value="${data.product_id || ''}">
@@ -1123,7 +1198,10 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
   }
 
   function setRowProduct(tr, p){
-    tr.querySelector('.js-change-label').textContent = p.label || 'Manual';
+    const btn = tr.querySelector('.js-change-label');
+    const clip = btn?.querySelector('.clip');
+    if (clip) clip.textContent = p.label || 'Selecciona producto';
+
     tr.querySelector('.js-product-id').value = p.id || '';
 
     const unit = tr.querySelector('input[name*="[unit]"]');
@@ -1148,7 +1226,7 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
     if (e.target.matches('.js-qty,.js-price,.js-discount,.js-tax')) recalc();
   });
 
-  // quitar fila / cambiar producto (click en nombre)
+  // quitar fila / cambiar producto
   tbody.addEventListener('click', (e) => {
     const tr = e.target.closest('tr');
     if (!tr) return;
@@ -1161,7 +1239,7 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
       return;
     }
 
-    if (e.target.closest('.js-change-label') || e.target.closest('.prod-change')) {
+    if (e.target.closest('.js-change-label')) {
       activeRow = tr;
       prodInput.focus();
       filterProducts();
