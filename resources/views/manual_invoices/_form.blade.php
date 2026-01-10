@@ -9,7 +9,7 @@
 
   $isEdit = isset($invoice) && $invoice->exists;
 
-  // items = old() -> modelo -> fila vacía
+  // ===================== ITEMS =====================
   $rows = old('items');
 
   if (!$rows && $isEdit && isset($invoice->items)) {
@@ -37,13 +37,14 @@
           'quantity'    => 1,
           'unit_price'  => 0,
           'discount'    => 0,
-          'tax_rate'    => 16,
+          'tax_rate'    => 16,   // ✅ IVA default
           'unit'        => '',
           'unit_code'   => '',
           'product_key' => '',
       ]];
   }
 
+  // ===================== CLIENTE / TIPO =====================
   $currentClientId = old('client_id', $isEdit ? $invoice->client_id : null);
   $currentType     = old('type', $isEdit ? $invoice->type : 'I');
 
@@ -52,6 +53,80 @@
       $cc = $clients->firstWhere('id', (int)$currentClientId);
       if ($cc) $currentClientLabel = trim(($cc->nombre ?? '').' — '.($cc->rfc ?? ''));
   }
+
+  // ===================== INFO PAGO (defaults estilo SAT)
+  $payCurrency   = old('pay_currency',   $isEdit ? ($invoice->pay_currency ?? 'MXN') : 'MXN');
+  $exchangeRate  = old('exchange_rate',  $isEdit ? ($invoice->exchange_rate ?? 1) : 1);
+  $paymentMethod = old('payment_method', $isEdit ? ($invoice->payment_method ?? 'PUE') : 'PUE'); // PUE/PPD
+  $paymentForm   = old('payment_form',   $isEdit ? ($invoice->payment_form ?? '99') : '99');     // FormaPago
+  $cfdiUse       = old('cfdi_use',       $isEdit ? ($invoice->cfdi_use ?? 'G03') : 'G03');       // UsoCFDI
+  $exportation   = old('exportation',    $isEdit ? ($invoice->exportation ?? '01') : '01');      // Exportacion
+
+  // Catálogos (compactos pero útiles)
+  $monedas = [
+    'MXN' => 'MXN – Mexican Peso',
+    'USD' => 'USD – US Dollar',
+    'EUR' => 'EUR – Euro',
+  ];
+
+  $formasPago = [
+    '01'=>'01 – Efectivo',
+    '02'=>'02 – Cheque nominativo',
+    '03'=>'03 – Transferencia electrónica de fondos',
+    '04'=>'04 – Tarjeta de crédito',
+    '05'=>'05 – Monedero electrónico',
+    '06'=>'06 – Dinero electrónico',
+    '08'=>'08 – Vales de despensa',
+    '12'=>'12 – Dación en pago',
+    '13'=>'13 – Pago por subrogación',
+    '14'=>'14 – Pago por consignación',
+    '15'=>'15 – Condonación',
+    '17'=>'17 – Compensación',
+    '23'=>'23 – Novación',
+    '24'=>'24 – Confusión',
+    '25'=>'25 – Remisión de deuda',
+    '26'=>'26 – Prescripción o caducidad',
+    '27'=>'27 – A satisfacción del acreedor',
+    '28'=>'28 – Tarjeta de débito',
+    '29'=>'29 – Tarjeta de servicios',
+    '30'=>'30 – Aplicación de anticipos',
+    '31'=>'31 – Intermediario de pagos',
+    '99'=>'99 – Por definir',
+  ];
+
+  $usosCfdi = [
+    'G01'=>'G01 – Adquisición de mercancías',
+    'G02'=>'G02 – Devoluciones, descuentos o bonificaciones',
+    'G03'=>'G03 – Gastos en general',
+    'I01'=>'I01 – Construcciones',
+    'I02'=>'I02 – Mobiliario y equipo de oficina por inversiones',
+    'I03'=>'I03 – Equipo de transporte',
+    'I04'=>'I04 – Equipo de cómputo y accesorios',
+    'I05'=>'I05 – Dados, troqueles, moldes, matrices y herramental',
+    'I06'=>'I06 – Comunicaciones telefónicas',
+    'I07'=>'I07 – Comunicaciones satelitales',
+    'I08'=>'I08 – Otra maquinaria y equipo',
+    'D01'=>'D01 – Honorarios médicos, dentales y gastos hospitalarios',
+    'D02'=>'D02 – Gastos médicos por incapacidad o discapacidad',
+    'D03'=>'D03 – Gastos funerales',
+    'D04'=>'D04 – Donativos',
+    'D05'=>'D05 – Intereses reales efectivamente pagados',
+    'D06'=>'D06 – Aportaciones voluntarias al SAR',
+    'D07'=>'D07 – Primas por seguros de gastos médicos',
+    'D08'=>'D08 – Gastos de transportación escolar',
+    'D09'=>'D09 – Depósitos en cuentas para el ahorro',
+    'D10'=>'D10 – Pagos por servicios educativos',
+    'S01'=>'S01 – Sin efectos fiscales',
+    'CP01'=>'CP01 – Pagos',
+    'CN01'=>'CN01 – Nómina',
+  ];
+
+  $exportaciones = [
+    '01' => 'No aplica',
+    '02' => 'Definitiva con clave A1',
+    '03' => 'Temporal',
+    '04' => 'Definitiva con clave distinta a A1 o cuando no existe enajenación en términos del CFF',
+  ];
 @endphp
 
 <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -79,10 +154,8 @@
   --ease:cubic-bezier(.22,1,.36,1);
 }
 
-/* ✅ evita scroll horizontal global */
 html, body{ overflow-x:hidden; }
 
-/* 🎨 Fondo */
 body{
   background: linear-gradient(90deg, #d3b791,#ffffff);
   color:var(--ink);
@@ -90,21 +163,17 @@ body{
   -webkit-font-smoothing:antialiased;
 }
 
-/* Tipografía global */
 input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-title,.swal2-popup.custom-swal{
   font-family:"Söhne","Circular Std","Poppins",system-ui,-apple-system,"Segoe UI","Helvetica Neue",Arial,sans-serif;
 }
 
-/* ✅ container sin desbordes */
 .container{
   max-width:1400px;
   padding-left:16px;
   padding-right:16px;
 }
 
-/* =========================
-   ✅ TOP BAR
-   ========================= */
+/* TOP BAR */
 .inv-topbar{
   display:flex;
   align-items:center;
@@ -112,22 +181,10 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
   gap:12px;
   padding:10px 6px 2px;
 }
-.inv-title{
-  font-weight:950;
-  letter-spacing:-.02em;
-  margin:0;
-  font-size:1.05rem;
-}
-.inv-sub{
-  margin:2px 0 0;
-  color:var(--muted);
-  font-size:.88rem;
-  font-weight:700;
-}
+.inv-title{ font-weight:950; letter-spacing:-.02em; margin:0; font-size:1.05rem; }
+.inv-sub{ margin:2px 0 0; color:var(--muted); font-size:.88rem; font-weight:700; }
 
-/* =========================
-   ✅ LAYOUT 2 columnas (grid)
-   ========================= */
+/* GRID */
 .inv-grid{
   display:grid !important;
   grid-template-columns: 340px 1fr;
@@ -139,39 +196,18 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
   .inv-topbar{ padding-top:12px; }
 }
 
-/* neutraliza bootstrap cols dentro de nuestro grid */
-.inv-aside, .inv-main{
-  width:auto !important;
-  max-width:none !important;
-  flex:none !important;
-}
+.inv-aside, .inv-main{ width:auto !important; max-width:none !important; flex:none !important; }
 
-/* aside sticky */
 @media (min-width: 992px){
-  .inv-aside{
-    position:sticky;
-    top:90px;
-    align-self:start;
-  }
+  .inv-aside{ position:sticky; top:90px; align-self:start; }
 }
 
-/* =========================
-   ✅ ESPACIADO ENTRE CONTENEDORES
-   ========================= */
 .inv-aside .modern-card{ margin-bottom: 14px !important; }
 .inv-aside .modern-card:last-child{ margin-bottom: 0 !important; }
-
 .inv-main .modern-card{ margin-bottom: 14px !important; }
 .inv-main .modern-card:last-child{ margin-bottom: 0 !important; }
 
-@media (max-width: 991.98px){
-  .inv-aside .modern-card,
-  .inv-main .modern-card{ margin-bottom: 16px !important; }
-}
-
-/* =========================
-   ✅ CARD GLASS
-   ========================= */
+/* CARD GLASS */
 .modern-card{
   position:relative;
   border-radius:var(--radius);
@@ -198,7 +234,6 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
 .modern-card > *{ position:relative; z-index:1; }
 .modern-card:focus-within{ z-index:60; }
 
-/* header / body con aire */
 .modern-card .card-header.modern-header{
   border-bottom:1px solid rgba(148,163,184,0.35);
   padding:14px 16px !important;
@@ -209,9 +244,7 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
 }
 .modern-card .card-body{ padding:16px !important; }
 
-/* =========================
-   ✅ INPUTS
-   ========================= */
+/* INPUTS */
 .modern-input,.modern-select,.modern-textarea{
   border-radius:14px;
   border:1px solid rgba(148,163,184,0.65);
@@ -228,9 +261,7 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
   transform:translateY(-1px);
 }
 .modern-select{
-  appearance:none;
-  -webkit-appearance:none;
-  -moz-appearance:none;
+  appearance:none; -webkit-appearance:none; -moz-appearance:none;
   padding-right:2.2rem;
   background-image:
     linear-gradient(45deg, transparent 50%, rgba(100,116,139,.9) 50%),
@@ -245,10 +276,7 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
 }
 .modern-select::-ms-expand{ display:none; }
 
-/* =========================
-   ✅ DROPDOWN (CLIENTE/PRODUCTO)
-   - lo “portalizamos” al body en JS
-   ========================= */
+/* DROPDOWN */
 .modern-dropdown,
 .dropdown-menu.modern-dropdown{
   border-radius:18px;
@@ -265,14 +293,12 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
   position:fixed !important;
   transform:none !important;
   inset:auto auto auto auto;
-  display:none; /* controlado por JS */
+  display:none;
 }
-
 .modern-dropdown::before,
 .dropdown-menu.modern-dropdown::before{
   content:"";
-  position:absolute;
-  inset:0;
+  position:absolute; inset:0;
   border-radius:inherit;
   pointer-events:none;
   background:
@@ -283,7 +309,6 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
 }
 .modern-dropdown > *{ position:relative; z-index:1; }
 
-/* ✅ ITEM bonito (cliente/producto) */
 .dd-item{
   border-radius:14px;
   padding:10px 12px;
@@ -304,24 +329,9 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
   transform:translateY(-1px);
   box-shadow:0 12px 26px rgba(37,99,235,0.10);
 }
-.dd-title{
-  font-weight:800;
-  color:#0b1220;
-  font-size:.92rem;
-  line-height:1.15;
-}
-.dd-sub{
-  color:var(--muted);
-  font-size:.82rem;
-  line-height:1.2;
-  margin-top:3px;
-}
-.dd-right{
-  display:flex;
-  align-items:center;
-  gap:8px;
-  flex:0 0 auto;
-}
+.dd-title{ font-weight:800; color:#0b1220; font-size:.92rem; line-height:1.15; }
+.dd-sub{ color:var(--muted); font-size:.82rem; line-height:1.2; margin-top:3px; }
+.dd-right{ display:flex; align-items:center; gap:8px; flex:0 0 auto; }
 .dd-pill{
   font-weight:800;
   font-size:.80rem;
@@ -346,25 +356,18 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
   color:#0b1220;
   text-decoration:none;
 }
-.dd-link:hover{
-  background:rgba(255,255,255,0.55);
-  border-color:rgba(37,99,235,0.25);
-}
+.dd-link:hover{ background:rgba(255,255,255,0.55); border-color:rgba(37,99,235,0.25); }
 
-/* =========================
-   ✅ TABLA
-   ========================= */
+/* TABLE */
 .table-responsive{ overflow-x:auto; }
-@media (min-width: 992px){
-  .table-responsive{ overflow-x:hidden; }
-}
-
 .modern-table{
   width:100%;
   border-collapse:separate;
   border-spacing:0;
   font-size:.86rem;
   margin-bottom:0;
+  table-layout:fixed;
+  min-width:1100px; /* ✅ evita “desaparecer” columnas */
 }
 .modern-table thead th{
   padding:.8rem .9rem;
@@ -379,15 +382,17 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
 
 .modern-table tbody td{
   padding:.8rem .9rem;
-  vertical-align:middle;
+  vertical-align:top;
   border-top:1px solid rgba(226,232,240,0.9);
   color:#0b1220;
+  overflow:hidden;
 }
 .modern-table tbody tr:nth-child(odd){ background:rgba(255,255,255,0.78); }
 .modern-table tbody tr:nth-child(even){ background:rgba(248,250,252,0.88); }
 
 .modern-table input[type="number"],
 .modern-table input[type="text"],
+.modern-table textarea.form-control,
 .modern-table .form-control{
   width:100%;
   border-radius:14px;
@@ -399,7 +404,14 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
   box-shadow:0 8px 20px rgba(15,23,42,0.06);
   transition:border-color .18s var(--ease), box-shadow .18s var(--ease), transform .06s;
 }
+.modern-table textarea.form-control{
+  height:auto;
+  min-height:46px;
+  resize:vertical;
+  line-height:1.2;
+}
 .modern-table input:focus,
+.modern-table textarea:focus,
 .modern-table .form-control:focus{
   outline:none;
   border-color:rgba(37,99,235,.6);
@@ -407,43 +419,49 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
   transform:translateY(-1px);
 }
 
-/* ✅ Producto pill */
-.prod-cell{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  min-width:0;
-}
+/* PRODUCTO: wrap + solo SKU en negrita */
+.prod-cell{ min-width:0; }
 .prod-name-btn{
-  display:inline-flex;
-  align-items:center;
-  gap:8px;
+  width:100%;
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+  text-align:left;
   border:none;
   background:rgba(234,242,255,0.70);
   border:1px solid rgba(37,99,235,.18);
   color:#0b1220;
-  font-weight:900;
-  border-radius:999px;
-  padding:8px 12px;
-  max-width:100%;
+  border-radius:16px;
+  padding:10px 12px;
   cursor:pointer;
   transition:transform .12s var(--ease), box-shadow .12s var(--ease), background-color .12s var(--ease);
-  overflow:hidden;
-  text-overflow:ellipsis;
-  white-space:nowrap;
 }
 .prod-name-btn:hover{
   background:rgba(219,234,254,1);
   transform:translateY(-1px);
   box-shadow:0 12px 26px rgba(37,99,235,0.12);
 }
-.prod-name-btn .clip{
-  min-width:0;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  white-space:nowrap;
+.prod-text{ display:block; min-width:0; flex:1; }
+.prod-sku{ display:block; font-weight:900; line-height:1.15; word-break:break-word; }
+.prod-name{ display:block; font-weight:650; color:rgba(15,23,42,.85); line-height:1.15; margin-top:2px; word-break:break-word; }
+.prod-hint{ display:block; font-weight:650; color:var(--muted); margin-top:2px; line-height:1.15; }
+
+/* IVA badge (IVA se calcula automático) */
+.iva-badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:56px;
+  padding:8px 10px;
+  border-radius:999px;
+  border:1px solid rgba(37,99,235,.18);
+  background:rgba(234,242,255,.9);
+  color:rgba(37,99,235,.95);
+  font-weight:900;
+  height:38px;
 }
 
+/* Totales */
 .line-pill{
   display:inline-block;
   min-width:110px;
@@ -455,9 +473,7 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
   background:rgba(255,255,255,0.92);
 }
 
-/* =========================
-   ✅ BOTONES
-   ========================= */
+/* Buttons */
 .btn-soft{
   border-radius:999px !important;
   padding:.60rem 1.05rem !important;
@@ -494,137 +510,65 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
   display:inline-flex; align-items:center; justify-content:center;
 }
 
-/* Tip */
-.tip{
-  margin-top:10px;
-  color:#475569;
-  font-size:.86rem;
-}
+.tip{ margin-top:10px; color:#475569; font-size:.86rem; }
 
-/* =========================
-   ✅ HACER INPUTS CLIENTE/PRODUCTO MÁS GRANDES Y AL 100%
-   ========================= */
-.inv-aside .dropdown,
-.inv-main .dropdown{
-  width:100% !important;
-}
-#search-client-inv,
-#buscarProductoInv{
+/* Inputs Cliente/Producto grandes */
+.inv-aside .dropdown, .inv-main .dropdown{ width:100% !important; }
+#search-client-inv, #buscarProductoInv{
   width:100% !important;
   height:48px !important;
   font-size:1rem !important;
   padding:.80rem .95rem !important;
   border-radius:16px !important;
 }
-#search-client-inv::placeholder,
-#buscarProductoInv::placeholder{
-  font-weight:700;
-}
+#search-client-inv::placeholder, #buscarProductoInv::placeholder{ font-weight:700; }
 
 /* =========================
-   ✅ SWEETALERT + IMAGE PREVIEW (lo que tenías)
+   ✅ INFO PAGO en Resumen
    ========================= */
-.swal2-popup.custom-swal{
-  border-radius:16px;
-  font-size:15px;
-  color:#444;
-  background-color:#fdfcff;
-  box-shadow:0 10px 30px rgba(0,0,0,0.08);
-  padding:2rem;
+.pay-grid{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:12px;
 }
-.swal2-title.custom-title{
-  font-size:22px;
-  font-weight:600;
-  color:#333;
+@media (max-width: 991.98px){
+  .pay-grid{ grid-template-columns: 1fr; }
+}
+.pay-label{
+  font-weight:900;
+  font-size:.86rem;
+  margin-bottom:6px;
+  color:#0b1220;
+}
+.pay-row{ margin-bottom:10px; }
+
+.seg{
   display:flex;
-  align-items:center;
   gap:10px;
-  justify-content:center;
+  flex-wrap:wrap;
 }
-.swal2-html-container.custom-html{
-  text-align:left;
-  line-height:1.8;
-  color:#555;
-  padding:.5rem 1rem;
+.seg button{
+  border-radius:999px;
+  border:1px solid rgba(37,99,235,.20);
+  background:rgba(255,255,255,.75);
+  padding:10px 14px;
+  font-weight:900;
+  color:#0b1220;
+  transition:transform .12s var(--ease), box-shadow .12s var(--ease), background-color .12s var(--ease);
 }
-.swal2-confirm.custom-btn{
-  background-color:#a78bfa;
-  color:#fff !important;
-  font-weight:600;
-  padding:.5rem 1.2rem;
-  border-radius:12px;
-  font-size:15px;
-  box-shadow:0 4px 10px rgba(167,139,250,0.3);
-  transition:all .2s ease-in-out;
+.seg button:hover{
+  transform:translateY(-1px);
+  box-shadow:0 12px 24px rgba(37,99,235,.12);
 }
-.swal2-confirm.custom-btn:hover{ background-color:#8b5cf6; }
-.swal-img-evidencia{
-  width:100%;
-  max-height:260px;
-  object-fit:contain;
-  border-radius:12px;
-  margin-top:1rem;
-  box-shadow:0 4px 14px rgba(0,0,0,0.1);
-}
-.image-container{
-  width:150px;
-  height:150px;
-  border:2px dashed #ccc;
-  border-radius:8px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  overflow:hidden;
-  cursor:pointer;
-  background-color:#f9f9f9;
-  transition:border-color .3s ease;
-}
-.image-container:hover{ border-color:#4a90e2; }
-#preview-icon{
-  max-width:100%;
-  max-height:100%;
-  object-fit:contain;
-  border-radius:6px;
-  transition:transform .3s ease;
-}
-#preview-text{
-  color:#999;
-  font-size:.9rem;
-  text-align:center;
-}
-#formProducto input[type="text"],
-#formProducto input[type="number"],
-#formProducto input[type="file"],
-#formProducto .form-control{
-  border:1px solid #ccc;
-  border-radius:6px;
-  padding:8px 12px;
-  font-size:1rem;
-  transition:border-color .3s ease;
-}
-#formProducto input[type="text"]:focus,
-#formProducto input[type="number"]:focus,
-#formProducto input[type="file"]:focus,
-#formProducto .form-control:focus{
-  border-color:#4a90e2;
-  outline:none;
-  box-shadow:0 0 5px rgba(74,144,226,0.5);
-}
-#formProducto button.btn-primary{
-  background-color:#4a90e2;
-  border:none;
-  border-radius:6px;
-  padding:10px 20px;
-  font-weight:600;
+.seg button.is-active{
+  background:rgba(37,99,235,.95);
   color:#fff;
-  transition:background-color .3s ease;
+  border-color:rgba(37,99,235,.30);
 }
-#formProducto button.btn-primary:hover{ background-color:#357ABD; }
 </style>
 
-<div class="container" style="margin-top:80px;">
+<div class="container" >
 
-  {{-- ✅ Arriba: botón Volver --}}
   <div class="inv-topbar">
     <div>
       <h2 class="inv-title">{{ $isEdit ? 'Editar factura' : 'Nueva factura' }}</h2>
@@ -662,6 +606,7 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
                 autocomplete="off"
                 value="{{ old('client_label', $currentClientLabel) }}"
               >
+
               <ul class="dropdown-menu modern-dropdown w-100" id="client-list-inv">
                 <li>
                   <button type="button"
@@ -746,7 +691,7 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
           </div>
         </div>
 
-        {{-- Notas --}}
+        {{-- Notas internas (ya las tienes) --}}
         <div class="card modern-card">
           <div class="card-header modern-header">
             <i class="fa-regular fa-note-sticky me-2" style="color:var(--accent-2)"></i> Notas internas
@@ -795,8 +740,8 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
                 @foreach($products as $p)
                   @php
                     $price  = $p->price ?? $p->market_price ?? $p->bid_price ?? 0;
-                    $label  = trim(($p->sku ?? '').' — '.Str::limit($p->name ?? '', 70));
-                    $search = Str::of($label)->lower()->ascii();
+                    $label  = trim(($p->sku ?? '').' — '.($p->name ?? ''));
+                    $search = Str::of(($p->sku ?? '').' '.$label)->lower()->ascii();
                   @endphp
                   <li class="js-prod-li" data-search="{{ $search }}">
                     <button type="button"
@@ -808,7 +753,7 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
                             data-unit_code="{{ $p->unit_code ?? '' }}"
                             data-product_key="{{ $p->clave_sat ?? '' }}">
                       <div style="min-width:0;">
-                        <div class="dd-title">{{ strtoupper($p->sku ?? '') }} — {{ strtoupper(Str::limit($p->name ?? '', 42)) }}</div>
+                        <div class="dd-title">{{ strtoupper($p->sku ?? '') }} — {{ strtoupper(Str::limit($p->name ?? '', 58)) }}</div>
                         <div class="dd-sub">Clave SAT: {{ $p->clave_sat ?? '—' }}</div>
                       </div>
                       <div class="dd-right">
@@ -842,24 +787,26 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
               <table class="table modern-table" id="itemsTable">
                 <thead>
                   <tr>
-                    <th style="width:26%;">Producto</th>
-                    <th style="width:26%;">Descripción</th>
-                    <th style="width:10%;">Cant.</th>
-                    <th style="width:10%;">P. unit.</th>
-                    <th style="width:10%;">Desc.</th>
-                    <th style="width:8%;">IVA%</th>
-                    <th style="width:8%;">Total</th>
+                    <th style="width:34%;">Producto</th>
+                    <th style="width:24%;">Descripción</th>
+                    <th style="width:8%;">Cant.</th>
+                    <th style="width:9%;">P. unit.</th>
+                    <th style="width:8%;">Desc.</th>
+                    <th style="width:6%;">IVA</th>
+                    <th style="width:9%;">Total</th>
                     <th style="width:2%;">Acción</th>
                   </tr>
                 </thead>
                 <tbody id="itemsTbody">
                   @foreach($rows as $i => $row)
                     @php
-                      $pLabel = 'Selecciona producto';
+                      $sku = null; $name = null;
                       if (!empty($row['product_id'])) {
                         $pp = $products->firstWhere('id', (int)$row['product_id']);
-                        if ($pp) $pLabel = trim(($pp->sku ?? '').' — '.Str::limit($pp->name ?? '', 120));
+                        if ($pp) { $sku = strtoupper($pp->sku ?? ''); $name = ($pp->name ?? ''); }
                       }
+                      $rowTax = isset($row['tax_rate']) ? (float)$row['tax_rate'] : 16;
+                      if ($rowTax === 0.0) $rowTax = 16; // ✅ seguridad: IVA por default
                     @endphp
                     <tr data-idx="{{ $i }}">
                       @if(!empty($row['id']))
@@ -869,8 +816,16 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
                       <td>
                         <div class="prod-cell">
                           <button type="button" class="prod-name-btn js-change-label" title="Cambiar / elegir producto">
-                            <i class="fa-solid fa-magnifying-glass" style="color:var(--accent-2)"></i>
-                            <span class="clip">{{ $pLabel }}</span>
+                            <i class="fa-solid fa-magnifying-glass" style="color:var(--accent-2);margin-top:2px;"></i>
+                            <span class="prod-text">
+                              @if($sku)
+                                <span class="prod-sku">{{ $sku }}</span>
+                                <span class="prod-name">{{ $name }}</span>
+                              @else
+                                <span class="prod-sku">Selecciona producto</span>
+                                <span class="prod-hint">Busca por SKU o nombre</span>
+                              @endif
+                            </span>
                           </button>
                         </div>
 
@@ -881,16 +836,20 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
                       </td>
 
                       <td>
-                        <input type="text" class="form-control"
-                               name="items[{{ $i }}][description]"
-                               value="{{ $row['description'] ?? '' }}"
-                               placeholder="Descripción" required>
+                        <textarea rows="2" class="form-control js-desc"
+                                  name="items[{{ $i }}][description]"
+                                  placeholder="Descripción" required>{{ $row['description'] ?? '' }}</textarea>
                       </td>
 
                       <td><input type="number" step="0.001" min="0.001" class="form-control js-qty" name="items[{{ $i }}][quantity]" value="{{ $row['quantity'] ?? 1 }}"></td>
                       <td><input type="number" step="0.01" min="0" class="form-control js-price" name="items[{{ $i }}][unit_price]" value="{{ $row['unit_price'] ?? 0 }}"></td>
                       <td><input type="number" step="0.01" min="0" class="form-control js-discount" name="items[{{ $i }}][discount]" value="{{ $row['discount'] ?? 0 }}"></td>
-                      <td><input type="number" step="0.01" min="0" class="form-control js-tax" name="items[{{ $i }}][tax_rate]" value="{{ $row['tax_rate'] ?? 16 }}"></td>
+
+                      {{-- ✅ IVA calculado automático: oculto (para enviar) + badge visible --}}
+                      <td class="text-center">
+                        <input type="hidden" class="js-tax" name="items[{{ $i }}][tax_rate]" value="{{ $rowTax }}">
+                        <span class="iva-badge"><span class="js-tax-badge">{{ rtrim(rtrim(number_format($rowTax,2,'.',''), '0'), '.') }}</span>%</span>
+                      </td>
 
                       <td class="text-end">
                         <span class="line-pill js-line-total">$0.00</span>
@@ -909,12 +868,78 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
           </div>
         </div>
 
-        {{-- Resumen --}}
+        {{-- Resumen + Información del pago --}}
         <div class="card modern-card w-100">
           <div class="card-header modern-header">
             <i class="fa-solid fa-receipt me-2" style="color:var(--accent-2)"></i> Resumen
           </div>
           <div class="card-body">
+
+            {{-- ✅ Información del pago (como tu captura) --}}
+            <div style="font-weight:950;font-size:.98rem;margin-bottom:10px;">
+              Información del pago
+            </div>
+
+            <div class="pay-grid">
+              <div class="pay-row">
+                <div class="pay-label">Moneda de pago</div>
+                <select name="pay_currency" class="form-control modern-select">
+                  @foreach($monedas as $k => $v)
+                    <option value="{{ $k }}" {{ $payCurrency === $k ? 'selected' : '' }}>{{ $v }}</option>
+                  @endforeach
+                </select>
+              </div>
+
+              <div class="pay-row">
+                <div class="pay-label">Tipo de cambio</div>
+                <input type="number" step="0.000001" min="0" class="form-control modern-input"
+                       name="exchange_rate" value="{{ $exchangeRate }}">
+              </div>
+            </div>
+
+            <div class="pay-row" style="margin-top:2px;">
+              <div class="pay-label">Método de pago</div>
+
+              <input type="hidden" name="payment_method" id="payment_method" value="{{ $paymentMethod }}">
+
+              <div class="seg">
+                <button type="button" class="js-paymethod {{ $paymentMethod === 'PUE' ? 'is-active' : '' }}" data-val="PUE">
+                  De contado
+                </button>
+                <button type="button" class="js-paymethod {{ $paymentMethod === 'PPD' ? 'is-active' : '' }}" data-val="PPD">
+                  Parcialidades o diferidos
+                </button>
+              </div>
+            </div>
+
+            <div class="pay-row">
+              <div class="pay-label">Forma de pago</div>
+              <select name="payment_form" class="form-control modern-select">
+                @foreach($formasPago as $k => $v)
+                  <option value="{{ $k }}" {{ $paymentForm === $k ? 'selected' : '' }}>{{ $v }}</option>
+                @endforeach
+              </select>
+            </div>
+
+            <div class="pay-row">
+              <div class="pay-label">Uso de CFDI</div>
+              <select name="cfdi_use" class="form-control modern-select">
+                @foreach($usosCfdi as $k => $v)
+                  <option value="{{ $k }}" {{ $cfdiUse === $k ? 'selected' : '' }}>{{ $v }}</option>
+                @endforeach
+              </select>
+            </div>
+
+            <div class="pay-row" style="margin-bottom:16px;">
+              <div class="pay-label">Tipo de exportación</div>
+              <select name="exportation" class="form-control modern-select">
+                @foreach($exportaciones as $k => $v)
+                  <option value="{{ $k }}" {{ $exportation === $k ? 'selected' : '' }}>{{ $v }}</option>
+                @endforeach
+              </select>
+            </div>
+
+            {{-- Totales (IVA ya se calcula automático) --}}
             <div class="d-flex justify-content-between align-items-center py-2" style="border-bottom:1px dashed rgba(148,163,184,.35)">
               <div class="text-muted fw-bold">Subtotal</div>
               <div class="fw-black">$<span id="sum_sub">0.00</span></div>
@@ -924,7 +949,7 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
               <div class="fw-black">$<span id="sum_disc">0.00</span></div>
             </div>
             <div class="d-flex justify-content-between align-items-center py-2" style="border-bottom:1px dashed rgba(148,163,184,.35)">
-              <div class="text-muted fw-bold">Impuestos</div>
+              <div class="text-muted fw-bold">Impuestos (IVA)</div>
               <div class="fw-black">$<span id="sum_tax">0.00</span></div>
             </div>
 
@@ -955,8 +980,40 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
   const norm = (s) => (s||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
   const money = (n) => (Number(n||0)).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});
 
+  const escapeHtml = (str) => (str ?? '').toString()
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#039;');
+
+  function buildProdHTML(label){
+    const raw = (label || '').toString().trim();
+    const parts = raw.split(' — ');
+    const sku = (parts[0] || '').trim();
+    const name = (parts.slice(1).join(' — ') || '').trim();
+
+    if (!sku && !name) {
+      return `
+        <i class="fa-solid fa-magnifying-glass" style="color:var(--accent-2);margin-top:2px;"></i>
+        <span class="prod-text">
+          <span class="prod-sku">Selecciona producto</span>
+          <span class="prod-hint">Busca por SKU o nombre</span>
+        </span>
+      `;
+    }
+
+    return `
+      <i class="fa-solid fa-magnifying-glass" style="color:var(--accent-2);margin-top:2px;"></i>
+      <span class="prod-text">
+        <span class="prod-sku">${escapeHtml(sku || 'SKU')}</span>
+        <span class="prod-name">${escapeHtml(name || '')}</span>
+      </span>
+    `;
+  }
+
   /* =========================
-     ✅ DROPDOWN: PORTAL AL BODY + FIXED REAL (NO SE VA ABAJO)
+     ✅ DROPDOWN: PORTAL AL BODY + FIXED REAL
      ========================= */
   function portalize(menu){
     if (!menu || menu.dataset.portalized === '1') return;
@@ -1047,11 +1104,11 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
 
     clientDetails.innerHTML = `
       <div style="border:1px solid rgba(148,163,184,.35);border-radius:16px;background:rgba(255,255,255,.75);padding:12px;">
-        <div style="font-weight:950;">${nombre || 'CLIENTE'}</div>
-        ${rfc ? `<div class="text-muted" style="font-weight:800;">RFC: ${rfc}</div>` : ``}
-        <div class="text-muted">Tel: ${tel || 'No registrado'}</div>
-        <div class="text-muted">Email: ${email || 'No registrado'}</div>
-        <div class="text-muted">Dirección: ${dir || 'No registrado'}</div>
+        <div style="font-weight:950;">${escapeHtml(nombre || 'CLIENTE')}</div>
+        ${rfc ? `<div class="text-muted" style="font-weight:800;">RFC: ${escapeHtml(rfc)}</div>` : ``}
+        <div class="text-muted">Tel: ${escapeHtml(tel || 'No registrado')}</div>
+        <div class="text-muted">Email: ${escapeHtml(email || 'No registrado')}</div>
+        <div class="text-muted">Dirección: ${escapeHtml(dir || 'No registrado')}</div>
       </div>
     `;
   }
@@ -1093,7 +1150,7 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
      ========================= */
   const prodInput = $('buscarProductoInv');
   const prodMenu  = $('dropdownProductosInv');
-  let activeRow = null; // fila a cambiar
+  let activeRow = null;
 
   function filterProducts(){
     const q = norm(prodInput.value);
@@ -1112,7 +1169,7 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
   attachReposition(prodInput, prodMenu);
 
   /* =========================
-     ✅ TABLA ITEMS
+     ✅ TABLA ITEMS (IVA automático)
      ========================= */
   const tbody   = $('itemsTbody');
   const sumSub  = $('sum_sub');
@@ -1124,10 +1181,20 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
     let sub = 0, disc = 0, tax = 0, tot = 0;
 
     tbody.querySelectorAll('tr').forEach(tr => {
-      const qty = parseFloat(tr.querySelector('.js-qty')?.value || '0') || 0;
+      const qty   = parseFloat(tr.querySelector('.js-qty')?.value || '0') || 0;
       const price = parseFloat(tr.querySelector('.js-price')?.value || '0') || 0;
-      const d = parseFloat(tr.querySelector('.js-discount')?.value || '0') || 0;
-      const t = parseFloat(tr.querySelector('.js-tax')?.value || '0') || 0;
+      const d     = parseFloat(tr.querySelector('.js-discount')?.value || '0') || 0;
+
+      // ✅ IVA auto: siempre toma tax_rate del hidden .js-tax
+      let t = parseFloat(tr.querySelector('.js-tax')?.value || '16') || 16;
+
+      // seguridad
+      if (t < 0) t = 0;
+      if (t > 99) t = 99;
+
+      // badge
+      const badge = tr.querySelector('.js-tax-badge');
+      if (badge) badge.textContent = (Math.round(t * 100) / 100).toString().replace(/\.0+$/,'');
 
       const base = Math.max(qty * price - d, 0);
       const iva  = base * (t / 100);
@@ -1150,7 +1217,7 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
   function renumber(){
     tbody.querySelectorAll('tr').forEach((tr, idx) => {
       tr.dataset.idx = idx;
-      tr.querySelectorAll('input[name^="items["]').forEach(inp => {
+      tr.querySelectorAll('input[name^="items["], textarea[name^="items["]').forEach(inp => {
         inp.name = inp.name.replace(/items\[\d+]/, 'items['+idx+']');
       });
     });
@@ -1162,29 +1229,38 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
     const tr = document.createElement('tr');
     tr.dataset.idx = idx;
 
-    const label = data.label || 'Selecciona producto';
+    const label = data.label || '';
+    const taxRate = (data.tax_rate ?? 16);
 
     tr.innerHTML = `
       <td>
         <div class="prod-cell">
           <button type="button" class="prod-name-btn js-change-label" title="Cambiar / elegir producto">
-            <i class="fa-solid fa-magnifying-glass" style="color:var(--accent-2)"></i>
-            <span class="clip">${label}</span>
+            ${buildProdHTML(label)}
           </button>
         </div>
 
-        <input type="hidden" class="js-product-id" name="items[${idx}][product_id]" value="${data.product_id || ''}">
-        <input type="hidden" name="items[${idx}][unit]" value="${data.unit || ''}">
-        <input type="hidden" name="items[${idx}][unit_code]" value="${data.unit_code || ''}">
-        <input type="hidden" name="items[${idx}][product_key]" value="${data.product_key || ''}">
+        <input type="hidden" class="js-product-id" name="items[${idx}][product_id]" value="${escapeHtml(data.product_id || '')}">
+        <input type="hidden" name="items[${idx}][unit]" value="${escapeHtml(data.unit || '')}">
+        <input type="hidden" name="items[${idx}][unit_code]" value="${escapeHtml(data.unit_code || '')}">
+        <input type="hidden" name="items[${idx}][product_key]" value="${escapeHtml(data.product_key || '')}">
       </td>
 
-      <td><input type="text" class="form-control" name="items[${idx}][description]" value="${(data.description||'').replace(/"/g,'&quot;')}" placeholder="Descripción" required></td>
+      <td>
+        <textarea rows="2" class="form-control js-desc" name="items[${idx}][description]" placeholder="Descripción" required>${escapeHtml(data.description || '')}</textarea>
+      </td>
+
       <td><input type="number" step="0.001" min="0.001" class="form-control js-qty" name="items[${idx}][quantity]" value="${data.quantity ?? 1}"></td>
       <td><input type="number" step="0.01" min="0" class="form-control js-price" name="items[${idx}][unit_price]" value="${data.unit_price ?? 0}"></td>
       <td><input type="number" step="0.01" min="0" class="form-control js-discount" name="items[${idx}][discount]" value="${data.discount ?? 0}"></td>
-      <td><input type="number" step="0.01" min="0" class="form-control js-tax" name="items[${idx}][tax_rate]" value="${data.tax_rate ?? 16}"></td>
+
+      <td class="text-center">
+        <input type="hidden" class="js-tax" name="items[${idx}][tax_rate]" value="${taxRate}">
+        <span class="iva-badge"><span class="js-tax-badge">${taxRate}</span>%</span>
+      </td>
+
       <td class="text-end"><span class="line-pill js-line-total">$0.00</span></td>
+
       <td class="text-center">
         <button type="button" class="btn btn-soft-danger icon-btn-danger js-remove" title="Quitar">
           <i class="fa-solid fa-xmark"></i>
@@ -1199,8 +1275,7 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
 
   function setRowProduct(tr, p){
     const btn = tr.querySelector('.js-change-label');
-    const clip = btn?.querySelector('.clip');
-    if (clip) clip.textContent = p.label || 'Selecciona producto';
+    if (btn) btn.innerHTML = buildProdHTML(p.label || '');
 
     tr.querySelector('.js-product-id').value = p.id || '';
 
@@ -1215,18 +1290,21 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
     const priceInp = tr.querySelector('.js-price');
     if (priceInp) priceInp.value = Number(p.price || 0).toFixed(2);
 
-    const desc = tr.querySelector('input[name*="[description]"]');
+    // ✅ descripción: si está vacía, la rellenamos con el nombre para que se vea
+    const desc = tr.querySelector('textarea[name*="[description]"]');
     if (desc && !desc.value.trim()) desc.value = p.label || '';
+
+    // ✅ IVA automático: por defecto 16
+    const tax = tr.querySelector('.js-tax');
+    if (tax && (!tax.value || Number(tax.value) === 0)) tax.value = 16;
 
     recalc();
   }
 
-  // recalc al escribir
   tbody.addEventListener('input', (e) => {
-    if (e.target.matches('.js-qty,.js-price,.js-discount,.js-tax')) recalc();
+    if (e.target.matches('.js-qty,.js-price,.js-discount')) recalc();
   });
 
-  // quitar fila / cambiar producto
   tbody.addEventListener('click', (e) => {
     const tr = e.target.closest('tr');
     if (!tr) return;
@@ -1247,7 +1325,6 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
     }
   });
 
-  // seleccionar producto -> agrega fila o cambia fila activa
   prodMenu.addEventListener('click', (e) => {
     const btn = e.target.closest('.js-pick-product');
     if (!btn) return;
@@ -1295,10 +1372,25 @@ input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-titl
     }
   });
 
+  /* =========================
+     ✅ Método de pago (botones)
+     ========================= */
+  const pmHidden = $('payment_method');
+  document.querySelectorAll('.js-paymethod').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('.js-paymethod').forEach(x => x.classList.remove('is-active'));
+      b.classList.add('is-active');
+      if (pmHidden) pmHidden.value = b.dataset.val || 'PUE';
+    });
+  });
+
   // init
   recalc();
   closeDropdown(clientMenu);
   closeDropdown(prodMenu);
+
+  // si no hay filas (por alguna razón), crea una
+  if (!tbody.querySelector('tr')) addRow();
 })();
 </script>
 @endsection
