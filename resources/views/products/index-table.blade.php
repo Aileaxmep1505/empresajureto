@@ -219,6 +219,71 @@ tbody img{ max-width:100%; height:auto; } /* airbag general */
 .swal-jrt-icon.swal2-info{ border-color:#bfdbfe !important; color:#2563eb !important; }
 .swal-jrt-icon.swal2-warning{ border-color:#fed7aa !important; color:#f97316 !important; }
 .swal-jrt-icon.swal2-error{ border-color:#fecaca !important; color:#dc2626 !important; }
+
+/* ===== Paginación pastel (template propio) ===== */
+.pg{
+  margin: 14px 0 0;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  flex-wrap:wrap;
+  padding:10px 12px;
+  border:1px solid var(--border);
+  background:#fff;
+  border-radius:14px;
+}
+.pg-pages{
+  display:flex;
+  gap:6px;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:center;
+  flex:1;
+}
+.pg-btn,
+.pg-num{
+  text-decoration:none;
+  border:1px solid #dbe4f3;
+  background:#f6f9ff;
+  color:#2563eb;
+  padding:7px 12px;
+  border-radius:999px;
+  font-weight:600;
+  font-size:13px;
+  line-height:1;
+}
+.pg-num{
+  padding:7px 10px;
+  min-width:36px;
+  text-align:center;
+}
+.pg-btn:hover,
+.pg-num:hover{
+  background:#eef4ff;
+  border-color:#cfe0ff;
+}
+.pg-num.is-active{
+  background:#e6efff;
+  border-color:#cfe0ff;
+  color:#1d4ed8;
+}
+.pg-btn.is-disabled{
+  opacity:.55;
+  cursor:not-allowed;
+  background:#f3f4f6;
+  color:#64748b;
+}
+.pg-ellipsis{
+  padding:0 6px;
+  color:#94a3b8;
+  font-weight:600;
+}
+@media (max-width: 540px){
+  .pg{ justify-content:center; }
+  .pg-btn{ width:100%; text-align:center; }
+  .pg-pages{ justify-content:center; }
+}
 </style>
 @endpush
 
@@ -282,7 +347,7 @@ tbody img{ max-width:100%; height:auto; } /* airbag general */
     </div>
   @endif
 
-  {{-- Barra bulk Clave SAT (form independiente) --}}
+  {{-- Barra bulk Clave SAT --}}
   <form id="bulkSatForm" method="POST" action="{{ route('products.bulk-clave-sat') }}">
     @csrf
     <div class="bulk-bar">
@@ -347,12 +412,10 @@ tbody img{ max-width:100%; height:auto; } /* airbag general */
             data-tags="{{ $p->tags }}"
             data-desc="{{ $p->description }}"
           >
-            {{-- Checkbox selección múltiple --}}
             <td>
               <input type="checkbox" class="js-row-check" data-id="{{ $p->id }}">
             </td>
 
-            {{-- ✅ Imagen encapsulada para que NO explote --}}
             <td class="img-cell" data-col="img" data-label="Imagen">
               @php $src = $p->image_src; @endphp
               <div class="thumbbox">
@@ -449,9 +512,10 @@ tbody img{ max-width:100%; height:auto; } /* airbag general */
     </table>
   </div>
 
-  @if(method_exists($products, 'links'))
+  {{-- ✅ PAGINACIÓN PASTEL (sin "Showing..." y sin Tailwind) --}}
+  @if($products instanceof \Illuminate\Pagination\LengthAwarePaginator && $products->hasPages())
     <div class="mt-3">
-      {{ $products->links() }}
+      {{ $products->onEachSide(1)->links('vendor.pagination.pastel') }}
     </div>
   @endif
 
@@ -538,7 +602,7 @@ tbody img{ max-width:100%; height:auto; } /* airbag general */
   });
   applyFilter();
 
-  // ===== Confirmación eliminar (SweetAlert pro) =====
+  // ===== Confirmación eliminar =====
   document.querySelectorAll('form.js-del').forEach(f=>{
     f.addEventListener('submit', function(e){
       e.preventDefault();
@@ -562,7 +626,7 @@ tbody img{ max-width:100%; height:auto; } /* airbag general */
     });
   });
 
-  // ===== Bulk Clave SAT: selección múltiple + validaciones =====
+  // ===== Bulk Clave SAT =====
   const selectAll   = document.getElementById('selectAll');
   const rowChecks   = Array.from(document.querySelectorAll('.js-row-check'));
   const countEl     = document.getElementById('bulkSelectedCount');
