@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class PartContableController extends Controller
 {
@@ -37,9 +38,33 @@ class PartContableController extends Controller
         // Traemos todas las secciones con sus subtipos
         $sections = DocumentSection::with('subtypes')->orderBy('name')->get();
 
+        // ✅ Siempre mandamos un paginator (aunque esté vacío) para que la vista pueda usar links()
+        $emptyPaginator = function() use ($request) {
+            $page = (int) $request->get('page', 1);
+            $perPage = 12;
+
+            $p = new LengthAwarePaginator([], 0, $perPage, $page, [
+                'path'  => $request->url(),
+                'query' => $request->query(),
+            ]);
+
+            // Por si tu blade usa withQueryString() (no falla pero no es necesario)
+            return $p->appends($request->query());
+        };
+
         if ($sections->isEmpty()) {
-            return view('partcontable.company', compact('company'))
-                ->with('warning', 'No hay secciones configuradas. Crea secciones en el panel.');
+            return view('partcontable.company', [
+                'company'           => $company,
+                'sections'          => $sections,
+                'section'           => null,
+                'documents'         => $emptyPaginator(), // ✅ ya NO es collect()
+                'subtypes'          => collect(),
+                'year'              => $request->get('year'),
+                'month'             => $request->get('month'),
+                'currentSectionKey' => null,
+                'currentSubKey'     => null,
+                'currentSubLabel'   => '',
+            ])->with('warning', 'No hay secciones configuradas. Crea secciones en el panel.');
         }
 
         // IMPORTANTE: mismo default que la vista → 'declaracion_anual'
@@ -90,7 +115,7 @@ class PartContableController extends Controller
             $query->whereMonth('date', $month);
         }
 
-        $documents = $query->orderByDesc('date')->paginate(12)->withQueryString();
+        $documents = $query->orderByDesc('date')->paginate(12)->appends($request->query());
 
         // Subtipos sólo de esta sección (para el modal de subir)
         $subtypes = $sectionSubtypes->values();
@@ -103,7 +128,6 @@ class PartContableController extends Controller
             'subtypes'          => $subtypes,
             'year'              => $year,
             'month'             => $month,
-            // estos los usa la vista para marcar tabs activos
             'currentSectionKey' => $section->key,
             'currentSubKey'     => $subtipoKey,
             'currentSubLabel'   => $currentSubtype->name ?? '',
@@ -211,7 +235,6 @@ class PartContableController extends Controller
         ]);
     }
 
-    // Detecta tipo (foto/video/documento)
     protected function detectType($mime)
     {
         if (str_starts_with($mime, 'image/')) return 'foto';
@@ -219,7 +242,6 @@ class PartContableController extends Controller
         return 'documento';
     }
 
-    // Descargar archivo
     public function download(Document $document)
     {
         if (!Storage::disk('public')->exists($document->file_path)) {
@@ -231,7 +253,6 @@ class PartContableController extends Controller
         return Storage::disk('public')->download($document->file_path, $filename);
     }
 
-    // Preview inline para imágenes, videos o PDFs
     public function preview($id)
     {
         $document = Document::findOrFail($id);
@@ -243,7 +264,6 @@ class PartContableController extends Controller
         return view('partcontable.preview', compact('document'));
     }
 
-    // Eliminar documento
     public function destroy(Request $request, Document $document)
     {
         $path = $document->file_path;

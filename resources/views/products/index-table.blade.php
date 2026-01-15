@@ -1,4 +1,4 @@
-@extends('layouts.app') 
+@extends('layouts.app')
 @section('title','Productos')
 @section('header','Productos')
 
@@ -41,7 +41,9 @@
 .sb-clear{ border:0; background:transparent; color:#94a3b8; width:28px; height:28px; border-radius:50%; display:grid; place-items:center; cursor:pointer; visibility:hidden }
 .sb-clear:hover{ background:#f1f5f9; color:#64748b }
 
-/* Tabla estable */
+/* =========================
+   FIX: tabla estable + imagen no rompe layout
+   ========================= */
 .table-wrap{
   margin-top:14px; background:var(--surface); border:1px solid var(--border); border-radius:16px;
   overflow:auto; contain: paint; -webkit-overflow-scrolling:touch;
@@ -59,8 +61,24 @@ tbody tr:hover{ background:#f8fbff }
 tbody tr{ will-change: transform; transform: translateZ(0); -webkit-transform: translateZ(0); backface-visibility:hidden; }
 th.th-actions, td.t-actions{ position:sticky; right:0; background:var(--surface); z-index:2; border-left:1px solid var(--border) }
 
-/* Miniatura */
-.thumb{ width:88px; height:66px; object-fit:cover; border-radius:10px; background:#f1f5f9; border:1px solid var(--border) }
+/* ✅ Imagen SIEMPRE miniatura */
+td.img-cell, th.img-cell{ width:110px; max-width:110px; }
+.thumbbox{
+  width:72px; height:56px;
+  border-radius:12px;
+  border:1px solid var(--border);
+  background:#f1f5f9;
+  overflow:hidden;
+  display:grid;
+  place-items:center;
+}
+.thumbbox img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
+}
+tbody img{ max-width:100%; height:auto; } /* airbag general */
 
 /* Bloque Info */
 .info-head{ font-weight:800; line-height:1.25; margin-bottom:6px }
@@ -91,10 +109,7 @@ th.th-actions, td.t-actions{ position:sticky; right:0; background:var(--surface)
   cursor:pointer;
   margin-left:6px;
 }
-.ia-pill svg{
-  width:12px;
-  height:12px;
-}
+.ia-pill svg{ width:12px; height:12px; }
 
 /* bulk bar */
 @media (max-width: 960px){
@@ -106,6 +121,11 @@ th.th-actions, td.t-actions{ position:sticky; right:0; background:var(--surface)
   tbody tr{ background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:12px; margin-bottom:12px; }
   tbody td{ border:0; padding:0; }
   td[data-col="img"]{ margin-bottom:10px }
+
+  /* ✅ En móvil NO crecer */
+  td.img-cell{ width:auto; max-width:none; }
+  .thumbbox{ width:92px; height:72px; }
+
   .kv{ grid-template-columns: max(42%) 1fr }
 }
 
@@ -196,18 +216,9 @@ th.th-actions, td.t-actions{ position:sticky; right:0; background:var(--surface)
   border-radius:999px !important;
   border-width:2px !important;
 }
-.swal-jrt-icon.swal2-info{
-  border-color:#bfdbfe !important;
-  color:#2563eb !important;
-}
-.swal-jrt-icon.swal2-warning{
-  border-color:#fed7aa !important;
-  color:#f97316 !important;
-}
-.swal-jrt-icon.swal2-error{
-  border-color:#fecaca !important;
-  color:#dc2626 !important;
-}
+.swal-jrt-icon.swal2-info{ border-color:#bfdbfe !important; color:#2563eb !important; }
+.swal-jrt-icon.swal2-warning{ border-color:#fed7aa !important; color:#f97316 !important; }
+.swal-jrt-icon.swal2-error{ border-color:#fecaca !important; color:#dc2626 !important; }
 </style>
 @endpush
 
@@ -299,13 +310,13 @@ th.th-actions, td.t-actions{ position:sticky; right:0; background:var(--surface)
   </form>
 
   <div class="table-wrap">
-    <table id="prodTable">
+    <table id="prodTable" class="products-table">
       <thead>
         <tr>
           <th style="width:36px">
             <input type="checkbox" id="selectAll">
           </th>
-          <th style="width:110px">Imagen</th>
+          <th class="img-cell">Imagen</th>
           <th>Información</th>
           <th class="th-actions" style="width:130px">Acciones</th>
         </tr>
@@ -341,21 +352,29 @@ th.th-actions, td.t-actions{ position:sticky; right:0; background:var(--surface)
               <input type="checkbox" class="js-row-check" data-id="{{ $p->id }}">
             </td>
 
-            <td data-col="img" data-label="Imagen">
+            {{-- ✅ Imagen encapsulada para que NO explote --}}
+            <td class="img-cell" data-col="img" data-label="Imagen">
               @php $src = $p->image_src; @endphp
-              @if($src)
-                <img class="thumb" src="{{ $src }}" alt="Imagen de {{ $p->name }}"
-                     onerror="this.onerror=null;this.src='{{ asset('images/placeholder.png') }}';">
-              @else
-                <img class="thumb" src="{{ asset('images/placeholder.png') }}" alt="Sin imagen">
-              @endif
+              <div class="thumbbox">
+                @if($src)
+                  <img
+                    src="{{ $src }}"
+                    alt="Imagen de {{ $p->name }}"
+                    loading="lazy"
+                    onerror="this.onerror=null;this.src='{{ asset('images/placeholder.png') }}';"
+                  >
+                @else
+                  <img
+                    src="{{ asset('images/placeholder.png') }}"
+                    alt="Sin imagen"
+                    loading="lazy"
+                  >
+                @endif
+              </div>
             </td>
 
             <td>
-              <!-- Encabezado -->
-              <div class="info-head">
-                {{ $val($p->name) }}
-              </div>
+              <div class="info-head">{{ $val($p->name) }}</div>
 
               <div class="info-sub">
                 <span class="badge badge-strong">Unidad: {{ $val($p->unit) }}</span>
@@ -366,7 +385,6 @@ th.th-actions, td.t-actions{ position:sticky; right:0; background:var(--surface)
                 <span class="badge">{{ $p->active ? 'Activo' : 'Inactivo' }}</span>
               </div>
 
-              <!-- Lista clave:valor -->
               <div class="kv">
                 <div class="k">ID</div>               <div class="v">{{ $p->id }}</div>
                 <div class="k">Supplier SKU</div>      <div class="v">{{ $val($p->supplier_sku) }}</div>
@@ -378,10 +396,10 @@ th.th-actions, td.t-actions{ position:sticky; right:0; background:var(--surface)
                 <div class="k">Dimensiones</div>       <div class="v">{{ $val($p->dimensions) }}</div>
                 <div class="k">Piezas por unidad</div> <div class="v">{{ $val($p->pieces_per_unit) }}</div>
                 <div class="k">Material</div>          <div class="v">{{ $val($p->material) }}</div>
+
                 <div class="k">Clave SAT</div>
                 <div class="v">
                   <span class="js-clave-sat-text">{{ $p->clave_sat ?? '—' }}</span>
-                  {{-- Botón IA sugerir --}}
                   <button type="button"
                           class="ia-pill js-ia-suggest"
                           data-id="{{ $p->id }}"
@@ -395,9 +413,11 @@ th.th-actions, td.t-actions{ position:sticky; right:0; background:var(--surface)
                     IA sugerir
                   </button>
                 </div>
+
                 <div class="k">Descripción</div>       <div class="v">{{ \Illuminate\Support\Str::limit($val($p->description), 220) }}</div>
                 <div class="k">Notas</div>             <div class="v">{{ \Illuminate\Support\Str::limit($val($p->notes), 220) }}</div>
                 <div class="k">Tags</div>              <div class="v">{{ $val($p->tags) }}</div>
+
                 <div class="k">image_path</div>        <div class="v"><code>{{ $val($p->image_path) }}</code></div>
                 <div class="k">image_url</div>         <div class="v">
                   @if($p->image_url)
@@ -429,7 +449,6 @@ th.th-actions, td.t-actions{ position:sticky; right:0; background:var(--surface)
     </table>
   </div>
 
-  {{-- Paginación si usas paginate() --}}
   @if(method_exists($products, 'links'))
     <div class="mt-3">
       {{ $products->links() }}
@@ -446,12 +465,6 @@ th.th-actions, td.t-actions{ position:sticky; right:0; background:var(--surface)
   // ===== Buscador en vivo con ranking =====
   const input    = document.getElementById('liveSearch');
   const clearBtn = document.getElementById('sbClear');
-
-  if(!input){
-    const sb = document.createElement('input');
-    sb.id='liveSearch'; sb.placeholder='Buscar...'; sb.style.cssText='display:none';
-    document.body.appendChild(sb);
-  }
 
   const tbody    = document.querySelector('#prodTable tbody');
   const rows     = Array.from(tbody.querySelectorAll('tr'));
@@ -488,8 +501,7 @@ th.th-actions, td.t-actions{ position:sticky; right:0; background:var(--surface)
   }
 
   function applyFilter(){
-    const inputEl = document.getElementById('liveSearch');
-    const q = norm(inputEl?.value);
+    const q = norm(input?.value);
     if(clearBtn) clearBtn.style.visibility = q ? 'visible' : 'hidden';
 
     if(!q){
@@ -520,10 +532,9 @@ th.th-actions, td.t-actions{ position:sticky; right:0; background:var(--surface)
     ranked.forEach(x => tbody.appendChild(x.r));
   }
 
-  document.getElementById('liveSearch')?.addEventListener('input', applyFilter);
-  document.getElementById('sbClear')?.addEventListener('click', ()=>{
-    const i=document.getElementById('liveSearch');
-    if(i){ i.value=''; applyFilter(); i.focus(); }
+  input?.addEventListener('input', applyFilter);
+  clearBtn?.addEventListener('click', ()=>{
+    if(input){ input.value=''; applyFilter(); input.focus(); }
   });
   applyFilter();
 
@@ -563,81 +574,62 @@ th.th-actions, td.t-actions{ position:sticky; right:0; background:var(--surface)
     if (countEl) countEl.textContent = selected;
   }
 
-  if (selectAll) {
-    selectAll.addEventListener('change', () => {
-      rowChecks.forEach(cb => cb.checked = selectAll.checked);
-      updateCount();
-    });
-  }
+  selectAll?.addEventListener('change', () => {
+    rowChecks.forEach(cb => cb.checked = selectAll.checked);
+    updateCount();
+  });
 
   rowChecks.forEach(cb => {
     cb.addEventListener('change', () => {
-      if (!cb.checked && selectAll && selectAll.checked) {
-        selectAll.checked = false;
-      }
+      if (!cb.checked && selectAll && selectAll.checked) selectAll.checked = false;
       updateCount();
     });
   });
 
-  if (bulkForm) {
-    bulkForm.addEventListener('submit', (e) => {
-      e.preventDefault();
+  bulkForm?.addEventListener('submit', (e) => {
+    e.preventDefault();
 
-      const selected = rowChecks.filter(cb => cb.checked).map(cb => cb.dataset.id);
-      if (!selected.length) {
-        Swal.fire({
-          icon:'warning',
-          title:'Selecciona productos',
-          html:'Marca al menos un producto para aplicar la clave SAT.',
-          buttonsStyling:false,
-          customClass:{
-            popup:'swal-jrt-popup',
-            title:'swal-jrt-title',
-            htmlContainer:'swal-jrt-html',
-            confirmButton:'swal-jrt-confirm',
-            icon:'swal-jrt-icon'
-          }
-        });
-        return;
-      }
+    const selected = rowChecks.filter(cb => cb.checked).map(cb => cb.dataset.id);
 
-      if (!claveInput.value.trim()) {
-        Swal.fire({
-          icon:'info',
-          title:'Falta la clave SAT',
-          html:'Escribe la clave SAT que deseas aplicar.',
-          buttonsStyling:false,
-          customClass:{
-            popup:'swal-jrt-popup',
-            title:'swal-jrt-title',
-            htmlContainer:'swal-jrt-html',
-            confirmButton:'swal-jrt-confirm',
-            icon:'swal-jrt-icon'
-          }
-        }).then(()=> claveInput.focus());
-        return;
-      }
-
-      // Limpia ids ocultos anteriores
-      Array.from(bulkForm.querySelectorAll('.js-hidden-id')).forEach(el => el.remove());
-
-      // Crea inputs hidden con los IDs seleccionados
-      selected.forEach(id => {
-        const h = document.createElement('input');
-        h.type = 'hidden';
-        h.name = 'product_ids[]';
-        h.value = id;
-        h.classList.add('js-hidden-id');
-        bulkForm.appendChild(h);
+    if (!selected.length) {
+      Swal.fire({
+        icon:'warning',
+        title:'Selecciona productos',
+        html:'Marca al menos un producto para aplicar la clave SAT.',
+        buttonsStyling:false,
+        customClass:{ popup:'swal-jrt-popup', title:'swal-jrt-title', htmlContainer:'swal-jrt-html', confirmButton:'swal-jrt-confirm', icon:'swal-jrt-icon' }
       });
+      return;
+    }
 
-      bulkForm.submit();
+    if (!claveInput.value.trim()) {
+      Swal.fire({
+        icon:'info',
+        title:'Falta la clave SAT',
+        html:'Escribe la clave SAT que deseas aplicar.',
+        buttonsStyling:false,
+        customClass:{ popup:'swal-jrt-popup', title:'swal-jrt-title', htmlContainer:'swal-jrt-html', confirmButton:'swal-jrt-confirm', icon:'swal-jrt-icon' }
+      }).then(()=> claveInput.focus());
+      return;
+    }
+
+    Array.from(bulkForm.querySelectorAll('.js-hidden-id')).forEach(el => el.remove());
+
+    selected.forEach(id => {
+      const h = document.createElement('input');
+      h.type = 'hidden';
+      h.name = 'product_ids[]';
+      h.value = id;
+      h.classList.add('js-hidden-id');
+      bulkForm.appendChild(h);
     });
-  }
+
+    bulkForm.submit();
+  });
 
   updateCount();
 
-  // ===== IA sugerir clave SAT (por producto, igual que el que te funciona) =====
+  // ===== IA sugerir clave SAT =====
   const iaButtons = document.querySelectorAll('.js-ia-suggest');
 
   function getCsrf() {
@@ -657,13 +649,7 @@ th.th-actions, td.t-actions{ position:sticky; right:0; background:var(--surface)
           title:'Sin datos',
           html:'Este producto no tiene nombre ni descripción para sugerir clave SAT.',
           buttonsStyling:false,
-          customClass:{
-            popup:'swal-jrt-popup',
-            title:'swal-jrt-title',
-            htmlContainer:'swal-jrt-html',
-            confirmButton:'swal-jrt-confirm',
-            icon:'swal-jrt-icon'
-          }
+          customClass:{ popup:'swal-jrt-popup', title:'swal-jrt-title', htmlContainer:'swal-jrt-html', confirmButton:'swal-jrt-confirm', icon:'swal-jrt-icon' }
         });
         return;
       }
@@ -674,14 +660,9 @@ th.th-actions, td.t-actions{ position:sticky; right:0; background:var(--surface)
         allowOutsideClick:false,
         didOpen: () => { Swal.showLoading(); },
         showConfirmButton:false,
-        customClass:{
-          popup:'swal-jrt-popup',
-          title:'swal-jrt-title',
-          htmlContainer:'swal-jrt-html'
-        }
+        customClass:{ popup:'swal-jrt-popup', title:'swal-jrt-title', htmlContainer:'swal-jrt-html' }
       });
 
-      // ⚠️ IMPORTANTE: payload PLANO, como en tu versión que sí funciona
       fetch("{{ route('products.ai-suggest-clave-sat') }}", {
         method: "POST",
         headers: {
@@ -689,18 +670,11 @@ th.th-actions, td.t-actions{ position:sticky; right:0; background:var(--surface)
           "Accept":"application/json",
           "X-CSRF-TOKEN": getCsrf()
         },
-        body: JSON.stringify({
-          name: name,
-          description: desc,
-          category: cat
-        })
+        body: JSON.stringify({ name, description: desc, category: cat })
       })
       .then(r => r.json())
       .then(data => {
-        if (!data || !data.suggestion) {
-          throw new Error(data.message || 'La IA no pudo sugerir una clave SAT.');
-        }
-
+        if (!data || !data.suggestion) throw new Error(data.message || 'La IA no pudo sugerir una clave SAT.');
         const suggestion = data.suggestion;
 
         Swal.fire({
@@ -741,13 +715,7 @@ th.th-actions, td.t-actions{ position:sticky; right:0; background:var(--surface)
           title:'Error con la IA',
           html: err.message || 'No se pudo obtener una sugerencia de la IA.',
           buttonsStyling:false,
-          customClass:{
-            popup:'swal-jrt-popup',
-            title:'swal-jrt-title',
-            htmlContainer:'swal-jrt-html',
-            confirmButton:'swal-jrt-confirm',
-            icon:'swal-jrt-icon'
-          }
+          customClass:{ popup:'swal-jrt-popup', title:'swal-jrt-title', htmlContainer:'swal-jrt-html', confirmButton:'swal-jrt-confirm', icon:'swal-jrt-icon' }
         });
       });
     });
