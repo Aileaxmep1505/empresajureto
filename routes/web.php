@@ -75,6 +75,8 @@ use App\Http\Controllers\Admin\WmsMoveController;
 use App\Http\Controllers\Tickets\TicketWorkController;
 use App\Http\Controllers\PublicationController;
 use App\Http\Controllers\Logistics\RouteSupervisorController;
+
+
 /*
 |--------------------------------------------------------------------------
 | AUTH
@@ -1608,5 +1610,15 @@ Route::middleware(['auth'])->group(function () {
 Route::post('/licitacion-pdfs/{licitacionPdf}/pages-count', [\App\Http\Controllers\Admin\LicitacionPdfController::class, 'updatePagesCount'])
     ->name('admin.licitacion-pdfs.pagesCount');
 
+Route::middleware(['auth'])->group(function () {
 
+    // Create
+    Route::get('/companies/create', [CompanyController::class, 'create'])->name('companies.create');
 
+    // Store
+    Route::post('/companies', [CompanyController::class, 'store'])->name('companies.store');
+
+    // ✅ Evita el 404 si alguien cae a /companies
+    //    y además si por cualquier motivo terminas ahí, te manda a /part-contable
+    Route::get('/companies', fn () => redirect('/part-contable'))->name('companies.index');
+});
