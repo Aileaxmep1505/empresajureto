@@ -3,6 +3,24 @@
 @section('title','Mi ruta')
 
 @section('content')
+@php
+  /**
+   * ✅ Debug server-side (Laravel log)
+   */
+  try {
+    \Illuminate\Support\Facades\Log::info('driver.routes.show view boot', [
+      'plan_id' => $routePlan->id ?? null,
+      'stops_count' => isset($stops) ? (is_countable($stops) ? count($stops) : null) : null,
+      'has_driver' => isset($routePlan->driver),
+      'sequence_locked' => (bool)($routePlan->sequence_locked ?? false),
+      'start' => [
+        'lat' => $routePlan->start_lat ?? null,
+        'lng' => $routePlan->start_lng ?? null,
+      ],
+    ]);
+  } catch (\Throwable $e) {}
+@endphp
+
 <div class="container-fluid p-0" id="rp-driver-pro">
   <style>
     /* =========================
@@ -16,6 +34,7 @@
       --red:#fecaca; --red-ink:#7f1d1d;
       color:var(--ink); background:linear-gradient(180deg,#fbfdff,#f6f8fb);
       font-synthesis-weight:none;
+      min-height:calc(100vh - 56px);
     }
 
     /* ====== 2 columnas en desktop + separación ====== */
@@ -51,6 +70,17 @@
     }
     #rp-driver-pro .metric .label{font-size:.74rem;color:var(--muted);text-transform:uppercase;letter-spacing:.02em}
     #rp-driver-pro .metric .value{font-weight:800;font-size:1.2rem}
+
+    /* Skeleton */
+    #rp-driver-pro .sk{
+      background:linear-gradient(90deg,#eef2ff 0%, #f1f5f9 50%, #eef2ff 100%);
+      background-size:200% 100%;
+      animation: shimmer 1.2s infinite linear;
+    }
+    @keyframes shimmer{
+      0%{background-position:0% 0%}
+      100%{background-position:-200% 0%}
+    }
 
     /* ===== Mapa en tarjeta ===== */
     #rp-driver-pro .map-card{
@@ -93,7 +123,7 @@
     #rp-driver-pro .chip.alt{background:#f0fff8;border-color:#bbf7d0}
     #rp-driver-pro .chip.warn{background:#fff6f6;border-color:#fecaca}
 
-    /* ===== Timeline de paradas (MEJORADO) ===== */
+    /* ===== Timeline ===== */
     #rp-driver-pro .timeline{list-style:none;margin:0;padding:0;position:relative}
     #rp-driver-pro .timeline:before{content:"";position:absolute;left:14px;top:0;bottom:0;width:2px;background:var(--line)}
     #rp-driver-pro .tl-item{display:grid;grid-template-columns:28px 1fr;gap:12px;padding:12px 0}
@@ -128,7 +158,7 @@
     /* Toast + HUD */
     #rp-driver-pro .toastx{
       position:fixed;left:50%;transform:translateX(-50%);bottom:24px;
-      background:#111827;color:#fff;padding:.7rem 1rem;border-radius:12px;z-index:20;display:none;
+      background:#111827;color:#fff;padding:.7rem 1rem;border-radius:12px;z-index:2000;display:none;
       box-shadow:0 14px 32px rgba(2,8,23,.22)
     }
     #rp-driver-pro .toastx.show{display:block}
@@ -152,6 +182,19 @@
       border:2px solid #fff;
     }
     .flagpin.done{ --bg:#6b7280; }
+
+    /* DEBUG chip */
+    #rp-driver-pro .dbg{
+      position:absolute; right:16px; top:16px; z-index:650;
+      background:rgba(17,24,39,.92); color:#fff;
+      border-radius:999px; padding:.35rem .7rem;
+      font-weight:800; font-size:.8rem;
+      border:1px solid rgba(255,255,255,.16);
+      box-shadow:0 14px 34px rgba(2,8,23,.22);
+      display:none;
+      max-width:min(92vw, 560px);
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
   </style>
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -159,21 +202,26 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"/>
 
   <div class="row g-0">
-    {{-- IZQUIERDA (25%): Panel --}}
+    {{-- IZQUIERDA --}}
     <div class="col-lg-3 side">
       <div class="toolbar p-3 d-flex align-items-center justify-content-between">
         <div>
           <div class="fw-bold">{{ $routePlan->name ?? ('Ruta #'.$routePlan->id) }}</div>
           <div class="text-muted small">Chofer: {{ $routePlan->driver->name ?? '—' }}</div>
 
-          {{-- Controls GPS (solo se muestran si el navegador está en "prompt") --}}
+          {{-- ✅ Controles GPS (solo si no se ha iniciado / no está bloqueado) --}}
           <div id="gpsControls" class="d-flex gap-2 mt-2" style="display:none">
-            <button id="btnStart" class="btn btn-sm btn-primary">
-              <i class="bi bi-crosshair"></i> Usar mi ubicación
+            <button id="btnStart" class="btn btn-sm btn-primary" type="button">
+              <i class="bi bi-play-circle"></i> Iniciar ruta (usar mi ubicación)
             </button>
-            <button id="btnRecalc" class="btn btn-sm btn-outline-primary" disabled>
+            <button id="btnRecalc" class="btn btn-sm btn-outline-primary" type="button" disabled>
               <i class="bi bi-arrow-repeat"></i> Recalcular
             </button>
+          </div>
+
+          {{-- ✅ Estado / lock --}}
+          <div class="small mt-2" id="lockBadgeWrap" style="display:none">
+            <span class="badge-ok" id="lockBadge"><i class="bi bi-shield-check"></i> Orden bloqueado</span>
           </div>
         </div>
 
@@ -184,7 +232,6 @@
       </div>
 
       <div class="p-3 grid g3">
-        {{-- Siguiente punto --}}
         <div class="card next" style="grid-column:1/-1">
           <div class="card-body d-flex justify-content-between align-items-center">
             <div>
@@ -196,18 +243,37 @@
           </div>
         </div>
 
-        {{-- Métricas --}}
-        <div class="card metric"><div class="card-body"><div class="label">Fin estimado</div><div class="value" id="etaFinish">—</div><div class="muted small" id="etaFinishHint">Cuando completes todas</div></div></div>
-        <div class="card metric"><div class="card-body"><div class="label">Pendientes</div><div class="value"><span id="pendingCount">—</span>/<span id="totalCount">—</span></div><div class="muted small">Paradas</div></div></div>
-        <div class="card metric"><div class="card-body"><div class="label">Distancia</div><div class="value"><span id="totalKm">—</span> km</div><div class="muted small">Ruta activa</div></div></div>
+        <div class="card metric">
+          <div class="card-body">
+            <div class="label">Fin estimado</div>
+            <div class="value" id="etaFinish">—</div>
+            <div class="muted small" id="etaFinishHint">Cuando completes todas</div>
+          </div>
+        </div>
 
-        {{-- Timeline --}}
+        <div class="card metric">
+          <div class="card-body">
+            <div class="label">Pendientes</div>
+            <div class="value"><span id="pendingCount">—</span>/<span id="totalCount">—</span></div>
+            <div class="muted small">Paradas</div>
+          </div>
+        </div>
+
+        <div class="card metric">
+          <div class="card-body">
+            <div class="label">Distancia</div>
+            <div class="value"><span id="totalKm">—</span> km</div>
+            <div class="muted small">Ruta activa</div>
+          </div>
+        </div>
+
         <div class="card" style="grid-column:1/-1">
           <div class="card-body">
             <div class="d-flex justify-content-between align-items-center mb-2">
               <h6 class="m-0">Paradas</h6>
-              <div class="muted small">Marca “Hecho” al llegar; se recalcula la agenda.</div>
+              <div class="muted small">Marca “Hecho” al llegar.</div>
             </div>
+
             <ul id="timeline" class="timeline">
               @for($i=0;$i<3;$i++)
                 <li class="tl-item">
@@ -222,7 +288,6 @@
           </div>
         </div>
 
-        {{-- Instrucciones --}}
         <div class="card" style="grid-column:1/-1">
           <div class="card-body">
             <h6 class="mb-2">Instrucciones por calles</h6>
@@ -231,7 +296,6 @@
           </div>
         </div>
 
-        {{-- Recomendación IA --}}
         <div class="card" style="grid-column:1/-1">
           <div class="card-body">
             <h6 class="mb-2">Recomendación IA</h6>
@@ -241,10 +305,13 @@
       </div>
     </div>
 
-    {{-- DERECHA (75%): Mapa --}}
+    {{-- DERECHA --}}
     <div class="col-lg-9">
       <div class="map-card">
         <div id="map" class="map"></div>
+
+        {{-- DEBUG chip --}}
+        <div id="dbgChip" class="dbg">debug</div>
 
         <div class="map-legend">
           <span class="chip"><i class="bi bi-square-fill" style="color:#2563eb"></i> Principal</span>
@@ -259,14 +326,19 @@
           <div style="font-weight:800; margin-bottom:.35rem">Rutas</div>
           <div id="routesCards" class="routes-list">
             <div class="sk" style="height:46px;border-radius:12px"></div>
-            <div class="sk" style="height:46px;border-radius:12px"></div>
           </div>
           <div id="routesEmpty" class="small-muted" style="display:none;margin-top:.45rem">
             Solo llegó una ruta. Recalcula o abre en Google/Waze.
           </div>
+
           <div class="d-flex gap-2 mt-2">
             <a id="linkGmaps" href="#" target="_blank" class="btn btn-outline-primary disabled"><i class="bi bi-map"></i> Google Maps</a>
             <a id="linkWaze" href="#" target="_blank" class="btn btn-outline-dark disabled"><i class="bi bi-sign-turn-right"></i> Waze</a>
+          </div>
+
+          {{-- ✅ info de roundtrip (siempre) --}}
+          <div class="small-muted mt-2">
+            <i class="bi bi-arrow-90deg-left"></i> Cierre: regresa al inicio (roundtrip)
           </div>
         </div>
 
@@ -275,45 +347,109 @@
     </div>
   </div>
 
-  <button class="btn btn-primary btn-fab" id="fabDone" style="display:none">
+  <button class="btn btn-primary btn-fab" id="fabDone" style="display:none" type="button">
     <i class="bi bi-check2-circle"></i> Marcar punto actual como hecho
   </button>
   <div id="toast" class="toastx">Listo</div>
 </div>
 
 <script>
-  /* ===== Config: pedir alternativas ===== */
-  const REQUEST_ALTS = { include_alternatives: true, max_alternatives: 2, steps: true };
+  /* =========================
+   * CONFIG
+   * ========================= */
+  const DEBUG_ROUTE = true;
 
-  /* ===== Si API está en otro subdominio, deja true ===== */
+  function dlog(label, payload){
+    if (!DEBUG_ROUTE) return;
+    try { console.log('%c[ROUTE_DEBUG] ' + label, 'font-weight:800', payload ?? ''); } catch(e){}
+  }
+  function dwarn(label, payload){
+    if (!DEBUG_ROUTE) return;
+    try { console.warn('[ROUTE_DEBUG] ' + label, payload ?? ''); } catch(e){}
+  }
+
+  const DBG_URL = @json(url('/api/client-log'));
+
+  async function sendClientLog(level, message, meta){
+    if (!DEBUG_ROUTE) return;
+    if (typeof window.csrfFetch !== 'function') return;
+    try{
+      await window.csrfFetch(DBG_URL, {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'Accept':'application/json' },
+        body: JSON.stringify({
+          scope: 'route_driver',
+          level: level || 'info',
+          message: String(message || ''),
+          meta: meta || {}
+        })
+      });
+    }catch(e){}
+  }
+
+  function dbgChip(text, isError=false){
+    const el = document.getElementById('dbgChip');
+    if (!el) return;
+    el.style.display = 'block';
+    el.textContent = text || 'debug';
+    el.style.background = isError ? 'rgba(153,27,27,.92)' : 'rgba(17,24,39,.92)';
+    clearTimeout(el._t);
+    el._t = setTimeout(()=>{ el.style.display='none'; }, 5000);
+  }
+
+  const REQUEST_ALTS = { include_alternatives: false, max_alternatives: 0, steps: true };
   const USE_CREDENTIALS = true;
 
   /* ===== Datos servidor ===== */
   const planId        = {{ $routePlan->id }};
   const initialStops  = @json($stops);
   const csrf          = @json(csrf_token());
+
+  // ✅ Nuevas rutas: start bloquea el orden 1 vez
+  const URL_START     = @json(route('api.routes.start', $routePlan));
   const URL_COMPUTE   = @json(route('api.routes.compute', $routePlan));
   const URL_RECOMPUTE = @json(route('api.routes.recompute', $routePlan));
   const URL_DONE_BASE = @json(url('/api/routes/'.$routePlan->id.'/stops'));
   const URL_SAVE_LOC  = @json(route('api.driver.location.save'));
   const URL_LAST_LOC  = @json(route('api.driver.location.last'));
+  const URL_LIVE      = @json(route('api.routes.live', $routePlan));
+
+  dlog('boot', { planId, initialStopsCount: (initialStops||[]).length, URL_START, URL_COMPUTE, URL_RECOMPUTE });
 
   /* ===== Estado ===== */
   let map, base, meMarker, mainLine, alt1Line, alt2Line, segLines = [];
   let currentPos = null, lastPayload = null, watcherId = null;
   let routeSteps = [], stepIdx = 0, didAutoZoom = false, followMode = true;
 
+  // ✅ Estado de lock (server)
+  let serverLocked = false;
+
+  /* ===== Utils ===== */
   const mm = (s)=> Math.round((s||0)/60);
   const km = (m)=> (m||0)/1000;
   const fmtClock = (d)=> `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-  const mdToHtml = (md)=> (md? String(md).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>') : '');
+  const mdToHtml = (md)=> (md? String(md)
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>')
+    : ''
+  );
+
+  const toNum = (v)=> {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+  const isValidLatLng = (lat,lng)=> {
+    if (lat === null || lng === null) return false;
+    if (Math.abs(lat) < 0.000001 && Math.abs(lng) < 0.000001) return false;
+    return Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
+  };
 
   function showToast(text, ok=true){
     const t=document.getElementById('toast');
     t.textContent=text|| (ok?'Listo':'Error');
     t.style.background= ok?'#111827':'#991b1b';
     t.classList.add('show');
-    setTimeout(()=>t.classList.remove('show'),2000);
+    setTimeout(()=>t.classList.remove('show'),2400);
   }
   function mapToast(html){
     const el=document.getElementById('navToast');
@@ -323,28 +459,106 @@
     el._t=setTimeout(()=>el.classList.remove('show'),4000);
   }
 
-  /* ===== Helper fetch con credenciales opcionales ===== */
   function fopts(extra={}){
     const base = USE_CREDENTIALS ? { credentials:'include' } : {};
     return Object.assign(base, extra);
   }
 
+  async function safeJsonFetch(url, options){
+    let res;
+    try{
+      res = await fetch(url, options);
+    }catch(e){
+      dwarn('fetch network error', { url, err: String(e) });
+      dbgChip('Network error en fetch()', true);
+      await sendClientLog('error', 'fetch network error', { url, err: String(e) });
+      return { ok:false, status:0, data:null };
+    }
+
+    const ct = (res.headers.get('content-type')||'').toLowerCase();
+
+    if (!ct.includes('application/json')){
+      const text = await res.text().catch(()=> '');
+      const isLogin = text.includes('<html') || text.includes('<!doctype') || text.includes('login');
+      const code = res.status;
+
+      const hint =
+        code === 401 ? '401 (sesión)' :
+        code === 403 ? '403 (permiso)' :
+        code === 419 ? '419 (CSRF)' :
+        isLogin ? 'HTML (login?)' :
+        'non-json';
+
+      dwarn('non-json response', { url, status: code, ct, hint, sample: text.slice(0,220) });
+      await sendClientLog('error', 'non-json response', { url, status: code, ct, hint, sample: text.slice(0,220) });
+
+      if (code === 401) showToast('Sesión no válida (401).', false);
+      else if (code === 419) showToast('CSRF expirado (419). Recarga.', false);
+      else if (code === 403) showToast('No tienes permiso (403).', false);
+      else showToast('Respuesta no-JSON del servidor ('+code+').', false);
+
+      dbgChip('API non-json: ' + hint, true);
+      return { ok:false, status:code, data:null };
+    }
+
+    const data = await res.json().catch(()=>null);
+
+    if (!res.ok){
+      const msg = data?.message || ('Error HTTP '+res.status);
+      dwarn('api error', { url, status: res.status, data });
+      await sendClientLog('error', 'api error', { url, status: res.status, data });
+      dbgChip('API error ' + res.status + ': ' + (data?.message || 'sin mensaje'), true);
+      showToast(msg, false);
+      return { ok:false, status:res.status, data };
+    }
+
+    return { ok:true, status:res.status, data };
+  }
+
   /* ===== Mostrar/ocultar controles GPS ===== */
-  const gpsControls = () => document.getElementById('gpsControls');
+  function setLockUI(locked){
+    serverLocked = !!locked;
+    const wrap = document.getElementById('lockBadgeWrap');
+    if (wrap) wrap.style.display = locked ? 'block' : 'none';
+
+    // si está locked, ocultamos "Iniciar" y dejamos "Recalcular"
+    const controls = document.getElementById('gpsControls');
+    if (!controls) return;
+
+    // si ya está locked, no mostramos iniciar (pero recalc queda disponible si hay GPS)
+    const btnStart = document.getElementById('btnStart');
+    if (btnStart) btnStart.style.display = locked ? 'none' : 'inline-flex';
+  }
+
   function showGpsControls(show){
-    const el = gpsControls();
+    const el = document.getElementById('gpsControls');
     if (!el) return;
     el.style.display = show ? 'flex' : 'none';
   }
 
   /* ===== Mapa ===== */
+  const stopMarkers = [];
   function addStopFlags(stops){
-    if (!Array.isArray(stops)) return;
-    stops.forEach((s, idx) => {
-      const n = (idx+1);
+    stopMarkers.forEach(m=>{ try{ map.removeLayer(m); }catch(e){} });
+    stopMarkers.length = 0;
+
+    // ✅ Numeración usando sequence_index (1..N) si existe
+    const ordered = (stops||[]).slice().sort((a,b)=>
+      (a.sequence_index??999999)-(b.sequence_index??999999) || (a.id-b.id)
+    );
+
+    ordered.forEach((s, idx) => {
+      const lat = toNum(s.lat), lng = toNum(s.lng);
+      if (!isValidLatLng(lat,lng)) return;
+
+      const n = (s.sequence_index != null && Number.isFinite(Number(s.sequence_index)))
+        ? (Number(s.sequence_index)) // ya viene 1..N en el controller
+        : (idx+1);
+
       const html = `<div class="flagpin ${s.status==='done' ? 'done' : ''}">${n}</div>`;
       const icon = L.divIcon({ html, className:'', iconAnchor:[10, 18] });
-      const m = L.marker([s.lat, s.lng], { icon }).addTo(map);
+      const m = L.marker([lat, lng], { icon }).addTo(map);
+      stopMarkers.push(m);
       m.bindPopup((s.name||'Punto') + (s.status==='done' ? ' • hecho' : ''));
     });
   }
@@ -353,11 +567,19 @@
     map = L.map('map', { zoomSnap: 0.5 }).setView([20.6736,-103.344], 12);
     base = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ attribution:'© OpenStreetMap' }).addTo(map);
 
-    if (initialStops.length){
-      addStopFlags(initialStops);
-      const grp = L.featureGroup(initialStops.map(s => L.marker([s.lat, s.lng])));
+    setTimeout(()=>{ try{ map.invalidateSize(true); }catch(e){} }, 200);
+    window.addEventListener('resize', ()=>{ try{ map.invalidateSize(true); }catch(e){} });
+
+    const validStops = (initialStops||[])
+      .map(s=>({ ...s, lat: toNum(s.lat), lng: toNum(s.lng) }))
+      .filter(s=> isValidLatLng(s.lat, s.lng));
+
+    if (validStops.length){
+      addStopFlags(validStops);
+      const grp = L.featureGroup(validStops.map(s => L.marker([s.lat, s.lng])));
       map.fitBounds(grp.getBounds().pad(0.2));
     }
+
     map.on('dragstart', ()=> followMode=false);
   }
 
@@ -367,48 +589,60 @@
     if (alt2Line){ map.removeLayer(alt2Line); alt2Line=null; }
     segLines.forEach(l=>map.removeLayer(l)); segLines=[];
   }
+
   function drawGeo(route, color, weight=6, dashed=false){
-    if (!route?.geometry) return null;
-    const style = { color, weight, opacity:0.92 }; if (dashed) style.dashArray = '8 10';
-    return L.geoJSON(route.geometry, { style }).addTo(map);
+    if (!route) return null;
+    const geo = route.geometry;
+    if (!geo) return null;
+
+    const style = { color, weight, opacity:0.92 };
+    if (dashed) style.dashArray = '8 10';
+
+    try{
+      return L.geoJSON(geo, { style }).addTo(map);
+    }catch(e){
+      dwarn('drawGeo failed', { err: String(e), geoType: geo?.type });
+      sendClientLog('error', 'drawGeo failed', { err: String(e), geo });
+      return null;
+    }
   }
-  function drawTrafficSegments(legs){
-    (legs||[]).forEach((leg)=>{
-      const from=leg.from, to=leg.to; if (!from||!to) return;
-      const s=leg.severity||'ok';
-      const color = s==='heavy' ? '#ef4444' : (s==='slow' ? '#f59e0b' : '#10b981');
-      const line = L.polyline([[from.lat,from.lng],[to.lat,to.lng]], { color, weight:7, opacity:.5 }).addTo(map);
-      segLines.push(line);
-    });
-  }
+
   function fitAll(){
-    const layers=[]; if (mainLine) layers.push(mainLine); if (alt1Line) layers.push(alt1Line); if (alt2Line) layers.push(alt2Line);
-    segLines.forEach(l=>layers.push(l)); if (meMarker) layers.push(meMarker);
-    if (!layers.length) return; const grp=L.featureGroup(layers); map.fitBounds(grp.getBounds().pad(0.18));
+    const layers=[];
+    if (mainLine) layers.push(mainLine);
+    if (meMarker) layers.push(meMarker);
+    if (!layers.length) return;
+
+    try{
+      const grp=L.featureGroup(layers);
+      map.fitBounds(grp.getBounds().pad(0.18));
+    }catch(e){}
   }
 
   /* ===== Render UI ===== */
   function renderRoutesCards(payload){
-    const wrap=document.getElementById('routesCards'); const empty=document.getElementById('routesEmpty');
+    const wrap=document.getElementById('routesCards');
+    const empty=document.getElementById('routesEmpty');
+
     wrap.innerHTML=''; empty.style.display='none';
     const routes = payload.routes||[];
     if (!routes.length){ empty.style.display='block'; return; }
 
     routes.forEach((r,i)=>{
-      const cls = i===0 ? 'route-card active' : 'route-card';
-      const badge = i===0 ? 'rb-blue' : (i===1 ? 'rb-amber' : 'rb-red');
+      const cls = 'route-card active';
+      const badge = 'rb-blue';
       const mins = Math.round((r.total_sec||0)/60), h=Math.floor(mins/60), m=mins%60;
       const time = h? `${h} h ${m} min`:`${m} min`;
       const dist = `${km(r.total_m||0).toFixed(1)} km`;
-      const toll = r.toll?.has_toll ? ` · Peaje: ~$${r.toll.estimated_mxn} MXN` : ' · Libre';
+
       wrap.insertAdjacentHTML('beforeend', `
         <div class="${cls}">
           <div class="route-head">
-            <span class="route-badge ${badge}"><i class="bi bi-route"></i> ${i===0?'Principal':(i===1?'Alternativa':'Evitar')}</span>
+            <span class="route-badge ${badge}"><i class="bi bi-route"></i> Principal</span>
             <span class="small-muted"><i class="bi bi-signpost-2"></i> ${dist}</span>
           </div>
           <div class="small-muted" style="margin-top:.25rem">
-            <i class="bi bi-stopwatch"></i> <strong>${time}</strong>${toll}
+            <i class="bi bi-stopwatch"></i> <strong>${time}</strong> · Roundtrip
           </div>
         </div>
       `);
@@ -422,56 +656,66 @@
     const stepsHint=document.getElementById('stepsHint');
     routeSteps = Array.isArray(payload?.routes?.[0]?.steps) ? payload.routes[0].steps : [];
     stepIdx=0;
+
     if (!routeSteps.length){ stepsHint.style.display='block'; return; }
     stepsHint.style.display='none';
+
     routeSteps.forEach((st, idx)=>{
       const name = st.name || '';
-      const instr = st.instruction || st.maneuver || '';
+      const instr = st.instruction || '';
       const dist = st.distance ? (st.distance/1000).toFixed(1)+' km' : '';
       list.insertAdjacentHTML('beforeend', `<li>${idx+1}. ${instr} <span class="muted">${name ? ' • '+name : ''} ${dist ? ' • '+dist : ''}</span></li>`);
     });
+
     mapToast('Empezamos • ' + (routeSteps[0]?.instruction || 'Sigue la ruta'));
   }
 
   function renderTimeline(payload){
     lastPayload = payload;
-    const ordered=(payload.ordered_stops||[]).slice().sort((a,b)=> (a.sequence_index??999999)-(b.sequence_index??999999) || (a.id-b.id));
+
+    const ordered=(payload.ordered_stops||[]).slice()
+      .sort((a,b)=> (a.sequence_index??999999)-(b.sequence_index??999999) || (a.id-b.id));
+
     const tl=document.getElementById('timeline'); tl.innerHTML='';
 
-    const legs=(payload.routes?.[0]?.legs||[]).map(l=>Number(l.adj_duration||l.duration||0));
-    const perStopSec=[]; let legIdx=0;
-    ordered.forEach(s=>{ if(s.status==='done'){ perStopSec.push(0); return; } const eta=Number(s.eta_seconds||0)||legs[legIdx]||0; perStopSec.push(eta); legIdx++; });
+    // ✅ usar eta_seconds ya calculado por backend (parejo y consistente)
+    const now=new Date();
 
-    const now=new Date(); let acc=0;
-    ordered.forEach((s, idx)=>{
-      const seq=(s.sequence_index??idx)+1;
+    ordered.forEach((s)=>{
       const dotCls=s.status==='done'?'dot done':'dot';
 
       let etaMinTxt='—', arriveTxt='—';
       if (s.status!=='done'){
-        const sec=perStopSec[idx]||0; const at=new Date(now.getTime()+(acc+sec)*1000);
-        etaMinTxt=`${mm(sec)} min`; arriveTxt=fmtClock(at); acc+=sec;
+        const sec=Number(s.eta_seconds||0)||0;
+        const at=new Date(now.getTime()+sec*1000);
+        etaMinTxt=`${mm(sec)} min`;
+        arriveTxt=fmtClock(at);
       }
+
+      const seq = (s.sequence_index != null ? Number(s.sequence_index) : null);
 
       const statusChip = s.status==='done'
         ? '<span class="badge-ok">hecho</span>'
         : '<span class="badge-pending">pendiente</span>';
 
       const button = s.status==='done'
-        ? '<button class="btn btn-sm btn-success" disabled><i class="bi bi-check2-circle"></i> Hecho</button>'
-        : `<button class="btn btn-sm btn-outline-success tl-btn" data-done="${s.id}"><i class="bi bi-check2"></i> Hecho</button>`;
+        ? '<button class="btn btn-sm btn-success" type="button" disabled><i class="bi bi-check2-circle"></i> Hecho</button>'
+        : `<button class="btn btn-sm btn-outline-success tl-btn" type="button" data-done="${s.id}"><i class="bi bi-check2"></i> Hecho</button>`;
+
+      const lat = toNum(s.lat), lng = toNum(s.lng);
+      const coord = (isValidLatLng(lat,lng)) ? `(${lat.toFixed(5)}, ${lng.toFixed(5)})` : '(—)';
 
       tl.insertAdjacentHTML('beforeend', `
         <li class="tl-item">
           <div class="${dotCls}"></div>
           <div class="tl-card">
             <div class="tl-top">
-              <div class="tl-title">#${seq}. ${ (s.name||'Punto') }</div>
+              <div class="tl-title">${seq ? '#'+seq+'. ' : ''}${ (s.name||'Punto') }</div>
               <div class="tl-badges">${statusChip}</div>
               ${button}
             </div>
             <div class="tl-meta">
-              <div class="muted">(${Number(s.lat).toFixed(5)}, ${Number(s.lng).toFixed(5)})</div>
+              <div class="muted">${coord}</div>
               <div class="muted"><strong>ETA</strong>: ${etaMinTxt} • <strong>llegada</strong>: ${arriveTxt}</div>
             </div>
           </div>
@@ -480,23 +724,22 @@
     });
 
     const pending=ordered.filter(s=>s.status!=='done');
-    const totalRemainingSec=pending.reduce((sum,s)=>{const idxO=ordered.indexOf(s);return sum+(perStopSec[idxO]||0);},0);
-    const mins=Math.max(1,Math.round(totalRemainingSec/60));
-    document.getElementById('kpiTotal').textContent=`${mins} min`;
-    const finishAt=new Date(now.getTime()+totalRemainingSec*1000);
-    document.getElementById('etaFinish').textContent=pending.length?fmtClock(finishAt):'Completado';
-    document.getElementById('etaFinishHint').textContent=pending.length?`En ${mins} min aprox.`:'Todas las paradas hechas';
     document.getElementById('totalCount').textContent=ordered.length;
     document.getElementById('pendingCount').textContent=pending.length;
 
     if (pending.length){
-      const first=pending[0]; const idxFirst=ordered.indexOf(first);
-      const seg=perStopSec[idxFirst]||0; const at=new Date(now.getTime()+seg*1000);
+      const first=pending[0];
+      const sec=Number(first.eta_seconds||0)||0;
+      const at=new Date(now.getTime()+sec*1000);
+
       document.getElementById('nextName').textContent=first.name||'Punto';
-      document.getElementById('nextEta').textContent=`${mm(seg)} min`;
+      document.getElementById('nextEta').textContent=`${mm(sec)} min`;
       document.getElementById('nextAt').textContent=fmtClock(at);
-      const fab=document.getElementById('fabDone'); fab.style.display='inline-block'; fab.setAttribute('data-done', first.id);
-    }else{
+
+      const fab=document.getElementById('fabDone');
+      fab.style.display='inline-block';
+      fab.setAttribute('data-done', first.id);
+    } else {
       document.getElementById('nextName').textContent='—';
       document.getElementById('nextEta').textContent='—';
       document.getElementById('nextAt').textContent='—';
@@ -508,69 +751,91 @@
   }
 
   function renderAdvice(md){ document.getElementById('advice').innerHTML = mdToHtml(md||'Sin observaciones.'); }
-  function renderKPIsDistance(payload){ const m=Number(payload?.routes?.[0]?.total_m||0); document.getElementById('totalKm').textContent=m?(m/1000).toFixed(1):'—'; }
+  function renderKPIsDistance(payload){
+    const m=Number(payload?.routes?.[0]?.total_m||0);
+    document.getElementById('totalKm').textContent=m?(m/1000).toFixed(1):'—';
+    const mins = Math.max(1, Math.round(Number(payload?.routes?.[0]?.total_sec||0)/60));
+    document.getElementById('kpiTotal').textContent = `${mins} min`;
+  }
 
   function drawAll(payload){
     clearRouteLayers();
+
     const R = payload.routes||[];
 
     if (R[0]) mainLine = drawGeo(R[0], '#2563eb', 6, false);
-    if (R[1]) alt1Line = drawGeo(R[1], '#10b981', 5, true);
-    if (R[2]) alt2Line = drawGeo(R[2], '#ef4444', 5, true);
 
-    if (R[0]?.legs?.length) drawTrafficSegments(R[0].legs);
-
-    if (currentPos){
+    if (currentPos && isValidLatLng(currentPos.lat, currentPos.lng)){
       if (meMarker) map.removeLayer(meMarker);
       meMarker = L.circleMarker([currentPos.lat, currentPos.lng], { radius:8, color:'#1d4ed8', fillColor:'#60a5fa', fillOpacity:.9 }).addTo(map);
     }
 
-    fitAll();
+    if (Array.isArray(payload.ordered_stops) && payload.ordered_stops.length){
+      addStopFlags(payload.ordered_stops);
+    }
+
+    if (mainLine) fitAll();
+
+    // ✅ lock UI
+    setLockUI(!!payload.sequence_locked);
+
     renderRoutesCards(payload);
     renderTimeline(payload);
     renderAdvice(payload.advice_md);
     renderKPIsDistance(payload);
+
+    setTimeout(()=>{ try{ map.invalidateSize(true); }catch(e){} }, 60);
   }
 
-  /* ===== Turn-by-turn + nav links ===== */
+  /* ===== nav links ===== */
   function nextPendingStop(payload){
-    const ordered=(payload?.ordered_stops||[]).slice().sort((a,b)=> (a.sequence_index??999999)-(b.sequence_index??999999) || (a.id-b.id));
+    const ordered=(payload?.ordered_stops||[]).slice()
+      .sort((a,b)=> (a.sequence_index??999999)-(b.sequence_index??999999) || (a.id-b.id));
     return ordered.find(s=>s.status!=='done')||null;
   }
+
   function updateNavLinks(){
-    const g=document.getElementById('linkGmaps'); const w=document.getElementById('linkWaze');
+    const g=document.getElementById('linkGmaps');
+    const w=document.getElementById('linkWaze');
+
     let dest=null;
-    if (routeSteps[stepIdx]?.point){ dest=`${routeSteps[stepIdx].point.lat},${routeSteps[stepIdx].point.lng}`; }
-    else { const stop=nextPendingStop(lastPayload); if (stop) dest=`${stop.lat},${stop.lng}`; }
-    const origin=currentPos ? `${currentPos.lat},${currentPos.lng}` : null;
-    if (!dest || !origin){ g.classList.add('disabled'); w.classList.add('disabled'); return; }
+    const stop = nextPendingStop(lastPayload);
+    if (stop && stop.lat != null && stop.lng != null){
+      dest=`${stop.lat},${stop.lng}`;
+    }
+    const origin = currentPos ? `${currentPos.lat},${currentPos.lng}` : null;
+
+    if (!dest || !origin){
+      g.classList.add('disabled'); w.classList.add('disabled');
+      return;
+    }
+
     g.href=`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(dest)}&travelmode=driving&dir_action=navigate`;
     w.href=`https://waze.com/ul?ll=${encodeURIComponent(dest)}&from=${encodeURIComponent(origin)}&navigate=yes&zoom=17`;
-    g.classList.remove('disabled'); w.classList.remove('disabled');
+
+    g.classList.remove('disabled');
+    w.classList.remove('disabled');
   }
 
   /* ===== Persistencia ===== */
   async function saveDriverLocation(pos){
-    try{
-      await fetch(URL_SAVE_LOC, fopts({
-        method:'POST',
-        headers:{
-          'Content-Type':'application/json',
-          'Accept':'application/json',
-          'X-CSRF-TOKEN': csrf
-        },
-        body: JSON.stringify({
-          lat: pos.lat,
-          lng: pos.lng,
-          captured_at: new Date().toISOString()
-        })
-      }));
-    }catch(e){
-      console.warn('saveDriverLocation error', e);
+    const payload = { lat: pos.lat, lng: pos.lng, captured_at: new Date().toISOString() };
+
+    const r = await safeJsonFetch(URL_SAVE_LOC, fopts({
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'Accept':'application/json',
+        'X-CSRF-TOKEN': csrf
+      },
+      body: JSON.stringify(payload)
+    }));
+
+    if (!r.ok){
+      await sendClientLog('error', 'saveDriverLocation failed', { r });
     }
   }
 
-  /* ===== Watcher continuo ===== */
   function startWatching(){
     if (!navigator.geolocation){
       showToast('Tu dispositivo no soporta GPS', false);
@@ -599,7 +864,6 @@
             try{ map.flyTo([currentPos.lat,currentPos.lng],15,{duration:.6}); }catch{}
           }
         }
-
         lastPos=currentPos;
 
         if (followMode && didAutoZoom){
@@ -615,19 +879,23 @@
         if (now-lastSent>15000){
           lastSent=now;
           await saveDriverLocation(currentPos);
-          try{ await recompute(); }catch{}
+          try{ await recompute(); }catch(e){
+            await sendClientLog('error', 'recompute failed in watcher', { err: String(e) });
+          }
         }
 
         updateNavLinks();
       },
-      (err)=>{
-        console.warn("GPS ERROR", err.code, err.message);
+      async (err)=>{
         const msg =
           err.code===1 ? 'Permiso de ubicación denegado. Actívalo en tu navegador.' :
           err.code===2 ? 'No se pudo obtener señal GPS.' :
           err.code===3 ? 'El GPS tardó demasiado (timeout).' :
           (err.message || 'Error de GPS');
+
         showToast(msg, false);
+        dbgChip('GPS: ' + msg, true);
+        await sendClientLog('error', 'gps error', { code: err.code, message: err.message });
       },
       { enableHighAccuracy:true, maximumAge:5000, timeout:20000 }
     );
@@ -640,12 +908,16 @@
     }
   }
 
-  /* ===== Pedir GPS UNA sola vez (prompt) y luego ocultar controles ===== */
   async function requestGpsOnce(){
     if (!navigator.geolocation){
       showToast('Tu dispositivo no soporta GPS', false);
-      return;
+      return null;
     }
+    if (!window.isSecureContext){
+      showToast('El GPS requiere HTTPS', false);
+      return null;
+    }
+
     try{
       const pos = await new Promise((resolve, reject)=>{
         navigator.geolocation.getCurrentPosition(
@@ -656,114 +928,139 @@
       });
 
       currentPos = pos;
+      dbgChip('GPS listo: ' + pos.lat.toFixed(5) + ', ' + pos.lng.toFixed(5));
       await saveDriverLocation(pos);
-      await compute(pos);
-      startWatching();
-      showGpsControls(false);          // <- ya concedió, ocultamos
-      showToast('GPS activado');
-      mapToast('Navegación iniciada');
+      return pos;
     }catch(err){
       const msg =
-        err?.code===1 ? 'Permiso denegado. Actívalo desde el candado del navegador.' :
+        err?.code===1 ? 'Permiso denegado. Actívalo desde el candado.' :
         err?.code===2 ? 'No se pudo obtener señal GPS.' :
         err?.code===3 ? 'El GPS tardó demasiado.' :
         (err?.message || 'No se pudo obtener ubicación');
+
       showToast(msg, false);
+      dbgChip('GPS error: ' + msg, true);
+      await sendClientLog('error', 'requestGpsOnce failed', { err: String(err), msg });
+      return null;
     }
   }
 
   /* ===== API ===== */
-  async function compute(start){
-    const res=await fetch(URL_COMPUTE, fopts({
+  async function startRoute(start){
+    if (!start || !isValidLatLng(toNum(start.lat), toNum(start.lng))){
+      showToast('Ubicación inválida para iniciar.', false);
+      return false;
+    }
+
+    const payloadOut = { start_lat:start.lat, start_lng:start.lng };
+    dlog('start request', payloadOut);
+
+    const r = await safeJsonFetch(URL_START, fopts({
       method:'POST',
       headers:{
         'Content-Type':'application/json',
         'Accept':'application/json',
         'X-CSRF-TOKEN': csrf
       },
-      body: JSON.stringify({ start_lat:start.lat, start_lng:start.lng, ...REQUEST_ALTS })
+      body: JSON.stringify(payloadOut)
     }));
 
-    const ct=res.headers.get('content-type')||'';
-    if(!ct.includes('application/json')){
-      showToast('Respuesta inesperada del servidor', false);
+    if (!r.ok) return false;
+
+    showToast('Ruta iniciada. Orden bloqueado.');
+    setLockUI(true);
+    return true;
+  }
+
+  async function compute(start){
+    if (!start || !isValidLatLng(toNum(start.lat), toNum(start.lng))){
+      showToast('Ubicación inválida para calcular.', false);
       return;
     }
 
-    const data=await res.json();
-    if(!res.ok){
-      showToast(data?.message||'No se pudo calcular la ruta', false);
-      return;
-    }
+    const payloadOut = { start_lat:start.lat, start_lng:start.lng, ...REQUEST_ALTS };
 
-    drawAll(data);
-    lastPayload=data;
+    const r = await safeJsonFetch(URL_COMPUTE, fopts({
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'Accept':'application/json',
+        'X-CSRF-TOKEN': csrf
+      },
+      body: JSON.stringify(payloadOut)
+    }));
+
+    if (!r.ok || !r.data) return;
+
+    drawAll(r.data);
+    lastPayload=r.data;
     document.getElementById('btnRecalc')?.removeAttribute('disabled');
   }
 
   async function recompute(){
     if(!currentPos) return;
 
-    const res=await fetch(URL_RECOMPUTE, fopts({
+    const payloadOut = { start_lat: currentPos.lat, start_lng: currentPos.lng, ...REQUEST_ALTS };
+
+    const r = await safeJsonFetch(URL_RECOMPUTE, fopts({
       method:'POST',
       headers:{
         'Content-Type':'application/json',
         'Accept':'application/json',
         'X-CSRF-TOKEN': csrf
       },
-      body: JSON.stringify({ start_lat: currentPos.lat, start_lng: currentPos.lng, ...REQUEST_ALTS })
+      body: JSON.stringify(payloadOut)
     }));
 
-    const data=await res.json();
-    if(!res.ok){
-      showToast(data?.message||'No se pudo recalcular', false);
-      return;
-    }
+    if (!r.ok || !r.data) return;
 
-    drawAll(data);
-    lastPayload=data;
+    drawAll(r.data);
+    lastPayload=r.data;
   }
 
-  /* ===== Auto-boot:
-     - Si permission = prompt -> muestra botones y DISPARA el prompt una vez.
-     - Si = granted/denied -> oculta botones.
-  ===== */
+  async function fetchLive(){
+    const r = await safeJsonFetch(URL_LIVE, fopts({ headers:{ 'Accept':'application/json' } }));
+    if (!r.ok || !r.data) return null;
+    return r.data;
+  }
+
+  /* ===== Auto-boot ===== */
   async function autoBoot(){
-    // 1) última ubicación guardada (por si ya estaba en ruta)
+    // 1) preguntar al server si ya está bloqueado y si hay start guardado
     try{
-      const r=await fetch(URL_LAST_LOC, fopts({ headers:{'Accept':'application/json'} }));
-      if (r.ok){
-        const j=await r.json();
-        if (j?.lat && j?.lng){
-          currentPos={ lat:Number(j.lat), lng:Number(j.lng) };
-          await compute(currentPos);
-        }
+      const live = await fetchLive();
+      if (live?.sequence_locked != null) setLockUI(!!live.sequence_locked);
+    }catch(e){}
+
+    // 2) última ubicación guardada
+    try{
+      const r = await safeJsonFetch(URL_LAST_LOC, fopts({ headers:{'Accept':'application/json'} }));
+      if (r.ok && r.data?.lat && r.data?.lng){
+        currentPos={ lat:Number(r.data.lat), lng:Number(r.data.lng) };
+        await compute(currentPos);
       }
     }catch(e){}
 
-    // 2) permisos
+    // 3) permisos
     try{
       if (navigator.permissions?.query){
         const p = await navigator.permissions.query({ name:'geolocation' });
 
         const applyState = async ()=>{
           if (p.state === 'prompt'){
+            // si NO está bloqueado, mostramos iniciar
             showGpsControls(true);
-
-            // Dispara el prompt automáticamente SOLO la primera vez
-            // (si el usuario lo cierra, puede dar click en el botón)
-            setTimeout(()=> requestGpsOnce(), 600);
           } else if (p.state === 'granted'){
-            showGpsControls(false);
+            showGpsControls(true); // deja visible recalc; iniciar se oculta si locked
             startWatching();
-
-            // Si no había ubicación previa guardada, toma la actual sin prompt
             if (!currentPos){
-              requestGpsOnce();
+              const pos = await requestGpsOnce();
+              if (pos) await compute(pos);
             }
-          } else { // denied
+          } else {
             showGpsControls(false);
-            showToast('Permiso de ubicación denegado. Actívalo en tu navegador.', false);
+            showToast('Permiso de ubicación denegado.', false);
+            dbgChip('GPS denied', true);
           }
         };
 
@@ -773,7 +1070,6 @@
       }
     }catch(e){}
 
-    // Fallback si no hay permissions API
     showGpsControls(true);
   }
 
@@ -785,42 +1081,109 @@
     const doneId=btn.getAttribute('data-done');
     const url=`${URL_DONE_BASE}/${doneId}/done`;
 
-    const res=await fetch(url, fopts({
+    const r = await safeJsonFetch(url, fopts({
       method:'POST',
       headers:{
-        'Content-Type':'application/json',
         'Accept':'application/json',
         'X-CSRF-TOKEN': csrf
       }
     }));
 
-    const data=await res.json();
-    if(data.ok){
+    if (r.ok && r.data?.ok){
       await recompute();
       showToast('Punto marcado como hecho');
+      dbgChip('Punto marcado ✓');
     }else{
-      showToast(data?.message||'No se pudo marcar', false);
+      showToast(r.data?.message||'No se pudo marcar', false);
+      dbgChip('No se pudo marcar', true);
     }
   });
 
+  // ✅ Iniciar ruta: bloquea orden 1 vez en backend
   document.getElementById('btnStart')?.addEventListener('click', async ()=>{
-    await requestGpsOnce();
+    const pos = await requestGpsOnce();
+    if (!pos) return;
+
+    const ok = await startRoute(pos);
+    if (!ok) return;
+
+    await compute(pos);
+    startWatching();
+    mapToast('Ruta iniciada (orden fijo)');
   });
 
   document.getElementById('btnRecalc')?.addEventListener('click', async ()=>{
     if (!currentPos){
-      await requestGpsOnce();
+      const pos = await requestGpsOnce();
+      if (!pos) return;
+      await compute(pos);
+      startWatching();
       return;
     }
     await recompute();
     showToast('Ruta actualizada');
   });
 
+  // FAB marca el "siguiente" directamente
+  document.getElementById('fabDone')?.addEventListener('click', async (e)=>{
+    const id = e.currentTarget.getAttribute('data-done');
+    if (!id) return;
+    const url=`${URL_DONE_BASE}/${id}/done`;
+
+    const r = await safeJsonFetch(url, fopts({
+      method:'POST',
+      headers:{ 'Accept':'application/json', 'X-CSRF-TOKEN': csrf }
+    }));
+
+    if (r.ok && r.data?.ok){
+      await recompute();
+      showToast('Punto marcado como hecho');
+      dbgChip('Punto marcado ✓');
+    }else{
+      showToast(r.data?.message||'No se pudo marcar', false);
+      dbgChip('No se pudo marcar', true);
+    }
+  });
+
   window.addEventListener('beforeunload', stopWatching);
+
+  // ✅ refresco suave
   setInterval(async ()=>{ if(currentPos){ await recompute(); } }, 60000);
 
   // Init
   initMap();
   autoBoot();
 </script>
+
+{{-- ============================
+   ✅ SNIPPET BACKEND (OPCIONAL PARA LOGS DEL CLIENTE)
+   Pégalo en routes/api.php
+============================ --}}
+{{--
+Route::middleware(['auth'])->post('/client-log', function (\Illuminate\Http\Request $r) {
+    $data = $r->validate([
+        'scope' => ['nullable','string','max:80'],
+        'level' => ['nullable','string','max:20'],
+        'message' => ['required','string','max:1000'],
+        'meta' => ['nullable','array'],
+    ]);
+
+    $scope = $data['scope'] ?? 'client';
+    $level = strtolower($data['level'] ?? 'info');
+    $msg   = "[CLIENT_LOG][$scope] ".$data['message'];
+
+    $ctx = [
+        'user_id' => auth()->id(),
+        'meta' => $data['meta'] ?? [],
+        'ip' => $r->ip(),
+        'ua' => substr((string)$r->userAgent(), 0, 240),
+    ];
+
+    if ($level === 'error') \Log::error($msg, $ctx);
+    elseif ($level === 'warning' || $level === 'warn') \Log::warning($msg, $ctx);
+    else \Log::info($msg, $ctx);
+
+    return response()->json(['ok'=>true]);
+});
+--}}
 @endsection

@@ -523,17 +523,17 @@
           <svg class="nav__chev" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
         </summary>
         <div class="nav__submenu">
-          <a href="{{ route('posts.index') }}" class="nav__sublink {{ request()->routeIs('posts.index') || request()->routeIs('posts.show') ? 'is-active':'' }}">
+          <a href="{{ route('publications.store') }}" class="nav__sublink {{ request()->routeIs('publications.store') || request()->routeIs('posts.show') ? 'is-active':'' }}">
             <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
             <span>Listado</span>
           </a>
-          <a href="{{ route('posts.create') }}" class="nav__sublink {{ request()->routeIs('posts.create') ? 'is-active':'' }}">
+          <a href="{{ route('publications.create') }}" class="nav__sublink {{ request()->routeIs('publications.create') ? 'is-active':'' }}">
             <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>
             <span>Nueva publicación</span>
           </a>
         </div>
       </details>
-
+ 
       <!-- Part. contable (principal: listado) -->
       <a href="{{ route('partcontable.index') }}" class="nav__link {{ request()->routeIs('partcontable.*') ? 'is-active':'' }}">
         <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">

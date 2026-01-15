@@ -160,6 +160,8 @@ return [
 'ilovepdf' => [
     'public_key' => env('ILOVEPDF_PUBLIC_KEY'),
     'secret_key' => env('ILOVEPDF_SECRET_KEY'),
+    'region'     => env('ILOVEPDF_REGION', 'us'), // eu, us, fr, de, pl
+    'timeout'    => env('ILOVEPDF_TIMEOUT', 180),
 ],
 
 

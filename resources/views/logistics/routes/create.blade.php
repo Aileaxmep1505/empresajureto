@@ -1,1068 +1,605 @@
-{{-- resources/views/manual_invoices/create.blade.php (o tu vista equivalente) --}}
+{{-- resources/views/routes/create.blade.php --}}
 @extends('layouts.app')
-
-@section('title', isset($invoice) && $invoice->exists ? 'Editar Factura' : 'Nueva Factura')
+@section('title','Nueva ruta')
 
 @section('content')
-@php
-  use Illuminate\Support\Str;
+<div id="rp-create">
+  <style>
+    /* =========================
+       NAMESPACE #rp-create
+       ========================= */
+    #rp-create{
+      --ink:#0e1726; --muted:#64748b; --line:#e7eef7; --bg:#f7f9fc; --card:#ffffff;
+      --brand:#a6d3ff; --brand-ink:#0b1220;
+      --accent:#b7f0e2; --accent-ink:#064e3b;
+      --radius:16px; --shadow:0 14px 40px rgba(2,8,23,.08);
+      color:var(--ink); background:var(--bg); min-height:calc(100vh - 56px);
+    }
+    #rp-create *{box-sizing:border-box}
 
-  $isEdit = isset($invoice) && $invoice->exists;
+    .wrap{max-width:1280px; margin:clamp(16px,2.5vw,28px) auto; padding:0 16px}
+    .pagehead{display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:14px}
+    .title{font-weight:900; letter-spacing:.2px; font-size:clamp(22px,2.4vw,32px)}
+    .subtitle{color:var(--muted)}
+    .grid{display:grid; gap:16px}
+    @media (min-width: 992px){ .grid{grid-template-columns:340px 1fr} }
 
-  $rows = old('items');
+    .cardx{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden}
+    .cardx .hd{padding:12px 14px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:center}
+    .cardx .bd{padding:14px}
 
-  if (!$rows && $isEdit && isset($invoice->items)) {
-      $rows = $invoice->items->map(function($it){
-          return [
-              'id'          => $it->id,
-              'product_id'  => $it->product_id,
-              'description' => $it->description,
-              'quantity'    => (float)$it->quantity,
-              'unit_price'  => (float)$it->unit_price,
-              'discount'    => (float)$it->discount,
-              'tax_rate'    => (float)$it->tax_rate,
-              'unit'        => $it->unit,
-              'unit_code'   => $it->unit_code,
-              'product_key' => $it->product_key,
-          ];
-      })->toArray();
-  }
+    /* Botones */
+    .btn{border-radius:12px; border:1px solid transparent; font-weight:700; transition:.18s; box-shadow:0 6px 18px rgba(2,8,23,.06)}
+    .btn:hover{background:#fff !important; color:var(--ink) !important; transform:translateY(-1px); box-shadow:0 18px 42px rgba(2,8,23,.14)}
+    .btn-brand{background:var(--brand); color:var(--brand-ink); border-color:#d6ecff}
+    .btn-ghost{background:#f4f7fb; border-color:#eaf0f7; color:#0b1220}
+    .btn-outline{background:#f5f9ff; border-color:#dbe6f4; color:#0b1220}
 
-  if (!$rows || !count($rows)) {
-      $rows = [[
-          'id'          => null,
-          'product_id'  => null,
-          'description' => '',
-          'quantity'    => 1,
-          'unit_price'  => 0,
-          'discount'    => 0,
-          'tax_rate'    => 16,
-          'unit'        => '',
-          'unit_code'   => '',
-          'product_key' => '',
-      ]];
-  }
+    /* Campos */
+    .field{margin-bottom:12px}
+    label{font-weight:700; font-size:.92rem}
+    .control{width:100%; padding:.6rem .8rem; border:1px solid var(--line); border-radius:12px; background:#fff; outline:none; transition:.15s; font-size:.95rem}
+    .control:focus{border-color:#cfe0ff; box-shadow:0 0 0 6px rgba(166,211,255,.25)}
+    .control::placeholder{color:#9aa8b5}
 
-  $currentClientId = old('client_id', $isEdit ? $invoice->client_id : null);
-  $currentType     = old('type', $isEdit ? $invoice->type : 'I');
+    /* Providers */
+    .prov-list{max-height:280px; overflow:auto; border:1px solid var(--line); border-radius:12px; padding:8px; background:#fff}
+    .prov-item{display:flex; gap:8px; align-items:flex-start; padding:8px 6px}
+    .prov-item small{display:block; line-height:1.25}
 
-  $currentClientLabel = '';
-  if (!empty($currentClientId)) {
-      $cc = $clients->firstWhere('id', (int)$currentClientId);
-      if ($cc) $currentClientLabel = trim(($cc->nombre ?? '').' — '.($cc->rfc ?? ''));
-  }
-@endphp
+    /* Toast */
+    .toastx{
+      position:fixed; left:50%; top:18px; transform:translateX(-50%);
+      background:#111827; color:#fff; padding:10px 12px; border-radius:12px;
+      box-shadow:0 18px 50px rgba(2,8,23,.25);
+      font-weight:800; font-size:.92rem;
+      opacity:0; pointer-events:none; transition:.22s;
+      z-index:100000;
+      max-width:min(680px, calc(100vw - 24px));
+    }
+    .toastx.show{opacity:1; pointer-events:auto}
+    .toastx .muted{opacity:.85; font-weight:700}
 
-<meta name="csrf-token" content="{{ csrf_token() }}">
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    /* Mapa */
+    #mapPick{height:540px; border-radius:12px; border:1px solid var(--line); background:#e9eef8; overflow:hidden}
+    .preview-tip{background:#111827; color:#fff; border-radius:10px; padding:.28rem .55rem; font-weight:800; font-size:.8rem; border:2px solid #fff; box-shadow:0 10px 24px rgba(2,8,23,.25)}
 
-<style>
-:root{
-  --ink:#0f172a;
-  --muted:#64748b;
-  --line:#e2e8f0;
+    /* Barra de búsqueda (no overlay) */
+    .searchbar{display:flex; gap:8px; align-items:center; flex-wrap:wrap; border:1px solid var(--line); border-radius:14px; padding:10px; background:#fff; margin-bottom:12px}
+    .addr-wrap{position:relative; flex:1 1 520px}
+    .addr{width:100%}
+    .suggest{position:absolute; left:0; right:0; top:calc(100% + 6px); border:1px solid var(--line); border-radius:12px; background:#fff; box-shadow:var(--shadow); max-height:280px; overflow:auto; display:none; z-index:9999}
+    .s-item{padding:.55rem .7rem; cursor:pointer}
+    .s-item:hover{background:#f6fafc}
+    .s-empty{padding:.6rem .75rem; color:var(--muted)}
 
-  --accent:#4f46e5;
-  --accent-2:#2563eb;
+    /* Lista de puntos */
+    .list{list-style:none; margin:0; padding:0}
+    .rowx{display:flex; justify-content:space-between; align-items:center; gap:10px; padding:.6rem .75rem; border:1px solid var(--line); border-radius:12px; background:#fff}
+    .rowx + .rowx{margin-top:8px}
+    .badge-no{border:1px solid var(--line); border-radius:8px; padding:.1rem .4rem; background:#f7fbff}
 
-  --soft-blue:#eaf2ff;
-  --soft-blue-2:#dbeafe;
-  --soft-blue-ink:#2563eb;
+    /* Link volver */
+    .back{font-weight:800; color:#4338ca; text-decoration:none; background:#f5f7ff; border:1px solid #e5e7ff; padding:.4rem .7rem; border-radius:999px}
+    .back:hover{background:#fff}
+  </style>
 
-  --soft-red:#ffecec;
-  --soft-red-ink:#ef4444;
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"/>
 
-  --card-border:rgba(209,213,219,0.85);
-  --radius:18px;
-  --ease:cubic-bezier(.22,1,.36,1);
-}
+  <div class="toastx" id="toastx"></div>
 
-/* ✅ evita scroll horizontal global */
-html, body{ overflow-x:hidden; }
+  <div class="wrap">
+    <div class="pagehead">
+      <div>
+        <div class="title">Programar nueva ruta</div>
+        <div class="subtitle">Selecciona chofer, agrega puntos (buscador, mapa o providers) y guarda.</div>
+      </div>
+      <a href="{{ route('routes.index') }}" class="back">← Volver</a>
+    </div>
 
-/* 🎨 Fondo */
-body{
-  background: linear-gradient(90deg, #d3b791,#ffffff);
-  color:var(--ink);
-  font-family:"Söhne","Circular Std","Poppins",system-ui,-apple-system,"Segoe UI","Helvetica Neue",Arial,sans-serif;
-  -webkit-font-smoothing:antialiased;
-}
+    <form id="routeForm" method="POST" action="{{ route('routes.store') }}" class="grid">
+      @csrf
 
-/* Tipografía global */
-input,button,select,textarea,.badge,.alert,.btn,.form-control,.modal,.modal-title,.swal2-popup.custom-swal{
-  font-family:"Söhne","Circular Std","Poppins",system-ui,-apple-system,"Segoe UI","Helvetica Neue",Arial,sans-serif;
-}
-
-/* ✅ container del layout: centrado real + menos espacio arriba */
-.inv-shell{
-  width: min(1320px, calc(100vw - 48px));
-  margin: 26px auto 30px;  /* <— antes estaba muy abajo */
-}
-@media (max-width: 991.98px){
-  .inv-shell{
-    width: min(980px, calc(100vw - 24px));
-    margin: 18px auto 22px;
-  }
-}
-
-/* ✅ si tu layout tiene sidebar (Panel), evitamos que empuje a la izquierda */
-.inv-shell{ transform: translateX(0); }
-
-/* =========================
-   ✅ LAYOUT 2 columnas (grid)
-   ========================= */
-.inv-grid{
-  display:grid !important;
-  grid-template-columns: 340px 1fr;
-  gap:18px;
-  align-items:start;
-}
-@media (max-width: 991.98px){
-  .inv-grid{ grid-template-columns: 1fr; gap:16px; }
-}
-
-/* neutraliza bootstrap cols dentro de nuestro grid */
-.inv-aside, .inv-main{
-  width:auto !important;
-  max-width:none !important;
-  flex:none !important;
-}
-
-/* aside sticky */
-@media (min-width: 992px){
-  .inv-aside{
-    position:sticky;
-    top:86px;
-    align-self:start;
-  }
-}
-
-/* =========================
-   ✅ ESPACIADO ENTRE CONTENEDORES
-   ========================= */
-.inv-aside .modern-card{ margin-bottom: 14px !important; }
-.inv-aside .modern-card:last-child{ margin-bottom: 0 !important; }
-
-.inv-main .modern-card{ margin-bottom: 14px !important; }
-.inv-main .modern-card:last-child{ margin-bottom: 0 !important; }
-
-/* =========================
-   ✅ CARD GLASS
-   ========================= */
-.modern-card{
-  position:relative;
-  border-radius:var(--radius);
-  border:1px solid var(--card-border);
-  background-color:rgba(255,255,255,0.55);
-  backdrop-filter:blur(18px) saturate(180%);
-  -webkit-backdrop-filter:blur(18px) saturate(180%);
-  box-shadow:0 22px 50px rgba(15,23,42,0.16);
-  overflow:visible;
-  z-index:1;
-}
-.modern-card::before{
-  content:"";
-  position:absolute; inset:0;
-  pointer-events:none;
-  border-radius:inherit;
-  background:
-    radial-gradient(circle at 0 0, rgba(255,255,255,0.70) 0, transparent 60%),
-    radial-gradient(circle at 100% 0, rgba(79,70,229,0.18) 0, transparent 65%),
-    radial-gradient(circle at 100% 100%, rgba(255,255,255,0.35) 0, transparent 60%);
-  opacity:.35;
-  mix-blend-mode:soft-light;
-}
-.modern-card > *{ position:relative; z-index:1; }
-.modern-card:focus-within{ z-index:60; }
-
-/* header / body con aire */
-.modern-card .card-header.modern-header{
-  border-bottom:1px solid rgba(148,163,184,0.35);
-  padding:14px 16px !important;
-  font-weight:800;
-  font-size:.95rem;
-  color:var(--ink);
-  background:linear-gradient(120deg, rgba(255,255,255,0.92), rgba(248,250,252,0.98));
-}
-.modern-card .card-body{ padding:16px !important; }
-
-/* =========================
-   ✅ INPUTS
-   ========================= */
-.modern-input,.modern-select,.modern-textarea{
-  border-radius:14px;
-  border:1px solid rgba(148,163,184,0.65);
-  font-size:.95rem;
-  padding:.55rem .75rem;
-  background:rgba(255,255,255,0.94);
-  transition:border-color .18s var(--ease), box-shadow .18s var(--ease), background-color .18s var(--ease), transform .08s;
-}
-.modern-input:focus,.modern-select:focus,.modern-textarea:focus{
-  border-color:rgba(37,99,235,.65);
-  outline:none;
-  box-shadow:0 0 0 4px rgba(37,99,235,0.12), 0 14px 30px rgba(37,99,235,0.10);
-  background:#fff;
-  transform:translateY(-1px);
-}
-.modern-select{
-  appearance:none;
-  -webkit-appearance:none;
-  -moz-appearance:none;
-  padding-right:2.2rem;
-  background-image:
-    linear-gradient(45deg, transparent 50%, rgba(100,116,139,.9) 50%),
-    linear-gradient(135deg, rgba(100,116,139,.9) 50%, transparent 50%),
-    linear-gradient(to right, transparent, transparent);
-  background-position:
-    calc(100% - 18px) calc(50% - 3px),
-    calc(100% - 12px) calc(50% - 3px),
-    0 0;
-  background-size:6px 6px, 6px 6px, 100% 100%;
-  background-repeat:no-repeat;
-}
-.modern-select::-ms-expand{ display:none; }
-
-/* =========================
-   ✅ DROPDOWN fixed debajo del input + centrado
-   ========================= */
-.modern-dropdown,
-.dropdown-menu.modern-dropdown{
-  border-radius:18px;
-  padding:10px;
-  border:1px solid rgba(255,255,255,0.85);
-  background:linear-gradient(135deg, rgba(255,255,255,0.96), rgba(248,250,252,0.92));
-  backdrop-filter: blur(26px) saturate(190%);
-  -webkit-backdrop-filter: blur(26px) saturate(190%);
-  box-shadow:0 30px 70px rgba(15,23,42,0.22);
-  max-height:340px;
-  overflow:auto;
-  overflow-x:hidden;
-  z-index:99999 !important;
-
-  position:fixed !important;
-  transform:none !important;
-  inset:auto auto auto auto;
-}
-.modern-dropdown::before,
-.dropdown-menu.modern-dropdown::before{
-  content:"";
-  position:absolute;
-  inset:0;
-  border-radius:inherit;
-  pointer-events:none;
-  background:
-    radial-gradient(circle at 0 0, rgba(255,255,255,0.55) 0, transparent 60%),
-    radial-gradient(circle at 100% 0, rgba(37,99,235,0.12) 0, transparent 60%);
-  opacity:.75;
-  mix-blend-mode:soft-light;
-}
-.modern-dropdown > *{ position:relative; z-index:1; }
-
-/* Items bonitos */
-.dd-item{
-  border-radius:14px;
-  padding:10px 12px;
-  margin:6px 2px;
-  border:1px solid rgba(148,163,184,0.18);
-  background:rgba(255,255,255,0.55);
-  transition:transform .12s var(--ease), background-color .12s var(--ease), box-shadow .12s var(--ease), border-color .12s var(--ease);
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-  width:100%;
-  text-align:left;
-}
-.dd-item:hover{
-  background:rgba(234,242,255,0.85);
-  border-color:rgba(37,99,235,0.22);
-  transform:translateY(-1px);
-  box-shadow:0 12px 26px rgba(37,99,235,0.10);
-}
-.dd-title{ font-weight:900; color:#0b1220; font-size:.92rem; line-height:1.15; }
-.dd-sub{ color:var(--muted); font-size:.82rem; line-height:1.2; margin-top:3px; }
-.dd-right{ display:flex; align-items:center; gap:8px; flex:0 0 auto; }
-.dd-pill{
-  font-weight:900;
-  font-size:.80rem;
-  border-radius:999px;
-  padding:6px 10px;
-  border:1px solid rgba(37,99,235,.18);
-  background:rgba(234,242,255,0.9);
-  color:var(--soft-blue-ink);
-  white-space:nowrap;
-}
-.dd-link{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-  width:100%;
-  border-radius:14px;
-  padding:10px 12px;
-  margin:6px 2px;
-  background:transparent;
-  border:1px dashed rgba(148,163,184,0.25);
-  color:#0b1220;
-  text-decoration:none;
-}
-.dd-link:hover{
-  background:rgba(255,255,255,0.55);
-  border-color:rgba(37,99,235,0.25);
-}
-
-/* =========================
-   ✅ TABLA
-   ========================= */
-.table-responsive{ overflow-x:auto; }
-@media (min-width: 992px){
-  .table-responsive{ overflow-x:hidden; }
-}
-.modern-table{
-  width:100%;
-  border-collapse:separate;
-  border-spacing:0;
-  font-size:.86rem;
-  margin-bottom:0;
-}
-.modern-table thead th{
-  padding:.8rem .9rem;
-  border-bottom:1px solid rgba(226,232,240,0.95);
-  font-weight:900;
-  color:#475569;
-  background:linear-gradient(135deg, rgba(255,255,255,0.96), rgba(248,250,252,0.98));
-  white-space:nowrap;
-}
-.modern-table thead th:first-child{ border-top-left-radius:16px; }
-.modern-table thead th:last-child{ border-top-right-radius:16px; }
-.modern-table tbody td{
-  padding:.8rem .9rem;
-  vertical-align:middle;
-  border-top:1px solid rgba(226,232,240,0.9);
-  color:#0b1220;
-}
-.modern-table tbody tr:nth-child(odd){ background:rgba(255,255,255,0.78); }
-.modern-table tbody tr:nth-child(even){ background:rgba(248,250,252,0.88); }
-
-.modern-table input[type="number"],
-.modern-table input[type="text"],
-.modern-table .form-control{
-  width:100%;
-  border-radius:14px;
-  border:1px solid rgba(148,163,184,0.65);
-  background:rgba(255,255,255,0.96);
-  padding:.42rem .6rem;
-  font-size:.85rem;
-  height:38px;
-  box-shadow:0 8px 20px rgba(15,23,42,0.06);
-  transition:border-color .18s var(--ease), box-shadow .18s var(--ease), transform .06s;
-}
-.modern-table input:focus,
-.modern-table .form-control:focus{
-  outline:none;
-  border-color:rgba(37,99,235,.6);
-  box-shadow:0 0 0 4px rgba(37,99,235,0.12), 0 10px 22px rgba(37,99,235,0.10);
-  transform:translateY(-1px);
-}
-
-.prod-chip{ display:flex; align-items:center; gap:10px; }
-.prod-change{
-  width:34px; height:34px;
-  border-radius:12px;
-  border:1px solid rgba(37,99,235,.20);
-  background:rgba(234,242,255,0.95);
-  color:var(--soft-blue-ink);
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-}
-.prod-name-btn{
-  background:transparent;
-  border:none;
-  padding:0;
-  margin:0;
-  text-align:left;
-  cursor:pointer;
-  color:#0b1220;
-  font-weight:900;
-  line-height:1.2;
-  display:-webkit-box;
-  -webkit-line-clamp: 4;
-  -webkit-box-orient: vertical;
-  overflow:hidden;
-}
-.prod-name-btn:hover{ color:var(--soft-blue-ink); text-decoration:underline; }
-
-.line-pill{
-  display:inline-block;
-  min-width:110px;
-  text-align:right;
-  font-weight:950;
-  padding:.45rem .75rem;
-  border-radius:14px;
-  border:1px solid rgba(148,163,184,0.45);
-  background:rgba(255,255,255,0.92);
-}
-
-/* =========================
-   ✅ BOTONES PASTEL (sin degradado)
-   ========================= */
-.btn-soft{
-  border-radius:999px !important;
-  padding:.60rem 1.05rem !important;
-  font-weight:950 !important;
-  border:1px solid rgba(37,99,235,.20) !important;
-  background:rgba(234,242,255,0.95) !important;
-  color:var(--soft-blue-ink) !important;
-  display:inline-flex !important;
-  align-items:center !important;
-  gap:.5rem !important;
-  transition:transform .12s var(--ease), box-shadow .12s var(--ease), background-color .12s var(--ease);
-  box-shadow:0 10px 22px rgba(37,99,235,0.10);
-}
-.btn-soft:hover{
-  background:rgba(219,234,254,1) !important;
-  transform:translateY(-1px);
-  box-shadow:0 14px 28px rgba(37,99,235,0.14);
-}
-.btn-soft:active{ transform:translateY(0); }
-
-.btn-soft-danger{
-  border-radius:999px !important;
-  padding:.55rem .9rem !important;
-  font-weight:950 !important;
-  border:1px solid rgba(239,68,68,.18) !important;
-  background:rgba(255,236,236,0.95) !important;
-  color:var(--soft-red-ink) !important;
-}
-.btn-soft-danger:hover{ background:rgba(254,226,226,1) !important; }
-.icon-btn-danger{
-  width:40px; height:40px;
-  border-radius:999px !important;
-  display:inline-flex; align-items:center; justify-content:center;
-}
-.tip{ margin-top:10px; color:#475569; font-size:.86rem; }
-</style>
-
-<div class="inv-shell">
-  <form id="form-invoice"
-        method="POST"
-        action="{{ $isEdit ? route('manual_invoices.update', $invoice) : route('manual_invoices.store') }}">
-    @csrf
-    @if($isEdit) @method('PUT') @endif
-
-    <div class="row inv-grid">
-
-      {{-- ======================= IZQUIERDA ======================= --}}
-      <div class="col-md-3 inv-aside">
-
-        {{-- Cliente --}}
-        <div class="card modern-card">
-          <div class="card-header modern-header">
-            <i class="fa-regular fa-user me-2" style="color:var(--accent-2)"></i> Cliente
-          </div>
-          <div class="card-body">
-            <div class="dropdown">
-              <input
-                type="text"
-                id="search-client-inv"
-                class="form-control modern-input dropdown-toggle"
-                data-bs-toggle="dropdown"
-                placeholder="Buscar cliente..."
-                autocomplete="off"
-                value="{{ old('client_label', $currentClientLabel) }}"
-              >
-              <ul class="dropdown-menu modern-dropdown w-100" id="client-list-inv">
-                <li>
-                  <button type="button"
-                          class="dd-item js-pick-client"
-                          data-id="1"
-                          data-label="Público en General"
-                          data-nombre="PÚBLICO EN GENERAL"
-                          data-rfc=""
-                          data-telefono=""
-                          data-email=""
-                          data-comentarios="">
-                    <div>
-                      <div class="dd-title">PÚBLICO EN GENERAL</div>
-                      <div class="dd-sub">Genérico</div>
-                    </div>
-                    <div class="dd-right">
-                      <span class="dd-pill">ID 1</span>
-                    </div>
-                  </button>
-                </li>
-
-                <li>
-                  <a class="dd-link"
-                     href="{{ \Illuminate\Support\Facades\Route::has('clients.create') ? route('clients.create') : '#' }}"
-                     target="_blank" rel="noopener"
-                     style="{{ \Illuminate\Support\Facades\Route::has('clients.create') ? '' : 'pointer-events:none;opacity:.5' }}">
-                    <span><i class="fa-solid fa-plus me-2" style="color:var(--accent-2)"></i> Crear nuevo cliente</span>
-                    <span class="dd-pill">Abrir</span>
-                  </a>
-                </li>
-
-                <li><hr class="dropdown-divider"></li>
-
-                @foreach($clients as $c)
-                  @php
-                    $label  = trim(($c->nombre ?? '').' — '.($c->rfc ?? ''));
-                    $search = Str::of($label)->lower()->ascii();
-                  @endphp
-                  <li class="js-client-li" data-search="{{ $search }}">
-                    <button type="button"
-                            class="dd-item js-pick-client"
-                            data-id="{{ $c->id }}"
-                            data-label="{{ $label }}"
-                            data-nombre="{{ strtoupper($c->nombre ?? '') }}"
-                            data-rfc="{{ $c->rfc ?? '' }}"
-                            data-telefono="{{ $c->telefono ?? '' }}"
-                            data-email="{{ $c->email ?? '' }}"
-                            data-comentarios="{{ $c->comentarios ?? '' }}">
-                      <div style="min-width:0;">
-                        <div class="dd-title">{{ strtoupper($c->nombre ?? 'SIN NOMBRE') }}</div>
-                        <div class="dd-sub">RFC: {{ $c->rfc ?? '—' }}</div>
-                      </div>
-                      <div class="dd-right">
-                        <span class="dd-pill">ID {{ $c->id }}</span>
-                      </div>
-                    </button>
-                  </li>
-                @endforeach
-              </ul>
-            </div>
-
-            <input type="hidden" name="client_id" id="client_id" value="{{ $currentClientId }}">
-            @error('client_id')
-              <small class="text-danger d-block mt-2">{{ $message }}</small>
-            @enderror
-
-            <div id="client-details-inv" class="mt-3"></div>
-          </div>
-        </div>
-
-        {{-- Tipo --}}
-        <div class="card modern-card">
-          <div class="card-header modern-header">
-            <i class="fa-solid fa-tag me-2" style="color:var(--accent-2)"></i> Tipo
-          </div>
-          <div class="card-body">
-            <select name="type" class="form-control modern-select">
-              <option value="I" {{ $currentType === 'I' ? 'selected' : '' }}>Ingreso</option>
-              <option value="E" {{ $currentType === 'E' ? 'selected' : '' }}>Egreso</option>
-              <option value="P" {{ $currentType === 'P' ? 'selected' : '' }}>Pago</option>
+      {{-- Columna izquierda --}}
+      <div class="cardx">
+        <div class="hd"><div class="fw-bold">Detalles</div></div>
+        <div class="bd">
+          <div class="field">
+            <label class="mb-1">Chofer asignado</label>
+            <select name="driver_id" class="control" required>
+              <option value="">Selecciona…</option>
+              @foreach($drivers as $d)
+                <option value="{{ $d->id }}">{{ $d->name ?? $d->email }} {{ $d->email ? "({$d->email})" : '' }}</option>
+              @endforeach
             </select>
           </div>
-        </div>
 
-        {{-- Notas --}}
-        <div class="card modern-card">
-          <div class="card-header modern-header">
-            <i class="fa-regular fa-note-sticky me-2" style="color:var(--accent-2)"></i> Notas internas
-          </div>
-          <div class="card-body">
-            <textarea name="notes" rows="4" class="form-control modern-textarea"
-                      placeholder="Texto libre (no se envía al SAT)">{{ old('notes', $isEdit ? ($invoice->notes ?? '') : '') }}</textarea>
-          </div>
-        </div>
-
-        {{-- Registrado por --}}
-        <div class="card modern-card">
-          <div class="card-header modern-header">
-            <i class="fa-regular fa-id-badge me-2" style="color:var(--accent-2)"></i> Registrado por
-          </div>
-          <div class="card-body">
-            @auth
-              <input type="text" class="form-control modern-textarea" value="{{ auth()->user()->name }}" readonly>
-            @else
-              <input type="text" class="form-control modern-textarea" value="Desconocido" readonly>
-            @endauth
-          </div>
-        </div>
-
-      </div>
-
-      {{-- ======================= DERECHA ======================= --}}
-      <div class="col-md-9 inv-main">
-
-        {{-- Productos --}}
-        <div class="card modern-card">
-          <div class="card-header modern-header">
-            <i class="fa-solid fa-box me-2" style="color:var(--accent-2)"></i> Productos
-          </div>
-          <div class="card-body">
-            <div class="dropdown">
-              <input
-                type="text"
-                id="buscarProductoInv"
-                class="form-control modern-input dropdown-toggle"
-                data-bs-toggle="dropdown"
-                placeholder="Buscar producto por SKU o nombre..."
-                autocomplete="off"
-              >
-
-              <ul class="dropdown-menu modern-dropdown w-100" id="dropdownProductosInv">
-                @foreach($products as $p)
-                  @php
-                    $price  = $p->price ?? $p->market_price ?? $p->bid_price ?? 0;
-                    $label  = trim(($p->sku ?? '').' — '.Str::limit($p->name ?? '', 70));
-                    $search = Str::of($label)->lower()->ascii();
-                  @endphp
-                  <li class="js-prod-li" data-search="{{ $search }}">
-                    <button type="button"
-                            class="dd-item js-pick-product"
-                            data-id="{{ $p->id }}"
-                            data-label="{{ $label }}"
-                            data-price="{{ (float)$price }}"
-                            data-unit="{{ $p->unit ?? '' }}"
-                            data-unit_code="{{ $p->unit_code ?? '' }}"
-                            data-product_key="{{ $p->clave_sat ?? '' }}">
-                      <div style="min-width:0;">
-                        <div class="dd-title">{{ strtoupper($p->sku ?? '') }} — {{ strtoupper(Str::limit($p->name ?? '', 42)) }}</div>
-                        <div class="dd-sub">Clave SAT: {{ $p->clave_sat ?? '—' }}</div>
-                      </div>
-                      <div class="dd-right">
-                        <span class="dd-pill">${{ number_format((float)$price, 2) }}</span>
-                        @if(isset($p->stock))
-                          <span class="dd-pill" style="border-color:rgba(100,116,139,.18);background:rgba(248,250,252,.95);color:#334155;">
-                            {{ $p->stock }} uds
-                          </span>
-                        @endif
-                      </div>
-                    </button>
-                  </li>
-                @endforeach
-              </ul>
-            </div>
-
-            <div class="tip">
-              Tip: selecciona un producto para agregarlo. Para cambiar uno existente, haz clic en el nombre del producto en la tabla.
-            </div>
-          </div>
-        </div>
-
-        {{-- Conceptos --}}
-        <div class="card modern-card">
-          <div class="card-header modern-header">
-            <i class="fa-solid fa-list-check me-2" style="color:var(--accent-2)"></i> Conceptos
+          <div class="field">
+            <label class="mb-1">Nombre de la ruta (opcional)</label>
+            <input type="text" name="name" class="control" placeholder="Ruta Zona Norte – 1">
           </div>
 
-          <div class="card-body">
-            <div class="table-responsive">
-              <table class="table modern-table" id="itemsTable">
-                <thead>
-                  <tr>
-                    <th style="width:26%;">Producto</th>
-                    <th style="width:26%;">Descripción</th>
-                    <th style="width:10%;">Cant.</th>
-                    <th style="width:10%;">P. unit.</th>
-                    <th style="width:10%;">Desc.</th>
-                    <th style="width:8%;">IVA%</th>
-                    <th style="width:8%;">Total</th>
-                    <th style="width:2%;">Acción</th>
-                  </tr>
-                </thead>
-                <tbody id="itemsTbody">
-                  @foreach($rows as $i => $row)
-                    @php
-                      $pLabel = 'Manual';
-                      if (!empty($row['product_id'])) {
-                        $pp = $products->firstWhere('id', (int)$row['product_id']);
-                        if ($pp) $pLabel = trim(($pp->sku ?? '').' — '.Str::limit($pp->name ?? '', 120));
-                      }
-                    @endphp
-                    <tr data-idx="{{ $i }}">
-                      @if(!empty($row['id']))
-                        <input type="hidden" name="items[{{ $i }}][id]" value="{{ $row['id'] }}">
+          <div class="field">
+            <div class="fw-bold mb-1">Providers (enviar provider_id + dirección por partes)</div>
+            <div class="prov-list">
+              @forelse($providers as $p)
+                @php
+                  $hasGeo = !is_null($p->lat) && !is_null($p->lng);
+                  $addr   = trim((string)($p->address ?? ''));
+                  $calle  = trim((string)($p->calle ?? ''));
+                  $colonia= trim((string)($p->colonia ?? ''));
+                  $ciudad = trim((string)($p->ciudad ?? ''));
+                  $estado = trim((string)($p->estado ?? ''));
+                  $cp     = trim((string)($p->cp ?? ''));
+                @endphp
+
+                <label class="prov-item">
+                  <input class="form-check-input provChk" type="checkbox"
+                         data-id="{{ $p->id }}"
+                         data-name="{{ $p->name }}"
+                         data-lat="{{ $hasGeo ? $p->lat : '' }}"
+                         data-lng="{{ $hasGeo ? $p->lng : '' }}"
+                         data-address="{{ e($addr) }}"
+                         data-calle="{{ e($calle) }}"
+                         data-colonia="{{ e($colonia) }}"
+                         data-ciudad="{{ e($ciudad) }}"
+                         data-estado="{{ e($estado) }}"
+                         data-cp="{{ e($cp) }}">
+                  <span>
+                    <div class="fw-bold">{{ $p->name ?: 'Proveedor #'.$p->id }}</div>
+                    <small class="text-muted">
+                      @if($hasGeo)
+                        ({{ number_format($p->lat,6) }}, {{ number_format($p->lng,6) }})
+                      @else
+                        {{ $addr ?: trim(implode(', ', array_filter([$calle,$colonia,$ciudad,$estado,$cp]))) ?: 'Sin datos' }}
+                        <span class="muted"> · se geocodifica al seleccionar</span>
                       @endif
-
-                      <td>
-                        <div class="prod-chip">
-                          <span class="prod-change" title="Cambiar producto"><i class="fa-solid fa-rotate"></i></span>
-                          <button type="button" class="prod-name-btn js-change-label">{{ $pLabel }}</button>
-                        </div>
-
-                        <input type="hidden" class="js-product-id" name="items[{{ $i }}][product_id]" value="{{ $row['product_id'] ?? '' }}">
-                        <input type="hidden" name="items[{{ $i }}][unit]" value="{{ $row['unit'] ?? '' }}">
-                        <input type="hidden" name="items[{{ $i }}][unit_code]" value="{{ $row['unit_code'] ?? '' }}">
-                        <input type="hidden" name="items[{{ $i }}][product_key]" value="{{ $row['product_key'] ?? '' }}">
-                      </td>
-
-                      <td>
-                        <input type="text" class="form-control"
-                               name="items[{{ $i }}][description]"
-                               value="{{ $row['description'] ?? '' }}"
-                               placeholder="Descripción" required>
-                      </td>
-
-                      <td><input type="number" step="0.001" min="0.001" class="form-control js-qty" name="items[{{ $i }}][quantity]" value="{{ $row['quantity'] ?? 1 }}"></td>
-                      <td><input type="number" step="0.01" min="0" class="form-control js-price" name="items[{{ $i }}][unit_price]" value="{{ $row['unit_price'] ?? 0 }}"></td>
-                      <td><input type="number" step="0.01" min="0" class="form-control js-discount" name="items[{{ $i }}][discount]" value="{{ $row['discount'] ?? 0 }}"></td>
-                      <td><input type="number" step="0.01" min="0" class="form-control js-tax" name="items[{{ $i }}][tax_rate]" value="{{ $row['tax_rate'] ?? 16 }}"></td>
-
-                      <td class="text-end">
-                        <span class="line-pill js-line-total">$0.00</span>
-                      </td>
-
-                      <td class="text-center">
-                        <button type="button" class="btn btn-soft-danger icon-btn-danger js-remove" title="Quitar">
-                          <i class="fa-solid fa-xmark"></i>
-                        </button>
-                      </td>
-                    </tr>
-                  @endforeach
-                </tbody>
-              </table>
+                    </small>
+                  </span>
+                </label>
+              @empty
+                <em class="text-muted">No hay providers disponibles.</em>
+              @endforelse
             </div>
+          </div>
+
+          <div id="valAlert" class="alert alert-warning d-none"></div>
+
+          <div class="d-grid mt-2">
+            <button type="submit" class="btn btn-brand btn-lg">
+              <i class="bi bi-floppy2-fill"></i> Guardar ruta
+            </button>
           </div>
         </div>
-
-        <div class="d-flex flex-column flex-md-row gap-3">
-          {{-- Resumen --}}
-          <div class="card modern-card w-100">
-            <div class="card-header modern-header">
-              <i class="fa-solid fa-receipt me-2" style="color:var(--accent-2)"></i> Resumen
-            </div>
-            <div class="card-body">
-              <div class="d-flex justify-content-between align-items-center py-2" style="border-bottom:1px dashed rgba(148,163,184,.35)">
-                <div class="text-muted fw-bold">Subtotal</div>
-                <div style="font-weight:950">$<span id="sum_sub">0.00</span></div>
-              </div>
-              <div class="d-flex justify-content-between align-items-center py-2" style="border-bottom:1px dashed rgba(148,163,184,.35)">
-                <div class="text-muted fw-bold">Descuento</div>
-                <div style="font-weight:950">$<span id="sum_disc">0.00</span></div>
-              </div>
-              <div class="d-flex justify-content-between align-items-center py-2" style="border-bottom:1px dashed rgba(148,163,184,.35)">
-                <div class="text-muted fw-bold">Impuestos</div>
-                <div style="font-weight:950">$<span id="sum_tax">0.00</span></div>
-              </div>
-
-              <div class="d-flex justify-content-between align-items-center pt-3">
-                <div style="font-weight:950;font-size:1.05rem;">Total</div>
-                <div style="font-weight:950;font-size:1.15rem;">$<span id="sum_total">0.00</span></div>
-              </div>
-            </div>
-          </div>
-
-          {{-- Acciones --}}
-          <div class="card modern-card w-100">
-            <div class="card-header modern-header">
-              <i class="fa-solid fa-bolt me-2" style="color:var(--accent-2)"></i> Acciones
-            </div>
-            <div class="card-body d-flex justify-content-end gap-2 flex-wrap">
-              <a href="{{ route('manual_invoices.index') }}" class="btn btn-soft">
-                <i class="fa-solid fa-arrow-left"></i> Cancelar
-              </a>
-              <button type="submit" class="btn btn-soft" id="btnSaveInv">
-                <i class="fa-solid fa-check"></i>
-                <span class="btn-label">{{ $isEdit ? 'Guardar cambios' : 'Guardar borrador' }}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
       </div>
-    </div>
-  </form>
+
+      {{-- Columna derecha --}}
+      <div class="cardx">
+        <div class="hd">
+          <div class="fw-bold">Mapa y buscador</div>
+        </div>
+        <div class="bd">
+          {{-- Barra de búsqueda (no overlay) --}}
+          <div class="searchbar">
+            <div class="addr-wrap">
+              <input id="addrInput" class="control addr" type="text" placeholder="Escribe dirección en México (calle, colonia, ciudad)…">
+              <div id="suggestList" class="suggest"></div>
+            </div>
+            <button id="btnUseMyLoc" type="button" class="btn btn-ghost">
+              <i class="bi bi-geo-alt"></i> Mi ubicación
+            </button>
+            <button id="btnAddPreview" type="button" class="btn btn-outline" disabled>
+              <i class="bi bi-plus-lg"></i> Agregar a la ruta
+            </button>
+          </div>
+
+          <div id="mapPick"></div>
+        </div>
+      </div>
+
+      {{-- Lista de puntos --}}
+      <div class="cardx" style="grid-column:1/-1">
+        <div class="hd">
+          <div class="fw-bold">Puntos seleccionados</div>
+          <small class="text-muted">Arrastra para reordenar (visual). La optimización final se hace al iniciar.</small>
+        </div>
+        <div class="bd">
+          <ul id="picked" class="list"></ul>
+        </div>
+      </div>
+
+      <input type="hidden" id="stopsJson" name="stops">
+    </form>
+  </div>
 </div>
 
-<script>
-(function(){
-  const $  = (id) => document.getElementById(id);
-  const norm = (s) => (s||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-  const money = (n) => (Number(n||0)).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script type="module" src="https://unpkg.com/sortablejs@1.15.2/modular/sortable.esm.js"></script>
 
-  function placeMenuUnderInput(input, menu){
-    if (!input || !menu) return;
-    const r = input.getBoundingClientRect();
-    const gap = 8;
+<script type="module">
+import Sortable from 'https://unpkg.com/sortablejs@1.15.2/modular/sortable.esm.js';
 
-    const vw = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
-    const vh = Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0);
+const picked = []; // {name, lat, lng, address?, provider_id?, calle?, colonia?, ciudad?, estado?, cp?}
+const pickedEl  = document.getElementById('picked');
+const stopsJson = document.getElementById('stopsJson');
+const valAlert  = document.getElementById('valAlert');
 
-    let left = Math.max(10, r.left);
-    let width = Math.min(r.width, vw - left - 10);
-    if (left + width > vw - 10) left = Math.max(10, vw - width - 10);
+const addrInput  = document.getElementById('addrInput');
+const suggestBox = document.getElementById('suggestList');
+const btnAddPrev = document.getElementById('btnAddPreview');
+const btnMyLoc   = document.getElementById('btnUseMyLoc');
 
-    const top = Math.min(r.bottom + gap, vh - 120);
+const toastEl = document.getElementById('toastx');
+let toastTimer = null;
 
-    menu.style.left = left + 'px';
-    menu.style.top = top + 'px';
-    menu.style.width = width + 'px';
-    menu.style.maxHeight = Math.max(180, vh - top - 16) + 'px';
+let map, markersLayer, previewMarker=null, previewData=null;
+
+/* ===== Utils ===== */
+const debounce = (fn,ms)=>{ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); } };
+const fmt = (n,d=6)=>Number(n).toFixed(d);
+const fmtLatLng = (lat,lng)=>`(${fmt(lat,5)}, ${fmt(lng,5)})`;
+const isNum = (n)=> typeof n === 'number' && !Number.isNaN(n) && Number.isFinite(n);
+
+/** Normaliza string: sin acentos, sin apostrofes raros, espacios limpios */
+function norm(s){
+  s = (s || '').toString().trim();
+  if (!s) return '';
+  // quitar acentos (sin iconv raro)
+  s = s.normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  // quitar comillas raras/apostrofes sueltos
+  s = s.replace(/[’'`"]/g,'');
+  // espacios
+  s = s.replace(/\s+/g,' ').trim();
+  return s;
+}
+
+function joinParts(parts){
+  const out = [];
+  const seen = new Set();
+  for (const p of parts){
+    const t = norm(p);
+    if (!t) continue;
+    const k = t.toLowerCase();
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(t);
   }
+  return out.join(', ');
+}
 
-  function openDropdown(input, menu){
-    placeMenuUnderInput(input, menu);
-    menu.classList.add('show');
-    menu.style.display = 'block';
+function ensureMx(q){
+  q = norm(q);
+  if (!q) return '';
+  if (!/mex/i.test(q)) q += ', Mexico';
+  return q;
+}
+
+function toast(msg, ms=2600){
+  toastEl.innerHTML = msg;
+  toastEl.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=> toastEl.classList.remove('show'), ms);
+}
+
+/* ===== Leaflet ===== */
+map = L.map('mapPick', { zoomSnap:0.5 }).setView([23.6345,-102.5528], 5); // centro MX
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ attribution:'© OpenStreetMap' }).addTo(map);
+markersLayer = L.layerGroup().addTo(map);
+
+function setPreview(lat,lng,label){
+  if (previewMarker){ markersLayer.removeLayer(previewMarker); previewMarker=null; }
+  previewMarker = L.marker([lat,lng]).addTo(markersLayer);
+  previewMarker.bindTooltip(`<div class="preview-tip">${label || 'Previsualización'}<br>${fmtLatLng(lat,lng)}</div>`,{permanent:true,direction:'top',offset:[0,-8]}).openTooltip();
+  map.flyTo([lat,lng], 15, {duration:.45});
+  btnAddPrev.disabled = false;
+}
+
+/* Click en mapa -> reverse */
+map.on('click', async (e)=>{
+  const {lat,lng} = e.latlng;
+  btnAddPrev.disabled = true;
+  try{
+    const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&accept-language=es&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,{headers:{'Accept':'application/json'}});
+    const j = await r.json();
+    const label = j?.display_name || 'Punto manual';
+    addrInput.value = label;
+    previewData = {lat,lng,address:label,name:''};
+    setPreview(lat,lng,'Previsualización');
+  }catch{
+    previewData = {lat,lng,address:'',name:''};
+    setPreview(lat,lng,'Previsualización');
   }
-  function closeDropdown(menu){
-    menu.classList.remove('show');
-    menu.style.display = 'none';
-  }
-  function closeOnOutside(input, menu){
-    document.addEventListener('click', (e) => {
-      if (menu.style.display === 'none') return;
-      if (menu.contains(e.target) || input === e.target) return;
-      closeDropdown(menu);
-    });
-  }
-  function attachReposition(input, menu){
-    const handler = () => {
-      if (menu.style.display !== 'none') placeMenuUnderInput(input, menu);
-    };
-    window.addEventListener('scroll', handler, true);
-    window.addEventListener('resize', handler);
-  }
+});
 
-  // CLIENTES
-  const clientInput   = $('search-client-inv');
-  const clientMenu    = $('client-list-inv');
-  const clientHidden  = $('client_id');
-  const clientDetails = $('client-details-inv');
+/* ===== Búsqueda (sólo México) ===== */
+const queryNominatim = debounce(async (q)=>{
+  q=q.trim();
+  suggestBox.style.display='none';
+  suggestBox.innerHTML='';
+  if (!q || q.length<3) return;
 
-  function renderClient(btn){
-    const nombre = (btn.dataset.nombre || '').toUpperCase();
-    const rfc    = (btn.dataset.rfc || '');
-    const tel    = (btn.dataset.telefono || '');
-    const email  = (btn.dataset.email || '');
-    const dir    = (btn.dataset.comentarios || '');
-
-    clientDetails.innerHTML = `
-      <div style="border:1px solid rgba(148,163,184,.35);border-radius:16px;background:rgba(255,255,255,.75);padding:12px;">
-        <div style="font-weight:950;">${nombre || 'CLIENTE'}</div>
-        ${rfc ? `<div class="text-muted" style="font-weight:800;">RFC: ${rfc}</div>` : ``}
-        <div class="text-muted">Tel: ${tel || 'No registrado'}</div>
-        <div class="text-muted">Email: ${email || 'No registrado'}</div>
-        <div class="text-muted">Dirección: ${dir || 'No registrado'}</div>
-      </div>
-    `;
-  }
-
-  function filterClients(){
-    const q = norm(clientInput.value);
-    openDropdown(clientInput, clientMenu);
-    clientMenu.querySelectorAll('.js-client-li').forEach(li => {
-      const s = li.dataset.search || norm(li.textContent);
-      li.style.display = (!q || s.includes(q)) ? '' : 'none';
-    });
-  }
-
-  clientInput.addEventListener('focus', filterClients);
-  clientInput.addEventListener('click', filterClients);
-  clientInput.addEventListener('input', filterClients);
-  closeOnOutside(clientInput, clientMenu);
-  attachReposition(clientInput, clientMenu);
-
-  clientMenu.addEventListener('click', (e) => {
-    const btn = e.target.closest('.js-pick-client');
-    if (!btn) return;
-    e.preventDefault();
-
-    clientHidden.value = btn.dataset.id || '';
-    clientInput.value  = btn.dataset.label || btn.textContent.trim();
-    renderClient(btn);
-    closeDropdown(clientMenu);
-  });
-
-  if (clientHidden.value) {
-    const btn = clientMenu.querySelector(`.js-pick-client[data-id="${clientHidden.value}"]`);
-    if (btn) renderClient(btn);
-  }
-
-  // PRODUCTOS
-  const prodInput = $('buscarProductoInv');
-  const prodMenu  = $('dropdownProductosInv');
-  let activeRow = null;
-
-  function filterProducts(){
-    const q = norm(prodInput.value);
-    openDropdown(prodInput, prodMenu);
-    prodMenu.querySelectorAll('.js-prod-li').forEach(li => {
-      const s = li.dataset.search || norm(li.textContent);
-      li.style.display = (!q || s.includes(q)) ? '' : 'none';
-    });
-  }
-  prodInput.addEventListener('focus', filterProducts);
-  prodInput.addEventListener('click', filterProducts);
-  prodInput.addEventListener('input', filterProducts);
-  closeOnOutside(prodInput, prodMenu);
-  attachReposition(prodInput, prodMenu);
-
-  // TABLA
-  const tbody   = $('itemsTbody');
-  const sumSub  = $('sum_sub');
-  const sumDisc = $('sum_disc');
-  const sumTax  = $('sum_tax');
-  const sumTot  = $('sum_total');
-
-  function recalc(){
-    let sub = 0, disc = 0, tax = 0, tot = 0;
-    tbody.querySelectorAll('tr').forEach(tr => {
-      const qty   = parseFloat(tr.querySelector('.js-qty')?.value || '0') || 0;
-      const price = parseFloat(tr.querySelector('.js-price')?.value || '0') || 0;
-      const d     = parseFloat(tr.querySelector('.js-discount')?.value || '0') || 0;
-      const t     = parseFloat(tr.querySelector('.js-tax')?.value || '0') || 0;
-
-      const base = Math.max(qty * price - d, 0);
-      const iva  = base * (t / 100);
-      const line = base + iva;
-
-      tr.querySelector('.js-line-total').textContent = '$' + money(line);
-
-      sub += base; disc += d; tax += iva; tot += line;
-    });
-
-    sumSub.textContent  = money(sub);
-    sumDisc.textContent = money(disc);
-    sumTax.textContent  = money(tax);
-    sumTot.textContent  = money(tot);
-  }
-
-  function renumber(){
-    tbody.querySelectorAll('tr').forEach((tr, idx) => {
-      tr.dataset.idx = idx;
-      tr.querySelectorAll('input[name^="items["]').forEach(inp => {
-        inp.name = inp.name.replace(/items\[\d+]/, 'items['+idx+']');
+  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&accept-language=es&countrycodes=mx&q=${encodeURIComponent(q)}`;
+  try{
+    const res = await fetch(url, {headers:{'Accept':'application/json'}});
+    const items = await res.json();
+    if (!Array.isArray(items) || !items.length){
+      suggestBox.innerHTML = `<div class="s-empty">Sin resultados en México</div>`;
+      suggestBox.style.display = 'block';
+      return;
+    }
+    items.forEach((it)=>{
+      const div = document.createElement('div');
+      div.className = 's-item';
+      div.textContent = it.display_name;
+      div.addEventListener('click', ()=>{
+        addrInput.value = it.display_name;
+        previewData = { lat:Number(it.lat), lng:Number(it.lon), address: it.display_name, name:'' };
+        setPreview(previewData.lat, previewData.lng, 'Previsualización');
+        suggestBox.style.display = 'none';
       });
+      suggestBox.appendChild(div);
     });
+    suggestBox.style.display = 'block';
+  }catch{
+    suggestBox.innerHTML = `<div class="s-empty">Error consultando geocodificador</div>`;
+    suggestBox.style.display = 'block';
   }
+}, 350);
 
-  function addRow(data = {}){
-    const idx = tbody.querySelectorAll('tr').length;
-    const tr = document.createElement('tr');
-    tr.dataset.idx = idx;
+addrInput.addEventListener('input', ()=> queryNominatim(addrInput.value));
+addrInput.addEventListener('focus', ()=>{ if (suggestBox.children.length) suggestBox.style.display='block'; });
+document.addEventListener('click', (e)=>{ if (!e.target.closest('.addr-wrap')) suggestBox.style.display='none'; });
+addrInput.addEventListener('keydown', async (e)=>{
+  if (e.key==='Enter'){
+    e.preventDefault();
+    await queryNominatim(addrInput.value);
+    const first = suggestBox.querySelector('.s-item');
+    if (first){ first.click(); }
+  }
+});
 
-    const label = data.label || 'Manual';
+/* Mi ubicación */
+btnMyLoc.addEventListener('click', ()=>{
+  if (!navigator.geolocation){ alert('Tu dispositivo no soporta GPS'); return; }
+  btnAddPrev.disabled = true;
+  navigator.geolocation.getCurrentPosition(async (p)=>{
+    const lat=p.coords.latitude, lng=p.coords.longitude;
+    try{
+      const r=await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&accept-language=es&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,{headers:{'Accept':'application/json'}});
+      const j=await r.json();
+      const label=j?.display_name || 'Mi ubicación';
+      addrInput.value = label;
+      previewData = {lat,lng,address:label,name:''};
+      setPreview(lat,lng,'Mi ubicación');
+    }catch{
+      previewData = {lat,lng,address:'',name:''};
+      setPreview(lat,lng,'Mi ubicación');
+    }
+  }, ()=>alert('No fue posible obtener tu ubicación'), {enableHighAccuracy:true,timeout:12000,maximumAge:5000});
+});
 
-    tr.innerHTML = `
-      <td>
-        <div class="prod-chip">
-          <span class="prod-change" title="Cambiar producto"><i class="fa-solid fa-rotate"></i></span>
-          <button type="button" class="prod-name-btn js-change-label">${label}</button>
+/* Lista seleccionada */
+function renderPicked(){
+  pickedEl.innerHTML='';
+  picked.forEach((p,i)=>{
+    const row=document.createElement('li');
+    row.className='rowx';
+    row.dataset.index=i;
+    row.innerHTML = `
+      <div class="d-flex align-items-center gap-2">
+        <span class="badge-no">#${i+1}</span>
+        <div>
+          <div class="fw-bold">${p.name || p.address || '(sin nombre)'}</div>
+          <div class="text-muted small">
+            Lat: ${fmt(p.lat)} · Lng: ${fmt(p.lng)}
+            ${p.provider_id ? ' · Provider #' + p.provider_id : ''}
+          </div>
+          ${p.address ? `<div class="text-muted small">${p.address}</div>` : ''}
         </div>
-
-        <input type="hidden" class="js-product-id" name="items[${idx}][product_id]" value="${data.product_id || ''}">
-        <input type="hidden" name="items[${idx}][unit]" value="${data.unit || ''}">
-        <input type="hidden" name="items[${idx}][unit_code]" value="${data.unit_code || ''}">
-        <input type="hidden" name="items[${idx}][product_key]" value="${data.product_key || ''}">
-      </td>
-
-      <td><input type="text" class="form-control" name="items[${idx}][description]" value="${(data.description||'').replace(/"/g,'&quot;')}" placeholder="Descripción" required></td>
-      <td><input type="number" step="0.001" min="0.001" class="form-control js-qty" name="items[${idx}][quantity]" value="${data.quantity ?? 1}"></td>
-      <td><input type="number" step="0.01" min="0" class="form-control js-price" name="items[${idx}][unit_price]" value="${data.unit_price ?? 0}"></td>
-      <td><input type="number" step="0.01" min="0" class="form-control js-discount" name="items[${idx}][discount]" value="${data.discount ?? 0}"></td>
-      <td><input type="number" step="0.01" min="0" class="form-control js-tax" name="items[${idx}][tax_rate]" value="${data.tax_rate ?? 16}"></td>
-      <td class="text-end"><span class="line-pill js-line-total">$0.00</span></td>
-      <td class="text-center">
-        <button type="button" class="btn btn-soft-danger icon-btn-danger js-remove" title="Quitar">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
-      </td>
-    `;
-
-    tbody.appendChild(tr);
-    renumber();
-    recalc();
-  }
-
-  function setRowProduct(tr, p){
-    tr.querySelector('.js-change-label').textContent = p.label || 'Manual';
-    tr.querySelector('.js-product-id').value = p.id || '';
-
-    const unit = tr.querySelector('input[name*="[unit]"]');
-    const unitCode = tr.querySelector('input[name*="[unit_code]"]');
-    const pkey = tr.querySelector('input[name*="[product_key]"]');
-
-    if (unit) unit.value = p.unit || '';
-    if (unitCode) unitCode.value = p.unit_code || '';
-    if (pkey) pkey.value = p.product_key || '';
-
-    const priceInp = tr.querySelector('.js-price');
-    if (priceInp) priceInp.value = Number(p.price || 0).toFixed(2);
-
-    const desc = tr.querySelector('input[name*="[description]"]');
-    if (desc && !desc.value.trim()) desc.value = p.label || '';
-
-    recalc();
-  }
-
-  tbody.addEventListener('input', (e) => {
-    if (e.target.matches('.js-qty,.js-price,.js-discount,.js-tax')) recalc();
+      </div>
+      <div class="d-flex gap-2">
+        <button type="button" class="btn btn-sm btn-outline" data-edit="${i}" title="Editar"><i class="bi bi-pencil"></i></button>
+        <button type="button" class="btn btn-sm btn-ghost" data-remove="${i}" title="Eliminar"><i class="bi bi-trash3"></i></button>
+      </div>`;
+    pickedEl.appendChild(row);
   });
+  stopsJson.value = JSON.stringify(picked);
+}
 
-  tbody.addEventListener('click', (e) => {
-    const tr = e.target.closest('tr');
-    if (!tr) return;
+pickedEl.addEventListener('click',(e)=>{
+  const rm = e.target.closest('[data-remove]'); const ed = e.target.closest('[data-edit]');
+  if (rm){ picked.splice(+rm.dataset.remove,1); renderPicked(); }
+  if (ed){
+    const idx = +ed.dataset.edit;
+    const name = prompt('Nombre del punto:', picked[idx].name || picked[idx].address || '');
+    if (name !== null){ picked[idx].name = name.trim(); renderPicked(); }
+  }
+});
 
-    if (e.target.closest('.js-remove')) {
-      tr.remove();
-      if (!tbody.querySelector('tr')) addRow();
-      renumber();
-      recalc();
-      return;
+new Sortable(pickedEl,{animation:150,ghostClass:'ghost',
+  onEnd:(evt)=>{ const [m]=picked.splice(evt.oldIndex,1); picked.splice(evt.newIndex,0,m); renderPicked(); }});
+
+/* ===== Geocode helper (providers sin lat/lng) =====
+   1) intento estructurado: street/city/state/postalcode/country
+   2) fallback: q armado
+*/
+async function geocodeMxFromParts(parts){
+  const calle   = norm(parts?.calle);
+  const colonia = norm(parts?.colonia);
+  const ciudad  = norm(parts?.ciudad);
+  const estado  = norm(parts?.estado);
+  const cp      = norm(parts?.cp);
+
+  const street = joinParts([calle, colonia]); // street = calle + colonia (funciona mejor que meter colonia como "suburb")
+  const city   = ciudad;
+  const state  = estado;
+  const zip    = cp;
+
+  // 1) structured
+  try{
+    const qs = new URLSearchParams();
+    qs.set('format','jsonv2');
+    qs.set('limit','1');
+    qs.set('accept-language','es');
+    qs.set('countrycodes','mx');
+    qs.set('addressdetails','1');
+    if (street) qs.set('street', street);
+    if (city)   qs.set('city', city);
+    if (state)  qs.set('state', state);
+    if (zip)    qs.set('postalcode', zip);
+    qs.set('country','Mexico');
+
+    const url = `https://nominatim.openstreetmap.org/search?${qs.toString()}`;
+    const res = await fetch(url, { headers: { 'Accept':'application/json' }});
+    const items = await res.json();
+    if (Array.isArray(items) && items.length){
+      const it = items[0];
+      const lat = Number(it.lat), lng = Number(it.lon);
+      if (isNum(lat) && isNum(lng)) return { lat, lng, display_name: it.display_name || '' };
     }
+  }catch{}
 
-    if (e.target.closest('.js-change-label') || e.target.closest('.prod-change')) {
-      activeRow = tr;
-      prodInput.focus();
-      filterProducts();
-      return;
-    }
-  });
+  // 2) fallback q (CP + ciudad + estado suele pegar)
+  const q = ensureMx(joinParts([street, city, state, zip]));
+  if (!q) return null;
 
-  prodMenu.addEventListener('click', (e) => {
-    const btn = e.target.closest('.js-pick-product');
-    if (!btn) return;
+  try{
+    const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&accept-language=es&countrycodes=mx&q=${encodeURIComponent(q)}`;
+    const res = await fetch(url, { headers: { 'Accept':'application/json' }});
+    const items = await res.json();
+    if (!Array.isArray(items) || !items.length) return null;
+    const it = items[0];
+    const lat = Number(it.lat), lng = Number(it.lon);
+    if (!isNum(lat) || !isNum(lng)) return null;
+    return { lat, lng, display_name: it.display_name || q };
+  }catch{
+    return null;
+  }
+}
 
-    e.preventDefault();
+/* Providers -> lista (con geocodificación si no hay lat/lng) */
+document.querySelectorAll('.provChk').forEach(chk=>{
+  chk.addEventListener('change', async ()=>{
+    const providerId = Number(chk.dataset.id);
+    const name = norm(chk.dataset.name || '');
+    const address = norm(chk.dataset.address || '');
 
-    const p = {
-      id: btn.dataset.id || '',
-      label: btn.dataset.label || btn.textContent.trim(),
-      price: parseFloat(btn.dataset.price || '0') || 0,
-      unit: btn.dataset.unit || '',
-      unit_code: btn.dataset.unit_code || '',
-      product_key: btn.dataset.product_key || ''
+    const parts = {
+      calle:   chk.dataset.calle || '',
+      colonia: chk.dataset.colonia || '',
+      ciudad:  chk.dataset.ciudad || '',
+      estado:  chk.dataset.estado || '',
+      cp:      chk.dataset.cp || '',
     };
 
-    if (activeRow) {
-      setRowProduct(activeRow, p);
-      activeRow = null;
-    } else {
-      addRow({
-        product_id: p.id,
-        label: p.label,
-        description: p.label,
-        quantity: 1,
-        unit_price: p.price,
-        discount: 0,
-        tax_rate: 16,
-        unit: p.unit,
-        unit_code: p.unit_code,
-        product_key: p.product_key
-      });
+    // helper: quitar por provider_id
+    const removeByProviderId = () => {
+      const i = picked.findIndex(p => p.provider_id === providerId);
+      if (i >= 0) picked.splice(i, 1);
+    };
+
+    if (!chk.checked){
+      removeByProviderId();
+      renderPicked();
+      return;
     }
 
-    prodInput.value = '';
-    closeDropdown(prodMenu);
-  });
-
-  $('form-invoice')?.addEventListener('submit', (e) => {
-    if (!clientHidden.value) {
-      e.preventDefault();
-      alert('Por favor selecciona un cliente.');
-      clientInput.focus();
-      filterClients();
+    // si ya existe, no duplicar
+    if (picked.some(p => p.provider_id === providerId)) {
+      toast('Ese provider ya estaba agregado.');
+      return;
     }
-  });
 
-  recalc();
-  closeDropdown(clientMenu);
-  closeDropdown(prodMenu);
-})();
+    let lat = Number(chk.dataset.lat);
+    let lng = Number(chk.dataset.lng);
+
+    // Si no hay coords, geocodificar por partes (NO por nombre)
+    if (!isNum(lat) || !isNum(lng)) {
+      chk.disabled = true;
+      toast(`Geocodificando: <span class="muted">${name || ('Proveedor #' + providerId)}</span>…`, 1800);
+
+      const geo = await geocodeMxFromParts(parts);
+
+      chk.disabled = false;
+
+      if (!geo) {
+        chk.checked = false;
+        toast(`No pude obtener coordenadas para: <span class="muted">${name || ('Proveedor #' + providerId)}</span><br><span class="muted">Revisa calle/colonia/ciudad/estado/cp o agrega desde el mapa/buscador.</span>`, 4400);
+        return;
+      }
+
+      lat = geo.lat; lng = geo.lng;
+
+      // guardar coords en el checkbox para futuras selecciones (en esta sesión)
+      chk.dataset.lat = String(lat);
+      chk.dataset.lng = String(lng);
+
+      // si address venía vacío, usa display_name
+      if (!address && geo.display_name) chk.dataset.address = geo.display_name;
+
+      // acercar mapa
+      try { map.flyTo([lat,lng], 13, {duration:.45}); } catch {}
+    }
+
+    const finalAddress = norm(chk.dataset.address || '') || ensureMx(joinParts([parts.calle, parts.colonia, parts.ciudad, parts.estado, parts.cp])) || '';
+
+    picked.push({
+      provider_id: providerId,
+      name: name || ('Proveedor #' + providerId),
+      address: finalAddress,
+      calle: norm(parts.calle),
+      colonia: norm(parts.colonia),
+      ciudad: norm(parts.ciudad),
+      estado: norm(parts.estado),
+      cp: norm(parts.cp),
+      lat, lng
+    });
+
+    // marker
+    const m = L.marker([lat, lng]).addTo(markersLayer);
+    m.bindTooltip(`${name || 'Proveedor'} ${fmtLatLng(lat,lng)}`);
+
+    renderPicked();
+  });
+});
+
+/* Confirmar preview -> lista */
+btnAddPrev.addEventListener('click', ()=>{
+  if (!previewData) return;
+  const name = prompt('Nombre del punto (opcional):', previewData.address || 'Punto');
+  picked.push({
+    name: name ? name.trim() : (previewData.address || 'Punto'),
+    address: previewData.address || '',
+    lat: previewData.lat,
+    lng: previewData.lng
+  });
+  const m = L.marker([previewData.lat, previewData.lng]).addTo(markersLayer);
+  m.bindTooltip(`${name || 'Punto'} ${fmtLatLng(previewData.lat,previewData.lng)}`);
+  if (previewMarker){ markersLayer.removeLayer(previewMarker); previewMarker=null; }
+  previewData=null; btnAddPrev.disabled=true; renderPicked();
+});
+
+/* Envío */
+document.getElementById('routeForm').addEventListener('submit',(e)=>{
+  valAlert.classList.add('d-none');
+
+  if (!picked.length){
+    e.preventDefault();
+    valAlert.classList.remove('d-none');
+    valAlert.textContent='Agrega al menos un punto a la ruta.';
+    return;
+  }
+
+  const bad = picked.find(p => !isNum(p.lat) || !isNum(p.lng));
+  if (bad){
+    e.preventDefault();
+    valAlert.classList.remove('d-none');
+    valAlert.textContent='Hay un punto sin coordenadas válidas. Agrega de nuevo el punto desde el mapa/buscador.';
+    return;
+  }
+
+  stopsJson.value = JSON.stringify(picked);
+});
 </script>
 @endsection

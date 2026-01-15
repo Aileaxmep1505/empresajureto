@@ -73,6 +73,8 @@ use App\Http\Controllers\Admin\WmsSearchController;
 use App\Http\Controllers\Admin\WmsPickingController;
 use App\Http\Controllers\Admin\WmsMoveController;
 use App\Http\Controllers\Tickets\TicketWorkController;
+use App\Http\Controllers\PublicationController;
+use App\Http\Controllers\Logistics\RouteSupervisorController;
 /*
 |--------------------------------------------------------------------------
 | AUTH
@@ -478,29 +480,113 @@ Route::middleware(['auth'])->prefix('mi-cuenta')->name('customer.')->group(funct
 | LOGÍSTICA / RUTAS
 |--------------------------------------------------------------------------
 */
-// Demo de rutas para el menú de "Logística"
-Route::middleware('auth')->get('/admin/rutas/demo', [RoutePlanController::class, 'demo'])->name('routing.demo');
-
+/*
+|--------------------------------------------------------------------------
+| LOGÍSTICA / RUTAS (CHOFER + SUPERVISOR) ✅ TODO EN web.php (SIN DUPLICADOS)
+|--------------------------------------------------------------------------
+*/
 Route::middleware(['auth'])->group(function () {
-    // Supervisor / Logística
-    Route::get('/logi/routes',              [RoutePlanController::class, 'index'])->name('routes.index');
-    Route::get('/logi/routes/create',       [RoutePlanController::class, 'create'])->name('routes.create');
-    Route::post('/logi/routes',             [RoutePlanController::class, 'store'])->name('routes.store');
-    Route::get('/logi/routes/{routePlan}',  [RoutePlanController::class, 'show'])->name('routes.show');
 
-    // Vista del chofer (mis rutas)
-    Route::get('/driver/routes/{routePlan}', [RoutePlanController::class, 'driver'])->name('driver.routes.show');
+    /* =========================
+     |  SUPERVISOR / LOGÍSTICA (panel)
+     ========================= */
+    Route::get('/logi/routes',              [\App\Http\Controllers\Logistics\RoutePlanController::class, 'index'])->name('routes.index');
+    Route::get('/logi/routes/create',       [\App\Http\Controllers\Logistics\RoutePlanController::class, 'create'])->name('routes.create');
+    Route::post('/logi/routes',             [\App\Http\Controllers\Logistics\RoutePlanController::class, 'store'])->name('routes.store');
+    Route::get('/logi/routes/{routePlan}',  [\App\Http\Controllers\Logistics\RoutePlanController::class, 'show'])->name('routes.show');
 
-    // API internas (protegidas por auth)
-    Route::post('/api/routes/{routePlan}/compute',   [RoutePlanController::class, 'compute'])->name('api.routes.compute');
-    Route::post('/api/routes/{routePlan}/recompute', [RoutePlanController::class, 'recompute'])->name('api.routes.recompute');
-    Route::post('/api/routes/{routePlan}/stops/{stop}/done', [RoutePlanController::class, 'markStopDone'])->name('api.routes.stop.done');
+    // (opcional) demo
+    Route::get('/admin/rutas/demo', [\App\Http\Controllers\Logistics\RoutePlanController::class, 'demo'])->name('routing.demo');
 
-    // Ubicación del chofer
-    Route::post('/api/driver/location',       [RoutePlanController::class, 'saveDriverLocation'])->name('api.driver.location.save');
-    Route::get('/api/driver/location',        [RoutePlanController::class, 'getDriverLocation'])->name('api.driver.location.get');
-    Route::get('/api/driver/location/last',   [RoutePlanController::class, 'getDriverLocation'])->name('api.driver.location.last');
+    /* =========================
+     |  CHOFER (mis rutas)
+     ========================= */
+    Route::get('/driver/routes/{routePlan}', [\App\Http\Controllers\Logistics\RoutePlanController::class, 'driver'])
+        ->name('driver.routes.show');
+
+    /* =========================
+     |  API internas (pero en web.php) — ESTAS SON LAS QUE USA TU BLADE
+     |  OJO: no repitas nombres (name) en otro lado.
+     ========================= */
+    Route::post('/api/routes/{routePlan}/start', [\App\Http\Controllers\Logistics\RoutePlanController::class, 'start'])
+        ->name('api.routes.start');
+
+    Route::post('/api/routes/{routePlan}/compute', [\App\Http\Controllers\Logistics\RoutePlanController::class, 'compute'])
+        ->name('api.routes.compute');
+
+    Route::post('/api/routes/{routePlan}/recompute', [\App\Http\Controllers\Logistics\RoutePlanController::class, 'recompute'])
+        ->name('api.routes.recompute');
+
+    // ✅ Debe coincidir con tu Blade:
+    // URL_DONE_BASE = /api/routes/{routePlan}/stops  y luego  /{stop}/done
+    Route::post('/api/routes/{routePlan}/stops/{stop}/done', [\App\Http\Controllers\Logistics\RoutePlanController::class, 'markStopDone'])
+        ->name('api.routes.stops.done');
+
+    /* =========================
+     |  GPS (ubicación chofer)
+     ========================= */
+    Route::post('/api/driver/location', [\App\Http\Controllers\Logistics\RoutePlanController::class, 'saveDriverLocation'])
+        ->name('api.driver.location.save');
+
+    Route::get('/api/driver/location/last', [\App\Http\Controllers\Logistics\RoutePlanController::class, 'getDriverLocation'])
+        ->name('api.driver.location.last');
+
+    // (opcional) si tienes endpoint “get”
+    Route::get('/api/driver/location', [\App\Http\Controllers\Logistics\RoutePlanController::class, 'getDriverLocation'])
+        ->name('api.driver.location.get');
+
+    /* =========================
+    |  SUPERVISOR REALTIME / POLL
+    ========================= */
+    Route::get('/api/routes/{routePlan}/live', [\App\Http\Controllers\Logistics\RoutePlanController::class, 'live'])
+        ->name('api.routes.live');
+
+    /**
+     * ✅ VISTA (HTML Blade)
+     * OJO: NO le pongas "api." al name porque es una vista, no un endpoint JSON.
+     * Así cuando entres a /supervisor/routes/{id} ya NO verás el JSON.
+     */
+    Route::get('/supervisor/routes/{routePlan}', [\App\Http\Controllers\Logistics\RouteSupervisorController::class, 'show'])
+        ->name('supervisor.routes.show');
+
+    /**
+     * ✅ ENDPOINT JSON (POLL)
+     * Este sí es JSON para tu fetch.
+     */
+    Route::get('/supervisor/routes/{routePlan}/poll', [\App\Http\Controllers\Logistics\RouteSupervisorController::class, 'poll'])
+        ->name('api.supervisor.routes.poll');
+
+    /* =========================
+     |  CLIENT LOG (para tu DEBUG en JS) ✅ en web.php también
+     ========================= */
+    Route::post('/api/client-log', function (\Illuminate\Http\Request $r) {
+        $data = $r->validate([
+            'scope'   => ['nullable','string','max:80'],
+            'level'   => ['nullable','string','max:20'],
+            'message' => ['required','string','max:1000'],
+            'meta'    => ['nullable','array'],
+        ]);
+
+        $scope = $data['scope'] ?? 'client';
+        $level = strtolower($data['level'] ?? 'info');
+        $msg   = "[CLIENT_LOG][$scope] ".$data['message'];
+
+        $ctx = [
+            'user_id' => auth()->id(),
+            'meta'    => $data['meta'] ?? [],
+            'ip'      => $r->ip(),
+            'ua'      => substr((string)$r->userAgent(), 0, 240),
+        ];
+
+        if ($level === 'error') \Log::error($msg, $ctx);
+        elseif ($level === 'warning' || $level === 'warn') \Log::warning($msg, $ctx);
+        else \Log::info($msg, $ctx);
+
+        return response()->json(['ok'=>true]);
+    })->name('api.client-log');
+
 });
+
 
 Route::get('cotizaciones/buscar-productos', [CotizacionController::class, 'buscarProductos'])->name('cotizaciones.buscar_productos');
 
@@ -1506,3 +1592,21 @@ Route::middleware(['auth'])->group(function () {
 
 Route::get('admin/licitacion-propuestas/{licitacionPropuesta}/export-excel', [LicitacionPropuestaController::class, 'exportExcel'])
   ->name('admin.licitacion-propuestas.export.excel');
+
+Route::get('/publicaciones', [PublicationController::class, 'index'])->name('publications.index');
+Route::get('/publicaciones/{publication}', [PublicationController::class, 'show'])->name('publications.show');
+Route::get('/publicaciones/{publication}/descargar', [PublicationController::class, 'download'])->name('publications.download');
+
+// Si quieres que solo admin suba/elimine:
+Route::middleware(['auth'])->group(function () {
+    Route::get('/publicaciones-subir', [PublicationController::class, 'create'])->name('publications.create');
+    Route::post('/publicaciones', [PublicationController::class, 'store'])->name('publications.store');
+    Route::delete('/publicaciones/{publication}', [PublicationController::class, 'destroy'])->name('publications.destroy');
+});
+
+
+Route::post('/licitacion-pdfs/{licitacionPdf}/pages-count', [\App\Http\Controllers\Admin\LicitacionPdfController::class, 'updatePagesCount'])
+    ->name('admin.licitacion-pdfs.pagesCount');
+
+
+

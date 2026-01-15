@@ -2,94 +2,191 @@
 
 namespace App\Services;
 
-use Smalot\PdfParser\Parser as PdfParser;
-use PhpOffice\PhpWord\PhpWord;
-use PhpOffice\PhpWord\IOFactory as WordIOFactory;
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class IlovePdfService
 {
-    /**
-     * Convierte un PDF a DOCX (texto plano) en una ruta temporal
-     * y devuelve la ruta ABSOLUTA del archivo generado.
-     *
-     * @param  string  $pdfFullPath  Ruta ABSOLUTA del PDF recortado.
-     * @param  string  $baseName     Nombre base para el archivo (sin extensión).
-     * @return string                Ruta ABSOLUTA del .docx generado.
-     */
-    public function pdfToWord(string $pdfFullPath, string $baseName): string
+    protected function publicKey(): string
     {
-        $outputDir = $this->ensureTmpDir();
-        $outputPath = $outputDir . DIRECTORY_SEPARATOR . $baseName . '.docx';
+        return (string) config('services.ilovepdf.public_key');
+    }
 
-        // Extraer texto del PDF
-        $parser = new PdfParser();
-        $pdf    = $parser->parseFile($pdfFullPath);
-        $text   = $pdf->getText();
+    protected function secretKey(): string
+    {
+        return (string) config('services.ilovepdf.secret_key');
+    }
 
-        // Crear documento Word
-        $phpWord = new PhpWord();
-        $section = $phpWord->addSection();
+    protected function region(): string
+    {
+        return (string) config('services.ilovepdf.region', 'us');
+    }
 
-        $lines = preg_split("/\r\n|\n|\r/", $text);
-        foreach ($lines as $line) {
-            $section->addText($line);
-        }
-
-        $writer = WordIOFactory::createWriter($phpWord, 'Word2007');
-        $writer->save($outputPath);
-
-        return $outputPath;
+    protected function timeout(): int
+    {
+        return (int) config('services.ilovepdf.timeout', 180);
     }
 
     /**
-     * Convierte un PDF a XLSX (una línea por fila en la columna A)
-     * y devuelve la ruta ABSOLUTA del archivo generado.
-     *
-     * @param  string  $pdfFullPath  Ruta ABSOLUTA del PDF recortado.
-     * @param  string  $baseName     Nombre base para el archivo (sin extensión).
-     * @return string                Ruta ABSOLUTA del .xlsx generado.
+     * Pide token al auth server (2 horas de validez).
      */
-    public function pdfToExcel(string $pdfFullPath, string $baseName): string
+    public function getToken(): string
     {
-        $outputDir  = $this->ensureTmpDir();
-        $outputPath = $outputDir . DIRECTORY_SEPARATOR . $baseName . '.xlsx';
-
-        // Extraer texto del PDF
-        $parser = new PdfParser();
-        $pdf    = $parser->parseFile($pdfFullPath);
-        $text   = $pdf->getText();
-
-        // Crear hoja de cálculo
-        $spreadsheet = new Spreadsheet();
-        $sheet       = $spreadsheet->getActiveSheet();
-
-        $lines = preg_split("/\r\n|\n|\r/", $text);
-        $row   = 1;
-
-        foreach ($lines as $line) {
-            $sheet->setCellValue('A' . $row, $line);
-            $row++;
+        $public = $this->publicKey();
+        if ($public === '') {
+            throw new \RuntimeException('ILOVEPDF_PUBLIC_KEY no configurada.');
         }
 
-        $writer = new Xlsx($spreadsheet);
-        $writer->save($outputPath);
+        $resp = Http::timeout($this->timeout())
+            ->asForm()
+            ->post('https://api.ilovepdf.com/v1/auth', [
+                'public_key' => $public,
+            ]);
 
-        return $outputPath;
+        if (!$resp->ok() || !is_array($resp->json()) || empty($resp->json()['token'])) {
+            Log::warning('iLovePDF auth failed', ['status' => $resp->status(), 'body' => $resp->body()]);
+            throw new \RuntimeException('No se pudo autenticar con iLovePDF.');
+        }
+
+        return (string) $resp->json()['token'];
     }
 
     /**
-     * Asegura que exista storage/app/tmp y devuelve su ruta.
+     * Start task: devuelve ['server' => 'apiXX.ilovepdf.com', 'task' => '...']
      */
-    protected function ensureTmpDir(): string
+    public function startTask(string $tool): array
     {
-        $dir = storage_path('app/tmp');
+        $token = $this->getToken();
+        $region = $this->region();
 
-        if (!is_dir($dir)) {
-            mkdir($dir, 0755, true);
+        $url = "https://api.ilovepdf.com/v1/start/{$tool}/{$region}";
+
+        $resp = Http::timeout($this->timeout())
+            ->withToken($token)
+            ->get($url);
+
+        if (!$resp->ok() || empty($resp->json()['server']) || empty($resp->json()['task'])) {
+            Log::warning('iLovePDF start failed', ['status' => $resp->status(), 'body' => $resp->body()]);
+            throw new \RuntimeException("No se pudo iniciar task iLovePDF ({$tool}).");
         }
 
-        return realpath($dir) ?: $dir;
+        return [
+            'token'  => $token,
+            'server' => (string) $resp->json()['server'],
+            'task'   => (string) $resp->json()['task'],
+        ];
+    }
+
+    /**
+     * Upload local file
+     * Retorna server_filename
+     */
+    public function uploadFile(string $server, string $token, string $task, string $pdfFullPath): string
+    {
+        if (!file_exists($pdfFullPath)) {
+            throw new \RuntimeException('Archivo no existe para subir a iLovePDF.');
+        }
+
+        $url = "https://{$server}/v1/upload";
+
+        $resp = Http::timeout($this->timeout())
+            ->withToken($token)
+            ->attach('file', file_get_contents($pdfFullPath), basename($pdfFullPath))
+            ->post($url, [
+                'task' => $task,
+            ]);
+
+        if (!$resp->ok() || empty($resp->json()['server_filename'])) {
+            Log::warning('iLovePDF upload failed', ['status' => $resp->status(), 'body' => $resp->body()]);
+            throw new \RuntimeException('No se pudo subir el archivo a iLovePDF.');
+        }
+
+        return (string) $resp->json()['server_filename'];
+    }
+
+    /**
+     * Process tool
+     */
+    public function process(string $server, string $token, array $payload): array
+    {
+        $url = "https://{$server}/v1/process";
+
+        $resp = Http::timeout($this->timeout())
+            ->withToken($token)
+            ->withHeaders(['Content-Type' => 'application/json'])
+            ->post($url, $payload);
+
+        if (!$resp->ok()) {
+            Log::warning('iLovePDF process failed', ['status' => $resp->status(), 'body' => $resp->body()]);
+            throw new \RuntimeException('No se pudo procesar en iLovePDF: '.$resp->body());
+        }
+
+        return (array) $resp->json();
+    }
+
+    /**
+     * Download output (binary)
+     */
+    public function download(string $server, string $token, string $task): string
+    {
+        $url = "https://{$server}/v1/download/{$task}";
+
+        $resp = Http::timeout($this->timeout())
+            ->withToken($token)
+            ->get($url);
+
+        if (!$resp->ok()) {
+            Log::warning('iLovePDF download failed', ['status' => $resp->status(), 'body' => $resp->body()]);
+            throw new \RuntimeException('No se pudo descargar resultado de iLovePDF.');
+        }
+
+        return (string) $resp->body();
+    }
+
+    /**
+     * REPARA un PDF y regresa el BINARIO del PDF reparado.
+     * (Tool: repair)
+     */
+    public function repairPdfBinary(string $pdfFullPath): string
+    {
+        $task = $this->startTask('repair');
+
+        $serverFilename = $this->uploadFile($task['server'], $task['token'], $task['task'], $pdfFullPath);
+
+        $this->process($task['server'], $task['token'], [
+            'task' => $task['task'],
+            'tool' => 'repair',
+            'files' => [[
+                'server_filename' => $serverFilename,
+                'filename'        => basename($pdfFullPath),
+            ]],
+        ]);
+
+        return $this->download($task['server'], $task['token'], $task['task']);
+    }
+
+    /**
+     * SPLIT por rangos y regresa el BINARIO del resultado.
+     * split_mode=ranges, ranges="10-20"
+     */
+    public function splitRangesBinary(string $pdfFullPath, string $ranges, bool $mergeAfter = true): string
+    {
+        $task = $this->startTask('split');
+
+        $serverFilename = $this->uploadFile($task['server'], $task['token'], $task['task'], $pdfFullPath);
+
+        $this->process($task['server'], $task['token'], [
+            'task' => $task['task'],
+            'tool' => 'split',
+            'split_mode' => 'ranges',
+            'ranges' => $ranges,          // ej: "10-20"
+            'merge_after' => $mergeAfter, // si mandas varios rangos, los une
+            'files' => [[
+                'server_filename' => $serverFilename,
+                'filename'        => basename($pdfFullPath),
+            ]],
+        ]);
+
+        return $this->download($task['server'], $task['token'], $task['task']);
     }
 }

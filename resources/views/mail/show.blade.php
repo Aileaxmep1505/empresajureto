@@ -4,7 +4,10 @@
 
 @section('content')
 @php
-  // ============ Helpers de decodificación RFC y formateo ============
+  use Illuminate\Support\Str;
+  use Illuminate\Support\Carbon;
+
+  // ===== Helpers =====
   $decodeHeader = function (?string $v): string {
       if (!$v) return '';
       if (function_exists('iconv_mime_decode')) {
@@ -53,67 +56,42 @@
       return implode(', ', array_filter($out));
   };
 
-  // ============ Cabeceras seguras ============
+  // ===== Datos seguros desde $msg =====
+  /** @var \Webklex\PHPIMAP\Message $msg */
+  $fromObj  = optional($msg->getFrom())->first();
+  $fromMail = $fromObj?->mail ?? (method_exists($fromObj,'getAddress') ? $fromObj->getAddress() : null);
+  $fromName = $fromObj?->personal ?? (method_exists($fromObj,'getName') ? $fromObj->getName() : null);
+  $fromLabel= $decodeHeader($fromName ?: ($fromMail ?: '(desconocido)'));
 
-  $fromObj   = optional($msg->getFrom())->first();
-  $fromMail  = null; $fromName = null;
-  if ($fromObj) {
-      $fromMail = $fromObj->mail ?? (method_exists($fromObj,'getAddress') ? $fromObj->getAddress() : null);
-      $fromName = $fromObj->personal ?? (method_exists($fromObj,'getName') ? $fromObj->getName() : null);
-  }
-  $fromLabel = $decodeHeader($fromName ?: ($fromMail ?: '(desconocido)'));
+  $to   = $addressesToString($msg->getTo());
+  $cc   = $addressesToString($msg->getCc());
+  $subj = $decodeHeader($msg->getSubject() ?: '(sin asunto)');
 
-  $to  = $addressesToString($msg->getTo());
-  $cc  = $addressesToString($msg->getCc());
-  $subj= $decodeHeader($msg->getSubject() ?: '(sin asunto)');
-
-  $attr  = $msg->getDate();
+  $when = '';
   try {
-    $when = $attr ? \Illuminate\Support\Carbon::parse($attr->toString())->translatedFormat('dddd D [de] MMM, HH:mm') : '';
-  } catch (\Throwable $e) { $when = $attr ? e($attr->toString()) : ''; }
+      // Webklex a veces trae getDate() como atributo/objeto
+      $d = $msg->getDate();
+      if ($d) $when = Carbon::parse((string)$d)->locale('es')->translatedFormat('d \\de F \\de Y, H:i');
+  } catch (\Throwable $e) {}
 
-  // ============ Adjuntos y rutas ============
+  $attachments = $attachments ?? [];
+  try {
+      if (empty($attachments)) $attachments = $msg->getAttachments() ?? [];
+  } catch (\Throwable $e) {}
 
-  $attachments = $attachments ?? $msg->getAttachments();
-  $replyUrl    = route('mail.reply',   [$folder, $msg->getUid()]);
-  $forwardUrl  = route('mail.forward', [$folder, $msg->getUid()]);
+  $replyUrl   = route('mail.reply',   [$folder, $msg->getUid()]);
+  $forwardUrl = route('mail.forward', [$folder, $msg->getUid()]);
 
-  // ============ Optimización del cuerpo HTML ============
-
-  /**
-   * Limpia y optimiza el HTML:
-   * - Elimina <script>...</script>
-   * - Añade lazy/async/referrerpolicy/estilos a <img>
-   * - Colapsa blockquotes y gmail_quote en <details>
-   * - Normaliza tablas anchas
-   */
+  // ===== HTML seguro para vista (sin scripts + responsive) =====
   $optimizeHtml = function (string $html): string {
-      // Quitar scripts por seguridad y rendimiento
       $html = preg_replace('#<script\b[^>]*>.*?</script>#is', '', $html) ?? $html;
 
-      // Colapsar citas largas (gmail_quote o blockquote anidados)
-      // Envuelve <blockquote> en <details> si no está ya dentro de un details
-      $html = preg_replace_callback('#(<blockquote[\s\S]*?</blockquote>)#i', function($m){
-          $block = $m[1];
-          // Evitar doble wrap si ya está en details
-          if (stripos($block, '<details') !== false) return $block;
-          // Acorta el summary
-          $summary = 'Mostrar cita';
-          return '<details class="mx-quote"><summary>'.$summary.'</summary>'.$block.'</details>';
-      }, $html) ?? $html;
-
-      // Lazy en imágenes: añade atributos si no existen
       $html = preg_replace_callback('#<img\b([^>]*?)>#i', function($m){
           $attrs = $m[1] ?? '';
-          // loading
           if (!preg_match('/\sloading=/', $attrs)) $attrs .= ' loading="lazy"';
-          // decoding
           if (!preg_match('/\sdecoding=/', $attrs)) $attrs .= ' decoding="async"';
-          // referrerpolicy
           if (!preg_match('/\sreferrerpolicy=/', $attrs)) $attrs .= ' referrerpolicy="no-referrer"';
-          // style responsive
           if (preg_match('/\sstyle=/', $attrs)) {
-              // inserta max-width si no existe
               if (!preg_match('/max-width\s*:/i', $attrs)) {
                   $attrs = preg_replace('/style\s*=\s*"/i', 'style="max-width:100%;height:auto; ', $attrs, 1);
               }
@@ -123,15 +101,14 @@
           return '<img'.$attrs.'>';
       }, $html) ?? $html;
 
-      // Tablas: agrega estilo responsivo a tablas sin estilo
       $html = preg_replace_callback('#<table\b([^>]*)>#i', function($m){
           $attrs = $m[1] ?? '';
           if (preg_match('/\sstyle=/', $attrs)) {
-              if (!preg_match('/table-layout\s*:/i', $attrs)) {
-                  $attrs = preg_replace('/style\s*=\s*"/i', 'style="table-layout:auto; width:100%; ', $attrs, 1);
+              if (!preg_match('/width\s*:/i', $attrs)) {
+                  $attrs = preg_replace('/style\s*=\s*"/i', 'style="width:100%;table-layout:auto; ', $attrs, 1);
               }
           } else {
-              $attrs .= ' style="table-layout:auto;width:100%"';
+              $attrs .= ' style="width:100%;table-layout:auto"';
           }
           return '<table'.$attrs.'>';
       }, $html) ?? $html;
@@ -139,13 +116,13 @@
       return $html;
   };
 
-  $hasHtml   = $msg->hasHTMLBody();
-  $rawHtml   = $hasHtml ? (string)$msg->getHTMLBody() : '';
-  $safeHtml  = $hasHtml ? $optimizeHtml($rawHtml) : '';
+  $hasHtml  = (bool)$msg->hasHTMLBody();
+  $rawHtml  = $hasHtml ? (string)$msg->getHTMLBody() : '';
+  $safeHtml = $hasHtml ? $optimizeHtml($rawHtml) : '';
 @endphp
 
 @if(request()->has('partial'))
-  {{-- ========= PARCIAL (lo usa el fetch de la lista) ========= --}}
+  {{-- ========= PARCIAL para tu JS ========= --}}
   <div id="mx-payload"
        data-subject="{{ e($subj) }}"
        data-from="{{ e($fromLabel) }}"
@@ -155,33 +132,29 @@
        data-reply="{{ $replyUrl }}"
        data-forward="{{ $forwardUrl }}">
 
-    {{-- Estilos encapsulados para el fragmento HTML --}}
     <style>
-      /* Se aplican solo dentro del fragmento clonado por index.blade.php */
-      .mail-html, .mail-text { color: #0f172a; font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial; }
+      .mail-html, .mail-text { color:#0f172a; font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial; }
       .mail-html img{ max-width:100%; height:auto; }
       .mail-html table{ width:100%; table-layout:auto; border-collapse:collapse; }
       .mail-html iframe, .mail-html embed, .mail-html object{ max-width:100%; }
       .mail-html pre, .mail-text pre{ white-space:pre-wrap; word-wrap:break-word; }
       .mail-html blockquote{ margin:8px 0 8px 12px; padding-left:12px; border-left:3px solid #e5e7eb; color:#475569; }
-      details.mx-quote{ margin:.5rem 0; border:1px dashed #e5e7eb; border-radius:8px; padding:.4rem .6rem; background:#fbfdff; }
-      details.mx-quote > summary{ cursor:pointer; font-weight:600; color:#334155; }
-      /* Evitar que contenidos extremos rompan el layout */
-      .mail-html * { max-width: 100%; }
+      .mail-html *{ max-width:100%; }
     </style>
 
     @if($hasHtml)
       <div class="mail-html" data-body-html>{!! $safeHtml !!}</div>
     @else
-      <div class="mail-text" data-body-text style="white-space:pre-wrap">{{ $msg->getTextBody() }}</div>
+      <div class="mail-text" data-body-text style="white-space:pre-wrap">{{ (string)$msg->getTextBody() }}</div>
     @endif
 
     @foreach($attachments as $att)
       @php
-        $attName = method_exists($att,'getName') ? $decodeHeader($att->getName()) : null;
-        $attMime = method_exists($att,'getMimeType') ? $att->getMimeType() : null;
-        $part    = (string) (method_exists($att,'getPartNumber') ? $att->getPartNumber() : '');
-        $href    = route('mail.download', [$folder, $msg->getUid(), $part]);
+        $attName = null; $attMime = null; $part = '';
+        try { $attName = method_exists($att,'getName') ? $decodeHeader($att->getName()) : null; } catch (\Throwable $e) {}
+        try { $attMime = method_exists($att,'getMimeType') ? $att->getMimeType() : null; } catch (\Throwable $e) {}
+        try { $part    = (string)(method_exists($att,'getPartNumber') ? $att->getPartNumber() : ''); } catch (\Throwable $e) {}
+        $href = route('mail.download', [$folder, $msg->getUid(), $part]);
       @endphp
       <div data-att
            data-href="{{ $href }}"
@@ -190,19 +163,9 @@
     @endforeach
   </div>
 @else
-  {{-- ========= Página completa (opcional si entras directo a /mail/show) ========= --}}
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@300..700&display=swap"/>
+  {{-- ========= Vista completa si entras directo ========= --}}
   <div class="container py-4">
-    <style>
-      .mx-mail-wrap{ font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial; color:#0f172a; }
-      .mx-mail-wrap .mail-html img{ max-width:100%; height:auto; }
-      .mx-mail-wrap .mail-html table{ width:100%; table-layout:auto; border-collapse:collapse; }
-      .mx-mail-wrap details.mx-quote{ margin:.5rem 0; border:1px dashed #e5e7eb; border-radius:8px; padding:.4rem .6rem; background:#fbfdff; }
-      .mx-mail-wrap details.mx-quote > summary{ cursor:pointer; font-weight:600; color:#334155; }
-      .mx-mail-wrap .mail-html pre{ white-space:pre-wrap; word-wrap:break-word; }
-    </style>
-
-    <div class="card shadow-sm mx-mail-wrap">
+    <div class="card shadow-sm">
       <div class="card-body">
         <h1 class="h4 mb-2">{{ $subj }}</h1>
         <div class="text-muted small mb-3">
@@ -216,7 +179,7 @@
           @if($hasHtml)
             {!! $safeHtml !!}
           @else
-            <pre class="mail-text">{{ $msg->getTextBody() }}</pre>
+            <pre class="mail-text">{{ (string)$msg->getTextBody() }}</pre>
           @endif
         </div>
 
@@ -225,23 +188,23 @@
             <div class="fw-bold mb-2">Adjuntos ({{ count($attachments) }})</div>
             @foreach($attachments as $att)
               @php
-                $attName = method_exists($att,'getName') ? $decodeHeader($att->getName()) : null;
-                $attMime = method_exists($att,'getMimeType') ? $att->getMimeType() : null;
-                $part    = (string) (method_exists($att,'getPartNumber') ? $att->getPartNumber() : '');
-                $href    = route('mail.download', [$folder, $msg->getUid(), $part]);
+                $attName = null; $attMime = null; $part = '';
+                try { $attName = method_exists($att,'getName') ? $decodeHeader($att->getName()) : null; } catch (\Throwable $e) {}
+                try { $attMime = method_exists($att,'getMimeType') ? $att->getMimeType() : null; } catch (\Throwable $e) {}
+                try { $part    = (string)(method_exists($att,'getPartNumber') ? $att->getPartNumber() : ''); } catch (\Throwable $e) {}
+                $href = route('mail.download', [$folder, $msg->getUid(), $part]);
               @endphp
-              <div class="d-flex align-items-center gap-2 py-1">
-                <span class="material-symbols-outlined">attachment</span>
+              <div class="py-1">
                 <a href="{{ $href }}">{{ $attName ?: 'archivo' }}</a>
-                <span class="text-muted small">· {{ $attMime }}</span>
+                @if($attMime) <span class="text-muted small">· {{ $attMime }}</span> @endif
               </div>
             @endforeach
           </div>
         @endif
 
         <div class="mt-3 d-flex gap-2">
-          <a class="btn btn-primary" href="{{ $replyUrl }}"><span class="material-symbols-outlined align-middle">reply</span> Responder</a>
-          <a class="btn btn-outline-secondary" href="{{ $forwardUrl }}"><span class="material-symbols-outlined align-middle">forward</span> Reenviar</a>
+          <a class="btn btn-primary" href="{{ $replyUrl }}">Responder</a>
+          <a class="btn btn-outline-secondary" href="{{ $forwardUrl }}">Reenviar</a>
         </div>
       </div>
     </div>
