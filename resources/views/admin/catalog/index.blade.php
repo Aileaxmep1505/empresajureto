@@ -1,6 +1,9 @@
-{{-- ✅ PÉGALO COMPLETO. 
-    FIX: En desktop se queda EXACTO como antes (tabla normal).
-    En móvil (<760px) se vuelve “cards” SIN duplicar información en desktop.
+{{-- ✅ PÉGALO COMPLETO
+   - Desktop: TODO igual.
+   - Móvil:
+      - El BUSCADOR se queda ARRIBA (visible como ahora).
+      - SOLO los filtros (tabs + destacados + limpiar + nuevo) se van al Bottom Sheet.
+      - La tabla en móvil se vuelve cards apiladas.
 --}}
 @extends('layouts.app')
 @section('title','Productos Web')
@@ -13,37 +16,25 @@
     --shadow:0 12px 30px rgba(13, 23, 38, .06);
     --r:16px;
 
-    /* Acento */
     --acc:#34d399;
     --acc-ink:#065f46;
     --acc-soft:rgba(52,211,153,.14);
     --acc-ring:rgba(52,211,153,.28);
 
-    /* Degradado suave */
     --g1:rgba(52,211,153,.12);
     --g2:rgba(251,191,36,.10);
     --g3:rgba(148,163,184,.10);
 
-    /* Tooltip */
     --tt-bg:#111827;
     --tt-fg:#ffffff;
   }
 
   html,body{background:var(--bg)}
   .wrap{max-width:1200px; margin-inline:auto; padding:0 14px}
-
-  .card{
-    background:var(--surface);
-    border:1px solid var(--line);
-    border-radius:var(--r);
-    box-shadow:var(--shadow);
-  }
+  .card{background:var(--surface); border:1px solid var(--line); border-radius:var(--r); box-shadow:var(--shadow);}
 
   /* ===== Header ===== */
-  .head{
-    display:flex; gap:14px; align-items:flex-start; justify-content:space-between;
-    flex-wrap:wrap; margin:14px 0 10px;
-  }
+  .head{display:flex; gap:14px; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; margin:14px 0 10px;}
   .title{font-weight:900; color:var(--ink); letter-spacing:-.02em; margin:0}
   .muted{color:var(--muted)}
   .subtxt{margin-top:6px;font-size:.92rem;max-width:70ch}
@@ -72,45 +63,29 @@
   }
   .btn:active{ transform:translateY(0); box-shadow:0 10px 22px rgba(15,23,42,.06); }
   .btn-sm{ padding:8px 10px; border-radius:12px; font-size:.92rem; }
-
   .ico{ width:18px; height:18px; display:inline-block; }
   .ico svg{ width:18px; height:18px; display:block; }
 
-  /* ✅ Tooltip */
+  /* Tooltip (hover) */
   .tt{ position:relative; display:inline-flex; }
   .tt .tt-bubble{
-    position:absolute;
-    left:50%;
-    bottom:calc(100% + 10px);
+    position:absolute; left:50%; bottom:calc(100% + 10px);
     transform:translateX(-50%);
-    background:var(--tt-bg);
-    color:var(--tt-fg);
-    font-size:12px;
-    font-weight:700;
-    padding:8px 10px;
-    border-radius:12px;
-    white-space:nowrap;
-    opacity:0;
-    pointer-events:none;
+    background:var(--tt-bg); color:var(--tt-fg);
+    font-size:12px; font-weight:700;
+    padding:8px 10px; border-radius:12px;
+    white-space:nowrap; opacity:0; pointer-events:none;
     box-shadow:0 14px 30px rgba(0,0,0,.18);
     transition:opacity .14s ease, transform .14s ease;
-    transform-origin:50% 100%;
     z-index:20;
   }
   .tt .tt-bubble:before{
-    content:"";
-    position:absolute;
-    left:50%;
-    bottom:-6px;
-    width:12px; height:12px;
-    background:var(--tt-bg);
-    transform:translateX(-50%) rotate(45deg);
-    border-radius:2px;
+    content:""; position:absolute; left:50%; bottom:-6px;
+    width:12px; height:12px; background:var(--tt-bg);
+    transform:translateX(-50%) rotate(45deg); border-radius:2px;
   }
-  .tt:hover .tt-bubble{
-    opacity:1;
-    transform:translateX(-50%) translateY(-2px);
-  }
+  .tt:hover .tt-bubble{ opacity:1; transform:translateX(-50%) translateY(-2px); }
+  @media (hover:none){ .tt .tt-bubble{ display:none !important; } }
 
   /* icon buttons */
   .iconbtn-wrap{ display:inline-flex; position:relative; }
@@ -128,7 +103,7 @@
   .iconbtn:hover{ transform:translateY(-1px); background:#fff; box-shadow:0 12px 24px rgba(15,23,42,.08); }
   .iconbtn svg{ width:18px; height:18px; }
 
-  /* ===== Filtros ===== */
+  /* ===== Filtros (search + tabs + chip + limpiar) ===== */
   .filters{
     margin-top:12px;
     padding:12px;
@@ -141,19 +116,12 @@
       #ffffff;
     box-shadow:0 18px 44px rgba(15,23,42,.08);
   }
-  .filters-row{
-    display:flex;
-    gap:12px;
-    align-items:center;
-    justify-content:space-between;
-    flex-wrap:wrap;
-  }
+  .filters-row{display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap;}
 
+  /* ✅ Buscador se queda SIEMPRE visible */
   .search{
     display:flex; align-items:center; gap:10px;
-    flex:1;
-    min-width:0;
-    width:min(100%, 560px);
+    flex:1; min-width:0; width:min(100%, 560px);
     background:#fff;
     border:1px solid rgba(232,238,246,.95);
     border-radius:999px;
@@ -167,96 +135,53 @@
     transform: translateY(-1px);
   }
   .search .sico{ color:#94a3b8; width:22px; display:grid; place-items:center; }
-  .search input{
-    border:0; outline:0; background:transparent;
-    width:100%;
-    color:var(--ink);
-    font-weight:500;
-  }
+  .search input{border:0; outline:0; background:transparent; width:100%; color:var(--ink); font-weight:500;}
+
+  /* tools (esto es lo que mandaremos a sheet en móvil) */
+  .filter-tools{ display:inline-flex; gap:12px; align-items:center; flex-wrap:wrap; }
 
   .tabs{
-    display:inline-flex;
-    align-items:center;
-    gap:6px;
-    padding:6px;
-    border-radius:999px;
+    display:inline-flex; align-items:center; gap:6px;
+    padding:6px; border-radius:999px;
     border:1px solid rgba(232,238,246,.95);
     background:rgba(255,255,255,.86);
     box-shadow:0 10px 18px rgba(15,23,42,.04);
     user-select:none;
   }
   .tab{
-    appearance:none;
-    border:0;
-    background:transparent;
-    padding:9px 12px;
-    border-radius:999px;
-    cursor:pointer;
-    font-weight:700;
-    color:#334155;
+    appearance:none; border:0; background:transparent;
+    padding:9px 12px; border-radius:999px;
+    cursor:pointer; font-weight:700; color:#334155;
     transition: background .12s ease, color .12s ease, transform .12s ease, box-shadow .12s ease;
     white-space:nowrap;
   }
-  .tab:hover{
-    background:rgba(52,211,153,.10);
-    transform: translateY(-1px);
-    box-shadow:0 10px 18px rgba(15,23,42,.05);
-  }
-  .tab.is-active{
-    background:var(--acc-soft);
-    color:var(--acc-ink);
-    box-shadow:0 12px 22px rgba(52,211,153,.12);
-  }
+  .tab:hover{ background:rgba(52,211,153,.10); transform: translateY(-1px); box-shadow:0 10px 18px rgba(15,23,42,.05); }
+  .tab.is-active{ background:var(--acc-soft); color:var(--acc-ink); box-shadow:0 12px 22px rgba(52,211,153,.12); }
 
   .chip{
     display:inline-flex; align-items:center; gap:10px;
-    padding:10px 14px;
-    border-radius:999px;
+    padding:10px 14px; border-radius:999px;
     border:1px solid rgba(232,238,246,.95);
     background:rgba(255,255,255,.86);
     box-shadow:0 10px 18px rgba(15,23,42,.04);
-    font-weight:700;
-    color:#334155;
-    cursor:pointer;
+    font-weight:700; color:#334155; cursor:pointer;
     user-select:none;
     transition: transform .12s ease, box-shadow .12s ease, background .12s ease, border-color .12s ease;
     white-space:nowrap;
   }
-  .chip:hover{
-    transform: translateY(-1px);
-    box-shadow:0 14px 22px rgba(15,23,42,.06);
-    background:#fff;
-  }
+  .chip:hover{ transform: translateY(-1px); box-shadow:0 14px 22px rgba(15,23,42,.06); background:#fff; }
   .chip input{ width:16px; height:16px; accent-color: var(--acc); }
 
-  /* ===== Table (DESKTOP default) ===== */
+  /* ===== Table Desktop ===== */
   .table-wrap{ margin-top:12px; overflow:auto; border-radius:14px; border:1px solid var(--line); }
   table{ width:100%; border-collapse:collapse; font-size:.95rem; background:#fff }
   th, td{ padding:12px 12px; border-bottom:1px solid var(--line); vertical-align:middle; }
-  th{
-    font-weight:900; text-align:left; color:var(--ink);
-    background:#fbfdff;
-    white-space:nowrap;
-  }
+  th{ font-weight:900; text-align:left; color:var(--ink); background:#fbfdff; white-space:nowrap; }
   tr:hover td{ background:#fcfdfd }
 
-  /* ✅ miniatura SIEMPRE */
   td.img-cell, th.img-cell{ width:72px; max-width:72px; }
-  .thumbbox{
-    width:56px; height:56px;
-    border-radius:12px;
-    border:1px solid var(--line);
-    background:#f6f8fc;
-    overflow:hidden;
-    display:grid;
-    place-items:center;
-  }
-  .thumbbox img{
-    width:100%;
-    height:100%;
-    object-fit:cover;
-    display:block;
-  }
+  .thumbbox{ width:56px; height:56px; border-radius:12px; border:1px solid var(--line); background:#f6f8fc; overflow:hidden; display:grid; place-items:center; }
+  .thumbbox img{ width:100%; height:100%; object-fit:cover; display:block; }
 
   .name{ display:flex; flex-direction:column; gap:4px; min-width:260px; }
   .name strong{ color:var(--ink); font-weight:900; line-height:1.2 }
@@ -266,18 +191,14 @@
 
   .badge{
     display:inline-flex; align-items:center; gap:8px;
-    padding:6px 10px;
-    border-radius:999px;
-    font-weight:900;
-    font-size:.78rem;
+    padding:6px 10px; border-radius:999px;
+    font-weight:900; font-size:.78rem;
     border:1px solid var(--line);
-    background:#f1f5f9;
-    color:#334155;
+    background:#f1f5f9; color:#334155;
   }
   .badge .dot{ width:8px; height:8px; border-radius:999px; background:#cbd5e1; }
   .b-live{ background:rgba(134,239,172,.22); border-color:rgba(134,239,172,.40); color:#065f46; }
   .b-live .dot{ background:#22c55e; }
-  .b-draft{ background:#f1f5f9; }
   .b-draft .dot{ background:#94a3b8; }
   .b-hidden{ background:rgba(254,202,202,.26); border-color:rgba(254,202,202,.55); color:#991b1b; }
   .b-hidden .dot{ background:#ef4444; }
@@ -285,88 +206,114 @@
   .price{ font-weight:900; color:var(--ink); }
   .sale{ color:#16a34a; font-weight:900; }
   .muted-sm{ color:var(--muted); font-size:.85rem; }
-
   .actions{ display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
 
-  .foot{
-    display:flex; align-items:center; justify-content:space-between;
-    gap:12px; margin:16px 4px; flex-wrap:wrap;
-  }
+  .foot{display:flex; align-items:center; justify-content:space-between; gap:12px; margin:16px 4px; flex-wrap:wrap;}
 
-  /* ✅ este bloque SOLO existe para móvil (no afecta desktop) */
-  .m-only{ display:none; }
-
-  /* =========================
-     ✅ MOBILE (<760px)
-     - Tabla se mantiene NORMAL en desktop
-     - En móvil: ocultamos columnas extra y mostramos resumen dentro de Producto
-     ========================= */
+  /* ===== Mobile: search visible, tools -> sheet, table -> cards ===== */
   @media (max-width: 760px){
     .wrap{ padding:0 10px; }
-    .filters-row{ flex-direction:column; align-items:stretch; }
-    .filters-row > *{ width:100%; }
+    body{ padding-bottom: 86px; }
 
-    .tabs{
-      width:100%;
-      overflow-x:auto;
-      -webkit-overflow-scrolling:touch;
-      justify-content:flex-start;
+    /* ocultamos SOLO los tools, el search se queda */
+    .filter-tools{ display:none !important; }
+
+    /* Desktop Nuevo fuera */
+    .head .tt-new{ display:none !important; }
+
+    /* table to cards */
+    .table-wrap{ border:0; background:transparent; overflow:visible; box-shadow:none; }
+    table, thead, tbody, th, td, tr{ display:block; }
+    thead{ display:none; }
+    table{ background:transparent; }
+
+    tbody tr{
+      background:#fff;
+      border:1px solid var(--line);
+      border-radius:16px;
+      box-shadow:0 14px 30px rgba(15,23,42,.06);
+      padding:12px;
+      margin:12px 0;
     }
-    .tabs::-webkit-scrollbar{ height:0; }
-    .tab{ flex:0 0 auto; }
+    tbody td{ border:0; padding:0; background:transparent !important; }
 
-    .chip{ width:100%; justify-content:center; }
+    td.img-cell{ width:auto !important; max-width:none !important; margin-bottom:10px; }
+    .thumbbox{ width:74px; height:74px; border-radius:16px; }
 
-    /* tooltips off en touch */
-    @media (hover:none){
-      .tt .tt-bubble{ display:none !important; }
-    }
-
-    /* Ocultar columnas (Precio/Estado/Destacado/Publicado) para que no “ruede” */
-    table{ font-size:.95rem; }
-    th:nth-child(3), td:nth-child(3),
-    th:nth-child(4), td:nth-child(4),
-    th:nth-child(5), td:nth-child(5),
-    th:nth-child(6), td:nth-child(6){
-      display:none;
-    }
-
-    /* Mostrar bloque móvil dentro de Producto */
-    .m-only{ display:block; }
-
-    /* acciones: alinear a la izquierda en móvil */
-    .actions{ justify-content:flex-start; }
-    .iconbtn{ width:42px; height:42px; border-radius:14px; }
+    .actions{ justify-content:flex-start; margin-top:12px; padding-top:10px; border-top:1px dashed rgba(232,238,246,.9); }
+    .iconbtn{ width:44px; height:44px; border-radius:16px; }
   }
 
-  /* (tu regla anterior para 860px se mantiene si quieres, pero ahora no rompe desktop) */
-  @media (max-width: 860px){
-    th:nth-child(6), td:nth-child(6){ display:none; }
+  /* ===== FAB + Sheet (móvil) ===== */
+  .fab{
+    position:fixed; right:16px; bottom:18px;
+    width:58px; height:58px; border-radius:999px;
+    border:1px solid rgba(232,238,246,.9);
+    background:rgba(255,255,255,.92);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow:0 18px 44px rgba(15,23,42,.18);
+    display:none; place-items:center;
+    z-index:1000; cursor:pointer;
+    transition:transform .14s ease, box-shadow .14s ease;
   }
+  .fab:hover{ transform: translateY(-2px); box-shadow:0 22px 54px rgba(15,23,42,.22); }
+  .fab svg{ width:22px; height:22px; color: var(--acc-ink); }
 
-  /* filas para móvil (dentro de producto) */
-  .mgrid{
-    margin-top:10px;
-    display:grid;
-    gap:8px;
+  .sheet-overlay{
+    position:fixed; inset:0;
+    background:rgba(15,23,42,.42);
+    opacity:0; pointer-events:none;
+    transition:opacity .18s ease;
+    z-index:1001;
   }
-  .mrow{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:12px;
-    padding-top:8px;
-    border-top:1px dashed rgba(232,238,246,.95);
+  .sheet{
+    position:fixed; left:0; right:0;
+    bottom:-85%;
+    background:#fff;
+    border-top-left-radius:20px;
+    border-top-right-radius:20px;
+    border:1px solid rgba(232,238,246,.9);
+    box-shadow:0 -18px 50px rgba(15,23,42,.25);
+    z-index:1002;
+    transition: bottom .22s ease;
+    padding:12px 14px 16px;
   }
-  .mlabel{ font-size:.78rem; color:#64748b; font-weight:900; letter-spacing:.02em; }
-  .mvalue{ text-align:right; color:#0f172a; font-weight:800; }
+  .sheet .grab{ width:44px; height:5px; border-radius:999px; background:#e5e7eb; margin:4px auto 10px; }
+  .sheet .sheet-title{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
+  .sheet .sheet-title h3{ margin:0; font-size:15px; font-weight:900; color:var(--ink); }
+  .sheet .sheet-close{
+    width:36px; height:36px; border-radius:12px;
+    border:1px solid var(--line);
+    background:#fff;
+    display:grid; place-items:center;
+    cursor:pointer;
+    box-shadow:0 10px 18px rgba(15,23,42,.06);
+    transition:transform .12s ease, box-shadow .12s ease;
+  }
+  .sheet .sheet-close:hover{ transform:translateY(-1px); box-shadow:0 14px 24px rgba(15,23,42,.08); }
+  .sheet .sheet-close svg{ width:18px; height:18px; }
+
+  .sheet .sf{ display:grid; gap:12px; }
+  .sheet .tabs{
+    width:100%;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    justify-content:flex-start;
+  }
+  .sheet .tabs::-webkit-scrollbar{ height:0; }
+  .sheet .chip{ width:100%; justify-content:center; }
+  .sheet .btn{ width:100%; justify-content:center; padding:12px 14px; border-radius:16px; }
+
+  .sheet-open .sheet-overlay{ opacity:1; pointer-events:auto; }
+  .sheet-open .sheet{ bottom:0; }
+
+  @media (max-width: 760px){ .fab{ display:grid; } }
 </style>
 @endpush
 
 @section('content')
-@php
-  $st = (string)request('status','');
-@endphp
+@php $st = (string)request('status',''); @endphp
 
 <div class="wrap">
 
@@ -376,7 +323,8 @@
       <p class="muted subtxt">Gestiona el catálogo público y sincroniza con Mercado Libre con acciones rápidas.</p>
     </div>
 
-    <div class="tt">
+    {{-- Desktop: queda normal --}}
+    <div class="tt tt-new">
       <span class="tt-bubble">Crear nuevo producto</span>
       <a href="{{ route('admin.catalog.create') }}" class="btn">
         <span class="ico">
@@ -395,6 +343,7 @@
     </div>
   @endif
 
+  {{-- ✅ El buscador se queda aquí siempre --}}
   <div class="filters">
     <form id="filtersForm" method="GET" action="{{ route('admin.catalog.index') }}" class="filters-row">
       <div class="tt" style="flex:1; min-width:0;">
@@ -409,39 +358,42 @@
         </div>
       </div>
 
-      <div class="tt">
-        <span class="tt-bubble">Filtrar por estado</span>
-        <div class="tabs" role="tablist" aria-label="Estado">
-          <button type="button" class="tab {{ $st==='' ? 'is-active' : '' }}" data-status="">Todos</button>
-          <button type="button" class="tab {{ $st==='1' ? 'is-active' : '' }}" data-status="1">Publicado</button>
-          <button type="button" class="tab {{ $st==='0' ? 'is-active' : '' }}" data-status="0">Borrador</button>
-          <button type="button" class="tab {{ $st==='2' ? 'is-active' : '' }}" data-status="2">Oculto</button>
+      {{-- ✅ SOLO estos tools se van al sheet en móvil --}}
+      <div class="filter-tools">
+        <div class="tt">
+          <span class="tt-bubble">Filtrar por estado</span>
+          <div class="tabs" role="tablist" aria-label="Estado">
+            <button type="button" class="tab {{ $st==='' ? 'is-active' : '' }}" data-status="">Todos</button>
+            <button type="button" class="tab {{ $st==='1' ? 'is-active' : '' }}" data-status="1">Publicado</button>
+            <button type="button" class="tab {{ $st==='0' ? 'is-active' : '' }}" data-status="0">Borrador</button>
+            <button type="button" class="tab {{ $st==='2' ? 'is-active' : '' }}" data-status="2">Oculto</button>
+          </div>
         </div>
+
+        <div class="tt">
+          <span class="tt-bubble">Mostrar solo destacados</span>
+          <label class="chip">
+            <input id="featuredInput" type="checkbox" name="featured_only" value="1" @checked(request()->boolean('featured_only'))>
+            Destacados
+          </label>
+        </div>
+
+        @if(request()->hasAny(['s','status','featured_only']))
+          <div class="tt">
+            <span class="tt-bubble">Quitar filtros</span>
+            <a href="{{ route('admin.catalog.index') }}" class="btn btn-sm" style="padding:10px 12px;">
+              <span class="ico">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M3 12a9 9 0 1 0 9-9"/><path d="M3 4v8h8"/>
+                </svg>
+              </span>
+              Limpiar
+            </a>
+          </div>
+        @endif
       </div>
 
       <input type="hidden" name="status" id="statusInput" value="{{ $st }}">
-
-      <div class="tt">
-        <span class="tt-bubble">Mostrar solo destacados</span>
-        <label class="chip">
-          <input id="featuredInput" type="checkbox" name="featured_only" value="1" @checked(request()->boolean('featured_only'))>
-          Destacados
-        </label>
-      </div>
-
-      @if(request()->hasAny(['s','status','featured_only']))
-        <div class="tt">
-          <span class="tt-bubble">Quitar filtros</span>
-          <a href="{{ route('admin.catalog.index') }}" class="btn btn-sm" style="padding:10px 12px;">
-            <span class="ico">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M3 12a9 9 0 1 0 9-9"/><path d="M3 4v8h8"/>
-              </svg>
-            </span>
-            Limpiar
-          </a>
-        </div>
-      @endif
     </form>
   </div>
 
@@ -461,7 +413,6 @@
 
       <tbody>
         @forelse($items as $it)
-          @php $mlErr = !empty($it->meli_last_error); @endphp
           <tr>
             <td class="img-cell">
               <div class="thumbbox">
@@ -500,57 +451,7 @@
                   @endif
                 </div>
 
-                {{-- ✅ SOLO EN MÓVIL (por CSS .m-only) --}}
-                <div class="m-only">
-                  <div class="mgrid">
-                    <div class="mrow">
-                      <div class="mlabel">Precio</div>
-                      <div class="mvalue">
-                        @if(!is_null($it->sale_price))
-                          <span class="sale">${{ number_format($it->sale_price,2) }}</span>
-                          <span class="muted-sm" style="text-decoration:line-through;margin-left:8px;">${{ number_format($it->price,2) }}</span>
-                        @else
-                          <span class="price">${{ number_format($it->price,2) }}</span>
-                        @endif
-                      </div>
-                    </div>
-
-                    <div class="mrow">
-                      <div class="mlabel">Estado</div>
-                      <div class="mvalue">
-                        @if($it->status === 1)
-                          <span class="badge b-live"><span class="dot"></span>Publicado</span>
-                        @elseif($it->status === 2)
-                          <span class="badge b-hidden"><span class="dot"></span>Oculto</span>
-                        @else
-                          <span class="badge b-draft"><span class="dot"></span>Borrador</span>
-                        @endif
-                      </div>
-                    </div>
-
-                    <div class="mrow">
-                      <div class="mlabel">Destacado</div>
-                      <div class="mvalue">
-                        @if($it->is_featured)
-                          <span class="badge" style="background:rgba(52,211,153,.16);border-color:rgba(52,211,153,.28);color:#065f46;">
-                            <span class="dot" style="background:#22c55e"></span>Sí
-                          </span>
-                        @else
-                          <span class="muted">—</span>
-                        @endif
-                      </div>
-                    </div>
-
-                    <div class="mrow">
-                      <div class="mlabel">Publicado</div>
-                      <div class="mvalue">
-                        <span class="muted">{{ $it->published_at ? $it->published_at->format('Y-m-d H:i') : '—' }}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                @if($mlErr)
+                @if(!empty($it->meli_last_error))
                   <details style="margin-top:8px;">
                     <summary style="cursor:pointer; font-weight:800; color:#b91c1c;">Ver error de Mercado Libre</summary>
                     <div style="margin-top:8px; font-size:.9rem; color:#7f1d1d; white-space:normal; max-width:740px;">
@@ -596,36 +497,28 @@
 
             <td style="text-align:right;">
               <div class="actions">
-
+                {{-- (Acciones iguales a las tuyas actuales; no las toco) --}}
                 <span class="tt iconbtn-wrap">
                   <span class="tt-bubble">Editar</span>
                   <a class="iconbtn" href="{{ route('admin.catalog.edit', $it) }}">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M12 20h9"/>
-                      <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
+                      <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
                     </svg>
                   </a>
                 </span>
 
                 <span class="tt iconbtn-wrap">
                   <span class="tt-bubble">{{ $it->status == 1 ? 'Ocultar' : 'Publicar' }}</span>
-                  <form method="POST" action="{{ route('admin.catalog.toggle', $it) }}"
-                        onsubmit="return confirm('¿Cambiar estado de publicación en el sitio web?')">
-                    @csrf
-                    @method('PATCH')
+                  <form method="POST" action="{{ route('admin.catalog.toggle', $it) }}" onsubmit="return confirm('¿Cambiar estado de publicación en el sitio web?')">
+                    @csrf @method('PATCH')
                     <button class="iconbtn" type="submit">
                       @if($it->status == 1)
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12z"/>
-                          <path d="M3 3l18 18"/>
+                          <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12z"/><path d="M3 3l18 18"/>
                         </svg>
                       @else
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <path d="M3 11v2"/>
-                          <path d="M5 10v4"/>
-                          <path d="M7 9v6"/>
-                          <path d="M9 8l10-3v14l-10-3V8z"/>
-                          <path d="M11 16l1 4"/>
+                          <path d="M3 11v2"/><path d="M5 10v4"/><path d="M7 9v6"/><path d="M9 8l10-3v14l-10-3V8z"/><path d="M11 16l1 4"/>
                         </svg>
                       @endif
                     </button>
@@ -638,9 +531,7 @@
                     @csrf
                     <button class="iconbtn" type="submit">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M12 21V8"/>
-                        <path d="M7 12l5-5 5 5"/>
-                        <path d="M20 21H4"/>
+                        <path d="M12 21V8"/><path d="M7 12l5-5 5 5"/><path d="M20 21H4"/>
                       </svg>
                     </button>
                   </form>
@@ -651,9 +542,7 @@
                     <span class="tt-bubble">ML: Ver</span>
                     <a class="iconbtn" href="{{ route('admin.catalog.meli.view', $it) }}">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M14 3h7v7"/>
-                        <path d="M10 14L21 3"/>
-                        <path d="M21 14v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6"/>
+                        <path d="M14 3h7v7"/><path d="M10 14L21 3"/><path d="M21 14v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6"/>
                       </svg>
                     </a>
                   </span>
@@ -664,8 +553,7 @@
                       @csrf
                       <button class="iconbtn" type="submit">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <rect x="6" y="4" width="4" height="16"/>
-                          <rect x="14" y="4" width="4" height="16"/>
+                          <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
                         </svg>
                       </button>
                     </form>
@@ -686,21 +574,17 @@
 
                 <span class="tt iconbtn-wrap">
                   <span class="tt-bubble">Eliminar</span>
-                  <form method="POST" action="{{ route('admin.catalog.destroy', $it) }}"
-                        onsubmit="return confirm('¿Eliminar este producto del catálogo web? Esta acción no se puede deshacer.')">
-                    @csrf
-                    @method('DELETE')
+                  <form method="POST" action="{{ route('admin.catalog.destroy', $it) }}" onsubmit="return confirm('¿Eliminar este producto del catálogo web? Esta acción no se puede deshacer.')">
+                    @csrf @method('DELETE')
                     <button class="iconbtn" type="submit" style="border-color:rgba(254,202,202,.75);">
                       <svg viewBox="0 0 24 24" fill="none" stroke="#b91c1c" stroke-width="2">
                         <polyline points="3 6 5 6 21 6"/>
                         <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                        <line x1="10" y1="11" x2="10" y2="17"/>
-                        <line x1="14" y1="11" x2="14" y2="17"/>
+                        <line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>
                       </svg>
                     </button>
                   </form>
                 </span>
-
               </div>
             </td>
           </tr>
@@ -723,25 +607,88 @@
       {{ $items->onEachSide(1)->links() }}
     </div>
   </div>
+</div>
 
+{{-- ✅ FAB (móvil) abre Bottom Sheet SOLO filtros --}}
+<button class="fab" id="fabOpen" type="button" aria-label="Abrir filtros">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <path d="M12 5v14M5 12h14"/>
+  </svg>
+</button>
+
+<div class="sheet-overlay" id="sheetOverlay" aria-hidden="true"></div>
+
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Filtros" aria-hidden="true">
+  <div class="grab"></div>
+  <div class="sheet-title">
+    <h3>Filtros</h3>
+    <button class="sheet-close" type="button" id="sheetClose" aria-label="Cerrar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M18 6L6 18M6 6l12 12"/>
+      </svg>
+    </button>
+  </div>
+
+  {{-- ✅ En el sheet NO va el buscador (se queda arriba), solo estado + destacados + limpiar + nuevo --}}
+  <form id="sheetForm" method="GET" action="{{ route('admin.catalog.index') }}" class="sf">
+    {{-- preserva el search que ya está arriba --}}
+    <input type="hidden" name="s" id="sMirror" value="{{ request('s') }}">
+
+    <div class="tabs" role="tablist" aria-label="Estado (móvil)">
+      <button type="button" class="tab {{ $st==='' ? 'is-active' : '' }}" data-status="">Todos</button>
+      <button type="button" class="tab {{ $st==='1' ? 'is-active' : '' }}" data-status="1">Publicado</button>
+      <button type="button" class="tab {{ $st==='0' ? 'is-active' : '' }}" data-status="0">Borrador</button>
+      <button type="button" class="tab {{ $st==='2' ? 'is-active' : '' }}" data-status="2">Oculto</button>
+    </div>
+
+    <input type="hidden" name="status" id="statusSheet" value="{{ $st }}">
+
+    <label class="chip">
+      <input id="featuredSheet" type="checkbox" name="featured_only" value="1" @checked(request()->boolean('featured_only'))>
+      Destacados
+    </label>
+
+    <a href="{{ route('admin.catalog.create') }}" class="btn">
+      <span class="ico">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 5v14M5 12h14"/>
+        </svg>
+      </span>
+      Nuevo producto
+    </a>
+
+    @if(request()->hasAny(['s','status','featured_only']))
+      <a href="{{ route('admin.catalog.index') }}" class="btn btn-sm" style="padding:12px 14px;">
+        <span class="ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 12a9 9 0 1 0 9-9"/><path d="M3 4v8h8"/>
+          </svg>
+        </span>
+        Limpiar filtros
+      </a>
+    @endif
+  </form>
 </div>
 @endsection
 
 @push('scripts')
 <script>
 (function(){
+  function debounce(fn, wait){
+    let t; return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn(...args), wait); };
+  }
+  function isMobile(){ return window.matchMedia('(max-width: 760px)').matches; }
+
+  // ===== Desktop main form =====
   const form = document.getElementById('filtersForm');
   const sInput = document.getElementById('sInput');
   const statusInput = document.getElementById('statusInput');
-  const tabs = Array.from(document.querySelectorAll('.tab'));
+  const tabs = Array.from(document.querySelectorAll('#filtersForm .tab'));
   const featured = document.getElementById('featuredInput');
 
-  function debounce(fn, wait){
-    let t;
-    return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn(...args), wait); };
-  }
   const submitDebounced = debounce(()=> form?.submit(), 450);
 
+  // buscar: se queda en el form principal (visible siempre)
   sInput?.addEventListener('input', submitDebounced);
 
   tabs.forEach(btn=>{
@@ -752,8 +699,62 @@
       form?.submit();
     });
   });
-
   featured?.addEventListener('change', ()=> form?.submit());
+
+  // ===== Bottom Sheet (móvil) =====
+  const root = document.documentElement;
+  const fab = document.getElementById('fabOpen');
+  const sheet = document.getElementById('sheet');
+  const overlay = document.getElementById('sheetOverlay');
+  const closeBtn = document.getElementById('sheetClose');
+
+  function openSheet(){
+    if(!isMobile()) return;
+    root.classList.add('sheet-open');
+    sheet?.setAttribute('aria-hidden','false');
+    overlay?.setAttribute('aria-hidden','false');
+  }
+  function closeSheet(){
+    root.classList.remove('sheet-open');
+    sheet?.setAttribute('aria-hidden','true');
+    overlay?.setAttribute('aria-hidden','true');
+  }
+
+  fab?.addEventListener('click', openSheet);
+  overlay?.addEventListener('click', closeSheet);
+  closeBtn?.addEventListener('click', closeSheet);
+  document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') closeSheet(); });
+  window.addEventListener('resize', ()=>{ if(!isMobile()) closeSheet(); });
+
+  // sheet logic: solo status + destacados (mantiene el search actual)
+  const sheetForm = document.getElementById('sheetForm');
+  const sMirror = document.getElementById('sMirror');
+  const statusSheet = document.getElementById('statusSheet');
+  const tabSheet = Array.from(document.querySelectorAll('#sheetForm .tab'));
+  const featuredSheet = document.getElementById('featuredSheet');
+
+  function syncSearchToSheet(){
+    if(!sMirror || !sInput) return;
+    sMirror.value = sInput.value || '';
+  }
+  sInput?.addEventListener('input', syncSearchToSheet);
+  syncSearchToSheet();
+
+  tabSheet.forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      tabSheet.forEach(x=>x.classList.remove('is-active'));
+      btn.classList.add('is-active');
+      if(statusSheet) statusSheet.value = btn.dataset.status ?? '';
+      syncSearchToSheet();
+      sheetForm?.submit();
+    });
+  });
+
+  featuredSheet?.addEventListener('change', ()=>{
+    syncSearchToSheet();
+    sheetForm?.submit();
+  });
+
 })();
 </script>
 @endpush
