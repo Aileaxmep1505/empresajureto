@@ -21,125 +21,243 @@ class DashboardController extends Controller implements HasMiddleware
     public function index()
     {
         $hoy        = Carbon::today();
-        $ayer       = Carbon::yesterday();
         $inicioMes  = Carbon::now()->startOfMonth();
         $ahora      = Carbon::now();
 
         $has = fn(string $table) => Schema::hasTable($table);
 
-        /* ================= KPIs ================= */
-        $kpiVentasHoy = $has('ventas')
-            ? (int) DB::table('ventas')->whereDate('created_at', $hoy)->count()
+        /**
+         * =========================
+         * Dashboard = Propuestas Comparativas
+         * =========================
+         * Intentamos detectar automáticamente la tabla principal.
+         * Prioridad típica en tu proyecto:
+         * - licitacion_propuestas (por tu LicitacionPropuestaController)
+         * - propuestas_comparativas
+         * - propuestas
+         * - cotizaciones (fallback si no existe nada más)
+         */
+        $tablaPropuestas = $this->detectarTablaPropuestasComparativas();
+
+        // Detecta el campo "estado" si existe
+        $colEstado = ($tablaPropuestas && Schema::hasColumn($tablaPropuestas, 'estado')) ? 'estado' : null;
+
+        // Detecta campo monto/total si existe (para sumas si lo necesitas)
+        $colTotal = null;
+        foreach (['total', 'monto', 'importe', 'subtotal', 'total_estimado'] as $c) {
+            if ($tablaPropuestas && Schema::hasColumn($tablaPropuestas, $c)) { $colTotal = $c; break; }
+        }
+
+        /* ================= KPIs (Reales) ================= */
+        // Propuestas del mes
+        $kpiPropuestasMes = $tablaPropuestas
+            ? (int) DB::table($tablaPropuestas)->whereBetween('created_at', [$inicioMes, $ahora])->count()
             : 0;
 
-        $kpiIngresosMes = $has('ventas')
-            ? (float) DB::table('ventas')->whereBetween('created_at', [$inicioMes, $ahora])->sum('total')
-            : 0.0;
+        // En revisión (si existe estado)
+        $kpiEnRevision = ($tablaPropuestas && $colEstado)
+            ? (int) DB::table($tablaPropuestas)
+                ->whereIn($colEstado, ['revision', 'en_revision', 'analisis', 'en_analisis'])
+                ->count()
+            : 0;
 
-        // Conteo robusto de clientes (modelo o tabla real)
+        // Adjudicadas (mes)
+        $kpiAdjudicadasMes = ($tablaPropuestas && $colEstado)
+            ? (int) DB::table($tablaPropuestas)
+                ->whereBetween('created_at', [$inicioMes, $ahora])
+                ->whereIn($colEstado, ['adjudicada', 'adjudicado', 'ganada'])
+                ->count()
+            : 0;
+
+        // Pendientes (si existe estado)
+        $kpiPendientes = ($tablaPropuestas && $colEstado)
+            ? (int) DB::table($tablaPropuestas)
+                ->whereIn($colEstado, ['pendiente', 'borrador', 'revision', 'en_revision', 'enviado'])
+                ->count()
+            : 0;
+
+        // Conteo robusto de clientes
         $kpiClientes = $this->contarClientes();
 
-        // Pendientes (tareas -> cotizaciones.estado=pendiente -> 0)
-        if ($has('tareas')) {
-            $kpiPendientes = (int) DB::table('tareas')->where('estado', 'pendiente')->count();
-        } elseif ($has('cotizaciones') && Schema::hasColumn('cotizaciones', 'estado')) {
-            $kpiPendientes = (int) DB::table('cotizaciones')->where('estado', 'pendiente')->count();
+        /* ============== Tendencias (Reales) ============== */
+        // Tendencia: últimos 12 días vs 12 días anteriores (propuestas creadas)
+        $days = 12;
+        $currStart = Carbon::now()->startOfDay()->subDays($days - 1);
+        $currEnd   = Carbon::now()->endOfDay();
+        $prevStart = (clone $currStart)->subDays($days);
+        $prevEnd   = (clone $currStart)->subSecond();
+
+        $currCount = $tablaPropuestas
+            ? (int) DB::table($tablaPropuestas)->whereBetween('created_at', [$currStart, $currEnd])->count()
+            : 0;
+
+        $prevCount = $tablaPropuestas
+            ? (int) DB::table($tablaPropuestas)->whereBetween('created_at', [$prevStart, $prevEnd])->count()
+            : 0;
+
+        $trendPropuestas = $this->pctChange($prevCount, $currCount);
+
+        // Tendencia adjudicadas: mismo criterio
+        if ($tablaPropuestas && $colEstado) {
+            $currAdj = (int) DB::table($tablaPropuestas)
+                ->whereBetween('created_at', [$currStart, $currEnd])
+                ->whereIn($colEstado, ['adjudicada', 'adjudicado', 'ganada'])
+                ->count();
+
+            $prevAdj = (int) DB::table($tablaPropuestas)
+                ->whereBetween('created_at', [$prevStart, $prevEnd])
+                ->whereIn($colEstado, ['adjudicada', 'adjudicado', 'ganada'])
+                ->count();
+
+            $trendAdjudicadas = $this->pctChange($prevAdj, $currAdj);
         } else {
-            $kpiPendientes = 0;
+            $trendAdjudicadas = 0;
         }
 
-        /* ============== Tendencias ============== */
-        $ventasAyer  = $has('ventas') ? (int) DB::table('ventas')->whereDate('created_at', $ayer)->count() : 0;
-        $trendVentas = $ventasAyer > 0
-            ? (int) round(100 * ($kpiVentasHoy - $ventasAyer) / max(1, $ventasAyer))
-            : ($kpiVentasHoy > 0 ? 100 : 0);
-
-        if ($has('ventas')) {
-            $inicioMesAnterior   = (clone $inicioMes)->subMonth();
-            $finMesAnterior      = (clone $inicioMes)->subSecond();
-            $ingresosMesAnterior = (float) DB::table('ventas')
-                ->whereBetween('created_at', [$inicioMesAnterior, $finMesAnterior])
-                ->sum('total');
-
-            $trendIngresos = $ingresosMesAnterior > 0
-                ? (int) round(100 * ($kpiIngresosMes - $ingresosMesAnterior) / max(1, $ingresosMesAnterior))
-                : ($kpiIngresosMes > 0 ? 100 : 0);
-        } else {
-            $trendIngresos = 0;
-        }
-
-        if ($this->existeTablaCon($tabla = 'clientes', 'created_at')) {
-            $c7 = (int) DB::table('clientes')->where('created_at', '>=', Carbon::now()->subDays(7))->count();
-            $p7 = (int) DB::table('clientes')->whereBetween('created_at', [Carbon::now()->subDays(14), Carbon::now()->subDays(7)])->count();
-            $trendClientes = $p7 > 0 ? (int) round(100 * ($c7 - $p7) / max(1, $p7)) : ($c7 > 0 ? 100 : 0);
-        } else {
-            $trendClientes = 0;
-        }
-
+        // Tendencias opcionales (si quieres calcularlas)
+        $trendRevision = 0;
         $trendPend = 0;
 
-        /* ============ Series 12 días ============ */
-        $serieVentas = [];
-        $serieIngresos = [];
-        if ($has('ventas')) {
-            for ($i = 11; $i >= 0; $i--) {
-                $d = Carbon::today()->subDays($i);
-                $serieVentas[]   = (int) DB::table('ventas')->whereDate('created_at', $d)->count();
-                $serieIngresos[] = (int) DB::table('ventas')->whereDate('created_at', $d)->sum('total');
+        /* ============ Series REALES (12 días) ============ */
+        $seriePropuestas = [];
+        $serieAdjudicadas = [];
+
+        if ($tablaPropuestas) {
+            // Propuestas por día (COUNT)
+            $rawDaily = DB::table($tablaPropuestas)
+                ->selectRaw('DATE(created_at) as d, COUNT(*) as c')
+                ->whereBetween('created_at', [$currStart, $currEnd])
+                ->groupBy('d')
+                ->orderBy('d')
+                ->pluck('c', 'd'); // ['2026-01-05'=>3...]
+
+            // Adjudicadas por día (COUNT con estado)
+            $rawDailyAdj = collect();
+            if ($colEstado) {
+                $rawDailyAdj = DB::table($tablaPropuestas)
+                    ->selectRaw('DATE(created_at) as d, COUNT(*) as c')
+                    ->whereBetween('created_at', [$currStart, $currEnd])
+                    ->whereIn($colEstado, ['adjudicada', 'adjudicado', 'ganada'])
+                    ->groupBy('d')
+                    ->orderBy('d')
+                    ->pluck('c', 'd');
+            }
+
+            for ($i = 0; $i < $days; $i++) {
+                $date = (clone $currStart)->addDays($i)->toDateString();
+                $seriePropuestas[]  = (int)($rawDaily[$date] ?? 0);
+                $serieAdjudicadas[] = (int)($rawDailyAdj[$date] ?? 0);
             }
         } else {
-            $serieVentas   = [4,6,5,7,9,8,10,9,12,11,14,15];
-            $serieIngresos = [12,9,11,10,13,15,14,16,18,17,20,22];
+            // Si no hay tabla, dejar vacío (no ficticio)
+            $seriePropuestas = [];
+            $serieAdjudicadas = [];
         }
 
-        /* ========= Actividad reciente ========= */
-        $ultimasVentas = collect();
-        if ($has('ventas')) {
-            $q = DB::table('ventas')
-                ->select('ventas.id', 'ventas.total', 'ventas.created_at', DB::raw("COALESCE(ventas.estado, 'pendiente') as estado"));
-
-            // Detecta automáticamente tabla/columna de nombre del cliente
-            $clienteMeta = $this->detectarTablaYColumnaCliente(); // [tabla, columnaNombre]
-            if ($clienteMeta && Schema::hasColumn('ventas', 'cliente_id')) {
-                [$tablaClientes, $colNombre] = $clienteMeta;
-                $q->leftJoin($tablaClientes, "$tablaClientes.id", '=', 'ventas.cliente_id')
-                  ->addSelect(DB::raw("$tablaClientes.$colNombre as cliente_nombre"));
-            }
-
-            $ultimasVentas = $q->orderBy('ventas.created_at', 'desc')->limit(6)->get();
+        /* ========= Actividad reciente (Real) ========= */
+        // OJO: el blade que ya tienes arma campos con fallbacks.
+        $ultimasPropuestas = collect();
+        if ($tablaPropuestas) {
+            $ultimasPropuestas = DB::table($tablaPropuestas)
+                ->orderByDesc('created_at')
+                ->limit(10)
+                ->get();
         }
 
-        /* ========== Progreso (placeholder) ========== */
-        $progresoAlumno = 0;
-        $modulosResumen = [
-            ['titulo'=>'Módulo 1: Introducción','estado'=>'completado','pct'=>100],
-            ['titulo'=>'Módulo 2: Intermedio','estado'=>'en progreso','pct'=>45],
-            ['titulo'=>'Módulo 3: Avanzado','estado'=>'pendiente','pct'=>0],
-        ];
+        /* ========= Pipeline (Real por estado) ========= */
+        $pipeBorrador = $pipeRevision = $pipeEnviado = $pipeAdjudicado = 0;
+        $pipePctBorrador = $pipePctRevision = $pipePctEnviado = $pipePctAdjudicado = 0;
+
+        if ($tablaPropuestas && $colEstado) {
+            $countsByEstado = DB::table($tablaPropuestas)
+                ->selectRaw($colEstado.' as estado, COUNT(*) as c')
+                ->groupBy('estado')
+                ->pluck('c', 'estado');
+
+            $pipeBorrador   = (int)($countsByEstado['borrador'] ?? 0);
+            $pipeRevision   = (int)(
+                ($countsByEstado['revision'] ?? 0)
+                + ($countsByEstado['en_revision'] ?? 0)
+                + ($countsByEstado['analisis'] ?? 0)
+                + ($countsByEstado['en_analisis'] ?? 0)
+            );
+            $pipeEnviado    = (int)($countsByEstado['enviado'] ?? 0);
+            $pipeAdjudicado = (int)(
+                ($countsByEstado['adjudicada'] ?? 0)
+                + ($countsByEstado['adjudicado'] ?? 0)
+                + ($countsByEstado['ganada'] ?? 0)
+            );
+
+            $totalPipe = max(1, $pipeBorrador + $pipeRevision + $pipeEnviado + $pipeAdjudicado);
+            $pipePctBorrador   = (int) round($pipeBorrador   * 100 / $totalPipe);
+            $pipePctRevision   = (int) round($pipeRevision   * 100 / $totalPipe);
+            $pipePctEnviado    = (int) round($pipeEnviado    * 100 / $totalPipe);
+            $pipePctAdjudicado = (int) round($pipeAdjudicado * 100 / $totalPipe);
+        }
 
         return view('dashboard', [
-            'kpiVentasHoy'   => $kpiVentasHoy,
-            'kpiIngresosMes' => $kpiIngresosMes,
-            'kpiClientes'    => $kpiClientes,
-            'kpiPendientes'  => $kpiPendientes,
-            'trendVentas'    => $trendVentas,
-            'trendIngresos'  => $trendIngresos,
-            'trendClientes'  => $trendClientes,
-            'trendPend'      => $trendPend,
-            'serieVentas'    => $serieVentas,
-            'serieIngresos'  => $serieIngresos,
-            'ultimasVentas'  => $ultimasVentas,
-            'progresoAlumno' => $progresoAlumno,
-            'modulos'        => $modulosResumen,
+            // KPIs (nuevo dashboard)
+            'kpiPropuestasMes'   => $kpiPropuestasMes,
+            'kpiEnRevision'      => $kpiEnRevision,
+            'kpiAdjudicadasMes'  => $kpiAdjudicadasMes,
+            'kpiPendientes'      => $kpiPendientes,
+            'kpiClientes'        => $kpiClientes,
+
+            // Tendencias
+            'trendPropuestas'    => $trendPropuestas,
+            'trendRevision'      => $trendRevision,
+            'trendAdjudicadas'   => $trendAdjudicadas,
+            'trendPend'          => $trendPend,
+
+            // Series reales (sparklines)
+            'seriePropuestas'    => $seriePropuestas,
+            'serieAdjudicadas'   => $serieAdjudicadas,
+
+            // Actividad
+            'ultimasPropuestas'  => $ultimasPropuestas,
+
+            // Pipeline real
+            'pipeBorrador'       => $pipeBorrador,
+            'pipeRevision'       => $pipeRevision,
+            'pipeEnviado'        => $pipeEnviado,
+            'pipeAdjudicado'     => $pipeAdjudicado,
+            'pipePctBorrador'    => $pipePctBorrador,
+            'pipePctRevision'    => $pipePctRevision,
+            'pipePctEnviado'     => $pipePctEnviado,
+            'pipePctAdjudicado'  => $pipePctAdjudicado,
         ]);
     }
 
     /* ================= Helpers ================= */
 
+    private function pctChange(int $prev, int $curr): int
+    {
+        if ($prev <= 0) return $curr > 0 ? 100 : 0;
+        return (int) round((($curr - $prev) / $prev) * 100);
+    }
+
+    /** Detecta la tabla principal de propuestas comparativas. */
+    private function detectarTablaPropuestasComparativas(): ?string
+    {
+        $candidatas = [
+            'licitacion_propuestas',
+            'propuestas_comparativas',
+            'propuestas',
+            'cotizaciones', // fallback
+        ];
+
+        foreach ($candidatas as $t) {
+            if (Schema::hasTable($t) && Schema::hasColumn($t, 'created_at')) {
+                return $t;
+            }
+        }
+
+        return null;
+    }
+
     /** Cuenta clientes usando modelo si existe; si no, por tabla común. */
     private function contarClientes(): int
     {
-        // Modelos más comunes
         foreach (['App\\Models\\Cliente','App\\Models\\Client','App\\Models\\Customer'] as $model) {
             if (class_exists($model)) {
                 try {
@@ -150,7 +268,6 @@ class DashboardController extends Controller implements HasMiddleware
             }
         }
 
-        // Tablas comunes
         foreach (['clientes','clients','customers'] as $table) {
             try {
                 if (Schema::hasTable($table)) {
@@ -162,26 +279,5 @@ class DashboardController extends Controller implements HasMiddleware
         }
 
         return 0;
-    }
-
-    /** Devuelve [tablaClientes, columnaNombre] si puede detectarla; null si no. */
-    private function detectarTablaYColumnaCliente(): ?array
-    {
-        foreach (['clientes','clients','customers'] as $t) {
-            if (Schema::hasTable($t)) {
-                $col = null;
-                if (Schema::hasColumn($t, 'nombre'))       $col = 'nombre';
-                elseif (Schema::hasColumn($t, 'name'))      $col = 'name';
-                elseif (Schema::hasColumn($t, 'razon_social')) $col = 'razon_social';
-                if ($col) return [$t, $col];
-            }
-        }
-        return null;
-    }
-
-    /** Utilidad: existe tabla y columna */
-    private function existeTablaCon(string $tabla, string $columna): bool
-    {
-        return Schema::hasTable($tabla) && Schema::hasColumn($tabla, $columna);
     }
 }

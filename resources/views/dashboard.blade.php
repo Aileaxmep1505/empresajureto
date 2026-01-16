@@ -5,17 +5,19 @@
 @section('header', 'Dashboard')
 
 @push('styles')
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@300..700&display=swap"/>
+
 <style>
   :root{
-    /* Si ya tienes estas variables en tu layout, se respetan. Las de aquí son fallback. */
     --bg:#f6f7fb; --surface:#ffffff; --ink:#0f172a; --muted:#667085; --border:#e6e8ef;
     --brand:#7ea2ff; --brand-ink:#14206a; --ok:#16a34a; --warn:#d97706; --bad:#ef4444;
     --shadow: 0 18px 40px rgba(10, 30, 60, .08);
     --r:16px;
   }
+
   .dash{max-width:1200px;margin:14px auto 28px;padding:0 14px}
   .welcome{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px;box-shadow:var(--shadow)}
-  .welcome h3{margin:0 0 8px 0;color:var(--ink);font-weight:700}
+  .welcome h3{margin:0 0 8px 0;color:var(--ink);font-weight:800}
   .welcome p{margin:0;color:var(--muted)}
 
   .grid{display:grid;gap:14px}
@@ -23,36 +25,74 @@
   @media (min-width:1024px){ .grid.cols-4{grid-template-columns:repeat(4,1fr)} }
 
   .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow)}
-  .card .hd{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
-  .card .hd h4{margin:0;font-size:14px;letter-spacing:.2px;color:var(--muted);font-weight:600}
+  .card .hd{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .card .hd h4{margin:0;font-size:14px;letter-spacing:.2px;color:var(--muted);font-weight:700}
   .card .bd{padding:16px}
+
+  /* Icons (Material Symbols) */
+  .msi{
+    font-family:'Material Symbols Outlined';
+    font-weight:500;
+    font-style:normal;
+    font-size:20px;
+    line-height:1;
+    letter-spacing:normal;
+    text-transform:none;
+    display:inline-block;
+    white-space:nowrap;
+    word-wrap:normal;
+    direction:ltr;
+    -webkit-font-feature-settings:'liga';
+    -webkit-font-smoothing:antialiased;
+  }
 
   /* KPI */
   .kpi{display:flex;align-items:center;gap:12px}
-  .kpi .icon{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;
-             background:linear-gradient(180deg,#f1f5ff,#eef3ff);color:var(--brand-ink);border:1px solid var(--border)}
-  .kpi .val{font-size:20px;font-weight:800;color:var(--ink);line-height:1}
+  .kpi .icon{
+    width:42px;height:42px;border-radius:12px;display:grid;place-items:center;
+    background:linear-gradient(180deg,#f1f5ff,#eef3ff);
+    color:var(--brand-ink);
+    border:1px solid var(--border)
+  }
+  .kpi .val{font-size:20px;font-weight:900;color:var(--ink);line-height:1}
   .kpi .sub{font-size:12px;color:var(--muted)}
-  .kpi .trend{font-size:12px;margin-left:auto}
+  .kpi .trend{font-size:12px;margin-left:auto;display:flex;align-items:center;gap:6px}
   .up{color:var(--ok)} .down{color:var(--bad)}
+  .trend .arrow{font-size:16px}
 
   /* Quick actions */
   .actions{display:grid;gap:10px}
   @media (min-width:600px){ .actions{grid-template-columns:repeat(2,1fr)} }
   @media (min-width:900px){ .actions{grid-template-columns:repeat(4,1fr)} }
-  .btn{display:flex;gap:10px;align-items:center;justify-content:center;padding:12px 14px;border-radius:12px;
-       border:1px solid var(--border);background:#f8faff;color:var(--brand-ink);font-weight:600;transition:transform .12s ease, box-shadow .12s ease}
-  .btn:hover{transform:translateY(-1px);box-shadow:0 10px 22px rgba(10,30,60,.06)}
+  .btn{
+    display:flex;gap:10px;align-items:center;justify-content:center;
+    padding:12px 14px;border-radius:12px;
+    border:1px solid var(--border);background:#f8faff;color:var(--brand-ink);
+    font-weight:700;text-decoration:none;
+    transition:transform .12s ease, box-shadow .12s ease, background .12s ease
+  }
+  .btn:hover{transform:translateY(-1px);box-shadow:0 10px 22px rgba(10,30,60,.06);background:#f3f6ff}
   .btn .bico{width:20px;height:20px;display:inline-grid;place-items:center}
+  .btn .lbl{white-space:nowrap}
+  @media (max-width:520px){
+    .btn{justify-content:flex-start}
+    .btn .lbl{white-space:normal}
+  }
 
   /* Table */
-  .table{width:100%;border-collapse:separate;border-spacing:0 8px}
+  .table{width:100%;border-collapse:separate;border-spacing:0 8px;min-width:720px}
   .table th{font-size:12px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);text-align:left;padding:0 10px}
   .table tr{background:#fff;border:1px solid var(--border)}
-  .table td{padding:12px 10px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);color:var(--ink)}
+  .table td{padding:12px 10px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);color:var(--ink);vertical-align:top}
   .table tr td:first-child{border-left:1px solid var(--border);border-top-left-radius:12px;border-bottom-left-radius:12px}
   .table tr td:last-child{border-right:1px solid var(--border);border-top-right-radius:12px;border-bottom-right-radius:12px}
-  .badge{font-size:12px;padding:4px 8px;border-radius:999px;border:1px solid var(--border);background:#f6f8ff;color:var(--brand-ink)}
+  .table .t-muted{color:var(--muted);font-size:12px}
+  .table .t-strong{font-weight:800}
+
+  .badge{font-size:12px;padding:4px 8px;border-radius:999px;border:1px solid var(--border);background:#f6f8ff;color:var(--brand-ink);white-space:nowrap}
+  .badge.ok{background:#ecfdf5;border-color:#bbf7d0;color:#065f46}
+  .badge.warn{background:#fffbeb;border-color:#fde68a;color:#92400e}
+  .badge.bad{background:#fef2f2;border-color:#fecaca;color:#991b1b}
 
   /* Progress */
   .progress{height:10px;background:#f1f5f9;border:1px solid var(--border);border-radius:999px;overflow:hidden}
@@ -60,6 +100,12 @@
 
   /* Sparkline */
   .spark{width:100%;height:48px}
+
+  /* Small screens: keep layout clean */
+  @media (max-width:739px){
+    .welcome{padding:14px}
+    .card .bd{padding:14px}
+  }
 </style>
 @endpush
 
@@ -68,75 +114,59 @@
 
   {{-- Bienvenida --}}
   <div class="welcome">
-    <h3>¡Hola, {{ auth()->user()->name }}!</h3>
-    <p>Bienvenido a tu panel. Aquí tienes un resumen rápido y accesos directos.</p>
+    <h3>Hola, {{ auth()->user()->name }}</h3>
+    <p>Panel de <strong>Propuestas comparativas</strong>: métricas rápidas, accesos directos y actividad reciente.</p>
   </div>
 
-  {{-- KPIs principales --}}
+  {{-- KPIs --}}
   @php
-    // Valores de ejemplo / fallback (sustituye por tus verdaderas métricas)
-    $kpiVentasHoy = $kpiVentasHoy ?? 0;
-    $kpiIngresosMes = $kpiIngresosMes ?? 0;
-    $kpiClientes = $kpiClientes ?? 0;
-    $kpiPendientes = $kpiPendientes ?? 0;
+    $kpiPropuestasMes   = $kpiPropuestasMes   ?? 0;
+    $kpiEnRevision      = $kpiEnRevision      ?? 0;
+    $kpiAdjudicadasMes  = $kpiAdjudicadasMes  ?? 0;
+    $kpiPendientes      = $kpiPendientes      ?? 0;
 
-    $trendVentas = $trendVentas ?? 8;   // % arriba/abajo
-    $trendIngresos = $trendIngresos ?? -3;
-    $trendClientes = $trendClientes ?? 2;
-    $trendPend = $trendPend ?? 0;
+    $trendPropuestas  = $trendPropuestas  ?? 6;
+    $trendRevision    = $trendRevision    ?? -2;
+    $trendAdjudicadas = $trendAdjudicadas ?? 3;
+    $trendPend        = $trendPend        ?? 0;
 
-    // Serie para sparkline (reemplaza por datos reales, ej. últimos 12 días)
-    $serieVentas = $serieVentas ?? [4,6,5,7,9,8,10,9,12,11,14,15];
-    $serieIngresos = $serieIngresos ?? [12,9,11,10,13,15,14,16,18,17,20,22];
+    $seriePropuestas  = $seriePropuestas  ?? [2,3,2,4,5,4,6,5,7,6,8,9];
+    $serieAdjudicadas = $serieAdjudicadas ?? [0,1,1,1,2,1,2,2,3,2,3,4];
   @endphp
 
   <div class="grid cols-4" style="margin-top:14px">
     <div class="card">
       <div class="bd">
         <div class="kpi">
-          <div class="icon">💳</div>
+          <div class="icon" aria-hidden="true"><span class="msi">description</span></div>
           <div>
-            <div class="val">{{ number_format($kpiVentasHoy) }}</div>
-            <div class="sub">Ventas hoy</div>
+            <div class="val">{{ number_format($kpiPropuestasMes) }}</div>
+            <div class="sub">Propuestas comparativas (mes)</div>
           </div>
-          <div class="trend {{ $trendVentas >= 0 ? 'up' : 'down' }}">
-            {{ $trendVentas >= 0 ? '▲' : '▼' }} {{ abs($trendVentas) }}%
+          <div class="trend {{ $trendPropuestas >= 0 ? 'up' : 'down' }}">
+            <span class="msi arrow" aria-hidden="true">{{ $trendPropuestas >= 0 ? 'trending_up' : 'trending_down' }}</span>
+            {{ abs($trendPropuestas) }}%
           </div>
         </div>
-        <svg class="spark" data-points="{{ implode(',', $serieVentas) }}"></svg>
+        <svg class="spark" data-points="{{ implode(',', $seriePropuestas) }}"></svg>
       </div>
     </div>
 
     <div class="card">
       <div class="bd">
         <div class="kpi">
-          <div class="icon">💵</div>
+          <div class="icon" aria-hidden="true"><span class="msi">manage_search</span></div>
           <div>
-            <div class="val">${{ number_format($kpiIngresosMes, 2) }}</div>
-            <div class="sub">Ingresos del mes</div>
+            <div class="val">{{ number_format($kpiEnRevision) }}</div>
+            <div class="sub">En revisión</div>
           </div>
-          <div class="trend {{ $trendIngresos >= 0 ? 'up' : 'down' }}">
-            {{ $trendIngresos >= 0 ? '▲' : '▼' }} {{ abs($trendIngresos) }}%
-          </div>
-        </div>
-        <svg class="spark" data-points="{{ implode(',', $serieIngresos) }}"></svg>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="bd">
-        <div class="kpi">
-          <div class="icon">👥</div>
-          <div>
-            <div class="val">{{ number_format($kpiClientes) }}</div>
-            <div class="sub">Clientes</div>
-          </div>
-          <div class="trend {{ $trendClientes >= 0 ? 'up' : 'down' }}">
-            {{ $trendClientes >= 0 ? '▲' : '▼' }} {{ abs($trendClientes) }}%
+          <div class="trend {{ $trendRevision >= 0 ? 'up' : 'down' }}">
+            <span class="msi arrow" aria-hidden="true">{{ $trendRevision >= 0 ? 'trending_up' : 'trending_down' }}</span>
+            {{ abs($trendRevision) }}%
           </div>
         </div>
         <div style="height:48px;display:grid;place-items:center;color:var(--muted);font-size:12px">
-          Últimos registros de clientes
+          Seguimiento de análisis / validación
         </div>
       </div>
     </div>
@@ -144,13 +174,31 @@
     <div class="card">
       <div class="bd">
         <div class="kpi">
-          <div class="icon">⏳</div>
+          <div class="icon" aria-hidden="true"><span class="msi">fact_check</span></div>
+          <div>
+            <div class="val">{{ number_format($kpiAdjudicadasMes) }}</div>
+            <div class="sub">Adjudicadas (mes)</div>
+          </div>
+          <div class="trend {{ $trendAdjudicadas >= 0 ? 'up' : 'down' }}">
+            <span class="msi arrow" aria-hidden="true">{{ $trendAdjudicadas >= 0 ? 'trending_up' : 'trending_down' }}</span>
+            {{ abs($trendAdjudicadas) }}%
+          </div>
+        </div>
+        <svg class="spark" data-points="{{ implode(',', $serieAdjudicadas) }}"></svg>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="bd">
+        <div class="kpi">
+          <div class="icon" aria-hidden="true"><span class="msi">hourglass_top</span></div>
           <div>
             <div class="val">{{ number_format($kpiPendientes) }}</div>
             <div class="sub">Pendientes</div>
           </div>
           <div class="trend {{ $trendPend >= 0 ? 'up' : 'down' }}">
-            {{ $trendPend >= 0 ? '▲' : '▼' }} {{ abs($trendPend) }}%
+            <span class="msi arrow" aria-hidden="true">{{ $trendPend >= 0 ? 'trending_up' : 'trending_down' }}</span>
+            {{ abs($trendPend) }}%
           </div>
         </div>
         <div class="progress" style="margin-top:12px">
@@ -158,7 +206,7 @@
           <span style="width: {{ $pct }}%"></span>
         </div>
         <div style="font-size:12px;color:var(--muted);margin-top:6px">
-          Avance general de tareas
+          Avance general de seguimiento
         </div>
       </div>
     </div>
@@ -172,70 +220,118 @@
     </div>
     <div class="bd">
       <div class="actions">
-        @if (Route::has('ventas.create'))
-          <a class="btn" href="{{ route('ventas.create') }}">
-            <span class="bico">🧾</span> Nueva venta
+
+        @if (Route::has('propuestas-comparativas.create'))
+          <a class="btn" href="{{ route('propuestas-comparativas.create') }}">
+            <span class="bico" aria-hidden="true"><span class="msi">add_circle</span></span>
+            <span class="lbl">Nueva propuesta comparativa</span>
+          </a>
+        @elseif (Route::has('licitacion-propuestas.create'))
+          <a class="btn" href="{{ route('licitacion-propuestas.create') }}">
+            <span class="bico" aria-hidden="true"><span class="msi">add_circle</span></span>
+            <span class="lbl">Nueva propuesta comparativa</span>
           </a>
         @endif
-        @if (Route::has('cotizaciones.create'))
-          <a class="btn" href="{{ route('cotizaciones.create') }}">
-            <span class="bico">📝</span> Nueva cotización
+
+        @if (Route::has('licitacion-pdfs.index'))
+          <a class="btn" href="{{ route('licitacion-pdfs.index') }}">
+            <span class="bico" aria-hidden="true"><span class="msi">attach_file</span></span>
+            <span class="lbl">PDFs / Bases</span>
+          </a>
+        @elseif (Route::has('admin.licitacion-pdfs.index'))
+          <a class="btn" href="{{ route('admin.licitacion-pdfs.index') }}">
+            <span class="bico" aria-hidden="true"><span class="msi">attach_file</span></span>
+            <span class="lbl">PDFs / Bases</span>
           </a>
         @endif
+
         @if (Route::has('productos.index'))
           <a class="btn" href="{{ route('productos.index') }}">
-            <span class="bico">📦</span> Ver productos
+            <span class="bico" aria-hidden="true"><span class="msi">inventory_2</span></span>
+            <span class="lbl">Ver productos</span>
           </a>
         @endif
-        @if (Route::has('clientes.index'))
+
+        @if (Route::has('proveedores.index'))
+          <a class="btn" href="{{ route('proveedores.index') }}">
+            <span class="bico" aria-hidden="true"><span class="msi">domain</span></span>
+            <span class="lbl">Ver proveedores</span>
+          </a>
+        @elseif (Route::has('clientes.index'))
           <a class="btn" href="{{ route('clientes.index') }}">
-            <span class="bico">👤</span> Ver clientes
+            <span class="bico" aria-hidden="true"><span class="msi">groups</span></span>
+            <span class="lbl">Ver clientes</span>
           </a>
         @endif
+
       </div>
     </div>
   </div>
 
   <div class="grid cols-3" style="margin-top:14px">
 
-    {{-- Actividad reciente (ej. últimas ventas/cotizaciones) --}}
+    {{-- Actividad reciente --}}
     <div class="card" style="grid-column:span 2">
       <div class="hd">
         <h4>Actividad reciente</h4>
-        <a href="{{ Route::has('ventas.index') ? route('ventas.index') : '#' }}"
-           style="font-size:12px;color:var(--brand-ink)">Ver todo →</a>
+        <a href="{{ Route::has('propuestas-comparativas.index') ? route('propuestas-comparativas.index') : (Route::has('licitacion-propuestas.index') ? route('licitacion-propuestas.index') : '#') }}"
+           style="font-size:12px;color:var(--brand-ink);text-decoration:none;white-space:nowrap">Ver todo →</a>
       </div>
+
       <div class="bd" style="overflow:auto">
         @php
-          /** @var \Illuminate\Support\Collection|\App\Models\Venta[] $ultimasVentas */
-          $ultimasVentas = $ultimasVentas ?? collect();
+          $ultimasPropuestas = $ultimasPropuestas ?? collect();
+
+          $estadoBadge = function($estado){
+            $e = mb_strtolower((string)$estado);
+            return match(true){
+              str_contains($e,'adjud') || str_contains($e,'ganad') => 'ok',
+              str_contains($e,'rech')  || str_contains($e,'perd')  => 'bad',
+              str_contains($e,'revis') || str_contains($e,'anal')  => 'warn',
+              default => '',
+            };
+          };
         @endphp
+
         <table class="table">
           <thead>
             <tr>
               <th>Folio</th>
-              <th>Cliente</th>
-              <th>Total</th>
+              <th>Propuesta</th>
+              <th>Entidad</th>
+              <th>Monto</th>
               <th>Fecha</th>
               <th>Estado</th>
             </tr>
           </thead>
           <tbody>
-            @forelse ($ultimasVentas as $v)
+            @forelse ($ultimasPropuestas as $p)
+              @php
+                $folio = $p->codigo ?? $p->folio ?? $p->id ?? '—';
+                $titulo = $p->titulo ?? $p->nombre ?? ('Propuesta #' . ($p->id ?? ''));
+                $entidad = $p->cliente->nombre
+                          ?? $p->dependencia->nombre
+                          ?? $p->entidad
+                          ?? '—';
+                $monto = $p->total
+                        ?? $p->monto
+                        ?? $p->total_estimado
+                        ?? 0;
+                $estado = $p->estado ?? $p->status ?? 'pendiente';
+                $badgeClass = $estadoBadge($estado);
+                $fechaObj = $p->created_at ?? $p->fecha ?? null;
+              @endphp
               <tr>
-                <td style="font-weight:700">#{{ $v->id }}</td>
-                <td>{{ $v->cliente->nombre ?? '—' }}</td>
-                <td>${{ number_format($v->total ?? 0, 2) }}</td>
-                <td>{{ optional($v->created_at)->format('d/m/Y H:i') }}</td>
-                <td>
-                  <span class="badge">
-                    {{ ucfirst($v->estado ?? 'pendiente') }}
-                  </span>
-                </td>
+                <td class="t-strong">#{{ $folio }}</td>
+                <td style="font-weight:700">{{ $titulo }}</td>
+                <td>{{ $entidad }}</td>
+                <td>${{ number_format((float)$monto, 2) }}</td>
+                <td class="t-muted">{{ optional($fechaObj)->format('d/m/Y H:i') }}</td>
+                <td><span class="badge {{ $badgeClass }}">{{ ucfirst($estado) }}</span></td>
               </tr>
             @empty
               <tr>
-                <td colspan="5" style="text-align:center;color:var(--muted);padding:18px">
+                <td colspan="6" style="text-align:center;color:var(--muted);padding:18px">
                   Sin actividad por ahora.
                 </td>
               </tr>
@@ -245,55 +341,51 @@
       </div>
     </div>
 
-    {{-- Progreso (pensado para escuela/módulos) --}}
+    {{-- Pipeline --}}
     <div class="card">
       <div class="hd">
-        <h4>Progreso de módulos</h4>
-        <a href="{{ Route::has('alumno.modulos.index') ? route('alumno.modulos.index') : '#' }}"
-           style="font-size:12px;color:var(--brand-ink)">Ir a módulos →</a>
+        <h4>Pipeline</h4>
+        <a href="{{ Route::has('propuestas-comparativas.index') ? route('propuestas-comparativas.index') : (Route::has('licitacion-propuestas.index') ? route('licitacion-propuestas.index') : '#') }}"
+           style="font-size:12px;color:var(--brand-ink);text-decoration:none;white-space:nowrap">Ver pipeline →</a>
       </div>
+
       <div class="bd">
         @php
-          // Puedes pasar $progresoAlumno desde el controlador (0..100)
-          $progresoAlumno = $progresoAlumno ?? 0;
+          $pipe = $pipe ?? [
+            ['label'=>'Borrador',     'count'=>$pipeBorrador   ?? 0, 'pct'=>$pipePctBorrador   ?? 10],
+            ['label'=>'En revisión',  'count'=>$pipeRevision   ?? 0, 'pct'=>$pipePctRevision   ?? 45],
+            ['label'=>'Enviado',      'count'=>$pipeEnviado    ?? 0, 'pct'=>$pipePctEnviado    ?? 70],
+            ['label'=>'Adjudicado',   'count'=>$pipeAdjudicado ?? 0, 'pct'=>$pipePctAdjudicado ?? 100],
+          ];
         @endphp
-        <div class="progress"><span style="width: {{ (int)$progresoAlumno }}%"></span></div>
-        <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:12px;color:var(--muted)">
-          <span>Completado</span>
-          <strong style="color:var(--ink)">{{ (int)$progresoAlumno }}%</strong>
-        </div>
 
-        <ul style="list-style:none;margin:14px 0 0 0;padding:0;display:grid;gap:10px">
-          @php
-            /** @var array<int,array{titulo:string,estado:string,pct:int}> $modulos */
-            $modulos = $modulos ?? [
-              ['titulo'=>'Módulo 1: Introducción','estado'=>'completado','pct'=>100],
-              ['titulo'=>'Módulo 2: Intermedio','estado'=>'en progreso','pct'=>45],
-              ['titulo'=>'Módulo 3: Avanzado','estado'=>'pendiente','pct'=>0],
-            ];
-          @endphp
-          @foreach ($modulos as $m)
+        <ul style="list-style:none;margin:0;padding:0;display:grid;gap:10px">
+          @foreach ($pipe as $s)
             <li style="border:1px solid var(--border);border-radius:12px;padding:10px">
-              <div style="display:flex;justify-content:space-between;gap:8px">
+              <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
                 <div>
-                  <div style="font-weight:700">{{ $m['titulo'] }}</div>
-                  <div style="font-size:12px;color:var(--muted)">{{ ucfirst($m['estado']) }}</div>
+                  <div style="font-weight:800">{{ $s['label'] }}</div>
+                  <div style="font-size:12px;color:var(--muted)">{{ number_format((int)$s['count']) }} registros</div>
                 </div>
-                <div style="min-width:90px">
-                  <div class="progress" style="height:8px"><span style="width: {{ $m['pct'] }}%"></span></div>
-                  <div style="font-size:12px;color:var(--muted);text-align:right;margin-top:4px">{{ $m['pct'] }}%</div>
+                <div style="min-width:110px">
+                  <div class="progress" style="height:8px"><span style="width: {{ (int)$s['pct'] }}%"></span></div>
+                  <div style="font-size:12px;color:var(--muted);text-align:right;margin-top:4px">{{ (int)$s['pct'] }}%</div>
                 </div>
               </div>
             </li>
           @endforeach
         </ul>
+
+        <div style="margin-top:12px;font-size:12px;color:var(--muted)">
+          Tip: usa estados consistentes (borrador → revisión → enviado → adjudicado).
+        </div>
       </div>
     </div>
 
   </div>
 </div>
 
-{{-- Mini script para dibujar las sparklines sin librerías --}}
+{{-- Mini script para dibujar sparklines (sin librerías) --}}
 <script>
   (function(){
     const svgs = document.querySelectorAll('.spark');
@@ -302,7 +394,8 @@
       const w = svg.clientWidth || 280, h = svg.clientHeight || 48, pad = 4;
       svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
       svg.innerHTML = '';
-      if (!pts.length) { return; }
+      if (!pts.length) return;
+
       const min = Math.min(...pts), max = Math.max(...pts);
       const nx = i => pad + (i * (w - pad*2) / (pts.length - 1 || 1));
       const ny = v => {
@@ -310,6 +403,7 @@
         const t = (v - min) / (max - min);
         return h - pad - t * (h - pad*2);
       };
+
       const d = pts.map((v,i)=>`${i===0?'M':'L'} ${nx(i)} ${ny(v)}`).join(' ');
       const path = document.createElementNS('http://www.w3.org/2000/svg','path');
       path.setAttribute('d', d);

@@ -1622,3 +1622,6 @@ Route::middleware(['auth'])->group(function () {
     //    y además si por cualquier motivo terminas ahí, te manda a /part-contable
     Route::get('/companies', fn () => redirect('/part-contable'))->name('companies.index');
 });
+
+Route::get('/products/ajax-table', [ProductController::class, 'ajaxTable'])
+  ->name('products.ajax-table');

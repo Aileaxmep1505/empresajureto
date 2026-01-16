@@ -12,6 +12,7 @@ use Maatwebsite\Excel\Facades\Excel;
 use App\Imports\ProductsImport;
 use App\Exports\ProductsExport;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
 
 class ProductController extends Controller
 {
@@ -290,14 +291,12 @@ SYS;
                     'tipo'  => 'SOBRES / SOBRES BOLSA',
                 ];
             }
-
             // Genérico “sobres”
             return [
                 'clave' => '44121503',
                 'tipo'  => 'SOBRES / GENÉRICO',
             ];
         }
-
         // =========================
         // 2) LIBRETAS / CUADERNOS
         // =========================
@@ -314,7 +313,6 @@ SYS;
                 'tipo'  => 'LIBRETAS / CUADERNOS',
             ];
         }
-
         // =========================
         // 3) PAPEL / HOJAS / RESMAS
         // =========================
@@ -329,7 +327,6 @@ SYS;
                 ];
             }
         }
-
         // Notas adhesivas tipo Post-it
         if (
             str_contains($t, 'post-it') ||
@@ -934,6 +931,107 @@ SYS;
         return response()->json($page);
     }
 
+public function ajaxTable(Request $request)
+{
+    $q = trim((string) $request->get('q', ''));
+    $limit = (int) $request->get('limit', 50);
+    $limit = max(10, min(100, $limit));
+
+    if (mb_strlen($q) < 2) {
+        return response()->json([
+            'ok' => true,
+            'q' => $q,
+            'count' => 0,
+            'items' => [],
+        ]);
+    }
+
+    $like = '%' . str_replace(['%', '_'], ['\%', '\_'], $q) . '%';
+
+    $query = \App\Models\Product::query()
+        ->select([
+            'id','name','sku','supplier_sku','unit','weight','cost','price','market_price','bid_price',
+            'dimensions','color','pieces_per_unit','active','brand','category','material',
+            'description','notes','tags','image_path','image_url','clave_sat','created_at'
+        ])
+        ->where(function($qq) use ($like){
+            $qq->where('name','like',$like)
+              ->orWhere('sku','like',$like)
+              ->orWhere('supplier_sku','like',$like)
+              ->orWhere('unit','like',$like)
+              ->orWhere('color','like',$like)
+              ->orWhere('brand','like',$like)
+              ->orWhere('category','like',$like)
+              ->orWhere('material','like',$like)
+              ->orWhere('description','like',$like)
+              ->orWhere('notes','like',$like)
+              ->orWhere('tags','like',$like)
+              ->orWhere('clave_sat','like',$like);
+        })
+        ->orderByRaw("
+            CASE
+              WHEN name = ? THEN 0
+              WHEN name LIKE ? THEN 1
+              WHEN sku = ? THEN 2
+              WHEN sku LIKE ? THEN 3
+              WHEN brand LIKE ? THEN 4
+              WHEN category LIKE ? THEN 5
+              ELSE 10
+            END
+        ", [$q, $q.'%', $q, $q.'%', $q.'%', $q.'%'])
+        ->orderBy('name');
+
+    $items = $query->limit($limit)->get();
+
+    $mapped = $items->map(function($p){
+        // Si tienes accessor image_src en el modelo, se usa automáticamente.
+        $src = null;
+        if (isset($p->image_src) && $p->image_src) {
+            $src = $p->image_src;
+        } else {
+            if (!empty($p->image_url)) $src = $p->image_url;
+            elseif (!empty($p->image_path)) $src = asset('storage/'.$p->image_path);
+        }
+
+        return [
+            'id' => (int)$p->id,
+            'name' => (string)($p->name ?? ''),
+            'sku' => (string)($p->sku ?? ''),
+            'supplier_sku' => (string)($p->supplier_sku ?? ''),
+            'unit' => (string)($p->unit ?? ''),
+            'weight' => (string)($p->weight ?? ''),
+            'cost' => $p->cost,
+            'price' => $p->price,
+            'market_price' => $p->market_price,
+            'bid_price' => $p->bid_price,
+            'dimensions' => (string)($p->dimensions ?? ''),
+            'color' => (string)($p->color ?? ''),
+            'pieces_per_unit' => (string)($p->pieces_per_unit ?? ''),
+            'active' => (bool)$p->active,
+            'brand' => (string)($p->brand ?? ''),
+            'category' => (string)($p->category ?? ''),
+            'material' => (string)($p->material ?? ''),
+            'description' => (string)($p->description ?? ''),
+            'notes' => (string)($p->notes ?? ''),
+            'tags' => (string)($p->tags ?? ''),
+            'image_path' => (string)($p->image_path ?? ''),
+            'image_url' => (string)($p->image_url ?? ''),
+            'image_src' => $src,
+            'clave_sat' => (string)($p->clave_sat ?? ''),
+            'created_at' => optional($p->created_at)->format('Y-m-d'),
+            'edit_url' => route('products.edit', $p->id),
+            'delete_url' => route('products.destroy', $p->id),
+            'ai_url' => route('products.ai-suggest-clave-sat'),
+        ];
+    });
+
+    return response()->json([
+        'ok' => true,
+        'q' => $q,
+        'count' => $mapped->count(),
+        'items' => $mapped,
+    ]);
+}
     /** GET /api/products/{product} -> detalle JSON */
     public function apiShow(Product $product)
     {
