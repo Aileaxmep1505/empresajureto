@@ -1,3 +1,7 @@
+{{-- ✅ PÉGALO COMPLETO. 
+    FIX: En desktop se queda EXACTO como antes (tabla normal).
+    En móvil (<760px) se vuelve “cards” SIN duplicar información en desktop.
+--}}
 @extends('layouts.app')
 @section('title','Productos Web')
 
@@ -148,8 +152,8 @@
   .search{
     display:flex; align-items:center; gap:10px;
     flex:1;
-    min-width:0;              /* ✅ importante para que no desborde en móvil */
-    width: min(100%, 560px);  /* ✅ */
+    min-width:0;
+    width:min(100%, 560px);
     background:#fff;
     border:1px solid rgba(232,238,246,.95);
     border-radius:999px;
@@ -225,13 +229,13 @@
   }
   .chip input{ width:16px; height:16px; accent-color: var(--acc); }
 
-  /* ===== Table ===== */
+  /* ===== Table (DESKTOP default) ===== */
   .table-wrap{ margin-top:12px; overflow:auto; border-radius:14px; border:1px solid var(--line); }
   table{ width:100%; border-collapse:collapse; font-size:.95rem; background:#fff }
   th, td{ padding:12px 12px; border-bottom:1px solid var(--line); vertical-align:middle; }
   th{
     font-weight:900; text-align:left; color:var(--ink);
-    background:linear-gradient(#fbfdff,#fbfdff);
+    background:#fbfdff;
     white-space:nowrap;
   }
   tr:hover td{ background:#fcfdfd }
@@ -289,91 +293,73 @@
     gap:12px; margin:16px 4px; flex-wrap:wrap;
   }
 
+  /* ✅ este bloque SOLO existe para móvil (no afecta desktop) */
+  .m-only{ display:none; }
+
   /* =========================
-     ✅ RESPONSIVE REAL (móvil)
-     - Filtros apilados sin cortar
-     - Tabs scrolleables
-     - Tabla -> tarjetas
+     ✅ MOBILE (<760px)
+     - Tabla se mantiene NORMAL en desktop
+     - En móvil: ocultamos columnas extra y mostramos resumen dentro de Producto
      ========================= */
   @media (max-width: 760px){
     .wrap{ padding:0 10px; }
-
-    .head{ gap:10px; }
-    .subtxt{ max-width:unset; }
-
-    .filters{ padding:12px; }
     .filters-row{ flex-direction:column; align-items:stretch; }
     .filters-row > *{ width:100%; }
 
-    /* Tabs: scroll horizontal bonito */
     .tabs{
       width:100%;
       overflow-x:auto;
       -webkit-overflow-scrolling:touch;
       justify-content:flex-start;
-      gap:6px;
     }
     .tabs::-webkit-scrollbar{ height:0; }
     .tab{ flex:0 0 auto; }
 
     .chip{ width:100%; justify-content:center; }
 
-    /* Tooltips: en touch estorban, los apagamos */
+    /* tooltips off en touch */
     @media (hover:none){
       .tt .tt-bubble{ display:none !important; }
     }
 
-    /* Tabla -> cards */
-    .table-wrap{ border:0; background:transparent; overflow:visible; }
-    table, thead, tbody, th, td, tr{ display:block; }
-    thead{ display:none; }
-    tbody tr{
-      background:#fff;
-      border:1px solid var(--line);
-      border-radius:18px;
-      box-shadow:0 14px 30px rgba(15,23,42,.06);
-      padding:12px;
-      margin:12px 0;
-    }
-    tbody td{
-      border:0;
-      padding:0;
-      background:transparent !important;
+    /* Ocultar columnas (Precio/Estado/Destacado/Publicado) para que no “ruede” */
+    table{ font-size:.95rem; }
+    th:nth-child(3), td:nth-child(3),
+    th:nth-child(4), td:nth-child(4),
+    th:nth-child(5), td:nth-child(5),
+    th:nth-child(6), td:nth-child(6){
+      display:none;
     }
 
-    /* layout del bloque */
-    td.img-cell{ width:auto; max-width:none; margin-bottom:10px; }
-    .thumbbox{ width:64px; height:64px; border-radius:14px; }
+    /* Mostrar bloque móvil dentro de Producto */
+    .m-only{ display:block; }
 
-    .name{ min-width:unset; }
-
-    /* Filas “campo: valor” */
-    .mrow{
-      display:flex;
-      justify-content:space-between;
-      gap:12px;
-      padding:10px 0;
-      border-top:1px dashed rgba(232,238,246,.95);
-    }
-    .mrow:first-of-type{ border-top:0; padding-top:0; }
-    .mlabel{ font-size:.78rem; color:#64748b; font-weight:900; letter-spacing:.02em; }
-    .mvalue{ text-align:right; color:#0f172a; font-weight:800; }
-
-    .actions{
-      justify-content:flex-start;
-      padding-top:10px;
-      border-top:1px dashed rgba(232,238,246,.95);
-      margin-top:10px;
-    }
-
-    /* Ajustes de iconbtn para dedo */
+    /* acciones: alinear a la izquierda en móvil */
+    .actions{ justify-content:flex-start; }
     .iconbtn{ width:42px; height:42px; border-radius:14px; }
   }
 
-  /* Ocultar columna publicado en tablet chica */
+  /* (tu regla anterior para 860px se mantiene si quieres, pero ahora no rompe desktop) */
   @media (max-width: 860px){
     th:nth-child(6), td:nth-child(6){ display:none; }
   }
+
+  /* filas para móvil (dentro de producto) */
+  .mgrid{
+    margin-top:10px;
+    display:grid;
+    gap:8px;
+  }
+  .mrow{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    padding-top:8px;
+    border-top:1px dashed rgba(232,238,246,.95);
+  }
+  .mlabel{ font-size:.78rem; color:#64748b; font-weight:900; letter-spacing:.02em; }
+  .mvalue{ text-align:right; color:#0f172a; font-weight:800; }
 </style>
 @endpush
 
@@ -477,7 +463,7 @@
         @forelse($items as $it)
           @php $mlErr = !empty($it->meli_last_error); @endphp
           <tr>
-            <td class="img-cell" data-label="Img">
+            <td class="img-cell">
               <div class="thumbbox">
                 <img
                   src="{{ $it->image_url ?: asset('images/placeholder.png') }}"
@@ -488,7 +474,7 @@
               </div>
             </td>
 
-            <td data-label="Producto">
+            <td>
               <div class="name">
                 <strong>{{ $it->name }}</strong>
                 <div class="meta">
@@ -514,6 +500,56 @@
                   @endif
                 </div>
 
+                {{-- ✅ SOLO EN MÓVIL (por CSS .m-only) --}}
+                <div class="m-only">
+                  <div class="mgrid">
+                    <div class="mrow">
+                      <div class="mlabel">Precio</div>
+                      <div class="mvalue">
+                        @if(!is_null($it->sale_price))
+                          <span class="sale">${{ number_format($it->sale_price,2) }}</span>
+                          <span class="muted-sm" style="text-decoration:line-through;margin-left:8px;">${{ number_format($it->price,2) }}</span>
+                        @else
+                          <span class="price">${{ number_format($it->price,2) }}</span>
+                        @endif
+                      </div>
+                    </div>
+
+                    <div class="mrow">
+                      <div class="mlabel">Estado</div>
+                      <div class="mvalue">
+                        @if($it->status === 1)
+                          <span class="badge b-live"><span class="dot"></span>Publicado</span>
+                        @elseif($it->status === 2)
+                          <span class="badge b-hidden"><span class="dot"></span>Oculto</span>
+                        @else
+                          <span class="badge b-draft"><span class="dot"></span>Borrador</span>
+                        @endif
+                      </div>
+                    </div>
+
+                    <div class="mrow">
+                      <div class="mlabel">Destacado</div>
+                      <div class="mvalue">
+                        @if($it->is_featured)
+                          <span class="badge" style="background:rgba(52,211,153,.16);border-color:rgba(52,211,153,.28);color:#065f46;">
+                            <span class="dot" style="background:#22c55e"></span>Sí
+                          </span>
+                        @else
+                          <span class="muted">—</span>
+                        @endif
+                      </div>
+                    </div>
+
+                    <div class="mrow">
+                      <div class="mlabel">Publicado</div>
+                      <div class="mvalue">
+                        <span class="muted">{{ $it->published_at ? $it->published_at->format('Y-m-d H:i') : '—' }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 @if($mlErr)
                   <details style="margin-top:8px;">
                     <summary style="cursor:pointer; font-weight:800; color:#b91c1c;">Ver error de Mercado Libre</summary>
@@ -523,57 +559,9 @@
                   </details>
                 @endif
               </div>
-
-              {{-- ✅ En móvil, mostramos “Precio/Estado/Destacado/Publicado” como filas bonitas --}}
-              <div class="mrow" style="margin-top:10px;">
-                <div class="mlabel">Precio</div>
-                <div class="mvalue">
-                  @if(!is_null($it->sale_price))
-                    <span class="sale">${{ number_format($it->sale_price,2) }}</span>
-                    <span class="muted-sm" style="text-decoration:line-through;margin-left:8px;">${{ number_format($it->price,2) }}</span>
-                  @else
-                    <span class="price">${{ number_format($it->price,2) }}</span>
-                  @endif
-                </div>
-              </div>
-
-              <div class="mrow">
-                <div class="mlabel">Estado</div>
-                <div class="mvalue">
-                  @if($it->status === 1)
-                    <span class="badge b-live"><span class="dot"></span>Publicado</span>
-                  @elseif($it->status === 2)
-                    <span class="badge b-hidden"><span class="dot"></span>Oculto</span>
-                  @else
-                    <span class="badge b-draft"><span class="dot"></span>Borrador</span>
-                  @endif
-                </div>
-              </div>
-
-              <div class="mrow">
-                <div class="mlabel">Destacado</div>
-                <div class="mvalue">
-                  @if($it->is_featured)
-                    <span class="badge" style="background:rgba(52,211,153,.16);border-color:rgba(52,211,153,.28);color:#065f46;">
-                      <span class="dot" style="background:#22c55e"></span>Sí
-                    </span>
-                  @else
-                    <span class="muted">—</span>
-                  @endif
-                </div>
-              </div>
-
-              <div class="mrow">
-                <div class="mlabel">Publicado</div>
-                <div class="mvalue">
-                  <span class="muted">{{ $it->published_at ? $it->published_at->format('Y-m-d H:i') : '—' }}</span>
-                </div>
-              </div>
-
             </td>
 
-            {{-- Desktop cells (se esconden visualmente en móvil por el “table->cards”) --}}
-            <td data-label="Precio" class="desktop-only">
+            <td>
               @if(!is_null($it->sale_price))
                 <div class="sale">${{ number_format($it->sale_price,2) }}</div>
                 <div class="muted-sm" style="text-decoration:line-through;">${{ number_format($it->price,2) }}</div>
@@ -582,7 +570,7 @@
               @endif
             </td>
 
-            <td data-label="Estado" class="desktop-only">
+            <td>
               @if($it->status === 1)
                 <span class="badge b-live"><span class="dot"></span>Publicado</span>
               @elseif($it->status === 2)
@@ -592,7 +580,7 @@
               @endif
             </td>
 
-            <td data-label="Destacado" class="desktop-only">
+            <td>
               @if($it->is_featured)
                 <span class="badge" style="background:rgba(52,211,153,.16);border-color:rgba(52,211,153,.28);color:#065f46;">
                   <span class="dot" style="background:#22c55e"></span>Sí
@@ -602,11 +590,11 @@
               @endif
             </td>
 
-            <td data-label="Publicado" class="desktop-only">
+            <td>
               <span class="muted">{{ $it->published_at ? $it->published_at->format('Y-m-d H:i') : '—' }}</span>
             </td>
 
-            <td data-label="Acciones" style="text-align:right;">
+            <td style="text-align:right;">
               <div class="actions">
 
                 <span class="tt iconbtn-wrap">
