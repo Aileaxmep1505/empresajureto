@@ -72,7 +72,7 @@
   .ico{ width:18px; height:18px; display:inline-block; }
   .ico svg{ width:18px; height:18px; display:block; }
 
-  /* ✅ Tooltip (solo agregado, NO toca estilos de imagen) */
+  /* ✅ Tooltip */
   .tt{ position:relative; display:inline-flex; }
   .tt .tt-bubble{
     position:absolute;
@@ -108,7 +108,7 @@
     transform:translateX(-50%) translateY(-2px);
   }
 
-  /* Para icon buttons */
+  /* icon buttons */
   .iconbtn-wrap{ display:inline-flex; position:relative; }
   .iconbtn{
     width:38px; height:38px;
@@ -235,7 +235,7 @@
   }
   tr:hover td{ background:#fcfdfd }
 
-  /* ✅ FIX: miniatura SIEMPRE (evita que se hagan gigantes) */
+  /* ✅ miniatura SIEMPRE */
   td.img-cell, th.img-cell{ width:72px; max-width:72px; }
   .thumbbox{
     width:56px; height:56px;
@@ -315,7 +315,6 @@
       <p class="muted subtxt">Gestiona el catálogo público y sincroniza con Mercado Libre con acciones rápidas.</p>
     </div>
 
-    {{-- Botón con tooltip --}}
     <div class="tt">
       <span class="tt-bubble">Crear nuevo producto</span>
       <a href="{{ route('admin.catalog.create') }}" class="btn">
@@ -337,7 +336,6 @@
 
   <div class="filters">
     <form id="filtersForm" method="GET" action="{{ route('admin.catalog.index') }}" class="filters-row">
-      {{-- Buscar --}}
       <div class="tt" style="flex:1; min-width:min(92vw, 560px);">
         <span class="tt-bubble">Buscar por nombre, SKU o slug</span>
         <div class="search">
@@ -350,7 +348,6 @@
         </div>
       </div>
 
-      {{-- Tabs --}}
       <div class="tt">
         <span class="tt-bubble">Filtrar por estado</span>
         <div class="tabs" role="tablist" aria-label="Estado">
@@ -363,7 +360,6 @@
 
       <input type="hidden" name="status" id="statusInput" value="{{ $st }}">
 
-      {{-- Destacados --}}
       <div class="tt">
         <span class="tt-bubble">Mostrar solo destacados</span>
         <label class="chip">
@@ -372,7 +368,6 @@
         </label>
       </div>
 
-      {{-- Limpiar --}}
       @if(request()->hasAny(['s','status','featured_only']))
         <div class="tt">
           <span class="tt-bubble">Quitar filtros</span>
@@ -488,13 +483,16 @@
               <span class="muted">{{ $it->published_at ? $it->published_at->format('Y-m-d H:i') : '—' }}</span>
             </td>
 
+            {{-- ✅ ACCIONES (iconos corregidos, sin duplicar) --}}
             <td style="text-align:right;">
               <div class="actions">
+
                 <span class="tt iconbtn-wrap">
                   <span class="tt-bubble">Editar</span>
                   <a class="iconbtn" href="{{ route('admin.catalog.edit', $it) }}">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
+                      <path d="M12 20h9"/>
+                      <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
                     </svg>
                   </a>
                 </span>
@@ -507,14 +505,19 @@
                     @method('PATCH')
                     <button class="iconbtn" type="submit">
                       @if($it->status == 1)
+                        {{-- Ocultar: ojo tachado --}}
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                           <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12z"/>
                           <path d="M3 3l18 18"/>
                         </svg>
                       @else
+                        {{-- Publicar: megáfono --}}
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12z"/>
-                          <circle cx="12" cy="12" r="3"/>
+                          <path d="M3 11v2"/>
+                          <path d="M5 10v4"/>
+                          <path d="M7 9v6"/>
+                          <path d="M9 8l10-3v14l-10-3V8z"/>
+                          <path d="M11 16l1 4"/>
                         </svg>
                       @endif
                     </button>
@@ -526,9 +529,11 @@
                   <form method="POST" action="{{ route('admin.catalog.meli.publish', $it) }}">
                     @csrf
                     <button class="iconbtn" type="submit">
+                      {{-- Subir/publicar --}}
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M12 3v12"/><path d="M7 10l5 5 5-5"/>
-                        <path d="M20 21H4a2 2 0 0 1-2-2v-3"/>
+                        <path d="M12 21V8"/>
+                        <path d="M7 12l5-5 5 5"/>
+                        <path d="M20 21H4"/>
                       </svg>
                     </button>
                   </form>
@@ -538,9 +543,11 @@
                   <span class="tt iconbtn-wrap">
                     <span class="tt-bubble">ML: Ver</span>
                     <a class="iconbtn" href="{{ route('admin.catalog.meli.view', $it) }}">
+                      {{-- Link externo --}}
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12z"/>
-                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M14 3h7v7"/>
+                        <path d="M10 14L21 3"/>
+                        <path d="M21 14v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6"/>
                       </svg>
                     </a>
                   </span>
@@ -551,7 +558,8 @@
                       @csrf
                       <button class="iconbtn" type="submit">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
+                          <rect x="6" y="4" width="4" height="16"/>
+                          <rect x="14" y="4" width="4" height="16"/>
                         </svg>
                       </button>
                     </form>
@@ -580,11 +588,13 @@
                       <svg viewBox="0 0 24 24" fill="none" stroke="#b91c1c" stroke-width="2">
                         <polyline points="3 6 5 6 21 6"/>
                         <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                        <line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>
+                        <line x1="10" y1="11" x2="10" y2="17"/>
+                        <line x1="14" y1="11" x2="14" y2="17"/>
                       </svg>
                     </button>
                   </form>
                 </span>
+
               </div>
             </td>
           </tr>
