@@ -4,94 +4,250 @@
 @push('styles')
 <style>
   :root{
-    --ink:#0e1726; --muted:#6b7280; --bg:#f7fafc;
-    --brand:#6ea8fe; --accent:#9ae6b4; --danger:#fecaca; --line:#e8eef6;
-    --surface:#ffffff; --chip:#eef2ff; --chip-ink:#3730a3;
+    --ink:#0f172a; --muted:#64748b; --bg:#f7fafc;
+    --line:#e8eef6; --surface:#ffffff;
     --shadow:0 12px 30px rgba(13, 23, 38, .06);
-    --radius:16px;
-  }
-  html,body{background:var(--bg)}
-  .wrap{max-width:1200px; margin-inline:auto;}
-  .card{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow);}
-  .head{display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap;}
-  .title{font-weight:800; color:var(--ink); letter-spacing:-.01em; margin:0}
-  .muted{color:var(--muted)}
-  .btn{display:inline-flex; align-items:center; gap:10px; border:0; cursor:pointer; text-decoration:none; font-weight:700; border-radius:12px; padding:10px 14px; transition:.15s transform,.15s background,.15s box-shadow;}
-  .btn:hover{transform:translateY(-1px)}
-  .btn-primary{background:var(--brand); color:#0b1220; box-shadow:0 8px 18px rgba(29,78,216,.12);}
-  .btn-ghost{background:#fff; color:var(--ink); border:1px solid var(--line)}
-  .btn-danger{background:#ef4444; color:#fff}
-  .btn-small{padding:8px 12px; font-size:.92rem; border-radius:10px}
-  .toolbar{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
-  .input, .select{
-    background:#fff; border:1px solid var(--line); border-radius:12px; padding:10px 12px;
-    outline:0; min-height:40px; color:var(--ink);
-  }
-  .checkbox{width:18px; height:18px}
-  .table-wrap{overflow:auto; border-radius:14px; border:1px solid var(--line)}
-  table{width:100%; border-collapse:collapse; font-size:.95rem; background:#fff}
-  th, td{padding:12px 12px; border-bottom:1px solid var(--line); vertical-align:middle; white-space:nowrap;}
-  th{font-weight:800; text-align:left; color:var(--ink); background:#fbfdff}
-  tr:hover td{background:#fcfdfd}
-  .thumb{width:56px; height:56px; border-radius:10px; object-fit:cover; border:1px solid var(--line); background:#f6f8fc}
-  .badge{display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; font-weight:700; font-size:.78rem;}
-  .badge-live{background:#dcfce7; color:#166534}
-  .badge-draft{background:#f1f5f9; color:#334155}
-  .badge-hidden{background:#fee2e2; color:#991b1b}
-  .chip{background:var(--chip); color:var(--chip-ink); border-radius:999px; padding:6px 10px; font-weight:700; font-size:.78rem}
-  .price{font-weight:800; color:var(--ink)}
-  .sale{color:#16a34a; font-weight:800}
-  .sku{color:var(--muted); font-size:.85rem}
-  .actions{display:flex; gap:8px; flex-wrap:wrap}
-  .sticky-tools{position:sticky; top:0; z-index:5; background:linear-gradient(#ffffff, #ffffffcc 60%, transparent); padding-bottom:6px}
-  .alert{padding:10px 12px; border-radius:12px; border:1px solid var(--line); background:#f8fffb; color:#0b6b3a; font-size:.9rem}
+    --r:16px;
 
-  .alert-ml-summary{
-    margin:8px 0 16px;
+    /* ✅ nuevo acento (verde/menta) */
+    --acc:#34d399;          /* emerald */
+    --acc-ink:#065f46;
+    --acc-soft:rgba(52,211,153,.16);
+    --acc-ring:rgba(52,211,153,.28);
+
+    /* degradado suave */
+    --g1:rgba(52,211,153,.14);
+    --g2:rgba(251,191,36,.10);   /* ámbar muy suave */
+    --g3:rgba(148,163,184,.10);  /* gris */
+  }
+
+  html,body{background:var(--bg)}
+  .wrap{max-width:1200px; margin-inline:auto; padding:0 14px}
+
+  .card{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:var(--r);
+    box-shadow:var(--shadow);
+  }
+
+  /* ===== Header ===== */
+  .head{
+    display:flex; gap:14px; align-items:flex-start; justify-content:space-between;
+    flex-wrap:wrap; margin:14px 0 10px;
+  }
+  .title{font-weight:900; color:var(--ink); letter-spacing:-.02em; margin:0}
+  .muted{color:var(--muted)}
+  .subtxt{margin-top:6px;font-size:.92rem;max-width:70ch}
+
+  /* ===== Botón pastel (como pediste) ===== */
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:10px;
+    border:1px solid transparent;
+    cursor:pointer; text-decoration:none;
+    font-weight:800;
+    border-radius:14px;
+    padding:10px 14px;
+    transition:transform .12s ease, box-shadow .12s ease, background .12s ease, color .12s ease, border-color .12s ease;
+    box-shadow:0 10px 22px rgba(15,23,42,.06);
+    user-select:none;
+    background:var(--acc-soft);
+    color:var(--acc-ink);
+    border-color:var(--acc-ring);
+  }
+  .btn:hover{
+    transform:translateY(-1px);
+    background:#fff;
+    color:#111827;
+    border-color:var(--line);
+    box-shadow:0 14px 28px rgba(15,23,42,.08);
+  }
+  .btn:active{ transform:translateY(0); box-shadow:0 10px 22px rgba(15,23,42,.06); }
+  .ico{ width:18px; height:18px; display:inline-block; }
+  .ico svg{ width:18px; height:18px; display:block; }
+
+  /* ===== Filtros minimalistas (sin botón aplicar) ===== */
+  .filters{
+    margin-top:12px;
+    padding:12px;
+    border-radius:18px;
+    border:1px solid rgba(232,238,246,.9);
+    background:
+      radial-gradient(900px 140px at 12% 0%, var(--g1), transparent 62%),
+      radial-gradient(860px 160px at 88% 0%, var(--g2), transparent 60%),
+      radial-gradient(520px 120px at 55% 0%, var(--g3), transparent 60%),
+      #ffffff;
+    box-shadow:0 18px 44px rgba(15,23,42,.08);
+  }
+
+  .filters-row{
     display:flex;
     gap:12px;
-    align-items:flex-start;
-    padding:12px 14px;
-    border-radius:14px;
-    border:1px solid #fee2e2;
-    background:#fef2f2;
-    color:#991b1b;
-    font-size:.9rem;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
   }
-  .alert-ml-summary-title{font-weight:700; margin-bottom:4px;}
-  .alert-ml-summary ul{margin:4px 0 0 18px; padding:0; font-size:.86rem;}
 
-  .ml-pill-error{
+  /* Search (✅ letra normal, no bold) */
+  .search{
+    display:flex; align-items:center; gap:10px;
+    flex:1;
+    min-width:min(92vw, 560px);
+    background:#fff;
+    border:1px solid rgba(232,238,246,.95);
+    border-radius:999px;
+    padding:10px 12px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 10px 18px rgba(15,23,42,.05);
+    transition:border-color .14s ease, box-shadow .14s ease, transform .14s ease;
+  }
+  .search:focus-within{
+    border-color:var(--acc-ring);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.95), 0 14px 26px rgba(52,211,153,.14);
+    transform: translateY(-1px);
+  }
+  .search .sico{ color:#94a3b8; width:22px; display:grid; place-items:center; }
+  .search input{
+    border:0; outline:0; background:transparent;
+    width:100%;
+    color:var(--ink);
+    font-weight:500; /* ✅ normal */
+  }
+
+  /* Tabs (Todos / Publicado / Borrador / Oculto) */
+  .tabs{
     display:inline-flex;
     align-items:center;
-    padding:4px 10px;
+    gap:6px;
+    padding:6px;
     border-radius:999px;
-    background:#fee2e2;
-    color:#991b1b;
-    font-size:.75rem;
+    border:1px solid rgba(232,238,246,.95);
+    background:rgba(255,255,255,.86);
+    box-shadow:0 10px 18px rgba(15,23,42,.04);
+    user-select:none;
+  }
+  .tab{
+    appearance:none;
+    border:0;
+    background:transparent;
+    padding:9px 12px;
+    border-radius:999px;
+    cursor:pointer;
     font-weight:700;
-    margin-top:4px;
+    color:#334155;
+    transition: background .12s ease, color .12s ease, transform .12s ease, box-shadow .12s ease;
+    white-space:nowrap;
   }
-  .ml-error-text{
-    margin-top:4px;
-    font-size:.78rem;
-    color:#991b1b;
-    white-space:normal;
-    max-width:560px;
+  .tab:hover{
+    background:rgba(52,211,153,.10);
+    transform: translateY(-1px);
+    box-shadow:0 10px 18px rgba(15,23,42,.05);
   }
-  .ml-error-hints{
-    margin:4px 0 0;
-    padding:0;
-    list-style:disc;
-    padding-left:16px;
-    font-size:.76rem;
-    color:#6b7280;
+  .tab.is-active{
+    background:var(--acc-soft);
+    color:var(--acc-ink);
+    box-shadow:0 12px 22px rgba(52,211,153,.12);
   }
 
-  @media (max-width: 780px){
-    th:nth-child(5), td:nth-child(5),
-    th:nth-child(7), td:nth-child(7){ display:none; }
-    .alert-ml-summary{flex-direction:column;}
+  /* Destacados (chip) */
+  .chip{
+    display:inline-flex; align-items:center; gap:10px;
+    padding:10px 14px;
+    border-radius:999px;
+    border:1px solid rgba(232,238,246,.95);
+    background:rgba(255,255,255,.86);
+    box-shadow:0 10px 18px rgba(15,23,42,.04);
+    font-weight:700;
+    color:#334155;
+    cursor:pointer;
+    user-select:none;
+    transition: transform .12s ease, box-shadow .12s ease, background .12s ease, border-color .12s ease;
+    white-space:nowrap;
+  }
+  .chip:hover{
+    transform: translateY(-1px);
+    box-shadow:0 14px 22px rgba(15,23,42,.06);
+    background:#fff;
+  }
+  .chip input{ width:16px; height:16px; accent-color: var(--acc); }
+
+  /* ===== Table ===== */
+  .table-wrap{ margin-top:12px; overflow:auto; border-radius:14px; border:1px solid var(--line); }
+  table{ width:100%; border-collapse:collapse; font-size:.95rem; background:#fff }
+  th, td{ padding:12px 12px; border-bottom:1px solid var(--line); vertical-align:middle; }
+  th{
+    font-weight:900; text-align:left; color:var(--ink);
+    background:linear-gradient(#fbfdff,#fbfdff);
+    white-space:nowrap;
+  }
+  tr:hover td{ background:#fcfdfd }
+  .thumb{ width:56px; height:56px; border-radius:12px; object-fit:cover; border:1px solid var(--line); background:#f6f8fc }
+
+  .name{ display:flex; flex-direction:column; gap:4px; min-width:260px; }
+  .name strong{ color:var(--ink); font-weight:900; line-height:1.2 }
+  .meta{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; font-size:.84rem; color:var(--muted); }
+  .meta .k{ color:#64748b; font-weight:800; }
+  .meta .v{ color:#334155; font-weight:800; }
+
+  .badges{ display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; }
+  .badge{
+    display:inline-flex; align-items:center; gap:8px;
+    padding:6px 10px;
+    border-radius:999px;
+    font-weight:900;
+    font-size:.78rem;
+    border:1px solid var(--line);
+    background:#f1f5f9;
+    color:#334155;
+  }
+  .badge .dot{ width:8px; height:8px; border-radius:999px; background:#cbd5e1; }
+  .b-live{ background:rgba(134,239,172,.22); border-color:rgba(134,239,172,.40); color:#065f46; }
+  .b-live .dot{ background:#22c55e; }
+  .b-draft{ background:#f1f5f9; }
+  .b-draft .dot{ background:#94a3b8; }
+  .b-hidden{ background:rgba(254,202,202,.26); border-color:rgba(254,202,202,.55); color:#991b1b; }
+  .b-hidden .dot{ background:#ef4444; }
+
+  .b-ml{ background:rgba(196,181,253,.18); border-color:rgba(196,181,253,.45); color:#5b21b6; }
+  .b-ml .dot{ background:#8b5cf6; }
+  .b-ml-warn{ background:rgba(253,230,138,.26); border-color:rgba(253,230,138,.55); color:#92400e; }
+  .b-ml-warn .dot{ background:#f59e0b; }
+  .b-ml-bad{ background:rgba(254,202,202,.30); border-color:rgba(254,202,202,.62); color:#b91c1c; }
+  .b-ml-bad .dot{ background:#ef4444; }
+
+  .price{ font-weight:900; color:var(--ink); }
+  .sale{ color:#16a34a; font-weight:900; }
+  .muted-sm{ color:var(--muted); font-size:.85rem; }
+
+  .actions{ display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+  .iconbtn{
+    width:38px; height:38px;
+    border-radius:12px;
+    border:1px solid var(--line);
+    background:#fff;
+    display:inline-grid;
+    place-items:center;
+    cursor:pointer;
+    transition:transform .12s ease, box-shadow .12s ease, background .12s ease;
+    box-shadow:0 8px 18px rgba(15,23,42,.05);
+  }
+  .iconbtn:hover{ transform:translateY(-1px); background:#fff; box-shadow:0 12px 24px rgba(15,23,42,.08); }
+  .iconbtn svg{ width:18px; height:18px; }
+
+  @media (max-width: 860px){
+    th:nth-child(6), td:nth-child(6){ display:none; }
+  }
+  @media (max-width: 640px){
+    .filters-row{ flex-direction:column; align-items:stretch; }
+    .search{ min-width:unset; width:100%; }
+    .tabs{ width:100%; justify-content:space-between; }
+    .chip{ width:100%; justify-content:center; }
+    .actions{ justify-content:flex-start; }
+    .name{ min-width:unset; }
+  }
+
+  .foot{
+    display:flex; align-items:center; justify-content:space-between;
+    gap:12px; margin:16px 4px; flex-wrap:wrap;
   }
 </style>
 @endpush
@@ -99,81 +255,87 @@
 @section('content')
 @php
   use Illuminate\Support\Str;
+
+  $st = (string)request('status','');
 @endphp
 
 <div class="wrap">
-  <div class="head" style="margin: 14px 0 10px;">
+
+  {{-- ===== Header ===== --}}
+  <div class="head">
     <div>
-      <h1 class="title">Productos Web <span class="muted" style="font-weight:600;">(Catálogo público)</span></h1>
-      <p class="muted" style="margin-top:4px;font-size:.9rem;">
-        Gestiona el catálogo que se muestra en tu sitio y sincronízalo con Mercado Libre desde un solo lugar.
-      </p>
+      <h1 class="title">Productos Web <span class="muted" style="font-weight:700;">(Catálogo público)</span></h1>
+      <p class="muted subtxt">Gestiona el catálogo público y sincroniza con Mercado Libre con acciones rápidas.</p>
     </div>
-    <div class="toolbar">
-      <a href="{{ route('admin.catalog.create') }}" class="btn btn-primary">+ Nuevo producto</a>
+
+    <div>
+      <a href="{{ route('admin.catalog.create') }}" class="btn">
+        <span class="ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 5v14M5 12h14"/>
+          </svg>
+        </span>
+        Nuevo
+      </a>
     </div>
   </div>
 
   @if(session('ok'))
-    <div class="alert" style="margin:10px 0 12px;">
+    <div class="card" style="padding:10px 12px; border-radius:12px; border:1px solid var(--line); background:#f8fffb; color:#0b6b3a; margin:10px 0 12px;">
       {{ session('ok') }}
     </div>
   @endif
 
-  {{-- Resumen general de errores de ML en la página --}}
-  @php
-    $firstMeliErrorItem = $items->first(function ($row) {
-        return !empty($row->meli_last_error);
-    });
-  @endphp
-
-  @if($firstMeliErrorItem)
-    <div class="alert-ml-summary">
-      <div>
-        <div class="alert-ml-summary-title">Algunos productos no se pudieron sincronizar con Mercado Libre.</div>
-        <p style="margin:0 0 4px;">
-          Revisa la columna de “Nombre” para ver el detalle del error en cada producto y ajusta los campos sugeridos.
-        </p>
-        <ul>
-          <li><strong>Título demasiado corto o genérico:</strong> incluye tipo de producto, marca y modelo (ejemplo: “Lapicero bolígrafo azul Bic 0.7mm”).</li>
-          <li><strong>Precio insuficiente:</strong> algunas categorías exigen un precio mínimo. Si el mensaje menciona un monto, ajusta el precio para superarlo.</li>
-          <li><strong>Falta GTIN / código de barras:</strong> en varias categorías es obligatorio. Captura el GTIN en la edición del producto.</li>
-          <li><strong>Publicación cerrada:</strong> si Mercado Libre ya cerró la publicación, será necesario crear una nueva desde este panel.</li>
-        </ul>
+  {{-- ===== Filtros (AUTO submit + minimal) ===== --}}
+  <div class="filters">
+    <form id="filtersForm" method="GET" action="{{ route('admin.catalog.index') }}" class="filters-row">
+      {{-- Buscar --}}
+      <div class="search">
+        <span class="sico">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+          </svg>
+        </span>
+        <input id="sInput" type="search" name="s" placeholder="Buscar por nombre, SKU o slug…" value="{{ request('s') }}" autocomplete="off" />
       </div>
-    </div>
-  @endif
 
-  {{-- ======= Filtros / Buscador ======= --}}
-  <div class="card sticky-tools" style="padding:12px;">
-    <form method="GET" class="toolbar" action="{{ route('admin.catalog.index') }}">
-      <input class="input" type="search" name="s" placeholder="Buscar por nombre o SKU…" value="{{ request('s') }}" />
-      <select class="select" name="status" aria-label="Filtro de estado">
-        <option value="">Estado: todos</option>
-        <option value="1" @selected(request('status')==='1')>Publicado</option>
-        <option value="0" @selected(request('status')==='0')>Borrador</option>
-        <option value="2" @selected(request('status')==='2')>Oculto</option>
-      </select>
+      {{-- Estado (tabs) --}}
+      <div class="tabs" role="tablist" aria-label="Estado">
+        <button type="button" class="tab {{ $st==='' ? 'is-active' : '' }}" data-status="">Todos</button>
+        <button type="button" class="tab {{ $st==='1' ? 'is-active' : '' }}" data-status="1">Publicado</button>
+        <button type="button" class="tab {{ $st==='0' ? 'is-active' : '' }}" data-status="0">Borrador</button>
+        <button type="button" class="tab {{ $st==='2' ? 'is-active' : '' }}" data-status="2">Oculto</button>
+      </div>
 
-      <label style="display:flex; align-items:center; gap:8px;" class="muted">
-        <input class="checkbox" type="checkbox" name="featured_only" value="1" @checked(request()->boolean('featured_only'))>
-        Solo destacados
+      <input type="hidden" name="status" id="statusInput" value="{{ $st }}">
+
+      {{-- Destacados --}}
+      <label class="chip" title="Solo destacados">
+        <input id="featuredInput" type="checkbox" name="featured_only" value="1" @checked(request()->boolean('featured_only'))>
+        Destacados
       </label>
 
-      <button class="btn btn-ghost btn-small" type="submit">Aplicar</button>
+      {{-- Limpiar (solo si hay filtros) --}}
       @if(request()->hasAny(['s','status','featured_only']))
-        <a class="btn btn-ghost btn-small" href="{{ route('admin.catalog.index') }}">Limpiar</a>
+        <a href="{{ route('admin.catalog.index') }}" class="btn" style="padding:10px 12px;">
+          <span class="ico">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 12a9 9 0 1 0 9-9"/><path d="M3 4v8h8"/>
+            </svg>
+          </span>
+          Limpiar
+        </a>
       @endif
     </form>
   </div>
 
   {{-- ======= Tabla ======= --}}
-  <div class="table-wrap card" style="margin-top:12px;">
+  <div class="table-wrap card">
     <table>
       <thead>
         <tr>
-          <th style="width:64px;">Img</th>
-          <th>Nombre</th>
+          <th style="width:72px;">Img</th>
+          <th>Producto</th>
           <th>Precio</th>
           <th>Estado</th>
           <th>Destacado</th>
@@ -183,64 +345,69 @@
       </thead>
       <tbody>
         @forelse($items as $it)
+          @php
+            $hasMl = ($it->meli_item_id || $it->meli_status);
+            $mlErr = !empty($it->meli_last_error);
+          @endphp
           <tr>
             <td>
               @php $src = $it->image_url; @endphp
-              @if($src)
-                <img class="thumb" src="{{ $src }}" alt="Imagen de {{ $it->name }}"
-                     onerror="this.onerror=null;this.src='{{ asset('images/placeholder.png') }}';">
-              @else
-                <img class="thumb" src="{{ asset('images/placeholder.png') }}" alt="Sin imagen">
-              @endif
+              <img
+                class="thumb"
+                src="{{ $src ?: asset('images/placeholder.png') }}"
+                alt="Imagen de {{ $it->name }}"
+                onerror="this.onerror=null;this.src='{{ asset('images/placeholder.png') }}';"
+              >
             </td>
 
             <td>
-              <div style="display:flex; flex-direction:column; gap:4px;">
-                <strong style="color:var(--ink)">{{ $it->name }}</strong>
-                <span class="sku">SKU: {{ $it->sku ?: '—' }}</span>
-                <span class="muted" style="font-size:.82rem;">Slug: {{ $it->slug }}</span>
+              <div class="name">
+                <strong>{{ $it->name }}</strong>
+                <div class="meta">
+                  <span><span class="k">SKU:</span> <span class="v">{{ $it->sku ?: '—' }}</span></span>
+                  <span><span class="k">Slug:</span> <span class="v">{{ $it->slug }}</span></span>
+                  @if($hasMl)
+                    <span><span class="k">ML ID:</span> <span class="v">{{ $it->meli_item_id ?: '—' }}</span></span>
+                  @endif
+                </div>
 
-                {{-- Info de Mercado Libre --}}
-                @if($it->meli_item_id || $it->meli_status)
-                  <div class="muted" style="font-size:.82rem;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
-                    <span>ML ID: {{ $it->meli_item_id ?: '—' }}</span>
+                <div class="badges">
+                  @if($it->status === 1)
+                    <span class="badge b-live"><span class="dot"></span>Publicado</span>
+                  @elseif($it->status === 2)
+                    <span class="badge b-hidden"><span class="dot"></span>Oculto</span>
+                  @else
+                    <span class="badge b-draft"><span class="dot"></span>Borrador</span>
+                  @endif
+
+                  @if($hasMl)
                     @if($it->meli_status === 'active')
-                      <span class="badge badge-live">ML: Activo</span>
+                      <span class="badge b-ml"><span class="dot"></span>ML Activo</span>
                     @elseif($it->meli_status === 'paused')
-                      <span class="badge badge-draft" style="background:#fef9c3;color:#854d0e;">ML: Pausado</span>
-                    @elseif($it->meli_status === 'error')
-                      <span class="badge badge-hidden">ML: Error</span>
+                      <span class="badge b-ml-warn"><span class="dot"></span>ML Pausado</span>
+                    @elseif($it->meli_status === 'error' || $mlErr)
+                      <span class="badge b-ml-bad"><span class="dot"></span>ML Error</span>
                     @elseif($it->meli_status)
-                      <span class="badge badge-draft">ML: {{ ucfirst($it->meli_status) }}</span>
+                      <span class="badge b-ml"><span class="dot"></span>ML {{ ucfirst($it->meli_status) }}</span>
                     @endif
-                  </div>
-                @endif
+                  @endif
 
-                @if($it->meli_last_error)
-                  @php
-                    $errText = Str::lower($it->meli_last_error);
-                  @endphp
-                  <div class="ml-pill-error">
-                    Problema al sincronizar con Mercado Libre
-                  </div>
-                  <div class="ml-error-text">
-                    {{ $it->meli_last_error }}
-                  </div>
-                  <ul class="ml-error-hints">
-                    @if(Str::contains($errText, 'gtin'))
-                      <li>El mensaje indica que falta el <strong>GTIN/código de barras</strong>. Edita el producto y captura el código impreso en el empaque.</li>
-                    @endif
+                  @if($it->is_featured)
+                    <span class="badge" style="background:rgba(52,211,153,.16);border-color:rgba(52,211,153,.28);color:#065f46;">
+                      <span class="dot" style="background:#22c55e"></span>Destacado
+                    </span>
+                  @endif
+                </div>
 
-                    @if(Str::contains($errText, 'title') || Str::contains($errText, 'título'))
-                      <li>El <strong>Nombre</strong> es demasiado corto o genérico. Incluye tipo de producto, marca y modelo (por ejemplo: “Lapicero bolígrafo azul Bic 0.7mm”).</li>
-                    @endif
-
-                    @if(Str::contains($errText, 'price'))
-                      <li>El <strong>Precio</strong> está por debajo del mínimo de la categoría. Sube el precio hasta el mínimo que menciona el mensaje.</li>
-                    @endif
-
-                    <li>Después de corregir, vuelve a pulsar <strong>“ML: Publicar/Actualizar”</strong> para reintentar el envío.</li>
-                  </ul>
+                @if($mlErr)
+                  <details style="margin-top:8px;">
+                    <summary style="cursor:pointer; font-weight:800; color:#b91c1c;">
+                      Ver error de Mercado Libre
+                    </summary>
+                    <div style="margin-top:8px; font-size:.9rem; color:#7f1d1d; white-space:normal; max-width:740px;">
+                      {{ $it->meli_last_error }}
+                    </div>
+                  </details>
                 @endif
               </div>
             </td>
@@ -248,7 +415,7 @@
             <td>
               @if(!is_null($it->sale_price))
                 <div class="sale">${{ number_format($it->sale_price,2) }}</div>
-                <div class="muted" style="text-decoration:line-through;">${{ number_format($it->price,2) }}</div>
+                <div class="muted-sm" style="text-decoration:line-through;">${{ number_format($it->price,2) }}</div>
               @else
                 <div class="price">${{ number_format($it->price,2) }}</div>
               @endif
@@ -256,17 +423,19 @@
 
             <td>
               @if($it->status === 1)
-                <span class="badge badge-live">Publicado</span>
+                <span class="badge b-live"><span class="dot"></span>Publicado</span>
               @elseif($it->status === 2)
-                <span class="badge badge-hidden">Oculto</span>
+                <span class="badge b-hidden"><span class="dot"></span>Oculto</span>
               @else
-                <span class="badge badge-draft">Borrador</span>
+                <span class="badge b-draft"><span class="dot"></span>Borrador</span>
               @endif
             </td>
 
             <td>
               @if($it->is_featured)
-                <span class="chip">Destacado</span>
+                <span class="badge" style="background:rgba(52,211,153,.16);border-color:rgba(52,211,153,.28);color:#065f46;">
+                  <span class="dot" style="background:#22c55e"></span>Sí
+                </span>
               @else
                 <span class="muted">—</span>
               @endif
@@ -278,42 +447,79 @@
 
             <td style="text-align:right;">
               <div class="actions">
-                <a class="btn btn-ghost btn-small" href="{{ route('admin.catalog.edit', $it) }}">Editar</a>
+                <a class="iconbtn" title="Editar" href="{{ route('admin.catalog.edit', $it) }}">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
+                  </svg>
+                </a>
 
-                {{-- Publicar / Ocultar (toggle) --}}
                 <form method="POST" action="{{ route('admin.catalog.toggle', $it) }}"
                       onsubmit="return confirm('¿Cambiar estado de publicación en el sitio web?')">
                   @csrf
                   @method('PATCH')
-                  <button class="btn btn-ghost btn-small" type="submit">
-                    {{ $it->status == 1 ? 'Ocultar' : 'Publicar' }}
+                  <button class="iconbtn" title="{{ $it->status == 1 ? 'Ocultar' : 'Publicar' }}" type="submit">
+                    @if($it->status == 1)
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12z"/>
+                        <path d="M3 3l18 18"/>
+                      </svg>
+                    @else
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                      </svg>
+                    @endif
                   </button>
                 </form>
 
-                {{-- Mercado Libre --}}
                 <form method="POST" action="{{ route('admin.catalog.meli.publish', $it) }}">
                   @csrf
-                  <button class="btn btn-primary btn-small" type="submit">ML: Publicar/Actualizar</button>
+                  <button class="iconbtn" title="Mercado Libre: Publicar/Actualizar" type="submit">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M12 3v12"/><path d="M7 10l5 5 5-5"/>
+                      <path d="M20 21H4a2 2 0 0 1-2-2v-3"/>
+                    </svg>
+                  </button>
                 </form>
 
                 @if($it->meli_item_id)
-                  <a class="btn btn-ghost btn-small" href="{{ route('admin.catalog.meli.view', $it) }}">ML: Ver</a>
+                  <a class="iconbtn" title="Mercado Libre: Ver" href="{{ route('admin.catalog.meli.view', $it) }}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12z"/>
+                      <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                  </a>
+
                   <form method="POST" action="{{ route('admin.catalog.meli.pause', $it) }}">
                     @csrf
-                    <button class="btn btn-ghost btn-small" type="submit">ML: Pausar</button>
+                    <button class="iconbtn" title="Mercado Libre: Pausar" type="submit">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
+                      </svg>
+                    </button>
                   </form>
+
                   <form method="POST" action="{{ route('admin.catalog.meli.activate', $it) }}">
                     @csrf
-                    <button class="btn btn-ghost btn-small" type="submit">ML: Activar</button>
+                    <button class="iconbtn" title="Mercado Libre: Activar" type="submit">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="8 5 19 12 8 19 8 5"/>
+                      </svg>
+                    </button>
                   </form>
                 @endif
 
-                {{-- Eliminar --}}
                 <form method="POST" action="{{ route('admin.catalog.destroy', $it) }}"
                       onsubmit="return confirm('¿Eliminar este producto del catálogo web? Esta acción no se puede deshacer.')">
                   @csrf
                   @method('DELETE')
-                  <button class="btn btn-danger btn-small" type="submit">Eliminar</button>
+                  <button class="iconbtn" title="Eliminar" type="submit" style="border-color:rgba(254,202,202,.75);">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="#b91c1c" stroke-width="2">
+                      <polyline points="3 6 5 6 21 6"/>
+                      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                      <line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>
+                    </svg>
+                  </button>
                 </form>
               </div>
             </td>
@@ -329,8 +535,7 @@
     </table>
   </div>
 
-  {{-- ======= Paginación + contador ======= --}}
-  <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin:16px 4px;">
+  <div class="foot">
     <div class="muted">
       Mostrando {{ $items->firstItem() ?? 0 }}–{{ $items->lastItem() ?? 0 }} de {{ $items->total() }} registros
     </div>
@@ -338,5 +543,41 @@
       {{ $items->onEachSide(1)->links() }}
     </div>
   </div>
+
 </div>
 @endsection
+
+@push('scripts')
+<script>
+(function(){
+  const form = document.getElementById('filtersForm');
+  const sInput = document.getElementById('sInput');
+  const statusInput = document.getElementById('statusInput');
+  const tabs = Array.from(document.querySelectorAll('.tab'));
+  const featured = document.getElementById('featuredInput');
+
+  // ✅ auto submit con debounce (evita recargar por cada letra)
+  function debounce(fn, wait){
+    let t;
+    return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn(...args), wait); };
+  }
+
+  const submitDebounced = debounce(()=> form?.submit(), 450);
+
+  sInput?.addEventListener('input', submitDebounced);
+
+  // Tabs: set hidden input + submit inmediato (sin botón aplicar)
+  tabs.forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      tabs.forEach(x=>x.classList.remove('is-active'));
+      btn.classList.add('is-active');
+      if(statusInput) statusInput.value = btn.dataset.status ?? '';
+      form?.submit();
+    });
+  });
+
+  // Destacados: submit inmediato
+  featured?.addEventListener('change', ()=> form?.submit());
+})();
+</script>
+@endpush
