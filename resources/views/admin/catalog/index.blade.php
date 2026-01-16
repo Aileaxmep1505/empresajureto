@@ -148,7 +148,8 @@
   .search{
     display:flex; align-items:center; gap:10px;
     flex:1;
-    min-width:min(92vw, 560px);
+    min-width:0;              /* ✅ importante para que no desborde en móvil */
+    width: min(100%, 560px);  /* ✅ */
     background:#fff;
     border:1px solid rgba(232,238,246,.95);
     border-radius:999px;
@@ -283,21 +284,95 @@
 
   .actions{ display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
 
-  @media (max-width: 860px){
-    th:nth-child(6), td:nth-child(6){ display:none; }
-  }
-  @media (max-width: 640px){
-    .filters-row{ flex-direction:column; align-items:stretch; }
-    .search{ min-width:unset; width:100%; }
-    .tabs{ width:100%; justify-content:space-between; }
-    .chip{ width:100%; justify-content:center; }
-    .actions{ justify-content:flex-start; }
-    .name{ min-width:unset; }
-  }
-
   .foot{
     display:flex; align-items:center; justify-content:space-between;
     gap:12px; margin:16px 4px; flex-wrap:wrap;
+  }
+
+  /* =========================
+     ✅ RESPONSIVE REAL (móvil)
+     - Filtros apilados sin cortar
+     - Tabs scrolleables
+     - Tabla -> tarjetas
+     ========================= */
+  @media (max-width: 760px){
+    .wrap{ padding:0 10px; }
+
+    .head{ gap:10px; }
+    .subtxt{ max-width:unset; }
+
+    .filters{ padding:12px; }
+    .filters-row{ flex-direction:column; align-items:stretch; }
+    .filters-row > *{ width:100%; }
+
+    /* Tabs: scroll horizontal bonito */
+    .tabs{
+      width:100%;
+      overflow-x:auto;
+      -webkit-overflow-scrolling:touch;
+      justify-content:flex-start;
+      gap:6px;
+    }
+    .tabs::-webkit-scrollbar{ height:0; }
+    .tab{ flex:0 0 auto; }
+
+    .chip{ width:100%; justify-content:center; }
+
+    /* Tooltips: en touch estorban, los apagamos */
+    @media (hover:none){
+      .tt .tt-bubble{ display:none !important; }
+    }
+
+    /* Tabla -> cards */
+    .table-wrap{ border:0; background:transparent; overflow:visible; }
+    table, thead, tbody, th, td, tr{ display:block; }
+    thead{ display:none; }
+    tbody tr{
+      background:#fff;
+      border:1px solid var(--line);
+      border-radius:18px;
+      box-shadow:0 14px 30px rgba(15,23,42,.06);
+      padding:12px;
+      margin:12px 0;
+    }
+    tbody td{
+      border:0;
+      padding:0;
+      background:transparent !important;
+    }
+
+    /* layout del bloque */
+    td.img-cell{ width:auto; max-width:none; margin-bottom:10px; }
+    .thumbbox{ width:64px; height:64px; border-radius:14px; }
+
+    .name{ min-width:unset; }
+
+    /* Filas “campo: valor” */
+    .mrow{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      padding:10px 0;
+      border-top:1px dashed rgba(232,238,246,.95);
+    }
+    .mrow:first-of-type{ border-top:0; padding-top:0; }
+    .mlabel{ font-size:.78rem; color:#64748b; font-weight:900; letter-spacing:.02em; }
+    .mvalue{ text-align:right; color:#0f172a; font-weight:800; }
+
+    .actions{
+      justify-content:flex-start;
+      padding-top:10px;
+      border-top:1px dashed rgba(232,238,246,.95);
+      margin-top:10px;
+    }
+
+    /* Ajustes de iconbtn para dedo */
+    .iconbtn{ width:42px; height:42px; border-radius:14px; }
+  }
+
+  /* Ocultar columna publicado en tablet chica */
+  @media (max-width: 860px){
+    th:nth-child(6), td:nth-child(6){ display:none; }
   }
 </style>
 @endpush
@@ -311,7 +386,7 @@
 
   <div class="head">
     <div>
-      <h1 class="title">Productos Web <span class="muted" style="font-weight:700;">(Catálogo público)</span></h1>
+      <h1 class="title">Inventario Jureto</h1>
       <p class="muted subtxt">Gestiona el catálogo público y sincroniza con Mercado Libre con acciones rápidas.</p>
     </div>
 
@@ -336,7 +411,7 @@
 
   <div class="filters">
     <form id="filtersForm" method="GET" action="{{ route('admin.catalog.index') }}" class="filters-row">
-      <div class="tt" style="flex:1; min-width:min(92vw, 560px);">
+      <div class="tt" style="flex:1; min-width:0;">
         <span class="tt-bubble">Buscar por nombre, SKU o slug</span>
         <div class="search">
           <span class="sico">
@@ -402,7 +477,7 @@
         @forelse($items as $it)
           @php $mlErr = !empty($it->meli_last_error); @endphp
           <tr>
-            <td class="img-cell">
+            <td class="img-cell" data-label="Img">
               <div class="thumbbox">
                 <img
                   src="{{ $it->image_url ?: asset('images/placeholder.png') }}"
@@ -413,7 +488,7 @@
               </div>
             </td>
 
-            <td>
+            <td data-label="Producto">
               <div class="name">
                 <strong>{{ $it->name }}</strong>
                 <div class="meta">
@@ -448,9 +523,57 @@
                   </details>
                 @endif
               </div>
+
+              {{-- ✅ En móvil, mostramos “Precio/Estado/Destacado/Publicado” como filas bonitas --}}
+              <div class="mrow" style="margin-top:10px;">
+                <div class="mlabel">Precio</div>
+                <div class="mvalue">
+                  @if(!is_null($it->sale_price))
+                    <span class="sale">${{ number_format($it->sale_price,2) }}</span>
+                    <span class="muted-sm" style="text-decoration:line-through;margin-left:8px;">${{ number_format($it->price,2) }}</span>
+                  @else
+                    <span class="price">${{ number_format($it->price,2) }}</span>
+                  @endif
+                </div>
+              </div>
+
+              <div class="mrow">
+                <div class="mlabel">Estado</div>
+                <div class="mvalue">
+                  @if($it->status === 1)
+                    <span class="badge b-live"><span class="dot"></span>Publicado</span>
+                  @elseif($it->status === 2)
+                    <span class="badge b-hidden"><span class="dot"></span>Oculto</span>
+                  @else
+                    <span class="badge b-draft"><span class="dot"></span>Borrador</span>
+                  @endif
+                </div>
+              </div>
+
+              <div class="mrow">
+                <div class="mlabel">Destacado</div>
+                <div class="mvalue">
+                  @if($it->is_featured)
+                    <span class="badge" style="background:rgba(52,211,153,.16);border-color:rgba(52,211,153,.28);color:#065f46;">
+                      <span class="dot" style="background:#22c55e"></span>Sí
+                    </span>
+                  @else
+                    <span class="muted">—</span>
+                  @endif
+                </div>
+              </div>
+
+              <div class="mrow">
+                <div class="mlabel">Publicado</div>
+                <div class="mvalue">
+                  <span class="muted">{{ $it->published_at ? $it->published_at->format('Y-m-d H:i') : '—' }}</span>
+                </div>
+              </div>
+
             </td>
 
-            <td>
+            {{-- Desktop cells (se esconden visualmente en móvil por el “table->cards”) --}}
+            <td data-label="Precio" class="desktop-only">
               @if(!is_null($it->sale_price))
                 <div class="sale">${{ number_format($it->sale_price,2) }}</div>
                 <div class="muted-sm" style="text-decoration:line-through;">${{ number_format($it->price,2) }}</div>
@@ -459,7 +582,7 @@
               @endif
             </td>
 
-            <td>
+            <td data-label="Estado" class="desktop-only">
               @if($it->status === 1)
                 <span class="badge b-live"><span class="dot"></span>Publicado</span>
               @elseif($it->status === 2)
@@ -469,7 +592,7 @@
               @endif
             </td>
 
-            <td>
+            <td data-label="Destacado" class="desktop-only">
               @if($it->is_featured)
                 <span class="badge" style="background:rgba(52,211,153,.16);border-color:rgba(52,211,153,.28);color:#065f46;">
                   <span class="dot" style="background:#22c55e"></span>Sí
@@ -479,12 +602,11 @@
               @endif
             </td>
 
-            <td>
+            <td data-label="Publicado" class="desktop-only">
               <span class="muted">{{ $it->published_at ? $it->published_at->format('Y-m-d H:i') : '—' }}</span>
             </td>
 
-            {{-- ✅ ACCIONES (iconos corregidos, sin duplicar) --}}
-            <td style="text-align:right;">
+            <td data-label="Acciones" style="text-align:right;">
               <div class="actions">
 
                 <span class="tt iconbtn-wrap">
@@ -505,13 +627,11 @@
                     @method('PATCH')
                     <button class="iconbtn" type="submit">
                       @if($it->status == 1)
-                        {{-- Ocultar: ojo tachado --}}
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                           <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12z"/>
                           <path d="M3 3l18 18"/>
                         </svg>
                       @else
-                        {{-- Publicar: megáfono --}}
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                           <path d="M3 11v2"/>
                           <path d="M5 10v4"/>
@@ -529,7 +649,6 @@
                   <form method="POST" action="{{ route('admin.catalog.meli.publish', $it) }}">
                     @csrf
                     <button class="iconbtn" type="submit">
-                      {{-- Subir/publicar --}}
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M12 21V8"/>
                         <path d="M7 12l5-5 5 5"/>
@@ -543,7 +662,6 @@
                   <span class="tt iconbtn-wrap">
                     <span class="tt-bubble">ML: Ver</span>
                     <a class="iconbtn" href="{{ route('admin.catalog.meli.view', $it) }}">
-                      {{-- Link externo --}}
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M14 3h7v7"/>
                         <path d="M10 14L21 3"/>
