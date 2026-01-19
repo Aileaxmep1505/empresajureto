@@ -1,3 +1,4 @@
+{{-- resources/views/manual_invoices/index.blade.php --}}
 @extends('layouts.app')
 @section('title','Facturas')
 @section('header','Facturas')
@@ -9,6 +10,7 @@
   --btn-green:#059669; --btn-green-h:#047857; --btn-green-soft:#e6fff4;
   --btn-gray:#64748b; --btn-gray-h:#475569; --btn-gray-soft:#eef2f7;
   --btn-red:#ef4444; --btn-red-h:#dc2626; --btn-red-soft:#ffe9eb;
+
   --surface:#ffffff; --border:#e5e7eb; --muted:#6b7280;
 }
 .page{ max-width:1200px; margin:12px auto 24px; padding:0 14px }
@@ -24,13 +26,77 @@
 .hero h1{ margin:0; font-weight:800; letter-spacing:-.02em }
 .subtle{ color:var(--muted); font-size:.86rem }
 
-.pbtn{
-  font-weight:800; border-radius:14px; padding:10px 14px;
-  display:inline-flex; align-items:center; gap:8px;
-  text-decoration:none; border:2px solid transparent; font-size:.86rem
+/* Icon button (no text) */
+.ibtn{
+  width:40px; height:40px;
+  display:inline-grid;
+  place-items:center;
+  border-radius:999px;
+  border:1px solid var(--border);
+  background:#fff;
+  color:#111827;
+  text-decoration:none;
+  cursor:pointer;
+  transition:transform .12s ease, box-shadow .12s ease, background-color .12s ease, border-color .12s ease;
 }
-.pbtn-blue{ color:var(--btn-blue); background:var(--btn-blue-soft); border-color:#cfe0ff }
-.pbtn-blue:hover{ background:#dbeafe; color:var(--btn-blue-h) }
+.ibtn:hover{
+  transform:translateY(-1px);
+  box-shadow:0 10px 22px rgba(29,78,216,.10);
+  background:#f8fafc;
+}
+.ibtn:active{ transform:translateY(0) }
+
+.ibtn.blue{ background:var(--btn-blue-soft); color:var(--btn-blue); border-color:#cfe0ff }
+.ibtn.blue:hover{ background:#dbeafe; color:var(--btn-blue-h) }
+
+.ibtn.green{ background:var(--btn-green-soft); color:var(--btn-green); border-color:#b7f7db }
+.ibtn.green:hover{ background:#d1fae5; color:var(--btn-green-h) }
+
+.ibtn.gray{ background:var(--btn-gray-soft); color:var(--btn-gray); border-color:#e5e7eb }
+.ibtn.gray:hover{ background:#e2e8f0; color:var(--btn-gray-h) }
+
+.ibtn.red{ background:var(--btn-red-soft); color:var(--btn-red); border-color:#fecaca }
+.ibtn.red:hover{ background:#fee2e2; color:var(--btn-red-h) }
+
+/* Tooltip (como catalogitems) */
+.tipwrap{ position:relative; display:inline-block; }
+.tipwrap .tip{
+  position:absolute;
+  left:50%;
+  bottom:calc(100% + 10px);
+  transform:translateX(-50%);
+  background:#0f172a;
+  color:#fff;
+  padding:7px 10px;
+  border-radius:10px;
+  font-size:.75rem;
+  font-weight:800;
+  letter-spacing:.01em;
+  white-space:nowrap;
+  opacity:0;
+  visibility:hidden;
+  pointer-events:none;
+  transition:opacity .12s ease, transform .12s ease, visibility .12s ease;
+  box-shadow:0 18px 40px rgba(2,6,23,.25);
+  z-index:60;
+}
+.tipwrap .tip::after{
+  content:"";
+  position:absolute;
+  top:100%;
+  left:50%;
+  transform:translateX(-50%);
+  width:0;height:0;
+  border-left:7px solid transparent;
+  border-right:7px solid transparent;
+  border-top:7px solid #0f172a;
+}
+.tipwrap:hover .tip,
+.tipwrap:focus-within .tip{
+  opacity:1;
+  visibility:visible;
+  transform:translateX(-50%) translateY(-2px);
+}
 
 /* Searchbar */
 .searchbar{
@@ -47,50 +113,54 @@
 }
 .sb-clear:hover{ background:#f1f5f9; color:#64748b }
 
-/* Tabs de estatus */
-.tabs{
-  margin-top:14px; display:flex; flex-wrap:wrap; gap:8px;
-}
+/* Tabs */
+.tabs{ margin-top:14px; display:flex; flex-wrap:wrap; gap:8px; }
 .tab-pill{
-  border-radius:999px;
-  padding:6px 12px;
-  font-size:.8rem;
-  border:1px solid var(--border);
-  background:#f8fafc;
-  color:#64748b;
-  text-decoration:none;
-  font-weight:600;
+  border-radius:999px; padding:6px 12px; font-size:.8rem;
+  border:1px solid var(--border); background:#f8fafc; color:#64748b;
+  text-decoration:none; font-weight:700;
 }
 .tab-pill.active{
-  background:#e6efff;
-  border-color:#bfdbfe;
-  color:#1d4ed8;
+  background:#e6efff; border-color:#bfdbfe; color:#1d4ed8;
 }
 
 /* Tabla */
 .table-wrap{
-  margin-top:14px; background:var(--surface); border:1px solid var(--border); border-radius:16px;
-  overflow:auto; contain: paint; -webkit-overflow-scrolling:touch;
+  margin-top:14px;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:16px;
+  overflow:visible;
 }
+
 table{
-  width:100%; min-width: 880px;
-  border-collapse:separate; border-spacing:0; table-layout: fixed;
+  width:100%;
+  min-width: 100%;
+  border-collapse:separate;
+  border-spacing:0;
+  table-layout: fixed;
 }
+
 thead th{
-  background:#f7faff; color:#334155; text-align:left; font-weight:800;
-  border-bottom:1px solid var(--border); padding:12px 12px; white-space:nowrap; font-size:.75rem; text-transform:uppercase; letter-spacing:.04em;
+  background:#f7faff; color:#334155; text-align:left; font-weight:900;
+  border-bottom:1px solid var(--border); padding:12px 12px; white-space:nowrap;
+  font-size:.75rem; text-transform:uppercase; letter-spacing:.04em;
 }
 tbody td{ padding:11px 12px; border-bottom:1px solid var(--border); vertical-align:middle; font-size:.84rem }
 tbody tr:hover{ background:#f8fbff }
-tbody tr{ transform: translateZ(0); backface-visibility:hidden; }
 
+/* Acciones no sticky */
 th.th-actions, td.t-actions{
-  position:sticky; right:0; background:var(--surface); z-index:2; border-left:1px solid var(--border)
+  position:static;
+  right:auto;
+  background:transparent;
+  z-index:auto;
+  border-left:0;
 }
 
 /* Badges */
 .badge-type{
-  padding:.18rem .55rem; border-radius:999px; font-weight:700; font-size:.72rem;
+  padding:.18rem .55rem; border-radius:999px; font-weight:900; font-size:.72rem;
   background:#eef2f7; color:#334155; border:1px solid #e5e7eb;
 }
 .badge-type.i{ background:#e6efff; color:#1d4ed8; border-color:#bfdbfe }
@@ -99,7 +169,7 @@ th.th-actions, td.t-actions{
 
 .chip-status{
   display:inline-flex; align-items:center; gap:6px; border-radius:999px; padding:4px 10px;
-  font-size:.76rem; font-weight:700;
+  font-size:.76rem; font-weight:900;
 }
 .chip-status .dot{ width:8px; height:8px; border-radius:999px; background:currentColor }
 .chip-status.valid{ background:#ecfdf3; color:#15803d; border:1px solid #bbf7d0 }
@@ -107,54 +177,81 @@ th.th-actions, td.t-actions{
 .chip-status.cancelled{ background:#fef2f2; color:#b91c1c; border:1px solid #fecaca }
 .chip-status.pending_cancel{ background:#fffbeb; color:#b45309; border:1px solid #fed7aa }
 
-/* Cliente + importe */
+/* Cliente */
 .cell-client{ max-width:260px; overflow:hidden; text-overflow:ellipsis; }
-.cell-client .name{ font-weight:700; }
+.cell-client .name{ font-weight:900; }
 .cell-client .rfc{ font-size:.78rem; color:#6b7280; }
 
+/* Importe link */
 .cell-amount a{
-  color:#2563eb; text-decoration:none; font-weight:700; font-feature-settings:"tnum" 1,"lnum" 1;
+  color:#2563eb; text-decoration:none; font-weight:900;
+  font-feature-settings:"tnum" 1,"lnum" 1;
 }
 .cell-amount a:hover{ text-decoration:underline; }
 
-/* Botones acciones */
-.btn-mini{
-  border-radius:999px;
-  padding:6px 10px;
-  font-size:.76rem;
-  border:1px solid #e5e7eb;
-  background:#f9fafb;
-  color:#111827;
-  text-decoration:none;
-  display:inline-flex;
-  align-items:center;
-  gap:6px;
-}
-.btn-mini.primary{
-  background:#2563eb;
-  color:#fff;
-  border-color:#1d4ed8;
-}
-.btn-mini + .btn-mini{ margin-left:4px; }
-
 /* Flash */
 .status-flash{
-  margin-top:10px;
-  font-size:12px;
-  padding:8px 12px;
-  border-radius:999px;
-  background:#ecfdf3;
-  color:#047857;
-  border:1px solid #bbf7d0;
+  margin-top:10px; font-size:12px; padding:8px 12px; border-radius:999px;
+  background:#ecfdf3; color:#047857; border:1px solid #bbf7d0;
 }
 
-/* Responsive */
+/* ===== SweetAlert2: estilo minimal/vidrio ===== */
+.swal2-popup.custom-swal{
+  border-radius:22px !important;
+  padding:18px 18px 14px !important;
+  background:
+    radial-gradient(circle at 0 0, rgba(59,130,246,.12), transparent 55%),
+    radial-gradient(circle at 100% 0, rgba(16,185,129,.09), transparent 60%),
+    #f9fafb !important;
+  box-shadow:
+    0 30px 70px rgba(15,23,42,.28),
+    0 0 0 1px rgba(148,163,184,.55);
+  backdrop-filter: blur(22px);
+}
+.swal2-title{
+  font-size:1.05rem !important;
+  font-weight:800 !important;
+  letter-spacing:-.01em;
+  color:#0f172a !important;
+}
+.swal2-html-container{
+  margin-top:6px !important;
+  font-size:.86rem !important;
+  color:#4b5563 !important;
+}
+.swal2-actions{
+  margin-top:16px !important;
+  gap:8px !important;
+}
+.swal2-styled.swal2-confirm{
+  border-radius:999px !important;
+  padding:8px 18px !important;
+  font-weight:800 !important;
+  background:#2563eb !important;
+  border:0 !important;
+  box-shadow:0 12px 26px rgba(37,99,235,.35);
+}
+.swal2-styled.swal2-cancel{
+  border-radius:999px !important;
+  padding:8px 16px !important;
+  font-weight:700 !important;
+  background:#e5e7eb !important;
+  color:#111827 !important;
+  border:0 !important;
+}
+.swal2-icon{
+  margin:0 0 10px !important;
+  transform:scale(.8);
+}
+
+/* Responsive: apilado */
 @media (max-width: 960px){
   .page{ padding:0 8px }
   .table-wrap{ border:0; background:transparent; overflow:visible }
   table, thead, tbody, th, td, tr { display:block }
   table{ min-width:0 }
   thead{ display:none }
+
   tbody tr{
     background:var(--surface);
     border:1px solid var(--border);
@@ -162,18 +259,27 @@ th.th-actions, td.t-actions{
     padding:12px;
     margin-bottom:12px;
   }
-  tbody td{ border:0; padding:4px 0; }
+  tbody td{ border:0; padding:6px 0; }
+
   td[data-label]::before{
     content: attr(data-label) ": ";
     font-size:.75rem;
-    font-weight:600;
+    font-weight:900;
     color:#6b7280;
     text-transform:uppercase;
     letter-spacing:.04em;
     display:block;
-    margin-bottom:2px;
+    margin-bottom:3px;
   }
-  th.th-actions, td.t-actions{ position:static; border-left:0; background:transparent; }
+
+  td.t-actions{
+    margin-top:8px;
+    padding-top:10px !important;
+    border-top:1px dashed #e5e7eb;
+  }
+  td.t-actions .actions-row{
+    justify-content:flex-start !important;
+  }
 }
 </style>
 @endpush
@@ -191,12 +297,16 @@ th.th-actions, td.t-actions{
     </div>
 
     <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center">
-      <a href="{{ route('manual_invoices.create') }}" class="pbtn pbtn-blue">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M12 5v14M5 12h14"/>
-        </svg>
-        Crear factura
-      </a>
+
+      {{-- Crear (icono + tooltip) --}}
+      <span class="tipwrap">
+        <a href="{{ route('manual_invoices.create') }}" class="ibtn blue" aria-label="Crear factura">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 5v14M5 12h14"/>
+          </svg>
+        </a>
+        <span class="tip">Crear factura</span>
+      </span>
 
       {{-- buscador --}}
       <form method="GET" class="searchbar">
@@ -261,7 +371,7 @@ th.th-actions, td.t-actions{
         <th style="width:170px;">Fecha</th>
         <th style="width:120px;">Importe</th>
         <th style="width:150px;">Estatus</th>
-        <th class="th-actions" style="width:150px;">Acciones</th>
+        <th class="th-actions" style="width:180px;">Acciones</th>
       </tr>
       </thead>
       <tbody>
@@ -276,26 +386,19 @@ th.th-actions, td.t-actions{
               ($inv->serie && $inv->folio ? '-' : '') .
               ($inv->folio ?? '')
           );
-          if ($serieFolio === '') {
-              $serieFolio = '—';
-          }
+          if ($serieFolio === '') $serieFolio = '—';
 
-          $typeClass = strtolower($inv->type ?? 'i');
-
-          // Si tienes accessor getStatusLabelAttribute en el modelo:
+          $typeClass   = strtolower($inv->type ?? 'i');
           $statusLabel = $inv->status_label ?? ucfirst($inv->status ?? '—');
         @endphp
-        <tr
-          data-name="{{ \Illuminate\Support\Str::lower($clientName) }}"
-          data-rfc="{{ \Illuminate\Support\Str::lower($clientRfc) }}"
-          data-folio="{{ \Illuminate\Support\Str::lower($serieFolio) }}"
-        >
+
+        <tr>
           <td data-label="Tipo">
             <span class="badge-type {{ $typeClass }}">
-              @if($inv->type === 'I') Ingreso
-              @elseif($inv->type === 'E') Egreso
-              @elseif($inv->type === 'P') Pago
-              @else — 
+              @if($inv->type === 'I') I
+              @elseif($inv->type === 'E') E
+              @elseif($inv->type === 'P') P
+              @else —
               @endif
             </span>
           </td>
@@ -307,13 +410,8 @@ th.th-actions, td.t-actions{
             @endif
           </td>
 
-          <td data-label="Serie/Folio">
-            {{ $serieFolio }}
-          </td>
-
-          <td data-label="Fecha">
-            {{ $date }}
-          </td>
+          <td data-label="Serie/Folio">{{ $serieFolio }}</td>
+          <td data-label="Fecha">{{ $date }}</td>
 
           <td class="cell-amount" data-label="Importe">
             <a href="{{ route('manual_invoices.show', $inv) }}">
@@ -329,30 +427,72 @@ th.th-actions, td.t-actions{
           </td>
 
           <td class="t-actions" data-label="Acciones">
-            @if($inv->status === 'draft')
-              <a href="{{ route('manual_invoices.edit', $inv) }}" class="btn-mini">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
-                </svg>
-                Editar
-              </a>
-              <form action="{{ route('manual_invoices.stamp', $inv) }}"
-                    method="POST"
-                    style="display:inline">
-                @csrf
-                <button type="submit" class="btn-mini primary"
-                        onclick="return confirm('¿Timbrar esta factura?');">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M4 7h16M4 12h16M4 17h16"/>
+            <div class="actions-row" style="display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end;">
+
+              {{-- Ver --}}
+              <span class="tipwrap">
+                <a href="{{ route('manual_invoices.show', $inv) }}" class="ibtn gray" aria-label="Ver detalle">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/>
+                    <circle cx="12" cy="12" r="3"/>
                   </svg>
-                  Timbrar
-                </button>
-              </form>
-            @else
-              <a href="{{ route('manual_invoices.show', $inv) }}" class="btn-mini">
-                Ver detalle
-              </a>
-            @endif
+                </a>
+                <span class="tip">Ver detalle</span>
+              </span>
+
+              @if($inv->status === 'draft')
+                {{-- Editar --}}
+                <span class="tipwrap">
+                  <a href="{{ route('manual_invoices.edit', $inv) }}" class="ibtn blue" aria-label="Editar">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
+                    </svg>
+                  </a>
+                  <span class="tip">Editar</span>
+                </span>
+
+                {{-- Timbrar con SweetAlert --}}
+                <span class="tipwrap">
+                  <form action="{{ route('manual_invoices.stamp', $inv) }}" method="POST" style="display:inline">
+                    @csrf
+                    <button type="button"
+                            class="ibtn green js-timbrar"
+                            data-sw-title="¿Timbrar esta factura?"
+                            data-sw-text="Se timbrará el CFDI en Facturapi para {{ $clientName }}. ¿Deseas continuar?"
+                            aria-label="Timbrar">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M4 7h16M4 12h16M4 17h16"/>
+                      </svg>
+                    </button>
+                  </form>
+                  <span class="tip">Timbrar</span>
+                </span>
+
+              @else
+                @if($inv->facturapi_id)
+                  {{-- PDF --}}
+                  <span class="tipwrap">
+                    <a href="{{ route('manual_invoices.downloadPdf', $inv) }}" class="ibtn blue" aria-label="Descargar PDF">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 3v12"/><path d="M8 11l4 4 4-4"/><path d="M5 21h14"/>
+                      </svg>
+                    </a>
+                    <span class="tip">Descargar PDF</span>
+                  </span>
+
+                  {{-- XML --}}
+                  <span class="tipwrap">
+                    <a href="{{ route('manual_invoices.downloadXml', $inv) }}" class="ibtn blue" aria-label="Descargar XML">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M4 4h16v16H4z"/><path d="M8 8h8M8 12h8M8 16h6"/>
+                      </svg>
+                    </a>
+                    <span class="tip">Descargar XML</span>
+                  </span>
+                @endif
+              @endif
+
+            </div>
           </td>
         </tr>
       @empty
@@ -366,7 +506,7 @@ th.th-actions, td.t-actions{
     </table>
   </div>
 
-  <div style="margin-top:10px; font-size:.8rem; color:#6b7280; display:flex; justify-content:space-between; align-items:center;">
+  <div style="margin-top:10px; font-size:.8rem; color:#6b7280; display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
     <span>
       Mostrando {{ $invoices->count() }} de {{ $invoices->total() }} facturas
     </span>
@@ -377,35 +517,74 @@ th.th-actions, td.t-actions{
 @endsection
 
 @push('scripts')
+{{-- SweetAlert2 CDN (una sola vez; si ya está en tu layout, puedes quitar esta línea) --}}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <script>
 (function(){
+  // Search clear
   const input    = document.getElementById('liveSearchInput');
   const clearBtn = document.getElementById('sbClear');
 
-  if (!input || !clearBtn) return;
-
-  function updateClear(){
-    if (input.value.trim() !== '') {
-      clearBtn.style.visibility = 'visible';
-    } else {
-      clearBtn.style.visibility = 'hidden';
+  if (input && clearBtn) {
+    function updateClear(){
+      clearBtn.style.visibility = (input.value.trim() !== '') ? 'visible' : 'hidden';
     }
+    updateClear();
+
+    clearBtn.addEventListener('click', function(){
+      input.value = '';
+      updateClear();
+      const form = input.closest('form');
+      if (form) {
+        form.querySelectorAll('input[name="q"]').forEach(i => i.value = '');
+        form.submit();
+      }
+    });
+
+    input.addEventListener('input', updateClear);
   }
 
-  updateClear();
+  // SweetAlert timbrar
+  const timbrarBtns = document.querySelectorAll('.js-timbrar');
+  if (!timbrarBtns.length) return;
 
-  clearBtn.addEventListener('click', function(){
-    input.value = '';
-    updateClear();
-    // reenviar el form sin q
-    const form = input.closest('form');
-    if (form) {
-      form.querySelectorAll('input[name="q"]').forEach(i => i.value = '');
-      form.submit();
-    }
+  timbrarBtns.forEach(btn => {
+    btn.addEventListener('click', function(e){
+      e.preventDefault();
+      const form  = btn.closest('form');
+      if (!form) return;
+
+      const title = btn.dataset.swTitle || '¿Timbrar esta factura?';
+      const text  = btn.dataset.swText  || 'Se timbrará el CFDI en Facturapi. ¿Deseas continuar?';
+
+      if (typeof Swal === 'undefined') {
+        if (confirm(text)) form.submit();
+        return;
+      }
+
+      Swal.fire({
+        title: title,
+        text: text,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, timbrar',
+        cancelButtonText: 'Cancelar',
+        reverseButtons: true,
+        background: 'transparent',
+        backdrop: 'rgba(15,23,42,.45)',
+        allowOutsideClick: false,
+        allowEscapeKey: true,
+        customClass: {
+          popup: 'custom-swal'
+        }
+      }).then(result => {
+        if (result.isConfirmed) {
+          form.submit();
+        }
+      });
+    });
   });
-
-  input.addEventListener('input', updateClear);
 })();
 </script>
 @endpush

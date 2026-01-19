@@ -18,7 +18,15 @@ class ManualInvoice extends Model
         'discount_total',
         'tax_total',
         'total',
+
+        // SAT / Facturapi
         'currency',
+        'exchange_rate',
+        'payment_method',
+        'payment_form',
+        'cfdi_use',
+        'exportation',
+
         'status',
         'facturapi_id',
         'facturapi_uuid',
@@ -33,12 +41,13 @@ class ManualInvoice extends Model
     ];
 
     protected $casts = [
-        'stamped_at' => 'datetime',
+        'stamped_at'     => 'datetime',
+        'exchange_rate'  => 'decimal:6',
+        'subtotal'       => 'decimal:2',
+        'discount_total' => 'decimal:2',
+        'tax_total'      => 'decimal:2',
+        'total'          => 'decimal:2',
     ];
-
-    /* =====================
-       Relaciones
-    ======================*/
 
     public function client()
     {
@@ -49,10 +58,6 @@ class ManualInvoice extends Model
     {
         return $this->hasMany(ManualInvoiceItem::class);
     }
-
-    /* =====================
-       Helpers para la vista
-    ======================*/
 
     public function getStatusLabelAttribute(): string
     {
@@ -75,7 +80,6 @@ class ManualInvoice extends Model
         };
     }
 
-    // Por si quieres mostrar "F10", "P1", etc.
     public function getSerieFolioAttribute(): ?string
     {
         if (!$this->serie && !$this->folio) return null;
