@@ -67,6 +67,10 @@ class CatalogItemController extends Controller implements HasMiddleware
 
     public function store(Request $request)
     {
+        Log::info('CatalogItem@store: inicio', [
+            'input' => $request->all(),
+        ]);
+
         // ✅ Validación SOLO de campos de texto/numéricos (SIN fotos aquí)
         $data = $request->validate([
             'name'        => ['required', 'string', 'max:255'],
@@ -78,8 +82,9 @@ class CatalogItemController extends Controller implements HasMiddleware
             'status'      => ['required', 'integer', 'in:0,1,2'], // 0=borrador 1=publicado 2=oculto
             'is_featured' => ['nullable', 'boolean'],
 
-            // Categoría tipo string (desde config/catalog.php)
-            'category'    => ['nullable', 'string', 'max:190'],
+            // 🔹 Categoría tipo string (clave de config/catalog.php)
+            // Ej: pap_escritura_lapices_grafito
+            'category_key'=> ['nullable', 'string', 'max:190'],
 
             // Clasificación interna (si la sigues usando)
             'use_internal'=> ['nullable', 'boolean'],
@@ -94,9 +99,22 @@ class CatalogItemController extends Controller implements HasMiddleware
             'excerpt'     => ['nullable', 'string'],
             'description' => ['nullable', 'string'],
             'published_at'=> ['nullable', 'date'],
-
-            // ❌ OJO: AQUÍ YA NO VALIDAMOS photo_1_file / photo_2_file / photo_3_file
         ]);
+
+        Log::info('CatalogItem@store: datos validados', [
+            'data' => $data,
+        ]);
+
+        // (Opcional) asegurar que la clave existe en el config
+        if (!empty($data['category_key'])) {
+            $validKeys = array_keys(config('catalog.product_categories', []));
+            if (!in_array($data['category_key'], $validKeys, true)) {
+                Log::warning('CatalogItem@store: category_key no es válida, se limpia', [
+                    'category_key' => $data['category_key'],
+                ]);
+                $data['category_key'] = null;
+            }
+        }
 
         // 🔹 Slug base: slug enviado o nombre
         $baseSlug = isset($data['slug']) && trim($data['slug']) !== ''
@@ -124,8 +142,26 @@ class CatalogItemController extends Controller implements HasMiddleware
             $data['category_id'] = null;
         }
 
-        // Creamos el item SIN las fotos (porque vienen como files por separado)
-        $item = CatalogItem::create($data);
+        try {
+            // Creamos el item SIN las fotos (porque vienen como files por separado)
+            $item = CatalogItem::create($data);
+
+            Log::info('CatalogItem@store: item creado en BD', [
+                'item_id'      => $item->id,
+                'slug'         => $item->slug,
+                'category_key' => $item->category_key ?? null,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('CatalogItem@store: ERROR al crear item', [
+                'exception' => $e->getMessage(),
+                'trace'     => $e->getTraceAsString(),
+                'data'      => $data,
+            ]);
+
+            return back()
+                ->withInput()
+                ->withErrors(['general' => 'No se pudo guardar el producto en la base de datos. Revisa el log para más detalles.']);
+        }
 
         // Guardar 3 fotos (obligatorias para que pase ensureThreePhotos)
         $this->saveOrReplacePhoto($request, $item, 'photo_1', 'photo_1_file');
@@ -133,7 +169,15 @@ class CatalogItemController extends Controller implements HasMiddleware
         $this->saveOrReplacePhoto($request, $item, 'photo_3', 'photo_3_file');
 
         // Validación final (por si no se subió alguna)
-        $this->ensureThreePhotos($item);
+        try {
+            $this->ensureThreePhotos($item);
+        } catch (ValidationException $e) {
+            Log::warning('CatalogItem@store: faltan fotos después de crear item', [
+                'item_id' => $item->id,
+                'errors'  => $e->errors(),
+            ]);
+            throw $e;
+        }
 
         // Sincronización con Mercado Libre (no rompe la UI si falla)
         $this->dispatchMeliSync($item->fresh());
@@ -165,6 +209,11 @@ class CatalogItemController extends Controller implements HasMiddleware
 
     public function update(Request $request, CatalogItem $catalogItem)
     {
+        Log::info('CatalogItem@update: inicio', [
+            'item_id' => $catalogItem->id,
+            'input'   => $request->all(),
+        ]);
+
         // ✅ Igual que store, SIN validar fotos aquí
         $data = $request->validate([
             'name'        => ['required', 'string', 'max:255'],
@@ -176,8 +225,8 @@ class CatalogItemController extends Controller implements HasMiddleware
             'status'      => ['required', 'integer', 'in:0,1,2'],
             'is_featured' => ['nullable', 'boolean'],
 
-            // Categoría string
-            'category'    => ['nullable', 'string', 'max:190'],
+            // 🔹 Categoría string
+            'category_key'=> ['nullable', 'string', 'max:190'],
 
             'use_internal'=> ['nullable', 'boolean'],
             'brand_id'    => ['nullable', 'integer'],
@@ -189,9 +238,24 @@ class CatalogItemController extends Controller implements HasMiddleware
             'excerpt'     => ['nullable', 'string'],
             'description' => ['nullable', 'string'],
             'published_at'=> ['nullable', 'date'],
-
-            // ❌ Nada de photo_1_file / photo_2_file / photo_3_file aquí
         ]);
+
+        Log::info('CatalogItem@update: datos validados', [
+            'item_id' => $catalogItem->id,
+            'data'    => $data,
+        ]);
+
+        // (Opcional) validar que la clave exista
+        if (!empty($data['category_key'])) {
+            $validKeys = array_keys(config('catalog.product_categories', []));
+            if (!in_array($data['category_key'], $validKeys, true)) {
+                Log::warning('CatalogItem@update: category_key no es válida, se limpia', [
+                    'item_id'      => $catalogItem->id,
+                    'category_key' => $data['category_key'],
+                ]);
+                $data['category_key'] = null;
+            }
+        }
 
         // 🔹 Slug base igual que en store
         $baseSlug = isset($data['slug']) && trim($data['slug']) !== ''
@@ -221,8 +285,27 @@ class CatalogItemController extends Controller implements HasMiddleware
             $data['category_id'] = null;
         }
 
-        // Actualizamos datos base
-        $catalogItem->update($data);
+        try {
+            // Actualizamos datos base
+            $catalogItem->update($data);
+
+            Log::info('CatalogItem@update: item actualizado en BD', [
+                'item_id'      => $catalogItem->id,
+                'slug'         => $catalogItem->slug,
+                'category_key' => $catalogItem->category_key ?? null,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('CatalogItem@update: ERROR al actualizar item', [
+                'item_id'   => $catalogItem->id,
+                'exception' => $e->getMessage(),
+                'trace'     => $e->getTraceAsString(),
+                'data'      => $data,
+            ]);
+
+            return back()
+                ->withInput()
+                ->withErrors(['general' => 'No se pudo actualizar el producto en la base de datos. Revisa el log para más detalles.']);
+        }
 
         // Reemplazar fotos SOLO si vienen (sin mimes ni nada)
         $this->saveOrReplacePhoto($request, $catalogItem, 'photo_1', 'photo_1_file');
@@ -230,7 +313,15 @@ class CatalogItemController extends Controller implements HasMiddleware
         $this->saveOrReplacePhoto($request, $catalogItem, 'photo_3', 'photo_3_file');
 
         // Deben existir 3 siempre
-        $this->ensureThreePhotos($catalogItem);
+        try {
+            $this->ensureThreePhotos($catalogItem);
+        } catch (ValidationException $e) {
+            Log::warning('CatalogItem@update: faltan fotos después de update', [
+                'item_id' => $catalogItem->id,
+                'errors'  => $e->errors(),
+            ]);
+            throw $e;
+        }
 
         $this->dispatchMeliSync($catalogItem->fresh());
 
@@ -239,6 +330,10 @@ class CatalogItemController extends Controller implements HasMiddleware
 
     public function destroy(CatalogItem $catalogItem)
     {
+        Log::info('CatalogItem@destroy: inicio', [
+            'item_id' => $catalogItem->id,
+        ]);
+
         // borrar fotos del storage antes de eliminar
         $this->deletePublicFileIfExists($catalogItem->photo_1);
         $this->deletePublicFileIfExists($catalogItem->photo_2);
@@ -246,6 +341,10 @@ class CatalogItemController extends Controller implements HasMiddleware
 
         $catalogItem->delete();
         $this->dispatchMeliSync($catalogItem);
+
+        Log::info('CatalogItem@destroy: item eliminado', [
+            'item_id' => $catalogItem->id,
+        ]);
 
         return redirect()
             ->route('admin.catalog.index')
@@ -262,6 +361,11 @@ class CatalogItemController extends Controller implements HasMiddleware
         $catalogItem->save();
 
         $this->dispatchMeliSync($catalogItem);
+
+        Log::info('CatalogItem@toggleStatus: estado cambiado', [
+            'item_id' => $catalogItem->id,
+            'status'  => $catalogItem->status,
+        ]);
 
         return back()->with('ok', 'Estado actualizado. Sincronización con Mercado Libre encolada.');
     }
@@ -665,6 +769,10 @@ TXT;
             ]);
         } catch (\Throwable $e) {
             // no romper la interfaz
+            Log::warning('CatalogItem@dispatchMeliSync: error no crítico', [
+                'item_id'   => $item->id,
+                'exception' => $e->getMessage(),
+            ]);
         }
     }
 
@@ -683,13 +791,15 @@ TXT;
         }
 
         if (!$file->isValid()) {
-            // Si quieres, puedes ni siquiera validar esto, pero es sano revisar que no venga corrupto
+            Log::warning('CatalogItem@saveOrReplacePhoto: archivo no válido', [
+                'item_id' => $item->id,
+                'input'   => $input,
+            ]);
+
             throw ValidationException::withMessages([
                 $input => 'Hubo un problema al subir esta foto. Intenta de nuevo.',
             ]);
         }
-
-        // ❌ SIN validación de tipo ni mimes: aceptamos lo que sea que llegó
 
         // borrar anterior si existe
         $old = $item->{$column};
@@ -701,11 +811,24 @@ TXT;
         $path = $file->store('catalog/photos', 'public');
         $item->{$column} = $path;
         $item->save();
+
+        Log::info('CatalogItem@saveOrReplacePhoto: foto guardada', [
+            'item_id' => $item->id,
+            'column'  => $column,
+            'path'    => $path,
+        ]);
     }
 
     private function ensureThreePhotos(CatalogItem $item): void
     {
         if (empty($item->photo_1) || empty($item->photo_2) || empty($item->photo_3)) {
+            Log::warning('CatalogItem@ensureThreePhotos: faltan fotos', [
+                'item_id' => $item->id,
+                'photo_1' => $item->photo_1,
+                'photo_2' => $item->photo_2,
+                'photo_3' => $item->photo_3,
+            ]);
+
             throw ValidationException::withMessages([
                 'photo_1_file' => 'Debes subir 3 fotos del producto (Foto 1, Foto 2 y Foto 3).',
             ]);
@@ -721,7 +844,10 @@ TXT;
                 Storage::disk('public')->delete($path);
             }
         } catch (\Throwable $e) {
-            // no romper
+            Log::warning('CatalogItem@deletePublicFileIfExists: error al borrar archivo', [
+                'path'      => $path,
+                'exception' => $e->getMessage(),
+            ]);
         }
     }
 
@@ -733,6 +859,11 @@ TXT;
 
         $catalogItem->stock = $data['stock'];
         $catalogItem->save();
+
+        Log::info('CatalogItem@updateStock: stock actualizado', [
+            'item_id' => $catalogItem->id,
+            'stock'   => $catalogItem->stock,
+        ]);
 
         return back()->with('ok', 'Stock actualizado correctamente.');
     }

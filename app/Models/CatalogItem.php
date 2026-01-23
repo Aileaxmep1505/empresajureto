@@ -1,6 +1,5 @@
 <?php
 
-// app/Models/CatalogItem.php
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
@@ -28,6 +27,10 @@ class CatalogItem extends Model
         'brand_id',
         'category_id',
 
+        // 🔹 Clave de categoría de catálogo (config/catalog.php)
+        // Ej: pap_escritura_lapices_grafito
+        'category_key',
+
         // Mercado Libre (texto)
         'brand_name',
         'model_name',
@@ -35,7 +38,7 @@ class CatalogItem extends Model
         'is_featured',
         'published_at',
 
-        // ✅ NUEVO: 3 fotos (rutas en storage/public)
+        // Fotos (rutas en storage/public)
         'photo_1',
         'photo_2',
         'photo_3',
@@ -48,6 +51,9 @@ class CatalogItem extends Model
         'meli_status',
         'meli_last_error',
         'meli_gtin',          // código de barras / GTIN
+
+        // (opcional) si algún día guardas esto por mass assignment:
+        // 'primary_location_id',
     ];
 
     protected $casts = [
@@ -103,6 +109,16 @@ class CatalogItem extends Model
         return $this->belongsTo(\App\Models\Category::class, 'category_id');
     }
 
+    public function primaryLocation()
+    {
+        return $this->belongsTo(\App\Models\Location::class, 'primary_location_id');
+    }
+
+    public function inventoryRows()
+    {
+        return $this->hasMany(\App\Models\Inventory::class, 'catalog_item_id');
+    }
+
     /* =====================
      *      Helpers
      * ===================== */
@@ -154,16 +170,18 @@ class CatalogItem extends Model
         return mb_substr($txt, 0, $limit - 3) . '...';
     }
 
-    // use App\Models\Location;
-    // use App\Models\Inventory;
-
-    public function primaryLocation()
+    /**
+     * 🔹 Etiqueta legible de la categoría (desde config/catalog.php)
+     * Ej: "Papelería · Escritura · Lápices de grafito"
+     */
+    public function getCategoryLabelAttribute(): ?string
     {
-        return $this->belongsTo(Location::class, 'primary_location_id');
-    }
+        if (!$this->category_key) {
+            return null;
+        }
 
-    public function inventoryRows()
-    {
-        return $this->hasMany(Inventory::class, 'catalog_item_id');
+        $all = config('catalog.product_categories', []);
+
+        return $all[$this->category_key] ?? $this->category_key;
     }
 }
