@@ -3,15 +3,18 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\CatalogItem;
 use App\Models\CatalogAiIntake;
+use App\Models\CatalogItem;
+use App\Services\MeliSyncService;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
-use Illuminate\Support\Str;
-use App\Services\MeliSyncService;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class CatalogItemController extends Controller implements HasMiddleware
 {
@@ -54,31 +57,45 @@ class CatalogItemController extends Controller implements HasMiddleware
 
     public function create()
     {
-        return view('admin.catalog.create');
+        $categories = config('catalog.product_categories', []);
+
+        return view('admin.catalog.create', [
+            'categories' => $categories,
+            'item'       => null,
+        ]);
     }
 
     public function store(Request $request)
     {
+        // ✅ Validación SOLO de campos de texto/numéricos (SIN fotos aquí)
         $data = $request->validate([
             'name'        => ['required', 'string', 'max:255'],
-            'slug'        => ['nullable', 'string', 'max:255'], // 👈 sin unique
+            'slug'        => ['nullable', 'string', 'max:255'], // sin unique (lo generamos)
             'sku'         => ['nullable', 'string', 'max:120'],
             'price'       => ['required', 'numeric', 'min:0'],
             'sale_price'  => ['nullable', 'numeric', 'min:0'],
             'stock'       => ['nullable', 'integer', 'min:0'],
             'status'      => ['required', 'integer', 'in:0,1,2'], // 0=borrador 1=publicado 2=oculto
-            'image_url'   => ['nullable', 'string', 'max:2048'],
-            'images'      => ['nullable', 'array'],
-            'images.*'    => ['nullable', 'url'],
             'is_featured' => ['nullable', 'boolean'],
+
+            // Categoría tipo string (desde config/catalog.php)
+            'category'    => ['nullable', 'string', 'max:190'],
+
+            // Clasificación interna (si la sigues usando)
+            'use_internal'=> ['nullable', 'boolean'],
             'brand_id'    => ['nullable', 'integer'],
             'category_id' => ['nullable', 'integer'],
+
+            // MercadoLibre texto
             'brand_name'  => ['nullable', 'string', 'max:120'],
             'model_name'  => ['nullable', 'string', 'max:120'],
             'meli_gtin'   => ['nullable', 'string', 'max:50'],
+
             'excerpt'     => ['nullable', 'string'],
             'description' => ['nullable', 'string'],
             'published_at'=> ['nullable', 'date'],
+
+            // ❌ OJO: AQUÍ YA NO VALIDAMOS photo_1_file / photo_2_file / photo_3_file
         ]);
 
         // 🔹 Slug base: slug enviado o nombre
@@ -101,16 +118,31 @@ class CatalogItemController extends Controller implements HasMiddleware
         $data['is_featured'] = (bool) ($data['is_featured'] ?? false);
         $data['stock']       = $data['stock'] ?? 0;
 
+        // 🔹 si NO usan clasificación interna, limpiamos ids
+        if (!$request->boolean('use_internal')) {
+            $data['brand_id']    = null;
+            $data['category_id'] = null;
+        }
+
+        // Creamos el item SIN las fotos (porque vienen como files por separado)
         $item = CatalogItem::create($data);
 
+        // Guardar 3 fotos (obligatorias para que pase ensureThreePhotos)
+        $this->saveOrReplacePhoto($request, $item, 'photo_1', 'photo_1_file');
+        $this->saveOrReplacePhoto($request, $item, 'photo_2', 'photo_2_file');
+        $this->saveOrReplacePhoto($request, $item, 'photo_3', 'photo_3_file');
+
+        // Validación final (por si no se subió alguna)
+        $this->ensureThreePhotos($item);
+
         // Sincronización con Mercado Libre (no rompe la UI si falla)
-        $this->dispatchMeliSync($item);
+        $this->dispatchMeliSync($item->fresh());
 
         // 👉 Para peticiones AJAX (fetch desde la vista)
         if ($request->wantsJson()) {
             return response()->json([
                 'ok'   => true,
-                'item' => $item,
+                'item' => $item->fresh(),
                 'msg'  => 'Producto web creado.',
             ]);
         }
@@ -123,31 +155,42 @@ class CatalogItemController extends Controller implements HasMiddleware
 
     public function edit(CatalogItem $catalogItem)
     {
-        return view('admin.catalog.edit', ['item' => $catalogItem]);
+        $categories = config('catalog.product_categories', []);
+
+        return view('admin.catalog.edit', [
+            'item'       => $catalogItem,
+            'categories' => $categories,
+        ]);
     }
 
     public function update(Request $request, CatalogItem $catalogItem)
     {
+        // ✅ Igual que store, SIN validar fotos aquí
         $data = $request->validate([
             'name'        => ['required', 'string', 'max:255'],
-            'slug'        => ['nullable', 'string', 'max:255'], // 👈 sin unique
+            'slug'        => ['nullable', 'string', 'max:255'],
             'sku'         => ['nullable', 'string', 'max:120'],
             'price'       => ['required', 'numeric', 'min:0'],
             'sale_price'  => ['nullable', 'numeric', 'min:0'],
             'stock'       => ['nullable', 'integer', 'min:0'],
             'status'      => ['required', 'integer', 'in:0,1,2'],
-            'image_url'   => ['nullable', 'string', 'max:2048'],
-            'images'      => ['nullable', 'array'],
-            'images.*'    => ['nullable', 'url'],
             'is_featured' => ['nullable', 'boolean'],
+
+            // Categoría string
+            'category'    => ['nullable', 'string', 'max:190'],
+
+            'use_internal'=> ['nullable', 'boolean'],
             'brand_id'    => ['nullable', 'integer'],
             'category_id' => ['nullable', 'integer'],
+
             'brand_name'  => ['nullable', 'string', 'max:120'],
             'model_name'  => ['nullable', 'string', 'max:120'],
             'meli_gtin'   => ['nullable', 'string', 'max:50'],
             'excerpt'     => ['nullable', 'string'],
             'description' => ['nullable', 'string'],
             'published_at'=> ['nullable', 'date'],
+
+            // ❌ Nada de photo_1_file / photo_2_file / photo_3_file aquí
         ]);
 
         // 🔹 Slug base igual que en store
@@ -173,15 +216,34 @@ class CatalogItemController extends Controller implements HasMiddleware
         $data['is_featured'] = (bool) ($data['is_featured'] ?? false);
         $data['stock']       = $data['stock'] ?? 0;
 
+        if (!$request->boolean('use_internal')) {
+            $data['brand_id']    = null;
+            $data['category_id'] = null;
+        }
+
+        // Actualizamos datos base
         $catalogItem->update($data);
 
-        $this->dispatchMeliSync($catalogItem);
+        // Reemplazar fotos SOLO si vienen (sin mimes ni nada)
+        $this->saveOrReplacePhoto($request, $catalogItem, 'photo_1', 'photo_1_file');
+        $this->saveOrReplacePhoto($request, $catalogItem, 'photo_2', 'photo_2_file');
+        $this->saveOrReplacePhoto($request, $catalogItem, 'photo_3', 'photo_3_file');
+
+        // Deben existir 3 siempre
+        $this->ensureThreePhotos($catalogItem);
+
+        $this->dispatchMeliSync($catalogItem->fresh());
 
         return back()->with('ok', 'Producto web actualizado. Sincronización con Mercado Libre encolada.');
     }
 
     public function destroy(CatalogItem $catalogItem)
     {
+        // borrar fotos del storage antes de eliminar
+        $this->deletePublicFileIfExists($catalogItem->photo_1);
+        $this->deletePublicFileIfExists($catalogItem->photo_2);
+        $this->deletePublicFileIfExists($catalogItem->photo_3);
+
         $catalogItem->delete();
         $this->dispatchMeliSync($catalogItem);
 
@@ -344,9 +406,7 @@ class CatalogItemController extends Controller implements HasMiddleware
         $fileInputs = [];
 
         foreach ($files as $file) {
-            if (!$file) {
-                continue;
-            }
+            if (!$file) continue;
 
             try {
                 $uploadResponse = Http::withToken($apiKey)
@@ -438,10 +498,10 @@ Reglas:
 - "name": debe ser claro: tipo de producto + marca + modelo + medida o presentación si aplica.
 - "slug": en kebab-case, basado en el nombre (sin tildes, sin símbolos, solo letras, números y guiones).
 - "price": en MXN, numérico (sin símbolo $). Usa el precio unitario si aparece; si no hay, usa 0.
-- "brand_name": marca comercial que ve el cliente (Bic, Azor, Steris, Olympus, etc.). Si no aparece, cadena vacía.
-- "model_name": modelo o referencia del producto (por ejemplo 1488, Vision Pro, etc.). Si no aparece, cadena vacía.
-- "meli_gtin": código de barras EAN/UPC si lo detectas completo (solo dígitos); si no, cadena vacía.
-- "quantity": número de piezas/unidades compradas según el renglón (por ejemplo, si dice 3 cajas, quantity = 3). Si no se ve claro, usa 1.
+- "brand_name": marca comercial que ve el cliente. Si no aparece, cadena vacía.
+- "model_name": modelo o referencia. Si no aparece, cadena vacía.
+- "meli_gtin": EAN/UPC si lo detectas completo (solo dígitos); si no, cadena vacía.
+- "quantity": número de piezas/unidades compradas según el renglón. Si no se ve claro, usa 1.
 - Si solo se ve un producto, devuelve un array con un solo elemento en "items".
 - No inventes datos que claramente no aparezcan.
 TXT;
@@ -540,9 +600,7 @@ TXT;
             $normalizedItems = [];
 
             foreach ($items as $row) {
-                if (!is_array($row)) {
-                    continue;
-                }
+                if (!is_array($row)) continue;
 
                 // Normalizar precio
                 $price = $row['price'] ?? null;
@@ -552,15 +610,13 @@ TXT;
                     $price = is_numeric($clean) ? (float) $clean : null;
                 }
 
-                // 🔹 Normalizar cantidad → stock sugerido
+                // Normalizar cantidad -> stock sugerido
                 $qty = $row['quantity'] ?? ($row['qty'] ?? ($row['cantidad'] ?? ($row['stock'] ?? null)));
                 if (is_string($qty)) {
                     $cleanQty = preg_replace('/[^0-9]/', '', $qty);
                     $qty = is_numeric($cleanQty) ? (int) $cleanQty : null;
                 }
-                if ($qty !== null) {
-                    $qty = max(0, (int) $qty);
-                }
+                if ($qty !== null) $qty = max(0, (int) $qty);
 
                 $normalizedItems[] = [
                     'name'        => $row['name']        ?? null,
@@ -610,5 +666,74 @@ TXT;
         } catch (\Throwable $e) {
             // no romper la interfaz
         }
+    }
+
+    /* =========================
+     |  FOTOS: 3 CAMPOS
+     ==========================*/
+
+    private function saveOrReplacePhoto(Request $request, CatalogItem $item, string $column, string $input): void
+    {
+        /** @var UploadedFile|null $file */
+        $file = $request->file($input);
+
+        // Si no viene archivo, no hacemos nada (en create luego falla ensureThreePhotos si faltan)
+        if (!$file instanceof UploadedFile) {
+            return;
+        }
+
+        if (!$file->isValid()) {
+            // Si quieres, puedes ni siquiera validar esto, pero es sano revisar que no venga corrupto
+            throw ValidationException::withMessages([
+                $input => 'Hubo un problema al subir esta foto. Intenta de nuevo.',
+            ]);
+        }
+
+        // ❌ SIN validación de tipo ni mimes: aceptamos lo que sea que llegó
+
+        // borrar anterior si existe
+        $old = $item->{$column};
+        if ($old) {
+            $this->deletePublicFileIfExists($old);
+        }
+
+        // Se guarda tal cual en el disco "public"
+        $path = $file->store('catalog/photos', 'public');
+        $item->{$column} = $path;
+        $item->save();
+    }
+
+    private function ensureThreePhotos(CatalogItem $item): void
+    {
+        if (empty($item->photo_1) || empty($item->photo_2) || empty($item->photo_3)) {
+            throw ValidationException::withMessages([
+                'photo_1_file' => 'Debes subir 3 fotos del producto (Foto 1, Foto 2 y Foto 3).',
+            ]);
+        }
+    }
+
+    private function deletePublicFileIfExists(?string $path): void
+    {
+        if (!$path) return;
+
+        try {
+            if (Storage::disk('public')->exists($path)) {
+                Storage::disk('public')->delete($path);
+            }
+        } catch (\Throwable $e) {
+            // no romper
+        }
+    }
+
+    public function updateStock(Request $request, CatalogItem $catalogItem)
+    {
+        $data = $request->validate([
+            'stock' => ['required','numeric','min:0'],
+        ]);
+
+        $catalogItem->stock = $data['stock'];
+        $catalogItem->save();
+
+        return back()->with('ok', 'Stock actualizado correctamente.');
     }
 }

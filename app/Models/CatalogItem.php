@@ -1,4 +1,4 @@
-<?php 
+<?php
 
 // app/Models/CatalogItem.php
 namespace App\Models;
@@ -19,18 +19,26 @@ class CatalogItem extends Model
         'sku',
         'price',
         'sale_price',
-        'stock',          // 👈 NUEVO: stock global del producto
+        'stock',          // stock global del producto
         'status',
         'excerpt',
         'description',
+
+        // Clasificación interna
         'brand_id',
         'category_id',
+
+        // Mercado Libre (texto)
         'brand_name',
         'model_name',
-        'image_url',
-        'images',
+
         'is_featured',
         'published_at',
+
+        // ✅ NUEVO: 3 fotos (rutas en storage/public)
+        'photo_1',
+        'photo_2',
+        'photo_3',
 
         // Mercado Libre / catálogo
         'meli_item_id',
@@ -39,14 +47,13 @@ class CatalogItem extends Model
         'meli_synced_at',
         'meli_status',
         'meli_last_error',
-        'meli_gtin',          // 👈 código de barras / GTIN
+        'meli_gtin',          // código de barras / GTIN
     ];
 
     protected $casts = [
         'price'          => 'decimal:2',
         'sale_price'     => 'decimal:2',
-        'stock'          => 'integer',   // 👈 casteamos como entero
-        'images'         => 'array',
+        'stock'          => 'integer',
         'is_featured'    => 'boolean',
         'published_at'   => 'datetime',
         'meli_synced_at' => 'datetime',
@@ -102,10 +109,24 @@ class CatalogItem extends Model
 
     /**
      * Devuelve la imagen principal (portada) del producto.
+     * NOTA: regresa la RUTA (storage). En la vista usa:
+     * Storage::url($item->mainPicture())
      */
     public function mainPicture(): ?string
     {
-        return $this->image_url ?: ($this->images[0] ?? null);
+        return $this->photo_1 ?: ($this->photo_2 ?: $this->photo_3);
+    }
+
+    /**
+     * Devuelve las 3 fotos como array (rutas), filtradas.
+     */
+    public function photos(): array
+    {
+        return array_values(array_filter([
+            $this->photo_1,
+            $this->photo_2,
+            $this->photo_3,
+        ], fn($p) => is_string($p) && trim($p) !== ''));
     }
 
     /**
@@ -132,17 +153,17 @@ class CatalogItem extends Model
 
         return mb_substr($txt, 0, $limit - 3) . '...';
     }
+
     // use App\Models\Location;
-// use App\Models\Inventory;
+    // use App\Models\Inventory;
 
-public function primaryLocation()
-{
-    return $this->belongsTo(Location::class, 'primary_location_id');
-}
+    public function primaryLocation()
+    {
+        return $this->belongsTo(Location::class, 'primary_location_id');
+    }
 
-public function inventoryRows()
-{
-    return $this->hasMany(Inventory::class, 'catalog_item_id');
-}
-
+    public function inventoryRows()
+    {
+        return $this->hasMany(Inventory::class, 'catalog_item_id');
+    }
 }

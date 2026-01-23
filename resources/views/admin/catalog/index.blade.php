@@ -210,6 +210,116 @@
 
   .foot{display:flex; align-items:center; justify-content:space-between; gap:12px; margin:16px 4px; flex-wrap:wrap;}
 
+  /* ===== MODAL STOCK ===== */
+  .stock-modal{
+    position:fixed;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:1200;
+    pointer-events:none;
+    opacity:0;
+    transition:opacity .18s ease;
+  }
+  .stock-modal.is-open{
+    pointer-events:auto;
+    opacity:1;
+  }
+  .stock-modal__overlay{
+    position:absolute;
+    inset:0;
+    background:rgba(15,23,42,.45);
+    backdrop-filter:blur(4px);
+  }
+  .stock-modal__card{
+    position:relative;
+    z-index:1;
+    width:100%;
+    max-width:360px;
+    background:#ffffff;
+    border-radius:18px;
+    box-shadow:0 24px 70px rgba(15,23,42,.45);
+    border:1px solid rgba(226,232,240,.9);
+    padding:18px 18px 16px;
+  }
+  .stock-modal__head{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:10px;
+    margin-bottom:10px;
+  }
+  .stock-modal__title{
+    margin:0;
+    font-size:15px;
+    font-weight:900;
+    letter-spacing:-.01em;
+    color:var(--ink);
+  }
+  .stock-modal__subtitle{
+    margin:4px 0 0;
+    font-size:.85rem;
+    color:var(--muted);
+  }
+  .stock-modal__close{
+    width:32px;
+    height:32px;
+    border-radius:12px;
+    border:1px solid var(--line);
+    background:#fff;
+    display:grid;
+    place-items:center;
+    cursor:pointer;
+    box-shadow:0 8px 20px rgba(15,23,42,.12);
+  }
+  .stock-modal__close svg{ width:16px; height:16px; }
+
+  .stock-modal__body{
+    margin-top:8px;
+  }
+  .stock-field-label{
+    font-size:.78rem;
+    font-weight:800;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    color:#94a3b8;
+    margin-bottom:4px;
+  }
+  .stock-input-wrap{
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .stock-input{
+    flex:1;
+    border-radius:999px;
+    border:1px solid var(--line);
+    padding:8px 12px;
+    font-size:.95rem;
+    text-align:right;
+  }
+  .stock-input:focus{
+    outline:none;
+    border-color:var(--acc-ring);
+    box-shadow:0 0 0 1px var(--acc-soft);
+  }
+  .stock-modal__foot{
+    display:flex;
+    justify-content:flex-end;
+    gap:8px;
+    margin-top:16px;
+  }
+  .btn-ghost{
+    background:#f9fafb;
+    border-color:#e5e7eb;
+    color:#4b5563;
+    box-shadow:none;
+  }
+  .btn-ghost:hover{
+    background:#f3f4f6;
+  }
+
   /* ===== Mobile: search visible, tools -> sheet, table -> cards ===== */
   @media (max-width: 760px){
     .wrap{ padding:0 10px; }
@@ -242,6 +352,10 @@
 
     .actions{ justify-content:flex-start; margin-top:12px; padding-top:10px; border-top:1px dashed rgba(232,238,246,.9); }
     .iconbtn{ width:44px; height:44px; border-radius:16px; }
+
+    .stock-modal__card{
+      max-width:92%;
+    }
   }
 
   /* ===== FAB + Sheet (móvil) ===== */
@@ -309,6 +423,86 @@
   .sheet-open .sheet{ bottom:0; }
 
   @media (max-width: 760px){ .fab{ display:grid; } }
+
+  /* ===== SweetAlert2: estilo minimalista ===== */
+  .swal2-popup.sa-popup{
+    border-radius:18px;
+    padding:24px 24px 20px;
+    box-shadow:0 22px 60px rgba(15,23,42,.32);
+    border:1px solid rgba(226,232,240,.95);
+    font-family:inherit;
+  }
+  .swal2-icon{ box-shadow:none !important; }
+  .swal2-popup.sa-popup .swal2-icon{
+    margin-top:0;
+    margin-bottom:6px;
+  }
+  .swal2-title.sa-title{
+    margin:6px 0 2px;
+    font-size:1.35rem;
+    font-weight:800;
+    letter-spacing:-.01em;
+    color:var(--ink);
+  }
+  .swal2-html-container.sa-text{
+    margin:4px 0 0;
+    font-size:.95rem;
+    color:var(--muted);
+  }
+  .swal2-actions{
+    margin-top:18px;
+    gap:10px;
+  }
+  .swal2-confirm.sa-confirm,
+  .swal2-cancel.sa-cancel{
+    border-radius:999px;
+    font-weight:700;
+    font-size:.9rem;
+    padding:9px 18px;
+    box-shadow:none;
+  }
+  .swal2-confirm.sa-confirm{
+    background:var(--acc-ink);
+    color:#fff;
+    border:0;
+  }
+  .swal2-confirm.sa-confirm:hover{
+    filter:brightness(1.05);
+  }
+  .swal2-cancel.sa-cancel{
+    background:#f9fafb;
+    color:#4b5563;
+    border:1px solid #e5e7eb;
+  }
+  .swal2-cancel.sa-cancel:hover{
+    background:#f3f4f6;
+  }
+
+  /* Toasts */
+  .swal2-popup.sa-toast{
+    border-radius:999px;
+    padding:10px 14px;
+    box-shadow:0 18px 44px rgba(15,23,42,.35);
+    border:1px solid rgba(148,163,184,.35);
+    background:rgba(15,23,42,.96);
+    color:#e5e7eb;
+  }
+  .swal2-popup.sa-toast .swal2-title.sa-toast-title{
+    font-size:.9rem;
+    font-weight:600;
+  }
+  .swal2-popup.sa-toast .swal2-icon{
+    margin:0 8px 0 0;
+    transform:scale(.8);
+  }
+  .swal2-popup.sa-toast .swal2-icon.swal2-success{
+    border-color:#22c55e;
+    color:#bbf7d0;
+  }
+  .swal2-popup.sa-toast .swal2-icon.swal2-error{
+    border-color:#fecaca;
+    color:#fecaca;
+  }
 </style>
 @endpush
 
@@ -337,11 +531,7 @@
     </div>
   </div>
 
-  @if(session('ok'))
-    <div class="card" style="padding:10px 12px; border-radius:12px; border:1px solid var(--line); background:#f8fffb; color:#0b6b3a; margin:10px 0 12px;">
-      {{ session('ok') }}
-    </div>
-  @endif
+  {{-- El mensaje ahora se mostrará como toast (SweetAlert) desde JS --}}
 
   {{-- ✅ El buscador se queda aquí siempre --}}
   <div class="filters">
@@ -413,11 +603,19 @@
 
       <tbody>
         @forelse($items as $it)
+          @php
+            // 👉 SOLO usamos las fotos internas (photo_1, photo_2, photo_3)
+            $imgPath = $it->photo_1 ?: ($it->photo_2 ?: $it->photo_3);
+            $imgUrl  = $imgPath
+              ? \Illuminate\Support\Facades\Storage::url($imgPath)
+              : asset('images/placeholder.png');
+          @endphp
+
           <tr>
             <td class="img-cell">
               <div class="thumbbox">
                 <img
-                  src="{{ $it->image_url ?: asset('images/placeholder.png') }}"
+                  src="{{ $imgUrl }}"
                   alt="Imagen de {{ $it->name }}"
                   loading="lazy"
                   onerror="this.onerror=null;this.src='{{ asset('images/placeholder.png') }}';"
@@ -497,7 +695,32 @@
 
             <td style="text-align:right;">
               <div class="actions">
-                {{-- (Acciones iguales a las tuyas actuales; no las toco) --}}
+                {{-- 👁️ Ver ficha / preview --}}
+                <span class="tt iconbtn-wrap">
+                  <span class="tt-bubble">Vista Previa</span>
+                  <a class="iconbtn" href="{{ route('catalog.preview', $it) }}" target="_blank">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12z"/>
+                      <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                  </a>
+                </span>
+
+                {{-- 🧮 Stock (abre modal) --}}
+                <span class="tt iconbtn-wrap">
+                  <span class="tt-bubble">Actualizar stock</span>
+                  <button type="button"
+                          class="iconbtn js-open-stock"
+                          data-name="{{ $it->name }}"
+                          data-stock="{{ (float)($it->stock ?? 0) }}"
+                          data-action="{{ route('admin.catalog.stock.update', $it) }}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="3" y="4" width="18" height="14" rx="2"/>
+                      <path d="M8 9h8M8 13h4"/>
+                    </svg>
+                  </button>
+                </span>
+
                 <span class="tt iconbtn-wrap">
                   <span class="tt-bubble">Editar</span>
                   <a class="iconbtn" href="{{ route('admin.catalog.edit', $it) }}">
@@ -507,9 +730,15 @@
                   </a>
                 </span>
 
+                {{-- Publicar / Ocultar --}}
                 <span class="tt iconbtn-wrap">
                   <span class="tt-bubble">{{ $it->status == 1 ? 'Ocultar' : 'Publicar' }}</span>
-                  <form method="POST" action="{{ route('admin.catalog.toggle', $it) }}" onsubmit="return confirm('¿Cambiar estado de publicación en el sitio web?')">
+                  <form method="POST"
+                        action="{{ route('admin.catalog.toggle', $it) }}"
+                        class="js-sa-confirm"
+                        data-sa-title="¿Cambiar estado de publicación?"
+                        data-sa-text="Se actualizará el estado de este producto en el sitio web."
+                        data-sa-icon="question">
                     @csrf @method('PATCH')
                     <button class="iconbtn" type="submit">
                       @if($it->status == 1)
@@ -525,9 +754,15 @@
                   </form>
                 </span>
 
+                {{-- ML publicar/actualizar --}}
                 <span class="tt iconbtn-wrap">
                   <span class="tt-bubble">ML: Publicar/Actualizar</span>
-                  <form method="POST" action="{{ route('admin.catalog.meli.publish', $it) }}">
+                  <form method="POST"
+                        action="{{ route('admin.catalog.meli.publish', $it) }}"
+                        class="js-sa-confirm"
+                        data-sa-title="¿Enviar a Mercado Libre?"
+                        data-sa-text="Se publicará o actualizará el anuncio en Mercado Libre."
+                        data-sa-icon="info">
                     @csrf
                     <button class="iconbtn" type="submit">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -549,7 +784,12 @@
 
                   <span class="tt iconbtn-wrap">
                     <span class="tt-bubble">ML: Pausar</span>
-                    <form method="POST" action="{{ route('admin.catalog.meli.pause', $it) }}">
+                    <form method="POST"
+                          action="{{ route('admin.catalog.meli.pause', $it) }}"
+                          class="js-sa-confirm"
+                          data-sa-title="¿Pausar en Mercado Libre?"
+                          data-sa-text="El anuncio quedará pausado."
+                          data-sa-icon="warning">
                       @csrf
                       <button class="iconbtn" type="submit">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -561,7 +801,12 @@
 
                   <span class="tt iconbtn-wrap">
                     <span class="tt-bubble">ML: Activar</span>
-                    <form method="POST" action="{{ route('admin.catalog.meli.activate', $it) }}">
+                    <form method="POST"
+                          action="{{ route('admin.catalog.meli.activate', $it) }}"
+                          class="js-sa-confirm"
+                          data-sa-title="¿Activar en Mercado Libre?"
+                          data-sa-text="El anuncio volverá a estar activo."
+                          data-sa-icon="success">
                       @csrf
                       <button class="iconbtn" type="submit">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -572,9 +817,15 @@
                   </span>
                 @endif
 
+                {{-- Eliminar --}}
                 <span class="tt iconbtn-wrap">
                   <span class="tt-bubble">Eliminar</span>
-                  <form method="POST" action="{{ route('admin.catalog.destroy', $it) }}" onsubmit="return confirm('¿Eliminar este producto del catálogo web? Esta acción no se puede deshacer.')">
+                  <form method="POST"
+                        action="{{ route('admin.catalog.destroy', $it) }}"
+                        class="js-sa-confirm"
+                        data-sa-title="¿Eliminar producto?"
+                        data-sa-text="Esta acción no se puede deshacer."
+                        data-sa-icon="error">
                     @csrf @method('DELETE')
                     <button class="iconbtn" type="submit" style="border-color:rgba(254,202,202,.75);">
                       <svg viewBox="0 0 24 24" fill="none" stroke="#b91c1c" stroke-width="2">
@@ -606,6 +857,48 @@
     <div>
       {{ $items->onEachSide(1)->links() }}
     </div>
+  </div>
+</div>
+
+{{-- ✅ MODAL STOCK --}}
+<div id="stockModal" class="stock-modal">
+  <div class="stock-modal__overlay"></div>
+  <div class="stock-modal__card">
+    <div class="stock-modal__head">
+      <div>
+        <h3 class="stock-modal__title">Ajustar stock</h3>
+        <p class="stock-modal__subtitle" id="stockProductName">Producto</p>
+      </div>
+      <button type="button" class="stock-modal__close" id="stockCloseBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6L6 18M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <form id="stockForm" method="POST" action="">
+      @csrf
+      @method('PATCH')
+
+      <div class="stock-modal__body">
+        <div class="stock-field-label">Existencia actual</div>
+        <div class="stock-input-wrap">
+          <input type="number"
+                 step="0.01"
+                 min="0"
+                 name="stock"
+                 id="stockInput"
+                 class="stock-input"
+                 placeholder="0.00">
+          <span class="muted-sm">unid.</span>
+        </div>
+      </div>
+
+      <div class="stock-modal__foot">
+        <button type="button" class="btn btn-sm btn-ghost" id="stockCancelBtn">Cancelar</button>
+        <button type="submit" class="btn btn-sm">Guardar</button>
+      </div>
+    </form>
   </div>
 </div>
 
@@ -672,6 +965,9 @@
 @endsection
 
 @push('scripts')
+{{-- SweetAlert2 CDN --}}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <script>
 (function(){
   function debounce(fn, wait){
@@ -754,6 +1050,120 @@
     syncSearchToSheet();
     sheetForm?.submit();
   });
+
+  // ===== MODAL STOCK =====
+  const stockModal = document.getElementById('stockModal');
+  const stockOverlay = stockModal?.querySelector('.stock-modal__overlay');
+  const stockCloseBtn = document.getElementById('stockCloseBtn');
+  const stockCancelBtn = document.getElementById('stockCancelBtn');
+  const stockForm = document.getElementById('stockForm');
+  const stockInput = document.getElementById('stockInput');
+  const stockProductName = document.getElementById('stockProductName');
+
+  function openStockModal(btn){
+    if(!stockModal || !btn) return;
+    const name  = btn.getAttribute('data-name') || 'Producto';
+    const stock = btn.getAttribute('data-stock') || '0';
+    const action = btn.getAttribute('data-action') || '';
+
+    if(action){
+      stockForm.setAttribute('action', action);
+    }
+    stockProductName.textContent = name;
+    stockInput.value = stock;
+    stockModal.classList.add('is-open');
+    stockInput.focus();
+    stockInput.select();
+  }
+  function closeStockModal(){
+    stockModal?.classList.remove('is-open');
+  }
+
+  document.querySelectorAll('.js-open-stock').forEach(btn=>{
+    btn.addEventListener('click', ()=> openStockModal(btn));
+  });
+  stockOverlay?.addEventListener('click', closeStockModal);
+  stockCloseBtn?.addEventListener('click', closeStockModal);
+  stockCancelBtn?.addEventListener('click', closeStockModal);
+  document.addEventListener('keydown', (e)=>{
+    if(e.key === 'Escape') closeStockModal();
+  });
+
+  // ===== SweetAlert confirm genérico =====
+  const saForms = document.querySelectorAll('form.js-sa-confirm');
+  saForms.forEach(formEl=>{
+    formEl.addEventListener('submit', function(e){
+      e.preventDefault();
+      if(!window.Swal){
+        // fallback si no cargó SweetAlert
+        return formEl.submit();
+      }
+      const title = formEl.dataset.saTitle || '¿Estás seguro?';
+      const text  = formEl.dataset.saText  || '';
+      const icon  = formEl.dataset.saIcon  || 'warning';
+
+      Swal.fire({
+        title: title,
+        text: text,
+        icon: icon,
+        showCancelButton: true,
+        confirmButtonText: 'Sí, continuar',
+        cancelButtonText: 'Cancelar',
+        reverseButtons: true,
+        buttonsStyling:false,
+        customClass:{
+          popup:'sa-popup',
+          title:'sa-title',
+          htmlContainer:'sa-text',
+          confirmButton:'sa-confirm',
+          cancelButton:'sa-cancel',
+        }
+      }).then((result)=>{
+        if(result.isConfirmed){
+          formEl.submit();
+        }
+      });
+    });
+  });
+
+  // ===== Toasts de confirmación (session) =====
+  @if(session('ok'))
+    if(window.Swal){
+      Swal.fire({
+        toast:true,
+        position:'top-end',
+        icon:'success',
+        title:@json(session('ok')),
+        showConfirmButton:false,
+        timer:2600,
+        timerProgressBar:true,
+        buttonsStyling:false,
+        customClass:{
+          popup:'sa-toast',
+          title:'sa-toast-title'
+        }
+      });
+    }
+  @endif
+
+  @if(session('error'))
+    if(window.Swal){
+      Swal.fire({
+        toast:true,
+        position:'top-end',
+        icon:'error',
+        title:@json(session('error')),
+        showConfirmButton:false,
+        timer:3200,
+        timerProgressBar:true,
+        buttonsStyling:false,
+        customClass:{
+          popup:'sa-toast',
+          title:'sa-toast-title'
+        }
+      });
+    }
+  @endif
 
 })();
 </script>

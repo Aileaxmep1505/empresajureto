@@ -5,6 +5,7 @@
 
 @push('styles')
 <style>
+  
 :root{
   --btn-blue:#2563eb; --btn-blue-h:#1d4ed8; --btn-blue-soft:#e6efff;
   --btn-green:#059669; --btn-green-h:#047857; --btn-green-soft:#e6fff4;

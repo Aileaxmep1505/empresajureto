@@ -1,6 +1,15 @@
 @php
   /** @var \App\Models\CatalogItem|null $item */
   $isEdit = isset($item);
+
+  // Para labels en edit: si ya existen fotos guardadas
+  $has1 = !empty($item->photo_1 ?? null);
+  $has2 = !empty($item->photo_2 ?? null);
+  $has3 = !empty($item->photo_3 ?? null);
+
+  // Categorías legibles (papelería, cómputo, etc.)
+  // Vienen desde el controlador, pero por si acaso, tomamos de config.
+  $categories = $categories ?? config('catalog.product_categories', []);
 @endphp
 
 @csrf
@@ -23,9 +32,7 @@
         <div class="ai-helper-title">Captura asistida por IA</div>
         <p class="ai-helper-subtitle">Sube tickets, remisiones o PDFs con varios productos y deja que la IA escriba por ti.</p>
       </div>
-      <span class="ai-helper-chip">
-        Beta
-      </span>
+      <span class="ai-helper-chip">Beta</span>
     </div>
 
     <p class="ai-helper-text">
@@ -38,7 +45,6 @@
       <div class="ai-helper-input">
         <label class="lbl" style="margin-top:0;">Archivos para IA</label>
 
-        {{-- 🔹 Dropzone moderna / arrastrar y soltar --}}
         <div id="ai-dropzone" class="ai-dropzone">
           <div class="ai-dropzone-icon">📄</div>
           <div class="ai-dropzone-body">
@@ -50,7 +56,6 @@
             <div class="ai-dropzone-hint">JPG, PNG, WEBP o PDF · máx. ~8 MB c/u</div>
           </div>
 
-          {{-- input real (oculto visualmente pero funcional) --}}
           <input id="ai_files"
                  name="ai_files[]"
                  type="file"
@@ -59,9 +64,7 @@
                  class="ai-dropzone-input">
         </div>
 
-        <div id="ai-files-list" class="ai-files-list">
-          {{-- chips con archivos seleccionados --}}
-        </div>
+        <div id="ai-files-list" class="ai-files-list"></div>
 
         <p class="hint">
           Se usan solo para generar sugerencias, <strong>no se guardan</strong> en tu sistema.
@@ -96,9 +99,7 @@
 
     <div class="ai-items-header-right">
       <span class="ai-items-badge" id="ai-items-count"></span>
-      <button type="button"
-              id="ai-clear-list"
-              class="btn btn-ghost btn-xs ai-clear-btn">
+      <button type="button" id="ai-clear-list" class="btn btn-ghost btn-xs ai-clear-btn">
         Limpiar lista
       </button>
     </div>
@@ -117,9 +118,7 @@
           <th></th>
         </tr>
       </thead>
-      <tbody id="ai-items-tbody">
-        {{-- Filas generadas por JS --}}
-      </tbody>
+      <tbody id="ai-items-tbody"></tbody>
     </table>
   </div>
 </div>
@@ -128,7 +127,7 @@
    🔹 FORMULARIO PRINCIPAL
    ========================================================= --}}
 <div class="catalog-grid">
-  {{-- Columna izquierda: contenido principal --}}
+  {{-- Columna izquierda --}}
   <div class="catalog-main">
     <div class="card-section">
       <label class="lbl">Nombre *</label>
@@ -168,9 +167,140 @@
         Un resumen breve con la información más importante: presentación, cantidad, color o medida.
       </p>
     </div>
+
+    {{-- =========================================================
+       🔹 FOTOS (3 archivos) — NO URLs, UI mejorada
+       ========================================================= --}}
+    <div class="side-card" style="margin-top:6px;">
+      <h3 class="side-title">Fotos del producto (3)</h3>
+
+      <div class="hint" style="margin-top:0;">
+        Toca cada tarjeta para seleccionar una foto. Se guarda en tu sistema.
+      </div>
+
+      <div class="photos-grid">
+        {{-- FOTO 1 --}}
+        <div class="photo-card" data-photo-card="photo_1_file">
+          <div class="photo-head">
+            <div class="photo-title">Foto 1 (principal) *</div>
+            <span class="photo-badge {{ ($isEdit && $has1) ? 'ok' : '' }}" data-photo-badge="photo_1_file">
+              {{ ($isEdit && $has1) ? 'Cargada' : 'Pendiente' }}
+            </span>
+          </div>
+
+          <label class="photo-drop" for="photo_1_file">
+            <div class="photo-icon">📷</div>
+            <div class="photo-text">
+              <div class="photo-strong" data-photo-strong="photo_1_file">Seleccionar foto</div>
+              <div class="photo-sub" data-photo-sub="photo_1_file">JPG / PNG / WEBP</div>
+            </div>
+
+            <input
+              id="photo_1_file"
+              name="photo_1_file"
+              type="file"
+              class="photo-input"
+              accept="image/*"
+              @if(!$isEdit) required @endif
+              capture="environment"
+            >
+          </label>
+
+          <div class="photo-preview" id="photo_1_preview">
+            @if($isEdit && $has1)
+              <img src="{{ \Illuminate\Support\Facades\Storage::url($item->photo_1) }}" alt="Foto 1">
+            @endif
+          </div>
+
+          <div class="photo-actions">
+            <button type="button" class="btn btn-ghost btn-xs" data-photo-clear="photo_1_file">Quitar</button>
+          </div>
+        </div>
+
+        {{-- FOTO 2 --}}
+        <div class="photo-card" data-photo-card="photo_2_file">
+          <div class="photo-head">
+            <div class="photo-title">Foto 2 *</div>
+            <span class="photo-badge {{ ($isEdit && $has2) ? 'ok' : '' }}" data-photo-badge="photo_2_file">
+              {{ ($isEdit && $has2) ? 'Cargada' : 'Pendiente' }}
+            </span>
+          </div>
+
+          <label class="photo-drop" for="photo_2_file">
+            <div class="photo-icon">📷</div>
+            <div class="photo-text">
+              <div class="photo-strong" data-photo-strong="photo_2_file">Seleccionar foto</div>
+              <div class="photo-sub" data-photo-sub="photo_2_file">Frente / empaque</div>
+            </div>
+
+            <input
+              id="photo_2_file"
+              name="photo_2_file"
+              type="file"
+              class="photo-input"
+              accept="image/*"
+              @if(!$isEdit) required @endif
+              capture="environment"
+            >
+          </label>
+
+          <div class="photo-preview" id="photo_2_preview">
+            @if($isEdit && $has2)
+              <img src="{{ \Illuminate\Support\Facades\Storage::url($item->photo_2) }}" alt="Foto 2">
+            @endif
+          </div>
+
+          <div class="photo-actions">
+            <button type="button" class="btn btn-ghost btn-xs" data-photo-clear="photo_2_file">Quitar</button>
+          </div>
+        </div>
+
+        {{-- FOTO 3 --}}
+        <div class="photo-card" data-photo-card="photo_3_file">
+          <div class="photo-head">
+            <div class="photo-title">Foto 3 *</div>
+            <span class="photo-badge {{ ($isEdit && $has3) ? 'ok' : '' }}" data-photo-badge="photo_3_file">
+              {{ ($isEdit && $has3) ? 'Cargada' : 'Pendiente' }}
+            </span>
+          </div>
+
+          <label class="photo-drop" for="photo_3_file">
+            <div class="photo-icon">📷</div>
+            <div class="photo-text">
+              <div class="photo-strong" data-photo-strong="photo_3_file">Seleccionar foto</div>
+              <div class="photo-sub" data-photo-sub="photo_3_file">Detalle / etiqueta</div>
+            </div>
+
+            <input
+              id="photo_3_file"
+              name="photo_3_file"
+              type="file"
+              class="photo-input"
+              accept="image/*"
+              @if(!$isEdit) required @endif
+              capture="environment"
+            >
+          </label>
+
+          <div class="photo-preview" id="photo_3_preview">
+            @if($isEdit && $has3)
+              <img src="{{ \Illuminate\Support\Facades\Storage::url($item->photo_3) }}" alt="Foto 3">
+            @endif
+          </div>
+
+          <div class="photo-actions">
+            <button type="button" class="btn btn-ghost btn-xs" data-photo-clear="photo_3_file">Quitar</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="hint" style="margin-top:10px;">
+        Tip: fondo claro + buena luz = se ven más pro en la ficha con QR.
+      </div>
+    </div>
   </div>
 
-  {{-- Columna derecha: datos comerciales + ML tips --}}
+  {{-- Columna derecha --}}
   <div class="catalog-side">
     <div class="side-card">
       <div class="card-section">
@@ -189,7 +319,7 @@
           <input name="price" type="number" step="0.01" min="0" class="inp" required
                  value="{{ old('price', $item->price ?? 0) }}">
           <p class="hint">
-            Precio base en MXN. Algunas categorías de Mercado Libre requieren un mínimo (ej. desde 35 MXN).
+            Precio base en MXN. Algunas categorías de Mercado Libre requieren un mínimo.
           </p>
         </div>
 
@@ -209,6 +339,23 @@
                value="{{ old('sale_price', $item->sale_price ?? '') }}">
         <p class="hint">
           Solo si hay promoción. Si lo dejas vacío, se usará el precio base.
+        </p>
+      </div>
+
+      {{-- 🔹 Categoría legible (string) --}}
+      <div class="card-section">
+        <label class="lbl">Categoría</label>
+        @php
+          $currentCategory = old('category', $item->category ?? '');
+        @endphp
+        <select name="category" class="inp">
+          <option value="">Sin categoría</option>
+          @foreach($categories as $key => $label)
+            <option value="{{ $key }}" @selected($currentCategory === $key)>{{ $label }}</option>
+          @endforeach
+        </select>
+        <p class="hint">
+          Sirve para agrupar en el catálogo web (Papelería, Escritura, Cómputo, Oficina, etc.).
         </p>
       </div>
 
@@ -241,30 +388,6 @@
     </div>
 
     <div class="side-card">
-      <h3 class="side-title">Datos de clasificación</h3>
-
-      <div class="card-section">
-        <label class="lbl">Marca (ID interno)</label>
-        <input name="brand_id" type="number" class="inp"
-               value="{{ old('brand_id', $item->brand_id ?? '') }}"
-               placeholder="Opcional: ID en tu sistema de marcas">
-        <p class="hint">
-          Solo si manejas un catálogo de marcas interno por ID.
-        </p>
-      </div>
-
-      <div class="card-section">
-        <label class="lbl">Categoría (ID interno)</label>
-        <input name="category_id" type="number" class="inp"
-               value="{{ old('category_id', $item->category_id ?? '') }}"
-               placeholder="Opcional: ID de categoría interna">
-        <p class="hint">
-          Se usa para tu menú / filtro de categorías en el sitio.
-        </p>
-      </div>
-    </div>
-
-    <div class="side-card">
       <h3 class="side-title">Ayuda para Mercado Libre</h3>
 
       <div class="card-section">
@@ -273,7 +396,7 @@
                placeholder="Ejemplo: Bic, Azor, Maped"
                value="{{ old('brand_name', $item->brand_name ?? '') }}">
         <p class="hint">
-          Este nombre se envía al atributo <strong>BRAND</strong> de Mercado Libre. Usa la marca comercial tal como la buscan tus clientes.
+          Se envía al atributo <strong>BRAND</strong>.
         </p>
       </div>
 
@@ -283,7 +406,7 @@
                placeholder="Ejemplo: Cristal 1.0mm, Office Pro"
                value="{{ old('model_name', $item->model_name ?? '') }}">
         <p class="hint">
-          Se envía al atributo <strong>MODEL</strong>. Si no tienes modelo, puedes dejarlo vacío y usaremos el SKU como respaldo.
+          Se envía al atributo <strong>MODEL</strong>.
         </p>
       </div>
 
@@ -293,18 +416,17 @@
                placeholder="Ejemplo: 7501035910107"
                value="{{ old('meli_gtin', $item->meli_gtin ?? '') }}">
         <p class="hint">
-          En varias categorías de Mercado Libre es obligatorio el código de barras (GTIN, EAN, UPC, etc.).
-          Lo encuentras impreso junto al código de barras del producto o la caja.
+          En varias categorías de Mercado Libre es obligatorio.
         </p>
       </div>
 
       <div class="ml-tips">
         <p class="hint-title">Tips para evitar errores al publicar en Mercado Libre:</p>
         <ul class="hint-list">
-          <li>Incluye tipo, marca y modelo en el título (evita “Lapicero” solamente).</li>
-          <li>Verifica que el precio cumpla con el mínimo de la categoría.</li>
-          <li>Asegúrate de tener al menos una imagen válida y accesible por URL.</li>
-          <li>Completa el GTIN cuando sea obligatorio; si falta, Mercado Libre lo marcará como error.</li>
+          <li>Incluye tipo, marca y modelo en el título.</li>
+          <li>Verifica que el precio cumpla con el mínimo.</li>
+          <li>Con estas 3 fotos ya cumples “mínimo imágenes” del catálogo.</li>
+          <li>Completa el GTIN cuando sea obligatorio.</li>
         </ul>
       </div>
     </div>
@@ -312,44 +434,6 @@
 </div>
 
 <hr class="divi">
-
-{{-- =========================================================
-   🔹 IMÁGENES
-   ========================================================= --}}
-<div class="card-section">
-  <label class="lbl">Imagen de portada (URL)</label>
-  <input name="image_url" class="inp"
-         placeholder="https://tusitio.com/imagenes/lapicero-azul.jpg"
-         value="{{ old('image_url', $item->image_url ?? '') }}">
-  <p class="hint">
-    Usa una imagen limpia, bien iluminada y con fondo neutro. Es la principal que verá el cliente.
-  </p>
-</div>
-
-<div class="card-section">
-  <label class="lbl">Imágenes adicionales (URLs)</label>
-  <div id="images-list" class="images-list">
-    @php
-      $imgs = old('images', $item->images ?? []);
-      if (!is_array($imgs)) { $imgs = []; }
-    @endphp
-    @forelse($imgs as $i => $url)
-      <div class="img-row">
-        <input name="images[{{ $i }}]" class="inp" value="{{ $url }}" placeholder="https://...">
-        <button type="button" class="btn btn-ghost btn-xs" onclick="this.parentElement.remove()">Quitar</button>
-      </div>
-    @empty
-      <div class="img-row">
-        <input name="images[0]" class="inp" placeholder="https://...">
-        <button type="button" class="btn btn-ghost btn-xs" onclick="this.parentElement.remove()">Quitar</button>
-      </div>
-    @endforelse
-  </div>
-  <p class="hint">
-    Añade varias vistas del producto (frente, reverso, detalle, empaque). Mercado Libre recomienda buena resolución y fondo claro.
-  </p>
-  <button type="button" class="btn btn-ghost" onclick="addImageRow()">+ Agregar imagen</button>
-</div>
 
 <div class="form-actions">
   <button class="btn btn-primary" type="submit">
@@ -431,10 +515,7 @@
     transform:translateY(-1px);
     box-shadow:0 8px 20px rgba(15,23,42,.06);
   }
-  .btn-xs{
-    padding:5px 10px;
-    font-size:.75rem;
-  }
+  .btn-xs{ padding:5px 10px; font-size:.75rem; }
 
   .divi{
     border:none;
@@ -442,33 +523,16 @@
     margin:18px 0;
   }
 
-  .hint{
-    margin:4px 0 0;
-    font-size:.78rem;
-    color:var(--muted);
-  }
-
-  .card-section{
-    margin-bottom:12px;
-  }
+  .hint{ margin:4px 0 0; font-size:.78rem; color:var(--muted); }
+  .card-section{ margin-bottom:12px; }
 
   .catalog-grid{
     display:grid;
     gap:18px;
     grid-template-columns:repeat(12,1fr);
   }
-  .catalog-main{
-    grid-column:span 8;
-    display:flex;
-    flex-direction:column;
-    gap:12px;
-  }
-  .catalog-side{
-    grid-column:span 4;
-    display:flex;
-    flex-direction:column;
-    gap:12px;
-  }
+  .catalog-main{ grid-column:span 8; display:flex; flex-direction:column; gap:12px; }
+  .catalog-side{ grid-column:span 4; display:flex; flex-direction:column; gap:12px; }
 
   .side-card{
     background:#f9fafb;
@@ -483,6 +547,7 @@
     font-weight:700;
     color:#0f172a;
   }
+
   .ml-tips{
     margin-top:6px;
     padding-top:8px;
@@ -501,14 +566,8 @@
     color:#4b5563;
   }
 
-  .card-inline{
-    display:flex;
-    gap:10px;
-    flex-wrap:wrap;
-  }
-  .card-inline-item{
-    flex:1 1 140px;
-  }
+  .card-inline{ display:flex; gap:10px; flex-wrap:wrap; }
+  .card-inline-item{ flex:1 1 140px; }
 
   .toggle-row{
     display:flex;
@@ -516,17 +575,6 @@
     align-items:center;
     font-size:.9rem;
     color:#4b5563;
-  }
-
-  .images-list{
-    display:flex;
-    flex-direction:column;
-    gap:8px;
-  }
-  .img-row{
-    display:flex;
-    gap:8px;
-    align-items:center;
   }
 
   .form-actions{
@@ -537,8 +585,134 @@
     justify-content:flex-end;
   }
 
+  /* ✅ Bloque interno disabled */
+  #internal-box.is-disabled{
+    opacity:.55;
+    filter:grayscale(.2);
+    pointer-events:none;
+  }
+
   /* =========================================================
-     🔹 Estilos IA (panel principal)
+     🔹 FOTOS 3-UP
+     ========================================================= */
+  .photos-grid{
+    display:grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap:10px;
+    margin-top:10px;
+  }
+  .photo-card{
+    background:#ffffff;
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:10px;
+    transition:border-color .15s ease, box-shadow .15s ease, background .15s ease;
+  }
+  .photo-card.is-filled{
+    border:1px solid rgba(34,197,94,.35);
+    box-shadow:0 12px 26px rgba(22,163,74,.08);
+  }
+  .photo-card.is-filled .photo-drop{
+    border-color: rgba(34,197,94,.55);
+    background:linear-gradient(135deg, rgba(240,253,244,.95), #ffffff);
+  }
+  .photo-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    margin-bottom:8px;
+  }
+  .photo-title{
+    font-weight:800;
+    color:#0f172a;
+    font-size:.86rem;
+  }
+  .photo-badge{
+    font-size:.72rem;
+    padding:3px 8px;
+    border-radius:999px;
+    border:1px solid var(--line);
+    background:#f8fafc;
+    color:#334155;
+    font-weight:800;
+    white-space:nowrap;
+  }
+  .photo-badge.ok{
+    border-color:#bbf7d0;
+    background:#dcfce7;
+    color:#15803d;
+  }
+
+  .photo-drop{
+    position:relative;
+    border:1.5px dashed rgba(148,163,184,.95);
+    border-radius:14px;
+    padding:10px;
+    display:flex;
+    gap:10px;
+    align-items:center;
+    background:linear-gradient(135deg, rgba(239,246,255,.9), #ffffff);
+    cursor:pointer;
+    transition:transform .12s ease, box-shadow .15s ease, border-color .15s ease;
+    min-height:62px;
+  }
+  .photo-drop:hover{
+    border-color:#60a5fa;
+    box-shadow:0 10px 25px rgba(37,99,235,.14);
+    transform:translateY(-1px);
+  }
+  .photo-icon{
+    width:38px; height:38px;
+    border-radius:999px;
+    background:#1d4ed8;
+    color:#e0f2fe;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    box-shadow:0 12px 24px rgba(30,64,175,.55);
+    flex:0 0 auto;
+    font-size:1.1rem;
+  }
+  .photo-strong{
+    font-weight:900;
+    color:#0f172a;
+    font-size:.85rem;
+    margin-bottom:2px;
+  }
+  .photo-sub{
+    color:var(--muted);
+    font-size:.75rem;
+    font-weight:700;
+  }
+  .photo-actions{
+    display:flex;
+    justify-content:flex-end;
+    margin-top:8px;
+  }
+
+  .photo-input{ display:none; }
+
+  .photo-preview{
+    margin-top:8px;
+    border-radius:14px;
+    overflow:hidden;
+    border:1px solid var(--line);
+    background:#f1f5f9;
+    aspect-ratio: 4/3;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .photo-preview img{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    display:block;
+  }
+
+  /* =========================================================
+     🔹 Estilos IA (panel principal) + tabla
      ========================================================= */
   .ai-helper{
     margin-bottom:18px;
@@ -567,133 +741,61 @@
     animation:aiSweep 2.2s linear infinite;
   }
 
-  .ai-helper-icon-wrapper{
-    position:relative;
-    width:46px;
-    height:46px;
-    flex:0 0 auto;
-  }
+  .ai-helper-icon-wrapper{ position:relative; width:46px; height:46px; flex:0 0 auto; }
   .ai-helper-glow{
-    position:absolute;
-    inset:0;
-    border-radius:999px;
+    position:absolute; inset:0; border-radius:999px;
     background:radial-gradient(circle, rgba(59,130,246,.28), transparent 60%);
-    opacity:.85;
-    filter:blur(6px);
+    opacity:.85; filter:blur(6px);
   }
   .ai-helper-icon{
     position:relative;
-    width:46px;
-    height:46px;
+    width:46px; height:46px;
     border-radius:999px;
     background:#1d4ed8;
-    display:flex;
-    align-items:center;
-    justify-content:center;
+    display:flex; align-items:center; justify-content:center;
     font-size:1.5rem;
     box-shadow:0 14px 30px rgba(30,64,175,.55);
-    transform:translateY(0);
     transition:transform .2s ease, box-shadow .2s ease, background .2s ease;
   }
   .ai-helper.ai-busy .ai-helper-icon{
-    background:#1d4ed8;
     box-shadow:0 20px 40px rgba(30,64,175,.6);
     animation:aiBob 1.1s ease-in-out infinite;
   }
 
-  .ai-helper-main{
-    flex:1 1 260px;
-    position:relative;
-    z-index:1;
-  }
-  .ai-helper-header{
-    display:flex;
-    justify-content:space-between;
-    gap:8px;
-    align-items:flex-start;
-    margin-bottom:4px;
-  }
-  .ai-helper-title{
-    font-size:.95rem;
-    font-weight:700;
-    color:#0f172a;
-  }
-  .ai-helper-subtitle{
-    margin:0;
-    font-size:.8rem;
-    color:#475569;
-  }
+  .ai-helper-main{ flex:1 1 260px; position:relative; z-index:1; }
+  .ai-helper-header{ display:flex; justify-content:space-between; gap:8px; align-items:flex-start; margin-bottom:4px; }
+  .ai-helper-title{ font-size:.95rem; font-weight:700; color:#0f172a; }
+  .ai-helper-subtitle{ margin:0; font-size:.8rem; color:#475569; }
   .ai-helper-chip{
     align-self:flex-start;
-    font-size:.7rem;
-    padding:3px 9px;
-    border-radius:999px;
-    background:rgba(236,252,203,.9);
-    color:#4d7c0f;
-    font-weight:600;
+    font-size:.7rem; padding:3px 9px; border-radius:999px;
+    background:rgba(236,252,203,.9); color:#4d7c0f; font-weight:600;
   }
-  .ai-helper-text{
-    margin:6px 0 10px;
-    font-size:.8rem;
-    color:#334155;
-  }
-  .ai-helper-row{
-    display:flex;
-    flex-wrap:wrap;
-    gap:10px;
-    align-items:flex-end;
-  }
-  .ai-helper-input{
-    flex:1 1 260px;
-  }
-  .ai-helper-actions{
-    display:flex;
-    flex-direction:column;
-    gap:4px;
-    align-items:flex-start;
-  }
-  .ai-helper-status{
-    min-height:18px;
-  }
+  .ai-helper-text{ margin:6px 0 10px; font-size:.8rem; color:#334155; }
+  .ai-helper-row{ display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; }
+  .ai-helper-input{ flex:1 1 260px; }
+  .ai-helper-actions{ display:flex; flex-direction:column; gap:4px; align-items:flex-start; }
+  .ai-helper-status{ min-height:18px; }
 
-  .ai-cta{
-    position:relative;
-    overflow:hidden;
-  }
+  .ai-cta{ position:relative; overflow:hidden; }
   .ai-cta-spinner{
-    width:16px;
-    height:16px;
-    border-radius:999px;
+    width:16px;height:16px;border-radius:999px;
     border:2px solid rgba(191,219,254,.7);
     border-top-color:#eff6ff;
-    opacity:0;
-    transform:scale(.6);
+    opacity:0; transform:scale(.6);
     transition:opacity .15s ease, transform .15s ease;
   }
-  .ai-cta-text{
-    transition:transform .15s ease, opacity .15s ease;
-  }
   .ai-helper.ai-busy .ai-cta-spinner{
-    opacity:1;
-    transform:scale(1);
-    animation:aiSpin .8s linear infinite;
-  }
-  .ai-helper.ai-busy .ai-cta-text{
-    opacity:.9;
+    opacity:1; transform:scale(1); animation:aiSpin .8s linear infinite;
   }
 
-  /* =========================================================
-     🔹 Dropzone IA
-     ========================================================= */
   .ai-dropzone{
     position:relative;
     border-radius:16px;
     border:1.5px dashed rgba(148,163,184,.9);
     background:linear-gradient(135deg, rgba(239,246,255,.9), #ffffff);
     padding:10px 12px;
-    display:flex;
-    align-items:center;
-    gap:10px;
+    display:flex; align-items:center; gap:10px;
     cursor:pointer;
     transition:border-color .18s ease, background .18s ease, box-shadow .18s ease, transform .1s ease;
   }
@@ -708,88 +810,32 @@
     box-shadow:0 14px 32px rgba(37,99,235,.25);
   }
   .ai-dropzone-icon{
-    width:36px;
-    height:36px;
-    border-radius:999px;
-    background:#1d4ed8;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-size:1.2rem;
-    color:#e0f2fe;
+    width:36px;height:36px;border-radius:999px;
+    background:#1d4ed8; display:flex; align-items:center; justify-content:center;
+    font-size:1.2rem; color:#e0f2fe;
     box-shadow:0 12px 24px rgba(30,64,175,.55);
     flex:0 0 auto;
   }
-  .ai-dropzone-body{
-    display:flex;
-    flex-direction:column;
-    gap:2px;
-  }
-  .ai-dropzone-title{
-    font-size:.86rem;
-    font-weight:600;
-    color:#0f172a;
-  }
-  .ai-dropzone-sub{
-    font-size:.8rem;
-    color:#475569;
-  }
+  .ai-dropzone-body{ display:flex; flex-direction:column; gap:2px; }
+  .ai-dropzone-title{ font-size:.86rem; font-weight:600; color:#0f172a; }
+  .ai-dropzone-sub{ font-size:.8rem; color:#475569; }
   .ai-dropzone-btn{
-    border:0;
-    border-radius:999px;
-    padding:4px 10px;
-    font-size:.78rem;
-    font-weight:600;
-    margin-left:4px;
-    background:#0f172a;
-    color:#f9fafb;
-    cursor:pointer;
-    display:inline-flex;
-    align-items:center;
-    gap:4px;
+    border:0; border-radius:999px; padding:4px 10px;
+    font-size:.78rem; font-weight:600; margin-left:4px;
+    background:#0f172a; color:#f9fafb; cursor:pointer;
   }
-  .ai-dropzone-btn:hover{
-    background:#111827;
-  }
-  .ai-dropzone-hint{
-    font-size:.75rem;
-    color:#6b7280;
-  }
-  .ai-dropzone-input{
-    position:absolute;
-    inset:0;
-    opacity:0;
-    cursor:pointer;
-  }
+  .ai-dropzone-hint{ font-size:.75rem; color:#6b7280; }
+  .ai-dropzone-input{ position:absolute; inset:0; opacity:0; cursor:pointer; }
 
-  .ai-files-list{
-    margin-top:6px;
-    display:flex;
-    flex-wrap:wrap;
-    gap:6px;
-  }
+  .ai-files-list{ margin-top:6px; display:flex; flex-wrap:wrap; gap:6px; }
   .ai-file-chip{
-    display:inline-flex;
-    align-items:center;
-    gap:6px;
-    padding:3px 8px;
-    font-size:.75rem;
-    border-radius:999px;
-    background:#eff6ff;
-    color:#1e293b;
-    border:1px solid #dbeafe;
+    display:inline-flex; align-items:center; gap:6px; padding:3px 8px;
+    font-size:.75rem; border-radius:999px;
+    background:#eff6ff; color:#1e293b; border:1px solid #dbeafe;
     max-width:100%;
   }
-  .ai-file-chip span{
-    white-space:nowrap;
-    overflow:hidden;
-    text-overflow:ellipsis;
-    max-width:180px;
-  }
+  .ai-file-chip span{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:180px; }
 
-  /* =========================================================
-     🔹 Panel de productos IA (lista)
-     ========================================================= */
   .ai-items-panel{
     margin-bottom:18px;
     padding:12px 14px;
@@ -799,124 +845,56 @@
     box-shadow:0 14px 30px rgba(15,23,42,.03);
     animation:fadeInUp .25s ease-out;
   }
-  .ai-items-header{
-    display:flex;
-    align-items:flex-start;
-    justify-content:space-between;
-    gap:10px;
-    margin-bottom:10px;
-  }
-  .ai-items-header-right{
-    display:flex;
-    align-items:center;
-    gap:8px;
-  }
-  .ai-items-title{
-    font-size:.9rem;
-    font-weight:700;
-    color:#0f172a;
-  }
-  .ai-items-text{
-    margin:2px 0 0;
-    font-size:.8rem;
-    color:#4b5563;
-  }
+  .ai-items-header{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:10px; }
+  .ai-items-header-right{ display:flex; align-items:center; gap:8px; }
+  .ai-items-title{ font-size:.9rem; font-weight:700; color:#0f172a; }
+  .ai-items-text{ margin:2px 0 0; font-size:.8rem; color:#4b5563; }
   .ai-items-badge{
-    align-self:flex-start;
-    font-size:.75rem;
-    padding:3px 8px;
-    border-radius:999px;
-    background:#dcfce7;
-    color:#15803d;
-    font-weight:600;
-    white-space:nowrap;
+    align-self:flex-start; font-size:.75rem; padding:3px 8px; border-radius:999px;
+    background:#dcfce7; color:#15803d; font-weight:600; white-space:nowrap;
   }
-  .ai-clear-btn{
-    font-size:.75rem;
+  .ai-items-table-wrapper{ width:100%; overflow:auto; }
+  .ai-items-table{ width:100%; border-collapse:collapse; font-size:.8rem; }
+  .ai-items-table thead{ background:#eff6ff; }
+  .ai-items-table th, .ai-items-table td{
+    padding:6px 8px; border-bottom:1px solid #e5e7eb; text-align:left; vertical-align:top;
   }
-  .ai-items-table-wrapper{
-    width:100%;
-    overflow:auto;
-  }
-  .ai-items-table{
-    width:100%;
-    border-collapse:collapse;
-    font-size:.8rem;
-  }
-  .ai-items-table thead{
-    background:#eff6ff;
-  }
-  .ai-items-table th,
-  .ai-items-table td{
-    padding:6px 8px;
-    border-bottom:1px solid #e5e7eb;
-    text-align:left;
-    vertical-align:top;
-  }
-  .ai-items-table th{
-    font-weight:700;
-    color:#0f172a;
-    white-space:nowrap;
-  }
-  .ai-items-table td{
-    color:#4b5563;
-  }
-  .ai-items-table tr:hover{
-    background:#f8fafc;
-  }
+  .ai-items-table th{ font-weight:700; color:#0f172a; white-space:nowrap; }
+  .ai-items-table td{ color:#4b5563; }
+  .ai-items-table tr:hover{ background:#f8fafc; }
 
-  /* Campos autocompletados por IA */
   .ai-suggested{
     border-color:rgba(34,197,94,.9) !important;
     box-shadow:0 0 0 1px rgba(34,197,94,.4), 0 10px 25px rgba(22,163,74,.12);
     background:#f0fdf4;
   }
 
-  @keyframes aiSpin{
-    to{ transform:rotate(360deg); }
-  }
-  @keyframes aiBob{
-    0%,100%{ transform:translateY(0); }
-    50%{ transform:translateY(-3px); }
-  }
+  @keyframes aiSpin{ to{ transform:rotate(360deg); } }
+  @keyframes aiBob{ 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-3px); } }
   @keyframes aiSweep{
     0%{ transform:translateX(-30%); opacity:.2; }
     50%{ opacity:.5; }
     100%{ transform:translateX(30%); opacity:.2; }
   }
   @keyframes fadeInUp{
-    from{
-      opacity:0;
-      transform:translateY(6px);
-    }
-    to{
-      opacity:1;
-      transform:translateY(0);
-    }
+    from{ opacity:0; transform:translateY(6px); }
+    to{ opacity:1; transform:translateY(0); }
   }
 
   @media (max-width: 992px){
-    .catalog-grid{
-      grid-template-columns:1fr;
-    }
-    .catalog-main,
-    .catalog-side{
-      grid-column:span 12;
-    }
+    .catalog-grid{ grid-template-columns:1fr; }
+    .catalog-main, .catalog-side{ grid-column:span 12; }
+    .photos-grid{ grid-template-columns:1fr; }
   }
 
   @media (max-width: 768px){
-    .ai-items-table th:nth-child(3),
-    .ai-items-table td:nth-child(3),
-    .ai-items-table th:nth-child(5),
-    .ai-items-table td:nth-child(5){
+    .ai-items-table th:nth-child(3), .ai-items-table td:nth-child(3),
+    .ai-items-table th:nth-child(5), .ai-items-table td:nth-child(5){
       display:none;
     }
   }
 
-  /* =========================================================
-     🔹 SweetAlert minimalista / moderno
-     ========================================================= */
+  /* SweetAlert */
   .swal2-popup-compact{
     border-radius:18px !important;
     padding:12px 16px !important;
@@ -924,37 +902,18 @@
     backdrop-filter:blur(16px);
     background:radial-gradient(circle at top left,#eff6ff 0,#ffffff 60%) !important;
     border:1px solid rgba(148,163,184,.35);
-    font-family:"Söhne","Circular Std","Poppins",system-ui,-apple-system,"Segoe UI","Helvetica Neue",Arial,sans-serif;
+    font-family:system-ui,-apple-system,"Segoe UI","Helvetica Neue",Arial,sans-serif;
   }
-  .swal2-title{
-    font-size:.9rem !important;
-    font-weight:700 !important;
-    color:#0f172a !important;
-  }
-  .swal2-html-container{
-    font-size:.8rem !important;
-    color:#4b5563 !important;
-    margin-top:4px !important;
-  }
-  /* solo ajustamos márgenes, NO tamaños del ícono para que la palomita/tache se vean bien */
-  .swal2-icon{
-    margin:0 0 8px 0 !important;
-  }
-  .swal2-actions{
-    margin-top:10px !important;
-  }
+  .swal2-title{ font-size:.9rem !important; font-weight:700 !important; color:#0f172a !important; }
+  .swal2-html-container{ font-size:.8rem !important; color:#4b5563 !important; margin-top:4px !important; }
+  .swal2-icon{ margin:0 0 8px 0 !important; }
+  .swal2-actions{ margin-top:10px !important; }
   .swal2-styled.swal2-confirm{
     border-radius:999px !important;
     padding:7px 16px !important;
     font-size:.78rem !important;
     font-weight:600 !important;
     background:#2563eb !important;
-  }
-  .swal2-styled.swal2-cancel{
-    border-radius:999px !important;
-    padding:7px 16px !important;
-    font-size:.78rem !important;
-    font-weight:500 !important;
   }
 </style>
 @endpush
@@ -963,16 +922,96 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
-  function addImageRow(){
-    const list = document.getElementById('images-list');
-    const idx = list.querySelectorAll('.img-row').length;
-    const wrap = document.createElement('div');
-    wrap.className = 'img-row';
-    wrap.innerHTML = `
-      <input name="images[${idx}]" class="inp" placeholder="https://...">
-      <button type="button" class="btn btn-ghost btn-xs" onclick="this.parentElement.remove()">Quitar</button>`;
-    list.appendChild(wrap);
-  }
+  // ✅ Toggle clasificación interna
+  document.addEventListener('DOMContentLoaded', function(){
+    const chk = document.getElementById('use_internal');
+    const box = document.getElementById('internal-box');
+    if (chk && box){
+      const sync = () => box.classList.toggle('is-disabled', !chk.checked);
+      chk.addEventListener('change', sync);
+      sync();
+    }
+  });
+
+  // ✅ Fotos: preview + badges + botón Quitar
+  document.addEventListener('DOMContentLoaded', function () {
+    const map = [
+      { input: 'photo_1_file', preview: 'photo_1_preview' },
+      { input: 'photo_2_file', preview: 'photo_2_preview' },
+      { input: 'photo_3_file', preview: 'photo_3_preview' },
+    ];
+
+    const objectUrls = new Map();
+
+    function setFilledState(inputId, filled) {
+      const card  = document.querySelector(`[data-photo-card="${inputId}"]`);
+      const badge = document.querySelector(`[data-photo-badge="${inputId}"]`);
+      if (card) card.classList.toggle('is-filled', !!filled);
+      if (badge) {
+        badge.classList.toggle('ok', !!filled);
+        badge.textContent = filled ? 'Lista' : 'Pendiente';
+      }
+    }
+
+    function setFilename(inputId, file) {
+      const strong = document.querySelector(`[data-photo-strong="${inputId}"]`);
+      const sub    = document.querySelector(`[data-photo-sub="${inputId}"]`);
+      if (strong) strong.textContent = file ? file.name : 'Seleccionar foto';
+      if (sub) sub.textContent = file ? `${Math.round(file.size/1024)} KB` : 'JPG / PNG / WEBP';
+    }
+
+    function renderPreview(previewId, file) {
+      const prev = document.getElementById(previewId);
+      if (!prev) return;
+
+      if (objectUrls.has(previewId)) {
+        URL.revokeObjectURL(objectUrls.get(previewId));
+        objectUrls.delete(previewId);
+      }
+
+      if (!file) {
+        prev.innerHTML = '';
+        return;
+      }
+
+      const url = URL.createObjectURL(file);
+      objectUrls.set(previewId, url);
+      prev.innerHTML = `<img src="${url}" alt="preview">`;
+    }
+
+    map.forEach(({ input, preview }) => {
+      const inp = document.getElementById(input);
+      if (!inp) return;
+
+      const prevEl = document.getElementById(preview);
+      const alreadyHasImg = !!(prevEl && prevEl.querySelector('img'));
+      if (alreadyHasImg) {
+        setFilledState(input, true);
+        setFilename(input, null);
+      }
+
+      inp.addEventListener('change', function () {
+        const file = inp.files && inp.files[0] ? inp.files[0] : null;
+        setFilledState(input, !!file || alreadyHasImg);
+        setFilename(input, file);
+        renderPreview(preview, file);
+      });
+
+      const clearBtn = document.querySelector(`[data-photo-clear="${input}"]`);
+      if (clearBtn) {
+        clearBtn.addEventListener('click', function () {
+          inp.value = '';
+          setFilledState(input, false);
+          setFilename(input, null);
+          renderPreview(preview, null);
+        });
+      }
+    });
+
+    window.addEventListener('beforeunload', () => {
+      for (const url of objectUrls.values()) URL.revokeObjectURL(url);
+    });
+  });
 
   // ================================
   // 🔹 Config base de SweetAlert UI
@@ -983,33 +1022,13 @@
     showConfirmButton: false,
     timer: 3200,
     timerProgressBar: true,
-    customClass: {
-      popup: 'swal2-popup-compact',
-    }
+    customClass: { popup: 'swal2-popup-compact' }
   });
 
   const AiAlerts = {
-    success(title, text){
-      uiToast.fire({
-        icon: 'success',
-        title: title || 'Listo',
-        text: text || ''
-      });
-    },
-    error(title, text){
-      uiToast.fire({
-        icon: 'error',
-        title: title || 'Error',
-        text: text || ''
-      });
-    },
-    info(title, text){
-      uiToast.fire({
-        icon: 'info',
-        title: title || 'Info',
-        text: text || ''
-      });
-    }
+    success(title, text){ uiToast.fire({ icon:'success', title: title || 'Listo', text: text || '' }); },
+    error(title, text){ uiToast.fire({ icon:'error', title: title || 'Error', text: text || '' }); },
+    info(title, text){ uiToast.fire({ icon:'info', title: title || 'Info', text: text || '' }); }
   };
 
   // ================================
@@ -1029,50 +1048,33 @@
     const filesList  = document.getElementById('ai-files-list');
     const clearBtn   = document.getElementById('ai-clear-list');
 
-    // 🔐 claves para localStorage
     const LS_KEY_ITEMS = 'catalog_ai_items';
     const LS_KEY_INDEX = 'catalog_ai_index';
 
     let aiItems = [];
 
-    // ========= helpers de almacenamiento =========
     function saveAiItemsToStorage() {
-      try {
-        localStorage.setItem(LS_KEY_ITEMS, JSON.stringify(aiItems || []));
-      } catch (e) {
-        console.error('No se pudo guardar ai_items en localStorage', e);
-      }
+      try { localStorage.setItem(LS_KEY_ITEMS, JSON.stringify(aiItems || [])); } catch (e) {}
     }
-
     function saveAiIndexToStorage(idx) {
-      try {
-        localStorage.setItem(LS_KEY_INDEX, String(idx ?? 0));
-      } catch (e) {}
+      try { localStorage.setItem(LS_KEY_INDEX, String(idx ?? 0)); } catch (e) {}
     }
-
     function loadAiItemsFromStorage() {
       try {
         const raw = localStorage.getItem(LS_KEY_ITEMS);
         if (!raw) return [];
         const parsed = JSON.parse(raw);
         return Array.isArray(parsed) ? parsed : [];
-      } catch (e) {
-        console.error('No se pudieron leer ai_items de localStorage', e);
-        return [];
-      }
+      } catch (e) { return []; }
     }
-
     function loadAiIndexFromStorage() {
       try {
         const raw = localStorage.getItem(LS_KEY_INDEX);
         const idx = parseInt(raw ?? '0', 10);
         return isNaN(idx) ? 0 : Math.max(0, idx);
-      } catch (e) {
-        return 0;
-      }
+      } catch (e) { return 0; }
     }
 
-    // ========= Dropzone: arrastrar / soltar =========
     function refreshFileChips(files) {
       if (!filesList) return;
       filesList.innerHTML = '';
@@ -1088,10 +1090,7 @@
 
     if (dropzone && inputFiles) {
       dropzone.addEventListener('click', function (e) {
-        // evitamos doble apertura, pero siempre que hagas click en el área abre el picker
-        if (e.target.closest('.ai-dropzone-btn')) {
-          e.preventDefault();
-        }
+        if (e.target.closest('.ai-dropzone-btn')) e.preventDefault();
         inputFiles.click();
       });
 
@@ -1101,16 +1100,14 @@
 
       ['dragenter','dragover'].forEach(evt => {
         dropzone.addEventListener(evt, function (e) {
-          e.preventDefault();
-          e.stopPropagation();
+          e.preventDefault(); e.stopPropagation();
           dropzone.classList.add('is-dragover');
         });
       });
 
       ['dragleave','dragend','drop'].forEach(evt => {
         dropzone.addEventListener(evt, function (e) {
-          e.preventDefault();
-          e.stopPropagation();
+          e.preventDefault(); e.stopPropagation();
           dropzone.classList.remove('is-dragover');
         });
       });
@@ -1118,9 +1115,7 @@
       dropzone.addEventListener('drop', function (e) {
         const dt = new DataTransfer();
         Array.from(e.dataTransfer.files || []).forEach(file => {
-          if (file.type.startsWith('image/') || file.type === 'application/pdf') {
-            dt.items.add(file);
-          }
+          if (file.type.startsWith('image/') || file.type === 'application/pdf') dt.items.add(file);
         });
         if (dt.files.length) {
           inputFiles.files = dt.files;
@@ -1129,7 +1124,6 @@
       });
     }
 
-    // ========= limpiar lista IA manualmente =========
     if (clearBtn) {
       clearBtn.addEventListener('click', function () {
         aiItems = [];
@@ -1146,7 +1140,6 @@
       });
     }
 
-    // ========= reconstruir lista desde localStorage al cargar =========
     function attachUseButtons() {
       if (!tbody) return;
       tbody.querySelectorAll('button[data-ai-index]').forEach(btn => {
@@ -1154,11 +1147,9 @@
           const i = parseInt(this.getAttribute('data-ai-index'), 10);
           const item = aiItems[i];
           if (!item) return;
-          saveAiIndexToStorage(i); // recordamos cuál usaste
+          saveAiIndexToStorage(i);
           fillFromItem(item, { markSuggested: true });
-          if (statusEl) {
-            statusEl.textContent = 'Se cargó el producto #' + (i + 1) + ' desde la lista IA. Revisa y ajusta antes de guardar.';
-          }
+          if (statusEl) statusEl.textContent = 'Se cargó el producto #' + (i + 1) + ' desde la lista IA. Revisa y ajusta antes de guardar.';
           AiAlerts.info('Producto cargado', 'Se llenó el formulario con el producto #' + (i + 1) + '.');
         });
       });
@@ -1182,18 +1173,14 @@
           <td>${escapeHtml(item.model_name || '')}</td>
           <td>${escapeHtml(item.meli_gtin || '')}</td>
           <td>
-            <button type="button"
-                    class="btn btn-ghost btn-xs"
-                    data-ai-index="${idx}">Usar este</button>
+            <button type="button" class="btn btn-ghost btn-xs" data-ai-index="${idx}">Usar este</button>
           </td>
         `;
         tbody.appendChild(tr);
       });
 
       if (countEl) {
-        countEl.textContent = aiItems.length === 1
-          ? '1 producto detectado'
-          : aiItems.length + ' productos detectados';
+        countEl.textContent = aiItems.length === 1 ? '1 producto detectado' : (aiItems.length + ' productos detectados');
       }
 
       panel.style.display = aiItems.length ? 'block' : 'none';
@@ -1203,17 +1190,12 @@
     aiItems = loadAiItemsFromStorage();
     if (aiItems.length) {
       renderAiTable();
-      if (statusEl) {
-        statusEl.textContent = 'Se restauraron los productos detectados por IA. Puedes seguir capturando sin volver a subir el PDF.';
-      }
+      if (statusEl) statusEl.textContent = 'Se restauraron los productos detectados por IA. Puedes seguir capturando sin volver a subir el PDF.';
       const idx = loadAiIndexFromStorage();
       const item = aiItems[idx] || aiItems[0];
-      if (item) {
-        fillFromItem(item, { markSuggested: true });
-      }
+      if (item) fillFromItem(item, { markSuggested: true });
     }
 
-    // ========= botón Analizar con IA =========
     if (!btnAi || !inputFiles) return;
 
     btnAi.addEventListener('click', function () {
@@ -1228,22 +1210,15 @@
       formData.append('_token', '{{ csrf_token() }}');
 
       btnAi.disabled = true;
-      const originalText = btnAi.querySelector('.ai-cta-text')
-        ? btnAi.querySelector('.ai-cta-text').textContent
-        : btnAi.textContent;
+      const labelEl = btnAi.querySelector('.ai-cta-text');
+      const originalText = labelEl ? labelEl.textContent : btnAi.textContent;
 
-      if (btnAi.querySelector('.ai-cta-text')) {
-        btnAi.querySelector('.ai-cta-text').textContent = 'Analizando...';
-      } else {
-        btnAi.textContent = 'Analizando...';
-      }
+      if (labelEl) labelEl.textContent = 'Analizando...';
+      else btnAi.textContent = 'Analizando...';
 
       if (helperBox) helperBox.classList.add('ai-busy');
-      if (statusEl) {
-        statusEl.textContent = 'Enviando archivos a la IA, esto puede tardar unos segundos...';
-      }
+      if (statusEl) statusEl.textContent = 'Enviando archivos a la IA, esto puede tardar unos segundos...';
 
-      // Limpiar tabla anterior (en memoria, pero aún no tocamos localStorage)
       aiItems = [];
       if (tbody) tbody.innerHTML = '';
       if (panel) panel.style.display = 'none';
@@ -1267,13 +1242,9 @@
         saveAiItemsToStorage();
         saveAiIndexToStorage(0);
 
-        if (aiItems.length) {
-          renderAiTable();
-        }
+        if (aiItems.length) renderAiTable();
 
-        if (statusEl) {
-          statusEl.textContent = 'Listo: revisa y ajusta las sugerencias marcadas en verde antes de guardar.';
-        }
+        if (statusEl) statusEl.textContent = 'Listo: revisa y ajusta las sugerencias marcadas en verde antes de guardar.';
         AiAlerts.success('Sugerencias listas', 'La IA completó los campos principales del producto.');
       })
       .catch(err => {
@@ -1283,11 +1254,8 @@
       })
       .finally(() => {
         btnAi.disabled = false;
-        if (btnAi.querySelector('.ai-cta-text')) {
-          btnAi.querySelector('.ai-cta-text').textContent = originalText;
-        } else {
-          btnAi.textContent = originalText;
-        }
+        if (labelEl) labelEl.textContent = originalText;
+        else btnAi.textContent = originalText;
         if (helperBox) helperBox.classList.remove('ai-busy');
       });
     });
@@ -1317,7 +1285,6 @@
       applyAiSuggestion('model_name',  item.model_name,  markSuggested);
       applyAiSuggestion('meli_gtin',   item.meli_gtin,   markSuggested);
 
-      // 🔹 llenar stock/cantidad sugerida por la IA si viene
       const qty = item.stock ?? item.quantity ?? item.qty ?? item.cantidad;
       applyAiSuggestion('stock', qty, markSuggested);
     }
@@ -1337,7 +1304,6 @@
 @if(session('ok'))
 <script>
   document.addEventListener('DOMContentLoaded', function () {
-    // 🔹 Consumir el último producto usado de localStorage (se asume que sí se guardó)
     try {
       const LS_KEY_ITEMS = 'catalog_ai_items';
       const LS_KEY_INDEX = 'catalog_ai_index';
@@ -1347,11 +1313,9 @@
         if (!Array.isArray(items)) items = [];
         const rawIdx = localStorage.getItem(LS_KEY_INDEX);
         let idx = parseInt(rawIdx ?? '0', 10);
-        if (isNaN(idx) || idx < 0 || idx >= items.length) {
-          idx = 0;
-        }
+        if (isNaN(idx) || idx < 0 || idx >= items.length) idx = 0;
         if (items.length) {
-          items.splice(idx, 1); // quitamos el que se acaba de guardar
+          items.splice(idx, 1);
           localStorage.setItem(LS_KEY_ITEMS, JSON.stringify(items));
           localStorage.setItem(LS_KEY_INDEX, '0');
         }
@@ -1362,9 +1326,7 @@
       icon: 'success',
       title: 'Listo ✨',
       text: @json(session('ok')),
-      customClass: {
-        popup: 'swal2-popup-compact'
-      },
+      customClass: { popup: 'swal2-popup-compact' },
       confirmButtonText: 'Continuar'
     });
   });
@@ -1378,9 +1340,7 @@
       icon: 'error',
       title: 'Hay campos por revisar',
       html: `{!! implode('<br>', $errors->all()) !!}`,
-      customClass: {
-        popup: 'swal2-popup-compact'
-      },
+      customClass: { popup: 'swal2-popup-compact' },
       confirmButtonText: 'Entendido'
     });
   });

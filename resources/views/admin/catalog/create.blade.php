@@ -2,10 +2,6 @@
 @section('title','Nuevo producto web')
 
 @section('content')
-@php
-  /** @var \App\Models\CatalogItem|null $item */
-  $item = null;
-@endphp
 
 <div class="wrap-ai">
   {{-- Header --}}
@@ -271,8 +267,10 @@
   {{-- Manual panel --}}
   <div id="panelManual">
     <form class="card-ai form-ai"
-          action="{{ route('admin.catalog.store') }}" method="POST">
-      @include('admin.catalog._form', ['item' => null])
+          action="{{ route('admin.catalog.store') }}"
+          method="POST"
+          enctype="multipart/form-data">
+      @include('admin.catalog._form')
     </form>
   </div>
 </div>
@@ -659,9 +657,7 @@
         <td>${it.unit_price ?? '—'}</td>
         <td>${it.line_total ?? '—'}</td>
         <td class="right">
-          <button type="button" class="btn-ai btn-ai--ghost btn-ai--sm" data-use="${idx}">
-            Usar
-          </button>
+          <button type="button" class="btn-ai btn-ai--ghost btn-ai--sm" data-use="${idx}">Usar</button>
         </td>
       `;
       aiItemsTbody.appendChild(tr);
@@ -715,8 +711,8 @@
     const extra = extractedCache || {};
     let longDesc = '';
     if(extra.supplier_name) longDesc += `Proveedor: ${extra.supplier_name}\n`;
-    if(extra.folio) longDesc += `Folio: ${extra.folio}\n`;
-    if(extra.invoice_date) longDesc += `Fecha: ${extra.invoice_date}\n\n`;
+    if(extra.folio)         longDesc += `Folio: ${extra.folio}\n`;
+    if(extra.invoice_date)  longDesc += `Fecha: ${extra.invoice_date}\n\n`;
     longDesc += `Descripción en documento:\n${desc}\n\nCantidad: ${it.quantity ?? '—'} ${it.unit || ''}\nPrecio unitario: ${it.unit_price ?? '—'}\nTotal línea: ${it.line_total ?? '—'}`;
 
     const dEl = document.querySelector('[name="description"]');

@@ -76,7 +76,8 @@ use App\Http\Controllers\Tickets\TicketWorkController;
 use App\Http\Controllers\PublicationController;
 use App\Http\Controllers\Logistics\RouteSupervisorController;
 
-
+use App\Http\Controllers\CatalogPublicController;
+use App\Http\Controllers\TechSheetController;
 /*
 |--------------------------------------------------------------------------
 | AUTH
@@ -1625,3 +1626,45 @@ Route::middleware(['auth'])->group(function () {
 
 Route::get('/products/ajax-table', [ProductController::class, 'ajaxTable'])
   ->name('products.ajax-table');
+
+// Ficha pública por slug
+Route::get('/p/{catalogItem:slug}', [CatalogPublicController::class, 'preview'])
+    ->name('catalog.preview');
+
+// QR en SVG (para la ficha web)
+Route::get('/p/{catalogItem:slug}/qr', [CatalogPublicController::class, 'qr'])
+    ->name('catalog.qr');
+
+// ✅ PDF etiqueta 2x2" con QR
+Route::get('/p/{catalogItem}/qr-label', [CatalogPublicController::class, 'qrLabel'])
+    ->name('catalog.qr.label');
+
+// NUEVAS: código de barras + etiqueta 2x1"
+Route::get('/p/{catalogItem}/barcode',        [CatalogPublicController::class, 'barcode'])->name('catalog.barcode');
+Route::get('/p/{catalogItem}/barcode-label',  [CatalogPublicController::class, 'barcodeLabel'])->name('catalog.barcode.label');
+Route::middleware([
+        'auth',
+        'approved',   // si lo usas
+        'verified',   // si lo usas
+        'role:admin', // tu EnsureRole('admin')
+    ])
+    ->prefix('admin')
+    ->name('admin.')
+    ->group(function () {
+
+        // ...tus demás rutas...
+
+        Route::patch('catalog/{catalogItem}/stock', [CatalogItemController::class, 'updateStock'])
+            ->name('catalog.stock.update');
+
+        // Route::resource('catalog', CatalogItemController::class); // si ya lo tienes
+    });
+
+Route::middleware(['auth'])->group(function () {
+    Route::get('tech-sheets',               [TechSheetController::class, 'index'])->name('tech-sheets.index');
+    Route::get('tech-sheets/create',        [TechSheetController::class, 'create'])->name('tech-sheets.create');
+    Route::post('tech-sheets',              [TechSheetController::class, 'store'])->name('tech-sheets.store');
+    Route::get('tech-sheets/{sheet}',       [TechSheetController::class, 'show'])->name('tech-sheets.show');
+    Route::get('tech-sheets/{sheet}/pdf',   [TechSheetController::class, 'pdf'])->name('tech-sheets.pdf');
+    Route::get('tech-sheets/{sheet}/word',  [TechSheetController::class, 'word'])->name('tech-sheets.word');
+});

@@ -82,4 +82,6 @@ return [
     */
     'agenda_cron_token' => env('AGENDA_CRON_TOKEN'),
 'scheduler_cron_token' => env('SCHEDULER_CRON_TOKEN'),
+'DNS1D' => Milon\Barcode\Facades\DNS1DFacade::class,
+
 ];
