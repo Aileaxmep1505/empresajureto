@@ -16,6 +16,18 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
+// ✅ Excel + PDF
+use Barryvdh\DomPDF\Facade\Pdf;
+use Maatwebsite\Excel\Facades\Excel;
+use Maatwebsite\Excel\Concerns\FromArray;
+use Maatwebsite\Excel\Concerns\ShouldAutoSize;
+use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Events\AfterSheet;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+
 class CatalogItemController extends Controller implements HasMiddleware
 {
     public static function middleware(): array
@@ -55,6 +67,308 @@ class CatalogItemController extends Controller implements HasMiddleware
         ]);
     }
 
+    /* =========================
+     |  EXPORTS
+     ==========================*/
+
+    /**
+     * Exportar a Excel (.xlsx) con formato:
+     * - Fila 1: "Inventario interno de Jureto" (título grande)
+     * - Fila 3: encabezados en negritas, centrados, fondo gris
+     */
+    public function exportExcel(Request $request)
+    {
+        $q = CatalogItem::query();
+
+        $s = trim((string) $request->get('s', ''));
+        if ($s !== '') {
+            $q->where(function ($qq) use ($s) {
+                $qq->where('name', 'like', "%{$s}%")
+                   ->orWhere('sku', 'like', "%{$s}%");
+            });
+        }
+
+        if ($request->filled('status')) {
+            $q->where('status', (int) $request->integer('status'));
+        }
+
+        if ($request->boolean('featured_only')) {
+            $q->where('is_featured', true);
+        }
+
+        $items = $q->orderBy('id')->get();
+
+        $rows = [];
+
+        // Fila 1: título
+        $rows[] = ['Inventario interno de Jureto'];
+
+        // Fila 2: vacía
+        $rows[] = [''];
+
+        // Fila 3: encabezados
+        $rows[] = [
+            'ID',
+            'SKU',
+            'Nombre',
+            'Precio',
+            'Precio oferta',
+            'Stock',
+            'Estado',
+            'Destacado',
+            'Slug',
+            'Publicado en',
+            'ML ID',
+        ];
+
+        foreach ($items as $it) {
+            $statusText = match ((int) $it->status) {
+                1       => 'Publicado',
+                2       => 'Oculto',
+                default => 'Borrador',
+            };
+
+            $featuredText = $it->is_featured ? 'Sí' : 'No';
+
+            $rows[] = [
+                $it->id,
+                $it->sku,
+                $it->name,
+                (float) $it->price,
+                $it->sale_price !== null ? (float) $it->sale_price : '',
+                $it->stock,
+                $statusText,
+                $featuredText,
+                $it->slug,
+                $it->published_at ? $it->published_at->format('Y-m-d H:i') : '',
+                $it->meli_item_id ?? '',
+            ];
+        }
+
+        $export = new class($rows) implements FromArray, ShouldAutoSize, WithEvents {
+            private array $rows;
+
+            public function __construct(array $rows)
+            {
+                $this->rows = array_values($rows);
+            }
+
+            public function array(): array
+            {
+                return $this->rows;
+            }
+
+            public function registerEvents(): array
+            {
+                return [
+                    AfterSheet::class => function (AfterSheet $event) {
+                        $sheet = $event->sheet->getDelegate();
+
+                        // Fila de encabezados (fila 3 => índice 2 en $this->rows)
+                        $headerIndex       = 2;
+                        $headerColumnCount = count($this->rows[$headerIndex]);
+                        $lastColumnLetter  = Coordinate::stringFromColumnIndex($headerColumnCount);
+
+                        // 🔹 Título (A1:última_columna1)
+                        $sheet->mergeCells("A1:{$lastColumnLetter}1");
+                        $sheet->getStyle("A1")->applyFromArray([
+                            'font' => [
+                                'bold' => true,
+                                'size' => 16,
+                            ],
+                            'alignment' => [
+                                'horizontal' => Alignment::HORIZONTAL_LEFT,
+                                'vertical'   => Alignment::VERTICAL_CENTER,
+                            ],
+                        ]);
+
+                        // 🔹 Encabezados (fila 3)
+                        $sheet->getStyle("A3:{$lastColumnLetter}3")->applyFromArray([
+                            'font' => [
+                                'bold' => true,
+                            ],
+                            'alignment' => [
+                                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                                'vertical'   => Alignment::VERTICAL_CENTER,
+                            ],
+                            'fill' => [
+                                'fillType'   => Fill::FILL_SOLID,
+                                'startColor' => ['argb' => 'FFE5E7EB'], // gris claro
+                            ],
+                            'borders' => [
+                                'bottom' => [
+                                    'borderStyle' => Border::BORDER_THIN,
+                                    'color'       => ['argb' => 'FF9CA3AF'],
+                                ],
+                            ],
+                        ]);
+
+                        // 🔹 Bordes suaves para todo el rango de datos (desde encabezados hacia abajo)
+                        $lastRow = count($this->rows);
+                        $sheet->getStyle("A3:{$lastColumnLetter}{$lastRow}")->applyFromArray([
+                            'borders' => [
+                                'allBorders' => [
+                                    'borderStyle' => Border::BORDER_HAIR,
+                                    'color'       => ['argb' => 'FFD1D5DB'],
+                                ],
+                            ],
+                        ]);
+                    },
+                ];
+            }
+        };
+
+        return Excel::download($export, 'inventario-jureto.xlsx');
+    }
+
+    /**
+     * Exportar a PDF:
+     * - Logo arriba (public/images/logo-mail.png)
+     * - Título debajo del logo
+     * - Tabla con todos los datos
+     */
+    public function exportPdf(Request $request)
+    {
+        $q = CatalogItem::query();
+
+        $s = trim((string) $request->get('s', ''));
+        if ($s !== '') {
+            $q->where(function ($qq) use ($s) {
+                $qq->where('name', 'like', "%{$s}%")
+                   ->orWhere('sku', 'like', "%{$s}%");
+            });
+        }
+
+        if ($request->filled('status')) {
+            $q->where('status', (int) $request->integer('status'));
+        }
+
+        if ($request->boolean('featured_only')) {
+            $q->where('is_featured', true);
+        }
+
+        $items = $q->orderBy('id')->get();
+
+        // Logo como base64 para que DomPDF lo agarre sin broncas
+        $logoBase64 = null;
+        $logoPath   = public_path('images/logo-mail.png');
+        if (is_file($logoPath)) {
+            $logoData   = file_get_contents($logoPath);
+            $logoBase64 = 'data:image/png;base64,'.base64_encode($logoData);
+        }
+
+        $html  = '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">';
+        $html .= '<style>
+          *{ box-sizing:border-box; }
+          body{
+            font-family: DejaVu Sans, sans-serif;
+            font-size:11px;
+            color:#111827;
+            margin:20px;
+          }
+          .logo-wrap{
+            text-align:left;
+            margin-bottom:8px;
+          }
+          .logo{
+            height:40px;
+          }
+          .title-main{
+            font-size:16px;
+            font-weight:800;
+            margin:0 0 2px;
+          }
+          .top-sub{
+            font-size:11px;
+            color:#6b7280;
+            margin:0 0 12px;
+          }
+          table{
+            width:100%;
+            border-collapse:collapse;
+            margin-top:4px;
+          }
+          th,td{
+            padding:6px 5px;
+            border:1px solid #d1d5db;
+          }
+          th{
+            background:#f3f4f6;
+            font-weight:700;
+            font-size:11px;
+          }
+          td{
+            font-size:10px;
+          }
+          .muted{
+            color:#6b7280;
+          }
+        </style></head><body>';
+
+        // 🔹 Logo arriba de todo
+        if ($logoBase64) {
+            $html .= '<div class="logo-wrap"><img class="logo" src="'.$logoBase64.'" alt="Logo Jureto"></div>';
+        }
+
+        // 🔹 Título y subtítulo
+        $html .= '<h1 class="title-main">Inventario interno de Jureto</h1>';
+        $html .= '<p class="top-sub">Listado de productos con filtros actuales</p>';
+
+        // Tabla
+        $html .= '<table><thead><tr>';
+        $html .= '<th>ID</th>';
+        $html .= '<th>SKU</th>';
+        $html .= '<th>Nombre</th>';
+        $html .= '<th>Precio</th>';
+        $html .= '<th>Oferta</th>';
+        $html .= '<th>Stock</th>';
+        $html .= '<th>Estado</th>';
+        $html .= '<th>Destacado</th>';
+        $html .= '<th>Slug</th>';
+        $html .= '<th>Publicado</th>';
+        $html .= '<th>ML ID</th>';
+        $html .= '</tr></thead><tbody>';
+
+        foreach ($items as $it) {
+            $statusText = match ((int) $it->status) {
+                1       => 'Publicado',
+                2       => 'Oculto',
+                default => 'Borrador',
+            };
+            $featuredText = $it->is_featured ? 'Sí' : 'No';
+
+            $html .= '<tr>';
+            $html .= '<td>'.htmlspecialchars((string) $it->id).'</td>';
+            $html .= '<td>'.htmlspecialchars((string) ($it->sku ?? '')).'</td>';
+            $html .= '<td>'.htmlspecialchars((string) $it->name).'</td>';
+            $html .= '<td>$'.number_format((float) $it->price, 2).'</td>';
+            $html .= '<td>'.($it->sale_price !== null ? '$'.number_format((float) $it->sale_price, 2) : '—').'</td>';
+            $html .= '<td>'.htmlspecialchars((string) ($it->stock ?? 0)).'</td>';
+            $html .= '<td>'.htmlspecialchars($statusText).'</td>';
+            $html .= '<td>'.htmlspecialchars($featuredText).'</td>';
+            $html .= '<td>'.htmlspecialchars((string) $it->slug).'</td>';
+            $html .= '<td>'.($it->published_at ? htmlspecialchars($it->published_at->format('Y-m-d H:i')) : '—').'</td>';
+            $html .= '<td>'.htmlspecialchars((string) ($it->meli_item_id ?? '')).'</td>';
+            $html .= '</tr>';
+        }
+
+        if ($items->isEmpty()) {
+            $html .= '<tr><td colspan="11" class="muted" style="text-align:center;padding:14px 6px;">';
+            $html .= 'No hay productos que coincidan con el filtro.';
+            $html .= '</td></tr>';
+        }
+
+        $html .= '</tbody></table></body></html>';
+
+        $pdf = Pdf::loadHTML($html)->setPaper('a4', 'landscape');
+
+        return $pdf->download('inventario-jureto.pdf');
+    }
+
+    /* =========================
+     |  CRUD
+     ==========================*/
+
     public function create()
     {
         $categories = config('catalog.product_categories', []);
@@ -71,10 +385,10 @@ class CatalogItemController extends Controller implements HasMiddleware
             'input' => $request->all(),
         ]);
 
-        // ✅ Validación SOLO de campos de texto/numéricos (SIN fotos aquí)
+        // Validación SOLO de campos de texto/numéricos (SIN fotos aquí)
         $data = $request->validate([
             'name'        => ['required', 'string', 'max:255'],
-            'slug'        => ['nullable', 'string', 'max:255'], // sin unique (lo generamos)
+            'slug'        => ['nullable', 'string', 'max:255'],
             'sku'         => ['nullable', 'string', 'max:120'],
             'price'       => ['required', 'numeric', 'min:0'],
             'sale_price'  => ['nullable', 'numeric', 'min:0'],
@@ -82,16 +396,15 @@ class CatalogItemController extends Controller implements HasMiddleware
             'status'      => ['required', 'integer', 'in:0,1,2'], // 0=borrador 1=publicado 2=oculto
             'is_featured' => ['nullable', 'boolean'],
 
-            // 🔹 Categoría tipo string (clave de config/catalog.php)
-            // Ej: pap_escritura_lapices_grafito
+            // Categoría string (clave de config/catalog.php)
             'category_key'=> ['nullable', 'string', 'max:190'],
 
-            // Clasificación interna (si la sigues usando)
+            // Clasificación interna
             'use_internal'=> ['nullable', 'boolean'],
             'brand_id'    => ['nullable', 'integer'],
             'category_id' => ['nullable', 'integer'],
 
-            // MercadoLibre texto
+            // Mercado Libre texto
             'brand_name'  => ['nullable', 'string', 'max:120'],
             'model_name'  => ['nullable', 'string', 'max:120'],
             'meli_gtin'   => ['nullable', 'string', 'max:50'],
@@ -105,7 +418,7 @@ class CatalogItemController extends Controller implements HasMiddleware
             'data' => $data,
         ]);
 
-        // (Opcional) asegurar que la clave existe en el config
+        // Validar que la category_key exista (si viene)
         if (!empty($data['category_key'])) {
             $validKeys = array_keys(config('catalog.product_categories', []));
             if (!in_array($data['category_key'], $validKeys, true)) {
@@ -116,7 +429,7 @@ class CatalogItemController extends Controller implements HasMiddleware
             }
         }
 
-        // 🔹 Slug base: slug enviado o nombre
+        // Slug base: slug enviado o nombre
         $baseSlug = isset($data['slug']) && trim($data['slug']) !== ''
             ? Str::slug($data['slug'])
             : Str::slug($data['name']);
@@ -125,25 +438,24 @@ class CatalogItemController extends Controller implements HasMiddleware
             $baseSlug = Str::slug(Str::random(8));
         }
 
-        // 🔹 Asegurar slug ÚNICO (slug, slug-1, slug-2, ...)
+        // Slug único (slug, slug-1, slug-2, ...)
         $slug = $baseSlug;
         $i = 1;
         while (CatalogItem::where('slug', $slug)->exists()) {
-            $slug = $baseSlug . '-' . ($i++);
+            $slug = $baseSlug.'-'.($i++);
         }
         $data['slug'] = $slug;
 
         $data['is_featured'] = (bool) ($data['is_featured'] ?? false);
         $data['stock']       = $data['stock'] ?? 0;
 
-        // 🔹 si NO usan clasificación interna, limpiamos ids
+        // Si no usan clasificación interna, limpiar ids
         if (!$request->boolean('use_internal')) {
             $data['brand_id']    = null;
             $data['category_id'] = null;
         }
 
         try {
-            // Creamos el item SIN las fotos (porque vienen como files por separado)
             $item = CatalogItem::create($data);
 
             Log::info('CatalogItem@store: item creado en BD', [
@@ -163,12 +475,12 @@ class CatalogItemController extends Controller implements HasMiddleware
                 ->withErrors(['general' => 'No se pudo guardar el producto en la base de datos. Revisa el log para más detalles.']);
         }
 
-        // Guardar 3 fotos (obligatorias para que pase ensureThreePhotos)
+        // Guardar 3 fotos
         $this->saveOrReplacePhoto($request, $item, 'photo_1', 'photo_1_file');
         $this->saveOrReplacePhoto($request, $item, 'photo_2', 'photo_2_file');
         $this->saveOrReplacePhoto($request, $item, 'photo_3', 'photo_3_file');
 
-        // Validación final (por si no se subió alguna)
+        // Validación final de fotos
         try {
             $this->ensureThreePhotos($item);
         } catch (ValidationException $e) {
@@ -179,10 +491,9 @@ class CatalogItemController extends Controller implements HasMiddleware
             throw $e;
         }
 
-        // Sincronización con Mercado Libre (no rompe la UI si falla)
+        // Sync ML (no rompe UI si falla)
         $this->dispatchMeliSync($item->fresh());
 
-        // 👉 Para peticiones AJAX (fetch desde la vista)
         if ($request->wantsJson()) {
             return response()->json([
                 'ok'   => true,
@@ -191,7 +502,6 @@ class CatalogItemController extends Controller implements HasMiddleware
             ]);
         }
 
-        // 👉 Flujo normal: regresar a create para seguir capturando
         return redirect()
             ->route('admin.catalog.create')
             ->with('ok', 'Producto web creado. Puedes seguir capturando más productos.');
@@ -214,7 +524,6 @@ class CatalogItemController extends Controller implements HasMiddleware
             'input'   => $request->all(),
         ]);
 
-        // ✅ Igual que store, SIN validar fotos aquí
         $data = $request->validate([
             'name'        => ['required', 'string', 'max:255'],
             'slug'        => ['nullable', 'string', 'max:255'],
@@ -225,9 +534,7 @@ class CatalogItemController extends Controller implements HasMiddleware
             'status'      => ['required', 'integer', 'in:0,1,2'],
             'is_featured' => ['nullable', 'boolean'],
 
-            // 🔹 Categoría string
             'category_key'=> ['nullable', 'string', 'max:190'],
-
             'use_internal'=> ['nullable', 'boolean'],
             'brand_id'    => ['nullable', 'integer'],
             'category_id' => ['nullable', 'integer'],
@@ -245,7 +552,6 @@ class CatalogItemController extends Controller implements HasMiddleware
             'data'    => $data,
         ]);
 
-        // (Opcional) validar que la clave exista
         if (!empty($data['category_key'])) {
             $validKeys = array_keys(config('catalog.product_categories', []));
             if (!in_array($data['category_key'], $validKeys, true)) {
@@ -257,7 +563,6 @@ class CatalogItemController extends Controller implements HasMiddleware
             }
         }
 
-        // 🔹 Slug base igual que en store
         $baseSlug = isset($data['slug']) && trim($data['slug']) !== ''
             ? Str::slug($data['slug'])
             : Str::slug($data['name']);
@@ -266,7 +571,6 @@ class CatalogItemController extends Controller implements HasMiddleware
             $baseSlug = Str::slug(Str::random(8));
         }
 
-        // 🔹 Slug único ignorando el propio registro
         $slug = $baseSlug;
         $i = 1;
         while (
@@ -274,7 +578,7 @@ class CatalogItemController extends Controller implements HasMiddleware
                 ->where('id', '!=', $catalogItem->id)
                 ->exists()
         ) {
-            $slug = $baseSlug . '-' . ($i++);
+            $slug = $baseSlug.'-'.($i++);
         }
         $data['slug']        = $slug;
         $data['is_featured'] = (bool) ($data['is_featured'] ?? false);
@@ -286,7 +590,6 @@ class CatalogItemController extends Controller implements HasMiddleware
         }
 
         try {
-            // Actualizamos datos base
             $catalogItem->update($data);
 
             Log::info('CatalogItem@update: item actualizado en BD', [
@@ -307,12 +610,10 @@ class CatalogItemController extends Controller implements HasMiddleware
                 ->withErrors(['general' => 'No se pudo actualizar el producto en la base de datos. Revisa el log para más detalles.']);
         }
 
-        // Reemplazar fotos SOLO si vienen (sin mimes ni nada)
         $this->saveOrReplacePhoto($request, $catalogItem, 'photo_1', 'photo_1_file');
         $this->saveOrReplacePhoto($request, $catalogItem, 'photo_2', 'photo_2_file');
         $this->saveOrReplacePhoto($request, $catalogItem, 'photo_3', 'photo_3_file');
 
-        // Deben existir 3 siempre
         try {
             $this->ensureThreePhotos($catalogItem);
         } catch (ValidationException $e) {
@@ -334,7 +635,6 @@ class CatalogItemController extends Controller implements HasMiddleware
             'item_id' => $catalogItem->id,
         ]);
 
-        // borrar fotos del storage antes de eliminar
         $this->deletePublicFileIfExists($catalogItem->photo_1);
         $this->deletePublicFileIfExists($catalogItem->photo_2);
         $this->deletePublicFileIfExists($catalogItem->photo_3);
@@ -492,11 +792,10 @@ class CatalogItemController extends Controller implements HasMiddleware
             ], 422);
         }
 
-        // === Config OpenAI ===
+        // Config OpenAI
         $apiKey  = config('services.openai.api_key') ?: config('services.openai.key');
         $baseUrl = rtrim(config('services.openai.base_url', 'https://api.openai.com'), '/');
 
-        // Modelo rápido (ajustable)
         $modelId = 'gpt-4.1-mini';
 
         if (!$apiKey) {
@@ -566,7 +865,7 @@ class CatalogItemController extends Controller implements HasMiddleware
             ], 500);
         }
 
-        // 2) Llamar a /v1/responses pidiendo varios productos
+        // 2) Llamar a /v1/responses
         $systemPrompt = <<<TXT
 Eres un asistente experto en catálogo de productos, papelería, equipo médico y comercio electrónico (México).
 
@@ -652,7 +951,7 @@ TXT;
 
             $json = $response->json();
 
-            // Extraer texto del output
+            // Extraer texto
             $rawText = null;
 
             if (isset($json['output']) && is_array($json['output'])) {
@@ -706,7 +1005,7 @@ TXT;
             foreach ($items as $row) {
                 if (!is_array($row)) continue;
 
-                // Normalizar precio
+                // Precio
                 $price = $row['price'] ?? null;
                 if (is_string($price)) {
                     $clean = preg_replace('/[^0-9.,]/', '', $price);
@@ -714,7 +1013,7 @@ TXT;
                     $price = is_numeric($clean) ? (float) $clean : null;
                 }
 
-                // Normalizar cantidad -> stock sugerido
+                // Cantidad -> stock sugerido
                 $qty = $row['quantity'] ?? ($row['qty'] ?? ($row['cantidad'] ?? ($row['stock'] ?? null)));
                 if (is_string($qty)) {
                     $cleanQty = preg_replace('/[^0-9]/', '', $qty);
@@ -768,7 +1067,6 @@ TXT;
                 'ensure_picture'     => false,
             ]);
         } catch (\Throwable $e) {
-            // no romper la interfaz
             Log::warning('CatalogItem@dispatchMeliSync: error no crítico', [
                 'item_id'   => $item->id,
                 'exception' => $e->getMessage(),
@@ -777,7 +1075,7 @@ TXT;
     }
 
     /* =========================
-     |  FOTOS: 3 CAMPOS
+     |  FOTOS
      ==========================*/
 
     private function saveOrReplacePhoto(Request $request, CatalogItem $item, string $column, string $input): void
@@ -785,7 +1083,6 @@ TXT;
         /** @var UploadedFile|null $file */
         $file = $request->file($input);
 
-        // Si no viene archivo, no hacemos nada (en create luego falla ensureThreePhotos si faltan)
         if (!$file instanceof UploadedFile) {
             return;
         }
@@ -801,13 +1098,11 @@ TXT;
             ]);
         }
 
-        // borrar anterior si existe
         $old = $item->{$column};
         if ($old) {
             $this->deletePublicFileIfExists($old);
         }
 
-        // Se guarda tal cual en el disco "public"
         $path = $file->store('catalog/photos', 'public');
         $item->{$column} = $path;
         $item->save();
@@ -854,7 +1149,7 @@ TXT;
     public function updateStock(Request $request, CatalogItem $catalogItem)
     {
         $data = $request->validate([
-            'stock' => ['required','numeric','min:0'],
+            'stock' => ['required', 'numeric', 'min:0'],
         ]);
 
         $catalogItem->stock = $data['stock'];

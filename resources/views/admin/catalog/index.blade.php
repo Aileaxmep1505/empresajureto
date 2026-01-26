@@ -1,4 +1,4 @@
-{{-- ✅ PÉGALO COMPLETO
+{{-- ✅ PÉGALO COMPLETO  
    - Desktop: TODO igual.
    - Móvil:
       - El BUSCADOR se queda ARRIBA (visible como ahora).
@@ -34,10 +34,20 @@
   .card{background:var(--surface); border:1px solid var(--line); border-radius:var(--r); box-shadow:var(--shadow);}
 
   /* ===== Header ===== */
-  .head{display:flex; gap:14px; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; margin:14px 0 10px;}
+  .head{
+    display:flex; gap:14px; align-items:flex-start;
+    justify-content:space-between; flex-wrap:wrap;
+    margin:14px 0 10px;
+  }
   .title{font-weight:900; color:var(--ink); letter-spacing:-.02em; margin:0}
   .muted{color:var(--muted)}
   .subtxt{margin-top:6px;font-size:.92rem;max-width:70ch}
+  .head-actions{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    flex-wrap:wrap;
+  }
 
   /* ===== Botón pastel ===== */
   .btn{
@@ -320,6 +330,84 @@
     background:#f3f4f6;
   }
 
+  /* ===== MODAL DESCARGA ===== */
+  .dl-modal{
+    position:fixed;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:1150;
+    pointer-events:none;
+    opacity:0;
+    transition:opacity .18s ease;
+  }
+  .dl-modal.is-open{
+    pointer-events:auto;
+    opacity:1;
+  }
+  .dl-modal__overlay{
+    position:absolute;
+    inset:0;
+    background:rgba(15,23,42,.45);
+    backdrop-filter:blur(4px);
+  }
+  .dl-modal__card{
+    position:relative;
+    z-index:1;
+    width:100%;
+    max-width:380px;
+    background:#ffffff;
+    border-radius:18px;
+    box-shadow:0 24px 70px rgba(15,23,42,.45);
+    border:1px solid rgba(226,232,240,.9);
+    padding:18px 18px 16px;
+  }
+  .dl-modal__head{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:10px;
+    margin-bottom:10px;
+  }
+  .dl-modal__title{
+    margin:0;
+    font-size:15px;
+    font-weight:900;
+    letter-spacing:-.01em;
+    color:var(--ink);
+  }
+  .dl-modal__subtitle{
+    margin:4px 0 0;
+    font-size:.85rem;
+    color:var(--muted);
+  }
+  .dl-modal__close{
+    width:32px;
+    height:32px;
+    border-radius:12px;
+    border:1px solid var(--line);
+    background:#fff;
+    display:grid;
+    place-items:center;
+    cursor:pointer;
+    box-shadow:0 8px 20px rgba(15,23,42,.12);
+  }
+  .dl-modal__close svg{ width:16px; height:16px; }
+  .dl-modal__body{
+    margin-top:8px;
+    display:grid;
+    gap:10px;
+  }
+  .btn-soft{
+    background:#f9fafb;
+    border-color:#e5e7eb;
+    color:#111827;
+  }
+  .btn-soft:hover{
+    background:#ffffff;
+  }
+
   /* ===== Mobile: search visible, tools -> sheet, table -> cards ===== */
   @media (max-width: 760px){
     .wrap{ padding:0 10px; }
@@ -328,8 +416,11 @@
     /* ocultamos SOLO los tools, el search se queda */
     .filter-tools{ display:none !important; }
 
-    /* Desktop Nuevo fuera */
-    .head .tt-new{ display:none !important; }
+    /* Desktop Nuevo y Descargar fuera */
+    .head .tt-new,
+    .head .tt-download{
+      display:none !important;
+    }
 
     /* table to cards */
     .table-wrap{ border:0; background:transparent; overflow:visible; box-shadow:none; }
@@ -353,7 +444,8 @@
     .actions{ justify-content:flex-start; margin-top:12px; padding-top:10px; border-top:1px dashed rgba(232,238,246,.9); }
     .iconbtn{ width:44px; height:44px; border-radius:16px; }
 
-    .stock-modal__card{
+    .stock-modal__card,
+    .dl-modal__card{
       max-width:92%;
     }
   }
@@ -418,6 +510,15 @@
   .sheet .tabs::-webkit-scrollbar{ height:0; }
   .sheet .chip{ width:100%; justify-content:center; }
   .sheet .btn{ width:100%; justify-content:center; padding:12px 14px; border-radius:16px; }
+
+  .sheet-section-label{
+    font-size:.78rem;
+    font-weight:800;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    color:#9ca3af;
+    margin-top:4px;
+  }
 
   .sheet-open .sheet-overlay{ opacity:1; pointer-events:auto; }
   .sheet-open .sheet{ bottom:0; }
@@ -503,6 +604,70 @@
     border-color:#fecaca;
     color:#fecaca;
   }
+
+  /* ===== Pagination (sin Tailwind) ===== */
+  .pagi{
+    display:flex;
+    align-items:center;
+    justify-content:flex-end;
+    gap:8px;
+    flex-wrap:wrap;
+  }
+
+  .pagi .page{
+    height:40px;
+    min-width:40px;
+    padding:0 12px;
+    border-radius:14px;
+    border:1px solid var(--line);
+    background:#fff;
+    color:#334155;
+    font-weight:900;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    text-decoration:none;
+    box-shadow:0 10px 18px rgba(15,23,42,.05);
+    transition:transform .12s ease, box-shadow .12s ease, background .12s ease, border-color .12s ease;
+  }
+
+  .pagi .page:hover{
+    transform:translateY(-1px);
+    box-shadow:0 14px 26px rgba(15,23,42,.08);
+    border-color:rgba(52,211,153,.28);
+  }
+
+  .pagi .page.is-active{
+    background:var(--acc-soft);
+    border-color:var(--acc-ring);
+    color:var(--acc-ink);
+    box-shadow:0 14px 26px rgba(52,211,153,.12);
+  }
+
+  .pagi .page.is-disabled{
+    opacity:.45;
+    pointer-events:none;
+    box-shadow:none;
+  }
+
+  .pagi .page.is-ellipsis{
+    opacity:.8;
+    pointer-events:none;
+    box-shadow:none;
+  }
+
+  .pagi .page svg{
+    width:18px;
+    height:18px;
+    display:block;
+  }
+
+  /* Mobile: centrado y un poquito más compacto */
+  @media (max-width: 760px){
+    .pagi{ justify-content:center; }
+    .pagi .page{ height:44px; min-width:44px; border-radius:16px; }
+  }
 </style>
 @endpush
 
@@ -517,17 +682,31 @@
       <p class="muted subtxt">Gestiona el catálogo público y sincroniza con Mercado Libre con acciones rápidas.</p>
     </div>
 
-    {{-- Desktop: queda normal --}}
-    <div class="tt tt-new">
-      <span class="tt-bubble">Crear nuevo producto</span>
-      <a href="{{ route('admin.catalog.create') }}" class="btn">
-        <span class="ico">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 5v14M5 12h14"/>
-          </svg>
-        </span>
-        Nuevo
-      </a>
+    {{-- Desktop: Nuevo + Descargar --}}
+    <div class="head-actions">
+      <div class="tt tt-download">
+        <span class="tt-bubble">Descargar listado (Excel o PDF)</span>
+        <button type="button" class="btn btn-sm" id="downloadOpenBtn">
+          <span class="ico">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 3v12"/><path d="M7 11l5 5 5-5"/><path d="M5 19h14"/>
+            </svg>
+          </span>
+          Descargar
+        </button>
+      </div>
+
+      <div class="tt tt-new">
+        <span class="tt-bubble">Crear nuevo producto</span>
+        <a href="{{ route('admin.catalog.create') }}" class="btn">
+          <span class="ico">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 5v14M5 12h14"/>
+            </svg>
+          </span>
+          Nuevo
+        </a>
+      </div>
     </div>
   </div>
 
@@ -855,7 +1034,58 @@
       Mostrando {{ $items->firstItem() ?? 0 }}–{{ $items->lastItem() ?? 0 }} de {{ $items->total() }} registros
     </div>
     <div>
-      {{ $items->onEachSide(1)->links() }}
+      @php
+        // ✅ Preserva querystring (s, status, featured_only, etc.)
+        $items->appends(request()->query());
+        $links = $items->toArray()['links'] ?? [];
+      @endphp
+
+      <nav class="pagi" aria-label="Paginación">
+        @foreach($links as $link)
+          @php
+            $label = strip_tags($link['label']);
+            $isPrev = $loop->first;
+            $isNext = $loop->last;
+            $isDots = ($label === '...' || $label === '…');
+            $url = $link['url'];
+            $active = (bool)($link['active'] ?? false);
+            $disabled = is_null($url) && !$active && !$isDots;
+          @endphp
+
+          {{-- Prev --}}
+          @if($isPrev)
+            <a class="page {{ $disabled ? 'is-disabled' : '' }}"
+               href="{{ $url ?: 'javascript:void(0)' }}"
+               aria-label="Anterior">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M15 18l-6-6 6-6"/>
+              </svg>
+            </a>
+
+          {{-- Next --}}
+          @elseif($isNext)
+            <a class="page {{ $disabled ? 'is-disabled' : '' }}"
+               href="{{ $url ?: 'javascript:void(0)' }}"
+               aria-label="Siguiente">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 6l6 6-6 6"/>
+              </svg>
+            </a>
+
+          {{-- Dots --}}
+          @elseif($isDots)
+            <span class="page is-ellipsis" aria-hidden="true">…</span>
+
+          {{-- Page number --}}
+          @else
+            <a class="page {{ $active ? 'is-active' : '' }} {{ $url ? '' : 'is-disabled' }}"
+               href="{{ $url ?: 'javascript:void(0)' }}"
+               aria-label="Página {{ $label }}">
+              {{ $label }}
+            </a>
+          @endif
+        @endforeach
+      </nav>
     </div>
   </div>
 </div>
@@ -902,6 +1132,46 @@
   </div>
 </div>
 
+{{-- ✅ MODAL DESCARGA (desktop) --}}
+<div id="downloadModal" class="dl-modal">
+  <div class="dl-modal__overlay"></div>
+  <div class="dl-modal__card">
+    <div class="dl-modal__head">
+      <div>
+        <h3 class="dl-modal__title">Descargar listado</h3>
+        <p class="dl-modal__subtitle">Incluye los productos con los filtros actuales.</p>
+      </div>
+      <button type="button" class="dl-modal__close" id="downloadCloseBtn" aria-label="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6L6 18M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="dl-modal__body">
+      <a href="{{ route('admin.catalog.export.excel', request()->query()) }}"
+         class="btn">
+        <span class="ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 3h16v18H4z"/><path d="M8 7l8 10"/><path d="M16 7L8 17"/>
+          </svg>
+        </span>
+        Excel (.xlsx)
+      </a>
+
+      <a href="{{ route('admin.catalog.export.pdf', request()->query()) }}"
+         class="btn btn-soft">
+        <span class="ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M6 2h9l5 5v15H6z"/><path d="M15 2v5h5"/><path d="M9 13h3"/><path d="M9 17h6"/>
+          </svg>
+        </span>
+        PDF
+      </a>
+    </div>
+  </div>
+</div>
+
 {{-- ✅ FAB (móvil) abre Bottom Sheet SOLO filtros --}}
 <button class="fab" id="fabOpen" type="button" aria-label="Abrir filtros">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -922,7 +1192,7 @@
     </button>
   </div>
 
-  {{-- ✅ En el sheet NO va el buscador (se queda arriba), solo estado + destacados + limpiar + nuevo --}}
+  {{-- ✅ En el sheet NO va el buscador (se queda arriba), solo estado + destacados + limpiar + nuevo + descargas --}}
   <form id="sheetForm" method="GET" action="{{ route('admin.catalog.index') }}" class="sf">
     {{-- preserva el search que ya está arriba --}}
     <input type="hidden" name="s" id="sMirror" value="{{ request('s') }}">
@@ -960,6 +1230,29 @@
         Limpiar filtros
       </a>
     @endif
+
+    {{-- Descargas en bottom sheet (móvil) --}}
+    <div class="sheet-section-label">Descargar listado</div>
+
+    <a href="{{ route('admin.catalog.export.excel', request()->query()) }}"
+       class="btn">
+      <span class="ico">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M4 3h16v18H4z"/><path d="M8 7l8 10"/><path d="M16 7L8 17"/>
+        </svg>
+      </span>
+      Excel (.xlsx)
+    </a>
+
+    <a href="{{ route('admin.catalog.export.pdf', request()->query()) }}"
+       class="btn btn-soft">
+      <span class="ico">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M6 2h9l5 5v15H6z"/><path d="M15 2v5h5"/><path d="M9 13h3"/><path d="M9 17h6"/>
+        </svg>
+      </span>
+      PDF
+    </a>
   </form>
 </div>
 @endsection
@@ -1085,8 +1378,30 @@
   stockOverlay?.addEventListener('click', closeStockModal);
   stockCloseBtn?.addEventListener('click', closeStockModal);
   stockCancelBtn?.addEventListener('click', closeStockModal);
+
+  // ===== MODAL DESCARGA (desktop) =====
+  const dlModal = document.getElementById('downloadModal');
+  const dlOverlay = dlModal?.querySelector('.dl-modal__overlay');
+  const dlOpenBtn = document.getElementById('downloadOpenBtn');
+  const dlCloseBtn = document.getElementById('downloadCloseBtn');
+
+  function openDownloadModal(){
+    if(!dlModal) return;
+    dlModal.classList.add('is-open');
+  }
+  function closeDownloadModal(){
+    dlModal?.classList.remove('is-open');
+  }
+
+  dlOpenBtn?.addEventListener('click', openDownloadModal);
+  dlOverlay?.addEventListener('click', closeDownloadModal);
+  dlCloseBtn?.addEventListener('click', closeDownloadModal);
+
   document.addEventListener('keydown', (e)=>{
-    if(e.key === 'Escape') closeStockModal();
+    if(e.key === 'Escape'){
+      closeStockModal();
+      closeDownloadModal();
+    }
   });
 
   // ===== SweetAlert confirm genérico =====

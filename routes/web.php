@@ -1668,3 +1668,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('tech-sheets/{sheet}/pdf',   [TechSheetController::class, 'pdf'])->name('tech-sheets.pdf');
     Route::get('tech-sheets/{sheet}/word',  [TechSheetController::class, 'word'])->name('tech-sheets.word');
 });
+
+
+Route::get('/admin/catalog/export/excel', [CatalogItemController::class, 'exportExcel'])
+    ->name('admin.catalog.export.excel');
+
+Route::get('/admin/catalog/export/pdf', [CatalogItemController::class, 'exportPdf'])
+    ->name('admin.catalog.export.pdf');
