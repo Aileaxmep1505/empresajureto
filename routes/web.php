@@ -1724,3 +1724,14 @@ Route::get('/ficha/{token}', [\App\Http\Controllers\TechSheetController::class, 
 // QR PNG de la ficha pública
 Route::get('/ficha/{token}/qr', [\App\Http\Controllers\TechSheetController::class, 'qr'])
     ->name('tech-sheets.qr');
+
+    Route::middleware(['auth'])
+  ->prefix('admin')
+  ->name('admin.')
+  ->group(function () {
+
+    // ...tus rutas admin existentes...
+
+    Route::get('/orders/export', [OrderController::class, 'export'])
+      ->name('orders.export');
+  });

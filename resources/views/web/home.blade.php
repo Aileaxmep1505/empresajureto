@@ -629,7 +629,6 @@
 }
 
 </style>
-
 @php
   // Colecciones
   $novedades = \App\Models\CatalogItem::published()
@@ -643,10 +642,45 @@
               ->ordered()->take(12)->get();
 
   $isNew = fn($i) => ($i->published_at ?? null) && \Illuminate\Support\Carbon::parse($i->published_at)->gte(now()->subDays(30));
+
   $discountPct = function($i){
     return (!is_null($i->sale_price) && $i->price && $i->sale_price < $i->price)
       ? max(1, round(100 - (($i->sale_price/$i->price)*100)))
       : null;
+  };
+
+  /**
+   * ✅ Ahora usa photo_1 / photo_2 / photo_3 (primera disponible).
+   * Soporta:
+   * - URL completa (http/https)
+   * - "storage/..." => asset()
+   * - path interno => Storage::url()
+   * - fallback placeholder
+   */
+  $pickPhotoUrl = function($p){
+    $candidates = [
+      $p->photo_1 ?? null,
+      $p->photo_2 ?? null,
+      $p->photo_3 ?? null,
+    ];
+
+    $raw = collect($candidates)->filter(fn($v) => is_string($v) && trim($v) !== '')->first();
+
+    if(!$raw){
+      return asset('images/placeholder.png');
+    }
+
+    $raw = trim($raw);
+
+    if (\Illuminate\Support\Str::startsWith($raw, ['http://','https://'])) {
+      return $raw;
+    }
+
+    if (\Illuminate\Support\Str::startsWith($raw, ['storage/'])) {
+      return asset($raw);
+    }
+
+    return \Illuminate\Support\Facades\Storage::url($raw);
   };
 @endphp
 
@@ -664,7 +698,7 @@
         @foreach($novedades as $p)
           @php
             $off  = $discountPct($p);
-            $img  = $p->image_url ?: asset('images/placeholder.png');
+            $img  = $pickPhotoUrl($p);
             $desc = $p->excerpt ?: \Illuminate\Support\Str::limit(strip_tags($p->description ?? ''), 120);
           @endphp
           <div class="pc-col">
@@ -756,7 +790,7 @@
         @foreach($ofertas as $p)
           @php
             $off  = $discountPct($p);
-            $img  = $p->image_url ?: asset('images/placeholder.png');
+            $img  = $pickPhotoUrl($p);
             $desc = $p->excerpt ?: \Illuminate\Support\Str::limit(strip_tags($p->description ?? ''), 120);
           @endphp
           <div class="pc-col">
@@ -840,6 +874,7 @@
   </div>
 </section>
 @endif
+
 {{-- ======= Hero (tu bloque original, ajustado para móvil) ======= --}}
 <section id="hero-full-pap">
   <style>
