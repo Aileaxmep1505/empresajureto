@@ -2,10 +2,6 @@
 @php
   use Illuminate\Support\Str;
 
-  // ✅ Esta vista espera $sheet (igual que show.blade.php)
-  // Si tu publicShow() manda otra variable (ej: $techSheet),
-  // cambia abajo: $sheet = $techSheet;
-
   $features = $sheet->ai_features ?? [];
   $specs    = $sheet->ai_specs ?? [];
   $desc     = $sheet->ai_description ?: $sheet->user_description;
@@ -33,9 +29,7 @@
     html,body{ background:var(--bg); margin:0; padding:0; }
     body{ font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
 
-    #ts-public{
-      padding:16px 0 26px;
-    }
+    #ts-public{ padding:16px 0 26px; }
 
     #ts-public .ts-wrap{
       max-width:980px;
@@ -136,6 +130,8 @@
       gap:6px;
       border:1px solid rgba(148,163,184,.55);
       box-shadow:0 14px 30px rgba(0,0,0,.45);
+      z-index:3;
+      white-space:nowrap;
     }
     #ts-public .ts-logo img{
       height:26px;
@@ -320,15 +316,47 @@
       width:14px; height:14px;
     }
 
+    /* ===========================
+       ✅ FIX SOLO MÓVIL (sin tocar desktop)
+       - reservamos espacio para el logo flotante
+       - evitamos que las pastillas entren debajo del logo
+       =========================== */
     @media (max-width: 768px){
       #ts-public .ts-wrap{ padding:0 4px; }
       #ts-public .ts-header{ flex-direction:column; }
       #ts-public .ts-img-box{ flex:1 1 auto; height:190px; }
       #ts-public .ts-main{ margin-top:8px; }
+
+      /* Mantén el logo como antes en móvil, pero sin estorbar */
       #ts-public .ts-logo{
         position:absolute;
         top:8px; right:8px;
         transform:none;
+        max-width:170px;
+      }
+      #ts-public .ts-logo span{
+        font-size:.62rem;
+        letter-spacing:.12em;
+      }
+      #ts-public .ts-logo img{ height:22px; }
+
+      /* ✅ evita que "N° Partida" se meta debajo del logo */
+      #ts-public .ts-badges{
+        padding-right:190px; /* reserva el ancho aproximado del chip del logo */
+        gap:8px;
+      }
+    }
+
+    /* ✅ Extra compacto: en pantallas MUY chicas, ponemos el logo en flujo normal arriba
+       (ya no puede chocar con las pastillas) */
+    @media (max-width: 420px){
+      #ts-public .ts-logo{
+        position:static;
+        margin:0 0 10px auto;
+        align-self:flex-end;
+      }
+      #ts-public .ts-badges{
+        padding-right:0;
       }
     }
   </style>
