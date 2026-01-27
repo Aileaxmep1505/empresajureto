@@ -9,10 +9,18 @@
 
   $features = $sheet->ai_features ?? [];
   $specs    = $sheet->ai_specs ?? [];
-  $hasAi    = !empty($sheet->ai_description);
   $desc     = $sheet->ai_description ?: $sheet->user_description;
   $ref      = $sheet->reference ?? null;
   $ident    = $sheet->identification ?? null;
+  $partida  = $sheet->partida_number ?? null;
+
+  $publicUrl = $sheet->public_token
+      ? route('tech-sheets.public', $sheet->public_token)
+      : null;
+
+  $qrUrl = $sheet->public_token
+      ? route('tech-sheets.qr', $sheet->public_token)
+      : null;
 @endphp
 
 <div id="ts-show" class="container my-4">
@@ -56,6 +64,7 @@
       display:inline-flex; align-items:center; gap:6px;
       box-shadow:0 6px 16px rgba(15,23,42,.10);
       transition:transform .12s ease, box-shadow .12s ease, background .12s ease, color .12s ease;
+      cursor:pointer;
     }
     #ts-show .ts-btn svg{
       width:14px; height:14px;
@@ -117,7 +126,7 @@
       position:relative;
     }
 
-    /* logo empresa */
+    /* logo empresa (esquina) */
     #ts-show .ts-logo{
       position:absolute;
       top:0;
@@ -151,6 +160,7 @@
       gap:8px;
       flex-wrap:wrap;
       margin-bottom:6px;
+      align-items:center;
     }
     #ts-show .pill{
       border-radius:999px;
@@ -161,16 +171,42 @@
       align-items:center;
       gap:6px;
     }
-    /* pastel, sin verde chillón */
-    #ts-show .pill-status{
-      background:#e0f2fe;
-      color:#1d4ed8;
-      border:1px solid rgba(59,130,246,.35);
+
+    /* logo dentro de la ficha (tipo chip) */
+    #ts-show .pill-logo{
+      background:#ffffff;
+
+      border:1px solid rgba(148,163,184,.7);
+      box-shadow:0 8px 18px rgba(15,23,42,.25);
+ padding:4px 12px;
     }
-    #ts-show .pill-status span.dot{
-      width:7px; height:7px; border-radius:999px;
-      background:#60a5fa;
+    #ts-show .pill-logo img{
+      height:32px;
+      width:auto;
+      border-radius:999px;
     }
+#ts-show .pill-logo span{
+  display:none;
+}
+
+    /* N° Partida */
+    #ts-show .pill-partida{
+      background:transparent;
+      color:#f9fafb;
+      border:1px solid rgba(148,163,184,.8);
+      backdrop-filter:blur(4px);
+      padding-inline:12px;
+    }
+    #ts-show .pill-partida .label{
+      opacity:.85;
+      font-weight:600;
+    }
+    #ts-show .pill-partida .value{
+      font-weight:800;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+    }
+
     #ts-show .pill-cat{
       background:#0f172a;
       color:#e5e7eb;
@@ -301,6 +337,163 @@
       width:14px; height:14px;
     }
 
+    /* ===== MODAL FICHA PÚBLICA (claro) ===== */
+    #ts-show .ts-modal{
+      position:fixed;
+      inset:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      z-index:80;
+      pointer-events:none;
+      opacity:0;
+      transition:opacity .18s ease;
+    }
+    #ts-show .ts-modal.is-open{
+      pointer-events:auto;
+      opacity:1;
+    }
+    #ts-show .ts-modal__backdrop{
+      position:absolute;
+      inset:0;
+      background:rgba(15,23,42,.15);
+      backdrop-filter:blur(3px);
+    }
+    #ts-show .ts-modal__dialog{
+      position:relative;
+      z-index:1;
+      width:100%;
+      max-width:420px;
+      background:#ffffff;
+      color:var(--ink);
+      border-radius:20px;
+      padding:18px 18px 16px;
+      box-shadow:0 22px 60px rgba(15,23,42,.20);
+      border:1px solid #e5e7eb;
+    }
+    #ts-show .ts-modal__head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      margin-bottom:10px;
+    }
+    #ts-show .ts-modal__title{
+      font-size:.95rem;
+      font-weight:700;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      color:var(--ink);
+    }
+    #ts-show .ts-modal__close{
+      border:0;
+      background:#f3f4f6;
+      color:#6b7280;
+      width:30px; height:30px;
+      border-radius:999px;
+      display:grid; place-items:center;
+      cursor:pointer;
+      transition:background .16s ease,color .16s ease, transform .08s ease;
+    }
+    #ts-show .ts-modal__close:hover{
+      background:#e5e7eb;
+      color:#111827;
+    }
+    #ts-show .ts-modal__close:active{
+      transform:scale(.96);
+    }
+
+    #ts-show .ts-modal__body{
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+    }
+    #ts-show .ts-modal__qr-box{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:14px;
+      border-radius:16px;
+      background:#f9fafb;
+      border:1px solid #e5e7eb;
+    }
+    #ts-show .ts-modal__qr-box img{
+      max-width:220px;
+      width:100%;
+      height:auto;
+      display:block;
+      border-radius:14px;
+      background:#ffffff;
+    }
+
+    #ts-show .ts-modal__link-row{
+      display:flex;
+      gap:8px;
+      align-items:center;
+      margin-top:2px;
+    }
+    #ts-show .ts-modal__input{
+      flex:1;
+      border-radius:999px;
+      border:1px solid #d1d5db;
+      background:#ffffff;
+      color:#111827;
+      font-size:.8rem;
+      padding:7px 10px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    #ts-show .ts-modal__input:focus{
+      outline:none;
+      border-color:#60a5fa;
+      box-shadow:0 0 0 1px rgba(96,165,250,.5);
+    }
+    #ts-show .ts-modal__copy{
+      border-radius:999px;
+      border:0;
+      padding:7px 11px;
+      font-size:.8rem;
+      font-weight:600;
+      background:linear-gradient(135deg,#3b82f6,#6366f1);
+      color:#f9fafb;
+      cursor:pointer;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      box-shadow:0 10px 24px rgba(37,99,235,.45);
+      transition:transform .1s ease, box-shadow .1s ease, filter .1s ease;
+    }
+    #ts-show .ts-modal__copy svg{
+      width:13px; height:13px;
+    }
+    #ts-show .ts-modal__copy:hover{
+      filter:brightness(1.05);
+    }
+    #ts-show .ts-modal__copy:active{
+      transform:translateY(1px);
+      box-shadow:0 6px 18px rgba(37,99,235,.55);
+    }
+
+    #ts-show .ts-modal__hint{
+      font-size:.75rem;
+      color:#6b7280;
+      display:flex;
+      align-items:center;
+      gap:6px;
+      margin-top:2px;
+    }
+    #ts-show .ts-modal__hint-dot{
+      width:7px; height:7px;
+      border-radius:999px;
+      background:linear-gradient(135deg,#22c55e,#a3e635);
+      box-shadow:0 0 0 3px #16a34a33;
+    }
+    #ts-show .ts-modal__copied{
+      font-size:.75rem;
+      color:#16a34a;
+    }
+
     @media (max-width: 768px){
       #ts-show .ts-wrap{ padding:0 4px; }
       #ts-show .ts-header{
@@ -317,6 +510,9 @@
         position:absolute;
         top:8px; right:8px;
         transform:none;
+      }
+      #ts-show .ts-modal__dialog{
+        margin:0 10px;
       }
     }
   </style>
@@ -338,6 +534,16 @@
           </svg>
           Word
         </a>
+
+        @if($publicUrl && $qrUrl)
+          <button type="button" class="ts-btn" id="ts-btn-share">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+              <rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3z"/><path d="M18 18h3"/>
+            </svg>
+            Ficha pública
+          </button>
+        @endif
       </div>
     </div>
 
@@ -353,23 +559,29 @@
         </div>
 
         <div class="ts-main">
-          {{-- logo empresa --}}
+          {{-- logo empresa (esquina) --}}
           <div class="ts-logo">
             <img src="{{ asset('images/logo-mail.png') }}" alt="Logo empresa">
-            <span>FICHA TÉCNICA</span>
+            <span>JURETO S.A DE C.V.</span>
           </div>
 
-          <div class="ts-badges">
-            <div class="pill pill-status">
-              <span class="dot"></span>
-              {{ $hasAi ? 'Generada con IA' : 'Borrador' }}
-            </div>
-            @if($ident)
-              <div class="pill pill-cat">
-                {{ Str::limit($ident, 26) }}
-              </div>
-            @endif
-          </div>
+<div class="ts-badges">
+    {{-- chip con logo de la marca: SOLO si hay brand_image_path --}}
+    @if($sheet->brand_image_path)
+      <div class="pill pill-logo">
+        <img
+          src="{{ asset('storage/'.$sheet->brand_image_path) }}"
+          alt="Logo de la marca">
+      </div>
+    @endif
+
+    @if($partida)
+      <div class="pill pill-partida">
+        <span class="label">N° Partida:</span>
+        <span class="value">{{ $partida }}</span>
+      </div>
+    @endif
+</div>
 
           @if($ref)
             <div class="ts-ref">{{ Str::upper($ref) }}</div>
@@ -387,6 +599,9 @@
             @endif
             @if($sheet->model)
               <span class="ts-tag">Modelo: {{ $sheet->model }}</span>
+            @endif
+            @if($ident)
+              <span class="ts-tag">{{ Str::limit($ident, 40) }}</span>
             @endif
           </div>
         </div>
@@ -468,5 +683,124 @@
       </div>
     </article>
   </div>
+
+  {{-- MODAL FICHA PÚBLICA (QR + LINK) --}}
+  @if($publicUrl && $qrUrl)
+    <div class="ts-modal" id="ts-share-modal" aria-hidden="true" role="dialog" aria-modal="true">
+      <div class="ts-modal__backdrop" id="ts-share-backdrop"></div>
+      <div class="ts-modal__dialog">
+        <div class="ts-modal__head">
+          <div class="ts-modal__title">Ficha pública</div>
+          <button type="button" class="ts-modal__close" id="ts-share-close" aria-label="Cerrar">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="ts-modal__body">
+          <div class="ts-modal__qr-box">
+            <img src="{{ $qrUrl }}" alt="QR ficha técnica">
+          </div>
+
+          <div class="ts-modal__link-row">
+            <input
+              type="text"
+              readonly
+              class="ts-modal__input"
+              id="ts-share-link"
+              value="{{ $publicUrl }}"
+            >
+            <button type="button" class="ts-modal__copy" id="ts-share-copy">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="9" y="9" width="13" height="13" rx="2"/>
+                <rect x="2" y="2" width="13" height="13" rx="2"/>
+              </svg>
+              Copiar
+            </button>
+          </div>
+
+          <div class="ts-modal__hint">
+            <span class="ts-modal__hint-dot"></span>
+            <span>Escanea el código o comparte el link para ver esta ficha sin iniciar sesión.</span>
+            <span class="ts-modal__copied" id="ts-share-copied" style="display:none;">· Copiado ✨</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  @endif
 </div>
 @endsection
+
+@push('scripts')
+@if($publicUrl && $qrUrl)
+<script>
+  (function(){
+    const btnOpen   = document.getElementById('ts-btn-share');
+    const modal     = document.getElementById('ts-share-modal');
+    const backdrop  = document.getElementById('ts-share-backdrop');
+    const btnClose  = document.getElementById('ts-share-close');
+    const inputLink = document.getElementById('ts-share-link');
+    const btnCopy   = document.getElementById('ts-share-copy');
+    const copiedLbl = document.getElementById('ts-share-copied');
+
+    if (!btnOpen || !modal) return;
+
+    function openModal(){
+      modal.classList.add('is-open');
+      modal.setAttribute('aria-hidden','false');
+      setTimeout(() => {
+        if (inputLink) {
+          inputLink.focus();
+          inputLink.select();
+        }
+      }, 50);
+    }
+
+    function closeModal(){
+      modal.classList.remove('is-open');
+      modal.setAttribute('aria-hidden','true');
+      if (copiedLbl) copiedLbl.style.display = 'none';
+    }
+
+    btnOpen.addEventListener('click', (e) => {
+      e.preventDefault();
+      openModal();
+    });
+
+    if (backdrop) {
+      backdrop.addEventListener('click', closeModal);
+    }
+    if (btnClose) {
+      btnClose.addEventListener('click', closeModal);
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && modal.classList.contains('is-open')) {
+        closeModal();
+      }
+    });
+
+    if (btnCopy && inputLink) {
+      btnCopy.addEventListener('click', async (e) => {
+        e.preventDefault();
+        try{
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(inputLink.value);
+          } else {
+            inputLink.select();
+            document.execCommand('copy');
+          }
+          if (copiedLbl) {
+            copiedLbl.style.display = '';
+            setTimeout(() => copiedLbl && (copiedLbl.style.display = 'none'), 2000);
+          }
+        }catch(err){
+          console.error(err);
+        }
+      });
+    }
+  })();
+</script>
+@endif
+@endpush

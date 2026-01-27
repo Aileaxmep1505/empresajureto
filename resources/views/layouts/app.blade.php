@@ -6,9 +6,9 @@
   <title>@yield('title', 'Panel')</title>
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;600&display=swap" rel="stylesheet">
-<link rel="icon" type="image/png" sizes="32x32" href="{{ asset('images/logo-mail.png') }}">
-<link rel="icon" type="image/png" sizes="16x16" href="{{ asset('images/logo-mail.png') }}">
-<link rel="apple-touch-icon" sizes="180x180" href="{{ asset('images/logo-mail.png') }}">
+  <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('images/logo-mail.png') }}">
+  <link rel="icon" type="image/png" sizes="16x16" href="{{ asset('images/logo-mail.png') }}">
+  <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('images/logo-mail.png') }}">
 
   <link rel="stylesheet" href="{{ asset('css/app-layout.css') }}?v={{ time() }}">
   @stack('styles')
@@ -437,6 +437,12 @@
             <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M19 21H5"/></svg>
             <span>Exportar PDF</span>
           </a>
+          <a href="{{ route('products.export.excel') }}" class="nav__sublink">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
+              <path d="M4 4h16v16H4z"/><path d="M8 8l8 8M16 8l-8 8"/>
+            </svg>
+            <span>Exportar Excel</span>
+          </a>
         </div>
       </details>
 
@@ -513,9 +519,37 @@
         </div>
       </details>
 
-      <!-- Publicaciones -->
-      <details class="nav__group" {{ request()->routeIs('posts.*') ? 'open' : '' }}>
-        <summary class="{{ request()->routeIs('posts.*') ? 'is-active':'' }}">
+      <!-- Fichas técnicas -->
+      <details class="nav__group" {{ request()->routeIs('tech-sheets.*') ? 'open' : '' }}>
+        <summary class="{{ request()->routeIs('tech-sheets.*') ? 'is-active':'' }}">
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
+            <rect x="4" y="3" width="16" height="18" rx="2"/>
+            <path d="M8 9h8M8 13h6M8 17h5"/>
+          </svg>
+          <span>Fichas técnicas</span>
+          <svg class="nav__chev" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2">
+            <path d="M9 6l6 6-6 6"/>
+          </svg>
+        </summary>
+        <div class="nav__submenu">
+          <a href="{{ route('tech-sheets.index') }}" class="nav__sublink {{ request()->routeIs('tech-sheets.index') || request()->routeIs('tech-sheets.show') ? 'is-active':'' }}">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
+              <path d="M4 6h16M4 12h16M4 18h10"/>
+            </svg>
+            <span>Listado</span>
+          </a>
+          <a href="{{ route('tech-sheets.create') }}" class="nav__sublink {{ request()->routeIs('tech-sheets.create') ? 'is-active':'' }}">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
+              <path d="M12 5v14M5 12h14"/>
+            </svg>
+            <span>Nueva ficha</span>
+          </a>
+        </div>
+      </details>
+
+      <!-- Publicaciones (Documentos internos) -->
+      <details class="nav__group" {{ request()->routeIs('publications.*') ? 'open' : '' }}>
+        <summary class="{{ request()->routeIs('publications.*') ? 'is-active':'' }}">
           <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
             <rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h5M8 15h8"/>
           </svg>
@@ -523,17 +557,21 @@
           <svg class="nav__chev" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
         </summary>
         <div class="nav__submenu">
-          <a href="{{ route('publications.store') }}" class="nav__sublink {{ request()->routeIs('publications.store') || request()->routeIs('posts.show') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+          <a href="{{ route('publications.index') }}" class="nav__sublink {{ request()->routeIs('publications.index') || request()->routeIs('publications.show') ? 'is-active':'' }}">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
+              <path d="M4 6h16M4 12h16M4 18h10"/>
+            </svg>
             <span>Listado</span>
           </a>
           <a href="{{ route('publications.create') }}" class="nav__sublink {{ request()->routeIs('publications.create') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
+              <path d="M12 5v14M5 12h14"/>
+            </svg>
             <span>Nueva publicación</span>
           </a>
         </div>
       </details>
- 
+
       <!-- Part. contable (principal: listado) -->
       <a href="{{ route('partcontable.index') }}" class="nav__link {{ request()->routeIs('partcontable.*') ? 'is-active':'' }}">
         <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
@@ -541,6 +579,14 @@
           <path d="M9 10h3.5a2 2 0 1 1 0 4H9m3-7v10"/>
         </svg>
         <span>Part. contable</span>
+      </a>
+
+      <!-- Documentación de altas -->
+      <a href="{{ route('alta.docs.index') }}" class="nav__link {{ request()->routeIs('alta.docs.*') ? 'is-active':'' }}">
+        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
+          <path d="M4 4h16v14H4z"/><path d="M8 4v-1a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v1"/><path d="M8 9h8M8 13h5"/>
+        </svg>
+        <span>Documentación de altas</span>
       </a>
 
       <!-- Licitaciones (incluye IA y admin PDFs / propuestas) -->
@@ -604,7 +650,7 @@
             <span>Tabla global IA</span>
           </a>
 
-          {{-- NUEVO: PDFs de requisiciones (admin.licitacion-pdfs.*) --}}
+          {{-- PDFs de requisiciones --}}
           <a href="{{ route('admin.licitacion-pdfs.index') }}"
              class="nav__sublink {{ request()->routeIs('admin.licitacion-pdfs.*') ? 'is-active':'' }}">
             <svg viewBox="0 0 24 24" width="18" height="18"
@@ -615,7 +661,7 @@
             <span>PDFs de requisiciones</span>
           </a>
 
-          {{-- NUEVO: Propuestas / comparativas (admin.licitacion-propuestas.*) --}}
+          {{-- Propuestas / comparativas --}}
           <a href="{{ route('admin.licitacion-propuestas.index') }}"
              class="nav__sublink {{ request()->routeIs('admin.licitacion-propuestas.*') ? 'is-active':'' }}">
             <svg viewBox="0 0 24 24" width="18" height="18"
@@ -688,107 +734,102 @@
         </div>
       </details>
 
-<!-- ✅ NUEVO: WMS (Bodega) -->
-<details class="nav__group" {{ request()->routeIs('admin.wms.*') ? 'open' : '' }}>
-  <summary class="{{ request()->routeIs('admin.wms.*') ? 'is-active':'' }}">
-    <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
-      <path d="M3 10l9-6 9 6v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V10z"/>
-      <path d="M7 22v-8h10v8"/>
-      <path d="M9 14h6"/>
-    </svg>
-    <span>WMS (Bodega)</span>
-    <svg class="nav__chev" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2">
-      <path d="M9 6l6 6-6 6"/>
-    </svg>
-  </summary>
+      <!-- WMS (Bodega) -->
+      <details class="nav__group" {{ request()->routeIs('admin.wms.*') ? 'open' : '' }}>
+        <summary class="{{ request()->routeIs('admin.wms.*') ? 'is-active':'' }}">
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
+            <path d="M3 10l9-6 9 6v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V10z"/>
+            <path d="M7 22v-8h10v8"/>
+            <path d="M9 14h6"/>
+          </svg>
+          <span>WMS (Bodega)</span>
+          <svg class="nav__chev" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2">
+            <path d="M9 6l6 6-6 6"/>
+          </svg>
+        </summary>
 
-  <div class="nav__submenu">
+        <div class="nav__submenu">
 
-    <a href="{{ route('admin.wms.home') }}" class="nav__sublink {{ request()->routeIs('admin.wms.home') ? 'is-active':'' }}">
-      <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
-        <path d="M3 12l9-9 9 9"/><path d="M9 21V9h6v12"/>
-      </svg>
-      <span>Inicio WMS</span>
-    </a>
+          <a href="{{ route('admin.wms.home') }}" class="nav__sublink {{ request()->routeIs('admin.wms.home') ? 'is-active':'' }}">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
+              <path d="M3 12l9-9 9 9"/><path d="M9 21V9h6v12"/>
+            </svg>
+            <span>Inicio WMS</span>
+          </a>
 
-    <a href="{{ route('admin.wms.search.view') }}" class="nav__sublink {{ request()->routeIs('admin.wms.search.view') ? 'is-active':'' }}">
-      <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
-        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
-      </svg>
-      <span>Buscar + Llévame</span>
-    </a>
+          <a href="{{ route('admin.wms.search.view') }}" class="nav__sublink {{ request()->routeIs('admin.wms.search.view') ? 'is-active':'' }}">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
+              <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+            </svg>
+            <span>Buscar + Llévame</span>
+          </a>
 
-    <a href="{{ route('admin.wms.pick.waves.page') }}" class="nav__sublink {{ request()->routeIs('admin.wms.pick.waves.page') || request()->routeIs('admin.wms.pick.show') ? 'is-active':'' }}">
-      <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
-        <path d="M3 7h18l-2 10a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3L3 7z"/>
-        <path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/>
-      </svg>
-      <span>Picking (Waves)</span>
-    </a>
+          <a href="{{ route('admin.wms.pick.waves.page') }}" class="nav__sublink {{ request()->routeIs('admin.wms.pick.waves.page') || request()->routeIs('admin.wms.pick.show') ? 'is-active':'' }}">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
+              <path d="M3 7h18l-2 10a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3L3 7z"/>
+              <path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/>
+            </svg>
+            <span>Picking (Waves)</span>
+          </a>
 
-    <a href="{{ route('admin.wms.locations.index') }}" class="nav__sublink {{ request()->routeIs('admin.wms.locations.*') ? 'is-active':'' }}">
-      <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
-        <path d="M12 21s7-4.5 7-11a7 7 0 0 0-14 0c0 6.5 7 11 7 11z"/>
-        <circle cx="12" cy="10" r="2.5"/>
-      </svg>
-      <span>Ubicaciones</span>
-    </a>
+          <a href="{{ route('admin.wms.locations.index') }}" class="nav__sublink {{ request()->routeIs('admin.wms.locations.*') ? 'is-active':'' }}">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
+              <path d="M12 21s7-4.5 7-11a7 7 0 0 0-14 0c0 6.5 7 11 7 11z"/>
+              <circle cx="12" cy="10" r="2.5"/>
+            </svg>
+            <span>Ubicaciones</span>
+          </a>
 
-    <a href="{{ route('admin.wms.qr.print.batch') }}" class="nav__sublink {{ request()->routeIs('admin.wms.qr.print.*') ? 'is-active':'' }}">
-      <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
-        <rect x="3" y="3" width="8" height="8" rx="2"/><path d="M7 7h.01"/>
-        <rect x="13" y="3" width="8" height="8" rx="2"/><path d="M17 7h.01"/>
-        <rect x="3" y="13" width="8" height="8" rx="2"/><path d="M7 17h.01"/>
-        <path d="M13 13h8v8h-8z"/>
-      </svg>
-      <span>Imprimir QRs</span>
-    </a>
+          <a href="{{ route('admin.wms.qr.print.batch') }}" class="nav__sublink {{ request()->routeIs('admin.wms.qr.print.*') ? 'is-active':'' }}">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
+              <rect x="3" y="3" width="8" height="8" rx="2"/><path d="M7 7h.01"/>
+              <rect x="13" y="3" width="8" height="8" rx="2"/><path d="M17 7h.01"/>
+              <rect x="3" y="13" width="8" height="8" rx="2"/><path d="M7 17h.01"/>
+              <path d="M13 13h8v8h-8z"/>
+            </svg>
+            <span>Imprimir QRs</span>
+          </a>
 
-    <!-- ✅ NUEVO: Layout Builder -->
-    <a href="{{ route('admin.wms.layout.editor') }}"
-       class="nav__sublink {{ request()->routeIs('admin.wms.layout.*') ? 'is-active':'' }}">
-      <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
-        <rect x="3" y="3" width="8" height="8" rx="2"/>
-        <rect x="13" y="3" width="8" height="8" rx="2"/>
-        <rect x="3" y="13" width="8" height="8" rx="2"/>
-        <rect x="13" y="13" width="8" height="8" rx="2"/>
-      </svg>
-      <span>Layout (Editor)</span>
-    </a>
+          <a href="{{ route('admin.wms.layout.editor') }}"
+             class="nav__sublink {{ request()->routeIs('admin.wms.layout.*') ? 'is-active':'' }}">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
+              <rect x="3" y="3" width="8" height="8" rx="2"/>
+              <rect x="13" y="3" width="8" height="8" rx="2"/>
+              <rect x="3" y="13" width="8" height="8" rx="2"/>
+              <rect x="13" y="13" width="8" height="8" rx="2"/>
+            </svg>
+            <span>Layout (Editor)</span>
+          </a>
 
-    <!-- ✅ NUEVO: Heatmap -->
-    <a href="{{ route('admin.wms.heatmap.view') }}"
-       class="nav__sublink {{ request()->routeIs('admin.wms.heatmap.*') ? 'is-active':'' }}">
-      <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
-        <path d="M4 18V6"/><path d="M8 18V10"/><path d="M12 18V4"/><path d="M16 18V12"/><path d="M20 18V8"/>
-      </svg>
-      <span>Heatmap (Calor)</span>
-    </a>
+          <a href="{{ route('admin.wms.heatmap.view') }}"
+             class="nav__sublink {{ request()->routeIs('admin.wms.heatmap.*') ? 'is-active':'' }}">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
+              <path d="M4 18V6"/><path d="M8 18V10"/><path d="M12 18V4"/><path d="M16 18V12"/><path d="M20 18V8"/>
+            </svg>
+            <span>Heatmap (Calor)</span>
+          </a>
 
-    <!-- ✅ NUEVO: Entradas / Salidas -->
-    <a href="{{ route('admin.wms.move.view') }}"
-       class="nav__sublink {{ request()->routeIs('admin.wms.move.*') ? 'is-active':'' }}">
-      <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
-        <path d="M7 7h10"/><path d="M7 12h10"/><path d="M7 17h10"/>
-        <path d="M4 4h16v16H4z" opacity=".35"/>
-        <path d="M12 6v12" opacity=".35"/>
-      </svg>
-      <span>Entradas / Salidas</span>
-    </a>
+          <a href="{{ route('admin.wms.move.view') }}"
+             class="nav__sublink {{ request()->routeIs('admin.wms.move.*') ? 'is-active':'' }}">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
+              <path d="M7 7h10"/><path d="M7 12h10"/><path d="M7 17h10"/>
+              <path d="M4 4h16v16H4z" opacity=".35"/>
+              <path d="M12 6v12" opacity=".35"/>
+            </svg>
+            <span>Entradas / Salidas</span>
+          </a>
 
-    <!-- ✅ NUEVO: Historial (Kardex) -->
-    <a href="{{ route('admin.wms.movements.view') }}"
-       class="nav__sublink {{ request()->routeIs('admin.wms.movements.*') ? 'is-active':'' }}">
-      <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
-        <path d="M8 6h13"/><path d="M8 10h13"/><path d="M8 14h13"/><path d="M8 18h13"/>
-        <path d="M3 6h2"/><path d="M3 10h2"/><path d="M3 14h2"/><path d="M3 18h2"/>
-      </svg>
-      <span>Historial (Kardex)</span>
-    </a>
+          <a href="{{ route('admin.wms.movements.view') }}"
+             class="nav__sublink {{ request()->routeIs('admin.wms.movements.*') ? 'is-active':'' }}">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
+              <path d="M8 6h13"/><path d="M8 10h13"/><path d="M8 14h13"/><path d="M8 18h13"/>
+              <path d="M3 6h2"/><path d="M3 10h2"/><path d="M3 14h2"/><path d="M3 18h2"/>
+            </svg>
+            <span>Historial (Kardex)</span>
+          </a>
 
-  </div>
-</details>
-
+        </div>
+      </details>
 
       <!-- Help Desk -->
       <details class="nav__group" {{ request()->routeIs('admin.help.*') ? 'open' : '' }}>
@@ -862,8 +903,8 @@
       </a>
 
       <!-- Administración -->
-      <details class="nav__group" {{ request()->routeIs('admin.users.*') || request()->routeIs('admin.catalog.*') ? 'open' : '' }}>
-        <summary class="{{ request()->routeIs('admin.users.*') || request()->routeIs('admin.catalog.*') ? 'is-active':'' }}">
+      <details class="nav__group" {{ request()->routeIs('admin.users.*') || request()->routeIs('admin.catalog.*') || request()->routeIs('admin.orders.*') ? 'open' : '' }}>
+        <summary class="{{ request()->routeIs('admin.users.*') || request()->routeIs('admin.catalog.*') || request()->routeIs('admin.orders.*') ? 'is-active':'' }}">
           <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
             <path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
             <path d="M3 7l9-4 9 4-9 4-9-4z"/>
@@ -883,6 +924,13 @@
               <rect x="3" y="4" width="18" height="14" rx="2"/><path d="M7 8h10M7 12h10M7 16h6"/>
             </svg>
             <span>Catálogo (admin)</span>
+          </a>
+          <a href="{{ route('admin.orders.index') }}" class="nav__sublink {{ request()->routeIs('admin.orders.*') ? 'is-active':'' }}">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
+              <path d="M3 7h18l-2 10a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3L3 7z"/>
+              <path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/>
+            </svg>
+            <span>Pedidos web</span>
           </a>
         </div>
       </details>

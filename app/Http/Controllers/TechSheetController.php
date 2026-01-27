@@ -6,8 +6,10 @@ use App\Models\TechSheet;
 use App\Services\TechSheetAiService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Barryvdh\DomPDF\Facade\Pdf;
 use PhpOffice\PhpWord\PhpWord;
+use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class TechSheetController extends Controller
 {
@@ -58,14 +60,24 @@ class TechSheetController extends Controller
             'reference'         => 'nullable|string|max:255',
             'identification'    => 'nullable|string|max:255',
             'image'             => 'nullable|image|max:4096',
+            'brand_image'       => 'nullable|image|max:4096',
+            'partida_number' => 'nullable|string|max:50',
+
         ]);
 
-        // Subir imagen (storage/app/public/tech_sheets)
+        // Imagen principal del producto
         $path = null;
         if ($request->hasFile('image')) {
             $path = $request->file('image')->store('tech_sheets', 'public');
         }
         $data['image_path'] = $path;
+
+        // Imagen / logo de la marca
+        $brandPath = null;
+        if ($request->hasFile('brand_image')) {
+            $brandPath = $request->file('brand_image')->store('tech_sheets/brands', 'public');
+        }
+        $data['brand_image_path'] = $brandPath;
 
         // Llamar IA
         $aiData = $ai->generate($data) ?? [
@@ -74,7 +86,14 @@ class TechSheetController extends Controller
             'ai_specs'       => [],
         ];
 
+        // Crear ficha
         $sheet = TechSheet::create(array_merge($data, $aiData));
+
+        // Token público (para link + QR)
+        if (empty($sheet->public_token)) {
+            $sheet->public_token = (string) Str::uuid();
+            $sheet->save();
+        }
 
         return redirect()
             ->route('tech-sheets.show', $sheet)
@@ -82,11 +101,45 @@ class TechSheetController extends Controller
     }
 
     /**
-     * Ver una ficha
+     * Ver una ficha (vista interna, con link público listo)
      */
     public function show(TechSheet $sheet)
     {
-        return view('tech_sheets.show', compact('sheet'));
+        $publicUrl = $sheet->public_token
+            ? route('tech-sheets.public', $sheet->public_token)
+            : null;
+
+        return view('tech_sheets.show', [
+            'sheet'     => $sheet,
+            'publicUrl' => $publicUrl,
+        ]);
+    }
+
+    /**
+     * Vista pública por token
+     */
+    public function publicShow(string $token)
+    {
+        $sheet = TechSheet::where('public_token', $token)->firstOrFail();
+
+        return view('tech_sheets.public', compact('sheet'));
+    }
+
+    /**
+     * QR PNG de la ficha pública
+     */
+    public function qr(string $token)
+    {
+        $sheet = TechSheet::where('public_token', $token)->firstOrFail();
+
+        $url = route('tech-sheets.public', $sheet->public_token);
+
+        $png = QrCode::format('png')
+            ->size(400)
+            ->margin(1)
+            ->generate($url);
+
+        return response($png)->header('Content-Type', 'image/png');
     }
 
     /**
@@ -94,7 +147,14 @@ class TechSheetController extends Controller
      */
     public function pdf(TechSheet $sheet)
     {
-        $pdf = Pdf::loadView('tech_sheets.pdf', compact('sheet'))
+        $publicUrl = $sheet->public_token
+            ? route('tech-sheets.public', $sheet->public_token)
+            : null;
+
+        $pdf = Pdf::loadView('tech_sheets.pdf', [
+                'sheet'     => $sheet,
+                'publicUrl' => $publicUrl,
+            ])
             ->setPaper('letter', 'portrait');
 
         $filename = 'Ficha-' . str_replace(' ', '-', $sheet->product_name) . '.pdf';

@@ -12,11 +12,14 @@ class TechSheet extends Model
         'model',
         'reference',
         'identification',
+        'partida_number',      // 👈 nuevo
         'user_description',
         'image_path',
+        'brand_image_path',
         'ai_description',
         'ai_features',
         'ai_specs',
+        'public_token',
     ];
 
     protected $casts = [

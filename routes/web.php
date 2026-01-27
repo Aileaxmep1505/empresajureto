@@ -78,6 +78,7 @@ use App\Http\Controllers\Logistics\RouteSupervisorController;
 
 use App\Http\Controllers\CatalogPublicController;
 use App\Http\Controllers\TechSheetController;
+use App\Http\Controllers\Admin\AltaDocsController;
 /*
 |--------------------------------------------------------------------------
 | AUTH
@@ -1675,3 +1676,51 @@ Route::get('/admin/catalog/export/excel', [CatalogItemController::class, 'export
 
 Route::get('/admin/catalog/export/pdf', [CatalogItemController::class, 'exportPdf'])
     ->name('admin.catalog.export.pdf');
+
+
+Route::middleware(['auth'])->group(function () {
+
+    // 1) Formulario de NIP
+    Route::get('/documentacion-altas/pin', [AltaDocsController::class, 'showPinForm'])
+        ->name('secure.alta-docs.pin');
+    Route::get('/documentacion-altas/pin', [AltaDocsController::class, 'showPinForm'])
+        ->name('secure.alta-docs.pin.show');
+    // 2) Validar NIP
+    Route::post('/documentacion-altas/pin', [AltaDocsController::class, 'checkPin'])
+        ->name('secure.alta-docs.check-pin');
+
+    // 3) Rutas protegidas por NIP
+    Route::middleware('alta_docs_pin')->group(function () {
+
+        // Listado + formulario de subida
+        Route::get('/documentacion-altas', [AltaDocsController::class, 'index'])
+            ->name('alta.docs.index');
+
+        // 🔴 ESTA ES LA QUE TE FALTABA
+        Route::post('/documentacion-altas', [AltaDocsController::class, 'store'])
+            ->name('alta.docs.store');
+
+        // Descargar
+        Route::get('/documentacion-altas/{doc}/descargar', [AltaDocsController::class, 'download'])
+            ->name('alta.docs.download');
+
+        // Eliminar
+        Route::delete('/documentacion-altas/{doc}', [AltaDocsController::class, 'destroy'])
+            ->name('alta.docs.destroy');
+    });
+
+    // 4) Cerrar sesión de NIP
+    Route::post('/documentacion-altas/logout', [AltaDocsController::class, 'logoutPin'])
+        ->name('secure.alta-docs.logout');
+            // 👇 NUEVA RUTA PARA PREVISUALIZAR
+    Route::get('/documentacion-altas/{doc}/preview', [AltaDocsController::class, 'preview'])
+        ->name('alta.docs.preview');
+});
+
+// Vista pública de la ficha (sin auth)
+Route::get('/ficha/{token}', [\App\Http\Controllers\TechSheetController::class, 'publicShow'])
+    ->name('tech-sheets.public');
+
+// QR PNG de la ficha pública
+Route::get('/ficha/{token}/qr', [\App\Http\Controllers\TechSheetController::class, 'qr'])
+    ->name('tech-sheets.qr');
