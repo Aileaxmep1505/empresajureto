@@ -61,8 +61,7 @@ class TechSheetController extends Controller
             'identification'    => 'nullable|string|max:255',
             'image'             => 'nullable|image|max:4096',
             'brand_image'       => 'nullable|image|max:4096',
-            'partida_number' => 'nullable|string|max:50',
-
+            'partida_number'    => 'nullable|string|max:50',
         ]);
 
         // Imagen principal del producto
@@ -122,7 +121,12 @@ class TechSheetController extends Controller
     {
         $sheet = TechSheet::where('public_token', $token)->firstOrFail();
 
-        return view('tech_sheets.public', compact('sheet'));
+        // ✅ IMPORTANTE: esta vista debe existir en:
+        // resources/views/tech_sheets/public.blade.php
+        // y debe esperar variable $sheet
+        return view('tech_sheets.public', [
+            'sheet' => $sheet,
+        ]);
     }
 
     /**
