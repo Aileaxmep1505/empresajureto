@@ -65,15 +65,15 @@ class ManualInvoiceController extends Controller
             'type'      => ['required', 'in:I,E,P'],
             'notes'     => ['nullable', 'string'],
 
-            // ✅ nuevos campos (desde tu frontend)
-            'pay_currency'   => ['required', 'string', 'size:3'], // MXN/USD/EUR...
+            // nuevos campos
+            'pay_currency'   => ['required', 'string', 'size:3'],
             'exchange_rate'  => ['nullable', 'numeric', 'min:0'],
             'payment_method' => ['required', 'in:PUE,PPD'],
             'payment_form'   => ['required', 'string', 'size:2'],
             'cfdi_use'       => ['required', 'string', 'max:5'],
             'exportation'    => ['required', 'string', 'size:2'],
 
-            // items: array de conceptos
+            // items
             'items'               => ['required', 'array', 'min:1'],
             'items.*.product_id'  => ['nullable', 'exists:products,id'],
             'items.*.description' => ['required', 'string', 'max:255'],
@@ -101,15 +101,14 @@ class ManualInvoiceController extends Controller
             $invoice->status    = 'draft';
             $invoice->notes     = $data['notes'] ?? null;
 
-            // ✅ guardar campos nuevos
-            $invoice->currency       = $data['pay_currency']; // guardamos en tu columna existente "currency"
+            $invoice->currency       = $data['pay_currency'];
             $invoice->exchange_rate  = $data['exchange_rate'] ?? null;
             $invoice->payment_method = $data['payment_method'];
             $invoice->payment_form   = $data['payment_form'];
             $invoice->cfdi_use       = $data['cfdi_use'];
             $invoice->exportation    = $data['exportation'];
 
-            // Snapshot del cliente
+            // Snapshot cliente
             $invoice->receiver_name  = $client->nombre;
             $invoice->receiver_rfc   = $client->rfc;
             $invoice->receiver_email = $client->email;
@@ -142,8 +141,6 @@ class ManualInvoiceController extends Controller
                     'sku'               => $product->sku ?? null,
                     'unit'              => $row['unit'] ?? ($product->unit ?? null),
                     'unit_code'         => $row['unit_code'] ?? null,
-
-                    // ✅ clave SAT por concepto
                     'product_key'       => $row['product_key'] ?? ($product->clave_sat ?? null),
 
                     'quantity'          => $qty,
@@ -211,7 +208,6 @@ class ManualInvoiceController extends Controller
             'type'      => ['required', 'in:I,E,P'],
             'notes'     => ['nullable', 'string'],
 
-            // ✅ nuevos campos (desde tu frontend)
             'pay_currency'   => ['required', 'string', 'size:3'],
             'exchange_rate'  => ['nullable', 'numeric', 'min:0'],
             'payment_method' => ['required', 'in:PUE,PPD'],
@@ -241,7 +237,6 @@ class ManualInvoiceController extends Controller
             $manualInvoice->type      = $data['type'];
             $manualInvoice->notes     = $data['notes'] ?? null;
 
-            // ✅ guardar campos nuevos
             $manualInvoice->currency       = $data['pay_currency'];
             $manualInvoice->exchange_rate  = $data['exchange_rate'] ?? null;
             $manualInvoice->payment_method = $data['payment_method'];
@@ -293,8 +288,6 @@ class ManualInvoiceController extends Controller
                 $item->sku         = $product->sku ?? $item->sku;
                 $item->unit        = $row['unit'] ?? ($product->unit ?? $item->unit);
                 $item->unit_code   = $row['unit_code'] ?? $item->unit_code;
-
-                // ✅ clave SAT por concepto
                 $item->product_key = $row['product_key'] ?? ($product->clave_sat ?? $item->product_key);
 
                 $item->quantity   = $qty;
@@ -344,6 +337,20 @@ class ManualInvoiceController extends Controller
     }
 
     /**
+     * Helper: obtiene credenciales Facturapi para backoffice (INT).
+     */
+    private function facturapiInternalCreds(): array
+    {
+        $key  = config('services.facturaapi_internal.key')
+            ?: config('services.facturapi.key'); // legacy alias
+        $base = config('services.facturaapi_internal.base_uri')
+            ?: config('services.facturapi.base_uri')
+            ?: 'https://www.facturapi.io/v2';
+
+        return [$key, rtrim($base, '/')];
+    }
+
+    /**
      * Timbrar con Facturapi (desde borrador).
      */
     public function stamp(ManualInvoice $manualInvoice)
@@ -365,17 +372,11 @@ class ManualInvoiceController extends Controller
             return redirect()->back()->with('error', 'La factura no tiene conceptos para timbrar.');
         }
 
-        $apiKey = env('FACTURAPI_KEY')
-            ?: env('FACTURAAPI_KEY')
-            ?: env('FACTURAAPI_WEB_KEY');
+        [$apiKey, $baseUri] = $this->facturapiInternalCreds();
 
         if (!$apiKey) {
-            return redirect()->back()->with('error', 'No hay FACTURAPI_KEY / FACTURAAPI_KEY configurada en el .env');
+            return redirect()->back()->with('error', 'No hay FACTURAAPI_INT_KEY configurada en el .env');
         }
-
-        $baseUri = env('FACTURAPI_BASE_URI')
-            ?: env('FACTURAAPI_BASE_URI')
-            ?: 'https://www.facturapi.io/v2';
 
         $itemsPayload = [];
         foreach ($manualInvoice->items as $item) {
@@ -392,7 +393,7 @@ class ManualInvoiceController extends Controller
             ];
         }
 
-        // ✅ tu campo real es cfdi_use (no cfdi_uso)
+        // tu campo real es cfdi_use
         $uso = $manualInvoice->cfdi_use;
 
         if (!$uso) {
@@ -430,11 +431,10 @@ class ManualInvoiceController extends Controller
             'export'         => $manualInvoice->exportation ?? '01',
         ];
 
-        // exchange: si no es MXN manda tipo de cambio
+        // exchange
         if (($manualInvoice->currency ?: 'MXN') !== 'MXN') {
             $payload['exchange'] = (float) ($manualInvoice->exchange_rate ?: 1);
         } elseif (!empty($manualInvoice->exchange_rate)) {
-            // opcional
             $payload['exchange'] = (float) $manualInvoice->exchange_rate;
         }
 
@@ -446,8 +446,10 @@ class ManualInvoiceController extends Controller
         }
 
         try {
-            $response = Http::withBasicAuth($apiKey, '')
-                ->post(rtrim($baseUri, '/') . '/invoices', $payload);
+            $response = Http::withToken($apiKey)
+                ->acceptJson()
+                ->timeout(60)
+                ->post($baseUri . '/invoices', $payload);
 
             if (!$response->successful()) {
                 $body   = $response->body();
@@ -508,22 +510,23 @@ class ManualInvoiceController extends Controller
             return back()->with('error', 'Esta factura no tiene un ID de Facturapi para descargar PDF.');
         }
 
-        $apiKey = env('FACTURAPI_KEY')
-            ?: env('FACTURAAPI_KEY')
-            ?: env('FACTURAAPI_WEB_KEY');
+        [$apiKey, $baseUri] = $this->facturapiInternalCreds();
 
         if (!$apiKey) {
-            return back()->with('error', 'No hay FACTURAPI_KEY configurada.');
+            return back()->with('error', 'No hay FACTURAAPI_INT_KEY configurada en el .env');
         }
 
-        $baseUri = env('FACTURAPI_BASE_URI')
-            ?: env('FACTURAAPI_BASE_URI')
-            ?: 'https://www.facturapi.io/v2';
-
-        $response = Http::withBasicAuth($apiKey, '')
-            ->get(rtrim($baseUri, '/') . '/invoices/' . $manualInvoice->facturapi_id . '/pdf');
+        $response = Http::withToken($apiKey)
+            ->timeout(60)
+            ->get($baseUri . '/invoices/' . $manualInvoice->facturapi_id . '/pdf');
 
         if (!$response->successful()) {
+            Log::error('Facturapi error descargar PDF', [
+                'manual_invoice_id' => $manualInvoice->id,
+                'status'            => $response->status(),
+                'body'              => $response->body(),
+            ]);
+
             return back()->with('error', 'No se pudo descargar el PDF desde Facturapi.');
         }
 
@@ -543,22 +546,23 @@ class ManualInvoiceController extends Controller
             return back()->with('error', 'Esta factura no tiene un ID de Facturapi para descargar XML.');
         }
 
-        $apiKey = env('FACTURAPI_KEY')
-            ?: env('FACTURAAPI_KEY')
-            ?: env('FACTURAAPI_WEB_KEY');
+        [$apiKey, $baseUri] = $this->facturapiInternalCreds();
 
         if (!$apiKey) {
-            return back()->with('error', 'No hay FACTURAPI_KEY configurada.');
+            return back()->with('error', 'No hay FACTURAAPI_INT_KEY configurada en el .env');
         }
 
-        $baseUri = env('FACTURAPI_BASE_URI')
-            ?: env('FACTURAAPI_BASE_URI')
-            ?: 'https://www.facturapi.io/v2';
-
-        $response = Http::withBasicAuth($apiKey, '')
-            ->get(rtrim($baseUri, '/') . '/invoices/' . $manualInvoice->facturapi_id . '/xml');
+        $response = Http::withToken($apiKey)
+            ->timeout(60)
+            ->get($baseUri . '/invoices/' . $manualInvoice->facturapi_id . '/xml');
 
         if (!$response->successful()) {
+            Log::error('Facturapi error descargar XML', [
+                'manual_invoice_id' => $manualInvoice->id,
+                'status'            => $response->status(),
+                'body'              => $response->body(),
+            ]);
+
             return back()->with('error', 'No se pudo descargar el XML desde Facturapi.');
         }
 
