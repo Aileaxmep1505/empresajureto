@@ -9,7 +9,7 @@ return [
     |
     | Aquí guardamos credenciales de servicios de terceros (Mailgun, Postmark,
     | AWS, OpenAI, FacturAPI, etc.). Usa variables de entorno para no exponer
-    | claves. En producción con config cache, consume SIEMPRE via config().
+    | claves. Recuerda: en producción con config cache, consume SIEMPRE via config().
     |
     */
 
@@ -46,7 +46,7 @@ return [
         'org_id'     => env('OPENAI_ORG_ID'),
         'project_id' => env('OPENAI_PROJECT_ID'),
 
-        // Selección de modelos (según tu configuración)
+        // Modelos
         'primary' => env('OPENAI_PRIMARY_MODEL', 'gpt-5-2025-08-07'),
 
         'fallbacks' => array_values(array_filter(array_map(
@@ -54,10 +54,9 @@ return [
             explode(',', env('OPENAI_FALLBACK_MODELS', 'gpt-5-chat-latest'))
         ))),
 
-        // Legacy (para código viejo que lea services.openai.model)
+        // Legacy (para código viejo)
         'model' => env('OPENAI_PRIMARY_MODEL', 'gpt-5-2025-08-07'),
 
-        // Modelo barato/rápido para reparaciones de JSON
         'json_repair_model' => env('OPENAI_JSON_REPAIR_MODEL', 'gpt-5-mini'),
 
         // Timeouts y reintentos
@@ -88,6 +87,7 @@ return [
     | Facturapi (CFDI 4.0)
     |--------------------------------------------------------------------------
     */
+
     // === FACTURACIÓN: Sitio web (checkout) ===
     'facturaapi_web' => [
         'key'      => env('FACTURAAPI_WEB_KEY'),
@@ -108,13 +108,36 @@ return [
         'serie'            => env('FACT_INT_SERIE', 'A'),
         'tipo'             => env('FACT_INT_TIPO_COMPROBANTE', 'I'),
         'moneda'           => env('FACT_INT_MONEDA', 'MXN'),
-        'lugar_expedicion' => env('FACT_INT_LUGAR_EXP', '64000'), // opcional (v2 usa "branch")
+        'lugar_expedicion' => env('FACT_INT_LUGAR_EXP', '64000'),
         'metodo'           => env('FACT_INT_METODO_PAGO', 'PPD'),
         'forma'            => env('FACT_INT_FORMA_PAGO', '99'),
         'uso'              => env('FACT_INT_USO_CFDI', 'G03'),
 
-        'disk'            => env('FACTURAAPI_INT_DISK', 'public'),
-        'regimen_default' => env('FACT_INT_REGIMEN_DEFAULT', '601'),
+        'disk'             => env('FACTURAAPI_INT_DISK', 'public'),
+        'regimen_default'  => env('FACT_INT_REGIMEN_DEFAULT', '601'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Facturapi - Alias legacy (para código viejo)
+    |--------------------------------------------------------------------------
+    |
+    | Esto evita que reviente código que busca config('services.facturapi.key')
+    | o variables FACTURAPI_KEY / FACTURAAPI_KEY.
+    |
+    | Por defecto lo amarramos al BACKOFFICE (INT).
+    |
+    */
+    'facturapi' => [
+        // Si existe una key legacy, úsala; si no, usa la interna.
+        'key'      => env('FACTURAPI_KEY')
+            ?: env('FACTURAAPI_KEY')
+            ?: env('FACTURAAPI_INT_KEY'),
+
+        'base_uri' => rtrim(
+            env('FACTURAAPI_INT_BASE_URI', 'https://www.facturapi.io/v2'),
+            '/'
+        ),
     ],
 
     /*
@@ -147,49 +170,24 @@ return [
         'free_ship' => (float) env('FREE_SHIPPING_THRESHOLD', 5000.00),
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Copomex
-    |--------------------------------------------------------------------------
-    */
     'copomex' => [
-        'token' => env('COPOMEX_TOKEN'), // opcional
+        'token' => env('COPOMEX_TOKEN'),
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | OSRM
-    |--------------------------------------------------------------------------
-    */
     'osrm' => [
         'base' => env('OSRM_BASE_URL', 'http://localhost:5000'),
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Traffic
-    |--------------------------------------------------------------------------
-    */
     'traffic' => [
-        'provider' => env('TRAFFIC_PROVIDER', null), // 'google' | 'here' | null
+        'provider' => env('TRAFFIC_PROVIDER', null),
         'api_key'  => env('TRAFFIC_API_KEY', null),
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | AI (legacy/internal toggle)
-    |--------------------------------------------------------------------------
-    */
     'ai' => [
         'enabled' => filter_var(env('AI_ENABLED', false), FILTER_VALIDATE_BOOL),
         'model'   => env('AI_MODEL', 'gpt-4o-mini'),
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Mercado Libre
-    |--------------------------------------------------------------------------
-    */
     'meli' => [
         'client_id'     => env('MELI_CLIENT_ID'),
         'client_secret' => env('MELI_CLIENT_SECRET'),
@@ -197,27 +195,17 @@ return [
         'sandbox'       => filter_var(env('MELI_SANDBOX', true), FILTER_VALIDATE_BOOL),
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | WhatsApp
-    |--------------------------------------------------------------------------
-    */
     'whatsapp' => [
-        'version'          => env('WHATSAPP_API_VERSION', 'v21.0'),
-        'phone_id'         => env('WHATSAPP_PHONE_NUMBER_ID'),
-        'token'            => env('WHATSAPP_ACCESS_TOKEN'),
-        'template_agenda'  => env('WHATSAPP_TEMPLATE_AGENDA', 'agenda_recordatorio'),
+        'version'         => env('WHATSAPP_API_VERSION', 'v21.0'),
+        'phone_id'        => env('WHATSAPP_PHONE_NUMBER_ID'),
+        'token'           => env('WHATSAPP_ACCESS_TOKEN'),
+        'template_agenda' => env('WHATSAPP_TEMPLATE_AGENDA', 'agenda_recordatorio'),
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | iLovePDF
-    |--------------------------------------------------------------------------
-    */
     'ilovepdf' => [
         'public_key' => env('ILOVEPDF_PUBLIC_KEY'),
         'secret_key' => env('ILOVEPDF_SECRET_KEY'),
-        'region'     => env('ILOVEPDF_REGION', 'us'), // eu, us, fr, de, pl
+        'region'     => env('ILOVEPDF_REGION', 'us'),
         'timeout'    => (int) env('ILOVEPDF_TIMEOUT', 180),
     ],
 
