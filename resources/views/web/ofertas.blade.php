@@ -107,27 +107,6 @@
 
   $pct = fn($p) => ($p->price > 0 && $p->sale_price !== null && $p->sale_price < $p->price)
       ? max(1, round(100 - (($p->sale_price / $p->price) * 100))) : null;
-
-  // ==========================
-  // ✅ IMÁGENES: ahora usa photo_1/2/3 (como en productos/favoritos)
-  // ==========================
-  $imgUrl = function($raw){
-    if(!$raw || !is_string($raw) || trim($raw)==='') return null;
-    $raw = trim($raw);
-    if (\Illuminate\Support\Str::startsWith($raw, ['http://','https://'])) return $raw;
-    if (\Illuminate\Support\Str::startsWith($raw, ['storage/'])) return asset($raw);
-    return \Illuminate\Support\Facades\Storage::url($raw);
-  };
-
-  $pickPhotoUrl = function($p) use ($imgUrl){
-    foreach([$p->photo_1 ?? null, $p->photo_2 ?? null, $p->photo_3 ?? null] as $c){
-      $u = $imgUrl($c);
-      if($u) return $u;
-    }
-    // fallback por si aún existe image_url en algunos registros
-    if(!empty($p->image_url)) return $p->image_url;
-    return asset('images/placeholder.png');
-  };
 @endphp
 
 {{-- DATA para AJAX favoritos: plantilla de URL --}}
@@ -256,9 +235,7 @@
           <div class="ofr-grid-cards">
             @foreach($ofertas as $p)
               @php
-                // ✅ ahora toma foto_1/2/3
-                $img = $pickPhotoUrl($p);
-
+                $img = $p->image_url ?: asset('images/placeholder.png');
                 $off = $pct($p);
                 $desc = $p->excerpt ?: \Illuminate\Support\Str::limit(strip_tags($p->description ?? ''), 110);
                 $showUrl = route('web.catalog.show', $p);
@@ -302,13 +279,14 @@
                       @csrf
                       <input type="hidden" name="catalog_item_id" value="{{ $p->id }}">
 
-                      {{-- IMPORTANTE: type="button" para NO submit --}}
+                      {{-- IMPORTANTE: type="button" para no disparar submit (evita doble envío) --}}
                       <button type="button" class="add-to-cart add-to-cart--sm" data-submit-delay="900" title="Agregar al carrito">
                         <span>Agregar</span>
                         <svg class="morph" viewBox="0 0 64 13" aria-hidden="true">
                           <path d="M0 12C6 12 17 12 32 12C47.9024 12 58 12 64 12V13H0V12Z" />
                         </svg>
                         <div class="shirt" aria-hidden="true">
+                          {{-- Camisa BLANCA --}}
                           <svg class="first" viewBox="0 0 24 24"><path d="M5 3L9 1.5C9 1.5 10.69 3 12 3C13.31 3 15 1.5 15 1.5L19 3L22.5 8L19.5 10.5L19 9.5L17.18 18.61C17.06 19.19 16.78 19.72 16.34 20.12C15.43 20.92 13.71 22.31 12 23C10.29 22.31 8.57 20.92 7.66 20.12C7.22 19.72 6.94 19.19 6.82 18.61L5 9.5L4.5 10.5L1.5 8L5 3Z"/></svg>
                           <svg class="second" viewBox="0 0 24 24"><path d="M5 3L9 1.5C9 1.5 10.69 3 12 3C13.31 3 15 1.5 15 1.5L19 3L22.5 8L19.5 10.5L19 9.5L17.18 18.61C17.06 19.19 16.78 19.72 16.34 20.12C15.43 20.92 13.71 22.31 12 23C10.29 22.31 8.57 20.92 7.66 20.12C7.22 19.72 6.94 19.19 6.82 18.61L5 9.5L4.5 10.5L1.5 8L5 3Z"/></svg>
                         </div>
@@ -463,7 +441,7 @@
   #ofr .ofr-pagination nav{ display:inline-block }
   #ofr .ofr-pagination .hidden{ display:none }
 
-  /* === Botón "add-to-cart" animado === */
+  /* === Botón "add-to-cart" animado (camisa BLANCA) === */
   #ofr .add-to-cart{
     --background-default:#17171B; --background-hover:#0A0A0C; --background-scale:1;
     --text-color:#fff; --text-o:1; --text-x:12px;
@@ -518,6 +496,7 @@
   const root = document.getElementById('ofr');
   if(!root) return;
 
+  /* ===== Fondo a toda la página sin afectar tu footer/header ===== */
   function setOfertasBg(on){
     const b = document.body; if(!b) return;
     if(on) b.classList.add('ofertas-bg'); else b.classList.remove('ofertas-bg');
@@ -527,12 +506,14 @@
   window.addEventListener('pageshow', ()=>setOfertasBg(true));
   window.addEventListener('pagehide', ()=>setOfertasBg(false));
 
+  /* ===== Helpers ===== */
   function csrf(){ return (document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')) || '' }
   function updateBadge(count){
     if (window.updateCartBadge) { window.updateCartBadge(count); return; }
     const el = document.querySelector('[data-cart-badge]'); if (el) el.textContent = String(count||0);
   }
 
+  /* ===== POST AJAX (sin disparar submit) ===== */
   async function ajaxAdd(form, submitBtn){
     if (!form || form.dataset.submitting === '1') return;
     form.dataset.submitting = '1';
@@ -547,9 +528,12 @@
 
       if (res.ok && data.ok !== false){
         updateBadge(data?.totals?.count ?? null);
+
+        // Mantener UX: si existe tu toast global, lo usamos
         if (window.showToast){
-          window.showToast({ title:'Agregado', message:'El producto se añadió al carrito.', kind:'success', duration:2800 });
+          window.showToast({ title:'Agregado', message:'El producto se añadió al carrito.', kind:'success', duration:3000 });
         }
+
         if (window.onCartAdd) window.onCartAdd(data);
       }else{
         if (window.onCartError) window.onCartError(data?.msg || 'Ocurrió un problema.');
@@ -562,20 +546,21 @@
     }
   }
 
+  /* ===== Botón animado (click -> animación + ajaxAdd) ===== */
   function bindAnimatedCartButtons(){
     root.querySelectorAll('#ofr .add-to-cart').forEach(btn=>{
       if (btn.dataset.bound) return; btn.dataset.bound = "1";
 
       btn.addEventListener('click', (e) => {
         e.preventDefault(); e.stopPropagation();
-        if (btn.dataset.busy === '1') return;
+        if (btn.dataset.busy === '1') return;        // evita doble click
         btn.dataset.busy = '1';
 
         const form = btn.closest('form'); if(!form){ btn.dataset.busy=''; return; }
 
+        // Animación (idéntica a la que ya tenías)
         if (window.gsap){
           btn.classList.add('active'); btn.style.pointerEvents = 'none'; btn.style.setProperty('--text-o', 0);
-
           gsap.to(btn, { keyframes:[
             { '--background-scale': .97, duration: .10 },
             { '--background-scale': 1, duration: 1.0, ease: 'elastic.out(1,.6)' }
@@ -596,11 +581,13 @@
           ], onComplete(){ btn.classList.remove('active'); btn.style.pointerEvents=''; }});
         }
 
+        // Enviar AJAX directo (sin submit → sin duplicado)
         ajaxAdd(form, btn);
       });
     });
   }
 
+  /* ===== Favoritos AJAX ===== */
   function bindFavButtons(){
     const tpl = root.dataset.favUrlTemplate || '';
     root.querySelectorAll('.fav-btn').forEach(btn=>{
@@ -623,7 +610,7 @@
           if (res.status === 401){ window.location.href = "{{ route('login') }}"; return; }
           const data = await res.json().catch(()=>({}));
           const added = (typeof data.favorited !== 'undefined') ? !!data.favorited
-                        : (btn.getAttribute('aria-pressed') !== 'true');
+                        : (btn.getAttribute('aria-pressed') !== 'true'); // fallback
           btn.setAttribute('aria-pressed', added ? 'true':'false');
         }catch(_){
           /* noop */
@@ -633,6 +620,12 @@
       });
     });
   }
+
+  /* ===== Fade-in de tarjetas ===== */
+  const io = 'IntersectionObserver' in window ? new IntersectionObserver((entries, obs)=>{
+    entries.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('in'); obs.unobserve(e.target); } });
+  }, {rootMargin:'0px 0px -10% 0px'}) : null;
+  root.querySelectorAll('.ofr-grid-cards .ofr-card').forEach(el=>{ if(io) io.observe(el); });
 
   function init(){ bindAnimatedCartButtons(); bindFavButtons(); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
