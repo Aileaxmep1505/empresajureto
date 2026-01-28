@@ -1749,3 +1749,9 @@ Route::delete('tech-sheets/{sheet}/pdf/{type}', [\App\Http\Controllers\TechSheet
 // Si ya tienes resource sin destroy, al menos agrega:
 Route::delete('/tech-sheets/{sheet}', [TechSheetController::class, 'destroy'])
     ->name('tech-sheets.destroy');
+    // Descargar PDF/XML
+    Route::get('/admin/manual-invoices/{manualInvoice}/pdf', [ManualInvoiceController::class, 'downloadPdf'])
+        ->name('manual_invoices.downloadPdf');
+
+    Route::get('/admin/manual-invoices/{manualInvoice}/xml', [ManualInvoiceController::class, 'downloadXml'])
+        ->name('manual_invoices.downloadXml');
