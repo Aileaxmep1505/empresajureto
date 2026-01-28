@@ -1735,3 +1735,17 @@ Route::get('/ficha/{token}/qr', [\App\Http\Controllers\TechSheetController::clas
     Route::get('/orders/export', [OrderController::class, 'export'])
       ->name('orders.export');
   });
+
+  Route::get('tech-sheets/{sheet}/edit', [TechSheetController::class, 'edit'])
+    ->name('tech-sheets.edit');
+
+Route::put('tech-sheets/{sheet}', [TechSheetController::class, 'update'])
+    ->name('tech-sheets.update');
+Route::get('tech-sheets/{sheet}/pdf-generated', [\App\Http\Controllers\TechSheetController::class, 'pdfGenerated'])
+  ->name('tech-sheets.pdf.generated');
+Route::delete('tech-sheets/{sheet}/pdf/{type}', [\App\Http\Controllers\TechSheetController::class, 'deletePdf'])
+  ->name('tech-sheets.pdf.delete');
+
+// Si ya tienes resource sin destroy, al menos agrega:
+Route::delete('/tech-sheets/{sheet}', [TechSheetController::class, 'destroy'])
+    ->name('tech-sheets.destroy');

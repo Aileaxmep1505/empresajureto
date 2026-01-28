@@ -8,7 +8,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Barryvdh\DomPDF\Facade\Pdf;
-use PhpOffice\PhpWord\PhpWord;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class TechSheetController extends Controller
@@ -115,15 +114,188 @@ class TechSheetController extends Controller
     }
 
     /**
+     * Formulario de edición
+     */
+    public function edit(TechSheet $sheet)
+    {
+        return view('tech_sheets.edit', [
+            'sheet' => $sheet,
+        ]);
+    }
+
+    /**
+     * Actualizar ficha + subir PDFs + elegir PDF activo (solo para el botón Ⓟ)
+     */
+    public function update(Request $request, TechSheet $sheet)
+    {
+        $data = $request->validate([
+            'product_name'      => 'required|string|max:255',
+            'user_description'  => 'nullable|string',
+            'brand'             => 'nullable|string|max:255',
+            'model'             => 'nullable|string|max:255',
+            'reference'         => 'nullable|string|max:255',
+            'identification'    => 'nullable|string|max:255',
+            'partida_number'    => 'nullable|string|max:50',
+
+            // PDFs ligados
+            'brand_pdf'         => 'nullable|file|mimes:pdf|max:25600',
+            'custom_pdf'        => 'nullable|file|mimes:pdf|max:25600',
+
+            // selector: brand | custom | generated
+            'active_pdf'        => 'nullable|in:brand,custom,generated',
+        ]);
+
+        // ===== Campos básicos =====
+        $sheet->product_name     = $data['product_name'];
+        $sheet->user_description = $data['user_description'] ?? null;
+        $sheet->brand            = $data['brand'] ?? null;
+        $sheet->model            = $data['model'] ?? null;
+        $sheet->reference        = $data['reference'] ?? null;
+        $sheet->identification   = $data['identification'] ?? null;
+        $sheet->partida_number   = $data['partida_number'] ?? null;
+
+        // ===== Selector PDF principal =====
+        // 'generated' => null (usa el generado)
+        if (array_key_exists('active_pdf', $data)) {
+            $sheet->active_pdf = ($data['active_pdf'] === 'generated') ? null : $data['active_pdf'];
+        }
+
+        // ===== Subir PDFs =====
+        $baseDir = "tech_sheets/{$sheet->id}/pdfs";
+
+        if ($request->hasFile('brand_pdf')) {
+            // NOTA: con este esquema se reemplaza el de marca (solo 1 ruta)
+            if ($sheet->brand_pdf_path) {
+                Storage::disk('public')->delete($sheet->brand_pdf_path);
+            }
+
+            $sheet->brand_pdf_path = $request->file('brand_pdf')->storeAs(
+                $baseDir,
+                'marca.pdf',
+                'public'
+            );
+
+            if ($sheet->active_pdf === null) {
+                $sheet->active_pdf = 'brand';
+            }
+        }
+
+        if ($request->hasFile('custom_pdf')) {
+            // NOTA: con este esquema se reemplaza el tuyo (solo 1 ruta)
+            if ($sheet->custom_pdf_path) {
+                Storage::disk('public')->delete($sheet->custom_pdf_path);
+            }
+
+            $sheet->custom_pdf_path = $request->file('custom_pdf')->storeAs(
+                $baseDir,
+                'mio.pdf',
+                'public'
+            );
+
+            if ($sheet->active_pdf === null) {
+                $sheet->active_pdf = 'custom';
+            }
+        }
+
+        // ===== Validación extra: no permitir activo que no existe =====
+        if ($sheet->active_pdf === 'brand' && empty($sheet->brand_pdf_path)) {
+            $sheet->active_pdf = null;
+        }
+        if ($sheet->active_pdf === 'custom' && empty($sheet->custom_pdf_path)) {
+            $sheet->active_pdf = null;
+        }
+
+        // Token público si faltaba
+        if (empty($sheet->public_token)) {
+            $sheet->public_token = (string) Str::uuid();
+        }
+
+        $sheet->save();
+
+        return redirect()
+            ->route('tech-sheets.edit', $sheet)
+            ->with('ok', 'Ficha técnica actualizada.');
+    }
+
+    /**
+     * ✅ (Opcional) Borrar SOLO un PDF subido (marca o mío), sin borrar la ficha.
+     * Útil si en la vista pones un botón "Eliminar PDF".
+     *
+     * $type: 'brand' | 'custom'
+     */
+    public function deletePdf(Request $request, TechSheet $sheet, string $type)
+    {
+        abort_unless(in_array($type, ['brand', 'custom'], true), 404);
+
+        if ($type === 'brand') {
+            if ($sheet->brand_pdf_path) {
+                Storage::disk('public')->delete($sheet->brand_pdf_path);
+            }
+            $sheet->brand_pdf_path = null;
+
+            if ($sheet->active_pdf === 'brand') {
+                $sheet->active_pdf = null;
+            }
+        }
+
+        if ($type === 'custom') {
+            if ($sheet->custom_pdf_path) {
+                Storage::disk('public')->delete($sheet->custom_pdf_path);
+            }
+            $sheet->custom_pdf_path = null;
+
+            if ($sheet->active_pdf === 'custom') {
+                $sheet->active_pdf = null;
+            }
+        }
+
+        $sheet->save();
+
+        return back()->with('ok', 'PDF eliminado.');
+    }
+
+    /**
+     * ✅ Destroy: borra ficha + archivos relacionados
+     */
+    public function destroy(TechSheet $sheet)
+    {
+        // Borrar archivos sueltos si existen
+        $disk = Storage::disk('public');
+
+        if ($sheet->image_path) {
+            $disk->delete($sheet->image_path);
+        }
+
+        if ($sheet->brand_image_path) {
+            $disk->delete($sheet->brand_image_path);
+        }
+
+        if ($sheet->brand_pdf_path) {
+            $disk->delete($sheet->brand_pdf_path);
+        }
+
+        if ($sheet->custom_pdf_path) {
+            $disk->delete($sheet->custom_pdf_path);
+        }
+
+        // Borrar carpeta de la ficha (por si quedaron archivos)
+        $disk->deleteDirectory("tech_sheets/{$sheet->id}");
+
+        // Borrar registro
+        $sheet->delete();
+
+        return redirect()
+            ->route('tech-sheets.index')
+            ->with('ok', 'Ficha técnica eliminada.');
+    }
+
+    /**
      * Vista pública por token
      */
     public function publicShow(string $token)
     {
         $sheet = TechSheet::where('public_token', $token)->firstOrFail();
 
-        // ✅ IMPORTANTE: esta vista debe existir en:
-        // resources/views/tech_sheets/public.blade.php
-        // y debe esperar variable $sheet
         return view('tech_sheets.public', [
             'sheet' => $sheet,
         ]);
@@ -147,9 +319,9 @@ class TechSheetController extends Controller
     }
 
     /**
-     * Descargar PDF
+     * Helper: genera el PDF del sistema (IA) para VERLO en navegador.
      */
-    public function pdf(TechSheet $sheet)
+    private function generatedPdfStream(TechSheet $sheet)
     {
         $publicUrl = $sheet->public_token
             ? route('tech-sheets.public', $sheet->public_token)
@@ -163,53 +335,37 @@ class TechSheetController extends Controller
 
         $filename = 'Ficha-' . str_replace(' ', '-', $sheet->product_name) . '.pdf';
 
-        return $pdf->download($filename);
+        return $pdf->stream($filename);
     }
 
     /**
-     * Descargar Word
+     * ✅ ver SIEMPRE el PDF generado (IA/sistema),
+     * aunque existan PDFs subidos.
      */
-    public function word(TechSheet $sheet)
+    public function pdfGenerated(TechSheet $sheet)
     {
-        $phpWord = new PhpWord();
-        $section = $phpWord->addSection();
+        return $this->generatedPdfStream($sheet);
+    }
 
-        $section->addTitle($sheet->product_name, 1);
-
-        $section->addText('Marca: ' . ($sheet->brand ?? '-'));
-        $section->addText('Modelo: ' . ($sheet->model ?? '-'));
-        $section->addText('Referencia: ' . ($sheet->reference ?? '-'));
-        $section->addTextBreak();
-
-        if ($sheet->ai_description) {
-            $section->addTitle('Descripción', 2);
-            $section->addText($sheet->ai_description);
-            $section->addTextBreak();
-        }
-
-        if (! empty($sheet->ai_features)) {
-            $section->addTitle('Características', 2);
-            foreach ($sheet->ai_features as $feat) {
-                $section->addListItem($feat);
-            }
-            $section->addTextBreak();
-        }
-
-        if (! empty($sheet->ai_specs)) {
-            $section->addTitle('Especificaciones', 2);
-            foreach ($sheet->ai_specs as $spec) {
-                $name  = $spec['nombre'] ?? '';
-                $value = $spec['valor'] ?? '';
-                $section->addText("{$name}: {$value}");
+    /**
+     * PDF principal (botón Ⓟ):
+     * - si active_pdf = brand/custom y existe, abre ese
+     * - si no, abre el generado
+     */
+    public function pdf(TechSheet $sheet)
+    {
+        if ($sheet->active_pdf === 'custom' && $sheet->custom_pdf_path) {
+            if (Storage::disk('public')->exists($sheet->custom_pdf_path)) {
+                return response()->file(Storage::disk('public')->path($sheet->custom_pdf_path));
             }
         }
 
-        $filename = 'Ficha-' . str_replace(' ', '-', $sheet->product_name) . '.docx';
-        $tempPath = tempnam(sys_get_temp_dir(), 'ts_');
-        $tempFile = $tempPath . '.docx';
+        if ($sheet->active_pdf === 'brand' && $sheet->brand_pdf_path) {
+            if (Storage::disk('public')->exists($sheet->brand_pdf_path)) {
+                return response()->file(Storage::disk('public')->path($sheet->brand_pdf_path));
+            }
+        }
 
-        $phpWord->save($tempFile, 'Word2007');
-
-        return response()->download($tempFile, $filename)->deleteFileAfterSend(true);
+        return $this->generatedPdfStream($sheet);
     }
 }

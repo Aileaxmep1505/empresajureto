@@ -1,4 +1,3 @@
-{{-- resources/views/tech_sheets/index.blade.php --}}
 @extends('layouts.app')
 @section('title','Fichas técnicas')
 
@@ -14,6 +13,10 @@
     --acc-ink:#065f46;
     --acc-soft:rgba(52,211,153,.14);
     --acc-ring:rgba(52,211,153,.28);
+
+    --danger:#ef4444;
+    --danger-soft:rgba(239,68,68,.12);
+    --danger-ring:rgba(239,68,68,.26);
 
     --g1:rgba(52,211,153,.12);
     --g2:rgba(251,191,36,.10);
@@ -41,7 +44,7 @@
     font-weight:800;
     border-radius:14px;
     padding:10px 14px;
-    transition:transform .12s ease, box-shadow .12s ease, background .12s ease, color .12s ease, border-color .12s ease;
+    transition:transform .12s ease, box-shadow .12s ease, background .12s ease, color .12s ease, border-color .12s ease, filter .12s ease;
     box-shadow:0 10px 22px rgba(15,23,42,.06);
     user-select:none;
     background:var(--acc-soft);
@@ -81,23 +84,7 @@
   .tt:hover .tt-bubble{ opacity:1; transform:translateX(-50%) translateY(-2px); }
   @media (hover:none){ .tt .tt-bubble{ display:none !important; } }
 
-  /* icon buttons */
-  .iconbtn-wrap{ display:inline-flex; position:relative; }
-  .iconbtn{
-    width:38px; height:38px;
-    border-radius:12px;
-    border:1px solid var(--line);
-    background:#fff;
-    display:inline-grid;
-    place-items:center;
-    cursor:pointer;
-    transition:transform .12s ease, box-shadow .12s ease, background .12s ease;
-    box-shadow:0 8px 18px rgba(15,23,42,.05);
-  }
-  .iconbtn:hover{ transform:translateY(-1px); background:#fff; box-shadow:0 12px 24px rgba(15,23,42,.08); }
-  .iconbtn svg{ width:18px; height:18px; }
-
-  /* ===== Filtros (search + tabs + chip) ===== */
+  /* ===== Filtros ===== */
   .filters{
     margin-top:12px;
     padding:12px;
@@ -132,24 +119,6 @@
 
   .filter-tools{ display:inline-flex; gap:12px; align-items:center; flex-wrap:wrap; }
 
-  .tabs{
-    display:inline-flex; align-items:center; gap:6px;
-    padding:6px; border-radius:999px;
-    border:1px solid rgba(232,238,246,.95);
-    background:rgba(255,255,255,.86);
-    box-shadow:0 10px 18px rgba(15,23,42,.04);
-    user-select:none;
-  }
-  .tab{
-    appearance:none; border:0; background:transparent;
-    padding:9px 12px; border-radius:999px;
-    cursor:pointer; font-weight:700; color:#334155;
-    transition: background .12s ease, color .12s ease, transform .12s ease, box-shadow .12s ease;
-    white-space:nowrap;
-  }
-  .tab:hover{ background:rgba(52,211,153,.10); transform: translateY(-1px); box-shadow:0 10px 18px rgba(15,23,42,.05); }
-  .tab.is-active{ background:var(--acc-soft); color:var(--acc-ink); box-shadow:0 12px 22px rgba(52,211,153,.12); }
-
   .chip{
     display:inline-flex; align-items:center; gap:10px;
     padding:10px 14px; border-radius:999px;
@@ -181,10 +150,12 @@
     overflow:hidden;
     display:flex;
     flex-direction:column;
-    transition:transform .12s ease, box-shadow .12s ease;
+    transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+    cursor:pointer;
   }
   .ts-card:hover{
     transform:translateY(-3px);
+    border-color:rgba(148,163,184,.7);
     box-shadow:0 22px 60px rgba(15,23,42,.12);
   }
   .ts-hero{
@@ -284,20 +255,42 @@
     border-radius:999px;
     background:#22c55e;
   }
+
   .ts-actions{
     display:flex; gap:6px;
+    align-items:center;
   }
-  .ts-actions a{
-    width:30px; height:30px;
-    border-radius:999px;
+  .ts-actions a,
+  .ts-actions button{
+    width:32px; height:32px;
+    border-radius:8px; /* menos circulares */
     border:1px solid var(--line);
     background:#fff;
     display:grid; place-items:center;
     text-decoration:none;
-    font-size:.9rem;
+    cursor:pointer;
+    transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease, background .12s ease;
+    box-shadow:0 4px 10px rgba(15,23,42,.06);
   }
-  .ts-actions a:hover{
+  .ts-actions a:hover,
+  .ts-actions button:hover{
+    transform:translateY(-1px);
     border-color:var(--acc-ring);
+    box-shadow:0 10px 20px rgba(15,23,42,.10);
+  }
+  .ts-actions svg{
+    width:16px; height:16px;
+    color:#0f172a;
+  }
+  .ts-actions .danger-btn{
+    border-color: rgba(239,68,68,.35);
+    background: var(--danger-soft);
+  }
+  .ts-actions .danger-btn svg{
+    color:#7f1d1d;
+  }
+  .ts-actions .danger-btn:hover{
+    border-color: var(--danger-ring);
   }
 
   /* ===== FAB + Sheet (móvil) ===== */
@@ -351,13 +344,6 @@
   .sheet .sheet-close svg{ width:18px; height:18px; }
 
   .sheet .sf{ display:grid; gap:12px; }
-  .sheet .tabs{
-    width:100%;
-    overflow-x:auto;
-    -webkit-overflow-scrolling:touch;
-    justify-content:flex-start;
-  }
-  .sheet .tabs::-webkit-scrollbar{ height:0; }
   .sheet .chip{ width:100%; justify-content:center; }
   .sheet .btn{ width:100%; justify-content:center; padding:12px 14px; border-radius:16px; }
 
@@ -374,6 +360,53 @@
     .cards-grid{ grid-template-columns:1fr; }
     .fab{ display:grid; }
   }
+
+  /* ===== SweetAlert minimal ===== */
+  .swal2-modern{
+    border-radius:18px !important;
+    padding:18px 20px 16px !important;
+    box-shadow:0 18px 40px rgba(15,23,42,.12) !important;
+    border:1px solid #e5e7eb !important;
+  }
+  .swal2-modern-title{
+    font-size:1rem !important;
+    font-weight:800 !important;
+    color:#0f172a !important;
+    margin-bottom:4px !important;
+  }
+  .swal2-modern-text{
+    font-size:.86rem !important;
+    color:#4b5563 !important;
+  }
+  .swal2-modern-btn{
+    border-radius:8px !important;
+    padding:7px 16px !important;
+    font-size:.84rem !important;
+    font-weight:600 !important;
+    box-shadow:none !important;
+    border-width:1px !important;
+  }
+  .swal2-modern-btn-danger{
+    background:#0f172a !important;
+    color:#f9fafb !important;
+    border-color:#0f172a !important;
+  }
+  .swal2-modern-btn-secondary{
+    background:#f9fafb !important;
+    color:#4b5563 !important;
+    border-color:#d1d5db !important;
+    margin-right:8px !important;
+  }
+  .swal2-modern-toast{
+    border-radius:12px !important;
+    padding:8px 14px !important;
+    box-shadow:0 10px 30px rgba(15,23,42,.18) !important;
+    border:1px solid #e5e7eb !important;
+  }
+  .swal2-modern-toast-title{
+    font-size:.82rem !important;
+    font-weight:600 !important;
+  }
 </style>
 @endpush
 
@@ -381,8 +414,7 @@
 @php
   use Illuminate\Support\Str;
   $q    = (string) request('q','');
-  $mode = (string) request('mode','');       // '' | ai | noai
-  $img  = request()->boolean('image_only');  // true | false
+  $img  = request()->boolean('image_only');
 @endphp
 
 <div class="ts-wrap">
@@ -390,16 +422,13 @@
   <div class="head">
     <div>
       <h1 class="title">Fichas técnicas</h1>
-      <p class="muted subtxt">
-        Genera y organiza fichas técnicas con IA para tus productos. Descarga en PDF o Word con un clic.
-      </p>
+      <p class="muted subtxt">Administra tus fichas técnicas.</p>
       <p class="muted" style="font-size:.84rem; margin-top:6px;">
         {{ $items->total() }} {{ Str::plural('ficha', $items->total()) }} encontradas
         @if($q) · filtro: “{{ $q }}” @endif
       </p>
     </div>
 
-    {{-- Botón Nuevo (desktop) --}}
     <div class="tt tt-new">
       <span class="tt-bubble">Crear nueva ficha técnica</span>
       <a href="{{ route('tech-sheets.create') }}" class="btn">
@@ -413,10 +442,8 @@
     </div>
   </div>
 
-  {{-- Filtros --}}
   <div class="filters">
     <form id="filtersForm" method="GET" action="{{ route('tech-sheets.index') }}" class="filters-row">
-      {{-- Buscador siempre visible --}}
       <div class="tt" style="flex:1; min-width:0;">
         <span class="tt-bubble">Buscar por nombre, marca, modelo o referencia</span>
         <div class="search">
@@ -429,17 +456,7 @@
         </div>
       </div>
 
-      {{-- SOLO estos tools se van al bottom sheet en móvil --}}
       <div class="filter-tools">
-        <div class="tt">
-          <span class="tt-bubble">Filtrar por IA</span>
-          <div class="tabs" role="tablist" aria-label="Generación IA">
-            <button type="button" class="tab {{ $mode==='' ? 'is-active' : '' }}" data-mode="">Todas</button>
-            <button type="button" class="tab {{ $mode==='ai' ? 'is-active' : '' }}" data-mode="ai">Con IA</button>
-            <button type="button" class="tab {{ $mode==='noai' ? 'is-active' : '' }}" data-mode="noai">Pendiente IA</button>
-          </div>
-        </div>
-
         <div class="tt">
           <span class="tt-bubble">Mostrar solo fichas con imagen</span>
           <label class="chip">
@@ -448,7 +465,7 @@
           </label>
         </div>
 
-        @if(request()->hasAny(['q','mode','image_only']))
+        @if(request()->hasAny(['q','image_only']))
           <div class="tt">
             <span class="tt-bubble">Quitar filtros</span>
             <a href="{{ route('tech-sheets.index') }}" class="btn btn-sm" style="padding:10px 12px;">
@@ -462,25 +479,21 @@
           </div>
         @endif
       </div>
-
-      <input type="hidden" name="mode" id="modeInput" value="{{ $mode }}">
     </form>
   </div>
 
-  {{-- GRID DE CARDS --}}
   @if($items->count())
     <div class="cards-grid">
       @foreach($items as $sheet)
         @php
-          $hasAi   = !empty($sheet->ai_description);
           $hasImg  = !empty($sheet->image_path);
           $ref     = $sheet->reference ?? null;
           $cat     = $sheet->identification ?? null;
           $desc    = $sheet->ai_description ?: $sheet->user_description;
         @endphp
 
-        <article class="ts-card">
-          {{-- Imagen + badges --}}
+        <article class="ts-card js-sheet-card"
+                 data-url="{{ route('tech-sheets.show', $sheet) }}">
           <div class="ts-hero">
             @if($hasImg)
               <img src="{{ asset('storage/'.$sheet->image_path) }}" alt="{{ $sheet->product_name }}">
@@ -488,9 +501,7 @@
               <div class="ph">📦</div>
             @endif
 
-            <span class="ts-badge">
-              {{ $hasAi ? 'Con IA' : 'Borrador' }}
-            </span>
+            <span class="ts-badge">Ficha</span>
 
             @if($cat)
               <span class="ts-badge secondary">
@@ -499,7 +510,6 @@
             @endif
           </div>
 
-          {{-- Cuerpo --}}
           <div class="ts-body">
             @if($ref)
               <div class="ts-ref">{{ \Illuminate\Support\Str::upper($ref) }}</div>
@@ -516,41 +526,57 @@
               @if($desc)
                 {{ \Illuminate\Support\Str::limit($desc, 110) }}
               @else
-                Sin descripción generada.
+                Sin descripción.
               @endif
             </div>
 
             <div class="tag-row">
-              @if($hasAi)
-                <span class="tag-pill">Texto IA</span>
-              @else
-                <span class="tag-pill">Pendiente IA</span>
-              @endif
-
               @if($hasImg)
                 <span class="tag-pill">Con imagen</span>
               @else
                 <span class="tag-pill">Sin imagen</span>
               @endif
+
+              @if(!empty($sheet->custom_pdf_path))
+                <span class="tag-pill">PDF subido</span>
+              @else
+                <span class="tag-pill">PDF generado</span>
+              @endif
             </div>
           </div>
 
-          {{-- Footer --}}
           <div class="ts-footer">
             <div class="ts-footer-left">
               <div class="ts-dot"></div>
               <span>Actualizada {{ optional($sheet->updated_at)->diffForHumans() }}</span>
             </div>
+
             <div class="ts-actions">
-              <a href="{{ route('tech-sheets.show', $sheet) }}" title="Ver">
-                👁
+              {{-- Editar --}}
+              <a href="{{ route('tech-sheets.edit', $sheet) }}" title="Editar ficha" class="js-stop-card">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 20h9"/>
+                  <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+                </svg>
               </a>
-              <a href="{{ route('tech-sheets.pdf', $sheet) }}" title="PDF">
-                Ⓟ
-              </a>
-              <a href="{{ route('tech-sheets.word', $sheet) }}" title="Word">
-                𝓦
-              </a>
+
+              {{-- Borrar con SweetAlert --}}
+              <form method="POST"
+                    action="{{ route('tech-sheets.destroy', $sheet) }}"
+                    class="js-delete-form js-stop-card"
+                    data-name="{{ $sheet->product_name }}"
+                    style="display:inline;">
+                @csrf
+                @method('DELETE')
+                <button type="submit" class="danger-btn" title="Borrar ficha">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 6h18"/>
+                    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+                    <path d="M10 11v6"/><path d="M14 11v6"/>
+                  </svg>
+                </button>
+              </form>
             </div>
           </div>
         </article>
@@ -575,7 +601,6 @@
   @endif
 </div>
 
-{{-- FAB (móvil) abre bottom sheet --}}
 <button class="fab" id="fabOpen" type="button" aria-label="Abrir filtros">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
     <path d="M3 5h18M6 12h12M10 19h4"/>
@@ -595,17 +620,8 @@
     </button>
   </div>
 
-  {{-- En el sheet NO va el buscador, sólo filtros --}}
   <form id="sheetForm" method="GET" action="{{ route('tech-sheets.index') }}" class="sf">
     <input type="hidden" name="q" id="qMirror" value="{{ $q }}">
-
-    <div class="tabs" role="tablist" aria-label="Generación IA (móvil)">
-      <button type="button" class="tab {{ $mode==='' ? 'is-active' : '' }}" data-mode="">Todas</button>
-      <button type="button" class="tab {{ $mode==='ai' ? 'is-active' : '' }}" data-mode="ai">Con IA</button>
-      <button type="button" class="tab {{ $mode==='noai' ? 'is-active' : '' }}" data-mode="noai">Pendiente IA</button>
-    </div>
-
-    <input type="hidden" name="mode" id="modeSheet" value="{{ $mode }}">
 
     <label class="chip">
       <input id="imgSheet" type="checkbox" name="image_only" value="1" @checked($img)>
@@ -621,7 +637,7 @@
       Nueva ficha
     </a>
 
-    @if(request()->hasAny(['q','mode','image_only']))
+    @if(request()->hasAny(['q','image_only']))
       <a href="{{ route('tech-sheets.index') }}" class="btn btn-sm" style="padding:12px 14px;">
         <span class="ico">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -636,6 +652,9 @@
 @endsection
 
 @push('scripts')
+{{-- SweetAlert2 --}}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <script>
 (function(){
   function debounce(fn, wait){
@@ -645,26 +664,12 @@
 
   const form      = document.getElementById('filtersForm');
   const qInput    = document.getElementById('qInput');
-  const modeInput = document.getElementById('modeInput');
-  const tabs      = Array.from(document.querySelectorAll('#filtersForm .tab'));
   const imgInput  = document.getElementById('imgInput');
 
   const submitDebounced = debounce(()=> form?.submit(), 450);
-
   qInput?.addEventListener('input', submitDebounced);
-
-  tabs.forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      tabs.forEach(x=>x.classList.remove('is-active'));
-      btn.classList.add('is-active');
-      if(modeInput) modeInput.value = btn.dataset.mode ?? '';
-      form?.submit();
-    });
-  });
-
   imgInput?.addEventListener('change', ()=> form?.submit());
 
-  // ===== Bottom sheet =====
   const root    = document.documentElement;
   const fab     = document.getElementById('fabOpen');
   const sheet   = document.getElementById('sheet');
@@ -689,11 +694,8 @@
   document.addEventListener('keydown', e => { if(e.key === 'Escape') closeSheet(); });
   window.addEventListener('resize', ()=>{ if(!isMobile()) closeSheet(); });
 
-  // Sheet filters (modo + imagen)
   const sheetForm  = document.getElementById('sheetForm');
   const qMirror    = document.getElementById('qMirror');
-  const modeSheet  = document.getElementById('modeSheet');
-  const tabSheet   = Array.from(document.querySelectorAll('#sheetForm .tab'));
   const imgSheet   = document.getElementById('imgSheet');
 
   function syncSearch(){
@@ -702,21 +704,70 @@
   qInput?.addEventListener('input', syncSearch);
   syncSearch();
 
-  tabSheet.forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      tabSheet.forEach(x=>x.classList.remove('is-active'));
-      btn.classList.add('is-active');
-      if(modeSheet) modeSheet.value = btn.dataset.mode ?? '';
-      syncSearch();
-      sheetForm?.submit();
-    });
-  });
-
   imgSheet?.addEventListener('change', ()=>{
     syncSearch();
     sheetForm?.submit();
   });
 
+  // ==== Card clickeable (show) ====
+  document.querySelectorAll('.js-sheet-card').forEach(function(card){
+    card.addEventListener('click', function(e){
+      const interactive = e.target.closest('a, button, .js-stop-card');
+      if (interactive) return;
+      const url = card.dataset.url;
+      if (url) window.location.href = url;
+    });
+  });
+
+  // ==== SweetAlert confirm delete minimal ====
+  document.querySelectorAll('.js-delete-form').forEach(function(form){
+    form.addEventListener('submit', function(e){
+      e.preventDefault();
+      const name = this.dataset.name || 'esta ficha';
+
+      Swal.fire({
+        title: 'Eliminar ficha',
+        text: '¿Seguro que deseas eliminar "' + name + '"? Esta acción no se puede deshacer.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Eliminar',
+        cancelButtonText: 'Cancelar',
+        buttonsStyling: false,
+        customClass: {
+          popup: 'swal2-modern',
+          title: 'swal2-modern-title',
+          htmlContainer: 'swal2-modern-text',
+          confirmButton: 'swal2-modern-btn swal2-modern-btn-danger',
+          cancelButton: 'swal2-modern-btn swal2-modern-btn-secondary'
+        }
+      }).then((result) => {
+        if (result.isConfirmed) {
+          this.submit();
+        }
+      });
+    });
+  });
+
 })();
 </script>
+
+{{-- Toast de éxito --}}
+@if(session('ok'))
+<script>
+  Swal.fire({
+    icon: 'success',
+    title: @json(session('ok')),
+    toast: true,
+    position: 'top-end',
+    showConfirmButton: false,
+    timer: 2300,
+    timerProgressBar: true,
+    buttonsStyling:false,
+    customClass:{
+      popup:'swal2-modern-toast',
+      title:'swal2-modern-toast-title'
+    }
+  });
+</script>
+@endif
 @endpush

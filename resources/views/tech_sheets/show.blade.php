@@ -21,6 +21,19 @@
   $qrUrl = $sheet->public_token
       ? route('tech-sheets.qr', $sheet->public_token)
       : null;
+
+  // ✅ URLs de PDFs (independientes, NO reemplazan)
+  $pdfGeneratedUrl = route('tech-sheets.pdf.generated', $sheet);
+
+  // PDF subido por ti (si existe)
+  $pdfUploadedUrl = $sheet->custom_pdf_path
+      ? asset('storage/'.$sheet->custom_pdf_path)
+      : null;
+
+  // PDF de marca (si existe) (opcional)
+  $pdfBrandUrl = $sheet->brand_pdf_path
+      ? asset('storage/'.$sheet->brand_pdf_path)
+      : null;
 @endphp
 
 <div id="ts-show" class="container my-4">
@@ -66,14 +79,16 @@
       transition:transform .12s ease, box-shadow .12s ease, background .12s ease, color .12s ease;
       cursor:pointer;
     }
-    #ts-show .ts-btn svg{
-      width:14px; height:14px;
-    }
+    #ts-show .ts-btn svg{ width:14px; height:14px; }
     #ts-show .ts-btn:hover{
       background:#ffffff;
       color:#111827;
       transform:translateY(-1px);
       box-shadow:0 10px 24px rgba(15,23,42,.18);
+    }
+    #ts-show .ts-btn.is-disabled{
+      opacity:.55;
+      pointer-events:none;
     }
 
     /* ===== CARD PRINCIPAL ===== */
@@ -175,19 +190,16 @@
     /* logo dentro de la ficha (tipo chip) */
     #ts-show .pill-logo{
       background:#ffffff;
-
       border:1px solid rgba(148,163,184,.7);
       box-shadow:0 8px 18px rgba(15,23,42,.25);
- padding:4px 12px;
+      padding:4px 12px;
     }
     #ts-show .pill-logo img{
       height:32px;
       width:auto;
       border-radius:999px;
     }
-#ts-show .pill-logo span{
-  display:none;
-}
+    #ts-show .pill-logo span{ display:none; }
 
     /* N° Partida */
     #ts-show .pill-partida{
@@ -197,20 +209,11 @@
       backdrop-filter:blur(4px);
       padding-inline:12px;
     }
-    #ts-show .pill-partida .label{
-      opacity:.85;
-      font-weight:600;
-    }
+    #ts-show .pill-partida .label{ opacity:.85; font-weight:600; }
     #ts-show .pill-partida .value{
       font-weight:800;
       letter-spacing:.08em;
       text-transform:uppercase;
-    }
-
-    #ts-show .pill-cat{
-      background:#0f172a;
-      color:#e5e7eb;
-      border:1px solid rgba(148,163,184,.7);
     }
 
     #ts-show .ts-ref{
@@ -225,11 +228,6 @@
       font-weight:900;
       letter-spacing:-.02em;
       color:#f9fafb;
-    }
-    #ts-show .ts-ident{
-      font-size:.82rem;
-      color:#cbd5f5;
-      margin-top:4px;
     }
     #ts-show .ts-description{
       font-size:.9rem;
@@ -277,9 +275,7 @@
       background:#e0f2fe;
       color:#1d4ed8;
     }
-    #ts-show .ts-section-header-icon svg{
-      width:14px; height:14px;
-    }
+    #ts-show .ts-section-header-icon svg{ width:14px; height:14px; }
     #ts-show .ts-section-title{
       font-size:1rem;
       font-weight:800;
@@ -302,9 +298,7 @@
       border-bottom:1px solid #e5e7eb;
       color:#111827;
     }
-    #ts-show .ts-table tr:nth-child(even) td{
-      background:#f9fafb;
-    }
+    #ts-show .ts-table tr:nth-child(even) td{ background:#f9fafb; }
 
     /* características */
     #ts-show .ts-list{
@@ -333,9 +327,7 @@
       align-items:center;
       gap:6px;
     }
-    #ts-show .ts-footer-item svg{
-      width:14px; height:14px;
-    }
+    #ts-show .ts-footer-item svg{ width:14px; height:14px; }
 
     /* ===== MODAL FICHA PÚBLICA (claro) ===== */
     #ts-show .ts-modal{
@@ -363,7 +355,7 @@
       position:relative;
       z-index:1;
       width:100%;
-      max-width:420px;
+      max-width:520px;
       background:#ffffff;
       color:var(--ink);
       border-radius:20px;
@@ -399,9 +391,7 @@
       background:#e5e7eb;
       color:#111827;
     }
-    #ts-show .ts-modal__close:active{
-      transform:scale(.96);
-    }
+    #ts-show .ts-modal__close:active{ transform:scale(.96); }
 
     #ts-show .ts-modal__body{
       display:flex;
@@ -426,6 +416,21 @@
       background:#ffffff;
     }
 
+    #ts-show .ts-modal__block{
+      border:1px solid #e5e7eb;
+      background:#fff;
+      border-radius:16px;
+      padding:12px;
+    }
+    #ts-show .ts-modal__block-title{
+      font-size:.78rem;
+      font-weight:800;
+      color:#111827;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      margin-bottom:8px;
+    }
+
     #ts-show .ts-modal__link-row{
       display:flex;
       gap:8px;
@@ -444,11 +449,6 @@
       overflow:hidden;
       text-overflow:ellipsis;
     }
-    #ts-show .ts-modal__input:focus{
-      outline:none;
-      border-color:#60a5fa;
-      box-shadow:0 0 0 1px rgba(96,165,250,.5);
-    }
     #ts-show .ts-modal__copy{
       border-radius:999px;
       border:0;
@@ -463,13 +463,9 @@
       gap:6px;
       box-shadow:0 10px 24px rgba(37,99,235,.45);
       transition:transform .1s ease, box-shadow .1s ease, filter .1s ease;
+      white-space:nowrap;
     }
-    #ts-show .ts-modal__copy svg{
-      width:13px; height:13px;
-    }
-    #ts-show .ts-modal__copy:hover{
-      filter:brightness(1.05);
-    }
+    #ts-show .ts-modal__copy svg{ width:13px; height:13px; }
     #ts-show .ts-modal__copy:active{
       transform:translateY(1px);
       box-shadow:0 6px 18px rgba(37,99,235,.55);
@@ -481,7 +477,6 @@
       display:flex;
       align-items:center;
       gap:6px;
-      margin-top:2px;
     }
     #ts-show .ts-modal__hint-dot{
       width:7px; height:7px;
@@ -492,28 +487,20 @@
     #ts-show .ts-modal__copied{
       font-size:.75rem;
       color:#16a34a;
+      margin-left:6px;
     }
 
     @media (max-width: 768px){
       #ts-show .ts-wrap{ padding:0 4px; }
-      #ts-show .ts-header{
-        flex-direction:column;
-      }
-      #ts-show .ts-img-box{
-        flex:1 1 auto;
-        height:190px;
-      }
-      #ts-show .ts-main{
-        margin-top:8px;
-      }
+      #ts-show .ts-header{ flex-direction:column; }
+      #ts-show .ts-img-box{ flex:1 1 auto; height:190px; }
+      #ts-show .ts-main{ margin-top:8px; }
       #ts-show .ts-logo{
         position:absolute;
         top:8px; right:8px;
         transform:none;
       }
-      #ts-show .ts-modal__dialog{
-        margin:0 10px;
-      }
+      #ts-show .ts-modal__dialog{ margin:0 10px; }
     }
   </style>
 
@@ -521,27 +508,46 @@
     {{-- Topbar acciones --}}
     <div class="ts-topbar">
       <div class="ts-topbar-title">Ficha técnica</div>
+
       <div class="ts-actions">
-        <a href="{{ route('tech-sheets.pdf', $sheet) }}" class="ts-btn">
+        {{-- ✅ 1) PDF generado (SIEMPRE) --}}
+        <a href="{{ $pdfGeneratedUrl }}" class="ts-btn" target="_blank" title="PDF generado por el sistema">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M7 3h10v4"/><path d="M12 3v10"/><path d="M5 13h14v8H5z"/>
           </svg>
-          PDF
-        </a>
-        <a href="{{ route('tech-sheets.word', $sheet) }}" class="ts-btn">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M4 4h9l5 5v11H4z"/><path d="M9 9l1.5 6L12 11l1.5 4L15 9"/>
-          </svg>
-          Word
+          PDF generado
         </a>
 
+        {{-- ✅ 2) PDF subido (si existe) --}}
+        @if($pdfUploadedUrl)
+          <a href="{{ $pdfUploadedUrl }}" class="ts-btn" target="_blank" title="PDF subido por ti">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M7 3h10v4"/><path d="M12 3v10"/><path d="M5 13h14v8H5z"/>
+            </svg>
+            PDF subido
+          </a>
+        @else
+          <span class="ts-btn is-disabled" title="Aún no has subido un PDF">PDF subido</span>
+        @endif
+
+        {{-- (Opcional) PDF marca --}}
+        @if($pdfBrandUrl)
+          <a href="{{ $pdfBrandUrl }}" class="ts-btn" target="_blank" title="PDF de marca">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 4h16v16H4z"/><path d="M8 8h8"/><path d="M8 12h8"/><path d="M8 16h6"/>
+            </svg>
+            PDF marca
+          </a>
+        @endif
+
+        {{-- ✅ Modal: Links + QR --}}
         @if($publicUrl && $qrUrl)
           <button type="button" class="ts-btn" id="ts-btn-share">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
               <rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3z"/><path d="M18 18h3"/>
             </svg>
-            Ficha pública
+            Compartir
           </button>
         @endif
       </div>
@@ -565,23 +571,21 @@
             <span>JURETO S.A DE C.V.</span>
           </div>
 
-<div class="ts-badges">
-    {{-- chip con logo de la marca: SOLO si hay brand_image_path --}}
-    @if($sheet->brand_image_path)
-      <div class="pill pill-logo">
-        <img
-          src="{{ asset('storage/'.$sheet->brand_image_path) }}"
-          alt="Logo de la marca">
-      </div>
-    @endif
+          <div class="ts-badges">
+            {{-- chip con logo de la marca: SOLO si hay brand_image_path --}}
+            @if($sheet->brand_image_path)
+              <div class="pill pill-logo">
+                <img src="{{ asset('storage/'.$sheet->brand_image_path) }}" alt="Logo de la marca">
+              </div>
+            @endif
 
-    @if($partida)
-      <div class="pill pill-partida">
-        <span class="label">N° Partida:</span>
-        <span class="value">{{ $partida }}</span>
-      </div>
-    @endif
-</div>
+            @if($partida)
+              <div class="pill pill-partida">
+                <span class="label">N° Partida:</span>
+                <span class="value">{{ $partida }}</span>
+              </div>
+            @endif
+          </div>
 
           @if($ref)
             <div class="ts-ref">{{ Str::upper($ref) }}</div>
@@ -684,13 +688,13 @@
     </article>
   </div>
 
-  {{-- MODAL FICHA PÚBLICA (QR + LINK) --}}
+  {{-- MODAL: QR + links (2 links de PDF, SIN reemplazar) --}}
   @if($publicUrl && $qrUrl)
     <div class="ts-modal" id="ts-share-modal" aria-hidden="true" role="dialog" aria-modal="true">
       <div class="ts-modal__backdrop" id="ts-share-backdrop"></div>
       <div class="ts-modal__dialog">
         <div class="ts-modal__head">
-          <div class="ts-modal__title">Ficha pública</div>
+          <div class="ts-modal__title">Compartir</div>
           <button type="button" class="ts-modal__close" id="ts-share-close" aria-label="Cerrar">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M18 6L6 18M6 6l12 12"/>
@@ -703,26 +707,56 @@
             <img src="{{ $qrUrl }}" alt="QR ficha técnica">
           </div>
 
-          <div class="ts-modal__link-row">
-            <input
-              type="text"
-              readonly
-              class="ts-modal__input"
-              id="ts-share-link"
-              value="{{ $publicUrl }}"
-            >
-            <button type="button" class="ts-modal__copy" id="ts-share-copy">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="9" y="9" width="13" height="13" rx="2"/>
-                <rect x="2" y="2" width="13" height="13" rx="2"/>
-              </svg>
-              Copiar
-            </button>
+          <div class="ts-modal__block">
+            <div class="ts-modal__block-title">Link ficha pública</div>
+            <div class="ts-modal__link-row">
+              <input type="text" readonly class="ts-modal__input" id="ts-link-public" value="{{ $publicUrl }}">
+              <button type="button" class="ts-modal__copy" data-copy="#ts-link-public">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="9" y="9" width="13" height="13" rx="2"/>
+                  <rect x="2" y="2" width="13" height="13" rx="2"/>
+                </svg>
+                Copiar
+              </button>
+            </div>
+          </div>
+
+          <div class="ts-modal__block">
+            <div class="ts-modal__block-title">Links PDF (independientes)</div>
+
+            <div class="ts-modal__link-row">
+              <input type="text" readonly class="ts-modal__input" id="ts-link-pdf-gen" value="{{ $pdfGeneratedUrl }}">
+              <button type="button" class="ts-modal__copy" data-copy="#ts-link-pdf-gen">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="9" y="9" width="13" height="13" rx="2"/>
+                  <rect x="2" y="2" width="13" height="13" rx="2"/>
+                </svg>
+                Copiar PDF generado
+              </button>
+            </div>
+
+            @if($pdfUploadedUrl)
+              <div class="ts-modal__link-row" style="margin-top:8px;">
+                <input type="text" readonly class="ts-modal__input" id="ts-link-pdf-up" value="{{ $pdfUploadedUrl }}">
+                <button type="button" class="ts-modal__copy" data-copy="#ts-link-pdf-up">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2"/>
+                    <rect x="2" y="2" width="13" height="13" rx="2"/>
+                  </svg>
+                  Copiar PDF subido
+                </button>
+              </div>
+            @else
+              <div class="ts-modal__hint" style="margin-top:8px;">
+                <span class="ts-modal__hint-dot"></span>
+                <span>Aún no hay PDF subido. Sube uno desde “Editar”.</span>
+              </div>
+            @endif
           </div>
 
           <div class="ts-modal__hint">
             <span class="ts-modal__hint-dot"></span>
-            <span>Escanea el código o comparte el link para ver esta ficha sin iniciar sesión.</span>
+            <span>El PDF generado y el PDF subido son diferentes y siempre se mantienen separados.</span>
             <span class="ts-modal__copied" id="ts-share-copied" style="display:none;">· Copiado ✨</span>
           </div>
         </div>
@@ -740,8 +774,6 @@
     const modal     = document.getElementById('ts-share-modal');
     const backdrop  = document.getElementById('ts-share-backdrop');
     const btnClose  = document.getElementById('ts-share-close');
-    const inputLink = document.getElementById('ts-share-link');
-    const btnCopy   = document.getElementById('ts-share-copy');
     const copiedLbl = document.getElementById('ts-share-copied');
 
     if (!btnOpen || !modal) return;
@@ -749,12 +781,6 @@
     function openModal(){
       modal.classList.add('is-open');
       modal.setAttribute('aria-hidden','false');
-      setTimeout(() => {
-        if (inputLink) {
-          inputLink.focus();
-          inputLink.select();
-        }
-      }, 50);
     }
 
     function closeModal(){
@@ -763,32 +789,28 @@
       if (copiedLbl) copiedLbl.style.display = 'none';
     }
 
-    btnOpen.addEventListener('click', (e) => {
-      e.preventDefault();
-      openModal();
-    });
-
-    if (backdrop) {
-      backdrop.addEventListener('click', closeModal);
-    }
-    if (btnClose) {
-      btnClose.addEventListener('click', closeModal);
-    }
+    btnOpen.addEventListener('click', (e) => { e.preventDefault(); openModal(); });
+    backdrop?.addEventListener('click', closeModal);
+    btnClose?.addEventListener('click', closeModal);
 
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && modal.classList.contains('is-open')) {
-        closeModal();
-      }
+      if (e.key === 'Escape' && modal.classList.contains('is-open')) closeModal();
     });
 
-    if (btnCopy && inputLink) {
-      btnCopy.addEventListener('click', async (e) => {
+    // Copy handler (reusable)
+    document.querySelectorAll('[data-copy]').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
         e.preventDefault();
+        const sel = btn.getAttribute('data-copy');
+        const input = sel ? document.querySelector(sel) : null;
+        if (!input) return;
+
         try{
           if (navigator.clipboard && navigator.clipboard.writeText) {
-            await navigator.clipboard.writeText(inputLink.value);
+            await navigator.clipboard.writeText(input.value);
           } else {
-            inputLink.select();
+            input.focus();
+            input.select();
             document.execCommand('copy');
           }
           if (copiedLbl) {
@@ -799,7 +821,7 @@
           console.error(err);
         }
       });
-    }
+    });
   })();
 </script>
 @endif

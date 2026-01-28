@@ -12,7 +12,7 @@ class TechSheet extends Model
         'model',
         'reference',
         'identification',
-        'partida_number',      // 👈 nuevo
+        'partida_number',
         'user_description',
         'image_path',
         'brand_image_path',
@@ -20,6 +20,11 @@ class TechSheet extends Model
         'ai_features',
         'ai_specs',
         'public_token',
+
+        // ✅ PDFs ligados a la ficha
+        'brand_pdf_path',
+        'custom_pdf_path',
+        'active_pdf', // 'brand' | 'custom' | null (null = PDF generado)
     ];
 
     protected $casts = [
