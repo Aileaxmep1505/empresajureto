@@ -85,16 +85,10 @@
   width:100%; height:100%;
   object-fit:cover;
   opacity:1;
-  transform:translateX(0);
-  transition:opacity .22s ease, transform .34s cubic-bezier(.2,.9,.2,1);
-  will-change:opacity, transform;
+  transform:scale(1);
+  filter:blur(0px);
+  will-change:opacity, transform, filter;
 }
-
-/* transición */
-#hero .stage img.outL{ opacity:0; transform:translateX(-18px) scale(.995); }
-#hero .stage img.outR{ opacity:0; transform:translateX( 18px) scale(.995); }
-#hero .stage img.inL{ opacity:0; transform:translateX(-18px) scale(.995); }
-#hero .stage img.inR{ opacity:0; transform:translateX( 18px) scale(.995); }
 
 #hero .pill{
   position:absolute;
@@ -263,7 +257,6 @@
 @media (max-width: 520px){
   #hero .qty{ width:120px; }
 }
-
 #hero .favWrap{ display:flex; align-items:center; }
 
 /* ================== ADD TO CART (MISMO BOTÓN ANIMADO) ================== */
@@ -679,7 +672,7 @@
 <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
 <script>
 (() => {
-  /* ================== GALERÍA < > con transición ================== */
+  /* ================== GALERÍA < > con transición PRO (fade + blur + zoom) ================== */
   const images = @json($images);
   let idx = 0;
 
@@ -698,28 +691,56 @@
 
   function swapTo(next, dir){
     if(!main || next === idx) return;
+    if(swapTo._busy) return;
+    swapTo._busy = true;
 
     const outgoing = main;
+
+    // Crea una capa entrante encima
     const incoming = outgoing.cloneNode(true);
     incoming.removeAttribute('id');
     incoming.src = images[next] || outgoing.src;
-
-    incoming.classList.add(dir > 0 ? 'inR' : 'inL');
     stage.appendChild(incoming);
 
-    requestAnimationFrame(()=>{
-      outgoing.classList.add(dir > 0 ? 'outL' : 'outR');
-      incoming.classList.remove('inL','inR');
+    // Estado inicial entrante (blur + leve zoom + fade)
+    gsap.set(incoming, { opacity: 0, scale: 0.985, filter: "blur(10px)" });
+
+    const tl = gsap.timeline({
+      defaults:{ ease:"power3.out" },
+      onComplete: () => {
+        outgoing.src = incoming.src;
+        gsap.set(outgoing, { opacity: 1, scale: 1, filter: "blur(0px)" });
+        incoming.remove();
+        idx = next;
+        setThumb(idx);
+        swapTo._busy = false;
+      }
     });
 
-    incoming.addEventListener('transitionend', ()=>{
-      outgoing.src = incoming.src;
-      outgoing.classList.remove('outL','outR');
-      incoming.remove();
-    }, { once:true });
+    // Sale: se desenfoca y sube un pelín el zoom (muy sutil)
+    tl.to(outgoing, {
+      opacity: 0,
+      scale: 1.015,
+      filter: "blur(8px)",
+      duration: 0.32,
+      ease: "power2.out"
+    }, 0);
 
-    idx = next;
-    setThumb(idx);
+    // Entra: se enfoca y vuelve a 1
+    tl.to(incoming, {
+      opacity: 1,
+      scale: 1,
+      filter: "blur(0px)",
+      duration: 0.42,
+      ease: "power3.out"
+    }, 0.04);
+
+    // Micro-settle premium
+    tl.to(incoming, {
+      scale: 1.002,
+      duration: 0.18,
+      ease: "sine.out"
+    }, ">-0.10");
   }
 
   thumbs?.addEventListener('click', (e)=>{
@@ -744,7 +765,23 @@
     if(e.key === 'ArrowRight') nextBtn?.click();
   });
 
-  /* ================== Cantidad mínima ================== */
+  // Swipe mobile (suave)
+  (function(){
+    if(!stage || images.length < 2) return;
+    let x0 = null;
+    stage.addEventListener('touchstart', (e)=>{ x0 = e.touches[0].clientX; }, {passive:true});
+    stage.addEventListener('touchend', (e)=>{
+      if(x0 === null) return;
+      const x1 = e.changedTouches[0].clientX;
+      const dx = x1 - x0;
+      x0 = null;
+      if(Math.abs(dx) < 40) return;
+      if(dx > 0) prevBtn?.click();
+      else nextBtn?.click();
+    }, {passive:true});
+  })();
+
+  /* ================== Cantidad mínima 1 ================== */
   const qty = document.getElementById('qty');
   if(qty){ qty.addEventListener('input', ()=>{ if(!qty.value || qty.value < 1) qty.value = 1; }); }
 
