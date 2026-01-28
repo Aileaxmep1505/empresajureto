@@ -1217,6 +1217,43 @@
 
 @php
   $products = \App\Models\CatalogItem::published()->ordered()->take(12)->get();
+
+  /**
+   * ✅ Ahora usa photo_1 / photo_2 / photo_3 (primera disponible).
+   * Soporta:
+   * - URL completa (http/https)
+   * - "storage/..." => asset()
+   * - path interno => Storage::url()
+   * - fallback placeholder
+   */
+  $pickPhotoUrl = function($p){
+    $candidates = [
+      $p->photo_1 ?? null,
+      $p->photo_2 ?? null,
+      $p->photo_3 ?? null,
+    ];
+
+    $raw = collect($candidates)->filter(fn($v) => is_string($v) && trim($v) !== '')->first();
+
+    if(!$raw){
+      return asset('images/placeholder.png');
+    }
+
+    $raw = trim($raw);
+
+    // URL completa
+    if (\Illuminate\Support\Str::startsWith($raw, ['http://','https://'])) {
+      return $raw;
+    }
+
+    // Ya viene como "storage/..."
+    if (\Illuminate\Support\Str::startsWith($raw, ['storage/'])) {
+      return asset($raw);
+    }
+
+    // Path guardado en disco (ej: "catalog/xxx.jpg" o "public/catalog/xxx.jpg")
+    return \Illuminate\Support\Facades\Storage::url($raw);
+  };
 @endphp
 
 @if($products->count())
@@ -1224,7 +1261,7 @@
     <div class="grid-prods">
       @foreach($products as $p)
         @php
-          $img = $p->image_url ?: asset('images/placeholder.png');
+          $img = $pickPhotoUrl($p);
           $hasSale = !is_null($p->sale_price) && $p->sale_price > 0 && $p->sale_price < $p->price;
           // descripción breve (2 líneas). Usa excerpt si existe; si no, recorta description sin HTML.
           $desc = $p->excerpt ?: \Illuminate\Support\Str::limit(strip_tags($p->description ?? ''), 110);
@@ -1274,6 +1311,7 @@
     </div>
   </section>
 @endif
+
 {{-- ===================== SLIDER CENTER-MODE: PAPELERÍA (FULL WIDTH + MOBILE-FIRST) ===================== --}}
 <section class="stc-wrap" aria-label="Explora categorías de papelería">
   <div class="stc-head">
