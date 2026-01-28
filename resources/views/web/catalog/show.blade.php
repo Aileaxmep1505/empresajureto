@@ -329,7 +329,7 @@
   <section id="hero">
     <div class="container">
       <div style="display:flex;align-items:center;gap:10px;margin:0 0 12px;">
-        <a class="btn-ghost btn" href="{{ route('web.catalog.index') }}">← Volver al catálogo</a>
+        <a class="btn-ghost btn" href="{{ url('/') }}">← Volver al catálogo</a>
       </div>
 
       <div class="grid">
