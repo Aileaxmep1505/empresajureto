@@ -2,17 +2,19 @@
 @section('title', $item->name)
 
 @section('content')
-<link href="https://fonts.googleapis.com/css?family=Open+Sans:400,600,700,800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600;700;800&display=swap" rel="stylesheet">
 
 <style>
-/* ================= TOKENS / BASE (sin cambios visuales fuera de botones) ================= */
+/* ================= TOKENS / BASE ================= */
 #product{
   --ink:#0e1726; --muted:#6b7280; --line:#e8eef6;
   --brand:#a3d5ff; --brand-ink:#0b1220; --ok:#16a34a;
   --chip:#f7fbff;
-  font-family:"Open Sans",sans-serif; color:var(--ink);
+  margin:0;
+  font-family:"Quicksand", system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial;
+  color:var(--ink);
 }
-#product a{ text-decoration:none }          /* sin subrayado en esta vista */
+#product a{ text-decoration:none }
 #product .bg-grad{
   position:fixed; inset:0; z-index:-1; pointer-events:none;
   background:
@@ -20,25 +22,70 @@
     linear-gradient(180deg,#f3faea 0%, #eef5ff 48%, #ecebff 100%);
   filter:saturate(1.02);
 }
-#product .container{ width:100%; padding-inline:clamp(16px,3vw,28px); margin-inline:auto; }
+#product .container{ width:100%; max-width:1180px; padding-inline:clamp(16px,3vw,28px); margin-inline:auto; }
 
-/* ================= HERO (sin cambios de layout) ================= */
-#hero{ padding-top:clamp(20px,2.5vw,28px); padding-bottom:clamp(28px,4vw,40px); }
-#hero .grid{ display:grid; grid-template-columns: 1fr 1fr; gap:clamp(16px,2.4vw,28px); }
+/* ====== HERO ====== */
+#hero{ padding-top:clamp(18px,2.4vw,28px); padding-bottom:clamp(28px,4vw,44px); }
+#hero .grid{ display:grid; grid-template-columns: 1.05fr .95fr; gap:clamp(16px,2.4vw,28px); align-items:start; }
 @media (max-width: 980px){ #hero .grid{ grid-template-columns:1fr; } }
 
-#hero .media{ border-radius:20px; overflow:hidden; }
-#hero .gal-main{ width:100%; aspect-ratio:4/3; object-fit:cover; background:#f6f8fc; }
-#hero .thumbs{ display:flex; gap:10px; flex-wrap:wrap; padding:12px 0; }
-#hero .thumb{ width:88px; height:88px; border-radius:12px; border:1px solid var(--line);
-  object-fit:cover; cursor:pointer; opacity:.9; transition:transform .15s,opacity .15s }
-#hero .thumb:hover{ transform:translateY(-2px); opacity:1 }
+#hero .media{
+  border-radius:22px; overflow:hidden; background:#fff;
+  border:1px solid rgba(232,238,246,.95);
+  box-shadow:0 18px 44px rgba(2,8,23,.10);
+}
+#hero .gal-main-wrap{
+  position:relative; background:linear-gradient(180deg,#ffffff 0%, #f7faff 100%);
+}
+#hero .gal-main{
+  width:100%; aspect-ratio:4/3; object-fit:cover; display:block; background:#f6f8fc;
+}
+#hero .gal-pill{
+  position:absolute; left:14px; bottom:14px;
+  display:inline-flex; gap:8px; align-items:center;
+  padding:8px 12px; border-radius:999px;
+  background:rgba(255,255,255,.88);
+  border:1px solid rgba(232,238,246,.95);
+  backdrop-filter: blur(8px);
+  font-weight:800; font-size:.82rem; color:#0f172a;
+}
+#hero .thumbs{
+  display:flex; gap:10px; flex-wrap:wrap;
+  padding:12px 14px 14px;
+  border-top:1px solid var(--line);
+  background:#fff;
+}
+#hero .thumb{
+  width:84px; height:84px; border-radius:14px;
+  border:1px solid var(--line);
+  object-fit:cover; cursor:pointer;
+  opacity:.92; transition:transform .15s,opacity .15s, box-shadow .15s;
+  background:#f6f8fc;
+}
+#hero .thumb:hover{ transform:translateY(-2px); opacity:1; box-shadow:0 10px 26px rgba(2,8,23,.10) }
 #hero .thumb.is-active{ outline:2px solid var(--brand); opacity:1 }
 
-#hero .info h1{ margin:0 0 8px; font-weight:800; letter-spacing:-.2px; font-size:clamp(22px,3.5vw,42px) }
-#hero .muted{ color:var(--muted) }
+/* ====== INFO CARD ====== */
+#hero .info{
+  background:rgba(255,255,255,.72);
+  border:1px solid rgba(232,238,246,.95);
+  border-radius:22px;
+  padding:clamp(16px,2.2vw,22px);
+  box-shadow:0 18px 44px rgba(2,8,23,.08);
+  backdrop-filter: blur(10px);
+}
+#hero .info h1{
+  margin:0 0 10px;
+  font-weight:800;
+  letter-spacing:-.2px;
+  font-size:clamp(22px,3.4vw,40px);
+  line-height:1.1;
+}
+#hero .muted{ color:var(--muted); font-weight:600 }
+#hero .meta{ margin:0 0 12px; display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+#hero .meta .dot{ width:4px; height:4px; border-radius:999px; background:#94a3b8; display:inline-block; opacity:.9 }
 
-#hero .kv{ display:flex; flex-wrap:wrap; gap:10px; margin:10px 0 14px }
+#hero .kv{ display:flex; flex-wrap:wrap; gap:10px; margin:12px 0 14px }
 #hero .kv .chip{
   display:inline-flex; align-items:center; gap:8px; padding:10px 12px; border-radius:999px;
   background:var(--chip); border:1px solid var(--line); font-weight:800; font-size:.86rem;
@@ -47,22 +94,77 @@
 
 #hero .price{ font-weight:900; color:var(--ink); font-size:clamp(22px,3vw,30px) }
 #hero .sale{ color:var(--ok); font-weight:900; font-size:clamp(22px,3vw,30px) }
-#hero .old{ color:var(--muted); text-decoration:line-through; margin-left:8px }
-#hero .save{ color:#166534; background:#ecfdf5; border:1px solid #bbf7d0; font-weight:800; border-radius:999px; padding:4px 10px; font-size:.82rem }
+#hero .old{ color:var(--muted); text-decoration:line-through; margin-left:8px; font-weight:700 }
+#hero .save{
+  color:#166534; background:#ecfdf5; border:1px solid #bbf7d0; font-weight:800;
+  border-radius:999px; padding:4px 10px; font-size:.82rem
+}
 
-#hero .qty{ width:120px; border:1px solid var(--line); border-radius:12px; padding:10px 12px; min-height:44px }
-
-#hero .btn{ display:inline-flex; align-items:center; gap:8px; border:1px solid transparent;
-  border-radius:12px; padding:12px 16px; font-weight:800; background:var(--brand); color:var(--brand-ink);
-  text-decoration:none; cursor:pointer; min-height:44px; transition:.18s ease }
-#hero .btn:hover{ background:#fff; color:#000; border-color:var(--line); box-shadow:0 10px 28px rgba(2,8,23,.10) }
-#hero .btn-ghost{ background:#fff; border:1px solid var(--line); color:var(--ink) }
-
-#hero .badges{ display:flex; flex-wrap:wrap; gap:8px; margin:4px 0 6px }
-#hero .badge{ font-weight:800; font-size:.78rem; padding:6px 10px; border:1px solid var(--line); background:#f8fafc }
+#hero .badges{ display:flex; flex-wrap:wrap; gap:8px; margin:8px 0 6px }
+#hero .badge{ font-weight:800; font-size:.78rem; padding:6px 10px; border:1px solid var(--line); background:#f8fafc; border-radius:999px }
 #hero .badge--stock{ background:#ecfdf5; border-color:#bbf7d0; color:#166534 }
 
-/* ================= SIMILARES (sin cambios de layout) ================= */
+#hero .desc{
+  margin-top:12px;
+  border-top:1px dashed rgba(232,238,246,.95);
+  padding-top:12px;
+}
+#hero .desc .p{
+  margin:0; color:#1f2937; font-weight:600; line-height:1.55;
+}
+#hero .desc .html{ margin-top:10px; color:#0f172a; line-height:1.62; font-weight:600; }
+#hero .desc .html p{ margin:0 0 10px; }
+#hero .desc .html ul{ margin:0 0 10px 18px; }
+#hero .desc .html li{ margin:4px 0; }
+
+#hero .qty{
+  width:132px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  padding:10px 12px;
+  min-height:44px;
+  background:#fff;
+  font-weight:800;
+}
+#hero .btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:8px; border:1px solid transparent;
+  border-radius:14px; padding:12px 16px; font-weight:800; background:var(--brand); color:var(--brand-ink);
+  text-decoration:none; cursor:pointer; min-height:44px; transition:.18s ease;
+  box-shadow:0 12px 30px rgba(2,8,23,.08);
+}
+#hero .btn:hover{ background:#fff; color:#000; border-color:var(--line); box-shadow:0 18px 44px rgba(2,8,23,.10) }
+#hero .btn-ghost{ background:#fff; border:1px solid var(--line); color:var(--ink); box-shadow:none }
+
+/* ================= ESPECIFICACIONES ================= */
+#specs{
+  padding-bottom:clamp(22px,3vw,34px);
+}
+#specs .card{
+  background:rgba(255,255,255,.72);
+  border:1px solid rgba(232,238,246,.95);
+  border-radius:22px;
+  padding:clamp(14px,2vw,18px);
+  box-shadow:0 16px 40px rgba(2,8,23,.08);
+  backdrop-filter: blur(10px);
+}
+#specs h2{ margin:0 0 10px; font-weight:800; letter-spacing:-.2px; }
+#specs table{ width:100%; border-collapse:collapse; background:transparent; overflow:hidden; border-radius:16px; }
+#specs tr{ border-bottom:1px solid var(--line); }
+#specs th{
+  width:38%;
+  padding:11px 12px;
+  color:#334155;
+  font-weight:800;
+  text-align:left;
+  background:rgba(248,250,252,.6);
+}
+#specs td{
+  padding:11px 12px;
+  font-weight:700;
+  color:#0f172a;
+}
+
+/* ================= SIMILARES ================= */
 #sim{
   background:#0b1f33; color:#eaf2ff; padding:clamp(24px,4vw,42px) 0;
   position:relative; left:50%; right:50%; margin-left:-50vw; margin-right:-50vw; width:100vw;
@@ -70,23 +172,27 @@
 #sim .container{ position:relative; }
 #sim .sim-head{ display:flex; align-items:flex-end; justify-content:space-between; gap:10px; margin-bottom:12px }
 #sim .sim-title{ margin:0; font-weight:800; color:#eaf2ff; font-size:clamp(18px,3vw,24px) }
-#sim .more{ color:#fff; font-weight:800; }     /* sin subrayado */
+#sim .more{ color:#fff; font-weight:800; }
 
 #sim .row{ display:flex; gap:14px; overflow-x:auto; scroll-snap-type:x mandatory; padding-bottom:12px }
-#sim .row::-webkit-scrollbar{ height:8px } 
+#sim .row::-webkit-scrollbar{ height:8px }
 #sim .row::-webkit-scrollbar-thumb{ background:#204463; border-radius:999px }
 
-#sim .card{ min-width:240px; max-width:260px; scroll-snap-align:start; background:#fff; border:1px solid #e6edf6;
-  border-radius:14px; overflow:hidden; box-shadow:0 12px 30px rgba(0,0,0,.08); display:flex; flex-direction:column }
+#sim .card{
+  min-width:240px; max-width:260px; scroll-snap-align:start;
+  background:#fff; border:1px solid #e6edf6;
+  border-radius:16px; overflow:hidden;
+  box-shadow:0 12px 30px rgba(0,0,0,.08);
+  display:flex; flex-direction:column;
+}
 #sim .sim-img{ width:100%; aspect-ratio:4/3; object-fit:cover; background:#f6f8fc }
 #sim .sim-body{ padding:12px; display:flex; flex-direction:column; gap:8px; color:#0f172a }
 #sim .sim-name{ font-weight:800; line-height:1.2; margin:0 }
 #sim .sim-price{ font-weight:900 }
-#sim .sim-old{ color:#6b7280; text-decoration:line-through; margin-left:6px }
+#sim .sim-old{ color:#6b7280; text-decoration:line-through; margin-left:6px; font-weight:800 }
 #sim .sim-actions{ display:flex; gap:8px; align-items:center; margin-top:auto; flex-wrap:wrap }
 
 /* ================== BOTÓN ANIMADO (SOLO BOTONES) ================== */
-/* Aspecto oscuro como tu captura */
 .add-to-cart{
   --background-default:#17171B; --background-hover:#0A0A0C; --background-scale:1;
   --text-color:#fff; --text-o:1; --text-x:12px;
@@ -95,11 +201,13 @@
   --shirt-y:-16px; --shirt-scale:0; --shirt-color:#17171B; --shirt-logo:#fff;
   --shirt-second-y:24px; --shirt-second-color:#fff; --shirt-second-logo:#17171B;
   -webkit-tap-highlight-color:transparent; appearance:none; outline:0; background:none; border:0;
-  padding:12px 0; width:164px; margin:0; cursor:pointer; position:relative; font:inherit; border-radius:12px;
+  padding:12px 0; width:164px; margin:0; cursor:pointer; position:relative;
+  font:inherit; border-radius:14px;
 }
 .add-to-cart:before{
-  content:""; position:absolute; inset:0; border-radius:12px; transition:background .25s;
-  background:var(--background,var(--background-default)); transform:scaleX(var(--background-scale)) translateZ(0);
+  content:""; position:absolute; inset:0; border-radius:14px; transition:background .25s;
+  background:var(--background,var(--background-default));
+  transform:scaleX(var(--background-scale)) translateZ(0);
 }
 .add-to-cart:not(.active):hover{ --background:var(--background-hover); }
 .add-to-cart>span{
@@ -108,36 +216,47 @@
   opacity:var(--text-o); transform:translateX(var(--text-x)) translateZ(0);
 }
 .add-to-cart svg{ display:block; stroke-linecap:round; stroke-linejoin:round; }
-.add-to-cart .morph{ width:64px; height:13px; position:absolute; left:50%; top:-12px; margin-left:-32px;
-  fill:var(--background,var(--background-default)); transition:fill .25s; pointer-events:none; }
+.add-to-cart .morph{
+  width:64px; height:13px; position:absolute; left:50%; top:-12px; margin-left:-32px;
+  fill:var(--background,var(--background-default)); transition:fill .25s; pointer-events:none;
+}
 .add-to-cart .shirt, .add-to-cart .cart{ pointer-events:none; position:absolute; left:50%; }
-.add-to-cart .shirt{ top:0; margin:-12px 0 0 -12px; transform-origin:50% 100%;
-  transform:translateY(var(--shirt-y)) scale(var(--shirt-scale)); }
+.add-to-cart .shirt{
+  top:0; margin:-12px 0 0 -12px; transform-origin:50% 100%;
+  transform:translateY(var(--shirt-y)) scale(var(--shirt-scale));
+}
 .add-to-cart .shirt svg{ width:24px; height:24px; }
 .add-to-cart .shirt svg path{ fill:var(--shirt-color); }
 .add-to-cart .shirt svg g path{ fill:var(--shirt-logo); }
-.add-to-cart .shirt svg.second{ position:absolute; top:0; left:0;
-  clip-path:polygon(0 var(--shirt-second-y),24px var(--shirt-second-y),24px 24px,0 24px); }
+.add-to-cart .shirt svg.second{
+  position:absolute; top:0; left:0;
+  clip-path:polygon(0 var(--shirt-second-y),24px var(--shirt-second-y),24px 24px,0 24px);
+}
 .add-to-cart .shirt svg.second path{ fill:var(--shirt-second-color); }
 .add-to-cart .shirt svg.second g path{ fill:var(--shirt-second-logo); }
-.add-to-cart .cart{ width:36px; height:26px; top:10px; margin-left:-18px;
-  transform:translate(var(--cart-x),var(--cart-y)) rotate(var(--cart-rotate)) scale(var(--cart-scale)) translateZ(0); }
+.add-to-cart .cart{
+  width:36px; height:26px; top:10px; margin-left:-18px;
+  transform:translate(var(--cart-x),var(--cart-y)) rotate(var(--cart-rotate)) scale(var(--cart-scale)) translateZ(0);
+}
 .add-to-cart .cart:before{
   content:""; width:22px; height:12px; position:absolute; left:7px; top:7px; background:var(--cart);
-  clip-path:polygon(0 0,22px 0, calc(22px - var(--cart-clip-x)) var(--cart-clip), var(--cart-clip-x) var(--cart-clip)); }
+  clip-path:polygon(0 0,22px 0, calc(22px - var(--cart-clip-x)) var(--cart-clip), var(--cart-clip-x) var(--cart-clip));
+}
 .add-to-cart .cart .shape{ fill:none; stroke:var(--cart); stroke-width:2; }
 .add-to-cart .cart .wheel{ fill:none; stroke:var(--cart); stroke-width:1.5; }
-.add-to-cart .cart .tick{ fill:none; stroke:var(--cart-tick-color); stroke-width:2; stroke-dasharray:10px; stroke-dashoffset:var(--cart-tick-offset); }
-
-/* Opcional: versión un poco más compacta para cards (mismo estilo) */
+.add-to-cart .cart .tick{
+  fill:none; stroke:var(--cart-tick-color); stroke-width:2;
+  stroke-dasharray:10px; stroke-dashoffset:var(--cart-tick-offset);
+}
 .add-to-cart--sm{ transform:scale(.92); transform-origin:left center; }
 
-/* Flechas navegación (ya lo tenías) */
+/* Flechas navegación */
 #sim .sim-nav{ position:absolute; inset:0; pointer-events:none; }
 #sim .sim-nav button{
   pointer-events:auto; position:absolute; top:50%; transform:translateY(-50%);
   border:0; width:44px; height:44px; border-radius:999px; cursor:pointer;
-  background:#fff; box-shadow:0 16px 30px rgba(2,8,23,.35); display:flex; align-items:center; justify-content:center;
+  background:#fff; box-shadow:0 16px 30px rgba(2,8,23,.35);
+  display:flex; align-items:center; justify-content:center;
 }
 #sim .sim-nav .prev{ left: clamp(6px,2vw,16px); }
 #sim .sim-nav .next{ right: clamp(6px,2vw,16px); }
@@ -156,10 +275,29 @@
   $savePct = ($sale && $price>0) ? max(1, round(100 - (($sale/$price)*100))) : null;
   $monthly = $final > 0 ? round($final/12, 2) : 0;
 
-  $images = [];
-  if(is_array($item->images ?? null) && count($item->images)) $images = $item->images;
-  if($item->image_url) array_unshift($images, $item->image_url);
-  $images = array_values(array_unique(array_filter($images)));
+  /**
+   * ✅ Helpers para imágenes (3 fotos):
+   * - principal del producto: photo_1, photo_2, photo_3
+   * - soporta http/https, "storage/...", o path => Storage::url()
+   */
+  $imgUrl = function($raw){
+    if(!$raw || !is_string($raw) || trim($raw)==='') return asset('images/placeholder.png');
+    $raw = trim($raw);
+    if (\Illuminate\Support\Str::startsWith($raw, ['http://','https://'])) return $raw;
+    if (\Illuminate\Support\Str::startsWith($raw, ['storage/'])) return asset($raw);
+    return \Illuminate\Support\Facades\Storage::url($raw);
+  };
+
+  // Galería SOLO 3 (photo_1/2/3)
+  $images = array_values(array_filter(array_unique([
+    $imgUrl($item->photo_1 ?? null),
+    $imgUrl($item->photo_2 ?? null),
+    $imgUrl($item->photo_3 ?? null),
+  ])));
+
+  if(empty($images)){
+    $images = [asset('images/placeholder.png')];
+  }
 
   $similars = \App\Models\CatalogItem::published()
       ->where('id','!=',$item->id)
@@ -174,6 +312,13 @@
   $discountPct = function($p){
       if(is_null($p->sale_price) || !$p->price || $p->sale_price >= $p->price) return null;
       return max(1, round(100 - (($p->sale_price / $p->price) * 100)));
+  };
+
+  $pickPhotoUrl = function($p) use ($imgUrl){
+    return collect([$p->photo_1 ?? null, $p->photo_2 ?? null, $p->photo_3 ?? null])
+      ->filter(fn($v)=>is_string($v) && trim($v)!=='')
+      ->map(fn($v)=>$imgUrl($v))
+      ->first() ?: asset('images/placeholder.png');
   };
 @endphp
 
@@ -190,15 +335,24 @@
       <div class="grid">
         {{-- Galería --}}
         <div class="media">
-          <img id="galMain" class="gal-main"
-               src="{{ $images[0] ?? asset('images/placeholder.png') }}"
-               alt="{{ $item->name }}"
-               onerror="this.onerror=null;this.src='{{ asset('images/placeholder.png') }}'">
+          <div class="gal-main-wrap">
+            <img id="galMain" class="gal-main"
+                 src="{{ $images[0] ?? asset('images/placeholder.png') }}"
+                 alt="{{ $item->name }}"
+                 loading="eager"
+                 onerror="this.onerror=null;this.src='{{ asset('images/placeholder.png') }}'">
+            <div class="gal-pill" aria-hidden="true">
+              <span style="display:inline-flex;width:8px;height:8px;border-radius:999px;background:#22c55e"></span>
+              Fotos reales del producto
+            </div>
+          </div>
+
           @if(count($images) > 1)
             <div class="thumbs">
               @foreach($images as $i => $u)
                 <img class="thumb {{ $i===0 ? 'is-active' : '' }}"
                      src="{{ $u }}" alt="Vista {{ $i+1 }}"
+                     loading="lazy"
                      onerror="this.style.display='none'">
               @endforeach
             </div>
@@ -208,7 +362,12 @@
         {{-- Info --}}
         <div class="info">
           <h1>{{ $item->name }}</h1>
-          <div class="muted">SKU: {{ $item->sku ?: '—' }} &middot; Marca: {{ $item->brand ?? '—' }}</div>
+
+          <div class="meta">
+            <span class="muted">SKU: <strong style="color:#0f172a">{{ $item->sku ?: '—' }}</strong></span>
+            <span class="dot" aria-hidden="true"></span>
+            <span class="muted">Marca: <strong style="color:#0f172a">{{ $item->brand ?? '—' }}</strong></span>
+          </div>
 
           <div class="kv" aria-label="Fortalezas">
             <span class="chip">
@@ -231,7 +390,7 @@
             <span class="badge">Pagos con meses</span>
           </div>
 
-          <div style="margin:12px 0 14px; display:flex; align-items:baseline; gap:8px; flex-wrap:wrap;">
+          <div style="margin:14px 0 12px; display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;">
             @if($sale)
               <div class="sale">${{ number_format($sale,2) }}</div>
               <div class="old">${{ number_format($price,2) }}</div>
@@ -242,11 +401,18 @@
           </div>
 
           <div class="muted" style="margin-bottom:10px;">
-            Paga a 12 meses desde <strong>${{ number_format($monthly,2) }}</strong>*
+            Paga a 12 meses desde <strong style="color:#0f172a">${{ number_format($monthly,2) }}</strong>*
           </div>
 
-          @if($item->excerpt)<p class="muted" style="margin:0 0 8px">{{ $item->excerpt }}</p>@endif
-          @if($item->description)<div style="margin-top:6px;">{!! nl2br(e($item->description)) !!}</div>@endif
+          <div class="desc">
+            @if($item->excerpt)
+              <p class="p">{{ $item->excerpt }}</p>
+            @endif
+
+            @if($item->description)
+              <div class="html">{!! nl2br(e($item->description)) !!}</div>
+            @endif
+          </div>
 
           <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
             <form action="{{ route('web.cart.add') }}" method="POST" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
@@ -276,7 +442,7 @@
               </button>
             </form>
 
-            {{-- Favoritos principal (sin cambios) --}}
+            {{-- Favoritos principal --}}
             @includeIf('web.favoritos.button', ['item'=>$item])
 
             <a class="btn-ghost btn" href="{{ route('web.contacto') }}">Cotizar / Asesoría</a>
@@ -289,20 +455,22 @@
   {{-- ================= ESPECIFICACIONES ================= --}}
   @php $specs = is_array($item->specs ?? null) ? $item->specs : []; @endphp
   @if(count($specs))
-    <section>
+    <section id="specs">
       <div class="container">
-        <h2 style="margin:8px 0 10px;font-weight:800;">Especificaciones</h2>
-        <table style="width:100%;border-collapse:collapse;background:transparent">
-          <tbody>
-          @foreach($specs as $k => $v)
-            <tr style="border-bottom:1px solid var(--line)">
-              <th style="width:38%;padding:10px 12px;color:#334155;font-weight:700;text-align:left">{{ $k }}</th>
-              <td style="padding:10px 12px">{{ is_array($v) ? implode(', ', $v) : $v }}</td>
-            </tr>
-          @endforeach
-          </tbody>
-        </table>
-        <p class="muted" style="margin-top:10px;font-size:.9rem">*Tiempos sujetos a cobertura y horario de corte.</p>
+        <div class="card">
+          <h2>Especificaciones</h2>
+          <table>
+            <tbody>
+            @foreach($specs as $k => $v)
+              <tr>
+                <th>{{ $k }}</th>
+                <td>{{ is_array($v) ? implode(', ', $v) : $v }}</td>
+              </tr>
+            @endforeach
+            </tbody>
+          </table>
+          <p class="muted" style="margin-top:10px;font-size:.9rem">*Tiempos sujetos a cobertura y horario de corte.</p>
+        </div>
       </div>
     </section>
   @endif
@@ -318,11 +486,14 @@
 
         <div class="row" id="simRow">
           @foreach($similars as $p)
-            @php $off = $discountPct($p); @endphp
+            @php
+              $off = $discountPct($p);
+              $simImg = $pickPhotoUrl($p);
+            @endphp
             <article class="card">
               <a href="{{ route('web.catalog.show', $p) }}" aria-label="Ver {{ $p->name }}">
                 <img class="sim-img"
-                     src="{{ $p->image_url ?: asset('images/placeholder.png') }}"
+                     src="{{ $simImg }}"
                      alt="{{ $p->name }}"
                      loading="lazy"
                      onerror="this.onerror=null;this.src='{{ asset('images/placeholder.png') }}'">
@@ -340,14 +511,12 @@
                 </div>
 
                 <div class="sim-actions">
-                  {{-- Favoritos compacto --}}
                   @includeIf('web.favoritos.button', ['item'=>$p])
 
                   <form action="{{ route('web.cart.add') }}" method="POST" style="display:inline-flex;gap:6px;align-items:center">
                     @csrf
                     <input type="hidden" name="catalog_item_id" value="{{ $p->id }}">
 
-                    {{-- MISMO BOTÓN OSCURO (cards) --}}
                     <button type="submit" class="add-to-cart add-to-cart--sm" data-submit-delay="900">
                       <span>Agregar</span>
                       <svg class="morph" viewBox="0 0 64 13" aria-hidden="true">
@@ -373,7 +542,6 @@
           @endforeach
         </div>
 
-        {{-- Flechas (funcionan en desktop) --}}
         <div class="sim-nav" aria-hidden="true">
           <button class="prev" id="simPrev" type="button" title="Anterior">
             <svg viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -395,7 +563,8 @@
     t.addEventListener('click', ()=>{
       const main = document.getElementById('galMain');
       document.querySelectorAll('.thumb').forEach(x=>x.classList.remove('is-active'));
-      t.classList.add('is-active'); main.src = t.src;
+      t.classList.add('is-active');
+      main.src = t.src;
     });
   });
 
@@ -459,7 +628,7 @@
       btn.classList.add('active');
       btn.style.pointerEvents = 'none';
 
-      // Oculta el texto inmediatamente (resuelve “no se quita el texto”)
+      // Oculta el texto inmediatamente
       btn.style.setProperty('--text-o', 0);
 
       // Fondo rebota
@@ -488,9 +657,7 @@
           { '--cart-tick-offset': '0px', '--cart-y': '0px', duration: .18 },
           { '--cart-x': '52px', '--cart-rotate': '-15deg', duration: .16 },
           { '--cart-x': '104px', '--cart-rotate': '0deg', duration: .16,
-            onComplete() {
-              btn.style.setProperty('--cart-x', '-104px');  // prepara reset
-            }
+            onComplete() { btn.style.setProperty('--cart-x', '-104px'); }
           },
           { '--text-o': 1, '--text-x': '12px', '--cart-x': '-48px', '--cart-scale': .75, duration: .22,
             onComplete() {
@@ -501,17 +668,11 @@
         ]
       });
 
-      // Enviar el form tras la animación
-      // DESPUÉS (dispara el submit "real" para que lo intercepte tu AJAX global)
-if (form) setTimeout(() => {
-  if (typeof form.requestSubmit === 'function') {
-    form.requestSubmit(); // dispara el evento submit (tu listener global lo captura y hace fetch)
-  } else {
-    // fallback para navegadores viejos
-    form.dispatchEvent(new Event('submit', { cancelable:true, bubbles:true }));
-  }
-}, submitDelay);
-
+      // Enviar el form tras la animación (dispara submit real)
+      if (form) setTimeout(() => {
+        if (typeof form.requestSubmit === 'function') form.requestSubmit();
+        else form.dispatchEvent(new Event('submit', { cancelable:true, bubbles:true }));
+      }, submitDelay);
     });
   });
 </script>
