@@ -938,33 +938,40 @@ Route::middleware(['auth','role:admin'])
 Route::post('/products/bulk-clave-sat',       [ProductController::class, 'bulkClaveSat'])->name('products.bulk-clave-sat');
 Route::post('/products/ai-suggest-clave-sat', [ProductController::class, 'aiSuggestClaveSat'])->name('products.ai-suggest-clave-sat');
 
-Route::middleware(['auth'])->group(function () {
 
-    Route::get('/manual-invoices', [ManualInvoiceController::class, 'index'])->name('manual_invoices.index');
-    Route::get('/manual-invoices/create', [ManualInvoiceController::class, 'create'])->name('manual_invoices.create');
-    Route::post('/manual-invoices', [ManualInvoiceController::class, 'store'])->name('manual_invoices.store');
+Route::middleware(['web', 'auth'])->prefix('admin')->group(function () {
 
-    Route::get('/manual-invoices/{manualInvoice}', [ManualInvoiceController::class, 'show'])->name('manual_invoices.show');
-    Route::get('/manual-invoices/{manualInvoice}/edit', [ManualInvoiceController::class, 'edit'])->name('manual_invoices.edit');
-    Route::put('/manual-invoices/{manualInvoice}', [ManualInvoiceController::class, 'update'])->name('manual_invoices.update');
-    Route::delete('/manual-invoices/{manualInvoice}', [ManualInvoiceController::class, 'destroy'])->name('manual_invoices.destroy');
+    Route::get('/manual-invoices', [ManualInvoiceController::class, 'index'])
+        ->name('manual_invoices.index');
 
-    // ✅ Prefactura (PDF BORRADOR de Facturapi)
-    Route::get('/manual-invoices/{manualInvoice}/draft-pdf', [ManualInvoiceController::class, 'downloadDraftPdf'])
-        ->name('manual_invoices.downloadDraftPdf');
+    Route::get('/manual-invoices/create', [ManualInvoiceController::class, 'create'])
+        ->name('manual_invoices.create');
 
-    // ✅ Timbrar (ideal: timbra el borrador si existe)
+    Route::post('/manual-invoices', [ManualInvoiceController::class, 'store'])
+        ->name('manual_invoices.store');
+
+    Route::get('/manual-invoices/{manualInvoice}', [ManualInvoiceController::class, 'show'])
+        ->name('manual_invoices.show');
+
+    Route::get('/manual-invoices/{manualInvoice}/edit', [ManualInvoiceController::class, 'edit'])
+        ->name('manual_invoices.edit');
+
+    Route::put('/manual-invoices/{manualInvoice}', [ManualInvoiceController::class, 'update'])
+        ->name('manual_invoices.update');
+
+    Route::delete('/manual-invoices/{manualInvoice}', [ManualInvoiceController::class, 'destroy'])
+        ->name('manual_invoices.destroy');
+
     Route::post('/manual-invoices/{manualInvoice}/stamp', [ManualInvoiceController::class, 'stamp'])
         ->name('manual_invoices.stamp');
 
-    // ✅ PDF/XML ya timbrados (Facturapi)
     Route::get('/manual-invoices/{manualInvoice}/pdf', [ManualInvoiceController::class, 'downloadPdf'])
         ->name('manual_invoices.downloadPdf');
 
     Route::get('/manual-invoices/{manualInvoice}/xml', [ManualInvoiceController::class, 'downloadXml'])
         ->name('manual_invoices.downloadXml');
-});
 
+});
 
 /*
 |--------------------------------------------------------------------------
