@@ -962,9 +962,15 @@ Route::middleware(['web', 'auth'])->prefix('admin')->group(function () {
     Route::delete('/manual-invoices/{manualInvoice}', [ManualInvoiceController::class, 'destroy'])
         ->name('manual_invoices.destroy');
 
+    // ✅ Prefactura (PDF BORRADOR generado por Facturapi)
+    Route::get('/manual-invoices/{manualInvoice}/draft-pdf', [ManualInvoiceController::class, 'downloadDraftPdf'])
+        ->name('manual_invoices.downloadDraftPdf');
+
+    // Timbrar (timbra el borrador si existe)
     Route::post('/manual-invoices/{manualInvoice}/stamp', [ManualInvoiceController::class, 'stamp'])
         ->name('manual_invoices.stamp');
 
+    // PDF/XML ya timbrados
     Route::get('/manual-invoices/{manualInvoice}/pdf', [ManualInvoiceController::class, 'downloadPdf'])
         ->name('manual_invoices.downloadPdf');
 
@@ -972,6 +978,8 @@ Route::middleware(['web', 'auth'])->prefix('admin')->group(function () {
         ->name('manual_invoices.downloadXml');
 
 });
+
+
 
 /*
 |--------------------------------------------------------------------------
