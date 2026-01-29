@@ -56,7 +56,7 @@ class ManualInvoiceController extends Controller
     }
 
     /**
-     * Guardar borrador de factura + items
+     * Guardar borrador de factura + items (LOCAL)
      */
     public function store(Request $request)
     {
@@ -65,7 +65,6 @@ class ManualInvoiceController extends Controller
             'type'      => ['required', 'in:I,E,P'],
             'notes'     => ['nullable', 'string'],
 
-            // nuevos campos
             'pay_currency'   => ['required', 'string', 'size:3'],
             'exchange_rate'  => ['nullable', 'numeric', 'min:0'],
             'payment_method' => ['required', 'in:PUE,PPD'],
@@ -73,7 +72,6 @@ class ManualInvoiceController extends Controller
             'cfdi_use'       => ['required', 'string', 'max:5'],
             'exportation'    => ['required', 'string', 'size:2'],
 
-            // items
             'items'               => ['required', 'array', 'min:1'],
             'items.*.product_id'  => ['nullable', 'exists:products,id'],
             'items.*.description' => ['required', 'string', 'max:255'],
@@ -108,7 +106,6 @@ class ManualInvoiceController extends Controller
             $invoice->cfdi_use       = $data['cfdi_use'];
             $invoice->exportation    = $data['exportation'];
 
-            // Snapshot cliente
             $invoice->receiver_name  = $client->nombre;
             $invoice->receiver_rfc   = $client->rfc;
             $invoice->receiver_email = $client->email;
@@ -337,21 +334,62 @@ class ManualInvoiceController extends Controller
     }
 
     /**
-     * Helper: obtiene credenciales Facturapi para backoffice (INT).
+     * ✅ Prefactura: genera/actualiza borrador en Facturapi y descarga el PDF BORRADOR.
+     *
+     * Facturapi permite crear borradores usando status=draft. :contentReference[oaicite:3]{index=3}
+     * Y descargar PDF con GET /invoices/{id}/pdf. :contentReference[oaicite:4]{index=4}
      */
-    private function facturapiInternalCreds(): array
+    public function downloadDraftPdf(ManualInvoice $manualInvoice)
     {
-        $key  = config('services.facturaapi_internal.key')
-            ?: config('services.facturapi.key'); // legacy alias
-        $base = config('services.facturaapi_internal.base_uri')
-            ?: config('services.facturapi.base_uri')
-            ?: 'https://www.facturapi.io/v2';
+        if ($manualInvoice->status !== 'draft') {
+            return back()->with('error', 'Sólo puedes ver prefactura cuando está en borrador.');
+        }
 
-        return [$key, rtrim($base, '/')];
+        $manualInvoice->loadMissing(['client', 'items']);
+        if ($manualInvoice->items->isEmpty()) {
+            return back()->with('error', 'La factura no tiene conceptos.');
+        }
+
+        try {
+            $draftId = $this->ensureFacturapiDraft($manualInvoice);
+
+            $cfg     = $this->facturapiCfg();
+            $baseUri = rtrim($cfg['base_uri'], '/');
+            $apiKey  = $cfg['key'];
+
+            $res = Http::withToken($apiKey)
+                ->accept('application/pdf')
+                ->get($baseUri . '/invoices/' . $draftId . '/pdf');
+
+            if (!$res->successful()) {
+                Log::error('Facturapi error descargar prefactura PDF', [
+                    'manual_invoice_id' => $manualInvoice->id,
+                    'draft_id'          => $draftId,
+                    'status'            => $res->status(),
+                    'body'              => $res->body(),
+                ]);
+
+                return back()->with('error', 'No se pudo descargar la prefactura desde Facturapi.');
+            }
+
+            $fileName = 'PREFactura-' . $manualInvoice->id . '.pdf';
+
+            return response($res->body(), 200)
+                ->header('Content-Type', 'application/pdf')
+                ->header('Content-Disposition', 'inline; filename="' . $fileName . '"');
+        } catch (\Throwable $e) {
+            Log::error('Excepción al generar prefactura', [
+                'manual_invoice_id' => $manualInvoice->id,
+                'msg'               => $e->getMessage(),
+            ]);
+            return back()->with('error', 'Error al generar prefactura: ' . $e->getMessage());
+        }
     }
 
     /**
-     * Timbrar con Facturapi (desde borrador).
+     * ✅ Timbrar con Facturapi:
+     * - Si ya existe borrador en Facturapi: lo timbra con POST /invoices/{id}/stamp :contentReference[oaicite:5]{index=5}
+     * - Si no existe: crea borrador y luego timbra
      */
     public function stamp(ManualInvoice $manualInvoice)
     {
@@ -372,94 +410,26 @@ class ManualInvoiceController extends Controller
             return redirect()->back()->with('error', 'La factura no tiene conceptos para timbrar.');
         }
 
-        [$apiKey, $baseUri] = $this->facturapiInternalCreds();
-
-        if (!$apiKey) {
-            return redirect()->back()->with('error', 'No hay FACTURAAPI_INT_KEY configurada en el .env');
-        }
-
-        $itemsPayload = [];
-        foreach ($manualInvoice->items as $item) {
-            $itemsPayload[] = [
-                'quantity' => (float) $item->quantity,
-                'discount' => (float) $item->discount,
-                'product'  => [
-                    'description' => $item->description,
-                    'product_key' => $item->product_key ?: '01010101',
-                    'price'       => (float) $item->unit_price,
-                    'unit_key'    => $item->unit_code ?: 'H87',
-                    'unit_name'   => $item->unit ?: 'Pieza',
-                ],
-            ];
-        }
-
-        // tu campo real es cfdi_use
-        $uso = $manualInvoice->cfdi_use;
-
-        if (!$uso) {
-            $regimen = $client->regimen_fiscal;
-
-            $regimenGastos = ['601','603','612','620','621','622','623','624','626'];
-
-            if (in_array($regimen, $regimenGastos, true)) {
-                $uso = 'G03';
-            } elseif (in_array($regimen, ['605','606','607','608','610','611','614','615','616'], true)) {
-                $uso = 'S01';
-            } else {
-                $uso = 'G03';
-            }
-        }
-
-        $payload = [
-            'type' => $manualInvoice->type ?: 'I',
-
-            'customer' => [
-                'legal_name' => $client->razon_social ?: $client->nombre,
-                'tax_id'     => $client->rfc,
-                'email'      => $client->email,
-                'tax_system' => $client->regimen_fiscal ?? '601',
-                'address'    => [
-                    'zip' => $client->cp ?: '00000',
-                ],
-            ],
-
-            'items'          => $itemsPayload,
-            'use'            => $uso,
-            'payment_form'   => $manualInvoice->payment_form ?? '99',
-            'payment_method' => $manualInvoice->payment_method ?? 'PUE',
-            'currency'       => $manualInvoice->currency ?: 'MXN',
-            'export'         => $manualInvoice->exportation ?? '01',
-        ];
-
-        // exchange
-        if (($manualInvoice->currency ?: 'MXN') !== 'MXN') {
-            $payload['exchange'] = (float) ($manualInvoice->exchange_rate ?: 1);
-        } elseif (!empty($manualInvoice->exchange_rate)) {
-            $payload['exchange'] = (float) $manualInvoice->exchange_rate;
-        }
-
-        if (!empty($manualInvoice->serie)) {
-            $payload['series'] = $manualInvoice->serie;
-        }
-        if (!empty($manualInvoice->folio)) {
-            $payload['folio_number'] = $manualInvoice->folio;
-        }
-
         try {
+            $draftId = $this->ensureFacturapiDraft($manualInvoice);
+
+            $cfg     = $this->facturapiCfg();
+            $baseUri = rtrim($cfg['base_uri'], '/');
+            $apiKey  = $cfg['key'];
+
             $response = Http::withToken($apiKey)
                 ->acceptJson()
-                ->timeout(60)
-                ->post($baseUri . '/invoices', $payload);
+                ->post($baseUri . '/invoices/' . $draftId . '/stamp');
 
             if (!$response->successful()) {
                 $body   = $response->body();
                 $json   = json_decode($body, true);
                 $apiMsg = $json['message'] ?? null;
-                $status = $response->status();
 
-                Log::error('Facturapi error timbrar', [
+                Log::error('Facturapi error timbrar (desde borrador)', [
                     'manual_invoice_id' => $manualInvoice->id,
-                    'status'            => $status,
+                    'draft_id'          => $draftId,
+                    'status'            => $response->status(),
                     'body'              => $body,
                 ]);
 
@@ -471,13 +441,17 @@ class ManualInvoiceController extends Controller
 
             $data = $response->json();
 
-            $manualInvoice->facturapi_id        = $data['id'] ?? null;
+            // ya timbrado
+            $manualInvoice->facturapi_id        = $data['id'] ?? $draftId;
             $manualInvoice->facturapi_uuid      = $data['uuid'] ?? null;
             $manualInvoice->verification_url    = $data['verification_url'] ?? null;
             $manualInvoice->facturapi_status    = $data['status'] ?? null;
             $manualInvoice->cancellation_status = $data['cancellation']['status'] ?? null;
             $manualInvoice->stamped_at          = now();
             $manualInvoice->status              = 'valid';
+
+            // este borrador ya se convirtió en CFDI válido
+            $manualInvoice->facturapi_draft_id = null;
 
             if (!empty($data['series'])) {
                 $manualInvoice->serie = $data['series'];
@@ -502,7 +476,7 @@ class ManualInvoiceController extends Controller
     }
 
     /**
-     * Descargar PDF desde Facturapi.
+     * Descargar PDF desde Facturapi (ya timbrada).
      */
     public function downloadPdf(ManualInvoice $manualInvoice)
     {
@@ -510,23 +484,15 @@ class ManualInvoiceController extends Controller
             return back()->with('error', 'Esta factura no tiene un ID de Facturapi para descargar PDF.');
         }
 
-        [$apiKey, $baseUri] = $this->facturapiInternalCreds();
-
-        if (!$apiKey) {
-            return back()->with('error', 'No hay FACTURAAPI_INT_KEY configurada en el .env');
-        }
+        $cfg     = $this->facturapiCfg();
+        $baseUri = rtrim($cfg['base_uri'], '/');
+        $apiKey  = $cfg['key'];
 
         $response = Http::withToken($apiKey)
-            ->timeout(60)
+            ->accept('application/pdf')
             ->get($baseUri . '/invoices/' . $manualInvoice->facturapi_id . '/pdf');
 
         if (!$response->successful()) {
-            Log::error('Facturapi error descargar PDF', [
-                'manual_invoice_id' => $manualInvoice->id,
-                'status'            => $response->status(),
-                'body'              => $response->body(),
-            ]);
-
             return back()->with('error', 'No se pudo descargar el PDF desde Facturapi.');
         }
 
@@ -538,7 +504,7 @@ class ManualInvoiceController extends Controller
     }
 
     /**
-     * Descargar XML desde Facturapi.
+     * Descargar XML desde Facturapi (ya timbrada).
      */
     public function downloadXml(ManualInvoice $manualInvoice)
     {
@@ -546,23 +512,15 @@ class ManualInvoiceController extends Controller
             return back()->with('error', 'Esta factura no tiene un ID de Facturapi para descargar XML.');
         }
 
-        [$apiKey, $baseUri] = $this->facturapiInternalCreds();
-
-        if (!$apiKey) {
-            return back()->with('error', 'No hay FACTURAAPI_INT_KEY configurada en el .env');
-        }
+        $cfg     = $this->facturapiCfg();
+        $baseUri = rtrim($cfg['base_uri'], '/');
+        $apiKey  = $cfg['key'];
 
         $response = Http::withToken($apiKey)
-            ->timeout(60)
+            ->accept('application/xml')
             ->get($baseUri . '/invoices/' . $manualInvoice->facturapi_id . '/xml');
 
         if (!$response->successful()) {
-            Log::error('Facturapi error descargar XML', [
-                'manual_invoice_id' => $manualInvoice->id,
-                'status'            => $response->status(),
-                'body'              => $response->body(),
-            ]);
-
             return back()->with('error', 'No se pudo descargar el XML desde Facturapi.');
         }
 
@@ -571,5 +529,164 @@ class ManualInvoiceController extends Controller
         return response($response->body(), 200)
             ->header('Content-Type', 'application/xml')
             ->header('Content-Disposition', 'attachment; filename="' . $fileName . '"');
+    }
+
+    // ============================================================
+    // Helpers Facturapi
+    // ============================================================
+
+    private function facturapiCfg(): array
+    {
+        $cfg = config('services.facturaapi_internal');
+
+        $key  = $cfg['key'] ?? null;
+        $base = $cfg['base_uri'] ?? null;
+
+        if (!$key) {
+            throw new \RuntimeException('No hay FACTURAAPI_INT_KEY configurada (services.facturaapi_internal.key).');
+        }
+
+        if (!$base) {
+            $base = 'https://www.facturapi.io/v2';
+        }
+
+        return [
+            'key'      => $key,
+            'base_uri' => rtrim($base, '/'),
+        ];
+    }
+
+    /**
+     * Crea/actualiza el borrador en Facturapi y devuelve su ID.
+     * - Crear borrador: POST /invoices con status=draft :contentReference[oaicite:6]{index=6}
+     * - Editar borrador: PUT /invoices/{id} (solo draft) :contentReference[oaicite:7]{index=7}
+     */
+    private function ensureFacturapiDraft(ManualInvoice $manualInvoice): string
+    {
+        $manualInvoice->loadMissing(['client', 'items']);
+        $client = $manualInvoice->client;
+
+        $cfg     = $this->facturapiCfg();
+        $baseUri = $cfg['base_uri'];
+        $apiKey  = $cfg['key'];
+
+        $itemsPayload = [];
+        foreach ($manualInvoice->items as $item) {
+            $itemsPayload[] = [
+                'quantity' => (float) $item->quantity,
+                'discount' => (float) $item->discount,
+                'product'  => [
+                    'description' => $item->description,
+                    'product_key' => $item->product_key ?: '01010101',
+                    'price'       => (float) $item->unit_price,
+                    'unit_key'    => $item->unit_code ?: 'H87',
+                    'unit_name'   => $item->unit ?: 'Pieza',
+                ],
+            ];
+        }
+
+        $uso = $manualInvoice->cfdi_use;
+
+        if (!$uso) {
+            $regimen = $client->regimen_fiscal;
+
+            $regimenGastos = ['601','603','612','620','621','622','623','624','626'];
+
+            if (in_array($regimen, $regimenGastos, true)) {
+                $uso = 'G03';
+            } elseif (in_array($regimen, ['605','606','607','608','610','611','614','615','616'], true)) {
+                $uso = 'S01';
+            } else {
+                $uso = 'G03';
+            }
+        }
+
+        $payload = [
+            'status' => 'draft',
+            'type'   => $manualInvoice->type ?: 'I',
+
+            'customer' => [
+                'legal_name' => $client->razon_social ?: $client->nombre,
+                'tax_id'     => $client->rfc,
+                'email'      => $client->email,
+                'tax_system' => $client->regimen_fiscal ?? '601',
+                'address'    => [
+                    'zip' => $client->cp ?: '00000',
+                ],
+            ],
+
+            'items'          => $itemsPayload,
+            'use'            => $uso,
+            'payment_form'   => $manualInvoice->payment_form ?? '99',
+            'payment_method' => $manualInvoice->payment_method ?? 'PUE',
+            'currency'       => $manualInvoice->currency ?: 'MXN',
+            'export'         => $manualInvoice->exportation ?? '01',
+        ];
+
+        if (($manualInvoice->currency ?: 'MXN') !== 'MXN') {
+            $payload['exchange'] = (float) ($manualInvoice->exchange_rate ?: 1);
+        } elseif (!empty($manualInvoice->exchange_rate)) {
+            $payload['exchange'] = (float) $manualInvoice->exchange_rate;
+        }
+
+        if (!empty($manualInvoice->serie)) {
+            $payload['series'] = $manualInvoice->serie;
+        }
+        if (!empty($manualInvoice->folio)) {
+            $payload['folio_number'] = $manualInvoice->folio;
+        }
+
+        // si ya existe borrador en Facturapi -> actualizar
+        if (!empty($manualInvoice->facturapi_draft_id)) {
+            $draftId = $manualInvoice->facturapi_draft_id;
+
+            $res = Http::withToken($apiKey)
+                ->acceptJson()
+                ->put($baseUri . '/invoices/' . $draftId, $payload);
+
+            if (!$res->successful()) {
+                Log::error('Facturapi error actualizar borrador', [
+                    'manual_invoice_id' => $manualInvoice->id,
+                    'draft_id'          => $draftId,
+                    'status'            => $res->status(),
+                    'body'              => $res->body(),
+                ]);
+
+                // si el borrador ya no existe o algo raro, intenta recrearlo
+                $manualInvoice->facturapi_draft_id = null;
+                $manualInvoice->save();
+            } else {
+                return $draftId;
+            }
+        }
+
+        // crear borrador nuevo
+        $res = Http::withToken($apiKey)
+            ->acceptJson()
+            ->post($baseUri . '/invoices', $payload);
+
+        if (!$res->successful()) {
+            Log::error('Facturapi error crear borrador', [
+                'manual_invoice_id' => $manualInvoice->id,
+                'status'            => $res->status(),
+                'body'              => $res->body(),
+            ]);
+
+            $json = json_decode($res->body(), true);
+            $apiMsg = $json['message'] ?? 'Error desconocido';
+            throw new \RuntimeException('No se pudo crear borrador en Facturapi: ' . $apiMsg);
+        }
+
+        $data = $res->json();
+        $draftId = $data['id'] ?? null;
+
+        if (!$draftId) {
+            throw new \RuntimeException('Facturapi no devolvió ID al crear borrador.');
+        }
+
+        $manualInvoice->facturapi_draft_id = $draftId;
+        $manualInvoice->save();
+
+        return $draftId;
     }
 }

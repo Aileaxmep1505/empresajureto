@@ -273,6 +273,14 @@ tbody tr:hover{ background:#f8fbff }
       </a>
 
       @if($invoice->status === 'draft')
+        {{-- ✅ Prefactura (PDF BORRADOR generado por Facturapi) --}}
+        <a href="{{ route('manual_invoices.downloadDraftPdf', $invoice) }}" target="_blank" class="pbtn pbtn-gray">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 3v12"/><path d="M8 11l4 4 4-4"/><path d="M5 21h14"/>
+          </svg>
+          Prefactura PDF
+        </a>
+
         <a href="{{ route('manual_invoices.edit', $invoice) }}" class="pbtn pbtn-blue">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
