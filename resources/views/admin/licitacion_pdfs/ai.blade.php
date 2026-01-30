@@ -1,6 +1,4 @@
-```blade
 @extends('layouts.app')
-
 @section('title', 'Chat IA del PDF')
 
 @section('content')
@@ -29,6 +27,7 @@
     user-select:none;
   }
   .aiBtn:hover{transform:translateY(-1px);box-shadow:0 14px 34px rgba(2,6,23,.10)}
+  .aiBtn:disabled{opacity:.65;cursor:not-allowed;transform:none;box-shadow:none}
   .aiBtnBlack{background:linear-gradient(180deg,var(--black),var(--black2));color:#fff;border-color:transparent;box-shadow:0 16px 40px rgba(2,6,23,.20)}
   .aiBtnBlack:hover{box-shadow:0 22px 56px rgba(2,6,23,.26)}
   .ico{width:18px;height:18px;display:inline-block;flex:0 0 auto}
@@ -154,6 +153,8 @@
   data-notes-pdf-url="{{ route('admin.licitacion-pdfs.ai.notes.pdf', $pdf) }}"
   data-preview-url="{{ route('admin.licitacion-pdfs.preview', ['licitacionPdf' => $pdf->id]) }}"
   data-viewer-url="{{ route('admin.licitacion-pdfs.ai.viewer', ['licitacionPdf' => $pdf->id]) }}"
+  data-checklist-url="{{ route('admin.licitacion-pdfs.ai.checklist', $pdf) }}"
+  data-checklist-generate-url="{{ route('admin.licitacion-pdfs.ai.checklist.generate', $pdf) }}"
   data-filename="{{ e($pdf->original_filename) }}"
   data-initial='@json($items)'
 >
@@ -170,6 +171,15 @@
           <path d="M14 2v6h6" stroke="currentColor" stroke-width="2"/>
         </svg>
         Ver PDF
+      </button>
+
+      <button class="aiBtn" type="button" id="btnChecklist">
+        <svg class="ico" viewBox="0 0 24 24" fill="none">
+          <path d="M9 11l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M20 6v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h10" stroke="currentColor" stroke-width="2"/>
+          <path d="M14 2v6h6" stroke="currentColor" stroke-width="2"/>
+        </svg>
+        Generar checklist
       </button>
 
       <a class="aiBtn" href="{{ route('admin.licitacion-pdfs.index') }}">
@@ -251,7 +261,6 @@
         <button class="aiBtn" type="button" id="btnClosePdf">Cerrar</button>
       </div>
 
-      {{-- ✅ aquí cargamos TU viewer PDF.js (ruta admin.licitacion-pdfs.ai.viewer) en modal --}}
       <iframe class="mIfr" id="pdfFrame" src="{{ route('admin.licitacion-pdfs.ai.viewer', ['licitacionPdf' => $pdf->id]) }}"></iframe>
     </div>
   </div>
@@ -265,8 +274,10 @@
   const pdfId       = root.getAttribute('data-pdf-id');
   const sendUrl     = root.getAttribute('data-send-url');
   const notesPdfUrl = root.getAttribute('data-notes-pdf-url');
-  const previewUrl  = root.getAttribute('data-preview-url'); // por si quieres fallback
-  const viewerUrl   = root.getAttribute('data-viewer-url');  // ✅ viewer con highlight
+  const previewUrl  = root.getAttribute('data-preview-url');
+  const viewerUrl   = root.getAttribute('data-viewer-url');
+  const checklistUrl = root.getAttribute('data-checklist-url');
+  const checklistGenerateUrl = root.getAttribute('data-checklist-generate-url');
   const filename    = root.getAttribute('data-filename') || 'PDF';
 
   const csrf = (document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')) || @json(csrf_token());
@@ -281,6 +292,8 @@
   const btnDownloadNotes = document.getElementById('btnDownloadNotes');
 
   const btnOpenPdf = document.getElementById('btnOpenPdf');
+  const btnChecklist = document.getElementById('btnChecklist');
+
   const modal = document.getElementById('pdfModal');
   const btnClosePdf = document.getElementById('btnClosePdf');
   const pdfFrame = document.getElementById('pdfFrame');
@@ -329,10 +342,9 @@
     localStorage.setItem(notesKey, notesArea.value);
   }
 
-  // ✅ abre modal con PDF.js viewer y highlight (page + q)
   function openModalWithSource(source){
     let hint = '';
-    let url = viewerUrl; // default: viewer sin highlight
+    let url = viewerUrl;
 
     if(source){
       const page = source.page || 1;
@@ -350,7 +362,6 @@
     modalHint.textContent = hint ? ('(' + hint + ')') : '';
     modalHint.style.display = hint ? 'inline' : 'none';
 
-    // refresca iframe
     pdfFrame.src = url;
     modal.hidden = false;
     document.body.style.overflow = 'hidden';
@@ -426,8 +437,6 @@
 
       bubble.appendChild(actions);
 
-      // ✅ soporta: backend nuevo -> j.source (una sola)
-      // y backend viejo -> j.sources (array)
       const sourcesArr = Array.isArray(it.sources) ? it.sources : [];
       if(sourcesArr.length){
         const srcBox = document.createElement('div');
@@ -444,7 +453,6 @@
         `;
         srcBox.appendChild(title);
 
-        // ✅ pinta SOLO 1 (la primera)
         const s = sourcesArr[0];
 
         const item = document.createElement('div');
@@ -474,7 +482,6 @@
         const btnView = top.querySelector('button');
         btnView.addEventListener('click', () => openModalWithSource(s));
 
-        // excerpt/snippet
         const snippet = s?.excerpt || s?.snippet || '';
         if(snippet){
           const sn = document.createElement('div');
@@ -557,7 +564,6 @@
         return;
       }
 
-      // ✅ soporta backend: {answer, source} (nuevo) o {answer, sources} (viejo)
       const one = j?.source ? [j.source] : (Array.isArray(j?.sources) ? j.sources : []);
 
       items.push({
@@ -577,6 +583,47 @@
     }
   }
 
+  async function generateChecklist(){
+    if(sending) return;
+
+    btnChecklist.disabled = true;
+
+    items.push({role:'assistant', content:'Generando checklist disciplinado a partir del PDF…', sources:[]});
+    renderAll();
+
+    try{
+      const res = await fetch(checklistGenerateUrl, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers:{
+          'Content-Type':'application/json',
+          'Accept':'application/json',
+          'X-Requested-With':'XMLHttpRequest',
+          'X-CSRF-TOKEN': csrf,
+        },
+        body: JSON.stringify({ action: 'generate_checklist' })
+      });
+
+      const raw = await res.text();
+      let j = null;
+      try{ j = JSON.parse(raw); }catch(e){}
+
+      if(!res.ok || !j?.ok){
+        const msg = (j && (j.message || j.error)) ? (j.message || j.error) : raw;
+        items.push({role:'assistant', content:`Error generando checklist: ${msg}`, sources:[]});
+        renderAll();
+        return;
+      }
+
+      window.location.href = j.redirect || checklistUrl;
+    }catch(e){
+      items.push({role:'assistant', content:'Error generando checklist (fetch). Revisa logs.', sources:[]});
+      renderAll();
+    }finally{
+      btnChecklist.disabled = false;
+    }
+  }
+
   // Eventos UI
   btnSend.addEventListener('click', send);
   input.addEventListener('keydown', (e) => {
@@ -585,6 +632,8 @@
       send();
     }
   });
+
+  btnChecklist.addEventListener('click', generateChecklist);
 
   btnClearNotes.addEventListener('click', () => {
     notesArea.value = '';
@@ -642,4 +691,3 @@
 })();
 </script>
 @endsection
-

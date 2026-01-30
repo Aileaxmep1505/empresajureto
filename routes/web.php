@@ -1770,3 +1770,15 @@ Route::delete('tech-sheets/{sheet}/pdf/{type}', [\App\Http\Controllers\TechSheet
 // Si ya tienes resource sin destroy, al menos agrega:
 Route::delete('/tech-sheets/{sheet}', [TechSheetController::class, 'destroy'])
     ->name('tech-sheets.destroy');
+// CHECKLIST IA (PDF)
+Route::get('/admin/licitacion-pdfs/{licitacionPdf}/checklist', [\App\Http\Controllers\Admin\LicitacionPdfAiController::class, 'checklist'])
+  ->name('admin.licitacion-pdfs.ai.checklist');
+
+Route::post('/admin/licitacion-pdfs/{licitacionPdf}/checklist/generate', [\App\Http\Controllers\Admin\LicitacionPdfAiController::class, 'generateChecklist'])
+  ->name('admin.licitacion-pdfs.ai.checklist.generate');
+
+Route::patch('/admin/licitacion-pdfs/checklist-items/{item}', [\App\Http\Controllers\Admin\LicitacionPdfAiController::class, 'updateChecklistItem'])
+  ->name('admin.licitacion-pdfs.ai.checklist.item.update');
+// CHAT IA PDF (vista)
+Route::get('/admin/licitacion-pdfs/{licitacionPdf}/ai', [\App\Http\Controllers\Admin\LicitacionPdfAiController::class, 'show'])
+  ->name('admin.licitacion-pdfs.ai.show');

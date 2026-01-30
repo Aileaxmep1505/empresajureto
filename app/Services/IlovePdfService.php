@@ -176,16 +176,48 @@ class IlovePdfService
         $serverFilename = $this->uploadFile($task['server'], $task['token'], $task['task'], $pdfFullPath);
 
         $this->process($task['server'], $task['token'], [
-            'task' => $task['task'],
-            'tool' => 'split',
-            'split_mode' => 'ranges',
-            'ranges' => $ranges,          // ej: "10-20"
-            'merge_after' => $mergeAfter, // si mandas varios rangos, los une
-            'files' => [[
+            'task'        => $task['task'],
+            'tool'        => 'split',
+            'split_mode'  => 'ranges',
+            'ranges'      => $ranges,          // ej: "10-20"
+            'merge_after' => $mergeAfter,      // si mandas varios rangos, los une
+            'files'       => [[
                 'server_filename' => $serverFilename,
                 'filename'        => basename($pdfFullPath),
             ]],
         ]);
+
+        return $this->download($task['server'], $task['token'], $task['task']);
+    }
+
+    /**
+     * ✅ OCR: convierte un PDF escaneado en PDF con texto seleccionable.
+     * Usa la herramienta "pdfocr" y devuelve el BINARIO del PDF ya OCR.
+     *
+     * @param string $pdfFullPath Ruta absoluta al PDF original
+     * @param array|null $languages Lista de idiomas, ej: ['spa','eng']
+     */
+    public function ocrPdfBinary(string $pdfFullPath, ?array $languages = null): string
+    {
+        $task = $this->startTask('pdfocr');
+
+        $serverFilename = $this->uploadFile($task['server'], $task['token'], $task['task'], $pdfFullPath);
+
+        $payload = [
+            'task'  => $task['task'],
+            'tool'  => 'pdfocr',
+            'files' => [[
+                'server_filename' => $serverFilename,
+                'filename'        => basename($pdfFullPath),
+            ]],
+        ];
+
+        // Opcional: idiomas para OCR (si no se pasan, usa los defaults del proyecto)
+        if (!empty($languages)) {
+            $payload['ocr_languages'] = array_values($languages);
+        }
+
+        $this->process($task['server'], $task['token'], $payload);
 
         return $this->download($task['server'], $task['token'], $task['task']);
     }
