@@ -25,8 +25,7 @@
 
       <label class="pin-label">Introduce tu NIP de 6 dígitos</label>
 
-      {{-- Burbujas tipo banco --}}
-      <div class="pin-dots">
+      <div class="pin-dots" aria-label="Entrada de NIP de 6 dígitos">
         @for($i = 0; $i < 6; $i++)
           <input
             type="text"
@@ -34,11 +33,11 @@
             maxlength="1"
             inputmode="numeric"
             autocomplete="off"
+            aria-label="Dígito {{ $i + 1 }}"
           >
         @endfor
       </div>
 
-      {{-- El NIP real viaja aquí --}}
       <input type="hidden" name="pin" id="pinHidden">
 
       <p class="pin-hint">
@@ -46,14 +45,11 @@
         Al completar los 6 dígitos se envía automáticamente.
       </p>
 
-      <a href="{{ url('/') }}" class="pin-link">
-        Volver al panel
-      </a>
+      <a href="{{ url('/') }}" class="pin-link">Volver al panel</a>
     </form>
   </div>
 </div>
 
-{{-- Contenedor de toasts --}}
 <div id="toast-root" class="toast-root"></div>
 @endsection
 
@@ -128,36 +124,70 @@
     gap:10px;
     margin-bottom:10px;
   }
+
+  /* ====== NUEVO: Rectángulos parados + zoom ====== */
   .pin-dot-input{
-    width:52px;
-    height:52px;
-    border-radius:999px;
+    width:44px;        /* más angosto */
+    height:64px;       /* más alto (rectángulo vertical) */
+    border-radius:14px;
     border:1px solid #cbd5f5;
-    background:
-      radial-gradient(circle at 30% 20%,#edf2ff,#f9fafb);
+    background: linear-gradient(180deg,#f8fafc 0%, #ffffff 70%);
     text-align:center;
-    font-size:1.4rem;
-    font-weight:700;
+    font-size:1.55rem;
+    font-weight:800;
     letter-spacing:.04em;
     color:#0f172a;
+
     transition:
       border-color .15s ease,
       box-shadow .15s ease,
       background .15s ease,
-      transform .08s ease;
+      transform .12s ease;
+
     box-shadow:
-      0 6px 14px rgba(15,23,42,.08),
-      inset 0 0 0 1px rgba(255,255,255,.8);
+      0 8px 18px rgba(15,23,42,.08),
+      inset 0 0 0 1px rgba(255,255,255,.9);
+
+    transform: translateZ(0);
+    will-change: transform;
   }
+
+  /* zoom al pasar */
+  .pin-dot-input:hover{
+    transform: scale(1.07);
+    border-color:#93c5fd;
+    box-shadow:
+      0 0 0 1px rgba(191,219,254,.9),
+      0 16px 34px rgba(37,99,235,.18),
+      inset 0 0 0 1px rgba(255,255,255,.95);
+  }
+
+  /* zoom fuerte al enfocar */
   .pin-dot-input:focus{
     outline:none;
-    background:radial-gradient(circle at 30% 20%,#eff6ff,#ffffff);
+    background: linear-gradient(180deg,#eff6ff 0%, #ffffff 70%);
     border-color:#60a5fa;
     box-shadow:
-      0 0 0 1px #bfdbfe,
-      0 14px 32px rgba(37,99,235,.25),
-      inset 0 0 0 1px rgba(255,255,255,.9);
-    transform:translateY(-1px);
+      0 0 0 2px rgba(191,219,254,.95),
+      0 18px 40px rgba(37,99,235,.22),
+      inset 0 0 0 1px rgba(255,255,255,.95);
+    transform: scale(1.12);
+  }
+
+  /* input "activo" (el que toca llenar) */
+  .pin-dot-input.is-active{
+    border-color:#60a5fa;
+    background: linear-gradient(180deg,#eff6ff 0%, #ffffff 70%);
+    box-shadow:
+      0 0 0 2px rgba(191,219,254,.95),
+      0 18px 40px rgba(37,99,235,.18),
+      inset 0 0 0 1px rgba(255,255,255,.95);
+    transform: scale(1.12);
+  }
+
+  /* mini “pop” cuando se escribe */
+  .pin-dot-input.is-pop{
+    transform: scale(1.18);
   }
 
   .pin-hint{
@@ -185,9 +215,10 @@
       border-radius:20px;
     }
     .pin-dot-input{
-      width:46px;
-      height:46px;
-      font-size:1.25rem;
+      width:40px;
+      height:58px;
+      font-size:1.35rem;
+      border-radius:13px;
     }
   }
 
@@ -219,9 +250,7 @@
     animation:toast-in .2s ease-out forwards;
     pointer-events:auto;
   }
-  .toast--error{
-    background:#991b1b;
-  }
+  .toast--error{ background:#991b1b; }
   .toast-icon{
     width:18px;height:18px;
     border-radius:999px;
@@ -229,10 +258,7 @@
     display:flex;align-items:center;justify-content:center;
     font-size:.95rem;
   }
-  .toast-msg{
-    flex:1;
-    line-height:1.3;
-  }
+  .toast-msg{ flex:1; line-height:1.3; }
   @keyframes toast-in{
     from{ opacity:0; transform:translateY(-6px); }
     to{ opacity:1; transform:translateY(0); }
@@ -246,7 +272,6 @@
 
 @push('scripts')
 <script>
-  // Toast helper
   function showToast(message, type = 'error', timeout = 3500){
     const root = document.getElementById('toast-root');
     if (!root || !message) return;
@@ -284,12 +309,17 @@ document.addEventListener('DOMContentLoaded', function () {
 
   if (!inputs.length || !hidden || !form) return;
 
-  // Desactivar validación HTML5 (para que no moleste con el patrón)
   form.setAttribute('novalidate','novalidate');
 
-  const MASK_DELAY = 150; // ms
-  let pinValue     = '';  // 0..6 dígitos
+  const MASK_DELAY = 150;
+  let pinValue     = '';
   let isSubmitting = false;
+
+  function setActive(){
+    inputs.forEach(i => i.classList.remove('is-active'));
+    const idx = Math.min(pinValue.length, 5);
+    if (inputs[idx]) inputs[idx].classList.add('is-active');
+  }
 
   function syncUI(){
     for (let i = 0; i < 6; i++) {
@@ -297,12 +327,14 @@ document.addEventListener('DOMContentLoaded', function () {
       const ch  = pinValue[i] || '';
       inp.value = ch ? '*' : '';
     }
+    setActive();
   }
 
   function focusByLength(){
     const idx = Math.min(pinValue.length, 5);
     inputs[idx].focus();
     inputs[idx].select();
+    setActive();
   }
 
   function trySubmit(){
@@ -313,23 +345,21 @@ document.addEventListener('DOMContentLoaded', function () {
     hidden.value = pinValue;
 
     setTimeout(() => {
-      if (typeof form.requestSubmit === 'function') {
-        form.requestSubmit();
-      } else {
-        form.submit();
-      }
+      if (typeof form.requestSubmit === 'function') form.requestSubmit();
+      else form.submit();
     }, 100);
   }
 
-  // Bloquear click libre: siempre enfocamos donde va el siguiente dígito
   inputs.forEach(inp => {
     inp.addEventListener('click', function (e) {
       e.preventDefault();
       focusByLength();
     });
-  });
 
-  inputs.forEach(inp => {
+    inp.addEventListener('focus', function(){
+      setActive();
+    });
+
     inp.addEventListener('keydown', function (e) {
       if (e.key === 'Backspace') {
         e.preventDefault();
@@ -371,27 +401,27 @@ document.addEventListener('DOMContentLoaded', function () {
       const idx = pinValue.length - 1;
 
       syncUI();
-      const bubble = inputs[idx];
-      bubble.value = digit; // mostrar breve
+
+      // mostrar breve el dígito + pop
+      const box = inputs[idx];
+      box.value = digit;
+      box.classList.add('is-pop');
+      setTimeout(() => box.classList.remove('is-pop'), 120);
 
       setTimeout(() => {
-        if (pinValue[idx] === digit) {
-          bubble.value = '*';
-        }
+        if (pinValue[idx] === digit) box.value = '*';
       }, MASK_DELAY);
 
       hidden.value = pinValue;
 
-      if (pinValue.length < 6) {
-        focusByLength();
-      }
-
+      if (pinValue.length < 6) focusByLength();
       trySubmit();
     });
   });
 
-  // Foco inicial
+  // Foco inicial + activo
   inputs[0].focus();
+  setActive();
 });
 </script>
 @endpush

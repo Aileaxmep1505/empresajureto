@@ -2,206 +2,210 @@
 
 @section('title','Documentación confidencial para altas')
 
+@php
+  use Illuminate\Support\Str;
+  use Illuminate\Support\Facades\Storage;
+@endphp
+
 @section('content')
-<div class="alta-wrap">
-  {{-- Header --}}
-  <div class="alta-header">
-    <div>
-      <h1 class="alta-title">Documentación para altas</h1>
-      <p class="alta-sub">
-        Gestión de contratos, formatos y políticas protegidas por NIP.
-      </p>
-    </div>
+<div class="alta-page">
+  <div class="alta-wrap">
+    {{-- Header --}}
+    <div class="alta-header">
+      <div class="alta-head-left">
+        <h1 class="alta-title">Documentación para altas</h1>
+        <p class="alta-sub">Gestión de contratos, formatos y políticas protegidas por NIP.</p>
+      </div>
 
-    <div class="alta-actions">
-      <form action="{{ route('secure.alta-docs.logout') }}" method="POST">
-        @csrf
-        <button type="submit" class="btn btn-ghost">
-          <span class="ico" aria-hidden="true">
+      <div class="alta-head-actions">
+        {{-- Subir --}}
+        <button type="button" class="mini-pill" data-modal-target="upload-modal" aria-label="Subir documento">
+          <span class="mini-pill-ico" aria-hidden="true">
             <svg viewBox="0 0 24 24">
-              <path d="M7 10V7a5 5 0 0 1 10 0v3"/>
-              <rect x="5" y="10" width="14" height="11" rx="2"/>
+              <path d="M12 16V4"/>
+              <path d="M8 8l4-4 4 4"/>
+              <rect x="4" y="14" width="16" height="6" rx="2"/>
             </svg>
           </span>
-          Cerrar sesión
+          <span class="mini-pill-txt">Subir documento</span>
         </button>
-      </form>
-    </div>
-  </div>
 
-  {{-- Mensajes --}}
-  @if(session('ok'))
-    <div class="alert alert-ok">
-      {{ session('ok') }}
-    </div>
-  @endif
-  @if(session('error'))
-    <div class="alert alert-error">
-      {{ session('error') }}
-    </div>
-  @endif
-  @if($errors->any())
-    <div class="alert alert-error">
-      @foreach($errors->all() as $e)
-        <div>{{ $e }}</div>
-      @endforeach
-    </div>
-  @endif
-
-  {{-- Barra de acciones --}}
-  <div class="alta-card alta-card-upload">
-    <div class="alta-card-head">
-      <div>
-        <h2 class="alta-card-title">Documentos de altas</h2>
-        <p class="alta-card-sub-muted">
-          Archivos: PDF, Word, Excel, CSV, XML, TXT · Máx. 20 MB.
-        </p>
-      </div>
-      <div class="alta-card-cta">
-        <button type="button" class="btn btn-soft-primary" data-modal-target="upload-modal">
-          <span class="ico" aria-hidden="true">
-            <svg viewBox="0 0 24 24">
-              <path d="M4 4h16v16H4z"/>
-              <path d="M8 12h8"/>
-              <path d="M12 8v8"/>
-            </svg>
-          </span>
-          Subir documento
-        </button>
-      </div>
-    </div>
-  </div>
-
-  {{-- Card listado --}}
-  <div class="alta-card alta-card-list">
-    <div class="alta-card-head">
-      <div>
-        <h2 class="alta-card-title">Historial</h2>
-        <p class="alta-card-sub">
-          Solo usuarios con NIP correcto pueden ver y descargar estos archivos.
-        </p>
+        {{-- Cerrar sesión --}}
+        <form action="{{ route('secure.alta-docs.logout') }}" method="POST" class="inline">
+          @csrf
+          <button type="submit" class="mini-pill" aria-label="Cerrar sesión">
+            <span class="mini-pill-ico" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M10 7V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6a2 2 0 0 1-2-2v-1"/>
+                <path d="M14 12H3"/>
+                <path d="M6 9l-3 3 3 3"/>
+              </svg>
+            </span>
+            <span class="mini-pill-txt">Cerrar sesión</span>
+          </button>
+        </form>
       </div>
     </div>
 
-    @if($docs->isEmpty())
-      <div class="alta-empty">
-        <div class="alta-empty-icon">
-          <svg viewBox="0 0 24 24">
-            <rect x="4" y="4" width="16" height="16" rx="2"/>
-            <path d="M9 9h6M9 13h4"/>
-          </svg>
-        </div>
-        <div class="alta-empty-text">
-          Aún no hay documentos. Sube el primero con el botón “Subir documento”.
-        </div>
-      </div>
-    @else
-      <div class="alta-table-wrap">
-        <table class="alta-table">
-          <thead>
-            <tr>
-              <th>Tipo</th>
-              <th>Nombre</th>
-              <th>Tamaño</th>
-              <th>Notas</th>
-              <th>Subido por</th>
-              <th>Fecha</th>
-              <th class="right">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-          @foreach($docs as $doc)
-            <tr>
-              <td>
-                <span class="tag">{{ $doc->friendly_type }}</span>
-              </td>
-              <td class="doc-name">
-                {{ $doc->original_name }}
-              </td>
-              <td>{{ $doc->human_size }}</td>
-              <td class="doc-notes">
-                {{ $doc->notes ?: '—' }}
-              </td>
-              <td>
-                {{ optional($doc->uploadedBy)->name ?? '—' }}
-              </td>
-              <td>
-                {{ optional($doc->created_at)->format('d/m/Y H:i') }}
-              </td>
-              <td class="right">
-                <div class="alta-row-actions">
-                  {{-- Previsualizar --}}
-                  <button
-                    type="button"
-                    class="btn btn-ghost btn-xs js-preview-doc"
-                    data-name="{{ $doc->original_name }}"
-                    data-url="{{ route('alta.docs.preview', $doc) }}"
-                    data-download="{{ route('alta.docs.download', $doc) }}"
-                  >
-                    <span class="ico" aria-hidden="true">
-                      <svg viewBox="0 0 24 24">
-                        <path d="M2 12s3-6 10-6 10 6 10 6-3 6-10 6S2 12 2 12z"/>
-                        <circle cx="12" cy="12" r="3"/>
-                      </svg>
-                    </span>
-                    Ver
-                  </button>
-
-                  {{-- Descargar --}}
-                  <a href="{{ route('alta.docs.download', $doc) }}" class="btn btn-ghost btn-xs">
-                    <span class="ico" aria-hidden="true">
-                      <svg viewBox="0 0 24 24">
-                        <path d="M12 4v12"/>
-                        <path d="M8 12l4 4 4-4"/>
-                        <rect x="4" y="18" width="16" height="2" rx="1"/>
-                      </svg>
-                    </span>
-                    Descargar
-                  </a>
-
-                  {{-- Eliminar --}}
-                  <form action="{{ route('alta.docs.destroy', $doc) }}" method="POST" onsubmit="return confirm('¿Eliminar este documento?');">
-                    @csrf
-                    @method('DELETE')
-                    <button type="submit" class="btn btn-danger btn-xs">
-                      <span class="ico" aria-hidden="true">
-                        <svg viewBox="0 0 24 24">
-                          <path d="M4 7h16"/>
-                          <path d="M10 11v6"/>
-                          <path d="M14 11v6"/>
-                          <path d="M6 7l1 12a1 1 0 0 0 1 .9h8a1 1 0 0 0 1-.9L18 7"/>
-                          <path d="M9 7V4h6v3"/>
-                        </svg>
-                      </span>
-                      Eliminar
-                    </button>
-                  </form>
-                </div>
-              </td>
-            </tr>
-          @endforeach
-          </tbody>
-        </table>
-      </div>
-
-      <div class="alta-pager">
-        {{ $docs->links() }}
+    {{-- Mensajes --}}
+    @if(session('ok'))
+      <div class="flash flash-ok">{{ session('ok') }}</div>
+    @endif
+    @if(session('error'))
+      <div class="flash flash-err">{{ session('error') }}</div>
+    @endif
+    @if($errors->any())
+      <div class="flash flash-err">
+        @foreach($errors->all() as $e) <div>{{ $e }}</div> @endforeach
       </div>
     @endif
+
+    {{-- Grid --}}
+    <div class="docs-grid" aria-live="polite">
+      @forelse($docs as $doc)
+        @php
+          $filename = $doc->original_name ?? basename($doc->file_path ?? '');
+          if (!Str::contains((string)$filename, '.')) {
+            $extFromPath = pathinfo($doc->file_path ?? '', PATHINFO_EXTENSION);
+            if ($extFromPath) $filename .= '.' . $extFromPath;
+          }
+
+          $mime = $doc->mime_type ?? null;
+          $ext  = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+          $isPdf = ($ext === 'pdf');
+
+          $isImage = $mime ? Str::startsWith($mime, 'image/') : in_array($ext, ['jpg','jpeg','png','gif','webp','svg']);
+          $isVideo = $mime ? Str::startsWith($mime, 'video/') : in_array($ext, ['mp4','mov','webm','mkv']);
+
+          $title = $doc->title ?? $doc->original_name ?? 'Documento';
+          $meta  = ($doc->notes ?: ($doc->friendly_type ?? 'Documento'));
+
+          $dateLabel = $doc->date
+            ? \Carbon\Carbon::parse($doc->date)->format('d M Y')
+            : (optional($doc->created_at)->format('d M Y') ?? '');
+
+          $previewUrl  = route('alta.docs.preview', $doc);
+          $downloadUrl = route('alta.docs.download', $doc);
+
+          $displayUrl = null;
+          if (!empty($doc->url) && Str::startsWith($doc->url, ['http://','https://'])) {
+            $displayUrl = $doc->url;
+          } elseif (!empty($doc->file_path) && Storage::disk('public')->exists($doc->file_path)) {
+            $displayUrl = Storage::disk('public')->url($doc->file_path);
+            if (!$mime) {
+              try { $mime = Storage::disk('public')->mimeType($doc->file_path); }
+              catch (\Throwable $_) { $mime = $doc->mime_type ?? null; }
+            }
+          } else {
+            $displayUrl = $doc->url ?? '';
+          }
+        @endphp
+
+        <article class="doc-card" data-id="{{ $doc->id }}" tabindex="0" aria-label="{{ $title }}">
+          {{-- Capa clickeable SOLO para abrir preview --}}
+          <button
+            type="button"
+            class="doc-hit js-open-preview"
+            data-name="{{ $title }}"
+            data-url="{{ $previewUrl }}"
+            data-download="{{ $downloadUrl }}"
+            aria-label="Ver {{ $title }}"
+          ></button>
+
+          <div class="doc-hero">
+            <div class="doc-hero-top">
+              <span class="doc-pill {{ $isPdf ? 'doc-pill-pdf' : 'doc-pill-file' }}">
+                {{ strtoupper($ext ?: 'FILE') }}
+              </span>
+
+              <form method="POST" action="{{ route('alta.docs.destroy', $doc) }}" class="doc-del-form" aria-label="Eliminar">
+                @csrf
+                @method('DELETE')
+                <button type="submit" class="icon-chip icon-chip-danger js-stop" aria-label="Eliminar {{ $title }}">
+                  <svg viewBox="0 0 24 24">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+                    <path d="M10 11v6"></path>
+                    <path d="M14 11v6"></path>
+                    <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"></path>
+                  </svg>
+                </button>
+              </form>
+            </div>
+
+            <div class="doc-media" role="img" aria-label="{{ $title }}">
+              @if($isImage && !empty($doc->file_path))
+                <img src="{{ asset('storage/' . $doc->file_path) }}" alt="{{ $title }}">
+              @elseif($isVideo && !empty($doc->file_path))
+                <video controls class="js-stop">
+                  <source src="{{ asset('storage/' . $doc->file_path) }}" type="{{ $mime ?: 'video/mp4' }}">
+                </video>
+              @elseif($isPdf)
+                <div class="doc-placeholder">
+                  <div class="doc-placeholder-inner">
+                    <div class="doc-big-ext doc-big-ext-pdf">PDF</div>
+                    <div class="doc-fileinfo">
+                      <div class="doc-filetitle">{{ \Illuminate\Support\Str::limit($title, 80) }}</div>
+                      <div class="doc-filemeta">{{ $dateLabel }} • {{ $meta }}</div>
+                    </div>
+                  </div>
+                </div>
+              @else
+                <div class="doc-placeholder">
+                  <div class="doc-placeholder-inner">
+                    <div class="doc-big-ext">{{ strtoupper($ext ?: 'FILE') }}</div>
+                    <div class="doc-fileinfo">
+                      <div class="doc-filetitle">{{ \Illuminate\Support\Str::limit($title, 80) }}</div>
+                      <div class="doc-filemeta">{{ $dateLabel }} • {{ $meta }}</div>
+                    </div>
+                  </div>
+                </div>
+              @endif
+            </div>
+
+            <div class="doc-title">{{ \Illuminate\Support\Str::limit($title, 60) }}</div>
+          </div>
+
+          <div class="doc-footer">
+            <div class="doc-footer-left">
+              <div class="doc-type-dot {{ $isPdf ? 'dot-pdf' : 'dot-file' }}" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <path d="M14 2v6h6"></path>
+                  <path d="M8 13h8"></path>
+                  <path d="M8 17h8"></path>
+                </svg>
+              </div>
+
+              <div class="doc-footer-meta">
+                <div class="doc-footer-name">{{ \Illuminate\Support\Str::limit($title, 40) }}</div>
+                <div class="doc-footer-sub">{{ $dateLabel }} • {{ $meta }}</div>
+              </div>
+            </div>
+
+            <a class="icon-chip icon-chip-blue js-stop"
+               href="{{ $downloadUrl }}"
+               aria-label="Descargar {{ $title }}">
+              <svg viewBox="0 0 24 24">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+            </a>
+          </div>
+        </article>
+      @empty
+        <div class="empty">
+          No hay documentos. Usa “Subir documento” para agregar el primero.
+        </div>
+      @endforelse
+    </div>
+
+    <div class="pager">
+      {{ $docs->links() }}
+    </div>
   </div>
 </div>
-
-{{-- FAB en móvil para subir (abre el mismo modal) --}}
-<button type="button" class="alta-fab" data-modal-target="upload-modal">
-  <span class="alta-fab-ico" aria-hidden="true">
-    <svg viewBox="0 0 24 24">
-      <path d="M4 4h16v16H4z"/>
-      <path d="M8 12h8"/>
-      <path d="M12 8v8"/>
-    </svg>
-  </span>
-  <span class="alta-fab-label">Subir</span>
-</button>
 
 {{-- MODAL: Subir documentación --}}
 <div id="upload-modal" class="modal" aria-hidden="true">
@@ -209,10 +213,8 @@
   <div class="modal__panel">
     <div class="modal__header">
       <h2 class="modal__title">Subir documento</h2>
-      <button type="button" class="modal__close" data-modal-close>
-        <svg viewBox="0 0 24 24">
-          <path d="M6 6l12 12M18 6L6 18"/>
-        </svg>
+      <button type="button" class="modal__close" data-modal-close aria-label="Cerrar">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
       </button>
     </div>
 
@@ -220,690 +222,436 @@
       <form action="{{ route('alta.docs.store') }}" method="POST" enctype="multipart/form-data">
         @csrf
 
-        <div id="dropzone" class="alta-dropzone">
-          <div class="alta-drop-icon">
+        <div class="dropzone">
+          <div class="drop-ico" aria-hidden="true">
             <svg viewBox="0 0 24 24">
               <path d="M12 16V4"/>
               <path d="M8 8l4-4 4 4"/>
               <rect x="4" y="14" width="16" height="6" rx="2"/>
             </svg>
           </div>
-          <div class="alta-drop-body">
-            <div class="alta-drop-title">Arrastra o haz clic para escoger</div>
-            <div class="alta-drop-hint">
-              Puedes subir uno o varios archivos.
-            </div>
+          <div class="drop-body">
+            <div class="drop-title">Arrastra o haz clic para escoger</div>
+            <div class="drop-hint">PDF, Word, Excel, CSV, XML, TXT · Máx. 20 MB.</div>
           </div>
           <input
             id="files_input"
             name="files[]"
             type="file"
             multiple
-            class="alta-drop-input"
+            class="drop-input"
             accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.xml,.txt"
           >
         </div>
 
-        <div id="files_chips" class="alta-files-chips"></div>
+        <div id="files_chips" class="chips"></div>
 
-        <div class="alta-notes-row">
-          <label class="lbl">Notas (opcional)</label>
-          <input
-            type="text"
-            name="notes"
-            class="inp"
-            maxlength="500"
-            placeholder="Ej: Alta de nuevos proveedores"
-            value="{{ old('notes') }}"
-          >
-        </div>
+        <label class="lbl">Notas (opcional)</label>
+        <input type="text" name="notes" class="inp" maxlength="500" placeholder="Ej: Alta de nuevos proveedores" value="{{ old('notes') }}">
 
         <div class="modal__footer">
-          <button type="button" class="btn btn-soft-muted" data-modal-close>Cancelar</button>
-          <button type="submit" class="btn btn-soft-primary">
-            Subir
-          </button>
+          <button type="button" class="mini-pill mini-pill-muted" data-modal-close>Cancelar</button>
+          <button type="submit" class="mini-pill">Subir</button>
         </div>
       </form>
     </div>
   </div>
 </div>
 
-{{-- MODAL: Previsualizar documento --}}
+{{-- MODAL: Preview --}}
 <div id="preview-modal" class="modal" aria-hidden="true">
   <div class="modal__overlay" data-modal-close></div>
   <div class="modal__panel modal__panel--wide">
     <div class="modal__header">
       <h2 class="modal__title" id="preview-title">Documento</h2>
-      <button type="button" class="modal__close" data-modal-close>
-        <svg viewBox="0 0 24 24">
-          <path d="M6 6l12 12M18 6L6 18"/>
-        </svg>
+      <button type="button" class="modal__close" data-modal-close aria-label="Cerrar">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
       </button>
     </div>
 
-    <div class="modal__body modal-preview-body">
-      <iframe
-        id="preview-frame"
-        class="modal-preview-frame"
-        src=""
-        title="Previsualización de documento"
-      ></iframe>
-
-      <div id="preview-fallback" class="modal-preview-fallback">
-        Este tipo de archivo no se puede previsualizar aquí. Ábrelo o descárgalo directamente.
+    <div class="modal__body preview-body">
+      <iframe id="preview-frame" class="preview-frame" src="" title="Previsualización"></iframe>
+      <div id="preview-fallback" class="preview-fallback">
+        Este tipo de archivo no se puede previsualizar aquí. Descárgalo directamente.
       </div>
     </div>
 
-    <div class="modal__footer modal-preview-footer">
-      <a id="preview-open-tab" href="#" target="_blank" class="btn btn-soft-muted">
-        Abrir en pestaña nueva
-      </a>
-      <a id="preview-download" href="#" class="btn btn-soft-primary">
-        Descargar
-      </a>
+    <div class="modal__footer preview-footer">
+      <a id="preview-download" href="#" class="mini-pill">Descargar</a>
     </div>
   </div>
 </div>
 @endsection
 
-@push('styles')
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <style>
-  :root{
-    --ink:#0f172a;
-    --muted:#64748b;
-    --line:#e2e8f0;
-    --bg-soft:#f8fafc;
-    --brand:#2563eb;
-    --brand-soft:#eff6ff;
-    --danger:#dc2626;
-    --radius-lg:18px;
-    --radius-md:12px;
-    --shadow-soft:0 18px 40px rgba(15,23,42,.06);
-  }
+:root{
+  --ink:#0b1220;
+  --muted:#667085;
 
-  .alta-wrap{
-    max-width:1100px;
-    margin:18px auto;
-    padding:0 14px 24px;
-  }
+  --pdf:#dc2626;
+  --pdf-soft:#fee2e2;
 
-  .alta-header{
-    display:flex;
-    justify-content:space-between;
-    align-items:flex-start;
-    gap:12px;
-    flex-wrap:wrap;
-    margin-bottom:12px;
-  }
-  .alta-title{
-    margin:0;
-    font-size:1.45rem;
-    font-weight:800;
-    letter-spacing:-.02em;
-    color:var(--ink);
-  }
-  .alta-sub{
-    margin:4px 0 0;
-    font-size:.9rem;
-    color:var(--muted);
-  }
-  .alta-actions{
-    display:flex;
-    gap:8px;
-    align-items:center;
-  }
+  --shadow-soft:0 14px 34px rgba(2,6,23,.06);
+  --shadow:0 18px 44px rgba(2,6,23,.08);
+  --hover-blue:0 16px 34px rgba(29,78,216,.26);
 
-  .btn{
-    border:0;
-    border-radius:999px;
-    padding:8px 14px;
-    font-weight:600;
-    cursor:pointer;
-    font-size:.85rem;
-    display:inline-flex;
-    align-items:center;
-    gap:6px;
-    transition:transform .12s ease, box-shadow .12s ease, background .15s ease, border-color .15s ease;
-    white-space:nowrap;
-    text-decoration:none;
-  }
-  .btn-primary{
-    background:var(--brand);
-    color:#eff6ff;
-    box-shadow:0 12px 28px rgba(37,99,235,.35);
-  }
-  .btn-primary:hover{
-    transform:translateY(-1px);
-    box-shadow:0 16px 36px rgba(37,99,235,.4);
-  }
-  .btn-ghost{
-    background:#ffffff;
-    border:1px solid var(--line);
-    color:var(--ink);
-  }
-  .btn-ghost:hover{
-    transform:translateY(-1px);
-    box-shadow:0 10px 24px rgba(15,23,42,.06);
-  }
-  .btn-danger{
-    background:#fee2e2;
-    border:1px solid #fecaca;
-    color:#b91c1c;
-  }
-  .btn-danger:hover{
-    background:#fecaca;
-    box-shadow:0 10px 24px rgba(248,113,113,.35);
-    transform:translateY(-1px);
-  }
-  .btn-xs{
-    padding:5px 10px;
-    font-size:.76rem;
-  }
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+}
 
-  /* Botones pastel */
-  .btn-soft-primary{
-    background:#e0f2fe;
-    color:#1d4ed8;
-    border:1px solid #bfdbfe;
-    box-shadow:none;
-  }
-  .btn-soft-primary:hover{
-    background:#dbeafe;
-    transform:translateY(-1px);
-  }
+/* =========================================================
+   FONDO: arriba 100% blanco (#fff), y desde la mitad empieza verde
+   + full-bleed (sin bordes grises del layout)
+   ========================================================= */
+html, body{
+  height:100%;
+  margin:0;
+  background: linear-gradient(
+    180deg,
+    #ffffff 0%,
+    #ffffff 52%,
+    #fbfff6 68%,
+    #f7feec 82%,
+    #f0ffe0 100%
+  ) !important;
+}
+body{ background-color:transparent !important; }
 
-  .btn-soft-muted{
-    background:#f9fafb;
-    color:#4b5563;
-    border:1px solid #e5e7eb;
-  }
-  .btn-soft-muted:hover{
-    background:#f3f4f6;
-    transform:translateY(-1px);
-  }
+/* wrappers típicos de layouts admin (no pasa nada si no existen) */
+#app, .app, .wrapper, .main, main, .content, .content-wrapper, .page-content, .layout-content{
+  background:transparent !important;
+}
 
-  .ico svg{
-    width:16px;
-    height:16px;
-    stroke:currentColor;
-    stroke-width:1.7;
-    fill:none;
-    stroke-linecap:round;
-    stroke-linejoin:round;
-  }
+/* quita paddings laterales del contenedor principal (si tu layout los mete) */
+.content-wrapper, .page-content, main, .layout-content{
+  padding-left:0 !important;
+  padding-right:0 !important;
+}
 
-  .alert{
-    border-radius:var(--radius-md);
-    padding:8px 10px;
-    font-size:.82rem;
-    margin-bottom:10px;
-  }
-  .alert-ok{
-    background:#dcfce7;
-    color:#166534;
-    border:1px solid #bbf7d0;
-  }
-  .alert-error{
-    background:#fef2f2;
-    color:#991b1b;
-    border:1px solid #fecaca;
-  }
+/* bootstrap container puede dejar márgenes/padding */
+.container, .container-fluid{
+  max-width:none !important;
+  padding-left:0 !important;
+  padding-right:0 !important;
+  background:transparent !important;
+}
 
-  .alta-card{
-    border-radius:var(--radius-lg);
-    border:1px solid var(--line);
-    background:#ffffff;
-    box-shadow:var(--shadow-soft);
-    padding:14px 14px 16px;
-    margin-bottom:14px;
-  }
-  .alta-card-upload{
-    background:#ffffff;
-  }
+.alta-page{
+  min-height:100vh;
+  width:100%;
+  background:transparent !important; /* el fondo vive en body */
+}
 
-  .alta-card-head{
-    display:flex;
-    justify-content:space-between;
-    align-items:flex-start;
-    gap:8px;
-    margin-bottom:4px;
-  }
-  .alta-card-title{
-    margin:0;
-    font-size:1rem;
-    font-weight:800;
-    color:#0f172a;
-  }
-  .alta-card-sub{
-    margin:2px 0 0;
-    font-size:.82rem;
-    color:#475569;
-  }
-  .alta-card-sub-muted{
-    margin:2px 0 0;
-    font-size:.8rem;
-    color:#6b7280;
-  }
-  .alta-card-cta{
-    flex-shrink:0;
-  }
+.alta-wrap{ max-width:1200px; margin:0 auto; padding:22px 18px 30px; }
+.alta-header{ display:flex; align-items:flex-start; justify-content:space-between; gap:14px; flex-wrap:wrap; margin-bottom:14px; }
+.alta-title{ margin:0; font-size:28px; font-weight:900; letter-spacing:-.02em; color:var(--ink); }
+.alta-sub{ margin:6px 0 0; color:var(--muted); font-weight:600; }
+.alta-head-actions{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.inline{ margin:0; }
 
-  .lbl{
-    display:block;
-    font-weight:700;
-    color:var(--ink);
-    margin:10px 0 4px;
-    font-size:.85rem;
-  }
-  .inp{
-    width:100%;
-    border-radius:var(--radius-md);
-    border:1px solid var(--line);
-    background:#f8fafc;
-    padding:8px 10px;
-    font-size:.85rem;
-    color:var(--ink);
-    min-height:38px;
-    transition:border-color .15s ease, box-shadow .15s ease, background .15s ease, transform .08s ease;
-  }
-  .inp:focus{
-    outline:none;
-    border-color:#93c5fd;
-    box-shadow:0 0 0 1px #bfdbfe;
-    background:#ffffff;
-    transform:translateY(-1px);
-  }
+/* =========================================================
+   BOTONES ARRIBA: fondo blanco, letra negra
+   ========================================================= */
+.mini-pill{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  padding:9px 14px;
+  border-radius:999px;
+  border:0;
+  background:#ffffff;
+  color:#0b1220;
+  font-weight:700;
+  cursor:pointer;
+  text-decoration:none;
+  box-shadow:0 10px 22px rgba(2,6,23,.08);
+  transition:transform .14s ease, box-shadow .14s ease, background .14s ease;
+  white-space:nowrap;
+}
+.mini-pill:hover{ transform:translateY(-2px); box-shadow:var(--hover-blue); }
 
-  /* Dropzone */
-  .alta-dropzone{
-    position:relative;
-    border-radius:18px;
-    border:1.5px dashed rgba(148,163,184,.9);
-    background:linear-gradient(135deg, rgba(249,250,251,1), #ffffff);
-    padding:12px;
-    display:flex;
-    align-items:center;
-    gap:12px;
-    cursor:pointer;
-    transition:border-color .18s ease, background .18s ease, box-shadow .18s ease, transform .1s ease;
-  }
-  .alta-dropzone:hover{
-    border-color:#60a5fa;
-    box-shadow:0 10px 24px rgba(37,99,235,.12);
-    transform:translateY(-1px);
-  }
-  .alta-drop-icon{
-    width:40px;
-    height:40px;
-    border-radius:999px;
-    background:#1d4ed8;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    box-shadow:0 10px 22px rgba(30,64,175,.5);
-    flex:0 0 auto;
-  }
-  .alta-drop-icon svg{
-    width:20px;
-    height:20px;
-    stroke:#e0f2fe;
-    stroke-width:1.7;
-    fill:none;
-    stroke-linecap:round;
-    stroke-linejoin:round;
-  }
-  .alta-drop-body{
-    display:flex;
-    flex-direction:column;
-    gap:2px;
-  }
-  .alta-drop-title{
-    font-size:.9rem;
-    font-weight:700;
-    color:#0f172a;
-  }
-  .alta-drop-hint{
-    font-size:.8rem;
-    color:#6b7280;
-  }
+.mini-pill-ico{
+  width:30px;height:30px;
+  border-radius:999px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  background:rgba(15,23,42,.06);
+  color:#0b1220;
+}
+.mini-pill-ico svg{
+  width:16px;height:16px;
+  stroke:currentColor;
+  stroke-width:1.9;
+  fill:none;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
 
-  /* input invisible ocupando toda la zona -> clic abre explorador, sin JS extra */
-  .alta-drop-input{
-    position:absolute;
-    inset:0;
-    opacity:0;
-    cursor:pointer;
-  }
+.mini-pill-muted{
+  background:#ffffff;
+  color:#0b1220;
+  box-shadow:0 10px 22px rgba(2,6,23,.06);
+}
+.mini-pill-muted:hover{ box-shadow:var(--hover-blue); }
 
-  .alta-files-chips{
-    margin-top:6px;
-    display:flex;
-    flex-wrap:wrap;
-    gap:6px;
-  }
-  .alta-file-chip{
-    display:inline-flex;
-    align-items:center;
-    gap:6px;
-    padding:3px 8px;
-    border-radius:999px;
-    background:#eff6ff;
-    border:1px solid #dbeafe;
-    font-size:.75rem;
-    color:#1e293b;
-    max-width:100%;
-  }
-  .alta-file-chip span{
-    white-space:nowrap;
-    overflow:hidden;
-    text-overflow:ellipsis;
-    max-width:180px;
-  }
+/* Flash */
+.flash{ border-radius:14px; padding:10px 12px; margin:10px 0 14px; font-weight:700; backdrop-filter:blur(6px); }
+.flash-ok{ background:rgba(220,252,231,.9); color:#166534; }
+.flash-err{ background:rgba(254,242,242,.92); color:#991b1b; }
 
-  .alta-notes-row{
-    margin-top:10px;
-  }
+/* Grid responsive */
+.docs-grid{ display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:16px; align-items:start; margin-top:10px; }
+@media(max-width: 980px){ .docs-grid{ grid-template-columns:repeat(2, minmax(0, 1fr)); } }
+@media(max-width: 640px){ .docs-grid{ grid-template-columns:1fr; } }
 
-  /* Tabla documentos */
-  .alta-table-wrap{
-    width:100%;
-    overflow:auto;
-    border-radius:16px;
-    border:1px solid var(--line);
-    background:#ffffff;
-  }
-  .alta-table{
-    width:100%;
-    border-collapse:collapse;
-    font-size:.82rem;
-  }
-  .alta-table thead{
-    background:#f1f5f9;
-  }
-  .alta-table th,
-  .alta-table td{
-    padding:8px 10px;
-    border-bottom:1px solid #e5e7eb;
-    text-align:left;
-    vertical-align:middle;
-  }
-  .alta-table th{
-    font-weight:700;
-    color:#0f172a;
-    white-space:nowrap;
-  }
-  .alta-table td{
-    color:#4b5563;
-  }
-  .alta-table tr:hover{
-    background:#f9fafb;
-  }
-  .doc-name{
-    max-width:260px;
-    white-space:nowrap;
-    overflow:hidden;
-    text-overflow:ellipsis;
-  }
-  .doc-notes{
-    max-width:240px;
-    white-space:nowrap;
-    overflow:hidden;
-    text-overflow:ellipsis;
-  }
-  .tag{
-    display:inline-flex;
-    align-items:center;
-    padding:3px 8px;
-    border-radius:999px;
-    border:1px solid #dbeafe;
-    background:#eff6ff;
-    font-size:.72rem;
-    font-weight:600;
-    color:#1d4ed8;
-  }
-  .right{
-    text-align:right;
-  }
+/* Card */
+.doc-card{
+  background:rgba(255,255,255,.85);
+  border:1px solid rgba(15,23,42,.06);
+  border-radius:18px;
+  box-shadow:var(--shadow-soft);
+  overflow:hidden;
+  position:relative;
+  transition:transform .14s ease, box-shadow .14s ease;
+  backdrop-filter: blur(8px);
+}
+.doc-card:hover{ transform:translateY(-6px); box-shadow:var(--shadow); }
 
-  .alta-row-actions{
-    display:flex;
-    justify-content:flex-end;
-    gap:6px;
-    flex-wrap:wrap;
-  }
+/* Hit layer */
+.doc-hit{
+  position:absolute; inset:0;
+  background:transparent;
+  border:0;
+  cursor:pointer;
+  z-index:1;
+}
 
-  .alta-pager{
-    margin-top:10px;
-    display:flex;
-    justify-content:flex-end;
-  }
+/* Hero */
+.doc-hero{ padding:14px; position:relative; z-index:2; display:flex; flex-direction:column; gap:12px; }
+.doc-hero-top{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
 
-  .alta-empty{
-    padding:14px 10px;
-    display:flex;
-    align-items:center;
-    gap:10px;
-    color:#6b7280;
-    font-size:.85rem;
-  }
-  .alta-empty-icon{
-    width:36px;
-    height:36px;
-    border-radius:999px;
-    background:#f1f5f9;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    flex:0 0 auto;
-  }
-  .alta-empty-icon svg{
-    width:20px;
-    height:20px;
-    stroke:#9ca3af;
-    stroke-width:1.7;
-    fill:none;
-    stroke-linecap:round;
-    stroke-linejoin:round;
-  }
+.doc-pill{
+  display:inline-flex;
+  align-items:center;
+  padding:7px 10px;
+  border-radius:999px;
+  font-weight:900;
+  font-size:12px;
+  border:0;
+  box-shadow:0 10px 22px rgba(2,6,23,.06);
+}
+.doc-pill-file{ background:#fff7ed; color:#b45309; }
+.doc-pill-pdf{ background:var(--pdf-soft); color:#b91c1c; }
 
-  /* MODALES */
-  .modal{
-    position:fixed;
-    inset:0;
-    display:none;
-    align-items:center;
-    justify-content:center;
-    z-index:60;
-  }
-  .modal.is-open{
-    display:flex;
-  }
-  .modal__overlay{
-    position:absolute;
-    inset:0;
-    background:rgba(15,23,42,.45);
-    backdrop-filter:blur(6px);
-  }
-  .modal__panel{
-    position:relative;
-    z-index:1;
-    width:100%;
-    max-width:520px;
-    max-height:90vh;
-    border-radius:20px;
-    background:#ffffff;
-    box-shadow:0 20px 60px rgba(15,23,42,.35);
-    padding:12px 14px 12px;
-    display:flex;
-    flex-direction:column;
-    transform:translateY(8px);
-    animation:modal-in .18s ease-out;
-  }
-  .modal__panel--wide{
-    max-width:960px;
-  }
+/* Icon chips */
+.icon-chip{
+  width:42px;height:42px;
+  border-radius:14px;
+  border:0;
+  background:#ffffff;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  text-decoration:none;
+  transition:transform .14s ease, box-shadow .14s ease;
+  box-shadow:0 10px 22px rgba(2,6,23,.06);
+  position:relative;
+  z-index:4;
+}
+.icon-chip:hover{ transform:translateY(-2px); box-shadow:var(--hover-blue); }
+.icon-chip svg{
+  width:18px;height:18px;
+  stroke:currentColor;
+  stroke-width:1.7;
+  fill:none;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.icon-chip-danger{ background:#fff1f2; color:#e11d48; }
+.icon-chip-blue{ background:#eff6ff; color:#1d4ed8; }
 
-  .modal__header{
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    gap:8px;
-    padding:2px 2px 10px;
-    border-bottom:1px solid #e5e7eb;
-  }
-  .modal__title{
-    margin:0;
-    font-size:1rem;
-    font-weight:800;
-    color:#0f172a;
-  }
-  .modal__close{
-    border:0;
-    border-radius:999px;
-    width:30px;
-    height:30px;
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    background:#f3f4f6;
-    cursor:pointer;
-  }
-  .modal__close svg{
-    width:16px;
-    height:16px;
-    stroke:#374151;
-    stroke-width:1.7;
-    fill:none;
-    stroke-linecap:round;
-    stroke-linejoin:round;
-  }
+/* Media */
+.doc-media{
+  border-radius:14px;
+  overflow:hidden;
+  background:linear-gradient(180deg,#f8fafc,#ffffff);
+  border:1px solid rgba(15,23,42,.06);
+  min-height:170px;
+  max-height:320px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.doc-media img, .doc-media video{ width:100%; height:100%; object-fit:cover; display:block; }
+.doc-media video{ background:#000; }
 
-  .modal__body{
-    padding:10px 2px 10px;
-    overflow:auto;
-  }
+/* Placeholder */
+.doc-placeholder{ width:100%; height:100%; display:flex; align-items:center; justify-content:center; padding:18px; }
+.doc-placeholder-inner{ display:flex; gap:12px; align-items:center; width:100%; }
+.doc-big-ext{
+  min-width:86px;
+  height:64px;
+  border-radius:14px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:900;
+  font-size:22px;
+  background:#e2e8f0;
+  color:#0f172a;
+}
+.doc-big-ext-pdf{ background:var(--pdf); color:#fff; }
+.doc-fileinfo{ min-width:0; }
+.doc-filetitle{
+  font-weight:900; color:#0b1220; line-height:1.1;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+}
+.doc-filemeta{ margin-top:6px; color:#64748b; font-weight:700; font-size:13px; }
+.doc-title{
+  font-weight:900; color:#0b1220;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+}
 
-  .modal__footer{
-    padding:8px 2px 2px;
-    display:flex;
-    justify-content:flex-end;
-    gap:8px;
-    border-top:1px solid #e5e7eb;
-    margin-top:6px;
-  }
+/* Footer */
+.doc-footer{
+  padding:12px 14px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  border-top:1px solid rgba(15,23,42,.06);
+  background:rgba(255,255,255,.60);
+  position:relative;
+  z-index:3;
+}
+.doc-footer-left{ display:flex; align-items:center; gap:12px; min-width:0; }
+.doc-type-dot{
+  width:44px;height:44px;border-radius:999px;
+  display:flex;align-items:center;justify-content:center;
+  color:#fff; flex:0 0 44px;
+  box-shadow:0 10px 22px rgba(2,6,23,.08);
+}
+.doc-type-dot svg{ width:18px;height:18px; stroke:white; stroke-width:1.7; fill:none; stroke-linecap:round; stroke-linejoin:round; }
+.dot-pdf{ background:#fca5a5; }
+.dot-file{ background:#86efac; }
 
-  @keyframes modal-in{
-    from{opacity:0; transform:translateY(16px);}
-    to{opacity:1; transform:translateY(8px);}
-  }
+.doc-footer-meta{ min-width:0; }
+.doc-footer-name{
+  font-weight:900; color:#0b1220;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:260px;
+}
+.doc-footer-sub{
+  margin-top:2px; color:#64748b; font-weight:700; font-size:13px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:260px;
+}
 
-  /* PREVIEW */
-  .modal-preview-body{
-    padding:10px 0 6px;
-  }
-  .modal-preview-frame{
-    width:100%;
-    height:60vh;
-    border:1px solid #e5e7eb;
-    border-radius:14px;
-    background:#f9fafb;
-    display:none;
-  }
-  .modal-preview-fallback{
-    display:none;
-    font-size:.85rem;
-    color:#6b7280;
-    padding:10px 8px;
-    border-radius:14px;
-    background:#f9fafb;
-    border:1px dashed #d1d5db;
-  }
-  .modal-preview-footer{
-    justify-content:space-between;
-  }
+/* Empty & pager */
+.empty{
+  grid-column:1/-1;
+  background:rgba(255,255,255,.75);
+  border:1px dashed rgba(15,23,42,.16);
+  border-radius:18px;
+  padding:18px;
+  color:#64748b;
+  font-weight:800;
+  text-align:center;
+}
+.pager{ margin-top:16px; display:flex; justify-content:flex-end; }
 
-  /* FAB */
-  .alta-fab{
-    position:fixed;
-    right:16px;
-    bottom:16px;
-    border-radius:999px;
-    padding:8px 14px;
-    background:#0f172a;
-    color:#f9fafb;
-    display:none;
-    align-items:center;
-    gap:8px;
-    box-shadow:0 18px 40px rgba(15,23,42,.45);
-    border:0;
-    cursor:pointer;
-    z-index:55;
-  }
-  .alta-fab-ico{
-    width:32px;
-    height:32px;
-    border-radius:999px;
-    background:#111827;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-  }
-  .alta-fab-ico svg{
-    width:18px;
-    height:18px;
-    stroke:#e5e7eb;
-    stroke-width:1.7;
-    fill:none;
-    stroke-linecap:round;
-    stroke-linejoin:round;
-  }
-  .alta-fab-label{
-    font-size:.85rem;
-    font-weight:600;
-  }
+/* Modals */
+.modal{ position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:60; }
+.modal.is-open{ display:flex; }
+.modal__overlay{ position:absolute; inset:0; background:rgba(15,23,42,.32); backdrop-filter:blur(8px); }
+.modal__panel{
+  position:relative; z-index:1;
+  width:100%;
+  max-width:560px;
+  max-height:90vh;
+  border-radius:20px;
+  background:rgba(255,255,255,.92);
+  border:1px solid rgba(15,23,42,.08);
+  box-shadow:0 24px 70px rgba(2,6,23,.25);
+  padding:12px 14px 12px;
+  display:flex; flex-direction:column;
+  transform:translateY(8px);
+  animation:modal-in .18s ease-out;
+}
+.modal__panel--wide{ max-width:980px; }
+.modal__header{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:2px 2px 10px; border-bottom:1px solid rgba(15,23,42,.08); }
+.modal__title{ margin:0; font-size:1rem; font-weight:900; color:#0f172a; }
+.modal__close{
+  width:38px;height:38px;border-radius:999px;border:0;background:#ffffff;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+  box-shadow:0 10px 22px rgba(2,6,23,.06);
+  transition:transform .14s ease, box-shadow .14s ease;
+}
+.modal__close:hover{ transform:translateY(-2px); box-shadow:var(--hover-blue); }
+.modal__close svg{ width:16px;height:16px; stroke:#475569; stroke-width:1.7; fill:none; stroke-linecap:round; stroke-linejoin:round; }
+.modal__body{ padding:10px 2px 10px; overflow:auto; }
+.modal__footer{ padding:10px 2px 2px; border-top:1px solid rgba(15,23,42,.08); display:flex; gap:10px; justify-content:flex-end; margin-top:6px; }
+@keyframes modal-in{ from{opacity:0; transform:translateY(16px);} to{opacity:1; transform:translateY(8px);} }
 
-  /* Responsivo */
-  @media (max-width: 900px){
-    .alta-header{
-      align-items:flex-start;
-    }
-    .alta-row-actions{
-      justify-content:flex-start;
-    }
-    .alta-table th:nth-child(4),
-    .alta-table td:nth-child(4){
-      display:none;
-    }
-  }
+.preview-body{ padding:10px 0 6px; }
+.preview-frame{ width:100%; height:65vh; border:1px solid rgba(15,23,42,.10); border-radius:14px; background:#f9fafb; display:none; }
+.preview-fallback{ display:none; font-weight:700; color:#64748b; padding:12px; border-radius:14px; background:#f9fafb; border:1px dashed rgba(15,23,42,.18); }
+.preview-footer{ justify-content:flex-end; }
 
-  @media (max-width: 640px){
-    .alta-table th:nth-child(5),
-    .alta-table td:nth-child(5){
-      display:none;
-    }
+@media(max-width:640px){
+  .alta-wrap{ padding:18px 14px 26px; }
+  .modal{ align-items:flex-end; }
+  .modal__panel{ max-width:100%; border-radius:18px 18px 0 0; max-height:82vh; margin:0 0 env(safe-area-inset-bottom,0); }
+  .preview-frame{ height:60vh; }
+}
 
-    .modal{
-      align-items:flex-end;
-    }
-    .modal__panel{
-      max-width:100%;
-      border-radius:18px 18px 0 0;
-      max-height:82vh;
-      margin:0 0 env(safe-area-inset-bottom,0);
-    }
+/* Dropzone */
+.lbl{ display:block; margin:12px 0 6px; font-weight:900; color:#0f172a; }
+.inp{ width:100%; padding:10px 12px; border-radius:14px; border:1px solid rgba(15,23,42,.10); background:#ffffff; font-weight:700; }
+.inp:focus{ outline:none; box-shadow:0 0 0 3px rgba(29,78,216,.18); border-color:rgba(29,78,216,.28); }
+.dropzone{
+  position:relative;
+  border-radius:16px;
+  border:1.6px dashed rgba(148,163,184,.9);
+  background:linear-gradient(135deg, rgba(255,255,255,.9), rgba(251,255,246,.9));
+  padding:14px;
+  display:flex;
+  gap:12px;
+  align-items:center;
+  cursor:pointer;
+  transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+}
+.dropzone:hover{ transform:translateY(-1px); box-shadow:var(--hover-blue); border-color:#93c5fd; }
+.drop-ico{
+  width:44px;height:44px;border-radius:999px;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(15,23,42,.06);
+  color:#0b1220;
+}
+.drop-ico svg{ width:22px;height:22px; stroke:currentColor; stroke-width:1.8; fill:none; stroke-linecap:round; stroke-linejoin:round; }
+.drop-title{ font-weight:900; color:#0b1220; }
+.drop-hint{ margin-top:2px; color:#64748b; font-weight:700; font-size:13px; }
+.drop-input{ position:absolute; inset:0; opacity:0; cursor:pointer; }
 
-    .alta-fab{
-      display:inline-flex;
-    }
-  }
+.chips{ margin-top:10px; display:flex; flex-wrap:wrap; gap:8px; }
+.chips .chip{
+  display:inline-flex; gap:8px; align-items:center;
+  padding:5px 10px;
+  border-radius:999px;
+  background:#ffffff;
+  color:#0b1220;
+  border:1px solid rgba(15,23,42,.08);
+  font-weight:800;
+  font-size:13px;
+}
 </style>
-@endpush
 
-@push('scripts')
 <script>
-  document.addEventListener('DOMContentLoaded', function () {
-    /*** MODALES ***/
+(function(){
+  'use strict';
+
+  document.addEventListener('DOMContentLoaded', function(){
     const body = document.body;
 
     function openModal(id){
@@ -912,6 +660,7 @@
       modal.classList.add('is-open');
       body.style.overflow = 'hidden';
     }
+
     function closeModal(modal){
       if(!modal) return;
       modal.classList.remove('is-open');
@@ -919,101 +668,228 @@
       if(modal.id === 'preview-modal'){
         const frame = document.getElementById('preview-frame');
         const fallback = document.getElementById('preview-fallback');
-        if(frame){ frame.src = ''; frame.style.display = 'none'; }
-        if(fallback){ fallback.style.display = 'none'; }
+        if(frame){ frame.src=''; frame.style.display='none'; }
+        if(fallback){ fallback.style.display='none'; }
       }
     }
 
-    // Abrir modal
-    document.querySelectorAll('[data-modal-target]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const target = btn.getAttribute('data-modal-target');
-        if(target) openModal(target);
+    document.querySelectorAll('[data-modal-target]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const id = btn.getAttribute('data-modal-target');
+        if(id) openModal(id);
       });
     });
 
-    // Cerrar modal
-    document.addEventListener('click', (e) => {
+    document.addEventListener('click', (e)=>{
       if(e.target.closest('[data-modal-close]')){
         const modal = e.target.closest('.modal') || document.querySelector('.modal.is-open');
         if(modal) closeModal(modal);
       }
     });
 
-    // ESC para cerrar
-    document.addEventListener('keydown', (e) => {
+    document.addEventListener('keydown', (e)=>{
       if(e.key === 'Escape'){
         const modal = document.querySelector('.modal.is-open');
         if(modal) closeModal(modal);
       }
     });
 
-    /*** DROPZONE SUBIDA ***/
-    const input    = document.getElementById('files_input');
+    document.querySelectorAll('.js-stop').forEach(el=>{
+      el.addEventListener('click', (e)=>{ e.stopPropagation(); });
+      el.addEventListener('pointerdown', (e)=>{ e.stopPropagation(); });
+    });
+
+    function openPreview(btn){
+      const name = btn.dataset.name || 'Documento';
+      const url  = btn.dataset.url || '#';
+      const durl = btn.dataset.download || url;
+
+      const titleEl = document.getElementById('preview-title');
+      const frame   = document.getElementById('preview-frame');
+      const fallback= document.getElementById('preview-fallback');
+      const dl      = document.getElementById('preview-download');
+
+      if(titleEl) titleEl.textContent = name;
+      if(dl) dl.href = durl;
+
+      const ext = (name.split('.').pop() || '').toLowerCase();
+      const canEmbed = ['pdf','png','jpg','jpeg','gif','webp'].includes(ext);
+
+      if(canEmbed && frame){
+        if(fallback) fallback.style.display='none';
+        frame.style.display='none';
+        frame.src = url;
+      } else {
+        if(frame){ frame.style.display='none'; frame.src=''; }
+        if(fallback) fallback.style.display='block';
+      }
+
+      openModal('preview-modal');
+    }
+
+    document.querySelectorAll('.js-open-preview').forEach(btn=>{
+      btn.addEventListener('click', (e)=>{
+        if(e.target && e.target.closest('.js-stop')) return;
+        openPreview(btn);
+      });
+    });
+
+    const previewFrame = document.getElementById('preview-frame');
+    if(previewFrame){
+      previewFrame.addEventListener('load', ()=>{
+        previewFrame.style.display='block';
+        const fallback= document.getElementById('preview-fallback');
+        if(fallback) fallback.style.display='none';
+      });
+    }
+
+    const input = document.getElementById('files_input');
     const chipsBox = document.getElementById('files_chips');
 
-    function refreshChips(files) {
-      if (!chipsBox) return;
+    function refreshChips(files){
+      if(!chipsBox) return;
       chipsBox.innerHTML = '';
-      if (!files || !files.length) return;
+      if(!files || !files.length) return;
 
-      Array.from(files).forEach(file => {
+      Array.from(files).forEach(file=>{
         const chip = document.createElement('div');
-        chip.className = 'alta-file-chip';
-        const sizeKb = Math.round(file.size / 1024);
-        chip.innerHTML = `<span>${file.name}</span><small>${sizeKb} KB</small>`;
+        chip.className = 'chip';
+        chip.innerHTML = `<span>${file.name}</span><small style="opacity:.65;font-weight:900;">${Math.round(file.size/1024)} KB</small>`;
         chipsBox.appendChild(chip);
       });
     }
+    if(input){ input.addEventListener('change', function(){ refreshChips(input.files); }); }
 
-    if (input) {
-      input.addEventListener('change', function () {
-        refreshChips(input.files);
+    const swalBase = Swal.mixin({
+      customClass: {
+        popup: 'swal2-mini-popup',
+        title: 'swal2-mini-title',
+        htmlContainer: 'swal2-mini-text',
+        confirmButton: 'swal2-mini-confirm',
+        cancelButton: 'swal2-mini-cancel'
+      },
+      buttonsStyling: false
+    });
+
+    document.querySelectorAll('.doc-del-form').forEach(form=>{
+      form.addEventListener('submit', function(ev){
+        ev.preventDefault();
+        ev.stopPropagation();
+
+        swalBase.fire({
+          title: 'Eliminar documento',
+          text: 'Esta acción no se puede deshacer.',
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonText: 'Eliminar',
+          cancelButtonText: 'Cancelar'
+        }).then((result)=>{
+          if(!result.isConfirmed) return;
+
+          const url = form.action;
+          const token = form.querySelector('input[name="_token"]').value;
+          const methodInput = form.querySelector('input[name="_method"]');
+          const method = methodInput ? methodInput.value : 'DELETE';
+
+          fetch(url, {
+            method:'POST',
+            headers:{
+              'X-CSRF-TOKEN': token,
+              'X-Requested-With': 'XMLHttpRequest',
+              'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+            },
+            body: new URLSearchParams({'_method': method})
+          }).then(async res=>{
+            if(res.ok){
+              const card = form.closest('.doc-card');
+              if(card) card.remove();
+
+              swalBase.fire({
+                toast:true,
+                position:'top-end',
+                icon:'success',
+                title:'Eliminado',
+                showConfirmButton:false,
+                timer:1600,
+                timerProgressBar:true
+              });
+            }else{
+              let msg='No se pudo eliminar.';
+              try{ const j = await res.json(); if(j && j.message) msg=j.message; }catch(e){}
+              swalBase.fire({ icon:'error', title:'Error', text:msg });
+            }
+          }).catch(()=>{
+            swalBase.fire({ icon:'error', title:'Error', text:'Error de red.' });
+          });
+        });
       });
-    }
+    });
 
-    /*** PREVIEW DOCUMENTOS ***/
-    const previewButtons = document.querySelectorAll('.js-preview-doc');
-    const previewTitle   = document.getElementById('preview-title');
-    const previewFrame   = document.getElementById('preview-frame');
-    const previewFallback= document.getElementById('preview-fallback');
-    const openTabLink    = document.getElementById('preview-open-tab');
-    const downloadLink   = document.getElementById('preview-download');
-
-    if (previewFrame) {
-      previewFrame.addEventListener('load', () => {
-        previewFrame.style.display = 'block';
-        if(previewFallback) previewFallback.style.display = 'none';
-      });
-    }
-
-    previewButtons.forEach(btn => {
-      btn.addEventListener('click', () => {
-        const name        = btn.dataset.name || 'Documento';
-        const url         = btn.dataset.url || '#';
-        const downloadUrl = btn.dataset.download || url;
-
-        if(previewTitle) previewTitle.textContent = name;
-        if(openTabLink) openTabLink.href = url;
-        if(downloadLink) downloadLink.href = downloadUrl;
-
-        const ext = (name.split('.').pop() || '').toLowerCase();
-        const canEmbed = ['pdf','png','jpg','jpeg','gif','webp'].includes(ext);
-
-        if(canEmbed && previewFrame){
-          previewFrame.style.display = 'none';
-          previewFrame.src = url;
-        } else {
-          if(previewFrame) {
-            previewFrame.style.display = 'none';
-            previewFrame.src = '';
-          }
-          if(previewFallback) previewFallback.style.display = 'block';
+    document.querySelectorAll('.doc-card').forEach(card=>{
+      card.addEventListener('keydown', function(e){
+        const active = document.activeElement;
+        if(active && (active.closest('.doc-del-form') || active.closest('.icon-chip') || active.closest('a'))) return;
+        if(e.key === 'Enter' || e.key === ' '){
+          const btn = card.querySelector('.js-open-preview');
+          if(btn){ btn.click(); e.preventDefault(); }
         }
-
-        openModal('preview-modal');
       });
     });
   });
+})();
 </script>
-@endpush
+
+<style>
+/* SweetAlert2 minimal/pro */
+.swal2-mini-popup{
+  border-radius:18px !important;
+  padding:14px 14px 12px !important;
+  border:1px solid rgba(15,23,42,.08) !important;
+  box-shadow:0 22px 70px rgba(2,6,23,.22) !important;
+  background:rgba(255,255,255,.94) !important;
+  backdrop-filter: blur(10px) !important;
+}
+.swal2-mini-title{
+  font-weight:900 !important;
+  font-size:16px !important;
+  color:#0b1220 !important;
+  margin:0 0 6px !important;
+}
+.swal2-mini-text{
+  color:#667085 !important;
+  font-weight:700 !important;
+  font-size:13px !important;
+  margin:0 !important;
+}
+.swal2-mini-confirm{
+  border-radius:999px !important;
+  padding:10px 14px !important;
+  border:0 !important;
+  background:#fff1f2 !important;
+  color:#e11d48 !important;
+  font-weight:900 !important;
+  cursor:pointer !important;
+  box-shadow:0 10px 22px rgba(2,6,23,.08) !important;
+}
+.swal2-mini-confirm:hover{
+  box-shadow:0 16px 34px rgba(29,78,216,.26) !important;
+  transform:translateY(-2px);
+}
+.swal2-mini-cancel{
+  border-radius:999px !important;
+  padding:10px 14px !important;
+  border:0 !important;
+  background:#ffffff !important;
+  color:#0b1220 !important;
+  font-weight:900 !important;
+  cursor:pointer !important;
+  box-shadow:0 10px 22px rgba(2,6,23,.06) !important;
+}
+.swal2-mini-cancel:hover{
+  box-shadow:0 16px 34px rgba(29,78,216,.26) !important;
+  transform:translateY(-2px);
+}
+.swal2-actions{ gap:10px !important; margin-top:12px !important; }
+.swal2-icon{ transform:scale(.92); }
+
+</style>
