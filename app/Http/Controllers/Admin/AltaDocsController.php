@@ -10,21 +10,13 @@ use Illuminate\Support\Facades\Storage;
 
 class AltaDocsController extends Controller
 {
-    /**
-     * Formulario para ingresar NIP (PIN) de acceso a documentación.
-     */
     public function showPinForm()
     {
-        // 👇 Coincide con resources/views/secure/alta_docs_pin.blade.php
         return view('secure.alta_docs_pin');
     }
 
-    /**
-     * Valida el PIN y abre la sesión de documentación segura.
-     */
     public function checkPin(Request $request)
     {
-        // Debe ser exactamente 6 dígitos numéricos
         $data = $request->validate([
             'pin' => ['required', 'regex:/^[0-9]{6}$/'],
         ], [
@@ -33,10 +25,8 @@ class AltaDocsController extends Controller
         ]);
 
         $enteredPin  = trim((string) $data['pin']);
-        // 🔐 SIEMPRE tomamos el PIN desde config/alta_docs.php
         $expectedPin = (string) config('alta_docs.pin');
 
-        // Log para depurar diferencias (sin mostrar el PIN completo en producción real)
         Log::info('AltaDocs: intento de PIN', [
             'user_id'       => $request->user()->id ?? null,
             'ip'            => $request->ip(),
@@ -44,7 +34,6 @@ class AltaDocsController extends Controller
             'received_len'  => strlen($enteredPin),
         ]);
 
-        // Comparación segura
         if (!hash_equals($expectedPin, $enteredPin)) {
             Log::warning('AltaDocs: PIN inválido', [
                 'user_id' => $request->user()->id ?? null,
@@ -56,7 +45,6 @@ class AltaDocsController extends Controller
                 ->withInput();
         }
 
-        // Marcamos la sesión como desbloqueada
         $request->session()->put('alta_docs_unlocked', true);
 
         Log::info('AltaDocs: PIN correcto, sesión desbloqueada', [
@@ -64,15 +52,11 @@ class AltaDocsController extends Controller
             'ip'      => $request->ip(),
         ]);
 
-        // ✅ Al PIN correcto SIEMPRE te manda al index protegido
         return redirect()
             ->route('alta.docs.index')
             ->with('ok', 'Acceso a documentación confidencial habilitado.');
     }
 
-    /**
-     * Cierra la sesión de documentación (PIN).
-     */
     public function logoutPin(Request $request)
     {
         $request->session()->forget('alta_docs_unlocked');
@@ -82,49 +66,77 @@ class AltaDocsController extends Controller
             'ip'      => $request->ip(),
         ]);
 
-        // 👇 Volvemos al formulario de PIN
         return redirect()
             ->route('secure.alta-docs.pin.show')
             ->with('ok', 'Sesión de documentación cerrada.');
     }
 
     /**
-     * Listado + formulario de subida de documentos.
+     * INDEX con filtros:
+     * - q (buscador)
+     * - category (3 opciones)
      */
-    public function index()
+    public function index(Request $request)
     {
-        $docs = AltaDoc::orderByDesc('id')->paginate(15);
+        $q        = trim((string) $request->query('q', ''));
+        $category = trim((string) $request->query('category', ''));
 
-        // 👇 Coincide con resources/views/secure/alta_docs_index.blade.php
+        $query = AltaDoc::query()->orderByDesc('id');
+
+        if ($category !== '' && in_array($category, AltaDoc::CATEGORIES, true)) {
+            $query->where('category', $category);
+        }
+
+        if ($q !== '') {
+            $query->where(function ($sub) use ($q) {
+                $sub->where('title', 'like', "%{$q}%")
+                    ->orWhere('notes', 'like', "%{$q}%")
+                    ->orWhere('original_name', 'like', "%{$q}%");
+            });
+        }
+
+        $docs = $query->paginate(15)->appends([
+            'q'        => $q,
+            'category' => $category,
+        ]);
+
         return view('secure.alta_docs_index', [
-            'docs' => $docs,
+            'docs'      => $docs,
+            'q'         => $q,
+            'category'  => $category,
+            'catLabels' => AltaDoc::categoryLabels(),
         ]);
     }
 
-    /**
-     * Sube uno o varios documentos confidenciales.
-     */
     public function store(Request $request)
     {
         try {
-            $request->validate([
-                'files'   => ['required', 'array'],
-                'files.*' => [
+            $data = $request->validate([
+                'category' => ['required', 'in:' . implode(',', AltaDoc::CATEGORIES)],
+                'title'    => ['required', 'string', 'max:160'],
+                'doc_date' => ['required', 'date'],
+
+                'files'    => ['required', 'array'],
+                'files.*'  => [
                     'file',
-                    'max:20480', // 20 MB
+                    'max:20480',
                     'mimes:pdf,doc,docx,xls,xlsx,csv,xml,txt',
                 ],
                 'notes' => ['nullable', 'string', 'max:500'],
+            ], [
+                'category.required' => 'Selecciona un tipo.',
+                'category.in'       => 'El tipo seleccionado no es válido.',
+                'title.required'    => 'Captura un título.',
+                'doc_date.required' => 'Selecciona una fecha.',
+                'files.required'    => 'Debes seleccionar al menos un archivo.',
             ]);
 
             $files = $request->file('files', []);
             if (empty($files)) {
-                return back()->withErrors([
-                    'files' => 'Debes seleccionar al menos un archivo.',
-                ]);
+                return back()->withErrors(['files' => 'Debes seleccionar al menos un archivo.']);
             }
 
-            $disk = 'local'; // 🔐 no público (storage/app)
+            $disk = 'local'; // storage/app (no público)
 
             $created = 0;
             foreach ($files as $file) {
@@ -133,29 +145,28 @@ class AltaDocsController extends Controller
                 $path = $file->store('alta_docs', $disk);
 
                 $doc = AltaDoc::create([
+                    'category'      => $data['category'],
+                    'title'         => $data['title'],
+                    'doc_date'      => $data['doc_date'],
+
                     'original_name' => $file->getClientOriginalName(),
                     'stored_name'   => basename($path),
                     'disk'          => $disk,
                     'path'          => $path,
                     'mime'          => $file->getClientMimeType(),
                     'size'          => $file->getSize(),
-                    'notes'         => $request->input('notes'),
+                    'notes'         => $data['notes'] ?? null,
                     'uploaded_by'   => $request->user()->id ?? null,
                 ]);
 
                 $created++;
 
                 Log::info('AltaDocs: documento subido', [
-                    'doc_id'   => $doc->id,
-                    'file'     => $doc->original_name,
-                    'user_id'  => $request->user()->id ?? null,
-                    'ip'       => $request->ip(),
-                ]);
-            }
-
-            if ($created === 0) {
-                return back()->withErrors([
-                    'files' => 'No se pudo procesar ningún archivo.',
+                    'doc_id'  => $doc->id,
+                    'file'    => $doc->original_name,
+                    'type'    => $doc->category,
+                    'user_id' => $request->user()->id ?? null,
+                    'ip'      => $request->ip(),
                 ]);
             }
 
@@ -176,9 +187,6 @@ class AltaDocsController extends Controller
         }
     }
 
-    /**
-     * Descargar un documento confidencial.
-     */
     public function download(AltaDoc $doc)
     {
         if (!Storage::disk($doc->disk)->exists($doc->path)) {
@@ -186,18 +194,15 @@ class AltaDocsController extends Controller
         }
 
         Log::info('AltaDocs: descarga de documento', [
-            'doc_id'   => $doc->id,
-            'file'     => $doc->original_name,
-            'user_id'  => auth()->id(),
-            'ip'       => request()->ip(),
+            'doc_id'  => $doc->id,
+            'file'    => $doc->original_name,
+            'user_id' => auth()->id(),
+            'ip'      => request()->ip(),
         ]);
 
         return Storage::disk($doc->disk)->download($doc->path, $doc->original_name);
     }
 
-    /**
-     * Eliminar un documento (borra archivo del disco + registro).
-     */
     public function destroy(Request $request, AltaDoc $doc)
     {
         try {
@@ -211,62 +216,44 @@ class AltaDocsController extends Controller
             $doc->delete();
 
             Log::warning('AltaDocs: documento eliminado', [
-                'doc_id'   => $docId,
-                'file'     => $docName,
-                'user_id'  => $request->user()->id ?? null,
-                'ip'       => $request->ip(),
+                'doc_id'  => $docId,
+                'file'    => $docName,
+                'user_id' => $request->user()->id ?? null,
+                'ip'      => $request->ip(),
             ]);
 
             return back()->with('ok', 'Documento eliminado correctamente.');
         } catch (\Throwable $e) {
             Log::error('AltaDocs: error al eliminar documento', [
-                'doc_id'   => $doc->id,
-                'error'    => $e->getMessage(),
-                'user_id'  => $request->user()->id ?? null,
-                'ip'       => $request->ip(),
+                'doc_id'  => $doc->id,
+                'error'   => $e->getMessage(),
+                'user_id' => $request->user()->id ?? null,
+                'ip'      => $request->ip(),
             ]);
 
             return back()->with('error', 'No se pudo eliminar el documento.');
         }
     }
-       public function preview(AltaDoc $doc)
+
+    /**
+     * PREVIEW (inline) - usa el disk real del registro, no fijo "local"
+     */
+    public function preview(AltaDoc $doc)
     {
-        // Ajusta el disk si usas otro (s3, etc.)
-        $disk = Storage::disk('local'); // o el disk que uses
+        $diskName = $doc->disk ?: 'local';
+        $disk = Storage::disk($diskName);
 
         if (!$disk->exists($doc->path)) {
             abort(404);
         }
 
-        // Detectar mime
-        $mime = $doc->mime_type ?: $disk->mimeType($doc->path);
+        $mime = $doc->mime ?: $disk->mimeType($doc->path);
 
-        // Tipos que podemos mostrar dentro del <iframe>
-        $inlineables = [
-            'application/pdf',
-            'image/png',
-            'image/jpeg',
-            'image/jpg',
-            'image/gif',
-            'image/webp',
-        ];
-
-        // Ruta física del archivo
         $absolutePath = $disk->path($doc->path);
 
-        // Si es de tipo "embebible", lo regresamos inline
-        if (in_array($mime, $inlineables)) {
-            return response()->file($absolutePath, [
-                'Content-Type'        => $mime,
-                'Content-Disposition' => 'inline; filename="'.$doc->original_name.'"',
-            ]);
-        }
-
-        // Para otros tipos (Word, Excel, etc.), dejamos que el navegador lo maneje
-        // o fuerce descarga según su configuración
         return response()->file($absolutePath, [
             'Content-Type'        => $mime,
-            'Content-Disposition' => 'inline; filename="'.$doc->original_name.'"',
+            'Content-Disposition' => 'inline; filename="' . $doc->original_name . '"',
         ]);
     }
 }

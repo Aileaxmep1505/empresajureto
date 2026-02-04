@@ -12,7 +12,36 @@ class AltaDoc extends Model
 
     protected $table = 'alta_docs';
 
+    public const CATEGORY_CEDULA_ESTADO       = 'cedula_estado';
+    public const CATEGORY_CEDULA_MUNICIPIO    = 'cedula_municipio';
+    public const CATEGORY_CEDULA_UNIVERSIDAD  = 'cedula_universidad';
+
+    public const CATEGORIES = [
+        self::CATEGORY_CEDULA_ESTADO,
+        self::CATEGORY_CEDULA_MUNICIPIO,
+        self::CATEGORY_CEDULA_UNIVERSIDAD,
+    ];
+
+    public static function categoryLabels(): array
+    {
+        return [
+            self::CATEGORY_CEDULA_ESTADO      => 'Cédula por estado',
+            self::CATEGORY_CEDULA_MUNICIPIO   => 'Cédula por municipio',
+            self::CATEGORY_CEDULA_UNIVERSIDAD => 'Cédula por universidad',
+        ];
+    }
+
+    public function getCategoryLabelAttribute(): string
+    {
+        $labels = self::categoryLabels();
+        return $labels[$this->category] ?? 'Documento';
+    }
+
     protected $fillable = [
+        'category',
+        'title',
+        'doc_date',
+
         'original_name',
         'stored_name',
         'disk',
@@ -24,7 +53,8 @@ class AltaDoc extends Model
     ];
 
     protected $casts = [
-        'size' => 'integer',
+        'size'     => 'integer',
+        'doc_date' => 'date:Y-m-d',
     ];
 
     public function uploadedBy()
@@ -32,36 +62,24 @@ class AltaDoc extends Model
         return $this->belongsTo(\App\Models\User::class, 'uploaded_by');
     }
 
-    /**
-     * Tamaño legible (KB / MB).
-     */
     public function getHumanSizeAttribute(): string
     {
-        if (!$this->size) {
-            return '—';
-        }
+        if (!$this->size) return '—';
 
         $bytes = (int) $this->size;
-        if ($bytes < 1024) {
-            return $bytes . ' B';
-        }
+        if ($bytes < 1024) return $bytes . ' B';
 
         $kb = $bytes / 1024;
-        if ($kb < 1024) {
-            return round($kb, 1) . ' KB';
-        }
+        if ($kb < 1024) return round($kb, 1) . ' KB';
 
         $mb = $kb / 1024;
         return round($mb, 1) . ' MB';
     }
 
-    /**
-     * Devuelve un tipo amigable (PDF, Word, Excel, XML, etc) según el mime o extensión
-     */
     public function getFriendlyTypeAttribute(): string
     {
-        $mime = (string) $this->mime;
-        $name = (string) $this->original_name;
+        $mime = (string) ($this->mime ?? '');
+        $name = (string) ($this->original_name ?? '');
         $ext  = strtolower(pathinfo($name, PATHINFO_EXTENSION));
 
         if (str_contains($mime, 'pdf') || $ext === 'pdf') return 'PDF';
