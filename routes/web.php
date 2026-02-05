@@ -79,6 +79,12 @@ use App\Http\Controllers\Logistics\RouteSupervisorController;
 use App\Http\Controllers\CatalogPublicController;
 use App\Http\Controllers\TechSheetController;
 use App\Http\Controllers\Admin\AltaDocsController;
+
+use App\Http\Controllers\VehicleController;
+use App\Http\Controllers\ExpenseController;
+use App\Http\Controllers\ExpenseCategoryController;
+use App\Http\Controllers\PayrollController;
+use App\Http\Controllers\AttachmentController;
 /*
 |--------------------------------------------------------------------------
 | AUTH
@@ -1782,3 +1788,32 @@ Route::patch('/admin/licitacion-pdfs/checklist-items/{item}', [\App\Http\Control
 // CHAT IA PDF (vista)
 Route::get('/admin/licitacion-pdfs/{licitacionPdf}/ai', [\App\Http\Controllers\Admin\LicitacionPdfAiController::class, 'show'])
   ->name('admin.licitacion-pdfs.ai.show');
+
+
+
+
+Route::middleware(['auth'])->group(function () {
+
+  // VISTAS (Blade) + JSON (mismo endpoint, depende de Accept header)
+  Route::resource('vehicles', VehicleController::class);
+  Route::resource('expenses', ExpenseController::class);
+  Route::resource('expense-categories', ExpenseCategoryController::class);
+
+  // Nómina (endpoints JSON + puedes hacer vista si quieres)
+  Route::get('payroll/periods', [PayrollController::class, 'periods']);
+  Route::post('payroll/periods', [PayrollController::class, 'createPeriod']);
+  Route::get('payroll/periods/{period}', [PayrollController::class, 'periodDetail']);
+  Route::post('payroll/entry', [PayrollController::class, 'upsertEntry']);
+
+  // Evidencias
+  Route::post('attachments', [AttachmentController::class, 'store']);
+  Route::delete('attachments/{attachment}', [AttachmentController::class, 'destroy']);
+
+});
+Route::middleware(['auth'])->group(function () {
+  Route::resource('vehicles', VehicleController::class);
+
+  // docs por vehículo
+  Route::post('vehicles/{vehicle}/documents', [VehicleController::class, 'uploadDocuments'])->name('vehicles.documents.store');
+  Route::delete('vehicles/{vehicle}/documents/{doc}', [VehicleController::class, 'deleteDocument'])->name('vehicles.documents.destroy');
+});
