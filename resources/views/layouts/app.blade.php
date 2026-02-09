@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>@yield('title', 'Panel')</title>
   <meta name="csrf-token" content="{{ csrf_token() }}">
+
   <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;600&display=swap" rel="stylesheet">
   <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('images/logo-mail.png') }}">
   <link rel="icon" type="image/png" sizes="16x16" href="{{ asset('images/logo-mail.png') }}">
@@ -12,28 +13,45 @@
 
   <link rel="stylesheet" href="{{ asset('css/app-layout.css') }}?v={{ time() }}">
   @stack('styles')
+
   <style>
     :root{
-      --bg: #e9eef6;
-      --surface: #f6f8ff;
-      --surface-2: #e7edfb;
+      /* ✅ BODY BLANCO */
+      --bg: #ffffff;
+
+      /* Superficies (cards/paneles) */
+      --surface: #ffffff;
+      --surface-2: #f4f7ff;
+
       --border: #d6def0;
-      --primary: #5b8def;
-      --primary-600:#3b6fde;
+
+      /* ✅ AZULES header + menú */
+      --primary: #4f86ff;
+      --primary-600:#2f6df0;
+
+      /* Accent */
       --accent: #ff7ab6;
+
       --text: #1f2a44;
       --muted:#6b7a99;
+
       --shadow: 0 12px 38px rgba(23,36,71,.14);
       --topbar-h: 56px;
       --sidebar-w: 310px;
       --fade-h: 16px;
+
+      --blue-0:#f3f7ff;
+      --blue-1:#eaf1ff;
+      --blue-2:#dce8ff;
+      --blue-3:#cfe0ff;
     }
 
     *{box-sizing:border-box}
     html,body{height:100%}
     body.app{
-      margin:0; font-family:"Quicksand", system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial;
-      background: radial-gradient(1200px 800px at 10% -10%, #f4f7ff 0%, var(--bg) 60%), linear-gradient(180deg, var(--bg) 0%, #e5ecf8 100%);
+      margin:0;
+      font-family:"Quicksand", system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial;
+      background: var(--bg); /* ✅ BLANCO */
       color:var(--text);
     }
     body.lock-scroll{ overflow:hidden; }
@@ -46,13 +64,19 @@
     .avatar-link:focus{ outline:2px solid #7ea2ff; outline-offset:3px; }
 
     /* Shell */
-    .shell{ min-height:100vh; display:flex; flex-direction:column; transition: filter .28s ease; }
+    .shell{
+      min-height:100vh;
+      display:flex;
+      flex-direction:column;
+      transition: filter .28s ease;
+      background:#fff; /* ✅ blanco */
+    }
     .shell.dimmed{ filter: blur(2px) saturate(.95); }
 
     /* Sidebar (overlay) */
     .sidebar{
       position:fixed; left:0; top:0; bottom:0; width:var(--sidebar-w);
-      background:linear-gradient(180deg, #f7faff,#ecf1ff);
+      background: linear-gradient(180deg, var(--blue-0), var(--blue-1));
       border-right:1px solid var(--border);
       transform: translateX(-102%);
       transition: transform .45s cubic-bezier(.16,1,.3,1);
@@ -77,27 +101,34 @@
       width:36px; height:36px; border-radius:12px; display:grid; place-items:center;
       transition:background .2s ease, transform .08s ease, color .2s ease;
     }
-    .sidebar__close:hover{ background:rgba(91,141,239,.12); color:var(--primary); }
+    .sidebar__close:hover{ background:rgba(79,134,255,.14); color:var(--primary); }
     .sidebar__close:active{ transform:scale(.98); }
 
     .user{ display:flex; gap:12px; align-items:center; }
     .avatar{
-      width:44px; height:44px; border-radius:12px; background:linear-gradient(135deg,#7ea8ff,#a8c9ff);
+      width:44px; height:44px; border-radius:12px;
+      background:linear-gradient(135deg, #6fa3ff, #a8c9ff);
       color:#fff; display:grid; place-items:center; font-weight:700; box-shadow:var(--shadow);
     }
-    .avatar--sm{ width:32px; height:32px; border-radius:50%; background:linear-gradient(135deg,#7ea8ff,#a8c9ff); color:#fff; display:grid; place-items:center; font-weight:700; }
+    .avatar--sm{
+      width:32px; height:32px; border-radius:50%;
+      background:linear-gradient(135deg, #6fa3ff, #a8c9ff);
+      color:#fff; display:grid; place-items:center; font-weight:700;
+    }
 
     .user__meta{ line-height:1.2 }
     .user__name{ font-weight:700 }
     .user__mail{ color:var(--muted); font-size:.92rem; }
     .user__roles{ margin-top:6px; display:flex; gap:6px; flex-wrap:wrap; }
     .chip{
-      padding:4px 8px; border-radius:999px; background:#e7ecfb; color:#3b4a6b; font-size:.78rem; border:1px solid var(--border);
+      padding:4px 8px; border-radius:999px;
+      background:#eef4ff; color:#2b4a7a;
+      font-size:.78rem; border:1px solid var(--border);
       transition: transform .12s ease;
     }
     .chip:hover{ transform: translateY(-1px); }
 
-    /* Navegación con scroll (scrollbar oculto) + fades */
+    /* Navegación con scroll */
     .nav{
       position:relative;
       display:flex; flex-direction:column; gap:4px;
@@ -114,11 +145,11 @@
 
     .nav__link{
       display:flex; gap:10px; align-items:center; padding:12px 12px;
-      border-radius:12px; color:#2b3756; text-decoration:none;
+      border-radius:12px; color:#213054; text-decoration:none;
       transition:background .18s ease, color .18s ease, transform .08s ease;
     }
-    .nav__link:hover{ background:#eaf0ff; color:var(--primary); transform: translateX(2px); }
-    .nav__link.is-active{ background:#e3ebff; color:var(--primary-600); font-weight:600; }
+    .nav__link:hover{ background:rgba(79,134,255,.12); color:var(--primary-600); transform: translateX(2px); }
+    .nav__link.is-active{ background:rgba(79,134,255,.18); color:var(--primary-600); font-weight:600; }
 
     .nav .nav__group { margin: 4px 0; }
     .nav .nav__group > summary {
@@ -129,8 +160,8 @@
       transition: background .18s ease, color .18s ease, transform .08s ease;
     }
     .nav .nav__group > summary::-webkit-details-marker{ display:none }
-    .nav .nav__group > summary:hover{ background: rgba(126,162,255,.12); color: var(--primary); transform: translateX(1px); }
-    .nav .nav__group[open] > summary { background: rgba(126,162,255,.12); }
+    .nav .nav__group > summary:hover{ background: rgba(79,134,255,.12); color: var(--primary-600); transform: translateX(1px); }
+    .nav .nav__group[open] > summary { background: rgba(79,134,255,.12); }
     .nav .nav__chev { margin-left: auto; transition: transform .2s ease; }
     .nav .nav__group[open] .nav__chev { transform: rotate(90deg); }
 
@@ -142,57 +173,48 @@
       padding:8px 12px; border-radius:8px; text-decoration:none; color:inherit;
       opacity:.95; transition: background .18s ease, color .18s ease, transform .08s ease;
     }
-    .nav__sublink:hover{ background: rgba(126,162,255,.12); opacity:1; transform: translateX(2px); }
-    .nav__sublink.is-active{ background: rgba(126,162,255,.2); font-weight:600; }
+    .nav__sublink:hover{ background: rgba(79,134,255,.12); opacity:1; transform: translateX(2px); }
+    .nav__sublink.is-active{ background: rgba(79,134,255,.2); font-weight:600; }
 
     .logout{ padding:10px; border-top:1px solid var(--border); }
     .btn-logout{
       width:100%; display:flex; align-items:center; gap:10px; padding:12px 12px; border-radius:12px;
-      background:#ffe8f3; color:#7b294a; border:1px solid #ffd0e6; cursor:pointer; font-weight:600;
+      background:#eef4ff; color:#1f3b7a; border:1px solid #d9e6ff; cursor:pointer; font-weight:600;
       transition:filter .18s ease, transform .06s ease;
     }
-    .btn-logout:hover{ filter:brightness(1.03); }
+    .btn-logout:hover{ filter:brightness(1.02); }
     .btn-logout:active{ transform:scale(.99); }
 
     /* Topbar */
     .topbar{
       position:sticky; top:0; z-index:30;
       display:flex; align-items:center; gap:12px; padding:10px 14px;
-      background:linear-gradient(180deg,#f3f6ff,#eaf1ff);
+      background: linear-gradient(180deg, var(--blue-0), var(--blue-1));
       border-bottom:1px solid var(--border);
       height: var(--topbar-h);
     }
     .icon-btn{
-      background:transparent; border:0; cursor:pointer; color:#2b3756;
+      background:transparent; border:0; cursor:pointer; color:#213054;
       width:40px; height:40px; border-radius:12px; display:grid; place-items:center;
       transition:background .18s ease, transform .06s ease, color .18s ease;
     }
-    .icon-btn:hover{ background:rgba(91,141,239,.12); color:var(--primary); }
+    .icon-btn:hover{ background:rgba(79,134,255,.12); color:var(--primary-600); }
     .icon-btn:active{ transform:scale(.98); }
 
     .topbar__title{ font-weight:700; letter-spacing:.3px; }
     .topbar__right{ margin-left:auto; display:flex; align-items:center; gap:12px; }
 
-    /* ========== Notificaciones ========== */
+    /* Notificaciones */
     .notif{ position:relative; }
-
-    /* badge con número */
     .dot{
       position:absolute;
-      top:6px;
-      right:6px;
-      min-width:18px;
-      height:18px;
-      padding:0 4px;
+      top:6px; right:6px;
+      min-width:18px; height:18px; padding:0 4px;
       background:var(--accent);
       border-radius:999px;
-      box-shadow:0 0 0 3px #fff7;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      font-size:10px;
-      font-weight:700;
-      color:#fff;
+      box-shadow:0 0 0 3px rgba(255,255,255,.65);
+      display:flex; align-items:center; justify-content:center;
+      font-size:10px; font-weight:700; color:#fff;
       animation: dotPulse 2.2s infinite cubic-bezier(.66,0,0,1);
     }
     @keyframes dotPulse{
@@ -211,6 +233,7 @@
     .notif__head{
       display:flex; align-items:center; justify-content:space-between;
       padding:12px 12px; border-bottom:1px solid var(--border);
+      background: linear-gradient(180deg, #ffffff, #f7f9ff);
     }
     .notif__list{
       max-height:300px; overflow:auto; overscroll-behavior:contain;
@@ -225,74 +248,63 @@
       row-gap:2px;
       padding:8px 12px;
       border-bottom:1px solid rgba(214,222,240,.9);
-      background:linear-gradient(180deg,#ffffff,#f9fbff);
-      padding-right:32px; /* espacio para el botón X */
+      background:linear-gradient(180deg,#ffffff,#fbfcff);
+      padding-right:32px;
     }
-    .notif__item:last-child{
-      border-bottom:none;
-    }
-    .notif__item.is-unread{
-      background:linear-gradient(180deg,#ffffff,#f0f4ff);
-    }
-    .notif__item.is-read{
-      opacity:.9;
-    }
+    .notif__item:last-child{ border-bottom:none; }
+    .notif__item.is-unread{ background:linear-gradient(180deg,#ffffff,#f3f7ff); }
+    .notif__item.is-read{ opacity:.9; }
 
-    .notif__text{ color:#2b3756; }
+    .notif__text{ color:#213054; }
     .notif__time{ color:#6b7a99; font-size:.85rem; grid-column:2; }
 
     .pill{
       padding:2px 8px; border-radius:999px; font-size:.72rem;
       border:1px solid var(--border); align-self:start;
     }
-    .pill--info{ background:#e8f1ff; color:#2b4a7a; }
+    .pill--info{ background:#eaf1ff; color:#2b4a7a; }
     .pill--warn{ background:#fff3cd; color:#8a6d1a; }
     .pill--error{ background:#fde2e1; color:#8a1f1f; }
 
     .notif__link{
       display:block; padding:10px 12px;
-      text-decoration:none; color:#3b6fde;
+      text-decoration:none; color:var(--primary-600);
       border-top:1px solid var(--border);
       font-weight:600; text-align:left;
       background:none; width:100%; cursor:pointer;
     }
-    .notif__link:hover{ background:#eaf0ff; }
+    .notif__link:hover{ background:#eef4ff; }
     .notif__empty{ padding:12px; font-size:.88rem; color:var(--muted); }
 
-    /* botón para marcar una sola como leída */
     .notif__item-close{
       position:absolute;
-      top:8px;
-      right:8px;
-      width:20px;
-      height:20px;
+      top:8px; right:8px;
+      width:20px; height:20px;
       border-radius:999px;
       border:none;
       background:transparent;
       cursor:pointer;
-      display:flex;
-      align-items:center;
-      justify-content:center;
+      display:flex; align-items:center; justify-content:center;
       font-size:13px;
       color:var(--muted);
       transition:background .16s ease,color .16s ease,transform .08s ease;
     }
-    .notif__item-close:hover{
-      background:rgba(91,141,239,.08);
-      color:var(--primary);
-    }
-    .notif__item-close:active{
-      transform:scale(.94);
-    }
+    .notif__item-close:hover{ background:rgba(79,134,255,.10); color:var(--primary-600); }
+    .notif__item-close:active{ transform:scale(.94); }
 
-    /* Contenido */
-    .content{ padding:18px; min-height:calc(100vh - var(--topbar-h)); }
+    /* ✅ Contenido sobre blanco */
+    .content{
+      padding:18px;
+      min-height:calc(100vh - var(--topbar-h));
+      background:#fff;
+    }
 
     .no-anim *{ transition:none !important; animation:none !important; }
   </style>
 </head>
+
 <body class="app">
-  <!-- Sidebar (Hamburguesa) -->
+  <!-- Sidebar -->
   <aside id="sidebar" class="sidebar" aria-hidden="true" aria-label="Menú lateral">
     <div class="sidebar__head">
       <div class="user">
@@ -322,7 +334,7 @@
               ? "https://www.gravatar.com/avatar/".md5(strtolower(trim($u->email)))."?s=300&d=mp"
               : "https://www.gravatar.com/avatar/?s=300&d=mp";
 
-          // Rutas al perfil usando la fachada con FQCN (sin use)
+          // Rutas al perfil
           if (\Illuminate\Support\Facades\Route::has('profile.show')) {
               $profileHref = route('profile.show');
           } elseif (\Illuminate\Support\Facades\Route::has('profile')) {
@@ -344,7 +356,6 @@
           }
 
           if (\Illuminate\Support\Facades\Route::has('notifications.read-one')) {
-              // usamos __ID__ como placeholder y lo sustituimos en JS
               $notifReadOneUrl = route('notifications.read-one', ['notification' => '__ID__']);
           } else {
               $notifReadOneUrl = url('/notifications/__ID__/read');
@@ -384,8 +395,6 @@
     </div>
 
     <nav class="nav" id="sidebarNav">
-      <!-- ===== SOLO RUTAS INTERNAS ===== -->
-
       <!-- Dashboard -->
       <a href="{{ route('dashboard') }}" class="nav__link {{ request()->routeIs('dashboard') ? 'is-active':'' }}">
         <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
@@ -466,7 +475,6 @@
       <!-- Cotizaciones -->
       <details class="nav__group" {{ request()->routeIs('cotizaciones.*') ? 'open' : '' }}>
         <summary class="{{ request()->routeIs('cotizaciones.*') ? 'is-active':'' }}">
-
           <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
             <rect x="3" y="4" width="18" height="14" rx="2"/>
           </svg>
@@ -547,7 +555,7 @@
         </div>
       </details>
 
-      <!-- Publicaciones (Documentos internos) -->
+      <!-- Publicaciones -->
       <details class="nav__group" {{ request()->routeIs('publications.*') ? 'open' : '' }}>
         <summary class="{{ request()->routeIs('publications.*') ? 'is-active':'' }}">
           <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
@@ -572,7 +580,7 @@
         </div>
       </details>
 
-      <!-- Part. contable (principal: listado) -->
+      <!-- Part. contable -->
       <a href="{{ route('partcontable.index') }}" class="nav__link {{ request()->routeIs('partcontable.*') ? 'is-active':'' }}">
         <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
           <circle cx="12" cy="12" r="9"/>
@@ -580,6 +588,73 @@
         </svg>
         <span>Part. contable</span>
       </a>
+
+      {{-- ✅ NUEVO: Finanzas (Gastos/Vehículos/Nómina) --}}
+      <details class="nav__group"
+        {{ request()->routeIs('expenses.*')
+            || request()->routeIs('vehicles.*')
+            || request()->routeIs('payroll.*')
+            ? 'open' : '' }}>
+        <summary class="{{ request()->routeIs('expenses.*')
+                          || request()->routeIs('vehicles.*')
+                          || request()->routeIs('payroll.*')
+                          ? 'is-active':'' }}">
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
+            <path d="M4 7h16"/><path d="M4 12h10"/><path d="M4 17h16"/>
+            <path d="M16 10l4 2-4 2" />
+          </svg>
+          <span>Finanzas</span>
+          <svg class="nav__chev" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2">
+            <path d="M9 6l6 6-6 6"/>
+          </svg>
+        </summary>
+
+        <div class="nav__submenu">
+          <a href="{{ route('expenses.index') }}"
+             class="nav__sublink {{ request()->routeIs('expenses.*') ? 'is-active':'' }}">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
+              <path d="M12 2v20"/><path d="M17 5H9.5a3 3 0 0 0 0 6H14a3 3 0 0 1 0 6H7"/>
+            </svg>
+            <span>Gastos</span>
+          </a>
+
+          <a href="{{ route('expenses.create') }}"
+             class="nav__sublink {{ request()->routeIs('expenses.create') ? 'is-active':'' }}">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
+              <path d="M12 5v14M5 12h14"/>
+            </svg>
+            <span>Nuevo gasto</span>
+          </a>
+
+          <a href="{{ route('vehicles.index') }}"
+             class="nav__sublink {{ request()->routeIs('vehicles.*') ? 'is-active':'' }}">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
+              <path d="M3 16v-3a2 2 0 0 1 2-2h1l2-4h8l2 4h1a2 2 0 0 1 2 2v3"/>
+              <circle cx="7" cy="16" r="2"/><circle cx="17" cy="16" r="2"/>
+            </svg>
+            <span>Vehículos</span>
+          </a>
+
+          <a href="{{ route('vehicles.create') }}"
+             class="nav__sublink {{ request()->routeIs('vehicles.create') ? 'is-active':'' }}">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
+              <path d="M12 5v14M5 12h14"/>
+            </svg>
+            <span>Nuevo vehículo</span>
+          </a>
+
+          @if(\Illuminate\Support\Facades\Route::has('payroll.periods.index'))
+            <a href="{{ route('payroll.periods.index') }}"
+               class="nav__sublink {{ request()->routeIs('payroll.*') ? 'is-active':'' }}">
+              <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
+                <rect x="4" y="3" width="16" height="18" rx="2"/>
+                <path d="M8 8h8M8 12h8M8 16h5"/>
+              </svg>
+              <span>Nómina</span>
+            </a>
+          @endif
+        </div>
+      </details>
 
       <!-- Documentación de altas -->
       <a href="{{ route('alta.docs.index') }}" class="nav__link {{ request()->routeIs('alta.docs.*') ? 'is-active':'' }}">
@@ -589,7 +664,7 @@
         <span>Documentación de altas</span>
       </a>
 
-      <!-- Licitaciones (incluye IA y admin PDFs / propuestas) -->
+      <!-- Licitaciones -->
       <details class="nav__group"
         {{ request()->routeIs('licitaciones.*')
             || request()->routeIs('licitaciones-ai.*')
@@ -611,7 +686,6 @@
           </svg>
         </summary>
         <div class="nav__submenu">
-          {{-- Listado / detalle --}}
           <a href="{{ route('licitaciones.index') }}"
              class="nav__sublink {{ request()->routeIs('licitaciones.index') || request()->routeIs('licitaciones.show') ? 'is-active':'' }}">
             <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
@@ -620,21 +694,17 @@
             <span>Listado</span>
           </a>
 
-          {{-- Crear nueva (step 1 del wizard) --}}
           <a href="{{ route('licitaciones.create.step1') }}"
              class="nav__sublink {{ request()->routeIs('licitaciones.create.step1') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18"
-                 stroke="currentColor" fill="none" stroke-width="1.8">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
               <path d="M12 5v14M5 12h14"/>
             </svg>
             <span>Nueva licitación</span>
           </a>
 
-          {{-- Licitaciones IA --}}
           <a href="{{ route('licitaciones-ai.index') }}"
              class="nav__sublink {{ request()->routeIs('licitaciones-ai.index') || request()->routeIs('licitaciones-ai.show') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18"
-                 stroke="currentColor" fill="none" stroke-width="1.8">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
               <path d="M4 5h16v6H4z"/><path d="M4 17h8v2H4z"/><path d="M14 15h6v4h-6z"/>
             </svg>
             <span>Licitaciones IA</span>
@@ -642,30 +712,25 @@
 
           <a href="{{ route('licitaciones-ai.tabla-global') }}"
              class="nav__sublink {{ request()->routeIs('licitaciones-ai.tabla-global') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18"
-                 stroke="currentColor" fill="none" stroke-width="1.8">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
               <rect x="3" y="4" width="18" height="16" rx="2"/>
               <path d="M9 4v16M15 4v16M3 12h18"/>
             </svg>
             <span>Tabla global IA</span>
           </a>
 
-          {{-- PDFs de requisiciones --}}
           <a href="{{ route('admin.licitacion-pdfs.index') }}"
              class="nav__sublink {{ request()->routeIs('admin.licitacion-pdfs.*') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18"
-                 stroke="currentColor" fill="none" stroke-width="1.8">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
               <rect x="5" y="3" width="14" height="18" rx="2"/>
               <path d="M9 7h6M9 11h6M9 15h4"/>
             </svg>
             <span>PDFs de requisiciones</span>
           </a>
 
-          {{-- Propuestas / comparativas --}}
           <a href="{{ route('admin.licitacion-propuestas.index') }}"
              class="nav__sublink {{ request()->routeIs('admin.licitacion-propuestas.*') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18"
-                 stroke="currentColor" fill="none" stroke-width="1.8">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
               <rect x="3" y="4" width="18" height="16" rx="2"/>
               <path d="M7 14h3.5a2 2 0 1 0 0-4H7z"/>
               <path d="M14.5 10H17a2 2 0 1 1 0 4h-2.5z"/>
@@ -709,7 +774,7 @@
         </div>
       </details>
 
-      <!-- Logística / Rutas -->
+      <!-- Logística -->
       <details class="nav__group" {{ request()->routeIs('routes.*') || request()->routeIs('routing.demo') ? 'open' : '' }}>
         <summary class="{{ request()->routeIs('routes.*') || request()->routeIs('routing.demo') ? 'is-active':'' }}">
           <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
@@ -734,7 +799,7 @@
         </div>
       </details>
 
-      <!-- WMS (Bodega) -->
+      <!-- WMS -->
       <details class="nav__group" {{ request()->routeIs('admin.wms.*') ? 'open' : '' }}>
         <summary class="{{ request()->routeIs('admin.wms.*') ? 'is-active':'' }}">
           <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
@@ -747,9 +812,7 @@
             <path d="M9 6l6 6-6 6"/>
           </svg>
         </summary>
-
         <div class="nav__submenu">
-
           <a href="{{ route('admin.wms.home') }}" class="nav__sublink {{ request()->routeIs('admin.wms.home') ? 'is-active':'' }}">
             <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
               <path d="M3 12l9-9 9 9"/><path d="M9 21V9h6v12"/>
@@ -790,8 +853,7 @@
             <span>Imprimir QRs</span>
           </a>
 
-          <a href="{{ route('admin.wms.layout.editor') }}"
-             class="nav__sublink {{ request()->routeIs('admin.wms.layout.*') ? 'is-active':'' }}">
+          <a href="{{ route('admin.wms.layout.editor') }}" class="nav__sublink {{ request()->routeIs('admin.wms.layout.*') ? 'is-active':'' }}">
             <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
               <rect x="3" y="3" width="8" height="8" rx="2"/>
               <rect x="13" y="3" width="8" height="8" rx="2"/>
@@ -801,16 +863,14 @@
             <span>Layout (Editor)</span>
           </a>
 
-          <a href="{{ route('admin.wms.heatmap.view') }}"
-             class="nav__sublink {{ request()->routeIs('admin.wms.heatmap.*') ? 'is-active':'' }}">
+          <a href="{{ route('admin.wms.heatmap.view') }}" class="nav__sublink {{ request()->routeIs('admin.wms.heatmap.*') ? 'is-active':'' }}">
             <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
               <path d="M4 18V6"/><path d="M8 18V10"/><path d="M12 18V4"/><path d="M16 18V12"/><path d="M20 18V8"/>
             </svg>
             <span>Heatmap (Calor)</span>
           </a>
 
-          <a href="{{ route('admin.wms.move.view') }}"
-             class="nav__sublink {{ request()->routeIs('admin.wms.move.*') ? 'is-active':'' }}">
+          <a href="{{ route('admin.wms.move.view') }}" class="nav__sublink {{ request()->routeIs('admin.wms.move.*') ? 'is-active':'' }}">
             <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
               <path d="M7 7h10"/><path d="M7 12h10"/><path d="M7 17h10"/>
               <path d="M4 4h16v16H4z" opacity=".35"/>
@@ -819,15 +879,13 @@
             <span>Entradas / Salidas</span>
           </a>
 
-          <a href="{{ route('admin.wms.movements.view') }}"
-             class="nav__sublink {{ request()->routeIs('admin.wms.movements.*') ? 'is-active':'' }}">
+          <a href="{{ route('admin.wms.movements.view') }}" class="nav__sublink {{ request()->routeIs('admin.wms.movements.*') ? 'is-active':'' }}">
             <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
               <path d="M8 6h13"/><path d="M8 10h13"/><path d="M8 14h13"/><path d="M8 18h13"/>
               <path d="M3 6h2"/><path d="M3 10h2"/><path d="M3 14h2"/><path d="M3 18h2"/>
             </svg>
             <span>Historial (Kardex)</span>
           </a>
-
         </div>
       </details>
 
@@ -892,7 +950,7 @@
         </div>
       </details>
 
-      <!-- Landing del Panel -->
+      <!-- Landing -->
       <a href="{{ route('panel.landing.index') }}" class="nav__link {{ request()->routeIs('panel.landing.*') ? 'is-active':'' }}">
         <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
           <path d="M12 2l9 5-9 5-9-5 9-5z"/>
@@ -935,7 +993,7 @@
         </div>
       </details>
 
-      <!-- Debug -->
+      <!-- Diagnóstico -->
       <details class="nav__group" {{ request()->is('diag/http') || request()->is('debug/*') ? 'open' : '' }}>
         <summary class="{{ request()->is('diag/http') || request()->is('debug/*') ? 'is-active':'' }}">
           <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
@@ -959,7 +1017,6 @@
           </a>
         </div>
       </details>
-      <!-- ===== FIN SOLO RUTAS INTERNAS ===== -->
     </nav>
 
     <form method="POST" action="{{ route('logout') }}" class="logout">
@@ -974,7 +1031,6 @@
       </button>
     </form>
   </aside>
-
 
   <!-- Backdrop -->
   <div id="backdrop" class="backdrop" tabindex="-1" aria-hidden="true"></div>
@@ -1017,7 +1073,7 @@
           </div>
         </div>
 
-        <!-- Avatar PEQUEÑO (Topbar) -->
+        <!-- Avatar pequeño -->
         <a href="{{ $profileHref }}" class="avatar-link" title="Ver mi perfil">
           <div class="avatar avatar--sm" aria-hidden="true">
             @if($avatarSrc)
@@ -1037,301 +1093,271 @@
     </main>
   </div>
 
-@stack('scripts')
-<script>
-  (function(){
-    const shell      = document.getElementById('shell');
-    const sidebar    = document.getElementById('sidebar');
-    const sidebarNav = document.getElementById('sidebarNav');
-    const backdrop   = document.getElementById('backdrop');
-    const btnOpen    = document.getElementById('btnSidebar');
-    const btnClose   = document.getElementById('btnCloseSidebar');
+  @stack('scripts')
 
-    const notifBtn     = document.getElementById('btnNotif');
-    const notifPane    = document.getElementById('notifPanel');
-    const notifClose   = document.getElementById('btnCloseNotif');
-    const notifList    = document.getElementById('notifList');
-    const notifBadge   = document.getElementById('notifBadge');
-    const notifMarkAll = document.getElementById('btnMarkAll');
+  <script>
+    (function(){
+      const shell      = document.getElementById('shell');
+      const sidebar    = document.getElementById('sidebar');
+      const sidebarNav = document.getElementById('sidebarNav');
+      const backdrop   = document.getElementById('backdrop');
+      const btnOpen    = document.getElementById('btnSidebar');
+      const btnClose   = document.getElementById('btnCloseSidebar');
 
-    const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+      const notifBtn     = document.getElementById('btnNotif');
+      const notifPane    = document.getElementById('notifPanel');
+      const notifClose   = document.getElementById('btnCloseNotif');
+      const notifList    = document.getElementById('notifList');
+      const notifBadge   = document.getElementById('notifBadge');
+      const notifMarkAll = document.getElementById('btnMarkAll');
 
-    const NOTIF_FEED_URL    = @json($notifFeedUrl);
-    const NOTIF_READALL_URL = @json($notifReadAllUrl);
-    const NOTIF_READONE_URL = @json($notifReadOneUrl);
+      const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 
-    let sidebarOpen    = false;
-    let notifLoaded    = false;
-    let lastPayloadKey = null;
+      const NOTIF_FEED_URL    = @json($notifFeedUrl);
+      const NOTIF_READALL_URL = @json($notifReadAllUrl);
+      const NOTIF_READONE_URL = @json($notifReadOneUrl);
 
-    /* ========== Sidebar ========== */
-    const applyOverlay = () => {
-      if (!backdrop || !shell || !sidebar) return;
-      backdrop.classList.toggle('is-show', sidebarOpen);
-      shell.classList.toggle('dimmed', sidebarOpen);
-      document.body.classList.toggle('lock-scroll', sidebarOpen);
-      sidebar.setAttribute('aria-hidden', sidebarOpen ? 'false' : 'true');
-    };
+      let sidebarOpen    = false;
+      let notifLoaded    = false;
+      let lastPayloadKey = null;
 
-    const openSidebar = () => {
-      if (!sidebar || sidebarOpen) return;
-      sidebarOpen = true;
-      sidebar.classList.add('is-open');
-      applyOverlay();
-    };
-    const closeSidebar = () => {
-      if (!sidebar || !sidebarOpen) return;
-      sidebarOpen = false;
-      sidebar.classList.remove('is-open');
-      applyOverlay();
-    };
+      /* Sidebar */
+      const applyOverlay = () => {
+        if (!backdrop || !shell || !sidebar) return;
+        backdrop.classList.toggle('is-show', sidebarOpen);
+        shell.classList.toggle('dimmed', sidebarOpen);
+        document.body.classList.toggle('lock-scroll', sidebarOpen);
+        sidebar.setAttribute('aria-hidden', sidebarOpen ? 'false' : 'true');
+      };
 
-    if (btnOpen)  btnOpen.addEventListener('click', openSidebar);
-    if (btnClose) btnClose.addEventListener('click', closeSidebar);
-    if (backdrop) backdrop.addEventListener('click', closeSidebar);
+      const openSidebar = () => {
+        if (!sidebar || sidebarOpen) return;
+        sidebarOpen = true;
+        sidebar.classList.add('is-open');
+        applyOverlay();
+      };
+      const closeSidebar = () => {
+        if (!sidebar || !sidebarOpen) return;
+        sidebarOpen = false;
+        sidebar.classList.remove('is-open');
+        applyOverlay();
+      };
 
-    if (sidebarNav){
-      sidebarNav.addEventListener('click', (e)=>{
-        const summary = e.target.closest('summary');
-        if (summary) { return; }
-        const link = e.target.closest('a');
-        if (!link) return;
+      if (btnOpen)  btnOpen.addEventListener('click', openSidebar);
+      if (btnClose) btnClose.addEventListener('click', closeSidebar);
+      if (backdrop) backdrop.addEventListener('click', closeSidebar);
 
-        const href = link.getAttribute('href') || '';
-        const keep = link.hasAttribute('data-keep-open');
-        const isAnchorOnly = href.startsWith('#') || href === '' || href.startsWith('javascript');
+      if (sidebarNav){
+        sidebarNav.addEventListener('click', (e)=>{
+          const summary = e.target.closest('summary');
+          if (summary) return;
+          const link = e.target.closest('a');
+          if (!link) return;
 
-        if (!keep && !isAnchorOnly) { closeSidebar(); }
-      });
-    }
+          const href = link.getAttribute('href') || '';
+          const keep = link.hasAttribute('data-keep-open');
+          const isAnchorOnly = href.startsWith('#') || href === '' || href.startsWith('javascript');
 
-    /* ========== Notificaciones ========== */
-
-    function buildPayloadKey(payload){
-      if (!payload || !Array.isArray(payload.items)) return '';
-      return payload.items.map(n => n.id + (n.read_at ? '1' : '0')).join('|') + '|' + (payload.unread || 0);
-    }
-
-    function renderNotifItems(payload){
-      if (!notifList) return;
-      const items  = (payload && payload.items)  ? payload.items  : [];
-      const unread = (payload && payload.unread) ? payload.unread : 0;
-
-      // Badge con número
-      if (notifBadge){
-        if (unread > 0){
-          notifBadge.style.display = '';
-          notifBadge.textContent = unread > 9 ? '9+' : unread;
-        } else {
-          notifBadge.style.display = 'none';
-          notifBadge.textContent = '';
-        }
-      }
-
-      notifList.innerHTML = '';
-
-      if (!items.length){
-        const empty = document.createElement('div');
-        empty.className = 'notif__empty';
-        empty.textContent = 'No tienes notificaciones.';
-        notifList.appendChild(empty);
-        return;
-      }
-
-      items.forEach(n => {
-        const level = n.status || 'info';
-        let pillClass = 'pill--info';
-        let pillText  = 'Info';
-        if (level === 'warn'){ pillClass = 'pill--warn'; pillText = 'Aviso'; }
-        else if (level === 'error'){ pillClass = 'pill--error'; pillText = 'Alerta'; }
-
-        const item = document.createElement('div');
-        item.className = 'notif__item ' + (n.read_at ? 'is-read' : 'is-unread');
-        item.dataset.id = n.id;
-        if (n.url) {
-          item.dataset.url = n.url;
-        }
-
-        item.innerHTML = `
-          <div class="notif__body">
-            <span class="pill ${pillClass}">${pillText}</span>
-            <div class="notif__main">
-              <div class="notif__text">${(n.title || 'Notificación')}</div>
-              <div class="notif__msg">${(n.message || '')}</div>
-              <div class="notif__time">${(n.time || '')}</div>
-            </div>
-          </div>
-          <button type="button"
-                  class="notif__item-close"
-                  aria-label="Marcar como leída"
-                  data-id="${n.id}">&times;</button>
-        `;
-        notifList.appendChild(item);
-      });
-    }
-
-    async function loadNotifications(){
-      if (!NOTIF_FEED_URL || !notifList) return;
-
-      if (!notifLoaded){
-        notifList.innerHTML = '<div class="notif__empty">Cargando…</div>';
-      }
-
-      try{
-        const res  = await fetch(NOTIF_FEED_URL, { headers:{ 'Accept':'application/json' } });
-        const json = await res.json();
-
-        if (!res.ok){
-          throw new Error(json.message || 'Error al cargar notificaciones');
-        }
-
-        const key = buildPayloadKey(json);
-        if (key !== lastPayloadKey){
-          lastPayloadKey = key;
-          renderNotifItems(json);
-        }
-        notifLoaded = true;
-      }catch(e){
-        console.error(e);
-        notifList.innerHTML = '<div class="notif__empty">No se pudieron cargar las notificaciones.</div>';
-      }
-    }
-
-    async function markAllNotifications(){
-      if (!NOTIF_READALL_URL || !csrf) return;
-      try{
-        await fetch(NOTIF_READALL_URL, {
-          method:'POST',
-          headers:{
-            'X-CSRF-TOKEN': csrf,
-            'Accept':'application/json'
-          }
+          if (!keep && !isAnchorOnly) closeSidebar();
         });
-        loadNotifications();
-      }catch(e){
-        console.error(e);
       }
-    }
 
-    async function markOneNotification(id, itemEl){
-      if (!NOTIF_READONE_URL || !csrf || !id) return;
-      try{
-        const url = NOTIF_READONE_URL.replace('__ID__', encodeURIComponent(id));
-        await fetch(url, {
-          method:'POST',
-          headers:{
-            'X-CSRF-TOKEN': csrf,
-            'Accept':'application/json'
+      /* Notificaciones */
+      function buildPayloadKey(payload){
+        if (!payload || !Array.isArray(payload.items)) return '';
+        return payload.items.map(n => n.id + (n.read_at ? '1' : '0')).join('|') + '|' + (payload.unread || 0);
+      }
+
+      function renderNotifItems(payload){
+        if (!notifList) return;
+        const items  = (payload && payload.items)  ? payload.items  : [];
+        const unread = (payload && payload.unread) ? payload.unread : 0;
+
+        if (notifBadge){
+          if (unread > 0){
+            notifBadge.style.display = '';
+            notifBadge.textContent = unread > 9 ? '9+' : unread;
+          } else {
+            notifBadge.style.display = 'none';
+            notifBadge.textContent = '';
           }
-        });
-
-        if (itemEl){
-          itemEl.classList.remove('is-unread');
-          itemEl.classList.add('is-read');
         }
 
-        loadNotifications();
-      }catch(e){
-        console.error(e);
-      }
-    }
+        notifList.innerHTML = '';
 
-    function openNotifPanel(){
-      if (!notifPane || !notifBtn) return;
-      notifPane.classList.add('is-open');
-      notifPane.setAttribute('aria-hidden','false');
-      notifBtn.setAttribute('aria-expanded','true');
-      loadNotifications();
-    }
-    function closeNotifPanel(){
-      if (!notifPane || !notifBtn) return;
-      notifPane.classList.remove('is-open');
-      notifPane.setAttribute('aria-hidden','true');
-      notifBtn.setAttribute('aria-expanded','false');
-    }
-
-    if (notifBtn){
-      notifBtn.addEventListener('click', function(e){
-        e.stopPropagation();
-        if (!notifPane) return;
-        const isOpen = notifPane.classList.contains('is-open');
-        if (isOpen){
-          closeNotifPanel();
-        }else{
-          openNotifPanel();
-        }
-      });
-    }
-
-    if (notifClose){
-      notifClose.addEventListener('click', function(e){
-        e.stopPropagation();
-        closeNotifPanel();
-      });
-    }
-
-    if (notifMarkAll){
-      notifMarkAll.addEventListener('click', function(e){
-        e.preventDefault();
-        markAllNotifications();
-      });
-    }
-
-    // Click delegado en la lista:
-    //  - Click en la X => solo marcar como leída
-    //  - Click en el resto del item => marcar como leída y navegar a n.url
-    if (notifList){
-      notifList.addEventListener('click', function(e){
-        const closeBtn = e.target.closest('.notif__item-close');
-        if (closeBtn){
-          const id     = closeBtn.getAttribute('data-id');
-          const itemEl = closeBtn.closest('.notif__item');
-          if (id){
-            markOneNotification(id, itemEl);
-          }
-          e.stopPropagation();
+        if (!items.length){
+          const empty = document.createElement('div');
+          empty.className = 'notif__empty';
+          empty.textContent = 'No tienes notificaciones.';
+          notifList.appendChild(empty);
           return;
         }
 
-        const row = e.target.closest('.notif__item');
-        if (!row) return;
+        items.forEach(n => {
+          const level = n.status || 'info';
+          let pillClass = 'pill--info';
+          let pillText  = 'Info';
+          if (level === 'warn'){ pillClass = 'pill--warn'; pillText = 'Aviso'; }
+          else if (level === 'error'){ pillClass = 'pill--error'; pillText = 'Alerta'; }
 
-        const id  = row.dataset.id;
-        const url = row.dataset.url || '';
+          const item = document.createElement('div');
+          item.className = 'notif__item ' + (n.read_at ? 'is-read' : 'is-unread');
+          item.dataset.id = n.id;
+          if (n.url) item.dataset.url = n.url;
 
-        if (!url) return; // si no hay URL solo la marcamos desde la X
+          item.innerHTML = `
+            <div class="notif__body">
+              <span class="pill ${pillClass}">${pillText}</span>
+              <div class="notif__main">
+                <div class="notif__text">${(n.title || 'Notificación')}</div>
+                <div class="notif__msg">${(n.message || '')}</div>
+                <div class="notif__time">${(n.time || '')}</div>
+              </div>
+            </div>
+            <button type="button" class="notif__item-close" aria-label="Marcar como leída" data-id="${n.id}">&times;</button>
+          `;
+          notifList.appendChild(item);
+        });
+      }
 
-        e.preventDefault();
-        (async () => {
-          if (id) {
-            await markOneNotification(id, row);
+      async function loadNotifications(){
+        if (!NOTIF_FEED_URL || !notifList) return;
+
+        if (!notifLoaded){
+          notifList.innerHTML = '<div class="notif__empty">Cargando…</div>';
+        }
+
+        try{
+          const res  = await fetch(NOTIF_FEED_URL, { headers:{ 'Accept':'application/json' } });
+          const json = await res.json();
+
+          if (!res.ok){
+            throw new Error(json.message || 'Error al cargar notificaciones');
           }
-          window.location.href = url;
-        })();
+
+          const key = buildPayloadKey(json);
+          if (key !== lastPayloadKey){
+            lastPayloadKey = key;
+            renderNotifItems(json);
+          }
+          notifLoaded = true;
+        }catch(e){
+          console.error(e);
+          notifList.innerHTML = '<div class="notif__empty">No se pudieron cargar las notificaciones.</div>';
+        }
+      }
+
+      async function markAllNotifications(){
+        if (!NOTIF_READALL_URL || !csrf) return;
+        try{
+          await fetch(NOTIF_READALL_URL, {
+            method:'POST',
+            headers:{ 'X-CSRF-TOKEN': csrf, 'Accept':'application/json' }
+          });
+          loadNotifications();
+        }catch(e){ console.error(e); }
+      }
+
+      async function markOneNotification(id, itemEl){
+        if (!NOTIF_READONE_URL || !csrf || !id) return;
+        try{
+          const url = NOTIF_READONE_URL.replace('__ID__', encodeURIComponent(id));
+          await fetch(url, {
+            method:'POST',
+            headers:{ 'X-CSRF-TOKEN': csrf, 'Accept':'application/json' }
+          });
+
+          if (itemEl){
+            itemEl.classList.remove('is-unread');
+            itemEl.classList.add('is-read');
+          }
+
+          loadNotifications();
+        }catch(e){ console.error(e); }
+      }
+
+      function openNotifPanel(){
+        if (!notifPane || !notifBtn) return;
+        notifPane.classList.add('is-open');
+        notifPane.setAttribute('aria-hidden','false');
+        notifBtn.setAttribute('aria-expanded','true');
+        loadNotifications();
+      }
+      function closeNotifPanel(){
+        if (!notifPane || !notifBtn) return;
+        notifPane.classList.remove('is-open');
+        notifPane.setAttribute('aria-hidden','true');
+        notifBtn.setAttribute('aria-expanded','false');
+      }
+
+      if (notifBtn){
+        notifBtn.addEventListener('click', function(e){
+          e.stopPropagation();
+          if (!notifPane) return;
+          const isOpen = notifPane.classList.contains('is-open');
+          isOpen ? closeNotifPanel() : openNotifPanel();
+        });
+      }
+
+      if (notifClose){
+        notifClose.addEventListener('click', function(e){
+          e.stopPropagation();
+          closeNotifPanel();
+        });
+      }
+
+      if (notifMarkAll){
+        notifMarkAll.addEventListener('click', function(e){
+          e.preventDefault();
+          markAllNotifications();
+        });
+      }
+
+      if (notifList){
+        notifList.addEventListener('click', function(e){
+          const closeBtn = e.target.closest('.notif__item-close');
+          if (closeBtn){
+            const id     = closeBtn.getAttribute('data-id');
+            const itemEl = closeBtn.closest('.notif__item');
+            if (id) markOneNotification(id, itemEl);
+            e.stopPropagation();
+            return;
+          }
+
+          const row = e.target.closest('.notif__item');
+          if (!row) return;
+
+          const id  = row.dataset.id;
+          const url = row.dataset.url || '';
+          if (!url) return;
+
+          e.preventDefault();
+          (async () => {
+            if (id) await markOneNotification(id, row);
+            window.location.href = url;
+          })();
+        });
+      }
+
+      document.addEventListener('click', function(e){
+        if (!notifPane || !notifBtn) return;
+        if (!notifPane.contains(e.target) && !notifBtn.contains(e.target)){
+          closeNotifPanel();
+        }
       });
-    }
 
-    document.addEventListener('click', function(e){
-      if (!notifPane || !notifBtn) return;
-      if (!notifPane.contains(e.target) && !notifBtn.contains(e.target)){
-        closeNotifPanel();
+      window.addEventListener('keydown', function(e){
+        if (e.key === 'Escape'){
+          closeNotifPanel();
+          closeSidebar();
+        }
+      });
+
+      if (NOTIF_FEED_URL){
+        loadNotifications();
+        setInterval(loadNotifications, 10000);
       }
-    });
-
-    window.addEventListener('keydown', function(e){
-      if (e.key === 'Escape'){
-        closeNotifPanel();
-        closeSidebar();
-      }
-    });
-
-    // Polling cada 10s para "tiempo real"
-    if (NOTIF_FEED_URL){
-      loadNotifications();
-      setInterval(loadNotifications, 10000);
-    }
-  })();
-</script>
-
+    })();
+  </script>
 </body>
 </html>

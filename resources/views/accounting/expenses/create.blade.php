@@ -1,3 +1,4 @@
+{{-- resources/views/accounting/expenses/create.blade.php --}}
 @extends('layouts.app')
 @section('title','Nuevo registro')
 @section('titulo','Nuevo registro')
@@ -118,11 +119,11 @@
     'otro' => 'Otro',
   ];
 
-  // Movimientos de caja: 3 apartados (como transactions)
+  // Movimientos de caja: 3 apartados
   $defaultCashTab = $v('cash_tab','fondo'); // fondo | entrega | devolucion
 
   $people   = $people   ?? collect();
-  $managers = $managers ?? collect(); // ideal: admins
+  $managers = $managers ?? collect();
   $now      = $now ?? now()->format('Y-m-d\TH:i');
 @endphp
 
@@ -760,10 +761,10 @@
   const gastoAdminPad    = initPad('gastoAdminCanvas');
 
   // caja pads
-  const fondoAdminPad     = initPad('fondoAdminCanvas');
-  const entregaReceiverPad= initPad('entregaReceiverCanvas');
-  const devUserPad        = initPad('devUserCanvas');
-  const devAdminPad       = initPad('devAdminCanvas');
+  const fondoAdminPad      = initPad('fondoAdminCanvas');
+  const entregaReceiverPad = initPad('entregaReceiverCanvas');
+  const devUserPad         = initPad('devUserCanvas');
+  const devAdminPad        = initPad('devAdminCanvas');
 
   document.addEventListener('click', (e)=>{
     const btn = e.target.closest('[data-clear]');
@@ -952,30 +953,39 @@
     $('#entregaDirectBox').addClass('d-none'); $('#entregaQrBox').removeClass('d-none');
   });
 
+  // ==========================================================
+  // IMPORTANTÍSIMO: AQUÍ ESTABAN TUS ERRORES:
+  // - Fondo estaba mandando campos de ENTREGA (entrega_*)
+  // - No mandabas boss_id
+  // - No mandabas manager_signature (mandabas "sig" pero no en fd)
+  // - Metiste nip variable que ni existe en Fondo
+  // Eso provoca errores tipo "purpose field is required" o validaciones raras.
+  // ==========================================================
+
   // ===== AJAX: FONDO
   $('#btnFondo').on('click', function(){
     const btn=this;
-    const amount=parseFloat($('#fondo_amount').val()||'0');
+
+    const amount = parseFloat($('#fondo_amount').val()||'0');
     if(isNaN(amount)||amount<0.01) return err('Monto inválido.');
+
     const sig = toData(fondoAdminPad);
     if(!sig) return err('Falta la firma del admin.');
 
- const fd=new FormData();
-fd.append('manager_id', $('#entrega_manager_id').val());
-fd.append('receiver_id', entregaSelf.checked ? '' : $('#entrega_receiver_id').val());
-fd.append('self_receive', entregaSelf.checked ? '1' : '0');
-fd.append('performed_at', $('#entrega_performed_at').val());
-fd.append('amount', $('#entrega_amount').val());
-fd.append('purpose', $('#entrega_purpose').val()); // <-- ESTE FALTABA
-fd.append('nip', nip);
-
+    const fd = new FormData();
+    fd.append('manager_id', $('#fondo_manager_id').val());
+    fd.append('boss_id', $('#fondo_boss_id').val());
+    fd.append('performed_at', $('#fondo_performed_at').val());
+    fd.append('amount', $('#fondo_amount').val());
+    fd.append('purpose', ($('#fondo_purpose').val()||'').trim());
+    fd.append('manager_signature', sig);
 
     setLoadingBtn(btn,true);
     $.ajax({
       url: "{{ route('expenses.movement.allocation.store', [], false) }}",
       method:'POST',
       data:fd, processData:false, contentType:false,
-      headers:{'X-CSRF-TOKEN': $('input[name=_token]').val()},
+      headers:{'X-CSRF-TOKEN': $('input[name=_token]').val(), 'Accept':'application/json'},
     }).done(r=>{
       ok(`Fondo registrado (#${r.id})`);
       window.location = "{{ route('expenses.index', [], false) }}";
@@ -1021,7 +1031,7 @@ fd.append('nip', nip);
       url:"{{ route('expenses.movement.disbursement.direct', [], false) }}",
       method:'POST',
       data:fd, processData:false, contentType:false,
-      headers:{'X-CSRF-TOKEN': $('input[name=_token]').val()},
+      headers:{'X-CSRF-TOKEN': $('input[name=_token]').val(), 'Accept':'application/json'},
     }).done(r=>{
       ok(`Entrega guardada (#${r.id})`);
       window.location = "{{ route('expenses.index', [], false) }}";
@@ -1030,12 +1040,16 @@ fd.append('nip', nip);
     }).always(()=>setLoadingBtn(btn,false));
   });
 
-  // ===== AJAX: ENTREGA QR
+  // ===== AJAX: ENTREGA QR (AQUÍ ESTABA EL "purpose field is required")
+  // Tu controller startDisbursementQr valida 'purpose' REQUIRED.
+  // Entonces sí o sí hay que mandarlo.
   let pollTimer=null, activeToken=null, lastQrUrl='';
   function stopPolling(){ if(pollTimer){ clearInterval(pollTimer); pollTimer=null; } }
 
   $('#btnEntregaStartQr').on('click', function(){
     const btn=this;
+
+    // Validación: purpose requerido
     const base=entregaCommonValidate(); if(!base) return;
 
     const nip=($('#entrega_qr_nip').val()||'').trim();
@@ -1047,6 +1061,7 @@ fd.append('nip', nip);
     fd.append('self_receive', entregaSelf.checked ? '1' : '0');
     fd.append('performed_at', $('#entrega_performed_at').val());
     fd.append('amount', $('#entrega_amount').val());
+    fd.append('purpose', $('#entrega_purpose').val()); // <-- CLAVE: ENVIAR PURPOSE
     fd.append('nip', nip);
 
     setLoadingBtn(btn,true);
@@ -1054,14 +1069,17 @@ fd.append('nip', nip);
       url:"{{ route('expenses.movement.disbursement.qr.start', [], false) }}",
       method:'POST',
       data:fd, processData:false, contentType:false,
-      headers:{'X-CSRF-TOKEN': $('input[name=_token]').val()},
+      headers:{'X-CSRF-TOKEN': $('input[name=_token]').val(), 'Accept':'application/json'},
     }).done(r=>{
       $('#entregaQrPanel').removeClass('d-none');
       $('#entregaQrSuccess').addClass('d-none');
       $('#entrega_qrcode').empty();
+
       new QRCode(document.getElementById("entrega_qrcode"), { text:r.url, width:230, height:230 });
+
       $('#entregaQrStatus').removeClass('bg-danger bg-success').addClass('bg-info')
         .html('<span class="spinner-border spinner-border-sm me-1"></span> Esperando firma del usuario…');
+
       activeToken=r.token; lastQrUrl=r.url;
 
       stopPolling();
@@ -1100,6 +1118,7 @@ fd.append('nip', nip);
   // ===== AJAX: DEVOLUCIÓN
   $('#btnDevolucion').on('click', function(){
     const btn=this;
+
     const userId=$('#dev_user_id').val();
     if(!userId) return err('Selecciona el usuario que devuelve.');
 
@@ -1132,7 +1151,7 @@ fd.append('nip', nip);
       url:"{{ route('expenses.movement.return.store', [], false) }}",
       method:'POST',
       data:fd, processData:false, contentType:false,
-      headers:{'X-CSRF-TOKEN': $('input[name=_token]').val()},
+      headers:{'X-CSRF-TOKEN': $('input[name=_token]').val(), 'Accept':'application/json'},
     }).done(r=>{
       ok(`Devolución guardada (#${r.id})`);
       window.location = "{{ route('expenses.index', [], false) }}";

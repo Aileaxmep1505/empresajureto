@@ -16,7 +16,11 @@ use Illuminate\Support\Str;
 
 class ExpenseController extends Controller
 {
-    private const QR_BASE = 'https://medibuy.grupomedibuy.com'; // cámbialo si aplica
+    /**
+     * Base para armar el link absoluto del QR (URL pública de tu sistema).
+     * Ej: https://tudominio.com
+     */
+    private const QR_BASE = 'https://ai.jureto.com.mx'; // <-- cámbialo a tu dominio
 
     /* ====================== VISTAS ====================== */
 
@@ -64,7 +68,7 @@ class ExpenseController extends Controller
             });
 
         $people   = User::orderBy('name')->get(['id','name']);
-        $managers = User::orderBy('name')->get(['id','name']); // ajusta si filtras admins
+        $managers = User::orderBy('name')->get(['id','name']); // si quieres filtrar admins, hazlo aquí
 
         return view('accounting.expenses.create', [
             'categories' => $categories,
@@ -229,14 +233,19 @@ class ExpenseController extends Controller
 
     public function store(Request $request)
     {
-        if ($request->input('entry_kind') === 'movimiento') {
+        // Tu UI manda: entry_kind = 'gasto' o 'caja'
+        // En BD/Controller lo manejamos como: gasto o movimiento
+        $entryKind = $request->input('entry_kind','gasto');
+        if ($entryKind === 'caja') $entryKind = 'movimiento';
+
+        if ($entryKind === 'movimiento') {
             abort(422, 'El movimiento se guarda desde Directo/QR.');
         }
 
-        $type = $request->input('expense_type','general');
+        $type = $request->input('expense_type','vehiculo'); // tu UI ya no usa general
 
         $rules = [
-            'entry_kind'    => ['nullable','in:gasto,movimiento'],
+            'entry_kind'    => ['nullable','in:gasto,caja,movimiento'],
             'expense_type'  => ['required','in:general,vehiculo,nomina'],
             'concept'       => ['required','string','max:180'],
             'expense_date'  => ['required','date'],
@@ -273,37 +282,35 @@ class ExpenseController extends Controller
         $expense->concept        = $data['concept'];
         $expense->expense_date   = $data['expense_date'];
         $expense->amount         = $data['amount'];
-        $expense->currency       = 'MXN';
-        $expense->payment_method = $data['payment_method'] ?? 'transfer';
-        $expense->status         = $data['status'] ?? 'paid';
-        $expense->description    = $data['description'] ?? null;
+        if (Schema::hasColumn('expenses','currency')) $expense->currency = 'MXN';
+        if (Schema::hasColumn('expenses','payment_method')) $expense->payment_method = $data['payment_method'] ?? 'transfer';
+        if (Schema::hasColumn('expenses','status')) $expense->status = $data['status'] ?? 'paid';
+        if (Schema::hasColumn('expenses','description')) $expense->description = $data['description'] ?? null;
 
         if (Schema::hasColumn('expenses','vendor')) $expense->vendor = null;
         if (Schema::hasColumn('expenses','tags'))   $expense->tags = null;
+
+        if (Schema::hasColumn('expenses','entry_kind')) {
+            $expense->entry_kind = 'gasto';
+        }
 
         if (Schema::hasColumn('expenses','expense_type')) {
             $expense->expense_type = $type;
         }
 
-        $expense->expense_category_id = null;
-        $expense->vehicle_id = null;
+        if (Schema::hasColumn('expenses','expense_category_id')) $expense->expense_category_id = null;
+        if (Schema::hasColumn('expenses','vehicle_id')) $expense->vehicle_id = null;
 
-        if ($type === 'general') {
+        if ($type === 'general' && Schema::hasColumn('expenses','expense_category_id')) {
             $expense->expense_category_id = (int)$data['expense_category_id'];
         }
         if ($type === 'vehiculo') {
-            $expense->vehicle_id = (int)$data['vehicle_id'];
-            if (Schema::hasColumn('expenses','vehicle_category')) {
-                $expense->vehicle_category = $data['vehicle_category'];
-            }
+            if (Schema::hasColumn('expenses','vehicle_id')) $expense->vehicle_id = (int)$data['vehicle_id'];
+            if (Schema::hasColumn('expenses','vehicle_category')) $expense->vehicle_category = $data['vehicle_category'];
         }
         if ($type === 'nomina') {
-            if (Schema::hasColumn('expenses','payroll_category')) {
-                $expense->payroll_category = $data['payroll_category'];
-            }
-            if (Schema::hasColumn('expenses','payroll_period')) {
-                $expense->payroll_period = $data['payroll_period'];
-            }
+            if (Schema::hasColumn('expenses','payroll_category')) $expense->payroll_category = $data['payroll_category'];
+            if (Schema::hasColumn('expenses','payroll_period')) $expense->payroll_period = $data['payroll_period'];
         }
 
         if (Schema::hasColumn('expenses','receiver_signature_path')) {
@@ -332,6 +339,7 @@ class ExpenseController extends Controller
 
     /* ==========================================================
        MOVIMIENTOS: NOMBRES QUE TU UI/RUTAS ESTÁN ESPERANDO
+       (AHORA: CUALQUIERA PUEDE AUTORIZAR CON SU PROPIO NIP)
        ========================================================== */
 
     // Fondo para caja: route('expenses.movement.allocation.store')
@@ -360,13 +368,13 @@ class ExpenseController extends Controller
             if (Schema::hasColumn('expenses','expense_type')) $e->expense_type = 'movimiento';
 
             $e->concept = 'Fondo para caja';
-            $e->description = $req->purpose ?: 'Fondo para caja';
+            if (Schema::hasColumn('expenses','description')) $e->description = $req->purpose ?: 'Fondo para caja';
 
             $e->expense_date = $createdAt->toDateString();
             if (Schema::hasColumn('expenses','performed_at')) $e->performed_at = $createdAt;
 
             $e->amount = $req->amount;
-            $e->currency = 'MXN';
+            if (Schema::hasColumn('expenses','currency')) $e->currency = 'MXN';
 
             if (Schema::hasColumn('expenses','movement_manager_id')) $e->movement_manager_id = (int)$req->manager_id;
             if (Schema::hasColumn('expenses','movement_boss_id')) $e->movement_boss_id = (int)$req->boss_id;
@@ -394,12 +402,14 @@ class ExpenseController extends Controller
             'receiver_id'  => ['nullable','integer','exists:users,id'],
             'nip'          => ['required','digits_between:4,8'],
             'counterparty_signature' => ['required','string'],
-            'manager_id'   => ['nullable','integer','exists:users,id'], // tu UI lo manda
+            'manager_id'   => ['nullable','integer','exists:users,id'],
         ]);
 
         $me = auth()->user();
-        if (!$me || ($me->role ?? null) !== 'admin') abort(403, 'Solo ADMIN puede autorizar un movimiento.');
-        $this->assertAdminPinOrFail($me, $req->nip);
+        if (!$me) abort(403, 'No autenticado.');
+
+        // ✅ CUALQUIERA AUTORIZA CON SU PROPIO NIP
+        $this->assertUserPinOrFail($me, (string)$req->nip);
 
         $self = $req->boolean('self_receive');
         if (!$self && !$req->filled('receiver_id')) abort(422, 'Selecciona el usuario que recibe.');
@@ -415,13 +425,13 @@ class ExpenseController extends Controller
             if (Schema::hasColumn('expenses','expense_type')) $e->expense_type = 'movimiento';
 
             $e->concept = 'Entrega';
-            $e->description = $req->purpose;
+            if (Schema::hasColumn('expenses','description')) $e->description = $req->purpose;
 
             $e->expense_date = $createdAt->toDateString();
             if (Schema::hasColumn('expenses','performed_at')) $e->performed_at = $createdAt;
 
             $e->amount = $req->amount;
-            $e->currency = 'MXN';
+            if (Schema::hasColumn('expenses','currency')) $e->currency = 'MXN';
 
             if (Schema::hasColumn('expenses','movement_receiver_id')) {
                 $e->movement_receiver_id = $self ? $me->id : (int)$req->receiver_id;
@@ -459,8 +469,10 @@ class ExpenseController extends Controller
         ]);
 
         $me = auth()->user();
-        if (!$me || ($me->role ?? null) !== 'admin') abort(403, 'Solo ADMIN puede autorizar un movimiento.');
-        $this->assertAdminPinOrFail($me, $req->nip);
+        if (!$me) abort(403, 'No autenticado.');
+
+        // ✅ CUALQUIERA AUTORIZA CON SU PROPIO NIP
+        $this->assertUserPinOrFail($me, (string)$req->nip);
 
         $self = $req->boolean('self_receive');
         if (!$self && !$req->filled('receiver_id')) abort(422, 'Selecciona el usuario que recibe.');
@@ -477,13 +489,13 @@ class ExpenseController extends Controller
             if (Schema::hasColumn('expenses','expense_type')) $e->expense_type = 'movimiento';
 
             $e->concept = 'Entrega';
-            $e->description = $req->purpose;
+            if (Schema::hasColumn('expenses','description')) $e->description = $req->purpose;
 
             $e->expense_date = $createdAt->toDateString();
             if (Schema::hasColumn('expenses','performed_at')) $e->performed_at = $createdAt;
 
             $e->amount = $req->amount;
-            $e->currency = 'MXN';
+            if (Schema::hasColumn('expenses','currency')) $e->currency = 'MXN';
 
             if (Schema::hasColumn('expenses','movement_receiver_id')) {
                 $e->movement_receiver_id = $self ? $me->id : (int)$req->receiver_id;
@@ -492,6 +504,7 @@ class ExpenseController extends Controller
                 $e->movement_self_receive = $self ? 1 : 0;
             }
 
+            // ✅ Aprobado por el usuario que metió su NIP
             if (Schema::hasColumn('expenses','nip_approved_by')) $e->nip_approved_by = $me->id;
             if (Schema::hasColumn('expenses','nip_approved_at')) $e->nip_approved_at = now();
 
@@ -500,8 +513,6 @@ class ExpenseController extends Controller
 
             $e->save();
 
-            // tu JS arma status con /expenses/movements/qr/status/{token}
-            // y el link lo escanea el usuario para firmar:
             $relative = route('expenses.movements.qr.show', ['token'=>$token], false);
             $url = $this->absoluteQr($relative);
 
@@ -536,7 +547,7 @@ class ExpenseController extends Controller
 
             $sig = $this->storeDataUrl($req->signature, 'signatures');
 
-            $e->description = $req->purpose;
+            if (Schema::hasColumn('expenses','description')) $e->description = $req->purpose;
 
             if (Schema::hasColumn('expenses','counterparty_signature_path')) {
                 $e->counterparty_signature_path = $sig;
@@ -603,13 +614,13 @@ class ExpenseController extends Controller
             if (Schema::hasColumn('expenses','expense_type')) $e->expense_type = 'movimiento';
 
             $e->concept = 'Devolución';
-            $e->description = $req->purpose;
+            if (Schema::hasColumn('expenses','description')) $e->description = $req->purpose;
 
             $e->expense_date = $createdAt->toDateString();
             if (Schema::hasColumn('expenses','performed_at')) $e->performed_at = $createdAt;
 
             $e->amount = $req->amount;
-            $e->currency = 'MXN';
+            if (Schema::hasColumn('expenses','currency')) $e->currency = 'MXN';
 
             if (Schema::hasColumn('expenses','movement_manager_id')) $e->movement_manager_id = (int)$req->manager_id;
             if (Schema::hasColumn('expenses','movement_counterparty_id')) $e->movement_counterparty_id = (int)$req->counterparty_id;
@@ -628,7 +639,7 @@ class ExpenseController extends Controller
 
             $e->save();
 
-            // Evidencias: guardo la PRIMERA como attachment_path para que tu UI pueda previsualizar
+            // Evidencias: guardo la PRIMERA como attachment_path para tu UI
             $files = $req->file('evidence', []);
             if (!empty($files)) {
                 $file = $files[0];
@@ -725,12 +736,16 @@ class ExpenseController extends Controller
         return false;
     }
 
-    private function assertAdminPinOrFail(User $user, string $nip): void
+    /**
+     * ✅ Validación de NIP para CUALQUIER usuario (su propio NIP)
+     */
+    private function assertUserPinOrFail(User $user, string $nip): void
     {
         if (!$this->checkPinFlexible($nip, $user->approval_pin_hash ?? null)) {
             abort(422, 'NIP incorrecto.');
         }
 
+        // Rehash a bcrypt si viene legacy o needsRehash
         if (!Str::startsWith((string)$user->approval_pin_hash, ['$2y$', '$2a$', '$2b$'])) {
             $user->approval_pin_hash = Hash::make($nip);
             $user->save();

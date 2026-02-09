@@ -13,8 +13,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Log;
 
 class RoutePlanController extends Controller
 {
@@ -29,7 +29,6 @@ class RoutePlanController extends Controller
     /* =========================================================================
      | Permisos
      * ========================================================================= */
-
     private function canUserManage(): bool
     {
         $u = Auth::user();
@@ -226,7 +225,7 @@ class RoutePlanController extends Controller
                 }
             }
         } catch (\Throwable $e) {
-            Log::warning('geocodeMx structured exception', ['error' => $e->getMessage()]);
+            Log::warning('geocodeMx structured exception', ['error'=>$e->getMessage()]);
         }
 
         // 2) q fallback
@@ -239,9 +238,9 @@ class RoutePlanController extends Controller
             ));
         }
 
-        $tryQ = function (string $qq) {
+        $tryQ = function(string $qq){
             $qq = trim($qq);
-            if ($qq === '') return [null, null, null];
+            if ($qq === '') return [null,null,null];
 
             $res = $this->httpNominatim()->get('https://nominatim.openstreetmap.org/search', [
                 'format' => 'jsonv2',
@@ -252,15 +251,15 @@ class RoutePlanController extends Controller
                 'q' => $qq,
             ]);
 
-            if (!$res->ok()) return [null, null, null];
+            if (!$res->ok()) return [null,null,null];
 
             $j = $res->json();
-            if (!is_array($j) || empty($j[0])) return [null, null, null];
+            if (!is_array($j) || empty($j[0])) return [null,null,null];
 
             $lat = isset($j[0]['lat']) ? (float)$j[0]['lat'] : null;
             $lng = isset($j[0]['lon']) ? (float)$j[0]['lon'] : null;
 
-            if (!$this->validLatLng($lat, $lng)) return [null, null, null];
+            if (!$this->validLatLng($lat, $lng)) return [null,null,null];
 
             return [$lat, $lng, (string)($j[0]['display_name'] ?? null)];
         };
@@ -271,7 +270,7 @@ class RoutePlanController extends Controller
         }
 
         $q2 = $this->normalizeText($this->ensureMexicoHint(
-            implode(', ', $this->dedupeParts(array_filter([$cp, $ciudad, $estado], fn($x) => trim((string)$x) !== '')))
+            implode(', ', $this->dedupeParts(array_filter([$cp, $ciudad, $estado], fn($x)=>trim((string)$x) !== '')))
         ));
         if ($q2 !== '' && $q2 !== $q) {
             [$lat, $lng, $dn] = $tryQ($q2);
@@ -279,7 +278,7 @@ class RoutePlanController extends Controller
         }
 
         $q3 = $this->normalizeText($this->ensureMexicoHint(
-            implode(', ', $this->dedupeParts(array_filter([$calle, $ciudad, $estado, $cp], fn($x) => trim((string)$x) !== '')))
+            implode(', ', $this->dedupeParts(array_filter([$calle, $ciudad, $estado, $cp], fn($x)=>trim((string)$x) !== '')))
         ));
         if ($q3 !== '' && $q3 !== $q2) {
             [$lat, $lng, $dn] = $tryQ($q3);
@@ -330,7 +329,7 @@ class RoutePlanController extends Controller
                         $prov->ciudad ?? null,
                         $prov->estado ?? null,
                         $prov->cp ?? null,
-                    ], fn($x) => trim((string)$x) !== '')))
+                    ], fn($x)=> trim((string)$x) !== '')))
                 );
             }
         }
@@ -346,7 +345,6 @@ class RoutePlanController extends Controller
                 'estado'  => $s['estado'] ?? null,
                 'cp'      => $s['cp'] ?? null,
             ]);
-
             if ($this->validLatLng($gLat, $gLng)) {
                 return [$gLat, $gLng, $addr, $providerId];
             }
@@ -406,7 +404,7 @@ class RoutePlanController extends Controller
             $latCols  = ['lat', 'latitude', 'latitud', 'latitud_gps'];
             $lngCols  = ['lng', 'lon', 'long', 'longitude', 'longitud', 'longitud_gps'];
 
-            $addrCols = ['calle', 'colonia', 'ciudad', 'estado', 'cp'];
+            $addrCols = ['calle','colonia','ciudad','estado','cp'];
 
             $pName = collect($nameCols)->first(fn($c) => in_array($c, $cols, true));
             $pLat  = collect($latCols)->first(fn($c) => in_array($c, $cols, true));
@@ -496,7 +494,7 @@ class RoutePlanController extends Controller
                 $name = trim((string)($s['name'] ?? ''));
                 $who  = $name ?: ($addrUsed ?: 'sin nombre');
                 $errors[] = "No se pudo obtener coordenadas para el punto #".($i+1)." ({$who}).";
-                Log::warning('store() stop without coords', ['i' => $i+1, 'stop' => $s, 'addr_used' => $addrUsed]);
+                Log::warning('store() stop without coords', ['i'=>$i+1, 'stop'=>$s, 'addr_used'=>$addrUsed]);
                 continue;
             }
 
@@ -555,7 +553,6 @@ class RoutePlanController extends Controller
 
                 RouteStop::create($payload);
 
-                // (opcional) si se seleccionó proveedor: guardamos coords al proveedor
                 if (!empty($s['provider_id']) && Schema::hasTable('providers')) {
                     try {
                         DB::table('providers')->where('id', (int)$s['provider_id'])->update([
@@ -565,8 +562,8 @@ class RoutePlanController extends Controller
                         ]);
                     } catch (\Throwable $e) {
                         Log::warning('store() provider update failed', [
-                            'provider_id' => $s['provider_id'],
-                            'error' => $e->getMessage(),
+                            'provider_id'=>$s['provider_id'],
+                            'error'=>$e->getMessage(),
                         ]);
                     }
                 }
@@ -612,8 +609,7 @@ class RoutePlanController extends Controller
 
     public function saveDriverLocation(Request $r)
     {
-        $u = Auth::user();
-        abort_unless($u, 401);
+        $u = Auth::user(); abort_unless($u, 401);
 
         $data = $r->validate([
             'lat' => ['required', 'numeric'],
@@ -634,8 +630,7 @@ class RoutePlanController extends Controller
 
     public function getDriverLocation()
     {
-        $u = Auth::user();
-        abort_unless($u, 401);
+        $u = Auth::user(); abort_unless($u, 401);
 
         $last = DriverPosition::where('user_id', $u->id)
             ->latest('captured_at')
@@ -649,14 +644,11 @@ class RoutePlanController extends Controller
     }
 
     /* ==========================================================
-     | LIVE (general) -> ubicación chofer + stops en tiempo real
+     | LIVE (Supervisor) -> ubicación chofer + stops en tiempo real
      * ========================================================== */
     public function live(RoutePlan $routePlan)
     {
-        $u = Auth::user();
-        abort_unless($u, 401);
-
-        // chofer o staff (no cliente_web)
+        $u = Auth::user(); abort_unless($u, 401);
         $ok = $this->canUserManage() || ($u->id === $routePlan->driver_id);
         abort_unless($ok, 403);
 
@@ -687,7 +679,7 @@ class RoutePlanController extends Controller
     }
 
     /* ==========================================================
-     | LOCK SEQUENCE (nearest-first + OSRM trip)
+     | LOCK SEQUENCE (nearest-first + OSRM trip) — interno
      | - Inicio = GPS actual del chofer (o start_lat/lng)
      | - Primera parada = la más cercana al GPS
      | - Luego OSRM TRIP ordena el resto (roundtrip=true)
@@ -711,9 +703,7 @@ class RoutePlanController extends Controller
         if ($stopsValid->isEmpty()) return;
 
         // nearest-first
-        $nearest = null;
-        $nearestD = INF;
-
+        $nearest = null; $nearestD = INF;
         foreach ($stopsValid as $s) {
             $lat = (float)$this->normalizeCoord($s->lat);
             $lng = (float)$this->normalizeCoord($s->lng);
@@ -731,11 +721,11 @@ class RoutePlanController extends Controller
         ])->all();
 
         $trip = $this->osrm->trip($tripCoords, [
-            'source'      => 'first',
-            'roundtrip'   => 'true',
-            'steps'       => 'false',
-            'geometries'  => 'geojson',
-            'overview'    => 'full',
+            'source'    => 'first',
+            'roundtrip' => 'true',
+            'steps'     => 'false',
+            'geometries'=> 'geojson',
+            'overview'  => 'full',
             'annotations' => 'duration,distance',
         ]);
 
@@ -804,7 +794,7 @@ class RoutePlanController extends Controller
     /* ==========================================================
      | COMPUTE / RECOMPUTE (roundtrip SIEMPRE)
      | - NO cambia el orden si ya está bloqueado
-     | - SIEMPRE cierra regresando al inicio
+     | - SIEMPRE cierra regresando al inicio (roundtrip)
      * ========================================================== */
     public function compute(Request $r, RoutePlan $routePlan)
     {
@@ -835,7 +825,7 @@ class RoutePlanController extends Controller
             return response()->json(['message' => 'Ubicación de inicio inválida.'], 422);
         }
 
-        // Si NO está bloqueado, bloquea aquí
+        // Si NO está bloqueado, bloquea aquí (sin “llamar” a start() para no romper el flujo)
         if (empty($routePlan->sequence_locked)) {
             $this->lockSequence($routePlan->fresh(), (float)$startLat, (float)$startLng);
             $routePlan = $routePlan->fresh();
@@ -862,14 +852,14 @@ class RoutePlanController extends Controller
 
         // coords: start + stops + start (cierre 100%)
         $routeCoords = [];
-        $routeCoords[] = ['lat' => (float)$startLat, 'lng' => (float)$startLng];
+        $routeCoords[] = ['lat'=>(float)$startLat, 'lng'=>(float)$startLng];
         foreach ($stopsValid as $s) {
             $routeCoords[] = [
                 'lat' => (float)$this->normalizeCoord($s->lat),
                 'lng' => (float)$this->normalizeCoord($s->lng),
             ];
         }
-        $routeCoords[] = ['lat' => (float)$startLat, 'lng' => (float)$startLng];
+        $routeCoords[] = ['lat'=>(float)$startLat, 'lng'=>(float)$startLng];
 
         $routeRes = $this->osrm->route($routeCoords, [
             'alternatives' => 'false',
@@ -937,11 +927,7 @@ class RoutePlanController extends Controller
             'route'  => $routePlan->name,
         ]);
 
-        $exportLinks = $this->buildNavLinks(
-            $routePlan->stops()->where('status','pending')->get(),
-            (float)$startLat,
-            (float)$startLng
-        );
+        $exportLinks = $this->buildNavLinks($principal, $routePlan->stops()->where('status','pending')->get(), (float)$startLat, (float)$startLng);
 
         return response()->json([
             'plan_id'         => $routePlan->id,
@@ -968,6 +954,7 @@ class RoutePlanController extends Controller
     {
         $this->canDrive($routePlan);
 
+        // evita que marquen un stop de otra ruta
         if ((int)$stop->route_plan_id !== (int)$routePlan->id) {
             return response()->json(['message'=>'Stop no pertenece a esta ruta'], 404);
         }
@@ -984,7 +971,7 @@ class RoutePlanController extends Controller
     }
 
     /* =========================
-     | Helpers privados OSRM
+     | Helpers privados
      * ========================= */
 
     private function formatStepsFromOsrm(array $route): array
@@ -1040,7 +1027,7 @@ class RoutePlanController extends Controller
         };
     }
 
-    private function buildNavLinks($pendingStops, float $startLat, float $startLng): array
+    private function buildNavLinks(array $principal, $pendingStops, float $startLat, float $startLng): array
     {
         $ordered = collect($pendingStops)->sortBy(function ($s) {
             $si = $s->sequence_index ?? 999999;

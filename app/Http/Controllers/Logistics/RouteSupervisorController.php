@@ -20,7 +20,6 @@ class RouteSupervisorController extends Controller
         if (class_exists(\Spatie\Permission\Models\Role::class) && method_exists($u, 'hasRole')) {
             return !$u->hasRole('cliente_web');
         }
-
         return true;
     }
 
@@ -30,8 +29,8 @@ class RouteSupervisorController extends Controller
     }
 
     /**
-     * VISTA HTML (BLADE)
-     * Esta ruta debe regresar view(), NO JSON.
+     * ✅ VISTA HTML (BLADE)
+     * Esta ruta DEBE regresar view(), NO JSON.
      */
     public function show(RoutePlan $routePlan)
     {
@@ -39,12 +38,12 @@ class RouteSupervisorController extends Controller
 
         $routePlan->load('driver');
 
-        // resources/views/supervisor/routes/show.blade.php
+        // 👇 Asegúrate de que exista: resources/views/supervisor/routes/show.blade.php
         return view('supervisor.routes.show', compact('routePlan'));
     }
 
     /**
-     * ENDPOINT JSON (POLL)
+     * ✅ ENDPOINT JSON (POLL)
      * El front (fetch) debe pegarle a .../poll
      */
     public function poll(RoutePlan $routePlan, Request $r)
