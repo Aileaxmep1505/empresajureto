@@ -1857,3 +1857,8 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/panel/perfil/pin', [ProfileController::class, 'updatePin'])
         ->name('profile.pin.update');
 });
+
+Route::middleware(['auth'])->group(function () {
+    Route::get('/accounting/expenses/{expense}/pdf', [ExpenseController::class, 'pdfReceipt'])
+        ->name('expenses.pdf');
+});

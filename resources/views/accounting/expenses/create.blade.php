@@ -155,7 +155,7 @@
           <button type="button" class="type-tab" data-kind="caja"><i class="bi bi-safe2"></i> Movimiento de caja</button>
         </div>
         <input type="hidden" name="entry_kind" id="entry_kind" value="{{ $defaultKind }}">
-        <div class="small text-muted mt-2">Movimiento de caja = Fondo (jefa→admin), Entrega (admin→usuario), Devolución (usuario→admin).</div>
+        <div class="small text-muted mt-2">Movimiento de caja = Fondo, Entrega, Devolución (firmas + NIP en cada flujo).</div>
       </div>
 
       {{-- ===================== GASTO (SIN "GENERAL") ===================== --}}
@@ -272,7 +272,6 @@
               <textarea name="description" class="form-control @error('description') is-invalid @enderror" rows="4">{{ $v('description') }}</textarea>
               @error('description')<div class="error">{{ $message }}</div>@enderror
             </div>
-
           </div>
         </div>
       </div>
@@ -281,7 +280,7 @@
       <div id="cajaSection" class="card section-card border-0 mb-3 d-none">
         <div class="card-body">
           <div class="section-title"><i class="bi bi-safe2" style="color:#059669"></i> Movimientos de caja</div>
-          <p class="section-sub">Registra: Fondo para caja chica (jefa→admin), Entrega (admin→usuario), Devolución (usuario→admin).</p>
+          <p class="section-sub">Registra: Fondo para caja, Entrega, Devolución. (Evidencia y firmas dentro de cada apartado).</p>
 
           <div class="type-tabs mb-3" id="cashTabs">
             <button type="button" class="type-tab" data-cash="fondo"><i class="bi bi-arrow-down-circle"></i> Fondo para caja</button>
@@ -290,16 +289,16 @@
           </div>
           <input type="hidden" id="cash_tab" value="{{ $defaultCashTab }}">
 
-          {{-- ========== TAB FONDO (jefa -> admin) ========== --}}
+          {{-- ========== TAB FONDO ========== --}}
           <div id="cashPaneFondo">
             <div class="alert border-0 bg-opacity-25 mb-3" style="background:#eaf4ff">
               <i class="bi bi-info-circle me-2"></i>
-              Úsalo cuando la jefa te da dinero para <strong>caja chica</strong> o <strong>gastos</strong>.
+              Úsalo cuando te asignan dinero para <strong>caja chica</strong> o <strong>gastos</strong>.
             </div>
 
             <div class="row g-3">
               <div class="col-12 col-md-4">
-                <label class="form-label">Admin (tú)</label>
+                <label class="form-label">Responsable (quien firma)</label>
                 <select id="fondo_manager_id" class="form-select">
                   @foreach($managers as $m)
                     <option value="{{ $m->id }}" @selected(auth()->id()==$m->id)>{{ $m->name }}</option>
@@ -308,7 +307,7 @@
               </div>
 
               <div class="col-12 col-md-4">
-                <label class="form-label">Jefa (quien entrega)</label>
+                <label class="form-label">Quien asigna</label>
                 <select id="fondo_boss_id" class="form-select">
                   @foreach($managers as $m)
                     <option value="{{ $m->id }}">{{ $m->name }}</option>
@@ -335,7 +334,7 @@
               </div>
 
               <div class="col-12">
-                <label class="form-label">Firma del admin *</label>
+                <label class="form-label">Firma *</label>
                 <div class="sig-wrap">
                   <canvas id="fondoAdminCanvas" class="sig-canvas"></canvas>
                   <div class="d-flex justify-content-between align-items-center mt-2">
@@ -356,21 +355,23 @@
             </div>
           </div>
 
-          {{-- ========== TAB ENTREGA (admin -> usuario) ========== --}}
+          {{-- ========== TAB ENTREGA (ACTUALIZADA: evidencia + "Yo lo pagaré") ========== --}}
           <div id="cashPaneEntrega" class="d-none">
             <div class="alert border-0 bg-opacity-25 mb-3" style="background:#eaf4ff">
               <i class="bi bi-lightning-charge-fill me-2"></i>
               Elige <strong>Directo</strong> (firma aquí + tu NIP) o <strong>con QR</strong> (firma desde el celular).
+              <div class="small text-muted mt-1">La evidencia (PDF/imagen) se sube aquí y queda guardada en el movimiento.</div>
             </div>
 
             <div class="row g-3">
               <div class="col-12 col-md-4">
-                <label class="form-label">Admin (quien entrega)</label>
+                <label class="form-label">Usuario que autoriza (NIP)</label>
                 <select id="entrega_manager_id" class="form-select">
                   @foreach($managers as $m)
                     <option value="{{ $m->id }}" @selected(auth()->id()==$m->id)>{{ $m->name }}</option>
                   @endforeach
                 </select>
+                <div class="small text-muted mt-1">No necesariamente es quien entrega físicamente, es quien autoriza con su NIP.</div>
               </div>
 
               <div class="col-12 col-md-4">
@@ -391,13 +392,24 @@
                 <input type="text" id="entrega_purpose" class="form-control" maxlength="255" placeholder="Entrega para compras, viáticos, etc.">
               </div>
 
+              {{-- Evidencia (nuevo) --}}
+              <div class="col-12">
+                <label class="form-label">Evidencia (PDF/JPG/PNG) *</label>
+                <label class="dropzone w-100" id="entregaDrop">
+                  <input type="file" id="entregaEvidence" multiple accept="image/*,application/pdf" class="d-none">
+                  <div class="text-muted"><i class="bi bi-cloud-arrow-up me-1"></i> Arrastra o toca para seleccionar archivos</div>
+                  <div class="small text-muted mt-1">Ej: ticket, factura, comprobante, foto del recibo.</div>
+                </label>
+                <div id="entregaFileList" class="mt-2"></div>
+              </div>
+
               <div class="col-12 col-lg-6">
-                <label class="form-label">¿A quién se entrega?</label>
+                <label class="form-label">¿Quién lo pagará?</label>
                 <div class="sw">
                   <input type="checkbox" id="entrega_self_receive">
                   <div>
-                    <div style="font-weight:800;color:#0b1220">Es para mí</div>
-                    <div class="small text-muted">Si está activo, no eliges usuario.</div>
+                    <div style="font-weight:800;color:#0b1220">Yo lo pagaré</div>
+                    <div class="small text-muted">Si está activo, el receptor serás tú y no seleccionas a nadie.</div>
                   </div>
                 </div>
               </div>
@@ -429,7 +441,7 @@
               <div id="entregaDirectBox" class="col-12">
                 <div class="row g-3">
                   <div class="col-12 col-md-4">
-                    <label class="form-label">Tu NIP *</label>
+                    <label class="form-label">NIP del que autoriza *</label>
                     <input type="password" id="entrega_nip" class="form-control" placeholder="NIP 4–8 dígitos" inputmode="numeric" maxlength="8">
                   </div>
 
@@ -459,7 +471,7 @@
               <div id="entregaQrBox" class="col-12 d-none">
                 <div class="row g-3">
                   <div class="col-12 col-md-4">
-                    <label class="form-label">Tu NIP *</label>
+                    <label class="form-label">NIP del que autoriza *</label>
                     <input type="password" id="entrega_qr_nip" class="form-control" placeholder="NIP 4–8 dígitos" inputmode="numeric" maxlength="8">
                   </div>
 
@@ -510,7 +522,7 @@
             </div>
           </div>
 
-          {{-- ========== TAB DEVOLUCIÓN (usuario -> admin) ========== --}}
+          {{-- ========== TAB DEVOLUCIÓN ========== --}}
           <div id="cashPaneDevolucion" class="d-none">
             <div class="alert border-0 bg-opacity-25 mb-3" style="background:#fff7ed">
               <i class="bi bi-arrow-repeat me-2"></i>
@@ -519,7 +531,7 @@
 
             <div class="row g-3">
               <div class="col-12 col-md-4">
-                <label class="form-label">Admin (recibe)</label>
+                <label class="form-label">Responsable (recibe)</label>
                 <select id="dev_manager_id" class="form-select">
                   @foreach($managers as $m)
                     <option value="{{ $m->id }}" @selected(auth()->id()==$m->id)>{{ $m->name }}</option>
@@ -578,11 +590,11 @@
               </div>
 
               <div class="col-12 col-lg-6">
-                <label class="form-label">Firma del admin *</label>
+                <label class="form-label">Firma del responsable *</label>
                 <div class="sig-wrap">
                   <canvas id="devAdminCanvas" class="sig-canvas"></canvas>
                   <div class="d-flex justify-content-between align-items-center mt-2">
-                    <small class="text-muted">Firma del admin</small>
+                    <small class="text-muted">Firma del responsable</small>
                     <button class="btn btn-sm btn-outline-modern btn-outline-secondary lift" type="button" data-clear="#devAdminCanvas">
                       <i class="bi bi-eraser"></i> Limpiar
                     </button>
@@ -624,7 +636,7 @@
             </div>
 
             <div class="col-12 col-lg-6">
-              <label class="form-label">Firma del administrador *</label>
+              <label class="form-label">Firma del responsable *</label>
               <div class="sig-wrap">
                 <canvas id="gastoAdminCanvas" class="sig-canvas"></canvas>
                 <div class="d-flex justify-content-between align-items-center mt-2">
@@ -844,7 +856,6 @@
 
     if(isNom) fillPayrollPeriods();
 
-    // limpieza
     if(isVeh){
       if(payrollCategory) payrollCategory.value = '';
       if(payrollPeriod) payrollPeriod.innerHTML = '';
@@ -904,7 +915,7 @@
     const rSig = toData(gastoReceiverPad);
     const aSig = toData(gastoAdminPad);
     if(!rSig){ e.preventDefault(); err('Falta la firma de quien recibe.'); return; }
-    if(!aSig){ e.preventDefault(); err('Falta la firma del administrador.'); return; }
+    if(!aSig){ e.preventDefault(); err('Falta la firma del responsable.'); return; }
 
     document.getElementById('receiver_signature').value = rSig;
     document.getElementById('admin_signature').value = aSig;
@@ -951,16 +962,15 @@
   });
   $('#entregaModeQr').on('change', ()=>{
     $('#entregaDirectBox').addClass('d-none'); $('#entregaQrBox').removeClass('d-none');
+    setTimeout(()=>window.dispatchEvent(new Event('resize')), 50);
   });
 
-  // ==========================================================
-  // IMPORTANTÍSIMO: AQUÍ ESTABAN TUS ERRORES:
-  // - Fondo estaba mandando campos de ENTREGA (entrega_*)
-  // - No mandabas boss_id
-  // - No mandabas manager_signature (mandabas "sig" pero no en fd)
-  // - Metiste nip variable que ni existe en Fondo
-  // Eso provoca errores tipo "purpose field is required" o validaciones raras.
-  // ==========================================================
+  // ===== ENTREGA evidencias (nuevo)
+  $('#entregaDrop').on('click', ()=>$('#entregaEvidence').trigger('click'));
+  $('#entregaEvidence').on('change', function(){
+    const $list=$('#entregaFileList').empty();
+    [...this.files].forEach(f=> $list.append(`<span class="file-pill"><i class="bi bi-paperclip"></i> ${f.name}</span>`));
+  });
 
   // ===== AJAX: FONDO
   $('#btnFondo').on('click', function(){
@@ -970,7 +980,7 @@
     if(isNaN(amount)||amount<0.01) return err('Monto inválido.');
 
     const sig = toData(fondoAdminPad);
-    if(!sig) return err('Falta la firma del admin.');
+    if(!sig) return err('Falta la firma.');
 
     const fd = new FormData();
     fd.append('manager_id', $('#fondo_manager_id').val());
@@ -994,18 +1004,25 @@
     }).always(()=>setLoadingBtn(btn,false));
   });
 
-  // ===== AJAX: ENTREGA DIRECTO
+  // ===== AJAX: ENTREGA (validaciones comunes + evidencia obligatoria)
   function entregaCommonValidate(){
     const amount=parseFloat($('#entrega_amount').val()||'0');
     if(isNaN(amount)||amount<0.01){ err('Monto inválido.'); return null; }
+
     const purpose=($('#entrega_purpose').val()||'').trim();
     if(purpose.length<3){ err('Motivo inválido.'); return null; }
+
     if(!entregaSelf.checked){
       if(!$('#entrega_receiver_id').val()){ err('Selecciona el usuario que recibe.'); return null; }
     }
-    return {amount,purpose};
+
+    const files = document.getElementById('entregaEvidence')?.files;
+    if(!files || files.length===0){ err('Agrega al menos una evidencia (PDF/imagen).'); return null; }
+
+    return {amount,purpose,files};
   }
 
+  // ===== AJAX: ENTREGA DIRECTO
   $('#btnEntregaDirect').on('click', function(){
     const btn=this;
     const base=entregaCommonValidate(); if(!base) return;
@@ -1025,6 +1042,7 @@
     fd.append('purpose', $('#entrega_purpose').val());
     fd.append('nip', nip);
     fd.append('counterparty_signature', sig);
+    for(const f of base.files){ fd.append('evidence[]', f); }
 
     setLoadingBtn(btn,true);
     $.ajax({
@@ -1040,16 +1058,13 @@
     }).always(()=>setLoadingBtn(btn,false));
   });
 
-  // ===== AJAX: ENTREGA QR (AQUÍ ESTABA EL "purpose field is required")
-  // Tu controller startDisbursementQr valida 'purpose' REQUIRED.
-  // Entonces sí o sí hay que mandarlo.
+  // ===== AJAX: ENTREGA QR
   let pollTimer=null, activeToken=null, lastQrUrl='';
   function stopPolling(){ if(pollTimer){ clearInterval(pollTimer); pollTimer=null; } }
 
   $('#btnEntregaStartQr').on('click', function(){
     const btn=this;
 
-    // Validación: purpose requerido
     const base=entregaCommonValidate(); if(!base) return;
 
     const nip=($('#entrega_qr_nip').val()||'').trim();
@@ -1061,8 +1076,9 @@
     fd.append('self_receive', entregaSelf.checked ? '1' : '0');
     fd.append('performed_at', $('#entrega_performed_at').val());
     fd.append('amount', $('#entrega_amount').val());
-    fd.append('purpose', $('#entrega_purpose').val()); // <-- CLAVE: ENVIAR PURPOSE
+    fd.append('purpose', $('#entrega_purpose').val());
     fd.append('nip', nip);
+    for(const f of base.files){ fd.append('evidence[]', f); }
 
     setLoadingBtn(btn,true);
     $.ajax({
@@ -1131,7 +1147,7 @@
     const uSig=toData(devUserPad);
     const aSig=toData(devAdminPad);
     if(!uSig) return err('Falta la firma del usuario.');
-    if(!aSig) return err('Falta la firma del admin.');
+    if(!aSig) return err('Falta la firma del responsable.');
 
     const files = document.getElementById('devEvidence').files;
     if(!files || files.length===0) return err('Agrega al menos una evidencia.');

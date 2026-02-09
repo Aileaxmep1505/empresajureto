@@ -19,6 +19,7 @@
         "phiki/phiki": "^2.0",
         "phpoffice/phpspreadsheet": "^1.30",
         "phpoffice/phpword": "^1.4",
+        "setasign/fpdf": "^1.8",
         "setasign/fpdi": "^2.6",
         "setasign/fpdi-fpdf": "^2.3",
         "simplesoftwareio/simple-qrcode": "^4.2",
