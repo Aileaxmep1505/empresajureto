@@ -678,21 +678,19 @@ class ExpenseController extends Controller
         });
     }
 
-    /* ====================== PDF RECIBO (RECIBO + EVIDENCIAS FUSIONADAS) ====================== */
+    /* ====================== PDF RECIBO (RECIBO + EVIDENCIAS ANEXADAS COMO HOJAS EXTRA) ====================== */
 
     /**
      * Descarga un recibo PDF usando resources/views/pdfs/transaction.blade.php
-     * y ANEXA las evidencias (imagenes como páginas + PDFs fusionados).
+     * y ANEXA las evidencias como PÁGINAS EXTRA (no dentro de la misma hoja).
      *
      * Requiere:
      * composer require setasign/fpdi setasign/fpdf
      */
     public function pdfReceipt(Expense $expense)
     {
-        // Detectar tipo (allocation/disbursement/return) por concept
         $type = $this->expenseToTrxType($expense);
 
-        // Determinar manager/counterparty según tipo
         $managerId = null;
         $counterpartyId = null;
 
@@ -710,7 +708,6 @@ class ExpenseController extends Controller
         $manager = $managerId ? User::find($managerId) : null;
         $counterparty = $counterpartyId ? User::find($counterpartyId) : null;
 
-        // Construir objeto $trx compatible con tu PDF
         $trx = (object) [
             'id' => $expense->id,
             'type' => $type,
@@ -725,7 +722,6 @@ class ExpenseController extends Controller
             'manager' => $manager,
             'counterparty' => $counterparty,
 
-            // Firmas
             'manager_signature_path' => $expense->manager_signature_path
                 ?? $expense->admin_signature_path
                 ?? null,
@@ -734,14 +730,14 @@ class ExpenseController extends Controller
                 ?? $expense->receiver_signature_path
                 ?? null,
 
-            // Evidencias para el blade (solo si tú quieres listar ahí también)
+            // OJO: esto es SOLO para el blade si quieres “listar”
             'evidence_paths' => $this->getEvidencePathsFromExpense($expense),
         ];
 
         $folio = 'TRX-' . str_pad((string) $trx->id, 6, '0', STR_PAD_LEFT);
 
         // 1) Generar PDF base (recibo) a archivo temporal
-        $tmpDir = storage_path('app/tmp');
+        $tmpDir = storage_path('app/tmp_pdf');
         if (!is_dir($tmpDir)) @mkdir($tmpDir, 0775, true);
 
         $basePdfPath = $tmpDir . '/receipt_' . $trx->id . '_' . uniqid() . '.pdf';
@@ -750,21 +746,20 @@ class ExpenseController extends Controller
             ->setPaper('letter', 'portrait')
             ->save($basePdfPath);
 
-        // 2) Fusionar recibo + evidencias en un solo PDF
-        $final = new Fpdi('P', 'mm', 'Letter');
+        // 2) Crear PDF final e importar recibo
+        $final = new Fpdi();
+        $final->SetAutoPageBreak(true, 10);
 
-        // 2.1 Importa páginas del recibo base
-        $this->fpdiImportPdf($final, $basePdfPath);
+        $this->fpdiImportAllPages($final, $basePdfPath);
 
-        // 2.2 Anexa evidencias (imagenes/pdfs/otros)
+        // 3) Anexar evidencias como hojas extra
         $paths = $this->getEvidencePathsFromExpense($expense);
-
         foreach ($paths as $relPath) {
             if (!$relPath) continue;
 
-            $relPath = ltrim($relPath, '/');
+            $relPath = ltrim((string)$relPath, '/');
 
-            // Ruta física real del disk public
+            // ruta física del disk public
             try {
                 $abs = Storage::disk('public')->path($relPath);
             } catch (\Throwable $e) {
@@ -779,20 +774,19 @@ class ExpenseController extends Controller
             $ext = strtolower(pathinfo($abs, PATHINFO_EXTENSION));
 
             if ($ext === 'pdf') {
-                $this->fpdiImportPdf($final, $abs);
+                $this->fpdiImportAllPages($final, $abs);
                 continue;
             }
 
-            if (in_array($ext, ['jpg', 'jpeg', 'png', 'webp'])) {
-                $this->fpdiAddImagePage($final, $abs);
+            if (in_array($ext, ['jpg', 'jpeg', 'png'], true)) {
+                $this->fpdiAddImageAsNewPage($final, $abs);
                 continue;
             }
 
             $this->fpdiAddTextPage($final, "Evidencia adjunta (no embebible):\n" . basename($relPath));
         }
 
-        $out = $final->Output('S'); // string PDF
-
+        $out = $final->Output('S');
         @unlink($basePdfPath);
 
         return response($out, 200, [
@@ -809,7 +803,6 @@ class ExpenseController extends Controller
         if (stripos($concept, 'Entrega') !== false) return 'disbursement';
         if (stripos($concept, 'Devolución') !== false || stripos($concept, 'Devolucion') !== false) return 'return';
 
-        // fallback:
         return 'disbursement';
     }
 
@@ -915,11 +908,6 @@ class ExpenseController extends Controller
 
     /* ====================== EVIDENCIAS (MULTI) ====================== */
 
-    /**
-     * Obtiene las rutas de evidencias desde:
-     * - evidence_paths (JSON) si existe
-     * - y/o attachment_path si existe
-     */
     private function getEvidencePathsFromExpense(Expense $e): array
     {
         $paths = [];
@@ -938,17 +926,9 @@ class ExpenseController extends Controller
             $paths[] = $e->attachment_path;
         }
 
-        // unique y limpios
-        $paths = array_values(array_unique(array_filter(array_map('strval', $paths))));
-        return $paths;
+        return array_values(array_unique(array_filter(array_map('strval', $paths))));
     }
 
-    /**
-     * Guarda múltiples evidencias desde un input file array (ej: evidence[])
-     * y persiste:
-     * - attachment_path = primer archivo (si $setFirstAsAttachment = true o si está vacío)
-     * - evidence_paths (JSON) si la columna existe
-     */
     private function storeMultipleEvidencesIfAny(Expense $e, Request $req, string $inputName, string $folder, bool $setFirstAsAttachment = false): void
     {
         if (!$req->hasFile($inputName)) return;
@@ -970,9 +950,10 @@ class ExpenseController extends Controller
         if (Schema::hasColumn('expenses', 'attachment_path')) {
             if ($setFirstAsAttachment || !$e->attachment_path) {
                 $e->attachment_path = $stored[0];
-                if (Schema::hasColumn('expenses', 'attachment_name')) $e->attachment_name = $files[0]->getClientOriginalName();
-                if (Schema::hasColumn('expenses', 'attachment_mime')) $e->attachment_mime = $files[0]->getClientMimeType();
-                if (Schema::hasColumn('expenses', 'attachment_size')) $e->attachment_size = $files[0]->getSize();
+
+                if (Schema::hasColumn('expenses', 'attachment_name') && isset($files[0])) $e->attachment_name = $files[0]->getClientOriginalName();
+                if (Schema::hasColumn('expenses', 'attachment_mime') && isset($files[0])) $e->attachment_mime = $files[0]->getClientMimeType();
+                if (Schema::hasColumn('expenses', 'attachment_size') && isset($files[0])) $e->attachment_size = $files[0]->getSize();
             }
         }
 
@@ -991,59 +972,63 @@ class ExpenseController extends Controller
     /**
      * Importa todas las páginas de un PDF al documento final.
      */
-    private function fpdiImportPdf(Fpdi $pdf, string $sourcePath): void
+    private function fpdiImportAllPages(Fpdi $pdf, string $filePath): void
     {
         try {
-            $pageCount = $pdf->setSourceFile($sourcePath);
+            $pageCount = $pdf->setSourceFile($filePath);
 
-            for ($pageNo = 1; $pageNo <= $pageCount; $pageNo++) {
-                $tplId = $pdf->importPage($pageNo);
-                $size  = $pdf->getTemplateSize($tplId);
+            for ($i = 1; $i <= $pageCount; $i++) {
+                $tpl  = $pdf->importPage($i);
+                $size = $pdf->getTemplateSize($tpl);
 
-                $pdf->AddPage($size['orientation'], [$size['width'], $size['height']]);
-                $pdf->useTemplate($tplId);
+                $orientation = ($size['width'] > $size['height']) ? 'L' : 'P';
+                $pdf->AddPage($orientation, [$size['width'], $size['height']]);
+                $pdf->useTemplate($tpl, 0, 0, $size['width'], $size['height']);
             }
         } catch (\Throwable $e) {
-            $this->fpdiAddTextPage($pdf, "No se pudo anexar PDF:\n" . basename($sourcePath) . "\n" . $e->getMessage());
+            $this->fpdiAddTextPage($pdf, "No se pudo anexar PDF:\n" . basename($filePath) . "\n" . $e->getMessage());
         }
     }
 
     /**
-     * Agrega una página Letter y coloca una imagen escalada.
+     * Crea UNA hoja nueva y mete la imagen centrada y escalada (sin deformar).
      */
-    private function fpdiAddImagePage(Fpdi $pdf, string $imagePath): void
+    private function fpdiAddImageAsNewPage(Fpdi $pdf, string $imgPath): void
     {
-        $pdf->AddPage('P', 'Letter');
+        // Letter en mm: 215.9 x 279.4
+        $pageW = 215.9;
+        $pageH = 279.4;
 
-        // Letter en mm (aprox)
-        $pageW = 216; // 8.5in
-        $pageH = 279; // 11in
-        $m = 10;      // margen
-        $maxW = $pageW - ($m * 2);
-        $maxH = $pageH - ($m * 2);
+        $margin = 10;
+        $maxW = $pageW - ($margin * 2);
+        $maxH = $pageH - ($margin * 2);
 
-        $info = @getimagesize($imagePath);
+        $pdf->AddPage('P', [$pageW, $pageH]);
+
+        $info = @getimagesize($imgPath);
         if (!$info) {
-            $this->fpdiAddTextPage($pdf, "No se pudo leer imagen:\n" . basename($imagePath));
+            $this->fpdiAddTextPage($pdf, "No se pudo leer imagen:\n" . basename($imgPath));
             return;
         }
 
-        $imgW = (float) $info[0];
-        $imgH = (float) $info[1];
+        [$wPx, $hPx] = $info;
+        if ($wPx <= 0 || $hPx <= 0) {
+            $this->fpdiAddTextPage($pdf, "Imagen inválida:\n" . basename($imgPath));
+            return;
+        }
 
-        $ratio = min($maxW / $imgW, $maxH / $imgH);
-        $w = $imgW * $ratio;
-        $h = $imgH * $ratio;
+        $scale = min($maxW / $wPx, $maxH / $hPx);
+        $w = $wPx * $scale;
+        $h = $hPx * $scale;
 
         $x = ($pageW - $w) / 2;
         $y = ($pageH - $h) / 2;
 
-        $pdf->SetFont('Helvetica', '', 10);
-        $pdf->SetTextColor(80, 80, 80);
-        $pdf->SetXY($m, 6);
-        $pdf->Cell(0, 6, 'Evidencia: ' . basename($imagePath), 0, 1);
-
-        $pdf->Image($imagePath, $x, $y, $w, $h);
+        try {
+            $pdf->Image($imgPath, $x, $y, $w, $h);
+        } catch (\Throwable $e) {
+            $this->fpdiAddTextPage($pdf, "No se pudo anexar imagen:\n" . basename($imgPath));
+        }
     }
 
     /**
