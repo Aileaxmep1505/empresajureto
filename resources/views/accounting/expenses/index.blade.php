@@ -29,16 +29,6 @@
   .hero h1{ font-weight:900; letter-spacing:-.02em; }
   .subtle{ color:var(--muted) }
 
-  .nav-tabs{ border:0; gap:.4rem }
-  .nav-tabs .nav-link{
-    border:1px solid var(--border); border-radius:12px; font-weight:800; color:#475467; background:#fff;
-    transition:transform .15s ease, box-shadow .2s ease, color .2s
-  }
-  .nav-tabs .nav-link:hover{ transform:translateY(-1px); box-shadow:0 8px 20px rgba(29,78,216,.12) }
-  .nav-tabs .nav-link.active{
-    color:#0b2a4a; background:linear-gradient(135deg, var(--pblue), #eff6ff); border-color:#dbeafe
-  }
-
   .btn-pastel-blue{
     color:#0b2a4a; background:var(--pblue); border:1px solid rgba(96,165,250,.45); border-radius:14px; font-weight:900;
     box-shadow:0 10px 22px rgba(96,165,250,.22); transition:transform .12s, box-shadow .2s, filter .2s;
@@ -57,8 +47,6 @@
   }
   .btn-outline-soft:hover{ background:#f8fafc; box-shadow:0 10px 24px rgba(2,6,23,.06); transform:translateY(-1px) }
 
-  .lift:hover{ transform:translateY(-2px) }
-
   .card{ border:1px solid var(--border); border-radius:16px; box-shadow:var(--shadow); background:var(--panel) }
   .card .card-header{ background:#fff; border-bottom:1px solid var(--border); color:var(--muted); font-weight:800; }
 
@@ -75,16 +63,16 @@
   @media (max-width: 992px){ .metrics-grid{ grid-template-columns: repeat(2, 1fr); } }
   @media (max-width: 576px){ .metrics-grid{ grid-template-columns: 1fr; } }
   .metric-card{ padding:14px }
-  .metric-title{ color:var(--muted); font-size:.78rem; text-transform:uppercase; letter-spacing:.04em; font-weight:800; }
-  .metric-value{ font-weight:1000; font-size:1.6rem; line-height:1.1; }
-  .metric-pill{ display:inline-flex; align-items:center; gap:.4rem; padding:.25rem .55rem; border-radius:999px; font-size:.75rem; font-weight:900; }
-  .pill-in{ background:var(--pgreen); color:#065f46; border:1px solid rgba(52,211,153,.5) }
-  .pill-out{ background:var(--pred); color:#7f1d1d; border:1px solid rgba(239,68,68,.45) }
-  .pill-ret{ background:var(--pteal); color:#0c4a6e; border:1px solid rgba(14,165,233,.45) }
+  .metric-title{ color:var(--muted); font-size:.78rem; text-transform:uppercase; letter-spacing:.04em; font-weight:900; display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .metric-value{ font-weight:1000; font-size:1.75rem; line-height:1.1; margin-top:6px; }
+  .metric-sub{ color:#64748b; font-weight:800; font-size:.92rem; margin-top:6px; }
+  .metric-pill{ display:inline-flex; align-items:center; gap:.4rem; padding:.25rem .55rem; border-radius:999px; font-size:.75rem; font-weight:900; border:1px solid transparent; }
+  .pill-out{ background:var(--pred); color:#7f1d1d; border-color:rgba(239,68,68,.45) }
+  .pill-ret{ background:var(--pteal); color:#0c4a6e; border-color:rgba(14,165,233,.45) }
+  .pill-can{ background:#eef2f8; color:#334155; border-color:rgba(148,163,184,.55) }
+  .pill-count{ background:#f8fafc; color:#334155; border:1px solid rgba(148,163,184,.35); padding:.32rem .7rem; font-weight:1000; }
 
   .expected-ok{ background:#f1fff7; }
-  .expected-bad{ background:#fff1f2; }
-
   .skeleton{ position:relative; overflow:hidden; background:#eef2f8; border-radius:10px; min-height:22px }
   .skeleton::after{
     content:""; position:absolute; inset:0; transform:translateX(-100%);
@@ -124,131 +112,203 @@
   }
 
   #chart{ width:100%; height:330px; }
+  #pieChart{ width:100%; height:320px; }
 
   .mini-error{ background:#fff3cd; border:1px solid #ffe69c; color:#664d03; padding:.6rem .8rem; border-radius:10px; font-size:.9rem; }
 
-  .fab{
-    position: fixed; right: 16px; bottom: 18px; z-index: 30;
-    border-radius: 999px; padding:.9rem 1.05rem;
-    background: var(--pblue-strong); color:#fff; box-shadow: 0 12px 28px rgba(29,78,216,.28);
-    display:none; text-decoration:none; font-weight:900;
+  .tabs-row{
+    display:flex; align-items:center; justify-content:space-between;
+    gap:12px; margin-top:12px;
   }
-  .fab:hover{ filter:brightness(1.05); transform: translateY(-1px); }
-  @media (max-width: 768px){ .fab{ display:inline-flex; align-items:center; gap:.5rem; } }
+  .tabs-pills{ display:flex; gap:8px; flex-wrap:wrap; }
+  .tab-pill{
+    border:1px solid var(--border);
+    background:#fff;
+    color:#334155;
+    border-radius:999px;
+    padding:.52rem .9rem;
+    font-weight:900;
+    display:inline-flex;
+    align-items:center;
+    gap:.45rem;
+    box-shadow:0 8px 18px rgba(2,6,23,.04);
+    transition:transform .12s, box-shadow .2s, background .2s;
+    user-select:none;
+  }
+  .tab-pill:hover{ transform:translateY(-1px); box-shadow:0 12px 26px rgba(2,6,23,.06); background:#f8fafc }
+  .tab-pill.active{
+    background:linear-gradient(135deg, var(--pblue), #eff6ff);
+    border-color:#dbeafe;
+    color:#0b2a4a;
+  }
+
+  .mobile-switch{ display:none; margin-top:12px; }
+  @media (max-width: 767.98px){
+    .tabs-row{ display:none; }
+    .mobile-switch{ display:block; }
+    .mobile-switch .form-select{ border-radius:14px; font-weight:900; }
+  }
 
   .modal-content{ border:1px solid var(--border); border-radius:18px; box-shadow:var(--shadow) }
 </style>
 
-<div class="container page-wrap" >
+<div class="container page-wrap">
 
   {{-- HERO --}}
-  <div class="hero mt-2 mb-3 d-flex align-items-center justify-content-between flex-wrap">
-    <div class="d-flex align-items-center gap-3">
-      <div class="rounded-circle d-inline-flex align-items-center justify-content-center bg-white border"
-           style="width:44px;height:44px;border-color:#dce7ff">
-        <i class="bi bi-receipt-cutoff" style="font-size:1.2rem;color:var(--pblue-700)"></i>
+  <div class="hero mt-2 mb-3">
+    <div class="d-flex align-items-start justify-content-between flex-wrap gap-2">
+      <div class="d-flex align-items-center gap-3">
+        <div class="rounded-circle d-inline-flex align-items-center justify-content-center bg-white border"
+             style="width:44px;height:44px;border-color:#dce7ff">
+          <i class="bi bi-receipt-cutoff" style="font-size:1.2rem;color:var(--pblue-700)"></i>
+        </div>
+        <div>
+          <h1 class="h4 mb-0">Gastos</h1>
+          <div class="small subtle">KPIs + gráficas + movimientos (enfocado a lo más gastado).</div>
+        </div>
       </div>
-      <div>
-        <h1 class="h4 mb-0">Gastos</h1>
-        <div class="small subtle">KPIs, gráfica y movimientos en tiempo real (tipo CashTransaction).</div>
+
+      <div class="d-none d-md-flex gap-2">
+        <a class="btn btn-pastel-green" href="{{ route('expenses.create') }}">
+          <i class="bi bi-plus-lg me-1"></i> Nuevo gasto
+        </a>
+        <button class="btn btn-pastel-blue" type="button" id="btnRefresh">
+          <i class="bi bi-arrow-clockwise me-1"></i> Actualizar
+        </button>
       </div>
     </div>
 
-    <div class="mt-2 mt-md-0 d-none d-md-flex gap-2">
-      <a class="btn btn-pastel-green" href="{{ route('expenses.create') }}">
-        <i class="bi bi-plus-lg me-1"></i> Nuevo gasto
-      </a>
-      <button class="btn btn-pastel-blue" type="button" id="btnRefresh">
-        <i class="bi bi-arrow-clockwise me-1"></i> Actualizar
-      </button>
+    {{-- Desktop pills --}}
+    <div class="tabs-row">
+      <div class="tabs-pills" role="tablist" aria-label="Secciones">
+        <button class="tab-pill active" data-bs-toggle="tab" data-bs-target="#pane-dash" type="button" role="tab" aria-controls="pane-dash" aria-selected="true">
+          <i class="bi bi-speedometer2"></i> Dashboard
+        </button>
+        <button class="tab-pill" data-bs-toggle="tab" data-bs-target="#pane-filters" type="button" role="tab" aria-controls="pane-filters" aria-selected="false">
+          <i class="bi bi-funnel"></i> Filtros
+        </button>
+        <button class="tab-pill" data-bs-toggle="tab" data-bs-target="#pane-list" type="button" role="tab" aria-controls="pane-list" aria-selected="false">
+          <i class="bi bi-grid-3x3-gap"></i> Listado
+        </button>
+      </div>
+
+      <div class="d-flex align-items-center gap-2 text-muted small">
+        <i class="bi bi-arrow-repeat"></i> Actualiza cada 20s
+      </div>
+    </div>
+
+    {{-- Mobile switcher --}}
+    <div class="mobile-switch">
+      <div class="d-flex gap-2">
+        <select id="mobileTab" class="form-select">
+          <option value="#pane-dash" selected>📊 Dashboard</option>
+          <option value="#pane-filters">🔎 Filtros</option>
+          <option value="#pane-list">🧾 Listado</option>
+        </select>
+        <button class="btn btn-pastel-blue" type="button" id="btnRefreshM">
+          <i class="bi bi-arrow-clockwise"></i>
+        </button>
+        <a class="btn btn-pastel-green" href="{{ route('expenses.create') }}">
+          <i class="bi bi-plus-lg"></i>
+        </a>
+      </div>
     </div>
   </div>
 
-  {{-- FAB mobile --}}
-  <a href="{{ route('expenses.create') }}" class="fab">
-    <i class="bi bi-plus-lg"></i> Gasto
-  </a>
-
-  {{-- TABS --}}
-  <ul class="nav nav-tabs" id="expTabs" role="tablist">
-    <li class="nav-item" role="presentation">
-      <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#pane-dash" type="button" role="tab">
-        <i class="bi bi-speedometer2 me-1"></i> Dashboard
-      </button>
-    </li>
-    <li class="nav-item" role="presentation">
-      <button class="nav-link" data-bs-toggle="tab" data-bs-target="#pane-filters" type="button" role="tab">
-        <i class="bi bi-funnel me-1"></i> Filtros
-      </button>
-    </li>
-    <li class="nav-item" role="presentation">
-      <button class="nav-link" data-bs-toggle="tab" data-bs-target="#pane-list" type="button" role="tab">
-        <i class="bi bi-grid-3x3-gap me-1"></i> Listado
-      </button>
-    </li>
-  </ul>
-
   {{-- AVISO API --}}
-  <div id="warn" class="mini-error mt-3 d-none"><i class="bi bi-wifi-off me-1"></i> No se pudo contactar a la API.</div>
+  <div id="warn" class="mini-error mt-2 d-none"><i class="bi bi-wifi-off me-1"></i> No se pudo contactar a la API.</div>
 
   <div class="tab-content mt-3">
 
     {{-- =================== TAB DASHBOARD =================== --}}
     <div class="tab-pane fade show active" id="pane-dash" role="tabpanel" tabindex="0">
 
-      {{-- KPIs --}}
+      {{-- ✅ KPIs (como tu screenshot: valor + % del total) --}}
       <div class="metrics-grid">
         <div class="card metric-card">
-          <div class="metric-title">Total pagado <span class="metric-pill pill-out ms-1"><i class="bi bi-arrow-up-right"></i> OUT</span></div>
+          <div class="metric-title">
+            <span>PAGADO</span>
+            <span class="metric-pill pill-out"><i class="bi bi-arrow-up-right"></i> OUT</span>
+          </div>
           <div class="metric-value" id="kPaid"><span class="skeleton" style="height:28px;width:140px;display:inline-block"></span></div>
+          <div class="metric-sub" id="kPaidPct"><span class="skeleton" style="height:16px;width:120px;display:inline-block"></span></div>
         </div>
 
         <div class="card metric-card">
-          <div class="metric-title">Total pendiente <span class="metric-pill pill-ret ms-1"><i class="bi bi-hourglass-split"></i> PEND</span></div>
+          <div class="metric-title">
+            <span>PENDIENTE</span>
+            <span class="metric-pill pill-ret"><i class="bi bi-hourglass-split"></i> PEND</span>
+          </div>
           <div class="metric-value" id="kPending"><span class="skeleton" style="height:28px;width:140px;display:inline-block"></span></div>
+          <div class="metric-sub" id="kPendingPct"><span class="skeleton" style="height:16px;width:120px;display:inline-block"></span></div>
         </div>
 
         <div class="card metric-card">
-          <div class="metric-title">Cancelado <span class="metric-pill pill-out ms-1" style="background:var(--pred);border-color:rgba(239,68,68,.45)"><i class="bi bi-x-circle"></i> CAN</span></div>
+          <div class="metric-title">
+            <span>CANCELADO</span>
+            <span class="metric-pill pill-can"><i class="bi bi-x-circle"></i> CAN</span>
+          </div>
           <div class="metric-value" id="kCanceled"><span class="skeleton" style="height:28px;width:140px;display:inline-block"></span></div>
+          <div class="metric-sub" id="kCanceledPct"><span class="skeleton" style="height:16px;width:120px;display:inline-block"></span></div>
         </div>
 
         <div class="card metric-card expected-ok" id="cardTotal">
-          <div class="metric-title">Total general</div>
+          <div class="metric-title">
+            <span>TOTAL (FILTRADO)</span>
+            <span class="metric-pill pill-count"># <span id="kCount">0</span></span>
+          </div>
           <div class="metric-value" id="kTotal"><span class="skeleton" style="height:28px;width:140px;display:inline-block"></span></div>
+          <div class="metric-sub" id="kTotalHint">—</div>
         </div>
       </div>
 
-      {{-- CHART --}}
+      {{-- ✅ CHART (como screenshot: título + “Últimos 14 días ...” + footer últimos 7 días) --}}
       <div class="card mt-3">
         <div class="card-header d-flex align-items-center justify-content-between">
-          <span>Gasto por día</span>
-          <small class="subtle">Apila pagado / pendiente / cancelado</small>
+          <span><i class="bi bi-bar-chart-line me-2"></i>Tendencia de gasto (por día)</span>
+          <small class="subtle">Últimos 14 días • Pagado/Pendiente/Cancelado</small>
         </div>
         <div class="card-body">
           <div style="position:relative;height:330px">
             <canvas id="chart"></canvas>
           </div>
         </div>
+        <div class="card-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <div class="text-muted small" id="trend7">Últimos 7 días: —</div>
+          <div class="text-muted small">Tip: usa Filtros para comparar periodos.</div>
+        </div>
       </div>
 
-      {{-- RANKING --}}
+      {{-- ✅ Gráfica circular (Distribución por DETALLE) --}}
       <div class="card mt-3">
-        <div class="card-header">Top proveedores</div>
-        <div class="card-body p-0">
-          <div class="table-responsive">
-            <table class="table mb-0 align-middle">
-              <thead class="table-light">
-                <tr>
-                  <th>Proveedor</th>
-                  <th class="text-end">Gastado</th>
-                  <th class="text-center"># Movs</th>
-                </tr>
-              </thead>
-              <tbody id="rankingBody">
-                <tr><td colspan="3" class="p-3"><span class="skeleton" style="height:18px;display:block;"></span></td></tr>
-              </tbody>
-            </table>
+        <div class="card-header d-flex align-items-center justify-content-between">
+          <span>Distribución por detalle</span>
+          <small class="subtle">Lo que más se gasta (según “Detalle”)</small>
+        </div>
+        <div class="card-body">
+          <div class="row g-3 align-items-center">
+            <div class="col-12 col-lg-6">
+              <div style="position:relative;height:320px">
+                <canvas id="pieChart"></canvas>
+              </div>
+              <div class="small text-muted mt-2" id="pieHint">—</div>
+            </div>
+            <div class="col-12 col-lg-6">
+              <div class="fw-bold mb-2">Top detalles</div>
+              <div id="topDetails" class="d-grid gap-2">
+                <div class="skeleton" style="height:18px"></div>
+                <div class="skeleton" style="height:18px;width:85%"></div>
+                <div class="skeleton" style="height:18px;width:70%"></div>
+              </div>
+
+              <hr class="my-3">
+
+              <div class="fw-bold mb-2">Top conceptos</div>
+              <div id="topConcepts" class="d-grid gap-2">
+                <div class="skeleton" style="height:18px"></div>
+                <div class="skeleton" style="height:18px;width:80%"></div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -315,7 +375,7 @@
                 <span class="input-group-text bg-white border" style="border-radius:14px 0 0 14px;border-color:var(--border)">
                   <i class="bi bi-search"></i>
                 </span>
-                <input id="q" class="form-control" placeholder="concepto, proveedor, descripción…"
+                <input id="q" class="form-control" placeholder="concepto, detalle…"
                        style="border-radius:0 14px 14px 0">
               </div>
             </div>
@@ -489,9 +549,7 @@
 (() => {
   const API_LIST    = "{{ route('expenses.api.list', [], false) }}";
   const API_METRICS = "{{ route('expenses.api.metrics', [], false) }}";
-
   const API_CHART   = "{{ \Illuminate\Support\Facades\Route::has('expenses.api.chart') ? route('expenses.api.chart', [], false) : '' }}";
-  const API_RANKING = "{{ \Illuminate\Support\Facades\Route::has('expenses.api.ranking') ? route('expenses.api.ranking', [], false) : '' }}";
 
   const $ = (id)=>document.getElementById(id);
 
@@ -502,6 +560,7 @@
     total: 0,
     rows: [],
     timer: null,
+    lastChartRows: null, // ✅ para footer “últimos 7 días”
   };
 
   function esc(s){
@@ -512,6 +571,12 @@
     try{ return x.toLocaleString('es-MX', {style:'currency', currency: currency || 'MXN'}); }
     catch(_){ return '$' + x.toFixed(2); }
   }
+  function pct(part, total){
+    const t = Number(total || 0);
+    if(t <= 0) return 0;
+    return Math.round((Number(part||0) / t) * 1000) / 10; // 1 decimal
+  }
+
   function normalizeDate(d){
     if(!d) return null;
     const s = String(d).slice(0,10);
@@ -558,7 +623,6 @@
     if(cat) p.set('category_id', cat);
     if(veh) p.set('vehicle_id', veh);
 
-    // Nómina: si tu API filtra por payroll_period_id úsalo; si guardas string, tu API puede usar payroll_period
     if(period) {
       p.set('payroll_period_id', period);
       p.set('payroll_period', period);
@@ -580,14 +644,14 @@
     return p;
   }
 
-  // Chart init
+  // Bar chart
   const chartEl = document.getElementById('chart');
   const chart = chartEl ? new Chart(chartEl, {
     type:'bar',
     data:{ labels:[], datasets:[
-      {label:'Pagado',    data:[], backgroundColor:'rgba(239,68,68,.80)',  borderWidth:0, borderRadius:7, borderSkipped:false},
-      {label:'Pendiente', data:[], backgroundColor:'rgba(14,165,233,.80)', borderWidth:0, borderRadius:7, borderSkipped:false},
-      {label:'Cancelado', data:[], backgroundColor:'rgba(148,163,184,.75)', borderWidth:0, borderRadius:7, borderSkipped:false},
+      {label:'Pagado',    data:[], backgroundColor:'rgba(239,68,68,.80)',  borderWidth:0, borderRadius:10, borderSkipped:false},
+      {label:'Pendiente', data:[], backgroundColor:'rgba(14,165,233,.80)', borderWidth:0, borderRadius:10, borderSkipped:false},
+      {label:'Cancelado', data:[], backgroundColor:'rgba(148,163,184,.75)', borderWidth:0, borderRadius:10, borderSkipped:false},
     ]},
     options:{
       responsive:true, maintainAspectRatio:false,
@@ -600,6 +664,76 @@
     }
   }) : null;
 
+  // Pie chart
+  const pieEl = document.getElementById('pieChart');
+  const pie = pieEl ? new Chart(pieEl, {
+    type: 'doughnut',
+    data: { labels: [], datasets: [{
+      data: [],
+      backgroundColor: [
+        'rgba(96,165,250,.85)','rgba(52,211,153,.85)','rgba(245,158,11,.85)',
+        'rgba(244,114,182,.85)','rgba(14,165,233,.85)','rgba(148,163,184,.85)',
+        'rgba(239,68,68,.85)','rgba(167,139,250,.85)'
+      ],
+      borderWidth: 0
+    }]},
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      cutout: '62%',
+      plugins: {
+        legend: { position: 'bottom', labels:{ boxWidth:10, boxHeight:10, usePointStyle:true } },
+        tooltip: {
+          callbacks:{
+            label: (ctx)=>{
+              const label = ctx.label || '';
+              const val = Number(ctx.parsed||0);
+              const total = ctx.dataset.data.reduce((a,b)=>a+Number(b||0),0) || 1;
+              const p = Math.round((val/total)*100);
+              return ` ${label}: ${money(val)} (${p}%)`;
+            }
+          }
+        }
+      }
+    }
+  }) : null;
+
+  function setPercentLine(elId, part, total){
+    const el = $(elId);
+    if(!el) return;
+    const p = pct(part, total);
+    el.textContent = `${p}% del total`;
+  }
+
+  function setTrend7FromChartRows(rows, currency='MXN'){
+    const el = $('trend7');
+    if(!el) return;
+
+    if(!Array.isArray(rows) || rows.length < 1){
+      el.textContent = 'Últimos 7 días: —';
+      return;
+    }
+
+    // rows: [{date, paid, pending, canceled}] ordenado por fecha asc (normalmente)
+    const values = rows.map(r => Number(r.paid||0) + Number(r.pending||0) + Number(r.canceled||0));
+    const last7 = values.slice(-7).reduce((a,b)=>a+b,0);
+    const prev7 = values.slice(-14, -7).reduce((a,b)=>a+b,0);
+
+    let arrow = '→';
+    let diffPct = 0;
+
+    if(prev7 > 0){
+      diffPct = ((last7 - prev7) / prev7) * 100;
+      arrow = diffPct > 0 ? '↗' : (diffPct < 0 ? '↘' : '→');
+    } else {
+      // si no hubo prev7, mantenemos 100% si hubo gasto, o 0 si no
+      diffPct = last7 > 0 ? 100 : 0;
+      arrow = last7 > 0 ? '↗' : '→';
+    }
+
+    const absPct = Math.round(Math.abs(diffPct) * 10) / 10;
+    el.textContent = `Últimos 7 días: ${money(last7, currency)}  ${arrow} (${absPct}% vs 7 días previos)`;
+  }
+
   async function loadMetrics(){
     const url = API_METRICS + '?' + params({page:null}).toString().replace(/(^|&)page=\d+(&|$)/,'$1').replace(/^&|&$/g,'');
     const res = await fetch(url, {headers:{'Accept':'application/json'}});
@@ -609,116 +743,81 @@
 
     warn(false);
 
-    $('kpiCount').textContent = String(data.count ?? 0);
-    $('kpiSum').textContent = money(data.sum ?? 0, data.currency ?? 'MXN');
-
     const currency = data.currency ?? 'MXN';
-    const paid = data.paid_sum ?? null;
-    const pending = data.pending_sum ?? null;
-    const canceled = data.canceled_sum ?? null;
+    const paid = Number(data.paid_sum ?? 0);
+    const pending = Number(data.pending_sum ?? 0);
+    const canceled = Number(data.canceled_sum ?? 0);
+    const total = (data.paid_sum !== null || data.pending_sum !== null || data.canceled_sum !== null)
+      ? (paid + pending + canceled)
+      : Number(data.sum ?? 0);
 
-    if(paid !== null || pending !== null || canceled !== null){
-      $('kPaid').textContent    = money(paid ?? 0, currency);
-      $('kPending').textContent = money(pending ?? 0, currency);
-      $('kCanceled').textContent = money(canceled ?? 0, currency);
-      $('kTotal').textContent   = money((paid??0)+(pending??0)+(canceled??0), currency);
-    }else{
-      $('kPaid').textContent     = money(0, currency);
-      $('kPending').textContent  = money(0, currency);
-      $('kCanceled').textContent = money(0, currency);
-      $('kTotal').textContent    = money(data.sum ?? 0, currency);
-    }
+    $('kPaid').textContent = money(paid, currency);
+    $('kPending').textContent = money(pending, currency);
+    $('kCanceled').textContent = money(canceled, currency);
+    $('kTotal').textContent = money(total, currency);
+
+    $('kCount').textContent = String(data.count ?? 0);
+    $('kTotalHint').textContent = (total > 0) ? '—' : 'Sin gastos en este filtro';
+
+    setPercentLine('kPaidPct', paid, total);
+    setPercentLine('kPendingPct', pending, total);
+    setPercentLine('kCanceledPct', canceled, total);
+
+    // también actualiza los chips del listado
+    $('kpiCount').textContent = String(data.count ?? 0);
+    $('kpiSum').textContent = money(total, currency);
+
+    // footer de tendencia: si ya tenemos chart rows, actualiza
+    if(state.lastChartRows) setTrend7FromChartRows(state.lastChartRows, currency);
 
     return data;
   }
+// ✅ Convierte "$90,212.00" / "90,212.00" / "90212.00" a número real
+function num(v){
+  if (v === null || v === undefined || v === '') return 0;
+  if (typeof v === 'number') return v;
+  const s = String(v).trim();
+  // quita $ , espacios y todo lo que no sea dígito . -
+  const clean = s.replace(/[^0-9.\-]+/g, '');
+  const n = parseFloat(clean);
+  return Number.isFinite(n) ? n : 0;
+}
 
-  async function loadChart(){
-    if(!chart || !API_CHART) return;
-    const url = API_CHART + '?' + params({page:null, per_page:null}).toString();
-    const res = await fetch(url, {headers:{'Accept':'application/json'}});
-    if(!res.ok) return;
+async function loadChart(){
+  if(!chart) return;
 
-    const rows = await res.json().catch(()=>[]);
-    if(!Array.isArray(rows) || !rows.length){
-      chart.data.labels = [];
-      chart.data.datasets[0].data = [];
-      chart.data.datasets[1].data = [];
-      chart.data.datasets[2].data = [];
-      chart.update();
-      return;
-    }
-
-    chart.data.labels = rows.map(r=>r.date);
-    chart.data.datasets[0].data = rows.map(r=>Number(r.paid||0));
-    chart.data.datasets[1].data = rows.map(r=>Number(r.pending||0));
-    chart.data.datasets[2].data = rows.map(r=>Number(r.canceled||0));
+  // si no hay ruta chart, no rompe
+  if(!API_CHART){
+    chart.data.labels = [];
+    chart.data.datasets.forEach(d=>d.data=[]);
     chart.update();
+    state.lastChartRows = null;
+    return;
   }
 
-  async function loadRanking(){
-    const rb = $('rankingBody');
-    if(!rb) return;
+  const url = API_CHART + '?' + params({page:null, per_page:null}).toString();
+  const res = await fetch(url, {headers:{'Accept':'application/json'}});
+  if(!res.ok) return;
 
-    if(!API_RANKING){
-      rb.innerHTML = `<tr><td colspan="3" class="text-center p-3 text-muted">Ranking no disponible (ruta expenses.api.ranking no existe).</td></tr>`;
-      return;
-    }
-
-    const url = API_RANKING + '?' + params({page:null, per_page:null}).toString();
-    const res = await fetch(url, {headers:{'Accept':'application/json'}});
-    if(!res.ok){
-      rb.innerHTML = `<tr><td colspan="3" class="text-center p-3 text-muted">No se pudo cargar ranking.</td></tr>`;
-      return;
-    }
-
-    const rows = await res.json().catch(()=>[]);
-    rb.innerHTML = '';
-
-    if(!Array.isArray(rows) || !rows.length){
-      rb.innerHTML = `<tr><td colspan="3" class="text-center p-3 text-muted">Sin datos.</td></tr>`;
-      return;
-    }
-
-    rows.forEach(r=>{
-      rb.insertAdjacentHTML('beforeend', `
-        <tr>
-          <td>${esc(r.vendor || '—')}</td>
-          <td class="text-end">${money(r.sum || 0, r.currency || 'MXN')}</td>
-          <td class="text-center">${esc(r.count ?? 0)}</td>
-        </tr>
-      `);
-    });
+  const rows = await res.json().catch(()=>[]);
+  if(!Array.isArray(rows) || !rows.length){
+    chart.data.labels = [];
+    chart.data.datasets.forEach(d=>d.data=[]);
+    chart.update();
+    state.lastChartRows = null;
+    return;
   }
 
-  async function loadList(){
-    const url = API_LIST + '?' + params().toString();
-    const res = await fetch(url, {headers:{'Accept':'application/json'}});
-    if(!res.ok){
-      warn(true, `Error cargando lista (status ${res.status}).`);
-      $('grid').innerHTML = `<div class="empty">Error cargando.</div>`;
-      return;
-    }
-    const data = await res.json().catch(()=>null);
-    if(!data){
-      warn(true, 'Respuesta inválida.');
-      $('grid').innerHTML = `<div class="empty">Respuesta inválida.</div>`;
-      return;
-    }
+  state.lastChartRows = rows;
 
-    warn(false);
+  chart.data.labels = rows.map(r => r.date || r.day || r.label || '');
+  chart.data.datasets[0].data = rows.map(r => num(r.paid));
+  chart.data.datasets[1].data = rows.map(r => num(r.pending));
+  chart.data.datasets[2].data = rows.map(r => num(r.canceled));
 
-    state.rows = data.data || [];
-    state.page = data.meta?.page || 1;
-    state.last_page = data.meta?.last_page || 1;
-    state.total = data.meta?.total || 0;
+  chart.update();
+}
 
-    $('pageNow').textContent = String(state.page);
-    $('pageLast').textContent = String(state.last_page);
-    $('totalAll').textContent = String(state.total);
-
-    renderCards();
-    renderTable(data);
-  }
 
   function openEvidence(e){
     const modal = new bootstrap.Modal(document.getElementById('evidenceModal'));
@@ -728,10 +827,7 @@
     const t = e.movement_kind || e.entry_kind || e.expense_type || (e.is_movement ? 'movimiento' : 'gasto');
     const line1 = [
       t ? `Tipo: ${t}` : null,
-      e.category?.name ? `Categoría: ${e.category.name}` : null,
       e.vehicle?.plate ? `Vehículo: ${e.vehicle.plate}` : null,
-      e.vehicle?.plate_label ? `Vehículo: ${e.vehicle.plate_label}` : null,
-      e.payroll_period ? `Nómina: ${e.payroll_period}` : null,
     ].filter(Boolean).join(' • ');
     $('evSub').textContent = line1 || '—';
 
@@ -813,16 +909,13 @@
       const date   = fmtDate(e.expense_date);
 
       const type = e.movement_kind || e.entry_kind || e.expense_type || (e.is_movement ? 'movimiento' : 'gasto');
-      const cat  = e.category?.name || e.vehicle_category || e.payroll_category || '—';
-
-      const veh    = e.vehicle?.plate || e.vehicle?.plate_label || null;
-      const period = e.payroll_period || e.payroll_period_label || null;
+      const detail  = (e.description || '').trim() || (e.concept || '').trim() || '—';
+      const veh = e.vehicle?.plate || e.vehicle?.plate_label || null;
 
       const chips = [
         `<span class="tag soft"><i class="bi bi-layers"></i> ${esc(type)}</span>`,
-        `<span class="tag soft"><i class="bi bi-tag"></i> ${esc(cat)}</span>`,
+        `<span class="tag soft"><i class="bi bi-card-text"></i> ${esc(detail)}</span>`,
         veh ? `<span class="tag"><i class="bi bi-truck"></i> ${esc(veh)}</span>` : '',
-        period ? `<span class="tag soft"><i class="bi bi-calendar2-week"></i> ${esc(period)}</span>` : '',
         e.status ? `<span class="tag"><i class="bi bi-activity"></i> ${esc(e.status)}</span>` : '',
         e.payment_method ? `<span class="tag soft"><i class="bi bi-credit-card"></i> ${esc(e.payment_method)}</span>` : '',
         e.has_evidence ? `<span class="tag"><i class="bi bi-paperclip"></i> Evidencia</span>` : `<span class="tag soft"><i class="bi bi-paperclip"></i> Sin evidencia</span>`,
@@ -883,10 +976,8 @@
     } else {
       rows.forEach(e=>{
         const date = fmtDate(e.expense_date);
-
         const type = e.movement_kind || e.entry_kind || e.expense_type || (e.is_movement ? 'movimiento' : 'gasto');
-        const detail = e.category?.name || e.vehicle_category || e.payroll_category || e.description || '-';
-
+        const detail = (e.description || '').trim() || (e.concept || '').trim() || '-';
         const amount = money(e.amount, e.currency || 'MXN');
         const status = e.status || '-';
         const pdfBtn = e.pdf_url
@@ -917,23 +1008,169 @@
     document.getElementById('nextPage')?.toggleAttribute('disabled', state.page>=state.last_page);
   }
 
+  function buildInsightsFromRows(rows){
+    const currency = (rows?.[0]?.currency) || 'MXN';
+    const topDetailsEl = $('topDetails');
+    const topConceptsEl = $('topConcepts');
+    const pieHint = $('pieHint');
+
+    if(!rows || !rows.length){
+      if(topDetailsEl) topDetailsEl.innerHTML = `<div class="text-muted small">Sin datos.</div>`;
+      if(topConceptsEl) topConceptsEl.innerHTML = `<div class="text-muted small">Sin datos.</div>`;
+      if(pieHint) pieHint.textContent = 'Sin datos para graficar.';
+      if(pie){
+        pie.data.labels = [];
+        pie.data.datasets[0].data = [];
+        pie.update();
+      }
+      return;
+    }
+
+    function detName(e){
+      const d = String(e.description || '').trim();
+      const c = String(e.concept || '').trim();
+      return (d || c || 'Sin detalle');
+    }
+    function conName(e){
+      const c = String(e.concept || '').trim();
+      return (c || 'Sin concepto');
+    }
+
+    const detailMap = new Map();
+    const conceptMap = new Map();
+
+    for(const e of rows){
+      const amt = Number(e.amount || 0);
+      const dn = detName(e);
+      detailMap.set(dn, (detailMap.get(dn)||0) + amt);
+
+      const cn = conName(e);
+      conceptMap.set(cn, (conceptMap.get(cn)||0) + amt);
+    }
+
+    const detailsSorted = [...detailMap.entries()].sort((a,b)=>b[1]-a[1]);
+    const conceptsSorted = [...conceptMap.entries()].sort((a,b)=>b[1]-a[1]);
+
+    if(topDetailsEl){
+      topDetailsEl.innerHTML = '';
+      detailsSorted.slice(0,6).forEach(([name,sum])=>{
+        topDetailsEl.insertAdjacentHTML('beforeend', `
+          <div class="d-flex justify-content-between align-items-center gap-2">
+            <div class="text-truncate" title="${esc(name)}">
+              <span class="tag soft"><i class="bi bi-card-text"></i> ${esc(name)}</span>
+            </div>
+            <div class="fw-bold">${esc(money(sum, currency))}</div>
+          </div>
+        `);
+      });
+    }
+
+    if(topConceptsEl){
+      topConceptsEl.innerHTML = '';
+      conceptsSorted.slice(0,6).forEach(([name,sum])=>{
+        topConceptsEl.insertAdjacentHTML('beforeend', `
+          <div class="d-flex justify-content-between align-items-center gap-2">
+            <div class="text-truncate" title="${esc(name)}">
+              <span class="tag"><i class="bi bi-hash"></i> ${esc(name)}</span>
+            </div>
+            <div class="fw-bold">${esc(money(sum, currency))}</div>
+          </div>
+        `);
+      });
+    }
+
+    const topN = 6;
+    const labels = [];
+    const values = [];
+    let others = 0;
+
+    detailsSorted.forEach(([name,sum], idx)=>{
+      if(idx < topN){
+        labels.push(name);
+        values.push(sum);
+      } else {
+        others += sum;
+      }
+    });
+    if(others > 0){
+      labels.push('Otros');
+      values.push(others);
+    }
+
+    const total = values.reduce((a,b)=>a+Number(b||0),0) || 1;
+    if(pieHint){
+      const top1 = detailsSorted[0] ? `${detailsSorted[0][0]} (${money(detailsSorted[0][1], currency)})` : '—';
+      pieHint.textContent = `Total mostrado: ${money(total, currency)} · Top: ${top1}`;
+    }
+
+    if(pie){
+      pie.data.labels = labels;
+      pie.data.datasets[0].data = values;
+      pie.update();
+    }
+  }
+
+  async function loadList(){
+    const url = API_LIST + '?' + params().toString();
+    const res = await fetch(url, {headers:{'Accept':'application/json'}});
+    if(!res.ok){
+      warn(true, `Error cargando lista (status ${res.status}).`);
+      $('grid').innerHTML = `<div class="empty">Error cargando.</div>`;
+      buildInsightsFromRows([]);
+      return;
+    }
+    const data = await res.json().catch(()=>null);
+    if(!data){
+      warn(true, 'Respuesta inválida.');
+      $('grid').innerHTML = `<div class="empty">Respuesta inválida.</div>`;
+      buildInsightsFromRows([]);
+      return;
+    }
+
+    warn(false);
+
+    state.rows = data.data || [];
+    state.page = data.meta?.page || 1;
+    state.last_page = data.meta?.last_page || 1;
+    state.total = data.meta?.total || 0;
+
+    $('pageNow').textContent = String(state.page);
+    $('pageLast').textContent = String(state.last_page);
+    $('totalAll').textContent = String(state.total);
+
+    renderCards();
+    renderTable(data);
+    buildInsightsFromRows(state.rows);
+  }
+
   async function refreshAll(){
     try{
-      await Promise.all([loadMetrics(), loadList(), loadChart(), loadRanking()]);
+      await Promise.all([loadChart(), loadMetrics(), loadList()]);
+      // footer “últimos 7 días” con el currency actual (de metrics)
+      // loadMetrics ya lo vuelve a setear si existe state.lastChartRows
     }catch(e){
       console.error(e);
       warn(true, 'Error al refrescar.');
     }
   }
 
-  // Eventos UI
+  function syncPillsActive(targetId){
+    document.querySelectorAll('.tab-pill').forEach(btn=>{
+      const t = btn.getAttribute('data-bs-target');
+      btn.classList.toggle('active', t === targetId);
+    });
+  }
+
   $('btnRefresh')?.addEventListener('click', ()=>{ state.page = 1; refreshAll(); });
+  $('btnRefreshM')?.addEventListener('click', ()=>{ state.page = 1; refreshAll(); });
 
   $('btnApply')?.addEventListener('click', ()=>{
     state.page = 1;
     refreshAll();
     const tab = new bootstrap.Tab(document.querySelector('[data-bs-target="#pane-dash"]'));
     tab.show();
+    syncPillsActive('#pane-dash');
+    if($('mobileTab')) $('mobileTab').value = '#pane-dash';
   });
 
   $('btnClear')?.addEventListener('click', ()=>{
@@ -981,7 +1218,27 @@
       refreshAll();
       const tab = new bootstrap.Tab(document.querySelector('[data-bs-target="#pane-dash"]'));
       tab.show();
+      syncPillsActive('#pane-dash');
+      if($('mobileTab')) $('mobileTab').value = '#pane-dash';
     }
+  });
+
+  $('mobileTab')?.addEventListener('change', ()=>{
+    const target = $('mobileTab').value;
+    const btn = document.querySelector(`[data-bs-target="${target}"]`);
+    if(btn){
+      const tab = new bootstrap.Tab(btn);
+      tab.show();
+      syncPillsActive(target);
+    }
+  });
+
+  document.querySelectorAll('.tab-pill').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const t = btn.getAttribute('data-bs-target');
+      syncPillsActive(t);
+      if($('mobileTab')) $('mobileTab').value = t;
+    });
   });
 
   if(state.timer) clearInterval(state.timer);
