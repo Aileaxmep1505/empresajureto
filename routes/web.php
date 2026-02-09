@@ -1846,3 +1846,14 @@ Route::middleware(['auth'])->group(function () {
   Route::post('/expenses/movements/return', [ExpenseController::class,'storeReturn'])
     ->name('expenses.movement.return.store');
 });
+
+Route::middleware(['auth'])->group(function () {
+
+    // tu vista de perfil (si ya existe, ignora esto)
+    Route::get('/panel/perfil', [ProfileController::class, 'show'])
+        ->name('profile.show');
+
+    // ✅ ruta que te falta
+    Route::put('/panel/perfil/pin', [ProfileController::class, 'updatePin'])
+        ->name('profile.pin.update');
+});
