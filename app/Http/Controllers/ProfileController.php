@@ -34,17 +34,22 @@ class ProfileController extends Controller
 
         if ($request->filled('avatar_cropped')) {
             $dataUrl = $request->input('avatar_cropped');
+
             if (!preg_match('/^data:image\/(png|jpe?g|webp);base64,/', $dataUrl, $m)) {
                 return back()->withErrors(['photo' => 'Formato de imagen no válido.']);
             }
+
             $ext = $m[1] === 'jpeg' ? 'jpg' : $m[1];
+
             $binary = base64_decode(substr($dataUrl, strpos($dataUrl, ',') + 1), true);
             if ($binary === false) {
                 return back()->withErrors(['photo' => 'No se pudo procesar la imagen recortada.']);
             }
+
             if (strlen($binary) > 3 * 1024 * 1024) {
                 return back()->withErrors(['photo' => 'La imagen recortada excede 3MB.']);
             }
+
             $filename = 'avatars/' . uniqid('avt_') . '.' . $ext;
             Storage::disk('public')->put($filename, $binary);
             $user->avatar_path = $filename;
@@ -72,5 +77,36 @@ class ProfileController extends Controller
         $user->save();
 
         return back()->with('ok', 'Contraseña actualizada correctamente.');
+    }
+
+    /**
+     * Guarda/actualiza el NIP (hash) en users.approval_pin_hash
+     * ✅ EXACTAMENTE 6 dígitos
+     */
+    public function updatePin(Request $request)
+    {
+        $request->validate([
+            'pin' => ['required', 'regex:/^\d{6}$/'],
+        ], [
+            'pin.required' => 'Ingresa el NIP.',
+            'pin.regex'    => 'El NIP debe ser exactamente de 6 dígitos.',
+        ]);
+
+        /** @var \App\Models\User $user */
+        $user = $request->user();
+
+        if (!method_exists($user, 'setApprovalPin')) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Falta el método setApprovalPin() en el modelo User.',
+            ], 422);
+        }
+
+        $user->setApprovalPin((string) $request->input('pin'));
+
+        return response()->json([
+            'ok'      => true,
+            'message' => 'NIP actualizado correctamente.',
+        ]);
     }
 }

@@ -1796,8 +1796,6 @@ Route::middleware(['auth'])->group(function () {
 
   // VISTAS (Blade) + JSON (mismo endpoint, depende de Accept header)
   Route::resource('vehicles', VehicleController::class);
-  Route::resource('expenses', ExpenseController::class);
-  Route::resource('expense-categories', ExpenseCategoryController::class);
 
   // Nómina (endpoints JSON + puedes hacer vista si quieres)
   Route::get('payroll/periods', [PayrollController::class, 'periods']);
@@ -1816,4 +1814,35 @@ Route::middleware(['auth'])->group(function () {
   // docs por vehículo
   Route::post('vehicles/{vehicle}/documents', [VehicleController::class, 'uploadDocuments'])->name('vehicles.documents.store');
   Route::delete('vehicles/{vehicle}/documents/{doc}', [VehicleController::class, 'deleteDocument'])->name('vehicles.documents.destroy');
+});
+Route::middleware(['auth'])->group(function () {
+
+  Route::get('/expenses', [ExpenseController::class,'index'])->name('expenses.index');
+  Route::get('/expenses/create', [ExpenseController::class,'create'])->name('expenses.create');
+  Route::post('/expenses', [ExpenseController::class,'store'])->name('expenses.store');
+
+  // APIs dashboard
+  Route::get('/expenses/api/metrics', [ExpenseController::class,'apiMetrics'])->name('expenses.api.metrics');
+  Route::get('/expenses/api/list',    [ExpenseController::class,'apiList'])->name('expenses.api.list');
+
+  // Movimientos
+  Route::post('/expenses/movements/allocation', [ExpenseController::class,'storeAllocation'])
+    ->name('expenses.movement.allocation.store');
+
+  Route::post('/expenses/movements/disbursement/direct', [ExpenseController::class,'storeDisbursementDirect'])
+    ->name('expenses.movement.disbursement.direct');
+
+  Route::post('/expenses/movements/disbursement/qr/start', [ExpenseController::class,'startDisbursementQr'])
+    ->name('expenses.movement.disbursement.qr.start');
+
+  Route::get('/expenses/movements/qr/{token}', [ExpenseController::class,'showMovementQrForm'])
+    ->name('expenses.movements.qr.show');
+
+  Route::post('/expenses/movements/qr/{token}', [ExpenseController::class,'ackMovementWithQr'])
+    ->name('expenses.movements.qr.ack');
+
+  Route::get('/expenses/movements/qr/status/{token}', [ExpenseController::class,'movementQrStatus']);
+
+  Route::post('/expenses/movements/return', [ExpenseController::class,'storeReturn'])
+    ->name('expenses.movement.return.store');
 });

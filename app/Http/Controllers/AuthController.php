@@ -22,15 +22,11 @@ class AuthController extends Controller
     /** ===== VISTAS ===== */
     public function showLogin()
     {
-        // Un solo login para TODOS
         return view('auth.login');
     }
 
     public function showRegister()
     {
-        // Un solo formulario de registro (tu vista interna existente)
-        // Por defecto el registro será de CLIENTE; con el botón del footer (hidden input)
-        // se podrá alternar a "interno" sin cambiar de vista.
         return view('auth.register');
     }
 
@@ -47,9 +43,8 @@ class AuthController extends Controller
             'password' => ['required', 'string'],
         ];
         $messages = [
-            'required'     => 'El campo :attribute es obligatorio.',
-            'email'        => 'El campo :attribute debe ser un correo válido.',
-            'password.min' => 'La contraseña debe tener al menos :min caracteres.',
+            'required' => 'El campo :attribute es obligatorio.',
+            'email'    => 'El campo :attribute debe ser un correo válido.',
         ];
         $attributes = ['email' => 'correo', 'password' => 'contraseña'];
 
@@ -60,41 +55,42 @@ class AuthController extends Controller
         }
 
         $request->session()->regenerate();
+
         /** @var \App\Models\User $user */
         $user = $request->user();
 
-        // 1) Verificación por CÓDIGO (OTP) para TODOS antes de seguir
+        // 1) OTP para TODOS antes de seguir (si aún no verifica email)
         if (!$user->hasVerifiedEmail()) {
             if (!$this->otpIsActive($user)) {
                 $this->sendOtp($user);
             }
-            return redirect()->route('verification.code.show')
+            return redirect()
+                ->route('verification.code.show')
                 ->with('status', 'Te enviamos un código de verificación a tu correo.');
         }
 
         // 2) Ramas por tipo de usuario
         if (method_exists($user, 'hasRole') && $user->hasRole('cliente_web')) {
-            // Clientes: NO requieren aprobación de admin
             return redirect()->intended(route('customer.welcome'));
         }
 
-        // Personal interno: requiere aprobación del admin
+        // Personal interno: requiere aprobación admin
         if (!method_exists($user, 'isApproved') || !$user->isApproved()) {
             Auth::logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
 
-            return redirect()->route('login')
+            return redirect()
+                ->route('login')
                 ->withErrors(['email' => 'Tu cuenta está pendiente de aprobación por un administrador.']);
         }
 
         return redirect()->intended(route('dashboard'));
     }
 
-    /** ===== REGISTRO ÚNICO (misma vista). Cliente por defecto; Interno con botón ===== */
+    /** ===== REGISTRO ÚNICO ===== */
     public function register(Request $request)
     {
-        // Si en el form viene el hidden "registro_tipo=interno", tratamos como interno; si no, cliente.
         $isInternal = in_array(
             strtolower((string) $request->input('registro_tipo', 'cliente')),
             ['interno', 'internal', 'staff'],
@@ -115,8 +111,10 @@ class AuthController extends Controller
             'confirmed'  => 'La confirmación de :attribute no coincide.',
         ];
         $attributes = [
-            'name' => 'nombre', 'email' => 'correo',
-            'password' => 'contraseña', 'password_confirmation' => 'confirmación de contraseña',
+            'name' => 'nombre',
+            'email' => 'correo',
+            'password' => 'contraseña',
+            'password_confirmation' => 'confirmación de contraseña',
         ];
 
         $data = $request->validate($rules, $messages, $attributes);
@@ -125,24 +123,23 @@ class AuthController extends Controller
             'name'     => $data['name'],
             'email'    => $data['email'],
             'password' => Hash::make($data['password']),
-            'status'   => $isInternal ? 'pending' : 'approved', // interno=pendiente; cliente=aprobado
+            'status'   => $isInternal ? 'pending' : 'approved',
         ]);
 
-        // Roles por defecto
         if (method_exists($user, 'assignRole')) {
             if ($isInternal) {
-                $user->assignRole('user');        // personal interno base
+                $user->assignRole('user');
             } else {
-                $user->assignRole('cliente_web');  // cliente web
+                $user->assignRole('cliente_web');
             }
         }
 
         Auth::login($user);
 
-        // Enviar CÓDIGO OTP por correo
         $this->sendOtp($user);
 
-        return redirect()->route('verification.code.show')
+        return redirect()
+            ->route('verification.code.show')
             ->with('status', $isInternal
                 ? 'Te enviamos un código. Tras verificar, un admin aprobará tu acceso interno.'
                 : 'Te enviamos un código para verificar tu cuenta de cliente.');
@@ -157,15 +154,15 @@ class AuthController extends Controller
         return redirect()->route('login');
     }
 
-    /** ====== Verificación por CÓDIGO (OTP) ====== */
+    /** ====== OTP ====== */
 
-    /** Muestra el formulario para capturar el código */
+    /** Form para capturar código */
     public function verifyNotice()
     {
         return view('auth.verify-code');
     }
 
-    /** Verifica el código ingresado */
+    /** Verifica el código */
     public function verifyCode(Request $request)
     {
         $request->validate([
@@ -189,19 +186,16 @@ class AuthController extends Controller
             return back()->withErrors(['code' => 'Tu código expiró. Pide uno nuevo.']);
         }
 
-        // Límite de intentos
         if ((int) $user->email_verification_attempts >= $this->otpMaxAttempts) {
             return back()->withErrors(['code' => 'Demasiados intentos. Solicita un nuevo código.']);
         }
 
-        // Hash::check contra el hash guardado
         $plain = (string) $request->input('code');
         if (!Hash::check($plain, (string) $user->email_verification_code_hash)) {
             $user->increment('email_verification_attempts');
             return back()->withErrors(['code' => 'Código incorrecto.']);
         }
 
-        // OK → marcar email verificado y limpiar campos del OTP
         $user->forceFill([
             'email_verified_at'               => now(),
             'email_verification_code_hash'    => null,
@@ -213,7 +207,7 @@ class AuthController extends Controller
         return $this->postVerifyRedirect($user);
     }
 
-    /** Reenvía un nuevo código, con throttle básico */
+    /** Reenvía OTP */
     public function resendVerificationCode(Request $request)
     {
         /** @var User $user */
@@ -227,7 +221,7 @@ class AuthController extends Controller
             return $this->postVerifyRedirect($user);
         }
 
-        // throttle simple: no más de 1 cada 60s
+        // throttle simple: 1 cada 60s
         if ($user->email_verification_code_sent_at && now()->diffInSeconds($user->email_verification_code_sent_at) < 60) {
             $remaining = 60 - now()->diffInSeconds($user->email_verification_code_sent_at);
             return back()->withErrors(['code' => "Espera {$remaining}s para solicitar otro código."]);
@@ -238,31 +232,27 @@ class AuthController extends Controller
         return back()->with('status', 'Te enviamos un nuevo código a tu correo.');
     }
 
-    /** ===== Helpers de OTP y redirecciones ===== */
+    /** ===== Helpers ===== */
 
     private function postVerifyRedirect(User $user)
     {
-        // Tras verificar correo:
         if (method_exists($user, 'hasRole') && $user->hasRole('cliente_web')) {
-            // Cliente web: queda dentro
-            return redirect()->route('customer.welcome')
-                ->with('status', 'Correo verificado. ¡Bienvenido!');
+            return redirect()->route('customer.welcome')->with('status', 'Correo verificado. ¡Bienvenido!');
         }
 
-        // Personal interno: aún requiere aprobación -> cerrar sesión y avisar
+        // Personal interno: aún requiere aprobación
         Auth::logout();
         session()->invalidate();
         session()->regenerateToken();
+
         return redirect()->route('login')
             ->with('status', 'Correo verificado. Tu cuenta está pendiente de aprobación por un administrador.');
     }
 
     private function sendOtp(User $user, bool $isResend = false): void
     {
-        // Genera código de 6 dígitos
         $code = (string) random_int(100000, 999999);
 
-        // Guarda hash y expiración
         $user->forceFill([
             'email_verification_code_hash'    => Hash::make($code),
             'email_verification_expires_at'   => now()->addMinutes($this->otpTtlMinutes),
@@ -270,14 +260,12 @@ class AuthController extends Controller
             'email_verification_attempts'     => 0,
         ])->save();
 
-        // Envía correo
         try {
             Mail::to($user->email)->send(new VerificationCodeMail($code, $this->otpTtlMinutes));
         } catch (\Throwable $e) {
             Log::error('Error enviando OTP por correo: '.$e->getMessage());
         }
 
-        // DEBUG local (no en producción)
         if (config('app.env') !== 'production') {
             Log::info("OTP para {$user->email}: {$code}");
         }

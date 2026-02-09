@@ -91,11 +91,41 @@
   let stopMarkers=[];
   let poly=null;
 
+  // ✅ Evita que el mapa “brinque” en cada poll
+  let didFit = false;
+
   function toNum(v){ const n=Number(v); return Number.isFinite(n)?n:null; }
   function isValid(lat,lng){
     if(lat==null||lng==null) return false;
     if(Math.abs(lat)<0.000001 && Math.abs(lng)<0.000001) return false;
     return Math.abs(lat)<=90 && Math.abs(lng)<=180;
+  }
+
+  // ✅ Orden consistente (usa sequence_index si existe)
+  function sortStops(stops){
+    return (stops||[]).slice().sort((a,b)=>
+      (a.sequence_index ?? 999999) - (b.sequence_index ?? 999999) || ((a.id||0) - (b.id||0))
+    );
+  }
+
+  function numForStop(s, fallback){
+    const n = (s && s.sequence_index != null && Number.isFinite(Number(s.sequence_index)))
+      ? Number(s.sequence_index)
+      : fallback;
+    return n;
+  }
+
+  function fmtTimeAgo(iso){
+    if(!iso) return '';
+    const t = new Date(iso).getTime();
+    if(!Number.isFinite(t)) return '';
+    const diff = Math.max(0, Date.now() - t);
+    const sec = Math.round(diff/1000);
+    if(sec < 60) return `hace ${sec}s`;
+    const min = Math.round(sec/60);
+    if(min < 60) return `hace ${min}m`;
+    const hr = Math.round(min/60);
+    return `hace ${hr}h`;
   }
 
   function initMap(){
@@ -106,10 +136,14 @@
   }
 
   function renderStops(stops){
+    stops = sortStops(stops);
+
     const ul=document.getElementById('stopsList');
     ul.innerHTML='';
 
     stops.forEach((s, idx)=>{
+      const n = numForStop(s, idx+1);
+
       const badge = s.status==='done'
         ? `<span class="badge done">hecho</span>`
         : `<span class="badge pending">pendiente</span>`;
@@ -120,7 +154,7 @@
       ul.insertAdjacentHTML('beforeend', `
         <li class="rowx">
           <div>
-            <div style="font-weight:900">#${idx+1}. ${s.name || 'Punto'}</div>
+            <div style="font-weight:900">#${n}. ${s.name || 'Punto'}</div>
             <div class="muted small">${coord}</div>
             ${s.done_at ? `<div class="muted small">done_at: ${s.done_at}</div>` : ``}
           </div>
@@ -136,27 +170,36 @@
   }
 
   function renderMap(stops, driver){
+    stops = sortStops(stops);
+
     clearStopMarkers();
     const pts=[];
 
     (stops||[]).forEach((s, i)=>{
+      const n = numForStop(s, i+1);
+
       const lat=toNum(s.lat), lng=toNum(s.lng);
       if(!isValid(lat,lng)) return;
       pts.push([lat,lng]);
 
-      const html = `<div style="background:#2563eb;color:#fff;font-weight:900;font-size:.78rem;border-radius:10px 10px 2px 10px;padding:.15rem .45rem;border:2px solid #fff;box-shadow:0 6px 14px rgba(2,8,23,.25)">${i+1}</div>`;
+      const html = `<div style="background:#2563eb;color:#fff;font-weight:900;font-size:.78rem;border-radius:10px 10px 2px 10px;padding:.15rem .45rem;border:2px solid #fff;box-shadow:0 6px 14px rgba(2,8,23,.25)">${n}</div>`;
       const icon = L.divIcon({ html, className:'', iconAnchor:[10,18] });
 
       const m=L.marker([lat,lng],{icon}).addTo(map);
-      m.bindPopup((s.name||'Punto') + (s.status==='done'?' • hecho':''));
+      m.bindPopup((s.name||'Punto') + (s.status==='done'?' • hecho':''طور));
       stopMarkers.push(m);
     });
 
     const dlat=toNum(driver?.last_position?.lat), dlng=toNum(driver?.last_position?.lng);
+    const cap = driver?.last_position?.captured_at || null;
+
     if(isValid(dlat,dlng)){
       if(driverMarker) map.removeLayer(driverMarker);
       driverMarker = L.circleMarker([dlat,dlng],{ radius:9, color:'#111827', fillColor:'#22c55e', fillOpacity:.9 }).addTo(map);
-      driverMarker.bindTooltip(`Chofer • ${dlat.toFixed(5)}, ${dlng.toFixed(5)}`,{permanent:false});
+
+      const ago = fmtTimeAgo(cap);
+      const tip = `Chofer • ${dlat.toFixed(5)}, ${dlng.toFixed(5)}${ago ? ' • ' + ago : ''}`;
+      driverMarker.bindTooltip(tip,{permanent:false});
     }
 
     if(poly) { try{ map.removeLayer(poly); }catch(e){} poly=null; }
@@ -164,12 +207,14 @@
       poly = L.polyline(pts, { weight:4, opacity:.7 }).addTo(map);
     }
 
-    // fit bounds
+    // ✅ fitBounds SOLO la primera vez (evita brincos)
     const layers=[];
     if(poly) layers.push(poly);
     if(driverMarker) layers.push(driverMarker);
     stopMarkers.forEach(m=>layers.push(m));
-    if(layers.length){
+
+    if(!didFit && layers.length){
+      didFit = true;
       try{
         const grp=L.featureGroup(layers);
         map.fitBounds(grp.getBounds().pad(0.18));
