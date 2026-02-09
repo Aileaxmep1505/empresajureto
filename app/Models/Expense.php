@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
 class Expense extends Model
@@ -31,12 +32,12 @@ class Expense extends Model
         'status',
         'tags',
 
-        // Evidencias (✅ asegúrate de tener estas columnas en DB)
+        // Evidencias (si existen en DB)
         'attachment_path',
         'attachment_name',
         'attachment_mime',
         'attachment_size',
-        'evidence_paths', // JSON/array (múltiples evidencias)
+        'evidence_paths',
 
         // Firmas / aprobación / recibo
         'manager_signature_path',
@@ -45,14 +46,14 @@ class Expense extends Model
         'nip_approved_at',
         'pdf_receipt_path',
 
-        // (Opcionales si existen en tu tabla)
+        // Otros campos que sí se ven en tu SELECT
         'entry_kind',
         'expense_type',
         'vehicle_category',
         'payroll_category',
         'payroll_period',
 
-        // Movimientos (si existen en tu tabla)
+        // Movimientos (según tu SELECT)
         'manager_id',
         'counterparty_id',
         'movement_self_receive',
@@ -63,19 +64,26 @@ class Expense extends Model
     ];
 
     protected $casts = [
-        'expense_date'       => 'date',
-        'performed_at'       => 'datetime',
-        'amount'             => 'decimal:2',
-        'attachment_size'    => 'integer',
-        'nip_approved_at'    => 'datetime',
-        'qr_expires_at'      => 'datetime',
-        'acknowledged_at'    => 'datetime',
-        'created_at'         => 'datetime',
-        'updated_at'         => 'datetime',
-
-        // ✅ Para evidencias múltiples guardadas como JSON
-        'evidence_paths'     => 'array',
+        'expense_date'    => 'date',
+        'performed_at'    => 'datetime',
+        'amount'          => 'decimal:2',
+        'attachment_size' => 'integer',
+        'nip_approved_at' => 'datetime',
+        'qr_expires_at'   => 'datetime',
+        'acknowledged_at' => 'datetime',
+        'created_at'      => 'datetime',
+        'updated_at'      => 'datetime',
     ];
+
+    public function __construct(array $attributes = [])
+    {
+        parent::__construct($attributes);
+
+        // ✅ SOLO casteamos evidence_paths a array si la columna existe
+        if (Schema::hasColumn($this->table, 'evidence_paths')) {
+            $this->casts['evidence_paths'] = 'array';
+        }
+    }
 
     /* ---------------- Relaciones ---------------- */
 
@@ -108,6 +116,8 @@ class Expense extends Model
 
     public function getPdfUrlAttribute(): ?string
     {
+        if (!Schema::hasColumn($this->table, 'pdf_receipt_path')) return null;
+
         return $this->pdf_receipt_path
             ? asset('storage/' . ltrim($this->pdf_receipt_path, '/'))
             : null;
@@ -115,6 +125,8 @@ class Expense extends Model
 
     public function getManagerSignatureUrlAttribute(): ?string
     {
+        if (!Schema::hasColumn($this->table, 'manager_signature_path')) return null;
+
         return $this->manager_signature_path
             ? asset('storage/' . ltrim($this->manager_signature_path, '/'))
             : null;
@@ -122,34 +134,50 @@ class Expense extends Model
 
     public function getCounterpartySignatureUrlAttribute(): ?string
     {
+        if (!Schema::hasColumn($this->table, 'counterparty_signature_path')) return null;
+
         return $this->counterparty_signature_path
             ? asset('storage/' . ltrim($this->counterparty_signature_path, '/'))
             : null;
     }
 
     /**
-     * Evidencia principal (compatibilidad):
-     * - Si tienes attachment_path, devuelve su URL
-     * - Si no, intenta con evidence_paths[0]
+     * Evidencia principal (compatibilidad).
+     * - Si existe attachment_path, usa esa.
+     * - Si no, intenta evidence_paths[0] si existe la columna.
      */
     public function getEvidenceUrlAttribute(): ?string
     {
-        if (!empty($this->attachment_path)) {
+        // attachment_path
+        if (Schema::hasColumn($this->table, 'attachment_path') && !empty($this->attachment_path)) {
             return Storage::disk('public')->url($this->attachment_path);
         }
 
-        $first = $this->evidence_paths[0] ?? null;
-        return $first ? Storage::disk('public')->url($first) : null;
+        // evidence_paths
+        if (Schema::hasColumn($this->table, 'evidence_paths')) {
+            $arr = is_array($this->evidence_paths) ? $this->evidence_paths : [];
+            $first = $arr[0] ?? null;
+            return $first ? Storage::disk('public')->url($first) : null;
+        }
+
+        return null;
     }
 
     public function getHasEvidenceAttribute(): bool
     {
-        if (!empty($this->attachment_path)) return true;
-        return is_array($this->evidence_paths) && count($this->evidence_paths) > 0;
+        if (Schema::hasColumn($this->table, 'attachment_path') && !empty($this->attachment_path)) return true;
+
+        if (Schema::hasColumn($this->table, 'evidence_paths')) {
+            $arr = is_array($this->evidence_paths) ? $this->evidence_paths : [];
+            return count($arr) > 0;
+        }
+
+        return false;
     }
 
     public function getHasReceiptAttribute(): bool
     {
+        if (!Schema::hasColumn($this->table, 'pdf_receipt_path')) return false;
         return (bool) $this->pdf_receipt_path;
     }
 
@@ -161,11 +189,17 @@ class Expense extends Model
     {
         $paths = [];
 
-        if (is_array($this->evidence_paths)) {
-            foreach ($this->evidence_paths as $p) {
+        if (Schema::hasColumn($this->table, 'evidence_paths')) {
+            $arr = is_array($this->evidence_paths) ? $this->evidence_paths : [];
+            foreach ($arr as $p) {
                 if (is_string($p) && trim($p) !== '') $paths[] = trim($p);
             }
         }
 
-        if (!empty($this->attachment_path)) {
-    
+        if (Schema::hasColumn($this->table, 'attachment_path') && !empty($this->attachment_path)) {
+            $paths[] = (string) $this->attachment_path;
+        }
+
+        return array_values(array_unique(array_filter($paths)));
+    }
+}
