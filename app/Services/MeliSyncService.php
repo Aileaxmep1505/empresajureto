@@ -15,6 +15,44 @@ class MeliSyncService
     }
 
     /**
+     * Construye family_name requerido por algunos flujos (User Products / validaciones nuevas).
+     * Reglas:
+     * - Debe ir en el ROOT del body (no en attributes).
+     * - No puede ir vacío.
+     * - Recomendable <= 60 chars.
+     */
+    private function buildFamilyName(CatalogItem $item): string
+    {
+        $name  = trim((string) ($item->name ?? ''));
+        $brand = trim((string) ($item->brand_name ?? ''));
+        $model = trim((string) ($item->model_name ?? ''));
+
+        // Evitar duplicados si ya vienen incluidos en name
+        $parts = [];
+        if ($name !== '')  $parts[] = $name;
+
+        $nameLower = mb_strtolower($name);
+        if ($brand !== '' && !str_contains($nameLower, mb_strtolower($brand))) {
+            $parts[] = $brand;
+        }
+        if ($model !== '' && !str_contains($nameLower, mb_strtolower($model))) {
+            $parts[] = $model;
+        }
+
+        $family = trim(preg_replace('/\s+/', ' ', implode(' ', $parts)));
+
+        // Fallbacks duros: jamás vacío
+        if ($family === '') {
+            $family = $name !== '' ? $name : 'Producto';
+        }
+
+        // Limitar tamaño (ML suele ser estricto)
+        $family = mb_substr($family, 0, 60);
+
+        return $family;
+    }
+
+    /**
      * Publica o actualiza en ML y marca campos en DB.
      * $options:
      *  - 'activate'           => bool   Fuerza activar (status=active) si es posible
@@ -119,10 +157,13 @@ class MeliSyncService
             $price = 5.00;
         }
 
+        // OJO: estabas forzando qty=1 siempre; lo dejo igual para no romper tu lógica.
+        // Si quieres, cámbialo a max(1, (int)($item->stock ?? 1))
         $qty = max(1, (int) 1);
 
         $payload = [
             'title'              => $this->buildMeliTitle($item),
+            'family_name'        => $this->buildFamilyName($item), // ✅ FIX: requerido por ML en algunos flujos
             'category_id'        => $categoryId,
             'price'              => $price,
             'currency_id'        => 'MXN',
@@ -138,11 +179,12 @@ class MeliSyncService
                 : ['mode' => 'custom'],
         ];
 
-        // Log para debugging
+        // Log para debugging (incluye family_name)
         Log::info('ML publish payload', [
             'catalog_item_id' => $item->id,
             'meli_item_id'    => $item->meli_item_id,
             'title'           => $payload['title'],
+            'family_name'     => $payload['family_name'] ?? null,
             'category_id'     => $payload['category_id'] ?? null,
         ]);
 
@@ -176,6 +218,8 @@ class MeliSyncService
                 $update['description'] // descripción se actualiza con endpoint dedicado
             );
 
+            // Nota: mantenemos family_name también en update.
+            // Si ML lo ignora, no pasa nada; si lo exige, ya está.
             if (!empty($options['activate'])) {
                 $update['status'] = 'active';
             }
@@ -460,6 +504,12 @@ class MeliSyncService
             // Detección especial de GTIN requerido
             if ($msg && stripos($msg, 'gtin') !== false && stripos($msg, 'required') !== false) {
                 $lines[] = 'Esta categoría exige el código de barras (GTIN) del producto. Captura el GTIN en el campo "GTIN / Código de barras" y vuelve a intentar publicar.';
+                continue;
+            }
+
+            // Detección especial de family_name requerido (por si vuelve)
+            if ($msg && stripos($msg, 'family_name') !== false) {
+                $lines[] = 'Esta cuenta/categoría exige "family_name". El sistema lo genera automáticamente; si persiste, revisa que el servicio esté enviando el campo en el body.';
                 continue;
             }
 

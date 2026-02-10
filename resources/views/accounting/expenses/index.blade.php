@@ -223,7 +223,7 @@
     {{-- =================== TAB DASHBOARD =================== --}}
     <div class="tab-pane fade show active" id="pane-dash" role="tabpanel" tabindex="0">
 
-      {{-- ✅ KPIs (como tu screenshot: valor + % del total) --}}
+      {{-- KPIs --}}
       <div class="metrics-grid">
         <div class="card metric-card">
           <div class="metric-title">
@@ -262,7 +262,7 @@
         </div>
       </div>
 
-      {{-- ✅ CHART (como screenshot: título + “Últimos 14 días ...” + footer últimos 7 días) --}}
+      {{-- Tendencia --}}
       <div class="card mt-3">
         <div class="card-header d-flex align-items-center justify-content-between">
           <span><i class="bi bi-bar-chart-line me-2"></i>Tendencia de gasto (por día)</span>
@@ -279,7 +279,7 @@
         </div>
       </div>
 
-      {{-- ✅ Gráfica circular (Distribución por DETALLE) --}}
+      {{-- Distribución por detalle --}}
       <div class="card mt-3">
         <div class="card-header d-flex align-items-center justify-content-between">
           <span>Distribución por detalle</span>
@@ -560,7 +560,7 @@
     total: 0,
     rows: [],
     timer: null,
-    lastChartRows: null, // ✅ para footer “últimos 7 días”
+    lastChartRows: null, // para footer “últimos 7 días”
   };
 
   function esc(s){
@@ -644,6 +644,22 @@
     return p;
   }
 
+  // Helpers robustos para chart
+  function num(v){
+    if (v === null || v === undefined || v === '') return 0;
+    if (typeof v === 'number') return v;
+    const s = String(v).trim();
+    const clean = s.replace(/[^0-9.\-]+/g, '');
+    const n = parseFloat(clean);
+    return Number.isFinite(n) ? n : 0;
+  }
+  function pick(obj, keys, fallback=null){
+    for(const k of keys){
+      if(obj && obj[k] !== undefined && obj[k] !== null && obj[k] !== '') return obj[k];
+    }
+    return fallback;
+  }
+
   // Bar chart
   const chartEl = document.getElementById('chart');
   const chart = chartEl ? new Chart(chartEl, {
@@ -713,7 +729,6 @@
       return;
     }
 
-    // rows: [{date, paid, pending, canceled}] ordenado por fecha asc (normalmente)
     const values = rows.map(r => Number(r.paid||0) + Number(r.pending||0) + Number(r.canceled||0));
     const last7 = values.slice(-7).reduce((a,b)=>a+b,0);
     const prev7 = values.slice(-14, -7).reduce((a,b)=>a+b,0);
@@ -725,7 +740,6 @@
       diffPct = ((last7 - prev7) / prev7) * 100;
       arrow = diffPct > 0 ? '↗' : (diffPct < 0 ? '↘' : '→');
     } else {
-      // si no hubo prev7, mantenemos 100% si hubo gasto, o 0 si no
       diffPct = last7 > 0 ? 100 : 0;
       arrow = last7 > 0 ? '↗' : '→';
     }
@@ -763,61 +777,74 @@
     setPercentLine('kPendingPct', pending, total);
     setPercentLine('kCanceledPct', canceled, total);
 
-    // también actualiza los chips del listado
     $('kpiCount').textContent = String(data.count ?? 0);
     $('kpiSum').textContent = money(total, currency);
 
-    // footer de tendencia: si ya tenemos chart rows, actualiza
     if(state.lastChartRows) setTrend7FromChartRows(state.lastChartRows, currency);
 
     return data;
   }
-// ✅ Convierte "$90,212.00" / "90,212.00" / "90212.00" a número real
-function num(v){
-  if (v === null || v === undefined || v === '') return 0;
-  if (typeof v === 'number') return v;
-  const s = String(v).trim();
-  // quita $ , espacios y todo lo que no sea dígito . -
-  const clean = s.replace(/[^0-9.\-]+/g, '');
-  const n = parseFloat(clean);
-  return Number.isFinite(n) ? n : 0;
-}
 
-async function loadChart(){
-  if(!chart) return;
+  // ✅ Chart robusto: soporta [] o {data:[]}, claves distintas y fallback desde state.rows
+  async function loadChart(){
+    if(!chart) return;
 
-  // si no hay ruta chart, no rompe
-  if(!API_CHART){
-    chart.data.labels = [];
-    chart.data.datasets.forEach(d=>d.data=[]);
+    let rows = [];
+
+    // 1) Intenta endpoint chart si existe
+    if(API_CHART){
+      const url = API_CHART + '?' + params({page:null, per_page:null}).toString();
+      const res = await fetch(url, {headers:{'Accept':'application/json'}});
+      if(res.ok){
+        const json = await res.json().catch(()=>null);
+        rows = Array.isArray(json) ? json : (Array.isArray(json?.data) ? json.data : []);
+      }
+    }
+
+    // 2) Fallback si viene vacío: arma por día desde la lista ya cargada
+    if(!Array.isArray(rows) || rows.length === 0){
+      const src = Array.isArray(state.rows) ? state.rows : [];
+      const map = new Map(); // date -> {paid,pending,canceled}
+
+      for(const e of src){
+        const d = String(e.expense_date || e.performed_at || '').slice(0,10);
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(d)) continue;
+
+        const st = String(e.status || 'paid').toLowerCase();
+        const amt = num(e.amount);
+
+        if(!map.has(d)) map.set(d, {paid:0, pending:0, canceled:0});
+        const row = map.get(d);
+
+        if(st === 'pending') row.pending += amt;
+        else if(st === 'canceled' || st === 'cancelled') row.canceled += amt;
+        else row.paid += amt;
+      }
+
+      rows = Array.from(map.entries())
+        .sort((a,b)=> a[0].localeCompare(b[0]))
+        .map(([date, v]) => ({ date, ...v }));
+    }
+
+    // 3) Normaliza keys por si backend usa otros nombres
+    const labels = rows.map(r => String(pick(r, ['date','day','label','x'], '')).slice(0,10));
+    const paid    = rows.map(r => num(pick(r, ['paid','paid_sum','paid_total','sum_paid'], 0)));
+    const pending = rows.map(r => num(pick(r, ['pending','pending_sum','pending_total','sum_pending'], 0)));
+    const canceled= rows.map(r => num(pick(r, ['canceled','cancelled','canceled_sum','sum_canceled'], 0)));
+
+    state.lastChartRows = rows.map((r, i)=>({
+      date: labels[i],
+      paid: paid[i],
+      pending: pending[i],
+      canceled: canceled[i],
+    }));
+
+    chart.data.labels = labels;
+    chart.data.datasets[0].data = paid;
+    chart.data.datasets[1].data = pending;
+    chart.data.datasets[2].data = canceled;
     chart.update();
-    state.lastChartRows = null;
-    return;
   }
-
-  const url = API_CHART + '?' + params({page:null, per_page:null}).toString();
-  const res = await fetch(url, {headers:{'Accept':'application/json'}});
-  if(!res.ok) return;
-
-  const rows = await res.json().catch(()=>[]);
-  if(!Array.isArray(rows) || !rows.length){
-    chart.data.labels = [];
-    chart.data.datasets.forEach(d=>d.data=[]);
-    chart.update();
-    state.lastChartRows = null;
-    return;
-  }
-
-  state.lastChartRows = rows;
-
-  chart.data.labels = rows.map(r => r.date || r.day || r.label || '');
-  chart.data.datasets[0].data = rows.map(r => num(r.paid));
-  chart.data.datasets[1].data = rows.map(r => num(r.pending));
-  chart.data.datasets[2].data = rows.map(r => num(r.canceled));
-
-  chart.update();
-}
-
 
   function openEvidence(e){
     const modal = new bootstrap.Modal(document.getElementById('evidenceModal'));
@@ -1145,9 +1172,10 @@ async function loadChart(){
 
   async function refreshAll(){
     try{
-      await Promise.all([loadChart(), loadMetrics(), loadList()]);
-      // footer “últimos 7 días” con el currency actual (de metrics)
-      // loadMetrics ya lo vuelve a setear si existe state.lastChartRows
+      // ✅ orden: primero lista (para fallback), luego chart, luego metrics (para % y footer)
+      await loadList();
+      await loadChart();
+      await loadMetrics();
     }catch(e){
       console.error(e);
       warn(true, 'Error al refrescar.');
