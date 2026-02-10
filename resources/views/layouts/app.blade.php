@@ -128,8 +128,11 @@
     }
     .chip:hover{ transform: translateY(-1px); }
 
+    /* ✅ IMPORTANTE:
+       Cambiamos .nav a .side-nav para que Bootstrap NO lo pise (Bootstrap trae .nav). */
+
     /* Navegación con scroll */
-    .nav{
+    .side-nav{
       position:relative;
       display:flex; flex-direction:column; gap:4px;
       padding:10px 10px 12px;
@@ -141,7 +144,7 @@
       -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade-h), #000 calc(100% - var(--fade-h)), transparent 100%);
               mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade-h), #000 calc(100% - var(--fade-h)), transparent 100%);
     }
-    .nav::-webkit-scrollbar{ display:none }
+    .side-nav::-webkit-scrollbar{ display:none }
 
     .nav__link{
       display:flex; gap:10px; align-items:center; padding:12px 12px;
@@ -151,19 +154,19 @@
     .nav__link:hover{ background:rgba(79,134,255,.12); color:var(--primary-600); transform: translateX(2px); }
     .nav__link.is-active{ background:rgba(79,134,255,.18); color:var(--primary-600); font-weight:600; }
 
-    .nav .nav__group { margin: 4px 0; }
-    .nav .nav__group > summary {
+    .side-nav .nav__group { margin: 4px 0; }
+    .side-nav .nav__group > summary {
       list-style: none;
       display: flex; align-items: center; gap: 10px;
       padding: 10px 12px; border-radius: 10px;
       color: inherit; cursor: pointer; user-select: none;
       transition: background .18s ease, color .18s ease, transform .08s ease;
     }
-    .nav .nav__group > summary::-webkit-details-marker{ display:none }
-    .nav .nav__group > summary:hover{ background: rgba(79,134,255,.12); color: var(--primary-600); transform: translateX(1px); }
-    .nav .nav__group[open] > summary { background: rgba(79,134,255,.12); }
-    .nav .nav__chev { margin-left: auto; transition: transform .2s ease; }
-    .nav .nav__group[open] .nav__chev { transform: rotate(90deg); }
+    .side-nav .nav__group > summary::-webkit-details-marker{ display:none }
+    .side-nav .nav__group > summary:hover{ background: rgba(79,134,255,.12); color: var(--primary-600); transform: translateX(1px); }
+    .side-nav .nav__group[open] > summary { background: rgba(79,134,255,.12); }
+    .side-nav .nav__chev { margin-left: auto; transition: transform .2s ease; }
+    .side-nav .nav__group[open] .nav__chev { transform: rotate(90deg); }
 
     .nav__submenu{
       display:flex; flex-direction:column; gap:4px; padding:6px 0 6px 36px;
@@ -394,7 +397,8 @@
       </button>
     </div>
 
-    <nav class="nav" id="sidebarNav">
+    {{-- ✅ CAMBIO: nav -> side-nav para evitar choque con Bootstrap --}}
+    <nav class="side-nav" id="sidebarNav">
       <!-- Dashboard -->
       <a href="{{ route('dashboard') }}" class="nav__link {{ request()->routeIs('dashboard') ? 'is-active':'' }}">
         <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
@@ -561,7 +565,7 @@
           <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
             <rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h5M8 15h8"/>
           </svg>
-          <span>Publicaciones</span>
+          <span>Remisiones, Facturas</span>
           <svg class="nav__chev" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
         </summary>
         <div class="nav__submenu">
@@ -685,6 +689,7 @@
             <path d="M9 6l6 6-6 6"/>
           </svg>
         </summary>
+
         <div class="nav__submenu">
           <a href="{{ route('licitaciones.index') }}"
              class="nav__sublink {{ request()->routeIs('licitaciones.index') || request()->routeIs('licitaciones.show') ? 'is-active':'' }}">
@@ -812,6 +817,7 @@
             <path d="M9 6l6 6-6 6"/>
           </svg>
         </summary>
+
         <div class="nav__submenu">
           <a href="{{ route('admin.wms.home') }}" class="nav__sublink {{ request()->routeIs('admin.wms.home') ? 'is-active':'' }}">
             <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
