@@ -27,7 +27,6 @@ use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use App\Services\AmazonSpApiListingService;
 
-
 class CatalogItemController extends Controller implements HasMiddleware
 {
     public static function middleware(): array
@@ -773,11 +772,6 @@ class CatalogItemController extends Controller implements HasMiddleware
         ]);
     }
 
-    /* ===============================================
-     |  IA: Captura desde archivos / imágenes / PDF
-     |  POST /admin/catalog/ai-from-upload
-     |  => soporta múltiples productos (items[])
-     ================================================*/
     public function aiFromUpload(Request $request)
     {
         $request->validate([
@@ -1162,65 +1156,186 @@ TXT;
 
         return back()->with('ok', 'Stock actualizado correctamente.');
     }
+
+    /* =========================================================
+     |  AMAZON (ACTUALIZADO) - SIN TOCAR NADA DE MERCADO LIBRE
+     |  - Valida SKU (usa amazon_sku si existe, si no sku)
+     |  - Pasa marketplace_id a service (MX por default)
+     |  - Guarda tracking en campos si existen (sin romper si no existen)
+     |  - amazonView abre ASIN si ya está, si no busca por SKU
+     ========================================================= */
+
+    private function amazonSku(CatalogItem $item): ?string
+    {
+        // Si tienes amazon_sku en tu tabla úsalo, si no, usa sku
+        $sku = null;
+
+        if (isset($item->amazon_sku) && is_string($item->amazon_sku) && trim($item->amazon_sku) !== '') {
+            $sku = trim($item->amazon_sku);
+        } elseif (is_string($item->sku) && trim($item->sku) !== '') {
+            $sku = trim($item->sku);
+        }
+
+        return $sku ?: null;
+    }
+
+    private function amazonMarketplaceId(): string
+    {
+        // Amazon MX marketplace id por default
+        $mp = config('services.amazon_spapi.marketplace_id') ?: env('SPAPI_MARKETPLACE_ID');
+        $mp = is_string($mp) ? trim($mp) : '';
+        return $mp !== '' ? $mp : 'A1AM78C64UM0Y8';
+    }
+
+    private function saveAmazonTrackingSafe(CatalogItem $item, array $res, ?string $status = null): void
+    {
+        try {
+            // Todo esto es "best-effort": si no existen columnas no truena
+            if (isset($item->amazon_synced_at)) {
+                $item->amazon_synced_at = now();
+            }
+
+            if (isset($item->amazon_status)) {
+                $item->amazon_status = $status ?: ($res['status'] ?? ($res['ok'] ? 'ok' : 'error'));
+            }
+
+            if (isset($item->amazon_last_error)) {
+                $item->amazon_last_error = $res['ok'] ? null : ($res['message'] ?? 'Amazon error');
+            }
+
+            if (isset($item->amazon_listing_response) && !empty($res['json'])) {
+                $item->amazon_listing_response = json_encode($res['json']);
+            }
+
+            // Intentar rescatar ASIN si viene en response
+            $asin = $res['asin'] ?? null;
+            if (!$asin && !empty($res['json']) && is_array($res['json'])) {
+                $asin = data_get($res['json'], 'asin')
+                    ?: data_get($res['json'], 'summaries.0.asin')
+                    ?: data_get($res['json'], 'payload.asin')
+                    ?: null;
+            }
+
+            if ($asin && isset($item->amazon_asin)) {
+                $item->amazon_asin = $asin;
+            }
+
+            // Guardar amazon_sku si existe y está vacío
+            $sku = $this->amazonSku($item);
+            if ($sku && isset($item->amazon_sku) && (!is_string($item->amazon_sku) || trim($item->amazon_sku) === '')) {
+                $item->amazon_sku = $sku;
+            }
+
+            $item->save();
+        } catch (\Throwable $e) {
+            Log::warning('CatalogItem@saveAmazonTrackingSafe: no se pudo guardar tracking', [
+                'item_id' => $item->id ?? null,
+                'err'     => $e->getMessage(),
+            ]);
+        }
+    }
+
     public function amazonPublish(CatalogItem $catalogItem, AmazonSpApiListingService $svc)
-{
-    $res = $svc->upsertBySku($catalogItem, [
-        // aquí luego pondremos productType real (por categoría)
-        // 'productType' => 'OFFICE_PRODUCTS',
-    ]);
+    {
+        $sku = $this->amazonSku($catalogItem);
+        if (!$sku) {
+            return back()->with('ok', 'Este producto no tiene SKU. Amazon requiere SKU.');
+        }
 
-    if ($res['ok']) {
-        return back()->with('ok', 'Solicitud enviada a Amazon. Revisa en Seller Central el estado del listing.');
+        $res = $svc->upsertBySku($catalogItem, [
+            // clave para que el service sepa marketplace destino (si tu service lo soporta)
+            'marketplace_id' => $this->amazonMarketplaceId(),
+            // aquí luego pondremos productType real (por categoría)
+            // 'productType' => 'OFFICE_PRODUCTS',
+        ]);
+
+        $this->saveAmazonTrackingSafe($catalogItem, $res, $res['ok'] ? 'submitted' : 'error');
+
+        if ($res['ok']) {
+            return back()->with('ok', 'Solicitud enviada a Amazon. Revisa en Seller Central el estado del listing.');
+        }
+
+        $friendly = $res['message'] ?? 'No se pudo publicar/actualizar en Amazon.';
+        return back()->with('ok', $friendly);
     }
 
-    $friendly = $res['message'] ?? 'No se pudo publicar/actualizar en Amazon.';
-    return back()->with('ok', $friendly);
-}
+    public function amazonView(CatalogItem $catalogItem, AmazonSpApiListingService $svc)
+    {
+        $sku = $this->amazonSku($catalogItem);
+        if (!$sku) {
+            return back()->with('ok', 'Este producto no tiene SKU. Amazon requiere SKU.');
+        }
 
-public function amazonView(CatalogItem $catalogItem, AmazonSpApiListingService $svc)
-{
-    if (!$catalogItem->sku) {
-        return back()->with('ok', 'Este producto no tiene SKU. Amazon requiere SKU.');
+        // Intentar traer el listing primero (para capturar ASIN si existe)
+        $res = $svc->getBySku($catalogItem, [
+            'marketplace_id' => $this->amazonMarketplaceId(),
+        ]);
+
+        $this->saveAmazonTrackingSafe($catalogItem, $res, $res['ok'] ? 'ok' : 'error');
+
+        if (!$res['ok']) {
+            return back()->with('ok', $res['message'] ?? 'No se pudo consultar el listing en Amazon.');
+        }
+
+        // Si ya hay ASIN, abrir directo el producto
+        $asin = (isset($catalogItem->amazon_asin) && is_string($catalogItem->amazon_asin) && trim($catalogItem->amazon_asin) !== '')
+            ? trim($catalogItem->amazon_asin)
+            : null;
+
+        if (!$asin) {
+            $asin = $res['asin'] ?? null;
+        }
+
+        if ($asin) {
+            $asin = urlencode($asin);
+            return redirect()->away("https://www.amazon.com.mx/dp/{$asin}");
+        }
+
+        // Fallback: búsqueda por SKU
+        $q = urlencode($sku);
+        return redirect()->away("https://www.amazon.com.mx/s?k={$q}");
     }
 
-    $res = $svc->getBySku($catalogItem);
+    public function amazonPause(CatalogItem $catalogItem, AmazonSpApiListingService $svc)
+    {
+        $sku = $this->amazonSku($catalogItem);
+        if (!$sku) {
+            return back()->with('ok', 'Este producto no tiene SKU. Amazon requiere SKU.');
+        }
 
-    if (!$res['ok']) {
-        return back()->with('ok', $res['message'] ?? 'No se pudo consultar el listing en Amazon.');
+        // En Amazon “pausar” suele ser bajar qty a 0 o poner inactive según tu implementación.
+        $res = $svc->upsertBySku($catalogItem, [
+            'marketplace_id' => $this->amazonMarketplaceId(),
+            'status' => 'inactive',
+        ]);
+
+        $this->saveAmazonTrackingSafe($catalogItem, $res, $res['ok'] ? 'inactive_requested' : 'error');
+
+        if ($res['ok']) {
+            return back()->with('ok', 'Solicitud enviada a Amazon para pausar (según configuración de listing).');
+        }
+
+        return back()->with('ok', $res['message'] ?? 'No se pudo pausar en Amazon.');
     }
 
-    // “Ver” en web: lo más práctico es abrir búsqueda por SKU en Amazon MX.
-    // (Amazon no devuelve un permalink simple como ML)
-    $sku = urlencode($catalogItem->sku);
-    return redirect()->away("https://www.amazon.com.mx/s?k={$sku}");
-}
+    public function amazonActivate(CatalogItem $catalogItem, AmazonSpApiListingService $svc)
+    {
+        $sku = $this->amazonSku($catalogItem);
+        if (!$sku) {
+            return back()->with('ok', 'Este producto no tiene SKU. Amazon requiere SKU.');
+        }
 
-public function amazonPause(CatalogItem $catalogItem, AmazonSpApiListingService $svc)
-{
-    // En Amazon “pausar” no es igual que ML. Aquí solo mandamos upsert y luego
-    // ajustaremos atributos/quantity para dejarlo no disponible según tu caso.
-    $res = $svc->upsertBySku($catalogItem, [
-        'status' => 'inactive',
-    ]);
+        $res = $svc->upsertBySku($catalogItem, [
+            'marketplace_id' => $this->amazonMarketplaceId(),
+            'status' => 'active',
+        ]);
 
-    if ($res['ok']) {
-        return back()->with('ok', 'Solicitud enviada a Amazon para pausar (según configuración de listing).');
+        $this->saveAmazonTrackingSafe($catalogItem, $res, $res['ok'] ? 'active_requested' : 'error');
+
+        if ($res['ok']) {
+            return back()->with('ok', 'Solicitud enviada a Amazon para activar/actualizar.');
+        }
+
+        return back()->with('ok', $res['message'] ?? 'No se pudo activar en Amazon.');
     }
-
-    return back()->with('ok', $res['message'] ?? 'No se pudo pausar en Amazon.');
-}
-
-public function amazonActivate(CatalogItem $catalogItem, AmazonSpApiListingService $svc)
-{
-    $res = $svc->upsertBySku($catalogItem, [
-        'status' => 'active',
-    ]);
-
-    if ($res['ok']) {
-        return back()->with('ok', 'Solicitud enviada a Amazon para activar/actualizar.');
-    }
-
-    return back()->with('ok', $res['message'] ?? 'No se pudo activar en Amazon.');
-}
-
 }
