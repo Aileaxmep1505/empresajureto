@@ -1862,3 +1862,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/accounting/expenses/{expense}/pdf', [ExpenseController::class, 'pdfReceipt'])
         ->name('expenses.pdf');
 });
+
+Route::post('/catalog/{catalogItem}/amazon/publish', [CatalogItemController::class, 'amazonPublish'])->name('admin.catalog.amazon.publish');
+Route::post('/catalog/{catalogItem}/amazon/pause',   [CatalogItemController::class, 'amazonPause'])->name('admin.catalog.amazon.pause');
+Route::post('/catalog/{catalogItem}/amazon/activate',[CatalogItemController::class, 'amazonActivate'])->name('admin.catalog.amazon.activate');
+Route::get ('/catalog/{catalogItem}/amazon/view',    [CatalogItemController::class, 'amazonView'])->name('admin.catalog.amazon.view');

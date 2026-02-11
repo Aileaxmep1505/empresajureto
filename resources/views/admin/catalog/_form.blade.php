@@ -8,8 +8,10 @@
   $has3 = !empty($item->photo_3 ?? null);
 
   // Categorías legibles (papelería, cómputo, etc.)
-  // Vienen desde el controlador, pero por si acaso, tomamos de config.
   $categories = $categories ?? config('catalog.product_categories', []);
+
+  // Bandera simple: si ya tiene SKU (Amazon usa SKU sí o sí)
+  $hasSku = !empty($item->sku ?? null);
 @endphp
 
 @csrf
@@ -310,6 +312,9 @@
                value="{{ old('sku', $item->sku ?? '') }}">
         <p class="hint">
           Usa un SKU claro y único. Te ayuda a localizar el producto rápidamente en tu catálogo.
+          <span class="hint" style="display:block;margin-top:3px;">
+            Nota: Amazon requiere SKU para publicar.
+          </span>
         </p>
       </div>
 
@@ -430,6 +435,121 @@
         </ul>
       </div>
     </div>
+
+    {{-- =========================================================
+       🔹 ACCIONES: MERCADO LIBRE + AMAZON
+       ========================================================= --}}
+    @if($isEdit)
+      <div class="side-card">
+        <h3 class="side-title">Acciones de publicación</h3>
+
+        <div class="pub-grid">
+          {{-- Mercado Libre --}}
+          <div class="pub-block">
+            <div class="pub-head">
+              <div class="pub-title">Mercado Libre</div>
+              <div class="pub-sub">Publica, pausa o abre la publicación.</div>
+            </div>
+
+            <div class="pub-actions">
+              <form method="POST" action="{{ route('admin.catalog.meli.publish', $item) }}">
+                @csrf
+                <button type="submit" class="btn btn-pill btn-ml">
+                  <span class="i material-symbols-outlined" aria-hidden="true">cloud_upload</span>
+                  Publicar / Actualizar
+                </button>
+              </form>
+
+              <div class="pub-row">
+                <form method="POST" action="{{ route('admin.catalog.meli.pause', $item) }}">
+                  @csrf
+                  <button type="submit" class="btn btn-pill btn-soft btn-ml-soft">
+                    <span class="i material-symbols-outlined" aria-hidden="true">pause_circle</span>
+                    Pausar
+                  </button>
+                </form>
+
+                <form method="POST" action="{{ route('admin.catalog.meli.activate', $item) }}">
+                  @csrf
+                  <button type="submit" class="btn btn-pill btn-soft btn-ml-soft">
+                    <span class="i material-symbols-outlined" aria-hidden="true">play_circle</span>
+                    Activar
+                  </button>
+                </form>
+
+                <a class="btn btn-pill btn-soft btn-ml-soft" href="{{ route('admin.catalog.meli.view', $item) }}" target="_blank" rel="noopener">
+                  <span class="i material-symbols-outlined" aria-hidden="true">open_in_new</span>
+                  Ver
+                </a>
+              </div>
+            </div>
+
+            <p class="hint pub-hint">
+              Mercado Libre usa tu marca/modelo/GTIN para atributos.
+            </p>
+          </div>
+
+          {{-- Amazon --}}
+          <div class="pub-block">
+            <div class="pub-head">
+              <div class="pub-title">Amazon (SP-API)</div>
+              <div class="pub-sub">Envía solicitud de listing por SKU.</div>
+            </div>
+
+            @if(!$hasSku)
+              <div class="pub-warn">
+                <span class="material-symbols-outlined" aria-hidden="true">info</span>
+                <div>
+                  <div class="pub-warn-title">Falta SKU</div>
+                  <div class="pub-warn-text">Para publicar en Amazon necesitas guardar primero un SKU.</div>
+                </div>
+              </div>
+            @endif
+
+            <div class="pub-actions">
+              <form method="POST" action="{{ route('admin.catalog.amazon.publish', $item) }}">
+                @csrf
+                <button type="submit" class="btn btn-pill btn-amz" @disabled(!$hasSku)>
+                  <span class="i material-symbols-outlined" aria-hidden="true">cloud_upload</span>
+                  Publicar / Actualizar
+                </button>
+              </form>
+
+              <div class="pub-row">
+                <form method="POST" action="{{ route('admin.catalog.amazon.pause', $item) }}">
+                  @csrf
+                  <button type="submit" class="btn btn-pill btn-soft btn-amz-soft" @disabled(!$hasSku)>
+                    <span class="i material-symbols-outlined" aria-hidden="true">pause_circle</span>
+                    Pausar
+                  </button>
+                </form>
+
+                <form method="POST" action="{{ route('admin.catalog.amazon.activate', $item) }}">
+                  @csrf
+                  <button type="submit" class="btn btn-pill btn-soft btn-amz-soft" @disabled(!$hasSku)>
+                    <span class="i material-symbols-outlined" aria-hidden="true">play_circle</span>
+                    Activar
+                  </button>
+                </form>
+
+                <a class="btn btn-pill btn-soft btn-amz-soft"
+                   href="{{ route('admin.catalog.amazon.view', $item) }}"
+                   target="_blank" rel="noopener"
+                   @if(!$hasSku) aria-disabled="true" onclick="return false;" @endif>
+                  <span class="i material-symbols-outlined" aria-hidden="true">open_in_new</span>
+                  Ver
+                </a>
+              </div>
+            </div>
+
+            <p class="hint pub-hint">
+              Amazon requiere SKU y atributos por categoría. Si te devuelve validaciones, es normal: se ajustan por productType.
+            </p>
+          </div>
+        </div>
+      </div>
+    @endif
+
   </div>
 </div>
 
@@ -443,6 +563,8 @@
 </div>
 
 @push('styles')
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@400..700&display=swap"/>
+
 <style>
   :root{
     --ink:#0e1726;
@@ -455,6 +577,12 @@
     --shadow-soft:0 18px 40px rgba(15,23,42,.06);
     --radius-lg:18px;
     --radius-md:12px;
+
+    --ml:#10b981;
+    --ml-soft: rgba(16,185,129,.14);
+
+    --amz:#f59e0b;
+    --amz-soft: rgba(245,158,11,.16);
   }
 
   .lbl{
@@ -494,9 +622,16 @@
     display:inline-flex;
     align-items:center;
     gap:6px;
-    transition:transform .12s ease, box-shadow .12s ease, background .15s ease, border-color .15s ease;
+    transition:transform .12s ease, box-shadow .12s ease, background .15s ease, border-color .15s ease, opacity .15s ease;
     white-space:nowrap;
+    text-decoration:none;
   }
+  .btn[disabled], .btn[aria-disabled="true"]{
+    opacity:.5;
+    cursor:not-allowed;
+    pointer-events:none;
+  }
+
   .btn-primary{
     background:var(--brand);
     color:#eff6ff;
@@ -515,6 +650,7 @@
     transform:translateY(-1px);
     box-shadow:0 8px 20px rgba(15,23,42,.06);
   }
+
   .btn-xs{ padding:5px 10px; font-size:.75rem; }
 
   .divi{
@@ -710,6 +846,110 @@
     object-fit:cover;
     display:block;
   }
+
+  /* =========================================================
+     🔹 Acciones publicación ML / Amazon
+     ========================================================= */
+  .pub-grid{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:12px;
+    margin-top:10px;
+  }
+
+  .pub-block{
+    background:#ffffff;
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:12px;
+    box-shadow:0 10px 24px rgba(15,23,42,.03);
+  }
+
+  .pub-head{ display:flex; flex-direction:column; gap:2px; margin-bottom:8px; }
+  .pub-title{ font-weight:800; color:#0f172a; font-size:.9rem; }
+  .pub-sub{ color:#64748b; font-size:.78rem; }
+
+  .pub-actions{ display:flex; flex-direction:column; gap:8px; }
+  .pub-row{ display:flex; gap:8px; flex-wrap:wrap; }
+
+  .btn-pill{
+    width:100%;
+    justify-content:center;
+    padding:9px 14px;
+    font-size:.84rem;
+    border-radius:999px;
+  }
+  .btn-soft{
+    width:auto;
+    padding:7px 12px;
+    font-size:.78rem;
+  }
+
+  .i.material-symbols-outlined{
+    font-size:18px;
+    line-height:1;
+  }
+
+  /* ML */
+  .btn-ml{
+    background:linear-gradient(135deg, rgba(16,185,129,.18), rgba(16,185,129,.08));
+    color:#065f46;
+    border:1px solid rgba(16,185,129,.35);
+    box-shadow:0 14px 28px rgba(16,185,129,.14);
+  }
+  .btn-ml:hover{
+    transform:translateY(-1px);
+    box-shadow:0 18px 34px rgba(16,185,129,.18);
+  }
+
+  .btn-ml-soft{
+    background:rgba(16,185,129,.10);
+    color:#065f46;
+    border:1px solid rgba(16,185,129,.25);
+  }
+  .btn-ml-soft:hover{
+    transform:translateY(-1px);
+    box-shadow:0 12px 26px rgba(16,185,129,.14);
+  }
+
+  /* Amazon */
+  .btn-amz{
+    background:linear-gradient(135deg, rgba(245,158,11,.22), rgba(245,158,11,.10));
+    color:#92400e;
+    border:1px solid rgba(245,158,11,.35);
+    box-shadow:0 14px 28px rgba(245,158,11,.14);
+  }
+  .btn-amz:hover{
+    transform:translateY(-1px);
+    box-shadow:0 18px 34px rgba(245,158,11,.18);
+  }
+
+  .btn-amz-soft{
+    background:rgba(245,158,11,.12);
+    color:#92400e;
+    border:1px solid rgba(245,158,11,.25);
+  }
+  .btn-amz-soft:hover{
+    transform:translateY(-1px);
+    box-shadow:0 12px 26px rgba(245,158,11,.14);
+  }
+
+  .pub-hint{ margin-top:10px; }
+
+  .pub-warn{
+    display:flex;
+    gap:10px;
+    align-items:flex-start;
+    padding:10px 10px;
+    border-radius:14px;
+    border:1px dashed rgba(245,158,11,.45);
+    background:linear-gradient(135deg, rgba(255,251,235,.9), #ffffff);
+    color:#92400e;
+    margin-bottom:10px;
+  }
+  .pub-warn .material-symbols-outlined{ font-size:20px; }
+  .pub-warn-title{ font-weight:800; font-size:.82rem; }
+  .pub-warn-text{ font-size:.76rem; color:#92400e; opacity:.9; }
 
   /* =========================================================
      🔹 Estilos IA (panel principal) + tabla

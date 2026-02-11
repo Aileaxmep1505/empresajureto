@@ -25,6 +25,8 @@ use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
+use App\Services\AmazonSpApiListingService;
+
 
 class CatalogItemController extends Controller implements HasMiddleware
 {
@@ -1160,4 +1162,65 @@ TXT;
 
         return back()->with('ok', 'Stock actualizado correctamente.');
     }
+    public function amazonPublish(CatalogItem $catalogItem, AmazonSpApiListingService $svc)
+{
+    $res = $svc->upsertBySku($catalogItem, [
+        // aquí luego pondremos productType real (por categoría)
+        // 'productType' => 'OFFICE_PRODUCTS',
+    ]);
+
+    if ($res['ok']) {
+        return back()->with('ok', 'Solicitud enviada a Amazon. Revisa en Seller Central el estado del listing.');
+    }
+
+    $friendly = $res['message'] ?? 'No se pudo publicar/actualizar en Amazon.';
+    return back()->with('ok', $friendly);
+}
+
+public function amazonView(CatalogItem $catalogItem, AmazonSpApiListingService $svc)
+{
+    if (!$catalogItem->sku) {
+        return back()->with('ok', 'Este producto no tiene SKU. Amazon requiere SKU.');
+    }
+
+    $res = $svc->getBySku($catalogItem);
+
+    if (!$res['ok']) {
+        return back()->with('ok', $res['message'] ?? 'No se pudo consultar el listing en Amazon.');
+    }
+
+    // “Ver” en web: lo más práctico es abrir búsqueda por SKU en Amazon MX.
+    // (Amazon no devuelve un permalink simple como ML)
+    $sku = urlencode($catalogItem->sku);
+    return redirect()->away("https://www.amazon.com.mx/s?k={$sku}");
+}
+
+public function amazonPause(CatalogItem $catalogItem, AmazonSpApiListingService $svc)
+{
+    // En Amazon “pausar” no es igual que ML. Aquí solo mandamos upsert y luego
+    // ajustaremos atributos/quantity para dejarlo no disponible según tu caso.
+    $res = $svc->upsertBySku($catalogItem, [
+        'status' => 'inactive',
+    ]);
+
+    if ($res['ok']) {
+        return back()->with('ok', 'Solicitud enviada a Amazon para pausar (según configuración de listing).');
+    }
+
+    return back()->with('ok', $res['message'] ?? 'No se pudo pausar en Amazon.');
+}
+
+public function amazonActivate(CatalogItem $catalogItem, AmazonSpApiListingService $svc)
+{
+    $res = $svc->upsertBySku($catalogItem, [
+        'status' => 'active',
+    ]);
+
+    if ($res['ok']) {
+        return back()->with('ok', 'Solicitud enviada a Amazon para activar/actualizar.');
+    }
+
+    return back()->with('ok', $res['message'] ?? 'No se pudo activar en Amazon.');
+}
+
 }
