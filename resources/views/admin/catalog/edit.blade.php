@@ -143,8 +143,8 @@
 @php
   use Illuminate\Support\Str;
 
-  // Bandera simple: Amazon requiere SKU para operar
-  $hasSku = !empty($item->sku ?? null);
+  // ✅ Amazon requiere AMAZON SKU real para operar (no el sku interno)
+  $hasAmazonSku = !empty($item->amazon_sku ?? null);
 
   $mlErrText  = Str::lower((string)($item->meli_last_error ?? ''));
   $amzErrText = Str::lower((string)($item->amz_last_error ?? '')); // opcional si existe en tu BD
@@ -206,7 +206,7 @@
       {{-- Amazon: acciones rápidas (SP-API) --}}
       <form method="POST" action="{{ route('admin.catalog.amazon.publish', $item) }}">
         @csrf
-        <button class="btn btn-amz" type="submit" @disabled(!$hasSku)>
+        <button class="btn btn-amz" type="submit" @disabled(!$hasAmazonSku)>
           <span class="i material-symbols-outlined" aria-hidden="true">cloud_upload</span>
           Amazon: Publicar/Actualizar
         </button>
@@ -214,7 +214,7 @@
 
       <form method="POST" action="{{ route('admin.catalog.amazon.pause', $item) }}">
         @csrf
-        <button class="btn btn-amz-soft" type="submit" @disabled(!$hasSku)>
+        <button class="btn btn-amz-soft" type="submit" @disabled(!$hasAmazonSku)>
           <span class="i material-symbols-outlined" aria-hidden="true">pause_circle</span>
           Amazon: Pausar
         </button>
@@ -222,7 +222,7 @@
 
       <form method="POST" action="{{ route('admin.catalog.amazon.activate', $item) }}">
         @csrf
-        <button class="btn btn-amz-soft" type="submit" @disabled(!$hasSku)>
+        <button class="btn btn-amz-soft" type="submit" @disabled(!$hasAmazonSku)>
           <span class="i material-symbols-outlined" aria-hidden="true">play_circle</span>
           Amazon: Activar
         </button>
@@ -231,7 +231,7 @@
       <a class="btn btn-amz-soft"
          href="{{ route('admin.catalog.amazon.view', $item) }}"
          target="_blank" rel="noopener"
-         @if(!$hasSku) aria-disabled="true" onclick="return false;" @endif>
+         @if(!$hasAmazonSku) aria-disabled="true" onclick="return false;" @endif>
         <span class="i material-symbols-outlined" aria-hidden="true">open_in_new</span>
         Amazon: Ver
       </a>
@@ -255,11 +255,11 @@
     </div>
   @endif
 
-  {{-- Advertencia SKU para Amazon --}}
-  @if(!$hasSku)
+  {{-- Advertencia AMAZON SKU para Amazon --}}
+  @if(!$hasAmazonSku)
     <div class="alert alert-amz">
-      <strong>Amazon:</strong> Para usar las acciones de Amazon necesitas un <strong>SKU</strong>.
-      Guarda el producto con un SKU y vuelve a intentar.
+      <strong>Amazon:</strong> Para usar las acciones de Amazon necesitas un <strong>AMAZON SKU</strong> (Seller SKU real).
+      Captúralo en el formulario y guarda el producto.
     </div>
   @endif
 
@@ -322,13 +322,13 @@
   @endif
 
   {{-- Panel de estado Amazon (si tienes campos en BD; si no existen, no rompe) --}}
-  @if(!empty($item->amz_sku ?? null) || !empty($item->amz_last_error ?? null) || !empty($item->amz_synced_at ?? null))
+  @if(!empty($item->amazon_sku ?? null) || !empty($item->amz_last_error ?? null) || !empty($item->amz_synced_at ?? null))
     <div class="alert alert-amz">
       <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;">
         <div style="flex:1 1 260px;">
           <strong>Amazon</strong><br>
           <span style="font-size:.88rem;">
-            SKU: {{ $item->sku ?? ($item->amz_sku ?? '—') }} ·
+            AMAZON SKU: {{ $item->amazon_sku ?? '—' }} ·
             Estado:
             @php $amzStatus = $item->amz_status ?? null; @endphp
             @if($amzStatus === 'active')
@@ -353,7 +353,7 @@
           <strong>Qué revisar para Amazon:</strong>
           <ul style="margin:4px 0 0 18px;padding:0;">
             @if(Str::contains($amzErrText, 'sku'))
-              <li>Confirma que el <strong>SKU</strong> esté lleno y sea único.</li>
+              <li>Confirma que el <strong>AMAZON SKU</strong> esté lleno y sea exacto al de Seller Central.</li>
             @endif
             @if(Str::contains($amzErrText, 'gtin') || Str::contains($amzErrText, 'upc') || Str::contains($amzErrText, 'ean'))
               <li>Completa <strong>GTIN (EAN/UPC)</strong> si tu productType lo exige.</li>

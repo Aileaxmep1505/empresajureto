@@ -10,8 +10,8 @@
   // Categorías legibles (papelería, cómputo, etc.)
   $categories = $categories ?? config('catalog.product_categories', []);
 
-  // Bandera simple: si ya tiene SKU (Amazon usa SKU sí o sí)
-  $hasSku = !empty($item->sku ?? null);
+  // ✅ Amazon: requiere AMAZON SKU real (seller sku), NO el sku genérico
+  $hasAmazonSku = !empty($item->amazon_sku ?? null);
 @endphp
 
 @csrf
@@ -306,16 +306,43 @@
   <div class="catalog-side">
     <div class="side-card">
       <div class="card-section">
-        <label class="lbl">SKU</label>
+        <label class="lbl">SKU (interno)</label>
         <input name="sku" class="inp"
                placeholder="Código interno o del proveedor"
                value="{{ old('sku', $item->sku ?? '') }}">
         <p class="hint">
-          Usa un SKU claro y único. Te ayuda a localizar el producto rápidamente en tu catálogo.
-          <span class="hint" style="display:block;margin-top:3px;">
-            Nota: Amazon requiere SKU para publicar.
-          </span>
+          Este SKU es tu referencia interna. Para Amazon usa el campo “AMAZON SKU”.
         </p>
+      </div>
+
+      {{-- ✅ AMAZON SKU (Seller SKU real) --}}
+      <div class="card-section">
+        <label class="lbl">AMAZON SKU (Seller SKU real)</label>
+        <input name="amazon_sku" class="inp"
+               placeholder="Ejemplo: JUR-1234-AZUL (tal cual en Seller Central)"
+               value="{{ old('amazon_sku', $item->amazon_sku ?? '') }}">
+        <p class="hint">
+          Debe coincidir EXACTO con tu Seller SKU en Seller Central (Marketplace MX). Sin esto, Amazon no publica.
+        </p>
+      </div>
+
+      {{-- (Opcional pero útil) ASIN / productType --}}
+      <div class="card-section card-inline">
+        <div class="card-inline-item">
+          <label class="lbl">ASIN (opcional)</label>
+          <input name="amazon_asin" class="inp"
+                 placeholder="Ej. B0XXXXXXX"
+                 value="{{ old('amazon_asin', $item->amazon_asin ?? '') }}">
+          <p class="hint">Si ya existe el ASIN, ayuda para abrir el link directo.</p>
+        </div>
+
+        <div class="card-inline-item">
+          <label class="lbl">productType (opcional)</label>
+          <input name="amazon_product_type" class="inp"
+                 placeholder="Ej. OFFICE_PRODUCTS"
+                 value="{{ old('amazon_product_type', $item->amazon_product_type ?? '') }}">
+          <p class="hint">Si Amazon te valida, este campo ayuda a corregir.</p>
+        </div>
       </div>
 
       <div class="card-section card-inline">
@@ -333,7 +360,7 @@
           <input name="stock" type="number" step="1" min="0" class="inp"
                  value="{{ old('stock', $item->stock ?? 0) }}">
           <p class="hint">
-            Unidades disponibles. La IA puede sugerir la cantidad comprada según el documento.
+            Unidades disponibles. La IA puede sugerir la cantidad según el documento.
           </p>
         </div>
       </div>
@@ -493,15 +520,15 @@
           <div class="pub-block">
             <div class="pub-head">
               <div class="pub-title">Amazon (SP-API)</div>
-              <div class="pub-sub">Envía solicitud de listing por SKU.</div>
+              <div class="pub-sub">Envía solicitud de listing por AMAZON SKU.</div>
             </div>
 
-            @if(!$hasSku)
+            @if(!$hasAmazonSku)
               <div class="pub-warn">
                 <span class="material-symbols-outlined" aria-hidden="true">info</span>
                 <div>
-                  <div class="pub-warn-title">Falta SKU</div>
-                  <div class="pub-warn-text">Para publicar en Amazon necesitas guardar primero un SKU.</div>
+                  <div class="pub-warn-title">Falta AMAZON SKU</div>
+                  <div class="pub-warn-text">Captura el Seller SKU real de Amazon y guarda el producto antes de publicar.</div>
                 </div>
               </div>
             @endif
@@ -509,7 +536,7 @@
             <div class="pub-actions">
               <form method="POST" action="{{ route('admin.catalog.amazon.publish', $item) }}">
                 @csrf
-                <button type="submit" class="btn btn-pill btn-amz" @disabled(!$hasSku)>
+                <button type="submit" class="btn btn-pill btn-amz" @disabled(!$hasAmazonSku)>
                   <span class="i material-symbols-outlined" aria-hidden="true">cloud_upload</span>
                   Publicar / Actualizar
                 </button>
@@ -518,7 +545,7 @@
               <div class="pub-row">
                 <form method="POST" action="{{ route('admin.catalog.amazon.pause', $item) }}">
                   @csrf
-                  <button type="submit" class="btn btn-pill btn-soft btn-amz-soft" @disabled(!$hasSku)>
+                  <button type="submit" class="btn btn-pill btn-soft btn-amz-soft" @disabled(!$hasAmazonSku)>
                     <span class="i material-symbols-outlined" aria-hidden="true">pause_circle</span>
                     Pausar
                   </button>
@@ -526,7 +553,7 @@
 
                 <form method="POST" action="{{ route('admin.catalog.amazon.activate', $item) }}">
                   @csrf
-                  <button type="submit" class="btn btn-pill btn-soft btn-amz-soft" @disabled(!$hasSku)>
+                  <button type="submit" class="btn btn-pill btn-soft btn-amz-soft" @disabled(!$hasAmazonSku)>
                     <span class="i material-symbols-outlined" aria-hidden="true">play_circle</span>
                     Activar
                   </button>
@@ -535,7 +562,7 @@
                 <a class="btn btn-pill btn-soft btn-amz-soft"
                    href="{{ route('admin.catalog.amazon.view', $item) }}"
                    target="_blank" rel="noopener"
-                   @if(!$hasSku) aria-disabled="true" onclick="return false;" @endif>
+                   @if(!$hasAmazonSku) aria-disabled="true" onclick="return false;" @endif>
                   <span class="i material-symbols-outlined" aria-hidden="true">open_in_new</span>
                   Ver
                 </a>
@@ -543,7 +570,7 @@
             </div>
 
             <p class="hint pub-hint">
-              Amazon requiere SKU y atributos por categoría. Si te devuelve validaciones, es normal: se ajustan por productType.
+              Amazon requiere AMAZON SKU y atributos por categoría. Si te devuelve validaciones, es normal: se ajustan por productType.
             </p>
           </div>
         </div>
@@ -1524,6 +1551,11 @@
       applyAiSuggestion('brand_name',  item.brand_name,  markSuggested);
       applyAiSuggestion('model_name',  item.model_name,  markSuggested);
       applyAiSuggestion('meli_gtin',   item.meli_gtin,   markSuggested);
+
+      // ✅ Amazon: si viene en el análisis, también lo sugiere
+      applyAiSuggestion('amazon_sku',          item.amazon_sku,          markSuggested);
+      applyAiSuggestion('amazon_asin',         item.amazon_asin,         markSuggested);
+      applyAiSuggestion('amazon_product_type', item.amazon_product_type, markSuggested);
 
       const qty = item.stock ?? item.quantity ?? item.qty ?? item.cantidad;
       applyAiSuggestion('stock', qty, markSuggested);

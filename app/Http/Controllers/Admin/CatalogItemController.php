@@ -93,7 +93,6 @@ class CatalogItemController extends Controller implements HasMiddleware
         $items = $q->orderBy('id')->get();
 
         $rows = [];
-
         $rows[] = ['Inventario interno de Jureto'];
         $rows[] = [''];
 
@@ -370,16 +369,27 @@ class CatalogItemController extends Controller implements HasMiddleware
             'stock'       => ['nullable', 'integer', 'min:0'],
             'status'      => ['required', 'integer', 'in:0,1,2'],
             'is_featured' => ['nullable', 'boolean'],
+
             'category_key'=> ['nullable', 'string', 'max:190'],
+
             'use_internal'=> ['nullable', 'boolean'],
             'brand_id'    => ['nullable', 'integer'],
             'category_id' => ['nullable', 'integer'],
+
             'brand_name'  => ['nullable', 'string', 'max:120'],
             'model_name'  => ['nullable', 'string', 'max:120'],
             'meli_gtin'   => ['nullable', 'string', 'max:50'],
+
             'excerpt'     => ['nullable', 'string'],
             'description' => ['nullable', 'string'],
             'published_at'=> ['nullable', 'date'],
+
+            /* =========================
+             | ✅ AMAZON (NUEVO)
+             ==========================*/
+            'amazon_sku'          => ['nullable', 'string', 'max:120'],
+            'amazon_asin'         => ['nullable', 'string', 'max:40'],
+            'amazon_product_type' => ['nullable', 'string', 'max:80'],
         ]);
 
         Log::info('CatalogItem@store: datos validados', [
@@ -494,16 +504,25 @@ class CatalogItemController extends Controller implements HasMiddleware
             'stock'       => ['nullable', 'integer', 'min:0'],
             'status'      => ['required', 'integer', 'in:0,1,2'],
             'is_featured' => ['nullable', 'boolean'],
+
             'category_key'=> ['nullable', 'string', 'max:190'],
             'use_internal'=> ['nullable', 'boolean'],
             'brand_id'    => ['nullable', 'integer'],
             'category_id' => ['nullable', 'integer'],
+
             'brand_name'  => ['nullable', 'string', 'max:120'],
             'model_name'  => ['nullable', 'string', 'max:120'],
             'meli_gtin'   => ['nullable', 'string', 'max:50'],
             'excerpt'     => ['nullable', 'string'],
             'description' => ['nullable', 'string'],
             'published_at'=> ['nullable', 'date'],
+
+            /* =========================
+             | ✅ AMAZON (NUEVO)
+             ==========================*/
+            'amazon_sku'          => ['nullable', 'string', 'max:120'],
+            'amazon_asin'         => ['nullable', 'string', 'max:40'],
+            'amazon_product_type' => ['nullable', 'string', 'max:80'],
         ]);
 
         Log::info('CatalogItem@update: datos validados', [
@@ -539,6 +558,7 @@ class CatalogItemController extends Controller implements HasMiddleware
         ) {
             $slug = $baseSlug.'-'.($i++);
         }
+
         $data['slug']        = $slug;
         $data['is_featured'] = (bool) ($data['is_featured'] ?? false);
         $data['stock']       = $data['stock'] ?? 0;
@@ -731,8 +751,9 @@ class CatalogItemController extends Controller implements HasMiddleware
 
     public function aiFromUpload(Request $request)
     {
-        // ... (tu método AI completo aquí: sin cambios)
-        // (Lo omití por brevedad porque me pediste SOLO la parte de Amazon)
+        // ✅ AQUÍ PEGA TU MÉTODO aiFromUpload COMPLETO TAL CUAL LO TENÍAS (SIN CAMBIOS).
+        // Lo dejo intencionalmente vacío porque tu versión completa es muy larga
+        // y no la quiero inventar ni cortar.
         return response()->json(['error' => 'Pega aquí tu método aiFromUpload completo (sin cambios).'], 500);
     }
 
@@ -868,28 +889,32 @@ class CatalogItemController extends Controller implements HasMiddleware
             $status = $res['status'] ?? null;
             $ok     = (bool)($res['ok'] ?? false);
 
-            $item->amazon_synced_at = now();
-            $item->amazon_status    = ($ok ? 'ok_' : 'error_') . (string)($status ?? 'unknown');
+            if (isset($item->amazon_synced_at)) $item->amazon_synced_at = now();
+            if (isset($item->amazon_status))    $item->amazon_status    = ($ok ? 'ok_' : 'error_') . (string)($status ?? 'unknown');
 
-            if ($ok) {
-                $item->amazon_last_error = null;
-            } else {
-                $msg = $res['message'] ?? 'Amazon error';
-                $amazonErr = null;
-                if (!empty($res['json']) && is_array($res['json'])) {
-                    $amazonErr = data_get($res['json'], 'errors.0.message');
+            if (isset($item->amazon_last_error)) {
+                if ($ok) {
+                    $item->amazon_last_error = null;
+                } else {
+                    $msg = $res['message'] ?? 'Amazon error';
+                    $amazonErr = null;
+                    if (!empty($res['json']) && is_array($res['json'])) {
+                        $amazonErr = data_get($res['json'], 'errors.0.message');
+                    }
+                    $item->amazon_last_error = $amazonErr ? ($msg . ' · ' . $amazonErr) : $msg;
                 }
-                $item->amazon_last_error = $amazonErr ? ($msg . ' · ' . $amazonErr) : $msg;
             }
 
-            $item->amazon_listing_response = json_encode([
-                'action' => $action,
-                'ok'     => $res['ok'] ?? null,
-                'status' => $res['status'] ?? null,
-                'message'=> $res['message'] ?? null,
-                'json'   => $res['json'] ?? null,
-                'body'   => $res['body'] ?? null,
-            ], JSON_UNESCAPED_UNICODE);
+            if (isset($item->amazon_listing_response)) {
+                $item->amazon_listing_response = json_encode([
+                    'action' => $action,
+                    'ok'     => $res['ok'] ?? null,
+                    'status' => $res['status'] ?? null,
+                    'message'=> $res['message'] ?? null,
+                    'json'   => $res['json'] ?? null,
+                    'body'   => $res['body'] ?? null,
+                ], JSON_UNESCAPED_UNICODE);
+            }
 
             $asin = null;
             if (!empty($res['json']) && is_array($res['json'])) {
@@ -897,7 +922,7 @@ class CatalogItemController extends Controller implements HasMiddleware
                     ?: data_get($res['json'], 'summaries.0.asin')
                     ?: data_get($res['json'], 'payload.asin');
             }
-            if ($asin) {
+            if ($asin && isset($item->amazon_asin)) {
                 $item->amazon_asin = $asin;
             }
 
@@ -914,18 +939,20 @@ class CatalogItemController extends Controller implements HasMiddleware
     {
         $amazonSku = $this->amazonSkuStrict($catalogItem);
         if (!$amazonSku) {
-            $catalogItem->amazon_synced_at = now();
-            $catalogItem->amazon_status = 'missing_amazon_sku';
-            $catalogItem->amazon_last_error = 'Falta amazon_sku (Seller SKU real de Amazon).';
+            if (isset($catalogItem->amazon_synced_at)) $catalogItem->amazon_synced_at = now();
+            if (isset($catalogItem->amazon_status))    $catalogItem->amazon_status = 'missing_amazon_sku';
+            if (isset($catalogItem->amazon_last_error))$catalogItem->amazon_last_error = 'Falta amazon_sku (Seller SKU real de Amazon).';
             $catalogItem->save();
 
             return back()->with('ok', 'Falta AMAZON SKU (Seller SKU real). Captúralo en el producto y vuelve a intentar.');
         }
 
         try {
-            // Compatibilidad: si tu service NO acepta segundo parámetro, no truena
+            // Compat: si tu service no acepta opts, no revienta
             try {
-                $res = $svc->upsertBySku($catalogItem, ['marketplace_id' => $this->amazonMarketplaceId()]);
+                $res = $svc->upsertBySku($catalogItem, [
+                    'marketplace_id' => $this->amazonMarketplaceId(),
+                ]);
             } catch (\ArgumentCountError $e) {
                 $res = $svc->upsertBySku($catalogItem);
             }
@@ -935,9 +962,9 @@ class CatalogItemController extends Controller implements HasMiddleware
                 'err' => $e->getMessage(),
             ]);
 
-            $catalogItem->amazon_synced_at = now();
-            $catalogItem->amazon_status = 'error_exception';
-            $catalogItem->amazon_last_error = $e->getMessage();
+            if (isset($catalogItem->amazon_synced_at)) $catalogItem->amazon_synced_at = now();
+            if (isset($catalogItem->amazon_status))    $catalogItem->amazon_status = 'error_exception';
+            if (isset($catalogItem->amazon_last_error))$catalogItem->amazon_last_error = $e->getMessage();
             $catalogItem->save();
 
             return back()->with('ok', 'Error publicando en Amazon: '.$e->getMessage());
@@ -951,10 +978,8 @@ class CatalogItemController extends Controller implements HasMiddleware
             return back()->with('ok', 'Solicitud enviada a Amazon (submitted). Puede tardar en reflejarse. Revisa Seller Central.');
         }
 
-        // Mensaje más claro si es 404: normalmente es SKU inexistente o aún no procesado
         if (($res['status'] ?? null) === 404) {
-            $msg = 'Amazon respondió 404: SKU no encontrado. Verifica que amazon_sku sea EXACTAMENTE el Seller SKU en Seller Central (y marketplace MX).';
-            return back()->with('ok', $msg);
+            return back()->with('ok', 'Amazon respondió 404: SKU no encontrado. Verifica que amazon_sku sea EXACTAMENTE el Seller SKU en Seller Central (marketplace MX).');
         }
 
         return back()->with('ok', $res['message'] ?? 'No se pudo publicar/actualizar en Amazon.');
@@ -964,9 +989,9 @@ class CatalogItemController extends Controller implements HasMiddleware
     {
         $amazonSku = $this->amazonSkuStrict($catalogItem);
         if (!$amazonSku) {
-            $catalogItem->amazon_synced_at = now();
-            $catalogItem->amazon_status = 'missing_amazon_sku';
-            $catalogItem->amazon_last_error = 'Falta amazon_sku (Seller SKU real de Amazon).';
+            if (isset($catalogItem->amazon_synced_at)) $catalogItem->amazon_synced_at = now();
+            if (isset($catalogItem->amazon_status))    $catalogItem->amazon_status = 'missing_amazon_sku';
+            if (isset($catalogItem->amazon_last_error))$catalogItem->amazon_last_error = 'Falta amazon_sku (Seller SKU real de Amazon).';
             $catalogItem->save();
 
             return back()->with('ok', 'Falta AMAZON SKU (Seller SKU real). Captúralo en el producto.');
@@ -974,7 +999,9 @@ class CatalogItemController extends Controller implements HasMiddleware
 
         try {
             try {
-                $res = $svc->getBySku($catalogItem, ['marketplace_id' => $this->amazonMarketplaceId()]);
+                $res = $svc->getBySku($catalogItem, [
+                    'marketplace_id' => $this->amazonMarketplaceId(),
+                ]);
             } catch (\ArgumentCountError $e) {
                 $res = $svc->getBySku($catalogItem);
             }
@@ -984,9 +1011,9 @@ class CatalogItemController extends Controller implements HasMiddleware
                 'err' => $e->getMessage(),
             ]);
 
-            $catalogItem->amazon_synced_at = now();
-            $catalogItem->amazon_status = 'error_exception';
-            $catalogItem->amazon_last_error = $e->getMessage();
+            if (isset($catalogItem->amazon_synced_at)) $catalogItem->amazon_synced_at = now();
+            if (isset($catalogItem->amazon_status))    $catalogItem->amazon_status = 'error_exception';
+            if (isset($catalogItem->amazon_last_error))$catalogItem->amazon_last_error = $e->getMessage();
             $catalogItem->save();
 
             return back()->with('ok', 'Error consultando listing: '.$e->getMessage());
@@ -1000,7 +1027,6 @@ class CatalogItemController extends Controller implements HasMiddleware
             if (($res['status'] ?? null) === 404) {
                 return back()->with('ok', 'Amazon dice 404: ese amazon_sku no existe (o aún está procesando). Revisa Seller Central y el SKU.');
             }
-
             return back()->with('ok', $res['message'] ?? 'Error consultando listing');
         }
 
@@ -1010,7 +1036,6 @@ class CatalogItemController extends Controller implements HasMiddleware
             return redirect()->away("https://www.amazon.com.mx/dp/{$asin}");
         }
 
-        // Si no viene ASIN, abrir búsqueda por SKU
         $q = urlencode($amazonSku);
         return redirect()->away("https://www.amazon.com.mx/s?k={$q}");
     }
@@ -1019,9 +1044,9 @@ class CatalogItemController extends Controller implements HasMiddleware
     {
         $amazonSku = $this->amazonSkuStrict($catalogItem);
         if (!$amazonSku) {
-            $catalogItem->amazon_synced_at = now();
-            $catalogItem->amazon_status = 'missing_amazon_sku';
-            $catalogItem->amazon_last_error = 'Falta amazon_sku (Seller SKU real de Amazon).';
+            if (isset($catalogItem->amazon_synced_at)) $catalogItem->amazon_synced_at = now();
+            if (isset($catalogItem->amazon_status))    $catalogItem->amazon_status = 'missing_amazon_sku';
+            if (isset($catalogItem->amazon_last_error))$catalogItem->amazon_last_error = 'Falta amazon_sku (Seller SKU real de Amazon).';
             $catalogItem->save();
 
             return back()->with('ok', 'Falta AMAZON SKU (Seller SKU real).');
@@ -1037,9 +1062,9 @@ class CatalogItemController extends Controller implements HasMiddleware
                 $res = $svc->upsertBySku($catalogItem);
             }
         } catch (\Throwable $e) {
-            $catalogItem->amazon_synced_at = now();
-            $catalogItem->amazon_status = 'error_exception';
-            $catalogItem->amazon_last_error = $e->getMessage();
+            if (isset($catalogItem->amazon_synced_at)) $catalogItem->amazon_synced_at = now();
+            if (isset($catalogItem->amazon_status))    $catalogItem->amazon_status = 'error_exception';
+            if (isset($catalogItem->amazon_last_error))$catalogItem->amazon_last_error = $e->getMessage();
             $catalogItem->save();
 
             return back()->with('ok', 'Error pausando en Amazon: '.$e->getMessage());
@@ -1056,9 +1081,9 @@ class CatalogItemController extends Controller implements HasMiddleware
     {
         $amazonSku = $this->amazonSkuStrict($catalogItem);
         if (!$amazonSku) {
-            $catalogItem->amazon_synced_at = now();
-            $catalogItem->amazon_status = 'missing_amazon_sku';
-            $catalogItem->amazon_last_error = 'Falta amazon_sku (Seller SKU real de Amazon).';
+            if (isset($catalogItem->amazon_synced_at)) $catalogItem->amazon_synced_at = now();
+            if (isset($catalogItem->amazon_status))    $catalogItem->amazon_status = 'missing_amazon_sku';
+            if (isset($catalogItem->amazon_last_error))$catalogItem->amazon_last_error = 'Falta amazon_sku (Seller SKU real de Amazon).';
             $catalogItem->save();
 
             return back()->with('ok', 'Falta AMAZON SKU (Seller SKU real).');
@@ -1074,9 +1099,9 @@ class CatalogItemController extends Controller implements HasMiddleware
                 $res = $svc->upsertBySku($catalogItem);
             }
         } catch (\Throwable $e) {
-            $catalogItem->amazon_synced_at = now();
-            $catalogItem->amazon_status = 'error_exception';
-            $catalogItem->amazon_last_error = $e->getMessage();
+            if (isset($catalogItem->amazon_synced_at)) $catalogItem->amazon_synced_at = now();
+            if (isset($catalogItem->amazon_status))    $catalogItem->amazon_status = 'error_exception';
+            if (isset($catalogItem->amazon_last_error))$catalogItem->amazon_last_error = $e->getMessage();
             $catalogItem->save();
 
             return back()->with('ok', 'Error activando en Amazon: '.$e->getMessage());
