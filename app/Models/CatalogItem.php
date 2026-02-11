@@ -27,8 +27,7 @@ class CatalogItem extends Model
         'brand_id',
         'category_id',
 
-        // 🔹 Clave de categoría de catálogo (config/catalog.php)
-        // Ej: pap_escritura_lapices_grafito
+        // Clave de categoría de catálogo (config/catalog.php)
         'category_key',
 
         // Mercado Libre (texto)
@@ -50,19 +49,30 @@ class CatalogItem extends Model
         'meli_synced_at',
         'meli_status',
         'meli_last_error',
-        'meli_gtin',          // código de barras / GTIN
+        'meli_gtin',
 
-        // (opcional) si algún día guardas esto por mass assignment:
-        // 'primary_location_id',
+        // ===========================
+        // AMAZON / SP-API (NUEVO)
+        // ===========================
+        'amazon_sku',
+        'amazon_asin',
+        'amazon_product_type',
+        'amazon_status',
+        'amazon_synced_at',
+        'amazon_last_error',
+        'amazon_listing_response',
     ];
 
     protected $casts = [
-        'price'          => 'decimal:2',
-        'sale_price'     => 'decimal:2',
-        'stock'          => 'integer',
-        'is_featured'    => 'boolean',
-        'published_at'   => 'datetime',
-        'meli_synced_at' => 'datetime',
+        'price'            => 'decimal:2',
+        'sale_price'       => 'decimal:2',
+        'stock'            => 'integer',
+        'is_featured'      => 'boolean',
+        'published_at'     => 'datetime',
+        'meli_synced_at'   => 'datetime',
+
+        // Amazon
+        'amazon_synced_at' => 'datetime',
     ];
 
     public function getRouteKeyName()
@@ -123,19 +133,11 @@ class CatalogItem extends Model
      *      Helpers
      * ===================== */
 
-    /**
-     * Devuelve la imagen principal (portada) del producto.
-     * NOTA: regresa la RUTA (storage). En la vista usa:
-     * Storage::url($item->mainPicture())
-     */
     public function mainPicture(): ?string
     {
         return $this->photo_1 ?: ($this->photo_2 ?: $this->photo_3);
     }
 
-    /**
-     * Devuelve las 3 fotos como array (rutas), filtradas.
-     */
     public function photos(): array
     {
         return array_values(array_filter([
@@ -145,17 +147,11 @@ class CatalogItem extends Model
         ], fn($p) => is_string($p) && trim($p) !== ''));
     }
 
-    /**
-     * Indica si la publicación en ML tiene algún error registrado.
-     */
     public function hasMeliError(): bool
     {
         return !empty($this->meli_last_error);
     }
 
-    /**
-     * Versión corta del último error de ML (para tooltips, listados, etc.)
-     */
     public function shortMeliError(int $limit = 140): ?string
     {
         if (!$this->meli_last_error) {
@@ -170,10 +166,6 @@ class CatalogItem extends Model
         return mb_substr($txt, 0, $limit - 3) . '...';
     }
 
-    /**
-     * 🔹 Etiqueta legible de la categoría (desde config/catalog.php)
-     * Ej: "Papelería · Escritura · Lápices de grafito"
-     */
     public function getCategoryLabelAttribute(): ?string
     {
         if (!$this->category_key) {
@@ -181,7 +173,33 @@ class CatalogItem extends Model
         }
 
         $all = config('catalog.product_categories', []);
-
         return $all[$this->category_key] ?? $this->category_key;
+    }
+
+    /**
+     * SKU efectivo para Amazon.
+     * Si algún día quieres que Amazon use otro SKU distinto al interno,
+     * llena amazon_sku y listo.
+     */
+    public function amazonSku(): ?string
+    {
+        $s = $this->amazon_sku ?: $this->sku;
+        $s = is_string($s) ? trim($s) : null;
+        return $s !== '' ? $s : null;
+    }
+
+    public function hasAmazonError(): bool
+    {
+        return !empty($this->amazon_last_error);
+    }
+
+    public function shortAmazonError(int $limit = 140): ?string
+    {
+        if (!$this->amazon_last_error) return null;
+
+        $txt = trim($this->amazon_last_error);
+        if (mb_strlen($txt) <= $limit) return $txt;
+
+        return mb_substr($txt, 0, $limit - 3) . '...';
     }
 }

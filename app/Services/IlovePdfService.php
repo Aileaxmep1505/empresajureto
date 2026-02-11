@@ -2,11 +2,16 @@
 
 namespace App\Services;
 
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class IlovePdfService
 {
+    // =========================
+    // Config
+    // =========================
     protected function publicKey(): string
     {
         return (string) config('services.ilovepdf.public_key');
@@ -27,53 +32,197 @@ class IlovePdfService
         return (int) config('services.ilovepdf.timeout', 180);
     }
 
+    protected function connectTimeout(): int
+    {
+        return (int) config('services.ilovepdf.connect_timeout', 25);
+    }
+
+    protected function maxRetries(): int
+    {
+        return (int) config('services.ilovepdf.max_retries', 4);
+    }
+
+    protected function retryBaseDelayMs(): int
+    {
+        return (int) config('services.ilovepdf.retry_base_delay_ms', 700);
+    }
+
+    protected function tokenCacheKey(): string
+    {
+        // si manejas multi-tenant, agrega tenant_id aquí
+        return 'ilovepdf:token:' . md5($this->publicKey());
+    }
+
+    protected function isRetryableStatus(int $status): bool
+    {
+        return in_array($status, [408, 425, 429, 500, 502, 503, 504], true);
+    }
+
     /**
-     * Pide token al auth server (2 horas de validez).
+     * Wrapper HTTP robusto con retry/backoff y connectTimeout.
+     * - Reintenta ante ConnectionException
+     * - Reintenta ante 429/5xx/408/504 etc.
      */
-    public function getToken(): string
+    protected function request(string $method, string $url, array $options = [])
+    {
+        $timeout = max(20, $this->timeout());
+        $connect = max(5, $this->connectTimeout());
+        $max     = max(1, $this->maxRetries());
+        $baseMs  = max(250, $this->retryBaseDelayMs());
+
+        $attempt = 0;
+        $lastResp = null;
+        $lastEx = null;
+
+        while ($attempt < $max) {
+            $attempt++;
+
+            try {
+                $client = Http::timeout($timeout)->connectTimeout($connect);
+
+                if (!empty($options['token'])) {
+                    $client = $client->withToken($options['token']);
+                }
+                if (!empty($options['headers']) && is_array($options['headers'])) {
+                    $client = $client->withHeaders($options['headers']);
+                }
+                if (!empty($options['asForm'])) {
+                    $client = $client->asForm();
+                }
+                if (!empty($options['attach']) && is_array($options['attach'])) {
+                    // attach: [['name'=>'file','contents'=>resource|string,'filename'=>'x.pdf']]
+                    foreach ($options['attach'] as $a) {
+                        $client = $client->attach(
+                            $a['name'] ?? 'file',
+                            $a['contents'] ?? '',
+                            $a['filename'] ?? null
+                        );
+                    }
+                }
+
+                $payload = $options['payload'] ?? null;
+
+                $resp = $payload === null
+                    ? $client->{$method}($url)
+                    : $client->{$method}($url, $payload);
+
+                $lastResp = $resp;
+
+                if ($resp->ok()) {
+                    return $resp;
+                }
+
+                $status = (int) $resp->status();
+
+                // 401/403: no reintentar a lo loco aquí (lo manejamos arriba si aplica)
+                if (!$this->isRetryableStatus($status)) {
+                    return $resp;
+                }
+
+                // backoff
+                $sleepMs = (int) ($baseMs * $attempt);
+                usleep($sleepMs * 1000);
+                continue;
+            } catch (ConnectionException $e) {
+                $lastEx = $e;
+                $sleepMs = (int) ($baseMs * $attempt);
+                usleep($sleepMs * 1000);
+                continue;
+            }
+        }
+
+        if ($lastEx) {
+            throw new \RuntimeException('iLovePDF: error de red/timeout: ' . $lastEx->getMessage());
+        }
+
+        return $lastResp ?? throw new \RuntimeException('iLovePDF: error desconocido llamando ' . $url);
+    }
+
+    // =========================
+    // Token (con cache)
+    // =========================
+
+    /**
+     * Pide token al auth server (validez aprox. 2 horas).
+     * ✅ Cachea el token para NO pegarle al auth en cada request.
+     */
+    public function getToken(bool $forceRefresh = false): string
     {
         $public = $this->publicKey();
         if ($public === '') {
             throw new \RuntimeException('ILOVEPDF_PUBLIC_KEY no configurada.');
         }
 
-        $resp = Http::timeout($this->timeout())
-            ->asForm()
-            ->post('https://api.ilovepdf.com/v1/auth', [
+        $cacheKey = $this->tokenCacheKey();
+
+        if (!$forceRefresh) {
+            $cached = Cache::get($cacheKey);
+            if (is_string($cached) && $cached !== '') {
+                return $cached;
+            }
+        }
+
+        $resp = $this->request('post', 'https://api.ilovepdf.com/v1/auth', [
+            'asForm'  => true,
+            'payload' => [
                 'public_key' => $public,
-            ]);
+            ],
+        ]);
 
         if (!$resp->ok() || !is_array($resp->json()) || empty($resp->json()['token'])) {
-            Log::warning('iLovePDF auth failed', ['status' => $resp->status(), 'body' => $resp->body()]);
+            Log::warning('iLovePDF auth failed', [
+                'status' => $resp->status(),
+                'body'   => mb_substr((string) $resp->body(), 0, 2000),
+            ]);
             throw new \RuntimeException('No se pudo autenticar con iLovePDF.');
         }
 
-        return (string) $resp->json()['token'];
+        $token = (string) $resp->json()['token'];
+
+        // cache ~110 min (2h - colchón)
+        Cache::put($cacheKey, $token, now()->addMinutes(110));
+
+        return $token;
     }
 
+    // =========================
+    // Task / Upload / Process / Download
+    // =========================
+
     /**
-     * Start task: devuelve ['server' => 'apiXX.ilovepdf.com', 'task' => '...']
+     * Start task: devuelve ['server' => 'apiXX.ilovepdf.com', 'task' => '...', 'token' => '...']
      */
     public function startTask(string $tool): array
     {
-        $token = $this->getToken();
         $region = $this->region();
 
-        $url = "https://api.ilovepdf.com/v1/start/{$tool}/{$region}";
+        // 1) intenta con token cacheado
+        $token = $this->getToken(false);
+        $url   = "https://api.ilovepdf.com/v1/start/{$tool}/{$region}";
 
-        $resp = Http::timeout($this->timeout())
-            ->withToken($token)
-            ->get($url);
+        $resp = $this->request('get', $url, [
+            'token' => $token,
+        ]);
 
-        if (!$resp->ok() || empty($resp->json()['server']) || empty($resp->json()['task'])) {
-            Log::warning('iLovePDF start failed', ['status' => $resp->status(), 'body' => $resp->body()]);
+        // 401 -> refresca token 1 vez
+        if ((int) $resp->status() === 401 || (int) $resp->status() === 403) {
+            $token = $this->getToken(true);
+            $resp  = $this->request('get', $url, ['token' => $token]);
+        }
+
+        if (!$resp->ok() || empty($resp->json('server')) || empty($resp->json('task'))) {
+            Log::warning('iLovePDF start failed', [
+                'tool'   => $tool,
+                'status' => $resp->status(),
+                'body'   => mb_substr((string) $resp->body(), 0, 2000),
+            ]);
             throw new \RuntimeException("No se pudo iniciar task iLovePDF ({$tool}).");
         }
 
         return [
             'token'  => $token,
-            'server' => (string) $resp->json()['server'],
-            'task'   => (string) $resp->json()['task'],
+            'server' => (string) $resp->json('server'),
+            'task'   => (string) $resp->json('task'),
         ];
     }
 
@@ -83,25 +232,43 @@ class IlovePdfService
      */
     public function uploadFile(string $server, string $token, string $task, string $pdfFullPath): string
     {
-        if (!file_exists($pdfFullPath)) {
+        if (!is_file($pdfFullPath)) {
             throw new \RuntimeException('Archivo no existe para subir a iLovePDF.');
         }
 
         $url = "https://{$server}/v1/upload";
 
-        $resp = Http::timeout($this->timeout())
-            ->withToken($token)
-            ->attach('file', file_get_contents($pdfFullPath), basename($pdfFullPath))
-            ->post($url, [
-                'task' => $task,
-            ]);
+        // ✅ evita file_get_contents gigante: usa stream
+        $fh = fopen($pdfFullPath, 'r');
+        if ($fh === false) {
+            throw new \RuntimeException('No se pudo abrir el archivo para subir a iLovePDF.');
+        }
 
-        if (!$resp->ok() || empty($resp->json()['server_filename'])) {
-            Log::warning('iLovePDF upload failed', ['status' => $resp->status(), 'body' => $resp->body()]);
+        try {
+            $resp = $this->request('post', $url, [
+                'token'  => $token,
+                'attach' => [[
+                    'name'     => 'file',
+                    'contents' => $fh,
+                    'filename' => basename($pdfFullPath),
+                ]],
+                'payload' => [
+                    'task' => $task,
+                ],
+            ]);
+        } finally {
+            try { fclose($fh); } catch (\Throwable $e) {}
+        }
+
+        if (!$resp->ok() || empty($resp->json('server_filename'))) {
+            Log::warning('iLovePDF upload failed', [
+                'status' => $resp->status(),
+                'body'   => mb_substr((string) $resp->body(), 0, 2000),
+            ]);
             throw new \RuntimeException('No se pudo subir el archivo a iLovePDF.');
         }
 
-        return (string) $resp->json()['server_filename'];
+        return (string) $resp->json('server_filename');
     }
 
     /**
@@ -111,14 +278,18 @@ class IlovePdfService
     {
         $url = "https://{$server}/v1/process";
 
-        $resp = Http::timeout($this->timeout())
-            ->withToken($token)
-            ->withHeaders(['Content-Type' => 'application/json'])
-            ->post($url, $payload);
+        $resp = $this->request('post', $url, [
+            'token'   => $token,
+            'headers' => ['Content-Type' => 'application/json'],
+            'payload' => $payload,
+        ]);
 
         if (!$resp->ok()) {
-            Log::warning('iLovePDF process failed', ['status' => $resp->status(), 'body' => $resp->body()]);
-            throw new \RuntimeException('No se pudo procesar en iLovePDF: '.$resp->body());
+            Log::warning('iLovePDF process failed', [
+                'status' => $resp->status(),
+                'body'   => mb_substr((string) $resp->body(), 0, 4000),
+            ]);
+            throw new \RuntimeException('No se pudo procesar en iLovePDF: ' . $resp->body());
         }
 
         return (array) $resp->json();
@@ -131,17 +302,24 @@ class IlovePdfService
     {
         $url = "https://{$server}/v1/download/{$task}";
 
-        $resp = Http::timeout($this->timeout())
-            ->withToken($token)
-            ->get($url);
+        $resp = $this->request('get', $url, [
+            'token' => $token,
+        ]);
 
         if (!$resp->ok()) {
-            Log::warning('iLovePDF download failed', ['status' => $resp->status(), 'body' => $resp->body()]);
+            Log::warning('iLovePDF download failed', [
+                'status' => $resp->status(),
+                'body'   => mb_substr((string) $resp->body(), 0, 2000),
+            ]);
             throw new \RuntimeException('No se pudo descargar resultado de iLovePDF.');
         }
 
         return (string) $resp->body();
     }
+
+    // =========================
+    // High-level helpers
+    // =========================
 
     /**
      * REPARA un PDF y regresa el BINARIO del PDF reparado.
@@ -154,8 +332,8 @@ class IlovePdfService
         $serverFilename = $this->uploadFile($task['server'], $task['token'], $task['task'], $pdfFullPath);
 
         $this->process($task['server'], $task['token'], [
-            'task' => $task['task'],
-            'tool' => 'repair',
+            'task'  => $task['task'],
+            'tool'  => 'repair',
             'files' => [[
                 'server_filename' => $serverFilename,
                 'filename'        => basename($pdfFullPath),
@@ -179,8 +357,8 @@ class IlovePdfService
             'task'        => $task['task'],
             'tool'        => 'split',
             'split_mode'  => 'ranges',
-            'ranges'      => $ranges,          // ej: "10-20"
-            'merge_after' => $mergeAfter,      // si mandas varios rangos, los une
+            'ranges'      => $ranges,
+            'merge_after' => $mergeAfter,
             'files'       => [[
                 'server_filename' => $serverFilename,
                 'filename'        => basename($pdfFullPath),
@@ -212,7 +390,6 @@ class IlovePdfService
             ]],
         ];
 
-        // Opcional: idiomas para OCR (si no se pasan, usa los defaults del proyecto)
         if (!empty($languages)) {
             $payload['ocr_languages'] = array_values($languages);
         }
