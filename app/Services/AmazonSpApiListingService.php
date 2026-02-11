@@ -13,70 +13,111 @@ class AmazonSpApiListingService
     ) {}
 
     /**
+     * Obtiene Seller SKU REAL para Amazon (amazon_sku).
+     * NO usar sku interno como fallback (te da 404 NOT_FOUND).
+     */
+    private function sellerSku(CatalogItem $item): ?string
+    {
+        $sku = isset($item->amazon_sku) ? trim((string)$item->amazon_sku) : '';
+        return $sku !== '' ? $sku : null;
+    }
+
+    private function sellerId(): ?string
+    {
+        $v = config('services.amazon_spapi.seller_id');
+        $v = is_string($v) ? trim($v) : '';
+        return $v !== '' ? $v : null;
+    }
+
+    private function marketplaceId(array $opts = []): ?string
+    {
+        $v = $opts['marketplace_id'] ?? config('services.amazon_spapi.marketplace_id');
+        $v = is_string($v) ? trim($v) : '';
+        return $v !== '' ? $v : null;
+    }
+
+    /**
      * Upsert listing por SKU usando Listings Items API.
-     * Requiere: SPAPI_SELLER_ID y SPAPI_MARKETPLACE_ID.
-     *
-     * OJO: Amazon necesita ASIN/productType/atributos según categoría.
-     * Aquí dejamos un "mínimo" para probar conectividad y flujo.
+     * IMPORTANTÍSIMO:
+     * - El SKU debe ser el Seller SKU real de Amazon (amazon_sku).
+     * - Amazon requiere productType y attributes válidos para que se publique.
+     *   Este body es "mínimo" para prueba de conectividad y para listings básicos.
      */
     public function upsertBySku(CatalogItem $item, array $opts = []): array
     {
-        $sellerId      = config('services.amazon_spapi.seller_id');
-        $marketplaceId = config('services.amazon_spapi.marketplace_id');
+        $sellerId      = $this->sellerId();
+        $marketplaceId = $this->marketplaceId($opts);
+        $sellerSku     = $this->sellerSku($item);
 
         if (!$sellerId) {
             return [
                 'ok' => false,
-                'message' => 'Falta SPAPI_SELLER_ID (seller_id) en config/services.php',
+                'status' => null,
+                'json' => null,
+                'body' => null,
+                'message' => 'Falta SPAPI_SELLER_ID (services.amazon_spapi.seller_id)',
             ];
         }
 
         if (!$marketplaceId) {
             return [
                 'ok' => false,
-                'message' => 'Falta SPAPI_MARKETPLACE_ID (marketplace_id) en config/services.php',
+                'status' => null,
+                'json' => null,
+                'body' => null,
+                'message' => 'Falta SPAPI_MARKETPLACE_ID (services.amazon_spapi.marketplace_id)',
             ];
         }
 
-        if (!$item->sku) {
+        if (!$sellerSku) {
             return [
                 'ok' => false,
-                'message' => 'Este producto no tiene SKU. Amazon requiere SKU para crear/actualizar listing.',
+                'status' => null,
+                'json' => null,
+                'body' => null,
+                'message' => 'Falta amazon_sku (Seller SKU real de Amazon) en este producto.',
             ];
         }
 
-        // Publicar en Amazon NO es como ML (title libre). Requiere productType y attributes.
-        // Para un primer paso, te dejo un body "placeholder" que normalmente fallará con
-        // error de validación si no está completo PERO te confirma que auth/firma funcionan.
-        // Luego lo ajustamos por productType/ASIN.
+        // ProductType: en realidad depende del catálogo/categoría.
+        // Para pruebas, usa el que tú definas; si no, dejamos un placeholder.
+        $productType = $opts['productType'] ?? $opts['product_type'] ?? 'PRODUCT';
+        $requirements = $opts['requirements'] ?? 'LISTING';
+
+        // Qty/price
+        $qty   = max(0, (int)($item->stock ?? 0));
+        $price = (float)($item->sale_price !== null ? $item->sale_price : $item->price);
+
+        // Body mínimo (puede fallar si faltan atributos obligatorios del productType real,
+        // pero al menos confirma que auth+firma+endpoint funcionan y te regresa errores de Amazon).
         $body = [
-            'productType'   => $opts['productType'] ?? 'PRODUCT', // placeholder
-            'requirements'  => $opts['requirements'] ?? 'LISTING',
-            'attributes'    => [
-                'item_name' => [
-                    [
-                        'value' => (string)$item->name,
-                        'language_tag' => 'es_MX',
-                    ]
-                ],
+            'productType'  => $productType,
+            'requirements' => $requirements,
+            'attributes'   => [
+                'item_name' => [[
+                    'value'        => (string) $item->name,
+                    'language_tag' => 'es_MX',
+                ]],
+
+                // Inventario / disponibilidad
+                'fulfillment_availability' => [[
+                    'fulfillment_channel_code' => 'DEFAULT',
+                    'quantity'                 => $qty,
+                ]],
+
+                // Precio
+                'purchasable_offer' => [[
+                    'currency'  => 'MXN',
+                    'our_price' => [[
+                        'schedule' => [[
+                            'value_with_tax' => $price,
+                        ]],
+                    ]],
+                ]],
             ],
         ];
 
-        // si quieres "desactivar" listing (pausa)
-        if (array_key_exists('status', $opts)) {
-            // algunos productTypes requieren atributo específico; esto es genérico
-            // (lo ajustamos después a tu categoría real)
-            $body['attributes']['fulfillment_availability'] = [[
-                'fulfillment_channel_code' => 'DEFAULT',
-                'quantity' => max(0, (int)($item->stock ?? 0)),
-            ]];
-            $body['attributes']['purchasable_offer'] = [[
-                'currency' => 'MXN',
-                'our_price' => [[ 'schedule' => [[ 'value_with_tax' => (float)$item->price ]] ]],
-            ]];
-        }
-
-        $path = "/listings/2021-08-01/items/{$sellerId}/{$item->sku}";
+        $path = "/listings/2021-08-01/items/{$sellerId}/{$sellerSku}";
         $query = [
             'marketplaceIds' => $marketplaceId,
         ];
@@ -86,55 +127,84 @@ class AmazonSpApiListingService
         if (!$resp['ok']) {
             Log::warning('Amazon SP-API upsert error', [
                 'catalog_item_id' => $item->id,
-                'sku' => $item->sku,
-                'status' => $resp['status'],
-                'json' => $resp['json'],
-                'body' => $resp['body'],
+                'amazon_sku'      => $sellerSku,
+                'status'          => $resp['status'] ?? null,
+                'json'            => $resp['json'] ?? null,
+                'body'            => $resp['body'] ?? null,
             ]);
 
-            $msg = $resp['json']['message'] ?? 'No se pudo crear/actualizar listing en Amazon.';
+            // Amazon suele regresar errors[]; armamos mensaje amigable
+            $amazonMsg = data_get($resp, 'json.errors.0.message')
+                ?: data_get($resp, 'json.message')
+                ?: 'No se pudo crear/actualizar listing en Amazon.';
+
             return [
-                'ok' => false,
-                'status' => $resp['status'],
-                'json' => $resp['json'],
-                'message' => $msg,
+                'ok'      => false,
+                'status'  => $resp['status'] ?? null,
+                'json'    => $resp['json'] ?? null,
+                'body'    => $resp['body'] ?? null,
+                'message' => $amazonMsg,
             ];
         }
 
         return [
-            'ok' => true,
-            'status' => $resp['status'],
-            'json' => $resp['json'],
+            'ok'      => true,
+            'status'  => $resp['status'] ?? null,
+            'json'    => $resp['json'] ?? null,
+            'body'    => $resp['body'] ?? null,
             'message' => 'Solicitud enviada a Amazon (Listings Items).',
         ];
     }
 
     /**
-     * Para "ver" un listing por SKU (GET).
+     * Ver un listing por Seller SKU (amazon_sku)
      */
-    public function getBySku(CatalogItem $item): array
+    public function getBySku(CatalogItem $item, array $opts = []): array
     {
-        $sellerId      = config('services.amazon_spapi.seller_id');
-        $marketplaceId = config('services.amazon_spapi.marketplace_id');
+        $sellerId      = $this->sellerId();
+        $marketplaceId = $this->marketplaceId($opts);
+        $sellerSku     = $this->sellerSku($item);
 
         if (!$sellerId || !$marketplaceId) {
-            return ['ok'=>false,'message'=>'Faltan seller_id/marketplace_id en config/services.php'];
+            return [
+                'ok' => false,
+                'status' => null,
+                'json' => null,
+                'body' => null,
+                'message' => 'Faltan seller_id/marketplace_id en services.amazon_spapi',
+            ];
         }
-        if (!$item->sku) return ['ok'=>false,'message'=>'Falta SKU.'];
 
-        $path = "/listings/2021-08-01/items/{$sellerId}/{$item->sku}";
+        if (!$sellerSku) {
+            return [
+                'ok' => false,
+                'status' => null,
+                'json' => null,
+                'body' => null,
+                'message' => 'Falta amazon_sku (Seller SKU real de Amazon).',
+            ];
+        }
+
+        $path = "/listings/2021-08-01/items/{$sellerId}/{$sellerSku}";
         $query = [
             'marketplaceIds' => $marketplaceId,
         ];
 
         $resp = $this->client->request('GET', $path, $query, null);
 
+        $msg = 'Ok';
+        if (!$resp['ok']) {
+            $msg = data_get($resp, 'json.errors.0.message')
+                ?: data_get($resp, 'json.message')
+                ?: 'Error consultando listing';
+        }
+
         return [
-            'ok' => $resp['ok'],
-            'status' => $resp['status'],
-            'json' => $resp['json'],
-            'body' => $resp['body'],
-            'message' => $resp['ok'] ? 'Ok' : ($resp['json']['message'] ?? 'Error consultando listing'),
+            'ok'      => (bool)($resp['ok'] ?? false),
+            'status'  => $resp['status'] ?? null,
+            'json'    => $resp['json'] ?? null,
+            'body'    => $resp['body'] ?? null,
+            'message' => $msg,
         ];
     }
 }

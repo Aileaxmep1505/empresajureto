@@ -18,7 +18,7 @@ class AmazonSpApiClient
         $refreshToken = config('services.amazon_spapi.lwa_refresh_token');
 
         if (!$clientId || !$clientSecret || !$refreshToken) {
-            throw new \RuntimeException('Faltan credenciales LWA (client_id/client_secret/refresh_token) en config/services.php');
+            throw new \RuntimeException('Faltan credenciales LWA (client_id/client_secret/refresh_token) en services.amazon_spapi');
         }
 
         $resp = Http::asForm()
@@ -57,22 +57,25 @@ class AmazonSpApiClient
         $roleArn   = config('services.amazon_spapi.role_arn');
 
         if (!$accessKey || !$secretKey || !$roleArn) {
-            throw new \RuntimeException('Faltan credenciales AWS o role_arn en config/services.php (amazon_spapi).');
+            throw new \RuntimeException('Faltan credenciales AWS o role_arn en services.amazon_spapi');
         }
 
         $host = 'sts.amazonaws.com';
         $uri  = '/';
-        $qs   = http_build_query([
+
+        // Query ordenado estable
+        $params = [
             'Action'          => 'AssumeRole',
             'RoleArn'         => $roleArn,
             'RoleSessionName' => 'jureto-spapi-'.date('YmdHis'),
             'Version'         => '2011-06-15',
-        ]);
+        ];
+        ksort($params);
+        $qs  = http_build_query($params, '', '&', PHP_QUERY_RFC3986);
 
         $url = "https://{$host}{$uri}?{$qs}";
 
         $amzDate = gmdate('Ymd\THis\Z');
-        $date    = gmdate('Ymd');
         $service = 'sts';
 
         $headers = [
@@ -104,22 +107,20 @@ class AmazonSpApiClient
             throw new \RuntimeException('No se pudo hacer AssumeRole en STS.');
         }
 
-        // STS regresa XML -> parse básico
         $xml = @simplexml_load_string($resp->body());
         if (!$xml) {
             throw new \RuntimeException('No se pudo parsear XML de STS.');
         }
 
-        $ns = $xml->getNamespaces(true);
-        // navegación segura
-        $result = $xml->children($ns[''])->AssumeRoleResult ?? null;
-        if (!$result) $result = $xml->AssumeRoleResult ?? null;
-
-        $creds = $result->Credentials ?? null;
+        // Creds típicas:
+        $creds = $xml->AssumeRoleResult->Credentials ?? null;
         if (!$creds) {
-            // intenta ruta alternativa
-            $creds = $xml->AssumeRoleResult->Credentials ?? null;
+            // fallback por namespaces raros
+            $ns = $xml->getNamespaces(true);
+            $root = $xml->children($ns[''] ?? null);
+            $creds = $root->AssumeRoleResult->Credentials ?? null;
         }
+
         if (!$creds) {
             throw new \RuntimeException('STS no devolvió Credentials.');
         }
@@ -145,41 +146,52 @@ class AmazonSpApiClient
      */
     public function request(string $method, string $path, array $query = [], ?array $jsonBody = null): array
     {
-        $endpoint = rtrim(config('services.amazon_spapi.endpoint'), '/');
-        $region   = config('services.amazon_spapi.aws_region', 'us-east-1');
+        $endpoint = rtrim((string)config('services.amazon_spapi.endpoint'), '/');
+        $region   = (string)config('services.amazon_spapi.aws_region', 'us-east-1');
 
-        if (!$endpoint) throw new \RuntimeException('Falta amazon_spapi.endpoint en config/services.php');
+        if (!$endpoint) {
+            throw new \RuntimeException('Falta services.amazon_spapi.endpoint');
+        }
+
+        // Orden estable del query
+        $qs = '';
+        if (!empty($query)) {
+            $q = $query;
+            ksort($q);
+            $qs = http_build_query($q, '', '&', PHP_QUERY_RFC3986);
+        }
+
+        $url = $endpoint.$path.($qs !== '' ? ('?'.$qs) : '');
+
+        $host = parse_url($endpoint, PHP_URL_HOST);
+        if (!$host) {
+            throw new \RuntimeException('Endpoint inválido para Amazon SP-API.');
+        }
 
         $lwaAccessToken = $this->getLwaAccessToken();
         $sts            = $this->assumeRole();
 
-        $url = $endpoint.$path;
-        if (!empty($query)) {
-            $url .= (str_contains($url, '?') ? '&' : '?').http_build_query($query);
-        }
-
-        $host = parse_url($endpoint, PHP_URL_HOST);
-        $uri  = $path;
-        $qs   = !empty($query) ? http_build_query($query) : '';
-
         $amzDate = gmdate('Ymd\THis\Z');
         $service = 'execute-api';
 
-        $payload = $jsonBody ? json_encode($jsonBody, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES) : '';
+        $payload = $jsonBody
+            ? json_encode($jsonBody, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)
+            : '';
+
         if ($payload === false) $payload = '';
 
+        // Headers a firmar
         $headers = [
-            'host'                   => $host,
-            'x-amz-date'             => $amzDate,
-            'x-amz-security-token'   => $sts['token'],
-            'content-type'           => 'application/json',
-            // SP-API:
-            'x-amz-access-token'     => $lwaAccessToken,
+            'host'                 => $host,
+            'x-amz-date'           => $amzDate,
+            'x-amz-security-token' => $sts['token'],
+            'content-type'         => 'application/json',
+            'x-amz-access-token'   => $lwaAccessToken, // SP-API header
         ];
 
         $signed = $this->signV4(
             method: strtoupper($method),
-            uri: $uri,
+            uri: $path,
             queryString: $qs,
             headers: $headers,
             payload: $payload,
@@ -199,10 +211,9 @@ class AmazonSpApiClient
             default  => $http->get($url),
         };
 
-        $body = (string)$resp->body();
-        $json = null;
+        $body = (string) $resp->body();
 
-        // intenta json
+        $json = null;
         try { $json = $resp->json(); } catch (\Throwable $e) {}
 
         return [
@@ -232,7 +243,7 @@ class AmazonSpApiClient
         $amzDate   = $headers['x-amz-date'] ?? gmdate('Ymd\THis\Z');
         $date      = substr($amzDate, 0, 8);
 
-        // Canonical headers
+        // Canonical headers (lowercase, trim, sort)
         $canonHeaders = [];
         foreach ($headers as $k => $v) {
             $lk = strtolower(trim($k));
@@ -254,7 +265,7 @@ class AmazonSpApiClient
         $canonicalRequest =
             strtoupper($method)."\n".
             $this->normalizeUri($uri)."\n".
-            $queryString."\n".
+            ($queryString ?? '')."\n".
             $canonicalHeadersStr."\n".
             $signedHeaders."\n".
             $payloadHash;
@@ -276,20 +287,15 @@ class AmazonSpApiClient
             'SignedHeaders='.$signedHeaders.', '.
             'Signature='.$signature;
 
+        // Output headers (case-friendly)
         $outHeaders = [];
         foreach ($canonHeaders as $k => $v) {
-            $outHeaders[$k] = $v;
+            $outHeaders[$this->headerCase($k)] = $v;
         }
-        $outHeaders['authorization'] = $authorization;
-
-        // regresa headers en el formato original que Http espera
-        $finalHeaders = [];
-        foreach ($outHeaders as $k => $v) {
-            $finalHeaders[$this->headerCase($k)] = $v;
-        }
+        $outHeaders['Authorization'] = $authorization;
 
         return [
-            'headers' => $finalHeaders,
+            'headers' => $outHeaders,
         ];
     }
 
@@ -305,13 +311,12 @@ class AmazonSpApiClient
     {
         if ($uri === '') return '/';
         if ($uri[0] !== '/') $uri = '/'.$uri;
-        // no urlencode agresivo; SP-API suele venir ya normal.
         return $uri;
     }
 
     private function headerCase(string $k): string
     {
-        // deja algunos comunes bonitos
+        $lk = strtolower($k);
         $map = [
             'host' => 'Host',
             'x-amz-date' => 'X-Amz-Date',
@@ -320,7 +325,6 @@ class AmazonSpApiClient
             'content-type' => 'Content-Type',
             'authorization' => 'Authorization',
         ];
-        $lk = strtolower($k);
         return $map[$lk] ?? $k;
     }
 }
