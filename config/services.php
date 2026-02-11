@@ -209,18 +209,25 @@ return [
         'timeout'    => (int) env('ILOVEPDF_TIMEOUT', 180),
     ],
 'amazon_spapi' => [
-  'lwa_client_id'     => env('AMAZON_LWA_CLIENT_ID'),
-  'lwa_client_secret' => env('AMAZON_LWA_CLIENT_SECRET'),
-  'lwa_refresh_token' => env('AMAZON_LWA_REFRESH_TOKEN'),
+        // Login With Amazon (SP-API)
+        'lwa_client_id'     => env('AMAZON_LWA_CLIENT_ID'),
+        'lwa_client_secret' => env('AMAZON_LWA_CLIENT_SECRET'),
+        'lwa_refresh_token' => env('AMAZON_LWA_REFRESH_TOKEN'),
 
-  'aws_access_key'    => env('AWS_ACCESS_KEY_ID'),
-  'aws_secret_key'    => env('AWS_SECRET_ACCESS_KEY'),
-  'aws_region'        => env('AWS_DEFAULT_REGION', 'us-east-1'),
+        // AWS (firmado)
+        'aws_access_key'    => env('AWS_ACCESS_KEY_ID'),
+        'aws_secret_key'    => env('AWS_SECRET_ACCESS_KEY'),
+        'aws_region'        => env('AWS_DEFAULT_REGION', 'us-east-1'),
 
-  'role_arn'          => env('AMAZON_SPAPI_ROLE_ARN', env('SPAPI_ROLE_ARN')),
+        // IAM Role para asumir (STS AssumeRole)
+        'role_arn'          => env('AMAZON_SPAPI_ROLE_ARN', env('SPAPI_ROLE_ARN')),
 
-  'endpoint'          => env('SPAPI_ENDPOINT', 'https://sellingpartnerapi-na.amazon.com'),
-  'marketplace_id'    => env('SPAPI_MARKETPLACE_ID', 'A1AM78C64UM0Y8'),
-],
+        // Seller / Merchant ID (lo que te faltaba)
+        'seller_id'         => env('SPAPI_SELLER_ID'),
+
+        // Endpoint + Marketplace
+        'endpoint'          => env('SPAPI_ENDPOINT', 'https://sellingpartnerapi-na.amazon.com'),
+        'marketplace_id'    => env('SPAPI_MARKETPLACE_ID', 'A1AM78C64UM0Y8'),
+    ],
 
 ];
