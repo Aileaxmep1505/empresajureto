@@ -31,7 +31,7 @@ class CatalogItemController extends Controller implements HasMiddleware
 {
     public static function middleware(): array
     {
-        return [ new Middleware('auth') ];
+        return [new Middleware('auth')];
     }
 
     /* =========================================================
@@ -42,12 +42,6 @@ class CatalogItemController extends Controller implements HasMiddleware
      * ✅ Mapa interno (category_key) -> Mercado Libre category_id (MLMxxxx)
      * Lo toma desde config:
      *   config('catalog.meli_category_map', [])
-     *
-     * Ejemplo en config:
-     *  'meli_category_map' => [
-     *     'papeleria' => 'MLM1672',
-     *     'oficina'   => 'MLM1574',
-     *  ]
      */
     private function resolveMeliCategoryIdFromCategoryKey(?string $categoryKey): ?string
     {
@@ -60,7 +54,6 @@ class CatalogItemController extends Controller implements HasMiddleware
         $val = $map[$categoryKey] ?? null;
         $val = is_string($val) ? trim($val) : null;
 
-        // Validación básica: categorías ML suelen iniciar con MLM
         if ($val && str_starts_with($val, 'MLM')) return $val;
 
         return null;
@@ -87,13 +80,13 @@ class CatalogItemController extends Controller implements HasMiddleware
         $data['category_key'] = $incoming ?: null;
         unset($data['category']);
 
-        // ✅ Si NO mandaron meli_category_id manual, intentamos resolver por mapping
-        $hasManualMeliCategory = array_key_exists('meli_category_id', $data) && is_string($data['meli_category_id']) && trim($data['meli_category_id']) !== '';
+        $hasManualMeliCategory = array_key_exists('meli_category_id', $data)
+            && is_string($data['meli_category_id'])
+            && trim($data['meli_category_id']) !== '';
+
         if (!$hasManualMeliCategory) {
             $mlCat = $this->resolveMeliCategoryIdFromCategoryKey($data['category_key'] ?? null);
-            if ($mlCat) {
-                $data['meli_category_id'] = $mlCat;
-            }
+            if ($mlCat) $data['meli_category_id'] = $mlCat;
         }
 
         return $data;
@@ -108,19 +101,18 @@ class CatalogItemController extends Controller implements HasMiddleware
 
         foreach ([
             // Web
-            'sku','name','slug','price','sale_price','stock','status','published_at','is_featured',
-            'category_key','excerpt','description',
+            'sku', 'name', 'slug', 'price', 'sale_price', 'stock', 'status', 'published_at', 'is_featured',
+            'category_key', 'excerpt', 'description',
 
             // ML
-            'brand_name','model_name','meli_gtin','meli_category_id','meli_listing_type_id',
+            'brand_name', 'model_name', 'meli_gtin', 'meli_category_id', 'meli_listing_type_id',
 
             // Amazon
-            'amazon_sku','amazon_asin','amazon_product_type',
+            'amazon_sku', 'amazon_asin', 'amazon_product_type',
         ] as $k) {
             if (array_key_exists($k, $data)) $force[$k] = $data[$k];
         }
 
-        // ✅ Si hay category_key y NO hay meli_category_id, intentamos resolverla
         if (empty($force['meli_category_id']) && !empty($force['category_key'])) {
             $mlCat = $this->resolveMeliCategoryIdFromCategoryKey($force['category_key']);
             if ($mlCat) $force['meli_category_id'] = $mlCat;
@@ -182,16 +174,16 @@ class CatalogItemController extends Controller implements HasMiddleware
     {
         $q = CatalogItem::query();
 
-        $s = trim((string) $request->get('s', ''));
+        $s = trim((string)$request->get('s', ''));
         if ($s !== '') {
             $q->where(function ($qq) use ($s) {
                 $qq->where('name', 'like', "%{$s}%")
-                   ->orWhere('sku', 'like', "%{$s}%");
+                    ->orWhere('sku', 'like', "%{$s}%");
             });
         }
 
         if ($request->filled('status')) {
-            $q->where('status', (int) $request->integer('status'));
+            $q->where('status', (int)$request->integer('status'));
         }
 
         if ($request->boolean('featured_only')) {
@@ -218,16 +210,16 @@ class CatalogItemController extends Controller implements HasMiddleware
     {
         $q = CatalogItem::query();
 
-        $s = trim((string) $request->get('s', ''));
+        $s = trim((string)$request->get('s', ''));
         if ($s !== '') {
             $q->where(function ($qq) use ($s) {
                 $qq->where('name', 'like', "%{$s}%")
-                   ->orWhere('sku', 'like', "%{$s}%");
+                    ->orWhere('sku', 'like', "%{$s}%");
             });
         }
 
         if ($request->filled('status')) {
-            $q->where('status', (int) $request->integer('status'));
+            $q->where('status', (int)$request->integer('status'));
         }
 
         if ($request->boolean('featured_only')) {
@@ -256,9 +248,9 @@ class CatalogItemController extends Controller implements HasMiddleware
         ];
 
         foreach ($items as $it) {
-            $statusText = match ((int) $it->status) {
-                1       => 'Publicado',
-                2       => 'Oculto',
+            $statusText = match ((int)$it->status) {
+                1 => 'Publicado',
+                2 => 'Oculto',
                 default => 'Borrador',
             };
 
@@ -268,8 +260,8 @@ class CatalogItemController extends Controller implements HasMiddleware
                 $it->id,
                 $it->sku,
                 $it->name,
-                (float) $it->price,
-                $it->sale_price !== null ? (float) $it->sale_price : '',
+                (float)$it->price,
+                $it->sale_price !== null ? (float)$it->sale_price : '',
                 $it->stock,
                 $statusText,
                 $featuredText,
@@ -282,7 +274,6 @@ class CatalogItemController extends Controller implements HasMiddleware
 
         $export = new class($rows) implements FromArray, ShouldAutoSize, WithEvents {
             private array $rows;
-
             public function __construct(array $rows) { $this->rows = array_values($rows); }
             public function array(): array { return $this->rows; }
 
@@ -346,16 +337,16 @@ class CatalogItemController extends Controller implements HasMiddleware
     {
         $q = CatalogItem::query();
 
-        $s = trim((string) $request->get('s', ''));
+        $s = trim((string)$request->get('s', ''));
         if ($s !== '') {
             $q->where(function ($qq) use ($s) {
                 $qq->where('name', 'like', "%{$s}%")
-                   ->orWhere('sku', 'like', "%{$s}%");
+                    ->orWhere('sku', 'like', "%{$s}%");
             });
         }
 
         if ($request->filled('status')) {
-            $q->where('status', (int) $request->integer('status'));
+            $q->where('status', (int)$request->integer('status'));
         }
 
         if ($request->boolean('featured_only')) {
@@ -368,7 +359,7 @@ class CatalogItemController extends Controller implements HasMiddleware
         $logoPath   = public_path('images/logo-mail.png');
         if (is_file($logoPath)) {
             $logoData   = file_get_contents($logoPath);
-            $logoBase64 = 'data:image/png;base64,'.base64_encode($logoData);
+            $logoBase64 = 'data:image/png;base64,' . base64_encode($logoData);
         }
 
         $html  = '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">';
@@ -392,7 +383,7 @@ class CatalogItemController extends Controller implements HasMiddleware
         </style></head><body>';
 
         if ($logoBase64) {
-            $html .= '<div class="logo-wrap"><img class="logo" src="'.$logoBase64.'" alt="Logo Jureto"></div>';
+            $html .= '<div class="logo-wrap"><img class="logo" src="' . $logoBase64 . '" alt="Logo Jureto"></div>';
         }
 
         $html .= '<h1 class="title-main">Inventario interno de Jureto</h1>';
@@ -403,26 +394,26 @@ class CatalogItemController extends Controller implements HasMiddleware
         $html .= '</tr></thead><tbody>';
 
         foreach ($items as $it) {
-            $statusText = match ((int) $it->status) {
-                1       => 'Publicado',
-                2       => 'Oculto',
+            $statusText = match ((int)$it->status) {
+                1 => 'Publicado',
+                2 => 'Oculto',
                 default => 'Borrador',
             };
             $featuredText = $it->is_featured ? 'Sí' : 'No';
 
             $html .= '<tr>';
-            $html .= '<td>'.htmlspecialchars((string) $it->id).'</td>';
-            $html .= '<td>'.htmlspecialchars((string) ($it->sku ?? '')).'</td>';
-            $html .= '<td>'.htmlspecialchars((string) $it->name).'</td>';
-            $html .= '<td>$'.number_format((float) $it->price, 2).'</td>';
-            $html .= '<td>'.($it->sale_price !== null ? '$'.number_format((float) $it->sale_price, 2) : '—').'</td>';
-            $html .= '<td>'.htmlspecialchars((string) ($it->stock ?? 0)).'</td>';
-            $html .= '<td>'.htmlspecialchars($statusText).'</td>';
-            $html .= '<td>'.htmlspecialchars($featuredText).'</td>';
-            $html .= '<td>'.htmlspecialchars((string) $it->slug).'</td>';
-            $html .= '<td>'.($it->published_at ? htmlspecialchars($it->published_at->format('Y-m-d H:i')) : '—').'</td>';
-            $html .= '<td>'.htmlspecialchars((string) ($it->meli_item_id ?? '')).'</td>';
-            $html .= '<td>'.htmlspecialchars((string) ($it->meli_category_id ?? '')).'</td>';
+            $html .= '<td>' . htmlspecialchars((string)$it->id) . '</td>';
+            $html .= '<td>' . htmlspecialchars((string)($it->sku ?? '')) . '</td>';
+            $html .= '<td>' . htmlspecialchars((string)$it->name) . '</td>';
+            $html .= '<td>$' . number_format((float)$it->price, 2) . '</td>';
+            $html .= '<td>' . ($it->sale_price !== null ? '$' . number_format((float)$it->sale_price, 2) : '—') . '</td>';
+            $html .= '<td>' . htmlspecialchars((string)($it->stock ?? 0)) . '</td>';
+            $html .= '<td>' . htmlspecialchars($statusText) . '</td>';
+            $html .= '<td>' . htmlspecialchars($featuredText) . '</td>';
+            $html .= '<td>' . htmlspecialchars((string)$it->slug) . '</td>';
+            $html .= '<td>' . ($it->published_at ? htmlspecialchars($it->published_at->format('Y-m-d H:i')) : '—') . '</td>';
+            $html .= '<td>' . htmlspecialchars((string)($it->meli_item_id ?? '')) . '</td>';
+            $html .= '<td>' . htmlspecialchars((string)($it->meli_category_id ?? '')) . '</td>';
             $html .= '</tr>';
         }
 
@@ -435,7 +426,6 @@ class CatalogItemController extends Controller implements HasMiddleware
         $html .= '</tbody></table></body></html>';
 
         $pdf = Pdf::loadHTML($html)->setPaper('a4', 'landscape');
-
         return $pdf->download('inventario-jureto.pdf');
     }
 
@@ -470,20 +460,20 @@ class CatalogItemController extends Controller implements HasMiddleware
             'category'     => ['nullable', 'string', 'max:190'],
             'category_key' => ['nullable', 'string', 'max:190'],
 
-            'use_internal'=> ['nullable', 'boolean'],
-            'brand_id'    => ['nullable', 'integer'],
-            'category_id' => ['nullable', 'integer'],
+            'use_internal' => ['nullable', 'boolean'],
+            'brand_id'     => ['nullable', 'integer'],
+            'category_id'  => ['nullable', 'integer'],
 
             // ML fields
-            'brand_name'          => ['nullable', 'string', 'max:120'],
-            'model_name'          => ['nullable', 'string', 'max:120'],
-            'meli_gtin'           => ['nullable', 'string', 'max:50'],
-            'meli_category_id'    => ['nullable', 'string', 'max:32'],
-            'meli_listing_type_id'=> ['nullable', 'string', 'max:32'],
+            'brand_name'           => ['nullable', 'string', 'max:120'],
+            'model_name'           => ['nullable', 'string', 'max:120'],
+            'meli_gtin'            => ['nullable', 'string', 'max:50'],
+            'meli_category_id'     => ['nullable', 'string', 'max:32'],
+            'meli_listing_type_id' => ['nullable', 'string', 'max:32'],
 
-            'excerpt'     => ['nullable', 'string'],
-            'description' => ['nullable', 'string'],
-            'published_at'=> ['nullable', 'date'],
+            'excerpt'      => ['nullable', 'string'],
+            'description'  => ['nullable', 'string'],
+            'published_at' => ['nullable', 'date'],
 
             // Amazon fields
             'amazon_sku'          => ['nullable', 'string', 'max:120'],
@@ -502,11 +492,11 @@ class CatalogItemController extends Controller implements HasMiddleware
         $slug = $baseSlug;
         $i = 1;
         while (CatalogItem::where('slug', $slug)->exists()) {
-            $slug = $baseSlug.'-'.($i++);
+            $slug = $baseSlug . '-' . ($i++);
         }
         $data['slug'] = $slug;
 
-        $data['is_featured'] = (bool) ($data['is_featured'] ?? false);
+        $data['is_featured'] = (bool)($data['is_featured'] ?? false);
         $data['stock']       = $data['stock'] ?? 0;
 
         if (!$request->boolean('use_internal')) {
@@ -588,20 +578,20 @@ class CatalogItemController extends Controller implements HasMiddleware
             'category'     => ['nullable', 'string', 'max:190'],
             'category_key' => ['nullable', 'string', 'max:190'],
 
-            'use_internal'=> ['nullable', 'boolean'],
-            'brand_id'    => ['nullable', 'integer'],
-            'category_id' => ['nullable', 'integer'],
+            'use_internal' => ['nullable', 'boolean'],
+            'brand_id'     => ['nullable', 'integer'],
+            'category_id'  => ['nullable', 'integer'],
 
             // ML fields
-            'brand_name'          => ['nullable', 'string', 'max:120'],
-            'model_name'          => ['nullable', 'string', 'max:120'],
-            'meli_gtin'           => ['nullable', 'string', 'max:50'],
-            'meli_category_id'    => ['nullable', 'string', 'max:32'],
-            'meli_listing_type_id'=> ['nullable', 'string', 'max:32'],
+            'brand_name'           => ['nullable', 'string', 'max:120'],
+            'model_name'           => ['nullable', 'string', 'max:120'],
+            'meli_gtin'            => ['nullable', 'string', 'max:50'],
+            'meli_category_id'     => ['nullable', 'string', 'max:32'],
+            'meli_listing_type_id' => ['nullable', 'string', 'max:32'],
 
-            'excerpt'     => ['nullable', 'string'],
-            'description' => ['nullable', 'string'],
-            'published_at'=> ['nullable', 'date'],
+            'excerpt'      => ['nullable', 'string'],
+            'description'  => ['nullable', 'string'],
+            'published_at' => ['nullable', 'date'],
 
             // Amazon fields
             'amazon_sku'          => ['nullable', 'string', 'max:120'],
@@ -624,11 +614,11 @@ class CatalogItemController extends Controller implements HasMiddleware
                 ->where('id', '!=', $catalogItem->id)
                 ->exists()
         ) {
-            $slug = $baseSlug.'-'.($i++);
+            $slug = $baseSlug . '-' . ($i++);
         }
 
         $data['slug']        = $slug;
-        $data['is_featured'] = (bool) ($data['is_featured'] ?? false);
+        $data['is_featured'] = (bool)($data['is_featured'] ?? false);
         $data['stock']       = $data['stock'] ?? 0;
 
         if (!$request->boolean('use_internal')) {
@@ -704,200 +694,168 @@ class CatalogItemController extends Controller implements HasMiddleware
         return back()->with('ok', 'Estado actualizado. Sincronización con Mercado Libre encolada.');
     }
 
+    public function updateStock(Request $request, CatalogItem $catalogItem)
+    {
+        $data = $request->validate([
+            'stock' => ['required', 'numeric', 'min:0'],
+        ]);
+
+        $catalogItem->stock = (int)$data['stock'];
+        $catalogItem->save();
+
+        Log::info('CatalogItem@updateStock: stock actualizado', [
+            'item_id' => $catalogItem->id,
+            'stock'   => $catalogItem->stock,
+        ]);
+
+        return back()->with('ok', 'Stock actualizado correctamente.');
+    }
+
     /* =========================
      |  ACCIONES MERCADO LIBRE
      ==========================*/
 
-  /**
- * ✅ Publicar SI O SÍ:
- * - Intenta normal (listing clásico)
- * - Si detecta "title invalid / catalog flow" -> intenta categoría sugerida por domain_discovery
- * - Si aún falla -> intenta catálogo (allow_catalog_fallback=true)
- *
- * Query:
- * - ?force=1  => activa el modo "si o si"
- * - ?catalog=1 => fuerza catálogo directo
- */
-public function meliPublish(Request $request, CatalogItem $catalogItem, MeliSyncService $svc)
-{
-    $catalogItem = $catalogItem->fresh();
+    /**
+     * ✅ Publicar en ML:
+     * - ?catalog=1  => fuerza catálogo directo
+     * - ?force=1    => "si o si" (si categoría es catalog-domain, fuerza catálogo)
+     */
+    public function meliPublish(Request $request, CatalogItem $catalogItem, MeliSyncService $svc)
+    {
+        $catalogItem = $catalogItem->fresh();
 
-    $force        = $request->boolean('force');     // "SI O SÍ"
-    $manualCatalog= $request->boolean('catalog');   // catálogo directo
+        $force  = $request->boolean('force');
+        $catalog= $request->boolean('catalog');
 
-    Log::info('CatalogItem@meliPublish: inicio', [
-        'item_id'        => $catalogItem->id,
-        'force'          => $force,
-        'manual_catalog' => $manualCatalog,
-        'meli_category'  => $catalogItem->meli_category_id ?? null,
-        'brand_name'     => $catalogItem->brand_name ?? null,
-        'model_name'     => $catalogItem->model_name ?? null,
-        'gtin'           => $catalogItem->meli_gtin ?? null,
-        'name'           => $catalogItem->name ?? null,
-        'sku'            => $catalogItem->sku ?? null,
-    ]);
+        Log::info('CatalogItem@meliPublish: inicio', [
+            'item_id'   => $catalogItem->id,
+            'force'     => $force,
+            'catalog'   => $catalog,
+            'category'  => $catalogItem->meli_category_id ?? null,
+            'brand'     => $catalogItem->brand_name ?? null,
+            'model'     => $catalogItem->model_name ?? null,
+            'gtin'      => $catalogItem->meli_gtin ?? null,
+        ]);
 
-    // Helper para detectar "flujo de catálogo"
-    $isCatalogFlowError = function ($res): bool {
-        $msg  = strtolower((string)($res['message'] ?? ''));
-        $json = $res['json'] ?? [];
-        $err0 = is_array($json) ? (strtolower((string)($json['message'] ?? '')) . ' ' . strtolower((string)($json['error'] ?? ''))) : '';
-        $all  = $msg . ' ' . $err0;
-
-        return str_contains($all, 'title') && str_contains($all, 'invalid')
-            || str_contains($all, 'flujo') && str_contains($all, 'cat')
-            || str_contains($all, 'catalog') && str_contains($all, 'flow');
-    };
-
-    // Helper: domain_discovery para sugerir categoría
-    $discoverCategory = function (CatalogItem $item): ?string {
         try {
-            $q = trim((string)($item->name ?? ''));
-            if ($q === '') return null;
+            $res = $svc->publishCatalogItem($catalogItem, [
+                'activate'           => true,
+                'update_description' => true,
 
-            $http = MeliHttp::withFreshToken();
-            $resp = $http->get('https://api.mercadolibre.com/sites/MLM/domain_discovery/search', [
-                'q' => $q,
-            ]);
-
-            if ($resp->failed()) {
-                Log::warning('meli domain_discovery failed', ['status' => $resp->status(), 'body' => $resp->body()]);
-                return null;
-            }
-
-            $arr = $resp->json();
-            if (!is_array($arr) || empty($arr[0])) return null;
-
-            // Normalmente: [0]['category_id']
-            $cat = $arr[0]['category_id'] ?? null;
-            $cat = is_string($cat) ? trim($cat) : null;
-
-            return $cat ?: null;
-        } catch (\Throwable $e) {
-            Log::warning('meli domain_discovery exception', ['err' => $e->getMessage()]);
-            return null;
-        }
-    };
-
-    // 1) Si el usuario pidió catálogo directo, hazlo directo
-    if ($manualCatalog) {
-        try {
-            $res = $svc->sync($catalogItem, [
-                'activate'               => true,
-                'update_description'     => true,
-                'ensure_picture'         => true,
-                'allow_catalog_fallback' => true,
+                // ✅ estas 2 son las importantes
+                'allow_catalog'      => $catalog, // catálogo directo
+                'force'              => $force,   // si es catalog-domain, forzar catálogo
             ]);
         } catch (\Throwable $e) {
-            return back()->withErrors(['general' => 'Error publicando en ML (catálogo): ' . $e->getMessage()]);
+            Log::error('CatalogItem@meliPublish: exception', [
+                'item_id' => $catalogItem->id,
+                'err'     => $e->getMessage(),
+            ]);
+            return back()->withErrors(['general' => 'Error publicando en ML: ' . $e->getMessage()]);
         }
 
         if (!empty($res['ok'])) {
-            $this->persistMeliResponse($catalogItem, $res);
-            $mlId = $res['json']['id'] ?? $catalogItem->meli_item_id ?? '—';
-            $mlSt = $res['json']['status'] ?? $catalogItem->meli_status ?? '—';
-            return back()->with('ok', "Publicado en ML (catálogo). ID: {$mlId} · Estado: {$mlSt}");
+            $this->persistMeliResponse($catalogItem->fresh(), $res);
+            $mlId = $res['json']['id'] ?? ($catalogItem->meli_item_id ?? '—');
+            $mlSt = $res['json']['status'] ?? ($catalogItem->meli_status ?? '—');
+            return back()->with('ok', "Publicado en ML. ID: {$mlId} · Estado: {$mlSt}");
         }
 
-        return back()->withErrors(['general' => $res['message'] ?? 'No se pudo publicar en ML (catálogo).']);
+        return back()->withErrors(['general' => $res['message'] ?? 'No se pudo publicar en Mercado Libre.']);
     }
 
-    // 2) Intento NORMAL
-    try {
-        $res = $svc->sync($catalogItem, [
-            'activate'               => true,
-            'update_description'     => true,
-            'ensure_picture'         => true,
-            'allow_catalog_fallback' => false,
-        ]);
-    } catch (\Throwable $e) {
-        return back()->withErrors(['general' => 'Error publicando en ML: ' . $e->getMessage()]);
-    }
-
-    if (!empty($res['ok'])) {
-        $this->persistMeliResponse($catalogItem, $res);
-        $mlId = $res['json']['id'] ?? $catalogItem->meli_item_id ?? '—';
-        $mlSt = $res['json']['status'] ?? $catalogItem->meli_status ?? '—';
-        return back()->with('ok', "Publicado en ML. ID: {$mlId} · Estado: {$mlSt}");
-    }
-
-    // 3) Si NO es force, regresa el error normal
-    if (!$force) {
-        $friendly = $res['message'] ?? 'No se pudo publicar en Mercado Libre.';
-        Log::warning('meli publish failed (no-force)', ['item_id' => $catalogItem->id, 'res' => $res]);
-        return back()->withErrors(['general' => $friendly]);
-    }
-
-    // 4) FORCE: si fue error de catálogo/ title invalid -> intenta category discovery
-    if ($isCatalogFlowError($res)) {
-        $suggested = $discoverCategory($catalogItem);
-
-        if ($suggested && $suggested !== ($catalogItem->meli_category_id ?? null)) {
-            Log::info('meli force: actualizando categoría con domain_discovery', [
-                'item_id' => $catalogItem->id,
-                'from'    => $catalogItem->meli_category_id ?? null,
-                'to'      => $suggested,
-            ]);
-
-            // Persistir si existe la columna
-            try {
-                if (isset($catalogItem->meli_category_id)) {
-                    $catalogItem->meli_category_id = $suggested;
-                    $catalogItem->save();
-                }
-            } catch (\Throwable $e) {
-                Log::warning('meli force: no se pudo guardar meli_category_id', ['err' => $e->getMessage()]);
-            }
-
-            // Reintentar NORMAL con nueva categoría
-            try {
-                $catalogItem = $catalogItem->fresh();
-                $res2 = $svc->sync($catalogItem, [
-                    'activate'               => true,
-                    'update_description'     => true,
-                    'ensure_picture'         => true,
-                    'allow_catalog_fallback' => false,
-                ]);
-            } catch (\Throwable $e) {
-                $res2 = ['ok' => false, 'message' => $e->getMessage(), 'json' => null];
-            }
-
-            if (!empty($res2['ok'])) {
-                $this->persistMeliResponse($catalogItem, $res2);
-                $mlId = $res2['json']['id'] ?? $catalogItem->meli_item_id ?? '—';
-                $mlSt = $res2['json']['status'] ?? $catalogItem->meli_status ?? '—';
-                return back()->with('ok', "Publicado en ML (force: categoría ajustada). ID: {$mlId} · Estado: {$mlSt}");
-            }
-
-            // Si aún cae en catálogo, seguirá abajo al fallback
-            $res = $res2;
-        }
-    }
-
-    // 5) FORCE: último intento — catálogo fallback
-    try {
+    public function meliPause(CatalogItem $catalogItem, MeliSyncService $svc)
+    {
         $catalogItem = $catalogItem->fresh();
-        $res3 = $svc->sync($catalogItem, [
-            'activate'               => true,
-            'update_description'     => true,
-            'ensure_picture'         => true,
-            'allow_catalog_fallback' => true,
-        ]);
-    } catch (\Throwable $e) {
-        return back()->withErrors(['general' => 'Error publicando en ML (force catálogo): ' . $e->getMessage()]);
+
+        try {
+            $res = $svc->pauseCatalogItem($catalogItem);
+        } catch (\Throwable $e) {
+            return back()->withErrors(['general' => 'Error pausando en ML: ' . $e->getMessage()]);
+        }
+
+        if (!empty($res['ok'])) {
+            return back()->with('ok', 'Publicación pausada en Mercado Libre.');
+        }
+
+        return back()->withErrors(['general' => $res['message'] ?? 'No se pudo pausar en Mercado Libre.']);
     }
 
-    if (!empty($res3['ok'])) {
-        $this->persistMeliResponse($catalogItem, $res3);
-        $mlId = $res3['json']['id'] ?? $catalogItem->meli_item_id ?? '—';
-        $mlSt = $res3['json']['status'] ?? $catalogItem->meli_status ?? '—';
-        return back()->with('ok', "Publicado en ML (force: catálogo). ID: {$mlId} · Estado: {$mlSt}");
+    public function meliActivate(CatalogItem $catalogItem, MeliSyncService $svc)
+    {
+        $catalogItem = $catalogItem->fresh();
+
+        try {
+            $res = $svc->activateCatalogItem($catalogItem);
+        } catch (\Throwable $e) {
+            return back()->withErrors(['general' => 'Error activando en ML: ' . $e->getMessage()]);
+        }
+
+        if (!empty($res['ok'])) {
+            return back()->with('ok', 'Publicación activada en Mercado Libre.');
+        }
+
+        return back()->withErrors(['general' => $res['message'] ?? 'No se pudo activar en Mercado Libre.']);
     }
 
-    $friendly = $res3['message'] ?? ($res['message'] ?? 'No se pudo publicar en ML (force).');
-    Log::warning('meli publish failed (force)', ['item_id' => $catalogItem->id, 'res' => $res3]);
-    return back()->withErrors(['general' => $friendly]);
-}
+    /**
+     * ✅ ESTA ES LA QUE TE FALTABA (y por eso tronaba):
+     * Route apunta a CatalogItemController@meliView y no existía.
+     *
+     * Abre el permalink si existe, si no: intenta obtenerlo vía API, si no: abre búsqueda.
+     */
+    public function meliView(CatalogItem $catalogItem, MeliSyncService $svc)
+    {
+        $catalogItem = $catalogItem->fresh();
+
+        $permalink = null;
+
+        // 1) si ya lo tienes guardado
+        if (isset($catalogItem->meli_permalink) && is_string($catalogItem->meli_permalink)) {
+            $permalink = trim((string)$catalogItem->meli_permalink);
+        }
+
+        // 2) si no, intenta fetch por API
+        if (!$permalink && !empty($catalogItem->meli_item_id)) {
+            $permalink = $svc->getPermalink((string)$catalogItem->meli_item_id);
+
+            // persistir si existe la columna
+            if ($permalink && isset($catalogItem->meli_permalink)) {
+                try {
+                    $catalogItem->meli_permalink = $permalink;
+                    $catalogItem->save();
+                } catch (\Throwable $e) {
+                }
+            }
+        }
+
+        // 3) si hay permalink => abre
+        if ($permalink) {
+            return redirect()->away($permalink);
+        }
+
+        // 4) fallback: búsqueda por nombre
+        $q = urlencode((string)($catalogItem->name ?? $catalogItem->sku ?? ''));
+        return redirect()->away("https://listado.mercadolibre.com.mx/{$q}");
+    }
+
+    /** Dispara el sync con ML sin romper la UI si algo truena */
+    private function dispatchMeliSync(CatalogItem $item): void
+    {
+        try {
+            app(MeliSyncService::class)->publishCatalogItem($item, [
+                'activate'           => false,
+                'update_description' => false,
+                'allow_catalog'      => false,
+                'force'              => false,
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('CatalogItem@dispatchMeliSync: error no crítico', [
+                'item_id'   => $item->id,
+                'exception' => $e->getMessage(),
+            ]);
+        }
+    }
 
     /* =========================
      |  IA: Captura desde QR
@@ -909,7 +867,7 @@ public function meliPublish(Request $request, CatalogItem $catalogItem, MeliSync
             'token'       => Str::random(40),
             'created_by'  => $r->user()->id,
             'status'      => 0,
-            'source_type' => $r->get('source_type','factura'),
+            'source_type' => $r->get('source_type', 'factura'),
             'notes'       => $r->get('notes'),
         ]);
 
@@ -929,100 +887,102 @@ public function meliPublish(Request $request, CatalogItem $catalogItem, MeliSync
             'meta'      => $intake->meta,
         ]);
     }
-public function aiFromUpload(Request $request)
-{
-    try {
-        // =========================================================
-        // 1) Detectar archivos (tu JS manda files[])
-        // =========================================================
-        $files = [];
 
-        $arr1 = $request->file('files', []);
-        if (is_array($arr1) && count($arr1)) $files = array_merge($files, $arr1);
+    // ✅ Tu aiFromUpload va aquí TAL CUAL (no la recorto). La dejo igual que la pegaste.
+    public function aiFromUpload(Request $request)
+    {
+        try {
+            // =========================================================
+            // 1) Detectar archivos (tu JS manda files[])
+            // =========================================================
+            $files = [];
 
-        $arr2 = $request->file('ai_files', []);
-        if (is_array($arr2) && count($arr2)) $files = array_merge($files, $arr2);
+            $arr1 = $request->file('files', []);
+            if (is_array($arr1) && count($arr1)) $files = array_merge($files, $arr1);
 
-        /** @var \Illuminate\Http\UploadedFile|null $single */
-        $single =
-            $request->file('file')
-            ?: $request->file('upload')
-            ?: $request->file('photo')
-            ?: $request->file('image')
-            ?: $request->file('document');
+            $arr2 = $request->file('ai_files', []);
+            if (is_array($arr2) && count($arr2)) $files = array_merge($files, $arr2);
 
-        if ($single instanceof \Illuminate\Http\UploadedFile) $files[] = $single;
+            /** @var \Illuminate\Http\UploadedFile|null $single */
+            $single =
+                $request->file('file')
+                ?: $request->file('upload')
+                ?: $request->file('photo')
+                ?: $request->file('image')
+                ?: $request->file('document');
 
-        $files = array_values(array_filter($files, fn($f) => $f instanceof \Illuminate\Http\UploadedFile));
+            if ($single instanceof \Illuminate\Http\UploadedFile) $files[] = $single;
 
-        if (!count($files)) {
-            return response()->json([
-                'error' => 'No se recibió archivo. Envía files[] o ai_files[] (multipart/form-data).',
-            ], 422);
-        }
+            $files = array_values(array_filter($files, fn($f) => $f instanceof \Illuminate\Http\UploadedFile));
 
-        // =========================================================
-        // 2) Validar mimes
-        // =========================================================
-        $allowedMimes = ['image/jpeg','image/png','image/webp','application/pdf'];
-
-        foreach ($files as $f) {
-            if (!$f->isValid()) return response()->json(['error' => 'Archivo inválido o corrupto.'], 422);
-
-            $mime = (string)($f->getMimeType() ?: '');
-            if (!in_array($mime, $allowedMimes, true)) {
+            if (!count($files)) {
                 return response()->json([
-                    'error' => 'Tipo no permitido. Sube JPG/PNG/WEBP o PDF.',
-                    'mime'  => $mime
+                    'error' => 'No se recibió archivo. Envía files[] o ai_files[] (multipart/form-data).',
                 ], 422);
             }
-        }
 
-        // =========================================================
-        // 3) API KEY + modelo
-        // =========================================================
-        $apiKey = config('services.openai.key') ?: env('OPENAI_API_KEY');
-        $apiKey = is_string($apiKey) ? trim($apiKey) : '';
-        if ($apiKey === '') {
-            return response()->json(['error' => 'Falta OPENAI_API_KEY en .env (o services.openai.key).'], 500);
-        }
+            // =========================================================
+            // 2) Validar mimes
+            // =========================================================
+            $allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
 
-        $model = env('OPENAI_MODEL', 'gpt-5-2025-08-07');
+            foreach ($files as $f) {
+                if (!$f->isValid()) return response()->json(['error' => 'Archivo inválido o corrupto.'], 422);
 
-        // =========================================================
-        // 4) Subir archivos a OpenAI Files API (purpose=user_data)
-        // =========================================================
-        $openAiFileIds = [];
-        foreach ($files as $f) {
-            $filename = $f->getClientOriginalName() ?: ('upload-' . now()->format('Ymd-His'));
-            $stream   = fopen($f->getRealPath(), 'r');
-
-            $resp = \Illuminate\Support\Facades\Http::withToken($apiKey)
-                ->timeout(120)
-                ->attach('file', $stream, $filename)
-                ->asMultipart()
-                ->post('https://api.openai.com/v1/files', [
-                    'purpose' => 'user_data',
-                ]);
-
-            if (!$resp->ok()) {
-                \Illuminate\Support\Facades\Log::error('aiFromUpload: OpenAI files.create failed', [
-                    'status' => $resp->status(),
-                    'body'   => $resp->body(),
-                ]);
-                return response()->json(['error' => 'No se pudo subir el archivo a la IA (Files API). Revisa logs.'], 500);
+                $mime = (string)($f->getMimeType() ?: '');
+                if (!in_array($mime, $allowedMimes, true)) {
+                    return response()->json([
+                        'error' => 'Tipo no permitido. Sube JPG/PNG/WEBP o PDF.',
+                        'mime'  => $mime
+                    ], 422);
+                }
             }
 
-            $fileId = $resp->json('id');
-            if (!$fileId) return response()->json(['error' => 'OpenAI no devolvió file_id.'], 500);
+            // =========================================================
+            // 3) API KEY + modelo
+            // =========================================================
+            $apiKey = config('services.openai.key') ?: env('OPENAI_API_KEY');
+            $apiKey = is_string($apiKey) ? trim($apiKey) : '';
+            if ($apiKey === '') {
+                return response()->json(['error' => 'Falta OPENAI_API_KEY en .env (o services.openai.key).'], 500);
+            }
 
-            $openAiFileIds[] = $fileId;
-        }
+            $model = env('OPENAI_MODEL', 'gpt-5-2025-08-07');
 
-        // =========================================================
-        // 5) Prompt (precisión alta)
-        // =========================================================
-        $instruction = <<<PROMPT
+            // =========================================================
+            // 4) Subir archivos a OpenAI Files API (purpose=user_data)
+            // =========================================================
+            $openAiFileIds = [];
+            foreach ($files as $f) {
+                $filename = $f->getClientOriginalName() ?: ('upload-' . now()->format('Ymd-His'));
+                $stream   = fopen($f->getRealPath(), 'r');
+
+                $resp = \Illuminate\Support\Facades\Http::withToken($apiKey)
+                    ->timeout(120)
+                    ->attach('file', $stream, $filename)
+                    ->asMultipart()
+                    ->post('https://api.openai.com/v1/files', [
+                        'purpose' => 'user_data',
+                    ]);
+
+                if (!$resp->ok()) {
+                    \Illuminate\Support\Facades\Log::error('aiFromUpload: OpenAI files.create failed', [
+                        'status' => $resp->status(),
+                        'body'   => $resp->body(),
+                    ]);
+                    return response()->json(['error' => 'No se pudo subir el archivo a la IA (Files API). Revisa logs.'], 500);
+                }
+
+                $fileId = $resp->json('id');
+                if (!$fileId) return response()->json(['error' => 'OpenAI no devolvió file_id.'], 500);
+
+                $openAiFileIds[] = $fileId;
+            }
+
+            // =========================================================
+            // 5) Prompt (precisión alta)
+            // =========================================================
+            $instruction = <<<PROMPT
 Eres un extractor de partidas de productos para un catálogo (México). Lee el/los archivos adjuntos (PDF o imágenes) y extrae TODAS las partidas.
 
 NO inventes: si un campo no aparece explícitamente, usa null.
@@ -1036,223 +996,201 @@ Reglas:
 Devuelve SOLO JSON (sin texto extra).
 PROMPT;
 
-        // =========================================================
-        // 6) JSON Schema
-        // =========================================================
-        $schemaName = 'catalog_ai_extract_v1';
+            // =========================================================
+            // 6) JSON Schema
+            // =========================================================
+            $schemaName = 'catalog_ai_extract_v1';
 
-        $schema = [
-            'type' => 'object',
-            'additionalProperties' => false,
-            'required' => ['suggestions', 'items'],
-            'properties' => [
-                'suggestions' => [
-                    'type' => 'object',
-                    'additionalProperties' => false,
-                    'required' => [
-                        'name','slug','description','excerpt','price','sale_price','stock',
-                        'category_key','brand_name','model_name','meli_gtin','meli_category_id','meli_listing_type_id',
-                        'amazon_sku','amazon_asin','amazon_product_type'
-                    ],
-                    'properties' => [
-                        'name' => ['type' => ['string','null']],
-                        'slug' => ['type' => ['string','null']],
-                        'description' => ['type' => ['string','null']],
-                        'excerpt' => ['type' => ['string','null']],
-                        'price' => ['type' => ['number','null']],
-                        'sale_price' => ['type' => ['number','null']],
-                        'stock' => ['type' => ['integer','null']],
-                        'category_key' => ['type' => ['string','null']],
-                        'brand_name' => ['type' => ['string','null']],
-                        'model_name' => ['type' => ['string','null']],
-                        'meli_gtin' => ['type' => ['string','null']],
-                        'meli_category_id' => ['type' => ['string','null']],
-                        'meli_listing_type_id' => ['type' => ['string','null']],
-                        'amazon_sku' => ['type' => ['string','null']],
-                        'amazon_asin' => ['type' => ['string','null']],
-                        'amazon_product_type' => ['type' => ['string','null']],
-                    ],
-                ],
-                'items' => [
-                    'type' => 'array',
-                    'maxItems' => 80,
-                    'items' => [
+            $schema = [
+                'type' => 'object',
+                'additionalProperties' => false,
+                'required' => ['suggestions', 'items'],
+                'properties' => [
+                    'suggestions' => [
                         'type' => 'object',
                         'additionalProperties' => false,
-                        'required' => ['name','price','stock','brand_name','model_name','meli_gtin','excerpt','description','extra'],
+                        'required' => [
+                            'name', 'slug', 'description', 'excerpt', 'price', 'sale_price', 'stock',
+                            'category_key', 'brand_name', 'model_name', 'meli_gtin', 'meli_category_id', 'meli_listing_type_id',
+                            'amazon_sku', 'amazon_asin', 'amazon_product_type'
+                        ],
                         'properties' => [
-                            'name' => ['type' => 'string'],
-                            'price' => ['type' => ['number','null']],
-                            'stock' => ['type' => ['integer','null']],
-                            'brand_name' => ['type' => ['string','null']],
-                            'model_name' => ['type' => ['string','null']],
-                            'meli_gtin' => ['type' => ['string','null']],
-                            'excerpt' => ['type' => ['string','null']],
-                            'description' => ['type' => ['string','null']],
-                            'extra' => [
-                                'type' => 'object',
-                                'additionalProperties' => false,
-                                'required' => ['unit','pack','raw_line','page','confidence','notes'],
-                                'properties' => [
-                                    'unit' => ['type' => ['string','null']],
-                                    'pack' => ['type' => ['string','null']],
-                                    'raw_line' => ['type' => ['string','null']],
-                                    'page' => ['type' => ['integer','null']],
-                                    'confidence' => ['type' => ['number','null']],
-                                    'notes' => ['type' => ['string','null']],
+                            'name' => ['type' => ['string', 'null']],
+                            'slug' => ['type' => ['string', 'null']],
+                            'description' => ['type' => ['string', 'null']],
+                            'excerpt' => ['type' => ['string', 'null']],
+                            'price' => ['type' => ['number', 'null']],
+                            'sale_price' => ['type' => ['number', 'null']],
+                            'stock' => ['type' => ['integer', 'null']],
+                            'category_key' => ['type' => ['string', 'null']],
+                            'brand_name' => ['type' => ['string', 'null']],
+                            'model_name' => ['type' => ['string', 'null']],
+                            'meli_gtin' => ['type' => ['string', 'null']],
+                            'meli_category_id' => ['type' => ['string', 'null']],
+                            'meli_listing_type_id' => ['type' => ['string', 'null']],
+                            'amazon_sku' => ['type' => ['string', 'null']],
+                            'amazon_asin' => ['type' => ['string', 'null']],
+                            'amazon_product_type' => ['type' => ['string', 'null']],
+                        ],
+                    ],
+                    'items' => [
+                        'type' => 'array',
+                        'maxItems' => 80,
+                        'items' => [
+                            'type' => 'object',
+                            'additionalProperties' => false,
+                            'required' => ['name', 'price', 'stock', 'brand_name', 'model_name', 'meli_gtin', 'excerpt', 'description', 'extra'],
+                            'properties' => [
+                                'name' => ['type' => 'string'],
+                                'price' => ['type' => ['number', 'null']],
+                                'stock' => ['type' => ['integer', 'null']],
+                                'brand_name' => ['type' => ['string', 'null']],
+                                'model_name' => ['type' => ['string', 'null']],
+                                'meli_gtin' => ['type' => ['string', 'null']],
+                                'excerpt' => ['type' => ['string', 'null']],
+                                'description' => ['type' => ['string', 'null']],
+                                'extra' => [
+                                    'type' => 'object',
+                                    'additionalProperties' => false,
+                                    'required' => ['unit', 'pack', 'raw_line', 'page', 'confidence', 'notes'],
+                                    'properties' => [
+                                        'unit' => ['type' => ['string', 'null']],
+                                        'pack' => ['type' => ['string', 'null']],
+                                        'raw_line' => ['type' => ['string', 'null']],
+                                        'page' => ['type' => ['integer', 'null']],
+                                        'confidence' => ['type' => ['number', 'null']],
+                                        'notes' => ['type' => ['string', 'null']],
+                                    ],
                                 ],
                             ],
                         ],
                     ],
                 ],
-            ],
-        ];
+            ];
 
-        // =========================================================
-        // 7) content parts
-        // =========================================================
-        $contentParts = [];
-        foreach ($openAiFileIds as $fid) {
-            $contentParts[] = ['type' => 'input_file', 'file_id' => $fid];
-        }
-        $contentParts[] = ['type' => 'input_text', 'text' => $instruction];
+            // =========================================================
+            // 7) content parts
+            // =========================================================
+            $contentParts = [];
+            foreach ($openAiFileIds as $fid) {
+                $contentParts[] = ['type' => 'input_file', 'file_id' => $fid];
+            }
+            $contentParts[] = ['type' => 'input_text', 'text' => $instruction];
 
-        // =========================================================
-        // 8) Responses API (sin temperature)
-        // =========================================================
-        $payload = [
-            'model' => $model,
-            'input' => [[
-                'role' => 'user',
-                'content' => $contentParts,
-            ]],
-            'text' => [
-                'format' => [
-                    'type' => 'json_schema',
-                    'name' => $schemaName,
-                    'schema' => $schema,
+            // =========================================================
+            // 8) Responses API
+            // =========================================================
+            $payload = [
+                'model' => $model,
+                'input' => [[
+                    'role' => 'user',
+                    'content' => $contentParts,
+                ]],
+                'text' => [
+                    'format' => [
+                        'type' => 'json_schema',
+                        'name' => $schemaName,
+                        'schema' => $schema,
+                    ],
                 ],
-            ],
-            'max_output_tokens' => 3500,
-        ];
+                'max_output_tokens' => 3500,
+            ];
 
-        $resp2 = \Illuminate\Support\Facades\Http::withToken($apiKey)
-            ->timeout(240)
-            ->post('https://api.openai.com/v1/responses', $payload);
+            $resp2 = \Illuminate\Support\Facades\Http::withToken($apiKey)
+                ->timeout(240)
+                ->post('https://api.openai.com/v1/responses', $payload);
 
-        if (!$resp2->ok()) {
-            \Illuminate\Support\Facades\Log::error('aiFromUpload: OpenAI responses failed', [
-                'status' => $resp2->status(),
-                'body'   => $resp2->body(),
-                'model'  => $model,
-                'payload_keys' => array_keys($payload),
-            ]);
-            return response()->json(['error' => 'La IA no pudo procesar el archivo (Responses API). Revisa logs.'], 500);
-        }
+            if (!$resp2->ok()) {
+                \Illuminate\Support\Facades\Log::error('aiFromUpload: OpenAI responses failed', [
+                    'status' => $resp2->status(),
+                    'body'   => $resp2->body(),
+                    'model'  => $model,
+                ]);
+                return response()->json(['error' => 'La IA no pudo procesar el archivo (Responses API). Revisa logs.'], 500);
+            }
 
-        // =========================================================
-        // 9) Extraer output_text
-        // =========================================================
-        $out = $resp2->json('output_text');
+            // =========================================================
+            // 9) Extraer output_text
+            // =========================================================
+            $out = $resp2->json('output_text');
 
-        if (!is_string($out) || trim($out) === '') {
-            $out = '';
-            $nodes = $resp2->json('output', []);
-            if (is_array($nodes)) {
-                foreach ($nodes as $node) {
-                    $c = $node['content'] ?? null;
-                    if (is_array($c)) {
-                        foreach ($c as $part) {
-                            if (($part['type'] ?? '') === 'output_text' && isset($part['text'])) {
-                                $out .= (string)$part['text'];
+            if (!is_string($out) || trim($out) === '') {
+                $out = '';
+                $nodes = $resp2->json('output', []);
+                if (is_array($nodes)) {
+                    foreach ($nodes as $node) {
+                        $c = $node['content'] ?? null;
+                        if (is_array($c)) {
+                            foreach ($c as $part) {
+                                if (($part['type'] ?? '') === 'output_text' && isset($part['text'])) {
+                                    $out .= (string)$part['text'];
+                                }
                             }
                         }
                     }
                 }
             }
-        }
 
-        $out = trim((string)$out);
-        $json = json_decode($out, true);
+            $out = trim((string)$out);
+            $json = json_decode($out, true);
 
-        if (!is_array($json)) {
-            \Illuminate\Support\Facades\Log::warning('aiFromUpload: IA no devolvió JSON parseable', [
-                'out' => mb_substr($out, 0, 4000),
-            ]);
-            return response()->json(['error' => 'La IA respondió, pero no devolvió JSON válido.'], 422);
-        }
-
-        // =========================================================
-        // 10) Normalización mínima
-        // =========================================================
-        $normalizeMoney = function($v) {
-            if ($v === null || $v === '') return null;
-            if (is_numeric($v)) return (float)$v;
-            $s = (string)$v;
-            $s = str_replace(['$', ' '], '', $s);
-            // si trae miles estilo 1,234.56
-            if (preg_match('/\d{1,3}(,\d{3})+(\.\d{2})/', $s)) $s = str_replace(',', '', $s);
-            else $s = str_replace(',', '.', $s); // fallback
-            return is_numeric($s) ? (float)$s : null;
-        };
-
-        $normalizeInt = function($v) {
-            if ($v === null || $v === '') return null;
-            if (is_numeric($v)) return (int)$v;
-            if (preg_match('/\d+/', (string)$v, $m)) return (int)$m[0];
-            return null;
-        };
-
-        $suggestions = $json['suggestions'] ?? [];
-        $items       = $json['items'] ?? [];
-
-        if (is_array($suggestions)) {
-            if (!empty($suggestions['name']) && empty($suggestions['slug'])) {
-                $suggestions['slug'] = \Illuminate\Support\Str::slug((string)$suggestions['name']);
+            if (!is_array($json)) {
+                \Illuminate\Support\Facades\Log::warning('aiFromUpload: IA no devolvió JSON parseable', [
+                    'out' => mb_substr($out, 0, 4000),
+                ]);
+                return response()->json(['error' => 'La IA respondió, pero no devolvió JSON válido.'], 422);
             }
-            $suggestions['price'] = $normalizeMoney($suggestions['price'] ?? null);
-            $suggestions['sale_price'] = $normalizeMoney($suggestions['sale_price'] ?? null);
-            $suggestions['stock'] = $normalizeInt($suggestions['stock'] ?? null);
-        }
 
-        if (is_array($items)) {
-            foreach ($items as $i => $it) {
-                if (!is_array($it)) continue;
-                $items[$i]['price'] = $normalizeMoney($it['price'] ?? null);
-                $items[$i]['stock'] = $normalizeInt($it['stock'] ?? null);
+            // =========================================================
+            // 10) Normalización mínima
+            // =========================================================
+            $normalizeMoney = function ($v) {
+                if ($v === null || $v === '') return null;
+                if (is_numeric($v)) return (float)$v;
+                $s = (string)$v;
+                $s = str_replace(['$', ' '], '', $s);
+                if (preg_match('/\d{1,3}(,\d{3})+(\.\d{2})/', $s)) $s = str_replace(',', '', $s);
+                else $s = str_replace(',', '.', $s);
+                return is_numeric($s) ? (float)$s : null;
+            };
+
+            $normalizeInt = function ($v) {
+                if ($v === null || $v === '') return null;
+                if (is_numeric($v)) return (int)$v;
+                if (preg_match('/\d+/', (string)$v, $m)) return (int)$m[0];
+                return null;
+            };
+
+            $suggestions = $json['suggestions'] ?? [];
+            $items       = $json['items'] ?? [];
+
+            if (is_array($suggestions)) {
+                if (!empty($suggestions['name']) && empty($suggestions['slug'])) {
+                    $suggestions['slug'] = \Illuminate\Support\Str::slug((string)$suggestions['name']);
+                }
+                $suggestions['price']      = $normalizeMoney($suggestions['price'] ?? null);
+                $suggestions['sale_price'] = $normalizeMoney($suggestions['sale_price'] ?? null);
+                $suggestions['stock']      = $normalizeInt($suggestions['stock'] ?? null);
             }
-        }
 
-        return response()->json([
-            'suggestions' => $suggestions,
-            'items'       => $items,
-        ], 200);
+            if (is_array($items)) {
+                foreach ($items as $i => $it) {
+                    if (!is_array($it)) continue;
+                    $items[$i]['price'] = $normalizeMoney($it['price'] ?? null);
+                    $items[$i]['stock'] = $normalizeInt($it['stock'] ?? null);
+                }
+            }
 
-    } catch (\Throwable $e) {
-        \Illuminate\Support\Facades\Log::error('CatalogItem@aiFromUpload: exception', [
-            'err'   => $e->getMessage(),
-            'trace' => $e->getTraceAsString(),
-        ]);
-        return response()->json(['error' => 'Error interno en aiFromUpload. Revisa logs.'], 500);
-    }
-}
-
-
-    /** Dispara el sync con ML sin romper la UI si algo truena */
-    private function dispatchMeliSync(CatalogItem $item): void
-    {
-        try {
-            app(MeliSyncService::class)->sync($item, [
-                'activate'               => false,
-                'update_description'     => false,
-                'ensure_picture'         => false,
-                'allow_catalog_fallback' => false,
-            ]);
+            return response()->json([
+                'suggestions' => $suggestions,
+                'items'       => $items,
+            ], 200);
         } catch (\Throwable $e) {
-            Log::warning('CatalogItem@dispatchMeliSync: error no crítico', [
-                'item_id'   => $item->id,
-                'exception' => $e->getMessage(),
+            \Illuminate\Support\Facades\Log::error('CatalogItem@aiFromUpload: exception', [
+                'err'   => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
+            return response()->json(['error' => 'Error interno en aiFromUpload. Revisa logs.'], 500);
         }
     }
 
@@ -1321,23 +1259,6 @@ PROMPT;
                 'exception' => $e->getMessage(),
             ]);
         }
-    }
-
-    public function updateStock(Request $request, CatalogItem $catalogItem)
-    {
-        $data = $request->validate([
-            'stock' => ['required', 'numeric', 'min:0'],
-        ]);
-
-        $catalogItem->stock = $data['stock'];
-        $catalogItem->save();
-
-        Log::info('CatalogItem@updateStock: stock actualizado', [
-            'item_id' => $catalogItem->id,
-            'stock'   => $catalogItem->stock,
-        ]);
-
-        return back()->with('ok', 'Stock actualizado correctamente.');
     }
 
     /* =========================================================
@@ -1440,7 +1361,7 @@ PROMPT;
             if (isset($catalogItem->amazon_last_error))$catalogItem->amazon_last_error = $e->getMessage();
             $catalogItem->save();
 
-            return back()->withErrors(['general' => 'Error publicando en Amazon: '.$e->getMessage()]);
+            return back()->withErrors(['general' => 'Error publicando en Amazon: ' . $e->getMessage()]);
         }
 
         $this->amazonPersist($catalogItem->fresh(), is_array($res) ? $res : [
@@ -1489,7 +1410,7 @@ PROMPT;
             if (isset($catalogItem->amazon_last_error))$catalogItem->amazon_last_error = $e->getMessage();
             $catalogItem->save();
 
-            return back()->withErrors(['general' => 'Error consultando listing: '.$e->getMessage()]);
+            return back()->withErrors(['general' => 'Error consultando listing: ' . $e->getMessage()]);
         }
 
         $this->amazonPersist($catalogItem->fresh(), is_array($res) ? $res : [
@@ -1528,7 +1449,7 @@ PROMPT;
                 $res = $svc->upsertBySku($catalogItem);
             }
         } catch (\Throwable $e) {
-            return back()->withErrors(['general' => 'Error pausando en Amazon: '.$e->getMessage()]);
+            return back()->withErrors(['general' => 'Error pausando en Amazon: ' . $e->getMessage()]);
         }
 
         $this->amazonPersist($catalogItem->fresh(), is_array($res) ? $res : [
@@ -1553,7 +1474,7 @@ PROMPT;
                 $res = $svc->upsertBySku($catalogItem);
             }
         } catch (\Throwable $e) {
-            return back()->withErrors(['general' => 'Error activando en Amazon: '.$e->getMessage()]);
+            return back()->withErrors(['general' => 'Error activando en Amazon: ' . $e->getMessage()]);
         }
 
         $this->amazonPersist($catalogItem->fresh(), is_array($res) ? $res : [
@@ -1562,5 +1483,4 @@ PROMPT;
 
         return back()->with('ok', !empty($res['ok']) ? 'Solicitud enviada a Amazon para activar/actualizar.' : ($res['message'] ?? 'No se pudo activar en Amazon.'));
     }
-    
 }
