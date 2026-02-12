@@ -21,9 +21,7 @@ class MeliSyncService
         $url = trim($url);
         if ($url === '') return $url;
 
-        if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
-            return $url;
-        }
+        if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) return $url;
 
         $base = rtrim(config('app.url') ?: '', '/');
         if ($base === '') return $url;
@@ -60,7 +58,7 @@ class MeliSyncService
     {
         $http = MeliHttp::withFreshToken();
 
-        // Opción: permitir fallback a catálogo (por defecto NO, porque cambia marca/modelo)
+        // Opción: permitir fallback a catálogo (por defecto NO)
         $allowCatalogFallback = (bool)($options['allow_catalog_fallback'] ?? false);
 
         // 0) Estado de cuenta para shipping
@@ -104,11 +102,28 @@ class MeliSyncService
         $listingType = $item->meli_listing_type_id ?: ($listings[0]['id'] ?? 'gold_special');
 
         // 2) category_id (usa guardada o predice)
-        $categoryId = $item->meli_category_id;
+        $categoryId     = $item->meli_category_id;
+        $domainResults  = [];
+
+        // Siempre pedimos domain_discovery para poder elegir alternativa si ML fuerza catálogo
+        $predResp = $http->get($this->api('sites/MLM/domain_discovery/search'), ['q' => $item->name]);
+        $domainResults = $predResp->ok() ? (array) $predResp->json() : [];
+
         if (!$categoryId) {
-            $predResp = $http->get($this->api('sites/MLM/domain_discovery/search'), ['q' => $item->name]);
-            $pred     = $predResp->ok() ? (array) $predResp->json() : [];
-            $categoryId = $pred[0]['category_id'] ?? 'MLM3530';
+            $categoryId = $domainResults[0]['category_id'] ?? 'MLM3530';
+        }
+
+        // ✅ FIX: si la categoría actual es de catálogo y NO quieres catálogo, intenta alternativa no-catálogo
+        if (!$allowCatalogFallback && $this->isCatalogCategory($http, $categoryId)) {
+            $alt = $this->pickNonCatalogCategoryFromDiscovery($http, $domainResults, $categoryId);
+            if ($alt) {
+                Log::info('ML category auto-adjust (avoid catalog)', [
+                    'catalog_item_id' => $item->id,
+                    'from' => $categoryId,
+                    'to'   => $alt,
+                ]);
+                $categoryId = $alt;
+            }
         }
 
         // 3) pictures (mínimo 1)
@@ -126,7 +141,7 @@ class MeliSyncService
         $qty = (int)($item->stock ?? 0);
         $qty = max(1, $qty);
 
-        // 6) payload “normal” (marketplace tradicional)
+        // 6) payload “normal”
         $payload = [
             'title'              => $this->buildMeliTitle($item),
             'family_name'        => $this->buildFamilyName($item),
@@ -140,15 +155,13 @@ class MeliSyncService
             'description'        => ['plain_text' => $this->plainText($item)],
             'pictures'           => $pics,
             'attributes'         => $attributes,
+            'seller_custom_field'=> (string)($item->sku ?? ''), // útil para rastreo
             'shipping'           => $shippingMode === 'me2'
                 ? ['mode' => 'me2', 'local_pick_up' => true, 'free_shipping' => false]
                 : ['mode' => 'custom'],
         ];
 
-        // Si pidieron activar en create/update
-        if (!empty($options['activate'])) {
-            $payload['status'] = 'active';
-        }
+        if (!empty($options['activate'])) $payload['status'] = 'active';
 
         Log::info('ML publish payload', [
             'catalog_item_id' => $item->id,
@@ -160,6 +173,7 @@ class MeliSyncService
             'model'           => $item->model_name ?? null,
             'gtin'            => $item->meli_gtin ?? null,
             'qty'             => $qty,
+            'allow_catalog'   => $allowCatalogFallback,
         ]);
 
         // 7) Validación previa con ML
@@ -171,25 +185,66 @@ class MeliSyncService
                 'json'            => $validate['json'],
             ]);
 
-            // Caso específico: title inválido => ML muchas veces fuerza catálogo
+            // Caso específico: title inválido => ML fuerza catálogo por dominio/categoría
             if ($this->isTitleInvalidForCall((array)$validate['json'])) {
-                // ✅ NO forzar catálogo automáticamente porque te cambia BRAND/MODEL
+
+                // ✅ Si NO permites catálogo: reintento con otra categoría no-catálogo (si existe)
                 if (!$allowCatalogFallback) {
-                    $friendly = $this->humanMeliError((array)$validate['json']);
-                    $extra = "⚠️ ML está pidiendo flujo de catálogo. Si publicas como catálogo, ML puede cambiar Marca/Modelo por los del catálogo.\n".
-                             "Solución recomendada: ajustar categoría (domain_discovery) o completar atributos obligatorios para publicar como listing normal.\n".
-                             "Si AÚN así quieres catálogo, llama sync() con allow_catalog_fallback=true.";
+                    $alt2 = $this->pickNonCatalogCategoryFromDiscovery($http, $domainResults, $categoryId);
 
-                    $finalMsg = trim($friendly . "\n\n" . $extra);
+                    if ($alt2 && $alt2 !== $categoryId) {
+                        Log::info('ML retry validate with alternative category (avoid catalog)', [
+                            'catalog_item_id' => $item->id,
+                            'from' => $categoryId,
+                            'to'   => $alt2,
+                        ]);
 
-                    $item->update([
-                        'meli_status'          => 'error',
-                        'meli_last_error'      => $finalMsg,
-                        'meli_category_id'     => $categoryId,
-                        'meli_listing_type_id' => $listingType,
-                    ]);
+                        $categoryId = $alt2;
+                        $payload['category_id'] = $categoryId;
 
-                    return ['ok' => false, 'json' => $validate['json'], 'message' => $finalMsg];
+                        // Recalcular atributos requeridos para nueva categoría
+                        $attributes = $this->buildBaseAttributes($item);
+                        $attributes = $this->fillRequiredCategoryAttributes($http, $categoryId, $attributes);
+                        $payload['attributes'] = $attributes;
+
+                        $validate2 = $this->validateListing($http, $payload);
+                        if ($validate2['ok']) {
+                            // seguimos al publish normal
+                            $validate = $validate2;
+                        } else {
+                            $friendly = $this->humanMeliError((array)$validate2['json']);
+                            $extra = "⚠️ ML está pidiendo flujo de catálogo (dominio/categoría de catálogo).\n".
+                                     "Solución recomendada: cambiar categoría (domain_discovery) o completar atributos obligatorios.\n".
+                                     "Si AÚN así quieres catálogo, publica con allow_catalog_fallback=true (en tu UI: ?catalog=1).";
+
+                            $finalMsg = trim($friendly . "\n\n" . $extra);
+
+                            $item->update([
+                                'meli_status'          => 'error',
+                                'meli_last_error'      => $finalMsg,
+                                'meli_category_id'     => $categoryId,
+                                'meli_listing_type_id' => $listingType,
+                            ]);
+
+                            return ['ok' => false, 'json' => $validate2['json'], 'message' => $finalMsg];
+                        }
+                    } else {
+                        $friendly = $this->humanMeliError((array)$validate['json']);
+                        $extra = "⚠️ ML está pidiendo flujo de catálogo (dominio/categoría de catálogo).\n".
+                                 "Solución recomendada: cambiar categoría (domain_discovery) o completar atributos obligatorios.\n".
+                                 "Si AÚN así quieres catálogo, publica con allow_catalog_fallback=true (en tu UI: ?catalog=1).";
+
+                        $finalMsg = trim($friendly . "\n\n" . $extra);
+
+                        $item->update([
+                            'meli_status'          => 'error',
+                            'meli_last_error'      => $finalMsg,
+                            'meli_category_id'     => $categoryId,
+                            'meli_listing_type_id' => $listingType,
+                        ]);
+
+                        return ['ok' => false, 'json' => $validate['json'], 'message' => $finalMsg];
+                    }
                 }
 
                 // ✅ Si lo permites, intenta catálogo
@@ -253,12 +308,10 @@ class MeliSyncService
                 $update['buying_mode'],
                 $update['currency_id'],
                 $update['condition'],
-                $update['description'] // descripción se hace en endpoint dedicado
+                $update['description']
             );
 
-            if (!empty($options['activate'])) {
-                $update['status'] = 'active';
-            }
+            if (!empty($options['activate'])) $update['status'] = 'active';
 
             $resp = $http->put($this->api("items/{$item->meli_item_id}"), $update);
             $j    = (array) $resp->json();
@@ -359,12 +412,17 @@ class MeliSyncService
     {
         try {
             $resp = $http->post($this->api('items/validate'), $payload);
-            if ($resp->ok()) {
-                return ['ok' => true, 'status' => $resp->status(), 'json' => (array)$resp->json()];
-            }
-            return ['ok' => false, 'status' => $resp->status(), 'json' => (array)$resp->json()];
+            return [
+                'ok'     => $resp->ok(),
+                'status' => $resp->status(),
+                'json'   => (array)$resp->json(),
+            ];
         } catch (\Throwable $e) {
-            return ['ok' => false, 'status' => 0, 'json' => ['message' => 'validate_exception', 'error' => $e->getMessage()]];
+            return [
+                'ok'     => false,
+                'status' => 0,
+                'json'   => ['message' => 'validate_exception', 'error' => $e->getMessage()],
+            ];
         }
     }
 
@@ -377,6 +435,51 @@ class MeliSyncService
         if (stripos($msg, 'body.invalid_fields') !== false && stripos($err, '[title]') !== false) return true;
 
         return false;
+    }
+
+    /* ==========================================================
+     *  CATEGORÍA: detectar catálogo y escoger alternativa
+     * ========================================================== */
+    private function isCatalogCategory($http, string $categoryId): bool
+    {
+        try {
+            $resp = $http->get($this->api("categories/{$categoryId}"));
+            if (!$resp->ok()) return false;
+
+            $j = (array) $resp->json();
+            $settings = (array)($j['settings'] ?? []);
+
+            $catalogDomain   = (bool)($settings['catalog_domain'] ?? false);
+            $catalogRequired = (bool)($settings['catalog_required'] ?? false);
+
+            if ($catalogDomain || $catalogRequired) return true;
+
+            // fallback por si viene en root
+            if (array_key_exists('catalog_domain', $j)) return (bool)$j['catalog_domain'];
+
+            return false;
+        } catch (\Throwable $e) {
+            Log::warning('isCatalogCategory exception', [
+                'category_id' => $categoryId,
+                'err' => $e->getMessage(),
+            ]);
+            return false;
+        }
+    }
+
+    private function pickNonCatalogCategoryFromDiscovery($http, array $domainResults, ?string $currentCategoryId = null): ?string
+    {
+        foreach ($domainResults as $row) {
+            if (!is_array($row)) continue;
+            $cid = $row['category_id'] ?? null;
+            if (!$cid || !is_string($cid)) continue;
+            if ($currentCategoryId && $cid === $currentCategoryId) continue;
+
+            if (!$this->isCatalogCategory($http, $cid)) {
+                return $cid;
+            }
+        }
+        return null;
     }
 
     /* ==========================================================
@@ -406,6 +509,7 @@ class MeliSyncService
             ];
         }
 
+        // ✅ En catálogo: NO mandes title/family_name
         $payloadCatalog = [
             'catalog_product_id'  => $catalogProductId,
             'catalog_listing'     => true,
@@ -418,6 +522,7 @@ class MeliSyncService
             'condition'           => 'new',
             'pictures'            => $pics,
             'description'         => ['plain_text' => $this->plainText($item)],
+            'seller_custom_field' => (string)($item->sku ?? ''),
             'shipping'            => $shippingMode === 'me2'
                 ? ['mode' => 'me2', 'local_pick_up' => true, 'free_shipping' => false]
                 : ['mode' => 'custom'],
@@ -519,9 +624,7 @@ class MeliSyncService
         $attributes[] = ['id' => 'MODEL', 'value_name' => $model];
 
         $gtin = trim((string) ($item->meli_gtin ?? ''));
-        if ($gtin !== '') {
-            $attributes[] = ['id' => 'GTIN', 'value_name' => $gtin];
-        }
+        if ($gtin !== '') $attributes[] = ['id' => 'GTIN', 'value_name' => $gtin];
 
         return $attributes;
     }
@@ -531,7 +634,6 @@ class MeliSyncService
         $base = $i->excerpt ?: strip_tags((string) $i->description);
         $base = trim($base) ?: "{$i->name}.\n\nVendido por JURETO. Factura disponible. Garantía estándar.\n";
 
-        // OJO: antes estabas colapsando saltos a 1 espacio; aquí los conservamos más legibles
         $base = preg_replace("/\r\n|\r/", "\n", $base);
         $base = preg_replace("/\n{3,}/", "\n\n", $base);
 
