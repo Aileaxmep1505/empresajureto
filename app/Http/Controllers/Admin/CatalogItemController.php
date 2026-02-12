@@ -933,7 +933,7 @@ public function aiFromUpload(Request $request)
 {
     try {
         // =========================================================
-        // 1) Detectar archivos (TU JS manda files[])
+        // 1) Detectar archivos (tu JS manda files[])
         // =========================================================
         $files = [];
 
@@ -967,35 +967,28 @@ public function aiFromUpload(Request $request)
         $allowedMimes = ['image/jpeg','image/png','image/webp','application/pdf'];
 
         foreach ($files as $f) {
-            if (!$f->isValid()) {
-                return response()->json(['error' => 'Archivo inválido o corrupto.'], 422);
-            }
+            if (!$f->isValid()) return response()->json(['error' => 'Archivo inválido o corrupto.'], 422);
             $mime = (string)($f->getMimeType() ?: '');
             if (!in_array($mime, $allowedMimes, true)) {
-                return response()->json([
-                    'error' => 'Tipo no permitido. Sube JPG/PNG/WEBP o PDF.',
-                    'mime'  => $mime,
-                ], 422);
+                return response()->json(['error' => 'Tipo no permitido. Sube JPG/PNG/WEBP o PDF.','mime'=>$mime], 422);
             }
         }
 
         // =========================================================
-        // 3) OpenAI key
+        // 3) API KEY + modelo
         // =========================================================
         $apiKey = config('services.openai.key') ?: env('OPENAI_API_KEY');
         $apiKey = is_string($apiKey) ? trim($apiKey) : '';
         if ($apiKey === '') {
-            return response()->json([
-                'error' => 'Falta OPENAI_API_KEY en .env (o services.openai.key).',
-            ], 500);
+            return response()->json(['error' => 'Falta OPENAI_API_KEY en .env (o services.openai.key).'], 500);
         }
+
+        $model = env('OPENAI_MODEL', 'gpt-5-2025-08-07');
 
         // =========================================================
         // 4) Subir archivos a OpenAI Files API (purpose=user_data)
-        //    Docs: POST /v1/files + purpose user_data :contentReference[oaicite:1]{index=1}
         // =========================================================
         $openAiFileIds = [];
-
         foreach ($files as $f) {
             $filename = $f->getClientOriginalName() ?: ('upload-' . now()->format('Ymd-His'));
             $stream   = fopen($f->getRealPath(), 'r');
@@ -1005,7 +998,6 @@ public function aiFromUpload(Request $request)
                 ->attach('file', $stream, $filename)
                 ->asMultipart()
                 ->post('https://api.openai.com/v1/files', [
-                    // recomendado para usarlo como input al modelo :contentReference[oaicite:2]{index=2}
                     'purpose' => 'user_data',
                 ]);
 
@@ -1014,116 +1006,156 @@ public function aiFromUpload(Request $request)
                     'status' => $resp->status(),
                     'body'   => $resp->body(),
                 ]);
-
-                return response()->json([
-                    'error' => 'No se pudo subir el archivo a la IA (Files API). Revisa logs.',
-                ], 500);
+                return response()->json(['error' => 'No se pudo subir el archivo a la IA (Files API). Revisa logs.'], 500);
             }
 
             $fileId = $resp->json('id');
-            if (!$fileId) {
-                return response()->json([
-                    'error' => 'OpenAI no devolvió file_id.',
-                ], 500);
-            }
+            if (!$fileId) return response()->json(['error' => 'OpenAI no devolvió file_id.'], 500);
 
             $openAiFileIds[] = $fileId;
         }
 
         // =========================================================
-        // 5) Pedir extracción al modelo vía Responses API con input_file
-        //    Docs: /v1/responses usando input_file con file_id :contentReference[oaicite:3]{index=3}
+        // 5) Prompt (precisión alta)
         // =========================================================
-        $prompt = <<<PROMPT
-Eres un extractor de productos para un catálogo.
+        $instruction = <<<PROMPT
+Eres un extractor de partidas de productos para un catálogo (México). Lee el/los archivos adjuntos (PDF o imágenes) y extrae TODAS las partidas.
 
-Tarea:
-- Lee el/los archivos adjuntos (PDF o imágenes).
-- Detecta productos (pueden venir varios).
-- Devuelve SOLO JSON válido (sin markdown).
-
-Formato EXACTO:
-{
-  "suggestions": {
-    "name": string|null,
-    "slug": string|null,
-    "description": string|null,
-    "excerpt": string|null,
-    "price": number|null,
-    "stock": number|null,
-    "brand_name": string|null,
-    "model_name": string|null,
-    "meli_gtin": string|null
-  },
-  "items": [
-    {
-      "name": string,
-      "price": number|null,
-      "stock": number|null,
-      "brand_name": string|null,
-      "model_name": string|null,
-      "meli_gtin": string|null
-    }
-  ]
-}
+No inventes: si un campo no aparece, pon null.
+NO son productos: SUBTOTAL, TOTAL, IVA, IMPUESTO, DESCUENTO, ENVÍO, CAMBIO, PAGO, ANTICIPO, ABONO, SALDO, etc.
 
 Reglas:
-- "items" debe tener TODOS los productos detectables (máx 50).
-- "suggestions" debe ser el primer producto más claro para autollenar el formulario.
-- price: usa número (ej 90.00) sin símbolo.
-- stock: si viene cantidad/piezas/cajas, pon el total numérico si se entiende; si no, null.
+- Si hay columnas CANT | DESCRIPCIÓN | P. UNIT | IMPORTE -> usa P. UNIT como price.
+- Si falta P. UNIT pero hay IMPORTE y CANT -> price = IMPORTE / CANT (si es claro).
+- Si hay “10 cajas de 100 pzs” -> stock=1000 y notes lo explica.
+- Máximo 80 productos.
+
+Devuelve SOLO JSON.
 PROMPT;
 
-        $contentParts = [];
-        foreach ($openAiFileIds as $fid) {
-            $contentParts[] = [
-                'type' => 'input_file',
-                'file_id' => $fid,
-            ];
-        }
-        $contentParts[] = [
-            'type' => 'input_text',
-            'text' => $prompt,
-        ];
+        // =========================================================
+        // 6) Schema (NOTA: aquí VA DIRECTO como "schema", y name aparte)
+        // =========================================================
+        $schemaName = 'catalog_ai_extract_v1';
 
-        $resp2 = \Illuminate\Support\Facades\Http::withToken($apiKey)
-            ->timeout(180)
-            ->post('https://api.openai.com/v1/responses', [
-                // Usa un modelo con soporte de PDF/imagen (según tu costo)
-                // Si tienes gpt-4o-mini disponible, suele ser buena opción.
-                'model' => 'gpt-5-2025-08-07',
-                'input' => [
-                    [
-                        'role' => 'user',
-                        'content' => $contentParts,
+        $schema = [
+            'type' => 'object',
+            'additionalProperties' => false,
+            'required' => ['suggestions', 'items'],
+            'properties' => [
+                'suggestions' => [
+                    'type' => 'object',
+                    'additionalProperties' => false,
+                    'required' => [
+                        'name','slug','description','excerpt','price','sale_price','stock',
+                        'category_key','brand_name','model_name','meli_gtin','meli_category_id','meli_listing_type_id',
+                        'amazon_sku','amazon_asin','amazon_product_type'
+                    ],
+                    'properties' => [
+                        'name' => ['type' => ['string','null']],
+                        'slug' => ['type' => ['string','null']],
+                        'description' => ['type' => ['string','null']],
+                        'excerpt' => ['type' => ['string','null']],
+                        'price' => ['type' => ['number','null']],
+                        'sale_price' => ['type' => ['number','null']],
+                        'stock' => ['type' => ['integer','null']],
+                        'category_key' => ['type' => ['string','null']],
+                        'brand_name' => ['type' => ['string','null']],
+                        'model_name' => ['type' => ['string','null']],
+                        'meli_gtin' => ['type' => ['string','null']],
+                        'meli_category_id' => ['type' => ['string','null']],
+                        'meli_listing_type_id' => ['type' => ['string','null']],
+                        'amazon_sku' => ['type' => ['string','null']],
+                        'amazon_asin' => ['type' => ['string','null']],
+                        'amazon_product_type' => ['type' => ['string','null']],
                     ],
                 ],
+                'items' => [
+                    'type' => 'array',
+                    'maxItems' => 80,
+                    'items' => [
+                        'type' => 'object',
+                        'additionalProperties' => false,
+                        'required' => ['name','price','stock','brand_name','model_name','meli_gtin','excerpt','description','extra'],
+                        'properties' => [
+                            'name' => ['type' => 'string'],
+                            'price' => ['type' => ['number','null']],
+                            'stock' => ['type' => ['integer','null']],
+                            'brand_name' => ['type' => ['string','null']],
+                            'model_name' => ['type' => ['string','null']],
+                            'meli_gtin' => ['type' => ['string','null']],
+                            'excerpt' => ['type' => ['string','null']],
+                            'description' => ['type' => ['string','null']],
+                            'extra' => [
+                                'type' => 'object',
+                                'additionalProperties' => false,
+                                'required' => ['unit','pack','raw_line','page','confidence','notes'],
+                                'properties' => [
+                                    'unit' => ['type' => ['string','null']],
+                                    'pack' => ['type' => ['string','null']],
+                                    'raw_line' => ['type' => ['string','null']],
+                                    'page' => ['type' => ['integer','null']],
+                                    'confidence' => ['type' => ['number','null']],
+                                    'notes' => ['type' => ['string','null']],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        // =========================================================
+        // 7) Armar content: input_file + instrucciones
+        // =========================================================
+        $contentParts = [];
+        foreach ($openAiFileIds as $fid) {
+            $contentParts[] = ['type' => 'input_file', 'file_id' => $fid];
+        }
+        $contentParts[] = ['type' => 'input_text', 'text' => $instruction];
+
+        // =========================================================
+        // 8) Responses API: text.format con name+schema (NUEVO)
+        // =========================================================
+        $resp2 = \Illuminate\Support\Facades\Http::withToken($apiKey)
+            ->timeout(240)
+            ->post('https://api.openai.com/v1/responses', [
+                'model' => $model,
+                'temperature' => 0,
+                'input' => [[
+                    'role' => 'user',
+                    'content' => $contentParts,
+                ]],
+                'text' => [
+                    'format' => [
+                        'type' => 'json_schema',
+                        'name' => $schemaName,
+                        'schema' => $schema,
+                    ],
+                ],
+                'max_output_tokens' => 3500,
             ]);
 
         if (!$resp2->ok()) {
             \Illuminate\Support\Facades\Log::error('aiFromUpload: OpenAI responses failed', [
                 'status' => $resp2->status(),
                 'body'   => $resp2->body(),
+                'model'  => $model,
             ]);
-
-            return response()->json([
-                'error' => 'La IA no pudo procesar el archivo (Responses API). Revisa logs.',
-            ], 500);
+            return response()->json(['error' => 'La IA no pudo procesar el archivo (Responses API). Revisa logs.'], 500);
         }
 
-        // La salida puede venir en output_text o dentro de output[]; intentamos ambas.
-        $outText = $resp2->json('output_text');
-        if (!is_string($outText) || trim($outText) === '') {
-            // fallback: buscar texto en la estructura
-            $out = $resp2->json('output', []);
-            $outText = '';
-            if (is_array($out)) {
-                foreach ($out as $node) {
+        $out = $resp2->json('output_text');
+        if (!is_string($out) || trim($out) === '') {
+            $out = '';
+            $nodes = $resp2->json('output', []);
+            if (is_array($nodes)) {
+                foreach ($nodes as $node) {
                     $c = $node['content'] ?? null;
                     if (is_array($c)) {
                         foreach ($c as $part) {
                             if (($part['type'] ?? '') === 'output_text' && isset($part['text'])) {
-                                $outText .= (string)$part['text'];
+                                $out .= (string)$part['text'];
                             }
                         }
                     }
@@ -1131,36 +1163,55 @@ PROMPT;
             }
         }
 
-        $outText = trim((string)$outText);
-
-        // Intentar decodificar JSON (si viene con ruido, recortamos al primer { ... } )
-        $json = null;
-
-        if ($outText !== '') {
-            $json = json_decode($outText, true);
-            if (!is_array($json)) {
-                if (preg_match('/\{.*\}\s*$/s', $outText, $m) || preg_match('/\{.*\}/s', $outText, $m)) {
-                    $json = json_decode($m[0], true);
-                }
-            }
-        }
+        $out = trim((string)$out);
+        $json = json_decode($out, true);
 
         if (!is_array($json)) {
             \Illuminate\Support\Facades\Log::warning('aiFromUpload: IA no devolvió JSON parseable', [
-                'out' => mb_substr($outText, 0, 3000),
+                'out' => mb_substr($out, 0, 4000),
             ]);
-
-            return response()->json([
-                'error' => 'La IA respondió, pero no devolvió JSON válido. Revisa logs.',
-            ], 422);
+            return response()->json(['error' => 'La IA respondió, pero no devolvió JSON válido.'], 422);
         }
+
+        // =========================================================
+        // 9) Normalización mínima
+        // =========================================================
+        $normalizeMoney = function($v) {
+            if ($v === null || $v === '') return null;
+            if (is_numeric($v)) return (float)$v;
+            $s = (string)$v;
+            $s = str_replace(['$', ' '], '', $s);
+            if (preg_match('/\d{1,3}(,\d{3})+(\.\d{2})/', $s)) $s = str_replace(',', '', $s);
+            else $s = str_replace(',', '.', $s);
+            return is_numeric($s) ? (float)$s : null;
+        };
+
+        $normalizeInt = function($v) {
+            if ($v === null || $v === '') return null;
+            if (is_numeric($v)) return (int)$v;
+            if (preg_match('/\d+/', (string)$v, $m)) return (int)$m[0];
+            return null;
+        };
 
         $suggestions = $json['suggestions'] ?? [];
         $items       = $json['items'] ?? [];
 
-        // Normalizar mínimos
-        if (!is_array($suggestions)) $suggestions = [];
-        if (!is_array($items)) $items = [];
+        if (is_array($suggestions)) {
+            if (!empty($suggestions['name']) && empty($suggestions['slug'])) {
+                $suggestions['slug'] = \Illuminate\Support\Str::slug((string)$suggestions['name']);
+            }
+            $suggestions['price'] = $normalizeMoney($suggestions['price'] ?? null);
+            $suggestions['sale_price'] = $normalizeMoney($suggestions['sale_price'] ?? null);
+            $suggestions['stock'] = $normalizeInt($suggestions['stock'] ?? null);
+        }
+
+        if (is_array($items)) {
+            foreach ($items as $i => $it) {
+                if (!is_array($it)) continue;
+                $items[$i]['price'] = $normalizeMoney($it['price'] ?? null);
+                $items[$i]['stock'] = $normalizeInt($it['stock'] ?? null);
+            }
+        }
 
         return response()->json([
             'suggestions' => $suggestions,
@@ -1172,10 +1223,7 @@ PROMPT;
             'err'   => $e->getMessage(),
             'trace' => $e->getTraceAsString(),
         ]);
-
-        return response()->json([
-            'error' => 'Error interno en aiFromUpload. Revisa logs.',
-        ], 500);
+        return response()->json(['error' => 'Error interno en aiFromUpload. Revisa logs.'], 500);
     }
 }
 

@@ -18,9 +18,13 @@
   $currentListingType  = old('meli_listing_type_id', $item->meli_listing_type_id ?? '');
 
   // ✅ si quieres “sugerir” algo visual (no obligatorio)
-  $meliHint = $currentMeliCategory ? "Usando meli_category_id: {$currentMeliCategory}" : "Deja esto vacío y ML puede forzar catálogo (y te saldrá error de title).";
+  $meliHint = $currentMeliCategory
+    ? "Usando meli_category_id: {$currentMeliCategory}"
+    : "Deja esto vacío y ML puede forzar catálogo (y te saldrá error de title).";
 @endphp
 
+{{-- ✅ OJO: este bloque debe vivir DENTRO de tu <form id="catalog-form" ...> principal.
+     Si tu form no tiene id="catalog-form", agrega el id en el form padre. --}}
 @csrf
 @if($isEdit)
   @method('PUT')
@@ -152,8 +156,6 @@
 
 {{-- =========================================================
    🔹 FORMULARIO PRINCIPAL
-   - ✅ Quitamos el “ruido” debajo de inputs (tips/hints)
-   - ✅ No tocamos captura asistida por IA
    ========================================================= --}}
 <div class="catalog-grid">
   {{-- Columna izquierda --}}
@@ -207,15 +209,10 @@
               <div class="photo-sub" data-photo-sub="photo_1_file">JPG / PNG / WEBP</div>
             </div>
 
-            <input
-              id="photo_1_file"
-              name="photo_1_file"
-              type="file"
-              class="photo-input"
-              accept="image/*"
-              @if(!$isEdit) required @endif
-              capture="environment"
-            >
+            <input id="photo_1_file" name="photo_1_file" type="file"
+                   class="photo-input" accept="image/*"
+                   @if(!$isEdit) required @endif
+                   capture="environment">
           </label>
 
           <div class="photo-preview" id="photo_1_preview">
@@ -245,15 +242,10 @@
               <div class="photo-sub" data-photo-sub="photo_2_file">Frente / empaque</div>
             </div>
 
-            <input
-              id="photo_2_file"
-              name="photo_2_file"
-              type="file"
-              class="photo-input"
-              accept="image/*"
-              @if(!$isEdit) required @endif
-              capture="environment"
-            >
+            <input id="photo_2_file" name="photo_2_file" type="file"
+                   class="photo-input" accept="image/*"
+                   @if(!$isEdit) required @endif
+                   capture="environment">
           </label>
 
           <div class="photo-preview" id="photo_2_preview">
@@ -283,15 +275,10 @@
               <div class="photo-sub" data-photo-sub="photo_3_file">Detalle / etiqueta</div>
             </div>
 
-            <input
-              id="photo_3_file"
-              name="photo_3_file"
-              type="file"
-              class="photo-input"
-              accept="image/*"
-              @if(!$isEdit) required @endif
-              capture="environment"
-            >
+            <input id="photo_3_file" name="photo_3_file" type="file"
+                   class="photo-input" accept="image/*"
+                   @if(!$isEdit) required @endif
+                   capture="environment">
           </label>
 
           <div class="photo-preview" id="photo_3_preview">
@@ -375,7 +362,7 @@
     </div>
 
     {{-- =========================================================
-       ✅ MERCADO LIBRE (con categoría real para publicar)
+       ✅ MERCADO LIBRE
        ========================================================= --}}
     <div class="side-card">
       <h3 class="side-title">Mercado Libre</h3>
@@ -416,7 +403,6 @@
                value="{{ old('meli_gtin', $item->meli_gtin ?? '') }}">
       </div>
 
-      {{-- ✅ ayuda rápida (no rompe nada) --}}
       <div class="card-section" style="margin-top:6px;">
         <div class="ml-help">
           <div class="ml-help-title">Tip rápido</div>
@@ -454,7 +440,11 @@
       </div>
     </div>
 
-    {{-- ✅ Publicación: SIN forms anidados (arregla el botón Guardar cambios) --}}
+    {{-- =========================================================
+       ✅ Publicación (ARREGLADO)
+       - NO @csrf dentro de botones
+       - Forms separados (válido HTML)
+       ========================================================= --}}
     @if($isEdit)
       <div class="side-card">
         <h3 class="side-title">Publicación</h3>
@@ -468,59 +458,49 @@
             </div>
 
             <div class="pub-actions">
-              {{-- ✅ NUEVO: SI O SÍ (normal -> domain_discovery -> catálogo) --}}
-              <button type="submit"
-                      class="btn btn-pill btn-ml"
-                      form="catalog-form"
-                      formaction="{{ route('admin.catalog.meli.publish', $item) }}?force=1"
-                      formmethod="POST">
+              {{-- ✅ SI O SÍ --}}
+              <form method="POST" action="{{ route('admin.catalog.meli.publish', $item) }}?force=1" class="pub-form">
                 @csrf
-                <span class="i material-symbols-outlined" aria-hidden="true">rocket_launch</span>
-                Publicar (SI O SÍ)
-              </button>
+                <button type="submit" class="btn btn-pill btn-ml">
+                  <span class="i material-symbols-outlined" aria-hidden="true">rocket_launch</span>
+                  Publicar (SI O SÍ)
+                </button>
+              </form>
 
               {{-- ✅ NORMAL --}}
-              <button type="submit"
-                      class="btn btn-pill btn-soft btn-ml-soft"
-                      form="catalog-form"
-                      formaction="{{ route('admin.catalog.meli.publish', $item) }}"
-                      formmethod="POST">
+              <form method="POST" action="{{ route('admin.catalog.meli.publish', $item) }}" class="pub-form">
                 @csrf
-                <span class="i material-symbols-outlined" aria-hidden="true">cloud_upload</span>
-                Publicar / Actualizar (normal)
-              </button>
+                <button type="submit" class="btn btn-pill btn-soft btn-ml-soft">
+                  <span class="i material-symbols-outlined" aria-hidden="true">cloud_upload</span>
+                  Publicar / Actualizar (normal)
+                </button>
+              </form>
 
-              {{-- ✅ CATALOGO (fallback manual) --}}
-              <button type="submit"
-                      class="btn btn-pill btn-soft btn-ml-soft"
-                      form="catalog-form"
-                      formaction="{{ route('admin.catalog.meli.publish', $item) }}?catalog=1"
-                      formmethod="POST">
+              {{-- ✅ CATÁLOGO --}}
+              <form method="POST" action="{{ route('admin.catalog.meli.publish', $item) }}?catalog=1" class="pub-form">
                 @csrf
-                <span class="i material-symbols-outlined" aria-hidden="true">inventory_2</span>
-                Publicar (catálogo)
-              </button>
+                <button type="submit" class="btn btn-pill btn-soft btn-ml-soft">
+                  <span class="i material-symbols-outlined" aria-hidden="true">inventory_2</span>
+                  Publicar (catálogo)
+                </button>
+              </form>
 
               <div class="pub-row">
-                <button type="submit"
-                        class="btn btn-pill btn-soft btn-ml-soft"
-                        form="catalog-form"
-                        formaction="{{ route('admin.catalog.meli.pause', $item) }}"
-                        formmethod="POST">
+                <form method="POST" action="{{ route('admin.catalog.meli.pause', $item) }}" class="pub-form">
                   @csrf
-                  <span class="i material-symbols-outlined" aria-hidden="true">pause_circle</span>
-                  Pausar
-                </button>
+                  <button type="submit" class="btn btn-pill btn-soft btn-ml-soft">
+                    <span class="i material-symbols-outlined" aria-hidden="true">pause_circle</span>
+                    Pausar
+                  </button>
+                </form>
 
-                <button type="submit"
-                        class="btn btn-pill btn-soft btn-ml-soft"
-                        form="catalog-form"
-                        formaction="{{ route('admin.catalog.meli.activate', $item) }}"
-                        formmethod="POST">
+                <form method="POST" action="{{ route('admin.catalog.meli.activate', $item) }}" class="pub-form">
                   @csrf
-                  <span class="i material-symbols-outlined" aria-hidden="true">play_circle</span>
-                  Activar
-                </button>
+                  <button type="submit" class="btn btn-pill btn-soft btn-ml-soft">
+                    <span class="i material-symbols-outlined" aria-hidden="true">play_circle</span>
+                    Activar
+                  </button>
+                </form>
 
                 <a class="btn btn-pill btn-soft btn-ml-soft"
                    href="{{ route('admin.catalog.meli.view', $item) }}"
@@ -550,39 +530,30 @@
             @endif
 
             <div class="pub-actions">
-              <button type="submit"
-                      class="btn btn-pill btn-amz"
-                      form="catalog-form"
-                      formaction="{{ route('admin.catalog.amazon.publish', $item) }}"
-                      formmethod="POST"
-                      @disabled(!$hasSku)>
+              <form method="POST" action="{{ route('admin.catalog.amazon.publish', $item) }}" class="pub-form">
                 @csrf
-                <span class="i material-symbols-outlined" aria-hidden="true">cloud_upload</span>
-                Publicar / Actualizar
-              </button>
+                <button type="submit" class="btn btn-pill btn-amz" @disabled(!$hasSku)>
+                  <span class="i material-symbols-outlined" aria-hidden="true">cloud_upload</span>
+                  Publicar / Actualizar
+                </button>
+              </form>
 
               <div class="pub-row">
-                <button type="submit"
-                        class="btn btn-pill btn-soft btn-amz-soft"
-                        form="catalog-form"
-                        formaction="{{ route('admin.catalog.amazon.pause', $item) }}"
-                        formmethod="POST"
-                        @disabled(!$hasSku)>
+                <form method="POST" action="{{ route('admin.catalog.amazon.pause', $item) }}" class="pub-form">
                   @csrf
-                  <span class="i material-symbols-outlined" aria-hidden="true">pause_circle</span>
-                  Pausar
-                </button>
+                  <button type="submit" class="btn btn-pill btn-soft btn-amz-soft" @disabled(!$hasSku)>
+                    <span class="i material-symbols-outlined" aria-hidden="true">pause_circle</span>
+                    Pausar
+                  </button>
+                </form>
 
-                <button type="submit"
-                        class="btn btn-pill btn-soft btn-amz-soft"
-                        form="catalog-form"
-                        formaction="{{ route('admin.catalog.amazon.activate', $item) }}"
-                        formmethod="POST"
-                        @disabled(!$hasSku)>
+                <form method="POST" action="{{ route('admin.catalog.amazon.activate', $item) }}" class="pub-form">
                   @csrf
-                  <span class="i material-symbols-outlined" aria-hidden="true">play_circle</span>
-                  Activar
-                </button>
+                  <button type="submit" class="btn btn-pill btn-soft btn-amz-soft" @disabled(!$hasSku)>
+                    <span class="i material-symbols-outlined" aria-hidden="true">play_circle</span>
+                    Activar
+                  </button>
+                </form>
 
                 <a class="btn btn-pill btn-soft btn-amz-soft"
                    href="{{ route('admin.catalog.amazon.view', $item) }}"
@@ -612,547 +583,7 @@
 
 @push('styles')
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@400..700&display=swap"/>
-
-<style>
-  /* =========================================================
-     ✅ BASE44 CLEAN — sin ruido de hints bajo inputs
-     ========================================================= */
-  :root{
-    --bg: #f7f7fb;
-    --surface: #ffffff;
-    --surface-2: #fbfbfd;
-    --ink: #0f172a;
-    --muted: #667085;
-    --line: #e9eaf2;
-
-    --p-blue:   #dbeafe;
-    --p-mint:   #dcfce7;
-    --p-amber:  #fef3c7;
-    --p-lilac:  #f3e8ff;
-    --p-rose:   #ffe4e6;
-
-    --radius-lg: 18px;
-    --radius-md: 12px;
-    --shadow: 0 12px 30px rgba(15,23,42,.06);
-    --shadow-sm: 0 8px 18px rgba(15,23,42,.05);
-  }
-
-  .lbl{
-    display:block;
-    font-weight:800;
-    color:var(--ink);
-    margin:10px 0 4px;
-    font-size:.9rem;
-    letter-spacing:.01em;
-  }
-
-  .hint{
-    margin:4px 0 0;
-    font-size:.78rem;
-    color:var(--muted);
-    line-height:1.35;
-  }
-
-  .inp{
-    width:100%;
-    background: var(--surface-2);
-    border:1px solid var(--line);
-    border-radius: var(--radius-md);
-    padding:10px 12px;
-    min-height:42px;
-    font-size:.92rem;
-    color: var(--ink);
-    transition: border-color .15s ease, box-shadow .15s ease, background .15s ease, transform .08s ease;
-  }
-  .inp:focus{
-    outline:none;
-    background: var(--surface);
-    border-color: rgba(59,130,246,.35);
-    box-shadow: 0 0 0 4px rgba(219,234,254,.7);
-    transform: translateY(-1px);
-  }
-
-  .btn{
-    border:1px solid transparent;
-    border-radius: 999px;
-    padding:10px 14px;
-    font-weight:800;
-    cursor:pointer;
-    font-size:.88rem;
-    display:inline-flex;
-    align-items:center;
-    gap:8px;
-    white-space:nowrap;
-    text-decoration:none;
-    transition: transform .12s ease, box-shadow .12s ease, background .15s ease, border-color .15s ease, opacity .15s ease;
-    background: var(--surface);
-    color: var(--ink);
-  }
-  .btn:hover{ transform: translateY(-1px); box-shadow: var(--shadow-sm); }
-  .btn[disabled], .btn[aria-disabled="true"]{ opacity:.55; cursor:not-allowed; pointer-events:none; }
-
-  .btn-primary{
-    background: var(--p-blue);
-    border-color: rgba(59,130,246,.18);
-    color: #1e3a8a;
-  }
-
-  .btn-ghost{
-    background: var(--surface);
-    border-color: var(--line);
-    color: var(--ink);
-  }
-  .btn-xs{ padding:6px 10px; font-size:.78rem; }
-
-  .divi{ border:none; border-top:1px dashed var(--line); margin:18px 0; }
-  .card-section{ margin-bottom:12px; }
-
-  .catalog-grid{ display:grid; gap:18px; grid-template-columns:repeat(12,1fr); }
-  .catalog-main{ grid-column:span 8; display:flex; flex-direction:column; gap:12px; }
-  .catalog-side{ grid-column:span 4; display:flex; flex-direction:column; gap:12px; }
-
-  .side-card{
-    background: var(--surface);
-    border-radius: var(--radius-lg);
-    border: 1px solid var(--line);
-    padding: 12px 14px;
-    box-shadow: var(--shadow);
-  }
-  .side-title{
-    margin:0 0 8px;
-    font-size:.9rem;
-    font-weight:900;
-    color: var(--ink);
-    letter-spacing:.01em;
-  }
-
-  .card-inline{ display:flex; gap:10px; flex-wrap:wrap; }
-  .card-inline-item{ flex:1 1 140px; }
-  .toggle-row{ display:flex; gap:8px; align-items:center; font-size:.9rem; color: var(--muted); }
-
-  .form-actions{
-    margin-top:18px;
-    display:flex;
-    gap:10px;
-    flex-wrap:wrap;
-    justify-content:flex-end;
-  }
-
-  /* =========================
-     ✅ ML helper
-     ========================= */
-  .ml-help{
-    border-radius:14px;
-    border:1px solid rgba(59,130,246,.18);
-    background: #f6fbff;
-    padding:10px 12px;
-  }
-  .ml-help-title{
-    font-weight:900;
-    font-size:.80rem;
-    color: var(--ink);
-    margin-bottom:4px;
-  }
-  .ml-help-text{
-    font-size:.78rem;
-    color: var(--muted);
-    line-height:1.35;
-  }
-  .ml-help-text b{ color:#1e3a8a; }
-
-  /* =========================================================
-     🔹 IA panel
-     ========================================================= */
-  .ai-helper{
-    margin-bottom:18px;
-    padding:14px 16px;
-    background: var(--surface);
-    border-radius: var(--radius-lg);
-    border: 1px solid var(--line);
-    box-shadow: var(--shadow);
-    display:flex;
-    gap:12px;
-    align-items:flex-start;
-    flex-wrap:wrap;
-  }
-
-  .ai-helper.ai-busy{
-    border-color: rgba(59,130,246,.20);
-    box-shadow: 0 14px 32px rgba(59,130,246,.08);
-  }
-
-  .ai-helper-icon-wrapper{ width:46px; height:46px; flex:0 0 auto; display:flex; align-items:center; justify-content:center; }
-  .ai-helper-icon{
-    width:46px; height:46px;
-    border-radius: 14px;
-    background: var(--p-lilac);
-    border: 1px solid rgba(147,51,234,.14);
-    display:flex; align-items:center; justify-content:center;
-    font-size:1.5rem;
-  }
-  .ai-helper.ai-busy .ai-helper-icon{ animation: aiBob 1.1s ease-in-out infinite; }
-
-  .ai-helper-main{ flex:1 1 260px; }
-  .ai-helper-header{ display:flex; justify-content:space-between; gap:10px; align-items:flex-start; }
-  .ai-helper-title{ font-size:.95rem; font-weight:900; color: var(--ink); }
-  .ai-helper-subtitle{ margin:0; font-size:.8rem; color: var(--muted); }
-
-  .ai-helper-chip{
-    font-size:.72rem;
-    padding:4px 10px;
-    border-radius:999px;
-    background: var(--p-mint);
-    border: 1px solid rgba(16,185,129,.18);
-    color:#065f46;
-    font-weight:900;
-  }
-
-  .ai-helper-text{ margin:8px 0 10px; font-size:.8rem; color: var(--muted); }
-  .ai-helper-row{ display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; }
-  .ai-helper-input{ flex:1 1 260px; }
-  .ai-helper-actions{ display:flex; flex-direction:column; gap:8px; align-items:flex-start; }
-  .ai-helper-status{ min-height:18px; }
-
-  .ai-cta-spinner{
-    width:16px;height:16px;border-radius:999px;
-    border:2px solid rgba(30,64,175,.15);
-    border-top-color: rgba(30,64,175,.55);
-    opacity:0; transform:scale(.7);
-    transition: opacity .15s ease, transform .15s ease;
-  }
-  .ai-helper.ai-busy .ai-cta-spinner{ opacity:1; transform:scale(1); animation: aiSpin .8s linear infinite; }
-
-  .ai-dropzone{
-    position:relative;
-    border-radius: var(--radius-lg);
-    border: 1px dashed rgba(15,23,42,.18);
-    background: var(--surface-2);
-    padding:10px 12px;
-    display:flex;
-    align-items:center;
-    gap:10px;
-    cursor:pointer;
-    transition: border-color .18s ease, box-shadow .18s ease, transform .1s ease, background .18s ease;
-  }
-  .ai-dropzone:hover{
-    border-color: rgba(59,130,246,.30);
-    box-shadow: 0 10px 22px rgba(15,23,42,.05);
-    transform: translateY(-1px);
-  }
-  .ai-dropzone.is-dragover{
-    border-color: rgba(59,130,246,.45);
-    background: #ffffff;
-    box-shadow: 0 14px 26px rgba(59,130,246,.08);
-  }
-
-  .ai-dropzone-icon{
-    width:38px; height:38px;
-    border-radius: 12px;
-    background: var(--p-blue);
-    border: 1px solid rgba(59,130,246,.18);
-    display:flex; align-items:center; justify-content:center;
-    font-size:1.15rem;
-    flex:0 0 auto;
-  }
-
-  .ai-dropzone-body{ display:flex; flex-direction:column; gap:2px; }
-  .ai-dropzone-title{ font-size:.88rem; font-weight:900; color: var(--ink); }
-  .ai-dropzone-sub{ font-size:.8rem; color: var(--muted); }
-  .ai-dropzone-hint{ font-size:.75rem; color: var(--muted); }
-
-  .ai-dropzone-btn{
-    border:1px solid var(--line);
-    border-radius: 999px;
-    padding:4px 10px;
-    font-size:.78rem;
-    font-weight:800;
-    background: var(--surface);
-    color: var(--ink);
-    cursor:pointer;
-  }
-
-  .ai-dropzone-input{ position:absolute; inset:0; opacity:0; cursor:pointer; }
-
-  .ai-files-list{ margin-top:8px; display:flex; flex-wrap:wrap; gap:6px; }
-  .ai-file-chip{
-    display:inline-flex;
-    align-items:center;
-    gap:6px;
-    padding:4px 10px;
-    font-size:.75rem;
-    border-radius:999px;
-    background: var(--p-rose);
-    border:1px solid rgba(244,63,94,.12);
-    color:#881337;
-    max-width:100%;
-  }
-  .ai-file-chip span{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:220px; }
-
-  .ai-detected{
-    margin-top:2px;
-    padding:10px 12px;
-    border:1px solid rgba(16,185,129,.16);
-    background:#fbfffc;
-    border-radius: 14px;
-    width:100%;
-  }
-  .ai-detected-title{
-    font-size:.78rem;
-    font-weight:900;
-    color: var(--ink);
-    margin-bottom:8px;
-  }
-  .ai-detected-chips{ display:flex; gap:6px; flex-wrap:wrap; }
-  .ai-chip{
-    display:inline-flex;
-    align-items:center;
-    gap:6px;
-    padding:4px 10px;
-    font-size:.74rem;
-    border-radius:999px;
-    background: var(--p-mint);
-    border:1px solid rgba(16,185,129,.18);
-    color:#065f46;
-    font-weight:900;
-  }
-  .ai-chip .k{ opacity:.7; font-weight:900; }
-  .ai-chip .v{
-    max-width:240px;
-    overflow:hidden;
-    text-overflow:ellipsis;
-    white-space:nowrap;
-  }
-
-  .ai-items-panel{
-    margin-bottom:18px;
-    padding:12px 14px;
-    background: var(--surface);
-    border-radius: var(--radius-lg);
-    border: 1px solid var(--line);
-    box-shadow: var(--shadow);
-    animation: fadeInUp .22s ease-out;
-  }
-  .ai-items-header{ display:flex; justify-content:space-between; gap:10px; align-items:flex-start; margin-bottom:10px; }
-  .ai-items-header-right{ display:flex; align-items:center; gap:8px; }
-  .ai-items-title{ font-size:.9rem; font-weight:900; color: var(--ink); }
-  .ai-items-text{ margin:2px 0 0; font-size:.8rem; color: var(--muted); }
-
-  .ai-items-badge{
-    font-size:.75rem;
-    padding:4px 10px;
-    border-radius:999px;
-    background: var(--p-mint);
-    border: 1px solid rgba(16,185,129,.18);
-    color:#065f46;
-    font-weight:900;
-    white-space:nowrap;
-  }
-
-  .ai-items-table-wrapper{ width:100%; overflow:auto; border:1px solid var(--line); border-radius: 14px; }
-  .ai-items-table{ width:100%; border-collapse:collapse; font-size:.82rem; background: var(--surface); }
-  .ai-items-table thead{ background: var(--surface-2); }
-  .ai-items-table th, .ai-items-table td{
-    padding:8px 10px;
-    border-bottom:1px solid var(--line);
-    text-align:left;
-    vertical-align:top;
-  }
-  .ai-items-table th{ font-weight:900; color: var(--ink); white-space:nowrap; }
-  .ai-items-table td{ color: var(--muted); }
-  .ai-items-table tr:hover{ background: #fafafe; }
-
-  .ai-suggested{
-    border-color: rgba(16,185,129,.45) !important;
-    box-shadow: 0 0 0 4px rgba(220,252,231,.9);
-    background: #fbfffc;
-  }
-
-  /* =========================================================
-     🔹 Fotos
-     ========================================================= */
-  .photos-grid{ display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; margin-top:10px; }
-  .photo-card{
-    background: var(--surface);
-    border:1px solid var(--line);
-    border-radius: 16px;
-    padding:10px;
-    box-shadow: 0 10px 22px rgba(15,23,42,.04);
-  }
-  .photo-card.is-filled{
-    border-color: rgba(16,185,129,.28);
-    box-shadow: 0 12px 24px rgba(16,185,129,.06);
-  }
-
-  .photo-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
-  .photo-title{ font-weight:900; color: var(--ink); font-size:.86rem; }
-  .photo-badge{
-    font-size:.72rem;
-    padding:4px 10px;
-    border-radius:999px;
-    border:1px solid var(--line);
-    background: var(--surface-2);
-    color: var(--muted);
-    font-weight:900;
-    white-space:nowrap;
-  }
-  .photo-badge.ok{
-    background: var(--p-mint);
-    border-color: rgba(16,185,129,.18);
-    color:#065f46;
-  }
-
-  .photo-drop{
-    position:relative;
-    border:1px dashed rgba(15,23,42,.18);
-    border-radius: 14px;
-    padding:10px;
-    display:flex;
-    gap:10px;
-    align-items:center;
-    background: var(--surface-2);
-    cursor:pointer;
-    transition: box-shadow .15s ease, transform .12s ease, border-color .15s ease, background .15s ease;
-    min-height:62px;
-  }
-  .photo-drop:hover{
-    border-color: rgba(59,130,246,.30);
-    box-shadow: 0 10px 20px rgba(15,23,42,.05);
-    transform: translateY(-1px);
-    background: var(--surface);
-  }
-
-  .photo-icon{
-    width:38px; height:38px;
-    border-radius: 12px;
-    background: var(--p-amber);
-    border:1px solid rgba(245,158,11,.18);
-    display:flex; align-items:center; justify-content:center;
-    flex:0 0 auto;
-    font-size:1.1rem;
-  }
-
-  .photo-strong{ font-weight:900; color: var(--ink); font-size:.85rem; margin-bottom:2px; }
-  .photo-sub{ color: var(--muted); font-size:.75rem; font-weight:800; }
-  .photo-actions{ display:flex; justify-content:flex-end; margin-top:8px; }
-  .photo-input{ display:none; }
-
-  .photo-preview{
-    margin-top:8px;
-    border-radius: 14px;
-    overflow:hidden;
-    border:1px solid var(--line);
-    background: var(--surface-2);
-    aspect-ratio: 4/3;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-  }
-  .photo-preview img{ width:100%; height:100%; object-fit:cover; display:block; }
-
-  /* =========================================================
-     🔹 Publicación
-     ========================================================= */
-  .pub-grid{ display:grid; grid-template-columns:1fr; gap:12px; margin-top:10px; }
-  .pub-block{
-    background: var(--surface);
-    border:1px solid var(--line);
-    border-radius: 16px;
-    padding:12px;
-    box-shadow: 0 10px 22px rgba(15,23,42,.04);
-  }
-  .pub-block.pub-ml{ border-left: 4px solid rgba(16,185,129,.35); }
-  .pub-block.pub-amz{ border-left: 4px solid rgba(245,158,11,.35); }
-
-  .pub-head{ display:flex; flex-direction:column; gap:2px; margin-bottom:10px; }
-  .pub-title{ font-weight:900; color: var(--ink); font-size:.92rem; }
-  .pub-sub{ color: var(--muted); font-size:.78rem; }
-
-  .pub-actions{ display:flex; flex-direction:column; gap:8px; }
-  .pub-row{ display:flex; gap:8px; flex-wrap:wrap; }
-
-  .btn-pill{
-    width:100%;
-    justify-content:center;
-    padding:10px 14px;
-    border-radius: 999px;
-  }
-  .btn-soft{ width:auto; padding:8px 12px; font-size:.80rem; }
-  .i.material-symbols-outlined{ font-size:18px; line-height:1; }
-
-  .btn-ml{
-    background: var(--p-mint);
-    border-color: rgba(16,185,129,.18);
-    color:#065f46;
-  }
-  .btn-ml-soft{
-    background: #f2fdf7;
-    border-color: rgba(16,185,129,.16);
-    color:#065f46;
-  }
-
-  .btn-amz{
-    background: var(--p-amber);
-    border-color: rgba(245,158,11,.20);
-    color:#92400e;
-  }
-  .btn-amz-soft{
-    background: #fffaf0;
-    border-color: rgba(245,158,11,.18);
-    color:#92400e;
-  }
-
-  .pub-warn{
-    display:flex;
-    gap:10px;
-    align-items:flex-start;
-    padding:10px 12px;
-    border-radius: 14px;
-    border: 1px solid rgba(245,158,11,.18);
-    background: #fffaf0;
-    color:#92400e;
-    margin-bottom:10px;
-  }
-  .pub-warn .material-symbols-outlined{ font-size:20px; }
-  .pub-warn-title{ font-weight:900; font-size:.82rem; }
-  .pub-warn-text{ font-size:.76rem; opacity:.9; }
-
-  @media (max-width: 992px){
-    .catalog-grid{ grid-template-columns:1fr; }
-    .catalog-main, .catalog-side{ grid-column:span 12; }
-    .photos-grid{ grid-template-columns:1fr; }
-  }
-  @media (max-width: 768px){
-    .ai-items-table th:nth-child(3), .ai-items-table td:nth-child(3),
-    .ai-items-table th:nth-child(5), .ai-items-table td:nth-child(5){
-      display:none;
-    }
-  }
-
-  @keyframes aiSpin{ to{ transform:rotate(360deg); } }
-  @keyframes aiBob{ 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-2px); } }
-  @keyframes fadeInUp{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:translateY(0); } }
-
-  /* SweetAlert — limpio */
-  .swal2-popup-compact{
-    border-radius: 18px !important;
-    padding: 12px 16px !important;
-    box-shadow: 0 18px 40px rgba(15,23,42,.14) !important;
-    background: #ffffff !important;
-    border: 1px solid rgba(233,234,242,.9) !important;
-  }
-  .swal2-title{ font-size:.95rem !important; font-weight:900 !important; color: var(--ink) !important; }
-  .swal2-html-container{ font-size:.82rem !important; color: var(--muted) !important; margin-top:4px !important; }
-  .swal2-actions{ margin-top:10px !important; }
-  .swal2-styled.swal2-confirm{
-    border-radius: 999px !important;
-    padding: 8px 16px !important;
-    font-size: .80rem !important;
-    font-weight: 900 !important;
-    background: var(--p-blue) !important;
-    color: #1e3a8a !important;
-    border: 1px solid rgba(59,130,246,.18) !important;
-  }
-</style>
+<link rel="stylesheet" href="{{ asset('css/form.css') }}?v={{ time() }}">
 @endpush
 
 @push('scripts')
@@ -1273,7 +704,6 @@
     const btn = document.getElementById('btn-restore-original');
     if (!btn) return;
 
-    // ✅ agrega los nuevos campos ML
     const fieldNames = [
       'name','slug','description','excerpt','sku',
       'price','stock','sale_price','category_key','status','published_at',
@@ -1461,7 +891,6 @@
       pick('Marca', item.brand_name ?? item.brand ?? item.marca);
       pick('Modelo', item.model_name ?? item.model ?? item.modelo);
       pick('GTIN', item.meli_gtin ?? item.gtin ?? item.ean ?? item.upc ?? item.barcode ?? item.codigo_barras);
-
       pick('ML categoría', item.meli_category_id ?? item.category_id ?? item.ml_category_id ?? item.meli_category);
 
       detectedChips.innerHTML = '';
