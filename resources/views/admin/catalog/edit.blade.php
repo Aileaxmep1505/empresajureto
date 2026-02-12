@@ -147,7 +147,16 @@
   $hasAmazonSku = !empty($item->amazon_sku ?? null);
 
   $mlErrText  = Str::lower((string)($item->meli_last_error ?? ''));
-  $amzErrText = Str::lower((string)($item->amz_last_error ?? '')); // opcional si existe en tu BD
+
+  // ✅ Compatible: si tu modelo usa amz_last_error o amazon_last_error
+  $amzLastError = $item->amz_last_error ?? ($item->amazon_last_error ?? null);
+  $amzErrText   = Str::lower((string)($amzLastError ?? ''));
+
+  // ✅ Compatible: si tu modelo usa amz_synced_at o amazon_synced_at
+  $amzSyncedAt  = $item->amz_synced_at ?? ($item->amazon_synced_at ?? null);
+
+  // ✅ Compatible: si tu modelo usa amz_status o amazon_status
+  $amzStatus    = $item->amz_status ?? ($item->amazon_status ?? null);
 @endphp
 
 <div class="wrap-page">
@@ -166,7 +175,8 @@
       {{-- Toggle publicar/ocultar (WEB) --}}
       <form action="{{ route('admin.catalog.toggle', $item) }}" method="POST"
             onsubmit="return confirm('¿Cambiar estado de publicación en el sitio web?')">
-        @csrf @method('PATCH')
+        @csrf
+        @method('PATCH')
         <button class="btn btn-ghost" type="submit">
           <span class="i material-symbols-outlined" aria-hidden="true">{{ $item->status == 1 ? 'visibility_off' : 'visibility' }}</span>
           {{ $item->status == 1 ? 'Ocultar' : 'Publicar' }}
@@ -190,6 +200,7 @@
             ML: Pausar
           </button>
         </form>
+
         <form method="POST" action="{{ route('admin.catalog.meli.activate', $item) }}">
           @csrf
           <button class="btn btn-ml-soft" type="submit">
@@ -197,6 +208,7 @@
             ML: Activar
           </button>
         </form>
+
         <a class="btn btn-ml-soft" href="{{ route('admin.catalog.meli.view', $item) }}" target="_blank" rel="noopener">
           <span class="i material-symbols-outlined" aria-hidden="true">open_in_new</span>
           ML: Ver
@@ -239,7 +251,8 @@
       {{-- Eliminar --}}
       <form action="{{ route('admin.catalog.destroy', $item) }}" method="POST"
             onsubmit="return confirm('¿Eliminar este producto del catálogo web? Esta acción no se puede deshacer.')">
-        @csrf @method('DELETE')
+        @csrf
+        @method('DELETE')
         <button class="btn btn-danger" type="submit">
           <span class="i material-symbols-outlined" aria-hidden="true">delete</span>
           Eliminar
@@ -269,6 +282,7 @@
       <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;">
         <div style="flex:1 1 260px;">
           <strong>Mercado Libre</strong><br>
+
           @if($item->meli_item_id)
             <span style="font-size:.88rem;">
               ID: {{ $item->meli_item_id }} ·
@@ -321,8 +335,8 @@
     </div>
   @endif
 
-  {{-- Panel de estado Amazon (si tienes campos en BD; si no existen, no rompe) --}}
-  @if(!empty($item->amazon_sku ?? null) || !empty($item->amz_last_error ?? null) || !empty($item->amz_synced_at ?? null))
+  {{-- Panel de estado Amazon (compatible con varios nombres de columnas) --}}
+  @if(!empty($item->amazon_sku ?? null) || !empty($amzLastError) || !empty($amzSyncedAt) || !empty($amzStatus))
     <div class="alert alert-amz">
       <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;">
         <div style="flex:1 1 260px;">
@@ -330,7 +344,6 @@
           <span style="font-size:.88rem;">
             AMAZON SKU: {{ $item->amazon_sku ?? '—' }} ·
             Estado:
-            @php $amzStatus = $item->amz_status ?? null; @endphp
             @if($amzStatus === 'active')
               <span style="font-weight:800;color:#166534;">Activo</span>
             @elseif($amzStatus === 'inactive' || $amzStatus === 'paused')
@@ -342,9 +355,17 @@
             @endif
           </span>
 
-          @if(!empty($item->amz_synced_at ?? null))
+          @if(!empty($amzSyncedAt))
             <div style="margin-top:4px;font-size:.8rem;color:#6b7280;">
-              Última sincronización: {{ \Carbon\Carbon::parse($item->amz_synced_at)->format('Y-m-d H:i') }}
+              Última sincronización:
+              @php
+                try {
+                  $dt = $amzSyncedAt instanceof \Carbon\Carbon ? $amzSyncedAt : \Carbon\Carbon::parse($amzSyncedAt);
+                  echo e($dt->format('Y-m-d H:i'));
+                } catch (\Throwable $e) {
+                  echo e((string)$amzSyncedAt);
+                }
+              @endphp
             </div>
           @endif
         </div>
@@ -361,15 +382,18 @@
             @if(Str::contains($amzErrText, 'image') || Str::contains($amzErrText, 'imagen'))
               <li>Verifica que existan imágenes (tus 3 fotos).</li>
             @endif
+            @if(Str::contains($amzErrText, 'producttype') || Str::contains($amzErrText, 'product_type') || Str::contains($amzErrText, 'product type'))
+              <li>Revisa el campo <strong>productType</strong> (ej. OFFICE_PRODUCTS, ELECTRONICS, etc.).</li>
+            @endif
             <li>Después de corregir, pulsa <strong>“Amazon: Publicar/Actualizar”</strong>.</li>
           </ul>
         </div>
       </div>
 
-      @if(!empty($item->amz_last_error ?? null))
+      @if(!empty($amzLastError))
         <div style="color:#b91c1c;margin-top:8px;white-space:normal;font-size:.86rem;">
           <strong>Mensaje técnico de Amazon:</strong><br>
-          {{ $item->amz_last_error }}
+          {{ $amzLastError }}
         </div>
       @endif
     </div>

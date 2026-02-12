@@ -2,7 +2,6 @@
 @section('title','Nuevo producto web')
 
 @section('content')
-
 <div class="wrap-ai">
   {{-- Header --}}
   <div class="head-ai">
@@ -276,7 +275,6 @@
 </div>
 @endsection
 
-
 @push('styles')
 <style>
   :root{
@@ -486,7 +484,6 @@
 </style>
 @endpush
 
-
 @push('scripts')
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
@@ -578,7 +575,7 @@
       });
 
       const j = await res.json();
-      if(!j.ok) throw new Error('No se pudo iniciar IA');
+      if(!j.ok) throw new Error(j.error || 'No se pudo iniciar IA');
 
       intakeId = j.intake_id;
 
@@ -592,6 +589,14 @@
       setStatusUI(0);
       aiWaiting.style.display = 'block';
       aiResult.style.display = 'none';
+
+      // reset
+      extractedCache = null;
+      aiItemsTbody.innerHTML = '';
+      exSupplier.textContent = '—';
+      exFolio.textContent = '—';
+      exDate.textContent = '—';
+      exTotal.textContent = '—';
 
       if(pollTimer) clearInterval(pollTimer);
       pollTimer = setInterval(pollStatus, 2200);
@@ -644,18 +649,18 @@
     exDate.textContent     = ex.invoice_date || '—';
     exTotal.textContent    = (ex.total ?? '—');
 
-    const items = ex.items || [];
+    const items = Array.isArray(ex.items) ? ex.items : [];
     aiItemsTbody.innerHTML = '';
 
     items.forEach((it, idx)=>{
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td>${it.sku || '—'}</td>
-        <td style="white-space:normal;min-width:240px;">${it.description || '—'}</td>
-        <td>${it.quantity ?? '—'}</td>
-        <td>${it.unit || '—'}</td>
-        <td>${it.unit_price ?? '—'}</td>
-        <td>${it.line_total ?? '—'}</td>
+        <td>${escapeHtml(it.sku || '—')}</td>
+        <td style="white-space:normal;min-width:240px;">${escapeHtml(it.description || '—')}</td>
+        <td>${escapeHtml(it.quantity ?? '—')}</td>
+        <td>${escapeHtml(it.unit || '—')}</td>
+        <td>${escapeHtml(it.unit_price ?? '—')}</td>
+        <td>${escapeHtml(it.line_total ?? '—')}</td>
         <td class="right">
           <button type="button" class="btn-ai btn-ai--ghost btn-ai--sm" data-use="${idx}">Usar</button>
         </td>
@@ -666,7 +671,7 @@
     aiItemsTbody.querySelectorAll('button[data-use]').forEach(btn=>{
       btn.onclick = ()=>{
         const i = parseInt(btn.getAttribute('data-use'));
-        fillFormFromItem(items[i]);
+        fillFormFromItem(items[i], ex);
         setMode('manual');
       };
     });
@@ -678,49 +683,89 @@
   const btnFillFirst = document.getElementById('btnFillFirst');
   if(btnFillFirst){
     btnFillFirst.onclick = ()=>{
-      const items = (extractedCache && extractedCache.items) ? extractedCache.items : [];
+      const items = (extractedCache && Array.isArray(extractedCache.items)) ? extractedCache.items : [];
       if(!items.length) return alert('No hay ítems.');
-      fillFormFromItem(items[0]);
+      fillFormFromItem(items[0], extractedCache);
       setMode('manual');
     };
   }
 
-  function fillFormFromItem(it){
+  function fillFormFromItem(it, ex){
     if(!it) return;
 
-    const setVal = (name, val)=>{
+    const setVal = (name, val, mark=true)=>{
       const el = document.querySelector(`[name="${name}"]`);
-      if(el && val !== undefined && val !== null && val !== '') el.value = val;
+      if(!el) return;
+      if(val === undefined || val === null || val === '') return;
+      el.value = val;
+      if(mark){
+        el.classList.add('ai-suggested');
+        setTimeout(()=> el.classList.remove('ai-suggested'), 6500);
+      }
     };
 
     const desc  = (it.description || '').trim();
-    const brand = (it.brand || '').trim();
-    const model = (it.model || '').trim();
+    const brand = (it.brand || it.brand_name || '').trim();
+    const model = (it.model || it.model_name || '').trim();
 
-    let finalName = desc;
+    let finalName = desc || 'PRODUCTO SIN NOMBRE';
     if(brand && !finalName.toLowerCase().includes(brand.toLowerCase())) finalName += ' ' + brand;
     if(model && !finalName.toLowerCase().includes(model.toLowerCase())) finalName += ' ' + model;
 
-    setVal('name', finalName || desc || 'PRODUCTO SIN NOMBRE');
+    setVal('name', finalName);
     setVal('sku', it.sku || '');
-    setVal('price', it.unit_price || 0);
+    setVal('price', it.unit_price ?? it.price ?? 0);
     setVal('brand_name', brand);
     setVal('model_name', model);
-    setVal('excerpt', desc ? desc.slice(0, 140) : '');
+    setVal('excerpt', desc ? desc.slice(0, 160) : '');
 
-    const extra = extractedCache || {};
+    // GTIN / barcode
+    const gtin = it.gtin || it.ean || it.upc || it.barcode || it.codigo_barras || '';
+    setVal('meli_gtin', gtin);
+
+    // stock (si viene)
+    const qty = it.quantity ?? it.qty ?? it.cantidad ?? null;
+    setVal('stock', qty);
+
+    // descripción larga con contexto
+    const extra = ex || extractedCache || {};
     let longDesc = '';
     if(extra.supplier_name) longDesc += `Proveedor: ${extra.supplier_name}\n`;
     if(extra.folio)         longDesc += `Folio: ${extra.folio}\n`;
     if(extra.invoice_date)  longDesc += `Fecha: ${extra.invoice_date}\n\n`;
-    longDesc += `Descripción en documento:\n${desc}\n\nCantidad: ${it.quantity ?? '—'} ${it.unit || ''}\nPrecio unitario: ${it.unit_price ?? '—'}\nTotal línea: ${it.line_total ?? '—'}`;
+
+    longDesc += `Descripción en documento:\n${desc || '—'}\n\n`;
+    longDesc += `Cantidad: ${qty ?? '—'} ${it.unit || ''}\n`;
+    longDesc += `Precio unitario: ${it.unit_price ?? '—'}\n`;
+    longDesc += `Total línea: ${it.line_total ?? '—'}`;
 
     const dEl = document.querySelector('[name="description"]');
-    if(dEl) dEl.value = longDesc;
-
-    if(it.gtin) setVal('meli_gtin', it.gtin);
+    if(dEl){
+      dEl.value = longDesc;
+      dEl.classList.add('ai-suggested');
+      setTimeout(()=> dEl.classList.remove('ai-suggested'), 6500);
+    }
 
     window.scrollTo({top:0, behavior:'smooth'});
   }
+
+  function escapeHtml(str){
+    if(str === null || str === undefined) return '';
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
 </script>
+
+<style>
+  /* highlight IA (suave, sin romper tu UI) */
+  .ai-suggested{
+    border-color: rgba(34,197,94,.9) !important;
+    box-shadow: 0 0 0 3px rgba(34,197,94,.18), 0 10px 25px rgba(22,163,74,.10) !important;
+    background: #f0fdf4 !important;
+  }
+</style>
 @endpush

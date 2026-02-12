@@ -1299,7 +1299,10 @@
   };
 
   // ================================
-  // 🔹 IA: subir archivos + dropzone + rellenar campos
+  // 🔹 IA: subir archivos + dropzone + rellenar campos (MEJORADO)
+  // - No pisa campos si ya tienen valor
+  // - Acepta alias (seller_sku, productType, etc.)
+  // - Sugiere category (select) y productType si faltan
   // ================================
   document.addEventListener('DOMContentLoaded', function () {
     const btnAi      = document.getElementById('btn-ai-analyze');
@@ -1317,6 +1320,9 @@
 
     const LS_KEY_ITEMS = 'catalog_ai_items';
     const LS_KEY_INDEX = 'catalog_ai_index';
+
+    // ✅ keys reales del select de categoría para sugerir correctamente
+    const CATEGORY_KEYS = @json(array_keys($categories ?? []));
 
     let aiItems = [];
 
@@ -1350,7 +1356,7 @@
       Array.from(files).forEach(file => {
         const chip = document.createElement('div');
         chip.className = 'ai-file-chip';
-        chip.innerHTML = `<span>${file.name}</span>`;
+        chip.innerHTML = `<span>${escapeHtml(file.name)}</span>`;
         filesList.appendChild(chip);
       });
     }
@@ -1407,6 +1413,46 @@
       });
     }
 
+    // ----------------------------
+    // Helpers: normalización + alias
+    // ----------------------------
+    function norm(s){ return String(s ?? '').trim(); }
+    function lower(s){ return norm(s).toLowerCase(); }
+
+    function pick(obj, keys){
+      for (const k of keys){
+        const v = obj?.[k];
+        if (v !== undefined && v !== null && String(v).trim() !== '') return v;
+      }
+      return null;
+    }
+
+    function guessProductType(text){
+      const t = lower(text);
+      if (!t) return '';
+      if (t.includes('clip') || t.includes('grapa') || t.includes('engrap') || t.includes('papel') || t.includes('oficina')) return 'OFFICE_PRODUCTS';
+      if (t.includes('lapic') || t.includes('pluma') || t.includes('bolig') || t.includes('marcador')) return 'OFFICE_PRODUCTS';
+      if (t.includes('cable') || t.includes('usb') || t.includes('cargador') || t.includes('comput')) return 'ELECTRONICS';
+      return '';
+    }
+
+    function guessCategoryKey(text){
+      const t = lower(text);
+      if (!t) return '';
+
+      let want = '';
+      if (t.includes('clip') || t.includes('grapa') || t.includes('papel') || t.includes('oficina')) want = 'papel';
+      if (t.includes('usb') || t.includes('cable') || t.includes('cargador') || t.includes('comput')) want = 'comput';
+
+      if (!want) return '';
+
+      const found = (CATEGORY_KEYS || []).find(k => lower(k).includes(want));
+      return found || '';
+    }
+
+    // ----------------------------
+    // Tabla (mejorada con alias)
+    // ----------------------------
     function attachUseButtons() {
       if (!tbody) return;
       tbody.querySelectorAll('button[data-ai-index]').forEach(btn => {
@@ -1415,7 +1461,10 @@
           const item = aiItems[i];
           if (!item) return;
           saveAiIndexToStorage(i);
-          fillFromItem(item, { markSuggested: true });
+
+          // ✅ No pisa campos llenos
+          fillFromItem(item, { markSuggested: true, onlyIfEmpty: true });
+
           if (statusEl) statusEl.textContent = 'Se cargó el producto #' + (i + 1) + ' desde la lista IA. Revisa y ajusta antes de guardar.';
           AiAlerts.info('Producto cargado', 'Se llenó el formulario con el producto #' + (i + 1) + '.');
         });
@@ -1428,17 +1477,22 @@
 
       aiItems.forEach((item, idx) => {
         const tr = document.createElement('tr');
-        const precio = item.price != null && item.price !== ''
-          ? '$ ' + Number(item.price).toFixed(2)
-          : '—';
+
+        const price = pick(item, ['price','unit_price','precio','precio_unitario']);
+        const precio = (price != null && price !== '') ? ('$ ' + Number(price).toFixed(2)) : '—';
+
+        const name  = pick(item, ['name','title','descripcion','description']) || '';
+        const brand = pick(item, ['brand_name','brand','marca']) || '';
+        const model = pick(item, ['model_name','model','modelo']) || '';
+        const gtin  = pick(item, ['meli_gtin','gtin','ean','upc','barcode','codigo_barras']) || '';
 
         tr.innerHTML = `
           <td>${idx + 1}</td>
-          <td>${escapeHtml(item.name || '')}</td>
-          <td>${precio}</td>
-          <td>${escapeHtml(item.brand_name || '')}</td>
-          <td>${escapeHtml(item.model_name || '')}</td>
-          <td>${escapeHtml(item.meli_gtin || '')}</td>
+          <td>${escapeHtml(name)}</td>
+          <td>${escapeHtml(precio)}</td>
+          <td>${escapeHtml(brand)}</td>
+          <td>${escapeHtml(model)}</td>
+          <td>${escapeHtml(gtin)}</td>
           <td>
             <button type="button" class="btn btn-ghost btn-xs" data-ai-index="${idx}">Usar este</button>
           </td>
@@ -1454,13 +1508,14 @@
       attachUseButtons();
     }
 
+    // Restore
     aiItems = loadAiItemsFromStorage();
     if (aiItems.length) {
       renderAiTable();
       if (statusEl) statusEl.textContent = 'Se restauraron los productos detectados por IA. Puedes seguir capturando sin volver a subir el PDF.';
       const idx = loadAiIndexFromStorage();
       const item = aiItems[idx] || aiItems[0];
-      if (item) fillFromItem(item, { markSuggested: true });
+      if (item) fillFromItem(item, { markSuggested: true, onlyIfEmpty: true });
     }
 
     if (!btnAi || !inputFiles) return;
@@ -1503,7 +1558,9 @@
         }
 
         const s = data.suggestions || {};
-        fillFromItem(s, { markSuggested: true });
+
+        // ✅ No pisa campos llenos
+        fillFromItem(s, { markSuggested: true, onlyIfEmpty: true });
 
         aiItems = Array.isArray(data.items) ? data.items : [];
         saveAiItemsToStorage();
@@ -1527,12 +1584,21 @@
       });
     });
 
-    function applyAiSuggestion(fieldName, value, markSuggested) {
+    function applyAiSuggestion(fieldName, value, markSuggested, onlyIfEmpty) {
       if (value === undefined || value === null || value === '') return;
       const el = document.querySelector('[name="' + fieldName + '"]');
       if (!el) return;
 
+      if (onlyIfEmpty) {
+        const current = (el.value ?? '').toString().trim();
+        if (current !== '') return;
+      }
+
       el.value = value;
+
+      // ✅ si es select, dispara change
+      try { el.dispatchEvent(new Event('change', { bubbles:true })); } catch(e){}
+
       if (markSuggested) {
         el.classList.add('ai-suggested');
         setTimeout(() => el.classList.remove('ai-suggested'), 7000);
@@ -1541,24 +1607,62 @@
 
     function fillFromItem(item, opts = {}) {
       const markSuggested = !!opts.markSuggested;
+      const onlyIfEmpty   = !!opts.onlyIfEmpty;
       if (!item || typeof item !== 'object') return;
 
-      applyAiSuggestion('name',        item.name,        markSuggested);
-      applyAiSuggestion('slug',        item.slug,        markSuggested);
-      applyAiSuggestion('description', item.description, markSuggested);
-      applyAiSuggestion('excerpt',     item.excerpt,     markSuggested);
-      applyAiSuggestion('price',       item.price,       markSuggested);
-      applyAiSuggestion('brand_name',  item.brand_name,  markSuggested);
-      applyAiSuggestion('model_name',  item.model_name,  markSuggested);
-      applyAiSuggestion('meli_gtin',   item.meli_gtin,   markSuggested);
+      const name = pick(item, ['name','title','descripcion','description']);
+      const slug = pick(item, ['slug']);
+      const desc = pick(item, ['description','descripcion_larga','desc']);
+      const ex   = pick(item, ['excerpt','resumen','short_description']);
+      const price= pick(item, ['price','unit_price','precio','precio_unitario']);
 
-      // ✅ Amazon: si viene en el análisis, también lo sugiere
-      applyAiSuggestion('amazon_sku',          item.amazon_sku,          markSuggested);
-      applyAiSuggestion('amazon_asin',         item.amazon_asin,         markSuggested);
-      applyAiSuggestion('amazon_product_type', item.amazon_product_type, markSuggested);
+      const brand= pick(item, ['brand_name','brand','marca']);
+      const model= pick(item, ['model_name','model','modelo']);
+      const gtin = pick(item, ['meli_gtin','gtin','ean','upc','barcode','codigo_barras']);
 
-      const qty = item.stock ?? item.quantity ?? item.qty ?? item.cantidad;
-      applyAiSuggestion('stock', qty, markSuggested);
+      const amazonSku = pick(item, [
+        'amazon_sku','seller_sku','sellerSku','amazonSellerSku','amazon_seller_sku','amz_sku','amzSellerSku'
+      ]);
+      const asin  = pick(item, ['amazon_asin','asin']);
+      let ptype   = pick(item, ['amazon_product_type','productType','product_type','amz_product_type']);
+
+      let category = pick(item, ['category','categoria','category_key','categoryKey']);
+
+      applyAiSuggestion('name',        name,  markSuggested, onlyIfEmpty);
+      applyAiSuggestion('slug',        slug,  markSuggested, onlyIfEmpty);
+      applyAiSuggestion('description', desc,  markSuggested, onlyIfEmpty);
+      applyAiSuggestion('excerpt',     ex,    markSuggested, onlyIfEmpty);
+      applyAiSuggestion('price',       price, markSuggested, onlyIfEmpty);
+      applyAiSuggestion('brand_name',  brand, markSuggested, onlyIfEmpty);
+      applyAiSuggestion('model_name',  model, markSuggested, onlyIfEmpty);
+      applyAiSuggestion('meli_gtin',   gtin,  markSuggested, onlyIfEmpty);
+
+      applyAiSuggestion('amazon_sku',          amazonSku, markSuggested, onlyIfEmpty);
+      applyAiSuggestion('amazon_asin',         asin,      markSuggested, onlyIfEmpty);
+      applyAiSuggestion('amazon_product_type', ptype,     markSuggested, onlyIfEmpty);
+
+      const qty = pick(item, ['stock','quantity','qty','cantidad','cant']);
+      applyAiSuggestion('stock', qty, markSuggested, onlyIfEmpty);
+
+      // ✅ Category: valida contra keys reales, si no, intenta adivinar por texto
+      if (category && CATEGORY_KEYS.length && !CATEGORY_KEYS.includes(String(category))) {
+        const tryKey = CATEGORY_KEYS.find(k => lower(k) === lower(category));
+        category = tryKey || '';
+      }
+
+      if (!category) {
+        const t = `${name || ''} ${desc || ''} ${ex || ''}`;
+        category = guessCategoryKey(t);
+      }
+
+      if (category) applyAiSuggestion('category', category, markSuggested, onlyIfEmpty);
+
+      // ✅ productType fallback si no vino
+      if (!ptype) {
+        const t = `${name || ''} ${desc || ''} ${ex || ''}`;
+        const guess = guessProductType(t);
+        if (guess) applyAiSuggestion('amazon_product_type', guess, markSuggested, onlyIfEmpty);
+      }
     }
 
     function escapeHtml(str) {
