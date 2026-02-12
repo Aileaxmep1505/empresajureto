@@ -468,9 +468,20 @@
             </div>
 
             <div class="pub-actions">
-              {{-- ✅ NORMAL --}}
+              {{-- ✅ NUEVO: SI O SÍ (normal -> domain_discovery -> catálogo) --}}
               <button type="submit"
                       class="btn btn-pill btn-ml"
+                      form="catalog-form"
+                      formaction="{{ route('admin.catalog.meli.publish', $item) }}?force=1"
+                      formmethod="POST">
+                @csrf
+                <span class="i material-symbols-outlined" aria-hidden="true">rocket_launch</span>
+                Publicar (SI O SÍ)
+              </button>
+
+              {{-- ✅ NORMAL --}}
+              <button type="submit"
+                      class="btn btn-pill btn-soft btn-ml-soft"
                       form="catalog-form"
                       formaction="{{ route('admin.catalog.meli.publish', $item) }}"
                       formmethod="POST">
@@ -1451,7 +1462,6 @@
       pick('Modelo', item.model_name ?? item.model ?? item.modelo);
       pick('GTIN', item.meli_gtin ?? item.gtin ?? item.ean ?? item.upc ?? item.barcode ?? item.codigo_barras);
 
-      // ✅ NUEVO: si IA detecta categoría ML
       pick('ML categoría', item.meli_category_id ?? item.category_id ?? item.ml_category_id ?? item.meli_category);
 
       detectedChips.innerHTML = '';
@@ -1532,7 +1542,6 @@
       attachUseButtons();
     }
 
-    // ✅ Restore items + last suggestions
     aiItems = loadAiItemsFromStorage();
     lastSuggestions = loadLastSuggestions();
 
@@ -1550,7 +1559,6 @@
       renderDetectedChips(lastSuggestions);
     }
 
-    // ✅ Botón "Rellenar vacíos"
     if (btnFill) {
       btnFill.addEventListener('click', function () {
         const base = lastSuggestions || loadLastSuggestions();
@@ -1673,7 +1681,6 @@
       const gtin        = item.meli_gtin ?? item.gtin ?? item.ean ?? item.upc ?? item.barcode ?? item.codigo_barras;
       const qty         = item.stock ?? item.quantity ?? item.qty ?? item.cantidad ?? item.cant;
 
-      // ✅ NUEVO: permitir que IA sugiera categoría ML (si tu backend la manda)
       const meliCat      = item.meli_category_id ?? item.category_id ?? item.ml_category_id ?? item.meli_category;
       const listingType  = item.meli_listing_type_id ?? item.listing_type_id ?? item.ml_listing_type_id;
 
@@ -1691,7 +1698,6 @@
 
       if (item.category_key) changed += applyAiSuggestion('category_key', item.category_key, markSuggested, onlyMissing);
 
-      // ✅ NUEVO: ML category
       changed += applyAiSuggestion('meli_category_id', meliCat, markSuggested, onlyMissing);
       changed += applyAiSuggestion('meli_listing_type_id', listingType, markSuggested, onlyMissing);
 

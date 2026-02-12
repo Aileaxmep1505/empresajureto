@@ -708,136 +708,196 @@ class CatalogItemController extends Controller implements HasMiddleware
      |  ACCIONES MERCADO LIBRE
      ==========================*/
 
-    public function meliPublish(Request $request, CatalogItem $catalogItem, MeliSyncService $svc)
-    {
-        $catalogItem = $catalogItem->fresh();
+  /**
+ * ✅ Publicar SI O SÍ:
+ * - Intenta normal (listing clásico)
+ * - Si detecta "title invalid / catalog flow" -> intenta categoría sugerida por domain_discovery
+ * - Si aún falla -> intenta catálogo (allow_catalog_fallback=true)
+ *
+ * Query:
+ * - ?force=1  => activa el modo "si o si"
+ * - ?catalog=1 => fuerza catálogo directo
+ */
+public function meliPublish(Request $request, CatalogItem $catalogItem, MeliSyncService $svc)
+{
+    $catalogItem = $catalogItem->fresh();
 
-        // ✅ Si todavía no tiene meli_category_id pero tiene category_key, resuélvela aquí también
-        if (empty($catalogItem->meli_category_id) && !empty($catalogItem->category_key)) {
-            $mlCat = $this->resolveMeliCategoryIdFromCategoryKey($catalogItem->category_key);
-            if ($mlCat) {
-                $catalogItem->forceFill(['meli_category_id' => $mlCat])->save();
-                $catalogItem = $catalogItem->fresh();
+    $force        = $request->boolean('force');     // "SI O SÍ"
+    $manualCatalog= $request->boolean('catalog');   // catálogo directo
+
+    Log::info('CatalogItem@meliPublish: inicio', [
+        'item_id'        => $catalogItem->id,
+        'force'          => $force,
+        'manual_catalog' => $manualCatalog,
+        'meli_category'  => $catalogItem->meli_category_id ?? null,
+        'brand_name'     => $catalogItem->brand_name ?? null,
+        'model_name'     => $catalogItem->model_name ?? null,
+        'gtin'           => $catalogItem->meli_gtin ?? null,
+        'name'           => $catalogItem->name ?? null,
+        'sku'            => $catalogItem->sku ?? null,
+    ]);
+
+    // Helper para detectar "flujo de catálogo"
+    $isCatalogFlowError = function ($res): bool {
+        $msg  = strtolower((string)($res['message'] ?? ''));
+        $json = $res['json'] ?? [];
+        $err0 = is_array($json) ? (strtolower((string)($json['message'] ?? '')) . ' ' . strtolower((string)($json['error'] ?? ''))) : '';
+        $all  = $msg . ' ' . $err0;
+
+        return str_contains($all, 'title') && str_contains($all, 'invalid')
+            || str_contains($all, 'flujo') && str_contains($all, 'cat')
+            || str_contains($all, 'catalog') && str_contains($all, 'flow');
+    };
+
+    // Helper: domain_discovery para sugerir categoría
+    $discoverCategory = function (CatalogItem $item): ?string {
+        try {
+            $q = trim((string)($item->name ?? ''));
+            if ($q === '') return null;
+
+            $http = MeliHttp::withFreshToken();
+            $resp = $http->get('https://api.mercadolibre.com/sites/MLM/domain_discovery/search', [
+                'q' => $q,
+            ]);
+
+            if ($resp->failed()) {
+                Log::warning('meli domain_discovery failed', ['status' => $resp->status(), 'body' => $resp->body()]);
+                return null;
             }
+
+            $arr = $resp->json();
+            if (!is_array($arr) || empty($arr[0])) return null;
+
+            // Normalmente: [0]['category_id']
+            $cat = $arr[0]['category_id'] ?? null;
+            $cat = is_string($cat) ? trim($cat) : null;
+
+            return $cat ?: null;
+        } catch (\Throwable $e) {
+            Log::warning('meli domain_discovery exception', ['err' => $e->getMessage()]);
+            return null;
         }
+    };
 
-        $allowCatalog = $request->boolean('catalog');
-
-        Log::info('CatalogItem@meliPublish: inicio', [
-            'item_id'        => $catalogItem->id,
-            'allow_catalog'  => $allowCatalog,
-            'meli_category'  => $catalogItem->meli_category_id ?? null,
-            'category_key'   => $catalogItem->category_key ?? null,
-            'brand_name'     => $catalogItem->brand_name ?? null,
-            'model_name'     => $catalogItem->model_name ?? null,
-            'gtin'           => $catalogItem->meli_gtin ?? null,
-            'sku'            => $catalogItem->sku ?? null,
-            'name'           => $catalogItem->name ?? null,
-        ]);
-
+    // 1) Si el usuario pidió catálogo directo, hazlo directo
+    if ($manualCatalog) {
         try {
             $res = $svc->sync($catalogItem, [
                 'activate'               => true,
                 'update_description'     => true,
                 'ensure_picture'         => true,
-                'allow_catalog_fallback' => $allowCatalog,
+                'allow_catalog_fallback' => true,
             ]);
         } catch (\Throwable $e) {
-            Log::error('CatalogItem@meliPublish: exception', [
-                'item_id' => $catalogItem->id,
-                'err'     => $e->getMessage(),
-            ]);
-            return back()->withErrors(['general' => 'Error publicando en Mercado Libre: '.$e->getMessage()]);
+            return back()->withErrors(['general' => 'Error publicando en ML (catálogo): ' . $e->getMessage()]);
         }
 
         if (!empty($res['ok'])) {
             $this->persistMeliResponse($catalogItem, $res);
-
             $mlId = $res['json']['id'] ?? $catalogItem->meli_item_id ?? '—';
             $mlSt = $res['json']['status'] ?? $catalogItem->meli_status ?? '—';
-
-            $msg = $allowCatalog
-                ? "Publicado/actualizado en Mercado Libre (catálogo si fue necesario). ID: {$mlId} · Estado: {$mlSt}"
-                : "Publicado/actualizado en Mercado Libre. ID: {$mlId} · Estado: {$mlSt}";
-
-            return back()->with('ok', $msg);
+            return back()->with('ok', "Publicado en ML (catálogo). ID: {$mlId} · Estado: {$mlSt}");
         }
 
-        $friendly = $res['message'] ?? 'No se pudo publicar en Mercado Libre. Revisa el producto.';
-        Log::warning('CatalogItem@meliPublish: failed', [
-            'item_id'  => $catalogItem->id,
-            'message'  => $friendly,
-            'res'      => $res,
+        return back()->withErrors(['general' => $res['message'] ?? 'No se pudo publicar en ML (catálogo).']);
+    }
+
+    // 2) Intento NORMAL
+    try {
+        $res = $svc->sync($catalogItem, [
+            'activate'               => true,
+            'update_description'     => true,
+            'ensure_picture'         => true,
+            'allow_catalog_fallback' => false,
         ]);
+    } catch (\Throwable $e) {
+        return back()->withErrors(['general' => 'Error publicando en ML: ' . $e->getMessage()]);
+    }
 
+    if (!empty($res['ok'])) {
+        $this->persistMeliResponse($catalogItem, $res);
+        $mlId = $res['json']['id'] ?? $catalogItem->meli_item_id ?? '—';
+        $mlSt = $res['json']['status'] ?? $catalogItem->meli_status ?? '—';
+        return back()->with('ok', "Publicado en ML. ID: {$mlId} · Estado: {$mlSt}");
+    }
+
+    // 3) Si NO es force, regresa el error normal
+    if (!$force) {
+        $friendly = $res['message'] ?? 'No se pudo publicar en Mercado Libre.';
+        Log::warning('meli publish failed (no-force)', ['item_id' => $catalogItem->id, 'res' => $res]);
         return back()->withErrors(['general' => $friendly]);
     }
 
-    public function meliPause(CatalogItem $catalogItem, MeliSyncService $svc)
-    {
-        $catalogItem = $catalogItem->fresh();
+    // 4) FORCE: si fue error de catálogo/ title invalid -> intenta category discovery
+    if ($isCatalogFlowError($res)) {
+        $suggested = $discoverCategory($catalogItem);
 
-        try {
-            $res = $svc->pause($catalogItem);
-        } catch (\Throwable $e) {
-            Log::error('CatalogItem@meliPause: exception', [
+        if ($suggested && $suggested !== ($catalogItem->meli_category_id ?? null)) {
+            Log::info('meli force: actualizando categoría con domain_discovery', [
                 'item_id' => $catalogItem->id,
-                'err'     => $e->getMessage(),
+                'from'    => $catalogItem->meli_category_id ?? null,
+                'to'      => $suggested,
             ]);
-            return back()->withErrors(['general' => 'Error pausando en Mercado Libre: '.$e->getMessage()]);
-        }
 
-        if (!empty($res['ok'])) {
-            $this->persistMeliResponse($catalogItem, $res);
-            return back()->with('ok', 'Publicación pausada en Mercado Libre.');
-        }
+            // Persistir si existe la columna
+            try {
+                if (isset($catalogItem->meli_category_id)) {
+                    $catalogItem->meli_category_id = $suggested;
+                    $catalogItem->save();
+                }
+            } catch (\Throwable $e) {
+                Log::warning('meli force: no se pudo guardar meli_category_id', ['err' => $e->getMessage()]);
+            }
 
-        $friendly = $res['message'] ?? 'No se pudo pausar en Mercado Libre.';
-        Log::warning('CatalogItem@meliPause: failed', ['item_id' => $catalogItem->id, 'res' => $res]);
-        return back()->withErrors(['general' => $friendly]);
+            // Reintentar NORMAL con nueva categoría
+            try {
+                $catalogItem = $catalogItem->fresh();
+                $res2 = $svc->sync($catalogItem, [
+                    'activate'               => true,
+                    'update_description'     => true,
+                    'ensure_picture'         => true,
+                    'allow_catalog_fallback' => false,
+                ]);
+            } catch (\Throwable $e) {
+                $res2 = ['ok' => false, 'message' => $e->getMessage(), 'json' => null];
+            }
+
+            if (!empty($res2['ok'])) {
+                $this->persistMeliResponse($catalogItem, $res2);
+                $mlId = $res2['json']['id'] ?? $catalogItem->meli_item_id ?? '—';
+                $mlSt = $res2['json']['status'] ?? $catalogItem->meli_status ?? '—';
+                return back()->with('ok', "Publicado en ML (force: categoría ajustada). ID: {$mlId} · Estado: {$mlSt}");
+            }
+
+            // Si aún cae en catálogo, seguirá abajo al fallback
+            $res = $res2;
+        }
     }
 
-    public function meliActivate(CatalogItem $catalogItem, MeliSyncService $svc)
-    {
+    // 5) FORCE: último intento — catálogo fallback
+    try {
         $catalogItem = $catalogItem->fresh();
-
-        try {
-            $res = $svc->activate($catalogItem);
-        } catch (\Throwable $e) {
-            Log::error('CatalogItem@meliActivate: exception', [
-                'item_id' => $catalogItem->id,
-                'err'     => $e->getMessage(),
-            ]);
-            return back()->withErrors(['general' => 'Error activando en Mercado Libre: '.$e->getMessage()]);
-        }
-
-        if (!empty($res['ok'])) {
-            $this->persistMeliResponse($catalogItem, $res);
-            return back()->with('ok', 'Publicación activada en Mercado Libre.');
-        }
-
-        $friendly = $res['message'] ?? 'No se pudo activar en Mercado Libre.';
-        Log::warning('CatalogItem@meliActivate: failed', ['item_id' => $catalogItem->id, 'res' => $res]);
-        return back()->withErrors(['general' => $friendly]);
+        $res3 = $svc->sync($catalogItem, [
+            'activate'               => true,
+            'update_description'     => true,
+            'ensure_picture'         => true,
+            'allow_catalog_fallback' => true,
+        ]);
+    } catch (\Throwable $e) {
+        return back()->withErrors(['general' => 'Error publicando en ML (force catálogo): ' . $e->getMessage()]);
     }
 
-    public function meliView(CatalogItem $catalogItem)
-    {
-        if (!$catalogItem->meli_item_id) {
-            return back()->withErrors(['general' => 'Este producto aún no tiene publicación en ML.']);
-        }
-
-        $http = MeliHttp::withFreshToken();
-        $resp = $http->get("https://api.mercadolibre.com/items/{$catalogItem->meli_item_id}");
-        if ($resp->failed()) {
-            return back()->withErrors(['general' => 'No se pudo obtener el permalink desde ML.']);
-        }
-
-        $permalink = $resp->json('permalink');
-        return $permalink
-            ? redirect()->away($permalink)
-            : back()->withErrors(['general' => 'Este ítem no tiene permalink disponible.']);
+    if (!empty($res3['ok'])) {
+        $this->persistMeliResponse($catalogItem, $res3);
+        $mlId = $res3['json']['id'] ?? $catalogItem->meli_item_id ?? '—';
+        $mlSt = $res3['json']['status'] ?? $catalogItem->meli_status ?? '—';
+        return back()->with('ok', "Publicado en ML (force: catálogo). ID: {$mlId} · Estado: {$mlSt}");
     }
+
+    $friendly = $res3['message'] ?? ($res['message'] ?? 'No se pudo publicar en ML (force).');
+    Log::warning('meli publish failed (force)', ['item_id' => $catalogItem->id, 'res' => $res3]);
+    return back()->withErrors(['general' => $friendly]);
+}
 
     /* =========================
      |  IA: Captura desde QR
@@ -869,12 +929,255 @@ class CatalogItemController extends Controller implements HasMiddleware
             'meta'      => $intake->meta,
         ]);
     }
+public function aiFromUpload(Request $request)
+{
+    try {
+        // =========================================================
+        // 1) Detectar archivos (TU JS manda files[])
+        // =========================================================
+        $files = [];
 
-    public function aiFromUpload(Request $request)
+        $arr1 = $request->file('files', []);
+        if (is_array($arr1) && count($arr1)) $files = array_merge($files, $arr1);
+
+        $arr2 = $request->file('ai_files', []);
+        if (is_array($arr2) && count($arr2)) $files = array_merge($files, $arr2);
+
+        /** @var \Illuminate\Http\UploadedFile|null $single */
+        $single =
+            $request->file('file')
+            ?: $request->file('upload')
+            ?: $request->file('photo')
+            ?: $request->file('image')
+            ?: $request->file('document');
+
+        if ($single instanceof \Illuminate\Http\UploadedFile) $files[] = $single;
+
+        $files = array_values(array_filter($files, fn($f) => $f instanceof \Illuminate\Http\UploadedFile));
+
+        if (!count($files)) {
+            return response()->json([
+                'error' => 'No se recibió archivo. Envía files[] o ai_files[] (multipart/form-data).',
+            ], 422);
+        }
+
+        // =========================================================
+        // 2) Validar mimes
+        // =========================================================
+        $allowedMimes = ['image/jpeg','image/png','image/webp','application/pdf'];
+
+        foreach ($files as $f) {
+            if (!$f->isValid()) {
+                return response()->json(['error' => 'Archivo inválido o corrupto.'], 422);
+            }
+            $mime = (string)($f->getMimeType() ?: '');
+            if (!in_array($mime, $allowedMimes, true)) {
+                return response()->json([
+                    'error' => 'Tipo no permitido. Sube JPG/PNG/WEBP o PDF.',
+                    'mime'  => $mime,
+                ], 422);
+            }
+        }
+
+        // =========================================================
+        // 3) OpenAI key
+        // =========================================================
+        $apiKey = config('services.openai.key') ?: env('OPENAI_API_KEY');
+        $apiKey = is_string($apiKey) ? trim($apiKey) : '';
+        if ($apiKey === '') {
+            return response()->json([
+                'error' => 'Falta OPENAI_API_KEY en .env (o services.openai.key).',
+            ], 500);
+        }
+
+        // =========================================================
+        // 4) Subir archivos a OpenAI Files API (purpose=user_data)
+        //    Docs: POST /v1/files + purpose user_data :contentReference[oaicite:1]{index=1}
+        // =========================================================
+        $openAiFileIds = [];
+
+        foreach ($files as $f) {
+            $filename = $f->getClientOriginalName() ?: ('upload-' . now()->format('Ymd-His'));
+            $stream   = fopen($f->getRealPath(), 'r');
+
+            $resp = \Illuminate\Support\Facades\Http::withToken($apiKey)
+                ->timeout(120)
+                ->attach('file', $stream, $filename)
+                ->asMultipart()
+                ->post('https://api.openai.com/v1/files', [
+                    // recomendado para usarlo como input al modelo :contentReference[oaicite:2]{index=2}
+                    'purpose' => 'user_data',
+                ]);
+
+            if (!$resp->ok()) {
+                \Illuminate\Support\Facades\Log::error('aiFromUpload: OpenAI files.create failed', [
+                    'status' => $resp->status(),
+                    'body'   => $resp->body(),
+                ]);
+
+                return response()->json([
+                    'error' => 'No se pudo subir el archivo a la IA (Files API). Revisa logs.',
+                ], 500);
+            }
+
+            $fileId = $resp->json('id');
+            if (!$fileId) {
+                return response()->json([
+                    'error' => 'OpenAI no devolvió file_id.',
+                ], 500);
+            }
+
+            $openAiFileIds[] = $fileId;
+        }
+
+        // =========================================================
+        // 5) Pedir extracción al modelo vía Responses API con input_file
+        //    Docs: /v1/responses usando input_file con file_id :contentReference[oaicite:3]{index=3}
+        // =========================================================
+        $prompt = <<<PROMPT
+Eres un extractor de productos para un catálogo.
+
+Tarea:
+- Lee el/los archivos adjuntos (PDF o imágenes).
+- Detecta productos (pueden venir varios).
+- Devuelve SOLO JSON válido (sin markdown).
+
+Formato EXACTO:
+{
+  "suggestions": {
+    "name": string|null,
+    "slug": string|null,
+    "description": string|null,
+    "excerpt": string|null,
+    "price": number|null,
+    "stock": number|null,
+    "brand_name": string|null,
+    "model_name": string|null,
+    "meli_gtin": string|null
+  },
+  "items": [
     {
-        // ✅ PEGA AQUÍ tu método real si ya lo tenías.
-        return response()->json(['error' => 'Pega aquí tu método aiFromUpload completo (sin cambios).'], 500);
+      "name": string,
+      "price": number|null,
+      "stock": number|null,
+      "brand_name": string|null,
+      "model_name": string|null,
+      "meli_gtin": string|null
     }
+  ]
+}
+
+Reglas:
+- "items" debe tener TODOS los productos detectables (máx 50).
+- "suggestions" debe ser el primer producto más claro para autollenar el formulario.
+- price: usa número (ej 90.00) sin símbolo.
+- stock: si viene cantidad/piezas/cajas, pon el total numérico si se entiende; si no, null.
+PROMPT;
+
+        $contentParts = [];
+        foreach ($openAiFileIds as $fid) {
+            $contentParts[] = [
+                'type' => 'input_file',
+                'file_id' => $fid,
+            ];
+        }
+        $contentParts[] = [
+            'type' => 'input_text',
+            'text' => $prompt,
+        ];
+
+        $resp2 = \Illuminate\Support\Facades\Http::withToken($apiKey)
+            ->timeout(180)
+            ->post('https://api.openai.com/v1/responses', [
+                // Usa un modelo con soporte de PDF/imagen (según tu costo)
+                // Si tienes gpt-4o-mini disponible, suele ser buena opción.
+                'model' => 'gpt-5-2025-08-07',
+                'input' => [
+                    [
+                        'role' => 'user',
+                        'content' => $contentParts,
+                    ],
+                ],
+            ]);
+
+        if (!$resp2->ok()) {
+            \Illuminate\Support\Facades\Log::error('aiFromUpload: OpenAI responses failed', [
+                'status' => $resp2->status(),
+                'body'   => $resp2->body(),
+            ]);
+
+            return response()->json([
+                'error' => 'La IA no pudo procesar el archivo (Responses API). Revisa logs.',
+            ], 500);
+        }
+
+        // La salida puede venir en output_text o dentro de output[]; intentamos ambas.
+        $outText = $resp2->json('output_text');
+        if (!is_string($outText) || trim($outText) === '') {
+            // fallback: buscar texto en la estructura
+            $out = $resp2->json('output', []);
+            $outText = '';
+            if (is_array($out)) {
+                foreach ($out as $node) {
+                    $c = $node['content'] ?? null;
+                    if (is_array($c)) {
+                        foreach ($c as $part) {
+                            if (($part['type'] ?? '') === 'output_text' && isset($part['text'])) {
+                                $outText .= (string)$part['text'];
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        $outText = trim((string)$outText);
+
+        // Intentar decodificar JSON (si viene con ruido, recortamos al primer { ... } )
+        $json = null;
+
+        if ($outText !== '') {
+            $json = json_decode($outText, true);
+            if (!is_array($json)) {
+                if (preg_match('/\{.*\}\s*$/s', $outText, $m) || preg_match('/\{.*\}/s', $outText, $m)) {
+                    $json = json_decode($m[0], true);
+                }
+            }
+        }
+
+        if (!is_array($json)) {
+            \Illuminate\Support\Facades\Log::warning('aiFromUpload: IA no devolvió JSON parseable', [
+                'out' => mb_substr($outText, 0, 3000),
+            ]);
+
+            return response()->json([
+                'error' => 'La IA respondió, pero no devolvió JSON válido. Revisa logs.',
+            ], 422);
+        }
+
+        $suggestions = $json['suggestions'] ?? [];
+        $items       = $json['items'] ?? [];
+
+        // Normalizar mínimos
+        if (!is_array($suggestions)) $suggestions = [];
+        if (!is_array($items)) $items = [];
+
+        return response()->json([
+            'suggestions' => $suggestions,
+            'items'       => $items,
+        ], 200);
+
+    } catch (\Throwable $e) {
+        \Illuminate\Support\Facades\Log::error('CatalogItem@aiFromUpload: exception', [
+            'err'   => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+        ]);
+
+        return response()->json([
+            'error' => 'Error interno en aiFromUpload. Revisa logs.',
+        ], 500);
+    }
+}
 
     /** Dispara el sync con ML sin romper la UI si algo truena */
     private function dispatchMeliSync(CatalogItem $item): void
@@ -1200,4 +1503,5 @@ class CatalogItemController extends Controller implements HasMiddleware
 
         return back()->with('ok', !empty($res['ok']) ? 'Solicitud enviada a Amazon para activar/actualizar.' : ($res['message'] ?? 'No se pudo activar en Amazon.'));
     }
+    
 }
