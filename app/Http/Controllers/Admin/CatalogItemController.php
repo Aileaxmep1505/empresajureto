@@ -35,12 +35,41 @@ class CatalogItemController extends Controller implements HasMiddleware
     }
 
     /* =========================================================
-     |  Helpers: Normaliza campos y fuerza guardado
+     |  Helpers: Categorías internas + ML category_id
      ========================================================= */
+
+    /**
+     * ✅ Mapa interno (category_key) -> Mercado Libre category_id (MLMxxxx)
+     * Lo toma desde config:
+     *   config('catalog.meli_category_map', [])
+     *
+     * Ejemplo en config:
+     *  'meli_category_map' => [
+     *     'papeleria' => 'MLM1672',
+     *     'oficina'   => 'MLM1574',
+     *  ]
+     */
+    private function resolveMeliCategoryIdFromCategoryKey(?string $categoryKey): ?string
+    {
+        $categoryKey = is_string($categoryKey) ? trim($categoryKey) : '';
+        if ($categoryKey === '') return null;
+
+        $map = config('catalog.meli_category_map', []);
+        if (!is_array($map) || empty($map)) return null;
+
+        $val = $map[$categoryKey] ?? null;
+        $val = is_string($val) ? trim($val) : null;
+
+        // Validación básica: categorías ML suelen iniciar con MLM
+        if ($val && str_starts_with($val, 'MLM')) return $val;
+
+        return null;
+    }
 
     /**
      * ✅ Acepta category o category_key desde la vista,
      * pero SOLO guardamos category_key.
+     * Además: si hay mapping, setea meli_category_id automáticamente.
      */
     private function normalizeCategoryFields(array $data): array
     {
@@ -55,8 +84,17 @@ class CatalogItemController extends Controller implements HasMiddleware
             $incoming = null;
         }
 
-        $data['category_key'] = $incoming;
+        $data['category_key'] = $incoming ?: null;
         unset($data['category']);
+
+        // ✅ Si NO mandaron meli_category_id manual, intentamos resolver por mapping
+        $hasManualMeliCategory = array_key_exists('meli_category_id', $data) && is_string($data['meli_category_id']) && trim($data['meli_category_id']) !== '';
+        if (!$hasManualMeliCategory) {
+            $mlCat = $this->resolveMeliCategoryIdFromCategoryKey($data['category_key'] ?? null);
+            if ($mlCat) {
+                $data['meli_category_id'] = $mlCat;
+            }
+        }
 
         return $data;
     }
@@ -69,13 +107,23 @@ class CatalogItemController extends Controller implements HasMiddleware
         $force = [];
 
         foreach ([
-            'brand_name','model_name','meli_gtin',
-            'excerpt','description',
-            'amazon_sku','amazon_asin','amazon_product_type',
-            'category_key',
+            // Web
             'sku','name','slug','price','sale_price','stock','status','published_at','is_featured',
+            'category_key','excerpt','description',
+
+            // ML
+            'brand_name','model_name','meli_gtin','meli_category_id','meli_listing_type_id',
+
+            // Amazon
+            'amazon_sku','amazon_asin','amazon_product_type',
         ] as $k) {
             if (array_key_exists($k, $data)) $force[$k] = $data[$k];
+        }
+
+        // ✅ Si hay category_key y NO hay meli_category_id, intentamos resolverla
+        if (empty($force['meli_category_id']) && !empty($force['category_key'])) {
+            $mlCat = $this->resolveMeliCategoryIdFromCategoryKey($force['category_key']);
+            if ($mlCat) $force['meli_category_id'] = $mlCat;
         }
 
         try {
@@ -113,7 +161,6 @@ class CatalogItemController extends Controller implements HasMiddleware
                 $dirty = true;
             }
 
-            // Intentar guardar permalink si existe la columna (no truena si no existe)
             if ($permalink && isset($item->meli_permalink) && $item->meli_permalink !== $permalink) {
                 $item->meli_permalink = $permalink;
                 $dirty = true;
@@ -205,6 +252,7 @@ class CatalogItemController extends Controller implements HasMiddleware
             'Slug',
             'Publicado en',
             'ML ID',
+            'ML Category',
         ];
 
         foreach ($items as $it) {
@@ -228,6 +276,7 @@ class CatalogItemController extends Controller implements HasMiddleware
                 $it->slug,
                 $it->published_at ? $it->published_at->format('Y-m-d H:i') : '',
                 $it->meli_item_id ?? '',
+                $it->meli_category_id ?? '',
             ];
         }
 
@@ -350,7 +399,7 @@ class CatalogItemController extends Controller implements HasMiddleware
         $html .= '<p class="top-sub">Listado de productos con filtros actuales</p>';
 
         $html .= '<table><thead><tr>';
-        $html .= '<th>ID</th><th>SKU</th><th>Nombre</th><th>Precio</th><th>Oferta</th><th>Stock</th><th>Estado</th><th>Destacado</th><th>Slug</th><th>Publicado</th><th>ML ID</th>';
+        $html .= '<th>ID</th><th>SKU</th><th>Nombre</th><th>Precio</th><th>Oferta</th><th>Stock</th><th>Estado</th><th>Destacado</th><th>Slug</th><th>Publicado</th><th>ML ID</th><th>ML Category</th>';
         $html .= '</tr></thead><tbody>';
 
         foreach ($items as $it) {
@@ -373,11 +422,12 @@ class CatalogItemController extends Controller implements HasMiddleware
             $html .= '<td>'.htmlspecialchars((string) $it->slug).'</td>';
             $html .= '<td>'.($it->published_at ? htmlspecialchars($it->published_at->format('Y-m-d H:i')) : '—').'</td>';
             $html .= '<td>'.htmlspecialchars((string) ($it->meli_item_id ?? '')).'</td>';
+            $html .= '<td>'.htmlspecialchars((string) ($it->meli_category_id ?? '')).'</td>';
             $html .= '</tr>';
         }
 
         if ($items->isEmpty()) {
-            $html .= '<tr><td colspan="11" class="muted" style="text-align:center;padding:14px 6px;">';
+            $html .= '<tr><td colspan="12" class="muted" style="text-align:center;padding:14px 6px;">';
             $html .= 'No hay productos que coincidan con el filtro.';
             $html .= '</td></tr>';
         }
@@ -424,14 +474,18 @@ class CatalogItemController extends Controller implements HasMiddleware
             'brand_id'    => ['nullable', 'integer'],
             'category_id' => ['nullable', 'integer'],
 
-            'brand_name'  => ['nullable', 'string', 'max:120'],
-            'model_name'  => ['nullable', 'string', 'max:120'],
-            'meli_gtin'   => ['nullable', 'string', 'max:50'],
+            // ML fields
+            'brand_name'          => ['nullable', 'string', 'max:120'],
+            'model_name'          => ['nullable', 'string', 'max:120'],
+            'meli_gtin'           => ['nullable', 'string', 'max:50'],
+            'meli_category_id'    => ['nullable', 'string', 'max:32'],
+            'meli_listing_type_id'=> ['nullable', 'string', 'max:32'],
 
             'excerpt'     => ['nullable', 'string'],
             'description' => ['nullable', 'string'],
             'published_at'=> ['nullable', 'date'],
 
+            // Amazon fields
             'amazon_sku'          => ['nullable', 'string', 'max:120'],
             'amazon_asin'         => ['nullable', 'string', 'max:40'],
             'amazon_product_type' => ['nullable', 'string', 'max:80'],
@@ -465,12 +519,13 @@ class CatalogItemController extends Controller implements HasMiddleware
             $this->forcePersistImportantFields($item, $data);
 
             Log::info('CatalogItem@store: item creado', [
-                'item_id'     => $item->id,
-                'slug'        => $item->slug,
-                'brand_name'  => $item->brand_name ?? null,
-                'model_name'  => $item->model_name ?? null,
-                'meli_gtin'   => $item->meli_gtin ?? null,
-                'category_key'=> $item->category_key ?? null,
+                'item_id'        => $item->id,
+                'slug'           => $item->slug,
+                'category_key'   => $item->category_key ?? null,
+                'meli_category'  => $item->meli_category_id ?? null,
+                'brand_name'     => $item->brand_name ?? null,
+                'model_name'     => $item->model_name ?? null,
+                'meli_gtin'      => $item->meli_gtin ?? null,
             ]);
         } catch (\Throwable $e) {
             Log::error('CatalogItem@store: ERROR al crear item', [
@@ -537,13 +592,18 @@ class CatalogItemController extends Controller implements HasMiddleware
             'brand_id'    => ['nullable', 'integer'],
             'category_id' => ['nullable', 'integer'],
 
-            'brand_name'  => ['nullable', 'string', 'max:120'],
-            'model_name'  => ['nullable', 'string', 'max:120'],
-            'meli_gtin'   => ['nullable', 'string', 'max:50'],
+            // ML fields
+            'brand_name'          => ['nullable', 'string', 'max:120'],
+            'model_name'          => ['nullable', 'string', 'max:120'],
+            'meli_gtin'           => ['nullable', 'string', 'max:50'],
+            'meli_category_id'    => ['nullable', 'string', 'max:32'],
+            'meli_listing_type_id'=> ['nullable', 'string', 'max:32'],
+
             'excerpt'     => ['nullable', 'string'],
             'description' => ['nullable', 'string'],
             'published_at'=> ['nullable', 'date'],
 
+            // Amazon fields
             'amazon_sku'          => ['nullable', 'string', 'max:120'],
             'amazon_asin'         => ['nullable', 'string', 'max:40'],
             'amazon_product_type' => ['nullable', 'string', 'max:80'],
@@ -581,11 +641,12 @@ class CatalogItemController extends Controller implements HasMiddleware
             $this->forcePersistImportantFields($catalogItem, $data);
 
             Log::info('CatalogItem@update: item actualizado', [
-                'item_id'      => $catalogItem->id,
-                'brand_name'   => $catalogItem->brand_name ?? null,
-                'model_name'   => $catalogItem->model_name ?? null,
-                'meli_gtin'    => $catalogItem->meli_gtin ?? null,
-                'category_key' => $catalogItem->category_key ?? null,
+                'item_id'        => $catalogItem->id,
+                'category_key'   => $catalogItem->category_key ?? null,
+                'meli_category'  => $catalogItem->meli_category_id ?? null,
+                'brand_name'     => $catalogItem->brand_name ?? null,
+                'model_name'     => $catalogItem->model_name ?? null,
+                'meli_gtin'      => $catalogItem->meli_gtin ?? null,
             ]);
         } catch (\Throwable $e) {
             Log::error('CatalogItem@update: ERROR al actualizar item', [
@@ -647,25 +708,31 @@ class CatalogItemController extends Controller implements HasMiddleware
      |  ACCIONES MERCADO LIBRE
      ==========================*/
 
-    /**
-     * ✅ Soporta fallback a catálogo con ?catalog=1
-     * ✅ Si ML fuerza catálogo y NO permites fallback, el service intentará ajustar categoría automáticamente.
-     */
     public function meliPublish(Request $request, CatalogItem $catalogItem, MeliSyncService $svc)
     {
         $catalogItem = $catalogItem->fresh();
+
+        // ✅ Si todavía no tiene meli_category_id pero tiene category_key, resuélvela aquí también
+        if (empty($catalogItem->meli_category_id) && !empty($catalogItem->category_key)) {
+            $mlCat = $this->resolveMeliCategoryIdFromCategoryKey($catalogItem->category_key);
+            if ($mlCat) {
+                $catalogItem->forceFill(['meli_category_id' => $mlCat])->save();
+                $catalogItem = $catalogItem->fresh();
+            }
+        }
 
         $allowCatalog = $request->boolean('catalog');
 
         Log::info('CatalogItem@meliPublish: inicio', [
             'item_id'        => $catalogItem->id,
             'allow_catalog'  => $allowCatalog,
+            'meli_category'  => $catalogItem->meli_category_id ?? null,
+            'category_key'   => $catalogItem->category_key ?? null,
             'brand_name'     => $catalogItem->brand_name ?? null,
             'model_name'     => $catalogItem->model_name ?? null,
             'gtin'           => $catalogItem->meli_gtin ?? null,
             'sku'            => $catalogItem->sku ?? null,
             'name'           => $catalogItem->name ?? null,
-            'category_key'   => $catalogItem->category_key ?? null,
         ]);
 
         try {
