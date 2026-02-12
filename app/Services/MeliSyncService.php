@@ -32,6 +32,88 @@ class MeliSyncService
     }
 
     /* ==========================================================
+     *  ✅ API PUBLICA PARA TU CONTROLLER
+     * ========================================================== */
+
+    /**
+     * Publicar/actualizar item en ML.
+     * Opciones soportadas:
+     * - allow_catalog (bool)  => publicar como catálogo (usa catalog_product_id)
+     * - activate (bool)       => activar al final
+     * - update_description(bool)
+     * - force (bool)          => si es catalog domain, forzar allow_catalog=true
+     */
+    public function publishCatalogItem(CatalogItem $item, array $options = []): array
+    {
+        // Controller manda allow_catalog => true cuando ?catalog=1 (o force)
+        $allowCatalog = (bool)($options['allow_catalog'] ?? false);
+        $force        = (bool)($options['force'] ?? false);
+
+        // En tu sync lo llamabas allow_catalog_fallback; lo normalizamos:
+        $options['allow_catalog_fallback'] = $allowCatalog;
+
+        // Si viene force y detectamos que la categoría es catalog domain, forzamos catálogo
+        if ($force) {
+            try {
+                $http = MeliHttp::withFreshToken();
+                $cid  = trim((string)($item->meli_category_id ?? ''));
+                if ($cid !== '' && $this->categoryIsCatalog($http, $cid)) {
+                    $options['allow_catalog_fallback'] = true;
+                }
+            } catch (\Throwable $e) {}
+        }
+
+        return $this->sync($item, $options);
+    }
+
+    public function pauseCatalogItem(CatalogItem $item): array
+    {
+        return $this->pause($item);
+    }
+
+    public function activateCatalogItem(CatalogItem $item): array
+    {
+        return $this->activate($item);
+    }
+
+    /** Para el Controller: detectar si category es de catálogo */
+    public function isCatalogDomainCategory(?string $categoryId): bool
+    {
+        $categoryId = trim((string)$categoryId);
+        if ($categoryId === '') return false;
+
+        try {
+            $http = MeliHttp::withFreshToken();
+            return $this->categoryIsCatalog($http, $categoryId);
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    /** Para el Controller: obtener permalink del item publicado */
+    public function getPermalink(string $meliItemId): ?string
+    {
+        $meliItemId = trim($meliItemId);
+        if ($meliItemId === '') return null;
+
+        try {
+            $http = MeliHttp::withFreshToken();
+            $resp = $http->get($this->api("items/{$meliItemId}"));
+            if (!$resp->ok()) return null;
+
+            $j = (array)$resp->json();
+            $permalink = $j['permalink'] ?? null;
+            return $permalink ? (string)$permalink : null;
+        } catch (\Throwable $e) {
+            Log::warning('ML getPermalink exception', [
+                'meli_item_id' => $meliItemId,
+                'error' => $e->getMessage(),
+            ]);
+            return null;
+        }
+    }
+
+    /* ==========================================================
      *  CATEGORY RESOLVER (✅ FIX “title invalid / catalog domain”)
      * ========================================================== */
 
@@ -45,7 +127,6 @@ class MeliSyncService
 
             // ML suele marcar catálogo así:
             // settings.catalog_domain = true
-            // settings.catalog_listing_allowed = true/false
             $isCatalogDomain = (bool) data_get($j, 'settings.catalog_domain', false);
 
             return $isCatalogDomain;
@@ -60,9 +141,9 @@ class MeliSyncService
 
     /**
      * ✅ Si el usuario puso meli_category_id pero es de catálogo,
-     * intenta encontrar una categoría NO catálogo con domain_discovery.
+     * y NO permites catálogo, intenta encontrar una categoría NO catálogo con domain_discovery.
      */
-    private function resolveCategoryId($http, CatalogItem $item, bool $allowCatalogFallback): string
+    private function resolveCategoryId($http, CatalogItem $item, bool $allowCatalog): string
     {
         // 1) Preferir el campo manual si viene
         $categoryId = trim((string)($item->meli_category_id ?? ''));
@@ -77,7 +158,7 @@ class MeliSyncService
         // 3) Si es catálogo y NO permites catálogo -> buscar alternativa NO catálogo
         $isCatalog = $this->categoryIsCatalog($http, $categoryId);
 
-        if ($isCatalog && !$allowCatalogFallback) {
+        if ($isCatalog && !$allowCatalog) {
             Log::warning('ML category is catalog-domain; trying to auto-switch', [
                 'catalog_item_id' => $item->id,
                 'current_category'=> $categoryId,
@@ -138,8 +219,10 @@ class MeliSyncService
     {
         $http = MeliHttp::withFreshToken();
 
-        // Opción: permitir fallback a catálogo (por defecto NO)
-        $allowCatalogFallback = (bool)($options['allow_catalog_fallback'] ?? false);
+        // ✅ Esta bandera es LA QUE MANDA:
+        // true => permite flujo catálogo
+        // false => intenta NO-catálogo, y si ML exige catálogo, muestra error amigable
+        $allowCatalog = (bool)($options['allow_catalog_fallback'] ?? false);
 
         // 0) Estado de cuenta para shipping
         $meResp = $http->get($this->api('users/me'));
@@ -181,8 +264,8 @@ class MeliSyncService
         }
         $listingType = $item->meli_listing_type_id ?: ($listings[0]['id'] ?? 'gold_special');
 
-        // 2) category_id (✅ ahora resuelve y evita catalog-domain si no permites catálogo)
-        $categoryId = $this->resolveCategoryId($http, $item, $allowCatalogFallback);
+        // 2) category_id (✅ evita catalog-domain si NO permites catálogo)
+        $categoryId = $this->resolveCategoryId($http, $item, $allowCatalog);
 
         // 3) pictures (mínimo 1)
         $pics = $this->buildPictures($item);
@@ -231,8 +314,41 @@ class MeliSyncService
             'model'           => $item->model_name ?? null,
             'gtin'            => $item->meli_gtin ?? null,
             'qty'             => $qty,
-            'allow_catalog'   => $allowCatalogFallback,
+            'allow_catalog'   => $allowCatalog, // ✅ ahora sí es real
         ]);
+
+        // ✅ Atajo: si la categoría es catalog-domain y allowCatalog=true, intenta catálogo DIRECTO
+        $isCatalogDomain = $this->categoryIsCatalog($http, $categoryId);
+        if ($isCatalogDomain && $allowCatalog) {
+            $catalogAttempt = $this->tryCatalogListingCreate(
+                $http, $item, $categoryId, $listingType, $shippingMode, $price, $qty, $pics
+            );
+
+            if ($catalogAttempt['ok']) {
+                $j = $catalogAttempt['json'] ?? [];
+
+                $item->update([
+                    'meli_item_id'         => $j['id'] ?? $item->meli_item_id,
+                    'meli_status'          => $j['status'] ?? 'active',
+                    'meli_category_id'     => $categoryId,
+                    'meli_listing_type_id' => $listingType,
+                    'meli_synced_at'       => now(),
+                    'meli_last_error'      => null,
+                ]);
+
+                return ['ok' => true, 'json' => $j, 'message' => 'Publicado como catálogo.'];
+            }
+
+            $friendly = $this->humanMeliError((array)($catalogAttempt['json'] ?? []));
+            $item->update([
+                'meli_status'          => 'error',
+                'meli_last_error'      => $friendly,
+                'meli_category_id'     => $categoryId,
+                'meli_listing_type_id' => $listingType,
+            ]);
+
+            return ['ok' => false, 'json' => $catalogAttempt['json'], 'message' => $friendly];
+        }
 
         // 7) Validación previa con ML
         $validate = $this->validateListing($http, $payload);
@@ -245,14 +361,11 @@ class MeliSyncService
 
             // Si ML exige catálogo (title invalid)
             if ($this->isTitleInvalidForCall((array)$validate['json'])) {
-                if (!$allowCatalogFallback) {
-                    // ✅ ahora además informamos si la categoría es catalog-domain
-                    $isCatalog = $this->categoryIsCatalog($http, $categoryId);
-
+                if (!$allowCatalog) {
                     $friendly = $this->humanMeliError((array)$validate['json']);
-                    $extra = "⚠️ ML está pidiendo flujo de catálogo.\n";
 
-                    if ($isCatalog) {
+                    $extra = "⚠️ ML está pidiendo flujo de catálogo.\n";
+                    if ($this->categoryIsCatalog($http, $categoryId)) {
                         $extra .= "Tu meli_category_id ({$categoryId}) parece ser de CATÁLOGO.\n";
                         $extra .= "Solución: usa otra categoría NO catálogo o publica como catálogo con ?catalog=1.\n";
                     } else {
@@ -288,7 +401,7 @@ class MeliSyncService
                         'meli_last_error'      => null,
                     ]);
 
-                    return ['ok' => true, 'json' => $j];
+                    return ['ok' => true, 'json' => $j, 'message' => 'Publicado como catálogo.'];
                 }
 
                 $friendly = $this->humanMeliError((array)($catalogAttempt['json'] ?? []));
@@ -374,7 +487,7 @@ class MeliSyncService
             'meli_last_error'       => null,
         ]);
 
-        return ['ok' => true, 'json' => $j];
+        return ['ok' => true, 'json' => $j, 'message' => 'Publicado/actualizado correctamente.'];
     }
 
     /* ==========================================================
@@ -398,7 +511,7 @@ class MeliSyncService
         }
 
         $item->update(['meli_status' => 'paused', 'meli_synced_at' => now(), 'meli_last_error' => null]);
-        return ['ok' => true, 'json' => $j];
+        return ['ok' => true, 'json' => $j, 'message' => 'Pausado en ML.'];
     }
 
     public function activate(CatalogItem $item): array
@@ -419,7 +532,7 @@ class MeliSyncService
         }
 
         $item->update(['meli_status' => 'active', 'meli_synced_at' => now(), 'meli_last_error' => null]);
-        return ['ok' => true, 'json' => $j];
+        return ['ok' => true, 'json' => $j, 'message' => 'Activado en ML.'];
     }
 
     /* ==========================================================
@@ -492,7 +605,7 @@ class MeliSyncService
                 : ['mode' => 'custom'],
         ];
 
-        Log::info('ML catalog payload (fallback)', [
+        Log::info('ML catalog payload (catalog_listing)', [
             'catalog_item_id'     => $item->id,
             'category_id'         => $categoryId,
             'catalog_product_id'  => $catalogProductId,

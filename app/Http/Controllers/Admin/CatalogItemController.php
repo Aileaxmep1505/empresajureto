@@ -968,9 +968,13 @@ public function aiFromUpload(Request $request)
 
         foreach ($files as $f) {
             if (!$f->isValid()) return response()->json(['error' => 'Archivo inválido o corrupto.'], 422);
+
             $mime = (string)($f->getMimeType() ?: '');
             if (!in_array($mime, $allowedMimes, true)) {
-                return response()->json(['error' => 'Tipo no permitido. Sube JPG/PNG/WEBP o PDF.','mime'=>$mime], 422);
+                return response()->json([
+                    'error' => 'Tipo no permitido. Sube JPG/PNG/WEBP o PDF.',
+                    'mime'  => $mime
+                ], 422);
             }
         }
 
@@ -1021,20 +1025,19 @@ public function aiFromUpload(Request $request)
         $instruction = <<<PROMPT
 Eres un extractor de partidas de productos para un catálogo (México). Lee el/los archivos adjuntos (PDF o imágenes) y extrae TODAS las partidas.
 
-No inventes: si un campo no aparece, pon null.
+NO inventes: si un campo no aparece explícitamente, usa null.
 NO son productos: SUBTOTAL, TOTAL, IVA, IMPUESTO, DESCUENTO, ENVÍO, CAMBIO, PAGO, ANTICIPO, ABONO, SALDO, etc.
 
 Reglas:
 - Si hay columnas CANT | DESCRIPCIÓN | P. UNIT | IMPORTE -> usa P. UNIT como price.
-- Si falta P. UNIT pero hay IMPORTE y CANT -> price = IMPORTE / CANT (si es claro).
-- Si hay “10 cajas de 100 pzs” -> stock=1000 y notes lo explica.
+- Si falta P. UNIT pero hay IMPORTE y CANT -> price = IMPORTE / CANT (solo si es claro).
+- Si hay “10 cajas de 100 pzs” -> stock=1000 y extra.notes lo explica.
 - Máximo 80 productos.
-
-Devuelve SOLO JSON.
+Devuelve SOLO JSON (sin texto extra).
 PROMPT;
 
         // =========================================================
-        // 6) Schema (NOTA: aquí VA DIRECTO como "schema", y name aparte)
+        // 6) JSON Schema
         // =========================================================
         $schemaName = 'catalog_ai_extract_v1';
 
@@ -1106,7 +1109,7 @@ PROMPT;
         ];
 
         // =========================================================
-        // 7) Armar content: input_file + instrucciones
+        // 7) content parts
         // =========================================================
         $contentParts = [];
         foreach ($openAiFileIds as $fid) {
@@ -1115,37 +1118,43 @@ PROMPT;
         $contentParts[] = ['type' => 'input_text', 'text' => $instruction];
 
         // =========================================================
-        // 8) Responses API: text.format con name+schema (NUEVO)
+        // 8) Responses API (sin temperature)
         // =========================================================
+        $payload = [
+            'model' => $model,
+            'input' => [[
+                'role' => 'user',
+                'content' => $contentParts,
+            ]],
+            'text' => [
+                'format' => [
+                    'type' => 'json_schema',
+                    'name' => $schemaName,
+                    'schema' => $schema,
+                ],
+            ],
+            'max_output_tokens' => 3500,
+        ];
+
         $resp2 = \Illuminate\Support\Facades\Http::withToken($apiKey)
             ->timeout(240)
-            ->post('https://api.openai.com/v1/responses', [
-                'model' => $model,
-                'temperature' => 0,
-                'input' => [[
-                    'role' => 'user',
-                    'content' => $contentParts,
-                ]],
-                'text' => [
-                    'format' => [
-                        'type' => 'json_schema',
-                        'name' => $schemaName,
-                        'schema' => $schema,
-                    ],
-                ],
-                'max_output_tokens' => 3500,
-            ]);
+            ->post('https://api.openai.com/v1/responses', $payload);
 
         if (!$resp2->ok()) {
             \Illuminate\Support\Facades\Log::error('aiFromUpload: OpenAI responses failed', [
                 'status' => $resp2->status(),
                 'body'   => $resp2->body(),
                 'model'  => $model,
+                'payload_keys' => array_keys($payload),
             ]);
             return response()->json(['error' => 'La IA no pudo procesar el archivo (Responses API). Revisa logs.'], 500);
         }
 
+        // =========================================================
+        // 9) Extraer output_text
+        // =========================================================
         $out = $resp2->json('output_text');
+
         if (!is_string($out) || trim($out) === '') {
             $out = '';
             $nodes = $resp2->json('output', []);
@@ -1174,15 +1183,16 @@ PROMPT;
         }
 
         // =========================================================
-        // 9) Normalización mínima
+        // 10) Normalización mínima
         // =========================================================
         $normalizeMoney = function($v) {
             if ($v === null || $v === '') return null;
             if (is_numeric($v)) return (float)$v;
             $s = (string)$v;
             $s = str_replace(['$', ' '], '', $s);
+            // si trae miles estilo 1,234.56
             if (preg_match('/\d{1,3}(,\d{3})+(\.\d{2})/', $s)) $s = str_replace(',', '', $s);
-            else $s = str_replace(',', '.', $s);
+            else $s = str_replace(',', '.', $s); // fallback
             return is_numeric($s) ? (float)$s : null;
         };
 
@@ -1226,6 +1236,7 @@ PROMPT;
         return response()->json(['error' => 'Error interno en aiFromUpload. Revisa logs.'], 500);
     }
 }
+
 
     /** Dispara el sync con ML sin romper la UI si algo truena */
     private function dispatchMeliSync(CatalogItem $item): void
