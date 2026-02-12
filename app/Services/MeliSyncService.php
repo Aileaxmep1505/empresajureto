@@ -6,6 +6,7 @@ use App\Models\CatalogItem;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class MeliSyncService
 {
@@ -13,6 +14,22 @@ class MeliSyncService
     private function api(string $path): string
     {
         return 'https://api.mercadolibre.com/' . ltrim($path, '/');
+    }
+
+    /** Convierte una URL relativa (/storage/...) a absoluta con APP_URL */
+    private function absUrl(string $url): string
+    {
+        $url = trim($url);
+        if ($url === '') return $url;
+
+        if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
+            return $url;
+        }
+
+        $base = rtrim(config('app.url') ?: '', '/');
+        if ($base === '') return $url;
+
+        return $base . '/' . ltrim($url, '/');
     }
 
     /* ==========================================================
@@ -43,6 +60,9 @@ class MeliSyncService
     public function sync(CatalogItem $item, array $options = []): array
     {
         $http = MeliHttp::withFreshToken();
+
+        // Opción: permitir fallback a catálogo (por defecto NO, porque cambia marca/modelo)
+        $allowCatalogFallback = (bool)($options['allow_catalog_fallback'] ?? false);
 
         // 0) Estado de cuenta para shipping
         $meResp = $http->get($this->api('users/me'));
@@ -103,8 +123,9 @@ class MeliSyncService
         $price = (float) ($item->sale_price ?? $item->price ?? 0);
         if ($price < 5) $price = 5.00;
 
-        // Si quieres: max(1, (int)($item->stock ?? 1))
-        $qty = max(1, (int) 1);
+        // ✅ stock real (ML exige >= 1 para publicar)
+        $qty = (int)($item->stock ?? 0);
+        $qty = max(1, $qty);
 
         // 6) payload “normal” (marketplace tradicional)
         $payload = [
@@ -125,15 +146,24 @@ class MeliSyncService
                 : ['mode' => 'custom'],
         ];
 
+        // Si pidieron activar en create/update
+        if (!empty($options['activate'])) {
+            $payload['status'] = 'active';
+        }
+
         Log::info('ML publish payload', [
             'catalog_item_id' => $item->id,
             'meli_item_id'    => $item->meli_item_id,
             'title'           => $payload['title'] ?? null,
             'family_name'     => $payload['family_name'] ?? null,
             'category_id'     => $categoryId,
+            'brand'           => $item->brand_name ?? null,
+            'model'           => $item->model_name ?? null,
+            'gtin'            => $item->meli_gtin ?? null,
+            'qty'             => $qty,
         ]);
 
-        // 7) Validación previa con ML (Listing Validator)
+        // 7) Validación previa con ML
         $validate = $this->validateListing($http, $payload);
         if (!$validate['ok']) {
             Log::warning('ML validate details', [
@@ -142,8 +172,28 @@ class MeliSyncService
                 'json'            => $validate['json'],
             ]);
 
-            // Caso específico: title inválido => intentar flujo catálogo
-            if ($this->isTitleInvalidForCall($validate['json'])) {
+            // Caso específico: title inválido => ML muchas veces fuerza catálogo
+            if ($this->isTitleInvalidForCall((array)$validate['json'])) {
+                // ✅ NO forzar catálogo automáticamente porque te cambia BRAND/MODEL
+                if (!$allowCatalogFallback) {
+                    $friendly = $this->humanMeliError((array)$validate['json']);
+                    $extra = "⚠️ ML está pidiendo flujo de catálogo. Si publicas como catálogo, ML puede cambiar Marca/Modelo por los del catálogo.\n".
+                             "Solución recomendada: ajustar categoría (domain_discovery) o completar atributos obligatorios para publicar como listing normal.\n".
+                             "Si AÚN así quieres catálogo, llama sync() con allow_catalog_fallback=true.";
+
+                    $finalMsg = trim($friendly . "\n\n" . $extra);
+
+                    $item->update([
+                        'meli_status'          => 'error',
+                        'meli_last_error'      => $finalMsg,
+                        'meli_category_id'     => $categoryId,
+                        'meli_listing_type_id' => $listingType,
+                    ]);
+
+                    return ['ok' => false, 'json' => $validate['json'], 'message' => $finalMsg];
+                }
+
+                // ✅ Si lo permites, intenta catálogo
                 $catalogAttempt = $this->tryCatalogListingCreate(
                     $http,
                     $item,
@@ -170,41 +220,34 @@ class MeliSyncService
                     return ['ok' => true, 'json' => $j];
                 }
 
-                // Si catálogo no pudo, guarda error + sugerencias OpenAI
                 $friendly = $this->humanMeliError((array)($catalogAttempt['json'] ?? []));
-                $aiHelp   = $this->openAiFixSuggestions($payload, (array)$validate['json'], $categoryId);
-
-                $finalMsg = trim($friendly . "\n\n" . ($aiHelp ? ("Sugerencias automáticas:\n" . $aiHelp) : ''));
-
                 $item->update([
                     'meli_status'          => 'error',
-                    'meli_last_error'      => $finalMsg,
+                    'meli_last_error'      => $friendly,
                     'meli_category_id'     => $categoryId,
                     'meli_listing_type_id' => $listingType,
                 ]);
 
-                return ['ok' => false, 'json' => $validate['json'], 'message' => $finalMsg];
+                return ['ok' => false, 'json' => $catalogAttempt['json'], 'message' => $friendly];
             }
 
-            // No es el caso title inválido: devolver mensaje + sugerencias
+            // No es el caso title inválido
             $friendly = $this->humanMeliError((array)$validate['json']);
-            $aiHelp   = $this->openAiFixSuggestions($payload, (array)$validate['json'], $categoryId);
-
-            $finalMsg = trim($friendly . "\n\n" . ($aiHelp ? ("Sugerencias automáticas:\n" . $aiHelp) : ''));
-
             $item->update([
                 'meli_status'          => 'error',
-                'meli_last_error'      => $finalMsg,
+                'meli_last_error'      => $friendly,
                 'meli_category_id'     => $categoryId,
                 'meli_listing_type_id' => $listingType,
             ]);
 
-            return ['ok' => false, 'json' => $validate['json'], 'message' => $finalMsg];
+            return ['ok' => false, 'json' => $validate['json'], 'message' => $friendly];
         }
 
         // 8) Crear/Actualizar real
         if (!empty($item->meli_item_id)) {
             $update = $payload;
+
+            // Update: ML no deja cambiar algunos campos en PUT
             unset(
                 $update['listing_type_id'],
                 $update['category_id'],
@@ -214,6 +257,7 @@ class MeliSyncService
                 $update['description'] // descripción se hace en endpoint dedicado
             );
 
+            // Activar si lo pidieron
             if (!empty($options['activate'])) {
                 $update['status'] = 'active';
             }
@@ -225,10 +269,12 @@ class MeliSyncService
                 $this->upsertDescription($http, $item->meli_item_id, $this->plainText($item));
             }
         } else {
+            // Create
             $resp = $http->post($this->api('items'), $payload);
             $j    = (array) $resp->json();
 
-            if ($resp->ok() && !empty($j['id']) && !empty($options['activate'])) {
+            // Si por alguna razón no incluyó status en payload, hacemos activate
+            if ($resp->ok() && !empty($j['id']) && !empty($options['activate']) && empty($payload['status'])) {
                 $http->put($this->api("items/{$j['id']}"), ['status' => 'active']);
             }
 
@@ -240,18 +286,16 @@ class MeliSyncService
         // 9) Manejo de errores
         if ($resp->failed()) {
             $friendly = $this->humanMeliError($j);
-            $aiHelp   = $this->openAiFixSuggestions($payload, $j, $categoryId);
-            $finalMsg = trim($friendly . "\n\n" . ($aiHelp ? ("Sugerencias automáticas:\n" . $aiHelp) : ''));
 
             $item->update([
                 'meli_status'          => 'error',
-                'meli_last_error'      => $finalMsg,
+                'meli_last_error'      => $friendly,
                 'meli_category_id'     => $categoryId,
                 'meli_listing_type_id' => $listingType,
             ]);
 
             Log::warning('ML publish error', ['catalog_item_id' => $item->id, 'resp' => $j]);
-            return ['ok' => false, 'json' => $j, 'message' => $finalMsg];
+            return ['ok' => false, 'json' => $j, 'message' => $friendly];
         }
 
         // 10) Éxito
@@ -318,7 +362,6 @@ class MeliSyncService
     private function validateListing($http, array $payload): array
     {
         try {
-            // Listing validator: valida antes de publicar
             $resp = $http->post($this->api('items/validate'), $payload);
             if ($resp->ok()) {
                 return ['ok' => true, 'status' => $resp->status(), 'json' => (array)$resp->json()];
@@ -339,8 +382,8 @@ class MeliSyncService
     }
 
     /* ==========================================================
-     *  CATALOGO (fallback automático)
-     *  - Busca catalog_product_id y publica con catalog_listing=true
+     *  CATALOGO (fallback opcional)
+     *  - OJO: catálogo puede cambiar Marca/Modelo
      * ========================================================== */
     private function tryCatalogListingCreate(
         $http,
@@ -352,7 +395,6 @@ class MeliSyncService
         int $qty,
         array $pics
     ): array {
-        // Buscar sugerencias de catálogo (status=active) :contentReference[oaicite:2]{index=2}
         $catalogProductId = $this->findCatalogProductId($http, $item, $categoryId);
 
         if (!$catalogProductId) {
@@ -366,7 +408,6 @@ class MeliSyncService
             ];
         }
 
-        // Payload de catálogo: NO mandes title (ML controla ficha/título) :contentReference[oaicite:3]{index=3}
         $payloadCatalog = [
             'catalog_product_id'  => $catalogProductId,
             'catalog_listing'     => true,
@@ -404,21 +445,25 @@ class MeliSyncService
     private function findCatalogProductId($http, CatalogItem $item, string $categoryId): ?string
     {
         try {
-            // /products/search?status=active&site_id=MLM&q=...&category=... :contentReference[oaicite:4]{index=4}
+            $q = trim((string)($item->name ?? ''));
+            // Ayuda un poco: incluye marca/modelo en búsqueda
+            $brand = trim((string)($item->brand_name ?? ''));
+            $model = trim((string)($item->model_name ?? ''));
+            $mix = trim(preg_replace('/\s+/', ' ', $q . ' ' . $brand . ' ' . $model));
+
             $resp = $http->get($this->api('products/search'), [
-                'status'  => 'active',
-                'site_id' => 'MLM',
-                'q'       => (string)($item->name ?? ''),
-                'category'=> $categoryId,
-                'limit'   => 5,
+                'status'   => 'active',
+                'site_id'  => 'MLM',
+                'q'        => $mix ?: $q,
+                'category' => $categoryId,
+                'limit'    => 5,
             ]);
 
             if (!$resp->ok()) return null;
 
             $j = (array) $resp->json();
-
-            // Respuestas típicas traen "results" como lista.
             $results = $j['results'] ?? [];
+
             if (is_array($results) && !empty($results)) {
                 $first = $results[0] ?? null;
                 if (is_array($first) && !empty($first['id'])) {
@@ -437,120 +482,46 @@ class MeliSyncService
     }
 
     /* ==========================================================
-     *  OPENAI: sugerencias de corrección
-     * ========================================================== */
-    private function openAiFixSuggestions(array $payload, array $mlError, string $categoryId): ?string
-    {
-        $apiKey  = config('services.openai.api_key') ?: config('services.openai.key');
-        $baseUrl = rtrim(config('services.openai.base_url', 'https://api.openai.com'), '/');
-        if (!$apiKey) return null;
-
-        $modelId = 'gpt-4.1-mini';
-
-        $system = <<<TXT
-Eres un especialista en integraciones Mercado Libre (Items API, validaciones, catálogo) para México (MLM).
-Te daré:
-- payload JSON que intentamos publicar
-- error JSON devuelto por Mercado Libre (validate o publish)
-- category_id
-Tu tarea:
-1) Explica en español, en viñetas cortas, qué significa el error.
-2) Da pasos concretos para corregirlo.
-3) Indica exactamente qué campos del formulario debe llenar el usuario (si aplica) y con ejemplos.
-4) Si suena a Catálogo, explica el flujo: /products/search => catalog_product_id => POST /items con catalog_listing=true.
-Reglas:
-- NO inventes datos.
-- NO pegues código largo.
-- Máximo 10 viñetas.
-TXT;
-
-        $inputObj = [
-            'category_id' => $categoryId,
-            'payload'     => $payload,
-            'ml_error'    => $mlError,
-        ];
-
-        try {
-            $resp = Http::withToken($apiKey)
-                ->acceptJson()
-                ->asJson()
-                ->timeout(45)
-                ->post($baseUrl . '/v1/responses', [
-                    'model'        => $modelId,
-                    'instructions' => $system,
-                    'input'        => [
-                        [
-                            'role'    => 'user',
-                            'content' => [
-                                ['type' => 'input_text', 'text' => json_encode($inputObj, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)],
-                            ],
-                        ],
-                    ],
-                    'max_output_tokens' => 500,
-                    'temperature'       => 0.2,
-                ]);
-
-            if (!$resp->ok()) {
-                Log::warning('OpenAI suggest failed', ['status' => $resp->status(), 'body' => $resp->body()]);
-                return null;
-            }
-
-            $j = (array) $resp->json();
-
-            $rawText = '';
-            if (isset($j['output']) && is_array($j['output'])) {
-                foreach ($j['output'] as $outItem) {
-                    if (($outItem['type'] ?? null) === 'message' && isset($outItem['content'])) {
-                        foreach ($outItem['content'] as $c) {
-                            if (($c['type'] ?? null) === 'output_text' && isset($c['text'])) {
-                                $rawText .= $c['text'];
-                            }
-                        }
-                    }
-                }
-            }
-
-            $rawText = trim((string)$rawText);
-            return $rawText !== '' ? $rawText : null;
-        } catch (\Throwable $e) {
-            Log::warning('OpenAI suggest exception', ['error' => $e->getMessage()]);
-            return null;
-        }
-    }
-
-    /* ==========================================================
      *  HELPERS: pictures / attributes / text / title
      * ========================================================== */
+
     private function buildPictures(CatalogItem $item): array
     {
         $pics = [];
 
-        if (method_exists($item, 'mainPicture') && $item->mainPicture()) {
-            $pics[] = ['source' => $item->mainPicture()];
-        } elseif (!empty($item->image_url)) {
-            $pics[] = ['source' => $item->image_url];
-        }
-
-        foreach (($item->images ?? []) as $u) {
-            if ($u && (!isset($pics[0]['source']) || $u !== $pics[0]['source'])) {
-                $pics[] = ['source' => $u];
+        // ✅ Usa tus fotos guardadas en storage/public
+        foreach (['photo_1','photo_2','photo_3'] as $col) {
+            $path = $item->{$col} ?? null;
+            if ($path) {
+                $url = Storage::disk('public')->url($path);   // /storage/...
+                $pics[] = ['source' => $this->absUrl($url)];
             }
-            if (count($pics) >= 6) break;
         }
 
+        // fallback legacy (si tienes image_url)
+        if (empty($pics) && !empty($item->image_url)) {
+            $pics[] = ['source' => $this->absUrl((string)$item->image_url)];
+        }
+
+        // fallback ultra último
         if (empty($pics)) {
             $pics[] = ['source' => 'https://http2.mlstatic.com/storage/developers-site-cms-admin/openapi/319102622313-testimage.jpeg'];
         }
 
-        return $pics;
+        // ML acepta hasta 6
+        return array_slice($pics, 0, 6);
     }
 
     private function buildBaseAttributes(CatalogItem $item): array
     {
         $attributes = [];
 
-        $brand = trim((string) ($item->brand_name ?? 'Genérica'));
-        $model = trim((string) ($item->model_name ?? $item->sku ?? 'Modelo Único'));
+        // ✅ No uses genéricos agresivos: manda lo que escribió el usuario
+        $brand = trim((string) ($item->brand_name ?? ''));
+        $model = trim((string) ($item->model_name ?? ''));
+
+        if ($brand === '') $brand = 'Genérica';
+        if ($model === '') $model = trim((string)($item->sku ?? 'Modelo Único')) ?: 'Modelo Único';
 
         $attributes[] = ['id' => 'BRAND', 'value_name' => $brand];
         $attributes[] = ['id' => 'MODEL', 'value_name' => $model];
@@ -575,12 +546,18 @@ TXT;
         $parts = [];
 
         if (!empty($item->name)) $parts[] = trim($item->name);
-        if (!empty($item->brand_name)) $parts[] = trim($item->brand_name);
+
+        // ✅ Evita duplicar marca si ya viene en name
+        $nameLower = mb_strtolower((string)$item->name);
+        if (!empty($item->brand_name)) {
+            $b = trim((string)$item->brand_name);
+            if ($b !== '' && !str_contains($nameLower, mb_strtolower($b))) $parts[] = $b;
+        }
 
         if (!empty($item->model_name)) $parts[] = trim($item->model_name);
-        elseif (!empty($item->sku)) $parts[] = trim($item->sku);
 
         $title = trim(preg_replace('/\s+/', ' ', implode(' ', $parts)));
+        if ($title === '') $title = 'Producto';
 
         if (mb_strlen($title) > 60) $title = mb_substr($title, 0, 60);
         return $title;
@@ -604,8 +581,10 @@ TXT;
         foreach ($defs as $def) {
             $attrId     = $def['id'] ?? null;
             $isRequired = !empty($def['tags']['required']);
-
             if (!$isRequired || !$attrId || isset($present[$attrId])) continue;
+
+            // ✅ No metas "Genérico" a atributos críticos tipo BRAND/MODEL/GTIN
+            if (in_array($attrId, ['BRAND','MODEL','GTIN'], true)) continue;
 
             $val = null;
             if (!empty($def['values']) && is_array($def['values'])) {

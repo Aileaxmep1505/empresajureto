@@ -12,6 +12,10 @@
 
   // Bandera simple: si ya tiene SKU (Amazon usa SKU sí o sí)
   $hasSku = !empty($item->sku ?? null);
+
+  // ✅ Sugerencias de IA desde backend (si tu ai-from-upload las manda)
+  //    La intención: "Rellenar vacíos" tome lo que ya haya aquí (inputs)
+  //    y solo complete lo que está vacío; además, mostrar un resumen de qué campos se detectaron.
 @endphp
 
 @csrf
@@ -20,7 +24,7 @@
 @endif
 
 {{-- =========================================================
-   🔹 BLOQUE DE CAPTURA ASISTIDA POR IA (ARCHIVOS / PDF)
+   🔹 BLOQUE DE CAPTURA ASISTIDA POR IA (ARCHIVOS / PDF) ✅ NO CAMBIAR
    ========================================================= --}}
 <div class="ai-helper" id="ai-helper">
   <div class="ai-helper-icon-wrapper">
@@ -78,6 +82,12 @@
           <span class="ai-cta-text">Analizar con IA</span>
         </button>
 
+        {{-- ✅ NUEVO: rellenar vacíos con lo último detectado (sin re-subir) --}}
+        <button type="button" id="btn-ai-fill-missing" class="btn btn-ghost">
+          <span class="i material-symbols-outlined" aria-hidden="true">auto_fix_high</span>
+          Rellenar vacíos
+        </button>
+
         @if($isEdit)
           <button type="button" id="btn-restore-original" class="btn btn-ghost">
             <span class="i material-symbols-outlined" aria-hidden="true">history</span>
@@ -88,6 +98,12 @@
         <p id="ai-helper-status" class="hint ai-helper-status">
           La IA solo te ahorra tecleo ✨
         </p>
+
+        {{-- ✅ NUEVO: resumen de campos detectados por IA (sin “ruido” debajo de inputs) --}}
+        <div id="ai-detected" class="ai-detected" style="display:none;">
+          <div class="ai-detected-title">Detectado por IA</div>
+          <div id="ai-detected-chips" class="ai-detected-chips"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -133,6 +149,8 @@
 
 {{-- =========================================================
    🔹 FORMULARIO PRINCIPAL
+   - ✅ Quitamos el “ruido” debajo de inputs (tips/hints)
+   - ✅ No tocamos captura asistida por IA
    ========================================================= --}}
 <div class="catalog-grid">
   {{-- Columna izquierda --}}
@@ -140,31 +158,27 @@
     <div class="card-section">
       <label class="lbl">Nombre *</label>
       <input name="name" class="inp" required
-             placeholder="Ejemplo: Lapicero bolígrafo azul Bic 0.7mm"
+             placeholder="Ejemplo: Cinta de empaque Kyma 48mm x 150m canela (27 pzas)"
              value="{{ old('name', $item->name ?? '') }}">
-      <p class="hint">Tipo + marca + modelo + rasgo clave (mejor SEO y menos rechazos).</p>
     </div>
 
     <div class="card-section">
       <label class="lbl">Slug (opcional)</label>
       <input name="slug" class="inp"
-             placeholder="lapicero-bic-azul-07mm"
+             placeholder="cinta-de-empaque-kyma-48mm-150m-canela"
              value="{{ old('slug', $item->slug ?? '') }}">
-      <p class="hint">Déjalo vacío para generarlo automático salvo que necesites uno fijo.</p>
     </div>
 
     <div class="card-section">
       <label class="lbl">Descripción</label>
       <textarea name="description" class="inp" rows="6"
-                placeholder="Usos, materiales, medidas, garantía, etc.">{{ old('description', $item->description ?? '') }}</textarea>
-      <p class="hint">Evita texto repetitivo o mayúsculas excesivas.</p>
+                placeholder="Incluye medidas, color, cantidad, usos…">{{ old('description', $item->description ?? '') }}</textarea>
     </div>
 
     <div class="card-section">
       <label class="lbl">Extracto</label>
       <textarea name="excerpt" class="inp" rows="3"
                 placeholder="Resumen corto para listados y ML.">{{ old('excerpt', $item->excerpt ?? '') }}</textarea>
-      <p class="hint">Presentación + cantidad + color/medida.</p>
     </div>
 
     {{-- =========================================================
@@ -172,7 +186,6 @@
        ========================================================= --}}
     <div class="side-card" style="margin-top:6px;">
       <h3 class="side-title">Fotos del producto (3)</h3>
-      <div class="hint" style="margin-top:0;">Toca cada tarjeta para seleccionar una foto.</div>
 
       <div class="photos-grid">
         {{-- FOTO 1 --}}
@@ -289,10 +302,6 @@
           </div>
         </div>
       </div>
-
-      <div class="hint" style="margin-top:10px;">
-        Tip: buena luz + fondo claro.
-      </div>
     </div>
   </div>
 
@@ -302,9 +311,8 @@
       <div class="card-section">
         <label class="lbl">SKU</label>
         <input name="sku" class="inp"
-               placeholder="Código interno o del proveedor"
+               placeholder="K-1"
                value="{{ old('sku', $item->sku ?? '') }}">
-        <p class="hint">Amazon requiere SKU para publicar.</p>
       </div>
 
       <div class="card-section card-inline">
@@ -312,14 +320,12 @@
           <label class="lbl">Precio *</label>
           <input name="price" type="number" step="0.01" min="0" class="inp" required
                  value="{{ old('price', $item->price ?? 0) }}">
-          <p class="hint">Precio base en MXN.</p>
         </div>
 
         <div class="card-inline-item">
           <label class="lbl">Stock</label>
           <input name="stock" type="number" step="1" min="0" class="inp"
                  value="{{ old('stock', $item->stock ?? 0) }}">
-          <p class="hint">Unidades disponibles.</p>
         </div>
       </div>
 
@@ -327,19 +333,17 @@
         <label class="lbl">Precio oferta</label>
         <input name="sale_price" type="number" step="0.01" min="0" class="inp"
                value="{{ old('sale_price', $item->sale_price ?? '') }}">
-        <p class="hint">Si lo dejas vacío, se usa el precio base.</p>
       </div>
 
       <div class="card-section">
         <label class="lbl">Categoría</label>
-        @php $currentCategory = old('category', $item->category ?? ''); @endphp
-        <select name="category" class="inp">
+        @php $currentCategory = old('category_key', $item->category_key ?? ''); @endphp
+        <select name="category_key" class="inp">
           <option value="">Sin categoría</option>
           @foreach($categories as $key => $label)
             <option value="{{ $key }}" @selected($currentCategory === $key)>{{ $label }}</option>
           @endforeach
         </select>
-        <p class="hint">Agrupa en tu catálogo web.</p>
       </div>
 
       <div class="card-section">
@@ -356,7 +360,6 @@
         <label class="lbl">Publicado en</label>
         <input name="published_at" type="datetime-local" class="inp"
                value="{{ old('published_at', isset($item->published_at)? $item->published_at->format('Y-m-d\TH:i') : '') }}">
-        <p class="hint">Vacío = se asigna al publicar.</p>
       </div>
 
       <div class="card-section">
@@ -374,14 +377,14 @@
       <div class="card-section">
         <label class="lbl">Marca</label>
         <input name="brand_name" class="inp"
-               placeholder="Bic, Maped…"
+               placeholder="Kyma"
                value="{{ old('brand_name', $item->brand_name ?? '') }}">
       </div>
 
       <div class="card-section">
         <label class="lbl">Modelo</label>
         <input name="model_name" class="inp"
-               placeholder="Cristal 1.0mm…"
+               placeholder="48mmx150m canela"
                value="{{ old('model_name', $item->model_name ?? '') }}">
       </div>
 
@@ -390,16 +393,6 @@
         <input name="meli_gtin" class="inp"
                placeholder="750…"
                value="{{ old('meli_gtin', $item->meli_gtin ?? '') }}">
-      </div>
-
-      <div class="ml-tips">
-        <p class="hint-title">Tips</p>
-        <ul class="hint-list">
-          <li>Título completo.</li>
-          <li>Precio mínimo según categoría.</li>
-          <li>3 fotos = OK.</li>
-          <li>GTIN si es obligatorio.</li>
-        </ul>
       </div>
     </div>
 
@@ -410,7 +403,7 @@
       <div class="card-section">
         <label class="lbl">Seller SKU (amazon_sku)</label>
         <input name="amazon_sku" class="inp"
-               placeholder="Opcional"
+               placeholder="asd"
                value="{{ old('amazon_sku', $item->amazon_sku ?? '') }}">
       </div>
 
@@ -429,7 +422,7 @@
       </div>
     </div>
 
-    {{-- Acciones publicación (no tocar lógica) --}}
+    {{-- ✅ Publicación: SIN forms anidados (arregla el botón Guardar cambios) --}}
     @if($isEdit)
       <div class="side-card">
         <h3 class="side-title">Publicación</h3>
@@ -443,39 +436,45 @@
             </div>
 
             <div class="pub-actions">
-              <form method="POST" action="{{ route('admin.catalog.meli.publish', $item) }}">
+              <button type="submit"
+                      class="btn btn-pill btn-ml"
+                      form="catalog-form"
+                      formaction="{{ route('admin.catalog.meli.publish', $item) }}"
+                      formmethod="POST">
                 @csrf
-                <button type="submit" class="btn btn-pill btn-ml">
-                  <span class="i material-symbols-outlined" aria-hidden="true">cloud_upload</span>
-                  Publicar / Actualizar
-                </button>
-              </form>
+                <span class="i material-symbols-outlined" aria-hidden="true">cloud_upload</span>
+                Publicar / Actualizar
+              </button>
 
               <div class="pub-row">
-                <form method="POST" action="{{ route('admin.catalog.meli.pause', $item) }}">
+                <button type="submit"
+                        class="btn btn-pill btn-soft btn-ml-soft"
+                        form="catalog-form"
+                        formaction="{{ route('admin.catalog.meli.pause', $item) }}"
+                        formmethod="POST">
                   @csrf
-                  <button type="submit" class="btn btn-pill btn-soft btn-ml-soft">
-                    <span class="i material-symbols-outlined" aria-hidden="true">pause_circle</span>
-                    Pausar
-                  </button>
-                </form>
+                  <span class="i material-symbols-outlined" aria-hidden="true">pause_circle</span>
+                  Pausar
+                </button>
 
-                <form method="POST" action="{{ route('admin.catalog.meli.activate', $item) }}">
+                <button type="submit"
+                        class="btn btn-pill btn-soft btn-ml-soft"
+                        form="catalog-form"
+                        formaction="{{ route('admin.catalog.meli.activate', $item) }}"
+                        formmethod="POST">
                   @csrf
-                  <button type="submit" class="btn btn-pill btn-soft btn-ml-soft">
-                    <span class="i material-symbols-outlined" aria-hidden="true">play_circle</span>
-                    Activar
-                  </button>
-                </form>
+                  <span class="i material-symbols-outlined" aria-hidden="true">play_circle</span>
+                  Activar
+                </button>
 
-                <a class="btn btn-pill btn-soft btn-ml-soft" href="{{ route('admin.catalog.meli.view', $item) }}" target="_blank" rel="noopener">
+                <a class="btn btn-pill btn-soft btn-ml-soft"
+                   href="{{ route('admin.catalog.meli.view', $item) }}"
+                   target="_blank" rel="noopener">
                   <span class="i material-symbols-outlined" aria-hidden="true">open_in_new</span>
                   Ver
                 </a>
               </div>
             </div>
-
-            <p class="hint pub-hint">Usa marca/modelo/GTIN para atributos.</p>
           </div>
 
           {{-- Amazon --}}
@@ -496,30 +495,39 @@
             @endif
 
             <div class="pub-actions">
-              <form method="POST" action="{{ route('admin.catalog.amazon.publish', $item) }}">
+              <button type="submit"
+                      class="btn btn-pill btn-amz"
+                      form="catalog-form"
+                      formaction="{{ route('admin.catalog.amazon.publish', $item) }}"
+                      formmethod="POST"
+                      @disabled(!$hasSku)>
                 @csrf
-                <button type="submit" class="btn btn-pill btn-amz" @disabled(!$hasSku)>
-                  <span class="i material-symbols-outlined" aria-hidden="true">cloud_upload</span>
-                  Publicar / Actualizar
-                </button>
-              </form>
+                <span class="i material-symbols-outlined" aria-hidden="true">cloud_upload</span>
+                Publicar / Actualizar
+              </button>
 
               <div class="pub-row">
-                <form method="POST" action="{{ route('admin.catalog.amazon.pause', $item) }}">
+                <button type="submit"
+                        class="btn btn-pill btn-soft btn-amz-soft"
+                        form="catalog-form"
+                        formaction="{{ route('admin.catalog.amazon.pause', $item) }}"
+                        formmethod="POST"
+                        @disabled(!$hasSku)>
                   @csrf
-                  <button type="submit" class="btn btn-pill btn-soft btn-amz-soft" @disabled(!$hasSku)>
-                    <span class="i material-symbols-outlined" aria-hidden="true">pause_circle</span>
-                    Pausar
-                  </button>
-                </form>
+                  <span class="i material-symbols-outlined" aria-hidden="true">pause_circle</span>
+                  Pausar
+                </button>
 
-                <form method="POST" action="{{ route('admin.catalog.amazon.activate', $item) }}">
+                <button type="submit"
+                        class="btn btn-pill btn-soft btn-amz-soft"
+                        form="catalog-form"
+                        formaction="{{ route('admin.catalog.amazon.activate', $item) }}"
+                        formmethod="POST"
+                        @disabled(!$hasSku)>
                   @csrf
-                  <button type="submit" class="btn btn-pill btn-soft btn-amz-soft" @disabled(!$hasSku)>
-                    <span class="i material-symbols-outlined" aria-hidden="true">play_circle</span>
-                    Activar
-                  </button>
-                </form>
+                  <span class="i material-symbols-outlined" aria-hidden="true">play_circle</span>
+                  Activar
+                </button>
 
                 <a class="btn btn-pill btn-soft btn-amz-soft"
                    href="{{ route('admin.catalog.amazon.view', $item) }}"
@@ -530,8 +538,6 @@
                 </a>
               </div>
             </div>
-
-            <p class="hint pub-hint">Amazon valida por categoría/productType.</p>
           </div>
         </div>
       </div>
@@ -554,7 +560,7 @@
 
 <style>
   /* =========================================================
-     ✅ BASE44 CLEAN — sin degradados, sin saturación, tipografía global
+     ✅ BASE44 CLEAN — sin ruido de hints bajo inputs
      ========================================================= */
   :root{
     --bg: #f7f7fb;
@@ -564,17 +570,11 @@
     --muted: #667085;
     --line: #e9eaf2;
 
-    /* Pasteles (suaves) */
     --p-blue:   #dbeafe;
     --p-mint:   #dcfce7;
     --p-amber:  #fef3c7;
     --p-lilac:  #f3e8ff;
     --p-rose:   #ffe4e6;
-
-    /* Accents (no saturados) */
-    --accent: #3b82f6;        /* usado con moderación */
-    --accent-2: #10b981;      /* ML */
-    --accent-3: #f59e0b;      /* Amazon */
 
     --radius-lg: 18px;
     --radius-md: 12px;
@@ -584,13 +584,14 @@
 
   .lbl{
     display:block;
-    font-weight:700;
+    font-weight:800;
     color:var(--ink);
     margin:10px 0 4px;
     font-size:.9rem;
     letter-spacing:.01em;
   }
 
+  /* ✅ Hints siguen para IA y otras zonas, pero no los usamos debajo de inputs */
   .hint{
     margin:4px 0 0;
     font-size:.78rem;
@@ -621,7 +622,7 @@
     border:1px solid transparent;
     border-radius: 999px;
     padding:10px 14px;
-    font-weight:700;
+    font-weight:800;
     cursor:pointer;
     font-size:.88rem;
     display:inline-flex;
@@ -636,15 +637,10 @@
   .btn:hover{ transform: translateY(-1px); box-shadow: var(--shadow-sm); }
   .btn[disabled], .btn[aria-disabled="true"]{ opacity:.55; cursor:not-allowed; pointer-events:none; }
 
-  /* Primary: pastel (no azul fuerte) */
   .btn-primary{
     background: var(--p-blue);
     border-color: rgba(59,130,246,.18);
     color: #1e3a8a;
-  }
-  .btn-primary:hover{
-    box-shadow: 0 10px 24px rgba(59,130,246,.12);
-    border-color: rgba(59,130,246,.25);
   }
 
   .btn-ghost{
@@ -652,22 +648,12 @@
     border-color: var(--line);
     color: var(--ink);
   }
-
   .btn-xs{ padding:6px 10px; font-size:.78rem; }
 
-  .divi{
-    border:none;
-    border-top:1px dashed var(--line);
-    margin:18px 0;
-  }
-
+  .divi{ border:none; border-top:1px dashed var(--line); margin:18px 0; }
   .card-section{ margin-bottom:12px; }
 
-  .catalog-grid{
-    display:grid;
-    gap:18px;
-    grid-template-columns:repeat(12,1fr);
-  }
+  .catalog-grid{ display:grid; gap:18px; grid-template-columns:repeat(12,1fr); }
   .catalog-main{ grid-column:span 8; display:flex; flex-direction:column; gap:12px; }
   .catalog-side{ grid-column:span 4; display:flex; flex-direction:column; gap:12px; }
 
@@ -681,18 +667,13 @@
   .side-title{
     margin:0 0 8px;
     font-size:.9rem;
-    font-weight:800;
+    font-weight:900;
     color: var(--ink);
     letter-spacing:.01em;
   }
 
-  .ml-tips{ margin-top:6px; padding-top:8px; border-top:1px dashed var(--line); }
-  .hint-title{ margin:0 0 4px; font-size:.8rem; font-weight:800; color: var(--ink); }
-  .hint-list{ margin:0 0 0 16px; padding:0; font-size:.78rem; color: var(--muted); }
-
   .card-inline{ display:flex; gap:10px; flex-wrap:wrap; }
   .card-inline-item{ flex:1 1 140px; }
-
   .toggle-row{ display:flex; gap:8px; align-items:center; font-size:.9rem; color: var(--muted); }
 
   .form-actions{
@@ -704,7 +685,7 @@
   }
 
   /* =========================================================
-     🔹 IA panel — limpio, sin degradados
+     🔹 IA panel
      ========================================================= */
   .ai-helper{
     margin-bottom:18px;
@@ -719,7 +700,6 @@
     flex-wrap:wrap;
   }
 
-  /* Busy: sutil (sin sweep/gradient) */
   .ai-helper.ai-busy{
     border-color: rgba(59,130,246,.20);
     box-shadow: 0 14px 32px rgba(59,130,246,.08);
@@ -748,7 +728,7 @@
     background: var(--p-mint);
     border: 1px solid rgba(16,185,129,.18);
     color:#065f46;
-    font-weight:800;
+    font-weight:900;
   }
 
   .ai-helper-text{ margin:8px 0 10px; font-size:.8rem; color: var(--muted); }
@@ -804,7 +784,6 @@
   .ai-dropzone-sub{ font-size:.8rem; color: var(--muted); }
   .ai-dropzone-hint{ font-size:.75rem; color: var(--muted); }
 
-  /* botón dentro del dropzone: neutro pastel */
   .ai-dropzone-btn{
     border:1px solid var(--line);
     border-radius: 999px;
@@ -816,7 +795,6 @@
     cursor:pointer;
   }
 
-  /* input overlay */
   .ai-dropzone-input{ position:absolute; inset:0; opacity:0; cursor:pointer; }
 
   .ai-files-list{ margin-top:8px; display:flex; flex-wrap:wrap; gap:6px; }
@@ -833,6 +811,42 @@
     max-width:100%;
   }
   .ai-file-chip span{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:220px; }
+
+  /* ✅ Detectado por IA (chips) */
+  .ai-detected{
+    margin-top:2px;
+    padding:10px 12px;
+    border:1px solid rgba(16,185,129,.16);
+    background:#fbfffc;
+    border-radius: 14px;
+    width:100%;
+  }
+  .ai-detected-title{
+    font-size:.78rem;
+    font-weight:900;
+    color: var(--ink);
+    margin-bottom:8px;
+  }
+  .ai-detected-chips{ display:flex; gap:6px; flex-wrap:wrap; }
+  .ai-chip{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:4px 10px;
+    font-size:.74rem;
+    border-radius:999px;
+    background: var(--p-mint);
+    border:1px solid rgba(16,185,129,.18);
+    color:#065f46;
+    font-weight:900;
+  }
+  .ai-chip .k{ opacity:.7; font-weight:900; }
+  .ai-chip .v{
+    max-width:240px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
 
   .ai-items-panel{
     margin-bottom:18px;
@@ -872,7 +886,6 @@
   .ai-items-table td{ color: var(--muted); }
   .ai-items-table tr:hover{ background: #fafafe; }
 
-  /* resaltado IA: verde pastel, no saturado */
   .ai-suggested{
     border-color: rgba(16,185,129,.45) !important;
     box-shadow: 0 0 0 4px rgba(220,252,231,.9);
@@ -880,10 +893,9 @@
   }
 
   /* =========================================================
-     🔹 Fotos — clean
+     🔹 Fotos
      ========================================================= */
   .photos-grid{ display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; margin-top:10px; }
-
   .photo-card{
     background: var(--surface);
     border:1px solid var(--line);
@@ -963,10 +975,9 @@
   .photo-preview img{ width:100%; height:100%; object-fit:cover; display:block; }
 
   /* =========================================================
-     🔹 Publicación — 2 tarjetas con pasteles suaves
+     🔹 Publicación
      ========================================================= */
   .pub-grid{ display:grid; grid-template-columns:1fr; gap:12px; margin-top:10px; }
-
   .pub-block{
     background: var(--surface);
     border:1px solid var(--line);
@@ -974,7 +985,6 @@
     padding:12px;
     box-shadow: 0 10px 22px rgba(15,23,42,.04);
   }
-
   .pub-block.pub-ml{ border-left: 4px solid rgba(16,185,129,.35); }
   .pub-block.pub-amz{ border-left: 4px solid rgba(245,158,11,.35); }
 
@@ -992,10 +1002,8 @@
     border-radius: 999px;
   }
   .btn-soft{ width:auto; padding:8px 12px; font-size:.80rem; }
-
   .i.material-symbols-outlined{ font-size:18px; line-height:1; }
 
-  /* ML buttons (pastel mint) */
   .btn-ml{
     background: var(--p-mint);
     border-color: rgba(16,185,129,.18);
@@ -1007,7 +1015,6 @@
     color:#065f46;
   }
 
-  /* Amazon buttons (pastel amber) */
   .btn-amz{
     background: var(--p-amber);
     border-color: rgba(245,158,11,.20);
@@ -1034,7 +1041,6 @@
   .pub-warn-title{ font-weight:900; font-size:.82rem; }
   .pub-warn-text{ font-size:.76rem; opacity:.9; }
 
-  /* Responsive */
   @media (max-width: 992px){
     .catalog-grid{ grid-template-columns:1fr; }
     .catalog-main, .catalog-side{ grid-column:span 12; }
@@ -1047,7 +1053,6 @@
     }
   }
 
-  /* Animations (suaves) */
   @keyframes aiSpin{ to{ transform:rotate(360deg); } }
   @keyframes aiBob{ 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-2px); } }
   @keyframes fadeInUp{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:translateY(0); } }
@@ -1127,7 +1132,7 @@
       }
 
       if (!file) {
-        prev.innerHTML = '';
+        // deja la imagen guardada (si existe) intacta
         return;
       }
 
@@ -1160,7 +1165,8 @@
           inp.value = '';
           setFilledState(input, false);
           setFilename(input, null);
-          renderPreview(preview, null);
+          // NO borramos el preview guardado en edit (si había), solo el nuevo
+          // Si quieres borrar el guardado, eso debe ser con un flag server-side
         });
       }
     });
@@ -1171,7 +1177,7 @@
   });
 
   // ================================
-  // 🔹 SweetAlert UI (NO tocar lógica)
+  // 🔹 SweetAlert UI
   // ================================
   const uiToast = Swal.mixin({
     toast: true,
@@ -1197,7 +1203,7 @@
 
     const fieldNames = [
       'name','slug','description','excerpt','sku',
-      'price','stock','sale_price','category','status','published_at',
+      'price','stock','sale_price','category_key','status','published_at',
       'brand_name','model_name','meli_gtin',
       'amazon_sku','amazon_asin','amazon_product_type'
     ];
@@ -1235,10 +1241,15 @@
   });
 
   // ================================
-  // 🔹 IA: subir archivos + dropzone + rellenar campos (NO tocar lógica)
+  // 🔹 IA: subir archivos + dropzone + rellenar campos
+  // ✅ NO tocamos flujo, solo:
+  //   - guardamos lastSuggestions
+  //   - agregamos botón "Rellenar vacíos"
+  //   - mostramos chips de "Detectado por IA"
   // ================================
   document.addEventListener('DOMContentLoaded', function () {
     const btnAi      = document.getElementById('btn-ai-analyze');
+    const btnFill    = document.getElementById('btn-ai-fill-missing');
     const inputFiles = document.getElementById('ai_files');
     const statusEl   = document.getElementById('ai-helper-status');
     const helperBox  = document.getElementById('ai-helper');
@@ -1253,10 +1264,15 @@
 
     const pickBtn    = document.getElementById('ai-pick-files');
 
+    const detectedBox   = document.getElementById('ai-detected');
+    const detectedChips = document.getElementById('ai-detected-chips');
+
     const LS_KEY_ITEMS = 'catalog_ai_items';
     const LS_KEY_INDEX = 'catalog_ai_index';
+    const LS_KEY_LAST  = 'catalog_ai_last_suggestions';
 
     let aiItems = [];
+    let lastSuggestions = null;
 
     if (pickBtn && inputFiles) {
       pickBtn.addEventListener('click', function(e){
@@ -1286,6 +1302,28 @@
         const idx = parseInt(raw ?? '0', 10);
         return isNaN(idx) ? 0 : Math.max(0, idx);
       } catch (e) { return 0; }
+    }
+    function saveLastSuggestions(s) {
+      lastSuggestions = s && typeof s === 'object' ? s : null;
+      try { localStorage.setItem(LS_KEY_LAST, JSON.stringify(lastSuggestions || null)); } catch(e){}
+    }
+    function loadLastSuggestions() {
+      try {
+        const raw = localStorage.getItem(LS_KEY_LAST);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        return (parsed && typeof parsed === 'object') ? parsed : null;
+      } catch(e){ return null; }
+    }
+
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
     }
 
     function refreshFileChips(files) {
@@ -1334,17 +1372,57 @@
       });
     }
 
+    function renderDetectedChips(item) {
+      if (!detectedBox || !detectedChips) return;
+
+      const pairs = [];
+      const pick = (k, v) => {
+        if (v === undefined || v === null) return;
+        const s = String(v).trim();
+        if (!s) return;
+        pairs.push([k, s]);
+      };
+
+      pick('Nombre', item.name ?? item.title);
+      pick('Slug', item.slug);
+      pick('Descripción', item.description ?? item.descripcion_larga ?? item.desc);
+      pick('Extracto', item.excerpt ?? item.resumen);
+      pick('Precio', item.price ?? item.unit_price ?? item.precio ?? item.precio_unitario);
+      pick('Stock', item.stock ?? item.quantity ?? item.qty ?? item.cantidad ?? item.cant);
+      pick('Marca', item.brand_name ?? item.brand ?? item.marca);
+      pick('Modelo', item.model_name ?? item.model ?? item.modelo);
+      pick('GTIN', item.meli_gtin ?? item.gtin ?? item.ean ?? item.upc ?? item.barcode ?? item.codigo_barras);
+
+      detectedChips.innerHTML = '';
+      if (!pairs.length) {
+        detectedBox.style.display = 'none';
+        return;
+      }
+
+      pairs.slice(0, 10).forEach(([k,v]) => {
+        const el = document.createElement('div');
+        el.className = 'ai-chip';
+        el.innerHTML = `<span class="k">${escapeHtml(k)}:</span> <span class="v">${escapeHtml(v)}</span>`;
+        detectedChips.appendChild(el);
+      });
+
+      detectedBox.style.display = 'block';
+    }
+
     if (clearBtn) {
       clearBtn.addEventListener('click', function () {
         aiItems = [];
+        lastSuggestions = null;
         try {
           localStorage.removeItem(LS_KEY_ITEMS);
           localStorage.removeItem(LS_KEY_INDEX);
+          localStorage.removeItem(LS_KEY_LAST);
         } catch (e) {}
         if (tbody) tbody.innerHTML = '';
         if (panel) panel.style.display = 'none';
         if (filesList) filesList.innerHTML = '';
         if (inputFiles) inputFiles.value = '';
+        if (detectedBox) detectedBox.style.display = 'none';
         if (statusEl) statusEl.textContent = 'Lista IA limpia. Sube un nuevo PDF o imágenes.';
         AiAlerts.info('Lista limpia', 'Se reinició la lista de productos IA.');
       });
@@ -1358,7 +1436,9 @@
           const item = aiItems[i];
           if (!item) return;
           saveAiIndexToStorage(i);
-          fillFromItem(item, { markSuggested: true });
+          saveLastSuggestions(item);
+          fillFromItem(item, { markSuggested: true, onlyMissing: false });
+          renderDetectedChips(item);
           if (statusEl) statusEl.textContent = 'Se cargó el producto #' + (i + 1) + ' desde la lista IA.';
           AiAlerts.info('Producto cargado', 'Se llenó el formulario con el producto #' + (i + 1) + '.');
         });
@@ -1370,39 +1450,59 @@
       tbody.innerHTML = '';
 
       aiItems.forEach((item, idx) => {
-        const tr = document.createElement('tr');
         const price = item.price ?? item.unit_price ?? item.precio ?? item.precio_unitario;
         const precio = (price != null && price !== '') ? '$ ' + Number(price).toFixed(2) : '—';
 
+        const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>${idx + 1}</td>
           <td>${escapeHtml(item.name || item.title || '')}</td>
           <td>${escapeHtml(precio)}</td>
-          <td>${escapeHtml(item.brand_name || item.brand || '')}</td>
-          <td>${escapeHtml(item.model_name || item.model || '')}</td>
-          <td>${escapeHtml(item.meli_gtin || item.gtin || '')}</td>
-          <td>
-            <button type="button" class="btn btn-ghost btn-xs" data-ai-index="${idx}">Usar este</button>
-          </td>
+          <td>${escapeHtml(item.brand_name || item.brand || item.marca || '')}</td>
+          <td>${escapeHtml(item.model_name || item.model || item.modelo || '')}</td>
+          <td>${escapeHtml(item.meli_gtin || item.gtin || item.ean || '')}</td>
+          <td><button type="button" class="btn btn-ghost btn-xs" data-ai-index="${idx}">Usar este</button></td>
         `;
         tbody.appendChild(tr);
       });
 
-      if (countEl) {
-        countEl.textContent = aiItems.length === 1 ? '1 producto' : (aiItems.length + ' productos');
-      }
-
+      if (countEl) countEl.textContent = aiItems.length === 1 ? '1 producto' : (aiItems.length + ' productos');
       panel.style.display = aiItems.length ? 'block' : 'none';
       attachUseButtons();
     }
 
+    // ✅ Restore items + last suggestions
     aiItems = loadAiItemsFromStorage();
+    lastSuggestions = loadLastSuggestions();
+
     if (aiItems.length) {
       renderAiTable();
       if (statusEl) statusEl.textContent = 'Productos IA restaurados. Puedes continuar sin re-subir.';
       const idx = loadAiIndexFromStorage();
       const item = aiItems[idx] || aiItems[0];
-      if (item) fillFromItem(item, { markSuggested: true });
+      if (item) {
+        saveLastSuggestions(item);
+        renderDetectedChips(item);
+        // no sobreescribas siempre: solo marca sugeridos si quieres
+        fillFromItem(item, { markSuggested: false, onlyMissing: true });
+      }
+    } else if (lastSuggestions) {
+      renderDetectedChips(lastSuggestions);
+    }
+
+    // ✅ Botón "Rellenar vacíos"
+    if (btnFill) {
+      btnFill.addEventListener('click', function () {
+        const base = lastSuggestions || loadLastSuggestions();
+        if (!base) {
+          AiAlerts.info('Sin sugerencias', 'Primero analiza con IA o selecciona un producto detectado.');
+          return;
+        }
+        const changed = fillFromItem(base, { markSuggested: true, onlyMissing: true });
+        renderDetectedChips(base);
+        if (changed > 0) AiAlerts.success('Listo', `Se rellenaron ${changed} campo(s) vacío(s).`);
+        else AiAlerts.info('Sin cambios', 'No hay campos vacíos para rellenar.');
+      });
     }
 
     if (!btnAi || !inputFiles) return;
@@ -1445,7 +1545,11 @@
         }
 
         const s = data.suggestions || {};
-        fillFromItem(s, { markSuggested: true });
+        saveLastSuggestions(s);
+        renderDetectedChips(s);
+
+        // ✅ En vez de sobreescribir siempre: rellena, y luego deja que "Rellenar vacíos" haga el resto
+        fillFromItem(s, { markSuggested: true, onlyMissing: false });
 
         aiItems = Array.isArray(data.items) ? data.items : [];
         saveAiItemsToStorage();
@@ -1469,10 +1573,20 @@
       });
     });
 
-    function applyAiSuggestion(fieldName, value, markSuggested) {
-      if (value === undefined || value === null || value === '') return;
+    function isEmptyField(el){
+      if (!el) return true;
+      if (el.type === 'checkbox') return !el.checked;
+      const v = (el.value ?? '').toString().trim();
+      return v === '';
+    }
+
+    function applyAiSuggestion(fieldName, value, markSuggested, onlyMissing) {
+      if (value === undefined || value === null || value === '') return 0;
+
       const el = document.querySelector('[name="' + fieldName + '"]');
-      if (!el) return;
+      if (!el) return 0;
+
+      if (onlyMissing && !isEmptyField(el)) return 0;
 
       el.value = value;
       try { el.dispatchEvent(new Event('change', { bubbles:true })); } catch(e){}
@@ -1481,12 +1595,15 @@
         el.classList.add('ai-suggested');
         setTimeout(() => el.classList.remove('ai-suggested'), 7000);
       }
+      return 1;
     }
 
     function fillFromItem(item, opts = {}) {
       const markSuggested = !!opts.markSuggested;
-      if (!item || typeof item !== 'object') return;
+      const onlyMissing   = !!opts.onlyMissing;
+      if (!item || typeof item !== 'object') return 0;
 
+      // ✅ Tomar lo que “haya” (varios aliases)
       const name        = item.name ?? item.title ?? item.descripcion ?? item.description;
       const slug        = item.slug;
       const description = item.description ?? item.descripcion_larga ?? item.desc;
@@ -1498,30 +1615,25 @@
       const gtin        = item.meli_gtin ?? item.gtin ?? item.ean ?? item.upc ?? item.barcode ?? item.codigo_barras;
       const qty         = item.stock ?? item.quantity ?? item.qty ?? item.cantidad ?? item.cant;
 
-      applyAiSuggestion('name', name, markSuggested);
-      applyAiSuggestion('slug', slug, markSuggested);
-      applyAiSuggestion('description', description, markSuggested);
-      applyAiSuggestion('excerpt', excerpt, markSuggested);
-      applyAiSuggestion('price', price, markSuggested);
-      applyAiSuggestion('brand_name', brand, markSuggested);
-      applyAiSuggestion('model_name', model, markSuggested);
-      applyAiSuggestion('meli_gtin', gtin, markSuggested);
-      applyAiSuggestion('stock', qty, markSuggested);
+      let changed = 0;
 
-      if (item.category) applyAiSuggestion('category', item.category, markSuggested);
-      if (item.amazon_sku) applyAiSuggestion('amazon_sku', item.amazon_sku, markSuggested);
-      if (item.amazon_asin) applyAiSuggestion('amazon_asin', item.amazon_asin, markSuggested);
-      if (item.amazon_product_type) applyAiSuggestion('amazon_product_type', item.amazon_product_type, markSuggested);
-    }
+      changed += applyAiSuggestion('name', name, markSuggested, onlyMissing);
+      changed += applyAiSuggestion('slug', slug, markSuggested, onlyMissing);
+      changed += applyAiSuggestion('description', description, markSuggested, onlyMissing);
+      changed += applyAiSuggestion('excerpt', excerpt, markSuggested, onlyMissing);
+      changed += applyAiSuggestion('price', price, markSuggested, onlyMissing);
+      changed += applyAiSuggestion('brand_name', brand, markSuggested, onlyMissing);
+      changed += applyAiSuggestion('model_name', model, markSuggested, onlyMissing);
+      changed += applyAiSuggestion('meli_gtin', gtin, markSuggested, onlyMissing);
+      changed += applyAiSuggestion('stock', qty, markSuggested, onlyMissing);
 
-    function escapeHtml(str) {
-      if (str === null || str === undefined) return '';
-      return String(str)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+      if (item.category_key) changed += applyAiSuggestion('category_key', item.category_key, markSuggested, onlyMissing);
+
+      changed += applyAiSuggestion('amazon_sku', item.amazon_sku, markSuggested, onlyMissing);
+      changed += applyAiSuggestion('amazon_asin', item.amazon_asin, markSuggested, onlyMissing);
+      changed += applyAiSuggestion('amazon_product_type', item.amazon_product_type, markSuggested, onlyMissing);
+
+      return changed;
     }
   });
 </script>
@@ -1572,4 +1684,3 @@
 </script>
 @endif
 @endpush
- 
