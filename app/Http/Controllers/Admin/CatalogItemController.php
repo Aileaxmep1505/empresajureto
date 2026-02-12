@@ -5,185 +5,50 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\CatalogAiIntake;
 use App\Models\CatalogItem;
-use App\Services\AmazonSpApiListingService;
-use App\Services\MeliHttp;
 use App\Services\MeliSyncService;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Maatwebsite\Excel\Facades\Excel;
 use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Events\AfterSheet;
-use Maatwebsite\Excel\Facades\Excel;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
+use App\Services\AmazonSpApiListingService;
+
 
 class CatalogItemController extends Controller implements HasMiddleware
 {
     public static function middleware(): array
     {
-        return [new Middleware('auth')];
+        return [ new Middleware('auth') ];
     }
 
-    /* =========================================================
-     |  Helpers: Categorías internas + ML category_id
-     ========================================================= */
-
-    /**
-     * ✅ Mapa interno (category_key) -> Mercado Libre category_id (MLMxxxx)
-     * Lo toma desde config:
-     *   config('catalog.meli_category_map', [])
-     */
-    private function resolveMeliCategoryIdFromCategoryKey(?string $categoryKey): ?string
-    {
-        $categoryKey = is_string($categoryKey) ? trim($categoryKey) : '';
-        if ($categoryKey === '') return null;
-
-        $map = config('catalog.meli_category_map', []);
-        if (!is_array($map) || empty($map)) return null;
-
-        $val = $map[$categoryKey] ?? null;
-        $val = is_string($val) ? trim($val) : null;
-
-        if ($val && str_starts_with($val, 'MLM')) return $val;
-
-        return null;
-    }
-
-    /**
-     * ✅ Acepta category o category_key desde la vista,
-     * pero SOLO guardamos category_key.
-     * Además: si hay mapping, setea meli_category_id automáticamente.
-     */
-    private function normalizeCategoryFields(array $data): array
-    {
-        $incoming = $data['category_key'] ?? ($data['category'] ?? null);
-        $incoming = is_string($incoming) ? trim($incoming) : $incoming;
-
-        $validKeys = array_keys(config('catalog.product_categories', []));
-        if ($incoming !== null && $incoming !== '' && !in_array($incoming, $validKeys, true)) {
-            Log::warning('CatalogItem@normalizeCategoryFields: categoría inválida, se limpia', [
-                'incoming' => $incoming,
-            ]);
-            $incoming = null;
-        }
-
-        $data['category_key'] = $incoming ?: null;
-        unset($data['category']);
-
-        $hasManualMeliCategory = array_key_exists('meli_category_id', $data)
-            && is_string($data['meli_category_id'])
-            && trim($data['meli_category_id']) !== '';
-
-        if (!$hasManualMeliCategory) {
-            $mlCat = $this->resolveMeliCategoryIdFromCategoryKey($data['category_key'] ?? null);
-            if ($mlCat) $data['meli_category_id'] = $mlCat;
-        }
-
-        return $data;
-    }
-
-    /**
-     * ✅ Fuerza a guardar campos sensibles aunque el Model no tenga fillable
-     */
-    private function forcePersistImportantFields(CatalogItem $item, array $data): void
-    {
-        $force = [];
-
-        foreach ([
-            // Web
-            'sku', 'name', 'slug', 'price', 'sale_price', 'stock', 'status', 'published_at', 'is_featured',
-            'category_key', 'excerpt', 'description',
-
-            // ML
-            'brand_name', 'model_name', 'meli_gtin', 'meli_category_id', 'meli_listing_type_id',
-
-            // Amazon
-            'amazon_sku', 'amazon_asin', 'amazon_product_type',
-        ] as $k) {
-            if (array_key_exists($k, $data)) $force[$k] = $data[$k];
-        }
-
-        if (empty($force['meli_category_id']) && !empty($force['category_key'])) {
-            $mlCat = $this->resolveMeliCategoryIdFromCategoryKey($force['category_key']);
-            if ($mlCat) $force['meli_category_id'] = $mlCat;
-        }
-
-        try {
-            $item->forceFill($force)->save();
-        } catch (\Throwable $e) {
-            Log::warning('CatalogItem@forcePersistImportantFields: no se pudo forceFill (no crítico)', [
-                'item_id' => $item->id,
-                'err'     => $e->getMessage(),
-            ]);
-        }
-    }
-
-    /**
-     * ✅ Si ML responde con id/status/permalink, persiste (si existen columns)
-     */
-    private function persistMeliResponse(CatalogItem $item, array $res): void
-    {
-        try {
-            $json = $res['json'] ?? null;
-            if (!is_array($json)) return;
-
-            $id        = $json['id'] ?? null;
-            $status    = $json['status'] ?? null;
-            $permalink = $json['permalink'] ?? null;
-
-            $dirty = false;
-
-            if ($id && isset($item->meli_item_id) && $item->meli_item_id !== $id) {
-                $item->meli_item_id = $id;
-                $dirty = true;
-            }
-
-            if ($status && isset($item->meli_status) && $item->meli_status !== $status) {
-                $item->meli_status = $status;
-                $dirty = true;
-            }
-
-            if ($permalink && isset($item->meli_permalink) && $item->meli_permalink !== $permalink) {
-                $item->meli_permalink = $permalink;
-                $dirty = true;
-            }
-
-            if ($dirty) $item->save();
-        } catch (\Throwable $e) {
-            Log::warning('CatalogItem@persistMeliResponse: no se pudo guardar respuesta ML', [
-                'item_id' => $item->id,
-                'err'     => $e->getMessage(),
-            ]);
-        }
-    }
-
-    /* =========================================================
-     |  INDEX
-     ========================================================= */
     public function index(Request $request)
     {
         $q = CatalogItem::query();
 
-        $s = trim((string)$request->get('s', ''));
+        $s = trim((string) $request->get('s', ''));
         if ($s !== '') {
             $q->where(function ($qq) use ($s) {
                 $qq->where('name', 'like', "%{$s}%")
-                    ->orWhere('sku', 'like', "%{$s}%");
+                   ->orWhere('sku', 'like', "%{$s}%");
             });
         }
 
         if ($request->filled('status')) {
-            $q->where('status', (int)$request->integer('status'));
+            $q->where('status', (int) $request->integer('status'));
         }
 
         if ($request->boolean('featured_only')) {
@@ -206,20 +71,25 @@ class CatalogItemController extends Controller implements HasMiddleware
      |  EXPORTS
      ==========================*/
 
+    /**
+     * Exportar a Excel (.xlsx) con formato:
+     * - Fila 1: "Inventario interno de Jureto" (título grande)
+     * - Fila 3: encabezados en negritas, centrados, fondo gris
+     */
     public function exportExcel(Request $request)
     {
         $q = CatalogItem::query();
 
-        $s = trim((string)$request->get('s', ''));
+        $s = trim((string) $request->get('s', ''));
         if ($s !== '') {
             $q->where(function ($qq) use ($s) {
                 $qq->where('name', 'like', "%{$s}%")
-                    ->orWhere('sku', 'like', "%{$s}%");
+                   ->orWhere('sku', 'like', "%{$s}%");
             });
         }
 
         if ($request->filled('status')) {
-            $q->where('status', (int)$request->integer('status'));
+            $q->where('status', (int) $request->integer('status'));
         }
 
         if ($request->boolean('featured_only')) {
@@ -229,9 +99,14 @@ class CatalogItemController extends Controller implements HasMiddleware
         $items = $q->orderBy('id')->get();
 
         $rows = [];
+
+        // Fila 1: título
         $rows[] = ['Inventario interno de Jureto'];
+
+        // Fila 2: vacía
         $rows[] = [''];
 
+        // Fila 3: encabezados
         $rows[] = [
             'ID',
             'SKU',
@@ -244,13 +119,12 @@ class CatalogItemController extends Controller implements HasMiddleware
             'Slug',
             'Publicado en',
             'ML ID',
-            'ML Category',
         ];
 
         foreach ($items as $it) {
-            $statusText = match ((int)$it->status) {
-                1 => 'Publicado',
-                2 => 'Oculto',
+            $statusText = match ((int) $it->status) {
+                1       => 'Publicado',
+                2       => 'Oculto',
                 default => 'Borrador',
             };
 
@@ -260,22 +134,29 @@ class CatalogItemController extends Controller implements HasMiddleware
                 $it->id,
                 $it->sku,
                 $it->name,
-                (float)$it->price,
-                $it->sale_price !== null ? (float)$it->sale_price : '',
+                (float) $it->price,
+                $it->sale_price !== null ? (float) $it->sale_price : '',
                 $it->stock,
                 $statusText,
                 $featuredText,
                 $it->slug,
                 $it->published_at ? $it->published_at->format('Y-m-d H:i') : '',
                 $it->meli_item_id ?? '',
-                $it->meli_category_id ?? '',
             ];
         }
 
         $export = new class($rows) implements FromArray, ShouldAutoSize, WithEvents {
             private array $rows;
-            public function __construct(array $rows) { $this->rows = array_values($rows); }
-            public function array(): array { return $this->rows; }
+
+            public function __construct(array $rows)
+            {
+                $this->rows = array_values($rows);
+            }
+
+            public function array(): array
+            {
+                return $this->rows;
+            }
 
             public function registerEvents(): array
             {
@@ -283,30 +164,36 @@ class CatalogItemController extends Controller implements HasMiddleware
                     AfterSheet::class => function (AfterSheet $event) {
                         $sheet = $event->sheet->getDelegate();
 
-                        $headerRowExcel = 3;
-                        $headerIndex    = 2;
-
+                        // Fila de encabezados (fila 3 => índice 2 en $this->rows)
+                        $headerIndex       = 2;
                         $headerColumnCount = count($this->rows[$headerIndex]);
                         $lastColumnLetter  = Coordinate::stringFromColumnIndex($headerColumnCount);
 
+                        // 🔹 Título (A1:última_columna1)
                         $sheet->mergeCells("A1:{$lastColumnLetter}1");
                         $sheet->getStyle("A1")->applyFromArray([
-                            'font' => ['bold' => true, 'size' => 16],
+                            'font' => [
+                                'bold' => true,
+                                'size' => 16,
+                            ],
                             'alignment' => [
                                 'horizontal' => Alignment::HORIZONTAL_LEFT,
                                 'vertical'   => Alignment::VERTICAL_CENTER,
                             ],
                         ]);
 
-                        $sheet->getStyle("A{$headerRowExcel}:{$lastColumnLetter}{$headerRowExcel}")->applyFromArray([
-                            'font' => ['bold' => true],
+                        // 🔹 Encabezados (fila 3)
+                        $sheet->getStyle("A3:{$lastColumnLetter}3")->applyFromArray([
+                            'font' => [
+                                'bold' => true,
+                            ],
                             'alignment' => [
                                 'horizontal' => Alignment::HORIZONTAL_CENTER,
                                 'vertical'   => Alignment::VERTICAL_CENTER,
                             ],
                             'fill' => [
                                 'fillType'   => Fill::FILL_SOLID,
-                                'startColor' => ['argb' => 'FFE5E7EB'],
+                                'startColor' => ['argb' => 'FFE5E7EB'], // gris claro
                             ],
                             'borders' => [
                                 'bottom' => [
@@ -316,8 +203,9 @@ class CatalogItemController extends Controller implements HasMiddleware
                             ],
                         ]);
 
+                        // 🔹 Bordes suaves para todo el rango de datos (desde encabezados hacia abajo)
                         $lastRow = count($this->rows);
-                        $sheet->getStyle("A{$headerRowExcel}:{$lastColumnLetter}{$lastRow}")->applyFromArray([
+                        $sheet->getStyle("A3:{$lastColumnLetter}{$lastRow}")->applyFromArray([
                             'borders' => [
                                 'allBorders' => [
                                     'borderStyle' => Border::BORDER_HAIR,
@@ -333,20 +221,26 @@ class CatalogItemController extends Controller implements HasMiddleware
         return Excel::download($export, 'inventario-jureto.xlsx');
     }
 
+    /**
+     * Exportar a PDF:
+     * - Logo arriba (public/images/logo-mail.png)
+     * - Título debajo del logo
+     * - Tabla con todos los datos
+     */
     public function exportPdf(Request $request)
     {
         $q = CatalogItem::query();
 
-        $s = trim((string)$request->get('s', ''));
+        $s = trim((string) $request->get('s', ''));
         if ($s !== '') {
             $q->where(function ($qq) use ($s) {
                 $qq->where('name', 'like', "%{$s}%")
-                    ->orWhere('sku', 'like', "%{$s}%");
+                   ->orWhere('sku', 'like', "%{$s}%");
             });
         }
 
         if ($request->filled('status')) {
-            $q->where('status', (int)$request->integer('status'));
+            $q->where('status', (int) $request->integer('status'));
         }
 
         if ($request->boolean('featured_only')) {
@@ -355,11 +249,12 @@ class CatalogItemController extends Controller implements HasMiddleware
 
         $items = $q->orderBy('id')->get();
 
+        // Logo como base64 para que DomPDF lo agarre sin broncas
         $logoBase64 = null;
         $logoPath   = public_path('images/logo-mail.png');
         if (is_file($logoPath)) {
             $logoData   = file_get_contents($logoPath);
-            $logoBase64 = 'data:image/png;base64,' . base64_encode($logoData);
+            $logoBase64 = 'data:image/png;base64,'.base64_encode($logoData);
         }
 
         $html  = '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">';
@@ -371,54 +266,94 @@ class CatalogItemController extends Controller implements HasMiddleware
             color:#111827;
             margin:20px;
           }
-          .logo-wrap{ text-align:left; margin-bottom:8px; }
-          .logo{ height:40px; }
-          .title-main{ font-size:16px; font-weight:800; margin:0 0 2px; }
-          .top-sub{ font-size:11px; color:#6b7280; margin:0 0 12px; }
-          table{ width:100%; border-collapse:collapse; margin-top:4px; }
-          th,td{ padding:6px 5px; border:1px solid #d1d5db; }
-          th{ background:#f3f4f6; font-weight:700; font-size:11px; }
-          td{ font-size:10px; }
-          .muted{ color:#6b7280; }
+          .logo-wrap{
+            text-align:left;
+            margin-bottom:8px;
+          }
+          .logo{
+            height:40px;
+          }
+          .title-main{
+            font-size:16px;
+            font-weight:800;
+            margin:0 0 2px;
+          }
+          .top-sub{
+            font-size:11px;
+            color:#6b7280;
+            margin:0 0 12px;
+          }
+          table{
+            width:100%;
+            border-collapse:collapse;
+            margin-top:4px;
+          }
+          th,td{
+            padding:6px 5px;
+            border:1px solid #d1d5db;
+          }
+          th{
+            background:#f3f4f6;
+            font-weight:700;
+            font-size:11px;
+          }
+          td{
+            font-size:10px;
+          }
+          .muted{
+            color:#6b7280;
+          }
         </style></head><body>';
 
+        // 🔹 Logo arriba de todo
         if ($logoBase64) {
-            $html .= '<div class="logo-wrap"><img class="logo" src="' . $logoBase64 . '" alt="Logo Jureto"></div>';
+            $html .= '<div class="logo-wrap"><img class="logo" src="'.$logoBase64.'" alt="Logo Jureto"></div>';
         }
 
+        // 🔹 Título y subtítulo
         $html .= '<h1 class="title-main">Inventario interno de Jureto</h1>';
         $html .= '<p class="top-sub">Listado de productos con filtros actuales</p>';
 
+        // Tabla
         $html .= '<table><thead><tr>';
-        $html .= '<th>ID</th><th>SKU</th><th>Nombre</th><th>Precio</th><th>Oferta</th><th>Stock</th><th>Estado</th><th>Destacado</th><th>Slug</th><th>Publicado</th><th>ML ID</th><th>ML Category</th>';
+        $html .= '<th>ID</th>';
+        $html .= '<th>SKU</th>';
+        $html .= '<th>Nombre</th>';
+        $html .= '<th>Precio</th>';
+        $html .= '<th>Oferta</th>';
+        $html .= '<th>Stock</th>';
+        $html .= '<th>Estado</th>';
+        $html .= '<th>Destacado</th>';
+        $html .= '<th>Slug</th>';
+        $html .= '<th>Publicado</th>';
+        $html .= '<th>ML ID</th>';
         $html .= '</tr></thead><tbody>';
 
         foreach ($items as $it) {
-            $statusText = match ((int)$it->status) {
-                1 => 'Publicado',
-                2 => 'Oculto',
+            $statusText = match ((int) $it->status) {
+                1       => 'Publicado',
+                2       => 'Oculto',
                 default => 'Borrador',
             };
             $featuredText = $it->is_featured ? 'Sí' : 'No';
 
             $html .= '<tr>';
-            $html .= '<td>' . htmlspecialchars((string)$it->id) . '</td>';
-            $html .= '<td>' . htmlspecialchars((string)($it->sku ?? '')) . '</td>';
-            $html .= '<td>' . htmlspecialchars((string)$it->name) . '</td>';
-            $html .= '<td>$' . number_format((float)$it->price, 2) . '</td>';
-            $html .= '<td>' . ($it->sale_price !== null ? '$' . number_format((float)$it->sale_price, 2) : '—') . '</td>';
-            $html .= '<td>' . htmlspecialchars((string)($it->stock ?? 0)) . '</td>';
-            $html .= '<td>' . htmlspecialchars($statusText) . '</td>';
-            $html .= '<td>' . htmlspecialchars($featuredText) . '</td>';
-            $html .= '<td>' . htmlspecialchars((string)$it->slug) . '</td>';
-            $html .= '<td>' . ($it->published_at ? htmlspecialchars($it->published_at->format('Y-m-d H:i')) : '—') . '</td>';
-            $html .= '<td>' . htmlspecialchars((string)($it->meli_item_id ?? '')) . '</td>';
-            $html .= '<td>' . htmlspecialchars((string)($it->meli_category_id ?? '')) . '</td>';
+            $html .= '<td>'.htmlspecialchars((string) $it->id).'</td>';
+            $html .= '<td>'.htmlspecialchars((string) ($it->sku ?? '')).'</td>';
+            $html .= '<td>'.htmlspecialchars((string) $it->name).'</td>';
+            $html .= '<td>$'.number_format((float) $it->price, 2).'</td>';
+            $html .= '<td>'.($it->sale_price !== null ? '$'.number_format((float) $it->sale_price, 2) : '—').'</td>';
+            $html .= '<td>'.htmlspecialchars((string) ($it->stock ?? 0)).'</td>';
+            $html .= '<td>'.htmlspecialchars($statusText).'</td>';
+            $html .= '<td>'.htmlspecialchars($featuredText).'</td>';
+            $html .= '<td>'.htmlspecialchars((string) $it->slug).'</td>';
+            $html .= '<td>'.($it->published_at ? htmlspecialchars($it->published_at->format('Y-m-d H:i')) : '—').'</td>';
+            $html .= '<td>'.htmlspecialchars((string) ($it->meli_item_id ?? '')).'</td>';
             $html .= '</tr>';
         }
 
         if ($items->isEmpty()) {
-            $html .= '<tr><td colspan="12" class="muted" style="text-align:center;padding:14px 6px;">';
+            $html .= '<tr><td colspan="11" class="muted" style="text-align:center;padding:14px 6px;">';
             $html .= 'No hay productos que coincidan con el filtro.';
             $html .= '</td></tr>';
         }
@@ -426,6 +361,7 @@ class CatalogItemController extends Controller implements HasMiddleware
         $html .= '</tbody></table></body></html>';
 
         $pdf = Pdf::loadHTML($html)->setPaper('a4', 'landscape');
+
         return $pdf->download('inventario-jureto.pdf');
     }
 
@@ -445,8 +381,11 @@ class CatalogItemController extends Controller implements HasMiddleware
 
     public function store(Request $request)
     {
-        Log::info('CatalogItem@store: inicio', ['input' => $request->all()]);
+        Log::info('CatalogItem@store: inicio', [
+            'input' => $request->all(),
+        ]);
 
+        // Validación SOLO de campos de texto/numéricos (SIN fotos aquí)
         $data = $request->validate([
             'name'        => ['required', 'string', 'max:255'],
             'slug'        => ['nullable', 'string', 'max:255'],
@@ -454,51 +393,63 @@ class CatalogItemController extends Controller implements HasMiddleware
             'price'       => ['required', 'numeric', 'min:0'],
             'sale_price'  => ['nullable', 'numeric', 'min:0'],
             'stock'       => ['nullable', 'integer', 'min:0'],
-            'status'      => ['required', 'integer', 'in:0,1,2'],
+            'status'      => ['required', 'integer', 'in:0,1,2'], // 0=borrador 1=publicado 2=oculto
             'is_featured' => ['nullable', 'boolean'],
 
-            'category'     => ['nullable', 'string', 'max:190'],
-            'category_key' => ['nullable', 'string', 'max:190'],
+            // Categoría string (clave de config/catalog.php)
+            'category_key'=> ['nullable', 'string', 'max:190'],
 
-            'use_internal' => ['nullable', 'boolean'],
-            'brand_id'     => ['nullable', 'integer'],
-            'category_id'  => ['nullable', 'integer'],
+            // Clasificación interna
+            'use_internal'=> ['nullable', 'boolean'],
+            'brand_id'    => ['nullable', 'integer'],
+            'category_id' => ['nullable', 'integer'],
 
-            // ML fields
-            'brand_name'           => ['nullable', 'string', 'max:120'],
-            'model_name'           => ['nullable', 'string', 'max:120'],
-            'meli_gtin'            => ['nullable', 'string', 'max:50'],
-            'meli_category_id'     => ['nullable', 'string', 'max:32'],
-            'meli_listing_type_id' => ['nullable', 'string', 'max:32'],
+            // Mercado Libre texto
+            'brand_name'  => ['nullable', 'string', 'max:120'],
+            'model_name'  => ['nullable', 'string', 'max:120'],
+            'meli_gtin'   => ['nullable', 'string', 'max:50'],
 
-            'excerpt'      => ['nullable', 'string'],
-            'description'  => ['nullable', 'string'],
-            'published_at' => ['nullable', 'date'],
-
-            // Amazon fields
-            'amazon_sku'          => ['nullable', 'string', 'max:120'],
-            'amazon_asin'         => ['nullable', 'string', 'max:40'],
-            'amazon_product_type' => ['nullable', 'string', 'max:80'],
+            'excerpt'     => ['nullable', 'string'],
+            'description' => ['nullable', 'string'],
+            'published_at'=> ['nullable', 'date'],
         ]);
 
-        $data = $this->normalizeCategoryFields($data);
+        Log::info('CatalogItem@store: datos validados', [
+            'data' => $data,
+        ]);
 
+        // Validar que la category_key exista (si viene)
+        if (!empty($data['category_key'])) {
+            $validKeys = array_keys(config('catalog.product_categories', []));
+            if (!in_array($data['category_key'], $validKeys, true)) {
+                Log::warning('CatalogItem@store: category_key no es válida, se limpia', [
+                    'category_key' => $data['category_key'],
+                ]);
+                $data['category_key'] = null;
+            }
+        }
+
+        // Slug base: slug enviado o nombre
         $baseSlug = isset($data['slug']) && trim($data['slug']) !== ''
             ? Str::slug($data['slug'])
             : Str::slug($data['name']);
 
-        if ($baseSlug === '') $baseSlug = Str::slug(Str::random(8));
+        if ($baseSlug === '') {
+            $baseSlug = Str::slug(Str::random(8));
+        }
 
+        // Slug único (slug, slug-1, slug-2, ...)
         $slug = $baseSlug;
         $i = 1;
         while (CatalogItem::where('slug', $slug)->exists()) {
-            $slug = $baseSlug . '-' . ($i++);
+            $slug = $baseSlug.'-'.($i++);
         }
         $data['slug'] = $slug;
 
-        $data['is_featured'] = (bool)($data['is_featured'] ?? false);
+        $data['is_featured'] = (bool) ($data['is_featured'] ?? false);
         $data['stock']       = $data['stock'] ?? 0;
 
+        // Si no usan clasificación interna, limpiar ids
         if (!$request->boolean('use_internal')) {
             $data['brand_id']    = null;
             $data['category_id'] = null;
@@ -506,16 +457,11 @@ class CatalogItemController extends Controller implements HasMiddleware
 
         try {
             $item = CatalogItem::create($data);
-            $this->forcePersistImportantFields($item, $data);
 
-            Log::info('CatalogItem@store: item creado', [
-                'item_id'        => $item->id,
-                'slug'           => $item->slug,
-                'category_key'   => $item->category_key ?? null,
-                'meli_category'  => $item->meli_category_id ?? null,
-                'brand_name'     => $item->brand_name ?? null,
-                'model_name'     => $item->model_name ?? null,
-                'meli_gtin'      => $item->meli_gtin ?? null,
+            Log::info('CatalogItem@store: item creado en BD', [
+                'item_id'      => $item->id,
+                'slug'         => $item->slug,
+                'category_key' => $item->category_key ?? null,
             ]);
         } catch (\Throwable $e) {
             Log::error('CatalogItem@store: ERROR al crear item', [
@@ -524,15 +470,28 @@ class CatalogItemController extends Controller implements HasMiddleware
                 'data'      => $data,
             ]);
 
-            return back()->withInput()->withErrors(['general' => 'No se pudo guardar el producto. Revisa el log.']);
+            return back()
+                ->withInput()
+                ->withErrors(['general' => 'No se pudo guardar el producto en la base de datos. Revisa el log para más detalles.']);
         }
 
+        // Guardar 3 fotos
         $this->saveOrReplacePhoto($request, $item, 'photo_1', 'photo_1_file');
         $this->saveOrReplacePhoto($request, $item, 'photo_2', 'photo_2_file');
         $this->saveOrReplacePhoto($request, $item, 'photo_3', 'photo_3_file');
 
-        $this->ensureThreePhotos($item);
+        // Validación final de fotos
+        try {
+            $this->ensureThreePhotos($item);
+        } catch (ValidationException $e) {
+            Log::warning('CatalogItem@store: faltan fotos después de crear item', [
+                'item_id' => $item->id,
+                'errors'  => $e->errors(),
+            ]);
+            throw $e;
+        }
 
+        // Sync ML (no rompe UI si falla)
         $this->dispatchMeliSync($item->fresh());
 
         if ($request->wantsJson()) {
@@ -575,37 +534,42 @@ class CatalogItemController extends Controller implements HasMiddleware
             'status'      => ['required', 'integer', 'in:0,1,2'],
             'is_featured' => ['nullable', 'boolean'],
 
-            'category'     => ['nullable', 'string', 'max:190'],
-            'category_key' => ['nullable', 'string', 'max:190'],
+            'category_key'=> ['nullable', 'string', 'max:190'],
+            'use_internal'=> ['nullable', 'boolean'],
+            'brand_id'    => ['nullable', 'integer'],
+            'category_id' => ['nullable', 'integer'],
 
-            'use_internal' => ['nullable', 'boolean'],
-            'brand_id'     => ['nullable', 'integer'],
-            'category_id'  => ['nullable', 'integer'],
-
-            // ML fields
-            'brand_name'           => ['nullable', 'string', 'max:120'],
-            'model_name'           => ['nullable', 'string', 'max:120'],
-            'meli_gtin'            => ['nullable', 'string', 'max:50'],
-            'meli_category_id'     => ['nullable', 'string', 'max:32'],
-            'meli_listing_type_id' => ['nullable', 'string', 'max:32'],
-
-            'excerpt'      => ['nullable', 'string'],
-            'description'  => ['nullable', 'string'],
-            'published_at' => ['nullable', 'date'],
-
-            // Amazon fields
-            'amazon_sku'          => ['nullable', 'string', 'max:120'],
-            'amazon_asin'         => ['nullable', 'string', 'max:40'],
-            'amazon_product_type' => ['nullable', 'string', 'max:80'],
+            'brand_name'  => ['nullable', 'string', 'max:120'],
+            'model_name'  => ['nullable', 'string', 'max:120'],
+            'meli_gtin'   => ['nullable', 'string', 'max:50'],
+            'excerpt'     => ['nullable', 'string'],
+            'description' => ['nullable', 'string'],
+            'published_at'=> ['nullable', 'date'],
         ]);
 
-        $data = $this->normalizeCategoryFields($data);
+        Log::info('CatalogItem@update: datos validados', [
+            'item_id' => $catalogItem->id,
+            'data'    => $data,
+        ]);
+
+        if (!empty($data['category_key'])) {
+            $validKeys = array_keys(config('catalog.product_categories', []));
+            if (!in_array($data['category_key'], $validKeys, true)) {
+                Log::warning('CatalogItem@update: category_key no es válida, se limpia', [
+                    'item_id'      => $catalogItem->id,
+                    'category_key' => $data['category_key'],
+                ]);
+                $data['category_key'] = null;
+            }
+        }
 
         $baseSlug = isset($data['slug']) && trim($data['slug']) !== ''
             ? Str::slug($data['slug'])
             : Str::slug($data['name']);
 
-        if ($baseSlug === '') $baseSlug = Str::slug(Str::random(8));
+        if ($baseSlug === '') {
+            $baseSlug = Str::slug(Str::random(8));
+        }
 
         $slug = $baseSlug;
         $i = 1;
@@ -614,11 +578,10 @@ class CatalogItemController extends Controller implements HasMiddleware
                 ->where('id', '!=', $catalogItem->id)
                 ->exists()
         ) {
-            $slug = $baseSlug . '-' . ($i++);
+            $slug = $baseSlug.'-'.($i++);
         }
-
         $data['slug']        = $slug;
-        $data['is_featured'] = (bool)($data['is_featured'] ?? false);
+        $data['is_featured'] = (bool) ($data['is_featured'] ?? false);
         $data['stock']       = $data['stock'] ?? 0;
 
         if (!$request->boolean('use_internal')) {
@@ -628,15 +591,11 @@ class CatalogItemController extends Controller implements HasMiddleware
 
         try {
             $catalogItem->update($data);
-            $this->forcePersistImportantFields($catalogItem, $data);
 
-            Log::info('CatalogItem@update: item actualizado', [
-                'item_id'        => $catalogItem->id,
-                'category_key'   => $catalogItem->category_key ?? null,
-                'meli_category'  => $catalogItem->meli_category_id ?? null,
-                'brand_name'     => $catalogItem->brand_name ?? null,
-                'model_name'     => $catalogItem->model_name ?? null,
-                'meli_gtin'      => $catalogItem->meli_gtin ?? null,
+            Log::info('CatalogItem@update: item actualizado en BD', [
+                'item_id'      => $catalogItem->id,
+                'slug'         => $catalogItem->slug,
+                'category_key' => $catalogItem->category_key ?? null,
             ]);
         } catch (\Throwable $e) {
             Log::error('CatalogItem@update: ERROR al actualizar item', [
@@ -646,14 +605,24 @@ class CatalogItemController extends Controller implements HasMiddleware
                 'data'      => $data,
             ]);
 
-            return back()->withInput()->withErrors(['general' => 'No se pudo actualizar el producto. Revisa el log.']);
+            return back()
+                ->withInput()
+                ->withErrors(['general' => 'No se pudo actualizar el producto en la base de datos. Revisa el log para más detalles.']);
         }
 
         $this->saveOrReplacePhoto($request, $catalogItem, 'photo_1', 'photo_1_file');
         $this->saveOrReplacePhoto($request, $catalogItem, 'photo_2', 'photo_2_file');
         $this->saveOrReplacePhoto($request, $catalogItem, 'photo_3', 'photo_3_file');
 
-        $this->ensureThreePhotos($catalogItem);
+        try {
+            $this->ensureThreePhotos($catalogItem);
+        } catch (ValidationException $e) {
+            Log::warning('CatalogItem@update: faltan fotos después de update', [
+                'item_id' => $catalogItem->id,
+                'errors'  => $e->errors(),
+            ]);
+            throw $e;
+        }
 
         $this->dispatchMeliSync($catalogItem->fresh());
 
@@ -662,7 +631,9 @@ class CatalogItemController extends Controller implements HasMiddleware
 
     public function destroy(CatalogItem $catalogItem)
     {
-        Log::info('CatalogItem@destroy: inicio', ['item_id' => $catalogItem->id]);
+        Log::info('CatalogItem@destroy: inicio', [
+            'item_id' => $catalogItem->id,
+        ]);
 
         $this->deletePublicFileIfExists($catalogItem->photo_1);
         $this->deletePublicFileIfExists($catalogItem->photo_2);
@@ -671,11 +642,16 @@ class CatalogItemController extends Controller implements HasMiddleware
         $catalogItem->delete();
         $this->dispatchMeliSync($catalogItem);
 
-        Log::info('CatalogItem@destroy: item eliminado', ['item_id' => $catalogItem->id]);
+        Log::info('CatalogItem@destroy: item eliminado', [
+            'item_id' => $catalogItem->id,
+        ]);
 
-        return redirect()->route('admin.catalog.index')->with('ok', 'Producto web eliminado.');
+        return redirect()
+            ->route('admin.catalog.index')
+            ->with('ok', 'Producto web eliminado.');
     }
 
+    /** Publicar/Ocultar rápido */
     public function toggleStatus(CatalogItem $catalogItem)
     {
         $catalogItem->status = $catalogItem->status == 1 ? 2 : 1;
@@ -694,181 +670,89 @@ class CatalogItemController extends Controller implements HasMiddleware
         return back()->with('ok', 'Estado actualizado. Sincronización con Mercado Libre encolada.');
     }
 
-    public function updateStock(Request $request, CatalogItem $catalogItem)
-    {
-        $data = $request->validate([
-            'stock' => ['required', 'numeric', 'min:0'],
-        ]);
-
-        $catalogItem->stock = (int)$data['stock'];
-        $catalogItem->save();
-
-        Log::info('CatalogItem@updateStock: stock actualizado', [
-            'item_id' => $catalogItem->id,
-            'stock'   => $catalogItem->stock,
-        ]);
-
-        return back()->with('ok', 'Stock actualizado correctamente.');
-    }
-
     /* =========================
      |  ACCIONES MERCADO LIBRE
      ==========================*/
 
-    /**
-     * ✅ Publicar en ML:
-     * - ?catalog=1  => fuerza catálogo directo
-     * - ?force=1    => "si o si" (si categoría es catalog-domain, fuerza catálogo)
-     */
-    public function meliPublish(Request $request, CatalogItem $catalogItem, MeliSyncService $svc)
+    public function meliPublish(CatalogItem $catalogItem, MeliSyncService $svc)
     {
-        $catalogItem = $catalogItem->fresh();
-
-        $force  = $request->boolean('force');
-        $catalog= $request->boolean('catalog');
-
-        Log::info('CatalogItem@meliPublish: inicio', [
-            'item_id'   => $catalogItem->id,
-            'force'     => $force,
-            'catalog'   => $catalog,
-            'category'  => $catalogItem->meli_category_id ?? null,
-            'brand'     => $catalogItem->brand_name ?? null,
-            'model'     => $catalogItem->model_name ?? null,
-            'gtin'      => $catalogItem->meli_gtin ?? null,
+        $res = $svc->sync($catalogItem, [
+            'activate'           => true,
+            'update_description' => true,
+            'ensure_picture'     => true,
         ]);
 
-        try {
-            $res = $svc->publishCatalogItem($catalogItem, [
-                'activate'           => true,
-                'update_description' => true,
+        if ($res['ok']) {
+            $msg = 'Publicado/actualizado en Mercado Libre.';
 
-                // ✅ estas 2 son las importantes
-                'allow_catalog'      => $catalog, // catálogo directo
-                'force'              => $force,   // si es catalog-domain, forzar catálogo
-            ]);
-        } catch (\Throwable $e) {
-            Log::error('CatalogItem@meliPublish: exception', [
-                'item_id' => $catalogItem->id,
-                'err'     => $e->getMessage(),
-            ]);
-            return back()->withErrors(['general' => 'Error publicando en ML: ' . $e->getMessage()]);
+            if ($catalogItem->meli_item_id || !empty($res['json']['id'] ?? null)) {
+                $mlId = $res['json']['id'] ?? $catalogItem->meli_item_id;
+                $mlSt = $res['json']['status'] ?? $catalogItem->meli_status ?? '—';
+                $msg .= " Mercado Libre: ID: {$mlId} · Estado: {$mlSt}";
+            }
+
+            return back()->with('ok', $msg);
         }
 
-        if (!empty($res['ok'])) {
-            $this->persistMeliResponse($catalogItem->fresh(), $res);
-            $mlId = $res['json']['id'] ?? ($catalogItem->meli_item_id ?? '—');
-            $mlSt = $res['json']['status'] ?? ($catalogItem->meli_status ?? '—');
-            return back()->with('ok', "Publicado en ML. ID: {$mlId} · Estado: {$mlSt}");
-        }
-
-        return back()->withErrors(['general' => $res['message'] ?? 'No se pudo publicar en Mercado Libre.']);
+        $friendly = $res['message'] ?? 'No se pudo publicar en Mercado Libre. Revisa los datos del producto.';
+        return back()->with('ok', $friendly);
     }
 
     public function meliPause(CatalogItem $catalogItem, MeliSyncService $svc)
     {
-        $catalogItem = $catalogItem->fresh();
+        $res = $svc->pause($catalogItem);
 
-        try {
-            $res = $svc->pauseCatalogItem($catalogItem);
-        } catch (\Throwable $e) {
-            return back()->withErrors(['general' => 'Error pausando en ML: ' . $e->getMessage()]);
-        }
-
-        if (!empty($res['ok'])) {
+        if ($res['ok']) {
             return back()->with('ok', 'Publicación pausada en Mercado Libre.');
         }
 
-        return back()->withErrors(['general' => $res['message'] ?? 'No se pudo pausar en Mercado Libre.']);
+        $friendly = $res['message'] ?? 'No se pudo pausar la publicación en Mercado Libre.';
+        return back()->with('ok', $friendly);
     }
 
     public function meliActivate(CatalogItem $catalogItem, MeliSyncService $svc)
     {
-        $catalogItem = $catalogItem->fresh();
+        $res = $svc->activate($catalogItem);
 
-        try {
-            $res = $svc->activateCatalogItem($catalogItem);
-        } catch (\Throwable $e) {
-            return back()->withErrors(['general' => 'Error activando en ML: ' . $e->getMessage()]);
-        }
-
-        if (!empty($res['ok'])) {
+        if ($res['ok']) {
             return back()->with('ok', 'Publicación activada en Mercado Libre.');
         }
 
-        return back()->withErrors(['general' => $res['message'] ?? 'No se pudo activar en Mercado Libre.']);
+        $friendly = $res['message'] ?? 'No se pudo activar la publicación en Mercado Libre.';
+        return back()->with('ok', $friendly);
     }
 
-    /**
-     * ✅ ESTA ES LA QUE TE FALTABA (y por eso tronaba):
-     * Route apunta a CatalogItemController@meliView y no existía.
-     *
-     * Abre el permalink si existe, si no: intenta obtenerlo vía API, si no: abre búsqueda.
-     */
-    public function meliView(CatalogItem $catalogItem, MeliSyncService $svc)
+    public function meliView(CatalogItem $catalogItem)
     {
-        $catalogItem = $catalogItem->fresh();
-
-        $permalink = null;
-
-        // 1) si ya lo tienes guardado
-        if (isset($catalogItem->meli_permalink) && is_string($catalogItem->meli_permalink)) {
-            $permalink = trim((string)$catalogItem->meli_permalink);
+        if (!$catalogItem->meli_item_id) {
+            return back()->with('ok', 'Este producto aún no tiene publicación en ML.');
         }
 
-        // 2) si no, intenta fetch por API
-        if (!$permalink && !empty($catalogItem->meli_item_id)) {
-            $permalink = $svc->getPermalink((string)$catalogItem->meli_item_id);
-
-            // persistir si existe la columna
-            if ($permalink && isset($catalogItem->meli_permalink)) {
-                try {
-                    $catalogItem->meli_permalink = $permalink;
-                    $catalogItem->save();
-                } catch (\Throwable $e) {
-                }
-            }
+        $http = \App\Services\MeliHttp::withFreshToken();
+        $resp = $http->get("https://api.mercadolibre.com/items/{$catalogItem->meli_item_id}");
+        if ($resp->failed()) {
+            return back()->with('ok', 'No se pudo obtener el permalink desde ML.');
         }
 
-        // 3) si hay permalink => abre
-        if ($permalink) {
-            return redirect()->away($permalink);
-        }
-
-        // 4) fallback: búsqueda por nombre
-        $q = urlencode((string)($catalogItem->name ?? $catalogItem->sku ?? ''));
-        return redirect()->away("https://listado.mercadolibre.com.mx/{$q}");
-    }
-
-    /** Dispara el sync con ML sin romper la UI si algo truena */
-    private function dispatchMeliSync(CatalogItem $item): void
-    {
-        try {
-            app(MeliSyncService::class)->publishCatalogItem($item, [
-                'activate'           => false,
-                'update_description' => false,
-                'allow_catalog'      => false,
-                'force'              => false,
-            ]);
-        } catch (\Throwable $e) {
-            Log::warning('CatalogItem@dispatchMeliSync: error no crítico', [
-                'item_id'   => $item->id,
-                'exception' => $e->getMessage(),
-            ]);
-        }
+        $permalink = $resp->json('permalink');
+        return $permalink
+            ? redirect()->away($permalink)
+            : back()->with('ok', 'Este ítem no tiene permalink disponible.');
     }
 
     /* =========================
      |  IA: Captura desde QR
      ==========================*/
 
+    // POST /admin/catalog/ai/start
     public function aiStart(Request $r)
     {
         $intake = CatalogAiIntake::create([
-            'token'       => Str::random(40),
-            'created_by'  => $r->user()->id,
-            'status'      => 0,
-            'source_type' => $r->get('source_type', 'factura'),
-            'notes'       => $r->get('notes'),
+            'token'      => Str::random(40),
+            'created_by' => $r->user()->id,
+            'status'     => 0,
+            'source_type'=> $r->get('source_type','factura'),
+            'notes'      => $r->get('notes'),
         ]);
 
         return response()->json([
@@ -879,6 +763,7 @@ class CatalogItemController extends Controller implements HasMiddleware
         ]);
     }
 
+    // GET /admin/catalog/ai/{intake}/status
     public function aiStatus(CatalogAiIntake $intake)
     {
         return response()->json([
@@ -888,309 +773,304 @@ class CatalogItemController extends Controller implements HasMiddleware
         ]);
     }
 
-    // ✅ Tu aiFromUpload va aquí TAL CUAL (no la recorto). La dejo igual que la pegaste.
+    /* ===============================================
+     |  IA: Captura desde archivos / imágenes / PDF
+     |  POST /admin/catalog/ai-from-upload
+     |  => soporta múltiples productos (items[])
+     ================================================*/
     public function aiFromUpload(Request $request)
     {
-        try {
-            // =========================================================
-            // 1) Detectar archivos (tu JS manda files[])
-            // =========================================================
-            $files = [];
+        $request->validate([
+            'files.*' => 'required|file|max:8192|mimes:jpg,jpeg,png,webp,pdf',
+        ]);
 
-            $arr1 = $request->file('files', []);
-            if (is_array($arr1) && count($arr1)) $files = array_merge($files, $arr1);
+        $files = $request->file('files', []);
 
-            $arr2 = $request->file('ai_files', []);
-            if (is_array($arr2) && count($arr2)) $files = array_merge($files, $arr2);
+        if (empty($files)) {
+            return response()->json([
+                'error' => 'No se recibieron archivos.',
+            ], 422);
+        }
 
-            /** @var \Illuminate\Http\UploadedFile|null $single */
-            $single =
-                $request->file('file')
-                ?: $request->file('upload')
-                ?: $request->file('photo')
-                ?: $request->file('image')
-                ?: $request->file('document');
+        // Config OpenAI
+        $apiKey  = config('services.openai.api_key') ?: config('services.openai.key');
+        $baseUrl = rtrim(config('services.openai.base_url', 'https://api.openai.com'), '/');
 
-            if ($single instanceof \Illuminate\Http\UploadedFile) $files[] = $single;
+        $modelId = 'gpt-4.1-mini';
 
-            $files = array_values(array_filter($files, fn($f) => $f instanceof \Illuminate\Http\UploadedFile));
+        if (!$apiKey) {
+            Log::warning('AI catalog error: missing OpenAI API key');
+            return response()->json([
+                'error' => 'Falta configurar la API key de OpenAI en el servidor.',
+            ], 500);
+        }
 
-            if (!count($files)) {
-                return response()->json([
-                    'error' => 'No se recibió archivo. Envía files[] o ai_files[] (multipart/form-data).',
-                ], 422);
-            }
+        // 1) Subir archivos a /v1/files
+        $fileInputs = [];
 
-            // =========================================================
-            // 2) Validar mimes
-            // =========================================================
-            $allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+        foreach ($files as $file) {
+            if (!$file) continue;
 
-            foreach ($files as $f) {
-                if (!$f->isValid()) return response()->json(['error' => 'Archivo inválido o corrupto.'], 422);
-
-                $mime = (string)($f->getMimeType() ?: '');
-                if (!in_array($mime, $allowedMimes, true)) {
-                    return response()->json([
-                        'error' => 'Tipo no permitido. Sube JPG/PNG/WEBP o PDF.',
-                        'mime'  => $mime
-                    ], 422);
-                }
-            }
-
-            // =========================================================
-            // 3) API KEY + modelo
-            // =========================================================
-            $apiKey = config('services.openai.key') ?: env('OPENAI_API_KEY');
-            $apiKey = is_string($apiKey) ? trim($apiKey) : '';
-            if ($apiKey === '') {
-                return response()->json(['error' => 'Falta OPENAI_API_KEY en .env (o services.openai.key).'], 500);
-            }
-
-            $model = env('OPENAI_MODEL', 'gpt-5-2025-08-07');
-
-            // =========================================================
-            // 4) Subir archivos a OpenAI Files API (purpose=user_data)
-            // =========================================================
-            $openAiFileIds = [];
-            foreach ($files as $f) {
-                $filename = $f->getClientOriginalName() ?: ('upload-' . now()->format('Ymd-His'));
-                $stream   = fopen($f->getRealPath(), 'r');
-
-                $resp = \Illuminate\Support\Facades\Http::withToken($apiKey)
-                    ->timeout(120)
-                    ->attach('file', $stream, $filename)
-                    ->asMultipart()
-                    ->post('https://api.openai.com/v1/files', [
+            try {
+                $uploadResponse = Http::withToken($apiKey)
+                    ->attach(
+                        'file',
+                        file_get_contents($file->getRealPath()),
+                        $file->getClientOriginalName()
+                    )
+                    ->post($baseUrl.'/v1/files', [
                         'purpose' => 'user_data',
                     ]);
 
-                if (!$resp->ok()) {
-                    \Illuminate\Support\Facades\Log::error('aiFromUpload: OpenAI files.create failed', [
-                        'status' => $resp->status(),
-                        'body'   => $resp->body(),
+                if (!$uploadResponse->ok()) {
+                    Log::warning('AI catalog file upload error', [
+                        'status' => $uploadResponse->status(),
+                        'body'   => $uploadResponse->body(),
                     ]);
-                    return response()->json(['error' => 'No se pudo subir el archivo a la IA (Files API). Revisa logs.'], 500);
+
+                    return response()->json([
+                        'error' => 'Error subiendo archivo(s) a OpenAI.',
+                    ], 500);
                 }
 
-                $fileId = $resp->json('id');
-                if (!$fileId) return response()->json(['error' => 'OpenAI no devolvió file_id.'], 500);
+                $fileId = $uploadResponse->json('id');
+                if (!$fileId) {
+                    Log::warning('AI catalog file upload without id', [
+                        'body' => $uploadResponse->json(),
+                    ]);
 
-                $openAiFileIds[] = $fileId;
+                    return response()->json([
+                        'error' => 'OpenAI no regresó un ID de archivo.',
+                    ], 500);
+                }
+
+                $fileInputs[] = [
+                    'type'    => 'input_file',
+                    'file_id' => $fileId,
+                ];
+            } catch (\Throwable $e) {
+                Log::error('AI catalog error uploading file', [
+                    'error' => $e->getMessage(),
+                ]);
+
+                return response()->json([
+                    'error' => 'Error al subir archivo(s) a OpenAI.',
+                ], 500);
             }
+        }
 
-            // =========================================================
-            // 5) Prompt (precisión alta)
-            // =========================================================
-            $instruction = <<<PROMPT
-Eres un extractor de partidas de productos para un catálogo (México). Lee el/los archivos adjuntos (PDF o imágenes) y extrae TODAS las partidas.
+        if (empty($fileInputs)) {
+            return response()->json([
+                'error' => 'No se pudieron preparar los archivos para la IA.',
+            ], 500);
+        }
 
-NO inventes: si un campo no aparece explícitamente, usa null.
-NO son productos: SUBTOTAL, TOTAL, IVA, IMPUESTO, DESCUENTO, ENVÍO, CAMBIO, PAGO, ANTICIPO, ABONO, SALDO, etc.
+        // 2) Llamar a /v1/responses
+        $systemPrompt = <<<TXT
+Eres un asistente experto en catálogo de productos, papelería, equipo médico y comercio electrónico (México).
+
+A partir de los archivos (PDF o imágenes) que te envío (facturas, remisiones, listados):
+- Ignora datos de la tienda, RFC, direcciones, totales, impuestos y notas generales.
+- Identifica TODOS los renglones que describan productos (conceptos de venta).
+- Para cada producto, genera un objeto con esta estructura EXACTA:
+
+{
+  "name": "Nombre completo del producto",
+  "slug": "slug-sugerido-en-kebab-case",
+  "description": "Descripción larga en español, ordenada y con frases cortas.",
+  "excerpt": "Resumen corto en una o dos frases.",
+  "price": 0,
+  "brand_name": "",
+  "model_name": "",
+  "meli_gtin": "",
+  "quantity": 0
+}
+
+La RESPUESTA FINAL debe ser EXCLUSIVAMENTE un JSON con esta forma:
+
+{
+  "items": [
+    { ...producto_1... },
+    { ...producto_2... },
+    { ...producto_3... }
+  ]
+}
 
 Reglas:
-- Si hay columnas CANT | DESCRIPCIÓN | P. UNIT | IMPORTE -> usa P. UNIT como price.
-- Si falta P. UNIT pero hay IMPORTE y CANT -> price = IMPORTE / CANT (solo si es claro).
-- Si hay “10 cajas de 100 pzs” -> stock=1000 y extra.notes lo explica.
-- Máximo 80 productos.
-Devuelve SOLO JSON (sin texto extra).
-PROMPT;
+- Responde ÚNICAMENTE ese JSON y nada más (sin texto adicional).
+- "name": debe ser claro: tipo de producto + marca + modelo + medida o presentación si aplica.
+- "slug": en kebab-case, basado en el nombre (sin tildes, sin símbolos, solo letras, números y guiones).
+- "price": en MXN, numérico (sin símbolo $). Usa el precio unitario si aparece; si no hay, usa 0.
+- "brand_name": marca comercial que ve el cliente. Si no aparece, cadena vacía.
+- "model_name": modelo o referencia. Si no aparece, cadena vacía.
+- "meli_gtin": EAN/UPC si lo detectas completo (solo dígitos); si no, cadena vacía.
+- "quantity": número de piezas/unidades compradas según el renglón. Si no se ve claro, usa 1.
+- Si solo se ve un producto, devuelve un array con un solo elemento en "items".
+- No inventes datos que claramente no aparezcan.
+TXT;
 
-            // =========================================================
-            // 6) JSON Schema
-            // =========================================================
-            $schemaName = 'catalog_ai_extract_v1';
+        $userText = "Analiza los archivos adjuntos (PDFs/imágenes) y genera SOLO el JSON con items[], uno por producto encontrado.";
 
-            $schema = [
-                'type' => 'object',
-                'additionalProperties' => false,
-                'required' => ['suggestions', 'items'],
-                'properties' => [
-                    'suggestions' => [
-                        'type' => 'object',
-                        'additionalProperties' => false,
-                        'required' => [
-                            'name', 'slug', 'description', 'excerpt', 'price', 'sale_price', 'stock',
-                            'category_key', 'brand_name', 'model_name', 'meli_gtin', 'meli_category_id', 'meli_listing_type_id',
-                            'amazon_sku', 'amazon_asin', 'amazon_product_type'
-                        ],
-                        'properties' => [
-                            'name' => ['type' => ['string', 'null']],
-                            'slug' => ['type' => ['string', 'null']],
-                            'description' => ['type' => ['string', 'null']],
-                            'excerpt' => ['type' => ['string', 'null']],
-                            'price' => ['type' => ['number', 'null']],
-                            'sale_price' => ['type' => ['number', 'null']],
-                            'stock' => ['type' => ['integer', 'null']],
-                            'category_key' => ['type' => ['string', 'null']],
-                            'brand_name' => ['type' => ['string', 'null']],
-                            'model_name' => ['type' => ['string', 'null']],
-                            'meli_gtin' => ['type' => ['string', 'null']],
-                            'meli_category_id' => ['type' => ['string', 'null']],
-                            'meli_listing_type_id' => ['type' => ['string', 'null']],
-                            'amazon_sku' => ['type' => ['string', 'null']],
-                            'amazon_asin' => ['type' => ['string', 'null']],
-                            'amazon_product_type' => ['type' => ['string', 'null']],
-                        ],
-                    ],
-                    'items' => [
-                        'type' => 'array',
-                        'maxItems' => 80,
-                        'items' => [
-                            'type' => 'object',
-                            'additionalProperties' => false,
-                            'required' => ['name', 'price', 'stock', 'brand_name', 'model_name', 'meli_gtin', 'excerpt', 'description', 'extra'],
-                            'properties' => [
-                                'name' => ['type' => 'string'],
-                                'price' => ['type' => ['number', 'null']],
-                                'stock' => ['type' => ['integer', 'null']],
-                                'brand_name' => ['type' => ['string', 'null']],
-                                'model_name' => ['type' => ['string', 'null']],
-                                'meli_gtin' => ['type' => ['string', 'null']],
-                                'excerpt' => ['type' => ['string', 'null']],
-                                'description' => ['type' => ['string', 'null']],
-                                'extra' => [
-                                    'type' => 'object',
-                                    'additionalProperties' => false,
-                                    'required' => ['unit', 'pack', 'raw_line', 'page', 'confidence', 'notes'],
-                                    'properties' => [
-                                        'unit' => ['type' => ['string', 'null']],
-                                        'pack' => ['type' => ['string', 'null']],
-                                        'raw_line' => ['type' => ['string', 'null']],
-                                        'page' => ['type' => ['integer', 'null']],
-                                        'confidence' => ['type' => ['number', 'null']],
-                                        'notes' => ['type' => ['string', 'null']],
+        try {
+            $response = Http::withToken($apiKey)
+                ->timeout(config('services.openai.timeout', 60))
+                ->withHeaders([
+                    'Content-Type' => 'application/json',
+                ])
+                ->post($baseUrl.'/v1/responses', [
+                    'model'        => $modelId,
+                    'instructions' => $systemPrompt,
+                    'input'        => [
+                        [
+                            'role'    => 'user',
+                            'content' => array_merge(
+                                [
+                                    [
+                                        'type' => 'input_text',
+                                        'text' => $userText,
                                     ],
                                 ],
-                            ],
+                                $fileInputs
+                            ),
                         ],
                     ],
-                ],
-            ];
-
-            // =========================================================
-            // 7) content parts
-            // =========================================================
-            $contentParts = [];
-            foreach ($openAiFileIds as $fid) {
-                $contentParts[] = ['type' => 'input_file', 'file_id' => $fid];
-            }
-            $contentParts[] = ['type' => 'input_text', 'text' => $instruction];
-
-            // =========================================================
-            // 8) Responses API
-            // =========================================================
-            $payload = [
-                'model' => $model,
-                'input' => [[
-                    'role' => 'user',
-                    'content' => $contentParts,
-                ]],
-                'text' => [
-                    'format' => [
-                        'type' => 'json_schema',
-                        'name' => $schemaName,
-                        'schema' => $schema,
-                    ],
-                ],
-                'max_output_tokens' => 3500,
-            ];
-
-            $resp2 = \Illuminate\Support\Facades\Http::withToken($apiKey)
-                ->timeout(240)
-                ->post('https://api.openai.com/v1/responses', $payload);
-
-            if (!$resp2->ok()) {
-                \Illuminate\Support\Facades\Log::error('aiFromUpload: OpenAI responses failed', [
-                    'status' => $resp2->status(),
-                    'body'   => $resp2->body(),
-                    'model'  => $model,
+                    'max_output_tokens' => 2048,
+                    'temperature'       => 0.1,
                 ]);
-                return response()->json(['error' => 'La IA no pudo procesar el archivo (Responses API). Revisa logs.'], 500);
+
+            if (!$response->ok()) {
+                Log::warning('AI catalog error', [
+                    'status' => $response->status(),
+                    'body'   => $response->body(),
+                ]);
+
+                return response()->json([
+                    'error' => 'La IA respondió con un error.',
+                ], 500);
             }
 
-            // =========================================================
-            // 9) Extraer output_text
-            // =========================================================
-            $out = $resp2->json('output_text');
+            $json = $response->json();
 
-            if (!is_string($out) || trim($out) === '') {
-                $out = '';
-                $nodes = $resp2->json('output', []);
-                if (is_array($nodes)) {
-                    foreach ($nodes as $node) {
-                        $c = $node['content'] ?? null;
-                        if (is_array($c)) {
-                            foreach ($c as $part) {
-                                if (($part['type'] ?? '') === 'output_text' && isset($part['text'])) {
-                                    $out .= (string)$part['text'];
-                                }
+            // Extraer texto
+            $rawText = null;
+
+            if (isset($json['output']) && is_array($json['output'])) {
+                foreach ($json['output'] as $outItem) {
+                    if (($outItem['type'] ?? null) === 'message' && isset($outItem['content'])) {
+                        foreach ($outItem['content'] as $c) {
+                            if (($c['type'] ?? null) === 'output_text' && isset($c['text'])) {
+                                $rawText .= $c['text'];
                             }
                         }
                     }
                 }
             }
 
-            $out = trim((string)$out);
-            $json = json_decode($out, true);
+            if (!$rawText && isset($json['output'][0]['content'][0]['text'])) {
+                $rawText = $json['output'][0]['content'][0]['text'];
+            }
 
-            if (!is_array($json)) {
-                \Illuminate\Support\Facades\Log::warning('aiFromUpload: IA no devolvió JSON parseable', [
-                    'out' => mb_substr($out, 0, 4000),
+            if (!$rawText) {
+                Log::warning('AI catalog: no se pudo encontrar texto en la respuesta', ['json' => $json]);
+
+                return response()->json([
+                    'error' => 'No se pudo interpretar la respuesta de la IA.',
+                ], 500);
+            }
+
+            $data = json_decode($rawText, true);
+            if (!is_array($data)) {
+                Log::warning('AI catalog: JSON inválido en salida de IA', [
+                    'raw' => $rawText,
                 ]);
-                return response()->json(['error' => 'La IA respondió, pero no devolvió JSON válido.'], 422);
+
+                return response()->json([
+                    'error' => 'La IA no devolvió un JSON válido.',
+                ], 500);
             }
 
-            // =========================================================
-            // 10) Normalización mínima
-            // =========================================================
-            $normalizeMoney = function ($v) {
-                if ($v === null || $v === '') return null;
-                if (is_numeric($v)) return (float)$v;
-                $s = (string)$v;
-                $s = str_replace(['$', ' '], '', $s);
-                if (preg_match('/\d{1,3}(,\d{3})+(\.\d{2})/', $s)) $s = str_replace(',', '', $s);
-                else $s = str_replace(',', '.', $s);
-                return is_numeric($s) ? (float)$s : null;
-            };
+            // Normalizar a lista de items
+            $items = [];
 
-            $normalizeInt = function ($v) {
-                if ($v === null || $v === '') return null;
-                if (is_numeric($v)) return (int)$v;
-                if (preg_match('/\d+/', (string)$v, $m)) return (int)$m[0];
-                return null;
-            };
+            if (isset($data['items']) && is_array($data['items'])) {
+                $items = $data['items'];
+            } elseif (is_array($data) && array_is_list($data)) {
+                $items = $data;
+            } else {
+                $items = [$data];
+            }
 
-            $suggestions = $json['suggestions'] ?? [];
-            $items       = $json['items'] ?? [];
+            $normalizedItems = [];
 
-            if (is_array($suggestions)) {
-                if (!empty($suggestions['name']) && empty($suggestions['slug'])) {
-                    $suggestions['slug'] = \Illuminate\Support\Str::slug((string)$suggestions['name']);
+            foreach ($items as $row) {
+                if (!is_array($row)) continue;
+
+                // Precio
+                $price = $row['price'] ?? null;
+                if (is_string($price)) {
+                    $clean = preg_replace('/[^0-9.,]/', '', $price);
+                    $clean = str_replace(',', '.', $clean);
+                    $price = is_numeric($clean) ? (float) $clean : null;
                 }
-                $suggestions['price']      = $normalizeMoney($suggestions['price'] ?? null);
-                $suggestions['sale_price'] = $normalizeMoney($suggestions['sale_price'] ?? null);
-                $suggestions['stock']      = $normalizeInt($suggestions['stock'] ?? null);
+
+                // Cantidad -> stock sugerido
+                $qty = $row['quantity'] ?? ($row['qty'] ?? ($row['cantidad'] ?? ($row['stock'] ?? null)));
+                if (is_string($qty)) {
+                    $cleanQty = preg_replace('/[^0-9]/', '', $qty);
+                    $qty = is_numeric($cleanQty) ? (int) $cleanQty : null;
+                }
+                if ($qty !== null) $qty = max(0, (int) $qty);
+
+                $normalizedItems[] = [
+                    'name'        => $row['name']        ?? null,
+                    'slug'        => $row['slug']        ?? null,
+                    'description' => $row['description'] ?? null,
+                    'excerpt'     => $row['excerpt']     ?? null,
+                    'price'       => $price,
+                    'brand_name'  => $row['brand_name']  ?? null,
+                    'model_name'  => $row['model_name']  ?? null,
+                    'meli_gtin'   => $row['meli_gtin']   ?? null,
+                    'stock'       => $qty,
+                ];
             }
 
-            if (is_array($items)) {
-                foreach ($items as $i => $it) {
-                    if (!is_array($it)) continue;
-                    $items[$i]['price'] = $normalizeMoney($it['price'] ?? null);
-                    $items[$i]['stock'] = $normalizeInt($it['stock'] ?? null);
-                }
+            if (empty($normalizedItems)) {
+                return response()->json([
+                    'error' => 'La IA no devolvió productos reconocibles.',
+                ], 500);
             }
+
+            $first = $normalizedItems[0];
 
             return response()->json([
-                'suggestions' => $suggestions,
-                'items'       => $items,
-            ], 200);
-        } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::error('CatalogItem@aiFromUpload: exception', [
-                'err'   => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
+                'suggestions' => $first,
+                'items'       => $normalizedItems,
             ]);
-            return response()->json(['error' => 'Error interno en aiFromUpload. Revisa logs.'], 500);
+        } catch (\Throwable $e) {
+            Log::error('Error llamando a OpenAI (Files + Responses) para catálogo', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'error' => 'Ocurrió un error al contactar la IA.',
+            ], 500);
+        }
+    }
+
+    /** Dispara el sync con ML sin romper la UI si algo truena */
+    private function dispatchMeliSync(CatalogItem $item): void
+    {
+        try {
+            app(MeliSyncService::class)->sync($item, [
+                'activate'           => false,
+                'update_description' => false,
+                'ensure_picture'     => false,
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('CatalogItem@dispatchMeliSync: error no crítico', [
+                'item_id'   => $item->id,
+                'exception' => $e->getMessage(),
+            ]);
         }
     }
 
@@ -1202,7 +1082,10 @@ PROMPT;
     {
         /** @var UploadedFile|null $file */
         $file = $request->file($input);
-        if (!$file instanceof UploadedFile) return;
+
+        if (!$file instanceof UploadedFile) {
+            return;
+        }
 
         if (!$file->isValid()) {
             Log::warning('CatalogItem@saveOrReplacePhoto: archivo no válido', [
@@ -1216,7 +1099,9 @@ PROMPT;
         }
 
         $old = $item->{$column};
-        if ($old) $this->deletePublicFileIfExists($old);
+        if ($old) {
+            $this->deletePublicFileIfExists($old);
+        }
 
         $path = $file->store('catalog/photos', 'public');
         $item->{$column} = $path;
@@ -1261,226 +1146,81 @@ PROMPT;
         }
     }
 
-    /* =========================================================
-     |  AMAZON - (lo dejas como ya lo tenías)
-     ========================================================= */
-
-    private function amazonSkuStrict(CatalogItem $item): ?string
+    public function updateStock(Request $request, CatalogItem $catalogItem)
     {
-        $sku = isset($item->amazon_sku) && is_string($item->amazon_sku) ? trim($item->amazon_sku) : '';
-        return $sku !== '' ? $sku : null;
+        $data = $request->validate([
+            'stock' => ['required', 'numeric', 'min:0'],
+        ]);
+
+        $catalogItem->stock = $data['stock'];
+        $catalogItem->save();
+
+        Log::info('CatalogItem@updateStock: stock actualizado', [
+            'item_id' => $catalogItem->id,
+            'stock'   => $catalogItem->stock,
+        ]);
+
+        return back()->with('ok', 'Stock actualizado correctamente.');
     }
-
-    private function amazonMarketplaceId(): string
-    {
-        $mp = config('services.amazon_spapi.marketplace_id') ?: env('SPAPI_MARKETPLACE_ID');
-        $mp = is_string($mp) ? trim($mp) : '';
-        return $mp !== '' ? $mp : 'A1AM78C64UM0Y8';
-    }
-
-    private function amazonPersist(CatalogItem $item, array $res, string $action): void
-    {
-        try {
-            $status = $res['status'] ?? null;
-            $ok     = (bool)($res['ok'] ?? false);
-
-            if (isset($item->amazon_synced_at)) $item->amazon_synced_at = now();
-            if (isset($item->amazon_status))    $item->amazon_status    = ($ok ? 'ok_' : 'error_') . (string)($status ?? 'unknown');
-
-            if (isset($item->amazon_last_error)) {
-                if ($ok) {
-                    $item->amazon_last_error = null;
-                } else {
-                    $msg = $res['message'] ?? 'Amazon error';
-                    $amazonErr = null;
-                    if (!empty($res['json']) && is_array($res['json'])) {
-                        $amazonErr = data_get($res['json'], 'errors.0.message');
-                    }
-                    $item->amazon_last_error = $amazonErr ? ($msg . ' · ' . $amazonErr) : $msg;
-                }
-            }
-
-            if (isset($item->amazon_listing_response)) {
-                $item->amazon_listing_response = json_encode([
-                    'action'  => $action,
-                    'ok'      => $res['ok'] ?? null,
-                    'status'  => $res['status'] ?? null,
-                    'message' => $res['message'] ?? null,
-                    'json'    => $res['json'] ?? null,
-                    'body'    => $res['body'] ?? null,
-                ], JSON_UNESCAPED_UNICODE);
-            }
-
-            $asin = null;
-            if (!empty($res['json']) && is_array($res['json'])) {
-                $asin = data_get($res['json'], 'asin')
-                    ?: data_get($res['json'], 'summaries.0.asin')
-                    ?: data_get($res['json'], 'payload.asin');
-            }
-            if ($asin && isset($item->amazon_asin)) {
-                $item->amazon_asin = $asin;
-            }
-
-            $item->save();
-        } catch (\Throwable $e) {
-            Log::warning('CatalogItem@amazonPersist: no se pudo guardar tracking', [
-                'item_id' => $item->id ?? null,
-                'err'     => $e->getMessage(),
-            ]);
-        }
-    }
-
     public function amazonPublish(CatalogItem $catalogItem, AmazonSpApiListingService $svc)
-    {
-        $amazonSku = $this->amazonSkuStrict($catalogItem);
-        if (!$amazonSku) {
-            if (isset($catalogItem->amazon_synced_at)) $catalogItem->amazon_synced_at = now();
-            if (isset($catalogItem->amazon_status))    $catalogItem->amazon_status = 'missing_amazon_sku';
-            if (isset($catalogItem->amazon_last_error))$catalogItem->amazon_last_error = 'Falta amazon_sku (Seller SKU real de Amazon).';
-            $catalogItem->save();
+{
+    $res = $svc->upsertBySku($catalogItem, [
+        // aquí luego pondremos productType real (por categoría)
+        // 'productType' => 'OFFICE_PRODUCTS',
+    ]);
 
-            return back()->withErrors(['general' => 'Falta AMAZON SKU (Seller SKU real). Captúralo y vuelve a intentar.']);
-        }
-
-        try {
-            try {
-                $res = $svc->upsertBySku($catalogItem, [
-                    'marketplace_id' => $this->amazonMarketplaceId(),
-                ]);
-            } catch (\ArgumentCountError $e) {
-                $res = $svc->upsertBySku($catalogItem);
-            }
-        } catch (\Throwable $e) {
-            Log::error('CatalogItem@amazonPublish: error en upsertBySku', [
-                'item_id' => $catalogItem->id,
-                'err'     => $e->getMessage(),
-            ]);
-
-            if (isset($catalogItem->amazon_synced_at)) $catalogItem->amazon_synced_at = now();
-            if (isset($catalogItem->amazon_status))    $catalogItem->amazon_status = 'error_exception';
-            if (isset($catalogItem->amazon_last_error))$catalogItem->amazon_last_error = $e->getMessage();
-            $catalogItem->save();
-
-            return back()->withErrors(['general' => 'Error publicando en Amazon: ' . $e->getMessage()]);
-        }
-
-        $this->amazonPersist($catalogItem->fresh(), is_array($res) ? $res : [
-            'ok' => false, 'status' => null, 'message' => 'Respuesta inválida del service', 'json' => null, 'body' => null,
-        ], 'publish');
-
-        if (!empty($res['ok'])) {
-            return back()->with('ok', 'Solicitud enviada a Amazon (submitted). Puede tardar en reflejarse.');
-        }
-
-        if (($res['status'] ?? null) === 404) {
-            return back()->withErrors(['general' => 'Amazon respondió 404: SKU no encontrado. Verifica amazon_sku EXACTO en Seller Central (MX).']);
-        }
-
-        return back()->withErrors(['general' => $res['message'] ?? 'No se pudo publicar/actualizar en Amazon.']);
+    if ($res['ok']) {
+        return back()->with('ok', 'Solicitud enviada a Amazon. Revisa en Seller Central el estado del listing.');
     }
 
-    public function amazonView(CatalogItem $catalogItem, AmazonSpApiListingService $svc)
-    {
-        $amazonSku = $this->amazonSkuStrict($catalogItem);
-        if (!$amazonSku) {
-            if (isset($catalogItem->amazon_synced_at)) $catalogItem->amazon_synced_at = now();
-            if (isset($catalogItem->amazon_status))    $catalogItem->amazon_status = 'missing_amazon_sku';
-            if (isset($catalogItem->amazon_last_error))$catalogItem->amazon_last_error = 'Falta amazon_sku (Seller SKU real de Amazon).';
-            $catalogItem->save();
+    $friendly = $res['message'] ?? 'No se pudo publicar/actualizar en Amazon.';
+    return back()->with('ok', $friendly);
+}
 
-            return back()->withErrors(['general' => 'Falta AMAZON SKU (Seller SKU real).']);
-        }
-
-        try {
-            try {
-                $res = $svc->getBySku($catalogItem, [
-                    'marketplace_id' => $this->amazonMarketplaceId(),
-                ]);
-            } catch (\ArgumentCountError $e) {
-                $res = $svc->getBySku($catalogItem);
-            }
-        } catch (\Throwable $e) {
-            Log::error('CatalogItem@amazonView: error en getBySku', [
-                'item_id' => $catalogItem->id,
-                'err'     => $e->getMessage(),
-            ]);
-
-            if (isset($catalogItem->amazon_synced_at)) $catalogItem->amazon_synced_at = now();
-            if (isset($catalogItem->amazon_status))    $catalogItem->amazon_status = 'error_exception';
-            if (isset($catalogItem->amazon_last_error))$catalogItem->amazon_last_error = $e->getMessage();
-            $catalogItem->save();
-
-            return back()->withErrors(['general' => 'Error consultando listing: ' . $e->getMessage()]);
-        }
-
-        $this->amazonPersist($catalogItem->fresh(), is_array($res) ? $res : [
-            'ok' => false, 'status' => null, 'message' => 'Respuesta inválida del service', 'json' => null, 'body' => null,
-        ], 'view');
-
-        if (empty($res['ok'])) {
-            if (($res['status'] ?? null) === 404) {
-                return back()->withErrors(['general' => 'Amazon dice 404: ese amazon_sku no existe (o aún está procesando).']);
-            }
-            return back()->withErrors(['general' => $res['message'] ?? 'Error consultando listing']);
-        }
-
-        $asin = is_string($catalogItem->amazon_asin ?? null) ? trim((string)$catalogItem->amazon_asin) : '';
-        if ($asin !== '') {
-            $asin = urlencode($asin);
-            return redirect()->away("https://www.amazon.com.mx/dp/{$asin}");
-        }
-
-        $q = urlencode($amazonSku);
-        return redirect()->away("https://www.amazon.com.mx/s?k={$q}");
+public function amazonView(CatalogItem $catalogItem, AmazonSpApiListingService $svc)
+{
+    if (!$catalogItem->sku) {
+        return back()->with('ok', 'Este producto no tiene SKU. Amazon requiere SKU.');
     }
 
-    public function amazonPause(CatalogItem $catalogItem, AmazonSpApiListingService $svc)
-    {
-        $amazonSku = $this->amazonSkuStrict($catalogItem);
-        if (!$amazonSku) return back()->withErrors(['general' => 'Falta AMAZON SKU (Seller SKU real).']);
+    $res = $svc->getBySku($catalogItem);
 
-        try {
-            try {
-                $res = $svc->upsertBySku($catalogItem, [
-                    'marketplace_id' => $this->amazonMarketplaceId(),
-                    'status' => 'inactive',
-                ]);
-            } catch (\ArgumentCountError $e) {
-                $res = $svc->upsertBySku($catalogItem);
-            }
-        } catch (\Throwable $e) {
-            return back()->withErrors(['general' => 'Error pausando en Amazon: ' . $e->getMessage()]);
-        }
-
-        $this->amazonPersist($catalogItem->fresh(), is_array($res) ? $res : [
-            'ok' => false, 'status' => null, 'message' => 'Respuesta inválida del service', 'json' => null, 'body' => null,
-        ], 'pause');
-
-        return back()->with('ok', !empty($res['ok']) ? 'Solicitud enviada a Amazon para pausar.' : ($res['message'] ?? 'No se pudo pausar en Amazon.'));
+    if (!$res['ok']) {
+        return back()->with('ok', $res['message'] ?? 'No se pudo consultar el listing en Amazon.');
     }
 
-    public function amazonActivate(CatalogItem $catalogItem, AmazonSpApiListingService $svc)
-    {
-        $amazonSku = $this->amazonSkuStrict($catalogItem);
-        if (!$amazonSku) return back()->withErrors(['general' => 'Falta AMAZON SKU (Seller SKU real).']);
+    // “Ver” en web: lo más práctico es abrir búsqueda por SKU en Amazon MX.
+    // (Amazon no devuelve un permalink simple como ML)
+    $sku = urlencode($catalogItem->sku);
+    return redirect()->away("https://www.amazon.com.mx/s?k={$sku}");
+}
 
-        try {
-            try {
-                $res = $svc->upsertBySku($catalogItem, [
-                    'marketplace_id' => $this->amazonMarketplaceId(),
-                    'status' => 'active',
-                ]);
-            } catch (\ArgumentCountError $e) {
-                $res = $svc->upsertBySku($catalogItem);
-            }
-        } catch (\Throwable $e) {
-            return back()->withErrors(['general' => 'Error activando en Amazon: ' . $e->getMessage()]);
-        }
+public function amazonPause(CatalogItem $catalogItem, AmazonSpApiListingService $svc)
+{
+    // En Amazon “pausar” no es igual que ML. Aquí solo mandamos upsert y luego
+    // ajustaremos atributos/quantity para dejarlo no disponible según tu caso.
+    $res = $svc->upsertBySku($catalogItem, [
+        'status' => 'inactive',
+    ]);
 
-        $this->amazonPersist($catalogItem->fresh(), is_array($res) ? $res : [
-            'ok' => false, 'status' => null, 'message' => 'Respuesta inválida del service', 'json' => null, 'body' => null,
-        ], 'activate');
-
-        return back()->with('ok', !empty($res['ok']) ? 'Solicitud enviada a Amazon para activar/actualizar.' : ($res['message'] ?? 'No se pudo activar en Amazon.'));
+    if ($res['ok']) {
+        return back()->with('ok', 'Solicitud enviada a Amazon para pausar (según configuración de listing).');
     }
+
+    return back()->with('ok', $res['message'] ?? 'No se pudo pausar en Amazon.');
+}
+
+public function amazonActivate(CatalogItem $catalogItem, AmazonSpApiListingService $svc)
+{
+    $res = $svc->upsertBySku($catalogItem, [
+        'status' => 'active',
+    ]);
+
+    if ($res['ok']) {
+        return back()->with('ok', 'Solicitud enviada a Amazon para activar/actualizar.');
+    }
+
+    return back()->with('ok', $res['message'] ?? 'No se pudo activar en Amazon.');
+}
+
 }

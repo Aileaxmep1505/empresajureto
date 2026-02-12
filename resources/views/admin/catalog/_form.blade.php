@@ -7,34 +7,24 @@
   $has2 = !empty($item->photo_2 ?? null);
   $has3 = !empty($item->photo_3 ?? null);
 
-  // Categorías internas (papelería, cómputo, etc.)
+  // Categorías legibles (papelería, cómputo, etc.)
   $categories = $categories ?? config('catalog.product_categories', []);
 
   // Bandera simple: si ya tiene SKU (Amazon usa SKU sí o sí)
   $hasSku = !empty($item->sku ?? null);
-
-  // ✅ defaults para ML
-  $currentMeliCategory = old('meli_category_id', $item->meli_category_id ?? '');
-  $currentListingType  = old('meli_listing_type_id', $item->meli_listing_type_id ?? '');
-
-  // ✅ si quieres “sugerir” algo visual (no obligatorio)
-  $meliHint = $currentMeliCategory
-    ? "Usando meli_category_id: {$currentMeliCategory}"
-    : "Deja esto vacío y ML puede forzar catálogo (y te saldrá error de title).";
 @endphp
 
-{{-- ✅ OJO: este bloque debe vivir DENTRO de tu <form id="catalog-form" ...> principal.
-     Si tu form no tiene id="catalog-form", agrega el id en el form padre. --}}
 @csrf
 @if($isEdit)
   @method('PUT')
 @endif
 
 {{-- =========================================================
-   🔹 BLOQUE DE CAPTURA ASISTIDA POR IA (ARCHIVOS / PDF) ✅ NO CAMBIAR
+   🔹 BLOQUE DE CAPTURA ASISTIDA POR IA (ARCHIVOS / PDF)
    ========================================================= --}}
 <div class="ai-helper" id="ai-helper">
   <div class="ai-helper-icon-wrapper">
+    <div class="ai-helper-glow"></div>
     <div class="ai-helper-icon" id="ai-helper-icon">🤖</div>
   </div>
 
@@ -48,9 +38,9 @@
     </div>
 
     <p class="ai-helper-text">
-      La IA te sugiere:
-      <strong>nombre, descripción, extracto, precio, marca, modelo, GTIN y stock</strong>.
-      Revisa y ajusta antes de guardar.
+      La IA leerá lo que vea y te sugerirá automáticamente:
+      <strong>nombre, descripción, extracto, precio, marca, modelo, GTIN y cantidad (stock)</strong>.
+      Siempre puedes revisar, corregir y complementar antes de guardar.
     </p>
 
     <div class="ai-helper-row">
@@ -60,10 +50,10 @@
         <div id="ai-dropzone" class="ai-dropzone">
           <div class="ai-dropzone-icon">📄</div>
           <div class="ai-dropzone-body">
-            <div class="ai-dropzone-title">Arrastra aquí PDFs o imágenes</div>
+            <div class="ai-dropzone-title">Arrastra aquí tus PDFs o imágenes</div>
             <div class="ai-dropzone-sub">
               o
-              <button type="button" class="ai-dropzone-btn" id="ai-pick-files">Elegir archivos</button>
+              <button type="button" class="ai-dropzone-btn">Elegir archivos</button>
             </div>
             <div class="ai-dropzone-hint">JPG, PNG, WEBP o PDF · máx. ~8 MB c/u</div>
           </div>
@@ -79,7 +69,7 @@
         <div id="ai-files-list" class="ai-files-list"></div>
 
         <p class="hint">
-          Se usan solo para sugerencias; <strong>no se guardan</strong>.
+          Se usan solo para generar sugerencias, <strong>no se guardan</strong> en tu sistema.
         </p>
       </div>
 
@@ -88,29 +78,9 @@
           <span class="ai-cta-spinner" aria-hidden="true"></span>
           <span class="ai-cta-text">Analizar con IA</span>
         </button>
-
-        {{-- ✅ NUEVO: rellenar vacíos con lo último detectado (sin re-subir) --}}
-        <button type="button" id="btn-ai-fill-missing" class="btn btn-ghost">
-          <span class="i material-symbols-outlined" aria-hidden="true">auto_fix_high</span>
-          Rellenar vacíos
-        </button>
-
-        @if($isEdit)
-          <button type="button" id="btn-restore-original" class="btn btn-ghost">
-            <span class="i material-symbols-outlined" aria-hidden="true">history</span>
-            Rellenar desde original
-          </button>
-        @endif
-
         <p id="ai-helper-status" class="hint ai-helper-status">
-          La IA solo te ahorra tecleo ✨
+          La IA no sustituye tu criterio, solo te ahorra tecleo repetitivo ✨
         </p>
-
-        {{-- ✅ NUEVO: resumen de campos detectados por IA (sin “ruido” debajo de inputs) --}}
-        <div id="ai-detected" class="ai-detected" style="display:none;">
-          <div class="ai-detected-title">Detectado por IA</div>
-          <div id="ai-detected-chips" class="ai-detected-chips"></div>
-        </div>
       </div>
     </div>
   </div>
@@ -124,7 +94,8 @@
     <div>
       <div class="ai-items-title">Productos detectados por IA</div>
       <p class="ai-items-text">
-        Selecciona <strong>“Usar este”</strong> para rellenar sin volver a subir el archivo.
+        Estos son los productos que la IA encontró en el PDF/imágenes.
+        Haz clic en <strong>“Usar este”</strong> para rellenar el formulario con ese producto sin volver a subir el archivo.
       </p>
     </div>
 
@@ -163,34 +134,51 @@
     <div class="card-section">
       <label class="lbl">Nombre *</label>
       <input name="name" class="inp" required
-             placeholder="Ejemplo: Cinta de empaque Kyma 48mm x 150m canela (27 pzas)"
+             placeholder="Ejemplo: Lapicero bolígrafo azul Bic punta fina 0.7mm"
              value="{{ old('name', $item->name ?? '') }}">
+      <p class="hint">
+        Usa un nombre completo: tipo de producto + marca + modelo + característica clave.
+        Esto ayuda al SEO y evita rechazos en Mercado Libre.
+      </p>
     </div>
 
     <div class="card-section">
       <label class="lbl">Slug (opcional)</label>
       <input name="slug" class="inp"
-             placeholder="cinta-de-empaque-kyma-48mm-150m-canela"
+             placeholder="lapicero-bic-azul-07mm"
              value="{{ old('slug', $item->slug ?? '') }}">
+      <p class="hint">
+        Déjalo vacío para generarlo automáticamente a partir del nombre, salvo que necesites un slug específico.
+      </p>
     </div>
 
     <div class="card-section">
       <label class="lbl">Descripción</label>
       <textarea name="description" class="inp" rows="6"
-                placeholder="Incluye medidas, color, cantidad, usos…">{{ old('description', $item->description ?? '') }}</textarea>
+                placeholder="Describe el producto, sus usos, materiales, medidas, garantía, etc.">{{ old('description', $item->description ?? '') }}</textarea>
+      <p class="hint">
+        Es la descripción larga que verán tus clientes. Evita mayúsculas excesivas y texto repetitivo.
+      </p>
     </div>
 
     <div class="card-section">
       <label class="lbl">Extracto</label>
       <textarea name="excerpt" class="inp" rows="3"
-                placeholder="Resumen corto para listados y ML.">{{ old('excerpt', $item->excerpt ?? '') }}</textarea>
+                placeholder="Resumen corto para listados y Mercado Libre (ej. Caja con 12 piezas, tinta azul, punta 0.7mm).">{{ old('excerpt', $item->excerpt ?? '') }}</textarea>
+      <p class="hint">
+        Un resumen breve con la información más importante: presentación, cantidad, color o medida.
+      </p>
     </div>
 
     {{-- =========================================================
-       🔹 FOTOS (3 archivos)
+       🔹 FOTOS (3 archivos) — NO URLs, UI mejorada
        ========================================================= --}}
     <div class="side-card" style="margin-top:6px;">
       <h3 class="side-title">Fotos del producto (3)</h3>
+
+      <div class="hint" style="margin-top:0;">
+        Toca cada tarjeta para seleccionar una foto. Se guarda en tu sistema.
+      </div>
 
       <div class="photos-grid">
         {{-- FOTO 1 --}}
@@ -209,10 +197,15 @@
               <div class="photo-sub" data-photo-sub="photo_1_file">JPG / PNG / WEBP</div>
             </div>
 
-            <input id="photo_1_file" name="photo_1_file" type="file"
-                   class="photo-input" accept="image/*"
-                   @if(!$isEdit) required @endif
-                   capture="environment">
+            <input
+              id="photo_1_file"
+              name="photo_1_file"
+              type="file"
+              class="photo-input"
+              accept="image/*"
+              @if(!$isEdit) required @endif
+              capture="environment"
+            >
           </label>
 
           <div class="photo-preview" id="photo_1_preview">
@@ -242,10 +235,15 @@
               <div class="photo-sub" data-photo-sub="photo_2_file">Frente / empaque</div>
             </div>
 
-            <input id="photo_2_file" name="photo_2_file" type="file"
-                   class="photo-input" accept="image/*"
-                   @if(!$isEdit) required @endif
-                   capture="environment">
+            <input
+              id="photo_2_file"
+              name="photo_2_file"
+              type="file"
+              class="photo-input"
+              accept="image/*"
+              @if(!$isEdit) required @endif
+              capture="environment"
+            >
           </label>
 
           <div class="photo-preview" id="photo_2_preview">
@@ -275,10 +273,15 @@
               <div class="photo-sub" data-photo-sub="photo_3_file">Detalle / etiqueta</div>
             </div>
 
-            <input id="photo_3_file" name="photo_3_file" type="file"
-                   class="photo-input" accept="image/*"
-                   @if(!$isEdit) required @endif
-                   capture="environment">
+            <input
+              id="photo_3_file"
+              name="photo_3_file"
+              type="file"
+              class="photo-input"
+              accept="image/*"
+              @if(!$isEdit) required @endif
+              capture="environment"
+            >
           </label>
 
           <div class="photo-preview" id="photo_3_preview">
@@ -292,6 +295,10 @@
           </div>
         </div>
       </div>
+
+      <div class="hint" style="margin-top:10px;">
+        Tip: fondo claro + buena luz = se ven más pro en la ficha con QR.
+      </div>
     </div>
   </div>
 
@@ -301,8 +308,14 @@
       <div class="card-section">
         <label class="lbl">SKU</label>
         <input name="sku" class="inp"
-               placeholder="K-1"
+               placeholder="Código interno o del proveedor"
                value="{{ old('sku', $item->sku ?? '') }}">
+        <p class="hint">
+          Usa un SKU claro y único. Te ayuda a localizar el producto rápidamente en tu catálogo.
+          <span class="hint" style="display:block;margin-top:3px;">
+            Nota: Amazon requiere SKU para publicar.
+          </span>
+        </p>
       </div>
 
       <div class="card-section card-inline">
@@ -310,12 +323,18 @@
           <label class="lbl">Precio *</label>
           <input name="price" type="number" step="0.01" min="0" class="inp" required
                  value="{{ old('price', $item->price ?? 0) }}">
+          <p class="hint">
+            Precio base en MXN. Algunas categorías de Mercado Libre requieren un mínimo.
+          </p>
         </div>
 
         <div class="card-inline-item">
           <label class="lbl">Stock</label>
           <input name="stock" type="number" step="1" min="0" class="inp"
                  value="{{ old('stock', $item->stock ?? 0) }}">
+          <p class="hint">
+            Unidades disponibles. La IA puede sugerir la cantidad comprada según el documento.
+          </p>
         </div>
       </div>
 
@@ -323,26 +342,35 @@
         <label class="lbl">Precio oferta</label>
         <input name="sale_price" type="number" step="0.01" min="0" class="inp"
                value="{{ old('sale_price', $item->sale_price ?? '') }}">
+        <p class="hint">
+          Solo si hay promoción. Si lo dejas vacío, se usará el precio base.
+        </p>
       </div>
 
+      {{-- 🔹 Categoría legible (string) --}}
       <div class="card-section">
-        <label class="lbl">Categoría (interna)</label>
-        @php $currentCategory = old('category_key', $item->category_key ?? ''); @endphp
-        <select name="category_key" class="inp">
+        <label class="lbl">Categoría</label>
+        @php
+          $currentCategory = old('category', $item->category ?? '');
+        @endphp
+        <select name="category" class="inp">
           <option value="">Sin categoría</option>
           @foreach($categories as $key => $label)
             <option value="{{ $key }}" @selected($currentCategory === $key)>{{ $label }}</option>
           @endforeach
         </select>
+        <p class="hint">
+          Sirve para agrupar en el catálogo web (Papelería, Escritura, Cómputo, Oficina, etc.).
+        </p>
       </div>
 
       <div class="card-section">
         <label class="lbl">Estado *</label>
         <select name="status" class="inp" required>
           @php $st = (string)old('status', isset($item)? (string)$item->status : '0'); @endphp
-          <option value="0" @selected($st==='0')>Borrador</option>
+          <option value="0" @selected($st==='0')>Borrador (no visible)</option>
           <option value="1" @selected($st==='1')>Publicado</option>
-          <option value="2" @selected($st==='2')>Oculto</option>
+          <option value="2" @selected($st==='2')>Oculto (no listado, pero accesible por link)</option>
         </select>
       </div>
 
@@ -350,143 +378,90 @@
         <label class="lbl">Publicado en</label>
         <input name="published_at" type="datetime-local" class="inp"
                value="{{ old('published_at', isset($item->published_at)? $item->published_at->format('Y-m-d\TH:i') : '') }}">
+        <p class="hint">
+          Si lo dejas vacío, se asignará automáticamente al momento de publicar.
+        </p>
       </div>
 
       <div class="card-section">
-        <label class="lbl">Destacado</label>
+        <label class="lbl">Destacado (para Home)</label>
         <label class="toggle-row">
           <input type="checkbox" name="is_featured" value="1" @checked(old('is_featured', $item->is_featured ?? false))>
-          <span>Mostrar en Home</span>
+          <span>Mostrar en secciones destacadas</span>
         </label>
       </div>
     </div>
 
-    {{-- =========================================================
-       ✅ MERCADO LIBRE
-       ========================================================= --}}
     <div class="side-card">
-      <h3 class="side-title">Mercado Libre</h3>
+      <h3 class="side-title">Ayuda para Mercado Libre</h3>
 
       <div class="card-section">
-        <label class="lbl">Categoría ML (meli_category_id) ✅</label>
-        <input name="meli_category_id" class="inp"
-               placeholder="Ej: MLM167986"
-               value="{{ $currentMeliCategory }}">
-        <div class="hint">{{ $meliHint }}</div>
-      </div>
-
-      <div class="card-section">
-        <label class="lbl">Listing type (opcional)</label>
-        <input name="meli_listing_type_id" class="inp"
-               placeholder="Ej: gold_special"
-               value="{{ $currentListingType }}">
-      </div>
-
-      <div class="card-section">
-        <label class="lbl">Marca</label>
+        <label class="lbl">Marca (texto para ML)</label>
         <input name="brand_name" class="inp"
-               placeholder="Kyma"
+               placeholder="Ejemplo: Bic, Azor, Maped"
                value="{{ old('brand_name', $item->brand_name ?? '') }}">
+        <p class="hint">
+          Se envía al atributo <strong>BRAND</strong>.
+        </p>
       </div>
 
       <div class="card-section">
-        <label class="lbl">Modelo</label>
+        <label class="lbl">Modelo (texto para ML)</label>
         <input name="model_name" class="inp"
-               placeholder="48mmx150m canela"
+               placeholder="Ejemplo: Cristal 1.0mm, Office Pro"
                value="{{ old('model_name', $item->model_name ?? '') }}">
+        <p class="hint">
+          Se envía al atributo <strong>MODEL</strong>.
+        </p>
       </div>
 
       <div class="card-section">
-        <label class="lbl">GTIN</label>
+        <label class="lbl">GTIN / Código de barras</label>
         <input name="meli_gtin" class="inp"
-               placeholder="750…"
+               placeholder="Ejemplo: 7501035910107"
                value="{{ old('meli_gtin', $item->meli_gtin ?? '') }}">
+        <p class="hint">
+          En varias categorías de Mercado Libre es obligatorio.
+        </p>
       </div>
 
-      <div class="card-section" style="margin-top:6px;">
-        <div class="ml-help">
-          <div class="ml-help-title">Tip rápido</div>
-          <div class="ml-help-text">
-            Si te sale <b>“title invalid / flujo de catálogo”</b>, normalmente es porque tu categoría/dominio es de catálogo.
-            Solución: <b>pon aquí un meli_category_id correcto</b> (no catálogo) o publica con <b>?catalog=1</b>.
-          </div>
-        </div>
-      </div>
-    </div>
-
-    {{-- Amazon (datos) --}}
-    <div class="side-card">
-      <h3 class="side-title">Amazon</h3>
-
-      <div class="card-section">
-        <label class="lbl">Seller SKU (amazon_sku)</label>
-        <input name="amazon_sku" class="inp"
-               placeholder="asd"
-               value="{{ old('amazon_sku', $item->amazon_sku ?? '') }}">
-      </div>
-
-      <div class="card-section">
-        <label class="lbl">ASIN</label>
-        <input name="amazon_asin" class="inp"
-               placeholder="B0..."
-               value="{{ old('amazon_asin', $item->amazon_asin ?? '') }}">
-      </div>
-
-      <div class="card-section">
-        <label class="lbl">Product Type</label>
-        <input name="amazon_product_type" class="inp"
-               placeholder="OFFICE_PRODUCTS…"
-               value="{{ old('amazon_product_type', $item->amazon_product_type ?? '') }}">
+      <div class="ml-tips">
+        <p class="hint-title">Tips para evitar errores al publicar en Mercado Libre:</p>
+        <ul class="hint-list">
+          <li>Incluye tipo, marca y modelo en el título.</li>
+          <li>Verifica que el precio cumpla con el mínimo.</li>
+          <li>Con estas 3 fotos ya cumples “mínimo imágenes” del catálogo.</li>
+          <li>Completa el GTIN cuando sea obligatorio.</li>
+        </ul>
       </div>
     </div>
 
     {{-- =========================================================
-       ✅ Publicación (ARREGLADO)
-       - NO @csrf dentro de botones
-       - Forms separados (válido HTML)
+       🔹 ACCIONES: MERCADO LIBRE + AMAZON
        ========================================================= --}}
     @if($isEdit)
       <div class="side-card">
-        <h3 class="side-title">Publicación</h3>
+        <h3 class="side-title">Acciones de publicación</h3>
 
         <div class="pub-grid">
           {{-- Mercado Libre --}}
-          <div class="pub-block pub-ml">
+          <div class="pub-block">
             <div class="pub-head">
               <div class="pub-title">Mercado Libre</div>
-              <div class="pub-sub">Publica, pausa o activa.</div>
+              <div class="pub-sub">Publica, pausa o abre la publicación.</div>
             </div>
 
             <div class="pub-actions">
-              {{-- ✅ SI O SÍ --}}
-              <form method="POST" action="{{ route('admin.catalog.meli.publish', $item) }}?force=1" class="pub-form">
+              <form method="POST" action="{{ route('admin.catalog.meli.publish', $item) }}">
                 @csrf
                 <button type="submit" class="btn btn-pill btn-ml">
-                  <span class="i material-symbols-outlined" aria-hidden="true">rocket_launch</span>
-                  Publicar (SI O SÍ)
-                </button>
-              </form>
-
-              {{-- ✅ NORMAL --}}
-              <form method="POST" action="{{ route('admin.catalog.meli.publish', $item) }}" class="pub-form">
-                @csrf
-                <button type="submit" class="btn btn-pill btn-soft btn-ml-soft">
                   <span class="i material-symbols-outlined" aria-hidden="true">cloud_upload</span>
-                  Publicar / Actualizar (normal)
-                </button>
-              </form>
-
-              {{-- ✅ CATÁLOGO --}}
-              <form method="POST" action="{{ route('admin.catalog.meli.publish', $item) }}?catalog=1" class="pub-form">
-                @csrf
-                <button type="submit" class="btn btn-pill btn-soft btn-ml-soft">
-                  <span class="i material-symbols-outlined" aria-hidden="true">inventory_2</span>
-                  Publicar (catálogo)
+                  Publicar / Actualizar
                 </button>
               </form>
 
               <div class="pub-row">
-                <form method="POST" action="{{ route('admin.catalog.meli.pause', $item) }}" class="pub-form">
+                <form method="POST" action="{{ route('admin.catalog.meli.pause', $item) }}">
                   @csrf
                   <button type="submit" class="btn btn-pill btn-soft btn-ml-soft">
                     <span class="i material-symbols-outlined" aria-hidden="true">pause_circle</span>
@@ -494,7 +469,7 @@
                   </button>
                 </form>
 
-                <form method="POST" action="{{ route('admin.catalog.meli.activate', $item) }}" class="pub-form">
+                <form method="POST" action="{{ route('admin.catalog.meli.activate', $item) }}">
                   @csrf
                   <button type="submit" class="btn btn-pill btn-soft btn-ml-soft">
                     <span class="i material-symbols-outlined" aria-hidden="true">play_circle</span>
@@ -502,21 +477,23 @@
                   </button>
                 </form>
 
-                <a class="btn btn-pill btn-soft btn-ml-soft"
-                   href="{{ route('admin.catalog.meli.view', $item) }}"
-                   target="_blank" rel="noopener">
+                <a class="btn btn-pill btn-soft btn-ml-soft" href="{{ route('admin.catalog.meli.view', $item) }}" target="_blank" rel="noopener">
                   <span class="i material-symbols-outlined" aria-hidden="true">open_in_new</span>
                   Ver
                 </a>
               </div>
             </div>
+
+            <p class="hint pub-hint">
+              Mercado Libre usa tu marca/modelo/GTIN para atributos.
+            </p>
           </div>
 
           {{-- Amazon --}}
-          <div class="pub-block pub-amz">
+          <div class="pub-block">
             <div class="pub-head">
               <div class="pub-title">Amazon (SP-API)</div>
-              <div class="pub-sub">Publica, pausa o activa.</div>
+              <div class="pub-sub">Envía solicitud de listing por SKU.</div>
             </div>
 
             @if(!$hasSku)
@@ -524,13 +501,13 @@
                 <span class="material-symbols-outlined" aria-hidden="true">info</span>
                 <div>
                   <div class="pub-warn-title">Falta SKU</div>
-                  <div class="pub-warn-text">Guarda primero un SKU para publicar.</div>
+                  <div class="pub-warn-text">Para publicar en Amazon necesitas guardar primero un SKU.</div>
                 </div>
               </div>
             @endif
 
             <div class="pub-actions">
-              <form method="POST" action="{{ route('admin.catalog.amazon.publish', $item) }}" class="pub-form">
+              <form method="POST" action="{{ route('admin.catalog.amazon.publish', $item) }}">
                 @csrf
                 <button type="submit" class="btn btn-pill btn-amz" @disabled(!$hasSku)>
                   <span class="i material-symbols-outlined" aria-hidden="true">cloud_upload</span>
@@ -539,7 +516,7 @@
               </form>
 
               <div class="pub-row">
-                <form method="POST" action="{{ route('admin.catalog.amazon.pause', $item) }}" class="pub-form">
+                <form method="POST" action="{{ route('admin.catalog.amazon.pause', $item) }}">
                   @csrf
                   <button type="submit" class="btn btn-pill btn-soft btn-amz-soft" @disabled(!$hasSku)>
                     <span class="i material-symbols-outlined" aria-hidden="true">pause_circle</span>
@@ -547,7 +524,7 @@
                   </button>
                 </form>
 
-                <form method="POST" action="{{ route('admin.catalog.amazon.activate', $item) }}" class="pub-form">
+                <form method="POST" action="{{ route('admin.catalog.amazon.activate', $item) }}">
                   @csrf
                   <button type="submit" class="btn btn-pill btn-soft btn-amz-soft" @disabled(!$hasSku)>
                     <span class="i material-symbols-outlined" aria-hidden="true">play_circle</span>
@@ -564,6 +541,10 @@
                 </a>
               </div>
             </div>
+
+            <p class="hint pub-hint">
+              Amazon requiere SKU y atributos por categoría. Si te devuelve validaciones, es normal: se ajustan por productType.
+            </p>
           </div>
         </div>
       </div>
@@ -583,14 +564,605 @@
 
 @push('styles')
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@400..700&display=swap"/>
-<link rel="stylesheet" href="{{ asset('css/form.css') }}?v={{ time() }}">
+
+<style>
+  :root{
+    --ink:#0e1726;
+    --muted:#64748b;
+    --line:#e2e8f0;
+    --surface:#ffffff;
+    --brand:#2563eb;
+    --brand-soft:#eff6ff;
+    --accent:#22c55e;
+    --shadow-soft:0 18px 40px rgba(15,23,42,.06);
+    --radius-lg:18px;
+    --radius-md:12px;
+
+    --ml:#10b981;
+    --ml-soft: rgba(16,185,129,.14);
+
+    --amz:#f59e0b;
+    --amz-soft: rgba(245,158,11,.16);
+  }
+
+  .lbl{
+    display:block;
+    font-weight:700;
+    color:var(--ink);
+    margin:10px 0 4px;
+    font-size:.9rem;
+  }
+
+  .inp{
+    width:100%;
+    background:#f8fafc;
+    border:1px solid var(--line);
+    border-radius:var(--radius-md);
+    padding:10px 12px;
+    min-height:42px;
+    font-size:.92rem;
+    color:#0f172a;
+    transition:border-color .15s ease, box-shadow .15s ease, background .15s ease, transform .08s ease;
+  }
+  .inp:focus{
+    outline:none;
+    border-color:#93c5fd;
+    box-shadow:0 0 0 1px #bfdbfe;
+    background:#ffffff;
+    transform:translateY(-1px);
+  }
+
+  .btn{
+    border:0;
+    border-radius:999px;
+    padding:10px 16px;
+    font-weight:600;
+    cursor:pointer;
+    font-size:.9rem;
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    transition:transform .12s ease, box-shadow .12s ease, background .15s ease, border-color .15s ease, opacity .15s ease;
+    white-space:nowrap;
+    text-decoration:none;
+  }
+  .btn[disabled], .btn[aria-disabled="true"]{
+    opacity:.5;
+    cursor:not-allowed;
+    pointer-events:none;
+  }
+
+  .btn-primary{
+    background:var(--brand);
+    color:#eff6ff;
+    box-shadow:0 12px 30px rgba(37,99,235,.35);
+  }
+  .btn-primary:hover{
+    transform:translateY(-1px);
+    box-shadow:0 16px 32px rgba(37,99,235,.35);
+  }
+  .btn-ghost{
+    background:#ffffff;
+    border:1px solid var(--line);
+    color:#0f172a;
+  }
+  .btn-ghost:hover{
+    transform:translateY(-1px);
+    box-shadow:0 8px 20px rgba(15,23,42,.06);
+  }
+
+  .btn-xs{ padding:5px 10px; font-size:.75rem; }
+
+  .divi{
+    border:none;
+    border-top:1px dashed #e5e7eb;
+    margin:18px 0;
+  }
+
+  .hint{ margin:4px 0 0; font-size:.78rem; color:var(--muted); }
+  .card-section{ margin-bottom:12px; }
+
+  .catalog-grid{
+    display:grid;
+    gap:18px;
+    grid-template-columns:repeat(12,1fr);
+  }
+  .catalog-main{ grid-column:span 8; display:flex; flex-direction:column; gap:12px; }
+  .catalog-side{ grid-column:span 4; display:flex; flex-direction:column; gap:12px; }
+
+  .side-card{
+    background:#f9fafb;
+    border-radius:var(--radius-lg);
+    border:1px solid var(--line);
+    padding:12px 14px;
+    box-shadow:0 10px 25px rgba(15,23,42,.03);
+  }
+  .side-title{
+    margin:0 0 8px;
+    font-size:.9rem;
+    font-weight:700;
+    color:#0f172a;
+  }
+
+  .ml-tips{
+    margin-top:6px;
+    padding-top:8px;
+    border-top:1px dashed #e5e7eb;
+  }
+  .hint-title{
+    margin:0 0 4px;
+    font-size:.8rem;
+    font-weight:700;
+    color:#111827;
+  }
+  .hint-list{
+    margin:0 0 0 16px;
+    padding:0;
+    font-size:.78rem;
+    color:#4b5563;
+  }
+
+  .card-inline{ display:flex; gap:10px; flex-wrap:wrap; }
+  .card-inline-item{ flex:1 1 140px; }
+
+  .toggle-row{
+    display:flex;
+    gap:8px;
+    align-items:center;
+    font-size:.9rem;
+    color:#4b5563;
+  }
+
+  .form-actions{
+    margin-top:18px;
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    justify-content:flex-end;
+  }
+
+  /* ✅ Bloque interno disabled */
+  #internal-box.is-disabled{
+    opacity:.55;
+    filter:grayscale(.2);
+    pointer-events:none;
+  }
+
+  /* =========================================================
+     🔹 FOTOS 3-UP
+     ========================================================= */
+  .photos-grid{
+    display:grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap:10px;
+    margin-top:10px;
+  }
+  .photo-card{
+    background:#ffffff;
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:10px;
+    transition:border-color .15s ease, box-shadow .15s ease, background .15s ease;
+  }
+  .photo-card.is-filled{
+    border:1px solid rgba(34,197,94,.35);
+    box-shadow:0 12px 26px rgba(22,163,74,.08);
+  }
+  .photo-card.is-filled .photo-drop{
+    border-color: rgba(34,197,94,.55);
+    background:linear-gradient(135deg, rgba(240,253,244,.95), #ffffff);
+  }
+  .photo-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    margin-bottom:8px;
+  }
+  .photo-title{
+    font-weight:800;
+    color:#0f172a;
+    font-size:.86rem;
+  }
+  .photo-badge{
+    font-size:.72rem;
+    padding:3px 8px;
+    border-radius:999px;
+    border:1px solid var(--line);
+    background:#f8fafc;
+    color:#334155;
+    font-weight:800;
+    white-space:nowrap;
+  }
+  .photo-badge.ok{
+    border-color:#bbf7d0;
+    background:#dcfce7;
+    color:#15803d;
+  }
+
+  .photo-drop{
+    position:relative;
+    border:1.5px dashed rgba(148,163,184,.95);
+    border-radius:14px;
+    padding:10px;
+    display:flex;
+    gap:10px;
+    align-items:center;
+    background:linear-gradient(135deg, rgba(239,246,255,.9), #ffffff);
+    cursor:pointer;
+    transition:transform .12s ease, box-shadow .15s ease, border-color .15s ease;
+    min-height:62px;
+  }
+  .photo-drop:hover{
+    border-color:#60a5fa;
+    box-shadow:0 10px 25px rgba(37,99,235,.14);
+    transform:translateY(-1px);
+  }
+  .photo-icon{
+    width:38px; height:38px;
+    border-radius:999px;
+    background:#1d4ed8;
+    color:#e0f2fe;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    box-shadow:0 12px 24px rgba(30,64,175,.55);
+    flex:0 0 auto;
+    font-size:1.1rem;
+  }
+  .photo-strong{
+    font-weight:900;
+    color:#0f172a;
+    font-size:.85rem;
+    margin-bottom:2px;
+  }
+  .photo-sub{
+    color:var(--muted);
+    font-size:.75rem;
+    font-weight:700;
+  }
+  .photo-actions{
+    display:flex;
+    justify-content:flex-end;
+    margin-top:8px;
+  }
+
+  .photo-input{ display:none; }
+
+  .photo-preview{
+    margin-top:8px;
+    border-radius:14px;
+    overflow:hidden;
+    border:1px solid var(--line);
+    background:#f1f5f9;
+    aspect-ratio: 4/3;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .photo-preview img{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    display:block;
+  }
+
+  /* =========================================================
+     🔹 Acciones publicación ML / Amazon
+     ========================================================= */
+  .pub-grid{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:12px;
+    margin-top:10px;
+  }
+
+  .pub-block{
+    background:#ffffff;
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:12px;
+    box-shadow:0 10px 24px rgba(15,23,42,.03);
+  }
+
+  .pub-head{ display:flex; flex-direction:column; gap:2px; margin-bottom:8px; }
+  .pub-title{ font-weight:800; color:#0f172a; font-size:.9rem; }
+  .pub-sub{ color:#64748b; font-size:.78rem; }
+
+  .pub-actions{ display:flex; flex-direction:column; gap:8px; }
+  .pub-row{ display:flex; gap:8px; flex-wrap:wrap; }
+
+  .btn-pill{
+    width:100%;
+    justify-content:center;
+    padding:9px 14px;
+    font-size:.84rem;
+    border-radius:999px;
+  }
+  .btn-soft{
+    width:auto;
+    padding:7px 12px;
+    font-size:.78rem;
+  }
+
+  .i.material-symbols-outlined{
+    font-size:18px;
+    line-height:1;
+  }
+
+  /* ML */
+  .btn-ml{
+    background:linear-gradient(135deg, rgba(16,185,129,.18), rgba(16,185,129,.08));
+    color:#065f46;
+    border:1px solid rgba(16,185,129,.35);
+    box-shadow:0 14px 28px rgba(16,185,129,.14);
+  }
+  .btn-ml:hover{
+    transform:translateY(-1px);
+    box-shadow:0 18px 34px rgba(16,185,129,.18);
+  }
+
+  .btn-ml-soft{
+    background:rgba(16,185,129,.10);
+    color:#065f46;
+    border:1px solid rgba(16,185,129,.25);
+  }
+  .btn-ml-soft:hover{
+    transform:translateY(-1px);
+    box-shadow:0 12px 26px rgba(16,185,129,.14);
+  }
+
+  /* Amazon */
+  .btn-amz{
+    background:linear-gradient(135deg, rgba(245,158,11,.22), rgba(245,158,11,.10));
+    color:#92400e;
+    border:1px solid rgba(245,158,11,.35);
+    box-shadow:0 14px 28px rgba(245,158,11,.14);
+  }
+  .btn-amz:hover{
+    transform:translateY(-1px);
+    box-shadow:0 18px 34px rgba(245,158,11,.18);
+  }
+
+  .btn-amz-soft{
+    background:rgba(245,158,11,.12);
+    color:#92400e;
+    border:1px solid rgba(245,158,11,.25);
+  }
+  .btn-amz-soft:hover{
+    transform:translateY(-1px);
+    box-shadow:0 12px 26px rgba(245,158,11,.14);
+  }
+
+  .pub-hint{ margin-top:10px; }
+
+  .pub-warn{
+    display:flex;
+    gap:10px;
+    align-items:flex-start;
+    padding:10px 10px;
+    border-radius:14px;
+    border:1px dashed rgba(245,158,11,.45);
+    background:linear-gradient(135deg, rgba(255,251,235,.9), #ffffff);
+    color:#92400e;
+    margin-bottom:10px;
+  }
+  .pub-warn .material-symbols-outlined{ font-size:20px; }
+  .pub-warn-title{ font-weight:800; font-size:.82rem; }
+  .pub-warn-text{ font-size:.76rem; color:#92400e; opacity:.9; }
+
+  /* =========================================================
+     🔹 Estilos IA (panel principal) + tabla
+     ========================================================= */
+  .ai-helper{
+    margin-bottom:18px;
+    padding:14px 16px;
+    background:radial-gradient(circle at top left, #dbeafe 0, #eff6ff 25%, #ffffff 80%);
+    border-radius:22px;
+    border:1px solid #dbeafe;
+    display:flex;
+    gap:12px;
+    align-items:flex-start;
+    flex-wrap:wrap;
+    position:relative;
+    overflow:hidden;
+  }
+  .ai-helper::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    background:linear-gradient(120deg, rgba(59,130,246,.12), transparent 40%, transparent 60%, rgba(59,130,246,.12));
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .25s ease;
+  }
+  .ai-helper.ai-busy::before{
+    opacity:1;
+    animation:aiSweep 2.2s linear infinite;
+  }
+
+  .ai-helper-icon-wrapper{ position:relative; width:46px; height:46px; flex:0 0 auto; }
+  .ai-helper-glow{
+    position:absolute; inset:0; border-radius:999px;
+    background:radial-gradient(circle, rgba(59,130,246,.28), transparent 60%);
+    opacity:.85; filter:blur(6px);
+  }
+  .ai-helper-icon{
+    position:relative;
+    width:46px; height:46px;
+    border-radius:999px;
+    background:#1d4ed8;
+    display:flex; align-items:center; justify-content:center;
+    font-size:1.5rem;
+    box-shadow:0 14px 30px rgba(30,64,175,.55);
+    transition:transform .2s ease, box-shadow .2s ease, background .2s ease;
+  }
+  .ai-helper.ai-busy .ai-helper-icon{
+    box-shadow:0 20px 40px rgba(30,64,175,.6);
+    animation:aiBob 1.1s ease-in-out infinite;
+  }
+
+  .ai-helper-main{ flex:1 1 260px; position:relative; z-index:1; }
+  .ai-helper-header{ display:flex; justify-content:space-between; gap:8px; align-items:flex-start; margin-bottom:4px; }
+  .ai-helper-title{ font-size:.95rem; font-weight:700; color:#0f172a; }
+  .ai-helper-subtitle{ margin:0; font-size:.8rem; color:#475569; }
+  .ai-helper-chip{
+    align-self:flex-start;
+    font-size:.7rem; padding:3px 9px; border-radius:999px;
+    background:rgba(236,252,203,.9); color:#4d7c0f; font-weight:600;
+  }
+  .ai-helper-text{ margin:6px 0 10px; font-size:.8rem; color:#334155; }
+  .ai-helper-row{ display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; }
+  .ai-helper-input{ flex:1 1 260px; }
+  .ai-helper-actions{ display:flex; flex-direction:column; gap:4px; align-items:flex-start; }
+  .ai-helper-status{ min-height:18px; }
+
+  .ai-cta{ position:relative; overflow:hidden; }
+  .ai-cta-spinner{
+    width:16px;height:16px;border-radius:999px;
+    border:2px solid rgba(191,219,254,.7);
+    border-top-color:#eff6ff;
+    opacity:0; transform:scale(.6);
+    transition:opacity .15s ease, transform .15s ease;
+  }
+  .ai-helper.ai-busy .ai-cta-spinner{
+    opacity:1; transform:scale(1); animation:aiSpin .8s linear infinite;
+  }
+
+  .ai-dropzone{
+    position:relative;
+    border-radius:16px;
+    border:1.5px dashed rgba(148,163,184,.9);
+    background:linear-gradient(135deg, rgba(239,246,255,.9), #ffffff);
+    padding:10px 12px;
+    display:flex; align-items:center; gap:10px;
+    cursor:pointer;
+    transition:border-color .18s ease, background .18s ease, box-shadow .18s ease, transform .1s ease;
+  }
+  .ai-dropzone:hover{
+    border-color:#60a5fa;
+    box-shadow:0 10px 25px rgba(37,99,235,.16);
+    transform:translateY(-1px);
+  }
+  .ai-dropzone.is-dragover{
+    border-color:#2563eb;
+    background:radial-gradient(circle at top left,#dbeafe 0,#eff6ff 45%,#ffffff 100%);
+    box-shadow:0 14px 32px rgba(37,99,235,.25);
+  }
+  .ai-dropzone-icon{
+    width:36px;height:36px;border-radius:999px;
+    background:#1d4ed8; display:flex; align-items:center; justify-content:center;
+    font-size:1.2rem; color:#e0f2fe;
+    box-shadow:0 12px 24px rgba(30,64,175,.55);
+    flex:0 0 auto;
+  }
+  .ai-dropzone-body{ display:flex; flex-direction:column; gap:2px; }
+  .ai-dropzone-title{ font-size:.86rem; font-weight:600; color:#0f172a; }
+  .ai-dropzone-sub{ font-size:.8rem; color:#475569; }
+  .ai-dropzone-btn{
+    border:0; border-radius:999px; padding:4px 10px;
+    font-size:.78rem; font-weight:600; margin-left:4px;
+    background:#0f172a; color:#f9fafb; cursor:pointer;
+  }
+  .ai-dropzone-hint{ font-size:.75rem; color:#6b7280; }
+  .ai-dropzone-input{ position:absolute; inset:0; opacity:0; cursor:pointer; }
+
+  .ai-files-list{ margin-top:6px; display:flex; flex-wrap:wrap; gap:6px; }
+  .ai-file-chip{
+    display:inline-flex; align-items:center; gap:6px; padding:3px 8px;
+    font-size:.75rem; border-radius:999px;
+    background:#eff6ff; color:#1e293b; border:1px solid #dbeafe;
+    max-width:100%;
+  }
+  .ai-file-chip span{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:180px; }
+
+  .ai-items-panel{
+    margin-bottom:18px;
+    padding:12px 14px;
+    background:#f9fafb;
+    border-radius:18px;
+    border:1px solid #e5e7eb;
+    box-shadow:0 14px 30px rgba(15,23,42,.03);
+    animation:fadeInUp .25s ease-out;
+  }
+  .ai-items-header{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:10px; }
+  .ai-items-header-right{ display:flex; align-items:center; gap:8px; }
+  .ai-items-title{ font-size:.9rem; font-weight:700; color:#0f172a; }
+  .ai-items-text{ margin:2px 0 0; font-size:.8rem; color:#4b5563; }
+  .ai-items-badge{
+    align-self:flex-start; font-size:.75rem; padding:3px 8px; border-radius:999px;
+    background:#dcfce7; color:#15803d; font-weight:600; white-space:nowrap;
+  }
+  .ai-items-table-wrapper{ width:100%; overflow:auto; }
+  .ai-items-table{ width:100%; border-collapse:collapse; font-size:.8rem; }
+  .ai-items-table thead{ background:#eff6ff; }
+  .ai-items-table th, .ai-items-table td{
+    padding:6px 8px; border-bottom:1px solid #e5e7eb; text-align:left; vertical-align:top;
+  }
+  .ai-items-table th{ font-weight:700; color:#0f172a; white-space:nowrap; }
+  .ai-items-table td{ color:#4b5563; }
+  .ai-items-table tr:hover{ background:#f8fafc; }
+
+  .ai-suggested{
+    border-color:rgba(34,197,94,.9) !important;
+    box-shadow:0 0 0 1px rgba(34,197,94,.4), 0 10px 25px rgba(22,163,74,.12);
+    background:#f0fdf4;
+  }
+
+  @keyframes aiSpin{ to{ transform:rotate(360deg); } }
+  @keyframes aiBob{ 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-3px); } }
+  @keyframes aiSweep{
+    0%{ transform:translateX(-30%); opacity:.2; }
+    50%{ opacity:.5; }
+    100%{ transform:translateX(30%); opacity:.2; }
+  }
+  @keyframes fadeInUp{
+    from{ opacity:0; transform:translateY(6px); }
+    to{ opacity:1; transform:translateY(0); }
+  }
+
+  @media (max-width: 992px){
+    .catalog-grid{ grid-template-columns:1fr; }
+    .catalog-main, .catalog-side{ grid-column:span 12; }
+    .photos-grid{ grid-template-columns:1fr; }
+  }
+
+  @media (max-width: 768px){
+    .ai-items-table th:nth-child(3), .ai-items-table td:nth-child(3),
+    .ai-items-table th:nth-child(5), .ai-items-table td:nth-child(5){
+      display:none;
+    }
+  }
+
+  /* SweetAlert */
+  .swal2-popup-compact{
+    border-radius:18px !important;
+    padding:12px 16px !important;
+    box-shadow:0 18px 40px rgba(15,23,42,.18) !important;
+    backdrop-filter:blur(16px);
+    background:radial-gradient(circle at top left,#eff6ff 0,#ffffff 60%) !important;
+    border:1px solid rgba(148,163,184,.35);
+    font-family:system-ui,-apple-system,"Segoe UI","Helvetica Neue",Arial,sans-serif;
+  }
+  .swal2-title{ font-size:.9rem !important; font-weight:700 !important; color:#0f172a !important; }
+  .swal2-html-container{ font-size:.8rem !important; color:#4b5563 !important; margin-top:4px !important; }
+  .swal2-icon{ margin:0 0 8px 0 !important; }
+  .swal2-actions{ margin-top:10px !important; }
+  .swal2-styled.swal2-confirm{
+    border-radius:999px !important;
+    padding:7px 16px !important;
+    font-size:.78rem !important;
+    font-weight:600 !important;
+    background:#2563eb !important;
+  }
+</style>
 @endpush
 
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
-  // ✅ Toggle clasificación interna (NO tocar)
+  // ✅ Toggle clasificación interna
   document.addEventListener('DOMContentLoaded', function(){
     const chk = document.getElementById('use_internal');
     const box = document.getElementById('internal-box');
@@ -601,7 +1173,7 @@
     }
   });
 
-  // ✅ Fotos: preview + badges + botón Quitar (NO tocar)
+  // ✅ Fotos: preview + badges + botón Quitar
   document.addEventListener('DOMContentLoaded', function () {
     const map = [
       { input: 'photo_1_file', preview: 'photo_1_preview' },
@@ -638,7 +1210,8 @@
       }
 
       if (!file) {
-        return; // deja la imagen guardada intacta
+        prev.innerHTML = '';
+        return;
       }
 
       const url = URL.createObjectURL(file);
@@ -670,6 +1243,7 @@
           inp.value = '';
           setFilledState(input, false);
           setFilename(input, null);
+          renderPreview(preview, null);
         });
       }
     });
@@ -680,7 +1254,7 @@
   });
 
   // ================================
-  // 🔹 SweetAlert UI
+  // 🔹 Config base de SweetAlert UI
   // ================================
   const uiToast = Swal.mixin({
     toast: true,
@@ -698,57 +1272,10 @@
   };
 
   // ================================
-  // ✅ Rellenar desde original (EDIT)
-  // ================================
-  document.addEventListener('DOMContentLoaded', function () {
-    const btn = document.getElementById('btn-restore-original');
-    if (!btn) return;
-
-    const fieldNames = [
-      'name','slug','description','excerpt','sku',
-      'price','stock','sale_price','category_key','status','published_at',
-      'brand_name','model_name','meli_gtin','meli_category_id','meli_listing_type_id',
-      'amazon_sku','amazon_asin','amazon_product_type'
-    ];
-
-    const original = {};
-    fieldNames.forEach(n=>{
-      const el = document.querySelector(`[name="${n}"]`);
-      if (!el) return;
-      original[n] = (el.type === 'checkbox') ? el.checked : (el.value ?? '');
-    });
-
-    btn.addEventListener('click', function () {
-      let changed = 0;
-
-      fieldNames.forEach(n=>{
-        const el = document.querySelector(`[name="${n}"]`);
-        if (!el) return;
-        if (el.type === 'checkbox') return;
-
-        const cur = (el.value ?? '').toString().trim();
-        const orig = (original[n] ?? '').toString();
-
-        if (cur === '' && orig !== '') {
-          el.value = orig;
-          try { el.dispatchEvent(new Event('change', { bubbles:true })); } catch(e){}
-          el.classList.add('ai-suggested');
-          setTimeout(() => el.classList.remove('ai-suggested'), 2500);
-          changed++;
-        }
-      });
-
-      if (changed) AiAlerts.success('Listo', `Se rellenaron ${changed} campo(s).`);
-      else AiAlerts.info('Sin cambios', 'No hay campos vacíos para rellenar.');
-    });
-  });
-
-  // ================================
   // 🔹 IA: subir archivos + dropzone + rellenar campos
   // ================================
   document.addEventListener('DOMContentLoaded', function () {
     const btnAi      = document.getElementById('btn-ai-analyze');
-    const btnFill    = document.getElementById('btn-ai-fill-missing');
     const inputFiles = document.getElementById('ai_files');
     const statusEl   = document.getElementById('ai-helper-status');
     const helperBox  = document.getElementById('ai-helper');
@@ -761,25 +1288,10 @@
     const filesList  = document.getElementById('ai-files-list');
     const clearBtn   = document.getElementById('ai-clear-list');
 
-    const pickBtn    = document.getElementById('ai-pick-files');
-
-    const detectedBox   = document.getElementById('ai-detected');
-    const detectedChips = document.getElementById('ai-detected-chips');
-
     const LS_KEY_ITEMS = 'catalog_ai_items';
     const LS_KEY_INDEX = 'catalog_ai_index';
-    const LS_KEY_LAST  = 'catalog_ai_last_suggestions';
 
     let aiItems = [];
-    let lastSuggestions = null;
-
-    if (pickBtn && inputFiles) {
-      pickBtn.addEventListener('click', function(e){
-        e.preventDefault();
-        e.stopPropagation();
-        inputFiles.click();
-      });
-    }
 
     function saveAiItemsToStorage() {
       try { localStorage.setItem(LS_KEY_ITEMS, JSON.stringify(aiItems || [])); } catch (e) {}
@@ -802,28 +1314,6 @@
         return isNaN(idx) ? 0 : Math.max(0, idx);
       } catch (e) { return 0; }
     }
-    function saveLastSuggestions(s) {
-      lastSuggestions = s && typeof s === 'object' ? s : null;
-      try { localStorage.setItem(LS_KEY_LAST, JSON.stringify(lastSuggestions || null)); } catch(e){}
-    }
-    function loadLastSuggestions() {
-      try {
-        const raw = localStorage.getItem(LS_KEY_LAST);
-        if (!raw) return null;
-        const parsed = JSON.parse(raw);
-        return (parsed && typeof parsed === 'object') ? parsed : null;
-      } catch(e){ return null; }
-    }
-
-    function escapeHtml(str) {
-      if (str === null || str === undefined) return '';
-      return String(str)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-    }
 
     function refreshFileChips(files) {
       if (!filesList) return;
@@ -833,18 +1323,21 @@
       Array.from(files).forEach(file => {
         const chip = document.createElement('div');
         chip.className = 'ai-file-chip';
-        chip.innerHTML = `<span>${escapeHtml(file.name)}</span>`;
+        chip.innerHTML = `<span>${file.name}</span>`;
         filesList.appendChild(chip);
       });
     }
 
-    if (inputFiles) {
+    if (dropzone && inputFiles) {
+      dropzone.addEventListener('click', function (e) {
+        if (e.target.closest('.ai-dropzone-btn')) e.preventDefault();
+        inputFiles.click();
+      });
+
       inputFiles.addEventListener('change', function () {
         refreshFileChips(inputFiles.files);
       });
-    }
 
-    if (dropzone && inputFiles) {
       ['dragenter','dragover'].forEach(evt => {
         dropzone.addEventListener(evt, function (e) {
           e.preventDefault(); e.stopPropagation();
@@ -871,60 +1364,19 @@
       });
     }
 
-    function renderDetectedChips(item) {
-      if (!detectedBox || !detectedChips) return;
-
-      const pairs = [];
-      const pick = (k, v) => {
-        if (v === undefined || v === null) return;
-        const s = String(v).trim();
-        if (!s) return;
-        pairs.push([k, s]);
-      };
-
-      pick('Nombre', item.name ?? item.title);
-      pick('Slug', item.slug);
-      pick('Descripción', item.description ?? item.descripcion_larga ?? item.desc);
-      pick('Extracto', item.excerpt ?? item.resumen);
-      pick('Precio', item.price ?? item.unit_price ?? item.precio ?? item.precio_unitario);
-      pick('Stock', item.stock ?? item.quantity ?? item.qty ?? item.cantidad ?? item.cant);
-      pick('Marca', item.brand_name ?? item.brand ?? item.marca);
-      pick('Modelo', item.model_name ?? item.model ?? item.modelo);
-      pick('GTIN', item.meli_gtin ?? item.gtin ?? item.ean ?? item.upc ?? item.barcode ?? item.codigo_barras);
-      pick('ML categoría', item.meli_category_id ?? item.category_id ?? item.ml_category_id ?? item.meli_category);
-
-      detectedChips.innerHTML = '';
-      if (!pairs.length) {
-        detectedBox.style.display = 'none';
-        return;
-      }
-
-      pairs.slice(0, 10).forEach(([k,v]) => {
-        const el = document.createElement('div');
-        el.className = 'ai-chip';
-        el.innerHTML = `<span class="k">${escapeHtml(k)}:</span> <span class="v">${escapeHtml(v)}</span>`;
-        detectedChips.appendChild(el);
-      });
-
-      detectedBox.style.display = 'block';
-    }
-
     if (clearBtn) {
       clearBtn.addEventListener('click', function () {
         aiItems = [];
-        lastSuggestions = null;
         try {
           localStorage.removeItem(LS_KEY_ITEMS);
           localStorage.removeItem(LS_KEY_INDEX);
-          localStorage.removeItem(LS_KEY_LAST);
         } catch (e) {}
         if (tbody) tbody.innerHTML = '';
         if (panel) panel.style.display = 'none';
         if (filesList) filesList.innerHTML = '';
         if (inputFiles) inputFiles.value = '';
-        if (detectedBox) detectedBox.style.display = 'none';
-        if (statusEl) statusEl.textContent = 'Lista IA limpia. Sube un nuevo PDF o imágenes.';
-        AiAlerts.info('Lista limpia', 'Se reinició la lista de productos IA.');
+        if (statusEl) statusEl.textContent = 'Se limpió la lista de productos IA. Puedes subir un nuevo PDF o imágenes.';
+        AiAlerts.info('Lista limpia', 'La lista de productos sugeridos por IA se reinició.');
       });
     }
 
@@ -936,10 +1388,8 @@
           const item = aiItems[i];
           if (!item) return;
           saveAiIndexToStorage(i);
-          saveLastSuggestions(item);
-          fillFromItem(item, { markSuggested: true, onlyMissing: false });
-          renderDetectedChips(item);
-          if (statusEl) statusEl.textContent = 'Se cargó el producto #' + (i + 1) + ' desde la lista IA.';
+          fillFromItem(item, { markSuggested: true });
+          if (statusEl) statusEl.textContent = 'Se cargó el producto #' + (i + 1) + ' desde la lista IA. Revisa y ajusta antes de guardar.';
           AiAlerts.info('Producto cargado', 'Se llenó el formulario con el producto #' + (i + 1) + '.');
         });
       });
@@ -950,64 +1400,48 @@
       tbody.innerHTML = '';
 
       aiItems.forEach((item, idx) => {
-        const price = item.price ?? item.unit_price ?? item.precio ?? item.precio_unitario;
-        const precio = (price != null && price !== '') ? '$ ' + Number(price).toFixed(2) : '—';
-
         const tr = document.createElement('tr');
+        const precio = item.price != null && item.price !== ''
+          ? '$ ' + Number(item.price).toFixed(2)
+          : '—';
+
         tr.innerHTML = `
           <td>${idx + 1}</td>
-          <td>${escapeHtml(item.name || item.title || '')}</td>
-          <td>${escapeHtml(precio)}</td>
-          <td>${escapeHtml(item.brand_name || item.brand || item.marca || '')}</td>
-          <td>${escapeHtml(item.model_name || item.model || item.modelo || '')}</td>
-          <td>${escapeHtml(item.meli_gtin || item.gtin || item.ean || '')}</td>
-          <td><button type="button" class="btn btn-ghost btn-xs" data-ai-index="${idx}">Usar este</button></td>
+          <td>${escapeHtml(item.name || '')}</td>
+          <td>${precio}</td>
+          <td>${escapeHtml(item.brand_name || '')}</td>
+          <td>${escapeHtml(item.model_name || '')}</td>
+          <td>${escapeHtml(item.meli_gtin || '')}</td>
+          <td>
+            <button type="button" class="btn btn-ghost btn-xs" data-ai-index="${idx}">Usar este</button>
+          </td>
         `;
         tbody.appendChild(tr);
       });
 
-      if (countEl) countEl.textContent = aiItems.length === 1 ? '1 producto' : (aiItems.length + ' productos');
+      if (countEl) {
+        countEl.textContent = aiItems.length === 1 ? '1 producto detectado' : (aiItems.length + ' productos detectados');
+      }
+
       panel.style.display = aiItems.length ? 'block' : 'none';
       attachUseButtons();
     }
 
     aiItems = loadAiItemsFromStorage();
-    lastSuggestions = loadLastSuggestions();
-
     if (aiItems.length) {
       renderAiTable();
-      if (statusEl) statusEl.textContent = 'Productos IA restaurados. Puedes continuar sin re-subir.';
+      if (statusEl) statusEl.textContent = 'Se restauraron los productos detectados por IA. Puedes seguir capturando sin volver a subir el PDF.';
       const idx = loadAiIndexFromStorage();
       const item = aiItems[idx] || aiItems[0];
-      if (item) {
-        saveLastSuggestions(item);
-        renderDetectedChips(item);
-        fillFromItem(item, { markSuggested: false, onlyMissing: true });
-      }
-    } else if (lastSuggestions) {
-      renderDetectedChips(lastSuggestions);
-    }
-
-    if (btnFill) {
-      btnFill.addEventListener('click', function () {
-        const base = lastSuggestions || loadLastSuggestions();
-        if (!base) {
-          AiAlerts.info('Sin sugerencias', 'Primero analiza con IA o selecciona un producto detectado.');
-          return;
-        }
-        const changed = fillFromItem(base, { markSuggested: true, onlyMissing: true });
-        renderDetectedChips(base);
-        if (changed > 0) AiAlerts.success('Listo', `Se rellenaron ${changed} campo(s) vacío(s).`);
-        else AiAlerts.info('Sin cambios', 'No hay campos vacíos para rellenar.');
-      });
+      if (item) fillFromItem(item, { markSuggested: true });
     }
 
     if (!btnAi || !inputFiles) return;
 
     btnAi.addEventListener('click', function () {
       if (!inputFiles.files || !inputFiles.files.length) {
-        AiAlerts.info('Sube un archivo', 'Necesito al menos una imagen o PDF.');
-        if (statusEl) statusEl.textContent = 'Sube un archivo para analizar.';
+        AiAlerts.info('Sube un archivo', 'Necesito al menos una imagen o PDF para analizar con IA.');
+        if (statusEl) statusEl.textContent = 'Sube un archivo para que la IA pueda analizarlo.';
         return;
       }
 
@@ -1023,7 +1457,7 @@
       else btnAi.textContent = 'Analizando...';
 
       if (helperBox) helperBox.classList.add('ai-busy');
-      if (statusEl) statusEl.textContent = 'Enviando a IA...';
+      if (statusEl) statusEl.textContent = 'Enviando archivos a la IA, esto puede tardar unos segundos...';
 
       aiItems = [];
       if (tbody) tbody.innerHTML = '';
@@ -1036,16 +1470,13 @@
       .then(res => res.json())
       .then(data => {
         if (data.error) {
-          if (statusEl) statusEl.textContent = 'Error: ' + (data.error || 'No se pudo obtener sugerencias.');
-          AiAlerts.error('Error', data.error || 'No se pudo obtener sugerencias.');
+          if (statusEl) statusEl.textContent = 'Error: ' + (data.error || 'No fue posible obtener sugerencias.');
+          AiAlerts.error('Error al analizar con IA', data.error || 'No fue posible obtener sugerencias.');
           return;
         }
 
         const s = data.suggestions || {};
-        saveLastSuggestions(s);
-        renderDetectedChips(s);
-
-        fillFromItem(s, { markSuggested: true, onlyMissing: false });
+        fillFromItem(s, { markSuggested: true });
 
         aiItems = Array.isArray(data.items) ? data.items : [];
         saveAiItemsToStorage();
@@ -1053,13 +1484,13 @@
 
         if (aiItems.length) renderAiTable();
 
-        if (statusEl) statusEl.textContent = 'Listo: revisa las sugerencias.';
-        AiAlerts.success('Sugerencias listas', 'Campos completados.');
+        if (statusEl) statusEl.textContent = 'Listo: revisa y ajusta las sugerencias marcadas en verde antes de guardar.';
+        AiAlerts.success('Sugerencias listas', 'La IA completó los campos principales del producto.');
       })
       .catch(err => {
         console.error(err);
-        if (statusEl) statusEl.textContent = 'Error al contactar la IA.';
-        AiAlerts.error('Error de conexión', 'No se pudo contactar la IA.');
+        if (statusEl) statusEl.textContent = 'Ocurrió un error al llamar a la IA.';
+        AiAlerts.error('Error de conexión', 'Ocurrió un problema al contactar la IA.');
       })
       .finally(() => {
         btnAi.disabled = false;
@@ -1069,72 +1500,43 @@
       });
     });
 
-    function isEmptyField(el){
-      if (!el) return true;
-      if (el.type === 'checkbox') return !el.checked;
-      const v = (el.value ?? '').toString().trim();
-      return v === '';
-    }
-
-    function applyAiSuggestion(fieldName, value, markSuggested, onlyMissing) {
-      if (value === undefined || value === null || value === '') return 0;
-
+    function applyAiSuggestion(fieldName, value, markSuggested) {
+      if (value === undefined || value === null || value === '') return;
       const el = document.querySelector('[name="' + fieldName + '"]');
-      if (!el) return 0;
-
-      if (onlyMissing && !isEmptyField(el)) return 0;
+      if (!el) return;
 
       el.value = value;
-      try { el.dispatchEvent(new Event('change', { bubbles:true })); } catch(e){}
-
       if (markSuggested) {
         el.classList.add('ai-suggested');
         setTimeout(() => el.classList.remove('ai-suggested'), 7000);
       }
-      return 1;
     }
 
     function fillFromItem(item, opts = {}) {
       const markSuggested = !!opts.markSuggested;
-      const onlyMissing   = !!opts.onlyMissing;
-      if (!item || typeof item !== 'object') return 0;
+      if (!item || typeof item !== 'object') return;
 
-      const name        = item.name ?? item.title ?? item.descripcion ?? item.description;
-      const slug        = item.slug;
-      const description = item.description ?? item.descripcion_larga ?? item.desc;
-      const excerpt     = item.excerpt ?? item.resumen ?? item.short_description;
-      const price       = item.price ?? item.unit_price ?? item.precio ?? item.precio_unitario;
+      applyAiSuggestion('name',        item.name,        markSuggested);
+      applyAiSuggestion('slug',        item.slug,        markSuggested);
+      applyAiSuggestion('description', item.description, markSuggested);
+      applyAiSuggestion('excerpt',     item.excerpt,     markSuggested);
+      applyAiSuggestion('price',       item.price,       markSuggested);
+      applyAiSuggestion('brand_name',  item.brand_name,  markSuggested);
+      applyAiSuggestion('model_name',  item.model_name,  markSuggested);
+      applyAiSuggestion('meli_gtin',   item.meli_gtin,   markSuggested);
 
-      const brand       = item.brand_name ?? item.brand ?? item.marca;
-      const model       = item.model_name ?? item.model ?? item.modelo;
-      const gtin        = item.meli_gtin ?? item.gtin ?? item.ean ?? item.upc ?? item.barcode ?? item.codigo_barras;
-      const qty         = item.stock ?? item.quantity ?? item.qty ?? item.cantidad ?? item.cant;
+      const qty = item.stock ?? item.quantity ?? item.qty ?? item.cantidad;
+      applyAiSuggestion('stock', qty, markSuggested);
+    }
 
-      const meliCat      = item.meli_category_id ?? item.category_id ?? item.ml_category_id ?? item.meli_category;
-      const listingType  = item.meli_listing_type_id ?? item.listing_type_id ?? item.ml_listing_type_id;
-
-      let changed = 0;
-
-      changed += applyAiSuggestion('name', name, markSuggested, onlyMissing);
-      changed += applyAiSuggestion('slug', slug, markSuggested, onlyMissing);
-      changed += applyAiSuggestion('description', description, markSuggested, onlyMissing);
-      changed += applyAiSuggestion('excerpt', excerpt, markSuggested, onlyMissing);
-      changed += applyAiSuggestion('price', price, markSuggested, onlyMissing);
-      changed += applyAiSuggestion('brand_name', brand, markSuggested, onlyMissing);
-      changed += applyAiSuggestion('model_name', model, markSuggested, onlyMissing);
-      changed += applyAiSuggestion('meli_gtin', gtin, markSuggested, onlyMissing);
-      changed += applyAiSuggestion('stock', qty, markSuggested, onlyMissing);
-
-      if (item.category_key) changed += applyAiSuggestion('category_key', item.category_key, markSuggested, onlyMissing);
-
-      changed += applyAiSuggestion('meli_category_id', meliCat, markSuggested, onlyMissing);
-      changed += applyAiSuggestion('meli_listing_type_id', listingType, markSuggested, onlyMissing);
-
-      changed += applyAiSuggestion('amazon_sku', item.amazon_sku, markSuggested, onlyMissing);
-      changed += applyAiSuggestion('amazon_asin', item.amazon_asin, markSuggested, onlyMissing);
-      changed += applyAiSuggestion('amazon_product_type', item.amazon_product_type, markSuggested, onlyMissing);
-
-      return changed;
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
     }
   });
 </script>
