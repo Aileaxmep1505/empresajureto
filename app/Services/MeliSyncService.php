@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\CatalogItem;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
@@ -257,7 +256,6 @@ class MeliSyncService
                 $update['description'] // descripción se hace en endpoint dedicado
             );
 
-            // Activar si lo pidieron
             if (!empty($options['activate'])) {
                 $update['status'] = 'active';
             }
@@ -269,11 +267,9 @@ class MeliSyncService
                 $this->upsertDescription($http, $item->meli_item_id, $this->plainText($item));
             }
         } else {
-            // Create
             $resp = $http->post($this->api('items'), $payload);
             $j    = (array) $resp->json();
 
-            // Si por alguna razón no incluyó status en payload, hacemos activate
             if ($resp->ok() && !empty($j['id']) && !empty($options['activate']) && empty($payload['status'])) {
                 $http->put($this->api("items/{$j['id']}"), ['status' => 'active']);
             }
@@ -376,8 +372,10 @@ class MeliSyncService
     {
         $err = (string) ($j['error'] ?? '');
         $msg = (string) ($j['message'] ?? '');
+
         if (stripos($err, 'The fields [title] are invalid for requested call') !== false) return true;
         if (stripos($msg, 'body.invalid_fields') !== false && stripos($err, '[title]') !== false) return true;
+
         return false;
     }
 
@@ -446,7 +444,6 @@ class MeliSyncService
     {
         try {
             $q = trim((string)($item->name ?? ''));
-            // Ayuda un poco: incluye marca/modelo en búsqueda
             $brand = trim((string)($item->brand_name ?? ''));
             $model = trim((string)($item->model_name ?? ''));
             $mix = trim(preg_replace('/\s+/', ' ', $q . ' ' . $brand . ' ' . $model));
@@ -489,26 +486,22 @@ class MeliSyncService
     {
         $pics = [];
 
-        // ✅ Usa tus fotos guardadas en storage/public
         foreach (['photo_1','photo_2','photo_3'] as $col) {
             $path = $item->{$col} ?? null;
             if ($path) {
-                $url = Storage::disk('public')->url($path);   // /storage/...
+                $url = Storage::disk('public')->url($path); // /storage/...
                 $pics[] = ['source' => $this->absUrl($url)];
             }
         }
 
-        // fallback legacy (si tienes image_url)
         if (empty($pics) && !empty($item->image_url)) {
             $pics[] = ['source' => $this->absUrl((string)$item->image_url)];
         }
 
-        // fallback ultra último
         if (empty($pics)) {
             $pics[] = ['source' => 'https://http2.mlstatic.com/storage/developers-site-cms-admin/openapi/319102622313-testimage.jpeg'];
         }
 
-        // ML acepta hasta 6
         return array_slice($pics, 0, 6);
     }
 
@@ -516,7 +509,6 @@ class MeliSyncService
     {
         $attributes = [];
 
-        // ✅ No uses genéricos agresivos: manda lo que escribió el usuario
         $brand = trim((string) ($item->brand_name ?? ''));
         $model = trim((string) ($item->model_name ?? ''));
 
@@ -538,7 +530,12 @@ class MeliSyncService
     {
         $base = $i->excerpt ?: strip_tags((string) $i->description);
         $base = trim($base) ?: "{$i->name}.\n\nVendido por JURETO. Factura disponible. Garantía estándar.\n";
-        return mb_substr(preg_replace('/\s+/', ' ', $base), 0, 4800);
+
+        // OJO: antes estabas colapsando saltos a 1 espacio; aquí los conservamos más legibles
+        $base = preg_replace("/\r\n|\r/", "\n", $base);
+        $base = preg_replace("/\n{3,}/", "\n\n", $base);
+
+        return mb_substr($base, 0, 4800);
     }
 
     private function buildMeliTitle(CatalogItem $item): string
@@ -547,7 +544,6 @@ class MeliSyncService
 
         if (!empty($item->name)) $parts[] = trim($item->name);
 
-        // ✅ Evita duplicar marca si ya viene en name
         $nameLower = mb_strtolower((string)$item->name);
         if (!empty($item->brand_name)) {
             $b = trim((string)$item->brand_name);
@@ -583,7 +579,6 @@ class MeliSyncService
             $isRequired = !empty($def['tags']['required']);
             if (!$isRequired || !$attrId || isset($present[$attrId])) continue;
 
-            // ✅ No metas "Genérico" a atributos críticos tipo BRAND/MODEL/GTIN
             if (in_array($attrId, ['BRAND','MODEL','GTIN'], true)) continue;
 
             $val = null;
