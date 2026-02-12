@@ -7,15 +7,18 @@
   $has2 = !empty($item->photo_2 ?? null);
   $has3 = !empty($item->photo_3 ?? null);
 
-  // Categorías legibles (papelería, cómputo, etc.)
+  // Categorías internas (papelería, cómputo, etc.)
   $categories = $categories ?? config('catalog.product_categories', []);
 
   // Bandera simple: si ya tiene SKU (Amazon usa SKU sí o sí)
   $hasSku = !empty($item->sku ?? null);
 
-  // ✅ Sugerencias de IA desde backend (si tu ai-from-upload las manda)
-  //    La intención: "Rellenar vacíos" tome lo que ya haya aquí (inputs)
-  //    y solo complete lo que está vacío; además, mostrar un resumen de qué campos se detectaron.
+  // ✅ defaults para ML
+  $currentMeliCategory = old('meli_category_id', $item->meli_category_id ?? '');
+  $currentListingType  = old('meli_listing_type_id', $item->meli_listing_type_id ?? '');
+
+  // ✅ si quieres “sugerir” algo visual (no obligatorio)
+  $meliHint = $currentMeliCategory ? "Usando meli_category_id: {$currentMeliCategory}" : "Deja esto vacío y ML puede forzar catálogo (y te saldrá error de title).";
 @endphp
 
 @csrf
@@ -336,7 +339,7 @@
       </div>
 
       <div class="card-section">
-        <label class="lbl">Categoría</label>
+        <label class="lbl">Categoría (interna)</label>
         @php $currentCategory = old('category_key', $item->category_key ?? ''); @endphp
         <select name="category_key" class="inp">
           <option value="">Sin categoría</option>
@@ -371,8 +374,26 @@
       </div>
     </div>
 
+    {{-- =========================================================
+       ✅ MERCADO LIBRE (con categoría real para publicar)
+       ========================================================= --}}
     <div class="side-card">
       <h3 class="side-title">Mercado Libre</h3>
+
+      <div class="card-section">
+        <label class="lbl">Categoría ML (meli_category_id) ✅</label>
+        <input name="meli_category_id" class="inp"
+               placeholder="Ej: MLM167986"
+               value="{{ $currentMeliCategory }}">
+        <div class="hint">{{ $meliHint }}</div>
+      </div>
+
+      <div class="card-section">
+        <label class="lbl">Listing type (opcional)</label>
+        <input name="meli_listing_type_id" class="inp"
+               placeholder="Ej: gold_special"
+               value="{{ $currentListingType }}">
+      </div>
 
       <div class="card-section">
         <label class="lbl">Marca</label>
@@ -393,6 +414,17 @@
         <input name="meli_gtin" class="inp"
                placeholder="750…"
                value="{{ old('meli_gtin', $item->meli_gtin ?? '') }}">
+      </div>
+
+      {{-- ✅ ayuda rápida (no rompe nada) --}}
+      <div class="card-section" style="margin-top:6px;">
+        <div class="ml-help">
+          <div class="ml-help-title">Tip rápido</div>
+          <div class="ml-help-text">
+            Si te sale <b>“title invalid / flujo de catálogo”</b>, normalmente es porque tu categoría/dominio es de catálogo.
+            Solución: <b>pon aquí un meli_category_id correcto</b> (no catálogo) o publica con <b>?catalog=1</b>.
+          </div>
+        </div>
       </div>
     </div>
 
@@ -436,6 +468,7 @@
             </div>
 
             <div class="pub-actions">
+              {{-- ✅ NORMAL --}}
               <button type="submit"
                       class="btn btn-pill btn-ml"
                       form="catalog-form"
@@ -443,7 +476,18 @@
                       formmethod="POST">
                 @csrf
                 <span class="i material-symbols-outlined" aria-hidden="true">cloud_upload</span>
-                Publicar / Actualizar
+                Publicar / Actualizar (normal)
+              </button>
+
+              {{-- ✅ CATALOGO (fallback manual) --}}
+              <button type="submit"
+                      class="btn btn-pill btn-soft btn-ml-soft"
+                      form="catalog-form"
+                      formaction="{{ route('admin.catalog.meli.publish', $item) }}?catalog=1"
+                      formmethod="POST">
+                @csrf
+                <span class="i material-symbols-outlined" aria-hidden="true">inventory_2</span>
+                Publicar (catálogo)
               </button>
 
               <div class="pub-row">
@@ -591,7 +635,6 @@
     letter-spacing:.01em;
   }
 
-  /* ✅ Hints siguen para IA y otras zonas, pero no los usamos debajo de inputs */
   .hint{
     margin:4px 0 0;
     font-size:.78rem;
@@ -683,6 +726,28 @@
     flex-wrap:wrap;
     justify-content:flex-end;
   }
+
+  /* =========================
+     ✅ ML helper
+     ========================= */
+  .ml-help{
+    border-radius:14px;
+    border:1px solid rgba(59,130,246,.18);
+    background: #f6fbff;
+    padding:10px 12px;
+  }
+  .ml-help-title{
+    font-weight:900;
+    font-size:.80rem;
+    color: var(--ink);
+    margin-bottom:4px;
+  }
+  .ml-help-text{
+    font-size:.78rem;
+    color: var(--muted);
+    line-height:1.35;
+  }
+  .ml-help-text b{ color:#1e3a8a; }
 
   /* =========================================================
      🔹 IA panel
@@ -812,7 +877,6 @@
   }
   .ai-file-chip span{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:220px; }
 
-  /* ✅ Detectado por IA (chips) */
   .ai-detected{
     margin-top:2px;
     padding:10px 12px;
@@ -1132,8 +1196,7 @@
       }
 
       if (!file) {
-        // deja la imagen guardada (si existe) intacta
-        return;
+        return; // deja la imagen guardada intacta
       }
 
       const url = URL.createObjectURL(file);
@@ -1165,8 +1228,6 @@
           inp.value = '';
           setFilledState(input, false);
           setFilename(input, null);
-          // NO borramos el preview guardado en edit (si había), solo el nuevo
-          // Si quieres borrar el guardado, eso debe ser con un flag server-side
         });
       }
     });
@@ -1195,16 +1256,17 @@
   };
 
   // ================================
-  // ✅ Rellenar desde original (EDIT) (NO tocar lógica)
+  // ✅ Rellenar desde original (EDIT)
   // ================================
   document.addEventListener('DOMContentLoaded', function () {
     const btn = document.getElementById('btn-restore-original');
     if (!btn) return;
 
+    // ✅ agrega los nuevos campos ML
     const fieldNames = [
       'name','slug','description','excerpt','sku',
       'price','stock','sale_price','category_key','status','published_at',
-      'brand_name','model_name','meli_gtin',
+      'brand_name','model_name','meli_gtin','meli_category_id','meli_listing_type_id',
       'amazon_sku','amazon_asin','amazon_product_type'
     ];
 
@@ -1242,10 +1304,6 @@
 
   // ================================
   // 🔹 IA: subir archivos + dropzone + rellenar campos
-  // ✅ NO tocamos flujo, solo:
-  //   - guardamos lastSuggestions
-  //   - agregamos botón "Rellenar vacíos"
-  //   - mostramos chips de "Detectado por IA"
   // ================================
   document.addEventListener('DOMContentLoaded', function () {
     const btnAi      = document.getElementById('btn-ai-analyze');
@@ -1393,6 +1451,9 @@
       pick('Modelo', item.model_name ?? item.model ?? item.modelo);
       pick('GTIN', item.meli_gtin ?? item.gtin ?? item.ean ?? item.upc ?? item.barcode ?? item.codigo_barras);
 
+      // ✅ NUEVO: si IA detecta categoría ML
+      pick('ML categoría', item.meli_category_id ?? item.category_id ?? item.ml_category_id ?? item.meli_category);
+
       detectedChips.innerHTML = '';
       if (!pairs.length) {
         detectedBox.style.display = 'none';
@@ -1483,7 +1544,6 @@
       if (item) {
         saveLastSuggestions(item);
         renderDetectedChips(item);
-        // no sobreescribas siempre: solo marca sugeridos si quieres
         fillFromItem(item, { markSuggested: false, onlyMissing: true });
       }
     } else if (lastSuggestions) {
@@ -1548,7 +1608,6 @@
         saveLastSuggestions(s);
         renderDetectedChips(s);
 
-        // ✅ En vez de sobreescribir siempre: rellena, y luego deja que "Rellenar vacíos" haga el resto
         fillFromItem(s, { markSuggested: true, onlyMissing: false });
 
         aiItems = Array.isArray(data.items) ? data.items : [];
@@ -1603,7 +1662,6 @@
       const onlyMissing   = !!opts.onlyMissing;
       if (!item || typeof item !== 'object') return 0;
 
-      // ✅ Tomar lo que “haya” (varios aliases)
       const name        = item.name ?? item.title ?? item.descripcion ?? item.description;
       const slug        = item.slug;
       const description = item.description ?? item.descripcion_larga ?? item.desc;
@@ -1614,6 +1672,10 @@
       const model       = item.model_name ?? item.model ?? item.modelo;
       const gtin        = item.meli_gtin ?? item.gtin ?? item.ean ?? item.upc ?? item.barcode ?? item.codigo_barras;
       const qty         = item.stock ?? item.quantity ?? item.qty ?? item.cantidad ?? item.cant;
+
+      // ✅ NUEVO: permitir que IA sugiera categoría ML (si tu backend la manda)
+      const meliCat      = item.meli_category_id ?? item.category_id ?? item.ml_category_id ?? item.meli_category;
+      const listingType  = item.meli_listing_type_id ?? item.listing_type_id ?? item.ml_listing_type_id;
 
       let changed = 0;
 
@@ -1628,6 +1690,10 @@
       changed += applyAiSuggestion('stock', qty, markSuggested, onlyMissing);
 
       if (item.category_key) changed += applyAiSuggestion('category_key', item.category_key, markSuggested, onlyMissing);
+
+      // ✅ NUEVO: ML category
+      changed += applyAiSuggestion('meli_category_id', meliCat, markSuggested, onlyMissing);
+      changed += applyAiSuggestion('meli_listing_type_id', listingType, markSuggested, onlyMissing);
 
       changed += applyAiSuggestion('amazon_sku', item.amazon_sku, markSuggested, onlyMissing);
       changed += applyAiSuggestion('amazon_asin', item.amazon_asin, markSuggested, onlyMissing);
