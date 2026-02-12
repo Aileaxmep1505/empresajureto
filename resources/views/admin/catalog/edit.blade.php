@@ -104,6 +104,14 @@
     border:1px solid rgba(245,158,11,.25);
   }
 
+  .btn-ai{
+    background:linear-gradient(135deg, rgba(59,130,246,.16), rgba(59,130,246,.08));
+    color:#0b1220;
+    border:1px solid rgba(59,130,246,.28);
+    box-shadow:0 10px 22px rgba(59,130,246,.12);
+  }
+  .btn-ai:hover{box-shadow:0 14px 26px rgba(59,130,246,.14);}
+
   .i.material-symbols-outlined{font-size:18px;line-height:1;}
 
   .alert{
@@ -114,6 +122,7 @@
   .alert-error{background:#fff4f4;color:#b91c1c;border-color:rgba(239,68,68,.25);}
   .alert-ml{background:#fbfeff;color:#0b4b6b;border-color:var(--line);}
   .alert-amz{background:#fffaf2;color:#6b3d0b;border-color:rgba(245,158,11,.28);}
+  .alert-info{background:#f3f8ff;color:#123a7a;border-color:rgba(59,130,246,.22);}
 
   .head{
     display:flex;justify-content:space-between;align-items:flex-start;
@@ -157,6 +166,14 @@
 
   // ✅ Compatible: si tu modelo usa amz_status o amazon_status
   $amzStatus    = $item->amz_status ?? ($item->amazon_status ?? null);
+
+  /**
+   * ✅ Regla importante:
+   * - Si NO está publicado en Amazon todavía, NO mostramos Pausar/Activar/Ver.
+   * - Consideramos “publicado/existente” si hay ASIN o un status real (active/paused/inactive/error).
+   */
+  $hasAmazonListing = !empty($item->amazon_asin ?? null)
+    || in_array((string)$amzStatus, ['active','paused','inactive','error'], true);
 @endphp
 
 <div class="wrap-page">
@@ -172,11 +189,16 @@
         Volver
       </a>
 
+      {{-- ✅ IA: rellenar vacíos con última captura guardada --}}
+      <button type="button" class="btn btn-ai" id="btnAiFillEmpty">
+        <span class="i material-symbols-outlined" aria-hidden="true">auto_fix_high</span>
+        IA: Rellenar vacíos
+      </button>
+
       {{-- Toggle publicar/ocultar (WEB) --}}
       <form action="{{ route('admin.catalog.toggle', $item) }}" method="POST"
             onsubmit="return confirm('¿Cambiar estado de publicación en el sitio web?')">
-        @csrf
-        @method('PATCH')
+        @csrf @method('PATCH')
         <button class="btn btn-ghost" type="submit">
           <span class="i material-symbols-outlined" aria-hidden="true">{{ $item->status == 1 ? 'visibility_off' : 'visibility' }}</span>
           {{ $item->status == 1 ? 'Ocultar' : 'Publicar' }}
@@ -215,7 +237,8 @@
         </a>
       @endif
 
-      {{-- Amazon: acciones rápidas (SP-API) --}}
+      {{-- ✅ Amazon: Publicar/Actualizar SIEMPRE disponible cuando hay AMAZON SKU
+           ❌ Pausar/Activar/Ver SOLO si ya existe listing (ASIN o status real) --}}
       <form method="POST" action="{{ route('admin.catalog.amazon.publish', $item) }}">
         @csrf
         <button class="btn btn-amz" type="submit" @disabled(!$hasAmazonSku)>
@@ -224,35 +247,36 @@
         </button>
       </form>
 
-      <form method="POST" action="{{ route('admin.catalog.amazon.pause', $item) }}">
-        @csrf
-        <button class="btn btn-amz-soft" type="submit" @disabled(!$hasAmazonSku)>
-          <span class="i material-symbols-outlined" aria-hidden="true">pause_circle</span>
-          Amazon: Pausar
-        </button>
-      </form>
+      @if($hasAmazonListing)
+        <form method="POST" action="{{ route('admin.catalog.amazon.pause', $item) }}">
+          @csrf
+          <button class="btn btn-amz-soft" type="submit" @disabled(!$hasAmazonSku)>
+            <span class="i material-symbols-outlined" aria-hidden="true">pause_circle</span>
+            Amazon: Pausar
+          </button>
+        </form>
 
-      <form method="POST" action="{{ route('admin.catalog.amazon.activate', $item) }}">
-        @csrf
-        <button class="btn btn-amz-soft" type="submit" @disabled(!$hasAmazonSku)>
-          <span class="i material-symbols-outlined" aria-hidden="true">play_circle</span>
-          Amazon: Activar
-        </button>
-      </form>
+        <form method="POST" action="{{ route('admin.catalog.amazon.activate', $item) }}">
+          @csrf
+          <button class="btn btn-amz-soft" type="submit" @disabled(!$hasAmazonSku)>
+            <span class="i material-symbols-outlined" aria-hidden="true">play_circle</span>
+            Amazon: Activar
+          </button>
+        </form>
 
-      <a class="btn btn-amz-soft"
-         href="{{ route('admin.catalog.amazon.view', $item) }}"
-         target="_blank" rel="noopener"
-         @if(!$hasAmazonSku) aria-disabled="true" onclick="return false;" @endif>
-        <span class="i material-symbols-outlined" aria-hidden="true">open_in_new</span>
-        Amazon: Ver
-      </a>
+        <a class="btn btn-amz-soft"
+           href="{{ route('admin.catalog.amazon.view', $item) }}"
+           target="_blank" rel="noopener"
+           @if(!$hasAmazonSku) aria-disabled="true" onclick="return false;" @endif>
+          <span class="i material-symbols-outlined" aria-hidden="true">open_in_new</span>
+          Amazon: Ver
+        </a>
+      @endif
 
       {{-- Eliminar --}}
       <form action="{{ route('admin.catalog.destroy', $item) }}" method="POST"
             onsubmit="return confirm('¿Eliminar este producto del catálogo web? Esta acción no se puede deshacer.')">
-        @csrf
-        @method('DELETE')
+        @csrf @method('DELETE')
         <button class="btn btn-danger" type="submit">
           <span class="i material-symbols-outlined" aria-hidden="true">delete</span>
           Eliminar
@@ -263,16 +287,22 @@
 
   {{-- Banner de resultado/errores global --}}
   @if(session('ok'))
-    <div class="alert alert-success">
-      {{ session('ok') }}
-    </div>
+    <div class="alert alert-success">{{ session('ok') }}</div>
   @endif
 
   {{-- Advertencia AMAZON SKU para Amazon --}}
   @if(!$hasAmazonSku)
     <div class="alert alert-amz">
-      <strong>Amazon:</strong> Para usar las acciones de Amazon necesitas un <strong>AMAZON SKU</strong> (Seller SKU real).
+      <strong>Amazon:</strong> Para publicar necesitas un <strong>AMAZON SKU</strong> (Seller SKU real).
       Captúralo en el formulario y guarda el producto.
+    </div>
+  @endif
+
+  {{-- ✅ Si hay SKU pero AÚN no existe listing, explica por qué no salen los botones --}}
+  @if($hasAmazonSku && !$hasAmazonListing)
+    <div class="alert alert-info">
+      <strong>Amazon:</strong> Este producto <strong>todavía no está publicado</strong> en Amazon.
+      Usa <strong>“Amazon: Publicar/Actualizar”</strong>. Cuando Amazon confirme (ASIN/status), aparecerán <strong>Pausar/Activar/Ver</strong>.
     </div>
   @endif
 
@@ -335,8 +365,8 @@
     </div>
   @endif
 
-  {{-- Panel de estado Amazon (compatible con varios nombres de columnas) --}}
-  @if(!empty($item->amazon_sku ?? null) || !empty($amzLastError) || !empty($amzSyncedAt) || !empty($amzStatus))
+  {{-- Panel de estado Amazon (solo si hay señal real) --}}
+  @if($hasAmazonListing || !empty($amzLastError) || !empty($amzSyncedAt))
     <div class="alert alert-amz">
       <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;">
         <div style="flex:1 1 260px;">
@@ -374,7 +404,7 @@
           <strong>Qué revisar para Amazon:</strong>
           <ul style="margin:4px 0 0 18px;padding:0;">
             @if(Str::contains($amzErrText, 'sku'))
-              <li>Confirma que el <strong>AMAZON SKU</strong> esté lleno y sea exacto al de Seller Central.</li>
+              <li>Confirma que el <strong>AMAZON SKU</strong> esté exacto al de Seller Central.</li>
             @endif
             @if(Str::contains($amzErrText, 'gtin') || Str::contains($amzErrText, 'upc') || Str::contains($amzErrText, 'ean'))
               <li>Completa <strong>GTIN (EAN/UPC)</strong> si tu productType lo exige.</li>
@@ -414,3 +444,125 @@
   </form>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+  // ✅ Botón “IA: Rellenar vacíos”
+  // - Usa la última lista guardada en localStorage por tu analizador (catalog_ai_items)
+  // - Solo completa campos vacíos (no pisa lo que ya llenaste)
+  document.addEventListener('DOMContentLoaded', function () {
+    const btn = document.getElementById('btnAiFillEmpty');
+    if (!btn) return;
+
+    const LS_KEY_ITEMS = 'catalog_ai_items';
+    const LS_KEY_INDEX = 'catalog_ai_index';
+
+    function norm(s){ return String(s ?? '').trim(); }
+    function lower(s){ return norm(s).toLowerCase(); }
+
+    function pick(obj, keys){
+      for (const k of keys){
+        const v = obj?.[k];
+        if (v !== undefined && v !== null && String(v).trim() !== '') return v;
+      }
+      return null;
+    }
+
+    function applyIfEmpty(name, val){
+      if (val === undefined || val === null || val === '') return false;
+      const el = document.querySelector(`[name="${name}"]`);
+      if (!el) return false;
+      const cur = (el.value ?? '').toString().trim();
+      if (cur !== '') return false;
+      el.value = val;
+      try { el.dispatchEvent(new Event('change', { bubbles:true })); } catch(e){}
+      el.classList.add('ai-suggested');
+      setTimeout(()=>el.classList.remove('ai-suggested'), 6500);
+      return true;
+    }
+
+    function guessProductType(text){
+      const t = lower(text);
+      if (!t) return '';
+      if (t.includes('clip') || t.includes('grapa') || t.includes('engrap') || t.includes('papel') || t.includes('oficina')) return 'OFFICE_PRODUCTS';
+      if (t.includes('lapic') || t.includes('pluma') || t.includes('bolig') || t.includes('marcador')) return 'OFFICE_PRODUCTS';
+      if (t.includes('cable') || t.includes('usb') || t.includes('cargador') || t.includes('comput')) return 'ELECTRONICS';
+      return '';
+    }
+
+    function fillFromItem(item){
+      if (!item || typeof item !== 'object') return 0;
+
+      const name  = pick(item, ['name','title','descripcion','description']);
+      const slug  = pick(item, ['slug']);
+      const desc  = pick(item, ['description','descripcion_larga','desc']);
+      const ex    = pick(item, ['excerpt','resumen','short_description']);
+      const price = pick(item, ['price','unit_price','precio','precio_unitario']);
+      const brand = pick(item, ['brand_name','brand','marca']);
+      const model = pick(item, ['model_name','model','modelo']);
+      const gtin  = pick(item, ['meli_gtin','gtin','ean','upc','barcode','codigo_barras']);
+      const qty   = pick(item, ['stock','quantity','qty','cantidad','cant']);
+
+      const amazonSku = pick(item, ['amazon_sku','seller_sku','sellerSku','amazonSellerSku','amazon_seller_sku','amz_sku']);
+      const asin      = pick(item, ['amazon_asin','asin']);
+      const ptype     = pick(item, ['amazon_product_type','productType','product_type','amz_product_type']);
+
+      let count = 0;
+      count += applyIfEmpty('name', name) ? 1 : 0;
+      count += applyIfEmpty('slug', slug) ? 1 : 0;
+      count += applyIfEmpty('description', desc) ? 1 : 0;
+      count += applyIfEmpty('excerpt', ex) ? 1 : 0;
+      count += applyIfEmpty('price', price) ? 1 : 0;
+      count += applyIfEmpty('brand_name', brand) ? 1 : 0;
+      count += applyIfEmpty('model_name', model) ? 1 : 0;
+      count += applyIfEmpty('meli_gtin', gtin) ? 1 : 0;
+      count += applyIfEmpty('stock', qty) ? 1 : 0;
+
+      count += applyIfEmpty('amazon_sku', amazonSku) ? 1 : 0;
+      count += applyIfEmpty('amazon_asin', asin) ? 1 : 0;
+      count += applyIfEmpty('amazon_product_type', ptype) ? 1 : 0;
+
+      // fallback productType si no venía
+      const curPtypeEl = document.querySelector('[name="amazon_product_type"]');
+      const curPtype = curPtypeEl ? (curPtypeEl.value ?? '').trim() : '';
+      if (!curPtype){
+        const t = `${name || ''} ${desc || ''} ${ex || ''}`;
+        const g = guessProductType(t);
+        if (g) count += applyIfEmpty('amazon_product_type', g) ? 1 : 0;
+      }
+
+      return count;
+    }
+
+    btn.addEventListener('click', function(){
+      let items = [];
+      try {
+        const raw = localStorage.getItem(LS_KEY_ITEMS);
+        items = raw ? JSON.parse(raw) : [];
+      } catch(e){ items = []; }
+
+      if (!Array.isArray(items) || !items.length){
+        alert('No hay captura IA guardada. Primero usa “Analizar con IA” (PDF/imágenes) en el formulario.');
+        const helper = document.getElementById('ai-helper');
+        if (helper) helper.scrollIntoView({ behavior:'smooth', block:'start' });
+        return;
+      }
+
+      let idx = 0;
+      try {
+        idx = parseInt(localStorage.getItem(LS_KEY_INDEX) || '0', 10);
+        if (isNaN(idx) || idx < 0 || idx >= items.length) idx = 0;
+      } catch(e){ idx = 0; }
+
+      const used = fillFromItem(items[idx] || items[0]);
+
+      if (!used){
+        alert('No había campos vacíos por completar (o la IA no traía valores nuevos).');
+      }else{
+        alert(`IA completó ${used} campo(s) vacío(s). Revisa y guarda.`);
+        window.scrollTo({ top: 0, behavior:'smooth' });
+      }
+    });
+  });
+</script>
+@endpush

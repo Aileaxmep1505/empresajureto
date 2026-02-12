@@ -10,8 +10,13 @@
   // Categorías legibles (papelería, cómputo, etc.)
   $categories = $categories ?? config('catalog.product_categories', []);
 
-  // ✅ Amazon: requiere AMAZON SKU real (seller sku), NO el sku genérico
-  $hasAmazonSku = !empty($item->amazon_sku ?? null);
+  // ✅ Amazon debe usar SELLER SKU real (amazon_sku). Si no existe ese campo, cae a sku.
+  $hasAmazonSku = !empty($item->amazon_sku ?? null) || !empty($item->sku ?? null);
+
+  // ✅ Determina si ya hay listing en Amazon (para mostrar Pausar/Activar/Ver)
+  $amzStatus = $item->amz_status ?? ($item->amazon_status ?? null);
+  $hasAmazonListing = !empty($item->amazon_asin ?? null)
+      || in_array((string)$amzStatus, ['active','paused','inactive','error'], true);
 @endphp
 
 @csrf
@@ -78,6 +83,13 @@
           <span class="ai-cta-spinner" aria-hidden="true"></span>
           <span class="ai-cta-text">Analizar con IA</span>
         </button>
+
+        {{-- ✅ NUEVO: rellena SOLO vacíos con la última captura IA guardada --}}
+        <button type="button" id="btn-ai-fill-empty" class="btn btn-ghost">
+          <span class="i material-symbols-outlined" aria-hidden="true">auto_fix_high</span>
+          IA: Rellenar vacíos
+        </button>
+
         <p id="ai-helper-status" class="hint ai-helper-status">
           La IA no sustituye tu criterio, solo te ahorra tecleo repetitivo ✨
         </p>
@@ -306,43 +318,16 @@
   <div class="catalog-side">
     <div class="side-card">
       <div class="card-section">
-        <label class="lbl">SKU (interno)</label>
+        <label class="lbl">SKU</label>
         <input name="sku" class="inp"
                placeholder="Código interno o del proveedor"
                value="{{ old('sku', $item->sku ?? '') }}">
         <p class="hint">
-          Este SKU es tu referencia interna. Para Amazon usa el campo “AMAZON SKU”.
+          Usa un SKU claro y único. Te ayuda a localizar el producto rápidamente en tu catálogo.
+          <span class="hint" style="display:block;margin-top:3px;">
+            Nota: Amazon requiere Seller SKU real (amazon_sku) o SKU.
+          </span>
         </p>
-      </div>
-
-      {{-- ✅ AMAZON SKU (Seller SKU real) --}}
-      <div class="card-section">
-        <label class="lbl">AMAZON SKU (Seller SKU real)</label>
-        <input name="amazon_sku" class="inp"
-               placeholder="Ejemplo: JUR-1234-AZUL (tal cual en Seller Central)"
-               value="{{ old('amazon_sku', $item->amazon_sku ?? '') }}">
-        <p class="hint">
-          Debe coincidir EXACTO con tu Seller SKU en Seller Central (Marketplace MX). Sin esto, Amazon no publica.
-        </p>
-      </div>
-
-      {{-- (Opcional pero útil) ASIN / productType --}}
-      <div class="card-section card-inline">
-        <div class="card-inline-item">
-          <label class="lbl">ASIN (opcional)</label>
-          <input name="amazon_asin" class="inp"
-                 placeholder="Ej. B0XXXXXXX"
-                 value="{{ old('amazon_asin', $item->amazon_asin ?? '') }}">
-          <p class="hint">Si ya existe el ASIN, ayuda para abrir el link directo.</p>
-        </div>
-
-        <div class="card-inline-item">
-          <label class="lbl">productType (opcional)</label>
-          <input name="amazon_product_type" class="inp"
-                 placeholder="Ej. OFFICE_PRODUCTS"
-                 value="{{ old('amazon_product_type', $item->amazon_product_type ?? '') }}">
-          <p class="hint">Si Amazon te valida, este campo ayuda a corregir.</p>
-        </div>
       </div>
 
       <div class="card-section card-inline">
@@ -360,7 +345,7 @@
           <input name="stock" type="number" step="1" min="0" class="inp"
                  value="{{ old('stock', $item->stock ?? 0) }}">
           <p class="hint">
-            Unidades disponibles. La IA puede sugerir la cantidad según el documento.
+            Unidades disponibles. La IA puede sugerir la cantidad comprada según el documento.
           </p>
         </div>
       </div>
@@ -377,9 +362,7 @@
       {{-- 🔹 Categoría legible (string) --}}
       <div class="card-section">
         <label class="lbl">Categoría</label>
-        @php
-          $currentCategory = old('category', $item->category ?? '');
-        @endphp
+        @php $currentCategory = old('category', $item->category ?? ''); @endphp
         <select name="category" class="inp">
           <option value="">Sin categoría</option>
           @foreach($categories as $key => $label)
@@ -520,15 +503,15 @@
           <div class="pub-block">
             <div class="pub-head">
               <div class="pub-title">Amazon (SP-API)</div>
-              <div class="pub-sub">Envía solicitud de listing por AMAZON SKU.</div>
+              <div class="pub-sub">Publica/actualiza por Seller SKU (amazon_sku) o SKU.</div>
             </div>
 
             @if(!$hasAmazonSku)
               <div class="pub-warn">
                 <span class="material-symbols-outlined" aria-hidden="true">info</span>
                 <div>
-                  <div class="pub-warn-title">Falta AMAZON SKU</div>
-                  <div class="pub-warn-text">Captura el Seller SKU real de Amazon y guarda el producto antes de publicar.</div>
+                  <div class="pub-warn-title">Falta Seller SKU</div>
+                  <div class="pub-warn-text">Para publicar en Amazon necesitas guardar el AMAZON SKU (Seller SKU real) o SKU.</div>
                 </div>
               </div>
             @endif
@@ -542,35 +525,38 @@
                 </button>
               </form>
 
+              {{-- ✅ Solo mostrar Pausar/Activar/Ver si YA hay listing --}}
               <div class="pub-row">
-                <form method="POST" action="{{ route('admin.catalog.amazon.pause', $item) }}">
-                  @csrf
-                  <button type="submit" class="btn btn-pill btn-soft btn-amz-soft" @disabled(!$hasAmazonSku)>
-                    <span class="i material-symbols-outlined" aria-hidden="true">pause_circle</span>
-                    Pausar
-                  </button>
-                </form>
+                @if($hasAmazonListing)
+                  <form method="POST" action="{{ route('admin.catalog.amazon.pause', $item) }}">
+                    @csrf
+                    <button type="submit" class="btn btn-pill btn-soft btn-amz-soft" @disabled(!$hasAmazonSku)>
+                      <span class="i material-symbols-outlined" aria-hidden="true">pause_circle</span>
+                      Pausar
+                    </button>
+                  </form>
 
-                <form method="POST" action="{{ route('admin.catalog.amazon.activate', $item) }}">
-                  @csrf
-                  <button type="submit" class="btn btn-pill btn-soft btn-amz-soft" @disabled(!$hasAmazonSku)>
-                    <span class="i material-symbols-outlined" aria-hidden="true">play_circle</span>
-                    Activar
-                  </button>
-                </form>
+                  <form method="POST" action="{{ route('admin.catalog.amazon.activate', $item) }}">
+                    @csrf
+                    <button type="submit" class="btn btn-pill btn-soft btn-amz-soft" @disabled(!$hasAmazonSku)>
+                      <span class="i material-symbols-outlined" aria-hidden="true">play_circle</span>
+                      Activar
+                    </button>
+                  </form>
 
-                <a class="btn btn-pill btn-soft btn-amz-soft"
-                   href="{{ route('admin.catalog.amazon.view', $item) }}"
-                   target="_blank" rel="noopener"
-                   @if(!$hasAmazonSku) aria-disabled="true" onclick="return false;" @endif>
-                  <span class="i material-symbols-outlined" aria-hidden="true">open_in_new</span>
-                  Ver
-                </a>
+                  <a class="btn btn-pill btn-soft btn-amz-soft"
+                     href="{{ route('admin.catalog.amazon.view', $item) }}"
+                     target="_blank" rel="noopener"
+                     @if(!$hasAmazonSku) aria-disabled="true" onclick="return false;" @endif>
+                    <span class="i material-symbols-outlined" aria-hidden="true">open_in_new</span>
+                    Ver
+                  </a>
+                @endif
               </div>
             </div>
 
             <p class="hint pub-hint">
-              Amazon requiere AMAZON SKU y atributos por categoría. Si te devuelve validaciones, es normal: se ajustan por productType.
+              Amazon requiere Seller SKU y atributos por categoría. Si devuelve validaciones, se ajustan por productType.
             </p>
           </div>
         </div>
@@ -1041,7 +1027,7 @@
   .ai-helper-text{ margin:6px 0 10px; font-size:.8rem; color:#334155; }
   .ai-helper-row{ display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; }
   .ai-helper-input{ flex:1 1 260px; }
-  .ai-helper-actions{ display:flex; flex-direction:column; gap:4px; align-items:flex-start; }
+  .ai-helper-actions{ display:flex; flex-direction:column; gap:8px; align-items:flex-start; }
   .ai-helper-status{ min-height:18px; }
 
   .ai-cta{ position:relative; overflow:hidden; }
@@ -1299,13 +1285,11 @@
   };
 
   // ================================
-  // 🔹 IA: subir archivos + dropzone + rellenar campos (MEJORADO)
-  // - No pisa campos si ya tienen valor
-  // - Acepta alias (seller_sku, productType, etc.)
-  // - Sugiere category (select) y productType si faltan
+  // 🔹 IA: subir archivos + dropzone + rellenar campos (NO pisa campos llenos)
   // ================================
   document.addEventListener('DOMContentLoaded', function () {
     const btnAi      = document.getElementById('btn-ai-analyze');
+    const btnFillEmpty = document.getElementById('btn-ai-fill-empty');
     const inputFiles = document.getElementById('ai_files');
     const statusEl   = document.getElementById('ai-helper-status');
     const helperBox  = document.getElementById('ai-helper');
@@ -1320,9 +1304,6 @@
 
     const LS_KEY_ITEMS = 'catalog_ai_items';
     const LS_KEY_INDEX = 'catalog_ai_index';
-
-    // ✅ keys reales del select de categoría para sugerir correctamente
-    const CATEGORY_KEYS = @json(array_keys($categories ?? []));
 
     let aiItems = [];
 
@@ -1413,46 +1394,6 @@
       });
     }
 
-    // ----------------------------
-    // Helpers: normalización + alias
-    // ----------------------------
-    function norm(s){ return String(s ?? '').trim(); }
-    function lower(s){ return norm(s).toLowerCase(); }
-
-    function pick(obj, keys){
-      for (const k of keys){
-        const v = obj?.[k];
-        if (v !== undefined && v !== null && String(v).trim() !== '') return v;
-      }
-      return null;
-    }
-
-    function guessProductType(text){
-      const t = lower(text);
-      if (!t) return '';
-      if (t.includes('clip') || t.includes('grapa') || t.includes('engrap') || t.includes('papel') || t.includes('oficina')) return 'OFFICE_PRODUCTS';
-      if (t.includes('lapic') || t.includes('pluma') || t.includes('bolig') || t.includes('marcador')) return 'OFFICE_PRODUCTS';
-      if (t.includes('cable') || t.includes('usb') || t.includes('cargador') || t.includes('comput')) return 'ELECTRONICS';
-      return '';
-    }
-
-    function guessCategoryKey(text){
-      const t = lower(text);
-      if (!t) return '';
-
-      let want = '';
-      if (t.includes('clip') || t.includes('grapa') || t.includes('papel') || t.includes('oficina')) want = 'papel';
-      if (t.includes('usb') || t.includes('cable') || t.includes('cargador') || t.includes('comput')) want = 'comput';
-
-      if (!want) return '';
-
-      const found = (CATEGORY_KEYS || []).find(k => lower(k).includes(want));
-      return found || '';
-    }
-
-    // ----------------------------
-    // Tabla (mejorada con alias)
-    // ----------------------------
     function attachUseButtons() {
       if (!tbody) return;
       tbody.querySelectorAll('button[data-ai-index]').forEach(btn => {
@@ -1462,7 +1403,7 @@
           if (!item) return;
           saveAiIndexToStorage(i);
 
-          // ✅ No pisa campos llenos
+          // ✅ NO pisa campos llenos
           fillFromItem(item, { markSuggested: true, onlyIfEmpty: true });
 
           if (statusEl) statusEl.textContent = 'Se cargó el producto #' + (i + 1) + ' desde la lista IA. Revisa y ajusta antes de guardar.';
@@ -1478,21 +1419,16 @@
       aiItems.forEach((item, idx) => {
         const tr = document.createElement('tr');
 
-        const price = pick(item, ['price','unit_price','precio','precio_unitario']);
-        const precio = (price != null && price !== '') ? ('$ ' + Number(price).toFixed(2)) : '—';
-
-        const name  = pick(item, ['name','title','descripcion','description']) || '';
-        const brand = pick(item, ['brand_name','brand','marca']) || '';
-        const model = pick(item, ['model_name','model','modelo']) || '';
-        const gtin  = pick(item, ['meli_gtin','gtin','ean','upc','barcode','codigo_barras']) || '';
+        const price = item.price ?? item.unit_price ?? item.precio ?? item.precio_unitario;
+        const precio = (price != null && price !== '') ? '$ ' + Number(price).toFixed(2) : '—';
 
         tr.innerHTML = `
           <td>${idx + 1}</td>
-          <td>${escapeHtml(name)}</td>
+          <td>${escapeHtml(item.name || item.title || '')}</td>
           <td>${escapeHtml(precio)}</td>
-          <td>${escapeHtml(brand)}</td>
-          <td>${escapeHtml(model)}</td>
-          <td>${escapeHtml(gtin)}</td>
+          <td>${escapeHtml(item.brand_name || item.brand || '')}</td>
+          <td>${escapeHtml(item.model_name || item.model || '')}</td>
+          <td>${escapeHtml(item.meli_gtin || item.gtin || '')}</td>
           <td>
             <button type="button" class="btn btn-ghost btn-xs" data-ai-index="${idx}">Usar este</button>
           </td>
@@ -1559,7 +1495,7 @@
 
         const s = data.suggestions || {};
 
-        // ✅ No pisa campos llenos
+        // ✅ NO pisa campos llenos
         fillFromItem(s, { markSuggested: true, onlyIfEmpty: true });
 
         aiItems = Array.isArray(data.items) ? data.items : [];
@@ -1584,6 +1520,34 @@
       });
     });
 
+    // ✅ NUEVO: Rellenar SOLO vacíos desde localStorage (sin subir archivos)
+    if (btnFillEmpty) {
+      btnFillEmpty.addEventListener('click', function () {
+        let items = [];
+        try {
+          const raw = localStorage.getItem(LS_KEY_ITEMS);
+          items = raw ? JSON.parse(raw) : [];
+        } catch (e) { items = []; }
+
+        if (!Array.isArray(items) || !items.length) {
+          AiAlerts.info('Sin captura IA', 'Primero usa “Analizar con IA” para guardar una captura.');
+          if (statusEl) statusEl.textContent = 'No hay captura IA guardada. Sube PDF/imagenes y analiza.';
+          return;
+        }
+
+        let idx = 0;
+        try {
+          idx = parseInt(localStorage.getItem(LS_KEY_INDEX) || '0', 10);
+          if (isNaN(idx) || idx < 0 || idx >= items.length) idx = 0;
+        } catch (e) { idx = 0; }
+
+        fillFromItem(items[idx] || items[0], { markSuggested: true, onlyIfEmpty: true });
+
+        AiAlerts.success('Listo', 'Se rellenaron solo los campos vacíos con la última captura IA.');
+        if (statusEl) statusEl.textContent = 'Se rellenaron SOLO vacíos usando la última captura IA guardada.';
+      });
+    }
+
     function applyAiSuggestion(fieldName, value, markSuggested, onlyIfEmpty) {
       if (value === undefined || value === null || value === '') return;
       const el = document.querySelector('[name="' + fieldName + '"]');
@@ -1591,12 +1555,10 @@
 
       if (onlyIfEmpty) {
         const current = (el.value ?? '').toString().trim();
-        if (current !== '') return;
+        if (current !== '') return; // ✅ NO pisa si ya tiene algo
       }
 
       el.value = value;
-
-      // ✅ si es select, dispara change
       try { el.dispatchEvent(new Event('change', { bubbles:true })); } catch(e){}
 
       if (markSuggested) {
@@ -1610,59 +1572,35 @@
       const onlyIfEmpty   = !!opts.onlyIfEmpty;
       if (!item || typeof item !== 'object') return;
 
-      const name = pick(item, ['name','title','descripcion','description']);
-      const slug = pick(item, ['slug']);
-      const desc = pick(item, ['description','descripcion_larga','desc']);
-      const ex   = pick(item, ['excerpt','resumen','short_description']);
-      const price= pick(item, ['price','unit_price','precio','precio_unitario']);
+      const name        = item.name ?? item.title ?? item.descripcion ?? item.description;
+      const slug        = item.slug;
+      const description = item.description ?? item.descripcion_larga ?? item.desc;
+      const excerpt     = item.excerpt ?? item.resumen ?? item.short_description;
 
-      const brand= pick(item, ['brand_name','brand','marca']);
-      const model= pick(item, ['model_name','model','modelo']);
-      const gtin = pick(item, ['meli_gtin','gtin','ean','upc','barcode','codigo_barras']);
+      const price       = item.price ?? item.unit_price ?? item.precio ?? item.precio_unitario;
 
-      const amazonSku = pick(item, [
-        'amazon_sku','seller_sku','sellerSku','amazonSellerSku','amazon_seller_sku','amz_sku','amzSellerSku'
-      ]);
-      const asin  = pick(item, ['amazon_asin','asin']);
-      let ptype   = pick(item, ['amazon_product_type','productType','product_type','amz_product_type']);
+      const brand       = item.brand_name ?? item.brand ?? item.marca;
+      const model       = item.model_name ?? item.model ?? item.modelo;
 
-      let category = pick(item, ['category','categoria','category_key','categoryKey']);
+      const gtin        = item.meli_gtin ?? item.gtin ?? item.ean ?? item.upc ?? item.barcode ?? item.codigo_barras;
 
-      applyAiSuggestion('name',        name,  markSuggested, onlyIfEmpty);
-      applyAiSuggestion('slug',        slug,  markSuggested, onlyIfEmpty);
-      applyAiSuggestion('description', desc,  markSuggested, onlyIfEmpty);
-      applyAiSuggestion('excerpt',     ex,    markSuggested, onlyIfEmpty);
-      applyAiSuggestion('price',       price, markSuggested, onlyIfEmpty);
-      applyAiSuggestion('brand_name',  brand, markSuggested, onlyIfEmpty);
-      applyAiSuggestion('model_name',  model, markSuggested, onlyIfEmpty);
-      applyAiSuggestion('meli_gtin',   gtin,  markSuggested, onlyIfEmpty);
+      const qty         = item.stock ?? item.quantity ?? item.qty ?? item.cantidad ?? item.cant;
 
-      applyAiSuggestion('amazon_sku',          amazonSku, markSuggested, onlyIfEmpty);
-      applyAiSuggestion('amazon_asin',         asin,      markSuggested, onlyIfEmpty);
-      applyAiSuggestion('amazon_product_type', ptype,     markSuggested, onlyIfEmpty);
+      applyAiSuggestion('name',        name,        markSuggested, onlyIfEmpty);
+      applyAiSuggestion('slug',        slug,        markSuggested, onlyIfEmpty);
+      applyAiSuggestion('description', description, markSuggested, onlyIfEmpty);
+      applyAiSuggestion('excerpt',     excerpt,     markSuggested, onlyIfEmpty);
+      applyAiSuggestion('price',       price,       markSuggested, onlyIfEmpty);
+      applyAiSuggestion('brand_name',  brand,       markSuggested, onlyIfEmpty);
+      applyAiSuggestion('model_name',  model,       markSuggested, onlyIfEmpty);
+      applyAiSuggestion('meli_gtin',   gtin,        markSuggested, onlyIfEmpty);
+      applyAiSuggestion('stock',       qty,         markSuggested, onlyIfEmpty);
 
-      const qty = pick(item, ['stock','quantity','qty','cantidad','cant']);
-      applyAiSuggestion('stock', qty, markSuggested, onlyIfEmpty);
-
-      // ✅ Category: valida contra keys reales, si no, intenta adivinar por texto
-      if (category && CATEGORY_KEYS.length && !CATEGORY_KEYS.includes(String(category))) {
-        const tryKey = CATEGORY_KEYS.find(k => lower(k) === lower(category));
-        category = tryKey || '';
-      }
-
-      if (!category) {
-        const t = `${name || ''} ${desc || ''} ${ex || ''}`;
-        category = guessCategoryKey(t);
-      }
-
-      if (category) applyAiSuggestion('category', category, markSuggested, onlyIfEmpty);
-
-      // ✅ productType fallback si no vino
-      if (!ptype) {
-        const t = `${name || ''} ${desc || ''} ${ex || ''}`;
-        const guess = guessProductType(t);
-        if (guess) applyAiSuggestion('amazon_product_type', guess, markSuggested, onlyIfEmpty);
-      }
+      // Si en tu IA vienen extras, también los soporta (solo si vacío)
+      if (item.category) applyAiSuggestion('category', item.category, markSuggested, onlyIfEmpty);
+      if (item.amazon_sku) applyAiSuggestion('amazon_sku', item.amazon_sku, markSuggested, onlyIfEmpty);
+      if (item.amazon_asin) applyAiSuggestion('amazon_asin', item.amazon_asin, markSuggested, onlyIfEmpty);
+      if (item.amazon_product_type) applyAiSuggestion('amazon_product_type', item.amazon_product_type, markSuggested, onlyIfEmpty);
     }
 
     function escapeHtml(str) {
