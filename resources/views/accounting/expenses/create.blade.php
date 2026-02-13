@@ -6,85 +6,7 @@
 @section('content')
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
-
-<style>
-  :root{
-    --bg:#f5f7fb; --panel:#ffffff; --text:#0f172a; --muted:#667085; --border:#e8eef6;
-    --pblue:#cfe6ff; --pblue-strong:#5aa9ff; --pblue-dark:#1f7ae6;
-    --pgreen:#c9f7df; --pgreen-strong:#34d399; --pgreen-dark:#059669;
-    --shadow:0 10px 40px rgba(2,6,23,.08);
-    --danger:#dc2626;
-  }
-  body{ background:var(--bg); color:var(--text); }
-  .page-wrap{ max-width:1040px; }
-
-  .hero{
-    background:linear-gradient(135deg, rgba(90,169,255,.12), rgba(52,211,153,.10));
-    border:1px solid #d9e9ff; border-radius:18px; padding:16px 18px; box-shadow:var(--shadow);
-  }
-
-  .card{ border:1px solid var(--border); border-radius:16px; box-shadow:var(--shadow) }
-  .form-label{ color:var(--muted); font-weight:600 }
-  .form-control,.form-select{
-    border:1px solid var(--border); border-radius:14px; padding:.9rem .95rem;
-    transition:border-color .2s, box-shadow .2s, transform .1s
-  }
-  .form-control:focus,.form-select:focus{
-    border-color:#bfdcff; box-shadow:0 0 0 .25rem rgba(90,169,255,.18); transform:translateY(-1px)
-  }
-  .input-group-text{ border:1px solid var(--border); background:#f8fbff }
-
-  .btn-pastel-blue{
-    color:#0b2a4a; background:var(--pblue); border:1px solid #b6d8ff; border-radius:14px; font-weight:800;
-    box-shadow:0 10px 22px rgba(90,169,255,.25); transition:transform .12s, box-shadow .2s, filter .2s;
-  }
-  .btn-pastel-blue:hover{ filter:brightness(1.03); box-shadow:0 12px 26px rgba(90,169,255,.32) }
-  .btn-pastel-green{
-    color:#053824; background:var(--pgreen); border:1px solid #9ff0c9; border-radius:14px; font-weight:800;
-    box-shadow:0 10px 22px rgba(34,197,94,.22); transition:transform .12s, box-shadow .2s, filter .2s;
-  }
-  .btn-pastel-green:hover{ filter:brightness(1.03); box-shadow:0 12px 26px rgba(34,197,94,.3) }
-  .btn-outline-modern{ border-radius:12px; }
-  .btn[disabled]{ opacity:.75; cursor:not-allowed }
-  .lift:hover{ transform:translateY(-2px) }
-
-  .type-tabs{ display:flex; gap:.5rem; flex-wrap:wrap; }
-  .type-tab{
-    border:1px solid var(--border); background:#fff; color:#475467;
-    border-radius:999px; padding:.55rem .85rem;
-    font-weight:800; display:inline-flex; align-items:center; gap:.45rem;
-    transition:transform .15s ease, box-shadow .2s ease, color .2s, border-color .2s;
-    user-select:none;
-  }
-  .type-tab:hover{ transform:translateY(-1px); box-shadow:0 8px 20px rgba(31,122,230,.12) }
-  .type-tab.active{
-    color:#0b2a4a;
-    background:linear-gradient(135deg, var(--pblue), #e8f3ff);
-    border-color:#d7e8ff;
-    box-shadow:0 0 0 .22rem rgba(90,169,255,.12);
-  }
-
-  .section-card{ border:1px dashed #d5e4f8 !important; background:#fbfdff; }
-  .section-title{ font-weight:900; display:flex; align-items:center; gap:.5rem; margin:0 0 .25rem 0; }
-  .section-sub{ color:var(--muted); font-size:12.5px; margin:0 0 .75rem 0; }
-
-  .sig-wrap{ border:1px dashed #d5e4f8; border-radius:14px; padding:12px; background:#fff }
-  .sig-canvas{ width:100%; height:190px; display:block; background:#fff; border-radius:10px; touch-action:none; }
-  .sig-help{ color:var(--muted); font-size:12px; }
-
-  .dropzone{ border:2px dashed #d5e4f8; border-radius:14px; padding:14px; background:#fbfdff; cursor:pointer }
-  .dropzone.dragover{ background:#f4faff; border-color:#bdd8ff }
-  .file-pill{ display:inline-flex; gap:.5rem; align-items:center; padding:.35rem .6rem; background:#ecfdf5; color:#065f46;
-    border:1px solid #a7f3d0; border-radius:999px; margin:.25rem; font-size:.83rem }
-
-  .error{ color:var(--danger); font-size:12px; margin-top:6px }
-
-  .sw{
-    display:flex; align-items:center; gap:10px; flex-wrap:wrap;
-    padding:10px 12px; border:1px solid var(--border); border-radius:14px; background:#fff;
-  }
-  .sw input{ width:42px; height:22px; }
-</style>
+<link rel="stylesheet" href="{{ asset('css/expenses.css') }}?v={{ time() }}">
 
 @php
   $v = function($key, $default = null) { return old($key) ?? $default; };
@@ -139,7 +61,6 @@
         <div class="small text-muted">Elige si es <strong>Gasto</strong> o <strong>Movimiento de caja</strong>.</div>
       </div>
     </div>
-    <span class="badge ms-auto mt-2 mt-md-0 bg-light text-dark border">UI pastel • mobile first</span>
   </div>
 
   {{-- FORM GASTO (POST normal) --}}
@@ -392,7 +313,7 @@
                 <input type="text" id="entrega_purpose" class="form-control" maxlength="255" placeholder="Entrega para compras, viáticos, etc.">
               </div>
 
-              {{-- Evidencia (nuevo) --}}
+              {{-- Evidencia (obligatoria en entrega) --}}
               <div class="col-12">
                 <label class="form-label">Evidencia (PDF/JPG/PNG) *</label>
                 <label class="dropzone w-100" id="entregaDrop">
@@ -614,28 +535,33 @@
         </div>
       </div>
 
-      {{-- ===================== FIRMAS + EVIDENCIA (SOLO GASTO) ===================== --}}
+      {{-- ===================== FIRMAS + NIP (SOLO GASTO) ===================== --}}
       <div id="signSection" class="card section-card border-0 mb-3">
         <div class="card-body">
           <div class="section-title"><i class="bi bi-pen" style="color:#1f7ae6"></i> Firmas</div>
           <p class="section-sub">Solo para gasto. (En caja se firma dentro de cada apartado).</p>
 
-          <div class="row g-3">
+          {{-- ✅ NIP SIEMPRE OBLIGATORIO (gasto vehiculo/nomina) --}}
+          <div class="row g-3 mb-2">
             <div class="col-12 col-lg-6">
-              <label class="form-label">Firma de quien recibe *</label>
-              <div class="sig-wrap">
-                <canvas id="gastoReceiverCanvas" class="sig-canvas"></canvas>
-                <div class="d-flex justify-content-between align-items-center mt-2">
-                  <div class="sig-help"><i class="bi bi-pencil"></i> Firma con dedo o mouse</div>
-                  <button class="btn btn-sm btn-outline-modern btn-outline-secondary lift" type="button" data-clear="#gastoReceiverCanvas">
-                    <i class="bi bi-eraser"></i> Limpiar
-                  </button>
-                </div>
-                <input type="hidden" name="receiver_signature" id="receiver_signature" value="{{ $v('receiver_signature') }}">
-              </div>
+              <label class="form-label">NIP *</label>
+              <input type="password"
+                     name="nip"
+                     id="gasto_nip"
+                     class="form-control @error('nip') is-invalid @enderror"
+                     inputmode="numeric"
+                     maxlength="8"
+                     placeholder="NIP 4–8 dígitos"
+                     value="{{ $v('nip') }}"
+                     required>
+              @error('nip')<div class="error">{{ $message }}</div>@enderror
+              <div class="small text-muted mt-1">Obligatorio para registrar el gasto.</div>
             </div>
+          </div>
 
-            <div class="col-12 col-lg-6">
+          <div class="row g-3">
+            {{-- ✅ Eliminada firma de quien recibe --}}
+            <div class="col-12">
               <label class="form-label">Firma del responsable *</label>
               <div class="sig-wrap">
                 <canvas id="gastoAdminCanvas" class="sig-canvas"></canvas>
@@ -652,6 +578,7 @@
         </div>
       </div>
 
+      {{-- ✅ Evidencia SOLO para gasto de VEHÍCULO (en nómina NO se solicita; opcional/oculta) --}}
       <div id="evidenceSection" class="mb-2">
         <label class="form-label">Evidencia (opcional)</label>
         <div class="dropzone" id="dropzone">
@@ -768,8 +695,7 @@
   }
   function toData(pad){ return (!pad || pad.isEmpty()) ? null : pad.toDataURL('image/png'); }
 
-  // gasto pads
-  const gastoReceiverPad = initPad('gastoReceiverCanvas');
+  // gasto pads (SOLO responsable)
   const gastoAdminPad    = initPad('gastoAdminCanvas');
 
   // caja pads
@@ -854,6 +780,9 @@
     if(payrollCategory) payrollCategory.required = isNom;
     if(payrollPeriod) payrollPeriod.required = isNom;
 
+    // ✅ NOMINA: NO SOLICITA EVIDENCIA (opcional/oculta)
+    evidenceSection.classList.toggle('d-none', isNom);
+
     if(isNom) fillPayrollPeriods();
 
     if(isVeh){
@@ -869,7 +798,7 @@
   expenseTypeTabs.forEach(x => x.addEventListener('click', ()=> setExpenseType(x.getAttribute('data-type'))));
   setExpenseType(expenseTypeInput.value || 'vehiculo');
 
-  // ===== Evidencia gasto
+  // ===== Evidencia gasto (vehiculo)
   const dz = document.getElementById('dropzone');
   const fileInput = document.getElementById('fileInput');
   const meta = document.getElementById('fileMeta');
@@ -903,7 +832,7 @@
     dz?.addEventListener(evt, e=>{ e.preventDefault(); e.stopPropagation(); dz.classList.remove('dragover'); });
   });
 
-  // ===== Submit gasto
+  // ===== Submit gasto (NIP SIEMPRE OBLIGATORIO + firma responsable)
   const form = document.getElementById('expenseForm');
   form.addEventListener('submit', (e)=>{
     if(kindInput.value === 'caja'){
@@ -912,12 +841,17 @@
       return;
     }
 
-    const rSig = toData(gastoReceiverPad);
-    const aSig = toData(gastoAdminPad);
-    if(!rSig){ e.preventDefault(); err('Falta la firma de quien recibe.'); return; }
-    if(!aSig){ e.preventDefault(); err('Falta la firma del responsable.'); return; }
+    // ✅ NIP obligatorio
+    const nip = (document.getElementById('gasto_nip')?.value || '').trim();
+    if(!/^\d{4,8}$/.test(nip)){
+      e.preventDefault();
+      err('NIP inválido. (4 a 8 dígitos)');
+      return;
+    }
 
-    document.getElementById('receiver_signature').value = rSig;
+    // ✅ Solo firma del responsable (gasto)
+    const aSig = toData(gastoAdminPad);
+    if(!aSig){ e.preventDefault(); err('Falta la firma del responsable.'); return; }
     document.getElementById('admin_signature').value = aSig;
 
     setLoadingBtn(btnSave,true);
@@ -965,7 +899,7 @@
     setTimeout(()=>window.dispatchEvent(new Event('resize')), 50);
   });
 
-  // ===== ENTREGA evidencias (nuevo)
+  // ===== ENTREGA evidencias
   $('#entregaDrop').on('click', ()=>$('#entregaEvidence').trigger('click'));
   $('#entregaEvidence').on('change', function(){
     const $list=$('#entregaFileList').empty();
