@@ -82,36 +82,50 @@ class ExpenseController extends Controller
     }
 
     /* ====================== API PARA DASHBOARD ====================== */
+public function apiMetrics(Request $request)
+{
+    $q = $this->baseFilteredQuery($request);
 
-    public function apiMetrics(Request $request)
-    {
-        $q = $this->baseFilteredQuery($request);
+    $currency = Schema::hasColumn('expenses', 'currency')
+        ? (clone $q)->whereNotNull('currency')->value('currency')
+        : 'MXN';
 
-        $currency = Schema::hasColumn('expenses', 'currency')
-            ? (clone $q)->whereNotNull('currency')->value('currency')
-            : 'MXN';
+    $count = (clone $q)->count();
+    $sum   = (clone $q)->sum('amount');
 
-        $count = (clone $q)->count();
-        $sum   = (clone $q)->sum('amount');
+    $paidSum = 0;
+    $pendingSum = 0;
+    $canceledSum = 0;
 
-        $paidSum = null;
-        $pendingSum = null;
-        $canceledSum = null;
-        if (Schema::hasColumn('expenses', 'status')) {
-            $paidSum     = (clone $q)->where('status', 'paid')->sum('amount');
-            $pendingSum  = (clone $q)->where('status', 'pending')->sum('amount');
-            $canceledSum = (clone $q)->where('status', 'canceled')->sum('amount');
-        }
+    if (Schema::hasColumn('expenses', 'status')) {
 
-        return response()->json([
-            'count'        => (int) $count,
-            'sum'          => (float) $sum,
-            'currency'     => $currency ?: 'MXN',
-            'paid_sum'     => $paidSum !== null ? (float) $paidSum : null,
-            'pending_sum'  => $pendingSum !== null ? (float) $pendingSum : null,
-            'canceled_sum' => $canceledSum !== null ? (float) $canceledSum : null,
-        ]);
+        // 🔥 PAGADOS = status paid + TODOS los movimientos
+        $paidSum = (clone $q)
+            ->where(function ($w) {
+                $w->where('status', 'paid')
+                  ->orWhere('entry_kind', 'movimiento');
+            })
+            ->sum('amount');
+
+        $pendingSum = (clone $q)
+            ->where('status', 'pending')
+            ->sum('amount');
+
+        $canceledSum = (clone $q)
+            ->where('status', 'canceled')
+            ->sum('amount');
     }
+
+    return response()->json([
+        'count'        => (int) $count,
+        'sum'          => (float) $sum,
+        'currency'     => $currency ?: 'MXN',
+        'paid_sum'     => (float) $paidSum,
+        'pending_sum'  => (float) $pendingSum,
+        'canceled_sum' => (float) $canceledSum,
+    ]);
+}
+
 
     public function apiList(Request $request)
     {

@@ -1,4 +1,4 @@
-<!doctype html>
+<!doctype html> 
 <html lang="es">
 <head>
   <meta charset="utf-8">
@@ -316,6 +316,11 @@
           $nm = $u?->name ?? 'Usuario';
           $ini = mb_strtoupper(mb_substr($nm,0,1));
 
+          // ✅ CONDICIÓN (NO QUITA NADA, SOLO AGREGA LÓGICA)
+          $isAdmin   = $u && method_exists($u,'hasRole') ? $u->hasRole('admin') : false;
+          $isManager = $u && method_exists($u,'hasRole') ? $u->hasRole('manager') : false;
+          $restrictManager = $isManager && !$isAdmin;
+
           $baseAvatar = null;
           if ($u && !empty($u->avatar_url)) { $baseAvatar = $u->avatar_url; }
           if (!$baseAvatar && $u && !empty($u->email)) {
@@ -399,6 +404,46 @@
 
     {{-- ✅ CAMBIO: nav -> side-nav para evitar choque con Bootstrap --}}
     <nav class="side-nav" id="sidebarNav">
+
+      {{-- ✅ CONDICIÓN: si es manager (y NO admin) solo ve: Mi perfil + Part. contable + Documentación de altas --}}
+      @if($restrictManager)
+
+        <!-- Mi perfil -->
+        <details class="nav__group" {{ request()->routeIs('profile.*') ? 'open' : '' }}>
+          <summary class="{{ request()->routeIs('profile.*') ? 'is-active':'' }}">
+            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
+              <circle cx="12" cy="7" r="4"/><path d="M6 21v-2a6 6 0 0 1 12 0v2"/>
+            </svg>
+            <span>Mi perfil</span>
+            <svg class="nav__chev" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+          </summary>
+          <div class="nav__submenu">
+            <a href="{{ route('profile.show') }}" class="nav__sublink {{ request()->routeIs('profile.show') ? 'is-active':'' }}">
+              <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M4 6h16"/></svg>
+              <span>Ver perfil</span>
+            </a>
+          </div>
+        </details>
+
+        <!-- Part. contable -->
+        <a href="{{ route('partcontable.index') }}" class="nav__link {{ request()->routeIs('partcontable.*') ? 'is-active':'' }}">
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
+            <circle cx="12" cy="12" r="9"/>
+            <path d="M9 10h3.5a2 2 0 1 1 0 4H9m3-7v10"/>
+          </svg>
+          <span>Part. contable</span>
+        </a>
+
+        <!-- Documentación de altas -->
+        <a href="{{ route('alta.docs.index') }}" class="nav__link {{ request()->routeIs('alta.docs.*') ? 'is-active':'' }}">
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
+            <path d="M4 4h16v14H4z"/><path d="M8 4v-1a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v1"/><path d="M8 9h8M8 13h5"/>
+          </svg>
+          <span>Documentación de altas</span>
+        </a>
+
+      @else
+
       <!-- Dashboard -->
       <a href="{{ route('dashboard') }}" class="nav__link {{ request()->routeIs('dashboard') ? 'is-active':'' }}">
         <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
@@ -1023,6 +1068,8 @@
           </a>
         </div>
       </details>
+
+      @endif
     </nav>
 
     <form method="POST" action="{{ route('logout') }}" class="logout">
