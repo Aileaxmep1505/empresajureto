@@ -82,50 +82,50 @@ class ExpenseController extends Controller
     }
 
     /* ====================== API PARA DASHBOARD ====================== */
-public function apiMetrics(Request $request)
-{
-    $q = $this->baseFilteredQuery($request);
 
-    $currency = Schema::hasColumn('expenses', 'currency')
-        ? (clone $q)->whereNotNull('currency')->value('currency')
-        : 'MXN';
+    public function apiMetrics(Request $request)
+    {
+        $q = $this->baseFilteredQuery($request);
 
-    $count = (clone $q)->count();
-    $sum   = (clone $q)->sum('amount');
+        $currency = Schema::hasColumn('expenses', 'currency')
+            ? (clone $q)->whereNotNull('currency')->value('currency')
+            : 'MXN';
 
-    $paidSum = 0;
-    $pendingSum = 0;
-    $canceledSum = 0;
+        $count = (clone $q)->count();
+        $sum   = (clone $q)->sum('amount');
 
-    if (Schema::hasColumn('expenses', 'status')) {
+        $paidSum = 0;
+        $pendingSum = 0;
+        $canceledSum = 0;
 
-        // 🔥 PAGADOS = status paid + TODOS los movimientos
-        $paidSum = (clone $q)
-            ->where(function ($w) {
-                $w->where('status', 'paid')
-                  ->orWhere('entry_kind', 'movimiento');
-            })
-            ->sum('amount');
+        if (Schema::hasColumn('expenses', 'status')) {
 
-        $pendingSum = (clone $q)
-            ->where('status', 'pending')
-            ->sum('amount');
+            // 🔥 PAGADOS = status paid + TODOS los movimientos
+            $paidSum = (clone $q)
+                ->where(function ($w) {
+                    $w->where('status', 'paid')
+                        ->orWhere('entry_kind', 'movimiento');
+                })
+                ->sum('amount');
 
-        $canceledSum = (clone $q)
-            ->where('status', 'canceled')
-            ->sum('amount');
+            $pendingSum = (clone $q)
+                ->where('status', 'pending')
+                ->sum('amount');
+
+            $canceledSum = (clone $q)
+                ->where('status', 'canceled')
+                ->sum('amount');
+        }
+
+        return response()->json([
+            'count'        => (int) $count,
+            'sum'          => (float) $sum,
+            'currency'     => $currency ?: 'MXN',
+            'paid_sum'     => (float) $paidSum,
+            'pending_sum'  => (float) $pendingSum,
+            'canceled_sum' => (float) $canceledSum,
+        ]);
     }
-
-    return response()->json([
-        'count'        => (int) $count,
-        'sum'          => (float) $sum,
-        'currency'     => $currency ?: 'MXN',
-        'paid_sum'     => (float) $paidSum,
-        'pending_sum'  => (float) $pendingSum,
-        'canceled_sum' => (float) $canceledSum,
-    ]);
-}
-
 
     public function apiList(Request $request)
     {
@@ -203,6 +203,7 @@ public function apiMetrics(Request $request)
             }
 
             // ✅ PDF del recibo (fusionado con evidencias)
+            // OJO: este nombre de ruta debe existir: Route::get('/expenses/pdf/{expense}', ...)->name('expenses.pdf');
             $pdfUrl = route('expenses.pdf', ['expense' => $e->id]);
 
             return [
@@ -246,6 +247,72 @@ public function apiMetrics(Request $request)
                 'total' => (int) $total,
             ],
         ]);
+    }
+
+    /**
+     * ✅ API para chart (si tu front lo llama)
+     * Route recomendada: Route::get('/api/expenses/chart', ...)->name('expenses.api.chart');
+     */
+    public function apiChart(Request $request)
+    {
+        $days = (int) $request->input('days', 14);
+        $days = ($days < 7) ? 7 : (($days > 90) ? 90 : $days);
+
+        $q = $this->baseFilteredQuery($request);
+
+        // Arma rango de fechas
+        $to = $request->input('to');
+        $end = $to ? Carbon::parse($to)->endOfDay() : now()->endOfDay();
+        $start = (clone $end)->subDays($days - 1)->startOfDay();
+
+        if (Schema::hasColumn('expenses', 'expense_date')) {
+            $q->whereBetween('expense_date', [$start->toDateString(), $end->toDateString()]);
+        }
+
+        $hasStatus = Schema::hasColumn('expenses', 'status');
+        $hasEntryKind = Schema::hasColumn('expenses', 'entry_kind');
+
+        $select = 'DATE(expense_date) as d, ';
+        if ($hasStatus) {
+            if ($hasEntryKind) {
+                $select .= "
+                    SUM(CASE WHEN status = 'paid' OR entry_kind = 'movimiento' THEN amount ELSE 0 END) as paid,
+                    SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END) as pending,
+                    SUM(CASE WHEN status = 'canceled' THEN amount ELSE 0 END) as canceled
+                ";
+            } else {
+                $select .= "
+                    SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END) as paid,
+                    SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END) as pending,
+                    SUM(CASE WHEN status = 'canceled' THEN amount ELSE 0 END) as canceled
+                ";
+            }
+        } else {
+            $select .= "SUM(amount) as paid, 0 as pending, 0 as canceled";
+        }
+
+        $rows = $q->selectRaw($select)
+            ->groupBy('d')
+            ->orderBy('d')
+            ->get();
+
+        // Rellena días faltantes con 0
+        $map = $rows->keyBy('d');
+        $out = [];
+
+        for ($i = 0; $i < $days; $i++) {
+            $day = (clone $start)->addDays($i)->toDateString();
+            $r = $map->get($day);
+
+            $out[] = [
+                'date'     => $day,
+                'paid'     => (float) ($r->paid ?? 0),
+                'pending'  => (float) ($r->pending ?? 0),
+                'canceled' => (float) ($r->canceled ?? 0),
+            ];
+        }
+
+        return response()->json($out);
     }
 
     /* ====================== STORE (GASTO NORMAL) ====================== */
@@ -692,7 +759,97 @@ public function apiMetrics(Request $request)
         });
     }
 
+    /* ====================== UPDATE / DELETE (PARA MODAL EDITAR Y ELIMINAR) ====================== */
+
+    public function update(Request $request, Expense $expense)
+    {
+        $data = $request->validate([
+            'status'         => ['nullable', 'string', 'max:40'],
+            'payment_method' => ['nullable', 'string', 'max:40'],
+            'description'    => ['nullable', 'string', 'max:5000'],
+            'concept'        => ['nullable', 'string', 'max:180'],
+            'amount'         => ['nullable', 'numeric', 'min:0'],
+            'expense_date'   => ['nullable', 'date'],
+        ]);
+
+        if (Schema::hasColumn('expenses', 'status') && array_key_exists('status', $data)) {
+            $st = strtolower(trim((string) $data['status']));
+            if ($st === 'cancelled') $st = 'canceled';
+            $expense->status = $st;
+        }
+
+        if (Schema::hasColumn('expenses', 'payment_method') && array_key_exists('payment_method', $data)) {
+            $expense->payment_method = $data['payment_method'];
+        }
+
+        if (Schema::hasColumn('expenses', 'description') && array_key_exists('description', $data)) {
+            $expense->description = $data['description'];
+        }
+
+        if (Schema::hasColumn('expenses', 'concept') && array_key_exists('concept', $data)) {
+            $expense->concept = $data['concept'];
+        }
+
+        if (Schema::hasColumn('expenses', 'amount') && array_key_exists('amount', $data)) {
+            $expense->amount = $data['amount'];
+        }
+
+        if (Schema::hasColumn('expenses', 'expense_date') && array_key_exists('expense_date', $data)) {
+            $expense->expense_date = $data['expense_date'];
+        }
+
+        $expense->save();
+
+        if ($request->expectsJson()) {
+            return response()->json(['ok' => true, 'id' => $expense->id]);
+        }
+
+        return redirect()->route('expenses.index')->with('ok', 'Actualizado');
+    }
+
+    public function destroy(Request $request, Expense $expense)
+    {
+        // ✅ Borra evidencias
+        $paths = $this->getEvidencePathsFromExpense($expense);
+        foreach ($paths as $relPath) {
+            try {
+                if ($relPath) Storage::disk('public')->delete($relPath);
+            } catch (\Throwable $e) {
+                // silencioso
+            }
+        }
+
+        // ✅ Borra firmas
+        foreach ([
+            'admin_signature_path',
+            'manager_signature_path',
+            'receiver_signature_path',
+            'counterparty_signature_path',
+        ] as $col) {
+            if (Schema::hasColumn('expenses', $col) && !empty($expense->{$col})) {
+                try { Storage::disk('public')->delete($expense->{$col}); } catch (\Throwable $e) {}
+            }
+        }
+
+        $id = $expense->id;
+        $expense->delete();
+
+        if ($request->expectsJson()) {
+            return response()->json(['ok' => true, 'id' => $id]);
+        }
+
+        return redirect()->route('expenses.index')->with('ok', 'Eliminado');
+    }
+
     /* ====================== PDF RECIBO (RECIBO + EVIDENCIAS ANEXADAS COMO HOJAS EXTRA) ====================== */
+
+    /**
+     * Alias para que route('expenses.pdf') funcione siempre.
+     */
+    public function pdf(Expense $expense)
+    {
+        return $this->pdfReceipt($expense);
+    }
 
     /**
      * Descarga un recibo PDF usando resources/views/pdfs/transaction.blade.php

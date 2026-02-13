@@ -1845,6 +1845,9 @@ Route::middleware(['auth'])->group(function () {
 
   Route::post('/expenses/movements/return', [ExpenseController::class,'storeReturn'])
     ->name('expenses.movement.return.store');
+    Route::patch('/expenses/{expense}', [ExpenseController::class, 'update'])->name('expenses.update');
+Route::delete('/expenses/{expense}', [ExpenseController::class, 'destroy'])->name('expenses.destroy');
+
 });
 
 Route::middleware(['auth'])->group(function () {

@@ -169,6 +169,17 @@
     border-radius:18px;
     box-shadow:var(--shadow);
   }
+
+  /* =======================
+     ✅ TOASTS (encapsulado)
+     ======================= */
+  #expensesToasts .toast{
+    border:1px solid rgba(15,23,42,.08);
+    border-radius:16px;
+    box-shadow: 0 14px 35px rgba(2,6,23,.12);
+    overflow:hidden;
+  }
+  #expensesToasts .toast .toast-body{ font-weight:800; }
 </style>
 
 <div id="expensesPage">
@@ -502,6 +513,11 @@
   </div>
 </div>
 
+{{-- ✅ TOAST CONTAINER --}}
+<div class="toast-container position-fixed top-0 end-0 p-3" id="expensesToasts" style="z-index: 3000;">
+  {{-- aquí se inyectan toasts --}}
+</div>
+
 {{-- MODAL Detalle --}}
 <div class="modal fade expenses-scope" id="evidenceModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-centered">
@@ -695,6 +711,50 @@
 
   function csrfToken(){
     return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+  }
+
+  /* =========================
+     ✅ TOAST SYSTEM (Bootstrap)
+     ========================= */
+  function toast(type, message, opts = {}){
+    const container = document.getElementById('expensesToasts');
+    if(!container) return;
+
+    const id = 't_' + Math.random().toString(16).slice(2);
+    const icon = (type === 'success') ? 'bi-check-circle-fill'
+               : (type === 'danger')  ? 'bi-x-circle-fill'
+               : (type === 'warning') ? 'bi-exclamation-triangle-fill'
+               : 'bi-info-circle-fill';
+
+    const headText = (type === 'success') ? 'Listo'
+                  : (type === 'danger')  ? 'Error'
+                  : (type === 'warning') ? 'Aviso'
+                  : 'Info';
+
+    const bg = (type === 'success') ? 'text-bg-success'
+             : (type === 'danger')  ? 'text-bg-danger'
+             : (type === 'warning') ? 'text-bg-warning'
+             : 'text-bg-primary';
+
+    const delay = Number(opts.delay ?? 2600);
+
+    container.insertAdjacentHTML('beforeend', `
+      <div id="${id}" class="toast ${bg}" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="${delay}">
+        <div class="d-flex">
+          <div class="toast-body">
+            <i class="bi ${icon} me-2"></i>
+            <span class="me-2">${esc(headText)}:</span>
+            ${esc(message || '')}
+          </div>
+          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+      </div>
+    `);
+
+    const el = document.getElementById(id);
+    const t = new bootstrap.Toast(el);
+    el.addEventListener('hidden.bs.toast', ()=> el.remove());
+    t.show();
   }
 
   function setMiniError(id, show, msg){
@@ -1020,7 +1080,6 @@
     ].filter(Boolean).join(' • ');
     $('evSub').textContent = line1 || '—';
 
-    // Badges (solo si existen)
     const badges = [];
     const when = fmtDateTime(e.performed_at) || fmtDateTime(e.expense_date) || fmtDate(e.expense_date);
     if (when) badges.push(`<span class="tag soft"><i class="bi bi-clock"></i> ${esc(when)}</span>`);
@@ -1055,12 +1114,10 @@
     pushField('Estatus', statusLabel(e.status));
     pushField('Método de pago', e.payment_method);
 
-    // categoría, vehículo, nómina solo si vienen
     pushField('Categoría', e.category?.name || e.category_name);
     pushField('Vehículo', e.vehicle?.plate || e.vehicle?.plate_label);
     pushField('Nómina', e.payroll_period?.title || e.payroll_period?.name);
 
-    // aprobado solo si existe
     if(e.nip_approved_at){
       pushField('Aprobado (NIP)', fmtDateTime(e.nip_approved_at) || 'Sí');
     }
@@ -1068,7 +1125,7 @@
     $('evFields').innerHTML = fields.join('');
     document.getElementById('evDetailsSection')?.classList.toggle('d-none', fields.length === 0);
 
-    // ✅ Evidencia: si no hay, NO aparece
+    // Evidencia
     const evSection = document.getElementById('evEvidenceSection');
     const evDownload = $('evDownload');
     const body = $('evBody');
@@ -1099,7 +1156,7 @@
       }
     }
 
-    // ✅ Firmas: si no hay, NO aparece; si hay 1, ocupa ancho completo
+    // Firmas
     const sigSection = document.getElementById('sigSection');
     const sigMgrCol  = document.getElementById('sigMgrCol');
     const sigCtpCol  = document.getElementById('sigCtpCol');
@@ -1137,7 +1194,7 @@
       }
     }
 
-    // ✅ Recibo: si no hay, NO aparece
+    // Recibo
     const rcSection = document.getElementById('rcSection');
     const rcDownload = $('rcDownload');
     const rcBody = $('rcBody');
@@ -1191,10 +1248,13 @@
       setMiniError('stErr', false);
       await apiUpdateStatus(id, status);
       statusModalInst?.hide();
+
+      toast('success', `Estatus actualizado a "${statusLabel(status)}".`);
       refreshAll();
     }catch(err){
       console.error(err);
       setMiniError('stErr', true, err.message || 'Error guardando.');
+      toast('danger', err.message || 'No se pudo actualizar.');
     }
   });
 
@@ -1205,11 +1265,14 @@
       setMiniError('delErr', false);
       await apiDeleteExpense(id);
       deleteModalInst?.hide();
+
+      toast('success', `Gasto #${id} eliminado.`);
       if(state.rows.length === 1 && state.page > 1) state.page--;
       refreshAll();
     }catch(err){
       console.error(err);
       setMiniError('delErr', true, err.message || 'Error eliminando.');
+      toast('danger', err.message || 'No se pudo eliminar.');
     }
   });
 
@@ -1487,6 +1550,7 @@
     }catch(e){
       console.error(e);
       warn(true, 'Error al refrescar.');
+      toast('danger', 'Error al refrescar.');
     }
   }
 
@@ -1507,6 +1571,7 @@
     tab.show();
     syncPillsActive('#pane-dash');
     if($('mobileTab')) $('mobileTab').value = '#pane-dash';
+    toast('info', 'Filtros aplicados.');
   });
 
   $('btnClear')?.addEventListener('click', ()=>{
@@ -1515,6 +1580,7 @@
     });
     state.page = 1;
     refreshAll();
+    toast('info', 'Filtros limpiados.');
   });
 
   $('perPage')?.addEventListener('change', ()=>{
