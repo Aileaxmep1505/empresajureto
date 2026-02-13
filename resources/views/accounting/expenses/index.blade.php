@@ -19,7 +19,6 @@
     --pred:#ffe4e6; --pred-strong:#ef4444;
     --pteal:#e0f2fe; --pteal-strong:#0ea5e9;
     --shadow:0 10px 30px rgba(2,6,23,.06);
-
     color: var(--text);
   }
 
@@ -436,9 +435,9 @@
                   <label class="form-label">Estatus</label>
                   <select id="status" class="form-select">
                     <option value="">Todos</option>
-                    <option value="paid">paid</option>
-                    <option value="pending">pending</option>
-                    <option value="canceled">canceled</option>
+                    <option value="paid">Pagado</option>
+                    <option value="pending">Pendiente</option>
+                    <option value="canceled">Cancelado</option>
                   </select>
                 </div>
 
@@ -503,7 +502,7 @@
   </div>
 </div>
 
-{{-- MODAL Evidencia + Recibo/Firmas (✅ con clase scope para estilos) --}}
+{{-- MODAL Detalle --}}
 <div class="modal fade expenses-scope" id="evidenceModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-centered">
     <div class="modal-content">
@@ -519,21 +518,29 @@
         <div class="d-flex flex-wrap gap-2 mb-3" id="evBadges"></div>
 
         <div class="row g-3">
-          <div class="col-12">
+
+          <div class="col-12" id="evDetailsSection">
+            <div class="fw-bold mb-2">Detalles</div>
+            <div id="evFields" class="row g-2"></div>
+          </div>
+
+          {{-- ✅ Evidencia: si no existe, NO se muestra --}}
+          <div class="col-12 d-none" id="evEvidenceSection">
             <div class="fw-bold mb-2">Evidencia</div>
             <div id="evBody" class="text-center text-muted">—</div>
           </div>
 
-          <div class="col-12">
+          {{-- ✅ Firmas: si no existe ninguna, NO se muestra --}}
+          <div class="col-12 d-none" id="sigSection">
             <div class="fw-bold mb-2">Firmas</div>
             <div class="row g-3">
-              <div class="col-12 col-md-6">
+              <div class="col-12 col-md-6" id="sigMgrCol">
                 <div class="border rounded-4 p-2" style="border-color:var(--border)!important;background:#fff">
                   <div class="small text-muted mb-2">Firma (admin)</div>
                   <div id="sigMgr" class="text-muted small">—</div>
                 </div>
               </div>
-              <div class="col-12 col-md-6">
+              <div class="col-12 col-md-6" id="sigCtpCol">
                 <div class="border rounded-4 p-2" style="border-color:var(--border)!important;background:#fff">
                   <div class="small text-muted mb-2">Firma (contraparte)</div>
                   <div id="sigCtp" class="text-muted small">—</div>
@@ -542,10 +549,12 @@
             </div>
           </div>
 
-          <div class="col-12">
+          {{-- ✅ Recibo: si no existe, NO se muestra --}}
+          <div class="col-12 d-none" id="rcSection">
             <div class="fw-bold mb-2">Recibo</div>
             <div id="rcBody" class="text-muted small">—</div>
           </div>
+
         </div>
       </div>
 
@@ -566,6 +575,73 @@
   </div>
 </div>
 
+{{-- MODAL Editar Estatus --}}
+<div class="modal fade expenses-scope" id="statusModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-md modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header border-0">
+        <div>
+          <div class="fw-bold" id="stTitle">Editar estatus</div>
+          <div class="text-muted small" id="stSub">—</div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body pt-0">
+        <input type="hidden" id="stId" value="">
+        <label class="form-label">Estatus</label>
+        <select id="stStatus" class="form-select">
+          <option value="paid">Pagado</option>
+          <option value="pending">Pendiente</option>
+          <option value="canceled">Cancelado</option>
+        </select>
+
+        <div class="mini-error mt-3 d-none" id="stErr"></div>
+      </div>
+
+      <div class="modal-footer border-0">
+        <button class="btn btn-outline-soft" data-bs-dismiss="modal" type="button">Cancelar</button>
+        <button class="btn btn-pastel-blue" type="button" id="stSave">
+          <i class="bi bi-save2 me-1"></i> Guardar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{{-- MODAL Confirmar Eliminación --}}
+<div class="modal fade expenses-scope" id="deleteModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-md modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header border-0">
+        <div class="fw-bold">Eliminar gasto</div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body pt-0">
+        <input type="hidden" id="delId" value="">
+        <div class="text-muted small mb-2">Vas a eliminar:</div>
+        <div class="border rounded-4 p-2" style="border-color:var(--border)!important;background:#fff">
+          <div class="fw-bold" id="delTitle">—</div>
+          <div class="text-muted small" id="delSub">—</div>
+        </div>
+
+        <div class="mini-error mt-3 d-none" id="delErr"></div>
+        <div class="text-muted small mt-3">
+          Esta acción no se puede deshacer.
+        </div>
+      </div>
+
+      <div class="modal-footer border-0">
+        <button class="btn btn-outline-soft" data-bs-dismiss="modal" type="button">Cancelar</button>
+        <button class="btn btn-outline-soft" type="button" id="delConfirm">
+          <i class="bi bi-trash3 me-1"></i> Eliminar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -574,6 +650,13 @@
   const API_LIST    = "{{ route('expenses.api.list', [], false) }}";
   const API_METRICS = "{{ route('expenses.api.metrics', [], false) }}";
   const API_CHART   = "{{ \Illuminate\Support\Facades\Route::has('expenses.api.chart') ? route('expenses.api.chart', [], false) : '' }}";
+
+  // ✅ RUTAS robustas (evita el 404 si tu app NO tiene /expenses/{id})
+  const UPDATE_URL_TPL =
+    "{{ \Illuminate\Support\Facades\Route::has('expenses.update') ? route('expenses.update', ['expense' => '__ID__'], false) : '' }}";
+  const DESTROY_URL_TPL =
+    "{{ \Illuminate\Support\Facades\Route::has('expenses.destroy') ? route('expenses.destroy', ['expense' => '__ID__'], false) : '' }}";
+  const FALLBACK_BASE = "{{ url('/expenses') }}"; // fallback si no existen las rutas nombradas
 
   const $ = (id)=>document.getElementById(id);
 
@@ -590,6 +673,15 @@
   function esc(s){
     return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
+
+  function statusLabel(st){
+    const s = String(st || '').toLowerCase();
+    if(s === 'paid') return 'Pagado';
+    if(s === 'pending') return 'Pendiente';
+    if(s === 'canceled' || s === 'cancelled') return 'Cancelado';
+    return (st ? String(st) : '—');
+  }
+
   function money(n, currency='MXN'){
     const x = Number(n || 0);
     try{ return x.toLocaleString('es-MX', {style:'currency', currency: currency || 'MXN'}); }
@@ -599,6 +691,65 @@
     const t = Number(total || 0);
     if(t <= 0) return 0;
     return Math.round((Number(part||0) / t) * 1000) / 10;
+  }
+
+  function csrfToken(){
+    return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+  }
+
+  function setMiniError(id, show, msg){
+    const el = document.getElementById(id);
+    if(!el) return;
+    if(show){
+      el.classList.remove('d-none');
+      el.innerHTML = `<i class="bi bi-exclamation-triangle me-1"></i> ${esc(msg || 'Error')}`;
+    }else{
+      el.classList.add('d-none');
+      el.textContent = '';
+    }
+  }
+
+  function endpointFromTemplate(tpl, id){
+    if(tpl && tpl.includes('__ID__')) return tpl.replace('__ID__', String(id));
+    return `${FALLBACK_BASE}/${id}`;
+  }
+
+  async function apiUpdateStatus(id, status){
+    const url = endpointFromTemplate(UPDATE_URL_TPL, id);
+    const res = await fetch(url, {
+      method: 'PATCH',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': csrfToken(),
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+      body: JSON.stringify({ status })
+    });
+
+    if(!res.ok){
+      const txt = await res.text().catch(()=> '');
+      throw new Error(`No se pudo actualizar (HTTP ${res.status}). ${txt}`.slice(0, 240));
+    }
+    return res.json().catch(()=> ({}));
+  }
+
+  async function apiDeleteExpense(id){
+    const url = endpointFromTemplate(DESTROY_URL_TPL, id);
+    const res = await fetch(url, {
+      method: 'DELETE',
+      headers: {
+        'Accept': 'application/json',
+        'X-CSRF-TOKEN': csrfToken(),
+        'X-Requested-With': 'XMLHttpRequest',
+      }
+    });
+
+    if(!res.ok){
+      const txt = await res.text().catch(()=> '');
+      throw new Error(`No se pudo eliminar (HTTP ${res.status}). ${txt}`.slice(0, 240));
+    }
+    return res.json().catch(()=> ({}));
   }
 
   function normalizeDate(d){
@@ -869,23 +1020,69 @@
     ].filter(Boolean).join(' • ');
     $('evSub').textContent = line1 || '—';
 
+    // Badges (solo si existen)
     const badges = [];
     const when = fmtDateTime(e.performed_at) || fmtDateTime(e.expense_date) || fmtDate(e.expense_date);
     if (when) badges.push(`<span class="tag soft"><i class="bi bi-clock"></i> ${esc(when)}</span>`);
-    if (e.status) badges.push(`<span class="tag"><i class="bi bi-activity"></i> ${esc(e.status)}</span>`);
+    if (e.status) badges.push(`<span class="tag"><i class="bi bi-activity"></i> ${esc(statusLabel(e.status))}</span>`);
     if (e.payment_method) badges.push(`<span class="tag soft"><i class="bi bi-credit-card"></i> ${esc(e.payment_method)}</span>`);
     if (e.nip_approved_at) badges.push(`<span class="tag"><i class="bi bi-shield-check"></i> Aprobado</span>`);
     $('evBadges').innerHTML = badges.join('');
 
-    $('evDownload').classList.toggle('d-none', !e.evidence_url);
-    if(e.evidence_url) $('evDownload').href = e.evidence_url;
+    // ✅ Detalles: SOLO campos con valor (lo que no esté, NO aparece)
+    const fields = [];
+    const hasValue = (v) => !(v === null || v === undefined || String(v).trim() === '' || String(v).trim() === '—');
 
+    const pushField = (label, value) => {
+      if(!hasValue(value)) return;
+      fields.push(`
+        <div class="col-12 col-md-6">
+          <div class="border rounded-4 p-2" style="border-color:var(--border)!important;background:#fff">
+            <div class="small text-muted">${esc(label)}</div>
+            <div class="fw-bold" style="word-break:break-word">${esc(String(value))}</div>
+          </div>
+        </div>
+      `);
+    };
+
+    pushField('ID', e.id);
+    pushField('Fecha', normalizeDate(e.expense_date) ? fmtDate(e.expense_date) : null);
+    pushField('Registrado', fmtDateTime(e.performed_at));
+    pushField('Tipo', t);
+    pushField('Concepto', e.concept);
+    pushField('Detalle / Descripción', (e.description || '').trim());
+    pushField('Monto', money(e.amount, e.currency || 'MXN'));
+    pushField('Estatus', statusLabel(e.status));
+    pushField('Método de pago', e.payment_method);
+
+    // categoría, vehículo, nómina solo si vienen
+    pushField('Categoría', e.category?.name || e.category_name);
+    pushField('Vehículo', e.vehicle?.plate || e.vehicle?.plate_label);
+    pushField('Nómina', e.payroll_period?.title || e.payroll_period?.name);
+
+    // aprobado solo si existe
+    if(e.nip_approved_at){
+      pushField('Aprobado (NIP)', fmtDateTime(e.nip_approved_at) || 'Sí');
+    }
+
+    $('evFields').innerHTML = fields.join('');
+    document.getElementById('evDetailsSection')?.classList.toggle('d-none', fields.length === 0);
+
+    // ✅ Evidencia: si no hay, NO aparece
+    const evSection = document.getElementById('evEvidenceSection');
+    const evDownload = $('evDownload');
     const body = $('evBody');
-    body.innerHTML = '';
 
     if(!e.evidence_url){
-      body.innerHTML = `<div class="text-muted">Sin evidencia</div>`;
+      evSection?.classList.add('d-none');
+      evDownload?.classList.add('d-none');
+      if(body) body.innerHTML = '';
     } else {
+      evSection?.classList.remove('d-none');
+      evDownload?.classList.remove('d-none');
+      evDownload.href = e.evidence_url;
+
+      body.innerHTML = '';
       const mime = (e.evidence_mime || '').toLowerCase();
       if(mime.includes('pdf')){
         body.innerHTML = `
@@ -902,35 +1099,119 @@
       }
     }
 
+    // ✅ Firmas: si no hay, NO aparece; si hay 1, ocupa ancho completo
+    const sigSection = document.getElementById('sigSection');
+    const sigMgrCol  = document.getElementById('sigMgrCol');
+    const sigCtpCol  = document.getElementById('sigCtpCol');
     const mgrBox = $('sigMgr');
     const ctpBox = $('sigCtp');
 
-    if (e.manager_signature_url){
-      mgrBox.innerHTML = `<img src="${esc(e.manager_signature_url)}" alt="firma admin" class="img-fluid" style="max-height:140px;border-radius:12px;border:1px solid #e8eef6">`;
-    } else if (e.admin_signature_url){
-      mgrBox.innerHTML = `<img src="${esc(e.admin_signature_url)}" alt="firma admin" class="img-fluid" style="max-height:140px;border-radius:12px;border:1px solid #e8eef6">`;
+    const mgrUrl = e.manager_signature_url || e.admin_signature_url || null;
+    const ctpUrl = e.counterparty_signature_url || e.receiver_signature_url || null;
+
+    const hasMgr = !!mgrUrl;
+    const hasCtp = !!ctpUrl;
+
+    if(!hasMgr && !hasCtp){
+      sigSection?.classList.add('d-none');
     } else {
-      mgrBox.textContent = '—';
+      sigSection?.classList.remove('d-none');
+
+      mgrBox.innerHTML = hasMgr
+        ? `<img src="${esc(mgrUrl)}" alt="firma admin" class="img-fluid" style="max-height:160px;border-radius:12px;border:1px solid #e8eef6">`
+        : '—';
+
+      ctpBox.innerHTML = hasCtp
+        ? `<img src="${esc(ctpUrl)}" alt="firma contraparte" class="img-fluid" style="max-height:160px;border-radius:12px;border:1px solid #e8eef6">`
+        : '—';
+
+      if(hasMgr && !hasCtp){
+        sigMgrCol.className = 'col-12';
+        sigCtpCol.className = 'd-none';
+      } else if(!hasMgr && hasCtp){
+        sigCtpCol.className = 'col-12';
+        sigMgrCol.className = 'd-none';
+      } else {
+        sigMgrCol.className = 'col-12 col-md-6';
+        sigCtpCol.className = 'col-12 col-md-6';
+      }
     }
 
-    if (e.counterparty_signature_url){
-      ctpBox.innerHTML = `<img src="${esc(e.counterparty_signature_url)}" alt="firma contraparte" class="img-fluid" style="max-height:140px;border-radius:12px;border:1px solid #e8eef6">`;
-    } else if (e.receiver_signature_url){
-      ctpBox.innerHTML = `<img src="${esc(e.receiver_signature_url)}" alt="firma contraparte" class="img-fluid" style="max-height:140px;border-radius:12px;border:1px solid #e8eef6">`;
-    } else {
-      ctpBox.textContent = '—';
-    }
+    // ✅ Recibo: si no hay, NO aparece
+    const rcSection = document.getElementById('rcSection');
+    const rcDownload = $('rcDownload');
+    const rcBody = $('rcBody');
 
-    $('rcDownload').classList.toggle('d-none', !e.pdf_url);
-    if (e.pdf_url){
-      $('rcDownload').href = e.pdf_url;
-      $('rcBody').innerHTML = `<span class="text-muted">Recibo disponible.</span>`;
+    if(!e.pdf_url){
+      rcSection?.classList.add('d-none');
+      rcDownload?.classList.add('d-none');
+      if(rcBody) rcBody.textContent = '';
     } else {
-      $('rcBody').textContent = '—';
+      rcSection?.classList.remove('d-none');
+      rcDownload?.classList.remove('d-none');
+      rcDownload.href = e.pdf_url;
+      rcBody.innerHTML = `<span class="text-muted">Recibo disponible.</span>`;
     }
 
     modal.show();
   }
+
+  // ✅ Modales Editar/Eliminar
+  let statusModalInst = null;
+  let deleteModalInst = null;
+
+  function openEditStatus(e){
+    if(!statusModalInst) statusModalInst = new bootstrap.Modal(document.getElementById('statusModal'));
+
+    $('stId').value = e.id;
+    $('stTitle').textContent = 'Editar estatus';
+    $('stSub').textContent = `${esc(e.concept || 'Gasto')} • ${esc(money(e.amount, e.currency || 'MXN'))}`;
+    $('stStatus').value = (String(e.status || 'paid').toLowerCase() === 'cancelled') ? 'canceled' : String(e.status || 'paid').toLowerCase();
+
+    setMiniError('stErr', false);
+    statusModalInst.show();
+  }
+
+  function openDelete(e){
+    if(!deleteModalInst) deleteModalInst = new bootstrap.Modal(document.getElementById('deleteModal'));
+
+    $('delId').value = e.id;
+    $('delTitle').textContent = e.concept || 'Gasto';
+    $('delSub').textContent = `${fmtDate(e.expense_date)} • ${money(e.amount, e.currency || 'MXN')}`;
+
+    setMiniError('delErr', false);
+    deleteModalInst.show();
+  }
+
+  document.getElementById('stSave')?.addEventListener('click', async ()=>{
+    const id = Number($('stId').value);
+    const status = $('stStatus').value;
+
+    try{
+      setMiniError('stErr', false);
+      await apiUpdateStatus(id, status);
+      statusModalInst?.hide();
+      refreshAll();
+    }catch(err){
+      console.error(err);
+      setMiniError('stErr', true, err.message || 'Error guardando.');
+    }
+  });
+
+  document.getElementById('delConfirm')?.addEventListener('click', async ()=>{
+    const id = Number($('delId').value);
+
+    try{
+      setMiniError('delErr', false);
+      await apiDeleteExpense(id);
+      deleteModalInst?.hide();
+      if(state.rows.length === 1 && state.page > 1) state.page--;
+      refreshAll();
+    }catch(err){
+      console.error(err);
+      setMiniError('delErr', true, err.message || 'Error eliminando.');
+    }
+  });
 
   function renderCards(){
     const rows = state.rows;
@@ -947,16 +1228,16 @@
       const date   = fmtDate(e.expense_date);
 
       const type = e.movement_kind || e.entry_kind || e.expense_type || (e.is_movement ? 'movimiento' : 'gasto');
-      const detail  = (e.description || '').trim() || (e.concept || '').trim() || '—';
+      const detail  = (e.description || '').trim() || (e.concept || '').trim() || '';
       const veh = e.vehicle?.plate || e.vehicle?.plate_label || null;
 
       const chips = [
-        `<span class="tag soft"><i class="bi bi-layers"></i> ${esc(type)}</span>`,
-        `<span class="tag soft"><i class="bi bi-card-text"></i> ${esc(detail)}</span>`,
+        type ? `<span class="tag soft"><i class="bi bi-layers"></i> ${esc(type)}</span>` : '',
+        detail ? `<span class="tag soft"><i class="bi bi-card-text"></i> ${esc(detail)}</span>` : '',
         veh ? `<span class="tag"><i class="bi bi-truck"></i> ${esc(veh)}</span>` : '',
-        e.status ? `<span class="tag"><i class="bi bi-activity"></i> ${esc(e.status)}</span>` : '',
+        e.status ? `<span class="tag"><i class="bi bi-activity"></i> ${esc(statusLabel(e.status))}</span>` : '',
         e.payment_method ? `<span class="tag soft"><i class="bi bi-credit-card"></i> ${esc(e.payment_method)}</span>` : '',
-        e.has_evidence ? `<span class="tag"><i class="bi bi-paperclip"></i> Evidencia</span>` : `<span class="tag soft"><i class="bi bi-paperclip"></i> Sin evidencia</span>`,
+        e.has_evidence ? `<span class="tag"><i class="bi bi-paperclip"></i> Evidencia</span>` : '',
         e.pdf_url ? `<span class="tag"><i class="bi bi-filetype-pdf"></i> Recibo</span>` : '',
         e.nip_approved_at ? `<span class="tag soft"><i class="bi bi-shield-check"></i> Aprobado</span>` : '',
       ].filter(Boolean).join('');
@@ -981,12 +1262,13 @@
                 <i class="bi bi-eye me-1"></i> Detalle
               </button>
 
-              <a class="btn btn-outline-soft btn-sm" href="{{ url('/expenses') }}/${e.id}">
-                <i class="bi bi-box-arrow-up-right me-1"></i> Ver
-              </a>
-              <a class="btn btn-outline-soft btn-sm" href="{{ url('/expenses') }}/${e.id}/edit">
-                <i class="bi bi-pencil-square me-1"></i> Editar
-              </a>
+              <button class="btn btn-outline-soft btn-sm" type="button" data-edit="${e.id}">
+                <i class="bi bi-pencil-square me-1"></i> Editar estatus
+              </button>
+
+              <button class="btn btn-outline-soft btn-sm" type="button" data-delete="${e.id}">
+                <i class="bi bi-trash3 me-1"></i> Eliminar
+              </button>
             </div>
           </div>
         </div>
@@ -998,6 +1280,22 @@
         const id = Number(btn.getAttribute('data-detail'));
         const row = state.rows.find(x => Number(x.id) === id);
         if(row) openEvidence(row);
+      });
+    });
+
+    document.querySelectorAll('[data-edit]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const id = Number(btn.getAttribute('data-edit'));
+        const row = state.rows.find(x => Number(x.id) === id);
+        if(row) openEditStatus(row);
+      });
+    });
+
+    document.querySelectorAll('[data-delete]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const id = Number(btn.getAttribute('data-delete'));
+        const row = state.rows.find(x => Number(x.id) === id);
+        if(row) openDelete(row);
       });
     });
   }
@@ -1017,7 +1315,7 @@
         const type = e.movement_kind || e.entry_kind || e.expense_type || (e.is_movement ? 'movimiento' : 'gasto');
         const detail = (e.description || '').trim() || (e.concept || '').trim() || '-';
         const amount = money(e.amount, e.currency || 'MXN');
-        const status = e.status || '-';
+        const status = e.status ? statusLabel(e.status) : '-';
         const pdfBtn = e.pdf_url
           ? `<a target="_blank" rel="noopener" class="btn btn-sm btn-outline-soft" href="${esc(e.pdf_url)}"><i class="bi bi-file-earmark-pdf"></i></a>`
           : '-';
@@ -1026,7 +1324,7 @@
           <tr>
             <td>${esc(e.id)}</td>
             <td>${esc(date)}</td>
-            <td>${esc(type)}</td>
+            <td>${esc(type || '-')}</td>
             <td style="max-width:320px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(detail)}</td>
             <td class="text-end">${esc(amount)}</td>
             <td>${esc(status)}</td>
