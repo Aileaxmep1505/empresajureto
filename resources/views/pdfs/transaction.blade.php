@@ -1,12 +1,13 @@
 {{-- resources/views/pdfs/transaction.blade.php --}}
 @php
   /** @var object $trx */
+
   $labels = ['allocation'=>'Entrada','disbursement'=>'Entrega','return'=>'Devolución'];
   $type   = $trx->type ?? 'disbursement';
   $tipo   = $labels[$type] ?? ucfirst((string)$type);
   $folio  = 'TRX-'.str_pad((string)($trx->id ?? 0), 6, '0', STR_PAD_LEFT);
 
-  // created_at seguro
+  // Fecha segura
   $createdAt = $trx->created_at ?? now();
   try {
     $createdAt = $createdAt instanceof \Carbon\Carbon
@@ -16,37 +17,81 @@
     $createdAt = now();
   }
 
-  // Helpers para Dompdf (embebemos imágenes como base64)
+  // Helpers Dompdf: embebemos imágenes como base64
   if (!function_exists('pdf_img_b64')) {
-      function pdf_img_b64(?string $storagePath): ?string {
-          if (!$storagePath) return null;
-          $full = public_path('storage/'.$storagePath);
-          if (!is_file($full)) return null;
-          $ext  = strtolower(pathinfo($full, PATHINFO_EXTENSION));
-          $mime = $ext === 'png' ? 'image/png' : (in_array($ext, ['jpg','jpeg']) ? 'image/jpeg' : null);
-          if (!$mime) return null;
-          try { $data = base64_encode(@file_get_contents($full)); } catch (\Throwable $e) { $data = null; }
-          return $data ? "data:{$mime};base64,{$data}" : null;
-      }
+    function pdf_img_b64(?string $storagePath): ?string {
+      if (!$storagePath) return null;
+      $full = public_path('storage/'.$storagePath);
+      if (!is_file($full)) return null;
+      $ext  = strtolower(pathinfo($full, PATHINFO_EXTENSION));
+      $mime = $ext === 'png' ? 'image/png' : (in_array($ext, ['jpg','jpeg']) ? 'image/jpeg' : null);
+      if (!$mime) return null;
+      try { $data = base64_encode(@file_get_contents($full)); } catch (\Throwable $e) { $data = null; }
+      return $data ? "data:{$mime};base64,{$data}" : null;
+    }
   }
   if (!function_exists('pdf_is_image')) {
-      function pdf_is_image(string $path): bool {
-          return (bool) preg_match('/\.(png|jpe?g)$/i', $path);
-      }
+    function pdf_is_image(string $path): bool { return (bool) preg_match('/\.(png|jpe?g)$/i', $path); }
   }
   if (!function_exists('pdf_fname')) {
-      function pdf_fname(string $p): string { return basename($p); }
+    function pdf_fname(string $p): string { return basename($p); }
   }
 
-  // Firmas (si no hay, no se muestran)
+  // Nombres/roles (presentación: si no existe, NO lo mostramos)
+  $managerName = $trx->manager->name ?? null;
+  $bossName    = $trx->boss->name ?? null;          // (allocation) quien asigna (si existe en tu modelo)
+  $userName    = $trx->counterparty->name ?? null;  // receptor/usuario (si existe)
+
+  // Texto de campos (según tu BD)
+  $concept = $trx->purpose ?? $trx->concept ?? null;
+  $desc    = $trx->description ?? null;
+
+  // Estatus (solo aplica a disbursement)
+  $statusText = 'Registrada';
+  if($type === 'disbursement'){
+    $statusText = !empty($trx->acknowledged_at) ? 'Autorizada por usuario' : 'Pendiente de firma';
+  }
+
+  // Firmas (solo si existen)
   $sigMgr = pdf_img_b64($trx->manager_signature_path ?? null);
   $sigUsr = pdf_img_b64($trx->counterparty_signature_path ?? null);
+  $showSigns = (bool)($sigMgr || $sigUsr);
 
   // Evidencias (imágenes embebidas, otros archivos listados)
-  $evid = is_array($trx->evidence_paths ?? null) ? $trx->evidence_paths : [];
+  $evid   = is_array($trx->evidence_paths ?? null) ? $trx->evidence_paths : [];
   $evImgs = array_values(array_filter($evid, fn($p)=>pdf_is_image($p) && pdf_img_b64($p)));
   $evDocs = array_values(array_filter($evid, fn($p)=>!pdf_is_image($p)));
+
+  // Filas “Meta” dinámicas (NO ponemos lo que no existe)
+  $metaRows = [];
+
+  if($managerName){
+    $metaRows[] = ['label'=>'Encargado', 'value'=>$managerName];
+  }
+
+  // Allocation normalmente tiene boss_id; Disbursement/Return normalmente counterparty
+  if($type === 'allocation'){
+    if($bossName){
+      $metaRows[] = ['label'=>'Quien asigna', 'value'=>$bossName];
+    }
+  } else {
+    if($userName){
+      $metaRows[] = ['label'=>'Usuario', 'value'=>$userName];
+    }
+  }
+
+  if(!empty($concept)){
+    $metaRows[] = ['label'=>'Concepto', 'value'=>$concept];
+  }
+
+  if(!empty($desc)){
+    $metaRows[] = ['label'=>'Descripción', 'value'=>$desc];
+  }
+
+  // Si por algún motivo no hay nada de meta, dejamos solo un placeholder elegante
+  $hasMeta = count($metaRows) > 0;
 @endphp
+
 <!doctype html>
 <html lang="es">
 <head>
@@ -57,35 +102,23 @@
     *{ box-sizing:border-box; }
     html,body{ margin:0; padding:0; font-family: DejaVu Sans, sans-serif; color:#0f172a; }
     body{ font-size:12px; line-height:1.35; }
-
     .wrap{ width:100%; max-width:720px; margin:0 auto; padding:22px 24px; }
-
     .muted{ color:#64748b; }
     .small{ font-size:11px; }
     .tag{ display:inline-block; padding:4px 10px; border-radius:999px; background:#eef2ff; color:#3730a3; font-weight:700; font-size:11px; border:1px solid #c7d2fe; }
-
-    .header{
-      display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:16px;
-      border-bottom:1px solid #e5e7eb; padding-bottom:10px;
-    }
+    .header{ display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:16px; border-bottom:1px solid #e5e7eb; padding-bottom:10px; }
     .brand{ display:flex; align-items:center; gap:10px; }
     .brand-logo{ width:40px; height:40px; border-radius:8px; background:#0ea5e9; display:inline-block; }
     .brand-title{ font-size:16px; font-weight:800; letter-spacing:.3px; }
     .folio{ text-align:right; }
     .folio .code{ font-weight:800; font-size:14px; }
     .folio .date{ color:#64748b; font-size:12px; }
-
-    .box{
-      border:1px solid #e5e7eb; border-radius:10px; padding:12px 14px; margin-bottom:10px; background:#fff;
-      page-break-inside: avoid;
-    }
+    .box{ border:1px solid #e5e7eb; border-radius:10px; padding:12px 14px; margin-bottom:10px; background:#fff; page-break-inside: avoid; }
     .grid{ display:flex; flex-wrap:wrap; gap:10px; }
     .col{ flex:1 1 210px; }
     .label{ color:#64748b; font-size:10px; text-transform:uppercase; letter-spacing:.04em; margin-bottom:4px; }
     .value{ font-size:13px; font-weight:700; }
-
     .amount{ font-size:22px; font-weight:900; color:#111827; letter-spacing:.2px; }
-
     table.meta{ width:100%; border-collapse:separate; border-spacing:0; }
     table.meta td{ padding:7px 8px; vertical-align:top; }
     table.meta tr + tr td{ border-top:1px dashed #e5e7eb; }
@@ -100,9 +133,7 @@
 
     .ev{ margin-top:10px; }
     .ev-grid{ display:flex; flex-wrap:wrap; gap:8px; }
-    .ev-card{
-      width: calc(33.333% - 6px); border:1px solid #e5e7eb; border-radius:8px; padding:6px; background:#fff; page-break-inside: avoid;
-    }
+    .ev-card{ width: calc(33.333% - 6px); border:1px solid #e5e7eb; border-radius:8px; padding:6px; background:#fff; page-break-inside: avoid; }
     .ev-card img{ width:100%; height:140px; object-fit:cover; border-radius:6px; }
     .ev-list{ margin:6px 0 0 18px; padding:0; }
 
@@ -114,13 +145,13 @@
     .type-return .tag{ background:#eaf7fb; border-color:#c9e7f0; color:#0e7490; }
   </style>
 </head>
+
 <body class="type-{{ $type }}">
   <div class="wrap">
 
     {{-- Header --}}
     <div class="header">
       <div class="brand">
-        {{-- Si quieres logo real: <img class="brand-logo" src="{{ public_path('images/logo.png') }}"> --}}
         <span class="brand-logo"></span>
         <div>
           <div class="brand-title">JURETO S.A. DE C.V.</div>
@@ -147,64 +178,51 @@
         </div>
         <div class="col">
           <div class="label">Estatus</div>
-          <div class="value">
-            @if($type === 'disbursement')
-              {{ !empty($trx->acknowledged_at) ? 'Autorizada por usuario' : 'Pendiente de firma' }}
-            @else
-              Registrada
-            @endif
-          </div>
+          <div class="value">{{ $statusText }}</div>
         </div>
       </div>
 
-      <table class="meta" style="margin-top:6px;">
-        <tr>
-          <td width="28%" class="label">Encargado (admin)</td>
-          <td class="value">{{ $trx->manager->name ?? ('ID '.($trx->manager_id ?? '—')) }}</td>
-        </tr>
-        <tr>
-          <td class="label">{{ $type === 'allocation' ? 'Jefa (admin)' : 'Usuario' }}</td>
-          <td class="value">{{ $trx->counterparty->name ?? ('ID '.($trx->counterparty_id ?? '—')) }}</td>
-        </tr>
-        <tr>
-          <td class="label">Concepto</td>
-          <td class="value">{{ !empty($trx->purpose) ? $trx->purpose : '—' }}</td>
-        </tr>
-      </table>
+      @if($hasMeta)
+        <table class="meta" style="margin-top:6px;">
+          @foreach($metaRows as $r)
+            <tr>
+              <td width="28%" class="label">{{ $r['label'] }}</td>
+              <td class="value">{{ $r['value'] }}</td>
+            </tr>
+          @endforeach
+        </table>
+      @else
+        <div class="small muted" style="margin-top:8px;">Sin datos adicionales.</div>
+      @endif
     </div>
 
-    {{-- Firmas: solo mostramos las que existan --}}
-    @php
-      $showUser = (bool) $sigUsr;
-      $showMgr  = (bool) $sigMgr;
-    @endphp
-    @if($showUser || $showMgr)
+    {{-- Firmas (solo si existen) --}}
+    @if($showSigns)
       <div class="signs">
-        @if($showUser)
+        @if($sigUsr)
           <div class="sign">
-            <div class="line"><img src="{{ $sigUsr }}" alt="Firma usuario"></div>
+            <div class="line"><img src="{{ $sigUsr }}" alt="Firma"></div>
             <div class="who">
-              <div class="name">{{ $trx->counterparty->name ?? 'Usuario' }}</div>
-              <div class="role">{{ $type === 'allocation' ? 'Jefa (admin)' : 'Usuario' }}</div>
+              <div class="name">{{ $userName ?? 'Usuario' }}</div>
               @if(!empty($trx->acknowledged_at))
                 <div class="small muted">Firmado: {{ \Carbon\Carbon::parse($trx->acknowledged_at)->format('Y-m-d H:i') }}</div>
               @endif
             </div>
           </div>
         @endif
-        @if($showMgr)
+
+        @if($sigMgr)
           <div class="sign">
-            <div class="line"><img src="{{ $sigMgr }}" alt="Firma encargado"></div>
+            <div class="line"><img src="{{ $sigMgr }}" alt="Firma"></div>
             <div class="who">
-              <div class="name">{{ $trx->manager->name ?? 'Encargado' }}</div>
-              <div class="role">Encargado (admin)</div>
+              <div class="name">{{ $managerName ?? 'Encargado' }}</div>
             </div>
           </div>
         @endif
       </div>
     @endif
 
-    {{-- Evidencias: imágenes embebidas + lista de otros archivos (PDF, etc.) --}}
+    {{-- Evidencias --}}
     @if(count($evImgs) || count($evDocs))
       <div class="box ev">
         <div class="label" style="margin-bottom:6px;">Evidencias adjuntas</div>

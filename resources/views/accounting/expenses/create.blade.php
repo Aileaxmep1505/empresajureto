@@ -276,7 +276,7 @@
             </div>
           </div>
 
-          {{-- ========== TAB ENTREGA (ACTUALIZADA: evidencia + "Yo lo pagaré") ========== --}}
+          {{-- ========== TAB ENTREGA ========== --}}
           <div id="cashPaneEntrega" class="d-none">
             <div class="alert border-0 bg-opacity-25 mb-3" style="background:#eaf4ff">
               <i class="bi bi-lightning-charge-fill me-2"></i>
@@ -560,7 +560,7 @@
           </div>
 
           <div class="row g-3">
-            {{-- ✅ Eliminada firma de quien recibe --}}
+            {{-- ✅ Solo firma del responsable --}}
             <div class="col-12">
               <label class="form-label">Firma del responsable *</label>
               <div class="sig-wrap">

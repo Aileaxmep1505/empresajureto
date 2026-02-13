@@ -100,7 +100,7 @@ class ExpenseController extends Controller
 
         if (Schema::hasColumn('expenses', 'status')) {
 
-            // 🔥 PAGADOS = status paid + TODOS los movimientos
+            // ✅ PAGADOS = status paid + TODOS los movimientos
             $paidSum = (clone $q)
                 ->where(function ($w) {
                     $w->where('status', 'paid')
@@ -203,7 +203,6 @@ class ExpenseController extends Controller
             }
 
             // ✅ PDF del recibo (fusionado con evidencias)
-            // OJO: este nombre de ruta debe existir: Route::get('/expenses/pdf/{expense}', ...)->name('expenses.pdf');
             $pdfUrl = route('expenses.pdf', ['expense' => $e->id]);
 
             return [
@@ -319,7 +318,7 @@ class ExpenseController extends Controller
 
     public function store(Request $request)
     {
-        // Tu UI manda: entry_kind = 'gasto' o 'caja'
+        // UI manda: entry_kind = 'gasto' o 'caja'
         // En BD/Controller lo manejamos como: gasto o movimiento
         $entryKind = $request->input('entry_kind', 'gasto');
         if ($entryKind === 'caja') $entryKind = 'movimiento';
@@ -328,11 +327,14 @@ class ExpenseController extends Controller
             abort(422, 'El movimiento se guarda desde Directo/QR.');
         }
 
-        $type = $request->input('expense_type', 'vehiculo'); // tu UI ya no usa general
+        // UI: vehiculo | nomina (ya no usas general)
+        $type = $request->input('expense_type', 'vehiculo');
 
         $rules = [
             'entry_kind'    => ['nullable', 'in:gasto,caja,movimiento'],
-            'expense_type'  => ['required', 'in:general,vehiculo,nomina'],
+            // ✅ alineado a UI (sin general)
+            'expense_type'  => ['required', 'in:vehiculo,nomina'],
+
             'concept'       => ['required', 'string', 'max:180'],
             'expense_date'  => ['required', 'date'],
             'amount'        => ['required', 'numeric', 'min:0'],
@@ -341,13 +343,12 @@ class ExpenseController extends Controller
             'description'   => ['nullable', 'string', 'max:5000'],
             'attachment'    => ['nullable', 'file'], // evidencia única para gasto
 
-            'receiver_signature' => ['required', 'string'],
+            // ✅ Firma responsable SIEMPRE
             'admin_signature'    => ['required', 'string'],
+            // ✅ Firma "quien recibe" SOLO si NO es vehiculo
+            'receiver_signature' => ['nullable', 'string'],
         ];
 
-        if ($type === 'general') {
-            $rules['expense_category_id'] = ['required', 'integer', 'exists:expense_categories,id'];
-        }
         if ($type === 'vehiculo') {
             $rules['vehicle_id'] = ['required', 'integer', 'exists:vehicles,id'];
             $rules['vehicle_category'] = ['required', 'string', 'max:80'];
@@ -359,6 +360,11 @@ class ExpenseController extends Controller
 
         $data = $request->validate($rules);
 
+        // ✅ si es nómina (o cualquier cosa que no sea vehículo) exigimos firma de quien recibe
+        if ($type !== 'vehiculo' && empty($data['receiver_signature'])) {
+            abort(422, 'Falta la firma de quien recibe.');
+        }
+
         $expense = new Expense();
 
         if (Schema::hasColumn('expenses', 'created_by')) {
@@ -368,6 +374,7 @@ class ExpenseController extends Controller
         $expense->concept        = $data['concept'];
         $expense->expense_date   = $data['expense_date'];
         $expense->amount         = $data['amount'];
+
         if (Schema::hasColumn('expenses', 'currency')) $expense->currency = 'MXN';
         if (Schema::hasColumn('expenses', 'payment_method')) $expense->payment_method = $data['payment_method'] ?? 'transfer';
         if (Schema::hasColumn('expenses', 'status')) $expense->status = $data['status'] ?? 'paid';
@@ -384,24 +391,30 @@ class ExpenseController extends Controller
             $expense->expense_type = $type;
         }
 
+        // Limpieza de llaves que no aplican
         if (Schema::hasColumn('expenses', 'expense_category_id')) $expense->expense_category_id = null;
         if (Schema::hasColumn('expenses', 'vehicle_id')) $expense->vehicle_id = null;
 
-        if ($type === 'general' && Schema::hasColumn('expenses', 'expense_category_id')) {
-            $expense->expense_category_id = (int) $data['expense_category_id'];
-        }
         if ($type === 'vehiculo') {
             if (Schema::hasColumn('expenses', 'vehicle_id')) $expense->vehicle_id = (int) $data['vehicle_id'];
             if (Schema::hasColumn('expenses', 'vehicle_category')) $expense->vehicle_category = $data['vehicle_category'];
         }
+
         if ($type === 'nomina') {
             if (Schema::hasColumn('expenses', 'payroll_category')) $expense->payroll_category = $data['payroll_category'];
             if (Schema::hasColumn('expenses', 'payroll_period')) $expense->payroll_period = $data['payroll_period'];
         }
 
-        if (Schema::hasColumn('expenses', 'receiver_signature_path')) {
+        // ✅ Guardar firma "quien recibe" SOLO si aplica y viene
+        if (
+            $type !== 'vehiculo'
+            && !empty($data['receiver_signature'])
+            && Schema::hasColumn('expenses', 'receiver_signature_path')
+        ) {
             $expense->receiver_signature_path = $this->storeDataUrl($data['receiver_signature'], 'signatures');
         }
+
+        // ✅ Firma responsable SIEMPRE
         if (Schema::hasColumn('expenses', 'admin_signature_path')) {
             $expense->admin_signature_path = $this->storeDataUrl($data['admin_signature'], 'signatures');
         }
@@ -431,7 +444,7 @@ class ExpenseController extends Controller
 
     /* ==========================================================
        MOVIMIENTOS: NOMBRES QUE TU UI/RUTAS ESTÁN ESPERANDO
-       (AHORA: CUALQUIERA PUEDE AUTORIZAR CON SU PROPIO NIP)
+       (NIP SIEMPRE SE PIDE EN ENTREGA DIRECTO/QR)
        ========================================================== */
 
     // Fondo para caja: route('expenses.movement.allocation.store')
@@ -482,7 +495,7 @@ class ExpenseController extends Controller
 
             $e->save();
 
-            // Guardar evidencias (opcionales) y registrar rutas (attachment + evidence_paths)
+            // Guardar evidencias (opcionales) y registrar rutas
             $this->storeMultipleEvidencesIfAny($e, $req, 'evidence', "expenses/{$e->id}/allocation");
 
             return response()->json(['ok' => true, 'id' => $e->id]);
@@ -498,11 +511,14 @@ class ExpenseController extends Controller
             'purpose'      => ['required', 'string', 'max:255'],
             'self_receive' => ['nullable', 'in:0,1'],
             'receiver_id'  => ['nullable', 'integer', 'exists:users,id'],
+
+            // ✅ NIP SIEMPRE
             'nip'          => ['required', 'digits_between:4,8'],
+
             'counterparty_signature' => ['required', 'string'],
             'manager_id'   => ['nullable', 'integer', 'exists:users,id'],
 
-            // ✅ evidencias opcionales (foto/pdf/etc)
+            // evidencias opcionales
             'evidence'     => ['nullable', 'array'],
             'evidence.*'   => ['file'],
         ]);
@@ -553,7 +569,7 @@ class ExpenseController extends Controller
 
             $e->save();
 
-            // ✅ evidencias opcionales
+            // evidencias opcionales
             $this->storeMultipleEvidencesIfAny($e, $req, 'evidence', "expenses/{$e->id}/disbursement");
 
             return response()->json(['ok' => true, 'id' => $e->id]);
@@ -569,7 +585,10 @@ class ExpenseController extends Controller
             'purpose'      => ['required', 'string', 'max:255'],
             'self_receive' => ['nullable', 'in:0,1'],
             'receiver_id'  => ['nullable', 'integer', 'exists:users,id'],
+
+            // ✅ NIP SIEMPRE
             'nip'          => ['required', 'digits_between:4,8'],
+
             'manager_id'   => ['nullable', 'integer', 'exists:users,id'],
         ]);
 
@@ -641,7 +660,7 @@ class ExpenseController extends Controller
             'purpose'   => ['required', 'string', 'max:255'],
             'signature' => ['required', 'string'],
 
-            // ✅ (opcional) evidencias desde celular si después lo agregas al form
+            // evidencias opcionales (si después lo agregas al form)
             'evidence'   => ['nullable', 'array'],
             'evidence.*' => ['file'],
         ]);
@@ -670,7 +689,7 @@ class ExpenseController extends Controller
 
             $e->save();
 
-            // ✅ evidencias opcionales (si algún día las mandas desde QR)
+            // evidencias opcionales
             $this->storeMultipleEvidencesIfAny($e, $req, 'evidence', "expenses/{$e->id}/disbursement-qr");
 
             return response()->json(['ok' => true, 'id' => $e->id]);
@@ -752,7 +771,7 @@ class ExpenseController extends Controller
 
             $e->save();
 
-            // ✅ Guardar TODAS las evidencias y registrarlas (attachment_path + evidence_paths)
+            // Guardar TODAS las evidencias y registrarlas
             $this->storeMultipleEvidencesIfAny($e, $req, 'evidence', "expenses/{$e->id}/returns", true);
 
             return response()->json(['ok' => true, 'id' => $e->id]);
@@ -853,10 +872,7 @@ class ExpenseController extends Controller
 
     /**
      * Descarga un recibo PDF usando resources/views/pdfs/transaction.blade.php
-     * y ANEXA las evidencias como PÁGINAS EXTRA (no dentro de la misma hoja).
-     *
-     * Requiere:
-     * composer require setasign/fpdi setasign/fpdf
+     * y ANEXA las evidencias como PÁGINAS EXTRA.
      */
     public function pdfReceipt(Expense $expense)
     {
@@ -901,7 +917,6 @@ class ExpenseController extends Controller
                 ?? $expense->receiver_signature_path
                 ?? null,
 
-            // OJO: esto es SOLO para el blade si quieres “listar”
             'evidence_paths' => $this->getEvidencePathsFromExpense($expense),
         ];
 
@@ -930,7 +945,6 @@ class ExpenseController extends Controller
 
             $relPath = ltrim((string)$relPath, '/');
 
-            // ruta física del disk public
             try {
                 $abs = Storage::disk('public')->path($relPath);
             } catch (\Throwable $e) {
@@ -1140,9 +1154,6 @@ class ExpenseController extends Controller
 
     /* ====================== PDF MERGE HELPERS (FPDI) ====================== */
 
-    /**
-     * Importa todas las páginas de un PDF al documento final.
-     */
     private function fpdiImportAllPages(Fpdi $pdf, string $filePath): void
     {
         try {
@@ -1161,9 +1172,6 @@ class ExpenseController extends Controller
         }
     }
 
-    /**
-     * Crea UNA hoja nueva y mete la imagen centrada y escalada (sin deformar).
-     */
     private function fpdiAddImageAsNewPage(Fpdi $pdf, string $imgPath): void
     {
         // Letter en mm: 215.9 x 279.4
@@ -1202,9 +1210,6 @@ class ExpenseController extends Controller
         }
     }
 
-    /**
-     * Agrega una página con texto (para errores o evidencias no embebibles).
-     */
     private function fpdiAddTextPage(Fpdi $pdf, string $text): void
     {
         $pdf->AddPage('P', 'Letter');
