@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Publicaciones')
+@section('title', 'Rem y Fac')
 
 @section('content')
 {{-- Cargar ApexCharts --}}
