@@ -1870,3 +1870,11 @@ Route::post('/catalog/{catalogItem}/amazon/publish', [CatalogItemController::cla
 Route::post('/catalog/{catalogItem}/amazon/pause',   [CatalogItemController::class, 'amazonPause'])->name('admin.catalog.amazon.pause');
 Route::post('/catalog/{catalogItem}/amazon/activate',[CatalogItemController::class, 'amazonActivate'])->name('admin.catalog.amazon.activate');
 Route::get ('/catalog/{catalogItem}/amazon/view',    [CatalogItemController::class, 'amazonView'])->name('admin.catalog.amazon.view');
+
+// IA: analiza archivo (PDF/imagen) y devuelve items + resumen (no guarda)
+Route::post('/publications/ai/extract', [PublicationController::class, 'aiExtractFromUpload'])
+    ->name('publications.ai.extract');
+
+// IA: opcional guardar resultado (después de analizar)
+Route::post('/publications/ai/save', [PublicationController::class, 'aiSaveExtracted'])
+    ->name('publications.ai.save');
