@@ -1809,7 +1809,7 @@ Route::middleware(['auth'])->group(function () {
 
 });
 Route::middleware(['auth'])->group(function () {
-  Route::resource('vehicles', VehicleController::class);
+  
 
   // docs por vehículo
   Route::post('vehicles/{vehicle}/documents', [VehicleController::class, 'uploadDocuments'])->name('vehicles.documents.store');

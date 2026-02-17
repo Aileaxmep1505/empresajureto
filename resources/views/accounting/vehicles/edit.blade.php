@@ -24,11 +24,11 @@
     }
   };
 
-  // ✅ urls de imágenes reales (DB guarda paths en public disk)
+  // ✅ urls de imágenes reales
   $imgLeftUrl  = !empty($vehicle?->image_left)  ? Storage::url($vehicle->image_left)  : null;
   $imgRightUrl = !empty($vehicle?->image_right) ? Storage::url($vehicle->image_right) : null;
 
-  // ✅ docs desde relación documents (VehicleController@edit ya hace $vehicle->load('documents'))
+  // ✅ docs
   $docsByType = collect($vehicle->documents ?? [])->keyBy('type');
   $docsMap = [
     'tarjeta_circulacion' => 'Tarjeta de Circulación',
@@ -64,7 +64,7 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
 .back-link{ display:inline-flex; align-items:center; gap:8px; color:var(--muted); text-decoration:none; padding:8px 12px; border-radius:10px; border:1px solid var(--line); background:#fff; }
 .back-link:hover{ color:#111; border-color:#e3e6eb; box-shadow:0 8px 18px rgba(0,0,0,.08) }
 
-/* Form + campos compactos */
+/* Form */
 .form{ padding:22px; }
 .section-gap{ margin-top:8px; }
 .field{
@@ -91,7 +91,7 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
   top:4px; transform:translateY(-8px); font-size:10.5px; color:var(--mint-dark);
 }
 
-/* Grid fluido sin bootstrap */
+/* Grid */
 .row{ display:flex; flex-wrap:wrap; margin-left:-10px; margin-right:-10px; }
 .col{ padding:0 10px; }
 .col-12{ width:100% }
@@ -130,7 +130,7 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
 .dropzone.dragover .drop-box{ border-color:#93a3c5; background:#f2f6ff }
 .file-meta{ font-size:12px; color:#6b7280 }
 
-/* Chips de docs existentes */
+/* Doc List */
 .doc-list{ display:flex; flex-wrap:wrap; gap:10px; margin-top:10px; }
 .doc-chip{
   display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border-radius:999px;
@@ -157,10 +157,33 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
 
 .is-invalid{ border-color:#f9c0c0 !important }
 .error{ color:#cc4b4b; font-size:12px; margin-top:6px }
-@media (max-width: 768px){
-  .hgroup .subtitle{ display:none; }
+
+/* === ESTILOS DEL TOAST === */
+.toast-container {
+  position: fixed; top: 20px; right: 20px; z-index: 9999;
+  display: flex; flex-direction: column; gap: 10px;
 }
+.toast {
+  background: #34c29e; color: #fff; padding: 14px 20px; border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: flex; align-items: center; gap: 10px;
+  font-size: 14px; font-weight: 600; animation: slideIn 0.3s ease-out forwards;
+}
+.toast.hide { animation: fadeOut 0.3s ease-in forwards; }
+@keyframes slideIn { from{ transform: translateX(100%); opacity:0; } to{ transform: translateX(0); opacity:1; } }
+@keyframes fadeOut { from{ opacity:1; } to{ opacity:0; } }
+
+@media (max-width: 768px){ .hgroup .subtitle{ display:none; } }
 </style>
+
+{{-- Container para Toasts --}}
+@if(session('ok'))
+  <div class="toast-container" id="toast-container">
+    <div class="toast">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      {{ session('ok') }}
+    </div>
+  </div>
+@endif
 
 <div class="edit-wrap">
   <div class="panel">
@@ -175,12 +198,12 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
       </a>
     </div>
 
-    <form class="form"
+    {{-- 🔴 ID DEL FORMULARIO --}}
+    <form class="form" id="form-update"
           action="{{ route('vehicles.update', $vehicle->getKey()) }}"
           method="POST" enctype="multipart/form-data">
       @csrf @method('PUT')
 
-      {{-- ===== Datos básicos ===== --}}
       <div class="row gy-3 section-gap">
         <div class="col col-12 col-md-4">
           <div class="field @error('plate') is-invalid @enderror">
@@ -235,12 +258,7 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
 
       {{-- ===== Fechas (Agenda) ===== --}}
       <div class="block section-gap">
-        <div class="block-title">
-          <div class="t">Fechas</div>
-          <div class="s">Se registran/actualizan en la agenda</div>
-        </div>
-
-        {{-- ✅ ÚLTIMAS (para que show no muestre —) --}}
+        <div class="block-title"><div class="t">Fechas</div><div class="s">Se registran/actualizan en la agenda</div></div>
         <div class="row gy-3">
           <div class="col col-12 col-md-3">
             <div class="field @error('last_verification_at') is-invalid @enderror">
@@ -249,7 +267,6 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
             </div>
             @error('last_verification_at')<div class="error">{{ $message }}</div>@enderror
           </div>
-
           <div class="col col-12 col-md-3">
             <div class="field @error('last_service_at') is-invalid @enderror">
               <input type="date" name="last_service_at" id="f-last-serv" value="{{ $dateVal('last_service_at') }}" placeholder=" ">
@@ -257,7 +274,6 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
             </div>
             @error('last_service_at')<div class="error">{{ $message }}</div>@enderror
           </div>
-
           <div class="col col-12 col-md-3">
             <div class="field @error('next_verification_due_at') is-invalid @enderror">
               <input type="date" name="next_verification_due_at" id="f-verif" value="{{ $dateVal('next_verification_due_at') }}" placeholder=" ">
@@ -265,7 +281,6 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
             </div>
             @error('next_verification_due_at')<div class="error">{{ $message }}</div>@enderror
           </div>
-
           <div class="col col-12 col-md-3">
             <div class="field @error('next_service_due_at') is-invalid @enderror">
               <input type="date" name="next_service_due_at" id="f-serv" value="{{ $dateVal('next_service_due_at') }}" placeholder=" ">
@@ -275,7 +290,7 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
           </div>
         </div>
 
-        {{-- ✅ VENCIMIENTOS --}}
+        {{-- VENCIMIENTOS --}}
         <div class="row gy-3 section-gap" style="margin-top:4px;">
           <div class="col col-12 col-md-3">
             <div class="field @error('tenencia_due_at') is-invalid @enderror">
@@ -284,7 +299,6 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
             </div>
             @error('tenencia_due_at')<div class="error">{{ $message }}</div>@enderror
           </div>
-
           <div class="col col-12 col-md-3">
             <div class="field @error('circulation_card_due_at') is-invalid @enderror">
               <input type="date" name="circulation_card_due_at" id="f-tar" value="{{ $dateVal('circulation_card_due_at') }}" placeholder=" ">
@@ -292,8 +306,6 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
             </div>
             @error('circulation_card_due_at')<div class="error">{{ $message }}</div>@enderror
           </div>
-
-          {{-- ✅ Seguro (tu controller ya lo valida y lo mete a agenda_insurance_id) --}}
           <div class="col col-12 col-md-3">
             <div class="field @error('insurance_due_at') is-invalid @enderror">
               <input type="date" name="insurance_due_at" id="f-ins" value="{{ $dateVal('insurance_due_at') }}" placeholder=" ">
@@ -301,8 +313,6 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
             </div>
             @error('insurance_due_at')<div class="error">{{ $message }}</div>@enderror
           </div>
-
-          <div class="col col-12 col-md-3"></div>
         </div>
       </div>
 
@@ -317,24 +327,20 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
         </div>
       </div>
 
-      {{-- ===== Imágenes (2) ===== --}}
+      {{-- ===== Imágenes ===== --}}
       <div class="block section-gap">
-        <div class="block-title">
-          <div class="t">Imágenes</div>
-          <div class="s">Al subir una nueva, reemplaza la anterior</div>
-        </div>
-
+        <div class="block-title"><div class="t">Imágenes</div><div class="s">Al subir una nueva, reemplaza la anterior</div></div>
         <div class="row gy-3">
+          {{-- IZQ --}}
           <div class="col col-12 col-md-6">
             <div class="dropzone" data-dz="img_left">
               <div class="preview" id="pv-img_left">
-                <div class="placeholder" id="ph-img_left">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-                    <path d="M3 6h18v12H3z"/><path d="M3 14l4-4 4 4 4-4 4 4"/>
-                  </svg>
+                {{-- Si hay URL, ocultamos el placeholder y mostramos la IMG --}}
+                <div class="placeholder" id="ph-img_left" style="{{ $imgLeftUrl ? 'display:none;' : '' }}">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 6h18v12H3z"/><path d="M3 14l4-4 4 4 4-4 4 4"/></svg>
                   <div>Imagen izquierda</div>
                 </div>
-                <img id="im-img_left" alt="preview">
+                <img id="im-img_left" src="{{ $imgLeftUrl }}" alt="preview" style="{{ $imgLeftUrl ? 'display:block;' : '' }}">
               </div>
               <div class="drop-actions">
                 <label class="btn-upload" for="in-img_left">Seleccionar</label>
@@ -343,27 +349,20 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
                 <div class="file-meta" id="mt-img_left"></div>
               </div>
             </div>
-
             @if($imgLeftUrl)
-              <div style="margin-top:10px;">
-                <a class="doc-chip" href="{{ $imgLeftUrl }}" target="_blank">
-                  <small>Actual</small> Imagen izquierda
-                </a>
-              </div>
+              <div style="margin-top:10px;"><a class="doc-chip" href="{{ $imgLeftUrl }}" target="_blank"><small>Actual</small> Imagen izquierda</a></div>
             @endif
             @error('image_left')<div class="error" style="margin-top:8px;">{{ $message }}</div>@enderror
           </div>
-
+          {{-- DER --}}
           <div class="col col-12 col-md-6">
             <div class="dropzone" data-dz="img_right">
               <div class="preview" id="pv-img_right">
-                <div class="placeholder" id="ph-img_right">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-                    <path d="M3 6h18v12H3z"/><path d="M3 14l4-4 4 4 4-4 4 4"/>
-                  </svg>
+                <div class="placeholder" id="ph-img_right" style="{{ $imgRightUrl ? 'display:none;' : '' }}">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 6h18v12H3z"/><path d="M3 14l4-4 4 4 4-4 4 4"/></svg>
                   <div>Imagen derecha</div>
                 </div>
-                <img id="im-img_right" alt="preview">
+                <img id="im-img_right" src="{{ $imgRightUrl }}" alt="preview" style="{{ $imgRightUrl ? 'display:block;' : '' }}">
               </div>
               <div class="drop-actions">
                 <label class="btn-upload" for="in-img_right">Seleccionar</label>
@@ -372,34 +371,24 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
                 <div class="file-meta" id="mt-img_right"></div>
               </div>
             </div>
-
             @if($imgRightUrl)
-              <div style="margin-top:10px;">
-                <a class="doc-chip" href="{{ $imgRightUrl }}" target="_blank">
-                  <small>Actual</small> Imagen derecha
-                </a>
-              </div>
+              <div style="margin-top:10px;"><a class="doc-chip" href="{{ $imgRightUrl }}" target="_blank"><small>Actual</small> Imagen derecha</a></div>
             @endif
             @error('image_right')<div class="error" style="margin-top:8px;">{{ $message }}</div>@enderror
           </div>
         </div>
       </div>
 
-      {{-- ===== Documentación (5) ===== --}}
+      {{-- ===== Docs ===== --}}
       <div class="block section-gap">
-        <div class="block-title">
-          <div class="t">Documentación</div>
-          <div class="s">Puedes subir versiones nuevas cuando quieras</div>
-        </div>
-
+        <div class="block-title"><div class="t">Documentación</div><div class="s">Puedes subir versiones nuevas cuando quieras</div></div>
         <div class="row gy-3">
+          {{-- Tarjeta --}}
           <div class="col col-12 col-md-6">
             <div class="dropzone" data-dz="doc_tarjeta">
               <div class="preview" id="pv-doc_tarjeta">
                 <div class="placeholder" id="ph-doc_tarjeta">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>
-                  </svg>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
                   <div>Tarjeta de circulación</div>
                 </div>
                 <img id="im-doc_tarjeta" alt="preview">
@@ -411,23 +400,16 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
                 <div class="file-meta" id="mt-doc_tarjeta"></div>
               </div>
             </div>
-
             @if($docUrl('tarjeta_circulacion'))
-              <div style="margin-top:10px;">
-                <a class="doc-chip" href="{{ $docUrl('tarjeta_circulacion') }}" target="_blank">
-                  <small>Actual</small> {{ $docName('tarjeta_circulacion') ?? 'Tarjeta de circulación' }}
-                </a>
-              </div>
+              <div style="margin-top:10px;"><a class="doc-chip" href="{{ $docUrl('tarjeta_circulacion') }}" target="_blank"><small>Actual</small> {{ $docName('tarjeta_circulacion') }}</a></div>
             @endif
           </div>
-
+          {{-- Seguro --}}
           <div class="col col-12 col-md-6">
             <div class="dropzone" data-dz="doc_seguro">
               <div class="preview" id="pv-doc_seguro">
                 <div class="placeholder" id="ph-doc_seguro">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                  </svg>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                   <div>Seguro</div>
                 </div>
                 <img id="im-doc_seguro" alt="preview">
@@ -439,23 +421,16 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
                 <div class="file-meta" id="mt-doc_seguro"></div>
               </div>
             </div>
-
             @if($docUrl('seguro'))
-              <div style="margin-top:10px;">
-                <a class="doc-chip" href="{{ $docUrl('seguro') }}" target="_blank">
-                  <small>Actual</small> {{ $docName('seguro') ?? 'Seguro' }}
-                </a>
-              </div>
+              <div style="margin-top:10px;"><a class="doc-chip" href="{{ $docUrl('seguro') }}" target="_blank"><small>Actual</small> {{ $docName('seguro') }}</a></div>
             @endif
           </div>
-
+          {{-- Tenencia --}}
           <div class="col col-12 col-md-6">
             <div class="dropzone" data-dz="doc_tenencia">
               <div class="preview" id="pv-doc_tenencia">
                 <div class="placeholder" id="ph-doc_tenencia">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-                    <path d="M3 6h18"/><path d="M7 6V4h10v2"/><path d="M6 10h12"/><path d="M6 14h12"/><path d="M6 18h8"/>
-                  </svg>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 6h18"/><path d="M7 6V4h10v2"/><path d="M6 10h12"/><path d="M6 14h12"/><path d="M6 18h8"/></svg>
                   <div>Tenencia</div>
                 </div>
                 <img id="im-doc_tenencia" alt="preview">
@@ -467,23 +442,16 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
                 <div class="file-meta" id="mt-doc_tenencia"></div>
               </div>
             </div>
-
             @if($docUrl('tenencia'))
-              <div style="margin-top:10px;">
-                <a class="doc-chip" href="{{ $docUrl('tenencia') }}" target="_blank">
-                  <small>Actual</small> {{ $docName('tenencia') ?? 'Tenencia' }}
-                </a>
-              </div>
+              <div style="margin-top:10px;"><a class="doc-chip" href="{{ $docUrl('tenencia') }}" target="_blank"><small>Actual</small> {{ $docName('tenencia') }}</a></div>
             @endif
           </div>
-
+          {{-- Verificación --}}
           <div class="col col-12 col-md-6">
             <div class="dropzone" data-dz="doc_verificacion">
               <div class="preview" id="pv-doc_verificacion">
                 <div class="placeholder" id="ph-doc_verificacion">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-                    <path d="M9 12l2 2 4-4"/><path d="M7 3h10v4H7z"/><path d="M7 7h10v14H7z"/>
-                  </svg>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 12l2 2 4-4"/><path d="M7 3h10v4H7z"/><path d="M7 7h10v14H7z"/></svg>
                   <div>Verificación</div>
                 </div>
                 <img id="im-doc_verificacion" alt="preview">
@@ -495,23 +463,16 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
                 <div class="file-meta" id="mt-doc_verificacion"></div>
               </div>
             </div>
-
             @if($docUrl('verificacion'))
-              <div style="margin-top:10px;">
-                <a class="doc-chip" href="{{ $docUrl('verificacion') }}" target="_blank">
-                  <small>Actual</small> {{ $docName('verificacion') ?? 'Verificación' }}
-                </a>
-              </div>
+              <div style="margin-top:10px;"><a class="doc-chip" href="{{ $docUrl('verificacion') }}" target="_blank"><small>Actual</small> {{ $docName('verificacion') }}</a></div>
             @endif
           </div>
-
+          {{-- Factura --}}
           <div class="col col-12 col-md-6">
             <div class="dropzone" data-dz="doc_factura">
               <div class="preview" id="pv-doc_factura">
                 <div class="placeholder" id="ph-doc_factura">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h6"/>
-                  </svg>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h6"/></svg>
                   <div>Factura</div>
                 </div>
                 <img id="im-doc_factura" alt="preview">
@@ -523,13 +484,8 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
                 <div class="file-meta" id="mt-doc_factura"></div>
               </div>
             </div>
-
             @if($docUrl('factura'))
-              <div style="margin-top:10px;">
-                <a class="doc-chip" href="{{ $docUrl('factura') }}" target="_blank">
-                  <small>Actual</small> {{ $docName('factura') ?? 'Factura' }}
-                </a>
-              </div>
+              <div style="margin-top:10px;"><a class="doc-chip" href="{{ $docUrl('factura') }}" target="_blank"><small>Actual</small> {{ $docName('factura') }}</a></div>
             @endif
           </div>
         </div>
@@ -539,13 +495,10 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
             $anyDoc = false;
             foreach(array_keys($docsMap) as $t){ if($docUrl($t)){ $anyDoc = true; break; } }
           @endphp
-
           @if($anyDoc)
             @foreach($docsMap as $type => $label)
               @if($docUrl($type))
-                <a class="doc-chip" href="{{ $docUrl($type) }}" target="_blank">
-                  <small>{{ $label }}</small> {{ $docName($type) ?? 'Archivo' }}
-                </a>
+                <a class="doc-chip" href="{{ $docUrl($type) }}" target="_blank"><small>{{ $label }}</small> {{ $docName($type) ?? 'Archivo' }}</a>
               @endif
             @endforeach
           @else
@@ -558,17 +511,18 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
         @endif
       </div>
 
-      <div class="actions">
-        <a href="{{ route('vehicles.index') }}" class="btn btn-ghost">Cancelar</a>
+    </form> {{-- 🔴 FIN DEL FORMULARIO PRINCIPAL --}}
 
-        <form action="{{ route('vehicles.destroy', $vehicle->getKey()) }}" method="POST" onsubmit="return confirm('¿Eliminar esta camioneta?');" style="display:inline;">
-          @csrf @method('DELETE')
-          <button type="submit" class="btn btn-danger-soft">Eliminar</button>
-        </form>
+    {{-- 🔴 ACCIONES --}}
+    <div class="actions">
+      <a href="{{ route('vehicles.index') }}" class="btn btn-ghost">Cancelar</a>
+      <form action="{{ route('vehicles.destroy', $vehicle->getKey()) }}" method="POST" onsubmit="return confirm('¿Eliminar esta camioneta?');" style="display:inline;">
+        @csrf @method('DELETE')
+        <button type="submit" class="btn btn-danger-soft">Eliminar</button>
+      </form>
+      <button type="submit" class="btn btn-primary" form="form-update">Actualizar</button>
+    </div>
 
-        <button type="submit" class="btn btn-primary">Actualizar</button>
-      </div>
-    </form>
   </div>
 </div>
 
@@ -580,13 +534,7 @@ function humanSize(bytes){
 }
 
 function fileIconHtml(type){
-  return `
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-      <path d="M14 2v6h6"/>
-    </svg>
-    <div>${type || 'Archivo'}</div>
-  `;
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg><div>${type||'Archivo'}</div>`;
 }
 
 function bindDropzone(key, inputId){
@@ -602,55 +550,37 @@ function bindDropzone(key, inputId){
     meta.textContent = `${file.name} • ${humanSize(file.size)}`;
     if (/^image\//.test(file.type)) {
       const rd = new FileReader();
-      rd.onload = ev => {
-        img.src = ev.target.result;
-        img.style.display = 'block';
-        ph.style.display = 'none';
-      };
+      rd.onload = ev => { img.src = ev.target.result; img.style.display = 'block'; ph.style.display = 'none'; };
       rd.readAsDataURL(file);
     } else {
-      img.style.display = 'none';
-      ph.innerHTML = fileIconHtml(file.type);
-      ph.style.display = 'flex';
+      img.style.display = 'none'; ph.innerHTML = fileIconHtml(file.type); ph.style.display = 'flex';
     }
   }
 
-  input.addEventListener('change', e=>{
-    const f = e.target.files?.[0];
-    if(!f) return;
-    renderFile(f);
-  });
-
-  ['dragenter','dragover'].forEach(evt=>{
-    dz.addEventListener(evt, e=>{
-      e.preventDefault(); e.stopPropagation();
-      dz.classList.add('dragover');
-    });
-  });
-  ['dragleave','drop'].forEach(evt=>{
-    dz.addEventListener(evt, e=>{
-      e.preventDefault(); e.stopPropagation();
-      dz.classList.remove('dragover');
-    });
-  });
-
+  input.addEventListener('change', e=>{ const f = e.target.files?.[0]; if(f) renderFile(f); });
+  ['dragenter','dragover'].forEach(evt=>{ dz.addEventListener(evt, e=>{ e.preventDefault(); e.stopPropagation(); dz.classList.add('dragover'); }); });
+  ['dragleave','drop'].forEach(evt=>{ dz.addEventListener(evt, e=>{ e.preventDefault(); e.stopPropagation(); dz.classList.remove('dragover'); }); });
   dz.addEventListener('drop', e=>{
-    const f = e.dataTransfer?.files?.[0];
-    if(!f) return;
-    const dt = new DataTransfer();
-    dt.items.add(f);
-    input.files = dt.files;
-    renderFile(f);
+    const f = e.dataTransfer?.files?.[0]; if(!f) return;
+    const dt = new DataTransfer(); dt.items.add(f); input.files = dt.files; renderFile(f);
   });
 }
 
 bindDropzone('img_left', 'in-img_left');
 bindDropzone('img_right', 'in-img_right');
-
 bindDropzone('doc_tarjeta', 'in-doc_tarjeta');
 bindDropzone('doc_seguro', 'in-doc_seguro');
 bindDropzone('doc_tenencia', 'in-doc_tenencia');
 bindDropzone('doc_verificacion', 'in-doc_verificacion');
 bindDropzone('doc_factura', 'in-doc_factura');
+
+// Auto-ocultar toast
+setTimeout(() => {
+  const t = document.getElementById('toast-container');
+  if(t) {
+    t.querySelector('.toast').classList.add('hide');
+    setTimeout(() => t.remove(), 300);
+  }
+}, 4000);
 </script>
 @endsection
