@@ -74,9 +74,15 @@
 @endphp
 
 @section('content')
+
+{{-- ✅ Fondo estilo PIN (NO tapa header, solo es background) --}}
+<div class="pc-bg" aria-hidden="true"></div>
+
 <div class="pc-wrap">
   <div class="pc-header">
     <a href="{{ route('partcontable.index') }}" class="pc-back">← Volver</a>
+    <a href="{{ route('partcontable.activity.all') }}" class="pc-btn">Bitácora</a>
+
     <h1 class="pc-title">{{ $company->name }}</h1>
   </div>
 
@@ -388,6 +394,45 @@
   --radius:12px;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
 }
+/* ✅ Fondo igual al PIN (pero AZUL ICE premium) */
+.pc-bg{
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+
+  background:
+    radial-gradient(1200px 420px at 50% 0%,
+      rgba(191, 219, 254, 0.95) 0%,   /* azul pastel fuerte */
+      rgba(191, 219, 254, 0.55) 35%,
+      rgba(255,255,255,0.0) 72%),
+    linear-gradient(180deg,
+      #bfdbfe 0%,
+      #dbeafe 24%,
+      #eff6ff 48%,
+      #ffffff 78%);
+  filter: saturate(1.05);
+}
+.pc-bg::after{
+  content:"";
+  position:absolute;
+  inset:-20%;
+  background:
+    repeating-radial-gradient(circle at 20% 10%,
+      rgba(0,0,0,0.02) 0 1px,
+      rgba(0,0,0,0.00) 1px 6px);
+  opacity: 0.15;
+  transform: rotate(2deg);
+}
+
+
+/* ✅ Tu contenido encima del fondo */
+.pc-wrap{
+  padding:18px;
+  position: relative;
+  z-index: 2;
+  color:#0b1220;
+}
 
 /* ✅ Welcome banner */
 .pc-welcome{
@@ -408,19 +453,9 @@
   from{opacity:0; transform: translateY(-6px) scale(.99);}
   to{opacity:1; transform: translateY(0) scale(1);}
 }
-.pc-welcome-title{
-  font-size: 13px;
-  font-weight: 650;
-  color:#111827;
-}
-.pc-welcome-user{
-  font-weight: 750;
-}
-.pc-welcome-sub{
-  font-size: 12px;
-  color: var(--muted);
-  margin-top: 2px;
-}
+.pc-welcome-title{ font-size: 13px; font-weight: 650; color:#111827; }
+.pc-welcome-user{ font-weight: 750; }
+.pc-welcome-sub{ font-size: 12px; color: var(--muted); margin-top: 2px; }
 .pc-welcome-close{
   border:none;
   background:transparent;
@@ -430,26 +465,16 @@
   border-radius:10px;
   transition: background .15s ease, color .15s ease, transform .12s ease;
 }
-.pc-welcome-close:hover{
-  background:#f3f4f6;
-  color:#111827;
-  transform: translateY(-1px);
-}
+.pc-welcome-close:hover{ background:#f3f4f6; color:#111827; transform: translateY(-1px); }
 
-/* Page */
-.pc-wrap{padding:18px; position: relative; z-index:2; color:#0b1220;}
+/* Header */
 .pc-header{display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap;}
 .pc-back{color:var(--muted);text-decoration:none;font-weight:600;}
 .pc-title{font-size:26px;margin:0;font-weight:800;color:#111827;}
 .small-muted{font-size:13px;color:var(--muted);}
 
 /* Tabs principales */
-.pc-sections{
-  display:flex;
-  gap:10px;
-  margin-bottom:10px;
-  flex-wrap:wrap;
-}
+.pc-sections{display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap;}
 .pc-section-item{
   position:relative;
   padding:8px 16px;
@@ -477,22 +502,11 @@
 }
 .pc-section-item:hover{ color:#ffffff; }
 .pc-section-item:hover::before{ width:100%; }
-.pc-section-item.active{
-  color:#ffffff;
-  border-color:#111827;
-}
-.pc-section-item.active::before{
-  width:100%;
-  background:#111827;
-}
+.pc-section-item.active{ color:#ffffff; border-color:#111827; }
+.pc-section-item.active::before{ width:100%; background:#111827; }
 
 /* SUBTABS */
-.pc-subtabs{
-  display:flex;
-  flex-wrap:wrap;
-  gap:8px;
-  margin-bottom:16px;
-}
+.pc-subtabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;}
 .pc-subtab-item{
   padding:6px 14px;
   border-radius:999px;
@@ -505,11 +519,7 @@
   transition:all .18s ease;
 }
 .pc-subtab-item:hover{ background:#e5e7eb; }
-.pc-subtab-item.active{
-  background:#111827;
-  color:#ffffff;
-  border-color:#111827;
-}
+.pc-subtab-item.active{ background:#111827; color:#ffffff; border-color:#111827; }
 
 /* Controles */
 .pc-controls{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:12px;flex-wrap:wrap;}
@@ -534,8 +544,23 @@
 .pc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;align-items:start;}
 
 /* Card */
-.card{background:var(--bg);border-radius:var(--radius);padding:0;border:1px solid rgba(15,23,42,0.04);box-shadow:var(--card-shadow);overflow:hidden;display:block;text-decoration:none;color:inherit;transition:transform .14s ease,box-shadow .14s ease;position:relative;}
-.card:focus-within, .card:hover{transform:translateY(-6px);box-shadow:0 20px 40px rgba(2,6,23,0.08);}
+.card{
+  background:var(--bg);
+  border-radius:var(--radius);
+  padding:0;
+  border:1px solid rgba(15,23,42,0.04);
+  box-shadow:var(--card-shadow);
+  overflow:hidden;
+  display:block;
+  text-decoration:none;
+  color:inherit;
+  transition:transform .14s ease,box-shadow .14s ease;
+  position:relative;
+}
+.card:focus-within, .card:hover{
+  transform:translateY(-6px);
+  box-shadow:0 20px 40px rgba(2,6,23,0.08);
+}
 .card__link{position:absolute;inset:0;z-index:1;pointer-events:none;}
 
 /* Hero */
@@ -551,16 +576,22 @@
   color:#0f172a;
   border:1px solid rgba(15,23,42,0.04);
 }
-.pc-doc-badge-pdf{
-  background:#fee2e2;
-  color:#b91c1c;
-  border-color:#fecaca;
-}
-
+.pc-doc-badge-pdf{ background:#fee2e2; color:#b91c1c; border-color:#fecaca; }
 .card .pc-card-top-actions{ position:absolute; top:12px; right:12px; z-index:6; }
 
 /* Media preview */
-.pc-hero-media{width:100%;border-radius:10px;overflow:hidden;background:#f8fafc;display:flex;align-items:center;justify-content:center;min-height:160px;max-height:300px;position:relative;}
+.pc-hero-media{
+  width:100%;
+  border-radius:10px;
+  overflow:hidden;
+  background:#f8fafc;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-height:160px;
+  max-height:300px;
+  position:relative;
+}
 .pc-hero-media img, .pc-hero-media video{width:100%;height:100%;object-fit:cover;display:block;}
 .pc-hero-media video{background:#000;}
 .pc-doc-placeholder{display:flex;align-items:center;justify-content:center;padding:18px;background:linear-gradient(180deg,#f8fafc,#ffffff);height:100%;}

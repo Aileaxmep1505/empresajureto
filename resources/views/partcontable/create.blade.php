@@ -203,6 +203,46 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
    * ============================================ */
   const pcSections = @json($sectionsForJs);
 
+  // ✅ Mapeos por NOMBRE → KEY (porque en sectionsForJs no vienen keys)
+  // Si cambias nombres en BD, ajusta aquí.
+  const sectionNameToKey = {
+    'Declaración Anual': 'declaracion_anual',
+    'Declaración Mensual': 'declaracion_mensual',
+    'Constancias / Opiniones': 'constancias',
+    'Estados Financieros': 'estados_financieros',
+  };
+
+  const subtypeNameToKey = {
+    // Declaración Anual
+    'Acuse anual': 'acuse_anual',
+    'Pago anual': 'pago_anual',
+    'Declaración anual': 'declaracion_anual',
+
+    // Declaración Mensual
+    'Acuse mensual': 'acuse_mensual',
+    'Pago mensual': 'pago_mensual',
+    'Declaración mensual': 'declaracion_mensual',
+
+    // Constancias / Opiniones
+    'Constancia de situación fiscal': 'csf',
+    'Opinión estatal Nuevo León': 'opinion_nl',
+    'Opinión estatal Estado de México': 'opinion_edomex',
+    '32-D SAT': '32d_sat',
+    'INFONAVIT': 'infonavit',
+    'Opinión IMSS': 'opinion_imss',
+
+    // Estados Financieros
+    'Balance general': 'balance_general',
+    'Estado de resultados': 'estado_resultados',
+  };
+
+  const defaultSubBySection = {
+    'declaracion_anual': 'acuse_anual',
+    'declaracion_mensual': 'acuse_mensual',
+    'constancias': 'csf',
+    'estados_financieros': 'balance_general',
+  };
+
   function renderSubtypes(sectionId){
     const select = document.getElementById('subtype_id');
     if(!select) return;
@@ -217,7 +257,7 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
     const sec = pcSections.find(s => String(s.id) === String(sectionId));
     if(!sec) return;
 
-    sec.subtypes.forEach(st => {
+    (sec.subtypes || []).forEach(st => {
       const opt = document.createElement('option');
       opt.value = st.id;
       opt.textContent = st.name;
@@ -416,6 +456,45 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
       });
     }
 
+    // ✅ Construye la URL de regreso EXACTA a donde se subió (sección/subtipo/año/mes)
+    function buildReturnUrl(meta){
+      const secId = String(meta.section_id || '');
+      const subId = String(meta.subtype_id || '');
+      const date  = String(meta.date || '');
+
+      const secObj = pcSections.find(s => String(s.id) === secId) || null;
+
+      const sectionKey = secObj ? (sectionNameToKey[secObj.name] || 'declaracion_anual') : 'declaracion_anual';
+
+      let subtypeKey = '';
+      if(secObj && subId){
+        const st = (secObj.subtypes || []).find(x => String(x.id) === subId);
+        if(st && st.name){
+          subtypeKey = subtypeNameToKey[st.name] || '';
+        }
+      }
+      if(!subtypeKey){
+        subtypeKey = defaultSubBySection[sectionKey] || 'acuse_anual';
+      }
+
+      // year/month desde date (YYYY-MM-DD)
+      let year = '';
+      let month = '';
+      if(date && /^\d{4}-\d{2}-\d{2}$/.test(date)){
+        year = date.slice(0,4);
+        month = String(parseInt(date.slice(5,7),10));
+      }
+
+      const base = '{{ route("partcontable.company", $company->slug) }}';
+      const params = new URLSearchParams();
+      params.set('section', sectionKey);
+      params.set('subtipo', subtypeKey);
+      if(year) params.set('year', year);
+      if(month) params.set('month', month);
+
+      return base + '?' + params.toString();
+    }
+
     async function startUpload(){
       if(!queue.length) { alert('Selecciona primero archivos.'); return; }
       uploading = true;
@@ -449,9 +528,10 @@ body{font-family:"Open Sans",sans-serif;background:#f3f5f7;color:var(--ink);marg
       summary.innerHTML = `<div style="font-size:13px;margin-top:8px;color:${failed? 'var(--danger)': 'var(--mint-dark)'}">${ok} ok — ${failed} fallidos</div>`;
 
       if(ok > 0){
+        const returnUrl = buildReturnUrl(meta);
         setTimeout(()=> {
-          window.location.href = '{{ route("partcontable.company", $company->slug) }}';
-        }, 900);
+          window.location.href = returnUrl;
+        }, 650);
       }
     }
 

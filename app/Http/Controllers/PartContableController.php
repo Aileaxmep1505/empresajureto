@@ -545,4 +545,73 @@ class PartContableController extends Controller
 
         return back()->with('success', 'Documento eliminado.');
     }
+    public function activityAll(Request $request)
+{
+    // ✅ (opcional) si quieres que SOLO admin/manager vean todo:
+    // abort_unless($request->user()->hasRole('admin'), 403);
+
+    $q      = trim((string) $request->get('q', ''));
+    $action = trim((string) $request->get('action', ''));
+    $userId = $request->get('user_id');
+    $companyId = $request->get('company_id');
+
+    $rows = \App\Models\UserActivity::with([
+            'user:id,name,email',
+            'company:id,name,slug',
+            'document:id,title'
+        ])
+        ->when($action !== '', function ($qq) use ($action) {
+            $qq->where('action', $action);
+        })
+        ->when($userId, function ($qq) use ($userId) {
+            $qq->where('user_id', $userId);
+        })
+        ->when($companyId, function ($qq) use ($companyId) {
+            $qq->where('company_id', $companyId);
+        })
+        ->when($q !== '', function ($qq) use ($q) {
+            $qq->where(function ($w) use ($q) {
+                $w->where('action', 'like', "%{$q}%")
+                  ->orWhere('ip', 'like', "%{$q}%")
+                  ->orWhereHas('user', fn($u) => $u->where('name', 'like', "%{$q}%")->orWhere('email','like',"%{$q}%"))
+                  ->orWhereHas('company', fn($c) => $c->where('name', 'like', "%{$q}%"))
+                  ->orWhereHas('document', fn($d) => $d->where('title', 'like', "%{$q}%"));
+            });
+        })
+        ->orderByDesc('id')
+        ->paginate(25)
+        ->appends($request->query());
+
+    $actions = \App\Models\UserActivity::select('action')->distinct()->orderBy('action')->pluck('action')->values();
+
+    $users = \App\Models\UserActivity::whereNotNull('user_id')
+        ->with('user:id,name')
+        ->get()
+        ->pluck('user')
+        ->filter()
+        ->unique('id')
+        ->sortBy('name')
+        ->values();
+
+    $companies = \App\Models\UserActivity::whereNotNull('company_id')
+        ->with('company:id,name')
+        ->get()
+        ->pluck('company')
+        ->filter()
+        ->unique('id')
+        ->sortBy('name')
+        ->values();
+
+    // ✅ Log: ver bitácora global
+    $this->logActivity($request, 'pc_view_activity_all', null, null, [
+        'filters' => [
+            'q' => $q, 'action' => $action, 'user_id' => $userId, 'company_id' => $companyId
+        ],
+    ]);
+
+    return view('partcontable.activity_all', compact(
+        'rows','actions','users','companies','q','action','userId','companyId'
+    ));
+}
+
 }

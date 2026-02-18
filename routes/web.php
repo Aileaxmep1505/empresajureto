@@ -1887,3 +1887,9 @@ Route::post('/parte-contable/{company:slug}/unlock-pin', [PartContableController
 
 Route::post('/parte-contable/{company:slug}/lock-pin', [PartContableController::class, 'lockPin'])
   ->name('partcontable.lock.pin');
+
+Route::middleware(['auth'])->group(function () {
+    // ✅ Bitácora global (todas las empresas)
+    Route::get('/partcontable/actividad', [PartContableController::class, 'activityAll'])
+        ->name('partcontable.activity.all');
+});
