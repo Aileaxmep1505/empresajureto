@@ -1878,3 +1878,12 @@ Route::post('/publications/ai/extract', [PublicationController::class, 'aiExtrac
 // IA: opcional guardar resultado (después de analizar)
 Route::post('/publications/ai/save', [PublicationController::class, 'aiSaveExtracted'])
     ->name('publications.ai.save');
+    
+    Route::get('/parte-contable', [PartContableController::class, 'index'])->name('partcontable.index');
+Route::get('/parte-contable/{company:slug}', [PartContableController::class, 'showCompany'])->name('partcontable.company');
+
+Route::post('/parte-contable/{company:slug}/unlock-pin', [PartContableController::class, 'unlockWithPin'])
+  ->name('partcontable.unlock.pin');
+
+Route::post('/parte-contable/{company:slug}/lock-pin', [PartContableController::class, 'lockPin'])
+  ->name('partcontable.lock.pin');

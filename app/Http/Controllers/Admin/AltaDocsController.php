@@ -111,17 +111,60 @@ class AltaDocsController extends Controller
     public function store(Request $request)
     {
         try {
+            // =========================
+            // DEBUG (temporal): ver si fileinfo/MIME está fallando en hosting
+            // =========================
+            Log::info('AltaDocs DEBUG upload', [
+                'has_files'     => $request->hasFile('files'),
+                'content_type'  => $request->header('Content-Type'),
+                'php_fileinfo'  => extension_loaded('fileinfo'),
+                'files_count'   => is_array($request->file('files')) ? count($request->file('files')) : null,
+                'user_id'       => $request->user()->id ?? null,
+                'ip'            => $request->ip(),
+            ]);
+
+            if ($request->hasFile('files')) {
+                foreach ($request->file('files') as $i => $f) {
+                    if (!$f) continue;
+                    Log::info("AltaDocs DEBUG file #{$i}", [
+                        'name'        => $f->getClientOriginalName(),
+                        'client_ext'  => $f->getClientOriginalExtension(),
+                        'client_mime' => $f->getClientMimeType(),
+                        'server_mime' => $f->getMimeType(),
+                        'guess_ext'   => $f->guessExtension(),
+                        'size'        => $f->getSize(),
+                        'is_valid'    => $f->isValid(),
+                    ]);
+                }
+            }
+
+            // =========================
+            // VALIDACIÓN ROBUSTA (hosting-friendly)
+            // =========================
             $data = $request->validate([
                 'category' => ['required', 'in:' . implode(',', AltaDoc::CATEGORIES)],
                 'title'    => ['required', 'string', 'max:160'],
                 'doc_date' => ['required', 'date'],
 
-                'files'    => ['required', 'array'],
+                'files'    => ['required', 'array', 'min:1'],
                 'files.*'  => [
+                    'required',
                     'file',
                     'max:20480',
-                    'mimes:pdf,doc,docx,xls,xlsx,csv,xml,txt',
+                    // ✅ En hosting el MIME a veces llega como application/octet-stream
+                    'mimetypes:application/pdf,
+                                application/msword,
+                                application/vnd.openxmlformats-officedocument.wordprocessingml.document,
+                                application/vnd.ms-excel,
+                                application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,
+                                text/csv,
+                                application/csv,
+                                text/plain,
+                                text/xml,
+                                application/xml,
+                                application/octet-stream',
                 ],
+
                 'notes' => ['nullable', 'string', 'max:500'],
             ], [
                 'category.required' => 'Selecciona un tipo.',
@@ -129,13 +172,34 @@ class AltaDocsController extends Controller
                 'title.required'    => 'Captura un título.',
                 'doc_date.required' => 'Selecciona una fecha.',
                 'files.required'    => 'Debes seleccionar al menos un archivo.',
+                'files.min'         => 'Debes seleccionar al menos un archivo.',
+                'files.*.required'  => 'Debes seleccionar al menos un archivo válido.',
             ]);
 
             $files = $request->file('files', []);
             if (empty($files)) {
-                return back()->withErrors(['files' => 'Debes seleccionar al menos un archivo.']);
+                return back()->withErrors(['files' => 'Debes seleccionar al menos un archivo.'])->withInput();
             }
 
+            // =========================
+            // WHITELIST POR EXTENSIÓN (extra seguro)
+            // =========================
+            $allowedExt = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'csv', 'xml', 'txt'];
+
+            foreach ($files as $f) {
+                if (!$f || !$f->isValid()) {
+                    return back()->withErrors(['files' => 'Archivo inválido o corrupto.'])->withInput();
+                }
+
+                $ext = strtolower((string) $f->getClientOriginalExtension());
+                if ($ext === '' || !in_array($ext, $allowedExt, true)) {
+                    return back()->withErrors(['files' => "Tipo de archivo no permitido: ." . ($ext ?: 'desconocido')])->withInput();
+                }
+            }
+
+            // =========================
+            // GUARDADO
+            // =========================
             $disk = 'local'; // storage/app (no público)
 
             $created = 0;
@@ -153,7 +217,9 @@ class AltaDocsController extends Controller
                     'stored_name'   => basename($path),
                     'disk'          => $disk,
                     'path'          => $path,
-                    'mime'          => $file->getClientMimeType(),
+
+                    // ✅ Mejor: MIME detectado por el servidor
+                    'mime'          => $file->getMimeType() ?: $file->getClientMimeType(),
                     'size'          => $file->getSize(),
                     'notes'         => $data['notes'] ?? null,
                     'uploaded_by'   => $request->user()->id ?? null,
@@ -248,7 +314,6 @@ class AltaDocsController extends Controller
         }
 
         $mime = $doc->mime ?: $disk->mimeType($doc->path);
-
         $absolutePath = $disk->path($doc->path);
 
         return response()->file($absolutePath, [

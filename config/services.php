@@ -27,48 +27,83 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+   /*
+|--------------------------------------------------------------------------
+| OpenAI
+|--------------------------------------------------------------------------
+*/
+'openai' => [
+
     /*
     |--------------------------------------------------------------------------
-    | OpenAI
+    | Credenciales
     |--------------------------------------------------------------------------
     */
-    'openai' => [
-        // Credenciales
-        'api_key' => env('OPENAI_API_KEY'),
+    'api_key' => env('OPENAI_API_KEY'),
 
-        // Base URL SIEMPRE sin /v1
-        'base_url' => rtrim(env('OPENAI_BASE_URL', 'https://api.openai.com'), '/'),
+    // Base URL SIEMPRE sin /v1
+    'base_url' => rtrim(env('OPENAI_BASE_URL', 'https://api.openai.com'), '/'),
 
-        // Compatibilidad legacy (solo si algún código viejo lo usa)
-        'base_uri' => rtrim(env('OPENAI_API_BASE', 'https://api.openai.com/v1'), '/'),
+    // Compatibilidad legacy (solo si algún código viejo lo usa)
+    'base_uri' => rtrim(env('OPENAI_API_BASE', 'https://api.openai.com/v1'), '/'),
 
-        // Opcionales (solo si usas múltiples orgs/proyectos)
-        'org_id'     => env('OPENAI_ORG_ID'),
-        'project_id' => env('OPENAI_PROJECT_ID'),
+    // Opcionales (solo si usas múltiples orgs/proyectos)
+    'org_id'     => env('OPENAI_ORG_ID'),
+    'project_id' => env('OPENAI_PROJECT_ID'),
 
-        // Modelos
-        'primary' => env('OPENAI_PRIMARY_MODEL', 'gpt-5-2025-08-07'),
+    /*
+    |--------------------------------------------------------------------------
+    | Modelos (Configuración MÁXIMA PRECISIÓN para extracción de documentos)
+    |--------------------------------------------------------------------------
+    */
 
-        'fallbacks' => array_values(array_filter(array_map(
-            'trim',
-            explode(',', env('OPENAI_FALLBACK_MODELS', 'gpt-5-chat-latest'))
-        ))),
+    // 🥇 Modelo principal (máxima exactitud para PDFs/facturas)
+    'primary' => env('OPENAI_PRIMARY_MODEL', 'gpt-5-2025-08-07'),
 
-        // Legacy (para código viejo)
-        'model' => env('OPENAI_PRIMARY_MODEL', 'gpt-5-2025-08-07'),
+    // 🥈 Fallbacks automáticos (en orden de prioridad)
+    'fallbacks' => array_values(array_filter(array_map(
+        'trim',
+        explode(',', env(
+            'OPENAI_FALLBACK_MODELS',
+            'gpt-4.1,gpt-5-chat-latest,gpt-4o'
+        ))
+    ))),
 
-        'json_repair_model' => env('OPENAI_JSON_REPAIR_MODEL', 'gpt-5-mini'),
+    // Compatibilidad legacy
+    'model' => env('OPENAI_PRIMARY_MODEL', 'gpt-5-2025-08-07'),
 
-        // Timeouts y reintentos
-        'timeout'               => (int) env('OPENAI_TIMEOUT', 300),
-        'connect_timeout'       => (int) env('OPENAI_CONNECT_TIMEOUT', 30),
-        'max_retries_per_model' => (int) env('OPENAI_RETRIES_PER_MODEL', 3),
-        'retry_base_delay_ms'   => (int) env('OPENAI_RETRY_BASE_MS', 400),
-        'max_total_attempts'    => (int) env('OPENAI_MAX_TOTAL_ATTEMPTS', 8),
+    // Modelo barato para reparación de JSON inválido
+    'json_repair_model' => env('OPENAI_JSON_REPAIR_MODEL', 'gpt-5-mini'),
 
-        // Embeddings
-        'embed_model' => env('OPENAI_EMBED_MODEL', 'text-embedding-3-large'),
-    ],
+    /*
+    |--------------------------------------------------------------------------
+    | Timeouts y Reintentos (importante para PDFs grandes/multi-hoja)
+    |--------------------------------------------------------------------------
+    */
+
+    // Tiempo máximo total de espera (segundos)
+    'timeout' => (int) env('OPENAI_TIMEOUT', 300),
+
+    // Tiempo máximo de conexión
+    'connect_timeout' => (int) env('OPENAI_CONNECT_TIMEOUT', 30),
+
+    // Reintentos por modelo antes de pasar al siguiente fallback
+    'max_retries_per_model' => (int) env('OPENAI_RETRIES_PER_MODEL', 3),
+
+    // Delay base entre reintentos (ms)
+    'retry_base_delay_ms' => (int) env('OPENAI_RETRY_BASE_MS', 400),
+
+    // Máximo total de intentos combinando todos los modelos
+    'max_total_attempts' => (int) env('OPENAI_MAX_TOTAL_ATTEMPTS', 8),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Embeddings
+    |--------------------------------------------------------------------------
+    */
+    'embed_model' => env('OPENAI_EMBED_MODEL', 'text-embedding-3-large'),
+],
+
 
     /*
     |--------------------------------------------------------------------------

@@ -12,89 +12,173 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\DB;
 
 class PublicationController extends Controller
 {
     public function index()
     {
-        // ----------------------------------------------------
-        // 1. Publicaciones (Fijadas y Recientes)
-        // ----------------------------------------------------
         $pinned = Publication::query()->where('pinned', true)->latest('created_at')->get();
         $latest = Publication::query()->where('pinned', false)->latest('created_at')->paginate(12);
 
-        // ----------------------------------------------------
-        // 2. Estadísticas Generales
-        // ----------------------------------------------------
-        $totalSpent = PurchaseDocument::sum('total');
+        // =========================
+        // ✅ KPI Compras vs Ventas
+        // =========================
+        $totalSpentCompra = (float) PurchaseDocument::where('category', 'compra')->sum('total');
+        $totalSpentVenta  = (float) PurchaseDocument::where('category', 'venta')->sum('total');
+        $totalSpent       = (float) PurchaseDocument::sum('total'); // compat
 
-        // ----------------------------------------------------
-        // 3. Gráfica 1: Tendencia Mensual (Area Chart)
-        // ----------------------------------------------------
-        $monthlyData = PurchaseDocument::selectRaw("DATE_FORMAT(document_datetime, '%Y-%m') as month_id, SUM(total) as total")
-            ->whereNotNull('document_datetime')
-            ->groupBy('month_id')->orderBy('month_id', 'asc')->get();
+        // ==========================================
+        // ✅ Rango fijo para gráficas (siempre hay labels)
+        // - Mensual: últimos 12 meses
+        // - Diario: últimos 30 días
+        // ==========================================
+        $endDay   = now()->endOfDay();
+        $startDay = now()->subDays(29)->startOfDay(); // 30 días contando hoy
 
-        $chartLabels = []; 
-        $chartValues = [];
-        foreach($monthlyData as $row) {
-            try { 
-                $dt = Carbon::createFromFormat('Y-m', $row->month_id); 
-                $chartLabels[] = $dt->translatedFormat('M Y'); 
-            } catch (\Exception $e) { 
-                $chartLabels[] = $row->month_id; 
-            }
-            $chartValues[] = (float) $row->total;
+        $months = [];
+        $mCursor = now()->startOfMonth()->subMonths(11);
+        for ($i=0; $i<12; $i++) {
+            $months[] = $mCursor->format('Y-m');
+            $mCursor->addMonth();
         }
 
-        // ----------------------------------------------------
-        // 4. Gráfica 2: Gasto por Día - Últimos 30 días (Bar Chart)
-        // ----------------------------------------------------
-        $dailyData = PurchaseDocument::selectRaw("DATE(document_datetime) as day, SUM(total) as total")
-            ->whereNotNull('document_datetime')
-            ->where('document_datetime', '>=', now()->subDays(30))
-            ->groupBy('day')->orderBy('day', 'asc')->get();
-        
-        $dailyLabels = $dailyData->map(fn($d) => Carbon::parse($d->day)->format('d/m'));
-        $dailyValues = $dailyData->pluck('total');
+        $chartLabels = [];
+        foreach ($months as $m) {
+            try {
+                $dt = Carbon::createFromFormat('Y-m', $m);
+                $chartLabels[] = $dt->translatedFormat('M Y');
+            } catch (\Exception $e) {
+                $chartLabels[] = $m;
+            }
+        }
 
-        // ----------------------------------------------------
-        // 5. Gráfica 3: Top 10 Productos (CORREGIDO)
-        // ----------------------------------------------------
-        // Se usa estructura {x, y} para que la gráfica muestre NOMBRES y no números.
-        $topProductsData = PurchaseItem::selectRaw("item_name, SUM(line_total) as total_spent")
-            ->whereNotNull('item_name')
-            ->where('item_name', '!=', '') 
-            ->groupBy('item_name')
+        // ==========================================
+        // ✅ Mensual: usa fecha efectiva:
+        // COALESCE(document_datetime, created_at)
+        // ==========================================
+        $monthlyRaw = PurchaseDocument::selectRaw("
+                category,
+                DATE_FORMAT(COALESCE(document_datetime, created_at), '%Y-%m') as month_id,
+                SUM(total) as total
+            ")
+            ->whereIn('category', ['compra', 'venta'])
+            ->whereRaw("COALESCE(document_datetime, created_at) >= ?", [now()->startOfMonth()->subMonths(11)->startOfDay()])
+            ->groupBy('category', 'month_id')
+            ->orderBy('month_id', 'asc')
+            ->get();
+
+        $monthlyCompra = array_fill(0, count($months), 0.0);
+        $monthlyVenta  = array_fill(0, count($months), 0.0);
+        $monthIndex    = array_flip($months);
+
+        foreach ($monthlyRaw as $row) {
+            $idx = $monthIndex[$row->month_id] ?? null;
+            if ($idx === null) continue;
+
+            if ($row->category === 'compra') $monthlyCompra[$idx] = (float) $row->total;
+            if ($row->category === 'venta')  $monthlyVenta[$idx]  = (float) $row->total;
+        }
+
+        // compat con tu vista vieja
+        $chartValues = $monthlyCompra;
+
+        // ==========================================
+        // ✅ Diario: últimos 30 días, usando fecha efectiva
+        // y generando SIEMPRE los 30 labels
+        // ==========================================
+        $days = [];
+        $dCursor = $startDay->copy();
+        for ($i=0; $i<30; $i++) {
+            $days[] = $dCursor->toDateString(); // YYYY-MM-DD
+            $dCursor->addDay();
+        }
+
+        $dailyLabels = collect($days)->map(fn ($d) => Carbon::parse($d)->format('d/m'))->values()->all();
+
+        $dailyRaw = PurchaseDocument::selectRaw("
+                category,
+                DATE(COALESCE(document_datetime, created_at)) as day,
+                SUM(total) as total
+            ")
+            ->whereIn('category', ['compra', 'venta'])
+            ->whereRaw("COALESCE(document_datetime, created_at) >= ?", [$startDay])
+            ->whereRaw("COALESCE(document_datetime, created_at) <= ?", [$endDay])
+            ->groupBy('category', 'day')
+            ->orderBy('day', 'asc')
+            ->get();
+
+        $dailyCompra = array_fill(0, count($days), 0.0);
+        $dailyVenta  = array_fill(0, count($days), 0.0);
+        $dayIndex    = array_flip($days);
+
+        foreach ($dailyRaw as $row) {
+            $key = is_string($row->day) ? $row->day : (string)$row->day;
+            $idx = $dayIndex[$key] ?? null;
+            if ($idx === null) continue;
+
+            if ($row->category === 'compra') $dailyCompra[$idx] = (float) $row->total;
+            if ($row->category === 'venta')  $dailyVenta[$idx]  = (float) $row->total;
+        }
+
+        // compat con tu vista vieja
+        $dailyValues = collect($dailyCompra);
+
+        // ==========================================
+        // ✅ Top 10 Productos: compras vs ventas
+        // ==========================================
+        $topProductsCompra = PurchaseItem::selectRaw("purchase_documents.category, purchase_items.item_name, SUM(purchase_items.line_total) as total_spent")
+            ->join('purchase_documents', 'purchase_items.purchase_document_id', '=', 'purchase_documents.id')
+            ->where('purchase_documents.category', 'compra')
+            ->whereNotNull('purchase_items.item_name')
+            ->where('purchase_items.item_name', '!=', '')
+            ->groupBy('purchase_documents.category', 'purchase_items.item_name')
             ->orderByDesc('total_spent')
             ->limit(10)
             ->get();
-        
-        $prodChartData = $topProductsData->map(function($item) {
-            return [
-                'x' => Str::limit($item->item_name, 25), // Nombre del producto (eje Y)
-                'y' => (float) $item->total_spent        // Valor gastado (barra)
-            ];
-        });
 
-        // ----------------------------------------------------
-        // 6. Tabla General: Últimas 100 compras desglosadas
-        // ----------------------------------------------------
-        $allPurchases = PurchaseItem::select(
-                'purchase_items.*', 
-                'purchase_documents.document_datetime', 
-                'purchase_documents.supplier_name'
-            )
+        $topProductsVenta = PurchaseItem::selectRaw("purchase_documents.category, purchase_items.item_name, SUM(purchase_items.line_total) as total_spent")
             ->join('purchase_documents', 'purchase_items.purchase_document_id', '=', 'purchase_documents.id')
-            ->orderByDesc('purchase_documents.document_datetime')
-            ->limit(100)
+            ->where('purchase_documents.category', 'venta')
+            ->whereNotNull('purchase_items.item_name')
+            ->where('purchase_items.item_name', '!=', '')
+            ->groupBy('purchase_documents.category', 'purchase_items.item_name')
+            ->orderByDesc('total_spent')
+            ->limit(10)
             ->get();
 
-        // ----------------------------------------------------
-        // 7. Top Proveedores
-        // ----------------------------------------------------
-        $topSuppliers = PurchaseDocument::selectRaw("supplier_name, COUNT(*) as count, SUM(total) as total_amount")
+        $prodChartDataCompra = $topProductsCompra->map(function ($item) {
+            return ['x' => Str::limit($item->item_name, 25), 'y' => (float) $item->total_spent];
+        })->values()->all();
+
+        $prodChartDataVenta = $topProductsVenta->map(function ($item) {
+            return ['x' => Str::limit($item->item_name, 25), 'y' => (float) $item->total_spent];
+        })->values()->all();
+
+        // compat
+        $prodChartData = $prodChartDataCompra;
+
+        // ==========================================
+        // ✅ Tabla: últimos movimientos (compras y ventas)
+        // (ordenado por fecha efectiva)
+        // ==========================================
+        $allPurchases = PurchaseItem::select(
+                'purchase_items.*',
+                'purchase_documents.document_datetime',
+                'purchase_documents.created_at as doc_created_at',
+                'purchase_documents.supplier_name',
+                'purchase_documents.category'
+            )
+            ->join('purchase_documents', 'purchase_items.purchase_document_id', '=', 'purchase_documents.id')
+            ->whereIn('purchase_documents.category', ['compra', 'venta'])
+            ->orderByRaw("COALESCE(purchase_documents.document_datetime, purchase_documents.created_at) DESC")
+            ->limit(200)
+            ->get();
+
+        // ==========================================
+        // ✅ Top Proveedores: (separado por categoría)
+        // ==========================================
+        $topSuppliersCompra = PurchaseDocument::selectRaw("supplier_name, COUNT(*) as count, SUM(total) as total_amount")
+            ->where('category', 'compra')
             ->whereNotNull('supplier_name')
             ->where('supplier_name', '!=', '')
             ->groupBy('supplier_name')
@@ -102,14 +186,44 @@ class PublicationController extends Controller
             ->limit(5)
             ->get();
 
+        $topSuppliersVenta = PurchaseDocument::selectRaw("supplier_name, COUNT(*) as count, SUM(total) as total_amount")
+            ->where('category', 'venta')
+            ->whereNotNull('supplier_name')
+            ->where('supplier_name', '!=', '')
+            ->groupBy('supplier_name')
+            ->orderByDesc('total_amount')
+            ->limit(5)
+            ->get();
+
+        $topSuppliers = $topSuppliersCompra; // compat
+
         return view('publications.index', compact(
-            'pinned', 'latest', 
-            'totalSpent', 
-            'chartLabels', 'chartValues', 
-            'dailyLabels', 'dailyValues', 
-            'prodChartData', // Variable corregida para la gráfica de productos
-            'allPurchases', 
-            'topSuppliers'
+            'pinned',
+            'latest',
+
+            'totalSpent',
+            'totalSpentCompra',
+            'totalSpentVenta',
+
+            'chartLabels',
+            'chartValues',
+            'monthlyCompra',
+            'monthlyVenta',
+
+            'dailyLabels',
+            'dailyValues',
+            'dailyCompra',
+            'dailyVenta',
+
+            'prodChartData',
+            'prodChartDataCompra',
+            'prodChartDataVenta',
+
+            'allPurchases',
+
+            'topSuppliers',
+            'topSuppliersCompra',
+            'topSuppliersVenta'
         ));
     }
 
@@ -126,6 +240,9 @@ class PublicationController extends Controller
             'file'        => ['required','file','max:51200'],
             'pinned'      => ['nullable'],
             'ai_extract'  => ['nullable','boolean'],
+            'ai_skip'     => ['nullable'],
+            'ai_payload'  => ['nullable','string'],
+            'category'    => ['required','string','in:compra,venta'],
         ]);
 
         $file = $request->file('file');
@@ -149,15 +266,48 @@ class PublicationController extends Controller
             'kind'          => $kind,
             'pinned'        => (bool) $request->boolean('pinned'),
             'created_by'    => Auth::id(),
+            'category'      => $request->category,
         ]);
+
+        $aiSkip = (string)($request->input('ai_skip', '0')) === '1';
+        $aiPayloadRaw = trim((string)($request->input('ai_payload', '')));
+
+        if (!$aiSkip && $aiPayloadRaw !== '') {
+            try {
+                $payload = json_decode($aiPayloadRaw, true);
+
+                if (is_array($payload)) {
+                    $normalized = $this->normalizeAiPurchase($payload);
+
+                    if (!empty($normalized['items'])) {
+                        $this->persistPurchaseDocumentFromAi($normalized, $pub->id, $request->category);
+                    } else {
+                        Log::warning('Publication store: ai_payload vacío (items=0)', ['publication_id' => $pub->id]);
+                    }
+                } else {
+                    Log::warning('Publication store: ai_payload no es JSON', ['publication_id' => $pub->id]);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Publication store: ai_payload persist failed (ignored)', [
+                    'publication_id' => $pub->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
+            return redirect()->route('publications.index')->with('ok', 'Publicación subida correctamente.');
+        }
+
+        if ($aiSkip) {
+            return redirect()->route('publications.index')->with('ok', 'Publicación subida correctamente.');
+        }
 
         if ($request->boolean('ai_extract') && in_array($kind, ['pdf','image'], true)) {
             try {
                 $absolute = Storage::disk('public')->path($pub->file_path);
-                $ai = $this->aiExtractSingleLocalFile($absolute, $pub->original_name);
+                $ai = $this->aiExtractSingleLocalFile($absolute, $pub->original_name, $request->category);
 
                 if ($ai && !empty($ai['items'])) {
-                    $this->persistPurchaseDocumentFromAi($ai, $pub->id);
+                    $this->persistPurchaseDocumentFromAi($ai, $pub->id, $request->category);
                 }
             } catch (\Throwable $e) {
                 Log::warning('Publication store: AI extract failed (ignored)', [
@@ -203,19 +353,22 @@ class PublicationController extends Controller
     public function aiExtractFromUpload(Request $request)
     {
         $request->validate([
-            'file' => ['required','file','max:20480','mimes:jpg,jpeg,png,webp,pdf'],
+            'file'     => ['required','file','max:20480','mimes:jpg,jpeg,png,webp,pdf'],
+            'category' => ['required','string','in:compra,venta'],
         ]);
 
         $file = $request->file('file');
-        if (!$file) {
-            return response()->json(['error' => 'No se recibió archivo.'], 422);
-        }
+        if (!$file) return response()->json(['error' => 'No se recibió archivo.'], 422);
 
         try {
-            $ai = $this->aiExtractSingleLocalFile($file->getRealPath(), $file->getClientOriginalName());
+            $ai = $this->aiExtractSingleLocalFile(
+                $file->getRealPath(),
+                $file->getClientOriginalName(),
+                $request->category
+            );
 
             if (!$ai || empty($ai['items'])) {
-                return response()->json(['error' => 'La IA no pudo detectar conceptos de compra.'], 422);
+                return response()->json(['error' => 'La IA no pudo detectar conceptos.'], 422);
             }
 
             $normalized = $this->normalizeAiPurchase($ai);
@@ -239,6 +392,7 @@ class PublicationController extends Controller
         $request->validate([
             'publication_id' => ['nullable','integer'],
             'payload'        => ['required','array'],
+            'category'       => ['required','string','in:compra,venta'],
         ]);
 
         $payload = $request->input('payload');
@@ -248,7 +402,7 @@ class PublicationController extends Controller
             return response()->json(['error' => 'No hay items para guardar.'], 422);
         }
 
-        $doc = $this->persistPurchaseDocumentFromAi($normalized, $request->input('publication_id'));
+        $doc = $this->persistPurchaseDocumentFromAi($normalized, $request->input('publication_id'), $request->category);
 
         return response()->json([
             'ok' => true,
@@ -259,59 +413,129 @@ class PublicationController extends Controller
     /* ==========================
      | IA: Core extractor (1 file)
      ========================== */
-    private function aiExtractSingleLocalFile(string $absolutePath, string $originalName): array
+    private function aiExtractSingleLocalFile(string $absolutePath, string $originalName, string $category = 'compra'): array
     {
-        // Configuración OpenAI
-        $apiKey  = config('openai.api_key') ?: env('OPENAI_API_KEY'); 
-        $baseUrl = config('openai.base_url', 'https://api.openai.com');
-        $modelId = config('openai.primary', 'gpt-5-2025-08-07'); 
+        $apiKey  = config('openai.api_key') ?: env('OPENAI_API_KEY');
+        $baseUrl = rtrim(config('openai.base_url', 'https://api.openai.com'), '/');
+        $modelId = config('openai.primary', 'gpt-4.1');
 
         if (!$apiKey) throw new \RuntimeException('Missing OpenAI API key.');
 
-        // 1) Subir archivo
         $upload = Http::withToken($apiKey)
+            ->timeout(config('openai.timeout', 300))
             ->attach('file', file_get_contents($absolutePath), $originalName)
-            ->post($baseUrl.'/v1/files', ['purpose' => 'user_data']);
+            ->post($baseUrl . '/v1/files', ['purpose' => 'user_data']);
 
         if (!$upload->ok()) {
-            Log::warning('AI file upload error', ['status'=>$upload->status(),'body'=>$upload->body()]);
+            Log::warning('AI file upload error', ['status' => $upload->status(), 'body' => $upload->body()]);
             throw new \RuntimeException('Error subiendo archivo a OpenAI.');
         }
 
         $fileId = $upload->json('id');
         if (!$fileId) throw new \RuntimeException('OpenAI no regresó file_id.');
 
-        $fileInputs = [[ 'type' => 'input_file', 'file_id' => $fileId ]];
+        $system = $this->buildExtractorSystemPromptStrictTableOnly($category);
 
-        // 2) Prompt
-        $systemPrompt = <<<TXT
-Eres un extractor experto de compras (México).
-A partir de un PDF o imagen (ticket/factura/remisión):
-- Detecta TODOS los renglones de productos/servicios comprados.
-- Extrae cantidades, precios unitarios y totales por renglón si existen.
-- Detecta fecha/hora del documento si aparece y proveedor/tienda.
-- Si hay IVA, subtotal/total, extrae también.
+        $call = function(string $userText) use ($apiKey, $baseUrl, $modelId, $fileId, $system): array {
+            $resp = Http::withToken($apiKey)
+                ->timeout(config('openai.timeout', 300))
+                ->withHeaders(['Content-Type' => 'application/json'])
+                ->post($baseUrl . '/v1/responses', [
+                    'model'        => $modelId,
+                    'instructions' => $system,
+                    'input'        => [[
+                        'role'    => 'user',
+                        'content' => [
+                            ['type' => 'input_text', 'text' => $userText],
+                            ['type' => 'input_file', 'file_id' => $fileId],
+                        ],
+                    ]],
+                    'max_output_tokens' => 12000,
+                ]);
 
-RESPONDE EXCLUSIVAMENTE un JSON válido con esta forma:
+            if (!$resp->ok()) {
+                Log::warning('AI responses error', ['status' => $resp->status(), 'body' => $resp->body()]);
+                throw new \RuntimeException('La IA respondió con error.');
+            }
+
+            return $this->parseOpenAiJsonFromResponses($resp->json());
+        };
+
+        $data1 = $call("Extrae TODOS los renglones REALES de la TABLA de conceptos en TODAS las páginas. NO inventes. Devuelve JSON.");
+        $items = is_array($data1['items'] ?? null) ? $data1['items'] : [];
+        $doc   = is_array($data1['document'] ?? null) ? $data1['document'] : [];
+
+        $items = $this->filterAndDedupeExtractedItems($items);
+
+        if (count($items) <= 1) {
+            $already = $this->buildAlreadyExtractedHints($items, 20);
+            $data2 = $call(
+                "Parece que faltan renglones. NO repitas items.\n" .
+                "Ya tengo:\n{$already}\n\n" .
+                "Busca en TODAS las páginas y devuelve SOLO ITEMS NUEVOS REALES de la tabla. Si no hay, regresa items=[]."
+            );
+
+            $items2 = is_array($data2['items'] ?? null) ? $data2['items'] : [];
+            $items2 = $this->filterAndDedupeExtractedItems($items2);
+
+            $items = array_merge($items, $items2);
+            $items = $this->filterAndDedupeExtractedItems($items);
+        }
+
+        return [
+            'document' => $doc ?: [
+                'document_type' => 'otro',
+                'supplier_name' => null,
+                'currency' => 'MXN',
+                'document_datetime' => null,
+                'subtotal' => 0,
+                'tax' => 0,
+                'total' => 0,
+            ],
+            'items' => $items,
+            'notes' => $data1['notes'] ?? ['warnings' => [], 'confidence' => 0.0],
+        ];
+    }
+
+    private function buildExtractorSystemPromptStrictTableOnly(string $category): string
+    {
+        return <<<TXT
+Eres un extractor experto de documentos contables de {$category} (México).
+El archivo puede tener VARIAS PÁGINAS.
+
+INSTRUCCIONES ESTRICTAS (para evitar “scan de más”):
+- Extrae ÚNICAMENTE renglones REALES de la TABLA de conceptos/productos/servicios.
+- Ignora sellos, firmas, anotaciones, stamps, “recibido”, marcas, textos fuera de la tabla.
+- No inventes renglones. Si no lo ves, NO lo pongas.
+- NO metas líneas de IVA como item (IVA va en document.tax).
+- Cada item debe venir de una fila de tabla con evidencia de números:
+  - Si hay Precio Unitario e Importe, deben venir con 2 decimales cuando aplique.
+  - Si no puedes leer un monto con claridad, pon null (NO 0) y agrega warning.
+- Si el documento trae “Clave ProdServ”, inclúyela dentro de item_raw o en ai_meta.prodserv.
+
+RESPONDE EXCLUSIVAMENTE JSON válido:
 
 {
   "document": {
     "document_type": "ticket|factura|remision|otro",
     "supplier_name": "",
     "currency": "MXN",
-    "document_datetime": "YYYY-MM-DD HH:MM:SS" ,
+    "document_datetime": "YYYY-MM-DD HH:MM:SS",
     "subtotal": 0,
     "tax": 0,
     "total": 0
   },
   "items": [
     {
-      "item_raw": "texto original del renglón",
-      "item_name": "nombre limpio y entendible",
+      "item_raw": "texto exacto del renglón de tabla",
+      "item_name": "concepto limpio",
       "qty": 1,
-      "unit": "pza|kg|lt|... (si se ve)",
-      "unit_price": 0,
-      "line_total": 0
+      "unit": "pza|caja|kg|lt|...",
+      "unit_price": null,
+      "line_total": null,
+      "ai_meta": {
+        "prodserv": null
+      }
     }
   ],
   "notes": {
@@ -321,40 +545,94 @@ RESPONDE EXCLUSIVAMENTE un JSON válido con esta forma:
 }
 
 Reglas:
-- JSON únicamente. Sin markdown.
+- JSON únicamente, sin markdown.
 - qty numérico.
-- unit_price numérico (MXN).
-- line_total numérico.
-- Si no aparece fecha, document_datetime = null.
+- unit_price y line_total: número si se ve; si no se ve, null (NO 0).
+- NO devuelvas filas “fantasma”.
 TXT;
+    }
 
-        $userText = "Extrae los conceptos comprados y genera el JSON solicitado (document + items).";
+    private function filterAndDedupeExtractedItems(array $items): array
+    {
+        $clean = [];
 
-        // NOTA: Tokens altos y SIN temperature para evitar errores 400 y cortes
-        $resp = Http::withToken($apiKey)
-            ->timeout(config('openai.timeout', 120)) 
-            ->withHeaders(['Content-Type' => 'application/json'])
-            ->post($baseUrl.'/v1/responses', [
-                'model'             => $modelId,
-                'instructions'      => $systemPrompt,
-                'input'             => [[
-                    'role'    => 'user',
-                    'content' => array_merge([
-                        ['type'=>'input_text','text'=>$userText],
-                    ], $fileInputs),
-                ]],
-                'max_output_tokens' => 10000, 
-            ]);
+        foreach ($items as $it) {
+            if (!is_array($it)) continue;
 
-        if (!$resp->ok()) {
-            Log::warning('AI responses error', ['status'=>$resp->status(),'body'=>$resp->body()]);
-            throw new \RuntimeException('La IA respondió con error.');
+            $raw  = trim((string)($it['item_raw'] ?? ''));
+            $name = trim((string)($it['item_name'] ?? ''));
+
+            if ($raw === '' && $name === '') continue;
+            if ($this->looksLikeTaxLine($raw) || $this->looksLikeTaxLine($name)) continue;
+
+            $qty = $this->toQty($it['qty'] ?? 1);
+
+            $unitPrice = $it['unit_price'] ?? null;
+            $lineTotal = $it['line_total'] ?? null;
+
+            $uP = (is_null($unitPrice) || $unitPrice === '') ? null : $this->toMoney($unitPrice, 4);
+            $lT = (is_null($lineTotal) || $lineTotal === '') ? null : $this->toMoney($lineTotal, 2);
+
+            if (($uP === null || $uP <= 0) || ($lT === null || $lT <= 0)) {
+                $vals = $this->moneyValuesFromText($raw);
+                if (count($vals) >= 2) {
+                    if ($uP === null || $uP <= 0) $uP = round($vals[count($vals)-2], 4);
+                    if ($lT === null || $lT <= 0) $lT = round($vals[count($vals)-1], 2);
+                }
+            }
+
+            $prodserv = $it['ai_meta']['prodserv'] ?? null;
+            $prodserv = is_string($prodserv) ? trim($prodserv) : null;
+
+            $hasUP = (!is_null($uP) && $uP > 0);
+            $hasLT = (!is_null($lT) && $lT > 0);
+
+            if (!$hasUP && !$hasLT) continue;
+
+            if ($hasUP && $hasLT) {
+                $calc = round($qty * $uP, 2);
+                $diff = abs($calc - $lT);
+                $tol = max(1.00, $lT * 0.02);
+                if ($diff > $tol) continue;
+            } else {
+                if ($hasLT && !$hasUP && $qty > 0) $uP = round($lT / $qty, 4);
+                if ($hasUP && !$hasLT && $qty > 0) $lT = round($qty * $uP, 2);
+            }
+
+            $clean[] = [
+                'item_raw'   => $raw ?: $name,
+                'item_name'  => $this->cleanText($name ?: $raw),
+                'qty'        => $qty,
+                'unit'       => $it['unit'] ?? null,
+                'unit_price' => $uP,
+                'line_total' => $lT,
+                'ai_meta'    => [
+                    'prodserv' => $prodserv,
+                ],
+            ];
         }
 
-        $json = $resp->json();
+        $seen = [];
+        $out = [];
+        foreach ($clean as $it) {
+            $k = md5(mb_strtolower(
+                trim((string)$it['item_name']) . '|' .
+                (string)$it['qty'] . '|' .
+                (string)$it['unit_price'] . '|' .
+                (string)$it['line_total']
+            ));
+            if (isset($seen[$k])) continue;
+            $seen[$k] = true;
+            $out[] = $it;
+        }
 
-        // Extraer output
+        return $out;
+    }
+
+    private function parseOpenAiJsonFromResponses(array $json): array
+    {
         $rawText = '';
+
         if (isset($json['output']) && is_array($json['output'])) {
             foreach ($json['output'] as $outItem) {
                 if (($outItem['type'] ?? null) === 'message' && isset($outItem['content'])) {
@@ -365,28 +643,24 @@ TXT;
                     }
                 }
             }
-        } 
-        else if (isset($json['choices'][0]['message']['content'])) {
+        } elseif (isset($json['choices'][0]['message']['content'])) {
             $rawText = $json['choices'][0]['message']['content'];
         }
 
-        $rawText = trim($rawText);
+        $rawText = trim((string)$rawText);
         $rawText = preg_replace('/^```json\s*|\s*```$/', '', $rawText);
 
         if ($rawText === '') throw new \RuntimeException('No se pudo leer salida de IA.');
 
         $data = json_decode($rawText, true);
         if (!is_array($data)) {
-            Log::warning('AI invalid JSON', ['raw'=>$rawText]);
+            Log::warning('AI invalid JSON', ['raw' => mb_substr($rawText, 0, 2000)]);
             throw new \RuntimeException('La IA no devolvió JSON válido.');
         }
 
         return $data;
     }
 
-    /* ==========================================
-     | Normalización + Stats
-     ========================================== */
     private function normalizeAiPurchase(array $payload): array
     {
         $doc = $payload['document'] ?? [];
@@ -402,30 +676,29 @@ TXT;
             'total'             => $this->toMoney($doc['total'] ?? 0),
         ];
 
+        $items = $this->filterAndDedupeExtractedItems(is_array($items) ? $items : []);
+
+        $sumLines = 0.0;
         $normItems = [];
-        $sumLines = 0;
 
-        foreach ($items as $row) {
-            if (!is_array($row)) continue;
+        foreach ($items as $it) {
+            $qty = $this->toQty($it['qty'] ?? 1);
+            $uP  = $this->toMoney($it['unit_price'] ?? 0, 4);
+            $lT  = $this->toMoney($it['line_total'] ?? 0);
 
-            $qty  = $this->toQty($row['qty'] ?? 1);
-            $uP   = $this->toMoney($row['unit_price'] ?? 0, 4);
-            $lTot = $this->toMoney($row['line_total'] ?? 0);
+            if ($lT <= 0 && $uP > 0 && $qty > 0) $lT = round($qty * $uP, 2);
+            if ($uP <= 0 && $lT > 0 && $qty > 0) $uP = round($lT / $qty, 4);
 
-            if ($lTot <= 0 && $uP > 0 && $qty > 0) {
-                $lTot = round($qty * $uP, 2);
-            }
-
-            $sumLines += $lTot;
+            $sumLines += $lT;
 
             $normItems[] = [
-                'item_raw'    => $row['item_raw'] ?? null,
-                'item_name'   => $this->cleanText($row['item_name'] ?? ($row['item_raw'] ?? '')),
-                'qty'         => $qty,
-                'unit'        => $row['unit'] ?? null,
-                'unit_price'  => $uP,
-                'line_total'  => $lTot,
-                'ai_meta'     => $row['ai_meta'] ?? null,
+                'item_raw'   => $it['item_raw'] ?? null,
+                'item_name'  => $this->cleanText($it['item_name'] ?? ($it['item_raw'] ?? '')),
+                'qty'        => $qty,
+                'unit'       => $it['unit'] ?? null,
+                'unit_price' => $uP,
+                'line_total' => $lT,
+                'ai_meta'    => $it['ai_meta'] ?? null,
             ];
         }
 
@@ -465,15 +738,18 @@ TXT;
         return array_slice(array_values($agg), 0, $limit);
     }
 
-    private function persistPurchaseDocumentFromAi(array $normalized, ?int $publicationId = null): PurchaseDocument
+    private function persistPurchaseDocumentFromAi(array $normalized, ?int $publicationId = null, string $category = 'compra'): PurchaseDocument
     {
-        $doc = $normalized['document'] ?? [];
-        $items = $normalized['items'] ?? [];
+        $norm = $this->normalizeAiPurchase($normalized);
+
+        $doc = $norm['document'] ?? [];
+        $items = $norm['items'] ?? [];
 
         $purchase = PurchaseDocument::create([
             'publication_id'    => $publicationId,
             'created_by'        => Auth::id(),
             'source_kind'       => 'upload',
+            'category'          => $category,
             'document_type'     => $doc['document_type'] ?? 'otro',
             'supplier_name'     => $doc['supplier_name'] ?? null,
             'currency'          => $doc['currency'] ?? 'MXN',
@@ -482,8 +758,8 @@ TXT;
             'tax'               => $this->toMoney($doc['tax'] ?? 0),
             'total'             => $this->toMoney($doc['total'] ?? 0),
             'ai_meta'           => [
-                'notes' => $normalized['notes'] ?? null,
-                'stats' => $normalized['stats'] ?? null,
+                'notes' => $norm['notes'] ?? null,
+                'stats' => $norm['stats'] ?? null,
             ],
         ]);
 
@@ -501,6 +777,46 @@ TXT;
         }
 
         return $purchase;
+    }
+
+    private function buildAlreadyExtractedHints(array $items, int $limit = 20): string
+    {
+        if (empty($items)) return '(vacío)';
+        $slice = array_slice($items, 0, $limit);
+
+        $lines = [];
+        foreach ($slice as $it) {
+            if (!is_array($it)) continue;
+            $raw = trim((string)($it['item_raw'] ?? $it['item_name'] ?? ''));
+            $qty = (string)($it['qty'] ?? '');
+            $up  = (string)($it['unit_price'] ?? '');
+            $lt  = (string)($it['line_total'] ?? '');
+            $raw = mb_substr($raw, 0, 140);
+            $lines[] = "- {$raw} | qty={$qty} up={$up} total={$lt}";
+        }
+
+        return implode("\n", $lines);
+    }
+
+    private function moneyValuesFromText(?string $text): array
+    {
+        $text = (string)$text;
+        if ($text === '') return [];
+
+        preg_match_all('/\$?\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})|[0-9]+(?:\.[0-9]{2}))/u', $text, $m);
+
+        $vals = [];
+        foreach (($m[1] ?? []) as $v) {
+            $v = str_replace(',', '', $v);
+            if (is_numeric($v)) $vals[] = (float)$v;
+        }
+        return $vals;
+    }
+
+    private function looksLikeTaxLine(?string $raw): bool
+    {
+        $raw = mb_strtolower((string)$raw);
+        return str_contains($raw, 'iva') || str_contains($raw, 'impuesto') || str_contains($raw, 'tax');
     }
 
     private function toMoney($val, int $decimals = 2): float

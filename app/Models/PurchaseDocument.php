@@ -7,7 +7,9 @@ use Illuminate\Database\Eloquent\Model;
 class PurchaseDocument extends Model
 {
     protected $fillable = [
-        'publication_id','created_by','source_kind','document_type','supplier_name','currency',
+        'publication_id','created_by','source_kind',
+        'category', // <--- NUEVO CAMPO
+        'document_type','supplier_name','currency',
         'document_datetime','subtotal','tax','total','ai_meta',
     ];
 

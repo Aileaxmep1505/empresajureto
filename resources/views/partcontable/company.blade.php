@@ -1,4 +1,4 @@
-@extends('layouts.app') 
+@extends('layouts.app')
 @section('title',$company->name.' - Parte contable')
 
 @php
@@ -63,6 +63,14 @@
   }
 
   $currentSubLabel = $currentSubLabel ?? $currentSubtabs[$currentSubKey];
+
+  // ✅ Bienvenida (solo si vienes de NIP)
+  $welcomeSessionKey = "pc_welcome_{$company->id}";
+  $welcomeData = session($welcomeSessionKey); // ['at'=>..., 'user_id'=>..., 'name'=>..., 'company'=>...]
+  $userName = auth()->user()->name ?? 'Usuario';
+
+  // ✅ LocalStorage key por compañía (para “guardar” el cierre)
+  $welcomeCloseKey = "pc_welcome_closed_{$company->id}";
 @endphp
 
 @section('content')
@@ -71,6 +79,24 @@
     <a href="{{ route('partcontable.index') }}" class="pc-back">← Volver</a>
     <h1 class="pc-title">{{ $company->name }}</h1>
   </div>
+
+  {{-- ✅ Banner Bienvenida (solo si hubo unlock por NIP y no se cerró) --}}
+  @if(!empty($welcomeData))
+    <div class="pc-welcome" id="pcWelcome" data-close-key="{{ $welcomeCloseKey }}">
+      <div class="pc-welcome-left">
+        <div class="pc-welcome-title">
+          Bienvenido, accediste como <span class="pc-welcome-user">{{ $userName }}</span>
+        </div>
+        <div class="pc-welcome-sub">
+          Acceso protegido por NIP · Tus acciones quedan registradas.
+        </div>
+      </div>
+
+      <button type="button" class="pc-welcome-close" id="pcWelcomeClose" aria-label="Cerrar bienvenida">
+        ✕
+      </button>
+    </div>
+  @endif
 
   @if(session('success'))
     <div class="pc-flash pc-flash-success">{{ session('success') }}</div>
@@ -134,7 +160,7 @@
 
     <div>
       {{-- Botón SUBIR --}}
-      <a href="{{ route('partcontable.documents.create', $company->slug) }}?section={{ $currentSectionKey }}&subtipo={{ $currentSubKey }}" 
+      <a href="{{ route('partcontable.documents.create', $company->slug) }}?section={{ $currentSectionKey }}&subtipo={{ $currentSubKey }}"
          class="Btn pc-upload-btn"
          aria-label="Subir {{ $currentSubLabel }}">
         <div class="sign">+</div>
@@ -363,6 +389,53 @@
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
 }
 
+/* ✅ Welcome banner */
+.pc-welcome{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  padding:12px 14px;
+  border-radius:14px;
+  border:1px solid rgba(15,23,42,0.08);
+  background: rgba(255,255,255,0.92);
+  box-shadow: 0 10px 22px rgba(2,6,23,0.08);
+  backdrop-filter: blur(6px);
+  margin: 10px 0 14px;
+  animation: pcWelcomeIn .22s ease both;
+}
+@keyframes pcWelcomeIn{
+  from{opacity:0; transform: translateY(-6px) scale(.99);}
+  to{opacity:1; transform: translateY(0) scale(1);}
+}
+.pc-welcome-title{
+  font-size: 13px;
+  font-weight: 650;
+  color:#111827;
+}
+.pc-welcome-user{
+  font-weight: 750;
+}
+.pc-welcome-sub{
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.pc-welcome-close{
+  border:none;
+  background:transparent;
+  cursor:pointer;
+  color:#6b7280;
+  padding:6px 8px;
+  border-radius:10px;
+  transition: background .15s ease, color .15s ease, transform .12s ease;
+}
+.pc-welcome-close:hover{
+  background:#f3f4f6;
+  color:#111827;
+  transform: translateY(-1px);
+}
+
 /* Page */
 .pc-wrap{padding:18px; position: relative; z-index:2; color:#0b1220;}
 .pc-header{display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap;}
@@ -478,7 +551,6 @@
   color:#0f172a;
   border:1px solid rgba(15,23,42,0.04);
 }
-/* PDF badge en rojo */
 .pc-doc-badge-pdf{
   background:#fee2e2;
   color:#b91c1c;
@@ -502,10 +574,7 @@
   background:#0b1220;
   color:#fff;
 }
-/* Bloque grande PDF en rojo */
-.pc-doc-ext-pdf{
-  background:#dc2626;
-}
+.pc-doc-ext-pdf{ background:#dc2626; }
 .pc-doc-fileinfo{max-width:calc(100% - 80px);}
 .pc-doc-title-ellipsis{font-weight:700;line-height:1.1;font-size:15px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;text-overflow:ellipsis;}
 .pc-doc-meta{font-weight:600;color:var(--muted);font-size:13px;margin-top:6px;}
@@ -520,12 +589,10 @@
 .card__job-summary{display:flex;align-items:center;gap:12px;}
 .pc-small-logo{width:44px;height:44px;border-radius:8px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:transparent;flex:0 0 44px;}
 
-/* circular type badge */
 .pc-type-badge{width:44px;height:44px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(2,6,23,0.06);}
 .pc-type-doc{background:#1f6feb;}
 .pc-type-img{background:#b48f00;}
 .pc-type-video{background:#0ea5a4;}
-/* PDF circulito rojo */
 .pc-type-doc-pdf{background:#dc2626;}
 
 .pc-type-badge svg{display:block;}
@@ -557,7 +624,7 @@
 .pc-btn-secondary{background:#eee;padding:8px 12px;border-radius:8px;border:none;cursor:pointer;}
 
 /* Botón subir */
-.Btn { 
+.Btn {
   display:flex;
   align-items:center;
   justify-content:flex-start;
@@ -598,12 +665,33 @@
 .Btn:active { transform: translate(2px ,2px); }
 </style>
 
-{{-- JS: delete + click en tarjeta --}}
+{{-- JS: delete + click en tarjeta + ✅ welcome close persist --}}
 <script>
 (function(){
   'use strict';
 
   document.addEventListener('DOMContentLoaded', function(){
+
+    // ✅ Welcome banner persist (localStorage)
+    const welcome = document.getElementById('pcWelcome');
+    const closeBtn = document.getElementById('pcWelcomeClose');
+    if (welcome) {
+      const key = welcome.getAttribute('data-close-key') || 'pc_welcome_closed_global';
+      const closed = localStorage.getItem(key);
+
+      // si ya lo cerró, lo ocultamos
+      if (closed === '1') {
+        welcome.style.display = 'none';
+      }
+
+      if (closeBtn) {
+        closeBtn.addEventListener('click', function(){
+          localStorage.setItem(key, '1');
+          welcome.style.display = 'none';
+        });
+      }
+    }
+
     document.querySelectorAll('.pc-btn-download, .pc-btn-delete, .pc-icon-btn').forEach((el) => {
       el.addEventListener('click', function(e){
         e.stopPropagation();

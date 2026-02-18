@@ -6,25 +6,157 @@ use App\Models\Company;
 use App\Models\Document;
 use App\Models\DocumentSection;
 use App\Models\DocumentSubtype;
+use App\Models\UserActivity;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Hash;
 
 class PartContableController extends Controller
 {
+    /**
+     * ✅ Minutos de desbloqueo por sesión (por compañía)
+     */
+    private int $pinTtlMinutes = 30;
+
+    private function pinSessionKey(int $companyId): string
+    {
+        return "pc_pin_unlocked_{$companyId}";
+    }
+
+    private function welcomeSessionKey(int $companyId): string
+    {
+        return "pc_welcome_{$companyId}";
+    }
+
+    private function isPinUnlocked(int $companyId): bool
+    {
+        $until = session($this->pinSessionKey($companyId));
+        if (!$until) return false;
+
+        $untilTs = is_numeric($until) ? (int) $until : strtotime((string) $until);
+        return $untilTs && $untilTs >= now()->timestamp;
+    }
+
+    private function setPinUnlocked(int $companyId): void
+    {
+        session([
+            $this->pinSessionKey($companyId) => now()->addMinutes($this->pinTtlMinutes)->timestamp
+        ]);
+    }
+
+    private function emptyPaginator(Request $request, int $perPage = 12): LengthAwarePaginator
+    {
+        $page = (int) $request->get('page', 1);
+
+        $p = new LengthAwarePaginator([], 0, $perPage, $page, [
+            'path'  => $request->url(),
+            'query' => $request->query(),
+        ]);
+
+        return $p->appends($request->query());
+    }
+
+    /**
+     * ✅ Obtiene PIN/NIP del usuario (incluye tu columna real)
+     */
+    private function getUserPinValue($user): ?string
+    {
+        $candidates = [
+            'approval_pin_hash', // ✅ tu columna real
+            'pin', 'nip',
+            'pin_code', 'nip_code',
+            'pin_hash', 'nip_hash',
+            'security_pin', 'security_pin_hash',
+        ];
+
+        foreach ($candidates as $col) {
+            if (isset($user->{$col}) && $user->{$col} !== null && $user->{$col} !== '') {
+                return (string) $user->{$col};
+            }
+        }
+
+        return null;
+    }
+
+    private function normalizePin(string $value): string
+    {
+        $value = trim($value);
+        return preg_replace('/\D+/', '', $value) ?? '';
+    }
+
+    private function looksHashed(string $stored): bool
+    {
+        $stored = trim($stored);
+
+        if (preg_match('/^\$2[aby]\$/', $stored)) return true; // bcrypt
+        if (str_starts_with($stored, '$argon2i$') || str_starts_with($stored, '$argon2id$')) return true;
+        if (str_starts_with($stored, '$') && strlen($stored) > 20) return true;
+
+        return false;
+    }
+
+    private function verifyPin(string $inputRaw, string $storedRaw): bool
+    {
+        $input  = $this->normalizePin($inputRaw);
+        $stored = trim((string) $storedRaw);
+
+        if ($input === '' || $stored === '') return false;
+
+        if ($this->looksHashed($stored)) {
+            return Hash::check($input, $stored);
+        }
+
+        $storedNormalized = $this->normalizePin($stored);
+
+        if (hash_equals($storedNormalized, $input)) {
+            return true;
+        }
+
+        if (ctype_digit($storedNormalized) && ctype_digit($input)) {
+            return ((int) $storedNormalized) === ((int) $input);
+        }
+
+        return false;
+    }
+
+    /**
+     * ✅ LOG CENTRAL: guarda actividad del usuario
+     */
+    private function logActivity(Request $request, string $action, ?int $companyId = null, ?int $documentId = null, array $meta = []): void
+    {
+        try {
+            UserActivity::create([
+                'user_id'    => optional($request->user())->id,
+                'company_id' => $companyId,
+                'document_id'=> $documentId,
+                'action'     => $action,
+                'meta'       => $meta ?: null,
+                'ip'         => $request->ip(),
+                'user_agent' => substr((string) $request->userAgent(), 0, 500),
+            ]);
+        } catch (\Throwable $e) {
+            // No rompemos el flujo por logging
+            \Log::warning('UserActivity log failed: '.$e->getMessage());
+        }
+    }
+
+    // ===============================
     // Index de empresas (grid)
+    // ===============================
     public function index()
     {
         $companies = Company::all();
         return view('partcontable.index', compact('companies'));
     }
 
-    // Mostrar formulario para subir documentos de una empresa
+    // ===============================
+    // Mostrar formulario para subir
+    // ===============================
     public function createDocument(Company $company)
     {
-        // Secciones con subtipos (para el combo dependiente)
         $sections = DocumentSection::with('subtypes')->orderBy('name')->get();
         $subtypes = DocumentSubtype::orderBy('name')->get();
         $defaultSection = $sections->first();
@@ -32,47 +164,41 @@ class PartContableController extends Controller
         return view('partcontable.create', compact('company', 'sections', 'subtypes', 'defaultSection'));
     }
 
-    // Vista de empresa con documentos filtrados
+    // ============================================================
+    // ✅ Vista de empresa con documentos filtrados (PIDE PIN ANTES)
+    // ============================================================
     public function showCompany(Request $request, Company $company)
     {
-        // Traemos todas las secciones con sus subtipos
-        $sections = DocumentSection::with('subtypes')->orderBy('name')->get();
+        if (!$this->isPinUnlocked($company->id)) {
+            $redirectTo = $request->fullUrl();
 
-        // ✅ Siempre mandamos un paginator (aunque esté vacío) para que la vista pueda usar links()
-        $emptyPaginator = function() use ($request) {
-            $page = (int) $request->get('page', 1);
-            $perPage = 12;
-
-            $p = new LengthAwarePaginator([], 0, $perPage, $page, [
-                'path'  => $request->url(),
-                'query' => $request->query(),
+            return view('partcontable.pin', [
+                'company'    => $company,
+                'redirectTo' => $redirectTo,
             ]);
+        }
 
-            // Por si tu blade usa withQueryString() (no falla pero no es necesario)
-            return $p->appends($request->query());
-        };
+        $sections = DocumentSection::with('subtypes')->orderBy('name')->get();
 
         if ($sections->isEmpty()) {
             return view('partcontable.company', [
                 'company'           => $company,
                 'sections'          => $sections,
                 'section'           => null,
-                'documents'         => $emptyPaginator(), // ✅ ya NO es collect()
+                'documents'         => $this->emptyPaginator($request, 12),
                 'subtypes'          => collect(),
                 'year'              => $request->get('year'),
                 'month'             => $request->get('month'),
                 'currentSectionKey' => null,
                 'currentSubKey'     => null,
                 'currentSubLabel'   => '',
+                'pinUnlocked'       => true,
             ])->with('warning', 'No hay secciones configuradas. Crea secciones en el panel.');
         }
 
-        // IMPORTANTE: mismo default que la vista → 'declaracion_anual'
         $sectionKey = $request->get('section', 'declaracion_anual');
-        /** @var \App\Models\DocumentSection $section */
         $section = $sections->firstWhere('key', $sectionKey) ?: $sections->first();
 
-        // Subtabs por defecto según sección (para primera carga)
         $defaultSubtabBySection = [
             'declaracion_anual'   => 'acuse_anual',
             'declaracion_mensual' => 'acuse_mensual',
@@ -80,45 +206,34 @@ class PartContableController extends Controller
             'estados_financieros' => 'balance_general',
         ];
 
-        // Subtipos de esta sección, indexados por key
         $sectionSubtypes = $section->subtypes->keyBy('key');
 
-        // Key de subtipo actual (URL o default)
         $subtipoKey = $request->get(
             'subtipo',
             $defaultSubtabBySection[$section->key] ?? optional($sectionSubtypes->first())->key
         );
 
-        // Si el subtipo no existe para esta sección, usamos el primero disponible
         if (!$subtipoKey || !$sectionSubtypes->has($subtipoKey)) {
             $subtipoKey = optional($sectionSubtypes->first())->key;
         }
 
         $currentSubtype = $sectionSubtypes->get($subtipoKey);
 
-        // Filtros adicionales
         $year  = $request->get('year');
         $month = $request->get('month');
 
         $query = Document::where('company_id', $company->id)
             ->where('section_id', $section->id);
 
-        // *** FILTRO POR SUBTIPO (sub-tab) ***
         if ($currentSubtype) {
             $query->where('subtype_id', $currentSubtype->id);
         }
 
-        if ($year) {
-            $query->whereYear('date', $year);
-        }
-        if ($month) {
-            $query->whereMonth('date', $month);
-        }
+        if ($year)  $query->whereYear('date', $year);
+        if ($month) $query->whereMonth('date', $month);
 
         $documents = $query->orderByDesc('date')->paginate(12)->appends($request->query());
-
-        // Subtipos sólo de esta sección (para el modal de subir)
-        $subtypes = $sectionSubtypes->values();
+        $subtypes  = $sectionSubtypes->values();
 
         return view('partcontable.company', [
             'company'           => $company,
@@ -131,10 +246,109 @@ class PartContableController extends Controller
             'currentSectionKey' => $section->key,
             'currentSubKey'     => $subtipoKey,
             'currentSubLabel'   => $currentSubtype->name ?? '',
+            'pinUnlocked'       => true,
         ]);
     }
 
-    // Store uploaded document(s)
+    // ============================================================
+    // ✅ VALIDAR PIN Y ENTRAR (registra acceso)
+    // ============================================================
+    public function unlockWithPin(Request $request, Company $company)
+    {
+        $request->validate([
+            'pin'        => ['required', 'string', 'regex:/^\d{6}$/'],
+            'redirectTo' => ['nullable', 'string'],
+        ], [
+            'pin.regex' => 'El NIP debe ser exactamente de 6 dígitos.',
+        ]);
+
+        $user = $request->user();
+        if (!$user) {
+            return $request->expectsJson()
+                ? response()->json(['ok' => false, 'message' => 'No autenticado.'], 401)
+                : redirect()->route('login');
+        }
+
+        $stored = $this->getUserPinValue($user);
+
+        if (!$stored) {
+            $msg = 'Tu usuario no tiene NIP configurado.';
+            return $request->expectsJson()
+                ? response()->json(['ok' => false, 'message' => $msg], 422)
+                : back()->with('warning', $msg);
+        }
+
+        $input = $this->normalizePin((string) $request->pin);
+
+        // ✅ usa helper del modelo si existe
+        if (method_exists($user, 'checkApprovalPin')) {
+            if (!$user->checkApprovalPin($input)) {
+                $this->logActivity($request, 'pc_unlock_failed', $company->id, null, [
+                    'reason' => 'invalid_pin'
+                ]);
+
+                $msg = 'NIP incorrecto.';
+                return $request->expectsJson()
+                    ? response()->json(['ok' => false, 'message' => $msg], 422)
+                    : back()->with('warning', $msg);
+            }
+        } else {
+            if (!$this->verifyPin($input, $stored)) {
+                $this->logActivity($request, 'pc_unlock_failed', $company->id, null, [
+                    'reason' => 'invalid_pin'
+                ]);
+
+                $msg = 'NIP incorrecto.';
+                return $request->expectsJson()
+                    ? response()->json(['ok' => false, 'message' => $msg], 422)
+                    : back()->with('warning', $msg);
+            }
+        }
+
+        // ✅ Unlock por compañía
+        $this->setPinUnlocked($company->id);
+
+        // ✅ Guardar “bienvenida” (para mostrarla en previews y/o primera pantalla)
+        session([
+            $this->welcomeSessionKey($company->id) => [
+                'at'      => now()->toIso8601String(),
+                'user_id' => $user->id,
+                'name'    => $user->name,
+                'company' => $company->name,
+            ],
+        ]);
+
+        // ✅ Log acceso OK
+        $this->logActivity($request, 'pc_unlock', $company->id, null, [
+            'user_name' => $user->name,
+            'ttl_min'   => $this->pinTtlMinutes,
+        ]);
+
+        $redirectTo = $request->input('redirectTo') ?: route('partcontable.company', $company->slug);
+
+        return $request->expectsJson()
+            ? response()->json(['ok' => true, 'message' => 'Acceso concedido.'])
+            : redirect()->to($redirectTo);
+    }
+
+    // ============================================================
+    // ✅ BLOQUEAR (logout de PIN)
+    // ============================================================
+    public function lockPin(Request $request, Company $company)
+    {
+        session()->forget($this->pinSessionKey($company->id));
+        session()->forget($this->welcomeSessionKey($company->id));
+
+        $this->logActivity($request, 'pc_lock', $company->id, null, []);
+
+        return $request->expectsJson()
+            ? response()->json(['ok' => true, 'message' => 'Bloqueado.'])
+            : back()->with('success', 'Bloqueado.');
+    }
+
+    // ===============================
+    // Store uploaded document(s) + LOG
+    // ===============================
     public function storeDocument(Request $request, Company $company)
     {
         $isSingle = $request->hasFile('file') && !$request->hasFile('files');
@@ -207,6 +421,16 @@ class PartContableController extends Controller
                 ]);
 
                 $storedDocs[] = $document;
+
+                // ✅ LOG upload (por documento)
+                $this->logActivity($request, 'pc_upload', $company->id, $document->id, [
+                    'title'      => $document->title,
+                    'mime'       => $document->mime_type,
+                    'file_path'  => $document->file_path,
+                    'section_id' => $document->section_id,
+                    'subtype_id' => $document->subtype_id,
+                    'date'       => $document->date,
+                ]);
             }
 
             DB::commit();
@@ -242,8 +466,15 @@ class PartContableController extends Controller
         return 'documento';
     }
 
-    public function download(Document $document)
+    public function download(Request $request, Document $document)
     {
+        // ✅ LOG download
+        $this->logActivity($request, 'pc_download', $document->company_id ?? null, $document->id, [
+            'title' => $document->title,
+            'path'  => $document->file_path,
+            'mime'  => $document->mime_type,
+        ]);
+
         if (!Storage::disk('public')->exists($document->file_path)) {
             abort(404);
         }
@@ -253,15 +484,28 @@ class PartContableController extends Controller
         return Storage::disk('public')->download($document->file_path, $filename);
     }
 
-    public function preview($id)
+    public function preview(Request $request, $id)
     {
         $document = Document::findOrFail($id);
+
+        // ✅ LOG preview
+        $this->logActivity($request, 'pc_preview', $document->company_id ?? null, $document->id, [
+            'title' => $document->title,
+            'mime'  => $document->mime_type,
+            'path'  => $document->file_path,
+        ]);
 
         if (!Storage::disk('public')->exists($document->file_path)) {
             abort(404, 'El archivo no existe.');
         }
 
-        return view('partcontable.preview', compact('document'));
+        // ✅ Pasamos la bienvenida (si existe) al blade
+        $welcome = null;
+        if ($document->company_id) {
+            $welcome = session($this->welcomeSessionKey((int)$document->company_id));
+        }
+
+        return view('partcontable.preview', compact('document', 'welcome'));
     }
 
     public function destroy(Request $request, Document $document)
@@ -270,9 +514,21 @@ class PartContableController extends Controller
 
         DB::beginTransaction();
         try {
+            $documentId = $document->id;
+            $companyId  = $document->company_id ?? null;
+            $title      = $document->title;
+            $mime       = $document->mime_type;
+
             $document->delete();
             Storage::disk('public')->delete($path);
             DB::commit();
+
+            // ✅ LOG delete
+            $this->logActivity($request, 'pc_delete', $companyId, $documentId, [
+                'title' => $title,
+                'mime'  => $mime,
+                'path'  => $path,
+            ]);
         } catch (\Throwable $e) {
             DB::rollBack();
 
