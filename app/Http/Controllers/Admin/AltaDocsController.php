@@ -10,6 +10,25 @@ use Illuminate\Support\Facades\Storage;
 
 class AltaDocsController extends Controller
 {
+    /**
+     * ✅ Tamaño máximo permitido por archivo (EN KB)
+     * - 512000  = 500 MB
+     * - 1048576 = 1 GB
+     *
+     * IMPORTANTE:
+     * Aunque aquí lo permitas, tu servidor debe soportarlo:
+     * - php.ini: upload_max_filesize / post_max_size
+     * - nginx/apache límites
+     */
+    private int $maxFileKb = 512000; // 500MB por defecto
+
+    public function __construct()
+    {
+        // Puedes sobreescribir por .env: ALTA_DOCS_MAX_KB=1048576
+        $env = (int) env('ALTA_DOCS_MAX_KB', 0);
+        if ($env > 0) $this->maxFileKb = $env;
+    }
+
     public function showPinForm()
     {
         return view('secure.alta_docs_pin');
@@ -28,10 +47,10 @@ class AltaDocsController extends Controller
         $expectedPin = (string) config('alta_docs.pin');
 
         Log::info('AltaDocs: intento de PIN', [
-            'user_id'       => $request->user()->id ?? null,
-            'ip'            => $request->ip(),
-            'expected_len'  => strlen($expectedPin),
-            'received_len'  => strlen($enteredPin),
+            'user_id'      => $request->user()->id ?? null,
+            'ip'           => $request->ip(),
+            'expected_len' => strlen($expectedPin),
+            'received_len' => strlen($enteredPin),
         ]);
 
         if (!hash_equals($expectedPin, $enteredPin)) {
@@ -121,6 +140,7 @@ class AltaDocsController extends Controller
                 'files_count'   => is_array($request->file('files')) ? count($request->file('files')) : null,
                 'user_id'       => $request->user()->id ?? null,
                 'ip'            => $request->ip(),
+                'max_kb'        => $this->maxFileKb,
             ]);
 
             if ($request->hasFile('files')) {
@@ -139,7 +159,9 @@ class AltaDocsController extends Controller
             }
 
             // =========================
-            // VALIDACIÓN ROBUSTA (hosting-friendly)
+            // ✅ VALIDACIÓN (sin mimetypes / sin whitelist)
+            // - Acepta cualquier tipo (hosting-friendly)
+            // - Tamaño alto configurable
             // =========================
             $data = $request->validate([
                 'category' => ['required', 'in:' . implode(',', AltaDoc::CATEGORIES)],
@@ -150,19 +172,7 @@ class AltaDocsController extends Controller
                 'files.*'  => [
                     'required',
                     'file',
-                    'max:20480',
-                    // ✅ En hosting el MIME a veces llega como application/octet-stream
-                    'mimetypes:application/pdf,
-                                application/msword,
-                                application/vnd.openxmlformats-officedocument.wordprocessingml.document,
-                                application/vnd.ms-excel,
-                                application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,
-                                text/csv,
-                                application/csv,
-                                text/plain,
-                                text/xml,
-                                application/xml,
-                                application/octet-stream',
+                    'max:' . $this->maxFileKb, // ✅ tamaño por archivo (KB)
                 ],
 
                 'notes' => ['nullable', 'string', 'max:500'],
@@ -174,6 +184,8 @@ class AltaDocsController extends Controller
                 'files.required'    => 'Debes seleccionar al menos un archivo.',
                 'files.min'         => 'Debes seleccionar al menos un archivo.',
                 'files.*.required'  => 'Debes seleccionar al menos un archivo válido.',
+                'files.*.file'      => 'Uno de los archivos no es válido.',
+                'files.*.max'       => 'Uno de los archivos excede el tamaño permitido.',
             ]);
 
             $files = $request->file('files', []);
@@ -182,30 +194,23 @@ class AltaDocsController extends Controller
             }
 
             // =========================
-            // WHITELIST POR EXTENSIÓN (extra seguro)
+            // ✅ GUARDADO
+            // - storage/app (NO público)
+            // - nombre único para evitar colisiones
             // =========================
-            $allowedExt = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'csv', 'xml', 'txt'];
-
-            foreach ($files as $f) {
-                if (!$f || !$f->isValid()) {
-                    return back()->withErrors(['files' => 'Archivo inválido o corrupto.'])->withInput();
-                }
-
-                $ext = strtolower((string) $f->getClientOriginalExtension());
-                if ($ext === '' || !in_array($ext, $allowedExt, true)) {
-                    return back()->withErrors(['files' => "Tipo de archivo no permitido: ." . ($ext ?: 'desconocido')])->withInput();
-                }
-            }
-
-            // =========================
-            // GUARDADO
-            // =========================
-            $disk = 'local'; // storage/app (no público)
+            $disk = 'local'; // storage/app
 
             $created = 0;
+
             foreach ($files as $file) {
                 if (!$file) continue;
 
+                if (!$file->isValid()) {
+                    return back()->withErrors(['files' => 'Archivo inválido o corrupto.'])->withInput();
+                }
+
+                // Guardar con nombre seguro
+                // (store() genera nombre único; mantenemos original en DB)
                 $path = $file->store('alta_docs', $disk);
 
                 $doc = AltaDoc::create([
@@ -218,8 +223,8 @@ class AltaDocsController extends Controller
                     'disk'          => $disk,
                     'path'          => $path,
 
-                    // ✅ Mejor: MIME detectado por el servidor
-                    'mime'          => $file->getMimeType() ?: $file->getClientMimeType(),
+                    // Guardamos ambos por si hosting falla
+                    'mime'          => $file->getMimeType() ?: ($file->getClientMimeType() ?: 'application/octet-stream'),
                     'size'          => $file->getSize(),
                     'notes'         => $data['notes'] ?? null,
                     'uploaded_by'   => $request->user()->id ?? null,
@@ -233,6 +238,8 @@ class AltaDocsController extends Controller
                     'type'    => $doc->category,
                     'user_id' => $request->user()->id ?? null,
                     'ip'      => $request->ip(),
+                    'mime'    => $doc->mime,
+                    'size'    => $doc->size,
                 ]);
             }
 
@@ -302,7 +309,7 @@ class AltaDocsController extends Controller
     }
 
     /**
-     * PREVIEW (inline) - usa el disk real del registro, no fijo "local"
+     * PREVIEW (inline) - usa el disk real del registro
      */
     public function preview(AltaDoc $doc)
     {
@@ -313,7 +320,7 @@ class AltaDocsController extends Controller
             abort(404);
         }
 
-        $mime = $doc->mime ?: $disk->mimeType($doc->path);
+        $mime = $doc->mime ?: ($disk->mimeType($doc->path) ?: 'application/octet-stream');
         $absolutePath = $disk->path($doc->path);
 
         return response()->file($absolutePath, [
