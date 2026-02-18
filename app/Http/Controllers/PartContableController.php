@@ -129,16 +129,15 @@ class PartContableController extends Controller
     {
         try {
             UserActivity::create([
-                'user_id'    => optional($request->user())->id,
-                'company_id' => $companyId,
-                'document_id'=> $documentId,
-                'action'     => $action,
-                'meta'       => $meta ?: null,
-                'ip'         => $request->ip(),
-                'user_agent' => substr((string) $request->userAgent(), 0, 500),
+                'user_id'     => optional($request->user())->id,
+                'company_id'  => $companyId,
+                'document_id' => $documentId,
+                'action'      => $action,
+                'meta'        => $meta ?: null,
+                'ip'          => $request->ip(),
+                'user_agent'  => substr((string) $request->userAgent(), 0, 500),
             ]);
         } catch (\Throwable $e) {
-            // No rompemos el flujo por logging
             \Log::warning('UserActivity log failed: '.$e->getMessage());
         }
     }
@@ -204,6 +203,9 @@ class PartContableController extends Controller
             'declaracion_mensual' => 'acuse_mensual',
             'constancias'         => 'csf',
             'estados_financieros' => 'balance_general',
+
+            // ✅ NUEVO: ISN-3%
+            'isn_3'               => 'pago_isn',
         ];
 
         $sectionSubtypes = $section->subtypes->keyBy('key');
@@ -232,7 +234,8 @@ class PartContableController extends Controller
         if ($year)  $query->whereYear('date', $year);
         if ($month) $query->whereMonth('date', $month);
 
-        $documents = $query->orderByDesc('date')->paginate(12)->appends($request->query());
+        // ✅ IMPORTANTE: ordena por date y fallback por created_at
+        $documents = $query->orderByDesc('date')->orderByDesc('id')->paginate(12)->appends($request->query());
         $subtypes  = $sectionSubtypes->values();
 
         return view('partcontable.company', [
@@ -283,9 +286,7 @@ class PartContableController extends Controller
         // ✅ usa helper del modelo si existe
         if (method_exists($user, 'checkApprovalPin')) {
             if (!$user->checkApprovalPin($input)) {
-                $this->logActivity($request, 'pc_unlock_failed', $company->id, null, [
-                    'reason' => 'invalid_pin'
-                ]);
+                $this->logActivity($request, 'pc_unlock_failed', $company->id, null, ['reason' => 'invalid_pin']);
 
                 $msg = 'NIP incorrecto.';
                 return $request->expectsJson()
@@ -294,9 +295,7 @@ class PartContableController extends Controller
             }
         } else {
             if (!$this->verifyPin($input, $stored)) {
-                $this->logActivity($request, 'pc_unlock_failed', $company->id, null, [
-                    'reason' => 'invalid_pin'
-                ]);
+                $this->logActivity($request, 'pc_unlock_failed', $company->id, null, ['reason' => 'invalid_pin']);
 
                 $msg = 'NIP incorrecto.';
                 return $request->expectsJson()
@@ -308,7 +307,7 @@ class PartContableController extends Controller
         // ✅ Unlock por compañía
         $this->setPinUnlocked($company->id);
 
-        // ✅ Guardar “bienvenida” (para mostrarla en previews y/o primera pantalla)
+        // ✅ Guardar “bienvenida”
         session([
             $this->welcomeSessionKey($company->id) => [
                 'at'      => now()->toIso8601String(),
@@ -422,7 +421,6 @@ class PartContableController extends Controller
 
                 $storedDocs[] = $document;
 
-                // ✅ LOG upload (por documento)
                 $this->logActivity($request, 'pc_upload', $company->id, $document->id, [
                     'title'      => $document->title,
                     'mime'       => $document->mime_type,
@@ -466,9 +464,94 @@ class PartContableController extends Controller
         return 'documento';
     }
 
+    // ===============================
+    // ✅ SUBIR FICTICIO (ligado al documento)
+    // ===============================
+    public function uploadFicticio(Request $request, Document $document)
+    {
+        // ✅ solo permitir ficticio en Declaración anual/mensual y sus 3 subtipos
+        $allowedSectionKeys = ['declaracion_anual', 'declaracion_mensual'];
+        $allowedSubtypeKeys = [
+            'acuse_anual','pago_anual','declaracion_anual',
+            'acuse_mensual','pago_mensual','declaracion_mensual',
+        ];
+
+        $sectionKey = optional($document->section)->key;
+        $subKey     = optional($document->subtype)->key;
+
+        if (!in_array($sectionKey, $allowedSectionKeys, true) || !in_array($subKey, $allowedSubtypeKeys, true)) {
+            return response()->json(['ok'=>false,'message'=>'Este documento no admite ficticio.'], 422);
+        }
+
+        $request->validate([
+            'file' => ['required','file','max:51200', 'mimes:pdf,jpg,jpeg,png,webp,gif,svg,mp4,mov,doc,docx,xls,xlsx'],
+        ]);
+
+        $file = $request->file('file');
+
+        $originalName = $file->getClientOriginalName();
+        $mime = $file->getClientMimeType() ?: ($file->getMimeType() ?: 'application/octet-stream');
+
+        // ✅ mismo árbol por compañía / sección / fecha (si existe date)
+        $d = $document->date ? \Carbon\Carbon::parse($document->date) : now();
+        $year  = $d->year;
+        $month = $d->month;
+
+        $subdir = "partcontable/{$document->company_id}/{$sectionKey}/{$year}/{$month}/ficticios";
+        $slug   = Str::slug(pathinfo($originalName, PATHINFO_FILENAME));
+        $ext    = strtolower($file->getClientOriginalExtension());
+        $name   = "{$slug}_ficticio_" . time() . "_" . uniqid() . ".{$ext}";
+
+        $storedPath = $file->storeAs($subdir, $name, 'public');
+
+        // ✅ borrar el ficticio anterior si existe
+        if ($document->ficticio_file_path && Storage::disk('public')->exists($document->ficticio_file_path)) {
+            Storage::disk('public')->delete($document->ficticio_file_path);
+        }
+
+        $document->update([
+            'ficticio_file_path'    => $storedPath,
+            'ficticio_filename'     => $originalName,
+            'ficticio_mime_type'    => $mime,
+            'ficticio_uploaded_by'  => auth()->id(),
+        ]);
+
+        $this->logActivity($request, 'pc_upload_ficticio', $document->company_id, $document->id, [
+            'ficticio_path' => $storedPath,
+            'mime'          => $mime,
+            'section_key'   => $sectionKey,
+            'subtype_key'   => $subKey,
+        ]);
+
+        return response()->json([
+            'ok'           => true,
+            'message'      => 'Ficticio subido.',
+            'ficticio_url' => Storage::disk('public')->url($storedPath),
+            'download_url' => route('partcontable.documents.ficticio.download', $document),
+        ]);
+    }
+
+    // ===============================
+    // ✅ DESCARGAR FICTICIO
+    // ===============================
+    public function downloadFicticio(Request $request, Document $document)
+    {
+        if (!$document->ficticio_file_path || !Storage::disk('public')->exists($document->ficticio_file_path)) {
+            abort(404);
+        }
+
+        $this->logActivity($request, 'pc_download_ficticio', $document->company_id ?? null, $document->id, [
+            'path' => $document->ficticio_file_path,
+            'mime' => $document->ficticio_mime_type,
+        ]);
+
+        $name = $document->ficticio_filename ?: basename($document->ficticio_file_path);
+
+        return Storage::disk('public')->download($document->ficticio_file_path, $name);
+    }
+
     public function download(Request $request, Document $document)
     {
-        // ✅ LOG download
         $this->logActivity($request, 'pc_download', $document->company_id ?? null, $document->id, [
             'title' => $document->title,
             'path'  => $document->file_path,
@@ -488,7 +571,6 @@ class PartContableController extends Controller
     {
         $document = Document::findOrFail($id);
 
-        // ✅ LOG preview
         $this->logActivity($request, 'pc_preview', $document->company_id ?? null, $document->id, [
             'title' => $document->title,
             'mime'  => $document->mime_type,
@@ -499,7 +581,6 @@ class PartContableController extends Controller
             abort(404, 'El archivo no existe.');
         }
 
-        // ✅ Pasamos la bienvenida (si existe) al blade
         $welcome = null;
         if ($document->company_id) {
             $welcome = session($this->welcomeSessionKey((int)$document->company_id));
@@ -519,11 +600,15 @@ class PartContableController extends Controller
             $title      = $document->title;
             $mime       = $document->mime_type;
 
+            // ✅ borra ficticio si existe
+            if ($document->ficticio_file_path && Storage::disk('public')->exists($document->ficticio_file_path)) {
+                Storage::disk('public')->delete($document->ficticio_file_path);
+            }
+
             $document->delete();
             Storage::disk('public')->delete($path);
             DB::commit();
 
-            // ✅ LOG delete
             $this->logActivity($request, 'pc_delete', $companyId, $documentId, [
                 'title' => $title,
                 'mime'  => $mime,
@@ -545,73 +630,63 @@ class PartContableController extends Controller
 
         return back()->with('success', 'Documento eliminado.');
     }
+
     public function activityAll(Request $request)
-{
-    // ✅ (opcional) si quieres que SOLO admin/manager vean todo:
-    // abort_unless($request->user()->hasRole('admin'), 403);
+    {
+        $q        = trim((string) $request->get('q', ''));
+        $action   = trim((string) $request->get('action', ''));
+        $userId   = $request->get('user_id');
+        $companyId= $request->get('company_id');
 
-    $q      = trim((string) $request->get('q', ''));
-    $action = trim((string) $request->get('action', ''));
-    $userId = $request->get('user_id');
-    $companyId = $request->get('company_id');
+        $rows = \App\Models\UserActivity::with([
+                'user:id,name,email',
+                'company:id,name,slug',
+                'document:id,title'
+            ])
+            ->when($action !== '', fn($qq) => $qq->where('action', $action))
+            ->when($userId, fn($qq) => $qq->where('user_id', $userId))
+            ->when($companyId, fn($qq) => $qq->where('company_id', $companyId))
+            ->when($q !== '', function ($qq) use ($q) {
+                $qq->where(function ($w) use ($q) {
+                    $w->where('action', 'like', "%{$q}%")
+                      ->orWhere('ip', 'like', "%{$q}%")
+                      ->orWhereHas('user', fn($u) => $u->where('name', 'like', "%{$q}%")->orWhere('email','like',"%{$q}%"))
+                      ->orWhereHas('company', fn($c) => $c->where('name', 'like', "%{$q}%"))
+                      ->orWhereHas('document', fn($d) => $d->where('title', 'like', "%{$q}%"));
+                });
+            })
+            ->orderByDesc('id')
+            ->paginate(25)
+            ->appends($request->query());
 
-    $rows = \App\Models\UserActivity::with([
-            'user:id,name,email',
-            'company:id,name,slug',
-            'document:id,title'
-        ])
-        ->when($action !== '', function ($qq) use ($action) {
-            $qq->where('action', $action);
-        })
-        ->when($userId, function ($qq) use ($userId) {
-            $qq->where('user_id', $userId);
-        })
-        ->when($companyId, function ($qq) use ($companyId) {
-            $qq->where('company_id', $companyId);
-        })
-        ->when($q !== '', function ($qq) use ($q) {
-            $qq->where(function ($w) use ($q) {
-                $w->where('action', 'like', "%{$q}%")
-                  ->orWhere('ip', 'like', "%{$q}%")
-                  ->orWhereHas('user', fn($u) => $u->where('name', 'like', "%{$q}%")->orWhere('email','like',"%{$q}%"))
-                  ->orWhereHas('company', fn($c) => $c->where('name', 'like', "%{$q}%"))
-                  ->orWhereHas('document', fn($d) => $d->where('title', 'like', "%{$q}%"));
-            });
-        })
-        ->orderByDesc('id')
-        ->paginate(25)
-        ->appends($request->query());
+        $actions = \App\Models\UserActivity::select('action')->distinct()->orderBy('action')->pluck('action')->values();
 
-    $actions = \App\Models\UserActivity::select('action')->distinct()->orderBy('action')->pluck('action')->values();
+        $users = \App\Models\UserActivity::whereNotNull('user_id')
+            ->with('user:id,name')
+            ->get()
+            ->pluck('user')
+            ->filter()
+            ->unique('id')
+            ->sortBy('name')
+            ->values();
 
-    $users = \App\Models\UserActivity::whereNotNull('user_id')
-        ->with('user:id,name')
-        ->get()
-        ->pluck('user')
-        ->filter()
-        ->unique('id')
-        ->sortBy('name')
-        ->values();
+        $companies = \App\Models\UserActivity::whereNotNull('company_id')
+            ->with('company:id,name')
+            ->get()
+            ->pluck('company')
+            ->filter()
+            ->unique('id')
+            ->sortBy('name')
+            ->values();
 
-    $companies = \App\Models\UserActivity::whereNotNull('company_id')
-        ->with('company:id,name')
-        ->get()
-        ->pluck('company')
-        ->filter()
-        ->unique('id')
-        ->sortBy('name')
-        ->values();
+        $this->logActivity($request, 'pc_view_activity_all', null, null, [
+            'filters' => [
+                'q' => $q, 'action' => $action, 'user_id' => $userId, 'company_id' => $companyId
+            ],
+        ]);
 
-    // ✅ Log: ver bitácora global
-    $this->logActivity($request, 'pc_view_activity_all', null, null, [
-        'filters' => [
-            'q' => $q, 'action' => $action, 'user_id' => $userId, 'company_id' => $companyId
-        ],
-    ]);
-
-    return view('partcontable.activity_all', compact(
-        'rows','actions','users','companies','q','action','userId','companyId'
-    ));
-}
-
+        return view('partcontable.activity_all', compact(
+            'rows','actions','users','companies','q','action','userId','companyId'
+        ));
+    }
 }

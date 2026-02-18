@@ -1893,3 +1893,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/partcontable/actividad', [PartContableController::class, 'activityAll'])
         ->name('partcontable.activity.all');
 });
+Route::post('/partcontable/documents/{document}/ficticio', [PartContableController::class, 'uploadFicticio'])
+  ->middleware(['web','auth'])
+  ->name('partcontable.documents.ficticio.upload');
+
+
+Route::get('/partcontable/documents/{document}/ficticio/download', [PartContableController::class, 'downloadFicticio'])
+  ->name('partcontable.documents.ficticio.download');
