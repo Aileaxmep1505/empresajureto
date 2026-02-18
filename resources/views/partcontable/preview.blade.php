@@ -13,51 +13,64 @@
     $isPdf   = $mime === 'application/pdf';
     
     $fileName = basename($document->file_path);
-    $fileSize = $document->file_size ? number_format($document->file_size / 1024, 2) . ' KB' : 'Desconocido';
+    
+    // Asumiendo que tu modelo Document tiene la relación 'user'
+    $uploaderName = $document->user->name ?? 'Usuario del sistema'; 
 @endphp
 
 @section('content')
 <style>
     :root {
-        --ui-bg: #f8fafc;
-        --ui-surface: #ffffff;
-        --ui-border: #e2e8f0;
-        --ui-text-main: #0f172a;
-        --ui-text-muted: #64748b;
-        --ui-accent: #4f46e5; /* Indigo premium */
-        --ui-accent-hover: #4338ca;
-        --ui-danger: #ef4444;
+        /* Color "Café Crema" inspirado en tu referencia */
+        --ui-bg-coffee: #F4F1EA; 
+        --ui-surface: #FFFFFF;
+        --ui-border: #E5E0D8;
+        --ui-text-main: #1C1917; /* Un gris casi negro más elegante */
+        --ui-text-muted: #78716C;
+        --ui-accent: #111827; /* Negro/Gris oscuro para botones premium */
+        --radius-lg: 24px;
         --radius-md: 12px;
-        --radius-lg: 16px;
-        --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-        --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        --shadow-soft: 0 10px 40px -10px rgba(0,0,0,0.08);
+    }
+
+    /* * TRUCO BREAKOUT: 
+     * Esto fuerza al contenedor a ignorar los paddings/containers de layouts.app 
+     * y ocupar el 100% del ancho de la pantalla (100vw).
+     */
+    .doc-viewer-breakout {
+        width: 100vw;
+        position: relative;
+        left: 50%;
+        right: 50%;
+        margin-left: -50vw;
+        margin-right: -50vw;
+        /* Sobrescribir padding por si el contenedor padre tiene */
+        padding: 0 !important; 
     }
 
     /* Contenedor Principal */
     .doc-viewer-layout {
         display: flex;
-        height: calc(100vh - 64px); /* Ajusta según tu navbar principal */
-        min-height: 600px;
-        background-color: var(--ui-bg);
+        height: calc(100vh - 64px); /* Ajusta este 64px al alto de tu navbar principal */
+        min-height: 100vh;
+        background-color: var(--ui-bg-coffee);
         font-family: 'Inter', system-ui, sans-serif;
         color: var(--ui-text-main);
     }
 
     /* Panel Lateral (Información y Acciones) */
     .doc-sidebar {
-        width: 320px;
+        width: 340px;
         background-color: var(--ui-surface);
         border-right: 1px solid var(--ui-border);
         display: flex;
         flex-direction: column;
         flex-shrink: 0;
         z-index: 10;
-        box-shadow: var(--shadow-sm);
     }
 
     .sidebar-header {
-        padding: 24px;
-        border-bottom: 1px solid var(--ui-border);
+        padding: 32px 24px 24px;
     }
 
     .btn-back {
@@ -66,48 +79,59 @@
         gap: 8px;
         color: var(--ui-text-muted);
         font-size: 14px;
-        font-weight: 600;
+        font-weight: 500;
         text-decoration: none;
-        margin-bottom: 24px;
+        margin-bottom: 32px;
         transition: color 0.2s;
     }
     .btn-back:hover { color: var(--ui-text-main); }
 
     .doc-title {
-        font-size: 20px;
+        font-size: 24px;
         font-weight: 700;
-        line-height: 1.3;
-        margin: 0 0 8px 0;
-        color: var(--ui-text-main);
+        line-height: 1.2;
+        margin: 0 0 12px 0;
+        letter-spacing: -0.02em;
     }
 
     .doc-badge {
         display: inline-block;
-        padding: 4px 10px;
-        background: #e0e7ff;
-        color: var(--ui-accent);
-        border-radius: 6px;
-        font-size: 12px;
+        padding: 6px 12px;
+        background: #F3F4F6;
+        color: var(--ui-text-main);
+        border-radius: 8px;
+        font-size: 11px;
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.5px;
     }
 
     .sidebar-body {
-        padding: 24px;
+        padding: 0 24px 24px;
         flex-grow: 1;
         overflow-y: auto;
     }
 
+    .meta-card {
+        background: #FAFAFA;
+        border: 1px solid var(--ui-border);
+        border-radius: var(--radius-md);
+        padding: 16px;
+        margin-bottom: 24px;
+    }
+
     .meta-group {
-        margin-bottom: 20px;
+        margin-bottom: 16px;
+    }
+    .meta-group:last-child {
+        margin-bottom: 0;
     }
     .meta-label {
-        font-size: 12px;
+        font-size: 11px;
         text-transform: uppercase;
         color: var(--ui-text-muted);
         font-weight: 600;
-        margin-bottom: 6px;
+        margin-bottom: 4px;
         letter-spacing: 0.5px;
     }
     .meta-value {
@@ -117,20 +141,10 @@
         word-break: break-all;
     }
 
-    .doc-description {
-        font-size: 14px;
-        line-height: 1.6;
-        color: var(--ui-text-muted);
-        background: var(--ui-bg);
-        padding: 16px;
-        border-radius: var(--radius-md);
-        border: 1px solid var(--ui-border);
-    }
-
     .sidebar-footer {
         padding: 24px;
+        background: var(--ui-surface);
         border-top: 1px solid var(--ui-border);
-        background: #f8fafc;
     }
 
     /* Botones Profesionales */
@@ -140,8 +154,8 @@
         justify-content: center;
         gap: 8px;
         width: 100%;
-        padding: 12px 16px;
-        border-radius: 8px;
+        padding: 14px 16px;
+        border-radius: 12px;
         font-size: 14px;
         font-weight: 600;
         text-decoration: none;
@@ -152,44 +166,39 @@
     .btn-primary {
         background-color: var(--ui-accent);
         color: white;
-        box-shadow: 0 4px 12px rgba(79, 70, 229, 0.2);
     }
     .btn-primary:hover {
-        background-color: var(--ui-accent-hover);
-        transform: translateY(-1px);
+        background-color: #000000;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.15);
     }
     .btn-secondary {
         background-color: var(--ui-surface);
         color: var(--ui-text-main);
-        border-color: var(--ui-border);
+        border-color: #D6D3D1;
         margin-top: 12px;
     }
     .btn-secondary:hover {
-        background-color: var(--ui-bg);
-        border-color: #cbd5e1;
+        background-color: #F5F5F4;
     }
 
-    /* Área del Visor (Derecha) */
+    /* Área del Visor (Derecha con fondo café) */
     .doc-stage {
         flex-grow: 1;
-        padding: 32px;
+        padding: 40px;
         display: flex;
         flex-direction: column;
+        align-items: center;
         overflow: hidden;
     }
 
-    .stage-toolbar {
-        display: flex;
-        justify-content: flex-end;
-        margin-bottom: 16px;
-    }
-
     .viewer-frame {
-        flex-grow: 1;
-        background: var(--ui-surface);
+        width: 100%;
+        max-width: 1100px; /* Limita lo ancho para que no se vea desproporcionado en monitores gigantes */
+        height: 100%;
+        background: #FFFFFF; /* Marco blanco para el documento */
         border-radius: var(--radius-lg);
-        border: 1px solid var(--ui-border);
-        box-shadow: var(--shadow-md);
+        box-shadow: var(--shadow-soft);
         overflow: hidden;
         display: flex;
         align-items: center;
@@ -200,107 +209,97 @@
     .viewer-content {
         width: 100%;
         height: 100%;
-        object-fit: contain;
-        background: #f1f5f9; /* Fondo suave para resaltar el documento */
-    }
-
-    .unsupported-notice {
-        text-align: center;
-        max-width: 400px;
-        padding: 40px;
-    }
-    .unsupported-icon {
-        width: 64px;
-        height: 64px;
-        color: #cbd5e1;
-        margin: 0 auto 16px auto;
+        border: none;
+        background: #1C1917; /* Fondo oscuro detrás del PDF/Video se ve más pro */
     }
 
     /* Diseño Responsivo */
     @media (max-width: 1024px) {
         .doc-viewer-layout { flex-direction: column; height: auto; display: block; }
         .doc-sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--ui-border); }
-        .doc-stage { height: 80vh; padding: 16px; }
+        .doc-stage { height: 85vh; padding: 20px; }
     }
 </style>
 
-<div class="doc-viewer-layout">
-    
-    {{-- Panel Lateral --}}
-    <aside class="doc-sidebar">
-        <div class="sidebar-header">
-            <a href="{{ url()->previous() }}" class="btn-back">
-                <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
-                Volver al listado
-            </a>
-            <h1 class="doc-title">{{ $document->title }}</h1>
-            <span class="doc-badge">{{ strtoupper(explode('/', $mime)[1] ?? 'FILE') }}</span>
-        </div>
+{{-- APLICAMOS EL CONTENEDOR BREAKOUT AQUÍ --}}
+<div class="doc-viewer-breakout">
+    <div class="doc-viewer-layout">
+        
+        {{-- Panel Lateral --}}
+        <aside class="doc-sidebar">
+            <div class="sidebar-header">
+                <a href="{{ url()->previous() }}" class="btn-back">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+                    Volver al listado
+                </a>
+                <h1 class="doc-title">{{ $document->title }}</h1>
+                <span class="doc-badge">{{ strtoupper(explode('/', $mime)[1] ?? 'FILE') }}</span>
+            </div>
 
-        <div class="sidebar-body">
-            @if($document->description)
+            <div class="sidebar-body">
+                <div class="meta-card">
+                    {{-- AQUÍ VA EL NOMBRE DEL USUARIO --}}
+                    <div class="meta-group">
+                        <div class="meta-label">Subido por</div>
+                        <div class="meta-value" style="display: flex; align-items: center; gap: 8px;">
+                            <div style="width: 24px; height: 24px; background: #E5E0D8; border-radius: 50%; display: grid; place-items: center; font-size: 10px; font-weight: bold;">
+                                {{ substr($uploaderName, 0, 1) }}
+                            </div>
+                            {{ $uploaderName }}
+                        </div>
+                    </div>
+
+                    <div class="meta-group">
+                        <div class="meta-label">Fecha de subida</div>
+                        <div class="meta-value">{{ $document->created_at->format('d/m/Y h:i A') }}</div>
+                    </div>
+                </div>
+
                 <div class="meta-group">
-                    <div class="meta-label">Descripción</div>
-                    <div class="doc-description">{{ $document->description }}</div>
+                    <div class="meta-label">Nombre original</div>
+                    <div class="meta-value" style="font-size: 13px;">{{ $fileName }}</div>
                 </div>
-            @endif
 
-            <div class="meta-group">
-                <div class="meta-label">Nombre del archivo</div>
-                <div class="meta-value">{{ $fileName }}</div>
+                @if($document->description)
+                    <div class="meta-group" style="margin-top: 24px;">
+                        <div class="meta-label">Descripción</div>
+                        <p style="font-size: 13px; line-height: 1.6; color: var(--ui-text-muted); margin: 0;">
+                            {{ $document->description }}
+                        </p>
+                    </div>
+                @endif
             </div>
 
-            <div class="meta-group">
-                <div class="meta-label">Fecha de subida</div>
-                <div class="meta-value">{{ $document->created_at->format('d/m/Y h:i A') }}</div>
+            <div class="sidebar-footer">
+                <a href="{{ route('partcontable.documents.download', $document) }}" class="btn btn-primary">
+                    Descargar Documento
+                </a>
+                <a href="{{ $url }}" target="_blank" class="btn btn-secondary">
+                    Abrir en nueva ventana
+                </a>
             </div>
+        </aside>
 
-            <div class="meta-group">
-                <div class="meta-label">Tipo MIME</div>
-                <div class="meta-value" style="font-family: monospace; font-size: 13px;">{{ $mime }}</div>
+        {{-- Área Principal del Visor --}}
+        <main class="doc-stage">
+            <div class="viewer-frame">
+                @if($isImage)
+                    <img src="{{ $url }}" alt="{{ $document->title }}" class="viewer-content" style="object-fit: contain; background: #ffffff;">
+                @elseif($isVideo)
+                    <video controls class="viewer-content">
+                        <source src="{{ $url }}" type="{{ $mime }}">
+                    </video>
+                @elseif($isPdf)
+                    <iframe src="{{ $url }}#toolbar=0" class="viewer-content" title="Visor PDF"></iframe>
+                @else
+                    <div style="text-align: center; color: var(--ui-text-muted);">
+                        <svg style="width: 48px; height: 48px; margin: 0 auto 16px auto; opacity: 0.5;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"/></svg>
+                        <p>No hay vista previa disponible.</p>
+                    </div>
+                @endif
             </div>
-        </div>
+        </main>
 
-        <div class="sidebar-footer">
-            <a href="{{ route('partcontable.documents.download', $document) }}" class="btn btn-primary">
-                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                Descargar Documento
-            </a>
-            <a href="{{ $url }}" target="_blank" class="btn btn-secondary">
-                Abrir en nueva ventana
-            </a>
-        </div>
-    </aside>
-
-    {{-- Área Principal del Visor --}}
-    <main class="doc-stage">
-        <div class="stage-toolbar">
-            {{-- Espacio para futuros controles: Zoom, Compartir, etc. --}}
-            <span style="font-size: 13px; color: var(--ui-text-muted); font-weight: 500;">
-                Vista Previa del Sistema
-            </span>
-        </div>
-
-        <div class="viewer-frame">
-            @if($isImage)
-                <img src="{{ $url }}" alt="{{ $document->title }}" class="viewer-content">
-            @elseif($isVideo)
-                <video controls class="viewer-content" style="background: #0f172a;">
-                    <source src="{{ $url }}" type="{{ $mime }}">
-                </video>
-            @elseif($isPdf)
-                <iframe src="{{ $url }}#toolbar=0" class="viewer-content" title="Visor PDF" style="border: none;"></iframe>
-            @else
-                <div class="unsupported-notice">
-                    <svg class="unsupported-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"/></svg>
-                    <h3 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 600;">No hay vista previa disponible</h3>
-                    <p style="margin: 0; color: var(--ui-text-muted); font-size: 14px; line-height: 1.5;">
-                        El formato <strong>{{ $mime }}</strong> requiere ser descargado para poder visualizarse correctamente en tu equipo.
-                    </p>
-                </div>
-            @endif
-        </div>
-    </main>
-
+    </div>
 </div>
 @endsection

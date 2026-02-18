@@ -457,7 +457,7 @@
       @csrf
       <input type="hidden" id="pcFicticioDocId" value="">
 
-      {{-- ✅ Input REAL oculto (ya no está encima del dropzone) --}}
+      {{-- ✅ Input REAL oculto --}}
       <input
         id="pcFicticioFile"
         type="file"
@@ -770,7 +770,7 @@
   position:fixed;
   top:16px;
   right:16px;
-  z-index:60000; /* arriba del modal/backdrop */
+  z-index:60000;
   display:flex;
   flex-direction:column;
   gap:10px;
@@ -1171,12 +1171,11 @@
       }
     });
 
-    // Abrir selector desde dropzone (100% gesto de usuario)
+    // Abrir selector desde dropzone
     if(dz && fmFile){
       dz.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        // rAF ayuda en algunos navegadores cuando hay overlay/animaciones
         requestAnimationFrame(() => fmFile.click());
       });
 
@@ -1192,7 +1191,10 @@
       fmFile.addEventListener('change', refreshFileName);
     }
 
-    // Submit upload (incluye _token y credentials)
+    // ✅ Submit upload (FIX CSRF mismatch)
+    //    - URL RELATIVO (mismo origen)
+    //    - credentials same-origin (manda cookie)
+    //    - token por header + body
     if(fmForm){
       fmForm.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -1209,11 +1211,12 @@
           return;
         }
 
-        const uploadUrl = @json(url('/')) + '/partcontable/documents/' + encodeURIComponent(id) + '/ficticio';
+        // ✅ IMPORTANTE: NO uses url('/') aquí (puede cambiar dominio y romper sesión)
+        const uploadUrl = '/partcontable/documents/' + encodeURIComponent(id) + '/ficticio';
 
         const fd = new FormData();
-        fd.append('file', file);      // <- si tu backend usa otro nombre, dímelo y lo ajusto
-        fd.append('_token', CSRF);    // <- por si tu ruta valida token en body
+        fd.append('file', file);
+        fd.append('_token', CSRF);
 
         try{
           if(fmLoading) fmLoading.style.display = 'inline';
@@ -1271,7 +1274,6 @@
         return;
       }
 
-      // Evitar que acciones disparen la tarjeta
       if (e.target.closest('.pc-company-actions, .pc-card-top-actions')) {
         e.stopPropagation();
       }
