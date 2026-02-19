@@ -36,7 +36,8 @@
     // No abrir ficticio al entrar
     $openFicticio = false;
 
-    $returnUrl    = request('return');
+    // Siempre volver a /part-contable
+    $backUrl = url('/part-contable');
 
     // URL FICTICIO
     $ficticioUrl = $hasFicticio
@@ -86,7 +87,6 @@
         min-height: calc(100vh - 64px);
     }
 
-    /* ✅ SIN SCROLL INTERNO: no forzamos height fijo, dejamos natural */
     .doc-viewer-layout {
         display: flex;
         min-height: calc(100vh - 64px);
@@ -140,7 +140,6 @@
         letter-spacing: 0.5px;
     }
 
-    /* ✅ SIN SCROLL INTERNO */
     .sidebar-body {
         padding: 0 24px 24px;
         flex-grow: 1;
@@ -197,6 +196,7 @@
         border: 1px solid transparent;
         background: transparent;
     }
+
     .btn-primary {
         background-color: var(--ui-accent);
         color: white;
@@ -206,6 +206,7 @@
         transform: translateY(-2px);
         box-shadow: 0 8px 20px rgba(0,0,0,0.15);
     }
+
     .btn-secondary {
         background-color: var(--ui-surface);
         color: var(--ui-text-main);
@@ -232,7 +233,6 @@
     }
     .btn-ficticio:hover{ background:#000; transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.15); }
 
-    /* ✅ fila de 2 botones juntos abajo del toggle */
     .btn-row{
       display:flex;
       gap:10px;
@@ -255,7 +255,6 @@
         overflow: hidden;
     }
 
-    /* Mantiene el visor alto sin crear scroll en sidebar */
     .viewer-frame {
         width: 100%;
         max-width: 1100px;
@@ -300,7 +299,7 @@
         .doc-viewer-breakout { min-height: 100vh; }
     }
 
-    /* TOAST simple */
+    /* ======= TOAST simple ======= */
     .pv-toast-wrap{
       position:fixed; top:14px; right:14px; z-index:99999;
       display:flex; flex-direction:column; gap:10px;
@@ -328,7 +327,7 @@
     }
     .pv-toast .x:hover{ background:#f2f4f7; color:#0f172a; }
 
-    /* MODAL FICTICIO */
+    /* ======= MODAL FICTICIO ======= */
     .pv-modal{ position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:90000; }
     .pv-modal[aria-hidden="false"]{ display:flex; }
     .pv-backdrop{ position:absolute; inset:0; background:rgba(0,0,0,0.48); }
@@ -386,17 +385,18 @@
     .pv-mini{ font-size:12px; color:#475467; font-weight:900; }
 </style>
 
-<div class="pv-toast-wrap" id="pvToastWrap" aria-live="polite" aria-atomic="true" ></div>
+<div class="pv-toast-wrap" id="pvToastWrap" aria-live="polite" aria-atomic="true"></div>
 
 <div class="doc-viewer-breakout" style="margin-top:-30px;">
   <div class="doc-viewer-layout">
 
     <aside class="doc-sidebar">
       <div class="sidebar-header">
-        <a href="{{ $returnUrl ?: url()->previous() }}" class="btn-back">
+        <a href="{{ $backUrl }}" class="btn-back">
           <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
           Volver al listado
         </a>
+
         <h1 class="doc-title">{{ $document->title }}</h1>
         <span class="doc-badge">{{ strtoupper(explode('/', $mime)[1] ?? 'FILE') }}</span>
       </div>
@@ -451,13 +451,19 @@
 
       <div class="sidebar-footer">
 
-        {{-- 2) Toggle (como lo quieres: ver ficticio / ver documento) --}}
+        {{-- ✅ Si YA tiene ficticio: NO mostrar el botón negro "Descargar Documento" --}}
+        @if(!$hasFicticio)
+          <a href="{{ route('partcontable.documents.download', $document) }}" class="btn btn-primary">
+            Descargar Documento
+          </a>
+        @endif
+
+        {{-- Si tiene ficticio: toggle + descargas juntas --}}
         @if($hasFicticio)
           <button type="button" class="btn btn-toggle" id="pvTogglePreview" data-mode="main">
             Ver ficticio
           </button>
 
-          {{-- 3) Debajo del toggle: los 2 botones de descargar JUNTOS (lado a lado) --}}
           <div class="btn-row">
             <a href="{{ route('partcontable.documents.download', $document) }}" class="btn btn-secondary">
               Descargar Doc
@@ -522,6 +528,7 @@
   </div>
 </div>
 
+{{-- ✅ MODAL FICTICIO (NO SE QUITA) --}}
 @if($allowFicticioHere && !$hasFicticio)
 <div class="pv-modal" id="pvFicticioModal" aria-hidden="true" aria-labelledby="pvFicticioTitle" role="dialog">
   <div class="pv-backdrop" data-pv-close="1"></div>
@@ -561,7 +568,7 @@
       <div class="pv-foot">
         <button type="button" class="pv-btn" data-pv-close="1">Cancelar</button>
         <button type="submit" class="pv-btn pv-btn-solid" id="pvSubmit">Subir</button>
-        <span class="pv-mini" id="pvLoading" style="display:none;">Subiendo…</span>
+        <span class="pv-mini" id="pvLoading" style="display:none;">Subiendo...</span>
       </div>
     </form>
   </div>
@@ -619,6 +626,55 @@
     return i >= 0 ? name.slice(i+1).toLowerCase() : '';
   }
 
+  // Toggle preview
+  const toggleBtn = document.getElementById('pvTogglePreview');
+  const layerMain = document.getElementById('pvLayerMain');
+  const layerFict = document.getElementById('pvLayerFict');
+
+  function setMode(mode){
+    if(!layerMain) return;
+
+    if(mode === 'fict' && layerFict){
+      layerMain.classList.remove('active');
+      layerMain.setAttribute('aria-hidden','true');
+
+      layerFict.classList.add('active');
+      layerFict.setAttribute('aria-hidden','false');
+
+      if(toggleBtn){
+        toggleBtn.dataset.mode = 'fict';
+        toggleBtn.textContent = 'Ver documento';
+      }
+      return;
+    }
+
+    layerMain.classList.add('active');
+    layerMain.setAttribute('aria-hidden','false');
+
+    if(layerFict){
+      layerFict.classList.remove('active');
+      layerFict.setAttribute('aria-hidden','true');
+
+      const v = layerFict.querySelector('video');
+      if(v){ try{ v.pause(); }catch(_){} }
+    }
+
+    if(toggleBtn){
+      toggleBtn.dataset.mode = 'main';
+      toggleBtn.textContent = 'Ver ficticio';
+    }
+  }
+
+  if(toggleBtn){
+    toggleBtn.addEventListener('click', (e)=>{
+      e.preventDefault();
+      const current = toggleBtn.dataset.mode || 'main';
+      if(current === 'main') setMode('fict');
+      else setMode('main');
+    });
+  }
+
+  // Modal ficticio
   const modal   = document.getElementById('pvFicticioModal');
   const btnOpen = document.getElementById('pvOpenFicticio');
   const dz      = document.getElementById('pvDropzone');
@@ -674,54 +730,6 @@
     });
   }
   if(input) input.addEventListener('change', refreshName);
-
-  // Toggle preview
-  const toggleBtn = document.getElementById('pvTogglePreview');
-  const layerMain = document.getElementById('pvLayerMain');
-  const layerFict = document.getElementById('pvLayerFict');
-
-  function setMode(mode){
-    if(!layerMain) return;
-
-    if(mode === 'fict' && layerFict){
-      layerMain.classList.remove('active');
-      layerMain.setAttribute('aria-hidden','true');
-
-      layerFict.classList.add('active');
-      layerFict.setAttribute('aria-hidden','false');
-
-      if(toggleBtn){
-        toggleBtn.dataset.mode = 'fict';
-        toggleBtn.textContent = 'Ver documento';
-      }
-      return;
-    }
-
-    layerMain.classList.add('active');
-    layerMain.setAttribute('aria-hidden','false');
-
-    if(layerFict){
-      layerFict.classList.remove('active');
-      layerFict.setAttribute('aria-hidden','true');
-
-      const v = layerFict.querySelector('video');
-      if(v){ try{ v.pause(); }catch(_){} }
-    }
-
-    if(toggleBtn){
-      toggleBtn.dataset.mode = 'main';
-      toggleBtn.textContent = 'Ver ficticio';
-    }
-  }
-
-  if(toggleBtn){
-    toggleBtn.addEventListener('click', (e)=>{
-      e.preventDefault();
-      const current = toggleBtn.dataset.mode || 'main';
-      if(current === 'main') setMode('fict');
-      else setMode('main');
-    });
-  }
 
   // Upload ficticio
   if(form){

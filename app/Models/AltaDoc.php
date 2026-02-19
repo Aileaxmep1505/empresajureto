@@ -15,11 +15,13 @@ class AltaDoc extends Model
     public const CATEGORY_CEDULA_ESTADO       = 'cedula_estado';
     public const CATEGORY_CEDULA_MUNICIPIO    = 'cedula_municipio';
     public const CATEGORY_CEDULA_UNIVERSIDAD  = 'cedula_universidad';
+    public const CATEGORY_CEDULA_ORGANISMO    = 'cedula_organismo'; // ✅ nuevo
 
     public const CATEGORIES = [
         self::CATEGORY_CEDULA_ESTADO,
         self::CATEGORY_CEDULA_MUNICIPIO,
         self::CATEGORY_CEDULA_UNIVERSIDAD,
+        self::CATEGORY_CEDULA_ORGANISMO, // ✅ nuevo
     ];
 
     public static function categoryLabels(): array
@@ -28,6 +30,7 @@ class AltaDoc extends Model
             self::CATEGORY_CEDULA_ESTADO      => 'Cédula por estado',
             self::CATEGORY_CEDULA_MUNICIPIO   => 'Cédula por municipio',
             self::CATEGORY_CEDULA_UNIVERSIDAD => 'Cédula por universidad',
+            self::CATEGORY_CEDULA_ORGANISMO   => 'Cédula por organismo', // ✅ nuevo
         ];
     }
 
@@ -42,6 +45,11 @@ class AltaDoc extends Model
         'title',
         'doc_date',
 
+        // ✅ nuevos
+        'expires_at',
+        'link_url',
+        'link_password',
+
         'original_name',
         'stored_name',
         'disk',
@@ -53,8 +61,9 @@ class AltaDoc extends Model
     ];
 
     protected $casts = [
-        'size'     => 'integer',
-        'doc_date' => 'date:Y-m-d',
+        'size'       => 'integer',
+        'doc_date'   => 'date:Y-m-d',
+        'expires_at' => 'date:Y-m-d', // ✅ nuevo
     ];
 
     public function uploadedBy()

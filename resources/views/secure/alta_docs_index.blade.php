@@ -1,3 +1,4 @@
+{{-- resources/views/secure/alta_docs_index.blade.php --}}
 @extends('layouts.app')
 @section('title','Documentación confidencial para altas')
 
@@ -9,11 +10,17 @@
   $category  = $category ?? request('category', '');
   $catLabels = $catLabels ?? AltaDoc::categoryLabels();
 
+  // ✅ Nuevo tipo (seguro aunque todavía no exista la constante en el modelo)
+  $CAT_ORG = defined('App\Models\AltaDoc::CATEGORY_CEDULA_ORGANISMO')
+    ? AltaDoc::CATEGORY_CEDULA_ORGANISMO
+    : 'cedula_organismo';
+
   $categoriesUi = [
     '' => 'Todas',
     AltaDoc::CATEGORY_CEDULA_ESTADO      => $catLabels[AltaDoc::CATEGORY_CEDULA_ESTADO] ?? 'Cédula por estado',
     AltaDoc::CATEGORY_CEDULA_MUNICIPIO   => $catLabels[AltaDoc::CATEGORY_CEDULA_MUNICIPIO] ?? 'Cédula por municipio',
     AltaDoc::CATEGORY_CEDULA_UNIVERSIDAD => $catLabels[AltaDoc::CATEGORY_CEDULA_UNIVERSIDAD] ?? 'Cédula por universidad',
+    $CAT_ORG                             => $catLabels[$CAT_ORG] ?? 'Cédula por organismo',
   ];
 @endphp
 
@@ -56,18 +63,13 @@
       </div>
     </div>
 
-    {{-- Mensajes --}}
-    @if(session('ok'))
-      <div class="flash flash-ok">{{ session('ok') }}</div>
-    @endif
-    @if(session('error'))
-      <div class="flash flash-err">{{ session('error') }}</div>
-    @endif
-    @if($errors->any())
-      <div class="flash flash-err">
-        @foreach($errors->all() as $e) <div>{{ $e }}</div> @endforeach
-      </div>
-    @endif
+    {{-- ❌ Quitamos flashes. ✅ Todo se muestra en TOAST. --}}
+    @php
+      $toastOk = session('ok');
+      $toastErr = session('error');
+      $toastWarn = session('warning');
+      $toastValErr = $errors->any() ? implode("\n", $errors->all()) : null;
+    @endphp
 
     {{-- Toolbar --}}
     <div class="toolbar">
@@ -76,12 +78,8 @@
           @php
             $isActive = ($category === (string)$key);
             $params = request()->query();
-
-            // al cambiar filtro, reset page
             unset($params['page']);
-
             if($key === '') unset($params['category']); else $params['category'] = $key;
-
             $url = url()->current() . (count($params) ? ('?' . http_build_query($params)) : '');
           @endphp
 
@@ -132,45 +130,80 @@
             ? \Carbon\Carbon::parse($doc->doc_date)->format('d M Y')
             : (optional($doc->created_at)->format('d M Y') ?? '');
 
-          $previewUrl  = route('alta.docs.preview', $doc);
-          $downloadUrl = route('alta.docs.download', $doc);
+          $expiryRaw = $doc->expires_at
+            ?? $doc->expiry_date
+            ?? $doc->vigencia
+            ?? $doc->valid_until
+            ?? null;
 
+          $expiryDate = $expiryRaw ? \Carbon\Carbon::parse($expiryRaw) : null;
+          $now = \Carbon\Carbon::now();
+
+          $daysToExpire = null;
+          $semaforo = 'none'; // none|ok|warn|bad
+          $semaforoText = 'Sin vigencia';
+          $semaforoDaysText = '';
+
+          if ($expiryDate) {
+            $daysToExpire = $now->startOfDay()->diffInDays($expiryDate->copy()->startOfDay(), false);
+
+            if ($daysToExpire < 0) {
+              $semaforo = 'bad';
+              $semaforoText = 'Vencida';
+              $semaforoDaysText = 'Vencida hace ' . abs($daysToExpire) . ' día(s)';
+            } elseif ($daysToExpire <= 30) {
+              $semaforo = 'warn';
+              $semaforoText = 'Por vencer';
+              $semaforoDaysText = 'Vence en ' . $daysToExpire . ' día(s)';
+            } else {
+              $semaforo = 'ok';
+              $semaforoText = 'Vigente';
+              $semaforoDaysText = 'Vence en ' . $daysToExpire . ' día(s)';
+            }
+          }
+
+          $expiryLabel = $expiryDate ? $expiryDate->format('d M Y') : '—';
+
+          $downloadUrl = route('alta.docs.download', $doc);
+          $showUrl = route('alta.docs.show', $doc);
           $categoryLabel = $doc->category_label ?? 'Documento';
         @endphp
 
-        <article class="doc-card" data-id="{{ $doc->id }}" tabindex="0" aria-label="{{ $title }}">
+        <article class="doc-card" data-id="{{ $doc->id }}" data-show-url="{{ $showUrl }}" tabindex="0" aria-label="{{ $title }}">
 
-          <button
-            type="button"
-            class="doc-hit js-open-preview"
-            data-title="{{ $title }}"
-            data-filename="{{ $filename }}"
-            data-ext="{{ $ext }}"
-            data-url="{{ $previewUrl }}"
-            data-download="{{ $downloadUrl }}"
-            aria-label="Ver {{ $title }}"
-          ></button>
+          <a href="{{ $showUrl }}" class="doc-hit" aria-label="Ver {{ $title }}"></a>
 
           <div class="doc-hero">
             <div class="doc-hero-top">
               <div class="badges">
                 <span class="doc-pill doc-pill-type">{{ $categoryLabel }}</span>
                 <span class="doc-pill {{ $isPdf ? 'doc-pill-pdf' : 'doc-pill-file' }}">{{ strtoupper($ext ?: 'FILE') }}</span>
+
+                <span class="doc-pill doc-pill-vig {{ $semaforo !== 'none' ? ('vig-' . $semaforo) : 'vig-none' }}">
+                  {{ $semaforoText }}
+                </span>
               </div>
 
-              <form method="POST" action="{{ route('alta.docs.destroy', $doc) }}" class="doc-del-form" aria-label="Eliminar">
-                @csrf
-                @method('DELETE')
-                <button type="submit" class="icon-chip icon-chip-danger js-stop" aria-label="Eliminar {{ $title }}">
-                  <svg viewBox="0 0 24 24">
-                    <polyline points="3 6 5 6 21 6"></polyline>
-                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
-                    <path d="M10 11v6"></path>
-                    <path d="M14 11v6"></path>
-                    <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"></path>
-                  </svg>
-                </button>
-              </form>
+              <div class="doc-actions">
+                {{-- Eliminar --}}
+                <form method="POST"
+                      action="{{ route('alta.docs.destroy', $doc) }}"
+                      class="doc-del-form js-stop js-del"
+                      data-doc-title="{{ e(Str::limit($title, 70)) }}"
+                      aria-label="Eliminar">
+                  @csrf
+                  @method('DELETE')
+                  <button type="submit" class="icon-chip icon-chip-danger" aria-label="Eliminar {{ $title }}">
+                    <svg viewBox="0 0 24 24">
+                      <polyline points="3 6 5 6 21 6"></polyline>
+                      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+                      <path d="M10 11v6"></path>
+                      <path d="M14 11v6"></path>
+                      <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"></path>
+                    </svg>
+                  </button>
+                </form>
+              </div>
             </div>
 
             <div class="doc-media" role="img" aria-label="{{ $title }}">
@@ -218,7 +251,15 @@
             </div>
 
             <div class="doc-title">{{ Str::limit($title, 60) }}</div>
-            <div class="doc-date">Fecha: <strong>{{ $dateLabel ?: '—' }}</strong></div>
+
+            <div class="doc-date">Última renovación: <strong>{{ $dateLabel ?: '—' }}</strong></div>
+
+            <div class="doc-vig">
+              Vigencia (vencimiento): <strong>{{ $expiryLabel }}</strong>
+              @if($semaforo !== 'none')
+                <span class="doc-vig-days {{ 'vig-' . $semaforo }}">{{ $semaforoDaysText }}</span>
+              @endif
+            </div>
           </div>
 
           <div class="doc-footer">
@@ -234,7 +275,12 @@
 
               <div class="doc-footer-meta">
                 <div class="doc-footer-name">{{ Str::limit($doc->original_name ?? $title, 40) }}</div>
-                <div class="doc-footer-sub">{{ $categoryLabel }} • {{ $doc->human_size ?? '—' }}</div>
+                <div class="doc-footer-sub">
+                  {{ $categoryLabel }} • {{ $doc->human_size ?? '—' }}
+                  @if($semaforo !== 'none')
+                    • <span class="footer-vig {{ 'vig-' . $semaforo }}">{{ $semaforoText }}</span>
+                  @endif
+                </div>
               </div>
             </div>
 
@@ -272,7 +318,7 @@
     </div>
 
     <div class="modal__body">
-      <form action="{{ route('alta.docs.store') }}" method="POST" enctype="multipart/form-data">
+      <form action="{{ route('alta.docs.store') }}" method="POST" enctype="multipart/form-data" id="uploadForm">
         @csrf
 
         <label class="lbl">Tipo</label>
@@ -281,15 +327,29 @@
           <option value="{{ AltaDoc::CATEGORY_CEDULA_ESTADO }}" {{ old('category')===AltaDoc::CATEGORY_CEDULA_ESTADO ? 'selected' : '' }}>Cédula por estado</option>
           <option value="{{ AltaDoc::CATEGORY_CEDULA_MUNICIPIO }}" {{ old('category')===AltaDoc::CATEGORY_CEDULA_MUNICIPIO ? 'selected' : '' }}>Cédula por municipio</option>
           <option value="{{ AltaDoc::CATEGORY_CEDULA_UNIVERSIDAD }}" {{ old('category')===AltaDoc::CATEGORY_CEDULA_UNIVERSIDAD ? 'selected' : '' }}>Cédula por universidad</option>
+          <option value="{{ $CAT_ORG }}" {{ old('category')===(string)$CAT_ORG ? 'selected' : '' }}>Cédula por organismo</option>
         </select>
 
         <label class="lbl">Título</label>
         <input type="text" name="title" class="inp" maxlength="160" required
-               placeholder="Ej: Cédula 2026 · Estado de Sonora"
+               placeholder="Ej: Cédula 2026 · Organismo X"
                value="{{ old('title') }}">
 
-        <label class="lbl">Fecha</label>
+        <label class="lbl">Fecha de registro / última renovación</label>
         <input type="date" name="doc_date" class="inp" required value="{{ old('doc_date') }}">
+
+        <label class="lbl">Vigencia (fecha de vencimiento)</label>
+        <input type="date" name="expires_at" class="inp" value="{{ old('expires_at') }}">
+
+        <label class="lbl">Enlace (opcional)</label>
+        <input type="url" name="link_url" class="inp" maxlength="500"
+               placeholder="https://..."
+               value="{{ old('link_url') }}">
+
+        <label class="lbl">Contraseña del enlace (opcional)</label>
+        <input type="text" name="link_password" class="inp" maxlength="180"
+               placeholder="Ej: ********"
+               value="{{ old('link_password') }}">
 
         <label class="lbl">Archivos</label>
         <div class="dropzone">
@@ -312,45 +372,18 @@
 
         <label class="lbl">Notas (opcional)</label>
         <input type="text" name="notes" class="inp" maxlength="500"
-               placeholder="Ej: Vigencia, observaciones, referencia interna"
+               placeholder="Ej: Observaciones, referencia interna"
                value="{{ old('notes') }}">
 
         <div class="modal__footer">
           <button type="button" class="mini-pill mini-pill-muted" data-modal-close>Cancelar</button>
-          <button type="submit" class="mini-pill">Subir</button>
+          <button type="submit" class="mini-pill" id="uploadSubmitBtn">Subir</button>
         </div>
       </form>
     </div>
   </div>
 </div>
-
-{{-- MODAL: Preview --}}
-<div id="preview-modal" class="modal" aria-hidden="true">
-  <div class="modal__overlay" data-modal-close></div>
-  <div class="modal__panel modal__panel--wide">
-    <div class="modal__header">
-      <h2 class="modal__title" id="preview-title">Documento</h2>
-      <button type="button" class="modal__close" data-modal-close aria-label="Cerrar">
-        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
-      </button>
-    </div>
-
-    <div class="modal__body preview-body">
-      <div class="preview-loading" id="preview-loading">Cargando…</div>
-      <iframe id="preview-frame" class="preview-frame" src="" title="Previsualización"></iframe>
-      <div id="preview-fallback" class="preview-fallback">
-        Este tipo de archivo no se puede previsualizar aquí. Descárgalo directamente.
-      </div>
-    </div>
-
-    <div class="modal__footer preview-footer">
-      <a id="preview-download" href="#" class="mini-pill">Descargar</a>
-    </div>
-  </div>
-</div>
 @endsection
-
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <style>
 :root{
@@ -408,10 +441,6 @@ html, body{
 }
 .mini-pill-ico svg{ width:16px;height:16px; stroke:currentColor; stroke-width:1.9; fill:none; stroke-linecap:round; stroke-linejoin:round; }
 .mini-pill-muted{ background:#ffffff; color:#0b1220; }
-
-.flash{ border-radius:14px; padding:10px 12px; margin:10px 0 14px; font-weight:700; backdrop-filter:blur(6px); }
-.flash-ok{ background:rgba(220,252,231,.9); color:#166534; }
-.flash-err{ background:rgba(254,242,242,.92); color:#991b1b; }
 
 .toolbar{
   display:flex; align-items:center; justify-content:space-between;
@@ -478,10 +507,21 @@ html, body{
   cursor:pointer;
 }
 .doc-card:hover{ transform:translateY(-6px); box-shadow:var(--shadow); }
-.doc-hit{ position:absolute; inset:0; background:transparent; border:0; cursor:pointer; z-index:1; }
-.doc-card a, .doc-card button, .doc-card form{ cursor:default; }
 
-.doc-hero{ padding:14px; position:relative; z-index:2; display:flex; flex-direction:column; gap:10px; }
+.doc-hit{
+  position:absolute;
+  inset:0;
+  background:transparent;
+  border:0;
+  cursor:pointer;
+  z-index:2;
+  pointer-events:none;
+}
+
+.doc-hero{ padding:14px; position:relative; z-index:1; display:flex; flex-direction:column; gap:10px; }
+.doc-footer{ z-index:1; }
+.doc-actions{ display:flex; align-items:center; gap:8px; position:relative; z-index:4; }
+
 .doc-hero-top{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
 .badges{ display:flex; gap:8px; flex-wrap:wrap; }
 
@@ -497,6 +537,12 @@ html, body{
 .doc-pill-type{ background:#ffffff; color:#0b1220; border:1px solid rgba(15,23,42,.08); }
 .doc-pill-file{ background:#fff7ed; color:#b45309; }
 .doc-pill-pdf{ background:var(--pdf-soft); color:#b91c1c; }
+
+.doc-pill-vig{ border:1px solid rgba(15,23,42,.08); }
+.vig-none{ background:#ffffff; color:#64748b; }
+.vig-ok{ background:rgba(220,252,231,.92); color:#166534; border-color:rgba(22,101,52,.20); }
+.vig-warn{ background:rgba(254,249,195,.92); color:#854d0e; border-color:rgba(133,77,14,.20); }
+.vig-bad{ background:rgba(254,226,226,.92); color:#991b1b; border-color:rgba(153,27,27,.20); }
 
 .icon-chip{
   width:42px;height:42px; border-radius:14px; border:0;
@@ -544,6 +590,23 @@ html, body{
 }
 .doc-date{ margin-top:-4px; color:#64748b; font-weight:700; font-size:13px; }
 
+.doc-vig{
+  margin-top:-4px;
+  color:#64748b;
+  font-weight:700;
+  font-size:13px;
+}
+.doc-vig-days{
+  margin-left:8px;
+  padding:4px 8px;
+  border-radius:999px;
+  font-weight:900;
+  font-size:12px;
+  border:1px solid rgba(15,23,42,.08);
+  display:inline-flex;
+  align-items:center;
+}
+
 .doc-footer{
   padding:12px 14px;
   display:flex;
@@ -553,7 +616,6 @@ html, body{
   border-top:1px solid rgba(15,23,42,.06);
   background:rgba(255,255,255,.60);
   position:relative;
-  z-index:3;
 }
 .doc-footer-left{ display:flex; align-items:center; gap:12px; min-width:0; }
 .doc-type-dot{
@@ -575,6 +637,10 @@ html, body{
   margin-top:2px; color:#64748b; font-weight:700; font-size:13px;
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:260px;
 }
+.footer-vig{ font-weight:900; }
+.footer-vig.vig-ok{ color:#166534; }
+.footer-vig.vig-warn{ color:#854d0e; }
+.footer-vig.vig-bad{ color:#991b1b; }
 
 .empty{
   grid-column:1/-1;
@@ -605,7 +671,6 @@ html, body{
   transform:translateY(8px);
   animation:modal-in .18s ease-out;
 }
-.modal__panel--wide{ max-width:980px; }
 .modal__header{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:2px 2px 10px; border-bottom:1px solid rgba(15,23,42,.08); }
 .modal__title{ margin:0; font-size:1rem; font-weight:900; color:#0f172a; }
 .modal__close{
@@ -620,26 +685,10 @@ html, body{
 .modal__footer{ padding:10px 2px 2px; border-top:1px solid rgba(15,23,42,.08); display:flex; gap:10px; justify-content:flex-end; margin-top:6px; }
 @keyframes modal-in{ from{opacity:0; transform:translateY(16px);} to{opacity:1; transform:translateY(8px);} }
 
-.preview-body{ padding:10px 0 6px; }
-.preview-loading{
-  display:none;
-  font-weight:800;
-  color:#64748b;
-  padding:10px 12px;
-  border-radius:14px;
-  background:#ffffff;
-  border:1px solid rgba(15,23,42,.08);
-  margin-bottom:10px;
-}
-.preview-frame{ width:100%; height:65vh; border:1px solid rgba(15,23,42,.10); border-radius:14px; background:#f9fafb; display:none; }
-.preview-fallback{ display:none; font-weight:700; color:#64748b; padding:12px; border-radius:14px; background:#f9fafb; border:1px dashed rgba(15,23,42,.18); }
-.preview-footer{ justify-content:flex-end; }
-
 @media(max-width:640px){
   .alta-wrap{ padding:18px 14px 26px; }
   .modal{ align-items:flex-end; }
   .modal__panel{ max-width:100%; border-radius:18px 18px 0 0; max-height:82vh; margin:0 0 env(safe-area-inset-bottom,0); }
-  .preview-frame{ height:60vh; }
 }
 
 .lbl{ display:block; margin:12px 0 6px; font-weight:900; color:#0f172a; }
@@ -702,12 +751,75 @@ html, body{
 }
 </style>
 
+{{-- ✅ SweetAlert2 --}}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <script>
 (function(){
   'use strict';
 
+ // ✅ Toast pastel / pro (sin negro)
+const Toast = Swal.mixin({
+  toast: true,
+  position: 'top-end',
+  showConfirmButton: false,
+  timer: 2800,
+  timerProgressBar: true,
+  showCloseButton: true,
+
+  // Deja que el CSS mande (pv-toast). Si prefieres fijo, comenta estas 2.
+  background: 'transparent',
+  color: '#0f172a',
+
+  // Icono más vivo (siempre slate/azul). También puedes omitir y dejar que SweetAlert lo pinte por tipo.
+  iconColor: '#3b82f6',
+
+  customClass: {
+    popup: 'swal2-toast pv-toast',
+    title: 'pv-toast-title',
+    htmlContainer: 'pv-toast-text'
+  }
+});
+
+
+  // ✅ Confirm minimalista/pro
+  function confirmDelete(title){
+    return Swal.fire({
+      title: 'Eliminar documento',
+      html: `<div style="font-size:13px;color:#667085;line-height:1.5;">
+              Se eliminará <b>${title || 'este documento'}</b>.<br>
+              Esta acción no se puede deshacer.
+            </div>`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Eliminar',
+      cancelButtonText: 'Cancelar',
+      reverseButtons: true,
+      focusCancel: true,
+      buttonsStyling: false,
+      customClass: {
+        popup: 'pv-swal',
+        title: 'pv-swal-title',
+        htmlContainer: 'pv-swal-text',
+        confirmButton: 'pv-btn pv-btn-danger',
+        cancelButton: 'pv-btn pv-btn-ghost'
+      }
+    });
+  }
+
   document.addEventListener('DOMContentLoaded', function(){
     const body = document.body;
+
+    // ✅ Mostrar TOASTS desde sesión/validación (sin flashes)
+    const sessOk = @json($toastOk);
+    const sessErr = @json($toastErr);
+    const sessWarn = @json($toastWarn);
+    const valErr = @json($toastValErr);
+
+    if(sessOk) Toast.fire({ icon: 'success', title: sessOk });
+    if(sessWarn) Toast.fire({ icon: 'info', title: sessWarn });
+    if(sessErr) Toast.fire({ icon: 'error', title: sessErr });
+    if(valErr) Toast.fire({ icon: 'error', title: 'Revisa los campos', text: valErr });
 
     function openModal(id){
       const modal = document.getElementById(id);
@@ -720,15 +832,6 @@ html, body{
       if(!modal) return;
       modal.classList.remove('is-open');
       body.style.overflow = '';
-
-      if(modal.id === 'preview-modal'){
-        const frame = document.getElementById('preview-frame');
-        const fallback = document.getElementById('preview-fallback');
-        const loading = document.getElementById('preview-loading');
-        if(frame){ frame.src=''; frame.style.display='none'; }
-        if(fallback){ fallback.style.display='none'; }
-        if(loading){ loading.style.display='none'; }
-      }
     }
 
     document.querySelectorAll('[data-modal-target]').forEach(btn=>{
@@ -752,77 +855,67 @@ html, body{
       }
     });
 
+    // ✅ Evitar que clicks en botones/acciones naveguen al show
     document.querySelectorAll('.js-stop').forEach(el=>{
       el.addEventListener('click', (e)=>{ e.stopPropagation(); });
       el.addEventListener('pointerdown', (e)=>{ e.stopPropagation(); });
     });
 
-    const previewFrame = document.getElementById('preview-frame');
-    const previewFallback = document.getElementById('preview-fallback');
-    const previewLoading = document.getElementById('preview-loading');
-
-    function setPreviewLoading(on){
-      if(!previewLoading) return;
-      previewLoading.style.display = on ? 'block' : 'none';
-    }
-
-    function openPreview(btn){
-      const title = btn.dataset.title || 'Documento';
-      const url   = btn.dataset.url || '#';
-      const durl  = btn.dataset.download || url;
-      const ext   = (btn.dataset.ext || (btn.dataset.filename || '').split('.').pop() || '').toLowerCase();
-
-      const titleEl = document.getElementById('preview-title');
-      const dl      = document.getElementById('preview-download');
-
-      if(titleEl) titleEl.textContent = title;
-      if(dl) dl.href = durl;
-
-      const canEmbed = ['pdf','png','jpg','jpeg','gif','webp'].includes(ext);
-
-      if(previewFallback) previewFallback.style.display = 'none';
-      if(previewFrame){ previewFrame.style.display='none'; previewFrame.src=''; }
-
-      setPreviewLoading(true);
-
-      if(canEmbed && previewFrame){
-        previewFrame.src = url;
-        openModal('preview-modal');
-      } else {
-        setPreviewLoading(false);
-        if(previewFallback) previewFallback.style.display = 'block';
-        openModal('preview-modal');
-      }
-    }
-
-    document.querySelectorAll('.js-open-preview').forEach(btn=>{
-      btn.addEventListener('click', (e)=>{
-        e.preventDefault();
-        e.stopPropagation();
-        openPreview(btn);
-      });
-    });
-
+    // ✅ CLICK EN TODA LA CARD => ir a SHOW
     document.querySelectorAll('.doc-card').forEach(card=>{
-      card.addEventListener('click', (e)=>{
+      const url = card.getAttribute('data-show-url');
+      if(!url) return;
+
+      card.addEventListener('click', function(e){
         if(e.target.closest('.js-stop')) return;
         if(e.target.closest('a')) return;
-        if(e.target.closest('button') && !e.target.closest('.doc-hit')) return;
+        if(e.target.closest('button')) return;
         if(e.target.closest('form')) return;
+        window.location.href = url;
+      });
 
-        const btn = card.querySelector('.js-open-preview');
-        if(btn) openPreview(btn);
+      card.addEventListener('keydown', function(e){
+        if(e.key === 'Enter' || e.key === ' '){
+          e.preventDefault();
+          window.location.href = url;
+        }
       });
     });
 
-    if(previewFrame){
-      previewFrame.addEventListener('load', ()=>{
-        setPreviewLoading(false);
-        previewFrame.style.display = 'block';
-        if(previewFallback) previewFallback.style.display = 'none';
+    // ✅ SweetAlert confirm para eliminar + toast resultado
+    document.querySelectorAll('form.js-del').forEach(form=>{
+      form.addEventListener('submit', async (e)=>{
+        e.preventDefault();
+
+        const title = form.getAttribute('data-doc-title') || 'Documento';
+        const r = await confirmDelete(title);
+
+        if(!r.isConfirmed){
+          Toast.fire({ icon:'info', title:'Cancelado' });
+          return;
+        }
+
+        // opcional: toast de "eliminando..."
+        Toast.fire({ icon:'success', title:'Eliminando…', timer: 1200 });
+
+        form.submit();
+      });
+    });
+
+    // ✅ Toast al enviar subida (feedback inmediato)
+    const uploadForm = document.getElementById('uploadForm');
+    const uploadBtn = document.getElementById('uploadSubmitBtn');
+    if(uploadForm){
+      uploadForm.addEventListener('submit', ()=>{
+        if(uploadBtn){
+          uploadBtn.disabled = true;
+          uploadBtn.style.opacity = '0.8';
+        }
+        Toast.fire({ icon:'success', title:'Subiendo…' , timer: 1400 });
       });
     }
 
+    // Chips de archivos
     const input = document.getElementById('files_input');
     const chipsBox = document.getElementById('files_chips');
 
@@ -840,6 +933,7 @@ html, body{
     }
     if(input){ input.addEventListener('change', function(){ refreshChips(input.files); }); }
 
+    // Search auto-submit
     const form = document.getElementById('searchForm');
     const qInput = document.getElementById('q');
     const clear = document.getElementById('clearSearch');
@@ -872,6 +966,88 @@ html, body{
         submitSearch();
       });
     }
+
+    // ✅ Si hay errores/ok y el modal quedó abierto por old(), lo abrimos
+    const shouldOpenModal = {!! json_encode((bool) old('title') || (bool) old('doc_date') || $errors->any()) !!};
+    if(shouldOpenModal){
+      openModal('upload-modal');
+    }
   });
 })();
 </script>
+
+<style>
+/* ✅ estilos minimalistas SweetAlert2 */
+.pv-swal{
+  border-radius:16px !important;
+  box-shadow: 0 18px 60px rgba(2,6,23,.18) !important;
+  border: 1px solid rgba(15,23,42,.08) !important;
+}
+.pv-swal-title{
+  font-weight:900 !important;
+  color:#0b1220 !important;
+  letter-spacing:-.01em !important;
+}
+.pv-swal-text{
+  margin-top: 6px !important;
+  color:#667085 !important;
+  font-weight:600 !important;
+}
+.pv-btn{
+  border-radius: 12px !important;
+  padding: 10px 14px !important;
+  font-weight:900 !important;
+  border:1px solid rgba(15,23,42,.10) !important;
+  background:#fff !important;
+  color:#0b1220 !important;
+  margin: 0 6px !important;
+}
+.pv-btn:hover{ transform: translateY(-1px); box-shadow: 0 14px 30px rgba(2,6,23,.10); }
+.pv-btn-ghost{
+  background:#fff !important;
+  color:#0b1220 !important;
+}
+.pv-btn-danger{
+  background:#0b1220 !important;
+  border-color:#0b1220 !important;
+  color:#fff !important;
+}
+.pv-btn-danger:hover{ box-shadow: 0 18px 44px rgba(2,6,23,.22); }
+
+/* Toast (más color, sin negro) */
+.pv-toast{
+  border-radius: 14px !important;
+  padding: 10px 12px !important;
+
+  /* ✅ look pastel + vivo */
+  background: linear-gradient(135deg, rgba(239,246,255,.96), rgba(236,253,245,.92)) !important;
+  border: 1px solid rgba(59,130,246,.18) !important;
+  box-shadow: 0 18px 50px rgba(59,130,246,.12), 0 14px 36px rgba(16,185,129,.10) !important;
+
+  backdrop-filter: blur(10px) !important;
+}
+
+.pv-toast-title{
+  font-weight: 950 !important;
+  font-size: 13px !important;
+  color: #0f172a !important; /* slate, no negro */
+  letter-spacing: -.01em !important;
+}
+
+.pv-toast-text{
+  font-weight: 750 !important;
+  color: rgba(15,23,42,.74) !important; /* slate suave */
+  font-size: 12px !important;
+  white-space: pre-line !important;
+}
+
+/* ✅ icono con color (por tipo) */
+.pv-toast .swal2-icon{
+  margin: 0 .35rem 0 0 !important;
+}
+.pv-toast .swal2-success{ color:#10b981 !important; }
+.pv-toast .swal2-error{ color:#ef4444 !important; }
+.pv-toast .swal2-warning{ color:#f59e0b !important; }
+.pv-toast .swal2-info{ color:#3b82f6 !important; }
+.pv-toast .swal2-question{ color:#8b5cf6 !important; }
+</style>

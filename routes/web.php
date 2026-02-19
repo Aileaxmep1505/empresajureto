@@ -1727,21 +1727,28 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/documentacion-altas', [AltaDocsController::class, 'store'])
             ->name('alta.docs.store');
 
-        // Descargar
-        Route::get('/documentacion-altas/{doc}/descargar', [AltaDocsController::class, 'download'])
-            ->name('alta.docs.download');
+
+// ✅ NUEVA: preview inline (para iframe/img/video)
+Route::get('/secure/alta-docs/{doc}/preview', [AltaDocsController::class, 'preview'])
+  ->name('alta.docs.preview');
+  Route::get('/documentacion-altas/{doc}/descargar', [AltaDocsController::class, 'download'])
+  ->name('alta.docs.download');
 
         // Eliminar
         Route::delete('/documentacion-altas/{doc}', [AltaDocsController::class, 'destroy'])
             ->name('alta.docs.destroy');
+            // ✅ Preview inline (para iframe/img/video en la vista show)
+Route::get('/secure/alta-docs/{doc}/preview', [AltaDocsController::class, 'preview'])
+  ->name('alta.docs.preview');
     });
 
     // 4) Cerrar sesión de NIP
     Route::post('/documentacion-altas/logout', [AltaDocsController::class, 'logoutPin'])
         ->name('secure.alta-docs.logout');
-            // 👇 NUEVA RUTA PARA PREVISUALIZAR
-    Route::get('/documentacion-altas/{doc}/preview', [AltaDocsController::class, 'preview'])
-        ->name('alta.docs.preview');
+    
+// ✅ NUEVA: preview inline (para iframe/img/video)
+Route::get('/secure/alta-docs/{doc}/preview', [AltaDocsController::class, 'preview'])
+  ->name('alta.docs.preview');
 });
 
 // Vista pública de la ficha (sin auth)
@@ -1900,3 +1907,5 @@ Route::post('/partcontable/documents/{document}/ficticio', [PartContableControll
 
 Route::get('/partcontable/documents/{document}/ficticio/download', [PartContableController::class, 'downloadFicticio'])
   ->name('partcontable.documents.ficticio.download');
+
+Route::get('/secure/alta-docs/{doc}', [AltaDocsController::class, 'show'])->name('alta.docs.show');
