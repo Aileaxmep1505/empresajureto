@@ -361,6 +361,87 @@ class RoutePlanController extends Controller
         return [null, null, $addr ?: $providerAddress, $providerId];
     }
 
+    /* =========================
+     | Presence helpers (online/offline)
+     * ========================= */
+
+    private function presenceConfig(): array
+    {
+        return [
+            'online_seconds' => 120,
+            'warn_seconds'   => 45,
+        ];
+    }
+
+    private function lastSeenAt(?DriverPosition $last): ?\Illuminate\Support\Carbon
+    {
+        if (!$last) return null;
+
+        // preferimos el server_time recibido
+        if (!empty($last->received_at)) return \Illuminate\Support\Carbon::parse($last->received_at);
+        if (!empty($last->created_at))  return \Illuminate\Support\Carbon::parse($last->created_at);
+        if (!empty($last->captured_at)) return \Illuminate\Support\Carbon::parse($last->captured_at);
+
+        return null;
+    }
+
+    private function presencePayload(?DriverPosition $last): array
+    {
+        $cfg = $this->presenceConfig();
+        $seen = $this->lastSeenAt($last);
+
+        if (!$seen) {
+            return [
+                'state' => 'offline',
+                'last_seen_at' => null,
+                'stale_seconds' => null,
+                'warn' => false,
+                'disconnected_at' => null,
+            ];
+        }
+
+        $age = now()->diffInSeconds($seen);
+        $online = $age <= $cfg['online_seconds'];
+
+        return [
+            'state' => $online ? 'online' : 'offline',
+            'last_seen_at' => $seen->toIso8601String(),
+            'stale_seconds' => $age,
+            'warn' => $age >= $cfg['warn_seconds'],
+            'disconnected_at' => $online ? null : $seen->toIso8601String(),
+        ];
+    }
+
+    private function positionPayload(?DriverPosition $last): ?array
+    {
+        if (!$last) return null;
+
+        $lat = $last->lat !== null ? (float)$last->lat : null;
+        $lng = $last->lng !== null ? (float)$last->lng : null;
+        if ($lat === null || $lng === null) return null;
+
+        return [
+            'lat' => $lat,
+            'lng' => $lng,
+
+            'snap_lat' => $last->snap_lat !== null ? (float)$last->snap_lat : null,
+            'snap_lng' => $last->snap_lng !== null ? (float)$last->snap_lng : null,
+            'snap_distance_m' => $last->snap_distance_m ?? null,
+
+            'accuracy' => $last->accuracy,
+            'speed' => $last->speed,
+            'heading' => $last->heading,
+
+            'captured_at' => optional($last->captured_at)->toIso8601String(),
+            'received_at' => $this->lastSeenAt($last)?->toIso8601String(),
+
+            'app_state' => $last->app_state ?? null,
+            'battery'   => $last->battery ?? null,
+            'network'   => $last->network ?? null,
+            'is_mocked' => $last->is_mocked ?? null,
+        ];
+    }
+
     /* ===========================
      | CRUD / Panel de logística
      * =========================== */
@@ -605,6 +686,10 @@ class RoutePlanController extends Controller
 
     /* ============================================
      | GPS del chofer (persistencia de ubicación)
+     * - filtro accuracy
+     * - anti-saltos
+     * - received_at servidor
+     * - snap to road OSRM nearest
      * ============================================ */
 
     public function saveDriverLocation(Request $r)
@@ -618,11 +703,84 @@ class RoutePlanController extends Controller
             'speed'    => ['nullable', 'numeric'],
             'heading'  => ['nullable', 'numeric'],
             'captured_at' => ['nullable', 'date'],
+
+            // opcionales (si ya agregaste columnas)
+            'app_state' => ['nullable', 'string', 'max:30'],
+            'battery'   => ['nullable', 'integer', 'min:0', 'max:100'],
+            'network'   => ['nullable', 'string', 'max:30'],
+            'is_mocked' => ['nullable', 'boolean'],
         ]);
 
-        DriverPosition::create($data + [
+        $lat = (float)$data['lat'];
+        $lng = (float)$data['lng'];
+        $acc = isset($data['accuracy']) ? (float)$data['accuracy'] : null;
+
+        // inválidos
+        if (abs($lat) < 0.0000001 && abs($lng) < 0.0000001) {
+            return response()->json(['ok'=>false,'message'=>'GPS inválido (0,0)'], 422);
+        }
+        if (abs($lat) > 90 || abs($lng) > 180) {
+            return response()->json(['ok'=>false,'message'=>'GPS fuera de rango'], 422);
+        }
+
+        // precisión mala => no contamines “ubicación exacta”
+        if ($acc !== null && $acc > 200) {
+            return response()->json(['ok'=>false,'message'=>'Precisión muy baja (accuracy alto)'], 202);
+        }
+
+        // anti-saltos con ventana corta
+        $prev = DriverPosition::where('user_id', $u->id)->latest('captured_at')->first();
+        $capAt = !empty($data['captured_at']) ? \Illuminate\Support\Carbon::parse($data['captured_at']) : now();
+
+        if ($prev && $prev->lat !== null && $prev->lng !== null && $prev->captured_at) {
+            $prevAt = \Illuminate\Support\Carbon::parse($prev->captured_at);
+            if ($capAt->diffInSeconds($prevAt) <= 15) {
+                $dist = $this->haversineMeters((float)$prev->lat, (float)$prev->lng, $lat, $lng);
+                if ($dist > 2000) {
+                    return response()->json(['ok'=>false,'message'=>'Salto GPS detectado'], 202);
+                }
+            }
+        }
+
+        // snap to road (mejora visual en mapa)
+        $snapLat = null; $snapLng = null; $snapDist = null;
+        try {
+            $near = $this->osrm->nearest(['lat'=>$lat,'lng'=>$lng], ['number'=>1]);
+            if (($near['code'] ?? '') === 'Ok' && !empty($near['waypoints'][0]['location'])) {
+                $loc = $near['waypoints'][0]['location']; // [lng,lat]
+                $snapLng = isset($loc[0]) ? (float)$loc[0] : null;
+                $snapLat = isset($loc[1]) ? (float)$loc[1] : null;
+                if (isset($near['waypoints'][0]['distance'])) {
+                    $snapDist = (int) round($near['waypoints'][0]['distance']);
+                }
+            }
+        } catch (\Throwable $e) {
+            // no rompas el guardado
+        }
+
+        // OJO: si no agregaste columnas nuevas, quita las keys extra del create()
+        DriverPosition::create([
             'user_id'     => $u->id,
+            'lat'         => $lat,
+            'lng'         => $lng,
+            'accuracy'    => $data['accuracy'] ?? null,
+            'speed'       => $data['speed'] ?? null,
+            'heading'     => $data['heading'] ?? null,
             'captured_at' => $data['captured_at'] ?? now(),
+
+            // server last-seen
+            'received_at' => now(),
+
+            // opcionales
+            'app_state' => $data['app_state'] ?? null,
+            'battery'   => $data['battery'] ?? null,
+            'network'   => $data['network'] ?? null,
+            'is_mocked' => $data['is_mocked'] ?? null,
+
+            // snap
+            'snap_lat' => $snapLat,
+            'snap_lng' => $snapLng,
+            'snap_distance_m' => $snapDist,
         ]);
 
         return response()->json(['ok' => true], 200);
@@ -640,6 +798,8 @@ class RoutePlanController extends Controller
             'lat' => $last?->lat,
             'lng' => $last?->lng,
             'captured_at' => optional($last?->captured_at)->toIso8601String(),
+            'received_at' => $this->lastSeenAt($last)?->toIso8601String(),
+            'presence' => $this->presencePayload($last),
         ], 200);
     }
 
@@ -663,11 +823,11 @@ class RoutePlanController extends Controller
         return response()->json([
             'plan_id' => $routePlan->id,
             'driver_id' => $routePlan->driver_id,
-            'driver_last' => $last ? [
-                'lat' => (float)$last->lat,
-                'lng' => (float)$last->lng,
-                'captured_at' => optional($last->captured_at)->toIso8601String(),
-            ] : null,
+
+            'presence' => $this->presencePayload($last),
+
+            'driver_last' => $last ? $this->positionPayload($last) : null,
+
             'stops' => $stops,
             'start' => [
                 'lat' => $routePlan->start_lat,
@@ -680,10 +840,6 @@ class RoutePlanController extends Controller
 
     /* ==========================================================
      | LOCK SEQUENCE (nearest-first + OSRM trip) — interno
-     | - Inicio = GPS actual del chofer (o start_lat/lng)
-     | - Primera parada = la más cercana al GPS
-     | - Luego OSRM TRIP ordena el resto (roundtrip=true)
-     | - Guardamos sequence_index + start_lat/start_lng + sequence_locked
      * ========================================================== */
     private function lockSequence(RoutePlan $routePlan, float $startLat, float $startLng): void
     {
@@ -734,7 +890,7 @@ class RoutePlanController extends Controller
             return;
         }
 
-        $indices = $trip['trips'][0]['waypoint_indices']; // índices sobre $tripCoords
+        $indices = $trip['trips'][0]['waypoint_indices'];
         $orderedStops = collect($indices)
             ->map(fn($i)=> $seedStops[(int)$i] ?? null)
             ->filter()
@@ -756,9 +912,6 @@ class RoutePlanController extends Controller
         });
     }
 
-    /* ==========================================================
-     | START (API) — llama lockSequence() y responde JSON
-     * ========================================================== */
     public function start(Request $r, RoutePlan $routePlan)
     {
         $this->canDrive($routePlan);
@@ -791,27 +944,19 @@ class RoutePlanController extends Controller
         ], 200);
     }
 
-    /* ==========================================================
-     | COMPUTE / RECOMPUTE (roundtrip SIEMPRE)
-     | - NO cambia el orden si ya está bloqueado
-     | - SIEMPRE cierra regresando al inicio (roundtrip)
-     * ========================================================== */
     public function compute(Request $r, RoutePlan $routePlan)
     {
         $this->canDrive($routePlan);
         $routePlan->load('driver');
 
-        // 1) start preferido: el guardado en plan
         $startLat = $this->normalizeCoord($routePlan->start_lat);
         $startLng = $this->normalizeCoord($routePlan->start_lng);
 
-        // 2) si no existe, request
         if (!$this->validLatLng($startLat, $startLng)) {
             $startLat = $this->normalizeCoord($r->input('start_lat'));
             $startLng = $this->normalizeCoord($r->input('start_lng'));
         }
 
-        // 3) si no, última ubicación
         if (!$this->validLatLng($startLat, $startLng)) {
             $last = DriverPosition::where('user_id', Auth::id())->latest('captured_at')->first();
             if (!$last) {
@@ -825,7 +970,6 @@ class RoutePlanController extends Controller
             return response()->json(['message' => 'Ubicación de inicio inválida.'], 422);
         }
 
-        // Si NO está bloqueado, bloquea aquí (sin “llamar” a start() para no romper el flujo)
         if (empty($routePlan->sequence_locked)) {
             $this->lockSequence($routePlan->fresh(), (float)$startLat, (float)$startLng);
             $routePlan = $routePlan->fresh();
@@ -850,7 +994,6 @@ class RoutePlanController extends Controller
             return response()->json(['message' => 'No hay paradas pendientes con coordenadas válidas.', 'routes' => []], 200);
         }
 
-        // coords: start + stops + start (cierre 100%)
         $routeCoords = [];
         $routeCoords[] = ['lat'=>(float)$startLat, 'lng'=>(float)$startLng];
         foreach ($stopsValid as $s) {
@@ -879,7 +1022,6 @@ class RoutePlanController extends Controller
 
         $r0 = $routeRes['routes'][0];
 
-        // Legs
         $legs = [];
         $rlegs = $r0['legs'] ?? [];
         for ($k=0; $k<count($rlegs); $k++) {
@@ -896,7 +1038,6 @@ class RoutePlanController extends Controller
             ];
         }
 
-        // tráfico
         $legs = $this->traffic->applyDelays($legs);
         $totalAdj = (int) collect($legs)->sum('adj_duration');
 
@@ -913,10 +1054,9 @@ class RoutePlanController extends Controller
             'start'     => ['lat'=>(float)$startLat,'lng'=>(float)$startLng],
         ];
 
-        // ETA por stop (solo legs hasta cada stop; el último leg es regreso)
         $etaAcc = 0;
         foreach ($stopsValid as $idx => $stop) {
-            $leg = $legs[$idx] ?? null; // idx 0 => start->stop1
+            $leg = $legs[$idx] ?? null;
             $etaAcc += (int)($leg['adj_duration'] ?? $leg['duration'] ?? 0);
             $stop->eta_seconds = $etaAcc;
             try { $stop->save(); } catch (\Throwable $e) {}
@@ -954,7 +1094,6 @@ class RoutePlanController extends Controller
     {
         $this->canDrive($routePlan);
 
-        // evita que marquen un stop de otra ruta
         if ((int)$stop->route_plan_id !== (int)$routePlan->id) {
             return response()->json(['message'=>'Stop no pertenece a esta ruta'], 404);
         }
