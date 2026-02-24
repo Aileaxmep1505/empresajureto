@@ -75,7 +75,6 @@
   <style>
     /* =========================
       AISLADO: SOLO #tkrTickets
-      (sin tocar body/header global)
     ========================== */
     #tkrTickets{
       --bg: #f6f8ff;
@@ -94,47 +93,26 @@
       --shadow-hover: 0 22px 60px rgba(2,6,23,.14);
     }
 
-    #tkrTickets .tkr-bleed{
-      background: var(--bg);
-      padding: 18px 0 44px;
-      overflow-x:hidden;
-    }
+    #tkrTickets .tkr-bleed{ background: var(--bg); padding: 18px 0 44px; overflow-x:hidden; }
     #tkrTickets .tkr-wrap{ max-width: 1160px; margin: 0 auto; padding: 0 16px; }
 
-    /* Header (no negritas extremas) */
-    #tkrTickets .tkr-head{
-      display:flex; justify-content:space-between; align-items:flex-start;
-      gap: 16px; margin: 0 0 14px;
-    }
+    /* Header */
+    #tkrTickets .tkr-head{ display:flex; justify-content:space-between; align-items:flex-start; gap: 16px; margin: 0 0 14px; }
     #tkrTickets .tkr-titleBox{ display:flex; gap: 12px; align-items:flex-start; min-width: 0; }
     #tkrTickets .tkr-icon{
       width:40px;height:40px;border-radius:12px;
       background: rgba(79,82,232,.10);
       border: 1px solid rgba(79,82,232,.18);
       color: var(--brand);
-      display:grid;place-items:center;
-      flex: 0 0 auto;
+      display:grid;place-items:center; flex: 0 0 auto;
     }
-    #tkrTickets .tkr-h1{
-      margin:0;
-      font-size: 28px;
-      font-weight: 650; /* ✅ no bold */
-      letter-spacing:-.02em;
-      color: var(--ink);
-      line-height: 1.1;
-    }
-    #tkrTickets .tkr-sub{
-      margin:6px 0 0 0;
-      color: var(--muted);
-      font-weight: 450; /* ✅ no bold */
-      font-size: 13px;
-    }
+    #tkrTickets .tkr-h1{ margin:0; font-size: 28px; font-weight: 650; letter-spacing:-.02em; color: var(--ink); line-height: 1.1; }
+    #tkrTickets .tkr-sub{ margin:6px 0 0 0; color: var(--muted); font-weight: 450; font-size: 13px; }
 
     #tkrTickets .tkr-new{
       display:inline-flex; align-items:center; gap: 10px;
       background: var(--brand); color: #fff; text-decoration:none;
-      padding: 12px 16px; border-radius: 14px;
-      font-weight: 600; /* ✅ no bold */
+      padding: 12px 16px; border-radius: 14px; font-weight: 600;
       box-shadow: 0 14px 30px rgba(79,82,232,.18);
       transition: transform .06s ease, box-shadow .2s ease, filter .15s ease;
       white-space: nowrap; border: 0;
@@ -143,7 +121,7 @@
     #tkrTickets .tkr-new:active{ transform: translateY(1px); }
 
     /* Stats */
-    #tkrTickets .tkr-stats{ display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 14px; margin: 14px 0 18px; }
+    #tkrTickets .tkr-stats{ display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 14px; margin: 14px 0 16px; }
     #tkrTickets .tkr-stat{
       position:relative; overflow:hidden; background: var(--card);
       border: 1px solid var(--line); border-radius: 18px;
@@ -157,19 +135,9 @@
       width:42px;height:42px;border-radius:14px; display:grid;place-items:center;
       border: 1px solid rgba(15,23,42,.06); position:relative; z-index:1;
       margin-bottom: 12px; background: #fff;
-      font-weight: 600;
     }
-    #tkrTickets .tkr-stat .tkr-num{
-      font-size: 28px;
-      font-weight: 650; /* ✅ no bold */
-      color: var(--ink); line-height: 1; position:relative; z-index:1;
-    }
-    #tkrTickets .tkr-stat .tkr-lbl{
-      margin-top:6px;
-      font-size: 12px;
-      font-weight: 450; /* ✅ no bold */
-      color: var(--muted); position:relative; z-index:1;
-    }
+    #tkrTickets .tkr-stat .tkr-num{ font-size: 28px; font-weight: 650; color: var(--ink); line-height: 1; position:relative; z-index:1; }
+    #tkrTickets .tkr-stat .tkr-lbl{ margin-top:6px; font-size: 12px; font-weight: 450; color: var(--muted); position:relative; z-index:1; }
 
     #tkrTickets .tkr-stat.s1 .tkr-bubble{ background: var(--p-indigo); }
     #tkrTickets .tkr-stat.s1 .tkr-sIcon{ background: rgba(79,82,232,.10); color: var(--brand); border-color: rgba(79,82,232,.18); }
@@ -180,11 +148,55 @@
     #tkrTickets .tkr-stat.s4 .tkr-bubble{ background: var(--p-mint); }
     #tkrTickets .tkr-stat.s4 .tkr-sIcon{ background: rgba(16,185,129,.10); color:#047857; border-color: rgba(16,185,129,.20); }
 
+    /* ✅ Filters como tu screenshot (barra única) */
+    #tkrTickets .tkr-filters{
+      background: var(--card);
+      border: 1px solid rgba(15,23,42,.08);
+      border-radius: 18px;
+      box-shadow: var(--shadow-soft);
+      padding: 12px;
+      display:grid;
+      grid-template-columns: 1fr 220px 170px;
+      gap: 12px;
+      align-items:center;
+      margin: 0 0 16px;
+    }
+    #tkrTickets .tkr-field{
+      display:flex; align-items:center; gap:10px;
+      border: 1px solid rgba(15,23,42,.10);
+      background: #fff;
+      border-radius: 14px;
+      padding: 10px 12px;
+      height: 46px;
+      min-width:0;
+    }
+    #tkrTickets .tkr-input, #tkrTickets .tkr-select{
+      border:0; outline:0; background:transparent;
+      width:100%; color: var(--ink);
+      font-weight: 500;
+      font-size: 14px;
+      min-width:0;
+    }
+    #tkrTickets .tkr-select{
+      cursor:pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+    }
+    #tkrTickets .tkr-caret{
+      width:18px; height:18px; color: rgba(100,116,139,.85);
+      flex: 0 0 auto;
+    }
+    #tkrTickets .tkr-ico{
+      width:18px; height:18px; color: rgba(100,116,139,.85);
+      flex: 0 0 auto;
+    }
+
     /* Pills */
     #tkrTickets .tkr-badge{
       display:inline-flex; align-items:center; padding: 6px 10px;
       border-radius: 999px;
-      font-weight: 550; /* ✅ no bold */
+      font-weight: 550;
       font-size: 12px;
       border: 1px solid transparent; white-space:nowrap;
     }
@@ -208,7 +220,7 @@
       box-shadow: var(--shadow-soft);
       transition: transform .14s ease, box-shadow .20s ease, border-color .20s ease;
       position: relative;
-      cursor: pointer; /* ✅ toda la card clickeable */
+      cursor: pointer;
     }
     #tkrTickets .tkr-card:hover{
       transform: scale(1.01);
@@ -221,15 +233,13 @@
 
     #tkrTickets .tkr-folio{
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;
-      font-size: 12px;
-      font-weight: 500; /* ✅ no bold */
-      color: rgba(100,116,139,.75);
+      font-size: 12px; font-weight: 500; color: rgba(100,116,139,.75);
       margin-right: 4px;
     }
     #tkrTickets .tkr-ttl{
       margin: 0;
       font-size: 18px;
-      font-weight: 600; /* ✅ no bold */
+      font-weight: 600;
       letter-spacing:-.01em;
       color: var(--ink);
       transition: color .2s ease;
@@ -242,7 +252,7 @@
     #tkrTickets .tkr-desc{
       margin: 8px 0 14px;
       color: rgba(100,116,139,.95);
-      font-weight: 450; /* ✅ no bold */
+      font-weight: 450;
       font-size: 13px;
       line-height: 1.55;
       display:-webkit-box;
@@ -253,7 +263,6 @@
     #tkrTickets .tkr-meta{ display:flex; gap:16px; flex-wrap:wrap; color: rgba(100,116,139,.85); font-weight: 450; font-size: 12px; }
     #tkrTickets .tkr-meta span{ display:inline-flex; gap: 8px; align-items:center; }
 
-    /* ✅ Botón > aparece SOLO en hover */
     #tkrTickets .tkr-chev{
       flex: 0 0 auto;
       width: 44px; height: 44px;
@@ -300,7 +309,7 @@
       position: fixed;
       top: 0; right: 0;
       height: 100vh;
-      width: min(420px, 26vw); /* ~1/4 */
+      width: min(420px, 26vw);
       background: #fff;
       box-shadow: -20px 0 70px rgba(2,6,23,.22);
       z-index: 9999;
@@ -323,7 +332,7 @@
     #tkrTickets .tkr-chip{
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;
       font-size: 12px;
-      font-weight: 500; /* ✅ no bold */
+      font-weight: 500;
       color: rgba(100,116,139,.75);
       background:#f8fafc;
       border: 1px solid rgba(15,23,42,.06);
@@ -342,14 +351,7 @@
     #tkrTickets .tkr-close:hover{ background:#f8fafc; box-shadow: 0 10px 24px rgba(2,6,23,.10); }
 
     #tkrTickets .tkr-db{ padding: 18px; }
-
-    #tkrTickets .tkr-dtitle{
-      margin: 12px 0 0;
-      font-size: 22px;
-      font-weight: 650; /* ✅ no bold */
-      letter-spacing:-.01em;
-      color: var(--ink);
-    }
+    #tkrTickets .tkr-dtitle{ margin: 12px 0 0; font-size: 22px; font-weight: 650; letter-spacing:-.01em; color: var(--ink); }
     #tkrTickets .tkr-dtext{
       margin-top: 12px;
       background:#f8fafc;
@@ -357,7 +359,7 @@
       border-radius: 16px;
       padding: 14px;
       color:#334155;
-      font-weight: 450; /* ✅ no bold */
+      font-weight: 450;
       line-height: 1.6;
       font-size: 13px;
       white-space: pre-wrap;
@@ -382,7 +384,7 @@
     }
     #tkrTickets .tkr-k{
       font-size: 11px;
-      font-weight: 500; /* ✅ no bold */
+      font-weight: 500;
       color: rgba(100,116,139,.85);
       text-transform: uppercase;
       letter-spacing: .04em;
@@ -390,7 +392,7 @@
     }
     #tkrTickets .tkr-v{
       font-size: 13px;
-      font-weight: 550; /* ✅ moderado */
+      font-weight: 550;
       color: var(--ink);
       word-break: break-word;
     }
@@ -408,7 +410,7 @@
       border: 1px solid rgba(15,23,42,.10);
       background: #fff;
       color: var(--ink);
-      font-weight: 550; /* ✅ no bold */
+      font-weight: 550;
       text-decoration:none;
       display:inline-flex; align-items:center; justify-content:center; gap: 10px;
       transition: box-shadow .2s ease, transform .06s ease, border-color .15s ease, background .15s ease;
@@ -422,10 +424,10 @@
       color:#14532d;
     }
 
-    /* Responsive */
     @media (max-width: 1024px){
       #tkrTickets .tkr-stats{ grid-template-columns: repeat(2, minmax(0,1fr)); }
       #tkrTickets .tkr-drawer{ width: min(520px, 92vw); }
+      #tkrTickets .tkr-filters{ grid-template-columns: 1fr; }
     }
     @media (max-width: 560px){
       #tkrTickets .tkr-stats{ grid-template-columns: 1fr; }
@@ -439,6 +441,7 @@
       <div class="tkr-head">
         <div class="tkr-titleBox">
           <div class="tkr-icon">
+            {{-- ticket icon --}}
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
               <path d="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-3a2 2 0 0 0 0-4V7z"/>
               <path d="M9 9h6"/><path d="M9 12h6"/><path d="M9 15h6"/>
@@ -452,6 +455,7 @@
 
         <a class="tkr-new" href="{{ route('tickets.create') }}">
           <span style="display:grid;place-items:center">
+            {{-- plus --}}
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
               <path d="M12 5v14"/><path d="M5 12h14"/>
             </svg>
@@ -465,9 +469,9 @@
         <div class="tkr-stat s1">
           <div class="tkr-bubble"></div>
           <div class="tkr-sIcon">
+            {{-- list --}}
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-3a2 2 0 0 0 0-4V7z"/>
-              <path d="M9 9h6"/><path d="M9 12h6"/><path d="M9 15h6"/>
+              <path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/>
             </svg>
           </div>
           <div class="tkr-num">{{ $countTotal }}</div>
@@ -476,27 +480,76 @@
 
         <div class="tkr-stat s2">
           <div class="tkr-bubble"></div>
-          <div class="tkr-sIcon">🕒</div>
+          <div class="tkr-sIcon">
+            {{-- clock --}}
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="9"/><path d="M12 7v6l4 2"/>
+            </svg>
+          </div>
           <div class="tkr-num">{{ $countOpen }}</div>
           <div class="tkr-lbl">Abiertos</div>
         </div>
 
         <div class="tkr-stat s3">
           <div class="tkr-bubble"></div>
-          <div class="tkr-sIcon">△</div>
+          <div class="tkr-sIcon">
+            {{-- activity --}}
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 14l4-4 4 4 4-8 4 2"/>
+            </svg>
+          </div>
           <div class="tkr-num">{{ $countProgress }}</div>
           <div class="tkr-lbl">En Progreso</div>
         </div>
 
         <div class="tkr-stat s4">
           <div class="tkr-bubble"></div>
-          <div class="tkr-sIcon">✓</div>
+          <div class="tkr-sIcon">
+            {{-- check --}}
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 6 9 17l-5-5"/>
+            </svg>
+          </div>
           <div class="tkr-num">{{ $countDone }}</div>
           <div class="tkr-lbl">Resueltos</div>
         </div>
       </div>
 
-      {{-- ✅ SIN FILTROS (quitado) --}}
+      {{-- FILTERS (como screenshot) --}}
+      <form class="tkr-filters" method="GET" action="{{ route('tickets.index') }}">
+        <div class="tkr-field">
+          {{-- search icon --}}
+          <svg class="tkr-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+          </svg>
+          <input class="tkr-input" type="search" name="q" placeholder="Buscar tickets..." value="{{ request('q') }}">
+        </div>
+
+        <div class="tkr-field">
+          <select class="tkr-select" name="status">
+            <option value="">Todos los estados</option>
+            @foreach($statuses as $k => $label)
+              <option value="{{ $k }}" @selected(request('status')===$k)>{{ $label }}</option>
+            @endforeach
+          </select>
+          {{-- caret --}}
+          <svg class="tkr-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 9l6 6 6-6"/>
+          </svg>
+        </div>
+
+        <div class="tkr-field">
+          <select class="tkr-select" name="priority">
+            <option value="">Todas</option>
+            @foreach($priorities as $k => $label)
+              <option value="{{ $k }}" @selected(request('priority')===$k)>{{ $label }}</option>
+            @endforeach
+          </select>
+          <svg class="tkr-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 9l6 6 6-6"/>
+          </svg>
+        </div>
+      </form>
 
       {{-- LIST --}}
       <div class="tkr-list">
@@ -564,7 +617,6 @@
                 </div>
               </div>
 
-              {{-- Botón > (visual), pero la card también abre --}}
               <button type="button" class="tkr-chev" title="Abrir vista previa">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M9 18l6-6-6-6"/>
@@ -661,8 +713,6 @@
           </div>
         </div>
       </div>
-
-      {{-- ✅ Sin "Cambiar estado" (quitado) --}}
 
       <div class="tkr-actions">
         <a id="tkrShowBtn" class="tkr-linkBtn" href="#">
@@ -764,12 +814,9 @@
         document.body.style.overflow = prevOverflow || '';
       }
 
-      // ✅ Abre al click en la card O en el botón >
       root.addEventListener('click', function(e){
         const card = e.target.closest('[data-open-ticket]');
         if(!card) return;
-
-        // Si le dieron click a un link dentro (por si agregas uno luego), respeta el link
         if(e.target.closest('a')) return;
 
         e.preventDefault();

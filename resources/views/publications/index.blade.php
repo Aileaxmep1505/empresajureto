@@ -6,6 +6,11 @@
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 
 @php
+  use Carbon\Carbon;
+
+  // ✅ Forzar español en fechas (meses + diffForHumans)
+  Carbon::setLocale('es');
+
   // ✅ Ultra-safe: sin match()
   $getMeta = function($p){
     $ext = strtolower($p->extension ?: 'file');
@@ -136,47 +141,9 @@
       margin-top:14px;
     }
 
-    /* =========================================================
-      ✅ SOLO INDEX (TAB 1): barra + paginación tipo ejemplo
-    ========================================================= */
-    #pubsBase .idxBar{
-      display:flex; align-items:flex-end; justify-content:space-between;
-      gap:12px; flex-wrap:wrap; margin: 6px 0 14px;
-    }
-    #pubsBase .idxTitle{ display:flex; flex-direction:column; gap:4px; }
-    #pubsBase .idxTitle .t{
-      font-size:12px; font-weight:900; color:var(--muted);
-      letter-spacing:1px; text-transform:uppercase; margin:0;
-    }
-    #pubsBase .idxTitle .s{
-      font-size:12px; font-weight:800; color:rgba(15,23,42,.62); margin:0;
-    }
-
-    #pubsBase .idxPills{ display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
-    #pubsBase .idxPill{
-      font-size:11px; font-weight:900; padding:6px 10px; border-radius:999px;
-      border:1px solid rgba(15,23,42,.10);
-      background: rgba(255,255,255,.65);
-      color: rgba(15,23,42,.72);
-      display:inline-flex; align-items:center; gap:8px;
-    }
-    #pubsBase .idxPill svg{ width:14px; height:14px; opacity:.85; }
-
-    #pubsBase .idxEmpty{
-      grid-column: 1/-1;
-      padding: 36px 20px;
-      text-align:center;
-      border-radius: 18px;
-      border: 1px dashed rgba(15,23,42,.18);
-      background: rgba(255,255,255,.65);
-      box-shadow: 0 10px 30px rgba(2,6,23,.05);
-      color: rgba(15,23,42,.62);
-      font-weight: 900;
-    }
-    #pubsBase .idxEmpty .big{ font-size: 14px; font-weight: 900; color: rgba(15,23,42,.78); margin-bottom: 8px; }
-    #pubsBase .idxEmpty .small{ font-size: 12px; font-weight: 900; color: rgba(15,23,42,.56); }
-
-    /* ====== ✅ Paginación pro (como tu captura) ====== */
+    /* =========================
+       ✅ SOLO INDEX: paginación PRO en español
+    ========================= */
     #pubsBase .idxPager{
       margin-top: 18px;
       display:flex;
@@ -199,7 +166,6 @@
       white-space: nowrap;
     }
 
-    /* Laravel pagination markup (Tailwind) */
     #pubsBase .idxPager nav[role="navigation"]{ margin:0 !important; }
     #pubsBase .idxPager nav[role="navigation"] > div{
       display:flex !important;
@@ -211,7 +177,6 @@
     #pubsBase .idxPager nav[role="navigation"] p.text-sm{
       display:none !important;
     }
-
     /* Contenedor de botones */
     #pubsBase .idxPager nav[role="navigation"] span.relative.z-0{
       display:inline-flex !important;
@@ -222,7 +187,7 @@
       box-shadow: none !important;
     }
 
-    /* Botones base */
+    /* Botones */
     #pubsBase .idxPager nav[role="navigation"] a,
     #pubsBase .idxPager nav[role="navigation"] span[aria-current="page"] span{
       display:inline-flex !important;
@@ -247,7 +212,7 @@
       border-color: rgba(15,23,42,.12) !important;
     }
 
-    /* Activo (verde pastel como tu ejemplo) */
+    /* Activo verde pastel */
     #pubsBase .idxPager nav[role="navigation"] span[aria-current="page"] span{
       background: rgba(16,185,129,.14) !important;
       color: #047857 !important;
@@ -264,6 +229,14 @@
       background: rgba(255,255,255,.55) !important;
     }
 
+    /* ✅ QUITA "Anterior / Siguiente" (si existen) y deja solo números */
+    #pubsBase .idxPager nav[role="navigation"] a[rel="prev"],
+    #pubsBase .idxPager nav[role="navigation"] a[rel="next"],
+    #pubsBase .idxPager nav[role="navigation"] span[aria-disabled="true"]:first-child,
+    #pubsBase .idxPager nav[role="navigation"] span[aria-disabled="true"]:last-child{
+      display:none !important;
+    }
+
     @media (max-width: 640px){
       #pubsBase .idxPager{ padding: 10px 10px; }
       #pubsBase .idxPager .idxInfo{ width: 100%; }
@@ -275,10 +248,6 @@
         border-radius: 13px !important;
       }
     }
-
-    /* mejora ligera de lectura en card (solo index) */
-    #pubsBase .idxWrap .fc-title{ max-width: 100%; }
-    #pubsBase .idxWrap .fc-foot .fc-date{ font-weight:800; }
   </style>
 
   <div class="bg">
@@ -306,34 +275,12 @@
       <button type="button" class="tabBtn" onclick="switchTab('stats')" id="btn-stats">Estadísticas</button>
     </div>
 
-    {{-- TAB 1 (INDEX) --}}
+    {{-- TAB 1 --}}
     <div id="tab-pubs-content" class="idxWrap">
       @php
         $pinnedCount = ($pinned ?? collect())->count();
         $latestCount = ($latest ?? collect())->count();
       @endphp
-
-      <div class="idxBar">
-        <div class="idxTitle">
-          <div class="t">Índice de documentos</div>
-          <div class="s">Vista rápida: fijados y recientes (abre para ver detalle).</div>
-        </div>
-
-        <div class="idxPills">
-          <span class="idxPill" title="Fijados">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M14 9l7-7M3 21l7-7M14 2l8 8M7 15l2 2"/>
-            </svg>
-            {{ $pinnedCount }} fijados
-          </span>
-          <span class="idxPill" title="Recientes">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 8v5l3 3M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/>
-            </svg>
-            {{ $latestCount }} recientes
-          </span>
-        </div>
-      </div>
 
       @if($pinnedCount)
         <h6 style="font-size:12px; font-weight:900; color:var(--muted); margin-bottom:12px; letter-spacing:1px; text-transform:uppercase;">
@@ -358,7 +305,9 @@
               <div class="fc-foot">
                 <span class="fc-title" title="{{ $p->title }}">{{ $p->title }}</span>
                 <div style="display:flex; justify-content:space-between; margin-top:4px;">
-                  <span class="fc-date">{{ optional($p->created_at)->format('d M, Y') }}</span>
+                  <span class="fc-date">
+                    {{ optional($p->created_at)->translatedFormat('d M, Y') }}
+                  </span>
                   <span class="fc-date" style="font-weight:900;">{{ $p->nice_size ?? '' }}</span>
                 </div>
               </div>
@@ -388,23 +337,24 @@
             <div class="fc-foot">
               <span class="fc-title" title="{{ $p->title }}">{{ $p->title }}</span>
               <div style="display:flex; justify-content:space-between; margin-top:4px;">
-                <span class="fc-date">{{ optional($p->created_at)->diffForHumans() }}</span>
+                <span class="fc-date">
+                  {{ optional($p->created_at)->locale('es')->diffForHumans() }}
+                </span>
                 <span class="fc-date" style="font-weight:900;">{{ $p->nice_size ?? '' }}</span>
               </div>
             </div>
           </a>
         @empty
-          <div class="idxEmpty">
-            <div class="big">No hay documentos subidos</div>
-            <div class="small">Cuando subas archivos, aquí verás el índice con vista rápida.</div>
+          <div style="grid-column: 1/-1; padding:40px; text-align:center; color:var(--muted); font-weight:900;">
+            No hay documentos subidos.
           </div>
         @endforelse
       </div>
 
-      {{-- ✅ Paginación como tu ejemplo --}}
+      {{-- ✅ Paginación en español y sin Anterior/Siguiente --}}
       @if(method_exists($latest, 'firstItem') && $latest->total())
-        <div class="idxPager" id="idxPager">
-          <div class="idxInfo" id="idxInfo">
+        <div class="idxPager">
+          <div class="idxInfo">
             Mostrando {{ $latest->firstItem() }}–{{ $latest->lastItem() }} de {{ $latest->total() }} registros
           </div>
           <div class="idxLinks">
@@ -527,6 +477,7 @@
     n = Number(n || 0);
     return '$' + n.toLocaleString('es-MX', {minimumFractionDigits:2, maximumFractionDigits:2});
   }
+
   function fmtDate(d){
     if(!d) return '-';
     try{
@@ -534,30 +485,44 @@
       var dt = new Date(str);
       if(isNaN(dt.getTime())) return String(d);
       return dt.toLocaleDateString('es-MX');
-    }catch(e){ return String(d); }
+    }catch(e){
+      return String(d);
+    }
   }
+
   function esc(s){
     s = String(s == null ? '' : s);
-    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+    return s
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;')
+      .replace(/'/g,'&#039;');
   }
+
   function toNum(v){
     if(v == null) return 0;
     if(typeof v === 'number') return isFinite(v) ? v : 0;
-    var s = String(v).trim().replace(/[^0-9.\-]/g,'');
+    var s = String(v).trim();
+    s = s.replace(/[^0-9.\-]/g,'');
     var n = Number(s);
     return isFinite(n) ? n : 0;
   }
 
+  // Comparativo General = compras + ventas
   DATA.totals.all = toNum(DATA.totals.compra) + toNum(DATA.totals.venta);
 
   function seriesFrom(labels, raw){
     labels = Array.isArray(labels) ? labels : [];
+
     if(Array.isArray(raw) && (raw.length === 0 || typeof raw[0] === 'number' || typeof raw[0] === 'string')){
       return labels.map(function(_, i){ return toNum(raw[i]); });
     }
+
     if(raw && typeof raw === 'object' && !Array.isArray(raw)){
       return labels.map(function(l){ return toNum(raw[l]); });
     }
+
     if(Array.isArray(raw) && raw.length && typeof raw[0] === 'object'){
       var map = {};
       raw.forEach(function(r){
@@ -567,6 +532,7 @@
       });
       return labels.map(function(l){ return toNum(map[String(l)]); });
     }
+
     return labels.map(function(){ return 0; });
   }
 
@@ -592,11 +558,13 @@
         '<div style="text-align:center; padding:50px; color:#ef4444; font-weight:900;">ApexCharts no cargó</div>';
       return;
     }
+
     if(!chartsInitialized){
       chartsInitialized = true;
       setStatsMode(statsMode, true);
       return;
     }
+
     setStatsMode(statsMode, false);
     setTimeout(function(){
       try{ if(chartMonthly) chartMonthly.resize(); }catch(e){}
@@ -653,6 +621,7 @@
       l2.textContent = 'Meta de ventas para recuperar: ' + money(compra) + '.';
       return;
     }
+
     if(mode === 'venta'){
       chipEl.className = 'chip blue';
       chipEl.textContent = 'ventas';
@@ -660,6 +629,7 @@
       l2.textContent = 'Equivalen al ' + recovery.toFixed(1) + '% de compras (ventas / compras).';
       return;
     }
+
     if(gap > 0.01){
       chipEl.className = 'chip';
       chipEl.textContent = 'gap';
@@ -780,6 +750,7 @@
 
   function buildProductsOptions(mode){
     if(mode === 'compare') mode = 'compra';
+
     var data = (mode === 'venta') ? (DATA.products.venta || []) : (DATA.products.compra || []);
     var color = (mode === 'venta') ? '#3b82f6' : '#10b981';
 
@@ -788,7 +759,12 @@
       chart: { type: 'bar', height: 320, toolbar: { show: false }, fontFamily: 'inherit' },
       colors: [color],
       plotOptions: { bar: { horizontal: true, borderRadius: 4, barHeight: '70%' } },
-      xaxis: { labels: { formatter: function(val){ return "$" + Number(val||0).toLocaleString('es-MX'); }, style: { colors:'#0f172a', fontWeight:900 } } },
+      xaxis: {
+        labels: {
+          formatter: function(val){ return "$" + Number(val||0).toLocaleString('es-MX'); },
+          style: { colors:'#0f172a', fontWeight:900 }
+        }
+      },
       yaxis: { labels: { maxWidth: 220, style: { fontSize: '11px', fontWeight: 900, colors:'#0f172a' } } },
       tooltip: { y: { formatter: function(val){ return "$" + Number(val||0).toLocaleString('es-MX'); } } },
       dataLabels: { enabled: false }
