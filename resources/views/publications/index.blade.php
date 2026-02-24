@@ -137,15 +137,13 @@
     }
 
     /* =========================================================
-      ✅ SOLO INDEX (TAB 1): mejoras sin tocar tu diseño base
+      ✅ SOLO INDEX (TAB 1): barra + paginación tipo ejemplo
     ========================================================= */
     #pubsBase .idxBar{
       display:flex; align-items:flex-end; justify-content:space-between;
       gap:12px; flex-wrap:wrap; margin: 6px 0 14px;
     }
-    #pubsBase .idxTitle{
-      display:flex; flex-direction:column; gap:4px;
-    }
+    #pubsBase .idxTitle{ display:flex; flex-direction:column; gap:4px; }
     #pubsBase .idxTitle .t{
       font-size:12px; font-weight:900; color:var(--muted);
       letter-spacing:1px; text-transform:uppercase; margin:0;
@@ -153,9 +151,8 @@
     #pubsBase .idxTitle .s{
       font-size:12px; font-weight:800; color:rgba(15,23,42,.62); margin:0;
     }
-    #pubsBase .idxPills{
-      display:flex; gap:6px; flex-wrap:wrap; align-items:center;
-    }
+
+    #pubsBase .idxPills{ display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
     #pubsBase .idxPill{
       font-size:11px; font-weight:900; padding:6px 10px; border-radius:999px;
       border:1px solid rgba(15,23,42,.10);
@@ -164,6 +161,7 @@
       display:inline-flex; align-items:center; gap:8px;
     }
     #pubsBase .idxPill svg{ width:14px; height:14px; opacity:.85; }
+
     #pubsBase .idxEmpty{
       grid-column: 1/-1;
       padding: 36px 20px;
@@ -175,13 +173,109 @@
       color: rgba(15,23,42,.62);
       font-weight: 900;
     }
-    #pubsBase .idxEmpty .big{
-      font-size: 14px; font-weight: 900; color: rgba(15,23,42,.78);
-      margin-bottom: 8px;
+    #pubsBase .idxEmpty .big{ font-size: 14px; font-weight: 900; color: rgba(15,23,42,.78); margin-bottom: 8px; }
+    #pubsBase .idxEmpty .small{ font-size: 12px; font-weight: 900; color: rgba(15,23,42,.56); }
+
+    /* ====== ✅ Paginación pro (como tu captura) ====== */
+    #pubsBase .idxPager{
+      margin-top: 18px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+      padding: 12px 14px;
+      border-radius: 18px;
+      border: 1px solid rgba(15,23,42,.08);
+      background: rgba(255,255,255,.70);
+      box-shadow: 0 10px 30px rgba(2,6,23,.05);
     }
-    #pubsBase .idxEmpty .small{
-      font-size: 12px; font-weight: 900; color: rgba(15,23,42,.56);
+    #pubsBase .idxPager .idxInfo{
+      font-weight:900;
+      color: rgba(15,23,42,.55);
+      font-size: 12px;
+      letter-spacing: .01em;
+      padding: 4px 2px;
+      white-space: nowrap;
     }
+
+    /* Laravel pagination markup (Tailwind) */
+    #pubsBase .idxPager nav[role="navigation"]{ margin:0 !important; }
+    #pubsBase .idxPager nav[role="navigation"] > div{
+      display:flex !important;
+      align-items:center !important;
+      justify-content:flex-end !important;
+      gap:10px !important;
+    }
+    /* Oculta el "Showing..." default de Tailwind pagination */
+    #pubsBase .idxPager nav[role="navigation"] p.text-sm{
+      display:none !important;
+    }
+
+    /* Contenedor de botones */
+    #pubsBase .idxPager nav[role="navigation"] span.relative.z-0{
+      display:inline-flex !important;
+      gap:10px !important;
+      align-items:center !important;
+      padding: 0 !important;
+      background: transparent !important;
+      box-shadow: none !important;
+    }
+
+    /* Botones base */
+    #pubsBase .idxPager nav[role="navigation"] a,
+    #pubsBase .idxPager nav[role="navigation"] span[aria-current="page"] span{
+      display:inline-flex !important;
+      align-items:center !important;
+      justify-content:center !important;
+      min-width: 42px !important;
+      height: 40px !important;
+      padding: 0 14px !important;
+      border-radius: 14px !important;
+      font-weight: 900 !important;
+      font-size: 13px !important;
+      text-decoration: none !important;
+      border: 1px solid rgba(15,23,42,.08) !important;
+      background: rgba(255,255,255,.75) !important;
+      color: rgba(15,23,42,.78) !important;
+      box-shadow: 0 10px 22px rgba(2,6,23,.06) !important;
+      transition: .15s !important;
+    }
+    #pubsBase .idxPager nav[role="navigation"] a:hover{
+      transform: translateY(-1px) !important;
+      background: rgba(255,255,255,.95) !important;
+      border-color: rgba(15,23,42,.12) !important;
+    }
+
+    /* Activo (verde pastel como tu ejemplo) */
+    #pubsBase .idxPager nav[role="navigation"] span[aria-current="page"] span{
+      background: rgba(16,185,129,.14) !important;
+      color: #047857 !important;
+      border-color: rgba(16,185,129,.22) !important;
+      box-shadow: 0 14px 28px rgba(16,185,129,.14) !important;
+    }
+
+    /* Disabled */
+    #pubsBase .idxPager nav[role="navigation"] span[aria-disabled="true"] span{
+      opacity: .45 !important;
+      cursor: not-allowed !important;
+      transform:none !important;
+      box-shadow:none !important;
+      background: rgba(255,255,255,.55) !important;
+    }
+
+    @media (max-width: 640px){
+      #pubsBase .idxPager{ padding: 10px 10px; }
+      #pubsBase .idxPager .idxInfo{ width: 100%; }
+      #pubsBase .idxPager nav[role="navigation"] > div{ width: 100% !important; justify-content:space-between !important; }
+      #pubsBase .idxPager nav[role="navigation"] a,
+      #pubsBase .idxPager nav[role="navigation"] span[aria-current="page"] span{
+        min-width: 40px !important;
+        height: 38px !important;
+        border-radius: 13px !important;
+      }
+    }
+
     /* mejora ligera de lectura en card (solo index) */
     #pubsBase .idxWrap .fc-title{ max-width: 100%; }
     #pubsBase .idxWrap .fc-foot .fc-date{ font-weight:800; }
@@ -212,16 +306,13 @@
       <button type="button" class="tabBtn" onclick="switchTab('stats')" id="btn-stats">Estadísticas</button>
     </div>
 
-    {{-- =========================================================
-      ✅ TAB 1 (INDEX) — MEJORADO SIN CAMBIAR TU DISEÑO BASE
-    ========================================================= --}}
+    {{-- TAB 1 (INDEX) --}}
     <div id="tab-pubs-content" class="idxWrap">
       @php
         $pinnedCount = ($pinned ?? collect())->count();
         $latestCount = ($latest ?? collect())->count();
       @endphp
 
-      {{-- Barra pro del índice --}}
       <div class="idxBar">
         <div class="idxTitle">
           <div class="t">Índice de documentos</div>
@@ -310,12 +401,21 @@
         @endforelse
       </div>
 
-      <div class="mt-5">{{ $latest->links() }}</div>
+      {{-- ✅ Paginación como tu ejemplo --}}
+      @if(method_exists($latest, 'firstItem') && $latest->total())
+        <div class="idxPager" id="idxPager">
+          <div class="idxInfo" id="idxInfo">
+            Mostrando {{ $latest->firstItem() }}–{{ $latest->lastItem() }} de {{ $latest->total() }} registros
+          </div>
+          <div class="idxLinks">
+            {{ $latest->onEachSide(1)->links() }}
+          </div>
+        </div>
+      @endif
     </div>
 
     {{-- TAB 2 (NO TOCADO) --}}
     <div id="tab-stats-content" class="d-none">
-
       <div class="subNav">
         <button type="button" class="subBtn active" id="sub-compare" onclick="setStatsMode('compare')">
           Comparativo <span class="chip">2 series</span>
@@ -339,7 +439,6 @@
             <span><span class="chip blue">Ventas</span> <b id="kpiVenta">$0.00</b></span>
           </div>
 
-          {{-- ✅ Insight minimalista (ventas vs compras) --}}
           <div id="kpiInsight" class="mutedBox" style="display:flex; flex-direction:column; gap:10px;">
             <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-start;">
               <div style="font-weight:900; color:rgba(15,23,42,.78);" id="insTitle">Insight</div>
@@ -401,7 +500,6 @@
     totals: {
       compra: @json($totalSpentCompra ?? 0),
       venta:  @json($totalSpentVenta ?? 0),
-      // ⛔ ya NO usamos $totalSpent directo para el comparativo
       all:    @json($totalSpent ?? 0)
     },
     monthly: {
@@ -429,7 +527,6 @@
     n = Number(n || 0);
     return '$' + n.toLocaleString('es-MX', {minimumFractionDigits:2, maximumFractionDigits:2});
   }
-
   function fmtDate(d){
     if(!d) return '-';
     try{
@@ -437,47 +534,30 @@
       var dt = new Date(str);
       if(isNaN(dt.getTime())) return String(d);
       return dt.toLocaleDateString('es-MX');
-    }catch(e){
-      return String(d);
-    }
+    }catch(e){ return String(d); }
   }
-
   function esc(s){
     s = String(s == null ? '' : s);
-    return s
-      .replace(/&/g,'&amp;')
-      .replace(/</g,'&lt;')
-      .replace(/>/g,'&gt;')
-      .replace(/"/g,'&quot;')
-      .replace(/'/g,'&#039;');
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
   }
-
-  // ✅ Normalizador ultra seguro para Apex
   function toNum(v){
     if(v == null) return 0;
     if(typeof v === 'number') return isFinite(v) ? v : 0;
-    var s = String(v).trim();
-    s = s.replace(/[^0-9.\-]/g,'');
+    var s = String(v).trim().replace(/[^0-9.\-]/g,'');
     var n = Number(s);
     return isFinite(n) ? n : 0;
   }
 
-  // ✅ AQUI SE CORRIGE EL "10 MIL":
-  // Comparativo General = compras + ventas (no total global).
   DATA.totals.all = toNum(DATA.totals.compra) + toNum(DATA.totals.venta);
 
-  // ✅ Alinea series con labels
   function seriesFrom(labels, raw){
     labels = Array.isArray(labels) ? labels : [];
-
     if(Array.isArray(raw) && (raw.length === 0 || typeof raw[0] === 'number' || typeof raw[0] === 'string')){
       return labels.map(function(_, i){ return toNum(raw[i]); });
     }
-
     if(raw && typeof raw === 'object' && !Array.isArray(raw)){
       return labels.map(function(l){ return toNum(raw[l]); });
     }
-
     if(Array.isArray(raw) && raw.length && typeof raw[0] === 'object'){
       var map = {};
       raw.forEach(function(r){
@@ -487,7 +567,6 @@
       });
       return labels.map(function(l){ return toNum(map[String(l)]); });
     }
-
     return labels.map(function(){ return 0; });
   }
 
@@ -513,13 +592,11 @@
         '<div style="text-align:center; padding:50px; color:#ef4444; font-weight:900;">ApexCharts no cargó</div>';
       return;
     }
-
     if(!chartsInitialized){
       chartsInitialized = true;
       setStatsMode(statsMode, true);
       return;
     }
-
     setStatsMode(statsMode, false);
     setTimeout(function(){
       try{ if(chartMonthly) chartMonthly.resize(); }catch(e){}
@@ -556,12 +633,11 @@
     }
   }
 
-  // ✅ Insight (ventas vs compras)
   function setInsight(mode){
     var compra = toNum(DATA.totals.compra);
     var venta  = toNum(DATA.totals.venta);
 
-    var gap = compra - venta; // + = faltan ventas para empatar
+    var gap = compra - venta;
     var recovery = (compra > 0) ? (venta/compra)*100 : 0;
 
     var chipEl = document.getElementById('insChip');
@@ -577,7 +653,6 @@
       l2.textContent = 'Meta de ventas para recuperar: ' + money(compra) + '.';
       return;
     }
-
     if(mode === 'venta'){
       chipEl.className = 'chip blue';
       chipEl.textContent = 'ventas';
@@ -585,8 +660,6 @@
       l2.textContent = 'Equivalen al ' + recovery.toFixed(1) + '% de compras (ventas / compras).';
       return;
     }
-
-    // compare
     if(gap > 0.01){
       chipEl.className = 'chip';
       chipEl.textContent = 'gap';
@@ -605,7 +678,6 @@
     }
   }
 
-  // ✅ Estilos para que se vean NEGROS y legibles
   function baseY(){
     return {
       yaxis: {
@@ -618,7 +690,6 @@
     };
   }
 
-  // ✅ DataLabels negros y arriba (para que NO se pierdan)
   function barDataLabels(){
     return {
       dataLabels: {
@@ -709,7 +780,6 @@
 
   function buildProductsOptions(mode){
     if(mode === 'compare') mode = 'compra';
-
     var data = (mode === 'venta') ? (DATA.products.venta || []) : (DATA.products.compra || []);
     var color = (mode === 'venta') ? '#3b82f6' : '#10b981';
 
@@ -718,12 +788,7 @@
       chart: { type: 'bar', height: 320, toolbar: { show: false }, fontFamily: 'inherit' },
       colors: [color],
       plotOptions: { bar: { horizontal: true, borderRadius: 4, barHeight: '70%' } },
-      xaxis: {
-        labels: {
-          formatter: function(val){ return "$" + Number(val||0).toLocaleString('es-MX'); },
-          style: { colors:'#0f172a', fontWeight:900 }
-        }
-      },
+      xaxis: { labels: { formatter: function(val){ return "$" + Number(val||0).toLocaleString('es-MX'); }, style: { colors:'#0f172a', fontWeight:900 } } },
       yaxis: { labels: { maxWidth: 220, style: { fontSize: '11px', fontWeight: 900, colors:'#0f172a' } } },
       tooltip: { y: { formatter: function(val){ return "$" + Number(val||0).toLocaleString('es-MX'); } } },
       dataLabels: { enabled: false }
@@ -749,7 +814,6 @@
     var dCompra = seriesFrom(labelsD, DATA.daily.compra);
     var dVenta  = seriesFrom(labelsD, DATA.daily.venta);
 
-    // Monthly
     if(!labelsM.length || (!anyNonZero(mCompra) && !anyNonZero(mVenta))){
       elM.innerHTML = '<div style="text-align:center; padding:50px; color:#94a3b8; font-weight:900;">Sin datos</div>';
     } else {
@@ -758,7 +822,6 @@
       else if(forceRender){ chartMonthly = new ApexCharts(elM, o1); chartMonthly.render(); }
     }
 
-    // Daily
     if(!labelsD.length || (!anyNonZero(dCompra) && !anyNonZero(dVenta))){
       elD.innerHTML = '<div style="text-align:center; padding:50px; color:#94a3b8; font-weight:900;">Sin datos</div>';
     } else {
@@ -767,7 +830,6 @@
       else if(forceRender){ chartDaily = new ApexCharts(elD, o2); chartDaily.render(); }
     }
 
-    // Products
     var prodArr = (mode === 'venta') ? (DATA.products.venta || []) : (DATA.products.compra || []);
     if(!Array.isArray(prodArr) || !prodArr.length){
       elP.innerHTML = '<div style="text-align:center; padding:50px; color:#94a3b8; font-weight:900;">Sin datos</div>';
