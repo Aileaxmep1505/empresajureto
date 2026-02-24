@@ -797,32 +797,51 @@
         </svg>
         <span>Agenda</span>
       </a>
+<!-- Tickets -->
+<details class="nav__group" {{ request()->routeIs('tickets.*') ? 'open' : '' }}>
+  <summary class="{{ request()->routeIs('tickets.*') ? 'is-active':'' }}">
+    <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
+      <path d="M3 9a2 2 0 0 0 0 6h2a2 2 0 0 1 0 4h10a2 2 0 0 1 0-4h2a2 2 0 0 0 0-6h-2a2 2 0 0 1 0-4H5a2 2 0 0 1 0 4H3z"/>
+      <path d="M9 9h6M9 15h6"/>
+    </svg>
+    <span>Tickets</span>
+    <svg class="nav__chev" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2">
+      <path d="M9 6l6 6-6 6"/>
+    </svg>
+  </summary>
 
-      <!-- Tickets -->
-      <details class="nav__group" {{ request()->routeIs('tickets.*') || request()->routeIs('tickets.dashboard') ? 'open' : '' }}>
-        <summary class="{{ request()->routeIs('tickets.*') || request()->routeIs('tickets.dashboard') ? 'is-active':'' }}">
-          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
-            <path d="M3 9a2 2 0 0 0 0 6h2a2 2 0 0 1 0 4h10a2 2 0 0 1 0-4h2a2 2 0 0 0 0-6h-2a2 2 0 0 1 0-4H5a2 2 0 0 1 0 4H3z"/>
-            <path d="M9 9h6M9 15h6"/>
-          </svg>
-          <span>Tickets</span>
-          <svg class="nav__chev" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
-        </summary>
-        <div class="nav__submenu">
-          <a href="{{ route('tickets.dashboard') }}" class="nav__sublink {{ request()->routeIs('tickets.dashboard') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M3 3h18v6H3zM3 15h18v6H3z"/><path d="M7 9V3M17 21v-6"/></svg>
-            <span>Dashboard</span>
-          </a>
-          <a href="{{ route('tickets.index') }}" class="nav__sublink {{ request()->routeIs('tickets.index') || request()->routeIs('tickets.show') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M7 8h10M7 12h10M7 16h6"/></svg>
-            <span>Lista de tickets</span>
-          </a>
-          <a href="{{ route('tickets.create') }}" class="nav__sublink {{ request()->routeIs('tickets.create') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>
-            <span>Nuevo ticket</span>
-          </a>
-        </div>
-      </details>
+  <div class="nav__submenu">
+    {{-- Dashboard eliminado (ya no existe la ruta tickets.dashboard) --}}
+
+    <a href="{{ route('tickets.index') }}"
+       class="nav__sublink {{ request()->routeIs('tickets.index') || request()->routeIs('tickets.show') ? 'is-active':'' }}">
+      <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
+        <rect x="3" y="4" width="18" height="14" rx="2"/>
+        <path d="M7 8h10M7 12h10M7 16h6"/>
+      </svg>
+      <span>Lista de tickets</span>
+    </a>
+
+    <a href="{{ route('tickets.create') }}"
+       class="nav__sublink {{ request()->routeIs('tickets.create') ? 'is-active':'' }}">
+      <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
+        <path d="M12 5v14M5 12h14"/>
+      </svg>
+      <span>Nuevo ticket</span>
+    </a>
+
+    @if(\Illuminate\Support\Facades\Route::has('tickets.my'))
+      <a href="{{ route('tickets.my') }}"
+         class="nav__sublink {{ request()->routeIs('tickets.my') ? 'is-active':'' }}">
+        <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+          <circle cx="12" cy="7" r="4"/>
+        </svg>
+        <span>Mis tickets</span>
+      </a>
+    @endif
+  </div>
+</details>
 
       <!-- Logística -->
       <details class="nav__group" {{ request()->routeIs('routes.*') || request()->routeIs('routing.demo') ? 'open' : '' }}>

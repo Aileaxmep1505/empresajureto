@@ -4,35 +4,35 @@ namespace App\Http\Controllers\Tickets;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use App\Models\TicketStage;
+use App\Models\Ticket;
 
 class MyAssignmentsController extends Controller
 {
-    /**
-     * Lista de etapas asignadas al usuario actual (vista ejecutor).
-     * Ruta sugerida: route('tickets.my')
-     */
     public function index(Request $request)
     {
-        $userId = auth()->id();
-        $status = $request->string('status')->toString(); // pendiente / en_progreso / terminado / ''
+        $userId  = auth()->id();
+        $status  = trim((string) $request->string('status'));
+        $area    = trim((string) $request->string('area'));
+        $q       = trim((string) $request->string('q'));
 
-        $query = TicketStage::with(['ticket', 'assignee'])
+        $query = Ticket::query()
+            ->with(['assignee','creator'])
             ->where('assignee_id', $userId)
-            ->whereHas('ticket', function ($q) {
-                $q->where('status', '!=', 'cerrado');
-            });
-
-        if ($status !== '') {
-            $query->where('status', $status);
-        }
-
-        $stages = $query
-            ->orderByRaw("FIELD(status,'en_progreso','pendiente','terminado')")
+            ->when($status !== '', fn($qq) => $qq->where('status', $status))
+            ->when($area !== '', fn($qq) => $qq->where('area', $area))
+            ->when($q !== '', function ($qq) use ($q) {
+                $qq->where(function ($w) use ($q) {
+                    $w->where('title','like',"%{$q}%")
+                      ->orWhere('description','like',"%{$q}%")
+                      ->orWhere('folio','like',"%{$q}%");
+                });
+            })
+            ->orderByRaw("FIELD(status,'progreso','revision','pendiente','bloqueado','pruebas','completado','cancelado')")
             ->orderBy('due_at')
-            ->paginate(20)
-            ->withQueryString();
+            ->latest();
 
-        return view('tickets.my', compact('stages', 'status'));
+        $tickets = $query->paginate(20)->withQueryString();
+
+        return view('tickets.my', compact('tickets','status','area','q'));
     }
 }

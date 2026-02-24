@@ -85,6 +85,10 @@ use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\ExpenseCategoryController;
 use App\Http\Controllers\PayrollController;
 use App\Http\Controllers\AttachmentController;
+use App\Http\Controllers\Tickets\TicketExecutiveController;
+use App\Http\Controllers\Tickets\MyAssignmentsController;
+use App\Http\Controllers\WhatsAppInboxController;
+
 /*
 |--------------------------------------------------------------------------
 | AUTH
@@ -599,71 +603,80 @@ Route::middleware(['auth'])->group(function () {
 
 
 Route::get('cotizaciones/buscar-productos', [CotizacionController::class, 'buscarProductos'])->name('cotizaciones.buscar_productos');
-
 /*
 |--------------------------------------------------------------------------
-| TICKETS (licitaciones) + IA checklist
+| TICKETS (sistema simple)
 |--------------------------------------------------------------------------
 */
+
+
 Route::middleware(['auth'])->group(function () {
 
-    // ===== Tickets CRUD básico =====
-    Route::get('/tickets',                 [TicketController::class,'index'])->name('tickets.index');
-    Route::get('/tickets/create',          [TicketController::class,'create'])->name('tickets.create');
-    Route::post('/tickets',                [TicketController::class,'store'])->name('tickets.store');
-    Route::get('/tickets/{ticket}',        [TicketController::class,'show'])->name('tickets.show')->whereNumber('ticket');
+    // =========================
+    // Centro de Control (antes dashboard)
+    // =========================
+    Route::get('/tickets/centro-de-control', [TicketExecutiveController::class,'index'])
+        ->name('tickets.executive');
 
-    // 👇 NUEVA: vista de trabajo para el usuario asignado (checklist / flujo)
-    Route::get('/tickets/{ticket}/work',   [TicketController::class,'work'])
+    // =========================
+    // Mis tickets (asignados a mí)
+    // =========================
+    Route::get('/my-tickets', [MyAssignmentsController::class,'index'])
+        ->name('tickets.my');
+
+    // =========================
+    // Tickets CRUD
+    // =========================
+    Route::get   ('/tickets',            [TicketController::class,'index'])->name('tickets.index');
+    Route::get   ('/tickets/create',     [TicketController::class,'create'])->name('tickets.create');
+    Route::post  ('/tickets',            [TicketController::class,'store'])->name('tickets.store');
+
+    // ✅ Vista detalle (solo lectura)
+    Route::get   ('/tickets/{ticket}',   [TicketController::class,'show'])->name('tickets.show')->whereNumber('ticket');
+
+    // ✅ Vista de trabajo para el asignado (workflow/timer)
+    Route::get   ('/tickets/{ticket}/work', [TicketController::class,'work'])
         ->name('tickets.work')
         ->whereNumber('ticket');
 
-    Route::put('/tickets/{ticket}',        [TicketController::class,'update'])->name('tickets.update')->whereNumber('ticket');
-    Route::post('/tickets/{ticket}/close', [TicketController::class,'close'])->name('tickets.close')->whereNumber('ticket');
+    // ✅ Update (para cambiar status/priority/area/etc desde forms)
+    Route::put   ('/tickets/{ticket}',   [TicketController::class,'update'])->name('tickets.update')->whereNumber('ticket');
 
-    // ===== Dashboard =====
-    Route::get('/tickets-dashboard', [DashboardController::class,'index'])->name('tickets.dashboard');
+    // =========================
+    // Acciones rápidas
+    // =========================
+    Route::post('/tickets/{ticket}/complete', [TicketController::class,'complete'])
+        ->name('tickets.complete')
+        ->whereNumber('ticket');
 
-    // ===== Tiempo real por AJAX (poll + acciones de etapa) =====
-    Route::get ('/tickets/{ticket}/poll',                    [TicketController::class,'poll'])->name('tickets.poll')->whereNumber('ticket');
-    Route::post('/tickets/{ticket}/stages/{stage}/start',    [TicketController::class,'ajaxStartStage'])->name('tickets.ajax.stage.start')->whereNumber('ticket')->whereNumber('stage');
-    Route::post('/tickets/{ticket}/stages/{stage}/complete', [TicketController::class,'ajaxCompleteStage'])->name('tickets.ajax.stage.complete')->whereNumber('ticket')->whereNumber('stage');
-    Route::post('/tickets/{ticket}/stages/{stage}/evidence', [TicketController::class,'ajaxUploadEvidence'])->name('tickets.ajax.stage.evidence')->whereNumber('ticket')->whereNumber('stage');
+    Route::post('/tickets/{ticket}/cancel',   [TicketController::class,'cancel'])
+        ->name('tickets.cancel')
+        ->whereNumber('ticket');
 
-    // ===== Etapas =====
-    Route::post  ('/tickets/{ticket}/stages',         [TicketStageController::class,'store'])->name('tickets.stages.store')->whereNumber('ticket');
-    Route::put   ('/tickets/{ticket}/stages/{stage}', [TicketStageController::class,'update'])->name('tickets.stages.update')->whereNumber('ticket')->whereNumber('stage');
-    Route::delete('/tickets/{ticket}/stages/{stage}', [TicketController::class,'destroyStage'])->name('tickets.stages.destroy')->whereNumber('ticket')->whereNumber('stage');
+    // =========================
+    // Comentarios
+    // =========================
+    Route::post('/tickets/{ticket}/comments', [TicketCommentController::class,'store'])
+        ->name('tickets.comments.store')
+        ->whereNumber('ticket');
 
-    // ===== Comentarios =====
-    Route::post('/tickets/{ticket}/comments', [TicketCommentController::class,'store'])->name('tickets.comments.store')->whereNumber('ticket');
+    // =========================
+    // Documentos
+    // =========================
+    Route::post('/tickets/{ticket}/documents', [TicketDocumentController::class,'store'])
+        ->name('tickets.documents.store')
+        ->whereNumber('ticket');
 
-    // ===== Documentos =====
-    Route::post  ('/tickets/{ticket}/documents',               [TicketDocumentController::class,'store'])->name('tickets.documents.store')->whereNumber('ticket');
-    Route::get   ('/tickets/{ticket}/documents/{doc}/download',[TicketDocumentController::class,'download'])->name('tickets.documents.download')->whereNumber('ticket')->whereNumber('doc');
-    Route::delete('/tickets/{ticket}/documents/{doc}',         [TicketController::class,'destroyDocument'])->name('tickets.documents.destroy')->whereNumber('ticket')->whereNumber('doc');
+    Route::get('/tickets/{ticket}/documents/{doc}/download', [TicketDocumentController::class,'download'])
+        ->name('tickets.documents.download')
+        ->whereNumber('ticket')
+        ->whereNumber('doc');
 
-    // ===== Checklists (CRUD) =====
-    Route::post  ('/tickets/{ticket}/checklists',          [TicketChecklistController::class,'store'])->name('tickets.checklists.store')->whereNumber('ticket');
-    Route::put   ('/checklists/{checklist}',               [TicketChecklistController::class,'update'])->name('checklists.update')->whereNumber('checklist');
-    Route::delete('/checklists/{checklist}',               [TicketChecklistController::class,'destroy'])->name('checklists.destroy')->whereNumber('checklist');
-
-    // Ítems de checklist
-    Route::post  ('/checklists/{checklist}/items',         [TicketChecklistController::class,'addItem'])->name('checklists.items.add')->whereNumber('checklist');
-    Route::put   ('/checklist-items/{item}',               [TicketChecklistController::class,'updateItem'])->name('checklists.items.update')->whereNumber('item');
-    Route::delete('/checklist-items/{item}',               [TicketChecklistController::class,'destroyItem'])->name('checklists.items.destroy')->whereNumber('item');
-    Route::post  ('/checklists/{checklist}/items/reorder', [TicketChecklistController::class,'reorderItems'])->name('checklists.items.reorder')->whereNumber('checklist');
-    Route::post  ('/checklists/{checklist}/toggle-all',    [TicketChecklistController::class,'toggleAll'])->name('checklists.items.toggleAll')->whereNumber('checklist');
-
-    // ===== Exports =====
-    Route::get('/checklists/{checklist}/export/pdf',  [TicketChecklistController::class,'exportPdf'])->name('checklists.export.pdf')->whereNumber('checklist');
-    Route::get('/checklists/{checklist}/export/word', [TicketChecklistController::class,'exportWord'])->name('checklists.export.word')->whereNumber('checklist');
-
-    // ===== IA (100% OpenAI) =====
-    Route::post('/tickets/{ticket}/stages/{stage}/ai/suggest', [TicketChecklistController::class,'suggestFromPrompt'])->name('tickets.ai.suggest')->whereNumber('ticket')->whereNumber('stage');
-    Route::post('/tickets/{ticket}/checklists/ai',             [TicketChecklistController::class,'createFromAi'])->name('tickets.ai.create')->whereNumber('ticket');
+    Route::delete('/tickets/{ticket}/documents/{doc}', [TicketDocumentController::class,'destroy'])
+        ->name('tickets.documents.destroy')
+        ->whereNumber('ticket')
+        ->whereNumber('doc');
 });
-
 /*
 |--------------------------------------------------------------------------
 | MAILBOX (todas bajo /mail)
@@ -1909,3 +1922,9 @@ Route::get('/partcontable/documents/{document}/ficticio/download', [PartContable
   ->name('partcontable.documents.ficticio.download');
 
 Route::get('/secure/alta-docs/{doc}', [AltaDocsController::class, 'show'])->name('alta.docs.show');
+
+Route::middleware(['auth'])->group(function () {
+    Route::get('/whatsapp', [WhatsAppInboxController::class, 'index'])->name('whatsapp.index');
+    Route::get('/whatsapp/{conversation}', [WhatsAppInboxController::class, 'show'])->name('whatsapp.show');
+    Route::post('/whatsapp/{conversation}/send', [WhatsAppInboxController::class, 'send'])->name('whatsapp.send');
+});

@@ -7,566 +7,433 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 use App\Models\{
     Ticket,
-    TicketStage,
     TicketAudit,
     TicketDocument,
-    TicketLink,
-    TicketChecklist,
-    TicketChecklistItem,
     User
 };
+
 use App\Notifications\TicketAssigned;
 
 class TicketController extends Controller
 {
-    /**
-     * Opciones de proceso dentro de la licitación.
-     */
-    private const PHASES = [
-        'analisis_bases' => 'Análisis de bases',
-        'preguntas'      => 'Preguntas / aclaraciones',
-        'cotizacion'     => 'Cotización',
-        'muestras'       => 'Muestras',
-        'ir_por_pedido'  => 'Ir por pedido',
-        'entrega'        => 'Entrega',
-        'seguimiento'    => 'Seguimiento / otros',
+    // ✅ Workflow “pro”
+    public const STATUSES = [
+        'pendiente'   => 'Pendiente',
+        'revision'    => 'En revisión',
+        'progreso'    => 'En progreso',
+        'bloqueado'   => 'En espera (bloqueado)',
+        'pruebas'     => 'En pruebas',
+        'completado'  => 'Completado',
+        'cancelado'   => 'Cancelado',
     ];
 
-    /** Listado con filtros básicos (solo licitaciones) */
+    // ✅ Prioridades reales
+    public const PRIORITIES = [
+        'critica' => 'Crítica',
+        'alta'    => 'Alta',
+        'media'   => 'Media',
+        'baja'    => 'Baja',
+        'mejora'  => 'Mejora futura',
+    ];
+
+    // ✅ Áreas sugeridas
+    public const AREAS = [
+        'contabilidad'      => 'Contabilidad',
+        'logistica'         => 'Logística',
+        'inventario_medico' => 'Inventario Médico',
+        'mercado_libre'     => 'Mercado Libre',
+        'amazon_fba'        => 'Amazon FBA',
+        'desarrollo'        => 'Desarrollo',
+        'marketing'         => 'Marketing',
+        'administracion'    => 'Administración',
+    ];
+
+    /** Permiso simple: asignado o creador (ajústalo si quieres) */
+    private function canWorkTicket(Ticket $ticket): bool
+    {
+        $uid = auth()->id();
+        if (!$uid) return false;
+
+        // asignado
+        if (!empty($ticket->assignee_id) && (int)$ticket->assignee_id === (int)$uid) return true;
+
+        // creador
+        if (!empty($ticket->created_by) && (int)$ticket->created_by === (int)$uid) return true;
+
+        // si tienes roles, aquí puedes permitir admin
+        // if (auth()->user()?->hasRole('admin')) return true;
+
+        return false;
+    }
+
+    /** Listado con filtros */
     public function index(Request $r)
     {
         $q = Ticket::query()
-            ->where('type', 'licitacion')
-            ->when($r->filled('status'), fn($qq) => $qq->where('status', $r->string('status')))
+            ->when($r->filled('status'),   fn($qq) => $qq->where('status', $r->string('status')))
             ->when($r->filled('priority'), fn($qq) => $qq->where('priority', $r->string('priority')))
-            ->when($r->filled('phase'), fn($qq) => $qq->where('licitacion_phase', $r->string('phase')))
-            ->when($r->filled('owner_id'), fn($qq) => $qq->where('owner_id', $r->integer('owner_id')))
+            ->when($r->filled('area'),     fn($qq) => $qq->where('area', $r->string('area')))
+            ->when($r->filled('assignee'), fn($qq) => $qq->where('assignee_id', $r->integer('assignee')))
             ->when($r->filled('q'), function ($qq) use ($r) {
-                $s = $r->string('q');
+                $s = trim((string) $r->string('q'));
                 $qq->where(function ($w) use ($s) {
                     $w->where('title', 'like', "%{$s}%")
-                        ->orWhere('client_name', 'like', "%{$s}%")
-                        ->orWhere('numero_licitacion', 'like', "%{$s}%");
+                      ->orWhere('description', 'like', "%{$s}%")
+                      ->orWhere('folio', 'like', "%{$s}%");
                 });
             })
             ->latest();
 
         $tickets = $q->paginate(20)->withQueryString();
+        $users   = User::orderBy('name')->get(['id','name']);
 
-        return view('tickets.index', compact('tickets'));
+        return view('tickets.index', [
+            'tickets'    => $tickets,
+            'users'      => $users,
+            'statuses'   => self::STATUSES,
+            'priorities' => self::PRIORITIES,
+            'areas'      => self::AREAS,
+        ]);
     }
 
-    /** Formulario de creación */
+    /** Form crear */
     public function create()
     {
-        // Para selector de responsables por nombre
-        $users = User::orderBy('name')->get();
+        $users = User::orderBy('name')->get(['id','name']);
 
-        return view('tickets.create', compact('users'));
+        return view('tickets.create', [
+            'users'      => $users,
+            'priorities' => self::PRIORITIES,
+            'areas'      => self::AREAS,
+        ]);
     }
 
-    /** Genera un folio tipo TKT-YYYY-#### */
+    /** Vista de trabajo para asignado */
+    public function work(Ticket $ticket)
+    {
+        $ticket->load(['assignee','creator','documents.uploader']);
+
+        // si no tiene asignado, puedes bloquear o permitir
+        if (!$this->canWorkTicket($ticket)) {
+            abort(403, 'No tienes permiso para trabajar este ticket.');
+        }
+
+        $users = User::orderBy('name')->get(['id','name']);
+
+        return view('tickets.work', [
+            'ticket'     => $ticket,
+            'users'      => $users,
+            'statuses'   => self::STATUSES,
+            'priorities' => self::PRIORITIES,
+            'areas'      => self::AREAS,
+        ]);
+    }
+
+    /** Folio TKT-YYYY-#### */
     protected function nextFolio(): string
     {
-        $y    = now()->year;
+        $y = now()->year;
         $last = Ticket::whereYear('created_at', $y)->max('id') ?? 0;
-
         return sprintf('TKT-%d-%04d', $y, $last + 1);
     }
 
-    /**
-     * Guarda ticket de licitación + etapas por defecto.
-     * Aquí ya DISPARAMOS la notificación al responsable.
-     */
+    /** Crear ticket + subir archivos mínimos (3) */
     public function store(Request $r)
     {
-        $phaseKeys = implode(',', array_keys(self::PHASES));
+        $priorityKeys = implode(',', array_keys(self::PRIORITIES));
+        $areaKeys     = implode(',', array_keys(self::AREAS));
 
         $data = $r->validate([
-            'client_id'         => ['nullable', 'integer'],
-            'client_name'       => ['nullable', 'string', 'max:180'],
-            'title'             => ['required', 'string', 'max:180'],
+            'title'       => ['required','string','max:180'],
+            'description' => ['nullable','string'],
 
-            // Todos son de licitación, pero validamos por si llega algo
-            'type'              => ['nullable', 'string'],
+            // ❌ status ya NO se captura en la vista
+            'priority'    => ['required', "in:{$priorityKeys}"],
+            'area'        => ['required', "in:{$areaKeys}"],
 
-            'licitacion_phase'  => ['required', "in:{$phaseKeys}"],
-            'priority'          => ['required', 'in:alta,media,baja'],
-            'owner_id'          => ['nullable', 'integer', 'exists:users,id'],
-            'due_at'            => ['nullable', 'date'],
+            'assignee_id' => ['nullable','integer','exists:users,id'],
+            'due_at'      => ['nullable','date'],
 
-            'numero_licitacion' => ['nullable', 'string', 'max:120'],
-            'monto_propuesta'   => ['nullable', 'numeric'],
-            'link_inicial'      => ['nullable', 'url'],
+            // ✅ Score inputs opcionales
+            'impact'      => ['nullable','integer','min:1','max:5'],
+            'urgency'     => ['nullable','integer','min:1','max:5'],
+            'effort'      => ['nullable','integer','min:1','max:5'],
 
-            // Notas rápidas que sí se guardan
-            'quick_notes'       => ['nullable', 'string'],
+            // ✅ Archivos: mínimo 3
+            'files'       => ['required','array','min:3'],
+            'files.*'     => ['file'],
+        ], [
+            'files.required' => 'Debes subir mínimo 3 archivos.',
+            'files.array'    => 'Archivos inválidos.',
+            'files.min'      => 'Debes subir mínimo 3 archivos.',
         ]);
 
         return DB::transaction(function () use ($data, $r) {
-            // Tipo forzado a licitación
-            $attrs = array_merge($data, [
-                'type'      => 'licitacion',
-                'folio'     => $this->nextFolio(),
-                'status'    => 'revision',
-                'opened_at' => now(),
-            ]);
 
-            // created_by si existe la columna
+            // === attrs para tickets (SIN files) ===
+            $attrs = $data;
+            unset($attrs['files']);
+
+            // defaults
+            $attrs['folio'] = $this->nextFolio();
+
+            // ✅ FORZADO (pero ojo: tu BD debe permitir este valor)
+            $attrs['status'] = 'pendiente';
+
+            // creator
             if (Schema::hasColumn('tickets', 'created_by')) {
                 $attrs['created_by'] = auth()->id();
             }
 
+            // score automático
+            $impact  = (int) ($attrs['impact']  ?? 0);
+            $urgency = (int) ($attrs['urgency'] ?? 0);
+            $effort  = (int) ($attrs['effort']  ?? 0);
+            if ($impact && $urgency && $effort && Schema::hasColumn('tickets','score')) {
+                $attrs['score'] = ($impact + $urgency) - $effort;
+            }
+
+            // ⚠️ Si tu status es ENUM sin 'pendiente', aquí truena con Data truncated.
+            // En ese caso corre la migración de abajo.
             $ticket = Ticket::create($attrs);
 
-            // Etapas por defecto, orientadas a licitaciones
-            $defaultStages = [
-                'Recepción de bases / documentos',
-                'Análisis técnico / comercial',
-                'Preguntas y aclaraciones',
-                'Cotización y envío',
-                'Muestras / pedido',
-                'Entrega y cierre',
-            ];
+            // ===== Guardar archivos en ticket_documents =====
+            $uploaded = 0;
+            $summary = [];
 
-            foreach ($defaultStages as $i => $name) {
-                TicketStage::create([
-                    'ticket_id' => $ticket->id,
-                    'position'  => $i + 1,
-                    'name'      => $name,
-                    'status'    => 'pendiente',
+            foreach (($r->file('files') ?? []) as $file) {
+                if (!$file) continue;
+
+                $path = $file->store("tickets/{$ticket->id}", ['disk' => config('filesystems.default')]);
+
+                TicketDocument::create([
+                    'ticket_id'    => $ticket->id,
+                    'uploaded_by'  => auth()->id(),
+                    'stage_id'     => null,
+                    'category'     => 'adjunto',
+                    'name'         => $file->getClientOriginalName(),
+                    'path'         => $path,
+                    'external_url' => null,
+                    'version'      => 1,
+                    'meta'         => [
+                        'mime' => $file->getClientMimeType(),
+                        'size' => $file->getSize(),
+                    ],
+                ]);
+
+                $uploaded++;
+                $summary[] = [
+                    'name' => $file->getClientOriginalName(),
+                    'mime' => $file->getClientMimeType(),
+                    'size' => $file->getSize(),
+                ];
+            }
+
+            if ($uploaded < 3) {
+                throw ValidationException::withMessages([
+                    'files' => 'Debes subir mínimo 3 archivos (no se detectaron 3 archivos válidos).',
                 ]);
             }
 
-            // Enlace inicial
-            if (!empty($data['link_inicial'])) {
-                TicketLink::create([
-                    'ticket_id' => $ticket->id,
-                    'label'     => 'Enlace inicial',
-                    'url'       => $data['link_inicial'],
-                ]);
-            }
-
+            // ✅ Audit entendible (sin arrays raros)
             TicketAudit::create([
                 'ticket_id' => $ticket->id,
                 'user_id'   => auth()->id(),
                 'action'    => 'ticket_created',
-                'diff'      => ['payload' => $data],
+                'diff'      => [
+                    'ticket' => [
+                        'folio'    => $ticket->folio,
+                        'title'    => $ticket->title,
+                        'priority' => $ticket->priority,
+                        'area'     => $ticket->area,
+                        'assignee' => $ticket->assignee_id,
+                        'due_at'   => optional($ticket->due_at)->toISOString(),
+                        'score'    => $ticket->score,
+                        'status'   => $ticket->status,
+                    ],
+                    'files_uploaded' => $uploaded,
+                    'files' => array_slice($summary, 0, 6), // muestra máximo 6 en log
+                ],
             ]);
 
-            // ===== Notificar al responsable asignado (o al usuario actual) =====
-            $owner = null;
-            if (!empty($data['owner_id'])) {
-                $owner = User::find($data['owner_id']);
+            // notificar asignado
+            if (!empty($ticket->assignee_id)) {
+                $u = User::find($ticket->assignee_id);
+                if ($u && class_exists(TicketAssigned::class)) {
+                    $u->notify(new TicketAssigned($ticket));
+                }
             }
-            if (!$owner) {
-                $owner = auth()->user();
-            }
-
-            if ($owner) {
-                $owner->notify(new TicketAssigned($ticket));
-            }
-            // ==================================================================
 
             return redirect()
                 ->route('tickets.show', $ticket)
-                ->with('ok', 'Ticket generado correctamente.');
+                ->with('ok', 'Ticket creado.');
         });
     }
 
-    /** Detalle del ticket (vista coordinador / configuración) */
+    /** Detalle */
     public function show(Ticket $ticket)
     {
         $ticket->load([
-            'stages.checklists.items',
+            'assignee',
+            'creator',
             'comments.user',
             'documents.uploader',
-            'links',
-            'audits',
-            'owner',
-            'client',
+            'audits.user',
         ]);
 
-        // Para dropdown de responsables en la vista
-        $users = User::orderBy('name')->get();
+        $users = User::orderBy('name')->get(['id','name']);
 
-        return view('tickets.show', compact('ticket', 'users'));
-    }
-
-    /**
-     * Vista de EJECUCIÓN para la persona asignada.
-     * Aquí no se configuran etapas ni checklists, solo se trabaja el ticket.
-     */
-    public function work(Ticket $ticket)
-    {
-        $ticket->load([
-            'stages.checklists.items',
-            'owner',
-            'client',
-            'links',
-        ]);
-
-        return view('tickets.work', [
-            'ticket' => $ticket,
+        return view('tickets.show', [
+            'ticket'     => $ticket,
+            'users'      => $users,
+            'statuses'   => self::STATUSES,
+            'priorities' => self::PRIORITIES,
+            'areas'      => self::AREAS,
         ]);
     }
 
-    /**
-     * Actualiza campos básicos del ticket de licitación.
-     * Si cambia el owner, también lanzamos notificación al nuevo responsable.
-     */
+    /** Update (para workflow y cambios puntuales) */
     public function update(Request $r, Ticket $ticket)
     {
-        $phaseKeys = implode(',', array_keys(self::PHASES));
+        $statusKeys   = implode(',', array_keys(self::STATUSES));
+        $priorityKeys = implode(',', array_keys(self::PRIORITIES));
+        $areaKeys     = implode(',', array_keys(self::AREAS));
 
         $data = $r->validate([
-            'title'                => ['nullable', 'string', 'max:180'],
-            'priority'             => ['nullable', 'in:alta,media,baja'],
-            'status'               => ['nullable', 'in:revision,proceso,finalizado,cerrado'],
-            'owner_id'             => ['nullable', 'integer', 'exists:users,id'],
-            'due_at'               => ['nullable', 'date'],
-            'numero_licitacion'    => ['nullable', 'string', 'max:120'],
-            'monto_propuesta'      => ['nullable', 'numeric'],
-            'estatus_adjudicacion' => ['nullable', 'in:en_espera,ganada,perdida'],
+            'title'       => ['nullable','string','max:180'],
+            'description' => ['nullable','string'],
 
-            'licitacion_phase'     => ['nullable', "in:{$phaseKeys}"],
-            'quick_notes'          => ['nullable', 'string'],
+            'status'      => ['nullable', "in:{$statusKeys}"],
+            'priority'    => ['nullable', "in:{$priorityKeys}"],
+            'area'        => ['nullable', "in:{$areaKeys}"],
+
+            'assignee_id' => ['nullable','integer','exists:users,id'],
+            'due_at'      => ['nullable','date'],
+
+            'impact'      => ['nullable','integer','min:1','max:5'],
+            'urgency'     => ['nullable','integer','min:1','max:5'],
+            'effort'      => ['nullable','integer','min:1','max:5'],
         ]);
 
-        // desde la vista podemos mandar redirect=stay|index
-        $redirect = $r->input('redirect', 'stay');
-
-        $before        = $ticket->toArray();
-        $beforeOwnerId = $ticket->owner_id;
-
-        // Solo llenamos lo que venga no nulo
-        $ticket->fill(array_filter($data, fn($v) => !is_null($v)))->save();
-        $ticket->refreshProgress();
-
-        // Si cambió el responsable, notificar al nuevo owner
-        if (!empty($ticket->owner_id) && $ticket->owner_id !== $beforeOwnerId) {
-            $newOwner = User::find($ticket->owner_id);
-            if ($newOwner) {
-                $newOwner->notify(new TicketAssigned($ticket));
+        // ✅ Si viene status, solo asignado/creador lo puede mover (para “work”)
+        if (array_key_exists('status', $data) && !is_null($data['status'])) {
+            if (!$this->canWorkTicket($ticket)) {
+                abort(403, 'No tienes permiso para cambiar el estado de este ticket.');
             }
         }
+
+        $before = $ticket->toArray();
+        $beforeAssignee = $ticket->assignee_id;
+
+        $ticket->fill(array_filter($data, fn($v) => !is_null($v)));
+
+        // recalcular score si aplica
+        if (Schema::hasColumn('tickets','score')) {
+            $impact  = (int) ($ticket->impact  ?? 0);
+            $urgency = (int) ($ticket->urgency ?? 0);
+            $effort  = (int) ($ticket->effort  ?? 0);
+            if ($impact && $urgency && $effort) {
+                $ticket->score = ($impact + $urgency) - $effort;
+            }
+        }
+
+        // timestamps status
+        if (Schema::hasColumn('tickets','completed_at') && $ticket->status === 'completado') {
+            $ticket->completed_at = $ticket->completed_at ?: now();
+        }
+        if (Schema::hasColumn('tickets','cancelled_at') && $ticket->status === 'cancelado') {
+            $ticket->cancelled_at = $ticket->cancelled_at ?: now();
+        }
+
+        $ticket->save();
 
         TicketAudit::create([
             'ticket_id' => $ticket->id,
             'user_id'   => auth()->id(),
             'action'    => 'ticket_updated',
             'diff'      => [
-                'before' => $before,
-                'after'  => $ticket->fresh()->toArray(),
+                'changed' => array_keys(array_filter($data, fn($v) => !is_null($v))),
+                'before'  => [
+                    'status'      => $before['status'] ?? null,
+                    'priority'    => $before['priority'] ?? null,
+                    'area'        => $before['area'] ?? null,
+                    'assignee_id' => $before['assignee_id'] ?? null,
+                    'due_at'      => $before['due_at'] ?? null,
+                ],
+                'after'   => [
+                    'status'      => $ticket->status,
+                    'priority'    => $ticket->priority,
+                    'area'        => $ticket->area,
+                    'assignee_id' => $ticket->assignee_id,
+                    'due_at'      => optional($ticket->due_at)->toISOString(),
+                ],
             ],
         ]);
 
-        if ($redirect === 'index') {
-            return redirect()
-                ->route('tickets.index')
-                ->with('ok', 'Ticket actualizado.');
+        // notificar si cambió asignado
+        if (!empty($ticket->assignee_id) && $ticket->assignee_id !== $beforeAssignee) {
+            $u = User::find($ticket->assignee_id);
+            if ($u && class_exists(TicketAssigned::class)) {
+                $u->notify(new TicketAssigned($ticket));
+            }
         }
 
         return back()->with('ok', 'Ticket actualizado.');
     }
 
-    /** Cerrar ticket (usado por ruta tickets.close) */
-    public function close(Request $r, Ticket $ticket)
+    /** Completar */
+    public function complete(Request $r, Ticket $ticket)
     {
+        if (!$this->canWorkTicket($ticket)) {
+            abort(403, 'No tienes permiso para completar este ticket.');
+        }
+
         $before = $ticket->toArray();
 
-        $ticket->status = 'cerrado';
-        if (Schema::hasColumn('tickets', 'closed_at')) {
-            $ticket->closed_at = now();
-        }
-        if (Schema::hasColumn('tickets', 'closed_by')) {
-            $ticket->closed_by = auth()->id();
-        }
+        $ticket->status = 'completado';
+        if (Schema::hasColumn('tickets','completed_at')) $ticket->completed_at = now();
         $ticket->save();
 
         TicketAudit::create([
             'ticket_id' => $ticket->id,
             'user_id'   => auth()->id(),
-            'action'    => 'ticket_closed',
+            'action'    => 'ticket_completed',
             'diff'      => [
-                'before' => $before,
-                'after'  => $ticket->fresh()->toArray(),
+                'from' => $before['status'] ?? null,
+                'to'   => $ticket->status,
             ],
         ]);
 
-        return back()->with('ok', 'Ticket cerrado');
+        return back()->with('ok', 'Ticket completado.');
     }
 
-    /** Configurador: crear etapa */
-    public function storeStage(Request $r, Ticket $ticket)
+    /** Cancelar */
+    public function cancel(Request $r, Ticket $ticket)
     {
-        $data = $r->validate([
-            'name' => ['required', 'string', 'max:160'],
-        ]);
+        if (!$this->canWorkTicket($ticket)) {
+            abort(403, 'No tienes permiso para cancelar este ticket.');
+        }
 
-        $pos = (int) $ticket->stages()->max('position') + 1;
+        $before = $ticket->toArray();
 
-        $stage = TicketStage::create([
-            'ticket_id' => $ticket->id,
-            'position'  => $pos,
-            'name'      => $data['name'],
-            'status'    => 'pendiente',
-        ]);
+        $ticket->status = 'cancelado';
+        if (Schema::hasColumn('tickets','cancelled_at')) $ticket->cancelled_at = now();
+        $ticket->save();
 
         TicketAudit::create([
             'ticket_id' => $ticket->id,
             'user_id'   => auth()->id(),
-            'action'    => 'stage_created',
-            'diff'      => ['stage_id' => $stage->id, 'name' => $stage->name],
-        ]);
-
-        return back()->with('ok', 'Etapa agregada');
-    }
-
-    /** Configurador: eliminar etapa + cascade */
-    public function destroyStage(Ticket $ticket, TicketStage $stage)
-    {
-        abort_unless($stage->ticket_id === $ticket->id, 404);
-
-        DB::transaction(function () use ($ticket, $stage) {
-            $stage->load('checklists.items');
-
-            // Borrar checklists + items
-            foreach ($stage->checklists as $chk) {
-                TicketChecklistItem::where('checklist_id', $chk->id)->delete();
-                $chk->delete();
-            }
-
-            // Borrar documentos (y archivos físicos)
-            $docs = $stage->documents()->get();
-            foreach ($docs as $d) {
-                if ($d->path && Storage::exists($d->path)) {
-                    Storage::delete($d->path);
-                }
-                $d->delete();
-            }
-
-            $deletedPos = $stage->position;
-            $stage->delete();
-
-            // Reindexar positions
-            $ticket->stages()
-                ->where('position', '>', $deletedPos)
-                ->orderBy('position')
-                ->get()
-                ->each(function ($s) {
-                    $s->position = $s->position - 1;
-                    $s->save();
-                });
-
-            TicketAudit::create([
-                'ticket_id' => $ticket->id,
-                'user_id'   => auth()->id(),
-                'action'    => 'stage_deleted',
-                'diff'      => ['position_removed' => $deletedPos],
-            ]);
-
-            $ticket->refreshProgress();
-        });
-
-        return back()->with('ok', 'Etapa eliminada y posiciones reindexadas');
-    }
-
-    /** Eliminar documento del ticket */
-    public function destroyDocument(Ticket $ticket, TicketDocument $document)
-    {
-        abort_unless($document->ticket_id === $ticket->id, 404);
-
-        if ($document->path && Storage::exists($document->path)) {
-            Storage::delete($document->path);
-        }
-        $document->delete();
-
-        TicketAudit::create([
-            'ticket_id' => $ticket->id,
-            'user_id'   => auth()->id(),
-            'action'    => 'document_deleted',
-            'diff'      => ['document_id' => $document->id],
-        ]);
-
-        return back()->with('ok', 'Documento eliminado');
-    }
-
-    /** Poll básico (vista ejecutor o dashboards) */
-    public function poll(Request $r, Ticket $ticket)
-    {
-        $ticket->load(['stages.checklists.items', 'documents', 'comments']);
-
-        $stages = $ticket->stages->map(function ($s) {
-            $done  = $s->checklists->flatMap->items->where('is_done', true)->count();
-            $total = $s->checklists->flatMap->items->count();
-
-            return [
-                'id'          => $s->id,
-                'position'    => $s->position,
-                'name'        => $s->name,
-                'status'      => $s->status,
-                'due_at'      => optional($s->due_at)->toDateTimeString(),
-                'assignee'    => optional($s->assignee)->name ?? null,
-                'check_done'  => $done,
-                'check_total' => $total,
-                'evidences'   => $s->documents()->count(),
-                'signal'      => method_exists($s, 'slaSignal') ? $s->slaSignal() : 'neutral',
-            ];
-        })->values();
-
-        // Señal de prioridad para colores en frontend
-        $prioritySignal = 'neutral';
-        if ($ticket->priority === 'alta') {
-            $prioritySignal = 'danger';
-        } elseif ($ticket->priority === 'media') {
-            $prioritySignal = 'warn';
-        } elseif ($ticket->priority === 'baja') {
-            $prioritySignal = 'ok';
-        }
-
-        return response()->json([
-            'ok' => true,
-            'ticket' => [
-                'id'              => $ticket->id,
-                'folio'           => $ticket->folio,
-                'status'          => $ticket->status,
-                'priority'        => $ticket->priority,
-                'priority_signal' => $prioritySignal,
-                'progress'        => $ticket->progress,
-                'due_at'          => optional($ticket->due_at)->toDateTimeString(),
-                'phase'           => $ticket->licitacion_phase,
+            'action'    => 'ticket_cancelled',
+            'diff'      => [
+                'from' => $before['status'] ?? null,
+                'to'   => $ticket->status,
             ],
-            'stages' => $stages,
-            'counts' => [
-                'documents' => $ticket->documents->count(),
-                'comments'  => $ticket->comments->count(),
-            ],
-            'ts' => now()->timestamp,
-        ]);
-    }
-
-    /* ======= Compatibilidad con tus rutas AJAX existentes ======= */
-
-    /** Iniciar etapa por AJAX (validación secuencial) */
-    public function ajaxStartStage(Request $r, Ticket $ticket, TicketStage $stage)
-    {
-        abort_unless($stage->ticket_id === $ticket->id, 404);
-
-        $prev = $ticket->stages()->where('position', '<', $stage->position)
-            ->orderByDesc('position')->first();
-
-        if ($prev && $prev->status !== 'terminado') {
-            return response()->json(['ok' => false, 'msg' => 'Debes completar la etapa anterior.'], 422);
-        }
-
-        if ($stage->status === 'pendiente') {
-            $upd = ['status' => 'en_progreso'];
-            if (Schema::hasColumn('ticket_stages', 'started_at')) {
-                $upd['started_at'] = now();
-            }
-            $stage->update($upd);
-
-            TicketAudit::create([
-                'ticket_id' => $ticket->id,
-                'user_id'   => auth()->id(),
-                'action'    => 'stage_started',
-                'diff'      => ['stage_id' => $stage->id],
-            ]);
-        }
-
-        return response()->json([
-            'ok'         => true,
-            'stage_id'   => $stage->id,
-            'status'     => $stage->status,
-            'started_at' => Schema::hasColumn('ticket_stages', 'started_at') ? $stage->started_at : null,
-        ]);
-    }
-
-    /** Completar etapa por AJAX (valida checklist/evidencia) */
-    public function ajaxCompleteStage(Request $r, Ticket $ticket, TicketStage $stage)
-    {
-        abort_unless($stage->ticket_id === $ticket->id, 404);
-
-        $ids = $stage->checklists()->pluck('id');
-
-        $pending = $ids->isEmpty()
-            ? 0
-            : TicketChecklistItem::whereIn('checklist_id', $ids)->where('is_done', false)->count();
-
-        if ($pending > 0) {
-            return response()->json(['ok' => false, 'msg' => 'Faltan items del checklist.'], 422);
-        }
-
-        if (Schema::hasColumn('ticket_stages', 'requires_evidence') && $stage->requires_evidence) {
-            if (!$stage->documents()->exists()) {
-                return response()->json(['ok' => false, 'msg' => 'Debes subir evidencia para cerrar la etapa.'], 422);
-            }
-        }
-
-        $upd = ['status' => 'terminado'];
-        if (Schema::hasColumn('ticket_stages', 'finished_at')) {
-            $upd['finished_at'] = now();
-        }
-        $stage->update($upd);
-
-        $ticket->refreshProgress();
-
-        TicketAudit::create([
-            'ticket_id' => $ticket->id,
-            'user_id'   => auth()->id(),
-            'action'    => 'stage_completed',
-            'diff'      => ['stage_id' => $stage->id],
         ]);
 
-        return response()->json(['ok' => true, 'progress' => $ticket->progress]);
-    }
-
-    /** Subir evidencia por AJAX (archivo o link) */
-    public function ajaxUploadEvidence(Request $r, Ticket $ticket, TicketStage $stage)
-    {
-        abort_unless($stage->ticket_id === $ticket->id, 404);
-
-        $data = $r->validate([
-            'file' => [
-                'nullable',
-                'file',
-                'max:40960',
-                'mimetypes:image/*,video/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation',
-            ],
-            'link' => ['nullable', 'url'],
-        ]);
-
-        if ($r->hasFile('file')) {
-            $path = $r->file('file')->store("tickets/{$ticket->id}/stage_{$stage->id}");
-            TicketDocument::create([
-                'ticket_id'   => $ticket->id,
-                'uploaded_by' => auth()->id(),
-                'stage_id'    => $stage->id,
-                'category'    => 'evidencia',
-                'name'        => $r->file('file')->getClientOriginalName(),
-                'path'        => $path,
-                'version'     => 1,
-                'meta'        => ['type' => 'evidence'],
-            ]);
-        }
-
-        if (!empty($data['link'])) {
-            TicketDocument::create([
-                'ticket_id'   => $ticket->id,
-                'uploaded_by' => auth()->id(),
-                'stage_id'    => $stage->id,
-                'category'    => 'evidencia',
-                'name'        => 'Evidencia (link)',
-                'path'        => null,
-                'version'     => 1,
-                'meta'        => ['type' => 'evidence', 'url' => $data['link']],
-            ]);
-        }
-
-        return response()->json(['ok' => true]);
+        return back()->with('ok', 'Ticket cancelado.');
     }
 }

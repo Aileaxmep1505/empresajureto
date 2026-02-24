@@ -1,966 +1,826 @@
 {{-- resources/views/tickets/work.blade.php --}}
 @extends('layouts.app')
-
-@section('title', ($ticket->folio ?? 'Ticket') . ' · Trabajo')
+@section('title', 'Trabajo | '.$ticket->folio)
 
 @section('content')
 @php
-  use App\Models\TicketChecklist;
+  use Illuminate\Support\Facades\Storage;
+  use Illuminate\Support\Str;
 
-  $progress = (int) ($ticket->progress ?? 0);
+  $statuses   = $statuses   ?? \App\Http\Controllers\Tickets\TicketController::STATUSES;
+  $priorities = $priorities ?? \App\Http\Controllers\Tickets\TicketController::PRIORITIES;
+  $areas      = $areas      ?? \App\Http\Controllers\Tickets\TicketController::AREAS;
 
-  // Helper local: asegura colección
-  $asCollection = function($value){
-    if ($value instanceof \Illuminate\Support\Collection) return $value;
-    if (is_array($value)) return collect($value);
-    if (is_null($value)) return collect();
-    return collect($value); // por si viene iterable
+  $workflow = [
+    'pendiente'  => ['label'=>'Pendiente', 'key'=>'pendiente'],
+    'revision'   => ['label'=>'En revisión', 'key'=>'revision'],
+    'progreso'   => ['label'=>'En progreso', 'key'=>'progreso'],
+    'bloqueado'  => ['label'=>'En espera', 'key'=>'bloqueado'],
+    'pruebas'    => ['label'=>'En pruebas', 'key'=>'pruebas'],
+    'completado' => ['label'=>'Completado', 'key'=>'completado'],
+    'cancelado'  => ['label'=>'Cancelado', 'key'=>'cancelado'],
+  ];
+
+  $strict = ['pendiente','revision','progreso','pruebas','completado'];
+  $strictIndex = array_flip($strict);
+
+  $current = $ticket->status ?: 'pendiente';
+
+  $canComplete = ($current === 'pruebas');
+  $canCancel = !in_array($current, ['completado','cancelado'], true);
+  $isAssignee = auth()->check() && (string)auth()->id() === (string)($ticket->assignee_id ?? '');
+
+  $sla = $ticket->sla_signal ?? 'neutral';
+  $slaClass = $sla==='overdue' ? 'red' : ($sla==='due_soon' ? 'amber' : ($sla==='ok' ? 'green' : 'slate'));
+
+  $pillStatusClass = function($st){
+    return match($st){
+      'completado' => 'green',
+      'cancelado'  => 'red',
+      'bloqueado'  => 'amber',
+      'revision'   => 'amber',
+      'pruebas'    => 'amber',
+      default      => 'blue',
+    };
   };
 
-  // ✅ Checklists generales: ticket_id pero SIN stage_id (muy común que se "pierdan" así)
-  $generalChecklists = TicketChecklist::query()
-    ->where('ticket_id', $ticket->id)
-    ->whereNull('stage_id')
-    ->with(['items' => fn($q) => $q->orderBy('position')])
-    ->orderBy('id')
-    ->get();
+  $nextStrict = null;
+  if (isset($strictIndex[$current]) && $strictIndex[$current] < count($strict)-1) {
+    $nextStrict = $strict[$strictIndex[$current] + 1];
+  } elseif ($current === 'bloqueado') {
+    $nextStrict = 'progreso';
+  }
+
+  $canMoveTo = function(string $target) use ($current, $nextStrict){
+    if (in_array($current, ['completado','cancelado'], true)) return false;
+    if ($target === $current) return false;
+    if ($target === 'cancelado') return true;
+    if ($target === 'completado') return false;
+
+    if ($target === 'bloqueado') return true;
+    if ($current === 'bloqueado') return in_array($target, ['progreso','pruebas'], true);
+
+    return $target === $nextStrict;
+  };
+
+  $docUrl = function($d){
+    if (empty($d->path)) return null;
+    try { return Storage::url($d->path); } catch (\Throwable $e) { return null; }
+  };
+
+  $docKind = function($d){
+    $mime = data_get($d, 'meta.mime') ?: (string)($d->mime ?? '');
+    $name = (string)($d->name ?? '');
+    $ext  = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+
+    if (Str::startsWith($mime, 'image/')) return 'image';
+    if (Str::startsWith($mime, 'video/')) return 'video';
+    if (Str::startsWith($mime, 'audio/')) return 'audio';
+    if ($mime === 'application/pdf' || $ext === 'pdf') return 'pdf';
+    return 'file';
+  };
+
+  $steps = ['pendiente','revision','progreso','bloqueado','pruebas'];
+
+  // Icons
+  $I = function($name){
+    $icons = [
+      'arrowLeft' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>',
+      'list'      => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>',
+      'check'     => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>',
+      'x'         => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>',
+      'flag'      => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22V4"/><path d="M4 4h14l-2 5 2 5H4"/></svg>',
+      'shield'    => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
+      'clock'     => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v6l4 2"/></svg>',
+      'play'      => '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>',
+      'pause'     => '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>',
+      'trash'     => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>',
+      'chat'      => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>',
+      'paperclip' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-8.49 8.49a5 5 0 0 1-7.07-7.07l8.49-8.49a3 3 0 0 1 4.24 4.24l-8.49 8.49a1 1 0 0 1-1.41-1.41l8.49-8.49"/></svg>',
+      'eye'       => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+      'download'  => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>',
+      'info'      => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>',
+      'file'      => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>',
+      'image'     => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 16l5-5 4 4 5-6 4 5"/></svg>',
+      'pdf'       => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M7 15h3"/><path d="M7 18h4"/><path d="M14 18h3"/></svg>',
+      'warn'      => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>',
+    ];
+    return $icons[$name] ?? $icons['info'];
+  };
+
+  $slaText = match($sla){
+    'overdue'  => 'Vencido',
+    'due_soon' => 'Por vencer',
+    'ok'       => 'En tiempo',
+    default    => 'Sin fecha',
+  };
 @endphp
 
-<div id="tktwork" class="container-fluid p-0">
+<div class="container py-4" id="tkWork">
   <style>
-    #tktwork{
-      --ink:#0f172a;
-      --muted:#6b7280;
-      --line:#e2e8f0;
-      --bg:#f8fafc;
-      --card:#ffffff;
-
-      --accent:#4f46e5;
-      --accent-soft:#eef2ff;
-      --accent-border:#c7d2fe;
-      --accent-ink:#1d4ed8;
-
-      --ok:#16a34a;
-      --warn:#f59e0b;
-      --danger:#ef4444;
-
-      --radius:16px;
-      --shadow:0 18px 40px rgba(15,23,42,.08);
-      --ring:0 0 0 4px rgba(129,140,248,.18);
-
-      color:var(--ink);
-      background:radial-gradient(circle at top left,#e0ecff 0,#f8fafc 45%,#ffffff 100%);
-      font-synthesis-weight:none;
-    }
-    #tktwork *{box-sizing:border-box;}
-
-    #tktwork .wrap{
-      max-width:1180px;
-      margin:clamp(16px,3vw,28px) auto;
-      padding:0 16px 32px;
+    /* ==============================================================
+       Premium Minimalist Design System
+       ============================================================== */
+    :root {
+      --color-primary: #4f46e5;
+      --color-primary-hover: #4338ca;
+      --color-primary-light: #e0e7ff;
+      --color-success: #10b981;
+      --color-danger: #ef4444;
+      --color-warning: #f59e0b;
+      --color-bg: #f8fafc;
+      --color-surface: #ffffff;
+      --color-text-main: #0f172a;
+      --color-text-muted: #64748b;
+      --color-border: #e2e8f0;
+      
+      --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+      --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+      --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+      --shadow-modal: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+      
+      --radius-sm: 0.5rem;
+      --radius-md: 0.75rem;
+      --radius-lg: 1rem;
+      --radius-xl: 1.5rem;
+      
+      --transition-base: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    /* HEADER */
-    #tktwork .head{
-      margin-bottom:18px;
-      display:flex;
-      flex-wrap:wrap;
-      gap:12px;
-      align-items:flex-start;
-      justify-content:space-between;
-    }
-    #tktwork .head-main h1{
-      margin:0;
-      font-size:1.3rem;
-      letter-spacing:.03em;
-      font-weight:800;
-    }
-    #tktwork .head-main p{
-      margin:4px 0 0;
-      font-size:.86rem;
-      color:var(--muted);
-    }
-    #tktwork .head-badges{
-      display:flex;
-      flex-wrap:wrap;
-      gap:6px;
-      margin-top:8px;
-    }
-    #tktwork .pill{
-      padding:.25rem .7rem;
-      border-radius:999px;
-      border:1px solid var(--line);
-      background:#ffffff;
-      font-size:.78rem;
-      color:var(--muted);
-      white-space:nowrap;
-    }
-    #tktwork .pill-strong{
-      background:var(--accent-soft);
-      border-color:var(--accent-border);
-      color:var(--accent-ink);
-      font-weight:600;
-    }
-    #tktwork .tag-prio{
-      padding:.25rem .7rem;
-      border-radius:999px;
-      font-size:.78rem;
-      font-weight:600;
-      border:1px solid transparent;
-    }
-    #tktwork .tag-prio-alta{ background:#fee2e2;border-color:#fecaca;color:#b91c1c; }
-    #tktwork .tag-prio-media{ background:#fef9c3;border-color:#facc15;color:#92400e; }
-    #tktwork .tag-prio-baja{ background:#dcfce7;border-color:#bbf7d0;color:#166534; }
-    #tktwork .tag-prio-neutral{ background:#e5e7eb;border-color:#d1d5db;color:#374151; }
-
-    /* PROGRESO GLOBAL */
-    #tktwork .progress-card{
-      background:var(--card);
-      border-radius:var(--radius);
-      border:1px solid var(--line);
-      box-shadow:var(--shadow);
-      padding:14px 16px;
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px 20px;
-      align-items:center;
-      margin-bottom:18px;
-    }
-    #tktwork .progress-title{ font-size:.9rem; font-weight:600; }
-    #tktwork .progress-sub{ font-size:.78rem; color:var(--muted); margin-top:2px; }
-    #tktwork .progress-bar-wrap{ flex:1; min-width:180px; }
-    #tktwork .progress-bar-outer{
-      width:100%;
-      height:8px;
-      border-radius:999px;
-      background:#e5e7eb;
-      overflow:hidden;
-    }
-    #tktwork .progress-bar-inner{
-      height:100%;
-      border-radius:999px;
-      background:linear-gradient(90deg,#4f46e5,#22c55e);
-      width:0%;
-      transition:width .35s cubic-bezier(.22,1,.36,1);
-    }
-    #tktwork .progress-badge{
-      font-size:.8rem;
-      font-weight:600;
-      padding:.3rem .7rem;
-      border-radius:999px;
-      background:#ecfdf3;
-      border:1px solid #bbf7d0;
-      color:#166534;
+    #tkWork {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      color: var(--color-text-main);
+      animation: fadeInUp 0.5s ease-out forwards;
     }
 
-    /* LAYOUT PRINCIPAL */
-    #tktwork .grid{
-      display:grid;
-      grid-template-columns:1.1fr .9fr;
-      gap:16px;
-      align-items:flex-start;
+    /* Animations */
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(15px); }
+      to { opacity: 1; transform: translateY(0); }
     }
-    #tktwork .card{
-      background:var(--card);
-      border-radius:var(--radius);
-      border:1px solid var(--line);
-      box-shadow:var(--shadow);
-      padding:14px 16px 16px;
-      animation:fadeUp .4s ease-out both;
-    }
-    #tktwork .card-title{
-      font-size:.95rem;
-      font-weight:700;
-      margin:0 0 6px;
-    }
-    #tktwork .card-sub{
-      font-size:.78rem;
-      color:var(--muted);
-      margin-bottom:10px;
+    @keyframes pulseSoft {
+      0% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.4); }
+      70% { box-shadow: 0 0 0 8px rgba(79, 70, 229, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0); }
     }
 
-    /* ETAPAS */
-    #tktwork .stage{
-      border-radius:14px;
-      border:1px dashed #d1d5db;
-      padding:10px 10px 12px;
-      margin-bottom:10px;
-      background:#fafafa;
-      position:relative;
-      overflow:hidden;
+    /* Utilities */
+    .ico { width: 1.1rem; height: 1.1rem; display: inline-flex; align-items: center; justify-content: center; }
+    .ico svg { width: 100%; height: 100%; }
+    .text-muted-pro { color: var(--color-text-muted); font-size: 0.85rem; font-weight: 500; }
+    
+    /* Layout */
+    .wrapBg {
+      background: var(--color-bg);
+      border-radius: var(--radius-xl);
+      border: 1px solid var(--color-border);
+      overflow: hidden;
     }
-    #tktwork .stage.is-current{
-      background:linear-gradient(135deg,#eef2ff,#ffffff);
-      border-style:solid;
-      border-color:var(--accent-border);
-      box-shadow:0 10px 30px rgba(79,70,229,0.18);
+    .grid-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+      gap: 1.5rem;
+      padding: 1.5rem;
     }
-    #tktwork .stage-header{
-      display:flex;
-      justify-content:space-between;
-      gap:8px;
-      align-items:flex-start;
-      margin-bottom:6px;
+    @media (max-width: 992px) { .grid-layout { grid-template-columns: 1fr; } }
+
+    /* Topbar (Glassmorphism) */
+    .topbar {
+      padding: 1.5rem;
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--color-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      position: sticky;
+      top: 0;
+      z-index: 10;
     }
-    #tktwork .stage-name{
-      font-size:.9rem;
-      font-weight:600;
+    .hTitle { font-size: 1.35rem; font-weight: 700; color: var(--color-text-main); margin: 0 0 0.5rem 0; letter-spacing: -0.02em; }
+    
+    /* Pills */
+    .pills-group { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; }
+    .pill {
+      padding: 0.25rem 0.75rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.025em;
+      border: 1px solid transparent;
+      white-space: nowrap;
     }
-    #tktwork .stage-meta{
-      font-size:.75rem;
-      color:var(--muted);
+    .pill.blue { background: var(--color-primary-light); color: var(--color-primary-hover); }
+    .pill.green { background: #d1fae5; color: #047857; }
+    .pill.amber { background: #fef3c7; color: #b45309; }
+    .pill.red { background: #fee2e2; color: #b91c1c; }
+    .pill.slate { background: #f1f5f9; color: #475569; border-color: var(--color-border); }
+
+    /* Buttons */
+    .btn-pro {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.875rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: var(--transition-base);
+      cursor: pointer;
+      border: 1px solid var(--color-border);
+      background: var(--color-surface);
+      color: var(--color-text-main);
+      box-shadow: var(--shadow-sm);
     }
-    #tktwork .stage-progress{
-      margin:4px 0 6px;
-      display:flex;
-      align-items:center;
-      gap:8px;
-      font-size:.75rem;
-      color:var(--muted);
+    .btn-pro:hover:not(:disabled) { transform: translateY(-1px); box-shadow: var(--shadow-md); }
+    .btn-pro:active:not(:disabled) { transform: translateY(0); box-shadow: none; }
+    .btn-pro:disabled { opacity: 0.5; cursor: not-allowed; }
+    
+    .btn-primary { background: var(--color-primary); color: white; border-color: var(--color-primary-hover); box-shadow: 0 1px 2px rgba(79, 70, 229, 0.3); }
+    .btn-primary:hover:not(:disabled) { background: var(--color-primary-hover); }
+    .btn-success { background: var(--color-success); color: white; border-color: #059669; }
+    .btn-danger { background: var(--color-danger); color: white; border-color: #dc2626; }
+
+    /* Cards */
+    .card-pro {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+      margin-bottom: 1.5rem;
+      transition: var(--transition-base);
     }
-    #tktwork .stage-progress-bar{
-      flex:1;
-      height:5px;
-      border-radius:999px;
-      background:#e5e7eb;
-      overflow:hidden;
+    .card-pro:hover { box-shadow: var(--shadow-md); }
+    .card-header {
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--color-border);
+      background: rgba(248, 250, 252, 0.5);
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
     }
-    #tktwork .stage-progress-inner{
-      height:100%;
-      border-radius:999px;
-      background:linear-gradient(90deg,#4f46e5,#22c55e);
-      width:0%;
-      transition:width .25s ease-out;
+    .card-title { font-weight: 600; font-size: 0.95rem; margin: 0; display: flex; align-items: center; gap: 0.5rem; }
+    .card-body { padding: 1.25rem; }
+
+    /* Timeline Horizontal/Responsive */
+    .timeline-container { display: flex; flex-direction: column; gap: 0.75rem; }
+    .timeline-step {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 1rem;
+      border-radius: var(--radius-md);
+      background: var(--color-bg);
+      border: 1px solid transparent;
+      transition: var(--transition-base);
+    }
+    .timeline-step.is-active {
+      background: var(--color-surface);
+      border-color: var(--color-primary);
+      box-shadow: var(--shadow-md);
+    }
+    .step-info { display: flex; align-items: center; gap: 0.75rem; }
+    .step-dot {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background: var(--color-border);
+      transition: var(--transition-base);
+    }
+    .timeline-step.is-active .step-dot {
+      background: var(--color-primary);
+      animation: pulseSoft 2s infinite;
+    }
+    .step-name { font-weight: 600; font-size: 0.9rem; }
+
+    /* Timer Widget */
+    .timer-widget {
+      text-align: center;
+      padding: 1.5rem;
+      background: #0f172a; /* Slate 900 */
+      border-radius: var(--radius-md);
+      color: white;
+    }
+    .timer-val {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 2.5rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      margin-bottom: 1rem;
+      color: #38bdf8; /* Light blue */
+      text-shadow: 0 0 15px rgba(56, 189, 248, 0.2);
+    }
+    .timer-actions { display: flex; justify-content: center; gap: 0.5rem; flex-wrap: wrap; }
+
+    /* Upload Area */
+    .upload-zone {
+      border: 2px dashed var(--color-border);
+      border-radius: var(--radius-md);
+      padding: 1.5rem;
+      text-align: center;
+      transition: var(--transition-base);
+      background: var(--color-bg);
+    }
+    .upload-zone:hover { border-color: var(--color-primary-light); background: rgba(79, 70, 229, 0.02); }
+    .file-input-wrapper { display: flex; align-items: center; gap: 1rem; margin-top: 1rem; }
+    .file-name-display {
+      flex: 1;
+      padding: 0.5rem 0.75rem;
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      font-size: 0.85rem;
+      color: var(--color-text-muted);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
 
-    /* CHECKLISTS */
-    #tktwork .checklist{
-      margin-top:4px;
-      padding:6px 8px;
-      border-radius:10px;
-      background:#ffffff;
-      border:1px solid #e5e7eb;
+    /* Document Rows */
+    .doc-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      margin-bottom: 0.5rem;
+      transition: var(--transition-base);
     }
-    #tktwork .checklist-title{
-      font-size:.8rem;
-      font-weight:600;
-      margin-bottom:4px;
-      display:flex;
-      justify-content:space-between;
-      gap:8px;
-      align-items:center;
+    .doc-row:hover { background: var(--color-bg); }
+    .doc-ico-box {
+      width: 40px; height: 40px;
+      border-radius: var(--radius-sm);
+      background: var(--color-primary-light);
+      color: var(--color-primary);
+      display: grid; place-items: center;
     }
-    #tktwork .checklist-items{
-      list-style:none;
-      padding:0;
-      margin:0;
-      display:flex;
-      flex-direction:column;
-      gap:3px;
+    
+    /* Comments */
+    textarea.pro-input {
+      width: 100%;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: 0.75rem 1rem;
+      font-family: inherit;
+      font-size: 0.9rem;
+      transition: var(--transition-base);
+      resize: vertical;
+      min-height: 80px;
     }
-    #tktwork .checklist-item{
-      font-size:.8rem;
-      display:flex;
-      align-items:flex-start;
-      gap:6px;
+    textarea.pro-input:focus {
+      outline: none;
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
     }
-    #tktwork .checklist-item input[type="checkbox"]{
-      margin-top:2px;
-      cursor:pointer;
-    }
-    #tktwork .checklist-item label{
-      display:flex;
-      gap:6px;
-      align-items:flex-start;
-      cursor:pointer;
-    }
-    #tktwork .checklist-item span.text{
-      transition:opacity .15s ease, transform .15s ease;
-    }
-    #tktwork .checklist-item.is-done span.text{
-      text-decoration:line-through;
-      opacity:.6;
+    .comment-bubble {
+      background: var(--color-bg);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: 1rem;
+      margin-bottom: 0.75rem;
     }
 
-    /* EVIDENCIA + BOTONES */
-    #tktwork .stage-actions{
-      margin-top:8px;
-      display:flex;
-      flex-wrap:wrap;
-      gap:6px;
-      justify-content:space-between;
-      align-items:center;
+    /* Data List */
+    .data-list { display: flex; flex-direction: column; gap: 0.75rem; }
+    .data-item {
+      display: grid;
+      grid-template-columns: 120px 1fr;
+      gap: 1rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--color-border);
     }
-    #tktwork .btn{
-      appearance:none;
-      border-radius:999px;
-      padding:.45rem .95rem;
-      font-weight:600;
-      font-size:.82rem;
-      cursor:pointer;
-      border:1px solid #d4ddff;
-      background:linear-gradient(120deg,#ffffff,#f4f7ff);
-      transition:
-        transform .12s ease,
-        box-shadow .15s ease,
-        opacity .12s ease,
-        background-position .2s ease;
-      background-size:220% 220%;
-      background-position:0 0;
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      color:var(--ink);
-      white-space:nowrap;
-    }
-    #tktwork .btn:hover{
-      transform:translateY(-1px);
-      box-shadow:0 10px 24px rgba(15,23,42,.1);
-      background-position:100% 0;
-    }
-    #tktwork .btn:active{
-      transform:translateY(0);
-      box-shadow:0 5px 14px rgba(15,23,42,.08);
-    }
-    #tktwork .btn.primary{
-      border-color:var(--accent-border);
-      background-image:linear-gradient(120deg,#4f46e5,#6366f1);
-      color:#eef2ff;
-    }
-    #tktwork .btn[disabled]{
-      opacity:.6;
-      cursor:not-allowed;
-      box-shadow:none;
-      transform:none;
-    }
-    #tktwork .btn-ghost{
-      border-style:dashed;
-      background:#ffffff;
-    }
+    .data-item:last-child { border-bottom: none; padding-bottom: 0; }
+    .data-label { color: var(--color-text-muted); font-size: 0.85rem; font-weight: 600; }
+    .data-value { font-weight: 500; font-size: 0.9rem; }
 
-    #tktwork .evidence{
-      margin-top:6px;
-      padding:6px 8px;
-      border-radius:10px;
-      background:#f9fafb;
-      border:1px dashed #d1d5db;
-      font-size:.78rem;
+    /* Modals (Glassmorphism + SlideUp) */
+    .modal-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(15, 23, 42, 0.4);
+      backdrop-filter: blur(4px);
+      display: none; place-items: center;
+      z-index: 9999; padding: 1rem;
     }
-    #tktwork .evidence-row{
-      display:flex;
-      flex-wrap:wrap;
-      gap:6px;
-      margin-top:4px;
+    .modal-backdrop.is-open { display: grid; }
+    .modal-content {
+      background: var(--color-surface);
+      width: 100%; max-width: 800px;
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-modal);
+      overflow: hidden;
+      animation: fadeInUp 0.3s ease-out forwards;
     }
-    #tktwork .evidence-row input[type="file"],
-    #tktwork .evidence-row input[type="url"]{
-      flex:1;
-      min-width:140px;
-      font-size:.78rem;
+    .modal-header {
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid var(--color-border);
+      display: flex; justify-content: space-between; align-items: center;
     }
-
-    #tktwork input[type="file"],
-    #tktwork input[type="url"],
-    #tktwork textarea{
-      border-radius:10px;
-      border:1px solid #d1d5db;
-      padding:.4rem .6rem;
-      font-size:.8rem;
-      width:100%;
+    .modal-body { padding: 1.5rem; }
+    .preview-frame {
+      width: 100%; height: 60vh; max-height: 600px;
+      background: #0f172a; border-radius: var(--radius-md);
+      overflow: hidden; display: grid; place-items: center;
     }
-    #tktwork input[type="url"]:focus,
-    #tktwork textarea:focus{
-      outline:none;
-      border-color:var(--accent-border);
-      box-shadow:var(--ring);
-      background:#f9fbff;
-    }
-
-    #tktwork .mini{
-      font-size:.78rem;
-      color:var(--muted);
-    }
-
-    /* PANEL DERECHO: RESUMEN */
-    #tktwork .summary-row{
-      display:flex;
-      flex-direction:column;
-      gap:6px;
-      margin-top:4px;
-    }
-    #tktwork .summary-label{
-      font-size:.8rem;
-      font-weight:600;
-      color:var(--muted);
-    }
-    #tktwork .summary-value{
-      font-size:.86rem;
-    }
-    #tktwork .summary-notes{
-      margin-top:6px;
-    }
-
-    /* Debug box */
-    #tktwork .debugBox{
-      border:1px dashed #c7d2fe;
-      background:#eef2ff;
-      border-radius:12px;
-      padding:10px 12px;
-      margin:10px 0 14px;
-      font-size:.78rem;
-      color:#1e3a8a;
-    }
-
-    @keyframes fadeUp{
-      from{opacity:0;transform:translateY(12px) scale(.98);}
-      to{opacity:1;transform:translateY(0) scale(1);}
-    }
-
-    @media (max-width:1000px){
-      #tktwork .grid{grid-template-columns:1fr;}
+    .preview-frame img, .preview-frame video, .preview-frame iframe {
+      width: 100%; height: 100%; object-fit: contain; border: none;
     }
   </style>
 
-  <div class="wrap">
-    {{-- HEADER --}}
-    <div class="head">
-      <div class="head-main">
-        <h1>{{ $ticket->folio ?? 'Ticket' }}</h1>
-        <p>
-          Orden de trabajo de licitación ·
-          Cliente:
-          <strong>{{ $ticket->client_name ?? optional($ticket->client)->name ?? 'Sin cliente' }}</strong>
-        </p>
-
-        <div class="head-badges">
-          @php
-            $prioClass = match ($ticket->priority) {
-              'alta'  => 'tag-prio-alta',
-              'media' => 'tag-prio-media',
-              'baja'  => 'tag-prio-baja',
-              default => 'tag-prio-neutral',
-            };
-          @endphp
-          <span class="tag-prio {{ $prioClass }}">
-            Prioridad: {{ ucfirst($ticket->priority ?? '—') }}
-          </span>
-          <span class="pill pill-strong">
-            Estado: {{ ucfirst($ticket->status ?? '—') }}
-          </span>
-          <span class="pill">
-            Responsable: <strong>{{ optional($ticket->owner)->name ?? 'Sin asignar' }}</strong>
-          </span>
-          <span class="pill">
-            Fecha límite:
-            <strong>{{ optional($ticket->due_at)->format('d/m/Y H:i') ?? 'Sin definir' }}</strong>
-          </span>
-        </div>
-      </div>
-
-      <div>
-        <span class="mini">Vista operador</span>
-        <div class="mini">Aquí solo marcas avance, checklist y evidencia.</div>
-      </div>
+  {{-- Alerts --}}
+  @if(session('ok')) <div class="alert alert-success" style="border-radius: var(--radius-md);">{{ session('ok') }}</div> @endif
+  @if(session('err')) <div class="alert alert-danger" style="border-radius: var(--radius-md);">{{ session('err') }}</div> @endif
+  @if($errors->any())
+    <div class="alert alert-danger" style="border-radius: var(--radius-md);">
+      <strong>Revisa los siguientes errores:</strong>
+      <ul class="mb-0 mt-1">@foreach($errors->all() as $e) <li>{{ $e }}</li> @endforeach</ul>
     </div>
+  @endif
 
-    {{-- DEBUG (solo si APP_DEBUG=true) --}}
-    @if(config('app.debug'))
-      @php
-        $stagesDbg = $asCollection($ticket->stages ?? []);
-        $firstStage = $stagesDbg->first();
-        $firstStageChecklists = $asCollection(data_get($firstStage, 'checklists', []));
-        $firstChecklist = $firstStageChecklists->first();
-        $firstChecklistItems = $asCollection(data_get($firstChecklist, 'items', []));
-      @endphp
-      <div class="debugBox">
-        <b>DEBUG</b> · stages: {{ $stagesDbg->count() }}
-        | checklists(1ra etapa): {{ $firstStageChecklists->count() }}
-        | items(1ra checklist): {{ $firstChecklistItems->count() }}
-        <div style="margin-top:6px">
-          generales (stage_id NULL): {{ $generalChecklists->count() }}
-        </div>
-      </div>
-    @endif
-
-    {{-- PROGRESO GLOBAL --}}
-    <div class="progress-card">
+  <div class="wrapBg">
+    
+    {{-- TOPBAR --}}
+    <div class="topbar">
       <div>
-        <div class="progress-title">Avance del ticket</div>
-        <div class="progress-sub">
-          Marca los puntos de checklist y cierra cada etapa cuando esté completa.
+        <h3 class="hTitle">{{ $ticket->folio }} <span style="opacity:0.4;font-weight:400;">/</span> {{ $ticket->title }}</h3>
+        <div class="text-muted-pro d-flex align-items-center gap-3 flex-wrap">
+          <span class="d-flex align-items-center gap-1"><span class="ico">{!! $I('shield') !!}</span> {{ optional($ticket->assignee)->name ?: 'Sin asignar' }}</span>
+          <span class="d-flex align-items-center gap-1"><span class="ico">{!! $I('clock') !!}</span> Vence: {{ $ticket->due_at ? $ticket->due_at->format('Y-m-d H:i') : 'N/A' }}</span>
         </div>
-      </div>
-      <div class="progress-bar-wrap">
-        <div class="progress-bar-outer">
-          <div class="progress-bar-inner" id="ticketProgressBar" style="width: {{ $progress }}%;"></div>
-        </div>
-      </div>
-      <div>
-        <span class="progress-badge">{{ $progress }}%</span>
-      </div>
-    </div>
-
-    <div class="grid">
-      {{-- IZQUIERDA: ETAPAS Y CHECKLISTS --}}
-      <div class="card">
-        <h2 class="card-title">Etapas a realizar</h2>
-        <div class="card-sub">
-          Sigue el orden propuesto. Inicia una etapa, completa su checklist, sube evidencia y márcala como terminada.
-        </div>
-
-        @php
-          $stages = $asCollection($ticket->stages ?? []);
-        @endphp
-
-        @forelse($stages as $stage)
-          @php
-            // ✅ Si NO viene eager loaded, lo cargamos aquí con items ordenados
-            $stageChecklists = $stage->relationLoaded('checklists')
-              ? $asCollection($stage->checklists)
-              : $asCollection($stage->checklists()->with(['items' => fn($q) => $q->orderBy('position')])->orderBy('id')->get());
-
-            $stageItems = $stageChecklists->flatMap(fn($c) => $asCollection($c->items ?? []));
-            $done  = $stageItems->where('is_done', true)->count();
-            $totalRaw = $stageItems->count();
-            $total = max(1, $totalRaw);
-            $pct   = (int) round($done * 100 / $total);
-            $isCurrent = ($stage->status ?? null) !== 'terminado';
-          @endphp
-
-          <section class="stage {{ $isCurrent ? 'is-current' : '' }}" data-stage-id="{{ $stage->id }}">
-            <header class="stage-header">
-              <div>
-                <div class="stage-name">
-                  {{ $stage->position ?? $loop->iteration }}. {{ $stage->name ?? 'Etapa' }}
-                </div>
-                <div class="stage-meta">
-                  Estado:
-                  <strong>{{ ucfirst(str_replace('_',' ', $stage->status ?? 'pendiente')) }}</strong>
-                  @if($stage->assignee)
-                    · Encargado: <strong>{{ $stage->assignee->name }}</strong>
-                  @endif
-                </div>
-              </div>
-            </header>
-
-            <div class="stage-progress">
-              <span>{{ $done }} / {{ $totalRaw ?: '—' }} puntos completados</span>
-              <div class="stage-progress-bar">
-                <div class="stage-progress-inner" style="width: {{ $pct }}%;"></div>
-              </div>
-            </div>
-
-            {{-- CHECKLISTS --}}
-            @forelse($stageChecklists as $chk)
-              @php
-                $chkItems = $asCollection($chk->items ?? []);
-                $chkDone  = $chkItems->where('is_done', true)->count();
-                $chkTotal = $chkItems->count();
-                $chkTitle = $chk->title ?? 'Checklist';
-              @endphp
-
-              <div class="checklist">
-                <div class="checklist-title">
-                  <span>{{ $chkTitle }}</span>
-                  <span class="mini">{{ $chkDone }} / {{ $chkTotal }} hechos</span>
-                </div>
-
-                <ul class="checklist-items">
-                  @forelse($chkItems as $item)
-                    @php
-                      $label = $item->label ?? $item->text ?? $item->name ?? ('Punto '.$loop->iteration);
-                      $isDone = (bool) ($item->is_done ?? false);
-                    @endphp
-
-                    <li class="checklist-item {{ $isDone ? 'is-done' : '' }}">
-                      <label>
-                        <input
-                          type="checkbox"
-                          class="js-check-item"
-                          data-item-id="{{ $item->id }}"
-                          @checked($isDone)
-                        >
-                        <span class="text">{{ $label }}</span>
-                      </label>
-                    </li>
-                  @empty
-                    <li class="mini">Esta checklist aún no tiene puntos definidos.</li>
-                  @endforelse
-                </ul>
-              </div>
-            @empty
-              <div class="mini" style="margin-top:8px">
-                Esta etapa no tiene checklists configuradas.
-              </div>
-            @endforelse
-
-            {{-- EVIDENCIA --}}
-            <div class="evidence">
-              <div class="mini">Evidencia de esta etapa (opcional o requerida según el coordinador).</div>
-              <form class="evidence-row js-evidence-form" data-stage-id="{{ $stage->id }}">
-                <input type="file" name="file">
-                <input type="url" name="link" placeholder="o pega aquí un enlace (Drive, plataforma, etc.)">
-                <button type="submit" class="btn btn-ghost js-evidence-btn">
-                  Subir evidencia
-                </button>
-              </form>
-            </div>
-
-            {{-- ACCIONES --}}
-            <div class="stage-actions">
-              <div class="mini">
-                1) Inicia la etapa · 2) Marca el checklist · 3) Subir evidencia · 4) Terminar etapa.
-              </div>
-
-              <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                <button
-                  type="button"
-                  class="btn btn-ghost js-start-stage"
-                  data-stage-id="{{ $stage->id }}"
-                  @disabled(($stage->status ?? 'pendiente') !== 'pendiente')
-                >
-                  Iniciar etapa
-                </button>
-
-                <button
-                  type="button"
-                  class="btn primary js-complete-stage"
-                  data-stage-id="{{ $stage->id }}"
-                  @disabled(($stage->status ?? null) === 'terminado')
-                >
-                  Marcar etapa como terminada
-                </button>
-              </div>
-            </div>
-          </section>
-        @empty
-          <p class="mini">Este ticket aún no tiene etapas configuradas. El coordinador debe definirlas.</p>
-        @endforelse
-
-        {{-- ✅ CHECKLISTS GENERALES --}}
-        <div style="margin-top:16px">
-          <h3 class="card-title" style="margin:0 0 6px">Checklists generales</h3>
-          <div class="card-sub">
-            Estas checklists no están asociadas a una etapa (stage_id = NULL). Si aquí aparecen, tu problema es que se están creando “sueltas”.
-          </div>
-
-          @forelse($generalChecklists as $chk)
-            @php
-              $chkItems = $asCollection($chk->items ?? []);
-              $chkDone  = $chkItems->where('is_done', true)->count();
-              $chkTotal = $chkItems->count();
-              $chkTitle = $chk->title ?? 'Checklist';
-            @endphp
-
-            <div class="checklist">
-              <div class="checklist-title">
-                <span>{{ $chkTitle }}</span>
-                <span class="mini">{{ $chkDone }} / {{ $chkTotal }} hechos</span>
-              </div>
-
-              <ul class="checklist-items">
-                @forelse($chkItems as $item)
-                  @php
-                    $label = $item->label ?? $item->text ?? $item->name ?? ('Punto '.$loop->iteration);
-                    $isDone = (bool) ($item->is_done ?? false);
-                  @endphp
-                  <li class="checklist-item {{ $isDone ? 'is-done' : '' }}">
-                    <label>
-                      <input
-                        type="checkbox"
-                        class="js-check-item"
-                        data-item-id="{{ $item->id }}"
-                        @checked($isDone)
-                      >
-                      <span class="text">{{ $label }}</span>
-                    </label>
-                  </li>
-                @empty
-                  <li class="mini">Esta checklist aún no tiene puntos definidos.</li>
-                @endforelse
-              </ul>
-            </div>
-          @empty
-            <div class="mini">No hay checklists generales.</div>
-          @endforelse
+        
+        <div class="pills-group">
+          <span class="pill blue">{{ $priorities[$ticket->priority] ?? $ticket->priority }}</span>
+          <span class="pill slate">{{ $areas[$ticket->area] ?? ($ticket->area ?: 'Sin área') }}</span>
+          <span class="pill {{ $slaClass }}">{{ $slaText }}</span>
+          <span class="pill {{ $pillStatusClass($ticket->status) }}">Estado: {{ $statuses[$ticket->status] ?? $ticket->status }}</span>
         </div>
       </div>
 
-      {{-- DERECHA: RESUMEN / NOTAS --}}
-      <aside class="card">
-        <h2 class="card-title">Resumen rápido</h2>
-        <div class="card-sub">
-          Información clave de la licitación para que entiendas qué estás ejecutando.
-        </div>
-
-        <div class="summary-row">
-          <div>
-            <div class="summary-label">Título del ticket</div>
-            <div class="summary-value">{{ $ticket->title ?? 'Sin título' }}</div>
-          </div>
-
-          <div>
-            <div class="summary-label">Número de licitación</div>
-            <div class="summary-value">{{ $ticket->numero_licitacion ?? 'No capturado' }}</div>
-          </div>
-
-          <div>
-            <div class="summary-label">Monto de la propuesta</div>
-            <div class="summary-value">
-              @if(!is_null($ticket->monto_propuesta))
-                $ {{ number_format($ticket->monto_propuesta, 2) }}
-              @else
-                Sin definir
-              @endif
-            </div>
-          </div>
-
-          <div>
-            <div class="summary-label">Estatus de adjudicación</div>
-            <div class="summary-value">
-              @php
-                $map = [
-                  'en_espera' => 'En espera',
-                  'ganada'    => 'Ganada',
-                  'perdida'   => 'Perdida',
-                ];
-              @endphp
-              {{ $map[$ticket->estatus_adjudicacion] ?? 'Sin definir' }}
-            </div>
-          </div>
-
-          @if(($ticket->links ?? collect())->count())
-            <div>
-              <div class="summary-label">Enlaces clave</div>
-              <ul class="mini" style="margin-top:2px;padding-left:1.1rem;">
-                @foreach($ticket->links as $lnk)
-                  <li>
-                    <a href="{{ $lnk->url }}" target="_blank" rel="noopener">
-                      {{ $lnk->label }}
-                    </a>
-                  </li>
-                @endforeach
-              </ul>
-            </div>
-          @endif
-        </div>
-
-        <form method="POST" action="{{ route('tickets.update',$ticket) }}" class="summary-notes">
+      <div class="d-flex gap-2 flex-wrap">
+        <a class="btn-pro" href="{{ route('tickets.show',$ticket) }}"><span class="ico">{!! $I('arrowLeft') !!}</span> Detalle</a>
+        
+        <form method="POST" action="{{ route('tickets.complete',$ticket) }}" class="m-0">
           @csrf
-          @method('PUT')
-          <label class="summary-label" for="quick_notes">
-            Notas de avance (lo que ya hiciste, pendientes, riesgos)
-          </label>
-          <textarea
-            id="quick_notes"
-            name="quick_notes"
-            rows="4"
-            placeholder="Ejemplo: bases revisadas, se detectó requisito de garantía extendida; falta confirmar con proveedor."
-          >{{ old('quick_notes',$ticket->quick_notes) }}</textarea>
-          <div style="margin-top:6px;display:flex;justify-content:flex-end;">
-            <button type="submit" class="btn btn-ghost">
-              Guardar notas
-            </button>
-          </div>
+          <button class="btn-pro btn-success" type="submit" {{ (!$isAssignee || !$canComplete) ? 'disabled' : '' }} onclick="return confirm('¿Marcar como completado?');">
+            <span class="ico">{!! $I('check') !!}</span> Finalizar
+          </button>
         </form>
-      </aside>
+        
+        <button class="btn-pro btn-danger" type="button" id="btnOpenCancel" {{ (!$isAssignee || !$canCancel) ? 'disabled' : '' }}>
+          <span class="ico">{!! $I('x') !!}</span> Cancelar
+        </button>
+      </div>
+    </div>
+
+    {{-- GRID CONTENT --}}
+    <div class="grid-layout">
+      
+      {{-- COLUMNA IZQUIERDA --}}
+      <div class="d-flex flex-column">
+        
+        {{-- WORKFLOW --}}
+        <div class="card-pro">
+          <div class="card-header">
+            <h4 class="card-title"><span class="ico" style="color:var(--color-primary);">{!! $I('flag') !!}</span> Progreso del Ticket</h4>
+          </div>
+          <div class="card-body">
+            <div class="timeline-container">
+              @foreach($steps as $key)
+                @php $w = $workflow[$key]; @endphp
+                <div class="timeline-step {{ $ticket->status === $key ? 'is-active' : '' }}">
+                  <div class="step-info">
+                    <div class="step-dot"></div>
+                    <div>
+                      <div class="step-name">{{ $w['label'] }}</div>
+                      @if($ticket->status === $key) <span style="font-size:0.75rem; color:var(--color-primary); font-weight:600;">Estado Actual</span> @endif
+                    </div>
+                  </div>
+                  
+                  <form method="POST" action="{{ route('tickets.update',$ticket) }}" class="m-0">
+                    @csrf @method('PUT')
+                    <input type="hidden" name="status" value="{{ $key }}">
+                    <button class="btn-pro" style="padding: 0.25rem 0.75rem; font-size: 0.75rem;" type="submit" {{ (!$isAssignee || !$canMoveTo($key)) ? 'disabled' : '' }}>
+                      Mover
+                    </button>
+                  </form>
+                </div>
+              @endforeach
+            </div>
+            @if(!$isAssignee)
+              <div class="mt-3 text-muted-pro text-center">Solo el asignado puede mover los estados.</div>
+            @endif
+          </div>
+        </div>
+
+        {{-- COMMENTS --}}
+        <div class="card-pro">
+          <div class="card-header">
+            <h4 class="card-title"><span class="ico" style="color:var(--color-primary);">{!! $I('chat') !!}</span> Discusión y Notas</h4>
+          </div>
+          <div class="card-body">
+            <form method="POST" action="{{ route('tickets.comments.store',$ticket) }}" class="mb-4">
+              @csrf
+              <textarea name="body" class="pro-input" placeholder="Escribe una actualización o nota interna..."></textarea>
+              <div class="d-flex justify-content-end mt-2">
+                <button class="btn-pro btn-primary" type="submit">Publicar Nota</button>
+              </div>
+            </form>
+
+            <div class="d-flex flex-column">
+              @forelse($ticket->comments ?? [] as $c)
+                <div class="comment-bubble">
+                  <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span style="font-weight:600; font-size:0.9rem;">{{ optional($c->user)->name ?: 'Usuario' }}</span>
+                    <span class="text-muted-pro">{{ optional($c->created_at)->diffForHumans() }}</span>
+                  </div>
+                  <div style="font-size:0.9rem; white-space:pre-wrap; color:var(--color-text-main);">{{ $c->body }}</div>
+                </div>
+              @empty
+                <div class="text-center text-muted-pro py-3">No hay comentarios aún.</div>
+              @endforelse
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      {{-- COLUMNA DERECHA --}}
+      <div class="d-flex flex-column">
+        
+        {{-- TIMER --}}
+        <div class="card-pro">
+          <div class="timer-widget">
+            <div style="font-size:0.8rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.5rem; opacity:0.8;">Tiempo Activo</div>
+            <div class="timer-val" id="tkTimer">00:00:00</div>
+            <div class="timer-actions">
+              <button class="btn-pro" style="background:#1e293b; color:white; border:none;" type="button" id="btnStart"><span class="ico">{!! $I('play') !!}</span> Iniciar</button>
+              <button class="btn-pro" style="background:#1e293b; color:white; border:none;" type="button" id="btnStop" disabled><span class="ico">{!! $I('pause') !!}</span> Pausar</button>
+              <button class="btn-pro" style="background:transparent; color:#ef4444; border:1px solid rgba(239,68,68,0.3);" type="button" id="btnReset" title="Reiniciar"><span class="ico">{!! $I('trash') !!}</span></button>
+            </div>
+          </div>
+        </div>
+
+        {{-- INFO RESUMEN --}}
+        <div class="card-pro">
+          <div class="card-header">
+            <h4 class="card-title"><span class="ico" style="color:var(--color-primary);">{!! $I('info') !!}</span> Detalles</h4>
+          </div>
+          <div class="card-body">
+            <div class="data-list">
+              <div class="data-item">
+                <span class="data-label">Prioridad</span>
+                <span class="data-value">{{ $priorities[$ticket->priority] ?? $ticket->priority }}</span>
+              </div>
+              <div class="data-item">
+                <span class="data-label">Área</span>
+                <span class="data-value">{{ $areas[$ticket->area] ?? ($ticket->area ?: '—') }}</span>
+              </div>
+              <div class="data-item">
+                <span class="data-label">Descripción</span>
+                <span class="data-value" style="font-size:0.85rem;">{{ Str::limit($ticket->description ?: 'Sin descripción', 100) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {{-- ATTACHMENTS --}}
+        <div class="card-pro">
+          <div class="card-header">
+            <h4 class="card-title"><span class="ico" style="color:var(--color-primary);">{!! $I('paperclip') !!}</span> Archivos Adjuntos</h4>
+          </div>
+          <div class="card-body">
+            <form method="POST" action="{{ route('tickets.documents.store',$ticket) }}" enctype="multipart/form-data" id="tkUploadForm">
+              @csrf
+              <div class="upload-zone">
+                <div class="text-muted-pro"><span class="ico">{!! $I('download') !!}</span> Arrastra un archivo o selecciónalo</div>
+                <div class="file-input-wrapper">
+                  <label class="btn-pro m-0" for="tkFile" style="background:white; cursor:pointer;" {{ !$isAssignee ? 'style=pointer-events:none;opacity:0.5;' : '' }}>Explorar</label>
+                  <div class="file-name-display" id="tkFileName">Ningún archivo...</div>
+                  <input type="file" id="tkFile" name="file" class="d-none" {{ !$isAssignee ? 'disabled' : '' }} style="display:none;">
+                </div>
+                <button class="btn-pro btn-primary w-100 mt-3" type="submit" {{ !$isAssignee ? 'disabled' : '' }}>Subir Archivo</button>
+              </div>
+            </form>
+
+            <div class="mt-4">
+              @forelse($ticket->documents ?? [] as $d)
+                @php
+                  $url  = $docUrl($d);
+                  $kind = $docKind($d);
+                  $docIcon = match($kind){ 'image'=>'image', 'pdf'=>'pdf', default=>'file' };
+                @endphp
+                <div class="doc-row">
+                  <div class="d-flex align-items-center gap-3" style="min-width:0;">
+                    <div class="doc-ico-box"><span class="ico">{!! $I($docIcon) !!}</span></div>
+                    <div style="min-width:0;">
+                      <div style="font-weight:600; font-size:0.85rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:150px;">{{ $d->name }}</div>
+                      <div style="font-size:0.7rem; color:var(--color-text-muted);">{{ optional($d->created_at)->format('d/m/Y') }}</div>
+                    </div>
+                  </div>
+                  <div class="d-flex gap-1">
+                    <button type="button" class="btn-pro" style="padding:0.35rem 0.5rem;" data-preview="1" data-kind="{{ $kind }}" data-name="{{ e($d->name) }}" data-url="{{ $url ? e($url) : '' }}" data-download="{{ e(route('tickets.documents.download',[$ticket,$d])) }}" title="Ver"><span class="ico">{!! $I('eye') !!}</span></button>
+                    <a class="btn-pro" style="padding:0.35rem 0.5rem;" href="{{ route('tickets.documents.download',[$ticket,$d]) }}" title="Descargar"><span class="ico">{!! $I('download') !!}</span></a>
+                  </div>
+                </div>
+              @empty
+                <div class="text-center text-muted-pro">Aún no hay adjuntos.</div>
+              @endforelse
+            </div>
+          </div>
+        </div>
+
+      </div>
     </div>
   </div>
+
+  {{-- MODAL PREVIEW --}}
+  <div class="modal-backdrop" id="pvModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h4 class="card-title m-0"><span class="ico">{!! $I('eye') !!}</span> <span id="pvTitle">Vista previa</span></h4>
+        <button class="btn-pro" type="button" id="pvClose" style="border:none; background:transparent;"><span class="ico">{!! $I('x') !!}</span></button>
+      </div>
+      <div class="modal-body">
+        <div class="preview-frame" id="pvFrame"><div style="color:#64748b; font-weight:600;">Cargando...</div></div>
+        <div class="d-flex justify-content-end mt-3">
+          <a class="btn-pro btn-primary" id="pvDownload" href="#" target="_blank"><span class="ico">{!! $I('download') !!}</span> Descargar Archivo</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {{-- MODAL CANCELAR --}}
+  <div class="modal-backdrop" id="cancelModal">
+    <div class="modal-content" style="max-width:500px;">
+      <div class="modal-header">
+        <h4 class="card-title m-0 text-danger"><span class="ico">{!! $I('warn') !!}</span> Cancelar Ticket</h4>
+      </div>
+      <div class="modal-body">
+        <form method="POST" action="{{ route('tickets.cancel',$ticket) }}" id="cancelForm">
+          @csrf
+          <label class="data-label mb-2 d-block">Motivo de cancelación (Requerido)</label>
+          <textarea name="reason" class="pro-input mb-3" required placeholder="Ej. Duplicado, error de solicitud...">{{ old('reason') }}</textarea>
+          <div class="d-flex gap-2 justify-content-end">
+            <button class="btn-pro" type="button" id="cancelBack">Volver</button>
+            <button class="btn-pro btn-danger" type="submit" onclick="return confirm('¿Confirmar cancelación definitiva?');">Confirmar Cancelación</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
 </div>
 
-{{-- JS: trabajar etapas / checklist / evidencia vía AJAX --}}
 <script>
-  const CSRF = "{{ csrf_token() }}";
+document.addEventListener('DOMContentLoaded', function(){
+  // ===== UPLOAD UI =====
+  const file = document.getElementById('tkFile');
+  const nameEl = document.getElementById('tkFileName');
+  const uploadZone = document.querySelector('.upload-zone');
 
-  const START_URL_TPL    = @json(route('tickets.ajax.stage.start',    ['ticket'=>$ticket->id,'stage'=>'__STAGE__']));
-  const COMPLETE_URL_TPL = @json(route('tickets.ajax.stage.complete', ['ticket'=>$ticket->id,'stage'=>'__STAGE__']));
-  const EVIDENCE_URL_TPL = @json(route('tickets.ajax.stage.evidence', ['ticket'=>$ticket->id,'stage'=>'__STAGE__']));
-
-  // Para marcar items como hechos: usamos updateItem con _method=PUT
-  const ITEM_UPDATE_URL_TPL = @json(route('checklists.items.update', ['item'=>'__ITEM__']));
-
-  function toast(msg){
-    if (window.Swal){
-      Swal.fire({
-        toast:true,
-        position:'top-end',
-        icon:'success',
-        title:msg,
-        showConfirmButton:false,
-        timer:2200,
-      });
-    }else{
-      alert(msg);
-    }
+  function updateFileName(){
+    if(!file || !nameEl) return;
+    nameEl.textContent = (file.files && file.files[0]) ? file.files[0].name : 'Ningún archivo...';
   }
+  file?.addEventListener('change', updateFileName);
 
-  async function toggleChecklistItem(input){
-    const itemId = input.dataset.itemId;
-    if (!itemId){
-      alert('No se encontró el item_id. Revisa que el item tenga id.');
-      input.checked = !input.checked;
-      return;
-    }
-
-    const url = ITEM_UPDATE_URL_TPL.replace('__ITEM__', encodeURIComponent(itemId));
-    const formData = new FormData();
-    formData.append('_method','PUT');
-    formData.append('is_done', input.checked ? '1' : '0');
-
-    try{
-      const res = await fetch(url, {
-        method:'POST',
-        headers:{
-          'X-CSRF-TOKEN': CSRF,
-          'Accept':'application/json',
-          'X-Requested-With':'XMLHttpRequest',
-        },
-        body:formData,
-      });
-
-      const j = await res.json().catch(()=> ({}));
-
-      if (!res.ok || (j.ok === false)){
-        throw new Error(j.message || 'No se pudo actualizar el punto.');
-      }
-
-      const li = input.closest('.checklist-item');
-      if (li){
-        li.classList.toggle('is-done', input.checked);
-      }
-
-      toast('Checklist actualizado');
-    }catch(e){
-      console.error(e);
-      alert(e.message || 'Error al actualizar el checklist.');
-      input.checked = !input.checked; // revertir
-    }
-  }
-
-  async function startStage(btn){
-    const stageId = btn.dataset.stageId;
-    if (!stageId) return;
-
-    const url = START_URL_TPL.replace('__STAGE__', encodeURIComponent(stageId));
-    btn.disabled = true;
-
-    try{
-      const res = await fetch(url, {
-        method:'POST',
-        headers:{
-          'X-CSRF-TOKEN': CSRF,
-          'Accept':'application/json',
-          'X-Requested-With':'XMLHttpRequest',
-        }
-      });
-      const j = await res.json().catch(()=> ({}));
-
-      if (!res.ok || !j.ok){
-        throw new Error(j.msg || 'No se pudo iniciar la etapa.');
-      }
-
-      toast('Etapa iniciada');
-      location.reload();
-    }catch(e){
-      console.error(e);
-      alert(e.message || 'Error al iniciar la etapa.');
-    }finally{
-      btn.disabled = false;
-    }
-  }
-
-  async function completeStage(btn){
-    const stageId = btn.dataset.stageId;
-    if (!stageId) return;
-
-    const url = COMPLETE_URL_TPL.replace('__STAGE__', encodeURIComponent(stageId));
-    btn.disabled = true;
-
-    try{
-      const res = await fetch(url, {
-        method:'POST',
-        headers:{
-          'X-CSRF-TOKEN': CSRF,
-          'Accept':'application/json',
-          'X-Requested-With':'XMLHttpRequest',
-        }
-      });
-      const j = await res.json().catch(()=> ({}));
-
-      if (!res.ok || !j.ok){
-        throw new Error(j.msg || 'No se pudo cerrar la etapa.');
-      }
-
-      toast('Etapa marcada como terminada');
-      location.reload();
-    }catch(e){
-      console.error(e);
-      alert(e.message || 'Error al cerrar la etapa.');
-    }finally{
-      btn.disabled = false;
-    }
-  }
-
-  async function uploadEvidence(form){
-    const stageId = form.dataset.stageId;
-    if (!stageId) return;
-
-    const url = EVIDENCE_URL_TPL.replace('__STAGE__', encodeURIComponent(stageId));
-    const btn = form.querySelector('.js-evidence-btn');
-
-    const fd = new FormData(form); // incluye file + link
-    if (btn) btn.disabled = true;
-
-    try{
-      const res = await fetch(url, {
-        method:'POST',
-        headers:{
-          'X-CSRF-TOKEN': CSRF,
-          'Accept':'application/json',
-          'X-Requested-With':'XMLHttpRequest',
-        },
-        body:fd,
-      });
-
-      const j = await res.json().catch(()=> ({}));
-
-      if (!res.ok || !j.ok){
-        throw new Error(j.message || 'No se pudo subir la evidencia.');
-      }
-
-      toast('Evidencia registrada');
-      form.reset();
-    }catch(e){
-      console.error(e);
-      alert(e.message || 'Error al subir la evidencia.');
-    }finally{
-      if (btn) btn.disabled = false;
-    }
-  }
-
-  document.addEventListener('DOMContentLoaded', function () {
-    // Checklist
-    document.querySelectorAll('.js-check-item').forEach(input => {
-      input.addEventListener('change', () => toggleChecklistItem(input));
-    });
-
-    // Iniciar etapa
-    document.querySelectorAll('.js-start-stage').forEach(btn => {
-      btn.addEventListener('click', () => startStage(btn));
-    });
-
-    // Completar etapa
-    document.querySelectorAll('.js-complete-stage').forEach(btn => {
-      btn.addEventListener('click', () => completeStage(btn));
-    });
-
-    // Evidencia
-    document.querySelectorAll('.js-evidence-form').forEach(form => {
-      form.addEventListener('submit', function (e) {
+  if(uploadZone && file && !file.disabled){
+    ['dragover', 'dragenter'].forEach(evt => {
+      uploadZone.addEventListener(evt, e => {
         e.preventDefault();
-        uploadEvidence(form);
+        uploadZone.style.borderColor = 'var(--color-primary)';
+        uploadZone.style.background = 'var(--color-primary-light)';
       });
+    });
+    ['dragleave', 'drop'].forEach(evt => {
+      uploadZone.addEventListener(evt, e => {
+        e.preventDefault();
+        uploadZone.style.borderColor = 'var(--color-border)';
+        uploadZone.style.background = 'var(--color-bg)';
+      });
+    });
+    uploadZone.addEventListener('drop', e => {
+      if(e.dataTransfer?.files?.length){
+        file.files = e.dataTransfer.files;
+        updateFileName();
+      }
+    });
+  }
+
+  // ===== TIMER (UI local) =====
+  const isAssignee = @json($isAssignee);
+  const key = 'tk_timer_' + @json((string)$ticket->id);
+  const el = document.getElementById('tkTimer');
+  const btnStart = document.getElementById('btnStart');
+  const btnStop  = document.getElementById('btnStop');
+  const btnReset = document.getElementById('btnReset');
+
+  let state = JSON.parse(localStorage.getItem(key)) || { running:false, startAt:null, elapsed:0 };
+  let tInterval = null;
+
+  function pad(n){ return String(n).padStart(2,'0'); }
+  function formatSecs(sec){
+    sec = Math.max(0, Math.floor(sec));
+    return `${pad(Math.floor(sec/3600))}:${pad(Math.floor((sec%3600)/60))}:${pad(sec%60)}`;
+  }
+  function nowSecs(){ return Math.floor(Date.now()/1000); }
+  function getElapsed(){
+    return state.running && state.startAt ? (state.elapsed + (nowSecs() - state.startAt)) : state.elapsed;
+  }
+  function saveState(){ localStorage.setItem(key, JSON.stringify(state)); }
+  function syncUI(){
+    if(el) el.textContent = formatSecs(getElapsed());
+    if(btnStart) btnStart.disabled = !isAssignee || state.running;
+    if(btnStop)  btnStop.disabled  = !isAssignee || !state.running;
+    
+    // Add glowing effect when running
+    if(state.running && el) el.style.textShadow = '0 0 20px rgba(56, 189, 248, 0.6)';
+    else if(el) el.style.textShadow = '0 0 15px rgba(56, 189, 248, 0.2)';
+  }
+
+  btnStart?.addEventListener('click', ()=>{
+    if(!isAssignee || state.running) return;
+    state.running = true; state.startAt = nowSecs(); saveState();
+    if(!tInterval) tInterval = setInterval(syncUI, 1000);
+    syncUI();
+  });
+
+  btnStop?.addEventListener('click', ()=>{
+    if(!isAssignee || !state.running) return;
+    state.elapsed = getElapsed(); state.running = false; state.startAt = null; saveState();
+    clearInterval(tInterval); tInterval = null;
+    syncUI();
+  });
+
+  btnReset?.addEventListener('click', ()=>{
+    if(!isAssignee) return;
+    if(confirm('¿Seguro que deseas reiniciar el tiempo?')){
+      state = { running:false, startAt:null, elapsed:0 }; saveState();
+      clearInterval(tInterval); tInterval = null; syncUI();
+    }
+  });
+
+  syncUI();
+  if(state.running) tInterval = setInterval(syncUI, 1000);
+
+  // ===== MODALS =====
+  function setupModal(modalId, openBtnsSelector, closeBtnsIds){
+    const modal = document.getElementById(modalId);
+    if(!modal) return;
+    
+    const openModal = () => { modal.classList.add('is-open'); document.body.style.overflow = 'hidden'; };
+    const closeModal = () => { modal.classList.remove('is-open'); document.body.style.overflow = ''; };
+
+    if(openBtnsSelector){
+      document.querySelectorAll(openBtnsSelector).forEach(btn => {
+        btn.addEventListener('click', openModal);
+      });
+    }
+    
+    closeBtnsIds.forEach(id => {
+      document.getElementById(id)?.addEventListener('click', closeModal);
+    });
+    
+    modal.addEventListener('mousedown', e => { if(e.target === modal) closeModal(); });
+    document.addEventListener('keydown', e => { if(e.key === 'Escape' && modal.classList.contains('is-open')) closeModal(); });
+    
+    return { open: openModal, close: closeModal, el: modal };
+  }
+
+  const cancelModalObj = setupModal('cancelModal', null, ['cancelClose', 'cancelBack']);
+  document.getElementById('btnOpenCancel')?.addEventListener('click', () => {
+    cancelModalObj.open();
+    setTimeout(() => document.querySelector('#cancelForm textarea')?.focus(), 100);
+  });
+
+  const pvModalObj = setupModal('pvModal', null, ['pvClose']);
+  document.querySelectorAll('[data-preview="1"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const { kind, name, url, download } = btn.dataset;
+      document.getElementById('pvTitle').textContent = name || 'Vista previa';
+      document.getElementById('pvDownload').href = download || '#';
+      
+      const frame = document.getElementById('pvFrame');
+      frame.innerHTML = '';
+      
+      if(!url){
+        frame.innerHTML = '<div style="color:#64748b; font-weight:600; text-align:center; padding:2rem;">Sin previsualización en línea.<br>Descarga el archivo.</div>';
+      } else if(kind === 'image') {
+        frame.innerHTML = `<img src="${url}" alt="${name}">`;
+      } else if(kind === 'video') {
+        frame.innerHTML = `<video src="${url}" controls playsinline></video>`;
+      } else if(kind === 'audio') {
+        frame.innerHTML = `<audio src="${url}" controls style="width:80%;"></audio>`;
+      } else if(kind === 'pdf') {
+        frame.innerHTML = `<iframe src="${url}"></iframe>`;
+      } else {
+        frame.innerHTML = '<div style="color:#64748b; font-weight:600; text-align:center; padding:2rem;">Formato sin previsualización.<br>Descarga el archivo.</div>';
+      }
+      pvModalObj.open();
     });
   });
+});
 </script>
 @endsection

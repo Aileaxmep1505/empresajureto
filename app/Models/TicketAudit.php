@@ -8,24 +8,9 @@ class TicketAudit extends Model
 {
     protected $table = 'ticket_audits';
 
-    protected $fillable = [
-        'ticket_id',
-        'user_id',
-        'action',   // p. ej.: ticket_created, ticket_updated, stage_added, doc_uploaded, comment_added, ticket_closed
-        'diff',     // array con before/after u otros datos
-    ];
+    protected $fillable = ['ticket_id','user_id','action','diff'];
+    protected $casts = ['diff' => 'array'];
 
-    protected $casts = [
-        'diff' => 'array',
-    ];
-
-    public function ticket()
-    {
-        return $this->belongsTo(Ticket::class);
-    }
-
-    public function user()
-    {
-        return $this->belongsTo(User::class);
-    }
+    public function ticket(){ return $this->belongsTo(Ticket::class); }
+    public function user(){ return $this->belongsTo(User::class); }
 }

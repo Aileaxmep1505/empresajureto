@@ -72,6 +72,8 @@
     .s-item{padding:.55rem .7rem; cursor:pointer}
     .s-item:hover{background:#f6fafc}
     .s-empty{padding:.6rem .75rem; color:var(--muted)}
+    .s-loading{padding:.6rem .75rem; color:#0b1220; font-weight:800}
+    .s-hint{padding:.45rem .75rem; color:var(--muted); font-size:.85rem; border-top:1px solid var(--line); background:#fbfdff}
 
     /* Lista de puntos */
     .list{list-style:none; margin:0; padding:0}
@@ -245,11 +247,8 @@ const isNum = (n)=> typeof n === 'number' && !Number.isNaN(n) && Number.isFinite
 function norm(s){
   s = (s || '').toString().trim();
   if (!s) return '';
-  // quitar acentos (sin iconv raro)
   s = s.normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-  // quitar comillas raras/apostrofes sueltos
   s = s.replace(/[’'`"]/g,'');
-  // espacios
   s = s.replace(/\s+/g,' ').trim();
   return s;
 }
@@ -271,7 +270,7 @@ function joinParts(parts){
 function ensureMx(q){
   q = norm(q);
   if (!q) return '';
-  if (!/mex/i.test(q)) q += ', Mexico';
+  if (!/(^|,|\s)mex(ico)?(\s|,|$)/i.test(q)) q += ', México';
   return q;
 }
 
@@ -280,6 +279,13 @@ function toast(msg, ms=2600){
   toastEl.classList.add('show');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(()=> toastEl.classList.remove('show'), ms);
+}
+
+function showSuggest(){ suggestBox.style.display='block'; }
+function hideSuggest(){ suggestBox.style.display='none'; }
+function setSuggestHTML(html){
+  suggestBox.innerHTML = html;
+  showSuggest();
 }
 
 /* ===== Leaflet ===== */
@@ -312,22 +318,66 @@ map.on('click', async (e)=>{
   }
 });
 
-/* ===== Búsqueda (sólo México) ===== */
-const queryNominatim = debounce(async (q)=>{
-  q=q.trim();
-  suggestBox.style.display='none';
-  suggestBox.innerHTML='';
-  if (!q || q.length<3) return;
+/* ===== Búsqueda robusta (México real + Enter confiable) ===== */
+/**
+ * Para evitar resultados fuera de México:
+ * - countrycodes=mx
+ * - viewbox + bounded=1 (bbox aprox de México)
+ * bbox: left,top,right,bottom
+ */
+const MX_VIEWBOX = '-118.5,32.9,-86.5,14.3';
 
-  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&accept-language=es&countrycodes=mx&q=${encodeURIComponent(q)}`;
+let suggestAbort = null;
+let suggestSeq = 0;
+
+function buildSearchUrl(q, limit=6){
+  const qs = new URLSearchParams();
+  qs.set('format','jsonv2');
+  qs.set('limit', String(limit));
+  qs.set('accept-language','es');
+  qs.set('addressdetails','1');
+  qs.set('countrycodes','mx');
+  qs.set('viewbox', MX_VIEWBOX);
+  qs.set('bounded','1');
+  qs.set('q', ensureMx(q));
+  return `https://nominatim.openstreetmap.org/search?${qs.toString()}`;
+}
+
+async function fetchSuggestions(q, opts = { autoPickFirst:false }){
+  q = norm(q);
+  suggestBox.innerHTML = '';
+  hideSuggest();
+
+  if (!q || q.length < 3) return;
+
+  // Cancelar la solicitud anterior (evita “resultados viejos”)
+  if (suggestAbort) suggestAbort.abort();
+  suggestAbort = new AbortController();
+  const mySeq = ++suggestSeq;
+
+  setSuggestHTML(`<div class="s-loading"><i class="bi bi-search"></i> Buscando en México…</div>`);
+
   try{
-    const res = await fetch(url, {headers:{'Accept':'application/json'}});
+    const url = buildSearchUrl(q, 6);
+    const res = await fetch(url, {
+      headers:{'Accept':'application/json'},
+      signal: suggestAbort.signal,
+    });
+
+    // Si ya hubo una búsqueda más nueva, ignorar
+    if (mySeq !== suggestSeq) return;
+
     const items = await res.json();
+
+    // Si cancelaron, salir
+    if (suggestAbort.signal.aborted) return;
+
     if (!Array.isArray(items) || !items.length){
-      suggestBox.innerHTML = `<div class="s-empty">Sin resultados en México</div>`;
-      suggestBox.style.display = 'block';
+      setSuggestHTML(`<div class="s-empty">Sin resultados en México</div>`);
       return;
     }
+
+    suggestBox.innerHTML = '';
     items.forEach((it)=>{
       const div = document.createElement('div');
       div.className = 's-item';
@@ -336,26 +386,45 @@ const queryNominatim = debounce(async (q)=>{
         addrInput.value = it.display_name;
         previewData = { lat:Number(it.lat), lng:Number(it.lon), address: it.display_name, name:'' };
         setPreview(previewData.lat, previewData.lng, 'Previsualización');
-        suggestBox.style.display = 'none';
+        hideSuggest();
       });
       suggestBox.appendChild(div);
     });
-    suggestBox.style.display = 'block';
-  }catch{
-    suggestBox.innerHTML = `<div class="s-empty">Error consultando geocodificador</div>`;
-    suggestBox.style.display = 'block';
-  }
-}, 350);
 
-addrInput.addEventListener('input', ()=> queryNominatim(addrInput.value));
-addrInput.addEventListener('focus', ()=>{ if (suggestBox.children.length) suggestBox.style.display='block'; });
-document.addEventListener('click', (e)=>{ if (!e.target.closest('.addr-wrap')) suggestBox.style.display='none'; });
+    // hint
+    const hint = document.createElement('div');
+    hint.className = 's-hint';
+    hint.innerHTML = `Tip: agrega <b>calle + colonia + ciudad</b> para resultados más exactos.`;
+    suggestBox.appendChild(hint);
+
+    showSuggest();
+
+    if (opts.autoPickFirst){
+      const first = suggestBox.querySelector('.s-item');
+      if (first) first.click();
+    }
+  }catch(err){
+    if (err?.name === 'AbortError') return;
+    setSuggestHTML(`<div class="s-empty">Error consultando geocodificador</div>`);
+  }
+}
+
+// Debounce SOLO para ir sugiriendo mientras escribe
+const debouncedSuggest = debounce((q)=> fetchSuggestions(q, {autoPickFirst:false}), 250);
+
+addrInput.addEventListener('input', ()=> debouncedSuggest(addrInput.value));
+addrInput.addEventListener('focus', ()=>{
+  if (suggestBox.children.length) showSuggest();
+});
+document.addEventListener('click', (e)=>{
+  if (!e.target.closest('.addr-wrap')) hideSuggest();
+});
+
+// Enter: búsqueda inmediata + selecciona primera opción (sin “borrar y poner”)
 addrInput.addEventListener('keydown', async (e)=>{
-  if (e.key==='Enter'){
+  if (e.key === 'Enter'){
     e.preventDefault();
-    await queryNominatim(addrInput.value);
-    const first = suggestBox.querySelector('.s-item');
-    if (first){ first.click(); }
+    await fetchSuggestions(addrInput.value, { autoPickFirst:true });
   }
 });
 
@@ -420,10 +489,7 @@ pickedEl.addEventListener('click',(e)=>{
 new Sortable(pickedEl,{animation:150,ghostClass:'ghost',
   onEnd:(evt)=>{ const [m]=picked.splice(evt.oldIndex,1); picked.splice(evt.newIndex,0,m); renderPicked(); }});
 
-/* ===== Geocode helper (providers sin lat/lng) =====
-   1) intento estructurado: street/city/state/postalcode/country
-   2) fallback: q armado
-*/
+/* ===== Geocode helper (providers sin lat/lng) ===== */
 async function geocodeMxFromParts(parts){
   const calle   = norm(parts?.calle);
   const colonia = norm(parts?.colonia);
@@ -431,7 +497,7 @@ async function geocodeMxFromParts(parts){
   const estado  = norm(parts?.estado);
   const cp      = norm(parts?.cp);
 
-  const street = joinParts([calle, colonia]); // street = calle + colonia (funciona mejor que meter colonia como "suburb")
+  const street = joinParts([calle, colonia]);
   const city   = ciudad;
   const state  = estado;
   const zip    = cp;
@@ -444,6 +510,8 @@ async function geocodeMxFromParts(parts){
     qs.set('accept-language','es');
     qs.set('countrycodes','mx');
     qs.set('addressdetails','1');
+    qs.set('viewbox', MX_VIEWBOX);
+    qs.set('bounded','1');
     if (street) qs.set('street', street);
     if (city)   qs.set('city', city);
     if (state)  qs.set('state', state);
@@ -460,12 +528,12 @@ async function geocodeMxFromParts(parts){
     }
   }catch{}
 
-  // 2) fallback q (CP + ciudad + estado suele pegar)
+  // 2) fallback q
   const q = ensureMx(joinParts([street, city, state, zip]));
   if (!q) return null;
 
   try{
-    const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&accept-language=es&countrycodes=mx&q=${encodeURIComponent(q)}`;
+    const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&accept-language=es&countrycodes=mx&viewbox=${encodeURIComponent(MX_VIEWBOX)}&bounded=1&q=${encodeURIComponent(q)}`;
     const res = await fetch(url, { headers: { 'Accept':'application/json' }});
     const items = await res.json();
     if (!Array.isArray(items) || !items.length) return null;
@@ -478,7 +546,7 @@ async function geocodeMxFromParts(parts){
   }
 }
 
-/* Providers -> lista (con geocodificación si no hay lat/lng) */
+/* Providers -> lista */
 document.querySelectorAll('.provChk').forEach(chk=>{
   chk.addEventListener('change', async ()=>{
     const providerId = Number(chk.dataset.id);
@@ -493,7 +561,6 @@ document.querySelectorAll('.provChk').forEach(chk=>{
       cp:      chk.dataset.cp || '',
     };
 
-    // helper: quitar por provider_id
     const removeByProviderId = () => {
       const i = picked.findIndex(p => p.provider_id === providerId);
       if (i >= 0) picked.splice(i, 1);
@@ -505,7 +572,6 @@ document.querySelectorAll('.provChk').forEach(chk=>{
       return;
     }
 
-    // si ya existe, no duplicar
     if (picked.some(p => p.provider_id === providerId)) {
       toast('Ese provider ya estaba agregado.');
       return;
@@ -514,7 +580,6 @@ document.querySelectorAll('.provChk').forEach(chk=>{
     let lat = Number(chk.dataset.lat);
     let lng = Number(chk.dataset.lng);
 
-    // Si no hay coords, geocodificar por partes (NO por nombre)
     if (!isNum(lat) || !isNum(lng)) {
       chk.disabled = true;
       toast(`Geocodificando: <span class="muted">${name || ('Proveedor #' + providerId)}</span>…`, 1800);
@@ -531,14 +596,11 @@ document.querySelectorAll('.provChk').forEach(chk=>{
 
       lat = geo.lat; lng = geo.lng;
 
-      // guardar coords en el checkbox para futuras selecciones (en esta sesión)
       chk.dataset.lat = String(lat);
       chk.dataset.lng = String(lng);
 
-      // si address venía vacío, usa display_name
       if (!address && geo.display_name) chk.dataset.address = geo.display_name;
 
-      // acercar mapa
       try { map.flyTo([lat,lng], 13, {duration:.45}); } catch {}
     }
 
@@ -556,7 +618,6 @@ document.querySelectorAll('.provChk').forEach(chk=>{
       lat, lng
     });
 
-    // marker
     const m = L.marker([lat, lng]).addTo(markersLayer);
     m.bindTooltip(`${name || 'Proveedor'} ${fmtLatLng(lat,lng)}`);
 

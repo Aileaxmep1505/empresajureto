@@ -11,46 +11,34 @@ class Ticket extends Model
     protected $fillable = [
         'folio',
         'title',
+        'description',
+
         'created_by',
-        'client_id',
-        'client_name',
-        'type',
+        'assignee_id',
+
         'priority',
         'status',
-        'opened_at',
-        'closed_at',
-        'owner_id',
+        'area',
         'due_at',
-        'progress',
-        'meta',
 
-        // Licitación
-        'numero_licitacion',
-        'monto_propuesta',
-        'estatus_adjudicacion',
+        'impact',
+        'urgency',
+        'effort',
+        'score',
 
-        // Proceso y notas de licitación
-        'licitacion_phase',
-        'quick_notes',
+        'completed_at',
+        'cancelled_at',
     ];
 
     protected $casts = [
-        'opened_at'        => 'datetime',
-        'closed_at'        => 'datetime',
-        'due_at'           => 'datetime',
-        'progress'         => 'integer',
-        'monto_propuesta'  => 'decimal:2',
-        'meta'             => 'array',
+        'due_at'       => 'datetime',
+        'completed_at' => 'datetime',
+        'cancelled_at' => 'datetime',
+        'impact'       => 'integer',
+        'urgency'      => 'integer',
+        'effort'       => 'integer',
+        'score'        => 'integer',
     ];
-
-    /* =======================
-     * RELACIONES PRINCIPALES
-     * ======================= */
-
-    public function stages(): HasMany
-    {
-        return $this->hasMany(TicketStage::class)->orderBy('position');
-    }
 
     public function comments(): HasMany
     {
@@ -62,84 +50,29 @@ class Ticket extends Model
         return $this->hasMany(TicketDocument::class)->latest();
     }
 
-    public function links(): HasMany
-    {
-        return $this->hasMany(TicketLink::class);
-    }
-
     public function audits(): HasMany
     {
         return $this->hasMany(TicketAudit::class)->latest();
     }
 
-    public function followers(): HasMany
-    {
-        return $this->hasMany(TicketFollower::class);
-    }
-
-    public function slaEvents(): HasMany
-    {
-        return $this->hasMany(TicketSlaEvent::class);
-    }
-
-    /**
-     * Usuario que creó el ticket (campo created_by)
-     */
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
     }
 
-    /**
-     * Cliente asociado al ticket (campo client_id)
-     */
-    public function client(): BelongsTo
+    public function assignee(): BelongsTo
     {
-        return $this->belongsTo(Client::class, 'client_id');
+        return $this->belongsTo(User::class, 'assignee_id');
     }
 
-    /**
-     * Usuario responsable / dueño del ticket (campo owner_id)
-     */
-    public function owner(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'owner_id');
-    }
-
-    /* =======================
-     * LÓGICA DE SLA / PROGRESO
-     * ======================= */
-
-    // Accessor: úsalo como $ticket->sla_signal
+    // Señal SLA simple por vencimiento (para UI)
     public function getSlaSignalAttribute(): string
     {
-        if (!$this->due_at) {
-            return 'neutral';
-        }
+        if (!$this->due_at) return 'neutral';
 
         $now = now();
-
-        if ($now->gt($this->due_at)) {
-            return 'overdue';
-        }
-
-        if ($now->diffInHours($this->due_at) <= 24) {
-            return 'due_soon';
-        }
-
+        if ($now->gt($this->due_at)) return 'overdue';
+        if ($now->diffInHours($this->due_at) <= 24) return 'due_soon';
         return 'ok';
-    }
-
-    /**
-     * Recalcula el progreso en base a etapas terminadas.
-     */
-    public function refreshProgress(): void
-    {
-        $total = max(1, $this->stages()->count());
-        $done  = $this->stages()->where('status', 'terminado')->count();
-
-        $p = (int) round(($done * 100) / $total);
-
-        $this->update(['progress' => $p]);
     }
 }

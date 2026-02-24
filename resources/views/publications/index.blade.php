@@ -135,6 +135,56 @@
       font-size: 12px;
       margin-top:14px;
     }
+
+    /* =========================================================
+      ✅ SOLO INDEX (TAB 1): mejoras sin tocar tu diseño base
+    ========================================================= */
+    #pubsBase .idxBar{
+      display:flex; align-items:flex-end; justify-content:space-between;
+      gap:12px; flex-wrap:wrap; margin: 6px 0 14px;
+    }
+    #pubsBase .idxTitle{
+      display:flex; flex-direction:column; gap:4px;
+    }
+    #pubsBase .idxTitle .t{
+      font-size:12px; font-weight:900; color:var(--muted);
+      letter-spacing:1px; text-transform:uppercase; margin:0;
+    }
+    #pubsBase .idxTitle .s{
+      font-size:12px; font-weight:800; color:rgba(15,23,42,.62); margin:0;
+    }
+    #pubsBase .idxPills{
+      display:flex; gap:6px; flex-wrap:wrap; align-items:center;
+    }
+    #pubsBase .idxPill{
+      font-size:11px; font-weight:900; padding:6px 10px; border-radius:999px;
+      border:1px solid rgba(15,23,42,.10);
+      background: rgba(255,255,255,.65);
+      color: rgba(15,23,42,.72);
+      display:inline-flex; align-items:center; gap:8px;
+    }
+    #pubsBase .idxPill svg{ width:14px; height:14px; opacity:.85; }
+    #pubsBase .idxEmpty{
+      grid-column: 1/-1;
+      padding: 36px 20px;
+      text-align:center;
+      border-radius: 18px;
+      border: 1px dashed rgba(15,23,42,.18);
+      background: rgba(255,255,255,.65);
+      box-shadow: 0 10px 30px rgba(2,6,23,.05);
+      color: rgba(15,23,42,.62);
+      font-weight: 900;
+    }
+    #pubsBase .idxEmpty .big{
+      font-size: 14px; font-weight: 900; color: rgba(15,23,42,.78);
+      margin-bottom: 8px;
+    }
+    #pubsBase .idxEmpty .small{
+      font-size: 12px; font-weight: 900; color: rgba(15,23,42,.56);
+    }
+    /* mejora ligera de lectura en card (solo index) */
+    #pubsBase .idxWrap .fc-title{ max-width: 100%; }
+    #pubsBase .idxWrap .fc-foot .fc-date{ font-weight:800; }
   </style>
 
   <div class="bg">
@@ -162,11 +212,44 @@
       <button type="button" class="tabBtn" onclick="switchTab('stats')" id="btn-stats">Estadísticas</button>
     </div>
 
-    {{-- TAB 1 --}}
-    <div id="tab-pubs-content">
-      @if(($pinned ?? collect())->count())
-        <h6 style="font-size:12px; font-weight:900; color:var(--muted); margin-bottom:15px; letter-spacing:1px; text-transform:uppercase;">Fijados</h6>
-        <div class="grid" style="margin-bottom: 30px;">
+    {{-- =========================================================
+      ✅ TAB 1 (INDEX) — MEJORADO SIN CAMBIAR TU DISEÑO BASE
+    ========================================================= --}}
+    <div id="tab-pubs-content" class="idxWrap">
+      @php
+        $pinnedCount = ($pinned ?? collect())->count();
+        $latestCount = ($latest ?? collect())->count();
+      @endphp
+
+      {{-- Barra pro del índice --}}
+      <div class="idxBar">
+        <div class="idxTitle">
+          <div class="t">Índice de documentos</div>
+          <div class="s">Vista rápida: fijados y recientes (abre para ver detalle).</div>
+        </div>
+
+        <div class="idxPills">
+          <span class="idxPill" title="Fijados">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 9l7-7M3 21l7-7M14 2l8 8M7 15l2 2"/>
+            </svg>
+            {{ $pinnedCount }} fijados
+          </span>
+          <span class="idxPill" title="Recientes">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 8v5l3 3M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/>
+            </svg>
+            {{ $latestCount }} recientes
+          </span>
+        </div>
+      </div>
+
+      @if($pinnedCount)
+        <h6 style="font-size:12px; font-weight:900; color:var(--muted); margin-bottom:12px; letter-spacing:1px; text-transform:uppercase;">
+          Fijados
+        </h6>
+
+        <div class="grid" style="margin-bottom: 24px;">
           @foreach($pinned as $p)
             @php $meta = $getMeta($p); @endphp
             <a href="{{ route('publications.show', $p) }}" class="fileCard">
@@ -182,7 +265,7 @@
                 @endif
               </div>
               <div class="fc-foot">
-                <span class="fc-title">{{ $p->title }}</span>
+                <span class="fc-title" title="{{ $p->title }}">{{ $p->title }}</span>
                 <div style="display:flex; justify-content:space-between; margin-top:4px;">
                   <span class="fc-date">{{ optional($p->created_at)->format('d M, Y') }}</span>
                   <span class="fc-date" style="font-weight:900;">{{ $p->nice_size ?? '' }}</span>
@@ -193,7 +276,10 @@
         </div>
       @endif
 
-      <h6 style="font-size:12px; font-weight:900; color:var(--muted); margin-bottom:15px; letter-spacing:1px; text-transform:uppercase;">Recientes</h6>
+      <h6 style="font-size:12px; font-weight:900; color:var(--muted); margin-bottom:12px; letter-spacing:1px; text-transform:uppercase;">
+        Recientes
+      </h6>
+
       <div class="grid">
         @forelse($latest as $p)
           @php $meta = $getMeta($p); @endphp
@@ -203,7 +289,7 @@
             </div>
             <div class="fc-body">
               @if($p->is_image ?? false)
-                <img src="{{ $p->url }}" class="fc-img-preview" style="height:100px; width:90%; border-radius:10px;" alt="preview">
+                <img src="{{ $p->url }}" class="fc-img-preview" style="height:140px; width:92%; border-radius:12px;" alt="preview">
               @else
                 <div class="fc-icon-box" style="background:{{ $meta['color'] }}; width:65px; height:65px;">{{ $meta['icon'] }}</div>
               @endif
@@ -217,14 +303,17 @@
             </div>
           </a>
         @empty
-          <div style="grid-column: 1/-1; padding:40px; text-align:center; color:var(--muted);">No hay documentos subidos.</div>
+          <div class="idxEmpty">
+            <div class="big">No hay documentos subidos</div>
+            <div class="small">Cuando subas archivos, aquí verás el índice con vista rápida.</div>
+          </div>
         @endforelse
       </div>
 
       <div class="mt-5">{{ $latest->links() }}</div>
     </div>
 
-    {{-- TAB 2 --}}
+    {{-- TAB 2 (NO TOCADO) --}}
     <div id="tab-stats-content" class="d-none">
 
       <div class="subNav">

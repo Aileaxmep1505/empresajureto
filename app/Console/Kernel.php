@@ -15,7 +15,7 @@ class Kernel extends ConsoleKernel
     protected $commands = [
         \App\Console\Commands\SyncKnowledge::class,
         \App\Console\Commands\RunAgenda::class,
-
+ \App\Console\Commands\WhatsAppDiagnose::class,
         // ✅ NUEVO: notificaciones por correo
         \App\Console\Commands\PollMailboxNotifications::class,
     ];

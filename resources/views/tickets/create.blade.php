@@ -1,975 +1,531 @@
-{{-- resources/views/tickets/create.blade.php --}}
 @extends('layouts.app')
-@section('title','Nuevo ticket de licitación')
 
 @section('content')
-<div id="tkt-create" class="container-fluid p-0">
-  @php
-    /** @var \Illuminate\Database\Eloquent\Collection|\App\Models\User[] $users */
-    $users = $users ?? collect();
-  @endphp
+<link href="https://fonts.googleapis.com/css?family=Open+Sans:400,600,700" rel="stylesheet">
 
-  <style>
-    /* =========================
-       NAMESPACE: #tkt-create
-       ========================= */
-    #tkt-create{
-      --ink:#0f172a;
-      --muted:#6b7280;
-      --line:#e2e8f0;
-      --bg:#f8fafc;
-      --card:#ffffff;
+@php
+  $priorities = $priorities ?? \App\Http\Controllers\Tickets\TicketController::PRIORITIES;
+  $areas      = $areas      ?? \App\Http\Controllers\Tickets\TicketController::AREAS;
 
-      --accent-soft:#e0edff;
-      --accent-soft-2:#f1f5ff;
-      --accent-border:#c7d2fe;
-      --accent-ink:#1d4ed8;
+  // Helper old()
+  $v = fn($key, $default=null) => old($key, $default);
+@endphp
 
-      --ok:#16a34a;
-      --warn:#f59e0b;
-      --danger:#ef4444;
+<style>
+:root{ --mint:#48cfad; --mint-dark:#34c29e; --ink:#2a2e35; --muted:#7a7f87; --line:#e9ecef; --card:#ffffff; }
+*{box-sizing:border-box}
+body{font-family:"Open Sans",sans-serif;background:#eaebec}
 
-      --ring:0 0 0 5px rgba(129,140,248,.18);
-      --shadow:0 20px 45px rgba(15,23,42,.10);
-      --radius:16px;
-    }
+/* Panel */
+.edit-wrap{ max-width:1100px; margin:10px auto 40px; padding:0 16px; }
+.panel{ background:var(--card); border-radius:16px; box-shadow:0 16px 40px rgba(18,38,63,.12); overflow:hidden; }
+.panel-head{ padding:18px 22px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:12px; justify-content:space-between; }
+.hgroup h2{ margin:0; font-weight:700; color:var(--ink); letter-spacing:-.02em }
+.hgroup p{ margin:2px 0 0; color:var(--muted); font-size:14px }
+.back-link{ display:inline-flex; align-items:center; gap:8px; color:var(--muted); text-decoration:none; padding:8px 12px; border-radius:10px; border:1px solid var(--line); background:#fff; }
+.back-link:hover{ color:#111; border-color:#e3e6eb; box-shadow:0 8px 18px rgba(0,0,0,.08) }
 
-    #tkt-create *{box-sizing:border-box}
-    #tkt-create .wrap{
-      max-width:1200px;
-      margin:clamp(16px,3vw,28px) auto;
-      padding:0 16px 32px;
-    }
+/* Form + campos compactos */
+.form{ padding:22px; }
+.section-gap{ margin-top:8px; }
+.field{
+  position:relative; background:#fff; border:1px solid var(--line);
+  border-radius:12px; padding:12px 12px 6px;
+  transition:box-shadow .2s, border-color .2s;
+}
+.field:focus-within{ border-color:#d8dee6; box-shadow:0 6px 18px rgba(18,38,63,.08) }
+.field input,.field textarea,.field select{
+  width:100%; border:0; outline:0; background:transparent;
+  font-size:14px; color:var(--ink); padding-top:8px; resize:vertical;
+  font-family:"Open Sans",sans-serif;
+}
+.field textarea{ min-height:110px; }
+.field label{
+  position:absolute; left:12px; top:10px; color:var(--muted); font-size:12px;
+  transition:transform .15s ease, color .15s ease, font-size .15s ease, top .15s ease;
+  pointer-events:none;
+}
+.field input::placeholder,.field textarea::placeholder{ color:transparent; }
+.field input:focus + label,
+.field input:not(:placeholder-shown) + label,
+.field textarea:focus + label,
+.field textarea:not(:placeholder-shown) + label{
+  top:4px; transform:translateY(-8px); font-size:10.5px; color:var(--mint-dark);
+}
+.field select{
+  appearance:none;
+  padding-top:18px;
+  padding-bottom:10px;
+}
+.field select + label{
+  top:4px; transform:translateY(-8px); font-size:10.5px; color:var(--mint-dark);
+}
+.field .suffix,.field .prefix{ position:absolute; right:12px; top:50%; transform:translateY(-10%); color:#a2a7ae; font-size:12px; }
+.field .prefix.left{ left:12px; right:auto }
+.field.has-left input{ padding-left:26px }
 
-    body{
-      background:radial-gradient(circle at top left,#e0ecff 0,#f8fafc 40%,#ffffff 100%);
-    }
+/* Grid fluido sin bootstrap */
+.row{ display:flex; flex-wrap:wrap; margin-left:-10px; margin-right:-10px; }
+.col{ padding:0 10px; }
+.col-12{ width:100% }
+@media (min-width: 768px){
+  .col-md-6{ width:50% } .col-md-4{ width:33.3333% } .col-md-8{ width:66.6666% } .col-md-3{ width:25% }
+}
+.gy-3 > .col{ margin-top:12px }
 
-    /* Top header */
-    #tkt-create .top{
-      display:flex;
-      justify-content:space-between;
-      align-items:flex-end;
-      gap:12px;
-      margin-bottom:16px;
-    }
-    #tkt-create .h{
-      font-weight:800;
-      color:var(--ink);
-      margin:0;
-      letter-spacing:.02em;
-    }
-    #tkt-create .h-main{
-      font-size:1.35rem;
-    }
-    #tkt-create .sub{
-      color:var(--muted);
-      margin:.25rem 0 0;
-      font-size:.93rem;
-    }
+/* Chips info */
+.chips{ display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+.chip{
+  display:inline-flex; align-items:center; gap:8px;
+  border:1px solid var(--line); background:#fff;
+  border-radius:999px; padding:7px 10px;
+  font-weight:700; font-size:12px; color:var(--muted);
+}
 
-    #tkt-create .shortcut-pill{
-      display:flex;
-      flex-direction:column;
-      align-items:flex-end;
-      padding:.45rem .75rem;
-      border-radius:999px;
-      border:1px solid var(--accent-border);
-      background:linear-gradient(135deg,#f5f7ff,#ffffff);
-      font-size:.8rem;
-      gap:2px;
-      box-shadow:0 10px 28px rgba(15,23,42,.08);
-      animation:fadeInUp .5s ease-out both;
-    }
-    #tkt-create .shortcut-label{
-      font-weight:600;
-      color:var(--muted);
-    }
-    #tkt-create .shortcut-keys{
-      font-weight:700;
-      letter-spacing:.04em;
-      color:var(--accent-ink);
-    }
+/* Dropzone / archivos (mín 3) */
+.block{ border:1px dashed #dfe3e8; border-radius:14px; padding:14px; background:#fafbfc; }
+.dropzone{ display:grid; grid-template-columns:150px 1fr; gap:14px; align-items:center; }
+@media (max-width: 620px){ .dropzone{ grid-template-columns:1fr } }
+.preview{
+  width:150px; height:150px; border-radius:12px; overflow:hidden; background:#f6f7f9;
+  display:grid; place-items:center; border:1px solid #edf0f3;
+}
+.preview img{ width:100%; height:100%; object-fit:cover; display:none }
+.preview .placeholder{
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; color:#6b7280; font-size:12px;
+  text-align:center; padding:10px;
+}
+.placeholder svg{ width:28px; height:28px; opacity:.8 }
 
-    /* Layout */
-    #tkt-create .layout{
-      display:grid;
-      grid-template-columns:2fr 1.05fr;
-      gap:18px;
-      align-items:flex-start;
-    }
+.drop-actions{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.input-file{ display:none }
+.btn-upload{
+  background:var(--mint); color:#fff; border:none; border-radius:999px; padding:8px 14px;
+  cursor:pointer; box-shadow:0 8px 18px rgba(0,0,0,.12);
+  display:inline-flex; align-items:center; gap:8px;
+}
+.btn-upload:hover{ background:var(--mint-dark) }
+.drop-box{ border:1px dashed #cfd6e0; border-radius:12px; padding:10px 12px; background:#fff; color:#60708a; font-size:12px; }
+.dropzone.dragover .drop-box{ border-color:#93a3c5; background:#f2f6ff }
+.file-meta{ font-size:12px; color:#6b7280 }
 
-    /* Cards */
-    #tkt-create .card{
-      background:var(--card);
-      border:1px solid var(--line);
-      border-radius:var(--radius);
-      box-shadow:var(--shadow);
-      overflow:hidden;
-      animation:floatIn .55s ease-out both;
-    }
-    #tkt-create .card-main{animation-delay:.02s}
-    #tkt-create .card-aside{animation-delay:.08s}
+/* Lista de archivos */
+.file-list{ margin-top:10px; display:flex; flex-direction:column; gap:8px; }
+.file-item{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  background:#fff; border:1px solid #edf0f3; border-radius:12px; padding:10px 12px;
+}
+.file-left{ min-width:0; }
+.file-name{
+  font-weight:700; color:var(--ink);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  max-width:520px;
+}
+.file-sub{ font-size:12px; color:#6b7280; margin-top:2px; }
+.file-remove{
+  border:1px solid rgba(239,68,68,.25);
+  background:rgba(239,68,68,.12);
+  color:#7f1d1d;
+  border-radius:12px;
+  padding:8px 10px;
+  font-weight:700;
+  cursor:pointer;
+  white-space:nowrap;
+}
+.file-remove:hover{ box-shadow:0 10px 18px rgba(0,0,0,.10) }
 
-    #tkt-create .head{
-      padding:14px 18px;
-      border-bottom:1px solid var(--line);
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:10px;
-      background:linear-gradient(135deg,#f5f7ff,#ffffff);
-    }
-    #tkt-create .body{
-      padding:18px 18px 20px;
-    }
-    #tkt-create .footer{
-      display:flex;
-      gap:10px;
-      justify-content:flex-end;
-      padding:14px 18px;
-      border-top:1px solid var(--line);
-      background:#f9fafb;
-    }
+/* Acciones */
+.actions{ display:flex; gap:10px; justify-content:flex-end; margin-top:8px; }
+.btn{
+  border:1px solid transparent; border-radius:12px; padding:10px 16px; font-weight:700; cursor:pointer;
+  transition:transform .05s ease, box-shadow .2s ease, background .2s ease, color .2s ease, border-color .2s ease;
+  text-decoration:none; display:inline-flex; align-items:center; gap:8px;
+}
+.btn:active{ transform:translateY(1px) }
+.btn-primary{ background:var(--mint); color:#fff; }
+.btn-primary:hover{ background:#fff; color:#111; border-color:transparent; box-shadow:0 14px 34px rgba(0,0,0,.18); }
+.btn-ghost{ background:#fff; color:#111; border:1px solid #e5e7eb; }
+.btn-ghost:hover{ background:#fff; color:#111; border-color:transparent; box-shadow:0 12px 26px rgba(0,0,0,.12); }
 
-    #tkt-create .head-main{
-      display:flex;
-      flex-direction:column;
-      gap:4px;
-    }
-    #tkt-create .h-small{
-      font-size:1.02rem;
-      font-weight:700;
-    }
+.is-invalid{ border-color:#f9c0c0 !important }
+.error{ color:#cc4b4b; font-size:12px; margin-top:6px }
+@media (max-width: 768px){
+  .hgroup .subtitle{ display:none; }
+  .file-name{ max-width:260px; }
+}
+</style>
 
-    /* Step indicator (solo visual) */
-    #tkt-create .steps{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      font-size:.78rem;
-    }
-    #tkt-create .step{
-      padding:.16rem .6rem;
-      border-radius:999px;
-      border:1px solid transparent;
-      background:transparent;
-      color:var(--muted);
-    }
-    #tkt-create .step.is-active{
-      background:var(--accent-soft);
-      border-color:var(--accent-border);
-      color:var(--accent-ink);
-      font-weight:600;
-    }
-
-    /* Grid formulario */
-    #tkt-create .grid{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:14px;
-    }
-    #tkt-create .row{
-      display:flex;
-      flex-direction:column;
-      gap:6px;
-    }
-    #tkt-create label{
-      font-weight:600;
-      color:var(--ink);
-      font-size:.9rem;
-    }
-
-    /* Inputs */
-    #tkt-create input[type="text"],
-    #tkt-create input[type="number"],
-    #tkt-create input[type="datetime-local"],
-    #tkt-create select,
-    #tkt-create input[type="url"],
-    #tkt-create textarea{
-      width:100%;
-      padding:.7rem .8rem;
-      border:1px solid var(--line);
-      border-radius:12px;
-      background:#ffffff;
-      color:var(--ink);
-      outline:none;
-      transition:
-        box-shadow .2s ease,
-        border-color .2s ease,
-        transform .08s ease,
-        background .15s ease;
-      font-size:.9rem;
-    }
-    #tkt-create input::placeholder,
-    #tkt-create textarea::placeholder{
-      color:#9ca3af;
-    }
-    #tkt-create input:focus,
-    #tkt-create select:focus,
-    #tkt-create textarea:focus{
-      border-color:var(--accent-border);
-      box-shadow:var(--ring);
-      background:#f9fbff;
-      transform:translateY(-1px);
-    }
-    #tkt-create textarea{
-      resize:vertical;
-      min-height:90px;
-    }
-
-    #tkt-create .hint{
-      font-size:.8rem;
-      color:var(--muted);
-    }
-    #tkt-create .error{
-      font-size:.8rem;
-      color:#b91c1c;
-    }
-
-    /* Chips + Badges */
-    #tkt-create .chips{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-    }
-    #tkt-create .chip{
-      padding:.32rem .75rem;
-      border:1px solid var(--line);
-      border-radius:999px;
-      background:#ffffff;
-      font-size:.8rem;
-      cursor:pointer;
-      user-select:none;
-      transition:
-        transform .09s ease,
-        background .18s ease,
-        border-color .18s ease,
-        box-shadow .18s ease;
-      white-space:nowrap;
-    }
-    #tkt-create .chip:hover{
-      transform:translateY(-1px);
-      box-shadow:0 8px 18px rgba(15,23,42,.06);
-    }
-    #tkt-create .chip.active{
-      background:var(--accent-soft);
-      border-color:var(--accent-border);
-      color:var(--accent-ink);
-      font-weight:600;
-    }
-
-    /* Colores por prioridad (chips y preview) */
-    #tkt-create .chip-prio-alta.active{
-      background:#fee2e2;
-      border-color:#fecaca;
-      color:#b91c1c;
-    }
-    #tkt-create .chip-prio-media.active{
-      background:#fef3c7;
-      border-color:#fed7aa;
-      color:#92400e;
-    }
-    #tkt-create .chip-prio-baja.active{
-      background:#dcfce7;
-      border-color:#bbf7d0;
-      color:#166534;
-    }
-
-    #tkt-create .badge{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      padding:.28rem .7rem;
-      border-radius:999px;
-      font-size:.78rem;
-      background:#fef2f2;
-      border:1px solid #fecaca;
-      color:#991b1b;
-    }
-
-    /* Alerts compactas */
-    #tkt-create .alert{
-      border-radius:12px;
-      padding:.6rem .75rem;
-      font-size:.8rem;
-      margin-bottom:10px;
-      display:flex;
-      align-items:center;
-      gap:8px;
-    }
-    #tkt-create .alert-error{
-      background:#fef2f2;
-      border:1px solid #fecaca;
-      color:#991b1b;
-    }
-    #tkt-create .alert-warn{
-      background:#fffbeb;
-      border:1px solid #fde68a;
-      color:#92400e;
-    }
-
-    /* Botones */
-    #tkt-create .btn{
-      appearance:none;
-      border-radius:999px;
-      padding:.6rem 1.1rem;
-      font-weight:600;
-      font-size:.9rem;
-      cursor:pointer;
-      border:1px solid #d4ddff;
-      background:linear-gradient(120deg,#ffffff,#f4f7ff);
-      transition:
-        transform .12s ease,
-        box-shadow .15s ease,
-        background-position .2s ease,
-        opacity .1s ease;
-      background-size:220% 220%;
-      background-position:0 0;
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      color:var(--ink);
-      text-decoration:none;
-      white-space:nowrap;
-    }
-    #tkt-create .btn:hover{
-      transform:translateY(-1px);
-      box-shadow:0 12px 28px rgba(15,23,42,.12);
-      background-position:100% 0;
-    }
-    #tkt-create .btn:active{
-      transform:translateY(0);
-      box-shadow:0 6px 14px rgba(15,23,42,.10);
-    }
-    #tkt-create .btn.primary{
-      border-color:var(--accent-border);
-      background-image:linear-gradient(120deg,#e0edff,#f5f7ff);
-      color:var(--accent-ink);
-    }
-    #tkt-create .btn[aria-busy="true"]{
-      opacity:.75;
-      pointer-events:none;
-    }
-
-    /* Spinner sutil */
-    #tkt-create .save-spin{
-      width:14px;
-      height:14px;
-      border-radius:999px;
-      border:2px solid rgba(148,163,184,.6);
-      border-top-color:rgba(37,99,235,.95);
-      animation:spin .65s linear infinite;
-      flex-shrink:0;
-    }
-
-    /* Panel lateral (preview) */
-    #tkt-create .aside{
-      position:sticky;
-      top:18px;
-      align-self:flex-start;
-    }
-    #tkt-create .kv{
-      display:grid;
-      grid-template-columns:auto 1fr;
-      gap:6px 10px;
-      align-items:center;
-    }
-    #tkt-create .kv .k{
-      color:var(--muted);
-      font-size:.83rem;
-    }
-    #tkt-create .kv .v{
-      font-weight:600;
-      font-size:.86rem;
-      color:var(--ink);
-    }
-    #tkt-create .label-pill{
-      padding:.24rem .6rem;
-      border-radius:999px;
-      border:1px solid var(--accent-border);
-      background:#f5f7ff;
-      font-size:.78rem;
-      color:var(--accent-ink);
-      font-weight:600;
-    }
-
-    #tkt-create .progress{
-      height:9px;
-      border-radius:999px;
-      background:#eef2ff;
-      overflow:hidden;
-    }
-    #tkt-create .progress>span{
-      display:block;
-      height:100%;
-      background:linear-gradient(90deg,#c4d7ff,#e0e7ff);
-      transform-origin:left;
-      transition:width .25s ease-out;
-    }
-
-    .priority-pill{
-      display:inline-flex;
-      align-items:center;
-      padding:.2rem .65rem;
-      border-radius:999px;
-      font-size:.78rem;
-      font-weight:600;
-      border:1px solid transparent;
-      background:#f4f4f5;
-      color:#44403c;
-    }
-    .priority-pill--alta{
-      background:#fee2e2;
-      border-color:#fecaca;
-      color:#b91c1c;
-    }
-    .priority-pill--media{
-      background:#fef3c7;
-      border-color:#fed7aa;
-      color:#92400e;
-    }
-    .priority-pill--baja{
-      background:#dcfce7;
-      border-color:#bbf7d0;
-      color:#166534;
-    }
-
-    /* Secciones */
-    #tkt-create .section-title{
-      font-weight:700;
-      color:var(--ink);
-      margin:.6rem 0 .45rem;
-      font-size:.92rem;
-    }
-    #tkt-create .section{
-      border-radius:12px;
-      padding:12px 12px 10px;
-      background:var(--accent-soft-2);
-      border:1px dashed var(--accent-border);
-      margin-top:10px;
-    }
-    #tkt-create .section-note{
-      font-size:.8rem;
-      color:var(--muted);
-    }
-
-    /* Animaciones */
-    @keyframes floatIn{
-      from{
-        opacity:0;
-        transform:translateY(12px) scale(.98);
-      }
-      to{
-        opacity:1;
-        transform:translateY(0) scale(1);
-      }
-    }
-    @keyframes fadeInUp{
-      from{
-        opacity:0;
-        transform:translateY(8px);
-      }
-      to{
-        opacity:1;
-        transform:translateY(0);
-      }
-    }
-    @keyframes spin{
-      to{transform:rotate(360deg);}
-    }
-
-    /* Responsivo */
-    @media (max-width:1100px){
-      #tkt-create .layout{grid-template-columns:1fr}
-      #tkt-create .aside{position:static}
-    }
-    @media (max-width:768px){
-      #tkt-create .grid{grid-template-columns:1fr}
-      #tkt-create .top{
-        flex-direction:column;
-        align-items:flex-start;
-      }
-      #tkt-create .shortcut-pill{
-        align-items:flex-start;
-      }
-    }
-  </style>
-
-  <div class="wrap">
-    <div class="top">
-      <div>
-        <h1 class="h h-main">Nuevo ticket de licitación</h1>
-        <p class="sub">Registra una tarea puntual dentro del flujo de una licitación pública.</p>
+<div class="edit-wrap">
+  <div class="panel">
+    <div class="panel-head">
+      <div class="hgroup">
+        <h2>Nuevo ticket</h2>
+        <p class="subtitle">Crea una tarea ordenada, asígnala, y adjunta mínimo 3 evidencias.</p>
       </div>
-      <div class="shortcut-pill" aria-label="Atajo para guardar el ticket">
-        <span class="shortcut-label">Atajo de guardado</span>
-        <span class="shortcut-keys">Ctrl + S / Cmd + S</span>
-      </div>
+      <a href="{{ route('tickets.index') }}" class="back-link" title="Volver">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        Volver
+      </a>
     </div>
 
-    <div class="layout">
-      {{-- ======== COLUMNA FORMULARIO ======== --}}
-      <form id="tktForm" method="POST" action="{{ route('tickets.store') }}" class="card card-main" enctype="multipart/form-data" novalidate>
-        @csrf
-        {{-- Todos los tickets son de licitación --}}
-        <input type="hidden" name="type" value="licitacion">
+    <form class="form" action="{{ route('tickets.store') }}" method="POST" enctype="multipart/form-data" id="tkForm">
+      @csrf
 
-        <div class="head">
-          <div class="head-main">
-            <div class="h h-small">Datos del ticket</div>
-            <div class="steps">
-              <span class="step is-active">1 Datos</span>
-              <span class="step">2 Proceso</span>
-              <span class="step">3 Responsable</span>
-              <span class="step">4 Fechas y links</span>
-            </div>
+      {{-- ===== Fila: Título / Asignado ===== --}}
+      <div class="row gy-3 section-gap">
+        <div class="col col-12 col-md-6">
+          <div class="field @error('title') is-invalid @enderror">
+            <input type="text" name="title" id="f-title" value="{{ $v('title') }}" placeholder=" " required>
+            <label for="f-title">Título *</label>
           </div>
-          <div class="right" style="display:flex;gap:8px;align-items:center">
-            <a href="{{ route('tickets.index') }}" class="btn">Cancelar</a>
-            <button id="submitBtn" type="submit" class="btn primary">
-              <span class="save-label">Guardar ticket</span>
-              <span class="save-spin" style="display:none"></span>
-            </button>
-          </div>
+          @error('title')<div class="error">{{ $message }}</div>@enderror
         </div>
 
-        <div class="body">
-          {{-- Mensajes rápidos --}}
-          @if(session('err'))
-            <div class="alert alert-error">
-              <span>{{ session('err') }}</span>
-            </div>
-          @endif
-          @if($errors->any())
-            <div class="alert alert-warn">
-              <span>Revisa los campos marcados.</span>
-            </div>
-          @endif
-
-          {{-- 1) Identificación --}}
-          <div class="section-title">1. Datos básicos</div>
-          <div class="grid">
-            <div class="row">
-              <label for="title">Título / asunto <span class="hint">(obligatorio)</span></label>
-              <input
-                id="title"
-                type="text"
-                name="title"
-                maxlength="180"
-                value="{{ old('title') }}"
-                placeholder="Ej. Licitación de mobiliario escolar turno matutino"
-                required
-              >
-              @error('title') <div class="error">{{ $message }}</div> @enderror
-              <div class="hint" id="title-count">0 / 180</div>
-            </div>
-
-            <div class="row">
-              <label for="client_name">Cliente / institución</label>
-              <input
-                id="client_name"
-                type="text"
-                name="client_name"
-                value="{{ old('client_name') }}"
-                placeholder="Ej. Hospital San Lucas, SEP"
-              >
-              @error('client_name') <div class="error">{{ $message }}</div> @enderror
-            </div>
+        <div class="col col-12 col-md-6">
+          <div class="field @error('assignee_id') is-invalid @enderror">
+            <select name="assignee_id" id="f-assignee">
+              <option value="">— Sin asignar —</option>
+              @foreach(($users ?? []) as $u)
+                <option value="{{ $u->id }}" @selected((string)$v('assignee_id')===(string)$u->id)>{{ $u->name }}</option>
+              @endforeach
+            </select>
+            <label for="f-assignee">Asignado a</label>
           </div>
+          @error('assignee_id')<div class="error">{{ $message }}</div>@enderror
+        </div>
+      </div>
 
-          {{-- 2) Proceso y prioridad --}}
-          <div class="section-title">2. Proceso dentro de la licitación y prioridad</div>
-          <div class="grid">
-            <div class="row">
-              <label for="licitacion_phase">Proceso</label>
-              <select id="licitacion_phase" name="licitacion_phase" required>
-                @php
-                  $phaseOptions = [
-                    'analisis_bases'   => 'Análisis de bases',
-                    'preguntas'        => 'Preguntas / aclaraciones',
-                    'cotizacion'       => 'Cotización',
-                    'muestras'         => 'Muestras',
-                    'ir_por_pedido'    => 'Ir por pedido',
-                    'entrega'          => 'Entrega',
-                    'seguimiento'      => 'Seguimiento / otros',
-                  ];
-                @endphp
-                <option value="">Selecciona proceso</option>
-                @foreach($phaseOptions as $val => $label)
-                  <option value="{{ $val }}" @selected(old('licitacion_phase')===$val)>{{ $label }}</option>
-                @endforeach
-              </select>
-              @error('licitacion_phase') <div class="error">{{ $message }}</div> @enderror
-
-              <div class="chips" data-sync-select="#licitacion_phase" style="margin-top:8px">
-                <span class="chip" data-value="analisis_bases">Análisis de bases</span>
-                <span class="chip" data-value="preguntas">Preguntas</span>
-                <span class="chip" data-value="cotizacion">Cotización</span>
-                <span class="chip" data-value="muestras">Muestras</span>
-                <span class="chip" data-value="ir_por_pedido">Ir por pedido</span>
-                <span class="chip" data-value="entrega">Entrega</span>
-                <span class="chip" data-value="seguimiento">Seguimiento</span>
-              </div>
-            </div>
-
-            <div class="row">
-              <label for="priority">Prioridad</label>
-              <select id="priority" name="priority" required>
-                @foreach(['alta'=>'Alta','media'=>'Media','baja'=>'Baja'] as $val=>$label)
-                  <option value="{{ $val }}" @selected(old('priority')===$val)>{{ $label }}</option>
-                @endforeach
-              </select>
-              @error('priority') <div class="error">{{ $message }}</div> @enderror
-
-              <div class="chips" data-sync-select="#priority" style="margin-top:8px">
-                <span class="chip chip-prio-alta chip-prio"  data-value="alta">Alta</span>
-                <span class="chip chip-prio-media chip-prio" data-value="media">Media</span>
-                <span class="chip chip-prio-baja chip-prio"  data-value="baja">Baja</span>
-              </div>
-              <div class="hint">Cada ticket tomará un color según la prioridad.</div>
-            </div>
+      {{-- ===== Descripción ===== --}}
+      <div class="row gy-3 section-gap">
+        <div class="col col-12">
+          <div class="field @error('description') is-invalid @enderror">
+            <textarea name="description" id="f-desc" placeholder=" ">{{ $v('description') }}</textarea>
+            <label for="f-desc">Descripción</label>
           </div>
+          @error('description')<div class="error">{{ $message }}</div>@enderror
+        </div>
+      </div>
 
-          {{-- 3) Responsable y plazo --}}
-          <div class="section-title">3. Responsable y tiempo</div>
-          <div class="grid">
-            <div class="row">
-              <label for="owner_id">Responsable del proceso</label>
-              <select id="owner_id" name="owner_id">
-                <option value="">Sin asignar</option>
-                @foreach($users as $user)
-                  <option
-                    value="{{ $user->id }}"
-                    @selected(old('owner_id', auth()->id()) == $user->id)
-                  >
-                    {{ $user->name }} (ID {{ $user->id }})
-                  </option>
-                @endforeach
-              </select>
-              @error('owner_id') <div class="error">{{ $message }}</div> @enderror
-              <div class="hint">Persona que llevará este paso (cotización, muestras, entrega, etc.).</div>
-            </div>
-
-            <div class="row">
-              <label for="due_at">Fecha límite estimada</label>
-              <input
-                id="due_at"
-                type="datetime-local"
-                name="due_at"
-                value="{{ old('due_at') }}"
-              >
-              @error('due_at') <div class="error">{{ $message }}</div> @enderror
-              <div class="chips" id="sla-shortcuts" style="margin-top:8px">
-                <span class="chip" data-hours="24">+24 h</span>
-                <span class="chip" data-hours="48">+48 h</span>
-                <span class="chip" data-hours="72">+72 h</span>
-                <span class="chip" data-hours="168">+7 días</span>
-              </div>
-              <div class="hint">Elige fecha o usa un atajo rápido.</div>
-            </div>
+      {{-- ===== Fila: Área / Prioridad / Vencimiento ===== --}}
+      <div class="row gy-3 section-gap">
+        <div class="col col-12 col-md-4">
+          <div class="field @error('area') is-invalid @enderror">
+            <select name="area" id="f-area" required>
+              <option value="">Selecciona…</option>
+              @foreach($areas as $k => $label)
+                <option value="{{ $k }}" @selected($v('area')===$k)>{{ $label }}</option>
+              @endforeach
+            </select>
+            <label for="f-area">Área *</label>
           </div>
+          @error('area')<div class="error">{{ $message }}</div>@enderror
+        </div>
 
-          {{-- 4) Información de licitación y links --}}
-          <div class="section-title">4. Datos de licitación y notas</div>
-          <div class="grid">
-            <div class="row">
-              <label for="numero_licitacion">Número de licitación</label>
-              <input
-                id="numero_licitacion"
-                type="text"
-                name="numero_licitacion"
-                value="{{ old('numero_licitacion') }}"
-                placeholder="Ej. LA-012345-ABC-2025"
-              >
-              @error('numero_licitacion') <div class="error">{{ $message }}</div> @enderror
-            </div>
-
-            <div class="row">
-              <label for="monto_propuesta">
-                Monto de la propuesta
-                <span class="hint">(opcional)</span>
-              </label>
-              <input
-                id="monto_propuesta"
-                type="number"
-                step="0.01"
-                name="monto_propuesta"
-                value="{{ old('monto_propuesta') }}"
-                placeholder="0.00"
-              >
-              @error('monto_propuesta') <div class="error">{{ $message }}</div> @enderror
-            </div>
-
-            <div class="row">
-              <label for="link_inicial">Link relacionado</label>
-              <input
-                id="link_inicial"
-                type="url"
-                name="link_inicial"
-                value="{{ old('link_inicial') }}"
-                placeholder="https://..."
-              >
-              <div class="hint">Compranet, Drive, correo, etc.</div>
-            </div>
-
-            <div class="row">
-              <label for="quick_notes">Notas rápidas</label>
-              <textarea
-                id="quick_notes"
-                name="quick_notes"
-                rows="3"
-                placeholder="Contexto corto, acuerdos, pendientes."
-                spellcheck="false"
-              >{{ old('quick_notes') }}</textarea>
-              <div class="hint">Se guardan dentro del ticket.</div>
-            </div>
+        <div class="col col-12 col-md-4">
+          <div class="field @error('priority') is-invalid @enderror">
+            <select name="priority" id="f-priority" required>
+              @foreach($priorities as $k => $label)
+                <option value="{{ $k }}" @selected($v('priority','media')===$k)>{{ $label }}</option>
+              @endforeach
+            </select>
+            <label for="f-priority">Prioridad *</label>
           </div>
+          @error('priority')<div class="error">{{ $message }}</div>@enderror
+        </div>
 
-          <div class="section">
-            <span class="section-note">
-              Las etapas base del flujo (recepción, análisis, cotización, aprobación y cierre)
-              se crean automáticamente. Después podrás ajustarlas.
+        <div class="col col-12 col-md-4">
+          <div class="field @error('due_at') is-invalid @enderror">
+            <input type="datetime-local" name="due_at" id="f-due" value="{{ $v('due_at') }}" placeholder=" ">
+            <label for="f-due">Vence (opcional)</label>
+          </div>
+          @error('due_at')<div class="error">{{ $message }}</div>@enderror
+
+          <div class="chips">
+            <span class="chip">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20 6 9 17l-5-5"/>
+              </svg>
+              Estatus inicial: <strong style="color:#111">Pendiente</strong>
             </span>
           </div>
         </div>
+      </div>
 
-        <div class="footer">
-          <button id="submitBtn2" type="submit" class="btn primary">
-            <span class="save-label">Guardar ticket</span>
-            <span class="save-spin" style="display:none"></span>
-          </button>
-        </div>
-      </form>
-
-      {{-- ======== COLUMNA PREVIEW ======== --}}
-      <aside class="aside">
-        <div class="card card-aside">
-          <div class="head">
-            <div style="display:flex;flex-direction:column;gap:2px">
-              <div class="h h-small">Previsualización</div>
-              <div class="hint">Resumen en vivo del ticket.</div>
-            </div>
-            <span class="label-pill">Licitación</span>
+      {{-- ===== Fila: Impacto / Urgencia / Esfuerzo / Score ===== --}}
+      <div class="row gy-3 section-gap">
+        <div class="col col-12 col-md-3">
+          <div class="field @error('impact') is-invalid @enderror">
+            <select name="impact" id="f-impact">
+              <option value="">—</option>
+              @for($i=1;$i<=5;$i++)
+                <option value="{{ $i }}" @selected((string)$v('impact')===(string)$i)>{{ $i }}</option>
+              @endfor
+            </select>
+            <label for="f-impact">Impacto (1–5)</label>
           </div>
-          <div class="body" style="display:flex;flex-direction:column;gap:14px">
-            <div class="kv">
-              <div class="k">Folio estimado</div><div class="v">Se asigna al guardar</div>
-              <div class="k">Título</div><div class="v" id="pv-title">—</div>
-              <div class="k">Cliente</div><div class="v" id="pv-client">—</div>
-              <div class="k">Proceso</div><div class="v" id="pv-process">No definido</div>
-              <div class="k">Prioridad</div>
-              <div class="v">
-                <span id="pv-priority" class="priority-pill">Sin definir</span>
-              </div>
-              <div class="k">Responsable</div><div class="v" id="pv-owner">Sin asignar</div>
-              <div class="k">Fecha límite</div><div class="v" id="pv-due">—</div>
-            </div>
+          @error('impact')<div class="error">{{ $message }}</div>@enderror
+        </div>
 
-            <div>
-              <div class="hint" style="margin-bottom:6px">Avance estimado de datos</div>
-              <div class="progress" aria-hidden="true">
-                <span id="pv-progress" style="width:12%"></span>
-              </div>
-              <div class="hint" id="pv-progress-label" style="margin-top:4px">Inicial • 12%</div>
-            </div>
+        <div class="col col-12 col-md-3">
+          <div class="field @error('urgency') is-invalid @enderror">
+            <select name="urgency" id="f-urgency">
+              <option value="">—</option>
+              @for($i=1;$i<=5;$i++)
+                <option value="{{ $i }}" @selected((string)$v('urgency')===(string)$i)>{{ $i }}</option>
+              @endfor
+            </select>
+            <label for="f-urgency">Urgencia (1–5)</label>
+          </div>
+          @error('urgency')<div class="error">{{ $message }}</div>@enderror
+        </div>
 
-            <div class="section" style="margin-top:2px">
-              <div class="section-title" style="margin:0 0 4px">Etapas base</div>
-              <ol id="pv-stages" style="margin:0 0 4px 1.2rem;padding:0;line-height:1.45;font-size:.86rem">
-                <li>Recepción de bases / documentos</li>
-                <li>Análisis técnico / comercial</li>
-                <li>Cotización y envío</li>
-                <li>Muestras / pedido / entrega</li>
-                <li>Aprobación y cierre</li>
-              </ol>
-              <div class="hint">Después podrás ajustar etapas y checklists por licitación.</div>
-            </div>
+        <div class="col col-12 col-md-3">
+          <div class="field @error('effort') is-invalid @enderror">
+            <select name="effort" id="f-effort">
+              <option value="">—</option>
+              @for($i=1;$i<=5;$i++)
+                <option value="{{ $i }}" @selected((string)$v('effort')===(string)$i)>{{ $i }}</option>
+              @endfor
+            </select>
+            <label for="f-effort">Esfuerzo (1–5)</label>
+          </div>
+          @error('effort')<div class="error">{{ $message }}</div>@enderror
+        </div>
+
+        <div class="col col-12 col-md-3">
+          <div class="field">
+            <input type="text" id="f-score" value="(Impacto + Urgencia) - Esfuerzo" placeholder=" " disabled>
+            <label for="f-score">Score (auto)</label>
+          </div>
+          <div class="chips">
+            <span class="chip" id="scoreChip">Score: —</span>
           </div>
         </div>
-      </aside>
-    </div>
+      </div>
+
+      {{-- ===== Evidencias: agregar 1 por 1 (mín 3) ===== --}}
+      <div class="block section-gap">
+        <div class="dropzone" id="dropzone">
+          <div class="preview" id="filePreview">
+            <div class="placeholder" id="placeholder">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <path d="M14 2v6h6"/>
+              </svg>
+              <div><strong>Mínimo 3 archivos</strong></div>
+              <div style="opacity:.85">Agrega archivo por archivo</div>
+            </div>
+            <img id="imgPreview" alt="preview">
+          </div>
+
+          <div class="drop-actions">
+            <label class="btn-upload" for="filePicker">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 5v14M5 12h14"/>
+              </svg>
+              Agregar archivo
+            </label>
+
+            {{-- Picker de 1 archivo (UX), NO se envía --}}
+            <input id="filePicker" class="input-file" type="file" accept="*/*">
+
+            <div class="drop-box">o arrastra y suelta aquí (uno a la vez)</div>
+            <div class="file-meta" id="fileMeta">0 / 3 archivos</div>
+
+            {{-- Input real que se envía (multiple) --}}
+            <input id="filesReal" type="file" name="files[]" multiple class="input-file" accept="*/*">
+          </div>
+        </div>
+
+        <div class="file-list" id="fileList"></div>
+        @error('files')<div class="error" style="margin-top:8px;">{{ $message }}</div>@enderror
+        @error('files.*')<div class="error" style="margin-top:8px;">{{ $message }}</div>@enderror
+      </div>
+
+      {{-- ===== Acciones ===== --}}
+      <div class="actions">
+        <a href="{{ route('tickets.index') }}" class="btn btn-ghost">Cancelar</a>
+        <button type="submit" class="btn btn-primary" id="submitBtn">Crear ticket</button>
+      </div>
+    </form>
   </div>
 </div>
 
-{{-- JS UX: chips ↔ select, contador, atajos SLA, preview, submit spinner, Ctrl/Cmd+S --}}
 <script>
 (function(){
-  const $  = (s,root=document) => root.querySelector(s);
-  const $$ = (s,root=document) => Array.from(root.querySelectorAll(s));
-
-  const form       = $('#tktForm');
-  const submitBtns = $$('#submitBtn, #submitBtn2');
-
-  // 1) Chips que sincronizan con selects (proceso / prioridad)
-  $$(".chips[data-sync-select]").forEach(group => {
-    const sel      = group.getAttribute('data-sync-select');
-    const selectEl = document.querySelector(sel);
-
-    const setActive = (val) => {
-      $$(".chip", group).forEach(ch =>
-        ch.classList.toggle('active', ch.dataset.value === val)
-      );
-      if (!selectEl) return;
-      selectEl.value = val;
-      selectEl.dispatchEvent(new Event('change', {bubbles:true}));
-    };
-
-    group.addEventListener('click', e => {
-      const chip = e.target.closest('.chip');
-      if (!chip) return;
-      setActive(chip.dataset.value);
-    });
-
-    // Estado inicial
-    if (selectEl) {
-      setActive(selectEl.value || selectEl.options?.[0]?.value || '');
-    }
-  });
-
-  // 2) Contador de caracteres para Título + preview
-  const title    = $("#title");
-  const counter  = $("#title-count");
-  const pvTitle  = $("#pv-title");
-
-  const pvBar    = $("#pv-progress");
-  const pvLabel  = $("#pv-progress-label");
-
-  function progressTo(pct, label){
-    if (!pvBar || !pvLabel) return;
-    const clamped = Math.max(12, Math.min(60, pct));
-    pvBar.style.width = clamped + "%";
-    pvLabel.textContent = label;
+  // ===== Helpers
+  function humanSize(bytes){
+    if(!bytes) return '';
+    const i = Math.floor(Math.log(bytes)/Math.log(1024));
+    return (bytes/Math.pow(1024, i)).toFixed(1) + ' ' + ['B','KB','MB','GB','TB'][i];
   }
 
-  if (title && counter) {
-    const update = () => {
-      const len   = title.value.length;
-      const max   = title.maxLength || 180;
-      const has   = title.value.trim().length > 0;
+  // ===== Score chip (solo UI)
+  const impact  = document.getElementById('f-impact');
+  const urgency = document.getElementById('f-urgency');
+  const effort  = document.getElementById('f-effort');
+  const scoreChip = document.getElementById('scoreChip');
 
-      counter.textContent = `${len} / ${max}`;
-      pvTitle.textContent = has ? title.value.trim() : '—';
-
-      progressTo(
-        has ? 20 : 12,
-        has ? 'Datos básicos • 20%' : 'Inicial • 12%'
-      );
-    };
-    title.addEventListener('input', update);
-    update();
-  }
-
-  // 3) Preview de cliente, proceso, prioridad, responsable y SLA
-  const pvClient   = $("#pv-client");
-  const pvProcess  = $("#pv-process");
-  const pvPriority = $("#pv-priority");
-  const pvOwner    = $("#pv-owner");
-  const pvDue      = $("#pv-due");
-  const due        = $("#due_at");
-
-  $("#client_name")?.addEventListener('input', e => {
-    pvClient.textContent = e.target.value.trim() || '—';
-  });
-
-  $("#licitacion_phase")?.addEventListener('change', e => {
-    const opt = e.target.options[e.target.selectedIndex];
-    pvProcess.textContent = opt?.value ? (opt.text || 'No definido') : 'No definido';
-    if (opt && opt.value) {
-      progressTo(24, 'Proceso definido • 24%');
-    }
-  });
-
-  $("#priority")?.addEventListener('change', e => {
-    const opt = e.target.options[e.target.selectedIndex];
-    const val = opt?.value || '';
-    const text = opt?.text || 'Sin definir';
-
-    pvPriority.textContent = text;
-
-    pvPriority.classList.remove(
-      'priority-pill--alta',
-      'priority-pill--media',
-      'priority-pill--baja'
-    );
-    if (val === 'alta')  pvPriority.classList.add('priority-pill--alta');
-    if (val === 'media') pvPriority.classList.add('priority-pill--media');
-    if (val === 'baja')  pvPriority.classList.add('priority-pill--baja');
-  });
-
-  const ownerSelect = $("#owner_id");
-  ownerSelect?.addEventListener('change', e => {
-    const opt = e.target.selectedOptions[0];
-    pvOwner.textContent = opt && opt.value ? opt.textContent : 'Sin asignar';
-  });
-
-  const fmtLocal = (dt) => {
-    if (!dt) return '—';
-    const d = new Date(dt);
-    if (isNaN(d)) return '—';
-    return d.toLocaleString();
-  };
-
-  due?.addEventListener('input', () => {
-    pvDue.textContent = fmtLocal(due.value);
-    if (due.value) {
-      progressTo(28, 'Planificado • 28%');
+  function computeScore(){
+    const I = parseInt(impact?.value || '', 10);
+    const U = parseInt(urgency?.value || '', 10);
+    const E = parseInt(effort?.value || '', 10);
+    if (Number.isFinite(I) && Number.isFinite(U) && Number.isFinite(E)){
+      const s = (I + U) - E;
+      scoreChip.textContent = 'Score: ' + s;
     } else {
-      progressTo(20, 'Datos básicos • 20%');
+      scoreChip.textContent = 'Score: —';
     }
-  });
+  }
+  impact?.addEventListener('change', computeScore);
+  urgency?.addEventListener('change', computeScore);
+  effort?.addEventListener('change', computeScore);
+  computeScore();
 
-  // 4) Atajos SLA (+24/+48/+72h +7d)
-  $("#sla-shortcuts")?.addEventListener('click', e => {
-    const chip = e.target.closest('.chip');
-    if (!chip || !due) return;
+  // ===== Evidencias (agregar 1 por 1, enviar multiple)
+  const dz          = document.getElementById('dropzone');
+  const picker      = document.getElementById('filePicker'); // UX: 1 archivo
+  const filesReal   = document.getElementById('filesReal');  // REAL: multiple
+  const list        = document.getElementById('fileList');
+  const meta        = document.getElementById('fileMeta');
+  const imgPrev     = document.getElementById('imgPreview');
+  const placeholder = document.getElementById('placeholder');
 
-    const h = parseInt(chip.dataset.hours || "0", 10);
-    const now = new Date();
-    now.setHours(now.getHours() + h);
+  const selected = [];
 
-    const pad = n => String(n).padStart(2,'0');
-    const v = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
-
-    due.value = v;
-    pvDue.textContent = fmtLocal(v);
-
-    $$("#sla-shortcuts .chip").forEach(c => c.classList.remove('active'));
-    chip.classList.add('active');
-
-    progressTo(28, 'Planificado • 28%');
-  });
-
-  // 5) Submit spinner + bloqueo doble click
-  function setBusy(busy){
-    submitBtns.forEach(btn => {
-      btn.setAttribute('aria-busy', busy ? 'true':'false');
-      const spin = btn.querySelector('.save-spin');
-      const lbl  = btn.querySelector('.save-label');
-      if (spin) spin.style.display = busy ? '' : 'none';
-      if (lbl)  lbl.textContent = busy ? 'Guardando...' : 'Guardar ticket';
-    });
+  function rebuildRealInput(){
+    const dt = new DataTransfer();
+    selected.forEach(f => dt.items.add(f));
+    filesReal.files = dt.files;
   }
 
-  form?.addEventListener('submit', () => setBusy(true));
+  function renderPreview(file){
+    meta.textContent = `${selected.length} / 3 archivos`;
 
-  // 6) Atajo Ctrl/Cmd+S para enviar
-  document.addEventListener('keydown', (e) => {
-    const isMac = navigator.platform.toUpperCase().includes('MAC');
-    const key   = e.key && e.key.toLowerCase();
-
-    if ((isMac && e.metaKey && key === 's') || (!isMac && e.ctrlKey && key === 's')) {
-      e.preventDefault();
-      if (form) form.requestSubmit();
+    if (/^image\//.test(file.type)){
+      const rd = new FileReader();
+      rd.onload = ev => {
+        imgPrev.src = ev.target.result;
+        imgPrev.style.display = 'block';
+        placeholder.style.display = 'none';
+      };
+      rd.readAsDataURL(file);
+    } else {
+      imgPrev.style.display = 'none';
+      placeholder.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <path d="M14 2v6h6"/>
+        </svg>
+        <div><strong>${file.type || 'Archivo'}</strong></div>
+        <div style="opacity:.85">${file.name}</div>
+      `;
+      placeholder.style.display = 'flex';
     }
+  }
+
+  function renderList(){
+    list.innerHTML = '';
+    if (selected.length === 0){
+      const empty = document.createElement('div');
+      empty.className = 'file-item';
+      empty.innerHTML = `<div class="file-left"><div class="file-name">Sin archivos aún</div><div class="file-sub">Agrega mínimo 3 evidencias.</div></div>`;
+      list.appendChild(empty);
+      meta.textContent = '0 / 3 archivos';
+      return;
+    }
+
+    selected.forEach((f, idx) => {
+      const row = document.createElement('div');
+      row.className = 'file-item';
+
+      const left = document.createElement('div');
+      left.className = 'file-left';
+
+      const name = document.createElement('div');
+      name.className = 'file-name';
+      name.title = f.name;
+      name.textContent = f.name;
+
+      const sub = document.createElement('div');
+      sub.className = 'file-sub';
+      sub.textContent = `${f.type || 'archivo'} • ${humanSize(f.size)}`;
+
+      left.appendChild(name);
+      left.appendChild(sub);
+
+      const rm = document.createElement('button');
+      rm.type = 'button';
+      rm.className = 'file-remove';
+      rm.textContent = 'Quitar';
+      rm.addEventListener('click', () => {
+        selected.splice(idx, 1);
+        rebuildRealInput();
+        renderList();
+        meta.textContent = `${selected.length} / 3 archivos`;
+        if (selected.length === 0){
+          imgPrev.style.display = 'none';
+          placeholder.style.display = 'flex';
+        }
+      });
+
+      row.appendChild(left);
+      row.appendChild(rm);
+      list.appendChild(row);
+    });
+
+    meta.textContent = `${selected.length} / 3 archivos`;
+  }
+
+  function addFile(file){
+    if (!file) return;
+
+    // Evitar duplicados exactos
+    const dup = selected.some(x => x.name === file.name && x.size === file.size);
+    if (dup){
+      alert('Ese archivo ya fue agregado.');
+      return;
+    }
+
+    selected.push(file);
+    rebuildRealInput();
+    renderList();
+    renderPreview(file);
+  }
+
+  picker?.addEventListener('change', (e) => {
+    const f = e.target.files?.[0];
+    picker.value = '';
+    addFile(f);
   });
 
-  // Inicializar previews con valores existentes
-  $("#licitacion_phase")?.dispatchEvent(new Event('change'));
-  $("#priority")?.dispatchEvent(new Event('change'));
-  ownerSelect?.dispatchEvent(new Event('change'));
-  $("#client_name")?.dispatchEvent(new Event('input'));
-  if (due?.value) due.dispatchEvent(new Event('input'));
+  // Drag & drop: 1 archivo por vez
+  ['dragenter','dragover'].forEach(evt=>{
+    dz.addEventListener(evt, e=>{ e.preventDefault(); e.stopPropagation(); dz.classList.add('dragover'); });
+  });
+  ['dragleave','drop'].forEach(evt=>{
+    dz.addEventListener(evt, e=>{ e.preventDefault(); e.stopPropagation(); dz.classList.remove('dragover'); });
+  });
+  dz.addEventListener('drop', e=>{
+    const f = e.dataTransfer?.files?.[0];
+    addFile(f);
+  });
+
+  renderList();
+
+  // ===== Validación mínimo 3 al enviar
+  const form = document.getElementById('tkForm');
+  const btn  = document.getElementById('submitBtn');
+
+  form?.addEventListener('submit', (e)=>{
+    if (selected.length < 3){
+      e.preventDefault();
+      alert('Debes agregar mínimo 3 archivos antes de crear el ticket.');
+      return false;
+    }
+    btn.disabled = true;
+    btn.textContent = 'Creando...';
+  });
 })();
 </script>
 @endsection

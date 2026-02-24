@@ -11,6 +11,28 @@
 <div id="routes-index" class="ri-wrap">
   {{-- ================== ESTILOS ENCAPSULADOS ================== --}}
   <style>
+    /* =========================================================
+       ✅ FIX PARA TU layout.app (main#content.content)
+       - Quita el padding:18px del .content (que genera el espacio)
+       - Quita el fondo blanco del main para que se vea el fondo del blade
+       - Todo SOLO cuando existe #routes-index
+       ========================================================= */
+    body:has(#routes-index) main#content.content{
+      padding: 0 !important;          /* <- quita el hueco bajo el header */
+      background: transparent !important;
+      min-height: calc(100vh - var(--topbar-h)) !important;
+    }
+
+    /* (Opcional) evita scroll horizontal por 100vw */
+    body:has(#routes-index){ overflow-x:hidden; }
+
+    /* ✅ Rompe el contenedor y ocupa todo el viewport */
+    #routes-index{
+      width: 100vw;
+      margin-left: calc(50% - 50vw);
+      margin-right: calc(50% - 50vw);
+    }
+
     /* ✅ Usa fuente global (NO declaramos font-family aquí) */
     #routes-index{
       --ri-ink:#0f172a;
@@ -33,7 +55,122 @@
       color:var(--ri-ink);
       background:linear-gradient(180deg,#fbfdff,var(--ri-bg));
       padding:22px 14px;
+
+      /* ✅ Para el fondo animado */
+      position:relative;
+      overflow:hidden;
+      isolation:isolate;
+
+      /* ✅ altura completa del área bajo el topbar */
+      min-height: calc(100vh - var(--topbar-h));
     }
+
+    /* =========================
+       FONDO ANIMADO (dots)
+       ========================= */
+    #routes-index .ri-bgfx{
+      position:absolute;
+      inset:-2px;
+      z-index:0;
+      pointer-events:none;
+      opacity:.95;
+
+      /* base suave */
+      background:
+        radial-gradient(1100px 700px at 20% 5%, rgba(59,130,246,.10), transparent 60%),
+        radial-gradient(900px 600px at 85% 12%, rgba(168,85,247,.08), transparent 58%),
+        radial-gradient(900px 700px at 50% 90%, rgba(16,185,129,.07), transparent 62%),
+        linear-gradient(180deg,#fbfdff,var(--ri-bg));
+    }
+
+    /* Puntitos */
+    #routes-index .ri-bgfx::before{
+      content:'';
+      position:absolute; inset:0;
+      background-image:
+        radial-gradient(circle, rgba(37,99,235,.22) 1.2px, transparent 1.25px),
+        radial-gradient(circle, rgba(99,102,241,.16) 1.1px, transparent 1.15px),
+        radial-gradient(circle, rgba(15,23,42,.08) 1px, transparent 1.05px);
+      background-size:
+        26px 26px,
+        34px 34px,
+        22px 22px;
+      background-position:
+        0 0,
+        10px 6px,
+        4px 12px;
+
+      opacity:.9;
+      filter: blur(.15px);
+      animation: ri-dots-float 10s linear infinite;
+      transform: translateZ(0);
+    }
+
+    /* Grain sutil */
+    #routes-index .ri-bgfx::after{
+      content:'';
+      position:absolute; inset:0;
+      background-image:
+        radial-gradient(rgba(2,8,23,.035) 1px, transparent 1px);
+      background-size: 18px 18px;
+      opacity:.22;
+      mix-blend-mode:multiply;
+      animation: ri-grain 14s linear infinite;
+    }
+
+    @keyframes ri-dots-float{
+      0%   { background-position: 0 0, 10px 6px, 4px 12px; transform: translate3d(0,0,0) }
+      50%  { background-position: 120px 60px, 80px 120px, 140px 90px; transform: translate3d(0,-6px,0) }
+      100% { background-position: 240px 120px, 150px 240px, 280px 180px; transform: translate3d(0,0,0) }
+    }
+
+    @keyframes ri-grain{
+      0%{ transform:translate3d(0,0,0) }
+      25%{ transform:translate3d(-6px,4px,0) }
+      50%{ transform:translate3d(5px,-3px,0) }
+      75%{ transform:translate3d(-3px,-5px,0) }
+      100%{ transform:translate3d(0,0,0) }
+    }
+
+    /* ✅ Houdini ring particles si el browser lo soporta */
+    @supports (background: paint(ring-particles)) {
+      #routes-index .ri-bgfx{
+        --ring-radius: 160;
+        --ring-thickness: 850;
+        --particle-count: 70;
+        --particle-rows: 26;
+        --particle-size: 2;
+        --particle-color: rgba(25, 60, 140, .9);
+        --particle-min-alpha: 0.12;
+        --particle-max-alpha: 0.85;
+        --seed: 240;
+
+        background-image:
+          paint(ring-particles),
+          radial-gradient(1100px 700px at 20% 5%, rgba(59,130,246,.08), transparent 60%),
+          radial-gradient(900px 600px at 85% 12%, rgba(168,85,247,.07), transparent 58%),
+          linear-gradient(180deg,#fbfdff,var(--ri-bg));
+      }
+
+      @property --animation-tick { syntax: '<number>'; inherits: false; initial-value: 0; }
+      @property --ring-radius { syntax: '<number> | auto'; inherits: false; initial-value: auto; }
+
+      @keyframes ri-ripple { 0% { --animation-tick: 0; } 100% { --animation-tick: 1; } }
+      @keyframes ri-ring { 0% { --ring-radius: 140; } 100% { --ring-radius: 240; } }
+
+      #routes-index .ri-bgfx{
+        animation: ri-ripple 7.5s linear infinite, ri-ring 7.5s ease-in-out infinite alternate;
+      }
+
+      @media (prefers-reduced-motion: reduce){
+        #routes-index .ri-bgfx{ animation:none !important; }
+        #routes-index .ri-bgfx::before,
+        #routes-index .ri-bgfx::after{ animation:none !important; }
+      }
+    }
+
+    /* ✅ el contenido siempre arriba del fondo */
+    #routes-index .ri-container{ position:relative; z-index:1; }
 
     #routes-index a{ color:inherit; text-decoration:none }
     #routes-index a:hover{ text-decoration:underline }
@@ -64,7 +201,7 @@
     }
     #routes-index .ri-search .ri-icon{ color:var(--ri-muted); font-size:1rem }
 
-    /* Botones (pastel, minimalistas) */
+    /* Botones */
     #routes-index .ri-btn{
       appearance:none;
       border:1px solid var(--ri-line);
@@ -86,7 +223,7 @@
     }
     #routes-index .ri-btn:active{ transform:translateY(0px) }
 
-    /* Variantes pastel */
+    /* Variantes */
     #routes-index .ri-btn--primary{
       background:linear-gradient(180deg, #eaf4ff, #ffffff);
       border-color:#d6e6ff;
@@ -107,7 +244,6 @@
       box-shadow:none;
     }
 
-    /* Botón mini (clear) */
     #routes-index .ri-btn--mini{
       padding:.28rem .48rem;
       border-radius:12px;
@@ -126,7 +262,7 @@
       display:flex; align-items:center; gap:.5rem
     }
 
-    /* Chips / estados */
+    /* Chips */
     #routes-index .ri-chip{
       display:inline-flex; align-items:center; gap:.4rem;
       font-weight:900; font-size:.78rem;
@@ -232,6 +368,9 @@
     }
   </style>
 
+  {{-- ✅ Fondo animado --}}
+  <div class="ri-bgfx" aria-hidden="true"></div>
+
   <div class="ri-container">
     {{-- Encabezado / acciones --}}
     <div class="ri-titlebar">
@@ -305,7 +444,6 @@
 
               $planned = $plan->planned_at ? Carbon::parse($plan->planned_at) : null;
 
-              // ✅ Supervisor (VISTA) - ajusta el name si el tuyo es diferente
               $supervisorUrl = route('supervisor.routes.show', $plan);
             @endphp
 
@@ -342,12 +480,10 @@
                   <i class="bi bi-phone"></i> Chofer
                 </a>
 
-                {{-- ✅ Supervisor (VISTA HTML) --}}
                 <a href="{{ $supervisorUrl }}" class="ri-btn ri-btn--super" title="Supervisor (vista en tiempo real)">
                   <i class="bi bi-broadcast-pin"></i> Supervisor
                 </a>
 
-                {{-- (Opcional) Live JSON --}}
                 <a href="{{ route('api.supervisor.routes.poll', $plan) }}" target="_blank" class="ri-btn ri-btn--soft"
                    title="Endpoint de polling (JSON)">
                   <i class="bi bi-activity"></i>
@@ -410,7 +546,6 @@
 
                   $planned = $plan->planned_at ? Carbon::parse($plan->planned_at) : null;
 
-                  // ✅ Supervisor (VISTA)
                   $supervisorUrl = route('supervisor.routes.show', $plan);
                 @endphp
 
@@ -479,6 +614,16 @@
 
   {{-- ================== JS ENCAPSULADO ================== --}}
   <script>
+    // ✅ Houdini ring-particles (opcional, solo si el browser lo soporta)
+    (function(){
+      try{
+        if ('paintWorklet' in CSS) {
+          CSS.paintWorklet.addModule('https://unpkg.com/css-houdini-ringparticles/dist/ringparticles.js');
+        }
+      }catch(e){}
+    })();
+
+    // ✅ Buscador + animación barras
     (function(){
       const root  = document.getElementById('routes-index');
       if(!root) return;
