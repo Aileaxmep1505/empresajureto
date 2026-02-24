@@ -8,7 +8,7 @@
 @php
   use Carbon\Carbon;
 
-  // ✅ Forzar español en fechas (meses + diffForHumans)
+  // ✅ Fechas en español (meses + diffForHumans)
   Carbon::setLocale('es');
 
   // ✅ Ultra-safe: sin match()
@@ -142,7 +142,7 @@
     }
 
     /* =========================
-       ✅ SOLO INDEX: paginación PRO en español
+       ✅ SOLO INDEX: paginación PRO (sin Previous/Next) y sin tooltip "Previous/Next"
     ========================= */
     #pubsBase .idxPager{
       margin-top: 18px;
@@ -165,18 +165,26 @@
       padding: 4px 2px;
       white-space: nowrap;
     }
-
     #pubsBase .idxPager nav[role="navigation"]{ margin:0 !important; }
-    #pubsBase .idxPager nav[role="navigation"] > div{
+
+    /* ✅ Oculta SOLO el bloque móvil (texto "Previous / Next") */
+    #pubsBase .idxPager nav[role="navigation"] > div:first-child{
+      display:none !important;
+    }
+    /* ✅ Mantiene el bloque desktop (flechas < > + números) */
+    #pubsBase .idxPager nav[role="navigation"] > div:last-child{
       display:flex !important;
       align-items:center !important;
       justify-content:flex-end !important;
       gap:10px !important;
+      width:auto !important;
     }
-    /* Oculta el "Showing..." default de Tailwind pagination */
+
+    /* Oculta el "Showing ..." default */
     #pubsBase .idxPager nav[role="navigation"] p.text-sm{
       display:none !important;
     }
+
     /* Contenedor de botones */
     #pubsBase .idxPager nav[role="navigation"] span.relative.z-0{
       display:inline-flex !important;
@@ -229,18 +237,22 @@
       background: rgba(255,255,255,.55) !important;
     }
 
-    /* ✅ QUITA "Anterior / Siguiente" (si existen) y deja solo números */
+    /* ✅ Quita el tooltip "Previous/Next" en flechas (muchos navegadores lo sacan del title) */
     #pubsBase .idxPager nav[role="navigation"] a[rel="prev"],
-    #pubsBase .idxPager nav[role="navigation"] a[rel="next"],
-    #pubsBase .idxPager nav[role="navigation"] span[aria-disabled="true"]:first-child,
-    #pubsBase .idxPager nav[role="navigation"] span[aria-disabled="true"]:last-child{
-      display:none !important;
+    #pubsBase .idxPager nav[role="navigation"] a[rel="next"]{
+      title: none !important; /* (no todos lo respetan, pero ayuda) */
+    }
+
+    /* ✅ Evita que exista title en hover usando CSS (y adicionalmente lo limpiamos por JS abajo) */
+    #pubsBase .idxPager nav[role="navigation"] a[rel="prev"] span,
+    #pubsBase .idxPager nav[role="navigation"] a[rel="next"] span{
+      font-size:0 !important; /* por si trae texto oculto */
     }
 
     @media (max-width: 640px){
       #pubsBase .idxPager{ padding: 10px 10px; }
       #pubsBase .idxPager .idxInfo{ width: 100%; }
-      #pubsBase .idxPager nav[role="navigation"] > div{ width: 100% !important; justify-content:space-between !important; }
+      #pubsBase .idxPager nav[role="navigation"] > div:last-child{ width:100% !important; justify-content:flex-start !important; }
       #pubsBase .idxPager nav[role="navigation"] a,
       #pubsBase .idxPager nav[role="navigation"] span[aria-current="page"] span{
         min-width: 40px !important;
@@ -279,7 +291,6 @@
     <div id="tab-pubs-content" class="idxWrap">
       @php
         $pinnedCount = ($pinned ?? collect())->count();
-        $latestCount = ($latest ?? collect())->count();
       @endphp
 
       @if($pinnedCount)
@@ -305,9 +316,7 @@
               <div class="fc-foot">
                 <span class="fc-title" title="{{ $p->title }}">{{ $p->title }}</span>
                 <div style="display:flex; justify-content:space-between; margin-top:4px;">
-                  <span class="fc-date">
-                    {{ optional($p->created_at)->translatedFormat('d M, Y') }}
-                  </span>
+                  <span class="fc-date">{{ optional($p->created_at)->translatedFormat('d M, Y') }}</span>
                   <span class="fc-date" style="font-weight:900;">{{ $p->nice_size ?? '' }}</span>
                 </div>
               </div>
@@ -337,9 +346,7 @@
             <div class="fc-foot">
               <span class="fc-title" title="{{ $p->title }}">{{ $p->title }}</span>
               <div style="display:flex; justify-content:space-between; margin-top:4px;">
-                <span class="fc-date">
-                  {{ optional($p->created_at)->locale('es')->diffForHumans() }}
-                </span>
+                <span class="fc-date">{{ optional($p->created_at)->locale('es')->diffForHumans() }}</span>
                 <span class="fc-date" style="font-weight:900;">{{ $p->nice_size ?? '' }}</span>
               </div>
             </div>
@@ -351,7 +358,7 @@
         @endforelse
       </div>
 
-      {{-- ✅ Paginación en español y sin Anterior/Siguiente --}}
+      {{-- ✅ Paginación: sin "Previous/Next" y sin tooltip "Previous/Next" en flechas --}}
       @if(method_exists($latest, 'firstItem') && $latest->total())
         <div class="idxPager">
           <div class="idxInfo">
@@ -445,6 +452,19 @@
   </div>
 
 <script>
+  // ✅ Limpia tooltip/textos "Previous/Next" en flechas (lo ponen como title/aria-label)
+  document.addEventListener('DOMContentLoaded', function(){
+    try{
+      var nav = document.querySelector('#pubsBase .idxPager nav[role="navigation"]');
+      if(nav){
+        nav.querySelectorAll('a[rel="prev"], a[rel="next"]').forEach(function(a){
+          a.removeAttribute('title');
+          a.setAttribute('aria-label', 'Página');
+        });
+      }
+    }catch(e){}
+  });
+
   // ✅ Data desde backend
   var DATA = {
     totals: {
@@ -509,7 +529,6 @@
     return isFinite(n) ? n : 0;
   }
 
-  // Comparativo General = compras + ventas
   DATA.totals.all = toNum(DATA.totals.compra) + toNum(DATA.totals.venta);
 
   function seriesFrom(labels, raw){
