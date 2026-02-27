@@ -68,14 +68,6 @@ class TicketChecklistController extends Controller
 
     /**
      * ✅ APLICAR PAYLOAD (para TicketController@store)
-     * Se llama DESPUÉS de crear el Ticket en DB.
-     *
-     * Payload:
-     * {
-     *  "source":"ai|manual",
-     *  "title":"Checklist ...",
-     *  "items":[{"title":"..","detail":"..","recommended":true}, ...]
-     * }
      */
     public function applyPayloadToTicket(Ticket $ticket, array $payload): ?TicketChecklist
     {
@@ -96,7 +88,6 @@ class TicketChecklistController extends Controller
 
         return DB::transaction(function () use ($ticket, $source, $title, $items) {
 
-            // ✅ Limpieza (si se reintenta crear o algo raro)
             $old = $ticket->checklists()->latest('id')->first();
             if ($old) {
                 try { $old->items()->delete(); } catch (\Throwable $e) {}
@@ -128,7 +119,6 @@ class TicketChecklistController extends Controller
                 $order += 10;
             }
 
-            // ✅ Flags si existen
             if (Schema::hasColumn('tickets','ai_checklist_generated_at')) {
                 if ($source === 'ai') $ticket->ai_checklist_generated_at = now();
             }
@@ -152,6 +142,9 @@ class TicketChecklistController extends Controller
         });
     }
 
+    /**
+     * ✅ Generar IA ya con Ticket en DB
+     */
     public function generateAi(Request $r, Ticket $ticket, TicketChecklistAiService $ai)
     {
         if (!$this->canWorkTicket($ticket)) abort(403, 'No tienes permiso para generar checklist.');
@@ -162,7 +155,13 @@ class TicketChecklistController extends Controller
         }
 
         return DB::transaction(function () use ($ticket, $ai) {
-            $gen = $ai->generateChecklist($ticket);
+
+            // ✅ FIX: llamar al service con strings (NO pasar $ticket completo)
+            $gen = $ai->generateChecklist(
+                (string)($ticket->title ?? ''),
+                (string)($ticket->description ?? ''),
+                (string)($ticket->area ?? '')
+            );
 
             $cl = TicketChecklist::create([
                 'ticket_id'   => $ticket->id,
@@ -342,13 +341,6 @@ class TicketChecklistController extends Controller
         return back()->with('ok', 'Item eliminado.');
     }
 
-    /**
-     * ✅ NUEVO (AJAX)
-     * PUT /tickets/{ticket}/checklist-items/{item}
-     * name: tickets.checklist-items.toggle
-     *
-     * Body JSON: { done: true|false, evidence_note?: string }
-     */
     public function toggle(Request $r, Ticket $ticket, TicketChecklistItem $item)
     {
         if (!$this->canWorkTicket($ticket)) {
@@ -397,11 +389,6 @@ class TicketChecklistController extends Controller
         ]);
     }
 
-    /**
-     * ✅ LEGACY (FORM)
-     * Si lo sigues usando desde un form normal, funciona.
-     * Si llega por AJAX, también responde JSON.
-     */
     public function toggleDone(Request $r, Ticket $ticket, TicketChecklistItem $item)
     {
         if (!$this->canWorkTicket($ticket)) abort(403, 'No tienes permiso.');

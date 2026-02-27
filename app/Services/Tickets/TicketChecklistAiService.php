@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Http;
 class TicketChecklistAiService
 {
     /**
-     * Genera checklist con IA y regresa un array listo para JSON response:
+     * Genera checklist con IA y regresa:
      * [
      *   'title' => '...',
      *   'items' => [
@@ -23,66 +23,95 @@ class TicketChecklistAiService
         $description = trim($description);
         $areaOriginal = trim($area);
 
-        // ✅ Normaliza el área (evita que todo caiga en "sistemas" por variantes)
         $area = $this->normalizeArea($areaOriginal);
 
-        // ✅ Prompt por área (NO sesgado a sistemas)
-        $prompt = $this->buildPrompt($title, $description, $area);
+        // ✅ 2 intentos: el segundo es “anti-genérico” más agresivo
+        $attempts = [
+            ['mode' => 'normal'],
+            ['mode' => 'strict'],
+        ];
 
-        // ✅ Llamada real a IA (Responses API) -> regresa string JSON
-        $rawText = $this->callAiProvider($prompt);
+        foreach ($attempts as $idx => $cfg) {
+            $prompt = $this->buildPrompt($title, $description, $area, $cfg['mode']);
 
-        if (!is_string($rawText) || trim($rawText) === '') {
-            // Si de plano vino vacío, fallback por área
-            return $this->fallbackChecklist($title, $area, 'Respuesta IA vacía');
-        }
+            $rawText = $this->callAiProvider($prompt);
 
-        // 1) Intento directo JSON
-        $parsed = $this->tryJsonDecode($rawText);
-
-        // 2) Si falla, intentar extraer bloque JSON embebido
-        if (!$parsed) {
-            $jsonBlock = $this->extractFirstJsonObject($rawText);
-            if ($jsonBlock) {
-                $parsed = $this->tryJsonDecode($jsonBlock);
+            if (!is_string($rawText) || trim($rawText) === '') {
+                Log::warning('Checklist IA: respuesta vacía', [
+                    'area' => $area,
+                    'area_original' => $areaOriginal,
+                    'title' => $title,
+                    'attempt' => $idx + 1,
+                ]);
+                continue;
             }
+
+            $parsed = $this->tryJsonDecode($rawText);
+
+            if (!$parsed) {
+                $jsonBlock = $this->extractFirstJsonObject($rawText);
+                if ($jsonBlock) $parsed = $this->tryJsonDecode($jsonBlock);
+            }
+
+            if (!$parsed || !is_array($parsed)) {
+                Log::warning('Checklist IA: no se pudo parsear JSON', [
+                    'area' => $area,
+                    'area_original' => $areaOriginal,
+                    'title' => $title,
+                    'attempt' => $idx + 1,
+                    'snippet' => mb_substr($rawText, 0, 900),
+                ]);
+                continue;
+            }
+
+            $out = $this->normalizeChecklistPayload($parsed, $title, $area);
+
+            // ✅ filtro anti-genérico (si viene muy plantilla, reintenta)
+            $out['items'] = $this->removeGenericItems($out['items']);
+            $out['items'] = array_values($out['items']);
+
+            // ✅ Si quedan pocos items, reintenta (no rellenes con base)
+            if (count($out['items']) < 6) {
+                Log::warning('Checklist IA: muy pocos items tras limpieza, reintentando', [
+                    'area' => $area,
+                    'title' => $title,
+                    'attempt' => $idx + 1,
+                    'items_after_clean' => count($out['items']),
+                ]);
+                continue;
+            }
+
+            // ✅ límite para UI
+            $out['items'] = array_slice($out['items'], 0, 12);
+
+            return $out;
         }
 
-        // 3) Si sigue fallando, error (igual a tu comportamiento) + fallback opcional si prefieres
-        if (!$parsed || !is_array($parsed)) {
-            Log::warning('Checklist IA: no se pudo parsear JSON', [
-                'area' => $area,
-                'area_original' => $areaOriginal,
-                'title' => $title,
-                'snippet' => mb_substr($rawText, 0, 800),
-            ]);
-
-            throw new RuntimeException('No se pudo parsear JSON del checklist IA.');
-        }
-
-        // ✅ Normalizar estructura
-        $out = $this->normalizeChecklistPayload($parsed, $title, $area);
-
-        // ✅ Si por alguna razón queda vacío, fallback suave
-        if (empty($out['items'])) {
-            return $this->fallbackChecklist($title, $area, 'Checklist vacío tras normalización');
-        }
-
-        // ✅ límite para UI
-        $out['items'] = array_slice($out['items'], 0, 12);
-
-        return $out;
+        // ✅ Si falló IA, fallback por área (pero específico)
+        return $this->fallbackChecklist($title, $area, 'IA falló o devolvió checklist genérico');
     }
 
     /**
-     * ✅ Prompt estricto y ESPECÍFICO: JSON puro.
-     * Además: guía por área para evitar que “Ventas/Compras/Almacén” terminen con tareas tipo Blade/CSS.
+     * Prompt por área + anti-genérico en modo strict
      */
-    private function buildPrompt(string $title, string $description, string $area): string
+    private function buildPrompt(string $title, string $description, string $area, string $mode = 'normal'): string
     {
         $desc = trim($description) !== '' ? trim($description) : '(sin descripción)';
-
         $areaGuide = $this->areaGuidance($area);
+
+        $antiGeneric = '';
+        if ($mode === 'strict') {
+            $antiGeneric = <<<TXT
+
+REGLA EXTRA ANTI-GENÉRICA (OBLIGATORIA):
+- PROHIBIDO usar frases plantilla como:
+  "Identificar alcance", "Extraer palabras clave", "Ejecutar el entregable principal",
+  "Verificar el resultado", "Resolver detalles restantes", "Prueba final del flujo".
+- Cada item debe mencionar un objeto concreto del trabajo (ej: "Anexo técnico", "formato", "firma", "vigencia", "PDF legible",
+  "matriz de cumplimiento", "requisito", "numeración", "sellos", "RFC", "garantía", "catálogo", etc.) según el área.
+- Si el área es Licitaciones, incluye tareas de revisión documental REAL: requisitos, anexos, vigencias, firmas, sellos, formatos, legibilidad, consistencia, matriz de cumplimiento.
+TXT;
+        }
 
         return <<<PROMPT
 Eres un asistente que crea un checklist de EJECUCIÓN (tareas accionables y terminables) para resolver un ticket.
@@ -104,32 +133,28 @@ Contexto:
 GUÍA POR ÁREA (OBLIGATORIO SEGUIR):
 {$areaGuide}
 
-REGLAS MUY IMPORTANTES:
-1) SOLO puedes proponer acciones DIRECTAMENTE relacionadas con el título y la descripción.
+REGLAS:
+1) SOLO acciones DIRECTAMENTE relacionadas con el título y la descripción.
 2) PROHIBIDO incluir tareas genéricas de proceso como:
    - documentar, informar, notificar, comunicar, reunión, seguimiento, retro, reporte, bitácora
-   - "validar" sin decir QUÉ validar exactamente
-   - "revisar" sin decir QUÉ revisar exactamente
-3) Cada item debe ser una acción que alguien pueda ejecutar y terminar (deliverable claro).
+3) "revisar/validar" SOLO si dices QUÉ revisar/validar exactamente (objeto concreto).
 4) NO inventes sistemas/módulos/tecnologías que no estén mencionados.
-   Si no hay info suficiente, haz items mínimos pero concretos y ejecutables para el área.
-5) Deben ser 6 a 10 items. Nada más.
-6) "detail" debe ser corto (1–2 líneas) y aterrizado. Si no aplica, usa null.
-7) Evita "pasos de cierre" (documentación/notificación). Este checklist es SOLO ejecución.
+5) Deben ser 8 a 10 items.
+6) "detail" corto (1–2 líneas). Si no aplica, null.
 
-PISTA PARA HACERLO MÁS ESPECÍFICO (OBLIGATORIO):
-- Extrae del título 3–6 palabras clave y conviértelas en subtareas directas.
-- Si el título es "rediseñar", entonces enfócate SOLO en UI/UX del elemento citado (layout, spacing, responsive, colores, tipografía, componentes).
+OBLIGATORIO PARA QUE SEA ESPECÍFICO:
+- Extrae del título y descripción 4–8 palabras clave y úsalo para crear subtareas.
+- Cada item debe referirse a un documento/artefacto/objeto concreto del área (no “pasos plantilla”).
 
-Ahora responde con el JSON.
+{$antiGeneric}
+
+Responde con el JSON.
 PROMPT;
     }
 
     /**
-     * ✅ Llamada real a OpenAI Responses API usando Structured Outputs (JSON Schema)
-     * Docs:
-     * - Responses API: :contentReference[oaicite:0]{index=0}
-     * - Migración /v1/responses recomendado: :contentReference[oaicite:1]{index=1}
+     * ✅ Llamada real a OpenAI Responses API con Structured Outputs (JSON Schema).
+     * Requiere OPENAI_API_KEY en .env
      */
     private function callAiProvider(string $prompt): string
     {
@@ -141,34 +166,23 @@ PROMPT;
 
         $model = (string) env('OPENAI_MODEL', 'gpt-5-mini');
 
-        // ✅ JSON Schema (strict) para forzar estructura
-        $schema = $this->checklistJsonSchema();
-
         $payload = [
             'model' => $model,
-            // input puede ser string directo (texto) :contentReference[oaicite:2]{index=2}
             'input' => $prompt,
-
-            // ✅ Structured Outputs: text.format = json_schema :contentReference[oaicite:3]{index=3}
             'text' => [
                 'format' => [
                     'type' => 'json_schema',
                     'name' => 'ticket_checklist',
-                    'description' => 'Checklist técnico por área para ejecutar un ticket. JSON estricto.',
                     'strict' => true,
-                    'schema' => $schema,
+                    'schema' => $this->checklistJsonSchema(),
                 ],
             ],
-
-            // Opcional: baja variación para consistencia
-            'temperature' => 0.3,
-
-            // No herramientas
+            'temperature' => 0.35,
             'tool_choice' => 'none',
         ];
 
         try {
-            $res = Http::timeout(30)
+            $res = Http::timeout(35)
                 ->withToken($apiKey)
                 ->acceptJson()
                 ->asJson()
@@ -177,17 +191,14 @@ PROMPT;
             if (!$res->ok()) {
                 Log::warning('Checklist IA: OpenAI no OK', [
                     'status' => $res->status(),
-                    'body' => mb_substr((string) $res->body(), 0, 1200),
+                    'body' => mb_substr((string) $res->body(), 0, 1600),
                 ]);
                 return '';
             }
 
             $data = $res->json();
 
-            // ✅ La respuesta trae "output" con items tipo "message" y "output_text"
-            // (extraemos el primer output_text que contenga JSON)
             $text = $this->extractFirstOutputText($data);
-
             return is_string($text) ? trim($text) : '';
         } catch (\Throwable $e) {
             Log::error('Checklist IA: error llamando OpenAI', [
@@ -197,14 +208,10 @@ PROMPT;
         }
     }
 
-    /**
-     * Extrae el primer "output_text.text" de la Responses API.
-     */
     private function extractFirstOutputText($data): ?string
     {
         if (!is_array($data)) return null;
 
-        // Caso común: $data['output'] = [ { type:"message", content:[{type:"output_text", text:"..."}] } ]
         $output = $data['output'] ?? null;
         if (!is_array($output)) return null;
 
@@ -221,15 +228,9 @@ PROMPT;
             }
         }
 
-        // Fallback por si cambió el shape o viene directo
-        if (isset($data['text']) && is_string($data['text'])) return $data['text'];
-
         return null;
     }
 
-    /**
-     * JSON Schema estricto para checklist.
-     */
     private function checklistJsonSchema(): array
     {
         return [
@@ -237,34 +238,24 @@ PROMPT;
             'additionalProperties' => false,
             'required' => ['title', 'items'],
             'properties' => [
-                'title' => [
-                    'type' => 'string',
-                    'minLength' => 3,
-                    'maxLength' => 140,
-                ],
+                'title' => ['type' => 'string', 'minLength' => 3, 'maxLength' => 140],
                 'items' => [
                     'type' => 'array',
-                    'minItems' => 6,
+                    'minItems' => 8,
                     'maxItems' => 10,
                     'items' => [
                         'type' => 'object',
                         'additionalProperties' => false,
                         'required' => ['title', 'detail', 'recommended'],
                         'properties' => [
-                            'title' => [
-                                'type' => 'string',
-                                'minLength' => 3,
-                                'maxLength' => 120,
-                            ],
+                            'title' => ['type' => 'string', 'minLength' => 3, 'maxLength' => 140],
                             'detail' => [
                                 'anyOf' => [
-                                    ['type' => 'string', 'minLength' => 3, 'maxLength' => 220],
+                                    ['type' => 'string', 'minLength' => 3, 'maxLength' => 260],
                                     ['type' => 'null'],
                                 ],
                             ],
-                            'recommended' => [
-                                'type' => 'boolean',
-                            ],
+                            'recommended' => ['type' => 'boolean'],
                         ],
                     ],
                 ],
@@ -272,22 +263,13 @@ PROMPT;
         ];
     }
 
-    /**
-     * ✅ Normaliza el área para que de verdad se use “todas las áreas”
-     * y no te llegue variado y caiga mal.
-     */
     private function normalizeArea(string $area): string
     {
         $a = mb_strtolower(trim($area));
-
-        // quita dobles espacios
         $a = preg_replace('/\s+/u', ' ', $a) ?? $a;
-
-        // sin acentos (básico)
         $a = str_replace(['á','é','í','ó','ú','ü','ñ'], ['a','e','i','o','u','u','n'], $a);
 
         $map = [
-            // sistemas
             'ti' => 'sistemas',
             'it' => 'sistemas',
             'sistema' => 'sistemas',
@@ -296,79 +278,61 @@ PROMPT;
             'soporte tecnico' => 'sistemas',
             'desarrollo' => 'sistemas',
 
-            // ventas
             'venta' => 'ventas',
             'ventas' => 'ventas',
             'comercial' => 'ventas',
 
-            // compras
             'compra' => 'compras',
             'compras' => 'compras',
             'abastecimiento' => 'compras',
 
-            // almacén
             'almacen' => 'almacen',
-            'almacen general' => 'almacen',
             'bodega' => 'almacen',
             'inventarios' => 'almacen',
 
-            // logística
             'logistica' => 'logistica',
             'envios' => 'logistica',
             'embarques' => 'logistica',
 
-            // licitaciones
             'licitacion' => 'licitaciones',
             'licitaciones' => 'licitaciones',
 
-            // administración
             'administracion' => 'administracion',
             'admin' => 'administracion',
             'contabilidad' => 'administracion',
             'finanzas' => 'administracion',
 
-            // mantenimiento
             'mantenimiento' => 'mantenimiento',
             'servicio' => 'mantenimiento',
             'tecnico' => 'mantenimiento',
         ];
 
-        return $map[$a] ?? trim($area); // si no match, respeta lo que venga
+        return $map[$a] ?? trim($area);
     }
 
-    /**
-     * Guía concreta por área para que la IA NO se vaya a “Blade/CSS” cuando no toca.
-     */
     private function areaGuidance(string $area): string
     {
         $a = mb_strtolower(trim($area));
         $a = str_replace(['á','é','í','ó','ú','ü','ñ'], ['a','e','i','o','u','u','n'], $a);
 
         $guides = [
-            'sistemas' => "- Enfócate en tareas técnicas de software: vistas, rutas, controladores, consultas, validaciones, UI/UX del sistema.\n- Ejemplos válidos: ajustar Blade/CSS, corregir validación Request, corregir query, arreglar export PDF/Excel, corregir permiso/rol, etc.",
-            'ventas' => "- Enfócate en ejecución comercial: cotización, propuesta, seguimiento al cliente, confirmación de requisitos, entrega de información concreta.\n- Ejemplos válidos: armar cotización con partidas, confirmar cantidades/modelos, calcular totales/IVA si aplica, coordinar aprobación del cliente, preparar orden/folio en sistema (si el ticket lo menciona).",
-            'compras' => "- Enfócate en abastecimiento: especificaciones, comparación de proveedores, tiempos, condiciones, compatibilidad.\n- Ejemplos válidos: solicitar 2–3 cotizaciones, comparar lead time, validar compatibilidad modelo/serie, confirmar existencia, preparar OC (si se menciona).",
-            'almacen' => "- Enfócate en operaciones de almacén: ubicación, conteo, surtido, recepción, empaque, verificación de piezas.\n- Ejemplos válidos: localizar SKU, conteo físico, revisar accesorios, preparar surtido, etiquetar/embalar, registrar entrada/salida (si se menciona).",
-            'logistica' => "- Enfócate en ejecución de envío/entrega: dirección, ventana, guía, recolección, evidencia de entrega.\n- Ejemplos válidos: confirmar datos de entrega, cotizar paquetería, generar guía, programar recolección, confirmar estatus en tránsito.",
-            'licitaciones' => "- Enfócate en requisitos y expediente: documentos obligatorios, formatos, fechas, armado de entregables.\n- Ejemplos válidos: checklist de requisitos, armar carpeta por apartado, validar vigencias, preparar anexos específicos.",
-            'administracion' => "- Enfócate en ejecución administrativa: facturas, pagos, contratos, registros internos.\n- Ejemplos válidos: validar CFDI/UUID (si aplica), preparar factura/recibo, registrar póliza/movimiento, revisar soporte del ticket.",
-            'mantenimiento' => "- Enfócate en servicio técnico de equipo: diagnóstico, refacción, calibración, prueba funcional.\n- Ejemplos válidos: pruebas específicas, inspección de componente, reemplazo, ajuste, prueba final, evidencia técnica (solo si el ticket lo pide).",
+            'licitaciones' => "- Enfócate en revisión documental real: bases, anexos, formatos, vigencias, firmas, sellos, consistencia y legibilidad.\n- Ejemplos válidos: revisar anexos obligatorios, verificar vigencia de constancias, validar que firmas/sellos correspondan, checar que PDFs sean legibles y completos, cruzar requisitos contra una matriz de cumplimiento.\n- NO uses pasos plantilla tipo “identificar alcance”.",
+            'ventas' => "- Enfócate en tareas comerciales concretas: requisitos del cliente, cotización/propuesta, cantidades/modelos, condiciones.\n- Evita tareas de software si no se menciona.",
+            'compras' => "- Enfócate en especificaciones, comparación de proveedores, tiempos, condiciones, compatibilidad.",
+            'almacen' => "- Enfócate en ubicación/recepción/surtido/conteos/empaque/verificación de piezas.",
+            'logistica' => "- Enfócate en dirección/ventana/guía/paquetería/recolección/entrega.",
+            'administracion' => "- Enfócate en facturas/pagos/contratos/registros internos ligados al ticket.",
+            'mantenimiento' => "- Enfócate en diagnóstico/intervención/prueba funcional del equipo.",
+            'sistemas' => "- Enfócate en tareas técnicas de software (vistas, rutas, controller, validaciones, UI/UX).",
         ];
 
-        return $guides[$a] ?? "- Enfócate en tareas ejecutables propias del área indicada. No uses ejemplos de sistemas si no aplica.";
+        return $guides[$a] ?? "- Enfócate en tareas ejecutables propias del área indicada, con objetos concretos.";
     }
 
-    /**
-     * json_decode tolerante: limpia BOM y espacios.
-     */
     private function tryJsonDecode(string $raw): ?array
     {
         $raw = trim($raw);
-
-        // Quitar BOM si existe
         $raw = preg_replace('/^\xEF\xBB\xBF/', '', $raw) ?? $raw;
-
-        // Quitar fences comunes si el modelo insistió
         $raw = preg_replace('/^```(json)?/i', '', $raw) ?? $raw;
         $raw = preg_replace('/```$/', '', $raw) ?? $raw;
         $raw = trim($raw);
@@ -381,23 +345,14 @@ PROMPT;
         }
     }
 
-    /**
-     * Extrae el primer objeto JSON {...} de un texto, incluso si hay texto antes/después.
-     */
     private function extractFirstJsonObject(string $text): ?string
     {
         $text = trim($text);
         if ($text === '') return null;
 
-        // Si viene como ```json ... ```
-        if (preg_match('/```json\s*(\{.*\})\s*```/is', $text, $m)) {
-            return trim($m[1]);
-        }
-        if (preg_match('/```\s*(\{.*\})\s*```/is', $text, $m)) {
-            return trim($m[1]);
-        }
+        if (preg_match('/```json\s*(\{.*\})\s*```/is', $text, $m)) return trim($m[1]);
+        if (preg_match('/```\s*(\{.*\})\s*```/is', $text, $m)) return trim($m[1]);
 
-        // Búsqueda por balanceo de llaves (robusto)
         $start = strpos($text, '{');
         if ($start === false) return null;
 
@@ -410,24 +365,13 @@ PROMPT;
             $ch = $text[$i];
 
             if ($inString) {
-                if ($escape) {
-                    $escape = false;
-                    continue;
-                }
-                if ($ch === '\\') {
-                    $escape = true;
-                    continue;
-                }
-                if ($ch === '"') {
-                    $inString = false;
-                }
+                if ($escape) { $escape = false; continue; }
+                if ($ch === '\\') { $escape = true; continue; }
+                if ($ch === '"') $inString = false;
                 continue;
             }
 
-            if ($ch === '"') {
-                $inString = true;
-                continue;
-            }
+            if ($ch === '"') { $inString = true; continue; }
 
             if ($ch === '{') $level++;
             if ($ch === '}') {
@@ -442,9 +386,6 @@ PROMPT;
         return null;
     }
 
-    /**
-     * Normaliza a tu estructura final.
-     */
     private function normalizeChecklistPayload(array $data, string $fallbackTitle, string $area): array
     {
         $title = isset($data['title']) && is_string($data['title']) && trim($data['title']) !== ''
@@ -475,11 +416,6 @@ PROMPT;
             ];
         }
 
-        // Si la IA devolvió muy pocos, completamos suave según área (sin "documentar/notificar")
-        if (count($items) < 4) {
-            $items = array_merge($items, $this->fallbackItemsByArea($area));
-        }
-
         // Deduplicar por title
         $seen = [];
         $clean = [];
@@ -497,8 +433,42 @@ PROMPT;
     }
 
     /**
-     * Fallback general si falla IA.
+     * Elimina items plantilla típicos que te estaban contaminando el checklist.
      */
+    private function removeGenericItems(array $items): array
+    {
+        $banned = [
+            'identificar alcance',
+            'extraer palabras clave',
+            'ejecutar el entregable principal',
+            'verificar el resultado',
+            'resolver detalles restantes',
+            'prueba final del flujo',
+            'delimitar que se va a entregar',
+            'convertir 3–6 keywords',
+            'subtareas concretas',
+        ];
+
+        $out = [];
+        foreach ($items as $it) {
+            $t = mb_strtolower(trim((string)($it['title'] ?? '')));
+            $d = mb_strtolower(trim((string)($it['detail'] ?? '')));
+
+            $isGeneric = false;
+            foreach ($banned as $x) {
+                if ($x !== '' && (str_contains($t, $x) || str_contains($d, $x))) {
+                    $isGeneric = true;
+                    break;
+                }
+            }
+
+            if ($isGeneric) continue;
+            $out[] = $it;
+        }
+
+        return $out;
+    }
+
     private function fallbackChecklist(string $ticketTitle, string $area, string $reason): array
     {
         Log::info('Checklist IA fallback', [
@@ -509,73 +479,39 @@ PROMPT;
 
         return [
             'title' => "Checklist para {$ticketTitle}",
-            'items' => array_slice($this->fallbackItemsByArea($area), 0, 10),
+            'items' => array_slice($this->fallbackItemsByArea($area, $ticketTitle), 0, 10),
         ];
     }
 
     /**
-     * ✅ Fallback sin "documentar/informar/notificar".
-     * Enfocado a ejecución y entregables.
+     * Fallback específico por área (sin plantilla general).
      */
-    private function fallbackItemsByArea(string $area): array
+    private function fallbackItemsByArea(string $area, string $ticketTitle): array
     {
-        $area = mb_strtolower(trim($area));
-        $area = str_replace(['á','é','í','ó','ú','ü','ñ'], ['a','e','i','o','u','u','n'], $area);
+        $a = mb_strtolower(trim($area));
+        $a = str_replace(['á','é','í','ó','ú','ü','ñ'], ['a','e','i','o','u','u','n'], $a);
 
-        $base = [
-            ['title'=>'Identificar alcance exacto del ticket', 'detail'=>'Delimitar qué se va a entregar (resultado final).', 'recommended'=>true],
-            ['title'=>'Extraer palabras clave del título', 'detail'=>'Convertir 3–6 keywords en subtareas concretas.', 'recommended'=>true],
-            ['title'=>'Ejecutar el entregable principal', 'detail'=>'Resolver lo solicitado sin agregar pasos de proceso genérico.', 'recommended'=>true],
-            ['title'=>'Verificar el resultado contra el pedido', 'detail'=>'Confirmar que cumple el título/descr tal cual.', 'recommended'=>true],
-            ['title'=>'Resolver detalles restantes', 'detail'=>'Ajustes finos necesarios para que quede cerrado.', 'recommended'=>true],
-            ['title'=>'Prueba final del flujo', 'detail'=>'Probar escenario real (según el área).', 'recommended'=>true],
+        if ($a === 'licitaciones') {
+            return [
+                ['title'=>'Descargar/ubicar bases y anexos del proceso', 'detail'=>'Asegurar que tienes el paquete completo de la licitación referida.', 'recommended'=>true],
+                ['title'=>'Revisar listado de requisitos obligatorios', 'detail'=>'Identificar documentos, formatos y anexos requeridos por la convocatoria.', 'recommended'=>true],
+                ['title'=>'Verificar vigencias de constancias y documentos', 'detail'=>'Checar fechas (opinión, constancias, identificaciones, poderes, etc.).', 'recommended'=>true],
+                ['title'=>'Validar firmas, sellos y representación legal', 'detail'=>'Confirmar que firmantes y poderes coinciden con lo exigido.', 'recommended'=>true],
+                ['title'=>'Revisar consistencia de datos entre documentos', 'detail'=>'Razón social, RFC, domicilios, números de expediente, folios.', 'recommended'=>true],
+                ['title'=>'Validar legibilidad y completitud de PDFs', 'detail'=>'Que no falten páginas, anexos, firmas; que se lea bien.', 'recommended'=>true],
+                ['title'=>'Cruzar requisitos vs expediente (matriz simple)', 'detail'=>'Marcar cumplido/no cumplido y detectar faltantes reales.', 'recommended'=>true],
+                ['title'=>'Señalar errores concretos encontrados', 'detail'=>'Lista puntual de errores: documento X falta página Y / vigencia vencida / firma faltante.', 'recommended'=>true],
+            ];
+        }
+
+        // fallback genérico por otras áreas, pero sin plantilla repetitiva
+        return [
+            ['title'=>"Desglosar el pedido del ticket: {$ticketTitle}", 'detail'=>'Convertir el título/descr en pasos concretos del área.', 'recommended'=>true],
+            ['title'=>'Identificar insumos/documentos/objetos necesarios', 'detail'=>'Lista de lo que se requiere para ejecutar (según el área).', 'recommended'=>true],
+            ['title'=>'Ejecutar la acción principal del ticket', 'detail'=>'Hacer el cambio/entregable que pide el ticket, con evidencia si aplica.', 'recommended'=>true],
+            ['title'=>'Verificar resultado contra lo solicitado', 'detail'=>'Confirmar que cumple lo descrito (sin pasos de reporte genérico).', 'recommended'=>true],
+            ['title'=>'Resolver faltantes o inconsistencias detectadas', 'detail'=>'Ajustar lo necesario para que quede completo.', 'recommended'=>true],
+            ['title'=>'Validación final operativa', 'detail'=>'Probar/confirmar el flujo real del área.', 'recommended'=>true],
         ];
-
-        $map = [
-            'sistemas' => [
-                ['title'=>'Reproducir el problema exacto', 'detail'=>'Identificar ruta/vista/paso donde falla o dónde se modifica.', 'recommended'=>true],
-                ['title'=>'Ubicar archivos involucrados', 'detail'=>'Blade/JS/CSS/Controller/Routes relacionados.', 'recommended'=>true],
-                ['title'=>'Aplicar cambio en el archivo correcto', 'detail'=>'Editar exactamente lo relacionado con el ticket.', 'recommended'=>true],
-                ['title'=>'Probar caso principal end-to-end', 'detail'=>'Crear/editar/guardar/visualizar según aplique.', 'recommended'=>true],
-            ],
-            'ventas' => [
-                ['title'=>'Confirmar requerimiento exacto del cliente', 'detail'=>'Cantidad, modelo, fechas y condición solicitada.', 'recommended'=>true],
-                ['title'=>'Armar entregable comercial', 'detail'=>'Cotización/propuesta/respuesta con datos concretos del ticket.', 'recommended'=>true],
-                ['title'=>'Validar números clave', 'detail'=>'Totales, IVA si aplica, vigencia si el ticket lo pide.', 'recommended'=>true],
-            ],
-            'compras' => [
-                ['title'=>'Confirmar especificaciones exactas', 'detail'=>'Modelo/marca/cantidad/compatibilidad según ticket.', 'recommended'=>true],
-                ['title'=>'Solicitar cotizaciones comparables', 'detail'=>'Mismo alcance: precio, lead time, condiciones.', 'recommended'=>true],
-                ['title'=>'Seleccionar opción y preparar compra', 'detail'=>'Dejar lista la opción ganadora según criterios del ticket.', 'recommended'=>true],
-            ],
-            'almacen' => [
-                ['title'=>'Ubicar producto o material', 'detail'=>'Localizar y confirmar existencia/estado/accesorios.', 'recommended'=>true],
-                ['title'=>'Preparar surtido o recepción', 'detail'=>'Conteo, empaque, etiquetas, verificación rápida.', 'recommended'=>true],
-                ['title'=>'Registrar movimiento si aplica', 'detail'=>'Entrada/salida/ajuste solo si el ticket lo menciona.', 'recommended'=>true],
-            ],
-            'logistica' => [
-                ['title'=>'Confirmar dirección y ventana', 'detail'=>'Datos completos para ejecutar el envío/entrega.', 'recommended'=>true],
-                ['title'=>'Generar guía y coordinar', 'detail'=>'Paquetería, recolección, folio/guía.', 'recommended'=>true],
-                ['title'=>'Confirmar estatus de envío', 'detail'=>'Seguimiento operativo (sin reportes genéricos).', 'recommended'=>true],
-            ],
-            'licitaciones' => [
-                ['title'=>'Listar requisitos aplicables', 'detail'=>'Documentos y formatos obligatorios del caso.', 'recommended'=>true],
-                ['title'=>'Armar expediente por secciones', 'detail'=>'Organizar anexos y evidencias requeridas.', 'recommended'=>true],
-                ['title'=>'Validar vigencias críticas', 'detail'=>'Fechas, firmas, sellos, formatos requeridos.', 'recommended'=>true],
-            ],
-            'administracion' => [
-                ['title'=>'Revisar soporte exacto', 'detail'=>'Factura/contrato/solicitud ligada al ticket.', 'recommended'=>true],
-                ['title'=>'Preparar movimiento administrativo', 'detail'=>'Factura/pago/registro según aplique al ticket.', 'recommended'=>true],
-                ['title'=>'Verificar consistencia de datos', 'detail'=>'Folio, montos, RFC/UUID si aplica y si fue mencionado.', 'recommended'=>true],
-            ],
-            'mantenimiento' => [
-                ['title'=>'Diagnóstico puntual', 'detail'=>'Pruebas específicas según síntomas del ticket.', 'recommended'=>true],
-                ['title'=>'Ejecutar intervención', 'detail'=>'Correctivo/preventivo/refacción según ticket.', 'recommended'=>true],
-                ['title'=>'Prueba funcional final', 'detail'=>'Confirmar operación y resolver fallas remanentes.', 'recommended'=>true],
-            ],
-        ];
-
-        // Primero items del área, luego base
-        return array_values(array_merge($map[$area] ?? [], $base));
     }
 }
