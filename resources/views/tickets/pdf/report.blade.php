@@ -300,7 +300,7 @@
 
       <div class="right-box">
         <div>Generado: <span class="nowrap">{{ now()->format('d/m/Y H:i') }}</span></div>
-        <div class="stamp">Grupo Medibuy · Tickets</div>
+        <div class="stamp">Jureto · Tickets</div>
       </div>
     </div>
   </div>
