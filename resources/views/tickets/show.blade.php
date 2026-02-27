@@ -11,20 +11,68 @@
   $priorities = $priorities ?? \App\Http\Controllers\Tickets\TicketController::PRIORITIES;
   $areas      = $areas      ?? \App\Http\Controllers\Tickets\TicketController::AREAS;
 
+  /* =========================
+     ✅ ACTIVIDAD: TODO EN ESPAÑOL
+     ========================= */
   $actionLabels = [
-    'ticket_created'              => 'Ticket creado',
-    'ticket_updated'              => 'Ticket actualizado',
-    'comment_added'               => 'Comentario agregado',
-    'doc_uploaded'                => 'Archivo adjunto',
-    'evidence_uploaded'           => 'Evidencia subida',
-    'ticket_completed'            => 'Ticket completado',
-    'ticket_cancelled'            => 'Ticket cancelado',
-    'ticket_submitted_for_review' => 'Enviado a revisión',
-    'ticket_review_approved'      => 'Revisión aprobada',
-    'ticket_review_rejected'      => 'Revisión rechazada (reabierto)',
-    'ticket_force_reopened'       => 'Reabierto por revisión',
-    'report_generated'            => 'Reporte PDF generado',
+    'ticket_created'              => 'Se creó el ticket',
+    'ticket_updated'              => 'Se actualizaron los datos del ticket',
+    'comment_added'               => 'Se agregó un comentario',
+    'doc_uploaded'                => 'Se adjuntó un archivo',
+    'evidence_uploaded'           => 'Se subió una evidencia',
+    'ticket_completed'            => 'Se marcó como completado',
+    'ticket_cancelled'            => 'Se canceló el ticket',
+    'ticket_submitted_for_review' => 'Se envió a revisión',
+    'ticket_review_approved'      => 'Se aprobó la revisión y se cerró el ticket',
+    'ticket_review_rejected'      => 'Se rechazó la revisión y se solicitó corrección',
+    'ticket_force_reopened'       => 'Se reabrió el ticket para corrección',
+    'report_generated'            => 'Se generó un reporte en PDF',
   ];
+
+  $labelAction = function($action) use ($actionLabels){
+    $k = (string)($action ?? '');
+    if(isset($actionLabels[$k])) return $actionLabels[$k];
+
+    $s = str_replace(['_','-'], ' ', $k);
+    $s = trim($s);
+
+    $rep = [
+      'ticket' => 'ticket',
+      'created' => 'creado',
+      'updated' => 'actualizado',
+      'deleted' => 'eliminado',
+      'approved' => 'aprobado',
+      'rejected' => 'rechazado',
+      'review' => 'revisión',
+      'submitted' => 'enviado',
+      'for' => 'para',
+      'reopen' => 'reapertura',
+      'reopened' => 'reabierto',
+      'force' => 'forzado',
+      'generated' => 'generado',
+      'comment' => 'comentario',
+      'file' => 'archivo',
+      'files' => 'archivos',
+      'upload' => 'subida',
+      'uploaded' => 'subido',
+      'evidence' => 'evidencia',
+      'completed' => 'completado',
+      'cancelled' => 'cancelado',
+      'cancel' => 'cancelación',
+      'report' => 'reporte',
+      'pdf' => 'PDF',
+    ];
+
+    $parts = preg_split('/\s+/', $s) ?: [];
+    $parts = array_map(function($p) use ($rep){
+      $p2 = strtolower($p);
+      return $rep[$p2] ?? $p;
+    }, $parts);
+
+    $out = trim(implode(' ', $parts));
+    if($out === '') return 'Actividad registrada';
+    return mb_strtoupper(mb_substr($out, 0, 1)).mb_substr($out, 1);
+  };
 
   $prettyKey = function(string $k){
     $map = [
@@ -33,6 +81,9 @@
       'impact'=>'Impacto','urgency'=>'Urgencia','effort'=>'Esfuerzo','score'=>'Score',
       'files'=>'Archivos','files_uploaded'=>'Archivos','cancel_reason'=>'Motivo de cancelación',
       'review_rating'=>'Calificación','review_comment'=>'Comentario','reason'=>'Motivo','reopen_reason'=>'Motivo de reapertura',
+      'checklist_payload'=>'Checklist',
+      'completion_detail'=>'Justificación de cierre','completed_note'=>'Justificación de cierre','completed_reason'=>'Justificación de cierre',
+      'completion_summary'=>'Justificación de cierre','completion_justification'=>'Justificación de cierre',
     ];
     return $map[$k] ?? ucfirst(str_replace('_',' ', $k));
   };
@@ -43,6 +94,15 @@
     if (is_array($v)) return '—';
     if (is_string($v)) return str_replace('T', ' ', trim($v));
     return (string) $v;
+  };
+
+  $fmtDateEs = function($dt){
+    if(empty($dt)) return '—';
+    try{
+      return $dt->locale('es')->translatedFormat('d M Y, H:i');
+    } catch(\Throwable $e){
+      try{ return $dt->format('Y-m-d H:i'); } catch(\Throwable $e2){ return '—'; }
+    }
   };
 
   $userName = fn($u) => $u ? ($u->name ?? '—') : '—';
@@ -76,13 +136,12 @@
   $isAssignee = $uid && ((int)$uid === (int)($ticket->assignee_id ?? 0));
   $isCreator  = $uid && ((int)$uid === (int)($ticket->created_by ?? 0));
   $canWork    = (bool)$isAssignee;
-  $canClose   = (bool)($isAssignee || $isCreator);
 
   $isCancelled = ((string)($ticket->status ?? '') === 'cancelado') || !empty($ticket->cancelled_at);
   $isCompleted = ((string)($ticket->status ?? '') === 'completado') || !empty($ticket->completed_at);
   $isFinal     = (bool)($isCancelled || $isCompleted);
 
-  // ✅ Detectar APROBADO (robusto: por columnas o por auditoría)
+  // ✅ Detectar APROBADO (robusto)
   $isApproved = false;
   if (Schema::hasColumn('tickets','review_status')) {
     $isApproved = $isApproved || in_array((string)($ticket->review_status ?? ''), ['approved','aprobado'], true);
@@ -140,12 +199,398 @@
     $wmSub  = 'Ticket finalizado · Completado';
     $wmTone = 'green';
   }
+
+  /* =========================
+     ✅ CHECKLIST (RELACIONAL - TU ESTRUCTURA REAL)
+     Usa:
+       - $ticket->checklists() -> hasMany TicketChecklist
+       - $ticket->checklists->first()->items -> TicketChecklistItem
+     ========================= */
+  $ckTitle = 'Checklist del ticket';
+  $ckItems = [];
+
+  $ckModel = null;
+
+  // 1) Si viene eager loaded
+  try{
+    if (isset($ticket->checklists) && $ticket->checklists instanceof \Illuminate\Support\Collection) {
+      $ckModel = $ticket->checklists->sortByDesc('id')->first();
+    }
+  } catch(\Throwable $e){}
+
+  // 2) Fallback: consultar el último checklist con items
+  try{
+    if(!$ckModel && method_exists($ticket,'checklists')){
+      $ckModel = $ticket->checklists()->with('items')->orderByDesc('id')->first();
+    }
+  } catch(\Throwable $e){}
+
+  // 3) Construir items
+  try{
+    if($ckModel){
+      if(!empty($ckModel->title)) $ckTitle = (string)$ckModel->title;
+
+      $items = null;
+      if (isset($ckModel->items) && $ckModel->items instanceof \Illuminate\Support\Collection) {
+        $items = $ckModel->items;
+      } else {
+        $items = $ckModel->items()->orderBy('sort_order')->orderBy('id')->get();
+      }
+
+      foreach($items as $it){
+        $t = trim((string)($it->title ?? ''));
+        if($t === '') continue;
+
+        $ckItems[] = [
+          'title' => $t,
+          'detail' => !empty($it->detail) ? (string)$it->detail : null,
+          'recommended' => (bool)($it->recommended ?? true),
+          'done' => (bool)($it->done ?? false),
+          'done_at' => $it->done_at ?? null,
+          'done_by' => $it->done_by ?? null,
+          'evidence_note' => $it->evidence_note ?? null,
+        ];
+      }
+    }
+  } catch(\Throwable $e){}
+
+  $ckTotal = count($ckItems);
+  $ckDone  = count(array_filter($ckItems, fn($x)=> !empty($x['done'])));
+  $ckRec   = count(array_filter($ckItems, fn($x)=> !empty($x['recommended'])));
+
+  /* =========================
+     ✅ JUSTIFICACIÓN DE COMPLETADO (mostrar en SHOW)
+     Busca:
+     - columnas comunes
+     - o diff en auditoría ticket_completed / ticket_review_approved
+     ========================= */
+  $completionJustification = null;
+
+  $completionCols = [
+    'completion_detail','completed_note','completed_reason','completion_summary','completion_justification',
+    'done_note','done_reason','done_summary',
+  ];
+
+  foreach ($completionCols as $col) {
+    try{
+      if (Schema::hasColumn('tickets', $col) && !empty($ticket->{$col})) {
+        $completionJustification = (string)$ticket->{$col};
+        break;
+      }
+    } catch(\Throwable $e){}
+  }
+
+  if(empty($completionJustification) && !empty($ticket->audits)){
+    foreach($ticket->audits as $a){
+      $act = (string)($a->action ?? '');
+      if(!in_array($act, ['ticket_completed','ticket_review_approved'], true)) continue;
+      $diff = (array)($a->diff ?? []);
+
+      foreach (['justification','completion_detail','completed_note','completed_reason','completion_summary','note','summary','detalle'] as $k) {
+        if(!empty($diff[$k]) && is_string($diff[$k])) { $completionJustification = $diff[$k]; break; }
+      }
+      if(!empty($completionJustification)) break;
+
+      if(!empty($diff['after']) && is_array($diff['after'])){
+        foreach (['completion_detail','completed_note','completed_reason','completion_summary','completion_justification'] as $k) {
+          if(!empty($diff['after'][$k])) { $completionJustification = (string)$diff['after'][$k]; break; }
+        }
+      }
+      if(!empty($completionJustification)) break;
+    }
+  }
+
+  $completionJustification = is_string($completionJustification) ? trim($completionJustification) : null;
+  if($completionJustification === '') $completionJustification = null;
+
+  /* =========================
+     ✅ CHAT: ALINEACIÓN
+     - Derecha: quien asignó (assigned_by) (fallback: created_by)
+     - Izquierda: quien está haciendo (assignee_id)
+     ========================= */
+  $assignerId = null;
+  if (Schema::hasColumn('tickets','assigned_by') && !empty($ticket->assigned_by)) $assignerId = (int)$ticket->assigned_by;
+  if (!$assignerId && !empty($ticket->created_by)) $assignerId = (int)$ticket->created_by;
+
+  $doerId = !empty($ticket->assignee_id) ? (int)$ticket->assignee_id : null;
+
+  $commentSide = function($comment) use ($assignerId, $doerId){
+    $cid = (int)($comment->user_id ?? (optional($comment->user)->id ?? 0));
+    if($assignerId && $cid === (int)$assignerId) return 'right';
+    if($doerId && $cid === (int)$doerId) return 'left';
+    return 'neutral';
+  };
 @endphp
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <div id="tkPremium">
+  {{-- Si tienes CSS externo, se respeta. Este inline asegura que checklist/chat se vean bien aunque falle el CSS --}}
   <link rel="stylesheet" href="{{ asset('css/ticket-show.css') }}?v={{ time() }}">
+
+  <style>
+    /* =========================
+       ✅ BASE (premium, minimal)
+       ========================= */
+    #tkPremium{
+      --text-main:#0b1220;
+      --text-muted:#64748b;
+      --text-light:rgba(15,23,42,.45);
+      --border-light:rgba(15,23,42,.10);
+      --card-bg:rgba(255,255,255,.92);
+      --bg1:#f7f9ff;
+      --bg2:#fbfcff;
+
+      --p-indigo:#4f46e5;
+      --p-indigo-bg:rgba(238,242,255,.85);
+      --p-indigo-tx:#3730a3;
+
+      --p-sky:#0284c7;
+      --p-sky-bg:rgba(224,242,254,.85);
+      --p-sky-tx:#075985;
+
+      --p-rose:#e11d48;
+      --p-rose-bg:rgba(255,228,230,.92);
+      --p-rose-tx:#9f1239;
+
+      --p-amber:#f59e0b;
+      --p-amber-bg:rgba(254,243,199,.92);
+      --p-amber-tx:#92400e;
+
+      --p-green:#10b981;
+      --p-green-bg:rgba(209,250,229,.92);
+      --p-green-tx:#065f46;
+
+      --radius:18px;
+      --shadow:0 16px 54px rgba(2,6,23,.10);
+    }
+    #tkPremium .bleed{
+      background: radial-gradient(900px 420px at 20% -10%, rgba(99,102,241,.12), transparent 55%),
+                  radial-gradient(760px 380px at 90% 5%, rgba(2,132,199,.10), transparent 55%),
+                  linear-gradient(180deg, var(--bg1), var(--bg2));
+      padding: 22px 0 38px;
+    }
+    #tkPremium .wrap{
+      width: min(1180px, 92vw);
+      margin: 0 auto;
+    }
+    #tkPremium .card{
+      border:1px solid var(--border-light);
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    #tkPremium .hero{ padding: 18px 18px 14px; }
+    #tkPremium .heroTop{
+      display:flex; gap:14px; justify-content:space-between; align-items:flex-start;
+      flex-wrap:wrap;
+    }
+    #tkPremium .heroL{ flex:1 1 560px; min-width: 280px; }
+    #tkPremium .heroR{ display:flex; gap:10px; flex:0 0 auto; align-items:center; flex-wrap:wrap; justify-content:flex-end; }
+
+    #tkPremium .topline{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    #tkPremium .folio-badge{
+      font-weight:950;
+      color: var(--text-main);
+      background: rgba(15,23,42,.06);
+      border:1px solid rgba(15,23,42,.10);
+      padding: 6px 10px;
+      border-radius: 999px;
+      letter-spacing:.02em;
+    }
+    #tkPremium .h1{
+      margin: 12px 0 8px;
+      font-size: 18px;
+      font-weight: 950;
+      color: var(--text-main);
+      line-height: 1.2;
+    }
+    #tkPremium .metaLine{
+      display:flex; gap:12px; flex-wrap:wrap;
+      color: var(--text-muted);
+      font-weight: 750;
+      font-size: 12.8px;
+    }
+    #tkPremium .metaLine span{ display:inline-flex; gap:8px; align-items:center; }
+
+    #tkPremium .ico16{ width:16px; height:16px; color: rgba(15,23,42,.65); }
+
+    /* Buttons */
+    #tkPremium .btn{
+      display:inline-flex; gap:8px; align-items:center; justify-content:center;
+      border-radius: 14px;
+      padding: 10px 12px;
+      border:1px solid rgba(15,23,42,.10);
+      background: rgba(255,255,255,.92);
+      color: var(--text-main);
+      font-weight: 950;
+      text-decoration: none;
+      cursor:pointer;
+      transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+      user-select:none;
+    }
+    #tkPremium .btn:hover{ transform: translateY(-1px); box-shadow: 0 14px 34px rgba(2,6,23,.12); }
+    #tkPremium .btn svg{ width:18px; height:18px; }
+
+    #tkPremium .btn.pastel-indigo{ background: var(--p-indigo-bg); color: var(--p-indigo-tx); border-color: rgba(79,70,229,.20); }
+    #tkPremium .btn.pastel-sky{ background: var(--p-sky-bg); color: var(--p-sky-tx); border-color: rgba(2,132,199,.18); }
+    #tkPremium .btn.pastel-rose{ background: var(--p-rose-bg); color: var(--p-rose-tx); border-color: rgba(225,29,72,.18); }
+
+    /* Pills */
+    #tkPremium .pill{
+      display:inline-flex; gap:8px; align-items:center;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border:1px solid rgba(15,23,42,.10);
+      font-weight: 950;
+      font-size: 12px;
+      color: var(--text-main);
+      background: rgba(255,255,255,.88);
+      max-width:100%;
+    }
+    #tkPremium .pill svg{ width:16px; height:16px; }
+
+    #tkPremium .pill.slate{ background: rgba(241,245,249,.85); }
+    #tkPremium .pill.brand{ background: rgba(15,23,42,.06); }
+    #tkPremium .pill.sky{ background: var(--p-sky-bg); color: var(--p-sky-tx); border-color: rgba(2,132,199,.18); }
+    #tkPremium .pill.amber{ background: var(--p-amber-bg); color: var(--p-amber-tx); border-color: rgba(245,158,11,.20); }
+    #tkPremium .pill.green{ background: var(--p-green-bg); color: var(--p-green-tx); border-color: rgba(16,185,129,.22); }
+    #tkPremium .pill.red{ background: var(--p-rose-bg); color: var(--p-rose-tx); border-color: rgba(225,29,72,.20); }
+    #tkPremium .pill.indigo{ background: var(--p-indigo-bg); color: var(--p-indigo-tx); border-color: rgba(79,70,229,.20); }
+
+    /* Grid layout */
+    #tkPremium .grid{ display:grid; grid-template-columns: 1.2fr .9fr; gap:18px; margin-top: 16px; }
+    @media (max-width: 980px){ #tkPremium .grid{ grid-template-columns: 1fr; } }
+
+    #tkPremium .sectionHead{
+      padding: 12px 14px;
+      border-bottom:1px solid var(--border-light);
+      background: rgba(248,250,252,.78);
+      display:flex; align-items:center; justify-content:space-between;
+    }
+    #tkPremium .sectionHead h3{
+      margin:0; display:flex; gap:10px; align-items:center;
+      font-size: 13.2px; font-weight: 950; color: var(--text-main);
+    }
+    #tkPremium .sectionBody{ padding: 14px; }
+
+    #tkPremium .help{ color: var(--text-muted); font-weight: 750; font-size: 12.6px; line-height: 1.35; }
+
+    #tkPremium .infoGrid{ display:flex; flex-direction:column; gap:10px; }
+    #tkPremium .infoGrid .row{ display:grid; grid-template-columns: 180px 1fr; gap:12px; }
+    @media (max-width: 640px){ #tkPremium .infoGrid .row{ grid-template-columns: 1fr; } }
+    #tkPremium .infoGrid .k{ color: var(--text-muted); font-weight: 950; font-size: 12.5px; }
+    #tkPremium .infoGrid .v{ color: var(--text-main); font-weight: 750; font-size: 12.8px; line-height:1.4; }
+
+    /* Inputs */
+    #tkPremium .input{
+      width:100%;
+      border-radius: 14px;
+      border:1px solid rgba(15,23,42,.12);
+      background: rgba(255,255,255,.92);
+      padding: 10px 12px;
+      font-weight: 750;
+      color: var(--text-main);
+      outline: none;
+    }
+    #tkPremium textarea.input{ min-height: 92px; resize: vertical; }
+
+    #tkPremium .rightActions{ display:flex; justify-content:flex-end; margin-top:10px; }
+
+    /* Checklist visual (premium) */
+    #tkPremium .ckWrap{ display:flex; flex-direction:column; gap:10px; }
+    #tkPremium .ckItem{
+      border:1px solid var(--border-light);
+      background: rgba(255,255,255,.92);
+      border-radius: 16px;
+      padding: 12px;
+    }
+    #tkPremium .ckTop{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+    #tkPremium .ckTitle{ font-weight: 950; color: var(--text-main); line-height:1.25; }
+    #tkPremium .ckDetail{ margin-top:6px; color: var(--text-muted); font-weight: 750; white-space:pre-wrap; line-height:1.35; }
+
+    /* Chat bubbles */
+    #tkPremium .chat{ display:flex; flex-direction:column; gap:10px; margin-top: 12px; }
+    #tkPremium .msgRow{ display:flex; }
+    #tkPremium .msgRow.left{ justify-content:flex-start; }
+    #tkPremium .msgRow.right{ justify-content:flex-end; }
+    #tkPremium .msgRow.neutral{ justify-content:flex-start; }
+
+    #tkPremium .bubble{
+      width: min(520px, 100%);
+      border-radius: 16px;
+      border:1px solid rgba(15,23,42,.10);
+      background: rgba(248,250,252,.86);
+      padding: 10px 12px;
+    }
+    #tkPremium .msgRow.left .bubble{ background: rgba(224,242,254,.60); border-color: rgba(2,132,199,.16); }
+    #tkPremium .msgRow.right .bubble{ background: rgba(238,242,255,.65); border-color: rgba(79,70,229,.18); }
+
+    #tkPremium .bTop{ display:flex; justify-content:space-between; gap:10px; align-items:baseline; }
+    #tkPremium .bName{ font-weight: 950; color: var(--text-main); font-size: 12.5px; }
+    #tkPremium .bTime{ font-weight: 750; color: var(--text-muted); font-size: 12px; white-space:nowrap; }
+    #tkPremium .bBody{ margin-top:6px; font-weight: 750; color: var(--text-main); font-size: 12.8px; line-height:1.45; white-space:pre-wrap; }
+
+    /* Docs */
+    #tkPremium .uploadBox{ display:flex; flex-direction:column; gap:10px; }
+    #tkPremium .uploadSplit{ display:grid; grid-template-columns: 170px 1fr; gap:10px; }
+    @media (max-width: 640px){ #tkPremium .uploadSplit{ grid-template-columns: 1fr; } }
+
+    #tkPremium .filePick{
+      border:1.5px dashed rgba(15,23,42,.18);
+      background: rgba(248,250,252,.86);
+      border-radius: 16px;
+      padding: 12px;
+      display:flex; gap:10px; align-items:flex-start;
+      position:relative;
+    }
+    #tkPremium .filePick svg{ width:18px; height:18px; margin-top:2px; }
+    #tkPremium .filePick .hint{ color: var(--text-muted); font-weight: 750; font-size: 12.6px; line-height:1.35; }
+    #tkPremium .filePick input[type="file"]{
+      position:absolute; inset:0; opacity:0; cursor:pointer;
+    }
+
+    #tkPremium .doc{
+      border:1px solid var(--border-light);
+      background: rgba(255,255,255,.92);
+      border-radius: 16px;
+      padding: 12px;
+      display:flex; gap:10px; align-items:center; justify-content:space-between;
+      margin-top:10px;
+    }
+    #tkPremium .doc .name{ display:flex; gap:8px; align-items:center; font-weight: 950; color: var(--text-main); }
+    #tkPremium .doc .meta{ margin-top:4px; color: var(--text-muted); font-weight: 750; font-size: 12.4px; }
+
+    /* Activity */
+    #tkPremium .activityScroll{ display:flex; flex-direction:column; gap:10px; max-height: 520px; overflow:auto; padding-right:6px; }
+    #tkPremium .audit{
+      border:1px solid var(--border-light);
+      background: rgba(255,255,255,.92);
+      border-radius: 16px;
+      padding: 12px;
+    }
+    #tkPremium .audit .a1{ font-weight: 950; color: var(--text-main); }
+    #tkPremium .audit .a2{ margin-top:4px; font-weight: 750; color: var(--text-muted); font-size: 12.4px; }
+    #tkPremium .audit-box{
+      margin-top:10px;
+      border:1px solid rgba(15,23,42,.10);
+      border-radius: 14px;
+      background: rgba(248,250,252,.78);
+      overflow:hidden;
+    }
+    #tkPremium .audit-box-header{
+      padding: 9px 10px;
+      border-bottom:1px solid rgba(15,23,42,.10);
+      font-weight: 950;
+      color: var(--text-main);
+      font-size: 12.6px;
+    }
+    #tkPremium .audit-box-body{ padding: 10px; }
+
+    /* SweetAlert minimal */
+    #tkPremium .tk-toast{ border:1px solid rgba(15,23,42,.10); border-radius: 14px; }
+  </style>
 
   {{-- ✅ WATERMARK GLOBAL --}}
   @if($wmOn)
@@ -209,7 +654,6 @@
       transition:opacity .18s ease;
       z-index:9998;
     }
-
     #tkPremium .tkd{
       position:fixed; top:0; right:0;
       height:100vh; width:min(520px, 92vw);
@@ -257,16 +701,8 @@
       overscroll-behavior: contain;
     }
 
-    /* ✅ CAMBIO: botones juntos (lado a lado) para subir el bloque de evidencias */
-    #tkPremium .tkd-choice{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:10px;
-      align-items:stretch;
-    }
-    @media (max-width: 520px){
-      #tkPremium .tkd-choice{ grid-template-columns: 1fr; }
-    }
+    #tkPremium .tkd-choice{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+    @media (max-width: 520px){ #tkPremium .tkd-choice{ grid-template-columns: 1fr; } }
 
     #tkPremium .tkd-opt{
       width:100%;
@@ -299,7 +735,6 @@
     }
     #tkPremium .tkd-ico svg{ width:18px; height:18px; }
     #tkPremium .tkd-opt h4{ margin:0; font-size:13px; font-weight:950; color:#0f172a; line-height:1.25; }
-    #tkPremium .tkd-opt p{ margin:6px 0 0; font-size:12.5px; font-weight:700; color:#64748b; line-height:1.35; }
 
     #tkPremium .tkd-panel{
       border:1px solid rgba(15,23,42,.10);
@@ -336,10 +771,7 @@
       backdrop-filter: blur(3px);
       z-index: 2;
     }
-    #tkPremium .tkd-actions .btn{
-      width:100%;
-      justify-content:center;
-    }
+    #tkPremium .tkd-actions .btn{ width:100%; justify-content:center; }
 
     #tkPremium .tkd-stars{ display:flex; gap:8px; align-items:center; padding-top:6px; }
     #tkPremium .tkd-stars input{ display:none; }
@@ -452,7 +884,6 @@
           @if(\Illuminate\Support\Facades\Route::has('tickets.reviewApprove'))
             <div class="tkd-help">Se guardará la calificación y el ticket quedará completado.</div>
 
-            {{-- ✅ FIX: tu ruta soporta POST (por eso quitamos PUT) --}}
             <form id="tkApproveForm" method="POST" action="{{ route('tickets.reviewApprove',$ticket) }}">
               @csrf
 
@@ -497,9 +928,7 @@
           Reabrir (observaciones + evidencias)
         </div>
         <div class="b">
-          
 
-          {{-- ✅ TU RUTA SOPORTA POST --}}
           <form id="tkReopenForm"
                 method="POST"
                 action="{{ \Illuminate\Support\Facades\Route::has('tickets.forceReopen') ? route('tickets.forceReopen',$ticket) : 'javascript:void(0)' }}"
@@ -616,6 +1045,15 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 5-6"/></svg>
                 Score: {{ $ticket->score ?? '—' }}
               </span>
+
+              {{-- ✅ Badge checklist --}}
+              <span class="pill slate">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M9 6h11"/><path d="M9 12h11"/><path d="M9 18h11"/>
+                  <path d="M4 6l1 1 2-2"/><path d="M4 12l1 1 2-2"/><path d="M4 18l1 1 2-2"/>
+                </svg>
+                Checklist: {{ $ckDone }}/{{ $ckTotal }}
+              </span>
             </div>
 
             <h1 class="h1">{{ $ticket->title }}</h1>
@@ -631,7 +1069,7 @@
               </span>
               <span>
                 <svg class="ico16" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                Vence: {{ $ticket->due_at ? $ticket->due_at->format('Y-m-d H:i') : '—' }}
+                Vence: {{ $ticket->due_at ? $fmtDateEs($ticket->due_at) : '—' }}
               </span>
             </div>
           </div>
@@ -642,7 +1080,7 @@
               Volver
             </a>
 
-            {{-- ✅ Si ya está aprobado: NO mostrar revisar, ni trabajar, ni completar, ni cancelar --}}
+            {{-- ✅ Si ya está aprobado: NO mostrar revisar ni trabajar --}}
             @if(!$readOnly)
 
               @if($canReview)
@@ -654,37 +1092,13 @@
                 </button>
               @endif
 
-              @if(!$isFinal)
-
-                @if(\Illuminate\Support\Facades\Route::has('tickets.work') && $canWork)
-                  <a class="btn pastel-indigo" href="{{ route('tickets.work',$ticket) }}">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 20V10"/><path d="m18 14-6-6-6 6"/></svg>
-                    Trabajar
-                  </a>
-                @endif
-
-                @if(\Illuminate\Support\Facades\Route::has('tickets.complete') && $canClose)
-                  <form id="tkCompleteForm" method="POST" action="{{ route('tickets.complete',$ticket) }}" style="margin:0;">
-                    @csrf
-                    <button class="btn pastel-mint" type="submit">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 6 9 17l-5-5"/></svg>
-                      Completar
-                    </button>
-                  </form>
-                @endif
-
-                @if(\Illuminate\Support\Facades\Route::has('tickets.cancel') && $canClose)
-                  <form id="tkCancelForm" method="POST" action="{{ route('tickets.cancel',$ticket) }}" style="margin:0;">
-                    @csrf
-                    <input type="hidden" name="cancel_reason" id="tkCancelReason" value="">
-                    <button class="btn pastel-rose" type="submit">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                      Cancelar
-                    </button>
-                  </form>
-                @endif
-
+              @if(!$isFinal && \Illuminate\Support\Facades\Route::has('tickets.work') && $canWork)
+                <a class="btn pastel-indigo" href="{{ route('tickets.work',$ticket) }}">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 20V10"/><path d="m18 14-6-6-6 6"/></svg>
+                  Trabajar
+                </a>
               @endif
+
             @endif
           </div>
         </div>
@@ -710,15 +1124,15 @@
                 <div class="row">
                   <div class="k">Impacto / Urgencia</div>
                   <div class="v">
-                    Impacto: <strong>{{ $ticket->impact ?? '—' }}</strong> &nbsp;|&nbsp;
-                    Urgencia: <strong>{{ $ticket->urgency ?? '—' }}</strong> &nbsp;|&nbsp;
-                    Esfuerzo: <strong>{{ $ticket->effort ?? '—' }}</strong>
+                    Impacto: {{ $ticket->impact ?? '—' }} &nbsp;|&nbsp;
+                    Urgencia: {{ $ticket->urgency ?? '—' }} &nbsp;|&nbsp;
+                    Esfuerzo: {{ $ticket->effort ?? '—' }}
                   </div>
                 </div>
 
                 @if(!empty($ticket->reopen_reason))
                 <div class="row">
-                  <div class="k">Motivo reapertura</div>
+                  <div class="k">Motivo de reapertura</div>
                   <div class="v" style="white-space:pre-wrap;">{{ $ticket->reopen_reason }}</div>
                 </div>
                 @endif
@@ -726,6 +1140,97 @@
             </div>
           </div>
 
+          {{-- ✅ JUSTIFICACIÓN DE COMPLETADO (cuando esté completado) --}}
+          @if($isCompleted)
+            <div class="card" style="margin-bottom:18px;">
+              <div class="sectionHead">
+                <h3>
+                  <svg class="ico16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M20 6 9 17l-5-5"/>
+                  </svg>
+                  Justificación de cierre
+                </h3>
+              </div>
+              <div class="sectionBody">
+                @if($completionJustification)
+                  <div style="white-space:pre-wrap; font-weight:750; color:var(--text-main); line-height:1.45;">
+                    {{ $completionJustification }}
+                  </div>
+                @else
+                  <div class="help">No se encontró una justificación guardada para este cierre.</div>
+                @endif
+              </div>
+            </div>
+          @endif
+
+          {{-- ✅ CHECKLIST (RELACIONAL) --}}
+          <div class="card" style="margin-bottom:18px;">
+            <div class="sectionHead">
+              <h3>
+                <svg class="ico16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M9 6h11"/><path d="M9 12h11"/><path d="M9 18h11"/>
+                  <path d="M4 6l1 1 2-2"/><path d="M4 12l1 1 2-2"/><path d="M4 18l1 1 2-2"/>
+                </svg>
+                {{ $ckTitle }}
+              </h3>
+            </div>
+            <div class="sectionBody">
+              @if($ckTotal === 0)
+                <div class="help">Este ticket no tiene checklist guardado.</div>
+              @else
+                <div class="help" style="margin-bottom:10px;">
+                  Progreso: {{ $ckDone }} de {{ $ckTotal }} · Recomendados: {{ $ckRec }}
+                </div>
+
+                <div class="ckWrap">
+                  @foreach($ckItems as $it)
+                    @php
+                      $done = !empty($it['done']);
+                      $rec  = !empty($it['recommended']);
+                    @endphp
+
+                    <div class="ckItem">
+                      <div class="ckTop">
+                        <div style="min-width:0;">
+                          <div class="ckTitle">{{ $it['title'] }}</div>
+
+                          @if(!empty($it['detail']))
+                            <div class="ckDetail">{{ $it['detail'] }}</div>
+                          @endif
+
+                          @if(!empty($it['evidence_note']))
+                            <div class="ckDetail" style="margin-top:8px;">
+                              <span style="font-weight:950; color:var(--text-main);">Nota:</span>
+                              {{ $it['evidence_note'] }}
+                            </div>
+                          @endif
+                        </div>
+
+                        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">
+                          @if($rec)
+                            <span class="pill amber" style="font-size:11px;">Recomendado</span>
+                          @endif
+                          @if($done)
+                            <span class="pill green" style="font-size:11px;">Completado</span>
+                          @else
+                            <span class="pill slate" style="font-size:11px;">Pendiente</span>
+                          @endif
+                        </div>
+                      </div>
+
+                      @if(!empty($it['done_at']))
+                        <div class="help" style="margin-top:8px;">
+                          Marcado: {{ $fmtDateEs($it['done_at']) }}
+                        </div>
+                      @endif
+                    </div>
+                  @endforeach
+                </div>
+              @endif
+            </div>
+          </div>
+
+          {{-- ✅ CONVERSACIÓN (alineación izquierda/derecha) --}}
           <div class="card">
             <div class="sectionHead">
               <h3>
@@ -753,19 +1258,23 @@
                 </div>
               @endif
 
-              @if($ticket->comments->count() > 0)
-                <div style="margin-top: 14px; border-top: 1px solid var(--border-light); padding-top: 12px;">
-                  @foreach($ticket->comments as $c)
-                    <div class="comment">
-                      <div class="cTop">
-                        <div class="cName">{{ optional($c->user)->name ?: '—' }}</div>
-                        <div class="cTime">{{ optional($c->created_at)->format('Y-m-d H:i') }}</div>
+              <div class="chat">
+                @forelse($ticket->comments as $c)
+                  @php $side = $commentSide($c); @endphp
+                  <div class="msgRow {{ $side }}">
+                    <div class="bubble">
+                      <div class="bTop">
+                        <div class="bName">{{ optional($c->user)->name ?: '—' }}</div>
+                        <div class="bTime">{{ $c->created_at ? $fmtDateEs($c->created_at) : '—' }}</div>
                       </div>
-                      <div class="cBody">{{ $c->body }}</div>
+                      <div class="bBody">{{ $c->body }}</div>
                     </div>
-                  @endforeach
-                </div>
-              @endif
+                  </div>
+                @empty
+                  <div class="help">No hay comentarios todavía.</div>
+                @endforelse
+              </div>
+
             </div>
           </div>
         </div>
@@ -787,14 +1296,14 @@
                   @csrf
                   <div class="uploadBox">
                     <div class="uploadRow">
-                      <input class="input" name="name" placeholder="Nombre (Ej. Captura de error)" value="{{ old('name') }}">
+                      <input class="input" name="name" placeholder="Nombre (Ej. Captura del proceso)" value="{{ old('name') }}">
                     </div>
 
                     <div class="uploadSplit">
                       <select class="input" name="category">
                         <option value="adjunto">Adjunto</option>
                         <option value="evidencia">Evidencia</option>
-                        <option value="link">Link</option>
+                        <option value="link">Enlace</option>
                       </select>
 
                       <div class="filePick" title="Selecciona un archivo">
@@ -803,14 +1312,14 @@
                           <polyline points="7 10 12 15 17 10"/>
                           <line x1="12" y1="15" x2="12" y2="3"/>
                         </svg>
-                        <div class="hint">Haz clic para seleccionar archivo (imagen, pdf, video, etc.)</div>
+                        <div class="hint">Haz clic para seleccionar archivo (imagen, PDF, video, etc.)</div>
                         <input type="file" name="file" accept="*/*">
                       </div>
                     </div>
 
                     <div class="uploadRow">
                       <input class="input" name="external_url" placeholder="O pega un enlace externo (https://...)" value="{{ old('external_url') }}">
-                      <div class="help">Tip: si agregas link, el archivo es opcional.</div>
+                      <div class="help">Tip: si agregas enlace, el archivo es opcional.</div>
                     </div>
 
                     <div class="rightActions" style="margin-top: 0;">
@@ -841,18 +1350,25 @@
                         $u = parse_url($d->external_url); $p = $u['path'] ?? '';
                         $ext = strtolower(pathinfo($p, PATHINFO_EXTENSION) ?: '');
                       }
+
+                      $cat = (string)($d->category ?? 'adjunto');
+                      $catLabel = match($cat){
+                        'evidencia' => 'Evidencia',
+                        'link' => 'Enlace',
+                        default => 'Adjunto',
+                      };
                     @endphp
 
                     <div class="doc">
                       <div style="min-width:0; flex:1;">
                         <div class="name">
                           <span style="min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ $d->name }}</span>
-                          <span class="pill" style="font-size: 10px; padding: 3px 8px; background: rgba(241,245,249,.75); border-color: rgba(15,23,42,.10);">
+                          <span class="pill slate" style="font-size: 10px; padding: 3px 8px;">
                             v{{ $d->version ?? 1 }}
                           </span>
                         </div>
                         <div class="meta">
-                          {{ ucfirst($d->category ?? 'adjunto') }} · {{ optional($d->created_at)->format('M d, H:i') }}
+                          {{ $catLabel }} · {{ $d->created_at ? $fmtDateEs($d->created_at) : '—' }}
                         </div>
                         @if(!empty($d->external_url))
                           <div class="meta" style="margin-top: 4px;">
@@ -898,6 +1414,8 @@
                     </div>
                   @endforeach
                 </div>
+              @else
+                <div class="help">No hay archivos adjuntos.</div>
               @endif
             </div>
           </div>
@@ -913,12 +1431,12 @@
               <div class="activityScroll">
                 @forelse($ticket->audits as $a)
                   @php
-                    $label = $actionLabels[$a->action] ?? $a->action;
+                    $label = $labelAction($a->action ?? '');
                     $diff  = (array) ($a->diff ?? []);
                   @endphp
                   <div class="audit">
                     <div class="a1">{{ $label }}</div>
-                    <div class="a2">{{ $userName($a->user) }} · {{ optional($a->created_at)->format('M d, H:i') }}</div>
+                    <div class="a2">{{ $userName($a->user) }} · {{ $a->created_at ? $fmtDateEs($a->created_at) : '—' }}</div>
 
                     @if(in_array($a->action, ['ticket_review_rejected','ticket_force_reopened'], true) && !empty($diff['reason']))
                       <div class="audit-box">
@@ -927,6 +1445,31 @@
                           {{ $diff['reason'] }}
                         </div>
                       </div>
+                    @endif
+
+                    {{-- ✅ Mostrar justificación si se completó --}}
+                    @if($a->action === 'ticket_completed')
+                      @php
+                        $just = null;
+                        foreach (['justification','completion_detail','completed_note','completed_reason','completion_summary','note','summary','detalle'] as $k) {
+                          if(!empty($diff[$k]) && is_string($diff[$k])) { $just = $diff[$k]; break; }
+                        }
+                        if(!$just && !empty($diff['after']) && is_array($diff['after'])){
+                          foreach (['completion_detail','completed_note','completed_reason','completion_summary','completion_justification'] as $k) {
+                            if(!empty($diff['after'][$k])) { $just = (string)$diff['after'][$k]; break; }
+                          }
+                        }
+                        $just = is_string($just) ? trim($just) : null;
+                        if($just === '') $just = null;
+                      @endphp
+                      @if($just)
+                        <div class="audit-box">
+                          <div class="audit-box-header">Justificación de completado</div>
+                          <div class="audit-box-body" style="white-space:pre-wrap; font-weight:750; color:var(--text-main);">
+                            {{ $just }}
+                          </div>
+                        </div>
+                      @endif
                     @endif
 
                     @if($a->action === 'ticket_review_approved')
@@ -947,7 +1490,7 @@
                       @php
                         $before = (array) $diff['before'];
                         $after  = (array) $diff['after'];
-                        $keys = ['status','priority','area','assignee_id','due_at'];
+                        $keys = ['status','priority','area','assignee_id','due_at','impact','urgency','effort','score'];
                         $changes = [];
                         foreach ($keys as $k){
                           if (($before[$k] ?? null) != ($after[$k] ?? null)) $changes[$k] = ['from'=>$before[$k]??'—', 'to'=>$after[$k]??'—'];
@@ -955,7 +1498,7 @@
                       @endphp
                       @if(!empty($changes))
                         <div class="audit-box">
-                          <div class="audit-box-header">Cambios clave</div>
+                          <div class="audit-box-header">Cambios registrados</div>
                           <div class="audit-box-body">
                             @foreach($changes as $k => $c)
                               @php

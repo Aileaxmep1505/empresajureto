@@ -3,311 +3,449 @@
 namespace App\Http\Controllers\Tickets;
 
 use App\Http\Controllers\Controller;
+use App\Models\Ticket;
+use App\Models\TicketAudit;
+use App\Models\TicketChecklist;
+use App\Models\TicketChecklistItem;
+use App\Services\Tickets\TicketChecklistAiService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
-use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
-use Carbon\Carbon;
-
-use App\Models\{
-    Ticket,
-    TicketStage,
-    TicketChecklist,
-    TicketChecklistItem
-};
-
-// Opcionales
-use PDF;                       // barryvdh/laravel-dompdf
-use PhpOffice\PhpWord\PhpWord; // phpoffice/phpword
-
-use App\Services\AiDynamicChecklistService;
+use Illuminate\Support\Facades\Schema;
 
 class TicketChecklistController extends Controller
 {
-    /** Crear checklist manual (opcionalmente asociada a una etapa) */
-    public function store(Request $r, Ticket $ticket)
+    private function canWorkTicket(Ticket $ticket): bool
+    {
+        $uid = auth()->id();
+        if (!$uid) return false;
+
+        if (!empty($ticket->assignee_id) && (int)$ticket->assignee_id === (int)$uid) return true;
+        if (Schema::hasColumn('tickets','created_by') && !empty($ticket->created_by) && (int)$ticket->created_by === (int)$uid) return true;
+
+        return false;
+    }
+
+    private function assertItemBelongsToTicketOr404(Ticket $ticket, TicketChecklistItem $item): TicketChecklist
+    {
+        $cl = TicketChecklist::find($item->checklist_id);
+        if (!$cl || (int)$cl->ticket_id !== (int)$ticket->id) abort(404);
+        return $cl;
+    }
+
+    /**
+     * ✅ PREVIEW IA (para CREATE)
+     * NO existe ticket aún -> regresa JSON { title, items }
+     * Ruta: POST tickets/checklist/preview-ai  name: tickets.checklist.preview
+     */
+    public function previewAi(Request $r, TicketChecklistAiService $ai)
     {
         $data = $r->validate([
-            'title'     => ['required','string','max:160'],
-            'stage_id'  => ['nullable','integer','exists:ticket_stages,id'],
-            'items'     => ['sometimes','array','min:0'], // strings u objetos {label|text|title|name}
+            'title'       => ['required','string','max:180'],
+            'description' => ['nullable','string','max:5000'],
+            'area'        => ['required','string','max:60'],
         ]);
 
-        $attrs = [
-            'ticket_id' => $ticket->id,
-            'title'     => $data['title'],
-            'meta'      => ['source' => 'manual'],
-        ];
+        try{
+            $out = $ai->generateChecklist(
+                (string)$data['title'],
+                (string)($data['description'] ?? ''),
+                (string)$data['area']
+            );
 
-        if (!empty($data['stage_id'])) {
-            $stage = TicketStage::findOrFail($data['stage_id']);
-            abort_unless($stage->ticket_id === $ticket->id, 404);
-            $attrs['stage_id'] = $stage->id;
+            return response()->json($out);
+
+        } catch (\Throwable $e){
+            \Log::warning('Checklist IA preview falló', [
+                'err' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'message' => 'No se pudo generar el checklist IA.',
+                'error'   => $e->getMessage(),
+            ], 422);
         }
+    }
 
-        $check = TicketChecklist::create($attrs);
+    /**
+     * ✅ APLICAR PAYLOAD (para TicketController@store)
+     * Se llama DESPUÉS de crear el Ticket en DB.
+     *
+     * Payload:
+     * {
+     *  "source":"ai|manual",
+     *  "title":"Checklist ...",
+     *  "items":[{"title":"..","detail":"..","recommended":true}, ...]
+     * }
+     */
+    public function applyPayloadToTicket(Ticket $ticket, array $payload): ?TicketChecklist
+    {
+        $source = in_array(($payload['source'] ?? 'manual'), ['ai','manual'], true)
+            ? (string)($payload['source'] ?? 'manual')
+            : 'manual';
 
-        if (!empty($data['items'])) {
-            $pos = 1; $bulk = [];
-            foreach ($data['items'] as $raw) {
-                $label = is_string($raw) ? $raw : (
-                    $raw['label'] ?? $raw['text'] ?? $raw['title'] ?? $raw['name'] ?? null
-                );
-                $label = trim((string) $label) ?: "Tarea {$pos}";
-                $type  = is_array($raw) ? ($raw['type'] ?? 'checkbox') : 'checkbox';
+        $title = trim((string)($payload['title'] ?? 'Checklist'));
+        if ($title === '') $title = 'Checklist';
 
-                $bulk[] = [
-                    'checklist_id' => $check->id,
-                    'label'        => $label,
-                    'type'         => in_array($type, ['text','checkbox','date','file'], true) ? $type : 'checkbox',
-                    'position'     => $pos++,
-                    'is_done'      => false,
-                    'created_at'   => now(),
-                    'updated_at'   => now(),
-                ];
+        $items = is_array($payload['items'] ?? null) ? $payload['items'] : [];
+        $items = array_values(array_filter($items, function($it){
+            $t = trim((string)($it['title'] ?? ''));
+            return $t !== '';
+        }));
+
+        if (count($items) === 0) return null;
+
+        return DB::transaction(function () use ($ticket, $source, $title, $items) {
+
+            // ✅ Limpieza (si se reintenta crear o algo raro)
+            $old = $ticket->checklists()->latest('id')->first();
+            if ($old) {
+                try { $old->items()->delete(); } catch (\Throwable $e) {}
+                try { $old->delete(); } catch (\Throwable $e) {}
             }
-            TicketChecklistItem::insert($bulk);
-        }
 
-        return $r->wantsJson()
-            ? response()->json(['ok'=>true,'checklist_id'=>$check->id])
-            : back()->with('ok','Checklist creada');
-    }
+            $cl = TicketChecklist::create([
+                'ticket_id'  => $ticket->id,
+                'title'      => $title,
+                'source'     => $source,
+                'created_by' => auth()->id(),
+                'meta'       => null,
+            ]);
 
-    public function update(Request $r, TicketChecklist $checklist)
-    {
-        $data = $r->validate([
-            'title'       => ['nullable','string','max:160'],
-            'require_all' => ['nullable','boolean'],
-        ]);
+            $order = 10;
+            foreach ($items as $it) {
+                $t = trim((string)($it['title'] ?? ''));
+                if ($t === '') continue;
 
-        if (array_key_exists('title', $data) && $data['title'] !== null) {
-            $t = trim($data['title']); if ($t !== '') $checklist->title = $t;
-        }
-        if (array_key_exists('require_all', $data)) {
-            $meta = (array) $checklist->meta;
-            $meta['require_all'] = (bool) $data['require_all'];
-            $checklist->meta = $meta;
-        }
-        $checklist->save();
-
-        return $r->wantsJson() ? response()->json(['ok'=>true])
-                               : back()->with('ok','Checklist actualizada');
-    }
-
-    public function destroy(Request $r, TicketChecklist $checklist)
-    {
-        $id = $checklist->id;
-        $checklist->items()->delete();
-        $checklist->delete();
-
-        return $r->wantsJson() ? response()->json(['ok'=>true,'deleted_id'=>$id])
-                               : back()->with('ok','Checklist eliminada');
-    }
-
-    public function addItem(Request $r, TicketChecklist $checklist)
-    {
-        $data = $r->validate([
-            'label'    => ['required','string','max:200'],
-            'type'     => ['nullable','in:text,checkbox,date,file'],
-            'position' => ['nullable','integer','min:1']
-        ]);
-
-        $label = trim($data['label']) ?: 'Tarea';
-        $type  = $data['type'] ?? 'checkbox';
-        $pos   = $data['position'] ?? (($checklist->items()->max('position') ?? 0) + 1);
-
-        $item = $checklist->items()->create([
-            'label'    => $label,
-            'type'     => $type,
-            'position' => $pos,
-            'is_done'  => false,
-        ]);
-
-        return $r->wantsJson() ? response()->json(['ok'=>true,'item'=>$item])
-                               : back()->with('ok','Item agregado');
-    }
-
-    public function updateItem(Request $r, TicketChecklistItem $item)
-    {
-        $data = $r->validate([
-            'value'    => ['nullable'],
-            'is_done'  => ['nullable','boolean'],
-            'label'    => ['nullable','string','max:200'],
-            'position' => ['nullable','integer','min:1'],
-            'type'     => ['nullable','in:text,checkbox,date,file'],
-            'done_at'  => ['nullable','date'],
-            'done_by'  => ['nullable','integer'],
-        ]);
-
-        if (array_key_exists('label', $data) && $data['label'] !== null) {
-            $t = trim($data['label']); if ($t !== '') $item->label = $t;
-        }
-        if (array_key_exists('value', $data))     $item->value = $data['value'];
-        if (array_key_exists('is_done', $data))   $item->is_done = (bool)$data['is_done'];
-        if (array_key_exists('position', $data))  $item->position = (int)$data['position'];
-        if (array_key_exists('type', $data))      $item->type = $data['type'] ?? $item->type;
-        if (array_key_exists('done_at', $data))   $item->done_at = $data['done_at'] ? Carbon::parse($data['done_at']) : null;
-        if (array_key_exists('done_by', $data))   $item->done_by = $data['done_by'];
-
-        $item->save();
-
-        return $r->wantsJson() ? response()->json(['ok'=>true,'item'=>$item])
-                               : back()->with('ok','Item actualizado');
-    }
-
-    public function destroyItem(Request $r, TicketChecklistItem $item)
-    {
-        $id = $item->id;
-        $item->delete();
-
-        return $r->wantsJson() ? response()->json(['ok'=>true,'deleted_id'=>$id])
-                               : back()->with('ok','Item eliminado');
-    }
-
-    public function reorderItems(Request $r, TicketChecklist $checklist)
-    {
-        $data = $r->validate([
-            'order'   => ['required','array','min:1'], // {"123":1,"124":2}
-            'order.*' => ['required','integer','min:1'],
-        ]);
-
-        $validIds = $checklist->items()->pluck('id')->all();
-
-        DB::transaction(function () use ($data, $validIds) {
-            foreach ($data['order'] as $itemId => $pos) {
-                $id = (int) $itemId;
-                if (in_array($id, $validIds, true)) {
-                    TicketChecklistItem::where('id', $id)->update(['position' => (int)$pos]);
-                }
+                TicketChecklistItem::create([
+                    'checklist_id' => $cl->id,
+                    'title'        => $t,
+                    'detail'       => !empty($it['detail']) ? (string)$it['detail'] : null,
+                    'recommended'  => array_key_exists('recommended', (array)$it) ? (bool)$it['recommended'] : true,
+                    'done'         => false,
+                    'sort_order'   => $order,
+                    'meta'         => null,
+                ]);
+                $order += 10;
             }
+
+            // ✅ Flags si existen
+            if (Schema::hasColumn('tickets','ai_checklist_generated_at')) {
+                if ($source === 'ai') $ticket->ai_checklist_generated_at = now();
+            }
+            if (Schema::hasColumn('tickets','ai_checklist_opt_out')) {
+                $ticket->ai_checklist_opt_out = false;
+            }
+            $ticket->save();
+
+            TicketAudit::create([
+                'ticket_id' => $ticket->id,
+                'user_id'   => auth()->id(),
+                'action'    => 'checklist_created_on_ticket_create',
+                'diff'      => [
+                    'checklist_id' => $cl->id,
+                    'source'       => $source,
+                    'items'        => $cl->items()->count(),
+                ],
+            ]);
+
+            return $cl;
         });
-
-        return response()->json(['ok'=>true]);
     }
 
-    public function toggleAll(Request $r, TicketChecklist $checklist)
+    public function generateAi(Request $r, Ticket $ticket, TicketChecklistAiService $ai)
     {
-        $data = $r->validate(['done'=>['required','boolean']]);
-        $checklist->items()->update(['is_done' => (bool)$data['done']]);
+        if (!$this->canWorkTicket($ticket)) abort(403, 'No tienes permiso para generar checklist.');
 
-        return $r->wantsJson() ? response()->json(['ok'=>true])
-                               : back()->with('ok', $data['done'] ? 'Todos marcados' : 'Todos desmarcados');
-    }
-
-    public function exportPdf(TicketChecklist $checklist)
-    {
-        $checklist->load(['items','ticket']);
-        if (!class_exists(\Barryvdh\DomPDF\ServiceProvider::class) && !function_exists('PDF')) {
-            abort(501, 'PDF no disponible. Instala barryvdh/laravel-dompdf.');
-        }
-        $pdf = PDF::loadView('tickets.exports.checklist_pdf', compact('checklist'));
-        return $pdf->download("Checklist-{$checklist->id}.pdf");
-    }
-
-    public function exportWord(TicketChecklist $checklist)
-    {
-        $checklist->load(['items','ticket']);
-        if (!class_exists(PhpWord::class)) {
-            abort(501, 'Word no disponible. Instala phpoffice/phpword.');
+        $existing = $ticket->checklists()->where('source','ai')->latest('id')->first();
+        if ($existing) {
+            return back()->with('ok', 'Ya existe un checklist generado por IA.');
         }
 
-        $phpWord  = new PhpWord();
-        $section  = $phpWord->addSection();
-        $section->addTitle("Checklist: {$checklist->title}", 1);
-        $section->addText("Ticket: {$checklist->ticket->folio} - {$checklist->ticket->title}");
+        return DB::transaction(function () use ($ticket, $ai) {
+            $gen = $ai->generateChecklist($ticket);
 
-        foreach ($checklist->items()->orderBy('position')->get() as $it) {
-            $prefix = $it->is_done ? '✅ ' : '☐ ';
-            $val    = is_array($it->value) ? json_encode($it->value, JSON_UNESCAPED_UNICODE) : (string)$it->value;
-            $section->addText($prefix . $it->label . ($val ? " — {$val}" : ''));
-        }
+            $cl = TicketChecklist::create([
+                'ticket_id'   => $ticket->id,
+                'title'       => (string)($gen['title'] ?? 'Checklist sugerido'),
+                'source'      => 'ai',
+                'created_by'  => auth()->id(),
+                'meta'        => $gen['meta'] ?? null,
+            ]);
 
-        $file = storage_path("app/tmp/Checklist-{$checklist->id}.docx");
-        @mkdir(dirname($file), 0775, true);
-        $phpWord->save($file);
+            $order = 10;
+            foreach (($gen['items'] ?? []) as $it) {
+                $t = trim((string)($it['title'] ?? ''));
+                if ($t === '') continue;
 
-        return Response::download($file)->deleteFileAfterSend(true);
+                TicketChecklistItem::create([
+                    'checklist_id' => $cl->id,
+                    'title'        => $t,
+                    'detail'       => $it['detail'] ?? null,
+                    'recommended'  => (bool)($it['recommended'] ?? true),
+                    'done'         => false,
+                    'sort_order'   => $order,
+                    'meta'         => null,
+                ]);
+                $order += 10;
+            }
+
+            if (Schema::hasColumn('tickets','ai_checklist_generated_at')) {
+                $ticket->ai_checklist_generated_at = now();
+            }
+            if (Schema::hasColumn('tickets','ai_checklist_opt_out')) {
+                $ticket->ai_checklist_opt_out = false;
+            }
+            $ticket->save();
+
+            TicketAudit::create([
+                'ticket_id' => $ticket->id,
+                'user_id'   => auth()->id(),
+                'action'    => 'checklist_ai_generated',
+                'diff'      => [
+                    'checklist_id' => $cl->id,
+                    'items'        => $cl->items()->count(),
+                ],
+            ]);
+
+            return back()->with('ok', 'Checklist generado con IA.');
+        });
     }
 
-    /** ===== IA: Generar (SIN fallback) ===== */
-    public function suggestFromPrompt(Request $r, Ticket $ticket, TicketStage $stage, AiDynamicChecklistService $ai)
+    public function optOut(Request $r, Ticket $ticket)
     {
-        abort_unless($stage->ticket_id === $ticket->id, 404);
+        if (!$this->canWorkTicket($ticket)) abort(403, 'No tienes permiso.');
 
-        $data = $r->validate(['prompt' => ['required','string','max:1500']]);
+        if (Schema::hasColumn('tickets','ai_checklist_opt_out')) {
+            $ticket->ai_checklist_opt_out = true;
+            $ticket->save();
+        }
 
-        // Llama al servicio (debe devolver JSON con title, instructions, items[])
-        $resp = $ai->checklistFor($data['prompt'], [
-            'ticket'=>[
-                'folio'    => $ticket->folio,
-                'type'     => $ticket->type,
-                'priority' => $ticket->priority,
-                'client'   => $ticket->client_name,
-            ],
-            'stage'=>[
-                'name' => $stage->name,
-                'pos'  => $stage->position,
-            ],
+        TicketAudit::create([
+            'ticket_id' => $ticket->id,
+            'user_id'   => auth()->id(),
+            'action'    => 'checklist_ai_opt_out',
+            'diff'      => ['opt_out' => true],
         ]);
 
-        $title = (string) ($resp['title'] ?? '');
-        $instructions = (string) ($resp['instructions'] ?? '');
-        $items = collect($resp['items'] ?? [])
-            ->map(fn($it) => trim((string)($it['text'] ?? '')))
-            ->filter()
-            ->values()
-            ->all();
+        return back()->with('ok', 'Listo. Ya no se volverá a preguntar por checklist IA.');
+    }
 
-        if ($title === '' || count($items) < 8 || count($items) > 12) {
-            throw ValidationException::withMessages([
-                'prompt' => 'La IA debe devolver título y entre 8–12 acciones medibles. Ajusta el prompt o revisa tu API key/modelo.',
+    public function addItem(Request $r, Ticket $ticket)
+    {
+        if (!$this->canWorkTicket($ticket)) abort(403, 'No tienes permiso.');
+
+        $data = $r->validate([
+            'checklist_id' => ['nullable','integer','exists:ticket_checklists,id'],
+            'title'        => ['required','string','max:180'],
+            'detail'       => ['nullable','string','max:2000'],
+            'recommended'  => ['nullable','boolean'],
+        ]);
+
+        $cl = null;
+        if (!empty($data['checklist_id'])) {
+            $cl = TicketChecklist::where('ticket_id',$ticket->id)->where('id',(int)$data['checklist_id'])->first();
+        }
+        if (!$cl) $cl = $ticket->checklists()->latest('id')->first();
+        if (!$cl) {
+            $cl = TicketChecklist::create([
+                'ticket_id'  => $ticket->id,
+                'title'      => 'Checklist',
+                'source'     => 'manual',
+                'created_by' => auth()->id(),
             ]);
         }
 
+        $max  = (int) TicketChecklistItem::where('checklist_id',$cl->id)->max('sort_order');
+        $sort = $max > 0 ? $max + 10 : 10;
+
+        $item = TicketChecklistItem::create([
+            'checklist_id' => $cl->id,
+            'title'        => $data['title'],
+            'detail'       => $data['detail'] ?? null,
+            'recommended'  => (bool)($data['recommended'] ?? true),
+            'done'         => false,
+            'sort_order'   => $sort,
+        ]);
+
+        TicketAudit::create([
+            'ticket_id' => $ticket->id,
+            'user_id'   => auth()->id(),
+            'action'    => 'checklist_item_added',
+            'diff'      => [
+                'item_id' => $item->id,
+                'title'   => $item->title,
+            ],
+        ]);
+
+        return back()->with('ok', 'Item agregado al checklist.');
+    }
+
+    public function updateItem(Request $r, Ticket $ticket, TicketChecklistItem $item)
+    {
+        if (!$this->canWorkTicket($ticket)) abort(403, 'No tienes permiso.');
+
+        $this->assertItemBelongsToTicketOr404($ticket, $item);
+
+        $data = $r->validate([
+            'title'       => ['nullable','string','max:180'],
+            'detail'      => ['nullable','string','max:2000'],
+            'recommended' => ['nullable','boolean'],
+        ]);
+
+        $before = $item->toArray();
+
+        foreach (['title','detail','recommended'] as $k) {
+            if (array_key_exists($k,$data) && !is_null($data[$k])) $item->{$k} = $data[$k];
+        }
+        $item->save();
+
+        TicketAudit::create([
+            'ticket_id' => $ticket->id,
+            'user_id'   => auth()->id(),
+            'action'    => 'checklist_item_updated',
+            'diff'      => [
+                'item_id' => $item->id,
+                'before'  => [
+                    'title'       => $before['title'] ?? null,
+                    'detail'      => $before['detail'] ?? null,
+                    'recommended' => $before['recommended'] ?? null
+                ],
+                'after'   => [
+                    'title'       => $item->title,
+                    'detail'      => $item->detail,
+                    'recommended' => $item->recommended
+                ],
+            ],
+        ]);
+
+        return back()->with('ok', 'Item actualizado.');
+    }
+
+    public function deleteItem(Request $r, Ticket $ticket, TicketChecklistItem $item)
+    {
+        if (!$this->canWorkTicket($ticket)) abort(403, 'No tienes permiso.');
+
+        $this->assertItemBelongsToTicketOr404($ticket, $item);
+
+        $id    = $item->id;
+        $title = $item->title;
+
+        $item->delete();
+
+        TicketAudit::create([
+            'ticket_id' => $ticket->id,
+            'user_id'   => auth()->id(),
+            'action'    => 'checklist_item_deleted',
+            'diff'      => ['item_id'=>$id,'title'=>$title],
+        ]);
+
+        return back()->with('ok', 'Item eliminado.');
+    }
+
+    /**
+     * ✅ NUEVO (AJAX)
+     * PUT /tickets/{ticket}/checklist-items/{item}
+     * name: tickets.checklist-items.toggle
+     *
+     * Body JSON: { done: true|false, evidence_note?: string }
+     */
+    public function toggle(Request $r, Ticket $ticket, TicketChecklistItem $item)
+    {
+        if (!$this->canWorkTicket($ticket)) {
+            return response()->json(['message' => 'No tienes permiso.'], 403);
+        }
+
+        $this->assertItemBelongsToTicketOr404($ticket, $item);
+
+        $data = $r->validate([
+            'done'          => ['required','boolean'],
+            'evidence_note' => ['nullable','string','max:3000'],
+        ]);
+
+        $beforeDone = (bool)$item->done;
+
+        $item->done = (bool)$data['done'];
+        if ($item->done) {
+            $item->done_at = now();
+            $item->done_by = auth()->id();
+        } else {
+            $item->done_at = null;
+            $item->done_by = null;
+        }
+
+        if (array_key_exists('evidence_note', $data)) {
+            $item->evidence_note = $data['evidence_note'] ?? null;
+        }
+
+        $item->save();
+
+        TicketAudit::create([
+            'ticket_id' => $ticket->id,
+            'user_id'   => auth()->id(),
+            'action'    => 'checklist_item_toggled',
+            'diff'      => [
+                'item_id'       => $item->id,
+                'from'          => $beforeDone,
+                'to'            => (bool)$item->done,
+                'evidence_note' => (string)($item->evidence_note ?? ''),
+            ],
+        ]);
+
         return response()->json([
-            'ok'           => true,
-            'title'        => $title,
-            'instructions' => $instructions,
-            'items'        => $items,
+            'ok'   => true,
+            'done' => (bool)$item->done,
         ]);
     }
 
-    /** Crear checklist a partir del resultado de IA */
-    public function createFromAi(Request $r, Ticket $ticket)
+    /**
+     * ✅ LEGACY (FORM)
+     * Si lo sigues usando desde un form normal, funciona.
+     * Si llega por AJAX, también responde JSON.
+     */
+    public function toggleDone(Request $r, Ticket $ticket, TicketChecklistItem $item)
     {
+        if (!$this->canWorkTicket($ticket)) abort(403, 'No tienes permiso.');
+
+        $this->assertItemBelongsToTicketOr404($ticket, $item);
+
         $data = $r->validate([
-            'stage_id' => ['required','integer','exists:ticket_stages,id'],
-            'title'    => ['nullable','string','max:160'],
-            'items'    => ['required','array','min:8','max:12'],
-            'items.*'  => ['required','string','max:500'],
+            'done'          => ['required','boolean'],
+            'evidence_note' => ['nullable','string','max:3000'],
         ]);
 
-        $stage = TicketStage::findOrFail($data['stage_id']);
-        abort_unless($stage->ticket_id === $ticket->id, 404);
+        $beforeDone = (bool)$item->done;
 
-        $check = TicketChecklist::create([
-            'ticket_id' => $ticket->id,
-            'stage_id'  => $stage->id,
-            'title'     => $data['title'] ?: 'Checklist IA',
-            'meta'      => ['source'=>'ai'],
-        ]);
-
-        $pos = 1; $bulk = [];
-        foreach ($data['items'] as $text) {
-            $bulk[] = [
-                'checklist_id' => $check->id,
-                'label'        => trim($text),
-                'type'         => 'checkbox',
-                'position'     => $pos++,
-                'is_done'      => false,
-                'created_at'   => now(),
-                'updated_at'   => now(),
-            ];
+        $item->done = (bool)$data['done'];
+        if ($item->done) {
+            $item->done_at = now();
+            $item->done_by = auth()->id();
+        } else {
+            $item->done_at = null;
+            $item->done_by = null;
         }
-        TicketChecklistItem::insert($bulk);
 
-        return response()->json(['ok'=>true,'checklist_id'=>$check->id]);
+        if (array_key_exists('evidence_note',$data)) {
+            $item->evidence_note = $data['evidence_note'] ?? null;
+        }
+
+        $item->save();
+
+        TicketAudit::create([
+            'ticket_id' => $ticket->id,
+            'user_id'   => auth()->id(),
+            'action'    => 'checklist_item_toggled',
+            'diff'      => [
+                'item_id'       => $item->id,
+                'from'          => $beforeDone,
+                'to'            => (bool)$item->done,
+                'evidence_note' => (string)($item->evidence_note ?? ''),
+            ],
+        ]);
+
+        if ($r->expectsJson()) {
+            return response()->json(['ok' => true, 'done' => (bool)$item->done]);
+        }
+
+        return back()->with('ok', 'Checklist actualizado.');
     }
 }

@@ -1952,3 +1952,27 @@ Route::middleware(['auth'])->group(function () {
         ->name('tickets.forceReopen');
 
 });
+
+Route::middleware(['auth'])->group(function () {
+
+    // ✅ PREVIEW IA para CREATE (NO hay ticket aún)
+    Route::post('tickets/checklist/preview-ai', [TicketChecklistController::class, 'previewAi'])
+        ->name('tickets.checklist.preview');
+
+    // ✅ Rutas normales (con ticket ya creado)
+    Route::prefix('tickets/{ticket}')->group(function () {
+        Route::post('checklist/ai-generate', [TicketChecklistController::class, 'generateAi'])->name('tickets.checklist.ai');
+        Route::post('checklist/opt-out',     [TicketChecklistController::class, 'optOut'])->name('tickets.checklist.optout');
+
+        Route::post('checklist/items', [TicketChecklistController::class, 'addItem'])->name('tickets.checklist.items.add');
+        Route::put('checklist/items/{item}', [TicketChecklistController::class, 'updateItem'])->name('tickets.checklist.items.update');
+        Route::delete('checklist/items/{item}', [TicketChecklistController::class, 'deleteItem'])->name('tickets.checklist.items.delete');
+
+        Route::post('checklist/items/{item}/done', [TicketChecklistController::class, 'toggleDone'])->name('tickets.checklist.items.done');
+    });
+});
+
+Route::middleware(['auth'])->group(function () {
+    Route::put('/tickets/{ticket}/checklist-items/{item}', [TicketChecklistController::class, 'toggle'])
+        ->name('tickets.checklist-items.toggle');
+});

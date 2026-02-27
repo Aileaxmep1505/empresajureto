@@ -8,11 +8,12 @@
   use Illuminate\Support\Str;
   use Illuminate\Support\Facades\Schema;
 
+  try { \Carbon\Carbon::setLocale('es'); } catch (\Throwable $e) {}
+
   $statuses   = $statuses   ?? \App\Http\Controllers\Tickets\TicketController::STATUSES;
   $priorities = $priorities ?? \App\Http\Controllers\Tickets\TicketController::PRIORITIES;
   $areas      = $areas      ?? \App\Http\Controllers\Tickets\TicketController::AREAS;
 
-  // ✅ Workflow base (pasos reales del proceso)
   $workflow = [
     'pendiente'  => ['label'=>'Pendiente', 'key'=>'pendiente'],
     'revision'   => ['label'=>'En revisión', 'key'=>'revision'],
@@ -21,31 +22,19 @@
     'pruebas'    => ['label'=>'En pruebas', 'key'=>'pruebas'],
     'completado' => ['label'=>'Completado', 'key'=>'completado'],
     'cancelado'  => ['label'=>'Cancelado', 'key'=>'cancelado'],
-
-    // ✅ Estado informativo (cuando regresa a empezar)
     'reabierto'  => ['label'=>'Reabierto', 'key'=>'reabierto'],
   ];
 
-  // ✅ Secuencia estricta (no incluye bloqueado)
   $strict = ['pendiente','revision','progreso','pruebas','completado'];
   $strictIndex = array_flip($strict);
 
-  // Estado actual real
   $current = $ticket->status ?: 'pendiente';
-
-  // ✅ REGLA: si está "reabierto" -> debe volver a recorrer el proceso desde el punto de reapertura.
-  // En tu sistema, cuando se reabre con back_to="reabierto", significa "volver a empezar".
-  // Entonces lo tratamos como "pendiente" para el flujo, pero mostramos el pill como "reabierto".
   $isReopened = ($current === 'reabierto');
-
-  // "currentFlow" es el estado que manda el flujo (para reglas de avance)
   $currentFlow = $isReopened ? 'pendiente' : $current;
-
-  // Para el usuario: etiqueta visible
   $currentLabel = $statuses[$current] ?? ($workflow[$current]['label'] ?? $current);
 
   $isFinal = in_array($current, ['completado','cancelado'], true);
-  $canComplete = ($currentFlow === 'pruebas'); // ✅ finalizar solo desde pruebas
+  $canComplete = ($currentFlow === 'pruebas');
   $canCancel = !$isFinal;
 
   $isAssignee = auth()->check() && (string)auth()->id() === (string)($ticket->assignee_id ?? '');
@@ -65,7 +54,6 @@
     };
   };
 
-  // ✅ calcular siguiente paso estricto a partir del flujo (reabierto => empieza como pendiente)
   $nextStrict = null;
   if (isset($strictIndex[$currentFlow]) && $strictIndex[$currentFlow] < count($strict)-1) {
     $nextStrict = $strict[$strictIndex[$currentFlow] + 1];
@@ -73,28 +61,16 @@
     $nextStrict = 'progreso';
   }
 
-  // ✅ Regla de movimientos:
-  // - No saltos (secuencia estricta)
-  // - bloqueado se permite siempre
-  // - cancelado se permite siempre
-  // - completado solo desde botón Finalizar (no desde mover aquí)
-  // - Si el ticket está "reabierto", el flujo volvió a arrancar (desde pendiente), por eso NO te deja brincar.
   $canMoveTo = function(string $target) use ($current, $currentFlow, $nextStrict){
     if (in_array($current, ['completado','cancelado'], true)) return false;
-
-    // En reabierto, solo cuenta el flujo
     if ($target === $currentFlow) return false;
 
     if ($target === 'cancelado') return true;
     if ($target === 'completado') return false;
 
-    // bloqueado siempre permitido
     if ($target === 'bloqueado') return true;
-
-    // si estaba bloqueado, se permite reanudar a progreso o pruebas
     if ($currentFlow === 'bloqueado') return in_array($target, ['progreso','pruebas'], true);
 
-    // estrictamente el siguiente
     return $target === $nextStrict;
   };
 
@@ -107,7 +83,6 @@
     $mime = data_get($d, 'meta.mime') ?: (string)($d->mime ?? '');
     $name = (string)($d->name ?? '');
     $ext  = strtolower(pathinfo($name, PATHINFO_EXTENSION));
-
     if (Str::startsWith($mime, 'image/')) return 'image';
     if (Str::startsWith($mime, 'video/')) return 'video';
     if (Str::startsWith($mime, 'audio/')) return 'audio';
@@ -115,26 +90,17 @@
     return 'file';
   };
 
-  // ✅ Pasos visibles del proceso (la línea de progreso NO incluye reabierto)
   $steps = ['pendiente','revision','progreso','bloqueado','pruebas'];
   $order = ['pendiente','revision','progreso','bloqueado','pruebas'];
 
-  // posición según flujo
   $pos = array_search($currentFlow, $order, true);
-  if ($pos === false) {
-    $pos = in_array($current, ['completado','cancelado'], true) ? count($order) : 0;
-  }
+  if ($pos === false) $pos = in_array($current, ['completado','cancelado'], true) ? count($order) : 0;
 
-  // ✅ En reabierto: “reinicia” completados (empieza desde pendiente)
   $isStepDone = function(string $key) use ($order, $pos, $current, $currentFlow){
     $i = array_search($key, $order, true);
     if ($i === false) return false;
-
     if (in_array($current, ['completado','cancelado'], true)) return true;
-
-    // bloqueado se considera hasta progreso como hecho
     if ($currentFlow === 'bloqueado') return $i <= array_search('progreso', $order, true);
-
     return $i < $pos;
   };
 
@@ -146,9 +112,8 @@
   $n = count($order);
   $fillIndex = 0;
   if ($n > 1) {
-    if ($isFinal) {
-      $fillIndex = $n - 1;
-    } elseif ($currentFlow === 'bloqueado') {
+    if ($isFinal) $fillIndex = $n - 1;
+    elseif ($currentFlow === 'bloqueado') {
       $fillIndex = (int) array_search('progreso', $order, true);
       if ($fillIndex < 0) $fillIndex = 0;
     } else {
@@ -159,7 +124,6 @@
   }
   $lineFill = ($n > 1) ? round(($fillIndex / ($n - 1)) * 100) : 0;
 
-  // ✅ Íconos
   $I = function($name){
     $icons = [
       'arrowLeft' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>',
@@ -181,6 +145,7 @@
       'pdf'       => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>',
       'warn'      => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>',
       'bolt'      => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z"/></svg>',
+      'list'      => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>',
     ];
     return $icons[$name] ?? $icons['info'];
   };
@@ -196,7 +161,6 @@
   $prioLabel = $priorities[$prioKey] ?? ($prioKey ?: '—');
   $prioIsHigh = in_array(mb_strtolower($prioKey), ['alta','high','urgente','critica','crítico','critico'], true);
 
-  // ✅ versión de reapertura para resetear timer en front (si existe)
   $reopenVer = null;
   if (Schema::hasColumn('tickets','reopened_at') && !empty($ticket->reopened_at)) {
     $reopenVer = optional($ticket->reopened_at)->timestamp;
@@ -205,6 +169,30 @@
   } else {
     $reopenVer = time();
   }
+
+  // ✅ CHECKLIST REAL
+  $checklistModel = null;
+  try {
+    if (isset($ticket->checklist) && $ticket->checklist) {
+      $checklistModel = $ticket->checklist;
+      if (!$checklistModel->relationLoaded('items')) $checklistModel->load('items');
+    } else {
+      $checklistModel = \App\Models\TicketChecklist::with('items')
+        ->where('ticket_id', $ticket->id)
+        ->orderByDesc('id')
+        ->first();
+    }
+  } catch (\Throwable $e) { $checklistModel = null; }
+
+  $checklistItems = $checklistModel?->items ?? collect();
+  $hasChecklist = $checklistItems->count() > 0;
+
+  // ✅ IDs para separar comentarios (izq quien asignó/creó, der encargado)
+  $creatorId = null;
+  if (Schema::hasColumn('tickets','created_by')) $creatorId = (int)($ticket->created_by ?? 0);
+  if (!$creatorId && Schema::hasColumn('tickets','user_id')) $creatorId = (int)($ticket->user_id ?? 0);
+
+  $assigneeId = (int)($ticket->assignee_id ?? 0);
 @endphp
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -212,518 +200,92 @@
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
+<link rel="stylesheet" href="{{ asset('css/ticket-work.css') }}?v={{ time() }}">
+
 <div id="jtTicketWork">
+
+  {{-- Ajustes SOLO para este contenedor (no mover diseño global) --}}
   <style>
-    #jtTicketWork, #jtTicketWork *{ box-sizing:border-box; }
+    /* Checklist tachado */
+    #jtTicketWork .jt-checkRow.is-done .jt-checkTxt{ text-decoration: line-through; opacity:.78; }
+    #jtTicketWork .jt-checkRow.is-done .jt-checkTxt .jt-muted{ text-decoration:none; opacity:1; }
 
-    #jtTicketWork{
-      --jt-primary: #3b82f6;
-      --jt-primary-hover: #2563eb;
-      --jt-primary-soft: rgba(59, 130, 246, 0.08);
-      --jt-primary-ring: rgba(59, 130, 246, 0.3);
-
-      --jt-success: #10b981;
-      --jt-success-hover: #059669;
-      --jt-danger: #ef4444;
-      --jt-warning: #f59e0b;
-
-      --jt-bg: #f8fafc;
-      --jt-surface: #ffffff;
-
-      --jt-ink: #0f172a;
-      --jt-muted: #64748b;
-      --jt-line: #e2e8f0;
-
-      --jt-shadow-sm: 0 1px 2px 0 rgba(15, 23, 42, 0.04);
-      --jt-shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.05), 0 2px 4px -2px rgba(15, 23, 42, 0.03);
-      --jt-shadow-lg: 0 10px 15px -3px rgba(15, 23, 42, 0.08), 0 4px 6px -4px rgba(15, 23, 42, 0.04);
-      --jt-shadow-modal: 0 25px 50px -12px rgba(15, 23, 42, 0.25);
-
-      --jt-r-sm: 0.5rem; --jt-r-md: 0.75rem; --jt-r-lg: 1rem; --jt-r-xl: 1.25rem;
-      --jt-tr: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-
-      font-family: 'Inter', system-ui, -apple-system, sans-serif;
-      color: var(--jt-ink);
-      font-weight: 400;
-
-      padding: 1.5rem;
-      position: relative;
-      z-index: 0;
-      isolation: isolate;
-      animation: jtFadeIn .4s ease-out;
-      background-color: transparent;
-    }
-    @keyframes jtFadeIn{ from{opacity:0; transform:translateY(10px)} to{opacity:1; transform:translateY(0)} }
-
-    #jtTicketWork .jt-ico{ width:1.2rem; height:1.2rem; display:inline-flex; align-items:center; justify-content:center; }
-    #jtTicketWork .jt-ico svg{ width:100%; height:100%; }
-
-    #jtTicketWork .jt-muted{ color: var(--jt-muted); font-size:.875rem; font-weight:500; }
-
-    #jtTicketWork .jt-topbar{
-      padding: 1.25rem 1.75rem;
-      background: rgba(255, 255, 255, 0.85);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border: 1px solid rgba(226, 232, 240, 0.8);
-      border-radius: var(--jt-r-xl);
-      box-shadow: var(--jt-shadow-sm);
-      position: sticky; top: 16px; z-index: 10;
-      transition: var(--jt-tr);
-    }
-    #jtTicketWork .jt-topbar:hover { box-shadow: var(--jt-shadow-md); }
-    #jtTicketWork .jt-topbarGrid{
-      display:grid;
-      grid-template-columns: minmax(0,1fr) auto;
-      gap: 1.5rem;
-      align-items:center;
-    }
-    @media (max-width: 992px){ #jtTicketWork .jt-topbarGrid{ grid-template-columns: 1fr; } }
-
-    #jtTicketWork .jt-title{
-      font-size: 1.5rem;
-      font-weight: 700;
-      letter-spacing: -0.025em;
-      margin: 0 0 .5rem 0;
-      line-height: 1.2;
-      color: var(--jt-ink);
-    }
-
-    #jtTicketWork .jt-metaRow{ display:flex; flex-wrap:wrap; gap:.75rem 1.5rem; align-items:center; }
-    #jtTicketWork .jt-pills{ margin-top: 1rem; display:flex; flex-wrap:wrap; gap:.5rem; }
-
-    #jtTicketWork .jt-pill{
-      padding: .3rem .8rem;
-      border-radius: 9999px;
-      font-size: .75rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: .05em;
-      display:inline-flex; align-items:center; gap:.4rem;
-      white-space: nowrap;
-      border: 1px solid transparent;
-      transition: var(--jt-tr);
-    }
-    #jtTicketWork .jt-pill.blue{ background: var(--jt-primary-soft); color: var(--jt-primary-hover); border-color: rgba(59, 130, 246, 0.1); }
-    #jtTicketWork .jt-pill.green{ background: rgba(16, 185, 129, 0.1); color: #047857; border-color: rgba(16, 185, 129, 0.2); }
-    #jtTicketWork .jt-pill.amber{ background: rgba(245, 158, 11, 0.1); color: #b45309; border-color: rgba(245, 158, 11, 0.2); }
-    #jtTicketWork .jt-pill.red{ background: rgba(239, 68, 68, 0.1); color: #b91c1c; border-color: rgba(239, 68, 68, 0.2); }
-    #jtTicketWork .jt-pill.slate{ background: #f8fafc; color: #475569; border: 1px solid var(--jt-line); }
-
-    #jtTicketWork .jt-pillHigh{
-      background: rgba(239, 68, 68, 0.08);
-      color: #b91c1c;
-      border-color: rgba(239, 68, 68, 0.3);
-      box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.05);
-      font-weight: 700;
-    }
-    #jtTicketWork .jt-prioTag{
-      padding: 2px 6px;
-      border-radius: 999px;
-      font-size: 10px;
-      font-weight: 800;
-      letter-spacing: .05em;
-      background: rgba(239, 68, 68, 0.15);
-      color: #b91c1c;
-    }
-
-    #jtTicketWork .jt-actionsCol{ display:flex; flex-direction:column; gap:.75rem; align-items:flex-end; }
-    @media (max-width: 992px){ #jtTicketWork .jt-actionsCol{ align-items:flex-start; } }
-    #jtTicketWork .jt-actionsRow{ display:flex; gap:.75rem; flex-wrap:wrap; }
-
-    #jtTicketWork .jt-btn{
-      display:inline-flex; align-items:center; gap:.5rem;
-      padding: .6rem 1.15rem;
-      border-radius: var(--jt-r-sm);
-      font-size: .875rem;
-      font-weight: 600;
-      text-decoration:none;
-      transition: var(--jt-tr);
-      cursor:pointer;
-      border: 1px solid var(--jt-line);
-      background: var(--jt-surface);
-      color: var(--jt-ink);
-      box-shadow: var(--jt-shadow-sm);
-      white-space: nowrap;
-    }
-    #jtTicketWork .jt-btn:hover:not(:disabled){
-      background: #f8fafc;
-      transform: translateY(-1px);
-      box-shadow: var(--jt-shadow-md);
-      border-color: #cbd5e1;
-    }
-    #jtTicketWork .jt-btn:disabled{ opacity:.5; cursor:not-allowed; transform:none; box-shadow:none; }
-    #jtTicketWork .jt-btn:focus-visible{ outline: none; box-shadow: 0 0 0 3px var(--jt-primary-ring); }
-
-    #jtTicketWork .jt-btnPrimary{ background: var(--jt-primary); color:#fff; border-color: transparent; box-shadow: 0 2px 4px rgba(59, 130, 246, 0.25); }
-    #jtTicketWork .jt-btnPrimary:hover:not(:disabled){ background: var(--jt-primary-hover); color:#fff; box-shadow: 0 4px 6px rgba(59, 130, 246, 0.3); }
-
-    #jtTicketWork .jt-btnSuccess{ background: var(--jt-success); color:#fff; border-color: transparent; box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2); }
-    #jtTicketWork .jt-btnSuccess:hover:not(:disabled){ background: var(--jt-success-hover); color:#fff; }
-
-    #jtTicketWork .jt-btnDanger{ background: #fff; color: var(--jt-danger); border-color: rgba(239, 68, 68, 0.3); }
-    #jtTicketWork .jt-btnDanger:hover:not(:disabled){ background: #fef2f2; border-color: var(--jt-danger); }
-
-    #jtTicketWork .jt-grid{
-      margin-top: 1.5rem;
-      display:grid;
-      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
-      gap: 1.5rem;
-    }
-    @media (max-width: 992px){ #jtTicketWork .jt-grid{ grid-template-columns: 1fr; } }
-
-    #jtTicketWork .jt-card{
-      background: var(--jt-surface);
-      border: 1px solid var(--jt-line);
-      border-radius: var(--jt-r-xl);
-      box-shadow: var(--jt-shadow-sm);
-      overflow:hidden;
-      margin-bottom: 1.5rem;
-      transition: var(--jt-tr);
-    }
-    #jtTicketWork .jt-card:hover{ box-shadow: var(--jt-shadow-md); }
-    #jtTicketWork .jt-cardHd{
-      padding: 1.25rem 1.5rem;
-      border-bottom: 1px solid var(--jt-line);
-      background: #fff;
-      display:flex; align-items:center; justify-content:space-between; gap:1rem;
-    }
-    #jtTicketWork .jt-cardT{
-      font-weight: 600;
-      font-size: 1.05rem;
-      margin:0;
-      display:flex; align-items:center; gap:.6rem;
-      color: var(--jt-ink);
-    }
-    #jtTicketWork .jt-cardBd{ padding: 1.5rem; }
-
-    #jtTicketWork .jt-tl{
-      position:relative;
-      padding-left:.5rem;
+    /* Comentarios: izquierda/derecha dentro del contenedor de discusión */
+    #jtTicketWork .jt-chatWrap{ display:flex; flex-direction:column; gap:12px; }
+    #jtTicketWork .jt-msg{
       display:flex;
-      flex-direction:column;
-      gap: 1.25rem;
-    }
-    #jtTicketWork .jt-tl::before{
-      content:'';
-      position:absolute;
-      left: 19px;
-      top: 12px;
-      bottom: 24px;
-      width: 2px;
-      background: linear-gradient(
-        to bottom,
-        var(--jt-primary) 0%,
-        var(--jt-primary) var(--jt-line-fill, 0%),
-        var(--jt-line) var(--jt-line-fill, 0%),
-        var(--jt-line) 100%
-      );
-      z-index:0;
-      border-radius: 999px;
-      transition: background 0.5s ease;
-    }
-
-    #jtTicketWork .jt-tlStep{
-      position:relative; z-index:1;
-      display:grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: 1rem;
-      align-items:center;
-      padding: 0.5rem 0;
-    }
-    @media (max-width: 576px){ #jtTicketWork .jt-tlStep{ grid-template-columns: 1fr; } }
-
-    #jtTicketWork .jt-stepInfo{ display:flex; align-items:center; gap: 1.25rem; min-width:0; }
-
-    #jtTicketWork .jt-dot{
-      width: 28px; height:28px;
-      border-radius: 50%;
-      background:#fff;
-      border: 2px solid var(--jt-line);
-      flex: 0 0 auto;
-      box-shadow: 0 0 0 4px var(--jt-surface);
-      display:grid;
-      place-items:center;
-      transition: var(--jt-tr);
-    }
-
-    #jtTicketWork .jt-tlStep.is-done .jt-dot{
-      border-color: var(--jt-success);
-      background: var(--jt-success);
-      box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1);
-    }
-    #jtTicketWork .jt-tlStep.is-done .jt-dot::after{
-      content:'';
-      width: 10px;
-      height: 6px;
-      border-left: 2px solid #fff;
-      border-bottom: 2px solid #fff;
-      transform: rotate(-45deg);
-      margin-top:-2px;
-    }
-
-    #jtTicketWork .jt-tlStep.is-active .jt-dot{
-      border-color: var(--jt-primary);
-      background: var(--jt-primary);
-      box-shadow: 0 0 0 6px var(--jt-primary-soft);
-    }
-    #jtTicketWork .jt-tlStep.is-active .jt-dot::after{
-      content:''; width: 8px; height: 8px; background: #fff; border-radius: 50%;
-    }
-
-    #jtTicketWork .jt-stepName{
-      font-weight: 500;
-      font-size: .95rem;
-      color: var(--jt-muted);
-      transition: var(--jt-tr);
-    }
-    #jtTicketWork .jt-tlStep.is-active .jt-stepName{
-      font-weight: 700;
-      color: var(--jt-ink);
-      font-size: 1rem;
-    }
-    #jtTicketWork .jt-tlStep.is-done .jt-stepName{
-      color: var(--jt-ink);
-      font-weight: 500;
-    }
-
-    #jtTicketWork .jt-stepSub{
-      font-size:.7rem;
-      color: var(--jt-primary);
-      font-weight: 700;
-      margin-top:.3rem;
-      text-transform:uppercase;
-      letter-spacing:.08em;
-    }
-
-    #jtTicketWork .jt-timer{
-      text-align:center;
-      padding: 2rem 1.5rem;
-      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-      border-radius: var(--jt-r-xl);
-      color:#fff;
-      border: 1px solid #334155;
-      box-shadow: 0 10px 15px -3px rgba(15, 23, 42, 0.15), inset 0 2px 4px rgba(255,255,255,0.05);
-      position: relative;
-      overflow: hidden;
-    }
-    #jtTicketWork .jt-timer::before {
-      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-    }
-    #jtTicketWork .jt-timerLbl{
-      font-size:.75rem;
-      font-weight: 600;
-      text-transform:uppercase;
-      letter-spacing:.15em;
-      color:#94a3b8;
-    }
-    #jtTicketWork .jt-timerVal{
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      font-size: 3.5rem;
-      font-weight: 300;
-      letter-spacing: -0.03em;
-      margin: 1rem 0 1.5rem;
-      color: #38bdf8;
-      text-shadow: 0 0 15px rgba(56, 189, 248, 0.2);
-      transition: text-shadow 0.3s ease, color 0.3s ease;
-    }
-    #jtTicketWork .jt-timerBtns{ display:flex; justify-content:center; gap:1rem; flex-wrap:wrap; }
-    #jtTicketWork .jt-btnTimer{
-      background: rgba(255,255,255,0.08);
-      color:#f8fafc;
-      border: 1px solid rgba(255,255,255,0.1);
-      font-weight: 500;
-      backdrop-filter: blur(4px);
-    }
-    #jtTicketWork .jt-btnTimer:hover:not(:disabled){ background: rgba(255,255,255,0.15); transform: translateY(-1px); }
-    #jtTicketWork .jt-btnIcon{ padding: .65rem; border-radius: var(--jt-r-md); }
-
-    #jtTicketWork textarea.jt-input{
       width:100%;
+      margin: 2px 0;
+    }
+    #jtTicketWork .jt-msg.is-left{ justify-content:flex-start; }
+    #jtTicketWork .jt-msg.is-right{ justify-content:flex-end; }
+
+    #jtTicketWork .jt-bubble{
+      width: min(520px, 92%);
       border: 1px solid var(--jt-line);
-      border-radius: var(--jt-r-md);
-      padding: 1rem 1.25rem;
-      font-family: inherit;
-      font-size: .95rem;
-      resize: vertical;
-      min-height: 110px;
-      background: var(--jt-surface);
-      transition: var(--jt-tr);
-      font-weight: 400;
-      color: var(--jt-ink);
-      line-height: 1.5;
+      background:#fff;
+      border-radius: 16px;
+      padding: 12px 12px 10px;
+      box-shadow: var(--jt-shadow-sm);
     }
-    #jtTicketWork textarea.jt-input::placeholder{ color: #94a3b8; }
-    #jtTicketWork textarea.jt-input:focus{
-      outline:none;
-      border-color: var(--jt-primary);
-      box-shadow: 0 0 0 4px var(--jt-primary-soft);
-    }
-
-    #jtTicketWork .jt-cmt{
-      background: var(--jt-surface);
-      border-left: 3px solid var(--jt-line);
-      padding: 0 0 0 1.25rem;
-      margin-bottom: 1.5rem;
-      position: relative;
-    }
-    #jtTicketWork .jt-cmtHd{
-      display:flex;
-      justify-content:space-between;
-      gap: 1rem;
-      align-items:center;
-      margin-bottom: .5rem;
-    }
-    #jtTicketWork .jt-cmtUser{ font-weight: 600; font-size:.95rem; display:flex; align-items:center; gap:.6rem; color: var(--jt-ink); }
-    #jtTicketWork .jt-cmtUser::before{ content:''; width:26px; height:26px; background: linear-gradient(135deg, var(--jt-primary-soft), rgba(59,130,246,0.15)); border-radius:50%; display:block; border: 1px solid rgba(59,130,246,0.1); }
-    #jtTicketWork .jt-cmtTime{ color: var(--jt-muted); font-size:.8rem; font-weight: 500; }
-    #jtTicketWork .jt-cmtBody{ font-size:.95rem; white-space:pre-wrap; color: #334155; line-height: 1.6; background: #f8fafc; padding: 1rem; border-radius: var(--jt-r-md); border: 1px solid var(--jt-line); margin-top: 0.5rem; }
-
-    #jtTicketWork .jt-dl{ display:flex; flex-direction:column; }
-    #jtTicketWork .jt-dlItem{
-      display:grid;
-      grid-template-columns: 140px minmax(0,1fr);
-      gap: 1.5rem;
-      padding: 1.25rem 0;
-      border-bottom: 1px solid var(--jt-line);
-      align-items: start;
-    }
-    #jtTicketWork .jt-dlItem:last-child{ border-bottom:none; padding-bottom:0; }
-    @media (max-width: 576px){ #jtTicketWork .jt-dlItem{ grid-template-columns: 1fr; gap:.4rem; padding: 1rem 0; } }
-    #jtTicketWork .jt-lbl{
-      color: var(--jt-muted);
-      font-size:.8rem;
-      font-weight: 600;
-      text-transform:uppercase;
-      letter-spacing:.08em;
-      margin-top: 0.1rem;
-    }
-    #jtTicketWork .jt-val{ font-weight: 400; font-size:.95rem; min-width:0; color: var(--jt-ink); line-height: 1.6; }
-
-    #jtTicketWork .jt-drop{
-      border: 2px dashed #cbd5e1;
-      border-radius: var(--jt-r-xl);
-      padding: 2.5rem 1.5rem;
-      text-align:center;
+    #jtTicketWork .jt-msg.is-left .jt-bubble{ border-top-left-radius: 10px; }
+    #jtTicketWork .jt-msg.is-right .jt-bubble{
+      border-top-right-radius: 10px;
       background: #f8fafc;
-      transition: var(--jt-tr);
-    }
-    #jtTicketWork .jt-drop:hover{ border-color: var(--jt-primary); background: var(--jt-primary-soft); }
-    #jtTicketWork .jt-fileRow{ display:flex; gap:1rem; margin-top: 1.5rem; align-items:center; justify-content:center; flex-wrap:wrap; }
-    #jtTicketWork .jt-fileName{
-      max-width: 260px;
-      padding: .65rem 1.25rem;
-      background:#fff;
-      border: 1px solid var(--jt-line);
-      border-radius: var(--jt-r-md);
-      font-size:.85rem;
-      color: var(--jt-muted);
-      overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-      font-weight: 500;
-      box-shadow: var(--jt-shadow-sm);
     }
 
-    #jtTicketWork .jt-doc{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap: 1rem;
-      padding: 1.15rem;
-      border: 1px solid var(--jt-line);
-      border-radius: var(--jt-r-lg);
-      margin-bottom: 1rem;
-      background:#fff;
-      transition: var(--jt-tr);
-      box-shadow: var(--jt-shadow-sm);
+    #jtTicketWork .jt-bubbleHd{
+      display:flex; justify-content:space-between; align-items:center; gap:10px;
+      margin-bottom:6px;
     }
-    #jtTicketWork .jt-doc:hover{ border-color: #cbd5e1; box-shadow: var(--jt-shadow-md); transform: translateY(-2px); }
-    #jtTicketWork .jt-docL{ display:flex; align-items:center; gap: 1.25rem; min-width:0; }
-    #jtTicketWork .jt-docIcon{
-      width:48px; height:48px;
-      border-radius: var(--jt-r-md);
-      background: var(--jt-primary-soft);
-      color: var(--jt-primary);
-      display:grid; place-items:center;
-      flex: 0 0 auto;
+    #jtTicketWork .jt-bubbleUser{
+      font-weight:700; font-size:.9rem; color: var(--jt-ink);
+      display:flex; align-items:center; gap:.55rem;
+      min-width:0;
     }
-    #jtTicketWork .jt-docMeta{ min-width:0; }
-    #jtTicketWork .jt-docName{ font-weight: 600; font-size:.95rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width: 280px; color: var(--jt-ink); }
-    #jtTicketWork .jt-docDate{ font-size:.8rem; color: var(--jt-muted); margin-top:.25rem; font-weight: 400; }
-    #jtTicketWork .jt-docBtns{ display:flex; gap:.5rem; flex-wrap:wrap; }
+    #jtTicketWork .jt-bubbleUser::before{
+      content:''; width:26px; height:26px;
+      border-radius:999px;
+      background: linear-gradient(135deg, var(--jt-primary-soft), rgba(59,130,246,0.12));
+      border: 1px solid rgba(59,130,246,0.14);
+      flex:0 0 auto;
+    }
+    #jtTicketWork .jt-msg.is-right .jt-bubbleUser::before{
+      background: linear-gradient(135deg, rgba(15,23,42,0.06), rgba(15,23,42,0.12));
+      border-color: rgba(15,23,42,0.10);
+    }
+    #jtTicketWork .jt-bubbleTime{ color: var(--jt-muted); font-size:.78rem; font-weight:600; white-space:nowrap; }
+    #jtTicketWork .jt-bubbleBody{
+      white-space:pre-wrap;
+      line-height:1.6;
+      color:#334155;
+      font-size:.95rem;
+      font-weight:500;
+    }
 
-    #jtTicketWork .jt-modalBack{
-      position: fixed; inset:0;
-      background: rgba(15, 23, 42, 0.5);
-      backdrop-filter: blur(6px);
-      -webkit-backdrop-filter: blur(6px);
-      display:none;
-      place-items:center;
-      z-index: 9999;
-      padding: 1.5rem;
-    }
-    #jtTicketWork .jt-modalBack.is-open{ display:grid; }
-    #jtTicketWork .jt-modal{
+    /* Modal Finalizar minimalista */
+    #jtTicketWork .jt-modalMini{
       background:#fff;
       width:100%;
-      max-width: 860px;
-      border-radius: 1.5rem;
+      max-width: 760px;
+      border-radius: 18px;
       box-shadow: var(--jt-shadow-modal);
       overflow:hidden;
-      animation: jtZoom .3s cubic-bezier(0.16,1,0.3,1) forwards;
-      border: 1px solid rgba(255,255,255,0.2);
+      border: 1px solid rgba(226,232,240,.9);
     }
-    @keyframes jtZoom{ from{ opacity:0; transform: scale(.97) translateY(10px);} to{ opacity:1; transform: scale(1) translateY(0);} }
-
-    #jtTicketWork .jt-modalHd{
-      padding: 1.25rem 1.5rem;
-      border-bottom: 1px solid var(--jt-line);
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      background: #fff;
+    #jtTicketWork .jt-badgesRow{ display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
+    #jtTicketWork .jt-badge{
+      display:inline-flex; align-items:center; gap:8px;
+      border:1px solid rgba(226,232,240,.9);
+      background:#fff;
+      border-radius:999px;
+      padding:6px 10px;
+      font-weight:800;
+      color:#0f172a;
+      font-size:.8rem;
     }
-    #jtTicketWork .jt-modalBd{ padding: 1.5rem; }
-
-    #jtTicketWork .jt-preview{
-      width:100%;
-      height: 65vh;
-      max-height: 700px;
-      background: #0f172a;
-      border-radius: var(--jt-r-lg);
-      overflow:hidden;
-      display:grid;
-      place-items:center;
-      box-shadow: inset 0 2px 10px rgba(0,0,0,.5);
-    }
-    #jtTicketWork .jt-preview img,
-    #jtTicketWork .jt-preview video,
-    #jtTicketWork .jt-preview iframe{
-      width:100%;
-      height:100%;
-      object-fit: contain;
-      border: none;
-    }
-
-    /* ✅ Banner reabierto */
-    #jtTicketWork .jt-reopenBanner{
-      margin: 12px 0 0;
-      padding: 10px 12px;
-      border-radius: 14px;
-      border: 1px solid rgba(239,68,68,.22);
-      background: rgba(239,68,68,.06);
-      color: #991b1b;
-      font-weight: 700;
-      display:flex;
-      gap:10px;
-      align-items:flex-start;
-    }
-    #jtTicketWork .jt-reopenBanner small{
-      display:block;
-      font-weight: 600;
-      color: rgba(153,27,27,.85);
-      margin-top: 2px;
-    }
+    #jtTicketWork .jt-hr{ height:1px; background: var(--jt-line); margin: 14px 0; }
+    #jtTicketWork .jt-help{ color:#64748b; font-weight:600; font-size:.82rem; margin-top:6px; }
   </style>
 
   {{-- Alertas --}}
@@ -769,12 +331,9 @@
 
           <span class="jt-pill slate">{{ $areas[$ticket->area] ?? ($ticket->area ?: 'Sin área') }}</span>
           <span class="jt-pill {{ $slaClass }}">{{ $slaText }}</span>
-
-          {{-- ✅ estado visible real (puede ser reabierto) --}}
           <span class="jt-pill {{ $pillStatusClass($ticket->status) }}">Estado: {{ $currentLabel }}</span>
         </div>
 
-        {{-- ✅ aviso reabierto (y motivo si existe) --}}
         @if($isReopened || !empty($ticket->reopen_reason))
           <div class="jt-reopenBanner">
             <span class="jt-ico" style="color:#ef4444;">{!! $I('warn') !!}</span>
@@ -820,7 +379,9 @@
               <form method="POST" action="{{ route('tickets.complete',$ticket) }}" id="jtCompleteForm" class="m-0">
                 @csrf
                 <input type="hidden" name="elapsed_seconds" id="jtElapsedComplete" value="0">
-                <button class="jt-btn jt-btnSuccess" type="submit" {{ (!$isAssignee || !$canComplete) ? 'disabled' : '' }}>
+                <input type="hidden" name="completion_detail" id="jtCompletionDetail" value="">
+                <input type="hidden" name="checklist_json" id="jtChecklistJson" value="[]">
+                <button class="jt-btn jt-btnSuccess" type="button" id="jtAskComplete" {{ (!$isAssignee || !$canComplete) ? 'disabled' : '' }}>
                   <span class="jt-ico">{!! $I('check') !!}</span> Finalizar
                 </button>
               </form>
@@ -865,6 +426,58 @@
             @endforeach
           </div>
 
+          {{-- CHECKLIST --}}
+          @if($hasChecklist)
+            <div class="jt-check" id="jtChecklistBox">
+              <div class="jt-checkHd">
+                <h5 class="jt-checkT">
+                  <span class="jt-ico" style="color:var(--jt-primary);">{!! $I('list') !!}</span>
+                  {{ $checklistModel->title ?: 'Checklist para finalizar' }}
+                </h5>
+                <div class="jt-checkMeta" id="jtChecklistMeta">0 de 0</div>
+              </div>
+
+              <div class="jt-checkBd">
+                <div class="jt-muted" style="margin-bottom:10px;">
+                  Marca lo que se realizó. Se guarda al instante y al finalizar se adjunta el detalle.
+                </div>
+
+                @foreach($checklistItems as $it)
+                  @php $done = (bool)($it->done ?? false); @endphp
+                  <label class="jt-checkRow {{ $done ? 'is-done' : '' }}" data-row-for="{{ $it->id }}">
+                    <input
+                      class="jt-box jtChecklistItem"
+                      type="checkbox"
+                      data-id="{{ $it->id }}"
+                      data-text="{{ e($it->title) }}"
+                      {{ $done ? 'checked' : '' }}
+                      {{ (!$isAssignee || $isFinal) ? 'disabled' : '' }}
+                    >
+                    <div class="jt-checkTxt">
+                      {{ $it->title }}
+                      @if(!empty($it->detail))
+                        <div class="jt-muted" style="margin-top:6px; font-weight:700; font-size:.82rem; white-space:pre-wrap;">{{ $it->detail }}</div>
+                      @endif
+                      @if($it->recommended)
+                        <div class="jt-muted" style="margin-top:6px; font-weight:900; font-size:.78rem; color:#2563eb;">Recomendado</div>
+                      @endif
+                    </div>
+                  </label>
+                @endforeach
+
+                @if(!$isAssignee && !$isFinal)
+                  <div class="jt-muted" style="margin-top:10px;">
+                    Solo el asignado puede marcar el checklist.
+                  </div>
+                @endif
+              </div>
+            </div>
+          @else
+            <div class="jt-muted" style="margin-top: 14px; padding: 12px 14px; border:1px dashed var(--jt-line); border-radius: var(--jt-r-xl); background: var(--jt-bg);">
+              No hay checklist configurado para este ticket.
+            </div>
+          @endif
+
           @if(!$isAssignee && !$isFinal)
             <div class="jt-muted" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--jt-line); text-align: center;">
               Solo el asignado puede mover el progreso del ticket.
@@ -873,7 +486,7 @@
 
           @if($isAssignee && !$isFinal)
             <div class="jt-muted" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--jt-line); text-align: center;">
-              Regla: no se puede completar si no pasa por todos los estados (Pendiente → Revisión → Progreso → Pruebas). Bloqueado es opcional.
+              Regla: no se puede completar si no pasa por todos los estados (Pendiente → Revisión → Progreso → Pruebas). En espera es opcional.
             </div>
           @endif
         </div>
@@ -893,14 +506,31 @@
             </div>
           </form>
 
-          <div class="d-flex flex-column">
+          <div class="jt-chatWrap">
             @forelse($ticket->comments ?? [] as $c)
-              <div class="jt-cmt">
-                <div class="jt-cmtHd">
-                  <div class="jt-cmtUser">{{ optional($c->user)->name ?: 'Usuario' }}</div>
-                  <div class="jt-cmtTime">{{ optional($c->created_at)->diffForHumans() }}</div>
+              @php
+                $uid = (int)($c->user_id ?? optional($c->user)->id ?? 0);
+
+                // ✅ izquierda = quien asignó/creó (creatorId)
+                // ✅ derecha = usuario encargado (assigneeId)
+                $side = 'left';
+                if ($assigneeId && $uid === $assigneeId) $side = 'right';
+                elseif ($creatorId && $uid === $creatorId) $side = 'left';
+                else $side = 'left';
+              @endphp
+
+              <div class="jt-msg is-{{ $side }}">
+                <div class="jt-bubble">
+                  <div class="jt-bubbleHd">
+                    <div class="jt-bubbleUser" title="{{ optional($c->user)->name ?: 'Usuario' }}">
+                      <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width: 320px;">
+                        {{ optional($c->user)->name ?: 'Usuario' }}
+                      </span>
+                    </div>
+                    <div class="jt-bubbleTime">{{ optional($c->created_at)->locale('es')->diffForHumans() }}</div>
+                  </div>
+                  <div class="jt-bubbleBody">{{ $c->body }}</div>
                 </div>
-                <div class="jt-cmtBody">{{ $c->body }}</div>
               </div>
             @empty
               <div class="text-center jt-muted py-5" style="background: var(--jt-bg); border-radius: var(--jt-r-lg); border: 1px dashed var(--jt-line);">
@@ -932,6 +562,10 @@
             <button class="jt-btn jt-btnIcon" style="background:transparent; color:#f87171; border: 1px solid rgba(248,113,113,0.3);" type="button" id="jtReset" title="Reiniciar" {{ $isFinal ? 'disabled' : '' }}>
               <span class="jt-ico">{!! $I('trash') !!}</span>
             </button>
+          </div>
+
+          <div class="jt-muted" style="margin-top:12px; text-align:center;">
+            Al entrar a <span style="font-weight:800; color:#e2e8f0;">En progreso</span> el timer inicia automáticamente y no se pausa hasta terminar.
           </div>
         </div>
       </div>
@@ -1021,7 +655,9 @@
                   <div class="jt-docIcon"><span class="jt-ico">{!! $I($docIcon) !!}</span></div>
                   <div class="jt-docMeta">
                     <div class="jt-docName" title="{{ $d->name }}">{{ $d->name }}</div>
-                    <div class="jt-docDate">{{ optional($d->created_at)->format('d M Y') }}</div>
+                    <div class="jt-docDate">
+                      {{ optional($d->created_at)->locale('es')->translatedFormat('d M Y') }}
+                    </div>
                   </div>
                 </div>
 
@@ -1105,10 +741,49 @@
     </div>
   </div>
 
+  {{-- ✅ MODAL FINALIZAR (reemplaza SweetAlert) --}}
+  <div class="jt-modalBack" id="jtCompleteModal">
+    <div class="jt-modalMini">
+      <div class="jt-modalHd">
+        <h4 class="jt-cardT m-0" style="color: var(--jt-success);">
+          <span class="jt-ico">{!! $I('check') !!}</span> Finalizar Ticket
+        </h4>
+        <button class="jt-btn jt-btnIcon" type="button" id="jtCompleteClose" style="border:none; background:transparent;">
+          <span class="jt-ico">{!! $I('x') !!}</span>
+        </button>
+      </div>
+
+      <div class="jt-modalBd">
+        <div class="jt-muted">Antes de finalizar, escribe un detalle claro de lo que se realizó.</div>
+
+        <div class="jt-badgesRow">
+          <span class="jt-badge">⏱️ <span id="jtCompleteTime">00:00:00</span></span>
+          <span class="jt-badge">✅ <span id="jtCompleteChk">0/0</span></span>
+        </div>
+
+        <div class="jt-hr"></div>
+
+        <label class="jt-lbl mb-2 d-block">Detalle de lo realizado (Requerido)</label>
+        <textarea id="jtCompleteDetailInput" class="jt-input" rows="5" placeholder="Ej. Se revisó el requerimiento, se corrigió el problema, se validó en pruebas y se adjuntó evidencia..."></textarea>
+        <div class="jt-help">Incluye qué se cambió, cómo se probó y si se adjuntó evidencia.</div>
+
+        <div class="d-flex gap-2 justify-content-end flex-wrap mt-4">
+          <button class="jt-btn" type="button" id="jtCompleteBack">Volver</button>
+          <button class="jt-btn jt-btnSuccess" type="button" id="jtCompleteConfirm">
+            Finalizar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function(){
+  // ===== CSRF (fetch) =====
+  const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
   // ===== UPLOAD UI =====
   const file = document.getElementById('jtFile');
   const nameEl = document.getElementById('jtFileName');
@@ -1143,19 +818,44 @@ document.addEventListener('DOMContentLoaded', function(){
     });
   }
 
-  // ===== TIMER =====
+  // ===== Modal helper =====
+  function modalApi(modalId, closeBtnIds){
+    const modal = document.getElementById(modalId);
+    const api = {
+      el: modal,
+      open: function(){
+        if(!modal) return;
+        modal.classList.add('is-open');
+        document.body.style.overflow = 'hidden';
+      },
+      close: function(){
+        if(!modal) return;
+        modal.classList.remove('is-open');
+        document.body.style.overflow = '';
+      }
+    };
+
+    if(!modal) return api;
+
+    (closeBtnIds || []).forEach(id => document.getElementById(id)?.addEventListener('click', api.close));
+    modal.addEventListener('mousedown', e => { if(e.target === modal) api.close(); });
+    document.addEventListener('keydown', e => { if(e.key === 'Escape' && modal.classList.contains('is-open')) api.close(); });
+
+    return api;
+  }
+
+  // ===== TIMER (auto-start en progreso y NO se pausa hasta terminar) =====
   const isAssignee = @json($isAssignee);
   const isFinal    = @json($isFinal);
-
-  // 👇 estado real + estado de flujo (reabierto => pendiente)
-  const currentStatusReal = @json((string)$current);
+  const canComplete = @json((bool)$canComplete);
   const currentStatusFlow = @json((string)$currentFlow);
 
   const reopenVer = @json((int)$reopenVer);
-  const key = 'jt_timer_' + @json((string)$ticket->id);
-  const verKey = 'jt_timer_ver_' + @json((string)$ticket->id);
+  const ticketId = @json((string)$ticket->id);
 
-  // ✅ Reset automático del timer cuando cambia la “versión” (reapertura / update)
+  const key = 'jt_timer_' + ticketId;
+  const verKey = 'jt_timer_ver_' + ticketId;
+
   try{
     const prevVer = parseInt(localStorage.getItem(verKey) || '0', 10);
     if(!prevVer || prevVer !== reopenVer){
@@ -1182,11 +882,18 @@ document.addEventListener('DOMContentLoaded', function(){
     return state.running && state.startAt ? (state.elapsed + (nowSecs() - state.startAt)) : state.elapsed;
   }
   function saveState(){ localStorage.setItem(key, JSON.stringify(state)); }
+
   function syncUI(){
     if(el) el.textContent = formatSecs(getElapsed());
 
-    if(btnStart) btnStart.disabled = !isAssignee || isFinal || state.running;
-    if(btnStop)  btnStop.disabled  = !isAssignee || isFinal || !state.running;
+    // ✅ Ya no se usa pause. Mantén diseño, pero deshabilitado.
+    if(btnStop) btnStop.disabled = true;
+
+    // ✅ start manual deshabilitado (solo auto al entrar a progreso)
+    if(btnStart) btnStart.disabled = true;
+
+    // ✅ reset también deshabilitado (no pausar ni resetear hasta terminar)
+    if(btnReset) btnReset.disabled = true;
 
     if(state.running && el) {
       el.style.textShadow = '0 0 20px rgba(56, 189, 248, 0.4)';
@@ -1197,12 +904,15 @@ document.addEventListener('DOMContentLoaded', function(){
     }
   }
 
-  function startTimer(){
-    if(!isAssignee || isFinal || state.running) return;
+  function startTimerForce(){
+    if(!isAssignee || isFinal) return;
+    if(state.running) return;
+
     state.running = true;
     state.startAt = nowSecs();
     state.startedOnce = true;
     saveState();
+
     if(!tInterval) tInterval = setInterval(syncUI, 1000);
     syncUI();
   }
@@ -1217,90 +927,126 @@ document.addEventListener('DOMContentLoaded', function(){
     syncUI();
   }
 
-  btnStart?.addEventListener('click', startTimer);
-  btnStop?.addEventListener('click', stopTimer);
-
-  btnReset?.addEventListener('click', ()=>{
-    if(!isAssignee || isFinal) return;
-    if(confirm('¿Seguro que deseas reiniciar el tiempo?')){
-      state = { running:false, startAt:null, elapsed:0, startedOnce:false };
-      saveState();
-      clearInterval(tInterval); tInterval = null;
-      syncUI();
-    }
-  });
-
-  // ✅ Auto-start solo cuando entra a PROGRESO (del flujo)
-  if(isAssignee && !isFinal && currentStatusFlow === 'progreso' && !state.startedOnce){
-    startTimer();
+  // ✅ Si ya estás en progreso al cargar, iniciar sí o sí
+  if(isAssignee && !isFinal && currentStatusFlow === 'progreso'){
+    startTimerForce();
   }
 
   syncUI();
   if(state.running) tInterval = setInterval(syncUI, 1000);
 
-  // Enviar tiempo al finalizar/cancelar
-  const completeForm = document.getElementById('jtCompleteForm');
+  // Enviar tiempo al cancelar
   const cancelForm   = document.getElementById('jtCancelForm');
-  const elComplete   = document.getElementById('jtElapsedComplete');
   const elCancel     = document.getElementById('jtElapsedCancel');
-
-  completeForm?.addEventListener('submit', function(){
-    if(elComplete) elComplete.value = String(getElapsed());
-    stopTimer();
-  });
-
   cancelForm?.addEventListener('submit', function(){
     if(elCancel) elCancel.value = String(getElapsed());
     stopTimer();
   });
 
-  // En cada cambio de estatus
+  // ✅ En cada cambio de estatus: si el target es progreso, iniciar ANTES de enviar
   document.querySelectorAll('form.jtMoveForm').forEach(function(f){
     f.addEventListener('submit', function(){
       const hid = f.querySelector('.jtElapsedOnMove');
       if(hid) hid.value = String(getElapsed());
 
       const target = f.querySelector('input[name="status"]')?.value || '';
-      if(target === 'progreso' && !state.startedOnce){
-        startTimer();
+      if(target === 'progreso'){
+        startTimerForce(); // ✅ inicia sí o sí
       }
     });
   });
 
-  // ===== MODALS =====
-  function modalApi(modalId, closeBtnIds){
-    const modal = document.getElementById(modalId);
-    const api = {
-      el: modal,
-      open: function(){
-        if(!modal) return;
-        modal.classList.add('is-open');
-        document.body.style.overflow = 'hidden';
-      },
-      close: function(){
-        if(!modal) return;
-        modal.classList.remove('is-open');
-        document.body.style.overflow = '';
-      }
-    };
+  // ===== CHECKLIST (tachado + contador + guarda en BD) =====
+  const hasChecklist = @json((bool)$hasChecklist);
 
-    if(!modal) return api;
-
-    (closeBtnIds || []).forEach(id => document.getElementById(id)?.addEventListener('click', api.close));
-    modal.addEventListener('mousedown', e => { if(e.target === modal) api.close(); });
-    document.addEventListener('keydown', e => { if(e.key === 'Escape' && modal.classList.contains('is-open')) api.close(); });
-
-    return api;
+  function readChecklist(){
+    const items = [];
+    document.querySelectorAll('.jtChecklistItem').forEach(cb => {
+      items.push({
+        id: cb.dataset.id || '',
+        text: cb.dataset.text || '',
+        done: !!cb.checked
+      });
+    });
+    return items;
   }
 
+  function applyRowState(cb){
+    const row = cb.closest('.jt-checkRow');
+    if(!row) return;
+    if(cb.checked) row.classList.add('is-done');
+    else row.classList.remove('is-done');
+  }
+
+  function updateChecklistMeta(){
+    if(!hasChecklist) return;
+    const meta = document.getElementById('jtChecklistMeta');
+    const items = readChecklist();
+    const total = items.length;
+    const done  = items.filter(x => x.done).length;
+    if(meta) meta.textContent = `${done} de ${total}`;
+
+    const btn = document.getElementById('jtAskComplete');
+    if(btn){
+      const baseDisabled = (!isAssignee || isFinal || !canComplete);
+      const okAll = total > 0 ? (done === total) : true;
+      btn.disabled = baseDisabled || !okAll;
+    }
+  }
+
+  document.querySelectorAll('.jtChecklistItem').forEach(cb => applyRowState(cb));
+  updateChecklistMeta();
+
+  async function saveChecklistItemToDb(itemId, done){
+    const url = `/tickets/${encodeURIComponent(ticketId)}/checklist-items/${encodeURIComponent(itemId)}`;
+    const res = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': csrf,
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({ done: !!done })
+    });
+
+    if(!res.ok){
+      let msg = 'No se pudo guardar el checklist.';
+      try{
+        const j = await res.json();
+        msg = j.message || msg;
+      }catch(e){}
+      throw new Error(msg);
+    }
+    return true;
+  }
+
+  document.querySelectorAll('.jtChecklistItem').forEach(cb => {
+    cb.addEventListener('change', async () => {
+      if(!hasChecklist) return;
+
+      applyRowState(cb);
+      updateChecklistMeta();
+
+      const prev = !cb.checked;
+      try{
+        await saveChecklistItemToDb(cb.dataset.id, cb.checked);
+      }catch(err){
+        cb.checked = prev;
+        applyRowState(cb);
+        updateChecklistMeta();
+        alert(err?.message || 'No se pudo guardar. Intenta de nuevo.');
+      }
+    });
+  });
+
+  // ===== MODALS (cancel, preview, finalizar) =====
   const cancelModalObj = modalApi('jtCancelModal', ['jtCancelBack','jtCancelClose']);
   document.getElementById('jtOpenCancel')?.addEventListener('click', () => {
     cancelModalObj.open();
-    setTimeout(() => document.querySelector('#jtCancelForm textarea')?.focus(), 100);
+    setTimeout(() => document.querySelector('#jtCancelForm textarea')?.focus(), 120);
   });
 
   const pvModalObj = modalApi('jtPvModal', ['jtPvClose']);
-
   document.querySelectorAll('[data-preview="1"]').forEach(btn => {
     btn.addEventListener('click', () => {
       const { kind, name, url, download } = btn.dataset;
@@ -1319,7 +1065,7 @@ document.addEventListener('DOMContentLoaded', function(){
       }
 
       if(!url){
-        frame.innerHTML = '<div style="color:#94a3b8; font-weight:500; text-align:center; padding:2rem;">Sin previsualización en línea.<br>Descarga el archivo.</div>';
+        frame.innerHTML = '<div style="color:#94a3b8; font-weight:700; text-align:center; padding:2rem;">Sin previsualización en línea.<br>Descarga el archivo.</div>';
       } else if(kind === 'image') {
         frame.innerHTML = `<img src="${url}" alt="${name || ''}">`;
       } else if(kind === 'video') {
@@ -1329,11 +1075,72 @@ document.addEventListener('DOMContentLoaded', function(){
       } else if(kind === 'pdf') {
         frame.innerHTML = `<iframe src="${url}#toolbar=0&navpanes=0&scrollbar=0"></iframe>`;
       } else {
-        frame.innerHTML = '<div style="color:#94a3b8; font-weight:500; text-align:center; padding:2rem;">Formato sin previsualización.<br>Por favor descarga el archivo para verlo.</div>';
+        frame.innerHTML = '<div style="color:#94a3b8; font-weight:700; text-align:center; padding:2rem;">Formato sin previsualización.<br>Por favor descarga el archivo para verlo.</div>';
       }
 
       pvModalObj.open();
     });
+  });
+
+  // ✅ Modal finalizar (reemplaza SweetAlert)
+  const completeModalObj = modalApi('jtCompleteModal', ['jtCompleteBack','jtCompleteClose']);
+
+  const askCompleteBtn = document.getElementById('jtAskComplete');
+  const completeForm   = document.getElementById('jtCompleteForm');
+  const elComplete     = document.getElementById('jtElapsedComplete');
+  const elDetail       = document.getElementById('jtCompletionDetail');
+  const elChkJson      = document.getElementById('jtChecklistJson');
+
+  const modalTime = document.getElementById('jtCompleteTime');
+  const modalChk  = document.getElementById('jtCompleteChk');
+  const modalDetail = document.getElementById('jtCompleteDetailInput');
+  const modalConfirm = document.getElementById('jtCompleteConfirm');
+
+  function refreshCompleteModal(){
+    const elapsed = getElapsed();
+    const items = hasChecklist ? readChecklist() : [];
+    const total = items.length;
+    const done  = items.filter(x => x.done).length;
+
+    if(modalTime) modalTime.textContent = formatSecs(elapsed);
+    if(modalChk) modalChk.textContent = `${done}/${total}`;
+  }
+
+  askCompleteBtn?.addEventListener('click', function(){
+    if(!completeForm || askCompleteBtn.disabled) return;
+
+    // Seguridad: checklist completo si existe
+    const items = hasChecklist ? readChecklist() : [];
+    if(hasChecklist && items.length > 0 && items.some(x => !x.done)){
+      alert('Para finalizar, completa el checklist.');
+      return;
+    }
+
+    refreshCompleteModal();
+    if(modalDetail) modalDetail.value = '';
+    completeModalObj.open();
+    setTimeout(() => modalDetail?.focus(), 120);
+  });
+
+  modalConfirm?.addEventListener('click', function(){
+    if(!completeForm) return;
+
+    const detail = (modalDetail?.value || '').trim();
+    if(detail.length < 10){
+      alert('Escribe un detalle (mínimo 10 caracteres).');
+      modalDetail?.focus();
+      return;
+    }
+
+    const elapsed = getElapsed();
+    const items = hasChecklist ? readChecklist() : [];
+
+    if(elComplete) elComplete.value = String(elapsed);
+    if(elDetail) elDetail.value = detail;
+    if(elChkJson) elChkJson.value = JSON.stringify(items || []);
+
+    stopTimer();
+    completeForm.submit();
   });
 });
 </script>

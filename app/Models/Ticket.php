@@ -75,4 +75,20 @@ class Ticket extends Model
         if ($now->diffInHours($this->due_at) <= 24) return 'due_soon';
         return 'ok';
     }
+    public function checklists()
+{
+    return $this->hasMany(\App\Models\TicketChecklist::class);
+}
+
+public function checklistItems()
+{
+    return $this->hasManyThrough(
+        \App\Models\TicketChecklistItem::class,
+        \App\Models\TicketChecklist::class,
+        'ticket_id',      // FK en ticket_checklists
+        'checklist_id',   // FK en items
+        'id',             // PK tickets
+        'id'              // PK checklists
+    );
+}
 }

@@ -9,6 +9,9 @@
 
   // Helper old()
   $v = fn($key, $default=null) => old($key, $default);
+
+  // Si hubo error de validación y regresó payload, lo rehidrata
+  $oldChecklist = old('checklist_payload');
 @endphp
 
 <style>
@@ -82,7 +85,7 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
   font-weight:700; font-size:12px; color:var(--muted);
 }
 
-/* Dropzone / archivos (OPCIONAL) */
+/* Dropzone / archivos */
 .block{ border:1px dashed #dfe3e8; border-radius:14px; padding:14px; background:#fafbfc; }
 .dropzone{ display:grid; grid-template-columns:150px 1fr; gap:14px; align-items:center; }
 @media (max-width: 620px){ .dropzone{ grid-template-columns:1fr } }
@@ -153,6 +156,83 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
   .hgroup .subtitle{ display:none; }
   .file-name{ max-width:260px; }
 }
+
+/* =========================
+   CHECKLIST (SOLO CREATE)
+   ========================= */
+.ck-wrap{ margin-top:12px; }
+.ck-panel{
+  border:1px solid #e5e7eb;
+  border-radius:14px;
+  background:#fff;
+  overflow:hidden;
+  box-shadow:0 10px 24px rgba(0,0,0,.08);
+}
+.ck-head{
+  padding:14px 14px;
+  border-bottom:1px solid #eef0f3;
+  background:linear-gradient(to right, #f7fffc, #ffffff);
+  display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap;
+}
+.ck-title{ margin:0; font-weight:800; color:var(--ink); font-size:14px; letter-spacing:-.01em; }
+.ck-sub{ margin-top:4px; color:var(--muted); font-size:12px; line-height:1.35; }
+
+.ck-actions{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:flex-end; }
+.ck-btn{
+  border:1px solid #e5e7eb; background:#fff; color:#111;
+  border-radius:999px; padding:8px 12px; font-weight:800; font-size:12px;
+  display:inline-flex; gap:8px; align-items:center; cursor:pointer;
+}
+.ck-btn.primary{ background:var(--mint); border-color:var(--mint); color:#fff; box-shadow:0 8px 18px rgba(0,0,0,.12); }
+.ck-btn.primary:hover{ background:var(--mint-dark); border-color:var(--mint-dark); }
+.ck-btn:disabled{ opacity:.55; cursor:not-allowed; }
+
+.ck-body{ padding:14px 14px; background:#fafbfc; }
+.ck-row{ display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
+
+.ck-badge{
+  display:inline-flex; align-items:center; gap:8px;
+  border:1px solid #eef0f3; background:#fff;
+  border-radius:999px; padding:7px 10px;
+  font-weight:800; font-size:12px; color:var(--muted);
+}
+.ck-pill{
+  display:inline-flex; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:900;
+  border:1px solid #e5e7eb; background:#f8fafc; color:#111;
+}
+.ck-pill.ai{ border-color:rgba(72,207,173,.35); background:rgba(72,207,173,.12); color:#0b5f4f; }
+.ck-pill.rec{ border-color:rgba(245,158,11,.28); background:rgba(245,158,11,.12); color:#7a4a00; }
+
+.ck-list{ margin-top:12px; display:flex; flex-direction:column; gap:10px; }
+.ck-item{
+  background:#fff;
+  border:1px solid #edf0f3;
+  border-radius:12px;
+  padding:10px 10px;
+}
+.ck-item-top{ display:flex; gap:10px; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; }
+.ck-item-left{ display:flex; gap:10px; align-items:flex-start; min-width:0; flex:1; }
+.ck-h{ font-weight:900; color:var(--ink); font-size:13px; }
+.ck-d{ margin-top:4px; color:var(--muted); font-size:12px; white-space:pre-wrap; }
+
+.ck-mini-actions{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end; }
+.ck-mini{
+  border:1px solid #e5e7eb; background:#fff; color:#111;
+  border-radius:10px; padding:8px 10px; font-weight:900; font-size:12px; cursor:pointer;
+}
+.ck-mini.danger{ border-color:rgba(239,68,68,.28); background:rgba(239,68,68,.10); color:#7f1d1d; }
+.ck-mini:hover{ box-shadow:0 10px 18px rgba(0,0,0,.10) }
+
+.ck-form{ margin-top:12px; display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+@media(max-width:720px){ .ck-form{ grid-template-columns:1fr; } }
+.ck-form input, .ck-form textarea{
+  width:100%; border:1px solid #e5e7eb; border-radius:12px; padding:10px 12px; outline:none;
+  font-family:"Open Sans",sans-serif; font-size:12px; background:#fff; color:#111;
+}
+.ck-form textarea{ min-height:44px; resize:vertical; }
+.ck-help{ margin-top:8px; color:var(--muted); font-size:12px; }
+.ck-warn{ margin-top:10px; color:#7a4a00; font-size:12px; font-weight:800; }
+.ck-error{ margin-top:10px; color:#7f1d1d; font-size:12px; font-weight:800; }
 </style>
 
 <div class="edit-wrap">
@@ -170,6 +250,9 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
 
     <form class="form" action="{{ route('tickets.store') }}" method="POST" enctype="multipart/form-data" id="tkForm">
       @csrf
+
+      {{-- ✅ payload final del checklist (JSON) --}}
+      <input type="hidden" name="checklist_payload" id="checklistPayload" value="{{ is_string($oldChecklist) ? e($oldChecklist) : '' }}">
 
       {{-- ===== Fila: Título / Asignado ===== --}}
       <div class="row gy-3 section-gap">
@@ -303,6 +386,79 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
         </div>
       </div>
 
+      {{-- ✅ CHECKLIST (SOLO CREATE) --}}
+      <div class="ck-wrap section-gap">
+        <div class="ck-panel">
+          <div class="ck-head">
+            <div>
+              <div class="ck-title">Checklist del ticket</div>
+              <div class="ck-sub">Aquí es donde se define el checklist. Puedes generarlo con IA y ajustarlo antes de crear el ticket.</div>
+              <div class="ck-warn" id="ckRecommend" style="display:none;">Recomendación: completar todos los puntos al trabajar el ticket.</div>
+              <div class="ck-error" id="ckErr" style="display:none;"></div>
+            </div>
+
+            <div class="ck-actions">
+              <span class="ck-badge">
+                <span>Fuente:</span>
+                <span class="ck-pill" id="ckSource">manual</span>
+              </span>
+
+              <button class="ck-btn primary" type="button" id="btnAiChecklist">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 2l3 7 7 3-7 3-3 7-3-7-7-3 7-3 3-7z"/>
+                </svg>
+                Sugerir con IA
+              </button>
+
+              <button class="ck-btn" type="button" id="btnClearChecklist">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M7 6l1 16h8l1-16"/>
+                </svg>
+                Limpiar
+              </button>
+            </div>
+          </div>
+
+          <div class="ck-body">
+            <div class="ck-row">
+              <span class="ck-badge">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M20 6 9 17l-5-5"/>
+                </svg>
+                <span>Items:</span>
+                <span style="color:#111" id="ckCount">0</span>
+              </span>
+
+              <span class="ck-badge">
+                <span>Recomendados:</span>
+                <span style="color:#111" id="ckRecCount">0</span>
+              </span>
+            </div>
+
+            {{-- Form agregar item manual --}}
+            <div class="ck-form">
+              <input type="text" id="ckNewTitle" placeholder="Agregar item manual (ej: Validar documentos)">
+              <textarea id="ckNewDetail" placeholder="Detalle opcional (pasos, evidencia sugerida, etc.)"></textarea>
+            </div>
+
+            <div style="margin-top:10px; display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap;">
+              <button class="ck-btn" type="button" id="btnAddItem">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 5v14M5 12h14"/>
+                </svg>
+                Agregar item
+              </button>
+            </div>
+
+            <div class="ck-help">Tip: si generas con IA, revisa que el checklist tenga sentido para el área seleccionada.</div>
+
+            {{-- Lista --}}
+            <div class="ck-list" id="ckList"></div>
+          </div>
+        </div>
+        @error('checklist_payload')<div class="error" style="margin-top:8px;">{{ $message }}</div>@enderror
+      </div>
+
       {{-- ===== Evidencias (OPCIONAL): agregar 1 por 1, enviar multiple ===== --}}
       <div class="block section-gap">
         <div class="dropzone" id="dropzone">
@@ -382,6 +538,259 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
   effort?.addEventListener('change', computeScore);
   computeScore();
 
+  // ==========================
+  // CHECKLIST (SOLO CREATE)
+  // ==========================
+  const ckList = document.getElementById('ckList');
+  const ckCount = document.getElementById('ckCount');
+  const ckRecCount = document.getElementById('ckRecCount');
+  const ckSource = document.getElementById('ckSource');
+  const ckRecommend = document.getElementById('ckRecommend');
+  const ckErr = document.getElementById('ckErr');
+
+  const btnAi = document.getElementById('btnAiChecklist');
+  const btnClear = document.getElementById('btnClearChecklist');
+  const btnAdd = document.getElementById('btnAddItem');
+
+  const newTitle = document.getElementById('ckNewTitle');
+  const newDetail = document.getElementById('ckNewDetail');
+
+  const payloadInput = document.getElementById('checklistPayload');
+
+  const fTitle = document.getElementById('f-title');
+  const fDesc  = document.getElementById('f-desc');
+  const fArea  = document.getElementById('f-area');
+
+  let checklistState = {
+    source: 'manual', // manual | ai
+    title: 'Checklist',
+    items: []
+  };
+
+  function showErr(msg){
+    if(!ckErr) return;
+    ckErr.style.display = msg ? 'block' : 'none';
+    ckErr.textContent = msg || '';
+  }
+
+  function syncHidden(){
+    payloadInput.value = JSON.stringify(checklistState);
+  }
+
+  function escapeHtml(str){
+    return String(str || '')
+      .replaceAll('&','&amp;')
+      .replaceAll('<','&lt;')
+      .replaceAll('>','&gt;')
+      .replaceAll('"','&quot;')
+      .replaceAll("'","&#039;");
+  }
+  function escapeAttr(str){
+    return escapeHtml(str).replaceAll('\n',' ');
+  }
+
+  function renderChecklist(){
+    ckList.innerHTML = '';
+    const total = checklistState.items.length;
+    const rec = checklistState.items.filter(i => !!i.recommended).length;
+
+    ckCount.textContent = total;
+    ckRecCount.textContent = rec;
+
+    ckSource.textContent = checklistState.source || 'manual';
+    ckSource.className = 'ck-pill ' + (checklistState.source === 'ai' ? 'ai' : '');
+
+    ckRecommend.style.display = total > 0 ? 'block' : 'none';
+
+    if(total === 0){
+      const empty = document.createElement('div');
+      empty.className = 'ck-item';
+      empty.innerHTML = `<div class="ck-d">Aún no hay checklist. Puedes agregar items manualmente o pedir sugerencia con IA.</div>`;
+      ckList.appendChild(empty);
+      syncHidden();
+      return;
+    }
+
+    checklistState.items.forEach((it, idx) => {
+      const row = document.createElement('div');
+      row.className = 'ck-item';
+
+      const recPill = it.recommended
+        ? `<span class="ck-pill rec" style="margin-left:8px;">Recomendado</span>`
+        : '';
+
+      row.innerHTML = `
+        <div class="ck-item-top">
+          <div class="ck-item-left">
+            <div style="min-width:0; flex:1;">
+              <div class="ck-h">${escapeHtml(it.title || '')} ${recPill}</div>
+              ${it.detail ? `<div class="ck-d">${escapeHtml(it.detail)}</div>` : ''}
+              <div style="margin-top:10px; display:none;" id="ckEdit_${idx}">
+                <div class="ck-form" style="grid-template-columns:1fr 1fr;">
+                  <input type="text" value="${escapeAttr(it.title || '')}" id="ckT_${idx}">
+                  <textarea id="ckD_${idx}">${escapeHtml(it.detail || '')}</textarea>
+                </div>
+                <div style="margin-top:10px; display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap;">
+                  <button class="ck-mini" type="button" data-save="${idx}">Guardar</button>
+                  <button class="ck-mini" type="button" data-cancel="${idx}">Cancelar</button>
+                  <button class="ck-mini" type="button" data-toggle="${idx}">${it.recommended ? 'Quitar recomendado' : 'Marcar recomendado'}</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="ck-mini-actions">
+            <button class="ck-mini" type="button" data-edit="${idx}">Editar</button>
+            <button class="ck-mini danger" type="button" data-del="${idx}">Eliminar</button>
+          </div>
+        </div>
+      `;
+
+      ckList.appendChild(row);
+    });
+
+    // bind actions
+    ckList.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => {
+      const idx = parseInt(b.getAttribute('data-edit'), 10);
+      const box = document.getElementById('ckEdit_' + idx);
+      if(box) box.style.display = 'block';
+    }));
+    ckList.querySelectorAll('[data-cancel]').forEach(b => b.addEventListener('click', () => {
+      const idx = parseInt(b.getAttribute('data-cancel'), 10);
+      const box = document.getElementById('ckEdit_' + idx);
+      if(box) box.style.display = 'none';
+    }));
+    ckList.querySelectorAll('[data-save]').forEach(b => b.addEventListener('click', () => {
+      const idx = parseInt(b.getAttribute('data-save'), 10);
+      const t = document.getElementById('ckT_' + idx)?.value || '';
+      const d = document.getElementById('ckD_' + idx)?.value || '';
+      checklistState.items[idx].title = t.trim();
+      checklistState.items[idx].detail = d.trim();
+      const box = document.getElementById('ckEdit_' + idx);
+      if(box) box.style.display = 'none';
+      renderChecklist();
+    }));
+    ckList.querySelectorAll('[data-toggle]').forEach(b => b.addEventListener('click', () => {
+      const idx = parseInt(b.getAttribute('data-toggle'), 10);
+      checklistState.items[idx].recommended = !checklistState.items[idx].recommended;
+      renderChecklist();
+    }));
+    ckList.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => {
+      const idx = parseInt(b.getAttribute('data-del'), 10);
+      if(!confirm('¿Eliminar este item del checklist?')) return;
+      checklistState.items.splice(idx, 1);
+      renderChecklist();
+    }));
+
+    syncHidden();
+  }
+
+  // add item manual
+  btnAdd?.addEventListener('click', () => {
+    showErr('');
+    const t = (newTitle.value || '').trim();
+    const d = (newDetail.value || '').trim();
+    if(!t){
+      showErr('Falta el título del item.');
+      return;
+    }
+    checklistState.source = checklistState.source || 'manual';
+    checklistState.items.push({ title: t, detail: d || null, recommended: true });
+    newTitle.value = '';
+    newDetail.value = '';
+    renderChecklist();
+  });
+
+  // limpiar
+  btnClear?.addEventListener('click', () => {
+    if(!confirm('¿Limpiar todo el checklist?')) return;
+    checklistState = { source: 'manual', title: 'Checklist', items: [] };
+    showErr('');
+    renderChecklist();
+  });
+
+  // IA preview (✅ ACTUALIZADO: usa route('tickets.checklist.preview') pero la armamos SIN controlador nuevo)
+  // ⚠️ REQUIERE que definas ESTA ruta apuntando a TicketChecklistController@previewAi
+  // Route::post('/tickets/checklist/preview', [TicketChecklistController::class,'previewAi'])->name('tickets.checklist.preview');
+  btnAi?.addEventListener('click', async () => {
+    showErr('');
+
+    const title = (fTitle?.value || '').trim();
+    const desc  = (fDesc?.value || '').trim();
+    const area  = (fArea?.value || '').trim();
+
+    if(!title || !area){
+      showErr('Para generar checklist con IA necesitas Título y Área.');
+      return;
+    }
+
+    btnAi.disabled = true;
+    btnAi.textContent = 'Generando...';
+
+    try {
+      const res = await fetch(@json(route('tickets.checklist.preview')), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': @json(csrf_token()),
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({ title, description: desc, area })
+      });
+
+      if(!res.ok){
+        const t = await res.text();
+        throw new Error(t || 'Error al generar checklist con IA.');
+      }
+
+      const data = await res.json();
+      const items = Array.isArray(data.items) ? data.items : [];
+
+      checklistState = {
+        source: 'ai',
+        title: data.title || 'Checklist sugerido',
+        items: items.slice(0, 12).map(x => ({
+          title: String(x.title || '').trim(),
+          detail: (x.detail ? String(x.detail).trim() : null),
+          recommended: (typeof x.recommended === 'boolean' ? x.recommended : true)
+        })).filter(x => !!x.title)
+      };
+
+      renderChecklist();
+    } catch (e){
+      showErr('No se pudo generar el checklist IA. ' + (e?.message || ''));
+    } finally {
+      btnAi.disabled = false;
+      btnAi.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 2l3 7 7 3-7 3-3 7-3-7-7-3 7-3 3-7z"/>
+        </svg>
+        Sugerir con IA
+      `;
+    }
+  });
+
+  // rehidratar si venía old()
+  try{
+    const old = payloadInput.value;
+    if(old && typeof old === 'string'){
+      const parsed = JSON.parse(old);
+      if(parsed && typeof parsed === 'object' && Array.isArray(parsed.items)){
+        checklistState = {
+          source: parsed.source || 'manual',
+          title: parsed.title || 'Checklist',
+          items: parsed.items.map(x => ({
+            title: String(x.title || '').trim(),
+            detail: (x.detail ? String(x.detail).trim() : null),
+            recommended: (typeof x.recommended === 'boolean' ? x.recommended : true)
+          })).filter(x => !!x.title)
+        };
+      }
+    }
+  }catch(e){}
+
+  renderChecklist();
+
   // ===== Evidencias (OPCIONAL)
   const dz          = document.getElementById('dropzone');
   const picker      = document.getElementById('filePicker'); // UX: 1 archivo
@@ -418,7 +827,7 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
           <path d="M14 2v6h6"/>
         </svg>
         <div>${file.type || 'Archivo'}</div>
-        <div style="opacity:.85">${file.name}</div>
+        <div style="opacity:.85">${escapeHtml(file.name)}</div>
       `;
       placeholder.style.display = 'flex';
     }
@@ -468,6 +877,8 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
         if (selected.length === 0){
           imgPrev.style.display = 'none';
           placeholder.style.display = 'flex';
+        } else {
+          renderPreview(selected[selected.length-1]);
         }
       });
 
@@ -482,7 +893,6 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
   function addFile(file){
     if (!file) return;
 
-    // Evitar duplicados exactos
     const dup = selected.some(x => x.name === file.name && x.size === file.size);
     if (dup){
       alert('Ese archivo ya fue agregado.');
@@ -501,7 +911,6 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
     addFile(f);
   });
 
-  // Drag & drop: 1 archivo por vez
   ['dragenter','dragover'].forEach(evt=>{
     dz.addEventListener(evt, e=>{ e.preventDefault(); e.stopPropagation(); dz.classList.add('dragover'); });
   });
@@ -515,11 +924,13 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
 
   renderList();
 
-  // ===== Ya NO se valida mínimo de archivos al enviar (OPCIONAL)
+  // ===== Submit
   const form = document.getElementById('tkForm');
   const btn  = document.getElementById('submitBtn');
 
   form?.addEventListener('submit', ()=> {
+    // asegura hidden actualizado
+    try{ document.getElementById('checklistPayload').value = JSON.stringify(checklistState); }catch(e){}
     btn.disabled = true;
     btn.textContent = 'Creando...';
   });
