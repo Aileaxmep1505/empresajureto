@@ -8,8 +8,16 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::table('tickets', function (Blueprint $table) {
-            if (!Schema::hasColumn('tickets','completion_detail')) {
+            if (Schema::hasColumn('tickets','completion_detail')) {
+                return;
+            }
+
+            if (Schema::hasColumn('tickets','cancel_reason')) {
                 $table->longText('completion_detail')->nullable()->after('cancel_reason');
+            } elseif (Schema::hasColumn('tickets','status')) {
+                $table->longText('completion_detail')->nullable()->after('status');
+            } else {
+                $table->longText('completion_detail')->nullable();
             }
         });
     }
