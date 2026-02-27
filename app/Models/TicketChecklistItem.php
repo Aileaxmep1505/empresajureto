@@ -3,30 +3,27 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class TicketChecklistItem extends Model
 {
-    protected $table = 'ticket_checklist_items';
-
     protected $fillable = [
         'checklist_id',
-        'label',        // ← IMPORTANTE
-        'type',
-        'position',
-        'is_done',
-        'value',
-        'done_at',
-        'done_by',
+        'title','detail',
+        'recommended',
+        'done','done_at','done_by',
+        'evidence_note',
+        'sort_order',
+        'meta',
     ];
 
     protected $casts = [
-        'is_done' => 'boolean',
-        'value'   => 'array',
+        'recommended' => 'boolean',
+        'done' => 'boolean',
         'done_at' => 'datetime',
+        'meta' => 'array',
     ];
 
-    public function checklist(): BelongsTo
+    public function checklist()
     {
         return $this->belongsTo(TicketChecklist::class, 'checklist_id');
     }

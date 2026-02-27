@@ -88,6 +88,7 @@ use App\Http\Controllers\AttachmentController;
 use App\Http\Controllers\Tickets\TicketExecutiveController;
 use App\Http\Controllers\Tickets\MyAssignmentsController;
 use App\Http\Controllers\WhatsAppInboxController;
+use App\Http\Controllers\Tickets\TicketReviewController;
 
 /*
 |--------------------------------------------------------------------------
@@ -1927,4 +1928,27 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/whatsapp', [WhatsAppInboxController::class, 'index'])->name('whatsapp.index');
     Route::get('/whatsapp/{conversation}', [WhatsAppInboxController::class, 'show'])->name('whatsapp.show');
     Route::post('/whatsapp/{conversation}/send', [WhatsAppInboxController::class, 'send'])->name('whatsapp.send');
+});
+
+Route::get('/tickets/{ticket}/reporte-pdf', [TicketController::class, 'reportPdf'])
+  ->name('tickets.reportPdf');
+
+  Route::prefix('tickets')->name('tickets.')->group(function () {
+    // ...
+    Route::post('{ticket}/submit-review', [\App\Http\Controllers\Tickets\TicketController::class, 'submitForReview'])
+        ->name('submitReview');
+
+    Route::post('{ticket}/review-reject', [\App\Http\Controllers\Tickets\TicketController::class, 'reviewReject'])
+        ->name('reviewReject');
+     });   
+Route::middleware(['auth'])->group(function () {
+
+    // ✅ Aprobar por revisión (calificación)
+    Route::post('/tickets/{ticket}/review/approve', [TicketReviewController::class, 'approve'])
+        ->name('tickets.reviewApprove');
+
+    // ✅ Reabrir por revisión (motivo + evidencias)
+    Route::post('/tickets/{ticket}/review/force-reopen', [TicketReviewController::class, 'forceReopen'])
+        ->name('tickets.forceReopen');
+
 });

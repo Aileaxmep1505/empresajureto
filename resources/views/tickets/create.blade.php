@@ -82,7 +82,7 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
   font-weight:700; font-size:12px; color:var(--muted);
 }
 
-/* Dropzone / archivos (mín 3) */
+/* Dropzone / archivos (OPCIONAL) */
 .block{ border:1px dashed #dfe3e8; border-radius:14px; padding:14px; background:#fafbfc; }
 .dropzone{ display:grid; grid-template-columns:150px 1fr; gap:14px; align-items:center; }
 @media (max-width: 620px){ .dropzone{ grid-template-columns:1fr } }
@@ -160,7 +160,7 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
     <div class="panel-head">
       <div class="hgroup">
         <h2>Nuevo ticket</h2>
-        <p class="subtitle">Crea una tarea ordenada, asígnala, y adjunta mínimo 3 evidencias.</p>
+        <p class="subtitle">Crea una tarea ordenada, asígnala, y adjunta evidencias si lo necesitas.</p>
       </div>
       <a href="{{ route('tickets.index') }}" class="back-link" title="Volver">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
@@ -245,7 +245,7 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M20 6 9 17l-5-5"/>
               </svg>
-              Estatus inicial: <strong style="color:#111">Pendiente</strong>
+              Estatus inicial: <span style="color:#111">Pendiente</span>
             </span>
           </div>
         </div>
@@ -303,7 +303,7 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
         </div>
       </div>
 
-      {{-- ===== Evidencias: agregar 1 por 1 (mín 3) ===== --}}
+      {{-- ===== Evidencias (OPCIONAL): agregar 1 por 1, enviar multiple ===== --}}
       <div class="block section-gap">
         <div class="dropzone" id="dropzone">
           <div class="preview" id="filePreview">
@@ -312,8 +312,8 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                 <path d="M14 2v6h6"/>
               </svg>
-              <div><strong>Mínimo 3 archivos</strong></div>
-              <div style="opacity:.85">Agrega archivo por archivo</div>
+              <div>Archivos opcionales</div>
+              <div style="opacity:.85">Agrega evidencias si aplica</div>
             </div>
             <img id="imgPreview" alt="preview">
           </div>
@@ -330,7 +330,7 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
             <input id="filePicker" class="input-file" type="file" accept="*/*">
 
             <div class="drop-box">o arrastra y suelta aquí (uno a la vez)</div>
-            <div class="file-meta" id="fileMeta">0 / 3 archivos</div>
+            <div class="file-meta" id="fileMeta">0 archivos</div>
 
             {{-- Input real que se envía (multiple) --}}
             <input id="filesReal" type="file" name="files[]" multiple class="input-file" accept="*/*">
@@ -382,7 +382,7 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
   effort?.addEventListener('change', computeScore);
   computeScore();
 
-  // ===== Evidencias (agregar 1 por 1, enviar multiple)
+  // ===== Evidencias (OPCIONAL)
   const dz          = document.getElementById('dropzone');
   const picker      = document.getElementById('filePicker'); // UX: 1 archivo
   const filesReal   = document.getElementById('filesReal');  // REAL: multiple
@@ -400,7 +400,7 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
   }
 
   function renderPreview(file){
-    meta.textContent = `${selected.length} / 3 archivos`;
+    meta.textContent = `${selected.length} archivo${selected.length===1?'':'s'}`;
 
     if (/^image\//.test(file.type)){
       const rd = new FileReader();
@@ -417,7 +417,7 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
           <path d="M14 2v6h6"/>
         </svg>
-        <div><strong>${file.type || 'Archivo'}</strong></div>
+        <div>${file.type || 'Archivo'}</div>
         <div style="opacity:.85">${file.name}</div>
       `;
       placeholder.style.display = 'flex';
@@ -429,9 +429,11 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
     if (selected.length === 0){
       const empty = document.createElement('div');
       empty.className = 'file-item';
-      empty.innerHTML = `<div class="file-left"><div class="file-name">Sin archivos aún</div><div class="file-sub">Agrega mínimo 3 evidencias.</div></div>`;
+      empty.innerHTML = `<div class="file-left"><div class="file-name">Sin archivos</div><div class="file-sub">Puedes crear el ticket sin adjuntar evidencias.</div></div>`;
       list.appendChild(empty);
-      meta.textContent = '0 / 3 archivos';
+      meta.textContent = '0 archivos';
+      imgPrev.style.display = 'none';
+      placeholder.style.display = 'flex';
       return;
     }
 
@@ -462,7 +464,7 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
         selected.splice(idx, 1);
         rebuildRealInput();
         renderList();
-        meta.textContent = `${selected.length} / 3 archivos`;
+        meta.textContent = `${selected.length} archivo${selected.length===1?'':'s'}`;
         if (selected.length === 0){
           imgPrev.style.display = 'none';
           placeholder.style.display = 'flex';
@@ -474,7 +476,7 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
       list.appendChild(row);
     });
 
-    meta.textContent = `${selected.length} / 3 archivos`;
+    meta.textContent = `${selected.length} archivo${selected.length===1?'':'s'}`;
   }
 
   function addFile(file){
@@ -513,16 +515,11 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
 
   renderList();
 
-  // ===== Validación mínimo 3 al enviar
+  // ===== Ya NO se valida mínimo de archivos al enviar (OPCIONAL)
   const form = document.getElementById('tkForm');
   const btn  = document.getElementById('submitBtn');
 
-  form?.addEventListener('submit', (e)=>{
-    if (selected.length < 3){
-      e.preventDefault();
-      alert('Debes agregar mínimo 3 archivos antes de crear el ticket.');
-      return false;
-    }
+  form?.addEventListener('submit', ()=> {
     btn.disabled = true;
     btn.textContent = 'Creando...';
   });
