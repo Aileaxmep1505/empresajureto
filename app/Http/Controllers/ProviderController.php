@@ -24,8 +24,7 @@ class ProviderController extends Controller
                 });
             })
             ->orderBy('nombre')
-            ->paginate(12)
-            ->withQueryString();
+            ->get(); // ✅ SIN paginate
 
         return view('providers.index', compact('providers','q'));
     }
@@ -113,7 +112,6 @@ class ProviderController extends Controller
         ];
 
         $data = $request->validate($rules, $messages, $attributes);
-        // Normaliza estatus (switch)
         $data['estatus'] = (bool)($request->boolean('estatus', true));
         return $data;
     }

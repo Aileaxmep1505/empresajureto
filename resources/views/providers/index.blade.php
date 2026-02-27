@@ -197,9 +197,10 @@ tr:hover td{ background:#fafcff }
       </table>
     </div>
 
-    <div style="padding:10px 12px">
+    {{-- ✅ QUITADO: paginación --}}
+    {{-- <div style="padding:10px 12px">
       {{ $providers->links() }}
-    </div>
+    </div> --}}
   </div>
 </div>
 @endsection
@@ -220,6 +221,7 @@ tr:hover td{ background:#fafcff }
       tr.style.display = !q || cells.some(txt => txt.includes(q)) ? '' : 'none';
     });
   }
+
   input?.addEventListener('input', ()=>{ window.clearTimeout(input._t); input._t=setTimeout(filter,150); });
   clearBtn?.addEventListener('click', ()=>{ input.value=''; filter(); input.focus(); });
   filter();
