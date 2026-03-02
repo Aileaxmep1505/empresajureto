@@ -15,7 +15,8 @@ class ProviderController extends Controller
         $providers = Provider::query()
             ->when($q !== '', function($qry) use ($q) {
                 $qry->where(function($sub) use ($q){
-                    $sub->where('nombre', 'like', "%{$q}%")
+                    $sub->where('code', 'like', "%{$q}%")
+                        ->orWhere('nombre', 'like', "%{$q}%")
                         ->orWhere('email', 'like', "%{$q}%")
                         ->orWhere('rfc', 'like', "%{$q}%")
                         ->orWhere('telefono', 'like', "%{$q}%")
@@ -23,7 +24,7 @@ class ProviderController extends Controller
                         ->orWhere('estado', 'like', "%{$q}%");
                 });
             })
-            ->orderBy('nombre')
+            ->orderBy('id','desc')
             ->get(); // ✅ SIN paginate
 
         return view('providers.index', compact('providers','q'));
@@ -38,7 +39,7 @@ class ProviderController extends Controller
     public function store(Request $request)
     {
         $data = $this->validateData($request);
-        $provider = Provider::create($data);
+        $provider = Provider::create($data); // ✅ aquí se genera PROV-00001 automático
 
         return redirect()
             ->route('providers.index')
@@ -113,6 +114,8 @@ class ProviderController extends Controller
 
         $data = $request->validate($rules, $messages, $attributes);
         $data['estatus'] = (bool)($request->boolean('estatus', true));
+
+        // No tocamos code aquí; lo crea el modelo
         return $data;
     }
 }

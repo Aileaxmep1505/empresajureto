@@ -32,7 +32,6 @@
 .subtle{ color:var(--muted) }
 .hero__right{ display:flex; align-items:center; gap:12px }
 
-/* Ocultar icono en pantallas pequeñas */
 @media (max-width: 576px){ .hero__icon{ display:none } }
 
 /* ================= BUSCADOR NORMAL ================= */
@@ -128,7 +127,7 @@ tr:hover td{ background:#fafcff }
             <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
           </svg>
         </span>
-        <input id="liveSearch" class="sb-input" type="search" placeholder="Buscar por nombre, correo, RFC, teléfono, ciudad, estado…">
+        <input id="liveSearch" class="sb-input" type="search" placeholder="Buscar por folio, nombre, correo, RFC, teléfono, ciudad, estado…">
         <button type="button" class="sb-clear" id="sbClear" aria-label="Limpiar">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M18 6L6 18M6 6l12 12"/>
@@ -151,6 +150,7 @@ tr:hover td{ background:#fafcff }
       <table id="providersTable">
         <thead>
           <tr>
+            <th>Folio</th>
             <th>Nombre</th>
             <th>Correo</th>
             <th>RFC / Fiscal</th>
@@ -164,6 +164,7 @@ tr:hover td{ background:#fafcff }
         <tbody id="providersBody">
           @foreach($providers as $p)
             <tr data-id="{{ $p->id }}">
+              <td data-th="Folio">{{ $p->code ?: '—' }}</td>
               <td data-th="Nombre">{{ $p->nombre }}</td>
               <td data-th="Correo">{{ $p->email }}</td>
               <td data-th="RFC / Fiscal">{{ $p->rfc ?: '—' }}</td>
@@ -182,7 +183,7 @@ tr:hover td{ background:#fafcff }
                   </a>
                   <form method="POST" action="{{ route('providers.destroy',$p) }}" class="d-inline">
                     @csrf @method('DELETE')
-                    <button type="submit" class="icon-btn" title="Eliminar">
+                    <button type="submit" class="icon-btn" title="Eliminar" onclick="return confirm('¿Eliminar proveedor?');">
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
                         <path d="M10 11v6M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/>
@@ -196,11 +197,6 @@ tr:hover td{ background:#fafcff }
         </tbody>
       </table>
     </div>
-
-    {{-- ✅ QUITADO: paginación --}}
-    {{-- <div style="padding:10px 12px">
-      {{ $providers->links() }}
-    </div> --}}
   </div>
 </div>
 @endsection
@@ -218,7 +214,7 @@ tr:hover td{ background:#fafcff }
     clearBtn.style.visibility = q ? 'visible':'hidden';
     [...body.querySelectorAll('tr')].forEach(tr=>{
       const cells = [...tr.children].map(td => norm(td.textContent));
-      tr.style.display = !q || cells.some(txt => txt.includes(q)) ? '' : 'none';
+      tr.style.display = (!q || cells.some(txt => txt.includes(q))) ? '' : 'none';
     });
   }
 
