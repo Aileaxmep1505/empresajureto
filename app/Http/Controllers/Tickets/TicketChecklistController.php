@@ -34,7 +34,7 @@ class TicketChecklistController extends Controller
 
     /**
      * ✅ PREVIEW IA (para CREATE)
-     * NO existe ticket aún -> regresa JSON { title, items }
+     * NO existe ticket aún -> regresa JSON { title, keywords, items, meta? }
      * Ruta: POST tickets/checklist/preview-ai  name: tickets.checklist.preview
      */
     public function previewAi(Request $r, TicketChecklistAiService $ai)
@@ -45,7 +45,7 @@ class TicketChecklistController extends Controller
             'area'        => ['required','string','max:60'],
         ]);
 
-        try{
+        try {
             $out = $ai->generateChecklist(
                 (string)$data['title'],
                 (string)($data['description'] ?? ''),
@@ -53,8 +53,7 @@ class TicketChecklistController extends Controller
             );
 
             return response()->json($out);
-
-        } catch (\Throwable $e){
+        } catch (\Throwable $e) {
             \Log::warning('Checklist IA preview falló', [
                 'err' => $e->getMessage(),
             ]);
@@ -68,6 +67,13 @@ class TicketChecklistController extends Controller
 
     /**
      * ✅ APLICAR PAYLOAD (para TicketController@store)
+     * payload esperado:
+     * [
+     *   'source' => 'ai'|'manual',
+     *   'title' => '...',
+     *   'keywords' => [...], // opcional
+     *   'items' => [...]
+     * ]
      */
     public function applyPayloadToTicket(Ticket $ticket, array $payload): ?TicketChecklist
     {
@@ -86,7 +92,11 @@ class TicketChecklistController extends Controller
 
         if (count($items) === 0) return null;
 
-        return DB::transaction(function () use ($ticket, $source, $title, $items) {
+        $keywords = is_array($payload['keywords'] ?? null) ? array_values($payload['keywords']) : [];
+        $keywords = array_values(array_filter($keywords, fn($k) => is_string($k) && trim($k) !== ''));
+        $keywords = array_slice($keywords, 0, 10);
+
+        return DB::transaction(function () use ($ticket, $source, $title, $items, $keywords, $payload) {
 
             $old = $ticket->checklists()->latest('id')->first();
             if ($old) {
@@ -94,12 +104,20 @@ class TicketChecklistController extends Controller
                 try { $old->delete(); } catch (\Throwable $e) {}
             }
 
+            $meta = null;
+            // Si viene meta del service, lo guardas. Si no, guardas keywords/area mínimo.
+            if (!empty($payload['meta']) && is_array($payload['meta'])) {
+                $meta = $payload['meta'];
+            } elseif (!empty($keywords)) {
+                $meta = ['keywords' => $keywords];
+            }
+
             $cl = TicketChecklist::create([
                 'ticket_id'  => $ticket->id,
                 'title'      => $title,
                 'source'     => $source,
                 'created_by' => auth()->id(),
-                'meta'       => null,
+                'meta'       => $meta,
             ]);
 
             $order = 10;
@@ -156,7 +174,6 @@ class TicketChecklistController extends Controller
 
         return DB::transaction(function () use ($ticket, $ai) {
 
-            // ✅ FIX: llamar al service con strings (NO pasar $ticket completo)
             $gen = $ai->generateChecklist(
                 (string)($ticket->title ?? ''),
                 (string)($ticket->description ?? ''),
