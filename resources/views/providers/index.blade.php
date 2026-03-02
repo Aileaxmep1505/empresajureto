@@ -10,7 +10,12 @@
   --shadow:0 10px 30px rgba(2,6,23,.06);
 }
 
-.page{ max-width:1140px; margin:12px auto 22px; padding:0 14px }
+/* ✅ MÁS ANCHO EN DESKTOP (para que NO se rompa la tabla) */
+.page{
+  max-width: 1400px;          /* antes 1140px */
+  margin:12px auto 22px;
+  padding:0 14px;
+}
 
 /* ================= HERO (Encabezado azul) ================= */
 .hero{
@@ -39,7 +44,7 @@
   flex:1; display:flex; align-items:center; gap:8px;
   background:#fff; height:46px; border-radius:999px; padding:0 10px 0 12px;
   border:1px solid #cfe0ff; box-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 6px 14px rgba(29,78,216,.10);
-  min-width:300px; max-width:min(82vw, 560px);
+  min-width:300px; max-width:min(82vw, 620px);
 }
 .sb-icon{ width:26px; display:grid; place-items:center; color:#94a3b8 }
 .sb-input{
@@ -65,12 +70,76 @@
 .pbtn:hover{ background:#fff }
 
 /* ====== Card/Table ====== */
-.card{ background:var(--surface); border:1px solid var(--border); border-radius:16px; box-shadow:var(--shadow); overflow:hidden; margin-top:14px }
-.table-wrap{ width:100%; overflow:auto }
+.card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:16px;
+  box-shadow:var(--shadow);
+  overflow:hidden;
+  margin-top:14px;
+}
+
+/* ✅ Desktop: NO scroll, que se vea completo */
+.table-wrap{
+  width:100%;
+  overflow: visible;      /* antes overflow:auto */
+}
+
+/* ✅ Tabla más “compacta” y legible */
 table{ width:100%; border-collapse:collapse }
 th, td{ padding:12px 14px; vertical-align:middle; border-bottom:1px solid var(--border) }
-th{ text-align:left; font-size:.86rem; color:#6b7280; background:#fff; position:sticky; top:0; z-index:1 }
+th{
+  text-align:left;
+  font-size:.86rem;
+  color:#6b7280;
+  background:#fff;
+  position:sticky; top:0; z-index:1
+}
+td{ font-size:.95rem; color:var(--text) }
 tr:hover td{ background:#fafcff }
+
+/* ✅ Evitar que se rompan columnas cortas (Folio/Tipo/Teléfono/Estatus/Acciones) */
+#providersTable th:nth-child(1),
+#providersTable td:nth-child(1),
+#providersTable th:nth-child(5),
+#providersTable td:nth-child(5),
+#providersTable th:nth-child(6),
+#providersTable td:nth-child(6),
+#providersTable th:nth-child(8),
+#providersTable td:nth-child(8),
+#providersTable th:nth-child(9),
+#providersTable td:nth-child(9){
+  white-space: nowrap;
+}
+
+/* ✅ Folio con ancho fijo para que no se parta */
+#providersTable th:nth-child(1),
+#providersTable td:nth-child(1){
+  width: 130px;
+}
+
+/* ✅ Acciones fijo */
+#providersTable th:nth-child(9),
+#providersTable td:nth-child(9){
+  width: 96px;
+}
+
+/* Email: que no se haga gigante, pero tampoco rompa feo */
+#providersTable td:nth-child(3){
+  max-width: 360px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Ciudad/Estado: permitimos 2 líneas máximo (no 6) */
+#providersTable td:nth-child(7){
+  max-width: 320px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 
 /* Badges */
 .badge{
@@ -89,13 +158,28 @@ tr:hover td{ background:#fafcff }
 .icon-btn:hover{ background:#f7faff }
 .icon-btn:active{ transform:translateY(1px) }
 
-/* Responsive: tarjetas */
+/* ✅ SOLO EN CELULAR: permitir scroll horizontal si hace falta */
 @media (max-width: 760px){
+  .table-wrap{ overflow:auto; -webkit-overflow-scrolling: touch; }
+  table{ min-width: 980px; } /* para que no se comprima horrible */
+
+  /* Y tu modo tarjetas se mantiene */
   table, thead, tbody, th, td, tr{ display:block }
   thead{ display:none }
   tbody tr{ border:1px solid var(--border); border-radius:14px; margin:10px 0; overflow:hidden; background:#fff }
   td{ border:none; padding:10px 14px }
   td::before{ content: attr(data-th); display:block; font-size:.78rem; color:var(--muted); margin-bottom:3px }
+
+  /* en móvil quitamos clamps para que se vea completo en tarjetas */
+  #providersTable td:nth-child(3),
+  #providersTable td:nth-child(7){
+    max-width: none;
+    overflow: visible;
+    text-overflow: unset;
+    white-space: normal;
+    display: block;
+    -webkit-line-clamp: unset;
+  }
 }
 </style>
 @endpush
@@ -166,7 +250,7 @@ tr:hover td{ background:#fafcff }
             <tr data-id="{{ $p->id }}">
               <td data-th="Folio">{{ $p->code ?: '—' }}</td>
               <td data-th="Nombre">{{ $p->nombre }}</td>
-              <td data-th="Correo">{{ $p->email }}</td>
+              <td data-th="Correo" title="{{ $p->email }}">{{ $p->email }}</td>
               <td data-th="RFC / Fiscal">{{ $p->rfc ?: '—' }}</td>
               <td data-th="Tipo">{{ $p->tipo_persona ?: '—' }}</td>
               <td data-th="Teléfono">{{ $p->telefono ?: '—' }}</td>
@@ -198,6 +282,7 @@ tr:hover td{ background:#fafcff }
       </table>
     </div>
   </div>
+
 </div>
 @endsection
 
