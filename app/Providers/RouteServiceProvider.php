@@ -12,6 +12,13 @@ class RouteServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // ✅ Mantengo TODO lo que ya tienes y solo agrego lo necesario (sin quitar nada)
+
+        // (Opcional) Si quieres forzar HTTPS en producción, descomenta:
+        // if (app()->environment('production')) {
+        //     \Illuminate\Support\Facades\URL::forceScheme('https');
+        // }
+
         $this->routes(function () {
             // Rutas API con prefijo /api y middleware api
             Route::middleware('api')

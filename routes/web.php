@@ -89,6 +89,8 @@ use App\Http\Controllers\Tickets\TicketExecutiveController;
 use App\Http\Controllers\Tickets\MyAssignmentsController;
 use App\Http\Controllers\WhatsAppInboxController;
 use App\Http\Controllers\Tickets\TicketReviewController;
+use App\Http\Controllers\PartContable\ActivityController;
+use App\Http\Controllers\ConfidentialDocsController;
 
 /*
 |--------------------------------------------------------------------------
@@ -1975,4 +1977,39 @@ Route::middleware(['auth'])->group(function () {
 Route::middleware(['auth'])->group(function () {
     Route::put('/tickets/{ticket}/checklist-items/{item}', [TicketChecklistController::class, 'toggle'])
         ->name('tickets.checklist-items.toggle');
+});
+
+Route::get('/partcontable/activity/all', [ActivityController::class, 'all'])
+    ->name('partcontable.activity.all');
+
+    Route::middleware(['auth'])->group(function () {
+
+    // Vault por usuario (dueño)
+    Route::get('/confidential/vault/{owner}', [ConfidentialDocsController::class, 'showVault'])
+        ->name('confidential.vault');
+
+    // PIN unlock/lock
+    Route::post('/confidential/vault/{owner}/unlock', [ConfidentialDocsController::class, 'unlockWithPin'])
+        ->name('confidential.vault.unlock');
+
+    Route::post('/confidential/vault/{owner}/lock', [ConfidentialDocsController::class, 'lockPin'])
+        ->name('confidential.vault.lock');
+  // ✅ CREATE
+    Route::get('/confidential/{owner}/create', [ConfidentialDocsController::class, 'create'])
+        ->name('confidential.documents.create');
+
+    Route::post('/confidential/{owner}/store', [ConfidentialDocsController::class, 'store'])
+        ->name('confidential.documents.store');
+    // CRUD docs
+    Route::post('/confidential/vault/{owner}/documents', [ConfidentialDocsController::class, 'store'])
+        ->name('confidential.documents.store');
+
+    Route::get('/confidential/documents/{doc}/preview', [ConfidentialDocsController::class, 'preview'])
+        ->name('confidential.documents.preview');
+
+    Route::get('/confidential/documents/{doc}/download', [ConfidentialDocsController::class, 'download'])
+        ->name('confidential.documents.download');
+
+    Route::delete('/confidential/documents/{doc}', [ConfidentialDocsController::class, 'destroy'])
+        ->name('confidential.documents.destroy');
 });

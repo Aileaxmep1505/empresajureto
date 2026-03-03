@@ -1,15 +1,16 @@
 <?php
-// app/Http/Controllers/Admin/AltaDocsController.php
 
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AltaDoc;
 use App\Models\AgendaEvent;
+use App\Services\Activity\ActivityLogger;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class AltaDocsController extends Controller
 {
@@ -31,7 +32,7 @@ class AltaDocsController extends Controller
         return view('secure.alta_docs_pin');
     }
 
-    public function checkPin(Request $request)
+    public function checkPin(Request $request, ActivityLogger $activity)
     {
         $user = $request->user();
         if (!$user) abort(403);
@@ -57,6 +58,16 @@ class AltaDocsController extends Controller
                 'ip'      => $request->ip(),
             ]);
 
+            // ✅ BITÁCORA
+            $activity->log('alta_unlock_failed', [
+                'reason' => 'no_pin_configured',
+            ], $request, [
+                'module' => 'alta_docs',
+                'screen' => 'Documentación de altas · NIP',
+                'subject_type' => get_class($user),
+                'subject_id'   => $user->id,
+            ]);
+
             return back()
                 ->with('warning', 'Aún no tienes NIP configurado. Ve a tu perfil y configúralo.')
                 ->withInput();
@@ -66,6 +77,16 @@ class AltaDocsController extends Controller
             Log::warning('AltaDocs: NIP inválido (por usuario)', [
                 'user_id' => $user->id,
                 'ip'      => $request->ip(),
+            ]);
+
+            // ✅ BITÁCORA (no guardamos el pin)
+            $activity->log('alta_unlock_failed', [
+                'reason' => 'invalid_pin',
+            ], $request, [
+                'module' => 'alta_docs',
+                'screen' => 'Documentación de altas · NIP',
+                'subject_type' => get_class($user),
+                'subject_id'   => $user->id,
             ]);
 
             return back()
@@ -82,20 +103,40 @@ class AltaDocsController extends Controller
             'ip'      => $request->ip(),
         ]);
 
+        // ✅ BITÁCORA
+        $activity->log('alta_unlock', [
+            'ttl_min' => 30,
+        ], $request, [
+            'module' => 'alta_docs',
+            'screen' => 'Documentación de altas · NIP',
+            'subject_type' => get_class($user),
+            'subject_id'   => $user->id,
+        ]);
+
         return redirect()
             ->route('alta.docs.index')
             ->with('ok', 'Acceso a documentación confidencial habilitado.');
     }
 
-    public function logoutPin(Request $request)
+    public function logoutPin(Request $request, ActivityLogger $activity)
     {
+        $user = $request->user();
+
         $request->session()->forget('alta_docs_unlocked');
         $request->session()->forget('alta_docs_unlocked_user_id');
         $request->session()->forget('alta_docs_unlocked_at');
 
         Log::info('AltaDocs: sesión de documentación cerrada', [
-            'user_id' => $request->user()->id ?? null,
+            'user_id' => $user?->id,
             'ip'      => $request->ip(),
+        ]);
+
+        // ✅ BITÁCORA
+        $activity->log('alta_lock', [], $request, [
+            'module' => 'alta_docs',
+            'screen' => 'Documentación de altas · NIP',
+            'subject_type' => $user ? get_class($user) : null,
+            'subject_id'   => $user?->id,
         ]);
 
         return redirect()
@@ -108,7 +149,7 @@ class AltaDocsController extends Controller
      * - q (buscador)
      * - category
      */
-    public function index(Request $request)
+    public function index(Request $request, ActivityLogger $activity)
     {
         $q        = trim((string) $request->query('q', ''));
         $category = trim((string) $request->query('category', ''));
@@ -132,6 +173,15 @@ class AltaDocsController extends Controller
             'category' => $category,
         ]);
 
+        // ✅ BITÁCORA (acción real de "vio el listado")
+        $activity->log('alta_view_index', [
+            'q' => $q,
+            'category' => $category,
+        ], $request, [
+            'module' => 'alta_docs',
+            'screen' => 'Documentación de altas · Listado',
+        ]);
+
         return view('secure.alta_docs_index', [
             'docs'      => $docs,
             'q'         => $q,
@@ -142,9 +192,8 @@ class AltaDocsController extends Controller
 
     /**
      * SHOW (detalle)
-     * - Semáforo: amarillo desde 30 días (1 mes) antes.
      */
-    public function show(AltaDoc $doc)
+    public function show(Request $request, AltaDoc $doc, ActivityLogger $activity)
     {
         $expiryRaw  = $doc->expires_at ?? null;
         $expiryDate = $expiryRaw ? Carbon::parse($expiryRaw) : null;
@@ -168,6 +217,18 @@ class AltaDocsController extends Controller
         $isImage = str_starts_with((string)$mime, 'image/');
         $isVideo = str_starts_with((string)$mime, 'video/');
 
+        // ✅ BITÁCORA (vio el detalle)
+        $activity->log('alta_view_show', [
+            'title'    => $doc->title,
+            'category' => $doc->category,
+        ], $request, [
+            'module' => 'alta_docs',
+            'screen' => 'Documentación de altas · Detalle',
+            'document_id'  => $doc->id,
+            'subject_type' => AltaDoc::class,
+            'subject_id'   => $doc->id,
+        ]);
+
         return view('secure.alta_docs_show', [
             'doc'          => $doc,
             'exists'       => $exists,
@@ -183,7 +244,7 @@ class AltaDocsController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(Request $request, ActivityLogger $activity)
     {
         try {
             Log::info('AltaDocs DEBUG upload', [
@@ -195,21 +256,6 @@ class AltaDocsController extends Controller
                 'ip'           => $request->ip(),
                 'max_kb'       => $this->maxFileKb,
             ]);
-
-            if ($request->hasFile('files')) {
-                foreach ($request->file('files') as $i => $f) {
-                    if (!$f) continue;
-                    Log::info("AltaDocs DEBUG file #{$i}", [
-                        'name'        => $f->getClientOriginalName(),
-                        'client_ext'  => $f->getClientOriginalExtension(),
-                        'client_mime' => $f->getClientMimeType(),
-                        'server_mime' => $f->getMimeType(),
-                        'guess_ext'   => $f->guessExtension(),
-                        'size'        => $f->getSize(),
-                        'is_valid'    => $f->isValid(),
-                    ]);
-                }
-            }
 
             $data = $request->validate([
                 'category'      => ['required', 'in:' . implode(',', AltaDoc::CATEGORIES)],
@@ -290,6 +336,21 @@ class AltaDocsController extends Controller
                     'mime'    => $doc->mime,
                     'size'    => $doc->size,
                 ]);
+
+                // ✅ BITÁCORA (acción real)
+                $activity->log('alta_upload', [
+                    'title'    => $doc->title,
+                    'category' => $doc->category,
+                    'file'     => $doc->original_name,
+                    'mime'     => $doc->mime,
+                    'size'     => $doc->size,
+                ], $request, [
+                    'module' => 'alta_docs',
+                    'screen' => 'Documentación de altas · Listado',
+                    'document_id'  => $doc->id,
+                    'subject_type' => AltaDoc::class,
+                    'subject_id'   => $doc->id,
+                ]);
             }
 
             return redirect()
@@ -309,7 +370,7 @@ class AltaDocsController extends Controller
         }
     }
 
-    public function download(AltaDoc $doc)
+    public function download(Request $request, AltaDoc $doc, ActivityLogger $activity)
     {
         $diskName = $doc->disk ?: 'local';
         $disk = Storage::disk($diskName);
@@ -322,16 +383,28 @@ class AltaDocsController extends Controller
             'doc_id'  => $doc->id,
             'file'    => $doc->original_name,
             'user_id' => auth()->id(),
-            'ip'      => request()->ip(),
+            'ip'      => $request->ip(),
+        ]);
+
+        // ✅ BITÁCORA
+        $activity->log('alta_download', [
+            'title'    => $doc->title,
+            'category' => $doc->category,
+            'file'     => $doc->original_name,
+        ], $request, [
+            'module' => 'alta_docs',
+            'screen' => 'Documentación de altas · Detalle',
+            'document_id'  => $doc->id,
+            'subject_type' => AltaDoc::class,
+            'subject_id'   => $doc->id,
         ]);
 
         return $disk->download($doc->path, $doc->original_name);
     }
 
-    public function destroy(Request $request, AltaDoc $doc)
+    public function destroy(Request $request, AltaDoc $doc, ActivityLogger $activity)
     {
         try {
-            // ✅ borrar eventos agenda ligados
             $this->deleteAgendaForDoc($doc);
 
             $diskName = $doc->disk ?: 'local';
@@ -341,8 +414,10 @@ class AltaDocsController extends Controller
                 $disk->delete($doc->path);
             }
 
-            $docId   = $doc->id;
-            $docName = $doc->original_name;
+            $docId    = $doc->id;
+            $docName  = $doc->original_name;
+            $docTitle = $doc->title;
+            $docCat   = $doc->category;
 
             $doc->delete();
 
@@ -351,6 +426,19 @@ class AltaDocsController extends Controller
                 'file'    => $docName,
                 'user_id' => $request->user()->id ?? null,
                 'ip'      => $request->ip(),
+            ]);
+
+            // ✅ BITÁCORA
+            $activity->log('alta_delete', [
+                'title'    => $docTitle,
+                'category' => $docCat,
+                'file'     => $docName,
+            ], $request, [
+                'module' => 'alta_docs',
+                'screen' => 'Documentación de altas · Detalle',
+                'document_id'  => $docId,
+                'subject_type' => AltaDoc::class,
+                'subject_id'   => $docId,
             ]);
 
             return redirect()
@@ -368,10 +456,7 @@ class AltaDocsController extends Controller
         }
     }
 
-    /**
-     * PREVIEW (inline)
-     */
-    public function preview(Request $request, AltaDoc $doc)
+    public function preview(Request $request, AltaDoc $doc, ActivityLogger $activity)
     {
         $diskName = $doc->disk ?: 'local';
         $disk = Storage::disk($diskName);
@@ -382,7 +467,6 @@ class AltaDocsController extends Controller
 
         $filename = $doc->original_name ?? basename((string) $doc->path);
         $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
-
         $mime = $doc->mime ?: ($disk->mimeType($doc->path) ?: 'application/octet-stream');
 
         $isGeneric = in_array(strtolower((string)$mime), ['application/octet-stream', 'binary/octet-stream'], true);
@@ -401,30 +485,34 @@ class AltaDocsController extends Controller
                 'mov'  => 'video/quicktime',
                 'mkv'  => 'video/x-matroska',
             ];
-            if (isset($map[$ext])) {
-                $mime = $map[$ext];
-            }
+            if (isset($map[$ext])) $mime = $map[$ext];
         }
 
         $absolutePath = $disk->path($doc->path);
         $safeName = str_replace(['"', "\n", "\r"], '', (string) $filename);
 
+        // ✅ BITÁCORA
+        $activity->log('alta_preview', [
+            'title' => $doc->title,
+            'file'  => $doc->original_name,
+            'mime'  => $mime,
+        ], $request, [
+            'module' => 'alta_docs',
+            'screen' => 'Documentación de altas · Detalle',
+            'document_id'  => $doc->id,
+            'subject_type' => AltaDoc::class,
+            'subject_id'   => $doc->id,
+        ]);
+
         return response()->file($absolutePath, [
-            'Content-Type'              => $mime,
-            'Content-Disposition'       => 'inline; filename="' . $safeName . '"',
-            'X-Content-Type-Options'    => 'nosniff',
-            'Cache-Control'             => 'private, max-age=0, no-store, no-cache, must-revalidate',
-            'Pragma'                    => 'no-cache',
+            'Content-Type'           => $mime,
+            'Content-Disposition'    => 'inline; filename="' . $safeName . '"',
+            'X-Content-Type-Options' => 'nosniff',
+            'Cache-Control'          => 'private, max-age=0, no-store, no-cache, must-revalidate',
+            'Pragma'                 => 'no-cache',
         ]);
     }
 
-    /**
-     * Semáforo:
-     * - bad  : vencido (< 0)
-     * - warn : desde 30 días antes (<= 30)  ✅ 1 mes antes
-     * - ok   : > 30
-     * - none : sin vigencia
-     */
     private function computeSemaforo(?Carbon $expiryDate): array
     {
         if (!$expiryDate) return ['none', null];
@@ -435,41 +523,28 @@ class AltaDocsController extends Controller
         $daysToExpire = $now->diffInDays($exp, false);
 
         if ($daysToExpire < 0) return ['bad', $daysToExpire];
-        if ($daysToExpire <= 30) return ['warn', $daysToExpire]; // ✅ 1 mes antes
+        if ($daysToExpire <= 30) return ['warn', $daysToExpire];
         return ['ok', $daysToExpire];
     }
 
-    /**
-     * Crea / actualiza en Agenda:
-     * - 30 días antes
-     * - 7 días antes
-     *
-     * Se amarra por title tag:
-     *  [ALTA_DOC:{id}:30D] y [ALTA_DOC:{id}:7D]
-     */
     private function syncAgendaForExpiry(AltaDoc $doc, Request $request): void
     {
         try {
             $expiryRaw = $doc->expires_at ?? null;
             $expiry = $expiryRaw ? Carbon::parse($expiryRaw)->startOfDay() : null;
 
-            // si no hay vigencia, borramos eventos ligados y salimos
             if (!$expiry) {
                 $this->deleteAgendaForDoc($doc);
                 return;
             }
 
             $userId = $request->user()->id ?? null;
-            if (!$userId) return; // sin usuario logueado, no creamos agenda
+            if (!$userId) return;
 
             $tz = 'America/Mexico_City';
-
-            // hora default del evento (09:00)
             $at30 = $expiry->copy()->subDays(30)->setTime(9, 0, 0);
             $at7  = $expiry->copy()->subDays(7)->setTime(9, 0, 0);
 
-            // si ya pasó la fecha del recordatorio, igual lo guardamos (tú decides),
-            // aquí lo guardo de todos modos por trazabilidad.
             $docTitle = $doc->title ?: ($doc->original_name ?: 'Documento');
             $showUrl = route('alta.docs.show', $doc);
 
@@ -503,14 +578,13 @@ class AltaDocsController extends Controller
 
     private function upsertAgendaEvent(string $title, string $description, Carbon $startAt, string $tz, int $userId): void
     {
-        // estos campos existen según tu AgendaEventController
         $payload = [
             'title'                 => $title,
             'description'           => $description,
             'start_at'              => $startAt->copy()->setTimezone($tz)->format('Y-m-d H:i:s'),
             'timezone'              => $tz,
             'repeat_rule'           => 'none',
-            'remind_offset_minutes' => 60,     // 1 hora antes (puedes cambiar)
+            'remind_offset_minutes' => 60,
             'user_ids'              => [$userId],
             'send_email'            => true,
             'send_whatsapp'         => true,
@@ -518,13 +592,9 @@ class AltaDocsController extends Controller
 
         $event = AgendaEvent::query()->where('title', $title)->first();
 
-        if ($event) {
-            $event->fill($payload);
-        } else {
-            $event = new AgendaEvent($payload);
-        }
+        if ($event) $event->fill($payload);
+        else $event = new AgendaEvent($payload);
 
-        // tu modelo tiene computeNextReminder()
         if (method_exists($event, 'computeNextReminder')) {
             $event->computeNextReminder();
         }

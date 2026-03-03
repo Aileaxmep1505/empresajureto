@@ -13,21 +13,35 @@ return Application::configure(basePath: dirname(__DIR__))
         // health: '/up', // opcional
     )
     ->withMiddleware(function (Middleware $middleware) {
-        // Aliases de middleware personalizados
-        $middleware->alias([
-            'approved'          => \App\Http\Middleware\EnsureUserIsApproved::class,
 
-            // Tus middlewares de roles/permisos
-            'role'              => \App\Http\Middleware\EnsureRole::class,
-            'permission'        => \App\Http\Middleware\EnsurePermission::class,
-            'role_or_permission'=> \App\Http\Middleware\EnsureRoleOrPermission::class,
-
-            // 🔐 NIP para documentación de altas
-              'alta_docs_pin' => \App\Http\Middleware\AltaDocsPinMiddleware::class,
+        /*
+        |--------------------------------------------------------------------------
+        | ✅ SOLO "pantallas" (screen_view)
+        |--------------------------------------------------------------------------
+        | Esto NO registra cada request; solo registra si la ruta está declarada
+        | en config('activity.screens').
+        |
+        | Evita el spam tipo:
+        | GET /notifications/feed · route: notifications.feed...
+        */
+        $middleware->web(append: [
+            \App\Http\Middleware\LogScreenViews::class,
         ]);
 
-        // (Opcional) puedes agregar globales o grupos aquí si los necesitas:
-        // $middleware->web([...]);
+        // Aliases de middleware personalizados
+        $middleware->alias([
+            'approved'           => \App\Http\Middleware\EnsureUserIsApproved::class,
+
+            // Roles/permisos
+            'role'               => \App\Http\Middleware\EnsureRole::class,
+            'permission'         => \App\Http\Middleware\EnsurePermission::class,
+            'role_or_permission' => \App\Http\Middleware\EnsureRoleOrPermission::class,
+
+            // 🔐 NIP para documentación de altas
+            'alta_docs_pin'      => \App\Http\Middleware\AltaDocsPinMiddleware::class,
+        ]);
+
+        // (Opcional) api group si quieres
         // $middleware->api([...]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

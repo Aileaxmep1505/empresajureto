@@ -1,3 +1,4 @@
+{{-- resources/views/partcontable/activity_all.blade.php --}}
 @extends('layouts.app')
 @section('title', 'Bitácora de actividad (todas las empresas)')
 
@@ -5,48 +6,123 @@
 @php
   // ✅ Traducción de acciones (para cliente)
   $actionLabels = [
-    'pc_unlock'          => 'Accedió con NIP',
-    'pc_unlock_failed'   => 'Intento de acceso fallido',
-    'pc_lock'            => 'Cerró el acceso',
-    'pc_upload'          => 'Subió un archivo',
-    'pc_delete'          => 'Eliminó un archivo',
-    'pc_preview'         => 'Abrió vista previa',
-    'pc_download'        => 'Descargó un archivo',
-    'pc_view_activity'   => 'Abrió la bitácora (empresa)',
-    'pc_view_activity_all'=> 'Abrió la bitácora (general)',
+    // Part Contable / docs “pc_*”
+    'pc_unlock'            => 'Accedió con NIP',
+    'pc_unlock_failed'     => 'Intento de acceso fallido',
+    'pc_lock'              => 'Cerró el acceso',
+    'pc_upload'            => 'Subió un archivo',
+    'pc_delete'            => 'Eliminó un archivo',
+    'pc_preview'           => 'Abrió vista previa',
+    'pc_download'          => 'Descargó un archivo',
+    'pc_view_activity'     => 'Abrió la bitácora (empresa)',
+    'pc_view_activity_all' => 'Abrió la bitácora (general)',
+
+    // ✅ Global (middleware)
+    'http_request'         => 'Navegó en el sistema',
+
+    // ✅ Alta Docs (AltaDocsController)
+    'alta_unlock'          => 'Accedió a Alta Docs con NIP',
+    'alta_unlock_failed'   => 'Falló NIP en Alta Docs',
+    'alta_lock'            => 'Cerró sesión Alta Docs',
+    'alta_view_index'      => 'Abrió listado Alta Docs',
+    'alta_view_show'       => 'Abrió detalle Alta Docs',
+    'alta_upload'          => 'Subió documento Alta Docs',
+    'alta_download'        => 'Descargó documento Alta Docs',
+    'alta_preview'         => 'Vista previa Alta Docs',
+    'alta_delete'          => 'Eliminó documento Alta Docs',
   ];
 
   // ✅ Cómo “resumir” meta para humanos
-  $metaResumen = function($r) {
+  $metaResumen = function($r) use ($actionLabels) {
     $m = $r->meta ?? [];
-    if (!is_array($m)) return '—';
+    if (!is_array($m)) $m = [];
 
-    // Ejemplos de resumen
-    if (($r->action ?? '') === 'pc_upload') {
+    $action = $r->action ?? '';
+
+    // ===== pc_* =====
+    if ($action === 'pc_upload') {
       $t = $m['title'] ?? ($r->document?->title ?? 'Documento');
       return "Documento: {$t}";
     }
-    if (($r->action ?? '') === 'pc_delete') {
+    if ($action === 'pc_delete') {
       $t = $m['title'] ?? 'Documento';
       return "Documento eliminado: {$t}";
     }
-    if (($r->action ?? '') === 'pc_download') {
+    if ($action === 'pc_download') {
       $t = $m['title'] ?? ($r->document?->title ?? 'Documento');
       return "Descargó: {$t}";
     }
-    if (($r->action ?? '') === 'pc_preview') {
+    if ($action === 'pc_preview') {
       $t = $m['title'] ?? ($r->document?->title ?? 'Documento');
       return "Vio: {$t}";
     }
-    if (($r->action ?? '') === 'pc_unlock_failed') {
+    if ($action === 'pc_unlock_failed') {
       return "Motivo: ".($m['reason'] ?? 'NIP incorrecto');
     }
-    if (($r->action ?? '') === 'pc_unlock') {
+    if ($action === 'pc_unlock') {
       return "Tiempo de acceso: ".($m['ttl_min'] ?? '—')." min";
+    }
+
+    // ===== Alta Docs =====
+    if ($action === 'alta_upload') {
+      $t = $m['title'] ?? 'Documento';
+      $c = $m['category'] ?? null;
+      $f = $m['file'] ?? null;
+      $parts = ["Subió: {$t}"];
+      if ($c) $parts[] = "Tipo: {$c}";
+      if ($f) $parts[] = "Archivo: {$f}";
+      return implode(' · ', $parts);
+    }
+    if ($action === 'alta_download') {
+      $t = $m['title'] ?? 'Documento';
+      $f = $m['file'] ?? null;
+      return $f ? "Descargó: {$t} · {$f}" : "Descargó: {$t}";
+    }
+    if ($action === 'alta_preview') {
+      $t = $m['title'] ?? 'Documento';
+      return "Vio: {$t}";
+    }
+    if ($action === 'alta_delete') {
+      $t = $m['title'] ?? 'Documento';
+      $f = $m['file'] ?? null;
+      return $f ? "Eliminó: {$t} · {$f}" : "Eliminó: {$t}";
+    }
+    if ($action === 'alta_unlock_failed') {
+      return "Motivo: ".($m['reason'] ?? 'NIP incorrecto');
+    }
+    if ($action === 'alta_unlock') {
+      return "Tiempo de acceso: ".($m['ttl_min'] ?? '—')." min";
+    }
+
+    // ===== Global http_request =====
+    if ($action === 'http_request') {
+      $path = $r->path ?? null;
+      $route = $r->route ?? null;
+      $method = $r->method ?? null;
+      $code = $r->status_code ?? null;
+      $dur = $r->duration_ms ?? null;
+
+      $parts = [];
+      if ($method || $path) $parts[] = trim(($method ? $method.' ' : '').($path ?? ''));
+      if ($route) $parts[] = "route: {$route}";
+      if ($code) $parts[] = "status: {$code}";
+      if ($dur !== null) $parts[] = "duración: {$dur} ms";
+
+      // query (si existe)
+      if (isset($m['query']) && is_array($m['query']) && count($m['query'])) {
+        $parts[] = "query: ".\Illuminate\Support\Str::limit(json_encode($m['query'], JSON_UNESCAPED_UNICODE), 90);
+      }
+
+      return count($parts) ? implode(' · ', $parts) : '—';
     }
 
     // Default: si hay title
     if (!empty($m['title'])) return "Documento: ".$m['title'];
+
+    // Default: si hay keys
+    if (!empty($m['keys']) && is_array($m['keys'])) {
+      return "Campos: ".\Illuminate\Support\Str::limit(implode(', ', array_slice($m['keys'], 0, 8)), 120);
+    }
 
     return '—';
   };
@@ -131,6 +207,7 @@
   .ua-dot{width:8px;height:8px;border-radius:999px;background:#22c55e;}
   .ua-dot.warn{background:#f59e0b;}
   .ua-dot.err{background:#ef4444;}
+  .ua-dot.neu{background:#60a5fa;}
 
   .ua-foot{padding:12px 14px;}
 
@@ -180,7 +257,7 @@
     </div>
 
     <div class="ua-note">
-      Ejemplos: <strong>Accedió con NIP</strong>, <strong>Subió un archivo</strong>, <strong>Eliminó un archivo</strong>, <strong>Descargó</strong>, <strong>Vista previa</strong>.
+      Ejemplos: <strong>Accedió con NIP</strong>, <strong>Subió un archivo</strong>, <strong>Eliminó un archivo</strong>, <strong>Descargó</strong>, <strong>Vista previa</strong>, <strong>Navegó</strong>.
     </div>
 
     <div style="overflow:auto;">
@@ -200,10 +277,14 @@
           @forelse($rows as $r)
             @php
               $dot = 'ua-dot';
-              if (str_contains($r->action ?? '', 'failed')) $dot .= ' err';
-              elseif (str_contains($r->action ?? '', 'delete')) $dot .= ' warn';
 
-              $accionHumana = $actionLabels[$r->action] ?? ($r->action ?? '—');
+              $a = (string)($r->action ?? '');
+
+              if (str_contains($a, 'failed')) $dot .= ' err';
+              elseif (str_contains($a, 'delete')) $dot .= ' warn';
+              elseif ($a === 'http_request') $dot .= ' neu';
+
+              $accionHumana = $actionLabels[$a] ?? ($a !== '' ? $a : '—');
             @endphp
 
             <tr>
@@ -243,6 +324,11 @@
                   <div class="ua-muted">ID: {{ $r->document_id }}</div>
                 @else
                   <span class="ua-muted">—</span>
+                  @if(!empty($r->subject_type) && !empty($r->subject_id))
+                    <div class="ua-muted">
+                      {{ \Illuminate\Support\Str::afterLast($r->subject_type, '\\') }} #{{ $r->subject_id }}
+                    </div>
+                  @endif
                 @endif
               </td>
 
