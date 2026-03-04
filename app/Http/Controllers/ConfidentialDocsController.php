@@ -124,19 +124,101 @@ class ConfidentialDocsController extends Controller
         return false;
     }
 
+    // =========================
+    // ✅ Screen/module helpers (para ActivityController)
+    // =========================
+    private function screenNameFromRequest(Request $request): ?string
+    {
+        $routeName = optional($request->route())->getName();
+        if (!$routeName) return null;
+
+        $map = (array) config('user_activity.screens', []);
+        return $map[$routeName] ?? null;
+    }
+
+    private function moduleFromRequest(Request $request): string
+    {
+        $routeName = (string) (optional($request->route())->getName() ?? '');
+        if (str_contains($routeName, 'confidential')) return 'Vault confidencial';
+        return 'Sistema';
+    }
+
+    private function sanitizeMeta(array $meta): array
+    {
+        // respeta tu config
+        $sensitive = (array) config('user_activity.sensitive_keys', []);
+        $maxLen    = (int) (config('user_activity.max_value_length', 500));
+        $maxKeys   = (int) (config('user_activity.max_meta_keys', 40));
+
+        $out = [];
+        $i = 0;
+
+        foreach ($meta as $k => $v) {
+            if ($i >= $maxKeys) break;
+            $i++;
+
+            $key = (string) $k;
+            $lk = strtolower($key);
+
+            foreach ($sensitive as $sk) {
+                if ($lk === strtolower((string)$sk)) {
+                    $out[$key] = '[REDACTED]';
+                    continue 2;
+                }
+            }
+
+            if (is_array($v)) {
+                $v = json_encode($v);
+            } elseif (is_object($v)) {
+                $v = '[OBJECT]';
+            }
+
+            $val = (string) $v;
+            if (mb_strlen($val) > $maxLen) {
+                $val = mb_substr($val, 0, $maxLen) . '…';
+            }
+
+            $out[$key] = $val;
+        }
+
+        return $out;
+    }
+
     /**
-     * ✅ usa tu bitácora (UserActivity) – NO duplico sistema
+     * ✅ manda TODO a UserActivity (con module/screen/path/route)
      */
     private function logActivity(Request $request, string $action, ?int $companyId = null, ?int $confDocId = null, array $meta = []): void
     {
         try {
+            $routeName = optional($request->route())->getName();
+            $screen    = $this->screenNameFromRequest($request);
+            $module    = $this->moduleFromRequest($request);
+
+            $payloadMeta = array_merge([
+                'confidential_document_id' => $confDocId,
+                'vault_owner_id'           => optional($request->route('owner'))->id ?? null,
+            ], $meta);
+
             UserActivity::create([
                 'user_id'     => optional($request->user())->id,
                 'company_id'  => $companyId,
-                // OJO: si tu tabla tiene FK estricto a documents.id, déjalo en null y usa meta
+
+                // ✅ si tu tabla tiene FK estricta a documents.id, lo dejamos null y usamos meta.
                 'document_id' => null,
+
+                // ✅ lo que filtras en ActivityController
                 'action'      => $action,
-                'meta'        => array_merge(['confidential_document_id' => $confDocId], $meta) ?: null,
+                'module'      => $module,
+                'screen'      => $screen,
+
+                // rutas
+                'route'       => $routeName,
+                'path'        => '/'.ltrim($request->path(), '/'),
+
+                // meta sanitizada (según config)
+                'meta'        => $this->sanitizeMeta($payloadMeta) ?: null,
+
+                // huella
                 'ip'          => $request->ip(),
                 'user_agent'  => substr((string) $request->userAgent(), 0, 500),
             ]);
@@ -153,6 +235,12 @@ class ConfidentialDocsController extends Controller
         // if ((int)$owner->id !== (int)auth()->id() && !auth()->user()->hasRole('admin')) abort(403);
 
         if (!$this->isPinUnlocked($owner->id)) {
+            // ✅ registra intento de acceso bloqueado (sirve en bitácora)
+            $this->logActivity($request, 'conf_vault_blocked', null, null, [
+                'vault_of' => $owner->id,
+                'owner'    => $owner->name,
+            ]);
+
             return view('confidential.pin', [
                 'owner'      => $owner,
                 'redirectTo' => $request->fullUrl(),
@@ -161,8 +249,7 @@ class ConfidentialDocsController extends Controller
 
         $q = trim((string) $request->get('q', ''));
 
-        // ✅ OJO: tu UI usa section/subtipo, pero el filtro real aquí es doc_key.
-        // Si viene "subtipo", lo usamos como doc_key.
+        // Si viene "subtipo" lo usamos como doc_key.
         $docKey  = trim((string) $request->get('doc_key', ''));
         $subtipo = trim((string) $request->get('subtipo', ''));
         if ($docKey === '' && $subtipo !== '') $docKey = $subtipo;
@@ -177,7 +264,7 @@ class ConfidentialDocsController extends Controller
         if ($year)  $query->whereYear('date', $year);
         if ($month) $query->whereMonth('date', $month);
 
-        // ✅ Live search: busca en title / doc_key / description / original_name / file_path
+        // ✅ Live search: title / doc_key / description / original_name / file_path
         if ($q !== '') {
             $like = '%'.$q.'%';
             $query->where(function ($s) use ($like) {
@@ -193,13 +280,22 @@ class ConfidentialDocsController extends Controller
             ->paginate(12)
             ->appends($request->query());
 
-        // ✅ AJAX (para tu búsqueda tipo Google sin recargar)
+        // ✅ AJAX (búsqueda tipo Google sin recargar)
         $isAjax = $request->ajax() || $request->boolean('ajax') || $request->header('X-Vault-Ajax') === '1';
         if ($isAjax) {
-            // suggestions (top 6)
+            // ✅ registra la acción de búsqueda
+            $this->logActivity($request, 'conf_vault_search', null, null, [
+                'vault_of' => $owner->id,
+                'q'        => $q,
+                'doc_key'  => $docKey,
+                'year'     => $year,
+                'month'    => $month,
+                'page'     => (int) $request->get('page', 1),
+            ]);
+
             $suggestions = [];
             if ($q !== '') {
-                $sq = ConfidentialDocument::query()
+                $suggestions = ConfidentialDocument::query()
                     ->where('owner_user_id', $owner->id)
                     ->when($docKey !== '', fn($qq) => $qq->where('doc_key', $docKey))
                     ->when($year, fn($qq) => $qq->whereYear('date', $year))
@@ -224,8 +320,6 @@ class ConfidentialDocsController extends Controller
                     })
                     ->values()
                     ->all();
-
-                $suggestions = $sq;
             }
 
             $html = view('confidential.partials.vault_results', [
@@ -238,6 +332,15 @@ class ConfidentialDocsController extends Controller
                 'suggestions' => $suggestions,
             ]);
         }
+
+        // ✅ registra vista normal del vault
+        $this->logActivity($request, 'conf_vault_view', null, null, [
+            'vault_of' => $owner->id,
+            'doc_key'  => $docKey,
+            'year'     => $year,
+            'month'    => $month,
+            'q'        => $q,
+        ]);
 
         return view('confidential.vault', [
             'owner'       => $owner,
@@ -256,6 +359,10 @@ class ConfidentialDocsController extends Controller
     public function create(Request $request, User $owner)
     {
         if (!$this->isPinUnlocked($owner->id)) {
+            $this->logActivity($request, 'conf_create_blocked', null, null, [
+                'vault_of' => $owner->id,
+            ]);
+
             return redirect()
                 ->route('confidential.vault', $owner->id)
                 ->with('warning', 'Debes ingresar NIP primero.');
@@ -263,6 +370,12 @@ class ConfidentialDocsController extends Controller
 
         $section = (string) $request->get('section', 'efirma');
         $subtipo = (string) $request->get('subtipo', '');
+
+        $this->logActivity($request, 'conf_create_view', null, null, [
+            'vault_of' => $owner->id,
+            'section'  => $section,
+            'subtipo'  => $subtipo,
+        ]);
 
         return view('confidential.create', [
             'owner'   => $owner,
@@ -293,6 +406,12 @@ class ConfidentialDocsController extends Controller
         $stored = $this->getUserPinValue($user);
         if (!$stored) {
             $msg = 'Tu usuario no tiene NIP configurado.';
+
+            $this->logActivity($request, 'conf_unlock_failed', null, null, [
+                'vault_of' => $owner->id,
+                'reason'   => 'no_pin_configured',
+            ]);
+
             return $request->expectsJson()
                 ? response()->json(['ok' => false, 'message' => $msg], 422)
                 : back()->with('warning', $msg);
@@ -300,22 +419,23 @@ class ConfidentialDocsController extends Controller
 
         $input = $this->normalizePin((string) $request->pin);
 
+        $ok = false;
         if (method_exists($user, 'checkApprovalPin')) {
-            if (!$user->checkApprovalPin($input)) {
-                $this->logActivity($request, 'conf_unlock_failed', null, null, ['reason' => 'invalid_pin']);
-                $msg = 'NIP incorrecto.';
-                return $request->expectsJson()
-                    ? response()->json(['ok' => false, 'message' => $msg], 422)
-                    : back()->with('warning', $msg);
-            }
+            $ok = (bool) $user->checkApprovalPin($input);
         } else {
-            if (!$this->verifyPin($input, $stored)) {
-                $this->logActivity($request, 'conf_unlock_failed', null, null, ['reason' => 'invalid_pin']);
-                $msg = 'NIP incorrecto.';
-                return $request->expectsJson()
-                    ? response()->json(['ok' => false, 'message' => $msg], 422)
-                    : back()->with('warning', $msg);
-            }
+            $ok = $this->verifyPin($input, $stored);
+        }
+
+        if (!$ok) {
+            $this->logActivity($request, 'conf_unlock_failed', null, null, [
+                'vault_of' => $owner->id,
+                'reason'   => 'invalid_pin',
+            ]);
+
+            $msg = 'NIP incorrecto.';
+            return $request->expectsJson()
+                ? response()->json(['ok' => false, 'message' => $msg], 422)
+                : back()->with('warning', $msg);
         }
 
         $this->setPinUnlocked($owner->id);
@@ -365,6 +485,10 @@ class ConfidentialDocsController extends Controller
     public function store(Request $request, User $owner)
     {
         if (!$this->isPinUnlocked($owner->id)) {
+            $this->logActivity($request, 'conf_upload_blocked', null, null, [
+                'vault_of' => $owner->id,
+            ]);
+
             return $request->expectsJson()
                 ? response()->json(['ok' => false, 'message' => 'Bloqueado. Ingresa NIP.'], 403)
                 : back()->with('warning', 'Bloqueado. Ingresa NIP.');
@@ -424,10 +548,10 @@ class ConfidentialDocsController extends Controller
         $year  = $date->year;
         $month = $date->month;
 
-        $docKey = Str::slug($request->input('doc_key'), '_');
-        $slugTitle = Str::slug($request->input('title') ?: pathinfo($originalName, PATHINFO_FILENAME)) ?: 'documento';
+        $docKeySlug = Str::slug($request->input('doc_key'), '_');
+        $slugTitle  = Str::slug($request->input('title') ?: pathinfo($originalName, PATHINFO_FILENAME)) ?: 'documento';
 
-        $subdir = "confidential/{$owner->id}/{$docKey}/{$year}/{$month}";
+        $subdir = "confidential/{$owner->id}/{$docKeySlug}/{$year}/{$month}";
         $name   = "{$slugTitle}_" . time() . "_" . uniqid() . ".{$ext}";
 
         DB::beginTransaction();
@@ -482,9 +606,14 @@ class ConfidentialDocsController extends Controller
                 Storage::disk('public')->delete($storedPath);
             }
 
+            $this->logActivity($request, 'conf_upload_failed', $request->input('company_id') ?: null, null, [
+                'vault_of' => $owner->id,
+                'error'    => $e->getMessage(),
+            ]);
+
             return $request->expectsJson()
-                ? response()->json(['ok'=>false,'message'=>'Error al subir: '.$e->getMessage()], 500)
-                : back()->with('warning', 'Error al subir: '.$e->getMessage());
+                ? response()->json(['ok'=>false,'message'=>'Error al subir.'], 500)
+                : back()->with('warning', 'Error al subir.');
         }
     }
 
@@ -494,6 +623,9 @@ class ConfidentialDocsController extends Controller
     public function download(Request $request, ConfidentialDocument $doc)
     {
         if ($doc->requires_pin && !$this->isPinUnlocked((int)$doc->owner_user_id)) {
+            $this->logActivity($request, 'conf_download_blocked', $doc->company_id, $doc->id, [
+                'vault_of' => $doc->owner_user_id,
+            ]);
             abort(403, 'Bloqueado. Ingresa NIP.');
         }
 
@@ -520,6 +652,9 @@ class ConfidentialDocsController extends Controller
     public function preview(Request $request, ConfidentialDocument $doc)
     {
         if ($doc->requires_pin && !$this->isPinUnlocked((int)$doc->owner_user_id)) {
+            $this->logActivity($request, 'conf_preview_blocked', $doc->company_id, $doc->id, [
+                'vault_of' => $doc->owner_user_id,
+            ]);
             abort(403, 'Bloqueado. Ingresa NIP.');
         }
 
@@ -536,7 +671,6 @@ class ConfidentialDocsController extends Controller
             'vault_of'=> $doc->owner_user_id,
         ]);
 
-        // ✅ FIX: PASAR OWNER
         $owner = User::findOrFail((int)$doc->owner_user_id);
 
         return view('confidential.preview', compact('doc','owner','exists'));
@@ -548,6 +682,10 @@ class ConfidentialDocsController extends Controller
     public function destroy(Request $request, ConfidentialDocument $doc)
     {
         if ($doc->requires_pin && !$this->isPinUnlocked((int)$doc->owner_user_id)) {
+            $this->logActivity($request, 'conf_delete_blocked', $doc->company_id, $doc->id, [
+                'vault_of' => $doc->owner_user_id,
+            ]);
+
             return $request->expectsJson()
                 ? response()->json(['ok'=>false,'message'=>'Bloqueado. Ingresa NIP.'], 403)
                 : back()->with('warning', 'Bloqueado. Ingresa NIP.');
@@ -559,6 +697,7 @@ class ConfidentialDocsController extends Controller
             $companyId = $doc->company_id;
             $id = $doc->id;
             $title = $doc->title;
+            $ownerId = (int) $doc->owner_user_id;
 
             $doc->delete();
 
@@ -569,8 +708,9 @@ class ConfidentialDocsController extends Controller
             DB::commit();
 
             $this->logActivity($request, 'conf_delete', $companyId, $id, [
-                'title' => $title,
-                'path'  => $path,
+                'title'   => $title,
+                'path'    => $path,
+                'vault_of'=> $ownerId,
             ]);
 
             return $request->expectsJson()
@@ -578,6 +718,11 @@ class ConfidentialDocsController extends Controller
                 : back()->with('success', 'Documento eliminado.');
         } catch (\Throwable $e) {
             DB::rollBack();
+
+            $this->logActivity($request, 'conf_delete_failed', $doc->company_id, $doc->id, [
+                'vault_of' => $doc->owner_user_id,
+                'error'    => $e->getMessage(),
+            ]);
 
             return $request->expectsJson()
                 ? response()->json(['ok'=>false,'message'=>'No se pudo eliminar.'], 500)
