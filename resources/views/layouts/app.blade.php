@@ -1071,30 +1071,7 @@
         </div>
       </details>
 
-      <!-- Diagnóstico -->
-      <details class="nav__group" {{ request()->is('diag/http') || request()->is('debug/*') ? 'open' : '' }}>
-        <summary class="{{ request()->is('diag/http') || request()->is('debug/*') ? 'is-active':'' }}">
-          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
-            <path d="M3 3h18v6H3zM3 15h18v6H3z"/><path d="M7 9V3M17 21v-6"/>
-          </svg>
-          <span>Diagnóstico</span>
-          <svg class="nav__chev" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
-        </summary>
-        <div class="nav__submenu">
-          <a href="{{ url('/diag/http') }}" class="nav__sublink {{ request()->is('diag/http') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M5 21h14"/></svg>
-            <span>Ping servicios</span>
-          </a>
-          <a href="{{ url('/debug/skydropx/carriers') }}" class="nav__sublink {{ request()->is('debug/skydropx/carriers') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M3 8h18l-2 10H5L3 8z"/><path d="M16 8V6a2 2 0 0 0-2-2H10a2 2 0 0 0-2 2v2"/></svg>
-            <span>Carriers SkydropX</span>
-          </a>
-          <a href="{{ url('/debug/skydropx/quote') }}" class="nav__sublink {{ request()->is('debug/skydropx/quote') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M3 12h18M7 12l-4 4 4 4"/></svg>
-            <span>Quote SkydropX</span>
-          </a>
-        </div>
-      </details>
+    
 
       @endif
     </nav>

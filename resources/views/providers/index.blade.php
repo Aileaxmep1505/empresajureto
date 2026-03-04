@@ -10,14 +10,10 @@
   --shadow:0 10px 30px rgba(2,6,23,.06);
 }
 
-/* ✅ MÁS ANCHO EN DESKTOP (para que NO se rompa la tabla) */
-.page{
-  max-width: 1400px;          /* antes 1140px */
-  margin:12px auto 22px;
-  padding:0 14px;
-}
+/* ✅ MÁS ANCHO EN DESKTOP */
+.page{ max-width:1400px; margin:12px auto 22px; padding:0 14px; }
 
-/* ================= HERO (Encabezado azul) ================= */
+/* ================= HERO ================= */
 .hero{
   position:relative; border-radius:22px; padding:16px 18px;
   background:
@@ -36,10 +32,9 @@
 .hero h1{ margin:0; font-weight:800; letter-spacing:-.02em }
 .subtle{ color:var(--muted) }
 .hero__right{ display:flex; align-items:center; gap:12px }
+@media (max-width:576px){ .hero__icon{ display:none } }
 
-@media (max-width: 576px){ .hero__icon{ display:none } }
-
-/* ================= BUSCADOR NORMAL ================= */
+/* ================= BUSCADOR ================= */
 .searchbar{
   flex:1; display:flex; align-items:center; gap:8px;
   background:#fff; height:46px; border-radius:999px; padding:0 10px 0 12px;
@@ -47,14 +42,13 @@
   min-width:300px; max-width:min(82vw, 620px);
 }
 .sb-icon{ width:26px; display:grid; place-items:center; color:#94a3b8 }
-.sb-input{
-  flex:1; border:0; outline:none; height:100%; font-size:.98rem; color:var(--text); background:transparent;
-}
+.sb-input{ flex:1; border:0; outline:none; height:100%; font-size:.98rem; color:var(--text); background:transparent; }
 .sb-clear{
   border:0; background:transparent; color:#94a3b8; width:28px; height:28px; border-radius:50%;
   display:grid; place-items:center; cursor:pointer; visibility:hidden;
 }
 .sb-clear:hover{ background:#f1f5f9; color:#64748b }
+
 @media (max-width:768px){
   .hero{ padding:14px }
   .hero__right{ width:100%; justify-content:flex-end }
@@ -78,67 +72,26 @@
   overflow:hidden;
   margin-top:14px;
 }
-
-/* ✅ Desktop: NO scroll, que se vea completo */
-.table-wrap{
-  width:100%;
-  overflow: visible;      /* antes overflow:auto */
-}
-
-/* ✅ Tabla más “compacta” y legible */
+.table-wrap{ width:100%; overflow: visible; }
 table{ width:100%; border-collapse:collapse }
 th, td{ padding:12px 14px; vertical-align:middle; border-bottom:1px solid var(--border) }
 th{
-  text-align:left;
-  font-size:.86rem;
-  color:#6b7280;
-  background:#fff;
-  position:sticky; top:0; z-index:1
+  text-align:left; font-size:.86rem; color:#6b7280;
+  background:#fff; position:sticky; top:0; z-index:1
 }
 td{ font-size:.95rem; color:var(--text) }
 tr:hover td{ background:#fafcff }
 
-/* ✅ Evitar que se rompan columnas cortas (Folio/Tipo/Teléfono/Estatus/Acciones) */
-#providersTable th:nth-child(1),
-#providersTable td:nth-child(1),
+/* Celdas compactas */
+#providersTable th:nth-child(4),
+#providersTable td:nth-child(4),
 #providersTable th:nth-child(5),
-#providersTable td:nth-child(5),
-#providersTable th:nth-child(6),
-#providersTable td:nth-child(6),
-#providersTable th:nth-child(8),
-#providersTable td:nth-child(8),
-#providersTable th:nth-child(9),
-#providersTable td:nth-child(9){
+#providersTable td:nth-child(5){
   white-space: nowrap;
 }
-
-/* ✅ Folio con ancho fijo para que no se parta */
-#providersTable th:nth-child(1),
-#providersTable td:nth-child(1){
-  width: 130px;
-}
-
-/* ✅ Acciones fijo */
-#providersTable th:nth-child(9),
-#providersTable td:nth-child(9){
-  width: 96px;
-}
-
-/* Email: que no se haga gigante, pero tampoco rompa feo */
-#providersTable td:nth-child(3){
-  max-width: 360px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Ciudad/Estado: permitimos 2 líneas máximo (no 6) */
-#providersTable td:nth-child(7){
-  max-width: 320px;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+#providersTable th:nth-child(5),
+#providersTable td:nth-child(5){
+  width: 110px;
 }
 
 /* Badges */
@@ -150,41 +103,55 @@ tr:hover td{ background:#fafcff }
 .badge.inactivo{ background:#ffe4e6; color:#7f1d1d; border-color:#fecdd3 }
 
 /* Acciones */
-.actions{ display:flex; gap:8px }
+.actions{ display:flex; gap:8px; justify-content:flex-end }
 .icon-btn{
-  display:inline-grid; place-items:center; width:36px; height:36px; border-radius:10px; border:1px solid var(--border);
-  background:#fff; cursor:pointer; transition:transform .06s, background .2s;
+  display:inline-grid; place-items:center; width:36px; height:36px; border-radius:10px;
+  border:1px solid var(--border); background:#fff; cursor:pointer;
+  transition:transform .06s, background .2s;
 }
 .icon-btn:hover{ background:#f7faff }
 .icon-btn:active{ transform:translateY(1px) }
 
-/* ✅ SOLO EN CELULAR: permitir scroll horizontal si hace falta */
+/* Avatar */
+.p-avatar{
+  width:38px; height:38px; border-radius:50%;
+  background:#e8f0ff; border:1px solid #d7e6ff;
+  display:grid; place-items:center;
+  font-weight:800; color:#2563eb;
+}
+
+/* Layout inside cells */
+.p-main{ display:flex; align-items:center; gap:12px; }
+.p-title{ font-weight:800; line-height:1.1 }
+.p-sub{ font-size:.85rem; color:var(--muted); margin-top:2px }
+
+.p-contact-name{ font-weight:700; line-height:1.2 }
+.p-contact-row{
+  font-size:.9rem; color:var(--muted);
+  display:flex; align-items:center; gap:8px; margin-top:3px;
+}
+.p-contact-row svg{ width:16px; height:16px; color:#94a3b8; flex:none }
+
+/* Móvil: tarjetas */
 @media (max-width: 760px){
   .table-wrap{ overflow:auto; -webkit-overflow-scrolling: touch; }
-  table{ min-width: 980px; } /* para que no se comprima horrible */
+  table{ min-width: 860px; }
 
-  /* Y tu modo tarjetas se mantiene */
   table, thead, tbody, th, td, tr{ display:block }
   thead{ display:none }
   tbody tr{ border:1px solid var(--border); border-radius:14px; margin:10px 0; overflow:hidden; background:#fff }
   td{ border:none; padding:10px 14px }
   td::before{ content: attr(data-th); display:block; font-size:.78rem; color:var(--muted); margin-bottom:3px }
-
-  /* en móvil quitamos clamps para que se vea completo en tarjetas */
-  #providersTable td:nth-child(3),
-  #providersTable td:nth-child(7){
-    max-width: none;
-    overflow: visible;
-    text-overflow: unset;
-    white-space: normal;
-    display: block;
-    -webkit-line-clamp: unset;
-  }
+  .actions{ justify-content:flex-start }
 }
 </style>
 @endpush
 
 @section('content')
+@php
+  $q = $q ?? request('q','');
+@endphp
+
 <div class="page">
 
   {{-- HERO --}}
@@ -200,7 +167,7 @@ tr:hover td{ background:#fafcff }
       </div>
       <div>
         <h1 class="h4">Proveedores</h1>
-        <div class="subtle">Gestiona aprobaciones, roles y accesos.</div>
+        <div class="subtle">Gestión de proveedores y contactos.</div>
       </div>
     </div>
 
@@ -211,7 +178,9 @@ tr:hover td{ background:#fafcff }
             <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
           </svg>
         </span>
-        <input id="liveSearch" class="sb-input" type="search" placeholder="Buscar por folio, nombre, correo, RFC, teléfono, ciudad, estado…">
+        <input id="liveSearch" class="sb-input" type="search"
+               value="{{ $q }}"
+               placeholder="Buscar por empresa, folio, contacto, correo, teléfono, ciudad, estado…">
         <button type="button" class="sb-clear" id="sbClear" aria-label="Limpiar">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M18 6L6 18M6 6l12 12"/>
@@ -234,30 +203,75 @@ tr:hover td{ background:#fafcff }
       <table id="providersTable">
         <thead>
           <tr>
-            <th>Folio</th>
-            <th>Nombre</th>
-            <th>Correo</th>
-            <th>RFC / Fiscal</th>
-            <th>Tipo</th>
-            <th>Teléfono</th>
+            <th>Proveedor</th>
+            <th>Contacto</th>
             <th>Ciudad/Estado</th>
-            <th>Estatus</th>
-            <th style="width:84px">Acciones</th>
+            <th>Estado</th>
+            <th style="width:110px;text-align:right">Acciones</th>
           </tr>
         </thead>
+
         <tbody id="providersBody">
-          @foreach($providers as $p)
+          @forelse($providers as $p)
+            @php
+              $empresa = $p->empresa ?: 'Proveedor';
+              $folio   = $p->code ?: '—';
+
+              $contacto = $p->nombre ?: '—';
+              $email    = $p->email ?: '—';
+              $tel      = $p->telefono ?: '—';
+
+              $ubic = trim(($p->ciudad ?: '').' / '.($p->estado ?: ''), ' /');
+              $ubic = $ubic !== '' ? $ubic : '—';
+
+              $initial = strtoupper(mb_substr($empresa, 0, 1, 'UTF-8'));
+            @endphp
+
             <tr data-id="{{ $p->id }}">
-              <td data-th="Folio">{{ $p->code ?: '—' }}</td>
-              <td data-th="Nombre">{{ $p->nombre }}</td>
-              <td data-th="Correo" title="{{ $p->email }}">{{ $p->email }}</td>
-              <td data-th="RFC / Fiscal">{{ $p->rfc ?: '—' }}</td>
-              <td data-th="Tipo">{{ $p->tipo_persona ?: '—' }}</td>
-              <td data-th="Teléfono">{{ $p->telefono ?: '—' }}</td>
-              <td data-th="Ciudad/Estado">{{ trim(($p->ciudad ?: '').' / '.($p->estado ?: ''), ' /') ?: '—' }}</td>
-              <td data-th="Estatus">
-                <span class="badge {{ $p->estatus ? 'activo' : 'inactivo' }}">{{ $p->etiqueta_estatus }}</span>
+
+              {{-- Proveedor (avatar + empresa + folio abajo) --}}
+              <td data-th="Proveedor">
+                <div class="p-main">
+                  <div class="p-avatar">{{ $initial }}</div>
+                  <div>
+                    <div class="p-title">{{ $empresa }}</div>
+                    <div class="p-sub">{{ $folio }}</div>
+                  </div>
+                </div>
               </td>
+
+              {{-- Contacto (nombre + correo + tel) --}}
+              <td data-th="Contacto">
+                <div class="p-contact-name">{{ $contacto }}</div>
+
+                <div class="p-contact-row" title="{{ $email }}">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M4 4h16v16H4z"/><path d="m22 6-10 7L2 6"/>
+                  </svg>
+                  <span style="max-width:520px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;">
+                    {{ $email }}
+                  </span>
+                </div>
+
+                <div class="p-contact-row">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2A19.8 19.8 0 0 1 3.11 5.18 2 2 0 0 1 5.11 3h3a2 2 0 0 1 2 1.72c.12.9.32 1.77.59 2.6a2 2 0 0 1-.45 2.11L9.09 10.91a16 16 0 0 0 4 4l1.48-1.16a2 2 0 0 1 2.11-.45c.83.27 1.7.47 2.6.59A2 2 0 0 1 22 16.92z"/>
+                  </svg>
+                  <span>{{ $tel }}</span>
+                </div>
+              </td>
+
+              {{-- Ciudad/Estado --}}
+              <td data-th="Ciudad/Estado">{{ $ubic }}</td>
+
+              {{-- Estado --}}
+              <td data-th="Estado">
+                <span class="badge {{ $p->estatus ? 'activo' : 'inactivo' }}">
+                  {{ $p->estatus ? 'Activo' : 'Inactivo' }}
+                </span>
+              </td>
+
+              {{-- Acciones --}}
               <td data-th="Acciones">
                 <div class="actions">
                   <a class="icon-btn" href="{{ route('providers.edit',$p) }}" title="Editar">
@@ -265,19 +279,29 @@ tr:hover td{ background:#fafcff }
                       <path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
                     </svg>
                   </a>
+
                   <form method="POST" action="{{ route('providers.destroy',$p) }}" class="d-inline">
                     @csrf @method('DELETE')
                     <button type="submit" class="icon-btn" title="Eliminar" onclick="return confirm('¿Eliminar proveedor?');">
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                        <path d="M10 11v6M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/>
+                        <polyline points="3 6 5 6 21 6"/>
+                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                        <path d="M10 11v6M14 11v6"/>
+                        <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/>
                       </svg>
                     </button>
                   </form>
                 </div>
               </td>
+
             </tr>
-          @endforeach
+          @empty
+            <tr>
+              <td colspan="5" style="padding:22px;color:#667085">
+                No hay proveedores registrados.
+              </td>
+            </tr>
+          @endforelse
         </tbody>
       </table>
     </div>
@@ -296,15 +320,32 @@ tr:hover td{ background:#fafcff }
 
   function filter(){
     const q = norm(input?.value);
-    clearBtn.style.visibility = q ? 'visible':'hidden';
+    if(clearBtn) clearBtn.style.visibility = q ? 'visible':'hidden';
+    if(!body) return;
+
     [...body.querySelectorAll('tr')].forEach(tr=>{
+      // ignora la fila "no hay proveedores"
+      if(tr.children.length < 2) return;
+
       const cells = [...tr.children].map(td => norm(td.textContent));
       tr.style.display = (!q || cells.some(txt => txt.includes(q))) ? '' : 'none';
     });
   }
 
-  input?.addEventListener('input', ()=>{ window.clearTimeout(input._t); input._t=setTimeout(filter,150); });
-  clearBtn?.addEventListener('click', ()=>{ input.value=''; filter(); input.focus(); });
+  if(input){
+    input.addEventListener('input', ()=>{
+      window.clearTimeout(input._t);
+      input._t = setTimeout(filter, 120);
+    });
+  }
+  if(clearBtn){
+    clearBtn.addEventListener('click', ()=>{
+      input.value = '';
+      filter();
+      input.focus();
+    });
+  }
+
   filter();
 })();
 </script>

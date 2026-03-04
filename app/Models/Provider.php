@@ -14,8 +14,22 @@ class Provider extends Model
         // ✅ Folio simple (PROV-00001)
         'code',
 
-        'nombre','email','rfc','tipo_persona','telefono',
-        'calle','colonia','ciudad','estado','cp','estatus',
+        // ✅ NUEVO: Empresa
+        'empresa',
+
+        // Contacto / Asesor
+        'nombre','email','telefono',
+
+        // Fiscal
+        'rfc','tipo_persona',
+
+        // Dirección
+        'calle','colonia','ciudad','estado','cp',
+
+        // Estado
+        'estatus',
+
+        // Geodata opcional
         'lat','lng','address_json',
     ];
 
@@ -28,19 +42,13 @@ class Provider extends Model
 
     /**
      * ✅ Genera automático: PROV-00001 (5 dígitos)
-     * - Sin año
-     * - Secuencial
-     * - Con bloqueo para evitar duplicados en concurrencia
      */
     protected static function booted(): void
     {
         static::creating(function (Provider $provider) {
-            // Si ya viene un code manual, lo respetamos
             if (!empty($provider->code)) return;
 
             $provider->code = DB::transaction(function () {
-                // Tomamos el mayor número existente y sumamos 1
-                // code: "PROV-00001" => substring desde el 6 = "00001"
                 $maxNum = DB::table('providers')
                     ->where('code', 'like', 'PROV-%')
                     ->lockForUpdate()

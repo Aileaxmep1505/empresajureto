@@ -10,6 +10,9 @@
 @php
   $isEdit = $provider->exists;
   $v = function($key,$default=null) use ($provider){ return old($key, $provider->{$key} ?? $default); };
+
+  // ✅ DEBUG opcional (ponlo en true si quieres ver qué trae realmente el modelo)
+  $debug = false;
 @endphp
 
 <style>
@@ -54,14 +57,14 @@
 .sw{
   display:inline-flex; align-items:center; gap:10px; user-select:none;
 }
-.sw input{ display:none }
+.sw input[type="checkbox"]{ display:none }
 .sw .track{
   width:46px; height:26px; border-radius:999px; background:#e9edf2; position:relative; transition:background .2s, box-shadow .2s;
   box-shadow: inset 0 0 0 1px rgba(0,0,0,.06);
 }
 .sw .thumb{ width:22px; height:22px; border-radius:50%; background:#fff; position:absolute; top:2px; left:2px; box-shadow:0 2px 8px rgba(0,0,0,.15); transition:left .18s ease; }
-.sw input:checked + .track{ background:var(--mint) }
-.sw input:checked + .track .thumb{ left:22px }
+.sw input[type="checkbox"]:checked + .track{ background:var(--mint) }
+.sw input[type="checkbox"]:checked + .track .thumb{ left:22px }
 
 /* Etiquetas de estado que cambian con :checked */
 .sw-state{
@@ -69,8 +72,8 @@
 }
 .sw .state-inactivo{ color:#9aa1aa; display:inline }
 .sw .state-activo{ color:#24a67f; display:none }
-.sw input:checked ~ .state-inactivo{ display:none }
-.sw input:checked ~ .state-activo{ display:inline }
+.sw input[type="checkbox"]:checked ~ .state-inactivo{ display:none }
+.sw input[type="checkbox"]:checked ~ .state-activo{ display:inline }
 
 /* Acciones */
 .actions{ display:flex; gap:12px; justify-content:flex-end; margin-top:14px; padding:0 26px 26px; }
@@ -79,16 +82,29 @@
 .btn-primary{ background:var(--mint); color:#fff; box-shadow:0 12px 22px rgba(72,207,173,.26) }
 .btn-primary:hover{ background:#fff; color:#111; box-shadow:0 16px 32px rgba(0,0,0,.18) }
 
-/* Cancelar sin línea (como pediste) */
+/* Cancelar sin línea */
 .btn-ghost{ background:#fff; color:#111; border:0 !important; }
 .btn-ghost:hover{ background:#fff; color:#111; border:0 !important; box-shadow:0 12px 26px rgba(0,0,0,.14); }
 
 .is-invalid{ border-color:#f9c0c0 !important }
 .error{ color:#cc4b4b; font-size:12px; margin-top:6px }
 
-/* ===== Extra de espacios (más separación) ===== */
-.row+.row{ margin-top:1px }              /* separación mínima entre filas adyacentes */
-@media (min-width:768px){ .row.g-4{ --bs-gutter-x:1.25rem; --bs-gutter-y:1.25rem; } } /* un poco más de gap en md+ */
+/* ===== Extra de espacios ===== */
+.row+.row{ margin-top:1px }
+@media (min-width:768px){ .row.g-4{ --bs-gutter-x:1.25rem; --bs-gutter-y:1.25rem; } }
+
+/* Debug box */
+.debug-box{
+  margin:14px 26px 0;
+  padding:12px 14px;
+  border:1px dashed #cbd5e1;
+  border-radius:12px;
+  background:#f8fafc;
+  color:#0f172a;
+  font-size:12px;
+  overflow:auto;
+  max-height:220px;
+}
 </style>
 
 <div class="page">
@@ -104,18 +120,37 @@
       </a>
     </div>
 
+    {{-- ✅ Debug opcional: muestra lo que realmente trae el modelo desde BD --}}
+    @if($debug)
+      <div class="debug-box">
+        <b>DEBUG Provider (lo que trae desde BD):</b>
+        <pre style="margin:8px 0 0">{{ print_r($provider->toArray(), true) }}</pre>
+      </div>
+    @endif
+
     <form class="form"
       action="{{ $isEdit ? route('providers.update',$provider) : route('providers.store') }}"
       method="POST">
       @csrf
       @if($isEdit) @method('PUT') @endif
 
-      {{-- ============ Fila 1: Nombre / Email (más espacio) ============ --}}
+      {{-- ✅ Fila 0: EMPRESA --}}
+      <div class="row g-4 mb-2">
+        <div class="col-md-12">
+          <div class="field @error('empresa') is-invalid @enderror">
+            <input type="text" name="empresa" id="f-empresa" value="{{ $v('empresa') }}" placeholder=" " required>
+            <label for="f-empresa">Empresa (requerido)</label>
+          </div>
+          @error('empresa')<div class="error">{{ $message }}</div>@enderror
+        </div>
+      </div>
+
+      {{-- ============ Fila 1: Nombre / Email ============ --}}
       <div class="row g-4 mb-2">
         <div class="col-md-6">
           <div class="field @error('nombre') is-invalid @enderror">
             <input type="text" name="nombre" id="f-nombre" value="{{ $v('nombre') }}" placeholder=" " required>
-            <label for="f-nombre">Nombre (requerido)</label>
+            <label for="f-nombre">Nombre del contacto / asesor (requerido)</label>
           </div>
           @error('nombre')<div class="error">{{ $message }}</div>@enderror
         </div>
@@ -128,7 +163,7 @@
         </div>
       </div>
 
-      {{-- ============ Fila 2 (cortos, juntos de 3): RFC / Tipo / Teléfono ============ --}}
+      {{-- ============ Fila 2: RFC / Tipo / Teléfono ============ --}}
       <div class="row g-4 mb-2">
         <div class="col-lg-4 col-md-6">
           <div class="field @error('rfc') is-invalid @enderror">
@@ -153,7 +188,7 @@
         </div>
       </div>
 
-      {{-- ============ Fila 3 (medianos): Calle / Colonia ============ --}}
+      {{-- ============ Fila 3: Calle / Colonia ============ --}}
       <div class="row g-4 mb-2">
         <div class="col-md-6">
           <div class="field @error('calle') is-invalid @enderror">
@@ -171,7 +206,7 @@
         </div>
       </div>
 
-      {{-- ============ Fila 4 (cortos, juntos de 3): CP / Ciudad / Estado ============ --}}
+      {{-- ============ Fila 4: CP / Ciudad / Estado ============ --}}
       <div class="row g-4 mb-2">
         <div class="col-lg-4 col-md-6">
           <div class="field @error('cp') is-invalid @enderror">
@@ -196,13 +231,25 @@
         </div>
       </div>
 
-      {{-- ============ Fila 5: Estatus con estado Inactivo/Activo ============ --}}
+      {{-- ============ Fila 5: Estatus ============ --}}
       <div class="row g-4 mb-2">
         <div class="col-md-6 col-lg-4">
           <div class="switch-wrap">
             <span style="font-size:14px;color:var(--ink);font-weight:700">Estatus</span>
+
             <label class="sw mb-0">
-              <input type="checkbox" name="estatus" value="1" {{ $v('estatus', $isEdit ? (int)$provider->estatus : 1) ? 'checked' : '' }}>
+
+              {{-- ✅ IMPORTANTÍSIMO: si el switch está apagado, el checkbox NO manda nada.
+                   Con este hidden, SIEMPRE manda estatus=0, y si se prende manda estatus=1. --}}
+              <input type="hidden" name="estatus" value="0">
+
+              <input
+                type="checkbox"
+                name="estatus"
+                value="1"
+                {{ $v('estatus', $isEdit ? (int)$provider->estatus : 1) ? 'checked' : '' }}
+              >
+
               <span class="track"><span class="thumb"></span></span>
               <span class="sw-state state-inactivo">Inactivo</span>
               <span class="sw-state state-activo">Activo</span>
@@ -216,6 +263,7 @@
         <a href="{{ route('providers.index') }}" class="btn btn-ghost">Cancelar</a>
         <button class="btn btn-primary" type="submit">{{ $isEdit ? 'Actualizar' : 'Guardar' }}</button>
       </div>
+
     </form>
   </div>
 </div>
