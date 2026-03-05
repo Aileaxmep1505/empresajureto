@@ -2013,3 +2013,8 @@ Route::get('/partcontable/activity/all', [ActivityController::class, 'all'])
     Route::delete('/confidential/documents/{doc}', [ConfidentialDocsController::class, 'destroy'])
         ->name('confidential.documents.destroy');
 });
+Route::get('/publications/batch/{batchKey}', [\App\Http\Controllers\PublicationController::class, 'batch'])
+  ->name('publications.batch')
+  ->middleware('auth');
+
+  

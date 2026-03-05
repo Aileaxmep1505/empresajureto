@@ -11,11 +11,16 @@ class Publication extends Model
         'title','description',
         'file_path','original_name','mime_type','size','extension',
         'kind','pinned','created_by',
-        'category' // <--- NUEVO CAMPO
+        'category',
+        'batch_key',
+
+        // ✅ NUEVO: fecha real de operación (para métricas correctas)
+        'operation_datetime',
     ];
 
     protected $casts = [
         'pinned' => 'bool',
+        'operation_datetime' => 'datetime', // ✅
     ];
 
     public function getUrlAttribute(): string
