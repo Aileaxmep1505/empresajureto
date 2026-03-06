@@ -638,7 +638,7 @@
         <span>Part. contable</span>
       </a>
    <!-- Part. contable -->
-<a href="{{ url('/confidential/vault/1') }}" class="nav__link {{ request()->routeIs('partcontable.*') ? 'is-active':'' }}">
+<a href="{{ url('/confidential/vault/6') }}" class="nav__link {{ request()->routeIs('partcontable.*') ? 'is-active':'' }}">
   <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
     <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
     <path d="M8 13h8M8 16h5"/>
