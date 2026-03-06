@@ -91,7 +91,7 @@ use App\Http\Controllers\WhatsAppInboxController;
 use App\Http\Controllers\Tickets\TicketReviewController;
 use App\Http\Controllers\PartContable\ActivityController;
 use App\Http\Controllers\ConfidentialDocsController;
-
+use App\Http\Controllers\Admin\WmsAnalyticsController;
 /*
 |--------------------------------------------------------------------------
 | AUTH
@@ -2017,4 +2017,6 @@ Route::get('/publications/batch/{batchKey}', [\App\Http\Controllers\PublicationC
   ->name('publications.batch')
   ->middleware('auth');
 
-  
+  Route::middleware(['auth'])->prefix('admin/wms')->name('admin.wms.')->group(function () {
+    Route::get('/analytics', [WmsAnalyticsController::class, 'index'])->name('analytics');
+});
