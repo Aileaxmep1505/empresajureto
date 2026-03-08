@@ -32,6 +32,20 @@
         </span>
         <span>Picking guiado</span>
       </a>
+
+      <a href="{{ route('admin.wms.analytics') }}" class="wms-btn wms-btn-ghost">
+        <span class="wms-btn-ico" aria-hidden="true">
+          {{-- Gráfica / analytics --}}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 19V5"/>
+            <path d="M8 19v-6"/>
+            <path d="M12 19v-10"/>
+            <path d="M16 19v-3"/>
+            <path d="M20 19V8"/>
+          </svg>
+        </span>
+        <span>Analytics</span>
+      </a>
     </div>
   </div>
 
@@ -95,10 +109,10 @@
       </div>
     </a>
 
-    {{-- Card: Reportes (puedes cambiar la ruta cuando tengas módulo) --}}
-    <a href="#" class="wms-card wms-card-small">
+    {{-- Card: Analytics --}}
+    <a href="{{ route('admin.wms.analytics') }}" class="wms-card wms-card-small">
       <div class="wms-card-badge wms-badge-purple" aria-hidden="true">
-        {{-- Gráfica / reportes --}}
+        {{-- Gráfica / analytics --}}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M4 19V5"/>
           <path d="M8 19v-6"/>
@@ -109,14 +123,14 @@
       </div>
 
       <div class="wms-card-body">
-        <h2 class="wms-card-title">Reportes</h2>
+        <h2 class="wms-card-title">Analytics</h2>
         <p class="wms-card-text">
-          Analíticas y métricas clave del almacén para decisiones rápidas.
+          KPIs, tendencias, stock bajo y métricas clave del almacén para decisiones rápidas.
         </p>
       </div>
 
       <div class="wms-card-link">
-        <span>Ver datos</span>
+        <span>Ver métricas</span>
         <span class="wms-card-link-ico" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M9 5l7 7-7 7"/>

@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Tickets;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use App\Models\{Ticket, TicketComment, TicketAudit, User};
 use App\Notifications\TicketMentioned;
+use App\Services\WhatsApp\WhatsAppService;
 
 class TicketCommentController extends Controller
 {
@@ -43,6 +45,32 @@ class TicketCommentController extends Controller
             foreach ($users as $u) {
                 $u->notify(new TicketMentioned($ticket, $comment));
             }
+        }
+
+        // WhatsApp a stakeholders del ticket, excepto al autor del comentario
+        $wa = app(WhatsAppService::class);
+        $authorName = optional(auth()->user())->name ?: 'Sistema';
+
+        $recipientIds = collect([
+            $ticket->created_by ?? null,
+            $ticket->assignee_id ?? null,
+            Schema::hasColumn('tickets', 'assigned_by') ? $ticket->assigned_by : null,
+        ])->filter()
+          ->unique()
+          ->reject(fn ($id) => (int) $id === (int) auth()->id())
+          ->values();
+
+        $users = $recipientIds->isNotEmpty()
+            ? User::whereIn('id', $recipientIds)->get()
+            : collect();
+
+        foreach ($users as $user) {
+            $wa->sendTicketCommentToUser(
+                $user,
+                $ticket,
+                $authorName,
+                $comment->body ?? ''
+            );
         }
 
         return $r->wantsJson()

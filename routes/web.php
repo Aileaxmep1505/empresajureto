@@ -2016,7 +2016,7 @@ Route::get('/partcontable/activity/all', [ActivityController::class, 'all'])
 Route::get('/publications/batch/{batchKey}', [\App\Http\Controllers\PublicationController::class, 'batch'])
   ->name('publications.batch')
   ->middleware('auth');
-
-  Route::middleware(['auth'])->prefix('admin/wms')->name('admin.wms.')->group(function () {
+  
+Route::middleware(['auth'])->prefix('admin/wms')->name('admin.wms.')->group(function () {
     Route::get('/analytics', [WmsAnalyticsController::class, 'index'])->name('analytics');
 });
