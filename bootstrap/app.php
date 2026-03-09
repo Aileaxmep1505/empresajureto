@@ -8,9 +8,9 @@ use App\Http\Middleware\AltaDocsPinMiddleware;
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
-        api: __DIR__.'/../routes/api.php',      // ✅ HABILITADO
+        api: __DIR__.'/../routes/api.php',
         commands: __DIR__.'/../routes/console.php',
-        // health: '/up', // opcional
+        // health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
 
@@ -20,12 +20,19 @@ return Application::configure(basePath: dirname(__DIR__))
         |--------------------------------------------------------------------------
         | Esto NO registra cada request; solo registra si la ruta está declarada
         | en config('activity.screens').
-        |
-        | Evita el spam tipo:
-        | GET /notifications/feed · route: notifications.feed...
         */
         $middleware->web(append: [
             \App\Http\Middleware\LogScreenViews::class,
+        ]);
+
+        /*
+        |--------------------------------------------------------------------------
+        | ✅ Excluir webhooks externos del CSRF
+        |--------------------------------------------------------------------------
+        */
+        $middleware->validateCsrfTokens(except: [
+            'webhooks/whatsapp',
+            'webhooks/whatsapp/*',
         ]);
 
         // Aliases de middleware personalizados
@@ -41,7 +48,6 @@ return Application::configure(basePath: dirname(__DIR__))
             'alta_docs_pin'      => \App\Http\Middleware\AltaDocsPinMiddleware::class,
         ]);
 
-        // (Opcional) api group si quieres
         // $middleware->api([...]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
