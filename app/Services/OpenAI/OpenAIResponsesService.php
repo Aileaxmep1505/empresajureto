@@ -53,6 +53,43 @@ class OpenAIResponsesService
         return $request;
     }
 
+    protected function extractResponseText(array $json): string
+    {
+        $direct = trim((string) data_get($json, 'output_text', ''));
+        if ($direct !== '') {
+            return $direct;
+        }
+
+        $parts = [];
+
+        $output = data_get($json, 'output', []);
+        if (!is_array($output)) {
+            return '';
+        }
+
+        foreach ($output as $item) {
+            if (($item['type'] ?? null) !== 'message') {
+                continue;
+            }
+
+            $content = $item['content'] ?? [];
+            if (!is_array($content)) {
+                continue;
+            }
+
+            foreach ($content as $chunk) {
+                if (($chunk['type'] ?? null) === 'output_text') {
+                    $text = trim((string) ($chunk['text'] ?? ''));
+                    if ($text !== '') {
+                        $parts[] = $text;
+                    }
+                }
+            }
+        }
+
+        return trim(implode("\n", $parts));
+    }
+
     public function ask(string $instructions, string $userText, ?string $previousResponseId = null, array $extra = []): array
     {
         if (!$this->enabled()) {
@@ -91,11 +128,13 @@ class OpenAIResponsesService
             }
 
             $json = $response->json();
+            $text = $this->extractResponseText($json);
 
             Log::info('openai.responses.ok', [
                 'id' => data_get($json, 'id'),
                 'model' => data_get($json, 'model'),
-                'has_output_text' => filled((string) data_get($json, 'output_text', '')),
+                'text_length' => mb_strlen($text),
+                'has_output_text_field' => filled((string) data_get($json, 'output_text', '')),
             ]);
 
             return [
@@ -103,7 +142,7 @@ class OpenAIResponsesService
                 'id' => (string) data_get($json, 'id', ''),
                 'status' => $response->status(),
                 'data' => $json,
-                'text' => (string) data_get($json, 'output_text', ''),
+                'text' => $text,
             ];
         } catch (\Throwable $e) {
             Log::error('openai.responses.exception', [
@@ -118,9 +157,6 @@ class OpenAIResponsesService
         }
     }
 
-    /**
-     * Router semántico con JSON schema estricto usando Chat Completions.
-     */
     public function routeStructured(string $instructions, array $input): array
     {
         if (!$this->enabled()) {
