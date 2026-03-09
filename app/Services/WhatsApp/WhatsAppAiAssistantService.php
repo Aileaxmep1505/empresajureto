@@ -46,7 +46,6 @@ class WhatsAppAiAssistantService
 
         $isInternal = $this->isInternalUser($user);
 
-        // Cliente web o usuario sin acceso interno
         if (!$isInternal) {
             $this->handleExternalUser($conversation, $user, $text, $textLower);
             return;
@@ -56,7 +55,6 @@ class WhatsAppAiAssistantService
         // Usuarios internos
         // =============================
 
-        // Saludo útil
         if ($this->isGreeting($textLower)) {
             $wa->sendText(
                 $conversation->phone,
@@ -66,25 +64,28 @@ class WhatsAppAiAssistantService
             return;
         }
 
-        // Pendientes
+        // Follow-up contextual antes de ir a la IA genérica
+        if ($this->isContextualFollowUp($textLower)) {
+            if ($this->replyContextualFollowUp($conversation, $user, $incomingMessage, $text, $textLower)) {
+                return;
+            }
+        }
+
         if ($this->asksPendingTickets($textLower)) {
             $this->replyPendingTickets($conversation, $user);
             return;
         }
 
-        // Cuál urge más
         if ($this->asksMostUrgent($textLower)) {
             $this->replyMostUrgentTicket($conversation, $user);
             return;
         }
 
-        // Qué tengo hoy / agenda
         if ($this->asksTodayAgenda($textLower)) {
             $this->replyTodayAgenda($conversation, $user);
             return;
         }
 
-        // Dime sobre qué trata / qué tengo que hacer / cuándo vence TKT-...
         if ($folio = $this->extractTicketFolio($text)) {
             if ($this->asksTicketDeepDetail($textLower)) {
                 $this->replyTicketFullDetail($conversation, $user, $folio);
@@ -95,14 +96,12 @@ class WhatsAppAiAssistantService
             return;
         }
 
-        // Preguntas tipo "qué tengo que hacer", "sobre qué trata", "cuándo vence"
         if ($this->looksLikeTicketQuestionWithoutFolio($textLower)) {
             $this->replyNeedFolioForTicketQuestion($conversation);
             return;
         }
 
-        // Fallback inteligente general del sistema
-        $this->replyWithAi($conversation, $user, $text);
+        $this->replyWithAi($conversation, $user, $text, $incomingMessage);
     }
 
     protected function replyForUnknownUser(WaConversation $conversation, string $text): void
@@ -127,7 +126,7 @@ class WhatsAppAiAssistantService
         if ($this->asksGeneralCompanyInfo($textLower)) {
             $wa->sendText(
                 $conversation->phone,
-                'Jureto es una empresa enfocada en venta de papelería, tecnología, computadoras y otros insumos. Si necesitas apoyo comercial, seguimiento o atención, puedo canalizarte con un asesor.',
+                'Jureto es una empresa comercializadora que distribuye a todo el país y ofrece insumos de papelería, oficina, tecnología, limpieza, construcción y otros productos. Si necesitas apoyo comercial, seguimiento o atención, puedo canalizarte con un asesor.',
                 $conversation
             );
             return;
@@ -269,7 +268,7 @@ class WhatsAppAiAssistantService
         $tickets = Ticket::query()
             ->where('assignee_id', $user->id)
             ->whereNotIn('status', ['completado', 'cancelado'])
-            ->get();
+            ->get(['id', 'folio', 'title', 'priority', 'status', 'due_at', 'area']);
 
         if ($tickets->isEmpty()) {
             $wa->sendText(
@@ -299,6 +298,60 @@ class WhatsAppAiAssistantService
             ."Estado: {$best->status}\n"
             ."Vence: {$dueText}\n"
             ."Si quieres, también te digo por qué lo considero el más urgente.",
+            $conversation
+        );
+    }
+
+    protected function replyWhyMostUrgent(WaConversation $conversation, User $user): void
+    {
+        $wa = app(WhatsAppService::class);
+
+        $tickets = Ticket::query()
+            ->where('assignee_id', $user->id)
+            ->whereNotIn('status', ['completado', 'cancelado'])
+            ->get(['id', 'folio', 'title', 'priority', 'status', 'due_at', 'area']);
+
+        if ($tickets->isEmpty()) {
+            $wa->sendText(
+                $conversation->phone,
+                'No tienes tickets pendientes asignados.',
+                $conversation
+            );
+            return;
+        }
+
+        $best = $tickets->sortBy(function ($t) {
+            return [
+                $this->priorityRank((string) $t->priority),
+                $this->statusRank((string) $t->status),
+                $t->due_at ? $t->due_at->timestamp : PHP_INT_MAX,
+                -1 * ((int) $t->id),
+            ];
+        })->first();
+
+        $reasons = [];
+
+        if ((string) $best->status === 'bloqueado') {
+            $reasons[] = 'está en estado bloqueado';
+        }
+
+        if (in_array((string) $best->priority, ['critica', 'alta', 'media'], true)) {
+            $reasons[] = 'tiene prioridad '.$best->priority;
+        }
+
+        if ($best->due_at) {
+            $reasons[] = 'tiene fecha límite '.$best->due_at->format('d/m/Y h:i A');
+        } else {
+            $reasons[] = 'aunque no tiene fecha límite, queda por encima de otros por prioridad y estado';
+        }
+
+        $reasonText = implode(', ', $reasons);
+
+        $wa->sendText(
+            $conversation->phone,
+            "Lo considero el más urgente porque {$reasonText}.\n"
+            ."Ticket: {$best->folio}\n"
+            ."Título: {$best->title}",
             $conversation
         );
     }
@@ -431,7 +484,7 @@ class WhatsAppAiAssistantService
         );
     }
 
-    protected function replyWithAi(WaConversation $conversation, User $user, string $text): void
+    protected function replyWithAi(WaConversation $conversation, User $user, string $text, ?WaMessage $incomingMessage = null): void
     {
         $openai = app(OpenAIResponsesService::class);
         $wa = app(WhatsAppService::class);
@@ -458,23 +511,42 @@ class WhatsAppAiAssistantService
             $todayAgendaCount = $query->count();
         }
 
+        $lastAssistantMessage = $this->getLastAssistantMessageText($conversation, $incomingMessage);
+        $conversationHistory = $this->buildConversationHistory($conversation, $incomingMessage, 12);
+        $companyKnowledge = $this->companyKnowledgeBlock();
+
         $system = <<<PROMPT
 Eres el asistente de WhatsApp de Jureto para usuarios internos.
-Responde en español, natural, útil y breve.
-No digas siempre la misma frase genérica.
-No inventes datos internos específicos que no te hayan dado.
-Sí puedes orientar sobre el sistema, tickets, agenda, prioridades y uso general.
+
+Responde en español, natural, útil, breve y con contexto.
+NO respondas como bot genérico.
+NO ignores lo que ya se habló en la conversación.
+SI el usuario manda un seguimiento como "sí", "por qué", "y luego", "explícame", "de cuál hablas", debes interpretar ese mensaje usando el contexto del historial reciente.
+NO inventes datos internos específicos que no te hayan dado o que no estén en el contexto.
+Sí puedes orientar sobre tickets, agenda, prioridades, uso del sistema y datos generales de Jureto.
 
 Contexto del usuario:
 - Nombre: {$user->name}
 - Tickets pendientes asignados: {$pendingCount}
 - Eventos de hoy: {$todayAgendaCount}
 
-Reglas:
+Última respuesta enviada por el asistente:
+{$lastAssistantMessage}
+
+Historial reciente:
+{$conversationHistory}
+
+Conocimiento base de Jureto:
+{$companyKnowledge}
+
+Reglas de comportamiento:
 - Si el usuario pregunta por prioridades, trabajo, organización o sistema, responde útilmente.
-- Si necesita un dato exacto que requiera folio específico y no lo dio, pídeselo de forma breve.
+- Si necesita un dato exacto de un ticket y no dio folio, pídelo breve.
+- Si el usuario hace una repregunta corta, apóyate en la última respuesta y en el historial.
+- Si el usuario pregunta qué es Jureto o a qué se dedica, responde usando el conocimiento base.
 - Si pide algo operativo no disponible, ofrece canalizar con asesor humano.
-- Mantén tono profesional, claro y nada robótico.
+- Mantén tono profesional, claro, humano y nada robótico.
+- Evita repetir siempre la misma frase final.
 PROMPT;
 
         $result = $openai->ask($system, $text);
@@ -495,6 +567,146 @@ PROMPT;
         }
 
         $wa->sendText($conversation->phone, $reply, $conversation);
+    }
+
+    protected function getLastAssistantMessageText(WaConversation $conversation, ?WaMessage $incomingMessage = null): string
+    {
+        $query = WaMessage::query()
+            ->where('conversation_id', $conversation->id)
+            ->where('direction', 'outbound')
+            ->orderByDesc('id');
+
+        $last = $query->first();
+
+        return $last?->text
+            ? Str::limit(trim((string) $last->text), 500)
+            : 'Sin respuesta previa registrada';
+    }
+
+    protected function buildConversationHistory(WaConversation $conversation, ?WaMessage $incomingMessage = null, int $limit = 12): string
+    {
+        $messages = WaMessage::query()
+            ->where('conversation_id', $conversation->id)
+            ->orderByDesc('id')
+            ->limit($limit)
+            ->get(['id', 'direction', 'text'])
+            ->reverse()
+            ->values();
+
+        if ($messages->isEmpty()) {
+            return 'Sin historial reciente';
+        }
+
+        $lines = [];
+
+        foreach ($messages as $msg) {
+            $text = trim((string) $msg->text);
+
+            if ($text === '') {
+                continue;
+            }
+
+            $speaker = $msg->direction === 'inbound' ? 'Usuario' : 'Asistente';
+            $lines[] = $speaker.': '.Str::limit(preg_replace('/\s+/', ' ', $text), 500);
+        }
+
+        return !empty($lines) ? implode("\n", $lines) : 'Sin historial reciente';
+    }
+
+    protected function companyKnowledgeBlock(): string
+    {
+        return <<<TXT
+Jureto es una empresa comercializadora enfocada en distribución a nivel nacional.
+Maneja insumos y productos de distintas categorías.
+Entre sus líneas de oferta están: papelería y artículos de oficina/escolares, tecnología y cómputo, construcción, material eléctrico y electrónico, limpieza, vestuario/uniformes y artículos deportivos.
+También maneja compra-venta, comisión, consignación, distribución, exportación e importación.
+TXT;
+    }
+
+    protected function replyContextualFollowUp(
+        WaConversation $conversation,
+        User $user,
+        WaMessage $incomingMessage,
+        string $text,
+        string $textLower
+    ): bool {
+        $lastOutbound = WaMessage::query()
+            ->where('conversation_id', $conversation->id)
+            ->where('direction', 'outbound')
+            ->orderByDesc('id')
+            ->first(['id', 'text']);
+
+        if (!$lastOutbound || trim((string) $lastOutbound->text) === '') {
+            return false;
+        }
+
+        $lastText = mb_strtolower((string) $lastOutbound->text);
+
+        if ($this->asksWhyFollowUp($textLower) && str_contains($lastText, 'si quieres, también te digo por qué lo considero el más urgente')) {
+            $this->replyWhyMostUrgent($conversation, $user);
+            return true;
+        }
+
+        if (
+            $this->asksMoreDetailFollowUp($textLower) &&
+            preg_match('/tkt-\d{4}-\d{4,}/i', (string) $lastOutbound->text, $m)
+        ) {
+            $this->replyTicketFullDetail($conversation, $user, strtoupper($m[0]));
+            return true;
+        }
+
+        if (
+            $this->asksDueDateFollowUp($textLower) &&
+            preg_match('/tkt-\d{4}-\d{4,}/i', (string) $lastOutbound->text, $m)
+        ) {
+            $this->replyTicketStatus($conversation, $user, strtoupper($m[0]));
+            return true;
+        }
+
+        return false;
+    }
+
+    protected function isContextualFollowUp(string $text): bool
+    {
+        return $this->asksWhyFollowUp($text)
+            || $this->asksMoreDetailFollowUp($text)
+            || $this->asksDueDateFollowUp($text)
+            || in_array($text, ['si', 'sí', 'ok', 'va', 'dale', 'aja', 'ajá'], true)
+            || str_starts_with($text, 'y ')
+            || str_starts_with($text, 'entonces');
+    }
+
+    protected function asksWhyFollowUp(string $text): bool
+    {
+        return str_contains($text, 'por que')
+            || str_contains($text, 'por qué')
+            || str_contains($text, 'porque')
+            || str_contains($text, 'si porque')
+            || str_contains($text, 'sí por qué')
+            || str_contains($text, 'y por que')
+            || str_contains($text, 'y por qué');
+    }
+
+    protected function asksMoreDetailFollowUp(string $text): bool
+    {
+        return str_contains($text, 'de que trata')
+            || str_contains($text, 'de qué trata')
+            || str_contains($text, 'explicame')
+            || str_contains($text, 'explícame')
+            || str_contains($text, 'mas detalle')
+            || str_contains($text, 'más detalle')
+            || str_contains($text, 'que tengo que hacer')
+            || str_contains($text, 'qué tengo que hacer');
+    }
+
+    protected function asksDueDateFollowUp(string $text): bool
+    {
+        return str_contains($text, 'cuando vence')
+            || str_contains($text, 'cuándo vence')
+            || str_contains($text, 'para cuando')
+            || str_contains($text, 'para cuándo')
+            || str_contains($text, 'fecha limite')
+            || str_contains($text, 'fecha límite');
     }
 
     protected function findVisibleTicketForInternalUser(User $user, string $folio): ?Ticket
@@ -666,7 +878,7 @@ PROMPT;
     protected function extractTicketFolio(string $text): ?string
     {
         preg_match('/TKT-\d{4}-\d{4,}/i', $text, $matches);
-        return $matches[0] ?? null;
+        return isset($matches[0]) ? strtoupper($matches[0]) : null;
     }
 
     protected function priorityRank(string $priority): int
@@ -710,6 +922,18 @@ PROMPT;
 
         if ($area === 'sistemas') {
             return 'Revisa requerimiento, define alcance, ejecuta cambios, valida pruebas y documenta resultado.';
+        }
+
+        if ($area === 'licitaciones') {
+            return 'Revisa bases, requisitos, documentos, fechas límite y valida entregables antes de enviar.';
+        }
+
+        if ($area === 'almacen' || $area === 'almacén') {
+            return 'Revisa existencias, ubicación, surtido, validación física y evidencia del movimiento.';
+        }
+
+        if ($area === 'compras') {
+            return 'Valida requerimiento, cotizaciones, proveedor, tiempos de entrega y autorización.';
         }
 
         return 'Revisa la descripción, confirma alcance, ejecuta el trabajo y deja evidencia o avance según corresponda.';
