@@ -848,19 +848,21 @@ class WhatsAppAiAssistantService
         );
     }
 
-    protected function buildSystemPrompt(User $user, WaConversation $conversation, bool $internal = true): string
-    {
-        $companyBlock = $this->companyKnowledgeBlock();
-        $agendaBlock = $this->agendaKnowledgeBlock($user);
-        $catalogBlock = $this->catalogKnowledgeBlock();
-        $marketplacesBlock = $this->marketplacesKnowledgeBlock();
-        $ticketsBlock = $this->ticketsKnowledgeBlock($user);
-        $historyBlock = $this->buildConversationHistoryText($conversation, 12);
-        $lastContext = $this->getLastStructuredContext($conversation);
+  protected function buildSystemPrompt(User $user, WaConversation $conversation, bool $internal = true): string
+{
+    $companyBlock = $this->companyKnowledgeBlock();
+    $agendaBlock = $this->agendaKnowledgeBlock($user);
+    $catalogBlock = $this->catalogKnowledgeBlock();
+    $marketplacesBlock = $this->marketplacesKnowledgeBlock();
+    $ticketsBlock = $this->ticketsKnowledgeBlock($user);
+    $historyBlock = $this->buildConversationHistoryText($conversation, 12);
+    $lastContext = $this->getLastStructuredContext($conversation);
 
-        $lastContextJson = json_encode($lastContext, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    $lastContextJson = json_encode($lastContext, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    $userType = $internal ? 'interno' : 'externo';
+    $userName = (string) $user->name;
 
-        return <<<PROMPT
+    return <<<PROMPT
 Eres el asistente de WhatsApp de Jureto.
 
 Responde en español, natural, útil, humano y breve.
@@ -884,8 +886,8 @@ Reglas:
 - Si el usuario pide algo humano, puedes sugerir asesor.
 
 Contexto del usuario:
-- Nombre: {$user->name}
-- Tipo: {$internal ? 'interno' : 'externo'}
+- Nombre: {$userName}
+- Tipo: {$userType}
 
 Último contexto estructurado:
 {$lastContextJson}
@@ -908,7 +910,7 @@ Contexto tickets:
 Historial reciente:
 {$historyBlock}
 PROMPT;
-    }
+}
 
     protected function buildAiMessages(WaConversation $conversation, string $latestUserText, int $limit = 14): array
     {
