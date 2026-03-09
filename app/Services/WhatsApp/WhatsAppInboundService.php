@@ -49,13 +49,71 @@ class WhatsAppInboundService
 
     protected function processMessages(array $value): void
     {
+        $businessPhone = $this->normalize((string) config('whatsapp.phone_number', ''));
+        $displayPhone  = $this->normalize((string) data_get($value, 'metadata.display_phone_number', ''));
+
         foreach (($value['messages'] ?? []) as $message) {
-            Log::info('whatsapp.webhook.inbound_message', $message);
+            Log::info('whatsapp.webhook.inbound_message.raw', $message);
 
-            $from = preg_replace('/\D+/', '', (string) ($message['from'] ?? ''));
+            $type = (string) ($message['type'] ?? 'text');
+            $from = $this->normalize((string) ($message['from'] ?? ''));
+            $waMessageId = (string) ($message['id'] ?? '');
 
-            if ($from === '') {
-                Log::warning('whatsapp.webhook.empty_from', ['message' => $message]);
+            if ($from === '' || $waMessageId === '') {
+                Log::warning('whatsapp.webhook.invalid_inbound_message', [
+                    'from' => $from,
+                    'wa_message_id' => $waMessageId,
+                    'message' => $message,
+                ]);
+                continue;
+            }
+
+            // 1) Ignorar mensajes enviados desde el mismo número del negocio
+            if (
+                ($businessPhone !== '' && $from === $businessPhone) ||
+                ($displayPhone !== '' && $from === $displayPhone)
+            ) {
+                Log::info('whatsapp.webhook.ignored_own_message', [
+                    'from' => $from,
+                    'business_phone' => $businessPhone,
+                    'display_phone' => $displayPhone,
+                    'wa_message_id' => $waMessageId,
+                ]);
+                continue;
+            }
+
+            // 2) Ignorar duplicados por wa_message_id
+            $alreadyExists = WaMessage::where('wa_message_id', $waMessageId)
+                ->where('direction', 'inbound')
+                ->exists();
+
+            if ($alreadyExists) {
+                Log::info('whatsapp.webhook.duplicate_message_ignored', [
+                    'wa_message_id' => $waMessageId,
+                    'from' => $from,
+                ]);
+                continue;
+            }
+
+            // 3) Solo procesar tipos que sí tienen sentido para conversación
+            if (!in_array($type, ['text', 'button', 'interactive'], true)) {
+                Log::info('whatsapp.webhook.unsupported_message_type_ignored', [
+                    'type' => $type,
+                    'from' => $from,
+                    'wa_message_id' => $waMessageId,
+                ]);
+                continue;
+            }
+
+            $text = $this->extractText($message);
+
+            // 4) Si no hay texto útil, no dispares IA
+            if ($text === '') {
+                Log::info('whatsapp.webhook.empty_text_ignored', [
+                    'type' => $type,
+                    'from' => $from,
+                    'wa_message_id' => $waMessageId,
+                ]);
                 continue;
             }
 
@@ -80,14 +138,12 @@ class WhatsAppInboundService
                 'last_message_at' => now(),
             ]);
 
-            $text = $this->extractText($message);
-
             $waMessage = WaMessage::create([
                 'conversation_id' => $conversation->id,
                 'user_id'         => $user?->id,
                 'direction'       => 'inbound',
-                'message_type'    => $message['type'] ?? 'text',
-                'wa_message_id'   => $message['id'] ?? null,
+                'message_type'    => $type,
+                'wa_message_id'   => $waMessageId,
                 'text'            => $text,
                 'status'          => 'received',
                 'payload'         => $message,
@@ -111,7 +167,7 @@ class WhatsAppInboundService
     {
         $type = $message['type'] ?? 'text';
 
-        return match ($type) {
+        $text = match ($type) {
             'text' => trim((string) data_get($message, 'text.body', '')),
             'button' => trim((string) data_get($message, 'button.text', '')),
             'interactive' => trim((string) (
@@ -121,6 +177,8 @@ class WhatsAppInboundService
             )),
             default => '',
         };
+
+        return preg_replace('/\s+/', ' ', $text) ?: '';
     }
 
     protected function findUserByPhone(string $phone): ?User
@@ -152,7 +210,7 @@ class WhatsAppInboundService
 
     protected function phoneVariants(string $phone): array
     {
-        $phone = preg_replace('/\D+/', '', $phone);
+        $phone = $this->normalize($phone);
         $variants = [$phone];
 
         if (str_starts_with($phone, '521') && strlen($phone) === 13) {
@@ -171,5 +229,10 @@ class WhatsAppInboundService
         }
 
         return array_values(array_unique(array_filter($variants)));
+    }
+
+    protected function normalize(?string $phone): string
+    {
+        return preg_replace('/\D+/', '', (string) $phone) ?: '';
     }
 }
