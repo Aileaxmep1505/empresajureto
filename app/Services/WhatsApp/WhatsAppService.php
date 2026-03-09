@@ -135,6 +135,8 @@ class WhatsAppService
             return ['ok' => false, 'reason' => 'user_not_eligible'];
         }
 
+        $firstName = $this->firstName($user->name);
+
         return $this->sendTemplate(
             $phone,
             config('whatsapp.templates.ticket_created', 'ticket_created_v1'),
@@ -146,7 +148,7 @@ class WhatsAppService
             ],
             null,
             [
-                $user->name ?: 'Usuario',
+                $firstName,
             ]
         );
     }
@@ -159,6 +161,8 @@ class WhatsAppService
             return ['ok' => false, 'reason' => 'user_not_eligible'];
         }
 
+        $firstName = $this->firstName($user->name);
+
         return $this->sendTemplate(
             $phone,
             config('whatsapp.templates.ticket_status', 'ticket_status_update_v1'),
@@ -170,7 +174,7 @@ class WhatsAppService
             ],
             null,
             [
-                $user->name ?: 'Usuario',
+                $firstName,
             ]
         );
     }
@@ -183,6 +187,8 @@ class WhatsAppService
             return ['ok' => false, 'reason' => 'user_not_eligible'];
         }
 
+        $firstName = $this->firstName($user->name);
+
         return $this->sendTemplate(
             $phone,
             config('whatsapp.templates.ticket_comment', 'ticket_comment_v1'),
@@ -193,7 +199,7 @@ class WhatsAppService
             ],
             null,
             [
-                $user->name ?: 'Usuario',
+                $firstName,
             ]
         );
     }
@@ -220,7 +226,7 @@ class WhatsAppService
             $phone,
             config('whatsapp.templates.agenda_reminder', 'agenda_reminder_v1'),
             [
-                $user->name ?: 'Usuario',
+                $this->firstName($user->name),
                 Str::limit((string) $event->title, 80),
                 $startAt,
                 Str::limit($description, 120),
@@ -246,11 +252,7 @@ class WhatsAppService
             return false;
         }
 
-        if ($this->userPhone($user) === null) {
-            return false;
-        }
-
-        return !empty($user->whatsapp_opt_in_at);
+        return $this->userPhone($user) !== null;
     }
 
     protected function normalizePhone(?string $phone): string
@@ -271,5 +273,20 @@ class WhatsAppService
     {
         $value = str_replace(['_', '-'], ' ', $value);
         return Str::title($value);
+    }
+
+    protected function firstName(?string $fullName): string
+    {
+        $fullName = trim((string) $fullName);
+
+        if ($fullName === '') {
+            return 'Usuario';
+        }
+
+        $parts = preg_split('/\s+/', $fullName) ?: [];
+
+        $first = trim((string) ($parts[0] ?? 'Usuario'));
+
+        return Str::limit($first, 25, '');
     }
 }
