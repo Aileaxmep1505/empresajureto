@@ -22,6 +22,9 @@ use App\Notifications\TicketSubmittedForReview;
 use App\Notifications\TicketReviewApproved;
 use App\Notifications\TicketReviewRejected;
 
+// ✅ WhatsApp
+use App\Services\WhatsApp\WhatsAppService;
+
 // ✅ PDF
 use Barryvdh\DomPDF\Facade\Pdf;
 
@@ -105,6 +108,63 @@ class TicketController extends Controller
         }
 
         return array_values(array_unique(array_filter($ids)));
+    }
+
+    private function whatsappStakeholders(Ticket $ticket, ?int $excludeUserId = null)
+    {
+        $ids = array_values(array_unique(array_filter([
+            (int) ($ticket->created_by ?? 0),
+            (int) ($ticket->assignee_id ?? 0),
+            (int) ((Schema::hasColumn('tickets', 'assigned_by') ? $ticket->assigned_by : 0) ?? 0),
+        ])));
+
+        $users = !empty($ids)
+            ? User::whereIn('id', $ids)->get()
+            : collect();
+
+        if ($excludeUserId) {
+            $users = $users->reject(fn ($u) => (int) $u->id === (int) $excludeUserId)->values();
+        }
+
+        return $users;
+    }
+
+    private function sendWhatsappTicketCreated(Ticket $ticket): void
+    {
+        if (empty($ticket->assignee_id)) {
+            return;
+        }
+
+        $user = User::find($ticket->assignee_id);
+
+        if (!$user) {
+            return;
+        }
+
+        $result = app(WhatsAppService::class)->sendTicketCreatedToUser($user, $ticket);
+
+        \Log::info('ticket.whatsapp.created', [
+            'ticket_id' => $ticket->id,
+            'user_id'   => $user->id,
+            'result'    => $result,
+        ]);
+    }
+
+    private function sendWhatsappTicketStatus(Ticket $ticket, string $statusLabel, ?int $excludeUserId = null): void
+    {
+        $wa = app(WhatsAppService::class);
+        $actorName = optional(auth()->user())->name ?: 'Sistema';
+
+        foreach ($this->whatsappStakeholders($ticket, $excludeUserId) as $user) {
+            $result = $wa->sendTicketStatusToUser($user, $ticket, $statusLabel, $actorName);
+
+            \Log::info('ticket.whatsapp.status', [
+                'ticket_id' => $ticket->id,
+                'user_id'   => $user->id,
+                'status'    => $statusLabel,
+                'result'    => $result,
+            ]);
+        }
     }
 
     /** ===================== PDF helpers ===================== */
@@ -524,6 +584,10 @@ class TicketController extends Controller
                 }
             }
 
+            DB::afterCommit(function () use ($ticket) {
+                $this->sendWhatsappTicketCreated($ticket);
+            });
+
             return redirect()
                 ->route('tickets.show', $ticket)
                 ->with('ok', 'Ticket creado.');
@@ -650,6 +714,10 @@ class TicketController extends Controller
             if ($u && class_exists(TicketAssigned::class)) {
                 $u->notify(new TicketAssigned($ticket));
             }
+
+            DB::afterCommit(function () use ($ticket) {
+                $this->sendWhatsappTicketCreated($ticket);
+            });
         }
 
         return back()->with('ok', 'Ticket actualizado.');
@@ -747,6 +815,8 @@ class TicketController extends Controller
             }
         }
 
+        $this->sendWhatsappTicketStatus($ticket, 'Finalizado / por revisar', auth()->id());
+
         return back()->with('ok', 'Ticket enviado a revisión.');
     }
 
@@ -789,6 +859,7 @@ class TicketController extends Controller
         }
 
         $this->generateAndAttachCompletionPdf($ticket);
+        $this->sendWhatsappTicketStatus($ticket, 'Completado', auth()->id());
 
         return back()->with('ok', 'Ticket aprobado y completado. Se generó el PDF.');
     }
@@ -936,6 +1007,7 @@ class TicketController extends Controller
         ]);
 
         $this->generateAndAttachCompletionPdf($ticket);
+        $this->sendWhatsappTicketStatus($ticket, 'Completado', auth()->id());
 
         return back()->with('ok', 'Ticket completado. Se guardó el detalle y se generó el PDF de reporte.');
     }

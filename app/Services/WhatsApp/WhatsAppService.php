@@ -20,8 +20,13 @@ class WhatsAppService
             && filled(config('whatsapp.version'));
     }
 
-    public function sendTemplate(string $to, string $templateName, array $bodyParams = [], ?string $lang = null): array
-    {
+    public function sendTemplate(
+        string $to,
+        string $templateName,
+        array $bodyParams = [],
+        ?string $lang = null,
+        array $headerParams = []
+    ): array {
         if (!$this->enabled()) {
             return ['ok' => false, 'reason' => 'whatsapp_disabled'];
         }
@@ -33,6 +38,18 @@ class WhatsAppService
         }
 
         $components = [];
+
+        if (!empty($headerParams)) {
+            $components[] = [
+                'type' => 'header',
+                'parameters' => collect($headerParams)->map(function ($value) {
+                    return [
+                        'type' => 'text',
+                        'text' => $this->cleanText($value),
+                    ];
+                })->values()->all(),
+            ];
+        }
 
         if (!empty($bodyParams)) {
             $components[] = [
@@ -122,11 +139,14 @@ class WhatsAppService
             $phone,
             config('whatsapp.templates.ticket_created', 'ticket_created_v1'),
             [
-                $user->name ?: 'Usuario',
                 (string) $ticket->folio,
                 Str::limit((string) $ticket->title, 60),
                 $this->humanizeLabel((string) $ticket->area),
                 $this->humanizeLabel((string) $ticket->priority),
+            ],
+            null,
+            [
+                $user->name ?: 'Usuario',
             ]
         );
     }
@@ -143,11 +163,14 @@ class WhatsAppService
             $phone,
             config('whatsapp.templates.ticket_status', 'ticket_status_update_v1'),
             [
-                $user->name ?: 'Usuario',
                 (string) $ticket->folio,
                 Str::limit((string) $ticket->title, 60),
                 Str::limit($statusLabel, 40),
                 Str::limit((string) ($actorName ?: optional($ticket->assignee)->name ?: 'Sistema'), 40),
+            ],
+            null,
+            [
+                $user->name ?: 'Usuario',
             ]
         );
     }
@@ -164,11 +187,13 @@ class WhatsAppService
             $phone,
             config('whatsapp.templates.ticket_comment', 'ticket_comment_v1'),
             [
-                $user->name ?: 'Usuario',
-                (string) $ticket->folio,
                 Str::limit((string) $ticket->title, 60),
                 Str::limit($authorName, 40),
                 Str::limit(preg_replace('/\s+/', ' ', trim($comment)), 120),
+            ],
+            null,
+            [
+                $user->name ?: 'Usuario',
             ]
         );
     }
