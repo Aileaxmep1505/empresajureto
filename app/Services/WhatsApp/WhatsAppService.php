@@ -2,9 +2,11 @@
 
 namespace App\Services\WhatsApp;
 
+use App\Models\AgendaEvent;
 use App\Models\Ticket;
 use App\Models\User;
-use App\Models\AgendaEvent;
+use App\Models\WaConversation;
+use App\Models\WaMessage;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -18,6 +20,15 @@ class WhatsAppService
             && filled(config('whatsapp.token'))
             && filled(config('whatsapp.phone_number_id'))
             && filled(config('whatsapp.version'));
+    }
+
+    protected function apiUrl(): string
+    {
+        return sprintf(
+            'https://graph.facebook.com/%s/%s/messages',
+            config('whatsapp.version'),
+            config('whatsapp.phone_number_id')
+        );
     }
 
     public function sendTemplate(
@@ -63,65 +74,175 @@ class WhatsAppService
             ];
         }
 
-        $url = sprintf(
-            'https://graph.facebook.com/%s/%s/messages',
-            config('whatsapp.version'),
-            config('whatsapp.phone_number_id')
+        return $this->sendRaw(
+            $to,
+            [
+                'messaging_product' => 'whatsapp',
+                'to' => $to,
+                'type' => 'template',
+                'template' => [
+                    'name' => $templateName,
+                    'language' => [
+                        'code' => $lang ?: config('whatsapp.default_lang', 'es_MX'),
+                    ],
+                    'components' => $components,
+                ],
+            ],
+            'template',
+            null,
+            $templateName
         );
+    }
 
+    public function sendText(string $to, string $text, ?WaConversation $conversation = null): array
+    {
+        if (!$this->enabled()) {
+            return ['ok' => false, 'reason' => 'whatsapp_disabled'];
+        }
+
+        $to = $this->normalizePhone($to);
+
+        if ($to === '') {
+            return ['ok' => false, 'reason' => 'invalid_phone'];
+        }
+
+        return $this->sendRaw(
+            $to,
+            [
+                'messaging_product' => 'whatsapp',
+                'to' => $to,
+                'type' => 'text',
+                'text' => [
+                    'preview_url' => false,
+                    'body' => $this->cleanText($text),
+                ],
+            ],
+            'text',
+            $conversation
+        );
+    }
+
+    public function sendButtons(string $to, string $body, array $buttons, ?WaConversation $conversation = null): array
+    {
+        if (!$this->enabled()) {
+            return ['ok' => false, 'reason' => 'whatsapp_disabled'];
+        }
+
+        $to = $this->normalizePhone($to);
+
+        if ($to === '') {
+            return ['ok' => false, 'reason' => 'invalid_phone'];
+        }
+
+        $buttonPayload = collect($buttons)->take(3)->values()->map(function ($btn, $i) {
+            return [
+                'type' => 'reply',
+                'reply' => [
+                    'id' => (string)($btn['id'] ?? ('btn_' . ($i + 1))),
+                    'title' => Str::limit((string)($btn['title'] ?? 'Opción'), 20, ''),
+                ],
+            ];
+        })->all();
+
+        return $this->sendRaw(
+            $to,
+            [
+                'messaging_product' => 'whatsapp',
+                'to' => $to,
+                'type' => 'interactive',
+                'interactive' => [
+                    'type' => 'button',
+                    'body' => [
+                        'text' => $this->cleanText($body),
+                    ],
+                    'action' => [
+                        'buttons' => $buttonPayload,
+                    ],
+                ],
+            ],
+            'interactive',
+            $conversation
+        );
+    }
+
+    protected function sendRaw(
+        string $to,
+        array $payload,
+        string $messageType,
+        ?WaConversation $conversation = null,
+        ?string $templateName = null
+    ): array {
         try {
             $response = Http::timeout(20)
                 ->retry(2, 300)
                 ->withToken(config('whatsapp.token'))
-                ->post($url, [
-                    'messaging_product' => 'whatsapp',
-                    'to' => $to,
-                    'type' => 'template',
-                    'template' => [
-                        'name' => $templateName,
-                        'language' => [
-                            'code' => $lang ?: config('whatsapp.default_lang', 'es_MX'),
-                        ],
-                        'components' => $components,
-                    ],
-                ]);
+                ->post($this->apiUrl(), $payload);
+
+            $json = $response->json();
 
             if ($response->successful()) {
-                Log::info('whatsapp.template.sent', [
-                    'to'       => $to,
+                Log::info('whatsapp.outbound.accepted', [
+                    'to' => $to,
+                    'message_type' => $messageType,
                     'template' => $templateName,
-                    'response' => $response->json(),
+                    'response' => $json,
                 ]);
 
+                $waMessageId = data_get($json, 'messages.0.id');
+                $messageStatus = data_get($json, 'messages.0.message_status', 'accepted');
+
+                if ($conversation) {
+                    WaMessage::create([
+                        'conversation_id' => $conversation->id,
+                        'user_id' => $conversation->user_id,
+                        'direction' => 'outbound',
+                        'message_type' => $messageType,
+                        'wa_message_id' => $waMessageId,
+                        'text' => $messageType === 'text' ? data_get($payload, 'text.body') : null,
+                        'status' => $messageStatus,
+                        'payload' => $json,
+                        'meta' => [
+                            'template_name' => $templateName,
+                            'request_payload' => $payload,
+                        ],
+                    ]);
+
+                    $conversation->update([
+                        'last_message_at' => now(),
+                    ]);
+                }
+
                 return [
-                    'ok'     => true,
+                    'ok' => true,
                     'status' => $response->status(),
-                    'data'   => $response->json(),
+                    'data' => $json,
                 ];
             }
 
-            Log::warning('whatsapp.template.failed', [
-                'to'       => $to,
+            Log::warning('whatsapp.outbound.failed', [
+                'to' => $to,
+                'message_type' => $messageType,
                 'template' => $templateName,
-                'status'   => $response->status(),
-                'response' => $response->json(),
+                'status' => $response->status(),
+                'response' => $json,
             ]);
 
             return [
-                'ok'     => false,
+                'ok' => false,
                 'status' => $response->status(),
-                'data'   => $response->json(),
+                'data' => $json,
             ];
         } catch (\Throwable $e) {
-            Log::error('whatsapp.template.exception', [
-                'to'       => $to,
+            Log::error('whatsapp.outbound.exception', [
+                'to' => $to,
+                'message_type' => $messageType,
                 'template' => $templateName,
-                'message'  => $e->getMessage(),
+                'message' => $e->getMessage(),
             ]);
 
             return [
-                'ok'      => false,
-                'reason'  => 'exception',
+                'ok' => false,
+                'reason' => 'exception',
                 'message' => $e->getMessage(),
             ];
         }
@@ -255,7 +376,7 @@ class WhatsAppService
         return $this->userPhone($user) !== null;
     }
 
-    protected function normalizePhone(?string $phone): string
+    public function normalizePhone(?string $phone): string
     {
         return preg_replace('/\D+/', '', (string) $phone) ?: '';
     }
@@ -264,7 +385,7 @@ class WhatsAppService
     {
         return Str::limit(
             preg_replace('/\s+/', ' ', trim((string) $value)),
-            200,
+            1000,
             ''
         );
     }
@@ -284,7 +405,6 @@ class WhatsAppService
         }
 
         $parts = preg_split('/\s+/', $fullName) ?: [];
-
         $first = trim((string) ($parts[0] ?? 'Usuario'));
 
         return Str::limit($first, 25, '');

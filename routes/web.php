@@ -92,6 +92,8 @@ use App\Http\Controllers\Tickets\TicketReviewController;
 use App\Http\Controllers\PartContable\ActivityController;
 use App\Http\Controllers\ConfidentialDocsController;
 use App\Http\Controllers\Admin\WmsAnalyticsController;
+use App\Http\Controllers\WhatsApp\WhatsAppWebhookController;
+use App\Http\Controllers\Admin\WaConversationController;
 /*
 |--------------------------------------------------------------------------
 | AUTH
@@ -2019,4 +2021,14 @@ Route::get('/publications/batch/{batchKey}', [\App\Http\Controllers\PublicationC
   
 Route::middleware(['auth'])->prefix('admin/wms')->name('admin.wms.')->group(function () {
     Route::get('/analytics', [WmsAnalyticsController::class, 'index'])->name('analytics');
+});
+
+Route::match(['get', 'post'], '/webhooks/whatsapp', [WhatsAppWebhookController::class, 'handle']);
+
+Route::middleware(['auth'])->prefix('admin/whatsapp')->group(function () {
+    Route::get('/conversations', [WaConversationController::class, 'index'])->name('admin.whatsapp.conversations');
+    Route::get('/conversations/{conversation}', [WaConversationController::class, 'show'])->name('admin.whatsapp.conversations.show');
+    Route::post('/conversations/{conversation}/take', [WaConversationController::class, 'take'])->name('admin.whatsapp.conversations.take');
+    Route::post('/conversations/{conversation}/reply', [WaConversationController::class, 'reply'])->name('admin.whatsapp.conversations.reply');
+    Route::post('/conversations/{conversation}/close', [WaConversationController::class, 'close'])->name('admin.whatsapp.conversations.close');
 });

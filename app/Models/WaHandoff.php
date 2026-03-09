@@ -5,22 +5,17 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class WaMessage extends Model
+class WaHandoff extends Model
 {
     protected $fillable = [
         'conversation_id',
-        'user_id',
-        'direction',
-        'message_type',
-        'wa_message_id',
-        'text',
+        'assigned_to',
+        'reason',
         'status',
-        'payload',
         'meta',
     ];
 
     protected $casts = [
-        'payload' => 'array',
         'meta' => 'array',
     ];
 
@@ -29,8 +24,8 @@ class WaMessage extends Model
         return $this->belongsTo(WaConversation::class, 'conversation_id');
     }
 
-    public function user(): BelongsTo
+    public function agent(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'assigned_to');
     }
 }
