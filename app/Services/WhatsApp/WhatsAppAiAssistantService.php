@@ -133,162 +133,169 @@ class WhatsAppAiAssistantService
         $this->sendTrackedText($conversation, $reply, $meta);
     }
 
-    protected function replyWithSemanticAssistant(WaConversation $conversation, User $user, string $text): void
-    {
-        $route = $this->routeIntentWithAi($conversation, $user, $text);
+  protected function replyWithSemanticAssistant(WaConversation $conversation, User $user, string $text): void
+{
+    $route = $this->routeIntentWithAi($conversation, $user, $text);
 
-        if (!$route['ok']) {
-            $this->sendTrackedText($conversation, 'Entiendo. Cuéntame un poco más y te ayudo mejor.', [
-                'topic' => 'fallback',
-                'source' => 'router_error',
-            ]);
-            return;
-        }
+    if (!$route['ok']) {
+        \Log::warning('whatsapp.ai.semantic.route_not_ok', [
+            'message' => $text,
+        ]);
 
-        $intent = (string) ($route['intent'] ?? 'general_internal_assistant');
-        $context = $this->fetchDomainContext($intent, $conversation, $user, $route);
-
-        $reply = $this->composeReplyWithAi($conversation, $user, $text, $route, $context);
-
-        if (!$reply['ok']) {
-            $this->sendTrackedText($conversation, 'Entiendo. Cuéntame un poco más y te ayudo mejor.', [
-                'topic' => 'fallback',
-                'intent' => $intent,
-                'source' => 'composer_error',
-            ]);
-            return;
-        }
-
-        $meta = [
-            'topic' => $this->mapIntentToTopic($intent),
-            'intent' => $intent,
-            'source' => 'ai',
-            'time_scope' => $route['time_scope'] ?? null,
-            'user_scope' => $route['user_scope'] ?? null,
-            'focus' => $route['focus'] ?? null,
-            'ticket_folio' => $route['ticket_folio'] ?? ($context['ticket_folio'] ?? null),
-            'ticket_area' => $route['area'] ?? ($context['ticket_area'] ?? null),
-            'agenda_event_id' => $context['agenda_event_id'] ?? null,
-            'item_id' => $context['item_id'] ?? null,
-            'catalog_focus' => $context['catalog_focus'] ?? null,
-            'response_id' => $reply['id'] ?? null,
-            'router_response_id' => $route['response_id'] ?? null,
-        ];
-
-        $this->sendTrackedText($conversation, $reply['text'], $meta);
+        $this->sendTrackedText($conversation, 'Entiendo. Cuéntame un poco más y te ayudo mejor.', [
+            'topic' => 'fallback',
+            'source' => 'router_error',
+        ]);
+        return;
     }
 
-    protected function routeIntentWithAi(WaConversation $conversation, User $user, string $text): array
-    {
-        $openai = app(OpenAIResponsesService::class);
+    $intent = (string) ($route['intent'] ?? 'general_internal_assistant');
 
-        $last = $this->getLastStructuredContext($conversation);
-        $history = $this->buildConversationHistoryText($conversation, 10);
+    \Log::info('whatsapp.ai.semantic.intent', [
+        'message' => $text,
+        'intent' => $intent,
+        'route' => $route,
+    ]);
 
-        $instructions = <<<PROMPT
-Eres el router semántico del asistente interno de Jureto.
-No respondas como asistente normal.
-Tu tarea es clasificar la intención del usuario y extraer parámetros.
-Debes devolver EXCLUSIVAMENTE JSON válido, sin texto extra.
+    $context = $this->fetchDomainContext($intent, $conversation, $user, $route);
 
-Usa el historial y el último contexto estructurado para entender seguimientos cortos como:
-"si", "sí", "por qué", "y luego", "y ese", "cuándo", "cuál", "muéstrame más".
+    \Log::info('whatsapp.ai.semantic.context', [
+        'intent' => $intent,
+        'context' => $context,
+    ]);
 
-Intents permitidos:
-- company_info
-- help
-- agenda_query
-- ticket_query
-- ticket_priority
-- catalog_query
-- catalog_low_stock
-- catalog_featured
-- marketplace_summary
-- tickets_by_area
-- handoff_human
-- general_internal_assistant
+    $reply = $this->composeReplyWithAi($conversation, $user, $text, $route, $context);
 
-Campos requeridos del JSON:
-{
-  "intent": "uno de los intents permitidos",
-  "confidence": 0.0,
-  "needs_db": true,
-  "time_scope": null,
-  "user_scope": "self",
-  "focus": null,
-  "ticket_folio": null,
-  "area": null,
-  "limit": 5
+    if (!$reply['ok']) {
+        \Log::warning('whatsapp.ai.semantic.compose_not_ok', [
+            'message' => $text,
+            'intent' => $intent,
+            'route' => $route,
+            'context' => $context,
+        ]);
+
+        $this->sendTrackedText($conversation, 'Entiendo. Cuéntame un poco más y te ayudo mejor.', [
+            'topic' => 'fallback',
+            'intent' => $intent,
+            'source' => 'composer_error',
+        ]);
+        return;
+    }
+
+    $meta = [
+        'topic' => $this->mapIntentToTopic($intent),
+        'intent' => $intent,
+        'source' => 'ai',
+        'time_scope' => $route['time_scope'] ?? null,
+        'user_scope' => $route['user_scope'] ?? null,
+        'focus' => $route['focus'] ?? null,
+        'ticket_folio' => $route['ticket_folio'] ?? ($context['ticket_folio'] ?? null),
+        'ticket_area' => $route['area'] ?? ($context['ticket_area'] ?? null),
+        'agenda_event_id' => $context['agenda_event_id'] ?? null,
+        'item_id' => $context['item_id'] ?? null,
+        'catalog_focus' => $context['catalog_focus'] ?? null,
+        'response_id' => $reply['id'] ?? null,
+        'router_response_id' => $route['response_id'] ?? null,
+    ];
+
+    $this->sendTrackedText($conversation, $reply['text'], $meta);
 }
 
-Valores válidos:
-- time_scope: null | today | this_week | this_month | next
-- user_scope: null | self | team | global
-- focus: null | summary | detail | upcoming | urgent | low_stock | featured | market
-- limit: entero de 1 a 12
+    protected function routeIntentWithAi(WaConversation $conversation, User $user, string $text): array
+{
+    $openai = app(OpenAIResponsesService::class);
 
-Si el mensaje parece seguimiento de un tema previo, usa el último contexto estructurado y el historial.
-Si no estás seguro, usa "general_internal_assistant".
+    $last = $this->getLastStructuredContext($conversation);
+    $history = $this->buildConversationHistoryText($conversation, 10);
+
+    $instructions = <<<PROMPT
+Eres el router semántico del asistente interno de Jureto.
+No respondas como asistente.
+Solo clasifica intención y extrae parámetros.
+
+Interpreta correctamente preguntas libres como:
+- cuándo será mi próxima junta
+- qué tengo en agenda
+- qué hay este mes
+- qué anda bajo de inventario
+- cómo va mercado libre
+- qué ticket urge más
+- y por qué
+- de qué es la empresa
+
+Usa también el historial reciente y el último contexto estructurado para entender seguimientos cortos como:
+"si", "sí", "por qué", "y luego", "y ese", "cuándo", "cuál", "muéstrame más".
+
+Reglas:
+- Si habla de reuniones, agenda, eventos o programación personal => agenda_query
+- Si habla de ticket específico o estado de tickets => ticket_query
+- Si pregunta cuál urge más => ticket_priority
+- Si habla de productos o inventario en general => catalog_query
+- Si habla de bajo stock => catalog_low_stock
+- Si habla de destacados => catalog_featured
+- Si habla de Mercado Libre o Amazon => marketplace_summary
+- Si pregunta por la empresa o a qué se dedica => company_info
+- Si pide ayuda general => help
+- Si pide asesor/humano => handoff_human
+- Si no está claro, usa general_internal_assistant
 PROMPT;
 
-        $userPayload = json_encode([
+    $input = [
+        'message' => $text,
+        'user' => [
+            'id' => $user->id,
+            'name' => $user->name,
+        ],
+        'last_context' => $last,
+        'history' => $history,
+    ];
+
+    $result = $openai->routeStructured($instructions, $input);
+
+    if (!$result['ok']) {
+        \Log::warning('whatsapp.ai.route.failed', [
             'message' => $text,
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-            ],
-            'last_context' => $last,
-            'history' => $history,
-        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            'result' => $result,
+        ]);
 
-        $result = $openai->ask($instructions, (string) $userPayload);
-
-        if (!$result['ok']) {
-            return ['ok' => false];
-        }
-
-        $raw = trim((string) ($result['text'] ?? ''));
-        $json = $this->extractJsonObject($raw);
-
-        if (!$json) {
-            return ['ok' => false];
-        }
-
-        $data = json_decode($json, true);
-
-        if (!is_array($data)) {
-            return ['ok' => false];
-        }
-
-        return [
-            'ok' => true,
-            'response_id' => $result['id'] ?? null,
-            'intent' => $data['intent'] ?? 'general_internal_assistant',
-            'confidence' => (float) ($data['confidence'] ?? 0),
-            'needs_db' => (bool) ($data['needs_db'] ?? true),
-            'time_scope' => $data['time_scope'] ?? null,
-            'user_scope' => $data['user_scope'] ?? 'self',
-            'focus' => $data['focus'] ?? null,
-            'ticket_folio' => $data['ticket_folio'] ?? null,
-            'area' => $data['area'] ?? null,
-            'limit' => max(1, min(12, (int) ($data['limit'] ?? 5))),
-        ];
+        return ['ok' => false];
     }
 
-    protected function composeReplyWithAi(
-        WaConversation $conversation,
-        User $user,
-        string $text,
-        array $route,
-        array $context
-    ): array {
-        $openai = app(OpenAIResponsesService::class);
+    $data = $result['data'];
 
-        $lastContext = $this->getLastStructuredContext($conversation);
-        $history = $this->buildConversationHistoryText($conversation, 10);
-        $company = $this->companyKnowledgeBlock();
+    \Log::info('whatsapp.ai.route.ok', [
+        'message' => $text,
+        'route' => $data,
+    ]);
 
-        $instructions = <<<PROMPT
+    return [
+        'ok' => true,
+        'intent' => $data['intent'] ?? 'general_internal_assistant',
+        'confidence' => (float) ($data['confidence'] ?? 0),
+        'needs_db' => (bool) ($data['needs_db'] ?? true),
+        'time_scope' => $data['time_scope'] ?? null,
+        'user_scope' => $data['user_scope'] ?? 'self',
+        'focus' => $data['focus'] ?? null,
+        'ticket_folio' => $data['ticket_folio'] ?? null,
+        'area' => $data['area'] ?? null,
+        'limit' => max(1, min(12, (int) ($data['limit'] ?? 5))),
+        'response_id' => null,
+    ];
+}
+  protected function composeReplyWithAi(
+    WaConversation $conversation,
+    User $user,
+    string $text,
+    array $route,
+    array $context
+): array {
+    $openai = app(OpenAIResponsesService::class);
+
+    $lastContext = $this->getLastStructuredContext($conversation);
+    $history = $this->buildConversationHistoryText($conversation, 10);
+    $company = $this->companyKnowledgeBlock();
+
+    $instructions = <<<PROMPT
 Eres el asistente de WhatsApp de Jureto.
 Responde en español.
 Tu tono debe ser natural, claro, útil, humano y breve.
@@ -304,54 +311,59 @@ Reglas:
 - Si pregunta por destacados, responde con destacados.
 - Si pregunta por marketplaces, responde con Mercado Libre y Amazon.
 - Si pregunta por tickets, responde con tickets.
+- Si pregunta por la empresa, responde sobre la empresa.
 - Si el usuario hace seguimiento corto, interpreta con historial y último contexto estructurado.
 - Si faltan datos exactos, dilo natural.
-- Evita cierre repetitivo de "puedo ayudarte con tickets".
-
-Debes redactar con base en:
-1) intención interpretada
-2) contexto de base de datos
-3) historial reciente
-4) último contexto estructurado
 PROMPT;
 
-        $payload = json_encode([
-            'user_message' => $text,
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-            ],
-            'route' => $route,
-            'db_context' => $context,
-            'company_context' => $company,
-            'history' => $history,
-            'last_context' => $lastContext,
-        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    $payload = json_encode([
+        'user_message' => $text,
+        'user' => [
+            'id' => $user->id,
+            'name' => $user->name,
+        ],
+        'route' => $route,
+        'db_context' => $context,
+        'company_context' => $company,
+        'history' => $history,
+        'last_context' => $lastContext,
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
-        $previousResponseId = null;
-        if (!empty($lastContext['response_id']) && is_string($lastContext['response_id'])) {
-            $previousResponseId = $lastContext['response_id'];
-        }
-
-        $result = $openai->ask($instructions, $payload, $previousResponseId);
-
-        if (!$result['ok']) {
-            return ['ok' => false];
-        }
-
-        $textOut = trim((string) ($result['text'] ?? ''));
-
-        if ($textOut === '') {
-            return ['ok' => false];
-        }
-
-        return [
-            'ok' => true,
-            'id' => $result['id'] ?? null,
-            'text' => $textOut,
-        ];
+    $previousResponseId = null;
+    if (!empty($lastContext['response_id']) && is_string($lastContext['response_id'])) {
+        $previousResponseId = $lastContext['response_id'];
     }
 
+    $result = $openai->ask($instructions, $payload, $previousResponseId);
+
+    \Log::info('whatsapp.ai.compose.raw', [
+        'ok' => $result['ok'] ?? false,
+        'id' => $result['id'] ?? null,
+        'text' => $result['text'] ?? null,
+        'route' => $route,
+    ]);
+
+    if (!$result['ok']) {
+        return ['ok' => false];
+    }
+
+    $textOut = trim((string) ($result['text'] ?? ''));
+
+    if ($textOut === '') {
+        \Log::warning('whatsapp.ai.compose.empty_text', [
+            'route' => $route,
+            'result' => $result,
+        ]);
+
+        return ['ok' => false];
+    }
+
+    return [
+        'ok' => true,
+        'id' => $result['id'] ?? null,
+        'text' => $textOut,
+    ];
+}
     protected function fetchDomainContext(string $intent, WaConversation $conversation, User $user, array $route): array
     {
         return match ($intent) {
