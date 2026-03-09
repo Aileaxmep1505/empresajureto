@@ -18,15 +18,12 @@ class WhatsAppAiAssistantService
     public function handleInbound(WaConversation $conversation, ?User $user, WaMessage $incomingMessage): void
     {
         $text = trim((string) $incomingMessage->text);
-        $textLower = mb_strtolower($text);
-        $wa = app(WhatsAppService::class);
 
         if ($text === '') {
-            $wa->sendText(
-                $conversation->phone,
-                'Recibí tu mensaje, pero no pude leerlo bien. ¿Me lo mandas otra vez?',
-                $conversation
-            );
+            $this->sendTrackedText($conversation, 'Recibí tu mensaje, pero no pude leerlo bien. ¿Me lo mandas otra vez?', [
+                'topic' => 'empty_message',
+                'source' => 'rule',
+            ]);
             return;
         }
 
@@ -35,100 +32,31 @@ class WhatsAppAiAssistantService
             return;
         }
 
-        if ($this->wantsHuman($textLower)) {
+        if ($this->wantsHuman($text)) {
             $this->handoffToHuman($conversation, 'Solicitado por el usuario');
-            $this->sendTrackedText(
-                $conversation,
-                'Listo, ya te canalicé con un asesor humano.',
-                [
-                    'topic' => 'handoff',
-                    'source' => 'rule',
-                ]
-            );
+            $this->sendTrackedText($conversation, 'Listo, ya te canalicé con un asesor humano.', [
+                'topic' => 'handoff',
+                'source' => 'rule',
+            ]);
             return;
         }
 
-        $isInternal = $this->isInternalUser($user);
-
-        if (!$isInternal) {
-            $this->handleExternalUser($conversation, $user, $text, $textLower, $incomingMessage);
+        if ($this->isGreeting($text)) {
+            $this->sendTrackedText($conversation, 'Hola '.$this->firstName($user->name).'. ¿En qué te ayudo?', [
+                'topic' => 'greeting',
+                'source' => 'rule',
+            ]);
             return;
         }
 
-        if ($this->isGreeting($textLower)) {
-            $this->sendTrackedText(
-                $conversation,
-                'Hola '.$this->firstName($user->name).'. ¿En qué te ayudo?',
-                [
-                    'topic' => 'greeting',
-                    'source' => 'rule',
-                ]
-            );
-            return;
-        }
-
-        if ($this->isContextualFollowUp($textLower)) {
-            if ($this->replyContextualFollowUp($conversation, $user, $textLower)) {
-                return;
-            }
-        }
-
-        if ($this->asksPendingTickets($textLower)) {
-            $this->replyPendingTickets($conversation, $user);
-            return;
-        }
-
-        if ($this->asksMostUrgent($textLower)) {
-            $this->replyMostUrgentTicket($conversation, $user);
-            return;
-        }
-
-        if ($this->asksTodayAgenda($textLower)) {
-            $this->replyTodayAgenda($conversation, $user);
-            return;
-        }
-
-        if ($this->asksLowStock($textLower)) {
-            $this->replyLowStockProducts($conversation);
-            return;
-        }
-
-        if ($this->asksFeaturedProducts($textLower)) {
-            $this->replyFeaturedProducts($conversation);
-            return;
-        }
-
-        if ($this->asksUpcomingMeetings($textLower)) {
-            $this->replyUpcomingMeetings($conversation, $user);
-            return;
-        }
-
-        if ($this->asksMarketplaceSummary($textLower)) {
-            $this->replyMarketplaceSummary($conversation);
-            return;
-        }
-
-        if ($this->asksTicketsByArea($textLower)) {
-            $this->replyTicketsByArea($conversation, $user);
-            return;
-        }
-
+        // Folio explícito sigue siendo una regla dura útil.
         if ($folio = $this->extractTicketFolio($text)) {
-            if ($this->asksTicketDeepDetail($textLower)) {
-                $this->replyTicketFullDetail($conversation, $user, $folio);
-                return;
-            }
-
-            $this->replyTicketStatus($conversation, $user, $folio);
+            $this->replyTicketByExplicitFolio($conversation, $user, $folio, $text);
             return;
         }
 
-        if ($this->looksLikeTicketQuestionWithoutFolio($textLower)) {
-            $this->replyNeedFolioForTicketQuestion($conversation);
-            return;
-        }
-
-        $this->replyWithAi($conversation, $user, $text, $incomingMessage, true);
+        // Todo lo demás: IA como router + IA como redactor.
+        $this->replyWithSemanticAssistant($conversation, $user, $text);
     }
 
     protected function replyForUnknownUser(WaConversation $conversation): void
@@ -144,260 +72,7 @@ class WhatsAppAiAssistantService
         );
     }
 
-    protected function handleExternalUser(
-        WaConversation $conversation,
-        User $user,
-        string $text,
-        string $textLower,
-        WaMessage $incomingMessage
-    ): void {
-        if ($folio = $this->extractTicketFolio($text)) {
-            $ticket = $this->findVisibleTicketForExternalUser($user, $folio);
-
-            if (!$ticket) {
-                $this->sendTrackedText(
-                    $conversation,
-                    'No encontré ese ticket relacionado contigo.',
-                    [
-                        'topic' => 'ticket_lookup',
-                        'ticket_folio' => $folio,
-                        'source' => 'rule',
-                    ]
-                );
-                return;
-            }
-
-            $dueText = $ticket->due_at ? $ticket->due_at->format('d/m/Y h:i A') : 'Sin fecha límite';
-
-            $this->sendTrackedText(
-                $conversation,
-                "Detalle de {$ticket->folio}:\n"
-                ."Título: {$ticket->title}\n"
-                ."Estado: {$ticket->status}\n"
-                ."Prioridad: {$ticket->priority}\n"
-                ."Vence: {$dueText}",
-                [
-                    'topic' => 'ticket_detail',
-                    'ticket_folio' => $ticket->folio,
-                    'source' => 'rule',
-                ]
-            );
-            return;
-        }
-
-        if ($this->asksPendingTickets($textLower)) {
-            $tickets = Ticket::query()
-                ->where(function ($q) use ($user) {
-                    if (Schema::hasColumn('tickets', 'created_by')) {
-                        $q->where('created_by', $user->id);
-                    } else {
-                        $q->whereRaw('1 = 0');
-                    }
-                })
-                ->whereNotIn('status', ['completado', 'cancelado'])
-                ->latest()
-                ->limit(5)
-                ->get(['folio', 'title', 'status', 'priority']);
-
-            if ($tickets->isEmpty()) {
-                $this->sendTrackedText(
-                    $conversation,
-                    'No encontré tickets abiertos relacionados contigo.',
-                    [
-                        'topic' => 'tickets_pending',
-                        'source' => 'rule',
-                    ]
-                );
-                return;
-            }
-
-            $lines = ['Estos son tus tickets abiertos:'];
-            foreach ($tickets as $t) {
-                $lines[] = '• '.$t->folio.' - '.Str::limit($t->title, 45).' ('.$t->status.')';
-            }
-
-            $this->sendTrackedText(
-                $conversation,
-                implode("\n", $lines),
-                [
-                    'topic' => 'tickets_pending',
-                    'source' => 'rule',
-                ]
-            );
-            return;
-        }
-
-        $this->replyWithAi($conversation, $user, $text, $incomingMessage, false);
-    }
-
-    protected function replyPendingTickets(WaConversation $conversation, User $user): void
-    {
-        $tickets = Ticket::query()
-            ->where('assignee_id', $user->id)
-            ->whereNotIn('status', ['completado', 'cancelado'])
-            ->orderByRaw("
-                CASE priority
-                    WHEN 'critica' THEN 1
-                    WHEN 'alta' THEN 2
-                    WHEN 'media' THEN 3
-                    WHEN 'baja' THEN 4
-                    WHEN 'mejora' THEN 5
-                    ELSE 6
-                END
-            ")
-            ->orderByRaw("
-                CASE status
-                    WHEN 'bloqueado' THEN 1
-                    WHEN 'pendiente' THEN 2
-                    WHEN 'reabierto' THEN 3
-                    WHEN 'progreso' THEN 4
-                    WHEN 'revision' THEN 5
-                    WHEN 'pruebas' THEN 6
-                    WHEN 'por_revisar' THEN 7
-                    ELSE 8
-                END
-            ")
-            ->limit(7)
-            ->get(['folio', 'title', 'status', 'priority', 'due_at', 'area']);
-
-        if ($tickets->isEmpty()) {
-            $this->sendTrackedText(
-                $conversation,
-                'No tienes tickets pendientes asignados.',
-                [
-                    'topic' => 'tickets_pending',
-                    'source' => 'rule',
-                ]
-            );
-            return;
-        }
-
-        $lines = ['Tienes estos tickets pendientes asignados:'];
-
-        foreach ($tickets as $t) {
-            $due = $t->due_at ? ' · vence '.$t->due_at->format('d/m') : '';
-            $lines[] = '• '.$t->folio.' - '.Str::limit($t->title, 42).' ('.$t->priority.', '.$t->status.$due.')';
-        }
-
-        $this->sendTrackedText(
-            $conversation,
-            implode("\n", $lines),
-            [
-                'topic' => 'tickets_pending',
-                'source' => 'rule',
-                'tickets_count' => $tickets->count(),
-            ]
-        );
-    }
-
-    protected function replyMostUrgentTicket(WaConversation $conversation, User $user): void
-    {
-        $tickets = Ticket::query()
-            ->where('assignee_id', $user->id)
-            ->whereNotIn('status', ['completado', 'cancelado'])
-            ->get(['id', 'folio', 'title', 'priority', 'status', 'due_at', 'area']);
-
-        if ($tickets->isEmpty()) {
-            $this->sendTrackedText(
-                $conversation,
-                'No tienes tickets pendientes asignados.',
-                [
-                    'topic' => 'ticket_most_urgent',
-                    'source' => 'rule',
-                ]
-            );
-            return;
-        }
-
-        $best = $tickets->sortBy(function ($t) {
-            return [
-                $this->priorityRank((string) $t->priority),
-                $this->statusRank((string) $t->status),
-                $t->due_at ? $t->due_at->timestamp : PHP_INT_MAX,
-                -1 * ((int) $t->id),
-            ];
-        })->first();
-
-        $dueText = $best->due_at ? $best->due_at->format('d/m/Y h:i A') : 'Sin fecha límite';
-
-        $this->sendTrackedText(
-            $conversation,
-            "El que más urge ahorita es {$best->folio}.\n"
-            ."Título: {$best->title}\n"
-            ."Prioridad: {$best->priority}\n"
-            ."Estado: {$best->status}\n"
-            ."Vence: {$dueText}\n"
-            ."Si quieres, te digo por qué lo considero el más urgente.",
-            [
-                'topic' => 'ticket_most_urgent',
-                'ticket_folio' => $best->folio,
-                'ticket_area' => $best->area,
-                'source' => 'rule',
-            ]
-        );
-    }
-
-    protected function replyWhyMostUrgent(WaConversation $conversation, User $user): void
-    {
-        $tickets = Ticket::query()
-            ->where('assignee_id', $user->id)
-            ->whereNotIn('status', ['completado', 'cancelado'])
-            ->get(['id', 'folio', 'title', 'priority', 'status', 'due_at', 'area']);
-
-        if ($tickets->isEmpty()) {
-            $this->sendTrackedText(
-                $conversation,
-                'No tienes tickets pendientes asignados.',
-                [
-                    'topic' => 'ticket_most_urgent_reason',
-                    'source' => 'rule',
-                ]
-            );
-            return;
-        }
-
-        $best = $tickets->sortBy(function ($t) {
-            return [
-                $this->priorityRank((string) $t->priority),
-                $this->statusRank((string) $t->status),
-                $t->due_at ? $t->due_at->timestamp : PHP_INT_MAX,
-                -1 * ((int) $t->id),
-            ];
-        })->first();
-
-        $reasons = [];
-
-        if ((string) $best->status === 'bloqueado') {
-            $reasons[] = 'está bloqueado';
-        }
-
-        if (in_array((string) $best->priority, ['critica', 'alta', 'media'], true)) {
-            $reasons[] = 'tiene prioridad '.$best->priority;
-        }
-
-        if ($best->due_at) {
-            $reasons[] = 'tiene fecha límite '.$best->due_at->format('d/m/Y h:i A');
-        }
-
-        if (empty($reasons)) {
-            $reasons[] = 'queda por encima de otros por prioridad, estado y orden de atención';
-        }
-
-        $this->sendTrackedText(
-            $conversation,
-            "Lo considero el más urgente porque ".implode(', ', $reasons).".\n"
-            ."Ticket: {$best->folio}\n"
-            ."Título: {$best->title}",
-            [
-                'topic' => 'ticket_most_urgent_reason',
-                'ticket_folio' => $best->folio,
-                'ticket_area' => $best->area,
-                'source' => 'rule',
-            ]
-        );
-    }
-
-    protected function replyTicketStatus(WaConversation $conversation, User $user, string $folio): void
+    protected function replyTicketByExplicitFolio(WaConversation $conversation, User $user, string $folio, string $text): void
     {
         $ticket = $this->findVisibleTicketForInternalUser($user, $folio);
 
@@ -407,6 +82,7 @@ class WhatsAppAiAssistantService
                 "No encontré el ticket {$folio} relacionado contigo.",
                 [
                     'topic' => 'ticket_lookup',
+                    'intent' => 'ticket_query',
                     'ticket_folio' => $folio,
                     'source' => 'rule',
                 ]
@@ -415,335 +91,632 @@ class WhatsAppAiAssistantService
         }
 
         $dueText = $ticket->due_at ? $ticket->due_at->format('d/m/Y h:i A') : 'Sin fecha límite';
+        $desc = trim((string) ($ticket->description ?? ''));
+        $desc = $desc !== '' ? Str::limit($desc, 300) : 'Sin descripción registrada';
 
-        $this->sendTrackedText(
-            $conversation,
-            "Estado de {$ticket->folio}:\n"
-            ."Título: {$ticket->title}\n"
-            ."Estado: {$ticket->status}\n"
-            ."Prioridad: {$ticket->priority}\n"
-            ."Área: {$ticket->area}\n"
-            ."Vence: {$dueText}",
-            [
-                'topic' => 'ticket_status',
+        $mode = $this->looksLikeTicketDeepDetail($text) ? 'detail' : 'status';
+
+        if ($mode === 'detail') {
+            $reply = "Detalle de {$ticket->folio}:\n"
+                ."Título: {$ticket->title}\n"
+                ."Estado: {$ticket->status}\n"
+                ."Prioridad: {$ticket->priority}\n"
+                ."Área: {$ticket->area}\n"
+                ."Vence: {$dueText}\n"
+                ."Descripción: {$desc}\n"
+                ."Qué hacer: ".$this->buildSimpleActionHint($ticket);
+
+            $meta = [
+                'topic' => 'ticket_detail',
+                'intent' => 'ticket_query',
                 'ticket_folio' => $ticket->folio,
                 'ticket_area' => $ticket->area,
                 'source' => 'rule',
-            ]
-        );
+            ];
+        } else {
+            $reply = "Estado de {$ticket->folio}:\n"
+                ."Título: {$ticket->title}\n"
+                ."Estado: {$ticket->status}\n"
+                ."Prioridad: {$ticket->priority}\n"
+                ."Área: {$ticket->area}\n"
+                ."Vence: {$dueText}";
+
+            $meta = [
+                'topic' => 'ticket_status',
+                'intent' => 'ticket_query',
+                'ticket_folio' => $ticket->folio,
+                'ticket_area' => $ticket->area,
+                'source' => 'rule',
+            ];
+        }
+
+        $this->sendTrackedText($conversation, $reply, $meta);
     }
 
-    protected function replyTicketFullDetail(WaConversation $conversation, User $user, string $folio): void
+    protected function replyWithSemanticAssistant(WaConversation $conversation, User $user, string $text): void
     {
+        $route = $this->routeIntentWithAi($conversation, $user, $text);
+
+        if (!$route['ok']) {
+            $this->sendTrackedText($conversation, 'Entiendo. Cuéntame un poco más y te ayudo mejor.', [
+                'topic' => 'fallback',
+                'source' => 'router_error',
+            ]);
+            return;
+        }
+
+        $intent = (string) ($route['intent'] ?? 'general_internal_assistant');
+        $context = $this->fetchDomainContext($intent, $conversation, $user, $route);
+
+        $reply = $this->composeReplyWithAi($conversation, $user, $text, $route, $context);
+
+        if (!$reply['ok']) {
+            $this->sendTrackedText($conversation, 'Entiendo. Cuéntame un poco más y te ayudo mejor.', [
+                'topic' => 'fallback',
+                'intent' => $intent,
+                'source' => 'composer_error',
+            ]);
+            return;
+        }
+
+        $meta = [
+            'topic' => $this->mapIntentToTopic($intent),
+            'intent' => $intent,
+            'source' => 'ai',
+            'time_scope' => $route['time_scope'] ?? null,
+            'user_scope' => $route['user_scope'] ?? null,
+            'focus' => $route['focus'] ?? null,
+            'ticket_folio' => $route['ticket_folio'] ?? ($context['ticket_folio'] ?? null),
+            'ticket_area' => $route['area'] ?? ($context['ticket_area'] ?? null),
+            'agenda_event_id' => $context['agenda_event_id'] ?? null,
+            'item_id' => $context['item_id'] ?? null,
+            'catalog_focus' => $context['catalog_focus'] ?? null,
+            'response_id' => $reply['id'] ?? null,
+            'router_response_id' => $route['response_id'] ?? null,
+        ];
+
+        $this->sendTrackedText($conversation, $reply['text'], $meta);
+    }
+
+    protected function routeIntentWithAi(WaConversation $conversation, User $user, string $text): array
+    {
+        $openai = app(OpenAIResponsesService::class);
+
+        $last = $this->getLastStructuredContext($conversation);
+        $history = $this->buildConversationHistoryText($conversation, 10);
+
+        $instructions = <<<PROMPT
+Eres el router semántico del asistente interno de Jureto.
+No respondas como asistente normal.
+Tu tarea es clasificar la intención del usuario y extraer parámetros.
+Debes devolver EXCLUSIVAMENTE JSON válido, sin texto extra.
+
+Usa el historial y el último contexto estructurado para entender seguimientos cortos como:
+"si", "sí", "por qué", "y luego", "y ese", "cuándo", "cuál", "muéstrame más".
+
+Intents permitidos:
+- company_info
+- help
+- agenda_query
+- ticket_query
+- ticket_priority
+- catalog_query
+- catalog_low_stock
+- catalog_featured
+- marketplace_summary
+- tickets_by_area
+- handoff_human
+- general_internal_assistant
+
+Campos requeridos del JSON:
+{
+  "intent": "uno de los intents permitidos",
+  "confidence": 0.0,
+  "needs_db": true,
+  "time_scope": null,
+  "user_scope": "self",
+  "focus": null,
+  "ticket_folio": null,
+  "area": null,
+  "limit": 5
+}
+
+Valores válidos:
+- time_scope: null | today | this_week | this_month | next
+- user_scope: null | self | team | global
+- focus: null | summary | detail | upcoming | urgent | low_stock | featured | market
+- limit: entero de 1 a 12
+
+Si el mensaje parece seguimiento de un tema previo, usa el último contexto estructurado y el historial.
+Si no estás seguro, usa "general_internal_assistant".
+PROMPT;
+
+        $userPayload = json_encode([
+            'message' => $text,
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+            ],
+            'last_context' => $last,
+            'history' => $history,
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        $result = $openai->ask($instructions, (string) $userPayload);
+
+        if (!$result['ok']) {
+            return ['ok' => false];
+        }
+
+        $raw = trim((string) ($result['text'] ?? ''));
+        $json = $this->extractJsonObject($raw);
+
+        if (!$json) {
+            return ['ok' => false];
+        }
+
+        $data = json_decode($json, true);
+
+        if (!is_array($data)) {
+            return ['ok' => false];
+        }
+
+        return [
+            'ok' => true,
+            'response_id' => $result['id'] ?? null,
+            'intent' => $data['intent'] ?? 'general_internal_assistant',
+            'confidence' => (float) ($data['confidence'] ?? 0),
+            'needs_db' => (bool) ($data['needs_db'] ?? true),
+            'time_scope' => $data['time_scope'] ?? null,
+            'user_scope' => $data['user_scope'] ?? 'self',
+            'focus' => $data['focus'] ?? null,
+            'ticket_folio' => $data['ticket_folio'] ?? null,
+            'area' => $data['area'] ?? null,
+            'limit' => max(1, min(12, (int) ($data['limit'] ?? 5))),
+        ];
+    }
+
+    protected function composeReplyWithAi(
+        WaConversation $conversation,
+        User $user,
+        string $text,
+        array $route,
+        array $context
+    ): array {
+        $openai = app(OpenAIResponsesService::class);
+
+        $lastContext = $this->getLastStructuredContext($conversation);
+        $history = $this->buildConversationHistoryText($conversation, 10);
+        $company = $this->companyKnowledgeBlock();
+
+        $instructions = <<<PROMPT
+Eres el asistente de WhatsApp de Jureto.
+Responde en español.
+Tu tono debe ser natural, claro, útil, humano y breve.
+No suenes como bot.
+No repitas siempre la misma frase.
+No inventes datos que no estén en el contexto.
+Responde directo a lo que el usuario quiso decir, aunque lo haya expresado de forma informal.
+
+Reglas:
+- Si el usuario pregunta por agenda, responde con agenda.
+- Si pregunta por productos, responde con productos.
+- Si pregunta por stock bajo, responde con stock bajo.
+- Si pregunta por destacados, responde con destacados.
+- Si pregunta por marketplaces, responde con Mercado Libre y Amazon.
+- Si pregunta por tickets, responde con tickets.
+- Si el usuario hace seguimiento corto, interpreta con historial y último contexto estructurado.
+- Si faltan datos exactos, dilo natural.
+- Evita cierre repetitivo de "puedo ayudarte con tickets".
+
+Debes redactar con base en:
+1) intención interpretada
+2) contexto de base de datos
+3) historial reciente
+4) último contexto estructurado
+PROMPT;
+
+        $payload = json_encode([
+            'user_message' => $text,
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+            ],
+            'route' => $route,
+            'db_context' => $context,
+            'company_context' => $company,
+            'history' => $history,
+            'last_context' => $lastContext,
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        $previousResponseId = null;
+        if (!empty($lastContext['response_id']) && is_string($lastContext['response_id'])) {
+            $previousResponseId = $lastContext['response_id'];
+        }
+
+        $result = $openai->ask($instructions, $payload, $previousResponseId);
+
+        if (!$result['ok']) {
+            return ['ok' => false];
+        }
+
+        $textOut = trim((string) ($result['text'] ?? ''));
+
+        if ($textOut === '') {
+            return ['ok' => false];
+        }
+
+        return [
+            'ok' => true,
+            'id' => $result['id'] ?? null,
+            'text' => $textOut,
+        ];
+    }
+
+    protected function fetchDomainContext(string $intent, WaConversation $conversation, User $user, array $route): array
+    {
+        return match ($intent) {
+            'company_info' => $this->fetchCompanyContext(),
+            'help' => $this->fetchHelpContext(),
+            'agenda_query' => $this->fetchAgendaContext($user, $route),
+            'ticket_query' => $this->fetchTicketContext($conversation, $user, $route),
+            'ticket_priority' => $this->fetchTicketPriorityContext($user),
+            'catalog_query' => $this->fetchCatalogContext($route),
+            'catalog_low_stock' => $this->fetchLowStockContext($route),
+            'catalog_featured' => $this->fetchFeaturedContext($route),
+            'marketplace_summary' => $this->fetchMarketplaceSummaryContext(),
+            'tickets_by_area' => $this->fetchTicketsByAreaContext(),
+            'handoff_human' => ['handoff' => true],
+            default => $this->fetchGeneralContext($user),
+        };
+    }
+
+    protected function fetchCompanyContext(): array
+    {
+        return [
+            'company' => [
+                'summary' => 'Jureto es una empresa comercializadora y operativa enfocada en productos e insumos para distintas necesidades como papelería, oficina, tecnología, cómputo, limpieza, construcción y material eléctrico o electrónico.',
+            ],
+        ];
+    }
+
+    protected function fetchHelpContext(): array
+    {
+        return [
+            'help' => [
+                'areas' => [
+                    'información general de la empresa',
+                    'agenda y próximas reuniones',
+                    'productos, stock y destacados',
+                    'Mercado Libre y Amazon',
+                    'tickets y prioridades',
+                ],
+            ],
+        ];
+    }
+
+    protected function fetchAgendaContext(User $user, array $route): array
+    {
+        if (!class_exists(AgendaEvent::class) || !Schema::hasTable('agenda_events')) {
+            return ['agenda' => ['available' => false]];
+        }
+
+        $query = $this->agendaQueryForUser($user);
+
+        $timeScope = $route['time_scope'] ?? null;
+
+        if (Schema::hasColumn('agenda_events', 'start_at')) {
+            switch ($timeScope) {
+                case 'today':
+                    $query->whereBetween('start_at', [now()->startOfDay(), now()->endOfDay()]);
+                    break;
+                case 'this_week':
+                    $query->whereBetween('start_at', [now()->startOfWeek(), now()->endOfWeek()]);
+                    break;
+                case 'this_month':
+                    $query->whereBetween('start_at', [now()->startOfMonth(), now()->endOfMonth()]);
+                    break;
+                case 'next':
+                default:
+                    $query->where('start_at', '>=', now());
+                    break;
+            }
+        }
+
+        $limit = $route['limit'] ?? 5;
+
+        $events = $query->orderBy('start_at')->limit($limit)->get([
+            'id',
+            'title',
+            'description',
+            'start_at',
+            'repeat_rule',
+            'remind_offset_minutes',
+            'timezone',
+        ]);
+
+        return [
+            'agenda' => [
+                'available' => true,
+                'time_scope' => $timeScope,
+                'count' => $events->count(),
+                'items' => $events->map(function ($e) {
+                    return [
+                        'id' => $e->id,
+                        'title' => $e->title,
+                        'description' => $e->description,
+                        'start_at' => $e->start_at ? $e->start_at->format('Y-m-d H:i:s') : null,
+                        'repeat_rule' => $e->repeat_rule,
+                        'remind_offset_minutes' => $e->remind_offset_minutes,
+                        'timezone' => $e->timezone,
+                    ];
+                })->values()->all(),
+            ],
+            'agenda_event_id' => optional($events->first())->id,
+        ];
+    }
+
+    protected function fetchTicketContext(WaConversation $conversation, User $user, array $route): array
+    {
+        $folio = $route['ticket_folio'] ?? null;
+
+        if (!$folio) {
+            $last = $this->getLastStructuredContext($conversation);
+            $folio = $last['ticket_folio'] ?? null;
+        }
+
+        if (!$folio) {
+            $tickets = Ticket::query()
+                ->where('assignee_id', $user->id)
+                ->whereNotIn('status', ['completado', 'cancelado'])
+                ->orderByDesc('id')
+                ->limit($route['limit'] ?? 5)
+                ->get(['id', 'folio', 'title', 'status', 'priority', 'area', 'due_at']);
+
+            return [
+                'tickets' => [
+                    'mode' => 'list',
+                    'count' => $tickets->count(),
+                    'items' => $tickets->map(function ($t) {
+                        return [
+                            'id' => $t->id,
+                            'folio' => $t->folio,
+                            'title' => $t->title,
+                            'status' => $t->status,
+                            'priority' => $t->priority,
+                            'area' => $t->area,
+                            'due_at' => $t->due_at ? $t->due_at->format('Y-m-d H:i:s') : null,
+                        ];
+                    })->values()->all(),
+                ],
+            ];
+        }
+
         $ticket = $this->findVisibleTicketForInternalUser($user, $folio);
 
         if (!$ticket) {
-            $this->sendTrackedText(
-                $conversation,
-                "No encontré el ticket {$folio} relacionado contigo.",
-                [
-                    'topic' => 'ticket_detail',
-                    'ticket_folio' => $folio,
-                    'source' => 'rule',
-                ]
-            );
-            return;
+            return [
+                'tickets' => [
+                    'mode' => 'single',
+                    'found' => false,
+                    'folio' => $folio,
+                ],
+                'ticket_folio' => $folio,
+            ];
         }
 
-        $dueText = $ticket->due_at ? $ticket->due_at->format('d/m/Y h:i A') : 'Sin fecha límite';
-        $description = trim((string) ($ticket->description ?? ''));
-        $description = $description !== '' ? Str::limit($description, 350) : 'Sin descripción registrada';
-        $suggestion = $this->buildSimpleActionHint($ticket);
-
-        $this->sendTrackedText(
-            $conversation,
-            "Detalle de {$ticket->folio}:\n"
-            ."Título: {$ticket->title}\n"
-            ."Estado: {$ticket->status}\n"
-            ."Prioridad: {$ticket->priority}\n"
-            ."Área: {$ticket->area}\n"
-            ."Vence: {$dueText}\n"
-            ."Descripción: {$description}\n"
-            ."Qué hacer: {$suggestion}",
-            [
-                'topic' => 'ticket_detail',
-                'ticket_folio' => $ticket->folio,
-                'ticket_area' => $ticket->area,
-                'source' => 'rule',
-            ]
-        );
+        return [
+            'tickets' => [
+                'mode' => 'single',
+                'found' => true,
+                'item' => [
+                    'id' => $ticket->id,
+                    'folio' => $ticket->folio,
+                    'title' => $ticket->title,
+                    'description' => $ticket->description,
+                    'status' => $ticket->status,
+                    'priority' => $ticket->priority,
+                    'area' => $ticket->area,
+                    'due_at' => $ticket->due_at ? $ticket->due_at->format('Y-m-d H:i:s') : null,
+                ],
+            ],
+            'ticket_folio' => $ticket->folio,
+            'ticket_area' => $ticket->area,
+        ];
     }
 
-    protected function replyTodayAgenda(WaConversation $conversation, User $user): void
+    protected function fetchTicketPriorityContext(User $user): array
     {
-        if (!class_exists(AgendaEvent::class) || !Schema::hasTable('agenda_events')) {
-            $this->sendTrackedText(
-                $conversation,
-                'La agenda no está disponible en este momento.',
-                [
-                    'topic' => 'agenda_today',
-                    'source' => 'rule',
-                ]
-            );
-            return;
+        $tickets = Ticket::query()
+            ->where('assignee_id', $user->id)
+            ->whereNotIn('status', ['completado', 'cancelado'])
+            ->get(['id', 'folio', 'title', 'priority', 'status', 'due_at', 'area']);
+
+        if ($tickets->isEmpty()) {
+            return [
+                'ticket_priority' => [
+                    'found' => false,
+                ],
+            ];
         }
 
-        $query = $this->agendaQueryForUser($user);
+        $best = $tickets->sortBy(function ($t) {
+            return [
+                $this->priorityRank((string) $t->priority),
+                $this->statusRank((string) $t->status),
+                $t->due_at ? $t->due_at->timestamp : PHP_INT_MAX,
+                -1 * ((int) $t->id),
+            ];
+        })->first();
 
-        if (Schema::hasColumn('agenda_events', 'start_at')) {
-            $query->whereBetween('start_at', [now()->startOfDay(), now()->endOfDay()]);
-        }
-
-        $events = $query->orderBy('start_at')->limit(6)->get(['id', 'title', 'start_at']);
-
-        if ($events->isEmpty()) {
-            $this->sendTrackedText(
-                $conversation,
-                'No tienes eventos programados para hoy.',
-                [
-                    'topic' => 'agenda_today',
-                    'source' => 'rule',
-                ]
-            );
-            return;
-        }
-
-        $lines = ['Esto tienes hoy:'];
-        foreach ($events as $ev) {
-            $hour = $ev->start_at ? $ev->start_at->format('h:i A') : 'Sin hora';
-            $lines[] = '• '.$hour.' - '.Str::limit((string) $ev->title, 55);
-        }
-
-        $this->sendTrackedText(
-            $conversation,
-            implode("\n", $lines),
-            [
-                'topic' => 'agenda_today',
-                'agenda_event_id' => (int) $events->first()->id,
-                'source' => 'rule',
-            ]
-        );
+        return [
+            'ticket_priority' => [
+                'found' => true,
+                'item' => [
+                    'id' => $best->id,
+                    'folio' => $best->folio,
+                    'title' => $best->title,
+                    'priority' => $best->priority,
+                    'status' => $best->status,
+                    'due_at' => $best->due_at ? $best->due_at->format('Y-m-d H:i:s') : null,
+                    'area' => $best->area,
+                ],
+            ],
+            'ticket_folio' => $best->folio,
+            'ticket_area' => $best->area,
+        ];
     }
 
-    protected function replyUpcomingMeetings(WaConversation $conversation, User $user): void
-    {
-        if (!class_exists(AgendaEvent::class) || !Schema::hasTable('agenda_events')) {
-            $this->sendTrackedText(
-                $conversation,
-                'La agenda no está disponible en este momento.',
-                [
-                    'topic' => 'agenda_upcoming',
-                    'source' => 'rule',
-                ]
-            );
-            return;
-        }
-
-        $query = $this->agendaQueryForUser($user);
-
-        if (Schema::hasColumn('agenda_events', 'start_at')) {
-            $query->where('start_at', '>=', now());
-        }
-
-        $events = $query->orderBy('start_at')->limit(5)->get(['id', 'title', 'start_at']);
-
-        if ($events->isEmpty()) {
-            $this->sendTrackedText(
-                $conversation,
-                'No veo próximas reuniones o eventos programados.',
-                [
-                    'topic' => 'agenda_upcoming',
-                    'source' => 'rule',
-                ]
-            );
-            return;
-        }
-
-        $lines = ['Estas son tus próximas reuniones o eventos:'];
-        foreach ($events as $ev) {
-            $when = $ev->start_at ? $ev->start_at->format('d/m h:i A') : 'Sin hora';
-            $lines[] = '• '.$when.' - '.Str::limit((string) $ev->title, 60);
-        }
-
-        $this->sendTrackedText(
-            $conversation,
-            implode("\n", $lines),
-            [
-                'topic' => 'agenda_upcoming',
-                'agenda_event_id' => (int) $events->first()->id,
-                'source' => 'rule',
-            ]
-        );
-    }
-
-    protected function replyLowStockProducts(WaConversation $conversation): void
+    protected function fetchCatalogContext(array $route): array
     {
         if (!$this->catalogAvailable()) {
-            $this->sendTrackedText(
-                $conversation,
-                'El catálogo no está disponible en este momento.',
-                [
-                    'topic' => 'catalog_low_stock',
-                    'source' => 'rule',
-                ]
-            );
-            return;
+            return ['catalog' => ['available' => false]];
         }
+
+        $limit = $route['limit'] ?? 5;
+
+        $items = CatalogItem::query()
+            ->orderByDesc('id')
+            ->limit($limit)
+            ->get([
+                'id',
+                'name',
+                'sku',
+                'price',
+                'sale_price',
+                'stock',
+                'status',
+                'is_featured',
+                'category_key',
+                'meli_item_id',
+                'meli_status',
+            ]);
+
+        return [
+            'catalog' => [
+                'available' => true,
+                'count' => $items->count(),
+                'items' => $items->map(function ($i) {
+                    return [
+                        'id' => $i->id,
+                        'name' => $i->name,
+                        'sku' => $i->sku,
+                        'price' => $i->price,
+                        'sale_price' => $i->sale_price,
+                        'stock' => $i->stock,
+                        'status' => $i->status,
+                        'is_featured' => (bool) $i->is_featured,
+                        'category_key' => $i->category_key,
+                        'meli_item_id' => $i->meli_item_id,
+                        'meli_status' => $i->meli_status,
+                    ];
+                })->values()->all(),
+            ],
+            'item_id' => optional($items->first())->id,
+        ];
+    }
+
+    protected function fetchLowStockContext(array $route): array
+    {
+        if (!$this->catalogAvailable()) {
+            return ['catalog' => ['available' => false]];
+        }
+
+        $limit = $route['limit'] ?? 8;
 
         $items = CatalogItem::query()
             ->where('stock', '<=', 5)
             ->orderBy('stock')
             ->orderByDesc('id')
-            ->limit(8)
-            ->get(['id', 'name', 'sku', 'stock', 'status', 'meli_status']);
+            ->limit($limit)
+            ->get(['id', 'name', 'sku', 'price', 'stock', 'status']);
 
-        if ($items->isEmpty()) {
-            $this->sendTrackedText(
-                $conversation,
-                'No encontré productos con stock bajo en este momento.',
-                [
-                    'topic' => 'catalog_low_stock',
-                    'source' => 'rule',
-                ]
-            );
-            return;
-        }
-
-        $lines = ['Productos con poco stock:'];
-
-        foreach ($items as $it) {
-            $lines[] = '• '.Str::limit((string) $it->name, 48)
-                .' | SKU: '.($it->sku ?: '—')
-                .' | stock: '.(int) $it->stock;
-        }
-
-        $this->sendTrackedText(
-            $conversation,
-            implode("\n", $lines),
-            [
-                'topic' => 'catalog_low_stock',
-                'catalog_focus' => 'low_stock',
-                'source' => 'rule',
-                'item_id' => (int) $items->first()->id,
-            ]
-        );
+        return [
+            'catalog_low_stock' => [
+                'count' => $items->count(),
+                'items' => $items->map(function ($i) {
+                    return [
+                        'id' => $i->id,
+                        'name' => $i->name,
+                        'sku' => $i->sku,
+                        'price' => $i->price,
+                        'stock' => $i->stock,
+                        'status' => $i->status,
+                    ];
+                })->values()->all(),
+            ],
+            'item_id' => optional($items->first())->id,
+            'catalog_focus' => 'low_stock',
+        ];
     }
 
-    protected function replyFeaturedProducts(WaConversation $conversation): void
+    protected function fetchFeaturedContext(array $route): array
     {
         if (!$this->catalogAvailable()) {
-            $this->sendTrackedText(
-                $conversation,
-                'El catálogo no está disponible en este momento.',
-                [
-                    'topic' => 'catalog_featured',
-                    'source' => 'rule',
-                ]
-            );
-            return;
+            return ['catalog' => ['available' => false]];
         }
+
+        $limit = $route['limit'] ?? 8;
 
         $items = CatalogItem::query()
             ->where('is_featured', true)
             ->orderByDesc('id')
-            ->limit(8)
+            ->limit($limit)
             ->get(['id', 'name', 'sku', 'price', 'stock', 'status']);
 
-        if ($items->isEmpty()) {
-            $this->sendTrackedText(
-                $conversation,
-                'No encontré productos destacados en este momento.',
-                [
-                    'topic' => 'catalog_featured',
-                    'source' => 'rule',
-                ]
-            );
-            return;
-        }
-
-        $lines = ['Productos destacados:'];
-
-        foreach ($items as $it) {
-            $lines[] = '• '.Str::limit((string) $it->name, 48)
-                .' | SKU: '.($it->sku ?: '—')
-                .' | $'.number_format((float) $it->price, 2)
-                .' | stock: '.(int) ($it->stock ?? 0);
-        }
-
-        $this->sendTrackedText(
-            $conversation,
-            implode("\n", $lines),
-            [
-                'topic' => 'catalog_featured',
-                'catalog_focus' => 'featured',
-                'source' => 'rule',
-                'item_id' => (int) $items->first()->id,
-            ]
-        );
+        return [
+            'catalog_featured' => [
+                'count' => $items->count(),
+                'items' => $items->map(function ($i) {
+                    return [
+                        'id' => $i->id,
+                        'name' => $i->name,
+                        'sku' => $i->sku,
+                        'price' => $i->price,
+                        'stock' => $i->stock,
+                        'status' => $i->status,
+                    ];
+                })->values()->all(),
+            ],
+            'item_id' => optional($items->first())->id,
+            'catalog_focus' => 'featured',
+        ];
     }
 
-    protected function replyMarketplaceSummary(WaConversation $conversation): void
+    protected function fetchMarketplaceSummaryContext(): array
     {
         if (!$this->catalogAvailable()) {
-            $this->sendTrackedText(
-                $conversation,
-                'El catálogo no está disponible en este momento.',
-                [
-                    'topic' => 'marketplace_summary',
-                    'source' => 'rule',
-                ]
-            );
-            return;
+            return ['marketplaces' => ['available' => false]];
         }
 
         $total = CatalogItem::query()->count();
-
+        $published = CatalogItem::query()->where('status', 1)->count();
         $mlWithId = Schema::hasColumn('catalog_items', 'meli_item_id')
             ? CatalogItem::query()->whereNotNull('meli_item_id')->count()
             : 0;
-
         $mlActive = Schema::hasColumn('catalog_items', 'meli_status')
             ? CatalogItem::query()->whereIn('meli_status', ['active', 'ACTIVO', 'Activo'])->count()
             : 0;
-
         $amazonSku = Schema::hasColumn('catalog_items', 'sku')
             ? CatalogItem::query()->whereNotNull('sku')->where('sku', '!=', '')->count()
             : 0;
 
-        $published = Schema::hasColumn('catalog_items', 'status')
-            ? CatalogItem::query()->where('status', 1)->count()
-            : 0;
-
-        $msg = "Resumen de marketplaces:\n"
-            ."• Productos totales: {$total}\n"
-            ."• Publicados en catálogo: {$published}\n"
-            ."• Con publicación o ID de Mercado Libre: {$mlWithId}\n"
-            ."• Activos en Mercado Libre: {$mlActive}\n"
-            ."• Con SKU útil para Amazon: {$amazonSku}";
-
-        $this->sendTrackedText(
-            $conversation,
-            $msg,
-            [
-                'topic' => 'marketplace_summary',
-                'source' => 'rule',
-                'catalog_focus' => 'marketplaces',
-            ]
-        );
+        return [
+            'marketplaces' => [
+                'available' => true,
+                'total_products' => $total,
+                'published_catalog' => $published,
+                'meli_with_id' => $mlWithId,
+                'meli_active' => $mlActive,
+                'amazon_eligible_sku' => $amazonSku,
+            ],
+            'catalog_focus' => 'marketplaces',
+        ];
     }
 
-    protected function replyTicketsByArea(WaConversation $conversation, User $user): void
+    protected function fetchTicketsByAreaContext(): array
     {
         if (!Schema::hasTable('tickets') || !Schema::hasColumn('tickets', 'area')) {
-            $this->sendTrackedText(
-                $conversation,
-                'No tengo disponible el resumen de tickets por área.',
-                [
-                    'topic' => 'tickets_by_area',
-                    'source' => 'rule',
-                ]
-            );
-            return;
+            return ['tickets_by_area' => ['available' => false]];
         }
 
         $rows = Ticket::query()
@@ -754,201 +727,104 @@ class WhatsAppAiAssistantService
             ->limit(10)
             ->get();
 
-        if ($rows->isEmpty()) {
-            $this->sendTrackedText(
-                $conversation,
-                'No encontré tickets abiertos por área en este momento.',
-                [
-                    'topic' => 'tickets_by_area',
-                    'source' => 'rule',
-                ]
-            );
-            return;
-        }
-
-        $lines = ['Tickets abiertos por área:'];
-        foreach ($rows as $row) {
-            $lines[] = '• '.($row->area ?: 'Sin área').' - '.(int) $row->total;
-        }
-
-        $this->sendTrackedText(
-            $conversation,
-            implode("\n", $lines),
-            [
-                'topic' => 'tickets_by_area',
-                'source' => 'rule',
-            ]
-        );
+        return [
+            'tickets_by_area' => [
+                'available' => true,
+                'items' => $rows->map(function ($r) {
+                    return [
+                        'area' => $r->area ?: 'Sin área',
+                        'total' => (int) $r->total,
+                    ];
+                })->values()->all(),
+            ],
+        ];
     }
 
-    protected function replyNeedFolioForTicketQuestion(WaConversation $conversation): void
+    protected function fetchGeneralContext(User $user): array
     {
-        $this->sendTrackedText(
-            $conversation,
-            'Para decirte de qué trata, qué tienes que hacer o cuándo vence, mándame el folio. Ejemplo: detalle TKT-2026-0013',
-            [
-                'topic' => 'ticket_need_folio',
-                'source' => 'rule',
-            ]
-        );
+        return [
+            'general' => [
+                'company' => $this->companyKnowledgeBlock(),
+                'today_agenda_count' => $this->countAgendaToday($user),
+                'pending_tickets_count' => $this->countPendingTickets($user),
+                'catalog_total' => $this->catalogAvailable() ? CatalogItem::query()->count() : null,
+            ],
+        ];
     }
 
-    protected function replyWithAi(
-        WaConversation $conversation,
-        User $user,
-        string $text,
-        ?WaMessage $incomingMessage = null,
-        bool $internal = true
-    ): void {
-        $openai = app(OpenAIResponsesService::class);
-
-        $system = $this->buildSystemPrompt($user, $conversation, $internal);
-        $messages = $this->buildAiMessages($conversation, $text, 14);
-
-        $result = $openai->askWithMessages($system, $messages);
-
-        if (!$result['ok']) {
-            $fallback = $internal
-                ? 'Entiendo. Cuéntame un poco más y te ayudo mejor.'
-                : 'Entiendo. Cuéntame un poco más y te ayudo mejor.';
-
-            $this->sendTrackedText(
-                $conversation,
-                $fallback,
-                [
-                    'topic' => 'fallback',
-                    'source' => 'ai_error',
-                ]
-            );
-            return;
-        }
-
-        $reply = trim((string) ($result['text'] ?? ''));
-
-        if ($reply === '') {
-            $reply = 'Claro, dame un poco más de detalle y te ayudo.';
-        }
-
-        $topic = $this->inferTopicFromText($text);
-        $lastContext = $this->getLastStructuredContext($conversation);
-
-        $this->sendTrackedText(
-            $conversation,
-            $reply,
-            [
-                'topic' => $topic ?: ($lastContext['topic'] ?? 'general'),
-                'source' => 'ai',
-                'linked_topic' => $lastContext['topic'] ?? null,
-                'ticket_folio' => $lastContext['ticket_folio'] ?? null,
-                'ticket_area' => $lastContext['ticket_area'] ?? null,
-                'catalog_focus' => $lastContext['catalog_focus'] ?? null,
-                'agenda_event_id' => $lastContext['agenda_event_id'] ?? null,
-                'item_id' => $lastContext['item_id'] ?? null,
-            ]
-        );
-    }
-
-  protected function buildSystemPrompt(User $user, WaConversation $conversation, bool $internal = true): string
-{
-    $companyBlock = $this->companyKnowledgeBlock();
-    $agendaBlock = $this->agendaKnowledgeBlock($user);
-    $catalogBlock = $this->catalogKnowledgeBlock();
-    $marketplacesBlock = $this->marketplacesKnowledgeBlock();
-    $ticketsBlock = $this->ticketsKnowledgeBlock($user);
-    $historyBlock = $this->buildConversationHistoryText($conversation, 12);
-    $lastContext = $this->getLastStructuredContext($conversation);
-
-    $lastContextJson = json_encode($lastContext, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-    $userType = $internal ? 'interno' : 'externo';
-    $userName = (string) $user->name;
-
-    return <<<PROMPT
-Eres el asistente de WhatsApp de Jureto.
-
-Responde en español, natural, útil, humano y breve.
-No hables como bot genérico.
-No repitas siempre lo mismo.
-Tu enfoque principal es ayudar en general sobre empresa, operación, productos, agenda, marketplaces, tickets y uso del sistema.
-No lleves la conversación a tickets si no lo preguntaron.
-
-Reglas:
-- Usa el historial reciente para entender seguimientos cortos.
-- Usa también el último contexto estructurado para interpretar mensajes como: "sí", "por qué", "y ese", "muéstrame más", "cuándo", "de cuál", "de qué trata".
-- Si el usuario pregunta por la empresa, responde sobre la empresa.
-- Si pregunta por productos, responde sobre catálogo, stock, destacados o publicaciones.
-- Si pregunta por agenda, responde sobre eventos, reuniones, recordatorios o próximos eventos.
-- Si pregunta por marketplaces, responde sobre Mercado Libre y Amazon.
-- Si pregunta por tickets, responde sobre tickets.
-- No inventes datos específicos que no estén en el contexto.
-- Si hace una repregunta corta, intenta resolver usando historial + último contexto estructurado antes de pedir aclaración.
-- Evita cerrar siempre con frases repetitivas como "puedo ayudarte con tickets".
-- Si algo no existe o no está disponible, dilo claro.
-- Si el usuario pide algo humano, puedes sugerir asesor.
-
-Contexto del usuario:
-- Nombre: {$userName}
-- Tipo: {$userType}
-
-Último contexto estructurado:
-{$lastContextJson}
-
-Contexto base empresa:
-{$companyBlock}
-
-Contexto agenda:
-{$agendaBlock}
-
-Contexto catálogo:
-{$catalogBlock}
-
-Contexto marketplaces:
-{$marketplacesBlock}
-
-Contexto tickets:
-{$ticketsBlock}
-
-Historial reciente:
-{$historyBlock}
-PROMPT;
-}
-
-    protected function buildAiMessages(WaConversation $conversation, string $latestUserText, int $limit = 14): array
+    protected function countAgendaToday(User $user): int
     {
-        $rows = WaMessage::query()
+        if (!class_exists(AgendaEvent::class) || !Schema::hasTable('agenda_events')) {
+            return 0;
+        }
+
+        $query = $this->agendaQueryForUser($user);
+
+        if (Schema::hasColumn('agenda_events', 'start_at')) {
+            $query->whereBetween('start_at', [now()->startOfDay(), now()->endOfDay()]);
+        }
+
+        return (int) $query->count();
+    }
+
+    protected function countPendingTickets(User $user): int
+    {
+        if (!Schema::hasTable('tickets')) {
+            return 0;
+        }
+
+        return (int) Ticket::query()
+            ->where('assignee_id', $user->id)
+            ->whereNotIn('status', ['completado', 'cancelado'])
+            ->count();
+    }
+
+    protected function agendaQueryForUser(User $user)
+    {
+        $query = AgendaEvent::query();
+
+        if (Schema::hasColumn('agenda_events', 'user_id')) {
+            $query->where('user_id', $user->id);
+        } elseif (Schema::hasColumn('agenda_events', 'created_by')) {
+            $query->where('created_by', $user->id);
+        } elseif (Schema::hasColumn('agenda_events', 'user_ids')) {
+            $query->whereJsonContains('user_ids', $user->id);
+        } else {
+            $query->whereRaw('1 = 0');
+        }
+
+        return $query;
+    }
+
+    protected function catalogAvailable(): bool
+    {
+        return class_exists(CatalogItem::class) && Schema::hasTable('catalog_items');
+    }
+
+    protected function getLastStructuredContext(WaConversation $conversation): array
+    {
+        $msg = WaMessage::query()
             ->where('conversation_id', $conversation->id)
+            ->where('direction', 'outbound')
+            ->whereNotNull('meta')
             ->orderByDesc('id')
-            ->limit($limit)
-            ->get(['direction', 'text'])
-            ->reverse()
-            ->values();
+            ->first(['meta']);
 
-        $messages = [];
-
-        foreach ($rows as $row) {
-            $msgText = trim((string) $row->text);
-            if ($msgText === '') {
-                continue;
-            }
-
-            $messages[] = [
-                'role' => $row->direction === 'outbound' ? 'assistant' : 'user',
-                'text' => $msgText,
-            ];
+        if (!$msg) {
+            return [];
         }
 
-        $last = end($messages);
+        $meta = $msg->meta;
 
-        if (!$last || $last['role'] !== 'user' || trim((string) $last['text']) !== trim($latestUserText)) {
-            $messages[] = [
-                'role' => 'user',
-                'text' => $latestUserText,
-            ];
+        if (is_string($meta)) {
+            $decoded = json_decode($meta, true);
+            $meta = is_array($decoded) ? $decoded : [];
         }
 
-        return $messages;
+        return is_array($meta) ? $meta : [];
     }
 
-    protected function buildConversationHistoryText(WaConversation $conversation, int $limit = 12): string
+    protected function buildConversationHistoryText(WaConversation $conversation, int $limit = 10): string
     {
         $rows = WaMessage::query()
             ->where('conversation_id', $conversation->id)
@@ -977,33 +853,46 @@ PROMPT;
         return !empty($lines) ? implode("\n", $lines) : 'Sin historial reciente.';
     }
 
-    protected function getLastStructuredContext(WaConversation $conversation): array
+    protected function extractJsonObject(string $text): ?string
     {
-        $msg = WaMessage::query()
-            ->where('conversation_id', $conversation->id)
-            ->where('direction', 'outbound')
-            ->whereNotNull('meta')
-            ->orderByDesc('id')
-            ->first(['meta', 'text']);
+        $text = trim($text);
 
-        if (!$msg) {
-            return [];
+        if ($text === '') {
+            return null;
         }
 
-        $meta = $msg->meta;
-
-        if (is_string($meta)) {
-            $decoded = json_decode($meta, true);
-            $meta = is_array($decoded) ? $decoded : [];
+        if (str_starts_with($text, '{') && str_ends_with($text, '}')) {
+            return $text;
         }
 
-        return is_array($meta) ? $meta : [];
+        if (preg_match('/\{.*\}/s', $text, $m)) {
+            return $m[0] ?? null;
+        }
+
+        return null;
+    }
+
+    protected function mapIntentToTopic(string $intent): string
+    {
+        return match ($intent) {
+            'company_info' => 'company_info',
+            'help' => 'help',
+            'agenda_query' => 'agenda',
+            'ticket_query' => 'tickets',
+            'ticket_priority' => 'ticket_priority',
+            'catalog_query' => 'catalog',
+            'catalog_low_stock' => 'catalog_low_stock',
+            'catalog_featured' => 'catalog_featured',
+            'marketplace_summary' => 'marketplace_summary',
+            'tickets_by_area' => 'tickets_by_area',
+            'handoff_human' => 'handoff',
+            default => 'general',
+        };
     }
 
     protected function sendTrackedText(WaConversation $conversation, string $text, array $meta = []): array
     {
         $wa = app(WhatsAppService::class);
-
         $result = $wa->sendText($conversation->phone, $text, $conversation);
 
         if (!empty($meta)) {
@@ -1033,449 +922,6 @@ PROMPT;
         return $result;
     }
 
-    protected function companyKnowledgeBlock(): string
-    {
-        return <<<TXT
-Jureto es una empresa comercializadora y operativa enfocada en productos e insumos para distintas necesidades.
-Puede manejar líneas como papelería, oficina, tecnología, cómputo, limpieza, construcción, material eléctrico/electrónico y otras categorías relacionadas.
-El asistente debe responder en general sobre la empresa y no asumir que todo se trata de tickets.
-TXT;
-    }
-
-    protected function agendaKnowledgeBlock(User $user): string
-    {
-        if (!class_exists(AgendaEvent::class) || !Schema::hasTable('agenda_events')) {
-            return 'La agenda no está disponible.';
-        }
-
-        $query = $this->agendaQueryForUser($user);
-
-        $todayCount = (clone $query)
-            ->when(Schema::hasColumn('agenda_events', 'start_at'), function ($q) {
-                $q->whereBetween('start_at', [now()->startOfDay(), now()->endOfDay()]);
-            })
-            ->count();
-
-        $nextEvents = (clone $query)
-            ->when(Schema::hasColumn('agenda_events', 'start_at'), function ($q) {
-                $q->where('start_at', '>=', now());
-            })
-            ->orderBy('start_at')
-            ->limit(4)
-            ->get(['title', 'start_at', 'repeat_rule', 'remind_offset_minutes']);
-
-        $lines = [];
-        foreach ($nextEvents as $ev) {
-            $lines[] = '- '.($ev->start_at ? $ev->start_at->format('d/m h:i A') : 'Sin hora').' | '.$ev->title;
-        }
-
-        $preview = !empty($lines) ? implode("\n", $lines) : 'No hay próximos eventos visibles.';
-
-        return <<<TXT
-La agenda maneja eventos con título, descripción, fecha/hora, timezone, repeat_rule, remind_offset_minutes y destinatarios por usuarios.
-Eventos de hoy del usuario: {$todayCount}
-Próximos eventos:
-{$preview}
-TXT;
-    }
-
-    protected function catalogKnowledgeBlock(): string
-    {
-        if (!$this->catalogAvailable()) {
-            return 'El catálogo no está disponible.';
-        }
-
-        $total = CatalogItem::query()->count();
-        $published = Schema::hasColumn('catalog_items', 'status')
-            ? CatalogItem::query()->where('status', 1)->count()
-            : 0;
-
-        $featured = Schema::hasColumn('catalog_items', 'is_featured')
-            ? CatalogItem::query()->where('is_featured', true)->count()
-            : 0;
-
-        $lowStock = Schema::hasColumn('catalog_items', 'stock')
-            ? CatalogItem::query()->where('stock', '<=', 5)->count()
-            : 0;
-
-        $sampleItems = CatalogItem::query()
-            ->orderByDesc('id')
-            ->limit(5)
-            ->get(['name', 'sku', 'price', 'stock', 'category_key']);
-
-        $lines = [];
-        foreach ($sampleItems as $item) {
-            $lines[] = '- '.$item->name
-                .' | SKU: '.($item->sku ?: '—')
-                .' | $'.number_format((float) $item->price, 2)
-                .' | stock: '.(int) ($item->stock ?? 0)
-                .' | categoría: '.($item->category_key ?: '—');
-        }
-
-        $preview = !empty($lines) ? implode("\n", $lines) : 'No hay productos de muestra.';
-
-        return <<<TXT
-El sistema maneja catálogo con nombre, slug, sku, precio, stock, destacado, category_key, brand_name, model_name, meli_gtin, descripción, fotos y sincronización.
-Resumen:
-- Total productos: {$total}
-- Publicados: {$published}
-- Destacados: {$featured}
-- Stock bajo: {$lowStock}
-Muestra:
-{$preview}
-TXT;
-    }
-
-    protected function marketplacesKnowledgeBlock(): string
-    {
-        if (!$this->catalogAvailable()) {
-            return 'No hay contexto de marketplaces disponible.';
-        }
-
-        $mlWithId = Schema::hasColumn('catalog_items', 'meli_item_id')
-            ? CatalogItem::query()->whereNotNull('meli_item_id')->count()
-            : 0;
-
-        $mlActive = Schema::hasColumn('catalog_items', 'meli_status')
-            ? CatalogItem::query()->whereIn('meli_status', ['active', 'ACTIVO', 'Activo'])->count()
-            : 0;
-
-        $withSku = Schema::hasColumn('catalog_items', 'sku')
-            ? CatalogItem::query()->whereNotNull('sku')->where('sku', '!=', '')->count()
-            : 0;
-
-        return <<<TXT
-El catálogo se relaciona con marketplaces.
-Resumen:
-- Con ID/publicación de Mercado Libre: {$mlWithId}
-- Activos en Mercado Libre: {$mlActive}
-- Con SKU útil para Amazon: {$withSku}
-TXT;
-    }
-
-    protected function ticketsKnowledgeBlock(User $user): string
-    {
-        if (!Schema::hasTable('tickets')) {
-            return 'No hay módulo de tickets disponible.';
-        }
-
-        $pendingCount = Ticket::query()
-            ->where('assignee_id', $user->id)
-            ->whereNotIn('status', ['completado', 'cancelado'])
-            ->count();
-
-        $byArea = [];
-
-        if (Schema::hasColumn('tickets', 'area')) {
-            $rows = Ticket::query()
-                ->selectRaw('area, COUNT(*) as total')
-                ->whereNotIn('status', ['completado', 'cancelado'])
-                ->groupBy('area')
-                ->orderByDesc('total')
-                ->limit(5)
-                ->get();
-
-            foreach ($rows as $row) {
-                $byArea[] = '- '.($row->area ?: 'Sin área').': '.(int) $row->total;
-            }
-        }
-
-        $areasText = !empty($byArea) ? implode("\n", $byArea) : 'Sin resumen por área disponible.';
-
-        return <<<TXT
-Los tickets existen, pero no deben dominar la conversación si no se preguntaron.
-Pendientes asignados al usuario: {$pendingCount}
-Tickets abiertos por área:
-{$areasText}
-TXT;
-    }
-
-    protected function replyContextualFollowUp(WaConversation $conversation, User $user, string $textLower): bool
-    {
-        $ctx = $this->getLastStructuredContext($conversation);
-
-        if (empty($ctx)) {
-            return false;
-        }
-
-        $topic = (string) ($ctx['topic'] ?? '');
-
-        if ($this->asksWhyFollowUp($textLower) && in_array($topic, ['ticket_most_urgent', 'ticket_most_urgent_reason'], true)) {
-            $this->replyWhyMostUrgent($conversation, $user);
-            return true;
-        }
-
-        if ($this->asksMoreDetailFollowUp($textLower) && !empty($ctx['ticket_folio'])) {
-            $this->replyTicketFullDetail($conversation, $user, (string) $ctx['ticket_folio']);
-            return true;
-        }
-
-        if ($this->asksDueDateFollowUp($textLower) && !empty($ctx['ticket_folio'])) {
-            $this->replyTicketStatus($conversation, $user, (string) $ctx['ticket_folio']);
-            return true;
-        }
-
-        if (in_array($textLower, ['si', 'sí', 'ok', 'va', 'dale'], true) && $topic === 'ticket_most_urgent') {
-            $this->replyWhyMostUrgent($conversation, $user);
-            return true;
-        }
-
-        if (in_array($textLower, ['y esos', 'y esos cuales', 'cuales', 'cuáles', 'muestrame mas', 'muéstrame más'], true)) {
-            if (($ctx['catalog_focus'] ?? null) === 'low_stock') {
-                $this->replyLowStockProducts($conversation);
-                return true;
-            }
-
-            if (($ctx['catalog_focus'] ?? null) === 'featured') {
-                $this->replyFeaturedProducts($conversation);
-                return true;
-            }
-        }
-
-        if (in_array($textLower, ['y luego', 'despues', 'después', 'que sigue', 'qué sigue'], true) && str_starts_with($topic, 'agenda_')) {
-            $this->replyUpcomingMeetings($conversation, $user);
-            return true;
-        }
-
-        return false;
-    }
-
-    protected function agendaQueryForUser(User $user)
-    {
-        $query = AgendaEvent::query();
-
-        if (Schema::hasColumn('agenda_events', 'user_id')) {
-            $query->where('user_id', $user->id);
-        } elseif (Schema::hasColumn('agenda_events', 'created_by')) {
-            $query->where('created_by', $user->id);
-        } elseif (Schema::hasColumn('agenda_events', 'user_ids')) {
-            $query->whereJsonContains('user_ids', $user->id);
-        } else {
-            $query->whereRaw('1 = 0');
-        }
-
-        return $query;
-    }
-
-    protected function catalogAvailable(): bool
-    {
-        return class_exists(CatalogItem::class) && Schema::hasTable('catalog_items');
-    }
-
-    protected function inferTopicFromText(string $text): string
-    {
-        $t = mb_strtolower($text);
-
-        if ($this->asksPendingTickets($t) || $this->asksMostUrgent($t) || $this->asksTicketDeepDetail($t) || $this->extractTicketFolio($t)) {
-            return 'tickets';
-        }
-
-        if ($this->asksTodayAgenda($t) || $this->asksUpcomingMeetings($t)) {
-            return 'agenda';
-        }
-
-        if ($this->asksLowStock($t)) {
-            return 'catalog_low_stock';
-        }
-
-        if ($this->asksFeaturedProducts($t)) {
-            return 'catalog_featured';
-        }
-
-        if ($this->asksMarketplaceSummary($t)) {
-            return 'marketplace_summary';
-        }
-
-        if ($this->asksTicketsByArea($t)) {
-            return 'tickets_by_area';
-        }
-
-        if (
-            str_contains($t, 'empresa')
-            || str_contains($t, 'jureto')
-            || str_contains($t, 'a que se dedica')
-            || str_contains($t, 'a qué se dedica')
-        ) {
-            return 'company_info';
-        }
-
-        if (
-            str_contains($t, 'producto')
-            || str_contains($t, 'productos')
-            || str_contains($t, 'catalogo')
-            || str_contains($t, 'catálogo')
-            || str_contains($t, 'inventario')
-            || str_contains($t, 'stock')
-        ) {
-            return 'catalog';
-        }
-
-        return 'general';
-    }
-
-    protected function isContextualFollowUp(string $text): bool
-    {
-        return $this->asksWhyFollowUp($text)
-            || $this->asksMoreDetailFollowUp($text)
-            || $this->asksDueDateFollowUp($text)
-            || in_array($text, ['si', 'sí', 'ok', 'va', 'dale', 'aja', 'ajá'], true)
-            || str_starts_with($text, 'y ')
-            || str_starts_with($text, 'entonces');
-    }
-
-    protected function asksWhyFollowUp(string $text): bool
-    {
-        return str_contains($text, 'por que')
-            || str_contains($text, 'por qué')
-            || str_contains($text, 'porque');
-    }
-
-    protected function asksMoreDetailFollowUp(string $text): bool
-    {
-        return str_contains($text, 'de que trata')
-            || str_contains($text, 'de qué trata')
-            || str_contains($text, 'explicame')
-            || str_contains($text, 'explícame')
-            || str_contains($text, 'mas detalle')
-            || str_contains($text, 'más detalle')
-            || str_contains($text, 'que tengo que hacer')
-            || str_contains($text, 'qué tengo que hacer')
-            || str_contains($text, 'muestrame mas')
-            || str_contains($text, 'muéstrame más');
-    }
-
-    protected function asksDueDateFollowUp(string $text): bool
-    {
-        return str_contains($text, 'cuando vence')
-            || str_contains($text, 'cuándo vence')
-            || str_contains($text, 'para cuando')
-            || str_contains($text, 'para cuándo')
-            || str_contains($text, 'fecha limite')
-            || str_contains($text, 'fecha límite');
-    }
-
-    protected function asksPendingTickets(string $text): bool
-    {
-        return str_contains($text, 'pendiente')
-            || str_contains($text, 'pendientes')
-            || str_contains($text, 'mis tickets')
-            || str_contains($text, 'tickets abiertos')
-            || str_contains($text, 'tengo tickets');
-    }
-
-    protected function asksMostUrgent(string $text): bool
-    {
-        return str_contains($text, 'cual urge')
-            || str_contains($text, 'cuál urge')
-            || str_contains($text, 'que urge')
-            || str_contains($text, 'qué urge')
-            || str_contains($text, 'cual urge mas')
-            || str_contains($text, 'cuál urge más')
-            || str_contains($text, 'que ticket urge')
-            || str_contains($text, 'qué ticket urge');
-    }
-
-    protected function asksTodayAgenda(string $text): bool
-    {
-        return str_contains($text, 'que tengo hoy')
-            || str_contains($text, 'qué tengo hoy')
-            || str_contains($text, 'agenda de hoy')
-            || str_contains($text, 'eventos de hoy')
-            || str_contains($text, 'hoy que tengo')
-            || str_contains($text, 'hoy qué tengo');
-    }
-
-    protected function asksLowStock(string $text): bool
-    {
-        return str_contains($text, 'poco stock')
-            || str_contains($text, 'stock bajo')
-            || str_contains($text, 'bajo inventario')
-            || str_contains($text, 'productos con poco stock')
-            || str_contains($text, 'productos con stock bajo');
-    }
-
-    protected function asksFeaturedProducts(string $text): bool
-    {
-        return str_contains($text, 'productos destacados')
-            || str_contains($text, 'destacados')
-            || str_contains($text, 'productos featured');
-    }
-
-    protected function asksUpcomingMeetings(string $text): bool
-    {
-        return str_contains($text, 'proximas reuniones')
-            || str_contains($text, 'próximas reuniones')
-            || str_contains($text, 'proximos eventos')
-            || str_contains($text, 'próximos eventos')
-            || str_contains($text, 'que sigue en mi agenda')
-            || str_contains($text, 'qué sigue en mi agenda');
-    }
-
-    protected function asksMarketplaceSummary(string $text): bool
-    {
-        return str_contains($text, 'mercado libre')
-            || str_contains($text, 'amazon')
-            || str_contains($text, 'marketplace')
-            || str_contains($text, 'marketplaces')
-            || str_contains($text, 'resumen de ml')
-            || str_contains($text, 'resumen de amazon')
-            || str_contains($text, 'publicaciones activas');
-    }
-
-    protected function asksTicketsByArea(string $text): bool
-    {
-        return str_contains($text, 'tickets por area')
-            || str_contains($text, 'tickets por área')
-            || str_contains($text, 'tickets por departamento')
-            || str_contains($text, 'resumen de tickets por area')
-            || str_contains($text, 'resumen de tickets por área');
-    }
-
-    protected function asksTicketDeepDetail(string $text): bool
-    {
-        return str_contains($text, 'sobre que trata')
-            || str_contains($text, 'sobre qué trata')
-            || str_contains($text, 'que tengo que hacer')
-            || str_contains($text, 'qué tengo que hacer')
-            || str_contains($text, 'cuando vence')
-            || str_contains($text, 'cuándo vence')
-            || str_contains($text, 'detalle')
-            || str_contains($text, 'explicame')
-            || str_contains($text, 'explícame');
-    }
-
-    protected function looksLikeTicketQuestionWithoutFolio(string $text): bool
-    {
-        return (
-            str_contains($text, 'que tengo que hacer')
-            || str_contains($text, 'qué tengo que hacer')
-            || str_contains($text, 'sobre que trata')
-            || str_contains($text, 'sobre qué trata')
-            || str_contains($text, 'cuando vence')
-            || str_contains($text, 'cuándo vence')
-        ) && !$this->extractTicketFolio($text);
-    }
-
-    protected function wantsHuman(string $text): bool
-    {
-        return str_contains($text, 'asesor')
-            || str_contains($text, 'humano')
-            || str_contains($text, 'agente')
-            || str_contains($text, 'ejecutivo')
-            || str_contains($text, 'persona');
-    }
-
-    protected function isGreeting(string $text): bool
-    {
-        return in_array($text, ['hola', 'buenas', 'buen día', 'buen dia', 'hey', 'holi'], true);
-    }
-
-    protected function extractTicketFolio(string $text): ?string
-    {
-        preg_match('/TKT-\d{4}-\d{4,}/i', $text, $matches);
-        return isset($matches[0]) ? strtoupper($matches[0]) : null;
-    }
-
     protected function findVisibleTicketForInternalUser(User $user, string $folio): ?Ticket
     {
         return Ticket::query()
@@ -1488,19 +934,6 @@ TXT;
                 }
             })
             ->first(['id', 'folio', 'title', 'description', 'status', 'priority', 'area', 'due_at']);
-    }
-
-    protected function findVisibleTicketForExternalUser(User $user, string $folio): ?Ticket
-    {
-        $query = Ticket::query()->where('folio', $folio);
-
-        if (Schema::hasColumn('tickets', 'created_by')) {
-            $query->where('created_by', $user->id);
-        } else {
-            return null;
-        }
-
-        return $query->first(['id', 'folio', 'title', 'status', 'priority', 'due_at']);
     }
 
     protected function handoffToHuman(WaConversation $conversation, string $reason): void
@@ -1516,42 +949,48 @@ TXT;
         ]);
     }
 
-    protected function isInternalUser(User $user): bool
+    protected function wantsHuman(string $text): bool
     {
-        if (method_exists($user, 'hasRole')) {
-            if ($user->hasRole('cliente_web')) {
-                return false;
-            }
+        $t = mb_strtolower($text);
 
-            $internalRoles = [
-                'admin',
-                'administrador',
-                'sistemas',
-                'ventas',
-                'compras',
-                'almacen',
-                'logistica',
-                'licitaciones',
-                'mercadotecnia',
-                'administracion',
-                'mantenimiento',
-                'contabilidad',
-                'direccion',
-                'calidad',
-                'rh',
-                'soporte',
-                'empleado',
-                'colaborador',
-            ];
+        return str_contains($t, 'asesor')
+            || str_contains($t, 'humano')
+            || str_contains($t, 'agente')
+            || str_contains($t, 'ejecutivo')
+            || str_contains($t, 'persona');
+    }
 
-            foreach ($internalRoles as $role) {
-                if ($user->hasRole($role)) {
-                    return true;
-                }
-            }
-        }
+    protected function isGreeting(string $text): bool
+    {
+        $t = mb_strtolower(trim($text));
 
-        return isset($user->status) && (string) $user->status === 'approved';
+        return in_array($t, ['hola', 'buenas', 'buen día', 'buen dia', 'hey', 'holi'], true);
+    }
+
+    protected function extractTicketFolio(string $text): ?string
+    {
+        preg_match('/TKT-\d{4}-\d{4,}/i', $text, $matches);
+        return isset($matches[0]) ? strtoupper($matches[0]) : null;
+    }
+
+    protected function looksLikeTicketDeepDetail(string $text): bool
+    {
+        $t = mb_strtolower($text);
+
+        return str_contains($t, 'detalle')
+            || str_contains($t, 'sobre que trata')
+            || str_contains($t, 'sobre qué trata')
+            || str_contains($t, 'que tengo que hacer')
+            || str_contains($t, 'qué tengo que hacer')
+            || str_contains($t, 'cuando vence')
+            || str_contains($t, 'cuándo vence')
+            || str_contains($t, 'explicame')
+            || str_contains($t, 'explícame');
+    }
+
+    protected function companyKnowledgeBlock(): string
+    {
+        return 'Jureto es una empresa comercializadora y operativa enfocada en productos e insumos para distintas necesidades, incluyendo papelería, artículos de oficina, tecnología, cómputo, limpieza, construcción y material eléctrico o electrónico.';
     }
 
     protected function priorityRank(string $priority): int
