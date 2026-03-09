@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Models\WaConversation;
 use App\Models\WaMessage;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class WhatsAppInboundService
 {
@@ -33,15 +34,15 @@ class WhatsAppInboundService
             }
 
             WaMessage::where('wa_message_id', $waMessageId)->update([
-                'status' => $status['status'] ?? null,
+                'status'  => $status['status'] ?? null,
                 'payload' => $status,
             ]);
 
             Log::info('whatsapp.webhook.status', [
-                'message_id' => $waMessageId,
+                'message_id'   => $waMessageId,
                 'recipient_id' => $status['recipient_id'] ?? null,
-                'status' => $status['status'] ?? null,
-                'errors' => $status['errors'] ?? [],
+                'status'       => $status['status'] ?? null,
+                'errors'       => $status['errors'] ?? [],
             ]);
         }
     }
@@ -49,25 +50,33 @@ class WhatsAppInboundService
     protected function processMessages(array $value): void
     {
         foreach (($value['messages'] ?? []) as $message) {
-            $from = preg_replace('/\D+/', '', (string)($message['from'] ?? ''));
+            Log::info('whatsapp.webhook.inbound_message', $message);
+
+            $from = preg_replace('/\D+/', '', (string) ($message['from'] ?? ''));
 
             if ($from === '') {
+                Log::warning('whatsapp.webhook.empty_from', ['message' => $message]);
                 continue;
             }
 
             $user = $this->findUserByPhone($from);
 
+            Log::info('whatsapp.webhook.user_match', [
+                'from'    => $from,
+                'user_id' => $user?->id,
+            ]);
+
             $conversation = WaConversation::firstOrCreate(
                 ['phone' => $from, 'channel' => 'whatsapp'],
                 [
-                    'user_id' => $user?->id,
-                    'status' => 'bot',
+                    'user_id'         => $user?->id,
+                    'status'          => 'bot',
                     'last_message_at' => now(),
                 ]
             );
 
             $conversation->update([
-                'user_id' => $conversation->user_id ?: $user?->id,
+                'user_id'         => $conversation->user_id ?: $user?->id,
                 'last_message_at' => now(),
             ]);
 
@@ -75,13 +84,19 @@ class WhatsAppInboundService
 
             $waMessage = WaMessage::create([
                 'conversation_id' => $conversation->id,
-                'user_id' => $user?->id,
-                'direction' => 'inbound',
-                'message_type' => $message['type'] ?? 'text',
-                'wa_message_id' => $message['id'] ?? null,
-                'text' => $text,
-                'status' => 'received',
-                'payload' => $message,
+                'user_id'         => $user?->id,
+                'direction'       => 'inbound',
+                'message_type'    => $message['type'] ?? 'text',
+                'wa_message_id'   => $message['id'] ?? null,
+                'text'            => $text,
+                'status'          => 'received',
+                'payload'         => $message,
+            ]);
+
+            Log::info('whatsapp.webhook.message_saved', [
+                'conversation_id' => $conversation->id,
+                'wa_message_id'   => $waMessage->wa_message_id,
+                'text'            => $waMessage->text,
             ]);
 
             app(WhatsAppAiAssistantService::class)->handleInbound(
@@ -112,12 +127,24 @@ class WhatsAppInboundService
     {
         $variants = $this->phoneVariants($phone);
 
+        $hasWhatsappPhone = Schema::hasColumn('users', 'whatsapp_phone');
+        $hasPhone = Schema::hasColumn('users', 'phone');
+
+        if (!$hasWhatsappPhone && !$hasPhone) {
+            Log::warning('whatsapp.webhook.no_phone_columns_on_users');
+            return null;
+        }
+
         return User::query()
-            ->where(function ($q) use ($variants) {
+            ->where(function ($q) use ($variants, $hasWhatsappPhone, $hasPhone) {
                 foreach ($variants as $variant) {
-                    $q->orWhere('whatsapp_phone', $variant)
-                      ->orWhere('phone', $variant)
-                      ->orWhere('telefono', $variant);
+                    if ($hasWhatsappPhone) {
+                        $q->orWhere('whatsapp_phone', $variant);
+                    }
+
+                    if ($hasPhone) {
+                        $q->orWhere('phone', $variant);
+                    }
                 }
             })
             ->first();
@@ -126,7 +153,6 @@ class WhatsAppInboundService
     protected function phoneVariants(string $phone): array
     {
         $phone = preg_replace('/\D+/', '', $phone);
-
         $variants = [$phone];
 
         if (str_starts_with($phone, '521') && strlen($phone) === 13) {
