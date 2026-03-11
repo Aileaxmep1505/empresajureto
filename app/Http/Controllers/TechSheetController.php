@@ -17,7 +17,8 @@ class TechSheetController extends Controller
      */
     public function index(Request $request)
     {
-        $q = trim((string) $request->get('q', ''));
+        $q   = trim((string) $request->get('q', ''));
+        $img = $request->boolean('image_only');
 
         $items = TechSheet::query()
             ->when($q !== '', function ($qry) use ($q) {
@@ -28,9 +29,12 @@ class TechSheetController extends Controller
                        ->orWhere('reference', 'like', "%{$q}%");
                 });
             })
+            ->when($img, function ($qry) {
+                $qry->whereNotNull('image_path')
+                    ->where('image_path', '!=', '');
+            })
             ->orderByDesc('id')
-            ->paginate(12)
-            ->withQueryString();
+            ->get();
 
         return view('tech_sheets.index', [
             'items' => $items,

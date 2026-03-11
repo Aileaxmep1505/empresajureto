@@ -263,7 +263,7 @@
   .ts-actions a,
   .ts-actions button{
     width:32px; height:32px;
-    border-radius:8px; /* menos circulares */
+    border-radius:8px;
     border:1px solid var(--line);
     background:#fff;
     display:grid; place-items:center;
@@ -424,7 +424,7 @@
       <h1 class="title">Fichas técnicas</h1>
       <p class="muted subtxt">Administra tus fichas técnicas.</p>
       <p class="muted" style="font-size:.84rem; margin-top:6px;">
-        {{ $items->total() }} {{ Str::plural('ficha', $items->total()) }} encontradas
+        {{ $items->count() }} {{ Str::plural('ficha', $items->count()) }} encontradas
         @if($q) · filtro: “{{ $q }}” @endif
       </p>
     </div>
@@ -585,10 +585,7 @@
 
     <div class="foot">
       <div class="muted" style="font-size:.84rem;">
-        Mostrando {{ $items->firstItem() ?? 0 }}–{{ $items->lastItem() ?? 0 }} de {{ $items->total() }} registros
-      </div>
-      <div>
-        {{ $items->onEachSide(1)->links() }}
+        Mostrando {{ $items->count() }} {{ Str::plural('registro', $items->count()) }}
       </div>
     </div>
   @else
@@ -652,7 +649,6 @@
 @endsection
 
 @push('scripts')
-{{-- SweetAlert2 --}}
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
@@ -709,7 +705,6 @@
     sheetForm?.submit();
   });
 
-  // ==== Card clickeable (show) ====
   document.querySelectorAll('.js-sheet-card').forEach(function(card){
     card.addEventListener('click', function(e){
       const interactive = e.target.closest('a, button, .js-stop-card');
@@ -719,7 +714,6 @@
     });
   });
 
-  // ==== SweetAlert confirm delete minimal ====
   document.querySelectorAll('.js-delete-form').forEach(function(form){
     form.addEventListener('submit', function(e){
       e.preventDefault();
@@ -751,7 +745,6 @@
 })();
 </script>
 
-{{-- Toast de éxito --}}
 @if(session('ok'))
 <script>
   Swal.fire({
