@@ -17,11 +17,21 @@ class WaMessage extends Model
         'status',
         'payload',
         'meta',
+        'from_wa_id',
+        'to_wa_id',
+        'sent_at',
+        'delivered_at',
+        'read_at',
+        'failed_at',
     ];
 
     protected $casts = [
         'payload' => 'array',
         'meta' => 'array',
+        'sent_at' => 'datetime',
+        'delivered_at' => 'datetime',
+        'read_at' => 'datetime',
+        'failed_at' => 'datetime',
     ];
 
     public function conversation(): BelongsTo

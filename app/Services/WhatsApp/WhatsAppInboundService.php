@@ -5,6 +5,7 @@ namespace App\Services\WhatsApp;
 use App\Models\User;
 use App\Models\WaConversation;
 use App\Models\WaMessage;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
@@ -12,7 +13,9 @@ class WhatsAppInboundService
 {
     public function process(array $payload): void
     {
-        Log::info('whatsapp.webhook.received', $payload);
+        Log::info('whatsapp.webhook.received', [
+            'payload' => $payload,
+        ]);
 
         foreach (($payload['entry'] ?? []) as $entry) {
             foreach (($entry['changes'] ?? []) as $change) {
@@ -27,22 +30,106 @@ class WhatsAppInboundService
     protected function processStatuses(array $value): void
     {
         foreach (($value['statuses'] ?? []) as $status) {
-            $waMessageId = $status['id'] ?? null;
+            $waMessageId = (string) ($status['id'] ?? '');
+            $newStatus   = (string) ($status['status'] ?? '');
+            $recipientId = (string) ($status['recipient_id'] ?? '');
+            $timestamp   = (string) ($status['timestamp'] ?? '');
+            $errors      = $status['errors'] ?? [];
+            $conversation = $status['conversation'] ?? null;
+            $pricing      = $status['pricing'] ?? null;
 
-            if (!$waMessageId) {
+            if ($waMessageId === '' || $newStatus === '') {
+                Log::warning('whatsapp.webhook.status.invalid', [
+                    'status_payload' => $status,
+                ]);
                 continue;
             }
 
-            WaMessage::where('wa_message_id', $waMessageId)->update([
-                'status'  => $status['status'] ?? null,
+            $msg = WaMessage::where('wa_message_id', $waMessageId)->first();
+
+            if (!$msg) {
+                Log::warning('whatsapp.webhook.status.not_found', [
+                    'wa_message_id' => $waMessageId,
+                    'status' => $newStatus,
+                    'recipient_id' => $recipientId,
+                    'status_payload' => $status,
+                ]);
+                continue;
+            }
+
+            $dt = null;
+            if ($timestamp !== '' && ctype_digit($timestamp)) {
+                $dt = Carbon::createFromTimestamp((int) $timestamp);
+            }
+
+            $meta = is_array($msg->meta) ? $msg->meta : [];
+
+            $meta['last_status_webhook'] = $status;
+            $meta['recipient_id'] = $recipientId;
+
+            if ($dt) {
+                $meta['last_status_at'] = $dt->toDateTimeString();
+            }
+
+            if (!empty($conversation)) {
+                $meta['conversation'] = $conversation;
+            }
+
+            if (!empty($pricing)) {
+                $meta['pricing'] = $pricing;
+            }
+
+            if (!empty($errors)) {
+                $meta['errors'] = $errors;
+            }
+
+            $history = $meta['status_history'] ?? [];
+            if (!is_array($history)) {
+                $history = [];
+            }
+
+            $history[] = [
+                'status' => $newStatus,
+                'timestamp' => $dt ? $dt->toDateTimeString() : null,
+                'recipient_id' => $recipientId,
+                'errors' => $errors,
+            ];
+
+            $meta['status_history'] = $history;
+
+            $update = [
+                'status' => $newStatus,
                 'payload' => $status,
-            ]);
+                'meta' => $meta,
+            ];
+
+            if ($dt) {
+                if ($newStatus === 'sent' && Schema::hasColumn('wa_messages', 'sent_at')) {
+                    $update['sent_at'] = $dt;
+                }
+
+                if ($newStatus === 'delivered' && Schema::hasColumn('wa_messages', 'delivered_at')) {
+                    $update['delivered_at'] = $dt;
+                }
+
+                if ($newStatus === 'read' && Schema::hasColumn('wa_messages', 'read_at')) {
+                    $update['read_at'] = $dt;
+                }
+
+                if ($newStatus === 'failed' && Schema::hasColumn('wa_messages', 'failed_at')) {
+                    $update['failed_at'] = $dt;
+                }
+            }
+
+            $msg->update($update);
 
             Log::info('whatsapp.webhook.status', [
                 'message_id'   => $waMessageId,
-                'recipient_id' => $status['recipient_id'] ?? null,
-                'status'       => $status['status'] ?? null,
-                'errors'       => $status['errors'] ?? [],
+                'recipient_id' => $recipientId,
+                'status'       => $newStatus,
+                'conversation' => $conversation,
+                'pricing'      => $pricing,
+                'errors'       => $errors,
             ]);
         }
     }
@@ -68,7 +155,6 @@ class WhatsAppInboundService
                 continue;
             }
 
-            // 1) Ignorar mensajes enviados desde el mismo número del negocio
             if (
                 ($businessPhone !== '' && $from === $businessPhone) ||
                 ($displayPhone !== '' && $from === $displayPhone)
@@ -82,7 +168,6 @@ class WhatsAppInboundService
                 continue;
             }
 
-            // 2) Ignorar duplicados por wa_message_id
             $alreadyExists = WaMessage::where('wa_message_id', $waMessageId)
                 ->where('direction', 'inbound')
                 ->exists();
@@ -95,7 +180,6 @@ class WhatsAppInboundService
                 continue;
             }
 
-            // 3) Solo procesar tipos que sí tienen sentido para conversación
             if (!in_array($type, ['text', 'button', 'interactive'], true)) {
                 Log::info('whatsapp.webhook.unsupported_message_type_ignored', [
                     'type' => $type,
@@ -107,7 +191,6 @@ class WhatsAppInboundService
 
             $text = $this->extractText($message);
 
-            // 4) Si no hay texto útil, no dispares IA
             if ($text === '') {
                 Log::info('whatsapp.webhook.empty_text_ignored', [
                     'type' => $type,

@@ -10,6 +10,7 @@ use App\Models\WaMessage;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class WhatsAppService
@@ -36,7 +37,8 @@ class WhatsAppService
         string $templateName,
         array $bodyParams = [],
         ?string $lang = null,
-        array $headerParams = []
+        array $headerParams = [],
+        ?WaConversation $conversation = null
     ): array {
         if (!$this->enabled()) {
             return ['ok' => false, 'reason' => 'whatsapp_disabled'];
@@ -89,7 +91,7 @@ class WhatsAppService
                 ],
             ],
             'template',
-            null,
+            $conversation,
             $templateName
         );
     }
@@ -185,30 +187,74 @@ class WhatsAppService
                     'to' => $to,
                     'message_type' => $messageType,
                     'template' => $templateName,
+                    'request_payload' => $payload,
                     'response' => $json,
                 ]);
 
-                $waMessageId = data_get($json, 'messages.0.id');
+                $waMessageId   = data_get($json, 'messages.0.id');
                 $messageStatus = data_get($json, 'messages.0.message_status', 'accepted');
 
-                if ($conversation) {
-                    WaMessage::create([
+                $conversation = $conversation ?: $this->findOrCreateConversationByPhone($to);
+
+                try {
+                    $messageData = [
                         'conversation_id' => $conversation->id,
-                        'user_id' => $conversation->user_id,
-                        'direction' => 'outbound',
-                        'message_type' => $messageType,
-                        'wa_message_id' => $waMessageId,
-                        'text' => $messageType === 'text' ? data_get($payload, 'text.body') : null,
-                        'status' => $messageStatus,
-                        'payload' => $json,
-                        'meta' => [
-                            'template_name' => $templateName,
+                        'user_id'         => $conversation->user_id,
+                        'direction'       => 'outbound',
+                        'message_type'    => $messageType,
+                        'wa_message_id'   => $waMessageId,
+                        'text'            => $messageType === 'text' ? data_get($payload, 'text.body') : null,
+                        'status'          => $messageStatus,
+                        'payload'         => $json,
+                        'meta'            => [
+                            'template_name'   => $templateName,
                             'request_payload' => $payload,
+                            'to'              => $to,
+                            'phone_number_id' => config('whatsapp.phone_number_id'),
                         ],
+                    ];
+
+                    if (Schema::hasColumn('wa_messages', 'sent_at')) {
+                        $messageData['sent_at'] = now();
+                    }
+
+                    if (Schema::hasColumn('wa_messages', 'from_wa_id')) {
+                        $messageData['from_wa_id'] = config('whatsapp.phone_number_id');
+                    }
+
+                    if (Schema::hasColumn('wa_messages', 'to_wa_id')) {
+                        $messageData['to_wa_id'] = $to;
+                    }
+
+                    WaMessage::create($messageData);
+                } catch (\Throwable $dbEx) {
+                    Log::warning('whatsapp.outbound.message_log_failed', [
+                        'to' => $to,
+                        'message_type' => $messageType,
+                        'template' => $templateName,
+                        'wa_message_id' => $waMessageId,
+                        'db_error' => $dbEx->getMessage(),
                     ]);
+                }
+
+                try {
+                    $preview = $messageType === 'text'
+                        ? (string) data_get($payload, 'text.body', '')
+                        : '[' . strtoupper($messageType) . ']';
+
+                    $meta = (array) ($conversation->meta ?? []);
+                    $meta['last_message_preview'] = Str::limit($preview, 200);
 
                     $conversation->update([
                         'last_message_at' => now(),
+                        'meta' => $meta,
+                    ]);
+                } catch (\Throwable $convEx) {
+                    Log::warning('whatsapp.outbound.conversation_update_failed', [
+                        'to' => $to,
+                        'message_type' => $messageType,
+                        'template' => $templateName,
+                        'db_error' => $convEx->getMessage(),
                     ]);
                 }
 
@@ -216,6 +262,7 @@ class WhatsAppService
                     'ok' => true,
                     'status' => $response->status(),
                     'data' => $json,
+                    'wa_message_id' => $waMessageId,
                 ];
             }
 
@@ -223,6 +270,7 @@ class WhatsAppService
                 'to' => $to,
                 'message_type' => $messageType,
                 'template' => $templateName,
+                'request_payload' => $payload,
                 'status' => $response->status(),
                 'response' => $json,
             ]);
@@ -237,6 +285,7 @@ class WhatsAppService
                 'to' => $to,
                 'message_type' => $messageType,
                 'template' => $templateName,
+                'request_payload' => $payload ?? null,
                 'message' => $e->getMessage(),
             ]);
 
@@ -246,6 +295,64 @@ class WhatsAppService
                 'message' => $e->getMessage(),
             ];
         }
+    }
+
+    protected function findOrCreateConversationByPhone(string $to): WaConversation
+    {
+        $to = $this->normalizePhone($to);
+
+        $conversation = WaConversation::query()
+            ->where('phone', $to)
+            ->where('channel', 'whatsapp')
+            ->first();
+
+        if ($conversation) {
+            return $conversation;
+        }
+
+        return WaConversation::create([
+            'user_id' => $this->findUserIdByPhone($to),
+            'phone' => $to,
+            'channel' => 'whatsapp',
+            'status' => 'bot',
+            'last_message_at' => now(),
+            'meta' => [
+                'created_by' => 'outbound_service',
+            ],
+        ]);
+    }
+
+    protected function findUserIdByPhone(string $phone): ?int
+    {
+        $phone = $this->normalizePhone($phone);
+
+        $query = User::query();
+
+        $hasWhatsappPhone = Schema::hasColumn('users', 'whatsapp_phone');
+        $hasPhone = Schema::hasColumn('users', 'phone');
+        $hasTelefono = Schema::hasColumn('users', 'telefono');
+
+        if (!$hasWhatsappPhone && !$hasPhone && !$hasTelefono) {
+            return null;
+        }
+
+        $query->where(function ($q) use ($phone, $hasWhatsappPhone, $hasPhone, $hasTelefono) {
+            if ($hasWhatsappPhone) {
+                $q->orWhere('whatsapp_phone', $phone);
+            }
+
+            if ($hasPhone) {
+                $q->orWhere('phone', $phone);
+            }
+
+            if ($hasTelefono) {
+                $q->orWhere('telefono', $phone);
+            }
+        });
+
+        $user = $query->first(['id']);
+
+        return $user?->id;
     }
 
     public function sendTicketCreatedToUser(User $user, Ticket $ticket): array
@@ -268,9 +375,7 @@ class WhatsAppService
                 $this->humanizeLabel((string) $ticket->priority),
             ],
             null,
-            [
-                $firstName,
-            ]
+            [$firstName]
         );
     }
 
@@ -294,9 +399,7 @@ class WhatsAppService
                 Str::limit((string) ($actorName ?: optional($ticket->assignee)->name ?: 'Sistema'), 40),
             ],
             null,
-            [
-                $firstName,
-            ]
+            [$firstName]
         );
     }
 
@@ -319,9 +422,7 @@ class WhatsAppService
                 Str::limit(preg_replace('/\s+/', ' ', trim($comment)), 120),
             ],
             null,
-            [
-                $firstName,
-            ]
+            [$firstName]
         );
     }
 
@@ -334,6 +435,7 @@ class WhatsAppService
         }
 
         $tz = $event->timezone ?: 'America/Mexico_City';
+
         $startAt = $event->start_at
             ? Carbon::parse($event->start_at, $tz)->timezone($tz)->format('d/m/Y h:i A')
             : 'Sin fecha';
@@ -347,24 +449,39 @@ class WhatsAppService
             $phone,
             config('whatsapp.templates.agenda_reminder', 'agenda_reminder_v1'),
             [
-                $this->firstName($user->name),
                 Str::limit((string) $event->title, 80),
                 $startAt,
                 Str::limit($description, 120),
-            ]
+            ],
+            null,
+            [$this->firstName($user->name)]
         );
     }
 
     protected function userPhone(User $user): ?string
     {
-        $value = $user->whatsapp_phone
-            ?? $user->phone
-            ?? $user->telefono
-            ?? null;
+        $candidates = [];
 
-        $value = $this->normalizePhone((string) $value);
+        if (isset($user->whatsapp_phone)) {
+            $candidates[] = $user->whatsapp_phone;
+        }
 
-        return $value !== '' ? $value : null;
+        if (isset($user->phone)) {
+            $candidates[] = $user->phone;
+        }
+
+        if (isset($user->telefono)) {
+            $candidates[] = $user->telefono;
+        }
+
+        foreach ($candidates as $candidate) {
+            $normalized = $this->normalizePhone((string) $candidate);
+            if ($normalized !== '') {
+                return $normalized;
+            }
+        }
+
+        return null;
     }
 
     protected function canSendToUser(User $user): bool
