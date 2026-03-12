@@ -5,16 +5,34 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\WaConversation;
 use App\Services\WhatsApp\WhatsAppService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class WaConversationController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $conversations = WaConversation::with(['user', 'agent'])
+        $q = trim((string) $request->get('q', ''));
+
+        $conversations = WaConversation::query()
+            ->with(['user', 'agent'])
             ->withCount('messages')
-            ->latest('last_message_at')
-            ->paginate(20);
+            ->when($q !== '', function ($query) use ($q) {
+                $query->where(function ($sub) use ($q) {
+                    $sub->where('phone', 'like', "%{$q}%")
+                        ->orWhere('status', 'like', "%{$q}%")
+                        ->orWhereHas('user', function ($userQ) use ($q) {
+                            $userQ->where('name', 'like', "%{$q}%");
+                        })
+                        ->orWhereHas('agent', function ($agentQ) use ($q) {
+                            $agentQ->where('name', 'like', "%{$q}%");
+                        });
+                });
+            })
+            ->orderByDesc('last_message_at')
+            ->orderByDesc('id')
+            ->paginate(20)
+            ->withQueryString();
 
         return view('admin.whatsapp.index', compact('conversations'));
     }
@@ -24,23 +42,45 @@ class WaConversationController extends Controller
         $conversation->load([
             'user',
             'agent',
-            'messages' => fn($q) => $q->latest()->limit(100),
+            'messages' => function ($q) {
+                $q->orderByDesc('created_at')
+                  ->limit(100);
+            },
         ]);
+
+        if ($conversation->relationLoaded('messages')) {
+            $conversation->setRelation(
+                'messages',
+                $conversation->messages->sortBy('created_at')->values()
+            );
+        }
 
         return view('admin.whatsapp.show', compact('conversation'));
     }
 
-    public function take(WaConversation $conversation)
+    public function take(Request $request, WaConversation $conversation)
     {
         $conversation->update([
             'status' => 'human',
             'assigned_to' => auth()->id(),
         ]);
 
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'ok' => true,
+                'message' => 'Conversación tomada.',
+                'conversation' => [
+                    'id' => $conversation->id,
+                    'status' => $conversation->status,
+                    'assigned_to' => $conversation->assigned_to,
+                ],
+            ]);
+        }
+
         return back()->with('ok', 'Conversación tomada.');
     }
 
-    public function reply(Request $request, WaConversation $conversation)
+    public function reply(Request $request, WaConversation $conversation): JsonResponse|\Illuminate\Http\RedirectResponse
     {
         $data = $request->validate([
             'text' => ['required', 'string', 'max:1000'],
@@ -52,8 +92,18 @@ class WaConversationController extends Controller
             $conversation
         );
 
-        if (!$result['ok']) {
-            return back()->with('err', 'No se pudo enviar el mensaje.');
+        if (!($result['ok'] ?? false)) {
+            $message = (string) ($result['message'] ?? 'No se pudo enviar el mensaje.');
+
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'ok' => false,
+                    'status' => 'error',
+                    'message' => $message,
+                ], 422);
+            }
+
+            return back()->with('err', $message);
         }
 
         $conversation->update([
@@ -62,14 +112,46 @@ class WaConversationController extends Controller
             'last_message_at' => now(),
         ]);
 
+        $payload = [
+            'ok' => true,
+            'status' => 'success',
+            'message' => 'Mensaje enviado.',
+            'conversation' => [
+                'id' => $conversation->id,
+                'status' => $conversation->status,
+                'assigned_to' => $conversation->assigned_to,
+                'last_message_at' => optional($conversation->last_message_at)?->toDateTimeString(),
+            ],
+            'sent' => [
+                'text' => $data['text'],
+                'phone' => $conversation->phone,
+                'wa_message_id' => $result['data']['messages'][0]['id'] ?? null,
+            ],
+        ];
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json($payload);
+        }
+
         return back()->with('ok', 'Mensaje enviado.');
     }
 
-    public function close(WaConversation $conversation)
+    public function close(Request $request, WaConversation $conversation)
     {
         $conversation->update([
             'status' => 'closed',
         ]);
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'ok' => true,
+                'message' => 'Conversación cerrada.',
+                'conversation' => [
+                    'id' => $conversation->id,
+                    'status' => $conversation->status,
+                ],
+            ]);
+        }
 
         return back()->with('ok', 'Conversación cerrada.');
     }

@@ -127,9 +127,7 @@
     --wa-read:#53bdeb;
   }
 
-  .wa-chat *{
-    box-sizing:border-box;
-  }
+  .wa-chat *{ box-sizing:border-box; }
 
   .wa-chat-wrap{
     max-width:1280px;
@@ -183,9 +181,7 @@
     box-shadow:0 6px 18px rgba(0,0,0,.18);
   }
 
-  .wa-chat-meta{
-    min-width:0;
-  }
+  .wa-chat-meta{ min-width:0; }
 
   .wa-chat-name{
     color:var(--wa-text);
@@ -323,10 +319,7 @@
     overscroll-behavior:contain;
   }
 
-  .wa-chat-scroll::-webkit-scrollbar{
-    width:10px;
-  }
-
+  .wa-chat-scroll::-webkit-scrollbar{ width:10px; }
   .wa-chat-scroll::-webkit-scrollbar-thumb{
     background:#30414b;
     border-radius:999px;
@@ -366,13 +359,8 @@
     margin-bottom:10px;
   }
 
-  .wa-row.in{
-    justify-content:flex-start;
-  }
-
-  .wa-row.out{
-    justify-content:flex-end;
-  }
+  .wa-row.in{ justify-content:flex-start; }
+  .wa-row.out{ justify-content:flex-end; }
 
   .wa-bubble{
     max-width:min(72%, 760px);
@@ -605,19 +593,9 @@
     color:rgba(233,237,239,.85);
   }
 
-  .wa-msg-check.is-read{
-    color:var(--wa-read);
-  }
-
-  .wa-msg-check.is-failed{
-    color:#ff8f8f;
-    letter-spacing:0;
-  }
-
-  .wa-msg-check.is-pending{
-    color:#ffe08a;
-    letter-spacing:0;
-  }
+  .wa-msg-check.is-read{ color:var(--wa-read); }
+  .wa-msg-check.is-failed{ color:#ff8f8f; letter-spacing:0; }
+  .wa-msg-check.is-pending{ color:#ffe08a; letter-spacing:0; }
 
   .wa-empty{
     text-align:center;
@@ -695,9 +673,7 @@
     line-height:1.45;
   }
 
-  .wa-textarea::placeholder{
-    color:var(--wa-muted);
-  }
+  .wa-textarea::placeholder{ color:var(--wa-muted); }
 
   .wa-send{
     width:52px;
@@ -726,9 +702,7 @@
     transform:none;
   }
 
-  .wa-send svg{
-    display:block;
-  }
+  .wa-send svg{ display:block; }
 
   .wa-emoji-picker{
     position:absolute;
@@ -750,18 +724,13 @@
     scrollbar-color:#3a4a54 transparent;
   }
 
-  .wa-emoji-picker::-webkit-scrollbar{
-    width:8px;
-  }
-
+  .wa-emoji-picker::-webkit-scrollbar{ width:8px; }
   .wa-emoji-picker::-webkit-scrollbar-thumb{
     background:#30414b;
     border-radius:999px;
   }
 
-  .wa-emoji-picker.is-open{
-    display:block;
-  }
+  .wa-emoji-picker.is-open{ display:block; }
 
   .wa-emoji-grid{
     display:grid;
@@ -802,9 +771,7 @@
     padding:24px;
   }
 
-  .wa-lightbox.is-open{
-    display:flex;
-  }
+  .wa-lightbox.is-open{ display:flex; }
 
   .wa-lightbox img{
     max-width:min(95vw, 1200px);
@@ -834,16 +801,11 @@
       max-height:none;
       border-radius:16px;
     }
-
-    .wa-bubble{
-      max-width:84%;
-    }
+    .wa-bubble{ max-width:84%; }
   }
 
   @media (max-width: 767.98px){
-    .wa-chat-wrap{
-      max-width:100%;
-    }
+    .wa-chat-wrap{ max-width:100%; }
 
     .wa-chat-app{
       height:calc(100vh - 94px);
@@ -851,43 +813,26 @@
       border-radius:14px;
     }
 
-    .wa-chat-head{
-      padding:12px;
-    }
+    .wa-chat-head{ padding:12px; }
+    .wa-chat-scroll{ padding:14px 8px; }
+    .wa-compose{ padding:10px 8px; }
+    .wa-bubble{ max-width:92%; }
 
-    .wa-chat-scroll{
-      padding:14px 8px;
-    }
-
-    .wa-compose{
-      padding:10px 8px;
-    }
-
-    .wa-bubble{
-      max-width:92%;
-    }
-
-    .wa-chat-actions{
-      width:100%;
-    }
+    .wa-chat-actions{ width:100%; }
 
     .wa-chat-actions form,
     .wa-chat-actions a{
       flex:1 1 100%;
     }
 
-    .wa-btn{
-      width:100%;
-    }
+    .wa-btn{ width:100%; }
 
     .wa-msg-text{
       font-size:.97rem;
       padding-right:54px;
     }
 
-    .wa-compose-bar{
-      gap:8px;
-    }
+    .wa-compose-bar{ gap:8px; }
 
     .wa-compose-input-wrap{
       min-height:48px;
@@ -1164,12 +1109,16 @@
     const lightbox = document.getElementById('lightbox');
     const lightboxImage = document.getElementById('lightboxImage');
     const lightboxClose = document.getElementById('lightboxClose');
+    const pageUrl = window.location.href;
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+    let pollingTimer = null;
+    let isSending = false;
+    let isRefreshing = false;
+    let lastKnownMessageCount = chatMessages ? chatMessages.children.length : 0;
 
     function scrollToBottom(force = false) {
       if (!chat) return;
-
       const nearBottom = (chat.scrollHeight - chat.scrollTop - chat.clientHeight) < 140;
-
       if (force || nearBottom) {
         requestAnimationFrame(() => {
           chat.scrollTop = chat.scrollHeight;
@@ -1199,8 +1148,40 @@
     }
 
     function ensureMessagesBottomAligned() {
-      if (!chatMessages) return;
       scrollToBottom(true);
+    }
+
+    function closeEmojiPicker() {
+      if (emojiPicker) emojiPicker.classList.remove('is-open');
+    }
+
+    function fixEmojiPosition() {
+      if (!emojiPicker || !emojiToggle) return;
+
+      emojiPicker.style.left = '0px';
+      emojiPicker.style.right = 'auto';
+
+      const rect = emojiPicker.getBoundingClientRect();
+      const overflowRight = rect.right - window.innerWidth;
+
+      if (overflowRight > 0) {
+        emojiPicker.style.left = 'auto';
+        emojiPicker.style.right = '0px';
+      }
+    }
+
+    function bindImagePreviewEvents(scope = document) {
+      scope.querySelectorAll('.wa-image-preview').forEach(img => {
+        if (img.dataset.bound === '1') return;
+        img.dataset.bound = '1';
+        img.style.cursor = 'zoom-in';
+        img.addEventListener('click', function () {
+          if (lightbox && lightboxImage) {
+            lightboxImage.src = this.src;
+            lightbox.classList.add('is-open');
+          }
+        });
+      });
     }
 
     function appendOutgoingMessage(text) {
@@ -1240,27 +1221,62 @@
       }
     }
 
-    function closeEmojiPicker() {
-      if (emojiPicker) emojiPicker.classList.remove('is-open');
-    }
+    async function refreshMessages(forceScroll = false) {
+      if (isRefreshing || isSending) return;
+      isRefreshing = true;
 
-    function fixEmojiPosition() {
-      if (!emojiPicker || !emojiToggle) return;
+      try {
+        const response = await fetch(pageUrl, {
+          method: 'GET',
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          credentials: 'same-origin'
+        });
 
-      emojiPicker.style.left = '0px';
-      emojiPicker.style.right = 'auto';
+        if (!response.ok) throw new Error('No se pudo actualizar el chat');
 
-      const rect = emojiPicker.getBoundingClientRect();
-      const overflowRight = rect.right - window.innerWidth;
+        const html = await response.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const newMessages = doc.getElementById('chatMessages');
 
-      if (overflowRight > 0) {
-        emojiPicker.style.left = 'auto';
-        emojiPicker.style.right = '0px';
+        if (newMessages && chatMessages) {
+          const oldCount = chatMessages.children.length;
+          chatMessages.innerHTML = newMessages.innerHTML;
+          bindImagePreviewEvents(chatMessages);
+          lastKnownMessageCount = chatMessages.children.length;
+
+          const hasNewMessages = lastKnownMessageCount !== oldCount;
+          if (forceScroll || hasNewMessages) {
+            ensureMessagesBottomAligned();
+          }
+        }
+      } catch (error) {
+        console.error(error);
+      } finally {
+        isRefreshing = false;
       }
     }
 
+    function startPolling() {
+      stopPolling();
+      pollingTimer = setInterval(() => {
+        refreshMessages(false);
+      }, 5000);
+    }
+
+    function stopPolling() {
+      if (pollingTimer) {
+        clearInterval(pollingTimer);
+        pollingTimer = null;
+      }
+    }
+
+    bindImagePreviewEvents(document);
     ensureMessagesBottomAligned();
     resizeTextarea();
+    startPolling();
 
     if (textarea) {
       textarea.addEventListener('input', resizeTextarea);
@@ -1314,9 +1330,12 @@
         e.preventDefault();
 
         const text = textarea.value.trim();
-        if (!text) return;
+        if (!text || isSending) return;
 
+        isSending = true;
         sendBtn.disabled = true;
+        stopPolling();
+
         const originalText = textarea.value;
         const optimisticRow = appendOutgoingMessage(text);
 
@@ -1330,48 +1349,33 @@
           const response = await fetch(replyForm.action, {
             method: 'POST',
             headers: {
-              'X-Requested-With': 'XMLHttpRequest',
-              'Accept': 'application/json',
+              'X-CSRF-TOKEN': csrfToken,
+              'X-Requested-With': 'XMLHttpRequest'
             },
             body: formData,
-            credentials: 'same-origin',
+            credentials: 'same-origin'
           });
 
           if (!response.ok) {
             throw new Error('No se pudo enviar el mensaje');
           }
 
-          const contentType = response.headers.get('content-type') || '';
-          if (contentType.includes('application/json')) {
-            const data = await response.json();
-            if (data && data.status === 'error') {
-              throw new Error(data.message || 'Error al enviar');
-            }
-          }
-
           markMessageAsSent(optimisticRow);
+          await refreshMessages(true);
         } catch (error) {
           markMessageAsFailed(optimisticRow);
           textarea.value = originalText;
           resizeTextarea();
           console.error(error);
         } finally {
+          isSending = false;
           sendBtn.disabled = false;
           textarea.focus();
           ensureMessagesBottomAligned();
+          startPolling();
         }
       });
     }
-
-    document.querySelectorAll('.wa-image-preview').forEach(img => {
-      img.style.cursor = 'zoom-in';
-      img.addEventListener('click', function () {
-        if (lightbox && lightboxImage) {
-          lightboxImage.src = this.src;
-          lightbox.classList.add('is-open');
-        }
-      });
-    });
 
     if (lightbox && lightboxClose) {
       lightboxClose.addEventListener('click', function () {
@@ -1387,8 +1391,18 @@
       });
     }
 
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) {
+        stopPolling();
+      } else {
+        startPolling();
+        refreshMessages(false);
+      }
+    });
+
     window.addEventListener('load', function () {
       ensureMessagesBottomAligned();
+      refreshMessages(true);
     });
   })();
 </script>
