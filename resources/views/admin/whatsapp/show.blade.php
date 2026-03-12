@@ -754,6 +754,26 @@
     transform:translateY(-1px);
   }
 
+  .wa-flash{
+    position:absolute;
+    left:50%;
+    transform:translateX(-50%);
+    bottom:82px;
+    background:rgba(17,27,33,.96);
+    color:#fff;
+    border:1px solid rgba(255,255,255,.06);
+    padding:10px 14px;
+    border-radius:12px;
+    z-index:120;
+    font-size:.9rem;
+    display:none;
+    box-shadow:0 16px 40px rgba(0,0,0,.28);
+  }
+
+  .wa-flash.is-show{
+    display:block;
+  }
+
   .wa-alert{
     margin-bottom:14px;
     border:none;
@@ -863,6 +883,11 @@
 
     .wa-emoji-grid{
       grid-template-columns:repeat(6, 1fr);
+    }
+
+    .wa-flash{
+      width:calc(100% - 24px);
+      bottom:76px;
     }
   }
 </style>
@@ -1043,6 +1068,8 @@
               </div>
             </div>
           </div>
+
+          <div class="wa-flash" id="waFlash"></div>
         </div>
 
         <div class="wa-compose">
@@ -1109,12 +1136,22 @@
     const lightbox = document.getElementById('lightbox');
     const lightboxImage = document.getElementById('lightboxImage');
     const lightboxClose = document.getElementById('lightboxClose');
+    const flash = document.getElementById('waFlash');
     const pageUrl = window.location.href;
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
     let pollingTimer = null;
     let isSending = false;
     let isRefreshing = false;
-    let lastKnownMessageCount = chatMessages ? chatMessages.children.length : 0;
+
+    function showFlash(message, ms = 2500) {
+      if (!flash) return;
+      flash.textContent = message;
+      flash.classList.add('is-show');
+      clearTimeout(showFlash._timer);
+      showFlash._timer = setTimeout(() => {
+        flash.classList.remove('is-show');
+      }, ms);
+    }
 
     function scrollToBottom(force = false) {
       if (!chat) return;
@@ -1130,25 +1167,6 @@
       if (!textarea) return;
       textarea.style.height = '24px';
       textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
-    }
-
-    function escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = text;
-      return div.innerHTML;
-    }
-
-    function currentTime() {
-      const now = new Date();
-      let h = now.getHours();
-      const m = String(now.getMinutes()).padStart(2, '0');
-      const suffix = h >= 12 ? 'pm' : 'am';
-      h = h % 12 || 12;
-      return `${h}:${m} ${suffix}`;
-    }
-
-    function ensureMessagesBottomAligned() {
-      scrollToBottom(true);
     }
 
     function closeEmojiPicker() {
@@ -1184,43 +1202,6 @@
       });
     }
 
-    function appendOutgoingMessage(text) {
-      if (!chatMessages) return null;
-
-      const row = document.createElement('div');
-      row.className = 'wa-row out';
-      row.innerHTML = `
-        <div class="wa-bubble">
-          <div class="wa-msg-text">${escapeHtml(text)}</div>
-          <div class="wa-msg-bottom">
-            <span class="wa-msg-time">${currentTime()}</span>
-            <span class="wa-msg-check is-pending">🕓</span>
-          </div>
-        </div>
-      `;
-      chatMessages.appendChild(row);
-      ensureMessagesBottomAligned();
-      return row;
-    }
-
-    function markMessageAsSent(row) {
-      if (!row) return;
-      const check = row.querySelector('.wa-msg-check');
-      if (check) {
-        check.className = 'wa-msg-check is-sent';
-        check.textContent = '✓';
-      }
-    }
-
-    function markMessageAsFailed(row) {
-      if (!row) return;
-      const check = row.querySelector('.wa-msg-check');
-      if (check) {
-        check.className = 'wa-msg-check is-failed';
-        check.textContent = '!';
-      }
-    }
-
     async function refreshMessages(forceScroll = false) {
       if (isRefreshing || isSending) return;
       isRefreshing = true;
@@ -1242,14 +1223,13 @@
         const newMessages = doc.getElementById('chatMessages');
 
         if (newMessages && chatMessages) {
-          const oldCount = chatMessages.children.length;
-          chatMessages.innerHTML = newMessages.innerHTML;
-          bindImagePreviewEvents(chatMessages);
-          lastKnownMessageCount = chatMessages.children.length;
+          const oldHtml = chatMessages.innerHTML;
+          const newHtml = newMessages.innerHTML;
 
-          const hasNewMessages = lastKnownMessageCount !== oldCount;
-          if (forceScroll || hasNewMessages) {
-            ensureMessagesBottomAligned();
+          if (oldHtml !== newHtml) {
+            chatMessages.innerHTML = newHtml;
+            bindImagePreviewEvents(chatMessages);
+            scrollToBottom(forceScroll);
           }
         }
       } catch (error) {
@@ -1274,7 +1254,7 @@
     }
 
     bindImagePreviewEvents(document);
-    ensureMessagesBottomAligned();
+    scrollToBottom(true);
     resizeTextarea();
     startPolling();
 
@@ -1335,12 +1315,6 @@
         isSending = true;
         sendBtn.disabled = true;
         stopPolling();
-
-        const originalText = textarea.value;
-        const optimisticRow = appendOutgoingMessage(text);
-
-        textarea.value = '';
-        resizeTextarea();
         closeEmojiPicker();
 
         try {
@@ -1350,28 +1324,34 @@
             method: 'POST',
             headers: {
               'X-CSRF-TOKEN': csrfToken,
-              'X-Requested-With': 'XMLHttpRequest'
+              'X-Requested-With': 'XMLHttpRequest',
+              'Accept': 'application/json'
             },
             body: formData,
             credentials: 'same-origin'
           });
 
-          if (!response.ok) {
-            throw new Error('No se pudo enviar el mensaje');
+          let data = null;
+          const contentType = response.headers.get('content-type') || '';
+          if (contentType.includes('application/json')) {
+            data = await response.json();
           }
 
-          markMessageAsSent(optimisticRow);
+          if (!response.ok || (data && data.ok === false)) {
+            throw new Error(data?.message || 'No se pudo enviar el mensaje');
+          }
+
+          textarea.value = '';
+          resizeTextarea();
+          showFlash('Mensaje enviado');
           await refreshMessages(true);
         } catch (error) {
-          markMessageAsFailed(optimisticRow);
-          textarea.value = originalText;
-          resizeTextarea();
           console.error(error);
+          showFlash(error.message || 'No se pudo enviar el mensaje', 3500);
         } finally {
           isSending = false;
           sendBtn.disabled = false;
           textarea.focus();
-          ensureMessagesBottomAligned();
           startPolling();
         }
       });
@@ -1401,7 +1381,7 @@
     });
 
     window.addEventListener('load', function () {
-      ensureMessagesBottomAligned();
+      scrollToBottom(true);
       refreshMessages(true);
     });
   })();
