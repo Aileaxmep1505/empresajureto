@@ -1076,35 +1076,123 @@ class PublicationPurchaseAiService
 
     private function extractPdfText(string $absolutePath): string
     {
-        $pdftotext = trim((string) @shell_exec('command -v pdftotext 2>/dev/null'));
-        if ($pdftotext !== '') {
-            $tmp = tempnam(sys_get_temp_dir(), 'pdf_txt_');
-            if ($tmp) {
-                $out = $tmp . '.txt';
-                @shell_exec(escapeshellcmd($pdftotext) . ' -layout ' . escapeshellarg($absolutePath) . ' ' . escapeshellarg($out) . ' 2>/dev/null');
-                $text = @file_get_contents($out);
-                @unlink($out);
-                if (is_string($text) && trim($text) !== '') {
-                    return trim($text);
-                }
+        try {
+            $text = $this->extractPdfTextWithLibrary($absolutePath);
+            if ($text !== '') {
+                return $text;
+            }
+        } catch (\Throwable $e) {
+            Log::info('PDF local extract: library parser skipped', ['error' => $e->getMessage()]);
+        }
+
+        try {
+            $text = $this->extractPdfTextWithPdftotext($absolutePath);
+            if ($text !== '') {
+                return $text;
+            }
+        } catch (\Throwable $e) {
+            Log::info('PDF local extract: pdftotext skipped', ['error' => $e->getMessage()]);
+        }
+
+        try {
+            return $this->extractPdfTextFromRawStreams($absolutePath);
+        } catch (\Throwable $e) {
+            Log::info('PDF local extract: raw stream fallback skipped', ['error' => $e->getMessage()]);
+            return '';
+        }
+    }
+
+    private function extractPdfTextWithLibrary(string $absolutePath): string
+    {
+        if (class_exists('\\Smalot\\PdfParser\\Parser')) {
+            $parser = new \Smalot\PdfParser\Parser();
+            $pdf = $parser->parseFile($absolutePath);
+            $text = trim((string) $pdf->getText());
+            if ($text !== '') {
+                return $this->normalizeExtractedText($text);
             }
         }
 
+        return '';
+    }
+
+    private function extractPdfTextWithPdftotext(string $absolutePath): string
+    {
+        if (!$this->canUseShellExec()) {
+            return '';
+        }
+
+        $pdftotext = trim((string) @\shell_exec('command -v pdftotext 2>/dev/null'));
+        if ($pdftotext === '') {
+            return '';
+        }
+
+        $tmp = tempnam(sys_get_temp_dir(), 'pdf_txt_');
+        if (!$tmp) {
+            return '';
+        }
+
+        $out = $tmp . '.txt';
+        @\shell_exec(escapeshellcmd($pdftotext) . ' -layout ' . escapeshellarg($absolutePath) . ' ' . escapeshellarg($out) . ' 2>/dev/null');
+        $text = @file_get_contents($out);
+        @unlink($out);
+
+        return is_string($text) ? $this->normalizeExtractedText($text) : '';
+    }
+
+    private function extractPdfTextFromRawStreams(string $absolutePath): string
+    {
         $raw = @file_get_contents($absolutePath);
         if (!is_string($raw) || $raw === '') {
             return '';
         }
 
-        if (preg_match_all('/\(([^\)]{3,})\)/s', $raw, $m) && !empty($m[1])) {
-            $chunks = array_map(static function ($v) {
-                $v = str_replace(['\\n', '\\r', '\\t'], ' ', $v);
-                return preg_replace('/\s+/u', ' ', $v);
-            }, $m[1]);
+        $chunks = [];
 
-            return trim(implode(' ', array_slice($chunks, 0, 1500)));
+        if (preg_match_all('/\(([^\)]{3,})\)/s', $raw, $m1) && !empty($m1[1])) {
+            foreach ($m1[1] as $value) {
+                $chunks[] = $value;
+            }
         }
 
-        return '';
+        if (preg_match_all('/<([0-9A-Fa-f]{6,})>/s', $raw, $m2) && !empty($m2[1])) {
+            foreach ($m2[1] as $hex) {
+                if (strlen($hex) % 2 !== 0) {
+                    $hex .= '0';
+                }
+                $decoded = @hex2bin($hex);
+                if (is_string($decoded) && $decoded !== '') {
+                    $chunks[] = $decoded;
+                }
+            }
+        }
+
+        $text = implode("\n", $chunks);
+        return $this->normalizeExtractedText($text);
+    }
+
+    private function canUseShellExec(): bool
+    {
+        if (!function_exists('shell_exec')) {
+            return false;
+        }
+
+        $disabled = (string) ini_get('disable_functions');
+        if ($disabled === '') {
+            return true;
+        }
+
+        $disabledList = array_map('trim', explode(',', $disabled));
+        return !in_array('shell_exec', $disabledList, true);
+    }
+
+    private function normalizeExtractedText(string $text): string
+    {
+        $text = str_replace(["\r\n", "\r"], "\n", $text);
+        $text = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F]+/u', ' ', $text);
+        $text = preg_replace('/[ \t]+/u', ' ', $text);
+        $text = preg_replace('/\n{3,}/u', "\n\n", $text);
+        return trim((string) $text);
     }
 
     private function extractDocxText(string $absolutePath): string
