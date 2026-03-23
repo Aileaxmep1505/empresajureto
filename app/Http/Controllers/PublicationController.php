@@ -113,7 +113,7 @@ class PublicationController extends Controller
             return response()->json([
                 'error'   => $validator->errors()->first() ?: 'No se pudo validar el archivo.',
                 'errors'  => $validator->errors(),
-                'message' => 'Verifica que el archivo sea PDF, JPG, JPEG, PNG o WEBP y que no exceda el tamaño permitido.',
+                'message' => 'Verifica que se haya enviado un archivo real y que no exceda el tamaño permitido.',
             ], 422);
         }
 
@@ -178,9 +178,16 @@ class PublicationController extends Controller
                 'error'     => $e->getMessage(),
             ]);
 
+            $message = $e->getMessage();
+            $status = str_contains(mb_strtolower($message), 'texto legible')
+                ? 422
+                : 500;
+
             return response()->json([
-                'error' => 'No se pudo analizar el archivo con IA. Reintenta en unos segundos o usa captura manual.',
-            ], 500);
+                'error' => $status === 422
+                    ? 'El archivo se subió, pero no se pudo convertir a un formato legible para la IA. Puedes guardarlo y capturar los conceptos manualmente.'
+                    : 'No se pudo analizar el archivo con IA. Reintenta en unos segundos o usa captura manual.',
+            ], $status);
         }
     }
 

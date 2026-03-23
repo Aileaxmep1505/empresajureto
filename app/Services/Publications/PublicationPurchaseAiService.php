@@ -27,13 +27,9 @@ class PublicationPurchaseAiService
             'files.max'            => 'Solo puedes subir hasta 25 archivos por lote.',
             'files.*.file'         => 'Cada elemento debe ser un archivo válido.',
             'files.*.max'          => 'Cada archivo puede pesar hasta 50 MB.',
-            'files.*.mimes'        => 'Cada archivo debe ser PDF, JPG, JPEG, PNG o WEBP.',
-            'files.*.mimetypes'    => 'Uno de los archivos no se reconoció como PDF o imagen válido.',
-            'file.file'            => 'El archivo no es válido.',
+                                    'file.file'            => 'El archivo no es válido.',
             'file.max'             => 'El archivo puede pesar hasta 50 MB.',
-            'file.mimes'           => 'El archivo debe ser PDF, JPG, JPEG, PNG o WEBP.',
-            'file.mimetypes'       => 'El archivo no se reconoció como PDF o imagen válido.',
-            'title.required'       => 'El título es obligatorio.',
+                                    'title.required'       => 'El título es obligatorio.',
             'category.required'    => 'Debes seleccionar el tipo de operación.',
             'category.in'          => 'La categoría seleccionada no es válida.',
             'payload.required'     => 'No se recibió la información a guardar.',
@@ -62,20 +58,9 @@ class PublicationPurchaseAiService
             'description' => ['nullable', 'string', 'max:5000'],
 
             'files'       => ['nullable', 'array', 'min:1', 'max:25'],
-            'files.*'     => [
-                'file',
-                'max:51200',
-                'mimes:pdf,jpg,jpeg,png,webp',
-                'mimetypes:application/pdf,application/x-pdf,application/octet-stream,image/jpeg,image/png,image/webp',
-            ],
+            'files.*'     => ['file', 'max:51200'],
 
-            'file'        => [
-                'nullable',
-                'file',
-                'max:51200',
-                'mimes:pdf,jpg,jpeg,png,webp',
-                'mimetypes:application/pdf,application/x-pdf,application/octet-stream,image/jpeg,image/png,image/webp',
-            ],
+            'file'        => ['nullable', 'file', 'max:51200'],
 
             'pinned'      => ['nullable'],
             'ai_extract'  => ['nullable', 'boolean'],
@@ -93,13 +78,7 @@ class PublicationPurchaseAiService
     public function extractRules(): array
     {
         return [
-            'file'     => [
-                'required',
-                'file',
-                'max:51200',
-                'mimes:pdf,jpg,jpeg,png,webp',
-                'mimetypes:application/pdf,application/x-pdf,application/octet-stream,image/jpeg,image/png,image/webp',
-            ],
+            'file'     => ['required', 'file', 'max:51200'],
             'category' => ['required', 'string', 'in:compra,venta'],
         ];
     }
@@ -415,7 +394,7 @@ class PublicationPurchaseAiService
 
             // (D) IA server-side “normal” (por archivo) si NO hubo payload
             $kind = (string)($pub->kind ?? '');
-            if ($request->boolean('ai_extract') && in_array($kind, ['pdf','image'], true)) {
+            if ($request->boolean('ai_extract') && $this->canAttemptAiExtraction($pub)) {
                 try {
                     $absolute = Storage::disk('public')->path($pub->file_path);
                     $ai = $this->aiExtractSingleLocalFile($absolute, $pub->original_name, $category);
@@ -470,7 +449,7 @@ class PublicationPurchaseAiService
 
         $path = $file->storeAs($folder, $name, 'public');
 
-        $mime = $file->getClientMimeType();
+        $mime = $this->guessMimeType($file->getRealPath(), $ext);
         $kind = $this->detectKind($mime, $ext);
 
         // ✅ si sube varios, diferenciamos por nombre de archivo (sin batch)
@@ -536,93 +515,55 @@ class PublicationPurchaseAiService
             throw new \RuntimeException('El archivo temporal no existe.');
         }
 
-        $ext  = strtolower(pathinfo($originalName, PATHINFO_EXTENSION) ?: pathinfo($absolutePath, PATHINFO_EXTENSION));
-        $mime = $this->guessMimeType($absolutePath, $ext);
-        $kind = $this->detectKind($mime, $ext);
-
-        $inputType = $kind === 'image' ? 'input_image' : 'input_file';
+        $prepared = $this->prepareFileForAi($absolutePath, $originalName);
         $system = $this->buildExtractorSystemPromptStrictTableOnly($category);
+
+        Log::info('AI extract strategy', [
+            'original_name' => $originalName,
+            'prepared_name' => $prepared['original_name'],
+            'mime'          => $prepared['mime'],
+            'ext'           => $prepared['ext'],
+            'kind'          => $prepared['kind'],
+            'strategy'      => $prepared['strategy'],
+            'repaired_pdf'  => $prepared['repaired_pdf'],
+            'text_length'   => mb_strlen((string) $prepared['text']),
+        ]);
+
         $fileId = null;
 
         try {
-            $fileId = $this->uploadFileToOpenAi($absolutePath, $originalName, $cfg);
+            if (in_array($prepared['strategy'], ['pdf_file', 'image_file'], true)) {
+                $fileId = $this->uploadFileToOpenAi($prepared['path'], $prepared['original_name'], $cfg);
 
-            $data1 = $this->callResponsesExtract(
-                cfg: $cfg,
-                fileId: $fileId,
-                system: $system,
-                userText: 'Extrae TODOS los renglones REALES de la tabla de conceptos en TODAS las páginas. No inventes. Devuelve JSON.',
-                inputType: $inputType
-            );
-
-            $items = is_array($data1['items'] ?? null) ? $data1['items'] : [];
-            $doc   = is_array($data1['document'] ?? null) ? $data1['document'] : [];
-            $notes = is_array($data1['notes'] ?? null) ? $data1['notes'] : ['warnings' => [], 'confidence' => 0.0];
-
-            $items = $this->filterAndDedupeExtractedItems($items);
-
-            if (count($items) <= 1) {
-                $already = $this->buildAlreadyExtractedHints($items, 20);
-
-                $data2 = $this->callResponsesExtract(
+                $data = $this->extractUsingResponsesWithRetries(
                     cfg: $cfg,
                     fileId: $fileId,
                     system: $system,
-                    userText: "Parece que faltan renglones. No repitas items.
-Ya tengo:
-{$already}
-
-Busca en TODAS las páginas y devuelve SOLO items nuevos reales de la tabla. Si no hay, regresa items=[].",
-                    inputType: $inputType
+                    userText: $this->buildUserExtractionPrompt((string) $prepared['text']),
+                    inputType: $prepared['strategy'] === 'image_file' ? 'input_image' : 'input_file'
                 );
-
-                $items2 = is_array($data2['items'] ?? null) ? $data2['items'] : [];
-                $items2 = $this->filterAndDedupeExtractedItems($items2);
-
-                $items = array_merge($items, $items2);
-                $items = $this->filterAndDedupeExtractedItems($items);
-
-                $notes['warnings'] = array_values(array_unique(array_merge(
-                    (array) ($notes['warnings'] ?? []),
-                    (array) data_get($data2, 'notes.warnings', [])
-                )));
-                $notes['confidence'] = max(
-                    (float) ($notes['confidence'] ?? 0),
-                    (float) data_get($data2, 'notes.confidence', 0)
-                );
-
-                if (empty($doc) && is_array($data2['document'] ?? null)) {
-                    $doc = $data2['document'];
+            } else {
+                $text = trim((string) $prepared['text']);
+                if ($text === '') {
+                    throw new \RuntimeException('No se pudo obtener texto legible del archivo para enviarlo a la IA.');
                 }
+
+                $data = $this->extractFromTextOnly(
+                    cfg: $cfg,
+                    system: $system,
+                    originalName: $prepared['original_name'],
+                    extractedText: $text
+                );
             }
 
-            if (empty($items)) {
-                $notes['warnings'] = array_values(array_unique(array_merge(
-                    (array) ($notes['warnings'] ?? []),
-                    ['La IA no detectó conceptos automáticamente.']
-                )));
-            }
-
-            return [
-                'document' => $doc ?: [
-                    'document_type'     => 'otro',
-                    'supplier_name'     => null,
-                    'counterparty_rfc'  => null,
-                    'uuid'              => null,
-                    'serie'             => null,
-                    'folio'             => null,
-                    'currency'          => 'MXN',
-                    'document_datetime' => null,
-                    'subtotal'          => 0,
-                    'tax'               => 0,
-                    'total'             => 0,
-                ],
-                'items' => $items,
-                'notes' => $notes,
-            ];
+            return $this->finalizeAiExtractResult($data);
         } finally {
             if ($fileId) {
                 $this->deleteOpenAiFile($fileId, $cfg);
+            }
+
+            if (!empty($prepared['temp_cleanup']) && is_file($prepared['temp_cleanup'])) {
+                @unlink($prepared['temp_cleanup']);
             }
         }
     }
@@ -771,6 +712,490 @@ Busca en TODAS las páginas y devuelve SOLO items nuevos reales de la tabla. Si 
                 'error'   => $e->getMessage(),
             ]);
         }
+    }
+
+
+    private function canAttemptAiExtraction(Publication $publication): bool
+    {
+        $kind = (string) ($publication->kind ?? '');
+        return in_array($kind, ['pdf', 'image', 'doc', 'sheet', 'text', 'file'], true);
+    }
+
+    private function prepareFileForAi(string $absolutePath, string $originalName): array
+    {
+        $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION) ?: pathinfo($absolutePath, PATHINFO_EXTENSION));
+        $mime = $this->guessMimeType($absolutePath, $ext);
+        $kind = $this->detectKind($mime, $ext);
+
+        $preparedPath = $absolutePath;
+        $preparedName = $originalName;
+        $tempCleanup = null;
+        $repairedPdf = false;
+
+        if ($kind === 'pdf') {
+            $repaired = $this->repairPdfToTempIfNeeded($absolutePath, $originalName);
+            if ($repaired) {
+                $preparedPath = $repaired['path'];
+                $preparedName = $repaired['name'];
+                $tempCleanup = $repaired['path'];
+                $repairedPdf = true;
+            }
+        }
+
+        $text = '';
+        $strategy = 'text_only';
+
+        if ($kind === 'image') {
+            $strategy = 'image_file';
+        } elseif ($kind === 'pdf') {
+            $strategy = 'pdf_file';
+            $text = $this->extractLocalTextFromFile($preparedPath, $preparedName, 'application/pdf', 'pdf');
+        } else {
+            $text = $this->extractLocalTextFromFile($preparedPath, $preparedName, $mime, $ext);
+        }
+
+        return [
+            'path'         => $preparedPath,
+            'original_name'=> $preparedName,
+            'mime'         => $mime,
+            'ext'          => $ext,
+            'kind'         => $kind,
+            'strategy'     => $strategy,
+            'text'         => $text,
+            'repaired_pdf' => $repairedPdf,
+            'temp_cleanup' => $tempCleanup,
+        ];
+    }
+
+    private function buildUserExtractionPrompt(string $extraText = ''): string
+    {
+        $base = 'Extrae TODOS los renglones REALES de la tabla de conceptos en TODAS las páginas. No inventes. Devuelve JSON.';
+        $extraText = trim($extraText);
+
+        if ($extraText === '') {
+            return $base;
+        }
+
+        $extraText = mb_substr($extraText, 0, 120000);
+
+        return $base . "\n\nTexto local de apoyo extraído del archivo:\n" . $extraText;
+    }
+
+    private function extractUsingResponsesWithRetries(array $cfg, string $fileId, string $system, string $userText, string $inputType): array
+    {
+        $data1 = $this->callResponsesExtract(
+            cfg: $cfg,
+            fileId: $fileId,
+            system: $system,
+            userText: $userText,
+            inputType: $inputType
+        );
+
+        $items = is_array($data1['items'] ?? null) ? $data1['items'] : [];
+        $doc   = is_array($data1['document'] ?? null) ? $data1['document'] : [];
+        $notes = is_array($data1['notes'] ?? null) ? $data1['notes'] : ['warnings' => [], 'confidence' => 0.0];
+
+        $items = $this->filterAndDedupeExtractedItems($items);
+
+        if (count($items) <= 1) {
+            $already = $this->buildAlreadyExtractedHints($items, 20);
+
+            $data2 = $this->callResponsesExtract(
+                cfg: $cfg,
+                fileId: $fileId,
+                system: $system,
+                userText: "Parece que faltan renglones. No repitas items.\nYa tengo:\n{$already}\n\nBusca en TODAS las páginas y devuelve SOLO items nuevos reales de la tabla. Si no hay, regresa items=[].",
+                inputType: $inputType
+            );
+
+            $items2 = is_array($data2['items'] ?? null) ? $data2['items'] : [];
+            $items2 = $this->filterAndDedupeExtractedItems($items2);
+
+            $items = array_merge($items, $items2);
+            $items = $this->filterAndDedupeExtractedItems($items);
+
+            $notes['warnings'] = array_values(array_unique(array_merge(
+                (array) ($notes['warnings'] ?? []),
+                (array) data_get($data2, 'notes.warnings', [])
+            )));
+            $notes['confidence'] = max(
+                (float) ($notes['confidence'] ?? 0),
+                (float) data_get($data2, 'notes.confidence', 0)
+            );
+
+            if (empty($doc) && is_array($data2['document'] ?? null)) {
+                $doc = $data2['document'];
+            }
+        }
+
+        return [
+            'document' => $doc,
+            'items'    => $items,
+            'notes'    => $notes,
+        ];
+    }
+
+    private function extractFromTextOnly(array $cfg, string $system, string $originalName, string $extractedText): array
+    {
+        $data1 = $this->callResponsesExtractFromText(
+            cfg: $cfg,
+            system: $system,
+            text: "Archivo: {$originalName}\n\n" . mb_substr($extractedText, 0, 120000)
+        );
+
+        $items = is_array($data1['items'] ?? null) ? $data1['items'] : [];
+        $doc   = is_array($data1['document'] ?? null) ? $data1['document'] : [];
+        $notes = is_array($data1['notes'] ?? null) ? $data1['notes'] : ['warnings' => [], 'confidence' => 0.0];
+
+        $items = $this->filterAndDedupeExtractedItems($items);
+
+        if (count($items) <= 1 && mb_strlen($extractedText) > 500) {
+            $already = $this->buildAlreadyExtractedHints($items, 20);
+
+            $data2 = $this->callResponsesExtractFromText(
+                cfg: $cfg,
+                system: $system,
+                text: "Archivo: {$originalName}\n\nParece que faltan renglones. No repitas items.\nYa tengo:\n{$already}\n\nTexto del archivo:\n" . mb_substr($extractedText, 0, 120000)
+            );
+
+            $items2 = is_array($data2['items'] ?? null) ? $data2['items'] : [];
+            $items2 = $this->filterAndDedupeExtractedItems($items2);
+            $items = array_merge($items, $items2);
+            $items = $this->filterAndDedupeExtractedItems($items);
+
+            $notes['warnings'] = array_values(array_unique(array_merge(
+                (array) ($notes['warnings'] ?? []),
+                (array) data_get($data2, 'notes.warnings', [])
+            )));
+            $notes['confidence'] = max(
+                (float) ($notes['confidence'] ?? 0),
+                (float) data_get($data2, 'notes.confidence', 0)
+            );
+
+            if (empty($doc) && is_array($data2['document'] ?? null)) {
+                $doc = $data2['document'];
+            }
+        }
+
+        return [
+            'document' => $doc,
+            'items'    => $items,
+            'notes'    => $notes,
+        ];
+    }
+
+    private function finalizeAiExtractResult(array $data): array
+    {
+        $items = $this->filterAndDedupeExtractedItems((array) ($data['items'] ?? []));
+        $doc   = is_array($data['document'] ?? null) ? $data['document'] : [];
+        $notes = is_array($data['notes'] ?? null) ? $data['notes'] : ['warnings' => [], 'confidence' => 0.0];
+
+        if (empty($items)) {
+            $notes['warnings'] = array_values(array_unique(array_merge(
+                (array) ($notes['warnings'] ?? []),
+                ['La IA no detectó conceptos automáticamente.']
+            )));
+        }
+
+        return [
+            'document' => $doc ?: [
+                'document_type'     => 'otro',
+                'supplier_name'     => null,
+                'counterparty_rfc'  => null,
+                'uuid'              => null,
+                'serie'             => null,
+                'folio'             => null,
+                'currency'          => 'MXN',
+                'document_datetime' => null,
+                'subtotal'          => 0,
+                'tax'               => 0,
+                'total'             => 0,
+            ],
+            'items' => $items,
+            'notes' => $notes,
+        ];
+    }
+
+    private function callResponsesExtractFromText(array $cfg, string $system, string $text): array
+    {
+        $lastStatus = null;
+        $lastBody = null;
+        $lastError = null;
+
+        for ($attempt = 1; $attempt <= max(1, (int) $cfg['retries']); $attempt++) {
+            try {
+                $resp = Http::withToken($cfg['api_key'])
+                    ->timeout((int) $cfg['timeout'])
+                    ->withHeaders([
+                        'Accept'       => 'application/json',
+                        'Content-Type' => 'application/json',
+                    ])
+                    ->post($cfg['base_url'] . '/responses', [
+                        'model'             => $cfg['model'],
+                        'instructions'      => $system,
+                        'input'             => [[
+                            'role'    => 'user',
+                            'content' => [
+                                ['type' => 'input_text', 'text' => $text],
+                            ],
+                        ]],
+                        'max_output_tokens' => 6500,
+                    ]);
+
+                if ($resp->successful()) {
+                    return $this->parseOpenAiJsonFromResponses((array) $resp->json());
+                }
+
+                $lastStatus = $resp->status();
+                $lastBody = $resp->body();
+            } catch (\Throwable $e) {
+                $lastError = $e->getMessage();
+            }
+
+            if ($attempt < (int) $cfg['retries']) {
+                usleep(((int) $cfg['retry_sleep_ms']) * 1000);
+            }
+        }
+
+        Log::warning('AI text responses error', [
+            'status' => $lastStatus,
+            'body'   => $lastBody,
+            'error'  => $lastError,
+        ]);
+
+        throw new \RuntimeException('La IA respondió con error.');
+    }
+
+    private function repairPdfToTempIfNeeded(string $absolutePath, string $originalName): ?array
+    {
+        $head = @file_get_contents($absolutePath, false, null, 0, 4096);
+        if (!is_string($head) || $head === '') {
+            return null;
+        }
+
+        $offset = strpos($head, '%PDF-');
+        if ($offset === false || $offset === 0) {
+            return null;
+        }
+
+        $raw = @file_get_contents($absolutePath);
+        if (!is_string($raw) || $raw === '') {
+            return null;
+        }
+
+        $fullOffset = strpos($raw, '%PDF-');
+        if ($fullOffset === false) {
+            return null;
+        }
+
+        $tmp = tempnam(sys_get_temp_dir(), 'pdf_fix_');
+        if (!$tmp) {
+            return null;
+        }
+
+        $tmpPdf = $tmp . '.pdf';
+        @rename($tmp, $tmpPdf);
+        @file_put_contents($tmpPdf, substr($raw, $fullOffset));
+
+        return [
+            'path' => $tmpPdf,
+            'name' => preg_match('/\.pdf$/i', $originalName) ? $originalName : ($originalName . '.pdf'),
+        ];
+    }
+
+    private function extractLocalTextFromFile(string $absolutePath, string $originalName, string $mime, string $ext): string
+    {
+        $ext = strtolower($ext);
+        $textExt = ['txt', 'csv', 'tsv', 'json', 'xml', 'html', 'htm', 'md', 'log'];
+
+        if (in_array($ext, $textExt, true) || str_starts_with((string) $mime, 'text/')) {
+            return $this->readMostlyTextFile($absolutePath);
+        }
+
+        if ($ext === 'pdf' || $mime === 'application/pdf' || $mime === 'application/x-pdf') {
+            $text = $this->extractPdfText($absolutePath);
+            if ($text !== '') {
+                return $text;
+            }
+        }
+
+        if ($ext === 'docx') {
+            return $this->extractDocxText($absolutePath);
+        }
+
+        if (in_array($ext, ['xlsx', 'xlsm'], true)) {
+            return $this->extractXlsxText($absolutePath);
+        }
+
+        if (in_array($ext, ['csv', 'tsv'], true)) {
+            return $this->readMostlyTextFile($absolutePath);
+        }
+
+        return $this->readMostlyTextFile($absolutePath);
+    }
+
+    private function readMostlyTextFile(string $absolutePath): string
+    {
+        $raw = @file_get_contents($absolutePath);
+        if (!is_string($raw) || $raw === '') {
+            return '';
+        }
+
+        if (!$this->looksTextual($raw)) {
+            return '';
+        }
+
+        $enc = mb_detect_encoding($raw, ['UTF-8', 'ISO-8859-1', 'Windows-1252', 'ASCII'], true) ?: 'UTF-8';
+        $text = @mb_convert_encoding($raw, 'UTF-8', $enc);
+        $text = is_string($text) ? $text : $raw;
+        $text = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F]/u', ' ', $text);
+        $text = preg_replace('/\s+/u', ' ', $text);
+
+        return trim((string) $text);
+    }
+
+    private function looksTextual(string $raw): bool
+    {
+        $sample = substr($raw, 0, 4096);
+        if ($sample === '') {
+            return false;
+        }
+
+        $len = strlen($sample);
+        $printable = 0;
+
+        for ($i = 0; $i < $len; $i++) {
+            $ord = ord($sample[$i]);
+            if (($ord >= 32 && $ord <= 126) || in_array($ord, [9, 10, 13], true) || $ord >= 128) {
+                $printable++;
+            }
+        }
+
+        return ($printable / max(1, $len)) >= 0.75;
+    }
+
+    private function extractPdfText(string $absolutePath): string
+    {
+        $pdftotext = trim((string) @shell_exec('command -v pdftotext 2>/dev/null'));
+        if ($pdftotext !== '') {
+            $tmp = tempnam(sys_get_temp_dir(), 'pdf_txt_');
+            if ($tmp) {
+                $out = $tmp . '.txt';
+                @shell_exec(escapeshellcmd($pdftotext) . ' -layout ' . escapeshellarg($absolutePath) . ' ' . escapeshellarg($out) . ' 2>/dev/null');
+                $text = @file_get_contents($out);
+                @unlink($out);
+                if (is_string($text) && trim($text) !== '') {
+                    return trim($text);
+                }
+            }
+        }
+
+        $raw = @file_get_contents($absolutePath);
+        if (!is_string($raw) || $raw === '') {
+            return '';
+        }
+
+        if (preg_match_all('/\(([^\)]{3,})\)/s', $raw, $m) && !empty($m[1])) {
+            $chunks = array_map(static function ($v) {
+                $v = str_replace(['\\n', '\\r', '\\t'], ' ', $v);
+                return preg_replace('/\s+/u', ' ', $v);
+            }, $m[1]);
+
+            return trim(implode(' ', array_slice($chunks, 0, 1500)));
+        }
+
+        return '';
+    }
+
+    private function extractDocxText(string $absolutePath): string
+    {
+        if (!class_exists('ZipArchive')) {
+            return '';
+        }
+
+        $zip = new \ZipArchive();
+        if ($zip->open($absolutePath) !== true) {
+            return '';
+        }
+
+        $xml = $zip->getFromName('word/document.xml') ?: '';
+        $zip->close();
+
+        if (!is_string($xml) || $xml === '') {
+            return '';
+        }
+
+        $xml = str_replace(['</w:p>', '</w:tr>', '</w:tc>'], ["\n", "\n", "\t"], $xml);
+        $text = strip_tags($xml);
+        $text = html_entity_decode($text, ENT_QUOTES | ENT_XML1, 'UTF-8');
+        $text = preg_replace('/\s+/u', ' ', $text);
+
+        return trim((string) $text);
+    }
+
+    private function extractXlsxText(string $absolutePath): string
+    {
+        if (!class_exists('ZipArchive')) {
+            return '';
+        }
+
+        $zip = new \ZipArchive();
+        if ($zip->open($absolutePath) !== true) {
+            return '';
+        }
+
+        $sharedStrings = [];
+        $sharedXml = $zip->getFromName('xl/sharedStrings.xml');
+        if (is_string($sharedXml) && $sharedXml !== '') {
+            $sx = @simplexml_load_string($sharedXml);
+            if ($sx) {
+                foreach ($sx->si as $si) {
+                    $parts = [];
+                    if (isset($si->t)) {
+                        $parts[] = (string) $si->t;
+                    } else {
+                        foreach ($si->r as $r) {
+                            $parts[] = (string) $r->t;
+                        }
+                    }
+                    $sharedStrings[] = implode('', $parts);
+                }
+            }
+        }
+
+        $texts = [];
+        for ($i = 1; $i <= 20; $i++) {
+            $sheetXml = $zip->getFromName("xl/worksheets/sheet{$i}.xml");
+            if (!is_string($sheetXml) || $sheetXml === '') {
+                continue;
+            }
+
+            $sx = @simplexml_load_string($sheetXml);
+            if (!$sx || !isset($sx->sheetData)) {
+                continue;
+            }
+
+            foreach ($sx->sheetData->row as $row) {
+                $cells = [];
+                foreach ($row->c as $c) {
+                    $type = (string) ($c['t'] ?? '');
+                    $value = (string) ($c->v ?? '');
+                    if ($type === 's' && $value !== '' && isset($sharedStrings[(int) $value])) {
+                        $cells[] = $sharedStrings[(int) $value];
+                    } else {
+                        $cells[] = $value;
+                    }
+                }
+                $line = trim(implode("\t", array_filter($cells, static fn($v) => $v !== '')));
+                if ($line !== '') {
+                    $texts[] = $line;
+                }
+            }
+        }
+
+        $zip->close();
+
+        return trim(implode("\n", $texts));
     }
 
     private function guessMimeType(string $absolutePath, string $ext = ''): string
@@ -1228,8 +1653,11 @@ TXT;
         if (str_starts_with($mime, 'video/')) return 'video';
         if (in_array($mime, ['application/pdf', 'application/x-pdf'], true) || $ext === 'pdf') return 'pdf';
 
+        $textExt = ['txt', 'csv', 'tsv', 'json', 'xml', 'html', 'htm', 'md', 'log'];
         $docExt = ['doc', 'docx', 'odt', 'rtf'];
-        $xlsExt = ['xls', 'xlsx', 'csv', 'ods'];
+        $xlsExt = ['xls', 'xlsx', 'xlsm', 'ods'];
+
+        if (str_starts_with($mime, 'text/') || in_array($ext, $textExt, true)) return 'text';
         if (in_array($ext, $docExt, true)) return 'doc';
         if (in_array($ext, $xlsExt, true)) return 'sheet';
 

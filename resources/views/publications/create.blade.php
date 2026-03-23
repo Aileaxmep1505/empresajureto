@@ -43,7 +43,7 @@
     box-shadow: inset 0 1px 0 rgba(255,255,255,.75);
   }
   #pubCreateClean .drop::after{
-    content:'PDF, JPG, PNG o WEBP';
+    content:'Cualquier archivo';
     position:absolute;
     right:14px;
     bottom:12px;
@@ -128,7 +128,7 @@
         Subir publicación
       </h1>
       <div class="subtitle">
-        Carga uno o varios archivos y revisa la extracción antes de guardar. El flujo ya viene optimizado para PDF, imágenes y captura manual sin romper el lote.
+        Carga uno o varios archivos y revisa la extracción antes de guardar. El flujo acepta cualquier archivo. La IA extrae mejor en PDF, imágenes y archivos con texto legible, y si no puede leer uno te deja corregirlo manualmente sin romper el lote.
       </div>
     </div>
     <div class="topActions">
@@ -231,7 +231,7 @@
 
           <div class="cardBody">
             {{-- ✅ MULTI: files[] --}}
-            <input type="file" name="files[]" id="f-file" style="display:none;" multiple required accept=".pdf,.PDF,.jpg,.jpeg,.png,.webp,application/pdf,application/x-pdf,application/octet-stream,image/*">
+            <input type="file" name="files[]" id="f-file" style="display:none;" multiple required accept="*/*">
 
             <div class="drop" id="dropZone" title="Click para seleccionar archivos">
               <div class="fileRow">
@@ -241,7 +241,7 @@
                   </div>
                   <div style="min-width:0;">
                     <div class="fileName" id="fileName">Seleccionar archivo(s)...</div>
-                    <div class="fileMini"><span id="fileType">PDF, JPG, PNG o WEBP</span> • <span id="fileSize">Máx. 50 MB por archivo</span></div>
+                    <div class="fileMini"><span id="fileType">Cualquier tipo de archivo</span> • <span id="fileSize">Máx. 50 MB por archivo</span></div>
                   </div>
                 </div>
                 <label class="btnx ghost tiny" for="f-file">Examinar</label>
@@ -251,8 +251,7 @@
                         </div>
 
             <div class="premiumHint">
-              <strong>Modo inteligente:</strong> si el PDF trae texto, la IA intenta leer encabezado y conceptos automáticamente.
-              Si el documento viene escaneado o no detecta renglones, puedes corregirlo aquí mismo sin perder la subida.
+              <strong>Modo inteligente:</strong> la IA intenta leer el archivo automáticamente. Funciona mejor con PDF, imágenes y documentos con texto legible. Si no detecta renglones o el archivo es binario, puedes corregirlo aquí mismo sin perder la subida.
             </div>
 
             <div class="aiBanner" id="aiBanner"></div>
