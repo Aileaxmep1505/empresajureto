@@ -6,7 +6,9 @@ use App\Models\Publication;
 use App\Models\PurchaseDocument;
 use App\Services\Publications\PublicationPurchaseAiService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 
 class PublicationController extends Controller
 {
@@ -16,7 +18,7 @@ class PublicationController extends Controller
 
     public function index()
     {
-        $data = $this->svc->buildIndexData(); // KPI + charts + tablas
+        $data = $this->svc->buildIndexData();
         return view('publications.index', $data);
     }
 
@@ -27,11 +29,6 @@ class PublicationController extends Controller
 
     public function store(Request $request)
     {
-        /**
-         * ✅ IMPORTANT:
-         * - Tu vista manda files[] (multi) y/o ai_payload_bulk ya editado
-         * - Si viene ai_payload_bulk: NO queremos batch, NO queremos re-extraer IA.
-         */
         if ($request->filled('ai_payload_bulk')) {
             $request->merge([
                 'ai_extract' => '0',
@@ -39,22 +36,22 @@ class PublicationController extends Controller
             ]);
         }
 
-        // ✅ Validación: tu service debe soportar files[].
-        // Si tu service aún valida "file", cámbialo a "files" (abajo te digo).
-        $request->validate($this->svc->storeRules());
+        $request->validate(
+            $this->svc->storeRules(),
+            $this->svc->validationMessages(),
+            $this->svc->validationAttributes()
+        );
 
         $result = $this->svc->storeFromRequest($request);
 
-        // ✅ Ya NO queremos batch aunque el service lo intente
         $redirectRoute = (string) ($result['redirect_route'] ?? '');
 
-        if ($redirectRoute && !in_array($redirectRoute, ['publications.batch','publications.batch.show'], true)) {
+        if ($redirectRoute && !in_array($redirectRoute, ['publications.batch', 'publications.batch.show'], true)) {
             return redirect()
                 ->route($redirectRoute, $result['redirect_params'] ?? [])
                 ->with('ok', $result['message'] ?? 'Publicación subida correctamente.');
         }
 
-        // ✅ Default: SIEMPRE index (sin batch)
         return redirect()
             ->route('publications.index')
             ->with('ok', $result['message'] ?? 'Publicación subida correctamente.');
@@ -73,7 +70,10 @@ class PublicationController extends Controller
 
     public function download(Publication $publication)
     {
-        if (!Storage::disk('public')->exists($publication->file_path)) abort(404);
+        if (!Storage::disk('public')->exists($publication->file_path)) {
+            abort(404);
+        }
+
         return Storage::disk('public')->download($publication->file_path, $publication->original_name);
     }
 
@@ -82,63 +82,115 @@ class PublicationController extends Controller
         if ($publication->file_path && Storage::disk('public')->exists($publication->file_path)) {
             Storage::disk('public')->delete($publication->file_path);
         }
+
         $publication->delete();
 
-        return redirect()->route('publications.index')->with('ok', 'Publicación eliminada.');
+        return redirect()
+            ->route('publications.index')
+            ->with('ok', 'Publicación eliminada.');
     }
 
-    /* ============================================================
-     | IA (1) EXTRACT (AJAX) - 1 archivo (tu vista lo usa para cada file)
-     ============================================================ */
     public function aiExtractFromUpload(Request $request)
     {
-        $request->validate($this->svc->extractRules());
+        $validator = Validator::make(
+            $request->all(),
+            $this->svc->extractRules(),
+            $this->svc->validationMessages(),
+            $this->svc->validationAttributes()
+        );
+
+        if ($validator->fails()) {
+            $file = $request->file('file');
+
+            Log::warning('Publications AI extract: validation failed', [
+                'file_name' => $file?->getClientOriginalName(),
+                'mime'      => $file?->getClientMimeType(),
+                'ext'       => $file?->getClientOriginalExtension(),
+                'size'      => $file?->getSize(),
+                'errors'    => $validator->errors()->toArray(),
+            ]);
+
+            return response()->json([
+                'error'   => $validator->errors()->first() ?: 'No se pudo validar el archivo.',
+                'errors'  => $validator->errors(),
+                'message' => 'Verifica que el archivo sea PDF, JPG, JPEG, PNG o WEBP y que no exceda el tamaño permitido.',
+            ], 422);
+        }
 
         $file = $request->file('file');
-        if (!$file) return response()->json(['error' => 'No se recibió archivo.'], 422);
+        if (!$file) {
+            return response()->json(['error' => 'No se recibió archivo.'], 422);
+        }
+
+        Log::info('Publications AI extract: received file', [
+            'file_name' => $file->getClientOriginalName(),
+            'mime'      => $file->getClientMimeType(),
+            'ext'       => $file->getClientOriginalExtension(),
+            'size'      => $file->getSize(),
+            'category'  => (string) $request->input('category', 'compra'),
+        ]);
 
         try {
-            $normalized = $this->svc->extractNormalizedFromUploadedFile($file, $request->category);
-
-            if (empty($normalized['items'])) {
-                return response()->json(['error' => 'La IA no pudo detectar conceptos.'], 422);
-            }
+            $normalized = $this->svc->extractNormalizedFromUploadedFile(
+                $file,
+                (string) $request->input('category', 'compra')
+            );
 
             $doc   = (array) ($normalized['document'] ?? []);
+            $items = is_array($normalized['items'] ?? null) ? $normalized['items'] : [];
             $stats = (array) ($normalized['stats'] ?? []);
             $notes = (array) ($normalized['notes'] ?? []);
 
-            // ✅ Resumen para mostrar “qué recabó”
+            $warnings = array_values(array_filter((array) data_get($notes, 'warnings', [])));
+            if (empty($items)) {
+                $warnings[] = 'No se detectaron conceptos automáticamente. Puedes capturarlos o editarlos manualmente.';
+            }
+
             $summary = [
-                'file_name'           => $file->getClientOriginalName(),
-                'supplier_name'       => $doc['supplier_name'] ?? null,
-                'operation_datetime'  => $doc['document_datetime'] ?? null, // ✅ fecha operación detectada
-                'subtotal'            => $doc['subtotal'] ?? 0,
-                'tax'                 => $doc['tax'] ?? 0,
-                'total'               => $doc['total'] ?? 0,
-                'items_count'         => (int) ($stats['items_count'] ?? count($normalized['items'] ?? [])),
-                'confidence'          => data_get($notes, 'confidence', null),
-                'warnings'            => data_get($notes, 'warnings', []),
+                'file_name'          => $file->getClientOriginalName(),
+                'supplier_name'      => $doc['supplier_name'] ?? null,
+                'operation_datetime' => $doc['document_datetime'] ?? null,
+                'subtotal'           => $doc['subtotal'] ?? 0,
+                'tax'                => $doc['tax'] ?? 0,
+                'total'              => $doc['total'] ?? 0,
+                'items_count'        => (int) ($stats['items_count'] ?? count($items)),
+                'confidence'         => data_get($notes, 'confidence', null),
+                'warnings'           => $warnings,
             ];
 
             return response()->json([
+                'ok'       => true,
                 'summary'  => $summary,
                 'document' => $doc,
-                'items'    => $normalized['items'],
+                'items'    => $items,
                 'stats'    => $stats,
-                'notes'    => $notes,
+                'notes'    => array_merge($notes, ['warnings' => $warnings]),
+                'warning'  => empty($items)
+                    ? 'No se detectaron conceptos automáticamente. Puedes capturarlos manualmente antes de guardar.'
+                    : null,
             ]);
         } catch (\Throwable $e) {
-            return response()->json(['error' => 'Error al contactar la IA.'], 500);
+            Log::warning('Publications AI extract failed', [
+                'file_name' => $file->getClientOriginalName(),
+                'mime'      => $file->getClientMimeType(),
+                'ext'       => $file->getClientOriginalExtension(),
+                'size'      => $file->getSize(),
+                'error'     => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'error' => 'No se pudo analizar el archivo con IA. Reintenta en unos segundos o usa captura manual.',
+            ], 500);
         }
     }
 
-    /* ============================================================
-     | IA (2) SAVE (AJAX) - opcional si un día quieres guardar por AJAX
-     ============================================================ */
     public function aiSaveExtracted(Request $request)
     {
-        $request->validate($this->svc->saveRules());
+        $request->validate(
+            $this->svc->saveRules(),
+            $this->svc->validationMessages(),
+            $this->svc->validationAttributes()
+        );
 
         $payload = (array) $request->input('payload', []);
         $publicationId = $request->input('publication_id');
@@ -152,6 +204,11 @@ class PublicationController extends Controller
                 'purchase_document_id' => $doc->id,
             ]);
         } catch (\Throwable $e) {
+            Log::warning('Publications AI save failed', [
+                'publication_id' => $publicationId,
+                'error'          => $e->getMessage(),
+            ]);
+
             return response()->json(['error' => 'No se pudo guardar.'], 500);
         }
     }

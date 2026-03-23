@@ -7,6 +7,90 @@
   $v = fn($k,$d=null) => old($k,$d);
 @endphp
 <link rel="stylesheet" href="{{ asset('css/publications.css') }}?v={{ time() }}">
+<style>
+  #pubCreateClean{
+    --glass-bg: rgba(255,255,255,.78);
+    --glass-brd: rgba(148,163,184,.22);
+    --deep-shadow: 0 22px 60px rgba(15,23,42,.10);
+  }
+  #pubCreateClean .pageHead{
+    align-items: flex-start;
+    margin-bottom: 20px;
+  }
+  #pubCreateClean .titleRow{
+    letter-spacing: -.02em;
+  }
+  #pubCreateClean .subtitle{
+    max-width: 840px;
+    line-height: 1.6;
+  }
+  #pubCreateClean .card{
+    background: linear-gradient(180deg, rgba(255,255,255,.94), rgba(248,250,252,.90));
+    border: 1px solid var(--glass-brd);
+    box-shadow: var(--deep-shadow);
+    backdrop-filter: blur(14px);
+  }
+  #pubCreateClean .cardHead{
+    border-bottom-color: rgba(148,163,184,.18);
+  }
+  #pubCreateClean .drop{
+    position: relative;
+    border: 1px dashed rgba(59,130,246,.28);
+    background:
+      radial-gradient(circle at top right, rgba(59,130,246,.08), transparent 35%),
+      radial-gradient(circle at bottom left, rgba(16,185,129,.08), transparent 35%),
+      linear-gradient(180deg, rgba(255,255,255,.88), rgba(248,250,252,.82));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.75);
+  }
+  #pubCreateClean .drop::after{
+    content:'PDF, JPG, PNG o WEBP';
+    position:absolute;
+    right:14px;
+    bottom:12px;
+    font-size:11px;
+    font-weight:800;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:rgba(71,85,105,.72);
+  }
+  #pubCreateClean .premiumHint{
+    margin-top: 12px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 1px solid rgba(148,163,184,.18);
+    background: linear-gradient(180deg, rgba(248,250,252,.95), rgba(255,255,255,.92));
+    color: #334155;
+    font-size: 12px;
+    line-height: 1.55;
+  }
+  #pubCreateClean .premiumHint strong{
+    color:#0f172a;
+  }
+  #pubCreateClean .aiBanner{
+    margin-top: 12px;
+    padding: 11px 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(59,130,246,.16);
+    background: rgba(59,130,246,.06);
+    color: #1e3a8a;
+    font-size: 12px;
+    display:none;
+  }
+  #pubCreateClean .aiBanner.show{
+    display:block;
+  }
+  #pubCreateClean .multiItem{
+    overflow: hidden;
+    border: 1px solid rgba(148,163,184,.16);
+    box-shadow: 0 10px 30px rgba(15,23,42,.06);
+  }
+  #pubCreateClean .miHead{
+    background: linear-gradient(180deg, rgba(255,255,255,.92), rgba(248,250,252,.82));
+  }
+  #pubCreateClean .miniArea{
+    min-height: 46px;
+  }
+</style>
 <div class="container py-5" id="pubCreateClean">
   {{-- ✅ Overlay loader --}}
   <div class="overlay" id="aiOverlay" aria-hidden="true">
@@ -44,7 +128,7 @@
         Subir publicación
       </h1>
       <div class="subtitle">
-        Carga tu archivo (PDF/Imagen) y extraeremos los datos automáticamente. Verifica la tabla antes de guardar.
+        Carga uno o varios archivos y revisa la extracción antes de guardar. El flujo ya viene optimizado para PDF, imágenes y captura manual sin romper el lote.
       </div>
     </div>
     <div class="topActions">
@@ -147,7 +231,7 @@
 
           <div class="cardBody">
             {{-- ✅ MULTI: files[] --}}
-            <input type="file" name="files[]" id="f-file" style="display:none;" multiple required accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/*">
+            <input type="file" name="files[]" id="f-file" style="display:none;" multiple required accept=".pdf,.PDF,.jpg,.jpeg,.png,.webp,application/pdf,application/x-pdf,application/octet-stream,image/*">
 
             <div class="drop" id="dropZone" title="Click para seleccionar archivos">
               <div class="fileRow">
@@ -157,12 +241,21 @@
                   </div>
                   <div style="min-width:0;">
                     <div class="fileName" id="fileName">Seleccionar archivo(s)...</div>
-                    <div class="fileMini"><span id="fileType">PDF o Imagen</span> • <span id="fileSize">Max 10MB</span></div>
+                    <div class="fileMini"><span id="fileType">PDF, JPG, PNG o WEBP</span> • <span id="fileSize">Máx. 50 MB por archivo</span></div>
                   </div>
                 </div>
                 <label class="btnx ghost tiny" for="f-file">Examinar</label>
               </div>
             </div>
+
+                        </div>
+
+            <div class="premiumHint">
+              <strong>Modo inteligente:</strong> si el PDF trae texto, la IA intenta leer encabezado y conceptos automáticamente.
+              Si el documento viene escaneado o no detecta renglones, puedes corregirlo aquí mismo sin perder la subida.
+            </div>
+
+            <div class="aiBanner" id="aiBanner"></div>
 
             <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px;">
               <small id="aiStatus" style="color:var(--muted); font-size:12px;">Esperando archivo(s)...</small>
@@ -293,6 +386,7 @@
       const fileNameEl = document.getElementById('fileName');
       const fileSizeEl = document.getElementById('fileSize');
       const aiStatus = document.getElementById('aiStatus');
+      const aiBanner = document.getElementById('aiBanner');
 
       const btnRetry = document.getElementById('btnRetry');
       const btnSkipIA = document.getElementById('btnSkipIA');
@@ -368,6 +462,34 @@
         if(s === 'run') document.getElementById('pillAiRun').classList.remove('hidden');
         if(s === 'ok') document.getElementById('pillAiOk').classList.remove('hidden');
         if(s === 'fail') document.getElementById('pillAiFail').classList.remove('hidden');
+      }
+
+
+      function setBanner(msg='', kind='info'){
+        if(!aiBanner) return;
+        aiBanner.textContent = msg || '';
+        aiBanner.classList.toggle('show', !!msg);
+        aiBanner.style.borderColor = kind === 'warn'
+          ? 'rgba(245,158,11,.24)'
+          : kind === 'error'
+            ? 'rgba(244,63,94,.24)'
+            : 'rgba(59,130,246,.18)';
+        aiBanner.style.background = kind === 'warn'
+          ? 'rgba(245,158,11,.10)'
+          : kind === 'error'
+            ? 'rgba(244,63,94,.08)'
+            : 'rgba(59,130,246,.06)';
+        aiBanner.style.color = kind === 'warn'
+          ? '#92400e'
+          : kind === 'error'
+            ? '#9f1239'
+            : '#1e3a8a';
+      }
+
+      function ensureAtLeastOneRow(items){
+        return Array.isArray(items) && items.length
+          ? items
+          : [{ item_name:'', qty:1, unit_price:0, line_total:0, unit:'pza' }];
       }
 
       function showOverlay(on, txt='', file='', pct=0){
@@ -807,13 +929,13 @@
           const items = Array.isArray(data.items) ? data.items : [];
           const notes = data.notes || {};
 
-          const normItems = items.map(it => ({
+          const normItems = ensureAtLeastOneRow(items.map(it => ({
             item_name: cleanTxt(it.item_name || ''),
             qty: num(it.qty) || 1,
             unit_price: num(it.unit_price) || 0,
             line_total: num(it.line_total) || 0,
             unit: cleanTxt(it.unit || 'pza')
-          }));
+          })));
           normItems.forEach(recalcRowModel);
 
           const totals = computeTotalsFromItems(normItems, true);
@@ -839,10 +961,12 @@
 
           updateMultiBulkHidden();
           renderMultiList();
+          if(data.warning){ setBanner(data.warning, 'warn'); } else { setBanner('Extracción completada. Revisa y ajusta cada documento antes de guardar.', 'info'); }
         }catch(e){
           o.status = 'fail';
           o.err = e.message || 'No se pudo extraer';
           o.notes = { warnings: ['AI failed'], confidence: 0.0 };
+          setBanner(o.err || 'No se pudo extraer este documento.', 'error');
           renderMultiList();
         } finally {
           showOverlay(false);
@@ -865,6 +989,7 @@
         showOverlay(false);
         toggleState('ok');
         aiStatus.textContent = 'Listo. Revisa/edita cada documento antes de guardar.';
+        setBanner('Análisis terminado. Puedes editar cada documento o pasar alguno a captura manual.', 'info');
         btnRetry.disabled = false;
       }
 
@@ -896,13 +1021,13 @@
           docSupplier.value = aiDoc.supplier_name || '';
           docDatetime.value = toDatetimeLocal(aiDoc.document_datetime || '');
 
-          aiRows = (data.items || []).map(it => ({
+          aiRows = ensureAtLeastOneRow((data.items || []).map(it => ({
             item_name: cleanTxt(it.item_name),
             qty: num(it.qty) || 1,
             unit_price: num(it.unit_price),
             line_total: num(it.line_total),
             unit: cleanTxt(it.unit) || 'pza'
-          }));
+          })));
 
           aiRows.forEach(recalcRowModel);
 
@@ -910,10 +1035,16 @@
           toggleView('ai');
           toggleState('ok');
           aiStatus.innerText = 'Revisa los datos extraídos. Puedes editar, agregar o borrar filas.';
+          if(data.warning){
+            setBanner(data.warning, 'warn');
+          }else{
+            setBanner('Extracción completada. Verifica proveedor, fecha y conceptos antes de guardar.', 'info');
+          }
         }catch(e){
           console.error(e);
           toggleState('fail');
           aiStatus.innerText = e.message || 'No se pudo extraer información. Intenta manual.';
+          setBanner(e.message || 'No se pudo analizar el archivo.', 'error');
         }
       }
 
@@ -1110,6 +1241,7 @@
           aiPayloadHidden.value = '';
           aiPayloadBulkHidden.value = '';
           multi.clear();
+          setBanner('');
           return;
         }
 
@@ -1124,6 +1256,7 @@
           btnRetry.disabled = false;
           btnRetry.textContent = 'Reintentar IA';
           aiStatus.textContent = 'Archivo listo. Analizando con IA...';
+          setBanner('Extrayendo encabezado y conceptos del documento...', 'info');
           toggleView('ai');
           aiPayloadBulkHidden.value = '';
           multi.clear();
@@ -1132,6 +1265,7 @@
           btnRetry.disabled = false;
           btnRetry.textContent = 'Analizar IA';
           aiStatus.textContent = `Listo. Se analizarán ${files.length} documentos aquí mismo (editable antes de guardar).`;
+          setBanner('Lote listo. Cada documento quedará editable antes de guardar.', 'info');
           toggleView('multi');
           toggleState('');
           aiPayloadHidden.value = '';
@@ -1177,6 +1311,7 @@
         toggleView('');
         toggleState('');
         aiStatus.innerText = 'Listo. Sube o reintenta con otro archivo.';
+        setBanner('');
         updateTotalsSingle();
       });
 
@@ -1187,6 +1322,7 @@
           aiExtractHidden.value = '0';
           aiPayloadBulkHidden.value = '';
           aiStatus.textContent = `Modo manual: se subirán ${files.length} documentos SIN análisis IA.`;
+          setBanner('Modo manual activo para el lote. Se subirán sin análisis IA.', 'warn');
           toggleState('');
           return;
         }
@@ -1194,6 +1330,7 @@
         toggleView('manual');
         toggleState('');
         aiStatus.innerText = 'Captura manual habilitada.';
+        setBanner('Captura manual activa. Puedes registrar proveedor, fecha y conceptos sin usar IA.', 'warn');
         aiSkipHidden.value = '1';
         aiExtractHidden.value = '0';
         syncManualPayload();

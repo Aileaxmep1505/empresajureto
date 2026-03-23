@@ -19,48 +19,97 @@ class PublicationPurchaseAiService
     /* =========================
      | VALIDACIONES
      ========================= */
+    public function validationMessages(): array
+    {
+        return [
+            'files.array'          => 'Debes subir uno o más archivos válidos.',
+            'files.min'            => 'Debes subir al menos 1 archivo.',
+            'files.max'            => 'Solo puedes subir hasta 25 archivos por lote.',
+            'files.*.file'         => 'Cada elemento debe ser un archivo válido.',
+            'files.*.max'          => 'Cada archivo puede pesar hasta 50 MB.',
+            'files.*.mimes'        => 'Cada archivo debe ser PDF, JPG, JPEG, PNG o WEBP.',
+            'files.*.mimetypes'    => 'Uno de los archivos no se reconoció como PDF o imagen válido.',
+            'file.file'            => 'El archivo no es válido.',
+            'file.max'             => 'El archivo puede pesar hasta 50 MB.',
+            'file.mimes'           => 'El archivo debe ser PDF, JPG, JPEG, PNG o WEBP.',
+            'file.mimetypes'       => 'El archivo no se reconoció como PDF o imagen válido.',
+            'title.required'       => 'El título es obligatorio.',
+            'category.required'    => 'Debes seleccionar el tipo de operación.',
+            'category.in'          => 'La categoría seleccionada no es válida.',
+            'payload.required'     => 'No se recibió la información a guardar.',
+            'payload.array'        => 'El payload recibido no es válido.',
+        ];
+    }
+
+    public function validationAttributes(): array
+    {
+        return [
+            'file'          => 'archivo',
+            'files'         => 'archivos',
+            'files.*'       => 'archivo',
+            'title'         => 'título',
+            'description'   => 'descripción',
+            'category'      => 'categoría',
+            'payload'       => 'payload',
+            'publication_id'=> 'publicación',
+        ];
+    }
+
     public function storeRules(): array
     {
         return [
-            'title'       => ['required','string','max:200'],
-            'description' => ['nullable','string','max:5000'],
+            'title'       => ['required', 'string', 'max:200'],
+            'description' => ['nullable', 'string', 'max:5000'],
 
-            // ✅ multi
-            'files'       => ['nullable','array','min:1','max:25'],
-            'files.*'     => ['file','max:51200','mimes:jpg,jpeg,png,webp,pdf'],
+            'files'       => ['nullable', 'array', 'min:1', 'max:25'],
+            'files.*'     => [
+                'file',
+                'max:51200',
+                'mimes:pdf,jpg,jpeg,png,webp',
+                'mimetypes:application/pdf,application/x-pdf,application/octet-stream,image/jpeg,image/png,image/webp',
+            ],
 
-            // ✅ compat single viejo
-            'file'        => ['nullable','file','max:51200'],
+            'file'        => [
+                'nullable',
+                'file',
+                'max:51200',
+                'mimes:pdf,jpg,jpeg,png,webp',
+                'mimetypes:application/pdf,application/x-pdf,application/octet-stream,image/jpeg,image/png,image/webp',
+            ],
 
             'pinned'      => ['nullable'],
-            'ai_extract'  => ['nullable','boolean'],
+            'ai_extract'  => ['nullable', 'boolean'],
             'ai_skip'     => ['nullable'],
 
-            // ✅ payload single (1 archivo)
-            'ai_payload'       => ['nullable','string'],
-            // ✅ payload multi (muchos archivos)
-            'ai_payload_bulk'  => ['nullable','string'],
-            'file_fps'         => ['nullable','array'],
-            'file_fps.*'       => ['nullable','string','max:500'],
+            'ai_payload'      => ['nullable', 'string'],
+            'ai_payload_bulk' => ['nullable', 'string'],
+            'file_fps'        => ['nullable', 'array'],
+            'file_fps.*'      => ['nullable', 'string', 'max:500'],
 
-            'category'    => ['required','string','in:compra,venta'],
+            'category'    => ['required', 'string', 'in:compra,venta'],
         ];
     }
 
     public function extractRules(): array
     {
         return [
-            'file'     => ['required','file','max:20480','mimes:jpg,jpeg,png,webp,pdf'],
-            'category' => ['required','string','in:compra,venta'],
+            'file'     => [
+                'required',
+                'file',
+                'max:51200',
+                'mimes:pdf,jpg,jpeg,png,webp',
+                'mimetypes:application/pdf,application/x-pdf,application/octet-stream,image/jpeg,image/png,image/webp',
+            ],
+            'category' => ['required', 'string', 'in:compra,venta'],
         ];
     }
 
     public function saveRules(): array
     {
         return [
-            'publication_id' => ['nullable','integer'],
-            'payload'        => ['required','array'],
-            'category'       => ['required','string','in:compra,venta'],
+            'publication_id' => ['nullable', 'integer'],
+            'payload'        => ['required', 'array'],
+            'category'       => ['required', 'string', 'in:compra,venta'],
         ];
     }
 
@@ -477,120 +526,297 @@ class PublicationPurchaseAiService
      ========================= */
     public function aiExtractSingleLocalFile(string $absolutePath, string $originalName, string $category = 'compra'): array
     {
-        $apiKey = (string) (
-            config('services.openai.api_key')
-            ?: config('services.openai.key')
-            ?: config('openai.api_key')
-            ?: config('openai.key')
-            ?: ''
-        );
+        $cfg = $this->openAiConfig();
 
+        if ($cfg['api_key'] === '') {
+            throw new \RuntimeException('Missing OpenAI API key.');
+        }
+
+        if (!is_file($absolutePath)) {
+            throw new \RuntimeException('El archivo temporal no existe.');
+        }
+
+        $ext  = strtolower(pathinfo($originalName, PATHINFO_EXTENSION) ?: pathinfo($absolutePath, PATHINFO_EXTENSION));
+        $mime = $this->guessMimeType($absolutePath, $ext);
+        $kind = $this->detectKind($mime, $ext);
+
+        $inputType = $kind === 'image' ? 'input_image' : 'input_file';
+        $system = $this->buildExtractorSystemPromptStrictTableOnly($category);
+        $fileId = null;
+
+        try {
+            $fileId = $this->uploadFileToOpenAi($absolutePath, $originalName, $cfg);
+
+            $data1 = $this->callResponsesExtract(
+                cfg: $cfg,
+                fileId: $fileId,
+                system: $system,
+                userText: 'Extrae TODOS los renglones REALES de la tabla de conceptos en TODAS las páginas. No inventes. Devuelve JSON.',
+                inputType: $inputType
+            );
+
+            $items = is_array($data1['items'] ?? null) ? $data1['items'] : [];
+            $doc   = is_array($data1['document'] ?? null) ? $data1['document'] : [];
+            $notes = is_array($data1['notes'] ?? null) ? $data1['notes'] : ['warnings' => [], 'confidence' => 0.0];
+
+            $items = $this->filterAndDedupeExtractedItems($items);
+
+            if (count($items) <= 1) {
+                $already = $this->buildAlreadyExtractedHints($items, 20);
+
+                $data2 = $this->callResponsesExtract(
+                    cfg: $cfg,
+                    fileId: $fileId,
+                    system: $system,
+                    userText: "Parece que faltan renglones. No repitas items.
+Ya tengo:
+{$already}
+
+Busca en TODAS las páginas y devuelve SOLO items nuevos reales de la tabla. Si no hay, regresa items=[].",
+                    inputType: $inputType
+                );
+
+                $items2 = is_array($data2['items'] ?? null) ? $data2['items'] : [];
+                $items2 = $this->filterAndDedupeExtractedItems($items2);
+
+                $items = array_merge($items, $items2);
+                $items = $this->filterAndDedupeExtractedItems($items);
+
+                $notes['warnings'] = array_values(array_unique(array_merge(
+                    (array) ($notes['warnings'] ?? []),
+                    (array) data_get($data2, 'notes.warnings', [])
+                )));
+                $notes['confidence'] = max(
+                    (float) ($notes['confidence'] ?? 0),
+                    (float) data_get($data2, 'notes.confidence', 0)
+                );
+
+                if (empty($doc) && is_array($data2['document'] ?? null)) {
+                    $doc = $data2['document'];
+                }
+            }
+
+            if (empty($items)) {
+                $notes['warnings'] = array_values(array_unique(array_merge(
+                    (array) ($notes['warnings'] ?? []),
+                    ['La IA no detectó conceptos automáticamente.']
+                )));
+            }
+
+            return [
+                'document' => $doc ?: [
+                    'document_type'     => 'otro',
+                    'supplier_name'     => null,
+                    'counterparty_rfc'  => null,
+                    'uuid'              => null,
+                    'serie'             => null,
+                    'folio'             => null,
+                    'currency'          => 'MXN',
+                    'document_datetime' => null,
+                    'subtotal'          => 0,
+                    'tax'               => 0,
+                    'total'             => 0,
+                ],
+                'items' => $items,
+                'notes' => $notes,
+            ];
+        } finally {
+            if ($fileId) {
+                $this->deleteOpenAiFile($fileId, $cfg);
+            }
+        }
+    }
+
+    private function openAiConfig(): array
+    {
         $baseUrl = rtrim((string) (
             config('services.openai.base_url')
             ?: config('openai.base_url')
             ?: 'https://api.openai.com/v1'
         ), '/');
-        if (!str_ends_with($baseUrl, '/v1')) $baseUrl .= '/v1';
 
-        $modelId = (string) (
-            config('services.openai.model')
-            ?: config('openai.primary')
-            ?: config('openai.model')
-            ?: 'gpt-4.1'
-        );
-
-        $timeout = (int) (
-            config('services.openai.timeout')
-            ?: config('openai.timeout')
-            ?: 300
-        );
-
-        if ($apiKey === '') {
-            throw new \RuntimeException('Missing OpenAI API key.');
-        }
-
-        // 1) upload file -> OpenAI Files (purpose user_data)
-        $upload = Http::withToken($apiKey)
-            ->timeout($timeout)
-            ->attach('file', file_get_contents($absolutePath), $originalName)
-            ->post($baseUrl . '/files', ['purpose' => 'user_data']);
-
-        if (!$upload->ok()) {
-            Log::warning('AI file upload error', ['status' => $upload->status(), 'body' => $upload->body()]);
-            throw new \RuntimeException('Error subiendo archivo a OpenAI.');
-        }
-
-        $fileId = $upload->json('id');
-        if (!$fileId) throw new \RuntimeException('OpenAI no regresó file_id.');
-
-        $system = $this->buildExtractorSystemPromptStrictTableOnly($category);
-
-        $call = function (string $userText) use ($apiKey, $baseUrl, $modelId, $fileId, $system, $timeout): array {
-            $resp = Http::withToken($apiKey)
-                ->timeout($timeout)
-                ->withHeaders(['Content-Type' => 'application/json'])
-                ->post($baseUrl . '/responses', [
-                    'model'        => $modelId,
-                    'instructions' => $system,
-                    'input'        => [[
-                        'role'    => 'user',
-                        'content' => [
-                            ['type' => 'input_text', 'text' => $userText],
-                            ['type' => 'input_file', 'file_id' => $fileId],
-                        ],
-                    ]],
-                    'max_output_tokens' => 12000,
-                ]);
-
-            if (!$resp->ok()) {
-                Log::warning('AI responses error', ['status' => $resp->status(), 'body' => $resp->body()]);
-                throw new \RuntimeException('La IA respondió con error.');
-            }
-
-            return $this->parseOpenAiJsonFromResponses((array)$resp->json());
-        };
-
-        $data1 = $call("Extrae TODOS los renglones REALES de la TABLA de conceptos en TODAS las páginas. NO inventes. Devuelve JSON.");
-
-        $items = is_array($data1['items'] ?? null) ? $data1['items'] : [];
-        $doc   = is_array($data1['document'] ?? null) ? $data1['document'] : [];
-
-        $items = $this->filterAndDedupeExtractedItems($items);
-
-        // second pass si casi vacío
-        if (count($items) <= 1) {
-            $already = $this->buildAlreadyExtractedHints($items, 20);
-
-            $data2 = $call(
-                "Parece que faltan renglones. NO repitas items.\n" .
-                "Ya tengo:\n{$already}\n\n" .
-                "Busca en TODAS las páginas y devuelve SOLO ITEMS NUEVOS REALES de la tabla. Si no hay, regresa items=[]."
-            );
-
-            $items2 = is_array($data2['items'] ?? null) ? $data2['items'] : [];
-            $items2 = $this->filterAndDedupeExtractedItems($items2);
-
-            $items = array_merge($items, $items2);
-            $items = $this->filterAndDedupeExtractedItems($items);
+        if (!str_ends_with($baseUrl, '/v1')) {
+            $baseUrl .= '/v1';
         }
 
         return [
-            'document' => $doc ?: [
-                'document_type' => 'otro',
-                'supplier_name' => null,
-                'counterparty_rfc' => null,
-                'uuid' => null,
-                'serie' => null,
-                'folio' => null,
-                'currency' => 'MXN',
-                'document_datetime' => null,
-                'subtotal' => 0,
-                'tax' => 0,
-                'total' => 0,
-            ],
-            'items' => $items,
-            'notes' => $data1['notes'] ?? ['warnings' => [], 'confidence' => 0.0],
+            'api_key'        => (string) (
+                config('services.openai.api_key')
+                ?: config('services.openai.key')
+                ?: config('openai.api_key')
+                ?: config('openai.key')
+                ?: ''
+            ),
+            'base_url'       => $baseUrl,
+            'model'          => (string) (
+                config('services.openai.model')
+                ?: config('openai.primary')
+                ?: config('openai.model')
+                ?: 'gpt-4.1'
+            ),
+            'timeout'        => (int) (
+                config('services.openai.timeout')
+                ?: config('openai.timeout')
+                ?: 300
+            ),
+            'retries'        => (int) (
+                config('services.openai.retries')
+                ?: config('openai.retries')
+                ?: 3
+            ),
+            'retry_sleep_ms' => (int) (
+                config('services.openai.retry_sleep_ms')
+                ?: config('openai.retry_sleep_ms')
+                ?: 1200
+            ),
         ];
+    }
+
+    private function uploadFileToOpenAi(string $absolutePath, string $originalName, array $cfg): string
+    {
+        $lastStatus = null;
+        $lastBody = null;
+
+        for ($attempt = 1; $attempt <= max(1, (int) $cfg['retries']); $attempt++) {
+            $upload = Http::withToken($cfg['api_key'])
+                ->timeout((int) $cfg['timeout'])
+                ->attach('file', file_get_contents($absolutePath), $originalName)
+                ->post($cfg['base_url'] . '/files', ['purpose' => 'user_data']);
+
+            if ($upload->successful()) {
+                $fileId = (string) $upload->json('id');
+                if ($fileId !== '') {
+                    return $fileId;
+                }
+            }
+
+            $lastStatus = $upload->status();
+            $lastBody = $upload->body();
+
+            if ($attempt < (int) $cfg['retries']) {
+                usleep(((int) $cfg['retry_sleep_ms']) * 1000);
+            }
+        }
+
+        Log::warning('AI file upload error', [
+            'status' => $lastStatus,
+            'body'   => $lastBody,
+        ]);
+
+        throw new \RuntimeException('Error subiendo archivo a OpenAI.');
+    }
+
+    private function callResponsesExtract(array $cfg, string $fileId, string $system, string $userText, string $inputType = 'input_file'): array
+    {
+        $content = [
+            ['type' => 'input_text', 'text' => $userText],
+            ['type' => $inputType, 'file_id' => $fileId],
+        ];
+
+        $lastStatus = null;
+        $lastBody = null;
+        $lastError = null;
+
+        for ($attempt = 1; $attempt <= max(1, (int) $cfg['retries']); $attempt++) {
+            try {
+                $resp = Http::withToken($cfg['api_key'])
+                    ->timeout((int) $cfg['timeout'])
+                    ->withHeaders([
+                        'Accept'       => 'application/json',
+                        'Content-Type' => 'application/json',
+                    ])
+                    ->post($cfg['base_url'] . '/responses', [
+                        'model'             => $cfg['model'],
+                        'instructions'      => $system,
+                        'input'             => [[
+                            'role'    => 'user',
+                            'content' => $content,
+                        ]],
+                        'max_output_tokens' => 6500,
+                    ]);
+
+                if ($resp->successful()) {
+                    return $this->parseOpenAiJsonFromResponses((array) $resp->json());
+                }
+
+                $lastStatus = $resp->status();
+                $lastBody = $resp->body();
+            } catch (\Throwable $e) {
+                $lastError = $e->getMessage();
+            }
+
+            if ($attempt < (int) $cfg['retries']) {
+                usleep(((int) $cfg['retry_sleep_ms']) * 1000);
+            }
+        }
+
+        Log::warning('AI responses error', [
+            'status' => $lastStatus,
+            'body'   => $lastBody,
+            'error'  => $lastError,
+        ]);
+
+        throw new \RuntimeException('La IA respondió con error.');
+    }
+
+    private function deleteOpenAiFile(string $fileId, array $cfg): void
+    {
+        try {
+            Http::withToken($cfg['api_key'])
+                ->timeout(30)
+                ->delete($cfg['base_url'] . '/files/' . $fileId);
+        } catch (\Throwable $e) {
+            Log::info('AI file cleanup skipped', [
+                'file_id' => $fileId,
+                'error'   => $e->getMessage(),
+            ]);
+        }
+    }
+
+    private function guessMimeType(string $absolutePath, string $ext = ''): string
+    {
+        $mime = '';
+
+        try {
+            $mime = (string) (mime_content_type($absolutePath) ?: '');
+        } catch (\Throwable $e) {
+            $mime = '';
+        }
+
+        if (($mime === '' || $mime === 'application/octet-stream') && function_exists('finfo_open')) {
+            try {
+                $finfo = finfo_open(FILEINFO_MIME_TYPE);
+                if ($finfo) {
+                    $detected = finfo_file($finfo, $absolutePath);
+                    finfo_close($finfo);
+                    if (is_string($detected) && $detected !== '') {
+                        $mime = $detected;
+                    }
+                }
+            } catch (\Throwable $e) {
+                // ignore
+            }
+        }
+
+        $ext = strtolower($ext);
+
+        if (($mime === '' || $mime === 'application/octet-stream') && $ext === 'pdf') {
+            return 'application/pdf';
+        }
+
+        if (($mime === '' || $mime === 'application/octet-stream') && in_array($ext, ['jpg', 'jpeg'], true)) {
+            return 'image/jpeg';
+        }
+
+        if (($mime === '' || $mime === 'application/octet-stream') && $ext === 'png') {
+            return 'image/png';
+        }
+
+        if (($mime === '' || $mime === 'application/octet-stream') && $ext === 'webp') {
+            return 'image/webp';
+        }
+
+        return $mime !== '' ? $mime : 'application/octet-stream';
     }
 
     private function buildExtractorSystemPromptStrictTableOnly(string $category): string
@@ -665,21 +891,32 @@ TXT;
                 }
             }
         } elseif (isset($json['choices'][0]['message']['content'])) {
-            $rawText = $json['choices'][0]['message']['content'];
+            $rawText = is_string($json['choices'][0]['message']['content'])
+                ? $json['choices'][0]['message']['content']
+                : json_encode($json['choices'][0]['message']['content'], JSON_UNESCAPED_UNICODE);
         }
 
-        $rawText = trim((string)$rawText);
+        $rawText = trim((string) $rawText);
         $rawText = preg_replace('/^```json\s*|\s*```$/', '', $rawText);
 
-        if ($rawText === '') throw new \RuntimeException('No se pudo leer salida de IA.');
-
-        $data = json_decode($rawText, true);
-        if (!is_array($data)) {
-            Log::warning('AI invalid JSON', ['raw' => mb_substr($rawText, 0, 2000)]);
-            throw new \RuntimeException('La IA no devolvió JSON válido.');
+        if ($rawText === '') {
+            throw new \RuntimeException('No se pudo leer salida de IA.');
         }
 
-        return $data;
+        $data = json_decode($rawText, true);
+        if (is_array($data)) {
+            return $data;
+        }
+
+        if (preg_match('/\{(?:[^{}]|(?R))*\}/s', $rawText, $m)) {
+            $data = json_decode((string) $m[0], true);
+            if (is_array($data)) {
+                return $data;
+            }
+        }
+
+        Log::warning('AI invalid JSON', ['raw' => mb_substr($rawText, 0, 2000)]);
+        throw new \RuntimeException('La IA no devolvió JSON válido.');
     }
 
     /* =========================
@@ -984,18 +1221,19 @@ TXT;
 
     private function detectKind(?string $mime, string $ext): string
     {
-        $mime = (string)$mime;
+        $mime = (string) $mime;
         $ext = strtolower($ext);
 
         if (str_starts_with($mime, 'image/')) return 'image';
         if (str_starts_with($mime, 'video/')) return 'video';
-        if ($mime === 'application/pdf' || $ext === 'pdf') return 'pdf';
+        if (in_array($mime, ['application/pdf', 'application/x-pdf'], true) || $ext === 'pdf') return 'pdf';
 
-        $docExt = ['doc','docx','odt','rtf'];
-        $xlsExt = ['xls','xlsx','csv','ods'];
+        $docExt = ['doc', 'docx', 'odt', 'rtf'];
+        $xlsExt = ['xls', 'xlsx', 'csv', 'ods'];
         if (in_array($ext, $docExt, true)) return 'doc';
         if (in_array($ext, $xlsExt, true)) return 'sheet';
 
         return 'file';
     }
+
 }
