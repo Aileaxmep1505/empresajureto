@@ -94,6 +94,9 @@ use App\Http\Controllers\ConfidentialDocsController;
 use App\Http\Controllers\Admin\WmsAnalyticsController;
 use App\Http\Controllers\WhatsApp\WhatsAppWebhookController;
 use App\Http\Controllers\Admin\WaConversationController;
+use App\Http\Controllers\Admin\WmsLayoutController;
+use App\Http\Controllers\Admin\WmsFastFlowController;
+
 /*
 |--------------------------------------------------------------------------
 | AUTH
@@ -1241,337 +1244,6 @@ Route::middleware(['auth'])->prefix('admin/wms')->name('admin.wms.')->group(func
         return view('admin.wms.qr_print', compact('locations', 'qrMap'));
     })->name('qr.print.batch');
 
-    /* =========================
-     |  VISTAS: LAYOUT + HEATMAP
-     ========================= */
-
-    // Editor de Layout
-    Route::get('/layout', function (\Illuminate\Http\Request $r) {
-        $warehouses = \App\Models\Warehouse::query()->orderBy('id')->get();
-        $warehouseId = (int) ($r->get('warehouse_id') ?? ($warehouses->first()->id ?? 1));
-        $warehouse = \App\Models\Warehouse::query()->find($warehouseId);
-
-        return view('admin.wms.layout', compact('warehouse', 'warehouseId', 'warehouses'));
-    })->name('layout.editor');
-
-    // Heatmap (calor)
-    Route::get('/heatmap', function (\Illuminate\Http\Request $r) {
-        $warehouses = \App\Models\Warehouse::query()->orderBy('id')->get();
-        $warehouseId = (int) ($r->get('warehouse_id') ?? ($warehouses->first()->id ?? 1));
-        $warehouse = \App\Models\Warehouse::query()->find($warehouseId);
-
-        $locations = \App\Models\Location::query()
-            ->where('warehouse_id', $warehouseId)
-            ->orderBy('code')
-            ->get();
-
-        return view('admin.wms.heatmap', compact('warehouse','warehouseId','warehouses','locations'));
-    })->name('heatmap.view');
-
-    /* =========================
-     |  API: LAYOUT
-     ========================= */
-
-    // GET /admin/wms/layout/data?warehouse_id=...
-    Route::get('/layout/data', function (\Illuminate\Http\Request $r) {
-        $data = $r->validate([
-            'warehouse_id' => ['required','integer','exists:warehouses,id'],
-        ]);
-
-        $locations = \App\Models\Location::query()
-            ->where('warehouse_id', (int)$data['warehouse_id'])
-            ->orderBy('aisle')
-            ->orderBy('section')
-            ->orderBy('stand')
-            ->orderBy('rack')
-            ->orderBy('level')
-            ->orderBy('bin')
-            ->get()
-            ->map(function ($l) {
-                return [
-                    'id' => $l->id,
-                    'warehouse_id' => $l->warehouse_id,
-                    'parent_id' => $l->parent_id,
-                    'type' => $l->type,
-                    'code' => $l->code,
-                    'aisle' => $l->aisle,
-                    'section' => $l->section,
-                    'stand' => $l->stand,
-                    'rack' => $l->rack,
-                    'level' => $l->level,
-                    'bin' => $l->bin,
-                    'name' => $l->name,
-                    'meta' => $l->meta ?? [],
-                ];
-            })
-            ->values();
-
-        return response()->json([
-            'ok' => true,
-            'locations' => $locations,
-        ]);
-    })->name('layout.data');
-
-    // POST /admin/wms/layout/cell (crear/actualizar 1 ubicación)
-    Route::post('/layout/cell', function (\Illuminate\Http\Request $r) {
-        $payload = $r->validate([
-            'id' => ['nullable','integer','exists:locations,id'],
-            'warehouse_id' => ['required','integer','exists:warehouses,id'],
-
-            'type' => ['nullable','string','max:40'],
-            'code' => ['required','string','max:80'],
-            'name' => ['nullable','string','max:255'],
-
-            'aisle' => ['nullable','string','max:40'],
-            'section' => ['nullable','string','max:40'],
-            'stand' => ['nullable','string','max:40'],
-            'rack' => ['nullable','string','max:40'],
-            'level' => ['nullable','string','max:40'],
-            'bin' => ['nullable','string','max:40'],
-
-            'meta' => ['nullable','array'],
-            'meta.x' => ['nullable','integer','min:0'],
-            'meta.y' => ['nullable','integer','min:0'],
-            'meta.w' => ['nullable','integer','min:1'],
-            'meta.h' => ['nullable','integer','min:1'],
-            'meta.notes' => ['nullable','string','max:2000'],
-        ]);
-
-        $id = $payload['id'] ?? null;
-
-        $attrs = [
-            'warehouse_id' => (int)$payload['warehouse_id'],
-            'type' => $payload['type'] ?? 'bin',
-            'code' => $payload['code'],
-            'name' => $payload['name'] ?? null,
-
-            'aisle' => $payload['aisle'] ?? null,
-            'section' => $payload['section'] ?? null,
-            'stand' => $payload['stand'] ?? null,
-            'rack' => $payload['rack'] ?? null,
-            'level' => $payload['level'] ?? null,
-            'bin' => $payload['bin'] ?? null,
-
-            'meta' => $payload['meta'] ?? [],
-        ];
-
-        if ($id) {
-            $loc = \App\Models\Location::query()->findOrFail($id);
-            $loc->update($attrs);
-        } else {
-            $loc = \App\Models\Location::query()->create($attrs);
-        }
-
-        return response()->json([
-            'ok' => true,
-            'location' => [
-                'id' => $loc->id,
-                'warehouse_id' => $loc->warehouse_id,
-                'type' => $loc->type,
-                'code' => $loc->code,
-                'aisle' => $loc->aisle,
-                'section' => $loc->section,
-                'stand' => $loc->stand,
-                'rack' => $loc->rack,
-                'level' => $loc->level,
-                'bin' => $loc->bin,
-                'name' => $loc->name,
-                'meta' => $loc->meta ?? [],
-            ],
-        ]);
-    })->name('layout.cell');
-
-    // DELETE /admin/wms/layout/delete (BORRAR 1 ubicación)
-    Route::post('/layout/delete', function (\Illuminate\Http\Request $r) {
-        $data = $r->validate([
-            'warehouse_id' => ['required','integer','exists:warehouses,id'],
-            'id' => ['required','integer','exists:locations,id'],
-        ]);
-
-        $whId = (int)$data['warehouse_id'];
-        $id   = (int)$data['id'];
-
-        $loc = \App\Models\Location::query()
-            ->where('warehouse_id', $whId)
-            ->where('id', $id)
-            ->first();
-
-        if (!$loc) {
-            return response()->json(['ok'=>false,'error'=>'No encontrado en esa bodega.'], 404);
-        }
-
-        $loc->delete();
-
-        return response()->json(['ok'=>true]);
-    })->name('layout.delete');
-
-    // POST /admin/wms/layout/generate-rack (generar en lote)
-    Route::post('/layout/generate-rack', function (\Illuminate\Http\Request $r) {
-        $p = $r->validate([
-            'warehouse_id' => ['required','integer','exists:warehouses,id'],
-
-            'prefix' => ['required','string','max:10'], // pasillo
-            'stand' => ['nullable','string','max:10'],
-
-            'rack_count' => ['required','integer','min:1','max:200'],
-            'levels' => ['required','integer','min:1','max:10'],
-            'bins' => ['required','integer','min:1','max:10'],
-
-            'start_x' => ['required','integer','min:0'],
-            'start_y' => ['required','integer','min:0'],
-            'cell_w' => ['required','integer','min:1'],
-            'cell_h' => ['required','integer','min:1'],
-            'gap_x' => ['required','integer','min:0'],
-            'gap_y' => ['required','integer','min:0'],
-
-            'direction' => ['required','in:right,down'],
-        ]);
-
-        $whId = (int)$p['warehouse_id'];
-        $prefix = strtoupper(trim((string)$p['prefix']));
-        $stand = $p['stand'] !== null ? trim((string)$p['stand']) : null;
-
-        $rackCount = (int)$p['rack_count'];
-        $levels = (int)$p['levels'];
-        $bins = (int)$p['bins'];
-
-        $startX = (int)$p['start_x'];
-        $startY = (int)$p['start_y'];
-        $cellW = (int)$p['cell_w'];
-        $cellH = (int)$p['cell_h'];
-        $gapX = (int)$p['gap_x'];
-        $gapY = (int)$p['gap_y'];
-        $direction = $p['direction'];
-
-        $binInnerGap = 1;
-        $rackSpanX = ($bins * $cellW) + (($bins - 1) * $binInnerGap);
-        $rackSpanY = ($levels * $cellH) + (($levels - 1) * $gapY);
-
-        $created = 0;
-
-        for ($rIdx = 1; $rIdx <= $rackCount; $rIdx++) {
-            $rackNo = str_pad((string)$rIdx, 2, '0', STR_PAD_LEFT);
-
-            if ($direction === 'right') {
-                $rackBaseX = $startX + (($rIdx - 1) * ($rackSpanX + $gapX));
-                $rackBaseY = $startY;
-            } else {
-                $rackBaseX = $startX;
-                $rackBaseY = $startY + (($rIdx - 1) * ($rackSpanY + $gapY));
-            }
-
-            for ($lvl = 1; $lvl <= $levels; $lvl++) {
-                $lvlNo = str_pad((string)$lvl, 2, '0', STR_PAD_LEFT);
-
-                for ($b = 1; $b <= $bins; $b++) {
-                    $binNo = str_pad((string)$b, 2, '0', STR_PAD_LEFT);
-
-                    $code = $prefix;
-                    if ($stand !== null && $stand !== '') $code .= '-S'.$stand;
-                    $code .= '-R'.$rackNo.'-L'.$lvlNo.'-B'.$binNo;
-
-                    $x = $rackBaseX + (($b - 1) * ($cellW + $binInnerGap));
-                    $y = $rackBaseY + (($lvl - 1) * ($cellH + $gapY));
-
-                    $loc = \App\Models\Location::query()
-                        ->where('warehouse_id', $whId)
-                        ->where('code', $code)
-                        ->first();
-
-                    $data = [
-                        'warehouse_id' => $whId,
-                        'type' => 'bin',
-                        'code' => $code,
-                        'aisle' => $prefix,
-                        'stand' => $stand,
-                        'rack' => $rackNo,
-                        'level' => $lvlNo,
-                        'bin' => $binNo,
-                        'meta' => [
-                            'x' => $x,
-                            'y' => $y,
-                            'w' => $cellW,
-                            'h' => $cellH,
-                        ],
-                    ];
-
-                    if ($loc) {
-                        $loc->update($data);
-                    } else {
-                        \App\Models\Location::query()->create($data);
-                        $created++;
-                    }
-                }
-            }
-        }
-
-        return response()->json([
-            'ok' => true,
-            'created' => $created,
-        ]);
-    })->name('layout.generate-rack');
-
-    /* =========================
-     |  API: HEATMAP
-     ========================= */
-    Route::get('/heatmap/data', function (\Illuminate\Http\Request $r) {
-
-        $data = $r->validate([
-            'warehouse_id' => ['required','integer','exists:warehouses,id'],
-            'metric' => ['nullable','in:inv_qty,primary_stock'],
-        ]);
-
-        $warehouseId = (int)$data['warehouse_id'];
-        $metric = $data['metric'] ?? 'inv_qty';
-
-        $metaArr = function ($meta) {
-            if (is_array($meta)) return $meta;
-            if (is_object($meta)) return (array)$meta;
-            if (is_string($meta) && trim($meta) !== '') {
-                $d = json_decode($meta, true);
-                return is_array($d) ? $d : [];
-            }
-            return [];
-        };
-
-        $locations = \App\Models\Location::query()
-            ->where('warehouse_id', $warehouseId)
-            ->orderBy('code')
-            ->get(['id','code','meta']);
-
-        $ids = $locations->pluck('id')->all();
-
-        $qtyByLoc = \App\Models\Inventory::query()
-            ->selectRaw('location_id, SUM(qty) as sum_qty')
-            ->whereIn('location_id', $ids)
-            ->groupBy('location_id')
-            ->pluck('sum_qty', 'location_id');
-
-        $cells = $locations->map(function ($l) use ($metaArr, $qtyByLoc) {
-            $m = $metaArr($l->meta);
-            if (!array_key_exists('x', $m) || !array_key_exists('y', $m)) return null;
-
-            return [
-                'id' => (int)$l->id,
-                'code' => (string)$l->code,
-                'x' => (int)($m['x'] ?? 0),
-                'y' => (int)($m['y'] ?? 0),
-                'w' => (int)($m['w'] ?? 1),
-                'h' => (int)($m['h'] ?? 1),
-                'value' => (int)($qtyByLoc[$l->id] ?? 0),
-            ];
-        })->filter()->values();
-
-        $max = (int)($cells->max('value') ?? 0);
-
-        return response()->json([
-            'ok' => true,
-            'metric' => $metric,
-            'max' => $max,
-            'cells' => $cells,
-        ]);
-
-    })->name('heatmap.data');
 
     /* =========================
      |  API WMS BASE
@@ -2031,4 +1703,74 @@ Route::middleware(['auth'])->prefix('admin/whatsapp')->group(function () {
     Route::post('/conversations/{conversation}/take', [WaConversationController::class, 'take'])->name('admin.whatsapp.conversations.take');
     Route::post('/conversations/{conversation}/reply', [WaConversationController::class, 'reply'])->name('admin.whatsapp.conversations.reply');
     Route::post('/conversations/{conversation}/close', [WaConversationController::class, 'close'])->name('admin.whatsapp.conversations.close');
+});
+Route::prefix('admin/wms')->name('admin.wms.')->middleware('auth')->group(function () {
+    Route::get('/analytics-v2', [WmsAnalyticsController::class, 'indexV2'])->name('analytics.v2');
+});
+Route::prefix('admin/wms')->name('admin.wms.')->middleware('auth')->group(function () {
+    Route::get('/picking-v2', [WmsPickingController::class, 'indexV2'])->name('picking.v2');
+    Route::get('/picking-scanner-v2', [WmsPickingController::class, 'scannerV2'])->name('picking.scanner.v2');
+
+    Route::post('/picking-v2', [WmsPickingController::class, 'storeV2'])->name('picking.v2.store');
+    Route::patch('/picking-v2/{pickWave}', [WmsPickingController::class, 'updateV2'])->name('picking.v2.update');
+});
+
+Route::prefix('admin/wms')->name('admin.wms.')->middleware('auth')->group(function () {
+    Route::get('/picking-v2', [WmsPickingController::class, 'indexV2'])->name('picking.v2');
+    Route::post('/picking-v2', [WmsPickingController::class, 'storeV2'])->name('picking.v2.store');
+    Route::patch('/picking-v2/{pickWave}', [WmsPickingController::class, 'updateV2'])->name('picking.v2.update');
+
+    Route::post('/picking-v2/ai-import', [WmsPickingController::class, 'aiImportV2'])->name('picking.v2.ai-import');
+});
+
+Route::prefix('admin/wms/fast-flow')
+    ->middleware(['auth'])
+    ->name('admin.wms.fastflow.')
+    ->group(function () {
+        Route::get('/', [WmsFastFlowController::class, 'index'])->name('index');
+        Route::get('/create', [WmsFastFlowController::class, 'create'])->name('create');
+        Route::post('/inbound', [WmsFastFlowController::class, 'storeInbound'])->name('inbound');
+        Route::get('/labels/{batchCode}', [WmsFastFlowController::class, 'printLabels'])->name('labels');
+        Route::get('/label/{labelCode}', [WmsFastFlowController::class, 'printSingleLabel'])->name('label');
+        Route::get('/{batchCode}', [WmsFastFlowController::class, 'show'])->name('show');
+});
+
+Route::get('/admin/wms/products/find', function () {
+    return view('admin.wms.product-finder');
+})->name('admin.wms.products.find.view')->middleware('auth');
+
+Route::get('/admin/wms/products/lookup', [WmsController::class, 'productLookup'])
+    ->name('admin.wms.products.lookup')
+    ->middleware('auth');
+
+
+    Route::prefix('admin/wms')->name('admin.wms.')->middleware('auth')->group(function () {
+    Route::get('/picking-v2', [WmsPickingController::class, 'indexV2'])->name('picking.v2');
+
+    Route::get('/picking-v2/create', [WmsPickingController::class, 'createV2'])->name('picking.v2.create');
+    Route::get('/picking-v2/{pickWave}/edit', [WmsPickingController::class, 'editV2'])->name('picking.v2.edit');
+
+    Route::post('/picking-v2', [WmsPickingController::class, 'storeV2'])->name('picking.v2.store');
+    Route::patch('/picking-v2/{pickWave}', [WmsPickingController::class, 'updateV2'])->name('picking.v2.update');
+
+    Route::post('/picking-v2/ai-import', [WmsPickingController::class, 'aiImportV2'])->name('picking.v2.ai-import');
+});
+
+Route::prefix('admin/wms')->name('admin.wms.')->middleware('auth')->group(function () {
+    Route::get('/audit', [\App\Http\Controllers\Admin\WmsAnalyticsController::class, 'audit'])->name('audit');
+    Route::post('/audit/ai', [\App\Http\Controllers\Admin\WmsAnalyticsController::class, 'auditAi'])->name('audit.ai');
+    Route::post('/audit/pdf', [\App\Http\Controllers\Admin\WmsAnalyticsController::class, 'auditPdf'])->name('audit.pdf');
+});
+Route::prefix('admin/wms')->name('admin.wms.')->middleware('auth')->group(function () {
+    Route::get('/layout', [WmsLayoutController::class, 'editor'])->name('layout.editor');
+    Route::get('/layout/data', [WmsLayoutController::class, 'data'])->name('layout.data');
+    Route::get('/layout/available-options', [WmsLayoutController::class, 'availableOptions'])->name('layout.available-options');
+    Route::get('/layout/suggest-slot', [WmsLayoutController::class, 'suggestSlot'])->name('layout.suggest-slot');
+
+    Route::post('/layout/cell', [WmsLayoutController::class, 'upsertCell'])->name('layout.cell.upsert');
+    Route::post('/layout/delete', [WmsLayoutController::class, 'deleteCell'])->name('layout.delete');
+    Route::post('/layout/generate-rack', [WmsLayoutController::class, 'generateRack'])->name('layout.generate-rack');
+
+    Route::get('/heatmap', [WmsLayoutController::class, 'heatmap'])->name('heatmap.view');
+    Route::get('/heatmap/data', [WmsLayoutController::class, 'heatmapData'])->name('heatmap.data');
 });

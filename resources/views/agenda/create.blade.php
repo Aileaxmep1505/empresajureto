@@ -45,7 +45,7 @@
     }
     .fc .fc-event-title{font-weight:600}
 
-    /* Modal */
+    /* Modal Crear / Editar */
     #agenda-modal-backdrop{position:fixed; inset:0; display:none; align-items:center; justify-content:center;
       background:rgba(2,8,23,.35); z-index:50}
     #agenda-modal{width:min(680px,92vw); background:#fff; border-radius:20px; border:1px solid var(--line);
@@ -63,6 +63,72 @@
     #agenda-modal .btn{padding:10px 14px; border-radius:12px; border:1px solid var(--line); background:#fff; color:var(--ink); text-decoration:none}
     #agenda-modal .btn.danger{border-color:#fecaca; background:#fff5f5; color:#7f1d1d}
     #agenda-modal .btn.primary{background:var(--brand); color:var(--brand-ink); font-weight:800}
+
+    /* Modal Solo Vista */
+    #view-modal-backdrop{position:fixed; inset:0; display:none; align-items:center; justify-content:center;
+      background:rgba(15,23,42,.55); z-index:60}
+    #view-modal{
+      width:min(560px,92vw); background:#020617; color:#e5e7eb; border-radius:24px;
+      border:1px solid rgba(148,163,184,.35);
+      box-shadow:0 28px 80px rgba(15,23,42,.85); overflow:hidden;
+      background-image:radial-gradient(circle at 0 0,rgba(56,189,248,.14),transparent 55%),
+                       radial-gradient(circle at 100% 0,rgba(129,140,248,.20),transparent 55%);
+    }
+    #view-modal .head{
+      display:flex; align-items:flex-start; justify-content:space-between; padding:18px 20px 6px;
+    }
+    #view-modal .head-main h3{
+      margin:0; font-size:18px; font-weight:700; letter-spacing:.02em;
+    }
+    #view-modal .head-main small{
+      display:block; margin-top:4px; font-size:12px; color:#9ca3af;
+    }
+    #view-modal .badge{
+      display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px;
+      background:rgba(15,23,42,.8); border:1px solid rgba(148,163,184,.5); font-size:11px; color:#e5e7eb;
+    }
+    #view-modal .body{
+      padding:10px 20px 18px; display:flex; flex-direction:column; gap:12px;
+    }
+    #view-modal .row{
+      display:flex; gap:10px; font-size:13px; color:#d1d5db;
+    }
+    #view-modal .row span.label{
+      min-width:88px; color:#9ca3af; text-transform:uppercase; letter-spacing:.08em; font-size:10px;
+    }
+    #view-modal .desc-box{
+      margin-top:4px; padding:10px 12px; border-radius:14px;
+      background:rgba(15,23,42,.72); border:1px dashed rgba(148,163,184,.5); font-size:13px;
+      max-height:130px; overflow:auto;
+    }
+    #view-modal .pill-group{
+      display:flex; flex-wrap:wrap; gap:8px; margin-top:4px;
+    }
+    #view-modal .pill{
+      padding:4px 10px; border-radius:999px; background:rgba(15,23,42,.75); border:1px solid rgba(148,163,184,.55);
+      font-size:11px; color:#e5e7eb;
+    }
+    #view-modal .foot{
+      display:flex; justify-content:space-between; align-items:center;
+      padding:10px 20px 16px; border-top:1px solid rgba(30,64,175,.5);
+      background:linear-gradient(90deg,rgba(37,99,235,.15),rgba(129,140,248,.12));
+    }
+    #view-modal .foot-left{
+      display:flex; flex-direction:column; gap:2px; font-size:11px; color:#e5e7eb;
+    }
+    #view-modal .foot-left strong{font-weight:600;}
+    #view-modal .btn{
+      display:inline-flex; align-items:center; gap:6px; padding:8px 13px; border-radius:999px;
+      border:1px solid rgba(148,163,184,.5); background:rgba(15,23,42,.75); color:#e5e7eb;
+      font-size:12px; cursor:pointer;
+    }
+    #view-modal .btn.primary{
+      background:linear-gradient(135deg,#60a5fa,#4f46e5); border-color:transparent; color:#0b1120; font-weight:700;
+      box-shadow:0 12px 30px rgba(37,99,235,.6);
+    }
+    #view-modal .btn-ghost{
+      background:transparent;
+    }
   </style>
 
   <div class="wrap">
@@ -153,6 +219,60 @@
       </div>
     </div>
   </div>
+
+  {{-- ===== Modal Solo Vista (detalle) ===== --}}
+  <div id="view-modal-backdrop">
+    <div id="view-modal" role="dialog" aria-modal="true">
+      <div class="head">
+        <div class="head-main">
+          <h3 id="view-title">Detalle del evento</h3>
+          <small id="view-subtitle">Resumen</small>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
+          <span class="badge" id="view-repeat-badge">
+            <span>●</span> <span id="view-repeat-label">Único</span>
+          </span>
+          <button id="btn-view-close" class="btn btn-ghost" aria-label="Cerrar">✕</button>
+        </div>
+      </div>
+      <div class="body">
+        <div class="row">
+          <span class="label">CUÁNDO</span>
+          <div>
+            <div id="view-when-main"></div>
+            <small id="view-tz" style="color:#9ca3af;font-size:11px;"></small>
+          </div>
+        </div>
+        <div class="row">
+          <span class="label">PARA</span>
+          <div>
+            <div id="view-attendee-name"></div>
+            <div class="pill-group" id="view-contact-pills"></div>
+          </div>
+        </div>
+        <div class="row" id="view-desc-row">
+          <span class="label">DETALLE</span>
+          <div class="desc-box" id="view-desc"></div>
+        </div>
+        <div class="row">
+          <span class="label">ALERTA</span>
+          <div>
+            <div id="view-reminder"></div>
+            <div class="pill-group" id="view-channels"></div>
+          </div>
+        </div>
+      </div>
+      <div class="foot">
+        <div class="foot-left">
+          <span><strong id="view-short-date"></strong></span>
+          <span id="view-created-at">Evento agendado</span>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button id="btn-view-edit" class="btn primary">Editar evento</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
@@ -160,10 +280,30 @@
 document.addEventListener('DOMContentLoaded', () => {
   const csrf = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
   const modalBackdrop = document.getElementById('agenda-modal-backdrop');
+  const viewModalBackdrop = document.getElementById('view-modal-backdrop');
   const btnNew = document.getElementById('btn-new');
   const btnClose = document.getElementById('btn-close');
   const btnSave = document.getElementById('btn-save');
   const btnDelete = document.getElementById('btn-delete');
+  const btnViewClose = document.getElementById('btn-view-close');
+  const btnViewEdit = document.getElementById('btn-view-edit');
+
+  const viewEls = {
+    title: document.getElementById('view-title'),
+    subtitle: document.getElementById('view-subtitle'),
+    repeatBadge: document.getElementById('view-repeat-badge'),
+    repeatLabel: document.getElementById('view-repeat-label'),
+    whenMain: document.getElementById('view-when-main'),
+    tz: document.getElementById('view-tz'),
+    attendeeName: document.getElementById('view-attendee-name'),
+    contactPills: document.getElementById('view-contact-pills'),
+    descRow: document.getElementById('view-desc-row'),
+    desc: document.getElementById('view-desc'),
+    reminder: document.getElementById('view-reminder'),
+    channels: document.getElementById('view-channels'),
+    shortDate: document.getElementById('view-short-date'),
+    createdAt: document.getElementById('view-created-at'),
+  };
 
   const f = {
     id:      document.getElementById('ev-id'),
@@ -224,9 +364,125 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   function closeModal(){ modalBackdrop.style.display='none'; document.body.style.overflow='auto'; }
 
+  function formatDateTimeFancy(dateIso) {
+    if(!dateIso) return '';
+    const d = new Date(dateIso);
+    const opts = { weekday:'long', year:'numeric', month:'short', day:'numeric',
+                   hour:'2-digit', minute:'2-digit' };
+    return d.toLocaleString('es-MX', opts);
+  }
+
+  function openViewModal(data){
+    // data viene de event.toPlainObject()
+    viewModalBackdrop.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+
+    // Título y subtítulo
+    viewEls.title.textContent = data.title || 'Evento';
+    const startText = formatDateTimeFancy(data.start);
+    viewEls.subtitle.textContent = startText || 'Detalle del evento';
+
+    // Repetición
+    const repeat = data.extendedProps?.repeat_rule || 'none';
+    let repeatText = 'Único';
+    if(repeat === 'daily') repeatText = 'Diario';
+    else if(repeat === 'weekly') repeatText = 'Semanal';
+    else if(repeat === 'monthly') repeatText = 'Mensual';
+    viewEls.repeatLabel.textContent = repeatText;
+
+    // Cuándo
+    viewEls.whenMain.textContent = startText;
+    const tz = data.extendedProps?.timezone || 'America/Mexico_City';
+    viewEls.tz.textContent = `Zona horaria: ${tz}`;
+
+    // Asistente
+    const name = data.extendedProps?.attendee_name || '';
+    const email = data.extendedProps?.attendee_email || '';
+    const phone = data.extendedProps?.attendee_phone || '';
+    viewEls.attendeeName.textContent = name || 'Sin nombre asignado';
+
+    viewEls.contactPills.innerHTML = '';
+    if(email){
+      const pill = document.createElement('span');
+      pill.className = 'pill';
+      pill.textContent = email;
+      viewEls.contactPills.appendChild(pill);
+    }
+    if(phone){
+      const pill = document.createElement('span');
+      pill.className = 'pill';
+      pill.textContent = phone;
+      viewEls.contactPills.appendChild(pill);
+    }
+    if(!email && !phone){
+      const pill = document.createElement('span');
+      pill.className = 'pill';
+      pill.textContent = 'Sin contacto';
+      viewEls.contactPills.appendChild(pill);
+    }
+
+    // Descripción
+    const desc = data.extendedProps?.description || '';
+    if(desc.trim()){
+      viewEls.descRow.style.display = 'flex';
+      viewEls.desc.textContent = desc;
+    }else{
+      viewEls.descRow.style.display = 'none';
+      viewEls.desc.textContent = '';
+    }
+
+    // Recordatorio y canales
+    const offset = data.extendedProps?.remind_offset_minutes ?? 60;
+    viewEls.reminder.textContent = `Recordar ${offset} min antes`;
+
+    viewEls.channels.innerHTML = '';
+    const emailOn = !!data.extendedProps?.send_email;
+    const waOn = !!data.extendedProps?.send_whatsapp;
+    if(emailOn){
+      const pill = document.createElement('span');
+      pill.className = 'pill';
+      pill.textContent = 'Email';
+      viewEls.channels.appendChild(pill);
+    }
+    if(waOn){
+      const pill = document.createElement('span');
+      pill.className = 'pill';
+      pill.textContent = 'WhatsApp';
+      viewEls.channels.appendChild(pill);
+    }
+    if(!emailOn && !waOn){
+      const pill = document.createElement('span');
+      pill.className = 'pill';
+      pill.textContent = 'Sin canales configurados';
+      viewEls.channels.appendChild(pill);
+    }
+
+    // Pie
+    viewEls.shortDate.textContent = startText;
+    viewEls.createdAt.textContent = `ID interno: ${data.id}`;
+
+    // Guardar el evento actual en un atributo para reusar al editar
+    viewModalBackdrop.dataset.eventJson = JSON.stringify(data);
+  }
+
+  function closeViewModal(){
+    viewModalBackdrop.style.display = 'none';
+    document.body.style.overflow = 'auto';
+  }
+
   btnNew.addEventListener('click', ()=>openModal('new'));
   btnClose.addEventListener('click', closeModal);
   modalBackdrop.addEventListener('click', (e)=>{ if(e.target===modalBackdrop) closeModal(); });
+  btnViewClose.addEventListener('click', closeViewModal);
+  viewModalBackdrop.addEventListener('click', (e)=>{ if(e.target===viewModalBackdrop) closeViewModal(); });
+
+  btnViewEdit.addEventListener('click', ()=>{
+    const json = viewModalBackdrop.dataset.eventJson;
+    if(!json) return;
+    const data = JSON.parse(json);
+    closeViewModal();
+    openModal('edit', data);
+  });
 
   // Calendar
   const calendarEl = document.getElementById('calendar');
@@ -245,7 +501,7 @@ document.addEventListener('DOMContentLoaded', () => {
     eventStartEditable: true,
     eventDurationEditable: false,
     eventClick(info){
-      openModal('edit', info.event.toPlainObject());
+      openViewModal(info.event.toPlainObject());
     },
     dateClick(info){
       openModal('new');

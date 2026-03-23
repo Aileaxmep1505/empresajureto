@@ -10,7 +10,11 @@ class Inventory extends Model
     protected $table = 'inventory';
 
     protected $fillable = [
-        'catalog_item_id','location_id','qty','min_qty','updated_by'
+        'catalog_item_id',
+        'location_id',
+        'qty',
+        'min_qty',
+        'updated_by',
     ];
 
     public function item(): BelongsTo
@@ -20,6 +24,6 @@ class Inventory extends Model
 
     public function location(): BelongsTo
     {
-        return $this->belongsTo(Location::class);
+        return $this->belongsTo(Location::class, 'location_id');
     }
 }

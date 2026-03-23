@@ -9,46 +9,6 @@
       <h1 class="wms-title">WMS · Bodega</h1>
       <p class="wms-sub">Control de inventario, operaciones y análisis del almacén en un solo panel.</p>
     </div>
-
-    <div class="wms-header-actions">
-      <a href="{{ route('admin.wms.search.view') }}" class="wms-btn wms-btn-primary">
-        <span class="wms-btn-ico" aria-hidden="true">
-          {{-- Lupa --}}
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="11" cy="11" r="7"/>
-            <path d="M21 21l-4.3-4.3"/>
-          </svg>
-        </span>
-        <span>Búsqueda rápida</span>
-      </a>
-
-      <a href="{{ route('admin.wms.pick.entry') }}" class="wms-btn wms-btn-ghost">
-        <span class="wms-btn-ico" aria-hidden="true">
-          {{-- Caja / picking --}}
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M3 7l9-4 9 4-9 4-9-4z"/>
-            <path d="M3 7v10l9 4 9-4V7"/>
-          </svg>
-        </span>
-        <span>Picking guiado</span>
-      </a>
-
-      <a href="{{ route('admin.wms.analytics') }}" class="wms-btn wms-btn-ghost">
-        <span class="wms-btn-ico" aria-hidden="true">
-          {{-- Gráfica / analytics --}}
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M4 19V5"/>
-            <path d="M8 19v-6"/>
-            <path d="M12 19v-10"/>
-            <path d="M16 19v-3"/>
-            <path d="M20 19V8"/>
-          </svg>
-        </span>
-        <span>Analytics</span>
-      </a>
-    </div>
-  </div>
-
   <div class="wms-layout">
     {{-- Card grande: Inventario --}}
     <a href="{{ route('admin.wms.search.view') }}" class="wms-card wms-card-main">

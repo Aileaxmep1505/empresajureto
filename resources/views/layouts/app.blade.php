@@ -12,7 +12,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('images/logo-mail.png') }}">
 
   <link rel="stylesheet" href="{{ asset('css/app-layout.css') }}?v={{ time() }}">
-  @stack('styles')
+@stack('styles')
 
   <style>
     :root{
@@ -931,23 +931,9 @@
             <span>Imprimir QRs</span>
           </a>
 
-          <a href="{{ route('admin.wms.layout.editor') }}" class="nav__sublink {{ request()->routeIs('admin.wms.layout.*') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
-              <rect x="3" y="3" width="8" height="8" rx="2"/>
-              <rect x="13" y="3" width="8" height="8" rx="2"/>
-              <rect x="3" y="13" width="8" height="8" rx="2"/>
-              <rect x="13" y="13" width="8" height="8" rx="2"/>
-            </svg>
-            <span>Layout (Editor)</span>
-          </a>
+        
 
-          <a href="{{ route('admin.wms.heatmap.view') }}" class="nav__sublink {{ request()->routeIs('admin.wms.heatmap.*') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
-              <path d="M4 18V6"/><path d="M8 18V10"/><path d="M12 18V4"/><path d="M16 18V12"/><path d="M20 18V8"/>
-            </svg>
-            <span>Heatmap (Calor)</span>
-          </a>
-
+     
           <a href="{{ route('admin.wms.move.view') }}" class="nav__sublink {{ request()->routeIs('admin.wms.move.*') ? 'is-active':'' }}">
             <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
               <path d="M7 7h10"/><path d="M7 12h10"/><path d="M7 17h10"/>
