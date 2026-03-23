@@ -4,10 +4,16 @@
 
 @section('content')
 @php
+  use Illuminate\Support\Facades\Route;
+
   $indexUrl      = route('admin.wms.picking.v2');
   $createUrl     = route('admin.wms.picking.v2.create');
   $scannerUrl    = route('admin.wms.picking.scanner.v2');
   $updateUrlBase = url('/admin/wms/picking-v2');
+
+  $shippingIndexUrl = Route::has('admin.wms.shipping.index')
+      ? route('admin.wms.shipping.index')
+      : '#';
 
   $usersCatalog = collect($users ?? [])->map(function ($u) {
       return [
@@ -80,9 +86,19 @@
   <header class="pk-header">
     <div class="pk-header-text">
       <h1 class="pk-title">Picking & Packing</h1>
-      <p class="pk-sub">Planeación, surtido y control de tareas operativas</p>
+      <p class="pk-sub">Planeación, surtido, ubicación en staging y transición directa a embarque</p>
     </div>
     <div class="pk-actions">
+      <a href="{{ $shippingIndexUrl }}" class="pk-btn pk-btn-ghost">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="pk-icon-sm">
+          <path d="M3 7h13l3 4v6a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7z"></path>
+          <path d="M16 7V5a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v2"></path>
+          <circle cx="8.5" cy="18.5" r="1.5"></circle>
+          <circle cx="15.5" cy="18.5" r="1.5"></circle>
+        </svg>
+        Embarques
+      </a>
+
       <a href="{{ $createUrl }}" class="pk-btn pk-btn-primary">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="pk-icon-sm"><path d="M12 5v14M5 12h14"/></svg>
         Nueva Tarea
@@ -289,6 +305,13 @@
     margin-bottom: 32px;
   }
 
+  .pk-actions{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    flex-wrap:wrap;
+  }
+
   .pk-title {
     margin: 0;
     font-size: 2.25rem;
@@ -350,6 +373,25 @@
   }
 
   .pk-btn-ghost:hover { border-color: #cbd5e1; background: #f8fafc; }
+
+  .pk-btn-dark{
+    background:#0f172a;
+    color:#fff;
+    box-shadow: 0 6px 18px rgba(15,23,42,.14);
+  }
+
+  .pk-btn-dark:hover{
+    background:#111827;
+    transform:translateY(-1px);
+    box-shadow: 0 10px 20px rgba(15,23,42,.20);
+  }
+
+  .pk-btn-disabled{
+    background:#cbd5e1;
+    color:#475569;
+    cursor:not-allowed;
+    box-shadow:none;
+  }
 
   .pk-btn-danger {
     background: #fff;
@@ -664,6 +706,25 @@
   .pk-progress-row { display: flex; justify-content: space-between; margin-top: 16px; font-size: 0.85rem; color: var(--color-muted); font-weight: 500; }
   .pk-progress-row b { color: var(--color-ink); font-size: 0.95rem; font-weight: 700; }
 
+  .pk-ship-row{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    margin-top:16px;
+    padding-top:14px;
+    border-top:1px solid var(--color-border-soft);
+  }
+
+  .pk-ship-note{
+    font-size:12px;
+    font-weight:700;
+    color:var(--color-muted);
+  }
+
+  .pk-ship-note.is-ready{
+    color:var(--color-success-dark);
+  }
+
   .pk-empty-state {
     grid-column: 1 / -1;
     background: transparent;
@@ -874,6 +935,8 @@
   const updateUrlBase = @json($updateUrlBase);
   const createUrl = @json($createUrl);
   const scannerUrl = @json($scannerUrl);
+  const shippingIndexUrl = @json($shippingIndexUrl);
+  const shippingCreateBase = @json(url('/admin/wms/shipping/from-picking'));
 
   let tasks = Array.isArray(rawTasks) ? rawTasks : [];
   const fastFlowBatches = Array.isArray(rawFastFlowBatches) ? rawFastFlowBatches : [];
@@ -1040,6 +1103,83 @@
     return found ? found.name : '';
   }
 
+  function isTaskReadyForShipping(task){
+    const status = String(task?.status || '');
+    if (status !== 'completed') return false;
+
+    const items = getTaskItems(task);
+    if (!items.length) return false;
+
+    return items.some(item => {
+      const required = asNumber(item?.quantity_required);
+      const staged = asNumber(item?.quantity_staged);
+      const stagedFlag = Boolean(item?.staged);
+      const stageBoxes = ensureArray(item?.staged_boxes);
+      const stageAllocs = ensureArray(item?.stage_box_allocations);
+
+      return stagedFlag || staged > 0 || stageBoxes.length > 0 || stageAllocs.length > 0 || (required > 0 && staged >= required);
+    });
+  }
+
+  function shippingReadyText(task){
+    return isTaskReadyForShipping(task)
+      ? 'Listo para subir a unidad'
+      : 'Completa y ubica la tarea para embarcar';
+  }
+
+  async function createShipmentFromPicking(pickWaveId){
+    if (!pickWaveId) {
+      alert('No se encontró el ID de la tarea de picking.');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${shippingCreateBase}/${pickWaveId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-CSRF-TOKEN': csrf,
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({
+          vehicle_plate: '',
+          vehicle_name: '',
+          driver_name: '',
+          driver_phone: '',
+          route_name: '',
+          notes: ''
+        })
+      });
+
+      const text = await response.text();
+      let data = {};
+
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch (e) {
+        throw new Error('La respuesta del servidor no fue válida.');
+      }
+
+      if (!response.ok) {
+        if (data.shipment && data.shipment.id) {
+          window.location.href = `/admin/wms/shipping/${data.shipment.id}/scanner`;
+          return;
+        }
+
+        throw new Error(data.message || 'No se pudo generar el embarque.');
+      }
+
+      if (!data.shipment || !data.shipment.id) {
+        throw new Error('Se generó el embarque pero no llegó el ID de respuesta.');
+      }
+
+      window.location.href = `/admin/wms/shipping/${data.shipment.id}/scanner`;
+    } catch (error) {
+      alert(error.message || 'Ocurrió un error al generar el embarque.');
+    }
+  }
+
   function getFastFlowMatchesByValues(sku, name, batchCode = ''){
     const skuNorm = normalize(sku);
     const nameNorm = normalize(name);
@@ -1140,6 +1280,7 @@
       const ff = getTaskFastFlowSummary(task);
       const assignedDisplay = getAssignedDisplay(task);
       const stageProgress = getStageProgress(task);
+      const canShip = isTaskReadyForShipping(task);
 
       return `
         <article class="pk-card" data-task-id="${esc(task?.id)}">
@@ -1185,6 +1326,24 @@
           <div class="pk-progress-row">
             <span>${getTaskItems(task).length} producto(s)</span>
             <b>${getStagedQty(task)} / ${getRequiredQty(task)} ubicados</b>
+          </div>
+
+          <div class="pk-ship-row">
+            ${
+              canShip
+                ? `
+                  <button type="button" class="pk-btn pk-btn-dark pk-btn-sm pk-task-ship-btn" data-action="ship" data-task-id="${esc(task?.id)}">
+                    Generar embarque
+                  </button>
+                  <div class="pk-ship-note is-ready">${shippingReadyText(task)}</div>
+                `
+                : `
+                  <button type="button" class="pk-btn pk-btn-disabled pk-btn-sm" disabled>
+                    Generar embarque
+                  </button>
+                  <div class="pk-ship-note">${shippingReadyText(task)}</div>
+                `
+            }
           </div>
         </article>
       `;
@@ -1264,6 +1423,7 @@
     const deliveries = getTaskDeliveries(selectedTask);
     const assignedDisplay = getAssignedDisplay(selectedTask);
     const stageProgress = getStageProgress(selectedTask);
+    const canShip = isTaskReadyForShipping(selectedTask);
 
     detailContent.innerHTML = `
       <div class="pk-detail-head">
@@ -1272,6 +1432,7 @@
           <p>Orden de Compra/Venta: <b>${esc(selectedTask?.order_number || 'N/A')}</b></p>
           <p>Total de Entregas: <b>${Number(selectedTask?.total_phases || deliveries.length || 1)}</b></p>
           <p>Estatus: <b>${esc(statusLabel[selectedTask?.status] || 'Pendiente')}</b></p>
+          <p>Embarque: <b>${esc(shippingReadyText(selectedTask))}</b></p>
         </div>
         <span class="pk-badge ${priorityClass[selectedTask?.priority] || priorityClass.normal}">
           ${priorityLabel[selectedTask?.priority] || 'Normal'}
@@ -1338,10 +1499,19 @@
 
       <div class="pk-detail-actions">
         ${
+          canShip
+            ? `<button type="button" class="pk-btn pk-btn-dark" id="btnCreateShipment">Generar embarque</button>`
+            : `<button type="button" class="pk-btn pk-btn-disabled" disabled>Generar embarque</button>`
+        }
+
+        <a href="${shippingIndexUrl}" class="pk-btn pk-btn-ghost">Ir a embarques</a>
+
+        ${
           selectedTask?.status !== 'completed' && selectedTask?.status !== 'cancelled'
             ? `<button type="button" class="pk-btn pk-btn-danger" id="btnCancelTask">Cancelar tarea</button>`
             : ''
         }
+
         <a href="${scannerUrl}?task_id=${encodeURIComponent(selectedTask?.id || '')}" class="pk-btn pk-btn-primary">Ir a picking escáner</a>
       </div>
     `;
@@ -1365,6 +1535,13 @@
         } catch (error) {
           alert(error.message || 'No se pudo cancelar la tarea.');
         }
+      };
+    }
+
+    const btnCreateShipment = document.getElementById('btnCreateShipment');
+    if(btnCreateShipment){
+      btnCreateShipment.onclick = function(){
+        createShipmentFromPicking(selectedTask?.id);
       };
     }
   }
@@ -1392,6 +1569,17 @@
 
   if(taskGrid){
     taskGrid.addEventListener('click', function(e){
+      const shipBtn = e.target.closest('[data-action="ship"]');
+      if (shipBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        const taskId = Number(shipBtn.dataset.taskId || 0);
+        if (taskId) {
+          createShipmentFromPicking(taskId);
+        }
+        return;
+      }
+
       const card = e.target.closest('.pk-card[data-task-id]');
       if(!card) return;
 

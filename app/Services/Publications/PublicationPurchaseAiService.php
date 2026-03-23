@@ -477,18 +477,41 @@ class PublicationPurchaseAiService
      ========================= */
     public function aiExtractSingleLocalFile(string $absolutePath, string $originalName, string $category = 'compra'): array
     {
-        $apiKey  = config('openai.api_key') ?: env('OPENAI_API_KEY');
+        $apiKey = (string) (
+            config('services.openai.api_key')
+            ?: config('services.openai.key')
+            ?: config('openai.api_key')
+            ?: config('openai.key')
+            ?: ''
+        );
 
-        $baseUrl = rtrim((string)(config('openai.base_url') ?: env('OPENAI_BASE_URL', 'https://api.openai.com/v1')), '/');
+        $baseUrl = rtrim((string) (
+            config('services.openai.base_url')
+            ?: config('openai.base_url')
+            ?: 'https://api.openai.com/v1'
+        ), '/');
         if (!str_ends_with($baseUrl, '/v1')) $baseUrl .= '/v1';
 
-        $modelId = (string)(config('openai.primary') ?: env('OPENAI_PRIMARY_MODEL', 'gpt-4.1'));
+        $modelId = (string) (
+            config('services.openai.model')
+            ?: config('openai.primary')
+            ?: config('openai.model')
+            ?: 'gpt-4.1'
+        );
 
-        if (!$apiKey) throw new \RuntimeException('Missing OpenAI API key.');
+        $timeout = (int) (
+            config('services.openai.timeout')
+            ?: config('openai.timeout')
+            ?: 300
+        );
+
+        if ($apiKey === '') {
+            throw new \RuntimeException('Missing OpenAI API key.');
+        }
 
         // 1) upload file -> OpenAI Files (purpose user_data)
         $upload = Http::withToken($apiKey)
-            ->timeout((int) config('openai.timeout', 300))
+            ->timeout($timeout)
             ->attach('file', file_get_contents($absolutePath), $originalName)
             ->post($baseUrl . '/files', ['purpose' => 'user_data']);
 
@@ -502,9 +525,9 @@ class PublicationPurchaseAiService
 
         $system = $this->buildExtractorSystemPromptStrictTableOnly($category);
 
-        $call = function (string $userText) use ($apiKey, $baseUrl, $modelId, $fileId, $system): array {
+        $call = function (string $userText) use ($apiKey, $baseUrl, $modelId, $fileId, $system, $timeout): array {
             $resp = Http::withToken($apiKey)
-                ->timeout((int) config('openai.timeout', 300))
+                ->timeout($timeout)
                 ->withHeaders(['Content-Type' => 'application/json'])
                 ->post($baseUrl . '/responses', [
                     'model'        => $modelId,

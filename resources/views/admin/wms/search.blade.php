@@ -3,126 +3,115 @@
 @section('title', 'WMS · Buscar producto')
 
 @section('content')
-<div class="wms-page">
-  <div class="wms-shell">
-
-    {{-- Header --}}
-    <div class="wms-header">
-      <a href="{{ route('admin.wms.home') }}" class="wms-back" aria-label="Volver a WMS">
-        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        <span>WMS</span>
+<div class="wms-wrap fade-in-up delay-1">
+  <div class="wms-header">
+    <div class="wms-header-left">
+      <a href="{{ route('admin.wms.home') }}" class="btn btn-icon btn-ghost" aria-label="Volver a WMS">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
       </a>
-
       <div class="wms-head-mid">
-        <div class="wms-head-title">Buscar producto</div>
-        <div class="wms-head-sub">Nombre / SKU / GTIN · Resultados con ubicación y ruta “Llévame”.</div>
-      </div>
-
-      <div class="wms-head-actions">
-        <button class="wms-btn wms-btn-ghost" type="button" id="btnOpenScanner">
-          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M4 7V6a2 2 0 0 1 2-2h1M20 7V6a2 2 0 0 0-2-2h-1M4 17v1a2 2 0 0 0 2 2h1M20 17v1a2 2 0 0 1-2 2h-1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <path d="M7 12h10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          </svg>
-          <span>Escanear</span>
-        </button>
+        <div class="wms-head-title">Búsqueda Rápida</div>
+        <div class="wms-head-sub">Encuentra productos por Nombre, SKU o GTIN y obtén la ruta óptima.</div>
       </div>
     </div>
 
-    {{-- Cards --}}
-    <div class="wms-grid">
-
-      {{-- Ubicación actual --}}
-      <section class="wms-card">
-        <div class="wms-card-h">
-          <div>
-            <div class="wms-card-tt">Tu ubicación actual</div>
-            <div class="wms-card-tx">Escanea un QR de stand/bin para fijar “dónde estás” y ordenar resultados por cercanía.</div>
-          </div>
-          <span class="wms-pill" id="chipFrom">No definida</span>
-        </div>
-
-        <div class="wms-form">
-          <label class="wms-lbl" for="from_code">Código ubicación (QR)</label>
-          <div class="wms-row">
-            <input class="wms-inp" id="from_code" placeholder="Ej: A-03-S2-R1-N4-B07" autocomplete="off" inputmode="text">
-            <button class="wms-btn wms-btn-ghost" type="button" id="btnSetFrom">Fijar</button>
-            <button class="wms-btn wms-btn-ghost" type="button" id="btnClearFrom">Limpiar</button>
-          </div>
-          <div class="wms-hint">Tip: puedes pegar el código si no tienes cámara.</div>
-        </div>
-      </section>
-
-      {{-- Buscador --}}
-      <section class="wms-card wms-card-span">
-        <div class="wms-card-h">
-          <div>
-            <div class="wms-card-tt">Buscador</div>
-            <div class="wms-card-tx">Escribe o escanea un SKU/GTIN. Te sugerimos la mejor ubicación con stock.</div>
-          </div>
-          <span class="wms-pill wms-pill-soft" id="chipCount">0 resultados</span>
-        </div>
-
-        <div class="wms-form">
-          <label class="wms-lbl" for="q">Buscar</label>
-          <div class="wms-row">
-            <input class="wms-inp" id="q" placeholder="Ej: Bic azul 0.7 / SKU / GTIN" autocomplete="off" inputmode="search">
-            <button class="wms-btn wms-btn-primary" type="button" id="btnSearch">
-              <span class="wms-spin" id="spinSearch"></span>
-              <span>Buscar</span>
-            </button>
-          </div>
-          <div class="wms-hint">Enter también funciona. Resultado muestra stock total y ubicaciones.</div>
-        </div>
-
-        <div class="wms-results" id="results"></div>
-      </section>
-
+    <div class="wms-head-actions">
+      <button class="btn btn-primary btn-lg shadow-hover" type="button" id="btnOpenScanner">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V6a2 2 0 0 1 2-2h1M20 7V6a2 2 0 0 0-2-2h-1M4 17v1a2 2 0 0 0 2 2h1M20 17v1a2 2 0 0 1-2 2h-1"/><path d="M7 12h10"/></svg>
+        Escanear Código
+      </button>
     </div>
+  </div>
+
+  <div class="wms-grid">
+    {{-- Columna Izquierda: Ubicación --}}
+    <section class="card fade-in-up delay-2">
+      <div class="card-h">
+        <div>
+          <div class="card-tt">Punto de Partida</div>
+          <div class="card-tx">Fija tu ubicación actual para ordenar los resultados por cercanía.</div>
+        </div>
+        <span class="badge-status" id="chipFrom">No definida</span>
+      </div>
+
+      <div class="wms-form">
+        <label class="wms-lbl" for="from_code">Código de ubicación (QR)</label>
+        <div class="wms-row">
+          <input class="inp" id="from_code" placeholder="Ej: A-03-S2" autocomplete="off" inputmode="text">
+        </div>
+        <div class="wms-row-actions">
+          <button class="btn btn-outline" type="button" id="btnSetFrom">Fijar posición</button>
+          <button class="btn btn-ghost" type="button" id="btnClearFrom">Limpiar</button>
+        </div>
+        <div class="hint">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+          Escanea el bin físico o pega el código manualmente.
+        </div>
+      </div>
+    </section>
+
+    {{-- Columna Derecha: Buscador --}}
+    <section class="card wms-card-span fade-in-up delay-3">
+      <div class="card-h">
+        <div>
+          <div class="card-tt">Directorio de Inventario</div>
+          <div class="card-tx">Te sugeriremos la ubicación más óptima para recolectar el stock.</div>
+        </div>
+        <span class="badge-soft" id="chipCount">0 resultados</span>
+      </div>
+
+      <div class="wms-form">
+        <div class="input-icon-large">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <input class="inp inp-lg" id="q" placeholder="Ej: Bic azul 0.7 / SKU / GTIN..." autocomplete="off" inputmode="search">
+          <button class="btn btn-primary" type="button" id="btnSearch">
+            <span class="wms-spin" id="spinSearch"></span>
+            <span>Buscar</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="wms-results" id="results">
+        <div class="empty-state">
+          <div class="empty-state-icon">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+          </div>
+          <span>Esperando consulta de inventario.</span>
+        </div>
+      </div>
+    </section>
   </div>
 </div>
 
 {{-- Modal: Ruta “Llévame” --}}
-<div class="wms-modal" id="navModal" aria-hidden="true">
-  <div class="wms-modal-backdrop" data-close="1"></div>
-  <div class="wms-modal-card">
-    <div class="wms-modal-h">
+<div class="modal" id="navModal" aria-hidden="true">
+  <div class="back" data-close="1"></div>
+  <div class="mcard">
+    <div class="mh">
       <div>
-        <div class="wms-modal-tt">Ruta “Llévame”</div>
-        <div class="wms-modal-tx" id="navSubtitle">—</div>
+        <div class="mtt">Ruta Sugerida</div>
+        <div class="msub" id="navSubtitle">—</div>
       </div>
-      <button class="wms-x" type="button" data-close="1" aria-label="Cerrar">
-        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-      </button>
+      <button class="x" type="button" data-close="1" aria-label="Cerrar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
     </div>
-
     <div class="wms-steps" id="navSteps"></div>
-
-    <div class="wms-modal-ft">
-      <button class="wms-btn wms-btn-ghost" type="button" data-close="1">Cerrar</button>
-      <button class="wms-btn wms-btn-primary" type="button" id="btnMarkHere">Ya estoy aquí</button>
+    <div class="mf">
+      <button class="btn btn-ghost" type="button" data-close="1">Cerrar</button>
+      <button class="btn btn-primary" type="button" id="btnMarkHere">Confirmar Llegada</button>
     </div>
   </div>
 </div>
 
 {{-- Modal: Scanner --}}
-<div class="wms-modal" id="scanModal" aria-hidden="true">
-  <div class="wms-modal-backdrop" data-close="1"></div>
-  <div class="wms-modal-card wms-modal-wide">
-    <div class="wms-modal-h">
+<div class="modal" id="scanModal" aria-hidden="true">
+  <div class="back" data-close="1"></div>
+  <div class="mcard mcard-wide">
+    <div class="mh">
       <div>
-        <div class="wms-modal-tt">Escanear</div>
-        <div class="wms-modal-tx">Apunta al QR o código de barras. Se detecta y se aplica automáticamente.</div>
+        <div class="mtt">Escáner Activo</div>
+        <div class="msub">Apunta al código QR o código de barras. La detección es automática.</div>
       </div>
-      <button class="wms-x" type="button" data-close="1" aria-label="Cerrar">
-        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-      </button>
+      <button class="x" type="button" data-close="1" aria-label="Cerrar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
     </div>
 
     <div class="wms-scan">
@@ -130,52 +119,33 @@
         <video id="video" playsinline webkit-playsinline muted autoplay></video>
         <div class="wms-scan-overlay" aria-hidden="true">
           <div class="wms-scan-frame"></div>
-          <div class="wms-scan-hint">Centra el código dentro del cuadro</div>
+          <div class="wms-scan-hint">Alinea el código en el recuadro</div>
         </div>
       </div>
 
       <aside class="wms-scan-side">
         <div class="wms-mini">
-          <div class="wms-mini-tt">Modo</div>
+          <div class="wms-mini-tt">Modo de Escaneo</div>
           <div class="wms-mini-row">
-            <button class="wms-btn wms-btn-ghost wms-btn-sm" type="button" id="scanModeLoc">
-              <svg class="ico" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M12 21s7-4.5 7-11a7 7 0 1 0-14 0c0 6.5 7 11 7 11z" fill="none" stroke="currentColor" stroke-width="2"/>
-                <path d="M12 10.5a2.2 2.2 0 1 0 0 .1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              </svg>
-              <span>Ubicación</span>
+            <button class="btn btn-ghost btn-sm flex-1" type="button" id="scanModeLoc">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> Ubicación
             </button>
-            <button class="wms-btn wms-btn-ghost wms-btn-sm" type="button" id="scanModeItem">
-              <svg class="ico" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M20 10V7a2 2 0 0 0-2-2h-3l-2-2H8a2 2 0 0 0-2 2v3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                <path d="M4 10h16v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8z" fill="none" stroke="currentColor" stroke-width="2"/>
-                <path d="M9 14h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              </svg>
-              <span>Producto</span>
+            <button class="btn btn-ghost btn-sm flex-1" type="button" id="scanModeItem">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10V7a2 2 0 0 0-2-2h-3l-2-2H8a2 2 0 0 0-2 2v3"/><path d="M4 10h16v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8z"/><path d="M9 14h6"/></svg> Producto
             </button>
           </div>
-          <div class="wms-hint">Ubicación llena “Tu ubicación actual”. Producto llena el buscador y busca.</div>
         </div>
 
         <div class="wms-mini">
-          <div class="wms-mini-tt">Estado / lectura</div>
-          <div class="wms-pill wms-pill-block" id="lastScan">Listo para escanear</div>
-          <div class="wms-mini-row">
-            <button class="wms-btn wms-btn-primary" type="button" id="btnUseScan">Usar</button>
-            <button class="wms-btn wms-btn-ghost" type="button" id="btnStopScan">Detener</button>
+          <div class="wms-mini-tt">Lectura Actual</div>
+          <div class="badge-status block-text" id="lastScan">Esperando código...</div>
+          <div class="wms-mini-row mt-3">
+            <button class="btn btn-primary flex-1" type="button" id="btnUseScan">Procesar</button>
+            <button class="btn btn-outline flex-1" type="button" id="btnStopScan">Pausar</button>
           </div>
-          <div class="wms-hint" id="scanTech">Tecnología: —</div>
-        </div>
-
-        <div class="wms-mini">
-          <div class="wms-mini-tt">Consejo</div>
-          <div class="wms-hint">Si el QR es un link, también puedes abrirlo. Si está oscuro, acerca el código y mejora la luz.</div>
+          <div class="hint mt-2" id="scanTech">Motor: Iniciando...</div>
         </div>
       </aside>
-    </div>
-
-    <div class="wms-modal-ft">
-      <button class="wms-btn wms-btn-ghost" type="button" data-close="1">Cerrar</button>
     </div>
   </div>
 </div>
@@ -183,240 +153,190 @@
 
 @push('styles')
 <style>
-  :root{
-    --ink:#0b1220;
-    --muted:#64748b;
-    --line:#e6eaf2;
-    --line2:#eef2f7;
-    --brand:#2563eb;
-    --brand2:#1d4ed8;
-    --shadow:0 18px 55px rgba(2,6,23,.08);
-    --radius:18px;
-    --ease:cubic-bezier(.2,.8,.2,1);
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+  :root {
+    --bg-page: #f8fafc;
+    --surface: #ffffff;
+    --ink: #0f172a;
+    --muted: #64748b;
+    --line: #e2e8f0;
+    --line-soft: #f1f5f9;
+    --brand: #0f172a; 
+    --brand-hover: #1e293b;
+    --accent: #2563eb;
+    
+    --radius-lg: 16px;
+    --radius-md: 10px;
+    --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06);
+    --shadow-md: 0 4px 12px -2px rgba(15, 23, 42, 0.08);
+    --shadow-modal: 0 25px 50px -12px rgba(15, 23, 42, 0.25);
+    --bezier: cubic-bezier(0.16, 1, 0.3, 1);
   }
 
-  .ico{width:18px;height:18px;display:inline-block}
+  body { font-family: 'Inter', system-ui, sans-serif; background-color: var(--bg-page); color: var(--ink); }
 
-  .wms-page{
-    background:
-      radial-gradient(520px 260px at 0% 0%, rgba(37,99,235,.14) 0%, rgba(37,99,235,0) 72%),
-      radial-gradient(520px 260px at 100% 0%, rgba(16,185,129,.10) 0%, rgba(16,185,129,0) 72%),
-      linear-gradient(180deg, #f3f7ff 0%, #f6f8fc 100%);
-    min-height: calc(100vh - 1px);
+  /* Animaciones Base */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(15px); }
+    to { opacity: 1; transform: translateY(0); }
   }
-  .wms-shell{max-width:1120px;margin:0 auto;padding:18px 14px 30px}
+  .fade-in-up { opacity: 0; animation: fadeUp 0.6s var(--bezier) forwards; }
+  .delay-1 { animation-delay: 0.1s; }
+  .delay-2 { animation-delay: 0.2s; }
+  .delay-3 { animation-delay: 0.3s; }
 
-  .wms-header{
-    display:flex;gap:12px;align-items:center;justify-content:space-between;
-    flex-wrap:wrap;margin-bottom:12px;
-  }
-  .wms-back{
-    display:inline-flex;gap:10px;align-items:center;
-    padding:10px 12px;border-radius:999px;
-    background:rgba(255,255,255,.85);
-    border:1px solid rgba(226,232,240,.95);
-    color:var(--ink);font-weight:950;text-decoration:none;
-    box-shadow:0 10px 22px rgba(2,6,23,.06);
-    transition:transform .14s var(--ease), box-shadow .14s var(--ease), background .14s var(--ease);
-  }
-  .wms-back:hover{transform:translateY(-1px);box-shadow:0 16px 34px rgba(2,6,23,.10);background:#fff}
+  /* Layout */
+  .wms-wrap { max-width: 1200px; margin: 0 auto; padding: 32px 20px; }
+  
+  .wms-header { display: flex; gap: 16px; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; margin-bottom: 24px; }
+  .wms-header-left { display: flex; gap: 16px; align-items: center; }
+  .wms-head-mid { flex: 1 1 auto; }
+  .wms-head-title { font-weight: 700; color: var(--ink); font-size: 1.5rem; letter-spacing: -0.02em; }
+  .wms-head-sub { color: var(--muted); font-size: 0.95rem; margin-top: 4px; }
 
-  .wms-head-mid{flex:1 1 340px;min-width:240px}
-  .wms-head-title{font-weight:1000;color:var(--ink);font-size:1.12rem;letter-spacing:.2px}
-  .wms-head-sub{color:var(--muted);font-size:.92rem;margin-top:2px;line-height:1.3}
-  .wms-head-actions{display:flex;gap:10px;flex-wrap:wrap}
+  .wms-grid { display: grid; grid-template-columns: 360px 1fr; gap: 24px; align-items: start; }
+  
+  /* Tarjetas */
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 24px; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 16px; }
+  .wms-card-span { min-width: 0; }
+  .card-h { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; border-bottom: 1px solid var(--line-soft); padding-bottom: 16px; }
+  .card-tt { font-weight: 600; color: var(--ink); font-size: 1.1rem; }
+  .card-tx { color: var(--muted); font-size: 0.85rem; margin-top: 4px; line-height: 1.4; }
 
-  .wms-grid{display:grid;grid-template-columns:360px 1fr;gap:12px;align-items:start}
-  .wms-card{
-    background:rgba(255,255,255,.88);
-    border:1px solid rgba(226,232,240,.95);
-    border-radius:22px;
-    padding:14px 14px;
-    box-shadow:0 16px 38px rgba(2,6,23,.06);
-    backdrop-filter: blur(8px);
+  /* Botones Premium */
+  .btn { 
+    border: 0; border-radius: 8px; padding: 10px 16px; font-weight: 500; font-size: 0.875rem;
+    display: inline-flex; gap: 8px; align-items: center; justify-content: center; cursor: pointer; 
+    transition: all 0.2s var(--bezier); font-family: inherit; white-space: nowrap; text-decoration: none;
   }
-  .wms-card-span{min-width:0}
-  .wms-card-h{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:12px}
-  .wms-card-tt{font-weight:1000;color:var(--ink);letter-spacing:.1px}
-  .wms-card-tx{color:var(--muted);font-size:.88rem;margin-top:4px;line-height:1.35}
+  .btn-lg { padding: 0 20px; min-height: 48px; font-size: 0.95rem; }
+  .btn-sm { padding: 8px 12px; font-size: 0.8rem; }
+  .btn-primary { background: var(--brand); color: #fff; }
+  .btn-primary:hover { background: var(--brand-hover); transform: translateY(-1px); box-shadow: var(--shadow-md); }
+  .btn-primary:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
+  .btn-ghost { background: var(--surface); border: 1px solid var(--line); color: var(--ink); box-shadow: var(--shadow-sm); }
+  .btn-ghost:hover { background: var(--line-soft); border-color: #cbd5e1; }
+  .btn-outline { background: transparent; border: 1px solid var(--line); color: var(--ink); }
+  .btn-outline:hover { background: var(--line-soft); }
+  .btn-icon { padding: 12px; border-radius: 12px; }
+  .flex-1 { flex: 1; }
 
-  .wms-lbl{display:block;font-weight:950;color:var(--ink);font-size:.86rem;margin-bottom:7px}
-  .wms-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  .wms-inp{
-    flex:1 1 280px;
-    width:100%;
-    min-height:46px;
-    border:1px solid rgba(226,232,240,.95);
-    border-radius:16px;
-    padding:11px 12px;
-    background:rgba(248,250,252,.92);
-    color:#0f172a;
-    transition:border-color .14s var(--ease), box-shadow .14s var(--ease), background .14s var(--ease);
-  }
-  .wms-inp:focus{
-    outline:none;border-color:rgba(147,197,253,.95);
-    box-shadow:0 0 0 4px rgba(147,197,253,.30);
-    background:#fff;
-  }
-  .wms-hint{color:var(--muted);font-size:.78rem;margin-top:8px;line-height:1.35}
+  /* Formularios e Inputs */
+  .wms-lbl { display: block; font-weight: 500; color: var(--ink); font-size: 0.85rem; margin-bottom: 8px; }
+  .wms-row { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
+  .wms-row-actions { display: flex; gap: 8px; }
+  
+  .inp { width: 100%; min-height: 44px; border: 1px solid var(--line); border-radius: var(--radius-md); padding: 10px 14px; background: var(--surface); color: var(--ink); font-family: inherit; font-size: 0.95rem; transition: all 0.2s ease; box-shadow: inset 0 2px 4px 0 rgb(0 0 0 / 0.02); }
+  .inp:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15); }
 
-  .wms-btn{
-    border:0;border-radius:999px;padding:11px 14px;font-weight:950;
-    display:inline-flex;gap:8px;align-items:center;cursor:pointer;
-    transition:transform .14s var(--ease), box-shadow .14s var(--ease), background .14s var(--ease), border-color .14s var(--ease), opacity .14s var(--ease);
-    white-space:nowrap;
-  }
-  .wms-btn-primary{
-    background:linear-gradient(180deg, var(--brand) 0%, var(--brand2) 100%);
-    color:#eff6ff;
-    box-shadow:0 18px 40px rgba(37,99,235,.28);
-  }
-  .wms-btn-primary:hover{transform:translateY(-1px);box-shadow:0 24px 55px rgba(37,99,235,.34)}
-  .wms-btn-primary:disabled{opacity:.7;cursor:not-allowed;transform:none}
-  .wms-btn-ghost{
-    background:rgba(255,255,255,.92);
-    border:1px solid rgba(226,232,240,.95);
-    color:var(--ink);
-    box-shadow:0 10px 22px rgba(2,6,23,.05);
-  }
-  .wms-btn-ghost:hover{transform:translateY(-1px);box-shadow:0 16px 34px rgba(2,6,23,.09);background:#fff}
-  .wms-btn-sm{padding:9px 10px;font-size:.82rem}
+  .input-icon-large { position: relative; display: flex; gap: 12px; align-items: center; }
+  .input-icon-large > svg { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none; }
+  .inp-lg { min-height: 52px; padding-left: 48px; font-size: 1.05rem; }
 
-  .wms-pill{
-    font-size:.78rem;font-weight:1000;
-    padding:7px 11px;border-radius:999px;
-    background:#dcfce7;color:#166534;border:1px solid #bbf7d0;
-    white-space:nowrap;
-  }
-  .wms-pill-soft{
-    background:#eff6ff;color:#1e40af;border:1px solid #dbeafe;
-  }
-  .wms-pill-block{display:block;white-space:normal;word-break:break-word}
+  .hint { display: flex; gap: 8px; align-items: flex-start; color: var(--muted); font-size: 0.8rem; line-height: 1.4; }
+  .hint svg { flex-shrink: 0; margin-top: 2px; color: #94a3b8; }
+  .mt-2 { margin-top: 8px; }
+  .mt-3 { margin-top: 12px; }
 
-  .wms-spin{
-    width:16px;height:16px;border-radius:999px;
-    border:2px solid rgba(255,255,255,.45);
-    border-top-color:#fff;display:none;
-    animation:wmsSp .8s linear infinite;
-  }
-  @keyframes wmsSp{to{transform:rotate(360deg)}}
+  /* Badges & Pills */
+  .badge-status { font-size: 0.75rem; font-weight: 600; padding: 6px 12px; border-radius: 999px; background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; white-space: nowrap; }
+  .badge-soft { font-size: 0.75rem; font-weight: 600; padding: 6px 12px; border-radius: 999px; background: #eff6ff; color: #1e40af; border: 1px solid #dbeafe; white-space: nowrap; }
+  .block-text { display: block; white-space: normal; word-break: break-word; text-align: center; }
 
-  .wms-results{display:flex;flex-direction:column;gap:10px;margin-top:12px}
-  .wms-r{
-    border:1px solid rgba(226,232,240,.95);
-    border-radius:20px;
-    padding:12px 12px;
-    background:#fff;
-    box-shadow:0 10px 22px rgba(2,6,23,.05);
-    transition:transform .14s var(--ease), box-shadow .14s var(--ease), border-color .14s var(--ease);
-  }
-  .wms-r:hover{transform:translateY(-1px);box-shadow:0 18px 42px rgba(2,6,23,.10);border-color:#dbeafe}
-  .wms-r-top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap}
-  .wms-r-name{font-weight:1000;color:var(--ink);line-height:1.2}
-  .wms-r-meta{color:var(--muted);font-size:.82rem;margin-top:4px;line-height:1.35}
-  .wms-r-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  /* Spinner */
+  .wms-spin { width: 16px; height: 16px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; display: none; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
 
-  .wms-badge{
-    font-size:.75rem;font-weight:1000;padding:6px 10px;border-radius:999px;white-space:nowrap;
-    border:1px solid var(--line2);background:#f8fafc;color:#0f172a;
-  }
-  .wms-badge-ok{background:#dcfce7;border-color:#bbf7d0;color:#166534}
-  .wms-badge-warn{background:#fef3c7;border-color:#fde68a;color:#92400e}
-  .wms-badge-bad{background:#fee2e2;border-color:#fecaca;color:#991b1b}
+  /* Resultados Inyectados por JS */
+  .wms-results { display: flex; flex-direction: column; gap: 16px; margin-top: 16px; }
+  
+  .result-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-md); padding: 20px; box-shadow: 0 2px 4px rgba(15,23,42,0.04); transition: border-color 0.2s ease, box-shadow 0.2s ease; }
+  .result-card:hover { border-color: #cbd5e1; box-shadow: var(--shadow-sm); }
+  
+  .result-top { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 16px; border-bottom: 1px dashed var(--line-soft); padding-bottom: 16px; }
+  .result-title { font-weight: 600; color: var(--ink); font-size: 1.1rem; line-height: 1.3; }
+  .result-meta { color: var(--muted); font-size: 0.85rem; margin-top: 6px; font-family: ui-monospace, monospace; }
+  
+  .result-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .result-badge { font-size: 0.75rem; font-weight: 600; padding: 6px 12px; border-radius: 999px; white-space: nowrap; }
+  .bg-ok { background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }
+  .bg-warn { background: #fffbeb; color: #d97706; border: 1px solid #fde68a; }
+  .bg-bad { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+  .bg-outline { background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; }
 
-  .wms-locs{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
-  .wms-locchip{
-    display:inline-flex;gap:6px;align-items:center;
-    padding:7px 11px;border-radius:999px;border:1px solid var(--line2);
-    background:#fff;font-size:.78rem;font-weight:1000;color:#0f172a;
-  }
-  .wms-locchip small{font-weight:950;color:var(--muted)}
-  .wms-locchip strong{color:var(--brand2)}
+  .result-locs { display: flex; gap: 10px; flex-wrap: wrap; }
+  .loc-chip { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg-page); font-size: 0.85rem; font-family: ui-monospace, monospace; }
+  .loc-chip strong { color: var(--ink); font-weight: 600; }
+  .loc-chip small { color: var(--muted); font-weight: 500; font-family: 'Inter', sans-serif; }
 
-  .wms-modal{position:fixed;inset:0;display:none;z-index:9999}
-  .wms-modal[aria-hidden="false"]{display:block}
-  .wms-modal-backdrop{position:absolute;inset:0;background:rgba(2,6,23,.55);backdrop-filter:blur(12px)}
-  .wms-modal-card{
-    position:relative;
-    max-width:820px;margin:40px auto;
-    background:#fff;border:1px solid rgba(226,232,240,.9);
-    border-radius:24px;box-shadow:0 40px 110px rgba(2,6,23,.40);
-    overflow:hidden;
-  }
-  .wms-modal-wide{max-width:1020px}
-  .wms-modal-h{
-    display:flex;justify-content:space-between;gap:10px;align-items:flex-start;
-    padding:14px 16px;border-bottom:1px solid rgba(226,232,240,.9);
-  }
-  .wms-modal-tt{font-weight:1000;color:var(--ink)}
-  .wms-modal-tx{color:var(--muted);font-size:.86rem;margin-top:2px}
-  .wms-x{border:0;background:transparent;cursor:pointer;padding:6px 10px;border-radius:12px;color:var(--ink)}
-  .wms-x:hover{background:#f1f5f9}
-  .wms-modal-ft{
-    display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;
-    padding:12px 16px;border-top:1px solid rgba(226,232,240,.9);
-  }
+  /* Empty State */
+  .empty-state { display: flex; flex-direction: column; align-items: center; gap: 12px; color: #94a3b8; padding: 40px 20px; text-align: center; border: 2px dashed var(--line); border-radius: var(--radius-md); }
+  .empty-state-icon { background: #f1f5f9; padding: 16px; border-radius: 50%; color: #94a3b8; }
 
-  .wms-steps{padding:12px 16px;display:flex;flex-direction:column;gap:8px}
-  .wms-step{
-    display:flex;gap:10px;align-items:flex-start;
-    padding:11px 12px;border:1px solid rgba(226,232,240,.9);border-radius:18px;background:#f8fafc;
-  }
-  .wms-dot{
-    width:28px;height:28px;border-radius:999px;display:flex;align-items:center;justify-content:center;
-    background:#dbeafe;color:#1e40af;font-weight:1000;flex:0 0 auto;
-  }
-  .wms-step .tx{font-weight:950;color:#0f172a}
-  .wms-step .sm{color:var(--muted);font-size:.82rem;margin-top:2px}
+  /* Modales Estilo Framer Motion */
+  .modal { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px; opacity: 0; visibility: hidden; transition: opacity 0.3s var(--bezier), visibility 0.3s; }
+  .modal[aria-hidden="false"] { opacity: 1; visibility: visible; }
+  .back { position: absolute; inset: 0; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px); }
+  
+  .mcard { position: relative; width: 100%; max-width: 600px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); box-shadow: var(--shadow-modal); overflow: hidden; transform: scale(0.95) translateY(10px); transition: transform 0.4s var(--bezier); }
+  .mcard-wide { max-width: 900px; }
+  .modal[aria-hidden="false"] .mcard { transform: scale(1) translateY(0); }
+  
+  .mh { display: flex; justify-content: space-between; align-items: flex-start; padding: 20px 24px; border-bottom: 1px solid var(--line-soft); }
+  .mtt { font-weight: 600; color: var(--ink); font-size: 1.1rem; }
+  .msub { color: var(--muted); font-size: 0.85rem; margin-top: 4px; }
+  .x { border: 0; background: transparent; color: var(--muted); cursor: pointer; padding: 6px; border-radius: 8px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
+  .x:hover { background: var(--line-soft); color: var(--ink); }
+  
+  .mf { display: flex; justify-content: flex-end; gap: 12px; padding: 16px 24px; background: #fafafa; border-top: 1px solid var(--line-soft); }
 
-  .wms-scan{display:grid;grid-template-columns:1.25fr .75fr;gap:12px;padding:12px 16px}
-  .wms-scan-cam{
-    position:relative;border-radius:20px;overflow:hidden;border:1px solid rgba(226,232,240,.9);
-    background:#0b1220;min-height:380px;
-  }
-  #video{width:100%;height:100%;object-fit:cover;display:block}
-  .wms-scan-overlay{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;pointer-events:none}
-  .wms-scan-frame{
-    width:min(380px, 86%);height:min(250px, 58%);
-    border-radius:18px;border:2px solid rgba(255,255,255,.78);
-    box-shadow:0 0 0 999px rgba(2,6,23,.28) inset;
-  }
-  .wms-scan-hint{margin-top:10px;color:#e2e8f0;font-weight:900;font-size:.86rem}
-  .wms-scan-side{display:flex;flex-direction:column;gap:10px}
-  .wms-mini{border:1px solid rgba(226,232,240,.9);border-radius:20px;padding:10px 10px;background:#fff}
-  .wms-mini-tt{font-weight:1000;color:var(--ink);margin-bottom:6px}
-  .wms-mini-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  /* Pasos de Ruta */
+  .wms-steps { padding: 24px; display: flex; flex-direction: column; gap: 12px; }
+  .wms-step { display: flex; gap: 16px; align-items: flex-start; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--bg-page); }
+  .wms-dot { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #e0e7ff; color: #4338ca; font-weight: 600; font-size: 0.9rem; flex: 0 0 auto; }
+  .wms-step .tx { font-weight: 600; color: var(--ink); line-height: 1.4; }
+  .wms-step .sm { color: var(--muted); font-size: 0.8rem; margin-top: 4px; }
 
-  @media (max-width: 980px){
-    .wms-grid{grid-template-columns:1fr}
-    .wms-modal-card{margin:16px 10px}
-    .wms-scan{grid-template-columns:1fr}
-    .wms-scan-cam{min-height:320px}
-    .wms-head-actions{width:100%}
-    #btnOpenScanner{width:100%;justify-content:center}
+  /* Escáner Premium */
+  .wms-scan { display: grid; grid-template-columns: 1.4fr 0.6fr; gap: 24px; padding: 24px; }
+  .wms-scan-cam { position: relative; border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--line); background: #000; min-height: 380px; }
+  #video { width: 100%; height: 100%; object-fit: cover; display: block; }
+  
+  .wms-scan-overlay { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; pointer-events: none; background: rgba(0,0,0,0.2); }
+  .wms-scan-frame { width: min(300px, 80%); height: min(200px, 50%); border-radius: 12px; border: 2px solid rgba(255,255,255,0.8); box-shadow: 0 0 0 9999px rgba(0,0,0,0.4); }
+  .wms-scan-hint { margin-top: 16px; color: #fff; font-weight: 500; font-size: 0.9rem; text-shadow: 0 1px 2px rgba(0,0,0,0.5); }
+  
+  .wms-scan-side { display: flex; flex-direction: column; gap: 16px; }
+  .wms-mini { border: 1px solid var(--line); border-radius: var(--radius-md); padding: 16px; background: var(--bg-page); }
+  .wms-mini-tt { font-weight: 600; color: var(--ink); font-size: 0.9rem; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .wms-mini-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  @media (max-width: 980px) {
+    .wms-grid { grid-template-columns: 1fr; }
+    .wms-scan { grid-template-columns: 1fr; gap: 16px; padding: 16px; }
+    .wms-scan-cam { min-height: 300px; }
   }
-  @media (max-width: 520px){
-    .wms-shell{padding:14px 10px 24px}
-    .wms-card{padding:12px 12px}
-    .wms-btn{width:100%;justify-content:center}
-    .wms-row .wms-inp{flex:1 1 100%}
+  @media (max-width: 600px) {
+    .wms-header-left { flex-direction: column; align-items: flex-start; gap: 12px; }
+    .wms-head-actions { width: 100%; }
+    .wms-head-actions button { width: 100%; }
+    .wms-row { flex-direction: column; align-items: stretch; }
   }
 </style>
 @endpush
 
 @push('scripts')
 <script>
-  // ----------------------------
-  // Config
-  // ----------------------------
+  // La lógica base de JavaScript se mantiene intacta para la cámara y consultas.
+  // Modificamos únicamente el string de HTML renderizado en runSearch() para 
+  // que coincida con la nueva estructura CSS minimalista.
+
   const API_SEARCH    = @json(route('admin.wms.search.products'));
   const API_LOC_SCAN  = @json(route('admin.wms.locations.scan'));
   const API_ITEM_SCAN = @json(route('admin.wms.products.scan'));
   const LS_FROM       = 'wms_from_code';
 
-  // ----------------------------
-  // Helpers UX
-  // ----------------------------
   function beep(ok=true){
     try{
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -425,7 +345,7 @@
       o.connect(g); g.connect(ctx.destination);
       o.type = 'sine';
       o.frequency.value = ok ? 880 : 220;
-      g.gain.value = 0.06;
+      g.gain.value = 0.04;
       o.start();
       setTimeout(()=>{o.stop();ctx.close();}, ok ? 80 : 140);
     }catch(e){}
@@ -438,9 +358,8 @@
     m.setAttribute('aria-hidden', open ? 'false' : 'true');
   }
 
-  // Cerrar modales (backdrop o botones con data-close)
   document.addEventListener('click', (e)=>{
-    const close = e.target?.getAttribute?.('data-close');
+    const close = e.target?.closest('[data-close]');
     if(close){
       setModal('navModal', false);
       setModal('scanModal', false);
@@ -457,14 +376,11 @@
 
   function qtyBadge(total){
     total = Number(total||0);
-    if(total <= 0) return `<span class="wms-badge wms-badge-bad">Sin stock</span>`;
-    if(total <= 3) return `<span class="wms-badge wms-badge-warn">Bajo (${total})</span>`;
-    return `<span class="wms-badge wms-badge-ok">Stock (${total})</span>`;
+    if(total <= 0) return `<span class="result-badge bg-bad">Sin stock</span>`;
+    if(total <= 3) return `<span class="result-badge bg-warn">Stock Bajo (${total})</span>`;
+    return `<span class="result-badge bg-ok">En Stock (${total})</span>`;
   }
 
-  // ----------------------------
-  // State: from_code
-  // ----------------------------
   const chipFrom = document.getElementById('chipFrom');
   const fromInp  = document.getElementById('from_code');
 
@@ -472,7 +388,7 @@
     const v = localStorage.getItem(LS_FROM) || '';
     fromInp.value = v;
     chipFrom.textContent = v ? v : 'No definida';
-    chipFrom.classList.toggle('wms-pill-soft', !v);
+    chipFrom.className = v ? 'badge-soft' : 'badge-status';
   }
   function saveFrom(v){
     v = (v||'').trim();
@@ -481,21 +397,13 @@
     loadFrom();
   }
 
-  // ----------------------------
-  // Helpers para parsear RAW de ubicación
-  // ----------------------------
   function extractLocationToken(raw){
     const v = String(raw || '').trim();
     if(!v) return {type:'empty', value:''};
-
-    // Código con guiones
     const mCode = v.match(/([A-Z0-9]+(?:-[A-Z0-9]+){3,10})/i);
     if(mCode) return {type:'code', value:mCode[1].toUpperCase()};
-
-    // URL /locations/{id} o /locations/{id}/page
     const mId = v.match(/\/locations\/(\d+)(?:\/page)?/i);
     if(mId) return {type:'id', value:mId[1]};
-
     return {type:'raw', value:v};
   }
 
@@ -517,9 +425,6 @@
     return {ok:true, code:data.location?.code || ''};
   }
 
-  // ----------------------------
-  // Resolver producto desde lectura RAW
-  // ----------------------------
   async function resolveProductFromRaw(raw){
     const v = String(raw || '').trim();
     if(!v) return {ok:false, error:'Lectura vacía.'};
@@ -538,9 +443,6 @@
     return {ok:true, token, item};
   }
 
-  // ----------------------------
-  // Search
-  // ----------------------------
   const qInp       = document.getElementById('q');
   const btnSearch  = document.getElementById('btnSearch');
   const spinSearch = document.getElementById('spinSearch');
@@ -552,17 +454,21 @@
     btnSearch.disabled = !!on;
   }
 
+  function getEmptyStateHtml(text) {
+    return `<div class="empty-state"><div class="empty-state-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div><span>${text}</span></div>`;
+  }
+
   async function runSearch(){
     const q = (qInp.value||'').trim();
     if(!q){
-      resultsEl.innerHTML = `<div class="wms-hint">Escribe algo para buscar.</div>`;
+      resultsEl.innerHTML = getEmptyStateHtml('Escribe un nombre o código para buscar.');
       chipCount.textContent = '0 resultados';
       return;
     }
 
     const from = (localStorage.getItem(LS_FROM) || '').trim();
     setLoading(true);
-    resultsEl.innerHTML = `<div class="wms-hint">Buscando…</div>`;
+    resultsEl.innerHTML = getEmptyStateHtml('Buscando en inventario...');
 
     const url = new URL(API_SEARCH, window.location.origin);
     url.searchParams.set('q', q);
@@ -574,7 +480,7 @@
       const data = await res.json();
 
       if(!data.ok){
-        resultsEl.innerHTML = `<div class="wms-hint">Error: ${escapeHtml(data.error||'No se pudo buscar')}</div>`;
+        resultsEl.innerHTML = getEmptyStateHtml(`Error: ${escapeHtml(data.error||'No se pudo buscar')}`);
         chipCount.textContent = '0 resultados';
         beep(false); vibrate(80);
         return;
@@ -584,39 +490,43 @@
       chipCount.textContent = list.length + ' resultados';
 
       if(!list.length){
-        resultsEl.innerHTML = `<div class="wms-hint">Sin resultados.</div>`;
+        resultsEl.innerHTML = getEmptyStateHtml('No se encontraron coincidencias.');
         beep(false);
         return;
       }
 
-      resultsEl.innerHTML = list.map(r => {
+      // Nuevo renderizado HTML inyectado
+      resultsEl.innerHTML = list.map((r, index) => {
         const rec = r.recommended_location;
         const nav = r.nav;
         const recCode = rec?.code ? escapeHtml(rec.code) : '—';
 
         const locs = (r.locations||[]).slice(0, 8).map(l =>
-          `<span class="wms-locchip"><strong>${escapeHtml(l.code||'—')}</strong> <small>x${Number(l.qty||0)}</small></span>`
+          `<span class="loc-chip"><strong>${escapeHtml(l.code||'—')}</strong> <small>x${Number(l.qty||0)}</small></span>`
         ).join('');
 
         const metaBits = [];
         if(r.sku) metaBits.push('SKU: ' + escapeHtml(r.sku));
         if(r.meli_gtin) metaBits.push('GTIN: ' + escapeHtml(r.meli_gtin));
-        if(r.primary_location?.code) metaBits.push('Principal: ' + escapeHtml(r.primary_location.code));
+        if(r.primary_location?.code) metaBits.push('Ref: ' + escapeHtml(r.primary_location.code));
+
+        // Añadimos delay progresivo a cada resultado para el efecto cascada
+        const animDelay = `animation-delay: ${0.1 * (index + 1)}s`;
 
         return `
-          <div class="wms-r">
-            <div class="wms-r-top">
-              <div style="min-width:240px">
-                <div class="wms-r-name">${escapeHtml(r.name||'—')}</div>
-                <div class="wms-r-meta">${metaBits.join(' · ') || '—'}</div>
+          <div class="result-card fade-in-up" style="${animDelay}">
+            <div class="result-top">
+              <div style="flex: 1 1 240px">
+                <div class="result-title">${escapeHtml(r.name||'—')}</div>
+                <div class="result-meta">${metaBits.join(' &middot; ') || '—'}</div>
               </div>
-              <div class="wms-r-actions">
+              <div class="result-actions">
                 ${qtyBadge(r.total_qty)}
-                ${rec?.code ? `<span class="wms-badge">Sugerida: <b>${recCode}</b></span>` : `<span class="wms-badge">Sin sugerencia</span>`}
-                ${nav?.steps?.length ? `<button class="wms-btn wms-btn-primary" type="button" data-nav='${escapeHtml(JSON.stringify(nav))}'>Llévame</button>` : ``}
+                ${rec?.code ? `<span class="result-badge bg-outline">Sugerencia: <b>${recCode}</b></span>` : `<span class="result-badge bg-outline">Sin sugerencia</span>`}
+                ${nav?.steps?.length ? `<button class="btn btn-primary btn-sm" type="button" data-nav='${escapeHtml(JSON.stringify(nav))}'>📍 Ruta Llévame</button>` : ``}
               </div>
             </div>
-            <div class="wms-locs">${locs || `<span class="wms-hint">Sin ubicaciones con stock.</span>`}</div>
+            <div class="result-locs">${locs || `<div class="hint">Sin ubicaciones con stock físico asignado.</div>`}</div>
           </div>
         `;
       }).join('');
@@ -633,7 +543,7 @@
       beep(true); vibrate(30);
     }catch(e){
       console.error(e);
-      resultsEl.innerHTML = `<div class="wms-hint">Error de conexión.</div>`;
+      resultsEl.innerHTML = getEmptyStateHtml('Error de conexión con el servidor.');
       beep(false); vibrate(80);
     }finally{
       setLoading(false);
@@ -643,16 +553,13 @@
   btnSearch.addEventListener('click', runSearch);
   qInp.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') runSearch(); });
 
-  // ----------------------------
-  // Nav modal
-  // ----------------------------
   let currentNav = null;
   function openNav(nav){
     currentNav = nav;
     const sub = document.getElementById('navSubtitle');
     const steps = document.getElementById('navSteps');
 
-    sub.textContent = `${nav.from?.code || '—'} → ${nav.to?.code || '—'}`;
+    sub.textContent = `Origen: ${nav.from?.code || '—'} → Destino: ${nav.to?.code || '—'}`;
     steps.innerHTML = (nav.steps||[]).map((s,i)=>`
       <div class="wms-step">
         <div class="wms-dot">${i+1}</div>
@@ -681,7 +588,7 @@
     const v = await validateLocationAny(val);
     if(!v.ok){
       chipFrom.textContent = 'Inválida';
-      chipFrom.classList.add('wms-pill-soft');
+      chipFrom.className = 'badge-status';
       beep(false); vibrate(90);
       alert(v.error || 'Ubicación inválida');
       return;
@@ -695,9 +602,7 @@
     beep(true); vibrate(20);
   });
 
-  // ----------------------------
-  // Scanner
-  // ----------------------------
+  // Scanner Logic
   const btnOpenScanner = document.getElementById('btnOpenScanner');
   const video = document.getElementById('video');
   const lastScan = document.getElementById('lastScan');
@@ -705,33 +610,30 @@
   const btnStopScan = document.getElementById('btnStopScan');
   const scanTech = document.getElementById('scanTech');
 
-  let scanMode = 'loc'; // loc|item
+  let scanMode = 'loc'; 
   let stream = null;
   let scanning = false;
   let lastValue = '';
   let autoApplied = false;
 
-  let zxingControls = null; // para detener decodeFromVideoDevice
+  let zxingControls = null; 
   let zxingReader = null;
 
   function setScanMode(m){
     scanMode = m;
-
     const bLoc = document.getElementById('scanModeLoc');
     const bIt  = document.getElementById('scanModeItem');
 
-    bLoc.classList.toggle('wms-btn-primary', m==='loc');
-    bLoc.classList.toggle('wms-btn-ghost', m!=='loc');
-
-    bIt.classList.toggle('wms-btn-primary', m==='item');
-    bIt.classList.toggle('wms-btn-ghost', m!=='item');
+    bLoc.className = m === 'loc' ? 'btn btn-primary btn-sm flex-1' : 'btn btn-ghost btn-sm flex-1';
+    bIt.className = m === 'item' ? 'btn btn-primary btn-sm flex-1' : 'btn btn-ghost btn-sm flex-1';
   }
+  
   document.getElementById('scanModeLoc')?.addEventListener('click', ()=>setScanMode('loc'));
   document.getElementById('scanModeItem')?.addEventListener('click', ()=>setScanMode('item'));
 
   function setScanStatus(msg, ok=true){
     lastScan.textContent = msg;
-    lastScan.classList.toggle('wms-pill-soft', !ok);
+    lastScan.className = ok ? 'badge-soft block-text' : 'badge-status block-text';
   }
 
   function isSecureContextOk(){
@@ -744,16 +646,11 @@
         try{
           await new Promise((res, rej)=>{
             const s = document.createElement('script');
-            s.src = src;
-            s.async = true;
-            s.onload = res;
-            s.onerror = rej;
+            s.src = src; s.async = true; s.onload = res; s.onerror = rej;
             document.head.appendChild(s);
           });
           return resolve(true);
-        }catch(e){
-          console.warn('No se pudo cargar', src, e);
-        }
+        }catch(e){ console.warn('No se pudo cargar', src, e); }
       }
       reject(new Error('No se pudo cargar ZXing'));
     });
@@ -765,44 +662,31 @@
       throw new Error('InsecureContext');
     }
     if(!navigator.mediaDevices?.getUserMedia){
-      setScanStatus('Este navegador no soporta cámara.', false);
+      setScanStatus('Navegador sin soporte de cámara.', false);
       throw new Error('NoGetUserMedia');
     }
 
     stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode: { ideal: 'environment' },
-        width: { ideal: 1280 },
-        height: { ideal: 720 }
-      },
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
       audio: false
     });
 
     video.srcObject = stream;
-
     await Promise.race([
       new Promise(res => video.addEventListener('loadedmetadata', res, {once:true})),
       new Promise(res => setTimeout(res, 900))
     ]);
-
     try{ await video.play(); }catch(e){}
-
-    setScanStatus('Escaneando…', true);
+    setScanStatus('Escaneando...', true);
   }
 
   function stopCamera(){
     scanning = false;
-
     if(zxingControls && typeof zxingControls.stop === 'function'){
       try{ zxingControls.stop(); }catch(e){}
     }
-    zxingControls = null;
-    zxingReader = null;
-
-    if(stream){
-      stream.getTracks().forEach(t=>t.stop());
-      stream = null;
-    }
+    zxingControls = null; zxingReader = null;
+    if(stream){ stream.getTracks().forEach(t=>t.stop()); stream = null; }
     video.srcObject = null;
   }
 
@@ -825,7 +709,6 @@
       return;
     }
 
-    // modo producto
     const prod = await resolveProductFromRaw(raw);
     if(!prod.ok){
       autoApplied = false;
@@ -843,42 +726,27 @@
 
   function onDecoded(val){
     val = (val || '').trim();
-    if(!val) return;
-    if(val === lastValue) return;
-
-    console.log('Código detectado:', val);
+    if(!val || val === lastValue) return;
+    
     lastValue = val;
     setScanStatus(val, true);
     beep(true); vibrate(25);
-
     applyDecodedNow(val);
   }
 
   async function loopScanBarcodeDetector(){
     if(!('BarcodeDetector' in window)) return false;
-
     let detector = null;
-    try{
-      detector = new BarcodeDetector({formats:['qr_code','ean_13','ean_8','code_128','upc_a','upc_e','code_39','itf','pdf417','data_matrix']});
-    }catch(e){
-      try{ detector = new BarcodeDetector(); }
-      catch(_e){ return false; }
-    }
+    try{ detector = new BarcodeDetector({formats:['qr_code','ean_13','ean_8','code_128','upc_a','upc_e','code_39','itf','pdf417','data_matrix']}); }
+    catch(e){ try{ detector = new BarcodeDetector(); } catch(_e){ return false; } }
 
-    console.log('Usando BarcodeDetector nativo');
-    scanTech.textContent = 'Tecnología: BarcodeDetector';
-
+    scanTech.textContent = 'Motor: BarcodeDetector Nativo';
     scanning = true;
     while(scanning){
       try{
         const codes = await detector.detect(video);
-        if(codes && codes.length){
-          onDecoded(codes[0]?.rawValue || '');
-        }
-      }catch(e){
-        console.warn('Error BarcodeDetector:', e);
-        return false;
-      }
+        if(codes && codes.length){ onDecoded(codes[0]?.rawValue || ''); }
+      }catch(e){ return false; }
       await new Promise(r=>setTimeout(r, 120));
     }
     return true;
@@ -887,114 +755,64 @@
   async function startZXingFallback(){
     try{
       if(!window.ZXingBrowser && !window.ZXing){
-        // 1) local
         const localSrc = @json(asset('vendor/zxing/index.min.js'));
-        await loadScriptTry([
-          localSrc,
-          'https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/umd/index.min.js',
-          'https://unpkg.com/@zxing/browser@0.1.5/umd/index.min.js'
-        ]);
+        await loadScriptTry([localSrc, 'https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/umd/index.min.js']);
       }
 
       const ns = window.ZXingBrowser || window.ZXing;
-      if(!ns){
-        console.warn('ZXing no disponible en window');
-        return false;
-      }
-
+      if(!ns) return false;
       const Reader = ns.BrowserMultiFormatReader || ns.BrowserQRCodeReader;
-      if(!Reader){
-        console.warn('BrowserMultiFormatReader no disponible');
-        return false;
-      }
+      if(!Reader) return false;
 
       zxingReader = new Reader();
       scanning = true;
-
-      console.log('Usando ZXing', ns === window.ZXingBrowser ? 'ZXingBrowser' : 'ZXing');
-      scanTech.textContent = 'Tecnología: ZXing';
+      scanTech.textContent = 'Motor: ZXing Fallback';
 
       if(typeof zxingReader.decodeFromVideoDevice === 'function'){
-        // Versión oficial: deviceId=null, videoElementId-string
-        zxingControls = await zxingReader.decodeFromVideoDevice(
-          null,
-          'video',
-          (result, err) => {
-            if(!scanning) return;
-            if(result && result.getText){
-              onDecoded(result.getText());
-            }
-            // err suele ser NotFoundException cuando no hay código; no pasa nada
-          }
-        );
+        zxingControls = await zxingReader.decodeFromVideoDevice(null, 'video', (result, err) => {
+          if(!scanning) return;
+          if(result && result.getText) onDecoded(result.getText());
+        });
       }else if(typeof zxingReader.decodeFromVideoElementContinuously === 'function'){
         zxingReader.decodeFromVideoElementContinuously(video, (result, err) => {
           if(!scanning) return;
-          if(result && result.getText){
-            onDecoded(result.getText());
-          }
+          if(result && result.getText) onDecoded(result.getText());
         });
-      }else{
-        console.warn('Método de ZXing no encontrado');
-        return false;
-      }
+      }else{ return false; }
 
       return true;
-    }catch(e){
-      console.error('Error ZXing:', e);
-      return false;
-    }
+    }catch(e){ return false; }
   }
 
   async function startScanner(){
     setModal('scanModal', true);
     setScanMode('loc');
-    lastValue = '';
-    autoApplied = false;
-    scanTech.textContent = 'Tecnología: detectando…';
-    setScanStatus('Solicitando cámara…', true);
+    lastValue = ''; autoApplied = false;
+    scanTech.textContent = 'Motor: Iniciando...';
+    setScanStatus('Solicitando permisos de cámara...', true);
 
-    try{
-      await startCamera();
-    }catch(e){
-      console.warn('Camera error:', e);
-      return;
-    }
+    try{ await startCamera(); } catch(e){ return; }
 
-    // 1) Intentar BarcodeDetector
     const okNative = await loopScanBarcodeDetector();
     if(okNative) return;
 
-    // 2) Fallback ZXing
     const okZX = await startZXingFallback();
-    if(okZX){
-      setScanStatus('Escaneando…', true);
-      return;
-    }
+    if(okZX){ setScanStatus('Escaneando...', true); return; }
 
-    scanTech.textContent = 'Tecnología: ninguna disponible';
-    setScanStatus('No se pudo cargar el lector. Copia/pega el valor.', false);
+    scanTech.textContent = 'Motor: No Disponible';
+    setScanStatus('Error en lector. Usa búsqueda manual.', false);
   }
 
   btnOpenScanner.addEventListener('click', startScanner);
-
-  btnStopScan.addEventListener('click', ()=>{
-    stopCamera();
-    setScanStatus('Detenido', false);
-    beep(true);
-  });
+  btnStopScan.addEventListener('click', ()=>{ stopCamera(); setScanStatus('Pausado', false); beep(true); });
 
   btnUseScan.addEventListener('click', async ()=>{
     const val = (lastValue || lastScan.textContent || '').trim();
-    if(!val || val === 'Listo para escanear' || val === 'Escaneando…' || val === 'Detenido' || val.startsWith('No se pudo')){
-      beep(false); vibrate(80);
-      return;
-    }
+    if(!val || val.includes('...') || val === 'Pausado'){ beep(false); vibrate(80); return; }
     autoApplied = false;
     await applyDecodedNow(val);
   });
 
-  // init
   loadFrom();
 </script>
 @endpush

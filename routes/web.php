@@ -96,7 +96,7 @@ use App\Http\Controllers\WhatsApp\WhatsAppWebhookController;
 use App\Http\Controllers\Admin\WaConversationController;
 use App\Http\Controllers\Admin\WmsLayoutController;
 use App\Http\Controllers\Admin\WmsFastFlowController;
-
+use App\Http\Controllers\Admin\WmsShippingController;
 /*
 |--------------------------------------------------------------------------
 | AUTH
@@ -1773,4 +1773,17 @@ Route::prefix('admin/wms')->name('admin.wms.')->middleware('auth')->group(functi
 
     Route::get('/heatmap', [WmsLayoutController::class, 'heatmap'])->name('heatmap.view');
     Route::get('/heatmap/data', [WmsLayoutController::class, 'heatmapData'])->name('heatmap.data');
+});
+
+Route::prefix('admin/wms')->name('admin.wms.')->middleware('auth')->group(function () {
+    Route::get('/shipping', [WmsShippingController::class, 'index'])->name('shipping.index');
+    Route::post('/shipping/from-picking/{pickWave}', [WmsShippingController::class, 'storeFromPicking'])->name('shipping.storeFromPicking');
+
+    Route::get('/shipping/{shipment}', [WmsShippingController::class, 'show'])->name('shipping.show');
+    Route::get('/shipping/{shipment}/scanner', [WmsShippingController::class, 'scanner'])->name('shipping.scanner');
+
+    Route::post('/shipping/{shipment}/scan', [WmsShippingController::class, 'scan'])->name('shipping.scan');
+    Route::patch('/shipping/{shipment}/close', [WmsShippingController::class, 'close'])->name('shipping.close');
+    Route::patch('/shipping/{shipment}/dispatch', [WmsShippingController::class, 'dispatch'])->name('shipping.dispatch');
+    Route::patch('/shipping/{shipment}/cancel', [WmsShippingController::class, 'cancel'])->name('shipping.cancel');
 });

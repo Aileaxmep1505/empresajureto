@@ -611,11 +611,6 @@
     return RACK_START_Z + ((rackNumber - 1) * RACK_SPACING_Z);
   }
 
-  function getRackCellX(group, loc){
-    const centerPos = (group.minPos + group.maxPos) / 2;
-    return (loc.position - centerPos) * CELL_W;
-  }
-
   function getRackCellY(group, loc){
     return 10 + ((group.maxLevel / 2) - loc.level) * CELL_H;
   }
@@ -677,16 +672,18 @@
       labelColor: opts.labelColor ?? 'rgba(255,255,255,.92)',
       location: opts.location ?? null,
       pickRadius: opts.pickRadius ?? 16,
+      layer: opts.layer ?? 1,
       sortDepth: centerCam.z
     };
   }
 
-  function makeLabel(x, y, z, text, color, size = 12){
+  function makeLabel(x, y, z, text, color, size = 12, opts = {}){
     const centerCam = worldToCamera(x, y, z);
 
     return {
       type: 'label',
       x, y, z, text, color, size,
+      layer: opts.layer ?? 1,
       sortDepth: centerCam.z
     };
   }
@@ -833,51 +830,46 @@
   function buildScene(){
     const items = [];
 
+    // Piso base (asignado al layer 0 para que jamás tape un rack superior)
     items.push(
       makeBox(0, FLOOR_Y - 1, 110, 1200, 2, 1200, { r:0.07, g:0.14, b:0.24 }, {
-        alpha: 1,
-        strokeAlpha: 0.08,
-        noStroke: true
+        alpha: 1, strokeAlpha: 0.08, noStroke: true, layer: 0 
       })
     );
 
     rackGroups.forEach(group => {
       const rackZ = getRackZ(group.rackNumber);
-      const rackWidth = group.width + 18;
+      const centerPos = (group.minPos + group.maxPos) / 2;
       const rackHeight = group.height + 18;
 
-      items.push(
-        makeBox(0, 10, rackZ, rackWidth + 10, rackHeight, 8, { r:0.10, g:0.23, b:0.57 }, {
-          alpha: 0.97,
-          strokeAlpha: 0.16
-        })
-      );
-
-      for (let pos = group.minPos; pos <= group.maxPos + 1; pos++) {
-        const center = (group.minPos + group.maxPos + 1) / 2;
-        const colX = (pos - center) * CELL_W;
-
+      // 1. Columnas divisorias de cada posición
+      for (let p = group.minPos; p <= group.maxPos + 1; p++) {
+        const colX = ((p - 0.5) - centerPos) * CELL_W;
         items.push(
-          makeBox(colX, 10, rackZ, 6, rackHeight, 8, { r:0.15, g:0.33, b:0.72 }, {
-            alpha: 0.98,
-            strokeAlpha: 0.14
+          makeBox(colX, 10, rackZ, 6, rackHeight, CELL_D + 2, { r:0.15, g:0.33, b:0.72 }, {
+            alpha: 0.98, strokeAlpha: 0.14
           })
         );
       }
 
-      for (let level = 1; level <= group.maxLevel; level++) {
-        const beamY = 10 + ((group.maxLevel / 2) - level) * CELL_H + (CELL_H / 2) - 2;
+      // 2. Estantes (sin la pared trasera)
+      for (let pos = group.minPos; pos <= group.maxPos; pos++) {
+        const cellX = (pos - centerPos) * CELL_W;
 
-        items.push(
-          makeBox(0, beamY, rackZ, rackWidth + 2, 5, CELL_D + 4, { r:0.92, g:0.62, b:0.10 }, {
-            alpha: 0.95,
-            strokeAlpha: 0.16
-          })
-        );
+        // Estantes horizontales para cada nivel de esta celda
+        for (let level = 1; level <= group.maxLevel; level++) {
+          const beamY = 10 + ((group.maxLevel / 2) - level) * CELL_H + (CELL_H / 2) - 2;
+          items.push(
+            makeBox(cellX, beamY, rackZ, CELL_W, 4, CELL_D, { r:0.92, g:0.62, b:0.10 }, {
+              alpha: 0.95, strokeAlpha: 0.16
+            })
+          );
+        }
       }
 
+      // 3. Las Cajas (Items del inventario)
       group.items.forEach(loc => {
-        const x = getRackCellX(group, loc);
+        const x = (loc.position - centerPos) * CELL_W;
         const y = getRackCellY(group, loc);
         const isHovered = hoveredCell && loc && hoveredCell.id === loc.id;
         const color = rackCellColor(loc);
@@ -886,9 +878,10 @@
         const realH = Math.max(18, Math.min(CELL_H - 2, Number(loc.h || 30)));
         const boxW = isHovered ? realW + 4 : realW;
         const boxH = isHovered ? realH + 4 : realH;
+        const boxD = CELL_D - 8; 
 
         items.push(
-          makeBox(x, y, rackZ, boxW, boxH, CELL_D - 6, color, {
+          makeBox(x, y, rackZ, boxW, boxH, boxD, color, {
             alpha: isHovered ? 1 : 0.99,
             strokeAlpha: 0.22,
             location: loc,
@@ -901,6 +894,7 @@
         );
       });
 
+      // Etiqueta del RACK superior
       items.push(
         makeLabel(
           0,
@@ -921,16 +915,20 @@
         const laneW = Math.max(180, (count * 76) + 90);
 
         items.push(
-          makeBox(0, 104, zoneZ, laneW, 10, 52, baseColor, {
-            alpha: 0.42,
-            strokeAlpha: 0.10
-          })
+          makeBox(-laneW/2 + 22.5, 104, zoneZ, 45, 10, 52, baseColor, { alpha: 0.42, strokeAlpha: 0.10, layer:0 })
+        );
+        items.push(
+          makeBox(laneW/2 - 22.5, 104, zoneZ, 45, 10, 52, baseColor, { alpha: 0.42, strokeAlpha: 0.10, layer:0 })
         );
 
         group.items.forEach((loc, idx) => {
           const x = (idx - ((count - 1) / 2)) * 76;
           const isHovered = hoveredCell && hoveredCell.id === loc.id;
           const color = zoneCellColor(loc, group.key);
+
+          items.push(
+            makeBox(x, 104, zoneZ, 76.5, 10, 52, baseColor, { alpha: 0.42, strokeAlpha: 0.10, layer:0 })
+          );
 
           const zoneW = Math.max(42, Math.min(88, Number(loc.w || 64)));
           const zoneH = Math.max(24, Math.min(56, Number(loc.h || 42)));
@@ -951,7 +949,7 @@
 
         items.push(
           makeLabel(
-            -Math.max(180, (count * 76) + 90) / 2 + 42,
+            -laneW / 2 + 42,
             65,
             zoneZ,
             String(group.items[0]?.zone_label || group.key).toUpperCase(),
@@ -978,7 +976,11 @@
     drawGround(ctx, cx, cy);
 
     const scene = buildScene();
-    scene.sort((a, b) => b.sortDepth - a.sortDepth);
+    
+    scene.sort((a, b) => {
+      if (a.layer !== b.layer) return a.layer - b.layer;
+      return b.sortDepth - a.sortDepth;
+    });
 
     for (const item of scene) {
       if (item.type === 'box') renderBox(ctx, item, cx, cy);

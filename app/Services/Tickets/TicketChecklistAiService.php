@@ -18,9 +18,9 @@ class TicketChecklistAiService
      *   'meta' => [...]
      * ]
      *
-     * ✅ “Abierto”: dejamos que OpenAI genere 100% con base en title/description/area.
-     * ✅ Sin temperature (evita 400 en modelos que no lo soportan).
-     * ✅ Responses API + JSON Schema estricto (siempre JSON válido).
+     * Abierto: dejamos que OpenAI genere 100% con base en title/description/area.
+     * Sin temperature para evitar errores en modelos que no lo soportan.
+     * Responses API + JSON Schema estricto.
      */
     public function generateChecklist(string $title, string $description, string $area): array
     {
@@ -33,7 +33,6 @@ class TicketChecklistAiService
         }
 
         $prompt = $this->buildPrompt($title, $description, $areaOriginal);
-
         $rawText = $this->callAiProvider($prompt);
 
         if (!is_string($rawText) || trim($rawText) === '') {
@@ -41,15 +40,17 @@ class TicketChecklistAiService
                 'area_original' => $areaOriginal,
                 'title' => $title,
             ]);
+
             return $this->fallbackChecklist($title, $areaOriginal, 'IA devolvió texto vacío');
         }
 
-        // Con json_schema + strict normalmente YA viene JSON perfecto,
-        // pero dejamos un parse robusto por seguridad.
         $parsed = $this->tryJsonDecode($rawText);
+
         if (!$parsed) {
             $jsonBlock = $this->extractFirstJsonObject($rawText);
-            if ($jsonBlock) $parsed = $this->tryJsonDecode($jsonBlock);
+            if ($jsonBlock) {
+                $parsed = $this->tryJsonDecode($jsonBlock);
+            }
         }
 
         if (!$parsed || !is_array($parsed)) {
@@ -58,17 +59,17 @@ class TicketChecklistAiService
                 'title' => $title,
                 'snippet' => mb_substr($rawText, 0, 900),
             ]);
+
             return $this->fallbackChecklist($title, $areaOriginal, 'No se pudo parsear JSON');
         }
 
         $out = $this->normalizeChecklistPayload($parsed, $title);
 
-        // Normalizamos a UI
         $out['items'] = array_slice($out['items'], 0, 10);
         $out['keywords'] = array_slice($out['keywords'], 0, 8);
 
         $out['meta'] = [
-            'model' => (string) (env('OPENAI_PRIMARY_MODEL') ?: env('OPENAI_MODEL', 'gpt-5-2025-08-07')),
+            'model' => $this->resolveModel(),
             'area_original' => $areaOriginal,
         ];
 
@@ -76,8 +77,7 @@ class TicketChecklistAiService
     }
 
     /**
-     * Prompt “abierto”: NO lo limitamos por reglas duras.
-     * Solo pedimos que sea accionable y específico.
+     * Prompt abierto.
      */
     private function buildPrompt(string $title, string $description, string $area): string
     {
@@ -111,22 +111,19 @@ PROMPT;
     }
 
     /**
-     * ✅ Llamada a OpenAI Responses API con Structured Outputs (JSON Schema).
-     * Requiere OPENAI_API_KEY en .env
-     *
-     * IMPORTANTE:
-     * - Tu OPENAI_PRIMARY_MODEL = gpt-5-2025-08-07
-     * - NO mandamos temperature para evitar el 400 que viste.
+     * Llamada a OpenAI Responses API con Structured Outputs.
      */
     private function callAiProvider(string $prompt): string
     {
-        $apiKey = (string) env('OPENAI_API_KEY', '');
+        $apiKey = (string) config('services.openai.api_key', '');
         if ($apiKey === '') {
             Log::warning('Checklist IA: falta OPENAI_API_KEY');
             return '';
         }
 
-        $model = (string) (env('OPENAI_PRIMARY_MODEL') ?: env('OPENAI_MODEL', 'gpt-5-2025-08-07'));
+        $model = $this->resolveModel();
+        $baseUrl = rtrim((string) config('services.openai.base_url', 'https://api.openai.com'), '/');
+        $projectId = trim((string) config('services.openai.project_id', ''));
 
         $payload = [
             'model' => $model,
@@ -139,16 +136,22 @@ PROMPT;
                     'schema' => $this->checklistJsonSchema(),
                 ],
             ],
-            // ✅ NO temperature (evita: "Unsupported parameter: 'temperature'")
             'tool_choice' => 'none',
         ];
 
         try {
-            $res = Http::timeout(35)
+            $request = Http::timeout(35)
                 ->withToken($apiKey)
                 ->acceptJson()
-                ->asJson()
-                ->post('https://api.openai.com/v1/responses', $payload);
+                ->asJson();
+
+            if ($projectId !== '') {
+                $request = $request->withHeaders([
+                    'OpenAI-Project' => $projectId,
+                ]);
+            }
+
+            $res = $request->post($baseUrl . '/v1/responses', $payload);
 
             if (!$res->ok()) {
                 Log::warning('Checklist IA: OpenAI no OK', [
@@ -156,6 +159,7 @@ PROMPT;
                     'body' => mb_substr((string) $res->body(), 0, 1600),
                     'model' => $model,
                 ]);
+
                 return '';
             }
 
@@ -168,24 +172,46 @@ PROMPT;
                 'msg' => $e->getMessage(),
                 'model' => $model,
             ]);
+
             return '';
         }
     }
 
+    private function resolveModel(): string
+    {
+        return (string) (
+            config('services.openai.primary_model')
+            ?: config('services.openai.model')
+            ?: 'gpt-5-2025-08-07'
+        );
+    }
+
     private function extractFirstOutputText($data): ?string
     {
-        if (!is_array($data)) return null;
+        if (!is_array($data)) {
+            return null;
+        }
 
         $output = $data['output'] ?? null;
-        if (!is_array($output)) return null;
+        if (!is_array($output)) {
+            return null;
+        }
 
         foreach ($output as $item) {
-            if (!is_array($item)) continue;
+            if (!is_array($item)) {
+                continue;
+            }
+
             $content = $item['content'] ?? null;
-            if (!is_array($content)) continue;
+            if (!is_array($content)) {
+                continue;
+            }
 
             foreach ($content as $c) {
-                if (!is_array($c)) continue;
+                if (!is_array($c)) {
+                    continue;
+                }
+
                 if (($c['type'] ?? null) === 'output_text' && isset($c['text']) && is_string($c['text'])) {
                     return $c['text'];
                 }
@@ -195,9 +221,6 @@ PROMPT;
         return null;
     }
 
-    /**
-     * JSON Schema estricto para que SIEMPRE venga el formato que tu UI espera.
-     */
     private function checklistJsonSchema(): array
     {
         return [
@@ -205,12 +228,20 @@ PROMPT;
             'additionalProperties' => false,
             'required' => ['title', 'keywords', 'items'],
             'properties' => [
-                'title' => ['type' => 'string', 'minLength' => 3, 'maxLength' => 140],
+                'title' => [
+                    'type' => 'string',
+                    'minLength' => 3,
+                    'maxLength' => 140,
+                ],
                 'keywords' => [
                     'type' => 'array',
                     'minItems' => 4,
                     'maxItems' => 8,
-                    'items' => ['type' => 'string', 'minLength' => 2, 'maxLength' => 30],
+                    'items' => [
+                        'type' => 'string',
+                        'minLength' => 2,
+                        'maxLength' => 30,
+                    ],
                 ],
                 'items' => [
                     'type' => 'array',
@@ -221,14 +252,26 @@ PROMPT;
                         'additionalProperties' => false,
                         'required' => ['title', 'detail', 'recommended'],
                         'properties' => [
-                            'title' => ['type' => 'string', 'minLength' => 3, 'maxLength' => 140],
+                            'title' => [
+                                'type' => 'string',
+                                'minLength' => 3,
+                                'maxLength' => 140,
+                            ],
                             'detail' => [
                                 'anyOf' => [
-                                    ['type' => 'string', 'minLength' => 3, 'maxLength' => 260],
-                                    ['type' => 'null'],
+                                    [
+                                        'type' => 'string',
+                                        'minLength' => 3,
+                                        'maxLength' => 260,
+                                    ],
+                                    [
+                                        'type' => 'null',
+                                    ],
                                 ],
                             ],
-                            'recommended' => ['type' => 'boolean'],
+                            'recommended' => [
+                                'type' => 'boolean',
+                            ],
                         ],
                     ],
                 ],
@@ -255,34 +298,62 @@ PROMPT;
     private function extractFirstJsonObject(string $text): ?string
     {
         $text = trim($text);
-        if ($text === '') return null;
+        if ($text === '') {
+            return null;
+        }
 
-        if (preg_match('/```json\s*(\{.*\})\s*```/is', $text, $m)) return trim($m[1]);
-        if (preg_match('/```\s*(\{.*\})\s*```/is', $text, $m)) return trim($m[1]);
+        if (preg_match('/```json\s*(\{.*\})\s*```/is', $text, $m)) {
+            return trim($m[1]);
+        }
+
+        if (preg_match('/```\s*(\{.*\})\s*```/is', $text, $m)) {
+            return trim($m[1]);
+        }
 
         $start = strpos($text, '{');
-        if ($start === false) return null;
+        if ($start === false) {
+            return null;
+        }
 
         $level = 0;
         $inString = false;
         $escape = false;
 
         $len = strlen($text);
+
         for ($i = $start; $i < $len; $i++) {
             $ch = $text[$i];
 
             if ($inString) {
-                if ($escape) { $escape = false; continue; }
-                if ($ch === '\\') { $escape = true; continue; }
-                if ($ch === '"') $inString = false;
+                if ($escape) {
+                    $escape = false;
+                    continue;
+                }
+
+                if ($ch === '\\') {
+                    $escape = true;
+                    continue;
+                }
+
+                if ($ch === '"') {
+                    $inString = false;
+                }
+
                 continue;
             }
 
-            if ($ch === '"') { $inString = true; continue; }
+            if ($ch === '"') {
+                $inString = true;
+                continue;
+            }
 
-            if ($ch === '{') $level++;
+            if ($ch === '{') {
+                $level++;
+            }
+
             if ($ch === '}') {
                 $level--;
+
                 if ($level === 0) {
                     $candidate = substr($text, $start, $i - $start + 1);
                     return trim($candidate);
@@ -300,35 +371,50 @@ PROMPT;
             : "Checklist: {$fallbackTitle}";
 
         $kw = $data['keywords'] ?? [];
-        if (!is_array($kw)) $kw = [];
+        if (!is_array($kw)) {
+            $kw = [];
+        }
+
         $keywords = [];
         foreach ($kw as $k) {
-            $k = trim((string)$k);
-            if ($k !== '') $keywords[] = $k;
+            $k = trim((string) $k);
+            if ($k !== '') {
+                $keywords[] = $k;
+            }
         }
+
         $keywords = array_values(array_unique($keywords));
+
         if (count($keywords) < 4) {
-            // fallback suave: partir del título
             $keywords = $this->fallbackKeywordsFromTitle($fallbackTitle);
         }
+
         $keywords = array_slice($keywords, 0, 8);
 
         $itemsRaw = $data['items'] ?? [];
-        if (!is_array($itemsRaw)) $itemsRaw = [];
+        if (!is_array($itemsRaw)) {
+            $itemsRaw = [];
+        }
 
         $items = [];
         foreach ($itemsRaw as $it) {
-            if (!is_array($it)) continue;
+            if (!is_array($it)) {
+                continue;
+            }
 
-            $t = isset($it['title']) ? trim((string)$it['title']) : '';
-            if ($t === '') continue;
+            $t = isset($it['title']) ? trim((string) $it['title']) : '';
+            if ($t === '') {
+                continue;
+            }
 
             $d = $it['detail'] ?? null;
-            $d = is_null($d) ? null : trim((string)$d);
-            if ($d === '') $d = null;
+            $d = is_null($d) ? null : trim((string) $d);
+            if ($d === '') {
+                $d = null;
+            }
 
             $rec = $it['recommended'] ?? true;
-            $rec = is_bool($rec) ? $rec : (in_array((string)$rec, ['1','true','si','sí','yes'], true));
+            $rec = is_bool($rec) ? $rec : in_array((string) $rec, ['1', 'true', 'si', 'sí', 'yes'], true);
 
             $items[] = [
                 'title' => $t,
@@ -337,17 +423,19 @@ PROMPT;
             ];
         }
 
-        // Deduplicar por title
         $seen = [];
         $clean = [];
+
         foreach ($items as $it) {
             $k = mb_strtolower(trim($it['title']));
-            if (isset($seen[$k])) continue;
+            if (isset($seen[$k])) {
+                continue;
+            }
+
             $seen[$k] = true;
             $clean[] = $it;
         }
 
-        // Si por alguna razón vino menos de 8 (raro con schema), completamos mínimo:
         if (count($clean) < 8) {
             $clean = array_pad($clean, 8, [
                 'title' => 'Completar tarea pendiente del ticket',
@@ -366,19 +454,32 @@ PROMPT;
     private function fallbackKeywordsFromTitle(string $title): array
     {
         $t = mb_strtolower(trim($title));
-        $t = str_replace(['á','é','í','ó','ú','ü','ñ'], ['a','e','i','o','u','u','n'], $t);
+        $t = str_replace(['á', 'é', 'í', 'ó', 'ú', 'ü', 'ñ'], ['a', 'e', 'i', 'o', 'u', 'u', 'n'], $t);
         $t = preg_replace('/[^a-z0-9\s\-]/', ' ', $t) ?? $t;
         $t = preg_replace('/\s+/u', ' ', $t) ?? $t;
-        $parts = preg_split('/\s+/', trim($t)) ?: [];
 
-        $stop = array_flip(['de','la','el','los','las','y','o','u','a','en','con','sin','para','por','del','al','un','una','unos','unas','se','que','es','son','ser']);
+        $parts = preg_split('/\s+/', trim($t)) ?: [];
+        $stop = array_flip([
+            'de', 'la', 'el', 'los', 'las', 'y', 'o', 'u', 'a', 'en', 'con', 'sin',
+            'para', 'por', 'del', 'al', 'un', 'una', 'unos', 'unas', 'se', 'que',
+            'es', 'son', 'ser',
+        ]);
+
         $out = [];
         foreach ($parts as $w) {
-            if ($w === '' || strlen($w) < 3) continue;
-            if (isset($stop[$w])) continue;
+            if ($w === '' || strlen($w) < 3) {
+                continue;
+            }
+
+            if (isset($stop[$w])) {
+                continue;
+            }
+
             $out[] = $w;
         }
+
         $out = array_values(array_unique($out));
+
         return array_slice($out, 0, 8);
     }
 
@@ -394,16 +495,49 @@ PROMPT;
             'title' => "Checklist: {$ticketTitle}",
             'keywords' => array_slice($this->fallbackKeywordsFromTitle($ticketTitle), 0, 8),
             'items' => [
-                ['title' => 'Revisar el título y la descripción del ticket', 'detail' => 'Asegurar que estén completos y claros.', 'recommended' => true],
-                ['title' => 'Identificar el objetivo exacto del ticket', 'detail' => 'Qué debe quedar listo al terminar.', 'recommended' => true],
-                ['title' => 'Listar insumos necesarios', 'detail' => 'Datos, archivos o accesos requeridos.', 'recommended' => true],
-                ['title' => 'Ejecutar la acción principal', 'detail' => 'Realizar el cambio/gestión solicitada.', 'recommended' => true],
-                ['title' => 'Verificar el resultado', 'detail' => 'Confirmar que cumple lo pedido en el ticket.', 'recommended' => true],
-                ['title' => 'Documentar evidencia mínima', 'detail' => 'Captura, folio, archivo o referencia final.', 'recommended' => true],
-                ['title' => 'Resolver ajustes detectados', 'detail' => 'Corregir puntos puntuales si aparecen.', 'recommended' => true],
-                ['title' => 'Cerrar el ticket', 'detail' => 'Dejar el entregable final listo.', 'recommended' => true],
+                [
+                    'title' => 'Revisar el título y la descripción del ticket',
+                    'detail' => 'Asegurar que estén completos y claros.',
+                    'recommended' => true,
+                ],
+                [
+                    'title' => 'Identificar el objetivo exacto del ticket',
+                    'detail' => 'Qué debe quedar listo al terminar.',
+                    'recommended' => true,
+                ],
+                [
+                    'title' => 'Listar insumos necesarios',
+                    'detail' => 'Datos, archivos o accesos requeridos.',
+                    'recommended' => true,
+                ],
+                [
+                    'title' => 'Ejecutar la acción principal',
+                    'detail' => 'Realizar el cambio o gestión solicitada.',
+                    'recommended' => true,
+                ],
+                [
+                    'title' => 'Verificar el resultado',
+                    'detail' => 'Confirmar que cumple lo pedido en el ticket.',
+                    'recommended' => true,
+                ],
+                [
+                    'title' => 'Documentar evidencia mínima',
+                    'detail' => 'Captura, folio, archivo o referencia final.',
+                    'recommended' => true,
+                ],
+                [
+                    'title' => 'Resolver ajustes detectados',
+                    'detail' => 'Corregir puntos puntuales si aparecen.',
+                    'recommended' => true,
+                ],
+                [
+                    'title' => 'Cerrar el ticket',
+                    'detail' => 'Dejar el entregable final listo.',
+                    'recommended' => true,
+                ],
             ],
             'meta' => [
+                'model' => $this->resolveModel(),
                 'area_original' => $area,
                 'fallback_reason' => $reason,
             ],
