@@ -1,13 +1,16 @@
-{{-- resources/views/routes/create.blade.php --}}
 @extends('layouts.app')
 @section('title','Nueva ruta')
 
 @section('content')
+@php
+  $shipmentId      = (int) request('shipment_id', 0);
+  $backUrl         = (string) request('back_url', '');
+  $prefillDriverId = (int) request('driver_id', 0);
+  $prefillName     = (string) request('name', '');
+@endphp
+
 <div id="rp-create">
   <style>
-    /* =========================
-       NAMESPACE #rp-create
-       ========================= */
     #rp-create{
       --ink:#0e1726; --muted:#64748b; --line:#e7eef7; --bg:#f7f9fc; --card:#ffffff;
       --brand:#a6d3ff; --brand-ink:#0b1220;
@@ -28,26 +31,22 @@
     .cardx .hd{padding:12px 14px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:center}
     .cardx .bd{padding:14px}
 
-    /* Botones */
     .btn{border-radius:12px; border:1px solid transparent; font-weight:700; transition:.18s; box-shadow:0 6px 18px rgba(2,8,23,.06)}
     .btn:hover{background:#fff !important; color:var(--ink) !important; transform:translateY(-1px); box-shadow:0 18px 42px rgba(2,8,23,.14)}
     .btn-brand{background:var(--brand); color:var(--brand-ink); border-color:#d6ecff}
     .btn-ghost{background:#f4f7fb; border-color:#eaf0f7; color:#0b1220}
     .btn-outline{background:#f5f9ff; border-color:#dbe6f4; color:#0b1220}
 
-    /* Campos */
     .field{margin-bottom:12px}
     label{font-weight:700; font-size:.92rem}
     .control{width:100%; padding:.6rem .8rem; border:1px solid var(--line); border-radius:12px; background:#fff; outline:none; transition:.15s; font-size:.95rem}
     .control:focus{border-color:#cfe0ff; box-shadow:0 0 0 6px rgba(166,211,255,.25)}
     .control::placeholder{color:#9aa8b5}
 
-    /* Providers */
     .prov-list{max-height:280px; overflow:auto; border:1px solid var(--line); border-radius:12px; padding:8px; background:#fff}
     .prov-item{display:flex; gap:8px; align-items:flex-start; padding:8px 6px}
     .prov-item small{display:block; line-height:1.25}
 
-    /* Toast */
     .toastx{
       position:fixed; left:50%; top:18px; transform:translateX(-50%);
       background:#111827; color:#fff; padding:10px 12px; border-radius:12px;
@@ -60,11 +59,9 @@
     .toastx.show{opacity:1; pointer-events:auto}
     .toastx .muted{opacity:.85; font-weight:700}
 
-    /* Mapa */
     #mapPick{height:540px; border-radius:12px; border:1px solid var(--line); background:#e9eef8; overflow:hidden}
     .preview-tip{background:#111827; color:#fff; border-radius:10px; padding:.28rem .55rem; font-weight:800; font-size:.8rem; border:2px solid #fff; box-shadow:0 10px 24px rgba(2,8,23,.25)}
 
-    /* Barra de búsqueda (no overlay) */
     .searchbar{display:flex; gap:8px; align-items:center; flex-wrap:wrap; border:1px solid var(--line); border-radius:14px; padding:10px; background:#fff; margin-bottom:12px}
     .addr-wrap{position:relative; flex:1 1 520px}
     .addr{width:100%}
@@ -75,13 +72,11 @@
     .s-loading{padding:.6rem .75rem; color:#0b1220; font-weight:800}
     .s-hint{padding:.45rem .75rem; color:var(--muted); font-size:.85rem; border-top:1px solid var(--line); background:#fbfdff}
 
-    /* Lista de puntos */
     .list{list-style:none; margin:0; padding:0}
     .rowx{display:flex; justify-content:space-between; align-items:center; gap:10px; padding:.6rem .75rem; border:1px solid var(--line); border-radius:12px; background:#fff}
     .rowx + .rowx{margin-top:8px}
     .badge-no{border:1px solid var(--line); border-radius:8px; padding:.1rem .4rem; background:#f7fbff}
 
-    /* Link volver */
     .back{font-weight:800; color:#4338ca; text-decoration:none; background:#f5f7ff; border:1px solid #e5e7ff; padding:.4rem .7rem; border-radius:999px}
     .back:hover{background:#fff}
   </style>
@@ -94,15 +89,16 @@
     <div class="pagehead">
       <div>
         <div class="title">Programar nueva ruta</div>
-        <div class="subtitle">Selecciona chofer, agrega puntos (buscador, mapa o providers) y guarda.</div>
+        <div class="subtitle">Selecciona chofer, agrega puntos y guarda la ruta vinculada al embarque.</div>
       </div>
       <a href="{{ route('routes.index') }}" class="back">← Volver</a>
     </div>
 
     <form id="routeForm" method="POST" action="{{ route('routes.store') }}" class="grid">
       @csrf
+      <input type="hidden" name="shipment_id" value="{{ $shipmentId ?: '' }}">
+      <input type="hidden" name="back_url" value="{{ $backUrl }}">
 
-      {{-- Columna izquierda --}}
       <div class="cardx">
         <div class="hd"><div class="fw-bold">Detalles</div></div>
         <div class="bd">
@@ -111,18 +107,20 @@
             <select name="driver_id" class="control" required>
               <option value="">Selecciona…</option>
               @foreach($drivers as $d)
-                <option value="{{ $d->id }}">{{ $d->name ?? $d->email }} {{ $d->email ? "({$d->email})" : '' }}</option>
+                <option value="{{ $d->id }}" @selected($prefillDriverId === (int) $d->id)>
+                  {{ $d->name ?? $d->email }} {{ $d->email ? "({$d->email})" : '' }}
+                </option>
               @endforeach
             </select>
           </div>
 
           <div class="field">
             <label class="mb-1">Nombre de la ruta (opcional)</label>
-            <input type="text" name="name" class="control" placeholder="Ruta Zona Norte – 1">
+            <input type="text" name="name" class="control" placeholder="Ruta Zona Norte – 1" value="{{ old('name', $prefillName) }}">
           </div>
 
           <div class="field">
-            <div class="fw-bold mb-1">Providers (enviar provider_id + dirección por partes)</div>
+            <div class="fw-bold mb-1">Providers</div>
             <div class="prov-list">
               @forelse($providers as $p)
                 @php
@@ -175,16 +173,14 @@
         </div>
       </div>
 
-      {{-- Columna derecha --}}
       <div class="cardx">
         <div class="hd">
           <div class="fw-bold">Mapa y buscador</div>
         </div>
         <div class="bd">
-          {{-- Barra de búsqueda (no overlay) --}}
           <div class="searchbar">
             <div class="addr-wrap">
-              <input id="addrInput" class="control addr" type="text" placeholder="Escribe dirección en México (calle, colonia, ciudad)…">
+              <input id="addrInput" class="control addr" type="text" placeholder="Escribe dirección en México">
               <div id="suggestList" class="suggest"></div>
             </div>
             <button id="btnUseMyLoc" type="button" class="btn btn-ghost">
@@ -199,11 +195,10 @@
         </div>
       </div>
 
-      {{-- Lista de puntos --}}
       <div class="cardx" style="grid-column:1/-1">
         <div class="hd">
           <div class="fw-bold">Puntos seleccionados</div>
-          <small class="text-muted">Arrastra para reordenar (visual). La optimización final se hace al iniciar.</small>
+          <small class="text-muted">Arrastra para reordenar. La optimización final se hace al iniciar.</small>
         </div>
         <div class="bd">
           <ul id="picked" class="list"></ul>
@@ -222,7 +217,7 @@
 <script type="module">
 import Sortable from 'https://unpkg.com/sortablejs@1.15.2/modular/sortable.esm.js';
 
-const picked = []; // {name, lat, lng, address?, provider_id?, calle?, colonia?, ciudad?, estado?, cp?}
+const picked = [];
 const pickedEl  = document.getElementById('picked');
 const stopsJson = document.getElementById('stopsJson');
 const valAlert  = document.getElementById('valAlert');
@@ -237,13 +232,11 @@ let toastTimer = null;
 
 let map, markersLayer, previewMarker=null, previewData=null;
 
-/* ===== Utils ===== */
 const debounce = (fn,ms)=>{ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); } };
 const fmt = (n,d=6)=>Number(n).toFixed(d);
 const fmtLatLng = (lat,lng)=>`(${fmt(lat,5)}, ${fmt(lng,5)})`;
 const isNum = (n)=> typeof n === 'number' && !Number.isNaN(n) && Number.isFinite(n);
 
-/** Normaliza string: sin acentos, sin apostrofes raros, espacios limpios */
 function norm(s){
   s = (s || '').toString().trim();
   if (!s) return '';
@@ -288,8 +281,7 @@ function setSuggestHTML(html){
   showSuggest();
 }
 
-/* ===== Leaflet ===== */
-map = L.map('mapPick', { zoomSnap:0.5 }).setView([23.6345,-102.5528], 5); // centro MX
+map = L.map('mapPick', { zoomSnap:0.5 }).setView([23.6345,-102.5528], 5);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ attribution:'© OpenStreetMap' }).addTo(map);
 markersLayer = L.layerGroup().addTo(map);
 
@@ -301,7 +293,6 @@ function setPreview(lat,lng,label){
   btnAddPrev.disabled = false;
 }
 
-/* Click en mapa -> reverse */
 map.on('click', async (e)=>{
   const {lat,lng} = e.latlng;
   btnAddPrev.disabled = true;
@@ -318,13 +309,6 @@ map.on('click', async (e)=>{
   }
 });
 
-/* ===== Búsqueda robusta (México real + Enter confiable) ===== */
-/**
- * Para evitar resultados fuera de México:
- * - countrycodes=mx
- * - viewbox + bounded=1 (bbox aprox de México)
- * bbox: left,top,right,bottom
- */
 const MX_VIEWBOX = '-118.5,32.9,-86.5,14.3';
 
 let suggestAbort = null;
@@ -350,7 +334,6 @@ async function fetchSuggestions(q, opts = { autoPickFirst:false }){
 
   if (!q || q.length < 3) return;
 
-  // Cancelar la solicitud anterior (evita “resultados viejos”)
   if (suggestAbort) suggestAbort.abort();
   suggestAbort = new AbortController();
   const mySeq = ++suggestSeq;
@@ -364,12 +347,10 @@ async function fetchSuggestions(q, opts = { autoPickFirst:false }){
       signal: suggestAbort.signal,
     });
 
-    // Si ya hubo una búsqueda más nueva, ignorar
     if (mySeq !== suggestSeq) return;
 
     const items = await res.json();
 
-    // Si cancelaron, salir
     if (suggestAbort.signal.aborted) return;
 
     if (!Array.isArray(items) || !items.length){
@@ -391,7 +372,6 @@ async function fetchSuggestions(q, opts = { autoPickFirst:false }){
       suggestBox.appendChild(div);
     });
 
-    // hint
     const hint = document.createElement('div');
     hint.className = 's-hint';
     hint.innerHTML = `Tip: agrega <b>calle + colonia + ciudad</b> para resultados más exactos.`;
@@ -409,7 +389,6 @@ async function fetchSuggestions(q, opts = { autoPickFirst:false }){
   }
 }
 
-// Debounce SOLO para ir sugiriendo mientras escribe
 const debouncedSuggest = debounce((q)=> fetchSuggestions(q, {autoPickFirst:false}), 250);
 
 addrInput.addEventListener('input', ()=> debouncedSuggest(addrInput.value));
@@ -420,7 +399,6 @@ document.addEventListener('click', (e)=>{
   if (!e.target.closest('.addr-wrap')) hideSuggest();
 });
 
-// Enter: búsqueda inmediata + selecciona primera opción (sin “borrar y poner”)
 addrInput.addEventListener('keydown', async (e)=>{
   if (e.key === 'Enter'){
     e.preventDefault();
@@ -428,7 +406,6 @@ addrInput.addEventListener('keydown', async (e)=>{
   }
 });
 
-/* Mi ubicación */
 btnMyLoc.addEventListener('click', ()=>{
   if (!navigator.geolocation){ alert('Tu dispositivo no soporta GPS'); return; }
   btnAddPrev.disabled = true;
@@ -448,7 +425,6 @@ btnMyLoc.addEventListener('click', ()=>{
   }, ()=>alert('No fue posible obtener tu ubicación'), {enableHighAccuracy:true,timeout:12000,maximumAge:5000});
 });
 
-/* Lista seleccionada */
 function renderPicked(){
   pickedEl.innerHTML='';
   picked.forEach((p,i)=>{
@@ -489,7 +465,6 @@ pickedEl.addEventListener('click',(e)=>{
 new Sortable(pickedEl,{animation:150,ghostClass:'ghost',
   onEnd:(evt)=>{ const [m]=picked.splice(evt.oldIndex,1); picked.splice(evt.newIndex,0,m); renderPicked(); }});
 
-/* ===== Geocode helper (providers sin lat/lng) ===== */
 async function geocodeMxFromParts(parts){
   const calle   = norm(parts?.calle);
   const colonia = norm(parts?.colonia);
@@ -502,7 +477,6 @@ async function geocodeMxFromParts(parts){
   const state  = estado;
   const zip    = cp;
 
-  // 1) structured
   try{
     const qs = new URLSearchParams();
     qs.set('format','jsonv2');
@@ -528,7 +502,6 @@ async function geocodeMxFromParts(parts){
     }
   }catch{}
 
-  // 2) fallback q
   const q = ensureMx(joinParts([street, city, state, zip]));
   if (!q) return null;
 
@@ -546,7 +519,6 @@ async function geocodeMxFromParts(parts){
   }
 }
 
-/* Providers -> lista */
 document.querySelectorAll('.provChk').forEach(chk=>{
   chk.addEventListener('change', async ()=>{
     const providerId = Number(chk.dataset.id);
@@ -625,7 +597,6 @@ document.querySelectorAll('.provChk').forEach(chk=>{
   });
 });
 
-/* Confirmar preview -> lista */
 btnAddPrev.addEventListener('click', ()=>{
   if (!previewData) return;
   const name = prompt('Nombre del punto (opcional):', previewData.address || 'Punto');
@@ -641,7 +612,6 @@ btnAddPrev.addEventListener('click', ()=>{
   previewData=null; btnAddPrev.disabled=true; renderPicked();
 });
 
-/* Envío */
 document.getElementById('routeForm').addEventListener('submit',(e)=>{
   valAlert.classList.add('d-none');
 
@@ -656,7 +626,7 @@ document.getElementById('routeForm').addEventListener('submit',(e)=>{
   if (bad){
     e.preventDefault();
     valAlert.classList.remove('d-none');
-    valAlert.textContent='Hay un punto sin coordenadas válidas. Agrega de nuevo el punto desde el mapa/buscador.';
+    valAlert.textContent='Hay un punto sin coordenadas válidas.';
     return;
   }
 

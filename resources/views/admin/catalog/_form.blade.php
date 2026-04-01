@@ -1,132 +1,80 @@
-{{-- ✅ resources/views/admin/catalog/_form.blade.php (o donde tengas este formulario) --}}
+{{-- ✅ resources/views/admin/catalog/_form.blade.php --}}
 
 @php
   /** @var \App\Models\CatalogItem|null $item */
   $isEdit = isset($item);
-
-  // Para labels en edit: si ya existen fotos guardadas
   $has1 = !empty($item->photo_1 ?? null);
   $has2 = !empty($item->photo_2 ?? null);
   $has3 = !empty($item->photo_3 ?? null);
-
-  // Categorías legibles (papelería, cómputo, etc.)
   $categories = $categories ?? config('catalog.product_categories', []);
-
-  // Bandera simple: si ya tiene SKU (Amazon usa SKU sí o sí)
   $hasSku = !empty($item->sku ?? null);
 @endphp
 
-{{-- ✅ FORM PRINCIPAL: SOLO captura/edición (SIN forms anidados dentro) --}}
 <form
   id="catalogItemForm"
   method="POST"
   action="{{ $isEdit ? route('admin.catalog.update', $item) : route('admin.catalog.store') }}"
   enctype="multipart/form-data"
+  class="w-full enterprise-ui fade-in-up"
 >
   @csrf
-  @if($isEdit)
-    @method('PUT')
-  @endif
+  @if($isEdit) @method('PUT') @endif
 
   {{-- =========================================================
-     🔹 BLOQUE DE CAPTURA ASISTIDA POR IA (ARCHIVOS / PDF)
-     ========================================================= --}}
-  <div class="ai-helper" id="ai-helper">
-    <div class="ai-helper-icon-wrapper">
-      <div class="ai-helper-glow"></div>
-      <div class="ai-helper-icon" id="ai-helper-icon">🤖</div>
-    </div>
-
-    <div class="ai-helper-main">
-      <div class="ai-helper-header">
-        <div>
-          <div class="ai-helper-title">Captura asistida por IA</div>
-          <p class="ai-helper-subtitle">Sube tickets, remisiones o PDFs con varios productos y deja que la IA escriba por ti.</p>
+       🔹 MÓDULO COPILOTO IA (FULL WIDTH, MINIMALISTA)
+       ========================================================= --}}
+  <div class="ai-copilot-wrapper mb-8 animate-enter" style="--stagger: 1;">
+    <div class="ai-copilot-border"></div>
+    <div class="ai-copilot-content flex flex-col xl:flex-row gap-6 items-center justify-between p-6 md:p-8 relative bg-white">
+      
+      <div class="flex-1 w-full">
+        <div class="flex items-center gap-3 mb-2">
+          <span class="material-symbols-outlined text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-purple-500 animate-pulse">magic_button</span>
+          <h2 class="text-xl font-semibold m-0 tracking-tight">Copiloto de IA</h2>
+          <span class="badge-ai">BETA</span>
         </div>
-        <span class="ai-helper-chip">Beta</span>
+        <p class="text-sm text-slate-500 m-0 max-w-2xl">
+          Arrastra tu documento (PDF, JPG) y la inteligencia artificial extraerá y categorizará la información automáticamente.
+        </p>
+
+        <div id="ai-files-list" class="flex flex-wrap gap-2 mt-4 empty:hidden"></div>
       </div>
 
-      <p class="ai-helper-text">
-        La IA leerá lo que vea y te sugerirá automáticamente:
-        <strong>nombre, descripción, extracto, precio, marca, modelo, GTIN y cantidad (stock)</strong>.
-        Siempre puedes revisar, corregir y complementar antes de guardar.
-      </p>
-
-      <div class="ai-helper-row">
-        <div class="ai-helper-input">
-          <label class="lbl" style="margin-top:0;">Archivos para IA</label>
-
-          <div id="ai-dropzone" class="ai-dropzone">
-            <div class="ai-dropzone-icon">📄</div>
-            <div class="ai-dropzone-body">
-              <div class="ai-dropzone-title">Arrastra aquí tus PDFs o imágenes</div>
-              <div class="ai-dropzone-sub">
-                o
-                <button type="button" class="ai-dropzone-btn">Elegir archivos</button>
-              </div>
-              <div class="ai-dropzone-hint">JPG, PNG, WEBP o PDF · máx. ~8 MB c/u</div>
-            </div>
-
-            <input id="ai_files"
-                   name="ai_files[]"
-                   type="file"
-                   multiple
-                   accept="image/*,.pdf"
-                   class="ai-dropzone-input">
+      <div class="flex-1 w-full flex flex-col sm:flex-row gap-4 items-center xl:justify-end">
+        <div id="ai-dropzone" class="dropzone-minimal w-full xl:w-80 group">
+          <input id="ai_files" name="ai_files[]" type="file" multiple accept="image/*,.pdf" class="hidden-input">
+          <div class="flex items-center justify-center gap-2 pointer-events-none transition-transform group-hover:scale-105">
+            <span class="material-symbols-outlined text-slate-400 group-hover:text-indigo-500 transition-colors">upload_file</span>
+            <span class="text-sm font-medium text-slate-600 group-hover:text-indigo-600 transition-colors" id="ai-drop-text">Cargar archivos</span>
           </div>
-
-          <div id="ai-files-list" class="ai-files-list"></div>
-
-          <p class="hint">
-            Se usan solo para generar sugerencias, <strong>no se guardan</strong> en tu sistema.
-          </p>
         </div>
 
-        <div class="ai-helper-actions">
-          <button type="button" id="btn-ai-analyze" class="btn btn-primary ai-cta">
-            <span class="ai-cta-spinner" aria-hidden="true"></span>
-            <span class="ai-cta-text">Analizar con IA</span>
-          </button>
-          <p id="ai-helper-status" class="hint ai-helper-status">
-            La IA no sustituye tu criterio, solo te ahorra tecleo repetitivo ✨
-          </p>
-        </div>
+        <button type="button" id="btn-ai-analyze" class="btn-ai-action w-full sm:w-auto shrink-0 disabled:opacity-50">
+          <span class="material-symbols-outlined spinner hidden" id="ai-spinner">progress_activity</span>
+          <span id="ai-btn-text">Analizar Documento</span>
+        </button>
       </div>
     </div>
   </div>
 
-  {{-- =========================================================
-     🔹 TABLA DE PRODUCTOS DETECTADOS POR IA
-     ========================================================= --}}
-  <div id="ai-items-panel" class="ai-items-panel" style="display:none;">
-    <div class="ai-items-header">
-      <div>
-        <div class="ai-items-title">Productos detectados por IA</div>
-        <p class="ai-items-text">
-          Estos son los productos que la IA encontró en el PDF/imágenes.
-          Haz clic en <strong>“Usar este”</strong> para rellenar el formulario con ese producto sin volver a subir el archivo.
-        </p>
-      </div>
-
-      <div class="ai-items-header-right">
-        <span class="ai-items-badge" id="ai-items-count"></span>
-        <button type="button" id="ai-clear-list" class="btn btn-ghost btn-xs ai-clear-btn">
-          Limpiar lista
-        </button>
-      </div>
+  {{-- RESULTADOS IA --}}
+  <div id="ai-items-panel" class="mb-8 hidden-collapse" style="display:none;">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-sm font-semibold text-slate-800 uppercase tracking-wider m-0">Resultados de Extracción</h3>
+      <button type="button" id="ai-clear-list" class="text-xs text-red-500 hover:text-red-700 font-medium transition-colors bg-transparent border-none cursor-pointer">
+        Descartar resultados
+      </button>
     </div>
-
-    <div class="ai-items-table-wrapper">
-      <table class="ai-items-table">
+    <div class="table-container bg-white border border-slate-200 rounded-xl overflow-x-auto">
+      <table class="w-full text-left border-collapse">
         <thead>
-          <tr>
-            <th>#</th>
-            <th>Nombre</th>
-            <th>Precio</th>
-            <th>Marca</th>
-            <th>Modelo</th>
-            <th>GTIN</th>
-            <th></th>
+          <tr class="bg-slate-50 border-b border-slate-200">
+            <th class="p-4 text-xs font-semibold text-slate-500 uppercase">#</th>
+            <th class="p-4 text-xs font-semibold text-slate-500 uppercase">Producto</th>
+            <th class="p-4 text-xs font-semibold text-slate-500 uppercase">Precio</th>
+            <th class="p-4 text-xs font-semibold text-slate-500 uppercase">Marca / Modelo</th>
+            <th class="p-4 text-xs font-semibold text-slate-500 uppercase">GTIN</th>
+            <th class="p-4 text-xs font-semibold text-slate-500 uppercase text-right">Acción</th>
           </tr>
         </thead>
         <tbody id="ai-items-tbody"></tbody>
@@ -135,854 +83,566 @@
   </div>
 
   {{-- =========================================================
-     🔹 FORMULARIO PRINCIPAL
-     ========================================================= --}}
-  <div class="catalog-grid">
-    {{-- Columna izquierda --}}
-    <div class="catalog-main">
-      <div class="card-section">
-        <label class="lbl">Nombre *</label>
-        <input name="name" class="inp" required
-               placeholder="Ejemplo: Lapicero bolígrafo azul Bic punta fina 0.7mm"
-               value="{{ old('name', $item->name ?? '') }}">
-        <p class="hint">
-          Usa un nombre completo: tipo de producto + marca + modelo + característica clave.
-          Esto ayuda al SEO y evita rechazos en Mercado Libre.
-        </p>
-      </div>
-
-      <div class="card-section">
-        <label class="lbl">Slug (opcional)</label>
-        <input name="slug" class="inp"
-               placeholder="lapicero-bic-azul-07mm"
-               value="{{ old('slug', $item->slug ?? '') }}">
-        <p class="hint">
-          Déjalo vacío para generarlo automáticamente a partir del nombre, salvo que necesites un slug específico.
-        </p>
-      </div>
-
-      <div class="card-section">
-        <label class="lbl">Descripción</label>
-        <textarea name="description" class="inp" rows="6"
-                  placeholder="Describe el producto, sus usos, materiales, medidas, garantía, etc.">{{ old('description', $item->description ?? '') }}</textarea>
-        <p class="hint">
-          Es la descripción larga que verán tus clientes. Evita mayúsculas excesivas y texto repetitivo.
-        </p>
-      </div>
-
-      <div class="card-section">
-        <label class="lbl">Extracto</label>
-        <textarea name="excerpt" class="inp" rows="3"
-                  placeholder="Resumen corto para listados y Mercado Libre (ej. Caja con 12 piezas, tinta azul, punta 0.7mm).">{{ old('excerpt', $item->excerpt ?? '') }}</textarea>
-        <p class="hint">
-          Un resumen breve con la información más importante: presentación, cantidad, color o medida.
-        </p>
-      </div>
-
-      {{-- =========================================================
-         🔹 FOTOS (3 archivos) — NO URLs, UI mejorada
-         ========================================================= --}}
-      <div class="side-card" style="margin-top:6px;">
-        <h3 class="side-title">Fotos del producto (3)</h3>
-
-        <div class="hint" style="margin-top:0;">
-          Toca cada tarjeta para seleccionar una foto. Se guarda en tu sistema.
+       🔹 FORMULARIO PRINCIPAL (FULL WIDTH GRID)
+       ========================================================= --}}
+  <div class="grid grid-cols-1 xl:grid-cols-3 gap-8 w-full">
+    
+    {{-- COLUMNA PRINCIPAL (Ocupa 2/3 en pantallas grandes) --}}
+    <div class="xl:col-span-2 flex flex-col gap-8">
+      
+      {{-- Card: Detalles Básicos --}}
+      <div class="form-section animate-enter" style="--stagger: 2;">
+        <h3 class="section-heading">Información Principal</h3>
+        
+        <div class="form-group">
+          <label class="form-label flex justify-between">
+            <span>Nombre del Producto <span class="text-red-500">*</span></span>
+            <span class="ai-badge hidden">✨ Rellenado por IA</span>
+          </label>
+          <input name="name" class="form-input text-lg" required placeholder="Ej. Bolígrafo Azul Bic Punta Fina 0.7mm" value="{{ old('name', $item->name ?? '') }}">
         </div>
 
-        <div class="photos-grid">
-          {{-- FOTO 1 --}}
-          <div class="photo-card" data-photo-card="photo_1_file">
-            <div class="photo-head">
-              <div class="photo-title">Foto 1 (principal) *</div>
-              <span class="photo-badge {{ ($isEdit && $has1) ? 'ok' : '' }}" data-photo-badge="photo_1_file">
-                {{ ($isEdit && $has1) ? 'Cargada' : 'Pendiente' }}
-              </span>
-            </div>
-
-            <label class="photo-drop" for="photo_1_file">
-              <div class="photo-icon">📷</div>
-              <div class="photo-text">
-                <div class="photo-strong" data-photo-strong="photo_1_file">Seleccionar foto</div>
-                <div class="photo-sub" data-photo-sub="photo_1_file">JPG / PNG / WEBP</div>
-              </div>
-
-              <input
-                id="photo_1_file"
-                name="photo_1_file"
-                type="file"
-                class="photo-input"
-                accept="image/*"
-                @if(!$isEdit) required @endif
-                capture="environment"
-              >
-            </label>
-
-            <div class="photo-preview" id="photo_1_preview">
-              @if($isEdit && $has1)
-                <img src="{{ \Illuminate\Support\Facades\Storage::url($item->photo_1) }}" alt="Foto 1">
-              @endif
-            </div>
-
-            <div class="photo-actions">
-              <button type="button" class="btn btn-ghost btn-xs" data-photo-clear="photo_1_file">Quitar</button>
-            </div>
-          </div>
-
-          {{-- FOTO 2 --}}
-          <div class="photo-card" data-photo-card="photo_2_file">
-            <div class="photo-head">
-              <div class="photo-title">Foto 2 *</div>
-              <span class="photo-badge {{ ($isEdit && $has2) ? 'ok' : '' }}" data-photo-badge="photo_2_file">
-                {{ ($isEdit && $has2) ? 'Cargada' : 'Pendiente' }}
-              </span>
-            </div>
-
-            <label class="photo-drop" for="photo_2_file">
-              <div class="photo-icon">📷</div>
-              <div class="photo-text">
-                <div class="photo-strong" data-photo-strong="photo_2_file">Seleccionar foto</div>
-                <div class="photo-sub" data-photo-sub="photo_2_file">Frente / empaque</div>
-              </div>
-
-              <input
-                id="photo_2_file"
-                name="photo_2_file"
-                type="file"
-                class="photo-input"
-                accept="image/*"
-                @if(!$isEdit) required @endif
-                capture="environment"
-              >
-            </label>
-
-            <div class="photo-preview" id="photo_2_preview">
-              @if($isEdit && $has2)
-                <img src="{{ \Illuminate\Support\Facades\Storage::url($item->photo_2) }}" alt="Foto 2">
-              @endif
-            </div>
-
-            <div class="photo-actions">
-              <button type="button" class="btn btn-ghost btn-xs" data-photo-clear="photo_2_file">Quitar</button>
-            </div>
-          </div>
-
-          {{-- FOTO 3 --}}
-          <div class="photo-card" data-photo-card="photo_3_file">
-            <div class="photo-head">
-              <div class="photo-title">Foto 3 *</div>
-              <span class="photo-badge {{ ($isEdit && $has3) ? 'ok' : '' }}" data-photo-badge="photo_3_file">
-                {{ ($isEdit && $has3) ? 'Cargada' : 'Pendiente' }}
-              </span>
-            </div>
-
-            <label class="photo-drop" for="photo_3_file">
-              <div class="photo-icon">📷</div>
-              <div class="photo-text">
-                <div class="photo-strong" data-photo-strong="photo_3_file">Seleccionar foto</div>
-                <div class="photo-sub" data-photo-sub="photo_3_file">Detalle / etiqueta</div>
-              </div>
-
-              <input
-                id="photo_3_file"
-                name="photo_3_file"
-                type="file"
-                class="photo-input"
-                accept="image/*"
-                @if(!$isEdit) required @endif
-                capture="environment"
-              >
-            </label>
-
-            <div class="photo-preview" id="photo_3_preview">
-              @if($isEdit && $has3)
-                <img src="{{ \Illuminate\Support\Facades\Storage::url($item->photo_3) }}" alt="Foto 3">
-              @endif
-            </div>
-
-            <div class="photo-actions">
-              <button type="button" class="btn btn-ghost btn-xs" data-photo-clear="photo_3_file">Quitar</button>
-            </div>
-          </div>
+        <div class="form-group">
+          <label class="form-label flex justify-between">
+            <span>Descripción Técnica</span>
+            <span class="ai-badge hidden">✨ Rellenado por IA</span>
+          </label>
+          <textarea name="description" class="form-input min-h-[160px] resize-y" placeholder="Describe características técnicas, beneficios y contenido.">{{ old('description', $item->description ?? '') }}</textarea>
         </div>
 
-        <div class="hint" style="margin-top:10px;">
-          Tip: fondo claro + buena luz = se ven más pro en la ficha con QR.
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="form-group m-0">
+            <label class="form-label flex justify-between">
+              <span>Slug (URL)</span>
+              <span class="ai-badge hidden">✨ Rellenado por IA</span>
+            </label>
+            <input name="slug" class="form-input text-sm text-slate-500" placeholder="Se generará automáticamente" value="{{ old('slug', $item->slug ?? '') }}">
+          </div>
+          <div class="form-group m-0">
+            <label class="form-label flex justify-between">
+              <span>Extracto Corto</span>
+              <span class="ai-badge hidden">✨ Rellenado por IA</span>
+            </label>
+            <textarea name="excerpt" class="form-input min-h-[42px] resize-none" rows="1" placeholder="Breve resumen de 1 línea">{{ old('excerpt', $item->excerpt ?? '') }}</textarea>
+          </div>
+        </div>
+      </div>
+
+      {{-- Card: Galería Multimedia --}}
+      <div class="form-section animate-enter" style="--stagger: 3;">
+        <div class="flex justify-between items-center mb-6">
+          <h3 class="section-heading m-0">Multimedia <span class="text-red-500">*</span></h3>
+          <span class="text-xs text-slate-400">JPG, PNG, WEBP (Máx. 5MB)</span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          @foreach([1 => 'Frente (Fondo Blanco)', 2 => 'Ángulo / Empaque', 3 => 'Detalle / Etiqueta'] as $i => $label)
+            @php $hasPic = ${"has$i"}; $picField = "photo_{$i}_file"; @endphp
+            <div class="media-box {{ ($isEdit && $hasPic) ? 'has-media' : '' }}" data-photo-card="{{ $picField }}">
+              <label class="media-area" for="{{ $picField }}">
+                <div class="media-preview" id="photo_{{ $i }}_preview">
+                  @if($isEdit && $hasPic) <img src="{{ \Illuminate\Support\Facades\Storage::url($item->{"photo_$i"}) }}" alt="Foto {{ $i }}">
+                  @else <span class="material-symbols-outlined text-slate-300 text-3xl transition-transform">add_photo_alternate</span> @endif
+                </div>
+                <div class="media-info">
+                  <span class="media-title" data-photo-strong="{{ $picField }}">Foto {{ $i }}</span>
+                  <span class="media-subtitle" data-photo-sub="{{ $picField }}">{{ $label }}</span>
+                </div>
+              </label>
+              <input id="{{ $picField }}" name="{{ $picField }}" type="file" class="hidden-input" accept="image/*" @if(!$isEdit) required @endif>
+              <button type="button" class="media-clear" data-photo-clear="{{ $picField }}"><span class="material-symbols-outlined text-[16px]">close</span></button>
+            </div>
+          @endforeach
         </div>
       </div>
     </div>
 
-    {{-- Columna derecha --}}
-    <div class="catalog-side">
-      <div class="side-card">
-        <div class="card-section">
-          <label class="lbl">SKU</label>
-          <input name="sku" class="inp"
-                 placeholder="Código interno o del proveedor"
-                 value="{{ old('sku', $item->sku ?? '') }}">
-          <p class="hint">
-            Usa un SKU claro y único. Te ayuda a localizar el producto rápidamente en tu catálogo.
-            <span class="hint" style="display:block;margin-top:3px;">
-              Nota: Amazon requiere SKU para publicar.
-            </span>
-          </p>
-        </div>
-
-        <div class="card-section card-inline">
-          <div class="card-inline-item">
-            <label class="lbl">Precio *</label>
-            <input name="price" type="number" step="0.01" min="0" class="inp" required
-                   value="{{ old('price', $item->price ?? 0) }}">
-            <p class="hint">
-              Precio base en MXN. Algunas categorías de Mercado Libre requieren un mínimo.
-            </p>
+    {{-- COLUMNA LATERAL (Ocupa 1/3 en pantallas grandes) --}}
+    <div class="xl:col-span-1 flex flex-col gap-8 w-full">
+      
+      {{-- Precios y Categorización --}}
+      <div class="form-section animate-enter" style="--stagger: 4;">
+        <h3 class="section-heading">Comercial</h3>
+        
+        <div class="grid grid-cols-2 gap-4 mb-5">
+          <div class="form-group m-0">
+            <label class="form-label flex justify-between">
+              <span>Precio Base <span class="text-red-500">*</span></span>
+            </label>
+            <div class="relative">
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-medium pointer-events-none">$</span>
+              <input name="price" type="number" step="0.01" min="0" class="form-input pl-8 font-semibold text-slate-900" required value="{{ old('price', $item->price ?? 0) }}">
+            </div>
           </div>
-
-          <div class="card-inline-item">
-            <label class="lbl">Stock</label>
-            <input name="stock" type="number" step="1" min="0" class="inp"
-                   value="{{ old('stock', $item->stock ?? 0) }}">
-            <p class="hint">
-              Unidades disponibles. La IA puede sugerir la cantidad comprada según el documento.
-            </p>
+          <div class="form-group m-0">
+            <label class="form-label flex justify-between">
+              <span>Stock</span>
+              <span class="ai-badge hidden">✨</span>
+            </label>
+            <input name="stock" type="number" step="1" min="0" class="form-input" value="{{ old('stock', $item->stock ?? 0) }}">
           </div>
         </div>
 
-        <div class="card-section">
-          <label class="lbl">Precio oferta</label>
-          <input name="sale_price" type="number" step="0.01" min="0" class="inp"
-                 value="{{ old('sale_price', $item->sale_price ?? '') }}">
-          <p class="hint">
-            Solo si hay promoción. Si lo dejas vacío, se usará el precio base.
-          </p>
+        <div class="form-group mb-5">
+          <label class="form-label text-slate-500">Precio Oferta (Opcional)</label>
+          <div class="relative">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-medium pointer-events-none">$</span>
+            <input name="sale_price" type="number" step="0.01" min="0" class="form-input pl-8" placeholder="0.00" value="{{ old('sale_price', $item->sale_price ?? '') }}">
+          </div>
         </div>
 
-        {{-- 🔹 Categoría legible (string) --}}
-        <div class="card-section">
-          <label class="lbl">Categoría</label>
-          @php
-            $currentCategory = old('category', $item->category ?? '');
-          @endphp
-          <select name="category" class="inp">
-            <option value="">Sin categoría</option>
+        <div class="form-group mb-5">
+          <label class="form-label">Categoría</label>
+          @php $currentCategory = old('category', $item->category ?? ''); @endphp
+          <select name="category" class="form-select">
+            <option value="">Selecciona...</option>
             @foreach($categories as $key => $label)
               <option value="{{ $key }}" @selected($currentCategory === $key)>{{ $label }}</option>
             @endforeach
           </select>
-          <p class="hint">
-            Sirve para agrupar en el catálogo web (Papelería, Escritura, Cómputo, Oficina, etc.).
-          </p>
         </div>
 
-        <div class="card-section">
-          <label class="lbl">Estado *</label>
-          <select name="status" class="inp" required>
+        <div class="form-group m-0">
+          <label class="form-label">Estado de Visibilidad <span class="text-red-500">*</span></label>
+          <select name="status" class="form-select font-medium" required>
             @php $st = (string)old('status', isset($item)? (string)$item->status : '0'); @endphp
-            <option value="0" @selected($st==='0')>Borrador (no visible)</option>
-            <option value="1" @selected($st==='1')>Publicado</option>
-            <option value="2" @selected($st==='2')>Oculto (no listado, pero accesible por link)</option>
+            <option value="1" @selected($st==='1')>🟢 Publicado</option>
+            <option value="0" @selected($st==='0')>⚪ Borrador</option>
+            <option value="2" @selected($st==='2')>🟡 Privado (Solo Link)</option>
           </select>
-        </div>
-
-        <div class="card-section">
-          <label class="lbl">Publicado en</label>
-          <input name="published_at" type="datetime-local" class="inp"
-                 value="{{ old('published_at', isset($item->published_at)? $item->published_at->format('Y-m-d\TH:i') : '') }}">
-          <p class="hint">
-            Si lo dejas vacío, se asignará automáticamente al momento de publicar.
-          </p>
-        </div>
-
-        <div class="card-section">
-          <label class="lbl">Destacado (para Home)</label>
-          <label class="toggle-row">
-            <input type="checkbox" name="is_featured" value="1" @checked(old('is_featured', $item->is_featured ?? false))>
-            <span>Mostrar en secciones destacadas</span>
-          </label>
         </div>
       </div>
 
-      <div class="side-card">
-        <h3 class="side-title">Ayuda para Mercado Libre</h3>
-
-        <div class="card-section">
-          <label class="lbl">Marca (texto para ML)</label>
-          <input name="brand_name" class="inp"
-                 placeholder="Ejemplo: Bic, Azor, Maped"
-                 value="{{ old('brand_name', $item->brand_name ?? '') }}">
-          <p class="hint">
-            Se envía al atributo <strong>BRAND</strong>.
-          </p>
+      {{-- Atributos Marketplace --}}
+      <div class="form-section animate-enter" style="--stagger: 5;">
+        <h3 class="section-heading">Marketplaces (SKU & Meta)</h3>
+        
+        <div class="form-group mb-5">
+          <label class="form-label">SKU Interno</label>
+          <input name="sku" class="form-input text-sm uppercase" placeholder="Requerido para Amazon" value="{{ old('sku', $item->sku ?? '') }}">
         </div>
 
-        <div class="card-section">
-          <label class="lbl">Modelo (texto para ML)</label>
-          <input name="model_name" class="inp"
-                 placeholder="Ejemplo: Cristal 1.0mm, Office Pro"
-                 value="{{ old('model_name', $item->model_name ?? '') }}">
-          <p class="hint">
-            Se envía al atributo <strong>MODEL</strong>.
-          </p>
+        <div class="grid grid-cols-2 gap-4 mb-5">
+          <div class="form-group m-0">
+            <label class="form-label flex justify-between"><span>Marca</span> <span class="ai-badge hidden">✨</span></label>
+            <input name="brand_name" class="form-input" placeholder="Ej. Sony" value="{{ old('brand_name', $item->brand_name ?? '') }}">
+          </div>
+          <div class="form-group m-0">
+            <label class="form-label flex justify-between"><span>Modelo</span> <span class="ai-badge hidden">✨</span></label>
+            <input name="model_name" class="form-input" placeholder="Ej. PS5" value="{{ old('model_name', $item->model_name ?? '') }}">
+          </div>
         </div>
 
-        <div class="card-section">
-          <label class="lbl">GTIN / Código de barras</label>
-          <input name="meli_gtin" class="inp"
-                 placeholder="Ejemplo: 7501035910107"
-                 value="{{ old('meli_gtin', $item->meli_gtin ?? '') }}">
-          <p class="hint">
-            En varias categorías de Mercado Libre es obligatorio.
-          </p>
-        </div>
-
-        <div class="ml-tips">
-          <p class="hint-title">Tips para evitar errores al publicar en Mercado Libre:</p>
-          <ul class="hint-list">
-            <li>Incluye tipo, marca y modelo en el título.</li>
-            <li>Verifica que el precio cumpla con el mínimo.</li>
-            <li>Con estas 3 fotos ya cumples “mínimo imágenes” del catálogo.</li>
-            <li>Completa el GTIN cuando sea obligatorio.</li>
-          </ul>
+        <div class="form-group m-0">
+          <label class="form-label flex justify-between"><span>Código (GTIN/EAN)</span> <span class="ai-badge hidden">✨</span></label>
+          <input name="meli_gtin" class="form-input text-sm tracking-widest" placeholder="Ej. 7501035910107" value="{{ old('meli_gtin', $item->meli_gtin ?? '') }}">
         </div>
       </div>
     </div>
   </div>
 
-  <hr class="divi">
-
-  <div class="form-actions">
-    <button class="btn btn-primary" type="submit">
-      {{ $isEdit ? 'Guardar cambios' : 'Crear producto' }}
+  {{-- BARRA DE ACCIONES (FLOTANTE/STICKY) --}}
+  <div class="sticky-footer w-full flex flex-col-reverse sm:flex-row items-center sm:justify-end gap-4 animate-enter" style="--stagger: 6;">
+    <a href="{{ route('admin.catalog.index') }}" class="btn-cancel w-full sm:w-auto">Descartar</a>
+    <button type="submit" class="btn-submit w-full sm:w-auto">
+      {{ $isEdit ? 'Guardar Cambios' : 'Registrar Producto' }}
     </button>
-    <a class="btn btn-ghost" href="{{ route('admin.catalog.index') }}">Cancelar</a>
   </div>
 </form>
 
-{{-- ✅ IMPORTANTE: acciones de publicación van FUERA del form principal (evita forms anidados) --}}
+{{-- ✅ INTEGRACIONES EXTERNAS (SOLO EDICIÓN) --}}
 @if($isEdit)
-  <div class="side-card" style="margin-top:16px;">
-    <h3 class="side-title">Acciones de publicación</h3>
-
-    <div class="pub-grid">
+  <div class="w-full mt-12 animate-enter" style="--stagger: 7;">
+    <h3 class="section-heading mb-6">Sincronización Multicanal</h3>
+    
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full">
+      
       {{-- Mercado Libre --}}
-      <div class="pub-block">
-        <div class="pub-head">
-          <div class="pub-title">Mercado Libre</div>
-          <div class="pub-sub">Publica, pausa o abre la publicación.</div>
+      <div class="integration-panel group">
+        <div class="flex items-center justify-between mb-6">
+          <div class="flex items-center gap-3">
+             <div class="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center">
+               <img src="https://http2.mlstatic.com/frontend-assets/ml-web-navigation/ui-navigation/5.21.22/mercadolibre/logo__small.png" alt="ML" class="h-4 object-contain">
+             </div>
+             <div>
+               <h4 class="font-semibold text-slate-900 text-base m-0">Mercado Libre</h4>
+               <span class="text-xs text-emerald-600 font-medium">Conectado</span>
+             </div>
+          </div>
+          <a href="{{ route('admin.catalog.meli.view', $item) }}" target="_blank" class="text-slate-400 hover:text-indigo-600 transition-colors">
+            <span class="material-symbols-outlined">open_in_new</span>
+          </a>
         </div>
 
-        <div class="pub-actions">
-          <form method="POST" action="{{ route('admin.catalog.meli.publish', $item) }}">
-            @csrf
-            <button type="submit" class="btn btn-pill btn-ml">
-              <span class="i material-symbols-outlined" aria-hidden="true">cloud_upload</span>
-              Publicar / Actualizar
-            </button>
+        <div class="flex flex-col sm:flex-row gap-3">
+          <form method="POST" action="{{ route('admin.catalog.meli.publish', $item) }}" class="flex-1">
+            @csrf <button type="submit" class="btn-sync bg-yellow-400 hover:bg-yellow-500 text-yellow-900">Sincronizar Listado</button>
           </form>
-
-          <div class="pub-row">
+          <div class="flex gap-3">
             <form method="POST" action="{{ route('admin.catalog.meli.pause', $item) }}">
-              @csrf
-              <button type="submit" class="btn btn-pill btn-soft btn-ml-soft">
-                <span class="i material-symbols-outlined" aria-hidden="true">pause_circle</span>
-                Pausar
-              </button>
+              @csrf <button type="submit" class="btn-action-sm"><span class="material-symbols-outlined">pause</span></button>
             </form>
-
             <form method="POST" action="{{ route('admin.catalog.meli.activate', $item) }}">
-              @csrf
-              <button type="submit" class="btn btn-pill btn-soft btn-ml-soft">
-                <span class="i material-symbols-outlined" aria-hidden="true">play_circle</span>
-                Activar
-              </button>
+              @csrf <button type="submit" class="btn-action-sm"><span class="material-symbols-outlined">play_arrow</span></button>
             </form>
-
-            <a class="btn btn-pill btn-soft btn-ml-soft"
-               href="{{ route('admin.catalog.meli.view', $item) }}"
-               target="_blank" rel="noopener">
-              <span class="i material-symbols-outlined" aria-hidden="true">open_in_new</span>
-              Ver
-            </a>
           </div>
         </div>
-
-        <p class="hint pub-hint">
-          Mercado Libre usa tu marca/modelo/GTIN para atributos.
-        </p>
       </div>
 
       {{-- Amazon --}}
-      <div class="pub-block">
-        <div class="pub-head">
-          <div class="pub-title">Amazon (SP-API)</div>
-          <div class="pub-sub">Envía solicitud de listing por SKU.</div>
-        </div>
-
+      <div class="integration-panel relative overflow-hidden group">
         @if(!$hasSku)
-          <div class="pub-warn">
-            <span class="material-symbols-outlined" aria-hidden="true">info</span>
-            <div>
-              <div class="pub-warn-title">Falta SKU</div>
-              <div class="pub-warn-text">Para publicar en Amazon necesitas guardar primero un SKU.</div>
-            </div>
-          </div>
+           <div class="absolute inset-0 bg-white/90 backdrop-blur-sm z-10 flex flex-col justify-center items-center text-center p-6">
+              <span class="material-symbols-outlined text-slate-400 text-3xl mb-1">lock</span>
+              <p class="text-sm font-semibold text-slate-900 m-0">SKU Requerido</p>
+           </div>
         @endif
 
-        <div class="pub-actions">
-          <form method="POST" action="{{ route('admin.catalog.amazon.publish', $item) }}">
-            @csrf
-            <button type="submit" class="btn btn-pill btn-amz" @disabled(!$hasSku)>
-              <span class="i material-symbols-outlined" aria-hidden="true">cloud_upload</span>
-              Publicar / Actualizar
-            </button>
-          </form>
-
-          <div class="pub-row">
-            <form method="POST" action="{{ route('admin.catalog.amazon.pause', $item) }}">
-              @csrf
-              <button type="submit" class="btn btn-pill btn-soft btn-amz-soft" @disabled(!$hasSku)>
-                <span class="i material-symbols-outlined" aria-hidden="true">pause_circle</span>
-                Pausar
-              </button>
-            </form>
-
-            <form method="POST" action="{{ route('admin.catalog.amazon.activate', $item) }}">
-              @csrf
-              <button type="submit" class="btn btn-pill btn-soft btn-amz-soft" @disabled(!$hasSku)>
-                <span class="i material-symbols-outlined" aria-hidden="true">play_circle</span>
-                Activar
-              </button>
-            </form>
-
-            <a class="btn btn-pill btn-soft btn-amz-soft"
-               href="{{ route('admin.catalog.amazon.view', $item) }}"
-               target="_blank" rel="noopener"
-               @if(!$hasSku) aria-disabled="true" onclick="return false;" @endif>
-              <span class="i material-symbols-outlined" aria-hidden="true">open_in_new</span>
-              Ver
-            </a>
+        <div class="flex items-center justify-between mb-6">
+          <div class="flex items-center gap-3">
+             <div class="w-10 h-10 rounded-full bg-slate-900 flex items-center justify-center">
+               <svg viewBox="0 0 100 30" class="h-3 w-auto"><path d="M60.2 18.6c-2.4 1.8-5.8 2.8-9.4 2.8-6.6 0-11.9-3.4-15.6-8.9-.6-.9-1.8-1-2.6-.2l-2.7 2.7c-.8.8-.9 2-.2 2.9 4.8 6.7 11.9 10.9 20.3 10.9 4.9 0 9.7-1.4 13.9-4.2 1-.7 1.2-2 .5-2.9l-2-2.3c-.6-.7-1.5-.9-2.2-.4z" fill="#FF9900"/><path d="M84.2 22.4c-1.3-.7-2.9-1.2-4.6-1.5-2-.3-3.6-.9-4.7-1.6-1-.7-1.6-1.6-1.6-2.8 0-1.4.6-2.6 1.8-3.3 1.2-.7 2.8-1.1 4.7-1.1 1.9 0 3.6.4 4.8 1.1 1.1.7 1.8 1.8 1.9 3.2.1 1 .9 1.8 1.9 1.8h3.4c1.1 0 1.9-.9 1.8-2-.2-2.7-1.6-4.9-3.9-6.3-2.3-1.4-5.3-2.1-8.9-2.1-3.7 0-6.8.8-9.1 2.2-2.3 1.5-3.5 3.6-3.5 6.4 0 2.2.8 4 2.4 5.3 1.6 1.3 4 2.3 7 2.8 2.6.5 4.5 1.1 5.7 1.8 1.2.7 1.8 1.8 1.8 3 0 1.5-.7 2.8-2.1 3.6-1.4.8-3.2 1.2-5.4 1.2-2.2 0-4.2-.5-5.6-1.4-1.4-.9-2.3-2.3-2.5-4-.1-1-.9-1.8-1.9-1.8h-3.6c-1.1 0-1.9.9-1.8 2 .3 3.1 2 5.5 4.8 7 2.8 1.5 6.4 2.3 10.7 2.3 4.2 0 7.6-.8 10-2.3 2.5-1.5 3.8-3.7 3.8-6.5 0-2-.8-3.7-2.4-5z" fill="#ffffff"/></svg>
+             </div>
+             <div>
+               <h4 class="font-semibold text-slate-900 text-base m-0">Amazon Seller</h4>
+               <span class="text-xs text-slate-500 font-medium">SP-API V2</span>
+             </div>
           </div>
+          <a href="{{ route('admin.catalog.amazon.view', $item) }}" target="_blank" class="text-slate-400 hover:text-indigo-600 transition-colors" @if(!$hasSku) style="pointer-events:none;" @endif>
+            <span class="material-symbols-outlined">open_in_new</span>
+          </a>
         </div>
 
-        <p class="hint pub-hint">
-          Amazon requiere SKU y atributos por categoría. Si te devuelve validaciones, es normal: se ajustan por productType.
-        </p>
+        <div class="flex flex-col sm:flex-row gap-3">
+          <form method="POST" action="{{ route('admin.catalog.amazon.publish', $item) }}" class="flex-1">
+            @csrf <button type="submit" class="btn-sync bg-slate-900 hover:bg-slate-800 text-white" @disabled(!$hasSku)>Sincronizar Listado</button>
+          </form>
+          <div class="flex gap-3">
+            <form method="POST" action="{{ route('admin.catalog.amazon.pause', $item) }}">
+              @csrf <button type="submit" class="btn-action-sm" @disabled(!$hasSku)><span class="material-symbols-outlined">pause</span></button>
+            </form>
+            <form method="POST" action="{{ route('admin.catalog.amazon.activate', $item) }}">
+              @csrf <button type="submit" class="btn-action-sm" @disabled(!$hasSku)><span class="material-symbols-outlined">play_arrow</span></button>
+            </form>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 @endif
 
 @push('styles')
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@400..700&display=swap"/>
-<link rel="stylesheet" href="{{ asset('css/form.css') }}?v={{ time() }}">
+{{-- CSS Minimalista, hereda la fuente global del sistema (font-family: inherit) --}}
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+<style>
+  /* Base & Reset - NO FONT IMPORT, INHERITS GLOBAL FONT */
+  .enterprise-ui { 
+    font-family: inherit; 
+    color: #0f172a; 
+    box-sizing: border-box;
+  }
+  .enterprise-ui *, .enterprise-ui *::before, .enterprise-ui *::after { box-sizing: inherit; }
+
+  /* Utility Grid & Flex */
+  .w-full { width: 100%; } .flex { display: flex; } .flex-col { flex-direction: column; } .items-center { align-items: center; } .justify-between { justify-content: space-between; } .flex-1 { flex: 1 1 0%; } .flex-wrap { flex-wrap: wrap; } .shrink-0 { flex-shrink: 0; }
+  .grid { display: grid; } .grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); } .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (min-width: 640px) { .sm\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } .sm\:flex-row { flex-direction: row; } .sm\:w-auto { width: auto; } .sm\:justify-end { justify-content: flex-end; } }
+  @media (min-width: 768px) { .md\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .md\:p-8 { padding: 2rem; } }
+  @media (min-width: 1024px) { .lg\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (min-width: 1280px) { .xl\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } .xl\:col-span-2 { grid-column: span 2 / span 3; } .xl\:col-span-1 { grid-column: span 1 / span 3; } .xl\:flex-row { flex-direction: row; } .xl\:w-80 { width: 20rem; } .xl\:justify-end { justify-content: flex-end; } }
+  
+  .gap-2 { gap: 0.5rem; } .gap-3 { gap: 0.75rem; } .gap-4 { gap: 1rem; } .gap-6 { gap: 1.5rem; } .gap-8 { gap: 2rem; }
+  .m-0 { margin: 0; } .mt-4 { margin-top: 1rem; } .mt-12 { margin-top: 3rem; } .mb-2 { margin-bottom: 0.5rem; } .mb-4 { margin-bottom: 1rem; } .mb-5 { margin-bottom: 1.25rem; } .mb-6 { margin-bottom: 1.5rem; } .mb-8 { margin-bottom: 2rem; }
+  .p-4 { padding: 1rem; } .p-6 { padding: 1.5rem; }
+  
+  /* Text Utilities */
+  .text-xs { font-size: 0.75rem; line-height: 1rem; } .text-sm { font-size: 0.875rem; line-height: 1.25rem; } .text-base { font-size: 1rem; line-height: 1.5rem; } .text-lg { font-size: 1.125rem; line-height: 1.75rem; } .text-xl { font-size: 1.25rem; line-height: 1.75rem; }
+  .font-medium { font-weight: 500; } .font-semibold { font-weight: 600; } .tracking-tight { letter-spacing: -0.025em; } .tracking-wider { letter-spacing: 0.05em; } .uppercase { text-transform: uppercase; } .text-right { text-align: right; }
+  .text-slate-300 { color: #cbd5e1; } .text-slate-400 { color: #94a3b8; } .text-slate-500 { color: #64748b; } .text-slate-600 { color: #475569; } .text-slate-800 { color: #1e293b; } .text-slate-900 { color: #0f172a; } .text-red-500 { color: #ef4444; } .text-red-700 { color: #b91c1c; } .text-emerald-600 { color: #059669; } .text-indigo-500 { color: #6366f1; } .text-indigo-600 { color: #4f46e5; }
+  
+  .bg-white { background-color: #ffffff; } .bg-slate-50 { background-color: #f8fafc; } .bg-slate-100 { background-color: #f1f5f9; } .bg-slate-900 { background-color: #0f172a; } .bg-yellow-100 { background-color: #fef9c3; } .bg-yellow-400 { background-color: #facc15; } .bg-yellow-500 { background-color: #eab308; } .bg-transparent { background-color: transparent; }
+  .border-slate-200 { border-color: #e2e8f0; } .border-b { border-bottom-width: 1px; } .border-collapse { border-collapse: collapse; }
+  .rounded-xl { border-radius: 0.75rem; } .rounded-full { border-radius: 9999px; } .overflow-x-auto { overflow-x: auto; } .overflow-hidden { overflow: hidden; }
+  .relative { position: relative; } .absolute { position: absolute; } .inset-0 { top: 0; right: 0; bottom: 0; left: 0; }
+  
+  .hidden { display: none; } .empty\:hidden:empty { display: none; } .pointer-events-none { pointer-events: none; } .cursor-pointer { cursor: pointer; } .resize-y { resize: vertical; } .resize-none { resize: none; } .object-contain { object-fit: contain; }
+  .transition-transform { transition-property: transform; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 200ms; } .transition-colors { transition-property: color, background-color, border-color, text-decoration-color, fill, stroke; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 200ms; }
+  .group:hover .group-hover\:scale-105 { transform: scale(1.05); } .group:hover .group-hover\:text-indigo-500 { color: #6366f1; } .group:hover .group-hover\:text-indigo-600 { color: #4f46e5; }
+
+  /* 💎 Copiloto IA Premium */
+  .ai-copilot-wrapper { position: relative; border-radius: 16px; overflow: hidden; padding: 1px; }
+  .ai-copilot-border { position: absolute; inset: 0; background: linear-gradient(90deg, #e2e8f0, #e2e8f0); z-index: 0; transition: background 0.5s ease; }
+  .ai-copilot-wrapper:hover .ai-copilot-border, .ai-copilot-wrapper.is-active .ai-copilot-border { background: linear-gradient(90deg, #818cf8, #c084fc, #34d399); animation: borderGlow 3s linear infinite; }
+  .ai-copilot-content { border-radius: 15px; z-index: 1; height: 100%; }
+  
+  @keyframes borderGlow { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } }
+  .bg-clip-text { -webkit-background-clip: text; background-clip: text; } .text-transparent { color: transparent; } .from-indigo-500 { --tw-gradient-from: #6366f1; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to, rgba(99, 102, 241, 0)); } .to-purple-500 { --tw-gradient-to: #a855f7; } .bg-gradient-to-r { background-image: linear-gradient(to right, var(--tw-gradient-stops)); }
+  .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; } @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+  
+  .badge-ai { font-size: 0.65rem; font-weight: 700; background: #f1f5f9; color: #475569; padding: 2px 6px; border-radius: 4px; border: 1px solid #e2e8f0; }
+  
+  .dropzone-minimal { border: 1px dashed #cbd5e1; border-radius: 8px; background: #f8fafc; padding: 0.75rem; position: relative; cursor: pointer; transition: all 0.2s; }
+  .dropzone-minimal:hover, .dropzone-minimal.is-dragover { border-color: #6366f1; background: #eef2ff; }
+  .hidden-input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; z-index: 10; }
+  
+  .btn-ai-action { background: #0f172a; color: #fff; font-family: inherit; font-size: 0.875rem; font-weight: 500; border: none; border-radius: 8px; padding: 0.75rem 1.25rem; cursor: pointer; transition: 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; }
+  .btn-ai-action:hover:not(:disabled) { background: #1e293b; transform: translateY(-1px); }
+
+  /* Sections & Forms Minimal */
+  .form-section { background: transparent; border-top: 1px solid #e2e8f0; padding-top: 1.5rem; }
+  .form-section:first-child { border-top: none; padding-top: 0; }
+  .section-heading { font-size: 0.875rem; font-weight: 600; color: #0f172a; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 1.5rem 0; }
+  
+  .form-group { margin-bottom: 1.5rem; position: relative; }
+  .form-label { display: block; font-size: 0.8125rem; font-weight: 500; color: #475569; margin-bottom: 0.5rem; }
+  .form-input, .form-select { width: 100%; background: transparent; border: none; border-bottom: 1px solid #cbd5e1; padding: 0.5rem 0; font-family: inherit; font-size: 0.95rem; color: #0f172a; transition: all 0.2s; border-radius: 0; box-shadow: none; outline: none; }
+  .form-input::placeholder { color: #94a3b8; }
+  .form-input:focus, .form-select:focus { border-bottom-color: #0f172a; }
+  .form-input.pl-8 { padding-left: 2rem; }
+  
+  .form-select { appearance: none; background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e"); background-position: right 0 center; background-repeat: no-repeat; background-size: 1.2em 1.2em; padding-right: 2rem; }
+
+  /* AI Badge Indicator */
+  .ai-badge { font-size: 0.7rem; color: #059669; font-weight: 500; background: #ecfdf5; padding: 2px 6px; border-radius: 4px; animation: fadeIn 0.3s ease; }
+  .ai-suggested { border-bottom-color: #10b981 !important; background: linear-gradient(0deg, rgba(16, 185, 129, 0.05) 0%, transparent 100%); transition: all 0.5s ease; }
+
+  /* Media Gallery */
+  .media-box { position: relative; }
+  .media-area { display: flex; flex-direction: column; cursor: pointer; }
+  .media-preview { width: 100%; aspect-ratio: 1; background: #f8fafc; border: 1px border #e2e8f0; border-radius: 12px; display: flex; align-items: center; justify-content: center; overflow: hidden; margin-bottom: 0.75rem; transition: background 0.2s; }
+  .media-area:hover .media-preview { background: #f1f5f9; }
+  .media-area:hover .media-preview .material-symbols-outlined { transform: scale(1.1); color: #64748b; }
+  .media-preview img { width: 100%; height: 100%; object-fit: contain; }
+  .media-info { display: flex; flex-col; }
+  .media-title { font-size: 0.875rem; font-weight: 500; color: #0f172a; }
+  .media-subtitle { font-size: 0.75rem; color: #64748b; }
+  
+  .media-clear { position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; border-radius: 50%; background: #ffffff; border: 1px solid #e2e8f0; color: #0f172a; display: none; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+  .media-clear:hover { background: #f1f5f9; }
+  .media-box.has-media .media-clear { display: flex; }
+  .media-box.has-media .media-preview { background: transparent; border: 1px solid #e2e8f0; }
+
+  /* Actions Sticky */
+  .sticky-footer { position: sticky; bottom: 0; padding: 1.5rem 0; background: linear-gradient(0deg, #ffffff 50%, rgba(255,255,255,0.8) 100%); backdrop-filter: blur(8px); border-top: 1px solid #e2e8f0; z-index: 40; margin-top: 2rem; }
+  .btn-submit { background: #0f172a; color: #fff; border: none; font-family: inherit; font-size: 0.95rem; font-weight: 500; padding: 0.875rem 2rem; border-radius: 8px; cursor: pointer; transition: 0.2s; }
+  .btn-submit:hover { background: #1e293b; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(15,23,42,0.15); }
+  .btn-cancel { background: transparent; color: #475569; border: none; font-family: inherit; font-size: 0.95rem; font-weight: 500; padding: 0.875rem 1.5rem; cursor: pointer; transition: 0.2s; text-decoration: none; text-align: center; }
+  .btn-cancel:hover { color: #0f172a; background: #f8fafc; border-radius: 8px; }
+
+  /* Integrations */
+  .integration-panel { border: 1px solid #e2e8f0; border-radius: 16px; padding: 1.5rem; background: #ffffff; transition: border-color 0.2s; }
+  .integration-panel:hover { border-color: #cbd5e1; }
+  .btn-sync { display: flex; align-items: center; justify-content: center; width: 100%; border: none; font-family: inherit; font-size: 0.875rem; font-weight: 500; padding: 0.625rem 1rem; border-radius: 8px; cursor: pointer; transition: 0.2s; }
+  .btn-action-sm { display: flex; align-items: center; justify-content: center; background: #f8fafc; border: 1px solid #e2e8f0; color: #475569; width: 2.5rem; height: 2.5rem; border-radius: 8px; cursor: pointer; transition: 0.2s; }
+  .btn-action-sm:hover { background: #f1f5f9; color: #0f172a; border-color: #cbd5e1; }
+
+  /* Animations */
+  .animate-enter { opacity: 0; animation: enterSlide 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; animation-delay: calc(var(--stagger) * 0.08s); }
+  @keyframes enterSlide { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  .fade-in { animation: fadeIn 0.3s ease forwards; } @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .spinner { animation: spin 1s linear infinite; } @keyframes spin { 100% { transform: rotate(360deg); } }
+</style>
 @endpush
 
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
 <script>
-  // ✅ Toggle clasificación interna
-  document.addEventListener('DOMContentLoaded', function(){
-    const chk = document.getElementById('use_internal');
-    const box = document.getElementById('internal-box');
-    if (chk && box){
-      const sync = () => box.classList.toggle('is-disabled', !chk.checked);
-      chk.addEventListener('change', sync);
-      sync();
-    }
-  });
-
-  // ✅ Fotos: preview + badges + botón Quitar
-  document.addEventListener('DOMContentLoaded', function () {
-    const map = [
-      { input: 'photo_1_file', preview: 'photo_1_preview' },
-      { input: 'photo_2_file', preview: 'photo_2_preview' },
-      { input: 'photo_3_file', preview: 'photo_3_preview' },
-    ];
-
-    const objectUrls = new Map();
-
-    function setFilledState(inputId, filled) {
-      const card  = document.querySelector(`[data-photo-card="${inputId}"]`);
-      const badge = document.querySelector(`[data-photo-badge="${inputId}"]`);
-      if (card) card.classList.toggle('is-filled', !!filled);
-      if (badge) {
-        badge.classList.toggle('ok', !!filled);
-        badge.textContent = filled ? 'Lista' : 'Pendiente';
-      }
-    }
-
-    function setFilename(inputId, file) {
-      const strong = document.querySelector(`[data-photo-strong="${inputId}"]`);
-      const sub    = document.querySelector(`[data-photo-sub="${inputId}"]`);
-      if (strong) strong.textContent = file ? file.name : 'Seleccionar foto';
-      if (sub) sub.textContent = file ? `${Math.round(file.size/1024)} KB` : 'JPG / PNG / WEBP';
-    }
-
-    function renderPreview(previewId, file) {
-      const prev = document.getElementById(previewId);
-      if (!prev) return;
-
-      if (objectUrls.has(previewId)) {
-        URL.revokeObjectURL(objectUrls.get(previewId));
-        objectUrls.delete(previewId);
-      }
-
-      if (!file) { prev.innerHTML = ''; return; }
-
-      const url = URL.createObjectURL(file);
-      objectUrls.set(previewId, url);
-      prev.innerHTML = `<img src="${url}" alt="preview">`;
-    }
-
-    map.forEach(({ input, preview }) => {
-      const inp = document.getElementById(input);
-      if (!inp) return;
-
-      const prevEl = document.getElementById(preview);
-      const alreadyHasImg = !!(prevEl && prevEl.querySelector('img'));
-      if (alreadyHasImg) {
-        setFilledState(input, true);
-        setFilename(input, null);
-      }
-
-      inp.addEventListener('change', function () {
-        const file = inp.files && inp.files[0] ? inp.files[0] : null;
-        setFilledState(input, !!file || alreadyHasImg);
-        setFilename(input, file);
-        renderPreview(preview, file);
-      });
-
-      const clearBtn = document.querySelector(`[data-photo-clear="${input}"]`);
-      if (clearBtn) {
-        clearBtn.addEventListener('click', function () {
-          inp.value = '';
-          setFilledState(input, false);
-          setFilename(input, null);
-          renderPreview(preview, null);
-        });
-      }
-    });
-
-    window.addEventListener('beforeunload', () => {
-      for (const url of objectUrls.values()) URL.revokeObjectURL(url);
-    });
-  });
-
-  // ================================
-  // 🔹 Config base de SweetAlert UI
-  // ================================
-  const uiToast = Swal.mixin({
-    toast: true,
-    position: 'top-end',
-    showConfirmButton: false,
-    timer: 3200,
-    timerProgressBar: true,
-    customClass: { popup: 'swal2-popup-compact' }
-  });
-
-  const AiAlerts = {
-    success(title, text){ uiToast.fire({ icon:'success', title: title || 'Listo', text: text || '' }); },
-    error(title, text){ uiToast.fire({ icon:'error', title: title || 'Error', text: text || '' }); },
-    info(title, text){ uiToast.fire({ icon:'info', title: title || 'Info', text: text || '' }); }
+  // ==========================================
+  // 🔹 Utilidades y UI 
+  // ==========================================
+  const UI = {
+    toast: Swal.mixin({
+      toast: true, position: 'bottom-center', showConfirmButton: false, timer: 4000,
+      background: '#0f172a', color: '#fff',
+      customClass: { popup: 'rounded-xl shadow-lg border border-slate-700' }
+    }),
+    success: (msg) => UI.toast.fire({ icon: 'success', title: msg, iconColor: '#34d399' }),
+    error: (msg) => UI.toast.fire({ icon: 'error', title: msg, iconColor: '#f87171' }),
+    escape: (str) => String(str || '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m])),
+    money: (v) => isNaN(Number(v)) ? '—' : `$${Number(v).toFixed(2)}`
   };
 
-  // ================================
-  // 🔹 IA: subir archivos + dropzone + rellenar campos
-  // ================================
-  document.addEventListener('DOMContentLoaded', function () {
-    const btnAi      = document.getElementById('btn-ai-analyze');
-    const inputFiles = document.getElementById('ai_files');
-    const statusEl   = document.getElementById('ai-helper-status');
-    const helperBox  = document.getElementById('ai-helper');
+  // ==========================================
+  // 🔹 Lógica de Fotos
+  // ==========================================
+  document.addEventListener('DOMContentLoaded', () => {
+    ['1','2','3'].forEach(i => {
+      const inp = document.getElementById(`photo_${i}_file`);
+      const box = document.querySelector(`[data-photo-card="photo_${i}_file"]`);
+      const prev = document.getElementById(`photo_${i}_preview`);
+      const text = document.querySelector(`[data-photo-strong="photo_${i}_file"]`);
+      const clrBtn = document.querySelector(`[data-photo-clear="photo_${i}_file"]`);
+      let objUrl = null;
 
-    const panel      = document.getElementById('ai-items-panel');
-    const tbody      = document.getElementById('ai-items-tbody');
-    const countEl    = document.getElementById('ai-items-count');
+      const updateUI = (hasFile, file = null) => {
+        box.classList.toggle('has-media', hasFile);
+        text.textContent = file ? file.name : `Foto ${i}`;
+      };
 
-    const dropzone   = document.getElementById('ai-dropzone');
-    const filesList  = document.getElementById('ai-files-list');
-    const clearBtn   = document.getElementById('ai-clear-list');
+      if (prev.querySelector('img')) updateUI(true);
 
-    const LS_KEY_ITEMS = 'catalog_ai_items';
-    const LS_KEY_INDEX = 'catalog_ai_index';
-
-    let aiItems = [];
-
-    function saveAiItemsToStorage() {
-      try { localStorage.setItem(LS_KEY_ITEMS, JSON.stringify(aiItems || [])); } catch (e) {}
-    }
-    function saveAiIndexToStorage(idx) {
-      try { localStorage.setItem(LS_KEY_INDEX, String(idx ?? 0)); } catch (e) {}
-    }
-    function loadAiItemsFromStorage() {
-      try {
-        const raw = localStorage.getItem(LS_KEY_ITEMS);
-        if (!raw) return [];
-        const parsed = JSON.parse(raw);
-        return Array.isArray(parsed) ? parsed : [];
-      } catch (e) { return []; }
-    }
-    function loadAiIndexFromStorage() {
-      try {
-        const raw = localStorage.getItem(LS_KEY_INDEX);
-        const idx = parseInt(raw ?? '0', 10);
-        return isNaN(idx) ? 0 : Math.max(0, idx);
-      } catch (e) { return 0; }
-    }
-
-    function refreshFileChips(files) {
-      if (!filesList) return;
-      filesList.innerHTML = '';
-      if (!files || !files.length) return;
-
-      Array.from(files).forEach(file => {
-        const chip = document.createElement('div');
-        chip.className = 'ai-file-chip';
-        chip.innerHTML = `<span>${file.name}</span>`;
-        filesList.appendChild(chip);
-      });
-    }
-
-    if (dropzone && inputFiles) {
-      dropzone.addEventListener('click', function (e) {
-        if (e.target.closest('.ai-dropzone-btn')) e.preventDefault();
-        inputFiles.click();
+      inp?.addEventListener('change', e => {
+        const file = e.target.files[0];
+        updateUI(!!file, file);
+        if(objUrl) URL.revokeObjectURL(objUrl);
+        if(!file) { prev.innerHTML = '<span class="material-symbols-outlined text-slate-300 text-3xl transition-transform">add_photo_alternate</span>'; return; }
+        objUrl = URL.createObjectURL(file);
+        prev.innerHTML = `<img src="${objUrl}" class="fade-in">`;
       });
 
-      inputFiles.addEventListener('change', function () {
-        refreshFileChips(inputFiles.files);
-      });
-
-      ['dragenter','dragover'].forEach(evt => {
-        dropzone.addEventListener(evt, function (e) {
-          e.preventDefault(); e.stopPropagation();
-          dropzone.classList.add('is-dragover');
-        });
-      });
-
-      ['dragleave','dragend','drop'].forEach(evt => {
-        dropzone.addEventListener(evt, function (e) {
-          e.preventDefault(); e.stopPropagation();
-          dropzone.classList.remove('is-dragover');
-        });
-      });
-
-      dropzone.addEventListener('drop', function (e) {
-        const dt = new DataTransfer();
-        Array.from(e.dataTransfer.files || []).forEach(file => {
-          if (file.type.startsWith('image/') || file.type === 'application/pdf') dt.items.add(file);
-        });
-        if (dt.files.length) {
-          inputFiles.files = dt.files;
-          refreshFileChips(dt.files);
-        }
-      });
-    }
-
-    if (clearBtn) {
-      clearBtn.addEventListener('click', function () {
-        aiItems = [];
-        try {
-          localStorage.removeItem(LS_KEY_ITEMS);
-          localStorage.removeItem(LS_KEY_INDEX);
-        } catch (e) {}
-        if (tbody) tbody.innerHTML = '';
-        if (panel) panel.style.display = 'none';
-        if (filesList) filesList.innerHTML = '';
-        if (inputFiles) inputFiles.value = '';
-        if (statusEl) statusEl.textContent = 'Se limpió la lista de productos IA. Puedes subir un nuevo PDF o imágenes.';
-        AiAlerts.info('Lista limpia', 'La lista de productos sugeridos por IA se reinició.');
-      });
-    }
-
-    function attachUseButtons() {
-      if (!tbody) return;
-      tbody.querySelectorAll('button[data-ai-index]').forEach(btn => {
-        btn.addEventListener('click', function () {
-          const i = parseInt(this.getAttribute('data-ai-index'), 10);
-          const item = aiItems[i];
-          if (!item) return;
-          saveAiIndexToStorage(i);
-          fillFromItem(item, { markSuggested: true });
-          if (statusEl) statusEl.textContent = 'Se cargó el producto #' + (i + 1) + ' desde la lista IA. Revisa y ajusta antes de guardar.';
-          AiAlerts.info('Producto cargado', 'Se llenó el formulario con el producto #' + (i + 1) + '.');
-        });
-      });
-    }
-
-    function renderAiTable() {
-      if (!tbody || !panel) return;
-      tbody.innerHTML = '';
-
-      aiItems.forEach((item, idx) => {
-        const tr = document.createElement('tr');
-        const precio = item.price != null && item.price !== ''
-          ? '$ ' + Number(item.price).toFixed(2)
-          : '—';
-
-        tr.innerHTML = `
-          <td>${idx + 1}</td>
-          <td>${escapeHtml(item.name || '')}</td>
-          <td>${precio}</td>
-          <td>${escapeHtml(item.brand_name || '')}</td>
-          <td>${escapeHtml(item.model_name || '')}</td>
-          <td>${escapeHtml(item.meli_gtin || '')}</td>
-          <td>
-            <button type="button" class="btn btn-ghost btn-xs" data-ai-index="${idx}">Usar este</button>
-          </td>
-        `;
-        tbody.appendChild(tr);
-      });
-
-      if (countEl) {
-        countEl.textContent = aiItems.length === 1 ? '1 producto detectado' : (aiItems.length + ' productos detectados');
-      }
-
-      panel.style.display = aiItems.length ? 'block' : 'none';
-      attachUseButtons();
-    }
-
-    aiItems = loadAiItemsFromStorage();
-    if (aiItems.length) {
-      renderAiTable();
-      if (statusEl) statusEl.textContent = 'Se restauraron los productos detectados por IA. Puedes seguir capturando sin volver a subir el PDF.';
-      const idx = loadAiIndexFromStorage();
-      const item = aiItems[idx] || aiItems[0];
-      if (item) fillFromItem(item, { markSuggested: true });
-    }
-
-    if (!btnAi || !inputFiles) return;
-
-    btnAi.addEventListener('click', function () {
-      if (!inputFiles.files || !inputFiles.files.length) {
-        AiAlerts.info('Sube un archivo', 'Necesito al menos una imagen o PDF para analizar con IA.');
-        if (statusEl) statusEl.textContent = 'Sube un archivo para que la IA pueda analizarlo.';
-        return;
-      }
-
-      const formData = new FormData();
-      Array.from(inputFiles.files).forEach(f => formData.append('files[]', f));
-      formData.append('_token', '{{ csrf_token() }}');
-
-      btnAi.disabled = true;
-      const labelEl = btnAi.querySelector('.ai-cta-text');
-      const originalText = labelEl ? labelEl.textContent : btnAi.textContent;
-
-      if (labelEl) labelEl.textContent = 'Analizando...';
-      else btnAi.textContent = 'Analizando...';
-
-      if (helperBox) helperBox.classList.add('ai-busy');
-      if (statusEl) statusEl.textContent = 'Enviando archivos a la IA, esto puede tardar unos segundos...';
-
-      aiItems = [];
-      if (tbody) tbody.innerHTML = '';
-      if (panel) panel.style.display = 'none';
-
-      fetch("{{ route('admin.catalog.ai-from-upload') }}", {
-        method: "POST",
-        body: formData
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.error) {
-          if (statusEl) statusEl.textContent = 'Error: ' + (data.error || 'No fue posible obtener sugerencias.');
-          AiAlerts.error('Error al analizar con IA', data.error || 'No fue posible obtener sugerencias.');
-          return;
-        }
-
-        const s = data.suggestions || {};
-        fillFromItem(s, { markSuggested: true });
-
-        aiItems = Array.isArray(data.items) ? data.items : [];
-        saveAiItemsToStorage();
-        saveAiIndexToStorage(0);
-
-        if (aiItems.length) renderAiTable();
-
-        if (statusEl) statusEl.textContent = 'Listo: revisa y ajusta las sugerencias marcadas en verde antes de guardar.';
-        AiAlerts.success('Sugerencias listas', 'La IA completó los campos principales del producto.');
-      })
-      .catch(err => {
-        console.error(err);
-        if (statusEl) statusEl.textContent = 'Ocurrió un error al llamar a la IA.';
-        AiAlerts.error('Error de conexión', 'Ocurrió un problema al contactar la IA.');
-      })
-      .finally(() => {
-        btnAi.disabled = false;
-        if (labelEl) labelEl.textContent = originalText;
-        else btnAi.textContent = originalText;
-        if (helperBox) helperBox.classList.remove('ai-busy');
+      clrBtn?.addEventListener('click', e => {
+        e.preventDefault(); inp.value = ''; updateUI(false);
+        prev.innerHTML = '<span class="material-symbols-outlined text-slate-300 text-3xl transition-transform">add_photo_alternate</span>';
       });
     });
+  });
 
-    function applyAiSuggestion(fieldName, value, markSuggested) {
-      if (value === undefined || value === null || value === '') return;
-      const el = document.querySelector('[name="' + fieldName + '"]');
-      if (!el) return;
+  // ==========================================
+  // 🔹 Copiloto de IA (Lógica y Efectos)
+  // ==========================================
+  document.addEventListener('DOMContentLoaded', () => {
+    const els = {
+      wrapper: document.querySelector('.ai-copilot-wrapper'),
+      dropzone: document.getElementById('ai-dropzone'),
+      input: document.getElementById('ai_files'),
+      list: document.getElementById('ai-files-list'),
+      btnAnalyze: document.getElementById('btn-ai-analyze'),
+      spinner: document.getElementById('ai-spinner'),
+      btnText: document.getElementById('ai-btn-text'),
+      dropText: document.getElementById('ai-drop-text'),
+      panel: document.getElementById('ai-items-panel'),
+      tbody: document.getElementById('ai-items-tbody'),
+      btnClear: document.getElementById('ai-clear-list')
+    };
 
-      el.value = value;
-      if (markSuggested) {
-        el.classList.add('ai-suggested');
-        setTimeout(() => el.classList.remove('ai-suggested'), 7000);
+    if(!els.dropzone) return;
+
+    let aiState = JSON.parse(localStorage.getItem('cat_ai') || '{"items":[]}');
+    const saveState = () => localStorage.setItem('cat_ai', JSON.stringify(aiState));
+
+    // Drag & Drop
+    const renderFiles = (files) => {
+      els.list.innerHTML = '';
+      if(!files.length) { els.dropText.textContent = 'Cargar archivos'; return; }
+      els.dropText.textContent = `${files.length} archivo(s)`;
+      els.wrapper.classList.add('is-active');
+      Array.from(files).forEach(f => {
+        els.list.insertAdjacentHTML('beforeend', `<span class="text-xs font-medium bg-slate-100 text-slate-600 px-2 py-1 rounded fade-in">${f.name}</span>`);
+      });
+    };
+
+    els.dropzone.addEventListener('click', () => els.input.click());
+    els.input.addEventListener('change', () => renderFiles(els.input.files));
+    ['dragenter','dragover'].forEach(e => els.dropzone.addEventListener(e, ev => { ev.preventDefault(); els.dropzone.classList.add('is-dragover'); }));
+    ['dragleave','dragend','drop'].forEach(e => els.dropzone.addEventListener(e, ev => { ev.preventDefault(); els.dropzone.classList.remove('is-dragover'); }));
+    els.dropzone.addEventListener('drop', e => {
+      const dt = new DataTransfer();
+      Array.from(e.dataTransfer.files).filter(f => f.type.match(/image.*|pdf/)).forEach(f => dt.items.add(f));
+      if(dt.files.length) { els.input.files = dt.files; renderFiles(dt.files); }
+    });
+
+    // Render Tabla de Resultados
+    const renderTable = () => {
+      els.tbody.innerHTML = '';
+      if(!aiState.items.length) { els.panel.style.display = 'none'; return; }
+      
+      aiState.items.forEach((item, i) => {
+        const brandModel = [item.brand_name, item.model_name].filter(Boolean).join(' / ') || '—';
+        els.tbody.insertAdjacentHTML('beforeend', `
+          <tr class="fade-in border-b border-slate-100 last:border-none" style="animation-delay: ${i*0.05}s">
+            <td class="p-4 text-sm text-slate-400 font-medium">${i+1}</td>
+            <td class="p-4 text-sm font-medium text-slate-900">${UI.escape(item.name) || 'Sin título'}</td>
+            <td class="p-4 text-sm font-semibold">${UI.money(item.price)}</td>
+            <td class="p-4 text-sm text-slate-500">${brandModel}</td>
+            <td class="p-4"><span class="font-mono text-xs bg-slate-100 px-2 py-1 rounded text-slate-600">${UI.escape(item.meli_gtin) || '—'}</span></td>
+            <td class="p-4 text-right"><button type="button" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium bg-transparent border-none cursor-pointer btn-use" data-idx="${i}">Seleccionar</button></td>
+          </tr>
+        `);
+      });
+      els.panel.style.display = 'block';
+
+      document.querySelectorAll('.btn-use').forEach(btn => {
+        btn.addEventListener('click', e => {
+          applyToForm(aiState.items[e.target.dataset.idx]);
+          UI.success('Datos transferidos');
+        });
+      });
+    };
+
+    // Aplicar al Formulario con Indicador IA
+    const applyToForm = (item) => {
+      if(!item) return;
+      const map = {
+        name: item.name, slug: item.slug, description: item.description, excerpt: item.excerpt,
+        price: item.price, brand_name: item.brand_name, model_name: item.model_name, meli_gtin: item.meli_gtin,
+        stock: item.stock ?? item.quantity
+      };
+      Object.entries(map).forEach(([name, val]) => {
+        if(val == null || val === '') return;
+        const el = document.querySelector(`[name="${name}"]`);
+        if(el) {
+          el.value = val;
+          el.classList.add('ai-suggested');
+          
+          // Mostrar badge "✨ Rellenado por IA"
+          const badge = el.closest('.form-group')?.querySelector('.ai-badge');
+          if(badge) {
+             badge.classList.remove('hidden');
+             setTimeout(() => badge.classList.add('hidden'), 5000);
+          }
+          
+          setTimeout(() => el.classList.remove('ai-suggested'), 2000);
+        }
+      });
+    };
+
+    // Petición IA
+    els.btnAnalyze.addEventListener('click', async () => {
+      if(!els.input.files.length) return UI.toast.fire({ icon: 'info', title: 'Agrega un archivo' });
+      
+      const fd = new FormData();
+      Array.from(els.input.files).forEach(f => fd.append('files[]', f));
+      fd.append('_token', '{{ csrf_token() }}');
+
+      els.btnAnalyze.disabled = true; els.spinner.classList.remove('hidden'); els.btnText.textContent = 'Procesando...';
+      els.wrapper.classList.add('is-active');
+      els.panel.style.display = 'none';
+
+      try {
+        const res = await fetch("{{ route('admin.catalog.ai-from-upload') }}", { method: 'POST', body: fd });
+        const data = await res.json();
+        if(data.error) throw new Error(data.error);
+
+        if(data.suggestions) applyToForm(data.suggestions);
+        aiState.items = Array.isArray(data.items) ? data.items : [];
+        saveState(); renderTable();
+        UI.success('Análisis exitoso');
+      } catch (e) {
+        UI.error(e.message);
+      } finally {
+        els.btnAnalyze.disabled = false; els.spinner.classList.add('hidden'); els.btnText.textContent = 'Analizar Documento';
+        els.wrapper.classList.remove('is-active');
       }
-    }
+    });
 
-    function fillFromItem(item, opts = {}) {
-      const markSuggested = !!opts.markSuggested;
-      if (!item || typeof item !== 'object') return;
+    els.btnClear.addEventListener('click', () => {
+      aiState.items = []; saveState(); renderTable();
+      els.input.value = ''; els.list.innerHTML = '';
+      els.dropText.textContent = 'Cargar archivos';
+    });
 
-      applyAiSuggestion('name',        item.name,        markSuggested);
-      applyAiSuggestion('slug',        item.slug,        markSuggested);
-      applyAiSuggestion('description', item.description, markSuggested);
-      applyAiSuggestion('excerpt',     item.excerpt,     markSuggested);
-      applyAiSuggestion('price',       item.price,       markSuggested);
-      applyAiSuggestion('brand_name',  item.brand_name,  markSuggested);
-      applyAiSuggestion('model_name',  item.model_name,  markSuggested);
-      applyAiSuggestion('meli_gtin',   item.meli_gtin,   markSuggested);
-
-      const qty = item.stock ?? item.quantity ?? item.qty ?? item.cantidad;
-      applyAiSuggestion('stock', qty, markSuggested);
-    }
-
-    function escapeHtml(str) {
-      if (str === null || str === undefined) return '';
-      return String(str)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-    }
+    if(aiState.items.length) { renderTable(); applyToForm(aiState.items[0]); }
   });
 </script>
 
 @if(session('ok'))
 <script>
-  document.addEventListener('DOMContentLoaded', function () {
-    try {
-      const LS_KEY_ITEMS = 'catalog_ai_items';
-      const LS_KEY_INDEX = 'catalog_ai_index';
-      const rawItems = localStorage.getItem(LS_KEY_ITEMS);
-      if (rawItems) {
-        let items = JSON.parse(rawItems);
-        if (!Array.isArray(items)) items = [];
-        const rawIdx = localStorage.getItem(LS_KEY_INDEX);
-        let idx = parseInt(rawIdx ?? '0', 10);
-        if (isNaN(idx) || idx < 0 || idx >= items.length) idx = 0;
-        if (items.length) {
-          items.splice(idx, 1);
-          localStorage.setItem(LS_KEY_ITEMS, JSON.stringify(items));
-          localStorage.setItem(LS_KEY_INDEX, '0');
-        }
-      }
-    } catch (e) {}
-
+  document.addEventListener('DOMContentLoaded', () => {
+    localStorage.removeItem('cat_ai');
     Swal.fire({
-      icon: 'success',
-      title: 'Listo ✨',
-      text: @json(session('ok')),
-      customClass: { popup: 'swal2-popup-compact' },
-      confirmButtonText: 'Continuar'
+      icon: 'success', title: 'Guardado', text: @json(session('ok')),
+      confirmButtonText: 'Continuar', confirmButtonColor: '#0f172a',
+      customClass: { popup: 'rounded-xl shadow-2xl border border-slate-100 font-sans' }
     });
   });
 </script>
@@ -990,13 +650,12 @@
 
 @if($errors->any())
 <script>
-  document.addEventListener('DOMContentLoaded', function () {
+  document.addEventListener('DOMContentLoaded', () => {
     Swal.fire({
-      icon: 'error',
-      title: 'Hay campos por revisar',
-      html: `{!! implode('<br>', $errors->all()) !!}`,
-      customClass: { popup: 'swal2-popup-compact' },
-      confirmButtonText: 'Entendido'
+      icon: 'error', title: 'Revisa los campos',
+      html: `<div class="text-left text-sm text-slate-600 mt-2 space-y-1">{!! implode('<br>• ', $errors->all()) !!}</div>`,
+      confirmButtonText: 'Entendido', confirmButtonColor: '#0f172a',
+      customClass: { popup: 'rounded-xl shadow-2xl border border-slate-100 font-sans' }
     });
   });
 </script>

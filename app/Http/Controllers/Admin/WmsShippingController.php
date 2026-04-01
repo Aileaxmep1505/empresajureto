@@ -4,6 +4,9 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\PickWave;
+use App\Models\RoutePlan;
+use App\Models\User;
+use App\Models\Vehicle;
 use App\Models\WmsShipment;
 use App\Models\WmsShipmentLine;
 use App\Models\WmsShipmentScan;
@@ -52,6 +55,7 @@ class WmsShippingController extends Controller implements HasMiddleware
                     ->orWhere('order_number', 'like', "%{$s}%")
                     ->orWhere('task_number', 'like', "%{$s}%")
                     ->orWhere('vehicle_plate', 'like', "%{$s}%")
+                    ->orWhere('vehicle_name', 'like', "%{$s}%")
                     ->orWhere('driver_name', 'like', "%{$s}%")
                     ->orWhere('route_name', 'like', "%{$s}%");
             });
@@ -177,6 +181,12 @@ class WmsShippingController extends Controller implements HasMiddleware
                     'pick_wave_id' => $pickWave->id,
                     'pick_status' => $task['status'] ?? null,
                     'pick_snapshot' => $task,
+                    'delivery_user_id' => null,
+                    'delivery_user_name' => null,
+                    'vehicle_id' => null,
+                    'vehicle_label' => null,
+                    'route_plan_id' => null,
+                    'route_plan_name' => null,
                     'created_at_shipping' => $now->toDateTimeString(),
                 ],
                 'created_by'        => $userId,
@@ -199,37 +209,89 @@ class WmsShippingController extends Controller implements HasMiddleware
         ]);
     }
 
-    public function show(Request $request, WmsShipment $shipment)
+    public function show(WmsShipment $shipment)
     {
-        $payload = $this->shipmentPayload($this->reloadShipment($shipment->id));
+        return redirect()->route('admin.wms.shipping.scanner', $shipment->id);
+    }
 
-        if ($request->expectsJson()) {
-            return response()->json([
-                'ok' => true,
-                'shipment' => $payload,
-            ]);
-        }
-
-        return view('admin.wms.shipping-show', [
-            'shipment' => $payload,
+    public function scanner(WmsShipment $shipment)
+    {
+        return view('admin.wms.shipping-scanner', [
+            'operatorName' => auth()->user()?->name ?? 'Operador',
+            'shipment'     => $this->shipmentPayload($this->reloadShipment($shipment->id)),
+            'users'        => $this->catalogUsers(),
+            'vehicles'     => $this->catalogVehicles(),
+            'routes'       => $this->catalogRoutes(),
         ]);
     }
 
-    public function scanner(Request $request, WmsShipment $shipment)
+    public function assignment(Request $request, WmsShipment $shipment)
     {
-        $payload = $this->shipmentPayload($this->reloadShipment($shipment->id));
+        $data = $request->validate([
+            'delivery_user_id' => ['nullable', 'exists:users,id'],
+            'vehicle_id'       => ['nullable', 'exists:vehicles,id'],
+            'route_plan_id'    => ['nullable', 'exists:route_plans,id'],
+            'driver_phone'     => ['nullable', 'string', 'max:60'],
+        ]);
 
-        if ($request->expectsJson()) {
-            return response()->json([
-                'ok' => true,
-                'operator_name' => auth()->user()?->name ?? 'Operador',
-                'shipment' => $payload,
-            ]);
+        $shipment = $this->reloadShipment($shipment->id);
+
+        $route = !empty($data['route_plan_id'])
+            ? RoutePlan::query()->with('driver:id,name')->findOrFail((int) $data['route_plan_id'])
+            : null;
+
+        $deliveryUser = !empty($data['delivery_user_id'])
+            ? User::query()->findOrFail((int) $data['delivery_user_id'])
+            : null;
+
+        if (!$deliveryUser && $route && !empty($route->driver_id)) {
+            $deliveryUser = User::query()->find($route->driver_id);
         }
 
-        return view('admin.wms.shipping-scanner', [
-            'operatorName' => auth()->user()?->name ?? 'Operador',
-            'shipment'     => $payload,
+        $userPhone = $deliveryUser ? $this->userPhoneValue($deliveryUser) : null;
+
+        $vehicle = !empty($data['vehicle_id'])
+            ? Vehicle::query()->findOrFail((int) $data['vehicle_id'])
+            : null;
+
+        $vehicleLabel = null;
+        if ($vehicle) {
+            $vehicleLabel = trim(implode(' · ', array_filter([
+                $vehicle->plate ?? null,
+                $vehicle->nickname ?? null,
+                trim(implode(' ', array_filter([
+                    $vehicle->brand ?? null,
+                    $vehicle->model ?? null,
+                    !empty($vehicle->year) ? (string) $vehicle->year : null,
+                ]))),
+            ])));
+        }
+
+        $meta = is_array($shipment->meta) ? $shipment->meta : [];
+
+        $meta['delivery_user_id'] = $deliveryUser?->id;
+        $meta['delivery_user_name'] = $deliveryUser?->name;
+        $meta['vehicle_id'] = $vehicle?->id;
+        $meta['vehicle_label'] = $vehicleLabel;
+        $meta['route_plan_id'] = $route?->id;
+        $meta['route_plan_name'] = $route?->name;
+
+        $shipment->driver_name = $deliveryUser?->name;
+        $manualPhone = trim((string) ($data['driver_phone'] ?? ''));
+        $shipment->driver_phone = $manualPhone !== ''
+            ? $manualPhone
+            : ($userPhone ?: ($shipment->driver_phone ?: null));
+        $shipment->vehicle_plate = $vehicle?->plate;
+        $shipment->vehicle_name = $vehicleLabel;
+        $shipment->route_name = $route?->name;
+        $shipment->meta = $meta;
+        $shipment->updated_by = auth()->id();
+        $shipment->save();
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Datos de embarque guardados correctamente.',
+            'shipment' => $this->shipmentPayload($this->reloadShipment($shipment->id)),
         ]);
     }
 
@@ -512,47 +574,74 @@ class WmsShippingController extends Controller implements HasMiddleware
         ]);
     }
 
-    public function dispatch(Request $request, WmsShipment $shipment)
-    {
-        $data = $request->validate([
-            'notes' => ['nullable', 'string', 'max:3000'],
-        ]);
+   public function dispatch(Request $request, WmsShipment $shipment)
+{
+    $data = $request->validate([
+        'notes' => ['nullable', 'string', 'max:3000'],
+        'signed_by_name' => ['nullable', 'string', 'max:120'],
+        'signed_by_role' => ['nullable', 'string', 'max:120'],
+        'signature_data' => ['nullable', 'string'],
+    ]);
 
-        $shipment = $this->reloadShipment($shipment->id);
+    $shipment = $this->reloadShipment($shipment->id);
 
-        if (!in_array($shipment->status, ['loaded_complete', 'loaded_partial'], true)) {
-            throw ValidationException::withMessages([
-                'shipment' => 'Primero debes cerrar el embarque.',
-            ]);
-        }
-
-        if (empty($shipment->signature_data)) {
-            throw ValidationException::withMessages([
-                'signature_data' => 'No puedes despachar sin firma.',
-            ]);
-        }
-
-        $shipment->status = 'dispatched';
-        $shipment->dispatched_at = now();
-        $shipment->updated_by = auth()->id();
-
-        if (!empty($data['notes'])) {
-            $shipment->notes = trim((string) $data['notes']);
-        }
-
-        $meta = is_array($shipment->meta) ? $shipment->meta : [];
-        $meta['dispatched_by'] = auth()->id();
-        $meta['dispatched_at'] = now()->toDateTimeString();
-        $shipment->meta = $meta;
-
-        $shipment->save();
-
-        return response()->json([
-            'ok' => true,
-            'message' => 'Unidad despachada correctamente.',
-            'shipment' => $this->shipmentPayload($this->reloadShipment($shipment->id)),
+    if (!in_array($shipment->status, ['loaded_complete', 'loaded_partial'], true)) {
+        throw ValidationException::withMessages([
+            'shipment' => 'Primero debes cerrar el embarque.',
         ]);
     }
+
+    $incomingSignature = trim((string) ($data['signature_data'] ?? ''));
+    $incomingSignedByName = trim((string) ($data['signed_by_name'] ?? ''));
+    $incomingSignedByRole = trim((string) ($data['signed_by_role'] ?? ''));
+
+    if (empty($shipment->signature_data) && $incomingSignature !== '') {
+        $shipment->signature_data = $incomingSignature;
+
+        if ($incomingSignedByName !== '') {
+            $shipment->signed_by_name = $incomingSignedByName;
+        }
+
+        if ($incomingSignedByRole !== '') {
+            $shipment->signed_by_role = $incomingSignedByRole;
+        }
+    }
+
+    if (empty($shipment->signature_data)) {
+        throw ValidationException::withMessages([
+            'signature_data' => 'No puedes despachar sin firma.',
+        ]);
+    }
+
+    if (empty($shipment->signed_by_name) && $incomingSignedByName !== '') {
+        $shipment->signed_by_name = $incomingSignedByName;
+    }
+
+    if (empty($shipment->signed_by_role)) {
+        $shipment->signed_by_role = $incomingSignedByRole !== '' ? $incomingSignedByRole : 'Responsable';
+    }
+
+    $shipment->status = 'dispatched';
+    $shipment->dispatched_at = now();
+    $shipment->updated_by = auth()->id();
+
+    if (!empty($data['notes'])) {
+        $shipment->notes = trim((string) $data['notes']);
+    }
+
+    $meta = is_array($shipment->meta) ? $shipment->meta : [];
+    $meta['dispatched_by'] = auth()->id();
+    $meta['dispatched_at'] = now()->toDateTimeString();
+    $shipment->meta = $meta;
+
+    $shipment->save();
+
+    return response()->json([
+        'ok' => true,
+        'message' => 'Unidad despachada correctamente.',
+        'shipment' => $this->shipmentPayload($this->reloadShipment($shipment->id)),
+    ]);
+}
 
     public function cancel(Request $request, WmsShipment $shipment)
     {
@@ -584,6 +673,142 @@ class WmsShippingController extends Controller implements HasMiddleware
             'message' => 'Embarque cancelado.',
             'shipment' => $this->shipmentPayload($this->reloadShipment($shipment->id)),
         ]);
+    }
+
+    public function reopen(Request $request, WmsShipment $shipment)
+    {
+        $shipment = $this->reloadShipment($shipment->id);
+
+        if ($shipment->status === 'dispatched') {
+            throw ValidationException::withMessages([
+                'shipment' => 'No puedes reabrir un embarque ya despachado.',
+            ]);
+        }
+
+        if ($shipment->status !== 'cancelled') {
+            return response()->json([
+                'ok' => true,
+                'message' => 'El embarque ya se encuentra abierto.',
+                'shipment' => $this->shipmentPayload($shipment),
+            ]);
+        }
+
+        DB::transaction(function () use ($shipment) {
+            $shipmentDb = WmsShipment::query()->lockForUpdate()->findOrFail($shipment->id);
+            $lines = WmsShipmentLine::query()
+                ->where('shipment_id', $shipmentDb->id)
+                ->lockForUpdate()
+                ->get();
+
+            foreach ($lines as $line) {
+                $this->syncLineMetrics($line);
+            }
+
+            $this->syncShipmentMetrics($shipmentDb->id);
+            $shipmentDb->refresh();
+
+            $shipmentDb->status = ((int) $shipmentDb->loaded_qty > 0 || (int) $shipmentDb->loaded_boxes > 0)
+                ? 'loading'
+                : 'draft';
+
+            $shipmentDb->loading_completed_at = null;
+            $shipmentDb->dispatched_at = null;
+            $shipmentDb->signed_by_name = null;
+            $shipmentDb->signed_by_role = null;
+            $shipmentDb->signature_data = null;
+            $shipmentDb->updated_by = auth()->id();
+
+            $meta = is_array($shipmentDb->meta) ? $shipmentDb->meta : [];
+            unset($meta['cancelled_at'], $meta['cancelled_by'], $meta['cancel_reason']);
+            $meta['reopened_at'] = now()->toDateTimeString();
+            $meta['reopened_by'] = auth()->id();
+            $meta['reopen_count'] = (int) ($meta['reopen_count'] ?? 0) + 1;
+            $shipmentDb->meta = $meta;
+
+            $shipmentDb->save();
+        });
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Embarque reabierto correctamente.',
+            'shipment' => $this->shipmentPayload($this->reloadShipment($shipment->id)),
+        ]);
+    }
+
+    protected function userPhoneValue(User $user): ?string
+    {
+        $attrs = $user->getAttributes();
+
+        foreach (['phone', 'telefono', 'phone_number', 'mobile', 'cellphone', 'whatsapp_phone'] as $field) {
+            $value = trim((string) ($attrs[$field] ?? ''));
+            if ($value !== '') {
+                return $value;
+            }
+        }
+
+        return null;
+    }
+
+    protected function catalogUsers(): array
+    {
+        return User::query()
+            ->orderBy('name')
+            ->get()
+            ->map(function ($u) {
+                return [
+                    'id' => (int) $u->id,
+                    'name' => (string) $u->name,
+                    'phone' => $this->userPhoneValue($u),
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    protected function catalogVehicles(): array
+    {
+        return Vehicle::query()
+            ->orderBy('plate')
+            ->get(['id', 'plate', 'brand', 'model', 'year', 'nickname'])
+            ->map(function ($v) {
+                $label = trim(implode(' · ', array_filter([
+                    $v->plate,
+                    $v->nickname,
+                    trim(implode(' ', array_filter([
+                        $v->brand,
+                        $v->model,
+                        !empty($v->year) ? (string) $v->year : null,
+                    ]))),
+                ])));
+
+                return [
+                    'id' => (int) $v->id,
+                    'plate' => (string) ($v->plate ?? ''),
+                    'label' => $label ?: ('Vehículo #' . $v->id),
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    protected function catalogRoutes(): array
+    {
+        return RoutePlan::query()
+            ->with('driver:id,name')
+            ->latest('id')
+            ->limit(300)
+            ->get(['id', 'name', 'status', 'driver_id'])
+            ->map(function ($r) {
+                return [
+                    'id' => (int) $r->id,
+                    'name' => (string) ($r->name ?: ('Ruta #' . $r->id)),
+                    'status' => (string) ($r->status ?? ''),
+                    'driver_id' => !empty($r->driver_id) ? (int) $r->driver_id : null,
+                    'driver_name' => (string) ($r->driver?->name ?? ''),
+                ];
+            })
+            ->values()
+            ->all();
     }
 
     protected function buildShipmentLinePayload(array $item): array
@@ -859,6 +1084,8 @@ class WmsShippingController extends Controller implements HasMiddleware
             },
         ]);
 
+        $meta = is_array($shipment->meta) ? $shipment->meta : [];
+
         $lines = $shipment->lines
             ->sortBy(fn ($line) => sprintf('%08d-%08d', (int) $line->phase, (int) $line->id))
             ->values()
@@ -931,6 +1158,13 @@ class WmsShippingController extends Controller implements HasMiddleware
             'operator_name' => $shipment->operator?->name,
             'status' => $shipment->status,
 
+            'delivery_user_id' => !empty($meta['delivery_user_id']) ? (int) $meta['delivery_user_id'] : null,
+            'delivery_user_name' => $meta['delivery_user_name'] ?? null,
+            'vehicle_id' => !empty($meta['vehicle_id']) ? (int) $meta['vehicle_id'] : null,
+            'vehicle_label' => $meta['vehicle_label'] ?? null,
+            'route_plan_id' => !empty($meta['route_plan_id']) ? (int) $meta['route_plan_id'] : null,
+            'route_plan_name' => $meta['route_plan_name'] ?? null,
+
             'expected_lines' => (int) $shipment->expected_lines,
             'scanned_lines' => (int) $shipment->scanned_lines,
             'expected_qty' => (int) $shipment->expected_qty,
@@ -949,7 +1183,7 @@ class WmsShippingController extends Controller implements HasMiddleware
             'signed_by_role' => $shipment->signed_by_role,
             'signature_data' => $shipment->signature_data,
             'notes' => $shipment->notes,
-            'meta' => $shipment->meta ?? [],
+            'meta' => $meta,
 
             'lines' => $lines,
             'scans' => $scans,

@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\RoutePlan;
 use App\Models\RouteStop;
 use App\Models\DriverPosition;
+use App\Models\User;
+use App\Models\WmsShipment;
 use App\Services\OsrmClient;
 use App\Services\RouteAiAdvisor;
 use App\Services\TrafficService;
@@ -63,7 +65,6 @@ class RoutePlanController extends Controller
      | Helpers coords + dirección
      * ========================= */
 
-    /** Convierte "0" o 0 a null, convierte strings numéricos a float. */
     private function normalizeCoord($v): ?float
     {
         if ($v === null) return null;
@@ -79,7 +80,6 @@ class RoutePlanController extends Controller
         $f = (float) $v;
         if (!is_finite($f)) return null;
 
-        // 0,0 no sirve
         if (abs($f) < 0.0000001) return null;
 
         return $f;
@@ -89,11 +89,10 @@ class RoutePlanController extends Controller
     {
         if ($lat === null || $lng === null) return false;
         if (abs($lat) > 90 || abs($lng) > 180) return false;
-        if (abs($lat) < 0.0000001 && abs($lng) < 0.0000001) return false; // 0,0
+        if (abs($lat) < 0.0000001 && abs($lng) < 0.0000001) return false;
         return true;
     }
 
-    /** Distancia Haversine en metros. */
     private function haversineMeters(float $lat1, float $lng1, float $lat2, float $lng2): float
     {
         $R = 6371000.0;
@@ -106,7 +105,6 @@ class RoutePlanController extends Controller
         return 2 * $R * asin(sqrt($a));
     }
 
-    /** Quita acentos y normaliza espacios. */
     private function normalizeText(string $s): string
     {
         $s = trim($s);
@@ -119,7 +117,6 @@ class RoutePlanController extends Controller
         return $s;
     }
 
-    /** Elimina duplicados obvios. */
     private function dedupeParts(array $parts): array
     {
         $out = [];
@@ -138,7 +135,6 @@ class RoutePlanController extends Controller
         return $out;
     }
 
-    /** Arma address a partir de address o (calle/colonia/ciudad/estado/cp) y agrega México. */
     private function buildAddressFromStop(array $s): string
     {
         $address = trim((string)($s['address'] ?? ''));
@@ -173,10 +169,6 @@ class RoutePlanController extends Controller
             ]);
     }
 
-    /**
-     * Geocodifica con Nominatim (MX) con intentos estructurados + fallback q.
-     * Devuelve [lat, lng, displayName] o [null,null,null]
-     */
     private function geocodeMx(string $address, array $parts = []): array
     {
         $address = trim($address);
@@ -191,7 +183,6 @@ class RoutePlanController extends Controller
             return [null, null, null];
         }
 
-        // 1) estructurado
         try {
             $street = trim(implode(', ', $this->dedupeParts([$calle, $col])));
             $street = $this->normalizeText($street);
@@ -228,7 +219,6 @@ class RoutePlanController extends Controller
             Log::warning('geocodeMx structured exception', ['error'=>$e->getMessage()]);
         }
 
-        // 2) q fallback
         $q = $address !== '' ? $this->ensureMexicoHint($address) : '';
         $q = $this->normalizeText($q);
 
@@ -288,9 +278,6 @@ class RoutePlanController extends Controller
         return [null, null, null];
     }
 
-    /**
-     * Retorna: [lat, lng, address_used, provider_id_used]
-     */
     private function resolveStopLatLng(array $s): array
     {
         $lat = $this->normalizeCoord($s['lat'] ?? null);
@@ -336,7 +323,6 @@ class RoutePlanController extends Controller
 
         $addr = $this->buildAddressFromStop($s);
 
-        // 3) geocode stop
         if ($addr !== '') {
             [$gLat, $gLng] = $this->geocodeMx($addr, [
                 'calle'   => $s['calle'] ?? null,
@@ -350,7 +336,6 @@ class RoutePlanController extends Controller
             }
         }
 
-        // 4) geocode provider
         if ($providerAddress) {
             [$gLat, $gLng] = $this->geocodeMx($providerAddress, $providerParts);
             if ($this->validLatLng($gLat, $gLng)) {
@@ -377,7 +362,6 @@ class RoutePlanController extends Controller
     {
         if (!$last) return null;
 
-        // preferimos el server_time recibido
         if (!empty($last->received_at)) return \Illuminate\Support\Carbon::parse($last->received_at);
         if (!empty($last->created_at))  return \Illuminate\Support\Carbon::parse($last->created_at);
         if (!empty($last->captured_at)) return \Illuminate\Support\Carbon::parse($last->captured_at);
@@ -440,6 +424,61 @@ class RoutePlanController extends Controller
             'network'   => $last->network ?? null,
             'is_mocked' => $last->is_mocked ?? null,
         ];
+    }
+
+    /* =========================
+     | Helpers WMS / Shipment
+     * ========================= */
+
+    private function userPhoneValue(?User $user): ?string
+    {
+        if (!$user) return null;
+
+        $attrs = $user->getAttributes();
+
+        foreach (['phone', 'telefono', 'phone_number', 'mobile', 'cellphone', 'whatsapp_phone'] as $field) {
+            $value = trim((string) ($attrs[$field] ?? ''));
+            if ($value !== '') {
+                return $value;
+            }
+        }
+
+        return null;
+    }
+
+    private function findLinkedShipment(RoutePlan $routePlan): ?WmsShipment
+    {
+        if (!class_exists(WmsShipment::class)) {
+            return null;
+        }
+
+        if (!Schema::hasTable('wms_shipments')) {
+            return null;
+        }
+
+        if (Schema::hasColumn('wms_shipments', 'meta')) {
+            $shipment = WmsShipment::query()
+                ->where('meta->route_plan_id', (int) $routePlan->id)
+                ->latest('id')
+                ->first();
+
+            if ($shipment) {
+                return $shipment;
+            }
+        }
+
+        if (Schema::hasColumn('wms_shipments', 'route_name') && !empty($routePlan->name)) {
+            $shipment = WmsShipment::query()
+                ->where('route_name', (string) $routePlan->name)
+                ->latest('id')
+                ->first();
+
+            if ($shipment) {
+                return $shipment;
+            }
+        }
+
+        return null;
     }
 
     /* ===========================
@@ -549,6 +588,9 @@ class RoutePlanController extends Controller
         $data = $r->validate([
             'driver_id'            => ['required', 'exists:users,id'],
             'name'                 => ['nullable', 'string', 'max:180'],
+            'shipment_id'          => ['nullable', 'integer'],
+            'back_url'             => ['nullable', 'string', 'max:2000'],
+
             'stops'                => ['required', 'array', 'min:1'],
             'stops.*.name'         => ['nullable', 'string', 'max:180'],
 
@@ -650,6 +692,56 @@ class RoutePlanController extends Controller
                 }
             }
 
+            $shipmentId = !empty($data['shipment_id']) ? (int) $data['shipment_id'] : null;
+            $backUrl = trim((string) ($data['back_url'] ?? ''));
+
+            if ($shipmentId && class_exists(WmsShipment::class) && Schema::hasTable('wms_shipments')) {
+                $shipment = WmsShipment::query()->find($shipmentId);
+
+                if ($shipment) {
+                    $driver = User::query()->find((int) $data['driver_id']);
+                    $driverPhone = $this->userPhoneValue($driver);
+
+                    $meta = is_array($shipment->meta) ? $shipment->meta : [];
+                    $meta['route_plan_id'] = $plan->id;
+                    $meta['route_plan_name'] = $plan->name ?: ('Ruta #' . $plan->id);
+                    $meta['delivery_user_id'] = $driver?->id;
+                    $meta['delivery_user_name'] = $driver?->name;
+
+                    if (Schema::hasColumn($shipment->getTable(), 'route_name')) {
+                        $shipment->route_name = $plan->name ?: ('Ruta #' . $plan->id);
+                    }
+
+                    if (Schema::hasColumn($shipment->getTable(), 'driver_name') && $driver?->name) {
+                        $shipment->driver_name = $driver->name;
+                    }
+
+                    if (
+                        Schema::hasColumn($shipment->getTable(), 'driver_phone') &&
+                        empty($shipment->driver_phone) &&
+                        !empty($driverPhone)
+                    ) {
+                        $shipment->driver_phone = $driverPhone;
+                    }
+
+                    if (Schema::hasColumn($shipment->getTable(), 'meta')) {
+                        $shipment->meta = $meta;
+                    }
+
+                    if (Schema::hasColumn($shipment->getTable(), 'updated_by')) {
+                        $shipment->updated_by = auth()->id();
+                    }
+
+                    $shipment->save();
+                }
+            }
+
+            if ($backUrl !== '' && str_starts_with($backUrl, url('/'))) {
+                $sep = str_contains($backUrl, '?') ? '&' : '?';
+                return redirect()->to($backUrl . $sep . 'route_plan_id=' . $plan->id)
+                    ->with('ok', 'Ruta creada y vinculada al embarque');
+            }
+
             return redirect()->route('routes.show', $plan)->with('ok', 'Ruta creada');
         });
     }
@@ -657,13 +749,18 @@ class RoutePlanController extends Controller
     public function show(RoutePlan $routePlan)
     {
         $this->canManage();
-        $routePlan->load('driver', 'stops');
-        return view('logistics.routes.show', compact('routePlan'));
-    }
 
-    /* ==================
-     | Vista de Chofer
-     * ================== */
+        $routePlan->load([
+            'driver',
+            'stops' => function ($q) {
+                $q->orderByRaw('COALESCE(sequence_index, 999999), id');
+            },
+        ]);
+
+        $linkedShipment = $this->findLinkedShipment($routePlan);
+
+        return view('logistics.routes.show', compact('routePlan', 'linkedShipment'));
+    }
 
     public function driver(RoutePlan $routePlan)
     {
@@ -684,14 +781,6 @@ class RoutePlanController extends Controller
         return view('driver.routes.show', compact('routePlan', 'stops'));
     }
 
-    /* ============================================
-     | GPS del chofer (persistencia de ubicación)
-     * - filtro accuracy
-     * - anti-saltos
-     * - received_at servidor
-     * - snap to road OSRM nearest
-     * ============================================ */
-
     public function saveDriverLocation(Request $r)
     {
         $u = Auth::user(); abort_unless($u, 401);
@@ -703,8 +792,6 @@ class RoutePlanController extends Controller
             'speed'    => ['nullable', 'numeric'],
             'heading'  => ['nullable', 'numeric'],
             'captured_at' => ['nullable', 'date'],
-
-            // opcionales (si ya agregaste columnas)
             'app_state' => ['nullable', 'string', 'max:30'],
             'battery'   => ['nullable', 'integer', 'min:0', 'max:100'],
             'network'   => ['nullable', 'string', 'max:30'],
@@ -715,7 +802,6 @@ class RoutePlanController extends Controller
         $lng = (float)$data['lng'];
         $acc = isset($data['accuracy']) ? (float)$data['accuracy'] : null;
 
-        // inválidos
         if (abs($lat) < 0.0000001 && abs($lng) < 0.0000001) {
             return response()->json(['ok'=>false,'message'=>'GPS inválido (0,0)'], 422);
         }
@@ -723,12 +809,10 @@ class RoutePlanController extends Controller
             return response()->json(['ok'=>false,'message'=>'GPS fuera de rango'], 422);
         }
 
-        // precisión mala => no contamines “ubicación exacta”
         if ($acc !== null && $acc > 200) {
             return response()->json(['ok'=>false,'message'=>'Precisión muy baja (accuracy alto)'], 202);
         }
 
-        // anti-saltos con ventana corta
         $prev = DriverPosition::where('user_id', $u->id)->latest('captured_at')->first();
         $capAt = !empty($data['captured_at']) ? \Illuminate\Support\Carbon::parse($data['captured_at']) : now();
 
@@ -742,12 +826,11 @@ class RoutePlanController extends Controller
             }
         }
 
-        // snap to road (mejora visual en mapa)
         $snapLat = null; $snapLng = null; $snapDist = null;
         try {
             $near = $this->osrm->nearest(['lat'=>$lat,'lng'=>$lng], ['number'=>1]);
             if (($near['code'] ?? '') === 'Ok' && !empty($near['waypoints'][0]['location'])) {
-                $loc = $near['waypoints'][0]['location']; // [lng,lat]
+                $loc = $near['waypoints'][0]['location'];
                 $snapLng = isset($loc[0]) ? (float)$loc[0] : null;
                 $snapLat = isset($loc[1]) ? (float)$loc[1] : null;
                 if (isset($near['waypoints'][0]['distance'])) {
@@ -755,10 +838,8 @@ class RoutePlanController extends Controller
                 }
             }
         } catch (\Throwable $e) {
-            // no rompas el guardado
         }
 
-        // OJO: si no agregaste columnas nuevas, quita las keys extra del create()
         DriverPosition::create([
             'user_id'     => $u->id,
             'lat'         => $lat,
@@ -767,17 +848,11 @@ class RoutePlanController extends Controller
             'speed'       => $data['speed'] ?? null,
             'heading'     => $data['heading'] ?? null,
             'captured_at' => $data['captured_at'] ?? now(),
-
-            // server last-seen
             'received_at' => now(),
-
-            // opcionales
             'app_state' => $data['app_state'] ?? null,
             'battery'   => $data['battery'] ?? null,
             'network'   => $data['network'] ?? null,
             'is_mocked' => $data['is_mocked'] ?? null,
-
-            // snap
             'snap_lat' => $snapLat,
             'snap_lng' => $snapLng,
             'snap_distance_m' => $snapDist,
@@ -803,9 +878,6 @@ class RoutePlanController extends Controller
         ], 200);
     }
 
-    /* ==========================================================
-     | LIVE (Supervisor) -> ubicación chofer + stops en tiempo real
-     * ========================================================== */
     public function live(RoutePlan $routePlan)
     {
         $u = Auth::user(); abort_unless($u, 401);
@@ -823,11 +895,8 @@ class RoutePlanController extends Controller
         return response()->json([
             'plan_id' => $routePlan->id,
             'driver_id' => $routePlan->driver_id,
-
             'presence' => $this->presencePayload($last),
-
             'driver_last' => $last ? $this->positionPayload($last) : null,
-
             'stops' => $stops,
             'start' => [
                 'lat' => $routePlan->start_lat,
@@ -838,9 +907,6 @@ class RoutePlanController extends Controller
         ], 200);
     }
 
-    /* ==========================================================
-     | LOCK SEQUENCE (nearest-first + OSRM trip) — interno
-     * ========================================================== */
     private function lockSequence(RoutePlan $routePlan, float $startLat, float $startLng): void
     {
         if (!empty($routePlan->sequence_locked)) return;
@@ -858,7 +924,6 @@ class RoutePlanController extends Controller
 
         if ($stopsValid->isEmpty()) return;
 
-        // nearest-first
         $nearest = null; $nearestD = INF;
         foreach ($stopsValid as $s) {
             $lat = (float)$this->normalizeCoord($s->lat);
@@ -1108,10 +1173,6 @@ class RoutePlanController extends Controller
 
         return response()->json(['ok' => true], 200);
     }
-
-    /* =========================
-     | Helpers privados
-     * ========================= */
 
     private function formatStepsFromOsrm(array $route): array
     {

@@ -97,6 +97,15 @@ use App\Http\Controllers\Admin\WaConversationController;
 use App\Http\Controllers\Admin\WmsLayoutController;
 use App\Http\Controllers\Admin\WmsFastFlowController;
 use App\Http\Controllers\Admin\WmsShippingController;
+
+use App\Http\Controllers\Accounting\CuentasDashboardController;
+use App\Http\Controllers\Accounting\AlertsController;
+use App\Http\Controllers\Accounting\ReceivableController;
+use App\Http\Controllers\Accounting\PayableController;
+use App\Http\Controllers\Accounting\MovementController;
+use App\Http\Controllers\Accounting\ReportsController;
+
+
 /*
 |--------------------------------------------------------------------------
 | AUTH
@@ -1774,7 +1783,6 @@ Route::prefix('admin/wms')->name('admin.wms.')->middleware('auth')->group(functi
     Route::get('/heatmap', [WmsLayoutController::class, 'heatmap'])->name('heatmap.view');
     Route::get('/heatmap/data', [WmsLayoutController::class, 'heatmapData'])->name('heatmap.data');
 });
-
 Route::prefix('admin/wms')->name('admin.wms.')->middleware('auth')->group(function () {
     Route::get('/shipping', [WmsShippingController::class, 'index'])->name('shipping.index');
     Route::post('/shipping/from-picking/{pickWave}', [WmsShippingController::class, 'storeFromPicking'])->name('shipping.storeFromPicking');
@@ -1782,8 +1790,45 @@ Route::prefix('admin/wms')->name('admin.wms.')->middleware('auth')->group(functi
     Route::get('/shipping/{shipment}', [WmsShippingController::class, 'show'])->name('shipping.show');
     Route::get('/shipping/{shipment}/scanner', [WmsShippingController::class, 'scanner'])->name('shipping.scanner');
 
+    Route::patch('/shipping/{shipment}/assignment', [WmsShippingController::class, 'assignment'])->name('shipping.assignment');
+
     Route::post('/shipping/{shipment}/scan', [WmsShippingController::class, 'scan'])->name('shipping.scan');
     Route::patch('/shipping/{shipment}/close', [WmsShippingController::class, 'close'])->name('shipping.close');
     Route::patch('/shipping/{shipment}/dispatch', [WmsShippingController::class, 'dispatch'])->name('shipping.dispatch');
     Route::patch('/shipping/{shipment}/cancel', [WmsShippingController::class, 'cancel'])->name('shipping.cancel');
 });
+Route::patch('/admin/wms/shipping/{shipment}/reopen', [\App\Http\Controllers\Admin\WmsShippingController::class, 'reopen'])
+    ->name('admin.wms.shipping.reopen');
+
+Route::middleware(['auth'])->prefix('accounting')->name('accounting.')->group(function () {
+
+    // ✅ Dashboard (RENOMBRADO)
+    Route::get('dashboard', [CuentasDashboardController::class, 'index'])->name('dashboard');
+
+    // ✅ Alertas
+    Route::get('alerts', [AlertsController::class, 'index'])->name('alerts');
+
+    // ✅ CxC (Cuentas por cobrar)
+    Route::get('receivables', [ReceivableController::class, 'index'])->name('receivables.index');
+    Route::get('receivables/create', [ReceivableController::class, 'create'])->name('receivables.create');
+    Route::post('receivables', [ReceivableController::class, 'store'])->name('receivables.store');
+    Route::get('receivables/{receivable}', [ReceivableController::class, 'show'])->name('receivables.show');
+    Route::get('receivables/{receivable}/edit', [ReceivableController::class, 'edit'])->name('receivables.edit');
+    Route::put('receivables/{receivable}', [ReceivableController::class, 'update'])->name('receivables.update');
+    Route::delete('receivables/{receivable}', [ReceivableController::class, 'destroy'])->name('receivables.destroy');
+
+    // ✅ CxP (Cuentas por pagar)
+    Route::get('payables', [PayableController::class, 'index'])->name('payables.index');
+    Route::get('payables/create', [PayableController::class, 'create'])->name('payables.create');
+    Route::post('payables', [PayableController::class, 'store'])->name('payables.store');
+    Route::get('payables/{payable}', [PayableController::class, 'show'])->name('payables.show');
+    Route::get('payables/{payable}/edit', [PayableController::class, 'edit'])->name('payables.edit');
+    Route::put('payables/{payable}', [PayableController::class, 'update'])->name('payables.update');
+    Route::delete('payables/{payable}', [PayableController::class, 'destroy'])->name('payables.destroy');
+
+    // ✅ Movimientos (abonos/pagos)
+    Route::post('movements', [MovementController::class, 'store'])->name('movements.store');
+    Route::delete('movements/{movement}', [MovementController::class, 'destroy'])->name('movements.destroy');
+});
+Route::get('/accounting/reports', [ReportsController::class, 'index'])
+    ->name('accounting.reports.index');
