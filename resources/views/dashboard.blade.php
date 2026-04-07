@@ -282,7 +282,7 @@
         width:100%;
       }
 
-      .menu-card{
+ .menu-card{
         position:relative;
         display:block;
         min-height:150px;
@@ -297,32 +297,29 @@
         isolation:isolate;
         outline:none;
         transition:
-          transform .28s cubic-bezier(.2,.8,.2,1),
-          box-shadow .28s cubic-bezier(.2,.8,.2,1),
-          border-color .24s ease,
-          color .24s ease,
-          background .24s ease;
-        animation:menuCardIn .35s cubic-bezier(.25,.46,.45,.94) both;
+          transform .18s cubic-bezier(.2,.8,.2,1),
+          box-shadow .18s cubic-bezier(.2,.8,.2,1),
+          border-color .14s ease,
+          color .14s ease,
+          background .14s ease;
+        animation:menuCardIn .25s cubic-bezier(.25,.46,.45,.94) both;
         width:100%;
       }
 
-      /* animación original conservada */
+      /* Hover circular mejorado para cubrir bien 1,2,3 cards también */
       .menu-card::before{
-        position:absolute;
-        top:0;
-        left:0;
-        right:0;
-        bottom:0;
-        margin:auto;
         content:"";
+        position:absolute;
+        top:50%;
+        left:50%;
+        width:180%;
+        aspect-ratio:1/1;
         border-radius:50%;
-        display:block;
-        width:26em;
-        height:26em;
-        left:-6em;
-        transition:box-shadow .52s ease-out, transform .4s ease;
+        background:var(--dm-blue);
+        transform:translate(-50%, -50%) scale(0);
+        transform-origin:center;
+        transition:transform .58s cubic-bezier(.1,.4,.2,1);
         z-index:0;
-        box-shadow:inset 0 0 0 0 rgba(24,119,242,0);
         pointer-events:none;
       }
 
@@ -331,7 +328,7 @@
         position:absolute;
         inset:0;
         border-radius:24px;
-        background:linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,0));
+        background:linear-gradient(120deg, rgba(255,255,255,.12), rgba(255,255,255,0));
         opacity:0;
         transition:opacity .28s ease;
         z-index:0;
@@ -347,7 +344,7 @@
 
       .menu-card:hover::before,
       .menu-card:focus-visible::before{
-        box-shadow:inset 0 0 0 13em rgb(24, 119, 242);
+        transform:translate(-50%, -50%) scale(1);
       }
 
       .menu-card:hover::after,
@@ -461,7 +458,6 @@
         to{ opacity:1; transform:translateY(0); }
       }
 
-      /* Desktop */
       @media (min-width:1200px){
         .menu-wrap{
           padding-left:58px;
@@ -473,17 +469,18 @@
         }
 
         .menu-grid.is-single{
-          grid-template-columns:minmax(220px, 360px);
+          grid-template-columns:minmax(260px, 540px);
           justify-content:center;
         }
 
         .menu-grid.is-double{
-          grid-template-columns:repeat(2, minmax(220px, 360px));
+          grid-template-columns:repeat(2, minmax(260px, 540px));
           justify-content:center;
         }
 
         .menu-grid.is-triple{
-          grid-template-columns:repeat(3, minmax(220px, 1fr));
+          grid-template-columns:repeat(3, minmax(260px, 1fr));
+          justify-content:center;
         }
 
         .menu-grid.is-quad{
@@ -734,7 +731,7 @@
         }
     } else {
         $finanzasVentas = array_values(array_filter([
-            $makeItem('Cotizaciones', 'calculate', 'cotizaciones.index', null, 'Nuevo'),
+            $makeItem('Cotizaciones', 'calculate', 'cotizaciones.index', null, ),
             $makeItem('Ventas', 'shopping_cart', 'ventas.index'),
             $makeItem('Facturas', 'receipt_long', 'manual_invoices.index'),
             $makeItem('Compras y Ventas', 'article', 'publications.index'),
@@ -758,7 +755,7 @@
         $clientesComunicacion = array_values(array_filter([
             $makeItem('Clientes', 'groups', 'clients.index'),
             $makeItem('Proveedores', 'domain', 'providers.index'),
-            $makeItem('WhatsApp', 'chat', 'admin.whatsapp.conversations'),
+            $makeItem('WhatsApp', 'chat', 'admin.whatsapp.conversations', null, 'Nuevo'),
             $makeItem('Help Desk', 'support_agent', 'admin.help.index'),
             $makeItem('Correo', 'mail', 'mail.index'),
             $makeItem('Mi Perfil', 'account_circle', 'profile.show'),
@@ -766,7 +763,7 @@
 
         $licitaciones = array_values(array_filter([
             $makeItem('Licitaciones', 'gavel', 'licitaciones.index'),
-            $makeItem('Nueva licitación', 'post_add', 'licitaciones.create.step1', null, 'Nuevo'),
+            $makeItem('Nueva licitación', 'post_add', 'licitaciones.create.step1', null, ),
             $makeItem('Licitaciones IA', 'neurology', 'licitaciones-ai.index'),
             $makeItem('Tabla global IA', 'table_chart', 'licitaciones-ai.tabla-global'),
             $makeItem('PDFs / Bases', 'attach_file', 'admin.licitacion-pdfs.index'),
@@ -779,7 +776,7 @@
         ]));
 
         $contabilidadAdmin = array_values(array_filter([
-            $makeItem('Contabilidad', 'monitoring', 'accounting.dashboard'),
+            $makeItem('Contabilidad', 'monitoring', 'accounting.dashboard', null, 'Nuevo'),
             $makeItem('Documentación', 'folder_open', null, url('/confidential/vault/6')),
             $makeItem('Documentación de altas', 'folder_managed', 'alta.docs.index'),
             $makeItem('Landing', 'language', 'panel.landing.index'),
@@ -878,6 +875,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function setGridState(grid, count) {
         if (!grid) return;
+
         grid.classList.remove('is-single', 'is-double', 'is-triple', 'is-quad');
 
         if (window.innerWidth < 1200) return;
