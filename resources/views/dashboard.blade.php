@@ -35,7 +35,7 @@
         margin:0;
         padding:0;
         min-height:100%;
-         font-family:"Quicksand", system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Arial, sans-serif;
+        font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
         background:var(--dm-bg);
         color:var(--dm-text);
       }
@@ -113,7 +113,7 @@
         margin:0;
         font-size:clamp(2rem, 2.5vw, 3rem);
         line-height:1.05;
-       font-family:inherit; 
+        font-family:inherit;
         font-weight:700;
         letter-spacing:0;
         color:var(--dm-text);
@@ -278,7 +278,6 @@
 
       .menu-grid{
         display:grid;
-        grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));
         gap:22px;
         width:100%;
       }
@@ -304,8 +303,10 @@
           color .24s ease,
           background .24s ease;
         animation:menuCardIn .35s cubic-bezier(.25,.46,.45,.94) both;
+        width:100%;
       }
 
+      /* animación original conservada */
       .menu-card::before{
         position:absolute;
         top:0;
@@ -322,6 +323,7 @@
         transition:box-shadow .52s ease-out, transform .4s ease;
         z-index:0;
         box-shadow:inset 0 0 0 0 rgba(24,119,242,0);
+        pointer-events:none;
       }
 
       .menu-card::after{
@@ -333,6 +335,7 @@
         opacity:0;
         transition:opacity .28s ease;
         z-index:0;
+        pointer-events:none;
       }
 
       .menu-card:hover,
@@ -458,6 +461,7 @@
         to{ opacity:1; transform:translateY(0); }
       }
 
+      /* Desktop */
       @media (min-width:1200px){
         .menu-wrap{
           padding-left:58px;
@@ -465,7 +469,25 @@
         }
 
         .menu-grid{
-          grid-template-columns:repeat(auto-fit, minmax(210px, 1fr));
+          grid-template-columns:repeat(5, minmax(0, 1fr));
+        }
+
+        .menu-grid.is-single{
+          grid-template-columns:minmax(220px, 360px);
+          justify-content:center;
+        }
+
+        .menu-grid.is-double{
+          grid-template-columns:repeat(2, minmax(220px, 360px));
+          justify-content:center;
+        }
+
+        .menu-grid.is-triple{
+          grid-template-columns:repeat(3, minmax(220px, 1fr));
+        }
+
+        .menu-grid.is-quad{
+          grid-template-columns:repeat(4, minmax(220px, 1fr));
         }
       }
 
@@ -473,10 +495,6 @@
         .menu-wrap{
           padding-left:76px;
           padding-right:76px;
-        }
-
-        .menu-grid{
-          grid-template-columns:repeat(auto-fit, minmax(205px, 1fr));
         }
       }
 
@@ -705,84 +723,77 @@
     };
 
     if ($restrictManager) {
-        $managerSection = array_filter([
+        $managerSection = array_values(array_filter([
             $makeItem('Mi Perfil', 'account_circle', 'profile.show'),
             $makeItem('Part. contable', 'monitoring', 'partcontable.index'),
             $makeItem('Documentación de altas', 'description', 'alta.docs.index'),
-        ]);
+        ]));
 
         if (count($managerSection)) {
             $sections[] = ['title' => 'Accesos', 'items' => $managerSection];
         }
     } else {
-        $finanzasVentas = array_filter([
-            $makeItem('Cuentas Bancarias', 'account_balance', 'partcontable.index'),
+        $finanzasVentas = array_values(array_filter([
             $makeItem('Cotizaciones', 'calculate', 'cotizaciones.index', null, 'Nuevo'),
-            $makeItem('Remisiones', 'description', 'manual_invoices.index'),
-            $makeItem('Financiamientos', 'savings', 'accounting.payables.index'),
             $makeItem('Ventas', 'shopping_cart', 'ventas.index'),
             $makeItem('Facturas', 'receipt_long', 'manual_invoices.index'),
-            $makeItem('Gastos', 'receipt', 'expenses.index'),
             $makeItem('Compras y Ventas', 'article', 'publications.index'),
-        ]);
+            $makeItem('Part. contable', 'monitoring', 'partcontable.index'),
+            $makeItem('Gastos', 'receipt', 'expenses.index'),
+        ]));
 
-        $inventarioProductos = array_filter([
-            $makeItem('Inventario', 'inventory_2', 'admin.wms.home'),
+        $inventarioProductos = array_values(array_filter([
             $makeItem('Productos', 'deployed_code', 'admin.catalog.index'),
             $makeItem('Catálogo', 'view_in_ar', 'products.index'),
             $makeItem('Fichas técnicas', 'list_alt', 'tech-sheets.index'),
-            $makeItem('Inventario Ext.', 'inventory', 'products.index'),
             $makeItem('Almacén', 'warehouse', 'admin.wms.home'),
-        ]);
+        ]));
 
-        $operaciones = array_filter([
-            $makeItem('Mantenimiento', 'build', 'vehicles.index'),
-            $makeItem('Camionetas', 'local_shipping', 'vehicles.index'),
-            $makeItem('Paqueterías', 'package_2', 'routes.index'),
-            $makeItem('Guías', 'bar_chart', 'routes.index'),
+        $operaciones = array_values(array_filter([
+            $makeItem('Vehículos', 'local_shipping', 'vehicles.index'),
             $makeItem('Logística', 'alt_route', 'routes.index'),
             $makeItem('Agenda', 'calendar_month', 'agenda.calendar'),
-        ]);
+        ]));
 
-        $clientesComunicacion = array_filter([
+        $clientesComunicacion = array_values(array_filter([
             $makeItem('Clientes', 'groups', 'clients.index'),
             $makeItem('Proveedores', 'domain', 'providers.index'),
-            $makeItem('WhatsApp Help Desk', 'chat', 'admin.whatsapp.conversations'),
+            $makeItem('WhatsApp', 'chat', 'admin.whatsapp.conversations'),
             $makeItem('Help Desk', 'support_agent', 'admin.help.index'),
             $makeItem('Correo', 'mail', 'mail.index'),
             $makeItem('Mi Perfil', 'account_circle', 'profile.show'),
-        ]);
+        ]));
 
-        $licitaciones = array_filter([
+        $licitaciones = array_values(array_filter([
             $makeItem('Licitaciones', 'gavel', 'licitaciones.index'),
             $makeItem('Nueva licitación', 'post_add', 'licitaciones.create.step1', null, 'Nuevo'),
             $makeItem('Licitaciones IA', 'neurology', 'licitaciones-ai.index'),
             $makeItem('Tabla global IA', 'table_chart', 'licitaciones-ai.tabla-global'),
             $makeItem('PDFs / Bases', 'attach_file', 'admin.licitacion-pdfs.index'),
             $makeItem('Propuestas / comparativas', 'query_stats', 'admin.licitacion-propuestas.index'),
-        ]);
+        ]));
 
-        $tickets = array_filter([
+        $tickets = array_values(array_filter([
             $makeItem('Tickets', 'confirmation_number', 'tickets.index'),
             $makeItem('Mis tickets', 'person', 'tickets.my'),
-        ]);
+        ]));
 
-        $contabilidadAdmin = array_filter([
+        $contabilidadAdmin = array_values(array_filter([
             $makeItem('Contabilidad', 'monitoring', 'accounting.dashboard'),
             $makeItem('Documentación', 'folder_open', null, url('/confidential/vault/6')),
             $makeItem('Documentación de altas', 'folder_managed', 'alta.docs.index'),
             $makeItem('Landing', 'language', 'panel.landing.index'),
             $makeItem('Usuarios', 'manage_accounts', 'admin.users.index'),
             $makeItem('Pedidos web', 'shopping_bag', 'admin.orders.index'),
-        ]);
+        ]));
 
-        if (count($finanzasVentas))      $sections[] = ['title' => 'Finanzas y Ventas', 'items' => $finanzasVentas];
-        if (count($inventarioProductos)) $sections[] = ['title' => 'Inventario y Productos', 'items' => $inventarioProductos];
-        if (count($operaciones))         $sections[] = ['title' => 'Operaciones', 'items' => $operaciones];
-        if (count($clientesComunicacion))$sections[] = ['title' => 'Clientes y Comunicación', 'items' => $clientesComunicacion];
-        if (count($licitaciones))        $sections[] = ['title' => 'Licitaciones', 'items' => $licitaciones];
-        if (count($tickets))             $sections[] = ['title' => 'Tickets', 'items' => $tickets];
-        if (count($contabilidadAdmin))   $sections[] = ['title' => 'Administración y Control', 'items' => $contabilidadAdmin];
+        if (count($finanzasVentas))       $sections[] = ['title' => 'Finanzas y Ventas', 'items' => $finanzasVentas];
+        if (count($inventarioProductos))  $sections[] = ['title' => 'Inventario y Productos', 'items' => $inventarioProductos];
+        if (count($operaciones))          $sections[] = ['title' => 'Operaciones', 'items' => $operaciones];
+        if (count($clientesComunicacion)) $sections[] = ['title' => 'Clientes y Comunicación', 'items' => $clientesComunicacion];
+        if (count($licitaciones))         $sections[] = ['title' => 'Licitaciones', 'items' => $licitaciones];
+        if (count($tickets))              $sections[] = ['title' => 'Tickets', 'items' => $tickets];
+        if (count($contabilidadAdmin))    $sections[] = ['title' => 'Administración y Control', 'items' => $contabilidadAdmin];
     }
 @endphp
 
@@ -823,7 +834,7 @@
                 <section class="menu-section js-menu-section" data-section="{{ \Illuminate\Support\Str::lower($section['title']) }}">
                     <h3 class="menu-section-title">{{ $section['title'] }}</h3>
 
-                    <div class="menu-grid">
+                    <div class="menu-grid js-menu-grid">
                         @foreach($section['items'] as $item)
                             @php $anim++; @endphp
                             <a
@@ -865,6 +876,18 @@ document.addEventListener('DOMContentLoaded', function () {
     const sections = Array.from(document.querySelectorAll('.js-menu-section'));
     const empty = document.getElementById('menuEmpty');
 
+    function setGridState(grid, count) {
+        if (!grid) return;
+        grid.classList.remove('is-single', 'is-double', 'is-triple', 'is-quad');
+
+        if (window.innerWidth < 1200) return;
+
+        if (count === 1) grid.classList.add('is-single');
+        else if (count === 2) grid.classList.add('is-double');
+        else if (count === 3) grid.classList.add('is-triple');
+        else if (count === 4) grid.classList.add('is-quad');
+    }
+
     function applyFilter() {
         const term = (input.value || '').trim().toLowerCase();
         let visible = 0;
@@ -881,8 +904,11 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         sections.forEach((section) => {
-            const hasVisible = section.querySelector('.js-menu-item:not([style*="display: none"])');
-            section.style.display = hasVisible ? '' : 'none';
+            const visibleItems = Array.from(section.querySelectorAll('.js-menu-item')).filter(item => item.style.display !== 'none');
+            const grid = section.querySelector('.js-menu-grid');
+
+            section.style.display = visibleItems.length ? '' : 'none';
+            setGridState(grid, visibleItems.length);
         });
 
         empty.classList.toggle('show', visible === 0);
@@ -895,6 +921,8 @@ document.addEventListener('DOMContentLoaded', function () {
         input.focus();
         applyFilter();
     });
+
+    window.addEventListener('resize', applyFilter);
 
     applyFilter();
 });
