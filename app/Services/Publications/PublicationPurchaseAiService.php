@@ -16,9 +16,6 @@ use Illuminate\Support\Str;
 
 class PublicationPurchaseAiService
 {
-    /* =========================
-     | VALIDACIONES
-     ========================= */
     public function validationMessages(): array
     {
         return [
@@ -27,13 +24,16 @@ class PublicationPurchaseAiService
             'files.max'            => 'Solo puedes subir hasta 25 archivos por lote.',
             'files.*.file'         => 'Cada elemento debe ser un archivo válido.',
             'files.*.max'          => 'Cada archivo puede pesar hasta 50 MB.',
-                                    'file.file'            => 'El archivo no es válido.',
+            'file.file'            => 'El archivo no es válido.',
             'file.max'             => 'El archivo puede pesar hasta 50 MB.',
-                                    'title.required'       => 'El título es obligatorio.',
+            'title.required'       => 'El título es obligatorio.',
             'category.required'    => 'Debes seleccionar el tipo de operación.',
             'category.in'          => 'La categoría seleccionada no es válida.',
             'payload.required'     => 'No se recibió la información a guardar.',
             'payload.array'        => 'El payload recibido no es válido.',
+            'company_id.required'  => 'Debes seleccionar una compañía para la venta.',
+            'company_id.exists'    => 'La compañía seleccionada no existe.',
+            'due_date.date'        => 'La fecha de vencimiento no es válida.',
         ];
     }
 
@@ -48,6 +48,18 @@ class PublicationPurchaseAiService
             'category'      => 'categoría',
             'payload'       => 'payload',
             'publication_id'=> 'publicación',
+            'company_id'    => 'compañía',
+            'due_date'      => 'fecha de vencimiento',
+            'credit_days'   => 'días de crédito',
+            'amount_paid'   => 'monto pagado',
+            'status'        => 'estatus',
+            'priority'      => 'prioridad',
+            'collection_status' => 'estado de cobranza',
+            'reminder_days_before' => 'días previos para recordatorio',
+            'interest_rate' => 'tasa de interés',
+            'assigned_to'   => 'asignado a',
+            'notes'         => 'notas',
+            'tags'          => 'etiquetas',
         ];
     }
 
@@ -72,6 +84,20 @@ class PublicationPurchaseAiService
             'file_fps.*'      => ['nullable', 'string', 'max:500'],
 
             'category'    => ['required', 'string', 'in:compra,venta'],
+
+            'company_id'  => ['nullable', 'exists:companies,id'],
+            'due_date'    => ['nullable', 'date'],
+            'credit_days' => ['nullable', 'integer', 'min:0', 'max:3650'],
+            'amount_paid' => ['nullable', 'numeric', 'min:0'],
+            'status'      => ['nullable', 'string', 'in:pending,partial,paid,overdue,cancelled,pendiente,parcial,cobrado,vencido,cancelado'],
+            'priority'    => ['nullable', 'in:alta,media,baja'],
+            'collection_status' => ['nullable', 'in:sin_gestion,en_gestion,promesa_pago,litigio,incobrable'],
+            'reminder_days_before' => ['nullable', 'integer', 'min:0', 'max:365'],
+            'interest_rate' => ['nullable', 'numeric', 'min:0'],
+            'assigned_to' => ['nullable', 'string', 'max:255'],
+            'notes'       => ['nullable', 'string'],
+            'tags'        => ['nullable', 'array'],
+            'tags.*'      => ['string', 'max:50'],
         ];
     }
 
@@ -89,12 +115,22 @@ class PublicationPurchaseAiService
             'publication_id' => ['nullable', 'integer'],
             'payload'        => ['required', 'array'],
             'category'       => ['required', 'string', 'in:compra,venta'],
+            'company_id'     => ['nullable', 'exists:companies,id'],
+            'due_date'       => ['nullable', 'date'],
+            'credit_days'    => ['nullable', 'integer', 'min:0', 'max:3650'],
+            'amount_paid'    => ['nullable', 'numeric', 'min:0'],
+            'status'         => ['nullable', 'string', 'in:pending,partial,paid,overdue,cancelled,pendiente,parcial,cobrado,vencido,cancelado'],
+            'priority'       => ['nullable', 'in:alta,media,baja'],
+            'collection_status' => ['nullable', 'in:sin_gestion,en_gestion,promesa_pago,litigio,incobrable'],
+            'reminder_days_before' => ['nullable', 'integer', 'min:0', 'max:365'],
+            'interest_rate'  => ['nullable', 'numeric', 'min:0'],
+            'assigned_to'    => ['nullable', 'string', 'max:255'],
+            'notes'          => ['nullable', 'string'],
+            'tags'           => ['nullable', 'array'],
+            'tags.*'         => ['string', 'max:50'],
         ];
     }
 
-    /* =========================
-     | INDEX (analytics)
-     ========================= */
     public function buildIndexData(): array
     {
         $pinned = Publication::query()->where('pinned', true)->latest('created_at')->get();
@@ -265,10 +301,6 @@ class PublicationPurchaseAiService
         );
     }
 
-    /* =========================
-     | STORE (single o multi)
-     | - Si viene ai_payload_bulk: guarda lo que ya editaste en UI (NO batch, NO re-extract)
-     ========================= */
     public function storeFromRequest(Request $request): array
     {
         $files = $request->file('files', []);
@@ -285,7 +317,6 @@ class PublicationPurchaseAiService
         $aiSkip = (string)($request->input('ai_skip', '0')) === '1';
         $aiPayloadRaw = trim((string)($request->input('ai_payload', '')));
 
-        // ✅ multi payload (ya editado en UI)
         $aiPayloadBulkRaw = trim((string)($request->input('ai_payload_bulk', '')));
         $bulkMap = [];
         if ($aiPayloadBulkRaw !== '') {
@@ -300,18 +331,19 @@ class PublicationPurchaseAiService
             }
         }
 
-        // ✅ fps enviados desde front (ordenados)
         $fileFps = $request->input('file_fps', []);
         if (!is_array($fileFps)) $fileFps = [];
 
-        // ai_payload => 1 archivo (tu flujo AJAX single)
         if (!$aiSkip && $aiPayloadRaw !== '' && count($files) !== 1) {
             return ['message' => 'Si usas ai_payload, sube solo 1 archivo.'];
         }
 
+        $accountingContext = $this->buildAccountingContextFromRequest($request, $category);
+
         $created = 0;
         $processed = 0;
         $skippedDocs = 0;
+        $createdPurchaseDocumentIds = [];
 
         foreach ($files as $i => $file) {
             /** @var UploadedFile $file */
@@ -326,7 +358,6 @@ class PublicationPurchaseAiService
 
             $created++;
 
-            // (A) ai_payload_bulk: usa lo que ya editaste en UI (preferencia máxima)
             if (!$aiSkip && !empty($bulkMap)) {
                 $fp = trim((string)($fileFps[$i] ?? ''));
                 if ($fp === '') $fp = $this->fingerprintServer($file);
@@ -337,7 +368,13 @@ class PublicationPurchaseAiService
                     try {
                         $normalized = $this->normalizeAiPurchase($payload);
                         if (!empty($normalized['items'])) {
-                            $this->persistPurchaseDocumentFromAi($normalized, $pub->id, $category);
+                            $savedDoc = $this->persistPurchaseDocumentFromAi(
+                                $normalized,
+                                $pub->id,
+                                $category,
+                                $accountingContext
+                            );
+                            $createdPurchaseDocumentIds[] = $savedDoc->id;
                             $processed++;
                         } else {
                             $skippedDocs++;
@@ -350,21 +387,25 @@ class PublicationPurchaseAiService
                         $skippedDocs++;
                     }
                 } else {
-                    // no hubo payload para ese archivo
                     $skippedDocs++;
                 }
 
-                continue; // ya no hacemos IA server-side en bulk
+                continue;
             }
 
-            // (B) ai_payload single (solo 1 archivo)
             if (!$aiSkip && $aiPayloadRaw !== '') {
                 try {
                     $payload = json_decode($aiPayloadRaw, true);
                     if (is_array($payload)) {
                         $normalized = $this->normalizeAiPurchase($payload);
                         if (!empty($normalized['items'])) {
-                            $this->persistPurchaseDocumentFromAi($normalized, $pub->id, $category);
+                            $savedDoc = $this->persistPurchaseDocumentFromAi(
+                                $normalized,
+                                $pub->id,
+                                $category,
+                                $accountingContext
+                            );
+                            $createdPurchaseDocumentIds[] = $savedDoc->id;
                             $processed++;
                         } else {
                             $skippedDocs++;
@@ -384,15 +425,14 @@ class PublicationPurchaseAiService
                     'redirect_route' => 'publications.index',
                     'redirect_params' => [],
                     'message' => 'Publicación subida correctamente.',
+                    'created_purchase_document_ids' => array_values(array_unique($createdPurchaseDocumentIds)),
                 ];
             }
 
-            // (C) ai_skip => solo subir archivos
             if ($aiSkip) {
                 continue;
             }
 
-            // (D) IA server-side “normal” (por archivo) si NO hubo payload
             $kind = (string)($pub->kind ?? '');
             if ($request->boolean('ai_extract') && $this->canAttemptAiExtraction($pub)) {
                 try {
@@ -400,7 +440,13 @@ class PublicationPurchaseAiService
                     $ai = $this->aiExtractSingleLocalFile($absolute, $pub->original_name, $category);
 
                     if ($ai && !empty($ai['items'])) {
-                        $this->persistPurchaseDocumentFromAi($ai, $pub->id, $category);
+                        $savedDoc = $this->persistPurchaseDocumentFromAi(
+                            $ai,
+                            $pub->id,
+                            $category,
+                            $accountingContext
+                        );
+                        $createdPurchaseDocumentIds[] = $savedDoc->id;
                         $processed++;
                     } else {
                         $skippedDocs++;
@@ -422,6 +468,29 @@ class PublicationPurchaseAiService
             'redirect_route' => 'publications.index',
             'redirect_params' => [],
             'message' => $msg,
+            'created_purchase_document_ids' => array_values(array_unique($createdPurchaseDocumentIds)),
+        ];
+    }
+
+    private function buildAccountingContextFromRequest(Request $request, string $category): array
+    {
+        if ($category !== 'venta') {
+            return [];
+        }
+
+        return [
+            'company_id' => $request->input('company_id'),
+            'due_date' => $request->input('due_date'),
+            'credit_days' => $request->input('credit_days'),
+            'amount_paid' => $request->input('amount_paid'),
+            'status' => $request->input('status', 'pendiente'),
+            'priority' => $request->input('priority', 'media'),
+            'collection_status' => $request->input('collection_status', 'sin_gestion'),
+            'reminder_days_before' => $request->input('reminder_days_before', 5),
+            'interest_rate' => $request->input('interest_rate', 0),
+            'assigned_to' => $request->input('assigned_to'),
+            'notes' => $request->input('notes'),
+            'tags' => $request->input('tags'),
         ];
     }
 
@@ -452,7 +521,6 @@ class PublicationPurchaseAiService
         $mime = $this->guessMimeType($file->getRealPath(), $ext);
         $kind = $this->detectKind($mime, $ext);
 
-        // ✅ si sube varios, diferenciamos por nombre de archivo (sin batch)
         $fileTitle = $title;
         if ($isMulti) {
             $fileTitle = Str::limit($title . ' — ' . $file->getClientOriginalName(), 200, '');
@@ -470,15 +538,10 @@ class PublicationPurchaseAiService
             'pinned'        => $pinned,
             'created_by'    => Auth::id(),
             'category'      => $category,
-
-            // ✅ ya no usamos batch (pero si tu DB tiene la columna, dejamos null)
             'batch_key'     => null,
         ]);
     }
 
-    /* =========================
-     | IA: EXTRACT (AJAX)
-     ========================= */
     public function extractNormalizedFromUploadedFile(UploadedFile $file, string $category): array
     {
         $ai = $this->aiExtractSingleLocalFile(
@@ -490,19 +553,25 @@ class PublicationPurchaseAiService
         return $this->normalizeAiPurchase($ai);
     }
 
-    public function saveExtractedPayload(array $payload, ?int $publicationId, string $category): PurchaseDocument
-    {
+    public function saveExtractedPayload(
+        array $payload,
+        ?int $publicationId,
+        string $category,
+        array $accountingContext = []
+    ): PurchaseDocument {
         $normalized = $this->normalizeAiPurchase($payload);
         if (empty($normalized['items'])) {
             throw new \RuntimeException('No hay items para guardar.');
         }
 
-        return $this->persistPurchaseDocumentFromAi($normalized, $publicationId, $category);
+        return $this->persistPurchaseDocumentFromAi(
+            $normalized,
+            $publicationId,
+            $category,
+            $accountingContext
+        );
     }
 
-    /* =========================
-     | IA Core (1 file)
-     ========================= */
     public function aiExtractSingleLocalFile(string $absolutePath, string $originalName, string $category = 'compra'): array
     {
         $cfg = $this->openAiConfig();
@@ -713,7 +782,6 @@ class PublicationPurchaseAiService
             ]);
         }
     }
-
 
     private function canAttemptAiExtraction(Publication $publication): bool
     {
@@ -1307,7 +1375,7 @@ class PublicationPurchaseAiService
                     }
                 }
             } catch (\Throwable $e) {
-                // ignore
+                //
             }
         }
 
@@ -1432,9 +1500,6 @@ TXT;
         throw new \RuntimeException('La IA no devolvió JSON válido.');
     }
 
-    /* =========================
-     | NORMALIZE + PERSIST
-     ========================= */
     public function normalizeAiPurchase(array $payload): array
     {
         $doc = $payload['document'] ?? [];
@@ -1443,13 +1508,10 @@ TXT;
         $document = [
             'document_type'     => $doc['document_type'] ?? 'otro',
             'supplier_name'     => $doc['supplier_name'] ?? null,
-
-            // ✅ extras para agrupar / dedupe
             'counterparty_rfc'  => $doc['counterparty_rfc'] ?? null,
             'uuid'              => $doc['uuid'] ?? null,
             'serie'             => $doc['serie'] ?? null,
             'folio'             => $doc['folio'] ?? null,
-
             'currency'          => $doc['currency'] ?? 'MXN',
             'document_datetime' => $doc['document_datetime'] ?? null,
             'subtotal'          => $this->toMoney($doc['subtotal'] ?? 0),
@@ -1502,8 +1564,12 @@ TXT;
         ];
     }
 
-    public function persistPurchaseDocumentFromAi(array $normalized, ?int $publicationId = null, string $category = 'compra'): PurchaseDocument
-    {
+    public function persistPurchaseDocumentFromAi(
+        array $normalized,
+        ?int $publicationId = null,
+        string $category = 'compra',
+        array $accountingContext = []
+    ): PurchaseDocument {
         $norm = $this->normalizeAiPurchase($normalized);
 
         $doc = $norm['document'] ?? [];
@@ -1516,13 +1582,34 @@ TXT;
             'folio'     => $doc['folio'] ?? null,
         ];
 
-        // ✅ dedupe por UUID
+        $accounting = $this->normalizeAccountingContext(
+            $accountingContext,
+            $category,
+            $doc['document_datetime'] ?? null
+        );
+
         $uuid = is_string($cfdi['uuid'] ?? null) ? trim((string)$cfdi['uuid']) : '';
         if ($uuid !== '') {
             $exists = PurchaseDocument::query()
                 ->where('ai_meta->cfdi->uuid', $uuid)
                 ->first();
-            if ($exists) return $exists;
+
+            if ($exists) {
+                if ($category === 'venta' && !empty($accounting)) {
+                    $this->mergeAccountingIntoExistingPurchaseDocument($exists, $accounting);
+                }
+                return $exists;
+            }
+        }
+
+        $aiMeta = [
+            'notes' => $norm['notes'] ?? null,
+            'stats' => $norm['stats'] ?? null,
+            'cfdi'  => $cfdi,
+        ];
+
+        if (!empty($accounting)) {
+            $aiMeta['accounting'] = $accounting;
         }
 
         $purchase = PurchaseDocument::create([
@@ -1537,11 +1624,7 @@ TXT;
             'subtotal'          => $this->toMoney($doc['subtotal'] ?? 0),
             'tax'               => $this->toMoney($doc['tax'] ?? 0),
             'total'             => $this->toMoney($doc['total'] ?? 0),
-            'ai_meta'           => [
-                'notes' => $norm['notes'] ?? null,
-                'stats' => $norm['stats'] ?? null,
-                'cfdi'  => $cfdi,
-            ],
+            'ai_meta'           => $aiMeta,
         ]);
 
         foreach ($items as $it) {
@@ -1560,9 +1643,77 @@ TXT;
         return $purchase;
     }
 
-    /* =========================
-     | ITEMS CLEAN + DEDUPE
-     ========================= */
+    private function normalizeAccountingContext(
+        array $context,
+        string $category,
+        ?string $documentDatetime = null
+    ): array {
+        if ($category !== 'venta') {
+            return [];
+        }
+
+        $companyId = (int) ($context['company_id'] ?? 0);
+        if ($companyId <= 0) {
+            return [];
+        }
+
+        $creditDays = max((int) ($context['credit_days'] ?? 15), 0);
+
+        $issueDate = now()->toDateString();
+        try {
+            if (!empty($documentDatetime)) {
+                $issueDate = Carbon::parse($documentDatetime)->toDateString();
+            }
+        } catch (\Throwable $e) {
+            //
+        }
+
+        $dueDate = null;
+        if (!empty($context['due_date'])) {
+            try {
+                $dueDate = Carbon::parse($context['due_date'])->toDateString();
+            } catch (\Throwable $e) {
+                $dueDate = null;
+            }
+        }
+
+        if (!$dueDate) {
+            $dueDate = Carbon::parse($issueDate)->addDays($creditDays)->toDateString();
+        }
+
+        return [
+            'company_id' => $companyId,
+            'due_date' => $dueDate,
+            'credit_days' => $creditDays,
+            'amount_paid' => (float) ($context['amount_paid'] ?? 0),
+            'status' => (string) ($context['status'] ?? 'pendiente'),
+            'priority' => (string) ($context['priority'] ?? 'media'),
+            'collection_status' => (string) ($context['collection_status'] ?? 'sin_gestion'),
+            'reminder_days_before' => (int) ($context['reminder_days_before'] ?? 5),
+            'interest_rate' => (float) ($context['interest_rate'] ?? 0),
+            'assigned_to' => $context['assigned_to'] ?? null,
+            'notes' => $context['notes'] ?? null,
+            'tags' => $context['tags'] ?? null,
+            'linked_from' => 'publications',
+        ];
+    }
+
+    private function mergeAccountingIntoExistingPurchaseDocument(PurchaseDocument $doc, array $accounting): void
+    {
+        $aiMeta = is_array($doc->ai_meta) ? $doc->ai_meta : [];
+        $current = (array) data_get($aiMeta, 'accounting', []);
+
+        $merged = array_merge($current, array_filter(
+            $accounting,
+            fn ($v) => $v !== null && $v !== ''
+        ));
+
+        data_set($aiMeta, 'accounting', $merged);
+
+        $doc->ai_meta = $aiMeta;
+        $doc->save();
+    }
+
     private function filterAndDedupeExtractedItems(array $items): array
     {
         $clean = [];
@@ -1751,5 +1902,4 @@ TXT;
 
         return 'file';
     }
-
 }

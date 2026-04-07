@@ -1,428 +1,903 @@
 {{-- resources/views/dashboard.blade.php --}}
-@extends('layouts.app')
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
 
-@section('title', 'Dashboard')
-@section('header', 'Dashboard')
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@300..700&display=swap"/>
 
-@push('styles')
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@300..700&display=swap"/>
+    <style>
+      :root{
+        --dm-bg:#f4f7fc;
+        --dm-surface:rgba(255,255,255,.72);
+        --dm-surface-strong:rgba(255,255,255,.88);
+        --dm-border:#e6edf7;
+        --dm-border-strong:#d8e2f0;
+        --dm-text:#1f2a44;
+        --dm-muted:#90a0b8;
+        --dm-muted-2:#64748b;
+        --dm-blue:#1877f2;
+        --dm-blue-2:#2563eb;
+        --dm-blue-3:#60a5fa;
+        --dm-indigo:#7c6cf2;
+        --dm-cyan:#0ea5e9;
+        --dm-shadow:0 10px 28px rgba(80,104,140,.08);
+        --dm-shadow-hover:0 22px 40px rgba(24,119,242,.16);
+      }
 
-<style>
-  :root{
-    --bg:#f6f7fb; --surface:#ffffff; --ink:#0f172a; --muted:#667085; --border:#e6e8ef;
-    --brand:#7ea2ff; --brand-ink:#14206a; --ok:#16a34a; --warn:#d97706; --bad:#ef4444;
-    --shadow: 0 18px 40px rgba(10, 30, 60, .08);
-    --r:16px;
-  }
+      *{
+        box-sizing:border-box;
+      }
 
-  .dash{max-width:1200px;margin:14px auto 28px;padding:0 14px}
-  .welcome{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px;box-shadow:var(--shadow)}
-  .welcome h3{margin:0 0 8px 0;color:var(--ink);font-weight:800}
-  .welcome p{margin:0;color:var(--muted)}
+      html,body{
+        margin:0;
+        padding:0;
+        min-height:100%;
+         font-family:"Quicksand", system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Arial, sans-serif;
+        background:var(--dm-bg);
+        color:var(--dm-text);
+      }
 
-  .grid{display:grid;gap:14px}
-  @media (min-width:740px){ .grid.cols-3{grid-template-columns:repeat(3,1fr)} }
-  @media (min-width:1024px){ .grid.cols-4{grid-template-columns:repeat(4,1fr)} }
+      .menu-page{
+        position:relative;
+        width:100%;
+        min-height:100vh;
+        padding:28px 34px 38px 24px;
+        overflow:hidden;
+        background:
+          radial-gradient(circle at left bottom, rgba(191,219,254,.42) 0%, transparent 24%),
+          radial-gradient(circle at 78% 10%, rgba(219,234,254,.55) 0%, transparent 26%),
+          linear-gradient(135deg, #f4f7fc 0%, #f7f9fc 52%, #f3f6fb 100%);
+      }
 
-  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow)}
-  .card .hd{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px}
-  .card .hd h4{margin:0;font-size:14px;letter-spacing:.2px;color:var(--muted);font-weight:700}
-  .card .bd{padding:16px}
+      .menu-page::before{
+        content:"";
+        position:absolute;
+        inset:0;
+        pointer-events:none;
+        background-image:radial-gradient(circle, rgba(148,163,184,.14) 1px, transparent 1px);
+        background-size:44px 44px;
+        opacity:.75;
+      }
 
-  /* Icons (Material Symbols) */
-  .msi{
-    font-family:'Material Symbols Outlined';
-    font-weight:500;
-    font-style:normal;
-    font-size:20px;
-    line-height:1;
-    letter-spacing:normal;
-    text-transform:none;
-    display:inline-block;
-    white-space:nowrap;
-    word-wrap:normal;
-    direction:ltr;
-    -webkit-font-feature-settings:'liga';
-    -webkit-font-smoothing:antialiased;
-  }
+      .menu-glow{
+        position:absolute;
+        border-radius:999px;
+        pointer-events:none;
+        filter:blur(10px);
+        opacity:.75;
+      }
 
-  /* KPI */
-  .kpi{display:flex;align-items:center;gap:12px}
-  .kpi .icon{
-    width:42px;height:42px;border-radius:12px;display:grid;place-items:center;
-    background:linear-gradient(180deg,#f1f5ff,#eef3ff);
-    color:var(--brand-ink);
-    border:1px solid var(--border)
-  }
-  .kpi .val{font-size:20px;font-weight:900;color:var(--ink);line-height:1}
-  .kpi .sub{font-size:12px;color:var(--muted)}
-  .kpi .trend{font-size:12px;margin-left:auto;display:flex;align-items:center;gap:6px}
-  .up{color:var(--ok)} .down{color:var(--bad)}
-  .trend .arrow{font-size:16px}
+      .menu-glow.g1{
+        width:440px;
+        height:440px;
+        left:-140px;
+        bottom:-140px;
+        background:radial-gradient(circle, rgba(191,219,254,.60) 0%, transparent 70%);
+      }
 
-  /* Quick actions */
-  .actions{display:grid;gap:10px}
-  @media (min-width:600px){ .actions{grid-template-columns:repeat(2,1fr)} }
-  @media (min-width:900px){ .actions{grid-template-columns:repeat(4,1fr)} }
-  .btn{
-    display:flex;gap:10px;align-items:center;justify-content:center;
-    padding:12px 14px;border-radius:12px;
-    border:1px solid var(--border);background:#f8faff;color:var(--brand-ink);
-    font-weight:700;text-decoration:none;
-    transition:transform .12s ease, box-shadow .12s ease, background .12s ease
-  }
-  .btn:hover{transform:translateY(-1px);box-shadow:0 10px 22px rgba(10,30,60,.06);background:#f3f6ff}
-  .btn .bico{width:20px;height:20px;display:inline-grid;place-items:center}
-  .btn .lbl{white-space:nowrap}
-  @media (max-width:520px){
-    .btn{justify-content:flex-start}
-    .btn .lbl{white-space:normal}
-  }
+      .menu-glow.g2{
+        width:520px;
+        height:520px;
+        right:10%;
+        top:-180px;
+        background:radial-gradient(circle, rgba(219,234,254,.72) 0%, transparent 72%);
+      }
 
-  /* Table */
-  .table{width:100%;border-collapse:separate;border-spacing:0 8px;min-width:720px}
-  .table th{font-size:12px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);text-align:left;padding:0 10px}
-  .table tr{background:#fff;border:1px solid var(--border)}
-  .table td{padding:12px 10px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);color:var(--ink);vertical-align:top}
-  .table tr td:first-child{border-left:1px solid var(--border);border-top-left-radius:12px;border-bottom-left-radius:12px}
-  .table tr td:last-child{border-right:1px solid var(--border);border-top-right-radius:12px;border-bottom-right-radius:12px}
-  .table .t-muted{color:var(--muted);font-size:12px}
-  .table .t-strong{font-weight:800}
+      .menu-wrap{
+        position:relative;
+        z-index:2;
+        width:min(100%, 1720px);
+        margin:0 auto;
+        padding-left:44px;
+        padding-right:44px;
+      }
 
-  .badge{font-size:12px;padding:4px 8px;border-radius:999px;border:1px solid var(--border);background:#f6f8ff;color:var(--brand-ink);white-space:nowrap}
-  .badge.ok{background:#ecfdf5;border-color:#bbf7d0;color:#065f46}
-  .badge.warn{background:#fffbeb;border-color:#fde68a;color:#92400e}
-  .badge.bad{background:#fef2f2;border-color:#fecaca;color:#991b1b}
+      .menu-hero{
+        text-align:center;
+        margin-bottom:28px;
+      }
 
-  /* Progress */
-  .progress{height:10px;background:#f1f5f9;border:1px solid var(--border);border-radius:999px;overflow:hidden}
-  .progress > span{display:block;height:100%;background:linear-gradient(90deg,#b7c8ff,#7ea2ff)}
+      .menu-date{
+        margin:0 0 10px;
+        font-size:12px;
+        font-weight:600;
+        letter-spacing:.16em;
+        text-transform:uppercase;
+        color:var(--dm-blue);
+      }
 
-  /* Sparkline */
-  .spark{width:100%;height:48px}
+      .menu-title{
+        margin:0;
+        font-size:clamp(2rem, 2.5vw, 3rem);
+        line-height:1.05;
+       font-family:inherit; 
+        font-weight:700;
+        letter-spacing:0;
+        color:var(--dm-text);
+      }
 
-  /* Small screens: keep layout clean */
-  @media (max-width:739px){
-    .welcome{padding:14px}
-    .card .bd{padding:14px}
-  }
-</style>
-@endpush
+      .menu-sub{
+        margin:12px auto 0;
+        max-width:720px;
+        color:#8d9db4;
+        font-size:14px;
+        font-weight:500;
+      }
 
-@section('content')
-<div class="dash">
+      .animated-gradient-text{
+        position:relative;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        vertical-align:middle;
+      }
 
-  {{-- Bienvenida --}}
-  <div class="welcome">
-    <h3>Hola, {{ auth()->user()->name }}</h3>
-    <p>Panel de <strong>Propuestas comparativas</strong>: métricas rápidas, accesos directos y actividad reciente.</p>
-  </div>
+      .animated-gradient-text .text-content{
+        position:relative;
+        z-index:2;
+        display:inline-block;
+        background-image:linear-gradient(90deg, #5227FF, #FF9FFC, #B19EEF, #5227FF);
+        background-size:300% 100%;
+        background-repeat:repeat;
+        -webkit-background-clip:text;
+        background-clip:text;
+        -webkit-text-fill-color:transparent;
+        animation:gradientTextMove 8s linear infinite alternate;
+        will-change:background-position;
+      }
 
-  {{-- KPIs --}}
-  @php
-    $kpiPropuestasMes   = $kpiPropuestasMes   ?? 0;
-    $kpiEnRevision      = $kpiEnRevision      ?? 0;
-    $kpiAdjudicadasMes  = $kpiAdjudicadasMes  ?? 0;
-    $kpiPendientes      = $kpiPendientes      ?? 0;
+      @keyframes gradientTextMove{
+        0%   { background-position:0% 50%; }
+        100% { background-position:100% 50%; }
+      }
 
-    $trendPropuestas  = $trendPropuestas  ?? 6;
-    $trendRevision    = $trendRevision    ?? -2;
-    $trendAdjudicadas = $trendAdjudicadas ?? 3;
-    $trendPend        = $trendPend        ?? 0;
+      .menu-search-wrap{
+        display:flex;
+        justify-content:center;
+        margin-top:22px;
+      }
 
-    $seriePropuestas  = $seriePropuestas  ?? [2,3,2,4,5,4,6,5,7,6,8,9];
-    $serieAdjudicadas = $serieAdjudicadas ?? [0,1,1,1,2,1,2,2,3,2,3,4];
-  @endphp
+      .menu-search{
+        position:relative;
+        width:min(100%, 780px);
+      }
 
-  <div class="grid cols-4" style="margin-top:14px">
-    <div class="card">
-      <div class="bd">
-        <div class="kpi">
-          <div class="icon" aria-hidden="true"><span class="msi">description</span></div>
-          <div>
-            <div class="val">{{ number_format($kpiPropuestasMes) }}</div>
-            <div class="sub">Propuestas comparativas (mes)</div>
-          </div>
-          <div class="trend {{ $trendPropuestas >= 0 ? 'up' : 'down' }}">
-            <span class="msi arrow" aria-hidden="true">{{ $trendPropuestas >= 0 ? 'trending_up' : 'trending_down' }}</span>
-            {{ abs($trendPropuestas) }}%
-          </div>
-        </div>
-        <svg class="spark" data-points="{{ implode(',', $seriePropuestas) }}"></svg>
-      </div>
-    </div>
+      .menu-search::before{
+        content:"";
+        position:absolute;
+        inset:0;
+        border-radius:999px;
+        background:linear-gradient(135deg, rgba(255,255,255,.92), rgba(248,251,255,.80));
+        border:1px solid rgba(213,224,241,.95);
+        box-shadow:
+          0 16px 36px rgba(85,108,144,.07),
+          inset 0 1px 0 rgba(255,255,255,.9);
+        backdrop-filter:blur(10px);
+      }
 
-    <div class="card">
-      <div class="bd">
-        <div class="kpi">
-          <div class="icon" aria-hidden="true"><span class="msi">manage_search</span></div>
-          <div>
-            <div class="val">{{ number_format($kpiEnRevision) }}</div>
-            <div class="sub">En revisión</div>
-          </div>
-          <div class="trend {{ $trendRevision >= 0 ? 'up' : 'down' }}">
-            <span class="msi arrow" aria-hidden="true">{{ $trendRevision >= 0 ? 'trending_up' : 'trending_down' }}</span>
-            {{ abs($trendRevision) }}%
-          </div>
-        </div>
-        <div style="height:48px;display:grid;place-items:center;color:var(--muted);font-size:12px">
-          Seguimiento de análisis / validación
-        </div>
-      </div>
-    </div>
+      .menu-search .icon{
+        position:absolute;
+        left:18px;
+        top:50%;
+        transform:translateY(-50%);
+        width:36px;
+        height:36px;
+        border-radius:999px;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        color:#5f7290;
+        background:linear-gradient(180deg, #eef4ff 0%, #dfeaff 100%);
+        box-shadow:inset 0 1px 0 rgba(255,255,255,.8);
+        font-size:20px;
+        pointer-events:none;
+        z-index:2;
+      }
 
-    <div class="card">
-      <div class="bd">
-        <div class="kpi">
-          <div class="icon" aria-hidden="true"><span class="msi">fact_check</span></div>
-          <div>
-            <div class="val">{{ number_format($kpiAdjudicadasMes) }}</div>
-            <div class="sub">Adjudicadas (mes)</div>
-          </div>
-          <div class="trend {{ $trendAdjudicadas >= 0 ? 'up' : 'down' }}">
-            <span class="msi arrow" aria-hidden="true">{{ $trendAdjudicadas >= 0 ? 'trending_up' : 'trending_down' }}</span>
-            {{ abs($trendAdjudicadas) }}%
-          </div>
-        </div>
-        <svg class="spark" data-points="{{ implode(',', $serieAdjudicadas) }}"></svg>
-      </div>
-    </div>
+      .menu-search input{
+        position:relative;
+        z-index:2;
+        width:100%;
+        height:62px;
+        border:none;
+        outline:none;
+        border-radius:999px;
+        padding:0 58px 0 68px;
+        background:transparent;
+        color:#5d6f8b;
+        font-size:15px;
+        font-weight:500;
+        letter-spacing:.01em;
+      }
 
-    <div class="card">
-      <div class="bd">
-        <div class="kpi">
-          <div class="icon" aria-hidden="true"><span class="msi">hourglass_top</span></div>
-          <div>
-            <div class="val">{{ number_format($kpiPendientes) }}</div>
-            <div class="sub">Pendientes</div>
-          </div>
-          <div class="trend {{ $trendPend >= 0 ? 'up' : 'down' }}">
-            <span class="msi arrow" aria-hidden="true">{{ $trendPend >= 0 ? 'trending_up' : 'trending_down' }}</span>
-            {{ abs($trendPend) }}%
-          </div>
-        </div>
-        <div class="progress" style="margin-top:12px">
-          @php $pct = min(100, max(0, (int)($kpiPendientes))); @endphp
-          <span style="width: {{ $pct }}%"></span>
-        </div>
-        <div style="font-size:12px;color:var(--muted);margin-top:6px">
-          Avance general de seguimiento
-        </div>
-      </div>
-    </div>
-  </div>
+      .menu-search input::placeholder{
+        color:#93a3ba;
+        font-weight:500;
+      }
 
-  {{-- Acciones rápidas --}}
-  <div class="card" style="margin-top:14px">
-    <div class="hd">
-      <h4>Acciones rápidas</h4>
-      <div style="font-size:12px;color:var(--muted)">Atajos frecuentes</div>
-    </div>
-    <div class="bd">
-      <div class="actions">
+      .menu-search:focus-within::before{
+        border-color:#bfd7ff;
+        box-shadow:
+          0 18px 40px rgba(24,119,242,.10),
+          0 0 0 4px rgba(24,119,242,.07),
+          inset 0 1px 0 rgba(255,255,255,.9);
+      }
 
-        @if (Route::has('propuestas-comparativas.create'))
-          <a class="btn" href="{{ route('propuestas-comparativas.create') }}">
-            <span class="bico" aria-hidden="true"><span class="msi">add_circle</span></span>
-            <span class="lbl">Nueva propuesta comparativa</span>
-          </a>
-        @elseif (Route::has('licitacion-propuestas.create'))
-          <a class="btn" href="{{ route('licitacion-propuestas.create') }}">
-            <span class="bico" aria-hidden="true"><span class="msi">add_circle</span></span>
-            <span class="lbl">Nueva propuesta comparativa</span>
-          </a>
-        @endif
+      .menu-clear{
+        position:absolute;
+        right:12px;
+        top:50%;
+        transform:translateY(-50%);
+        z-index:2;
+        width:38px;
+        height:38px;
+        border:none;
+        border-radius:999px;
+        background:transparent;
+        color:#8da0bc;
+        display:none;
+        align-items:center;
+        justify-content:center;
+        cursor:pointer;
+        transition:.18s ease;
+      }
 
-        @if (Route::has('licitacion-pdfs.index'))
-          <a class="btn" href="{{ route('licitacion-pdfs.index') }}">
-            <span class="bico" aria-hidden="true"><span class="msi">attach_file</span></span>
-            <span class="lbl">PDFs / Bases</span>
-          </a>
-        @elseif (Route::has('admin.licitacion-pdfs.index'))
-          <a class="btn" href="{{ route('admin.licitacion-pdfs.index') }}">
-            <span class="bico" aria-hidden="true"><span class="msi">attach_file</span></span>
-            <span class="lbl">PDFs / Bases</span>
-          </a>
-        @endif
+      .menu-clear.show{
+        display:flex;
+      }
 
-        @if (Route::has('productos.index'))
-          <a class="btn" href="{{ route('productos.index') }}">
-            <span class="bico" aria-hidden="true"><span class="msi">inventory_2</span></span>
-            <span class="lbl">Ver productos</span>
-          </a>
-        @endif
+      .menu-clear:hover{
+        background:#edf4ff;
+        color:#45648d;
+      }
 
-        @if (Route::has('proveedores.index'))
-          <a class="btn" href="{{ route('proveedores.index') }}">
-            <span class="bico" aria-hidden="true"><span class="msi">domain</span></span>
-            <span class="lbl">Ver proveedores</span>
-          </a>
-        @elseif (Route::has('clientes.index'))
-          <a class="btn" href="{{ route('clientes.index') }}">
-            <span class="bico" aria-hidden="true"><span class="msi">groups</span></span>
-            <span class="lbl">Ver clientes</span>
-          </a>
-        @endif
+      .menu-sections{
+        display:grid;
+        gap:34px;
+        width:100%;
+        margin:0;
+      }
 
-      </div>
-    </div>
-  </div>
+      .menu-section{
+        display:grid;
+        gap:14px;
+      }
 
-  <div class="grid cols-3" style="margin-top:14px">
+      .menu-section-title{
+        margin:0;
+        padding-left:8px;
+        font-size:13px;
+        font-weight:600;
+        letter-spacing:.15em;
+        text-transform:uppercase;
+        color:#8fa1bb;
+      }
 
-    {{-- Actividad reciente --}}
-    <div class="card" style="grid-column:span 2">
-      <div class="hd">
-        <h4>Actividad reciente</h4>
-        <a href="{{ Route::has('propuestas-comparativas.index') ? route('propuestas-comparativas.index') : (Route::has('licitacion-propuestas.index') ? route('licitacion-propuestas.index') : '#') }}"
-           style="font-size:12px;color:var(--brand-ink);text-decoration:none;white-space:nowrap">Ver todo →</a>
-      </div>
+      .menu-grid{
+        display:grid;
+        grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));
+        gap:22px;
+        width:100%;
+      }
 
-      <div class="bd" style="overflow:auto">
-        @php
-          $ultimasPropuestas = $ultimasPropuestas ?? collect();
+      .menu-card{
+        position:relative;
+        display:block;
+        min-height:150px;
+        padding:20px 16px 18px;
+        text-decoration:none;
+        border-radius:24px;
+        background:rgba(255,255,255,.70);
+        border:1px solid rgba(227,235,245,.95);
+        box-shadow:var(--dm-shadow);
+        backdrop-filter:blur(10px);
+        overflow:hidden;
+        isolation:isolate;
+        outline:none;
+        transition:
+          transform .28s cubic-bezier(.2,.8,.2,1),
+          box-shadow .28s cubic-bezier(.2,.8,.2,1),
+          border-color .24s ease,
+          color .24s ease,
+          background .24s ease;
+        animation:menuCardIn .35s cubic-bezier(.25,.46,.45,.94) both;
+      }
 
-          $estadoBadge = function($estado){
-            $e = mb_strtolower((string)$estado);
-            return match(true){
-              str_contains($e,'adjud') || str_contains($e,'ganad') => 'ok',
-              str_contains($e,'rech')  || str_contains($e,'perd')  => 'bad',
-              str_contains($e,'revis') || str_contains($e,'anal')  => 'warn',
-              default => '',
-            };
-          };
-        @endphp
+      .menu-card::before{
+        position:absolute;
+        top:0;
+        left:0;
+        right:0;
+        bottom:0;
+        margin:auto;
+        content:"";
+        border-radius:50%;
+        display:block;
+        width:26em;
+        height:26em;
+        left:-6em;
+        transition:box-shadow .52s ease-out, transform .4s ease;
+        z-index:0;
+        box-shadow:inset 0 0 0 0 rgba(24,119,242,0);
+      }
 
-        <table class="table">
-          <thead>
-            <tr>
-              <th>Folio</th>
-              <th>Propuesta</th>
-              <th>Entidad</th>
-              <th>Monto</th>
-              <th>Fecha</th>
-              <th>Estado</th>
-            </tr>
-          </thead>
-          <tbody>
-            @forelse ($ultimasPropuestas as $p)
-              @php
-                $folio = $p->codigo ?? $p->folio ?? $p->id ?? '—';
-                $titulo = $p->titulo ?? $p->nombre ?? ('Propuesta #' . ($p->id ?? ''));
-                $entidad = $p->cliente->nombre
-                          ?? $p->dependencia->nombre
-                          ?? $p->entidad
-                          ?? '—';
-                $monto = $p->total
-                        ?? $p->monto
-                        ?? $p->total_estimado
-                        ?? 0;
-                $estado = $p->estado ?? $p->status ?? 'pendiente';
-                $badgeClass = $estadoBadge($estado);
-                $fechaObj = $p->created_at ?? $p->fecha ?? null;
-              @endphp
-              <tr>
-                <td class="t-strong">#{{ $folio }}</td>
-                <td style="font-weight:700">{{ $titulo }}</td>
-                <td>{{ $entidad }}</td>
-                <td>${{ number_format((float)$monto, 2) }}</td>
-                <td class="t-muted">{{ optional($fechaObj)->format('d/m/Y H:i') }}</td>
-                <td><span class="badge {{ $badgeClass }}">{{ ucfirst($estado) }}</span></td>
-              </tr>
-            @empty
-              <tr>
-                <td colspan="6" style="text-align:center;color:var(--muted);padding:18px">
-                  Sin actividad por ahora.
-                </td>
-              </tr>
-            @endforelse
-          </tbody>
-        </table>
-      </div>
-    </div>
+      .menu-card::after{
+        content:"";
+        position:absolute;
+        inset:0;
+        border-radius:24px;
+        background:linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,0));
+        opacity:0;
+        transition:opacity .28s ease;
+        z-index:0;
+      }
 
-    {{-- Pipeline --}}
-    <div class="card">
-      <div class="hd">
-        <h4>Pipeline</h4>
-        <a href="{{ Route::has('propuestas-comparativas.index') ? route('propuestas-comparativas.index') : (Route::has('licitacion-propuestas.index') ? route('licitacion-propuestas.index') : '#') }}"
-           style="font-size:12px;color:var(--brand-ink);text-decoration:none;white-space:nowrap">Ver pipeline →</a>
-      </div>
+      .menu-card:hover,
+      .menu-card:focus-visible{
+        transform:translateY(-4px);
+        box-shadow:var(--dm-shadow-hover);
+        border-color:rgb(24, 119, 242);
+      }
 
-      <div class="bd">
-        @php
-          $pipe = $pipe ?? [
-            ['label'=>'Borrador',     'count'=>$pipeBorrador   ?? 0, 'pct'=>$pipePctBorrador   ?? 10],
-            ['label'=>'En revisión',  'count'=>$pipeRevision   ?? 0, 'pct'=>$pipePctRevision   ?? 45],
-            ['label'=>'Enviado',      'count'=>$pipeEnviado    ?? 0, 'pct'=>$pipePctEnviado    ?? 70],
-            ['label'=>'Adjudicado',   'count'=>$pipeAdjudicado ?? 0, 'pct'=>$pipePctAdjudicado ?? 100],
-          ];
-        @endphp
+      .menu-card:hover::before,
+      .menu-card:focus-visible::before{
+        box-shadow:inset 0 0 0 13em rgb(24, 119, 242);
+      }
 
-        <ul style="list-style:none;margin:0;padding:0;display:grid;gap:10px">
-          @foreach ($pipe as $s)
-            <li style="border:1px solid var(--border);border-radius:12px;padding:10px">
-              <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
-                <div>
-                  <div style="font-weight:800">{{ $s['label'] }}</div>
-                  <div style="font-size:12px;color:var(--muted)">{{ number_format((int)$s['count']) }} registros</div>
+      .menu-card:hover::after,
+      .menu-card:focus-visible::after{
+        opacity:1;
+      }
+
+      .menu-card-body{
+        position:relative;
+        z-index:2;
+        min-height:110px;
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        justify-content:center;
+        gap:14px;
+        text-align:center;
+      }
+
+      .menu-icon{
+        width:64px;
+        height:64px;
+        border-radius:18px;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        background:linear-gradient(180deg, #edf3ff 0%, #dfeaff 100%);
+        color:var(--dm-blue);
+        transition:
+          color .34s ease,
+          background .34s ease,
+          transform .28s ease,
+          box-shadow .28s ease;
+      }
+
+      .menu-label{
+        color:#617590;
+        font-size:15px;
+        line-height:1.3;
+        font-weight:500;
+        transition:color .34s ease;
+      }
+
+      .menu-card:hover .menu-label,
+      .menu-card:focus-visible .menu-label{
+        color:#ffffff;
+      }
+
+      .menu-card:hover .menu-icon,
+      .menu-card:focus-visible .menu-icon{
+        background:rgba(255,255,255,.12);
+        color:#ffffff;
+        transform:scale(1.08);
+        box-shadow:inset 0 0 0 1px rgba(255,255,255,.18);
+      }
+
+      .menu-badge{
+        position:absolute;
+        top:12px;
+        right:12px;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        min-height:24px;
+        padding:0 10px;
+        border-radius:999px;
+        background:linear-gradient(90deg, #3b82f6, #6366f1);
+        color:#fff;
+        font-size:10px;
+        font-weight:600;
+        letter-spacing:.08em;
+        text-transform:uppercase;
+        box-shadow:0 8px 18px rgba(79,70,229,.24);
+        z-index:3;
+      }
+
+      .menu-empty{
+        display:none;
+        padding:26px 18px;
+        border-radius:20px;
+        background:rgba(255,255,255,.56);
+        border:1px dashed var(--dm-border-strong);
+        text-align:center;
+        color:#7d90ac;
+        font-size:14px;
+        font-weight:500;
+      }
+
+      .menu-empty.show{
+        display:block;
+      }
+
+      .msi{
+        font-family:'Material Symbols Outlined';
+        font-weight:400;
+        font-style:normal;
+        font-size:24px;
+        line-height:1;
+        letter-spacing:normal;
+        text-transform:none;
+        display:inline-block;
+        white-space:nowrap;
+        word-wrap:normal;
+        direction:ltr;
+        -webkit-font-feature-settings:'liga';
+        -webkit-font-smoothing:antialiased;
+      }
+
+      @keyframes menuCardIn{
+        from{ opacity:0; transform:translateY(12px); }
+        to{ opacity:1; transform:translateY(0); }
+      }
+
+      @media (min-width:1200px){
+        .menu-wrap{
+          padding-left:58px;
+          padding-right:58px;
+        }
+
+        .menu-grid{
+          grid-template-columns:repeat(auto-fit, minmax(210px, 1fr));
+        }
+      }
+
+      @media (min-width:1500px){
+        .menu-wrap{
+          padding-left:76px;
+          padding-right:76px;
+        }
+
+        .menu-grid{
+          grid-template-columns:repeat(auto-fit, minmax(205px, 1fr));
+        }
+      }
+
+      @media (max-width:1100px){
+        .menu-wrap{
+          padding-left:20px;
+          padding-right:20px;
+        }
+
+        .menu-grid{
+          grid-template-columns:repeat(4, minmax(0, 1fr));
+          gap:16px;
+        }
+      }
+
+      @media (max-width:820px){
+        .menu-page{
+          padding:22px 14px 30px;
+        }
+
+        .menu-wrap{
+          padding-left:0;
+          padding-right:0;
+          margin:0 auto;
+        }
+
+        .menu-hero{
+          margin-bottom:24px;
+        }
+
+        .menu-title{
+          font-size:clamp(1.9rem, 7vw, 2.4rem);
+          line-height:1.08;
+        }
+
+        .menu-sub{
+          font-size:13px;
+          max-width:430px;
+        }
+
+        .menu-search-wrap{
+          margin-top:18px;
+        }
+
+        .menu-search{
+          width:min(100%, 100%);
+        }
+
+        .menu-search input{
+          height:58px;
+          font-size:14px;
+        }
+
+        .menu-sections{
+          gap:26px;
+        }
+
+        .menu-grid{
+          grid-template-columns:repeat(3, minmax(0, 1fr));
+          gap:14px;
+        }
+
+        .menu-card{
+          min-height:132px;
+          padding:18px 10px 14px;
+          border-radius:22px;
+        }
+
+        .menu-card::after{
+          border-radius:22px;
+        }
+
+        .menu-card-body{
+          min-height:96px;
+          gap:12px;
+        }
+
+        .menu-icon{
+          width:56px;
+          height:56px;
+          border-radius:16px;
+        }
+
+        .menu-label{
+          font-size:14px;
+          line-height:1.22;
+        }
+
+        .menu-badge{
+          top:8px;
+          right:8px;
+          min-height:20px;
+          padding:0 8px;
+          font-size:9px;
+        }
+      }
+
+      @media (max-width:520px){
+        .menu-page{
+          padding:18px 12px 28px;
+        }
+
+        .menu-wrap{
+          max-width:100%;
+        }
+
+        .menu-hero{
+          margin-bottom:20px;
+        }
+
+        .menu-date{
+          font-size:11px;
+          margin-bottom:10px;
+        }
+
+        .menu-title{
+          font-size:clamp(1.55rem, 8vw, 2.1rem);
+          line-height:1.1;
+        }
+
+        .menu-sub{
+          margin-top:8px;
+          font-size:12px;
+          line-height:1.35;
+          max-width:320px;
+        }
+
+        .menu-search input{
+          height:56px;
+          font-size:14px;
+          padding-left:64px;
+          padding-right:46px;
+        }
+
+        .menu-search .icon{
+          left:14px;
+          width:34px;
+          height:34px;
+          font-size:19px;
+        }
+
+        .menu-section-title{
+          padding-left:2px;
+          font-size:12px;
+          letter-spacing:.13em;
+        }
+
+        .menu-grid{
+          grid-template-columns:repeat(2, minmax(0, 1fr));
+          gap:14px;
+        }
+
+        .menu-card{
+          min-height:130px;
+          padding:16px 8px 12px;
+          border-radius:22px;
+        }
+
+        .menu-card::after{
+          border-radius:22px;
+        }
+
+        .menu-card-body{
+          min-height:92px;
+          gap:10px;
+        }
+
+        .menu-icon{
+          width:52px;
+          height:52px;
+          border-radius:16px;
+        }
+
+        .menu-label{
+          font-size:12px;
+          line-height:1.2;
+          font-weight:500;
+        }
+
+        .menu-badge{
+          top:8px;
+          right:8px;
+          min-height:19px;
+          padding:0 7px;
+          font-size:8px;
+          letter-spacing:.07em;
+        }
+      }
+    </style>
+</head>
+<body>
+@php
+    $userName = auth()->user()->name ?? 'Usuario';
+    $firstName = explode(' ', trim($userName))[0] ?? 'Usuario';
+
+    \Carbon\Carbon::setLocale('es');
+    $today = now()->translatedFormat('l, j \d\e F');
+
+    $u  = auth()->user();
+    $isAdmin   = $u && method_exists($u,'hasRole') ? $u->hasRole('admin') : false;
+    $isManager = $u && method_exists($u,'hasRole') ? $u->hasRole('manager') : false;
+    $restrictManager = $isManager && !$isAdmin;
+
+    $sections = [];
+
+    $makeItem = function ($label, $icon, $routeName = null, $url = null, $badge = null) {
+        if ($routeName && \Illuminate\Support\Facades\Route::has($routeName)) {
+            return [
+                'label' => $label,
+                'icon'  => $icon,
+                'url'   => route($routeName),
+                'badge' => $badge,
+            ];
+        }
+
+        if (!$routeName && $url) {
+            return [
+                'label' => $label,
+                'icon'  => $icon,
+                'url'   => $url,
+                'badge' => $badge,
+            ];
+        }
+
+        return null;
+    };
+
+    if ($restrictManager) {
+        $managerSection = array_filter([
+            $makeItem('Mi Perfil', 'account_circle', 'profile.show'),
+            $makeItem('Part. contable', 'monitoring', 'partcontable.index'),
+            $makeItem('Documentación de altas', 'description', 'alta.docs.index'),
+        ]);
+
+        if (count($managerSection)) {
+            $sections[] = ['title' => 'Accesos', 'items' => $managerSection];
+        }
+    } else {
+        $finanzasVentas = array_filter([
+            $makeItem('Cuentas Bancarias', 'account_balance', 'partcontable.index'),
+            $makeItem('Cotizaciones', 'calculate', 'cotizaciones.index', null, 'Nuevo'),
+            $makeItem('Remisiones', 'description', 'manual_invoices.index'),
+            $makeItem('Financiamientos', 'savings', 'accounting.payables.index'),
+            $makeItem('Ventas', 'shopping_cart', 'ventas.index'),
+            $makeItem('Facturas', 'receipt_long', 'manual_invoices.index'),
+            $makeItem('Gastos', 'receipt', 'expenses.index'),
+            $makeItem('Compras y Ventas', 'article', 'publications.index'),
+        ]);
+
+        $inventarioProductos = array_filter([
+            $makeItem('Inventario', 'inventory_2', 'admin.wms.home'),
+            $makeItem('Productos', 'deployed_code', 'admin.catalog.index'),
+            $makeItem('Catálogo', 'view_in_ar', 'products.index'),
+            $makeItem('Fichas técnicas', 'list_alt', 'tech-sheets.index'),
+            $makeItem('Inventario Ext.', 'inventory', 'products.index'),
+            $makeItem('Almacén', 'warehouse', 'admin.wms.home'),
+        ]);
+
+        $operaciones = array_filter([
+            $makeItem('Mantenimiento', 'build', 'vehicles.index'),
+            $makeItem('Camionetas', 'local_shipping', 'vehicles.index'),
+            $makeItem('Paqueterías', 'package_2', 'routes.index'),
+            $makeItem('Guías', 'bar_chart', 'routes.index'),
+            $makeItem('Logística', 'alt_route', 'routes.index'),
+            $makeItem('Agenda', 'calendar_month', 'agenda.calendar'),
+        ]);
+
+        $clientesComunicacion = array_filter([
+            $makeItem('Clientes', 'groups', 'clients.index'),
+            $makeItem('Proveedores', 'domain', 'providers.index'),
+            $makeItem('WhatsApp Help Desk', 'chat', 'admin.whatsapp.conversations'),
+            $makeItem('Help Desk', 'support_agent', 'admin.help.index'),
+            $makeItem('Correo', 'mail', 'mail.index'),
+            $makeItem('Mi Perfil', 'account_circle', 'profile.show'),
+        ]);
+
+        $licitaciones = array_filter([
+            $makeItem('Licitaciones', 'gavel', 'licitaciones.index'),
+            $makeItem('Nueva licitación', 'post_add', 'licitaciones.create.step1', null, 'Nuevo'),
+            $makeItem('Licitaciones IA', 'neurology', 'licitaciones-ai.index'),
+            $makeItem('Tabla global IA', 'table_chart', 'licitaciones-ai.tabla-global'),
+            $makeItem('PDFs / Bases', 'attach_file', 'admin.licitacion-pdfs.index'),
+            $makeItem('Propuestas / comparativas', 'query_stats', 'admin.licitacion-propuestas.index'),
+        ]);
+
+        $tickets = array_filter([
+            $makeItem('Tickets', 'confirmation_number', 'tickets.index'),
+            $makeItem('Mis tickets', 'person', 'tickets.my'),
+        ]);
+
+        $contabilidadAdmin = array_filter([
+            $makeItem('Contabilidad', 'monitoring', 'accounting.dashboard'),
+            $makeItem('Documentación', 'folder_open', null, url('/confidential/vault/6')),
+            $makeItem('Documentación de altas', 'folder_managed', 'alta.docs.index'),
+            $makeItem('Landing', 'language', 'panel.landing.index'),
+            $makeItem('Usuarios', 'manage_accounts', 'admin.users.index'),
+            $makeItem('Pedidos web', 'shopping_bag', 'admin.orders.index'),
+        ]);
+
+        if (count($finanzasVentas))      $sections[] = ['title' => 'Finanzas y Ventas', 'items' => $finanzasVentas];
+        if (count($inventarioProductos)) $sections[] = ['title' => 'Inventario y Productos', 'items' => $inventarioProductos];
+        if (count($operaciones))         $sections[] = ['title' => 'Operaciones', 'items' => $operaciones];
+        if (count($clientesComunicacion))$sections[] = ['title' => 'Clientes y Comunicación', 'items' => $clientesComunicacion];
+        if (count($licitaciones))        $sections[] = ['title' => 'Licitaciones', 'items' => $licitaciones];
+        if (count($tickets))             $sections[] = ['title' => 'Tickets', 'items' => $tickets];
+        if (count($contabilidadAdmin))   $sections[] = ['title' => 'Administración y Control', 'items' => $contabilidadAdmin];
+    }
+@endphp
+
+<div class="menu-page">
+    <div class="menu-glow g1"></div>
+    <div class="menu-glow g2"></div>
+
+    <div class="menu-wrap">
+        <div class="menu-hero">
+            <p class="menu-date">{{ mb_strtoupper($today) }}</p>
+
+            <h1 class="menu-title">
+                Buenas tardes,
+                <span class="animated-gradient-text">
+                    <span class="text-content">{{ $firstName }}</span>
+                </span>
+            </h1>
+
+            <p class="menu-sub">
+                Accede a todos los módulos del sistema desde aquí.
+            </p>
+
+            <div class="menu-search-wrap">
+                <div class="menu-search">
+                    <span class="msi icon">search</span>
+                    <input type="text" id="menuSearch" placeholder="Buscar módulo..." autocomplete="off">
+                    <button type="button" id="menuSearchClear" class="menu-clear" aria-label="Limpiar búsqueda">
+                        <span class="msi" style="font-size:18px;">close</span>
+                    </button>
                 </div>
-                <div style="min-width:110px">
-                  <div class="progress" style="height:8px"><span style="width: {{ (int)$s['pct'] }}%"></span></div>
-                  <div style="font-size:12px;color:var(--muted);text-align:right;margin-top:4px">{{ (int)$s['pct'] }}%</div>
-                </div>
-              </div>
-            </li>
-          @endforeach
-        </ul>
-
-        <div style="margin-top:12px;font-size:12px;color:var(--muted)">
-          Tip: usa estados consistentes (borrador → revisión → enviado → adjudicado).
+            </div>
         </div>
-      </div>
-    </div>
 
-  </div>
+        <div class="menu-sections" id="menuSections">
+            @php $anim = 0; @endphp
+
+            @foreach($sections as $section)
+                <section class="menu-section js-menu-section" data-section="{{ \Illuminate\Support\Str::lower($section['title']) }}">
+                    <h3 class="menu-section-title">{{ $section['title'] }}</h3>
+
+                    <div class="menu-grid">
+                        @foreach($section['items'] as $item)
+                            @php $anim++; @endphp
+                            <a
+                                href="{{ $item['url'] }}"
+                                class="menu-card js-menu-item"
+                                data-label="{{ \Illuminate\Support\Str::lower($item['label']) }}"
+                                data-section="{{ \Illuminate\Support\Str::lower($section['title']) }}"
+                                style="animation-delay: {{ $anim * 0.025 }}s;"
+                                title="{{ $item['label'] }}"
+                            >
+                                @if(!empty($item['badge']))
+                                    <span class="menu-badge">{{ $item['badge'] }}</span>
+                                @endif
+
+                                <div class="menu-card-body">
+                                    <div class="menu-icon">
+                                        <span class="msi">{{ $item['icon'] }}</span>
+                                    </div>
+                                    <div class="menu-label">{{ $item['label'] }}</div>
+                                </div>
+                            </a>
+                        @endforeach
+                    </div>
+                </section>
+            @endforeach
+
+            <div class="menu-empty" id="menuEmpty">
+                No se encontraron módulos con esa búsqueda.
+            </div>
+        </div>
+    </div>
 </div>
 
-{{-- Mini script para dibujar sparklines (sin librerías) --}}
 <script>
-  (function(){
-    const svgs = document.querySelectorAll('.spark');
-    svgs.forEach(svg => {
-      const pts = (svg.dataset.points || '').split(',').map(n => parseFloat(n)).filter(n => !isNaN(n));
-      const w = svg.clientWidth || 280, h = svg.clientHeight || 48, pad = 4;
-      svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
-      svg.innerHTML = '';
-      if (!pts.length) return;
+document.addEventListener('DOMContentLoaded', function () {
+    const input = document.getElementById('menuSearch');
+    const clear = document.getElementById('menuSearchClear');
+    const items = Array.from(document.querySelectorAll('.js-menu-item'));
+    const sections = Array.from(document.querySelectorAll('.js-menu-section'));
+    const empty = document.getElementById('menuEmpty');
 
-      const min = Math.min(...pts), max = Math.max(...pts);
-      const nx = i => pad + (i * (w - pad*2) / (pts.length - 1 || 1));
-      const ny = v => {
-        if (max === min) return h/2;
-        const t = (v - min) / (max - min);
-        return h - pad - t * (h - pad*2);
-      };
+    function applyFilter() {
+        const term = (input.value || '').trim().toLowerCase();
+        let visible = 0;
 
-      const d = pts.map((v,i)=>`${i===0?'M':'L'} ${nx(i)} ${ny(v)}`).join(' ');
-      const path = document.createElementNS('http://www.w3.org/2000/svg','path');
-      path.setAttribute('d', d);
-      path.setAttribute('fill', 'none');
-      path.setAttribute('stroke', 'currentColor');
-      path.setAttribute('stroke-width', '2');
+        clear.classList.toggle('show', term.length > 0);
 
-      const stroke = getComputedStyle(svg.parentElement.querySelector('.kpi .icon') || svg).color || '#6272a4';
-      svg.style.color = stroke;
+        items.forEach((item) => {
+            const label = item.dataset.label || '';
+            const section = item.dataset.section || '';
+            const match = !term || label.includes(term) || section.includes(term);
 
-      const area = document.createElementNS('http://www.w3.org/2000/svg','path');
-      const dArea = `${d} L ${nx(pts.length-1)} ${h-pad} L ${nx(0)} ${h-pad} Z`;
-      area.setAttribute('d', dArea);
-      area.setAttribute('fill', stroke);
-      area.setAttribute('opacity', '0.08');
+            item.style.display = match ? '' : 'none';
+            if (match) visible++;
+        });
 
-      svg.appendChild(area);
-      svg.appendChild(path);
+        sections.forEach((section) => {
+            const hasVisible = section.querySelector('.js-menu-item:not([style*="display: none"])');
+            section.style.display = hasVisible ? '' : 'none';
+        });
+
+        empty.classList.toggle('show', visible === 0);
+    }
+
+    input.addEventListener('input', applyFilter);
+
+    clear.addEventListener('click', function () {
+        input.value = '';
+        input.focus();
+        applyFilter();
     });
-  })();
+
+    applyFilter();
+});
 </script>
-@endsection
+</body>
+</html>

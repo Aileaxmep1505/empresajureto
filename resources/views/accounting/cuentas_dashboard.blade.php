@@ -6,11 +6,15 @@
 
 @php
   use Carbon\Carbon;
+  use Carbon\CarbonInterface;
 
-  $q = fn(array $extra = []) => array_filter(array_merge(['company_id'=>$companyId], $extra), fn($v)=>$v!==null && $v!=='');
+  $q = fn(array $extra = []) => array_filter(
+      array_merge(['company_id' => $companyId], $extra),
+      fn($v) => $v !== null && $v !== ''
+  );
 
-  $fmt0 = fn($n) => '$' . number_format((float)$n, 0);
-  $fmt2 = fn($n) => '$' . number_format((float)$n, 2);
+  $fmt0 = fn($n) => '$' . number_format((float) $n, 0);
+  $fmt2 = fn($n) => '$' . number_format((float) $n, 2);
 
   $balanceNetoValue = (float)($balanceNeto ?? 0);
 
@@ -44,22 +48,51 @@
   ];
   $agingTotal = max(array_sum($agingBuckets), 1);
 
+  $toCarbon = function ($value) {
+      if (blank($value)) {
+          return null;
+      }
+
+      if ($value instanceof CarbonInterface) {
+          return $value->copy();
+      }
+
+      if ($value instanceof \DateTimeInterface) {
+          return Carbon::instance($value);
+      }
+
+      try {
+          return Carbon::parse($value);
+      } catch (\Throwable $e) {
+          return null;
+      }
+  };
+
+  $formatDueDate = function ($value) use ($toCarbon) {
+      $date = $toCarbon($value);
+      return $date ? $date->translatedFormat('d M Y') : 'Sin fecha';
+  };
+
   $today = now()->startOfDay();
 
-  $cardMeta = function ($type, $item) use ($today) {
-      $due = optional($item->due_date);
-      $days = $due ? $today->diffInDays(Carbon::parse($due), false) : null;
+  $cardMeta = function ($type, $item) use ($today, $toCarbon) {
+      $due = $toCarbon($item->due_date ?? null);
+      $days = $due ? $today->diffInDays($due->copy()->startOfDay(), false) : null;
       $isOverdue = $days !== null && $days < 0;
       $daysLate = abs((int)$days);
+
+      $futureText = $days === null
+          ? 'Sin fecha de vencimiento'
+          : ($days === 0 ? 'Vence hoy' : ($days === 1 ? '1 día' : "{$days} días"));
 
       if ($type === 'payable') {
           if ($isOverdue) {
               return ['status' => 'Atrasado', 'cycle' => 'Pago', 'due_text' => "{$daysLate} días atrasado", 'tone' => 'danger'];
           }
           if ($days !== null && $days <= 3) {
-              return ['status' => 'Urgente', 'cycle' => 'Pago', 'due_text' => $days === 0 ? 'Vence hoy' : ($days === 1 ? '1 día' : "{$days} días"), 'tone' => 'danger'];
+              return ['status' => 'Urgente', 'cycle' => 'Pago', 'due_text' => $futureText, 'tone' => 'danger'];
           }
-          return ['status' => 'Pendiente', 'cycle' => 'Pago', 'due_text' => $days === 0 ? 'Vence hoy' : ($days === 1 ? '1 día' : "{$days} días"), 'tone' => 'warning'];
+          return ['status' => 'Pendiente', 'cycle' => 'Pago', 'due_text' => $futureText, 'tone' => 'warning'];
       }
 
       if ($isOverdue) {
@@ -73,7 +106,7 @@
       return [
           'status' => $partial ? 'Parcial' : 'Pendiente',
           'cycle' => 'Factura',
-          'due_text' => $days === 0 ? 'Vence hoy' : ($days === 1 ? '1 día' : "{$days} días"),
+          'due_text' => $futureText,
           'tone' => $partial ? 'info' : 'warning'
       ];
   };
@@ -701,8 +734,6 @@
       <h1 class="acc-title">Dashboard</h1>
       <div class="acc-sub">{{ \Carbon\Carbon::now()->translatedFormat('l d \\d\\e F, Y') }}</div>
     </div>
-
-  
   </div>
 
   <div class="acc-filtersWrap">
@@ -851,7 +882,7 @@
           @php
             $saldo = max((float)$p->amount - (float)$p->amount_paid, 0);
             $meta = $cardMeta('payable', $p);
-            $dueDate = optional($p->due_date)->format('d M Y');
+            $dueDate = $formatDueDate($p->due_date);
             $toneClass = $meta['tone'] === 'danger' ? 'danger' : 'warning';
           @endphp
 
@@ -903,7 +934,7 @@
           @php
             $saldo = max((float)$r->amount - (float)$r->amount_paid, 0);
             $meta = $cardMeta('receivable', $r);
-            $dueDate = optional($r->due_date)->format('d M Y');
+            $dueDate = $formatDueDate($r->due_date);
             $partial = ((float)$r->amount_paid > 0 && (float)$r->amount_paid < (float)$r->amount);
           @endphp
 
@@ -952,7 +983,7 @@
           @php
             $saldo = max((float)$p->amount - (float)$p->amount_paid, 0);
             $meta = $cardMeta('payable', $p);
-            $dueDate = optional($p->due_date)->format('d M Y');
+            $dueDate = $formatDueDate($p->due_date);
           @endphp
 
           <a class="acc-item {{ $meta['tone'] === 'danger' ? 'danger' : 'warning' }}" href="{{ route('accounting.payables.show',$p) }}">
@@ -992,7 +1023,7 @@
           @php
             $saldo = max((float)$r->amount - (float)$r->amount_paid, 0);
             $meta = $cardMeta('receivable', $r);
-            $dueDate = optional($r->due_date)->format('d M Y');
+            $dueDate = $formatDueDate($r->due_date);
           @endphp
 
           <a class="acc-item info" href="{{ route('accounting.receivables.show',$r) }}">

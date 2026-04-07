@@ -41,6 +41,7 @@
 
     $documents = is_array($item->documents ?? null) ? $item->documents : [];
     $documentNames = is_array($item->document_names ?? null) ? $item->document_names : [];
+    $hasQuickDocs = !empty($item->evidence_url) || count($documents) > 0;
 
     $movementDateValue = old('movement_date', now()->toDateString());
     $movementAmountValue = old('amount', number_format($remaining, 2, '.', ''));
@@ -53,9 +54,9 @@
 
 <style>
   .rcv-page{
-    max-width:1020px;
+    max-width:920px;
     margin:0 auto;
-    padding:6px 0 40px;
+    padding:6px 0 38px;
   }
 
   .rcv-back{
@@ -66,7 +67,7 @@
     color:#64748b;
     text-decoration:none;
     font-size:.95rem;
-    font-weight:600;
+    font-weight:700;
     transition:all .2s ease;
   }
 
@@ -78,13 +79,13 @@
   .rcv-card{
     background:#fff;
     border:1px solid #e7edf5;
-    border-radius:24px;
+    border-radius:22px;
     overflow:hidden;
     box-shadow:0 14px 34px rgba(15,23,42,.06);
   }
 
   .rcv-head{
-    padding:24px 26px 20px;
+    padding:22px 22px 18px;
     border-bottom:1px solid #edf2f7;
   }
 
@@ -114,7 +115,7 @@
     border-radius:999px;
     border:1px solid transparent;
     padding:7px 12px;
-    font-size:.84rem;
+    font-size:.82rem;
     font-weight:800;
     line-height:1;
   }
@@ -165,7 +166,7 @@
 
   .rcv-title{
     margin:0;
-    font-size:2rem;
+    font-size:1.85rem;
     line-height:1.05;
     font-weight:900;
     color:#0f172a;
@@ -176,8 +177,8 @@
   }
 
   .rcv-title svg{
-    width:22px;
-    height:22px;
+    width:21px;
+    height:21px;
     color:#64748b;
     flex:0 0 auto;
   }
@@ -185,7 +186,7 @@
   .rcv-desc{
     margin:8px 0 0;
     color:#64748b;
-    font-size:.98rem;
+    font-size:.96rem;
   }
 
   .rcv-amount{
@@ -196,7 +197,7 @@
 
   .rcv-amount strong{
     display:block;
-    font-size:3rem;
+    font-size:2.75rem;
     line-height:1;
     font-weight:900;
     letter-spacing:-.05em;
@@ -239,17 +240,17 @@
   }
 
   .rcv-grid{
-    padding:22px 26px 10px;
+    padding:18px 22px 8px;
     display:grid;
     grid-template-columns:repeat(2,minmax(0,1fr));
-    gap:14px;
+    gap:12px;
   }
 
   .rcv-info{
     display:flex;
     align-items:center;
     gap:12px;
-    padding:15px 16px;
+    padding:14px 15px;
     border-radius:18px;
     background:#f8fafc;
     border:1px solid #edf2f7;
@@ -258,6 +259,87 @@
   .rcv-info.success{
     background:#ecfdf5;
     border-color:#d1fae5;
+  }
+
+  .rcv-info.docs-card{
+    grid-column:1 / -1;
+    display:block;
+    padding:15px;
+  }
+
+  .rcv-docs-head{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:10px;
+  }
+
+  .rcv-docs-head .rcv-info-icon{
+    width:38px;
+    height:38px;
+    border-radius:12px;
+  }
+
+  .rcv-docs-head strong{
+    display:block;
+    color:#0f172a;
+    font-size:.97rem;
+    font-weight:800;
+  }
+
+  .rcv-docs-head small{
+    display:block;
+    color:#64748b;
+    font-size:.78rem;
+    margin-top:2px;
+  }
+
+  .rcv-quick-docs{
+    display:grid;
+    gap:8px;
+  }
+
+  .rcv-quick-doc{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:11px 12px;
+    border-radius:14px;
+    border:1px solid #e8eef6;
+    background:#fff;
+  }
+
+  .rcv-quick-doc.is-proof{
+    background:#ecfdf5;
+    border-color:#ccefdc;
+  }
+
+  .rcv-quick-doc svg{
+    width:18px;
+    height:18px;
+    color:#64748b;
+    flex:0 0 auto;
+  }
+
+  .rcv-quick-doc.is-proof svg{
+    color:#059669;
+  }
+
+  .rcv-quick-doc span{
+    flex:1 1 auto;
+    min-width:0;
+    color:#0f172a;
+    font-size:.9rem;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+
+  .rcv-quick-doc a{
+    color:#2563eb;
+    font-size:.82rem;
+    font-weight:800;
+    text-decoration:none;
   }
 
   .rcv-info-icon{
@@ -303,7 +385,7 @@
   }
 
   .rcv-body{
-    padding:0 26px 18px;
+    padding:0 22px 18px;
     display:grid;
     gap:14px;
   }
@@ -333,12 +415,6 @@
     border:1px solid;
   }
 
-  .rcv-alert.success{
-    background:#ecfdf5;
-    border-color:#d1fae5;
-    color:#047857;
-  }
-
   .rcv-alert.warning{
     background:#fffbeb;
     border-color:#fde68a;
@@ -351,54 +427,8 @@
     flex:0 0 auto;
   }
 
-  .rcv-alert a{
-    margin-left:auto;
-    color:inherit;
-    font-weight:800;
-    text-decoration:none;
-  }
-
-  .rcv-doc-list{
-    display:grid;
-    gap:8px;
-  }
-
-  .rcv-doc-item{
-    display:flex;
-    align-items:center;
-    gap:12px;
-    padding:12px 13px;
-    background:#f8fafc;
-    border:1px solid #edf2f7;
-    border-radius:14px;
-  }
-
-  .rcv-doc-item svg{
-    width:18px;
-    height:18px;
-    color:#64748b;
-    flex:0 0 auto;
-  }
-
-  .rcv-doc-item span{
-    flex:1 1 auto;
-    min-width:0;
-    font-size:.9rem;
-    color:#0f172a;
-    white-space:nowrap;
-    overflow:hidden;
-    text-overflow:ellipsis;
-  }
-
-  .rcv-doc-item a{
-    color:#2563eb;
-    font-size:.82rem;
-    font-weight:800;
-    text-decoration:none;
-  }
-
   .rcv-actions{
-    padding:22px 26px;
+    padding:20px 22px;
     border-top:1px solid #edf2f7;
     display:flex;
     flex-wrap:wrap;
@@ -446,7 +476,8 @@
     border-color:#fecaca;
   }
 
-  .rcv-panel{
+  .rcv-panel,
+  .bita-wrap{
     margin-top:16px;
     background:#fff;
     border:1px solid #e7edf5;
@@ -455,24 +486,27 @@
     overflow:hidden;
   }
 
-  .rcv-panel-head{
+  .rcv-panel-head,
+  .bita-head{
     padding:18px 20px 14px;
-    border-bottom:1px solid #edf2f7;
     display:flex;
     align-items:flex-start;
     justify-content:space-between;
     gap:12px;
     flex-wrap:wrap;
+    border-bottom:1px solid #edf2f7;
   }
 
-  .rcv-panel-head h3{
+  .rcv-panel-head h3,
+  .bita-title{
     margin:0;
     color:#0f172a;
     font-size:1rem;
     font-weight:800;
   }
 
-  .rcv-panel-head p{
+  .rcv-panel-head p,
+  .bita-sub{
     margin:4px 0 0;
     color:#64748b;
     font-size:.86rem;
@@ -537,37 +571,6 @@
   }
 
   /* BITÁCORA */
-  .bita-wrap{
-    margin-top:16px;
-    background:#fff;
-    border:1px solid #e7edf5;
-    border-radius:20px;
-    box-shadow:0 12px 30px rgba(15,23,42,.05);
-    overflow:hidden;
-  }
-
-  .bita-head{
-    padding:18px 20px 12px;
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:12px;
-    flex-wrap:wrap;
-  }
-
-  .bita-title{
-    margin:0;
-    color:#0f172a;
-    font-size:1rem;
-    font-weight:900;
-  }
-
-  .bita-sub{
-    margin:4px 0 0;
-    color:#64748b;
-    font-size:.84rem;
-  }
-
   .bita-toggle{
     display:inline-flex;
     align-items:center;
@@ -596,7 +599,7 @@
   }
 
   .bita-form-wrap{
-    padding:0 20px 16px;
+    padding:16px 20px 0;
     display:none;
   }
 
@@ -648,16 +651,63 @@
   }
 
   .bita-type:hover{
-    border-color:#bfdbfe;
-    color:#2563eb;
-    background:#f8fbff;
+    transform:translateY(-1px);
   }
 
-  .bita-type.active{
+  .bita-type[data-type="llamada"].active{
     background:#eff6ff;
-    border-color:#3b82f6;
-    color:#2563eb;
-    box-shadow:0 0 0 3px rgba(59,130,246,.08);
+    border-color:#93c5fd;
+    color:#1d4ed8;
+    box-shadow:0 0 0 3px rgba(59,130,246,.10);
+  }
+
+  .bita-type[data-type="email"].active{
+    background:#eef2ff;
+    border-color:#c7d2fe;
+    color:#4338ca;
+    box-shadow:0 0 0 3px rgba(99,102,241,.10);
+  }
+
+  .bita-type[data-type="whatsapp"].active{
+    background:#ecfdf5;
+    border-color:#a7f3d0;
+    color:#047857;
+    box-shadow:0 0 0 3px rgba(16,185,129,.10);
+  }
+
+  .bita-type[data-type="visita"].active{
+    background:#f5f3ff;
+    border-color:#d8b4fe;
+    color:#7c3aed;
+    box-shadow:0 0 0 3px rgba(124,58,237,.10);
+  }
+
+  .bita-type[data-type="promesa_pago"].active{
+    background:#fff7ed;
+    border-color:#fdba74;
+    color:#c2410c;
+    box-shadow:0 0 0 3px rgba(249,115,22,.10);
+  }
+
+  .bita-type[data-type="pago_recibido"].active{
+    background:#ecfdf5;
+    border-color:#86efac;
+    color:#15803d;
+    box-shadow:0 0 0 3px rgba(34,197,94,.10);
+  }
+
+  .bita-type[data-type="nota_interna"].active{
+    background:#f8fafc;
+    border-color:#cbd5e1;
+    color:#475569;
+    box-shadow:0 0 0 3px rgba(100,116,139,.10);
+  }
+
+  .bita-type[data-type="escalamiento"].active{
+    background:#fff1f2;
+    border-color:#fda4af;
+    color:#be123c;
+    box-shadow:0 0 0 3px rgba(244,63,94,.10);
   }
 
   .bita-grid{
@@ -668,6 +718,17 @@
 
   .bita-col-full{
     grid-column:1 / -1;
+  }
+
+  .bita-extra-group{
+    grid-column:1 / -1;
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:14px;
+  }
+
+  .bita-extra-group[hidden]{
+    display:none !important;
   }
 
   .bita-input,
@@ -690,7 +751,7 @@
   }
 
   .bita-textarea{
-    min-height:74px;
+    min-height:78px;
     padding:14px;
     resize:vertical;
   }
@@ -718,7 +779,7 @@
     padding:0 16px;
     border:none;
     border-radius:13px;
-    background:#8ba9e8;
+    background:#0f172a;
     color:#fff;
     font-size:.92rem;
     font-weight:800;
@@ -735,20 +796,80 @@
   }
 
   .bita-list{
-    padding:0 20px 20px;
+    padding:16px 20px 20px;
     display:grid;
     gap:12px;
   }
 
   .bita-item{
-    background:#eef4ff;
-    border:1px solid #dbe7ff;
+    --tone-bg:#eff6ff;
+    --tone-border:#bfdbfe;
+    --tone-text:#1d4ed8;
+    --tone-soft:#dbeafe;
+    background:var(--tone-bg);
+    border:1px solid var(--tone-border);
     border-radius:18px;
     padding:14px 16px;
     display:flex;
     align-items:flex-start;
     justify-content:space-between;
     gap:14px;
+  }
+
+  .bita-item.tone-llamada{
+    --tone-bg:#eff6ff;
+    --tone-border:#bfdbfe;
+    --tone-text:#1d4ed8;
+    --tone-soft:#dbeafe;
+  }
+
+  .bita-item.tone-email{
+    --tone-bg:#eef2ff;
+    --tone-border:#c7d2fe;
+    --tone-text:#4338ca;
+    --tone-soft:#e0e7ff;
+  }
+
+  .bita-item.tone-whatsapp{
+    --tone-bg:#ecfdf5;
+    --tone-border:#a7f3d0;
+    --tone-text:#047857;
+    --tone-soft:#d1fae5;
+  }
+
+  .bita-item.tone-visita{
+    --tone-bg:#f5f3ff;
+    --tone-border:#d8b4fe;
+    --tone-text:#7c3aed;
+    --tone-soft:#ede9fe;
+  }
+
+  .bita-item.tone-promesa_pago{
+    --tone-bg:#fff7ed;
+    --tone-border:#fdba74;
+    --tone-text:#c2410c;
+    --tone-soft:#ffedd5;
+  }
+
+  .bita-item.tone-pago_recibido{
+    --tone-bg:#ecfdf5;
+    --tone-border:#86efac;
+    --tone-text:#15803d;
+    --tone-soft:#dcfce7;
+  }
+
+  .bita-item.tone-nota_interna{
+    --tone-bg:#f8fafc;
+    --tone-border:#cbd5e1;
+    --tone-text:#475569;
+    --tone-soft:#e2e8f0;
+  }
+
+  .bita-item.tone-escalamiento{
+    --tone-bg:#fff1f2;
+    --tone-border:#fda4af;
+    --tone-text:#be123c;
+    --tone-soft:#ffe4e6;
   }
 
   .bita-item-left{
@@ -759,11 +880,11 @@
   }
 
   .bita-item-icon{
-    width:34px;
-    height:34px;
+    width:38px;
+    height:38px;
     border-radius:12px;
-    background:#eff6ff;
-    color:#2563eb;
+    background:var(--tone-soft);
+    color:var(--tone-text);
     display:grid;
     place-items:center;
     flex:0 0 auto;
@@ -774,36 +895,72 @@
     height:18px;
   }
 
+  .bita-item-main{
+    min-width:0;
+    flex:1 1 auto;
+  }
+
+  .bita-item-top{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-wrap:wrap;
+    margin-bottom:4px;
+  }
+
   .bita-item-title{
-    color:#2563eb;
-    font-size:.98rem;
+    color:var(--tone-text);
+    font-size:.97rem;
     font-weight:900;
-    margin:0 0 2px;
+    margin:0;
+  }
+
+  .bita-chip{
+    display:inline-flex;
+    align-items:center;
+    min-height:24px;
+    padding:0 9px;
+    border-radius:999px;
+    background:rgba(255,255,255,.7);
+    border:1px solid rgba(255,255,255,.65);
+    color:var(--tone-text);
+    font-size:.72rem;
+    font-weight:800;
   }
 
   .bita-item-note{
-    color:#2563eb;
-    opacity:.85;
+    color:#0f172a;
     font-size:.92rem;
     margin:0;
     word-break:break-word;
   }
 
   .bita-item-meta{
-    margin-top:8px;
+    margin-top:10px;
     display:flex;
     flex-wrap:wrap;
-    gap:10px;
-    color:#64748b;
+    gap:8px;
+  }
+
+  .bita-meta-pill{
+    display:inline-flex;
+    align-items:center;
+    min-height:28px;
+    padding:0 10px;
+    border-radius:999px;
+    background:rgba(255,255,255,.72);
+    border:1px solid rgba(255,255,255,.7);
+    color:#334155;
     font-size:.76rem;
     font-weight:700;
   }
 
   .bita-item-time{
-    color:#2563eb;
-    font-size:.84rem;
+    color:var(--tone-text);
+    font-size:.82rem;
     font-weight:800;
     white-space:nowrap;
+    padding-top:2px;
   }
 
   /* MODAL COBRO */
@@ -1146,8 +1303,13 @@
 
     .rcv-grid,
     .bita-grid,
+    .bita-extra-group,
     .rcv-move{
       grid-template-columns:1fr;
+    }
+
+    .rcv-info.docs-card{
+      grid-column:auto;
     }
   }
 
@@ -1179,11 +1341,23 @@
     }
 
     .rcv-title{
-      font-size:1.55rem;
+      font-size:1.5rem;
     }
 
     .rcv-amount strong{
-      font-size:2.3rem;
+      font-size:2.25rem;
+    }
+
+    .bita-item{
+      flex-direction:column;
+    }
+
+    .bita-item-time{
+      white-space:normal;
+      width:100%;
+      text-align:left;
+      padding-left:50px;
+      padding-top:0;
     }
 
     .collect-modal{
@@ -1348,35 +1522,36 @@
           <strong>${{ number_format($remaining, 2) }}</strong>
         </div>
       </div>
-    </div>
 
-    <div class="rcv-body">
-      @if(!empty($item->evidence_url))
-        <div class="rcv-alert success">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"></circle>
-            <path d="M8 12l2.5 2.5L16 9"></path>
-          </svg>
-          <span>Comprobante de cobro adjunto</span>
-          <a href="{{ $item->evidence_url }}" target="_blank">Ver</a>
-        </div>
-      @elseif(in_array($statusRaw, ['cobrado'], true))
-        <div class="rcv-alert warning">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"></circle>
-            <path d="M12 8v4"></path>
-            <path d="M12 16h.01"></path>
-          </svg>
-          <span>Cobrado sin comprobante</span>
-        </div>
-      @endif
+      @if($hasQuickDocs)
+        <div class="rcv-info docs-card">
+          <div class="rcv-docs-head">
+            <div class="rcv-info-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path>
+                <path d="M14 3v5h5"></path>
+              </svg>
+            </div>
+            <div>
+              <strong>Documentos y comprobantes</strong>
+              <small>Acceso rápido a archivos relacionados con esta cuenta.</small>
+            </div>
+          </div>
 
-      @if(count($documents))
-        <div>
-          <h3 class="rcv-section-title">Documentos</h3>
-          <div class="rcv-doc-list">
+          <div class="rcv-quick-docs">
+            @if(!empty($item->evidence_url))
+              <div class="rcv-quick-doc is-proof">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <path d="M8 12l2.5 2.5L16 9"></path>
+                </svg>
+                <span>Comprobante de cobro adjunto</span>
+                <a href="{{ $item->evidence_url }}" target="_blank">Ver</a>
+              </div>
+            @endif
+
             @foreach($documents as $i => $doc)
-              <div class="rcv-doc-item">
+              <div class="rcv-quick-doc">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path>
                   <path d="M14 3v5h5"></path>
@@ -1386,6 +1561,19 @@
               </div>
             @endforeach
           </div>
+        </div>
+      @endif
+    </div>
+
+    <div class="rcv-body">
+      @if(empty($item->evidence_url) && in_array($statusRaw, ['cobrado'], true))
+        <div class="rcv-alert warning">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M12 8v4"></path>
+            <path d="M12 16h.01"></path>
+          </svg>
+          <span>Cobrado sin comprobante</span>
         </div>
       @endif
 
@@ -1575,6 +1763,18 @@
                 <option value="Pendiente">Pendiente</option>
                 <option value="Seguimiento">Seguimiento</option>
               </select>
+            </div>
+
+            <div class="bita-extra-group" id="promesaFields" hidden>
+              <div>
+                <label class="bita-label" for="bitaPromiseDate">Fecha prometida</label>
+                <input class="bita-input" id="bitaPromiseDate" type="date">
+              </div>
+
+              <div>
+                <label class="bita-label" for="bitaPromiseAmount">Monto prometido</label>
+                <input class="bita-input" id="bitaPromiseAmount" type="number" step="0.01" min="0" placeholder="0.00">
+              </div>
             </div>
 
             <div>
@@ -1834,17 +2034,61 @@
   const bitaResult = document.getElementById('bitaResult');
   const bitaNextAction = document.getElementById('bitaNextAction');
   const bitaNotes = document.getElementById('bitaNotes');
+  const promesaFields = document.getElementById('promesaFields');
+  const bitaPromiseDate = document.getElementById('bitaPromiseDate');
+  const bitaPromiseAmount = document.getElementById('bitaPromiseAmount');
 
   const typeConfig = {
-    llamada: { label: 'Llamada', color: '#2563eb', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.08 4.18 2 2 0 0 1 4.06 2h3a2 2 0 0 1 2 1.72c.12.9.33 1.78.62 2.62a2 2 0 0 1-.45 2.11L8 9.91a16 16 0 0 0 6.09 6.09l1.46-1.23a2 2 0 0 1 2.11-.45c.84.29 1.72.5 2.62.62A2 2 0 0 1 22 16.92z"></path></svg>' },
-    email: { label: 'Email', color: '#2563eb', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"></path><path d="m22 6-10 7L2 6"></path></svg>' },
-    whatsapp: { label: 'WhatsApp', color: '#2563eb', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.5 8.5 0 0 1-12.4 7.5L3 20l1.2-5.3A8.5 8.5 0 1 1 21 11.5z"></path></svg>' },
-    visita: { label: 'Visita', color: '#2563eb', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>' },
-    promesa_pago: { label: 'Promesa de Pago', color: '#2563eb', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22"></path><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7H14.5a3.5 3.5 0 0 1 0 7H6"></path></svg>' },
-    pago_recibido: { label: 'Pago Recibido', color: '#2563eb', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22"></path><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7H14.5a3.5 3.5 0 0 1 0 7H6"></path></svg>' },
-    nota_interna: { label: 'Nota Interna', color: '#2563eb', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path><path d="M9 13h6"></path><path d="M9 17h6"></path></svg>' },
-    escalamiento: { label: 'Escalamiento', color: '#2563eb', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path></svg>' }
+    llamada: {
+      label: 'Llamada',
+      tone: 'tone-llamada',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.08 4.18 2 2 0 0 1 4.06 2h3a2 2 0 0 1 2 1.72c.12.9.33 1.78.62 2.62a2 2 0 0 1-.45 2.11L8 9.91a16 16 0 0 0 6.09 6.09l1.46-1.23a2 2 0 0 1 2.11-.45c.84.29 1.72.5 2.62.62A2 2 0 0 1 22 16.92z"></path></svg>'
+    },
+    email: {
+      label: 'Email',
+      tone: 'tone-email',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"></path><path d="m22 6-10 7L2 6"></path></svg>'
+    },
+    whatsapp: {
+      label: 'WhatsApp',
+      tone: 'tone-whatsapp',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.5 8.5 0 0 1-12.4 7.5L3 20l1.2-5.3A8.5 8.5 0 1 1 21 11.5z"></path></svg>'
+    },
+    visita: {
+      label: 'Visita',
+      tone: 'tone-visita',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>'
+    },
+    promesa_pago: {
+      label: 'Promesa de Pago',
+      tone: 'tone-promesa_pago',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22"></path><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7H14.5a3.5 3.5 0 0 1 0 7H6"></path></svg>'
+    },
+    pago_recibido: {
+      label: 'Pago Recibido',
+      tone: 'tone-pago_recibido',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22"></path><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7H14.5a3.5 3.5 0 0 1 0 7H6"></path></svg>'
+    },
+    nota_interna: {
+      label: 'Nota Interna',
+      tone: 'tone-nota_interna',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path><path d="M9 13h6"></path><path d="M9 17h6"></path></svg>'
+    },
+    escalamiento: {
+      label: 'Escalamiento',
+      tone: 'tone-escalamiento',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path></svg>'
+    }
   };
+
+  function escapeHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
 
   function getLogs() {
     try {
@@ -1869,6 +2113,36 @@
     return `${day}/${month}/${year} ${hours}:${mins}`;
   }
 
+  function formatDateYMD(dateStr) {
+    if (!dateStr) return '';
+    const parts = String(dateStr).split('-');
+    if (parts.length !== 3) return escapeHtml(dateStr);
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  }
+
+  function formatAmount(value) {
+    const num = Number(value || 0);
+    return new Intl.NumberFormat('es-MX', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(num);
+  }
+
+  function updateActionUI(type) {
+    bitaTypes.forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.type === type);
+    });
+    bitaActionType.value = type;
+
+    if (type === 'promesa_pago') {
+      promesaFields.hidden = false;
+    } else {
+      promesaFields.hidden = true;
+      bitaPromiseDate.value = '';
+      bitaPromiseAmount.value = '';
+    }
+  }
+
   function renderLogs() {
     const logs = getLogs().sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
@@ -1881,20 +2155,39 @@
       const cfg = typeConfig[log.type] || typeConfig.llamada;
       const meta = [];
 
-      if (log.person) meta.push('Contacto: ' + log.person);
-      if (log.result) meta.push('Resultado: ' + log.result);
-      if (log.next_action) meta.push('Próxima acción: ' + log.next_action.split('-').reverse().join('/'));
+      if (log.person) {
+        meta.push(`<span class="bita-meta-pill">Contacto: ${escapeHtml(log.person)}</span>`);
+      }
+
+      if (log.result) {
+        meta.push(`<span class="bita-meta-pill">Resultado: ${escapeHtml(log.result)}</span>`);
+      }
+
+      if (log.promised_date) {
+        meta.push(`<span class="bita-meta-pill">Fecha prometida: ${formatDateYMD(log.promised_date)}</span>`);
+      }
+
+      if (log.promised_amount) {
+        meta.push(`<span class="bita-meta-pill">Monto prometido: $${formatAmount(log.promised_amount)}</span>`);
+      }
+
+      if (log.next_action) {
+        meta.push(`<span class="bita-meta-pill">Próxima acción: ${formatDateYMD(log.next_action)}</span>`);
+      }
 
       return `
-        <div class="bita-item">
+        <div class="bita-item ${cfg.tone}">
           <div class="bita-item-left">
-            <div class="bita-item-icon" style="color:${cfg.color};">
+            <div class="bita-item-icon">
               ${cfg.icon}
             </div>
-            <div>
-              <h4 class="bita-item-title">${cfg.label}</h4>
-              <p class="bita-item-note">${(log.notes || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
-              ${meta.length ? `<div class="bita-item-meta">${meta.map(m => `<span>${m}</span>`).join('')}</div>` : ''}
+            <div class="bita-item-main">
+              <div class="bita-item-top">
+                <h4 class="bita-item-title">${cfg.label}</h4>
+                ${log.result ? `<span class="bita-chip">${escapeHtml(log.result)}</span>` : ''}
+              </div>
+              <p class="bita-item-note">${escapeHtml(log.notes || '')}</p>
+              ${meta.length ? `<div class="bita-item-meta">${meta.join('')}</div>` : ''}
             </div>
           </div>
           <div class="bita-item-time">${formatDateTime(log.created_at)}</div>
@@ -1904,12 +2197,13 @@
   }
 
   function resetBitaForm() {
-    bitaActionType.value = 'llamada';
-    bitaTypes.forEach(btn => btn.classList.toggle('active', btn.dataset.type === 'llamada'));
     bitaPerson.value = '';
     bitaResult.value = 'Exitoso';
     bitaNextAction.value = '';
     bitaNotes.value = '';
+    bitaPromiseDate.value = '';
+    bitaPromiseAmount.value = '';
+    updateActionUI('llamada');
   }
 
   function openBita() {
@@ -1931,9 +2225,7 @@
 
   bitaTypes.forEach(btn => {
     btn.addEventListener('click', function () {
-      bitaTypes.forEach(x => x.classList.remove('active'));
-      this.classList.add('active');
-      bitaActionType.value = this.dataset.type;
+      updateActionUI(this.dataset.type || 'llamada');
     });
   });
 
@@ -1941,20 +2233,40 @@
     bitaForm.addEventListener('submit', function (e) {
       e.preventDefault();
 
+      const type = bitaActionType.value || 'llamada';
       const notes = (bitaNotes.value || '').trim();
+      const promisedDate = (bitaPromiseDate.value || '').trim();
+      const promisedAmount = (bitaPromiseAmount.value || '').trim();
+
       if (!notes) {
         showToast('error', 'Escribe la descripción o notas.');
         bitaNotes.focus();
         return;
       }
 
+      if (type === 'promesa_pago') {
+        if (!promisedDate) {
+          showToast('error', 'Captura la fecha prometida.');
+          bitaPromiseDate.focus();
+          return;
+        }
+
+        if (!promisedAmount || Number(promisedAmount) <= 0) {
+          showToast('error', 'Captura un monto prometido válido.');
+          bitaPromiseAmount.focus();
+          return;
+        }
+      }
+
       const logs = getLogs();
       logs.push({
         id: Date.now().toString(),
-        type: bitaActionType.value || 'llamada',
+        type,
         person: (bitaPerson.value || '').trim(),
-        result: bitaResult.value || 'Exitoso',
-        next_action: bitaNextAction.value || '',
+        result: (bitaResult.value || '').trim(),
+        next_action: (bitaNextAction.value || '').trim(),
+        promised_date: type === 'promesa_pago' ? promisedDate : '',
+        promised_amount: type === 'promesa_pago' ? promisedAmount : '',
         notes,
         created_at: new Date().toISOString()
       });
@@ -1966,6 +2278,7 @@
     });
   }
 
+  updateActionUI('llamada');
   renderLogs();
 
   @if(session('success'))

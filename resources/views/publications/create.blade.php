@@ -5,6 +5,7 @@
 @section('content')
 @php
   $v = fn($k,$d=null) => old($k,$d);
+  $usersList = $users ?? \App\Models\User::select('id','name','email')->orderBy('name')->get();
 @endphp
 <link rel="stylesheet" href="{{ asset('css/publications.css') }}?v={{ time() }}">
 <style>
@@ -13,26 +14,35 @@
     --glass-brd: rgba(148,163,184,.22);
     --deep-shadow: 0 22px 60px rgba(15,23,42,.10);
   }
+
   #pubCreateClean .pageHead{
-    align-items: flex-start;
-    margin-bottom: 20px;
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:16px;
+    margin-bottom:20px;
   }
+
   #pubCreateClean .titleRow{
-    letter-spacing: -.02em;
+    letter-spacing:-.02em;
   }
+
   #pubCreateClean .subtitle{
-    max-width: 840px;
-    line-height: 1.6;
+    max-width:840px;
+    line-height:1.6;
   }
+
   #pubCreateClean .card{
     background: linear-gradient(180deg, rgba(255,255,255,.94), rgba(248,250,252,.90));
     border: 1px solid var(--glass-brd);
     box-shadow: var(--deep-shadow);
     backdrop-filter: blur(14px);
   }
+
   #pubCreateClean .cardHead{
     border-bottom-color: rgba(148,163,184,.18);
   }
+
   #pubCreateClean .drop{
     position: relative;
     border: 1px dashed rgba(59,130,246,.28);
@@ -42,6 +52,7 @@
       linear-gradient(180deg, rgba(255,255,255,.88), rgba(248,250,252,.82));
     box-shadow: inset 0 1px 0 rgba(255,255,255,.75);
   }
+
   #pubCreateClean .drop::after{
     content:'Cualquier archivo';
     position:absolute;
@@ -53,6 +64,7 @@
     text-transform:uppercase;
     color:rgba(71,85,105,.72);
   }
+
   #pubCreateClean .premiumHint{
     margin-top: 12px;
     padding: 12px 14px;
@@ -63,9 +75,11 @@
     font-size: 12px;
     line-height: 1.55;
   }
+
   #pubCreateClean .premiumHint strong{
     color:#0f172a;
   }
+
   #pubCreateClean .aiBanner{
     margin-top: 12px;
     padding: 11px 14px;
@@ -76,23 +90,756 @@
     font-size: 12px;
     display:none;
   }
+
   #pubCreateClean .aiBanner.show{
     display:block;
   }
+
   #pubCreateClean .multiItem{
     overflow: hidden;
     border: 1px solid rgba(148,163,184,.16);
     box-shadow: 0 10px 30px rgba(15,23,42,.06);
   }
+
   #pubCreateClean .miHead{
     background: linear-gradient(180deg, rgba(255,255,255,.92), rgba(248,250,252,.82));
   }
+
   #pubCreateClean .miniArea{
     min-height: 46px;
   }
+
+  #pubCreateClean .accBox{
+    margin-top: 16px;
+    border: 1px solid rgba(37,99,235,.14);
+    border-radius: 18px;
+    background: linear-gradient(180deg, rgba(239,246,255,.86), rgba(255,255,255,.95));
+    padding: 14px;
+  }
+
+  #pubCreateClean .accBoxHead{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:12px;
+    margin-bottom: 12px;
+  }
+
+  #pubCreateClean .accBoxTitle{
+    font-size: 13px;
+    font-weight: 900;
+    color:#0f172a;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+
+  #pubCreateClean .accBoxSub{
+    color:#475569;
+    font-size: 12px;
+    line-height:1.55;
+  }
+
+  #pubCreateClean .miniGrid2{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:14px;
+  }
+
+  #pubCreateClean .miniGrid3{
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:14px;
+  }
+
+  #pubCreateClean .accInlineNote{
+    margin-top: 12px;
+    font-size: 12px;
+    color:#475569;
+    line-height:1.6;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(255,255,255,.8);
+    border: 1px solid rgba(148,163,184,.16);
+  }
+
+  #pubCreateClean .selectWrap{
+    position: relative;
+  }
+
+  #pubCreateClean .selectWrap select,
+  #pubCreateClean .selectWrap input,
+  #pubCreateClean .selectWrap textarea{
+    width:100%;
+  }
+
+  #pubCreateClean .sectionBadge{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    border-radius:999px;
+    padding:5px 10px;
+    font-size:11px;
+    font-weight:800;
+    background: rgba(37,99,235,.08);
+    color:#1d4ed8;
+    border:1px solid rgba(37,99,235,.14);
+  }
+
+  /* Botón volver */
+  #pubCreateClean .topActions{
+    display:flex;
+    align-items:center;
+  }
+
+  #pubCreateClean .backLinkClean{
+    display:inline-flex;
+    align-items:center;
+    gap:10px;
+    text-decoration:none;
+    color:#64748b;
+    font-weight:500;
+    font-size:16px;
+    line-height:1;
+    padding:8px 2px;
+    border-radius:12px;
+    transition:
+      color .18s ease,
+      transform .18s ease,
+      opacity .18s ease;
+  }
+
+  #pubCreateClean .backLinkClean svg{
+    width:18px;
+    height:18px;
+    flex:0 0 18px;
+    transition: transform .18s ease, color .18s ease;
+  }
+
+  #pubCreateClean .backLinkClean:hover{
+    color:#334155;
+    transform: translateX(-2px);
+    text-decoration:none;
+  }
+
+  #pubCreateClean .backLinkClean:hover svg{
+    transform: translateX(-3px);
+  }
+
+  /* Loader botones */
+  #pubCreateClean .btnx.loading{
+    pointer-events:none;
+    opacity:1;
+    position:relative;
+    box-shadow: 0 12px 28px rgba(37,99,235,.18);
+  }
+
+  #pubCreateClean .btnx.loading .btnSpin{
+    width:16px;
+    height:16px;
+    border:2px solid currentColor;
+    border-right-color:transparent;
+    border-radius:50%;
+    display:inline-block;
+    animation: btnSpin .75s linear infinite;
+    vertical-align:-3px;
+    margin-right:8px;
+  }
+
+  #pubCreateClean .btnx.btnPulse{
+    animation: btnPulse 1.1s ease-in-out infinite;
+  }
+
+  #pubCreateClean .btnx[disabled]{
+    opacity:.65;
+    cursor:not-allowed;
+    filter:saturate(.88);
+  }
+
+  @keyframes btnSpin{
+    to{ transform:rotate(360deg); }
+  }
+
+  @keyframes btnPulse{
+    0%,100%{ transform:translateY(0); }
+    50%{ transform:translateY(-1px); }
+  }
+
+  /* Mejor estilo para selects */
+  #pubCreateClean .field{
+    position:relative;
+  }
+
+  #pubCreateClean .field select{
+    -webkit-appearance:none;
+    -moz-appearance:none;
+    appearance:none;
+    width:100%;
+    min-height:56px;
+    height:56px;
+    border-radius:14px;
+    border:1px solid rgba(148,163,184,.24);
+    background-color:rgba(255,255,255,.98);
+    color:#0f172a;
+    font-size:14px;
+    font-weight:600;
+    line-height:1.15;
+    padding:21px 42px 10px 14px;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.94),
+      0 4px 14px rgba(15,23,42,.04);
+    transition:
+      border-color .18s ease,
+      box-shadow .18s ease,
+      transform .18s ease,
+      background-color .18s ease;
+    cursor:pointer;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='M5 7.5L10 12.5L15 7.5' stroke='%2364758B' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;
+    background-position:right 13px center;
+    background-size:16px 16px;
+  }
+
+  #pubCreateClean .field select:hover{
+    border-color:rgba(59,130,246,.28);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.96),
+      0 8px 20px rgba(37,99,235,.07);
+    transform:translateY(-1px);
+  }
+
+  #pubCreateClean .field select:focus{
+    outline:none;
+    border-color:#2563eb;
+    box-shadow:
+      0 0 0 4px rgba(37,99,235,.10),
+      0 10px 22px rgba(37,99,235,.10);
+    background-color:#fff;
+  }
+
+  #pubCreateClean .field select + label{
+    position:absolute;
+    top:9px;
+    left:11px;
+    z-index:2;
+    margin:0;
+    padding:0 6px;
+    font-size:11px;
+    font-weight:800;
+    line-height:1;
+    color:#2563eb;
+    background: linear-gradient(180deg, rgba(248,250,252,.98), rgba(255,255,255,.94));
+    border-radius:8px;
+    pointer-events:none;
+    letter-spacing:.01em;
+  }
+
+  #pubCreateClean .field.invalid select{
+    border-color:rgba(244,63,94,.42);
+    box-shadow:0 0 0 4px rgba(244,63,94,.07);
+  }
+
+  #pubCreateClean .field.invalid select + label{
+    color:#e11d48;
+  }
+
+  /* Select custom compacto para Estado */
+  #pubCreateClean .field--custom{
+    position:relative;
+  }
+
+  #pubCreateClean .smartSelect{
+    position:relative;
+  }
+
+  #pubCreateClean .smartSelect__trigger{
+    width:100%;
+    min-height:56px;
+    height:56px;
+    border:none;
+    border-radius:14px;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,250,252,.98));
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.96),
+      0 4px 14px rgba(15,23,42,.04);
+    border:1px solid rgba(148,163,184,.24);
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    gap:12px;
+    padding:22px 14px 10px;
+    cursor:pointer;
+    transition:
+      border-color .18s ease,
+      box-shadow .18s ease,
+      transform .18s ease,
+      background .18s ease;
+  }
+
+  #pubCreateClean .smartSelect__trigger:hover{
+    transform:translateY(-1px);
+    border-color:rgba(59,130,246,.28);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.98),
+      0 10px 24px rgba(37,99,235,.08);
+  }
+
+  #pubCreateClean .smartSelect.is-open .smartSelect__trigger{
+    border-color:#2563eb;
+    box-shadow:
+      0 0 0 4px rgba(37,99,235,.10),
+      0 12px 26px rgba(37,99,235,.12);
+    background:#fff;
+  }
+
+  #pubCreateClean .smartSelect__label{
+    position:absolute;
+    top:9px;
+    left:11px;
+    z-index:2;
+    padding:0 6px;
+    font-size:11px;
+    font-weight:800;
+    line-height:1;
+    color:#2563eb;
+    background: linear-gradient(180deg, rgba(248,250,252,.98), rgba(255,255,255,.94));
+    border-radius:8px;
+    letter-spacing:.01em;
+    pointer-events:none;
+  }
+
+  #pubCreateClean .smartSelect__current{
+    display:flex;
+    align-items:center;
+    gap:9px;
+    min-width:0;
+    font-size:14px;
+    font-weight:700;
+    color:#0f172a;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+
+  #pubCreateClean .smartSelect__dot{
+    width:8px;
+    height:8px;
+    border-radius:999px;
+    flex:0 0 8px;
+    box-shadow:0 0 0 4px rgba(15,23,42,.04);
+  }
+
+  #pubCreateClean .smartSelect__dot.is-pendiente{ background:#f59e0b; }
+  #pubCreateClean .smartSelect__dot.is-parcial{ background:#3b82f6; }
+  #pubCreateClean .smartSelect__dot.is-cobrado{ background:#10b981; }
+  #pubCreateClean .smartSelect__dot.is-vencido{ background:#ef4444; }
+  #pubCreateClean .smartSelect__dot.is-cancelado{ background:#64748b; }
+
+  #pubCreateClean .smartSelect__arrow{
+    width:16px;
+    height:16px;
+    flex:0 0 16px;
+    color:#64748b;
+    transition:transform .22s ease, color .18s ease;
+  }
+
+  #pubCreateClean .smartSelect.is-open .smartSelect__arrow{
+    transform:rotate(180deg);
+    color:#2563eb;
+  }
+
+  #pubCreateClean .smartSelect__menu{
+    position:absolute;
+    top:calc(100% + 8px);
+    left:0;
+    right:0;
+    z-index:40;
+    padding:8px;
+    border-radius:16px;
+    border:1px solid rgba(226,232,240,.96);
+    background:rgba(255,255,255,.98);
+    backdrop-filter:blur(10px);
+    box-shadow:0 18px 36px rgba(15,23,42,.14);
+    opacity:0;
+    visibility:hidden;
+    transform:translateY(6px) scale(.98);
+    transition:opacity .18s ease, transform .18s ease, visibility .18s ease;
+  }
+
+  #pubCreateClean .smartSelect.is-open .smartSelect__menu{
+    opacity:1;
+    visibility:visible;
+    transform:translateY(0) scale(1);
+  }
+
+  #pubCreateClean .smartSelect__option{
+    width:100%;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    border:none;
+    background:transparent;
+    border-radius:12px;
+    padding:10px 11px;
+    cursor:pointer;
+    color:#1e293b;
+    font-size:13px;
+    font-weight:700;
+    text-align:left;
+    transition:
+      background .16s ease,
+      color .16s ease,
+      transform .16s ease,
+      box-shadow .16s ease;
+  }
+
+  #pubCreateClean .smartSelect__option + .smartSelect__option{
+    margin-top:4px;
+  }
+
+  #pubCreateClean .smartSelect__option:hover{
+    background:#f8fafc;
+    transform:translateX(2px);
+    box-shadow:inset 0 0 0 1px #e2e8f0;
+  }
+
+  #pubCreateClean .smartSelect__option.is-active{
+    background:linear-gradient(135deg, rgba(37,99,235,.10), rgba(59,130,246,.05));
+    color:#1d4ed8;
+    box-shadow:inset 0 0 0 1px rgba(37,99,235,.15);
+  }
+
+  #pubCreateClean .smartSelect__optionMain{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    min-width:0;
+  }
+
+  #pubCreateClean .smartSelect__optionText{
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+
+  #pubCreateClean .smartSelect__check{
+    width:16px;
+    height:16px;
+    opacity:0;
+    transform:scale(.85);
+    transition:opacity .16s ease, transform .16s ease;
+    color:currentColor;
+  }
+
+  #pubCreateClean .smartSelect__option.is-active .smartSelect__check{
+    opacity:1;
+    transform:scale(1);
+  }
+
+  #pubCreateClean .field--custom.invalid .smartSelect__trigger{
+    border-color:rgba(244,63,94,.42);
+    box-shadow:0 0 0 4px rgba(244,63,94,.07);
+  }
+
+  #pubCreateClean .field--custom.invalid .smartSelect__label{
+    color:#e11d48;
+  }
+
+  #pubCreateClean .accBox .field textarea{
+    margin-top:2px;
+  }
+
+  @media (max-width: 900px){
+    #pubCreateClean .miniGrid2,
+    #pubCreateClean .miniGrid3{
+      grid-template-columns:1fr;
+    }
+
+    #pubCreateClean .field select,
+    #pubCreateClean .smartSelect__trigger{
+      min-height:52px;
+      height:52px;
+      padding:20px 40px 9px 13px;
+      font-size:13px;
+    }
+
+    #pubCreateClean .smartSelect__current{
+      font-size:13px;
+    }
+
+    #pubCreateClean .pageHead{
+      flex-direction:column;
+      align-items:flex-start;
+    }
+  }
+
+  
+  /* =========================================================
+     Cobranza · Estilo corporativo (encapsulado)
+     - Minimalista, moderno, más aire
+     - Evita conflictos con estilos globales
+     ========================================================= */
+
+  #pubCreateClean #salesAccountingBox{
+    position:relative;
+    padding: 16px;
+    border-radius: 22px;
+    border: 1px solid rgba(15,23,42,.08);
+    background:
+      radial-gradient(1200px 240px at 12% -10%, rgba(37,99,235,.08), transparent 55%),
+      radial-gradient(900px 240px at 92% 0%, rgba(16,185,129,.07), transparent 55%),
+      linear-gradient(180deg, rgba(255,255,255,.96), rgba(248,250,252,.92));
+    box-shadow:
+      0 18px 48px rgba(15,23,42,.10);
+  }
+
+  #pubCreateClean #salesAccountingBox::before{
+    content:"";
+    position:absolute;
+    inset: 0 0 auto 0;
+    height: 3px;
+    border-radius: 22px 22px 0 0;
+    background: linear-gradient(90deg, rgba(37,99,235,.85), rgba(59,130,246,.25), rgba(16,185,129,.75));
+    opacity:.55;
+    pointer-events:none;
+  }
+
+  #pubCreateClean #salesAccountingBox .accBoxHead{
+    margin: 2px 2px 14px 2px;
+    padding: 10px 10px 12px 10px;
+    border-radius: 18px;
+    border: 1px solid rgba(148,163,184,.14);
+    background: rgba(255,255,255,.72);
+    backdrop-filter: blur(10px);
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap: 14px;
+  }
+
+  #pubCreateClean #salesAccountingBox .accBoxTitle{
+    display:flex;
+    align-items:center;
+    gap: 10px;
+    font-size: 14px;
+    font-weight: 900;
+    color:#0f172a;
+    letter-spacing: -.01em;
+  }
+
+  #pubCreateClean #salesAccountingBox .accBoxTitle svg{
+    width:18px;
+    height:18px;
+    opacity:.9;
+  }
+
+  #pubCreateClean #salesAccountingBox .accBoxSub{
+    margin-top: 6px;
+    color:#475569;
+    font-size: 12.5px;
+    line-height: 1.55;
+  }
+
+  #pubCreateClean #salesAccountingBox .sectionBadge{
+    background: rgba(37,99,235,.08);
+    border: 1px solid rgba(37,99,235,.16);
+    color: #1d4ed8;
+    font-size: 11px;
+    font-weight: 800;
+    padding: 6px 10px;
+  }
+
+  /* Grids (tipo bootstrap gutters) */
+  #pubCreateClean #salesAccountingBox .corpGrid{
+    display:grid;
+    gap: 14px;
+    margin-top: 14px;
+  }
+  #pubCreateClean #salesAccountingBox .corpGrid--2{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #pubCreateClean #salesAccountingBox .corpGrid--3{ grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+  /* Campo corporativo */
+  #pubCreateClean #salesAccountingBox .corpField{
+    min-width:0;
+  }
+
+  #pubCreateClean #salesAccountingBox .corpLabel{
+    display:block;
+    margin: 0 0 6px 2px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: rgba(30,41,59,.78);
+  }
+
+  /* Control base (select/input/textarea) */
+  #pubCreateClean #salesAccountingBox .corpControl{
+    width:100% !important;
+    box-sizing:border-box !important;
+
+    height: 48px !important;
+    min-height: 48px !important;
+
+    padding: 0 14px !important;
+    border-radius: 14px !important;
+
+    border: 1px solid rgba(148,163,184,.26) !important;
+    background: rgba(255,255,255,.92) !important;
+    color: #0f172a !important;
+
+    font-size: 14px !important;
+    font-weight: 100 !important;
+
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.92),
+      0 6px 18px rgba(15,23,42,.05) !important;
+
+    transition:
+      border-color .18s ease,
+      box-shadow .18s ease,
+      transform .18s ease,
+      background-color .18s ease !important;
+  }
+
+  #pubCreateClean #salesAccountingBox .corpControl:hover{
+    transform: translateY(-1px) !important;
+    border-color: rgba(59,130,246,.28) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.96),
+      0 12px 28px rgba(15,23,42,.08) !important;
+  }
+
+  #pubCreateClean #salesAccountingBox .corpControl:focus{
+    outline: none !important;
+    background: #fff !important;
+    border-color: #2563eb !important;
+    box-shadow:
+      0 0 0 4px rgba(37,99,235,.10),
+      0 16px 34px rgba(37,99,235,.10) !important;
+    transform: translateY(-1px) !important;
+  }
+
+  /* Select arrow corporativo */
+  #pubCreateClean #salesAccountingBox select.corpControl{
+    -webkit-appearance:none !important;
+    -moz-appearance:none !important;
+    appearance:none !important;
+    padding-right: 42px !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='M5 7.5L10 12.5L15 7.5' stroke='%2364758B' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
+    background-repeat:no-repeat !important;
+    background-position:right 14px center !important;
+    background-size:18px 18px !important;
+  }
+
+  /* Input date: alinea ícono */
+  #pubCreateClean #salesAccountingBox input[type="date"].corpControl{
+    padding-right: 42px !important;
+  }
+
+  /* Textarea */
+  #pubCreateClean #salesAccountingBox textarea.corpControl{
+    height: auto !important;
+    min-height: 112px !important;
+    padding: 12px 14px !important;
+    line-height: 1.5 !important;
+    font-weight: 600 !important;
+    resize: vertical !important;
+  }
+
+  /* SmartSelect (Estado) versión corporativa */
+  #pubCreateClean #salesAccountingBox .smartSelect--corp{
+    position:relative;
+  }
+
+  #pubCreateClean #salesAccountingBox .smartSelect--corp .smartSelect__trigger{
+    width:100%;
+    height:48px;
+    min-height:48px;
+    padding: 0 14px;
+    border-radius:14px;
+    border: 1px solid rgba(148,163,184,.26);
+    background: rgba(255,255,255,.92);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.92),
+      0 6px 18px rgba(15,23,42,.05);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    transition:
+      border-color .18s ease,
+      box-shadow .18s ease,
+      transform .18s ease,
+      background-color .18s ease;
+  }
+
+  #pubCreateClean #salesAccountingBox .smartSelect--corp .smartSelect__trigger:hover{
+    transform: translateY(-1px);
+    border-color: rgba(59,130,246,.28);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.96),
+      0 12px 28px rgba(15,23,42,.08);
+  }
+
+  #pubCreateClean #salesAccountingBox .smartSelect--corp.is-open .smartSelect__trigger{
+    background:#fff;
+    border-color:#2563eb;
+    box-shadow:
+      0 0 0 4px rgba(37,99,235,.10),
+      0 16px 34px rgba(37,99,235,.10);
+  }
+
+  #pubCreateClean #salesAccountingBox .smartSelect--corp .smartSelect__current{
+    font-size:14px;
+    font-weight:800;
+  }
+
+  #pubCreateClean #salesAccountingBox .smartSelect--corp .smartSelect__menu{
+    border-radius: 16px;
+    border:1px solid rgba(226,232,240,.96);
+    box-shadow: 0 22px 46px rgba(15,23,42,.16);
+  }
+
+  #pubCreateClean #salesAccountingBox .smartSelect--corp .smartSelect__option{
+    padding: 10px 12px;
+    border-radius: 12px;
+  }
+
+  /* Errores */
+  #pubCreateClean #salesAccountingBox .corpField.invalid .corpControl,
+  #pubCreateClean #salesAccountingBox .corpField.invalid .smartSelect__trigger{
+    border-color: rgba(244,63,94,.42) !important;
+    box-shadow: 0 0 0 4px rgba(244,63,94,.08) !important;
+  }
+
+  #pubCreateClean #salesAccountingBox .corpField.invalid .corpLabel{
+    color: rgba(225,29,72,.90);
+  }
+
+  /* Nota final */
+  #pubCreateClean #salesAccountingBox .accInlineNote{
+    margin-top: 14px;
+    border-radius: 16px;
+    border: 1px solid rgba(148,163,184,.14);
+    background: rgba(255,255,255,.70);
+    box-shadow: 0 10px 24px rgba(15,23,42,.06);
+  }
+
+  @media (max-width: 900px){
+    #pubCreateClean #salesAccountingBox{
+      padding: 14px;
+    }
+    #pubCreateClean #salesAccountingBox .corpGrid--2,
+    #pubCreateClean #salesAccountingBox .corpGrid--3{
+      grid-template-columns: 1fr;
+    }
+  }
 </style>
+
 <div class="container py-5" id="pubCreateClean">
-  {{-- ✅ Overlay loader --}}
   <div class="overlay" id="aiOverlay" aria-hidden="true">
     <div class="grain"></div>
     <div class="box">
@@ -128,16 +875,20 @@
         Subir publicación
       </h1>
       <div class="subtitle">
-        Carga uno o varios archivos y revisa la extracción antes de guardar. El flujo acepta cualquier archivo. La IA extrae mejor en PDF, imágenes y archivos con texto legible, y si no puede leer uno te deja corregirlo manualmente sin romper el lote.
+        Carga uno o varios archivos y revisa la extracción antes de guardar. El flujo acepta cualquier archivo. La IA extrae mejor en PDF, imágenes y archivos con texto legible.
       </div>
     </div>
+
     <div class="topActions">
-      <a class="btnx" href="{{ route('publications.index') }}">
-        @include('publications.partials.icons', ['name' => 'arrowLeft'])
-        Volver
+      <a class="backLinkClean" href="{{ route('publications.index') }}">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M15 6L9 12L15 18" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>Volver al listado</span>
       </a>
     </div>
   </div>
+
   @if($errors->any())
     <div class="card" style="margin-bottom:14px; border-color: var(--rose-brd);">
       <div class="cardBody" style="padding:14px 16px;">
@@ -147,16 +898,14 @@
       </div>
     </div>
   @endif
+
   <form id="pubCreateForm" action="{{ route('publications.store') }}" method="POST" enctype="multipart/form-data">
     @csrf
 
     <input type="hidden" name="ai_extract" id="ai_extract" value="1">
     <input type="hidden" name="ai_skip" id="ai_skip" value="0">
 
-    {{-- ✅ Single payload (cuando subes 1) --}}
     <input type="hidden" name="ai_payload" id="ai_payload" value="">
-
-    {{-- ✅ Bulk payload (cuando subes varios) --}}
     <input type="hidden" name="ai_payload_bulk" id="ai_payload_bulk" value="">
     <div id="fpInputs"></div>
 
@@ -164,7 +913,6 @@
     <input type="hidden" name="ai_tax_rate" id="ai_tax_rate" value="0.16">
 
     <div class="grid">
-      {{-- COLUMNA IZQUIERDA: DETALLES --}}
       <div class="stack">
         <div class="card">
           <div class="cardHead">
@@ -185,6 +933,7 @@
               <div class="catToggle">
                 <input type="radio" name="category" value="compra" id="cat-compra" class="hidden" {{ $v('category', 'compra') == 'compra' ? 'checked' : '' }}>
                 <label for="cat-compra" class="catOption opt-compra">Compra</label>
+
                 <input type="radio" name="category" value="venta" id="cat-venta" class="hidden" {{ $v('category') == 'venta' ? 'checked' : '' }}>
                 <label for="cat-venta" class="catOption opt-venta">Venta</label>
               </div>
@@ -193,6 +942,173 @@
             <div class="field">
               <textarea name="description" id="f-desc" placeholder=" ">{{ $v('description') }}</textarea>
               <label for="f-desc">Descripción (Opcional)</label>
+            </div>
+
+            <div id="salesAccountingBox" class="accBox {{ $v('category') === 'venta' ? '' : 'hidden' }}">
+              <div class="accBoxHead">
+                <div>
+                  <div class="accBoxTitle">
+                    @include('publications.partials.icons', ['name' => 'file'])
+                    Datos para Cuentas por Cobrar
+                  </div>
+
+                </div>
+                <span class="sectionBadge">Venta → Cobranza</span>
+              </div>
+
+              <div class="corpGrid corpGrid--2">
+                <div class="corpField @error('company_id') invalid @enderror">
+                  <label class="corpLabel" for="f-company_id">Compañía</label>
+                  <select class="corpControl" name="company_id" id="f-company_id">
+                    <option value="">Selecciona compañía</option>
+                    @foreach(($companies ?? []) as $c)
+                      <option value="{{ $c->id }}" @selected((string)$v('company_id') === (string)$c->id)>{{ $c->name }}</option>
+                    @endforeach
+                  </select>
+                </div>
+
+                <div class="corpField @error('due_date') invalid @enderror">
+                  <label class="corpLabel" for="f-due_date">Fecha de vencimiento</label>
+                  <input class="corpControl" type="date" name="due_date" id="f-due_date" value="{{ $v('due_date') }}">
+                </div>
+              </div>
+
+              <div class="corpGrid corpGrid--3">
+                <div class="corpField @error('amount_paid') invalid @enderror">
+                  <label class="corpLabel" for="f-amount_paid">Monto pagado</label>
+                  <input class="corpControl" type="number" min="0" step="0.01" name="amount_paid" id="f-amount_paid" value="{{ $v('amount_paid', 0) }}">
+                </div>
+
+                @php
+                  $statusValue = $v('status', 'pendiente');
+                  $statusLabelMap = [
+                    'pendiente' => 'Pendiente',
+                    'parcial' => 'Parcial',
+                    'cobrado' => 'Cobrado',
+                    'vencido' => 'Vencido',
+                    'cancelado' => 'Cancelado',
+                  ];
+                @endphp
+                <div class="corpField @error('status') invalid @enderror">
+                  <label class="corpLabel">Estado</label>
+
+                  <div class="smartSelect smartSelect--corp" data-smart-select>
+                    <input type="hidden" name="status" id="f-status" value="{{ $statusValue }}">
+
+                    <button type="button" class="smartSelect__trigger" data-smart-select-trigger aria-haspopup="listbox" aria-expanded="false">
+                      <span class="smartSelect__current" data-smart-select-current>
+                        <span class="smartSelect__dot is-{{ $statusValue }}"></span>
+                        <span>{{ $statusLabelMap[$statusValue] ?? 'Pendiente' }}</span>
+                      </span>
+                      <svg class="smartSelect__arrow" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                        <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                    </button>
+
+                    <div class="smartSelect__menu" data-smart-select-menu role="listbox">
+                      <button type="button" class="smartSelect__option {{ $statusValue === 'pendiente' ? 'is-active' : '' }}" data-smart-select-option data-value="pendiente" data-label="Pendiente">
+                        <span class="smartSelect__optionMain">
+                          <span class="smartSelect__dot is-pendiente"></span>
+                          <span class="smartSelect__optionText">Pendiente</span>
+                        </span>
+                        <svg class="smartSelect__check" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                          <path d="M5 10.5L8.2 13.5L15 6.5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                      </button>
+
+                      <button type="button" class="smartSelect__option {{ $statusValue === 'parcial' ? 'is-active' : '' }}" data-smart-select-option data-value="parcial" data-label="Parcial">
+                        <span class="smartSelect__optionMain">
+                          <span class="smartSelect__dot is-parcial"></span>
+                          <span class="smartSelect__optionText">Parcial</span>
+                        </span>
+                        <svg class="smartSelect__check" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                          <path d="M5 10.5L8.2 13.5L15 6.5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                      </button>
+
+                      <button type="button" class="smartSelect__option {{ $statusValue === 'cobrado' ? 'is-active' : '' }}" data-smart-select-option data-value="cobrado" data-label="Cobrado">
+                        <span class="smartSelect__optionMain">
+                          <span class="smartSelect__dot is-cobrado"></span>
+                          <span class="smartSelect__optionText">Cobrado</span>
+                        </span>
+                        <svg class="smartSelect__check" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                          <path d="M5 10.5L8.2 13.5L15 6.5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                      </button>
+
+                      <button type="button" class="smartSelect__option {{ $statusValue === 'vencido' ? 'is-active' : '' }}" data-smart-select-option data-value="vencido" data-label="Vencido">
+                        <span class="smartSelect__optionMain">
+                          <span class="smartSelect__dot is-vencido"></span>
+                          <span class="smartSelect__optionText">Vencido</span>
+                        </span>
+                        <svg class="smartSelect__check" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                          <path d="M5 10.5L8.2 13.5L15 6.5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                      </button>
+
+                      <button type="button" class="smartSelect__option {{ $statusValue === 'cancelado' ? 'is-active' : '' }}" data-smart-select-option data-value="cancelado" data-label="Cancelado">
+                        <span class="smartSelect__optionMain">
+                          <span class="smartSelect__dot is-cancelado"></span>
+                          <span class="smartSelect__optionText">Cancelado</span>
+                        </span>
+                        <svg class="smartSelect__check" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                          <path d="M5 10.5L8.2 13.5L15 6.5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="corpField @error('priority') invalid @enderror">
+                  <label class="corpLabel" for="f-priority">Prioridad</label>
+                  <select class="corpControl" name="priority" id="f-priority">
+                    <option value="alta" @selected($v('priority') === 'alta')>Alta</option>
+                    <option value="media" @selected($v('priority','media') === 'media')>Media</option>
+                    <option value="baja" @selected($v('priority') === 'baja')>Baja</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="corpGrid corpGrid--3">
+                <div class="corpField @error('collection_status') invalid @enderror">
+                  <label class="corpLabel" for="f-collection_status">Estado de cobranza</label>
+                  <select class="corpControl" name="collection_status" id="f-collection_status">
+                    <option value="sin_gestion" @selected($v('collection_status','sin_gestion') === 'sin_gestion')>Sin gestión</option>
+                    <option value="en_gestion" @selected($v('collection_status') === 'en_gestion')>En gestión</option>
+                    <option value="promesa_pago" @selected($v('collection_status') === 'promesa_pago')>Promesa de pago</option>
+                    <option value="litigio" @selected($v('collection_status') === 'litigio')>Litigio</option>
+                    <option value="incobrable" @selected($v('collection_status') === 'incobrable')>Incobrable</option>
+                  </select>
+                </div>
+
+                <div class="corpField @error('reminder_days_before') invalid @enderror">
+                  <label class="corpLabel" for="f-reminder_days_before">Días previos para recordar</label>
+                  <input class="corpControl" type="number" min="0" max="365" name="reminder_days_before" id="f-reminder_days_before" value="{{ $v('reminder_days_before', 5) }}">
+                </div>
+
+                <div class="corpField @error('assigned_to') invalid @enderror">
+                  <label class="corpLabel" for="f-assigned_to">Asignado a</label>
+                  <select class="corpControl" name="assigned_to" id="f-assigned_to">
+                    <option value="">Sin asignar</option>
+                    @foreach($usersList as $user)
+                      <option value="{{ $user->id }}" @selected((string)$v('assigned_to') === (string)$user->id)>
+                        {{ $user->name }}{{ !empty($user->email) ? ' · '.$user->email : '' }}
+                      </option>
+                    @endforeach
+                  </select>
+                </div>
+              </div>
+
+              <div class="corpGrid" style="margin-top:14px;">
+                <div class="corpField @error('notes') invalid @enderror">
+                  <label class="corpLabel" for="f-notes">Notas de cobranza</label>
+                  <textarea class="corpControl" name="notes" id="f-notes" placeholder="Notas internas, acuerdos, seguimiento...">{{ $v('notes') }}</textarea>
+                </div>
+              </div>
+
+              <div class="accInlineNote">
+                La publicación de venta quedará lista para ligarse a cobranza. Se recomienda capturar <strong>fecha de vencimiento</strong> y, si aplica, el <strong>usuario responsable</strong>.
+              </div>
             </div>
 
             <div class="switchWrap">
@@ -207,7 +1123,7 @@
             </div>
 
             <div style="margin-top:10px; display:flex; gap:10px; justify-content:flex-end;">
-              <button class="btnx mint" type="submit" id="submitBtn">
+              <button class="btnx mint" type="submit" id="submitBtn" disabled>
                 @include('publications.partials.icons', ['name' => 'check'])
                 Guardar Publicación
               </button>
@@ -217,7 +1133,6 @@
         </div>
       </div>
 
-      {{-- COLUMNA DERECHA: ARCHIVO + EXTRACTOR --}}
       <div class="stack">
         <div class="card">
           <div class="cardHead">
@@ -230,7 +1145,6 @@
           </div>
 
           <div class="cardBody">
-            {{-- ✅ MULTI: files[] --}}
             <input type="file" name="files[]" id="f-file" style="display:none;" multiple required accept="*/*">
 
             <div class="drop" id="dropZone" title="Click para seleccionar archivos">
@@ -248,10 +1162,8 @@
               </div>
             </div>
 
-                        </div>
-
             <div class="premiumHint">
-              <strong>Modo inteligente:</strong> la IA intenta leer el archivo automáticamente. Funciona mejor con PDF, imágenes y documentos con texto legible. Si no detecta renglones o el archivo es binario, puedes corregirlo aquí mismo sin perder la subida.
+              <strong>Modo inteligente:</strong> el guardado se habilita únicamente cuando la IA devuelve información útil o cuando capturas manualmente un documento válido.
             </div>
 
             <div class="aiBanner" id="aiBanner"></div>
@@ -265,17 +1177,14 @@
               </div>
             </div>
 
-            {{-- ✅ MULTI: resultados por documento (editable) --}}
             <div class="hidden" id="multiBox" style="margin-top:14px;">
               <div class="multiList" id="multiList"></div>
             </div>
 
-            {{-- ✅ SINGLE: editor --}}
             <div class="hidden" id="aiResult">
               <div class="tableWrap">
-
                 <div class="docMetaRow">
-                  <input class="miniField" id="docSupplier" placeholder="Proveedor (ej. Office Depot, Walmart, etc.)">
+                  <input class="miniField" id="docSupplier" placeholder="Proveedor / Cliente">
                   <input class="miniField" id="docDatetime" type="datetime-local" placeholder="Fecha del documento">
                 </div>
 
@@ -309,16 +1218,14 @@
                     </div>
                   </div>
                 </div>
-
               </div>
             </div>
 
-            {{-- ✅ SINGLE: manual --}}
             <div class="hidden" id="manualBox" style="margin-top:16px; border-top:1px solid rgba(15,23,42,.1); padding-top:16px;">
               <h4 style="font-size:13px; color:var(--ink); margin:0 0 10px 0;">Captura Manual</h4>
 
               <div class="docMetaRow" style="margin-bottom:10px; border:1px solid rgba(15,23,42,.08); border-radius:12px;">
-                <input class="miniField" id="m_supplier" placeholder="Proveedor (manual)">
+                <input class="miniField" id="m_supplier" placeholder="Proveedor / Cliente (manual)">
                 <input class="miniField" id="m_datetime" type="datetime-local" placeholder="Fecha (manual)">
               </div>
 
@@ -390,23 +1297,28 @@
       const btnRetry = document.getElementById('btnRetry');
       const btnSkipIA = document.getElementById('btnSkipIA');
       const btnClearAi = document.getElementById('btnClearAi');
+      const btnAddRow = document.getElementById('btnAddRow');
+      const btnAiAddRow = document.getElementById('btnAiAddRow');
 
       const overlay = document.getElementById('aiOverlay');
       const ovFile = document.getElementById('ovFile');
       const ovBar = document.getElementById('ovBar');
       const ovTxt = document.getElementById('ovTxt');
 
-      // ✅ Icono file (para usar en templates JS sin romper)
+      const salesAccountingBox = document.getElementById('salesAccountingBox');
+      const companyInput = document.getElementById('f-company_id');
+      const submitBtn = document.getElementById('submitBtn');
+
       const iconFileHtml = @json(view('publications.partials.icons', ['name' => 'file'])->render());
 
       let aiRows = [];
       let manualRows = [];
-
-      // ✅ documento single
       let aiDoc = { supplier_name:'', document_datetime:'' };
+      const multi = new Map();
 
-      // ✅ multi store
-      const multi = new Map(); // fp -> object
+      let currentMode = '';
+      let aiRunningCount = 0;
+      let batchAiRunning = false;
 
       const money = n => '$' + Number(n||0).toLocaleString('es-MX', {minimumFractionDigits:2, maximumFractionDigits:2});
       const num = v => parseFloat(String(v ?? '').replace(/[^0-9.\-]/g,'')) || 0;
@@ -463,7 +1375,6 @@
         if(s === 'fail') document.getElementById('pillAiFail').classList.remove('hidden');
       }
 
-
       function setBanner(msg='', kind='info'){
         if(!aiBanner) return;
         aiBanner.textContent = msg || '';
@@ -504,12 +1415,233 @@
         return document.querySelector('input[name="category"]:checked')?.value || 'compra';
       }
 
+      function isSale(){
+        return categoryVal() === 'venta';
+      }
+
+      function partyLabel(){
+        return isSale() ? 'Cliente / Receptor' : 'Proveedor';
+      }
+
+      function refreshPartyPlaceholders(){
+        if (docSupplier) docSupplier.placeholder = partyLabel();
+        if (mSupplier) mSupplier.placeholder = partyLabel() + ' (manual)';
+      }
+
+      function setBtnLoading(btn, on, text = 'Procesando...'){
+        if(!btn) return;
+        if(on){
+          if(!btn.dataset.originalHtml){
+            btn.dataset.originalHtml = btn.innerHTML;
+          }
+          btn.classList.add('loading','btnPulse');
+          btn.disabled = true;
+          btn.innerHTML = `<span class="btnSpin"></span>${escapeHtml(text)}`;
+        }else{
+          btn.classList.remove('loading','btnPulse');
+          if(btn.dataset.originalHtml){
+            btn.innerHTML = btn.dataset.originalHtml;
+          }
+        }
+      }
+
+      function initSmartSelects(){
+        document.querySelectorAll('[data-smart-select]').forEach(select => {
+          if(select.dataset.ready === '1') return;
+          select.dataset.ready = '1';
+
+          const trigger = select.querySelector('[data-smart-select-trigger]');
+          const menu = select.querySelector('[data-smart-select-menu]');
+          const input = select.querySelector('input[type="hidden"]');
+          const current = select.querySelector('[data-smart-select-current]');
+          const options = Array.from(select.querySelectorAll('[data-smart-select-option]'));
+
+          if(!trigger || !menu || !input || !current || !options.length) return;
+
+          const close = () => {
+            select.classList.remove('is-open');
+            trigger.setAttribute('aria-expanded', 'false');
+          };
+
+          const open = () => {
+            document.querySelectorAll('[data-smart-select].is-open').forEach(other => {
+              if(other !== select){
+                other.classList.remove('is-open');
+                other.querySelector('[data-smart-select-trigger]')?.setAttribute('aria-expanded', 'false');
+              }
+            });
+            select.classList.add('is-open');
+            trigger.setAttribute('aria-expanded', 'true');
+          };
+
+          trigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            select.classList.contains('is-open') ? close() : open();
+          });
+
+          options.forEach(option => {
+            option.addEventListener('click', (e) => {
+              e.preventDefault();
+
+              const value = option.dataset.value || '';
+              const label = option.dataset.label || option.textContent.trim();
+              const dot = option.querySelector('.smartSelect__dot')?.outerHTML || '';
+
+              input.value = value;
+              current.innerHTML = `${dot}<span>${escapeHtml(label)}</span>`;
+
+              options.forEach(opt => opt.classList.remove('is-active'));
+              option.classList.add('is-active');
+
+              close();
+              input.dispatchEvent(new Event('change', { bubbles:true }));
+            });
+          });
+
+          select.addEventListener('keydown', (e) => {
+            if(e.key === 'Escape'){
+              close();
+              trigger.focus();
+            }
+          });
+        });
+
+        if(!document.body.dataset.smartSelectBound){
+          document.body.dataset.smartSelectBound = '1';
+
+          document.addEventListener('click', (e) => {
+            document.querySelectorAll('[data-smart-select].is-open').forEach(select => {
+              if(!select.contains(e.target)){
+                select.classList.remove('is-open');
+                select.querySelector('[data-smart-select-trigger]')?.setAttribute('aria-expanded', 'false');
+              }
+            });
+          });
+        }
+      }
+
+      function safeJsonParse(text){
+        try{
+          return text ? JSON.parse(text) : null;
+        }catch(_e){
+          return null;
+        }
+      }
+
+      function hasMeaningfulItems(items){
+        return Array.isArray(items) && items.some(r =>
+          cleanTxt(r?.item_name) ||
+          num(r?.qty) > 0 ||
+          num(r?.unit_price) > 0 ||
+          num(r?.line_total) > 0
+        );
+      }
+
+      function hasMeaningfulDoc(doc){
+        return !!(
+          cleanTxt(doc?.supplier_name) ||
+          cleanTxt(doc?.document_datetime) ||
+          num(doc?.subtotal) > 0 ||
+          num(doc?.tax) > 0 ||
+          num(doc?.total) > 0
+        );
+      }
+
+      function hasMeaningfulExtract(doc, items){
+        return hasMeaningfulDoc(doc) || hasMeaningfulItems(items);
+      }
+
+      function isAiBusy(){
+        return aiRunningCount > 0 || batchAiRunning;
+      }
+
+      function beginAiWork(){
+        aiRunningCount++;
+        updateSubmitAvailability();
+      }
+
+      function endAiWork(){
+        aiRunningCount = Math.max(0, aiRunningCount - 1);
+        updateSubmitAvailability();
+      }
+
+      function manualPayloadReady(){
+        const payload = safeJsonParse(aiPayloadHidden.value);
+        return hasMeaningfulExtract(payload?.document, payload?.items);
+      }
+
+      function singleAiPayloadReady(){
+        const payload = safeJsonParse(aiPayloadHidden.value);
+        return hasMeaningfulExtract(payload?.document, payload?.items);
+      }
+
+      function bulkPayloadReady(filesCount){
+        const payloads = safeJsonParse(aiPayloadBulkHidden.value);
+        if(!Array.isArray(payloads) || payloads.length !== filesCount) return false;
+        return payloads.every(p => hasMeaningfulExtract(p?.document, p?.items || []));
+      }
+
+      function updateSubmitAvailability(){
+        const files = Array.from(fileInput.files || []);
+        let canSave = false;
+        let reason = '';
+
+        if(!files.length){
+          reason = 'Selecciona al menos un archivo.';
+        } else if (isAiBusy()){
+          reason = 'Espera a que termine el análisis de IA.';
+        } else if (isSale() && !companyInput?.value){
+          reason = 'Selecciona una compañía para la venta.';
+        } else if (files.length > 1){
+          canSave = bulkPayloadReady(files.length);
+          reason = canSave ? '' : 'Debes tener datos válidos en todos los documentos del lote.';
+        } else if (aiSkipHidden.value === '1' || currentMode === 'manual'){
+          canSave = manualPayloadReady();
+          reason = canSave ? '' : 'En modo manual debes capturar al menos un concepto o datos válidos.';
+        } else {
+          canSave = singleAiPayloadReady();
+          reason = canSave ? '' : 'No puedes guardar hasta que la IA arroje información válida.';
+        }
+
+        submitBtn.disabled = !canSave;
+        submitBtn.title = reason;
+
+        if(!canSave){
+          submitBtn.classList.remove('loading','btnPulse');
+          if(submitBtn.dataset.originalHtml){
+            submitBtn.innerHTML = submitBtn.dataset.originalHtml;
+          }
+        }
+      }
+
+      function toggleSalesFields(){
+        const sale = isSale();
+
+        salesAccountingBox?.classList.toggle('hidden', !sale);
+
+        if (companyInput) {
+          companyInput.required = sale;
+        }
+
+        if (sale) {
+          setBanner('En venta, el documento quedará ligado automáticamente a cuentas por cobrar.', 'info');
+        } else {
+          if (!Array.from(fileInput.files || []).length) {
+            setBanner('', 'info');
+          }
+        }
+
+        refreshPartyPlaceholders();
+        updateSubmitAvailability();
+      }
+
       function toggleView(mode){
-        // mode: 'ai' | 'manual' | 'multi' | ''
+        currentMode = mode || '';
         aiResult.classList.toggle('hidden', mode !== 'ai');
         manualBox.classList.toggle('hidden', mode !== 'manual');
         multiBox.classList.toggle('hidden', mode !== 'multi');
         btnClearAi.classList.toggle('hidden', mode !== 'ai');
+        updateSubmitAvailability();
       }
 
       function syncAiDocFromInputs(){
@@ -517,9 +1649,16 @@
         aiDoc.document_datetime = fromDatetimeLocal(docDatetime?.value || '');
       }
 
-      // ✅ FIX: updateTotalsSingle (antes estaba updateTotals() y tronaba)
       docSupplier?.addEventListener('input', () => { syncAiDocFromInputs(); updateTotalsSingle(); });
       docDatetime?.addEventListener('change', () => { syncAiDocFromInputs(); updateTotalsSingle(); });
+      companyInput?.addEventListener('change', updateSubmitAvailability);
+
+      document.querySelectorAll('input[name="category"]').forEach(r => {
+        r.addEventListener('change', () => {
+          toggleSalesFields();
+          handleSelection();
+        });
+      });
 
       function fingerprint(f){
         return `${f.name}|${f.size}|${f.type || ''}`;
@@ -539,15 +1678,15 @@
       function updateMultiBulkHidden(){
         const payloads = [];
         for (const [fp, o] of multi.entries()){
-          if(!o.doc) continue;
           payloads.push({
             fp,
-            document: o.doc,
+            document: o.doc || null,
             items: o.items || [],
             notes: o.notes || null
           });
         }
         aiPayloadBulkHidden.value = payloads.length ? JSON.stringify(payloads) : '';
+        updateSubmitAvailability();
       }
 
       async function extractSingleFile(file){
@@ -576,7 +1715,8 @@
           tax: 0,
           total: 0,
           tax_mode: 'manual',
-          tax_rate: currentTaxRate()
+          tax_rate: currentTaxRate(),
+          category: categoryVal()
         };
       }
 
@@ -619,7 +1759,7 @@
             multi.set(fp, {
               fp,
               file: f,
-              status: 'queued', // queued|run|ok|fail
+              status: 'queued',
               err: null,
               doc: null,
               items: [],
@@ -648,7 +1788,7 @@
                 <div style="min-width:0">
                   <div class="miName" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</div>
                   <div class="miMeta">
-                    <span>Proveedor/Cliente: <b>${escapeHtml(supplier)}</b></span>
+                    <span>${escapeHtml(partyLabel())}: <b>${escapeHtml(supplier)}</b></span>
                     <span>Fecha: <b>${escapeHtml(dt)}</b></span>
                     <span>Total: <b>${escapeHtml(total)}</b></span>
                     <span>Items: <b>${itemsCount}</b></span>
@@ -701,7 +1841,7 @@
             body.innerHTML = `
               <div class="tableWrap">
                 <div class="docMetaRow">
-                  <input class="miniField" data-k="supplier" placeholder="Proveedor / Cliente" value="${escapeHtml(supplierVal)}">
+                  <input class="miniField" data-k="supplier" placeholder="${escapeHtml(partyLabel())}" value="${escapeHtml(supplierVal)}">
                   <input class="miniField" data-k="datetime" type="datetime-local" placeholder="Fecha operación" value="${escapeHtml(dtVal)}">
                 </div>
 
@@ -822,7 +1962,6 @@
               syncTotalsUI();
             }
 
-            // header inputs
             const inpSupplier = body.querySelector('[data-k="supplier"]');
             const inpDt = body.querySelector('[data-k="datetime"]');
 
@@ -838,14 +1977,12 @@
               renderMultiList();
             });
 
-            // tax included
             taxChk.addEventListener('change', () => {
               o.taxIncluded = !!taxChk.checked;
               syncTotalsUI();
               renderMultiList();
             });
 
-            // add row
             body.querySelector('[data-add="1"]').addEventListener('click', () => {
               o.items.push({ item_name:'', qty:1, unit_price:0, line_total:0, unit:'pza' });
               renderRows();
@@ -860,14 +1997,13 @@
             updateMultiBulkHidden();
           }
 
-          // actions
           wrap.querySelector('[data-act="toggle"]').addEventListener('click', () => {
             o.expanded = !o.expanded;
             renderMultiList();
           });
 
-          wrap.querySelector('[data-act="analyze"]').addEventListener('click', async () => {
-            await analyzeOne(fp);
+          wrap.querySelector('[data-act="analyze"]').addEventListener('click', async (e) => {
+            await analyzeOne(fp, e.currentTarget);
           });
 
           wrap.querySelector('[data-act="manual"]').addEventListener('click', () => {
@@ -880,6 +2016,7 @@
             o.expanded = true;
             updateMultiBulkHidden();
             renderMultiList();
+            setBanner('Documento en modo manual. Debes capturar datos válidos para habilitar Guardar.', 'warn');
           });
 
           wrap.querySelector('[data-act="remove"]').addEventListener('click', () => {
@@ -906,7 +2043,7 @@
         updateMultiBulkHidden();
       }
 
-      async function analyzeOne(fp){
+      async function analyzeOne(fp, triggerBtn = null){
         const o = multi.get(fp);
         if(!o) return;
         if(o.status === 'run') return;
@@ -920,6 +2057,8 @@
         const totalN = Math.max(1, files.length);
 
         showOverlay(true, `Analizando ${idx+1}/${totalN}`, o.file?.name || '—', ((idx) / totalN) * 100);
+        beginAiWork();
+        setBtnLoading(triggerBtn, true, 'Analizando...');
 
         try{
           const data = await extractSingleFile(o.file);
@@ -936,6 +2075,10 @@
             unit: cleanTxt(it.unit || 'pza')
           })));
           normItems.forEach(recalcRowModel);
+
+          if(!hasMeaningfulExtract(doc, normItems)){
+            throw new Error('La IA no detectó información utilizable en este documento.');
+          }
 
           const totals = computeTotalsFromItems(normItems, true);
 
@@ -960,7 +2103,11 @@
 
           updateMultiBulkHidden();
           renderMultiList();
-          if(data.warning){ setBanner(data.warning, 'warn'); } else { setBanner('Extracción completada. Revisa y ajusta cada documento antes de guardar.', 'info'); }
+          if(data.warning){
+            setBanner(data.warning, 'warn');
+          }else{
+            setBanner('Extracción completada. Revisa y ajusta cada documento antes de guardar.', 'info');
+          }
         }catch(e){
           o.status = 'fail';
           o.err = e.message || 'No se pudo extraer';
@@ -969,6 +2116,8 @@
           renderMultiList();
         } finally {
           showOverlay(false);
+          endAiWork();
+          setBtnLoading(triggerBtn, false);
         }
       }
 
@@ -976,29 +2125,45 @@
         const files = Array.from(fileInput.files || []);
         if(files.length <= 1) return;
 
+        batchAiRunning = true;
+        updateSubmitAvailability();
         toggleState('run');
         aiStatus.textContent = `Analizando ${files.length} documento(s) con IA...`;
-        btnRetry.disabled = true;
+        setBtnLoading(btnRetry, true, 'Analizando lote...');
 
-        for(let i=0; i<files.length; i++){
-          const fp = fingerprint(files[i]);
-          await analyzeOne(fp);
+        try{
+          for(let i=0; i<files.length; i++){
+            const fp = fingerprint(files[i]);
+            await analyzeOne(fp);
+          }
+
+          showOverlay(false);
+          const allReady = bulkPayloadReady(files.length);
+          toggleState(allReady ? 'ok' : 'fail');
+          aiStatus.textContent = allReady
+            ? 'Listo. Revisa/edita cada documento antes de guardar.'
+            : 'Faltan documentos con información válida. Completa o corrige antes de guardar.';
+          setBanner(
+            allReady
+              ? 'Análisis terminado. Puedes editar cada documento antes de guardar.'
+              : 'No se habilitará Guardar hasta que todos los documentos del lote tengan información válida.',
+            allReady ? 'info' : 'warn'
+          );
+        } finally {
+          batchAiRunning = false;
+          updateSubmitAvailability();
+          setBtnLoading(btnRetry, false);
         }
-
-        showOverlay(false);
-        toggleState('ok');
-        aiStatus.textContent = 'Listo. Revisa/edita cada documento antes de guardar.';
-        setBanner('Análisis terminado. Puedes editar cada documento o pasar alguno a captura manual.', 'info');
-        btnRetry.disabled = false;
       }
 
-      // ===== SINGLE =====
       async function aiExtractAutoSingle(){
         const f = fileInput.files[0];
         if(!f) return;
 
+        beginAiWork();
         toggleState('run');
         aiStatus.innerText = 'Analizando documento con IA...';
+        setBtnLoading(btnRetry, true, 'Analizando IA...');
 
         const fd = new FormData();
         fd.append('file', f);
@@ -1013,12 +2178,13 @@
           const data = await res.json();
           if(!res.ok) throw new Error(data.error || 'Error en extracción');
 
-          aiDoc = {
+          const extractedDoc = {
             supplier_name: cleanTxt(data?.document?.supplier_name || ''),
-            document_datetime: cleanTxt(data?.document?.document_datetime || '')
+            document_datetime: cleanTxt(data?.document?.document_datetime || ''),
+            subtotal: num(data?.document?.subtotal || 0),
+            tax: num(data?.document?.tax || 0),
+            total: num(data?.document?.total || 0)
           };
-          docSupplier.value = aiDoc.supplier_name || '';
-          docDatetime.value = toDatetimeLocal(aiDoc.document_datetime || '');
 
           aiRows = ensureAtLeastOneRow((data.items || []).map(it => ({
             item_name: cleanTxt(it.item_name),
@@ -1030,6 +2196,19 @@
 
           aiRows.forEach(recalcRowModel);
 
+          if(!hasMeaningfulExtract(extractedDoc, aiRows)){
+            aiRows = [];
+            aiPayloadHidden.value = '';
+            throw new Error('La IA no devolvió información utilizable. No se puede guardar hasta corregir o capturar manualmente.');
+          }
+
+          aiDoc = {
+            supplier_name: extractedDoc.supplier_name,
+            document_datetime: extractedDoc.document_datetime
+          };
+          docSupplier.value = aiDoc.supplier_name || '';
+          docDatetime.value = toDatetimeLocal(aiDoc.document_datetime || '');
+
           renderAiEditorSingle();
           toggleView('ai');
           toggleState('ok');
@@ -1037,13 +2216,18 @@
           if(data.warning){
             setBanner(data.warning, 'warn');
           }else{
-            setBanner('Extracción completada. Verifica proveedor, fecha y conceptos antes de guardar.', 'info');
+            setBanner('Extracción completada. Verifica el encabezado y los conceptos antes de guardar.', 'info');
           }
         }catch(e){
           console.error(e);
           toggleState('fail');
           aiStatus.innerText = e.message || 'No se pudo extraer información. Intenta manual.';
           setBanner(e.message || 'No se pudo analizar el archivo.', 'error');
+          aiPayloadHidden.value = '';
+          updateSubmitAvailability();
+        } finally {
+          endAiWork();
+          setBtnLoading(btnRetry, false);
         }
       }
 
@@ -1112,7 +2296,7 @@
         updateTotalsSingle();
       }
 
-      document.getElementById('btnAiAddRow').addEventListener('click', () => {
+      btnAiAddRow.addEventListener('click', () => {
         aiRows.push({item_name:'', qty:1, unit_price:0, line_total:0, unit:'pza'});
         renderAiEditorSingle();
         aiEditRows.scrollTop = aiEditRows.scrollHeight;
@@ -1163,10 +2347,11 @@
             unit: cleanTxt(r.unit) || 'pza'
           }))
         });
+
+        updateSubmitAvailability();
       }
 
-      // ===== Manual single =====
-      document.getElementById('btnAddRow').onclick = () => {
+      btnAddRow.onclick = () => {
         const item_name = cleanTxt(document.getElementById('m_name').value);
         const qty = num(document.getElementById('m_qty').value) || 1;
         const unit_price = num(document.getElementById('m_price').value) || 0;
@@ -1223,9 +2408,10 @@
             unit: r.unit || 'pza'
           }))
         });
+
+        updateSubmitAvailability();
       }
 
-      // ===== Selection handler =====
       function handleSelection(){
         const files = Array.from(fileInput.files || []);
         buildFpInputs();
@@ -1239,8 +2425,11 @@
           toggleState('');
           aiPayloadHidden.value = '';
           aiPayloadBulkHidden.value = '';
+          manualRows = [];
+          aiRows = [];
           multi.clear();
-          setBanner('');
+          if (!isSale()) setBanner('');
+          updateSubmitAvailability();
           return;
         }
 
@@ -1259,12 +2448,13 @@
           toggleView('ai');
           aiPayloadBulkHidden.value = '';
           multi.clear();
+          updateSubmitAvailability();
           aiExtractAutoSingle();
         } else {
           btnRetry.disabled = false;
           btnRetry.textContent = 'Analizar IA';
           aiStatus.textContent = `Listo. Se analizarán ${files.length} documentos aquí mismo (editable antes de guardar).`;
-          setBanner('Lote listo. Cada documento quedará editable antes de guardar.', 'info');
+          setBanner('Lote listo. El guardado se habilitará cuando todos los documentos tengan información válida.', 'info');
           toggleView('multi');
           toggleState('');
           aiPayloadHidden.value = '';
@@ -1277,13 +2467,13 @@
           });
 
           renderMultiList();
+          updateSubmitAvailability();
           analyzeAll();
         }
       }
 
       fileInput.addEventListener('change', handleSelection);
 
-      // ✅ FIX: evita doble apertura del selector (label + dropzone)
       const browseLabel = document.querySelector('label[for="f-file"]');
       browseLabel?.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -1310,8 +2500,10 @@
         toggleView('');
         toggleState('');
         aiStatus.innerText = 'Listo. Sube o reintenta con otro archivo.';
-        setBanner('');
+        if (!isSale()) setBanner('');
+        else setBanner('Venta activa. Cuando guardes se ligará a cuentas por cobrar.', 'info');
         updateTotalsSingle();
+        updateSubmitAvailability();
       });
 
       btnSkipIA.addEventListener('click', () => {
@@ -1320,37 +2512,86 @@
           aiSkipHidden.value = '1';
           aiExtractHidden.value = '0';
           aiPayloadBulkHidden.value = '';
-          aiStatus.textContent = `Modo manual: se subirán ${files.length} documentos SIN análisis IA.`;
-          setBanner('Modo manual activo para el lote. Se subirán sin análisis IA.', 'warn');
+          aiStatus.textContent = `Modo manual por documento. Debes completar cada archivo antes de que se habilite Guardar.`;
+          setBanner('En lote, debes capturar o completar información válida en cada documento antes de guardar.', 'warn');
           toggleState('');
+          renderMultiList();
+          updateSubmitAvailability();
           return;
         }
 
         toggleView('manual');
         toggleState('');
         aiStatus.innerText = 'Captura manual habilitada.';
-        setBanner('Captura manual activa. Puedes registrar proveedor, fecha y conceptos sin usar IA.', 'warn');
+        setBanner('Captura manual activa. Debes agregar información válida para habilitar Guardar.', 'warn');
         aiSkipHidden.value = '1';
         aiExtractHidden.value = '0';
         syncManualPayload();
       });
 
-      // submit hook: si hay bulk, guardas usando ai_payload_bulk (sin batch)
-      form.addEventListener('submit', () => {
+      form.addEventListener('submit', (e) => {
         const files = Array.from(fileInput.files || []);
         buildFpInputs();
 
+        if (isSale() && !companyInput?.value) {
+          e.preventDefault();
+          setBanner('Para guardar una venta debes seleccionar una compañía.', 'error');
+          companyInput?.focus();
+          updateSubmitAvailability();
+          return;
+        }
+
+        if(!files.length){
+          e.preventDefault();
+          setBanner('Debes seleccionar al menos un archivo.', 'error');
+          updateSubmitAvailability();
+          return;
+        }
+
+        if(isAiBusy()){
+          e.preventDefault();
+          setBanner('Espera a que termine el análisis de IA antes de guardar.', 'warn');
+          updateSubmitAvailability();
+          return;
+        }
+
         if(files.length > 1){
-          if(aiPayloadBulkHidden.value){
-            aiExtractHidden.value = '0';
-            aiSkipHidden.value = '0';
+          if(!bulkPayloadReady(files.length)){
+            e.preventDefault();
+            setBanner('No puedes guardar todavía. Todos los documentos del lote deben tener información válida.', 'error');
+            updateSubmitAvailability();
+            return;
+          }
+          aiExtractHidden.value = '0';
+          aiSkipHidden.value = '0';
+        } else {
+          if(aiSkipHidden.value === '1' || currentMode === 'manual'){
+            if(!manualPayloadReady()){
+              e.preventDefault();
+              setBanner('En modo manual debes capturar información válida antes de guardar.', 'error');
+              updateSubmitAvailability();
+              return;
+            }
+          } else {
+            if(!singleAiPayloadReady()){
+              e.preventDefault();
+              setBanner('No puedes guardar hasta que la IA arroje información válida del documento.', 'error');
+              updateSubmitAvailability();
+              return;
+            }
           }
         }
+
+        setBtnLoading(submitBtn, true, 'Guardando...');
+        submitBtn.disabled = true;
       });
 
-      // init
+      initSmartSelects();
+      refreshPartyPlaceholders();
+      toggleSalesFields();
       toggleView('');
       toggleState('');
+      updateSubmitAvailability();
     });
   </script>
 </div>

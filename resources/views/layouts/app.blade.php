@@ -1,1340 +1,906 @@
-<!doctype html> 
+{{-- resources/views/dashboard.blade.php --}}
+<!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>@yield('title', 'Panel')</title>
-  <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
 
-  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;600&display=swap" rel="stylesheet">
-  <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('images/logo-mail.png') }}">
-  <link rel="icon" type="image/png" sizes="16x16" href="{{ asset('images/logo-mail.png') }}">
-  <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('images/logo-mail.png') }}">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@300..700&display=swap"/>
 
-  <link rel="stylesheet" href="{{ asset('css/app-layout.css') }}?v={{ time() }}">
-@stack('styles')
+    <style>
+      :root{
+        --dm-bg:#f4f7fc;
+        --dm-surface:rgba(255,255,255,.72);
+        --dm-surface-strong:rgba(255,255,255,.88);
+        --dm-border:#e6edf7;
+        --dm-border-strong:#d8e2f0;
+        --dm-text:#1f2a44;
+        --dm-muted:#90a0b8;
+        --dm-muted-2:#64748b;
+        --dm-blue:#1877f2;
+        --dm-blue-2:#2563eb;
+        --dm-blue-3:#60a5fa;
+        --dm-indigo:#7c6cf2;
+        --dm-cyan:#0ea5e9;
+        --dm-shadow:0 10px 28px rgba(80,104,140,.08);
+        --dm-shadow-hover:0 22px 40px rgba(24,119,242,.16);
+      }
 
-  <style>
-    :root{
-      /* ✅ BODY BLANCO */
-      --bg: #ffffff;
+      *{
+        box-sizing:border-box;
+      }
 
-      /* Superficies (cards/paneles) */
-      --surface: #ffffff;
-      --surface-2: #f4f7ff;
+      html,body{
+        margin:0;
+        padding:0;
+        min-height:100%;
+        font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+        background:var(--dm-bg);
+        color:var(--dm-text);
+      }
 
-      --border: #d6def0;
+      .menu-page{
+        position:relative;
+        width:100%;
+        min-height:100vh;
+        padding:28px 34px 38px 24px;
+        overflow:hidden;
+        background:
+          radial-gradient(circle at left bottom, rgba(191,219,254,.42) 0%, transparent 24%),
+          radial-gradient(circle at 78% 10%, rgba(219,234,254,.55) 0%, transparent 26%),
+          linear-gradient(135deg, #f4f7fc 0%, #f7f9fc 52%, #f3f6fb 100%);
+      }
 
-      /* ✅ AZULES header + menú */
-      --primary: #4f86ff;
-      --primary-600:#2f6df0;
+      .menu-page::before{
+        content:"";
+        position:absolute;
+        inset:0;
+        pointer-events:none;
+        background-image:radial-gradient(circle, rgba(148,163,184,.14) 1px, transparent 1px);
+        background-size:44px 44px;
+        opacity:.75;
+      }
 
-      /* Accent */
-      --accent: #ff7ab6;
+      .menu-glow{
+        position:absolute;
+        border-radius:999px;
+        pointer-events:none;
+        filter:blur(10px);
+        opacity:.75;
+      }
 
-      --text: #1f2a44;
-      --muted:#6b7a99;
+      .menu-glow.g1{
+        width:440px;
+        height:440px;
+        left:-140px;
+        bottom:-140px;
+        background:radial-gradient(circle, rgba(191,219,254,.60) 0%, transparent 70%);
+      }
 
-      --shadow: 0 12px 38px rgba(23,36,71,.14);
-      --topbar-h: 56px;
-      --sidebar-w: 310px;
-      --fade-h: 16px;
+      .menu-glow.g2{
+        width:520px;
+        height:520px;
+        right:10%;
+        top:-180px;
+        background:radial-gradient(circle, rgba(219,234,254,.72) 0%, transparent 72%);
+      }
 
-      --blue-0:#f3f7ff;
-      --blue-1:#eaf1ff;
-      --blue-2:#dce8ff;
-      --blue-3:#cfe0ff;
-    }
+      .menu-wrap{
+        position:relative;
+        z-index:2;
+        width:min(100%, 1720px);
+        margin:0 auto;
+        padding-left:44px;
+        padding-right:44px;
+      }
 
-    *{box-sizing:border-box}
-    html,body{height:100%}
-    body.app{
-      margin:0;
-      font-family:"Quicksand", system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial;
-      background: var(--bg); /* ✅ BLANCO */
-      color:var(--text);
-    }
-    body.lock-scroll{ overflow:hidden; }
+      .menu-hero{
+        text-align:center;
+        margin-bottom:28px;
+      }
 
-    /* Avatares */
-    .avatar, .avatar.avatar--sm { position: relative; overflow: hidden; border-radius: 50%; }
-    .avatar img, .avatar.avatar--sm img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .avatar img + span, .avatar.avatar--sm img + span { display: none !important; }
-    .avatar-link{ display:inline-block; border-radius:50%; text-decoration:none; line-height:0; }
-    .avatar-link:focus{ outline:2px solid #7ea2ff; outline-offset:3px; }
+      .menu-date{
+        margin:0 0 10px;
+        font-size:12px;
+        font-weight:600;
+        letter-spacing:.16em;
+        text-transform:uppercase;
+        color:var(--dm-blue);
+      }
 
-    /* Shell */
-    .shell{
-      min-height:100vh;
-      display:flex;
-      flex-direction:column;
-      transition: filter .28s ease;
-      background:#fff; /* ✅ blanco */
-    }
-    .shell.dimmed{ filter: blur(2px) saturate(.95); }
+      .menu-title{
+        margin:0;
+        font-size:clamp(2rem, 2.5vw, 3rem);
+        line-height:1.05;
+        font-family:inherit;
+        font-weight:700;
+        letter-spacing:0;
+        color:var(--dm-text);
+      }
 
-    /* Sidebar (overlay) */
-    .sidebar{
-      position:fixed; left:0; top:0; bottom:0; width:var(--sidebar-w);
-      background: linear-gradient(180deg, var(--blue-0), var(--blue-1));
-      border-right:1px solid var(--border);
-      transform: translateX(-102%);
-      transition: transform .45s cubic-bezier(.16,1,.3,1);
-      z-index:60; box-shadow:var(--shadow);
-      will-change: transform;
-      display:flex; flex-direction:column;
-    }
-    .sidebar.is-open{ transform: translateX(0); }
+      .menu-sub{
+        margin:12px auto 0;
+        max-width:720px;
+        color:#8d9db4;
+        font-size:14px;
+        font-weight:500;
+      }
 
-    /* Backdrop */
-    .backdrop{
-      position:fixed; inset:0; background:rgba(7,12,24,.55);
-      opacity:0; pointer-events:none; transition: opacity .28s ease;
-      z-index:50;
-    }
-    .backdrop.is-show{ opacity:1; pointer-events:auto; }
+      .animated-gradient-text{
+        position:relative;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        vertical-align:middle;
+      }
 
-    /* Head */
-    .sidebar__head{ display:flex; align-items:flex-start; gap:12px; padding:18px 16px 12px; border-bottom:1px solid var(--border); }
-    .sidebar__close{
-      margin-left:auto; background:transparent; border:0; cursor:pointer; color:var(--muted);
-      width:36px; height:36px; border-radius:12px; display:grid; place-items:center;
-      transition:background .2s ease, transform .08s ease, color .2s ease;
-    }
-    .sidebar__close:hover{ background:rgba(79,134,255,.14); color:var(--primary); }
-    .sidebar__close:active{ transform:scale(.98); }
+      .animated-gradient-text .text-content{
+        position:relative;
+        z-index:2;
+        display:inline-block;
+        background-image:linear-gradient(90deg, #5227FF, #FF9FFC, #B19EEF, #5227FF);
+        background-size:300% 100%;
+        background-repeat:repeat;
+        -webkit-background-clip:text;
+        background-clip:text;
+        -webkit-text-fill-color:transparent;
+        animation:gradientTextMove 8s linear infinite alternate;
+        will-change:background-position;
+      }
 
-    .user{ display:flex; gap:12px; align-items:center; }
-    .avatar{
-      width:44px; height:44px; border-radius:12px;
-      background:linear-gradient(135deg, #6fa3ff, #a8c9ff);
-      color:#fff; display:grid; place-items:center; font-weight:700; box-shadow:var(--shadow);
-    }
-    .avatar--sm{
-      width:32px; height:32px; border-radius:50%;
-      background:linear-gradient(135deg, #6fa3ff, #a8c9ff);
-      color:#fff; display:grid; place-items:center; font-weight:700;
-    }
+      @keyframes gradientTextMove{
+        0%   { background-position:0% 50%; }
+        100% { background-position:100% 50%; }
+      }
 
-    .user__meta{ line-height:1.2 }
-    .user__name{ font-weight:700 }
-    .user__mail{ color:var(--muted); font-size:.92rem; }
-    .user__roles{ margin-top:6px; display:flex; gap:6px; flex-wrap:wrap; }
-    .chip{
-      padding:4px 8px; border-radius:999px;
-      background:#eef4ff; color:#2b4a7a;
-      font-size:.78rem; border:1px solid var(--border);
-      transition: transform .12s ease;
-    }
-    .chip:hover{ transform: translateY(-1px); }
+      .menu-search-wrap{
+        display:flex;
+        justify-content:center;
+        margin-top:22px;
+      }
 
-    /* ✅ IMPORTANTE:
-       Cambiamos .nav a .side-nav para que Bootstrap NO lo pise (Bootstrap trae .nav). */
+      .menu-search{
+        position:relative;
+        width:min(100%, 780px);
+      }
 
-    /* Navegación con scroll */
-    .side-nav{
-      position:relative;
-      display:flex; flex-direction:column; gap:4px;
-      padding:10px 10px 12px;
-      overflow:auto;
-      overscroll-behavior:contain;
-      scrollbar-width:none;
-      -ms-overflow-style:none;
-      flex:1;
-      -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade-h), #000 calc(100% - var(--fade-h)), transparent 100%);
-              mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade-h), #000 calc(100% - var(--fade-h)), transparent 100%);
-    }
-    .side-nav::-webkit-scrollbar{ display:none }
+      .menu-search::before{
+        content:"";
+        position:absolute;
+        inset:0;
+        border-radius:999px;
+        background:linear-gradient(135deg, rgba(255,255,255,.92), rgba(248,251,255,.80));
+        border:1px solid rgba(213,224,241,.95);
+        box-shadow:
+          0 16px 36px rgba(85,108,144,.07),
+          inset 0 1px 0 rgba(255,255,255,.9);
+        backdrop-filter:blur(10px);
+      }
 
-    .nav__link{
-      display:flex; gap:10px; align-items:center; padding:12px 12px;
-      border-radius:12px; color:#213054; text-decoration:none;
-      transition:background .18s ease, color .18s ease, transform .08s ease;
-    }
-    .nav__link:hover{ background:rgba(79,134,255,.12); color:var(--primary-600); transform: translateX(2px); }
-    .nav__link.is-active{ background:rgba(79,134,255,.18); color:var(--primary-600); font-weight:600; }
+      .menu-search .icon{
+        position:absolute;
+        left:18px;
+        top:50%;
+        transform:translateY(-50%);
+        width:36px;
+        height:36px;
+        border-radius:999px;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        color:#5f7290;
+        background:linear-gradient(180deg, #eef4ff 0%, #dfeaff 100%);
+        box-shadow:inset 0 1px 0 rgba(255,255,255,.8);
+        font-size:20px;
+        pointer-events:none;
+        z-index:2;
+      }
 
-    .side-nav .nav__group { margin: 4px 0; }
-    .side-nav .nav__group > summary {
-      list-style: none;
-      display: flex; align-items: center; gap: 10px;
-      padding: 10px 12px; border-radius: 10px;
-      color: inherit; cursor: pointer; user-select: none;
-      transition: background .18s ease, color .18s ease, transform .08s ease;
-    }
-    .side-nav .nav__group > summary::-webkit-details-marker{ display:none }
-    .side-nav .nav__group > summary:hover{ background: rgba(79,134,255,.12); color: var(--primary-600); transform: translateX(1px); }
-    .side-nav .nav__group[open] > summary { background: rgba(79,134,255,.12); }
-    .side-nav .nav__chev { margin-left: auto; transition: transform .2s ease; }
-    .side-nav .nav__group[open] .nav__chev { transform: rotate(90deg); }
+      .menu-search input{
+        position:relative;
+        z-index:2;
+        width:100%;
+        height:62px;
+        border:none;
+        outline:none;
+        border-radius:999px;
+        padding:0 58px 0 68px;
+        background:transparent;
+        color:#5d6f8b;
+        font-size:15px;
+        font-weight:500;
+        letter-spacing:.01em;
+      }
 
-    .nav__submenu{
-      display:flex; flex-direction:column; gap:4px; padding:6px 0 6px 36px;
-    }
-    .nav__sublink{
-      display:flex; align-items:center; gap:10px;
-      padding:8px 12px; border-radius:8px; text-decoration:none; color:inherit;
-      opacity:.95; transition: background .18s ease, color .18s ease, transform .08s ease;
-    }
-    .nav__sublink:hover{ background: rgba(79,134,255,.12); opacity:1; transform: translateX(2px); }
-    .nav__sublink.is-active{ background: rgba(79,134,255,.2); font-weight:600; }
+      .menu-search input::placeholder{
+        color:#93a3ba;
+        font-weight:500;
+      }
 
-    .logout{ padding:10px; border-top:1px solid var(--border); }
-    .btn-logout{
-      width:100%; display:flex; align-items:center; gap:10px; padding:12px 12px; border-radius:12px;
-      background:#eef4ff; color:#1f3b7a; border:1px solid #d9e6ff; cursor:pointer; font-weight:600;
-      transition:filter .18s ease, transform .06s ease;
-    }
-    .btn-logout:hover{ filter:brightness(1.02); }
-    .btn-logout:active{ transform:scale(.99); }
+      .menu-search:focus-within::before{
+        border-color:#bfd7ff;
+        box-shadow:
+          0 18px 40px rgba(24,119,242,.10),
+          0 0 0 4px rgba(24,119,242,.07),
+          inset 0 1px 0 rgba(255,255,255,.9);
+      }
 
-    /* Topbar */
-    .topbar{
-      position:sticky; top:0; z-index:30;
-      display:flex; align-items:center; gap:12px; padding:10px 14px;
-      background: linear-gradient(180deg, var(--blue-0), var(--blue-1));
-      border-bottom:1px solid var(--border);
-      height: var(--topbar-h);
-    }
-    .icon-btn{
-      background:transparent; border:0; cursor:pointer; color:#213054;
-      width:40px; height:40px; border-radius:12px; display:grid; place-items:center;
-      transition:background .18s ease, transform .06s ease, color .18s ease;
-    }
-    .icon-btn:hover{ background:rgba(79,134,255,.12); color:var(--primary-600); }
-    .icon-btn:active{ transform:scale(.98); }
+      .menu-clear{
+        position:absolute;
+        right:12px;
+        top:50%;
+        transform:translateY(-50%);
+        z-index:2;
+        width:38px;
+        height:38px;
+        border:none;
+        border-radius:999px;
+        background:transparent;
+        color:#8da0bc;
+        display:none;
+        align-items:center;
+        justify-content:center;
+        cursor:pointer;
+        transition:.18s ease;
+      }
 
-    .topbar__title{ font-weight:700; letter-spacing:.3px; }
-    .topbar__right{ margin-left:auto; display:flex; align-items:center; gap:12px; }
+      .menu-clear.show{
+        display:flex;
+      }
 
-    /* Notificaciones */
-    .notif{ position:relative; }
-    .dot{
-      position:absolute;
-      top:6px; right:6px;
-      min-width:18px; height:18px; padding:0 4px;
-      background:var(--accent);
-      border-radius:999px;
-      box-shadow:0 0 0 3px rgba(255,255,255,.65);
-      display:flex; align-items:center; justify-content:center;
-      font-size:10px; font-weight:700; color:#fff;
-      animation: dotPulse 2.2s infinite cubic-bezier(.66,0,0,1);
-    }
-    @keyframes dotPulse{
-      0%,100%{ transform:scale(1); opacity:1 }
-      50%{ transform:scale(1.25); opacity:.75 }
-    }
+      .menu-clear:hover{
+        background:#edf4ff;
+        color:#45648d;
+      }
 
-    .notif__panel{
-      position:absolute; right:0; top:48px; width:320px; max-width:92vw;
-      background:var(--surface); border:1px solid var(--border); border-radius:16px; box-shadow:var(--shadow);
-      opacity:0; transform: translateY(-8px) scale(.98); pointer-events:none;
-      transition: opacity .18s ease, transform .22s cubic-bezier(.22,1,.36,1);
-      overflow:hidden; z-index: 35;
-    }
-    .notif__panel.is-open{ opacity:1; transform: translateY(0) scale(1); pointer-events:auto; }
-    .notif__head{
-      display:flex; align-items:center; justify-content:space-between;
-      padding:12px 12px; border-bottom:1px solid var(--border);
-      background: linear-gradient(180deg, #ffffff, #f7f9ff);
-    }
-    .notif__list{
-      max-height:300px; overflow:auto; overscroll-behavior:contain;
-      background:var(--surface);
-    }
+      .menu-sections{
+        display:grid;
+        gap:34px;
+        width:100%;
+        margin:0;
+      }
 
-    .notif__item{
-      position:relative;
-      display:grid;
-      grid-template-columns:auto 1fr;
-      column-gap:8px;
-      row-gap:2px;
-      padding:8px 12px;
-      border-bottom:1px solid rgba(214,222,240,.9);
-      background:linear-gradient(180deg,#ffffff,#fbfcff);
-      padding-right:32px;
-    }
-    .notif__item:last-child{ border-bottom:none; }
-    .notif__item.is-unread{ background:linear-gradient(180deg,#ffffff,#f3f7ff); }
-    .notif__item.is-read{ opacity:.9; }
+      .menu-section{
+        display:grid;
+        gap:14px;
+      }
 
-    .notif__text{ color:#213054; }
-    .notif__time{ color:#6b7a99; font-size:.85rem; grid-column:2; }
+      .menu-section-title{
+        margin:0;
+        padding-left:8px;
+        font-size:13px;
+        font-weight:600;
+        letter-spacing:.15em;
+        text-transform:uppercase;
+        color:#8fa1bb;
+      }
 
-    .pill{
-      padding:2px 8px; border-radius:999px; font-size:.72rem;
-      border:1px solid var(--border); align-self:start;
-    }
-    .pill--info{ background:#eaf1ff; color:#2b4a7a; }
-    .pill--warn{ background:#fff3cd; color:#8a6d1a; }
-    .pill--error{ background:#fde2e1; color:#8a1f1f; }
+      .menu-grid{
+        display:grid;
+        grid-template-columns:repeat(auto-fit, minmax(220px, 260px));
+        gap:22px;
+        width:100%;
+        justify-content:start;
+      }
 
-    .notif__link{
-      display:block; padding:10px 12px;
-      text-decoration:none; color:var(--primary-600);
-      border-top:1px solid var(--border);
-      font-weight:600; text-align:left;
-      background:none; width:100%; cursor:pointer;
-    }
-    .notif__link:hover{ background:#eef4ff; }
-    .notif__empty{ padding:12px; font-size:.88rem; color:var(--muted); }
+      .menu-card{
+        position:relative;
+        display:block;
+        min-height:150px;
+        padding:20px 16px 18px;
+        text-decoration:none;
+        border-radius:24px;
+        background:rgba(255,255,255,.70);
+        border:1px solid rgba(227,235,245,.95);
+        box-shadow:var(--dm-shadow);
+        backdrop-filter:blur(10px);
+        overflow:hidden;
+        isolation:isolate;
+        outline:none;
+        transition:
+          transform .28s cubic-bezier(.2,.8,.2,1),
+          box-shadow .28s cubic-bezier(.2,.8,.2,1),
+          border-color .24s ease,
+          color .24s ease,
+          background .24s ease;
+        animation:menuCardIn .35s cubic-bezier(.25,.46,.45,.94) both;
+      }
 
-    .notif__item-close{
-      position:absolute;
-      top:8px; right:8px;
-      width:20px; height:20px;
-      border-radius:999px;
-      border:none;
-      background:transparent;
-      cursor:pointer;
-      display:flex; align-items:center; justify-content:center;
-      font-size:13px;
-      color:var(--muted);
-      transition:background .16s ease,color .16s ease,transform .08s ease;
-    }
-    .notif__item-close:hover{ background:rgba(79,134,255,.10); color:var(--primary-600); }
-    .notif__item-close:active{ transform:scale(.94); }
+      .menu-card::before{
+        position:absolute;
+        top:0;
+        left:0;
+        right:0;
+        bottom:0;
+        margin:auto;
+        content:"";
+        border-radius:50%;
+        display:block;
+        width:26em;
+        height:26em;
+        left:-6em;
+        transition:box-shadow .52s ease-out, transform .4s ease;
+        z-index:0;
+        box-shadow:inset 0 0 0 0 rgba(24,119,242,0);
+      }
 
-    /* ✅ Contenido sobre blanco */
-    .content{
-      padding:18px;
-      min-height:calc(100vh - var(--topbar-h));
-      background:#fff;
-    }
+      .menu-card::after{
+        content:"";
+        position:absolute;
+        inset:0;
+        border-radius:24px;
+        background:linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,0));
+        opacity:0;
+        transition:opacity .28s ease;
+        z-index:0;
+      }
 
-    .no-anim *{ transition:none !important; animation:none !important; }
-  </style>
+      .menu-card:hover,
+      .menu-card:focus-visible{
+        transform:translateY(-4px);
+        box-shadow:var(--dm-shadow-hover);
+        border-color:rgb(24, 119, 242);
+      }
+
+      .menu-card:hover::before,
+      .menu-card:focus-visible::before{
+        box-shadow:inset 0 0 0 13em rgb(24, 119, 242);
+      }
+
+      .menu-card:hover::after,
+      .menu-card:focus-visible::after{
+        opacity:1;
+      }
+
+      .menu-card-body{
+        position:relative;
+        z-index:2;
+        min-height:110px;
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        justify-content:center;
+        gap:14px;
+        text-align:center;
+      }
+
+      .menu-icon{
+        width:64px;
+        height:64px;
+        border-radius:18px;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        background:linear-gradient(180deg, #edf3ff 0%, #dfeaff 100%);
+        color:var(--dm-blue);
+        transition:
+          color .34s ease,
+          background .34s ease,
+          transform .28s ease,
+          box-shadow .28s ease;
+      }
+
+      .menu-label{
+        color:#617590;
+        font-size:15px;
+        line-height:1.3;
+        font-weight:500;
+        transition:color .34s ease;
+      }
+
+      .menu-card:hover .menu-label,
+      .menu-card:focus-visible .menu-label{
+        color:#ffffff;
+      }
+
+      .menu-card:hover .menu-icon,
+      .menu-card:focus-visible .menu-icon{
+        background:rgba(255,255,255,.12);
+        color:#ffffff;
+        transform:scale(1.08);
+        box-shadow:inset 0 0 0 1px rgba(255,255,255,.18);
+      }
+
+      .menu-badge{
+        position:absolute;
+        top:12px;
+        right:12px;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        min-height:24px;
+        padding:0 10px;
+        border-radius:999px;
+        background:linear-gradient(90deg, #3b82f6, #6366f1);
+        color:#fff;
+        font-size:10px;
+        font-weight:600;
+        letter-spacing:.08em;
+        text-transform:uppercase;
+        box-shadow:0 8px 18px rgba(79,70,229,.24);
+        z-index:3;
+      }
+
+      .menu-empty{
+        display:none;
+        padding:26px 18px;
+        border-radius:20px;
+        background:rgba(255,255,255,.56);
+        border:1px dashed var(--dm-border-strong);
+        text-align:center;
+        color:#7d90ac;
+        font-size:14px;
+        font-weight:500;
+      }
+
+      .menu-empty.show{
+        display:block;
+      }
+
+      .msi{
+        font-family:'Material Symbols Outlined';
+        font-weight:400;
+        font-style:normal;
+        font-size:24px;
+        line-height:1;
+        letter-spacing:normal;
+        text-transform:none;
+        display:inline-block;
+        white-space:nowrap;
+        word-wrap:normal;
+        direction:ltr;
+        -webkit-font-feature-settings:'liga';
+        -webkit-font-smoothing:antialiased;
+      }
+
+      @keyframes menuCardIn{
+        from{ opacity:0; transform:translateY(12px); }
+        to{ opacity:1; transform:translateY(0); }
+      }
+
+      @media (min-width:1200px){
+        .menu-wrap{
+          padding-left:58px;
+          padding-right:58px;
+        }
+
+        .menu-grid{
+          grid-template-columns:repeat(auto-fit, minmax(220px, 260px));
+          justify-content:start;
+        }
+      }
+
+      @media (min-width:1500px){
+        .menu-wrap{
+          padding-left:76px;
+          padding-right:76px;
+        }
+
+        .menu-grid{
+          grid-template-columns:repeat(auto-fit, minmax(220px, 260px));
+          justify-content:start;
+        }
+      }
+
+      @media (max-width:1100px){
+        .menu-wrap{
+          padding-left:20px;
+          padding-right:20px;
+        }
+
+        .menu-grid{
+          grid-template-columns:repeat(4, minmax(0, 1fr));
+          gap:16px;
+        }
+      }
+
+      @media (max-width:820px){
+        .menu-page{
+          padding:22px 14px 30px;
+        }
+
+        .menu-wrap{
+          padding-left:0;
+          padding-right:0;
+          margin:0 auto;
+        }
+
+        .menu-hero{
+          margin-bottom:24px;
+        }
+
+        .menu-title{
+          font-size:clamp(1.9rem, 7vw, 2.4rem);
+          line-height:1.08;
+        }
+
+        .menu-sub{
+          font-size:13px;
+          max-width:430px;
+        }
+
+        .menu-search-wrap{
+          margin-top:18px;
+        }
+
+        .menu-search{
+          width:min(100%, 100%);
+        }
+
+        .menu-search input{
+          height:58px;
+          font-size:14px;
+        }
+
+        .menu-sections{
+          gap:26px;
+        }
+
+        .menu-grid{
+          grid-template-columns:repeat(3, minmax(0, 1fr));
+          gap:14px;
+        }
+
+        .menu-card{
+          min-height:132px;
+          padding:18px 10px 14px;
+          border-radius:22px;
+        }
+
+        .menu-card::after{
+          border-radius:22px;
+        }
+
+        .menu-card-body{
+          min-height:96px;
+          gap:12px;
+        }
+
+        .menu-icon{
+          width:56px;
+          height:56px;
+          border-radius:16px;
+        }
+
+        .menu-label{
+          font-size:14px;
+          line-height:1.22;
+        }
+
+        .menu-badge{
+          top:8px;
+          right:8px;
+          min-height:20px;
+          padding:0 8px;
+          font-size:9px;
+        }
+      }
+
+      @media (max-width:520px){
+        .menu-page{
+          padding:18px 12px 28px;
+        }
+
+        .menu-wrap{
+          max-width:100%;
+        }
+
+        .menu-hero{
+          margin-bottom:20px;
+        }
+
+        .menu-date{
+          font-size:11px;
+          margin-bottom:10px;
+        }
+
+        .menu-title{
+          font-size:clamp(1.55rem, 8vw, 2.1rem);
+          line-height:1.1;
+        }
+
+        .menu-sub{
+          margin-top:8px;
+          font-size:12px;
+          line-height:1.35;
+          max-width:320px;
+        }
+
+        .menu-search input{
+          height:56px;
+          font-size:14px;
+          padding-left:64px;
+          padding-right:46px;
+        }
+
+        .menu-search .icon{
+          left:14px;
+          width:34px;
+          height:34px;
+          font-size:19px;
+        }
+
+        .menu-section-title{
+          padding-left:2px;
+          font-size:12px;
+          letter-spacing:.13em;
+        }
+
+        .menu-grid{
+          grid-template-columns:repeat(2, minmax(0, 1fr));
+          gap:14px;
+        }
+
+        .menu-card{
+          min-height:130px;
+          padding:16px 8px 12px;
+          border-radius:22px;
+        }
+
+        .menu-card::after{
+          border-radius:22px;
+        }
+
+        .menu-card-body{
+          min-height:92px;
+          gap:10px;
+        }
+
+        .menu-icon{
+          width:52px;
+          height:52px;
+          border-radius:16px;
+        }
+
+        .menu-label{
+          font-size:12px;
+          line-height:1.2;
+          font-weight:500;
+        }
+
+        .menu-badge{
+          top:8px;
+          right:8px;
+          min-height:19px;
+          padding:0 7px;
+          font-size:8px;
+          letter-spacing:.07em;
+        }
+      }
+    </style>
 </head>
+<body>
+@php
+    $userName = auth()->user()->name ?? 'Usuario';
+    $firstName = explode(' ', trim($userName))[0] ?? 'Usuario';
 
-<body class="app">
-  <!-- Sidebar -->
-  <aside id="sidebar" class="sidebar" aria-hidden="true" aria-label="Menú lateral">
-    <div class="sidebar__head">
-      <div class="user">
-        @php
-          $u  = auth()->user();
-          $nm = $u?->name ?? 'Usuario';
-          $ini = mb_strtoupper(mb_substr($nm,0,1));
+    \Carbon\Carbon::setLocale('es');
+    $today = now()->translatedFormat('l, j \d\e F');
 
-          // ✅ CONDICIÓN (NO QUITA NADA, SOLO AGREGA LÓGICA)
-          $isAdmin   = $u && method_exists($u,'hasRole') ? $u->hasRole('admin') : false;
-          $isManager = $u && method_exists($u,'hasRole') ? $u->hasRole('manager') : false;
-          $restrictManager = $isManager && !$isAdmin;
+    $u  = auth()->user();
+    $isAdmin   = $u && method_exists($u,'hasRole') ? $u->hasRole('admin') : false;
+    $isManager = $u && method_exists($u,'hasRole') ? $u->hasRole('manager') : false;
+    $restrictManager = $isManager && !$isAdmin;
 
-          $baseAvatar = null;
-          if ($u && !empty($u->avatar_url)) { $baseAvatar = $u->avatar_url; }
-          if (!$baseAvatar && $u && !empty($u->email)) {
-              $hash = md5(strtolower(trim($u->email)));
-              $baseAvatar = "https://www.gravatar.com/avatar/{$hash}?s=300&d=mp";
-          }
-          $ver = null;
-          if ($u && !empty($u->avatar_updated_at)) {
-              $ver = $u->avatar_updated_at instanceof \Illuminate\Support\Carbon ? $u->avatar_updated_at->timestamp : strtotime($u->avatar_updated_at);
-          } elseif ($u && !empty($u->updated_at)) {
-              $ver = $u->updated_at instanceof \Illuminate\Support\Carbon ? $u->updated_at->timestamp : strtotime($u->updated_at);
-          }
-          $avatarSrc = null;
-          if (!empty($baseAvatar)) {
-              $sep = (strpos($baseAvatar, '?') !== false) ? '&' : '?';
-              $avatarSrc = $baseAvatar . ($ver ? ($sep.'v='.$ver) : '');
-          }
-          $fallbackMp = ($u && !empty($u->email))
-              ? "https://www.gravatar.com/avatar/".md5(strtolower(trim($u->email)))."?s=300&d=mp"
-              : "https://www.gravatar.com/avatar/?s=300&d=mp";
+    $sections = [];
 
-          // Rutas al perfil
-          if (\Illuminate\Support\Facades\Route::has('profile.show')) {
-              $profileHref = route('profile.show');
-          } elseif (\Illuminate\Support\Facades\Route::has('profile')) {
-              $profileHref = route('profile');
-          } else {
-              $profileHref = url('/panel/perfil');
-          }
+    $makeItem = function ($label, $icon, $routeName = null, $url = null, $badge = null) {
+        if ($routeName && \Illuminate\Support\Facades\Route::has($routeName)) {
+            return [
+                'label' => $label,
+                'icon'  => $icon,
+                'url'   => route($routeName),
+                'badge' => $badge,
+            ];
+        }
 
-          // URLs para el feed de notificaciones
-          if (\Illuminate\Support\Facades\Route::has('notifications.feed')) {
-              $notifFeedUrl = route('notifications.feed');
-          } else {
-              $notifFeedUrl = url('/notifications/feed');
-          }
-          if (\Illuminate\Support\Facades\Route::has('notifications.read-all')) {
-              $notifReadAllUrl = route('notifications.read-all');
-          } else {
-              $notifReadAllUrl = url('/notifications/read-all');
-          }
+        if (!$routeName && $url) {
+            return [
+                'label' => $label,
+                'icon'  => $icon,
+                'url'   => $url,
+                'badge' => $badge,
+            ];
+        }
 
-          if (\Illuminate\Support\Facades\Route::has('notifications.read-one')) {
-              $notifReadOneUrl = route('notifications.read-one', ['notification' => '__ID__']);
-          } else {
-              $notifReadOneUrl = url('/notifications/__ID__/read');
-          }
-        @endphp
+        return null;
+    };
 
-        <a href="{{ $profileHref }}" class="avatar-link" title="Ver mi perfil">
-          <div class="avatar" aria-hidden="true">
-            @if($avatarSrc)
-              <img src="{{ $avatarSrc }}" alt="Avatar de {{ $nm }}" onerror="this.onerror=null;this.src='{{ $fallbackMp }}';">
-              <span>{{ $ini }}</span>
-            @else
-              <img src="{{ $fallbackMp }}" alt="Avatar de {{ $nm }}">
-              <span>{{ $ini }}</span>
-            @endif
-          </div>
-        </a>
+    if ($restrictManager) {
+        $managerSection = array_filter([
+            $makeItem('Mi Perfil', 'account_circle', 'profile.show'),
+            $makeItem('Part. contable', 'monitoring', 'partcontable.index'),
+            $makeItem('Documentación de altas', 'description', 'alta.docs.index'),
+        ]);
 
-        <div class="user__meta">
-          <div class="user__name">{{ $nm }}</div>
-          <div class="user__mail">{{ $u?->email ?? 'correo@dominio.com' }}</div>
-          @if($u && method_exists($u,'getRoleNames'))
-            <div class="user__roles">
-              @foreach($u->getRoleNames() as $r)
-                <span class="chip">{{ $r }}</span>
-              @endforeach
+        if (count($managerSection)) {
+            $sections[] = ['title' => 'Accesos', 'items' => $managerSection];
+        }
+    } else {
+        $finanzasVentas = array_filter([
+            $makeItem('Cuentas Bancarias', 'account_balance', 'partcontable.index'),
+            $makeItem('Cotizaciones', 'calculate', 'cotizaciones.index', null, 'Nuevo'),
+            $makeItem('Remisiones', 'description', 'manual_invoices.index'),
+            $makeItem('Financiamientos', 'savings', 'accounting.payables.index'),
+            $makeItem('Ventas', 'shopping_cart', 'ventas.index'),
+            $makeItem('Facturas', 'receipt_long', 'manual_invoices.index'),
+            $makeItem('Gastos', 'receipt', 'expenses.index'),
+            $makeItem('Compras y Ventas', 'article', 'publications.index'),
+        ]);
+
+        $inventarioProductos = array_filter([
+            $makeItem('Inventario', 'inventory_2', 'admin.wms.home'),
+            $makeItem('Productos', 'deployed_code', 'admin.catalog.index'),
+            $makeItem('Catálogo', 'view_in_ar', 'products.index'),
+            $makeItem('Fichas técnicas', 'list_alt', 'tech-sheets.index'),
+            $makeItem('Inventario Ext.', 'inventory', 'products.index'),
+            $makeItem('Almacén', 'warehouse', 'admin.wms.home'),
+        ]);
+
+        $operaciones = array_filter([
+            $makeItem('Mantenimiento', 'build', 'vehicles.index'),
+            $makeItem('Camionetas', 'local_shipping', 'vehicles.index'),
+            $makeItem('Paqueterías', 'package_2', 'routes.index'),
+            $makeItem('Guías', 'bar_chart', 'routes.index'),
+            $makeItem('Logística', 'alt_route', 'routes.index'),
+            $makeItem('Agenda', 'calendar_month', 'agenda.calendar'),
+        ]);
+
+        $clientesComunicacion = array_filter([
+            $makeItem('Clientes', 'groups', 'clients.index'),
+            $makeItem('Proveedores', 'domain', 'providers.index'),
+            $makeItem('WhatsApp Help Desk', 'chat', 'admin.whatsapp.conversations'),
+            $makeItem('Help Desk', 'support_agent', 'admin.help.index'),
+            $makeItem('Correo', 'mail', 'mail.index'),
+            $makeItem('Mi Perfil', 'account_circle', 'profile.show'),
+        ]);
+
+        $licitaciones = array_filter([
+            $makeItem('Licitaciones', 'gavel', 'licitaciones.index'),
+            $makeItem('Nueva licitación', 'post_add', 'licitaciones.create.step1', null, 'Nuevo'),
+            $makeItem('Licitaciones IA', 'neurology', 'licitaciones-ai.index'),
+            $makeItem('Tabla global IA', 'table_chart', 'licitaciones-ai.tabla-global'),
+            $makeItem('PDFs / Bases', 'attach_file', 'admin.licitacion-pdfs.index'),
+            $makeItem('Propuestas / comparativas', 'query_stats', 'admin.licitacion-propuestas.index'),
+        ]);
+
+        $tickets = array_filter([
+            $makeItem('Tickets', 'confirmation_number', 'tickets.index'),
+            $makeItem('Mis tickets', 'person', 'tickets.my'),
+        ]);
+
+        $contabilidadAdmin = array_filter([
+            $makeItem('Contabilidad', 'monitoring', 'accounting.dashboard'),
+            $makeItem('Documentación', 'folder_open', null, url('/confidential/vault/6')),
+            $makeItem('Documentación de altas', 'folder_managed', 'alta.docs.index'),
+            $makeItem('Landing', 'language', 'panel.landing.index'),
+            $makeItem('Usuarios', 'manage_accounts', 'admin.users.index'),
+            $makeItem('Pedidos web', 'shopping_bag', 'admin.orders.index'),
+        ]);
+
+        if (count($finanzasVentas))      $sections[] = ['title' => 'Finanzas y Ventas', 'items' => $finanzasVentas];
+        if (count($inventarioProductos)) $sections[] = ['title' => 'Inventario y Productos', 'items' => $inventarioProductos];
+        if (count($operaciones))         $sections[] = ['title' => 'Operaciones', 'items' => $operaciones];
+        if (count($clientesComunicacion))$sections[] = ['title' => 'Clientes y Comunicación', 'items' => $clientesComunicacion];
+        if (count($licitaciones))        $sections[] = ['title' => 'Licitaciones', 'items' => $licitaciones];
+        if (count($tickets))             $sections[] = ['title' => 'Tickets', 'items' => $tickets];
+        if (count($contabilidadAdmin))   $sections[] = ['title' => 'Administración y Control', 'items' => $contabilidadAdmin];
+    }
+@endphp
+
+<div class="menu-page">
+    <div class="menu-glow g1"></div>
+    <div class="menu-glow g2"></div>
+
+    <div class="menu-wrap">
+        <div class="menu-hero">
+            <p class="menu-date">{{ mb_strtoupper($today) }}</p>
+
+            <h1 class="menu-title">
+                Buenas tardes,
+                <span class="animated-gradient-text">
+                    <span class="text-content">{{ $firstName }}</span>
+                </span>
+            </h1>
+
+            <p class="menu-sub">
+                Accede a todos los módulos del sistema desde aquí.
+            </p>
+
+            <div class="menu-search-wrap">
+                <div class="menu-search">
+                    <span class="msi icon">search</span>
+                    <input type="text" id="menuSearch" placeholder="Buscar módulo..." autocomplete="off">
+                    <button type="button" id="menuSearchClear" class="menu-clear" aria-label="Limpiar búsqueda">
+                        <span class="msi" style="font-size:18px;">close</span>
+                    </button>
+                </div>
             </div>
-          @endif
         </div>
-      </div>
 
-      <button class="sidebar__close" id="btnCloseSidebar" aria-label="Cerrar menú">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M18 6L6 18M6 6l12 12"/>
-        </svg>
-      </button>
+        <div class="menu-sections" id="menuSections">
+            @php $anim = 0; @endphp
+
+            @foreach($sections as $section)
+                <section class="menu-section js-menu-section" data-section="{{ \Illuminate\Support\Str::lower($section['title']) }}">
+                    <h3 class="menu-section-title">{{ $section['title'] }}</h3>
+
+                    <div class="menu-grid">
+                        @foreach($section['items'] as $item)
+                            @php $anim++; @endphp
+                            <a
+                                href="{{ $item['url'] }}"
+                                class="menu-card js-menu-item"
+                                data-label="{{ \Illuminate\Support\Str::lower($item['label']) }}"
+                                data-section="{{ \Illuminate\Support\Str::lower($section['title']) }}"
+                                style="animation-delay: {{ $anim * 0.025 }}s;"
+                                title="{{ $item['label'] }}"
+                            >
+                                @if(!empty($item['badge']))
+                                    <span class="menu-badge">{{ $item['badge'] }}</span>
+                                @endif
+
+                                <div class="menu-card-body">
+                                    <div class="menu-icon">
+                                        <span class="msi">{{ $item['icon'] }}</span>
+                                    </div>
+                                    <div class="menu-label">{{ $item['label'] }}</div>
+                                </div>
+                            </a>
+                        @endforeach
+                    </div>
+                </section>
+            @endforeach
+
+            <div class="menu-empty" id="menuEmpty">
+                No se encontraron módulos con esa búsqueda.
+            </div>
+        </div>
     </div>
-
-    {{-- ✅ CAMBIO: nav -> side-nav para evitar choque con Bootstrap --}}
-    <nav class="side-nav" id="sidebarNav">
-
-      {{-- ✅ CONDICIÓN: si es manager (y NO admin) solo ve: Mi perfil + Part. contable + Documentación de altas --}}
-      @if($restrictManager)
-
-        <!-- Mi perfil -->
-        <details class="nav__group" {{ request()->routeIs('profile.*') ? 'open' : '' }}>
-          <summary class="{{ request()->routeIs('profile.*') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
-              <circle cx="12" cy="7" r="4"/><path d="M6 21v-2a6 6 0 0 1 12 0v2"/>
-            </svg>
-            <span>Mi perfil</span>
-            <svg class="nav__chev" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
-          </summary>
-          <div class="nav__submenu">
-            <a href="{{ route('profile.show') }}" class="nav__sublink {{ request()->routeIs('profile.show') ? 'is-active':'' }}">
-              <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M4 6h16"/></svg>
-              <span>Ver perfil</span>
-            </a>
-          </div>
-        </details>
-
-        <!-- Part. contable -->
-        <a href="{{ route('partcontable.index') }}" class="nav__link {{ request()->routeIs('partcontable.*') ? 'is-active':'' }}">
-          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
-            <circle cx="12" cy="12" r="9"/>
-            <path d="M9 10h3.5a2 2 0 1 1 0 4H9m3-7v10"/>
-          </svg>
-          <span>Part. contable</span>
-        </a>
-
-        <!-- Documentación de altas -->
-        <a href="{{ route('alta.docs.index') }}" class="nav__link {{ request()->routeIs('alta.docs.*') ? 'is-active':'' }}">
-          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
-            <path d="M4 4h16v14H4z"/><path d="M8 4v-1a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v1"/><path d="M8 9h8M8 13h5"/>
-          </svg>
-          <span>Documentación de altas</span>
-        </a>
-
-      @else
-
-      <!-- Dashboard -->
-      <a href="{{ route('dashboard') }}" class="nav__link {{ request()->routeIs('dashboard') ? 'is-active':'' }}">
-        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
-          <path d="M3 12l9-9 9 9"/><path d="M9 21V9h6v12"/>
-        </svg>
-        <span>Dashboard</span>
-      </a>
-
-      <!-- Mi perfil -->
-      <details class="nav__group" {{ request()->routeIs('profile.*') ? 'open' : '' }}>
-        <summary class="{{ request()->routeIs('profile.*') ? 'is-active':'' }}">
-          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
-            <circle cx="12" cy="7" r="4"/><path d="M6 21v-2a6 6 0 0 1 12 0v2"/>
-          </svg>
-          <span>Mi perfil</span>
-          <svg class="nav__chev" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
-        </summary>
-        <div class="nav__submenu">
-          <a href="{{ route('profile.show') }}" class="nav__sublink {{ request()->routeIs('profile.show') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M4 6h16"/></svg>
-            <span>Ver perfil</span>
-          </a>
-        </div>
-      </details>
-
-      <!-- Productos -->
-      <details class="nav__group" {{ request()->routeIs('products.*') ? 'open' : '' }}>
-        <summary class="{{ request()->routeIs('products.*') ? 'is-active':'' }}">
-          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
-            <rect x="3" y="4" width="18" height="14" rx="2"/><path d="M7 8h10M7 12h10M7 16h6"/>
-          </svg>
-          <span>Productos</span>
-          <svg class="nav__chev" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
-        </summary>
-        <div class="nav__submenu">
-          <a href="{{ route('products.index') }}" class="nav__sublink {{ request()->routeIs('products.index') || request()->routeIs('products.show') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
-            <span>Listado</span>
-          </a>
-          <a href="{{ route('products.create') }}" class="nav__sublink {{ request()->routeIs('products.create') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>
-            <span>Nuevo producto</span>
-          </a>
-          <a href="{{ route('products.import.form') }}" class="nav__sublink {{ request()->routeIs('products.import.*') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M5 21h14"/></svg>
-            <span>Importar</span>
-          </a>
-          <a href="{{ route('products.export.pdf') }}" class="nav__sublink">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M19 21H5"/></svg>
-            <span>Exportar PDF</span>
-          </a>
-          <a href="{{ route('products.export.excel') }}" class="nav__sublink">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
-              <path d="M4 4h16v16H4z"/><path d="M8 8l8 8M16 8l-8 8"/>
-            </svg>
-            <span>Exportar Excel</span>
-          </a>
-        </div>
-      </details>
-
-      <!-- Proveedores -->
-      <a href="{{ route('providers.index') }}" class="nav__link {{ request()->routeIs('providers.*') ? 'is-active':'' }}">
-        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
-          <path d="M3 7h18l-2 10a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3L3 7z"/>
-          <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
-        </svg>
-        <span>Proveedores</span>
-      </a>
-
-      <!-- Clientes -->
-      <a href="{{ route('clients.index') }}" class="nav__link {{ request()->routeIs('clients.*') ? 'is-active':'' }}">
-        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
-          <path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
-        </svg>
-        <span>Clientes</span>
-      </a>
-
-      <!-- Cotizaciones -->
-      <details class="nav__group" {{ request()->routeIs('cotizaciones.*') ? 'open' : '' }}>
-        <summary class="{{ request()->routeIs('cotizaciones.*') ? 'is-active':'' }}">
-          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
-            <rect x="3" y="4" width="18" height="14" rx="2"/>
-          </svg>
-          <span>Cotizaciones</span>
-          <svg class="nav__chev" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
-        </summary>
-        <div class="nav__submenu">
-          <a href="{{ route('cotizaciones.index') }}" class="nav__sublink {{ request()->routeIs('cotizaciones.index') || request()->routeIs('cotizaciones.show') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
-            <span>Listado</span>
-          </a>
-          <a href="{{ route('cotizaciones.create') }}" class="nav__sublink {{ request()->routeIs('cotizaciones.create') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>
-            <span>Nueva</span>
-          </a>
-          <a href="{{ route('cotizaciones.auto.form') }}" class="nav__sublink {{ request()->routeIs('cotizaciones.auto.*') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M3 12h7l-2 2m2-2l-2-2M14 7h7l-2 2m2-2l-2-2"/></svg>
-            <span>Auto (asistida)</span>
-          </a>
-        </div>
-      </details>
-
-      <!-- Ventas -->
-      <a href="{{ route('ventas.index') }}" class="nav__link {{ request()->routeIs('ventas.*') ? 'is-active':'' }}">
-        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
-          <path d="M3 7h18l-2 10a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3L3 7z"/>
-          <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
-        </svg>
-        <span>Ventas</span>
-      </a>
-
-      <!-- Facturas manuales -->
-      <details class="nav__group" {{ request()->routeIs('manual_invoices.*') ? 'open' : '' }}>
-        <summary class="{{ request()->routeIs('manual_invoices.*') ? 'is-active':'' }}">
-          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
-            <rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 7h6M9 11h4M9 15h6"/>
-          </svg>
-          <span>Facturas</span>
-          <svg class="nav__chev" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
-        </summary>
-        <div class="nav__submenu">
-          <a href="{{ route('manual_invoices.index') }}" class="nav__sublink {{ request()->routeIs('manual_invoices.index') || request()->routeIs('manual_invoices.show') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
-            <span>Listado</span>
-          </a>
-          <a href="{{ route('manual_invoices.create') }}" class="nav__sublink {{ request()->routeIs('manual_invoices.create') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>
-            <span>Nueva factura</span>
-          </a>
-        </div>
-      </details>
-
-      <!-- Fichas técnicas -->
-      <details class="nav__group" {{ request()->routeIs('tech-sheets.*') ? 'open' : '' }}>
-        <summary class="{{ request()->routeIs('tech-sheets.*') ? 'is-active':'' }}">
-          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
-            <rect x="4" y="3" width="16" height="18" rx="2"/>
-            <path d="M8 9h8M8 13h6M8 17h5"/>
-          </svg>
-          <span>Fichas técnicas</span>
-          <svg class="nav__chev" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2">
-            <path d="M9 6l6 6-6 6"/>
-          </svg>
-        </summary>
-        <div class="nav__submenu">
-          <a href="{{ route('tech-sheets.index') }}" class="nav__sublink {{ request()->routeIs('tech-sheets.index') || request()->routeIs('tech-sheets.show') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
-              <path d="M4 6h16M4 12h16M4 18h10"/>
-            </svg>
-            <span>Listado</span>
-          </a>
-          <a href="{{ route('tech-sheets.create') }}" class="nav__sublink {{ request()->routeIs('tech-sheets.create') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
-              <path d="M12 5v14M5 12h14"/>
-            </svg>
-            <span>Nueva ficha</span>
-          </a>
-        </div>
-      </details>
-
-      <!-- Publicaciones -->
-      <details class="nav__group" {{ request()->routeIs('publications.*') ? 'open' : '' }}>
-        <summary class="{{ request()->routeIs('publications.*') ? 'is-active':'' }}">
-          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
-            <rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h5M8 15h8"/>
-          </svg>
-          <span>Remisiones, Facturas</span>
-          <svg class="nav__chev" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
-        </summary>
-        <div class="nav__submenu">
-          <a href="{{ route('publications.index') }}" class="nav__sublink {{ request()->routeIs('publications.index') || request()->routeIs('publications.show') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
-              <path d="M4 6h16M4 12h16M4 18h10"/>
-            </svg>
-            <span>Listado</span>
-          </a>
-          <a href="{{ route('publications.create') }}" class="nav__sublink {{ request()->routeIs('publications.create') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
-              <path d="M12 5v14M5 12h14"/>
-            </svg>
-            <span>Nueva publicación</span>
-          </a>
-        </div>
-      </details>
-
-      <!-- Part. contable -->
-      <a href="{{ route('partcontable.index') }}" class="nav__link {{ request()->routeIs('partcontable.*') ? 'is-active':'' }}">
-        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
-          <circle cx="12" cy="12" r="9"/>
-          <path d="M9 10h3.5a2 2 0 1 1 0 4H9m3-7v10"/>
-        </svg>
-        <span>Part. contable</span>
-      </a>
-   <!-- Part. contable -->
-<a href="{{ url('/confidential/vault/6') }}" class="nav__link {{ request()->routeIs('partcontable.*') ? 'is-active':'' }}">
-  <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
-    <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-    <path d="M8 13h8M8 16h5"/>
-  </svg>
-  <span>Documentación</span>
-</a>
-
-      {{-- ✅ NUEVO: Finanzas (Gastos/Vehículos/Nómina) --}}
-      <details class="nav__group"
-        {{ request()->routeIs('expenses.*')
-            || request()->routeIs('vehicles.*')
-            || request()->routeIs('payroll.*')
-            ? 'open' : '' }}>
-        <summary class="{{ request()->routeIs('expenses.*')
-                          || request()->routeIs('vehicles.*')
-                          || request()->routeIs('payroll.*')
-                          ? 'is-active':'' }}">
-          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
-            <path d="M4 7h16"/><path d="M4 12h10"/><path d="M4 17h16"/>
-            <path d="M16 10l4 2-4 2" />
-          </svg>
-          <span>Finanzas</span>
-          <svg class="nav__chev" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2">
-            <path d="M9 6l6 6-6 6"/>
-          </svg>
-        </summary>
-
-        <div class="nav__submenu">
-          <a href="{{ route('expenses.index') }}"
-             class="nav__sublink {{ request()->routeIs('expenses.*') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
-              <path d="M12 2v20"/><path d="M17 5H9.5a3 3 0 0 0 0 6H14a3 3 0 0 1 0 6H7"/>
-            </svg>
-            <span>Gastos</span>
-          </a>
-
-          <a href="{{ route('expenses.create') }}"
-             class="nav__sublink {{ request()->routeIs('expenses.create') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
-              <path d="M12 5v14M5 12h14"/>
-            </svg>
-            <span>Nuevo gasto</span>
-          </a>
-
-          <a href="{{ route('vehicles.index') }}"
-             class="nav__sublink {{ request()->routeIs('vehicles.*') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
-              <path d="M3 16v-3a2 2 0 0 1 2-2h1l2-4h8l2 4h1a2 2 0 0 1 2 2v3"/>
-              <circle cx="7" cy="16" r="2"/><circle cx="17" cy="16" r="2"/>
-            </svg>
-            <span>Vehículos</span>
-          </a>
-
-          <a href="{{ route('vehicles.create') }}"
-             class="nav__sublink {{ request()->routeIs('vehicles.create') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
-              <path d="M12 5v14M5 12h14"/>
-            </svg>
-            <span>Nuevo vehículo</span>
-          </a>
-
-          @if(\Illuminate\Support\Facades\Route::has('payroll.periods.index'))
-            <a href="{{ route('payroll.periods.index') }}"
-               class="nav__sublink {{ request()->routeIs('payroll.*') ? 'is-active':'' }}">
-              <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
-                <rect x="4" y="3" width="16" height="18" rx="2"/>
-                <path d="M8 8h8M8 12h8M8 16h5"/>
-              </svg>
-              <span>Nómina</span>
-            </a>
-          @endif
-        </div>
-      </details>
-
-      <!-- Documentación de altas -->
-      <a href="{{ route('alta.docs.index') }}" class="nav__link {{ request()->routeIs('alta.docs.*') ? 'is-active':'' }}">
-        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
-          <path d="M4 4h16v14H4z"/><path d="M8 4v-1a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v1"/><path d="M8 9h8M8 13h5"/>
-        </svg>
-        <span>Documentación de altas</span>
-      </a>
-
-      <!-- Licitaciones -->
-      <details class="nav__group"
-        {{ request()->routeIs('licitaciones.*')
-            || request()->routeIs('licitaciones-ai.*')
-            || request()->routeIs('admin.licitacion-pdfs.*')
-            || request()->routeIs('admin.licitacion-propuestas.*')
-            ? 'open' : '' }}>
-        <summary class="{{ request()->routeIs('licitaciones.*')
-                          || request()->routeIs('licitaciones-ai.*')
-                          || request()->routeIs('admin.licitacion-pdfs.*')
-                          || request()->routeIs('admin.licitacion-propuestas.*')
-                          ? 'is-active':'' }}">
-          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
-            <rect x="4" y="3" width="16" height="18" rx="2"/>
-            <path d="M8 7h8M8 11h8M8 15h5"/>
-          </svg>
-          <span>Licitaciones</span>
-          <svg class="nav__chev" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2">
-            <path d="M9 6l6 6-6 6"/>
-          </svg>
-        </summary>
-
-        <div class="nav__submenu">
-          <a href="{{ route('licitaciones.index') }}"
-             class="nav__sublink {{ request()->routeIs('licitaciones.index') || request()->routeIs('licitaciones.show') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
-              <path d="M4 6h16M4 12h16M4 18h10"/>
-            </svg>
-            <span>Listado</span>
-          </a>
-
-          <a href="{{ route('licitaciones.create.step1') }}"
-             class="nav__sublink {{ request()->routeIs('licitaciones.create.step1') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
-              <path d="M12 5v14M5 12h14"/>
-            </svg>
-            <span>Nueva licitación</span>
-          </a>
-
-          <a href="{{ route('licitaciones-ai.index') }}"
-             class="nav__sublink {{ request()->routeIs('licitaciones-ai.index') || request()->routeIs('licitaciones-ai.show') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
-              <path d="M4 5h16v6H4z"/><path d="M4 17h8v2H4z"/><path d="M14 15h6v4h-6z"/>
-            </svg>
-            <span>Licitaciones IA</span>
-          </a>
-
-          <a href="{{ route('licitaciones-ai.tabla-global') }}"
-             class="nav__sublink {{ request()->routeIs('licitaciones-ai.tabla-global') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
-              <rect x="3" y="4" width="18" height="16" rx="2"/>
-              <path d="M9 4v16M15 4v16M3 12h18"/>
-            </svg>
-            <span>Tabla global IA</span>
-          </a>
-
-          <a href="{{ route('admin.licitacion-pdfs.index') }}"
-             class="nav__sublink {{ request()->routeIs('admin.licitacion-pdfs.*') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
-              <rect x="5" y="3" width="14" height="18" rx="2"/>
-              <path d="M9 7h6M9 11h6M9 15h4"/>
-            </svg>
-            <span>PDFs de requisiciones</span>
-          </a>
-
-          <a href="{{ route('admin.licitacion-propuestas.index') }}"
-             class="nav__sublink {{ request()->routeIs('admin.licitacion-propuestas.*') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
-              <rect x="3" y="4" width="18" height="16" rx="2"/>
-              <path d="M7 14h3.5a2 2 0 1 0 0-4H7z"/>
-              <path d="M14.5 10H17a2 2 0 1 1 0 4h-2.5z"/>
-            </svg>
-            <span>Propuestas / comparativas</span>
-          </a>
-        </div>
-      </details>
-
-      <!-- Agenda -->
-      <a href="{{ route('agenda.calendar') }}" class="nav__link {{ request()->routeIs('agenda.*') ? 'is-active':'' }}">
-        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
-          <rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4"/><path d="M3 10h18"/>
-        </svg>
-        <span>Agenda</span>
-      </a>
-<!-- Tickets -->
-<details class="nav__group" {{ request()->routeIs('tickets.*') ? 'open' : '' }}>
-  <summary class="{{ request()->routeIs('tickets.*') ? 'is-active':'' }}">
-    <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
-      <path d="M3 9a2 2 0 0 0 0 6h2a2 2 0 0 1 0 4h10a2 2 0 0 1 0-4h2a2 2 0 0 0 0-6h-2a2 2 0 0 1 0-4H5a2 2 0 0 1 0 4H3z"/>
-      <path d="M9 9h6M9 15h6"/>
-    </svg>
-    <span>Tickets</span>
-    <svg class="nav__chev" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2">
-      <path d="M9 6l6 6-6 6"/>
-    </svg>
-  </summary>
-
-  <div class="nav__submenu">
-    {{-- Dashboard eliminado (ya no existe la ruta tickets.dashboard) --}}
-
-    <a href="{{ route('tickets.index') }}"
-       class="nav__sublink {{ request()->routeIs('tickets.index') || request()->routeIs('tickets.show') ? 'is-active':'' }}">
-      <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
-        <rect x="3" y="4" width="18" height="14" rx="2"/>
-        <path d="M7 8h10M7 12h10M7 16h6"/>
-      </svg>
-      <span>Lista de tickets</span>
-    </a>
-
-    <a href="{{ route('tickets.create') }}"
-       class="nav__sublink {{ request()->routeIs('tickets.create') ? 'is-active':'' }}">
-      <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
-        <path d="M12 5v14M5 12h14"/>
-      </svg>
-      <span>Nuevo ticket</span>
-    </a>
-
-    @if(\Illuminate\Support\Facades\Route::has('tickets.my'))
-      <a href="{{ route('tickets.my') }}"
-         class="nav__sublink {{ request()->routeIs('tickets.my') ? 'is-active':'' }}">
-        <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
-          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-          <circle cx="12" cy="7" r="4"/>
-        </svg>
-        <span>Mis tickets</span>
-      </a>
-    @endif
-  </div>
-</details>
-
-      <!-- Logística -->
-      <details class="nav__group" {{ request()->routeIs('routes.*') || request()->routeIs('routing.demo') ? 'open' : '' }}>
-        <summary class="{{ request()->routeIs('routes.*') || request()->routeIs('routing.demo') ? 'is-active':'' }}">
-          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
-            <path d="M3 5h4l3 7 4-4 7 2"/><circle cx="6" cy="5" r="2"/><circle cx="14" cy="8" r="2"/><circle cx="21" cy="10" r="2"/>
-          </svg>
-          <span>Logística</span>
-          <svg class="nav__chev" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
-        </summary>
-        <div class="nav__submenu">
-          <a href="{{ route('routes.index') }}" class="nav__sublink {{ request()->routeIs('routes.index') || request()->routeIs('routes.show') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
-            <span>Rutas programadas</span>
-          </a>
-          <a href="{{ route('routes.create') }}" class="nav__sublink {{ request()->routeIs('routes.create') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>
-            <span>Nueva ruta</span>
-          </a>
-          <a href="{{ route('routing.demo') }}" class="nav__sublink {{ request()->routeIs('routing.demo') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M3 12h18M12 3v18"/></svg>
-            <span>Demo / pruebas</span>
-          </a>
-        </div>
-      </details>
-
-      <!-- WMS -->
-         <!-- Agenda -->
-      <a href="{{ route('admin.wms.home') }}" class="nav__sublink {{ request()->routeIs('admin.wms.home') ? 'is-active':'' }}">
-        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
-           <path d="M3 12l9-9 9 9"/><path d="M9 21V9h6v12"/>
-        </svg>
-         <span>Inicio WMS</span>
-      </a>
-
-    
-
-      <!-- Help Desk -->
-      <details class="nav__group" {{ request()->routeIs('admin.help.*') ? 'open' : '' }}>
-        <summary class="{{ request()->routeIs('admin.help.*') ? 'is-active':'' }}">
-          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
-            <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 1 1 5.82 1c0 2-3 2-3 4"/><path d="M12 17h.01"/>
-          </svg>
-          <span>Help&nbsp;Desk</span>
-          <svg class="nav__chev" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
-        </summary>
-        <div class="nav__submenu">
-          <a href="{{ route('admin.help.index') }}" class="nav__sublink {{ request()->routeIs('admin.help.index') || request()->routeIs('admin.help.show') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
-            <span>Tickets de usuarios</span>
-          </a>
-          <form action="{{ route('admin.help.sync') }}" method="POST" class="nav__sublink" style="padding:0">
-            @csrf
-            <button type="submit" class="nav__sublink" style="width:100%; text-align:left; background:transparent; border:none; cursor:pointer;">
-              <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M21 12a9 9 0 1 1-9-9"/><path d="M21 3v9h-9"/></svg>
-              <span>Reindexar conocimiento</span>
-            </button>
-          </form>
-        </div>
-      </details>
-
-      <!-- Correo -->
-      <details class="nav__group" {{ request()->routeIs('mail.*') ? 'open' : '' }}>
-        <summary class="{{ request()->routeIs('mail.*') ? 'is-active':'' }}">
-          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
-            <path d="M4 4h16v16H4z"/><path d="M22 6l-10 7L2 6"/>
-          </svg>
-          <span>Correo</span>
-          <svg class="nav__chev" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
-        </summary>
-        <div class="nav__submenu">
-          <a href="{{ route('mail.index') }}" class="nav__sublink {{ request()->routeIs('mail.index') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M3 8l9 6 9-6"/><path d="M21 8v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8"/></svg>
-            <span>Bandeja</span>
-          </a>
-          <a href="{{ route('mail.compose') }}" class="nav__sublink {{ request()->routeIs('mail.compose') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5l4 4L7 21l-4 1 1-4 12.5-14.5z"/></svg>
-            <span>Redactar</span>
-          </a>
-          <a href="{{ route('mail.folder','INBOX') }}" class="nav__sublink {{ request()->is('mail/folder/INBOX') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M4 4h16v13H4z"/><path d="M4 13l4 4h8l4-4"/></svg>
-            <span>INBOX</span>
-          </a>
-          <a href="{{ route('mail.folder','Sent') }}" class="nav__sublink {{ request()->is('mail/folder/Sent') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M22 2L11 13"/><path d="M22 2l-6 20-5-9-9-5 20-6z"/></svg>
-            <span>Enviados</span>
-          </a>
-          <a href="{{ route('mail.folder','Drafts') }}" class="nav__sublink {{ request()->is('mail/folder/Drafts') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M3 5h18v14H3z"/><path d="M7 9h10"/></svg>
-            <span>Borradores</span>
-          </a>
-          <a href="{{ route('mail.folder','Spam') }}" class="nav__sublink {{ request()->is('mail/folder/Spam') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M12 2l9 9-9 9-9-9 9-9z"/><path d="M9 9h6v6H9z"/></svg>
-            <span>Spam</span>
-          </a>
-        </div>
-      </details>
-
-      <!-- Landing -->
-      <a href="{{ route('panel.landing.index') }}" class="nav__link {{ request()->routeIs('panel.landing.*') ? 'is-active':'' }}">
-        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
-          <path d="M12 2l9 5-9 5-9-5 9-5z"/>
-          <path d="M3 12l9 5 9-5"/>
-          <path d="M3 17l9 5 9-5"/>
-        </svg>
-        <span>Landing (Inicio web)</span>
-      </a>
-
-      <!-- Administración -->
-      <details class="nav__group" {{ request()->routeIs('admin.users.*') || request()->routeIs('admin.catalog.*') || request()->routeIs('admin.orders.*') ? 'open' : '' }}>
-        <summary class="{{ request()->routeIs('admin.users.*') || request()->routeIs('admin.catalog.*') || request()->routeIs('admin.orders.*') ? 'is-active':'' }}">
-          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
-            <path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
-            <path d="M3 7l9-4 9 4-9 4-9-4z"/>
-          </svg>
-          <span>Administración</span>
-          <svg class="nav__chev" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
-        </summary>
-        <div class="nav__submenu">
-          <a href="{{ route('admin.users.index') }}" class="nav__sublink {{ request()->routeIs('admin.users.*') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
-              <path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
-            </svg>
-            <span>Usuarios</span>
-          </a>
-          <a href="{{ route('admin.catalog.index') }}" class="nav__sublink {{ request()->routeIs('admin.catalog.*') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
-              <rect x="3" y="4" width="18" height="14" rx="2"/><path d="M7 8h10M7 12h10M7 16h6"/>
-            </svg>
-            <span>Catálogo (admin)</span>
-          </a>
-          <a href="{{ route('admin.orders.index') }}" class="nav__sublink {{ request()->routeIs('admin.orders.*') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8">
-              <path d="M3 7h18l-2 10a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3L3 7z"/>
-              <path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/>
-            </svg>
-            <span>Pedidos web</span>
-          </a>
-        </div>
-      </details>
-
-    
-
-      @endif
-    </nav>
-
-    <form method="POST" action="{{ route('logout') }}" class="logout">
-      @csrf
-      <button type="submit" class="btn-logout">
-        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8">
-          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-          <path d="M16 17l5-5-5-5"/>
-          <path d="M21 12H9"/>
-        </svg>
-        <span>Cerrar sesión</span>
-      </button>
-    </form>
-  </aside>
-
-  <!-- Backdrop -->
-  <div id="backdrop" class="backdrop" tabindex="-1" aria-hidden="true"></div>
-
-  <!-- Contenedor principal -->
-  <div class="shell" id="shell">
-    <header class="topbar">
-      <button id="btnSidebar" class="icon-btn" aria-label="Abrir menú">
-        <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" fill="none" stroke-width="2">
-          <path d="M3 6h18M3 12h18M3 18h18"/>
-        </svg>
-      </button>
-
-      <div class="topbar__title">@yield('header','Panel')</div>
-
-      <div class="topbar__right">
-        <!-- Notificaciones -->
-        <div class="notif">
-          <button id="btnNotif" class="icon-btn" aria-haspopup="true" aria-expanded="false" aria-label="Notificaciones">
-            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" fill="none" stroke-width="2">
-              <path d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5"/>
-              <path d="M9 21h6"/>
-            </svg>
-            <span id="notifBadge" class="dot" aria-hidden="true" style="display:none;"></span>
-          </button>
-
-          <div id="notifPanel" class="notif__panel" role="menu" aria-label="Panel de notificaciones">
-            <div class="notif__head">
-              <strong>Notificaciones</strong>
-              <button id="btnCloseNotif" class="icon-btn" aria-label="Cerrar notificaciones">
-                <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="2">
-                  <path d="M18 6L6 18M6 6l12 12"/>
-                </svg>
-              </button>
-            </div>
-            <div id="notifList" class="notif__list">
-              <div class="notif__empty">Cargando…</div>
-            </div>
-            <button type="button" id="btnMarkAll" class="notif__link">Marcar todas como leídas</button>
-          </div>
-        </div>
-
-        <!-- Avatar pequeño -->
-        <a href="{{ $profileHref }}" class="avatar-link" title="Ver mi perfil">
-          <div class="avatar avatar--sm" aria-hidden="true">
-            @if($avatarSrc)
-              <img src="{{ $avatarSrc }}" alt="Avatar de {{ $nm }}" onerror="this.onerror=null;this.src='{{ $fallbackMp }}';">
-              <span>{{ $ini }}</span>
-            @else
-              <img src="{{ $fallbackMp }}" alt="Avatar de {{ $nm }}">
-              <span>{{ $ini }}</span>
-            @endif
-          </div>
-        </a>
-      </div>
-    </header>
-
-    <main id="content" class="content">
-      @yield('content')
-    </main>
-  </div>
-
-  @stack('scripts')
-
-  <script>
-    (function(){
-      const shell      = document.getElementById('shell');
-      const sidebar    = document.getElementById('sidebar');
-      const sidebarNav = document.getElementById('sidebarNav');
-      const backdrop   = document.getElementById('backdrop');
-      const btnOpen    = document.getElementById('btnSidebar');
-      const btnClose   = document.getElementById('btnCloseSidebar');
-
-      const notifBtn     = document.getElementById('btnNotif');
-      const notifPane    = document.getElementById('notifPanel');
-      const notifClose   = document.getElementById('btnCloseNotif');
-      const notifList    = document.getElementById('notifList');
-      const notifBadge   = document.getElementById('notifBadge');
-      const notifMarkAll = document.getElementById('btnMarkAll');
-
-      const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-
-      const NOTIF_FEED_URL    = @json($notifFeedUrl);
-      const NOTIF_READALL_URL = @json($notifReadAllUrl);
-      const NOTIF_READONE_URL = @json($notifReadOneUrl);
-
-      let sidebarOpen    = false;
-      let notifLoaded    = false;
-      let lastPayloadKey = null;
-
-      /* Sidebar */
-      const applyOverlay = () => {
-        if (!backdrop || !shell || !sidebar) return;
-        backdrop.classList.toggle('is-show', sidebarOpen);
-        shell.classList.toggle('dimmed', sidebarOpen);
-        document.body.classList.toggle('lock-scroll', sidebarOpen);
-        sidebar.setAttribute('aria-hidden', sidebarOpen ? 'false' : 'true');
-      };
-
-      const openSidebar = () => {
-        if (!sidebar || sidebarOpen) return;
-        sidebarOpen = true;
-        sidebar.classList.add('is-open');
-        applyOverlay();
-      };
-      const closeSidebar = () => {
-        if (!sidebar || !sidebarOpen) return;
-        sidebarOpen = false;
-        sidebar.classList.remove('is-open');
-        applyOverlay();
-      };
-
-      if (btnOpen)  btnOpen.addEventListener('click', openSidebar);
-      if (btnClose) btnClose.addEventListener('click', closeSidebar);
-      if (backdrop) backdrop.addEventListener('click', closeSidebar);
-
-      if (sidebarNav){
-        sidebarNav.addEventListener('click', (e)=>{
-          const summary = e.target.closest('summary');
-          if (summary) return;
-          const link = e.target.closest('a');
-          if (!link) return;
-
-          const href = link.getAttribute('href') || '';
-          const keep = link.hasAttribute('data-keep-open');
-          const isAnchorOnly = href.startsWith('#') || href === '' || href.startsWith('javascript');
-
-          if (!keep && !isAnchorOnly) closeSidebar();
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const input = document.getElementById('menuSearch');
+    const clear = document.getElementById('menuSearchClear');
+    const items = Array.from(document.querySelectorAll('.js-menu-item'));
+    const sections = Array.from(document.querySelectorAll('.js-menu-section'));
+    const empty = document.getElementById('menuEmpty');
+
+    function applyFilter() {
+        const term = (input.value || '').trim().toLowerCase();
+        let visible = 0;
+
+        clear.classList.toggle('show', term.length > 0);
+
+        items.forEach((item) => {
+            const label = item.dataset.label || '';
+            const section = item.dataset.section || '';
+            const match = !term || label.includes(term) || section.includes(term);
+
+            item.style.display = match ? '' : 'none';
+            if (match) visible++;
         });
-      }
 
-      /* Notificaciones */
-      function buildPayloadKey(payload){
-        if (!payload || !Array.isArray(payload.items)) return '';
-        return payload.items.map(n => n.id + (n.read_at ? '1' : '0')).join('|') + '|' + (payload.unread || 0);
-      }
-
-      function renderNotifItems(payload){
-        if (!notifList) return;
-        const items  = (payload && payload.items)  ? payload.items  : [];
-        const unread = (payload && payload.unread) ? payload.unread : 0;
-
-        if (notifBadge){
-          if (unread > 0){
-            notifBadge.style.display = '';
-            notifBadge.textContent = unread > 9 ? '9+' : unread;
-          } else {
-            notifBadge.style.display = 'none';
-            notifBadge.textContent = '';
-          }
-        }
-
-        notifList.innerHTML = '';
-
-        if (!items.length){
-          const empty = document.createElement('div');
-          empty.className = 'notif__empty';
-          empty.textContent = 'No tienes notificaciones.';
-          notifList.appendChild(empty);
-          return;
-        }
-
-        items.forEach(n => {
-          const level = n.status || 'info';
-          let pillClass = 'pill--info';
-          let pillText  = 'Info';
-          if (level === 'warn'){ pillClass = 'pill--warn'; pillText = 'Aviso'; }
-          else if (level === 'error'){ pillClass = 'pill--error'; pillText = 'Alerta'; }
-
-          const item = document.createElement('div');
-          item.className = 'notif__item ' + (n.read_at ? 'is-read' : 'is-unread');
-          item.dataset.id = n.id;
-          if (n.url) item.dataset.url = n.url;
-
-          item.innerHTML = `
-            <div class="notif__body">
-              <span class="pill ${pillClass}">${pillText}</span>
-              <div class="notif__main">
-                <div class="notif__text">${(n.title || 'Notificación')}</div>
-                <div class="notif__msg">${(n.message || '')}</div>
-                <div class="notif__time">${(n.time || '')}</div>
-              </div>
-            </div>
-            <button type="button" class="notif__item-close" aria-label="Marcar como leída" data-id="${n.id}">&times;</button>
-          `;
-          notifList.appendChild(item);
+        sections.forEach((section) => {
+            const hasVisible = section.querySelector('.js-menu-item:not([style*="display: none"])');
+            section.style.display = hasVisible ? '' : 'none';
         });
-      }
 
-      async function loadNotifications(){
-        if (!NOTIF_FEED_URL || !notifList) return;
+        empty.classList.toggle('show', visible === 0);
+    }
 
-        if (!notifLoaded){
-          notifList.innerHTML = '<div class="notif__empty">Cargando…</div>';
-        }
+    input.addEventListener('input', applyFilter);
 
-        try{
-          const res  = await fetch(NOTIF_FEED_URL, { headers:{ 'Accept':'application/json' } });
-          const json = await res.json();
+    clear.addEventListener('click', function () {
+        input.value = '';
+        input.focus();
+        applyFilter();
+    });
 
-          if (!res.ok){
-            throw new Error(json.message || 'Error al cargar notificaciones');
-          }
-
-          const key = buildPayloadKey(json);
-          if (key !== lastPayloadKey){
-            lastPayloadKey = key;
-            renderNotifItems(json);
-          }
-          notifLoaded = true;
-        }catch(e){
-          console.error(e);
-          notifList.innerHTML = '<div class="notif__empty">No se pudieron cargar las notificaciones.</div>';
-        }
-      }
-
-      async function markAllNotifications(){
-        if (!NOTIF_READALL_URL || !csrf) return;
-        try{
-          await fetch(NOTIF_READALL_URL, {
-            method:'POST',
-            headers:{ 'X-CSRF-TOKEN': csrf, 'Accept':'application/json' }
-          });
-          loadNotifications();
-        }catch(e){ console.error(e); }
-      }
-
-      async function markOneNotification(id, itemEl){
-        if (!NOTIF_READONE_URL || !csrf || !id) return;
-        try{
-          const url = NOTIF_READONE_URL.replace('__ID__', encodeURIComponent(id));
-          await fetch(url, {
-            method:'POST',
-            headers:{ 'X-CSRF-TOKEN': csrf, 'Accept':'application/json' }
-          });
-
-          if (itemEl){
-            itemEl.classList.remove('is-unread');
-            itemEl.classList.add('is-read');
-          }
-
-          loadNotifications();
-        }catch(e){ console.error(e); }
-      }
-
-      function openNotifPanel(){
-        if (!notifPane || !notifBtn) return;
-        notifPane.classList.add('is-open');
-        notifPane.setAttribute('aria-hidden','false');
-        notifBtn.setAttribute('aria-expanded','true');
-        loadNotifications();
-      }
-      function closeNotifPanel(){
-        if (!notifPane || !notifBtn) return;
-        notifPane.classList.remove('is-open');
-        notifPane.setAttribute('aria-hidden','true');
-        notifBtn.setAttribute('aria-expanded','false');
-      }
-
-      if (notifBtn){
-        notifBtn.addEventListener('click', function(e){
-          e.stopPropagation();
-          if (!notifPane) return;
-          const isOpen = notifPane.classList.contains('is-open');
-          isOpen ? closeNotifPanel() : openNotifPanel();
-        });
-      }
-
-      if (notifClose){
-        notifClose.addEventListener('click', function(e){
-          e.stopPropagation();
-          closeNotifPanel();
-        });
-      }
-
-      if (notifMarkAll){
-        notifMarkAll.addEventListener('click', function(e){
-          e.preventDefault();
-          markAllNotifications();
-        });
-      }
-
-      if (notifList){
-        notifList.addEventListener('click', function(e){
-          const closeBtn = e.target.closest('.notif__item-close');
-          if (closeBtn){
-            const id     = closeBtn.getAttribute('data-id');
-            const itemEl = closeBtn.closest('.notif__item');
-            if (id) markOneNotification(id, itemEl);
-            e.stopPropagation();
-            return;
-          }
-
-          const row = e.target.closest('.notif__item');
-          if (!row) return;
-
-          const id  = row.dataset.id;
-          const url = row.dataset.url || '';
-          if (!url) return;
-
-          e.preventDefault();
-          (async () => {
-            if (id) await markOneNotification(id, row);
-            window.location.href = url;
-          })();
-        });
-      }
-
-      document.addEventListener('click', function(e){
-        if (!notifPane || !notifBtn) return;
-        if (!notifPane.contains(e.target) && !notifBtn.contains(e.target)){
-          closeNotifPanel();
-        }
-      });
-
-      window.addEventListener('keydown', function(e){
-        if (e.key === 'Escape'){
-          closeNotifPanel();
-          closeSidebar();
-        }
-      });
-
-      if (NOTIF_FEED_URL){
-        loadNotifications();
-        setInterval(loadNotifications, 10000);
-      }
-    })();
-  </script>
+    applyFilter();
+});
+</script>
 </body>
 </html>
