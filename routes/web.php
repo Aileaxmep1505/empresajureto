@@ -1031,20 +1031,42 @@ Route::post('/admin/catalog/ai-from-upload', [CatalogItemController::class, 'aiF
 */
 Route::get('/cron/agenda-run', function (Request $request) {
     if (! $request->hasValidSignature()) {
-        abort(401, 'Firma no válida.');
+        return response()->json([
+            'ok' => false,
+            'message' => 'Firma no válida.',
+        ], 401);
     }
 
-    Artisan::call('agenda:run', [
-        '--limit'  => 200,
-        '--window' => 5,
-    ]);
+    try {
+        Artisan::call('agenda:run', [
+            '--limit'  => 200,
+            '--window' => 5,
+        ]);
 
-    return response()->json([
-        'ok'     => true,
-        'output' => Artisan::output(),
-        'time'   => now('America/Mexico_City')->format('Y-m-d H:i:s'),
-    ]);
+        return response()->json([
+            'ok'     => true,
+            'output' => Artisan::output(),
+            'time'   => now('America/Mexico_City')->format('Y-m-d H:i:s'),
+        ]);
+    } catch (\Throwable $e) {
+        \Log::error('cron.agenda-run.error', [
+            'message' => $e->getMessage(),
+            'trace'   => $e->getTraceAsString(),
+        ]);
+
+        return response()->json([
+            'ok'      => false,
+            'message' => $e->getMessage(),
+        ], 500);
+    }
 })->name('cron.agenda.run');
+
+Route::get('/cron/agenda-url-test', function () {
+    return URL::temporarySignedRoute(
+        'cron.agenda.run',
+        now()->addYears(5)
+    );
+});
 
 // (repetido tickets.work fuera del grupo grande, lo dejo tal como lo tenías)
 Route::get('/tickets/{ticket}/work', [TicketController::class, 'work'])
