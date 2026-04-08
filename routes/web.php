@@ -104,6 +104,8 @@ use App\Http\Controllers\Accounting\ReceivableController;
 use App\Http\Controllers\Accounting\PayableController;
 use App\Http\Controllers\Accounting\MovementController;
 use App\Http\Controllers\Accounting\ReportsController;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\URL;
 
 /*
 |--------------------------------------------------------------------------
