@@ -15,7 +15,10 @@ class AccessAttemptNotification extends Notification
 
     public function via($notifiable): array
     {
-        // Guardamos en BD para el panel (añade 'mail' si quieres correo).
+        if ($this->status === 'success') {
+            return [];
+        }
+
         return ['database'];
     }
 
@@ -40,7 +43,7 @@ class AccessAttemptNotification extends Notification
             'ip'      => $this->ip,
             'ua'      => $this->userAgent,
             'status'  => $this->status,
-            'url'     => route('admin.users.index'), // cambia si quieres otro destino
+            'url'     => route('admin.users.index'),
         ];
     }
 }
