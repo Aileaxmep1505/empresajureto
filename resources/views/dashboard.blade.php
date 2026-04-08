@@ -25,6 +25,11 @@
         --dm-cyan:#0ea5e9;
         --dm-shadow:0 10px 28px rgba(80,104,140,.08);
         --dm-shadow-hover:0 22px 40px rgba(24,119,242,.16);
+
+        --dm-name-1:#6d28d9;
+        --dm-name-2:#9333ea;
+        --dm-name-3:#2563eb;
+        --dm-name-4:#06b6d4;
       }
 
       *{
@@ -114,39 +119,58 @@
         font-size:clamp(2rem, 2.5vw, 3rem);
         line-height:1.05;
         font-family:inherit;
-        font-weight:700;
-        letter-spacing:0;
+        font-weight:800;
+        letter-spacing:-0.02em;
+        color:var(--dm-text);
+        display:flex;
+        align-items:baseline;
+        justify-content:center;
+        gap:10px;
+        flex-wrap:wrap;
+      }
+
+      .menu-greeting{
+        display:inline-flex;
+        align-items:baseline;
         color:var(--dm-text);
       }
 
+      .menu-name{
+        display:inline-flex;
+        align-items:baseline;
+      }
+
       .menu-sub{
-        margin:12px auto 0;
-        max-width:720px;
-        color:#8d9db4;
-        font-size:14px;
-        font-weight:500;
+        margin:14px auto 0;
+        max-width:860px;
+        color:#7084a3;
+        font-size:15px;
+        line-height:1.6;
+        font-weight:600;
+        min-height:26px;
       }
 
       .animated-gradient-text{
         position:relative;
         display:inline-flex;
-        align-items:center;
+        align-items:baseline;
         justify-content:center;
-        vertical-align:middle;
+        vertical-align:baseline;
       }
 
       .animated-gradient-text .text-content{
         position:relative;
         z-index:2;
         display:inline-block;
-        background-image:linear-gradient(90deg, #5227FF, #FF9FFC, #B19EEF, #5227FF);
-        background-size:300% 100%;
+        background-image:linear-gradient(90deg, var(--dm-name-1), var(--dm-name-2), var(--dm-name-3), var(--dm-name-4), var(--dm-name-1));
+        background-size:320% 100%;
         background-repeat:repeat;
         -webkit-background-clip:text;
         background-clip:text;
         -webkit-text-fill-color:transparent;
-        animation:gradientTextMove 8s linear infinite alternate;
+        animation:gradientTextMove 5s linear infinite;
         will-change:background-position;
+        filter:drop-shadow(0 4px 12px rgba(109,40,217,.18));
       }
 
       @keyframes gradientTextMove{
@@ -282,7 +306,7 @@
         width:100%;
       }
 
- .menu-card{
+      .menu-card{
         position:relative;
         display:block;
         min-height:150px;
@@ -306,7 +330,6 @@
         width:100%;
       }
 
-      /* Hover circular mejorado para cubrir bien 1,2,3 cards también */
       .menu-card::before{
         content:"";
         position:absolute;
@@ -525,6 +548,7 @@
         .menu-title{
           font-size:clamp(1.9rem, 7vw, 2.4rem);
           line-height:1.08;
+          gap:8px;
         }
 
         .menu-sub{
@@ -610,12 +634,13 @@
         .menu-title{
           font-size:clamp(1.55rem, 8vw, 2.1rem);
           line-height:1.1;
+          gap:6px;
         }
 
         .menu-sub{
-          margin-top:8px;
+          margin-top:10px;
           font-size:12px;
-          line-height:1.35;
+          line-height:1.5;
           max-width:320px;
         }
 
@@ -688,7 +713,22 @@
     $firstName = explode(' ', trim($userName))[0] ?? 'Usuario';
 
     \Carbon\Carbon::setLocale('es');
-    $today = now()->translatedFormat('l, j \d\e F');
+
+    $now = now()->timezone(config('app.timezone', 'America/Mexico_City'));
+    $today = $now->translatedFormat('l, j \d\e F');
+    $hour = $now->hour;
+
+    if ($hour >= 5 && $hour < 12) {
+        $greeting = 'Buenos días,';
+    } elseif ($hour >= 12 && $hour < 19) {
+        $greeting = 'Buenas tardes,';
+    } else {
+        $greeting = 'Buenas noches,';
+    }
+
+    $safePhrase = !empty($inspirationalPhrase)
+        ? $inspirationalPhrase
+        : 'Hoy es un gran día para avanzar con enfoque, claridad y determinación.';
 
     $u  = auth()->user();
     $isAdmin   = $u && method_exists($u,'hasRole') ? $u->hasRole('admin') : false;
@@ -731,7 +771,7 @@
         }
     } else {
         $finanzasVentas = array_values(array_filter([
-            $makeItem('Cotizaciones', 'calculate', 'cotizaciones.index', null, ),
+            $makeItem('Cotizaciones', 'calculate', 'cotizaciones.index'),
             $makeItem('Ventas', 'shopping_cart', 'ventas.index'),
             $makeItem('Facturas', 'receipt_long', 'manual_invoices.index'),
             $makeItem('Compras y Ventas', 'article', 'publications.index'),
@@ -763,7 +803,7 @@
 
         $licitaciones = array_values(array_filter([
             $makeItem('Licitaciones', 'gavel', 'licitaciones.index'),
-            $makeItem('Nueva licitación', 'post_add', 'licitaciones.create.step1', null, ),
+            $makeItem('Nueva licitación', 'post_add', 'licitaciones.create.step1'),
             $makeItem('Licitaciones IA', 'neurology', 'licitaciones-ai.index'),
             $makeItem('Tabla global IA', 'table_chart', 'licitaciones-ai.tabla-global'),
             $makeItem('PDFs / Bases', 'attach_file', 'admin.licitacion-pdfs.index'),
@@ -803,14 +843,14 @@
             <p class="menu-date">{{ mb_strtoupper($today) }}</p>
 
             <h1 class="menu-title">
-                Buenas tardes,
-                <span class="animated-gradient-text">
+                <span class="menu-greeting">{{ $greeting }}</span>
+                <span class="animated-gradient-text menu-name">
                     <span class="text-content">{{ $firstName }}</span>
                 </span>
             </h1>
 
             <p class="menu-sub">
-                Accede a todos los módulos del sistema desde aquí.
+                {{ $safePhrase }}
             </p>
 
             <div class="menu-search-wrap">

@@ -11,68 +11,100 @@ class AgendaEvent extends Model
         'title',
         'description',
         'start_at',
+        'end_at',
         'remind_offset_minutes',
         'repeat_rule',
         'timezone',
 
-        // ✅ NUEVO: usuarios destinatarios
         'user_ids',
 
-        // ✅ canales (los fuerzas en controller)
         'send_email',
         'send_whatsapp',
+
+        'all_day',
+        'completed',
+        'color',
+        'category',
+        'priority',
+        'location',
+        'notes',
 
         'next_reminder_at',
         'last_reminder_sent_at',
     ];
 
     protected $casts = [
-        'send_email'    => 'boolean',
-        'send_whatsapp' => 'boolean',
-
-        // ✅ NUEVO
-        'user_ids'      => 'array',
+        'send_email'          => 'boolean',
+        'send_whatsapp'       => 'boolean',
+        'all_day'             => 'boolean',
+        'completed'           => 'boolean',
+        'user_ids'            => 'array',
+        'last_reminder_sent_at' => 'datetime',
     ];
 
     public function setStartAtAttribute($value)
     {
-        if ($value instanceof Carbon) {
-            $this->attributes['start_at'] = $value->format('Y-m-d H:i:s');
-            return;
-        }
-
-        if (is_string($value) && preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/', $value)) {
-            $this->attributes['start_at'] = str_replace('T', ' ', $value) . ':00';
-            return;
-        }
-
-        $this->attributes['start_at'] = $value;
+        $this->attributes['start_at'] = $this->normalizeDateTimeValue($value);
     }
 
     public function getStartAtAttribute($value)
     {
-        if (! $value) return null;
-        $tz = $this->timezone ?: config('app.timezone');
-        return Carbon::createFromFormat('Y-m-d H:i:s', $value, $tz)->setTimezone($tz);
+        return $this->castDateTimeFromStorage($value);
+    }
+
+    public function setEndAtAttribute($value)
+    {
+        $this->attributes['end_at'] = $this->normalizeDateTimeValue($value);
+    }
+
+    public function getEndAtAttribute($value)
+    {
+        return $this->castDateTimeFromStorage($value);
     }
 
     public function setNextReminderAtAttribute($value)
     {
-        if ($value instanceof Carbon) {
-            $this->attributes['next_reminder_at'] = $value->format('Y-m-d H:i:s');
-            return;
-        }
-        if (is_string($value) && preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/', $value)) {
-            $this->attributes['next_reminder_at'] = Carbon::parse($value)->format('Y-m-d H:i:s');
-            return;
-        }
-        $this->attributes['next_reminder_at'] = $value;
+        $this->attributes['next_reminder_at'] = $this->normalizeDateTimeValue($value);
     }
 
     public function getNextReminderAtAttribute($value)
     {
-        if (! $value) return null;
+        return $this->castDateTimeFromStorage($value);
+    }
+
+    protected function normalizeDateTimeValue($value): ?string
+    {
+        if (!$value) {
+            return null;
+        }
+
+        if ($value instanceof Carbon) {
+            return $value->format('Y-m-d H:i:s');
+        }
+
+        if (is_string($value)) {
+            $value = trim($value);
+
+            if (preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/', $value)) {
+                return str_replace('T', ' ', $value) . ':00';
+            }
+
+            if (preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/', $value)) {
+                return Carbon::parse($value)->format('Y-m-d H:i:s');
+            }
+        }
+
+        return $value;
+    }
+
+    protected function castDateTimeFromStorage($value): ?Carbon
+    {
+        if (!$value) {
+            return null;
+        }
+
         $tz = $this->timezone ?: config('app.timezone');
+
         return Carbon::createFromFormat('Y-m-d H:i:s', $value, $tz)->setTimezone($tz);
     }
 
@@ -83,13 +115,12 @@ class AgendaEvent extends Model
         /** @var Carbon|null $start */
         $start = $this->start_at;
 
-        if (! $start || ! $this->remind_offset_minutes) {
+        if (!$start || !$this->remind_offset_minutes) {
             $this->next_reminder_at = null;
             return;
         }
 
         $start = $start->copy()->setTimezone($tz);
-
         $reminder = $start->copy()->subMinutes((int) $this->remind_offset_minutes);
 
         $this->attributes['start_at'] = $start->format('Y-m-d H:i:s');
@@ -103,7 +134,7 @@ class AgendaEvent extends Model
         /** @var Carbon|null $start */
         $start = $this->start_at;
 
-        if (! $start || ! $this->remind_offset_minutes) {
+        if (!$start || !$this->remind_offset_minutes) {
             $this->next_reminder_at = null;
             return;
         }
@@ -131,6 +162,17 @@ class AgendaEvent extends Model
         }
 
         $this->attributes['start_at'] = $start->format('Y-m-d H:i:s');
+
+        if ($this->end_at) {
+            $durationMinutes = $this->start_at && $this->end_at
+                ? $this->start_at->diffInMinutes($this->end_at, false)
+                : null;
+
+            if ($durationMinutes !== null && $durationMinutes > 0) {
+                $newEnd = $start->copy()->addMinutes($durationMinutes);
+                $this->attributes['end_at'] = $newEnd->format('Y-m-d H:i:s');
+            }
+        }
 
         $next = $start->copy()->subMinutes((int) $this->remind_offset_minutes);
         $this->attributes['next_reminder_at'] = $next->format('Y-m-d H:i:s');
