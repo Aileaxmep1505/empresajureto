@@ -105,7 +105,6 @@ use App\Http\Controllers\Accounting\PayableController;
 use App\Http\Controllers\Accounting\MovementController;
 use App\Http\Controllers\Accounting\ReportsController;
 
-
 /*
 |--------------------------------------------------------------------------
 | AUTH
@@ -1030,8 +1029,22 @@ Route::post('/admin/catalog/ai-from-upload', [CatalogItemController::class, 'aiF
 | CRON AGENDA
 |--------------------------------------------------------------------------
 */
-Route::get('/cron/agenda-run/{token}', [CronController::class, 'runAgenda'])
-    ->name('cron.agenda.run');
+Route::get('/cron/agenda-run', function (Request $request) {
+    if (! $request->hasValidSignature()) {
+        abort(401, 'Firma no válida.');
+    }
+
+    Artisan::call('agenda:run', [
+        '--limit'  => 200,
+        '--window' => 5,
+    ]);
+
+    return response()->json([
+        'ok'     => true,
+        'output' => Artisan::output(),
+        'time'   => now('America/Mexico_City')->format('Y-m-d H:i:s'),
+    ]);
+})->name('cron.agenda.run');
 
 // (repetido tickets.work fuera del grupo grande, lo dejo tal como lo tenías)
 Route::get('/tickets/{ticket}/work', [TicketController::class, 'work'])
@@ -1832,3 +1845,10 @@ Route::middleware(['auth'])->prefix('accounting')->name('accounting.')->group(fu
 });
 Route::get('/accounting/reports', [ReportsController::class, 'index'])
     ->name('accounting.reports.index');
+
+    Route::get('/cron/agenda-url-test', function () {
+    return URL::temporarySignedRoute(
+        'cron.agenda.run',
+        now()->addYears(5)
+    );
+    });

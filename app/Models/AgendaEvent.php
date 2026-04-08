@@ -34,40 +34,40 @@ class AgendaEvent extends Model
     ];
 
     protected $casts = [
-        'send_email'          => 'boolean',
-        'send_whatsapp'       => 'boolean',
-        'all_day'             => 'boolean',
-        'completed'           => 'boolean',
-        'user_ids'            => 'array',
+        'send_email'            => 'boolean',
+        'send_whatsapp'         => 'boolean',
+        'all_day'               => 'boolean',
+        'completed'             => 'boolean',
+        'user_ids'              => 'array',
         'last_reminder_sent_at' => 'datetime',
     ];
 
-    public function setStartAtAttribute($value)
+    public function setStartAtAttribute($value): void
     {
         $this->attributes['start_at'] = $this->normalizeDateTimeValue($value);
     }
 
-    public function getStartAtAttribute($value)
+    public function getStartAtAttribute($value): ?Carbon
     {
         return $this->castDateTimeFromStorage($value);
     }
 
-    public function setEndAtAttribute($value)
+    public function setEndAtAttribute($value): void
     {
         $this->attributes['end_at'] = $this->normalizeDateTimeValue($value);
     }
 
-    public function getEndAtAttribute($value)
+    public function getEndAtAttribute($value): ?Carbon
     {
         return $this->castDateTimeFromStorage($value);
     }
 
-    public function setNextReminderAtAttribute($value)
+    public function setNextReminderAtAttribute($value): void
     {
         $this->attributes['next_reminder_at'] = $this->normalizeDateTimeValue($value);
     }
 
-    public function getNextReminderAtAttribute($value)
+    public function getNextReminderAtAttribute($value): ?Carbon
     {
         return $this->castDateTimeFromStorage($value);
     }
@@ -92,9 +92,13 @@ class AgendaEvent extends Model
             if (preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/', $value)) {
                 return Carbon::parse($value)->format('Y-m-d H:i:s');
             }
+
+            if (preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}(:\d{2})?$/', $value)) {
+                return Carbon::parse($value)->format('Y-m-d H:i:s');
+            }
         }
 
-        return $value;
+        return Carbon::parse($value)->format('Y-m-d H:i:s');
     }
 
     protected function castDateTimeFromStorage($value): ?Carbon
@@ -103,20 +107,24 @@ class AgendaEvent extends Model
             return null;
         }
 
-        $tz = $this->timezone ?: config('app.timezone');
+        $tz = $this->timezone ?: config('app.timezone', 'America/Mexico_City');
 
-        return Carbon::createFromFormat('Y-m-d H:i:s', $value, $tz)->setTimezone($tz);
+        try {
+            return Carbon::createFromFormat('Y-m-d H:i:s', $value, $tz)->setTimezone($tz);
+        } catch (\Throwable $e) {
+            return Carbon::parse($value, $tz)->setTimezone($tz);
+        }
     }
 
     public function computeNextReminder(): void
     {
-        $tz = $this->timezone ?: config('app.timezone');
+        $tz = $this->timezone ?: config('app.timezone', 'America/Mexico_City');
 
         /** @var Carbon|null $start */
         $start = $this->start_at;
 
         if (!$start || !$this->remind_offset_minutes) {
-            $this->next_reminder_at = null;
+            $this->attributes['next_reminder_at'] = null;
             return;
         }
 
@@ -129,52 +137,61 @@ class AgendaEvent extends Model
 
     public function advanceAfterSending(): void
     {
-        $tz = $this->timezone ?: config('app.timezone');
+        $tz = $this->timezone ?: config('app.timezone', 'America/Mexico_City');
 
-        /** @var Carbon|null $start */
-        $start = $this->start_at;
+        /** @var Carbon|null $currentStart */
+        $currentStart = $this->start_at;
 
-        if (!$start || !$this->remind_offset_minutes) {
-            $this->next_reminder_at = null;
+        /** @var Carbon|null $currentEnd */
+        $currentEnd = $this->end_at;
+
+        if (!$currentStart || !$this->remind_offset_minutes) {
+            $this->attributes['next_reminder_at'] = null;
             return;
         }
 
         if ($this->repeat_rule === 'none') {
-            $this->next_reminder_at = null;
+            $this->attributes['next_reminder_at'] = null;
             return;
         }
 
-        $start = $start->copy()->setTimezone($tz);
+        $currentStart = $currentStart->copy()->setTimezone($tz);
+        $currentEnd   = $currentEnd ? $currentEnd->copy()->setTimezone($tz) : null;
+
+        // calcular duración antes de modificar start_at
+        $durationMinutes = null;
+        if ($currentEnd && $currentEnd->gte($currentStart)) {
+            $durationMinutes = $currentStart->diffInMinutes($currentEnd);
+        }
+
+        $newStart = $currentStart->copy();
 
         switch ($this->repeat_rule) {
             case 'daily':
-                $start->addDay();
+                $newStart->addDay();
                 break;
+
             case 'weekly':
-                $start->addWeek();
+                $newStart->addWeek();
                 break;
+
             case 'monthly':
-                $start->addMonth();
+                $newStart->addMonthNoOverflow();
                 break;
+
             default:
-                $this->next_reminder_at = null;
+                $this->attributes['next_reminder_at'] = null;
                 return;
         }
 
-        $this->attributes['start_at'] = $start->format('Y-m-d H:i:s');
+        $this->attributes['start_at'] = $newStart->format('Y-m-d H:i:s');
 
-        if ($this->end_at) {
-            $durationMinutes = $this->start_at && $this->end_at
-                ? $this->start_at->diffInMinutes($this->end_at, false)
-                : null;
-
-            if ($durationMinutes !== null && $durationMinutes > 0) {
-                $newEnd = $start->copy()->addMinutes($durationMinutes);
-                $this->attributes['end_at'] = $newEnd->format('Y-m-d H:i:s');
-            }
+        if ($durationMinutes !== null && $durationMinutes > 0) {
+            $newEnd = $newStart->copy()->addMinutes($durationMinutes);
+            $this->attributes['end_at'] = $newEnd->format('Y-m-d H:i:s');
         }
 
-        $next = $start->copy()->subMinutes((int) $this->remind_offset_minutes);
-        $this->attributes['next_reminder_at'] = $next->format('Y-m-d H:i:s');
+        $nextReminder = $newStart->copy()->subMinutes((int) $this->remind_offset_minutes);
+        $this->attributes['next_reminder_at'] = $nextReminder->format('Y-m-d H:i:s');
     }
 }

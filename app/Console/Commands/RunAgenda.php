@@ -12,16 +12,16 @@ class RunAgenda extends Command
     protected $signature = 'agenda:run {--limit=200} {--window=5}';
     protected $description = 'Envía recordatorios de agenda';
 
-    public function handle()
+    public function handle(): int
     {
         $limit  = (int) $this->option('limit');
         $window = max(1, (int) $this->option('window'));
 
-        $tz  = config('app.timezone', 'America/Mexico_City');
-        $now = now($tz);
+        $tz   = config('app.timezone', 'America/Mexico_City');
+        $now  = now($tz);
         $from = $now->copy()->subMinutes($window);
 
-        // ✅ IMPORTANT: comparar como strings "Y-m-d H:i:s" (porque guardas naive local)
+        // Comparación como strings, porque tus fechas se manejan en formato local naive
         $nowDb  = $now->format('Y-m-d H:i:s');
         $fromDb = $from->format('Y-m-d H:i:s');
 
@@ -43,10 +43,10 @@ class RunAgenda extends Command
         $this->info("Eventos a notificar: {$events->count()}");
 
         foreach ($events as $event) {
-            $this->info("Enviando recordatorio para event_id={$event->id} → {$event->title}");
+            $this->info("Procesando event_id={$event->id} → {$event->title}");
 
             try {
-                // Modo sync (sin cola)
+                // Ejecutar sync por ahora
                 (new SendAgendaReminderJob($event->id))->handle();
 
                 Log::info("agenda:run → Job ejecutado en modo sync", [
@@ -66,5 +66,7 @@ class RunAgenda extends Command
 
         $this->info("Terminó agenda:run");
         Log::info("agenda:run → terminado");
+
+        return self::SUCCESS;
     }
 }

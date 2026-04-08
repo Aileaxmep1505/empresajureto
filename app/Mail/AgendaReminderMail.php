@@ -3,6 +3,7 @@
 namespace App\Mail;
 
 use App\Models\AgendaEvent;
+use App\Models\User;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
@@ -11,11 +12,21 @@ class AgendaReminderMail extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public function __construct(public AgendaEvent $event) {}
+    public AgendaEvent $event;
+    public User $user;
+
+    public function __construct(AgendaEvent $event, User $user)
+    {
+        $this->event = $event;
+        $this->user  = $user;
+    }
 
     public function build()
     {
         return $this->subject('Recordatorio: ' . $this->event->title)
-            ->view('emails.agenda.reminder', ['event' => $this->event]);
+            ->view('emails.agenda.reminder', [
+                'event' => $this->event,
+                'user'  => $this->user,
+            ]);
     }
 }

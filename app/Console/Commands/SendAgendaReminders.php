@@ -1,164 +1,139 @@
 <?php
 
-namespace App\Console\Commands;
+namespace App\Jobs;
 
+use App\Mail\AgendaReminderMail;
 use App\Models\AgendaEvent;
 use App\Models\User;
-use App\Services\WhatsApp\WhatsAppService;
 use Carbon\Carbon;
-use Illuminate\Console\Command;
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
-class SendAgendaReminders extends Command
+class SendAgendaReminderJob implements ShouldQueue
 {
-    protected $signature = 'agenda:send-reminders
-                            {--force : Envía aunque next_reminder_at no haya llegado}
-                            {--event_id= : Procesa solo un evento}
-                            {--user_id= : Envía solo a un usuario específico}
-                            {--dry-run : Solo muestra qué enviaría, sin mandar nada}';
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    protected $description = 'Envía recordatorios pendientes de agenda por WhatsApp';
+    public int $tries = 1;
 
-    public function handle(): int
+    public function __construct(public int $eventId)
     {
-        $tz    = 'America/Mexico_City';
-        $nowMx = now($tz);
-
-        $force   = (bool) $this->option('force');
-        $eventId = $this->option('event_id');
-        $userId  = $this->option('user_id');
-        $dryRun  = (bool) $this->option('dry-run');
-
-        $query = AgendaEvent::query()
-            ->where('send_whatsapp', true)
-            ->whereNotNull('next_reminder_at');
-
-        if (!$force) {
-            $query->where('next_reminder_at', '<=', $nowMx->format('Y-m-d H:i:s'));
-        }
-
-        if (!empty($eventId)) {
-            $query->where('id', (int) $eventId);
-        }
-
-        $events = $query
-            ->orderBy('next_reminder_at')
-            ->get();
-
-        if ($events->isEmpty()) {
-            $this->info('Sin recordatorios pendientes.');
-            return self::SUCCESS;
-        }
-
-        $wa = app(WhatsAppService::class);
-        $sent = 0;
-        $processed = 0;
-
-        foreach ($events as $event) {
-            $processed++;
-
-            $userIds = collect($event->user_ids ?? [])
-                ->map(fn ($id) => (int) $id)
-                ->filter()
-                ->unique()
-                ->values();
-
-            if (!empty($userId)) {
-                $userIds = $userIds->filter(fn ($id) => $id === (int) $userId)->values();
-            }
-
-            $this->line("Evento #{$event->id} - {$event->title}");
-
-            if ($userIds->isEmpty()) {
-                $this->warn("  - Sin usuarios válidos.");
-                if (!$force) {
-                    $this->advanceNextReminder($event);
-                    $event->save();
-                }
-                continue;
-            }
-
-            $users = User::whereIn('id', $userIds)->get();
-
-            if ($users->isEmpty()) {
-                $this->warn("  - No se encontraron usuarios.");
-                if (!$force) {
-                    $this->advanceNextReminder($event);
-                    $event->save();
-                }
-                continue;
-            }
-
-            foreach ($users as $user) {
-                if (empty($user->phone)) {
-                    $this->warn("  - Usuario {$user->id} sin teléfono.");
-                    Log::warning('agenda.whatsapp.reminder.user_without_phone', [
-                        'agenda_event_id' => $event->id,
-                        'user_id'         => $user->id,
-                    ]);
-                    continue;
-                }
-
-                if ($dryRun) {
-                    $this->info("  - DRY RUN: enviaría a {$user->name} ({$user->phone})");
-                    Log::info('agenda.whatsapp.reminder.dry_run', [
-                        'agenda_event_id'   => $event->id,
-                        'user_id'           => $user->id,
-                        'user_phone'        => $user->phone,
-                        'event_title'       => $event->title,
-                        'next_reminder_at'  => $event->next_reminder_at,
-                    ]);
-                    continue;
-                }
-
-                try {
-                    $result = $wa->sendAgendaReminderToUser($user, $event);
-
-                    Log::info('agenda.whatsapp.reminder', [
-                        'agenda_event_id' => $event->id,
-                        'user_id'         => $user->id,
-                        'result'          => $result,
-                    ]);
-
-                    if (!empty($result['ok'])) {
-                        $sent++;
-                        $this->info("  - OK enviado a {$user->name} ({$user->phone})");
-                    } else {
-                        $this->error("  - ERROR al enviar a {$user->name} ({$user->phone})");
-                    }
-                } catch (\Throwable $e) {
-                    Log::error('agenda.whatsapp.reminder.exception', [
-                        'agenda_event_id' => $event->id,
-                        'user_id'         => $user->id,
-                        'message'         => $e->getMessage(),
-                    ]);
-
-                    $this->error("  - EXCEPCIÓN con {$user->name}: {$e->getMessage()}");
-                }
-            }
-
-            // En modo force NO avanzamos la fecha automáticamente,
-            // para que puedas probar varias veces sin que desaparezca.
-            if (!$force && !$dryRun) {
-                $this->advanceNextReminder($event);
-                $event->save();
-            }
-        }
-
-        $this->newLine();
-        $this->info("Eventos procesados: {$processed}");
-        $this->info("Envíos exitosos: {$sent}");
-
-        return self::SUCCESS;
     }
 
-    protected function advanceNextReminder(AgendaEvent $event): void
+    public function handle(): void
+    {
+        $event = AgendaEvent::find($this->eventId);
+
+        if (!$event) {
+            Log::warning('agenda.reminder.job.event_not_found', [
+                'event_id' => $this->eventId,
+            ]);
+            return;
+        }
+
+        $tz = $event->timezone ?: 'America/Mexico_City';
+
+        $userIds = collect($event->user_ids ?? [])
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($userIds->isEmpty()) {
+            Log::warning('agenda.reminder.job.no_user_ids', [
+                'event_id' => $event->id,
+                'title'    => $event->title,
+            ]);
+
+            $this->advanceNextReminderAndSave($event, $tz);
+            return;
+        }
+
+        $users = User::query()
+            ->whereIn('id', $userIds)
+            ->get();
+
+        if ($users->isEmpty()) {
+            Log::warning('agenda.reminder.job.users_not_found', [
+                'event_id' => $event->id,
+                'title'    => $event->title,
+                'user_ids' => $userIds->all(),
+            ]);
+
+            $this->advanceNextReminderAndSave($event, $tz);
+            return;
+        }
+
+        $sentAnyEmail = false;
+
+        foreach ($users as $user) {
+            if ($event->send_email) {
+                if (empty($user->email)) {
+                    Log::warning('agenda.reminder.job.user_without_email', [
+                        'event_id' => $event->id,
+                        'user_id'  => $user->id,
+                        'name'     => $user->name,
+                    ]);
+                } else {
+                    try {
+                        Mail::to($user->email)->send(new AgendaReminderMail($event, $user));
+
+                        Log::info('agenda.reminder.job.email_sent', [
+                            'event_id' => $event->id,
+                            'user_id'  => $user->id,
+                            'email'    => $user->email,
+                            'title'    => $event->title,
+                        ]);
+
+                        $sentAnyEmail = true;
+                    } catch (\Throwable $e) {
+                        Log::error('agenda.reminder.job.email_error', [
+                            'event_id' => $event->id,
+                            'user_id'  => $user->id,
+                            'email'    => $user->email,
+                            'error'    => $e->getMessage(),
+                        ]);
+                    }
+                }
+            }
+
+            // WhatsApp lo dejamos para el siguiente paso
+        }
+
+        $event->last_reminder_sent_at = now($tz)->format('Y-m-d H:i:s');
+
+        // Solo avanzamos el siguiente recordatorio si al menos se mandó algo
+        // o si no quieres que se repita indefinidamente aunque falle un usuario.
+        if ($event->send_email) {
+            $this->advanceNextReminder($event, $tz);
+        }
+
+        $event->save();
+
+        Log::info('agenda.reminder.job.finished', [
+            'event_id'        => $event->id,
+            'title'           => $event->title,
+            'sent_any_email'  => $sentAnyEmail,
+            'next_reminder_at'=> $event->next_reminder_at,
+        ]);
+    }
+
+    protected function advanceNextReminderAndSave(AgendaEvent $event, string $tz): void
+    {
+        $this->advanceNextReminder($event, $tz);
+        $event->save();
+    }
+
+    protected function advanceNextReminder(AgendaEvent $event, string $tz): void
     {
         if (empty($event->next_reminder_at)) {
             return;
         }
 
-        $tz = $event->timezone ?: 'America/Mexico_City';
         $next = Carbon::parse($event->next_reminder_at, $tz);
         $now  = now($tz);
 
