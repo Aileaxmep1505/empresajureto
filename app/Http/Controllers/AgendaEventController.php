@@ -219,4 +219,8 @@ class AgendaEventController extends Controller
 
         return response()->json(['ok' => true]);
     }
+    public function summary()
+{
+    return view('agenda.summary');
+}
 }

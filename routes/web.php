@@ -762,7 +762,6 @@ Route::middleware(['auth'])
         Route::post('/delete/{folder}/{uid}', [MailboxController::class, 'delete'])
             ->where('folder','.*')->whereNumber('uid')->name('delete');
     });
-
 /*
 |--------------------------------------------------------------------------
 | AGENDA
@@ -774,6 +773,7 @@ Route::middleware(['auth'])->group(function () {
    Route::get('/agenda/users', [AgendaEventController::class, 'users'])->name('agenda.users');
     // Feed JSON
     Route::get('/agenda/feed', [AgendaEventController::class,'feed'])->name('agenda.feed');
+    Route::get('/agenda/resumen', [AgendaEventController::class, 'summary'])->name('agenda.summary');
 
     // CRUD AJAX
     Route::post('/agenda',             [AgendaEventController::class,'store'])->name('agenda.store');

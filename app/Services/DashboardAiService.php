@@ -38,7 +38,7 @@ class DashboardAiService
                 'messages' => [
                     [
                         'role' => 'developer',
-                        'content' => 'Genera únicamente una frase inspiradora corta en español para un dashboard empresarial. Debe ser elegante, natural, profesional y fresca. No uses comillas. No uses emojis. No uses listas. No uses saludo. No pongas el nombre de la persona. Máximo 18 palabras. Devuelve solo la frase.'
+                        'content' => 'Genera únicamente una frase inspiradora corta en español. Debe sonar humana, cálida, bonita y natural. No la hagas empresarial, ejecutiva ni corporativa. No uses comillas. No uses emojis. No uses listas. No uses saludo. No pongas el nombre de la persona. Máximo 18 palabras. Devuelve solo la frase.'
                     ],
                     [
                         'role' => 'user',
