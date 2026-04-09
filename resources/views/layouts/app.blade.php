@@ -42,6 +42,9 @@
 
       --danger:#ef4444;
       --danger-soft:#fee2e2;
+      --danger-2:#dc2626;
+      --danger-3:#b91c1c;
+      --danger-soft-2:#fff1f2;
 
       --shadow-sm:0 8px 20px rgba(15,23,42,.07);
       --shadow-md:0 14px 34px rgba(15,23,42,.10);
@@ -561,12 +564,12 @@
       min-width:24px;
       height:24px;
       padding:0 6px;
-      background:linear-gradient(180deg, #101828, #020617);
+      background:linear-gradient(180deg, #ef4444, #b91c1c);
       color:#fff;
       border-radius:999px;
       box-shadow:
         0 0 0 3px rgba(245,247,252,.95),
-        0 8px 16px rgba(2,6,23,.16);
+        0 10px 20px rgba(185,28,28,.28);
       display:flex;
       align-items:center;
       justify-content:center;
@@ -579,7 +582,7 @@
 
     @keyframes dotPulse{
       0%,100%{ transform:scale(1); opacity:1; }
-      50%{ transform:scale(1.08); opacity:.88; }
+      50%{ transform:scale(1.08); opacity:.92; }
     }
 
     .notif__panel{
@@ -644,17 +647,18 @@
       border:none;
       padding:0;
       margin:0;
-      color:var(--primary);
+      color:var(--danger-2);
       font-weight:700;
       font-size:.84rem;
       cursor:pointer;
       white-space:nowrap;
-      transition:opacity .18s ease, transform .12s ease;
+      transition:opacity .18s ease, transform .12s ease, color .18s ease;
     }
 
     .notif__markall:hover{
-      opacity:.86;
+      opacity:.92;
       transform:translateY(-1px);
+      color:var(--danger-3);
     }
 
     .notif__list{
@@ -691,7 +695,7 @@
       border-radius:16px;
       background:linear-gradient(180deg, #ffffff, #fbfdff);
       margin-bottom:8px;
-      transition:transform .14s ease, box-shadow .18s ease, border-color .18s ease;
+      transition:transform .14s ease, box-shadow .18s ease, border-color .18s ease, opacity .18s ease;
       cursor:pointer;
       padding-right:38px;
     }
@@ -702,13 +706,25 @@
 
     .notif__item:hover{
       transform:translateY(-1px);
-      border-color:rgba(47,109,246,.16);
+      border-color:rgba(239,68,68,.18);
       box-shadow:0 12px 22px rgba(15,23,42,.07);
     }
 
     .notif__item.is-unread{
-      background:linear-gradient(180deg, #ffffff, #f4f8ff);
-      border-color:rgba(47,109,246,.14);
+      background:linear-gradient(180deg, #fffefe, #fff4f5);
+      border-color:rgba(239,68,68,.18);
+      box-shadow:0 10px 22px rgba(239,68,68,.06);
+    }
+
+    .notif__item.is-unread::before{
+      content:"";
+      position:absolute;
+      left:0;
+      top:10px;
+      bottom:10px;
+      width:4px;
+      border-radius:999px;
+      background:linear-gradient(180deg, #ef4444, #dc2626);
     }
 
     .notif__item.is-read{
@@ -721,9 +737,9 @@
       border-radius:11px;
       display:grid;
       place-items:center;
-      background:linear-gradient(180deg, #eef2ff, #e8efff);
-      color:#1e3a8a;
-      border:1px solid rgba(47,109,246,.10);
+      background:linear-gradient(180deg, #fff0f0, #ffe4e6);
+      color:#b91c1c;
+      border:1px solid rgba(239,68,68,.14);
       box-shadow:inset 0 1px 0 rgba(255,255,255,.65);
       margin-top:1px;
     }
@@ -745,7 +761,7 @@
     }
 
     .notif__text{
-      color:#111827;
+      color:#991b1b;
       font-size:.92rem;
       font-weight:700;
       line-height:1.22;
@@ -755,10 +771,18 @@
     }
 
     .notif__msg{
-      color:#6b7280;
+      color:#7f1d1d;
       font-size:.84rem;
       line-height:1.28;
       word-break:break-word;
+    }
+
+    .notif__item.is-read .notif__text{
+      color:#334155;
+    }
+
+    .notif__item.is-read .notif__msg{
+      color:#6b7280;
     }
 
     .notif__meta{
@@ -791,9 +815,9 @@
     }
 
     .pill--info{
-      background:#eaf1ff;
-      color:#2454c7;
-      border-color:rgba(47,109,246,.12);
+      background:#fee2e2;
+      color:#b91c1c;
+      border-color:rgba(239,68,68,.16);
     }
 
     .pill--warn{
@@ -822,13 +846,14 @@
       align-items:center;
       justify-content:center;
       font-size:14px;
-      color:#94a3b8;
-      transition:background .16s ease,color .16s ease,transform .08s ease;
+      color:#dc2626;
+      transition:background .16s ease,color .16s ease,transform .08s ease, box-shadow .16s ease;
     }
 
     .notif__item-close:hover{
-      background:rgba(47,109,246,.10);
-      color:var(--primary);
+      background:rgba(239,68,68,.12);
+      color:#b91c1c;
+      box-shadow:0 6px 14px rgba(239,68,68,.14);
     }
 
     .notif__item-close:active{
@@ -849,21 +874,22 @@
       width:100%;
       padding:10px 12px;
       text-decoration:none;
-      color:#183ea6;
+      color:#b91c1c;
       border-radius:14px;
-      border:1px solid rgba(47,109,246,.12);
+      border:1px solid rgba(239,68,68,.14);
       font-weight:700;
       font-size:.88rem;
       text-align:center;
-      background:linear-gradient(180deg, #f4f8ff, #edf3ff);
+      background:linear-gradient(180deg, #fff4f5, #ffecee);
       cursor:pointer;
-      transition:transform .12s ease, box-shadow .18s ease, filter .18s ease;
+      transition:transform .12s ease, box-shadow .18s ease, filter .18s ease, color .18s ease;
     }
 
     .notif__link:hover{
       transform:translateY(-1px);
-      box-shadow:0 10px 18px rgba(47,109,246,.08);
+      box-shadow:0 10px 18px rgba(239,68,68,.10);
       filter:brightness(1.01);
+      color:#991b1b;
     }
 
     .content{
@@ -1835,7 +1861,7 @@
         if (notifBadge){
           if (unread > 0){
             notifBadge.style.display = '';
-            notifBadge.textContent = unread;
+            notifBadge.textContent = unread > 99 ? '99+' : unread;
           } else {
             notifBadge.style.display = 'none';
             notifBadge.textContent = '';
@@ -1851,6 +1877,32 @@
         }
       }
 
+      function renderEmptyNotifications(){
+        notifList.innerHTML = '';
+        const empty = document.createElement('div');
+        empty.className = 'notif__empty';
+        empty.textContent = 'No tienes notificaciones.';
+        notifList.appendChild(empty);
+      }
+
+      function removeNotificationFromView(itemEl){
+        if (!itemEl) return;
+
+        itemEl.style.opacity = '0';
+        itemEl.style.transform = 'translateY(-6px) scale(.98)';
+
+        setTimeout(() => {
+          itemEl.remove();
+
+          const remainingUnread = notifList.querySelectorAll('.notif__item.is-unread').length;
+          updateNotifCounter(remainingUnread);
+
+          if (!notifList.querySelector('.notif__item')) {
+            renderEmptyNotifications();
+          }
+        }, 180);
+      }
+
       function renderNotifItems(payload){
         if (!notifList) return;
 
@@ -1862,10 +1914,7 @@
         notifList.innerHTML = '';
 
         if (!items.length){
-          const empty = document.createElement('div');
-          empty.className = 'notif__empty';
-          empty.textContent = 'No tienes notificaciones.';
-          notifList.appendChild(empty);
+          renderEmptyNotifications();
           return;
         }
 
@@ -1886,6 +1935,7 @@
           const item = document.createElement('div');
           item.className = `notif__item ${n.read_at ? 'is-read' : 'is-unread'} ${level}`;
           item.dataset.id = n.id;
+          item.dataset.read = n.read_at ? '1' : '0';
           if (n.url) item.dataset.url = n.url;
 
           item.innerHTML = `
@@ -1899,7 +1949,7 @@
                 <span class="notif__time">${escapeHtml(n.time || '')}</span>
               </div>
             </div>
-            <button type="button" class="notif__item-close" aria-label="Marcar como leída" data-id="${escapeHtml(n.id)}">&times;</button>
+            <button type="button" class="notif__item-close" aria-label="Quitar notificación" data-id="${escapeHtml(n.id)}">&times;</button>
           `;
 
           notifList.appendChild(item);
@@ -1952,13 +2002,17 @@
             }
           });
 
+          const rows = [...notifList.querySelectorAll('.notif__item.is-unread')];
+          rows.forEach(row => removeNotificationFromView(row));
+          updateNotifCounter(0);
+
           await loadNotifications();
         }catch(e){
           console.error(e);
         }
       }
 
-      async function markOneNotification(id, itemEl){
+      async function markOneNotification(id, itemEl, removeFromView = false){
         if (!NOTIF_READONE_URL || !csrf || !id) return;
 
         try{
@@ -1971,9 +2025,15 @@
             }
           });
 
+          if (removeFromView && itemEl){
+            removeNotificationFromView(itemEl);
+            return;
+          }
+
           if (itemEl){
             itemEl.classList.remove('is-unread');
             itemEl.classList.add('is-read');
+            itemEl.dataset.read = '1';
           }
 
           await loadNotifications();
@@ -2026,7 +2086,7 @@
           if (closeBtn){
             const id = closeBtn.getAttribute('data-id');
             const itemEl = closeBtn.closest('.notif__item');
-            if (id) markOneNotification(id, itemEl);
+            if (id) markOneNotification(id, itemEl, true);
             e.stopPropagation();
             return;
           }
@@ -2040,7 +2100,7 @@
 
           e.preventDefault();
           (async () => {
-            if (id) await markOneNotification(id, row);
+            if (id) await markOneNotification(id, row, false);
             window.location.href = url;
           })();
         });
