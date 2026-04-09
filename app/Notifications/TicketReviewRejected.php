@@ -5,6 +5,7 @@ namespace App\Notifications;
 use App\Models\Ticket;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
+use Illuminate\Notifications\Messages\MailMessage;
 
 class TicketReviewRejected extends Notification
 {
@@ -14,7 +15,7 @@ class TicketReviewRejected extends Notification
 
     public function via($notifiable): array
     {
-        return ['database'];
+        return ['database', 'mail'];
     }
 
     public function toDatabase($notifiable): array
@@ -26,7 +27,20 @@ class TicketReviewRejected extends Notification
             'title'  => $this->ticket->title,
             'reason' => $this->reason,
             'url'    => route('tickets.work', $this->ticket),
-            'msg'    => "El ticket {$this->ticket->folio} fue reabierto. Motivo: ".$this->reason,
+            'msg'    => "El ticket {$this->ticket->folio} fue reabierto. Motivo: " . $this->reason,
+            'status' => 'error',
         ];
+    }
+
+    public function toMail($notifiable): MailMessage
+    {
+        $folio = $this->ticket->folio ?? ('#' . $this->ticket->id);
+
+        return (new MailMessage)
+            ->subject("Ticket rechazado: {$folio}")
+            ->greeting("Hola {$notifiable->name},")
+            ->line("El ticket {$folio} fue rechazado en revisión y se reabrió.")
+            ->line("Motivo: {$this->reason}")
+            ->action('Abrir ticket', route('tickets.work', $this->ticket));
     }
 }

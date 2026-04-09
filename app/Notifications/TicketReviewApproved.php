@@ -5,6 +5,7 @@ namespace App\Notifications;
 use App\Models\Ticket;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
+use Illuminate\Notifications\Messages\MailMessage;
 
 class TicketReviewApproved extends Notification
 {
@@ -14,7 +15,7 @@ class TicketReviewApproved extends Notification
 
     public function via($notifiable): array
     {
-        return ['database'];
+        return ['database', 'mail'];
     }
 
     public function toDatabase($notifiable): array
@@ -27,6 +28,25 @@ class TicketReviewApproved extends Notification
             'rating' => $this->rating,
             'url'    => route('tickets.show', $this->ticket),
             'msg'    => "Tu ticket {$this->ticket->folio} fue aprobado" . ($this->rating ? " (calificación {$this->rating}/5)." : "."),
+            'status' => 'success',
         ];
+    }
+
+    public function toMail($notifiable): MailMessage
+    {
+        $folio = $this->ticket->folio ?? ('#' . $this->ticket->id);
+
+        $mail = (new MailMessage)
+            ->subject("Ticket aprobado: {$folio}")
+            ->greeting("Hola {$notifiable->name},")
+            ->line("Tu ticket {$folio} fue aprobado.");
+
+        if ($this->rating) {
+            $mail->line("Calificación: {$this->rating}/5");
+        }
+
+        return $mail
+            ->action('Ver ticket', route('tickets.show', $this->ticket))
+            ->line('El ticket ya quedó validado.');
     }
 }

@@ -107,6 +107,8 @@ use App\Http\Controllers\Accounting\ReportsController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
 
+use App\Http\Controllers\Projects\ProjectBoardController;
+
 /*
 |--------------------------------------------------------------------------
 | AUTH
@@ -1876,3 +1878,9 @@ Route::get('/accounting/reports', [ReportsController::class, 'index'])
         now()->addYears(5)
     );
     });
+
+
+
+Route::middleware(['auth'])->group(function () {
+    Route::get('/projects', [ProjectBoardController::class, 'index'])->name('projects.index');
+});

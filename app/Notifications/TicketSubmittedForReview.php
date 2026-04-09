@@ -15,18 +15,19 @@ class TicketSubmittedForReview extends Notification
 
     public function via($notifiable): array
     {
-        return ['database']; // o ['mail','database']
+        return ['database', 'mail'];
     }
 
     public function toDatabase($notifiable): array
     {
         return [
-            'type'  => 'ticket_submitted_for_review',
-            'id'    => $this->ticket->id,
-            'folio' => $this->ticket->folio,
-            'title' => $this->ticket->title,
-            'url'   => route('tickets.show', $this->ticket),
-            'msg'   => "El ticket {$this->ticket->folio} fue finalizado y requiere tu revisión.",
+            'type'   => 'ticket_submitted_for_review',
+            'id'     => $this->ticket->id,
+            'folio'  => $this->ticket->folio,
+            'title'  => $this->ticket->title,
+            'url'    => route('tickets.show', $this->ticket),
+            'msg'    => "El ticket {$this->ticket->folio} fue finalizado y requiere tu revisión.",
+            'status' => 'info',
         ];
     }
 
@@ -34,7 +35,8 @@ class TicketSubmittedForReview extends Notification
     {
         return (new MailMessage)
             ->subject("Ticket por revisar: {$this->ticket->folio}")
-            ->line("El ticket fue finalizado y requiere tu revisión.")
+            ->greeting("Hola {$notifiable->name},")
+            ->line("El ticket {$this->ticket->folio} fue finalizado y requiere tu revisión.")
             ->action('Ver ticket', route('tickets.show', $this->ticket));
     }
 }
