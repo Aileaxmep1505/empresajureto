@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="es">
 <head>
@@ -561,7 +560,7 @@
       right:-4px;
       min-width:24px;
       height:24px;
-      padding:0 5px;
+      padding:0 6px;
       background:linear-gradient(180deg, #101828, #020617);
       color:#fff;
       border-radius:999px;
@@ -575,6 +574,7 @@
       font-weight:700;
       letter-spacing:.01em;
       animation: dotPulse 2.2s infinite cubic-bezier(.66,0,0,1);
+      white-space:nowrap;
     }
 
     @keyframes dotPulse{
@@ -956,6 +956,7 @@
         min-width:22px;
         height:22px;
         font-size:.64rem;
+        padding:0 6px;
       }
 
       .notif__panel{
@@ -1766,7 +1767,6 @@
         applyOverlay();
       };
 
-    
       if (btnOpen) btnOpen.addEventListener('click', openSidebar);
       if (btnClose) btnClose.addEventListener('click', closeSidebar);
       if (backdrop) backdrop.addEventListener('click', closeSidebar);
@@ -1835,7 +1835,7 @@
         if (notifBadge){
           if (unread > 0){
             notifBadge.style.display = '';
-            notifBadge.textContent = unread > 99 ? '99+' : unread > 9 ? '9+' : unread;
+            notifBadge.textContent = unread;
           } else {
             notifBadge.style.display = 'none';
             notifBadge.textContent = '';
