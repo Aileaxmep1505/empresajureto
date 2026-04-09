@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Mail\AgendaReminderMail;
 use App\Models\AgendaEvent;
 use App\Models\User;
+use App\Notifications\AgendaReminderSystemNotification;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -38,18 +39,14 @@ class SendAgendaReminderJob implements ShouldQueue
         $digits = preg_replace('/\D+/', '', $value);
         if (!$digits) return null;
 
-        // Si viene 10 dígitos, se asume MX sin prefijo
         if (strlen($digits) === 10) {
             return '52' . $digits;
         }
 
-        // Si ya viene con 52 al inicio y tiene 12 dígitos (52 + 10)
         if (substr($digits, 0, 2) === '52' && strlen($digits) >= 12) {
-            // Nos quedamos con 52 + últimos 10 por si viene más largo
             return '52' . substr($digits, -10);
         }
 
-        // Si viene sin 52 o viene con otro país, forzamos a MX: 52 + últimos 10
         $last10 = substr($digits, -10);
         if (strlen($last10) === 10) {
             return '52' . $last10;
@@ -70,7 +67,6 @@ class SendAgendaReminderJob implements ShouldQueue
         $tz = $event->timezone ?: config('app.timezone', 'America/Mexico_City');
         $userIds = is_array($event->user_ids) ? $event->user_ids : [];
 
-        // Normaliza ids
         $userIds = array_values(array_unique(array_map('intval', $userIds)));
         $userIds = array_filter($userIds);
 
@@ -78,15 +74,15 @@ class SendAgendaReminderJob implements ShouldQueue
             'event_id' => $event->id,
             'title'    => $event->title,
             'timezone' => $tz,
-            'send_email'    => (bool)$event->send_email,
-            'send_whatsapp' => (bool)$event->send_whatsapp,
+            'send_email'    => (bool) $event->send_email,
+            'send_whatsapp' => (bool) $event->send_whatsapp,
             'user_ids' => $userIds,
             'next_reminder_at' => optional($event->next_reminder_at)->toDateTimeString(),
         ]);
 
         if (!count($userIds)) {
             Log::warning("SendAgendaReminderJob: evento sin user_ids, no se envía", ['event_id' => $event->id]);
-            // aun así avanzamos para no re-intentar infinito
+
             $event->last_reminder_sent_at = now('UTC');
             $event->advanceAfterSending();
             $event->save();
@@ -95,9 +91,8 @@ class SendAgendaReminderJob implements ShouldQueue
 
         $users = User::query()
             ->whereIn('id', $userIds)
-            ->get(['id','name','email','phone']);
+            ->get(['id', 'name', 'email', 'phone']);
 
-        // Para plantilla WhatsApp
         $fechaFormateada = $event->start_at
             ? $event->start_at->setTimezone($tz)->format('d/m/Y H:i')
             : '';
@@ -109,13 +104,14 @@ class SendAgendaReminderJob implements ShouldQueue
                     if (!$u->email) {
                         Log::warning("Agenda: usuario sin email, omitido", [
                             'event_id' => $event->id,
-                            'user_id'  => $u->id
+                            'user_id'  => $u->id,
                         ]);
                         continue;
                     }
 
                     try {
                         Mail::to($u->email)->send(new AgendaReminderMail($event, $u));
+
                         Log::info("Agenda: correo enviado", [
                             'event_id' => $event->id,
                             'to'       => $u->email,
@@ -128,6 +124,25 @@ class SendAgendaReminderJob implements ShouldQueue
                             'error'    => $mailEx->getMessage(),
                         ]);
                     }
+                }
+            }
+
+            // ========= NOTIFICACIÓN INTERNA DEL SISTEMA =========
+            foreach ($users as $u) {
+                try {
+                    $u->notify(new AgendaReminderSystemNotification($event));
+
+                    Log::info("Agenda: notificación interna enviada", [
+                        'event_id' => $event->id,
+                        'user_id'  => $u->id,
+                        'title'    => $event->title,
+                    ]);
+                } catch (Throwable $notifyEx) {
+                    Log::error("Agenda: error enviando notificación interna", [
+                        'event_id' => $event->id,
+                        'user_id'  => $u->id,
+                        'error'    => $notifyEx->getMessage(),
+                    ]);
                 }
             }
 
@@ -152,7 +167,6 @@ class SendAgendaReminderJob implements ShouldQueue
                         }
 
                         try {
-                            // {{1}} nombre, {{2}} título, {{3}} fecha/hora, {{4}} zona
                             $params = [
                                 $u->name ?: 'Usuario',
                                 $event->title,
