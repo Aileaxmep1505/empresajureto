@@ -906,7 +906,9 @@
     #hero-full-pap .chip{background:#fff;border:1px dashed var(--line);padding:8px 12px;border-radius:999px;
       font-size:13px;color:#0f172a;display:inline-flex;align-items:center;gap:8px;box-shadow:0 8px 24px rgba(2,8,23,.04)}
     #hero-full-pap .dot{width:8px;height:8px;border-radius:50%}
-    #hero-full-pap .ok{background:var(--ok)} .brand{background:var(--brand)} .accent{background:var(--accent)}
+   #hero-full-pap .ok{background:var(--ok)}
+#hero-full-pap .brand-dot{background:var(--brand)}
+#hero-full-pap .accent{background:var(--accent)}
 
     #hero-full-pap .bullets{display:grid;gap:10px;margin:16px 0 8px}
     #hero-full-pap .bullet{display:flex;gap:10px;align-items:flex-start;color:var(--ink);font-size:15px}
