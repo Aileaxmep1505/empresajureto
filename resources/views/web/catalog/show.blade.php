@@ -1,4 +1,4 @@
-{{-- resources/views/web/catalog/show.blade.php (o la ruta que uses para tu vista de producto) --}}
+{{-- resources/views/web/catalog/show.blade.php --}}
 @extends('layouts.web')
 @section('title', $item->name)
 
@@ -83,6 +83,30 @@
   filter:blur(0px);
   will-change:opacity, transform, filter;
 }
+
+/* OVERLAY FAVORITOS (CORAZÓN PRINCIPAL) */
+.fav-overlay {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 10;
+}
+.fav-btn {
+  width: 42px; height: 42px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(0,0,0,0.05);
+  display: flex; align-items: center; justify-content: center;
+  color: #a1a1aa;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  transition: all 0.2s ease;
+}
+.fav-btn svg { width: 22px; height: 22px; transition: fill 0.2s; }
+.fav-btn:hover { background: #fff; transform: scale(1.06); color: #ff4a4a; }
+.fav-btn.active { color: #ff4a4a; }
+.fav-btn.active svg { fill: #ff4a4a; }
 
 #hero .nav{
   position:absolute; inset:0;
@@ -344,7 +368,7 @@
 
 /* ================= SIMILARES ================= */
 #sim{
-  background: #f9fafb; /* Fondo tenue para resaltar las cards */
+  background: #f9fafb; 
   padding: 60px 0;
   border-top: 1px solid var(--line);
 }
@@ -367,6 +391,7 @@
   transform: translateY(-5px);
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.06);
 }
+
 #sim .sim-img{ 
   width:100%; aspect-ratio:1/1; object-fit:contain; 
   padding: 15px;
@@ -389,7 +414,6 @@
   $savePct = ($sale && $price>0) ? max(1, round(100 - (($sale/$price)*100))) : null;
   $monthly = $final > 0 ? round($final/4, 2) : 0; 
 
-  // === IMÁGENES (solo 3: photo_1/2/3) ===
   $imgUrl = function($raw){
     if(!$raw || !is_string($raw) || trim($raw)==='') return null;
     $raw = trim($raw);
@@ -405,7 +429,6 @@
   ])));
   if(empty($images)) $images = [asset('images/placeholder.png')];
 
-  // Detalles en bullets
   $lines = [];
   if(!empty($item->description)){
     $lines = preg_split("/\r\n|\n|\r/", strip_tags($item->description));
@@ -415,7 +438,6 @@
     $lines = [trim(strip_tags($item->excerpt))];
   }
 
-  // Similares
   $similars = \App\Models\CatalogItem::published()
       ->where('id','!=',$item->id)
       ->when(($item->category_id ?? null), fn($q)=>$q->where('category_id',$item->category_id),
@@ -460,6 +482,18 @@
         {{-- ================= GALERÍA (IZQUIERDA) ================= --}}
         <div class="media">
           <div class="stage" data-gallery>
+            
+            {{-- BOTÓN DE FAVORITOS (IMAGEN PRINCIPAL) --}}
+            <div class="fav-overlay">
+              <button type="button" class="fav-btn js-fav-toggle" aria-label="Favoritos">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                </svg>
+              </button>
+              {{-- Formulario oculto para aprovechar lógica de backend existente --}}
+              <div style="display:none;">@includeIf('web.favoritos.button', ['item'=>$item])</div>
+            </div>
+
             <img id="galMain"
                  src="{{ $images[0] }}"
                  alt="{{ $item->name }}"
@@ -685,7 +719,6 @@ function toggleAccordion() {
   const icon = document.getElementById('accordionIcon');
   
   content.classList.toggle('open');
-  
   if (content.classList.contains('open')) {
     icon.style.transform = 'rotate(180deg)';
   } else {
@@ -693,8 +726,60 @@ function toggleAccordion() {
   }
 }
 
+/* ================== Actualizar Carrito UI Global ================== */
+function updateCartUI(newCount) {
+  // Buscamos clases e IDs comunes que los e-commerce suelen tener en el header
+  const cartBadges = document.querySelectorAll('.cart-count, .cart-badge, #cart-count, #cart-badge, .header-cart-count');
+  
+  cartBadges.forEach(badge => {
+    if (newCount !== undefined && newCount !== null) {
+      badge.textContent = newCount;
+    } else {
+      // Si el servidor no devolvió un count exacto, sumamos 1 por asunción
+      const current = parseInt(badge.textContent || '0', 10);
+      if (!isNaN(current)) badge.textContent = current + 1;
+    }
+    // Animamos el contador visualmente para que el usuario sepa que sumó
+    gsap.fromTo(badge, { scale: 1.5 }, { scale: 1, duration: 0.4, ease: "back.out(1.5)" });
+  });
+
+  // Emitimos un evento global por si el Navbar usa Vue/React o Livewire
+  window.dispatchEvent(new CustomEvent('cartUpdated', { detail: { count: newCount } }));
+}
+
 (() => {
-  /* ================== GALERÍA < > con transición PRO ================== */
+  /* ================== FUNCIONALIDAD FAVORITOS AJAX ================== */
+  document.querySelectorAll('.js-fav-toggle').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      
+      // Toggle visual y animación GSAP ("Latido")
+      const isActive = btn.classList.toggle('active');
+      gsap.fromTo(btn, { scale: 0.7 }, { scale: 1, duration: 0.5, ease: "elastic.out(1, 0.4)" });
+
+      // Busca el formulario original escondido que incluiste por backend
+      const container = btn.closest('.fav-overlay');
+      const hiddenForm = container.querySelector('form');
+      
+      if(hiddenForm) {
+        try {
+          const fd = new FormData(hiddenForm);
+          await fetch(hiddenForm.getAttribute('action'), {
+            method: hiddenForm.getAttribute('method') || 'POST',
+            body: fd,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            credentials: 'same-origin'
+          });
+        } catch (error) {
+          // Si falla la petición, revertimos el estado visual del corazón
+          btn.classList.toggle('active');
+          console.error("Error al actualizar favoritos", error);
+        }
+      }
+    });
+  });
+
+  /* ================== GALERÍA < > ================== */
   const images = @json($images);
   let idx = 0;
 
@@ -711,9 +796,8 @@ function toggleAccordion() {
     if(el) el.classList.add('active');
   }
 
-  function swapTo(next, dir){
-    if(!main || next === idx) return;
-    if(swapTo._busy) return;
+  function swapTo(next){
+    if(!main || next === idx || swapTo._busy) return;
     swapTo._busy = true;
 
     const outgoing = main;
@@ -745,17 +829,11 @@ function toggleAccordion() {
     const t = e.target.closest('.thumb');
     if(!t) return;
     const next = parseInt(t.dataset.idx || '0', 10);
-    swapTo(next, next > idx ? 1 : -1);
+    swapTo(next);
   });
 
-  prevBtn?.addEventListener('click', ()=>{
-    const next = (idx - 1 + images.length) % images.length;
-    swapTo(next, -1);
-  });
-  nextBtn?.addEventListener('click', ()=>{
-    const next = (idx + 1) % images.length;
-    swapTo(next, 1);
-  });
+  prevBtn?.addEventListener('click', ()=> swapTo((idx - 1 + images.length) % images.length) );
+  nextBtn?.addEventListener('click', ()=> swapTo((idx + 1) % images.length) );
 
   /* ================== Toast ================== */
   const toast = document.getElementById('pcToast');
@@ -772,7 +850,7 @@ function toggleAccordion() {
     timer = setTimeout(()=>toast.classList.remove('show'), 2100);
   }
 
-  /* ================== POST carrito sin recarga ================== */
+  /* ================== POST carrito ================== */
   async function ajaxSubmit(form){
     const action = form.getAttribute('action');
     const fd = new FormData(form);
@@ -793,7 +871,7 @@ function toggleAccordion() {
     return { ok, data, status: res.status };
   }
 
-  /* ================== Animación botón + submit AJAX ================== */
+  /* ================== Animación botón + AJAX Carrito ================== */
   document.querySelectorAll('.add-to-cart').forEach(btn=>{
     const submitDelay = parseInt(btn.dataset.submitDelay || '850', 10);
 
@@ -813,6 +891,7 @@ function toggleAccordion() {
       btn.style.pointerEvents = 'none';
       btn.style.setProperty('--text-o', 0);
 
+      // 1. Efecto presionar botón
       gsap.to(btn, {
         keyframes: [
           { '--background-scale': .98, duration: .10 },
@@ -820,6 +899,7 @@ function toggleAccordion() {
         ]
       });
 
+      // 2. Efecto tirar a carrito
       gsap.to(btn, {
         keyframes: [
           { '--shirt-scale': 1, '--shirt-y': '-42px', '--cart-x': '0px', '--cart-scale': 1, duration: .35, ease: 'power1.in' },
@@ -829,6 +909,7 @@ function toggleAccordion() {
       });
       gsap.to(btn, { '--shirt-second-y': '0px', delay: .7, duration: .1 });
 
+      // 3. Efecto salida de carrito
       gsap.to(btn, {
         keyframes: [
           { '--cart-clip': '12px', '--cart-clip-x': '3px', delay: .78, duration: .06 },
@@ -845,11 +926,18 @@ function toggleAccordion() {
         ]
       });
 
+      // Llamada AJAX sincronizada con el delay de la animación visual
       setTimeout(async ()=>{
         try{
-          const { ok } = await ajaxSubmit(form);
-          if(ok) showToast('<b>Listo</b> · Se agregó al carrito', 'ok');
-          else showToast('<b>Ups</b> · No se pudo agregar', 'warn');
+          const { ok, data } = await ajaxSubmit(form);
+          if(ok) {
+            showToast('<b>Listo</b> · Se agregó al carrito', 'ok');
+            // SE ACTUALIZA LA INTERFAZ DEL CARRITO EN TIEMPO REAL
+            updateCartUI(data?.cart_count ?? data?.count ?? data?.total_items); 
+          }
+          else {
+            showToast('<b>Ups</b> · No se pudo agregar', 'warn');
+          }
         }catch(err){
           showToast('<b>Error</b> · Intenta de nuevo', 'warn');
         }
@@ -857,7 +945,7 @@ function toggleAccordion() {
     });
   });
 
-  /* ================== Drag and scroll para SIMILARES ================== */
+  /* ================== Drag para SIMILARES ================== */
   (function(){
     const row = document.getElementById('simRow');
     if(!row) return;

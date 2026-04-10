@@ -7,6 +7,8 @@
   <title>{{ $item->name }} | Jureto</title>
   <meta name="description" content="{{ trim($item->excerpt ?: \Illuminate\Support\Str::limit(strip_tags($item->description ?? ''), 140)) }}">
 
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
   @php
     use Illuminate\Support\Facades\Storage;
     use Illuminate\Support\Str;
@@ -54,47 +56,44 @@
 
     // Rutas
     $qrSvgUrl          = route('catalog.qr', $item);
-    $barcodeSvgUrl     = route('catalog.barcode', $item);          // <- NUEVA
+    $barcodeSvgUrl     = route('catalog.barcode', $item);
     $labelPdfQr        = route('catalog.qr.label', $item);
-    $labelPdfBarcode   = route('catalog.barcode.label', $item);    // <- NUEVA
+    $labelPdfBarcode   = route('catalog.barcode.label', $item);
     $publicUrl         = route('catalog.preview', $item);
   @endphp
 
   <style>
     :root{
-      --ink:#0f172a;
-      --muted:#6b7280;
-      --line:#e5e7eb;
-      --bg:#f3f4f6;
-      --card:#ffffff;
-      --accent:#2563eb;
-      --accent-soft:#eff6ff;
-      --accent-strong:#1d4ed8;
-      --ok-bg:#dcfce7;
-      --ok-ink:#166534;
-      --warn-bg:#fee2e2;
-      --warn-ink:#991b1b;
-      --radius-lg:18px;
-      --radius-sm:12px;
-      --shadow-soft:0 20px 60px rgba(15,23,42,.10);
-      --shadow-chip:0 10px 25px rgba(15,23,42,.09);
+      --ink: #333333;
+      --muted: #888888;
+      --line: #ebebeb;
+      --bg: #f9fafb;
+      --card: #ffffff;
+      --blue: #007aff;
+      --blue-soft: #e6f0ff;
+      --ok: #15803d;
+      --ok-bg: #e6ffe6;
+      --warn: #ff4a4a;
+      --warn-bg: #ffebeb;
+      --radius-lg: 16px;
+      --radius-sm: 8px;
+      --shadow-soft: 0 4px 12px rgba(0,0,0,0.04);
+      --shadow-hover: 0 10px 25px rgba(0,0,0,0.08);
     }
 
     *{ box-sizing:border-box; }
 
     body.app{
       margin:0;
-      font-family:"Quicksand", system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial;
-      background:radial-gradient(circle at 0% 0%, #eef2ff 0, transparent 40%),
-                 radial-gradient(circle at 100% 0%, #e0f2fe 0, transparent 42%),
-                 var(--bg);
+      font-family:"Quicksand", system-ui, -apple-system, sans-serif;
+      background: var(--bg);
       color:var(--ink);
     }
 
     .ps-wrap{
-      max-width:1180px;
-      margin:24px auto 40px;
-      padding:0 16px;
+      max-width:1100px;
+      margin:30px auto 60px;
+      padding:0 20px;
       animation:ps-fade-in .55s ease-out;
     }
 
@@ -103,27 +102,27 @@
       justify-content:space-between;
       align-items:center;
       gap:16px;
-      margin-bottom:18px;
+      margin-bottom:24px;
     }
 
     .ps-brand-lockup{
       display:flex;
       align-items:center;
-      gap:14px;
+      gap:16px;
     }
 
-    /* LOGO MÁS GRANDE */
     .ps-logo{
-      width:270px;
-      height:70px;
-      border-radius:22px;
-      background:#fff;
+      width:220px;
+      height:60px;
+      border-radius:12px;
+  
       display:flex;
       align-items:center;
       justify-content:center;
-      box-shadow:0 18px 40px rgba(15,23,42,.2);
+      
+      box-shadow: var(--shadow-soft);
       overflow:hidden;
-      padding:6px;
+      padding:10px;
     }
     .ps-logo img{
       width:100%;
@@ -135,27 +134,29 @@
     .ps-brand-text{
       display:flex;
       flex-direction:column;
-      gap:3px;
+      gap:2px;
     }
     .ps-brand-text span:first-child{
-      font-size:.78rem;
+      font-size:11px;
+      font-weight: 700;
       text-transform:uppercase;
-      letter-spacing:.26em;
+      letter-spacing:1px;
       color:var(--muted);
     }
     .ps-brand-text span:last-child{
-      font-size:1.05rem;
+      font-size:16px;
+      font-weight: 600;
+      color: var(--ink);
     }
 
     .ps-status-badge{
-      padding:7px 13px;
+      padding:6px 12px;
       border-radius:999px;
-      font-size:.8rem;
+      font-size:13px;
+      font-weight: 600;
       display:inline-flex;
       align-items:center;
       gap:6px;
-      box-shadow:var(--shadow-chip);
-      border:1px solid transparent;
       white-space:nowrap;
     }
     .ps-status-badge span{
@@ -166,21 +167,20 @@
     }
     .ps-status-ok{
       background:var(--ok-bg);
-      color:var(--ok-ink);
-      border-color:#bbf7d0;
+      color:var(--ok);
     }
-    .ps-status-ok span{ background:#22c55e; }
+    .ps-status-ok span{ background:var(--ok); }
+    
     .ps-status-warn{
       background:var(--warn-bg);
-      color:var(--warn-ink);
-      border-color:#fecaca;
+      color:var(--warn);
     }
-    .ps-status-warn span{ background:#ef4444; }
+    .ps-status-warn span{ background:var(--warn); }
 
     .ps-main{
       display:grid;
-      grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);
-      gap:28px;
+      grid-template-columns: 1.1fr 1fr;
+      gap:40px;
       align-items:flex-start;
     }
 
@@ -188,15 +188,16 @@
     .ps-left{
       display:flex;
       flex-direction:column;
-      gap:10px;
+      gap:16px;
     }
 
     .ps-hero{
       position:relative;
-      border-radius:22px;
+      border-radius:var(--radius-lg);
       overflow:hidden;
-      background:#f3f4f6;
-      min-height:320px;
+      background:var(--card);
+      border: 1px solid var(--line);
+      aspect-ratio: 1 / 1;
       display:flex;
       align-items:center;
       justify-content:center;
@@ -207,46 +208,41 @@
     .ps-hero img{
       width:100%;
       height:100%;
-      max-height:520px;
-      object-fit:cover;
+      object-fit:contain;
+      padding: 20px;
       display:block;
       transition:transform .35s ease-out, opacity .18s ease-out;
     }
 
     .ps-hero:hover img{
-      transform:scale(1.03);
+      transform:scale(1.04);
     }
 
     .ps-hero-empty{
       color:var(--muted);
-      font-size:.9rem;
+      font-size:14px;
+      font-weight: 500;
     }
 
     .ps-thumb-row{
       display:flex;
-      gap:10px;
-      margin-top:4px;
+      gap:12px;
       overflow-x:auto;
-      padding-bottom:4px;
+      justify-content: center;
+      padding-bottom: 4px;
     }
-    .ps-thumb-row::-webkit-scrollbar{
-      height:4px;
-    }
-    .ps-thumb-row::-webkit-scrollbar-thumb{
-      background:#cbd5f5;
-      border-radius:999px;
-    }
+    .ps-thumb-row::-webkit-scrollbar{ display:none; }
 
     .ps-thumb{
-      flex:0 0 80px;
+      flex:0 0 64px;
       height:64px;
-      border-radius:14px;
-      border:1px solid var(--line);
+      border-radius:var(--radius-sm);
+      border:1px solid transparent;
       overflow:hidden;
       cursor:pointer;
-      background:#f3f4f6;
+      background:var(--card);
       position:relative;
-      transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease, background .15s ease;
+      transition:all .2s ease;
     }
     .ps-thumb img{
       width:100%;
@@ -256,121 +252,121 @@
       transition:transform .25s ease;
     }
     .ps-thumb:hover{
-      transform:translateY(-3px);
-      box-shadow:0 14px 28px rgba(15,23,42,.2);
-      border-color:#c7d2fe;
-      background:#ffffff;
-    }
-    .ps-thumb:hover img{
-      transform:scale(1.05);
+      border-color:#ccc;
     }
     .ps-thumb-active{
-      border-color:#4f46e5;
-      box-shadow:0 16px 40px rgba(79,70,229,.45);
+      border-color:var(--blue);
     }
     .ps-thumb-active::after{
       content:'';
       position:absolute;
       inset:0;
       border-radius:inherit;
-      box-shadow:0 0 0 2px rgba(129,140,248,.9) inset;
+      box-shadow:0 0 0 1px var(--blue) inset;
       pointer-events:none;
     }
 
     .ps-thumb-counter{
-      font-size:.72rem;
+      font-size:12px;
       color:var(--muted);
-      margin-top:4px;
-      padding-left:2px;
+      text-align: center;
+      font-weight: 500;
     }
 
     /* ===== Derecha: info ===== */
     .ps-right{
       display:flex;
       flex-direction:column;
-      gap:18px;
+      gap:24px;
+      padding-top: 10px;
     }
 
-    .ps-title-block{ }
-
     .ps-subtitle{
-      font-size:.78rem;
-      letter-spacing:.18em;
+      font-size:12px;
+      font-weight: 700;
+      letter-spacing:1px;
       text-transform:uppercase;
       color:var(--muted);
-      margin-bottom:4px;
+      margin-bottom:6px;
     }
 
     .ps-title{
       margin:0;
-      font-size:1.35rem;
-      line-height:1.25;
+      font-size:24px;
+      font-weight: 600;
+      line-height:1.3;
+      color: #111;
     }
 
     .ps-model-line{
-      margin-top:6px;
-      font-size:.9rem;
+      margin-top:8px;
+      font-size:14px;
       color:var(--muted);
+      font-weight: 500;
     }
 
     .ps-chips{
-      margin-top:12px;
+      margin-top:16px;
       display:flex;
       flex-wrap:wrap;
       gap:8px;
     }
 
     .ps-chip{
-      font-size:.78rem;
-      padding:6px 10px;
-      border-radius:999px;
-      border:1px solid var(--line);
-      background:#f9fafb;
-      color:#374151;
+      font-size:12px;
+      font-weight: 600;
+      padding:4px 10px;
+      border-radius:6px;
+      background: var(--blue-soft);
+      color: var(--blue);
       display:inline-flex;
       align-items:center;
-      gap:6px;
     }
 
     .ps-section-title{
-      font-size:.8rem;
-      letter-spacing:.18em;
-      text-transform:uppercase;
-      color:var(--muted);
-      margin-bottom:8px;
+      font-size:14px;
+      font-weight: 700;
+      color:var(--ink);
+      margin-bottom:12px;
     }
 
     /* ===== PICKING COMO EN LA CAPTURA (4 CARDS) ===== */
     .ps-picking-grid{
       display:grid;
       grid-template-columns:repeat(2, minmax(0,1fr));
-      gap:14px;
+      gap:16px;
     }
     .ps-pick-card{
       background:var(--card);
-      border-radius:18px;
+      border-radius:12px;
       border:1px solid var(--line);
-      padding:12px 14px 10px;
-      box-shadow:0 16px 40px rgba(15,23,42,.06);
+      padding:16px;
+      box-shadow:var(--shadow-soft);
       display:flex;
       flex-direction:column;
-      gap:4px;
+      gap:6px;
+      transition: transform .2s ease, box-shadow .2s ease;
+    }
+    .ps-pick-card:hover{
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-hover);
     }
     .ps-pick-head{
       display:flex;
       align-items:center;
       gap:8px;
-      font-size:.78rem;
+      font-size:11px;
+      font-weight: 700;
       text-transform:uppercase;
-      letter-spacing:.18em;
+      letter-spacing:1px;
       color:var(--muted);
       margin-bottom:4px;
     }
     .ps-pick-ico{
-      width:22px;
-      height:22px;
-      border-radius:999px;
-      background:var(--accent-soft);
+      width:24px;
+      height:24px;
+      border-radius:50%;
+      background:var(--blue-soft);
       display:flex;
       align-items:center;
       justify-content:center;
@@ -379,22 +375,25 @@
     .ps-pick-ico svg{
       width:14px;
       height:14px;
-      stroke:#4b5563;
+      stroke:var(--blue);
     }
     .ps-pick-main{
-      font-size:.95rem;
+      font-size:16px;
+      font-weight: 600;
+      color: var(--ink);
     }
     .ps-pick-sub{
-      font-size:.8rem;
+      font-size:12px;
       color:var(--muted);
+      font-weight: 500;
     }
 
     /* ===== CARD: FICHA RÁPIDA (sin precio) ===== */
     .ps-specs-card{
       background:var(--card);
-      border-radius:var(--radius-lg);
+      border-radius:12px;
       border:1px solid var(--line);
-      padding:14px 16px 12px;
+      padding:0 16px;
       box-shadow:var(--shadow-soft);
     }
 
@@ -402,59 +401,64 @@
       display:flex;
       justify-content:space-between;
       align-items:center;
-      padding:6px 0;
-      border-bottom:1px dashed #e5e7eb;
-      font-size:.9rem;
+      padding:12px 0;
+      border-bottom:1px solid var(--line);
+      font-size:14px;
     }
     .ps-spec-row:last-child{
       border-bottom:0;
     }
     .ps-spec-label{
       color:var(--muted);
-      font-size:.86rem;
+      font-weight: 500;
     }
     .ps-spec-value{
       text-align:right;
+      font-weight: 600;
+      color: var(--ink);
       max-width:260px;
     }
 
     .ps-footer{
-      margin-top:14px;
-      font-size:.78rem;
+      font-size:13px;
+      font-weight: 500;
       color:var(--muted);
       display:flex;
       justify-content:space-between;
       flex-wrap:wrap;
       gap:10px;
+      margin-top: auto;
     }
 
     /* ===== CARD: QR / BARRAS ABAJO ===== */
     .ps-qr-card-wrap{
-      margin-top:36px;
+      margin-top:40px;
       display:flex;
       justify-content:center;
+      padding-top: 40px;
+      border-top: 1px solid var(--line);
     }
     .ps-qr-card{
       background:var(--card);
-      border-radius:20px;
+      border-radius:16px;
       border:1px solid var(--line);
       box-shadow:var(--shadow-soft);
-      padding:18px 22px 16px;
-      max-width:360px;
+      padding:24px;
+      max-width:380px;
       width:100%;
       text-align:center;
     }
     .ps-qr-code-box{
-      width:150px;
-      height:150px;
-      border-radius:16px;
-      margin:0 auto 10px;
+      width:160px;
+      height:160px;
+      border-radius:12px;
+      margin:0 auto 16px;
       background:#ffffff;
       border:1px solid var(--line);
       display:flex;
       align-items:center;
       justify-content:center;
-      padding:8px;
+      padding:10px;
     }
     .ps-qr-code-box img{
       width:100%;
@@ -463,63 +467,70 @@
       display:block;
     }
     .ps-qr-code-text{
-      font-size:.9rem;
-      letter-spacing:.18em;
-      text-transform:uppercase;
-      color:var(--muted);
+      font-size:16px;
+      font-weight: 700;
+      letter-spacing:1px;
+      color:var(--ink);
       margin-top:4px;
     }
     .ps-qr-code-id{
-      font-size:.78rem;
+      font-size:13px;
+      font-weight: 500;
       color:var(--muted);
       margin-top:4px;
     }
     .ps-qr-actions{
-      margin-top:10px;
+      margin-top:20px;
       display:flex;
       flex-wrap:wrap;
       justify-content:center;
-      gap:8px;
+      gap:10px;
     }
-    .ps-link-btn{
+    .ps-btn-outline{
       border-radius:999px;
-      padding:6px 10px;
-      font-size:.78rem;
-      border:1px solid var(--line);
+      padding:8px 16px;
+      font-size:13px;
+      font-weight: 600;
+      border:1px solid var(--blue);
       background:#fff;
-      color:#111827;
+      color:var(--blue);
       text-decoration:none;
       display:inline-flex;
       align-items:center;
-      gap:6px;
-      box-shadow:0 8px 20px rgba(15,23,42,.08);
-      transition:transform .14s ease, box-shadow .14s ease, background .14s ease;
+      transition:all .2s ease;
     }
-    .ps-link-btn:hover{
-      transform:translateY(-1px);
-      box-shadow:0 14px 30px rgba(15,23,42,.12);
-      background:#f9fafb;
+    .ps-btn-outline:hover{
+      background:var(--blue-soft);
+    }
+    .ps-btn-solid{
+      border-radius:999px;
+      padding:8px 16px;
+      font-size:13px;
+      font-weight: 600;
+      border:1px solid var(--blue);
+      background:var(--blue);
+      color:#fff;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      transition:all .2s ease;
+      box-shadow: 0 4px 12px rgba(0, 122, 255, 0.2);
+    }
+    .ps-btn-solid:hover{
+      background:#0062cc;
+      box-shadow: 0 6px 16px rgba(0, 122, 255, 0.3);
     }
 
     /* ===== Responsive ===== */
-    @media (max-width: 960px){
-      .ps-main{
-        grid-template-columns:1fr;
-      }
+    @media (max-width: 860px){
+      .ps-main{ grid-template-columns:1fr; }
     }
 
     @media (max-width: 640px){
-      .ps-wrap{
-        margin-top:14px;
-        padding:0 10px;
-      }
-      .ps-header{
-        flex-direction:column;
-        align-items:flex-start;
-      }
-      .ps-picking-grid{
-        grid-template-columns:1fr;
-      }
+      .ps-wrap{ margin-top:20px; }
+      .ps-header{ flex-direction:column; align-items:flex-start; gap: 20px; }
+      .ps-picking-grid{ grid-template-columns:1fr; }
+      .ps-logo{ width: 180px; height: 50px; }
     }
 
     @keyframes ps-fade-in{
@@ -532,13 +543,10 @@
     }
 
     @media print{
-      body.app{
-        background:#fff;
-      }
-      .ps-wrap{
-        margin:0;
-        max-width:none;
-      }
+      body.app{ background:#fff; }
+      .ps-wrap{ margin:0; max-width:none; padding: 0; }
+      .ps-header, .ps-qr-actions, .ps-thumb-row, .ps-thumb-counter { display: none !important; }
+      .ps-hero { border: none; }
     }
   </style>
 </head>
@@ -596,25 +604,23 @@
         {{-- Título --}}
         <div class="ps-title-block">
           <div class="ps-subtitle">
-            {{ $brand !== '' ? strtoupper($brand) : 'PRODUCTO JURETO' }}
+            {{ $brand !== '' ? $brand : 'PRODUCTO JURETO' }}
           </div>
           <h1 class="ps-title">{{ $item->name }}</h1>
 
           @if($model !== '')
-            <div class="ps-model-line">Modelo {{ $model }}</div>
+            <div class="ps-model-line">Modelo: {{ $model }}</div>
           @elseif($sku !== '')
-            <div class="ps-model-line">SKU {{ $sku }}</div>
+            <div class="ps-model-line">SKU: {{ $sku }}</div>
           @endif
 
           <div class="ps-chips">
             @if($sku !== '')
-              <div class="ps-chip">SKU&nbsp;{{ $sku }}</div>
+              <div class="ps-chip">SKU {{ $sku }}</div>
             @endif
-
-            <div class="ps-chip">ID&nbsp;#{{ $item->id }}</div>
-
+            <div class="ps-chip">ID #{{ $item->id }}</div>
             @if($gtin !== '')
-              <div class="ps-chip">GTIN&nbsp;{{ $gtin }}</div>
+              <div class="ps-chip">GTIN {{ $gtin }}</div>
             @endif
           </div>
         </div>
@@ -627,7 +633,7 @@
             <article class="ps-pick-card">
               <div class="ps-pick-head">
                 <div class="ps-pick-ico">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M12 21s-6-5.1-6-10a6 6 0 0 1 12 0c0 4.9-6 10-6 10z"/>
                     <circle cx="12" cy="11" r="2.5"/>
                   </svg>
@@ -650,10 +656,10 @@
             <article class="ps-pick-card">
               <div class="ps-pick-head">
                 <div class="ps-pick-ico">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
-                    <rect x="3" y="10" width="4" height="10"/>
-                    <rect x="10" y="6" width="4" height="14"/>
-                    <rect x="17" y="3" width="4" height="17"/>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="10" width="4" height="10" rx="1"/>
+                    <rect x="10" y="6" width="4" height="14" rx="1"/>
+                    <rect x="17" y="3" width="4" height="17" rx="1"/>
                   </svg>
                 </div>
                 <span>Stock actual</span>
@@ -670,11 +676,10 @@
             <article class="ps-pick-card">
               <div class="ps-pick-head">
                 <div class="ps-pick-ico">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
-                    <path d="M3 9l9-5 9 5-9 5-9-5z"/>
-                    <path d="M3 15l9 5 9-5"/>
-                    <path d="M3 9v6"/>
-                    <path d="M21 9v6"/>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                    <line x1="12" y1="22.08" x2="12" y2="12"/>
                   </svg>
                 </div>
                 <span>Unid. por caja</span>
@@ -691,7 +696,7 @@
             <article class="ps-pick-card">
               <div class="ps-pick-head">
                 <div class="ps-pick-ico">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M4 4v16M7 4v16M10 4v16M14 4v16M17 4v16M20 4v16"/>
                   </svg>
                 </div>
@@ -701,7 +706,7 @@
                 {{ $codeValue }}
               </div>
               <div class="ps-pick-sub">
-                Para escáner de recepción y surtido.
+                Para escáner de recepción.
               </div>
             </article>
           </div>
@@ -709,7 +714,7 @@
 
         {{-- FICHA RÁPIDA SIN PRECIO --}}
         <section>
-          <div class="ps-section-title">Ficha rápida</div>
+          <div class="ps-section-title">Ficha técnica</div>
           <div class="ps-specs-card">
             <div class="ps-spec-row">
               <div class="ps-spec-label">Marca</div>
@@ -765,13 +770,13 @@
 
         <div class="ps-qr-actions">
           {{-- Botón para cambiar entre QR y código de barras --}}
-          <a href="#" class="ps-link-btn" id="psToggleCodeBtn">
+          <a href="#" class="ps-btn-outline" id="psToggleCodeBtn">
             Ver código de barras
           </a>
 
           {{-- Botón de impresión (cambia 2x2 / 2x1 según modo) --}}
           <a
-            class="ps-link-btn"
+            class="ps-btn-solid"
             id="psPrintLabelBtn"
             href="{{ $labelPdfQr }}"
             target="_blank"

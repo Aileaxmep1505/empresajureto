@@ -18,7 +18,7 @@ class CatalogItem extends Model
         'sku',
         'price',
         'sale_price',
-        'stock',          // stock global del producto
+        'stock',
         'status',
         'excerpt',
         'description',
@@ -27,17 +27,18 @@ class CatalogItem extends Model
         'brand_id',
         'category_id',
 
-        // Clave de categoría de catálogo (config/catalog.php)
+        // Categoría jerárquica
         'category_key',
+        'category_product_id',
 
-        // Mercado Libre (texto)
+        // Mercado Libre
         'brand_name',
         'model_name',
 
         'is_featured',
         'published_at',
 
-        // Fotos (rutas en storage/public)
+        // Fotos
         'photo_1',
         'photo_2',
         'photo_3',
@@ -51,9 +52,7 @@ class CatalogItem extends Model
         'meli_last_error',
         'meli_gtin',
 
-        // ===========================
-        // AMAZON / SP-API (NUEVO)
-        // ===========================
+        // Amazon / SP-API
         'amazon_sku',
         'amazon_asin',
         'amazon_product_type',
@@ -70,8 +69,6 @@ class CatalogItem extends Model
         'is_featured'      => 'boolean',
         'published_at'     => 'datetime',
         'meli_synced_at'   => 'datetime',
-
-        // Amazon
         'amazon_synced_at' => 'datetime',
     ];
 
@@ -119,6 +116,11 @@ class CatalogItem extends Model
         return $this->belongsTo(\App\Models\Category::class, 'category_id');
     }
 
+    public function categoryProduct()
+    {
+        return $this->belongsTo(\App\Models\CategoryProduct::class, 'category_product_id');
+    }
+
     public function primaryLocation()
     {
         return $this->belongsTo(\App\Models\Location::class, 'primary_location_id');
@@ -144,7 +146,7 @@ class CatalogItem extends Model
             $this->photo_1,
             $this->photo_2,
             $this->photo_3,
-        ], fn($p) => is_string($p) && trim($p) !== ''));
+        ], fn ($p) => is_string($p) && trim($p) !== ''));
     }
 
     public function hasMeliError(): bool
@@ -159,6 +161,7 @@ class CatalogItem extends Model
         }
 
         $txt = trim($this->meli_last_error);
+
         if (mb_strlen($txt) <= $limit) {
             return $txt;
         }
@@ -168,6 +171,10 @@ class CatalogItem extends Model
 
     public function getCategoryLabelAttribute(): ?string
     {
+        if ($this->categoryProduct) {
+            return $this->categoryProduct->full_path ?: $this->categoryProduct->name;
+        }
+
         if (!$this->category_key) {
             return null;
         }
@@ -176,15 +183,11 @@ class CatalogItem extends Model
         return $all[$this->category_key] ?? $this->category_key;
     }
 
-    /**
-     * SKU efectivo para Amazon.
-     * Si algún día quieres que Amazon use otro SKU distinto al interno,
-     * llena amazon_sku y listo.
-     */
     public function amazonSku(): ?string
     {
         $s = $this->amazon_sku ?: $this->sku;
         $s = is_string($s) ? trim($s) : null;
+
         return $s !== '' ? $s : null;
     }
 
@@ -195,10 +198,15 @@ class CatalogItem extends Model
 
     public function shortAmazonError(int $limit = 140): ?string
     {
-        if (!$this->amazon_last_error) return null;
+        if (!$this->amazon_last_error) {
+            return null;
+        }
 
         $txt = trim($this->amazon_last_error);
-        if (mb_strlen($txt) <= $limit) return $txt;
+
+        if (mb_strlen($txt) <= $limit) {
+            return $txt;
+        }
 
         return mb_substr($txt, 0, $limit - 3) . '...';
     }

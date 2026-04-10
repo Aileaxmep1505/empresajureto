@@ -27,17 +27,16 @@ use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use App\Services\AmazonSpApiListingService;
 
-
 class CatalogItemController extends Controller implements HasMiddleware
 {
     public static function middleware(): array
     {
-        return [ new Middleware('auth') ];
+        return [new Middleware('auth')];
     }
 
     public function index(Request $request)
     {
-        $q = CatalogItem::query();
+        $q = CatalogItem::query()->with('categoryProduct');
 
         $s = trim((string) $request->get('s', ''));
         if ($s !== '') {
@@ -71,14 +70,9 @@ class CatalogItemController extends Controller implements HasMiddleware
      |  EXPORTS
      ==========================*/
 
-    /**
-     * Exportar a Excel (.xlsx) con formato:
-     * - Fila 1: "Inventario interno de Jureto" (título grande)
-     * - Fila 3: encabezados en negritas, centrados, fondo gris
-     */
     public function exportExcel(Request $request)
     {
-        $q = CatalogItem::query();
+        $q = CatalogItem::query()->with('categoryProduct');
 
         $s = trim((string) $request->get('s', ''));
         if ($s !== '') {
@@ -100,17 +94,14 @@ class CatalogItemController extends Controller implements HasMiddleware
 
         $rows = [];
 
-        // Fila 1: título
         $rows[] = ['Inventario interno de Jureto'];
-
-        // Fila 2: vacía
         $rows[] = [''];
 
-        // Fila 3: encabezados
         $rows[] = [
             'ID',
             'SKU',
             'Nombre',
+            'Categoría',
             'Precio',
             'Precio oferta',
             'Stock',
@@ -134,6 +125,7 @@ class CatalogItemController extends Controller implements HasMiddleware
                 $it->id,
                 $it->sku,
                 $it->name,
+                $it->categoryProduct?->full_path ?? '',
                 (float) $it->price,
                 $it->sale_price !== null ? (float) $it->sale_price : '',
                 $it->stock,
@@ -164,12 +156,10 @@ class CatalogItemController extends Controller implements HasMiddleware
                     AfterSheet::class => function (AfterSheet $event) {
                         $sheet = $event->sheet->getDelegate();
 
-                        // Fila de encabezados (fila 3 => índice 2 en $this->rows)
                         $headerIndex       = 2;
                         $headerColumnCount = count($this->rows[$headerIndex]);
                         $lastColumnLetter  = Coordinate::stringFromColumnIndex($headerColumnCount);
 
-                        // 🔹 Título (A1:última_columna1)
                         $sheet->mergeCells("A1:{$lastColumnLetter}1");
                         $sheet->getStyle("A1")->applyFromArray([
                             'font' => [
@@ -182,7 +172,6 @@ class CatalogItemController extends Controller implements HasMiddleware
                             ],
                         ]);
 
-                        // 🔹 Encabezados (fila 3)
                         $sheet->getStyle("A3:{$lastColumnLetter}3")->applyFromArray([
                             'font' => [
                                 'bold' => true,
@@ -193,7 +182,7 @@ class CatalogItemController extends Controller implements HasMiddleware
                             ],
                             'fill' => [
                                 'fillType'   => Fill::FILL_SOLID,
-                                'startColor' => ['argb' => 'FFE5E7EB'], // gris claro
+                                'startColor' => ['argb' => 'FFE5E7EB'],
                             ],
                             'borders' => [
                                 'bottom' => [
@@ -203,7 +192,6 @@ class CatalogItemController extends Controller implements HasMiddleware
                             ],
                         ]);
 
-                        // 🔹 Bordes suaves para todo el rango de datos (desde encabezados hacia abajo)
                         $lastRow = count($this->rows);
                         $sheet->getStyle("A3:{$lastColumnLetter}{$lastRow}")->applyFromArray([
                             'borders' => [
@@ -221,15 +209,9 @@ class CatalogItemController extends Controller implements HasMiddleware
         return Excel::download($export, 'inventario-jureto.xlsx');
     }
 
-    /**
-     * Exportar a PDF:
-     * - Logo arriba (public/images/logo-mail.png)
-     * - Título debajo del logo
-     * - Tabla con todos los datos
-     */
     public function exportPdf(Request $request)
     {
-        $q = CatalogItem::query();
+        $q = CatalogItem::query()->with('categoryProduct');
 
         $s = trim((string) $request->get('s', ''));
         if ($s !== '') {
@@ -249,12 +231,11 @@ class CatalogItemController extends Controller implements HasMiddleware
 
         $items = $q->orderBy('id')->get();
 
-        // Logo como base64 para que DomPDF lo agarre sin broncas
         $logoBase64 = null;
         $logoPath   = public_path('images/logo-mail.png');
         if (is_file($logoPath)) {
             $logoData   = file_get_contents($logoPath);
-            $logoBase64 = 'data:image/png;base64,'.base64_encode($logoData);
+            $logoBase64 = 'data:image/png;base64,' . base64_encode($logoData);
         }
 
         $html  = '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">';
@@ -305,20 +286,18 @@ class CatalogItemController extends Controller implements HasMiddleware
           }
         </style></head><body>';
 
-        // 🔹 Logo arriba de todo
         if ($logoBase64) {
-            $html .= '<div class="logo-wrap"><img class="logo" src="'.$logoBase64.'" alt="Logo Jureto"></div>';
+            $html .= '<div class="logo-wrap"><img class="logo" src="' . $logoBase64 . '" alt="Logo Jureto"></div>';
         }
 
-        // 🔹 Título y subtítulo
         $html .= '<h1 class="title-main">Inventario interno de Jureto</h1>';
         $html .= '<p class="top-sub">Listado de productos con filtros actuales</p>';
 
-        // Tabla
         $html .= '<table><thead><tr>';
         $html .= '<th>ID</th>';
         $html .= '<th>SKU</th>';
         $html .= '<th>Nombre</th>';
+        $html .= '<th>Categoría</th>';
         $html .= '<th>Precio</th>';
         $html .= '<th>Oferta</th>';
         $html .= '<th>Stock</th>';
@@ -338,22 +317,23 @@ class CatalogItemController extends Controller implements HasMiddleware
             $featuredText = $it->is_featured ? 'Sí' : 'No';
 
             $html .= '<tr>';
-            $html .= '<td>'.htmlspecialchars((string) $it->id).'</td>';
-            $html .= '<td>'.htmlspecialchars((string) ($it->sku ?? '')).'</td>';
-            $html .= '<td>'.htmlspecialchars((string) $it->name).'</td>';
-            $html .= '<td>$'.number_format((float) $it->price, 2).'</td>';
-            $html .= '<td>'.($it->sale_price !== null ? '$'.number_format((float) $it->sale_price, 2) : '—').'</td>';
-            $html .= '<td>'.htmlspecialchars((string) ($it->stock ?? 0)).'</td>';
-            $html .= '<td>'.htmlspecialchars($statusText).'</td>';
-            $html .= '<td>'.htmlspecialchars($featuredText).'</td>';
-            $html .= '<td>'.htmlspecialchars((string) $it->slug).'</td>';
-            $html .= '<td>'.($it->published_at ? htmlspecialchars($it->published_at->format('Y-m-d H:i')) : '—').'</td>';
-            $html .= '<td>'.htmlspecialchars((string) ($it->meli_item_id ?? '')).'</td>';
+            $html .= '<td>' . htmlspecialchars((string) $it->id) . '</td>';
+            $html .= '<td>' . htmlspecialchars((string) ($it->sku ?? '')) . '</td>';
+            $html .= '<td>' . htmlspecialchars((string) $it->name) . '</td>';
+            $html .= '<td>' . htmlspecialchars((string) ($it->categoryProduct?->full_path ?? '')) . '</td>';
+            $html .= '<td>$' . number_format((float) $it->price, 2) . '</td>';
+            $html .= '<td>' . ($it->sale_price !== null ? '$' . number_format((float) $it->sale_price, 2) : '—') . '</td>';
+            $html .= '<td>' . htmlspecialchars((string) ($it->stock ?? 0)) . '</td>';
+            $html .= '<td>' . htmlspecialchars($statusText) . '</td>';
+            $html .= '<td>' . htmlspecialchars($featuredText) . '</td>';
+            $html .= '<td>' . htmlspecialchars((string) $it->slug) . '</td>';
+            $html .= '<td>' . ($it->published_at ? htmlspecialchars($it->published_at->format('Y-m-d H:i')) : '—') . '</td>';
+            $html .= '<td>' . htmlspecialchars((string) ($it->meli_item_id ?? '')) . '</td>';
             $html .= '</tr>';
         }
 
         if ($items->isEmpty()) {
-            $html .= '<tr><td colspan="11" class="muted" style="text-align:center;padding:14px 6px;">';
+            $html .= '<tr><td colspan="12" class="muted" style="text-align:center;padding:14px 6px;">';
             $html .= 'No hay productos que coincidan con el filtro.';
             $html .= '</td></tr>';
         }
@@ -371,11 +351,8 @@ class CatalogItemController extends Controller implements HasMiddleware
 
     public function create()
     {
-        $categories = config('catalog.product_categories', []);
-
         return view('admin.catalog.create', [
-            'categories' => $categories,
-            'item'       => null,
+            'item' => null,
         ]);
     }
 
@@ -385,51 +362,34 @@ class CatalogItemController extends Controller implements HasMiddleware
             'input' => $request->all(),
         ]);
 
-        // Validación SOLO de campos de texto/numéricos (SIN fotos aquí)
         $data = $request->validate([
-            'name'        => ['required', 'string', 'max:255'],
-            'slug'        => ['nullable', 'string', 'max:255'],
-            'sku'         => ['nullable', 'string', 'max:120'],
-            'price'       => ['required', 'numeric', 'min:0'],
-            'sale_price'  => ['nullable', 'numeric', 'min:0'],
-            'stock'       => ['nullable', 'integer', 'min:0'],
-            'status'      => ['required', 'integer', 'in:0,1,2'], // 0=borrador 1=publicado 2=oculto
-            'is_featured' => ['nullable', 'boolean'],
+            'name'                => ['required', 'string', 'max:255'],
+            'slug'                => ['nullable', 'string', 'max:255'],
+            'sku'                 => ['nullable', 'string', 'max:120'],
+            'price'               => ['required', 'numeric', 'min:0'],
+            'sale_price'          => ['nullable', 'numeric', 'min:0'],
+            'stock'               => ['nullable', 'integer', 'min:0'],
+            'status'              => ['required', 'integer', 'in:0,1,2'],
+            'is_featured'         => ['nullable', 'boolean'],
+            'category_product_id' => ['nullable', 'integer', 'exists:category_products,id'],
 
-            // Categoría string (clave de config/catalog.php)
-            'category_key'=> ['nullable', 'string', 'max:190'],
+            'use_internal'        => ['nullable', 'boolean'],
+            'brand_id'            => ['nullable', 'integer'],
+            'category_id'         => ['nullable', 'integer'],
 
-            // Clasificación interna
-            'use_internal'=> ['nullable', 'boolean'],
-            'brand_id'    => ['nullable', 'integer'],
-            'category_id' => ['nullable', 'integer'],
+            'brand_name'          => ['nullable', 'string', 'max:120'],
+            'model_name'          => ['nullable', 'string', 'max:120'],
+            'meli_gtin'           => ['nullable', 'string', 'max:50'],
 
-            // Mercado Libre texto
-            'brand_name'  => ['nullable', 'string', 'max:120'],
-            'model_name'  => ['nullable', 'string', 'max:120'],
-            'meli_gtin'   => ['nullable', 'string', 'max:50'],
-
-            'excerpt'     => ['nullable', 'string'],
-            'description' => ['nullable', 'string'],
-            'published_at'=> ['nullable', 'date'],
+            'excerpt'             => ['nullable', 'string'],
+            'description'         => ['nullable', 'string'],
+            'published_at'        => ['nullable', 'date'],
         ]);
 
         Log::info('CatalogItem@store: datos validados', [
             'data' => $data,
         ]);
 
-        // Validar que la category_key exista (si viene)
-        if (!empty($data['category_key'])) {
-            $validKeys = array_keys(config('catalog.product_categories', []));
-            if (!in_array($data['category_key'], $validKeys, true)) {
-                Log::warning('CatalogItem@store: category_key no es válida, se limpia', [
-                    'category_key' => $data['category_key'],
-                ]);
-                $data['category_key'] = null;
-            }
-        }
-
-        // Slug base: slug enviado o nombre
         $baseSlug = isset($data['slug']) && trim($data['slug']) !== ''
             ? Str::slug($data['slug'])
             : Str::slug($data['name']);
@@ -438,18 +398,17 @@ class CatalogItemController extends Controller implements HasMiddleware
             $baseSlug = Str::slug(Str::random(8));
         }
 
-        // Slug único (slug, slug-1, slug-2, ...)
         $slug = $baseSlug;
         $i = 1;
         while (CatalogItem::where('slug', $slug)->exists()) {
-            $slug = $baseSlug.'-'.($i++);
+            $slug = $baseSlug . '-' . ($i++);
         }
         $data['slug'] = $slug;
 
         $data['is_featured'] = (bool) ($data['is_featured'] ?? false);
         $data['stock']       = $data['stock'] ?? 0;
+        $data['category_key'] = null;
 
-        // Si no usan clasificación interna, limpiar ids
         if (!$request->boolean('use_internal')) {
             $data['brand_id']    = null;
             $data['category_id'] = null;
@@ -459,9 +418,9 @@ class CatalogItemController extends Controller implements HasMiddleware
             $item = CatalogItem::create($data);
 
             Log::info('CatalogItem@store: item creado en BD', [
-                'item_id'      => $item->id,
-                'slug'         => $item->slug,
-                'category_key' => $item->category_key ?? null,
+                'item_id'             => $item->id,
+                'slug'                => $item->slug,
+                'category_product_id' => $item->category_product_id ?? null,
             ]);
         } catch (\Throwable $e) {
             Log::error('CatalogItem@store: ERROR al crear item', [
@@ -475,12 +434,10 @@ class CatalogItemController extends Controller implements HasMiddleware
                 ->withErrors(['general' => 'No se pudo guardar el producto en la base de datos. Revisa el log para más detalles.']);
         }
 
-        // Guardar 3 fotos
         $this->saveOrReplacePhoto($request, $item, 'photo_1', 'photo_1_file');
         $this->saveOrReplacePhoto($request, $item, 'photo_2', 'photo_2_file');
         $this->saveOrReplacePhoto($request, $item, 'photo_3', 'photo_3_file');
 
-        // Validación final de fotos
         try {
             $this->ensureThreePhotos($item);
         } catch (ValidationException $e) {
@@ -491,13 +448,12 @@ class CatalogItemController extends Controller implements HasMiddleware
             throw $e;
         }
 
-        // Sync ML (no rompe UI si falla)
         $this->dispatchMeliSync($item->fresh());
 
         if ($request->wantsJson()) {
             return response()->json([
                 'ok'   => true,
-                'item' => $item->fresh(),
+                'item' => $item->fresh('categoryProduct'),
                 'msg'  => 'Producto web creado.',
             ]);
         }
@@ -509,11 +465,10 @@ class CatalogItemController extends Controller implements HasMiddleware
 
     public function edit(CatalogItem $catalogItem)
     {
-        $categories = config('catalog.product_categories', []);
+        $catalogItem->load('categoryProduct');
 
         return view('admin.catalog.edit', [
-            'item'       => $catalogItem,
-            'categories' => $categories,
+            'item' => $catalogItem,
         ]);
     }
 
@@ -525,43 +480,32 @@ class CatalogItemController extends Controller implements HasMiddleware
         ]);
 
         $data = $request->validate([
-            'name'        => ['required', 'string', 'max:255'],
-            'slug'        => ['nullable', 'string', 'max:255'],
-            'sku'         => ['nullable', 'string', 'max:120'],
-            'price'       => ['required', 'numeric', 'min:0'],
-            'sale_price'  => ['nullable', 'numeric', 'min:0'],
-            'stock'       => ['nullable', 'integer', 'min:0'],
-            'status'      => ['required', 'integer', 'in:0,1,2'],
-            'is_featured' => ['nullable', 'boolean'],
+            'name'                => ['required', 'string', 'max:255'],
+            'slug'                => ['nullable', 'string', 'max:255'],
+            'sku'                 => ['nullable', 'string', 'max:120'],
+            'price'               => ['required', 'numeric', 'min:0'],
+            'sale_price'          => ['nullable', 'numeric', 'min:0'],
+            'stock'               => ['nullable', 'integer', 'min:0'],
+            'status'              => ['required', 'integer', 'in:0,1,2'],
+            'is_featured'         => ['nullable', 'boolean'],
+            'category_product_id' => ['nullable', 'integer', 'exists:category_products,id'],
 
-            'category_key'=> ['nullable', 'string', 'max:190'],
-            'use_internal'=> ['nullable', 'boolean'],
-            'brand_id'    => ['nullable', 'integer'],
-            'category_id' => ['nullable', 'integer'],
+            'use_internal'        => ['nullable', 'boolean'],
+            'brand_id'            => ['nullable', 'integer'],
+            'category_id'         => ['nullable', 'integer'],
 
-            'brand_name'  => ['nullable', 'string', 'max:120'],
-            'model_name'  => ['nullable', 'string', 'max:120'],
-            'meli_gtin'   => ['nullable', 'string', 'max:50'],
-            'excerpt'     => ['nullable', 'string'],
-            'description' => ['nullable', 'string'],
-            'published_at'=> ['nullable', 'date'],
+            'brand_name'          => ['nullable', 'string', 'max:120'],
+            'model_name'          => ['nullable', 'string', 'max:120'],
+            'meli_gtin'           => ['nullable', 'string', 'max:50'],
+            'excerpt'             => ['nullable', 'string'],
+            'description'         => ['nullable', 'string'],
+            'published_at'        => ['nullable', 'date'],
         ]);
 
         Log::info('CatalogItem@update: datos validados', [
             'item_id' => $catalogItem->id,
             'data'    => $data,
         ]);
-
-        if (!empty($data['category_key'])) {
-            $validKeys = array_keys(config('catalog.product_categories', []));
-            if (!in_array($data['category_key'], $validKeys, true)) {
-                Log::warning('CatalogItem@update: category_key no es válida, se limpia', [
-                    'item_id'      => $catalogItem->id,
-                    'category_key' => $data['category_key'],
-                ]);
-                $data['category_key'] = null;
-            }
-        }
 
         $baseSlug = isset($data['slug']) && trim($data['slug']) !== ''
             ? Str::slug($data['slug'])
@@ -578,11 +522,13 @@ class CatalogItemController extends Controller implements HasMiddleware
                 ->where('id', '!=', $catalogItem->id)
                 ->exists()
         ) {
-            $slug = $baseSlug.'-'.($i++);
+            $slug = $baseSlug . '-' . ($i++);
         }
-        $data['slug']        = $slug;
-        $data['is_featured'] = (bool) ($data['is_featured'] ?? false);
-        $data['stock']       = $data['stock'] ?? 0;
+
+        $data['slug']         = $slug;
+        $data['is_featured']  = (bool) ($data['is_featured'] ?? false);
+        $data['stock']        = $data['stock'] ?? 0;
+        $data['category_key'] = null;
 
         if (!$request->boolean('use_internal')) {
             $data['brand_id']    = null;
@@ -593,9 +539,9 @@ class CatalogItemController extends Controller implements HasMiddleware
             $catalogItem->update($data);
 
             Log::info('CatalogItem@update: item actualizado en BD', [
-                'item_id'      => $catalogItem->id,
-                'slug'         => $catalogItem->slug,
-                'category_key' => $catalogItem->category_key ?? null,
+                'item_id'             => $catalogItem->id,
+                'slug'                => $catalogItem->slug,
+                'category_product_id' => $catalogItem->category_product_id ?? null,
             ]);
         } catch (\Throwable $e) {
             Log::error('CatalogItem@update: ERROR al actualizar item', [
@@ -651,13 +597,14 @@ class CatalogItemController extends Controller implements HasMiddleware
             ->with('ok', 'Producto web eliminado.');
     }
 
-    /** Publicar/Ocultar rápido */
     public function toggleStatus(CatalogItem $catalogItem)
     {
         $catalogItem->status = $catalogItem->status == 1 ? 2 : 1;
+
         if ($catalogItem->status == 1 && !$catalogItem->published_at) {
             $catalogItem->published_at = now();
         }
+
         $catalogItem->save();
 
         $this->dispatchMeliSync($catalogItem);
@@ -730,11 +677,13 @@ class CatalogItemController extends Controller implements HasMiddleware
 
         $http = \App\Services\MeliHttp::withFreshToken();
         $resp = $http->get("https://api.mercadolibre.com/items/{$catalogItem->meli_item_id}");
+
         if ($resp->failed()) {
             return back()->with('ok', 'No se pudo obtener el permalink desde ML.');
         }
 
         $permalink = $resp->json('permalink');
+
         return $permalink
             ? redirect()->away($permalink)
             : back()->with('ok', 'Este ítem no tiene permalink disponible.');
@@ -744,15 +693,14 @@ class CatalogItemController extends Controller implements HasMiddleware
      |  IA: Captura desde QR
      ==========================*/
 
-    // POST /admin/catalog/ai/start
     public function aiStart(Request $r)
     {
         $intake = CatalogAiIntake::create([
-            'token'      => Str::random(40),
-            'created_by' => $r->user()->id,
-            'status'     => 0,
-            'source_type'=> $r->get('source_type','factura'),
-            'notes'      => $r->get('notes'),
+            'token'       => Str::random(40),
+            'created_by'  => $r->user()->id,
+            'status'      => 0,
+            'source_type' => $r->get('source_type', 'factura'),
+            'notes'       => $r->get('notes'),
         ]);
 
         return response()->json([
@@ -763,7 +711,6 @@ class CatalogItemController extends Controller implements HasMiddleware
         ]);
     }
 
-    // GET /admin/catalog/ai/{intake}/status
     public function aiStatus(CatalogAiIntake $intake)
     {
         return response()->json([
@@ -773,11 +720,6 @@ class CatalogItemController extends Controller implements HasMiddleware
         ]);
     }
 
-    /* ===============================================
-     |  IA: Captura desde archivos / imágenes / PDF
-     |  POST /admin/catalog/ai-from-upload
-     |  => soporta múltiples productos (items[])
-     ================================================*/
     public function aiFromUpload(Request $request)
     {
         $request->validate([
@@ -792,24 +734,24 @@ class CatalogItemController extends Controller implements HasMiddleware
             ], 422);
         }
 
-        // Config OpenAI
         $apiKey  = config('services.openai.api_key') ?: config('services.openai.key');
         $baseUrl = rtrim(config('services.openai.base_url', 'https://api.openai.com'), '/');
-
         $modelId = 'gpt-4.1-mini';
 
         if (!$apiKey) {
             Log::warning('AI catalog error: missing OpenAI API key');
+
             return response()->json([
                 'error' => 'Falta configurar la API key de OpenAI en el servidor.',
             ], 500);
         }
 
-        // 1) Subir archivos a /v1/files
         $fileInputs = [];
 
         foreach ($files as $file) {
-            if (!$file) continue;
+            if (!$file) {
+                continue;
+            }
 
             try {
                 $uploadResponse = Http::withToken($apiKey)
@@ -818,7 +760,7 @@ class CatalogItemController extends Controller implements HasMiddleware
                         file_get_contents($file->getRealPath()),
                         $file->getClientOriginalName()
                     )
-                    ->post($baseUrl.'/v1/files', [
+                    ->post($baseUrl . '/v1/files', [
                         'purpose' => 'user_data',
                     ]);
 
@@ -834,6 +776,7 @@ class CatalogItemController extends Controller implements HasMiddleware
                 }
 
                 $fileId = $uploadResponse->json('id');
+
                 if (!$fileId) {
                     Log::warning('AI catalog file upload without id', [
                         'body' => $uploadResponse->json(),
@@ -865,7 +808,6 @@ class CatalogItemController extends Controller implements HasMiddleware
             ], 500);
         }
 
-        // 2) Llamar a /v1/responses
         $systemPrompt = <<<TXT
 Eres un asistente experto en catálogo de productos, papelería, equipo médico y comercio electrónico (México).
 
@@ -909,7 +851,7 @@ Reglas:
 - No inventes datos que claramente no aparezcan.
 TXT;
 
-        $userText = "Analiza los archivos adjuntos (PDFs/imágenes) y genera SOLO el JSON con items[], uno por producto encontrado.";
+        $userText = 'Analiza los archivos adjuntos (PDFs/imágenes) y genera SOLO el JSON con items[], uno por producto encontrado.';
 
         try {
             $response = Http::withToken($apiKey)
@@ -917,7 +859,7 @@ TXT;
                 ->withHeaders([
                     'Content-Type' => 'application/json',
                 ])
-                ->post($baseUrl.'/v1/responses', [
+                ->post($baseUrl . '/v1/responses', [
                     'model'        => $modelId,
                     'instructions' => $systemPrompt,
                     'input'        => [
@@ -950,8 +892,6 @@ TXT;
             }
 
             $json = $response->json();
-
-            // Extraer texto
             $rawText = null;
 
             if (isset($json['output']) && is_array($json['output'])) {
@@ -979,6 +919,7 @@ TXT;
             }
 
             $data = json_decode($rawText, true);
+
             if (!is_array($data)) {
                 Log::warning('AI catalog: JSON inválido en salida de IA', [
                     'raw' => $rawText,
@@ -989,7 +930,6 @@ TXT;
                 ], 500);
             }
 
-            // Normalizar a lista de items
             $items = [];
 
             if (isset($data['items']) && is_array($data['items'])) {
@@ -1003,9 +943,10 @@ TXT;
             $normalizedItems = [];
 
             foreach ($items as $row) {
-                if (!is_array($row)) continue;
+                if (!is_array($row)) {
+                    continue;
+                }
 
-                // Precio
                 $price = $row['price'] ?? null;
                 if (is_string($price)) {
                     $clean = preg_replace('/[^0-9.,]/', '', $price);
@@ -1013,13 +954,14 @@ TXT;
                     $price = is_numeric($clean) ? (float) $clean : null;
                 }
 
-                // Cantidad -> stock sugerido
                 $qty = $row['quantity'] ?? ($row['qty'] ?? ($row['cantidad'] ?? ($row['stock'] ?? null)));
                 if (is_string($qty)) {
                     $cleanQty = preg_replace('/[^0-9]/', '', $qty);
                     $qty = is_numeric($cleanQty) ? (int) $cleanQty : null;
                 }
-                if ($qty !== null) $qty = max(0, (int) $qty);
+                if ($qty !== null) {
+                    $qty = max(0, (int) $qty);
+                }
 
                 $normalizedItems[] = [
                     'name'        => $row['name']        ?? null,
@@ -1057,7 +999,6 @@ TXT;
         }
     }
 
-    /** Dispara el sync con ML sin romper la UI si algo truena */
     private function dispatchMeliSync(CatalogItem $item): void
     {
         try {
@@ -1073,10 +1014,6 @@ TXT;
             ]);
         }
     }
-
-    /* =========================
-     |  FOTOS
-     ==========================*/
 
     private function saveOrReplacePhoto(Request $request, CatalogItem $item, string $column, string $input): void
     {
@@ -1132,7 +1069,9 @@ TXT;
 
     private function deletePublicFileIfExists(?string $path): void
     {
-        if (!$path) return;
+        if (!$path) {
+            return;
+        }
 
         try {
             if (Storage::disk('public')->exists($path)) {
@@ -1162,65 +1101,60 @@ TXT;
 
         return back()->with('ok', 'Stock actualizado correctamente.');
     }
+
     public function amazonPublish(CatalogItem $catalogItem, AmazonSpApiListingService $svc)
-{
-    $res = $svc->upsertBySku($catalogItem, [
-        // aquí luego pondremos productType real (por categoría)
-        // 'productType' => 'OFFICE_PRODUCTS',
-    ]);
+    {
+        $res = $svc->upsertBySku($catalogItem, [
+            // 'productType' => 'OFFICE_PRODUCTS',
+        ]);
 
-    if ($res['ok']) {
-        return back()->with('ok', 'Solicitud enviada a Amazon. Revisa en Seller Central el estado del listing.');
+        if ($res['ok']) {
+            return back()->with('ok', 'Solicitud enviada a Amazon. Revisa en Seller Central el estado del listing.');
+        }
+
+        $friendly = $res['message'] ?? 'No se pudo publicar/actualizar en Amazon.';
+        return back()->with('ok', $friendly);
     }
 
-    $friendly = $res['message'] ?? 'No se pudo publicar/actualizar en Amazon.';
-    return back()->with('ok', $friendly);
-}
+    public function amazonView(CatalogItem $catalogItem, AmazonSpApiListingService $svc)
+    {
+        if (!$catalogItem->sku) {
+            return back()->with('ok', 'Este producto no tiene SKU. Amazon requiere SKU.');
+        }
 
-public function amazonView(CatalogItem $catalogItem, AmazonSpApiListingService $svc)
-{
-    if (!$catalogItem->sku) {
-        return back()->with('ok', 'Este producto no tiene SKU. Amazon requiere SKU.');
+        $res = $svc->getBySku($catalogItem);
+
+        if (!$res['ok']) {
+            return back()->with('ok', $res['message'] ?? 'No se pudo consultar el listing en Amazon.');
+        }
+
+        $sku = urlencode($catalogItem->sku);
+        return redirect()->away("https://www.amazon.com.mx/s?k={$sku}");
     }
 
-    $res = $svc->getBySku($catalogItem);
+    public function amazonPause(CatalogItem $catalogItem, AmazonSpApiListingService $svc)
+    {
+        $res = $svc->upsertBySku($catalogItem, [
+            'status' => 'inactive',
+        ]);
 
-    if (!$res['ok']) {
-        return back()->with('ok', $res['message'] ?? 'No se pudo consultar el listing en Amazon.');
+        if ($res['ok']) {
+            return back()->with('ok', 'Solicitud enviada a Amazon para pausar (según configuración de listing).');
+        }
+
+        return back()->with('ok', $res['message'] ?? 'No se pudo pausar en Amazon.');
     }
 
-    // “Ver” en web: lo más práctico es abrir búsqueda por SKU en Amazon MX.
-    // (Amazon no devuelve un permalink simple como ML)
-    $sku = urlencode($catalogItem->sku);
-    return redirect()->away("https://www.amazon.com.mx/s?k={$sku}");
-}
+    public function amazonActivate(CatalogItem $catalogItem, AmazonSpApiListingService $svc)
+    {
+        $res = $svc->upsertBySku($catalogItem, [
+            'status' => 'active',
+        ]);
 
-public function amazonPause(CatalogItem $catalogItem, AmazonSpApiListingService $svc)
-{
-    // En Amazon “pausar” no es igual que ML. Aquí solo mandamos upsert y luego
-    // ajustaremos atributos/quantity para dejarlo no disponible según tu caso.
-    $res = $svc->upsertBySku($catalogItem, [
-        'status' => 'inactive',
-    ]);
+        if ($res['ok']) {
+            return back()->with('ok', 'Solicitud enviada a Amazon para activar/actualizar.');
+        }
 
-    if ($res['ok']) {
-        return back()->with('ok', 'Solicitud enviada a Amazon para pausar (según configuración de listing).');
+        return back()->with('ok', $res['message'] ?? 'No se pudo activar en Amazon.');
     }
-
-    return back()->with('ok', $res['message'] ?? 'No se pudo pausar en Amazon.');
-}
-
-public function amazonActivate(CatalogItem $catalogItem, AmazonSpApiListingService $svc)
-{
-    $res = $svc->upsertBySku($catalogItem, [
-        'status' => 'active',
-    ]);
-
-    if ($res['ok']) {
-        return back()->with('ok', 'Solicitud enviada a Amazon para activar/actualizar.');
-    }
-
-    return back()->with('ok', $res['message'] ?? 'No se pudo activar en Amazon.');
-}
-
 }
