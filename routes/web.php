@@ -108,6 +108,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
 
 use App\Http\Controllers\Projects\ProjectBoardController;
+use App\Http\Controllers\Admin\CategoryProductController;
+
 
 /*
 |--------------------------------------------------------------------------
@@ -1883,4 +1885,11 @@ Route::get('/accounting/reports', [ReportsController::class, 'index'])
 
 Route::middleware(['auth'])->group(function () {
     Route::get('/projects', [ProjectBoardController::class, 'index'])->name('projects.index');
+});
+
+Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('category-products/roots', [CategoryProductController::class, 'roots'])->name('category-products.roots');
+    Route::get('category-products/{category}/children', [CategoryProductController::class, 'children'])->name('category-products.children');
+    Route::get('category-products/{category}', [CategoryProductController::class, 'show'])->name('category-products.show');
+    Route::post('category-products', [CategoryProductController::class, 'store'])->name('category-products.store');
 });

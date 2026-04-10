@@ -1,109 +1,88 @@
+{{-- resources/views/web/catalog/show.blade.php (o la ruta que uses para tu vista de producto) --}}
 @extends('layouts.web')
 @section('title', $item->name)
 
 @section('content')
-<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
 <style>
-/* ================= BASE / TOKENS (SIN “CARDS” EXTRA) ================= */
+/* ================= BASE / TOKENS ================= */
 #product{
-  --ink:#0b1220;
-  --muted:#64748b;
-  --line:#e8eef6;
-  --ok:#16a34a;
-  --warn:#f59e0b;
-  --accent:#0f172a;
+  --ink: #333333;
+  --muted: #888888;
+  --line: #ebebeb;
+  --ok: #15803d;
+  --warn: #ff4a4a;
+  --blue: #007aff;
+  --bg: #ffffff;
 
   margin:0;
-  font-family:"Quicksand", system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial;
+  font-family:"Quicksand", system-ui, -apple-system, sans-serif;
   color:var(--ink);
+  background: var(--bg);
 }
 #product a{ text-decoration:none; color:inherit; }
 
-#product .bg-grad{
-  position:fixed; inset:0; z-index:-1; pointer-events:none;
-  background:
-    radial-gradient(900px 560px at 50% -210px, rgba(255,255,255,.72), transparent 60%),
-    linear-gradient(180deg,#f3faea 0%, #eef5ff 48%, #ecebff 100%);
-  filter:saturate(1.02);
-}
 #product .container{
   width:100%;
-  max-width:1180px;
-  padding-inline:clamp(16px,3vw,28px);
+  max-width:1100px;
+  padding-inline:clamp(16px, 3vw, 24px);
   margin-inline:auto;
 }
 
-/* ================= LAYOUT ================= */
+/* ================= TOPBAR ================= */
 #hero{
-  padding-top:clamp(16px,2.2vw,24px);
-  padding-bottom:clamp(22px,3.2vw,34px);
+  padding-top: 20px;
+  padding-bottom: 40px;
 }
 #hero .topbar{
-  display:flex; align-items:center; gap:10px;
-  margin:0 0 14px;
+  margin-bottom: 20px;
 }
 #hero .back{
-  display:inline-flex; align-items:center; gap:8px;
-  padding:10px 14px;
-  border-radius:999px;
-  background:rgba(255,255,255,.70);
-  border:1px solid rgba(232,238,246,.95);
-  backdrop-filter: blur(10px);
-  font-weight:800;
-  transition:.16s ease;
+  display:inline-flex; align-items:center; gap:6px;
+  font-weight:600;
+  color: var(--muted);
+  font-size: 14px;
+  transition:color .2s ease;
 }
-#hero .back:hover{ transform:translateY(-1px); box-shadow:0 12px 28px rgba(2,8,23,.08); }
+#hero .back:hover{ color: var(--blue); }
+#hero .back svg { width: 16px; height: 16px; }
 
+/* ================= GRID ================= */
 #hero .grid{
   display:grid;
-  grid-template-columns: 1.05fr .95fr;
-  gap:clamp(16px,2.4vw,28px);
+  grid-template-columns: 1fr 1fr;
+  gap:clamp(30px, 5vw, 60px);
   align-items:start;
 }
-@media (max-width: 980px){
+@media (max-width: 860px){
   #hero .grid{ grid-template-columns:1fr; }
 }
 
-/* ================= GALERÍA (MISMO CONTENEDOR, MINIMAL) ================= */
+/* ================= GALERÍA (IZQUIERDA) ================= */
 #hero .media{
-  border-radius:22px;
-  overflow:hidden;
-  border:1px solid rgba(232,238,246,.95);
-  background:#fff;
-  box-shadow:0 18px 44px rgba(2,8,23,.10);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 #hero .stage{
   position:relative;
   width:100%;
-  aspect-ratio:4/3;
-  overflow:hidden;
-  background:#f6f8fc;
+  aspect-ratio: 1 / 1.1;
+  background:#fff;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 #hero .stage img{
-  position:absolute; inset:0;
   width:100%; height:100%;
-  object-fit:cover;
+  object-fit:contain;
   opacity:1;
   transform:scale(1);
   filter:blur(0px);
   will-change:opacity, transform, filter;
 }
-
-#hero .pill{
-  position:absolute;
-  left:14px; bottom:14px;
-  display:inline-flex; align-items:center; gap:8px;
-  padding:8px 12px;
-  border-radius:999px;
-  background:rgba(255,255,255,.88);
-  border:1px solid rgba(232,238,246,.95);
-  backdrop-filter: blur(10px);
-  font-weight:800;
-  font-size:.82rem;
-  box-shadow:0 10px 24px rgba(2,8,23,.10);
-}
-#hero .pill .dot{ width:8px; height:8px; border-radius:999px; background:#22c55e; }
 
 #hero .nav{
   position:absolute; inset:0;
@@ -113,173 +92,137 @@
 }
 #hero .nav button{
   pointer-events:auto;
-  width:42px; height:42px;
-  border-radius:999px;
-  border:1px solid rgba(232,238,246,.95);
-  background:rgba(255,255,255,.86);
-  backdrop-filter: blur(10px);
-  box-shadow:0 16px 30px rgba(2,8,23,.18);
+  width:40px; height:40px;
+  border-radius:50%;
+  border:1px solid var(--line);
+  background:#fff;
+  box-shadow:0 4px 12px rgba(0,0,0,.08);
   cursor:pointer;
   display:flex; align-items:center; justify-content:center;
-  transition:transform .14s ease, background .14s ease;
+  transition:transform .14s ease, box-shadow .14s ease;
 }
-#hero .nav button:hover{ transform:scale(1.05); background:#fff; }
+#hero .nav button:hover{ transform:scale(1.05); box-shadow:0 6px 16px rgba(0,0,0,.12); }
 #hero .nav button:active{ transform:scale(.98); }
-#hero .nav svg{ width:22px; height:22px; color:#0b1f33; }
+#hero .nav svg{ width:20px; height:20px; color:#333; }
 
 #hero .thumbs{
-  display:flex; gap:10px; flex-wrap:wrap;
-  padding:12px 14px 14px;
-  border-top:1px solid var(--line);
-  background:#fff;
+  display:flex; gap:12px; flex-wrap:wrap;
+  justify-content: center;
 }
 #hero .thumb{
-  width:78px; height:78px;
-  border-radius:14px;
-  border:1px solid var(--line);
+  width:64px; height:64px;
+  border-radius:8px;
+  border:1px solid transparent;
   object-fit:cover;
   cursor:pointer;
-  opacity:.9;
-  background:#f6f8fc;
-  transition:transform .14s ease, opacity .14s ease;
+  background:#fff;
+  transition:all .2s ease;
 }
-#hero .thumb:hover{ transform:translateY(-2px); opacity:1; }
-#hero .thumb.active{ outline:2px solid rgba(34,197,94,.35); opacity:1; }
+#hero .thumb:hover{ border-color: #ccc; }
+#hero .thumb.active{ border-color: var(--blue); }
 
-/* ================= INFO (SIN CONTENEDOR EXTRA) ================= */
-#hero .info{ padding-top:4px; }
+/* ================= INFO (DERECHA) ================= */
+#hero .info{ 
+  padding-top: 10px; 
+  display: flex;
+  flex-direction: column;
+}
+
+/* Etiquetas superiores */
+#hero .tags{
+  display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;
+}
+#hero .tag{
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+#hero .tag.oferta{ background: #ffebeb; color: var(--warn); }
+#hero .tag.intereses{ background: #e6f0ff; color: var(--blue); }
+#hero .tag.envio{ background: #e6ffe6; color: var(--ok); }
+
+/* Título y Vendedor */
 #hero h1{
   margin:0 0 8px;
-  font-weight:800;
-  letter-spacing:-.2px;
-  font-size:clamp(22px,3.4vw,42px);
-  line-height:1.12;
+  font-weight:600;
+  font-size: 22px;
+  line-height:1.3;
+  color: #111;
 }
-#hero .meta{
-  display:flex; flex-wrap:wrap; gap:10px; align-items:center;
-  color:var(--muted);
-  font-weight:700;
-  margin:0 0 12px;
+#hero .vendor{
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 8px;
 }
-#hero .meta b{ color:#0f172a; font-weight:800; }
-#hero .meta .dot{ width:4px; height:4px; border-radius:999px; background:#94a3b8; opacity:.9; display:inline-block; }
+#hero .vendor b{ color: #333; font-weight: 600; }
 
-#hero .chips{ display:flex; flex-wrap:wrap; gap:10px; margin:10px 0 12px; }
-#hero .chip{
-  display:inline-flex; align-items:center; gap:8px;
-  padding:10px 12px;
-  border-radius:999px;
-  background:rgba(255,255,255,.60);
-  border:1px solid rgba(232,238,246,.95);
-  backdrop-filter: blur(10px);
-  font-weight:800;
-  font-size:.86rem;
+/* Estrellas */
+#hero .rating{
+  display: flex; align-items: center; gap: 6px;
+  margin-bottom: 16px;
 }
-#hero .chip svg{ width:18px; height:18px; }
+#hero .stars{ display: flex; gap: 2px; color: var(--blue); }
+#hero .stars svg{ width: 14px; height: 14px; fill: currentColor; }
+#hero .reviews-count{ font-size: 13px; color: var(--muted); }
 
-#hero .badges{ display:flex; flex-wrap:wrap; gap:8px; margin:6px 0 10px; }
-#hero .badge{
-  font-weight:800; font-size:.78rem;
-  padding:7px 12px;
-  border-radius:999px;
-  border:1px solid rgba(232,238,246,.95);
-  background:rgba(255,255,255,.60);
-  backdrop-filter: blur(10px);
+/* Precios */
+#hero .pricing{
+  display:flex; align-items:baseline; gap:8px; flex-wrap:wrap;
+  margin-bottom: 8px;
 }
-#hero .badge.ok{ border-color:rgba(34,197,94,.25); color:#166534; }
-#hero .badge.warn{ border-color:rgba(245,158,11,.25); color:#9a3412; }
+#hero .price-now{ font-weight:700; font-size:28px; color:var(--warn); }
+#hero .price-old{ color:#a1a1aa; text-decoration:line-through; font-size: 16px; font-weight:500; }
 
-#hero .priceRow{
-  margin:14px 0 8px;
-  display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;
-}
-#hero .price{ font-weight:900; font-size:clamp(22px,3vw,34px); }
-#hero .sale{ font-weight:900; font-size:clamp(22px,3vw,34px); color:var(--ok); }
-#hero .old{ color:var(--muted); text-decoration:line-through; font-weight:800; }
-#hero .save{
-  color:#166534; background:#ecfdf5; border:1px solid #bbf7d0;
-  font-weight:800; border-radius:999px; padding:5px 10px; font-size:.82rem;
-}
-#hero .sub{
-  color:var(--muted);
-  font-weight:700;
-  margin:0 0 12px;
+/* Mensualidades */
+#hero .installments{
+  color: var(--blue);
+  font-weight: 700;
+  font-size: 15px;
+  margin-bottom: 24px;
 }
 
-#hero .details{
-  margin-top:14px;
-  padding-top:14px;
-  border-top:1px solid rgba(232,238,246,.95);
-}
-#hero .details h3{
-  margin:0 0 10px;
-  font-weight:800;
-  letter-spacing:-.1px;
-  font-size:1rem;
-}
-#hero .bullets{
-  margin:0;
-  padding:0;
-  list-style:none;
-  display:grid;
-  gap:8px;
-}
-#hero .bullets li{
-  display:flex; gap:10px; align-items:flex-start;
-  color:#0f172a; font-weight:700; line-height:1.45;
-}
-#hero .bullets li:before{
-  content:"";
-  width:7px; height:7px; border-radius:999px;
-  margin-top:6px;
-  background:#22c55e;
-  box-shadow:0 8px 16px rgba(2,8,23,.12);
-  flex:0 0 7px;
-}
-
-#hero .actions{
-  margin-top:16px;
-  display:flex;
-  gap:12px;
-  flex-wrap:wrap;
-  align-items:center;
-}
-#hero label{ color:var(--muted); font-weight:800; }
-#hero .qty{
-  width:140px;
-  border:1px solid rgba(232,238,246,.95);
-  border-radius:14px;
-  padding:10px 12px;
-  min-height:44px;
-  background:#fff;
-  font-weight:800;
-}
-@media (max-width: 520px){
-  #hero .qty{ width:120px; }
-}
-#hero .favWrap{ display:flex; align-items:center; }
-
-/* ================== ADD TO CART (MISMO BOTÓN ANIMADO) ================== */
+/* ================= BOTÓN ANIMADO ADAPTADO ================= */
 .add-to-cart{
-  --background-default:#17171B; --background-hover:#0A0A0C; --background-scale:1;
-  --text-color:#fff; --text-o:1; --text-x:12px;
-  --cart:#fff; --cart-x:-48px; --cart-y:0px; --cart-rotate:0deg; --cart-scale:.75;
-  --cart-clip:0px; --cart-clip-x:0px; --cart-tick-offset:10px; --cart-tick-color:#FF328B;
-  --shirt-y:-16px; --shirt-scale:0; --shirt-color:#17171B; --shirt-logo:#fff;
-  --shirt-second-y:24px; --shirt-second-color:#fff; --shirt-second-logo:#17171B;
-  -webkit-tap-highlight-color:transparent; appearance:none; outline:0; background:none; border:0;
-  padding:12px 0; width:184px; margin:0; cursor:pointer; position:relative; font:inherit;
-  border-radius:16px;
+  --background-default: #007aff; 
+  --background-hover: #0062cc; 
+  --background-scale: 1;
+  --text-color: #fff; 
+  --text-o: 1; 
+  --text-x: 12px;
+  --cart: #fff; 
+  --cart-x: -48px; 
+  --cart-y: 0px; 
+  --cart-rotate: 0deg; 
+  --cart-scale: .75;
+  --cart-clip: 0px; 
+  --cart-clip-x: 0px; 
+  --cart-tick-offset: 10px; 
+  --cart-tick-color: #34d399; 
+  --shirt-y: -16px; 
+  --shirt-scale: 0; 
+  --shirt-color: #003d82; 
+  --shirt-logo: #fff;
+  --shirt-second-y: 24px; 
+  --shirt-second-color: #fff; 
+  --shirt-second-logo: #007aff;
+  
+  -webkit-tap-highlight-color: transparent; 
+  appearance: none; outline: 0; background: none; border: 0;
+  padding: 14px 0; 
+  width: 100%; 
+  margin: 0; cursor: pointer; position: relative; font: inherit;
+  border-radius: 999px; 
 }
 .add-to-cart:before{
-  content:""; position:absolute; inset:0; border-radius:16px; transition:background .25s;
+  content:""; position:absolute; inset:0; border-radius:999px; transition:background .25s;
   background:var(--background,var(--background-default));
   transform:scaleX(var(--background-scale)) translateZ(0);
 }
 .add-to-cart:not(.active):hover{ --background:var(--background-hover); }
 .add-to-cart>span{
   position:relative; z-index:1; display:block; text-align:center;
-  font-size:14px; font-weight:900; line-height:24px; color:var(--text-color);
+  font-size:15px; font-weight:700; line-height:24px; color:var(--text-color);
   opacity:var(--text-o); transform:translateX(var(--text-x)) translateZ(0);
 }
 .add-to-cart svg{ display:block; stroke-linecap:round; stroke-linejoin:round; }
@@ -316,72 +259,127 @@
   stroke-dasharray:10px; stroke-dashoffset:var(--cart-tick-offset);
 }
 
+/* ================= ACORDEÓN & LISTA DE CARACTERÍSTICAS ================= */
+#hero .features-list{
+  margin-top: 30px;
+  display: flex;
+  flex-direction: column;
+}
+.details-accordion {
+  border-bottom: 1px solid var(--line);
+}
+.accordion-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 16px 0; cursor: pointer; color: #444; font-weight: 500; font-size: 14px;
+}
+#accordionIcon { width: 16px; height: 16px; color: #999; transition: transform 0.3s ease; }
+.accordion-content {
+  max-height: 0; overflow: hidden; transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.accordion-content.open { max-height: 1000px; }
+.content-inner {
+  padding-bottom: 20px; color: #64748b; font-size: 14px; line-height: 1.6;
+}
+.content-inner ul { padding-left: 20px; margin: 0; }
+.content-inner ul li { margin-bottom: 6px; }
+
+#hero .feature-item{
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+  font-weight: 500;
+  color: #444;
+}
+#hero .feature-icon-text{
+  display: flex; align-items: center; gap: 12px;
+}
+#hero .feature-icon-text svg{
+  width: 20px; height: 20px; color: var(--blue);
+}
+
+/* ================= COMO COMPRAR ================= */
+#hero .how-to-buy{
+  margin-top: 30px;
+  padding-top: 20px;
+}
+#hero .how-to-buy-header{
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 15px; font-weight: 600; margin-bottom: 24px;
+}
+#hero .how-to-buy-header svg{ width: 16px; height: 16px; color: #999; }
+#hero .steps{
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  text-align: center;
+}
+#hero .step-icon{
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 12px;
+}
+#hero .step-icon svg{ width: 20px; height: 20px; color: var(--blue); }
+#hero .step-text{
+  font-size: 10px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
 /* ===== Toast minimal ===== */
 #product .toast{
-  position:fixed;
-  left:50%;
-  bottom:16px;
-  transform:translateX(-50%);
-  z-index:9999;
-  display:flex;
-  align-items:center;
-  gap:10px;
-  padding:12px 14px;
-  border-radius:999px;
-  background:rgba(17,24,39,.92);
-  color:#fff;
-  border:1px solid rgba(255,255,255,.10);
+  position:fixed; left:50%; bottom:16px; transform:translateX(-50%);
+  z-index:9999; display:flex; align-items:center; gap:10px;
+  padding:12px 14px; border-radius:999px; background:rgba(17,24,39,.92);
+  color:#fff; border:1px solid rgba(255,255,255,.10);
   box-shadow:0 20px 50px rgba(0,0,0,.25);
-  opacity:0;
-  pointer-events:none;
-  transition:opacity .22s ease, transform .22s ease;
+  opacity:0; pointer-events:none; transition:opacity .22s ease, transform .22s ease;
 }
 #product .toast.show{ opacity:1; transform:translateX(-50%) translateY(-6px); }
 #product .toast .dot{ width:10px; height:10px; border-radius:999px; background:#22c55e; }
 #product .toast .dot.warn{ background:#f59e0b; }
 #product .toast b{ font-weight:900; }
 
-/* ================= SIMILARES (IGUAL, NO CAMBIO A CARDS EXTRA) ================= */
+/* ================= SIMILARES ================= */
 #sim{
-  background:#0b1f33; color:#eaf2ff; padding:clamp(24px,4vw,42px) 0;
-  position:relative; left:50%; right:50%; margin-left:-50vw; margin-right:-50vw; width:100vw;
+  background: #f9fafb; /* Fondo tenue para resaltar las cards */
+  padding: 60px 0;
+  border-top: 1px solid var(--line);
 }
-#sim .container{ position:relative; }
-#sim .sim-head{ display:flex; align-items:flex-end; justify-content:space-between; gap:10px; margin-bottom:12px }
-#sim .sim-title{ margin:0; font-weight:800; color:#eaf2ff; font-size:clamp(18px,3vw,24px) }
-#sim .more{ color:#fff; font-weight:800; }
+#sim .sim-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:24px }
+#sim .sim-title{ margin:0; font-weight:700; color:#111; font-size:20px }
 
-#sim .row{ display:flex; gap:14px; overflow-x:auto; scroll-snap-type:x mandatory; padding-bottom:12px }
-#sim .row::-webkit-scrollbar{ height:8px }
-#sim .row::-webkit-scrollbar-thumb{ background:#204463; border-radius:999px }
+#sim .row{ display:flex; gap:20px; overflow-x:auto; scroll-snap-type:x mandatory; padding-bottom:20px }
+#sim .row::-webkit-scrollbar{ display: none; }
 
 #sim .card{
-  min-width:240px; max-width:260px; scroll-snap-align:start;
-  background:#fff; border:1px solid #e6edf6;
-  border-radius:16px; overflow:hidden;
-  box-shadow:0 12px 30px rgba(0,0,0,.08);
+  min-width:200px; max-width:220px; scroll-snap-align:start;
+  background:#fff;
+  border-radius:12px;
+  border: 1px solid #f1f5f9;
   display:flex; flex-direction:column;
+  text-decoration: none;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
-#sim .sim-img{ width:100%; aspect-ratio:4/3; object-fit:cover; background:#f6f8fc }
-#sim .sim-body{ padding:12px; display:flex; flex-direction:column; gap:8px; color:#0f172a }
-#sim .sim-name{ font-weight:800; line-height:1.2; margin:0 }
-#sim .sim-price{ font-weight:900 }
-#sim .sim-old{ color:#6b7280; text-decoration:line-through; margin-left:6px; font-weight:800 }
-#sim .sim-actions{ display:flex; gap:8px; align-items:center; margin-top:auto; flex-wrap:wrap }
-
-/* Flechas navegación similares */
-#sim .sim-nav{ position:absolute; inset:0; pointer-events:none; }
-#sim .sim-nav button{
-  pointer-events:auto; position:absolute; top:50%; transform:translateY(-50%);
-  border:0; width:44px; height:44px; border-radius:999px; cursor:pointer;
-  background:#fff; box-shadow:0 16px 30px rgba(2,8,23,.35);
-  display:flex; align-items:center; justify-content:center;
+#sim .card:hover{
+  transform: translateY(-5px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.06);
 }
-#sim .sim-nav .prev{ left: clamp(6px,2vw,16px); }
-#sim .sim-nav .next{ right: clamp(6px,2vw,16px); }
-#sim .sim-nav button svg{ width:22px; height:22px; color:#0b1f33 }
-#sim .sim-nav button:hover{ transform:translateY(-50%) scale(1.04) }
-@media (max-width: 980px){ #sim .sim-nav{ display:none; } }
+#sim .sim-img{ 
+  width:100%; aspect-ratio:1/1; object-fit:contain; 
+  padding: 15px;
+  margin-bottom: 4px; 
+  transition: transform 0.3s ease;
+}
+#sim .card:hover .sim-img{
+  transform: scale(1.04);
+}
+#sim .sim-body{ display:flex; flex-direction:column; gap:6px; color:#333; padding: 0 16px 16px 16px; }
+#sim .sim-name{ font-weight:500; font-size: 14px; line-height:1.4; margin:0; color: #475569; }
+#sim .sim-price{ font-weight:700; font-size: 16px; color: #1e293b; }
+#sim .sim-old{ color:#a1a1aa; text-decoration:line-through; margin-left:6px; font-size: 13px; font-weight:500; }
 </style>
 
 @php
@@ -389,7 +387,7 @@
   $sale    = !is_null($item->sale_price) ? (float)$item->sale_price : null;
   $final   = $sale ?? $price;
   $savePct = ($sale && $price>0) ? max(1, round(100 - (($sale/$price)*100))) : null;
-  $monthly = $final > 0 ? round($final/12, 2) : 0;
+  $monthly = $final > 0 ? round($final/4, 2) : 0; 
 
   // === IMÁGENES (solo 3: photo_1/2/3) ===
   $imgUrl = function($raw){
@@ -407,7 +405,7 @@
   ])));
   if(empty($images)) $images = [asset('images/placeholder.png')];
 
-  // Detalles en bullets (sin “ficha técnica”)
+  // Detalles en bullets
   $lines = [];
   if(!empty($item->description)){
     $lines = preg_split("/\r\n|\n|\r/", strip_tags($item->description));
@@ -417,6 +415,7 @@
     $lines = [trim(strip_tags($item->excerpt))];
   }
 
+  // Similares
   $similars = \App\Models\CatalogItem::published()
       ->where('id','!=',$item->id)
       ->when(($item->category_id ?? null), fn($q)=>$q->where('category_id',$item->category_id),
@@ -442,7 +441,6 @@
 @endphp
 
 <div id="product">
-  <div class="bg-grad" aria-hidden="true"></div>
 
   <div class="toast" id="pcToast" role="status" aria-live="polite">
     <span class="dot" id="pcToastDot"></span>
@@ -452,11 +450,14 @@
   <section id="hero">
     <div class="container">
       <div class="topbar">
-        <a class="back" href="{{ route('web.catalog.index') }}">← Volver al catálogo</a>
+        <a class="back" href="{{ route('web.catalog.index') }}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+          Volver
+        </a>
       </div>
 
       <div class="grid">
-        {{-- Galería --}}
+        {{-- ================= GALERÍA (IZQUIERDA) ================= --}}
         <div class="media">
           <div class="stage" data-gallery>
             <img id="galMain"
@@ -464,8 +465,6 @@
                  alt="{{ $item->name }}"
                  loading="eager"
                  onerror="this.onerror=null;this.src='{{ asset('images/placeholder.png') }}'">
-
-            <div class="pill" aria-hidden="true"><span class="dot"></span> Fotos reales del producto</div>
 
             @if(count($images) > 1)
               <div class="nav" aria-hidden="false">
@@ -493,70 +492,55 @@
           @endif
         </div>
 
-        {{-- Info (sin contenedor extra) --}}
+        {{-- ================= INFO (DERECHA) ================= --}}
         <div class="info">
+          
+          <div class="tags">
+            @if($sale && $savePct)
+              <span class="tag oferta">Oferta</span>
+            @endif
+            <span class="tag intereses">Sin intereses</span>
+            <span class="tag envio">Envío gratis</span>
+          </div>
+
           <h1>{{ $item->name }}</h1>
-
-          <div class="meta">
-            <span>SKU: <b>{{ $item->sku ?: '—' }}</b></span>
-            <span class="dot" aria-hidden="true"></span>
-            <span>Marca: <b>{{ $item->brand ?? '—' }}</b></span>
+          
+          <div class="vendor">
+            Vendido por <b>Jureto</b>
           </div>
 
-          <div class="chips">
-            <span class="chip">
-              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16M4 12h10M4 17h7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-              Factura inmediata
+          <div class="rating">
+            <span class="stars" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+              <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+              <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+              <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+              <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
             </span>
-            <span class="chip">
-              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 13h15l3-5H6L3 13Zm3 5a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm12 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
-              Envío rápido
-            </span>
+            <span class="reviews-count">(124)</span>
           </div>
 
-          <div class="badges">
-            @if(($item->stock ?? 0) > 0)
-              <span class="badge ok">En stock ({{ $item->stock }})</span>
-            @else
-              <span class="badge warn">Sobre pedido</span>
-            @endif
-            <span class="badge">Soporte técnico</span>
-            <span class="badge">Pagos con meses</span>
-          </div>
-
-          <div class="priceRow">
+          <div class="pricing">
             @if($sale)
-              <div class="sale">${{ number_format($sale,2) }}</div>
-              <div class="old">${{ number_format($price,2) }}</div>
-              @if($savePct)<span class="save">Ahorra {{ $savePct }}%</span>@endif
+              <div class="price-now">${{ number_format($sale,2) }}</div>
+              <div class="price-old">${{ number_format($price,2) }}</div>
             @else
-              <div class="price">${{ number_format($price,2) }}</div>
+              <div class="price-now">${{ number_format($price,2) }}</div>
             @endif
           </div>
 
-          <p class="sub">Paga a 12 meses desde <b style="color:#0f172a">${{ number_format($monthly,2) }}</b>*</p>
-
-          @if(!empty($lines))
-            <div class="details" aria-label="Información del producto">
-              <h3>Información</h3>
-              <ul class="bullets">
-                @foreach(array_slice($lines, 0, 10) as $ln)
-                  <li>{{ $ln }}</li>
-                @endforeach
-              </ul>
-            </div>
-          @endif
+          <div class="installments">
+            4 pagos sin intereses de ${{ number_format($monthly,2) }}
+          </div>
 
           <div class="actions">
-            <form action="{{ route('web.cart.add') }}" method="POST" class="pcAddForm" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+            <form action="{{ route('web.cart.add') }}" method="POST" class="pcAddForm">
               @csrf
               <input type="hidden" name="catalog_item_id" value="{{ $item->id }}">
-
-              <label for="qty">Cantidad</label>
-              <input id="qty" class="qty" type="number" name="qty" min="1" value="1">
+              <input type="hidden" name="qty" value="1">
 
               <button type="submit" class="add-to-cart" data-submit-delay="850">
-                <span>Agregar</span>
+                <span>Ir a checkout</span>
                 <svg class="morph" viewBox="0 0 64 13" aria-hidden="true">
                   <path d="M0 12C6 12 17 12 32 12C47.9024 12 58 12 64 12V13H0V12Z" />
                 </svg>
@@ -574,9 +558,76 @@
                 </div>
               </button>
             </form>
+          </div>
 
-            <div class="favWrap">
-              @includeIf('web.favoritos.button', ['item'=>$item])
+          <div class="features-list">
+            @if(!empty($lines))
+              <div class="details-accordion">
+                <div class="accordion-header" onclick="toggleAccordion()">
+                  <span>Descripción del producto</span>
+                  <svg id="accordionIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M6 9l6 6 6-6"/>
+                  </svg>
+                </div>
+                <div class="accordion-content" id="accordionContent">
+                  <div class="content-inner">
+                    <ul class="bullets">
+                      @foreach($lines as $ln)
+                        <li>{{ $ln }}</li>
+                      @endforeach
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            @endif
+            
+            <div class="feature-item">
+              <div class="feature-icon-text">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                Devoluciones 30 días después de tu compra
+              </div>
+            </div>
+
+            <div class="feature-item">
+              <div class="feature-icon-text">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                Envío gratuito
+              </div>
+            </div>
+
+            <div class="feature-item">
+              <div class="feature-icon-text">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                Tu compra es segura
+              </div>
+            </div>
+          </div>
+
+          <div class="how-to-buy">
+            <div class="how-to-buy-header">
+              <span>¿Cómo comprar con Jureto?</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15l-6-6-6 6"/></svg>
+            </div>
+            
+            <div class="steps">
+              <div class="step">
+                <div class="step-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                </div>
+                <div class="step-text">Regístrate y agrega tus productos</div>
+              </div>
+              <div class="step">
+                <div class="step-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                </div>
+                <div class="step-text">Elige tu compra y haz checkout</div>
+              </div>
+              <div class="step">
+                <div class="step-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                </div>
+                <div class="step-text">Recibe tu compra en tu domicilio</div>
+              </div>
             </div>
           </div>
 
@@ -591,7 +642,6 @@
       <div class="container">
         <div class="sim-head">
           <h2 class="sim-title">Productos similares</h2>
-          <a class="more" href="{{ route('web.catalog.index') }}">Ver más</a>
         </div>
 
         <div class="row" id="simRow">
@@ -600,69 +650,27 @@
               $off = $discountPct($p);
               $simImg = $pickPhotoUrl($p);
             @endphp
-            <article class="card">
-              <a href="{{ route('web.catalog.show', $p) }}" aria-label="Ver {{ $p->name }}">
-                <img class="sim-img"
-                     src="{{ $simImg }}"
-                     alt="{{ $p->name }}"
-                     loading="lazy"
-                     onerror="this.onerror=null;this.src='{{ asset('images/placeholder.png') }}'">
-              </a>
+            <a href="{{ route('web.catalog.show', $p) }}" class="card" aria-label="Ver {{ $p->name }}">
+              <img class="sim-img"
+                   src="{{ $simImg }}"
+                   alt="{{ $p->name }}"
+                   loading="lazy"
+                   onerror="this.onerror=null;this.src='{{ asset('images/placeholder.png') }}'">
 
               <div class="sim-body">
-                <h3 class="sim-name">{{ $p->name }}</h3>
+                <h3 class="sim-name">{{ \Illuminate\Support\Str::limit($p->name, 50) }}</h3>
 
                 <div>
                   @if(!is_null($p->sale_price))
-                    <span class="sim-price" style="color:var(--ok)">${{ number_format($p->sale_price,2) }}</span>
+                    <span class="sim-price">${{ number_format($p->sale_price,2) }}</span>
                     <span class="sim-old">${{ number_format($p->price,2) }}</span>
-                    @if($off)
-                      <span class="badge warn" style="margin-left:6px;">-{{ $off }}%</span>
-                    @endif
                   @else
                     <span class="sim-price">${{ number_format($p->price,2) }}</span>
                   @endif
                 </div>
-
-                <div class="sim-actions">
-                  @includeIf('web.favoritos.button', ['item'=>$p])
-
-                  <form action="{{ route('web.cart.add') }}" method="POST" class="pcAddForm" style="display:inline-flex;gap:6px;align-items:center">
-                    @csrf
-                    <input type="hidden" name="catalog_item_id" value="{{ $p->id }}">
-                    <button type="submit" class="add-to-cart" style="width:164px;border-radius:14px" data-submit-delay="800">
-                      <span>Agregar</span>
-                      <svg class="morph" viewBox="0 0 64 13" aria-hidden="true">
-                        <path d="M0 12C6 12 17 12 32 12C47.9024 12 58 12 64 12V13H0V12Z" />
-                      </svg>
-                      <div class="shirt" aria-hidden="true">
-                        <svg class="first" viewBox="0 0 24 24"><path d="M5 3L9 1.5C9 1.5 10.69 3 12 3C13.31 3 15 1.5 15 1.5L19 3L22.5 8L19.5 10.5L19 9.5L17.18 18.61C17.06 19.19 16.78 19.72 16.34 20.12C15.43 20.92 13.71 22.31 12 23C10.29 22.31 8.57 20.92 7.66 20.12C7.22 19.72 6.94 19.19 6.82 18.61L5 9.5L4.5 10.5L1.5 8L5 3Z"/></svg>
-                        <svg class="second" viewBox="0 0 24 24"><path d="M5 3L9 1.5C9 1.5 10.69 3 12 3C13.31 3 15 1.5 15 1.5L19 3L22.5 8L19.5 10.5L19 9.5L17.18 18.61C17.06 19.19 16.78 19.72 16.34 20.12C15.43 20.92 13.71 22.31 12 23C10.29 22.31 8.57 20.92 7.66 20.12C7.22 19.72 6.94 19.19 6.82 18.61L5 9.5L4.5 10.5L1.5 8L5 3Z"/></svg>
-                      </div>
-                      <div class="cart" aria-hidden="true">
-                        <svg viewBox="0 0 36 26">
-                          <path d="M1 2.5H6L10 18.5H25.5L28.5 7.5L7.5 7.5" class="shape"/>
-                          <path d="M11.5 25C12.6046 25 13.5 24.1046 13.5 23C13.5 21.8954 12.6046 21 11.5 21C10.3954 21 9.5 21.8954 9.5 23C9.5 24.1046 10.3954 25 11.5 25Z" class="wheel"/>
-                          <path d="M24 25C25.1046 25 26 24.1046 26 23C26 21.8954 25.1046 21 24 21C22.8954 21 22 21.8954 22 23C22 24.1046 22.8954 25 24 25Z" class="wheel"/>
-                          <path d="M14.5 13.5L16.5 15.5L21.5 10.5" class="tick"/>
-                        </svg>
-                      </div>
-                    </button>
-                  </form>
-
-                </div>
               </div>
-            </article>
+            </a>
           @endforeach
-        </div>
-
-        <div class="sim-nav" aria-hidden="true">
-          <button class="prev" id="simPrev" type="button" title="Anterior">
-            <svg viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </button>
-          <button class="next" id="simNext" type="button" title="Siguiente">
-            <svg viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </button>
         </div>
       </div>
     </section>
@@ -671,8 +679,22 @@
 
 <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
 <script>
+/* ================== Acordeón ================== */
+function toggleAccordion() {
+  const content = document.getElementById('accordionContent');
+  const icon = document.getElementById('accordionIcon');
+  
+  content.classList.toggle('open');
+  
+  if (content.classList.contains('open')) {
+    icon.style.transform = 'rotate(180deg)';
+  } else {
+    icon.style.transform = 'rotate(0deg)';
+  }
+}
+
 (() => {
-  /* ================== GALERÍA < > con transición PRO (fade + blur + zoom) ================== */
+  /* ================== GALERÍA < > con transición PRO ================== */
   const images = @json($images);
   let idx = 0;
 
@@ -695,14 +717,11 @@
     swapTo._busy = true;
 
     const outgoing = main;
-
-    // Crea una capa entrante encima
     const incoming = outgoing.cloneNode(true);
     incoming.removeAttribute('id');
     incoming.src = images[next] || outgoing.src;
     stage.appendChild(incoming);
 
-    // Estado inicial entrante (blur + leve zoom + fade)
     gsap.set(incoming, { opacity: 0, scale: 0.985, filter: "blur(10px)" });
 
     const tl = gsap.timeline({
@@ -717,30 +736,9 @@
       }
     });
 
-    // Sale: se desenfoca y sube un pelín el zoom (muy sutil)
-    tl.to(outgoing, {
-      opacity: 0,
-      scale: 1.015,
-      filter: "blur(8px)",
-      duration: 0.32,
-      ease: "power2.out"
-    }, 0);
-
-    // Entra: se enfoca y vuelve a 1
-    tl.to(incoming, {
-      opacity: 1,
-      scale: 1,
-      filter: "blur(0px)",
-      duration: 0.42,
-      ease: "power3.out"
-    }, 0.04);
-
-    // Micro-settle premium
-    tl.to(incoming, {
-      scale: 1.002,
-      duration: 0.18,
-      ease: "sine.out"
-    }, ">-0.10");
+    tl.to(outgoing, { opacity: 0, scale: 1.015, filter: "blur(8px)", duration: 0.32, ease: "power2.out" }, 0);
+    tl.to(incoming, { opacity: 1, scale: 1, filter: "blur(0px)", duration: 0.42, ease: "power3.out" }, 0.04);
+    tl.to(incoming, { scale: 1.002, duration: 0.18, ease: "sine.out" }, ">-0.10");
   }
 
   thumbs?.addEventListener('click', (e)=>{
@@ -758,32 +756,6 @@
     const next = (idx + 1) % images.length;
     swapTo(next, 1);
   });
-
-  window.addEventListener('keydown', (e)=>{
-    if(images.length < 2) return;
-    if(e.key === 'ArrowLeft') prevBtn?.click();
-    if(e.key === 'ArrowRight') nextBtn?.click();
-  });
-
-  // Swipe mobile (suave)
-  (function(){
-    if(!stage || images.length < 2) return;
-    let x0 = null;
-    stage.addEventListener('touchstart', (e)=>{ x0 = e.touches[0].clientX; }, {passive:true});
-    stage.addEventListener('touchend', (e)=>{
-      if(x0 === null) return;
-      const x1 = e.changedTouches[0].clientX;
-      const dx = x1 - x0;
-      x0 = null;
-      if(Math.abs(dx) < 40) return;
-      if(dx > 0) prevBtn?.click();
-      else nextBtn?.click();
-    }, {passive:true});
-  })();
-
-  /* ================== Cantidad mínima 1 ================== */
-  const qty = document.getElementById('qty');
-  if(qty){ qty.addEventListener('input', ()=>{ if(!qty.value || qty.value < 1) qty.value = 1; }); }
 
   /* ================== Toast ================== */
   const toast = document.getElementById('pcToast');
@@ -827,7 +799,7 @@
 
     btn.addEventListener('pointerdown', ()=>{
       if(btn.classList.contains('active')) return;
-      gsap.to(btn, { '--background-scale': .97, duration: .12 });
+      gsap.to(btn, { '--background-scale': .98, duration: .12 });
     });
 
     btn.addEventListener('click', (e)=>{
@@ -843,7 +815,7 @@
 
       gsap.to(btn, {
         keyframes: [
-          { '--background-scale': .97, duration: .10 },
+          { '--background-scale': .98, duration: .10 },
           { '--background-scale': 1, duration: 1.0, ease: 'elastic.out(1,.6)' }
         ]
       });
@@ -885,7 +857,7 @@
     });
   });
 
-  /* ================== SIMILARES: scroll infinito + flechas ================== */
+  /* ================== Drag and scroll para SIMILARES ================== */
   (function(){
     const row = document.getElementById('simRow');
     if(!row) return;
@@ -895,36 +867,6 @@
     row.addEventListener('mouseleave',()=>isDown=false);
     row.addEventListener('mouseup',()=>isDown=false);
     row.addEventListener('mousemove',e=>{ if(!isDown) return; e.preventDefault(); const x=e.pageX-row.offsetLeft; const walk=(x-startX); row.scrollLeft=scrollLeft-walk;});
-    row.addEventListener('touchstart',e=>{isDown=true;startX=e.touches[0].pageX-row.offsetLeft;scrollLeft=row.scrollLeft;},{passive:true});
-    row.addEventListener('touchend',()=>isDown=false);
-
-    const originals = Array.from(row.children);
-    originals.forEach(el=>row.appendChild(el.cloneNode(true)));
-
-    requestAnimationFrame(()=>{
-      const first = row.children[0];
-      const w = first.getBoundingClientRect().width + 14;
-      row.scrollLeft = originals.length * w;
-    });
-
-    row.addEventListener('scroll', ()=>{
-      const first = row.children[0]; if(!first) return;
-      const w = first.getBoundingClientRect().width + 14;
-      const mid = originals.length * w;
-      const total = row.scrollWidth;
-      if(row.scrollLeft <= 0){ row.scrollLeft += mid; }
-      else if(row.scrollLeft + row.clientWidth >= total-2){ row.scrollLeft -= mid; }
-    }, {passive:true});
-
-    const prev = document.getElementById('simPrev');
-    const next = document.getElementById('simNext');
-    const stepFn = ()=> {
-      const c = row.children[0];
-      const w = (c ? c.getBoundingClientRect().width : 260) + 14;
-      return w * 2;
-    }
-    prev?.addEventListener('click', ()=> row.scrollBy({left: -stepFn(), behavior:'smooth'}));
-    next?.addEventListener('click', ()=> row.scrollBy({left:  stepFn(), behavior:'smooth'}));
   })();
 })();
 </script>
