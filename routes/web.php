@@ -4,7 +4,6 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Auth;
-
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\Admin\UserManagementController;
@@ -57,14 +56,11 @@ use App\Http\Controllers\ManualInvoiceController;
 use App\Http\Controllers\Mobile\CatalogAiIntakePublicController;
 use App\Http\Controllers\CronController;
 use App\Http\Controllers\CompanyController;
-
 // 🔹 NUEVOS CONTROLADORES ADMIN LICITACIONES (PDF + PROPUESTAS)
 use App\Http\Controllers\Admin\LicitacionPdfController;
 use App\Http\Controllers\Admin\LicitacionPropuestaController;
-
 // 🔹 MODELOS
 use App\Models\LicitacionPdf;
-
 use App\Http\Controllers\DebugOpenAiController;
 use App\Http\Controllers\Admin\AdminOrderController;
 use App\Http\Controllers\Admin\LicitacionPdfAiController;
@@ -75,11 +71,9 @@ use App\Http\Controllers\Admin\WmsMoveController;
 use App\Http\Controllers\Tickets\TicketWorkController;
 use App\Http\Controllers\PublicationController;
 use App\Http\Controllers\Logistics\RouteSupervisorController;
-
 use App\Http\Controllers\CatalogPublicController;
 use App\Http\Controllers\TechSheetController;
 use App\Http\Controllers\Admin\AltaDocsController;
-
 use App\Http\Controllers\VehicleController;
 use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\ExpenseCategoryController;
@@ -97,7 +91,6 @@ use App\Http\Controllers\Admin\WaConversationController;
 use App\Http\Controllers\Admin\WmsLayoutController;
 use App\Http\Controllers\Admin\WmsFastFlowController;
 use App\Http\Controllers\Admin\WmsShippingController;
-
 use App\Http\Controllers\Accounting\CuentasDashboardController;
 use App\Http\Controllers\Accounting\AlertsController;
 use App\Http\Controllers\Accounting\ReceivableController;
@@ -106,7 +99,6 @@ use App\Http\Controllers\Accounting\MovementController;
 use App\Http\Controllers\Accounting\ReportsController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
-
 use App\Http\Controllers\Projects\ProjectBoardController;
 use App\Http\Controllers\Admin\CategoryProductController;
 
@@ -1887,9 +1879,20 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/projects', [ProjectBoardController::class, 'index'])->name('projects.index');
 });
 
-Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
-    Route::get('category-products/roots', [CategoryProductController::class, 'roots'])->name('category-products.roots');
-    Route::get('category-products/{category}/children', [CategoryProductController::class, 'children'])->name('category-products.children');
-    Route::get('category-products/{category}', [CategoryProductController::class, 'show'])->name('category-products.show');
-    Route::post('category-products', [CategoryProductController::class, 'store'])->name('category-products.store');
+Route::middleware(['auth'])->group(function () {
+    Route::post('/admin/catalog/categories/store', [CategoryProductController::class, 'store'])
+        ->name('admin.catalog.categories.store');
+
+    Route::get('/admin/catalog', [CatalogItemController::class, 'index'])->name('admin.catalog.index');
+    Route::get('/admin/catalog/create', [CatalogItemController::class, 'create'])->name('admin.catalog.create');
+    Route::post('/admin/catalog', [CatalogItemController::class, 'store'])->name('admin.catalog.store');
+    Route::get('/admin/catalog/{catalogItem}/edit', [CatalogItemController::class, 'edit'])->name('admin.catalog.edit');
+    Route::put('/admin/catalog/{catalogItem}', [CatalogItemController::class, 'update'])->name('admin.catalog.update');
+});
+
+Route::middleware(['web','auth'])->prefix('admin')->group(function () {
+  Route::get('category-products/roots', [CategoryProductController::class, 'roots']);
+  Route::get('category-products/{category}/children', [CategoryProductController::class, 'children']);
+  Route::get('category-products/{category}', [CategoryProductController::class, 'show']);
+  Route::post('category-products', [CategoryProductController::class, 'store']);
 });

@@ -3,71 +3,205 @@
 @section('title','Datos de facturación')
 
 @section('content')
-<style>
-  :root{
-    --bg:#ffffff; --card:#ffffff; --ink:#0b1220; --ink-soft:#22304a;
-    --muted:#667085; --line:#eceff4; --brand:#1f4cf0; --ring: rgba(31,76,240,.10);
-    --chip:#f3f6ff;
-    --danger:#ef4444; --ok:#16a34a;
-  }
-  html,body{background:var(--bg); overflow-x:hidden;}
-  .wrap{max-width:980px;margin:24px auto;padding:0 16px}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:0 12px 32px rgba(2,8,23,.06)}
-  .card + .card{margin-top:16px}
-  .card-head{padding:18px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px}
-  .card-body{padding:18px 20px}
-  .page-title{margin:0;font-weight:900;color:var(--ink);letter-spacing:-.01em}
-  .muted{color:var(--muted)}
-  .badges{display:flex;flex-wrap:wrap;gap:8px}
-  .badge{background:var(--chip);color:#274194;border:1px solid #dbe3ff;padding:6px 10px;border-radius:999px;font-weight:700;font-size:.85rem}
-  .btn{display:inline-flex;align-items:center;gap:8px;border-radius:12px;padding:10px 16px;border:1px solid #dfe6ee;background:#fff;font-weight:800;color:#0b1220;cursor:pointer;transition:transform .08s ease, box-shadow .2s ease}
-  .btn:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(15,23,42,.08)}
-  .btn-primary{background:var(--brand);border-color:var(--brand);color:#fff}
-  .btn-outline{background:#fff;border-color:#dfe6ee;color:#0b1220}
-  .btn-danger{background:#fff;border-color:#f3d1d1;color:#b42318}
-  .btn-danger:hover{box-shadow:0 6px 18px rgba(180,35,24,.12)}
-  .fi{display:grid;gap:6px}
-  .fi label{font-size:.95rem;color:var(--ink-soft);font-weight:800}
-  .input,.select{border:1px solid #dfe6ee;border-radius:12px;padding:.7rem .9rem;font-size:1rem;background:#fff;transition:border-color .18s ease, box-shadow .18s ease; width:100%}
-  .input:focus,.select:focus{border-color:var(--brand);box-shadow:0 0 0 6px var(--ring);outline:0}
-  .text-error{color:#b42318;font-size:.9rem}
-  .row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
-  .modal-backdrop{position:fixed;inset:0;background:rgba(2,8,23,.45);backdrop-filter:blur(2px);opacity:0;pointer-events:none;transition:opacity .2s ease;z-index:70}
-  .modal-backdrop.open{opacity:1;pointer-events:auto}
-  .modal{position:fixed;left:50%;top:50%;transform:translate(-50%,-42%) scale(.98);width:min(720px,94vw);max-height:90vh;overflow:auto;background:#fff;border-radius:16px;border:1px solid var(--line);box-shadow:0 30px 80px rgba(2,8,23,.25);opacity:0;pointer-events:none;transition:opacity .2s ease, transform .2s ease;z-index:71}
-  .modal.open{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1)}
-  .modal-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}
-  .modal-body{padding:16px}
-  .close-x{appearance:none;border:0;background:transparent;cursor:pointer;font-size:20px;line-height:1}
-  .steps{display:flex;align-items:center;gap:10px}
-  .dot{width:26px;height:26px;border-radius:50%;border:2px solid var(--brand);display:inline-flex;align-items:center;justify-content:center;font-weight:800;color:#1f4cf0;font-size:.86rem}
-  .dot.active{background:var(--brand);color:#fff}
-  .sep{color:#9aa4b2}
-  .grid{display:grid;gap:14px}
-  .g2{grid-template-columns:1fr 1fr}
-  @media (max-width: 860px){ .g2{grid-template-columns:1fr} }
-  .footer-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;flex-wrap:wrap}
-  .fade-in{animation:fade .25s ease-out}
-  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-  .pill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;font-weight:800;border:1px solid #e5e7eb;background:#f9fafb}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet"/>
 
-  /* ====== LISTA DE PERFILES ====== */
-  .profiles{display:grid;gap:10px}
-  .profile{
-    display:flex;gap:12px;align-items:flex-start;justify-content:space-between;
-    padding:14px;border:1px solid var(--line);border-radius:14px;background:#fff;
-    transition:box-shadow .18s ease,border-color .18s ease; position:relative;
+<style>
+  /* ====================== VARIABLES ====================== */
+  :root {
+    --bg: #f9fafb;
+    --card: #ffffff;
+    --ink: #111111;
+    --text: #333333;
+    --muted: #888888;
+    --line: #ebebeb;
+    --blue: #007aff;
+    --blue-soft: #e6f0ff;
+    --success: #15803d;
+    --success-soft: #e6ffe6;
+    --danger: #ff4a4a;
+    --danger-soft: #ffebeb;
   }
-  .profile:hover{box-shadow:0 8px 22px rgba(2,8,23,.06)}
-  .profile.selected{border-color:var(--brand); box-shadow:0 0 0 4px var(--ring)}
-  .profile .left{display:flex;gap:12px;align-items:flex-start}
-  .radio{margin:4px 0 0 0; width:20px; height:20px}
-  .meta{line-height:1.3}
-  .meta .razon{font-weight:900; color:var(--ink)}
-  .meta .small{font-size:.92rem; color:var(--muted)}
-  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
-  .chip{background:#f8fafc;border:1px solid #e2e8f0;padding:4px 8px;border-radius:999px;font-size:.85rem;color:#0b1220}
-  .actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+  /* ====================== BASE ====================== */
+  body {
+    font-family: "Quicksand", system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    margin: 0;
+    overflow-x: hidden;
+  }
+
+  .wrap {
+    max-width: 980px;
+    margin: 32px auto;
+    padding: 0 20px;
+    box-sizing: border-box;
+  }
+
+  /* ====================== CARDS ====================== */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+    margin-bottom: 24px;
+    overflow: hidden;
+  }
+  .card-head {
+    padding: 24px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .card-body {
+    padding: 24px;
+  }
+
+  /* ====================== TYPOGRAPHY ====================== */
+  .page-title { margin: 0; font-weight: 700; color: var(--ink); font-size: 1.5rem; }
+  .muted { color: var(--muted); font-weight: 500; }
+  .text-error { color: var(--danger); font-size: 0.9rem; font-weight: 600; }
+
+  /* ====================== BADGES ====================== */
+  .badges { display: flex; flex-wrap: wrap; gap: 8px; }
+  .badge {
+    background: var(--blue-soft);
+    color: var(--blue);
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 0.85rem;
+  }
+
+  /* ====================== BUTTONS ====================== */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 8px; padding: 10px 18px;
+    font-weight: 600; font-size: 0.95rem; font-family: inherit;
+    text-decoration: none; cursor: pointer; gap: 8px; border: none;
+    transition: transform 0.15s ease, background 0.2s ease, box-shadow 0.2s ease;
+  }
+  .btn:active { transform: scale(0.98); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
+  
+  .btn-primary { background: var(--blue); color: #ffffff; }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(0, 122, 255, 0.15); }
+  
+  .btn-outline { background: var(--card); border: 1px solid var(--blue); color: var(--blue); }
+  .btn-outline:hover { background: var(--blue-soft); transform: translateY(-1px); }
+
+  .btn-danger { background: var(--danger-soft); color: var(--danger); }
+  .btn-danger:hover { background: var(--danger); color: #ffffff; transform: translateY(-1px); }
+
+  .btn-ghost { background: transparent; color: #555555; }
+  .btn-ghost:hover { background: var(--bg); color: var(--ink); }
+
+  /* ====================== FORMS ====================== */
+  .fi { display: grid; gap: 8px; }
+  .fi label { font-size: 0.85rem; color: var(--ink); font-weight: 600; }
+  .input, .select {
+    width: 100%; box-sizing: border-box;
+    border: 1px solid var(--line); border-radius: 8px;
+    padding: 12px 14px; font-size: 0.95rem; font-family: inherit;
+    font-weight: 500; color: var(--ink); background: var(--card);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease; outline: none;
+  }
+  .input::placeholder { color: #a0a0a0; }
+  .input:focus, .select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-soft); }
+  .input[readonly], .select:disabled { background: var(--bg); color: var(--muted); cursor: not-allowed; }
+  
+  .select {
+    appearance: none; -webkit-appearance: none;
+    padding-right: 36px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23888888'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+    background-position: right 12px center; background-size: 16px; background-repeat: no-repeat;
+  }
+
+  .grid { display: grid; gap: 16px; }
+  .g2 { grid-template-columns: 1fr 1fr; }
+  @media (max-width: 860px) { .g2 { grid-template-columns: 1fr; } }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .footer-actions { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+
+  /* ====================== MODAL ====================== */
+  .modal-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(17, 17, 17, 0.45);
+    z-index: 9998; /* Cubre el header global */
+    opacity: 0; pointer-events: none; transition: opacity 0.2s ease;
+  }
+  .modal-backdrop.open { opacity: 1; pointer-events: auto; }
+  
+  .modal {
+    position: fixed; left: 50%; top: 50%;
+    transform: translate(-50%, -45%) scale(0.98);
+    width: min(720px, 92vw);
+    max-height: calc(100vh - 64px); /* Margen superior e inferior */
+    overflow-y: auto;
+    background: var(--card); border-radius: 16px;
+    box-shadow: 0 24px 48px rgba(0,0,0,0.15);
+    z-index: 9999;
+    opacity: 0; pointer-events: none; transition: all 0.2s ease;
+  }
+  .modal.open { opacity: 1; pointer-events: auto; transform: translate(-50%, -50%) scale(1); }
+  
+  .modal-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    padding: 20px 24px; border-bottom: 1px solid var(--line);
+    position: sticky; top: 0; background: var(--card); z-index: 10;
+  }
+  .modal-body { padding: 24px; }
+  
+  .close-x {
+    appearance: none; border: 0; background: transparent; cursor: pointer;
+    font-size: 24px; line-height: 1; color: var(--muted); transition: color 0.2s;
+  }
+  .close-x:hover { color: var(--ink); }
+
+  /* ====================== STEPS ====================== */
+  .steps { display: flex; align-items: center; gap: 12px; }
+  .dot {
+    width: 28px; height: 28px; border-radius: 999px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 1px solid var(--line); background: var(--bg);
+    font-weight: 700; color: var(--muted); font-size: 0.85rem;
+  }
+  .dot.active { background: var(--blue-soft); color: var(--blue); border-color: var(--blue-soft); }
+  .steps strong { color: var(--muted); font-weight: 600; font-size: 0.95rem; }
+  .dot.active + strong { color: var(--ink); font-weight: 700; }
+  .sep { color: var(--line); font-weight: 700; }
+
+  /* ====================== PROFILES LIST ====================== */
+  .profiles { display: grid; gap: 12px; }
+  .profile {
+    display: flex; gap: 16px; align-items: flex-start; justify-content: space-between;
+    padding: 20px; border: 1px solid var(--line); border-radius: 12px; background: var(--card);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease; position: relative; cursor: pointer;
+  }
+  .profile:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.03); }
+  .profile.selected { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); }
+  
+  .profile .left { display: flex; gap: 16px; align-items: flex-start; width: 100%; }
+  .radio { accent-color: var(--blue); width: 18px; height: 18px; margin-top: 4px; cursor: pointer; }
+  
+  .meta { line-height: 1.5; width: 100%; cursor: pointer; }
+  .meta .razon { font-weight: 700; color: var(--ink); font-size: 1.05rem; }
+  .meta .small { font-size: 0.9rem; color: var(--muted); font-weight: 500; }
+  
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .chip {
+    background: var(--bg); border: 1px solid var(--line);
+    padding: 4px 10px; border-radius: 999px; font-size: 0.8rem; color: var(--text); font-weight: 600;
+  }
+  .actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+  /* Animations */
+  .fade-in { animation: fade 0.3s ease-out; }
+  @keyframes fade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 </style>
 
 <div class="wrap">
@@ -76,16 +210,16 @@
     <div class="card-head">
       <div>
         <h1 class="page-title">Datos de facturación</h1>
-        <div class="muted" style="margin-top:4px">Usa un perfil guardado o agrega uno nuevo. Podrás cambiarlo después.</div>
+        <div class="muted" style="margin-top:6px">Usa un perfil guardado o agrega uno nuevo. Podrás cambiarlo después.</div>
       </div>
-      <a href="{{ route('checkout.shipping') }}" class="btn btn-outline">Omitir ahora</a>
+      <a href="{{ route('checkout.shipping') }}" class="btn btn-ghost">Omitir ahora</a>
     </div>
 
     <div class="card-body">
       @if ($errors->any())
-        <div class="text-error" style="margin-bottom:12px">
-          <strong>Corrige estos campos:</strong>
-          <ul style="margin:6px 0 0 18px">
+        <div class="text-error" style="margin-bottom:16px; background: var(--danger-soft); padding: 16px; border-radius: 8px;">
+          <strong style="color: var(--danger)">Corrige estos campos:</strong>
+          <ul style="margin: 8px 0 0 18px; color: var(--danger)">
             @foreach ($errors->all() as $error)
               <li>{{ $error }}</li>
             @endforeach
@@ -93,12 +227,12 @@
         </div>
       @endif
 
-      <div class="row" style="margin-bottom:10px">
+      <div class="row">
         <div class="badges">
           <span class="badge">Validación de RFC</span>
           <span class="badge">CFDI 4.0</span>
           <span class="badge">Autocompleta C.P.</span>
-          <span class="badge">Pago: Tarjeta</span>
+          <span class="badge" style="background: var(--bg); color: var(--text); border: 1px solid var(--line);">Pago: Tarjeta</span>
         </div>
         <button id="open-modal" class="btn btn-primary">Agregar nuevo</button>
       </div>
@@ -117,7 +251,7 @@
     <div class="card fade-in">
       <div class="card-head">
         <div>
-          <h2 class="page-title" style="font-size:1.25rem">Perfiles guardados</h2>
+          <h2 class="page-title" style="font-size:1.2rem">Perfiles guardados</h2>
           <div class="muted" style="margin-top:4px">{{ $profiles->count() }} perfil{{ $profiles->count()===1?'':'es' }} disponibles</div>
         </div>
         <form id="form-select" method="POST" action="{{ route('checkout.invoice.select') }}">
@@ -142,14 +276,14 @@
                 <input class="radio" type="radio" name="profile_radio" id="{{ $rid }}" {{ $defaultId===$p->id ? 'checked':'' }}>
                 <label for="{{ $rid }}" class="meta">
                   <div class="razon">{{ $p->razon_social ?? '—' }}</div>
-                  <div class="small">RFC: <strong>{{ $p->rfc }}</strong> • Régimen: {{ $reg }} • Uso: {{ $uso }}</div>
+                  <div class="small" style="margin-top: 4px;">RFC: <strong style="color:var(--ink)">{{ $p->rfc }}</strong> • Régimen: {{ $reg }} • Uso: {{ $uso }}</div>
                   <div class="small">Dirección fiscal: {{ $addr }}</div>
-                  @if($p->email || $p->telefono || $p->contacto)
+                  @if($p->email || $p->telefono || $p->contacto || $isDefault)
                     <div class="chips">
                       @if($p->email)<span class="chip">Email: {{ $p->email }}</span>@endif
                       @if($p->telefono)<span class="chip">Tel: {{ $p->telefono }}</span>@endif
                       @if($p->contacto)<span class="chip">Contacto: {{ $p->contacto }}</span>@endif
-                      @if($isDefault)<span class="chip" style="border-color:#c7e3ff;background:#eef6ff;color:#1e40af">Predeterminado</span>@endif
+                      @if($isDefault)<span class="chip" style="background:var(--blue-soft); color:var(--blue); border-color:var(--blue-soft);">Predeterminado</span>@endif
                     </div>
                   @endif
                 </label>
@@ -158,20 +292,22 @@
                 <form method="POST" action="{{ route('checkout.invoice.select') }}" onsubmit="return confirm('¿Usar este perfil?')">
                   @csrf
                   <input type="hidden" name="id" value="{{ $p->id }}">
-                  <button type="submit" class="btn btn-outline">Usar este</button>
+                  <button type="submit" class="btn btn-outline" style="padding: 8px 12px; font-size: 0.85rem;">Usar este</button>
                 </form>
                 <form method="POST" action="{{ route('checkout.invoice.delete') }}" onsubmit="return confirm('¿Eliminar este perfil de facturación?')">
                   @csrf
                   @method('DELETE')
                   <input type="hidden" name="id" value="{{ $p->id }}">
-                  <button type="submit" class="btn btn-danger">Eliminar</button>
+                  <button type="submit" class="btn btn-danger" style="padding: 8px 12px; font-size: 0.85rem;">Eliminar</button>
                 </form>
               </div>
             </div>
           @endforeach
         </div>
 
-        <div class="muted" style="margin-top:12px">¿Otro RFC? &nbsp;<button id="open-modal-2" class="btn btn-outline">Agregar otro</button></div>
+        <div class="muted" style="margin-top:24px; display: flex; align-items: center; gap: 12px;">
+          ¿Otro RFC? <button id="open-modal-2" class="btn btn-ghost" style="padding: 6px 12px;">Agregar otro</button>
+        </div>
       </div>
     </div>
   @endif
@@ -180,14 +316,14 @@
 
 {{-- ================== MODAL: ALTA NUEVO PERFIL (2 pasos) ================== --}}
 <div id="backdrop" class="modal-backdrop"></div>
-<section id="invoice-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="inv-title" aria-describedby="inv-desc">
+<section id="invoice-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="inv-title">
   <header class="modal-head">
     <div class="steps">
       <span id="dot1" class="dot active">1</span><strong>RFC</strong>
       <span class="sep">—</span>
       <span id="dot2" class="dot">2</span><strong>Datos</strong>
     </div>
-    <button id="close-modal" class="close-x" aria-label="Cerrar">×</button>
+    <button id="close-modal" class="close-x" aria-label="Cerrar">✕</button>
   </header>
 
   <div class="modal-body">
@@ -196,11 +332,11 @@
       <div class="fi">
         <label for="rfc">RFC *</label>
         <input id="rfc" class="input" maxlength="13" placeholder="Ej. ABCD800101XXX" value="{{ old('rfc') }}">
-        <small class="muted">PM: 12 · PF: 13 · Se permite XAXX/XEXX (genérico).</small>
-        <div id="rfc-error" class="text-error" style="display:none"></div>
+        <small class="muted" style="margin-top: 4px;">PM: 12 · PF: 13 · Se permite XAXX/XEXX (genérico).</small>
+        <div id="rfc-error" class="text-error" style="display:none; margin-top: 8px;"></div>
       </div>
       <div class="footer-actions">
-        <button class="btn btn-outline" id="cancel-1" type="button">Cancelar</button>
+        <button class="btn btn-ghost" id="cancel-1" type="button">Cancelar</button>
         <button class="btn btn-primary" id="btn-next" type="button">Validar y continuar</button>
       </div>
     </div>
@@ -212,40 +348,40 @@
         <input type="hidden" name="rfc" id="rfc_final" value="{{ old('rfc') }}">
         <input type="hidden" name="direccion" id="direccion">
 
-        <div class="grid">
+        <div class="grid" style="margin-bottom: 16px;">
           <div class="fi">
             <label>Razón social *</label>
             <input name="razon" class="input" value="{{ old('razon') }}" required>
           </div>
         </div>
 
-        <div class="grid g2">
+        <div class="grid g2" style="margin-bottom: 16px;">
           <div class="fi">
             <label>C.P. fiscal *</label>
             <input id="zip" name="zip" class="input" inputmode="numeric" maxlength="10" value="{{ old('zip') }}" required>
-            <small class="muted">Autocompleta Estado / Municipio / Colonia</small>
+            <small class="muted" style="margin-top: 4px;">Autocompleta Estado / Municipio / Colonia</small>
           </div>
           <div class="fi">
             <label>Email para factura (opcional)</label>
-            <input type="email" name="email" class="input" value="{{ old('email') }}">
+            <input type="email" name="email" class="input" placeholder="ejemplo@correo.com" value="{{ old('email') }}">
           </div>
         </div>
 
-        <div class="grid g2">
+        <div class="grid g2" style="margin-bottom: 16px;">
           <div class="fi">
             <label>Régimen fiscal (SAT) *</label>
             <select name="regimen" id="regimen" class="select" required></select>
-            <small class="muted" id="hint-persona" style="display:block;margin-top:4px"></small>
+            <small class="muted" id="hint-persona" style="display:block;margin-top:6px; color: var(--blue); font-weight: 600;"></small>
           </div>
 
           <div class="fi">
             <label>Uso CFDI *</label>
             <select name="uso_cfdi" id="uso_cfdi" class="select" required></select>
-            <small class="muted">Opciones mostradas según persona física/moral.</small>
+            <small class="muted" style="margin-top: 4px;">Opciones mostradas según persona física/moral.</small>
           </div>
         </div>
 
-        <div class="grid g2">
+        <div class="grid g2" style="margin-bottom: 16px;">
           <div class="fi">
             <label>Contacto (quien recibe)</label>
             <input name="contacto" id="contact_name" class="input" placeholder="Nombre de contacto" value="{{ old('contacto') }}">
@@ -256,37 +392,37 @@
           </div>
         </div>
 
-        <div class="grid">
+        <div class="grid" style="margin-bottom: 16px;">
           <div class="fi">
             <label>Calle *</label>
-            <input id="street" class="input" placeholder="Calle" value="">
+            <input id="street" class="input" placeholder="Nombre de la calle" value="">
           </div>
         </div>
 
-        <div class="grid g2">
+        <div class="grid g2" style="margin-bottom: 16px;">
           <div class="fi">
             <label>No. exterior *</label>
-            <input id="ext_number" class="input" placeholder="No. exterior" value="">
+            <input id="ext_number" class="input" placeholder="Ej. 123" value="">
           </div>
           <div class="fi">
             <label>No. interior (opcional)</label>
-            <input id="int_number" class="input" placeholder="No. interior" value="">
+            <input id="int_number" class="input" placeholder="Ej. B" value="">
           </div>
         </div>
 
-        <div class="grid g2">
+        <div class="grid g2" style="margin-bottom: 16px;">
           <div class="fi">
             <label>Colonia *</label>
-            <input list="colonies-list" id="colony" name="colonia" class="input" placeholder="Colonia" value="{{ old('colonia') }}">
+            <input list="colonies-list" id="colony" name="colonia" class="input" placeholder="Selecciona o escribe" value="{{ old('colonia') }}">
             <datalist id="colonies-list"></datalist>
           </div>
           <div class="fi">
             <label>Municipio / Alcaldía *</label>
-            <input id="municipality" class="input" placeholder="Municipio o alcaldía" value="">
+            <input id="municipality" class="input" placeholder="Municipio" value="">
           </div>
         </div>
 
-        <div class="grid g2">
+        <div class="grid g2" style="margin-bottom: 24px;">
           <div class="fi">
             <label>Estado *</label>
             <input id="state" name="estado" class="input" placeholder="Estado" value="{{ old('estado') }}">
@@ -299,8 +435,8 @@
           </div>
         </div>
 
-        <div class="footer-actions">
-          <button type="button" class="btn btn-outline" id="btn-back">Atrás</button>
+        <div class="footer-actions" style="border-top: 1px solid var(--line); padding-top: 20px;">
+          <button type="button" class="btn btn-ghost" id="btn-back">Atrás</button>
           <button class="btn btn-primary" type="submit" id="btn-save">
             <span id="btn-text">Guardar y continuar</span>
             <span id="btn-spin" style="display:none">Procesando…</span>
@@ -573,7 +709,6 @@
     radio?.addEventListener('change', selectRow);
   });
 
-  console.log('invoice_select blade JS loaded');
 })();
 </script>
 @endpush

@@ -12,312 +12,348 @@
 @endphp
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet"/>
 
 <style>
-  /* ====================== PAGE BG (solo esquinas superiores) ====================== */
-  body{
-    font-family:"Quicksand", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    background:#f6f8fc;
-    color:#0e1726;
-  }
-  body::before{
-    content:"";
-    position:fixed; inset:0;
-    z-index:-1;
-    pointer-events:none;
-    background:
-      radial-gradient(420px 240px at 0% 0%,
-        rgba(147,197,253,.38) 0%,
-        rgba(147,197,253,.18) 34%,
-        rgba(147,197,253,0) 72%),
-      radial-gradient(420px 240px at 100% 0%,
-        rgba(134,239,172,.30) 0%,
-        rgba(134,239,172,.14) 34%,
-        rgba(134,239,172,0) 72%),
-      linear-gradient(180deg, #f3f7ff 0%, #f8fff5 55%, #ffffff 100%);
-    background-attachment:fixed;
+  /* ====================== VARIABLES ====================== */
+  :root {
+    --bg: #f9fafb;
+    --card: #ffffff;
+    --ink: #111111;
+    --text: #333333;
+    --muted: #888888;
+    --line: #ebebeb;
+    --blue: #007aff;
+    --blue-soft: #e6f0ff;
+    --success: #15803d;
+    --success-soft: #e6ffe6;
+    --danger: #ff4a4a;
+    --danger-soft: #ffebeb;
   }
 
-  :root{
-    --brand:#111827;
-    --brand-ink:#0b1220;
-    --accent:#10b981;
-    --muted:#6b7280;
-    --line:#e8eef6;
-    --surface:rgba(255,255,255,.86);
-    --radius:18px;
-    --shadow:0 14px 36px rgba(2,8,23,.08);
-    --shadow-soft:0 10px 26px rgba(2,8,23,.06);
-    --focus:0 0 0 3px rgba(17,24,39,.14);
+  /* ====================== BASE ====================== */
+  body {
+    font-family: "Quicksand", system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    margin: 0;
   }
 
-  /* ✅ 100% ancho desktop + responsivo */
-  .ck-page{
-    width:100%;
-    padding: clamp(14px, 2vw, 22px);
+  h1, h2, h3, h4, h5, strong {
+    color: var(--ink);
+    margin: 0;
   }
 
-  .ck-wrap{
-    display:grid;
+  .muted {
+    color: var(--muted);
+    font-weight: 500;
+  }
+
+  /* ====================== LAYOUT ====================== */
+  .ck-page {
+    width: 100%;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: clamp(20px, 4vw, 40px) 20px;
+    box-sizing: border-box;
+  }
+
+  .ck-wrap {
+    display: grid;
     grid-template-columns: 2fr 1fr;
-    gap:18px;
-    width:100%;
+    gap: 32px;
+    width: 100%;
+    align-items: start;
   }
   @media(max-width: 980px){
-    .ck-wrap{ grid-template-columns:1fr; }
+    .ck-wrap { grid-template-columns: 1fr; gap: 24px; }
   }
 
-  /* Cards */
-  .card{
-    background: var(--surface);
-    border:1px solid var(--line);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
-    backdrop-filter: blur(10px);
-    overflow:hidden;
+  /* ====================== CARDS ====================== */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+    overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
   }
-  .card-h{
-    padding:16px 18px;
-    border-bottom:1px solid rgba(232,238,246,.95);
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:12px;
-    flex-wrap:wrap;
-    background: rgba(255,255,255,.72);
+  .card.hoverable:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.04);
   }
-  .card-b{ padding:16px 18px; }
-
-  /* Stepper */
-  .stepper{
-    display:flex;
-    gap:12px;
-    align-items:center;
-    flex-wrap:wrap;
-    margin:0 0 18px;
+  .card-h {
+    padding: 24px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
   }
-  .step{
-    display:flex; align-items:center; gap:10px;
-    font-weight:800;
-    color:#334155;
-    padding:10px 12px;
-    border:1px solid var(--line);
-    border-radius:999px;
-    background: rgba(255,255,255,.78);
-    box-shadow: var(--shadow-soft);
-  }
-  .dot{
-    width:28px;height:28px;border-radius:999px;
-    display:inline-flex;align-items:center;justify-content:center;
-    border:2px solid var(--brand);
-    font-weight:900;
-  }
-  .dot.active{ background:var(--brand); color:#fff; }
-
-  /* Buttons */
-  .btn{
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    border-radius:14px;
-    padding:10px 14px;
-    font-weight:900;
-    text-decoration:none;
-    border:1px solid var(--line);
-    background: rgba(255,255,255,.92);
-    cursor:pointer;
-    gap:10px;
-    transition: transform .15s ease, box-shadow .2s ease, background .2s ease, border-color .2s ease;
-  }
-  .btn:focus-visible{ outline:none; box-shadow: var(--focus); }
-  .btn:hover{ transform: translateY(-1px); box-shadow: var(--shadow-soft); }
-  .btn:disabled{ opacity:.5; cursor:not-allowed; transform:none; box-shadow:none; }
-
-  .btn-primary{
-    background: linear-gradient(180deg, #111827 0%, #0b1220 100%);
-    border-color: rgba(255,255,255,.10);
-    color:#fff;
-    box-shadow: 0 14px 34px rgba(17,24,39,.22);
-  }
-  .btn-primary:hover{ box-shadow: 0 16px 38px rgba(17,24,39,.28); }
-
-  .btn-ghost{ background: rgba(255,255,255,.92); }
-
-  .muted{ color: var(--muted); font-weight:700; }
-
-  /* Address empty */
-  .addr-empty{
-    display:flex;
-    gap:12px;
-    align-items:flex-start;
-    background: rgba(248,251,255,.85);
-    border:1px dashed #c4d1ff;
-    padding:14px;
-    border-radius:14px;
-    color:#1f2a44;
-    box-shadow: var(--shadow-soft);
+  .card-b {
+    padding: 24px;
   }
 
-  /* Summary rows */
-  .sum-row{
-    display:flex;
-    justify-content:space-between;
-    margin:10px 0;
-    font-weight:900;
+  /* ====================== STEPPER ====================== */
+  .stepper {
+    display: flex;
+    gap: 24px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 32px;
   }
-  .line{ border:0; border-top:1px solid rgba(232,238,246,.95); margin:16px 0; }
-
-  /* Saved addresses */
-  .addr-list{ display:grid; gap:10px; }
-  .addr-item{
-    display:grid;
-    grid-template-columns:auto 1fr auto;
-    gap:12px;
-    align-items:center;
-    padding:12px;
-    border:1px solid var(--line);
-    background: rgba(255,255,255,.92);
-    border-radius:14px;
-    transition: transform .15s ease, box-shadow .2s ease, border-color .2s ease;
+  .step {
+    display: flex; 
+    align-items: center; 
+    gap: 10px;
+    font-weight: 600;
+    color: var(--muted);
+    font-size: 0.95rem;
   }
-  .addr-item:hover{ transform: translateY(-1px); box-shadow: var(--shadow-soft); }
-  .addr-item.active{ border-color:#bfd2ff; box-shadow:0 12px 28px rgba(31,76,240,.08); }
-
-  .chip{
-    display:inline-flex;
-    align-items:center;
-    gap:8px;
-    padding:8px 12px;
-    border-radius:999px;
-    background: rgba(238,242,255,.9);
-    color:#22396b;
-    font-weight:900;
-    border:1px solid #d9e3ff;
+  .step.active {
+    color: var(--ink);
+    font-weight: 700;
   }
-
-  /* Resumen pedido list */
-  .order-row{
-    display:grid;
-    grid-template-columns:auto 1fr auto;
-    gap:12px;
-    align-items:center;
-    padding:10px 0;
-    border-bottom:1px solid rgba(241,245,249,.95);
+  .dot {
+    width: 28px; height: 28px;
+    border-radius: 999px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--muted);
   }
-  .thumb{
-    width:64px;height:64px;
-    object-fit:cover;
-    border-radius:14px;
-    border:1px solid var(--line);
-    background:#f1f5fb;
+  .step.active .dot {
+    background: var(--blue-soft);
+    color: var(--blue);
+    border-color: var(--blue-soft);
   }
 
-  /* ====================== MODALS (más chico + minimalista) ====================== */
-  .modal-back{
-    position:fixed;
-    inset:0;
-    background:rgba(15,23,42,.34);
-    backdrop-filter:blur(3px);
-    display:none;
-    z-index:60;
+  /* ====================== BUTTONS ====================== */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    font-family: inherit;
+    text-decoration: none;
+    cursor: pointer;
+    gap: 8px;
+    border: none;
+    transition: transform 0.15s ease, background 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+  }
+  .btn:active {
+    transform: scale(0.98);
+  }
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+  .btn-primary {
+    background: var(--blue);
+    color: #ffffff;
+  }
+  .btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(0, 122, 255, 0.15);
+  }
+  .btn-ghost {
+    background: transparent;
+    color: #555555;
+  }
+  .btn-ghost:hover {
+    background: var(--bg);
+    color: var(--ink);
   }
 
-  .modal{
-    position:fixed;
-    left:50%;
-    top:50%;
-    transform:translate(-50%,-50%);
-    width:min(560px, 92vw);          /* ✅ más angosto */
-    max-height:min(78vh, 78dvh);     /* ✅ menos alto */
-    overflow:auto;
-    background: rgba(255,255,255,.96);
-    border:1px solid rgba(232,238,246,.95);
-    border-radius:16px;
-    display:none;
-    z-index:61;
-    box-shadow:0 24px 70px rgba(2,8,23,.22);
-    backdrop-filter: blur(10px);
+  /* ====================== CHIPS / BADGES ====================== */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: var(--blue-soft);
+    color: var(--blue);
+    font-weight: 700;
+    font-size: 0.8rem;
   }
-  .modal.open,.modal-back.open{ display:block; }
+  .chip.success { background: var(--success-soft); color: var(--success); }
+  .chip.danger { background: var(--danger-soft); color: var(--danger); }
 
-  .modal .card-h{
-    padding:12px 14px;
-    border-bottom:1px solid rgba(232,238,246,.95);
-    background:rgba(255,255,255,.88);
-  }
-  .modal .card-b{ padding:14px; }
-
-  .f{ display:grid; gap:10px; }
-  .g2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-  @media(max-width:720px){ .g2{ grid-template-columns:1fr; } }
-
-  .fi{ display:grid; gap:6px; }
-  .fi label{
-    font-size:.86rem;
-    color:#334155;
-    font-weight:900;
+  /* ====================== LISTS & ROWS ====================== */
+  .addr-empty {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    background: var(--bg);
+    border: 1px dashed var(--line);
+    padding: 24px;
+    border-radius: 12px;
   }
 
-  /* ====================== INPUTS (MODERNOS) ====================== */
-  .fi input,.fi select,.fi textarea{
-    width:100%;
-    border:1px solid rgba(226,232,240,.95);
-    border-radius:14px;
-    padding:11px 12px;              /* ✅ compacto + moderno */
-    font-size:.96rem;
-    font-weight:700;
-    color:#0f172a;
-    background: rgba(255,255,255,.98);
-    box-shadow: 0 1px 0 rgba(2,8,23,.02);
-    transition: border-color .18s ease, box-shadow .18s ease, transform .12s ease, background .18s ease;
-    outline:none;
-    -webkit-appearance:none;
-    appearance:none;
+  .sum-row {
+    display: flex;
+    justify-content: space-between;
+    margin: 14px 0;
+    font-weight: 600;
+    color: var(--text);
   }
-  .fi input::placeholder,
-  .fi textarea::placeholder{
-    color:#94a3b8;
-    font-weight:700;
+  .sum-row.total {
+    font-size: 1.15rem;
+    color: var(--ink);
+    font-weight: 700;
   }
-  .fi input:hover,.fi select:hover,.fi textarea:hover{
-    border-color: rgba(203,213,225,.95);
-  }
-  .fi input:focus,.fi select:focus,.fi textarea:focus{
-    border-color: rgba(17,24,39,.55);
-    box-shadow: 0 0 0 4px rgba(17,24,39,.12);
-    background:#ffffff;
-  }
-  .fi input[readonly]{
-    background: rgba(248,250,252,.95);
-    border-color: rgba(226,232,240,.95);
-    color:#334155;
+  .line {
+    border: 0;
+    border-top: 1px solid var(--line);
+    margin: 20px 0;
   }
 
-  /* Select flecha minimal */
-  .fi select{
-    padding-right:34px;
-    background-image:
-      linear-gradient(45deg, transparent 50%, #64748b 50%),
-      linear-gradient(135deg, #64748b 50%, transparent 50%);
-    background-position:
-      calc(100% - 18px) 50%,
-      calc(100% - 12px) 50%;
-    background-size: 6px 6px, 6px 6px;
-    background-repeat:no-repeat;
+  .addr-list {
+    display: grid;
+    gap: 12px;
+  }
+  .addr-item {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 16px;
+    align-items: center;
+    padding: 18px;
+    border: 1px solid var(--line);
+    background: var(--card);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+  .addr-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.03);
+  }
+  .addr-item.active {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 1px var(--blue);
+  }
+  .addr-item input[type="radio"] {
+    accent-color: var(--blue);
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
   }
 
-  @media (max-width:520px){
-    .modal{
-      width:min(520px, 94vw);
-      max-height:min(82vh, 82dvh);
-    }
+  .order-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 16px;
+    align-items: center;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .order-row:last-child {
+    border-bottom: none;
+  }
+  .thumb {
+    width: 64px; height: 64px;
+    object-fit: cover;
+    border-radius: 12px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+  }
+
+  /* ====================== MODALS ====================== */
+  .modal-back {
+    position: fixed;
+    inset: 0;
+    background: rgba(17, 17, 17, 0.45);
+    display: none;
+    z-index: 9998; /* Elevado para cubrir el header */
+  }
+  
+  .modal {
+    position: fixed;
+    left: 50%; 
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: min(520px, 92vw);
+    max-height: calc(100vh - 64px); /* Margen para que no toque los bordes */
+    overflow-y: auto; /* Scroll interno si es necesario */
+    background: var(--card);
+    border-radius: 16px;
+    display: none;
+    z-index: 9999; /* Por encima de todo */
+    box-shadow: 0 24px 48px rgba(0,0,0,0.15);
+  }
+
+  .modal.open, .modal-back.open { display: block; }
+  
+  .modal .card-h {
+    padding: 20px 24px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--card);
+    border-bottom: 1px solid var(--line);
+  }
+  .modal .card-b { padding: 24px; }
+
+  /* ====================== FORMS ====================== */
+  .f { display: grid; gap: 16px; }
+  .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media(max-width: 520px) { .g2 { grid-template-columns: 1fr; } }
+
+  .fi { display: grid; gap: 8px; }
+  .fi label {
+    font-size: 0.85rem;
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .fi input, .fi select, .fi textarea {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-size: 0.95rem;
+    font-family: inherit;
+    font-weight: 500;
+    color: var(--ink);
+    background: var(--card);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    outline: none;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+  .fi input::placeholder, .fi textarea::placeholder {
+    color: #a0a0a0;
+    font-weight: 500;
+  }
+  .fi input:focus, .fi select:focus, .fi textarea:focus {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px var(--blue-soft);
+  }
+  .fi input[readonly] {
+    background: var(--bg);
+    color: var(--muted);
+    cursor: not-allowed;
+  }
+  .fi select {
+    padding-right: 36px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23888888'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+    background-position: right 12px center;
+    background-size: 16px;
+    background-repeat: no-repeat;
   }
 </style>
 
 <div class="ck-page">
   <div class="stepper" aria-label="Progreso de compra">
-    <div class="step"><span class="dot active">1</span> Entrega</div>
+    <div class="step active"><span class="dot">1</span> Entrega</div>
     <div class="step"><span class="dot">2</span> Factura</div>
     <div class="step"><span class="dot">3</span> Envío</div>
     <div class="step"><span class="dot">4</span> Pago</div>
@@ -328,7 +364,7 @@
     <div class="card">
       <div class="card-h">
         <div>
-          <h2 style="margin:0 0 2px;font-weight:1000;color:var(--brand-ink)">Dirección de entrega</h2>
+          <h2 style="font-weight:700; margin-bottom: 4px;">Dirección de entrega</h2>
           <div class="muted" id="addr-subtitle">Selecciona tu dirección o agrega una nueva.</div>
         </div>
         <button class="btn btn-ghost" id="btn-open-modal">Agregar / Cambiar</button>
@@ -336,20 +372,20 @@
 
       <div class="card-b" id="address-box">
         {{-- Listado de direcciones guardadas --}}
-        <section id="saved-addrs" style="display:none">
-          <h3 style="margin:0 0 10px;font-weight:1000;color:var(--brand-ink)">Mis direcciones</h3>
+        <section id="saved-addrs" style="display:none; margin-bottom: 32px;">
+          <h3 style="font-weight:700; margin-bottom: 16px; font-size: 1.1rem;">Mis direcciones</h3>
           <div class="addr-list" id="saved-list"></div>
         </section>
 
         {{-- Estado inicial si no hay nada seleccionado --}}
-        <div class="addr-empty" id="addr-empty" style="display:none">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-            <path d="M12 22s8-4 8-10a8 8 0 10-16 0c0 6 8 10 8 10z" stroke="var(--brand)" stroke-width="2"/>
-            <circle cx="12" cy="12" r="3" stroke="var(--brand)" stroke-width="2"/>
+        <div class="addr-empty" id="addr-empty" style="display:none; margin-bottom: 32px;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2">
+            <path d="M12 22s8-4 8-10a8 8 0 10-16 0c0 6 8 10 8 10z"/>
+            <circle cx="12" cy="12" r="3"/>
           </svg>
           <div>
-            <strong>Sin dirección seleccionada</strong>
-            <div class="muted">Usa “Agregar / Cambiar” para capturarla.</div>
+            <strong style="font-size: 1.05rem;">Sin dirección seleccionada</strong>
+            <div class="muted" style="margin-top: 4px;">Usa “Agregar / Cambiar” para capturarla.</div>
           </div>
         </div>
 
@@ -357,22 +393,22 @@
         <div id="current-addr-anchor"></div>
 
         {{-- Resumen del pedido --}}
-        <h3 style="margin:18px 0 10px;font-weight:1000;color:var(--brand-ink)">Resumen de tu pedido</h3>
+        <h3 style="font-weight:700; margin: 32px 0 16px; font-size: 1.1rem;">Resumen de tu pedido</h3>
         @forelse($cart as $row)
           <div class="order-row">
             <img class="thumb" src="{{ $row['image'] ?? asset('images/placeholder.png') }}" alt="">
             <div>
-              <div style="font-weight:900">{{ $row['name'] ?? 'Producto' }}</div>
-              <div class="muted">Cantidad: {{ $row['qty'] ?? 1 }}</div>
+              <div style="font-weight:600; color: var(--ink);">{{ $row['name'] ?? 'Producto' }}</div>
+              <div class="muted" style="font-size: 0.9rem; margin-top: 4px;">Cantidad: {{ $row['qty'] ?? 1 }}</div>
             </div>
-            <div style="font-weight:900">${{ number_format(($row['price'] ?? 0) * ($row['qty'] ?? 1), 2) }}</div>
+            <div style="font-weight:700; color: var(--ink);">${{ number_format(($row['price'] ?? 0) * ($row['qty'] ?? 1), 2) }}</div>
           </div>
         @empty
-          <div class="muted">Tu carrito está vacío.</div>
+          <div class="muted" style="padding: 20px 0;">Tu carrito está vacío.</div>
         @endforelse
 
         {{-- Aviso: la paquetería se elige en el siguiente paso --}}
-        <div style="margin-top:14px">
+        <div style="margin-top: 24px;">
           <span class="chip">La paquetería se elige en el siguiente paso</span>
         </div>
       </div>
@@ -381,13 +417,13 @@
     {{-- Sidebar --}}
     <aside class="card" aria-label="Resumen">
       <div class="card-b">
-        <div class="sum-row"><span>Subtotal</span><span id="sum-subtotal">${{ number_format($subtotal,2) }}</span></div>
-        <div class="sum-row"><span>Envío</span><span id="sum-shipping" class="muted">A elegir en el siguiente paso</span></div>
+        <div class="sum-row"><span>Subtotal</span><span id="sum-subtotal" style="color:var(--ink);">${{ number_format($subtotal,2) }}</span></div>
+        <div class="sum-row"><span>Envío</span><span id="sum-shipping" class="muted" style="font-size: 0.9rem;">A elegir luego</span></div>
         <hr class="line">
-        <div class="sum-row" style="font-size:1.12rem"><span>Total</span><span id="sum-total">${{ number_format($total,2) }}</span></div>
-        <div class="muted" style="margin-top:6px;">Precios incluyen IVA</div>
+        <div class="sum-row total"><span>Total</span><span id="sum-total">${{ number_format($total,2) }}</span></div>
+        <div class="muted" style="font-size: 0.85rem; margin-top: 8px;">Los precios incluyen IVA</div>
         <hr class="line">
-        <button id="btn-continue" class="btn btn-primary" disabled>Continuar</button>
+        <button id="btn-continue" class="btn btn-primary" style="width:100%; margin-top: 8px; padding: 14px;" disabled>Continuar</button>
       </div>
     </aside>
   </div>
@@ -396,9 +432,9 @@
 {{-- ===== Modal Dirección ===== --}}
 <div class="modal-back" id="addr-backdrop" aria-hidden="true"></div>
 <section class="modal" id="addr-modal" role="dialog" aria-modal="true" aria-labelledby="addr-title">
-  <div class="card-h" style="position:sticky;top:0;z-index:1">
-    <h3 id="addr-title" style="margin:0;font-weight:1000;color:var(--brand-ink)">Nueva dirección</h3>
-    <button class="btn btn-ghost" id="addr-close">Cerrar</button>
+  <div class="card-h">
+    <h3 id="addr-title" style="font-weight:700; font-size: 1.25rem;">Nueva dirección</h3>
+    <button class="btn btn-ghost" id="addr-close" style="padding: 6px 12px;">Cerrar</button>
   </div>
   <div class="card-b">
     <form id="addr-form" class="f" autocomplete="off">
@@ -455,38 +491,38 @@
 
       <div class="g2">
         <div class="fi">
-          <label for="entre_calles">Entre qué calle y qué calle (opcional)</label>
-          <input id="entre_calles" name="entre_calles" type="text" placeholder="Ej. Av. Juárez y Hidalgo">
+          <label for="entre_calles">Entre calles (opcional)</label>
+          <input id="entre_calles" name="entre_calles" type="text" placeholder="Ej. Av. Juárez e Hidalgo">
         </div>
         <div class="fi">
           <label for="referencias">Referencias (opcional)</label>
-          <input id="referencias" name="referencias" type="text" placeholder="Fachada, color, portón, etc.">
+          <input id="referencias" name="referencias" type="text" placeholder="Fachada, color, etc.">
         </div>
       </div>
 
-      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px">
+      <div style="display:flex; gap:12px; justify-content:flex-end; margin-top: 16px;">
         <button type="button" class="btn btn-ghost" id="addr-cancel">Cancelar</button>
         <button type="submit" class="btn btn-primary">Guardar dirección</button>
       </div>
     </form>
-    <div id="addr-msg" class="muted" style="margin-top:10px;display:none"></div>
+    <div id="addr-msg" class="muted" style="margin-top:16px; display:none; color: var(--danger); font-size: 0.9rem;"></div>
   </div>
 </section>
 
 {{-- ===== Modal ¿Requieres factura? ===== --}}
 <div class="modal-back" id="inv-backdrop" aria-hidden="true"></div>
 <section class="modal" id="inv-modal" role="dialog" aria-modal="true" aria-labelledby="inv-title">
-  <div class="card-h" style="position:sticky;top:0;z-index:1">
-    <h3 id="inv-title" style="margin:0;font-weight:1000">¿Requieres factura?</h3>
-    <button class="btn btn-ghost" id="inv-close">Cerrar</button>
+  <div class="card-h">
+    <h3 id="inv-title" style="font-weight:700; font-size: 1.25rem;">¿Requieres factura?</h3>
+    <button class="btn btn-ghost" id="inv-close" style="padding: 6px 12px;">Cerrar</button>
   </div>
   <div class="card-b">
-    <p class="muted" style="margin-top:0">
+    <p class="muted" style="margin: 0 0 24px 0; line-height: 1.5;">
       Si necesitas CFDI, capturaremos tus datos en el siguiente paso.
     </p>
-    <div style="display:flex;flex-wrap:wrap;gap:10px">
-      <button type="button" class="btn btn-ghost" id="btn-no-invoice">No, continuar sin factura</button>
-      <button type="button" class="btn btn-primary" id="btn-yes-invoice">Sí, necesito factura</button>
+    <div style="display:flex; flex-wrap:wrap; gap:12px;">
+      <button type="button" class="btn btn-ghost" id="btn-no-invoice" style="flex: 1; min-width: 200px;">No, continuar sin factura</button>
+      <button type="button" class="btn btn-primary" id="btn-yes-invoice" style="flex: 1; min-width: 200px;">Sí, necesito factura</button>
     </div>
   </div>
 </section>
@@ -510,9 +546,9 @@
   function showToast(text){
     const el = document.createElement('div');
     el.textContent = text;
-    el.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--accent);color:#fff;padding:10px 14px;border-radius:12px;font-weight:900;box-shadow:0 10px 30px rgba(2,8,23,.25);z-index:80';
+    el.style.cssText = 'position:fixed; left:50%; bottom:32px; transform:translateX(-50%); background:var(--ink); color:#fff; padding:12px 24px; border-radius:999px; font-weight:600; font-size:0.95rem; box-shadow:0 8px 24px rgba(0,0,0,0.15); z-index:9999;';
     document.body.appendChild(el);
-    setTimeout(()=>el.remove(), 2200);
+    setTimeout(()=>el.remove(), 2500);
   }
   function showMsg(text){
     const m = $('#addr-msg'); m.textContent = text; m.style.display='block';
@@ -593,15 +629,15 @@
   function renderCurrentAddrCard(addr){
     const lines = fmtAddrLines(addr);
     const html = `
-      <div class="card" style="border:1px dashed #c4d1ff;background:rgba(248,251,255,.85)" data-addr-card>
-        <div class="card-b" style="display:flex;gap:12px;align-items:flex-start">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-            <path d="M12 22s8-4 8-10a8 8 0 10-16 0c0 6 8 10 8 10z" stroke="var(--brand)" stroke-width="2"/>
-            <circle cx="12" cy="12" r="3" stroke="var(--brand)" stroke-width="2"/>
+      <div class="card" style="border: 1px solid var(--blue); background: var(--blue-soft); margin-bottom: 32px;" data-addr-card>
+        <div class="card-b" style="display:flex; gap:16px; align-items:flex-start">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" style="margin-top: 2px;">
+            <path d="M12 22s8-4 8-10a8 8 0 10-16 0c0 6 8 10 8 10z"/>
+            <circle cx="12" cy="12" r="3"/>
           </svg>
           <div>
-            <strong>Entregar en:</strong>
-            <div class="muted" style="margin-top:4px;white-space:pre-line">${lines.join('\n')}</div>
+            <strong style="color: var(--blue); font-size: 1.05rem;">Entregar en:</strong>
+            <div style="color: var(--ink); margin-top: 8px; white-space: pre-line; line-height: 1.6; font-weight: 500;">${lines.join('\n')}</div>
           </div>
         </div>
       </div>`;
@@ -637,7 +673,7 @@
     ADDRS.forEach((a, i)=>{
       const idAttr = `addr_${a.id ?? i}`;
       const label = [
-        a.alias ? `<strong>${a.alias}</strong>` : '<strong>Dirección</strong>',
+        a.alias ? `<strong style="color:var(--ink)">${a.alias}</strong>` : '<strong style="color:var(--ink)">Dirección</strong>',
         [a.calle || a.street, a.num_ext || a.ext_number].filter(Boolean).join(' '),
         [a.colonia || a.colony, a.cp || a.postal_code].filter(Boolean).join(', '),
         [a.municipio || a.municipality, a.estado || a.state].filter(Boolean).join(', ')
@@ -646,12 +682,11 @@
       const isDefault = !!a.is_default;
       const html = `
         <label class="addr-item" for="${idAttr}" data-id="${a.id ?? i}">
-          <input type="radio" name="addrOption" id="${idAttr}" style="margin:0 4px 0 0">
-          <div>
-            <div>${label} ${isDefault ? '<span class="chip" style="margin-left:6px">Predeterminada</span>' : ''}</div>
-            ${a.nombre_recibe || a.contact_name ? `<div class="muted">Contacto: ${a.nombre_recibe || a.contact_name}</div>` : ''}
+          <input type="radio" name="addrOption" id="${idAttr}">
+          <div style="font-size: 0.95rem; line-height: 1.5; color: var(--text);">
+            <div style="margin-bottom: 4px;">${label} ${isDefault ? '<span class="chip" style="margin-left:8px">Predeterminada</span>' : ''}</div>
+            ${a.nombre_recibe || a.contact_name ? `<div class="muted">Recibe: ${a.nombre_recibe || a.contact_name}</div>` : ''}
           </div>
-          <div class="muted" style="font-weight:900">Elegir</div>
         </label>
       `;
       savedList.insertAdjacentHTML('beforeend', html);

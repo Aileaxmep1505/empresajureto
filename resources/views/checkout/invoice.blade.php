@@ -3,55 +3,161 @@
 @section('title','Facturación')
 
 @section('content')
-<style>
-  :root{
-    --ink:#0b1220; --muted:#667085; --line:#eceff4; --brand:#1f4cf0; --accent:#10b981; --bg:#ffffff;
-  }
-  html,body{background:var(--bg)}
-  .wrap{max-width:980px;margin:24px auto;padding:0 16px}
-  .hero{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:14px}
-  .h-title{font-weight:900;color:var(--ink);letter-spacing:-.01em;margin:0}
-  .card{background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:0 10px 30px rgba(9,16,29,.06);overflow:hidden}
-  .card-b{padding:18px 20px}
-  .muted{color:var(--muted)}
-  .btn{display:inline-flex;align-items:center;gap:8px;border-radius:12px;padding:10px 16px;
-       border:1px solid #dfe6ee;background:#fff;font-weight:800;cursor:pointer;transition:transform .06s ease, box-shadow .2s ease}
-  .btn:hover{box-shadow:0 6px 18px rgba(15,23,42,.08)}
-  .btn:active{transform:translateY(1px)}
-  .btn-primary{background:var(--brand);border-color:var(--brand);color:#fff}
-  .btn-ghost{background:#fff}
-  .cta{display:flex;gap:10px;flex-wrap:wrap}
-  .info{display:flex;align-items:center;gap:10px;background:#f6f8ff;border:1px dashed #cdd7ff;padding:12px;border-radius:12px}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet"/>
 
-  /* Modal */
-  .modal-back{position:fixed;inset:0;background:rgba(15,23,42,.42);backdrop-filter:blur(2px);display:none;z-index:60}
-  .modal{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(720px,94vw);max-height:90vh;overflow:auto;background:#fff;border:1px solid var(--line);border-radius:18px;display:none;z-index:61;box-shadow:0 30px 80px rgba(2,8,23,.28)}
-  .modal.open,.modal-back.open{display:block}
-  .m-h{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
-  .m-b{padding:16px 18px}
-  .grid{display:grid;gap:12px;grid-template-columns:1fr 1fr}
-  @media(max-width:880px){ .grid{grid-template-columns:1fr} }
-  .fi{display:grid;gap:6px}
-  .fi label{font-size:.92rem;color:#22304a;font-weight:800}
-  .fi input,.fi select{
-    border:1px solid #dfe6ee;background:#fff;border-radius:12px;padding:12px 12px;font-size:1rem;
-    transition:border-color .18s ease, box-shadow .18s ease;
+<style>
+  /* ====================== VARIABLES ====================== */
+  :root {
+    --bg: #f9fafb;
+    --card: #ffffff;
+    --ink: #111111;
+    --text: #333333;
+    --muted: #888888;
+    --line: #ebebeb;
+    --blue: #007aff;
+    --blue-soft: #e6f0ff;
+    --success: #15803d;
+    --success-soft: #e6ffe6;
+    --danger: #ff4a4a;
+    --danger-soft: #ffebeb;
   }
-  .fi input:focus,.fi select:focus{outline:0;border-color:var(--brand);box-shadow:0 0 0 4px rgba(31,76,240,.08)}
-  .foot{display:flex;gap:10px;justify-content:flex-end;margin-top:12px}
-  .fade-in{animation:fade .25s ease-out}
-  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-  small.text-danger{color:#b42318}
+
+  /* ====================== BASE ====================== */
+  body {
+    font-family: "Quicksand", system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    margin: 0;
+  }
+
+  .wrap {
+    max-width: 860px; /* Un poco más angosto para lectura cómoda */
+    margin: clamp(32px, 5vw, 48px) auto;
+    padding: 0 20px;
+    box-sizing: border-box;
+  }
+
+  /* ====================== HERO & CARDS ====================== */
+  .hero {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+  }
+  .h-title {
+    font-weight: 700;
+    color: var(--ink);
+    font-size: 1.8rem;
+    margin: 0 0 8px 0;
+  }
+  .muted {
+    color: var(--muted);
+    font-weight: 500;
+    line-height: 1.5;
+  }
+  .text-danger { color: var(--danger); font-size: 0.85rem; font-weight: 600; margin-top: 4px; display: block; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+    overflow: hidden;
+  }
+  .card-b {
+    padding: 24px;
+  }
+
+  .info {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    background: var(--blue-soft);
+    border: 1px solid var(--blue);
+    padding: 20px;
+    border-radius: 12px;
+  }
+
+  /* ====================== BUTTONS ====================== */
+  .cta { display: flex; gap: 12px; flex-wrap: wrap; }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    border-radius: 8px; padding: 12px 20px;
+    font-weight: 600; font-size: 0.95rem; font-family: inherit;
+    text-decoration: none; cursor: pointer; border: none;
+    transition: transform 0.15s ease, background 0.2s ease, box-shadow 0.2s ease;
+  }
+  .btn:active { transform: scale(0.98); }
+  .btn-primary { background: var(--blue); color: #ffffff; }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(0, 122, 255, 0.15); }
+  .btn-ghost { background: transparent; color: #555555; border: 1px solid var(--line); }
+  .btn-ghost:hover { background: var(--bg); color: var(--ink); }
+
+  /* ====================== MODALS ====================== */
+  .modal-back {
+    position: fixed; inset: 0; background: rgba(17, 17, 17, 0.45);
+    z-index: 9998; display: none;
+  }
+  .modal {
+    position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    width: min(720px, 92vw); max-height: calc(100vh - 64px); overflow-y: auto;
+    background: var(--card); border-radius: 16px; box-shadow: 0 24px 48px rgba(0,0,0,0.15);
+    z-index: 9999; display: none;
+  }
+  .modal.open, .modal-back.open { display: block; }
+  
+  .m-h {
+    padding: 20px 24px; border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; background: var(--card); z-index: 10;
+  }
+  .m-b { padding: 24px; }
+
+  /* ====================== FORMS ====================== */
+  .grid { display: grid; gap: 16px; grid-template-columns: 1fr 1fr; }
+  @media(max-width: 640px){ .grid { grid-template-columns: 1fr; } }
+  
+  .fi { display: grid; gap: 8px; }
+  .fi label { font-size: 0.85rem; color: var(--ink); font-weight: 600; }
+  .fi input, .fi select {
+    width: 100%; box-sizing: border-box;
+    border: 1px solid var(--line); border-radius: 8px;
+    padding: 12px 14px; font-size: 0.95rem; font-family: inherit; font-weight: 500;
+    color: var(--ink); background: var(--card);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease; outline: none;
+  }
+  .fi input::placeholder { color: #a0a0a0; }
+  .fi input:focus, .fi select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-soft); }
+  .fi select:disabled { background: var(--bg); color: var(--muted); cursor: not-allowed; }
+  
+  .fi select {
+    appearance: none; -webkit-appearance: none; padding-right: 36px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23888888'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+    background-position: right 12px center; background-size: 16px; background-repeat: no-repeat;
+  }
+
+  .foot { display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px; border-top: 1px solid var(--line); padding-top: 20px; }
+  
+  /* Details / Accordion */
+  details summary { outline: none; color: var(--blue); font-weight: 700; cursor: pointer; margin-bottom: 8px; transition: color 0.2s; }
+  details summary:hover { color: var(--ink); }
+  details summary::marker { color: var(--muted); }
+
+  .fade-in { animation: fade 0.3s ease-out; }
+  @keyframes fade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 </style>
 
 <div class="wrap">
-  <div class="hero">
+  <div class="hero fade-in">
     <div>
       <h1 class="h-title">¿Requieres factura?</h1>
-      <div class="muted">Validaremos tu RFC y después capturaremos tus datos fiscales (CFDI 4.0).</div>
+      <div class="muted">Validaremos tu RFC y capturaremos tus datos fiscales (CFDI 4.0).</div>
     </div>
     <div class="cta">
-      <a href="{{ route('checkout.shipping') }}" class="btn">Continuar sin factura</a>
+      <a href="{{ route('checkout.shipping') }}" class="btn btn-ghost">Continuar sin factura</a>
       <button class="btn btn-primary" id="open-rfc">Sí, facturar</button>
     </div>
   </div>
@@ -59,8 +165,11 @@
   <div class="card fade-in">
     <div class="card-b">
       <div class="info">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="10" stroke="#1f4cf0" stroke-width="2"/><path d="M12 8v6" stroke="#1f4cf0" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="16.5" r="1" fill="#1f4cf0"/></svg>
-        <div class="muted">Usaremos tus datos para timbrar una factura CFDI 4.0 y enviarla al correo que indiques.</div>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" style="margin-top: 2px;">
+          <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
+          <polyline points="13 2 13 9 20 9"></polyline>
+        </svg>
+        <div class="muted" style="color: var(--ink);">Usaremos tus datos para timbrar una factura CFDI 4.0 y enviarla al correo electrónico que nos indiques.</div>
       </div>
     </div>
   </div>
@@ -70,18 +179,19 @@
 <div class="modal-back" id="rfc-back"></div>
 <section class="modal" id="rfc-modal" role="dialog" aria-modal="true" aria-labelledby="rfc-title">
   <div class="m-h">
-    <h3 id="rfc-title" style="margin:0;font-weight:900">Valida tu RFC</h3>
-    <button class="btn" id="rfc-close" type="button">Cerrar</button>
+    <h3 id="rfc-title" style="margin:0; font-weight:700; font-size: 1.2rem; color: var(--ink);">Valida tu RFC</h3>
+    <button class="btn btn-ghost" id="rfc-close" type="button" style="padding: 6px 12px; border:none;">Cerrar</button>
   </div>
   <div class="m-b">
     <form id="rfc-form" class="fi" autocomplete="off" novalidate>
       @csrf
-      <label for="rfc">RFC (personas físicas 13, morales 12)</label>
+      <label for="rfc">RFC (Personas físicas 13, morales 12)</label>
       <input id="rfc" name="rfc" maxlength="13" placeholder="Ej. ABCD001122XXX" value="{{ old('rfc') }}" required>
-      <small id="rfc-help" class="muted">Se permite RFC genérico XAXX010101000 / XEXX010101000.</small>
+      <small id="rfc-help" class="muted" style="margin-top: 4px;">Se permite RFC genérico XAXX010101000 / XEXX010101000.</small>
       <div id="rfc-error" class="text-danger" style="display:none"></div>
+      
       <div class="foot">
-        <button type="button" class="btn" id="rfc-cancel">Cancelar</button>
+        <button type="button" class="btn btn-ghost" id="rfc-cancel" style="border:none;">Cancelar</button>
         <button type="submit" class="btn btn-primary">Validar y continuar</button>
       </div>
     </form>
@@ -92,8 +202,8 @@
 <div class="modal-back" id="inv-back"></div>
 <section class="modal" id="inv-modal" role="dialog" aria-modal="true" aria-labelledby="inv-title">
   <div class="m-h">
-    <h3 id="inv-title" style="margin:0;font-weight:900">Datos de facturación</h3>
-    <button class="btn" id="inv-close" type="button">Cerrar</button>
+    <h3 id="inv-title" style="margin:0; font-weight:700; font-size: 1.2rem; color: var(--ink);">Datos de facturación</h3>
+    <button class="btn btn-ghost" id="inv-close" type="button" style="padding: 6px 12px; border:none;">Cerrar</button>
   </div>
   <div class="m-b">
     <form method="POST" action="{{ route('checkout.invoice.store') }}" id="invoice-form" autocomplete="off" novalidate>
@@ -101,9 +211,8 @@
       <input type="hidden" name="rfc" id="final-rfc" value="{{ old('rfc') }}">
 
       <div class="grid">
-        <div class="fi" style="grid-column:span 2">
+        <div class="fi" style="grid-column: 1 / -1;">
           <label>Razón social *</label>
-          {{-- IMPORTANTE: name="razon" para coincidir con el controlador --}}
           <input name="razon" value="{{ old('razon') }}" required>
           @error('razon')<small class="text-danger">{{ $message }}</small>@enderror
         </div>
@@ -124,7 +233,7 @@
         <div class="fi">
           <label>Uso CFDI *</label>
           <select name="uso_cfdi" required>
-            <option value="" hidden>Selecciona el uso del CFDI…</option>
+            <option value="" hidden>Selecciona el uso…</option>
             @foreach(($usoCfdiOptions ?? []) as $code => $label)
               <option value="{{ $code }}" {{ old('uso_cfdi')===$code ? 'selected' : '' }}>
                 {{ $code }} — {{ $label }}
@@ -136,69 +245,62 @@
 
         <div class="fi">
           <label>Contacto (opcional)</label>
-          {{-- coincide con validador: "contacto" --}}
-          <input name="contacto" value="{{ old('contacto') }}">
+          <input name="contacto" value="{{ old('contacto') }}" placeholder="Nombre de quien tramita">
         </div>
 
         <div class="fi">
           <label>Teléfono (opcional)</label>
-          {{-- coincide con validador: "telefono" --}}
-          <input name="telefono" value="{{ old('telefono') }}">
+          <input name="telefono" value="{{ old('telefono') }}" placeholder="10 dígitos">
         </div>
 
         <div class="fi">
           <label>Código postal (fiscal) *</label>
-          {{-- puedes enviar "zip"; el backend lo normaliza a "cp" --}}
-          <input id="zip" name="zip" inputmode="numeric" maxlength="10" value="{{ old('zip') }}" required>
+          <input id="zip" name="zip" inputmode="numeric" maxlength="10" value="{{ old('zip') }}" required placeholder="Ej. 01000">
           @error('cp')<small class="text-danger">{{ $message }}</small>@enderror
         </div>
 
         <div class="fi">
           <label>Colonia (fiscal) *</label>
-          {{-- coincide con validador: "colonia" --}}
           <input list="colonies-list" id="colony" name="colonia" value="{{ old('colonia') }}" required>
           <datalist id="colonies-list"></datalist>
           @error('colonia')<small class="text-danger">{{ $message }}</small>@enderror
         </div>
 
-        <div class="fi" style="grid-column:span 2">
+        <div class="fi" style="grid-column: 1 / -1;">
           <label>Calle y número (fiscal) (opcional)</label>
-          {{-- coincide con validador: "direccion" (una sola línea) --}}
           <input name="direccion" value="{{ old('direccion') }}" placeholder="Calle, No. Ext, No. Int">
           @error('direccion')<small class="text-danger">{{ $message }}</small>@enderror
         </div>
 
         <div class="fi">
           <label>Estado (fiscal) *</label>
-          {{-- coincide con validador: "estado" --}}
           <input id="state" name="estado" value="{{ old('estado') }}" required>
           @error('estado')<small class="text-danger">{{ $message }}</small>@enderror
         </div>
 
         <div class="fi">
           <label>Municipio / Alcaldía (fiscal) (opcional)</label>
-          {{-- no es obligatorio en el validador del perfil --}}
           <input id="municipality" name="municipality" value="{{ old('municipality') }}">
         </div>
 
-        <div class="fi" style="grid-column:span 2">
+        <div class="fi" style="grid-column: 1 / -1;">
           <label>Email para enviar la factura (opcional)</label>
-          <input type="email" name="email" value="{{ old('email', auth()->user()->email ?? '') }}">
+          <input type="email" name="email" value="{{ old('email', auth()->user()->email ?? '') }}" placeholder="ejemplo@empresa.com">
           @error('email')<small class="text-danger">{{ $message }}</small>@enderror
         </div>
 
-        <div class="fi">
+        <div class="fi" style="grid-column: 1 / -1;">
           <label>Método de pago</label>
           <select name="payment_method" disabled>
-            <option selected>Tarjeta</option>
+            <option selected>Tarjeta de Crédito / Débito</option>
           </select>
         </div>
       </div>
 
-      {{-- (Opcional) Guardar/actualizar una dirección de envío por AJAX antes de enviar el perfil fiscal --}}
-      <details style="margin-top:14px">
-        <summary class="muted" style="cursor:pointer;font-weight:700">¿Guardar también una dirección de entrega?</summary>
-        <div class="grid" style="margin-top:12px">
+      {{-- (Opcional) Guardar/actualizar dirección de envío --}}
+      <details style="margin-top: 24px; padding: 16px; background: var(--bg); border: 1px solid var(--line); border-radius: 12px;">
+        <summary>¿Guardar también una dirección de entrega?</summary>
+        <div class="grid" style="margin-top: 16px;">
           <div class="fi">
             <label>Contacto (quien recibe)</label>
             <input id="ship_contact_name" placeholder="Nombre de contacto" value="">
@@ -208,18 +310,18 @@
             <input id="ship_phone" type="tel" placeholder="Celular o fijo" value="">
           </div>
 
-          <div class="fi" style="grid-column:span 2">
+          <div class="fi" style="grid-column: 1 / -1;">
             <label>Calle</label>
-            <input id="ship_street" placeholder="Calle" value="">
+            <input id="ship_street" placeholder="Nombre de la calle" value="">
           </div>
 
           <div class="fi">
             <label>No. exterior</label>
-            <input id="ship_ext" placeholder="No. exterior" value="">
+            <input id="ship_ext" placeholder="Ej. 123" value="">
           </div>
           <div class="fi">
             <label>No. interior (opcional)</label>
-            <input id="ship_int" placeholder="No. interior" value="">
+            <input id="ship_int" placeholder="Ej. B" value="">
           </div>
 
           <div class="fi">
@@ -228,7 +330,7 @@
           </div>
           <div class="fi">
             <label>Municipio / Alcaldía</label>
-            <input id="ship_mun" placeholder="Municipio o alcaldía" value="">
+            <input id="ship_mun" placeholder="Municipio" value="">
           </div>
 
           <div class="fi">
@@ -243,7 +345,7 @@
       </details>
 
       <div class="foot">
-        <a class="btn" href="{{ route('checkout.shipping') }}">Omitir ahora</a>
+        <a class="btn btn-ghost" href="{{ route('checkout.shipping') }}" style="border:none;">Omitir ahora</a>
         <button class="btn btn-primary" type="submit" id="btn-save">
           <span id="btn-text">Guardar y continuar</span>
           <span id="btn-spin" style="display:none">Procesando…</span>
@@ -259,8 +361,8 @@
   const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 
   // Rutas backend
-  const ROUTE_CP   = @json(route('checkout.cp'));            // GET ?cp=XXXXX (autocompleta colonia/estado/municipio)
-  const ROUTE_ADDR = @json(route('checkout.address.store')); // POST JSON (opcional) para dirección de envío
+  const ROUTE_CP   = @json(route('checkout.cp'));            // GET ?cp=XXXXX 
+  const ROUTE_ADDR = @json(route('checkout.address.store')); // POST JSON
 
   // ===== RFC Modal logic
   const rfcBtn   = document.getElementById('open-rfc');
@@ -284,8 +386,7 @@
 
   function validaRFC(value){
     const v = (value||'').toUpperCase().trim();
-    if (v === 'XAXX010101000' || v === 'XEXX010101000') return true; // genérico
-    // 12 (moral) o 13 (física) alfanumérico
+    if (v === 'XAXX010101000' || v === 'XEXX010101000') return true;
     return /^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$/.test(v);
   }
 
@@ -302,7 +403,7 @@
     rfcHelp.classList.remove('text-danger');
     finalRFC.value = v;
     closeRFC();
-    openINV(); // abre el segundo modal
+    openINV();
   });
 
   // ===== Invoice Modal logic
@@ -317,7 +418,7 @@
   invBack?.addEventListener('click', closeINV);
   document.addEventListener('keydown', e => { if(e.key === 'Escape'){ closeRFC(); closeINV(); } });
 
-  // ===== CP lookup (colonias/estado/municipio) para datos fiscales
+  // ===== CP lookup para datos fiscales
   const zip = document.getElementById('zip');
   const colony = document.getElementById('colony');
   const datalist = document.getElementById('colonies-list');
@@ -342,7 +443,7 @@
   }
   zip?.addEventListener('input', e=>{ if((e.target.value||'').length===5) lookupCP(e.target.value); });
 
-  // ===== Guardar dirección de envío por AJAX (opcional, no bloqueante)
+  // ===== Guardar dirección de envío por AJAX
   const form = document.getElementById('invoice-form');
   const btn  = document.getElementById('btn-save');
   const t    = document.getElementById('btn-text');
@@ -351,7 +452,6 @@
   form?.addEventListener('submit', ()=>{
     btn.disabled = true; t.style.display='none'; s.style.display='inline';
 
-    // Si el usuario llenó algo en el bloque de envío, intentamos guardarlo con keepalive
     const payload = {
       contact_name: (document.getElementById('ship_contact_name')?.value || '').trim(),
       phone:        (document.getElementById('ship_phone')?.value || '').trim(),
@@ -363,20 +463,21 @@
       state:        (document.getElementById('ship_state')?.value || '').trim(),
       postal_code:  (document.getElementById('ship_cp')?.value || '').trim(),
     };
+    
     const hasAny = Object.values(payload).some(v => (v||'').length>0);
-    if(!hasAny) return; // nada que guardar
+    if(!hasAny) return;
 
     try{
       fetch(ROUTE_ADDR, {
         method:'POST',
         headers:{'X-CSRF-TOKEN': csrf, 'Accept':'application/json', 'Content-Type':'application/json'},
         body: JSON.stringify(payload),
-        keepalive: true // permite que se envíe incluso si navegamos al siguiente paso
+        keepalive: true
       }).catch(()=>{});
-    }catch(e){/* noop */}
+    }catch(e){}
   });
 
-  // Si ya venía RFC precargado (old), abre directo captura
+  // Si ya venía RFC precargado, abre directo la captura
   if(finalRFC.value){ openINV(); }
 })();
 </script>
