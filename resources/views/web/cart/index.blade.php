@@ -3,7 +3,6 @@
 
 @section('content')
 @php
-  use Illuminate\Support\Facades\Storage;
   use Illuminate\Support\Str;
 
   $FREE_SHIP = (float) env('FREE_SHIPPING_THRESHOLD', 5000);
@@ -11,16 +10,21 @@
   $subtotal  = (float) ($totals['subtotal'] ?? 0);
   $count     = (int)   ($totals['count'] ?? 0);
 
-  /**
-   * IMPORTANTE: NO agregues IVA aquí.
-   * Si tu backend ya trae IVA incluido en los precios, el total debe ser el subtotal.
-   */
-  $total = $subtotal;
+  // ✅ NO IVA extra: total = subtotal
+  $total     = $subtotal;
 
   $faltan    = max(0, $FREE_SHIP - $subtotal);
   $pct       = $FREE_SHIP > 0 ? min(100, (int) round(($subtotal / $FREE_SHIP)*100)) : 100;
 
-  // Resolver imagen sin romper tu diseño
+  /**
+   * ✅ Resolver imagen guardada como:
+   *   catalog/photos/xxxx.jpg
+   * -> URL pública:
+   *   asset('storage/catalog/photos/xxxx.jpg')
+   *
+   * Esto funciona aunque el proyecto esté en subcarpeta.
+   * Requiere: php artisan storage:link
+   */
   $resolveImg = function($raw){
     if(!$raw || !is_string($raw) || trim($raw)==='') return asset('images/placeholder.png');
 
@@ -29,12 +33,15 @@
     // URL absoluta
     if (Str::startsWith($raw, ['http://','https://'])) return $raw;
 
-    // Ya es pública
-    if (Str::startsWith($raw, '/storage/')) return $raw;
-    if (Str::startsWith($raw, 'storage/')) return asset($raw);
+    // Si ya viene como /storage/... o storage/...
+    if (Str::startsWith($raw, '/storage/')) return url($raw);
+    if (Str::startsWith($raw, 'storage/'))  return asset($raw);
 
-    // Ruta guardada en disk public, ej: "catalog/photos/xxx.webp"
-    return Storage::url($raw); // => "/storage/catalog/photos/xxx.webp"
+    // Tu caso: catalog/photos/...
+    if (Str::startsWith($raw, 'catalog/'))  return asset('storage/' . ltrim($raw, '/'));
+
+    // Fallback: intentar tratarlo como ruta relativa del storage
+    return asset('storage/' . ltrim($raw, '/'));
   };
 @endphp
 
@@ -579,7 +586,7 @@
     }
   }
 
-  // ✅ total = subtotal
+  // ✅ total = subtotal (sin IVA extra)
   function updateSummary(totals){
     const count = totals.count ?? 0;
     const subtotal = Number(totals.subtotal ?? 0);
@@ -618,6 +625,7 @@
     }
 
     updateSummary(json.totals || {});
+
     window.dispatchEvent(new CustomEvent('cartUpdated', { detail: { count: json.totals?.count ?? 0 } }));
   }
 
