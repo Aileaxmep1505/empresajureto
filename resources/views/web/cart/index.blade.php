@@ -16,6 +16,9 @@
   $faltan    = max(0, $FREE_SHIP - $subtotal);
   $pct       = $FREE_SHIP > 0 ? min(100, (int) round(($subtotal / $FREE_SHIP)*100)) : 100;
 
+  // ✅ Cambia a false cuando ya no quieras ver debug en pantalla
+  $DEBUG_CART_IMAGES = false;
+
   /**
    * ✅ Resolver imagen guardada como:
    *   catalog/photos/xxxx.jpg
@@ -33,14 +36,14 @@
     // URL absoluta
     if (Str::startsWith($raw, ['http://','https://'])) return $raw;
 
-    // Si ya viene como /storage/... o storage/...
+    // Ya es pública
     if (Str::startsWith($raw, '/storage/')) return url($raw);
     if (Str::startsWith($raw, 'storage/'))  return asset($raw);
 
     // Tu caso: catalog/photos/...
     if (Str::startsWith($raw, 'catalog/'))  return asset('storage/' . ltrim($raw, '/'));
 
-    // Fallback: intentar tratarlo como ruta relativa del storage
+    // Fallback: tratarlo como ruta del storage
     return asset('storage/' . ltrim($raw, '/'));
   };
 @endphp
@@ -343,6 +346,16 @@
   /* Anim pulse */
   @keyframes pulseRow{0%{background:transparent}50%{background:var(--blue-soft)}100%{background:transparent}}
   #cart .pulse{ animation:pulseRow .8s ease; }
+
+  /* Debug on-screen (optional) */
+  #cart .img-debug{
+    margin-top:6px;
+    font-size:11px;
+    color:#9ca3af;
+    line-height:1.2;
+    word-break: break-all;
+    display:block;
+  }
 </style>
 
 <div id="cart">
@@ -391,17 +404,28 @@
               </thead>
               <tbody id="cartRows">
                 @foreach(($cart ?? []) as $row)
-                @php $img = $resolveImg($row['image'] ?? null); @endphp
+                @php
+                  $imgRaw = $row['image'] ?? null;
+                  $img = $resolveImg($imgRaw);
+                @endphp
                 <tr data-id="{{ $row['id'] }}">
                   <td data-label="Producto">
                     <div class="row">
                       <img class="thumb"
                            src="{{ $img }}"
                            alt="{{ $row['name'] }}"
-                           onerror="this.onerror=null;this.src='{{ asset('images/placeholder.png') }}'">
+                           onload="console.log('IMG OK:', this.src)"
+                           onerror="console.log('IMG FAIL:', this.src); this.onerror=null; this.src='{{ asset('images/placeholder.png') }}'">
                       <div>
                         <a class="prod-name" href="{{ route('web.catalog.show', $row['slug'] ?? '') }}">{{ $row['name'] }}</a>
                         <div class="sku">SKU: {{ !empty($row['sku']) ? $row['sku'] : '—' }}</div>
+
+                        @if($DEBUG_CART_IMAGES)
+                          <small class="img-debug">
+                            RAW: {{ $imgRaw ?? 'NULL' }}<br>
+                            FINAL: {{ $img }}
+                          </small>
+                        @endif
                       </div>
                     </div>
                   </td>
@@ -625,7 +649,6 @@
     }
 
     updateSummary(json.totals || {});
-
     window.dispatchEvent(new CustomEvent('cartUpdated', { detail: { count: json.totals?.count ?? 0 } }));
   }
 
@@ -641,9 +664,14 @@
     cartSet(id, Math.max(1,(parseInt(input.value||'1',10)-1)));
   }
 
-  (function(){
+  document.addEventListener('DOMContentLoaded', () => {
     setFreeBar({{ json_encode($subtotal) }});
-  })();
+
+    console.log('--- CART IMG DEBUG (DOM) ---');
+    document.querySelectorAll('#cartRows img.thumb').forEach((img, i) => {
+      console.log(`[thumb ${i}] src=`, img.getAttribute('src'));
+    });
+  });
 </script>
 @endpush
 @endsection
