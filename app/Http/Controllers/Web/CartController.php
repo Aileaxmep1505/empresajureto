@@ -5,50 +5,75 @@ namespace App\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use App\Models\CatalogItem;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class CartController extends Controller
 {
-    /**
-     * Obtiene el carrito desde sesión.
-     * Estructura: [id => ['id','name','price','qty','image','slug','sku']]
-     */
     private function getCart(): array
     {
         return session()->get('cart', []);
     }
 
-    /** Guarda el carrito en sesión. */
     private function saveCart(array $cart): void
     {
         session(['cart' => $cart]);
     }
 
-    /** Precio unitario considerando oferta si existe. */
     private function unitPrice(CatalogItem $item): float
     {
         return (float)($item->sale_price ?? $item->price ?? 0);
     }
 
-    /** Totales del carrito. Ajusta IVA según tu caso. */
+    /**
+     * URL pública de la imagen principal (photo_1 preferida).
+     * Requiere: php artisan storage:link
+     */
+    private function primaryImageUrl(CatalogItem $item): ?string
+    {
+        $candidates = [$item->photo_1 ?? null, $item->photo_2 ?? null, $item->photo_3 ?? null];
+
+        foreach ($candidates as $path) {
+            if (!$path || !is_string($path) || trim($path) === '') continue;
+
+            $path = trim($path);
+
+            // si ya es URL absoluta
+            if (Str::startsWith($path, ['http://', 'https://'])) return $path;
+
+            // si viene como "storage/..."
+            if (Str::startsWith($path, 'storage/')) return asset($path);
+
+            // si viene como "catalog/photos/..." (guardado en disk public)
+            return Storage::url($path); // => /storage/catalog/photos/...
+        }
+
+        return null;
+    }
+
+    /**
+     * Totales del carrito.
+     * IMPORTANTE: NO se agrega IVA porque ya viene incluido en los precios.
+     */
     private function totals(array $cart): array
     {
         $subtotal = 0.0;
         foreach ($cart as $row) {
             $subtotal += ((float)$row['price']) * ((int)$row['qty']);
         }
-        $ivaRate  = 0.16; // cambia a 0 si no aplicas IVA
-        $iva      = round($subtotal * $ivaRate, 2);
-        $total    = round($subtotal + $iva, 2);
+
+        $subtotal = round($subtotal, 2);
+        $iva = 0.0;
+        $total = $subtotal;
 
         return [
             'count'    => array_sum(array_column($cart, 'qty')),
-            'subtotal' => round($subtotal, 2),
+            'subtotal' => $subtotal,
             'iva'      => $iva,
             'total'    => $total,
         ];
     }
 
-    /** Vista del carrito. */
     public function index()
     {
         $cart   = $this->getCart();
@@ -56,7 +81,6 @@ class CartController extends Controller
         return view('web.cart.index', compact('cart', 'totals'));
     }
 
-    /** Agregar item al carrito (AJAX-friendly). */
     public function add(Request $request)
     {
         $data = $request->validate([
@@ -67,16 +91,24 @@ class CartController extends Controller
         $item = CatalogItem::published()->findOrFail($data['catalog_item_id']);
         $cart = $this->getCart();
 
+        $qtyToAdd = (int)($data['qty'] ?? 1);
+
         if (isset($cart[$item->id])) {
-            $cart[$item->id]['qty'] += ($data['qty'] ?? 1);
+            $cart[$item->id]['qty'] += $qtyToAdd;
+
+            // (opcional) refresca imagen si antes estaba vacía
+            if (empty($cart[$item->id]['image'])) {
+                $cart[$item->id]['image'] = $this->primaryImageUrl($item);
+            }
         } else {
             $cart[$item->id] = [
                 'id'    => $item->id,
                 'slug'  => $item->slug,
                 'name'  => $item->name,
                 'price' => $this->unitPrice($item),
-                'qty'   => (int)($data['qty'] ?? 1),
-                'image' => $item->image_url,
+                'qty'   => $qtyToAdd,
+                // ✅ FOTO PRINCIPAL REAL
+                'image' => $this->primaryImageUrl($item),
                 'sku'   => $item->sku,
             ];
         }
@@ -84,16 +116,13 @@ class CartController extends Controller
         $this->saveCart($cart);
         $totals = $this->totals($cart);
 
-        // Para peticiones AJAX/Fetch -> no redirige
         if ($request->ajax() || $request->wantsJson()) {
             return response()->json(['ok' => true, 'cart' => $cart, 'totals' => $totals]);
         }
 
-        // Fallback si alguien envía sin JS
         return back()->with('ok', 'Producto agregado al carrito.');
     }
 
-    /** Actualiza cantidad de un item (siempre JSON). */
     public function update(Request $request)
     {
         $data = $request->validate([
@@ -113,7 +142,6 @@ class CartController extends Controller
         return response()->json(['ok'=>true,'cart'=>$cart,'totals'=>$totals]);
     }
 
-    /** Elimina un item del carrito (AJAX-friendly). */
     public function remove(Request $request)
     {
         $data = $request->validate([
@@ -131,7 +159,6 @@ class CartController extends Controller
         return back()->with('ok', 'Producto eliminado del carrito.');
     }
 
-    /** Vacía el carrito (AJAX-friendly). */
     public function clear(Request $request)
     {
         $this->saveCart([]);
@@ -143,7 +170,6 @@ class CartController extends Controller
         return back()->with('ok', 'Carrito vaciado.');
     }
 
-    /** Previsualización de checkout. */
     public function checkoutPreview()
     {
         $cart   = $this->getCart();
