@@ -101,7 +101,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
 use App\Http\Controllers\Projects\ProjectBoardController;
 use App\Http\Controllers\Admin\CategoryProductController;
-
+use App\Http\Controllers\Admin\WmsReceptionController;
 
 /*
 |--------------------------------------------------------------------------
@@ -1189,14 +1189,17 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
         ->name('admin.licitacion-pdfs.ai.viewer');
 });
 
-
+Route::middleware(['auth'])->prefix('admin/wms')->name('admin.wms.')->group(function () {
+    Route::get('/', [WmsAnalyticsController::class, 'dashboard'])->name('home');
+    Route::get('/analytics', [WmsAnalyticsController::class, 'index'])->name('analytics');
+});
 
 Route::middleware(['auth'])->prefix('admin/wms')->name('admin.wms.')->group(function () {
 
     /* =========================
      |  VISTAS (BLADES)
      ========================= */
-    Route::get('/', fn () => view('admin.wms.home'))->name('home');
+  
 
     // Buscador UI
     Route::get('/search', fn () => view('admin.wms.search'))->name('search.view');
@@ -1896,3 +1899,39 @@ Route::middleware(['web','auth'])->prefix('admin')->group(function () {
   Route::get('category-products/{category}', [CategoryProductController::class, 'show']);
   Route::post('category-products', [CategoryProductController::class, 'store']);
 });
+
+
+Route::middleware(['auth'])->prefix('admin/wms/receptions')->group(function () {
+    Route::get('/', [WmsReceptionController::class, 'index'])->name('admin.wms.receptions.index');
+
+    Route::get('/create', [WmsReceptionController::class, 'create'])->name('admin.wms.receptions.create');
+    Route::post('/', [WmsReceptionController::class, 'store'])->name('admin.wms.receptions.store');
+
+    Route::get('/api/users', [WmsReceptionController::class, 'users'])->name('admin.wms.receptions.users');
+    Route::get('/api/products', [WmsReceptionController::class, 'products'])->name('admin.wms.receptions.products');
+    Route::post('/api/products/quick-store', [WmsReceptionController::class, 'quickStoreProduct'])->name('admin.wms.receptions.products.quick-store');
+
+    Route::post('/signatures/start', [WmsReceptionController::class, 'startSignatures'])->name('admin.wms.receptions.signatures.start');
+    Route::get('/{id}/signature-status', [WmsReceptionController::class, 'signatureStatus'])->name('admin.wms.receptions.signature-status');
+
+    Route::get('/{id}/pdf', [WmsReceptionController::class, 'pdf'])->name('admin.wms.receptions.pdf');
+    Route::get('/{id}/labels', [WmsReceptionController::class, 'labels'])->name('admin.wms.receptions.labels');
+
+    Route::get('/{id}', [WmsReceptionController::class, 'show'])->name('admin.wms.receptions.show');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Rutas públicas para QR / firma móvil
+|--------------------------------------------------------------------------
+*/
+Route::get('/reception-sign/{token}', [WmsReceptionController::class, 'mobileSignature'])
+    ->name('public.receptions.mobile');
+
+Route::post('/reception-sign/{token}', [WmsReceptionController::class, 'saveMobileSignature'])
+    ->name('public.receptions.mobile.save');
+
+Route::get('/reception-sign/{token}/status', [WmsReceptionController::class, 'publicSignatureStatus'])
+    ->name('public.receptions.mobile.status');
+
+    

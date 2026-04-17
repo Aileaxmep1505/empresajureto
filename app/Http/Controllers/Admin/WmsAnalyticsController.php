@@ -15,12 +15,14 @@ use App\Models\Warehouse;
 use App\Models\WmsMovement;
 use App\Models\WmsMovementLine;
 use App\Models\WmsQuickBox;
+use App\Models\WmsReception;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 
@@ -372,7 +374,8 @@ TXT;
         $today = now()->toDateString();
 
         $hasCatalogStock = Schema::hasColumn('catalog_items', 'stock');
-        $hasCatalogMinStock = Schema::hasColumn('catalog_items', 'min_stock');
+        $hasCatalogMinStock = Schema::hasColumn('catalog_items', 'stock_min');
+        $hasCatalogMaxStock = Schema::hasColumn('catalog_items', 'stock_max');
         $hasCatalogCategory = Schema::hasColumn('catalog_items', 'category');
         $hasCatalogMeliGtin = Schema::hasColumn('catalog_items', 'meli_gtin');
         $hasInventoryQty = Schema::hasColumn('inventories', 'qty');
@@ -389,7 +392,10 @@ TXT;
             $catalogSelect[] = 'stock';
         }
         if ($hasCatalogMinStock) {
-            $catalogSelect[] = 'min_stock';
+            $catalogSelect[] = 'stock_min';
+        }
+        if ($hasCatalogMaxStock) {
+            $catalogSelect[] = 'stock_max';
         }
         if ($hasCatalogCategory) {
             $catalogSelect[] = 'category';
@@ -445,9 +451,10 @@ TXT;
         if ($hasCatalogMinStock) {
             if ($warehouseId > 0 && $warehouseStockByItem->isNotEmpty()) {
                 $lowStockProducts = $products
-                    ->map(function ($product) use ($warehouseStockByItem) {
+                    ->map(function ($product) use ($warehouseStockByItem, $hasCatalogMaxStock) {
                         $stock = (int) ($warehouseStockByItem[$product->id] ?? 0);
-                        $minStock = (int) ($product->min_stock ?? 0);
+                        $minStock = (int) ($product->stock_min ?? 0);
+                        $maxStock = $hasCatalogMaxStock ? (int) ($product->stock_max ?? 0) : 0;
 
                         return [
                             'id' => $product->id,
@@ -455,6 +462,7 @@ TXT;
                             'sku' => $product->sku,
                             'stock' => $stock,
                             'min_stock' => $minStock,
+                            'max_stock' => $maxStock,
                             'deficit' => max(0, $minStock - $stock),
                         ];
                     })
@@ -466,19 +474,25 @@ TXT;
                 $lowStockCount = (int) $lowStockProducts->count();
             } elseif ($hasCatalogStock) {
                 $lowStockCount = (int) CatalogItem::query()
-                    ->whereNotNull('min_stock')
-                    ->whereColumn('stock', '<=', 'min_stock')
+                    ->whereNotNull('stock_min')
+                    ->whereColumn('stock', '<=', 'stock_min')
                     ->count();
 
+                $selectCols = ['id', 'name', 'sku', 'stock', 'stock_min'];
+                if ($hasCatalogMaxStock) {
+                    $selectCols[] = 'stock_max';
+                }
+
                 $lowStockProducts = CatalogItem::query()
-                    ->whereNotNull('min_stock')
-                    ->whereColumn('stock', '<=', 'min_stock')
+                    ->whereNotNull('stock_min')
+                    ->whereColumn('stock', '<=', 'stock_min')
                     ->orderBy('stock')
                     ->limit(20)
-                    ->get(['id', 'name', 'sku', 'stock', 'min_stock'])
-                    ->map(function ($product) {
+                    ->get($selectCols)
+                    ->map(function ($product) use ($hasCatalogMaxStock) {
                         $stock = (int) ($product->stock ?? 0);
-                        $minStock = (int) ($product->min_stock ?? 0);
+                        $minStock = (int) ($product->stock_min ?? 0);
+                        $maxStock = $hasCatalogMaxStock ? (int) ($product->stock_max ?? 0) : 0;
 
                         return [
                             'id' => $product->id,
@@ -486,6 +500,7 @@ TXT;
                             'sku' => $product->sku,
                             'stock' => $stock,
                             'min_stock' => $minStock,
+                            'max_stock' => $maxStock,
                             'deficit' => max(0, $minStock - $stock),
                         ];
                     })
@@ -922,11 +937,41 @@ TXT;
         ];
     }
 
+    public function dashboard(Request $request)
+    {
+        $data = $this->buildAnalyticsData($request);
+
+        $warehouseId = (int) ($data['warehouseId'] ?? 0);
+
+        $warehouseName = 'Almacén principal';
+        if ($warehouseId > 0) {
+            $warehouse = Warehouse::query()->find($warehouseId, ['id', 'name', 'code']);
+            if ($warehouse) {
+                $warehouseName = (string) ($warehouse->name ?: $warehouse->code ?: 'Almacén principal');
+            }
+        } else {
+            $warehouse = Warehouse::query()->orderBy('name')->first(['id', 'name', 'code']);
+            if ($warehouse) {
+                $warehouseName = (string) ($warehouse->name ?: $warehouse->code ?: 'Almacén principal');
+            }
+        }
+
+        return view('admin.wms.home', array_merge($data, [
+            'warehouseName' => $warehouseName,
+            'shipmentCount' => 0,
+            'draftShipmentCount' => 0,
+            'loadingShipmentCount' => 0,
+            'partialShipmentCount' => 0,
+            'dispatchedShipmentCount' => 0,
+        ]));
+    }
+
     private function buildUnifiedAuditTimeline(int $warehouseId, ?string $from = null, ?string $to = null, string $q = ''): Collection
     {
         $rows = collect()
             ->concat($this->manualMovementRows($warehouseId, $from, $to))
             ->concat($this->inventoryMovementRows($warehouseId, $from, $to))
+            ->concat($this->receptionEntryRows($warehouseId, $from, $to))
             ->concat($this->pickWaveAuditRows($warehouseId, $from, $to))
             ->values();
 
@@ -935,6 +980,169 @@ TXT;
         }
 
         return $rows->values();
+    }
+
+    private function receptionEntryRows(int $warehouseId, ?string $from, ?string $to): Collection
+    {
+        if (!Schema::hasTable('wms_receptions') || !Schema::hasTable('wms_reception_lines')) {
+            return collect();
+        }
+
+        $hasReceptionStatus = Schema::hasColumn('wms_receptions', 'status');
+        $hasReceptionDate = Schema::hasColumn('wms_receptions', 'reception_date');
+        $hasCreatedBy = Schema::hasColumn('wms_receptions', 'created_by');
+
+        $receptionLineReceptionFk = $this->firstExistingColumn('wms_reception_lines', [
+            'wms_reception_id',
+            'reception_id',
+        ]);
+
+        if (!$receptionLineReceptionFk) {
+            return collect();
+        }
+
+        $lineLocationColumn = $this->firstExistingColumn('wms_reception_lines', ['location_id']);
+        $lineQtyColumn = $this->firstExistingColumn('wms_reception_lines', ['quantity', 'qty']);
+        $lineItemColumn = $this->firstExistingColumn('wms_reception_lines', ['catalog_item_id']);
+        $lineSkuColumn = $this->firstExistingColumn('wms_reception_lines', ['sku']);
+        $lineNameColumn = $this->firstExistingColumn('wms_reception_lines', ['name']);
+        $lineDescColumn = $this->firstExistingColumn('wms_reception_lines', ['description']);
+
+        if (!$lineQtyColumn) {
+            return collect();
+        }
+
+        $query = WmsReception::query()
+            ->when($hasReceptionStatus, fn ($q) => $q->where('status', 'firmado'))
+            ->when($from, function ($q) use ($hasReceptionDate, $from) {
+                $col = $hasReceptionDate ? 'reception_date' : 'created_at';
+                $q->whereDate($col, '>=', $from);
+            })
+            ->when($to, function ($q) use ($hasReceptionDate, $to) {
+                $col = $hasReceptionDate ? 'reception_date' : 'created_at';
+                $q->whereDate($col, '<=', $to);
+            })
+            ->orderByDesc('id')
+            ->limit(1000);
+
+        $receptions = $query->get();
+
+        if ($receptions->isEmpty()) {
+            return collect();
+        }
+
+        $receptionIds = $receptions->pluck('id')->all();
+        $receptionMap = $receptions->keyBy('id');
+
+        $lines = DB::table('wms_reception_lines')
+            ->whereIn($receptionLineReceptionFk, $receptionIds)
+            ->orderByDesc('id')
+            ->limit(5000)
+            ->get();
+
+        if ($lines->isEmpty()) {
+            return collect();
+        }
+
+        $locationIds = $lineLocationColumn ? collect($lines)->pluck($lineLocationColumn)->filter()->unique()->values()->all() : [];
+        $itemIds = $lineItemColumn ? collect($lines)->pluck($lineItemColumn)->filter()->unique()->values()->all() : [];
+        $userIds = $hasCreatedBy ? $receptions->pluck('created_by')->filter()->unique()->values()->all() : [];
+
+        $locationMap = empty($locationIds)
+            ? collect()
+            : Location::query()->whereIn('id', $locationIds)->get(['id', 'code', 'warehouse_id'])->keyBy('id');
+
+        if ($warehouseId > 0 && $locationMap->isNotEmpty()) {
+            $allowedLocationIds = $locationMap
+                ->filter(fn ($loc) => (int) ($loc->warehouse_id ?? 0) === $warehouseId)
+                ->keys()
+                ->map(fn ($id) => (int) $id)
+                ->all();
+        } else {
+            $allowedLocationIds = [];
+        }
+
+        $itemMap = empty($itemIds)
+            ? collect()
+            : CatalogItem::query()->whereIn('id', $itemIds)->get($this->catalogMapColumns())->keyBy('id');
+
+        $userMap = empty($userIds)
+            ? collect()
+            : User::query()->whereIn('id', $userIds)->get(['id', 'name'])->keyBy('id');
+
+        return collect($lines)
+            ->map(function ($line) use (
+                $receptionMap,
+                $locationMap,
+                $itemMap,
+                $userMap,
+                $receptionLineReceptionFk,
+                $lineLocationColumn,
+                $lineQtyColumn,
+                $lineItemColumn,
+                $lineSkuColumn,
+                $lineNameColumn,
+                $lineDescColumn,
+                $warehouseId,
+                $allowedLocationIds,
+                $hasCreatedBy
+            ) {
+                $receptionId = (int) ($line->{$receptionLineReceptionFk} ?? 0);
+                $reception = $receptionMap[$receptionId] ?? null;
+
+                if (!$reception) {
+                    return null;
+                }
+
+                $locationId = $lineLocationColumn ? (int) ($line->{$lineLocationColumn} ?? 0) : 0;
+
+                if ($warehouseId > 0 && !empty($allowedLocationIds) && !in_array($locationId, $allowedLocationIds, true)) {
+                    return null;
+                }
+
+                $location = $locationMap[$locationId] ?? null;
+                $itemId = $lineItemColumn ? (int) ($line->{$lineItemColumn} ?? 0) : 0;
+                $item = $itemMap[$itemId] ?? null;
+                $user = $hasCreatedBy ? ($userMap[(int) ($reception->created_by ?? 0)] ?? null) : null;
+
+                $when = $reception->reception_date ?? $reception->created_at;
+                if (!$when instanceof Carbon && !empty($when)) {
+                    $when = Carbon::parse($when);
+                }
+
+                return [
+                    'event_id' => 'reception-line-' . ($line->id ?? uniqid()),
+                    'source' => 'wms_receptions',
+                    'when' => $when ? $when->format('Y-m-d H:i:s') : null,
+                    'timestamp' => $when ? $when->timestamp : 0,
+                    'group' => 'entry',
+                    'type' => 'reception_signed',
+                    'warehouse_id' => (int) (optional($location)->warehouse_id ?? 0),
+                    'user_id' => $reception->created_by ?? null,
+                    'user_name' => optional($user)->name ?: (string) ($reception->receiver_name ?? $reception->deliverer_name ?? ''),
+                    'item_id' => $itemId,
+                    'name' => optional($item)->name ?: (string) ($lineNameColumn ? ($line->{$lineNameColumn} ?? '') : ($lineDescColumn ? ($line->{$lineDescColumn} ?? '') : 'Producto')),
+                    'sku' => optional($item)->sku ?: (string) ($lineSkuColumn ? ($line->{$lineSkuColumn} ?? '') : ''),
+                    'gtin' => optional($item)->meli_gtin,
+                    'qty' => (int) ($line->{$lineQtyColumn} ?? 0),
+                    'from_location' => null,
+                    'to_location' => optional($location)->code,
+                    'location' => optional($location)->code,
+                    'stock_before' => 0,
+                    'stock_after' => 0,
+                    'inv_before' => 0,
+                    'inv_after' => 0,
+                    'note' => 'Entrada por recepción firmada',
+                    'reference' => (string) ($reception->folio ?? ('REC-' . $reception->id)),
+                    'meta' => [
+                        'reception_id' => (int) $reception->id,
+                        'reception_line_id' => (int) ($line->id ?? 0),
+                        'status' => (string) ($reception->status ?? ''),
+                    ],
+                ];
+            })
+            ->filter()
+            ->values();
     }
 
     private function manualMovementRows(int $warehouseId, ?string $from, ?string $to): Collection
@@ -1810,7 +2018,7 @@ TXT;
         $type = strtolower(trim((string) $type));
 
         return match (true) {
-            in_array($type, ['in', 'entry', 'entrada', 'entradas', 'fast_in', 'fast_in_batch', 'manual_in'], true) => 'entry',
+            in_array($type, ['in', 'entry', 'entrada', 'entradas', 'fast_in', 'fast_in_batch', 'manual_in', 'reception_signed'], true) => 'entry',
             in_array($type, ['out', 'exit', 'salida', 'salidas', 'fast_out', 'fast_out_partial', 'manual_out', 'pick_out', 'pick_complete', 'picking_out'], true) => 'exit',
             in_array($type, ['transfer', 'transferencia', 'traspaso'], true) => 'transfer',
             in_array($type, ['adjust', 'ajuste', 'inventory_adjustment', 'cycle_count', 'conteo'], true) => 'adjustment',

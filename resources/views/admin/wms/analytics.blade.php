@@ -280,6 +280,11 @@
     $featuredFastFlow = $fastFlowItems[0] ?? null;
 
     $todayLabel = now()->format('d M Y');
+
+    $alertStock = (int) data_get($featuredAlert, 'stock', data_get($featuredAlert, 'current_stock', 0));
+    $alertMin   = (int) data_get($featuredAlert, 'min_stock', data_get($featuredAlert, 'stock_min', data_get($featuredAlert, 'minimum_stock', 0)));
+    $alertMax   = (int) data_get($featuredAlert, 'max_stock', data_get($featuredAlert, 'stock_max', 0));
+    $alertDeficit = (int) data_get($featuredAlert, 'deficit', max(0, $alertMin - $alertStock));
 @endphp
 
 <div class="wmsdash-wrap">
@@ -503,10 +508,32 @@
                     <div class="mini-card-body">
                         <div class="mini-main">{{ data_get($featuredAlert, 'name', data_get($featuredAlert, 'product_name', '—')) }}</div>
                         <div class="mini-sub">{{ data_get($featuredAlert, 'sku', data_get($featuredAlert, 'product.sku', '—')) }}</div>
+
+                        <div class="alert-metrics">
+                            <div class="alert-metric">
+                                <span class="alert-metric-label">Actual</span>
+                                <span class="alert-metric-value">{{ number_format($alertStock) }}</span>
+                            </div>
+                            <div class="alert-metric">
+                                <span class="alert-metric-label">Mínimo</span>
+                                <span class="alert-metric-value">{{ number_format($alertMin) }}</span>
+                            </div>
+                            <div class="alert-metric">
+                                <span class="alert-metric-label">Máximo</span>
+                                <span class="alert-metric-value">{{ $alertMax > 0 ? number_format($alertMax) : '—' }}</span>
+                            </div>
+                            <div class="alert-metric deficit">
+                                <span class="alert-metric-label">Déficit</span>
+                                <span class="alert-metric-value">{{ number_format($alertDeficit) }}</span>
+                            </div>
+                        </div>
                     </div>
-                    <div class="mini-foot">
+                    <div class="mini-foot alert-foot">
                         <span class="pill pill-danger">
-                            {{ (int) data_get($featuredAlert, 'stock', data_get($featuredAlert, 'current_stock', 0)) }}/{{ (int) data_get($featuredAlert, 'min_stock', data_get($featuredAlert, 'minimum_stock', 0)) }}
+                            {{ number_format($alertStock) }}/{{ number_format($alertMin) }}
+                        </span>
+                        <span class="pill pill-soft-danger">
+                            Faltan {{ number_format($alertDeficit) }}
                         </span>
                     </div>
                 @else
@@ -1032,6 +1059,12 @@
         border:1px solid #fecdd3;
     }
 
+    .pill-soft-danger{
+        background:#fff1f2;
+        color:#be123c;
+        border:1px solid #fecdd3;
+    }
+
     .pill-pick{
         background:#fef3c7;
         color:#a16207;
@@ -1042,6 +1075,48 @@
         background:#ccfbf1;
         color:#0f766e;
         border:1px solid #99f6e4;
+    }
+
+    .alert-metrics{
+        display:grid;
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        gap:8px;
+        margin-top:12px;
+    }
+
+    .alert-metric{
+        border:1px solid var(--wms-line-soft);
+        background:#fbfcfe;
+        border-radius:12px;
+        padding:10px 12px;
+        display:flex;
+        flex-direction:column;
+        gap:4px;
+    }
+
+    .alert-metric.deficit{
+        background:#fff1f2;
+        border-color:#fecdd3;
+    }
+
+    .alert-metric-label{
+        font-size:.72rem;
+        color:#94a3b8;
+        font-weight:900;
+        text-transform:uppercase;
+        letter-spacing:.04em;
+    }
+
+    .alert-metric-value{
+        font-size:1rem;
+        font-weight:900;
+        color:var(--wms-ink);
+    }
+
+    .alert-foot{
+        justify-content:space-between;
+        gap:10px;
+        flex-wrap:wrap;
     }
 
     .ops-stack{
@@ -1123,6 +1198,7 @@
         .wmsdash-select{width:100%;}
         .wmsdash-panel-head{padding:16px 16px 10px;}
         .wmsdash-table-wrap{padding:0 8px 10px;}
+        .alert-metrics{grid-template-columns:1fr;}
     }
 </style>
 @endpush

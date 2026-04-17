@@ -19,6 +19,8 @@ class CatalogItem extends Model
         'price',
         'sale_price',
         'stock',
+        'stock_min',
+        'stock_max',
         'status',
         'excerpt',
         'description',
@@ -30,6 +32,9 @@ class CatalogItem extends Model
         // Categoría jerárquica
         'category_key',
         'category_product_id',
+
+        // Ubicación principal WMS
+        'primary_location_id',
 
         // Mercado Libre
         'brand_name',
@@ -63,23 +68,22 @@ class CatalogItem extends Model
     ];
 
     protected $casts = [
-        'price'            => 'decimal:2',
-        'sale_price'       => 'decimal:2',
-        'stock'            => 'integer',
-        'is_featured'      => 'boolean',
-        'published_at'     => 'datetime',
-        'meli_synced_at'   => 'datetime',
-        'amazon_synced_at' => 'datetime',
+        'price'               => 'decimal:2',
+        'sale_price'          => 'decimal:2',
+        'stock'               => 'integer',
+        'stock_min'           => 'integer',
+        'stock_max'           => 'integer',
+        'primary_location_id' => 'integer',
+        'is_featured'         => 'boolean',
+        'published_at'        => 'datetime',
+        'meli_synced_at'      => 'datetime',
+        'amazon_synced_at'    => 'datetime',
     ];
 
     public function getRouteKeyName()
     {
         return 'slug';
     }
-
-    /* =====================
-     *       Scopes
-     * ===================== */
 
     public function scopePublished($q)
     {
@@ -100,10 +104,6 @@ class CatalogItem extends Model
         return $q->orderByDesc('published_at')
                  ->orderBy('name');
     }
-
-    /* =====================
-     *     Relaciones
-     * ===================== */
 
     public function favoredBy()
     {
@@ -130,10 +130,6 @@ class CatalogItem extends Model
     {
         return $this->hasMany(\App\Models\Inventory::class, 'catalog_item_id');
     }
-
-    /* =====================
-     *      Helpers
-     * ===================== */
 
     public function mainPicture(): ?string
     {

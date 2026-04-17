@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\CatalogAiIntake;
 use App\Models\CatalogItem;
+use App\Models\CategoryProduct;
+use App\Models\Location;
 use App\Services\MeliSyncService;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -36,7 +38,7 @@ class CatalogItemController extends Controller implements HasMiddleware
 
     public function index(Request $request)
     {
-        $q = CatalogItem::query()->with('categoryProduct');
+        $q = CatalogItem::query()->with(['categoryProduct', 'primaryLocation']);
 
         $s = trim((string) $request->get('s', ''));
         if ($s !== '') {
@@ -66,13 +68,9 @@ class CatalogItemController extends Controller implements HasMiddleware
         ]);
     }
 
-    /* =========================
-     |  EXPORTS
-     ==========================*/
-
     public function exportExcel(Request $request)
     {
-        $q = CatalogItem::query()->with('categoryProduct');
+        $q = CatalogItem::query()->with(['categoryProduct', 'primaryLocation']);
 
         $s = trim((string) $request->get('s', ''));
         if ($s !== '') {
@@ -102,9 +100,12 @@ class CatalogItemController extends Controller implements HasMiddleware
             'SKU',
             'Nombre',
             'Categoría',
+            'Ubicación principal',
             'Precio',
             'Precio oferta',
             'Stock',
+            'Stock mínimo',
+            'Stock máximo',
             'Estado',
             'Destacado',
             'Slug',
@@ -126,9 +127,12 @@ class CatalogItemController extends Controller implements HasMiddleware
                 $it->sku,
                 $it->name,
                 $it->categoryProduct?->full_path ?? '',
+                $it->primaryLocation?->code ?? $it->primaryLocation?->name ?? '',
                 (float) $it->price,
                 $it->sale_price !== null ? (float) $it->sale_price : '',
                 $it->stock,
+                $it->stock_min,
+                $it->stock_max,
                 $statusText,
                 $featuredText,
                 $it->slug,
@@ -211,7 +215,7 @@ class CatalogItemController extends Controller implements HasMiddleware
 
     public function exportPdf(Request $request)
     {
-        $q = CatalogItem::query()->with('categoryProduct');
+        $q = CatalogItem::query()->with(['categoryProduct', 'primaryLocation']);
 
         $s = trim((string) $request->get('s', ''));
         if ($s !== '') {
@@ -298,9 +302,12 @@ class CatalogItemController extends Controller implements HasMiddleware
         $html .= '<th>SKU</th>';
         $html .= '<th>Nombre</th>';
         $html .= '<th>Categoría</th>';
+        $html .= '<th>Ubicación</th>';
         $html .= '<th>Precio</th>';
         $html .= '<th>Oferta</th>';
         $html .= '<th>Stock</th>';
+        $html .= '<th>Stock mín.</th>';
+        $html .= '<th>Stock máx.</th>';
         $html .= '<th>Estado</th>';
         $html .= '<th>Destacado</th>';
         $html .= '<th>Slug</th>';
@@ -321,9 +328,12 @@ class CatalogItemController extends Controller implements HasMiddleware
             $html .= '<td>' . htmlspecialchars((string) ($it->sku ?? '')) . '</td>';
             $html .= '<td>' . htmlspecialchars((string) $it->name) . '</td>';
             $html .= '<td>' . htmlspecialchars((string) ($it->categoryProduct?->full_path ?? '')) . '</td>';
+            $html .= '<td>' . htmlspecialchars((string) ($it->primaryLocation?->code ?? $it->primaryLocation?->name ?? '')) . '</td>';
             $html .= '<td>$' . number_format((float) $it->price, 2) . '</td>';
             $html .= '<td>' . ($it->sale_price !== null ? '$' . number_format((float) $it->sale_price, 2) : '—') . '</td>';
             $html .= '<td>' . htmlspecialchars((string) ($it->stock ?? 0)) . '</td>';
+            $html .= '<td>' . htmlspecialchars((string) ($it->stock_min ?? '')) . '</td>';
+            $html .= '<td>' . htmlspecialchars((string) ($it->stock_max ?? '')) . '</td>';
             $html .= '<td>' . htmlspecialchars($statusText) . '</td>';
             $html .= '<td>' . htmlspecialchars($featuredText) . '</td>';
             $html .= '<td>' . htmlspecialchars((string) $it->slug) . '</td>';
@@ -333,7 +343,7 @@ class CatalogItemController extends Controller implements HasMiddleware
         }
 
         if ($items->isEmpty()) {
-            $html .= '<tr><td colspan="12" class="muted" style="text-align:center;padding:14px 6px;">';
+            $html .= '<tr><td colspan="15" class="muted" style="text-align:center;padding:14px 6px;">';
             $html .= 'No hay productos que coincidan con el filtro.';
             $html .= '</td></tr>';
         }
@@ -345,14 +355,12 @@ class CatalogItemController extends Controller implements HasMiddleware
         return $pdf->download('inventario-jureto.pdf');
     }
 
-    /* =========================
-     |  CRUD
-     ==========================*/
-
     public function create()
     {
         return view('admin.catalog.create', [
-            'item' => null,
+            'item'       => null,
+            'categories' => $this->getCategoryOptions(),
+            'locations'  => $this->getLocationOptions(),
         ]);
     }
 
@@ -369,9 +377,12 @@ class CatalogItemController extends Controller implements HasMiddleware
             'price'               => ['required', 'numeric', 'min:0'],
             'sale_price'          => ['nullable', 'numeric', 'min:0'],
             'stock'               => ['nullable', 'integer', 'min:0'],
+            'stock_min'           => ['nullable', 'integer', 'min:0'],
+            'stock_max'           => ['nullable', 'integer', 'min:0'],
             'status'              => ['required', 'integer', 'in:0,1,2'],
             'is_featured'         => ['nullable', 'boolean'],
             'category_product_id' => ['nullable', 'integer', 'exists:category_products,id'],
+            'primary_location_id' => ['nullable', 'integer', 'exists:locations,id'],
 
             'use_internal'        => ['nullable', 'boolean'],
             'brand_id'            => ['nullable', 'integer'],
@@ -385,6 +396,17 @@ class CatalogItemController extends Controller implements HasMiddleware
             'description'         => ['nullable', 'string'],
             'published_at'        => ['nullable', 'date'],
         ]);
+
+        if (
+            isset($data['stock_min'], $data['stock_max']) &&
+            $data['stock_min'] !== null &&
+            $data['stock_max'] !== null &&
+            (int) $data['stock_max'] < (int) $data['stock_min']
+        ) {
+            throw ValidationException::withMessages([
+                'stock_max' => 'El stock máximo no puede ser menor al stock mínimo.',
+            ]);
+        }
 
         Log::info('CatalogItem@store: datos validados', [
             'data' => $data,
@@ -405,8 +427,10 @@ class CatalogItemController extends Controller implements HasMiddleware
         }
         $data['slug'] = $slug;
 
-        $data['is_featured'] = (bool) ($data['is_featured'] ?? false);
-        $data['stock']       = $data['stock'] ?? 0;
+        $data['is_featured']  = (bool) ($data['is_featured'] ?? false);
+        $data['stock']        = $data['stock'] ?? 0;
+        $data['stock_min']    = $data['stock_min'] ?? null;
+        $data['stock_max']    = $data['stock_max'] ?? null;
         $data['category_key'] = null;
 
         if (!$request->boolean('use_internal')) {
@@ -421,6 +445,7 @@ class CatalogItemController extends Controller implements HasMiddleware
                 'item_id'             => $item->id,
                 'slug'                => $item->slug,
                 'category_product_id' => $item->category_product_id ?? null,
+                'primary_location_id' => $item->primary_location_id ?? null,
             ]);
         } catch (\Throwable $e) {
             Log::error('CatalogItem@store: ERROR al crear item', [
@@ -448,27 +473,27 @@ class CatalogItemController extends Controller implements HasMiddleware
             throw $e;
         }
 
-        $this->dispatchMeliSync($item->fresh());
-
         if ($request->wantsJson()) {
             return response()->json([
                 'ok'   => true,
-                'item' => $item->fresh('categoryProduct'),
+                'item' => $item->fresh(['categoryProduct', 'primaryLocation']),
                 'msg'  => 'Producto web creado.',
             ]);
         }
 
         return redirect()
             ->route('admin.catalog.create')
-            ->with('ok', 'Producto web creado. Puedes seguir capturando más productos.');
+            ->with('ok', 'Producto web creado correctamente.');
     }
 
     public function edit(CatalogItem $catalogItem)
     {
-        $catalogItem->load('categoryProduct');
+        $catalogItem->load(['categoryProduct', 'primaryLocation']);
 
         return view('admin.catalog.edit', [
-            'item' => $catalogItem,
+            'item'       => $catalogItem,
+            'categories' => $this->getCategoryOptions(),
+            'locations'  => $this->getLocationOptions(),
         ]);
     }
 
@@ -486,9 +511,12 @@ class CatalogItemController extends Controller implements HasMiddleware
             'price'               => ['required', 'numeric', 'min:0'],
             'sale_price'          => ['nullable', 'numeric', 'min:0'],
             'stock'               => ['nullable', 'integer', 'min:0'],
+            'stock_min'           => ['nullable', 'integer', 'min:0'],
+            'stock_max'           => ['nullable', 'integer', 'min:0'],
             'status'              => ['required', 'integer', 'in:0,1,2'],
             'is_featured'         => ['nullable', 'boolean'],
             'category_product_id' => ['nullable', 'integer', 'exists:category_products,id'],
+            'primary_location_id' => ['nullable', 'integer', 'exists:locations,id'],
 
             'use_internal'        => ['nullable', 'boolean'],
             'brand_id'            => ['nullable', 'integer'],
@@ -501,6 +529,17 @@ class CatalogItemController extends Controller implements HasMiddleware
             'description'         => ['nullable', 'string'],
             'published_at'        => ['nullable', 'date'],
         ]);
+
+        if (
+            isset($data['stock_min'], $data['stock_max']) &&
+            $data['stock_min'] !== null &&
+            $data['stock_max'] !== null &&
+            (int) $data['stock_max'] < (int) $data['stock_min']
+        ) {
+            throw ValidationException::withMessages([
+                'stock_max' => 'El stock máximo no puede ser menor al stock mínimo.',
+            ]);
+        }
 
         Log::info('CatalogItem@update: datos validados', [
             'item_id' => $catalogItem->id,
@@ -528,6 +567,8 @@ class CatalogItemController extends Controller implements HasMiddleware
         $data['slug']         = $slug;
         $data['is_featured']  = (bool) ($data['is_featured'] ?? false);
         $data['stock']        = $data['stock'] ?? 0;
+        $data['stock_min']    = $data['stock_min'] ?? null;
+        $data['stock_max']    = $data['stock_max'] ?? null;
         $data['category_key'] = null;
 
         if (!$request->boolean('use_internal')) {
@@ -542,6 +583,7 @@ class CatalogItemController extends Controller implements HasMiddleware
                 'item_id'             => $catalogItem->id,
                 'slug'                => $catalogItem->slug,
                 'category_product_id' => $catalogItem->category_product_id ?? null,
+                'primary_location_id' => $catalogItem->primary_location_id ?? null,
             ]);
         } catch (\Throwable $e) {
             Log::error('CatalogItem@update: ERROR al actualizar item', [
@@ -570,9 +612,7 @@ class CatalogItemController extends Controller implements HasMiddleware
             throw $e;
         }
 
-        $this->dispatchMeliSync($catalogItem->fresh());
-
-        return back()->with('ok', 'Producto web actualizado. Sincronización con Mercado Libre encolada.');
+        return back()->with('ok', 'Producto web actualizado correctamente.');
     }
 
     public function destroy(CatalogItem $catalogItem)
@@ -586,7 +626,6 @@ class CatalogItemController extends Controller implements HasMiddleware
         $this->deletePublicFileIfExists($catalogItem->photo_3);
 
         $catalogItem->delete();
-        $this->dispatchMeliSync($catalogItem);
 
         Log::info('CatalogItem@destroy: item eliminado', [
             'item_id' => $catalogItem->id,
@@ -607,19 +646,13 @@ class CatalogItemController extends Controller implements HasMiddleware
 
         $catalogItem->save();
 
-        $this->dispatchMeliSync($catalogItem);
-
         Log::info('CatalogItem@toggleStatus: estado cambiado', [
             'item_id' => $catalogItem->id,
             'status'  => $catalogItem->status,
         ]);
 
-        return back()->with('ok', 'Estado actualizado. Sincronización con Mercado Libre encolada.');
+        return back()->with('ok', 'Estado actualizado correctamente.');
     }
-
-    /* =========================
-     |  ACCIONES MERCADO LIBRE
-     ==========================*/
 
     public function meliPublish(CatalogItem $catalogItem, MeliSyncService $svc)
     {
@@ -688,10 +721,6 @@ class CatalogItemController extends Controller implements HasMiddleware
             ? redirect()->away($permalink)
             : back()->with('ok', 'Este ítem no tiene permalink disponible.');
     }
-
-    /* =========================
-     |  IA: Captura desde QR
-     ==========================*/
 
     public function aiStart(Request $r)
     {
@@ -999,22 +1028,6 @@ TXT;
         }
     }
 
-    private function dispatchMeliSync(CatalogItem $item): void
-    {
-        try {
-            app(MeliSyncService::class)->sync($item, [
-                'activate'           => false,
-                'update_description' => false,
-                'ensure_picture'     => false,
-            ]);
-        } catch (\Throwable $e) {
-            Log::warning('CatalogItem@dispatchMeliSync: error no crítico', [
-                'item_id'   => $item->id,
-                'exception' => $e->getMessage(),
-            ]);
-        }
-    }
-
     private function saveOrReplacePhoto(Request $request, CatalogItem $item, string $column, string $input): void
     {
         /** @var UploadedFile|null $file */
@@ -1104,9 +1117,7 @@ TXT;
 
     public function amazonPublish(CatalogItem $catalogItem, AmazonSpApiListingService $svc)
     {
-        $res = $svc->upsertBySku($catalogItem, [
-            // 'productType' => 'OFFICE_PRODUCTS',
-        ]);
+        $res = $svc->upsertBySku($catalogItem, []);
 
         if ($res['ok']) {
             return back()->with('ok', 'Solicitud enviada a Amazon. Revisa en Seller Central el estado del listing.');
@@ -1156,5 +1167,20 @@ TXT;
         }
 
         return back()->with('ok', $res['message'] ?? 'No se pudo activar en Amazon.');
+    }
+
+    private function getCategoryOptions()
+    {
+        return CategoryProduct::query()
+            ->orderBy('full_path')
+            ->get();
+    }
+
+    private function getLocationOptions()
+    {
+        return Location::query()
+            ->orderBy('code')
+            ->orderBy('name')
+            ->get();
     }
 }

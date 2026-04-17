@@ -14,7 +14,10 @@
   $hasSku = !empty($item->sku ?? null);
 
   $categories = $categories ?? collect();
+  $locations = $locations ?? collect();
+
   $currentCategoryId = old('category_product_id', $item->category_product_id ?? '');
+  $currentLocationId = old('primary_location_id', $item->primary_location_id ?? '');
 
   $currentCategory = null;
   if ($currentCategoryId) {
@@ -29,15 +32,15 @@
 <style>
   /* ====================== VARIABLES GLOBALES PREMIUM ====================== */
   :root {
-    --bg: #f4f7f9;          /* Fondo gris muy elegante y sutil */
-    --soft: #f8fafc;        /* Gris muy suave para bloques internos */
+    --bg: #f4f7f9;
+    --soft: #f8fafc;
     --card: #ffffff;
-    --ink: #1e293b;         /* Solo para textos oscuros, no fondos */
+    --ink: #1e293b;
     --text: #334155;
     --muted: #64748b;
     --line: #e2e8f0;
-    --blue: #007aff;        /* NUEVO COLOR AZUL PRINCIPAL */
-    --blue-soft: #e5f1ff;   /* Fondo azul suave */
+    --blue: #007aff;
+    --blue-soft: #e5f1ff;
     --success: #059669;
     --success-soft: #ecfdf5;
     --danger: #e11d48;
@@ -46,7 +49,7 @@
     --shadow-soft: 0 4px 20px rgba(0, 122, 255, 0.04);
     --shadow-hover: 0 10px 30px rgba(0, 122, 255, 0.08);
     --shadow-modal: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-    
+
     --radius-card: 20px;
     --radius-input: 12px;
     --radius-btn: 12px;
@@ -60,7 +63,6 @@
     letter-spacing: -0.02em;
   }
 
-  /* ====================== LAYOUT PRINCIPAL ====================== */
   .wrap-ui {
     padding-top: 32px;
     color: var(--text);
@@ -73,7 +75,6 @@
   }
   .wrap-ui *, .wrap-ui *::before, .wrap-ui *::after { box-sizing: border-box; }
 
-  /* ====================== UTILIDADES ====================== */
   .w-full{width:100%;}
   .flex{display:flex;}
   .items-center{align-items:center;}
@@ -101,7 +102,6 @@
   .uppercase{text-transform:uppercase;} .text-right{text-align:right;}
   .text-muted{color:var(--muted);} .text-success{color:var(--success);} .text-ink{color:var(--ink);} .text-blue{color:var(--blue);}
 
-  /* ====================== HEADER ====================== */
   .head-ui {
     display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:16px; margin-bottom:32px;
   }
@@ -111,7 +111,6 @@
   .head-ui__text h1 span { color:var(--muted); font-weight:600; font-size:1rem; }
   .head-ui__text p { margin:8px 0 0 0; color:var(--text); font-size:0.95rem; max-width:760px; line-height:1.6; font-weight:500; }
 
-  /* ====================== TABS ====================== */
   .tabs-wrapper {
     display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:24px;
   }
@@ -137,7 +136,6 @@
     width:8px; height:8px; border-radius:50%; background:var(--success); box-shadow:0 0 0 3px var(--success-soft);
   }
 
-  /* ====================== CARDS ====================== */
   .card {
     background:var(--card); border-radius:var(--radius-card); border:1px solid rgba(226, 232, 240, 0.8);
     padding:28px; box-shadow:var(--shadow-soft); display:flex; flex-direction:column;
@@ -158,7 +156,6 @@
   .section-header-flex .section-heading { margin:0; }
   .hint { font-size:0.85rem; color:var(--muted); font-weight: 500;}
 
-  /* ====================== FORMS ====================== */
   .form-group { margin-bottom:20px; }
   .form-label { display:flex; justify-content:space-between; font-size:0.85rem; font-weight:700; color:var(--ink); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.04em; }
   .req { color:var(--danger); }
@@ -183,7 +180,6 @@
   .input-icon-wrapper .icon-left { position:absolute; left:16px; top:50%; transform:translateY(-50%); color:var(--muted); font-weight:700; pointer-events:none; }
   .with-icon { padding-left:36px; }
 
-  /* ====================== BUTTONS ====================== */
   .btn-primary {
     background:var(--blue); color:#ffffff; border:none; border-radius:var(--radius-btn);
     padding:14px 24px; font-weight:600; font-size:0.95rem; font-family:inherit;
@@ -230,7 +226,6 @@
   .btn-icon-square:hover:not(:disabled) { background:var(--soft); border-color:var(--blue); color:var(--blue); transform:translateY(-1px); }
   .btn-icon-square:disabled { opacity:0.55; cursor:not-allowed; }
 
-  /* ====================== TABLES ====================== */
   .table-wrap { border:1px solid var(--line); border-radius:16px; overflow-x:auto; background:var(--card); margin-bottom:16px; box-shadow:var(--shadow-soft); }
   .table { width:100%; border-collapse:collapse; font-size:0.9rem; }
   .table th, .table td { padding:16px; border-bottom:1px solid var(--line); white-space:nowrap; text-align:left; }
@@ -238,7 +233,6 @@
   .table td { color:var(--ink); font-weight:500; }
   .table tr:last-child td { border-bottom:none; }
 
-  /* ====================== CATEGORY DISPLAY ====================== */
   .category-display {
     width:100%; background:var(--bg); border:1px solid var(--line); border-radius:var(--radius-input);
     padding:16px; display:flex; align-items:center; justify-content:space-between;
@@ -249,7 +243,6 @@
   .category-display__path { font-size:0.85rem; color:var(--muted); margin-top:4px; font-weight:500; }
   .icon-right { width:20px; height:20px; color:var(--muted); }
 
-  /* ====================== MEDIA BOXES ====================== */
   .media-box { position:relative; }
   .media-area { display:block; cursor:pointer; }
   .media-preview {
@@ -276,7 +269,6 @@
   .media-box.has-media .media-clear { display:flex; }
   .media-box.has-media .media-preview { border:1px solid var(--line); background:#ffffff; }
 
-  /* ====================== MODALS PREMIUM ====================== */
   .modal-backdrop {
     position:fixed; inset:0; background:rgba(15, 23, 42, 0.5); backdrop-filter: blur(6px);
     display:none; align-items:center; justify-content:center; z-index:9998; padding:24px;
@@ -332,7 +324,7 @@
   .mlcat-sep { color:#cbd5e1; font-weight:400; }
 
   .modal-body { padding:24px 32px; overflow-y:auto; flex:1; background:#ffffff; position:relative; }
-  
+
   .modal-footer {
     padding:20px 32px;
     border-top:1px solid var(--line);
@@ -371,7 +363,6 @@
   .mlcat-badge { font-size:0.75rem; font-weight:700; color:var(--muted); background:var(--soft); padding:4px 12px; border-radius:999px; border:1px solid var(--line); }
   .mlcat-empty { padding:32px; text-align:center; color:var(--muted); font-size:1rem; font-weight:500; background:var(--bg); border-radius:14px; border:2px dashed var(--line); }
 
-  /* ====================== ALERTS & UI STATES ====================== */
   .alert-error {
     background:var(--danger-soft); color:var(--danger); padding:20px; border-radius:16px;
     font-size:0.95rem; font-weight:600; margin-bottom:24px; display:flex; gap:16px; align-items:flex-start;
@@ -392,7 +383,6 @@
   }
   .footer-actions { display:flex; gap:16px; }
 
-  /* ====================== AI SPECIFICS ====================== */
   .step-title { display:flex; gap:16px; align-items:flex-start; margin-bottom:24px; }
   .step-num {
     width:36px; height:36px; border-radius:12px; background:var(--blue); color:#ffffff;
@@ -403,7 +393,6 @@
 
   .row-flex { display:flex; gap:16px; align-items:flex-end; margin-bottom:20px; }
 
-  /* QR Box */
   .qr-card { border:1px solid var(--line); border-radius:16px; background:#fff; overflow:hidden; box-shadow:var(--shadow-soft); }
   .qr-header { padding:16px 20px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:center; background:#ffffff; }
   .qr-chip { background:var(--blue); color:#fff; font-size:0.75rem; font-weight:700; padding:6px 12px; border-radius:999px; }
@@ -431,7 +420,6 @@
   .tips-card ul { margin:0; padding-left:24px; color:var(--ink); font-size:0.95rem; line-height:1.7; font-weight:500; }
   .tips-card li { margin-bottom:8px; }
 
-  /* Waiting / Result */
   .waiting-box { text-align:center; padding:60px 20px; }
   .spinner-box { margin-bottom:20px; color:var(--blue); }
   .spinner { width:48px; height:48px; animation:spin 1.5s linear infinite; }
@@ -450,7 +438,6 @@
 
   .actions-row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-top:20px; }
 
-  /* Dropzone */
   .dropzone-minimal {
     border:2px dashed var(--line); border-radius:16px; padding:36px; text-align:center;
     background:var(--bg); cursor:pointer; transition:all 0.2s ease; position:relative;
@@ -474,7 +461,6 @@
   .ai-files-list span { display:inline-flex; align-items:center; gap:8px; font-size:0.9rem; font-weight:600; color:var(--ink); background:var(--bg); padding:8px 16px; border-radius:12px; border:1px solid var(--line); }
   .ai-right { display:flex; flex-direction:column; gap:16px; }
 
-  /* Integrations */
   .integration-panel { border:1px solid var(--line); border-radius:20px; padding:24px; background:var(--bg); position:relative; overflow:hidden; transition:border-color 0.3s; }
   .integration-panel:hover { border-color:#cbd5e1; }
   .channel-logo { width:56px; height:56px; border-radius:16px; display:flex; align-items:center; justify-content:center; background:#ffe600; flex-shrink:0; border:1px solid rgba(0,0,0,0.05); }
@@ -483,7 +469,6 @@
   .overlay-lock { position:absolute; inset:0; background:rgba(255,255,255,0.85); backdrop-filter:blur(4px); z-index:10; display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--ink); font-weight:800; }
   .overlay-lock svg { width:36px; height:36px; margin-bottom:12px; color:var(--muted); }
 
-  /* Animations */
   .animate-enter{opacity:0;animation:enterSlide .4s cubic-bezier(0.16,1,0.3,1) forwards;animation-delay:calc(var(--stagger) * .08s);}
   @keyframes enterSlide{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
   .fade-in{animation:fadeIn .3s ease forwards;}
@@ -491,7 +476,6 @@
   .fade-in-up{animation:fadeInUp .4s ease forwards;}
   @keyframes fadeInUp{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
 
-  /* Responsive */
   @media(max-width: 1024px) {
     .grid-main { grid-template-columns: 1fr; }
     .grid-2-ai { grid-template-columns: 1fr; }
@@ -500,12 +484,12 @@
     .ai-copilot-content { grid-template-columns: 1fr; gap: 24px; }
     .summary-grid { grid-template-columns:repeat(2, 1fr); }
     .grid-3 { grid-template-columns: 1fr; }
+    .grid-2 { grid-template-columns: 1fr; }
   }
 </style>
 @endpush
 
 <div class="wrap-ui fade-in-up">
-  {{-- Header --}}
   <div class="head-ui">
     <div class="head-ui__text">
       <h1>{{ $isEdit ? 'Editar producto' : 'Nuevo producto' }} <span>Catálogo web</span></h1>
@@ -519,7 +503,6 @@
     </a>
   </div>
 
-  {{-- Tabs --}}
   <div class="tabs-wrapper">
     <div class="tabs">
       <button type="button" id="tabManual" class="tab active">
@@ -536,10 +519,8 @@
     </div>
   </div>
 
-  {{-- PANEL IA (Captura Inteligente) --}}
   <section id="panelAi" class="panel-ai fade-in-up" style="display:none">
     <div class="grid-2-ai">
-      {{-- Izquierda: Sincronización Móvil --}}
       <div class="col-ai">
         <div class="card h-full">
           <div class="step-title">
@@ -565,7 +546,6 @@
             </button>
           </div>
 
-          {{-- QR Box --}}
           <div id="qrWrap" style="display:none; margin-top:20px;">
             <div class="qr-card">
               <div class="qr-header">
@@ -620,7 +600,6 @@
         </div>
       </div>
 
-      {{-- Derecha: Resultados Extracción --}}
       <div class="col-ai">
         <div class="card h-full">
           <div class="step-title">
@@ -631,7 +610,6 @@
             </div>
           </div>
 
-          {{-- Waiting --}}
           <div id="aiWaiting" class="waiting-box">
             <div class="spinner-box">
               <svg viewBox="0 0 24 24" class="spinner"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" stroke-dasharray="30 30" stroke-linecap="round"/></svg>
@@ -645,7 +623,6 @@
             </div>
           </div>
 
-          {{-- Result --}}
           <div id="aiResult" class="fade-in" style="display:none;">
             <div class="summary-grid">
               <div><label>PROVEEDOR</label><div id="exSupplier">—</div></div>
@@ -682,7 +659,6 @@
     </div>
   </section>
 
-  {{-- PANEL MANUAL (Formulario Principal) --}}
   <div id="panelManual" class="fade-in-up">
     @if($errors->any())
       <div class="alert-error fade-in">
@@ -705,7 +681,6 @@
       @csrf
       @if($isEdit) @method('PUT') @endif
 
-      {{-- COPILOTO IA DRAG & DROP --}}
       <div class="ai-copilot-wrapper animate-enter" style="--stagger: 1;">
         <div class="ai-copilot-content">
           <div class="ai-left">
@@ -757,7 +732,6 @@
         </div>
       </div>
 
-      {{-- FORMULARIO PRINCIPAL --}}
       <div class="grid grid-main">
         <div class="col-left">
           <div class="card animate-enter" style="--stagger: 2;">
@@ -943,6 +917,18 @@
               </div>
             </div>
 
+            <div class="grid grid-2 mb-4">
+              <div class="form-group m-0">
+                <label class="form-label">Stock mínimo</label>
+                <input name="stock_min" type="number" step="1" min="0" class="form-input" placeholder="Ej. 5" value="{{ old('stock_min', $item->stock_min ?? '') }}">
+              </div>
+
+              <div class="form-group m-0">
+                <label class="form-label">Stock máximo</label>
+                <input name="stock_max" type="number" step="1" min="0" class="form-input" placeholder="Ej. 100" value="{{ old('stock_max', $item->stock_max ?? '') }}">
+              </div>
+            </div>
+
             <div class="form-group mb-6">
               <label class="form-label">Precio Oferta (Opcional)</label>
               <div class="input-icon-wrapper">
@@ -951,7 +937,6 @@
               </div>
             </div>
 
-            {{-- CATEGORÍA MEJORADA --}}
             <div class="form-group mb-6">
               <div class="flex items-center justify-between mb-2">
                 <label class="form-label m-0">Categoría</label>
@@ -977,6 +962,21 @@
                   Quitar categoría
                 </button>
               </div>
+            </div>
+
+            <div class="form-group mb-6">
+              <label class="form-label">Ubicación principal</label>
+              <select name="primary_location_id" class="form-select">
+                <option value="">Sin ubicación asignada</option>
+                @foreach($locations as $location)
+                  <option value="{{ $location->id }}" @selected((string) $currentLocationId === (string) $location->id)>
+                    {{ trim(($location->code ?? '') . ' · ' . ($location->name ?? '')) }}
+                  </option>
+                @endforeach
+              </select>
+              <span class="hint" style="display:block; margin-top:8px;">
+                Aquí defines la ubicación principal del producto dentro del WMS.
+              </span>
             </div>
 
             <div class="form-group m-0">
@@ -1029,7 +1029,6 @@
   </div>
 </div>
 
-{{-- MODAL CATEGORÍA PREMIUM DE UN SOLO PANEL --}}
 <div class="modal-backdrop" id="mlCategoryModal">
   <div class="modal">
     <div class="modal-header">
@@ -1065,7 +1064,6 @@
   </div>
 </div>
 
-{{-- MODAL CREAR CATEGORÍA --}}
 <div class="modal-backdrop" id="mlCategoryCreateModal">
   <div class="modal" style="max-width:520px;">
     <div class="modal-header">
@@ -1083,18 +1081,17 @@
         <label class="form-label">Nombre</label>
         <input type="text" id="mlcatCreateName" class="form-input" placeholder="Ej. Portaminas">
       </div>
-      
+
       <div class="form-group">
         <label class="form-label">Orden</label>
         <input type="number" id="mlcatCreateSort" class="form-input" min="0" value="0">
         <span class="hint" style="display:block; margin-top:6px;">Calculado automáticamente según los elementos actuales.</span>
       </div>
 
-      {{-- SECCIÓN DINÁMICA DE REFERENCIAS --}}
       <div class="form-group m-0">
         <label class="form-label">Referencias (Opcional)</label>
         <div id="mlcatRefContainer" class="flex flex-col gap-2">
-          </div>
+        </div>
         <button type="button" class="btn-text btn-sm mt-3" id="mlcatAddRefBtn">
           + Agregar referencia
         </button>
@@ -1117,7 +1114,6 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
-  // UI Helpers
   const UI = {
     toast: Swal.mixin({
       toast: true, position: 'bottom-center', showConfirmButton: false, timer: 4500,
@@ -1130,7 +1126,6 @@
     money: (v) => isNaN(Number(v)) ? '—' : `$${Number(v).toFixed(2)}`
   };
 
-  // ========= Tabs =========
   const tabManual = document.getElementById('tabManual');
   const tabAi = document.getElementById('tabAi');
   const panelManual = document.getElementById('panelManual');
@@ -1155,7 +1150,6 @@
   tabManual.onclick = ()=>setMode('manual');
   tabAi.onclick = ()=>setMode('ai');
 
-  // ========= IA START / POLL =========
   let intakeId = null;
   let pollTimer = null;
   let extractedCache = null;
@@ -1393,7 +1387,6 @@
     return String(str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m]));
   }
 
-  // Fotos preview/clear
   document.addEventListener('DOMContentLoaded', () => {
     ['1','2','3'].forEach(i => {
       const inp = document.getElementById(`photo_${i}_file`);
@@ -1429,7 +1422,6 @@
     });
   });
 
-  // Copiloto IA upload
   document.addEventListener('DOMContentLoaded', () => {
     const els = {
       dropzone: document.getElementById('ai-dropzone'),
@@ -1537,9 +1529,6 @@
     if(aiState.items.length) { renderTable(); }
   });
 
-  // ==========================================
-  // Modal de Categorías Premium (Single Pane)
-  // ==========================================
   document.addEventListener('DOMContentLoaded', () => {
     const api = {
       roots: '{{ url('/admin/category-products/roots') }}',
@@ -1576,7 +1565,6 @@
     const createError = document.getElementById('mlcatCreateError');
     const createHint = document.getElementById('mlcatCreateHint');
 
-    // NUEVAS VARIABLES PARA REFERENCIAS
     const refContainer = document.getElementById('mlcatRefContainer');
     const addRefBtn = document.getElementById('mlcatAddRefBtn');
 
@@ -1592,7 +1580,6 @@
     function openModal(el) { el.classList.add('show'); document.body.style.overflow = 'hidden'; }
     function closeModal(el) { el.classList.remove('show'); if (!modal.classList.contains('show') && !createModal.classList.contains('show')) document.body.style.overflow = ''; }
 
-    // Función para crear la fila de referencia
     function createReferenceRow(value = '') {
       const row = document.createElement('div');
       row.className = 'flex gap-2 items-center animate-enter';
@@ -1609,7 +1596,6 @@
 
     addRefBtn?.addEventListener('click', () => createReferenceRow());
 
-    // Búsqueda en tiempo real
     if(searchInput) {
       searchInput.addEventListener('input', function(e) {
         const term = e.target.value.toLowerCase();
@@ -1622,7 +1608,7 @@
 
     function renderBreadcrumb() {
       let html = `<span class="mlcat-crumb clickable-crumb" data-jump="-1">Inicio</span>`;
-      
+
       if (path.length > 0) {
         html += ` <span class="mlcat-sep">/</span> ` + path.map((item, index) => {
           const isLast = index === path.length - 1;
@@ -1632,7 +1618,7 @@
               : `<span class="mlcat-crumb clickable-crumb" data-jump="${index}">${UI.escape(item.name)}</span>${sep}`;
         }).join('');
       }
-      
+
       breadcrumbBox.innerHTML = html;
 
       document.querySelectorAll('.clickable-crumb').forEach(btn => {
@@ -1670,8 +1656,8 @@
                 <div style="flex:1;">
                   <div class="mlcat-option__name">${UI.escape(item.name)}</div>
                 </div>
-                ${item.has_children 
-                    ? `<div style="display:flex; align-items:center; gap:8px;"><span class="mlcat-badge">${item.children_count || 0} sub</span> <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;color:var(--muted);"><polyline points="9 18 15 12 9 6"></polyline></svg></div>` 
+                ${item.has_children
+                    ? `<div style="display:flex; align-items:center; gap:8px;"><span class="mlcat-badge">${item.children_count || 0} sub</span> <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;color:var(--muted);"><polyline points="9 18 15 12 9 6"></polyline></svg></div>`
                     : `<span class="mlcat-badge" style="background:var(--success-soft);color:var(--success);border:1px solid rgba(5,150,105,0.2);">Seleccionable</span>`}
               </button>
             `;
@@ -1730,7 +1716,7 @@
         const breadcrumb = data.breadcrumb || [];
         path = breadcrumb.map(item => ({ id: item.id, name: item.name, full_path: item.full_path || item.name }));
         selectedFinal = data.item || null;
-        
+
         levels = [];
         const rootsData = await fetchJson(api.roots);
         levels.push({ title: 'Categorías Principales', items: rootsData.items || [] });
@@ -1753,7 +1739,7 @@
       if (!picked) return;
 
       path.push({ id: picked.id, name: picked.name, full_path: picked.full_path || picked.name });
-      
+
       if (picked.has_children) {
         const data = await fetchJson(childrenUrl(id));
         levels.push({ title: `Nivel ${levelIndex + 2}`, items: data.items || [] });
@@ -1786,14 +1772,12 @@
     function openCreateCategory() {
       const parent = path.length ? path[path.length - 1] : null;
       createHint.textContent = parent ? `Se creará dentro de: ${parent.name}` : 'Se creará como categoría principal.';
-      createName.value = ''; 
+      createName.value = '';
       createError.style.display = 'none';
 
-      // AUTO-CALCULAR EL ORDEN: Lee cuántos items hay en el nivel actual
       const currentLevelItems = levels.length ? levels[levels.length - 1].items : [];
       createSort.value = currentLevelItems.length;
 
-      // Limpiar el contenedor de referencias y crear una vacía por defecto
       refContainer.innerHTML = '';
       createReferenceRow();
 
@@ -1806,7 +1790,6 @@
       const sort_order = Number(createSort.value || 0);
       const parent = path.length ? path[path.length - 1] : null;
 
-      // RECOPILAR REFERENCIAS (Ignorando las vacías)
       const references = Array.from(document.querySelectorAll('.ref-input'))
                               .map(inp => inp.value.trim())
                               .filter(val => val !== '');
@@ -1819,7 +1802,6 @@
         const data = await fetchJson(api.store, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
-          // ENVIAR EL ARRAY DE REFERENCIAS AL BACKEND
           body: JSON.stringify({ parent_id: parent ? parent.id : null, name, sort_order, references })
         });
 
@@ -1848,7 +1830,7 @@
     modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(modal); });
     useBtn.addEventListener('click', applySelectedCategory);
     clearBtn.addEventListener('click', clearSelectedCategory);
-    
+
     addBtn.addEventListener('click', openCreateCategory);
     closeCreateBtn.addEventListener('click', () => closeModal(createModal));
     cancelCreateBtn.addEventListener('click', () => closeModal(createModal));

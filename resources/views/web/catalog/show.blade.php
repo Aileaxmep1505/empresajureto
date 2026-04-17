@@ -75,13 +75,16 @@
   align-items: center;
   justify-content: center;
 }
-#hero .stage img{
-  width:100%; height:100%;
-  object-fit:contain;
-  opacity:1;
-  transform:scale(1);
-  filter:blur(0px);
-  will-change:opacity, transform, filter;
+#hero .stage img {
+  position: absolute;
+  inset: 0; /* Esto centra y ancla la imagen arriba/izquierda */
+  width: 100%; 
+  height: 100%;
+  object-fit: contain;
+  opacity: 1;
+  transform: scale(1);
+  filter: blur(0px);
+  will-change: opacity, transform, filter;
 }
 
 /* OVERLAY FAVORITOS (CORAZÓN PRINCIPAL) */

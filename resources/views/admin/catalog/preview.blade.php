@@ -13,7 +13,6 @@
     use Illuminate\Support\Facades\Storage;
     use Illuminate\Support\Str;
 
-    // Fotos: image_url + photo_1..3
     $rawPhotos = [
       $item->image_url,
       $item->photo_1,
@@ -46,15 +45,27 @@
 
     $statusTone = $stock > 0 && $item->status === 1 ? 'ok' : 'warn';
 
-    $minStock = $item->min_stock ?? null;
-    $maxStock = $item->max_stock ?? null;
+    // CORREGIDO
+    $minStock = $item->stock_min ?? null;
+    $maxStock = $item->stock_max ?? null;
 
-    // Valor que se usará tanto para QR como para código de barras
+    // Ubicación principal
+    $primaryLocationLabel = null;
+    if (!empty($item->primaryLocation)) {
+        $primaryLocationLabel = trim(
+            (string)($item->primaryLocation->code ?? '')
+            ?: (string)($item->primaryLocation->name ?? '')
+        );
+    }
+
+    if (!$primaryLocationLabel && !empty($item->primary_location_id)) {
+        $primaryLocationLabel = 'Ubicación #' . $item->primary_location_id;
+    }
+
     $codeValue = $gtin !== ''
       ? $gtin
       : ($sku !== '' ? $sku : str_pad((string)$item->id, 8, '0', STR_PAD_LEFT));
 
-    // Rutas
     $qrSvgUrl          = route('catalog.qr', $item);
     $barcodeSvgUrl     = route('catalog.barcode', $item);
     $labelPdfQr        = route('catalog.qr.label', $item);
@@ -115,11 +126,9 @@
       width:220px;
       height:60px;
       border-radius:12px;
-  
       display:flex;
       align-items:center;
       justify-content:center;
-      
       box-shadow: var(--shadow-soft);
       overflow:hidden;
       padding:10px;
@@ -170,7 +179,7 @@
       color:var(--ok);
     }
     .ps-status-ok span{ background:var(--ok); }
-    
+
     .ps-status-warn{
       background:var(--warn-bg);
       color:var(--warn);
@@ -184,7 +193,6 @@
       align-items:flex-start;
     }
 
-    /* ===== Izquierda: galería ===== */
     .ps-left{
       display:flex;
       flex-direction:column;
@@ -273,7 +281,6 @@
       font-weight: 500;
     }
 
-    /* ===== Derecha: info ===== */
     .ps-right{
       display:flex;
       flex-direction:column;
@@ -330,7 +337,6 @@
       margin-bottom:12px;
     }
 
-    /* ===== PICKING COMO EN LA CAPTURA (4 CARDS) ===== */
     .ps-picking-grid{
       display:grid;
       grid-template-columns:repeat(2, minmax(0,1fr));
@@ -388,7 +394,6 @@
       font-weight: 500;
     }
 
-    /* ===== CARD: FICHA RÁPIDA (sin precio) ===== */
     .ps-specs-card{
       background:var(--card);
       border-radius:12px;
@@ -430,7 +435,6 @@
       margin-top: auto;
     }
 
-    /* ===== CARD: QR / BARRAS ABAJO ===== */
     .ps-qr-card-wrap{
       margin-top:40px;
       display:flex;
@@ -521,7 +525,6 @@
       box-shadow: 0 6px 16px rgba(0, 122, 255, 0.3);
     }
 
-    /* ===== Responsive ===== */
     @media (max-width: 860px){
       .ps-main{ grid-template-columns:1fr; }
     }
@@ -571,7 +574,6 @@
     </header>
 
     <main class="ps-main">
-      {{-- IZQUIERDA: imagen + thumbs --}}
       <section class="ps-left">
         <div class="ps-hero">
           @if($cover)
@@ -599,9 +601,7 @@
         @endif
       </section>
 
-      {{-- DERECHA: info, picking y ficha rápida --}}
       <section class="ps-right">
-        {{-- Título --}}
         <div class="ps-title-block">
           <div class="ps-subtitle">
             {{ $brand !== '' ? $brand : 'PRODUCTO JURETO' }}
@@ -625,11 +625,9 @@
           </div>
         </div>
 
-        {{-- INFORMACIÓN DE PICKING (4 cards) --}}
         <section>
           <div class="ps-section-title">Información de picking</div>
           <div class="ps-picking-grid">
-            {{-- Ubicación --}}
             <article class="ps-pick-card">
               <div class="ps-pick-head">
                 <div class="ps-pick-ico">
@@ -641,18 +639,13 @@
                 <span>Ubicación</span>
               </div>
               <div class="ps-pick-main">
-                @if(!empty($item->primary_location_id))
-                  {{ $item->primary_location_id }}
-                @else
-                  Almacén principal
-                @endif
+                {{ $primaryLocationLabel ?: 'Sin ubicación asignada' }}
               </div>
               <div class="ps-pick-sub">
                 Ubicación principal de picking.
               </div>
             </article>
 
-            {{-- Stock actual --}}
             <article class="ps-pick-card">
               <div class="ps-pick-head">
                 <div class="ps-pick-ico">
@@ -672,7 +665,6 @@
               </div>
             </article>
 
-            {{-- Unid. por caja --}}
             <article class="ps-pick-card">
               <div class="ps-pick-head">
                 <div class="ps-pick-ico">
@@ -692,7 +684,6 @@
               </div>
             </article>
 
-            {{-- Código de barras --}}
             <article class="ps-pick-card">
               <div class="ps-pick-head">
                 <div class="ps-pick-ico">
@@ -700,7 +691,7 @@
                     <path d="M4 4v16M7 4v16M10 4v16M14 4v16M17 4v16M20 4v16"/>
                   </svg>
                 </div>
-              <span>Código de barras</span>
+                <span>Código de barras</span>
               </div>
               <div class="ps-pick-main">
                 {{ $codeValue }}
@@ -712,7 +703,6 @@
           </div>
         </section>
 
-        {{-- FICHA RÁPIDA SIN PRECIO --}}
         <section>
           <div class="ps-section-title">Ficha técnica</div>
           <div class="ps-specs-card">
@@ -736,6 +726,16 @@
               <div class="ps-spec-value">{{ $gtin !== '' ? $gtin : '—' }}</div>
             </div>
 
+            <div class="ps-spec-row">
+              <div class="ps-spec-label">Stock mínimo</div>
+              <div class="ps-spec-value">{{ $minStock ?? '—' }}</div>
+            </div>
+
+            <div class="ps-spec-row">
+              <div class="ps-spec-label">Stock máximo</div>
+              <div class="ps-spec-value">{{ $maxStock ?? '—' }}</div>
+            </div>
+
             @if(trim((string)$item->excerpt) !== '')
               <div class="ps-spec-row">
                 <div class="ps-spec-label">Resumen</div>
@@ -752,13 +752,10 @@
       </section>
     </main>
 
-    {{-- CARD QR / CÓDIGO DE BARRAS ABAJO, CENTRADA --}}
     <div class="ps-qr-card-wrap">
       <div class="ps-qr-card">
         <div class="ps-qr-code-box">
-          {{-- QR por defecto --}}
           <img id="psQrImg" src="{{ $qrSvgUrl }}" alt="QR del producto">
-          {{-- Código de barras (oculto al inicio) --}}
           <img id="psBarImg" src="{{ $barcodeSvgUrl }}" alt="Código de barras" style="display:none;">
         </div>
         <div class="ps-qr-code-text">
@@ -769,12 +766,10 @@
         </div>
 
         <div class="ps-qr-actions">
-          {{-- Botón para cambiar entre QR y código de barras --}}
           <a href="#" class="ps-btn-outline" id="psToggleCodeBtn">
             Ver código de barras
           </a>
 
-          {{-- Botón de impresión (cambia 2x2 / 2x1 según modo) --}}
           <a
             class="ps-btn-solid"
             id="psPrintLabelBtn"
@@ -792,7 +787,6 @@
   </div>
 
   <script>
-    // Galería de imágenes
     (function(){
       const hero = document.getElementById('psHeroImg');
       const thumbButtons = document.querySelectorAll('.ps-thumb');
@@ -817,7 +811,6 @@
       });
     })();
 
-    // Toggle QR <-> Código de barras + cambio de botón de impresión
     (function(){
       const qrImg   = document.getElementById('psQrImg');
       const barImg  = document.getElementById('psBarImg');
@@ -829,7 +822,7 @@
       const qrLabelUrl  = printBt.dataset.qrLabel;
       const barLabelUrl = printBt.dataset.barLabel;
 
-      let mode = 'qr'; // qr | bar
+      let mode = 'qr';
 
       function renderMode(){
         if(mode === 'qr'){

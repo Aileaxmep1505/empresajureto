@@ -96,19 +96,22 @@
   if (empty($lowStockProducts) && $productsCollection->count()) {
       $lowStockProducts = $productsCollection
           ->filter(function ($p) {
-              $min = (int) data_get($p, 'min_stock', 0);
+              $min = (int) data_get($p, 'stock_min', data_get($p, 'min_stock', 0));
               $cur = (int) data_get($p, 'current_stock', data_get($p, 'stock', 0));
               return $min > 0 && $cur <= $min;
           })
           ->map(function ($p) {
               $stock = (int) data_get($p, 'current_stock', data_get($p, 'stock', 0));
-              $min   = (int) data_get($p, 'min_stock', 0);
+              $min   = (int) data_get($p, 'stock_min', data_get($p, 'min_stock', 0));
+              $max   = (int) data_get($p, 'stock_max', data_get($p, 'max_stock', 0));
+
               return [
                   'id'        => data_get($p, 'id'),
                   'name'      => data_get($p, 'name', '—'),
                   'sku'       => data_get($p, 'sku', '—'),
                   'stock'     => $stock,
                   'min_stock' => $min,
+                  'max_stock' => $max,
                   'deficit'   => max(0, $min - $stock),
               ];
           })
@@ -339,6 +342,7 @@
               <th>SKU</th>
               <th class="t-right">Stock Actual</th>
               <th class="t-right">Mínimo</th>
+              <th class="t-right">Máximo</th>
               <th class="t-right">Déficit</th>
             </tr>
           </thead>
@@ -349,6 +353,7 @@
                 <td class="mono">{{ $p['sku'] ?? '—' }}</td>
                 <td class="t-right danger"><b>{{ (int)($p['stock'] ?? 0) }}</b></td>
                 <td class="t-right">{{ (int)($p['min_stock'] ?? 0) }}</td>
+                <td class="t-right">{{ (int)($p['max_stock'] ?? 0) }}</td>
                 <td class="t-right">
                   <span class="badge-deficit">-{{ (int)($p['deficit'] ?? 0) }}</span>
                 </td>
