@@ -247,7 +247,7 @@
       <p class="gsap-text">
         Somos tu aliado estratégico en abastecimiento. Ofrecemos soluciones integrales con precios competitivos, logística eficiente y un catálogo optimizado para satisfacer las exigencias de tu empresa o negocio, al nivel de las grandes plataformas corporativas.
       </p>
-      <a href="#" class="btn-formal gsap-btn">Centro de Ayuda</a>
+      <a href="{{ url('/contacto') }}" class="btn-formal gsap-btn">Centro de Ayuda</a>
     </div>
   </section>
 
