@@ -45,10 +45,8 @@
     --success-soft: #ecfdf5;
     --danger: #e11d48;
     --danger-soft: #fff1f2;
-    --warning: #d97706;
-    --warning-soft: #fff7ed;
     --gold: #f59e0b;
-    --gold-soft: #fffbeb;
+    --gold-soft: #fff7ed;
 
     --shadow-soft: 0 4px 20px rgba(0, 122, 255, 0.04);
     --shadow-hover: 0 10px 30px rgba(0, 122, 255, 0.08);
@@ -272,201 +270,6 @@
   .media-box.has-media .media-clear { display:flex; }
   .media-box.has-media .media-preview { border:1px solid var(--line); background:#ffffff; }
 
-  .alert-error {
-    background:var(--danger-soft); color:var(--danger); padding:20px; border-radius:16px;
-    font-size:0.95rem; font-weight:600; margin-bottom:24px; display:flex; gap:16px; align-items:flex-start;
-    border:1px solid rgba(225,29,72,0.15);
-  }
-  .alert-error svg { width:24px; height:24px; flex-shrink:0; }
-  .alert-error ul { margin:8px 0 0 20px; padding:0; color:var(--ink); font-weight:500; }
-
-  .ai-badge { background:var(--blue-soft); color:var(--blue); padding:2px 10px; border-radius:999px; font-size:0.7rem; font-weight:800; margin-left:8px; display:inline-flex; align-items:center; letter-spacing:0.04em; }
-  .hidden { display:none !important; }
-  .hidden-input { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; }
-
-  .ai-suggested-input { border-color:var(--blue) !important; box-shadow:0 0 0 4px var(--blue-soft) !important; background:#f8fbff !important; transition:all 0.5s ease; }
-
-  .sticky-footer {
-    position:sticky; bottom:0; background:rgba(244, 247, 249, 0.85); backdrop-filter:blur(12px);
-    padding:24px 0; border-top:1px solid rgba(226, 232, 240, 0.6); z-index:40; margin-top:32px;
-    display:flex; justify-content:flex-end;
-  }
-  .footer-actions { display:flex; gap:16px; }
-
-  .step-title { display:flex; gap:16px; align-items:flex-start; margin-bottom:24px; }
-  .step-num {
-    width:36px; height:36px; border-radius:12px; background:var(--blue); color:#ffffff;
-    display:flex; align-items:center; justify-content:center; font-weight:800; font-size:1.1rem; flex-shrink:0;
-  }
-  .step-title h3 { margin:0 0 6px 0; font-size:1.2rem; color:var(--ink); font-weight:800; }
-  .step-title p { margin:0; color:var(--text); font-size:0.95rem; line-height:1.6; font-weight:500; }
-
-  .row-flex { display:flex; gap:16px; align-items:flex-end; margin-bottom:20px; }
-
-  .summary-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; background:var(--bg); border:1px solid var(--line); border-radius:16px; padding:20px; margin-bottom:24px; }
-  .summary-grid label { font-size:0.75rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.08em; display:block; margin-bottom:6px; }
-  .summary-grid div > div { font-size:1.05rem; font-weight:800; color:var(--ink); }
-
-  .actions-row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-top:20px; }
-
-  .dropzone-minimal {
-    border:2px dashed var(--line); border-radius:16px; padding:36px; text-align:center;
-    background:var(--bg); cursor:pointer; transition:all 0.2s ease; position:relative;
-  }
-  .dropzone-minimal:hover, .dropzone-minimal.is-dragover { border-color:var(--blue); background:var(--blue-soft); color:var(--blue); }
-  .dropzone-content { display:flex; flex-direction:column; align-items:center; gap:16px; color:var(--muted); pointer-events:none; }
-  .dropzone-content svg { width:40px; height:40px; }
-  .dropzone-content span { font-weight:600; font-size:1rem; }
-  .dropzone-minimal:hover .dropzone-content { color:var(--blue); }
-
-  .ai-copilot-wrapper { background:var(--card); border:1px solid var(--line); border-radius:24px; padding:32px; margin-bottom:32px; box-shadow:var(--shadow-soft); }
-  .ai-copilot-content { display:grid; grid-template-columns:1fr 1fr; gap:36px; align-items:center; }
-  .ai-header { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
-  .ai-header h2 { margin:0; font-size:1.3rem; font-weight:800; color:var(--ink); }
-  .ai-icon { color:var(--blue); width:26px; height:26px; }
-  .badge-beta { background:var(--blue); color:#fff; font-size:0.7rem; font-weight:800; padding:4px 10px; border-radius:999px; letter-spacing:0.06em; }
-  .ai-left p { color:var(--text); font-size:1rem; line-height:1.6; margin:0 0 20px 0; font-weight:500; }
-
-  .ai-files-list { display:flex; flex-direction:column; gap:10px; }
-  .ai-files-list span { display:inline-flex; align-items:center; gap:8px; font-size:0.9rem; font-weight:600; color:var(--ink); background:var(--bg); padding:8px 16px; border-radius:12px; border:1px solid var(--line); }
-  .ai-right { display:flex; flex-direction:column; gap:16px; }
-
-  .integration-panel { border:1px solid var(--line); border-radius:20px; padding:24px; background:var(--bg); position:relative; overflow:hidden; transition:border-color 0.3s; }
-  .integration-panel:hover { border-color:#cbd5e1; }
-  .channel-logo { width:56px; height:56px; border-radius:16px; display:flex; align-items:center; justify-content:center; background:#ffe600; flex-shrink:0; border:1px solid rgba(0,0,0,0.05); }
-  .channel-logo img { width:36px; height:auto; }
-  .channel-logo.bg-dark { background:#232f3e; }
-  .overlay-lock { position:absolute; inset:0; background:rgba(255,255,255,0.85); backdrop-filter:blur(4px); z-index:10; display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--ink); font-weight:800; }
-  .overlay-lock svg { width:36px; height:36px; margin-bottom:12px; color:var(--muted); }
-
-  .featured-card {
-    border:1px solid var(--line);
-    border-radius:16px;
-    background:linear-gradient(180deg,#fff,#fbfcff);
-    padding:16px;
-    margin-bottom:20px;
-  }
-  .featured-toggle {
-    width:100%;
-    border:1px solid var(--line);
-    background:#fff;
-    border-radius:16px;
-    padding:16px;
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:16px;
-    cursor:pointer;
-    transition:all .2s ease;
-  }
-  .featured-toggle:hover {
-    border-color:#fcd34d;
-    box-shadow:0 6px 18px rgba(245, 158, 11, 0.10);
-    transform:translateY(-1px);
-  }
-  .featured-toggle.is-active {
-    background:var(--gold-soft);
-    border-color:#fcd34d;
-    box-shadow:0 8px 22px rgba(245, 158, 11, 0.12);
-  }
-  .featured-toggle__left {
-    display:flex;
-    align-items:center;
-    gap:14px;
-    min-width:0;
-  }
-  .featured-toggle__icon {
-    width:46px;
-    height:46px;
-    border-radius:14px;
-    background:#fff7ed;
-    border:1px solid #fed7aa;
-    color:var(--gold);
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    flex-shrink:0;
-    transition:all .2s ease;
-  }
-  .featured-toggle.is-active .featured-toggle__icon {
-    background:#f59e0b;
-    color:#fff;
-    border-color:#f59e0b;
-    box-shadow:0 10px 20px rgba(245, 158, 11, 0.18);
-  }
-  .featured-toggle__icon svg {
-    width:22px;
-    height:22px;
-  }
-  .featured-toggle__content {
-    min-width:0;
-  }
-  .featured-toggle__title {
-    font-size:0.98rem;
-    font-weight:800;
-    color:var(--ink);
-    margin:0 0 4px 0;
-  }
-  .featured-toggle__text {
-    font-size:0.86rem;
-    color:var(--muted);
-    line-height:1.5;
-    margin:0;
-  }
-  .featured-toggle__status {
-    display:flex;
-    align-items:center;
-    gap:10px;
-    flex-shrink:0;
-  }
-  .featured-pill {
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    padding:7px 12px;
-    border-radius:999px;
-    font-size:0.75rem;
-    font-weight:800;
-    letter-spacing:0.04em;
-    text-transform:uppercase;
-    border:1px solid var(--line);
-    background:#fff;
-    color:var(--muted);
-    min-width:98px;
-  }
-  .featured-pill.is-active {
-    background:#f59e0b;
-    color:#fff;
-    border-color:#f59e0b;
-  }
-  .switch-ui {
-    position:relative;
-    width:56px;
-    height:32px;
-    border-radius:999px;
-    background:#dbe4ee;
-    transition:all .2s ease;
-    box-shadow:inset 0 2px 4px rgba(15,23,42,.06);
-  }
-  .switch-ui::after {
-    content:"";
-    position:absolute;
-    top:4px;
-    left:4px;
-    width:24px;
-    height:24px;
-    border-radius:50%;
-    background:#fff;
-    box-shadow:0 4px 10px rgba(15,23,42,.15);
-    transition:all .2s ease;
-  }
-  .featured-toggle.is-active .switch-ui {
-    background:#f59e0b;
-  }
-  .featured-toggle.is-active .switch-ui::after {
-    left:28px;
-  }
-
   .modal-backdrop {
     position:fixed; inset:0; background:rgba(15, 23, 42, 0.5); backdrop-filter: blur(6px);
     display:none; align-items:center; justify-content:center; z-index:9998; padding:24px;
@@ -561,6 +364,229 @@
   .mlcat-badge { font-size:0.75rem; font-weight:700; color:var(--muted); background:var(--soft); padding:4px 12px; border-radius:999px; border:1px solid var(--line); }
   .mlcat-empty { padding:32px; text-align:center; color:var(--muted); font-size:1rem; font-weight:500; background:var(--bg); border-radius:14px; border:2px dashed var(--line); }
 
+  .alert-error {
+    background:var(--danger-soft); color:var(--danger); padding:20px; border-radius:16px;
+    font-size:0.95rem; font-weight:600; margin-bottom:24px; display:flex; gap:16px; align-items:flex-start;
+    border:1px solid rgba(225,29,72,0.15);
+  }
+  .alert-error svg { width:24px; height:24px; flex-shrink:0; }
+  .alert-error ul { margin:8px 0 0 20px; padding:0; color:var(--ink); font-weight:500; }
+
+  .ai-badge { background:var(--blue-soft); color:var(--blue); padding:2px 10px; border-radius:999px; font-size:0.7rem; font-weight:800; margin-left:8px; display:inline-flex; align-items:center; letter-spacing:0.04em; }
+  .hidden { display:none !important; }
+
+  .ai-suggested-input { border-color:var(--blue) !important; box-shadow:0 0 0 4px var(--blue-soft) !important; background:#f8fbff !important; transition:all 0.5s ease; }
+
+  .sticky-footer {
+    position:sticky; bottom:0; background:rgba(244, 247, 249, 0.85); backdrop-filter:blur(12px);
+    padding:24px 0; border-top:1px solid rgba(226, 232, 240, 0.6); z-index:40; margin-top:32px;
+    display:flex; justify-content:flex-end;
+  }
+  .footer-actions { display:flex; gap:16px; }
+
+  .step-title { display:flex; gap:16px; align-items:flex-start; margin-bottom:24px; }
+  .step-num {
+    width:36px; height:36px; border-radius:12px; background:var(--blue); color:#ffffff;
+    display:flex; align-items:center; justify-content:center; font-weight:800; font-size:1.1rem; flex-shrink:0;
+  }
+  .step-title h3 { margin:0 0 6px 0; font-size:1.2rem; color:var(--ink); font-weight:800; }
+  .step-title p { margin:0; color:var(--text); font-size:0.95rem; line-height:1.6; font-weight:500; }
+
+  .row-flex { display:flex; gap:16px; align-items:flex-end; margin-bottom:20px; }
+
+  .qr-card { border:1px solid var(--line); border-radius:16px; background:#fff; overflow:hidden; box-shadow:var(--shadow-soft); }
+  .qr-header { padding:16px 20px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:center; background:#ffffff; }
+  .qr-chip { background:var(--blue); color:#fff; font-size:0.75rem; font-weight:700; padding:6px 12px; border-radius:999px; }
+  .qr-status { font-size:0.85rem; font-weight:600; color:var(--muted); display:flex; align-items:center; gap:8px; }
+  .qr-box { padding:32px; display:flex; justify-content:center; background:#ffffff; }
+  .qr-frame { padding:16px; border:2px dashed var(--line); border-radius:20px; background:#fff; position:relative; }
+  .qr-footer { padding:16px 20px; background:var(--soft); border-top:1px solid var(--line); }
+  .qr-url { display:flex; justify-content:space-between; font-size:0.85rem; font-weight:600; margin-bottom:16px; gap:10px; flex-wrap:wrap; }
+  .qr-url span { color:var(--muted); }
+  .qr-url a { color:var(--blue); text-decoration:none; font-weight:700; }
+  .qr-url a:hover { text-decoration:underline; }
+
+  .timeline-ai { display:flex; flex-direction:column; gap:12px; }
+  .timeline-ai__item { display:flex; align-items:center; gap:12px; font-size:0.9rem; color:var(--muted); font-weight:600; }
+  .timeline-ai__dot { width:14px; height:14px; border-radius:50%; border:2px solid var(--line); background:var(--soft); transition:all 0.3s; }
+  .timeline-ai__item.active { color:var(--ink); font-weight:700; }
+  .timeline-ai__item.active .timeline-ai__dot { border-color:var(--blue); background:var(--blue); box-shadow:0 0 0 4px var(--blue-soft); }
+
+  .status-box { margin-top:20px; text-align:center; }
+  .status-badge { display:inline-block; font-size:1.1rem; font-weight:800; color:var(--ink); margin-bottom:8px; }
+  .status-hint { color:var(--muted); font-size:0.95rem; font-weight:500; }
+
+  .tips-card { background:var(--blue-soft); border-color:#bfdbfe; }
+  .tips-title { display:flex; align-items:center; gap:10px; font-weight:800; color:var(--blue); margin-bottom:16px; font-size:1.05rem; }
+  .tips-card ul { margin:0; padding-left:24px; color:var(--ink); font-size:0.95rem; line-height:1.7; font-weight:500; }
+  .tips-card li { margin-bottom:8px; }
+
+  .waiting-box { text-align:center; padding:60px 20px; }
+  .spinner-box { margin-bottom:20px; color:var(--blue); }
+  .spinner { width:48px; height:48px; animation:spin 1.5s linear infinite; }
+  @keyframes spin { 100% { transform:rotate(360deg); } }
+  .waiting-msg { font-size:1.2rem; font-weight:800; color:var(--ink); margin-bottom:8px; }
+  .waiting-box p { color:var(--muted); font-size:1rem; font-weight:500; }
+
+  .skeleton-wrap { margin-top:28px; display:grid; gap:12px; }
+  .skeleton { height:48px; background:var(--line); border-radius:12px; animation:pulse 1.5s ease-in-out infinite; }
+  .skeleton.short { width:60%; margin:0 auto; }
+  @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.8; } }
+
+  .summary-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; background:var(--bg); border:1px solid var(--line); border-radius:16px; padding:20px; margin-bottom:24px; }
+  .summary-grid label { font-size:0.75rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.08em; display:block; margin-bottom:6px; }
+  .summary-grid div > div { font-size:1.05rem; font-weight:800; color:var(--ink); }
+
+  .actions-row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-top:20px; }
+
+  .dropzone-minimal {
+    border:2px dashed var(--line); border-radius:16px; padding:36px; text-align:center;
+    background:var(--bg); cursor:pointer; transition:all 0.2s ease; position:relative;
+  }
+  .dropzone-minimal:hover, .dropzone-minimal.is-dragover { border-color:var(--blue); background:var(--blue-soft); color:var(--blue); }
+  .hidden-input { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; }
+  .dropzone-content { display:flex; flex-direction:column; align-items:center; gap:16px; color:var(--muted); pointer-events:none; }
+  .dropzone-content svg { width:40px; height:40px; }
+  .dropzone-content span { font-weight:600; font-size:1rem; }
+  .dropzone-minimal:hover .dropzone-content { color:var(--blue); }
+
+  .ai-copilot-wrapper { background:var(--card); border:1px solid var(--line); border-radius:24px; padding:32px; margin-bottom:32px; box-shadow:var(--shadow-soft); }
+  .ai-copilot-content { display:grid; grid-template-columns:1fr 1fr; gap:36px; align-items:center; }
+  .ai-header { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+  .ai-header h2 { margin:0; font-size:1.3rem; font-weight:800; color:var(--ink); }
+  .ai-icon { color:var(--blue); width:26px; height:26px; }
+  .badge-beta { background:var(--blue); color:#fff; font-size:0.7rem; font-weight:800; padding:4px 10px; border-radius:999px; letter-spacing:0.06em; }
+  .ai-left p { color:var(--text); font-size:1rem; line-height:1.6; margin:0 0 20px 0; font-weight:500; }
+
+  .ai-files-list { display:flex; flex-direction:column; gap:10px; }
+  .ai-files-list span { display:inline-flex; align-items:center; gap:8px; font-size:0.9rem; font-weight:600; color:var(--ink); background:var(--bg); padding:8px 16px; border-radius:12px; border:1px solid var(--line); }
+  .ai-right { display:flex; flex-direction:column; gap:16px; }
+
+  .integration-panel { border:1px solid var(--line); border-radius:20px; padding:24px; background:var(--bg); position:relative; overflow:hidden; transition:border-color 0.3s; }
+  .integration-panel:hover { border-color:#cbd5e1; }
+  .channel-logo { width:56px; height:56px; border-radius:16px; display:flex; align-items:center; justify-content:center; background:#ffe600; flex-shrink:0; border:1px solid rgba(0,0,0,0.05); }
+  .channel-logo img { width:36px; height:auto; }
+  .channel-logo.bg-dark { background:#232f3e; }
+  .overlay-lock { position:absolute; inset:0; background:rgba(255,255,255,0.85); backdrop-filter:blur(4px); z-index:10; display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--ink); font-weight:800; }
+  .overlay-lock svg { width:36px; height:36px; margin-bottom:12px; color:var(--muted); }
+
+  .featured-box {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    padding:16px 18px;
+    border:1px solid var(--line);
+    border-radius:16px;
+    background:#fff;
+    transition:all .2s ease;
+  }
+  .featured-box:hover {
+    border-color:#d8dee8;
+    box-shadow:0 8px 18px rgba(15,23,42,.04);
+  }
+  .featured-box.is-active {
+    border-color:#f6d28b;
+    background:#fffdfa;
+  }
+  .featured-main {
+    display:flex;
+    align-items:center;
+    gap:14px;
+    min-width:0;
+  }
+  .featured-icon {
+    width:40px;
+    height:40px;
+    border-radius:12px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-shrink:0;
+    background:#fff7ed;
+    color:#f59e0b;
+    border:1px solid #fde7c2;
+  }
+  .featured-box.is-active .featured-icon {
+    background:#f59e0b;
+    color:#fff;
+    border-color:#f59e0b;
+  }
+  .featured-icon svg {
+    width:18px;
+    height:18px;
+  }
+  .featured-copy {
+    min-width:0;
+  }
+  .featured-title {
+    margin:0;
+    font-size:0.96rem;
+    font-weight:700;
+    color:var(--ink);
+  }
+  .featured-sub {
+    margin:4px 0 0 0;
+    font-size:0.84rem;
+    line-height:1.45;
+    color:var(--muted);
+  }
+  .featured-side {
+    display:flex;
+    align-items:center;
+    gap:12px;
+    flex-shrink:0;
+  }
+  .featured-badge {
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-width:82px;
+    padding:6px 10px;
+    border-radius:999px;
+    font-size:0.72rem;
+    font-weight:700;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    border:1px solid var(--line);
+    color:var(--muted);
+    background:#fff;
+  }
+  .featured-badge.is-active {
+    color:#a16207;
+    background:#fff7ed;
+    border-color:#f6d28b;
+  }
+  .switch-minimal {
+    position:relative;
+    width:50px;
+    height:30px;
+    border:none;
+    border-radius:999px;
+    background:#dbe4ee;
+    cursor:pointer;
+    transition:all .2s ease;
+    box-shadow:inset 0 1px 3px rgba(15,23,42,.08);
+  }
+  .switch-minimal::after {
+    content:"";
+    position:absolute;
+    top:3px;
+    left:3px;
+    width:24px;
+    height:24px;
+    border-radius:50%;
+    background:#fff;
+    box-shadow:0 2px 8px rgba(15,23,42,.18);
+    transition:all .2s ease;
+  }
+  .switch-minimal.is-active {
+    background:#f59e0b;
+  }
+  .switch-minimal.is-active::after {
+    left:23px;
+  }
+
   .animate-enter{opacity:0;animation:enterSlide .4s cubic-bezier(0.16,1,0.3,1) forwards;animation-delay:calc(var(--stagger) * .08s);}
   @keyframes enterSlide{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
   .fade-in{animation:fadeIn .3s ease forwards;}
@@ -577,8 +603,14 @@
     .summary-grid { grid-template-columns:repeat(2, 1fr); }
     .grid-3 { grid-template-columns: 1fr; }
     .grid-2 { grid-template-columns: 1fr; }
-    .featured-toggle { align-items:flex-start; }
-    .featured-toggle__status { width:100%; justify-content:space-between; }
+    .featured-box {
+      align-items:flex-start;
+      flex-direction:column;
+    }
+    .featured-side {
+      width:100%;
+      justify-content:space-between;
+    }
   }
 </style>
 @endpush
@@ -597,22 +629,25 @@
     </a>
   </div>
 
-  <div class="tabs-wrapper">
-    <div class="tabs">
-      <button type="button" id="tabManual" class="tab active">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5l4 4L7 21l-4 1 1-4 12.5-14.5z"/></svg>
-        Carga Manual
-      </button>
-      <button type="button" id="tabAi" class="tab">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l2 5 5 2-5 2-2 5-2-5-5-2 5-2 2-5z" transform="translate(7 2)"/><path d="M4 17l1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3z"/></svg>
-        Captura Inteligente (IA)
-      </button>
+  @unless($isEdit)
+    <div class="tabs-wrapper">
+      <div class="tabs">
+        <button type="button" id="tabManual" class="tab active">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5l4 4L7 21l-4 1 1-4 12.5-14.5z"/></svg>
+          Carga Manual
+        </button>
+        <button type="button" id="tabAi" class="tab">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l2 5 5 2-5 2-2 5-2-5-5-2 5-2 2-5z" transform="translate(7 2)"/><path d="M4 17l1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3z"/></svg>
+          Captura Inteligente (IA)
+        </button>
+      </div>
+      <div class="tabs-mode" id="modeLabel">
+        <span class="dot active"></span> Modo actual: Manual
+      </div>
     </div>
-    <div class="tabs-mode" id="modeLabel">
-      <span class="dot active"></span> Modo actual: Manual
-    </div>
-  </div>
+  @endunless
 
+  @unless($isEdit)
   <section id="panelAi" class="panel-ai fade-in-up" style="display:none">
     <div class="grid-2-ai">
       <div class="col-ai">
@@ -641,25 +676,32 @@
           </div>
 
           <div id="qrWrap" style="display:none; margin-top:20px;">
-            <div class="card" style="padding:20px;">
-              <div class="section-header-flex" style="margin-bottom:16px;">
-                <div class="section-heading" style="font-size:1rem;">Escaneo móvil activo</div>
-                <div class="hint" id="qrMiniStatus">Esperando conexión</div>
+            <div class="qr-card">
+              <div class="qr-header">
+                <div class="qr-chip">Escanea para iniciar</div>
+                <div class="qr-status" id="qrMiniStatus">
+                  <span class="dot" style="background:var(--blue);"></span> Esperando conexión
+                </div>
               </div>
 
-              <div style="display:flex; justify-content:center; margin-bottom:16px;">
-                <div id="qrBox"></div>
+              <div class="qr-box">
+                <div class="qr-frame">
+                  <div id="qrBox"></div>
+                </div>
               </div>
 
-              <div class="hint" style="margin-bottom:16px;">
-                <a id="mobileUrl" href="#" target="_blank">Abrir link</a>
-              </div>
+              <div class="qr-footer">
+                <div class="qr-url">
+                  <span>Enlace de acceso manual:</span>
+                  <a id="mobileUrl" href="#" target="_blank">Abrir link</a>
+                </div>
 
-              <div class="timeline-ai">
-                <div class="timeline-ai__item" data-st="0"><span class="timeline-ai__dot"></span> Conectando</div>
-                <div class="timeline-ai__item" data-st="1"><span class="timeline-ai__dot"></span> Subiendo</div>
-                <div class="timeline-ai__item" data-st="2"><span class="timeline-ai__dot"></span> Analizando</div>
-                <div class="timeline-ai__item" data-st="3"><span class="timeline-ai__dot"></span> Completado</div>
+                <div class="timeline-ai">
+                  <div class="timeline-ai__item" data-st="0"><span class="timeline-ai__dot"></span> Conectando</div>
+                  <div class="timeline-ai__item" data-st="1"><span class="timeline-ai__dot"></span> Subiendo</div>
+                  <div class="timeline-ai__item" data-st="2"><span class="timeline-ai__dot"></span> Analizando</div>
+                  <div class="timeline-ai__item" data-st="3"><span class="timeline-ai__dot"></span> Completado</div>
+                </div>
               </div>
             </div>
 
@@ -674,9 +716,12 @@
           </div>
         </div>
 
-        <div class="card">
-          <h3 class="section-heading">Mejores prácticas</h3>
-          <ul style="margin:0; padding-left:20px; color:var(--text); line-height:1.7;">
+        <div class="card tips-card">
+          <div class="tips-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            Mejores prácticas
+          </div>
+          <ul>
             <li>Asegúrate de tener buena iluminación, sin sombras pronunciadas.</li>
             <li>Encuadra correctamente el encabezado y la tabla de productos.</li>
             <li>Para documentos multipágina, toma una fotografía individual por hoja.</li>
@@ -742,8 +787,9 @@
       </div>
     </div>
   </section>
+  @endunless
 
-  <div id="panelManual" class="fade-in-up">
+  <div id="panelManual" class="fade-in-up" style="{{ $isEdit ? '' : '' }}">
     @if($errors->any())
       <div class="alert-error fade-in">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
@@ -765,6 +811,7 @@
       @csrf
       @if($isEdit) @method('PUT') @endif
 
+      @unless($isEdit)
       <div class="ai-copilot-wrapper animate-enter" style="--stagger: 1;">
         <div class="ai-copilot-content">
           <div class="ai-left">
@@ -774,27 +821,27 @@
               <span class="badge-beta">BETA</span>
             </div>
             <p>Arrastra tu documento (PDF, JPG) y la inteligencia artificial extraerá y categorizará la información automáticamente para ahorrarte tiempo.</p>
-            <div id="ai-files-list" class="ai-files-list"></div>
+            <div id="ai-files-list" class="ai-files-list empty:hidden"></div>
           </div>
 
           <div class="ai-right">
-            <div id="ai-dropzone" class="dropzone-minimal">
+            <div id="ai-dropzone" class="dropzone-minimal group">
               <input id="ai_files" name="ai_files[]" type="file" multiple accept="image/*,.pdf" class="hidden-input">
               <div class="dropzone-content">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
                 <span id="ai-drop-text">Arrastra o clic para cargar</span>
               </div>
             </div>
 
-            <button type="button" id="btn-ai-analyze" class="btn-outline w-full">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spinner hidden" id="ai-spinner" style="width:16px;height:16px;"><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="4.93" x2="19.07" y2="7.76"></line></svg>
+            <button type="button" id="btn-ai-analyze" class="btn-outline w-full disabled:opacity-50">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="spinner hidden" id="ai-spinner" style="width:16px;height:16px;"><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="4.93" x2="19.07" y2="7.76"></line></svg>
               <span id="ai-btn-text">Analizar Documento</span>
             </button>
           </div>
         </div>
       </div>
 
-      <div id="ai-items-panel" class="card mb-6" style="display:none;">
+      <div id="ai-items-panel" class="hidden-collapse card mb-6" style="display:none;">
         <div class="section-header-flex">
           <h3 class="section-heading">Resultados de Extracción</h3>
           <button type="button" id="ai-clear-list" class="btn-text-danger">Descartar resultados</button>
@@ -815,6 +862,7 @@
           </table>
         </div>
       </div>
+      @endunless
 
       <div class="grid grid-main">
         <div class="col-left">
@@ -874,7 +922,7 @@
                       @if($isEdit && $hasPic)
                         <img src="{{ \Illuminate\Support\Facades\Storage::url($item->{"photo_$i"}) }}" alt="Foto {{ $i }}">
                       @else
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
                       @endif
                     </div>
                     <div>
@@ -884,7 +932,7 @@
                   </label>
                   <input id="{{ $picField }}" name="{{ $picField }}" type="file" class="hidden-input" accept="image/*" @if(!$isEdit && $i==1) required @endif>
                   <button type="button" class="media-clear" data-photo-clear="{{ $picField }}" aria-label="Quitar foto">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                   </button>
                 </div>
               @endforeach
@@ -986,38 +1034,32 @@
           <div class="card animate-enter" style="--stagger: 4;">
             <h3 class="section-heading">Comercial</h3>
 
-            <div class="featured-card">
-              <label class="form-label" style="margin-bottom:10px;">Destacado</label>
-
+            <div class="form-group">
+              <label class="form-label">Destacado</label>
               <input type="hidden" name="is_featured" id="is_featured" value="{{ $currentFeatured ? 1 : 0 }}">
 
-              <button
-                type="button"
-                id="featuredToggle"
-                class="featured-toggle {{ $currentFeatured ? 'is-active' : '' }}"
-                aria-pressed="{{ $currentFeatured ? 'true' : 'false' }}"
-              >
-                <div class="featured-toggle__left">
-                  <div class="featured-toggle__icon">
+              <div class="featured-box {{ $currentFeatured ? 'is-active' : '' }}" id="featuredBox">
+                <div class="featured-main">
+                  <div class="featured-icon">
                     <svg viewBox="0 0 24 24" fill="currentColor">
                       <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
                     </svg>
                   </div>
-                  <div class="featured-toggle__content">
-                    <div class="featured-toggle__title">Producto destacado</div>
-                    <p class="featured-toggle__text" id="featuredText">
-                      {{ $currentFeatured ? 'Este producto se mostrará como destacado en listados y vistas especiales.' : 'Actívalo para resaltar este producto en el catálogo y bloques promocionales.' }}
+                  <div class="featured-copy">
+                    <p class="featured-title">Producto destacado</p>
+                    <p class="featured-sub" id="featuredSub">
+                      {{ $currentFeatured ? 'Visible como destacado dentro del catálogo.' : 'Activa esta opción para resaltarlo de forma especial.' }}
                     </p>
                   </div>
                 </div>
 
-                <div class="featured-toggle__status">
-                  <span class="featured-pill {{ $currentFeatured ? 'is-active' : '' }}" id="featuredPill">
+                <div class="featured-side">
+                  <span class="featured-badge {{ $currentFeatured ? 'is-active' : '' }}" id="featuredBadge">
                     {{ $currentFeatured ? 'Activo' : 'Inactivo' }}
                   </span>
-                  <span class="switch-ui" aria-hidden="true"></span>
+                  <button type="button" class="switch-minimal {{ $currentFeatured ? 'is-active' : '' }}" id="featuredToggle" aria-label="Cambiar destacado"></button>
                 </div>
-              </button>
+              </div>
             </div>
 
             <div class="grid grid-2 mb-4">
@@ -1099,7 +1141,7 @@
 
             <div class="form-group m-0">
               <label class="form-label">Estado de Visibilidad <span class="req">*</span></label>
-              <select name="status" class="form-select" required>
+              <select name="status" class="form-select font-medium" required>
                 @php $st = (string) old('status', isset($item) ? (string) $item->status : '1'); @endphp
                 <option value="1" @selected($st === '1')>Publicado</option>
                 <option value="0" @selected($st === '0')>Borrador</option>
@@ -1129,7 +1171,7 @@
 
             <div class="form-group m-0">
               <label class="form-label"><span>Código (GTIN/EAN)</span> <span class="ai-badge hidden">IA</span></label>
-              <input name="meli_gtin" class="form-input" style="letter-spacing:1px;" placeholder="Ej. 7501035910107" value="{{ old('meli_gtin', $item->meli_gtin ?? '') }}">
+              <input name="meli_gtin" class="form-input" style="letter-spacing: 1px;" placeholder="Ej. 7501035910107" value="{{ old('meli_gtin', $item->meli_gtin ?? '') }}">
             </div>
           </div>
         </div>
@@ -1168,6 +1210,7 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
         <input type="text" id="mlcatSearch" placeholder="Buscar categoría en este nivel...">
       </div>
+
       <div class="category-levels" id="mlcatLevels"></div>
     </div>
 
@@ -1207,7 +1250,8 @@
 
       <div class="form-group m-0">
         <label class="form-label">Referencias (Opcional)</label>
-        <div id="mlcatRefContainer" class="flex flex-col gap-2"></div>
+        <div id="mlcatRefContainer" class="flex flex-col gap-2">
+        </div>
         <button type="button" class="btn-text btn-sm mt-3" id="mlcatAddRefBtn">
           + Agregar referencia
         </button>
@@ -1242,6 +1286,8 @@
     money: (v) => isNaN(Number(v)) ? '—' : `$${Number(v).toFixed(2)}`
   };
 
+  const isEditMode = @json($isEdit);
+
   const tabManual = document.getElementById('tabManual');
   const tabAi = document.getElementById('tabAi');
   const panelManual = document.getElementById('panelManual');
@@ -1249,22 +1295,27 @@
   const modeLabel = document.getElementById('modeLabel');
 
   function setMode(mode){
+    if (isEditMode) return;
+
     const isAi = mode === 'ai';
-    panelAi.style.display = isAi ? 'block' : 'none';
-    panelManual.style.display = isAi ? 'none' : 'block';
+    if (panelAi) panelAi.style.display = isAi ? 'block' : 'none';
+    if (panelManual) panelManual.style.display = isAi ? 'none' : 'block';
 
-    if(isAi) { panelAi.classList.remove('fade-in-up'); void panelAi.offsetWidth; panelAi.classList.add('fade-in-up'); }
-    else { panelManual.classList.remove('fade-in-up'); void panelManual.offsetWidth; panelManual.classList.add('fade-in-up'); }
+    if(isAi && panelAi) { panelAi.classList.remove('fade-in-up'); void panelAi.offsetWidth; panelAi.classList.add('fade-in-up'); }
+    else if(panelManual) { panelManual.classList.remove('fade-in-up'); void panelManual.offsetWidth; panelManual.classList.add('fade-in-up'); }
 
-    tabAi.classList.toggle('active', isAi);
-    tabManual.classList.toggle('active', !isAi);
+    if (tabAi) tabAi.classList.toggle('active', isAi);
+    if (tabManual) tabManual.classList.toggle('active', !isAi);
 
-    modeLabel.innerHTML = isAi
-      ? `<span class="dot active"></span> Modo actual: Captura IA`
-      : `<span class="dot active"></span> Modo actual: Manual`;
+    if (modeLabel) {
+      modeLabel.innerHTML = isAi
+        ? `<span class="dot active"></span> Modo actual: Captura IA`
+        : `<span class="dot active"></span> Modo actual: Manual`;
+    }
   }
-  tabManual.onclick = ()=>setMode('manual');
-  tabAi.onclick = ()=>setMode('ai');
+
+  if (tabManual) tabManual.onclick = ()=>setMode('manual');
+  if (tabAi) tabAi.onclick = ()=>setMode('ai');
 
   let intakeId = null;
   let pollTimer = null;
@@ -1306,11 +1357,12 @@
 
   function setStatusUI(status, meta){
     const st = stMap[status] || {txt:String(status), hint:''};
-    aiStatusText.textContent = st.txt;
-    aiStatusHint.textContent = (meta && meta.error) ? meta.error : st.hint;
+    if (aiStatusText) aiStatusText.textContent = st.txt;
+    if (aiStatusHint) aiStatusHint.textContent = (meta && meta.error) ? meta.error : st.hint;
 
     if(qrMiniStatus){
-      qrMiniStatus.textContent = st.txt;
+      const bg = status === 9 ? 'var(--danger)' : 'var(--blue)';
+      qrMiniStatus.innerHTML = `<span class="dot" style="background:${bg}"></span> ${st.txt}`;
     }
     setTimelineActive(status);
   }
@@ -1332,6 +1384,7 @@
 
       intakeId = j.intake_id;
       qrWrap.style.display = 'block';
+      qrWrap.classList.add('fade-in-up');
       qrBox.innerHTML = '';
 
       new QRCode(qrBox, { text: j.mobile_url, width: 200, height: 200, colorDark: "#0f172a", colorLight: "#ffffff" });
@@ -1364,6 +1417,15 @@
     const j = await res.json();
 
     setStatusUI(j.status, j.meta);
+
+    if (j.status >= 1 && j.status < 3) {
+      const qrCard = document.querySelector('.qr-card');
+      if (qrCard && qrCard.style.display !== 'none') {
+        qrCard.style.opacity = '0';
+        setTimeout(() => qrCard.style.display = 'none', 250);
+      }
+      aiWaiting.style.display = 'block';
+    }
 
     if(j.status === 3){
       clearInterval(pollTimer);
@@ -1493,29 +1555,29 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
-    const featuredToggle = document.getElementById('featuredToggle');
     const featuredInput = document.getElementById('is_featured');
-    const featuredPill = document.getElementById('featuredPill');
-    const featuredText = document.getElementById('featuredText');
+    const featuredToggle = document.getElementById('featuredToggle');
+    const featuredBox = document.getElementById('featuredBox');
+    const featuredBadge = document.getElementById('featuredBadge');
+    const featuredSub = document.getElementById('featuredSub');
 
-    function renderFeaturedState(){
+    function renderFeatured(){
       const active = String(featuredInput.value) === '1';
+      featuredBox.classList.toggle('is-active', active);
       featuredToggle.classList.toggle('is-active', active);
-      featuredToggle.setAttribute('aria-pressed', active ? 'true' : 'false');
-      featuredPill.classList.toggle('is-active', active);
-      featuredPill.textContent = active ? 'Activo' : 'Inactivo';
-      featuredText.textContent = active
-        ? 'Este producto se mostrará como destacado en listados y vistas especiales.'
-        : 'Actívalo para resaltar este producto en el catálogo y bloques promocionales.';
+      featuredBadge.classList.toggle('is-active', active);
+      featuredBadge.textContent = active ? 'Activo' : 'Inactivo';
+      featuredSub.textContent = active
+        ? 'Visible como destacado dentro del catálogo.'
+        : 'Activa esta opción para resaltarlo de forma especial.';
     }
 
-    if(featuredToggle && featuredInput){
-      featuredToggle.addEventListener('click', () => {
-        featuredInput.value = String(featuredInput.value) === '1' ? '0' : '1';
-        renderFeaturedState();
-      });
-      renderFeaturedState();
-    }
+    featuredToggle?.addEventListener('click', () => {
+      featuredInput.value = String(featuredInput.value) === '1' ? '0' : '1';
+      renderFeatured();
+    });
+
+    renderFeatured();
 
     ['1','2','3'].forEach(i => {
       const inp = document.getElementById(`photo_${i}_file`);
@@ -1535,7 +1597,7 @@
         updateUI(!!file, file);
         if(objUrl) URL.revokeObjectURL(objUrl);
         if(!file) {
-          prev.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>';
+          prev.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>';
           return;
         }
         objUrl = URL.createObjectURL(file);
@@ -1546,7 +1608,7 @@
         e.preventDefault();
         if(inp) inp.value = '';
         updateUI(false);
-        if(prev) prev.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>';
+        if(prev) prev.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>';
       });
     });
   });
