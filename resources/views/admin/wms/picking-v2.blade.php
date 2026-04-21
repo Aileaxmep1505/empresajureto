@@ -1103,7 +1103,40 @@
     return found ? found.name : '';
   }
 
+  function taskHasGeneratedShipment(task){
+    const status = String(task?.status || '').toLowerCase();
+    const shipmentStatus = String(task?.shipment_status || task?.shipping_status || task?.shipment?.status || task?.shipping?.status || '').toLowerCase();
+
+    const directId = Number(
+      task?.shipment_id
+      || task?.shipping_id
+      || task?.shipment?.id
+      || task?.shipping?.id
+      || 0
+    );
+
+    return Boolean(
+      directId > 0
+      || task?.has_shipment
+      || task?.shipment_generated
+      || task?.shipment_created
+      || task?.shipping_created
+      || task?.shipped_at
+      || task?.shipment_created_at
+      || task?.delivered_at
+      || status === 'shipped'
+      || status === 'delivered'
+      || shipmentStatus === 'created'
+      || shipmentStatus === 'generated'
+      || shipmentStatus === 'in_transit'
+      || shipmentStatus === 'shipped'
+      || shipmentStatus === 'delivered'
+    );
+  }
+
   function isTaskReadyForShipping(task){
+    if (taskHasGeneratedShipment(task)) return false;
+
     const status = String(task?.status || '');
     if (status !== 'completed') return false;
 
@@ -1122,6 +1155,10 @@
   }
 
   function shippingReadyText(task){
+    if (taskHasGeneratedShipment(task)) {
+      return 'Todo entregado';
+    }
+
     return isTaskReadyForShipping(task)
       ? 'Listo para subir a unidad'
       : 'Completa y ubica la tarea para embarcar';
@@ -1281,6 +1318,7 @@
       const assignedDisplay = getAssignedDisplay(task);
       const stageProgress = getStageProgress(task);
       const canShip = isTaskReadyForShipping(task);
+      const shipmentDone = taskHasGeneratedShipment(task);
 
       return `
         <article class="pk-card" data-task-id="${esc(task?.id)}">
@@ -1330,19 +1368,26 @@
 
           <div class="pk-ship-row">
             ${
-              canShip
+              shipmentDone
                 ? `
-                  <button type="button" class="pk-btn pk-btn-dark pk-btn-sm pk-task-ship-btn" data-action="ship" data-task-id="${esc(task?.id)}">
-                    Generar embarque
+                  <button type="button" class="pk-btn pk-btn-secondary pk-btn-sm" disabled>
+                    Todo entregado
                   </button>
                   <div class="pk-ship-note is-ready">${shippingReadyText(task)}</div>
                 `
-                : `
-                  <button type="button" class="pk-btn pk-btn-disabled pk-btn-sm" disabled>
-                    Generar embarque
-                  </button>
-                  <div class="pk-ship-note">${shippingReadyText(task)}</div>
-                `
+                : canShip
+                  ? `
+                    <button type="button" class="pk-btn pk-btn-dark pk-btn-sm pk-task-ship-btn" data-action="ship" data-task-id="${esc(task?.id)}">
+                      Generar embarque
+                    </button>
+                    <div class="pk-ship-note is-ready">${shippingReadyText(task)}</div>
+                  `
+                  : `
+                    <button type="button" class="pk-btn pk-btn-disabled pk-btn-sm" disabled>
+                      Generar embarque
+                    </button>
+                    <div class="pk-ship-note">${shippingReadyText(task)}</div>
+                  `
             }
           </div>
         </article>
@@ -1424,6 +1469,7 @@
     const assignedDisplay = getAssignedDisplay(selectedTask);
     const stageProgress = getStageProgress(selectedTask);
     const canShip = isTaskReadyForShipping(selectedTask);
+    const shipmentDone = taskHasGeneratedShipment(selectedTask);
 
     detailContent.innerHTML = `
       <div class="pk-detail-head">
@@ -1499,9 +1545,11 @@
 
       <div class="pk-detail-actions">
         ${
-          canShip
-            ? `<button type="button" class="pk-btn pk-btn-dark" id="btnCreateShipment">Generar embarque</button>`
-            : `<button type="button" class="pk-btn pk-btn-disabled" disabled>Generar embarque</button>`
+          shipmentDone
+            ? `<button type="button" class="pk-btn pk-btn-secondary" disabled>Todo entregado</button>`
+            : canShip
+              ? `<button type="button" class="pk-btn pk-btn-dark" id="btnCreateShipment">Generar embarque</button>`
+              : `<button type="button" class="pk-btn pk-btn-disabled" disabled>Generar embarque</button>`
         }
 
         <a href="${shippingIndexUrl}" class="pk-btn pk-btn-ghost">Ir a embarques</a>
