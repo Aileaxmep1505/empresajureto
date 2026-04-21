@@ -959,23 +959,14 @@
                     </a>
                   </div>
                   <div class="flex flex-wrap gap-2">
-                    <form method="POST" action="{{ route('admin.catalog.meli.publish', $item) }}" class="flex-1 m-0">
-                      @csrf
-                      <button type="submit" class="btn-outline w-full justify-center">Sincronizar Listado</button>
-                    </form>
+                    <button type="submit" form="meliPublishForm" class="btn-outline w-full justify-center flex-1">Sincronizar Listado</button>
                     <div class="flex gap-2">
-                      <form method="POST" action="{{ route('admin.catalog.meli.pause', $item) }}" class="m-0">
-                        @csrf
-                        <button type="submit" class="btn-icon-square" aria-label="Pausar">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
-                        </button>
-                      </form>
-                      <form method="POST" action="{{ route('admin.catalog.meli.activate', $item) }}" class="m-0">
-                        @csrf
-                        <button type="submit" class="btn-icon-square" aria-label="Activar">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-                        </button>
-                      </form>
+                      <button type="submit" form="meliPauseForm" class="btn-icon-square" aria-label="Pausar">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+                      </button>
+                      <button type="submit" form="meliActivateForm" class="btn-icon-square" aria-label="Activar">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -1005,23 +996,14 @@
                     </a>
                   </div>
                   <div class="flex flex-wrap gap-2">
-                    <form method="POST" action="{{ route('admin.catalog.amazon.publish', $item) }}" class="flex-1 m-0">
-                      @csrf
-                      <button type="submit" class="btn-outline w-full justify-center" @disabled(!$hasSku)>Sincronizar Listado</button>
-                    </form>
+                    <button type="submit" form="amazonPublishForm" class="btn-outline w-full justify-center flex-1" @disabled(!$hasSku)>Sincronizar Listado</button>
                     <div class="flex gap-2">
-                      <form method="POST" action="{{ route('admin.catalog.amazon.pause', $item) }}" class="m-0">
-                        @csrf
-                        <button type="submit" class="btn-icon-square" aria-label="Pausar" @disabled(!$hasSku)>
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
-                        </button>
-                      </form>
-                      <form method="POST" action="{{ route('admin.catalog.amazon.activate', $item) }}" class="m-0">
-                        @csrf
-                        <button type="submit" class="btn-icon-square" aria-label="Activar" @disabled(!$hasSku)>
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-                        </button>
-                      </form>
+                      <button type="submit" form="amazonPauseForm" class="btn-icon-square" aria-label="Pausar" @disabled(!$hasSku)>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+                      </button>
+                      <button type="submit" form="amazonActivateForm" class="btn-icon-square" aria-label="Activar" @disabled(!$hasSku)>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -1186,6 +1168,28 @@
         </div>
       </div>
     </form>
+
+    @if($isEdit)
+      <form id="meliPublishForm" method="POST" action="{{ route('admin.catalog.meli.publish', $item) }}" style="display:none;">
+        @csrf
+      </form>
+      <form id="meliPauseForm" method="POST" action="{{ route('admin.catalog.meli.pause', $item) }}" style="display:none;">
+        @csrf
+      </form>
+      <form id="meliActivateForm" method="POST" action="{{ route('admin.catalog.meli.activate', $item) }}" style="display:none;">
+        @csrf
+      </form>
+
+      <form id="amazonPublishForm" method="POST" action="{{ route('admin.catalog.amazon.publish', $item) }}" style="display:none;">
+        @csrf
+      </form>
+      <form id="amazonPauseForm" method="POST" action="{{ route('admin.catalog.amazon.pause', $item) }}" style="display:none;">
+        @csrf
+      </form>
+      <form id="amazonActivateForm" method="POST" action="{{ route('admin.catalog.amazon.activate', $item) }}" style="display:none;">
+        @csrf
+      </form>
+    @endif
   </div>
 </div>
 

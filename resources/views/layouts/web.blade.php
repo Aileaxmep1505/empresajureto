@@ -6,7 +6,6 @@
   <title>@yield('title','Jureto')</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  {{-- CSRF para formularios y fetch --}}
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <script>
     (function () {
@@ -42,7 +41,6 @@
       --header-glass-border: rgba(15,23,42,.05);
       --header-transition: background-color .25s ease, backdrop-filter .25s ease, box-shadow .25s ease, border-color .25s ease;
 
-      /* ✅ dropdown pro */
       --dd-bg: rgba(255,255,255,.92);
       --dd-border: rgba(15,23,42,.08);
       --dd-shadow: 0 26px 70px rgba(2,8,23,.18);
@@ -68,9 +66,6 @@
       -webkit-backdrop-filter: saturate(120%) blur(8px);
       border-bottom-color: var(--header-glass-border);
       box-shadow: 0 10px 28px rgba(2,8,23,.10);
-    }
-    @media (prefers-reduced-transparency: reduce) {
-      header.header.header--glass{ backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
     }
 
     .wrap{ max-width:var(--container); margin:0 auto; padding:14px 20px }
@@ -100,12 +95,7 @@
     .nav-link:hover::after{ background:#000; transform:scaleX(1) }
     .nav-link.is-active::after{ background:#000; transform:scaleX(1) }
 
-    /* =========================================================
-       ✅ DROPDOWN PRODUCTOS (PRO + MINIMALISTA) - SOLO DESKTOP
-       ========================================================= */
     .nav-dd{ position:relative; display:inline-flex; align-items:center; }
-
-    /* trigger como botón para UX pro (y no navegar sin querer) */
     .nav-dd__trigger{
       background:transparent; border:0; cursor:pointer;
       gap:8px;
@@ -126,7 +116,6 @@
       transition: transform .22s ease, opacity .22s ease;
     }
 
-    /* panel */
     .nav-dd__menu{
       position:absolute;
       top:calc(100% + 12px);
@@ -138,8 +127,6 @@
       box-shadow: var(--dd-shadow);
       padding:12px;
       z-index:130;
-
-      /* animación */
       opacity:0;
       visibility:hidden;
       pointer-events:none;
@@ -150,7 +137,6 @@
       -webkit-backdrop-filter: blur(10px) saturate(120%);
     }
 
-    /* flechita sutil */
     .nav-dd__menu::before{
       content:"";
       position:absolute;
@@ -209,7 +195,6 @@
       margin:2px 8px 10px;
     }
 
-    /* lista en grid 2 columnas */
     .nav-dd__list{
       list-style:none;
       padding:0;
@@ -242,7 +227,6 @@
       transform: translateY(-1px);
     }
 
-    /* abrir en hover/focus y también por clase open (click) */
     .nav-dd:hover .nav-dd__menu,
     .nav-dd:focus-within .nav-dd__menu,
     .nav-dd.open .nav-dd__menu{
@@ -257,11 +241,9 @@
       opacity:.95;
     }
 
-    /* Solo desktop */
     @media (max-width: 980px){
       .nav-dd{ display:none !important; }
     }
-    /* ========================================================= */
 
     .right-tools{ display:flex; align-items:center; gap:12px; z-index:95 }
     .icon-btn{
@@ -289,14 +271,6 @@
       background:var(--pill-hover); transform: translateY(-1px);
       text-decoration:none !important;
     }
-    .btn-pill:visited{ color:#fff; text-decoration:none !important; }
-    .btn-pill:active{ text-decoration:none !important; }
-    .btn-pill:focus,
-    .btn-pill:focus-visible{
-      outline:none !important;
-      box-shadow:none !important;
-      text-decoration:none !important;
-    }
 
     .mobile-topbar{ display:none; align-items:center; justify-content:space-between; max-width:var(--container); margin:0 auto; padding:10px 16px }
     .m-brand{ display:flex; align-items:center; gap:8px; text-decoration:none; color:var(--ink) }
@@ -315,7 +289,6 @@
       .burger{ display:inline-flex }
     }
 
-    /* ===== Bottom Sheet (móvil) ===== */
     .sheet-backdrop{ position:fixed; inset:0; background:rgba(15,23,42,.38); opacity:0; pointer-events:none; transition:opacity .2s ease; backdrop-filter: blur(2px); z-index:49 }
     .sheet{ position:fixed; left:0; right:0; bottom:0; z-index:50; transform: translateY(100%); background:#fff; border-top-left-radius: 20px; border-top-right-radius: 20px; box-shadow: 0 18px 60px rgba(2,8,23,.22); transition: transform .26s ease; will-change: transform; touch-action: none }
     .sheet__drag{ display:flex; justify-content:center; padding-top:10px }
@@ -327,9 +300,7 @@
     .sheet__icons{ display:flex; align-items:center; gap:12px }
     .sheet-open .sheet{ transform: translateY(0) }
     .sheet-open .sheet-backdrop{ opacity:1; pointer-events:auto }
-    @media (max-height: 700px){ .sheet{ max-height: 86vh; overflow:auto } }
 
-    /* ===== Footer ===== */
     .ft{ background:#fff; border-top:1px solid #e9eef6; margin-top:30px }
     .ft__wrap{ max-width:1180px; margin:0 auto; padding:24px 20px 36px; display:flex; flex-direction:column; align-items:center; }
     .ft__head{ width:100%; display:flex; flex-direction:column; align-items:center; text-align:center; gap:16px; }
@@ -362,7 +333,6 @@
       .ft__logo{ height:28px; max-width:180px; margin:0 auto 8px; display:block }
     }
 
-    /* ===== Search & user (MEJORADO) ===== */
     .searchbar-wrap{ position:relative; flex:1 1 720px; max-width:720px; z-index:100 }
     .searchbar{
       display:flex; align-items:center; gap:10px;
@@ -429,7 +399,6 @@
 <body>
 
 <header class="header">
-  {{-- Topbar móvil --}}
   <div class="mobile-topbar">
     <a href="{{ route('web.home') }}" class="m-brand" aria-label="Ir a inicio">
       <img class="m-logo" src="{{ asset('images/logo-mail.png') }}" alt="Jureto" onerror="this.style.opacity=.2">
@@ -449,7 +418,6 @@
     </div>
   </div>
 
-  {{-- Navbar desktop --}}
   @php
     $cart = session('cart', []);
     $cartCount = is_array($cart) ? array_sum(array_map(fn($r)=> (int)($r['qty'] ?? 0), $cart)) : 0;
@@ -467,7 +435,6 @@
       <a href="{{ route('web.ofertas') }}" class="nav-link {{ request()->routeIs('web.ofertas.*') ? 'is-active' : '' }}">Ofertas</a>
       <a href="{{ url('/servicios') }}" class="nav-link {{ request()->is('servicios') ? 'is-active' : '' }}">Servicios</a>
 
-      <!-- ✅ PRODUCTOS (desktop) PRO + MINIMAL -->
       <div class="nav-dd" id="prodDD">
         <button
           type="button"
@@ -509,7 +476,6 @@
           </ul>
         </div>
       </div>
-      <!-- /Productos -->
     </nav>
 
     <div class="searchbar-wrap" id="searchWrap">
@@ -549,20 +515,11 @@
               <div style="font-weight:900">{{ $user->name ?? 'Mi cuenta' }}</div>
               <small>{{ $user->email }}</small>
             </div>
-            <a href="{{ route('customer.profile') }}" role="menuitem">
-              <svg viewBox="0 0 24 24" style="width:18px;height:18px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-              Mi cuenta
-            </a>
-            <a href="{{ url('/mi-cuenta#t-pedidos') }}" role="menuitem">
-              <svg viewBox="0 0 24 24" style="width:18px;height:18px"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39A2 2 0 0 0 9.63 16h7.52a2 2 0 0 0 2-.79L23 12H6"/></svg>
-              Mis pedidos
-            </a>
+            <a href="{{ route('customer.profile') }}" role="menuitem">Mi cuenta</a>
+            <a href="{{ url('/mi-cuenta#t-pedidos') }}" role="menuitem">Mis pedidos</a>
             <form method="POST" action="{{ route('logout') }}" role="none">
               @csrf
-              <button type="submit" role="menuitem">
-                <svg viewBox="0 0 24 24" style="width:18px;height:18px"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y1="12"/></svg>
-                Cerrar sesión
-              </button>
+              <button type="submit" role="menuitem">Cerrar sesión</button>
             </form>
           </div>
         </div>
@@ -573,10 +530,8 @@
   </div>
 </header>
 
-<!-- Backdrop del buscador (oscurece SOLO el fondo) -->
 <div class="sugg-backdrop" id="suggBackdrop" hidden></div>
 
-{{-- Backdrop + Bottom Sheet (móvil) --}}
 <div class="sheet-backdrop" id="sheet-backdrop" hidden></div>
 <section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Menú" tabindex="-1">
   <div class="sheet__drag"><div class="sheet__handle" aria-hidden="true"></div></div>
@@ -591,12 +546,8 @@
       </nav>
       <div class="sheet__footer">
         <div class="sheet__icons">
-          <a class="icon-btn" href="https://facebook.com" target="_blank" aria-label="Facebook" rel="noopener">
-            <svg viewBox="0 0 24 24"><path d="M15 3h-3a4 4 0 0 0-4 4v3H5v4h3v7h4v-7h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
-          </a>
-          <a class="icon-btn" href="https://instagram.com" target="_blank" aria-label="Instagram" rel="noopener">
-            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><circle cx="17.5" cy="6.5" r="1"/></svg>
-          </a>
+          <a class="icon-btn" href="https://facebook.com" target="_blank" aria-label="Facebook" rel="noopener">F</a>
+          <a class="icon-btn" href="https://instagram.com" target="_blank" aria-label="Instagram" rel="noopener">I</a>
         </div>
         @auth
           <a href="{{ route('customer.welcome') }}" class="btn-pill">Mi cuenta</a>
@@ -612,10 +563,10 @@
   @yield('content')
 </main>
 
-<!-- ===== FOOTER CENTRADO ===== -->
 <footer class="ft">
   <div class="ft__wrap">
     <img src="{{ asset('images/logo-mail.png') }}" alt="Jureto" class="ft__logo">
+
     <div class="ft__head">
       <div>
         <a href="{{ route('web.home') }}" class="ft__brand" aria-label="Jureto inicio" style="gap:14px;">
@@ -676,28 +627,10 @@
         </ul>
       </section>
     </div>
-
-    <div class="ft__payments">
-      <img src="{{ asset('images/payments/visa.png') }}" alt="Visa">
-      <img src="{{ asset('images/payments/mastercard.jpg') }}" alt="Mastercard">
-      <img src="{{ asset('images/payments/amex.png') }}" alt="American Express">
-    </div>
-
-    <div class="ft__copy" style="margin-top:18px;display:flex;justify-content:center;flex-wrap:wrap;align-items:center;gap:16px;text-align:center;">
-      <small>© {{ date('Y') }} Jureto — Todos los derechos reservados.</small>
-      <div style="display:flex; gap:16px; align-items:center;">
-        <a href="https://x.com" target="_blank" aria-label="X / Twitter" style="color:inherit;"><i class="fa-brands fa-x-twitter"></i></a>
-        <a href="https://discord.com" target="_blank" aria-label="Discord" style="color:inherit;"><i class="fa-brands fa-discord"></i></a>
-        <a href="https://linkedin.com" target="_blank" aria-label="LinkedIn" style="color:inherit;"><i class="fa-brands fa-linkedin-in"></i></a>
-        <a href="https://reddit.com" target="_blank" aria-label="Reddit" style="color:inherit;"><i class="fa-brands fa-reddit-alien"></i></a>
-      </div>
-    </div>
   </div>
 </footer>
 
-{{-- ===== Scripts ===== --}}
 <script>
-  // Header glass + variable de altura (para anclar sugerencias en móvil)
   (function(){
     const header = document.querySelector('header.header');
     if(!header) return;
@@ -712,13 +645,8 @@
     applyGlass(); setHdrVar();
     window.addEventListener('scroll', applyGlass, { passive:true });
     window.addEventListener('resize', ()=>{ applyGlass(); setHdrVar(); }, { passive:true });
-    window.addEventListener('pageshow', ()=>{ applyGlass(); setHdrVar(); });
-    if ('ResizeObserver' in window){
-      new ResizeObserver(()=> setHdrVar()).observe(header);
-    }
   })();
 
-  // ✅ Dropdown Productos: toggle por click (solo desktop) + click afuera + ESC
   (function(){
     const dd = document.getElementById('prodDD');
     const btn = document.getElementById('prodTrigger');
@@ -747,13 +675,8 @@
       if(!isDesktop()) return;
       if(e.key === 'Escape') setOpen(false);
     });
-
-    window.addEventListener('resize', ()=>{
-      if(!isDesktop()) setOpen(false);
-    });
   })();
 
-  // Bottom Sheet móvil
   (function(){
     const html = document.documentElement;
     const burger = document.getElementById('burger');
@@ -771,12 +694,9 @@
     sheet.addEventListener('touchstart', (e)=>{ if(e.touches.length !== 1) return; dragging = true; startY = e.touches[0].clientY; currentY = startY; }, {passive:true});
     sheet.addEventListener('touchmove', (e)=>{ if(!dragging) return; currentY = e.touches[0].clientY; const d = Math.max(0, currentY - startY); sheet.style.transform = `translateY(${d}px)`; }, {passive:true});
     sheet.addEventListener('touchend', ()=>{ if(!dragging) return; const d = Math.max(0, currentY - startY); dragging = false; sheet.style.transform = ''; if(d > 80) closeSheet(); });
-    sheet.addEventListener('click', (e)=>{ const a = e.target.closest('a'); if(a && a.getAttribute('href')) closeSheet(); });
-
     sheet.setAttribute('inert','');
   })();
 
-  // Menú de usuario
   (function(){
     const btn = document.getElementById('avatarBtn');
     const menu = document.getElementById('userMenu');
@@ -794,7 +714,6 @@
     document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') toggle(false); });
   })();
 
-  // === BUSCADOR: backdrop solo en fondo + sin saltos de scroll
   (function(){
     const input = document.getElementById('qInput');
     const panel = document.getElementById('sugg');
@@ -806,7 +725,7 @@
     const body = document.body;
     if(!input || !panel || !list || !wrap) return;
 
-    let timer = null, activeIndex = -1, savedScroll = 0;
+    let timer = null, savedScroll = 0;
     const SUGG_URL = @json(route('search.suggest'));
 
     function scrollbarWidth(){ return window.innerWidth - document.documentElement.clientWidth; }
@@ -817,6 +736,7 @@
       body.style.setProperty('--jrt-pr', scrollbarWidth() + 'px');
       body.classList.add('jrt-scroll-lock');
     }
+
     function unlock(){
       if(!body.classList.contains('jrt-scroll-lock')) return;
       body.classList.remove('jrt-scroll-lock');
@@ -837,6 +757,7 @@
       input.setAttribute('aria-expanded','true');
       lock();
     }
+
     function closeUI(){
       panel.classList.remove('is-open');
       panel.hidden = true;
@@ -857,16 +778,20 @@
       const q = input.value.trim();
       if(timer) clearTimeout(timer);
       if(q.length < 2){ closeUI(); return; }
+
       timer = setTimeout(async ()=>{
         try{
           const url = new URL(SUGG_URL, window.location.origin);
           url.searchParams.set('term', q);
+
           const res = await fetch(url.toString(), { headers: { 'Accept':'application/json' } });
           const data = await res.json().catch(()=> ({}));
+
           const terms = Array.isArray(data.terms) ? data.terms : [];
           const products = Array.isArray(data.products) ? data.products : [];
 
           let html = '';
+
           if(terms.length){
             html += `<div class="sugg-section">Búsquedas</div>`;
             html += terms.slice(0,6).map(t=>`
@@ -876,36 +801,49 @@
               </div>
             `).join('');
           }
-          if(products.length){
-            html += `<div class="sugg-section">Productos</div>`;
-            html += products.slice(0,5).map(p=>`
-              <a class="sugg-item" role="option" tabindex="-1" href="{{ url('/producto') }}/${p.id}">
-                <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:#111;fill:none;stroke-width:2"><path d="M20 7H4"/><path d="M6 7v13a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7"/><path d="M9 7V5a3 3 0 0 1 6 0v2"/></svg>
-                <span>${String(p.name||'Producto').replace(/</g,'&lt;')}</span>
-              </a>
-            `).join('');
+
+if(products.length){
+  html += `<div class="sugg-section">Productos</div>`;
+  html += products.slice(0,5).map(p=>`
+    <a class="sugg-item" role="option" tabindex="-1" href="${p.url}">
+      <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:#111;fill:none;stroke-width:2"><path d="M20 7H4"/><path d="M6 7v13a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7"/><path d="M9 7V5a3 3 0 0 1 6 0v2"/></svg>
+      <span>${String(p.name||'Producto').replace(/</g,'&lt;')}</span>
+    </a>
+  `).join('');
+}
+
+          if(!html){
+            html = `<div class="sugg-empty">Sin sugerencias</div>`;
           }
-          if(!html) html = `<div class="sugg-empty">Sin sugerencias</div>`;
+
           list.innerHTML = html;
           openUI();
-        }catch(_){ /* noop */ }
+        }catch(_){}
       }, 180);
     });
 
-    input.addEventListener('focus', ()=>{ if(list.children.length){ openUI(); } });
+    input.addEventListener('focus', ()=>{
+      if(list.children.length){ openUI(); }
+    });
 
-    document.addEventListener('click', (e)=>{ 
+    document.addEventListener('click', (e)=>{
       if(panel.hidden) return;
       if(!e.target.closest('#searchWrap') && !e.target.closest('#sugg')) closeUI();
     });
+
     backdrop?.addEventListener('click', closeUI);
+
     document.addEventListener('keydown', (e)=>{
-      if(e.key === 'Escape'){ closeUI(); input.blur(); }
+      if(e.key === 'Escape'){
+        closeUI();
+        input.blur();
+      }
     });
 
     panel.addEventListener('click', (e)=>{
       const item = e.target.closest('.sugg-item');
       if(!item) return;
+
       const term = item.getAttribute('data-term');
       if(term){
         input.value = term;
@@ -916,7 +854,6 @@
     });
   })();
 
-  // Footer acordeón
   (function(){
     function initFooterAccordion(){
       const root = document.getElementById('ft-accordion');
@@ -958,8 +895,6 @@
     } else {
       initFooterAccordion();
     }
-    document.addEventListener('turbo:load', initFooterAccordion);
-    document.addEventListener('livewire:load', initFooterAccordion);
   })();
 
   window.updateCartBadge = function(count){

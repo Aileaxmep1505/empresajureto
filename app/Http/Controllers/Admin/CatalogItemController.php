@@ -602,16 +602,6 @@ class CatalogItemController extends Controller implements HasMiddleware
         $this->saveOrReplacePhoto($request, $catalogItem, 'photo_2', 'photo_2_file');
         $this->saveOrReplacePhoto($request, $catalogItem, 'photo_3', 'photo_3_file');
 
-        try {
-            $this->ensureThreePhotos($catalogItem);
-        } catch (ValidationException $e) {
-            Log::warning('CatalogItem@update: faltan fotos después de update', [
-                'item_id' => $catalogItem->id,
-                'errors'  => $e->errors(),
-            ]);
-            throw $e;
-        }
-
         return back()->with('ok', 'Producto web actualizado correctamente.');
     }
 

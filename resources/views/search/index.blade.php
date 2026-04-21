@@ -1,355 +1,456 @@
 @extends('layouts.web')
-@section('title', 'Buscar')
+
+@section('title', 'Resultados de búsqueda - ' . $query)
 
 @section('content')
 <style>
-  /* ===== Tokens pastel minimal ===== */
-  :root{
-    --bg:#f6f8fc;
-    --surface:#ffffff;
-    --ink:#0f172a;
-    --muted:#64748b;
-    --line:#e8eef6;
-    --brand:#6ea8fe;
-    --ok:#10b981;
-    --warn:#eab308;
-    --danger:#ef4444;
-    --shadow:0 18px 60px rgba(2,8,23,.10);
-    --radius:18px;
-  }
-  html,body{background:var(--bg)}
-  .wrap{max-width:1180px;margin-inline:auto;padding:24px}
+  :root {
+    /* Paleta Minimalista y Premium */
+    --surface-bg: #f9f9fb;
+    --surface-card: #ffffff;
+    --surface-image: #f4f5f7;
+    
+    --text-primary: #09090b;
+    --text-secondary: #71717a;
+    --text-tertiary: #a1a1aa;
+    
+    --border-subtle: rgba(0, 0, 0, 0.04);
+    --border-focus: rgba(0, 0, 0, 0.1);
+    
+    --accent: #000000;
+    --accent-hover: #27272a;
+    
+    --tag-exact: #18181b;
+    --tag-exact-text: #ffffff;
+    --tag-related: #f4f4f5;
+    --tag-related-text: #52525b;
 
-  /* ===== Head / searchbar ===== */
-  .head{
-    position:relative;
-    padding:24px;
-    border-radius:20px;
-    background:
-      radial-gradient(800px 400px at -10% -20%, #eaf2ff 0%, transparent 60%),
-      radial-gradient(800px 400px at 120% 20%, #eafff3 0%, transparent 55%),
-      var(--surface);
-    border:1px solid var(--line);
-    box-shadow: var(--shadow);
-  }
-  .title{font-size:clamp(22px,3vw,28px); color:var(--ink); font-weight:700; margin:0 0 6px}
-  .subtitle{color:var(--muted); margin-bottom:18px}
+    --radius-sm: 8px;
+    --radius-md: 16px;
+    --radius-lg: 24px;
 
-  .searchbar{
-    display:grid; gap:12px;
-    grid-template-columns: 1fr auto;
-    background:#fff;border:1px solid var(--line);border-radius:16px;padding:10px 10px 10px 14px;
-  }
-  .searchbar input[type="text"]{
-    border:0; outline:0; font-size:16px; width:100%; color:var(--ink); background:transparent;
-  }
-  .btn{
-    display:inline-flex;align-items:center;gap:8px;
-    padding:10px 16px;border-radius:12px;border:1px solid var(--line);
-    background:var(--brand);color:#0b1220;font-weight:600;cursor:pointer;text-decoration:none;
-    box-shadow:0 8px 24px rgba(110,168,254,.35);
-  }
-  .btn-ghost{background:#fff;color:var(--ink);box-shadow:none}
-  .btn:active{transform:translateY(1px)}
-
-  /* autosuggest */
-  .suggest{
-    position:absolute;left:24px;right:24px;top:100%;margin-top:8px;z-index:30;
-    background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);display:none;
-    overflow:hidden;
-  }
-  .suggest.show{display:block}
-  .suggest .row{display:flex;gap:16px;padding:10px 12px;align-items:center;cursor:pointer}
-  .suggest .row:hover{background:#f7faff}
-  .suggest .term{flex:1;color:var(--ink)}
-  .suggest .pill{font-size:12px;color:#1d4ed8;background:rgba(59,130,246,.16);padding:4px 8px;border-radius:999px}
-
-  /* ===== Filters bar ===== */
-  .filters{
-    margin-top:16px;
-    display:flex;flex-wrap:wrap;gap:8px;align-items:center
-  }
-  .chip{
-    display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;
-    background:#fff;border:1px solid var(--line);color:var(--ink);font-weight:600;
-  }
-  .chip input{accent-color:var(--brand)}
-  .select{border:1px solid var(--line);background:#fff;border-radius:10px;padding:8px 10px;color:var(--ink)}
-
-  /* ===== Content layout ===== */
-  .layout{display:grid;grid-template-columns: 260px 1fr;gap:18px;margin-top:22px}
-  @media (max-width: 980px){ .layout{grid-template-columns:1fr} }
-
-  .side{
-    background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:16px
-  }
-  .side h4{margin:0 0 10px;color:var(--ink)}
-  .side .group{border-top:1px dashed var(--line);padding-top:12px;margin-top:12px}
-  .side label{display:flex;align-items:center;gap:10px;margin:8px 0;color:var(--ink)}
-  .side small{color:var(--muted)}
-
-  .content .meta{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px}
-  .meta .count{color:var(--muted)}
-
-  .grid{
-    display:grid;gap:14px;
-    grid-template-columns:repeat(4,1fr);
-  }
-  @media (max-width:1200px){ .grid{grid-template-columns:repeat(3,1fr)} }
-  @media (max-width:820px){ .grid{grid-template-columns:repeat(2,1fr)} }
-  @media (max-width:520px){ .grid{grid-template-columns:1fr} }
-
-  /* ===== Product card ===== */
-  .card{
-    position:relative;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);
-    overflow:hidden;display:flex;flex-direction:column
-  }
-  .thumb{
-    width:100%;aspect-ratio:1/1.0;object-fit:cover;background:#f2f5fb;border-bottom:1px solid var(--line)
-  }
-  .body{padding:12px 12px 14px}
-  .brand{font-size:12px;color:var(--muted);margin-bottom:2px}
-  .name{font-weight:700;color:var(--ink);line-height:1.3}
-  .badges{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
-  .badge{font-size:12px;padding:4px 8px;border-radius:999px;border:1px solid var(--line);background:#fff;color:var(--ink)}
-  .price{display:flex;align-items:baseline;gap:8px;margin-top:6px}
-  .p-main{font-size:18px;font-weight:800;color:var(--ink)}
-  .p-old{font-size:13px;color:var(--muted);text-decoration:line-through}
-  .cta{display:flex;gap:8px;margin-top:10px}
-  .btn-add{flex:1;background:var(--ink);color:#fff;border:1px solid var(--ink)}
-  .btn-view{flex:1}
-
-  .flag{
-    position:absolute;left:10px;top:10px;padding:6px 10px;border-radius:999px;background:#0ea5e9;color:#00131a;font-weight:800;font-size:12px
+    /* Sombras sedosas (Stripe/Vercel style) */
+    --shadow-rest: 0 2px 8px -2px rgba(0, 0, 0, 0.02), 0 1px 2px rgba(0, 0, 0, 0.01);
+    --shadow-hover: 0 20px 40px -8px rgba(0, 0, 0, 0.08), 0 10px 16px -4px rgba(0, 0, 0, 0.04);
+    
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   }
 
-  /* ===== Empty state ===== */
-  .empty{
-    background:#fff;border:1px dashed var(--line);border-radius:16px;padding:30px;text-align:center;color:var(--muted)
+  /* Tipografía de sistema para máxima legibilidad y modernidad */
+  .search-page {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: var(--surface-bg);
+    min-height: 100vh;
+    padding: 60px 0 100px;
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
-  /* ===== Pagination ===== */
-  .pager{display:flex;justify-content:center;margin:22px 0}
-  .pager .pagination{display:flex;gap:8px;list-style:none;padding:0}
-  .pager .pagination li a, .pager .pagination li span{
-    display:inline-flex;min-width:36px;height:36px;align-items:center;justify-content:center;
-    border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);text-decoration:none
+  .container-fluid {
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 0 24px;
   }
-  .pager .pagination li.active span{background:var(--brand);color:#0b1220;font-weight:700;border-color:transparent}
+
+  /* --- Seamless Hero --- */
+  .hero-section {
+    max-width: 800px;
+    margin-bottom: 56px;
+  }
+
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 12px;
+    background: var(--surface-card);
+    border: 1px solid var(--border-focus);
+    border-radius: 99px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+    box-shadow: var(--shadow-rest);
+  }
+
+  .hero-title {
+    font-size: clamp(36px, 5vw, 56px);
+    font-weight: 700;
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+    margin: 0 0 16px 0;
+    color: var(--text-primary);
+  }
+
+  .hero-title span {
+    color: var(--text-secondary);
+    font-weight: 400;
+  }
+
+  .hero-subtitle {
+    font-size: 18px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    margin: 0;
+  }
+
+  /* --- Section Headers --- */
+  .results-section {
+    margin-bottom: 64px;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    margin-bottom: 32px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border-focus);
+  }
+
+  .section-title {
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin: 0;
+  }
+
+  .section-count {
+    font-size: 15px;
+    color: var(--text-tertiary);
+    font-weight: 500;
+  }
+
+  /* --- Product Grid & Cards --- */
+  .grid-layout {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 32px 24px;
+  }
+
+  .product-card {
+    display: flex;
+    flex-direction: column;
+    background: var(--surface-card);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-rest);
+    border: 1px solid var(--border-subtle);
+    text-decoration: none;
+    overflow: hidden;
+    transition: transform 0.4s var(--ease-out), box-shadow 0.4s var(--ease-out);
+    height: 100%;
+  }
+
+  .product-card:hover {
+    transform: translateY(-6px);
+    box-shadow: var(--shadow-hover);
+  }
+
+  .card-image-wrapper {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    background-color: var(--surface-image);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px;
+    overflow: hidden;
+  }
+
+  .card-image-wrapper img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    transition: transform 0.6s var(--ease-out);
+    mix-blend-mode: darken; /* Ayuda a integrar imágenes con fondo blanco */
+  }
+
+  .product-card:hover .card-image-wrapper img {
+    transform: scale(1.08);
+  }
+
+  .image-placeholder {
+    color: var(--text-tertiary);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .card-content {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+  }
+
+  .card-tag {
+    align-self: flex-start;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 16px;
+  }
+
+  .card-tag.exact {
+    background: var(--tag-exact);
+    color: var(--tag-exact-text);
+  }
+
+  .card-tag.related {
+    background: var(--tag-related);
+    color: var(--tag-related-text);
+  }
+
+  .card-title {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.4;
+    margin: 0 0 12px 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .card-meta {
+    margin-bottom: 24px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .meta-chip {
+    font-size: 13px;
+    color: var(--text-secondary);
+    background: var(--surface-bg);
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border-subtle);
+  }
+
+  .card-price {
+    margin-top: auto;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--text-primary);
+  }
+
+  /* --- Empty State --- */
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 100px 24px;
+    background: var(--surface-card);
+    border-radius: var(--radius-lg);
+    border: 1px dashed var(--border-focus);
+  }
+
+  .empty-icon-wrapper {
+    width: 80px;
+    height: 80px;
+    background: var(--surface-bg);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 24px;
+    color: var(--text-tertiary);
+  }
+
+  .empty-title {
+    font-size: 24px;
+    font-weight: 600;
+    margin: 0 0 12px 0;
+  }
+
+  .empty-desc {
+    color: var(--text-secondary);
+    font-size: 16px;
+    max-width: 400px;
+    line-height: 1.5;
+    margin: 0 0 32px 0;
+  }
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 24px;
+    background: var(--accent);
+    color: #fff;
+    font-weight: 500;
+    font-size: 15px;
+    border-radius: 99px;
+    text-decoration: none;
+    transition: background 0.2s ease;
+  }
+
+  .btn-primary:hover {
+    background: var(--accent-hover);
+  }
+
+  /* --- Responsive --- */
+  @media (max-width: 768px) {
+    .search-page { padding: 40px 0; }
+    .hero-title { font-size: 32px; }
+    .grid-layout { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 24px; }
+    .card-image-wrapper { padding: 24px; }
+    .card-content { padding: 20px; }
+  }
+
+  @media (max-width: 480px) {
+    .container-fluid { padding: 0 16px; }
+    .grid-layout { grid-template-columns: 1fr; }
+    .section-header { flex-direction: column; gap: 4px; }
+  }
 </style>
 
-<div class="wrap">
-  <div class="head">
-    <h1 class="title">Buscar productos</h1>
-    <div class="subtitle">Encuentra equipos y suministros médicos con filtro por envío, disponibilidad y más.</div>
-
-    <form id="searchForm" method="GET" action="{{ route('search.index') }}">
-      <div class="searchbar">
-        <input
-          type="text"
-          name="q"
-          id="q"
-          value="{{ old('q', $stats['q'] ?? request('q')) }}"
-          placeholder="Escribe lo que buscas (p. ej. 'endoscopio', 'monitor de signos vitales')"
-          autocomplete="off"
-          />
-        <button class="btn" type="submit">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M21 21l-4.3-4.3M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-          Buscar
-        </button>
+<div class="search-page">
+  <div class="container-fluid">
+    
+    <header class="hero-section">
+      <div class="hero-badge">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        Resultados de búsqueda
       </div>
 
-      {{-- Sugerencias --}}
-      <div id="suggestBox" class="suggest"></div>
+      <h1 class="hero-title">
+        Resultados para <span>"{{ $query }}"</span>
+      </h1>
 
-      {{-- Filtros rápidos arriba --}}
-      <div class="filters">
-        <label class="chip">
-          <input type="checkbox" name="disponible" value="1" {{ ($filters['disponible'] ?? false) ? 'checked' : '' }}> Disponible
-        </label>
-        <label class="chip">
-          <input type="checkbox" name="envio_gratis" value="1" {{ ($filters['envio'] ?? false) ? 'checked' : '' }}> Envío gratis
-        </label>
-        <label class="chip">
-          <input type="checkbox" name="express" value="1" {{ ($filters['express'] ?? false) ? 'checked' : '' }}> Envío express
-        </label>
-        <label class="chip">
-          <input type="checkbox" name="msi" value="1" {{ ($filters['msi'] ?? false) ? 'checked' : '' }}> Meses sin intereses
-        </label>
-        <label class="chip">
-          <input type="checkbox" name="club" value="1" {{ ($filters['club'] ?? false) ? 'checked' : '' }}> Precio Club
-        </label>
+      <p class="hero-subtitle">
+        @if($total > 0)
+          Explora {{ $total }} producto(s) encontrados.
+        @else
+          No encontramos el término exacto, pero hemos seleccionado alternativas para ti.
+        @endif
+      </p>
+    </header>
 
-        <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
-          <span class="muted" style="color:var(--muted)">Ordenar:</span>
-          <select class="select" name="order" id="order">
-            @php $ord = $order ?? request('order','sugerido'); @endphp
-            <option value="sugerido" {{ $ord==='sugerido' ? 'selected' : '' }}>Sugerido</option>
-            <option value="precio_asc" {{ $ord==='precio_asc' ? 'selected' : '' }}>Precio: menor a mayor</option>
-            <option value="precio_desc" {{ $ord==='precio_desc' ? 'selected' : '' }}>Precio: mayor a menor</option>
-            <option value="nuevos" {{ $ord==='nuevos' ? 'selected' : '' }}>Novedades</option>
-            <option value="ventas" {{ $ord==='ventas' ? 'selected' : '' }}>Más vendidos</option>
-          </select>
-          <button class="btn btn-ghost" type="submit">Aplicar</button>
+    @if($products->count())
+      <section class="results-section">
+        <div class="section-header">
+          <h2 class="section-title">Coincidencias</h2>
+          <span class="section-count">{{ $products->count() }} artículos</span>
         </div>
-      </div>
-    </form>
-  </div>
 
-  <div class="layout">
-    {{-- Sidebar opcional con más filtros (rango de precio, marca, etc.) --}}
-    <aside class="side">
-      <h4>Refinar búsqueda</h4>
-      <div class="group">
-        <small>Rango de precio</small>
-        <div style="display:flex; gap:8px; margin-top:8px">
-          <input type="number" name="min" form="searchForm" placeholder="Mín" value="{{ request('min') }}" class="select" style="width:100%">
-          <input type="number" name="max" form="searchForm" placeholder="Máx" value="{{ request('max') }}" class="select" style="width:100%">
-        </div>
-      </div>
-      <div class="group">
-        <small>Marca</small>
-        <input type="text" name="brand" form="searchForm" placeholder="Ej. Mindray" value="{{ request('brand') }}" class="select" style="width:100%">
-      </div>
-      <div class="group">
-        <small>Orden</small>
-        <select name="order" form="searchForm" class="select" style="width:100%">
-          <option value="sugerido" {{ $ord==='sugerido' ? 'selected' : '' }}>Sugerido</option>
-          <option value="precio_asc" {{ $ord==='precio_asc' ? 'selected' : '' }}>Precio: menor a mayor</option>
-          <option value="precio_desc" {{ $ord==='precio_desc' ? 'selected' : '' }}>Precio: mayor a menor</option>
-          <option value="nuevos" {{ $ord==='nuevos' ? 'selected' : '' }}>Novedades</option>
-          <option value="ventas" {{ $ord==='ventas' ? 'selected' : '' }}>Más vendidos</option>
-        </select>
-      </div>
-      <div class="group">
-        <button form="searchForm" class="btn" style="width:100%">Actualizar resultados</button>
-      </div>
-    </aside>
-
-    <section class="content">
-      <div class="meta">
-        <div class="count">
-          @php $q = $stats['q'] ?? request('q'); $count = $stats['count'] ?? ($results->total() ?? 0); @endphp
-          <strong>{{ number_format($count) }}</strong> resultados
-          @if($q) para “<strong>{{ $q }}</strong>” @endif
-        </div>
-      </div>
-
-      @if(($results->count() ?? 0) === 0)
-        <div class="empty">
-          @if($q)
-            No encontramos coincidencias para “<strong>{{ $q }}</strong>”. Prueba con términos similares:
-            @if(!empty($stats['expanded']))
-              <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
-                @foreach($stats['expanded'] as $term)
-                  <a class="badge" href="{{ route('search.index', array_merge(request()->query(), ['q'=>$term])) }}">{{ $term }}</a>
-                @endforeach
+        <div class="grid-layout">
+          @foreach($products as $product)
+            <a href="{{ $product->search_url }}" class="product-card">
+              <div class="card-image-wrapper">
+                @if($product->search_image)
+                  <img src="{{ asset('storage/' . $product->search_image) }}" alt="{{ $product->name }}" loading="lazy">
+                @else
+                  <div class="image-placeholder">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                    Sin imagen
+                  </div>
+                @endif
               </div>
-            @endif
-          @else
-            Escribe algo en el buscador para comenzar.
-          @endif
-        </div>
-      @else
-        <div class="grid">
-          @foreach($results as $item)
-            @php
-              // Campos esperados (ajusta a tu modelo real)
-              $id = $item->id ?? null;
-              $name = $item->name ?? ($item->nombre ?? 'Producto');
-              $brand = $item->brand ?? ($item->marca ?? null);
-              $price = $item->price ?? ($item->precio ?? null);
-              $old   = $item->old_price ?? ($item->precio_anterior ?? null);
-              $img   = $item->image_url ?? $item->imagen_url ?? $item->cover ?? null;
-              $envioGratis = ($item->free_shipping ?? $item->envio_gratis ?? false) ? true : false;
-              $express = ($item->express ?? false) ? true : false;
-              $msi = ($item->msi ?? false) ? true : false;
-              $disponible = ($item->stock ?? 0) > 0;
-            @endphp
-            <article class="card">
-              @if($envioGratis)<span class="flag">ENVÍO GRATIS</span>@endif
-              <img class="thumb" src="{{ $img ?: asset('img/placeholder-1x1.png') }}"
-                   alt="{{ $name }}" onerror="this.src='{{ asset('img/placeholder-1x1.png') }}'">
-              <div class="body">
-                @if($brand)<div class="brand">{{ $brand }}</div>@endif
-                <div class="name">{{ $name }}</div>
-                <div class="badges">
-                  @if($disponible)<span class="badge">Disponible</span>@else<span class="badge" style="opacity:.7">Agotado</span>@endif
-                  @if($express)<span class="badge">Express</span>@endif
-                  @if($msi)<span class="badge">MSI</span>@endif
+
+              <div class="card-content">
+                <span class="card-tag exact">Exacto</span>
+                <h3 class="card-title">{{ $product->name }}</h3>
+
+                <div class="card-meta">
+                  @if(!empty($product->brand))
+                    <span class="meta-chip">{{ $product->brand }}</span>
+                  @endif
+                  @if(!empty($product->model))
+                    <span class="meta-chip">Mod: {{ $product->model }}</span>
+                  @endif
+                  @if(!empty($product->sku))
+                    <span class="meta-chip">SKU: {{ $product->sku }}</span>
+                  @endif
                 </div>
-                <div class="price">
-                  @if(!is_null($price))<div class="p-main">${{ number_format($price,2) }} MXN</div>@endif
-                  @if(!is_null($old) && $old > $price)<div class="p-old">${{ number_format($old,2) }}</div>@endif
-                </div>
-                <div class="cta">
-                  <a class="btn btn-view" href="{{ route('catalog.show', $id ?? 0) }}">Ver</a>
-                  <form method="POST" action="{{ route('cart.add') }}">
-                    @csrf
-                    <input type="hidden" name="product_id" value="{{ $id }}">
-                    <button class="btn btn-add" type="submit">Agregar</button>
-                  </form>
-                </div>
+
+                @if(isset($product->price) && $product->price !== null)
+                  <div class="card-price">${{ number_format((float) $product->price, 2) }}</div>
+                @endif
               </div>
-            </article>
+            </a>
           @endforeach
         </div>
+      </section>
+    @endif
 
-        <div class="pager">
-          {{-- Si usas Tailwind pagination, esto ya viene listo --}}
-          {{ $results->withQueryString()->links() }}
+    @if($related->count())
+      <section class="results-section">
+        <div class="section-header">
+          <h2 class="section-title">Alternativas sugeridas</h2>
+          <span class="section-count">{{ $related->count() }} artículos</span>
         </div>
-      @endif
-    </section>
+
+        <div class="grid-layout">
+          @foreach($related as $product)
+            <a href="{{ $product->search_url }}" class="product-card">
+              <div class="card-image-wrapper">
+                @if($product->search_image)
+                  <img src="{{ asset('storage/' . $product->search_image) }}" alt="{{ $product->name }}" loading="lazy">
+                @else
+                  <div class="image-placeholder">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                    Sin imagen
+                  </div>
+                @endif
+              </div>
+
+              <div class="card-content">
+                <span class="card-tag related">Sugerencia</span>
+                <h3 class="card-title">{{ $product->name }}</h3>
+
+                <div class="card-meta">
+                  @if(!empty($product->brand))
+                    <span class="meta-chip">{{ $product->brand }}</span>
+                  @endif
+                  @if(!empty($product->model))
+                    <span class="meta-chip">Mod: {{ $product->model }}</span>
+                  @endif
+                  @if(!empty($product->sku))
+                    <span class="meta-chip">SKU: {{ $product->sku }}</span>
+                  @endif
+                </div>
+
+                @if(isset($product->price) && $product->price !== null)
+                  <div class="card-price">${{ number_format((float) $product->price, 2) }}</div>
+                @endif
+              </div>
+            </a>
+          @endforeach
+        </div>
+      </section>
+    @endif
+
+    @if(!$products->count() && !$related->count())
+      <div class="empty-state">
+        <div class="empty-icon-wrapper">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            <line x1="9" y1="9" x2="13" y2="13"></line>
+            <line x1="13" y1="9" x2="9" y2="13"></line>
+          </svg>
+        </div>
+        <h2 class="empty-title">Sin resultados para "{{ $query }}"</h2>
+        <p class="empty-desc">
+          Verifica la ortografía o intenta usar términos más generales como la marca o el tipo de producto.
+        </p>
+        <a href="/" class="btn-primary">Volver a la tienda</a>
+      </div>
+    @endif
+    
   </div>
 </div>
-
-<script>
-  // ===== Auto-submit al cambiar filtros/orden =====
-  document.querySelectorAll('.filters input[type="checkbox"], .filters select').forEach(el=>{
-    el.addEventListener('change', ()=> document.getElementById('searchForm').submit());
-  });
-
-  // ===== Sugerencias (debounce) =====
-  const q = document.getElementById('q');
-  const box = document.getElementById('suggestBox');
-  let t=null;
-
-  function hideSuggest(){ box.classList.remove('show'); box.innerHTML=''; }
-  function showSuggest(html){ box.innerHTML = html; box.classList.add('show'); }
-
-  q.addEventListener('input', ()=>{
-    clearTimeout(t);
-    const term = q.value.trim();
-    if(!term){ hideSuggest(); return; }
-    t = setTimeout(async ()=>{
-      try{
-        const url = new URL("{{ route('search.suggest') }}", window.location.origin);
-        url.searchParams.set('term', term);
-        const res = await fetch(url, {headers:{'X-Requested-With':'XMLHttpRequest'}});
-        const data = await res.json();
-        const terms = (data.terms || []).slice(0,6);
-        const products = (data.products || []).slice(0,4);
-        if(terms.length===0 && products.length===0){ hideSuggest(); return; }
-
-        let html = '';
-        terms.forEach(s=>{
-          const href = new URL("{{ route('search.index') }}", window.location.origin);
-          href.searchParams.set('q', s);
-          html += `<div class="row" onclick="location.href='${href.toString()}'"><div class="term">${s}</div><span class="pill">término</span></div>`;
-        });
-        products.forEach(p=>{
-          const href = "{{ route('catalog.show', ':id') }}".replace(':id', p.id);
-          html += `<div class="row" onclick="location.href='${href}'"><div class="term">${p.name}</div><span class="pill">producto</span></div>`;
-        });
-
-        showSuggest(html);
-      }catch(e){ hideSuggest(); }
-    }, 200);
-  });
-
-  document.addEventListener('click', (e)=>{
-    if(!e.target.closest('.searchbar') && !e.target.closest('#suggestBox')) hideSuggest();
-  });
-</script>
 @endsection
