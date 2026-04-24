@@ -1941,6 +1941,7 @@ use App\Http\Controllers\DocumentAiController;
 use App\Http\Controllers\PropuestaComercialController;
 use App\Http\Controllers\PropuestaComercialMatchController;
 use App\Http\Controllers\PropuestaComercialExportController;
+use App\Models\DocumentAiRun;
 
 Route::get('/propuestas-comerciales', [PropuestaComercialController::class, 'index'])->name('propuestas-comerciales.index');
 Route::get('/propuestas-comerciales/create', [PropuestaComercialController::class, 'create'])->name('propuestas-comerciales.create');
@@ -1959,9 +1960,6 @@ Route::post('/propuesta-comercial-items/{item}/price', [PropuestaComercialMatchC
 Route::get('/propuestas-comerciales/{propuestaComercial}/export/word', [PropuestaComercialExportController::class, 'word'])->name('propuestas-comerciales.export.word');
 Route::get('/propuestas-comerciales/{propuestaComercial}/export/excel', [PropuestaComercialExportController::class, 'excel'])->name('propuestas-comerciales.export.excel');
 
-
-use Symfony\Component\Process\Process;
-
 Route::get('/python-ai-test', function () {
     $pythonBin = config('services.python_ai.bin');
     $pythonScript = config('services.python_ai.script');
@@ -1969,7 +1967,37 @@ Route::get('/python-ai-test', function () {
     return response()->json([
         'python_bin' => $pythonBin,
         'python_script' => $pythonScript,
-        'bin_exists' => file_exists($pythonBin),
-        'script_exists' => file_exists($pythonScript),
+        'bin_exists' => $pythonBin ? file_exists($pythonBin) : false,
+        'script_exists' => $pythonScript ? file_exists($pythonScript) : false,
+    ]);
+});
+
+Route::get('/document-ai-debug/{id}', function ($id) {
+    $run = DocumentAiRun::find($id);
+
+    if (!$run) {
+        return response()->json([
+            'ok' => false,
+            'message' => 'Run no encontrado',
+            'id' => $id,
+        ], 404);
+    }
+
+    return response()->json([
+        'ok' => true,
+        'run' => [
+            'id' => $run->id,
+            'licitacion_pdf_id' => $run->licitacion_pdf_id,
+            'python_job_id' => $run->python_job_id,
+            'filename' => $run->filename,
+            'pages_per_chunk' => $run->pages_per_chunk,
+            'status' => $run->status,
+            'error' => $run->error,
+            'result_json' => $run->result_json,
+            'structured_json' => $run->structured_json,
+            'items_json' => $run->items_json,
+            'created_at' => optional($run->created_at)?->toDateTimeString(),
+            'updated_at' => optional($run->updated_at)?->toDateTimeString(),
+        ],
     ]);
 });
