@@ -62,6 +62,7 @@
   }
 
   .btn {
+    appearance: none;
     border: 1px solid transparent;
     border-radius: 10px;
     padding: 11px 16px;
@@ -107,17 +108,6 @@
   }
 
   .btn-ghost:hover { background: #f9fafb; }
-
-  .btn-danger {
-    background: #fff;
-    color: var(--danger);
-    border-color: var(--danger-soft);
-  }
-
-  .btn-danger:hover {
-    background: var(--danger-soft);
-    transform: translateY(-1px);
-  }
 
   .pc-alert {
     margin-bottom: 18px;
@@ -244,10 +234,25 @@
     font-weight: 700;
   }
 
-  .badge-info { background: var(--blue-soft); color: var(--blue); }
-  .badge-success { background: var(--success-soft); color: var(--success); }
-  .badge-danger { background: var(--danger-soft); color: var(--danger); }
-  .badge-muted { background: #f3f4f6; color: #666; }
+  .badge-info {
+    background: var(--blue-soft);
+    color: var(--blue);
+  }
+
+  .badge-success {
+    background: var(--success-soft);
+    color: var(--success);
+  }
+
+  .badge-danger {
+    background: var(--danger-soft);
+    color: var(--danger);
+  }
+
+  .badge-muted {
+    background: #f3f4f6;
+    color: #666;
+  }
 
   .missing-box {
     margin-top: 14px;
@@ -289,7 +294,7 @@
   .pc-table {
     width: 100%;
     border-collapse: collapse;
-    min-width: 1420px;
+    min-width: 1320px;
   }
 
   .pc-table th,
@@ -310,7 +315,7 @@
 
   .pc-table tr:last-child td { border-bottom: none; }
 
-  .desc { min-width: 440px; }
+  .desc { min-width: 420px; }
 
   .desc strong {
     display: block;
@@ -398,13 +403,6 @@
     line-height: 1.6;
   }
 
-  .row-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-top: 10px;
-  }
-
   @media (max-width: 1100px) {
     .pc-page { padding: 20px; }
 
@@ -459,7 +457,9 @@
 
         <form method="POST" action="{{ route('propuestas-comerciales.recover-missing', $propuestaComercial) }}">
           @csrf
-          <button type="submit" class="btn btn-outline">Recuperar faltantes</button>
+          <button type="submit" class="btn btn-outline">
+            Recuperar faltantes
+          </button>
         </form>
 
         <form method="POST" action="{{ route('propuestas-comerciales.suggest-all', $propuestaComercial) }}">
@@ -639,7 +639,7 @@
       <div class="pc-card-head">
         <h3 class="pc-card-title">Renglones de propuesta</h3>
         <p class="pc-card-subtitle">
-          Revisa coincidencias sugeridas, reextrae partidas con errores y aplica precios.
+          Revisa coincidencias sugeridas, selecciona el producto correcto y aplica precio con utilidad.
         </p>
       </div>
 
@@ -669,11 +669,6 @@
                     <br><br>
                     <span class="badge badge-info">Recuperada</span>
                   @endif
-
-                  @if(!empty($item->meta['reextraida']))
-                    <br><br>
-                    <span class="badge badge-success">Reextraída</span>
-                  @endif
                 </td>
 
                 <td class="desc">
@@ -685,15 +680,10 @@
                     Cant. cotizada: {{ $item->cantidad_cotizada ?: '—' }}
                   </small>
 
-                  <div class="row-actions">
+                  <div style="margin-top:10px;">
                     <form method="POST" action="{{ route('propuesta-comercial-items.suggest', $item) }}">
                       @csrf
                       <button class="btn btn-outline" type="submit">Buscar top 3</button>
-                    </form>
-
-                    <form method="POST" action="{{ route('propuesta-comercial-items.reextract', $item) }}">
-                      @csrf
-                      <button class="btn btn-ghost" type="submit">Reextraer esta partida</button>
                     </form>
                   </div>
                 </td>
