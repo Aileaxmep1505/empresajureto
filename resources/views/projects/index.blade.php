@@ -11,7 +11,8 @@
         ->filter(fn ($id) => $id > 0)
         ->values()
         ->all();
-
+  
+        
     $statusMap = [
         'Análisis de Bases' => 'Vigente',
         'Revisión' => 'Vigente',

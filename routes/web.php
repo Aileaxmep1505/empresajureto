@@ -102,6 +102,7 @@ use Illuminate\Support\Facades\URL;
 use App\Http\Controllers\Projects\ProjectBoardController;
 use App\Http\Controllers\Admin\CategoryProductController;
 use App\Http\Controllers\Admin\WmsReceptionController;
+use App\Http\Controllers\AzureTestController;
 
 /*
 |--------------------------------------------------------------------------
@@ -1934,4 +1935,61 @@ Route::post('/reception-sign/{token}', [WmsReceptionController::class, 'saveMobi
 Route::get('/reception-sign/{token}/status', [WmsReceptionController::class, 'publicSignatureStatus'])
     ->name('public.receptions.mobile.status');
 
-    
+Route::get('/azure-test', [AzureTestController::class, 'test']);
+
+use App\Http\Controllers\DocumentAiController;
+use App\Http\Controllers\PropuestaComercialController;
+use App\Http\Controllers\PropuestaComercialMatchController;
+use App\Http\Controllers\PropuestaComercialExportController;
+
+Route::get('/propuestas-comerciales', [PropuestaComercialController::class, 'index'])->name('propuestas-comerciales.index');
+Route::get('/propuestas-comerciales/create', [PropuestaComercialController::class, 'create'])->name('propuestas-comerciales.create');
+Route::post('/propuestas-comerciales/create-from-run', [PropuestaComercialController::class, 'storeFromRunManual'])->name('propuestas-comerciales.store-from-run-manual');
+Route::get('/propuestas-comerciales/{propuestaComercial}', [PropuestaComercialController::class, 'show'])->name('propuestas-comerciales.show');
+Route::post('/propuestas-comerciales/{propuestaComercial}/pricing', [PropuestaComercialController::class, 'updatePricing'])->name('propuestas-comerciales.update-pricing');
+
+Route::post('/document-ai/start', [DocumentAiController::class, 'start'])->name('document-ai.start');
+Route::get('/document-ai/{run}', [DocumentAiController::class, 'show'])->name('document-ai.show');
+
+Route::post('/propuesta-comercial-items/{item}/suggest', [PropuestaComercialMatchController::class, 'suggest'])->name('propuesta-comercial-items.suggest');
+Route::post('/propuestas-comerciales/{propuestaComercial}/suggest-all', [PropuestaComercialMatchController::class, 'suggestAll'])->name('propuestas-comerciales.suggest-all');
+Route::post('/propuesta-comercial-items/{item}/matches/{match}/select', [PropuestaComercialMatchController::class, 'select'])->name('propuesta-comercial-items.matches.select');
+Route::post('/propuesta-comercial-items/{item}/price', [PropuestaComercialMatchController::class, 'price'])->name('propuesta-comercial-items.price');
+
+Route::get('/propuestas-comerciales/{propuestaComercial}/export/word', [PropuestaComercialExportController::class, 'word'])->name('propuestas-comerciales.export.word');
+Route::get('/propuestas-comerciales/{propuestaComercial}/export/excel', [PropuestaComercialExportController::class, 'excel'])->name('propuestas-comerciales.export.excel');
+
+use App\Models\DocumentAiRun;
+use Illuminate\Support\Facades\Log;
+
+Route::get('/document-ai-debug/{id}', function ($id) {
+    Log::info('document-ai-debug route hit', ['id' => $id]);
+
+    $run = DocumentAiRun::find($id);
+
+    if (!$run) {
+        return response()->json([
+            'ok' => false,
+            'message' => 'Run no encontrado',
+            'id' => $id,
+        ], 404);
+    }
+
+    return response()->json([
+        'ok' => true,
+        'run' => [
+            'id' => $run->id,
+            'licitacion_pdf_id' => $run->licitacion_pdf_id,
+            'python_job_id' => $run->python_job_id,
+            'filename' => $run->filename,
+            'pages_per_chunk' => $run->pages_per_chunk,
+            'status' => $run->status,
+            'error' => $run->error,
+            'result_json' => $run->result_json,
+            'structured_json' => $run->structured_json,
+            'items_json' => $run->items_json,
+            'created_at' => optional($run->created_at)?->toDateTimeString(),
+            'updated_at' => optional($run->updated_at)?->toDateTimeString(),
+        ],
+    ]);
+});

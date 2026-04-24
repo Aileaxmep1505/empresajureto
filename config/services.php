@@ -104,7 +104,9 @@ return [
     'embed_model' => env('OPENAI_EMBED_MODEL', 'text-embedding-3-large'),
 ],
 
-
+'python_ai' => [
+    'url' => env('PYTHON_AI_URL', 'http://127.0.0.1:8001'),
+],
     /*
     |--------------------------------------------------------------------------
     | Slack
