@@ -1946,8 +1946,9 @@ use App\Models\DocumentAiRun;
 Route::get('/propuestas-comerciales', [PropuestaComercialController::class, 'index'])->name('propuestas-comerciales.index');
 Route::get('/propuestas-comerciales/create', [PropuestaComercialController::class, 'create'])->name('propuestas-comerciales.create');
 Route::post('/propuestas-comerciales/create-from-run', [PropuestaComercialController::class, 'storeFromRunManual'])->name('propuestas-comerciales.store-from-run-manual');
-Route::get('/propuestas-comerciales/{propuestaComercial}', [PropuestaComercialController::class, 'show'])->name('propuestas-comerciales.show');
 Route::post('/propuestas-comerciales/{propuestaComercial}/pricing', [PropuestaComercialController::class, 'updatePricing'])->name('propuestas-comerciales.update-pricing');
+Route::post('/propuestas-comerciales/{propuestaComercial}/recover-missing', [PropuestaComercialController::class, 'recoverMissing'])->name('propuestas-comerciales.recover-missing');
+Route::get('/propuestas-comerciales/{propuestaComercial}', [PropuestaComercialController::class, 'show'])->name('propuestas-comerciales.show');
 
 Route::post('/document-ai/start', [DocumentAiController::class, 'start'])->name('document-ai.start');
 Route::get('/document-ai/{run}', [DocumentAiController::class, 'show'])->name('document-ai.show');

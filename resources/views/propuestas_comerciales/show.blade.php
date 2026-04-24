@@ -29,7 +29,7 @@
   }
 
   .pc-wrap {
-    max-width: 1440px;
+    max-width: 1480px;
     margin: 0 auto;
   }
 
@@ -107,9 +107,7 @@
     border-color: var(--line);
   }
 
-  .btn-ghost:hover {
-    background: #f9fafb;
-  }
+  .btn-ghost:hover { background: #f9fafb; }
 
   .pc-alert {
     margin-bottom: 18px;
@@ -164,6 +162,7 @@
     margin: 8px 0 0;
     color: var(--muted);
     font-size: 13px;
+    line-height: 1.6;
   }
 
   .pc-card-body {
@@ -197,9 +196,7 @@
     line-height: 1.5;
   }
 
-  .field {
-    margin-bottom: 14px;
-  }
+  .field { margin-bottom: 14px; }
 
   .field label {
     display: block;
@@ -222,7 +219,8 @@
     transition: .2s ease;
   }
 
-  .field input:focus {
+  .field input:focus,
+  .inline-form input:focus {
     border-color: var(--blue);
     box-shadow: 0 0 0 3px var(--blue-soft);
   }
@@ -256,17 +254,42 @@
     color: #666;
   }
 
-  .pc-section {
-    margin-top: 18px;
+  .missing-box {
+    margin-top: 14px;
+    padding: 14px;
+    border-radius: 14px;
+    border: 1px solid var(--line);
+    background: #fff;
   }
 
-  .pc-table-card {
-    overflow: hidden;
+  .missing-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #111;
+    margin-bottom: 8px;
   }
 
-  .pc-table-wrap {
-    overflow-x: auto;
+  .missing-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 10px 0 14px;
   }
+
+  .missing-chip {
+    background: var(--danger-soft);
+    color: var(--danger);
+    border-radius: 999px;
+    padding: 7px 10px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .pc-section { margin-top: 18px; }
+
+  .pc-table-card { overflow: hidden; }
+
+  .pc-table-wrap { overflow-x: auto; }
 
   .pc-table {
     width: 100%;
@@ -292,20 +315,19 @@
 
   .pc-table tr:last-child td { border-bottom: none; }
 
-  .desc {
-    min-width: 260px;
-  }
+  .desc { min-width: 420px; }
 
   .desc strong {
     display: block;
     font-size: 14px;
     color: #111;
     margin-bottom: 6px;
+    line-height: 1.55;
   }
 
   .desc small {
     color: var(--muted);
-    line-height: 1.5;
+    line-height: 1.7;
   }
 
   .match-list {
@@ -351,17 +373,6 @@
     outline: none;
   }
 
-  .inline-form input:focus {
-    border-color: var(--blue);
-    box-shadow: 0 0 0 3px var(--blue-soft);
-  }
-
-  .stack-actions {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-
   .pc-columns {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -389,10 +400,12 @@
   .empty-note {
     color: var(--muted);
     font-size: 14px;
+    line-height: 1.6;
   }
 
   @media (max-width: 1100px) {
     .pc-page { padding: 20px; }
+
     .pc-head,
     .pc-grid-top,
     .pc-columns {
@@ -401,6 +414,31 @@
     }
   }
 </style>
+
+@php
+  $partidaNumbers = $propuestaComercial->items
+    ->pluck('partida_numero')
+    ->filter(fn($value) => $value !== null && $value !== '')
+    ->map(fn($value) => (int) $value)
+    ->unique()
+    ->sort()
+    ->values();
+
+  $missingNumbers = [];
+
+  if ($partidaNumbers->count() >= 2) {
+    $expected = range($partidaNumbers->first(), $partidaNumbers->last());
+    $missingNumbers = array_values(array_diff($expected, $partidaNumbers->all()));
+  }
+
+  $statusClass = match($propuestaComercial->status) {
+    'completed' => 'badge-success',
+    'priced' => 'badge-info',
+    'matched' => 'badge-info',
+    'draft' => 'badge-muted',
+    default => 'badge-danger',
+  };
+@endphp
 
 <div class="pc-page">
   <div class="pc-wrap">
@@ -417,13 +455,20 @@
       <div class="pc-actions">
         <a href="{{ route('propuestas-comerciales.index') }}" class="btn btn-ghost">Volver</a>
 
+        <form method="POST" action="{{ route('propuestas-comerciales.recover-missing', $propuestaComercial) }}">
+          @csrf
+          <button type="submit" class="btn btn-outline">
+            Recuperar faltantes
+          </button>
+        </form>
+
         <form method="POST" action="{{ route('propuestas-comerciales.suggest-all', $propuestaComercial) }}">
           @csrf
           <button type="submit" class="btn btn-outline">Buscar coincidencias</button>
         </form>
 
-        <a href="#" class="btn btn-primary">Exportar Word</a>
-        <a href="#" class="btn btn-outline">Exportar Excel</a>
+        <a href="{{ route('propuestas-comerciales.export.word', $propuestaComercial) }}" class="btn btn-primary">Exportar Word</a>
+        <a href="{{ route('propuestas-comerciales.export.excel', $propuestaComercial) }}" class="btn btn-outline">Exportar Excel</a>
       </div>
     </div>
 
@@ -441,33 +486,67 @@
           <h3 class="pc-card-title">Datos generales</h3>
           <p class="pc-card-subtitle">Información base de la propuesta y del documento analizado.</p>
         </div>
+
         <div class="pc-card-body">
           <div class="meta-grid">
             <div class="meta-item">
               <span>Folio</span>
               <strong>{{ $propuestaComercial->folio ?: '—' }}</strong>
             </div>
+
             <div class="meta-item">
               <span>Cliente</span>
               <strong>{{ $propuestaComercial->cliente ?: '—' }}</strong>
             </div>
+
             <div class="meta-item">
               <span>Estatus</span>
-              @php
-                $statusClass = match($propuestaComercial->status) {
-                  'completed' => 'badge-success',
-                  'priced' => 'badge-info',
-                  'matched' => 'badge-info',
-                  'draft' => 'badge-muted',
-                  default => 'badge-danger',
-                };
-              @endphp
               <strong><span class="badge {{ $statusClass }}">{{ strtoupper($propuestaComercial->status) }}</span></strong>
             </div>
+
             <div class="meta-item">
               <span>Creada</span>
               <strong>{{ optional($propuestaComercial->created_at)->format('d/m/Y H:i') }}</strong>
             </div>
+
+            <div class="meta-item">
+              <span>Renglones</span>
+              <strong>{{ $propuestaComercial->items->count() }}</strong>
+            </div>
+
+            <div class="meta-item">
+              <span>Rango detectado</span>
+              <strong>
+                @if($partidaNumbers->count())
+                  {{ $partidaNumbers->first() }} - {{ $partidaNumbers->last() }}
+                @else
+                  —
+                @endif
+              </strong>
+            </div>
+          </div>
+
+          <div class="missing-box">
+            <div class="missing-title">Control de partidas faltantes</div>
+
+            @if(count($missingNumbers))
+              <div class="empty-note">
+                Se detectaron huecos en la numeración. Puedes recuperar solo esas partidas sin tocar las actuales.
+              </div>
+
+              <div class="missing-list">
+                @foreach($missingNumbers as $missing)
+                  <span class="missing-chip">{{ $missing }}</span>
+                @endforeach
+              </div>
+
+              <form method="POST" action="{{ route('propuestas-comerciales.recover-missing', $propuestaComercial) }}">
+                @csrf
+                <button type="submit" class="btn btn-outline">Recuperar solo faltantes</button>
+              </form>
+            @else
+              <div class="empty-note">No se detectan huecos en la numeración actual.</div>
+            @endif
           </div>
         </div>
       </div>
@@ -477,6 +556,7 @@
           <h3 class="pc-card-title">Parámetros comerciales</h3>
           <p class="pc-card-subtitle">Utilidad, descuento e impuesto general.</p>
         </div>
+
         <div class="pc-card-body">
           <form method="POST" action="{{ route('propuestas-comerciales.update-pricing', $propuestaComercial) }}">
             @csrf
@@ -507,6 +587,7 @@
         <div class="pc-card-head">
           <h3 class="pc-card-title">Anexos</h3>
         </div>
+
         <div class="pc-card-body">
           <div class="list-box">
             @if(!empty($propuestaComercial->meta['anexos']))
@@ -531,6 +612,7 @@
         <div class="pc-card-head">
           <h3 class="pc-card-title">Fechas clave</h3>
         </div>
+
         <div class="pc-card-body">
           <div class="list-box">
             @if(!empty($propuestaComercial->meta['fechas_clave']))
@@ -572,6 +654,7 @@
               <th>Precio</th>
             </tr>
           </thead>
+
           <tbody>
             @forelse($propuestaComercial->items as $item)
               <tr>
@@ -581,6 +664,11 @@
                     Partida: {{ $item->partida_numero ?: '—' }}<br>
                     Subpartida: {{ $item->subpartida_numero ?: '—' }}
                   </span>
+
+                  @if(!empty($item->meta['recuperada']))
+                    <br><br>
+                    <span class="badge badge-info">Recuperada</span>
+                  @endif
                 </td>
 
                 <td class="desc">
@@ -607,6 +695,7 @@
                         <div class="match-name">
                           {{ $match->product->name ?? ('Producto #' . $match->product_id) }}
                         </div>
+
                         <div class="match-mini">
                           SKU: {{ $match->product->sku ?? '—' }}<br>
                           Score: {{ number_format((float)$match->score, 2) }}%<br>

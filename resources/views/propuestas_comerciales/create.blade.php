@@ -130,11 +130,6 @@
     transition: .2s ease;
   }
 
-  .field textarea {
-    min-height: 110px;
-    resize: vertical;
-  }
-
   .field input:focus,
   .field textarea:focus,
   .field select:focus {
@@ -351,25 +346,142 @@
 
   .preview-grid {
     display: grid;
-    grid-template-columns: 1.15fr .85fr;
+    grid-template-columns: 1fr;
     gap: 18px;
   }
 
   .list-box {
     border: 1px solid var(--line);
     border-radius: 14px;
-    padding: 14px;
+    padding: 16px;
     background: #fff;
-    height: 100%;
-    max-height: 700px;
-    overflow: auto;
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .list-box-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 14px;
   }
 
   .list-box-title {
-    margin: 0 0 12px;
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: #111;
+  }
+
+  .list-box-subtitle {
+    margin: 5px 0 0;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .items-tools {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .items-search {
+    width: 100%;
+    border: 1px solid var(--line);
+    background: #fff;
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-family: 'Quicksand', sans-serif;
+    font-size: 14px;
+    color: var(--ink);
+    outline: none;
+  }
+
+  .items-search:focus {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px var(--blue-soft);
+  }
+
+  .items-counter {
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 10px 14px;
+    background: #f9fafb;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .items-list {
+    display: grid;
+    gap: 12px;
+  }
+
+  .partida-row {
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 16px;
+    background: #ffffff;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+    transition: .2s ease;
+  }
+
+  .partida-row:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 22px rgba(0,0,0,0.035);
+  }
+
+  .partida-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+
+  .partida-title {
     font-size: 15px;
     font-weight: 700;
     color: #111;
+  }
+
+  .partida-badge {
+    background: var(--blue-soft);
+    color: var(--blue);
+    border-radius: 999px;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .partida-desc {
+    font-size: 14px;
+    line-height: 1.8;
+    color: var(--ink);
+    margin-bottom: 12px;
+    text-transform: none;
+  }
+
+  .partida-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .partida-meta span {
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 700;
+    background: #f9fafb;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 7px 10px;
   }
 
   .empty-note {
@@ -394,7 +506,7 @@
     border-radius: 14px;
     background: #fff;
     padding: 16px;
-    min-height: 180px;
+    min-height: 100px;
     color: var(--ink);
     line-height: 1.7;
     font-size: 14px;
@@ -405,49 +517,25 @@
     display: none !important;
   }
 
-  .partida-row {
-    border-bottom: 1px solid #f1f1f1;
-    padding-bottom: 12px;
-    margin-bottom: 12px;
-  }
-
-  .partida-row:last-child {
-    border-bottom: none;
-    margin-bottom: 0;
-    padding-bottom: 0;
-  }
-
-  .partida-title {
-    font-size: 15px;
-    font-weight: 700;
-    color: #111;
-    margin-bottom: 4px;
-  }
-
-  .partida-desc {
-    font-size: 14px;
-    line-height: 1.7;
-    color: var(--ink);
-    margin-bottom: 6px;
-  }
-
-  .partida-meta {
-    font-size: 13px;
-    color: var(--muted);
-    line-height: 1.6;
-  }
-
   @media (max-width: 1180px) {
     .pc-page { padding: 20px; }
     .pc-layout { grid-template-columns: 1fr; }
     .meta-grid { grid-template-columns: 1fr 1fr; }
-    .preview-grid { grid-template-columns: 1fr; }
   }
 
   @media (max-width: 720px) {
     .field-inline,
-    .meta-grid {
+    .meta-grid,
+    .items-tools {
       grid-template-columns: 1fr;
+    }
+
+    .pc-head {
+      flex-direction: column;
+    }
+
+    .actions-row .btn {
+      width: 100%;
     }
   }
 </style>
@@ -458,7 +546,7 @@
       <div>
         <h1 class="pc-title">Nueva propuesta comercial</h1>
         <p class="pc-subtitle">
-          Sube un PDF, deja que la IA lo procese paso a paso y cuando termine crea la propuesta comercial con sus partidas base completas, lista para buscar coincidencias y poner precios.
+          Sube un PDF y el sistema extraerá todos los productos, equipos, servicios o alimentos solicitados para que puedas cotizarlos.
         </p>
       </div>
 
@@ -479,7 +567,7 @@
           <div class="pc-card-head">
             <h3 class="pc-card-title">1. Subir documento</h3>
             <p class="pc-card-subtitle">
-              Este paso manda el PDF al flujo de IA para extraer el contenido y estructurarlo.
+              El PDF se analiza para extraer las partidas reales solicitadas.
             </p>
           </div>
 
@@ -525,7 +613,7 @@
           <div class="pc-card-head">
             <h3 class="pc-card-title">2. Avance paso a paso</h3>
             <p class="pc-card-subtitle">
-              Aquí irás viendo cómo va avanzando el flujo.
+              Aquí verás el estado del proceso.
             </p>
           </div>
 
@@ -550,8 +638,8 @@
               <div class="step" id="step-structured">
                 <div class="step-dot">3</div>
                 <div>
-                  <div class="step-title">Estructuración con IA</div>
-                  <div class="step-text">Se obtiene folio, objeto, anexos, fechas y más.</div>
+                  <div class="step-title">Preparación</div>
+                  <div class="step-text">Se limpia el resultado para encontrar lo cotizable.</div>
                 </div>
               </div>
 
@@ -559,7 +647,7 @@
                 <div class="step-dot">4</div>
                 <div>
                   <div class="step-title">Extracción de partidas</div>
-                  <div class="step-text">Se detectan las partidas reales del anexo técnico.</div>
+                  <div class="step-text">Se detectan productos, equipos, servicios o alimentos.</div>
                 </div>
               </div>
 
@@ -589,7 +677,7 @@
           <div class="pc-card-body">
             <div class="field">
               <label for="titulo">Título de la propuesta</label>
-              <input type="text" id="titulo" placeholder="Ej. Propuesta comercial papelería tribunal">
+              <input type="text" id="titulo" placeholder="Ej. Propuesta comercial">
             </div>
 
             <div class="field-inline">
@@ -615,9 +703,9 @@
       <div class="pc-stack">
         <div class="pc-card">
           <div class="pc-card-head">
-            <h3 class="pc-card-title">Vista previa de lo extraído</h3>
+            <h3 class="pc-card-title">Vista previa de partidas extraídas</h3>
             <p class="pc-card-subtitle">
-              Cuando termine el análisis aquí se carga el resultado para revisar antes de crear la propuesta.
+              Aquí aparecerán todas las partidas detectadas, sin recortes.
             </p>
           </div>
 
@@ -645,19 +733,25 @@
             </div>
 
             <div class="field">
-              <label>Objeto detectado</label>
+              <label>Resumen</label>
               <div class="preview-text" id="metaObjeto">Aún no hay datos cargados.</div>
             </div>
 
             <div class="preview-grid">
               <div class="list-box">
-                <h4 class="list-box-title">Partidas extraídas</h4>
-                <div id="partidasBox" class="empty-note">Cuando termine el análisis aparecerán aquí.</div>
-              </div>
+                <div class="list-box-head">
+                  <div>
+                    <h4 class="list-box-title">Todas las partidas para cotizar</h4>
+                    <p class="list-box-subtitle">Se muestran completas. Puedes buscar por número, unidad o descripción.</p>
+                  </div>
+                </div>
 
-              <div class="list-box">
-                <h4 class="list-box-title">Fechas clave</h4>
-                <div id="fechasBox" class="empty-note">Cuando termine el análisis aparecerán aquí.</div>
+                <div class="items-tools">
+                  <input type="search" id="itemsSearch" class="items-search" placeholder="Buscar partida, producto, unidad o descripción...">
+                  <div class="items-counter" id="itemsCounter">0 partidas</div>
+                </div>
+
+                <div id="partidasBox" class="empty-note">Cuando termine el análisis aparecerán aquí.</div>
               </div>
             </div>
 
@@ -711,7 +805,8 @@
   const metaObjeto = document.getElementById('metaObjeto');
 
   const partidasBox = document.getElementById('partidasBox');
-  const fechasBox = document.getElementById('fechasBox');
+  const itemsSearch = document.getElementById('itemsSearch');
+  const itemsCounter = document.getElementById('itemsCounter');
 
   const stepUpload = document.getElementById('step-upload');
   const stepOcr = document.getElementById('step-ocr');
@@ -722,6 +817,105 @@
   let currentRunId = null;
   let pollingTimer = null;
   let latestRunPayload = null;
+  let latestItems = [];
+
+  function escapeHtml(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function valueOrDash(value) {
+    if (value === null || value === undefined || value === '') return '—';
+    return value;
+  }
+
+  function getItemNumber(item) {
+    return item?.subpartida ?? item?.partida ?? item?.numero ?? item?.num_prog ?? item?.renglon ?? item?.renglón ?? null;
+  }
+
+  function getItemLabel(item) {
+    if (item?.subpartida !== null && item?.subpartida !== undefined && item?.subpartida !== '') return 'Subpartida';
+    if (item?.partida !== null && item?.partida !== undefined && item?.partida !== '') return 'Partida';
+    if (item?.numero !== null && item?.numero !== undefined && item?.numero !== '') return 'Número';
+    if (item?.num_prog !== null && item?.num_prog !== undefined && item?.num_prog !== '') return 'Núm. prog.';
+    return 'Número';
+  }
+
+  function getItemDescription(item) {
+    return item?.descripcion ?? item?.nombre ?? item?.concepto ?? item?.producto ?? item?.servicio ?? item?.bien ?? 'Sin descripción';
+  }
+
+  function getItemSearchText(item) {
+    return [
+      getItemLabel(item),
+      getItemNumber(item),
+      getItemDescription(item),
+      item?.unidad,
+      item?.cantidad,
+      item?.cantidad_minima,
+      item?.cantidad_maxima,
+      item?.presentar_muestra
+    ].join(' ').toLowerCase();
+  }
+
+  function renderItems(items) {
+    const query = (itemsSearch.value || '').trim().toLowerCase();
+
+    const filtered = Array.isArray(items)
+      ? items.filter(item => !query || getItemSearchText(item).includes(query))
+      : [];
+
+    itemsCounter.textContent = `${filtered.length} de ${Array.isArray(items) ? items.length : 0} partidas`;
+
+    if (!filtered.length) {
+      partidasBox.className = 'empty-note';
+      partidasBox.innerHTML = query
+        ? 'No hay partidas que coincidan con la búsqueda.'
+        : 'No hay partidas extraídas todavía.';
+      return;
+    }
+
+    partidasBox.className = 'items-list';
+
+    let html = '';
+
+    filtered.forEach((item, index) => {
+      const label = getItemLabel(item);
+      const number = getItemNumber(item);
+      const description = getItemDescription(item);
+
+      const unidad = item?.unidad;
+      const cantidad = item?.cantidad;
+      const min = item?.cantidad_minima;
+      const max = item?.cantidad_maxima;
+      const muestra = item?.presentar_muestra;
+
+      html += `
+        <div class="partida-row">
+          <div class="partida-top">
+            <div class="partida-title">${escapeHtml(label)} ${escapeHtml(valueOrDash(number))}</div>
+            <div class="partida-badge">#${index + 1}</div>
+          </div>
+
+          <div class="partida-desc">${escapeHtml(description)}</div>
+
+          <div class="partida-meta">
+            <span>Unidad: ${escapeHtml(valueOrDash(unidad))}</span>
+            ${cantidad !== null && cantidad !== undefined && cantidad !== '' ? `<span>Cantidad: ${escapeHtml(cantidad)}</span>` : ''}
+            ${min !== null && min !== undefined && min !== '' ? `<span>Min: ${escapeHtml(min)}</span>` : ''}
+            ${max !== null && max !== undefined && max !== '' ? `<span>Max: ${escapeHtml(max)}</span>` : ''}
+            <span>Muestra: ${escapeHtml(valueOrDash(muestra))}</span>
+          </div>
+        </div>
+      `;
+    });
+
+    partidasBox.innerHTML = html;
+  }
 
   function setStatus(el, type, text) {
     el.className = 'status-box show ' + type;
@@ -745,73 +939,35 @@
     metaPartidas.textContent = '0';
     metaArchivo.textContent = '—';
     metaObjeto.textContent = 'Aún no hay datos cargados.';
-    partidasBox.innerHTML = '<div class="empty-note">Cuando termine el análisis aparecerán aquí.</div>';
-    fechasBox.innerHTML = '<div class="empty-note">Cuando termine el análisis aparecerán aquí.</div>';
+    partidasBox.className = 'empty-note';
+    partidasBox.innerHTML = 'Cuando termine el análisis aparecerán aquí.';
+    itemsSearch.value = '';
+    itemsCounter.textContent = '0 partidas';
     createProposalBtn.disabled = true;
     refreshBtn.disabled = true;
     latestRunPayload = null;
+    latestItems = [];
   }
 
   function renderStructured(run) {
     const structured = run?.structured_json || null;
     const itemsResult = run?.items_json || null;
-    const items = itemsResult?.items || [];
+    const items = Array.isArray(itemsResult?.items) ? itemsResult.items : [];
+
+    latestItems = items;
 
     metaArchivo.textContent = run?.filename || '—';
+    metaFolio.textContent = structured?.numero_procedimiento || '—';
+    metaDependencia.textContent = structured?.dependencia || '—';
 
-    if (structured) {
-      metaFolio.textContent = structured.numero_procedimiento || '—';
-      metaDependencia.textContent = structured.dependencia || '—';
-      metaObjeto.textContent = structured.objeto || '—';
+    if (items.length) {
+      metaObjeto.textContent = `Se detectaron ${items.length} partidas/productos para cotizar. Revisa la lista completa antes de crear la propuesta comercial.`;
     } else {
-      metaFolio.textContent = '—';
-      metaDependencia.textContent = '—';
-      metaObjeto.textContent = 'El OCR terminó, pero aún no hay JSON estructurado.';
+      metaObjeto.textContent = 'El OCR terminó, pero no se detectaron partidas/productos para cotizar.';
     }
 
-    metaPartidas.textContent = Array.isArray(items) ? items.length : 0;
-
-    if (Array.isArray(items) && items.length) {
-      let html = '';
-
-      items.forEach(item => {
-        html += `
-          <div class="partida-row">
-            <div class="partida-title">Subpartida ${item.subpartida ?? '—'}</div>
-            <div class="partida-desc">${item.descripcion ?? 'Sin descripción'}</div>
-            <div class="partida-meta">
-              Unidad: ${item.unidad ?? '—'} ·
-              Min: ${item.cantidad_minima ?? '—'} ·
-              Max: ${item.cantidad_maxima ?? '—'} ·
-              Muestra: ${item.presentar_muestra ?? '—'}
-            </div>
-          </div>
-        `;
-      });
-
-      partidasBox.innerHTML = html;
-    } else {
-      partidasBox.innerHTML = '<div class="empty-note">No hay partidas extraídas todavía.</div>';
-    }
-
-    if (structured && Array.isArray(structured.fechas_clave) && structured.fechas_clave.length) {
-      let html = '<ul>';
-      structured.fechas_clave.forEach(fecha => {
-        html += `
-          <li>
-            <strong>${fecha.tipo ?? 'Fecha'}</strong><br>
-            ${fecha.descripcion ?? '—'}<br>
-            <span class="empty-note">
-              Fecha: ${fecha.fecha ?? '—'} · Hora: ${fecha.hora ?? '—'}
-            </span>
-          </li>
-        `;
-      });
-      html += '</ul>';
-      fechasBox.innerHTML = html;
-    } else {
-      fechasBox.innerHTML = '<div class="empty-note">No hay fechas clave detectadas.</div>';
-    }
+    metaPartidas.textContent = items.length;
+    renderItems(items);
   }
 
   async function safeJson(response) {
@@ -846,8 +1002,6 @@
       const data = await safeJson(response);
 
       if (!response.ok || !data.ok) {
-        console.error('Error en pollRun:', data);
-
         let msg = data.message || 'No se pudo consultar el estado del análisis.';
 
         if (data.raw_text) {
@@ -890,7 +1044,7 @@
         stepStructured.classList.add('active');
         stepItems.classList.add('active');
         setProgress(60);
-        setStatus(uploadStatus, 'info', 'Procesando OCR, estructuración y extracción de partidas...');
+        setStatus(uploadStatus, 'info', 'Procesando OCR y extrayendo partidas para cotizar...');
         refreshBtn.disabled = false;
         pollingTimer = setTimeout(pollRun, 7000);
         return;
@@ -905,12 +1059,7 @@
         stepReady.classList.add('done');
         setProgress(100);
 
-        if (run.error) {
-          setStatus(uploadStatus, 'info', `Completado con observaciones: ${run.error}`);
-        } else {
-          setStatus(uploadStatus, 'success', 'Análisis completado correctamente. Ya puedes crear la propuesta.');
-        }
-
+        setStatus(uploadStatus, run.error ? 'info' : 'success', run.error || 'Análisis completado correctamente. Ya puedes crear la propuesta.');
         renderStructured(run);
         createProposalBtn.disabled = false;
         refreshBtn.disabled = false;
@@ -967,8 +1116,6 @@
       const data = await safeJson(response);
 
       if (!response.ok || !data.ok) {
-        console.error('Error iniciando análisis:', data);
-
         let msg = data.message || 'No se pudo iniciar el análisis.';
 
         if (data.raw_text) {
@@ -1013,6 +1160,10 @@
     pollRun();
   });
 
+  itemsSearch.addEventListener('input', function () {
+    renderItems(latestItems);
+  });
+
   createProposalBtn.addEventListener('click', function () {
     if (!latestRunPayload || !latestRunPayload.run) {
       setStatus(createStatus, 'error', 'Aún no hay un análisis listo para crear la propuesta.');
@@ -1024,11 +1175,9 @@
 
     document.getElementById('form_document_ai_run_id').value = run.id;
     document.getElementById('form_titulo').value =
-      document.getElementById('titulo').value || structured.objeto || '';
+      document.getElementById('titulo').value || structured.objeto || `Propuesta comercial ${run.filename || ''}`;
     document.getElementById('form_cliente').value =
       structured.dependencia || '';
-    document.getElementById('form_Folio').value =
-      structured.numero_procedimiento || '';
     document.getElementById('form_folio').value =
       structured.numero_procedimiento || '';
     document.getElementById('form_utilidad').value =
