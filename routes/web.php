@@ -2002,3 +2002,5 @@ Route::get('/document-ai-debug/{id}', function ($id) {
         ],
     ]);
 });
+Route::post('/propuesta-comercial-items/{item}/reextract', [PropuestaComercialController::class, 'reextractItem'])
+    ->name('propuesta-comercial-items.reextract');
