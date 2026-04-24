@@ -36,10 +36,7 @@ class PropuestaComercialController extends Controller
             $query->whereDate('created_at', '<=', $request->to);
         }
 
-        $propuestas = $query
-            ->latest()
-            ->paginate(20)
-            ->withQueryString();
+        $propuestas = $query->latest()->paginate(20)->withQueryString();
 
         return view('propuestas_comerciales.index', compact('propuestas'));
     }
@@ -62,12 +59,13 @@ class PropuestaComercialController extends Controller
         ]);
 
         $run = DocumentAiRun::findOrFail($data['document_ai_run_id']);
+
         $structured = is_array($run->structured_json) ? $run->structured_json : [];
         $itemsResult = is_array($run->items_json) ? $run->items_json : [];
         $items = $itemsResult['items'] ?? [];
 
         if (empty($items)) {
-            return back()->with('error', 'Este análisis no tiene items_json válido o no se extrajeron partidas.');
+            return back()->with('error', 'Este análisis no tiene partidas válidas para crear la propuesta.');
         }
 
         $propuesta = null;
@@ -103,7 +101,6 @@ class PropuestaComercialController extends Controller
 
             foreach ($items as $row) {
                 $sort++;
-
                 $numero = $this->extractItemNumber($row);
 
                 PropuestaComercialItem::create([
@@ -124,7 +121,7 @@ class PropuestaComercialController extends Controller
                     'status' => 'pending',
                     'meta' => [
                         'presentar_muestra' => $row['presentar_muestra'] ?? null,
-                        'numero_original' => $row['numero'] ?? null,
+                        'numero_original' => $row['numero'] ?? $numero,
                     ],
                 ]);
             }
@@ -132,7 +129,7 @@ class PropuestaComercialController extends Controller
 
         return redirect()
             ->route('propuestas-comerciales.show', $propuesta)
-            ->with('status', 'Propuesta comercial creada correctamente con partidas completas.');
+            ->with('status', 'Propuesta comercial creada correctamente.');
     }
 
     public function show(PropuestaComercial $propuestaComercial)
@@ -156,12 +153,11 @@ class PropuestaComercialController extends Controller
         }
 
         $run = $propuestaComercial->aiRun;
+
         $itemsResult = is_array($run->items_json) ? $run->items_json : [];
         $sourceItems = $itemsResult['items'] ?? [];
 
-        if (empty($sourceItems)) {
-            return back()->with('error', 'El AI Run no tiene partidas para recuperar.');
-        }
+        $fullText = data_get($run->result_json, 'full_text', '');
 
         $existingNumbers = $propuestaComercial->items
             ->pluck('partida_numero')
@@ -176,10 +172,10 @@ class PropuestaComercialController extends Controller
             return back()->with('error', 'No hay partidas actuales para comparar.');
         }
 
-        $min = min($existingNumbers);
-        $max = max($existingNumbers);
-        $expected = range($min, $max);
-        $missing = array_values(array_diff($expected, $existingNumbers));
+        $missing = array_values(array_diff(
+            range(min($existingNumbers), max($existingNumbers)),
+            $existingNumbers
+        ));
 
         if (empty($missing)) {
             return back()->with('status', 'No se detectaron partidas faltantes.');
@@ -194,35 +190,37 @@ class PropuestaComercialController extends Controller
                 continue;
             }
 
-            $number = (int) $number;
             $description = $row['descripcion'] ?? $row['nombre'] ?? $row['concepto'] ?? null;
 
             if (!$description) {
                 continue;
             }
 
-            if (!isset($sourceByNumber[$number])) {
-                $sourceByNumber[$number] = $row;
+            if (!isset($sourceByNumber[(int) $number])) {
+                $sourceByNumber[(int) $number] = $row;
                 continue;
             }
 
-            $oldDescription = $sourceByNumber[$number]['descripcion'] ?? $sourceByNumber[$number]['nombre'] ?? '';
+            $oldDescription = $sourceByNumber[(int) $number]['descripcion']
+                ?? $sourceByNumber[(int) $number]['nombre']
+                ?? '';
+
             if (strlen((string) $description) > strlen((string) $oldDescription)) {
-                $sourceByNumber[$number] = $row;
+                $sourceByNumber[(int) $number] = $row;
             }
         }
 
         $created = 0;
         $notFound = [];
 
-        DB::transaction(function () use ($propuestaComercial, $missing, $sourceByNumber, &$created, &$notFound) {
+        DB::transaction(function () use ($propuestaComercial, $missing, $sourceByNumber, $fullText, &$created, &$notFound) {
             foreach ($missing as $number) {
-                if (!isset($sourceByNumber[$number])) {
+                $row = $sourceByNumber[(int) $number] ?? $this->recoverItemFromText($fullText, (int) $number);
+
+                if (!$row) {
                     $notFound[] = $number;
                     continue;
                 }
-
-                $row = $sourceByNumber[$number];
 
                 $alreadyExists = PropuestaComercialItem::where('propuesta_comercial_id', $propuestaComercial->id)
                     ->where('partida_numero', $number)
@@ -250,8 +248,9 @@ class PropuestaComercialController extends Controller
                     'status' => 'pending',
                     'meta' => [
                         'recuperada' => true,
+                        'recuperada_desde_texto' => !isset($sourceByNumber[(int) $number]),
                         'presentar_muestra' => $row['presentar_muestra'] ?? null,
-                        'numero_original' => $row['numero'] ?? null,
+                        'numero_original' => $row['numero'] ?? $number,
                     ],
                 ]);
 
@@ -274,7 +273,7 @@ class PropuestaComercialController extends Controller
         $message = "Se recuperaron {$created} partidas faltantes.";
 
         if (!empty($notFound)) {
-            $message .= ' No se encontraron en el JSON actual: ' . implode(', ', $notFound) . '.';
+            $message .= ' No se pudieron reconstruir: ' . implode(', ', $notFound) . '.';
         }
 
         return back()->with($created > 0 ? 'status' : 'error', $message);
@@ -316,31 +315,136 @@ class PropuestaComercialController extends Controller
         return $clean !== '' ? (int) $clean : null;
     }
 
-    protected function getMissingNumbers(PropuestaComercial $propuestaComercial): array
+    protected function recoverItemFromText(?string $fullText, int $number): ?array
     {
-        $numbers = $propuestaComercial->items
-            ->pluck('partida_numero')
-            ->filter(fn ($value) => $value !== null && $value !== '')
-            ->map(fn ($value) => (int) $value)
-            ->unique()
-            ->sort()
+        $text = trim((string) $fullText);
+
+        if ($text === '') {
+            return null;
+        }
+
+        $lines = preg_split('/\R/u', $text);
+        $lines = collect($lines)
+            ->map(fn ($line) => trim(preg_replace('/\s+/u', ' ', (string) $line)))
+            ->filter()
             ->values()
             ->all();
 
-        if (count($numbers) < 2) {
-            return [];
+        $startIndex = null;
+
+        foreach ($lines as $index => $line) {
+            if (preg_match('/^' . preg_quote((string) $number, '/') . '$/u', $line)) {
+                $startIndex = $index;
+                break;
+            }
         }
 
-        return array_values(array_diff(range(min($numbers), max($numbers)), $numbers));
+        if ($startIndex === null) {
+            return null;
+        }
+
+        $chunk = [];
+
+        for ($i = $startIndex; $i < count($lines); $i++) {
+            $line = $lines[$i];
+
+            if ($i > $startIndex && preg_match('/^\d{1,5}$/u', $line)) {
+                break;
+            }
+
+            $chunk[] = $line;
+
+            if (count($chunk) >= 18) {
+                break;
+            }
+        }
+
+        if (count($chunk) < 2) {
+            return null;
+        }
+
+        $cantidadMinima = null;
+        $cantidadMaxima = null;
+        $cantidad = null;
+        $unidad = null;
+        $descripcionParts = [];
+
+        $unitWords = [
+            'PIEZA', 'PIEZAS', 'PZA', 'PZAS', 'CAJA', 'PAQUETE', 'BOLSA',
+            'ROLLO', 'SERVICIO', 'JUEGO', 'PAR', 'LOTE', 'BOTE', 'FRASCO',
+            'HOJA', 'BLOCK', 'KG', 'KILO', 'LITRO', 'METRO'
+        ];
+
+        $numbers = [];
+
+        foreach (array_slice($chunk, 1) as $part) {
+            $clean = trim($part);
+
+            if ($clean === '') {
+                continue;
+            }
+
+            $numberValue = $this->normalizeRecoveredNumber($clean);
+
+            if ($numberValue !== null && preg_match('/^[\d,\.\s]+$/u', $clean)) {
+                $numbers[] = $numberValue;
+                continue;
+            }
+
+            if ($unidad === null && in_array(mb_strtoupper($clean), $unitWords, true)) {
+                $unidad = $clean;
+                continue;
+            }
+
+            if (mb_strlen($clean) > 4) {
+                $descripcionParts[] = $clean;
+            }
+        }
+
+        if (count($numbers) >= 2) {
+            $cantidadMinima = $numbers[0];
+            $cantidadMaxima = $numbers[1];
+        } elseif (count($numbers) === 1) {
+            $cantidad = $numbers[0];
+        }
+
+        $descripcion = trim(implode(' ', $descripcionParts));
+
+        if ($descripcion === '' || mb_strlen($descripcion) < 8) {
+            return null;
+        }
+
+        return [
+            'numero' => $number,
+            'partida' => $number,
+            'subpartida' => null,
+            'descripcion' => $descripcion,
+            'nombre' => $descripcion,
+            'unidad' => $unidad,
+            'cantidad' => $cantidad,
+            'cantidad_minima' => $cantidadMinima,
+            'cantidad_maxima' => $cantidadMaxima,
+            'presentar_muestra' => null,
+        ];
+    }
+
+    protected function normalizeRecoveredNumber($value): ?int
+    {
+        $clean = trim((string) $value);
+        $clean = str_replace([',', ' '], '', $clean);
+
+        if (!preg_match('/^\d+$/', $clean)) {
+            return null;
+        }
+
+        return (int) $clean;
     }
 
     protected function recalculateTotals(PropuestaComercial $propuestaComercial): void
     {
         $propuestaComercial->loadMissing('items');
 
-        $subtotal = (float) $propuestaComercial->items->sum(function ($item) {
-            return (float) $item->subtotal;
-        });
+        $subtotal = (float) $propuestaComercial->items->sum(fn ($item) => (float) $item->subtotal);
 
         $descuentoTotal = round($subtotal * ((float) $propuestaComercial->porcentaje_descuento / 100), 2);
         $base = max($subtotal - $descuentoTotal, 0);
