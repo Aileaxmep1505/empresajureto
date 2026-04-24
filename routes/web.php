@@ -1959,7 +1959,7 @@ Route::post('/propuesta-comercial-items/{item}/price', [PropuestaComercialMatchC
 Route::get('/propuestas-comerciales/{propuestaComercial}/export/word', [PropuestaComercialExportController::class, 'word'])->name('propuestas-comerciales.export.word');
 Route::get('/propuestas-comerciales/{propuestaComercial}/export/excel', [PropuestaComercialExportController::class, 'excel'])->name('propuestas-comerciales.export.excel');
 
-use Illuminate\Support\Facades\Route;
+
 use Symfony\Component\Process\Process;
 
 Route::get('/python-ai-test', function () {
