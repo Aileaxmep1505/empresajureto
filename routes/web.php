@@ -1959,37 +1959,17 @@ Route::post('/propuesta-comercial-items/{item}/price', [PropuestaComercialMatchC
 Route::get('/propuestas-comerciales/{propuestaComercial}/export/word', [PropuestaComercialExportController::class, 'word'])->name('propuestas-comerciales.export.word');
 Route::get('/propuestas-comerciales/{propuestaComercial}/export/excel', [PropuestaComercialExportController::class, 'excel'])->name('propuestas-comerciales.export.excel');
 
-use App\Models\DocumentAiRun;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Route;
+use Symfony\Component\Process\Process;
 
-Route::get('/document-ai-debug/{id}', function ($id) {
-    Log::info('document-ai-debug route hit', ['id' => $id]);
-
-    $run = DocumentAiRun::find($id);
-
-    if (!$run) {
-        return response()->json([
-            'ok' => false,
-            'message' => 'Run no encontrado',
-            'id' => $id,
-        ], 404);
-    }
+Route::get('/python-ai-test', function () {
+    $pythonBin = config('services.python_ai.bin');
+    $pythonScript = config('services.python_ai.script');
 
     return response()->json([
-        'ok' => true,
-        'run' => [
-            'id' => $run->id,
-            'licitacion_pdf_id' => $run->licitacion_pdf_id,
-            'python_job_id' => $run->python_job_id,
-            'filename' => $run->filename,
-            'pages_per_chunk' => $run->pages_per_chunk,
-            'status' => $run->status,
-            'error' => $run->error,
-            'result_json' => $run->result_json,
-            'structured_json' => $run->structured_json,
-            'items_json' => $run->items_json,
-            'created_at' => optional($run->created_at)?->toDateTimeString(),
-            'updated_at' => optional($run->updated_at)?->toDateTimeString(),
-        ],
+        'python_bin' => $pythonBin,
+        'python_script' => $pythonScript,
+        'bin_exists' => file_exists($pythonBin),
+        'script_exists' => file_exists($pythonScript),
     ]);
 });
