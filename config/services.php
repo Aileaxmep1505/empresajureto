@@ -105,7 +105,8 @@ return [
 ],
 
 'python_ai' => [
-    'url' => env('PYTHON_AI_URL', 'http://127.0.0.1:8001'),
+    'bin' => env('PYTHON_BIN'),
+    'script' => env('PYTHON_SCRIPT'),
 ],
     /*
     |--------------------------------------------------------------------------
