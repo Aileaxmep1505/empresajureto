@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Jobs\DispatchDocumentAiJob;
 use App\Models\DocumentAiRun;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Symfony\Component\Process\Process;
 use Throwable;
 
 class DocumentAiController extends Controller
@@ -27,52 +27,137 @@ class DocumentAiController extends Controller
 
         $pagesPerChunk = (int) ($request->input('pages_per_chunk', 5));
         $path = $request->file('file')->store('licitaciones/ai', 'public');
+        $fullPdfPath = storage_path('app/public/' . $path);
 
         $run = DocumentAiRun::create([
             'licitacion_pdf_id' => (int) $request->input('licitacion_pdf_id'),
-            'python_job_id' => 'pending-' . uniqid(),
+            'python_job_id' => 'local-' . uniqid(),
             'filename' => $request->file('file')->getClientOriginalName(),
             'pages_per_chunk' => $pagesPerChunk,
-            'status' => 'queued',
+            'status' => 'processing',
             'error' => null,
             'result_json' => null,
             'structured_json' => null,
             'items_json' => null,
         ]);
 
-        Log::info('DocumentAiController@start - run creado', [
-            'run_id' => $run->id,
-            'path' => $path,
-            'filename' => $run->filename,
-        ]);
+        try {
+            $pythonBin = config('services.python_ai.bin');
+            $pythonScript = config('services.python_ai.script');
 
-        DispatchDocumentAiJob::dispatch(
-            documentAiRunId: $run->id,
-            storagePath: $path,
-            filename: $run->filename,
-            pagesPerChunk: $pagesPerChunk
-        );
+            if (!$pythonBin || !file_exists($pythonBin)) {
+                throw new \RuntimeException('No existe PYTHON_BIN: ' . $pythonBin);
+            }
 
-        return response()->json([
-            'ok' => true,
-            'document_ai_run_id' => $run->id,
-            'status' => 'queued',
-            'path' => $path,
-        ]);
+            if (!$pythonScript || !file_exists($pythonScript)) {
+                throw new \RuntimeException('No existe PYTHON_SCRIPT: ' . $pythonScript);
+            }
+
+            if (!file_exists($fullPdfPath)) {
+                throw new \RuntimeException('No existe el PDF: ' . $fullPdfPath);
+            }
+
+            Log::info('DocumentAiController@start - ejecutando python', [
+                'run_id' => $run->id,
+                'python_bin' => $pythonBin,
+                'python_script' => $pythonScript,
+                'pdf' => $fullPdfPath,
+            ]);
+
+            $process = new Process([
+                $pythonBin,
+                $pythonScript,
+                '--file',
+                $fullPdfPath,
+                '--run-id',
+                (string) $run->id,
+                '--pages-per-chunk',
+                (string) $pagesPerChunk,
+                '--filename',
+                $run->filename,
+            ]);
+
+            $process->setTimeout(1200);
+            $process->setIdleTimeout(1200);
+            $process->run();
+
+            $stdout = trim($process->getOutput());
+            $stderr = trim($process->getErrorOutput());
+
+            Log::info('DocumentAiController@start - python terminado', [
+                'run_id' => $run->id,
+                'successful' => $process->isSuccessful(),
+                'exit_code' => $process->getExitCode(),
+                'stdout_length' => strlen($stdout),
+                'stderr' => $stderr,
+            ]);
+
+            if (!$process->isSuccessful()) {
+                throw new \RuntimeException(
+                    'Python falló. Exit code: ' . $process->getExitCode() . ' Error: ' . $stderr
+                );
+            }
+
+            $decoded = json_decode($stdout, true);
+
+            if (!is_array($decoded)) {
+                Log::warning('DocumentAiController@start - stdout no es JSON puro', [
+                    'run_id' => $run->id,
+                    'stdout_preview' => mb_substr($stdout, 0, 1000),
+                ]);
+
+                throw new \RuntimeException('Python no devolvió JSON válido.');
+            }
+
+            $run->update([
+                'status' => $decoded['status'] ?? 'completed',
+                'error' => null,
+                'result_json' => $decoded['result_json'] ?? $decoded['result'] ?? $decoded,
+                'structured_json' => $decoded['structured_json'] ?? $decoded['structured'] ?? null,
+                'items_json' => $decoded['items_json'] ?? $decoded['items'] ?? null,
+            ]);
+
+            $run->refresh();
+
+            return response()->json([
+                'ok' => true,
+                'document_ai_run_id' => $run->id,
+                'status' => $run->status,
+                'path' => $path,
+                'run' => [
+                    'id' => $run->id,
+                    'status' => $run->status,
+                    'filename' => $run->filename,
+                    'pages_per_chunk' => $run->pages_per_chunk,
+                ],
+            ]);
+        } catch (Throwable $e) {
+            Log::error('DocumentAiController@start - error', [
+                'run_id' => $run->id ?? null,
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+
+            if (isset($run)) {
+                $run->update([
+                    'status' => 'failed',
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
+            return response()->json([
+                'ok' => false,
+                'message' => 'Error procesando documento: ' . $e->getMessage(),
+                'document_ai_run_id' => $run->id ?? null,
+            ], 500);
+        }
     }
 
     public function show(DocumentAiRun $run): JsonResponse
     {
         try {
-            Log::info('DocumentAiController@show - inicio', [
-                'run_id' => $run->id,
-                'status' => $run->status,
-                'has_result_json' => !empty($run->result_json),
-                'has_structured_json' => !empty($run->structured_json),
-                'has_items_json' => !empty($run->items_json),
-            ]);
-
-            $payload = [
+            return response()->json([
                 'ok' => true,
                 'run' => [
                     'id' => $run->id,
@@ -88,21 +173,11 @@ class DocumentAiController extends Controller
                     'created_at' => optional($run->created_at)?->toDateTimeString(),
                     'updated_at' => optional($run->updated_at)?->toDateTimeString(),
                 ],
-            ];
-
-            Log::info('DocumentAiController@show - respuesta lista', [
-                'run_id' => $run->id,
-                'items_count' => is_array($run->items_json) ? count(($run->items_json['items'] ?? [])) : 0,
             ]);
-
-            return response()->json($payload);
         } catch (Throwable $e) {
             Log::error('DocumentAiController@show - error', [
                 'run_id' => $run->id ?? null,
                 'message' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
