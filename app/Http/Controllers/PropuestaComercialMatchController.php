@@ -2,21 +2,18 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Product;
 use App\Models\PropuestaComercial;
 use App\Models\PropuestaComercialItem;
 use App\Models\PropuestaComercialMatch;
 use App\Services\AiMatchingService;
-use App\Services\EmbeddingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class PropuestaComercialMatchController extends Controller
 {
-    public function __construct(
-        protected AiMatchingService $aiService,
-        protected EmbeddingService  $embeddingService,
-    ) {}
+    public function __construct(protected AiMatchingService $aiService) {}
 
     // =========================================================
     //  PUNTOS DE ENTRADA
@@ -92,7 +89,7 @@ class PropuestaComercialMatchController extends Controller
     }
 
     // =========================================================
-    //  CORE: PIPELINE CON EMBEDDINGS
+    //  CORE: PIPELINE SQL + IA
     // =========================================================
 
     protected function suggestItemInternal(PropuestaComercialItem $item): void
@@ -103,20 +100,20 @@ class PropuestaComercialMatchController extends Controller
     /**
      * PIPELINE:
      *
-     *  PASO 1 — Generar embedding del ítem
-     *      Convierte la descripción de la licitación en un vector numérico
-     *      usando OpenAI text-embedding-3-large. Este vector captura el
-     *      SIGNIFICADO completo del artículo (tipo, características, color, etc.)
+     *  CAPA 1 — SQL con red amplia
+     *      Usa todas las palabras de la descripción en OR.
+     *      Trae hasta 300 candidatos. No filtra por stop words.
+     *      Solo excluye números puros (no identifican productos).
      *
-     *  PASO 2 — Búsqueda por similitud semántica
-     *      Compara el vector del ítem contra los vectores de TODOS los productos
-     *      del catálogo usando similitud coseno. Retorna los 20 más cercanos.
-     *      Sin SQL de keywords. Sin stop words. Sin reglas.
-     *      La matemática encuentra lo que más se parece semánticamente.
+     *  CAPA 2 — Ranking léxico (solo ordena, no descarta)
+     *      Puntúa cada candidato por cuántas palabras comparte.
+     *      Toma los 20 mejores para enviárselos a la IA.
+     *      Umbral mínimo: score > 0 Y al menos 1 palabra núcleo coincide.
      *
-     *  PASO 3 — IA valida característica por característica
-     *      Los 20 candidatos van al cotizador IA que analiza si cada uno
-     *      es realmente cotizable y con qué score.
+     *  CAPA 3 — IA (gpt-4.1-nano) — único juez real
+     *      Analiza tipo + cada característica vs cada candidato.
+     *      Aprueba/rechaza con sentido común de cotizador experto.
+     *      Sin reglas hardcodeadas. Sin familias manuales.
      */
     protected function generateMatchesForItem(PropuestaComercialItem $item): void
     {
@@ -130,53 +127,65 @@ class PropuestaComercialMatchController extends Controller
             return;
         }
 
-        // ── PASO 1: Embedding del ítem ────────────────────────────────────
-        try {
-            $queryText   = $this->embeddingService->buildQueryText($descripcion, $unidad);
-            $queryVector = $this->embeddingService->embed($queryText);
-        } catch (\Throwable $e) {
-            Log::error('[MatchController] Error generando embedding del ítem', [
-                'error' => $e->getMessage(),
-                'item'  => $descripcion,
-            ]);
+        $queryNorm  = $this->normalizeText($descripcion);
+        $allWords   = $this->extractWords($queryNorm);        // todas las palabras útiles
+        $coreWords  = $allWords->take(5);                     // primeras 5: suelen ser el tipo de producto
+
+        if ($allWords->isEmpty()) {
             $this->resetItem($item);
             return;
         }
 
-        // ── PASO 2: Búsqueda semántica en todo el catálogo ────────────────
-        // Retorna los 20 productos más cercanos semánticamente
-        $similar = $this->embeddingService->findSimilarProducts($queryVector, topN: 20);
+        // ── CAPA 1: SQL red amplia ────────────────────────────────────────
+        $candidates = Product::query()
+            ->where(function ($q) use ($allWords, $coreWords, $descripcion) {
+                // Core words buscan en campos más importantes (AND implícito por OR múltiple)
+                foreach ($coreWords as $word) {
+                    $q->orWhere('name',     'like', "%{$word}%")
+                      ->orWhere('category', 'like', "%{$word}%")
+                      ->orWhere('tags',     'like', "%{$word}%");
+                }
+                // Todas las palabras en todos los campos
+                foreach ($allWords as $word) {
+                    $q->orWhere('name',        'like', "%{$word}%")
+                      ->orWhere('sku',         'like', "%{$word}%")
+                      ->orWhere('brand',       'like', "%{$word}%")
+                      ->orWhere('category',    'like', "%{$word}%")
+                      ->orWhere('tags',        'like', "%{$word}%")
+                      ->orWhere('description', 'like', "%{$word}%");
+                }
+                // Literal completo
+                $q->orWhere('name', 'like', '%' . $descripcion . '%');
+            })
+            ->limit(300)
+            ->get();
 
-        if ($similar->isEmpty()) {
-            Log::warning('[MatchController] Sin candidatos por embedding para: ' . $descripcion);
+        if ($candidates->isEmpty()) {
             $this->resetItem($item);
             return;
         }
 
-        // Preparar candidatos en el formato que espera AiMatchingService
-        $unidadNorm = mb_strtolower(trim($unidad));
-        $candidates = $similar->map(function ($row) use ($unidadNorm) {
-            $p        = $row['product'];
-            $haystack = mb_strtolower(
-                ($p->name ?? '') . ' ' . ($p->description ?? '') . ' ' . ($p->unit ?? '')
-            );
+        // ── CAPA 2: Ranking léxico → top 20 ─────────────────────────────
+        $unidadNorm = $this->normalizeText($unidad);
 
-            return [
-                'product'        => $p,
-                'score'          => round((float) $row['similarity'] * 100, 2),
-                'similarity'     => (float) $row['similarity'],
-                'unidad_coincide'=> $unidadNorm !== '' && str_contains($haystack, $unidadNorm),
-                'matched_tokens' => [],
-                'missing_tokens' => [],
-                'motivo'         => 'Similitud semántica por embedding',
-            ];
-        })->all();
+        $ranked = $candidates
+            ->map(fn ($p) => $this->rankProduct($p, $queryNorm, $allWords, $coreWords, $unidadNorm))
+            ->filter(fn ($row) => $row['score'] > 0 && $row['core_matches'] > 0)
+            ->sortByDesc('score')
+            ->take(20)
+            ->values()
+            ->all();
 
-        // ── PASO 3: Validación IA ─────────────────────────────────────────
+        if (empty($ranked)) {
+            $this->resetItem($item);
+            return;
+        }
+
+        // ── CAPA 3: IA valida cada candidato ─────────────────────────────
         $aiApproved = $this->aiService->validateCandidates(
             descripcionOriginal: $descripcion,
             unidadSolicitada:    $unidad,
-            candidates:          $candidates,
+            candidates:          $ranked,
         );
 
         if (empty($aiApproved)) {
@@ -184,7 +193,7 @@ class PropuestaComercialMatchController extends Controller
             return;
         }
 
-        // ── PERSISTIR top 3 ──────────────────────────────────────────────
+        // ── PERSISTIR top 3 aprobados ────────────────────────────────────
         $top3 = collect($aiApproved)->sortByDesc('ai_score')->take(3)->values();
 
         foreach ($top3 as $rank => $row) {
@@ -197,15 +206,15 @@ class PropuestaComercialMatchController extends Controller
                 'seleccionado'    => false,
                 'motivo'          => $row['ai_razon'],
                 'meta'            => [
-                    'product_name'        => $row['product']->name,
-                    'sku'                 => $row['product']->sku,
-                    'similitud_semantica' => round($row['similarity'] * 100, 1) . '%',
-                    'coincidencias'       => $row['ai_coincidencias'] ?? [],
-                    'diferencias'         => $row['ai_diferencias']   ?? [],
+                    'product_name'   => $row['product']->name,
+                    'sku'            => $row['product']->sku,
+                    'lexico_score'   => $row['score'],
+                    'matched_tokens' => $row['matched_tokens'] ?? [],
                 ],
             ]);
         }
 
+        // ── Auto-seleccionar el mejor ─────────────────────────────────────
         $best = PropuestaComercialMatch::where('propuesta_comercial_item_id', $item->id)
             ->orderByDesc('score')
             ->first();
@@ -227,6 +236,90 @@ class PropuestaComercialMatchController extends Controller
     }
 
     // =========================================================
+    //  EXTRACCIÓN DE PALABRAS
+    // =========================================================
+
+    /**
+     * Extrae todas las palabras útiles de la descripción.
+     * Solo excluye números puros (ej. "197", "492").
+     * NO aplica stop words: color, unidad, material, todo vale.
+     * La IA decide qué importa, no nosotros.
+     */
+    protected function extractWords(string $text)
+    {
+        return collect(preg_split('/\s+/', $text))
+            ->map(fn ($t) => trim((string) $t))
+            ->filter(fn ($t) => $t !== '' && mb_strlen($t) >= 3 && ! is_numeric($t))
+            ->map(fn ($t) => $this->singularize($t))
+            ->unique()
+            ->values();
+    }
+
+    // =========================================================
+    //  RANKING LÉXICO
+    // =========================================================
+
+    protected function rankProduct(
+        Product $product,
+        string  $queryNorm,
+        $allWords,
+        $coreWords,
+        string  $unidadNorm
+    ): array {
+        $name        = $this->normalizeText((string) ($product->name        ?? ''));
+        $category    = $this->normalizeText((string) ($product->category    ?? ''));
+        $tags        = $this->normalizeText((string) ($product->tags        ?? ''));
+        $brand       = $this->normalizeText((string) ($product->brand       ?? ''));
+        $description = $this->normalizeText((string) ($product->description ?? ''));
+        $sku         = $this->normalizeText((string) ($product->sku         ?? ''));
+
+        $haystack = trim(implode(' ', array_filter([$name, $brand, $category, $tags, $description, $sku])));
+        $strong   = trim(implode(' ', array_filter([$name, $category, $tags])));
+
+        $score = 0; $matched = [];
+
+        foreach ($allWords as $word) {
+            $ws = 0;
+            if ($this->wordIn($name,        $word)) { $ws += 20; }
+            if ($this->wordIn($category,    $word)) { $ws += 15; }
+            if ($this->wordIn($tags,        $word)) { $ws += 14; }
+            if ($this->wordIn($brand,       $word)) { $ws += 8;  }
+            if ($this->wordIn($description, $word)) { $ws += 6;  }
+            if ($this->wordIn($sku,         $word)) { $ws += 10; }
+
+            if ($ws > 0) { $matched[] = $word; $score += min($ws, 24); }
+        }
+
+        $coreMatches = 0;
+        foreach ($coreWords as $word) {
+            if ($this->wordIn($strong, $word) || $this->wordIn($haystack, $word)) {
+                $coreMatches++; $score += 15;
+            }
+        }
+
+        if ($this->phraseIn($name,     $queryNorm)) { $score += 40; }
+        elseif ($this->phraseIn($haystack, $queryNorm)) { $score += 20; }
+
+        similar_text($queryNorm, $name,     $ns);
+        similar_text($queryNorm, $haystack, $gs);
+        $score += min((float) $ns * 0.3, 15);
+        $score += min((float) $gs * 0.1, 8);
+
+        $unidadCoincide = $unidadNorm !== '' && $this->wordIn($haystack, $unidadNorm);
+        if ($unidadCoincide) { $score += 5; }
+
+        return [
+            'product'         => $product,
+            'score'           => round(max($score, 0), 2),
+            'core_matches'    => $coreMatches,
+            'unidad_coincide' => $unidadCoincide,
+            'matched_tokens'  => array_values(array_unique($matched)),
+            'missing_tokens'  => [],
+            'motivo'          => 'Ranking léxico previo a IA',
+        ];
+    }
+
+    // =========================================================
     //  HELPERS
     // =========================================================
 
@@ -238,6 +331,34 @@ class PropuestaComercialMatchController extends Controller
             'status'                   => 'pending',
         ]);
         $this->updateParentStatus($item);
+    }
+
+    protected function normalizeText(string $text): string
+    {
+        $text = Str::lower($text);
+        $text = str_replace(['á','é','í','ó','ú','ü','ñ'], ['a','e','i','o','u','u','n'], $text);
+        $text = preg_replace('/[^a-z0-9\s]+/u', ' ', $text);
+        $text = preg_replace('/\s+/u', ' ', $text);
+        return trim($text);
+    }
+
+    protected function singularize(string $token): string
+    {
+        if (mb_strlen($token) <= 4)      { return $token; }
+        if (Str::endsWith($token, 'es')) { return mb_substr($token, 0, -2); }
+        if (Str::endsWith($token, 's'))  { return mb_substr($token, 0, -1); }
+        return $token;
+    }
+
+    protected function wordIn(string $haystack, string $needle): bool
+    {
+        if ($needle === '') { return false; }
+        return (bool) preg_match('/\b' . preg_quote($needle, '/') . '\b/u', ' ' . $haystack . ' ');
+    }
+
+    protected function phraseIn(string $haystack, string $phrase): bool
+    {
+        return $phrase !== '' && str_contains($haystack, $phrase);
     }
 
     protected function updateParentStatus(PropuestaComercialItem $item): void
