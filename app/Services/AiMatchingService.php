@@ -6,25 +6,24 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Servicio de validación semántica de productos para matching de licitaciones.
+ * Servicio de cotización inteligente para licitaciones gubernamentales.
  *
- * Usa OpenAI para determinar si cada producto candidato es del mismo
- * tipo funcional que el artículo solicitado, evitando falsos positivos
- * por coincidencias numéricas o léxicas superficiales.
+ * NO contiene reglas hardcodeadas de familias de productos.
+ * La IA actúa como cotizador experto con sentido común.
  */
 class AiMatchingService
 {
-    protected string $baseUrl;
     protected string $apiKey;
+    protected string $baseUrl;
     protected string $model;
     protected int    $timeout;
 
     public function __construct()
     {
-        $this->apiKey  = config('services.openai.api_key');
-        $this->baseUrl = rtrim(config('services.openai.base_url', 'https://api.openai.com'), '/');
-        $this->model   = config('services.openai.json_repair_model', 'gpt-4o-mini'); // modelo barato y rápido
-        $this->timeout = 30;
+        $this->apiKey   = config('services.openai.api_key');
+        $this->baseUrl  = rtrim(config('services.openai.base_url', 'https://api.openai.com'), '/');
+        $this->model    = config('services.openai.json_repair_model', 'gpt-4o-mini');
+        $this->timeout  = 35;
     }
 
     // =========================================================
@@ -32,56 +31,54 @@ class AiMatchingService
     // =========================================================
 
     /**
-     * Recibe la descripción del ítem solicitado y una colección de candidatos
-     * pre-filtrados por score léxico, y retorna solo los que la IA aprueba.
+     * Valida semánticamente los candidatos pre-filtrados por SQL.
      *
-     * @param  string $descripcionOriginal  Descripción del ítem de la licitación
+     * Retorna solo los candidatos que la IA aprueba como cotizables
+     * para el ítem solicitado, enriquecidos con 'ai_score' y 'ai_razon'.
+     *
+     * @param  string $descripcionOriginal  Texto exacto de la licitación
      * @param  string $unidadSolicitada     Unidad del ítem (PIEZA, CAJA, etc.)
-     * @param  array  $candidates           Array de ['product' => Product, 'score' => float, ...]
-     * @return array  Mismo formato de $candidates, enriquecido con 'ai_score' y 'ai_razon'
+     * @param  array  $candidates           Pre-filtrados por score léxico
+     * @return array  Candidatos aprobados con 'ai_score' y 'ai_razon'
      */
     public function validateCandidates(
         string $descripcionOriginal,
         string $unidadSolicitada,
-        array $candidates
+        array  $candidates
     ): array {
         if (empty($candidates)) {
             return [];
         }
 
-        // Preparar listado compacto para el prompt
+        // Construir listado compacto para el prompt
         $productList = [];
         foreach ($candidates as $idx => $row) {
             $p = $row['product'];
             $productList[] = [
                 'idx'         => $idx,
                 'id'          => $p->id,
-                'nombre'      => (string) $p->name,
-                'sku'         => (string) ($p->sku ?? ''),
-                'categoria'   => (string) ($p->category ?? ''),
-                'marca'       => (string) ($p->brand ?? ''),
-                'tags'        => (string) ($p->tags ?? ''),
-                'descripcion' => mb_substr((string) ($p->description ?? ''), 0, 150),
+                'nombre'      => (string) ($p->name        ?? ''),
+                'sku'         => (string) ($p->sku         ?? ''),
+                'categoria'   => (string) ($p->category    ?? ''),
+                'marca'       => (string) ($p->brand       ?? ''),
+                'tags'        => (string) ($p->tags        ?? ''),
+                'descripcion' => mb_substr((string) ($p->description ?? ''), 0, 200),
+                'unidad'      => (string) ($p->unit        ?? ''),
+                'material'    => (string) ($p->material    ?? ''),
             ];
         }
 
         $productJson = json_encode($productList, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
 
         $messages = [
-            [
-                'role'    => 'system',
-                'content' => $this->buildSystemPrompt(),
-            ],
-            [
-                'role'    => 'user',
-                'content' => $this->buildUserPrompt($descripcionOriginal, $unidadSolicitada, $productJson),
-            ],
+            ['role' => 'system', 'content' => $this->systemPrompt()],
+            ['role' => 'user',   'content' => $this->userPrompt($descripcionOriginal, $unidadSolicitada, $productJson)],
         ];
 
         try {
             $aiResults = $this->callOpenAI($messages);
         } catch (\Throwable $e) {
-            Log::error('[AiMatchingService] Error llamando a OpenAI', [
+            Log::error('[AiMatchingService] Error OpenAI', [
                 'error' => $e->getMessage(),
                 'item'  => $descripcionOriginal,
             ]);
@@ -92,27 +89,20 @@ class AiMatchingService
             return $this->fallback($candidates);
         }
 
-        // Cruzar resultados con la colección original
+        // Cruzar resultados de IA con la colección original
         $aiMap    = collect($aiResults)->keyBy('idx');
         $approved = [];
 
         foreach ($candidates as $idx => $row) {
-            $aiResult = $aiMap->get($idx);
+            $ai = $aiMap->get($idx);
 
-            if (! $aiResult) {
-                continue;
-            }
-
-            $aprobado = (bool) ($aiResult['aprobado'] ?? false);
-            $aiScore  = (int)  ($aiResult['score']    ?? 0);
-
-            if (! $aprobado || $aiScore < 50) {
+            if (! $ai || ! ($ai['aprobado'] ?? false) || (int) ($ai['score'] ?? 0) < 50) {
                 continue;
             }
 
             $approved[] = array_merge($row, [
-                'ai_score' => $aiScore,
-                'ai_razon' => (string) ($aiResult['razon'] ?? 'Aprobado por IA'),
+                'ai_score' => (int)    ($ai['score'] ?? 0),
+                'ai_razon' => (string) ($ai['razon'] ?? 'Aprobado por IA'),
             ]);
         }
 
@@ -123,65 +113,79 @@ class AiMatchingService
     //  PROMPTS
     // =========================================================
 
-    protected function buildSystemPrompt(): string
+    protected function systemPrompt(): string
     {
-        return <<<SYSTEM
-Eres un experto en catálogos de papelería, material de oficina y artículos escolares para licitaciones gubernamentales en México.
+        return <<<'SYSTEM'
+Eres un COTIZADOR EXPERTO en papelería, útiles escolares y material de oficina para licitaciones gubernamentales en México con 20 años de experiencia.
 
-Tu única tarea es determinar si cada producto candidato es del mismo TIPO FUNCIONAL que el artículo solicitado.
+Tu trabajo es revisar los productos candidatos de un catálogo y decidir cuáles son cotizables para el artículo que pide la licitación.
 
-REGLAS ABSOLUTAS:
-1. Aprueba SOLO si el producto es el mismo tipo de artículo (misma función, misma familia).
-2. Las coincidencias NUMÉRICAS (pesos, medidas, cantidades) NO son criterio válido de aprobación.
-3. Ignora el score léxico previo. Razona desde el nombre, categoría y descripción del producto.
-4. Rechaza sin piedad productos de familia diferente aunque compartan palabras.
-5. Responde ÚNICAMENTE con JSON válido sin markdown, sin texto extra.
+CÓMO RAZONAR (sentido común de cotizador):
 
-EJEMPLOS DE RECHAZO OBLIGATORIO:
-- Item: "BLOCK DE BANDERITAS ADHESIVAS"  →  Rechaza: silicón, marcador, cinta, pegamento
-- Item: "SILICÓN LÍQUIDO"               →  Rechaza: block, banderitas, señales, papel
-- Item: "BORRADOR PARA PIZARRÓN"        →  Rechaza: goma de lápiz, corrector, líquido corrector
-- Item: "GOMA PARA LÁPIZ"              →  Rechaza: borrador de pizarrón, corrector líquido
-- Item: "FOLDERS"                       →  Rechaza: archivero, carpeta de argollas, separadores
+1. LEE la descripción completa del artículo solicitado. Extrae mentalmente:
+   - ¿Qué TIPO de producto es? (lápiz, borrador, folder, cinta, etc.)
+   - ¿Qué CARACTERÍSTICAS específicas pide? (bicolor, de madera, no tóxico, con imán, etc.)
+   - ¿Qué PRESENTACIÓN pide? (caja c/12, paquete, pieza individual, etc.)
+   - ¿Qué MATERIAL? (madera, plástico, etc.)
+
+2. Compara cada candidato contra esas dimensiones:
+   - TIPO correcto = requisito mínimo (si no coincide, RECHAZA sin importar nada más)
+   - CARACTERÍSTICAS similares = sube el score
+   - PRESENTACIÓN compatible = sube el score (un producto en pieza puede ser equivalente a uno en caja si es el mismo artículo)
+   - MATERIAL compatible = sube el score
+
+3. EJEMPLOS DE TU RAZONAMIENTO:
+   - Piden "LÁPIZ BICOLOR AZUL Y ROJO DE MADERA C/12": aprueba lápices bicolor aunque sean de 1 pieza (mismo tipo), rechaza marcadores aunque sean azul/rojo (tipo diferente).
+   - Piden "BORRADOR PARA PIZARRÓN": aprueba borradores de pizarrón, rechaza gomas de lápiz y correctores (tipos distintos aunque se llamen similar).
+   - Piden "BLOCK DE BANDERITAS ADHESIVAS": aprueba blocks de banderitas/señaladores, rechaza silicón aunque tenga el mismo número de gramos.
+   - Piden "FOLDER TAMAÑO CARTA": aprueba folders de carta, rechaza carpetas de argollas y separadores.
+
+4. SOBRE LA PRESENTACIÓN: si piden CAJA C/12 y tu catálogo tiene el mismo producto en pieza, el cotizador compra 12 piezas. Eso ES cotizable. Da score alto si el tipo es correcto.
+
+5. SOBRE SCORES:
+   - 90-100: Tipo exacto + características muy similares o iguales
+   - 70-89:  Tipo correcto + algunas características coinciden
+   - 50-69:  Tipo correcto pero características parcialmente distintas (material, color, etc.)
+   - 0-49:   Tipo incorrecto → aprobado: false
+
+RESPONDE ÚNICAMENTE con JSON válido. Sin texto extra, sin markdown, sin explicaciones fuera del JSON.
 SYSTEM;
     }
 
-    protected function buildUserPrompt(string $descripcion, string $unidad, string $productJson): string
+    protected function userPrompt(string $descripcion, string $unidad, string $productJson): string
     {
         return <<<USER
 ARTÍCULO SOLICITADO EN LA LICITACIÓN:
 Descripción: {$descripcion}
-Unidad: {$unidad}
+Unidad de medida: {$unidad}
 
 PRODUCTOS CANDIDATOS DEL CATÁLOGO:
 {$productJson}
 
-Evalúa cada candidato y determina si es del mismo tipo funcional que el artículo solicitado.
+Como cotizador experto, evalúa si cada candidato es cotizable para este artículo.
 
-Responde con JSON exactamente en este formato (incluye TODOS los candidatos):
+Devuelve TODOS los candidatos en este JSON exacto:
 {
+  "razonamiento_item": "Aquí explicas brevemente qué tipo de producto es el artículo solicitado y qué características clave buscas",
   "resultados": [
     {
       "idx": 0,
       "product_id": 123,
       "aprobado": true,
-      "score": 90,
-      "razon": "Es exactamente el mismo tipo porque..."
+      "score": 92,
+      "razon": "Es el mismo tipo de producto (lápiz bicolor) con características compatibles"
     },
     {
       "idx": 1,
       "product_id": 456,
       "aprobado": false,
       "score": 0,
-      "razon": "Es de familia diferente porque..."
+      "razon": "Es un marcador, no un lápiz. Tipo de producto incorrecto."
     }
   ]
 }
 
-IMPORTANTE:
-- "aprobado": true SOLO si es el mismo tipo funcional de producto.
-- "score": 0-100 (0 si no aplica, ≥50 si apruebas).
-- Incluye TODOS los candidatos en "resultados".
+INCLUYE absolutamente TODOS los candidatos en "resultados".
 USER;
     }
 
@@ -191,35 +195,41 @@ USER;
 
     protected function callOpenAI(array $messages): array
     {
-        $url = $this->baseUrl . '/v1/chat/completions';
-
         $response = Http::withHeaders([
             'Authorization' => 'Bearer ' . $this->apiKey,
             'Content-Type'  => 'application/json',
         ])
         ->timeout($this->timeout)
-        ->post($url, [
+        ->post($this->baseUrl . '/v1/chat/completions', [
             'model'           => $this->model,
             'messages'        => $messages,
-            'max_tokens'      => 2000,
-            'temperature'     => 0,           // 0 = máxima consistencia, sin creatividad
-            'response_format' => ['type' => 'json_object'],  // JSON mode nativo de OpenAI
+            'max_tokens'      => 2500,
+            'temperature'     => 0,               // Sin creatividad: máxima consistencia
+            'response_format' => ['type' => 'json_object'], // JSON mode nativo
         ]);
 
         if (! $response->successful()) {
-            Log::warning('[AiMatchingService] OpenAI respondió con error', [
+            Log::warning('[AiMatchingService] OpenAI error HTTP', [
                 'status' => $response->status(),
                 'body'   => $response->body(),
             ]);
-            throw new \RuntimeException('OpenAI API error: ' . $response->status());
+            throw new \RuntimeException('OpenAI HTTP ' . $response->status());
         }
 
         $raw    = $response->json('choices.0.message.content', '{}');
         $parsed = json_decode($raw, true);
 
         if (json_last_error() !== JSON_ERROR_NONE || ! isset($parsed['resultados'])) {
-            Log::warning('[AiMatchingService] JSON inválido recibido de OpenAI', ['raw' => $raw]);
+            Log::warning('[AiMatchingService] JSON inválido de OpenAI', [
+                'raw'  => $raw,
+                'item' => $messages[1]['content'] ?? '',
+            ]);
             return [];
+        }
+
+        // Log del razonamiento de la IA para depuración
+        if (isset($parsed['razonamiento_item'])) {
+            Log::info('[AiMatchingService] IA razonó: ' . $parsed['razonamiento_item']);
         }
 
         return $parsed['resultados'];
@@ -230,17 +240,18 @@ USER;
     // =========================================================
 
     /**
-     * Si la IA no está disponible, usamos el score léxico con umbral alto
-     * para evitar falsos positivos.
+     * Si la IA no responde, aplicamos umbral léxico muy alto (≥ 68)
+     * para evitar falsos positivos mientras la IA no esté disponible.
      */
     protected function fallback(array $candidates): array
     {
         return collect($candidates)
-            ->filter(fn ($row) => (float) $row['score'] >= 65)
+            ->filter(fn ($row) => (float) $row['score'] >= 68)
             ->map(fn ($row) => array_merge($row, [
                 'ai_score' => (int) $row['score'],
-                'ai_razon' => 'Coincidencia léxica alta (IA no disponible)',
+                'ai_razon' => 'Coincidencia léxica alta (IA temporalmente no disponible)',
             ]))
+            ->sortByDesc('ai_score')
             ->values()
             ->all();
     }
