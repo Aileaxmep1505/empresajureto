@@ -87,7 +87,7 @@ class AiMatchingService
             $ai = $aiMap->get($idx);
 
             // Umbral: aprobado por la IA Y score >= 40
-            if (! $ai || ! ($ai['aprobado'] ?? false) || (int) ($ai['score'] ?? 0) < 40) {
+            if (! $ai || ! ($ai['aprobado'] ?? false) || (int) ($ai['score'] ?? 0) < 30) {
                 continue;
             }
 
@@ -137,12 +137,16 @@ SI EL TIPO SÍ COINCIDE — PUNTÚA:
   Característica incompatible                 → -10
 
 UMBRALES:
-  ≥ 80 → Ideal · 60-79 → Buena opción · 40-59 → Válido · < 40 → No cotizable
+  ≥ 80 → Ideal · 60-79 → Buena opción · 30-59 → Válido · < 30 → No cotizable
 
 PRINCIPIO CLAVE:
   Si no hay producto idéntico, aprueba el que más se adapte aunque no sea igual.
   Una "cartulina opalina blanca 220g" SÍ sirve si piden "cartulina opalina blanca 125g"
-  (mismo tipo, gramaje diferente → score ~72, aprobado: true).
+  (mismo tipo, gramaje diferente → score ~65, aprobado: true).
+  Una "cartulina opalina tamaño carta" SÍ sirve si piden "cartulina opalina en pliego"
+  (mismo tipo, medidas diferentes → score ~55, aprobado: true).
+  REGLA: si el TIPO coincide y el producto PUEDE usarse para lo mismo, aprueba con el score real.
+  Solo rechaza cuando el tipo es COMPLETAMENTE diferente.
 
 RESPONDE ÚNICAMENTE con JSON puro. Sin texto adicional, sin markdown, sin explicaciones fuera del JSON.
 SYSTEM;
