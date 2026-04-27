@@ -69,11 +69,9 @@ class AiMatchingService
 
         foreach ($candidates as $idx => $row) {
             $ai = $aiMap->get($idx);
-
             if (! $ai || ! ($ai['aprobado'] ?? false) || (int) ($ai['score'] ?? 0) < 45) {
                 continue;
             }
-
             $approved[] = array_merge($row, [
                 'ai_score' => (int)    ($ai['score'] ?? 0),
                 'ai_razon' => (string) ($ai['razon'] ?? 'Aprobado'),
@@ -90,72 +88,60 @@ Eres un COTIZADOR EXPERTO en material de oficina, papelería, tecnología y art�
 
 Tu trabajo: analizar el artículo solicitado, extraer TODAS sus características, y evaluar cada producto candidato para decidir si se puede cotizar.
 
-═══════════════════════════════════════════════════════════
-PASO 1 — DESCOMPÓN EL ARTÍCULO EN CARACTERÍSTICAS
-═══════════════════════════════════════════════════════════
+PASO 1 — DESCOMPÓN EL ARTÍCULO EN CARACTERÍSTICAS:
   • TIPO DE PRODUCTO       → ¿qué es exactamente?
   • CARACTERÍSTICAS CLAVE  → specs técnicas, funciones, capacidades
   • MATERIAL               → si se especifica
   • COLOR                  → si se especifica
   • PRESENTACIÓN           → pieza, caja c/12, paquete, blíster, etc.
-  • MARCA                  → si se especifica (si no, cualquier marca sirve)
+  • MARCA                  → si se especifica
 
-═══════════════════════════════════════════════════════════
-PASO 2 — EVALÚA CADA CANDIDATO (suma y resta puntos)
-═══════════════════════════════════════════════════════════
+PASO 2 — EVALÚA CADA CANDIDATO:
 
 REGLA ABSOLUTA — EL TIPO ES INNEGOCIABLE:
   Tipo diferente → aprobado: false, score: 0. Sin excepciones.
-  Ejemplos de rechazo por tipo:
-    • Piden calculadora  → rechaza despachador de cinta aunque diga "12" o "GRANDE"
-    • Piden lápiz bicolor → rechaza marcador aunque sea azul y rojo
-    • Piden borrador de pizarrón → rechaza goma de lápiz o corrector
-    • Piden banderitas adhesivas → rechaza silicón aunque tenga el mismo número de piezas
+  Ejemplos:
+    • Piden calculadora     → rechaza despachador de cinta aunque diga "12" o "GRANDE"
+    • Piden lápiz bicolor   → rechaza marcador aunque sea azul y rojo
+    • Piden borrador pizarrón → rechaza goma de lápiz o corrector
+    • Piden banderitas      → rechaza silicón aunque tenga el mismo número de piezas
 
-SI EL TIPO SÍ COINCIDE — PUNTÚA ASÍ:
-  Base tipo correcto                          → +50 (obligatorio)
+SI EL TIPO SÍ COINCIDE — PUNTÚA:
+  Base tipo correcto                          → +50
   Característica técnica coincide exacta      → +10 c/u
-  Característica técnica similar (no igual)   → +5  c/u
+  Característica técnica similar              → +5 c/u
   Material coincide                           → +8
   Color coincide exacto                       → +6
-  Color parcial (tiene ese color entre otros) → +3
+  Color parcial                               → +3
   Presentación compatible                     → +5
   Marca coincide                              → +4
   Característica diferente                    → -5
   Característica incompatible                 → -10
 
-UMBRALES DE COTIZABILIDAD:
-  ≥ 80 → Ideal, cotizar con confianza
-  60-79 → Buena opción, diferencias menores
-  45-59 → Opción válida, el comprador decide
-  < 45  → No cotizable → aprobado: false
+UMBRALES:
+  ≥ 80 → Ideal · 60-79 → Buena opción · 45-59 → Válido · < 45 → No cotizable
 
-PRINCIPIO DE MEJOR ALTERNATIVA:
-  Si no hay producto idéntico, el que más se adapta SÍ es cotizable.
-  Ejemplo: piden "celular android 10 pulgadas azul", tienes
-  "Samsung android 10.5 pulgadas blanco y azul" → APRUEBA (~82 pts).
+PRINCIPIO: Si no hay producto idéntico, el que más se adapta SÍ es cotizable.
 
-RESPONDE ÚNICAMENTE con JSON válido. Sin markdown, sin texto extra.
+IMPORTANTE: Responde ÚNICAMENTE con el objeto JSON. Sin texto adicional, sin explicaciones fuera del JSON, sin markdown.
 SYSTEM;
     }
 
     protected function userPrompt(string $descripcion, string $unidad, string $productJson): string
     {
         return <<<USER
-ARTÍCULO SOLICITADO EN LA LICITACIÓN:
+ARTÍCULO SOLICITADO:
 Descripción: {$descripcion}
 Unidad: {$unidad}
 
 CANDIDATOS DEL CATÁLOGO:
 {$productJson}
 
-Analiza el artículo, extrae sus características y evalúa cada candidato.
-
-Devuelve TODOS los candidatos en este JSON exacto:
+Responde SOLO con este JSON (sin texto extra, sin markdown, sin ```, solo el JSON puro):
 {
   "caracteristicas_solicitadas": {
-    "tipo": "nombre del tipo de producto",
-    "tecnicas": ["lista de specs"],
+    "tipo": "...",
+    "tecnicas": ["..."],
     "material": "...",
     "color": "...",
     "presentacion": "..."
@@ -169,15 +155,6 @@ Devuelve TODOS los candidatos en este JSON exacto:
       "coincidencias": ["mismo tipo", "característica X coincide"],
       "diferencias": ["material diferente pero aceptable"],
       "razon": "Es cotizable porque..."
-    },
-    {
-      "idx": 1,
-      "product_id": 456,
-      "aprobado": false,
-      "score": 0,
-      "coincidencias": [],
-      "diferencias": ["tipo completamente diferente"],
-      "razon": "No cotizable: tipo incorrecto"
     }
   ]
 }
@@ -192,11 +169,11 @@ USER;
         ])
         ->timeout(40)
         ->post($this->baseUrl . '/v1/chat/completions', [
-            'model'           => $this->model,
-            'messages'        => $messages,
-            'max_tokens'      => 3000,
-            'temperature'     => 0,
-            'response_format' => ['type' => 'json_object'],
+            'model'       => $this->model,
+            'messages'    => $messages,
+            'max_tokens'  => 3000,
+            'temperature' => 0,
+            // Sin response_format para compatibilidad con todos los modelos
         ]);
 
         if (! $response->successful()) {
@@ -207,11 +184,27 @@ USER;
             throw new \RuntimeException('OpenAI HTTP ' . $response->status());
         }
 
-        $raw    = $response->json('choices.0.message.content', '{}');
-        $parsed = json_decode($raw, true);
+        $raw = $response->json('choices.0.message.content', '{}');
+
+        // Limpiar markdown fences que algunos modelos agregan
+        $clean = preg_replace('/```json\s*/i', '', $raw);
+        $clean = preg_replace('/```\s*/', '', $clean);
+        $clean = trim($clean);
+
+        // Si hay texto antes del JSON, extraer solo el bloque JSON
+        if (! str_starts_with($clean, '{')) {
+            preg_match('/\{.+\}/s', $clean, $matches);
+            $clean = $matches[0] ?? '{}';
+        }
+
+        $parsed = json_decode($clean, true);
 
         if (json_last_error() !== JSON_ERROR_NONE || ! isset($parsed['resultados'])) {
-            Log::warning('[AiMatchingService] JSON inválido', ['raw' => $raw]);
+            Log::warning('[AiMatchingService] JSON invalido recibido', [
+                'raw'   => $raw,
+                'clean' => $clean,
+                'error' => json_last_error_msg(),
+            ]);
             return [];
         }
 
