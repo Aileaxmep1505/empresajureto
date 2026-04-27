@@ -18,6 +18,7 @@ class Kernel extends ConsoleKernel
  \App\Console\Commands\WhatsAppDiagnose::class,
         // ✅ NUEVO: notificaciones por correo
         \App\Console\Commands\PollMailboxNotifications::class,
+           \App\Console\Commands\GenerateProductEmbeddings::class,
     ];
 
     /**
