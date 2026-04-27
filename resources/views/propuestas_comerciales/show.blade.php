@@ -294,7 +294,7 @@
   .pc-table {
     width: 100%;
     border-collapse: collapse;
-    min-width: 1320px;
+    min-width: 1420px;
   }
 
   .pc-table th,
@@ -334,7 +334,7 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
-    min-width: 260px;
+    min-width: 300px;
   }
 
   .match-card {
@@ -342,12 +342,19 @@
     border-radius: 12px;
     padding: 12px;
     background: #fff;
+    transition: .2s ease;
+  }
+
+  .match-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.035);
   }
 
   .match-name {
     font-weight: 700;
     color: #111;
     margin-bottom: 5px;
+    line-height: 1.4;
   }
 
   .match-mini {
@@ -355,6 +362,70 @@
     font-size: 12px;
     line-height: 1.5;
     margin-bottom: 10px;
+  }
+
+  .external-box {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+    display: grid;
+    gap: 10px;
+  }
+
+  .external-head {
+    display: grid;
+    gap: 6px;
+  }
+
+  .external-head small {
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .external-card {
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 14px;
+    background: #fff;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+    transition: .2s ease;
+  }
+
+  .external-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px rgba(0,0,0,0.04);
+  }
+
+  .external-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: #111;
+    line-height: 1.45;
+    margin-bottom: 8px;
+  }
+
+  .external-meta {
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.6;
+    margin-bottom: 8px;
+  }
+
+  .external-price {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--success);
+    margin-bottom: 10px;
+  }
+
+  .external-price-muted {
+    color: var(--muted);
+  }
+
+  .external-actions {
+    display: grid;
+    gap: 8px;
   }
 
   .inline-form {
@@ -705,6 +776,10 @@
                           @else
                             <span class="badge badge-danger">No</span>
                           @endif
+
+                          @if($match->motivo)
+                            <br>Razón: {{ $match->motivo }}
+                          @endif
                         </div>
 
                         <form method="POST" action="{{ route('propuesta-comercial-items.matches.select', [$item, $match]) }}">
@@ -715,8 +790,66 @@
                         </form>
                       </div>
                     @empty
-                      <div class="empty-note">Aún no hay sugerencias para este renglón.</div>
+                      <div class="empty-note">Sin coincidencias confiables en tu catálogo.</div>
                     @endforelse
+
+                    @if($item->externalMatches && $item->externalMatches->count())
+                      <div class="external-box">
+                        <div class="external-head">
+                          <span class="badge badge-info">Referencias externas</span>
+                          <small>
+                            Links de compra cuando no hay coincidencia suficiente en tu catálogo.
+                          </small>
+                        </div>
+
+                        @foreach($item->externalMatches->sortBy('rank') as $external)
+                          <div class="external-card">
+                            <div class="external-name">
+                              {{ $external->title }}
+                            </div>
+
+                            <div class="external-meta">
+                              {{ $external->source ?? 'Internet' }}
+
+                              @if($external->seller)
+                                · Vendedor: {{ $external->seller }}
+                              @endif
+
+                              <br>
+                              Score externo: {{ number_format((float)$external->score, 2) }}%
+
+                              @if(!empty($external->meta['cantidad_cotizada']))
+                                <br>Cantidad solicitada: {{ $external->meta['cantidad_cotizada'] }}
+                              @elseif(!empty($external->meta['cantidad_maxima']))
+                                <br>Cantidad referencia: {{ $external->meta['cantidad_maxima'] }}
+                              @elseif(!empty($external->meta['cantidad_minima']))
+                                <br>Cantidad referencia: {{ $external->meta['cantidad_minima'] }}
+                              @endif
+
+                              @if(!empty($external->meta['unidad_solicitada']))
+                                · Unidad: {{ $external->meta['unidad_solicitada'] }}
+                              @endif
+                            </div>
+
+                            @if($external->price)
+                              <div class="external-price">
+                                ${{ number_format((float)$external->price, 2) }} {{ $external->currency ?? 'MXN' }}
+                              </div>
+                            @else
+                              <div class="external-price external-price-muted">
+                                Precio no disponible
+                              </div>
+                            @endif
+
+                            <div class="external-actions">
+                              <a href="{{ $external->url }}" target="_blank" rel="noopener noreferrer" class="btn btn-outline" style="width:100%;">
+                                Abrir link de compra
+                              </a>
+                            </div>
+                          </div>
+                        @endforeach
+                      </div>
+                    @endif
                   </div>
                 </td>
 

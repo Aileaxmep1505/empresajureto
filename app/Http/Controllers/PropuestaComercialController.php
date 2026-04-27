@@ -132,17 +132,17 @@ class PropuestaComercialController extends Controller
             ->with('status', 'Propuesta comercial creada correctamente con partidas completas.');
     }
 
-    public function show(PropuestaComercial $propuestaComercial)
-    {
-        $propuestaComercial->load([
-            'items.matches.product',
-            'items.productoSeleccionado',
-            'aiRun',
-        ]);
+public function show(PropuestaComercial $propuestaComercial)
+{
+    $propuestaComercial->load([
+        'items.matches.product',
+        'items.externalMatches',
+        'items.productoSeleccionado',
+        'aiRun',
+    ]);
 
-        return view('propuestas_comerciales.show', compact('propuestaComercial'));
-    }
-
+    return view('propuestas_comerciales.show', compact('propuestaComercial'));
+}
     public function updatePricing(Request $request, PropuestaComercial $propuestaComercial)
     {
         $data = $request->validate([

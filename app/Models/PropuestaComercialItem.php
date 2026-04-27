@@ -53,4 +53,8 @@ class PropuestaComercialItem extends Model
     {
         return $this->belongsTo(Product::class, 'producto_seleccionado_id');
     }
+    public function externalMatches()
+{
+    return $this->hasMany(\App\Models\PropuestaComercialExternalMatch::class);
+}
 }
