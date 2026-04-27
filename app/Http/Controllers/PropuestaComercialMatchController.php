@@ -297,6 +297,16 @@ class PropuestaComercialMatchController extends Controller
             }
         }
 
+        // BONUS: si las primeras 2 palabras del item (tipo de producto)
+        // aparecen juntas en el nombre, es el tipo correcto con alta probabilidad.
+        // Ej: "cartulina opalina" en nombre → +80pts, evita que "carpeta carta" gane.
+        $firstTwo = $allWords->take(2)->implode(' ');
+        if ($firstTwo !== '' && $this->phraseIn($name, $firstTwo)) {
+            $score += 80;
+        } elseif ($firstTwo !== '' && $this->phraseIn($strong, $firstTwo)) {
+            $score += 50;
+        }
+
         if ($this->phraseIn($name,     $queryNorm)) { $score += 40; }
         elseif ($this->phraseIn($haystack, $queryNorm)) { $score += 20; }
 
