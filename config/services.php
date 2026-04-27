@@ -95,6 +95,7 @@ return [
 
     // Máximo total de intentos combinando todos los modelos
     'max_total_attempts' => (int) env('OPENAI_MAX_TOTAL_ATTEMPTS', 8),
+    'json_repair_model'  => env('OPENAI_JSON_REPAIR_MODEL', 'gpt-4o-mini'),
 
     /*
     |--------------------------------------------------------------------------

@@ -6,14 +6,15 @@ use App\Models\Product;
 use App\Models\PropuestaComercial;
 use App\Models\PropuestaComercialItem;
 use App\Models\PropuestaComercialMatch;
+use App\Services\AiMatchingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class PropuestaComercialMatchController extends Controller
 {
+    public function __construct(protected AiMatchingService $aiService) {}
+
     // =========================================================
     //  PUNTOS DE ENTRADA PÚBLICOS
     // =========================================================
@@ -21,7 +22,6 @@ class PropuestaComercialMatchController extends Controller
     public function suggest(PropuestaComercialItem $item)
     {
         DB::transaction(fn () => $this->generateMatchesForItem($item));
-
         return back()->with('status', 'Se generaron sugerencias inteligentes para el renglón.');
     }
 
@@ -30,9 +30,7 @@ class PropuestaComercialMatchController extends Controller
         foreach ($propuestaComercial->items()->get() as $item) {
             DB::transaction(fn () => $this->generateMatchesForItem($item));
         }
-
         $propuestaComercial->refresh();
-
         return back()->with('status', 'Se generaron sugerencias inteligentes para todos los renglones.');
     }
 
@@ -41,27 +39,23 @@ class PropuestaComercialMatchController extends Controller
         DB::transaction(function () use ($item, $match) {
             PropuestaComercialMatch::where('propuesta_comercial_item_id', $item->id)
                 ->update(['seleccionado' => false]);
-
             $match->update(['seleccionado' => true]);
-
             $item->update([
                 'producto_seleccionado_id' => $match->product_id,
                 'match_score'              => $match->score,
                 'status'                   => 'matched',
             ]);
-
             $this->updateParentStatus($item);
         });
-
         return back()->with('status', 'Producto seleccionado correctamente.');
     }
 
     public function price(Request $request, PropuestaComercialItem $item)
     {
         $data = $request->validate([
-            'cantidad_cotizada'    => ['required', 'numeric', 'min:0.01'],
-            'costo_unitario'       => ['required', 'numeric', 'min:0'],
-            'porcentaje_utilidad'  => ['required', 'numeric', 'min:0'],
+            'cantidad_cotizada'   => ['required', 'numeric', 'min:0.01'],
+            'costo_unitario'      => ['required', 'numeric', 'min:0'],
+            'porcentaje_utilidad' => ['required', 'numeric', 'min:0'],
         ]);
 
         $precioUnitario = (float) $data['costo_unitario'] * (1 + ((float) $data['porcentaje_utilidad'] / 100));
@@ -75,31 +69,27 @@ class PropuestaComercialMatchController extends Controller
                 'subtotal'          => round($subtotal, 2),
                 'status'            => 'priced',
             ]);
-
             $propuesta = $item->propuesta()->first();
-
             if ($propuesta) {
                 $subtotalGeneral = (float) $propuesta->items()->sum('subtotal');
                 $descuentoTotal  = round($subtotalGeneral * ((float) $propuesta->porcentaje_descuento / 100), 2);
                 $base            = max($subtotalGeneral - $descuentoTotal, 0);
                 $impuestoTotal   = round($base * ((float) $propuesta->porcentaje_impuesto / 100), 2);
                 $total           = round($base + $impuestoTotal, 2);
-
                 $propuesta->update([
-                    'subtotal'       => round($subtotalGeneral, 2),
+                    'subtotal'        => round($subtotalGeneral, 2),
                     'descuento_total' => $descuentoTotal,
-                    'impuesto_total' => $impuestoTotal,
-                    'total'          => $total,
-                    'status'         => 'priced',
+                    'impuesto_total'  => $impuestoTotal,
+                    'total'           => $total,
+                    'status'          => 'priced',
                 ]);
             }
         });
-
         return back()->with('status', 'Precio aplicado correctamente.');
     }
 
     // =========================================================
-    //  CORE: GENERAR MATCHES PARA UN ÍTEM
+    //  CORE: PIPELINE DE 3 CAPAS
     // =========================================================
 
     protected function suggestItemInternal(PropuestaComercialItem $item): void
@@ -108,39 +98,38 @@ class PropuestaComercialMatchController extends Controller
     }
 
     /**
-     * Pipeline:
-     *  1. Búsqueda SQL amplia  →  candidatos crudos (≤ 300)
-     *  2. Scoring léxico       →  pre-filtrado (score ≥ 35)
-     *  3. Juez semántico IA    →  validación real del tipo de producto
-     *  4. Persistencia         →  guarda solo los aprobados por IA (top 3)
+     * PIPELINE:
+     *  CAPA 1 — SQL amplio     →  candidatos crudos (≤ 300)
+     *  CAPA 2 — Score léxico   →  pre-filtro rápido (score ≥ 35, tokens núcleo presentes)
+     *  CAPA 3 — IA (OpenAI)    →  validación semántica real (mismo tipo funcional)
      */
     protected function generateMatchesForItem(PropuestaComercialItem $item): void
     {
         PropuestaComercialMatch::where('propuesta_comercial_item_id', $item->id)->delete();
 
-        $queryTextOriginal = trim((string) $item->descripcion_original);
-        $unidadOriginal    = trim((string) ($item->unidad_solicitada ?? ''));
+        $descripcionOriginal = trim((string) $item->descripcion_original);
+        $unidadOriginal      = trim((string) ($item->unidad_solicitada ?? ''));
 
-        if ($queryTextOriginal === '') {
+        if ($descripcionOriginal === '') {
             $this->resetItem($item);
             return;
         }
 
-        $queryNormalized = $this->normalizeText($queryTextOriginal);
+        $queryNormalized  = $this->normalizeText($descripcionOriginal);
         $unidadNormalized = $this->normalizeText($unidadOriginal);
-
-        $tokens     = $this->extractSearchTokens($queryNormalized);
-        $coreTokens = $this->extractCoreTokens($tokens);
+        $tokens           = $this->extractSearchTokens($queryNormalized);
+        $coreTokens       = $this->extractCoreTokens($tokens);
 
         if ($tokens->isEmpty()) {
             $this->resetItem($item);
             return;
         }
 
-        // ── PASO 1: candidatos por SQL ──────────────────────────────────────
+        // ── CAPA 1: SQL ──────────────────────────────────────────────────────
         $candidateProducts = Product::query()
-            ->where(function ($q) use ($tokens, $coreTokens, $queryTextOriginal) {
+            ->where(function ($q) use ($tokens, $coreTokens, $descripcionOriginal) {
                 foreach ($tokens as $token) {
+                    if (is_numeric($token)) { continue; }
                     $q->orWhere('name',        'like', "%{$token}%")
                       ->orWhere('sku',         'like', "%{$token}%")
                       ->orWhere('brand',       'like', "%{$token}%")
@@ -149,59 +138,64 @@ class PropuestaComercialMatchController extends Controller
                       ->orWhere('description', 'like', "%{$token}%");
                 }
                 foreach ($coreTokens as $token) {
+                    if (is_numeric($token)) { continue; }
                     $q->orWhere('name',     'like', "%{$token}%")
                       ->orWhere('category', 'like', "%{$token}%")
                       ->orWhere('tags',     'like', "%{$token}%");
                 }
-                $q->orWhere('name', 'like', '%' . $queryTextOriginal . '%');
+                $q->orWhere('name', 'like', '%' . $descripcionOriginal . '%');
             })
             ->limit(300)
             ->get();
 
-        // ── PASO 2: scoring léxico (pre-filtro rápido) ──────────────────────
+        // ── CAPA 2: Score léxico (pre-filtro) ────────────────────────────────
         $preFiltered = $candidateProducts
             ->map(fn ($p) => $this->scoreProduct($p, $queryNormalized, $unidadNormalized, $tokens, $coreTokens))
             ->filter(fn ($row) => $row['score'] >= 35 && $row['important_matches'] > 0)
             ->sortByDesc('score')
-            ->take(15)          // enviamos hasta 15 al juez IA
-            ->values();
+            ->take(15)
+            ->values()
+            ->all();
 
-        if ($preFiltered->isEmpty()) {
+        if (empty($preFiltered)) {
             $this->resetItem($item);
             return;
         }
 
-        // ── PASO 3: juez semántico con IA ───────────────────────────────────
-        $aiValidated = $this->aiSemanticJudge($item, $preFiltered);
+        // ── CAPA 3: Validación semántica con OpenAI ──────────────────────────
+        $aiApproved = $this->aiService->validateCandidates(
+            descripcionOriginal: $descripcionOriginal,
+            unidadSolicitada:    $unidadOriginal,
+            candidates:          $preFiltered,
+        );
 
-        if (empty($aiValidated)) {
+        if (empty($aiApproved)) {
             $this->resetItem($item);
             return;
         }
 
-        // ── PASO 4: persistir los aprobados (top 3) ──────────────────────────
-        $approved = collect($aiValidated)->sortByDesc('ai_score')->take(3)->values();
+        // ── PERSISTIR top 3 ──────────────────────────────────────────────────
+        $finalMatches = collect($aiApproved)->sortByDesc('ai_score')->take(3)->values();
 
-        foreach ($approved as $index => $row) {
+        foreach ($finalMatches as $index => $row) {
             PropuestaComercialMatch::create([
                 'propuesta_comercial_item_id' => $item->id,
-                'product_id'       => $row['product']->id,
-                'rank'             => $index + 1,
-                'score'            => $row['ai_score'],       // score definitivo de la IA
-                'unidad_coincide'  => $row['unidad_coincide'],
-                'seleccionado'     => false,
-                'motivo'           => $row['ai_razon'],
-                'meta'             => [
+                'product_id'      => $row['product']->id,
+                'rank'            => $index + 1,
+                'score'           => $row['ai_score'],
+                'unidad_coincide' => $row['unidad_coincide'],
+                'seleccionado'    => false,
+                'motivo'          => $row['ai_razon'],
+                'meta'            => [
                     'product_name'   => $row['product']->name,
                     'sku'            => $row['product']->sku,
-                    'lexico_score'   => $row['score'],         // score léxico original
+                    'lexico_score'   => $row['score'],
                     'matched_tokens' => $row['matched_tokens'],
                     'missing_tokens' => $row['missing_tokens'],
                 ],
             ]);
         }
 
-        // Auto-seleccionar si el mejor supera 45
         $best = PropuestaComercialMatch::where('propuesta_comercial_item_id', $item->id)
             ->orderByDesc('score')
             ->first();
@@ -210,7 +204,6 @@ class PropuestaComercialMatchController extends Controller
             PropuestaComercialMatch::where('propuesta_comercial_item_id', $item->id)
                 ->update(['seleccionado' => false]);
             $best->update(['seleccionado' => true]);
-
             $item->update([
                 'producto_seleccionado_id' => $best->product_id,
                 'match_score'              => $best->score,
@@ -224,157 +217,16 @@ class PropuestaComercialMatchController extends Controller
     }
 
     // =========================================================
-    //  JUEZ SEMÁNTICO (CLAUDE API)
+    //  SCORING LÉXICO (CAPA 2)
     // =========================================================
 
-    /**
-     * Envía los candidatos pre-filtrados a Claude y obtiene qué productos
-     * realmente son del mismo tipo/familia que el ítem solicitado.
-     *
-     * Retorna la colección original enriquecida con 'ai_score' y 'ai_razon',
-     * solo para los productos que la IA aprueba (ai_score >= 50).
-     */
-    protected function aiSemanticJudge(PropuestaComercialItem $item, \Illuminate\Support\Collection $candidates): array
-    {
-        // Preparar listado para el prompt
-        $productList = $candidates->map(fn ($row, $idx) => [
-            'idx'         => $idx,
-            'id'          => $row['product']->id,
-            'nombre'      => $row['product']->name,
-            'sku'         => $row['product']->sku,
-            'categoria'   => $row['product']->category ?? '',
-            'marca'       => $row['product']->brand ?? '',
-            'descripcion' => Str::limit((string) $row['product']->description, 120),
-        ])->values()->toArray();
-
-        $productJson = json_encode($productList, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-
-        $systemPrompt = <<<SYSTEM
-Eres un experto en licitaciones y catálogos de productos para el gobierno de México.
-Tu única tarea es determinar si cada producto candidato es del mismo tipo que el artículo solicitado.
-
-REGLAS ESTRICTAS:
-1. Solo aprueba productos que sean EXACTAMENTE el mismo tipo de artículo (misma categoría funcional).
-2. Coincidencias numéricas (medidas, pesos, cantidades) NO son suficientes para aprobar.
-3. Ignora el score léxico previo; razona desde el nombre y descripción del producto.
-4. Responde ÚNICAMENTE con JSON válido. Sin texto extra, sin markdown.
-SYSTEM;
-
-        $userPrompt = <<<USER
-ARTÍCULO SOLICITADO:
-Descripción: {$item->descripcion_original}
-Unidad: {$item->unidad_solicitada}
-
-PRODUCTOS CANDIDATOS:
-{$productJson}
-
-Devuelve un objeto JSON con este formato exacto:
-{
-  "resultados": [
-    {
-      "idx": 0,
-      "product_id": 123,
-      "aprobado": true,
-      "score": 90,
-      "razon": "Es el mismo tipo de producto porque..."
-    }
-  ]
-}
-
-- "aprobado": true solo si el producto ES del mismo tipo funcional que el artículo solicitado.
-- "score": 0-100 indicando qué tan bien coincide (0 si no aplica).
-- Incluye TODOS los candidatos en "resultados", incluso los que no apruebes (aprobado: false, score: 0).
-USER;
-
-        try {
-            $response = Http::withHeaders([
-                'x-api-key'         => config('services.anthropic.key'),
-                'anthropic-version' => '2023-06-01',
-                'content-type'      => 'application/json',
-            ])
-            ->timeout(30)
-            ->post('https://api.anthropic.com/v1/messages', [
-                'model'      => 'claude-haiku-4-5-20251001',  // rápido y económico para este paso
-                'max_tokens' => 1500,
-                'system'     => $systemPrompt,
-                'messages'   => [
-                    ['role' => 'user', 'content' => $userPrompt],
-                ],
-            ]);
-
-            if (! $response->successful()) {
-                Log::warning('PropuestaComercialMatch: Claude API error', [
-                    'status' => $response->status(),
-                    'body'   => $response->body(),
-                ]);
-                // Fallback: devolver los candidatos tal cual con su score léxico
-                return $this->fallbackToLexical($candidates);
-            }
-
-            $raw = $response->json('content.0.text', '{}');
-
-            // Limpiar posibles fences de markdown que Claude a veces agrega
-            $clean = preg_replace('/```(?:json)?|```/', '', $raw);
-            $result = json_decode(trim($clean), true);
-
-            if (! is_array($result) || ! isset($result['resultados'])) {
-                Log::warning('PropuestaComercialMatch: respuesta IA malformada', ['raw' => $raw]);
-                return $this->fallbackToLexical($candidates);
-            }
-
-            // Cruzar resultados de IA con la colección original
-            $approved = [];
-            $aiMap    = collect($result['resultados'])->keyBy('idx');
-
-            foreach ($candidates as $idx => $row) {
-                $aiResult = $aiMap->get($idx);
-
-                if (! $aiResult) {
-                    continue;
-                }
-
-                if (! ($aiResult['aprobado'] ?? false) || (int) ($aiResult['score'] ?? 0) < 50) {
-                    continue;
-                }
-
-                $approved[] = array_merge($row, [
-                    'ai_score' => (int) ($aiResult['score'] ?? 0),
-                    'ai_razon' => $aiResult['razon'] ?? 'Aprobado por IA',
-                ]);
-            }
-
-            return $approved;
-
-        } catch (\Throwable $e) {
-            Log::error('PropuestaComercialMatch: excepción llamando a Claude', [
-                'error' => $e->getMessage(),
-            ]);
-            return $this->fallbackToLexical($candidates);
-        }
-    }
-
-    /**
-     * Fallback si la IA no responde: usa score léxico pero con umbral alto (≥ 60)
-     * para evitar falsos positivos.
-     */
-    protected function fallbackToLexical(\Illuminate\Support\Collection $candidates): array
-    {
-        return $candidates
-            ->filter(fn ($row) => $row['score'] >= 60)
-            ->map(fn ($row) => array_merge($row, [
-                'ai_score' => (int) $row['score'],
-                'ai_razon' => 'Coincidencia léxica (IA no disponible)',
-            ]))
-            ->values()
-            ->all();
-    }
-
-    // =========================================================
-    //  SCORING LÉXICO (pre-filtro, sin cambios relevantes)
-    // =========================================================
-
-    protected function scoreProduct(Product $product, string $queryNormalized, string $unidadNormalized, $tokens, $coreTokens): array
-    {
+    protected function scoreProduct(
+        Product $product,
+        string $queryNormalized,
+        string $unidadNormalized,
+        $tokens,
+        $coreTokens
+    ): array {
         $name        = $this->normalizeText((string) $product->name);
         $brand       = $this->normalizeText((string) $product->brand);
         $category    = $this->normalizeText((string) $product->category);
@@ -382,19 +234,13 @@ USER;
         $description = $this->normalizeText((string) $product->description);
         $sku         = $this->normalizeText((string) $product->sku);
 
-        $haystack = trim(implode(' ', array_filter([$name, $brand, $category, $tags, $description, $sku])));
+        $haystack       = trim(implode(' ', array_filter([$name, $brand, $category, $tags, $description, $sku])));
         $strongHaystack = trim(implode(' ', array_filter([$name, $category, $tags])));
 
-        $score          = 0;
-        $matchedTokens  = [];
-        $missingTokens  = [];
+        $score = 0; $matchedTokens = []; $missingTokens = [];
 
         foreach ($tokens as $token) {
-            // Ignorar tokens puramente numéricos: evita el bug "125 gramos == 125 señales"
-            if (is_numeric($token)) {
-                continue;
-            }
-
+            if (is_numeric($token)) { continue; }
             $tokenScore = 0;
             if ($this->containsWord($name,        $token)) { $tokenScore += 22; }
             if ($this->containsWord($category,    $token)) { $tokenScore += 18; }
@@ -403,20 +249,15 @@ USER;
             if ($this->containsWord($description, $token)) { $tokenScore += 7;  }
             if ($this->containsWord($sku,         $token)) { $tokenScore += 12; }
 
-            if ($tokenScore > 0) {
-                $matchedTokens[] = $token;
-                $score += min($tokenScore, 26);
-            } else {
-                $missingTokens[] = $token;
-            }
+            if ($tokenScore > 0) { $matchedTokens[] = $token; $score += min($tokenScore, 26); }
+            else                 { $missingTokens[]  = $token; }
         }
 
         $importantMatches = 0;
         foreach ($coreTokens as $token) {
             if (is_numeric($token)) { continue; }
             if ($this->containsWord($strongHaystack, $token) || $this->containsWord($haystack, $token)) {
-                $importantMatches++;
-                $score += 18;
+                $importantMatches++; $score += 18;
             }
         }
 
@@ -437,32 +278,27 @@ USER;
 
         $nonNumericTokens = $tokens->filter(fn ($t) => ! is_numeric($t));
         $coverage = $nonNumericTokens->count() > 0
-            ? count($matchedTokens) / max($nonNumericTokens->count(), 1)
+            ? count($matchedTokens) / $nonNumericTokens->count()
             : 0;
 
-        if ($coverage >= 0.80)      { $score += 18; }
-        elseif ($coverage >= 0.60)  { $score += 10; }
-        elseif ($coverage < 0.35)   { $score -= 30; }
+        if ($coverage >= 0.80)     { $score += 18; }
+        elseif ($coverage >= 0.60) { $score += 10; }
+        elseif ($coverage < 0.35)  { $score -= 30; }
 
         if ($coreTokens->filter(fn ($t) => ! is_numeric($t))->count() > 0 && $importantMatches === 0) {
             $score -= 80;
         }
 
-        if ($this->looksLikeWrongFamily($coreTokens, $haystack)) {
-            $score -= 60;
-        }
-
-        $score  = round(max(min($score, 100), 0), 2);
-        $motivo = 'Pre-filtro léxico';
+        if ($this->looksLikeWrongFamily($coreTokens, $haystack)) { $score -= 60; }
 
         return [
-            'product'          => $product,
-            'score'            => $score,
-            'unidad_coincide'  => $unidadCoincide,
+            'product'           => $product,
+            'score'             => round(max(min($score, 100), 0), 2),
+            'unidad_coincide'   => $unidadCoincide,
             'important_matches' => $importantMatches,
-            'matched_tokens'   => array_values(array_unique($matchedTokens)),
-            'missing_tokens'   => array_values(array_unique($missingTokens)),
-            'motivo'           => $motivo,
+            'matched_tokens'    => array_values(array_unique($matchedTokens)),
+            'missing_tokens'    => array_values(array_unique($missingTokens)),
+            'motivo'            => 'Pre-filtro léxico',
         ];
     }
 
@@ -472,11 +308,7 @@ USER;
 
     protected function resetItem(PropuestaComercialItem $item): void
     {
-        $item->update([
-            'producto_seleccionado_id' => null,
-            'match_score'              => null,
-            'status'                   => 'pending',
-        ]);
+        $item->update(['producto_seleccionado_id' => null, 'match_score' => null, 'status' => 'pending']);
         $this->updateParentStatus($item);
     }
 
@@ -485,28 +317,27 @@ USER;
         $text = Str::lower($text);
         $text = str_replace(['á','é','í','ó','ú','ü','ñ'], ['a','e','i','o','u','u','n'], $text);
         $text = preg_replace('/[^a-z0-9\s]+/u', ' ', $text);
-        $text = preg_replace('/\s+/u', ' ', $text);
+        $text = preg_replace('/\s+/u',           ' ', $text);
         return trim($text);
     }
 
     protected function extractSearchTokens(string $text)
     {
         $stopWords = collect([
-            'con', 'sin', 'para', 'por', 'del', 'las', 'los', 'una', 'uno', 'unos', 'unas',
-            'pieza', 'piezas', 'pza', 'pzas', 'caja', 'cajas', 'paquete', 'paquetes',
-            'metro', 'metros', 'bolsa', 'bolsas', 'juego', 'juegos', 'color', 'tipo',
-            'medida', 'medidas', 'marca', 'modelo', 'material', 'producto', 'productos',
-            'solicitado', 'solicitada', 'suministro', 'servicio', 'incluye', 'incluido',
-            'tamano', 'tamaño', 'grande', 'chico', 'mediano',
+            'con','sin','para','por','del','las','los','una','uno','unos','unas',
+            'pieza','piezas','pza','pzas','caja','cajas','paquete','paquetes',
+            'metro','metros','bolsa','bolsas','juego','juegos','color','tipo',
+            'medida','medidas','marca','modelo','material','producto','productos',
+            'solicitado','solicitada','suministro','servicio','incluye','incluido',
+            'tamano','tamaño','grande','chico','mediano',
         ]);
 
         return collect(preg_split('/\s+/', $text))
-            ->map(fn ($token) => trim((string) $token))
-            ->filter(fn ($token) => $token !== '' && mb_strlen($token) >= 3)
-            ->reject(fn ($token) => $stopWords->contains($token))
-            ->map(fn ($token) => $this->singularizeToken($token))
-            ->unique()
-            ->values();
+            ->map(fn ($t) => trim((string) $t))
+            ->filter(fn ($t) => $t !== '' && mb_strlen($t) >= 3)
+            ->reject(fn ($t) => $stopWords->contains($t))
+            ->map(fn ($t) => $this->singularizeToken($t))
+            ->unique()->values();
     }
 
     protected function extractCoreTokens($tokens)
@@ -516,24 +347,21 @@ USER;
             'amarillo','amarilla','gris','cafe','transparente','natural',
             'carta','oficio','doble','adhesivo','adhesiva',
         ]);
-
-        $core = $tokens->reject(fn ($token) => $descriptive->contains($token))->values();
+        $core = $tokens->reject(fn ($t) => $descriptive->contains($t))->values();
         return $core->isNotEmpty() ? $core : $tokens;
     }
 
     protected function singularizeToken(string $token): string
     {
-        if (mb_strlen($token) <= 4)         { return $token; }
-        if (Str::endsWith($token, 'es'))    { return mb_substr($token, 0, -2); }
-        if (Str::endsWith($token, 's'))     { return mb_substr($token, 0, -1); }
+        if (mb_strlen($token) <= 4)       { return $token; }
+        if (Str::endsWith($token, 'es'))  { return mb_substr($token, 0, -2); }
+        if (Str::endsWith($token, 's'))   { return mb_substr($token, 0, -1); }
         return $token;
     }
 
     protected function containsWord(string $haystack, string $needle): bool
     {
-        $haystack = ' ' . $haystack . ' ';
-        $needle   = preg_quote($needle, '/');
-        return (bool) preg_match('/\b' . $needle . '\b/u', $haystack);
+        return (bool) preg_match('/\b' . preg_quote($needle, '/') . '\b/u', ' ' . $haystack . ' ');
     }
 
     protected function containsPhrase(string $haystack, string $phrase): bool
@@ -553,9 +381,12 @@ USER;
             'lapiz'      => ['cartulina','opalina','hoja','papel'],
             'pluma'      => ['cartulina','opalina','hoja','papel'],
             'boligrafo'  => ['cartulina','opalina','hoja','papel'],
-            'silicon'    => ['banderita','block','señal','folder','engrapadora','pluma'],
-            'banderita'  => ['silicon','pegamento','cinta','marcador','pluma'],
-            'block'      => ['silicon','pegamento','cinta'],
+            'silicon'    => ['banderita','block','senal','folder','engrapadora','pluma','borrador'],
+            'banderita'  => ['silicon','pegamento','cinta','marcador','pluma','borrador'],
+            'block'      => ['silicon','pegamento','cinta','borrador','corrector'],
+            'borrador'   => ['silicon','pegamento','cinta','marcador','pluma','corrector'],
+            'corrector'  => ['borrador','silicon','block','pluma','lapiz'],
+            'goma'       => ['borrador','pizarron','silicon','corrector'],
         ];
 
         foreach ($coreTokens as $token) {
@@ -564,7 +395,6 @@ USER;
                 if ($this->containsWord($haystack, $badFamily)) { return true; }
             }
         }
-
         return false;
     }
 
@@ -572,15 +402,8 @@ USER;
     {
         $propuesta = $item->propuesta()->first();
         if (! $propuesta) { return; }
-
-        if ($propuesta->items()->where('status', 'priced')->exists()) {
-            $propuesta->update(['status' => 'priced']);
-            return;
-        }
-        if ($propuesta->items()->where('status', 'matched')->exists()) {
-            $propuesta->update(['status' => 'matched']);
-            return;
-        }
+        if ($propuesta->items()->where('status', 'priced')->exists())  { $propuesta->update(['status' => 'priced']); return; }
+        if ($propuesta->items()->where('status', 'matched')->exists()) { $propuesta->update(['status' => 'matched']); return; }
         $propuesta->update(['status' => 'draft']);
     }
 }
