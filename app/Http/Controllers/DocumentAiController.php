@@ -57,13 +57,10 @@ class DocumentAiController extends Controller
                 throw new \RuntimeException('No existe el PDF: ' . $fullPdfPath);
             }
 
-            $pythonProjectPath = dirname(dirname($pythonScript));
-
             Log::info('DocumentAiController@start - ejecutando python', [
                 'run_id' => $run->id,
                 'python_bin' => $pythonBin,
                 'python_script' => $pythonScript,
-                'python_project_path' => $pythonProjectPath,
                 'pdf' => $fullPdfPath,
             ]);
 
@@ -78,11 +75,6 @@ class DocumentAiController extends Controller
                 (string) $pagesPerChunk,
                 '--filename',
                 $run->filename,
-            ], $pythonProjectPath);
-
-            $process->setEnv([
-                'PYTHONPATH' => $pythonProjectPath,
-                'HOME' => getenv('HOME') ?: '/home/u106036310',
             ]);
 
             $process->setTimeout(1200);
@@ -97,7 +89,6 @@ class DocumentAiController extends Controller
                 'successful' => $process->isSuccessful(),
                 'exit_code' => $process->getExitCode(),
                 'stdout_length' => strlen($stdout),
-                'stdout_preview' => mb_substr($stdout, 0, 1000),
                 'stderr' => $stderr,
             ]);
 
@@ -110,10 +101,9 @@ class DocumentAiController extends Controller
             $decoded = json_decode($stdout, true);
 
             if (!is_array($decoded)) {
-                Log::warning('DocumentAiController@start - stdout no es JSON válido', [
+                Log::warning('DocumentAiController@start - stdout no es JSON puro', [
                     'run_id' => $run->id,
-                    'stdout_preview' => mb_substr($stdout, 0, 2000),
-                    'stderr' => $stderr,
+                    'stdout_preview' => mb_substr($stdout, 0, 1000),
                 ]);
 
                 throw new \RuntimeException('Python no devolvió JSON válido.');
