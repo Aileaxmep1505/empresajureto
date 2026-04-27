@@ -8,6 +8,10 @@ use Illuminate\Support\Str;
 
 class ExternalProductReferenceService
 {
+    public function __construct(
+        protected ProductSearchStrategyService $strategyService
+    ) {}
+
     public function searchTop3(
         string $descripcion,
         string $unidad = '',
@@ -21,43 +25,91 @@ class ExternalProductReferenceService
             return [];
         }
 
-        $query = $this->buildQuery(
+        $strategy = $this->strategyService->build(
+            descripcion: $descripcion,
+            unidad: $unidad,
+            cantidadMinima: $cantidadMinima,
+            cantidadMaxima: $cantidadMaxima,
+            cantidadCotizada: $cantidadCotizada
+        );
+
+        Log::info('[ExternalProductReferenceService] Estrategia IA generada', [
+            'descripcion' => $descripcion,
+            'producto_principal' => $strategy['producto_principal'] ?? null,
+            'categoria_probable' => $strategy['categoria_probable'] ?? null,
+            'queries_compra' => $strategy['queries_compra'] ?? [],
+            'queries_catalogo' => $strategy['queries_catalogo'] ?? [],
+            'palabras_obligatorias' => $strategy['palabras_obligatorias'] ?? [],
+            'palabras_prohibidas' => $strategy['palabras_prohibidas'] ?? [],
+        ]);
+
+        $queriesCompra = collect($strategy['queries_compra'] ?? [])
+            ->map(fn ($query) => trim((string) $query))
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($queriesCompra->isEmpty()) {
+            $queriesCompra = collect([
+                trim(($strategy['producto_principal'] ?? $descripcion) . ' comprar México'),
+                trim(($strategy['producto_principal'] ?? $descripcion) . ' proveedor México'),
+                trim(($strategy['producto_principal'] ?? $descripcion) . ' precio México'),
+            ]);
+        }
+
+        $rawResults = collect();
+
+        foreach ($queriesCompra->take(2) as $query) {
+            $results = $this->searchMercadoLibre($query);
+
+            foreach ($results as $result) {
+                $rawResults->push($result);
+            }
+        }
+
+        $validResults = $rawResults
+            ->unique('url')
+            ->map(fn ($row) => $this->scoreResult(
+                row: $row,
+                descripcion: $descripcion,
+                unidad: $unidad,
+                strategy: $strategy
+            ))
+            ->filter(fn ($row) => $row['score'] >= 55 && $row['strategy_ok'] === true)
+            ->sortByDesc('score')
+            ->take(3)
+            ->values()
+            ->all();
+
+        if (!empty($validResults)) {
+            return $validResults;
+        }
+
+        return $this->fallbackReferenceLinks(
             descripcion: $descripcion,
             unidad: $unidad,
             cantidadMinima: $cantidadMinima,
             cantidadMaxima: $cantidadMaxima,
             cantidadCotizada: $cantidadCotizada,
+            strategy: $strategy
         );
-
-        $rawResults = $this->searchMercadoLibre($query);
-
-        if (empty($rawResults)) {
-            return [];
-        }
-
-        $family = $this->detectFamily($descripcion);
-
-        return collect($rawResults)
-            ->map(fn ($row) => $this->scoreResult($row, $descripcion, $unidad, $family))
-            ->filter(fn ($row) => $row['score'] >= 55 && $row['family_ok'] === true)
-            ->sortByDesc('score')
-            ->take(3)
-            ->values()
-            ->all();
     }
 
     protected function searchMercadoLibre(string $query): array
     {
         try {
             $response = Http::timeout(15)
-                ->retry(2, 400)
-                ->acceptJson()
+                ->retry(1, 500)
+                ->withHeaders([
+                    'Accept' => 'application/json',
+                    'User-Agent' => 'Mozilla/5.0 JuretoQuotationBot/1.0',
+                ])
                 ->get('https://api.mercadolibre.com/sites/MLM/search', [
                     'q' => $query,
                     'limit' => 30,
                 ]);
 
-            if (! $response->successful()) {
+            if (!$response->successful()) {
                 Log::warning('[ExternalProductReferenceService] MercadoLibre HTTP error', [
                     'status' => $response->status(),
                     'body' => mb_substr($response->body(), 0, 500),
@@ -70,7 +122,7 @@ class ExternalProductReferenceService
             $json = $response->json();
 
             return collect($json['results'] ?? [])
-                ->map(function ($item) {
+                ->map(function ($item) use ($query) {
                     return [
                         'source' => 'Mercado Libre',
                         'title' => trim((string) ($item['title'] ?? '')),
@@ -80,6 +132,7 @@ class ExternalProductReferenceService
                         'url' => (string) ($item['permalink'] ?? ''),
                         'condition' => $item['condition'] ?? null,
                         'thumbnail' => $item['thumbnail'] ?? null,
+                        'search_query' => $query,
                         'raw' => [
                             'id' => $item['id'] ?? null,
                             'category_id' => $item['category_id'] ?? null,
@@ -103,114 +156,131 @@ class ExternalProductReferenceService
         }
     }
 
-    protected function buildQuery(
+    protected function scoreResult(
+        array $row,
         string $descripcion,
-        string $unidad = '',
-        mixed $cantidadMinima = null,
-        mixed $cantidadMaxima = null,
-        mixed $cantidadCotizada = null
-    ): string {
-        $text = $this->normalize($descripcion);
-        $tokens = $this->extractTokens($text);
-        $family = $this->detectFamily($descripcion);
+        string $unidad,
+        array $strategy
+    ): array {
+        $titleOriginal = (string) ($row['title'] ?? '');
+        $title = $this->normalize($titleOriginal);
+        $query = $this->normalize($descripcion);
 
-        $important = collect();
+        $productoPrincipal = $this->normalize((string) ($strategy['producto_principal'] ?? $descripcion));
 
-        if ($family) {
-            foreach ($family['must_query'] as $word) {
-                if ($this->containsLike($text, $word) || $this->isVeryImportantFamilyWord($family['name'], $word)) {
-                    $important->push($word);
-                }
-            }
-        }
-
-        foreach ($tokens as $token) {
-            $important->push($token);
-        }
-
-        $unidadNorm = $this->normalize($unidad);
-
-        if ($unidadNorm !== '' && ! in_array($unidadNorm, ['pieza', 'piezas', 'pza', 'pzas'], true)) {
-            $important->push($unidadNorm);
-        }
-
-        $cantidad = $cantidadCotizada ?: $cantidadMaxima ?: $cantidadMinima;
-
-        if ($cantidad && is_numeric($cantidad) && (float) $cantidad > 1) {
-            $important->push((string) ((int) $cantidad));
-        }
-
-        return $important
-            ->map(fn ($value) => trim((string) $value))
+        $palabrasObligatorias = collect($strategy['palabras_obligatorias'] ?? [])
+            ->map(fn ($word) => $this->normalize((string) $word))
             ->filter()
             ->unique()
-            ->take(10)
-            ->implode(' ');
-    }
+            ->values()
+            ->all();
 
-    protected function scoreResult(array $row, string $descripcion, string $unidad, ?array $family): array
-    {
-        $title = $this->normalize((string) ($row['title'] ?? ''));
-        $query = $this->normalize($descripcion);
-        $tokens = $this->extractTokens($query);
+        $sinonimosValidos = collect($strategy['sinonimos_validos'] ?? [])
+            ->map(fn ($word) => $this->normalize((string) $word))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        $palabrasProhibidas = collect($strategy['palabras_prohibidas'] ?? [])
+            ->map(fn ($word) => $this->normalize((string) $word))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
 
         $score = 0;
         $matched = [];
         $missing = [];
+        $forbiddenHits = [];
 
-        $familyOk = true;
-        $familyName = null;
-
-        if ($family) {
-            $familyOk = false;
-            $familyName = $family['name'];
-
-            $positiveHits = 0;
-            $negativeHits = 0;
-
-            foreach ($family['positive'] as $word) {
-                if ($this->containsLike($title, $word)) {
-                    $positiveHits++;
-                }
-            }
-
-            foreach ($family['negative'] as $word) {
-                if ($this->containsLike($title, $word)) {
-                    $negativeHits++;
-                }
-            }
-
-            if ($positiveHits > 0 && $negativeHits === 0) {
-                $familyOk = true;
-                $score += 50 + min($positiveHits * 10, 30);
+        foreach ($palabrasProhibidas as $badWord) {
+            if ($badWord !== '' && $this->containsTextOrWords($title, $badWord)) {
+                $forbiddenHits[] = $badWord;
             }
         }
 
-        foreach ($tokens as $token) {
-            if ($this->containsLike($title, $token)) {
-                $matched[] = $token;
-                $score += 10;
+        if (!empty($forbiddenHits)) {
+            return [
+                'source' => $row['source'] ?? 'Internet',
+                'title' => $titleOriginal,
+                'seller' => $row['seller'] ?? null,
+                'price' => $row['price'] ?? null,
+                'currency' => $row['currency'] ?? 'MXN',
+                'url' => $row['url'] ?? '',
+                'score' => 0,
+                'strategy_ok' => false,
+                'family_ok' => false,
+                'family' => $strategy['categoria_probable'] ?? null,
+                'matched_tokens' => [],
+                'missing_tokens' => $palabrasObligatorias,
+                'forbidden_hits' => $forbiddenHits,
+                'thumbnail' => $row['thumbnail'] ?? null,
+                'condition' => $row['condition'] ?? null,
+                'raw' => [
+                    'reason' => 'Descartado por palabras prohibidas generadas por IA.',
+                    'search_query' => $row['search_query'] ?? null,
+                    'strategy' => $strategy,
+                    'original_raw' => $row['raw'] ?? null,
+                ],
+                'unidad_coincide' => false,
+            ];
+        }
+
+        if ($productoPrincipal !== '' && $this->containsPhraseLoose($title, $productoPrincipal)) {
+            $score += 35;
+            $matched[] = $productoPrincipal;
+        }
+
+        foreach ($palabrasObligatorias as $word) {
+            if ($word === '') {
+                continue;
+            }
+
+            if ($this->containsTextOrWords($title, $word)) {
+                $matched[] = $word;
+                $score += 16;
             } else {
-                $missing[] = $token;
+                $missing[] = $word;
             }
         }
 
-        $coverage = count($tokens) > 0
-            ? count(array_unique($matched)) / max(count($tokens), 1)
-            : 0;
+        foreach ($sinonimosValidos as $synonym) {
+            if ($synonym === '') {
+                continue;
+            }
+
+            if ($this->containsTextOrWords($title, $synonym)) {
+                $matched[] = $synonym;
+                $score += 12;
+            }
+        }
+
+        $usefulDescriptionWords = $this->extractUsefulWords($descripcion);
+
+        foreach ($usefulDescriptionWords as $word) {
+            if ($this->containsTextOrWords($title, $word)) {
+                $matched[] = $word;
+                $score += 5;
+            }
+        }
+
+        $requiredCount = max(count($palabrasObligatorias), 1);
+        $requiredMatched = count(array_intersect(
+            array_map(fn ($v) => $this->normalize($v), $matched),
+            $palabrasObligatorias
+        ));
+
+        $coverage = $requiredMatched / $requiredCount;
 
         if ($coverage >= 0.85) {
-            $score += 18;
+            $score += 25;
         } elseif ($coverage >= 0.65) {
-            $score += 12;
-        } elseif ($coverage >= 0.45) {
+            $score += 15;
+        } elseif ($coverage >= 0.40) {
             $score += 6;
         } else {
-            $score -= 25;
-        }
-
-        if ($this->containsPhrase($title, $query)) {
-            $score += 20;
+            $score -= 35;
         }
 
         similar_text($query, $title, $similarity);
@@ -219,176 +289,275 @@ class ExternalProductReferenceService
         $unidadNorm = $this->normalize($unidad);
         $unidadCoincide = false;
 
-        if ($unidadNorm !== '') {
-            $unidadCoincide = $this->containsLike($title, $unidadNorm);
+        if ($unidadNorm !== '' && $this->containsTextOrWords($title, $unidadNorm)) {
+            $unidadCoincide = true;
+            $score += 3;
+        }
 
-            if ($unidadCoincide) {
-                $score += 3;
-            }
+        $strategyOk = true;
+
+        if (count($palabrasObligatorias) >= 2 && $coverage < 0.35 && empty($sinonimosValidos)) {
+            $strategyOk = false;
+        }
+
+        if ($score < 55) {
+            $strategyOk = false;
         }
 
         $score = round(max(min($score, 100), 0), 2);
 
         return [
             'source' => $row['source'] ?? 'Internet',
-            'title' => $row['title'] ?? '',
+            'title' => $titleOriginal,
             'seller' => $row['seller'] ?? null,
             'price' => $row['price'] ?? null,
             'currency' => $row['currency'] ?? 'MXN',
             'url' => $row['url'] ?? '',
             'score' => $score,
-            'family_ok' => $familyOk,
-            'family' => $familyName,
+            'strategy_ok' => $strategyOk,
+            'family_ok' => $strategyOk,
+            'family' => $strategy['categoria_probable'] ?? null,
             'matched_tokens' => array_values(array_unique($matched)),
             'missing_tokens' => array_values(array_unique($missing)),
+            'forbidden_hits' => [],
             'thumbnail' => $row['thumbnail'] ?? null,
             'condition' => $row['condition'] ?? null,
-            'raw' => $row['raw'] ?? null,
+            'raw' => [
+                'search_query' => $row['search_query'] ?? null,
+                'strategy' => $strategy,
+                'coverage' => $coverage,
+                'similarity' => $similarity,
+                'original_raw' => $row['raw'] ?? null,
+            ],
             'unidad_coincide' => $unidadCoincide,
         ];
     }
 
-    protected function detectFamily(string $description): ?array
-    {
-        $text = $this->normalize($description);
+    protected function fallbackReferenceLinks(
+        string $descripcion,
+        string $unidad,
+        mixed $cantidadMinima,
+        mixed $cantidadMaxima,
+        mixed $cantidadCotizada,
+        array $strategy
+    ): array {
+        $queries = collect($strategy['queries_compra'] ?? [])
+            ->map(fn ($query) => trim((string) $query))
+            ->filter()
+            ->unique()
+            ->values();
 
-        foreach ($this->families() as $family) {
-            foreach ($family['triggers'] as $trigger) {
-                if ($this->containsLike($text, $trigger) || str_contains($text, $this->normalize($trigger))) {
-                    return $family;
-                }
+        if ($queries->isEmpty()) {
+            $base = trim(($strategy['producto_principal'] ?? $descripcion) . ' ' . $unidad);
+
+            $queries = collect([
+                trim($base . ' comprar México'),
+                trim($base . ' proveedor México'),
+                trim($base . ' precio México'),
+            ]);
+        }
+
+        while ($queries->count() < 3) {
+            $base = $strategy['producto_principal'] ?? $descripcion;
+
+            if ($queries->count() === 1) {
+                $queries->push(trim($base . ' proveedor México'));
+            } elseif ($queries->count() === 2) {
+                $queries->push(trim($base . ' precio México'));
+            } else {
+                break;
             }
         }
 
-        return null;
-    }
+        $cantidad = $cantidadCotizada ?: $cantidadMaxima ?: $cantidadMinima;
 
-    protected function families(): array
-    {
-        return [
+        $sources = [
             [
-                'name' => 'arillo_encuadernacion',
-                'triggers' => ['arillo', 'arillos', 'anillo', 'anillos', 'aro', 'aros', 'espiral', 'wire', 'wireo', 'wire-o', 'engargolar', 'encuadernar', 'encuadernacion'],
-                'must_query' => ['arillo', 'wireo', 'encuadernacion', 'encuadernar', 'metalico'],
-                'positive' => ['arillo', 'arillos', 'anillo', 'anillos', 'aro', 'aros', 'espiral', 'wire', 'wireo', 'wire-o', 'engargolar', 'encuadernar', 'encuadernacion'],
-                'negative' => ['engrapadora', 'grapa', 'grapas', 'perforadora', 'perforador', 'cuaderno', 'libreta', 'lapiz', 'pluma', 'boligrafo', 'marcador', 'silicon', 'pegamento', 'folder', 'carpeta'],
+                'source' => 'Mercado Libre',
+                'score' => 90,
+                'url_type' => 'mercadolibre',
+                'prefix' => 'Buscar en Mercado Libre',
             ],
             [
-                'name' => 'banderitas_adhesivas',
-                'triggers' => ['banderita', 'banderitas', 'senalador', 'senaladores', 'separador', 'separadores', 'postit', 'post-it', 'post it', 'nota adhesiva', 'notas adhesivas'],
-                'must_query' => ['banderitas', 'adhesivas', 'senaladores', 'postit'],
-                'positive' => ['banderita', 'banderitas', 'senalador', 'senaladores', 'separador', 'separadores', 'postit', 'post-it', 'nota', 'notas', 'adhesiva', 'adhesivas', 'pagina', 'paginas'],
-                'negative' => ['silicon', 'silicón', 'pegamento', 'resistol', 'lapiz', 'pluma', 'boligrafo', 'cartulina', 'cuaderno', 'engrapadora', 'perforadora'],
+                'source' => 'Google Shopping',
+                'score' => 86,
+                'url_type' => 'google_shopping',
+                'prefix' => 'Buscar en Google Shopping',
             ],
             [
-                'name' => 'cartulina_papel',
-                'triggers' => ['cartulina', 'cartulinas', 'opalina', 'opalinas', 'papel', 'hoja', 'hojas'],
-                'must_query' => ['cartulina', 'opalina', 'papel'],
-                'positive' => ['cartulina', 'cartulinas', 'opalina', 'opalinas', 'papel', 'hoja', 'hojas', 'carta', 'oficio', 'blanca', 'blanco'],
-                'negative' => ['lapiz', 'pluma', 'boligrafo', 'marcador', 'silicon', 'pegamento', 'engrapadora', 'perforadora'],
-            ],
-            [
-                'name' => 'engrapadora_grapas',
-                'triggers' => ['engrapadora', 'engrapadoras', 'grapa', 'grapas', 'engrapar'],
-                'must_query' => ['engrapadora', 'grapas'],
-                'positive' => ['engrapadora', 'engrapadoras', 'grapa', 'grapas', 'engrapar'],
-                'negative' => ['arillo', 'encuadernacion', 'espiral', 'wire', 'cartulina', 'banderita', 'silicon'],
-            ],
-            [
-                'name' => 'perforadora',
-                'triggers' => ['perforadora', 'perforador', 'perforar'],
-                'must_query' => ['perforadora', 'perforador'],
-                'positive' => ['perforadora', 'perforador', 'perforar', 'orificio', 'orificios'],
-                'negative' => ['arillo', 'encuadernacion', 'espiral', 'wire', 'cartulina', 'banderita', 'silicon'],
-            ],
-            [
-                'name' => 'silicon_pegamento',
-                'triggers' => ['silicon', 'silicón', 'pegamento', 'adhesivo liquido', 'resistol'],
-                'must_query' => ['silicon', 'pegamento', 'adhesivo'],
-                'positive' => ['silicon', 'silicón', 'pegamento', 'adhesivo', 'liquido', 'resistol'],
-                'negative' => ['banderita', 'senalador', 'cartulina', 'arillo', 'espiral', 'cuaderno', 'lapiz', 'pluma'],
-            ],
-            [
-                'name' => 'lapiz_pluma_marcador',
-                'triggers' => ['lapiz', 'lapices', 'pluma', 'plumas', 'boligrafo', 'boligrafos', 'marcador', 'marcadores'],
-                'must_query' => ['lapiz', 'pluma', 'boligrafo', 'marcador'],
-                'positive' => ['lapiz', 'lapices', 'pluma', 'plumas', 'boligrafo', 'boligrafos', 'marcador', 'marcadores'],
-                'negative' => ['cartulina', 'opalina', 'hoja', 'papel', 'arillo', 'banderita', 'silicon', 'engrapadora', 'perforadora'],
-            ],
-            [
-                'name' => 'calculadora',
-                'triggers' => ['calculadora', 'calculadoras'],
-                'must_query' => ['calculadora'],
-                'positive' => ['calculadora', 'calculadoras', 'cientifica', 'basica', 'digitos'],
-                'negative' => ['despachador', 'cinta', 'lapiz', 'pluma', 'cartulina', 'cuaderno', 'marcador'],
-            ],
-            [
-                'name' => 'folder_carpeta',
-                'triggers' => ['folder', 'folders', 'carpeta', 'carpetas'],
-                'must_query' => ['folder', 'carpeta'],
-                'positive' => ['folder', 'folders', 'carpeta', 'carpetas', 'expediente', 'broche'],
-                'negative' => ['cartulina', 'opalina', 'lapiz', 'pluma', 'arillo', 'banderita', 'silicon'],
+                'source' => 'Google Proveedores',
+                'score' => 82,
+                'url_type' => 'google',
+                'prefix' => 'Buscar proveedores',
             ],
         ];
-    }
 
-    protected function isVeryImportantFamilyWord(string $familyName, string $word): bool
-    {
-        $mainWords = [
-            'arillo_encuadernacion' => ['arillo', 'wireo', 'encuadernacion'],
-            'banderitas_adhesivas' => ['banderitas', 'senaladores', 'postit'],
-            'cartulina_papel' => ['cartulina', 'opalina'],
-            'engrapadora_grapas' => ['engrapadora'],
-            'perforadora' => ['perforadora'],
-            'silicon_pegamento' => ['silicon', 'pegamento'],
-            'lapiz_pluma_marcador' => ['lapiz', 'pluma', 'boligrafo', 'marcador'],
-            'calculadora' => ['calculadora'],
-            'folder_carpeta' => ['folder', 'carpeta'],
-        ];
+        return collect($sources)
+            ->map(function ($sourceConfig, $index) use ($queries, $strategy, $descripcion, $unidad, $cantidad) {
+                $query = $queries->get($index) ?: $queries->first();
 
-        return in_array($word, $mainWords[$familyName] ?? [], true);
-    }
+                $query = trim((string) $query);
 
-    protected function normalize(string $text): string
-    {
-        $text = Str::lower($text);
+                if ($cantidad && is_numeric($cantidad) && (float) $cantidad > 1 && !str_contains($query, (string) ((int) $cantidad))) {
+                    $query .= ' ' . (int) $cantidad;
+                }
 
-        $text = str_replace(
-            ['á', 'é', 'í', 'ó', 'ú', 'ü', 'ñ'],
-            ['a', 'e', 'i', 'o', 'u', 'u', 'n'],
-            $text
-        );
+                if ($unidad !== '' && !str_contains(Str::lower($query), Str::lower($unidad))) {
+                    $query .= ' ' . $unidad;
+                }
 
-        $text = str_replace(['wire-o', 'post-it'], ['wireo', 'postit'], $text);
+                $query = trim($query);
 
-        $text = preg_replace('/[^a-z0-9\s\/]+/u', ' ', $text);
-        $text = preg_replace('/\s+/u', ' ', $text);
-
-        return trim($text);
-    }
-
-    protected function extractTokens(string $text): array
-    {
-        $stopWords = collect([
-            'con', 'sin', 'para', 'por', 'del', 'las', 'los', 'una', 'uno', 'unos', 'unas',
-            'pieza', 'piezas', 'pza', 'pzas', 'caja', 'cajas', 'paquete', 'paquetes',
-            'presentacion', 'presentaciones', 'color', 'colores', 'tipo', 'diseno', 'diseño',
-            'estandar', 'standard', 'medida', 'medidas', 'marca', 'modelo', 'material',
-            'producto', 'productos', 'solicitado', 'solicitada', 'suministro', 'servicio',
-            'incluye', 'incluido', 'tamano', 'tamaño', 'grande', 'chico', 'mediano',
-            'capacidad', 'compacta', 'ligera', 'rigida', 'rigidas', 'base', 'alta', 'baja',
-            'rapido', 'rapida', 'cm', 'mm', 'kg', 'gr', 'gramos',
-        ]);
-
-        return collect(preg_split('/\s+/', $text))
-            ->map(fn ($token) => trim((string) $token))
-            ->filter(fn ($token) => $token !== '' && mb_strlen($token) >= 3)
-            ->reject(fn ($token) => is_numeric($token))
-            ->reject(fn ($token) => $stopWords->contains($token))
-            ->map(fn ($token) => $this->singularize($token))
-            ->unique()
+                return [
+                    'source' => $sourceConfig['source'],
+                    'title' => $sourceConfig['prefix'] . ': ' . $query,
+                    'seller' => null,
+                    'price' => null,
+                    'currency' => 'MXN',
+                    'url' => $this->buildSearchUrl($sourceConfig['url_type'], $query),
+                    'score' => $sourceConfig['score'],
+                    'strategy_ok' => true,
+                    'family_ok' => true,
+                    'family' => $strategy['categoria_probable'] ?? null,
+                    'matched_tokens' => $strategy['palabras_obligatorias'] ?? [],
+                    'missing_tokens' => [],
+                    'forbidden_hits' => [],
+                    'thumbnail' => null,
+                    'condition' => null,
+                    'raw' => [
+                        'fallback' => true,
+                        'reason' => 'No hubo resultados externos confiables desde API o la API fue bloqueada. Se generó link de búsqueda inteligente usando la estrategia IA.',
+                        'query' => $query,
+                        'cantidad' => $cantidad,
+                        'unidad' => $unidad,
+                        'strategy' => $strategy,
+                        'descripcion_original' => $descripcion,
+                    ],
+                    'unidad_coincide' => $unidad !== '',
+                ];
+            })
             ->values()
             ->all();
+    }
+
+    protected function buildSearchUrl(string $type, string $query): string
+    {
+        $query = trim($query);
+
+        return match ($type) {
+            'mercadolibre' => 'https://listado.mercadolibre.com.mx/' . str_replace('+', '-', urlencode($query)),
+            'google_shopping' => 'https://www.google.com/search?tbm=shop&q=' . urlencode($query),
+            default => 'https://www.google.com/search?q=' . urlencode($query),
+        };
+    }
+
+    protected function containsTextOrWords(string $haystack, string $needle): bool
+    {
+        $haystack = $this->normalize($haystack);
+        $needle = $this->normalize($needle);
+
+        if ($needle === '') {
+            return false;
+        }
+
+        if (str_contains($haystack, $needle)) {
+            return true;
+        }
+
+        $words = collect(preg_split('/\s+/', $needle))
+            ->map(fn ($word) => trim((string) $word))
+            ->filter(fn ($word) => $word !== '' && mb_strlen($word) >= 3)
+            ->values();
+
+        if ($words->isEmpty()) {
+            return false;
+        }
+
+        $matched = 0;
+
+        foreach ($words as $word) {
+            if ($this->wordIn($haystack, $word)) {
+                $matched++;
+            }
+        }
+
+        return $matched >= max(1, (int) ceil($words->count() * 0.65));
+    }
+
+    protected function containsPhraseLoose(string $haystack, string $phrase): bool
+    {
+        $haystack = $this->normalize($haystack);
+        $phrase = $this->normalize($phrase);
+
+        if ($phrase === '') {
+            return false;
+        }
+
+        if (str_contains($haystack, $phrase)) {
+            return true;
+        }
+
+        $phraseWords = collect(preg_split('/\s+/', $phrase))
+            ->map(fn ($word) => trim((string) $word))
+            ->filter(fn ($word) => $word !== '' && mb_strlen($word) >= 3)
+            ->values();
+
+        if ($phraseWords->isEmpty()) {
+            return false;
+        }
+
+        $matched = 0;
+
+        foreach ($phraseWords as $word) {
+            if ($this->wordIn($haystack, $word)) {
+                $matched++;
+            }
+        }
+
+        return $matched >= max(1, (int) ceil($phraseWords->count() * 0.70));
+    }
+
+    protected function wordIn(string $haystack, string $needle): bool
+    {
+        $haystack = ' ' . $this->normalize($haystack) . ' ';
+        $needle = $this->normalize($needle);
+
+        if ($needle === '') {
+            return false;
+        }
+
+        $variants = $this->tokenVariants($needle);
+
+        foreach ($variants as $variant) {
+            if ($variant === '') {
+                continue;
+            }
+
+            if (preg_match('/\b' . preg_quote($variant, '/') . '\b/u', $haystack)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    protected function tokenVariants(string $token): array
+    {
+        $token = $this->normalize($token);
+        $singular = $this->singularize($token);
+
+        $variants = [
+            $token,
+            $singular,
+            $singular . 's',
+            $singular . 'es',
+        ];
+
+        if (Str::endsWith($singular, 'z')) {
+            $variants[] = mb_substr($singular, 0, -1) . 'ces';
+        }
+
+        return array_values(array_unique(array_filter($variants)));
     }
 
     protected function singularize(string $token): string
@@ -414,47 +583,45 @@ class ExternalProductReferenceService
         return $token;
     }
 
-    protected function tokenVariants(string $token): array
+    protected function extractUsefulWords(string $text): array
     {
-        $token = $this->normalize($token);
-        $singular = $this->singularize($token);
+        $text = $this->normalize($text);
 
-        $variants = [
-            $token,
-            $singular,
-            $singular . 's',
-            $singular . 'es',
-        ];
+        $stopWords = collect([
+            'con', 'sin', 'para', 'por', 'del', 'las', 'los', 'una', 'uno', 'unos', 'unas',
+            'pieza', 'piezas', 'pza', 'pzas', 'caja', 'cajas', 'paquete', 'paquetes',
+            'presentacion', 'presentaciones', 'color', 'colores', 'tipo', 'diseno', 'diseño',
+            'estandar', 'standard', 'medida', 'medidas', 'marca', 'modelo', 'material',
+            'producto', 'productos', 'solicitado', 'solicitada', 'suministro', 'servicio',
+            'incluye', 'incluido', 'tamano', 'tamaño', 'grande', 'chico', 'mediano',
+            'capacidad', 'compacta', 'ligera', 'rigida', 'rigidas', 'base', 'alta', 'baja',
+            'rapido', 'rapida', 'cm', 'mm', 'kg', 'gr', 'gramos', 'diametro',
+        ]);
 
-        if (Str::endsWith($singular, 'z')) {
-            $variants[] = mb_substr($singular, 0, -1) . 'ces';
-        }
-
-        return array_values(array_unique(array_filter($variants)));
+        return collect(preg_split('/\s+/', $text))
+            ->map(fn ($word) => trim((string) $word))
+            ->filter(fn ($word) => $word !== '' && mb_strlen($word) >= 3)
+            ->reject(fn ($word) => is_numeric($word))
+            ->reject(fn ($word) => $stopWords->contains($word))
+            ->unique()
+            ->values()
+            ->all();
     }
 
-    protected function containsLike(string $haystack, string $needle): bool
+    protected function normalize(string $text): string
     {
-        $haystack = ' ' . $this->normalize($haystack) . ' ';
+        $text = Str::lower($text);
 
-        foreach ($this->tokenVariants($needle) as $variant) {
-            if ($variant === '') {
-                continue;
-            }
+        $text = str_replace(
+            ['á', 'é', 'í', 'ó', 'ú', 'ü', 'ñ'],
+            ['a', 'e', 'i', 'o', 'u', 'u', 'n'],
+            $text
+        );
 
-            if (preg_match('/\b' . preg_quote($variant, '/') . '\b/u', $haystack)) {
-                return true;
-            }
-        }
+        $text = str_replace(['wire-o', 'post-it'], ['wireo', 'postit'], $text);
+        $text = preg_replace('/[^a-z0-9\s\/\.\-]+/u', ' ', $text);
+        $text = preg_replace('/\s+/u', ' ', $text);
 
-        return false;
-    }
-
-    protected function containsPhrase(string $haystack, string $phrase): bool
-    {
-        $haystack = $this->normalize($haystack);
-        $phrase = $this->normalize($phrase);
-
-        return $phrase !== '' && str_contains($haystack, $phrase);
+        return trim($text);
     }
 }
