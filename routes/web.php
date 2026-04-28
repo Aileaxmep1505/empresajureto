@@ -2004,3 +2004,27 @@ Route::get('/document-ai-debug/{id}', function ($id) {
 });
 Route::post('/propuesta-comercial-items/{item}/reextract', [PropuestaComercialController::class, 'reextractItem'])
     ->name('propuesta-comercial-items.reextract');
+
+    use App\Http\Controllers\PropuestaComercialAjaxController;
+
+
+Route::post('/propuestas-comerciales/{propuestaComercial}/ajax/suggest-all', [PropuestaComercialMatchController::class, 'suggestAllJson'])
+    ->name('propuestas-comerciales.ajax.suggest-all');
+
+Route::post('/propuesta-comercial-items/{item}/ajax/suggest', [PropuestaComercialMatchController::class, 'suggestJson'])
+    ->name('propuesta-comercial-items.ajax.suggest');
+
+Route::post('/propuesta-comercial-items/{item}/ajax/update', [PropuestaComercialAjaxController::class, 'updateItem'])
+    ->name('propuesta-comercial-items.ajax.update');
+
+Route::post('/propuesta-comercial-items/{item}/ajax/status', [PropuestaComercialAjaxController::class, 'updateStatus'])
+    ->name('propuesta-comercial-items.ajax.status');
+
+Route::get('/propuestas-comerciales/{propuestaComercial}/ajax/manual-search', [PropuestaComercialAjaxController::class, 'manualSearch'])
+    ->name('propuestas-comerciales.ajax.manual-search');
+
+Route::post('/propuestas-comerciales/{propuestaComercial}/ajax/reorder-items', [PropuestaComercialAjaxController::class, 'reorderItems'])
+    ->name('propuestas-comerciales.ajax.reorder-items');
+
+Route::post('/propuestas-comerciales/{propuestaComercial}/ajax/global-margin', [PropuestaComercialAjaxController::class, 'updateGlobalMargin'])
+    ->name('propuestas-comerciales.ajax.global-margin');

@@ -455,4 +455,174 @@ class PropuestaComercialMatchController extends Controller
             $propuesta->update(['status' => 'draft']);
         }
     }
+    public function suggestJson(PropuestaComercialItem $item)
+{
+    $this->generateMatchesForItem($item);
+
+    $item->refresh()->load([
+        'matches.product',
+        'externalMatches',
+        'productoSeleccionado',
+    ]);
+
+    return response()->json([
+        'ok' => true,
+        'item' => $this->ajaxSerializeItem($item),
+        'summary' => $this->ajaxSummary($item->propuesta),
+    ]);
+}
+
+public function suggestAllJson(PropuestaComercial $propuestaComercial)
+{
+    foreach ($propuestaComercial->items()->orderBy('sort')->get() as $item) {
+        $this->generateMatchesForItem($item);
+    }
+
+    $propuestaComercial->refresh()->load([
+        'items.matches.product',
+        'items.externalMatches',
+        'items.productoSeleccionado',
+    ]);
+
+    return response()->json([
+        'ok' => true,
+        'items' => $propuestaComercial->items->sortBy('sort')->values()->map(fn ($item) => $this->ajaxSerializeItem($item)),
+        'summary' => $this->ajaxSummary($propuestaComercial),
+    ]);
+}
+
+protected function ajaxSummary(?PropuestaComercial $propuesta): array
+{
+    if (!$propuesta) {
+        return [];
+    }
+
+    $propuesta->refresh()->load([
+        'items.matches.product',
+        'items.externalMatches',
+        'items.productoSeleccionado',
+    ]);
+
+    $items = $propuesta->items;
+
+    $exact = 0;
+    $similar = 0;
+    $notFound = 0;
+
+    foreach ($items as $item) {
+        $status = $this->ajaxStatusKey($item);
+
+        if ($status === 'exact') {
+            $exact++;
+        } elseif ($status === 'similar') {
+            $similar++;
+        } else {
+            $notFound++;
+        }
+    }
+
+    $subtotalSale = (float) $items->sum('subtotal');
+    $subtotalCost = (float) $items->sum(fn ($i) => ((float) $i->costo_unitario) * ((float) ($i->cantidad_cotizada ?: 0)));
+    $profit = $subtotalSale - $subtotalCost;
+    $margin = $subtotalCost > 0 ? round(($profit / $subtotalCost) * 100) : 0;
+
+    return [
+        'exact' => $exact,
+        'similar' => $similar,
+        'not_found' => $notFound,
+        'subtotal_sale' => $subtotalSale,
+        'subtotal_cost' => $subtotalCost,
+        'profit' => $profit,
+        'margin' => $margin,
+        'total_items' => $items->count(),
+    ];
+}
+
+protected function ajaxSerializeItem(PropuestaComercialItem $item): array
+{
+    $item->loadMissing([
+        'matches.product',
+        'externalMatches',
+        'productoSeleccionado',
+    ]);
+
+    $selectedMatch = $item->matches->firstWhere('seleccionado', true) ?: $item->matches->sortByDesc('score')->first();
+
+    return [
+        'id' => $item->id,
+        'sort' => (int) $item->sort,
+        'descripcion_original' => $item->descripcion_original,
+        'unidad_solicitada' => $item->unidad_solicitada,
+        'cantidad_minima' => (float) $item->cantidad_minima,
+        'cantidad_maxima' => (float) $item->cantidad_maxima,
+        'cantidad_cotizada' => (float) ($item->cantidad_cotizada ?: 1),
+        'costo_unitario' => (float) $item->costo_unitario,
+        'precio_unitario' => (float) $item->precio_unitario,
+        'subtotal' => (float) $item->subtotal,
+        'match_score' => (float) ($item->match_score ?: optional($selectedMatch)->score),
+        'status_key' => $this->ajaxStatusKey($item),
+        'ui_status' => data_get($item->meta, 'ui_status', 'pending'),
+        'item_margin_pct' => (float) data_get($item->meta, 'item_margin_pct', optional($item->propuesta)->porcentaje_utilidad ?? 25),
+        'manual_external_supplier' => data_get($item->meta, 'external_supplier'),
+        'manual_external_link' => data_get($item->meta, 'external_link'),
+        'manual_catalog_product_name' => data_get($item->meta, 'catalog_product_name_manual'),
+        'producto_seleccionado' => $item->productoSeleccionado ? [
+            'id' => $item->productoSeleccionado->id,
+            'name' => $item->productoSeleccionado->name,
+            'sku' => $item->productoSeleccionado->sku,
+            'brand' => $item->productoSeleccionado->brand,
+            'stock' => $item->productoSeleccionado->stock ?? 0,
+        ] : null,
+        'matches' => $item->matches->sortBy('rank')->values()->map(function ($match) {
+            $p = $match->product;
+
+            return [
+                'id' => $match->id,
+                'rank' => $match->rank,
+                'score' => (float) $match->score,
+                'seleccionado' => (bool) $match->seleccionado,
+                'unidad_coincide' => (bool) $match->unidad_coincide,
+                'motivo' => $match->motivo,
+                'product' => $p ? [
+                    'id' => $p->id,
+                    'name' => $p->name,
+                    'sku' => $p->sku,
+                    'brand' => $p->brand,
+                    'stock' => $p->stock ?? 0,
+                    'cost' => (float) ($p->cost ?? $p->costo ?? 0),
+                    'price' => (float) ($p->price ?? $p->precio ?? 0),
+                ] : null,
+            ];
+        }),
+        'external_matches' => $item->externalMatches->sortBy('rank')->values()->map(function ($external) {
+            return [
+                'id' => $external->id,
+                'rank' => $external->rank,
+                'source' => $external->source,
+                'title' => $external->title,
+                'seller' => $external->seller,
+                'price' => (float) $external->price,
+                'currency' => $external->currency,
+                'url' => $external->url,
+                'score' => (float) $external->score,
+            ];
+        }),
+    ];
+}
+
+protected function ajaxStatusKey(PropuestaComercialItem $item): string
+{
+    $selectedMatch = $item->matches->firstWhere('seleccionado', true) ?: $item->matches->sortByDesc('score')->first();
+    $score = (float) ($item->match_score ?: optional($selectedMatch)->score);
+
+    if ($item->producto_seleccionado_id && $score >= 85) {
+        return 'exact';
+    }
+
+    if ($item->producto_seleccionado_id || $item->matches->count() > 0) {
+        return 'similar';
+    }
+
+    return 'not_found';
+}
 }
