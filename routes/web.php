@@ -2035,3 +2035,14 @@ Route::post('/propuestas-comerciales/{propuestaComercial}/ajax/reorder-items', [
 
 Route::post('/propuestas-comerciales/{propuestaComercial}/ajax/global-margin', [PropuestaComercialAjaxController::class, 'updateGlobalMargin'])
     ->name('propuestas-comerciales.ajax.global-margin');
+
+    use App\Http\Controllers\PropuestaComercialClienteController;
+
+Route::get('/propuestas-comerciales/{propuestaComercial}/cliente', [PropuestaComercialClienteController::class, 'show'])
+    ->name('propuestas-comerciales.cliente.show');
+
+Route::get('/propuestas-comerciales/{propuestaComercial}/cliente/pdf', [PropuestaComercialClienteController::class, 'downloadPdf'])
+    ->name('propuestas-comerciales.cliente.pdf');
+
+Route::post('/propuestas-comerciales/{propuestaComercial}/cliente/email', [PropuestaComercialClienteController::class, 'sendEmail'])
+    ->name('propuestas-comerciales.cliente.email');
