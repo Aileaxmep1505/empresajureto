@@ -520,52 +520,63 @@ class RoutePlanController extends Controller
         if (Schema::hasTable('providers')) {
             $cols = Schema::getColumnListing('providers');
 
-            $nameCols = ['name', 'nombre', 'razon_social', 'razon', 'empresa', 'provider_name', 'title'];
-            $latCols  = ['lat', 'latitude', 'latitud', 'latitud_gps'];
-            $lngCols  = ['lng', 'lon', 'long', 'longitude', 'longitud', 'longitud_gps'];
+            $latCols = ['lat', 'latitude', 'latitud', 'latitud_gps'];
+            $lngCols = ['lng', 'lon', 'long', 'longitude', 'longitud', 'longitud_gps'];
 
-            $addrCols = ['calle','colonia','ciudad','estado','cp'];
-
-            $pName = collect($nameCols)->first(fn($c) => in_array($c, $cols, true));
-            $pLat  = collect($latCols)->first(fn($c) => in_array($c, $cols, true));
-            $pLng  = collect($lngCols)->first(fn($c) => in_array($c, $cols, true));
+            $pLat = collect($latCols)->first(fn($c) => in_array($c, $cols, true));
+            $pLng = collect($lngCols)->first(fn($c) => in_array($c, $cols, true));
 
             $select = ['id'];
 
-            $select[] = $pName
-                ? DB::raw("`{$pName}` as `name`")
-                : DB::raw("CONCAT('Proveedor #', id) as `name`");
+            // Campos reales de tu tabla providers:
+            // empresa = nombre de la empresa
+            // nombre  = contacto / asesor
+            $select[] = in_array('empresa', $cols, true)
+                ? DB::raw("`empresa` as `empresa`")
+                : DB::raw("NULL as `empresa`");
+
+            $select[] = in_array('nombre', $cols, true)
+                ? DB::raw("`nombre` as `nombre`")
+                : DB::raw("NULL as `nombre`");
+
+            foreach (['email', 'telefono', 'rfc', 'tipo_persona', 'calle', 'colonia', 'ciudad', 'estado', 'cp'] as $c) {
+                $select[] = in_array($c, $cols, true)
+                    ? DB::raw("`{$c}` as `{$c}`")
+                    : DB::raw("NULL as `{$c}`");
+            }
 
             $select[] = $pLat ? DB::raw("NULLIF(`{$pLat}`, 0) as `lat`") : DB::raw("NULL as `lat`");
             $select[] = $pLng ? DB::raw("NULLIF(`{$pLng}`, 0) as `lng`") : DB::raw("NULL as `lng`");
 
-            foreach ($addrCols as $c) {
-                if (in_array($c, $cols, true)) $select[] = DB::raw("`{$c}` as `{$c}`");
+            $addrParts = [];
+            foreach (['calle', 'colonia', 'ciudad', 'estado', 'cp'] as $c) {
+                if (in_array($c, $cols, true)) {
+                    $addrParts[] = "NULLIF(TRIM(`{$c}`),'')";
+                }
             }
 
-            $parts = [];
-            foreach ($addrCols as $c) {
-                if (in_array($c, $cols, true)) $parts[] = "NULLIF(TRIM(`{$c}`),'')";
-            }
-            $select[] = !empty($parts)
-                ? DB::raw("CONCAT_WS(', ', " . implode(', ', $parts) . ") as `address`")
+            $select[] = !empty($addrParts)
+                ? DB::raw("CONCAT_WS(', ', " . implode(', ', $addrParts) . ") as `address`")
                 : DB::raw("'' as `address`");
 
             $q = DB::table('providers')->select($select);
 
-            $q->where(function ($w) use ($addrCols) {
-                foreach ($addrCols as $c) {
-                    $w->orWhere(function ($ww) use ($c) {
-                        $ww->whereNotNull($c)->whereRaw("TRIM(`{$c}`) <> ''");
-                    });
-                }
-            });
+            if (in_array('estatus', $cols, true)) {
+                $q->where(function ($w) {
+                    $w->where('estatus', 1)
+                      ->orWhere('estatus', '1')
+                      ->orWhere('estatus', true);
+                });
+            }
 
+            // No filtramos solo por coordenadas: deben aparecer todos los proveedores
+            // como APSA aunque todavía no tengan lat/lng. Si no tienen coordenadas,
+            // el Blade los geocodifica usando calle/colonia/ciudad/estado/cp.
             if ($pLat && $pLng) {
                 $q->orderByRaw("(NULLIF(`{$pLat}`,0) is not null and NULLIF(`{$pLng}`,0) is not null) desc");
             }
 
-            $q->orderBy('name');
+            $q->orderByRaw("COALESCE(NULLIF(TRIM(`empresa`), ''), NULLIF(TRIM(`nombre`), ''), CONCAT('Proveedor #', id)) ASC");
 
             $providers = $q->get();
         }
