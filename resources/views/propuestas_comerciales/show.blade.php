@@ -378,30 +378,11 @@
     white-space: nowrap;
   }
 
-  .badge-success {
-    background: var(--success-soft);
-    color: var(--success);
-  }
-
-  .badge-danger {
-    background: var(--danger-soft);
-    color: var(--danger);
-  }
-
-  .badge-info {
-    background: var(--blue-soft);
-    color: var(--blue);
-  }
-
-  .badge-warning {
-    background: var(--warning-soft);
-    color: var(--warning);
-  }
-
-  .badge-muted {
-    background: #f3f4f6;
-    color: #777;
-  }
+  .badge-success { background: var(--success-soft); color: var(--success); }
+  .badge-danger { background: var(--danger-soft); color: var(--danger); }
+  .badge-info { background: var(--blue-soft); color: var(--blue); }
+  .badge-warning { background: var(--warning-soft); color: var(--warning); }
+  .badge-muted { background: #f3f4f6; color: #777; }
 
   .money-row {
     display: flex;
@@ -436,13 +417,8 @@
     display: block;
   }
 
-  .section {
-    margin-bottom: 22px;
-  }
-
-  .section:last-child {
-    margin-bottom: 0;
-  }
+  .section { margin-bottom: 22px; }
+  .section:last-child { margin-bottom: 0; }
 
   .section-title {
     color: var(--muted);
@@ -499,10 +475,6 @@
     align-items: center;
   }
 
-  .action-row .delete-btn {
-    margin-left: auto;
-  }
-
   .edit-form {
     display: none;
     grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1.4fr 1.6fr;
@@ -510,9 +482,7 @@
     margin-top: 22px;
   }
 
-  .edit-form.show {
-    display: grid;
-  }
+  .edit-form.show { display: grid; }
 
   .field label {
     display: block;
@@ -536,12 +506,10 @@
     padding: 18px;
   }
 
-  .modal-backdrop.show {
-    display: flex;
-  }
+  .modal-backdrop.show { display: flex; }
 
   .modal {
-    width: min(760px, 100%);
+    width: min(820px, 100%);
     max-height: 86vh;
     background: #fff;
     border: 1px solid var(--line);
@@ -605,67 +573,25 @@
     animation: spin .8s linear infinite;
   }
 
-  @keyframes spin {
-    to { transform: rotate(360deg); }
-  }
+  @keyframes spin { to { transform: rotate(360deg); } }
 
   @media (max-width: 1100px) {
-    .topbar {
-      flex-direction: column;
-    }
-
-    .actions {
-      padding-top: 0;
-      justify-content: flex-start;
-    }
-
-    .summary-grid {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-
-    .item-main {
-      grid-template-columns: 28px 30px minmax(0,1fr) auto;
-    }
-
-    .money-row {
-      grid-column: 3 / -1;
-      flex-wrap: wrap;
-    }
-
-    .edit-form {
-      grid-template-columns: repeat(2, minmax(0,1fr));
-    }
+    .topbar { flex-direction: column; }
+    .actions { padding-top: 0; justify-content: flex-start; }
+    .summary-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .item-main { grid-template-columns: 28px 30px minmax(0,1fr) auto; }
+    .money-row { grid-column: 3 / -1; flex-wrap: wrap; }
+    .edit-form { grid-template-columns: repeat(2, minmax(0,1fr)); }
   }
 
   @media (max-width: 680px) {
-    .quote-page {
-      padding: 24px 14px 40px;
-    }
-
-    .summary-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .item-main {
-      padding: 16px;
-      gap: 10px;
-    }
-
-    .money-row {
-      grid-column: 1 / -1;
-    }
-
-    .item-details {
-      padding: 18px 16px;
-    }
-
-    .edit-form {
-      grid-template-columns: 1fr;
-    }
-
-    .btn {
-      width: 100%;
-    }
+    .quote-page { padding: 24px 14px 40px; }
+    .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .item-main { padding: 16px; gap: 10px; }
+    .money-row { grid-column: 1 / -1; }
+    .item-details { padding: 18px 16px; }
+    .edit-form { grid-template-columns: 1fr; }
+    .btn { width: 100%; }
   }
 </style>
 
@@ -732,8 +658,8 @@
                           'sku' => $p->sku,
                           'brand' => $p->brand,
                           'stock' => $p->stock ?? 0,
-                          'cost' => (float) ($p->cost ?? $p->costo ?? 0),
-                          'price' => (float) ($p->price ?? $p->precio ?? 0),
+                          'cost' => (float) ($p->cost ?? $p->costo ?? $p->purchase_price ?? 0),
+                          'price' => (float) ($p->price ?? $p->precio ?? $p->sale_price ?? 0),
                       ] : null,
                   ];
               })->all(),
@@ -790,7 +716,7 @@
       </div>
 
       <div class="actions">
-        <a href="{{ route('propuestas-comerciales.index') }}" class="btn btn-ghost">＋ Agregar</a>
+        <button class="btn btn-ghost" type="button" id="btnOpenAddItem">＋ Agregar</button>
 
         <button class="btn btn-outline" type="button" id="btnSuggestAll">
           ◎ Buscar coincidencias de todos
@@ -808,35 +734,12 @@
     </div>
 
     <div class="summary-grid">
-      <div class="summary-cell">
-        <div class="summary-value text-success" id="sumExact">0</div>
-        <div class="summary-label">Exactos</div>
-      </div>
-
-      <div class="summary-cell">
-        <div class="summary-value text-blue" id="sumSimilar">0</div>
-        <div class="summary-label">Similares</div>
-      </div>
-
-      <div class="summary-cell">
-        <div class="summary-value text-danger" id="sumNotFound">0</div>
-        <div class="summary-label">No encontrados</div>
-      </div>
-
-      <div class="summary-cell">
-        <div class="summary-value" id="sumSale">$0</div>
-        <div class="summary-label">Subtotal venta</div>
-      </div>
-
-      <div class="summary-cell">
-        <div class="summary-value text-success" id="sumProfit">$0</div>
-        <div class="summary-label">Utilidad</div>
-      </div>
-
-      <div class="summary-cell">
-        <div class="summary-value" id="sumMargin">0%</div>
-        <div class="summary-label">Margen</div>
-      </div>
+      <div class="summary-cell"><div class="summary-value text-success" id="sumExact">0</div><div class="summary-label">Exactos</div></div>
+      <div class="summary-cell"><div class="summary-value text-blue" id="sumSimilar">0</div><div class="summary-label">Similares</div></div>
+      <div class="summary-cell"><div class="summary-value text-danger" id="sumNotFound">0</div><div class="summary-label">No encontrados</div></div>
+      <div class="summary-cell"><div class="summary-value" id="sumSale">$0</div><div class="summary-label">Subtotal venta</div></div>
+      <div class="summary-cell"><div class="summary-value text-success" id="sumProfit">$0</div><div class="summary-label">Utilidad</div></div>
+      <div class="summary-cell"><div class="summary-value" id="sumMargin">0%</div><div class="summary-label">Margen</div></div>
     </div>
 
     <div class="global-margin">
@@ -845,13 +748,8 @@
         <input class="input" id="globalMarginInput" type="number" step="0.01" value="{{ $propuestaComercial->porcentaje_utilidad ?: 25 }}" style="width:150px;">
       </div>
 
-      <button class="btn btn-ghost" type="button" id="btnSaveGlobalMargin">
-        Guardar margen global
-      </button>
-
-      <button class="btn btn-outline" type="button" id="btnApplyGlobalMargin">
-        Aplicar a partidas
-      </button>
+      <button class="btn btn-ghost" type="button" id="btnSaveGlobalMargin">Guardar margen global</button>
+      <button class="btn btn-outline" type="button" id="btnApplyGlobalMargin">Aplicar a partidas</button>
     </div>
 
     <div class="tabs">
@@ -869,16 +767,17 @@
     <div class="modal-head">
       <div>
         <h2 class="modal-title">Búsqueda manual</h2>
-        <p class="modal-subtitle" id="manualSubtitle">Producto</p>
+        <p class="modal-subtitle" id="manualSubtitle">Busca por nombre, SKU, marca, color, unidad o descripción.</p>
       </div>
 
       <button class="btn btn-ghost btn-small" type="button" onclick="closeManualModal()">×</button>
     </div>
 
     <div class="modal-body">
-      <div style="display:flex; gap:10px;">
-        <input class="input" id="manualQueryInput" placeholder="Buscar producto...">
-        <button class="btn btn-primary" type="button" id="btnManualSearch">Buscar</button>
+      <div style="position:relative;">
+        <input class="input" id="manualQueryInput" placeholder="Buscar producto..." autocomplete="off" style="padding-left:38px; padding-right:38px;">
+        <span style="position:absolute; left:14px; top:50%; transform:translateY(-50%); color:#888;">⌕</span>
+        <button type="button" onclick="clearManualSearch()" style="position:absolute; right:10px; top:50%; transform:translateY(-50%); border:0; background:transparent; color:#888; cursor:pointer; font-size:18px;">×</button>
       </div>
 
       <div class="modal-tabs">
@@ -886,7 +785,60 @@
         <button class="tab-btn" type="button" id="manualTabInternet">Internet</button>
       </div>
 
+      <div id="manualSearchStatus" class="result-meta" style="margin-bottom:12px;">
+        Escribe para buscar automáticamente.
+      </div>
+
       <div id="manualResults"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="addItemModal">
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <h2 class="modal-title">Agregar nueva partida</h2>
+        <p class="modal-subtitle">Crea un nuevo producto solicitado y calcula costo, precio y subtotal.</p>
+      </div>
+
+      <button class="btn btn-ghost btn-small" type="button" onclick="closeAddItemModal()">×</button>
+    </div>
+
+    <div class="modal-body">
+      <form id="addItemForm" onsubmit="storeNewItem(event)" style="display:grid; gap:14px;">
+        <div class="field">
+          <label>Producto solicitado</label>
+          <input class="input" name="descripcion_original" placeholder="Ej. 100 paquetes de hojas blancas tamaño carta" required>
+        </div>
+
+        <div style="display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap:12px;">
+          <div class="field">
+            <label>Cantidad</label>
+            <input class="input" type="number" step="0.01" name="cantidad_cotizada" value="1" required>
+          </div>
+
+          <div class="field">
+            <label>Unidad</label>
+            <input class="input" name="unidad_solicitada" value="pz">
+          </div>
+
+          <div class="field">
+            <label>Costo unit.</label>
+            <input class="input" type="number" step="0.01" name="costo_unitario" value="0">
+          </div>
+
+          <div class="field">
+            <label>Margen %</label>
+            <input class="input" type="number" step="0.01" name="porcentaje_utilidad" value="{{ $propuestaComercial->porcentaje_utilidad ?: 25 }}">
+          </div>
+        </div>
+
+        <div class="action-row">
+          <button class="btn btn-primary" type="submit">＋ Agregar partida</button>
+          <button class="btn btn-ghost" type="button" onclick="closeAddItemModal()">Cancelar</button>
+        </div>
+      </form>
     </div>
   </div>
 </div>
@@ -902,6 +854,8 @@
     manualSearch: @json(route('propuestas-comerciales.ajax.manual-search', $propuestaComercial)),
     reorder: @json(route('propuestas-comerciales.ajax.reorder-items', $propuestaComercial)),
     globalMargin: @json(route('propuestas-comerciales.ajax.global-margin', $propuestaComercial)),
+    storeItem: @json(route('propuestas-comerciales.ajax.items.store', $propuestaComercial)),
+    selectMatch: @json(url('/propuesta-comercial-items/__ID__/ajax/select-match/__MATCH__')),
   };
 
   let items = @json($itemsPayload);
@@ -909,7 +863,8 @@
   let currentFilter = 'all';
   let manualItemId = null;
   let manualTab = 'catalog';
-  let draggedId = null;
+  let manualSearchTimer = null;
+  let manualLastQuery = '';
 
   function money(n) {
     n = Number(n || 0);
@@ -980,7 +935,6 @@
     document.getElementById('tabAll').textContent = summary.total_items || items.length;
     document.getElementById('tabExact').textContent = summary.exact || 0;
     document.getElementById('tabNotFound').textContent = summary.not_found || 0;
-
     document.getElementById('itemsCountText').textContent = summary.total_items || items.length;
 
     const notice = document.getElementById('noticeBox');
@@ -1012,10 +966,6 @@
     const price = Number(item.precio_unitario || 0);
     const subtotal = Number(item.subtotal || price * qty);
 
-    const catalogSection = renderCatalogSection(item);
-    const externalSection = renderExternalSection(item);
-    const manualExternal = renderManualExternal(item);
-
     return `
       <div class="item-card ${statusCardClass(item)}" data-id="${item.id}" draggable="true">
         <div class="item-main" onclick="toggleItem(${item.id})">
@@ -1042,9 +992,9 @@
         </div>
 
         <div class="item-details">
-          ${catalogSection}
-          ${manualExternal}
-          ${externalSection}
+          ${renderCatalogSection(item)}
+          ${renderManualExternal(item)}
+          ${renderExternalSection(item)}
           ${renderActions(item)}
           ${renderEditForm(item)}
         </div>
@@ -1107,7 +1057,7 @@
     return `
       <div class="section">
         <div class="external-box">
-          <div class="section-title">Referencia externa (IA)</div>
+          <div class="section-title">Referencia externa / manual</div>
           <div class="result-title">
             ${escapeHtml(item.manual_external_supplier || item.manual_catalog_product_name || 'Proveedor externo')}
             ${item.costo_unitario ? ' · ' + money(item.costo_unitario) : ''}
@@ -1158,13 +1108,11 @@
   }
 
   function renderActions(item) {
-    const hasMatches = item.matches?.length > 0;
-
     return `
       <div class="section">
         <div class="action-row">
           <button class="btn btn-ghost btn-small" type="button" onclick="toggleEdit(${item.id})">✎ Editar</button>
-          <button class="btn btn-success btn-small" type="button" onclick="setItemStatus(${item.id}, 'accepted_item')" ${!hasMatches && !item.manual_external_link ? '' : ''}>✓ Aceptar</button>
+          <button class="btn btn-success btn-small" type="button" onclick="setItemStatus(${item.id}, 'accepted_item')">✓ Aceptar</button>
           <button class="btn btn-danger btn-small" type="button" onclick="setItemStatus(${item.id}, 'rejected_item')">× Rechazar</button>
           <button class="btn btn-warning btn-small" type="button" onclick="setItemStatus(${item.id}, 'manual_review')">◎ Revisión</button>
           <button class="btn btn-soft btn-small" type="button" onclick="suggestItem(${item.id})">◎ Buscar coincidencias</button>
@@ -1222,9 +1170,7 @@
 
   function updateItemInState(item) {
     const idx = items.findIndex(i => i.id === item.id);
-    if (idx >= 0) {
-      items[idx] = item;
-    }
+    if (idx >= 0) items[idx] = item;
   }
 
   function toggleItem(id) {
@@ -1240,6 +1186,7 @@
   async function suggestItem(id) {
     const button = event?.target;
     const old = button?.innerHTML;
+
     if (button) {
       button.disabled = true;
       button.innerHTML = '<span class="loader"></span> Buscando...';
@@ -1250,6 +1197,7 @@
       updateItemInState(data.item);
       summary = data.summary || summary;
       renderItems();
+
       const card = document.querySelector(`.item-card[data-id="${id}"]`);
       if (card) card.classList.add('open');
     } catch (e) {
@@ -1263,7 +1211,22 @@
   }
 
   async function selectMatch(itemId, matchId) {
-    alert('Para seleccionar esta coincidencia por AJAX necesito agregar una ruta JSON de selección. Si quieres, te la paso también completa.');
+    try {
+      const url = routes.selectMatch
+        .replace('__ID__', itemId)
+        .replace('__MATCH__', matchId);
+
+      const data = await ajax(url, { method: 'POST', body: '{}' });
+
+      updateItemInState(data.item);
+      summary = data.summary || summary;
+      renderItems();
+
+      const card = document.querySelector(`.item-card[data-id="${itemId}"]`);
+      if (card) card.classList.add('open');
+    } catch (e) {
+      alert(e.message);
+    }
   }
 
   async function setItemStatus(id, status) {
@@ -1276,6 +1239,7 @@
       updateItemInState(data.item);
       summary = data.summary || summary;
       renderItems();
+
       const card = document.querySelector(`.item-card[data-id="${id}"]`);
       if (card) card.classList.add('open');
     } catch (e) {
@@ -1298,6 +1262,7 @@
       updateItemInState(data.item);
       summary = data.summary || summary;
       renderItems();
+
       const card = document.querySelector(`.item-card[data-id="${id}"]`);
       if (card) card.classList.add('open');
     } catch (e) {
@@ -1351,19 +1316,50 @@
 
     document.getElementById('manualSubtitle').textContent = item?.descripcion_original || 'Producto';
     document.getElementById('manualQueryInput').value = item?.descripcion_original || '';
-    document.getElementById('manualResults').innerHTML = '<p class="result-meta">Escribe y presiona buscar.</p>';
+    document.getElementById('manualResults').innerHTML = '';
+    document.getElementById('manualSearchStatus').textContent = 'Buscando coincidencias...';
     document.getElementById('manualModal').classList.add('show');
+
+    manualTab = 'catalog';
+    document.getElementById('manualTabCatalog').classList.add('active');
+    document.getElementById('manualTabInternet').classList.remove('active');
+
+    manualLastQuery = '';
+    scheduleManualSearch(250);
   }
 
   function closeManualModal() {
     document.getElementById('manualModal').classList.remove('show');
   }
 
-  async function runManualSearch() {
-    const q = document.getElementById('manualQueryInput').value;
-    const resultsBox = document.getElementById('manualResults');
+  function clearManualSearch() {
+    document.getElementById('manualQueryInput').value = '';
+    document.getElementById('manualResults').innerHTML = '';
+    document.getElementById('manualSearchStatus').textContent = 'Escribe para buscar automáticamente.';
+  }
 
-    resultsBox.innerHTML = '<p class="result-meta"><span class="loader"></span> Buscando...</p>';
+  function scheduleManualSearch(delay = 420) {
+    clearTimeout(manualSearchTimer);
+    manualSearchTimer = setTimeout(() => runManualSearchLive(), delay);
+  }
+
+  async function runManualSearchLive() {
+    const q = document.getElementById('manualQueryInput').value.trim();
+    const resultsBox = document.getElementById('manualResults');
+    const statusBox = document.getElementById('manualSearchStatus');
+
+    if (!q) {
+      resultsBox.innerHTML = '';
+      statusBox.textContent = 'Escribe para buscar automáticamente.';
+      return;
+    }
+
+    const cacheKey = manualTab + '::' + q;
+
+    if (cacheKey === manualLastQuery) return;
+
+    manualLastQuery = cacheKey;
+    statusBox.innerHTML = '<span class="loader"></span> Buscando similitudes...';
 
     try {
       const params = new URLSearchParams({
@@ -1381,12 +1377,15 @@
       });
 
       if (manualTab === 'internet') {
+        statusBox.textContent = `${(data.internet || []).length} referencias externas encontradas`;
         renderManualInternet(data.internet || []);
       } else {
+        statusBox.textContent = `${(data.products || []).length} productos similares encontrados`;
         renderManualCatalog(data.products || []);
       }
     } catch (e) {
       resultsBox.innerHTML = `<p class="result-meta">${escapeHtml(e.message)}</p>`;
+      statusBox.textContent = 'No se pudo completar la búsqueda.';
     }
   }
 
@@ -1394,18 +1393,31 @@
     const box = document.getElementById('manualResults');
 
     if (!products.length) {
-      box.innerHTML = '<p class="result-meta">Sin resultados en catálogo.</p>';
+      box.innerHTML = '<p class="result-meta">Sin resultados similares en catálogo.</p>';
       return;
     }
 
     box.innerHTML = products.map(p => `
       <div class="modal-result">
-        <div>
+        <div style="min-width:0;">
           <div class="result-title">${escapeHtml(p.name)}</div>
-          <div class="result-meta">SKU: ${escapeHtml(p.sku || '—')} · ${escapeHtml(p.brand || '—')} · Stock: ${p.stock ?? 0}</div>
-          <div class="result-meta">Costo ${money(p.cost)} · Precio ${money(p.price)}</div>
+          <div class="result-meta">
+            SKU: ${escapeHtml(p.sku || '—')}
+            · ${escapeHtml(p.brand || '—')}
+            · Stock: ${p.stock ?? 0}
+            · ${Number(p.similarity_pct || 0).toFixed(0)}%
+          </div>
+          <div class="result-meta">
+            ${p.unit ? `<strong>Unidad:</strong> ${escapeHtml(p.unit)} · ` : ''}
+            ${p.color ? `<strong>Color:</strong> ${escapeHtml(p.color)} · ` : ''}
+            ${p.category ? `<strong>Categoría:</strong> ${escapeHtml(p.category)} · ` : ''}
+            Costo ${money(p.cost)} · Precio ${money(p.price)}
+          </div>
         </div>
-        <button class="btn btn-primary btn-small" type="button" onclick='useManualCatalog(${JSON.stringify(p)})'>Usar</button>
+
+        <button class="btn btn-primary btn-small" type="button" onclick='useManualCatalog(${JSON.stringify(p)})'>
+          Usar
+        </button>
       </div>
     `).join('');
   }
@@ -1420,13 +1432,20 @@
 
     box.innerHTML = results.map(r => `
       <div class="modal-result">
-        <div>
+        <div style="min-width:0;">
           <div class="result-title">${escapeHtml(r.title)}</div>
-          <div class="result-meta">${escapeHtml(r.source || 'Internet')} ${r.seller ? '· ' + escapeHtml(r.seller) : ''}</div>
+          <div class="result-meta">
+            ${escapeHtml(r.source || 'Internet')}
+            ${r.seller ? '· ' + escapeHtml(r.seller) : ''}
+            · Score ${Number(r.score || 0).toFixed(0)}%
+          </div>
           <div class="result-meta">${r.price ? money(r.price) : 'Precio por validar'}</div>
-          ${r.url ? `<a class="btn btn-outline btn-small" target="_blank" rel="noopener noreferrer" href="${escapeHtml(r.url)}">↗ Ver</a>` : ''}
+          ${r.url ? `<a class="btn btn-outline btn-small" target="_blank" rel="noopener noreferrer" href="${escapeHtml(r.url)}">↗ Ver referencia</a>` : ''}
         </div>
-        <button class="btn btn-primary btn-small" type="button" onclick='useManualInternet(${JSON.stringify(r)})'>Usar</button>
+
+        <button class="btn btn-primary btn-small" type="button" onclick='useManualInternet(${JSON.stringify(r)})'>
+          Usar
+        </button>
       </div>
     `).join('');
   }
@@ -1452,6 +1471,9 @@
       summary = data.summary || summary;
       closeManualModal();
       renderItems();
+
+      const card = document.querySelector(`.item-card[data-id="${manualItemId}"]`);
+      if (card) card.classList.add('open');
     } catch (e) {
       alert(e.message);
     }
@@ -1478,15 +1500,57 @@
       summary = data.summary || summary;
       closeManualModal();
       renderItems();
+
+      const card = document.querySelector(`.item-card[data-id="${manualItemId}"]`);
+      if (card) card.classList.add('open');
     } catch (e) {
       alert(e.message);
+    }
+  }
+
+  function openAddItemModal() {
+    document.getElementById('addItemModal').classList.add('show');
+  }
+
+  function closeAddItemModal() {
+    document.getElementById('addItemModal').classList.remove('show');
+  }
+
+  async function storeNewItem(event) {
+    event.preventDefault();
+
+    const form = event.target;
+    const payload = Object.fromEntries(new FormData(form).entries());
+    const submit = form.querySelector('button[type="submit"]');
+    const old = submit.innerHTML;
+
+    submit.disabled = true;
+    submit.innerHTML = '<span class="loader"></span> Agregando...';
+
+    try {
+      const data = await ajax(routes.storeItem, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+
+      items = data.items || items;
+      summary = data.summary || summary;
+
+      closeAddItemModal();
+      form.reset();
+
+      renderItems();
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      submit.disabled = false;
+      submit.innerHTML = old;
     }
   }
 
   function bindDragEvents() {
     document.querySelectorAll('.item-card').forEach(card => {
       card.addEventListener('dragstart', () => {
-        draggedId = card.dataset.id;
         card.classList.add('dragging');
       });
 
@@ -1549,22 +1613,37 @@
   }
 
   document.getElementById('btnSuggestAll').addEventListener('click', suggestAll);
+  document.getElementById('btnOpenAddItem').addEventListener('click', openAddItemModal);
   document.getElementById('btnSaveGlobalMargin').addEventListener('click', () => saveGlobalMargin(false));
   document.getElementById('btnApplyGlobalMargin').addEventListener('click', () => saveGlobalMargin(true));
-  document.getElementById('btnManualSearch').addEventListener('click', runManualSearch);
+
+  document.getElementById('manualQueryInput').addEventListener('input', () => {
+    manualLastQuery = '';
+    scheduleManualSearch(420);
+  });
+
+  document.getElementById('manualQueryInput').addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      manualLastQuery = '';
+      scheduleManualSearch(10);
+    }
+  });
 
   document.getElementById('manualTabCatalog').addEventListener('click', () => {
     manualTab = 'catalog';
+    manualLastQuery = '';
     document.getElementById('manualTabCatalog').classList.add('active');
     document.getElementById('manualTabInternet').classList.remove('active');
-    runManualSearch();
+    scheduleManualSearch(10);
   });
 
   document.getElementById('manualTabInternet').addEventListener('click', () => {
     manualTab = 'internet';
+    manualLastQuery = '';
     document.getElementById('manualTabInternet').classList.add('active');
     document.getElementById('manualTabCatalog').classList.remove('active');
-    runManualSearch();
+    scheduleManualSearch(10);
   });
 
   document.querySelectorAll('.tab-btn[data-filter]').forEach(btn => {

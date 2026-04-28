@@ -2008,11 +2008,18 @@ Route::post('/propuesta-comercial-items/{item}/reextract', [PropuestaComercialCo
     use App\Http\Controllers\PropuestaComercialAjaxController;
 
 
+
 Route::post('/propuestas-comerciales/{propuestaComercial}/ajax/suggest-all', [PropuestaComercialMatchController::class, 'suggestAllJson'])
     ->name('propuestas-comerciales.ajax.suggest-all');
 
 Route::post('/propuesta-comercial-items/{item}/ajax/suggest', [PropuestaComercialMatchController::class, 'suggestJson'])
     ->name('propuesta-comercial-items.ajax.suggest');
+
+Route::post('/propuesta-comercial-items/{item}/ajax/select-match/{match}', [PropuestaComercialAjaxController::class, 'selectMatch'])
+    ->name('propuesta-comercial-items.ajax.select-match');
+
+Route::post('/propuestas-comerciales/{propuestaComercial}/ajax/items', [PropuestaComercialAjaxController::class, 'storeItem'])
+    ->name('propuestas-comerciales.ajax.items.store');
 
 Route::post('/propuesta-comercial-items/{item}/ajax/update', [PropuestaComercialAjaxController::class, 'updateItem'])
     ->name('propuesta-comercial-items.ajax.update');
