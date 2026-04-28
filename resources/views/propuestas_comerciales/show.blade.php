@@ -19,16 +19,36 @@
     --warning: #a16207;
     --warning-soft: #fff7d6;
 
+    position: relative;
+    z-index: 0;
+    isolation: isolate;
     min-height: 100vh;
+    width: 100%;
     background: var(--bg);
-    font-family: 'Quicksand', sans-serif;
     color: var(--ink);
+    font-family: 'Quicksand', sans-serif;
     padding: 34px 0 60px;
+  }
+
+  .jureto-quote-page::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: var(--bg);
   }
 
   .jureto-quote-page,
   .jureto-quote-page * {
     box-sizing: border-box;
+  }
+
+  .jureto-quote-page a,
+  .jureto-quote-page button,
+  .jureto-quote-page input,
+  .jureto-quote-page textarea {
+    font-family: 'Quicksand', sans-serif;
   }
 
   .jureto-quote-page .quote-wrap {
@@ -95,6 +115,7 @@
   }
 
   .jureto-quote-page .btn {
+    appearance: none;
     border: 1px solid transparent;
     border-radius: 14px;
     min-height: 40px;
@@ -104,7 +125,6 @@
     align-items: center;
     justify-content: center;
     gap: 8px;
-    font-family: 'Quicksand', sans-serif;
     font-size: 14px;
     font-weight: 700;
     cursor: pointer;
@@ -235,10 +255,10 @@
   .jureto-quote-page .summary-grid {
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
-    gap: 1px;
-    background: var(--line);
-    border: 1px solid var(--line);
-    border-radius: 18px;
+    gap: 12px;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
     overflow: visible;
     margin-bottom: 34px;
     isolation: isolate;
@@ -246,40 +266,40 @@
 
   .jureto-quote-page .summary-cell {
     appearance: none;
-    border: 0;
+    border: 1px solid var(--line);
     min-width: 0;
     background: #fff;
     text-align: center;
     padding: 19px 12px 17px;
-    font-family: 'Quicksand', sans-serif;
     cursor: pointer;
-    transition: transform .22s ease, opacity .22s ease, box-shadow .22s ease, background .22s ease;
+    transition:
+      transform .22s ease,
+      opacity .22s ease,
+      box-shadow .22s ease,
+      background .22s ease,
+      border-color .22s ease;
     position: relative;
-  }
-
-  .jureto-quote-page .summary-cell:first-child {
-    border-radius: 17px 0 0 17px;
-  }
-
-  .jureto-quote-page .summary-cell:last-child {
-    border-radius: 0 17px 17px 0;
+    border-radius: 18px;
+    box-shadow: 0 4px 12px rgba(0,0,0,.02);
   }
 
   .jureto-quote-page .summary-grid:hover .summary-cell {
-    transform: scale(.965);
-    opacity: .62;
+    transform: scale(.985);
+    opacity: .72;
   }
 
   .jureto-quote-page .summary-grid:hover .summary-cell:hover {
-    transform: scale(1.055);
+    transform: scale(1.045);
     opacity: 1;
     z-index: 5;
-    border-radius: 18px;
-    box-shadow: 0 18px 40px rgba(0,0,0,.08);
+    border-color: rgba(0,122,255,.22);
+    box-shadow: 0 18px 40px rgba(0,0,0,.07);
   }
 
   .jureto-quote-page .summary-cell.active {
     background: var(--blue);
+    border-color: var(--blue);
+    box-shadow: 0 14px 30px rgba(0,122,255,.18);
   }
 
   .jureto-quote-page .summary-cell.active .summary-value,
@@ -290,12 +310,12 @@
   .jureto-quote-page .summary-cell.active::after {
     content: "";
     position: absolute;
-    left: 18px;
-    right: 18px;
-    bottom: 8px;
+    left: 22px;
+    right: 22px;
+    bottom: 10px;
     height: 3px;
     border-radius: 999px;
-    background: rgba(255,255,255,.65);
+    background: rgba(255,255,255,.64);
   }
 
   .jureto-quote-page .summary-value {
@@ -350,7 +370,6 @@
     border-radius: 12px;
     padding: 0 12px;
     outline: none;
-    font-family: 'Quicksand', sans-serif;
     font-weight: 600;
     color: #111;
     background: #fff;
@@ -649,7 +668,6 @@
     padding: 12px 16px;
     font-size: 14px;
     font-weight: 700;
-    font-family: 'Quicksand', sans-serif;
     cursor: pointer;
     transition: .2s ease;
   }
@@ -684,24 +702,17 @@
     to { transform: rotate(360deg); }
   }
 
-  @media (max-width: 1200px) {
-    .jureto-quote-page .quote-wrap {
-      width: 94vw;
-    }
-
+  @media (max-width: 1300px) {
     .jureto-quote-page .summary-grid {
       grid-template-columns: repeat(4, minmax(0, 1fr));
-      overflow: hidden;
-    }
-
-    .jureto-quote-page .summary-cell,
-    .jureto-quote-page .summary-cell:first-child,
-    .jureto-quote-page .summary-cell:last-child {
-      border-radius: 0;
     }
   }
 
   @media (max-width: 1100px) {
+    .jureto-quote-page .quote-wrap {
+      width: 94vw;
+    }
+
     .jureto-quote-page .topbar {
       flex-direction: column;
     }
@@ -736,15 +747,14 @@
 
     .jureto-quote-page .summary-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      border-radius: 16px;
-      overflow: hidden;
+      gap: 10px;
     }
 
     .jureto-quote-page .summary-grid:hover .summary-cell,
     .jureto-quote-page .summary-grid:hover .summary-cell:hover {
       transform: none;
       opacity: 1;
-      box-shadow: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,.02);
     }
 
     .jureto-quote-page .item-main {
@@ -901,7 +911,7 @@
           ◎ Buscar coincidencias de todos
         </button>
 
-        <a href="{{ route('propuestas-comerciales.export.word', $propuestaComercial) }}" class="btn btn-primary">
+        <a href="{{ route('propuestas-comerciales.cliente.show', $propuestaComercial) }}" class="btn btn-primary">
           ▣ Aprobar
         </a>
       </div>
