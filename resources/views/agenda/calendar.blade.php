@@ -1808,13 +1808,21 @@ document.addEventListener('DOMContentLoaded', () => {
     dayHeaderContent(arg) {
       const date = arg.date;
       const viewType = arg.view.type;
-      const dayName = new Intl.DateTimeFormat('es-MX', { weekday: 'short' })
+
+      const dayName = new Intl.DateTimeFormat('es-MX', {
+        weekday: 'short',
+        timeZone: 'UTC'
+      })
         .format(date)
         .replace('.', '')
         .toUpperCase();
 
       if (viewType === 'timeGridWeek' || viewType === 'timeGridDay') {
-        const dayNumber = date.getDate();
+        const dayNumber = new Intl.DateTimeFormat('es-MX', {
+          day: 'numeric',
+          timeZone: 'UTC'
+        }).format(date);
+
         return {
           html: `
             <div class="custom-header-week">

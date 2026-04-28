@@ -4,7 +4,7 @@
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap');
 
-  :root {
+  .jureto-quote-page {
     --bg: #f9fafb;
     --card: #ffffff;
     --ink: #333333;
@@ -18,24 +18,26 @@
     --danger-soft: #ffebeb;
     --warning: #a16207;
     --warning-soft: #fff7d6;
-  }
 
-  * { box-sizing: border-box; }
-
-  .quote-page {
     min-height: 100vh;
     background: var(--bg);
     font-family: 'Quicksand', sans-serif;
     color: var(--ink);
-    padding: 34px 20px 60px;
+    padding: 34px 0 60px;
   }
 
-  .quote-wrap {
-    max-width: 1180px;
+  .jureto-quote-page,
+  .jureto-quote-page * {
+    box-sizing: border-box;
+  }
+
+  .jureto-quote-page .quote-wrap {
+    width: 90vw;
+    max-width: 1600px;
     margin: 0 auto;
   }
 
-  .topbar {
+  .jureto-quote-page .topbar {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
@@ -43,7 +45,7 @@
     margin-bottom: 28px;
   }
 
-  .back-link {
+  .jureto-quote-page .back-link {
     display: inline-flex;
     align-items: center;
     gap: 8px;
@@ -52,11 +54,14 @@
     font-size: 14px;
     font-weight: 600;
     margin-bottom: 34px;
+    transition: .2s ease;
   }
 
-  .back-link:hover { color: var(--blue); }
+  .jureto-quote-page .back-link:hover {
+    color: var(--blue);
+  }
 
-  .quote-code {
+  .jureto-quote-page .quote-code {
     font-size: 12px;
     color: var(--muted);
     font-weight: 700;
@@ -65,22 +70,23 @@
     margin-bottom: 9px;
   }
 
-  .quote-title {
+  .jureto-quote-page .quote-title {
     margin: 0;
     color: #111;
     font-size: 30px;
     line-height: 1.1;
     font-weight: 700;
+    letter-spacing: -.03em;
   }
 
-  .quote-subtitle {
+  .jureto-quote-page .quote-subtitle {
     margin: 10px 0 0;
     color: var(--muted);
     font-size: 15px;
     font-weight: 500;
   }
 
-  .actions {
+  .jureto-quote-page .actions {
     display: flex;
     gap: 10px;
     flex-wrap: wrap;
@@ -88,7 +94,7 @@
     padding-top: 68px;
   }
 
-  .btn {
+  .jureto-quote-page .btn {
     border: 1px solid transparent;
     border-radius: 14px;
     min-height: 40px;
@@ -107,80 +113,100 @@
     white-space: nowrap;
   }
 
-  .btn:active { transform: scale(.98); }
+  .jureto-quote-page .btn:active {
+    transform: scale(.98);
+  }
 
-  .btn-primary {
+  .jureto-quote-page .btn-primary {
     background: var(--blue);
     border-color: var(--blue);
     color: #fff;
     box-shadow: 0 8px 18px rgba(0,122,255,.12);
   }
 
-  .btn-primary:hover {
+  .jureto-quote-page .btn-primary:hover {
     transform: translateY(-1px);
     box-shadow: 0 12px 24px rgba(0,122,255,.18);
   }
 
-  .btn-ghost {
+  .jureto-quote-page .btn-ghost {
     background: #fff;
     border-color: var(--line);
     color: #666;
   }
 
-  .btn-ghost:hover { background: #f9fafb; }
+  .jureto-quote-page .btn-ghost:hover {
+    background: #f9fafb;
+    transform: translateY(-1px);
+  }
 
-  .btn-soft {
+  .jureto-quote-page .btn-soft {
     background: var(--blue-soft);
     color: var(--blue);
   }
 
-  .btn-soft:hover { background: #dceaff; }
+  .jureto-quote-page .btn-soft:hover {
+    background: #dceaff;
+    transform: translateY(-1px);
+  }
 
-  .btn-outline {
+  .jureto-quote-page .btn-outline {
     background: #fff;
     border-color: var(--blue);
     color: var(--blue);
   }
 
-  .btn-outline:hover { background: var(--blue-soft); }
+  .jureto-quote-page .btn-outline:hover {
+    background: var(--blue-soft);
+    transform: translateY(-1px);
+  }
 
-  .btn-success {
+  .jureto-quote-page .btn-success {
     color: var(--success);
     background: #fff;
     border-color: rgba(21,128,61,.35);
   }
 
-  .btn-success:hover { background: var(--success-soft); }
+  .jureto-quote-page .btn-success:hover {
+    background: var(--success-soft);
+    transform: translateY(-1px);
+  }
 
-  .btn-danger {
+  .jureto-quote-page .btn-danger {
     color: var(--danger);
     background: #fff;
     border-color: rgba(255,74,74,.35);
   }
 
-  .btn-danger:hover { background: var(--danger-soft); }
+  .jureto-quote-page .btn-danger:hover {
+    background: var(--danger-soft);
+    transform: translateY(-1px);
+  }
 
-  .btn-warning {
+  .jureto-quote-page .btn-warning {
     color: var(--warning);
     background: #fff;
     border-color: rgba(161,98,7,.35);
   }
 
-  .btn-warning:hover { background: var(--warning-soft); }
+  .jureto-quote-page .btn-warning:hover {
+    background: var(--warning-soft);
+    transform: translateY(-1px);
+  }
 
-  .btn-small {
+  .jureto-quote-page .btn-small {
     min-height: 38px;
     padding: 0 13px;
     font-size: 13px;
     border-radius: 13px;
   }
 
-  .btn[disabled] {
+  .jureto-quote-page .btn[disabled] {
     opacity: .55;
     cursor: not-allowed;
   }
 
-  .notice {
+  .jureto-quote-page .notice {
     display: none;
     align-items: center;
     gap: 12px;
@@ -194,50 +220,110 @@
     margin-bottom: 28px;
   }
 
-  .notice.show { display: flex; }
+  .jureto-quote-page .notice.show {
+    display: flex;
+  }
 
-  .notice-dot {
+  .jureto-quote-page .notice-dot {
     width: 8px;
     height: 8px;
     border-radius: 999px;
     background: #c69200;
+    flex: 0 0 auto;
   }
 
-  .summary-grid {
+  .jureto-quote-page .summary-grid {
     display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(7, minmax(0, 1fr));
     gap: 1px;
     background: var(--line);
     border: 1px solid var(--line);
-    border-radius: 14px;
-    overflow: hidden;
-    margin-bottom: 38px;
+    border-radius: 18px;
+    overflow: visible;
+    margin-bottom: 34px;
+    isolation: isolate;
   }
 
-  .summary-cell {
+  .jureto-quote-page .summary-cell {
+    appearance: none;
+    border: 0;
+    min-width: 0;
     background: #fff;
     text-align: center;
-    padding: 18px 12px 16px;
+    padding: 19px 12px 17px;
+    font-family: 'Quicksand', sans-serif;
+    cursor: pointer;
+    transition: transform .22s ease, opacity .22s ease, box-shadow .22s ease, background .22s ease;
+    position: relative;
   }
 
-  .summary-value {
+  .jureto-quote-page .summary-cell:first-child {
+    border-radius: 17px 0 0 17px;
+  }
+
+  .jureto-quote-page .summary-cell:last-child {
+    border-radius: 0 17px 17px 0;
+  }
+
+  .jureto-quote-page .summary-grid:hover .summary-cell {
+    transform: scale(.965);
+    opacity: .62;
+  }
+
+  .jureto-quote-page .summary-grid:hover .summary-cell:hover {
+    transform: scale(1.055);
+    opacity: 1;
+    z-index: 5;
+    border-radius: 18px;
+    box-shadow: 0 18px 40px rgba(0,0,0,.08);
+  }
+
+  .jureto-quote-page .summary-cell.active {
+    background: var(--blue);
+  }
+
+  .jureto-quote-page .summary-cell.active .summary-value,
+  .jureto-quote-page .summary-cell.active .summary-label {
+    color: #fff !important;
+  }
+
+  .jureto-quote-page .summary-cell.active::after {
+    content: "";
+    position: absolute;
+    left: 18px;
+    right: 18px;
+    bottom: 8px;
+    height: 3px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.65);
+  }
+
+  .jureto-quote-page .summary-value {
     font-size: 19px;
     font-weight: 700;
     color: #111;
   }
 
-  .summary-label {
+  .jureto-quote-page .summary-label {
     margin-top: 8px;
     color: var(--muted);
     font-size: 12px;
     font-weight: 600;
   }
 
-  .text-success { color: var(--success); }
-  .text-danger { color: var(--danger); }
-  .text-blue { color: var(--blue); }
+  .jureto-quote-page .text-success {
+    color: var(--success);
+  }
 
-  .global-margin {
+  .jureto-quote-page .text-danger {
+    color: var(--danger);
+  }
+
+  .jureto-quote-page .text-blue {
+    color: var(--blue);
+  }
+
+  .jureto-quote-page .global-margin {
     display: flex;
     justify-content: flex-end;
     align-items: end;
@@ -246,17 +332,18 @@
     flex-wrap: wrap;
   }
 
-  .global-margin label {
+  .jureto-quote-page .global-margin label,
+  .jureto-quote-page .field label {
     display: block;
+    color: var(--muted);
     font-size: 11px;
     font-weight: 700;
-    color: var(--muted);
-    letter-spacing: .1em;
     text-transform: uppercase;
+    letter-spacing: .11em;
     margin-bottom: 7px;
   }
 
-  .input {
+  .jureto-quote-page .input {
     width: 100%;
     height: 40px;
     border: 1px solid var(--line);
@@ -270,19 +357,291 @@
     transition: .2s ease;
   }
 
-  .input:focus {
+  .jureto-quote-page .input:focus {
     border-color: var(--blue);
     box-shadow: 0 0 0 3px var(--blue-soft);
   }
 
-  .tabs {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    margin-bottom: 24px;
+  .jureto-quote-page .items-list {
+    display: grid;
+    gap: 12px;
   }
 
-  .tab-btn {
+  .jureto-quote-page .item-card {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--line);
+    border-radius: 14px;
+    overflow: hidden;
+    transition: .2s ease;
+    box-shadow: 0 4px 12px rgba(0,0,0,.02);
+  }
+
+  .jureto-quote-page .item-card:hover {
+    box-shadow: 0 12px 30px rgba(0,0,0,.035);
+    transform: translateY(-1px);
+  }
+
+  .jureto-quote-page .item-card.dragging {
+    opacity: .55;
+    transform: scale(.995);
+  }
+
+  .jureto-quote-page .item-card.status-exact {
+    border-left-color: #22c55e;
+  }
+
+  .jureto-quote-page .item-card.status-similar {
+    border-left-color: var(--blue);
+  }
+
+  .jureto-quote-page .item-card.status-not_found {
+    border-left-color: var(--danger);
+  }
+
+  .jureto-quote-page .item-main {
+    display: grid;
+    grid-template-columns: 28px 34px minmax(0, 1fr) auto auto auto;
+    align-items: center;
+    gap: 14px;
+    padding: 18px 24px;
+    cursor: pointer;
+  }
+
+  .jureto-quote-page .drag-handle {
+    width: 26px;
+    height: 32px;
+    border: 0;
+    background: transparent;
+    cursor: grab;
+    color: #999;
+    font-size: 17px;
+    line-height: 1;
+  }
+
+  .jureto-quote-page .drag-handle:active {
+    cursor: grabbing;
+  }
+
+  .jureto-quote-page .item-index {
+    color: #777;
+    font-size: 12px;
+    font-weight: 700;
+    text-align: center;
+  }
+
+  .jureto-quote-page .item-name {
+    margin: 0;
+    color: #111;
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.35;
+  }
+
+  .jureto-quote-page .item-meta {
+    color: var(--muted);
+    font-size: 13px;
+    margin-top: 6px;
+    font-weight: 500;
+  }
+
+  .jureto-quote-page .badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 6px 13px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .jureto-quote-page .badge-success {
+    background: var(--success-soft);
+    color: var(--success);
+  }
+
+  .jureto-quote-page .badge-danger {
+    background: var(--danger-soft);
+    color: var(--danger);
+  }
+
+  .jureto-quote-page .badge-info {
+    background: var(--blue-soft);
+    color: var(--blue);
+  }
+
+  .jureto-quote-page .badge-warning {
+    background: var(--warning-soft);
+    color: var(--warning);
+  }
+
+  .jureto-quote-page .badge-muted {
+    background: #f3f4f6;
+    color: #777;
+  }
+
+  .jureto-quote-page .money-row {
+    display: flex;
+    gap: 20px;
+    font-size: 13px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .jureto-quote-page .money-row strong {
+    color: #111;
+    font-weight: 700;
+  }
+
+  .jureto-quote-page .chevron {
+    color: var(--muted);
+    transition: .2s ease;
+  }
+
+  .jureto-quote-page .item-card.open .chevron {
+    transform: rotate(180deg);
+  }
+
+  .jureto-quote-page .item-details {
+    display: none;
+    border-top: 1px solid var(--line);
+    background: rgba(249,250,251,.65);
+    padding: 24px 26px 28px;
+  }
+
+  .jureto-quote-page .item-card.open .item-details {
+    display: block;
+  }
+
+  .jureto-quote-page .section {
+    margin-bottom: 22px;
+  }
+
+  .jureto-quote-page .section:last-child {
+    margin-bottom: 0;
+  }
+
+  .jureto-quote-page .section-title {
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .jureto-quote-page .result-card,
+  .jureto-quote-page .external-box {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 10px;
+  }
+
+  .jureto-quote-page .result-title {
+    color: #111;
+    font-size: 15px;
+    line-height: 1.4;
+    font-weight: 700;
+  }
+
+  .jureto-quote-page .result-meta {
+    color: var(--muted);
+    font-size: 13px;
+    margin-top: 6px;
+    line-height: 1.6;
+  }
+
+  .jureto-quote-page .warning-line {
+    color: var(--warning);
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-top: 8px;
+  }
+
+  .jureto-quote-page .action-row {
+    display: flex;
+    gap: 9px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .jureto-quote-page .edit-form {
+    display: none;
+    grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1.4fr 1.6fr;
+    gap: 12px;
+    margin-top: 22px;
+  }
+
+  .jureto-quote-page .edit-form.show {
+    display: grid;
+  }
+
+  .jureto-quote-page .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(0,0,0,.18);
+    backdrop-filter: blur(6px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+  }
+
+  .jureto-quote-page .modal-backdrop.show {
+    display: flex;
+  }
+
+  .jureto-quote-page .modal {
+    width: min(820px, 100%);
+    max-height: 86vh;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 24px 80px rgba(0,0,0,.12);
+  }
+
+  .jureto-quote-page .modal-head {
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    align-items: flex-start;
+  }
+
+  .jureto-quote-page .modal-title {
+    margin: 0;
+    color: #111;
+    font-size: 17px;
+    font-weight: 700;
+  }
+
+  .jureto-quote-page .modal-subtitle {
+    margin: 5px 0 0;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  .jureto-quote-page .modal-body {
+    padding: 18px 22px 22px;
+    overflow-y: auto;
+    max-height: 68vh;
+  }
+
+  .jureto-quote-page .modal-tabs {
+    display: flex;
+    gap: 8px;
+    margin: 14px 0;
+  }
+
+  .jureto-quote-page .tab-btn {
     border: 1px solid transparent;
     background: #f3f4f6;
     color: #777;
@@ -295,264 +654,12 @@
     transition: .2s ease;
   }
 
-  .tab-btn.active {
+  .jureto-quote-page .tab-btn.active {
     background: var(--blue);
     color: #fff;
   }
 
-  .items-list {
-    display: grid;
-    gap: 12px;
-  }
-
-  .item-card {
-    background: #fff;
-    border: 1px solid var(--line);
-    border-left: 3px solid var(--line);
-    border-radius: 14px;
-    overflow: hidden;
-    transition: .2s ease;
-  }
-
-  .item-card.dragging {
-    opacity: .55;
-    transform: scale(.995);
-  }
-
-  .item-card.status-exact { border-left-color: #22c55e; }
-  .item-card.status-similar { border-left-color: var(--blue); }
-  .item-card.status-not_found { border-left-color: var(--danger); }
-
-  .item-main {
-    display: grid;
-    grid-template-columns: 28px 34px minmax(0, 1fr) auto auto auto;
-    align-items: center;
-    gap: 14px;
-    padding: 18px 24px;
-    cursor: pointer;
-  }
-
-  .drag-handle {
-    width: 26px;
-    height: 32px;
-    border: 0;
-    background: transparent;
-    cursor: grab;
-    color: #999;
-    font-size: 17px;
-    line-height: 1;
-  }
-
-  .drag-handle:active { cursor: grabbing; }
-
-  .item-index {
-    color: #777;
-    font-size: 12px;
-    font-weight: 700;
-    text-align: center;
-  }
-
-  .item-name {
-    margin: 0;
-    color: #111;
-    font-size: 16px;
-    font-weight: 700;
-    line-height: 1.35;
-  }
-
-  .item-meta {
-    color: var(--muted);
-    font-size: 13px;
-    margin-top: 6px;
-    font-weight: 500;
-  }
-
-  .badge {
-    display: inline-flex;
-    align-items: center;
-    min-height: 28px;
-    padding: 6px 13px;
-    border-radius: 999px;
-    font-size: 12px;
-    font-weight: 700;
-    white-space: nowrap;
-  }
-
-  .badge-success { background: var(--success-soft); color: var(--success); }
-  .badge-danger { background: var(--danger-soft); color: var(--danger); }
-  .badge-info { background: var(--blue-soft); color: var(--blue); }
-  .badge-warning { background: var(--warning-soft); color: var(--warning); }
-  .badge-muted { background: #f3f4f6; color: #777; }
-
-  .money-row {
-    display: flex;
-    gap: 20px;
-    font-size: 13px;
-    color: var(--muted);
-    white-space: nowrap;
-  }
-
-  .money-row strong {
-    color: #111;
-    font-weight: 700;
-  }
-
-  .chevron {
-    color: var(--muted);
-    transition: .2s ease;
-  }
-
-  .item-card.open .chevron {
-    transform: rotate(180deg);
-  }
-
-  .item-details {
-    display: none;
-    border-top: 1px solid var(--line);
-    background: rgba(249,250,251,.65);
-    padding: 24px 26px 28px;
-  }
-
-  .item-card.open .item-details {
-    display: block;
-  }
-
-  .section { margin-bottom: 22px; }
-  .section:last-child { margin-bottom: 0; }
-
-  .section-title {
-    color: var(--muted);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: .14em;
-    text-transform: uppercase;
-    margin-bottom: 10px;
-  }
-
-  .result-card {
-    background: #fff;
-    border: 1px solid var(--line);
-    border-radius: 14px;
-    padding: 16px;
-    margin-bottom: 10px;
-  }
-
-  .result-title {
-    color: #111;
-    font-size: 15px;
-    line-height: 1.4;
-    font-weight: 700;
-  }
-
-  .result-meta {
-    color: var(--muted);
-    font-size: 13px;
-    margin-top: 6px;
-    line-height: 1.6;
-  }
-
-  .external-box {
-    background: #fff;
-    border: 1px solid var(--line);
-    border-radius: 14px;
-    padding: 16px;
-    margin-bottom: 10px;
-  }
-
-  .warning-line {
-    color: var(--warning);
-    font-size: 13px;
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    margin-top: 8px;
-  }
-
-  .action-row {
-    display: flex;
-    gap: 9px;
-    flex-wrap: wrap;
-    align-items: center;
-  }
-
-  .edit-form {
-    display: none;
-    grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1.4fr 1.6fr;
-    gap: 12px;
-    margin-top: 22px;
-  }
-
-  .edit-form.show { display: grid; }
-
-  .field label {
-    display: block;
-    color: var(--muted);
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: .11em;
-    margin-bottom: 7px;
-  }
-
-  .modal-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 9999;
-    background: rgba(0,0,0,.18);
-    backdrop-filter: blur(6px);
-    display: none;
-    align-items: center;
-    justify-content: center;
-    padding: 18px;
-  }
-
-  .modal-backdrop.show { display: flex; }
-
-  .modal {
-    width: min(820px, 100%);
-    max-height: 86vh;
-    background: #fff;
-    border: 1px solid var(--line);
-    border-radius: 20px;
-    overflow: hidden;
-    box-shadow: 0 24px 80px rgba(0,0,0,.12);
-  }
-
-  .modal-head {
-    padding: 18px 22px;
-    border-bottom: 1px solid var(--line);
-    display: flex;
-    justify-content: space-between;
-    gap: 18px;
-    align-items: flex-start;
-  }
-
-  .modal-title {
-    margin: 0;
-    color: #111;
-    font-size: 17px;
-    font-weight: 700;
-  }
-
-  .modal-subtitle {
-    margin: 5px 0 0;
-    color: var(--muted);
-    font-size: 13px;
-  }
-
-  .modal-body {
-    padding: 18px 22px 22px;
-    overflow-y: auto;
-    max-height: 68vh;
-  }
-
-  .modal-tabs {
-    display: flex;
-    gap: 8px;
-    margin: 14px 0;
-  }
-
-  .modal-result {
+  .jureto-quote-page .modal-result {
     border: 1px solid var(--line);
     border-radius: 14px;
     padding: 14px;
@@ -563,35 +670,107 @@
     margin-bottom: 10px;
   }
 
-  .loader {
+  .jureto-quote-page .loader {
     display: inline-block;
     width: 14px;
     height: 14px;
     border: 2px solid rgba(0,122,255,.25);
     border-top-color: var(--blue);
     border-radius: 999px;
-    animation: spin .8s linear infinite;
+    animation: juretoSpin .8s linear infinite;
   }
 
-  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes juretoSpin {
+    to { transform: rotate(360deg); }
+  }
+
+  @media (max-width: 1200px) {
+    .jureto-quote-page .quote-wrap {
+      width: 94vw;
+    }
+
+    .jureto-quote-page .summary-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      overflow: hidden;
+    }
+
+    .jureto-quote-page .summary-cell,
+    .jureto-quote-page .summary-cell:first-child,
+    .jureto-quote-page .summary-cell:last-child {
+      border-radius: 0;
+    }
+  }
 
   @media (max-width: 1100px) {
-    .topbar { flex-direction: column; }
-    .actions { padding-top: 0; justify-content: flex-start; }
-    .summary-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    .item-main { grid-template-columns: 28px 30px minmax(0,1fr) auto; }
-    .money-row { grid-column: 3 / -1; flex-wrap: wrap; }
-    .edit-form { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    .jureto-quote-page .topbar {
+      flex-direction: column;
+    }
+
+    .jureto-quote-page .actions {
+      padding-top: 0;
+      justify-content: flex-start;
+    }
+
+    .jureto-quote-page .item-main {
+      grid-template-columns: 28px 30px minmax(0,1fr) auto;
+    }
+
+    .jureto-quote-page .money-row {
+      grid-column: 3 / -1;
+      flex-wrap: wrap;
+    }
+
+    .jureto-quote-page .edit-form {
+      grid-template-columns: repeat(2, minmax(0,1fr));
+    }
   }
 
-  @media (max-width: 680px) {
-    .quote-page { padding: 24px 14px 40px; }
-    .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .item-main { padding: 16px; gap: 10px; }
-    .money-row { grid-column: 1 / -1; }
-    .item-details { padding: 18px 16px; }
-    .edit-form { grid-template-columns: 1fr; }
-    .btn { width: 100%; }
+  @media (max-width: 760px) {
+    .jureto-quote-page {
+      padding: 24px 0 42px;
+    }
+
+    .jureto-quote-page .quote-wrap {
+      width: calc(100vw - 24px);
+    }
+
+    .jureto-quote-page .summary-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      border-radius: 16px;
+      overflow: hidden;
+    }
+
+    .jureto-quote-page .summary-grid:hover .summary-cell,
+    .jureto-quote-page .summary-grid:hover .summary-cell:hover {
+      transform: none;
+      opacity: 1;
+      box-shadow: none;
+    }
+
+    .jureto-quote-page .item-main {
+      padding: 16px;
+      gap: 10px;
+    }
+
+    .jureto-quote-page .money-row {
+      grid-column: 1 / -1;
+    }
+
+    .jureto-quote-page .item-details {
+      padding: 18px 16px;
+    }
+
+    .jureto-quote-page .edit-form {
+      grid-template-columns: 1fr;
+    }
+
+    .jureto-quote-page .btn {
+      width: 100%;
+    }
+
+    .jureto-quote-page .modal-result {
+      flex-direction: column;
+    }
   }
 </style>
 
@@ -696,7 +875,7 @@
   ];
 @endphp
 
-<div class="quote-page">
+<div class="jureto-quote-page">
   <div class="quote-wrap">
     <div class="topbar">
       <div>
@@ -730,16 +909,46 @@
 
     <div id="noticeBox" class="notice">
       <span class="notice-dot"></span>
-      <span><strong id="noticeCount">0 partidas</strong> no encontradas en catálogo — usa “Buscar en internet” para encontrar alternativas.</span>
+      <span>
+        <strong id="noticeCount">0 partidas</strong> no encontradas en catálogo — usa “Buscar en internet” para encontrar alternativas.
+      </span>
     </div>
 
-    <div class="summary-grid">
-      <div class="summary-cell"><div class="summary-value text-success" id="sumExact">0</div><div class="summary-label">Exactos</div></div>
-      <div class="summary-cell"><div class="summary-value text-blue" id="sumSimilar">0</div><div class="summary-label">Similares</div></div>
-      <div class="summary-cell"><div class="summary-value text-danger" id="sumNotFound">0</div><div class="summary-label">No encontrados</div></div>
-      <div class="summary-cell"><div class="summary-value" id="sumSale">$0</div><div class="summary-label">Subtotal venta</div></div>
-      <div class="summary-cell"><div class="summary-value text-success" id="sumProfit">$0</div><div class="summary-label">Utilidad</div></div>
-      <div class="summary-cell"><div class="summary-value" id="sumMargin">0%</div><div class="summary-label">Margen</div></div>
+    <div class="summary-grid" id="summaryFilters">
+      <button class="summary-cell filter-summary active" type="button" data-filter="all">
+        <div class="summary-value text-blue" id="sumAll">0</div>
+        <div class="summary-label">Todos</div>
+      </button>
+
+      <button class="summary-cell filter-summary" type="button" data-filter="exact">
+        <div class="summary-value text-success" id="sumExact">0</div>
+        <div class="summary-label">Exactos</div>
+      </button>
+
+      <button class="summary-cell filter-summary" type="button" data-filter="similar">
+        <div class="summary-value text-blue" id="sumSimilar">0</div>
+        <div class="summary-label">Similares</div>
+      </button>
+
+      <button class="summary-cell filter-summary" type="button" data-filter="not_found">
+        <div class="summary-value text-danger" id="sumNotFound">0</div>
+        <div class="summary-label">No encontrados</div>
+      </button>
+
+      <button class="summary-cell filter-summary" type="button" data-filter="priced">
+        <div class="summary-value" id="sumSale">$0</div>
+        <div class="summary-label">Subtotal venta</div>
+      </button>
+
+      <button class="summary-cell filter-summary" type="button" data-filter="profit">
+        <div class="summary-value text-success" id="sumProfit">$0</div>
+        <div class="summary-label">Utilidad</div>
+      </button>
+
+      <button class="summary-cell filter-summary" type="button" data-filter="margin">
+        <div class="summary-value" id="sumMargin">0%</div>
+        <div class="summary-label">Margen</div>
+      </button>
     </div>
 
     <div class="global-margin">
@@ -752,93 +961,87 @@
       <button class="btn btn-outline" type="button" id="btnApplyGlobalMargin">Aplicar a partidas</button>
     </div>
 
-    <div class="tabs">
-      <button class="tab-btn active" type="button" data-filter="all">Todos <span id="tabAll">0</span></button>
-      <button class="tab-btn" type="button" data-filter="exact">Exactos <span id="tabExact">0</span></button>
-      <button class="tab-btn" type="button" data-filter="not_found">No encontrados <span id="tabNotFound">0</span></button>
-    </div>
-
     <div class="items-list" id="itemsList"></div>
   </div>
-</div>
 
-<div class="modal-backdrop" id="manualModal">
-  <div class="modal">
-    <div class="modal-head">
-      <div>
-        <h2 class="modal-title">Búsqueda manual</h2>
-        <p class="modal-subtitle" id="manualSubtitle">Busca por nombre, SKU, marca, color, unidad o descripción.</p>
+  <div class="modal-backdrop" id="manualModal">
+    <div class="modal">
+      <div class="modal-head">
+        <div>
+          <h2 class="modal-title">Búsqueda manual</h2>
+          <p class="modal-subtitle" id="manualSubtitle">Busca por nombre, SKU, marca, color, unidad o descripción.</p>
+        </div>
+
+        <button class="btn btn-ghost btn-small" type="button" onclick="closeManualModal()">×</button>
       </div>
 
-      <button class="btn btn-ghost btn-small" type="button" onclick="closeManualModal()">×</button>
-    </div>
+      <div class="modal-body">
+        <div style="position:relative;">
+          <input class="input" id="manualQueryInput" placeholder="Buscar producto..." autocomplete="off" style="padding-left:38px; padding-right:38px;">
+          <span style="position:absolute; left:14px; top:50%; transform:translateY(-50%); color:#888;">⌕</span>
+          <button type="button" onclick="clearManualSearch()" style="position:absolute; right:10px; top:50%; transform:translateY(-50%); border:0; background:transparent; color:#888; cursor:pointer; font-size:18px;">×</button>
+        </div>
 
-    <div class="modal-body">
-      <div style="position:relative;">
-        <input class="input" id="manualQueryInput" placeholder="Buscar producto..." autocomplete="off" style="padding-left:38px; padding-right:38px;">
-        <span style="position:absolute; left:14px; top:50%; transform:translateY(-50%); color:#888;">⌕</span>
-        <button type="button" onclick="clearManualSearch()" style="position:absolute; right:10px; top:50%; transform:translateY(-50%); border:0; background:transparent; color:#888; cursor:pointer; font-size:18px;">×</button>
+        <div class="modal-tabs">
+          <button class="tab-btn active" type="button" id="manualTabCatalog">Catálogo interno</button>
+          <button class="tab-btn" type="button" id="manualTabInternet">Internet</button>
+        </div>
+
+        <div id="manualSearchStatus" class="result-meta" style="margin-bottom:12px;">
+          Escribe para buscar automáticamente.
+        </div>
+
+        <div id="manualResults"></div>
       </div>
-
-      <div class="modal-tabs">
-        <button class="tab-btn active" type="button" id="manualTabCatalog">Catálogo interno</button>
-        <button class="tab-btn" type="button" id="manualTabInternet">Internet</button>
-      </div>
-
-      <div id="manualSearchStatus" class="result-meta" style="margin-bottom:12px;">
-        Escribe para buscar automáticamente.
-      </div>
-
-      <div id="manualResults"></div>
     </div>
   </div>
-</div>
 
-<div class="modal-backdrop" id="addItemModal">
-  <div class="modal">
-    <div class="modal-head">
-      <div>
-        <h2 class="modal-title">Agregar nueva partida</h2>
-        <p class="modal-subtitle">Crea un nuevo producto solicitado y calcula costo, precio y subtotal.</p>
+  <div class="modal-backdrop" id="addItemModal">
+    <div class="modal">
+      <div class="modal-head">
+        <div>
+          <h2 class="modal-title">Agregar nueva partida</h2>
+          <p class="modal-subtitle">Crea un nuevo producto solicitado y calcula costo, precio y subtotal.</p>
+        </div>
+
+        <button class="btn btn-ghost btn-small" type="button" onclick="closeAddItemModal()">×</button>
       </div>
 
-      <button class="btn btn-ghost btn-small" type="button" onclick="closeAddItemModal()">×</button>
-    </div>
-
-    <div class="modal-body">
-      <form id="addItemForm" onsubmit="storeNewItem(event)" style="display:grid; gap:14px;">
-        <div class="field">
-          <label>Producto solicitado</label>
-          <input class="input" name="descripcion_original" placeholder="Ej. 100 paquetes de hojas blancas tamaño carta" required>
-        </div>
-
-        <div style="display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap:12px;">
+      <div class="modal-body">
+        <form id="addItemForm" onsubmit="storeNewItem(event)" style="display:grid; gap:14px;">
           <div class="field">
-            <label>Cantidad</label>
-            <input class="input" type="number" step="0.01" name="cantidad_cotizada" value="1" required>
+            <label>Producto solicitado</label>
+            <input class="input" name="descripcion_original" placeholder="Ej. 100 paquetes de hojas blancas tamaño carta" required>
           </div>
 
-          <div class="field">
-            <label>Unidad</label>
-            <input class="input" name="unidad_solicitada" value="pz">
+          <div style="display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap:12px;">
+            <div class="field">
+              <label>Cantidad</label>
+              <input class="input" type="number" step="0.01" name="cantidad_cotizada" value="1" required>
+            </div>
+
+            <div class="field">
+              <label>Unidad</label>
+              <input class="input" name="unidad_solicitada" value="pz">
+            </div>
+
+            <div class="field">
+              <label>Costo unit.</label>
+              <input class="input" type="number" step="0.01" name="costo_unitario" value="0">
+            </div>
+
+            <div class="field">
+              <label>Margen %</label>
+              <input class="input" type="number" step="0.01" name="porcentaje_utilidad" value="{{ $propuestaComercial->porcentaje_utilidad ?: 25 }}">
+            </div>
           </div>
 
-          <div class="field">
-            <label>Costo unit.</label>
-            <input class="input" type="number" step="0.01" name="costo_unitario" value="0">
+          <div class="action-row">
+            <button class="btn btn-primary" type="submit">＋ Agregar partida</button>
+            <button class="btn btn-ghost" type="button" onclick="closeAddItemModal()">Cancelar</button>
           </div>
-
-          <div class="field">
-            <label>Margen %</label>
-            <input class="input" type="number" step="0.01" name="porcentaje_utilidad" value="{{ $propuestaComercial->porcentaje_utilidad ?: 25 }}">
-          </div>
-        </div>
-
-        <div class="action-row">
-          <button class="btn btn-primary" type="submit">＋ Agregar partida</button>
-          <button class="btn btn-ghost" type="button" onclick="closeAddItemModal()">Cancelar</button>
-        </div>
-      </form>
+        </form>
+      </div>
     </div>
   </div>
 </div>
@@ -865,6 +1068,8 @@
   let manualTab = 'catalog';
   let manualSearchTimer = null;
   let manualLastQuery = '';
+  let manualCatalogResults = [];
+  let manualInternetResults = [];
 
   function money(n) {
     n = Number(n || 0);
@@ -915,6 +1120,7 @@
 
     if (item.status_key === 'exact') return { text: 'Coincidencia exacta', cls: 'badge-success' };
     if (item.status_key === 'similar') return { text: 'Similar', cls: 'badge-info' };
+
     return { text: 'No encontrado', cls: 'badge-danger' };
   }
 
@@ -925,17 +1131,20 @@
   }
 
   function renderSummary() {
+    const total = summary.total_items || items.length;
+
+    document.getElementById('sumAll').textContent = total;
     document.getElementById('sumExact').textContent = summary.exact || 0;
     document.getElementById('sumSimilar').textContent = summary.similar || 0;
     document.getElementById('sumNotFound').textContent = summary.not_found || 0;
     document.getElementById('sumSale').textContent = money(summary.subtotal_sale);
     document.getElementById('sumProfit').textContent = money(summary.profit);
     document.getElementById('sumMargin').textContent = `${summary.margin || 0}%`;
+    document.getElementById('itemsCountText').textContent = total;
 
-    document.getElementById('tabAll').textContent = summary.total_items || items.length;
-    document.getElementById('tabExact').textContent = summary.exact || 0;
-    document.getElementById('tabNotFound').textContent = summary.not_found || 0;
-    document.getElementById('itemsCountText').textContent = summary.total_items || items.length;
+    document.querySelectorAll('.filter-summary').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.filter === currentFilter);
+    });
 
     const notice = document.getElementById('noticeBox');
     const count = Number(summary.not_found || 0);
@@ -952,7 +1161,17 @@
     renderSummary();
 
     const list = document.getElementById('itemsList');
-    const filtered = items.filter(item => currentFilter === 'all' || item.status_key === currentFilter);
+
+    const filtered = items.filter(item => {
+      if (currentFilter === 'all') return true;
+      if (currentFilter === 'exact') return item.status_key === 'exact';
+      if (currentFilter === 'similar') return item.status_key === 'similar';
+      if (currentFilter === 'not_found') return item.status_key === 'not_found';
+      if (currentFilter === 'priced') return Number(item.subtotal || 0) > 0;
+      if (currentFilter === 'profit') return Number(item.precio_unitario || 0) > Number(item.costo_unitario || 0);
+      if (currentFilter === 'margin') return Number(item.item_margin_pct || 0) > 0;
+      return true;
+    });
 
     list.innerHTML = filtered.map((item, idx) => renderItemCard(item, idx)).join('');
 
@@ -967,9 +1186,10 @@
     const subtotal = Number(item.subtotal || price * qty);
 
     return `
-      <div class="item-card ${statusCardClass(item)}" data-id="${item.id}" draggable="true">
+      <div class="item-card ${statusCardClass(item)}" data-id="${item.id}" draggable="${currentFilter === 'all' ? 'true' : 'false'}">
         <div class="item-main" onclick="toggleItem(${item.id})">
           <button class="drag-handle" type="button" title="Mover posición" onclick="event.stopPropagation()">⠿</button>
+
           <div class="item-index">${idx + 1}</div>
 
           <div>
@@ -1062,11 +1282,13 @@
             ${escapeHtml(item.manual_external_supplier || item.manual_catalog_product_name || 'Proveedor externo')}
             ${item.costo_unitario ? ' · ' + money(item.costo_unitario) : ''}
           </div>
+
           ${item.manual_external_link ? `
             <div style="margin-top:10px;">
               <a href="${escapeHtml(item.manual_external_link)}" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-small">↗ Ver referencia</a>
             </div>
           ` : ''}
+
           <div class="warning-line">ⓘ Precio estimado — validar antes de aprobar</div>
         </div>
       </div>
@@ -1098,6 +1320,7 @@
               ${external.seller ? ' · ' + escapeHtml(external.seller) : ''}
               · Score ${Number(external.score || 0).toFixed(0)}%
             </div>
+
             <div style="margin-top:10px;">
               <a class="btn btn-outline btn-small" href="${escapeHtml(external.url)}" target="_blank" rel="noopener noreferrer">↗ Ver referencia</a>
             </div>
@@ -1174,7 +1397,7 @@
   }
 
   function toggleItem(id) {
-    const card = document.querySelector(`.item-card[data-id="${id}"]`);
+    const card = document.querySelector(`.jureto-quote-page .item-card[data-id="${id}"]`);
     if (card) card.classList.toggle('open');
   }
 
@@ -1198,7 +1421,7 @@
       summary = data.summary || summary;
       renderItems();
 
-      const card = document.querySelector(`.item-card[data-id="${id}"]`);
+      const card = document.querySelector(`.jureto-quote-page .item-card[data-id="${id}"]`);
       if (card) card.classList.add('open');
     } catch (e) {
       alert(e.message);
@@ -1222,7 +1445,7 @@
       summary = data.summary || summary;
       renderItems();
 
-      const card = document.querySelector(`.item-card[data-id="${itemId}"]`);
+      const card = document.querySelector(`.jureto-quote-page .item-card[data-id="${itemId}"]`);
       if (card) card.classList.add('open');
     } catch (e) {
       alert(e.message);
@@ -1240,7 +1463,7 @@
       summary = data.summary || summary;
       renderItems();
 
-      const card = document.querySelector(`.item-card[data-id="${id}"]`);
+      const card = document.querySelector(`.jureto-quote-page .item-card[data-id="${id}"]`);
       if (card) card.classList.add('open');
     } catch (e) {
       alert(e.message);
@@ -1263,7 +1486,7 @@
       summary = data.summary || summary;
       renderItems();
 
-      const card = document.querySelector(`.item-card[data-id="${id}"]`);
+      const card = document.querySelector(`.jureto-quote-page .item-card[data-id="${id}"]`);
       if (card) card.classList.add('open');
     } catch (e) {
       alert(e.message);
@@ -1355,7 +1578,6 @@
     }
 
     const cacheKey = manualTab + '::' + q;
-
     if (cacheKey === manualLastQuery) return;
 
     manualLastQuery = cacheKey;
@@ -1377,11 +1599,13 @@
       });
 
       if (manualTab === 'internet') {
-        statusBox.textContent = `${(data.internet || []).length} referencias externas encontradas`;
-        renderManualInternet(data.internet || []);
+        manualInternetResults = data.internet || [];
+        statusBox.textContent = `${manualInternetResults.length} referencias externas encontradas`;
+        renderManualInternet(manualInternetResults);
       } else {
-        statusBox.textContent = `${(data.products || []).length} productos similares encontrados`;
-        renderManualCatalog(data.products || []);
+        manualCatalogResults = data.products || [];
+        statusBox.textContent = `${manualCatalogResults.length} productos similares encontrados`;
+        renderManualCatalog(manualCatalogResults);
       }
     } catch (e) {
       resultsBox.innerHTML = `<p class="result-meta">${escapeHtml(e.message)}</p>`;
@@ -1397,7 +1621,7 @@
       return;
     }
 
-    box.innerHTML = products.map(p => `
+    box.innerHTML = products.map((p, index) => `
       <div class="modal-result">
         <div style="min-width:0;">
           <div class="result-title">${escapeHtml(p.name)}</div>
@@ -1415,7 +1639,7 @@
           </div>
         </div>
 
-        <button class="btn btn-primary btn-small" type="button" onclick='useManualCatalog(${JSON.stringify(p)})'>
+        <button class="btn btn-primary btn-small" type="button" onclick="useManualCatalog(${index})">
           Usar
         </button>
       </div>
@@ -1430,7 +1654,7 @@
       return;
     }
 
-    box.innerHTML = results.map(r => `
+    box.innerHTML = results.map((r, index) => `
       <div class="modal-result">
         <div style="min-width:0;">
           <div class="result-title">${escapeHtml(r.title)}</div>
@@ -1443,14 +1667,17 @@
           ${r.url ? `<a class="btn btn-outline btn-small" target="_blank" rel="noopener noreferrer" href="${escapeHtml(r.url)}">↗ Ver referencia</a>` : ''}
         </div>
 
-        <button class="btn btn-primary btn-small" type="button" onclick='useManualInternet(${JSON.stringify(r)})'>
+        <button class="btn btn-primary btn-small" type="button" onclick="useManualInternet(${index})">
           Usar
         </button>
       </div>
     `).join('');
   }
 
-  async function useManualCatalog(product) {
+  async function useManualCatalog(index) {
+    const product = manualCatalogResults[index];
+    if (!product) return;
+
     const item = items.find(i => i.id === manualItemId);
     const margin = Number(item?.item_margin_pct || 25);
     const cost = Number(product.cost || 0);
@@ -1472,14 +1699,17 @@
       closeManualModal();
       renderItems();
 
-      const card = document.querySelector(`.item-card[data-id="${manualItemId}"]`);
+      const card = document.querySelector(`.jureto-quote-page .item-card[data-id="${manualItemId}"]`);
       if (card) card.classList.add('open');
     } catch (e) {
       alert(e.message);
     }
   }
 
-  async function useManualInternet(result) {
+  async function useManualInternet(index) {
+    const result = manualInternetResults[index];
+    if (!result) return;
+
     const item = items.find(i => i.id === manualItemId);
     const margin = Number(item?.item_margin_pct || 25);
     const cost = Number(result.price || 0);
@@ -1501,7 +1731,7 @@
       closeManualModal();
       renderItems();
 
-      const card = document.querySelector(`.item-card[data-id="${manualItemId}"]`);
+      const card = document.querySelector(`.jureto-quote-page .item-card[data-id="${manualItemId}"]`);
       if (card) card.classList.add('open');
     } catch (e) {
       alert(e.message);
@@ -1538,7 +1768,6 @@
 
       closeAddItemModal();
       form.reset();
-
       renderItems();
     } catch (e) {
       alert(e.message);
@@ -1549,21 +1778,25 @@
   }
 
   function bindDragEvents() {
-    document.querySelectorAll('.item-card').forEach(card => {
+    document.querySelectorAll('.jureto-quote-page .item-card').forEach(card => {
       card.addEventListener('dragstart', () => {
+        if (currentFilter !== 'all') return;
         card.classList.add('dragging');
       });
 
       card.addEventListener('dragend', () => {
+        if (currentFilter !== 'all') return;
         card.classList.remove('dragging');
         saveOrder();
       });
 
       card.addEventListener('dragover', (e) => {
+        if (currentFilter !== 'all') return;
+
         e.preventDefault();
 
         const list = document.getElementById('itemsList');
-        const dragging = document.querySelector('.dragging');
+        const dragging = document.querySelector('.jureto-quote-page .dragging');
         const after = getDragAfterElement(list, e.clientY);
 
         if (!dragging) return;
@@ -1593,6 +1826,8 @@
   }
 
   async function saveOrder() {
+    if (currentFilter !== 'all') return;
+
     const ids = [...document.querySelectorAll('#itemsList .item-card')]
       .map(card => Number(card.dataset.id));
 
@@ -1646,11 +1881,9 @@
     scheduleManualSearch(10);
   });
 
-  document.querySelectorAll('.tab-btn[data-filter]').forEach(btn => {
+  document.querySelectorAll('.filter-summary').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.tab-btn[data-filter]').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      currentFilter = btn.dataset.filter;
+      currentFilter = btn.dataset.filter || 'all';
       renderItems();
     });
   });

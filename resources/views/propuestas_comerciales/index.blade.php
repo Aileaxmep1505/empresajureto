@@ -4,7 +4,7 @@
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap');
 
-  :root {
+  .jureto-dashboard-page {
     --bg: #f9fafb;
     --card: #ffffff;
     --ink: #333333;
@@ -16,971 +16,710 @@
     --success-soft: #e6ffe6;
     --danger: #ff4a4a;
     --danger-soft: #ffebeb;
-  }
+    --warning: #a16207;
+    --warning-soft: #fff7d6;
 
-  * { box-sizing: border-box; }
-
-  .pc-page {
-    font-family: 'Quicksand', sans-serif;
-    background: var(--bg);
     min-height: 100vh;
-    padding: 32px;
+    background: var(--bg);
     color: var(--ink);
+    font-family: 'Quicksand', sans-serif;
+    padding: 34px 0 64px;
   }
 
-  .pc-wrap {
-    max-width: 1380px;
+  .jureto-dashboard-page,
+  .jureto-dashboard-page * {
+    box-sizing: border-box;
+  }
+
+  .jureto-dashboard-page .dash-wrap {
+    width: 90vw;
+    max-width: 1600px;
     margin: 0 auto;
   }
 
-  .pc-head {
+  .jureto-dashboard-page .dash-top {
     display: flex;
-    justify-content: space-between;
     align-items: flex-start;
-    gap: 18px;
-    margin-bottom: 28px;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 48px;
   }
 
-  .pc-title {
-    margin: 0;
-    font-size: 32px;
+  .jureto-dashboard-page .eyebrow {
+    margin: 0 0 12px;
+    color: #777;
+    font-size: 13px;
     font-weight: 700;
-    color: #111111;
+    letter-spacing: .16em;
+    text-transform: uppercase;
   }
 
-  .pc-subtitle {
-    margin: 8px 0 0;
+  .jureto-dashboard-page .dash-title {
+    margin: 0;
+    color: #111;
+    font-size: 36px;
+    line-height: 1.05;
+    font-weight: 700;
+    letter-spacing: -.04em;
+  }
+
+  .jureto-dashboard-page .dash-subtitle {
+    margin: 10px 0 0;
     color: var(--muted);
     font-size: 15px;
-    line-height: 1.7;
-    max-width: 860px;
+    font-weight: 500;
   }
 
-  .pc-layout {
-    display: grid;
-    grid-template-columns: 420px 1fr;
-    gap: 20px;
-  }
-
-  .pc-stack {
-    display: grid;
-    gap: 18px;
-  }
-
-  .pc-card {
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 16px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.02);
-    transition: .2s ease;
-  }
-
-  .pc-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 24px rgba(0,0,0,0.04);
-  }
-
-  .pc-card-head {
-    padding: 18px 20px 10px;
-    border-bottom: 1px solid rgba(235,235,235,.7);
-  }
-
-  .pc-card-title {
-    margin: 0;
-    font-size: 17px;
-    font-weight: 700;
-    color: #111111;
-  }
-
-  .pc-card-subtitle {
-    margin: 8px 0 0;
-    color: var(--muted);
-    font-size: 13px;
-    line-height: 1.6;
-  }
-
-  .pc-card-body {
-    padding: 20px;
-  }
-
-  .field {
-    margin-bottom: 16px;
-  }
-
-  .field label {
-    display: block;
-    margin-bottom: 8px;
-    color: var(--muted);
-    font-size: 13px;
-    font-weight: 700;
-  }
-
-  .field input,
-  .field textarea,
-  .field select {
-    width: 100%;
-    border: 1px solid var(--line);
-    background: #fff;
-    border-radius: 10px;
-    padding: 12px 14px;
-    font-family: 'Quicksand', sans-serif;
-    font-size: 14px;
-    color: var(--ink);
-    outline: none;
-    transition: .2s ease;
-  }
-
-  .field textarea {
-    min-height: 110px;
-    resize: vertical;
-  }
-
-  .field input:focus,
-  .field textarea:focus,
-  .field select:focus {
-    border-color: var(--blue);
-    box-shadow: 0 0 0 3px var(--blue-soft);
-  }
-
-  .field-inline {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-  }
-
-  .btn {
+  .jureto-dashboard-page .btn {
     appearance: none;
     border: 1px solid transparent;
-    border-radius: 10px;
-    padding: 12px 18px;
-    font-family: 'Quicksand', sans-serif;
-    font-size: 14px;
-    font-weight: 700;
-    text-decoration: none;
+    min-height: 50px;
+    padding: 0 22px;
+    border-radius: 14px;
+    background: transparent;
+    color: var(--ink);
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    gap: 9px;
+    font-family: 'Quicksand', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    text-decoration: none;
     cursor: pointer;
-    transition: .2s ease;
-    width: 100%;
+    transition: .22s ease;
+    white-space: nowrap;
   }
 
-  .btn:active { transform: scale(.98); }
+  .jureto-dashboard-page .btn:active {
+    transform: scale(.98);
+  }
 
-  .btn-primary {
+  .jureto-dashboard-page .btn-primary {
     background: var(--blue);
+    border-color: var(--blue);
+    color: #fff;
+    box-shadow: 0 10px 24px rgba(0,122,255,.14);
+  }
+
+  .jureto-dashboard-page .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 16px 34px rgba(0,122,255,.20);
+  }
+
+  .jureto-dashboard-page .btn-ghost {
+    background: transparent;
+    color: #777;
+    border-color: transparent;
+  }
+
+  .jureto-dashboard-page .btn-ghost:hover {
+    background: #f3f4f6;
+    color: #111;
+  }
+
+  .jureto-dashboard-page .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 20px;
+    margin-bottom: 52px;
+  }
+
+  .jureto-dashboard-page .stat-card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 28px 26px 26px;
+    box-shadow: 0 4px 12px rgba(0,0,0,.02);
+    transition: .24s ease;
+    min-height: 145px;
+  }
+
+  .jureto-dashboard-page .stat-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 18px 40px rgba(0,0,0,.05);
+  }
+
+  .jureto-dashboard-page .stat-card.is-blue {
+    background: var(--blue);
+    border-color: var(--blue);
+    color: #fff;
+    box-shadow: 0 16px 34px rgba(0,122,255,.16);
+  }
+
+  .jureto-dashboard-page .stat-label {
+    margin: 0 0 16px;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+  }
+
+  .jureto-dashboard-page .stat-card.is-blue .stat-label {
+    color: rgba(255,255,255,.76);
+  }
+
+  .jureto-dashboard-page .stat-value {
+    margin: 0;
+    color: #111;
+    font-size: 30px;
+    line-height: 1;
+    font-weight: 700;
+    letter-spacing: -.04em;
+  }
+
+  .jureto-dashboard-page .stat-card.is-blue .stat-value {
     color: #fff;
   }
 
-  .btn-primary:hover {
-    box-shadow: 0 8px 24px rgba(0,122,255,.12);
-    transform: translateY(-1px);
+  .jureto-dashboard-page .stat-caption {
+    margin-top: 10px;
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 500;
   }
 
-  .btn-outline {
-    background: #fff;
-    color: var(--blue);
-    border-color: var(--blue);
+  .jureto-dashboard-page .stat-card.is-blue .stat-caption {
+    color: rgba(255,255,255,.72);
   }
 
-  .btn-outline:hover {
-    background: var(--blue-soft);
-    transform: translateY(-1px);
-  }
-
-  .btn-ghost {
-    background: transparent;
-    color: #555;
-    border-color: var(--line);
-  }
-
-  .btn-ghost:hover {
-    background: #f9fafb;
-  }
-
-  .btn[disabled] {
-    opacity: .65;
-    cursor: not-allowed;
-    transform: none !important;
-  }
-
-  .status-box {
-    display: none;
-    margin-top: 14px;
-    padding: 13px 14px;
-    border-radius: 12px;
-    border: 1px solid var(--line);
-    font-size: 13px;
-    font-weight: 700;
-    line-height: 1.5;
-  }
-
-  .status-box.show { display: block; }
-  .status-box.info {
-    background: var(--blue-soft);
-    color: var(--blue);
-  }
-  .status-box.success {
-    background: var(--success-soft);
-    color: var(--success);
-  }
-  .status-box.error {
-    background: var(--danger-soft);
-    color: var(--danger);
-  }
-
-  .steps {
-    display: grid;
-    gap: 12px;
-  }
-
-  .step {
+  .jureto-dashboard-page .section-head {
     display: flex;
-    gap: 12px;
-    align-items: flex-start;
-    padding: 12px;
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    background: #fff;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    margin-bottom: 20px;
   }
 
-  .step-dot {
-    width: 28px;
-    height: 28px;
-    min-width: 28px;
-    border-radius: 999px;
+  .jureto-dashboard-page .section-title {
+    margin: 0;
+    color: #111;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -.02em;
+  }
+
+  .jureto-dashboard-page .view-all {
+    color: #777;
+    text-decoration: none;
+    font-size: 15px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: .2s ease;
+  }
+
+  .jureto-dashboard-page .view-all:hover {
+    color: var(--blue);
+    transform: translateX(2px);
+  }
+
+  .jureto-dashboard-page .recent-card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0,0,0,.02);
+    margin-bottom: 32px;
+  }
+
+  .jureto-dashboard-page .quote-row {
+    display: grid;
+    grid-template-columns: minmax(150px, 190px) minmax(0, 1fr) auto auto auto;
+    align-items: center;
+    gap: 18px;
+    min-height: 88px;
+    padding: 18px 30px;
+    text-decoration: none;
+    color: inherit;
+    border-bottom: 1px solid var(--line);
+    transition: .22s ease;
+  }
+
+  .jureto-dashboard-page .quote-row:last-child {
+    border-bottom: 0;
+  }
+
+  .jureto-dashboard-page .quote-row:hover {
+    background: #fcfcfd;
+  }
+
+  .jureto-dashboard-page .quote-folio {
+    color: #111;
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  .jureto-dashboard-page .quote-date {
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .jureto-dashboard-page .quote-code {
+    color: #111;
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  .jureto-dashboard-page .quote-note {
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 500;
+    max-width: 520px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .jureto-dashboard-page .badge {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 12px;
+    min-height: 28px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 13px;
     font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .jureto-dashboard-page .badge-draft,
+  .jureto-dashboard-page .badge-pending {
     background: #f3f4f6;
-    color: #666;
-    margin-top: 1px;
+    color: #555;
   }
 
-  .step.active .step-dot {
-    background: var(--blue-soft);
-    color: var(--blue);
-  }
-
-  .step.done .step-dot {
+  .jureto-dashboard-page .badge-approved,
+  .jureto-dashboard-page .badge-aprobada,
+  .jureto-dashboard-page .badge-priced,
+  .jureto-dashboard-page .badge-accepted {
     background: var(--success-soft);
     color: var(--success);
   }
 
-  .step.error .step-dot {
+  .jureto-dashboard-page .badge-rejected,
+  .jureto-dashboard-page .badge-error {
     background: var(--danger-soft);
     color: var(--danger);
   }
 
-  .step-title {
-    font-size: 14px;
-    font-weight: 700;
+  .jureto-dashboard-page .badge-matched,
+  .jureto-dashboard-page .badge-processing {
+    background: var(--blue-soft);
+    color: var(--blue);
+  }
+
+  .jureto-dashboard-page .quote-money {
+    text-align: right;
+    min-width: 96px;
+  }
+
+  .jureto-dashboard-page .quote-total {
     color: #111;
-    margin-bottom: 4px;
-  }
-
-  .step-text {
-    font-size: 12px;
-    color: var(--muted);
-    line-height: 1.6;
-  }
-
-  .progress-wrap {
-    margin-top: 16px;
-  }
-
-  .progress-head {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 8px;
-    font-size: 12px;
-    color: var(--muted);
+    font-size: 16px;
     font-weight: 700;
+    margin-bottom: 5px;
   }
 
-  .progress {
-    width: 100%;
-    height: 10px;
-    background: #eef2f7;
-    border-radius: 999px;
-    overflow: hidden;
-  }
-
-  .progress-bar {
-    width: 0%;
-    height: 100%;
-    background: var(--blue);
-    transition: width .35s ease;
-  }
-
-  .meta-grid {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 12px;
-    margin-bottom: 18px;
-  }
-
-  .meta-box {
-    border: 1px solid var(--line);
-    border-radius: 14px;
-    padding: 14px;
-    background: #fff;
-  }
-
-  .meta-label {
-    display: block;
+  .jureto-dashboard-page .quote-margin {
     color: var(--muted);
-    font-size: 12px;
-    font-weight: 700;
-    margin-bottom: 6px;
-  }
-
-  .meta-value {
-    color: #111;
-    font-size: 14px;
-    line-height: 1.6;
+    font-size: 13px;
     font-weight: 600;
   }
 
-  .preview-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 18px;
+  .jureto-dashboard-page .quote-arrow {
+    color: #888;
+    font-size: 24px;
+    line-height: 1;
+    transition: .2s ease;
   }
 
-  .list-box {
+  .jureto-dashboard-page .quote-row:hover .quote-arrow {
+    color: var(--blue);
+    transform: translateX(4px);
+  }
+
+  .jureto-dashboard-page .empty-state {
+    background: var(--card);
     border: 1px solid var(--line);
-    border-radius: 14px;
-    padding: 14px;
-    background: #fff;
-    height: 100%;
-    max-height: 520px;
-    overflow: auto;
+    border-radius: 20px;
+    padding: 54px 24px;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,.02);
   }
 
-  .list-box-title {
-    margin: 0 0 12px;
-    font-size: 15px;
-    font-weight: 700;
-    color: #111;
-  }
-
-  .list-box ul {
+  .jureto-dashboard-page .empty-title {
     margin: 0;
-    padding-left: 18px;
+    color: #111;
+    font-size: 22px;
+    font-weight: 700;
   }
 
-  .list-box li {
-    margin-bottom: 10px;
-    line-height: 1.6;
-    font-size: 14px;
-  }
-
-  .empty-note {
+  .jureto-dashboard-page .empty-text {
+    margin: 10px auto 22px;
     color: var(--muted);
-    font-size: 14px;
+    font-size: 15px;
     line-height: 1.7;
+    max-width: 520px;
   }
 
-  .actions-row {
+  .jureto-dashboard-page .foot-metrics {
     display: flex;
-    gap: 10px;
+    align-items: center;
+    gap: 28px;
     flex-wrap: wrap;
-    margin-top: 22px;
+    color: var(--muted);
+    font-size: 15px;
+    font-weight: 500;
   }
 
-  .actions-row .btn {
-    width: auto;
+  .jureto-dashboard-page .foot-metrics strong {
+    color: #111;
+    font-weight: 700;
   }
 
-  .preview-text {
-    border: 1px solid var(--line);
-    border-radius: 14px;
-    background: #fff;
-    padding: 16px;
-    min-height: 180px;
-    color: var(--ink);
-    line-height: 1.7;
-    font-size: 14px;
-    white-space: pre-wrap;
+  .jureto-dashboard-page .pagination-wrap {
+    margin-top: 28px;
   }
 
-  .hidden {
-    display: none !important;
-  }
+  @media (max-width: 1100px) {
+    .jureto-dashboard-page .dash-wrap {
+      width: 94vw;
+    }
 
-  @media (max-width: 1180px) {
-    .pc-page { padding: 20px; }
-    .pc-layout { grid-template-columns: 1fr; }
-    .meta-grid { grid-template-columns: 1fr 1fr; }
-    .preview-grid { grid-template-columns: 1fr; }
+    .jureto-dashboard-page .stats-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .jureto-dashboard-page .quote-row {
+      grid-template-columns: minmax(130px, 170px) minmax(0, 1fr) auto;
+    }
+
+    .jureto-dashboard-page .quote-money {
+      grid-column: 2 / 3;
+      text-align: left;
+    }
+
+    .jureto-dashboard-page .quote-arrow {
+      grid-column: 3 / 4;
+      grid-row: 1 / 3;
+    }
   }
 
   @media (max-width: 720px) {
-    .field-inline,
-    .meta-grid {
+    .jureto-dashboard-page {
+      padding: 24px 0 46px;
+    }
+
+    .jureto-dashboard-page .dash-wrap {
+      width: calc(100vw - 24px);
+    }
+
+    .jureto-dashboard-page .dash-top {
+      flex-direction: column;
+      margin-bottom: 32px;
+    }
+
+    .jureto-dashboard-page .dash-title {
+      font-size: 34px;
+    }
+
+    .jureto-dashboard-page .btn {
+      width: 100%;
+    }
+
+    .jureto-dashboard-page .stats-grid {
       grid-template-columns: 1fr;
+      gap: 14px;
+      margin-bottom: 36px;
+    }
+
+    .jureto-dashboard-page .stat-card {
+      min-height: auto;
+      padding: 24px 22px;
+    }
+
+    .jureto-dashboard-page .section-head {
+      align-items: flex-end;
+    }
+
+    .jureto-dashboard-page .quote-row {
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      padding: 20px;
+    }
+
+    .jureto-dashboard-page .quote-main,
+    .jureto-dashboard-page .quote-money {
+      grid-column: 1 / 2;
+    }
+
+    .jureto-dashboard-page .quote-arrow {
+      grid-column: 2 / 3;
+      grid-row: 1 / 4;
+      align-self: center;
+    }
+
+    .jureto-dashboard-page .badge {
+      width: fit-content;
+    }
+
+    .jureto-dashboard-page .foot-metrics {
+      gap: 14px;
+      display: grid;
     }
   }
 </style>
 
-<div class="pc-page">
-  <div class="pc-wrap">
-    <div class="pc-head">
+@php
+  $proposalsSource = $propuestasComerciales ?? $propuestas ?? collect();
+
+  $isPaginator = is_object($proposalsSource) && method_exists($proposalsSource, 'getCollection');
+  $proposalsCollection = $isPaginator ? $proposalsSource->getCollection() : collect($proposalsSource);
+
+  $allForStats = isset($allPropuestasComerciales)
+      ? collect($allPropuestasComerciales)
+      : $proposalsCollection;
+
+  $fmtMoney = fn($n) => '$' . number_format((float) $n, 0);
+
+  $proposalTotal = function ($proposal) {
+      return (float) (
+          $proposal->total
+          ?? $proposal->subtotal
+          ?? $proposal->subtotal_venta
+          ?? 0
+      );
+  };
+
+  $proposalCost = function ($proposal) {
+      if (isset($proposal->subtotal_costo)) {
+          return (float) $proposal->subtotal_costo;
+      }
+
+      if (isset($proposal->items)) {
+          return (float) collect($proposal->items)->sum(function ($item) {
+              $qty = (float) ($item->cantidad_cotizada ?? $item->quantity ?? 0);
+              $cost = (float) ($item->costo_unitario ?? $item->cost ?? 0);
+              return $qty * $cost;
+          });
+      }
+
+      return 0;
+  };
+
+  $proposalProfit = function ($proposal) use ($proposalTotal, $proposalCost) {
+      if (isset($proposal->utilidad_total)) {
+          return (float) $proposal->utilidad_total;
+      }
+
+      if (isset($proposal->profit)) {
+          return (float) $proposal->profit;
+      }
+
+      return $proposalTotal($proposal) - $proposalCost($proposal);
+  };
+
+  $totalQuotes = (int) $allForStats->count();
+  $quotedAmount = (float) $allForStats->sum(fn($p) => $proposalTotal($p));
+  $estimatedProfit = (float) $allForStats->sum(fn($p) => $proposalProfit($p));
+  $estimatedCost = (float) $allForStats->sum(fn($p) => $proposalCost($p));
+  $avgMargin = $estimatedCost > 0 ? round(($estimatedProfit / $estimatedCost) * 100) : 0;
+
+  try {
+      $productsCount = class_exists(\App\Models\Product::class) ? \App\Models\Product::count() : 0;
+  } catch (\Throwable $e) {
+      $productsCount = 0;
+  }
+
+  $draftsCount = $allForStats->filter(function ($p) {
+      return in_array(strtolower((string) ($p->status ?? 'draft')), ['draft', 'borrador', 'pending', 'pendiente'], true);
+  })->count();
+
+  $approvedCount = $allForStats->filter(function ($p) {
+      return in_array(strtolower((string) ($p->status ?? '')), ['approved', 'aprobada', 'accepted', 'aceptada'], true);
+  })->count();
+
+  $recentProposals = $proposalsCollection->sortByDesc(fn($p) => $p->created_at ?? now())->take(8);
+
+  $statusLabel = function ($status) {
+      $status = strtolower((string) ($status ?: 'draft'));
+
+      return match ($status) {
+          'approved', 'aprobada', 'accepted', 'aceptada' => 'Aprobada',
+          'priced', 'cotizada' => 'Cotizada',
+          'matched' => 'Analizada',
+          'processing', 'procesando' => 'Procesando',
+          'rejected', 'rechazada' => 'Rechazada',
+          default => 'Borrador',
+      };
+  };
+
+  $statusClass = function ($status) {
+      $status = strtolower((string) ($status ?: 'draft'));
+
+      return match ($status) {
+          'approved', 'aprobada', 'accepted', 'aceptada' => 'badge-approved',
+          'priced', 'cotizada' => 'badge-priced',
+          'matched' => 'badge-matched',
+          'processing', 'procesando' => 'badge-processing',
+          'rejected', 'rechazada' => 'badge-rejected',
+          default => 'badge-draft',
+      };
+  };
+
+  $proposalFolio = function ($proposal) {
+      return $proposal->titulo
+          ?? $proposal->folio_cotizacion
+          ?? $proposal->folio
+          ?? ('COT-' . strtoupper(substr(md5(($proposal->id ?? '') . ($proposal->created_at ?? '')), 0, 8)));
+  };
+
+  $proposalCode = function ($proposal) {
+      return $proposal->folio
+          ?? $proposal->codigo
+          ?? $proposal->licitacion_codigo
+          ?? ('TEOA' . str_pad((string) ($proposal->id ?? 0), 8, '0', STR_PAD_LEFT));
+  };
+
+  $proposalNote = function ($proposal) {
+      return $proposal->descripcion
+          ?? $proposal->notas
+          ?? $proposal->cliente
+          ?? $proposal->filename
+          ?? 'Sin descripción';
+  };
+
+  $showRoute = function ($proposal) {
+      return route('propuestas-comerciales.show', $proposal);
+  };
+
+  $createRoute = route('propuestas-comerciales.create');
+@endphp
+
+<div class="jureto-dashboard-page">
+  <div class="dash-wrap">
+    <div class="dash-top">
       <div>
-        <h1 class="pc-title">Nueva propuesta comercial</h1>
-        <p class="pc-subtitle">
-          Sube un PDF, deja que la IA lo procese paso a paso y cuando termine crea la propuesta comercial con sus partidas base completas, lista para buscar coincidencias y poner precios.
+        <p class="eyebrow">Panel general</p>
+        <h1 class="dash-title">Dashboard</h1>
+        <p class="dash-subtitle">
+          Resumen ejecutivo de tus cotizaciones comerciales, utilidad estimada y estado de aprobación.
         </p>
       </div>
 
-      <a href="{{ route('propuestas-comerciales.index') }}" class="btn btn-ghost" style="width:auto;">Volver</a>
+      <a href="{{ $createRoute }}" class="btn btn-primary">
+        <span>▣</span>
+        Nueva cotización
+      </a>
     </div>
 
-    @if(session('status'))
-      <div class="status-box show success" style="margin-bottom:18px;">{{ session('status') }}</div>
-    @endif
-
-    @if(session('error'))
-      <div class="status-box show error" style="margin-bottom:18px;">{{ session('error') }}</div>
-    @endif
-
-    <div class="pc-layout">
-      <div class="pc-stack">
-        <div class="pc-card">
-          <div class="pc-card-head">
-            <h3 class="pc-card-title">1. Subir documento</h3>
-            <p class="pc-card-subtitle">
-              Este paso manda el PDF al flujo de IA para extraer el contenido y estructurarlo.
-            </p>
-          </div>
-
-          <div class="pc-card-body">
-            <form id="uploadForm" enctype="multipart/form-data">
-              @csrf
-
-              <div class="field">
-                <label for="file">Archivo PDF</label>
-                <input type="file" id="file" name="file" accept="application/pdf" required>
-              </div>
-
-              <div class="field">
-                <label for="licitacion_pdf_id">ID del PDF / expediente</label>
-                <input type="number" id="licitacion_pdf_id" name="licitacion_pdf_id" value="1" min="1" required>
-              </div>
-
-              <div class="field">
-                <label for="pages_per_chunk">Páginas por bloque</label>
-                <input type="number" id="pages_per_chunk" name="pages_per_chunk" value="5" min="1" max="10" required>
-              </div>
-
-              <button type="submit" id="uploadBtn" class="btn btn-primary">
-                Subir y procesar PDF
-              </button>
-            </form>
-
-            <div id="uploadStatus" class="status-box"></div>
-
-            <div class="progress-wrap">
-              <div class="progress-head">
-                <span>Progreso del análisis</span>
-                <span id="progressText">0%</span>
-              </div>
-              <div class="progress">
-                <div class="progress-bar" id="progressBar"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="pc-card">
-          <div class="pc-card-head">
-            <h3 class="pc-card-title">2. Avance paso a paso</h3>
-            <p class="pc-card-subtitle">
-              Aquí irás viendo cómo va avanzando el flujo.
-            </p>
-          </div>
-
-          <div class="pc-card-body">
-            <div class="steps">
-              <div class="step" id="step-upload">
-                <div class="step-dot">1</div>
-                <div>
-                  <div class="step-title">Documento recibido</div>
-                  <div class="step-text">Se guarda el PDF y se genera el registro inicial.</div>
-                </div>
-              </div>
-
-              <div class="step" id="step-ocr">
-                <div class="step-dot">2</div>
-                <div>
-                  <div class="step-title">OCR con Azure</div>
-                  <div class="step-text">Se extrae texto, tablas y layout del documento.</div>
-                </div>
-              </div>
-
-              <div class="step" id="step-structured">
-                <div class="step-dot">3</div>
-                <div>
-                  <div class="step-title">Estructuración con IA</div>
-                  <div class="step-text">Se obtiene folio, objeto, anexos, fechas y más.</div>
-                </div>
-              </div>
-
-              <div class="step" id="step-items">
-                <div class="step-dot">4</div>
-                <div>
-                  <div class="step-title">Extracción de partidas</div>
-                  <div class="step-text">Se detectan las partidas reales del anexo técnico.</div>
-                </div>
-              </div>
-
-              <div class="step" id="step-ready">
-                <div class="step-dot">5</div>
-                <div>
-                  <div class="step-title">Listo para propuesta</div>
-                  <div class="step-text">Ya puedes crear la propuesta comercial desde el resultado.</div>
-                </div>
-              </div>
-            </div>
-
-            <div id="jobMeta" class="status-box info" style="margin-top:16px;">
-              Aún no se ha iniciado ningún proceso.
-            </div>
-          </div>
-        </div>
-
-        <div class="pc-card">
-          <div class="pc-card-head">
-            <h3 class="pc-card-title">3. Parámetros comerciales</h3>
-            <p class="pc-card-subtitle">
-              Estos valores se usarán al crear la propuesta.
-            </p>
-          </div>
-
-          <div class="pc-card-body">
-            <div class="field">
-              <label for="titulo">Título de la propuesta</label>
-              <input type="text" id="titulo" placeholder="Ej. Propuesta comercial papelería tribunal">
-            </div>
-
-            <div class="field-inline">
-              <div class="field">
-                <label for="porcentaje_utilidad">Utilidad %</label>
-                <input type="number" step="0.01" id="porcentaje_utilidad" value="0">
-              </div>
-
-              <div class="field">
-                <label for="porcentaje_descuento">Descuento %</label>
-                <input type="number" step="0.01" id="porcentaje_descuento" value="0">
-              </div>
-
-              <div class="field">
-                <label for="porcentaje_impuesto">Impuesto %</label>
-                <input type="number" step="0.01" id="porcentaje_impuesto" value="16">
-              </div>
-            </div>
-          </div>
-        </div>
+    <div class="stats-grid">
+      <div class="stat-card">
+        <p class="stat-label">Cotizaciones</p>
+        <p class="stat-value">{{ number_format($totalQuotes) }}</p>
+        <div class="stat-caption">total</div>
       </div>
 
-      <div class="pc-stack">
-        <div class="pc-card">
-          <div class="pc-card-head">
-            <h3 class="pc-card-title">Vista previa de lo extraído</h3>
-            <p class="pc-card-subtitle">
-              Cuando termine el análisis aquí se carga el resultado para revisar antes de crear la propuesta.
-            </p>
-          </div>
+      <div class="stat-card">
+        <p class="stat-label">Monto cotizado</p>
+        <p class="stat-value">{{ $fmtMoney($quotedAmount) }}</p>
+        <div class="stat-caption">acumulado</div>
+      </div>
 
-          <div class="pc-card-body">
-            <div class="meta-grid">
-              <div class="meta-box">
-                <span class="meta-label">Procedimiento</span>
-                <div class="meta-value" id="metaFolio">—</div>
-              </div>
+      <div class="stat-card is-blue">
+        <p class="stat-label">Utilidad estimada</p>
+        <p class="stat-value">{{ $fmtMoney($estimatedProfit) }}</p>
+        <div class="stat-caption">neta</div>
+      </div>
 
-              <div class="meta-box">
-                <span class="meta-label">Dependencia</span>
-                <div class="meta-value" id="metaDependencia">—</div>
-              </div>
-
-              <div class="meta-box">
-                <span class="meta-label">Partidas detectadas</span>
-                <div class="meta-value" id="metaPartidas">0</div>
-              </div>
-
-              <div class="meta-box">
-                <span class="meta-label">Archivo</span>
-                <div class="meta-value" id="metaArchivo">—</div>
-              </div>
-            </div>
-
-            <div class="field">
-              <label>Objeto detectado</label>
-              <div class="preview-text" id="metaObjeto">Aún no hay datos cargados.</div>
-            </div>
-
-            <div class="preview-grid">
-              <div class="list-box">
-                <h4 class="list-box-title">Partidas extraídas</h4>
-                <div id="partidasBox" class="empty-note">Cuando termine el análisis aparecerán aquí.</div>
-              </div>
-
-              <div class="list-box">
-                <h4 class="list-box-title">Fechas clave</h4>
-                <div id="fechasBox" class="empty-note">Cuando termine el análisis aparecerán aquí.</div>
-              </div>
-            </div>
-
-            <div class="actions-row">
-              <button id="createProposalBtn" class="btn btn-primary" type="button" disabled>
-                Crear propuesta comercial
-              </button>
-              <button id="refreshBtn" class="btn btn-outline" type="button" disabled>
-                Actualizar estado
-              </button>
-            </div>
-
-            <div id="createStatus" class="status-box"></div>
-          </div>
-        </div>
+      <div class="stat-card">
+        <p class="stat-label">Margen promedio</p>
+        <p class="stat-value">{{ $avgMargin }}%</p>
+        <div class="stat-caption">sobre costo</div>
       </div>
     </div>
 
-    <form id="createProposalForm" method="POST" action="{{ route('propuestas-comerciales.store-from-run-manual') }}" class="hidden">
-      @csrf
-      <input type="hidden" name="document_ai_run_id" id="form_document_ai_run_id">
-      <input type="hidden" name="titulo" id="form_titulo">
-      <input type="hidden" name="cliente" id="form_cliente">
-      <input type="hidden" name="folio" id="form_folio">
-      <input type="hidden" name="porcentaje_utilidad" id="form_utilidad">
-      <input type="hidden" name="porcentaje_descuento" id="form_descuento">
-      <input type="hidden" name="porcentaje_impuesto" id="form_impuesto">
-    </form>
+    <div class="section-head">
+      <h2 class="section-title">Cotizaciones recientes</h2>
+
+      @if($isPaginator && method_exists($proposalsSource, 'url'))
+        <a href="{{ $proposalsSource->url(1) }}" class="view-all">
+          Ver todas <span>→</span>
+        </a>
+      @else
+        <a href="{{ route('propuestas-comerciales.index') }}" class="view-all">
+          Ver todas <span>→</span>
+        </a>
+      @endif
+    </div>
+
+    @if($recentProposals->count())
+      <div class="recent-card">
+        @foreach($recentProposals as $proposal)
+          @php
+            $cost = $proposalCost($proposal);
+            $profit = $proposalProfit($proposal);
+            $margin = $cost > 0 ? round(($profit / $cost) * 100) : 0;
+            $status = $proposal->status ?? 'draft';
+          @endphp
+
+          <a href="{{ $showRoute($proposal) }}" class="quote-row">
+            <div>
+              <div class="quote-folio">{{ $proposalFolio($proposal) }}</div>
+              <div class="quote-date">
+                {{ optional($proposal->created_at)->format('d M Y') ?? 'Sin fecha' }}
+              </div>
+            </div>
+
+            <div class="quote-main">
+              <div class="quote-code">{{ $proposalCode($proposal) }}</div>
+              <div class="quote-note">{{ $proposalNote($proposal) }}</div>
+            </div>
+
+            <div>
+              <span class="badge {{ $statusClass($status) }}">
+                {{ $statusLabel($status) }}
+              </span>
+            </div>
+
+            <div class="quote-money">
+              <div class="quote-total">{{ $fmtMoney($proposalTotal($proposal)) }}</div>
+              <div class="quote-margin">↗ {{ $margin }}%</div>
+            </div>
+
+            <div class="quote-arrow">→</div>
+          </a>
+        @endforeach
+      </div>
+    @else
+      <div class="empty-state">
+        <h2 class="empty-title">Aún no tienes cotizaciones</h2>
+        <p class="empty-text">
+          Crea tu primera cotización comercial, analiza partidas con IA y calcula márgenes automáticamente.
+        </p>
+        <a href="{{ $createRoute }}" class="btn btn-primary">
+          ▣ Nueva cotización
+        </a>
+      </div>
+    @endif
+
+    <div class="foot-metrics">
+      <div><strong>{{ number_format($productsCount) }}</strong> productos en catálogo</div>
+      <div><strong>{{ number_format($draftsCount) }}</strong> borradores pendientes</div>
+      <div><strong>{{ number_format($approvedCount) }}</strong> aceptadas</div>
+    </div>
+
+    @if($isPaginator)
+      <div class="pagination-wrap">
+        {{ $proposalsSource->links() }}
+      </div>
+    @endif
   </div>
 </div>
-
-<script>
-  const uploadForm = document.getElementById('uploadForm');
-  const uploadBtn = document.getElementById('uploadBtn');
-  const uploadStatus = document.getElementById('uploadStatus');
-  const jobMeta = document.getElementById('jobMeta');
-  const refreshBtn = document.getElementById('refreshBtn');
-  const createProposalBtn = document.getElementById('createProposalBtn');
-  const createStatus = document.getElementById('createStatus');
-
-  const progressBar = document.getElementById('progressBar');
-  const progressText = document.getElementById('progressText');
-
-  const metaFolio = document.getElementById('metaFolio');
-  const metaDependencia = document.getElementById('metaDependencia');
-  const metaPartidas = document.getElementById('metaPartidas');
-  const metaArchivo = document.getElementById('metaArchivo');
-  const metaObjeto = document.getElementById('metaObjeto');
-
-  const partidasBox = document.getElementById('partidasBox');
-  const fechasBox = document.getElementById('fechasBox');
-
-  const stepUpload = document.getElementById('step-upload');
-  const stepOcr = document.getElementById('step-ocr');
-  const stepStructured = document.getElementById('step-structured');
-  const stepItems = document.getElementById('step-items');
-  const stepReady = document.getElementById('step-ready');
-
-  let currentRunId = null;
-  let pollingTimer = null;
-  let latestRunPayload = null;
-
-  function setStatus(el, type, text) {
-    el.className = 'status-box show ' + type;
-    el.textContent = text;
-  }
-
-  function setProgress(percent) {
-    progressBar.style.width = percent + '%';
-    progressText.textContent = percent + '%';
-  }
-
-  function resetSteps() {
-    [stepUpload, stepOcr, stepStructured, stepItems, stepReady].forEach(step => {
-      step.classList.remove('active', 'done', 'error');
-    });
-  }
-
-  function resetPreview() {
-    metaFolio.textContent = '—';
-    metaDependencia.textContent = '—';
-    metaPartidas.textContent = '0';
-    metaArchivo.textContent = '—';
-    metaObjeto.textContent = 'Aún no hay datos cargados.';
-    partidasBox.innerHTML = '<div class="empty-note">Cuando termine el análisis aparecerán aquí.</div>';
-    fechasBox.innerHTML = '<div class="empty-note">Cuando termine el análisis aparecerán aquí.</div>';
-    createProposalBtn.disabled = true;
-    refreshBtn.disabled = true;
-    latestRunPayload = null;
-  }
-
-  function renderStructured(run) {
-    const structured = run?.structured_json || null;
-    const itemsResult = run?.items_json || null;
-    const items = itemsResult?.items || [];
-
-    metaArchivo.textContent = run?.filename || '—';
-
-    if (structured) {
-      metaFolio.textContent = structured.numero_procedimiento || '—';
-      metaDependencia.textContent = structured.dependencia || '—';
-      metaObjeto.textContent = structured.objeto || '—';
-    } else {
-      metaFolio.textContent = '—';
-      metaDependencia.textContent = '—';
-      metaObjeto.textContent = 'El OCR terminó, pero aún no hay JSON estructurado.';
-    }
-
-    metaPartidas.textContent = Array.isArray(items) ? items.length : 0;
-
-    if (Array.isArray(items) && items.length) {
-      let html = '<ul>';
-
-      items.slice(0, 60).forEach(item => {
-        html += `
-          <li>
-            <strong>Subpartida ${item.subpartida ?? '—'}</strong><br>
-            ${item.descripcion ?? 'Sin descripción'}<br>
-            <span class="empty-note">
-              Unidad: ${item.unidad ?? '—'} ·
-              Min: ${item.cantidad_minima ?? '—'} ·
-              Max: ${item.cantidad_maxima ?? '—'} ·
-              Muestra: ${item.presentar_muestra ?? '—'}
-            </span>
-          </li>
-        `;
-      });
-
-      if (items.length > 60) {
-        html += `<li><strong>... y ${items.length - 60} más</strong></li>`;
-      }
-
-      html += '</ul>';
-      partidasBox.innerHTML = html;
-    } else {
-      partidasBox.innerHTML = '<div class="empty-note">No hay partidas extraídas todavía.</div>';
-    }
-
-    if (structured && Array.isArray(structured.fechas_clave) && structured.fechas_clave.length) {
-      let html = '<ul>';
-      structured.fechas_clave.forEach(fecha => {
-        html += `
-          <li>
-            <strong>${fecha.tipo ?? 'Fecha'}</strong><br>
-            ${fecha.descripcion ?? '—'}<br>
-            <span class="empty-note">
-              Fecha: ${fecha.fecha ?? '—'} · Hora: ${fecha.hora ?? '—'}
-            </span>
-          </li>
-        `;
-      });
-      html += '</ul>';
-      fechasBox.innerHTML = html;
-    } else {
-      fechasBox.innerHTML = '<div class="empty-note">No hay fechas clave detectadas.</div>';
-    }
-  }
-
-  async function safeJson(response) {
-    const text = await response.text();
-    try {
-      return JSON.parse(text);
-    } catch (e) {
-      return {
-        ok: false,
-        message: text || 'Respuesta no válida'
-      };
-    }
-  }
-
-  async function pollRun() {
-    if (!currentRunId) return;
-
-    try {
-      const response = await fetch(`/document-ai/${currentRunId}`, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json'
-        }
-      });
-
-      const data = await safeJson(response);
-
-      if (!response.ok || !data.ok) {
-        setStatus(uploadStatus, 'error', data.message || 'No se pudo consultar el estado del análisis.');
-        stepUpload.classList.add('done');
-        stepOcr.classList.add('error');
-        setProgress(100);
-        return;
-      }
-
-      latestRunPayload = data;
-      const run = data.run || {};
-      const status = run.status || 'queued';
-
-      jobMeta.className = 'status-box show info';
-      jobMeta.textContent = `Run #${run.id} · Archivo: ${run.filename || '—'} · Estado: ${status.toUpperCase()}`;
-
-      if (status === 'queued') {
-        resetSteps();
-        stepUpload.classList.add('done');
-        stepOcr.classList.add('active');
-        setProgress(20);
-        setStatus(uploadStatus, 'info', 'El documento ya se subió. Iniciando OCR...');
-        refreshBtn.disabled = false;
-        pollingTimer = setTimeout(pollRun, 5000);
-        return;
-      }
-
-      if (status === 'processing') {
-        resetSteps();
-        stepUpload.classList.add('done');
-        stepOcr.classList.add('done');
-        stepStructured.classList.add('active');
-        setProgress(60);
-        setStatus(uploadStatus, 'info', 'Procesando OCR, estructuración y extracción de partidas...');
-        refreshBtn.disabled = false;
-        pollingTimer = setTimeout(pollRun, 5000);
-        return;
-      }
-
-      if (status === 'completed') {
-        resetSteps();
-        stepUpload.classList.add('done');
-        stepOcr.classList.add('done');
-        stepStructured.classList.add('done');
-        stepItems.classList.add('done');
-        stepReady.classList.add('done');
-        setProgress(100);
-
-        if (run.error) {
-          setStatus(uploadStatus, 'info', `Completado con observaciones: ${run.error}`);
-        } else {
-          setStatus(uploadStatus, 'success', 'Análisis completado correctamente. Ya puedes crear la propuesta.');
-        }
-
-        renderStructured(run);
-        createProposalBtn.disabled = false;
-        refreshBtn.disabled = false;
-        return;
-      }
-
-      if (status === 'failed') {
-        resetSteps();
-        stepUpload.classList.add('done');
-        stepOcr.classList.add('error');
-        stepStructured.classList.add('error');
-        stepItems.classList.add('error');
-        setProgress(100);
-        setStatus(uploadStatus, 'error', run.error || 'El análisis falló.');
-        refreshBtn.disabled = false;
-        return;
-      }
-
-      pollingTimer = setTimeout(pollRun, 5000);
-    } catch (error) {
-      setStatus(uploadStatus, 'error', error.message || 'Error consultando el análisis.');
-    }
-  }
-
-  uploadForm.addEventListener('submit', async function (e) {
-    e.preventDefault();
-
-    if (pollingTimer) clearTimeout(pollingTimer);
-
-    currentRunId = null;
-    resetSteps();
-    resetPreview();
-    setProgress(8);
-
-    uploadBtn.disabled = true;
-    uploadBtn.textContent = 'Procesando...';
-
-    stepUpload.classList.add('active');
-    setStatus(uploadStatus, 'info', 'Subiendo documento...');
-
-    try {
-      const formData = new FormData(uploadForm);
-
-      const response = await fetch(`{{ route('document-ai.start') }}`, {
-        method: 'POST',
-        headers: {
-          'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value,
-          'Accept': 'application/json'
-        },
-        body: formData
-      });
-
-      const data = await safeJson(response);
-
-      if (!response.ok || !data.ok) {
-        stepUpload.classList.remove('active');
-        stepUpload.classList.add('error');
-        setProgress(100);
-        setStatus(uploadStatus, 'error', data.message || 'No se pudo iniciar el análisis.');
-        return;
-      }
-
-      currentRunId = data.document_ai_run_id;
-      stepUpload.classList.remove('active');
-      stepUpload.classList.add('done');
-      stepOcr.classList.add('active');
-      setProgress(18);
-      setStatus(uploadStatus, 'info', `Documento enviado correctamente. Run #${currentRunId}`);
-      refreshBtn.disabled = false;
-
-      pollRun();
-    } catch (error) {
-      stepUpload.classList.remove('active');
-      stepUpload.classList.add('error');
-      setProgress(100);
-      setStatus(uploadStatus, 'error', error.message || 'Ocurrió un error al enviar el PDF.');
-    } finally {
-      uploadBtn.disabled = false;
-      uploadBtn.textContent = 'Subir y procesar PDF';
-    }
-  });
-
-  refreshBtn.addEventListener('click', function () {
-    if (!currentRunId) return;
-    if (pollingTimer) clearTimeout(pollingTimer);
-    pollRun();
-  });
-
-  createProposalBtn.addEventListener('click', function () {
-    if (!latestRunPayload || !latestRunPayload.run) {
-      setStatus(createStatus, 'error', 'Aún no hay un análisis listo para crear la propuesta.');
-      return;
-    }
-
-    const run = latestRunPayload.run;
-    const structured = run.structured_json || {};
-
-    document.getElementById('form_document_ai_run_id').value = run.id;
-    document.getElementById('form_titulo').value =
-      document.getElementById('titulo').value || structured.objeto || '';
-    document.getElementById('form_cliente').value =
-      structured.dependencia || '';
-    document.getElementById('form_folio').value =
-      structured.numero_procedimiento || '';
-    document.getElementById('form_utilidad').value =
-      document.getElementById('porcentaje_utilidad').value || 0;
-    document.getElementById('form_descuento').value =
-      document.getElementById('porcentaje_descuento').value || 0;
-    document.getElementById('form_impuesto').value =
-      document.getElementById('porcentaje_impuesto').value || 16;
-
-    setStatus(createStatus, 'info', 'Creando propuesta comercial...');
-    document.getElementById('createProposalForm').submit();
-  });
-</script>
 @endsection

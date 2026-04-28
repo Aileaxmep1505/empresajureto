@@ -125,6 +125,13 @@
               @forelse($providers as $p)
                 @php
                   $hasGeo = !is_null($p->lat) && !is_null($p->lng);
+
+                  // Tu tabla de providers tiene estos campos:
+                  // empresa = nombre de la empresa
+                  // nombre  = nombre del contacto/persona
+                  $companyName = trim((string)($p->empresa ?? ''));
+                  $contactName = trim((string)($p->nombre ?? ''));
+                  $providerName = $companyName ?: ($contactName ?: 'Proveedor #'.$p->id);
                   $addr   = trim((string)($p->address ?? ''));
                   $calle  = trim((string)($p->calle ?? ''));
                   $colonia= trim((string)($p->colonia ?? ''));
@@ -136,7 +143,8 @@
                 <label class="prov-item">
                   <input class="form-check-input provChk" type="checkbox"
                          data-id="{{ $p->id }}"
-                         data-name="{{ $p->name }}"
+                         data-name="{{ e($providerName) }}"
+                         data-contact-name="{{ e($contactName) }}"
                          data-lat="{{ $hasGeo ? $p->lat : '' }}"
                          data-lng="{{ $hasGeo ? $p->lng : '' }}"
                          data-address="{{ e($addr) }}"
@@ -146,7 +154,10 @@
                          data-estado="{{ e($estado) }}"
                          data-cp="{{ e($cp) }}">
                   <span>
-                    <div class="fw-bold">{{ $p->name ?: 'Proveedor #'.$p->id }}</div>
+                    <div class="fw-bold">{{ $providerName }}</div>
+                    @if($companyName && $contactName && mb_strtolower($companyName) !== mb_strtolower($contactName))
+                      <small class="text-muted">Contacto: {{ $contactName }}</small>
+                    @endif
                     <small class="text-muted">
                       @if($hasGeo)
                         ({{ number_format($p->lat,6) }}, {{ number_format($p->lng,6) }})
@@ -438,7 +449,7 @@ function renderPicked(){
           <div class="fw-bold">${p.name || p.address || '(sin nombre)'}</div>
           <div class="text-muted small">
             Lat: ${fmt(p.lat)} · Lng: ${fmt(p.lng)}
-            ${p.provider_id ? ' · Provider #' + p.provider_id : ''}
+            ${p.provider_id ? ' · Proveedor #' + p.provider_id : ''}
           </div>
           ${p.address ? `<div class="text-muted small">${p.address}</div>` : ''}
         </div>
@@ -545,7 +556,7 @@ document.querySelectorAll('.provChk').forEach(chk=>{
     }
 
     if (picked.some(p => p.provider_id === providerId)) {
-      toast('Ese provider ya estaba agregado.');
+      toast('Ese proveedor ya estaba agregado.');
       return;
     }
 
