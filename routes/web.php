@@ -2046,3 +2046,4 @@ Route::get('/propuestas-comerciales/{propuestaComercial}/cliente/pdf', [Propuest
 
 Route::post('/propuestas-comerciales/{propuestaComercial}/cliente/email', [PropuestaComercialClienteController::class, 'sendEmail'])
     ->name('propuestas-comerciales.cliente.email');
+    
