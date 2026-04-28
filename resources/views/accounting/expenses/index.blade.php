@@ -170,6 +170,36 @@
     box-shadow:var(--shadow);
   }
 
+
+  #expensesPage .chart-toolbar{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-wrap:wrap;
+  }
+  #expensesPage .chart-toggle{
+    border:1px solid var(--border);
+    background:#fff;
+    color:#334155;
+    border-radius:999px;
+    padding:.38rem .72rem;
+    font-weight:900;
+    font-size:.78rem;
+    line-height:1;
+    transition:transform .12s, box-shadow .2s, background .2s, color .2s, border-color .2s;
+  }
+  #expensesPage .chart-toggle:hover{
+    background:#f8fafc;
+    transform:translateY(-1px);
+    box-shadow:0 10px 20px rgba(2,6,23,.06);
+  }
+  #expensesPage .chart-toggle.active{
+    background:var(--pblue);
+    color:#0b2a4a;
+    border-color:rgba(96,165,250,.42);
+    box-shadow:0 10px 22px rgba(96,165,250,.16);
+  }
+
   /* =======================
      ✅ TOASTS (encapsulado)
      ======================= */
@@ -296,9 +326,17 @@
 
           {{-- Tendencia --}}
           <div class="card mt-3">
-            <div class="card-header d-flex align-items-center justify-content-between">
-              <span><i class="bi bi-bar-chart-line me-2"></i>Tendencia de gasto (por día)</span>
-              <small class="subtle">Últimos 14 días • Pagado/Pendiente/Cancelado</small>
+            <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+              <div>
+                <span><i class="bi bi-bar-chart-line me-2"></i><span id="chartTitle">Tendencia de gasto por día</span></span>
+                <div class="small subtle" id="chartRangeHint">Últimos 14 días • Pagado/Pendiente/Cancelado</div>
+              </div>
+
+              <div class="chart-toolbar" aria-label="Filtro de gráfica">
+                <button class="chart-toggle active" type="button" data-chart-group="day">Día</button>
+                <button class="chart-toggle" type="button" data-chart-group="week">Semana</button>
+                <button class="chart-toggle" type="button" data-chart-group="month">Mes</button>
+              </div>
             </div>
             <div class="card-body">
               <div style="position:relative;height:330px">
@@ -684,6 +722,7 @@
     rows: [],
     timer: null,
     lastChartRows: null,
+    chart_group: 'day',
   };
 
   function esc(s){
@@ -956,27 +995,33 @@
     if(!el) return;
 
     if(!Array.isArray(rows) || rows.length < 1){
-      el.textContent = 'Últimos 7 días: —';
+      el.textContent = 'Total visible: —';
       return;
     }
 
     const values = rows.map(r => Number(r.paid||0) + Number(r.pending||0) + Number(r.canceled||0));
-    const last7 = values.slice(-7).reduce((a,b)=>a+b,0);
-    const prev7 = values.slice(-14, -7).reduce((a,b)=>a+b,0);
+    const totalVisible = values.reduce((a,b)=>a+b,0);
+
+    const groupLabel = state.chart_group === 'month'
+      ? 'meses visibles'
+      : (state.chart_group === 'week' ? 'semanas visibles' : 'días visibles');
+
+    const last = values[values.length - 1] || 0;
+    const prev = values.length > 1 ? (values[values.length - 2] || 0) : 0;
 
     let arrow = '→';
     let diffPct = 0;
 
-    if(prev7 > 0){
-      diffPct = ((last7 - prev7) / prev7) * 100;
+    if(prev > 0){
+      diffPct = ((last - prev) / prev) * 100;
       arrow = diffPct > 0 ? '↗' : (diffPct < 0 ? '↘' : '→');
     } else {
-      diffPct = last7 > 0 ? 100 : 0;
-      arrow = last7 > 0 ? '↗' : '→';
+      diffPct = last > 0 ? 100 : 0;
+      arrow = last > 0 ? '↗' : '→';
     }
 
     const absPct = Math.round(Math.abs(diffPct) * 10) / 10;
-    el.textContent = `Últimos 7 días: ${money(last7, currency)}  ${arrow} (${absPct}% vs 7 días previos)`;
+    el.textContent = `Total ${groupLabel}: ${money(totalVisible, currency)} · Último periodo: ${money(last, currency)} ${arrow} (${absPct}% vs anterior)`;
   }
 
   async function loadMetrics(){
@@ -1016,45 +1061,131 @@
     return data;
   }
 
+  function chartGroupLabel(){
+    if(state.chart_group === 'month') return 'mes';
+    if(state.chart_group === 'week') return 'semana';
+    return 'día';
+  }
+
+  function setChartUiMeta(meta = {}){
+    const group = meta.group || state.chart_group || 'day';
+    const nice = group === 'month' ? 'mes' : (group === 'week' ? 'semana' : 'día');
+
+    if($('chartTitle')) $('chartTitle').textContent = `Tendencia de gasto por ${nice}`;
+
+    const from = meta.from ? fmtDate(meta.from) : null;
+    const to = meta.to ? fmtDate(meta.to) : null;
+
+    if($('chartRangeHint')){
+      const range = (from && to) ? `${from} al ${to}` : (group === 'month' ? 'Últimos 12 meses' : (group === 'week' ? 'Últimas 12 semanas' : 'Últimos 14 días'));
+      $('chartRangeHint').textContent = `${range} • Pagado/Pendiente/Cancelado`;
+    }
+  }
+
+  function chartBucketLabel(date, group){
+    const raw = String(date || '');
+    if(group === 'month'){
+      if(/^\d{4}-\d{2}$/.test(raw)){
+        const [y,m] = raw.split('-').map(Number);
+        return new Date(y, m - 1, 1).toLocaleDateString('es-MX', {month:'short', year:'numeric'});
+      }
+      return raw || '—';
+    }
+
+    if(group === 'week'){
+      if(/^\d{4}-\d{2}-\d{2}$/.test(raw)){
+        const dt = new Date(raw + 'T00:00:00');
+        return 'Sem ' + getIsoWeek(dt) + ' · ' + dt.getFullYear();
+      }
+      return raw || '—';
+    }
+
+    if(/^\d{4}-\d{2}-\d{2}$/.test(raw)){
+      const dt = new Date(raw + 'T00:00:00');
+      return dt.toLocaleDateString('es-MX', {day:'2-digit', month:'short'});
+    }
+
+    return raw || '—';
+  }
+
+  function getIsoWeek(date){
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+    return Math.ceil((((d - yearStart) / 86400000) + 1)/7);
+  }
+
+  function buildLocalChartRows(src){
+    const group = state.chart_group || 'day';
+    const map = new Map();
+
+    for(const e of src){
+      const rawDate = String(e.expense_date || e.performed_at || '').slice(0,10);
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) continue;
+
+      const dt = new Date(rawDate + 'T00:00:00');
+
+      let key = rawDate;
+      if(group === 'month'){
+        key = rawDate.slice(0,7);
+      } else if(group === 'week'){
+        const monday = new Date(dt);
+        const day = monday.getDay() || 7;
+        monday.setDate(monday.getDate() - day + 1);
+        key = monday.toISOString().slice(0,10);
+      }
+
+      const st = String(e.status || 'paid').toLowerCase();
+      const amt = num(e.amount);
+
+      if(!map.has(key)) map.set(key, {date:key, label: chartBucketLabel(key, group), group, paid:0, pending:0, canceled:0});
+      const row = map.get(key);
+
+      if(st === 'pending') row.pending += amt;
+      else if(st === 'canceled' || st === 'cancelled') row.canceled += amt;
+      else row.paid += amt;
+    }
+
+    return Array.from(map.values()).sort((a,b)=> String(a.date).localeCompare(String(b.date)));
+  }
+
   async function loadChart(){
     if(!chart) return;
 
     let rows = [];
+    let meta = { group: state.chart_group };
 
     if(API_CHART){
-      const url = API_CHART + '?' + params({page:null, per_page:null}).toString();
+      const url = API_CHART + '?' + params({page:null, per_page:null, group: state.chart_group}).toString();
       const res = await fetch(url, {headers:{'Accept':'application/json'}});
       if(res.ok){
         const json = await res.json().catch(()=>null);
-        rows = Array.isArray(json) ? json : (Array.isArray(json?.data) ? json.data : []);
+        if(Array.isArray(json)){
+          rows = json;
+        }else{
+          rows = Array.isArray(json?.data) ? json.data : [];
+          meta = {
+            group: json?.group || state.chart_group,
+            from: json?.from || null,
+            to: json?.to || null,
+          };
+        }
       }
     }
 
     if(!Array.isArray(rows) || rows.length === 0){
-      const src = Array.isArray(state.rows) ? state.rows : [];
-      const map = new Map();
-
-      for(const e of src){
-        const d = String(e.expense_date || e.performed_at || '').slice(0,10);
-        if(!/^\d{4}-\d{2}-\d{2}$/.test(d)) continue;
-
-        const st = String(e.status || 'paid').toLowerCase();
-        const amt = num(e.amount);
-
-        if(!map.has(d)) map.set(d, {paid:0, pending:0, canceled:0});
-        const row = map.get(d);
-
-        if(st === 'pending') row.pending += amt;
-        else if(st === 'canceled' || st === 'cancelled') row.canceled += amt;
-        else row.paid += amt;
-      }
-
-      rows = Array.from(map.entries())
-        .sort((a,b)=> a[0].localeCompare(b[0]))
-        .map(([date, v]) => ({ date, ...v }));
+      rows = buildLocalChartRows(Array.isArray(state.rows) ? state.rows : []);
     }
 
-    const labels = rows.map(r => String(pick(r, ['date','day','label','x'], '')).slice(0,10));
+    setChartUiMeta(meta);
+
+    const labels = rows.map(r => {
+      const explicit = pick(r, ['label','x'], null);
+      if(explicit) return String(explicit);
+      return chartBucketLabel(pick(r, ['date','day'], ''), state.chart_group);
+    });
+
     const paid    = rows.map(r => num(pick(r, ['paid','paid_sum','paid_total','sum_paid'], 0)));
     const pending = rows.map(r => num(pick(r, ['pending','pending_sum','pending_total','sum_pending'], 0)));
     const canceled= rows.map(r => num(pick(r, ['canceled','cancelled','canceled_sum','sum_canceled'], 0)));
@@ -1563,6 +1694,21 @@
 
   $('btnRefresh')?.addEventListener('click', ()=>{ state.page = 1; refreshAll(); });
   $('btnRefreshM')?.addEventListener('click', ()=>{ state.page = 1; refreshAll(); });
+
+  document.querySelectorAll('[data-chart-group]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const group = btn.getAttribute('data-chart-group') || 'day';
+      state.chart_group = group;
+
+      document.querySelectorAll('[data-chart-group]').forEach(b=>{
+        b.classList.toggle('active', b === btn);
+      });
+
+      await loadChart();
+      await loadMetrics();
+      toast('info', `Gráfica filtrada por ${chartGroupLabel()}.`);
+    });
+  });
 
   $('btnApply')?.addEventListener('click', ()=>{
     state.page = 1;

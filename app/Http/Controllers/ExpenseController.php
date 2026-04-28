@@ -254,15 +254,47 @@ class ExpenseController extends Controller
      */
     public function apiChart(Request $request)
     {
-        $days = (int) $request->input('days', 14);
-        $days = ($days < 7) ? 7 : (($days > 90) ? 90 : $days);
+        /*
+         * Gráfica con agrupación real:
+         * - group=day   => por día
+         * - group=week  => por semana
+         * - group=month => por mes
+         *
+         * Si mandas from/to respeta ese rango exacto.
+         * Si NO mandas from/to usa un rango inteligente:
+         * - day: últimos 14 días
+         * - week: últimas 12 semanas
+         * - month: últimos 12 meses
+         */
+        $group = strtolower((string) $request->input('group', $request->input('chart_group', 'day')));
+        if (!in_array($group, ['day', 'week', 'month'], true)) {
+            $group = 'day';
+        }
 
         $q = $this->baseFilteredQuery($request);
 
-        // Arma rango de fechas
-        $to = $request->input('to');
-        $end = $to ? Carbon::parse($to)->endOfDay() : now()->endOfDay();
-        $start = (clone $end)->subDays($days - 1)->startOfDay();
+        $fromInput = $request->input('from');
+        $toInput   = $request->input('to');
+
+        $end = $toInput ? Carbon::parse($toInput)->endOfDay() : now()->endOfDay();
+
+        if ($fromInput) {
+            $start = Carbon::parse($fromInput)->startOfDay();
+        } else {
+            if ($group === 'month') {
+                $months = (int) $request->input('months', 12);
+                $months = max(2, min(36, $months));
+                $start = (clone $end)->startOfMonth()->subMonths($months - 1)->startOfDay();
+            } elseif ($group === 'week') {
+                $weeks = (int) $request->input('weeks', 12);
+                $weeks = max(2, min(52, $weeks));
+                $start = (clone $end)->startOfWeek(Carbon::MONDAY)->subWeeks($weeks - 1)->startOfDay();
+            } else {
+                $days = (int) $request->input('days', 14);
+                $days = max(7, min(120, $days));
+                $start = (clone $end)->subDays($days - 1)->startOfDay();
+            }
+        }
 
         if (Schema::hasColumn('expenses', 'expense_date')) {
             $q->whereBetween('expense_date', [$start->toDateString(), $end->toDateString()]);
@@ -271,7 +303,17 @@ class ExpenseController extends Controller
         $hasStatus = Schema::hasColumn('expenses', 'status');
         $hasEntryKind = Schema::hasColumn('expenses', 'entry_kind');
 
-        $select = 'DATE(expense_date) as d, ';
+        if ($group === 'month') {
+            $bucketSql = "DATE_FORMAT(expense_date, '%Y-%m')";
+        } elseif ($group === 'week') {
+            // YEARWEEK(..., 3) = semana ISO iniciando lunes
+            $bucketSql = "YEARWEEK(expense_date, 3)";
+        } else {
+            $bucketSql = "DATE(expense_date)";
+        }
+
+        $select = $bucketSql . ' as bucket, ';
+
         if ($hasStatus) {
             if ($hasEntryKind) {
                 $select .= "
@@ -291,27 +333,78 @@ class ExpenseController extends Controller
         }
 
         $rows = $q->selectRaw($select)
-            ->groupBy('d')
-            ->orderBy('d')
-            ->get();
+            ->groupBy('bucket')
+            ->orderBy('bucket')
+            ->get()
+            ->keyBy('bucket');
 
-        // Rellena días faltantes con 0
-        $map = $rows->keyBy('d');
         $out = [];
 
-        for ($i = 0; $i < $days; $i++) {
-            $day = (clone $start)->addDays($i)->toDateString();
-            $r = $map->get($day);
+        if ($group === 'month') {
+            $cursor = (clone $start)->startOfMonth();
+            $last = (clone $end)->startOfMonth();
 
-            $out[] = [
-                'date'     => $day,
-                'paid'     => (float) ($r->paid ?? 0),
-                'pending'  => (float) ($r->pending ?? 0),
-                'canceled' => (float) ($r->canceled ?? 0),
-            ];
+            while ($cursor->lte($last)) {
+                $bucket = $cursor->format('Y-m');
+                $r = $rows->get($bucket);
+
+                $out[] = [
+                    'date'     => $bucket,
+                    'label'    => $cursor->locale('es')->translatedFormat('M Y'),
+                    'group'    => 'month',
+                    'paid'     => (float) ($r->paid ?? 0),
+                    'pending'  => (float) ($r->pending ?? 0),
+                    'canceled' => (float) ($r->canceled ?? 0),
+                ];
+
+                $cursor->addMonth();
+            }
+        } elseif ($group === 'week') {
+            $cursor = (clone $start)->startOfWeek(Carbon::MONDAY);
+            $last = (clone $end)->startOfWeek(Carbon::MONDAY);
+
+            while ($cursor->lte($last)) {
+                $bucket = $cursor->format('oW');
+                $r = $rows->get($bucket);
+
+                $out[] = [
+                    'date'     => $cursor->toDateString(),
+                    'label'    => 'Sem ' . $cursor->isoWeek() . ' · ' . $cursor->format('Y'),
+                    'group'    => 'week',
+                    'paid'     => (float) ($r->paid ?? 0),
+                    'pending'  => (float) ($r->pending ?? 0),
+                    'canceled' => (float) ($r->canceled ?? 0),
+                ];
+
+                $cursor->addWeek();
+            }
+        } else {
+            $cursor = (clone $start)->startOfDay();
+            $last = (clone $end)->startOfDay();
+
+            while ($cursor->lte($last)) {
+                $bucket = $cursor->toDateString();
+                $r = $rows->get($bucket);
+
+                $out[] = [
+                    'date'     => $bucket,
+                    'label'    => $cursor->format('d/m'),
+                    'group'    => 'day',
+                    'paid'     => (float) ($r->paid ?? 0),
+                    'pending'  => (float) ($r->pending ?? 0),
+                    'canceled' => (float) ($r->canceled ?? 0),
+                ];
+
+                $cursor->addDay();
+            }
         }
 
-        return response()->json($out);
+        return response()->json([
+            'group' => $group,
+            'from'  => $start->toDateString(),
+            'to'    => $end->toDateString(),
+            'data'  => $out,
+        ]);
     }
 
     /* ====================== STORE (GASTO NORMAL) ====================== */
