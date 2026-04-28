@@ -8,16 +8,16 @@
         --primary: #007AFF;
         --primary-light: #EBF5FF;
         --accent: #8B5CF6;
+        --success: #00a650; /* Verde estilo Mercado Libre */
         --text-main: #1F2937;
         --text-muted: #6B7280;
-        --glass-bg: rgba(255, 255, 255, 0.75);
+        --glass-bg: rgba(255, 255, 255, 0.85);
         --glass-border: rgba(255, 255, 255, 0.5);
     }
 
     .ai-wrapper {
         font-family: 'Plus Jakarta Sans', sans-serif;
         background: #f8fafc;
-        /* Fondo con gradiente dinámico y suave */
         background: radial-gradient(at 0% 0%, rgba(235, 245, 255, 1) 0, transparent 50%), 
                     radial-gradient(at 100% 100%, rgba(245, 243, 255, 1) 0, transparent 50%);
         min-height: 100vh;
@@ -28,7 +28,6 @@
         position: relative;
     }
 
-    /* --- BLOBS DE FONDO ANIMADOS --- */
     .orb {
         position: absolute;
         width: 500px;
@@ -47,7 +46,6 @@
         to { transform: translate(50px, 100px) scale(1.2); }
     }
 
-    /* --- TARJETA PREMIUM CLARA --- */
     .glass-container {
         position: relative;
         z-index: 10;
@@ -61,127 +59,84 @@
         padding: 48px;
         box-shadow: 0 20px 40px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
         text-align: center;
-        animation: cardEnter 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
-    }
-
-    @keyframes cardEnter {
-        from { opacity: 0; transform: translateY(30px) scale(0.95); }
-        to { opacity: 1; transform: translateY(0) scale(1); }
-    }
-
-    /* --- ESTADO INICIAL (SUBIDA) --- */
-    .upload-area { transition: all 0.5s ease; }
-    
-    .icon-box {
-        width: 80px; height: 80px;
-        background: white;
-        border-radius: 24px;
-        display: flex; align-items: center; justify-content: center;
-        margin: 0 auto 24px;
-        box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05);
-        color: var(--primary);
-        animation: floatIcon 3s infinite ease-in-out;
-    }
-
-    @keyframes floatIcon {
-        0%, 100% { transform: translateY(0); }
-        50% { transform: translateY(-10px); }
+        transition: all 0.5s ease;
     }
 
     .title { font-size: 26px; font-weight: 700; color: var(--text-main); margin-bottom: 12px; }
     .desc { color: var(--text-muted); font-size: 15px; line-height: 1.6; margin-bottom: 32px; }
 
+    /* --- ESTADO 1: SUBIDA --- */
+    .upload-area { transition: all 0.4s ease; }
+    .icon-box {
+        width: 80px; height: 80px; background: white; border-radius: 24px;
+        display: flex; align-items: center; justify-content: center; margin: 0 auto 24px;
+        box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); color: var(--primary);
+        animation: floatIcon 3s infinite ease-in-out;
+    }
+    @keyframes floatIcon { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+    
     .file-btn {
-        background: var(--primary);
-        color: white;
-        padding: 16px 40px;
-        border-radius: 100px;
-        font-weight: 600;
-        font-size: 16px;
-        border: none;
-        cursor: pointer;
-        transition: all 0.3s;
-        box-shadow: 0 10px 20px rgba(0, 122, 255, 0.2);
+        background: var(--primary); color: white; padding: 16px 40px; border-radius: 100px;
+        font-weight: 600; font-size: 16px; border: none; cursor: pointer; transition: all 0.3s;
+        box-shadow: 0 10px 20px rgba(0, 122, 255, 0.2); display: inline-block;
     }
     .file-btn:hover { background: #0066d6; transform: scale(1.05); box-shadow: 0 15px 25px rgba(0, 122, 255, 0.3); }
 
-    /* --- ESTADO DE CARGA (IA) --- */
-    .ai-processing { display: none; }
-    .ai-processing.active { display: block; animation: fadeIn 0.5s ease forwards; }
+    /* --- ESTADO 2: CARGA IA --- */
+    .ai-processing { display: none; opacity: 0; transition: opacity 0.5s ease; }
+    .ai-processing.active { display: block; opacity: 1; }
 
-    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
-    /* Barra de progreso moderna */
-    .progress-section { margin: 32px 0; }
+    .ai-badge {
+        display: inline-block; padding: 6px 16px; background: var(--primary-light);
+        color: var(--primary); border-radius: 100px; font-size: 13px; font-weight: 700;
+        margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.5px;
+    }
     
-    .meta-data {
-        display: flex; justify-content: space-between;
-        margin-bottom: 12px; font-size: 14px; font-weight: 700; color: var(--text-main);
-    }
-
-    .bar-track {
-        height: 12px;
-        background: #f1f5f9;
-        border-radius: 100px;
-        overflow: hidden;
-        position: relative;
-    }
-
+    .progress-section { margin: 32px 0; }
+    .meta-data { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 14px; font-weight: 700; color: var(--text-main); }
+    .bar-track { height: 12px; background: #f1f5f9; border-radius: 100px; overflow: hidden; position: relative; }
     .bar-fill {
-        height: 100%;
-        width: 0%;
+        height: 100%; width: 0%; border-radius: 100px; position: relative;
         background: linear-gradient(90deg, #007AFF, #8B5CF6, #007AFF);
-        background-size: 200% 100%;
-        border-radius: 100px;
-        transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-        position: relative;
+        background-size: 200% 100%; transition: width 0.3s ease;
     }
-
-    /* Brillo moviéndose en la barra */
     .bar-fill::after {
-        content: "";
-        position: absolute;
-        top: 0; left: 0; right: 0; bottom: 0;
+        content: ""; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
         background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
         animation: shimmer 1.5s infinite;
     }
+    @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
 
-    @keyframes shimmer { 
-        0% { transform: translateX(-100%); } 
-        100% { transform: translateX(100%); } 
-    }
-
-    /* Texto de acciones de IA */
-    .ai-badge {
-        display: inline-block;
-        padding: 6px 16px;
-        background: var(--primary-light);
-        color: var(--primary);
-        border-radius: 100px;
-        font-size: 13px;
-        font-weight: 700;
-        margin-bottom: 16px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-
-    .ai-message {
-        font-size: 16px;
-        color: var(--text-main);
-        font-weight: 500;
-        height: 24px;
-    }
-
+    .ai-message { font-size: 16px; color: var(--text-main); font-weight: 500; height: 24px; transition: opacity 0.3s ease; }
     .timer-pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        background: #F3F4F6;
-        padding: 4px 12px;
-        border-radius: 100px;
-        color: var(--text-muted);
-        font-size: 12px;
-        margin-top: 24px;
+        display: inline-flex; align-items: center; gap: 6px; background: #F3F4F6;
+        padding: 6px 16px; border-radius: 100px; color: var(--text-muted); font-size: 13px; margin-top: 24px;
+    }
+
+    /* --- ESTADO 3: ÉXITO ESTILO MERCADO LIBRE --- */
+    .success-area { display: none; text-align: center; }
+    .success-area.active { display: block; animation: popIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+    
+    @keyframes popIn {
+        0% { opacity: 0; transform: scale(0.8); }
+        100% { opacity: 1; transform: scale(1); }
+    }
+
+    .check-circle {
+        width: 90px; height: 90px; background: var(--success); border-radius: 50%;
+        display: flex; align-items: center; justify-content: center; margin: 0 auto 24px;
+        box-shadow: 0 15px 30px rgba(0, 166, 80, 0.3);
+    }
+
+    .check-circle svg {
+        width: 45px; height: 45px; color: white;
+        /* Animación de dibujado del path */
+        stroke-dasharray: 100; stroke-dashoffset: 100;
+        animation: drawCheck 0.6s ease forwards 0.3s;
+    }
+
+    @keyframes drawCheck {
+        to { stroke-dashoffset: 0; }
     }
 
     .hidden { display: none !important; }
@@ -203,7 +158,6 @@
             </div>
             <h1 class="title">Análisis Inteligente</h1>
             <p class="desc">Sube tu licitación en PDF. Nuestra IA estructurará partidas, cantidades y especificaciones automáticamente.</p>
-            
             <label class="file-btn">
                 <span>Seleccionar Archivo</span>
                 <input type="file" id="mainPdfInput" class="hidden" accept="application/pdf">
@@ -227,12 +181,22 @@
             <p class="ai-message" id="dynamicMessage">Iniciando reconocimiento visual...</p>
 
             <div class="timer-pill">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <circle cx="12" cy="12" r="10"></circle>
                     <polyline points="12 6 12 12 16 14"></polyline>
                 </svg>
                 <span id="elapsedTime">00:00</span>
             </div>
+        </div>
+
+        <div id="step-success" class="success-area">
+            <div class="check-circle">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+            </div>
+            <h1 class="title" style="color: var(--text-main);">¡Listo!</h1>
+            <p class="desc" style="margin-bottom: 0;">Análisis completado. Redirigiendo a los resultados...</p>
         </div>
 
     </div>
@@ -242,19 +206,17 @@
     const fileInput = document.getElementById('mainPdfInput');
     const uploadArea = document.getElementById('step-upload');
     const aiArea = document.getElementById('step-ai');
+    const successArea = document.getElementById('step-success');
     
     const barFill = document.getElementById('mainBarFill');
     const percentLabel = document.getElementById('percentLabel');
     const dynamicMessage = document.getElementById('dynamicMessage');
     const elapsedTime = document.getElementById('elapsedTime');
 
-    // Mensajes de IA "Conocedores"
     const aiFlow = [
-        "Escaneando capas del documento...",
         "Detectando tablas y celdas complejas...",
-        "Extrayendo texto mediante OCR Azure...",
-        "Identificando entidades: Cantidad y Unidad...",
-        "Cruzando información con el glosario...",
+        "Extrayendo texto mediante OCR...",
+        "Identificando entidades y cantidades...",
         "Validando coherencia de las partidas...",
         "Finalizando estructura de datos..."
     ];
@@ -264,7 +226,7 @@
 
     fileInput.addEventListener('change', function() {
         if (this.files.length > 0) {
-            // Transición suave
+            // Transición 1 -> 2
             uploadArea.style.opacity = '0';
             uploadArea.style.transform = 'translateY(-20px)';
             
@@ -272,12 +234,11 @@
                 uploadArea.classList.add('hidden');
                 aiArea.classList.add('active');
                 startExperience();
-            }, 500);
+            }, 400);
         }
     });
 
     function startExperience() {
-        // Iniciar cronómetro
         timer = setInterval(() => {
             seconds++;
             let m = Math.floor(seconds / 60).toString().padStart(2, '0');
@@ -285,30 +246,35 @@
             elapsedTime.innerText = `${m}:${s}`;
         }, 1000);
 
-        // Simulación de carga (Aquí conectarías con tu polling real)
         let progress = 0;
         let messageIndex = 0;
 
+        // ESTO SIMULA TU CONEXIÓN AL BACKEND
         const loadInterval = setInterval(() => {
-            progress += Math.random() * 4; // Carga irregular para parecer real
+            progress += Math.random() * 5; 
             
+            // --- CUANDO LLEGA AL 100% ---
             if (progress >= 100) {
                 progress = 100;
                 clearInterval(loadInterval);
                 clearInterval(timer);
-                dynamicMessage.innerText = "¡Análisis finalizado!";
-                dynamicMessage.style.color = "#10B981";
                 
+                barFill.style.width = '100%';
+                percentLabel.innerText = '100%';
+                dynamicMessage.innerText = "¡Completado!";
+                dynamicMessage.style.color = "var(--success)";
+
+                // Darle 0.8 segundos al usuario para ver el 100% antes de cambiar pantalla
                 setTimeout(() => {
-                    alert("Carga completa. Redirigiendo a resultados...");
-                }, 1000);
+                    triggerSuccessState();
+                }, 800);
+            } else {
+                barFill.style.width = progress + '%';
+                percentLabel.innerText = Math.floor(progress) + '%';
             }
 
-            barFill.style.width = progress + '%';
-            percentLabel.innerText = Math.floor(progress) + '%';
-
-            // Cambiar mensaje cada 15% de progreso aprox
-            if (Math.floor(progress / 15) > messageIndex && messageIndex < aiFlow.length - 1) {
+            // Cambiar textos dinámicos
+            if (Math.floor(progress / 20) > messageIndex && messageIndex < aiFlow.length - 1) {
                 messageIndex++;
                 dynamicMessage.style.opacity = '0';
                 setTimeout(() => {
@@ -316,7 +282,27 @@
                     dynamicMessage.style.opacity = '1';
                 }, 300);
             }
-        }, 600);
+        }, 500);
+    }
+
+    function triggerSuccessState() {
+        // Transición 2 -> 3
+        aiArea.style.opacity = '0';
+        
+        setTimeout(() => {
+            aiArea.classList.remove('active');
+            aiArea.classList.add('hidden');
+            successArea.classList.add('active'); // Aquí se dispara la animación de la palomita
+
+            // Esperar 2.5 segundos para que vean la animación bonita y redirigir
+            setTimeout(() => {
+                // AQUÍ PONES TU RUTA DE LARAVEL HACIA LA VISTA SHOW
+                // Ejemplo: window.location.href = "{{ route('propuestas-comerciales.show', 1) }}";
+                
+                window.location.href = "/propuestas-comerciales/1"; // <-- CAMBIAR POR TU RUTA REAL
+            }, 2500);
+
+        }, 400);
     }
 </script>
 @endsection
