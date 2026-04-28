@@ -9,7 +9,8 @@ use Illuminate\Support\Str;
 class ExternalProductReferenceService
 {
     public function __construct(
-        protected ProductSearchStrategyService $strategyService
+        protected ProductSearchStrategyService $strategyService,
+        protected OpenAiProductWebSearchService $openAiWebSearchService
     ) {}
 
     public function searchTop3(
@@ -19,7 +20,26 @@ class ExternalProductReferenceService
         mixed $cantidadMaxima = null,
         mixed $cantidadCotizada = null
     ): array {
+        return $this->searchTopN(
+            descripcion: $descripcion,
+            unidad: $unidad,
+            cantidadMinima: $cantidadMinima,
+            cantidadMaxima: $cantidadMaxima,
+            cantidadCotizada: $cantidadCotizada,
+            limit: (int) env('EXTERNAL_RESULTS_LIMIT', 7)
+        );
+    }
+
+    public function searchTopN(
+        string $descripcion,
+        string $unidad = '',
+        mixed $cantidadMinima = null,
+        mixed $cantidadMaxima = null,
+        mixed $cantidadCotizada = null,
+        int $limit = 7
+    ): array {
         $descripcion = trim($descripcion);
+        $limit = max(1, min($limit, 7));
 
         if ($descripcion === '') {
             return [];
@@ -43,32 +63,51 @@ class ExternalProductReferenceService
             'palabras_prohibidas' => $strategy['palabras_prohibidas'] ?? [],
         ]);
 
-        $queriesCompra = collect($strategy['queries_compra'] ?? [])
-            ->map(fn ($query) => trim((string) $query))
-            ->filter()
-            ->unique()
-            ->values();
+        /*
+         * CAPA 1:
+         * OpenAI con búsqueda web intenta encontrar links reales de compra.
+         */
+        $openAiWebResults = $this->openAiWebSearchService->searchPurchaseLinks(
+            descripcion: $descripcion,
+            unidad: $unidad,
+            cantidadMinima: $cantidadMinima,
+            cantidadMaxima: $cantidadMaxima,
+            cantidadCotizada: $cantidadCotizada,
+            strategy: $strategy,
+            limit: $limit
+        );
 
-        if ($queriesCompra->isEmpty()) {
-            $queriesCompra = collect([
-                trim(($strategy['producto_principal'] ?? $descripcion) . ' comprar México'),
-                trim(($strategy['producto_principal'] ?? $descripcion) . ' proveedor México'),
-                trim(($strategy['producto_principal'] ?? $descripcion) . ' precio México'),
-            ]);
+        if (!empty($openAiWebResults)) {
+            return collect($openAiWebResults)
+                ->take($limit)
+                ->values()
+                ->all();
         }
+
+        /*
+         * CAPA 2:
+         * Mercado Libre API, si no está bloqueada.
+         */
+        $queriesCompra = $this->buildQueriesCompra(
+            descripcion: $descripcion,
+            unidad: $unidad,
+            cantidadMinima: $cantidadMinima,
+            cantidadMaxima: $cantidadMaxima,
+            cantidadCotizada: $cantidadCotizada,
+            strategy: $strategy
+        );
 
         $rawResults = collect();
 
-        foreach ($queriesCompra->take(2) as $query) {
-            $results = $this->searchMercadoLibre($query);
-
-            foreach ($results as $result) {
+        foreach ($queriesCompra->take(3) as $query) {
+            foreach ($this->searchMercadoLibre($query) as $result) {
                 $rawResults->push($result);
             }
         }
 
         $validResults = $rawResults
-            ->unique('url')
+            ->filter(fn ($row) => !empty($row['url']) && !empty($row['title']))
+            ->unique(fn ($row) => $this->normalizeUrl((string) $row['url']))
             ->map(fn ($row) => $this->scoreResult(
                 row: $row,
                 descripcion: $descripcion,
@@ -77,7 +116,7 @@ class ExternalProductReferenceService
             ))
             ->filter(fn ($row) => $row['score'] >= 55 && $row['strategy_ok'] === true)
             ->sortByDesc('score')
-            ->take(3)
+            ->take($limit)
             ->values()
             ->all();
 
@@ -85,14 +124,69 @@ class ExternalProductReferenceService
             return $validResults;
         }
 
+        /*
+         * CAPA 3:
+         * Links inteligentes por tienda. No son inventados como producto,
+         * son URLs de búsqueda listas para comprar/cotizar.
+         */
         return $this->fallbackReferenceLinks(
             descripcion: $descripcion,
             unidad: $unidad,
             cantidadMinima: $cantidadMinima,
             cantidadMaxima: $cantidadMaxima,
             cantidadCotizada: $cantidadCotizada,
-            strategy: $strategy
+            strategy: $strategy,
+            limit: $limit
         );
+    }
+
+    protected function buildQueriesCompra(
+        string $descripcion,
+        string $unidad,
+        mixed $cantidadMinima,
+        mixed $cantidadMaxima,
+        mixed $cantidadCotizada,
+        array $strategy
+    ) {
+        $queries = collect($strategy['queries_compra'] ?? [])
+            ->map(fn ($query) => trim((string) $query))
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($queries->isEmpty()) {
+            $producto = trim((string) ($strategy['producto_principal'] ?? $descripcion));
+
+            $queries = collect([
+                trim($producto . ' comprar México'),
+                trim($producto . ' proveedor México'),
+                trim($producto . ' precio México'),
+            ]);
+        }
+
+        $cantidad = $cantidadCotizada ?: $cantidadMaxima ?: $cantidadMinima;
+
+        return $queries
+            ->map(function ($query) use ($cantidad, $unidad) {
+                $query = trim((string) $query);
+
+                if ($cantidad && is_numeric($cantidad) && (float) $cantidad > 1) {
+                    $cantidadInt = (string) ((int) $cantidad);
+
+                    if (!str_contains($query, $cantidadInt)) {
+                        $query .= ' ' . $cantidadInt;
+                    }
+                }
+
+                if ($unidad !== '' && !str_contains(Str::lower($query), Str::lower($unidad))) {
+                    $query .= ' ' . $unidad;
+                }
+
+                return trim($query);
+            })
+            ->filter()
+            ->unique()
+            ->values();
     }
 
     protected function searchMercadoLibre(string $query): array
@@ -134,6 +228,7 @@ class ExternalProductReferenceService
                         'thumbnail' => $item['thumbnail'] ?? null,
                         'search_query' => $query,
                         'raw' => [
+                            'provider' => 'mercadolibre',
                             'id' => $item['id'] ?? null,
                             'category_id' => $item['category_id'] ?? null,
                             'available_quantity' => $item['available_quantity'] ?? null,
@@ -256,9 +351,7 @@ class ExternalProductReferenceService
             }
         }
 
-        $usefulDescriptionWords = $this->extractUsefulWords($descripcion);
-
-        foreach ($usefulDescriptionWords as $word) {
+        foreach ($this->extractUsefulWords($descripcion) as $word) {
             if ($this->containsTextOrWords($title, $word)) {
                 $matched[] = $word;
                 $score += 5;
@@ -286,6 +379,10 @@ class ExternalProductReferenceService
         similar_text($query, $title, $similarity);
         $score += min((float) $similarity * 0.18, 14);
 
+        if (!empty($row['price'])) {
+            $score += 4;
+        }
+
         $unidadNorm = $this->normalize($unidad);
         $unidadCoincide = false;
 
@@ -293,6 +390,8 @@ class ExternalProductReferenceService
             $unidadCoincide = true;
             $score += 3;
         }
+
+        $score = round(max(min($score, 100), 0), 2);
 
         $strategyOk = true;
 
@@ -303,8 +402,6 @@ class ExternalProductReferenceService
         if ($score < 55) {
             $strategyOk = false;
         }
-
-        $score = round(max(min($score, 100), 0), 2);
 
         return [
             'source' => $row['source'] ?? 'Internet',
@@ -339,7 +436,8 @@ class ExternalProductReferenceService
         mixed $cantidadMinima,
         mixed $cantidadMaxima,
         mixed $cantidadCotizada,
-        array $strategy
+        array $strategy,
+        int $limit = 7
     ): array {
         $queries = collect($strategy['queries_compra'] ?? [])
             ->map(fn ($query) => trim((string) $query))
@@ -357,45 +455,42 @@ class ExternalProductReferenceService
             ]);
         }
 
-        while ($queries->count() < 3) {
-            $base = $strategy['producto_principal'] ?? $descripcion;
+        while ($queries->count() < $limit) {
+            $base = trim((string) ($strategy['producto_principal'] ?? $descripcion));
 
-            if ($queries->count() === 1) {
-                $queries->push(trim($base . ' proveedor México'));
-            } elseif ($queries->count() === 2) {
-                $queries->push(trim($base . ' precio México'));
-            } else {
-                break;
-            }
+            $queries->push(match ($queries->count()) {
+                0 => $base . ' comprar México',
+                1 => $base . ' proveedor México',
+                2 => $base . ' precio México',
+                3 => $base . ' tienda en línea México',
+                4 => $base . ' distribuidor México',
+                5 => $base . ' mayoreo México',
+                default => $base . ' cotizar México',
+            });
+
+            $queries = $queries->unique()->values();
         }
 
         $cantidad = $cantidadCotizada ?: $cantidadMaxima ?: $cantidadMinima;
 
         $sources = [
-            [
-                'source' => 'Mercado Libre',
-                'score' => 90,
-                'url_type' => 'mercadolibre',
-                'prefix' => 'Buscar en Mercado Libre',
-            ],
-            [
-                'source' => 'Google Shopping',
-                'score' => 86,
-                'url_type' => 'google_shopping',
-                'prefix' => 'Buscar en Google Shopping',
-            ],
-            [
-                'source' => 'Google Proveedores',
-                'score' => 82,
-                'url_type' => 'google',
-                'prefix' => 'Buscar proveedores',
-            ],
+            ['source' => 'Mercado Libre', 'score' => 90, 'url_type' => 'mercadolibre', 'prefix' => 'Buscar en Mercado Libre'],
+            ['source' => 'Google Shopping', 'score' => 86, 'url_type' => 'google_shopping', 'prefix' => 'Buscar en Google Shopping'],
+            ['source' => 'Amazon México', 'score' => 84, 'url_type' => 'amazon', 'prefix' => 'Buscar en Amazon México'],
+            ['source' => 'Walmart México', 'score' => 82, 'url_type' => 'walmart', 'prefix' => 'Buscar en Walmart México'],
+            ['source' => 'Office Depot', 'score' => 80, 'url_type' => 'office_depot_google', 'prefix' => 'Buscar en Office Depot'],
+            ['source' => 'Pedidos.com', 'score' => 78, 'url_type' => 'pedidos_google', 'prefix' => 'Buscar en Pedidos.com'],
+            ['source' => 'DC Mayorista', 'score' => 76, 'url_type' => 'dcmayorista_google', 'prefix' => 'Buscar en DC Mayorista'],
+            ['source' => 'Tony Superpapelerías', 'score' => 74, 'url_type' => 'tony_google', 'prefix' => 'Buscar en Tony Superpapelerías'],
+            ['source' => 'Marchand', 'score' => 72, 'url_type' => 'marchand_google', 'prefix' => 'Buscar en Marchand'],
+            ['source' => 'Chedraui', 'score' => 70, 'url_type' => 'chedraui_google', 'prefix' => 'Buscar en Chedraui'],
+            ['source' => 'Proveedores México', 'score' => 68, 'url_type' => 'proveedores_google', 'prefix' => 'Buscar proveedores alternos'],
         ];
 
         return collect($sources)
+            ->take($limit)
             ->map(function ($sourceConfig, $index) use ($queries, $strategy, $descripcion, $unidad, $cantidad) {
                 $query = $queries->get($index) ?: $queries->first();
-
                 $query = trim((string) $query);
 
                 if ($cantidad && is_numeric($cantidad) && (float) $cantidad > 1 && !str_contains($query, (string) ((int) $cantidad))) {
@@ -426,7 +521,7 @@ class ExternalProductReferenceService
                     'condition' => null,
                     'raw' => [
                         'fallback' => true,
-                        'reason' => 'No hubo resultados externos confiables desde API o la API fue bloqueada. Se generó link de búsqueda inteligente usando la estrategia IA.',
+                        'reason' => 'No hubo links directos confiables desde OpenAI web search o Mercado Libre. Se generó link de búsqueda inteligente por tienda.',
                         'query' => $query,
                         'cantidad' => $cantidad,
                         'unidad' => $unidad,
@@ -447,8 +542,34 @@ class ExternalProductReferenceService
         return match ($type) {
             'mercadolibre' => 'https://listado.mercadolibre.com.mx/' . str_replace('+', '-', urlencode($query)),
             'google_shopping' => 'https://www.google.com/search?tbm=shop&q=' . urlencode($query),
+            'amazon' => 'https://www.amazon.com.mx/s?k=' . urlencode($query),
+            'walmart' => 'https://www.walmart.com.mx/search?q=' . urlencode($query),
+            'office_depot_google' => 'https://www.google.com/search?q=' . urlencode('site:officedepot.com.mx ' . $query),
+            'pedidos_google' => 'https://www.google.com/search?q=' . urlencode('site:pedidos.com ' . $query),
+            'dcmayorista_google' => 'https://www.google.com/search?q=' . urlencode('site:dcmayorista.com.mx ' . $query),
+            'tony_google' => 'https://www.google.com/search?q=' . urlencode('site:tony.com.mx ' . $query),
+            'marchand_google' => 'https://www.google.com/search?q=' . urlencode('site:marchand.com.mx ' . $query),
+            'chedraui_google' => 'https://www.google.com/search?q=' . urlencode('site:chedraui.com.mx ' . $query),
+            'proveedores_google' => 'https://www.google.com/search?q=' . urlencode($query . ' proveedor distribuidor mayoreo México'),
             default => 'https://www.google.com/search?q=' . urlencode($query),
         };
+    }
+
+    protected function normalizeUrl(string $url): string
+    {
+        $url = trim($url);
+
+        if ($url === '') {
+            return '';
+        }
+
+        $parts = parse_url($url);
+
+        if (!$parts || empty($parts['host'])) {
+            return $url;
+        }
+
+        return strtolower(($parts['scheme'] ?? 'https') . '://' . $parts['host'] . ($parts['path'] ?? ''));
     }
 
     protected function containsTextOrWords(string $haystack, string $needle): bool
@@ -526,9 +647,7 @@ class ExternalProductReferenceService
             return false;
         }
 
-        $variants = $this->tokenVariants($needle);
-
-        foreach ($variants as $variant) {
+        foreach ($this->tokenVariants($needle) as $variant) {
             if ($variant === '') {
                 continue;
             }
