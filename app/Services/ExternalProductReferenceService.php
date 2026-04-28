@@ -126,8 +126,7 @@ class ExternalProductReferenceService
 
         /*
          * CAPA 3:
-         * Links inteligentes por tienda. No son inventados como producto,
-         * son URLs de búsqueda listas para comprar/cotizar.
+         * Links inteligentes por tienda.
          */
         return $this->fallbackReferenceLinks(
             descripcion: $descripcion,
@@ -473,18 +472,59 @@ class ExternalProductReferenceService
 
         $cantidad = $cantidadCotizada ?: $cantidadMaxima ?: $cantidadMinima;
 
+        /*
+         * Fuentes externas activas.
+         * Se quitaron: Office Depot, Pedidos.com y DC Mayorista.
+         */
         $sources = [
-            ['source' => 'Mercado Libre', 'score' => 90, 'url_type' => 'mercadolibre', 'prefix' => 'Buscar en Mercado Libre'],
-            ['source' => 'Google Shopping', 'score' => 86, 'url_type' => 'google_shopping', 'prefix' => 'Buscar en Google Shopping'],
-            ['source' => 'Amazon México', 'score' => 84, 'url_type' => 'amazon', 'prefix' => 'Buscar en Amazon México'],
-            ['source' => 'Walmart México', 'score' => 82, 'url_type' => 'walmart', 'prefix' => 'Buscar en Walmart México'],
-            ['source' => 'Office Depot', 'score' => 80, 'url_type' => 'office_depot_google', 'prefix' => 'Buscar en Office Depot'],
-            ['source' => 'Pedidos.com', 'score' => 78, 'url_type' => 'pedidos_google', 'prefix' => 'Buscar en Pedidos.com'],
-            ['source' => 'DC Mayorista', 'score' => 76, 'url_type' => 'dcmayorista_google', 'prefix' => 'Buscar en DC Mayorista'],
-            ['source' => 'Tony Superpapelerías', 'score' => 74, 'url_type' => 'tony_google', 'prefix' => 'Buscar en Tony Superpapelerías'],
-            ['source' => 'Marchand', 'score' => 72, 'url_type' => 'marchand_google', 'prefix' => 'Buscar en Marchand'],
-            ['source' => 'Chedraui', 'score' => 70, 'url_type' => 'chedraui_google', 'prefix' => 'Buscar en Chedraui'],
-            ['source' => 'Proveedores México', 'score' => 68, 'url_type' => 'proveedores_google', 'prefix' => 'Buscar proveedores alternos'],
+            [
+                'source' => 'Mercado Libre',
+                'score' => 90,
+                'url_type' => 'mercadolibre',
+                'prefix' => 'Buscar en Mercado Libre',
+            ],
+            [
+                'source' => 'Google Shopping',
+                'score' => 86,
+                'url_type' => 'google_shopping',
+                'prefix' => 'Buscar en Google Shopping',
+            ],
+            [
+                'source' => 'Amazon México',
+                'score' => 84,
+                'url_type' => 'amazon',
+                'prefix' => 'Buscar en Amazon México',
+            ],
+            [
+                'source' => 'Walmart México',
+                'score' => 82,
+                'url_type' => 'walmart',
+                'prefix' => 'Buscar en Walmart México',
+            ],
+            [
+                'source' => 'Tony Superpapelerías',
+                'score' => 80,
+                'url_type' => 'tony_google',
+                'prefix' => 'Buscar en Tony Superpapelerías',
+            ],
+            [
+                'source' => 'Marchand',
+                'score' => 78,
+                'url_type' => 'marchand_google',
+                'prefix' => 'Buscar en Marchand',
+            ],
+            [
+                'source' => 'Chedraui',
+                'score' => 76,
+                'url_type' => 'chedraui_google',
+                'prefix' => 'Buscar en Chedraui',
+            ],
+            [
+                'source' => 'Proveedores México',
+                'score' => 74,
+                'url_type' => 'proveedores_google',
+                'prefix' => 'Buscar proveedores alternos',
+            ],
         ];
 
         return collect($sources)
@@ -541,16 +581,21 @@ class ExternalProductReferenceService
 
         return match ($type) {
             'mercadolibre' => 'https://listado.mercadolibre.com.mx/' . str_replace('+', '-', urlencode($query)),
+
             'google_shopping' => 'https://www.google.com/search?tbm=shop&q=' . urlencode($query),
+
             'amazon' => 'https://www.amazon.com.mx/s?k=' . urlencode($query),
+
             'walmart' => 'https://www.walmart.com.mx/search?q=' . urlencode($query),
-            'office_depot_google' => 'https://www.google.com/search?q=' . urlencode('site:officedepot.com.mx ' . $query),
-            'pedidos_google' => 'https://www.google.com/search?q=' . urlencode('site:pedidos.com ' . $query),
-            'dcmayorista_google' => 'https://www.google.com/search?q=' . urlencode('site:dcmayorista.com.mx ' . $query),
+
             'tony_google' => 'https://www.google.com/search?q=' . urlencode('site:tony.com.mx ' . $query),
+
             'marchand_google' => 'https://www.google.com/search?q=' . urlencode('site:marchand.com.mx ' . $query),
+
             'chedraui_google' => 'https://www.google.com/search?q=' . urlencode('site:chedraui.com.mx ' . $query),
+
             'proveedores_google' => 'https://www.google.com/search?q=' . urlencode($query . ' proveedor distribuidor mayoreo México'),
+
             default => 'https://www.google.com/search?q=' . urlencode($query),
         };
     }

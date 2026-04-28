@@ -318,62 +318,70 @@ class ExpenseController extends Controller
 
     public function store(Request $request)
     {
-        // UI manda: entry_kind = 'gasto' o 'caja'
-        // En BD/Controller lo manejamos como: gasto o movimiento
+        /*
+         * Este endpoint SOLO guarda gastos normales.
+         * Los movimientos de caja se guardan por sus endpoints AJAX:
+         * - storeAllocation
+         * - storeDisbursementDirect
+         * - startDisbursementQr
+         * - storeReturn
+         */
         $entryKind = $request->input('entry_kind', 'gasto');
-        if ($entryKind === 'caja') $entryKind = 'movimiento';
+        if ($entryKind === 'caja' || $entryKind === 'movimiento') {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'ok' => false,
+                    'message' => 'El movimiento de caja se guarda desde sus botones: Fondo, Entrega o Devolución.',
+                ], 422);
+            }
 
-        if ($entryKind === 'movimiento') {
-            abort(422, 'El movimiento se guarda desde Directo/QR.');
+            return back()
+                ->withInput()
+                ->withErrors(['entry_kind' => 'El movimiento de caja se guarda desde sus botones: Fondo, Entrega o Devolución.']);
         }
 
-        // UI: vehiculo | nomina (ya no usas general)
         $type = $request->input('expense_type', 'vehiculo');
 
         $rules = [
-            'entry_kind'    => ['nullable', 'in:gasto,caja,movimiento'],
-            // ✅ alineado a UI (sin general)
-            'expense_type'  => ['required', 'in:vehiculo,nomina'],
-
-            'concept'       => ['required', 'string', 'max:180'],
-            'expense_date'  => ['required', 'date'],
-            'amount'        => ['required', 'numeric', 'min:0'],
-            'payment_method' => ['nullable', 'string', 'max:40'],
-            'status'        => ['nullable', 'string', 'max:40'],
-            'description'   => ['nullable', 'string', 'max:5000'],
-            'attachment'    => ['nullable', 'file'], // evidencia única para gasto
-
-            // ✅ Firma responsable SIEMPRE
-            'admin_signature'    => ['required', 'string'],
-            // ✅ Firma "quien recibe" SOLO si NO es vehiculo
-            'receiver_signature' => ['nullable', 'string'],
+            'entry_kind'      => ['nullable', 'in:gasto'],
+            'expense_type'    => ['required', 'in:vehiculo,nomina'],
+            'concept'         => ['required', 'string', 'max:180'],
+            'expense_date'    => ['required', 'date'],
+            'amount'          => ['required', 'numeric', 'min:0'],
+            'payment_method'  => ['nullable', 'string', 'max:40'],
+            'status'          => ['nullable', 'string', 'max:40'],
+            'description'     => ['nullable', 'string', 'max:5000'],
+            'attachment'      => ['nullable', 'file'],
+            'nip'             => ['required', 'digits_between:4,8'],
+            'admin_signature' => ['required', 'string'],
         ];
 
         if ($type === 'vehiculo') {
             $rules['vehicle_id'] = ['required', 'integer', 'exists:vehicles,id'];
             $rules['vehicle_category'] = ['required', 'string', 'max:80'];
         }
+
         if ($type === 'nomina') {
             $rules['payroll_category'] = ['required', 'string', 'max:80'];
-            $rules['payroll_period']   = ['required', 'string', 'max:80'];
+            $rules['payroll_period'] = ['required', 'string', 'max:80'];
         }
 
         $data = $request->validate($rules);
 
-        // ✅ si es nómina (o cualquier cosa que no sea vehículo) exigimos firma de quien recibe
-        if ($type !== 'vehiculo' && empty($data['receiver_signature'])) {
-            abort(422, 'Falta la firma de quien recibe.');
-        }
+        $me = auth()->user();
+        if (!$me) abort(403, 'No autenticado.');
+
+        $this->assertUserPinOrFail($me, (string) $data['nip']);
 
         $expense = new Expense();
 
         if (Schema::hasColumn('expenses', 'created_by')) {
-            $expense->created_by = auth()->id();
+            $expense->created_by = $me->id;
         }
 
-        $expense->concept        = $data['concept'];
-        $expense->expense_date   = $data['expense_date'];
-        $expense->amount         = $data['amount'];
+        $expense->concept = $data['concept'];
+        $expense->expense_date = $data['expense_date'];
+        $expense->amount = $data['amount'];
 
         if (Schema::hasColumn('expenses', 'currency')) $expense->currency = 'MXN';
         if (Schema::hasColumn('expenses', 'payment_method')) $expense->payment_method = $data['payment_method'] ?? 'transfer';
@@ -381,7 +389,7 @@ class ExpenseController extends Controller
         if (Schema::hasColumn('expenses', 'description')) $expense->description = $data['description'] ?? null;
 
         if (Schema::hasColumn('expenses', 'vendor')) $expense->vendor = null;
-        if (Schema::hasColumn('expenses', 'tags'))   $expense->tags = null;
+        if (Schema::hasColumn('expenses', 'tags')) $expense->tags = null;
 
         if (Schema::hasColumn('expenses', 'entry_kind')) {
             $expense->entry_kind = 'gasto';
@@ -391,7 +399,6 @@ class ExpenseController extends Controller
             $expense->expense_type = $type;
         }
 
-        // Limpieza de llaves que no aplican
         if (Schema::hasColumn('expenses', 'expense_category_id')) $expense->expense_category_id = null;
         if (Schema::hasColumn('expenses', 'vehicle_id')) $expense->vehicle_id = null;
 
@@ -405,33 +412,24 @@ class ExpenseController extends Controller
             if (Schema::hasColumn('expenses', 'payroll_period')) $expense->payroll_period = $data['payroll_period'];
         }
 
-        // ✅ Guardar firma "quien recibe" SOLO si aplica y viene
-        if (
-            $type !== 'vehiculo'
-            && !empty($data['receiver_signature'])
-            && Schema::hasColumn('expenses', 'receiver_signature_path')
-        ) {
-            $expense->receiver_signature_path = $this->storeDataUrl($data['receiver_signature'], 'signatures');
-        }
-
-        // ✅ Firma responsable SIEMPRE
         if (Schema::hasColumn('expenses', 'admin_signature_path')) {
             $expense->admin_signature_path = $this->storeDataUrl($data['admin_signature'], 'signatures');
         }
 
+        if (Schema::hasColumn('expenses', 'nip_approved_by')) $expense->nip_approved_by = $me->id;
+        if (Schema::hasColumn('expenses', 'nip_approved_at')) $expense->nip_approved_at = now();
+
         $expense->save();
 
-        // Evidencia única (gasto)
         if ($request->hasFile('attachment')) {
             $file = $request->file('attachment');
             $path = $file->store("expenses/{$expense->id}", 'public');
 
-            if (Schema::hasColumn('expenses', 'attachment_path'))  $expense->attachment_path = $path;
-            if (Schema::hasColumn('expenses', 'attachment_name'))  $expense->attachment_name = $file->getClientOriginalName();
-            if (Schema::hasColumn('expenses', 'attachment_mime'))  $expense->attachment_mime = $file->getClientMimeType();
-            if (Schema::hasColumn('expenses', 'attachment_size'))  $expense->attachment_size = $file->getSize();
+            if (Schema::hasColumn('expenses', 'attachment_path')) $expense->attachment_path = $path;
+            if (Schema::hasColumn('expenses', 'attachment_name')) $expense->attachment_name = $file->getClientOriginalName();
+            if (Schema::hasColumn('expenses', 'attachment_mime')) $expense->attachment_mime = $file->getClientMimeType();
+            if (Schema::hasColumn('expenses', 'attachment_size')) $expense->attachment_size = $file->getSize();
 
-            // Si tu tabla tiene evidence_paths (JSON), también lo guardamos
             if (Schema::hasColumn('expenses', 'evidence_paths')) {
                 $expense->evidence_paths = json_encode([$path], JSON_UNESCAPED_SLASHES);
             }
