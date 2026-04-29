@@ -60,12 +60,23 @@
     color: var(--blue);
   }
 
+  .jureto-quote-page .topbar,
+  .jureto-quote-page .actions,
+  .jureto-quote-page .topbar-main {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background-image: none !important;
+    box-shadow: none !important;
+    position: static !important;
+  }
+
   .jureto-quote-page .topbar {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    gap: 20px;
-    align-items: start;
-    margin-bottom: 22px;
+    gap: 16px;
+    align-items: center;
+    position: static;
+    margin-bottom: 18px;
     padding: 0;
     background: transparent;
     border: 0;
@@ -76,6 +87,7 @@
   .jureto-quote-page .topbar-main {
     min-width: 0;
     max-width: 1120px;
+    position: static;
   }
 
   .jureto-quote-page .quote-code {
@@ -84,14 +96,14 @@
     font-weight: 700;
     letter-spacing: .18em;
     text-transform: uppercase;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
   }
 
   .jureto-quote-page .quote-title {
     margin: 0;
     color: #111827;
-    font-size: clamp(18px, 2vw, 28px);
-    line-height: 1.24;
+    font-size: clamp(16px, 1.7vw, 24px);
+    line-height: 1.22;
     font-weight: 700;
     letter-spacing: -.03em;
     max-width: 100%;
@@ -100,33 +112,37 @@
   }
 
   .jureto-quote-page .quote-subtitle {
-    margin: 10px 0 0;
+    margin: 8px 0 0;
     color: #8b8b8b;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
   }
 
   .jureto-quote-page .actions {
     display: flex;
-    flex-direction: column;
-    gap: 10px;
-    align-items: stretch;
-    width: 280px;
-    flex: 0 0 280px;
+    flex-direction: row;
+    gap: 8px;
+    align-items: center;
+    justify-content: flex-end;
+    width: auto;
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+    position: static;
+    top: auto;
   }
 
   .jureto-quote-page .btn {
     appearance: none;
     border: 1px solid transparent;
-    border-radius: 16px;
-    min-height: 46px;
-    padding: 0 16px;
+    border-radius: 12px;
+    min-height: 40px;
+    padding: 0 14px;
     background: transparent;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 10px;
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 700;
     cursor: pointer;
     text-decoration: none;
@@ -139,8 +155,8 @@
   }
 
   .jureto-quote-page .btn-icon {
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -148,8 +164,8 @@
   }
 
   .jureto-quote-page .btn-icon svg {
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
     stroke: currentColor;
   }
 
@@ -157,12 +173,12 @@
     background: var(--blue);
     border-color: var(--blue);
     color: #fff;
-    box-shadow: 0 10px 22px rgba(0, 122, 255, .14);
+    box-shadow: none;
   }
 
   .jureto-quote-page .btn-primary:hover {
     transform: translateY(-1px);
-    box-shadow: 0 14px 28px rgba(0, 122, 255, .18);
+    box-shadow: none;
   }
 
   .jureto-quote-page .btn-ghost {
@@ -226,10 +242,10 @@
   }
 
   .jureto-quote-page .btn-small {
-    min-height: 38px;
-    padding: 0 13px;
-    font-size: 13px;
-    border-radius: 13px;
+    min-height: 34px;
+    padding: 0 11px;
+    font-size: 12px;
+    border-radius: 10px;
   }
 
   .jureto-quote-page .btn[disabled] {
@@ -248,7 +264,7 @@
     padding: 15px 18px;
     font-size: 14px;
     font-weight: 600;
-    margin-bottom: 22px;
+    margin-bottom: 18px;
   }
 
   .jureto-quote-page .notice.show {
@@ -502,7 +518,7 @@
 
   .jureto-quote-page .result-title {
     color: #111;
-    font-size: 15px;
+    font-size: 14px;
     line-height: 1.4;
     font-weight: 700;
   }
@@ -741,6 +757,7 @@
       flex-direction: row;
       flex-wrap: wrap;
       justify-content: flex-start;
+      gap: 8px;
     }
 
     .jureto-quote-page .item-main {
@@ -767,12 +784,13 @@
     }
 
     .jureto-quote-page .quote-title {
-      font-size: 20px;
-      line-height: 1.28;
+      font-size: 18px;
+      line-height: 1.26;
     }
 
     .jureto-quote-page .actions {
-      flex-direction: column;
+      flex-direction: row;
+      justify-content: flex-start;
     }
 
     .jureto-quote-page .summary-grid {
@@ -798,7 +816,7 @@
     }
 
     .jureto-quote-page .btn {
-      width: 100%;
+      width: auto;
     }
 
     .jureto-quote-page .modal-result {
