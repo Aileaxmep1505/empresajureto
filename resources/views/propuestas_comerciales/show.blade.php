@@ -1,42 +1,30 @@
 @extends('layouts.app')
-
+@section('content_class', 'content--flush')
 @section('content')
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap');
 
   .jureto-quote-page {
-    --bg: #f9fafb;
+    --bg: #ffffff;
     --card: #ffffff;
-    --ink: #333333;
-    --muted: #888888;
-    --line: #ebebeb;
+    --ink: #171717;
+    --muted: #737373;
+    --line: #ececec;
     --blue: #007aff;
-    --blue-soft: #e6f0ff;
+    --blue-soft: #eef6ff;
     --success: #15803d;
-    --success-soft: #e6ffe6;
-    --danger: #ff4a4a;
-    --danger-soft: #ffebeb;
+    --success-soft: #ecfdf3;
+    --danger: #dc2626;
+    --danger-soft: #fef2f2;
     --warning: #a16207;
     --warning-soft: #fff7d6;
 
-    position: relative;
-    z-index: 0;
-    isolation: isolate;
     min-height: 100vh;
     width: 100%;
-    background: var(--bg);
+    background: #ffffff;
     color: var(--ink);
     font-family: 'Quicksand', sans-serif;
-    padding: 34px 0 60px;
-  }
-
-  .jureto-quote-page::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    pointer-events: none;
-    background: var(--bg);
+    padding: 24px 0 48px;
   }
 
   .jureto-quote-page,
@@ -52,112 +40,140 @@
   }
 
   .jureto-quote-page .quote-wrap {
-    width: 90vw;
-    max-width: 1600px;
+    width: min(96vw, 1560px);
     margin: 0 auto;
-  }
-
-  .jureto-quote-page .topbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 24px;
-    margin-bottom: 28px;
   }
 
   .jureto-quote-page .back-link {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    color: #777;
+    color: #6b7280;
     text-decoration: none;
     font-size: 14px;
-    font-weight: 600;
-    margin-bottom: 34px;
-    transition: .2s ease;
+    font-weight: 700;
+    margin-bottom: 18px;
+    transition: .18s ease;
   }
 
   .jureto-quote-page .back-link:hover {
     color: var(--blue);
   }
 
+  .jureto-quote-page .topbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 20px;
+    align-items: start;
+    margin-bottom: 22px;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .jureto-quote-page .topbar-main {
+    min-width: 0;
+    max-width: 1120px;
+  }
+
   .jureto-quote-page .quote-code {
-    font-size: 12px;
-    color: var(--muted);
+    font-size: 11px;
+    color: #8a8a8a;
     font-weight: 700;
-    letter-spacing: .13em;
+    letter-spacing: .18em;
     text-transform: uppercase;
-    margin-bottom: 9px;
+    margin-bottom: 8px;
   }
 
   .jureto-quote-page .quote-title {
     margin: 0;
-    color: #111;
-    font-size: 30px;
-    line-height: 1.1;
+    color: #111827;
+    font-size: clamp(18px, 2vw, 28px);
+    line-height: 1.24;
     font-weight: 700;
     letter-spacing: -.03em;
+    max-width: 100%;
+    word-break: break-word;
+    overflow-wrap: anywhere;
   }
 
   .jureto-quote-page .quote-subtitle {
     margin: 10px 0 0;
-    color: var(--muted);
-    font-size: 15px;
-    font-weight: 500;
+    color: #8b8b8b;
+    font-size: 14px;
+    font-weight: 600;
   }
 
   .jureto-quote-page .actions {
     display: flex;
+    flex-direction: column;
     gap: 10px;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    padding-top: 68px;
+    align-items: stretch;
+    width: 280px;
+    flex: 0 0 280px;
   }
 
   .jureto-quote-page .btn {
     appearance: none;
     border: 1px solid transparent;
-    border-radius: 14px;
-    min-height: 40px;
-    padding: 0 15px;
+    border-radius: 16px;
+    min-height: 46px;
+    padding: 0 16px;
     background: transparent;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    font-size: 14px;
+    gap: 10px;
+    font-size: 15px;
     font-weight: 700;
     cursor: pointer;
     text-decoration: none;
-    transition: .2s ease;
+    transition: .18s ease;
     white-space: nowrap;
   }
 
   .jureto-quote-page .btn:active {
-    transform: scale(.98);
+    transform: scale(.985);
+  }
+
+  .jureto-quote-page .btn-icon {
+    width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 18px;
+  }
+
+  .jureto-quote-page .btn-icon svg {
+    width: 18px;
+    height: 18px;
+    stroke: currentColor;
   }
 
   .jureto-quote-page .btn-primary {
     background: var(--blue);
     border-color: var(--blue);
     color: #fff;
-    box-shadow: 0 8px 18px rgba(0,122,255,.12);
+    box-shadow: 0 10px 22px rgba(0, 122, 255, .14);
   }
 
   .jureto-quote-page .btn-primary:hover {
     transform: translateY(-1px);
-    box-shadow: 0 12px 24px rgba(0,122,255,.18);
+    box-shadow: 0 14px 28px rgba(0, 122, 255, .18);
   }
 
   .jureto-quote-page .btn-ghost {
     background: #fff;
     border-color: var(--line);
-    color: #666;
+    color: #5b6470;
   }
 
   .jureto-quote-page .btn-ghost:hover {
-    background: #f9fafb;
-    transform: translateY(-1px);
+    background: #fafafa;
+    border-color: #dddddd;
   }
 
   .jureto-quote-page .btn-soft {
@@ -166,52 +182,47 @@
   }
 
   .jureto-quote-page .btn-soft:hover {
-    background: #dceaff;
-    transform: translateY(-1px);
+    background: #e4f0ff;
   }
 
   .jureto-quote-page .btn-outline {
     background: #fff;
-    border-color: var(--blue);
+    border-color: rgba(0,122,255,.35);
     color: var(--blue);
   }
 
   .jureto-quote-page .btn-outline:hover {
     background: var(--blue-soft);
-    transform: translateY(-1px);
   }
 
   .jureto-quote-page .btn-success {
     color: var(--success);
     background: #fff;
-    border-color: rgba(21,128,61,.35);
+    border-color: rgba(21,128,61,.28);
   }
 
   .jureto-quote-page .btn-success:hover {
     background: var(--success-soft);
-    transform: translateY(-1px);
   }
 
   .jureto-quote-page .btn-danger {
     color: var(--danger);
     background: #fff;
-    border-color: rgba(255,74,74,.35);
+    border-color: rgba(220,38,38,.24);
   }
 
   .jureto-quote-page .btn-danger:hover {
     background: var(--danger-soft);
-    transform: translateY(-1px);
   }
 
   .jureto-quote-page .btn-warning {
     color: var(--warning);
     background: #fff;
-    border-color: rgba(161,98,7,.35);
+    border-color: rgba(161,98,7,.28);
   }
 
   .jureto-quote-page .btn-warning:hover {
     background: var(--warning-soft);
-    transform: translateY(-1px);
   }
 
   .jureto-quote-page .btn-small {
@@ -231,13 +242,13 @@
     align-items: center;
     gap: 12px;
     border-radius: 14px;
-    border: 1px solid #facc15;
+    border: 1px solid #fde68a;
     background: #fffbeb;
     color: #945d00;
     padding: 15px 18px;
     font-size: 14px;
     font-weight: 600;
-    margin-bottom: 28px;
+    margin-bottom: 22px;
   }
 
   .jureto-quote-page .notice.show {
@@ -248,7 +259,7 @@
     width: 8px;
     height: 8px;
     border-radius: 999px;
-    background: #c69200;
+    background: #d4a214;
     flex: 0 0 auto;
   }
 
@@ -256,12 +267,7 @@
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
     gap: 12px;
-    background: transparent;
-    border: 0;
-    border-radius: 0;
-    overflow: visible;
-    margin-bottom: 34px;
-    isolation: isolate;
+    margin-bottom: 26px;
   }
 
   .jureto-quote-page .summary-cell {
@@ -270,36 +276,24 @@
     min-width: 0;
     background: #fff;
     text-align: center;
-    padding: 19px 12px 17px;
+    padding: 16px 12px 14px;
     cursor: pointer;
-    transition:
-      transform .22s ease,
-      opacity .22s ease,
-      box-shadow .22s ease,
-      background .22s ease,
-      border-color .22s ease;
+    transition: .2s ease;
     position: relative;
-    border-radius: 18px;
-    box-shadow: 0 4px 12px rgba(0,0,0,.02);
+    border-radius: 16px;
+    box-shadow: 0 4px 14px rgba(0,0,0,.025);
   }
 
-  .jureto-quote-page .summary-grid:hover .summary-cell {
-    transform: scale(.985);
-    opacity: .72;
-  }
-
-  .jureto-quote-page .summary-grid:hover .summary-cell:hover {
-    transform: scale(1.045);
-    opacity: 1;
-    z-index: 5;
-    border-color: rgba(0,122,255,.22);
-    box-shadow: 0 18px 40px rgba(0,0,0,.07);
+  .jureto-quote-page .summary-cell:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 22px rgba(0,0,0,.04);
+    border-color: rgba(0,122,255,.18);
   }
 
   .jureto-quote-page .summary-cell.active {
     background: var(--blue);
     border-color: var(--blue);
-    box-shadow: 0 14px 30px rgba(0,122,255,.18);
+    box-shadow: 0 12px 24px rgba(0,122,255,.16);
   }
 
   .jureto-quote-page .summary-cell.active .summary-value,
@@ -307,19 +301,8 @@
     color: #fff !important;
   }
 
-  .jureto-quote-page .summary-cell.active::after {
-    content: "";
-    position: absolute;
-    left: 22px;
-    right: 22px;
-    bottom: 10px;
-    height: 3px;
-    border-radius: 999px;
-    background: rgba(255,255,255,.64);
-  }
-
   .jureto-quote-page .summary-value {
-    font-size: 19px;
+    font-size: 18px;
     font-weight: 700;
     color: #111;
   }
@@ -328,20 +311,12 @@
     margin-top: 8px;
     color: var(--muted);
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 700;
   }
 
-  .jureto-quote-page .text-success {
-    color: var(--success);
-  }
-
-  .jureto-quote-page .text-danger {
-    color: var(--danger);
-  }
-
-  .jureto-quote-page .text-blue {
-    color: var(--blue);
-  }
+  .jureto-quote-page .text-success { color: var(--success); }
+  .jureto-quote-page .text-danger { color: var(--danger); }
+  .jureto-quote-page .text-blue { color: var(--blue); }
 
   .jureto-quote-page .global-margin {
     display: flex;
@@ -365,7 +340,7 @@
 
   .jureto-quote-page .input {
     width: 100%;
-    height: 40px;
+    height: 42px;
     border: 1px solid var(--line);
     border-radius: 12px;
     padding: 0 12px;
@@ -393,11 +368,11 @@
     border-radius: 14px;
     overflow: hidden;
     transition: .2s ease;
-    box-shadow: 0 4px 12px rgba(0,0,0,.02);
+    box-shadow: 0 4px 14px rgba(0,0,0,.02);
   }
 
   .jureto-quote-page .item-card:hover {
-    box-shadow: 0 12px 30px rgba(0,0,0,.035);
+    box-shadow: 0 12px 28px rgba(0,0,0,.035);
     transform: translateY(-1px);
   }
 
@@ -406,24 +381,16 @@
     transform: scale(.995);
   }
 
-  .jureto-quote-page .item-card.status-exact {
-    border-left-color: #22c55e;
-  }
-
-  .jureto-quote-page .item-card.status-similar {
-    border-left-color: var(--blue);
-  }
-
-  .jureto-quote-page .item-card.status-not_found {
-    border-left-color: var(--danger);
-  }
+  .jureto-quote-page .item-card.status-exact { border-left-color: #22c55e; }
+  .jureto-quote-page .item-card.status-similar { border-left-color: var(--blue); }
+  .jureto-quote-page .item-card.status-not_found { border-left-color: var(--danger); }
 
   .jureto-quote-page .item-main {
     display: grid;
     grid-template-columns: 28px 34px minmax(0, 1fr) auto auto auto;
     align-items: center;
     gap: 14px;
-    padding: 18px 24px;
+    padding: 18px 22px;
     cursor: pointer;
   }
 
@@ -438,9 +405,7 @@
     line-height: 1;
   }
 
-  .jureto-quote-page .drag-handle:active {
-    cursor: grabbing;
-  }
+  .jureto-quote-page .drag-handle:active { cursor: grabbing; }
 
   .jureto-quote-page .item-index {
     color: #777;
@@ -475,34 +440,15 @@
     white-space: nowrap;
   }
 
-  .jureto-quote-page .badge-success {
-    background: var(--success-soft);
-    color: var(--success);
-  }
-
-  .jureto-quote-page .badge-danger {
-    background: var(--danger-soft);
-    color: var(--danger);
-  }
-
-  .jureto-quote-page .badge-info {
-    background: var(--blue-soft);
-    color: var(--blue);
-  }
-
-  .jureto-quote-page .badge-warning {
-    background: var(--warning-soft);
-    color: var(--warning);
-  }
-
-  .jureto-quote-page .badge-muted {
-    background: #f3f4f6;
-    color: #777;
-  }
+  .jureto-quote-page .badge-success { background: var(--success-soft); color: var(--success); }
+  .jureto-quote-page .badge-danger { background: var(--danger-soft); color: var(--danger); }
+  .jureto-quote-page .badge-info { background: var(--blue-soft); color: var(--blue); }
+  .jureto-quote-page .badge-warning { background: var(--warning-soft); color: var(--warning); }
+  .jureto-quote-page .badge-muted { background: #f3f4f6; color: #777; }
 
   .jureto-quote-page .money-row {
     display: flex;
-    gap: 20px;
+    gap: 18px;
     font-size: 13px;
     color: var(--muted);
     white-space: nowrap;
@@ -525,7 +471,7 @@
   .jureto-quote-page .item-details {
     display: none;
     border-top: 1px solid var(--line);
-    background: rgba(249,250,251,.65);
+    background: #fafafa;
     padding: 24px 26px 28px;
   }
 
@@ -533,13 +479,8 @@
     display: block;
   }
 
-  .jureto-quote-page .section {
-    margin-bottom: 22px;
-  }
-
-  .jureto-quote-page .section:last-child {
-    margin-bottom: 0;
-  }
+  .jureto-quote-page .section { margin-bottom: 22px; }
+  .jureto-quote-page .section:last-child { margin-bottom: 0; }
 
   .jureto-quote-page .section-title {
     color: var(--muted);
@@ -596,15 +537,13 @@
     margin-top: 22px;
   }
 
-  .jureto-quote-page .edit-form.show {
-    display: grid;
-  }
+  .jureto-quote-page .edit-form.show { display: grid; }
 
   .jureto-quote-page .modal-backdrop {
     position: fixed;
     inset: 0;
     z-index: 9999;
-    background: rgba(0,0,0,.18);
+    background: rgba(0,0,0,.16);
     backdrop-filter: blur(6px);
     display: none;
     align-items: center;
@@ -612,9 +551,7 @@
     padding: 18px;
   }
 
-  .jureto-quote-page .modal-backdrop.show {
-    display: flex;
-  }
+  .jureto-quote-page .modal-backdrop.show { display: flex; }
 
   .jureto-quote-page .modal {
     width: min(820px, 100%);
@@ -702,6 +639,91 @@
     to { transform: rotate(360deg); }
   }
 
+  .jureto-quote-page .process-box {
+    display: none;
+    border: 1px solid var(--line);
+    background: #fff;
+    border-radius: 16px;
+    padding: 16px 18px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 12px rgba(0,0,0,.02);
+  }
+
+  .jureto-quote-page .process-box.show { display: block; }
+
+  .jureto-quote-page .process-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+
+  .jureto-quote-page .process-title {
+    font-size: 14px;
+    font-weight: 800;
+    color: #111;
+  }
+
+  .jureto-quote-page .process-text {
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.5;
+  }
+
+  .jureto-quote-page .process-bar {
+    height: 10px;
+    background: #eef2f7;
+    border-radius: 999px;
+    overflow: hidden;
+    margin-top: 12px;
+  }
+
+  .jureto-quote-page .process-fill {
+    height: 100%;
+    width: 0%;
+    background: var(--blue);
+    border-radius: 999px;
+    transition: width .25s ease;
+  }
+
+  .jureto-quote-page .process-box.error {
+    border-color: rgba(220,38,38,.28);
+    background: var(--danger-soft);
+  }
+
+  .jureto-quote-page .process-box.error .process-title {
+    color: var(--danger);
+  }
+
+  .jureto-quote-page .process-box.success {
+    border-color: rgba(21,128,61,.22);
+    background: var(--success-soft);
+  }
+
+  .jureto-quote-page .process-box.success .process-title {
+    color: var(--success);
+  }
+
+  .jureto-quote-page .process-errors {
+    display: none;
+    margin-top: 12px;
+    max-height: 180px;
+    overflow: auto;
+    border-radius: 12px;
+    background: rgba(255,255,255,.75);
+    padding: 10px 12px;
+    color: var(--danger);
+    font-size: 12px;
+    line-height: 1.5;
+    font-weight: 600;
+  }
+
+  .jureto-quote-page .process-errors.show {
+    display: block;
+  }
+
   @media (max-width: 1300px) {
     .jureto-quote-page .summary-grid {
       grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -709,16 +731,15 @@
   }
 
   @media (max-width: 1100px) {
-    .jureto-quote-page .quote-wrap {
-      width: 94vw;
-    }
-
     .jureto-quote-page .topbar {
-      flex-direction: column;
+      grid-template-columns: 1fr;
     }
 
     .jureto-quote-page .actions {
-      padding-top: 0;
+      width: 100%;
+      flex: 1 1 auto;
+      flex-direction: row;
+      flex-wrap: wrap;
       justify-content: flex-start;
     }
 
@@ -738,23 +759,25 @@
 
   @media (max-width: 760px) {
     .jureto-quote-page {
-      padding: 24px 0 42px;
+      padding: 18px 0 40px;
     }
 
     .jureto-quote-page .quote-wrap {
-      width: calc(100vw - 24px);
+      width: calc(100vw - 20px);
+    }
+
+    .jureto-quote-page .quote-title {
+      font-size: 20px;
+      line-height: 1.28;
+    }
+
+    .jureto-quote-page .actions {
+      flex-direction: column;
     }
 
     .jureto-quote-page .summary-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 10px;
-    }
-
-    .jureto-quote-page .summary-grid:hover .summary-cell,
-    .jureto-quote-page .summary-grid:hover .summary-cell:hover {
-      transform: none;
-      opacity: 1;
-      box-shadow: 0 4px 12px rgba(0,0,0,.02);
     }
 
     .jureto-quote-page .item-main {
@@ -887,10 +910,13 @@
 
 <div class="jureto-quote-page">
   <div class="quote-wrap">
-    <div class="topbar">
-      <div>
-        <a href="{{ route('propuestas-comerciales.index') }}" class="back-link">← Volver</a>
+    <a href="{{ route('propuestas-comerciales.index') }}" class="back-link">
+      <span>←</span>
+      <span>Volver</span>
+    </a>
 
+    <div class="topbar">
+      <div class="topbar-main">
         <div class="quote-code">
           {{ $propuestaComercial->folio ?: ('TEOA' . str_pad((string) $propuestaComercial->id, 8, '0', STR_PAD_LEFT)) }}
         </div>
@@ -905,14 +931,35 @@
       </div>
 
       <div class="actions">
-        <button class="btn btn-ghost" type="button" id="btnOpenAddItem">＋ Agregar</button>
+        <button class="btn btn-ghost" type="button" id="btnOpenAddItem">
+          <span class="btn-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 5v14"></path>
+              <path d="M5 12h14"></path>
+            </svg>
+          </span>
+          <span>Agregar</span>
+        </button>
 
         <button class="btn btn-outline" type="button" id="btnSuggestAll">
-          ◎ Buscar coincidencias de todos
+          <span class="btn-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="7"></circle>
+              <path d="M21 21l-4.35-4.35"></path>
+              <path d="M11 8v6"></path>
+              <path d="M8 11h6"></path>
+            </svg>
+          </span>
+          <span>Buscar coincidencias</span>
         </button>
 
         <a href="{{ route('propuestas-comerciales.cliente.show', $propuestaComercial) }}" class="btn btn-primary">
-          ▣ Aprobar
+          <span class="btn-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 6L9 17l-5-5"></path>
+            </svg>
+          </span>
+          <span>Aprobar</span>
         </a>
       </div>
     </div>
@@ -922,6 +969,23 @@
       <span>
         <strong id="noticeCount">0 partidas</strong> no encontradas en catálogo — usa “Buscar en internet” para encontrar alternativas.
       </span>
+    </div>
+
+    <div id="processBox" class="process-box">
+      <div class="process-head">
+        <div>
+          <div class="process-title" id="processTitle">Procesando coincidencias...</div>
+          <div class="process-text" id="processText">Preparando partidas.</div>
+        </div>
+
+        <span class="badge badge-info" id="processCount">0/0</span>
+      </div>
+
+      <div class="process-bar">
+        <div class="process-fill" id="processFill"></div>
+      </div>
+
+      <div id="processErrors" class="process-errors"></div>
     </div>
 
     <div class="summary-grid" id="summaryFilters">
@@ -1080,6 +1144,7 @@
   let manualLastQuery = '';
   let manualCatalogResults = [];
   let manualInternetResults = [];
+  let isSuggestingAll = false;
 
   function money(n) {
     n = Number(n || 0);
@@ -1110,10 +1175,23 @@
       }
     });
 
-    const data = await response.json().catch(() => null);
+    const rawText = await response.text();
+    let data = null;
+
+    try {
+      data = rawText ? JSON.parse(rawText) : null;
+    } catch (error) {
+      data = null;
+    }
 
     if (!response.ok || !data || data.ok === false) {
-      throw new Error(data?.message || 'Error procesando la solicitud.');
+      let message = data?.message || 'Error procesando la solicitud.';
+
+      if (!data && rawText) {
+        message += ' Respuesta del servidor: ' + String(rawText).slice(0, 300);
+      }
+
+      throw new Error(message);
     }
 
     return data;
@@ -1121,6 +1199,65 @@
 
   function urlFor(template, id) {
     return template.replace('__ID__', id);
+  }
+
+  function showProcessBox(type, title, text, done = 0, total = 0, errors = []) {
+    const box = document.getElementById('processBox');
+    const titleEl = document.getElementById('processTitle');
+    const textEl = document.getElementById('processText');
+    const countEl = document.getElementById('processCount');
+    const fillEl = document.getElementById('processFill');
+    const errorsEl = document.getElementById('processErrors');
+
+    if (!box || !titleEl || !textEl || !countEl || !fillEl || !errorsEl) {
+      return;
+    }
+
+    box.className = 'process-box show' + (type ? ' ' + type : '');
+    titleEl.textContent = title;
+    textEl.textContent = text;
+    countEl.textContent = `${done}/${total}`;
+
+    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    fillEl.style.width = pct + '%';
+
+    if (errors.length) {
+      errorsEl.classList.add('show');
+      errorsEl.innerHTML = errors
+        .slice(0, 30)
+        .map(error => `<div>• ${escapeHtml(error)}</div>`)
+        .join('');
+
+      if (errors.length > 30) {
+        errorsEl.innerHTML += `<div>• Y ${errors.length - 30} errores más...</div>`;
+      }
+    } else {
+      errorsEl.classList.remove('show');
+      errorsEl.innerHTML = '';
+    }
+  }
+
+  function showInlineError(message) {
+    showProcessBox(
+      'error',
+      'No se pudo completar la acción',
+      message || 'Ocurrió un error procesando la solicitud.',
+      1,
+      1,
+      []
+    );
+
+    const box = document.getElementById('processBox');
+    if (box) {
+      box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }
+
+  function hideProcessBox() {
+    const box = document.getElementById('processBox');
+    if (box) {
+      box.classList.remove('show');
+    }
   }
 
   function statusLabel(item) {
@@ -1184,7 +1321,6 @@
     });
 
     list.innerHTML = filtered.map((item, idx) => renderItemCard(item, idx)).join('');
-
     bindDragEvents();
   }
 
@@ -1199,9 +1335,7 @@
       <div class="item-card ${statusCardClass(item)}" data-id="${item.id}" draggable="${currentFilter === 'all' ? 'true' : 'false'}">
         <div class="item-main" onclick="toggleItem(${item.id})">
           <button class="drag-handle" type="button" title="Mover posición" onclick="event.stopPropagation()">⠿</button>
-
           <div class="item-index">${idx + 1}</div>
-
           <div>
             <h3 class="item-name">${escapeHtml(item.descripcion_original || 'Producto sin descripción')}</h3>
             <div class="item-meta">
@@ -1209,15 +1343,12 @@
               ${item.producto_seleccionado?.brand ? ' · ' + escapeHtml(item.producto_seleccionado.brand) : ''}
             </div>
           </div>
-
           <span class="badge ${badge.cls}">${badge.text}</span>
-
           <div class="money-row">
             <span>Costo <strong>${money(cost)}</strong></span>
             <span>Precio <strong>${money(price)}</strong></span>
             <span>Subtotal <strong>${money(subtotal)}</strong></span>
           </div>
-
           <div class="chevron">⌄</div>
         </div>
 
@@ -1434,7 +1565,7 @@
       const card = document.querySelector(`.jureto-quote-page .item-card[data-id="${id}"]`);
       if (card) card.classList.add('open');
     } catch (e) {
-      alert(e.message);
+      showInlineError(e.message);
     } finally {
       if (button) {
         button.disabled = false;
@@ -1450,7 +1581,6 @@
         .replace('__MATCH__', matchId);
 
       const data = await ajax(url, { method: 'POST', body: '{}' });
-
       updateItemInState(data.item);
       summary = data.summary || summary;
       renderItems();
@@ -1458,7 +1588,7 @@
       const card = document.querySelector(`.jureto-quote-page .item-card[data-id="${itemId}"]`);
       if (card) card.classList.add('open');
     } catch (e) {
-      alert(e.message);
+      showInlineError(e.message);
     }
   }
 
@@ -1476,7 +1606,7 @@
       const card = document.querySelector(`.jureto-quote-page .item-card[data-id="${id}"]`);
       if (card) card.classList.add('open');
     } catch (e) {
-      alert(e.message);
+      showInlineError(e.message);
     }
   }
 
@@ -1499,25 +1629,129 @@
       const card = document.querySelector(`.jureto-quote-page .item-card[data-id="${id}"]`);
       if (card) card.classList.add('open');
     } catch (e) {
-      alert(e.message);
+      showInlineError(e.message);
     }
   }
 
   async function suggestAll() {
+    if (isSuggestingAll) return;
+
     const button = document.getElementById('btnSuggestAll');
     const old = button.innerHTML;
+    const pendingItems = items.filter(item => item.status_key !== 'exact');
 
+    if (!pendingItems.length) {
+      showProcessBox(
+        'success',
+        'No hay partidas pendientes',
+        'Todas las partidas ya tienen coincidencia exacta o ya fueron procesadas.',
+        items.length,
+        items.length,
+        []
+      );
+
+      setTimeout(hideProcessBox, 3500);
+      return;
+    }
+
+    isSuggestingAll = true;
     button.disabled = true;
-    button.innerHTML = '<span class="loader"></span> Buscando todos...';
+    button.innerHTML = '<span class="loader"></span> Procesando...';
+
+    const total = pendingItems.length;
+    let done = 0;
+    let success = 0;
+    const errors = [];
+    const concurrency = 4;
+    let cursor = 0;
+
+    showProcessBox(
+      '',
+      'Buscando coincidencias por lotes',
+      `Procesando ${total} partidas sin saturar el servidor...`,
+      done,
+      total,
+      errors
+    );
+
+    const box = document.getElementById('processBox');
+    if (box) {
+      box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    async function worker() {
+      while (cursor < pendingItems.length) {
+        const currentIndex = cursor++;
+        const item = pendingItems[currentIndex];
+
+        try {
+          const data = await ajax(urlFor(routes.suggestItem, item.id), {
+            method: 'POST',
+            body: '{}'
+          });
+
+          if (data.item) {
+            updateItemInState(data.item);
+          }
+
+          if (data.summary) {
+            summary = data.summary;
+          }
+
+          success++;
+        } catch (error) {
+          errors.push(
+            `Partida #${item.sort || currentIndex + 1}: ${error.message || 'No se pudo procesar.'}`
+          );
+        } finally {
+          done++;
+
+          showProcessBox(
+            errors.length ? 'error' : '',
+            'Buscando coincidencias por lotes',
+            `Procesadas ${done} de ${total}. Correctas: ${success}. Errores: ${errors.length}.`,
+            done,
+            total,
+            errors
+          );
+
+          if (done % 5 === 0 || done === total) {
+            renderItems();
+          }
+        }
+      }
+    }
 
     try {
-      const data = await ajax(routes.suggestAll, { method: 'POST', body: '{}' });
-      items = data.items || items;
-      summary = data.summary || summary;
+      await Promise.all(
+        Array.from({ length: Math.min(concurrency, pendingItems.length) }, () => worker())
+      );
+
       renderItems();
-    } catch (e) {
-      alert(e.message);
+
+      if (errors.length) {
+        showProcessBox(
+          'error',
+          'Proceso terminado con algunos errores',
+          `Se procesaron ${success} partidas correctamente y ${errors.length} fallaron. Puedes volver a intentar; se saltarán las exactas.`,
+          done,
+          total,
+          errors
+        );
+      } else {
+        showProcessBox(
+          'success',
+          'Coincidencias completadas',
+          `Se procesaron ${success} partidas correctamente.`,
+          done,
+          total,
+          []
+        );
+
+        setTimeout(hideProcessBox, 3500);
+      }
     } finally {
+      isSuggestingAll = false;
       button.disabled = false;
       button.innerHTML = old;
     }
@@ -1539,7 +1773,7 @@
       summary = data.summary || summary;
       renderItems();
     } catch (e) {
-      alert(e.message);
+      showInlineError(e.message);
     }
   }
 
@@ -1712,7 +1946,7 @@
       const card = document.querySelector(`.jureto-quote-page .item-card[data-id="${manualItemId}"]`);
       if (card) card.classList.add('open');
     } catch (e) {
-      alert(e.message);
+      showInlineError(e.message);
     }
   }
 
@@ -1744,7 +1978,7 @@
       const card = document.querySelector(`.jureto-quote-page .item-card[data-id="${manualItemId}"]`);
       if (card) card.classList.add('open');
     } catch (e) {
-      alert(e.message);
+      showInlineError(e.message);
     }
   }
 
@@ -1780,7 +2014,7 @@
       form.reset();
       renderItems();
     } catch (e) {
-      alert(e.message);
+      showInlineError(e.message);
     } finally {
       submit.disabled = false;
       submit.innerHTML = old;
@@ -1853,7 +2087,7 @@
       summary = data.summary || summary;
       renderItems();
     } catch (e) {
-      alert(e.message);
+      showInlineError(e.message);
     }
   }
 

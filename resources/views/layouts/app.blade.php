@@ -301,7 +301,9 @@
       transform:translateY(-1px);
       box-shadow:0 8px 14px rgba(47,109,246,.08);
     }
-
+.content.content--flush {
+  padding: 0;
+}
     .side-nav{
       position:relative;
       z-index:1;
@@ -1737,9 +1739,9 @@
       </div>
     </header>
 
-    <main id="content" class="content">
-      @yield('content')
-    </main>
+   <main id="content" class="content @yield('content_class')">
+  @yield('content')
+</main>
   </div>
 
   @stack('scripts')
