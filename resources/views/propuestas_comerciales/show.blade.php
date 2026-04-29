@@ -2457,15 +2457,155 @@
     );
   }
 
-  function exportExtractedTablesToWord() {
-    const html = buildExtractedTablesHtml();
+function exportExtractedTablesToWord() {
+  const title = @json($exportTitle);
+  const folio = @json($exportFolio);
+  const generatedAt = new Date().toLocaleString('es-MX');
+  const tables = getExportTables();
 
-    downloadBlob(
-      `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body>${html}</body></html>`,
-      getQuoteFileName('doc'),
-      'application/msword;charset=utf-8'
-    );
-  }
+  const tablesHtml = tables.map((table, tableIndex) => {
+    const columns = Array.isArray(table.columns) ? table.columns : [];
+    const rows = Array.isArray(table.rows) ? table.rows : [];
+
+    const thead = columns.map(column => `
+      <th>${escapeHtml(column)}</th>
+    `).join('');
+
+    const tbody = rows.map(row => `
+      <tr>
+        ${columns.map(column => `
+          <td>${escapeHtml(row?.[column] ?? '')}</td>
+        `).join('')}
+      </tr>
+    `).join('');
+
+    return `
+      <div class="table-block">
+        <h2>${escapeHtml(table.title || ('Tabla extraída ' + (tableIndex + 1)))}</h2>
+
+        <div class="table-meta">
+          Fuente: ${escapeHtml(table.source || 'PDF')} · Filas: ${rows.length} · Columnas: ${columns.length}
+        </div>
+
+        <table>
+          <thead>
+            <tr>${thead}</tr>
+          </thead>
+          <tbody>
+            ${tbody || `<tr><td colspan="${Math.max(columns.length, 1)}">Sin filas extraídas.</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }).join('');
+
+  const wordContent = `
+    <!DOCTYPE html>
+    <html xmlns:o="urn:schemas-microsoft-com:office:office"
+          xmlns:w="urn:schemas-microsoft-com:office:word"
+          xmlns="http://www.w3.org/TR/REC-html40">
+    <head>
+      <meta charset="UTF-8">
+      <title>${escapeHtml(title)}</title>
+
+      <style>
+        @page WordSection1 {
+          size: 11in 8.5in;
+          mso-page-orientation: landscape;
+          margin: 0.35in 0.35in 0.35in 0.35in;
+        }
+
+        div.WordSection1 {
+          page: WordSection1;
+        }
+
+        body {
+          font-family: Arial, sans-serif;
+          color: #333333;
+          background: #ffffff;
+          margin: 0;
+        }
+
+        h1 {
+          color: #111111;
+          font-size: 18pt;
+          margin: 0 0 4pt;
+          font-weight: 700;
+        }
+
+        h2 {
+          color: #111111;
+          font-size: 11pt;
+          margin: 14pt 0 4pt;
+          font-weight: 700;
+        }
+
+        .meta,
+        .table-meta {
+          color: #666666;
+          font-size: 8pt;
+          margin-bottom: 8pt;
+        }
+
+        .table-block {
+          margin-top: 12pt;
+          page-break-inside: avoid;
+        }
+
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          table-layout: fixed;
+          font-size: 7pt;
+          margin-bottom: 12pt;
+        }
+
+        th {
+          background: #f3f4f6;
+          color: #111111;
+          font-weight: 700;
+          border: 1px solid #d9d9d9;
+          padding: 4pt;
+          text-align: left;
+          vertical-align: top;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+        }
+
+        td {
+          border: 1px solid #e5e5e5;
+          padding: 3pt 4pt;
+          vertical-align: top;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+        }
+
+        tr:nth-child(even) td {
+          background: #fafafa;
+        }
+      </style>
+    </head>
+
+    <body>
+      <div class="WordSection1">
+        <h1>${escapeHtml(title)}</h1>
+
+        <div class="meta">
+          Folio: ${escapeHtml(folio)} · Generado: ${escapeHtml(generatedAt)} · Exportación basada en tabla extraída del PDF
+        </div>
+
+        ${tablesHtml || '<p>No se encontraron tablas para exportar.</p>'}
+      </div>
+    </body>
+    </html>
+  `;
+
+  downloadBlob(
+    wordContent,
+    getQuoteFileName('doc'),
+    'application/msword;charset=utf-8'
+  );
+}
 
   document.getElementById('btnSuggestAll').addEventListener('click', suggestAll);
   document.getElementById('btnOpenAddItem').addEventListener('click', openAddItemModal);
