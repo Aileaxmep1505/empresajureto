@@ -211,6 +211,26 @@
     background: var(--blue-soft);
   }
 
+  .jureto-quote-page .btn-export-excel {
+    color: var(--success);
+    background: #fff;
+    border-color: rgba(21,128,61,.28);
+  }
+
+  .jureto-quote-page .btn-export-excel:hover {
+    background: var(--success-soft);
+  }
+
+  .jureto-quote-page .btn-export-word {
+    color: var(--blue);
+    background: #fff;
+    border-color: rgba(0,122,255,.28);
+  }
+
+  .jureto-quote-page .btn-export-word:hover {
+    background: var(--blue-soft);
+  }
+
   .jureto-quote-page .btn-success {
     color: var(--success);
     background: #fff;
@@ -924,6 +944,65 @@
       'margin' => $margin,
       'total_items' => $itemsPayload->count(),
   ];
+
+
+  $exportFolio = $propuestaComercial->folio ?: ('TEOA' . str_pad((string) $propuestaComercial->id, 8, '0', STR_PAD_LEFT));
+  $exportTitle = $propuestaComercial->titulo ?: ('COT-' . strtoupper(substr(md5($propuestaComercial->id . $propuestaComercial->created_at), 0, 8)));
+
+  $decodeExportValue = function ($value) {
+      if ($value instanceof \Illuminate\Support\Collection) {
+          return $value->toArray();
+      }
+
+      if (is_array($value)) {
+          return $value;
+      }
+
+      if (is_object($value)) {
+          return json_decode(json_encode($value), true) ?: [];
+      }
+
+      if (is_string($value) && trim($value) !== '') {
+          $decoded = json_decode($value, true);
+          return json_last_error() === JSON_ERROR_NONE ? $decoded : [];
+      }
+
+      return [];
+  };
+
+  $rawExportPayloads = [];
+  $fieldsForExport = ['structured_json', 'items_json', 'result_json', 'raw_json', 'extracted_json', 'document_json', 'table_json', 'meta'];
+
+  foreach ($fieldsForExport as $field) {
+      $decoded = $decodeExportValue(data_get($propuestaComercial, $field));
+      if (!empty($decoded)) {
+          $rawExportPayloads['propuesta_' . $field] = $decoded;
+      }
+  }
+
+  foreach ($propuestaComercial->getRelations() as $relationName => $relationValue) {
+      if (!$relationValue) {
+          continue;
+      }
+
+      if ($relationValue instanceof \Illuminate\Support\Collection) {
+          foreach ($relationValue as $index => $relatedModel) {
+              foreach ($fieldsForExport as $field) {
+                  $decoded = $decodeExportValue(data_get($relatedModel, $field));
+                  if (!empty($decoded)) {
+                      $rawExportPayloads[$relationName . '_' . $index . '_' . $field] = $decoded;
+                  }
+              }
+          }
+      } else {
+          foreach ($fieldsForExport as $field) {
+              $decoded = $decodeExportValue(data_get($relationValue, $field));
+              if (!empty($decoded)) {
+                  $rawExportPayloads[$relationName . '_' . $field] = $decoded;
+              }
+          }
+      }
+  }
 @endphp
 
 <div class="jureto-quote-page">
@@ -944,7 +1023,7 @@
         </h1>
 
         <p class="quote-subtitle">
-          <span id="itemsCountText">{{ $summaryPayload['total_items'] }}</span> partidas analizadas por IA
+          <span id="itemsCountText">{{ $summaryPayload['total_items'] }}</span> partidas analizadas por IA · Exportación desde PDF
         </p>
       </div>
 
@@ -969,6 +1048,30 @@
             </svg>
           </span>
           <span>Buscar coincidencias</span>
+        </button>
+
+        <button class="btn btn-export-excel" type="button" id="btnExportExcel">
+          <span class="btn-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <path d="M14 2v6h6"></path>
+              <path d="M8 13h8"></path>
+              <path d="M8 17h8"></path>
+            </svg>
+          </span>
+          <span>Excel PDF</span>
+        </button>
+
+        <button class="btn btn-export-word" type="button" id="btnExportWord">
+          <span class="btn-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <path d="M14 2v6h6"></path>
+              <path d="M8 13h8"></path>
+              <path d="M8 17h6"></path>
+            </svg>
+          </span>
+          <span>Word PDF</span>
         </button>
 
         <a href="{{ route('propuestas-comerciales.cliente.show', $propuestaComercial) }}" class="btn btn-primary">
@@ -1155,6 +1258,9 @@
 
   let items = @json($itemsPayload);
   let summary = @json($summaryPayload);
+  let rawExportPayloads = @json($rawExportPayloads);
+  const exportFolio = @json($exportFolio);
+  const exportTitle = @json($exportTitle);
   let currentFilter = 'all';
   let manualItemId = null;
   let manualTab = 'catalog';
@@ -2109,10 +2215,264 @@
     }
   }
 
+
+  function getQuoteFileName(extension) {
+    const safeFolio = String(exportFolio || 'cotizacion')
+      .replace(/[^\w\-]+/g, '_')
+      .replace(/_+/g, '_');
+
+    return `${safeFolio}_tabla_extraida_pdf.${extension}`;
+  }
+
+  function isPlainObject(value) {
+    return value && typeof value === 'object' && !Array.isArray(value);
+  }
+
+  function normalizeCell(value) {
+    if (value === null || value === undefined) return '';
+    if (typeof value === 'object') return JSON.stringify(value);
+    return String(value);
+  }
+
+  function normalizeRows(rows) {
+    if (!Array.isArray(rows) || rows.length === 0) return null;
+
+    if (isPlainObject(rows[0])) {
+      const columns = [];
+      rows.forEach(row => {
+        if (!isPlainObject(row)) return;
+        Object.keys(row).forEach(key => {
+          if (!columns.includes(key)) columns.push(key);
+        });
+      });
+
+      if (!columns.length) return null;
+
+      return {
+        columns,
+        rows: rows.filter(isPlainObject).map(row => {
+          const out = {};
+          columns.forEach(column => out[column] = normalizeCell(row[column]));
+          return out;
+        })
+      };
+    }
+
+    if (Array.isArray(rows[0])) {
+      const max = rows.reduce((acc, row) => Array.isArray(row) ? Math.max(acc, row.length) : acc, 0);
+      if (!max) return null;
+
+      const columns = Array.from({ length: max }, (_, index) => `Columna ${index + 1}`);
+
+      return {
+        columns,
+        rows: rows.filter(Array.isArray).map(row => {
+          const out = {};
+          columns.forEach((column, index) => out[column] = normalizeCell(row[index]));
+          return out;
+        })
+      };
+    }
+
+    return null;
+  }
+
+  function collectExtractedTables(payload, source = 'PDF') {
+    const tables = [];
+    const tableKeys = ['tables', 'tablas', 'table', 'tabla', 'rows', 'filas', 'items', 'partidas', 'line_items', 'extracted_items', 'raw_items', 'original_items', 'data'];
+
+    function walk(value, path = '') {
+      if (!value || typeof value !== 'object') return;
+
+      if (Array.isArray(value)) {
+        const normalized = normalizeRows(value);
+
+        if (normalized && normalized.rows.length) {
+          tables.push({
+            title: path || 'Tabla extraída',
+            source,
+            columns: normalized.columns,
+            rows: normalized.rows
+          });
+        }
+
+        value.forEach((child, index) => walk(child, `${path} ${index + 1}`.trim()));
+        return;
+      }
+
+      tableKeys.forEach(key => {
+        if (!Object.prototype.hasOwnProperty.call(value, key)) return;
+
+        const candidate = value[key];
+
+        if (candidate && typeof candidate === 'object') {
+          if (isPlainObject(candidate) && Array.isArray(candidate.columns) && Array.isArray(candidate.rows)) {
+            const rows = candidate.rows.map(row => {
+              if (Array.isArray(row)) {
+                const out = {};
+                candidate.columns.forEach((column, index) => out[column] = normalizeCell(row[index]));
+                return out;
+              }
+
+              if (isPlainObject(row)) return row;
+              return null;
+            }).filter(Boolean);
+
+            const normalized = normalizeRows(rows);
+
+            if (normalized) {
+              tables.push({
+                title: key,
+                source,
+                columns: normalized.columns,
+                rows: normalized.rows
+              });
+            }
+          } else {
+            const normalized = normalizeRows(candidate);
+
+            if (normalized) {
+              tables.push({
+                title: key,
+                source,
+                columns: normalized.columns,
+                rows: normalized.rows
+              });
+            }
+          }
+        }
+      });
+
+      Object.entries(value).forEach(([key, child]) => walk(child, key));
+    }
+
+    walk(payload, source);
+
+    const seen = new Set();
+
+    return tables.filter(table => {
+      const signature = JSON.stringify(table.columns) + JSON.stringify(table.rows.slice(0, 5));
+      if (seen.has(signature)) return false;
+      seen.add(signature);
+      return true;
+    });
+  }
+
+  function getExportTables() {
+    const tables = [];
+
+    Object.entries(rawExportPayloads || {}).forEach(([source, payload]) => {
+      collectExtractedTables(payload, source).forEach(table => tables.push(table));
+    });
+
+    if (tables.length) return tables;
+
+    return [{
+      title: 'Partidas normalizadas',
+      source: 'fallback_items',
+      columns: ['descripcion_original', 'unidad_solicitada', 'cantidad_minima', 'cantidad_maxima', 'cantidad_cotizada', 'costo_unitario', 'precio_unitario', 'subtotal'],
+      rows: items.map(item => ({
+        descripcion_original: item.descripcion_original || '',
+        unidad_solicitada: item.unidad_solicitada || '',
+        cantidad_minima: item.cantidad_minima || '',
+        cantidad_maxima: item.cantidad_maxima || '',
+        cantidad_cotizada: item.cantidad_cotizada || '',
+        costo_unitario: item.costo_unitario || '',
+        precio_unitario: item.precio_unitario || '',
+        subtotal: item.subtotal || ''
+      }))
+    }];
+  }
+
+  function buildExtractedTablesHtml() {
+    const generatedAt = new Date().toLocaleString('es-MX');
+    const tables = getExportTables();
+
+    const tablesHtml = tables.map((table, tableIndex) => {
+      const columns = Array.isArray(table.columns) ? table.columns : [];
+      const rows = Array.isArray(table.rows) ? table.rows : [];
+      const thead = columns.map(column => `<th>${escapeHtml(column)}</th>`).join('');
+      const tbody = rows.map(row => `<tr>${columns.map(column => `<td>${escapeHtml(row?.[column] ?? '')}</td>`).join('')}</tr>`).join('');
+
+      return `
+        <div class="table-block">
+          <h2>${escapeHtml(table.title || ('Tabla extraída ' + (tableIndex + 1)))}</h2>
+          <div class="table-meta">Fuente: ${escapeHtml(table.source || 'PDF')} · Filas: ${rows.length} · Columnas: ${columns.length}</div>
+          <table>
+            <thead><tr>${thead}</tr></thead>
+            <tbody>${tbody || `<tr><td colspan="${Math.max(columns.length, 1)}">Sin filas extraídas.</td></tr>`}</tbody>
+          </table>
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <!DOCTYPE html>
+      <html lang="es">
+      <head>
+        <meta charset="UTF-8">
+        <title>${escapeHtml(exportTitle)}</title>
+        <style>
+          body { font-family: Arial, sans-serif; color: #333333; background: #ffffff; margin: 24px; }
+          h1 { color: #111111; font-size: 22px; margin: 0 0 6px; }
+          h2 { color: #111111; font-size: 16px; margin: 22px 0 6px; }
+          .meta, .table-meta { color: #666666; font-size: 12px; margin-bottom: 12px; }
+          .table-block { margin-top: 18px; page-break-inside: avoid; }
+          table { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 18px; }
+          th { background: #f9fafb; color: #111111; font-weight: 700; border: 1px solid #ebebeb; padding: 8px; text-align: left; vertical-align: top; }
+          td { border: 1px solid #ebebeb; padding: 7px; vertical-align: top; }
+          tr:nth-child(even) td { background: #fcfcfc; }
+        </style>
+      </head>
+      <body>
+        <h1>${escapeHtml(exportTitle)}</h1>
+        <div class="meta">Folio: ${escapeHtml(exportFolio)} · Generado: ${escapeHtml(generatedAt)} · Exportación basada en tabla extraída del PDF</div>
+        ${tablesHtml || '<p>No se encontraron tablas para exportar.</p>'}
+      </body>
+      </html>
+    `;
+  }
+
+  function downloadBlob(content, fileName, mimeType) {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function exportExtractedTablesToExcel() {
+    const html = buildExtractedTablesHtml();
+
+    downloadBlob(
+      `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body>${html}</body></html>`,
+      getQuoteFileName('xls'),
+      'application/vnd.ms-excel;charset=utf-8'
+    );
+  }
+
+  function exportExtractedTablesToWord() {
+    const html = buildExtractedTablesHtml();
+
+    downloadBlob(
+      `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body>${html}</body></html>`,
+      getQuoteFileName('doc'),
+      'application/msword;charset=utf-8'
+    );
+  }
+
   document.getElementById('btnSuggestAll').addEventListener('click', suggestAll);
   document.getElementById('btnOpenAddItem').addEventListener('click', openAddItemModal);
   document.getElementById('btnSaveGlobalMargin').addEventListener('click', () => saveGlobalMargin(false));
   document.getElementById('btnApplyGlobalMargin').addEventListener('click', () => saveGlobalMargin(true));
+  document.getElementById('btnExportExcel')?.addEventListener('click', exportExtractedTablesToExcel);
+  document.getElementById('btnExportWord')?.addEventListener('click', exportExtractedTablesToWord);
 
   document.getElementById('manualQueryInput').addEventListener('input', () => {
     manualLastQuery = '';

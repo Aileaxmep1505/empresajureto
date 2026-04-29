@@ -1,5 +1,5 @@
 @extends('layouts.app')
-
+@section('content_class', 'content--flush')
 @section('content')
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap');
