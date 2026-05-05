@@ -105,9 +105,20 @@ return [
     'embed_model' => env('OPENAI_EMBED_MODEL', 'text-embedding-3-large'),
 ],
 
-'python_ai' => [
-    'bin' => env('PYTHON_BIN'),
+'python' => [
+    'bin' => env('PYTHON_BIN', 'python3'),
     'script' => env('PYTHON_SCRIPT'),
+    'azure_purchase_pdf_extract_script' => env('AZURE_PURCHASE_PDF_EXTRACT_SCRIPT'),
+],
+'azure_document_intelligence' => [
+    'endpoint' => env('AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT'),
+    'key' => env('AZURE_DOCUMENT_INTELLIGENCE_KEY'),
+    'api_version' => env('AZURE_DOCUMENT_INTELLIGENCE_API_VERSION', '2024-11-30'),
+    'timeout' => env('AZURE_DOCUMENT_INTELLIGENCE_TIMEOUT', 300),
+],
+
+'python' => [
+    'bin' => env('PYTHON_BIN', 'python3'),
 ],
     /*
     |--------------------------------------------------------------------------
