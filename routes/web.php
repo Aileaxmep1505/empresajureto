@@ -2047,3 +2047,18 @@ Route::get('/propuestas-comerciales/{propuestaComercial}/cliente/pdf', [Propuest
 Route::post('/propuestas-comerciales/{propuestaComercial}/cliente/email', [PropuestaComercialClienteController::class, 'sendEmail'])
     ->name('propuestas-comerciales.cliente.email');
     
+    Route::middleware(['auth'])->group(function () {
+    Route::get('/publications', [PublicationController::class, 'index'])->name('publications.index');
+    Route::get('/publications/create', [PublicationController::class, 'create'])->name('publications.create');
+    Route::post('/publications', [PublicationController::class, 'store'])->name('publications.store');
+
+    Route::post('/publications/ai/extract', [PublicationController::class, 'aiExtractFromUpload'])
+        ->name('publications.ai.extract');
+
+    Route::post('/publications/ai/save', [PublicationController::class, 'aiSaveExtracted'])
+        ->name('publications.ai.save');
+
+    Route::get('/publications/{publication}', [PublicationController::class, 'show'])->name('publications.show');
+    Route::get('/publications/{publication}/download', [PublicationController::class, 'download'])->name('publications.download');
+    Route::delete('/publications/{publication}', [PublicationController::class, 'destroy'])->name('publications.destroy');
+});

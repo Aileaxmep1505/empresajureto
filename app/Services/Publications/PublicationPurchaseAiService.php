@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Symfony\Component\Process\Process;
 
 class PublicationPurchaseAiService
 {
@@ -104,12 +105,12 @@ class PublicationPurchaseAiService
     public function extractRules(): array
     {
         return [
-            'file'     => ['required', 'file', 'max:51200'],
+            'file'     => ['required', 'file', 'mimes:pdf', 'max:51200'],
             'category' => ['required', 'string', 'in:compra,venta'],
         ];
     }
 
-    public function saveRules(): array
+public function saveRules(): array
     {
         return [
             'publication_id' => ['nullable', 'integer'],
@@ -574,10 +575,14 @@ class PublicationPurchaseAiService
 
     public function aiExtractSingleLocalFile(string $absolutePath, string $originalName, string $category = 'compra'): array
     {
-        $cfg = $this->openAiConfig();
+        $cfg = $this->azureDocumentIntelligenceConfig();
 
-        if ($cfg['api_key'] === '') {
-            throw new \RuntimeException('Missing OpenAI API key.');
+        if ($cfg['endpoint'] === '') {
+            throw new \RuntimeException('Missing Azure Document Intelligence endpoint.');
+        }
+
+        if ($cfg['key'] === '') {
+            throw new \RuntimeException('Missing Azure Document Intelligence key.');
         }
 
         if (!is_file($absolutePath)) {
@@ -585,9 +590,12 @@ class PublicationPurchaseAiService
         }
 
         $prepared = $this->prepareFileForAi($absolutePath, $originalName);
-        $system = $this->buildExtractorSystemPromptStrictTableOnly($category);
 
-        Log::info('AI extract strategy', [
+        if (($prepared['kind'] ?? '') !== 'pdf') {
+            throw new \RuntimeException('Por ahora esta extracción con Azure Document Intelligence está configurada para documentos PDF.');
+        }
+
+        Log::info('Azure Document Intelligence PDF extract strategy', [
             'original_name' => $originalName,
             'prepared_name' => $prepared['original_name'],
             'mime'          => $prepared['mime'],
@@ -595,49 +603,137 @@ class PublicationPurchaseAiService
             'kind'          => $prepared['kind'],
             'strategy'      => $prepared['strategy'],
             'repaired_pdf'  => $prepared['repaired_pdf'],
-            'text_length'   => mb_strlen((string) $prepared['text']),
         ]);
 
-        $fileId = null;
-
         try {
-            if (in_array($prepared['strategy'], ['pdf_file', 'image_file'], true)) {
-                $fileId = $this->uploadFileToOpenAi($prepared['path'], $prepared['original_name'], $cfg);
-
-                $data = $this->extractUsingResponsesWithRetries(
-                    cfg: $cfg,
-                    fileId: $fileId,
-                    system: $system,
-                    userText: $this->buildUserExtractionPrompt((string) $prepared['text']),
-                    inputType: $prepared['strategy'] === 'image_file' ? 'input_image' : 'input_file'
-                );
-            } else {
-                $text = trim((string) $prepared['text']);
-                if ($text === '') {
-                    throw new \RuntimeException('No se pudo obtener texto legible del archivo para enviarlo a la IA.');
-                }
-
-                $data = $this->extractFromTextOnly(
-                    cfg: $cfg,
-                    system: $system,
-                    originalName: $prepared['original_name'],
-                    extractedText: $text
-                );
-            }
+            $data = $this->callAzurePurchasePdfExtractor(
+                cfg: $cfg,
+                filePath: $prepared['path'],
+                category: $category
+            );
 
             return $this->finalizeAiExtractResult($data);
         } finally {
-            if ($fileId) {
-                $this->deleteOpenAiFile($fileId, $cfg);
-            }
-
             if (!empty($prepared['temp_cleanup']) && is_file($prepared['temp_cleanup'])) {
                 @unlink($prepared['temp_cleanup']);
             }
         }
     }
 
-    private function openAiConfig(): array
+    private function azureDocumentIntelligenceConfig(): array
+    {
+        $scriptPath = (string) (
+            config('services.python.azure_purchase_pdf_extract_script')
+            ?: env('AZURE_PURCHASE_PDF_EXTRACT_SCRIPT')
+            ?: ''
+        );
+
+        return [
+            'endpoint' => rtrim((string) (
+                config('services.azure_document_intelligence.endpoint')
+                ?: env('AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT')
+                ?: ''
+            ), '/'),
+
+            'key' => (string) (
+                config('services.azure_document_intelligence.key')
+                ?: env('AZURE_DOCUMENT_INTELLIGENCE_KEY')
+                ?: ''
+            ),
+
+            'api_version' => (string) (
+                config('services.azure_document_intelligence.api_version')
+                ?: env('AZURE_DOCUMENT_INTELLIGENCE_API_VERSION')
+                ?: '2024-11-30'
+            ),
+
+            'timeout' => (int) (
+                config('services.azure_document_intelligence.timeout')
+                ?: env('AZURE_DOCUMENT_INTELLIGENCE_TIMEOUT')
+                ?: 300
+            ),
+
+            'python_bin' => (string) (
+                config('services.python.bin')
+                ?: env('PYTHON_BIN')
+                ?: 'python3'
+            ),
+
+            'script_path' => $scriptPath,
+        ];
+    }
+
+    private function callAzurePurchasePdfExtractor(array $cfg, string $filePath, string $category): array
+    {
+        $scriptPath = (string) ($cfg['script_path'] ?? '');
+
+        if ($scriptPath === '') {
+            throw new \RuntimeException('No está configurada la ruta AZURE_PURCHASE_PDF_EXTRACT_SCRIPT.');
+        }
+
+        if (!is_file($scriptPath)) {
+            throw new \RuntimeException('No existe el script Python de extracción PDF para Azure: ' . $scriptPath);
+        }
+
+        if (!is_file($filePath)) {
+            throw new \RuntimeException('No existe el PDF que se enviará a Azure Document Intelligence.');
+        }
+
+        $process = new Process([
+            (string) $cfg['python_bin'],
+            $scriptPath,
+            '--file',
+            $filePath,
+            '--category',
+            $category,
+        ]);
+
+        $process->setTimeout((int) $cfg['timeout']);
+
+        $process->setEnv([
+            'AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT' => (string) $cfg['endpoint'],
+            'AZURE_DOCUMENT_INTELLIGENCE_KEY' => (string) $cfg['key'],
+            'AZURE_DOCUMENT_INTELLIGENCE_API_VERSION' => (string) $cfg['api_version'],
+            'PATH' => getenv('PATH') ?: '/usr/local/bin:/usr/bin:/bin',
+            'HOME' => getenv('HOME') ?: base_path(),
+        ]);
+
+        $process->run();
+
+        if (!$process->isSuccessful()) {
+            Log::warning('Azure purchase PDF extractor error', [
+                'exit_code' => $process->getExitCode(),
+                'stderr' => mb_substr($process->getErrorOutput(), 0, 5000),
+                'stdout' => mb_substr($process->getOutput(), 0, 5000),
+            ]);
+
+            throw new \RuntimeException('No se pudo analizar el PDF con Azure Document Intelligence.');
+        }
+
+        $raw = trim($process->getOutput());
+
+        if ($raw === '') {
+            throw new \RuntimeException('Azure Document Intelligence no devolvió respuesta.');
+        }
+
+        $data = json_decode($raw, true);
+
+        if (!is_array($data)) {
+            Log::warning('Azure purchase PDF extractor invalid JSON', [
+                'raw' => mb_substr($raw, 0, 5000),
+            ]);
+
+            throw new \RuntimeException('Azure Document Intelligence no devolvió JSON válido.');
+        }
+
+        if (isset($data['error'])) {
+            throw new \RuntimeException((string) $data['error']);
+        }
+
+        return $data;
+    }
+
+private function openAiConfig(): array
     {
         $baseUrl = rtrim((string) (
             config('services.openai.base_url')
@@ -786,10 +882,12 @@ class PublicationPurchaseAiService
     private function canAttemptAiExtraction(Publication $publication): bool
     {
         $kind = (string) ($publication->kind ?? '');
-        return in_array($kind, ['pdf', 'image', 'doc', 'sheet', 'text', 'file'], true);
+        $ext = strtolower((string) ($publication->extension ?? ''));
+
+        return $kind === 'pdf' || $ext === 'pdf';
     }
 
-    private function prepareFileForAi(string $absolutePath, string $originalName): array
+private function prepareFileForAi(string $absolutePath, string $originalName): array
     {
         $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION) ?: pathinfo($absolutePath, PATHINFO_EXTENSION));
         $mime = $this->guessMimeType($absolutePath, $ext);
@@ -1719,13 +1817,20 @@ TXT;
         $clean = [];
 
         foreach ($items as $it) {
-            if (!is_array($it)) continue;
+            if (!is_array($it)) {
+                continue;
+            }
 
             $raw  = trim((string)($it['item_raw'] ?? ''));
             $name = trim((string)($it['item_name'] ?? ''));
 
-            if ($raw === '' && $name === '') continue;
-            if ($this->looksLikeTaxLine($raw) || $this->looksLikeTaxLine($name)) continue;
+            if ($raw === '' && $name === '') {
+                continue;
+            }
+
+            if ($this->looksLikeTaxLine($raw) || $this->looksLikeTaxLine($name)) {
+                continue;
+            }
 
             $qty = $this->toQty($it['qty'] ?? 1);
 
@@ -1735,31 +1840,59 @@ TXT;
             $uP = (is_null($unitPrice) || $unitPrice === '') ? null : $this->toMoney($unitPrice, 4);
             $lT = (is_null($lineTotal) || $lineTotal === '') ? null : $this->toMoney($lineTotal, 2);
 
+            $aiMeta = is_array($it['ai_meta'] ?? null) ? $it['ai_meta'] : [];
+            $source = (string)($aiMeta['source'] ?? '');
+            $isAzureDocumentIntelligence = str_starts_with($source, 'azure_document_intelligence');
+
             if (($uP === null || $uP <= 0) || ($lT === null || $lT <= 0)) {
                 $vals = $this->moneyValuesFromText($raw);
+
                 if (count($vals) >= 2) {
-                    if ($uP === null || $uP <= 0) $uP = round($vals[count($vals)-2], 4);
-                    if ($lT === null || $lT <= 0) $lT = round($vals[count($vals)-1], 2);
+                    if ($uP === null || $uP <= 0) {
+                        $uP = round($vals[count($vals) - 2], 4);
+                    }
+
+                    if ($lT === null || $lT <= 0) {
+                        $lT = round($vals[count($vals) - 1], 2);
+                    }
                 }
             }
-
-            $prodserv = $it['ai_meta']['prodserv'] ?? null;
-            $prodserv = is_string($prodserv) ? trim($prodserv) : null;
 
             $hasUP = (!is_null($uP) && $uP > 0);
             $hasLT = (!is_null($lT) && $lT > 0);
 
-            if (!$hasUP && !$hasLT) continue;
+            if (!$hasUP && !$hasLT && !$isAzureDocumentIntelligence) {
+                continue;
+            }
 
-            if ($hasUP && $hasLT) {
+            if ($hasUP && $hasLT && !$isAzureDocumentIntelligence) {
                 $calc = round($qty * $uP, 2);
                 $diff = abs($calc - $lT);
                 $tol = max(1.00, $lT * 0.02);
-                if ($diff > $tol) continue;
+
+                if ($diff > $tol) {
+                    continue;
+                }
             } else {
-                if ($hasLT && !$hasUP && $qty > 0) $uP = round($lT / $qty, 4);
-                if ($hasUP && !$hasLT && $qty > 0) $lT = round($qty * $uP, 2);
+                if ($hasLT && !$hasUP && $qty > 0) {
+                    $uP = round($lT / $qty, 4);
+                }
+
+                if ($hasUP && !$hasLT && $qty > 0) {
+                    $lT = round($qty * $uP, 2);
+                }
             }
+
+            if ($uP === null) {
+                $uP = 0.0;
+            }
+
+            if ($lT === null) {
+                $lT = 0.0;
+            }
+
+            $prodserv = $aiMeta['prodserv'] ?? null;
+            $prodserv = is_string($prodserv) ? trim($prodserv) : null;
 
             $clean[] = [
                 'item_raw'   => $raw ?: $name,
@@ -1768,20 +1901,28 @@ TXT;
                 'unit'       => $it['unit'] ?? null,
                 'unit_price' => $uP,
                 'line_total' => $lT,
-                'ai_meta'    => ['prodserv' => $prodserv],
+                'ai_meta'    => array_merge($aiMeta, [
+                    'prodserv' => $prodserv,
+                ]),
             ];
         }
 
         $seen = [];
         $out = [];
+
         foreach ($clean as $it) {
             $k = md5(mb_strtolower(
                 trim((string)$it['item_name']) . '|' .
                 (string)$it['qty'] . '|' .
+                (string)$it['unit'] . '|' .
                 (string)$it['unit_price'] . '|' .
                 (string)$it['line_total']
             ));
-            if (isset($seen[$k])) continue;
+
+            if (isset($seen[$k])) {
+                continue;
+            }
+
             $seen[$k] = true;
             $out[] = $it;
         }
@@ -1789,7 +1930,7 @@ TXT;
         return $out;
     }
 
-    private function topItems(array $items, int $limit = 8): array
+private function topItems(array $items, int $limit = 8): array
     {
         $agg = [];
         foreach ($items as $it) {
@@ -1828,19 +1969,31 @@ TXT;
     private function moneyValuesFromText(?string $text): array
     {
         $text = (string)$text;
-        if ($text === '') return [];
 
-        preg_match_all('/\$?\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})|[0-9]+(?:\.[0-9]{2}))/u', $text, $m);
+        if ($text === '') {
+            return [];
+        }
+
+        preg_match_all(
+            '/\$\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})|[0-9]+(?:\.[0-9]{2}))/u',
+            $text,
+            $m
+        );
 
         $vals = [];
+
         foreach (($m[1] ?? []) as $v) {
             $v = str_replace(',', '', $v);
-            if (is_numeric($v)) $vals[] = (float)$v;
+
+            if (is_numeric($v)) {
+                $vals[] = (float)$v;
+            }
         }
+
         return $vals;
     }
 
-    private function looksLikeTaxLine(?string $raw): bool
+private function looksLikeTaxLine(?string $raw): bool
     {
         $raw = mb_strtolower((string)$raw);
         return str_contains($raw, 'iva') || str_contains($raw, 'impuesto') || str_contains($raw, 'tax');

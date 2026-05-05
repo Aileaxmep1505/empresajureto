@@ -54,7 +54,7 @@
   }
 
   #pubCreateClean .drop::after{
-    content:'Cualquier archivo';
+    content:'Solo PDF';
     position:absolute;
     right:14px;
     bottom:12px;
@@ -875,7 +875,7 @@
         Subir publicación
       </h1>
       <div class="subtitle">
-        Carga uno o varios archivos y revisa la extracción antes de guardar. El flujo acepta cualquier archivo. La IA extrae mejor en PDF, imágenes y archivos con texto legible.
+        Carga uno o varios documentos PDF y revisa la extracción antes de guardar. Azure Document Intelligence leerá páginas, tablas y conceptos para llenar la información automáticamente.
       </div>
     </div>
 
@@ -1145,7 +1145,7 @@
           </div>
 
           <div class="cardBody">
-            <input type="file" name="files[]" id="f-file" style="display:none;" multiple required accept="*/*">
+            <input type="file" name="files[]" id="f-file" style="display:none;" multiple required accept="application/pdf,.pdf">
 
             <div class="drop" id="dropZone" title="Click para seleccionar archivos">
               <div class="fileRow">
@@ -1155,7 +1155,7 @@
                   </div>
                   <div style="min-width:0;">
                     <div class="fileName" id="fileName">Seleccionar archivo(s)...</div>
-                    <div class="fileMini"><span id="fileType">Cualquier tipo de archivo</span> • <span id="fileSize">Máx. 50 MB por archivo</span></div>
+                    <div class="fileMini"><span id="fileType">PDF con tablas o texto legible</span> • <span id="fileSize">Máx. 50 MB por archivo</span></div>
                   </div>
                 </div>
                 <label class="btnx ghost tiny" for="f-file">Examinar</label>
@@ -1163,7 +1163,7 @@
             </div>
 
             <div class="premiumHint">
-              <strong>Modo inteligente:</strong> el guardado se habilita únicamente cuando la IA devuelve información útil o cuando capturas manualmente un documento válido.
+              <strong>Modo inteligente:</strong> Azure Document Intelligence analizará el PDF. El guardado se habilita cuando se detecta información útil o cuando capturas manualmente un documento válido.
             </div>
 
             <div class="aiBanner" id="aiBanner"></div>
@@ -1172,7 +1172,7 @@
               <small id="aiStatus" style="color:var(--muted); font-size:12px;">Esperando archivo(s)...</small>
               <div style="display:flex; gap:6px;">
                 <button type="button" class="btnx ghost tiny hidden" id="btnClearAi">Limpiar</button>
-                <button type="button" class="btnx blue tiny" id="btnRetry" disabled>Analizar IA</button>
+                <button type="button" class="btnx blue tiny" id="btnRetry" disabled>Analizar PDF</button>
                 <button type="button" class="btnx ghost tiny" id="btnSkipIA">Manual</button>
               </div>
             </div>
@@ -1589,7 +1589,7 @@
         if(!files.length){
           reason = 'Selecciona al menos un archivo.';
         } else if (isAiBusy()){
-          reason = 'Espera a que termine el análisis de IA.';
+          reason = 'Espera a que termine el análisis de Azure.';
         } else if (isSale() && !companyInput?.value){
           reason = 'Selecciona una compañía para la venta.';
         } else if (files.length > 1){
@@ -1600,7 +1600,7 @@
           reason = canSave ? '' : 'En modo manual debes capturar al menos un concepto o datos válidos.';
         } else {
           canSave = singleAiPayloadReady();
-          reason = canSave ? '' : 'No puedes guardar hasta que la IA arroje información válida.';
+          reason = canSave ? '' : 'No puedes guardar hasta que Azure devuelva información válida.';
         }
 
         submitBtn.disabled = !canSave;
@@ -2077,7 +2077,7 @@
           normItems.forEach(recalcRowModel);
 
           if(!hasMeaningfulExtract(doc, normItems)){
-            throw new Error('La IA no detectó información utilizable en este documento.');
+            throw new Error('Azure no detectó información utilizable en este documento.');
           }
 
           const totals = computeTotalsFromItems(normItems, true);
@@ -2128,8 +2128,8 @@
         batchAiRunning = true;
         updateSubmitAvailability();
         toggleState('run');
-        aiStatus.textContent = `Analizando ${files.length} documento(s) con IA...`;
-        setBtnLoading(btnRetry, true, 'Analizando lote...');
+        aiStatus.textContent = `Analizando ${files.length} documento(s) PDF con Azure...`;
+        setBtnLoading(btnRetry, true, 'Analizando PDFs...');
 
         try{
           for(let i=0; i<files.length; i++){
@@ -2162,8 +2162,8 @@
 
         beginAiWork();
         toggleState('run');
-        aiStatus.innerText = 'Analizando documento con IA...';
-        setBtnLoading(btnRetry, true, 'Analizando IA...');
+        aiStatus.innerText = 'Analizando PDF con Azure...';
+        setBtnLoading(btnRetry, true, 'Analizando PDF...');
 
         const fd = new FormData();
         fd.append('file', f);
@@ -2199,7 +2199,7 @@
           if(!hasMeaningfulExtract(extractedDoc, aiRows)){
             aiRows = [];
             aiPayloadHidden.value = '';
-            throw new Error('La IA no devolvió información utilizable. No se puede guardar hasta corregir o capturar manualmente.');
+            throw new Error('Azure no devolvió información utilizable. No se puede guardar hasta corregir o capturar manualmente.');
           }
 
           aiDoc = {
@@ -2222,7 +2222,7 @@
           console.error(e);
           toggleState('fail');
           aiStatus.innerText = e.message || 'No se pudo extraer información. Intenta manual.';
-          setBanner(e.message || 'No se pudo analizar el archivo.', 'error');
+          setBanner(e.message || 'No se pudo analizar el PDF.', 'error');
           aiPayloadHidden.value = '';
           updateSubmitAvailability();
         } finally {
@@ -2412,13 +2412,38 @@
         updateSubmitAvailability();
       }
 
+      function isPdfFile(file){
+        const name = String(file?.name || '').toLowerCase();
+        const type = String(file?.type || '').toLowerCase();
+        return type === 'application/pdf' || name.endsWith('.pdf');
+      }
+
       function handleSelection(){
         const files = Array.from(fileInput.files || []);
         buildFpInputs();
 
+        if(files.length && !files.every(isPdfFile)){
+          fileInput.value = '';
+          fpInputs.innerHTML = '';
+          aiPayloadHidden.value = '';
+          aiPayloadBulkHidden.value = '';
+          manualRows = [];
+          aiRows = [];
+          multi.clear();
+          fileNameEl.textContent = 'Seleccionar archivo(s)...';
+          fileSizeEl.textContent = 'Máx. 50 MB por archivo';
+          btnRetry.disabled = true;
+          aiStatus.textContent = 'Solo se permiten documentos PDF.';
+          toggleView('');
+          toggleState('fail');
+          setBanner('Selecciona únicamente archivos PDF para analizarlos con Azure Document Intelligence.', 'error');
+          updateSubmitAvailability();
+          return;
+        }
+
         if(!files.length){
           fileNameEl.textContent = 'Seleccionar archivo(s)...';
-          fileSizeEl.textContent = 'Max 10MB';
+          fileSizeEl.textContent = 'Máx. 50 MB por archivo';
           btnRetry.disabled = true;
           aiStatus.textContent = 'Esperando archivo(s)...';
           toggleView('');
@@ -2442,9 +2467,9 @@
 
         if(files.length === 1){
           btnRetry.disabled = false;
-          btnRetry.textContent = 'Reintentar IA';
-          aiStatus.textContent = 'Archivo listo. Analizando con IA...';
-          setBanner('Extrayendo encabezado y conceptos del documento...', 'info');
+          btnRetry.textContent = 'Reintentar PDF';
+          aiStatus.textContent = 'PDF listo. Analizando con Azure...';
+          setBanner('Azure está extrayendo encabezado, tablas y conceptos del PDF...', 'info');
           toggleView('ai');
           aiPayloadBulkHidden.value = '';
           multi.clear();
@@ -2452,9 +2477,9 @@
           aiExtractAutoSingle();
         } else {
           btnRetry.disabled = false;
-          btnRetry.textContent = 'Analizar IA';
-          aiStatus.textContent = `Listo. Se analizarán ${files.length} documentos aquí mismo (editable antes de guardar).`;
-          setBanner('Lote listo. El guardado se habilitará cuando todos los documentos tengan información válida.', 'info');
+          btnRetry.textContent = 'Analizar PDFs';
+          aiStatus.textContent = `Listo. Se analizarán ${files.length} PDFs aquí mismo (editable antes de guardar).`;
+          setBanner('Lote PDF listo. El guardado se habilitará cuando todos los documentos tengan información válida.', 'info');
           toggleView('multi');
           toggleState('');
           aiPayloadHidden.value = '';
@@ -2550,7 +2575,7 @@
 
         if(isAiBusy()){
           e.preventDefault();
-          setBanner('Espera a que termine el análisis de IA antes de guardar.', 'warn');
+          setBanner('Espera a que termine el análisis de Azure antes de guardar.', 'warn');
           updateSubmitAvailability();
           return;
         }
@@ -2575,7 +2600,7 @@
           } else {
             if(!singleAiPayloadReady()){
               e.preventDefault();
-              setBanner('No puedes guardar hasta que la IA arroje información válida del documento.', 'error');
+              setBanner('No puedes guardar hasta que Azure devuelva información válida del documento.', 'error');
               updateSubmitAvailability();
               return;
             }

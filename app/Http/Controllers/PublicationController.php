@@ -27,12 +27,14 @@ class PublicationController extends Controller
     public function index()
     {
         $data = $this->svc->buildIndexData();
+
         return view('publications.index', $data);
     }
 
     public function create()
     {
         $companies = Company::query()->orderBy('name')->get();
+
         return view('publications.create', compact('companies'));
     }
 
@@ -145,7 +147,7 @@ class PublicationController extends Controller
         if ($validator->fails()) {
             $file = $request->file('file');
 
-            Log::warning('Publications AI extract: validation failed', [
+            Log::warning('Publications Azure extract: validation failed', [
                 'file_name' => $file?->getClientOriginalName(),
                 'mime'      => $file?->getClientMimeType(),
                 'ext'       => $file?->getClientOriginalExtension(),
@@ -156,16 +158,17 @@ class PublicationController extends Controller
             return response()->json([
                 'error'   => $validator->errors()->first() ?: 'No se pudo validar el archivo.',
                 'errors'  => $validator->errors(),
-                'message' => 'Verifica que se haya enviado un archivo real y que no exceda el tamaño permitido.',
+                'message' => 'Verifica que se haya enviado un PDF real y que no exceda el tamaño permitido.',
             ], 422);
         }
 
         $file = $request->file('file');
+
         if (!$file) {
             return response()->json(['error' => 'No se recibió archivo.'], 422);
         }
 
-        Log::info('Publications AI extract: received file', [
+        Log::info('Publications Azure extract: received file', [
             'file_name' => $file->getClientOriginalName(),
             'mime'      => $file->getClientMimeType(),
             'ext'       => $file->getClientOriginalExtension(),
@@ -185,6 +188,7 @@ class PublicationController extends Controller
             $notes = (array) ($normalized['notes'] ?? []);
 
             $warnings = array_values(array_filter((array) data_get($notes, 'warnings', [])));
+
             if (empty($items)) {
                 $warnings[] = 'No se detectaron conceptos automáticamente. Puedes capturarlos o editarlos manualmente.';
             }
@@ -203,6 +207,7 @@ class PublicationController extends Controller
 
             return response()->json([
                 'ok'       => true,
+                'engine'   => 'azure_document_intelligence',
                 'summary'  => $summary,
                 'document' => $doc,
                 'items'    => $items,
@@ -213,7 +218,7 @@ class PublicationController extends Controller
                     : null,
             ]);
         } catch (\Throwable $e) {
-            Log::warning('Publications AI extract failed', [
+            Log::warning('Publications Azure extract failed', [
                 'file_name' => $file->getClientOriginalName(),
                 'mime'      => $file?->getClientMimeType(),
                 'ext'       => $file?->getClientOriginalExtension(),
@@ -221,16 +226,10 @@ class PublicationController extends Controller
                 'error'     => $e->getMessage(),
             ]);
 
-            $message = $e->getMessage();
-            $status = str_contains(mb_strtolower($message), 'texto legible')
-                ? 422
-                : 500;
-
             return response()->json([
-                'error' => $status === 422
-                    ? 'El archivo se subió, pero no se pudo convertir a un formato legible para la IA. Puedes guardarlo y capturar los conceptos manualmente.'
-                    : 'No se pudo analizar el archivo con IA. Reintenta en unos segundos o usa captura manual.',
-            ], $status);
+                'error' => 'No se pudo analizar el PDF con Azure Document Intelligence. Reintenta o usa captura manual.',
+                'detail' => app()->environment('local') ? $e->getMessage() : null,
+            ], 500);
         }
     }
 
@@ -354,6 +353,7 @@ class PublicationController extends Controller
         $accounting = (array) data_get($aiMeta, 'accounting', []);
 
         $companyId = (int) ($accounting['company_id'] ?? 0);
+
         if ($companyId <= 0) {
             throw new \RuntimeException('No se encontró company_id para ligar la venta a cuentas por cobrar.');
         }
@@ -376,20 +376,22 @@ class PublicationController extends Controller
 
         $serie = trim((string) ($cfdi['serie'] ?? ''));
         $folioOnly = trim((string) ($cfdi['folio'] ?? ''));
-        $folio = trim(($serie !== '' ? $serie.' ' : '').$folioOnly);
+        $folio = trim(($serie !== '' ? $serie . ' ' : '') . $folioOnly);
 
         if ($folio === '') {
-            $folio = 'VENTA-'.$doc->id;
+            $folio = 'VENTA-' . $doc->id;
         }
 
         $clientName = trim((string) ($doc->supplier_name ?? ''));
+
         if ($clientName === '') {
             $clientName = 'Cliente venta';
         }
 
         $description = 'Documento de venta generado desde Publicaciones';
+
         if (!empty($doc->document_type)) {
-            $description .= ' · Tipo: '.$doc->document_type;
+            $description .= ' · Tipo: ' . $doc->document_type;
         }
 
         $receivable = AccountReceivable::query()->firstOrNew([
@@ -437,7 +439,7 @@ class PublicationController extends Controller
             'reminder_days_before' => (int) ($accounting['reminder_days_before'] ?? 5),
             'tags'                 => $accounting['tags'] ?? null,
 
-            'title'                => 'Venta '.$folio,
+            'title'                => 'Venta ' . $folio,
             'reference'            => $cfdi['uuid'] ?? $folio,
             'invoice_number'       => $folio,
             'vendor_name'          => null,
@@ -466,31 +468,31 @@ class PublicationController extends Controller
     ): string {
         $notes = [
             'Generado automáticamente desde Publicaciones > Venta.',
-            'PurchaseDocument ID: '.$doc->id,
+            'PurchaseDocument ID: ' . $doc->id,
         ];
 
         if (!empty($cfdi['uuid'])) {
-            $notes[] = 'UUID: '.$cfdi['uuid'];
+            $notes[] = 'UUID: ' . $cfdi['uuid'];
         }
 
         if (!empty($cfdi['party_rfc'])) {
-            $notes[] = 'RFC cliente: '.$cfdi['party_rfc'];
+            $notes[] = 'RFC cliente: ' . $cfdi['party_rfc'];
         }
 
         if (!empty($doc->supplier_name)) {
-            $notes[] = 'Cliente: '.$doc->supplier_name;
+            $notes[] = 'Cliente: ' . $doc->supplier_name;
         }
 
         if (!empty($doc->document_datetime)) {
             try {
-                $notes[] = 'Fecha documento: '.Carbon::parse($doc->document_datetime)->format('d/m/Y H:i');
+                $notes[] = 'Fecha documento: ' . Carbon::parse($doc->document_datetime)->format('d/m/Y H:i');
             } catch (\Throwable $e) {
                 //
             }
         }
 
         if (!empty($accounting['notes'])) {
-            $notes[] = 'Notas: '.$accounting['notes'];
+            $notes[] = 'Notas: ' . $accounting['notes'];
         }
 
         return mb_substr(implode("\n", $notes), 0, 1900);
@@ -569,6 +571,7 @@ class PublicationController extends Controller
     private function syncAgendaForReceivable(AccountReceivable $receivable): void
     {
         $userId = Auth::id();
+
         if (!$userId) {
             return;
         }
@@ -582,17 +585,20 @@ class PublicationController extends Controller
             if ($event) {
                 $event->delete();
             }
+
             return;
         }
 
         $startAt = Carbon::parse($receivable->due_date, 'America/Mexico_City')->setTime(9, 0, 0);
 
         $title = 'Cobro';
+
         if (!empty($receivable->client_name)) {
-            $title .= ': '.$receivable->client_name;
+            $title .= ': ' . $receivable->client_name;
         }
+
         if (!empty($receivable->folio)) {
-            $title .= ' · Folio '.$receivable->folio;
+            $title .= ' · Folio ' . $receivable->folio;
         }
 
         $companyName = $receivable->relationLoaded('company')
@@ -603,16 +609,16 @@ class PublicationController extends Controller
 
         $descriptionParts = array_filter([
             'Evento generado automáticamente desde Publicaciones / Venta.',
-            'ID cobro: '.$receivable->id,
-            'Compañía: '.$companyName,
-            'Cliente: '.($receivable->client_name ?: '—'),
-            !empty($receivable->folio) ? 'Folio: '.$receivable->folio : null,
-            'Monto: $'.number_format((float) $receivable->amount, 2).' '.($receivable->currency ?: 'MXN'),
-            'Saldo actual: $'.number_format(max((float) $receivable->amount - (float) $receivable->amount_paid, 0), 2).' '.($receivable->currency ?: 'MXN'),
-            'Vencimiento: '.$startAt->format('d/m/Y H:i'),
-            !empty($receivable->collection_status) ? 'Estado cobranza: '.$receivable->collection_status : null,
-            !empty($receivable->description) ? 'Descripción: '.$receivable->description : null,
-            !empty($receivable->notes) ? 'Notas: '.$receivable->notes : null,
+            'ID cobro: ' . $receivable->id,
+            'Compañía: ' . $companyName,
+            'Cliente: ' . ($receivable->client_name ?: '—'),
+            !empty($receivable->folio) ? 'Folio: ' . $receivable->folio : null,
+            'Monto: $' . number_format((float) $receivable->amount, 2) . ' ' . ($receivable->currency ?: 'MXN'),
+            'Saldo actual: $' . number_format(max((float) $receivable->amount - (float) $receivable->amount_paid, 0), 2) . ' ' . ($receivable->currency ?: 'MXN'),
+            'Vencimiento: ' . $startAt->format('d/m/Y H:i'),
+            !empty($receivable->collection_status) ? 'Estado cobranza: ' . $receivable->collection_status : null,
+            !empty($receivable->description) ? 'Descripción: ' . $receivable->description : null,
+            !empty($receivable->notes) ? 'Notas: ' . $receivable->notes : null,
             $marker,
         ]);
 
@@ -643,13 +649,13 @@ class PublicationController extends Controller
         $marker = $this->agendaMarkerForReceivable($receivable->id);
 
         return AgendaEvent::query()
-            ->where('description', 'like', '%'.$marker.'%')
+            ->where('description', 'like', '%' . $marker . '%')
             ->latest('id')
             ->first();
     }
 
     private function agendaMarkerForReceivable(int $receivableId): string
     {
-        return '[AUTO_RECEIVABLE_ID:'.$receivableId.']';
+        return '[AUTO_RECEIVABLE_ID:' . $receivableId . ']';
     }
 }
