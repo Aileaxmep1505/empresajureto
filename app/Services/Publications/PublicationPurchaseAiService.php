@@ -690,12 +690,37 @@ public function saveRules(): array
 
         $process->setTimeout((int) $cfg['timeout']);
 
+        /*
+         * IMPORTANTE EN HOSTING COMPARTIDO:
+         * Cuando Laravel ejecuta Python desde PHP/FPM, no siempre carga el mismo HOME
+         * ni los paquetes instalados con --user. Por eso forzamos PYTHONPATH hacia:
+         * /home/u106036310/.local/lib/python3.9/site-packages
+         */
+        $pythonUserHome = '/home/u106036310';
+        $pythonUserSite = $pythonUserHome . '/.local/lib/python3.9/site-packages';
+
+        /*
+         * python-ai/
+         *   app/
+         *     services/
+         *       azure_purchase_pdf_extract.py
+         *
+         * dirname($scriptPath, 3) apunta a la raíz de python-ai.
+         */
+        $process->setWorkingDirectory(dirname($scriptPath, 3));
+
         $process->setEnv([
             'AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT' => (string) $cfg['endpoint'],
             'AZURE_DOCUMENT_INTELLIGENCE_KEY' => (string) $cfg['key'],
             'AZURE_DOCUMENT_INTELLIGENCE_API_VERSION' => (string) $cfg['api_version'],
-            'PATH' => getenv('PATH') ?: '/usr/local/bin:/usr/bin:/bin',
-            'HOME' => getenv('HOME') ?: base_path(),
+
+            'HOME' => $pythonUserHome,
+            'USER' => 'u106036310',
+            'LOGNAME' => 'u106036310',
+
+            'PATH' => $pythonUserHome . '/.local/bin:/usr/local/bin:/usr/bin:/bin',
+            'PYTHONPATH' => $pythonUserSite,
+            'PYTHONUSERBASE' => $pythonUserHome . '/.local',
         ]);
 
         $process->run();
