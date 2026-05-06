@@ -671,7 +671,7 @@ class WmsPickingController extends Controller implements HasMiddleware
     {
         $priceCol = $this->firstExistingColumn('catalog_items', ['price', 'sale_price', 'precio', 'unit_price']);
         $imageCol = $this->firstExistingColumn('catalog_items', ['image', 'image_url', 'photo', 'thumbnail']);
-        $hasReservedQty = Schema::hasColumn('inventories', 'reserved_qty');
+        $hasReservedQty = $this->hasInventoryReservedQty();
         $fastFlowByProduct = $this->fastFlowProductData();
 
         $itemColumns = ['id', 'name', 'sku'];
@@ -1238,7 +1238,7 @@ class WmsPickingController extends Controller implements HasMiddleware
                             }
                         }
 
-                        if ($inventoryId && Schema::hasColumn('inventories', 'reserved_qty')) {
+                        if ($inventoryId && $this->hasInventoryReservedQty()) {
                             $inventory = Inventory::query()->lockForUpdate()->find($inventoryId);
                             if ($inventory) {
                                 $inventory->reserved_qty = max(0, (int) ($inventory->reserved_qty ?? 0) - $qty);
@@ -1248,7 +1248,7 @@ class WmsPickingController extends Controller implements HasMiddleware
                     } else {
                         $inventoryId = data_get($entry, 'inventory_id');
 
-                        if ($inventoryId && Schema::hasColumn('inventories', 'reserved_qty')) {
+                        if ($inventoryId && $this->hasInventoryReservedQty()) {
                             $inventory = Inventory::query()->lockForUpdate()->find($inventoryId);
                             if ($inventory) {
                                 $inventory->reserved_qty = max(0, (int) ($inventory->reserved_qty ?? 0) - $qty);
@@ -1338,7 +1338,7 @@ class WmsPickingController extends Controller implements HasMiddleware
                             }
 
                             $inventoryQty = (int) ($inventory->qty ?? 0);
-                            $inventoryReserved = Schema::hasColumn('inventories', 'reserved_qty')
+                            $inventoryReserved = $this->hasInventoryReservedQty()
                                 ? (int) ($inventory->reserved_qty ?? 0)
                                 : 0;
 
@@ -1348,14 +1348,14 @@ class WmsPickingController extends Controller implements HasMiddleware
                                 ]);
                             }
 
-                            if (Schema::hasColumn('inventories', 'reserved_qty') && $inventoryReserved < $qty) {
+                            if ($this->hasInventoryReservedQty() && $inventoryReserved < $qty) {
                                 throw ValidationException::withMessages([
                                     'items' => 'La reserva del inventario Fast Flow ya no es válida.',
                                 ]);
                             }
 
                             $inventory->qty = max(0, $inventoryQty - $qty);
-                            if (Schema::hasColumn('inventories', 'reserved_qty')) {
+                            if ($this->hasInventoryReservedQty()) {
                                 $inventory->reserved_qty = max(0, $inventoryReserved - $qty);
                             }
                             $inventory->save();
@@ -1373,7 +1373,7 @@ class WmsPickingController extends Controller implements HasMiddleware
                         }
 
                         $inventoryQty = (int) ($inventory->qty ?? 0);
-                        $inventoryReserved = Schema::hasColumn('inventories', 'reserved_qty')
+                        $inventoryReserved = $this->hasInventoryReservedQty()
                             ? (int) ($inventory->reserved_qty ?? 0)
                             : 0;
 
@@ -1383,14 +1383,14 @@ class WmsPickingController extends Controller implements HasMiddleware
                             ]);
                         }
 
-                        if (Schema::hasColumn('inventories', 'reserved_qty') && $inventoryReserved < $qty) {
+                        if ($this->hasInventoryReservedQty() && $inventoryReserved < $qty) {
                             throw ValidationException::withMessages([
                                 'items' => 'La reserva del inventario ya no coincide con la cantidad requerida.',
                             ]);
                         }
 
                         $inventory->qty = max(0, $inventoryQty - $qty);
-                        if (Schema::hasColumn('inventories', 'reserved_qty')) {
+                        if ($this->hasInventoryReservedQty()) {
                             $inventory->reserved_qty = max(0, $inventoryReserved - $qty);
                         }
                         $inventory->save();
@@ -1437,26 +1437,42 @@ class WmsPickingController extends Controller implements HasMiddleware
             ]);
         }
 
-        $rows = Inventory::query()
-            ->where('catalog_item_id', $productId)
+        $baseInventoryQuery = function () use ($productId) {
+            return Inventory::query()
+                ->where('catalog_item_id', $productId)
+                ->orderByDesc('qty')
+                ->lockForUpdate();
+        };
+
+        $rows = $baseInventoryQuery()
             ->when($locationCode !== '', function ($q) use ($locationCode) {
                 $q->whereHas('location', function ($loc) use ($locationCode) {
                     $loc->where('code', $locationCode);
                 });
             })
-            ->orderByDesc('qty')
-            ->lockForUpdate()
             ->get();
 
+        if ($rows->isEmpty() && $locationCode !== '') {
+            $this->logPicking('reserveInventoryItem.location_not_found_retry_without_location', [
+                'product_id'    => $productId,
+                'product_name'  => $productName,
+                'location_code' => $locationCode,
+            ], 'warning');
+
+            $rows = $baseInventoryQuery()->get();
+        }
+
         $this->logPicking('reserveInventoryItem.rows_found', [
-            'product_id' => $productId,
-            'rows_count' => $rows->count(),
-            'rows'       => $rows->map(function ($row) {
+            'product_id'      => $productId,
+            'location_code'   => $locationCode,
+            'inventory_table' => $this->inventoryTable(),
+            'rows_count'      => $rows->count(),
+            'rows'            => $rows->map(function ($row) {
                 return [
                     'inventory_id' => $row->id,
                     'location_id'  => $row->location_id,
                     'qty'          => (int) ($row->qty ?? 0),
-                    'reserved_qty' => Schema::hasColumn('inventories', 'reserved_qty')
+                    'reserved_qty' => $this->hasInventoryReservedQty()
                         ? (int) ($row->reserved_qty ?? 0)
                         : null,
                 ];
@@ -1465,7 +1481,7 @@ class WmsPickingController extends Controller implements HasMiddleware
 
         if ($rows->isEmpty()) {
             throw ValidationException::withMessages([
-                'items' => "No se encontró inventario para {$productName}.",
+                'items' => "No se encontró inventario para {$productName}. Verifica que exista una fila en {$this->inventoryTable()} con catalog_item_id {$productId}.",
             ]);
         }
 
@@ -1474,7 +1490,7 @@ class WmsPickingController extends Controller implements HasMiddleware
 
         foreach ($rows as $row) {
             $qty = (int) ($row->qty ?? 0);
-            $reserved = Schema::hasColumn('inventories', 'reserved_qty')
+            $reserved = $this->hasInventoryReservedQty()
                 ? (int) ($row->reserved_qty ?? 0)
                 : 0;
 
@@ -1488,7 +1504,7 @@ class WmsPickingController extends Controller implements HasMiddleware
                 continue;
             }
 
-            if (Schema::hasColumn('inventories', 'reserved_qty')) {
+            if ($this->hasInventoryReservedQty()) {
                 $row->reserved_qty = $reserved + $take;
                 $row->save();
             }
@@ -1640,7 +1656,7 @@ class WmsPickingController extends Controller implements HasMiddleware
             }
 
             $invQty = (int) ($inventory->qty ?? 0);
-            $invReserved = Schema::hasColumn('inventories', 'reserved_qty')
+            $invReserved = $this->hasInventoryReservedQty()
                 ? (int) ($inventory->reserved_qty ?? 0)
                 : 0;
             $invAvailable = max(0, $invQty - $invReserved);
@@ -1662,7 +1678,7 @@ class WmsPickingController extends Controller implements HasMiddleware
             $box->reserved_units = $reservedUnits + $take;
             $box->save();
 
-            if (Schema::hasColumn('inventories', 'reserved_qty')) {
+            if ($this->hasInventoryReservedQty()) {
                 $inventory->reserved_qty = $invReserved + $take;
                 $inventory->save();
             }
@@ -1841,6 +1857,16 @@ class WmsPickingController extends Controller implements HasMiddleware
         }
 
         return null;
+    }
+
+    protected function inventoryTable(): string
+    {
+        return (new Inventory())->getTable();
+    }
+
+    protected function hasInventoryReservedQty(): bool
+    {
+        return Schema::hasColumn($this->inventoryTable(), 'reserved_qty');
     }
 
     protected function columnLooksString(string $table, ?string $column): bool

@@ -13,6 +13,7 @@ class Inventory extends Model
         'catalog_item_id',
         'location_id',
         'qty',
+        'reserved_qty',
         'min_qty',
         'updated_by',
     ];
