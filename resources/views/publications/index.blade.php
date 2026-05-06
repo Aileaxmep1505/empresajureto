@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('title', 'Rem y Fac')
-
+@section('content_class', 'content--flush')
 @section('content')
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 
@@ -74,23 +74,85 @@
     #pubsBase .tabBtn { background:transparent; border:none; font-size:14px; font-weight:700; color:var(--muted); padding:12px 20px; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-2px; transition:.2s; border-radius:10px 10px 0 0; }
     #pubsBase .tabBtn.active { color:#3b82f6; border-bottom-color:#3b82f6; }
 
-    #pubsBase .subNav{
-      display:flex; gap:6px; flex-wrap:wrap;
-      background: rgba(255,255,255,.7);
-      border:1px solid rgba(15,23,42,.08);
-      padding:6px; border-radius:14px;
-      box-shadow: 0 10px 30px rgba(2,6,23,.05);
+    /* =========================
+       Filtros Minimalistas Premium
+    ========================= */
+    #pubsBase .subNav {
+      display: inline-flex;
+      gap: 4px;
+      flex-wrap: wrap;
+      background: rgba(241, 245, 249, 0.6);
+      
+      border: 1px solid rgba(255, 255, 255, 0.8);
+      padding: 5px; 
+      border-radius: 999px;
+      box-shadow: inset 0 2px 4px rgba(15, 23, 42, 0.02);
       margin: 0 0 18px 0;
       width: fit-content;
     }
-    #pubsBase .subBtn{
-      border:none; background:transparent; color:rgba(15,23,42,.65);
-      font-weight:900; font-size:12px; padding:8px 12px;
-      border-radius:12px; cursor:pointer; transition:.15s;
-      display:inline-flex; align-items:center; gap:8px;
+
+    #pubsBase .subBtn {
+      border: none; 
+      background: transparent; 
+      color: rgba(15, 23, 42, 0.55);
+      font-weight: 600; 
+      font-size: 13px; 
+      padding: 8px 18px;
+      border-radius: 999px;
+      cursor: pointer; 
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      display: inline-flex; 
+      align-items: center; 
+      gap: 8px;
     }
-    #pubsBase .subBtn:hover{ background: rgba(59,130,246,.08); color:#1d4ed8; }
-    #pubsBase .subBtn.active{ background: rgba(59,130,246,.12); color:#1d4ed8; box-shadow: 0 6px 18px rgba(59,130,246,.18); }
+
+    #pubsBase .subBtn:hover { 
+      color: rgba(15, 23, 42, 0.9); 
+    }
+
+    #pubsBase .subBtn.active { 
+      background: #ffffff; 
+      color: #0f172a; 
+      font-weight: 700;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.04); 
+    }
+
+    #pubsBase .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1);
+    }
+    #pubsBase .dot.all { background: #cbd5e1; }
+    #pubsBase .dot.mint { background: #10b981; }
+    #pubsBase .dot.blue { background: #3b82f6; }
+    /* ========================= */
+
+    #pubsBase .docFilterBar{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+      flex-wrap:wrap;
+      margin: 0 0 18px 0;
+    }
+    #pubsBase .docFilterTitle{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+    }
+    #pubsBase .docEmptyState{
+      padding:40px;
+      text-align:center;
+      color:var(--muted);
+      font-weight:900;
+      background: rgba(255,255,255,.65);
+      border:1px dashed rgba(15,23,42,.14);
+      border-radius:18px;
+    }
 
     #pubsBase .chip{
       font-size:10px; font-weight:900; padding:2px 8px; border-radius:999px;
@@ -142,7 +204,7 @@
     }
 
     /* =========================
-       ✅ SOLO INDEX: paginación PRO (sin Previous/Next) y sin tooltip "Previous/Next"
+       SOLO INDEX: paginación PRO (sin Previous/Next) y sin tooltip "Previous/Next"
     ========================= */
     #pubsBase .idxPager{
       margin-top: 18px;
@@ -167,11 +229,9 @@
     }
     #pubsBase .idxPager nav[role="navigation"]{ margin:0 !important; }
 
-    /* ✅ Oculta SOLO el bloque móvil (texto "Previous / Next") */
     #pubsBase .idxPager nav[role="navigation"] > div:first-child{
       display:none !important;
     }
-    /* ✅ Mantiene el bloque desktop (flechas < > + números) */
     #pubsBase .idxPager nav[role="navigation"] > div:last-child{
       display:flex !important;
       align-items:center !important;
@@ -180,12 +240,10 @@
       width:auto !important;
     }
 
-    /* Oculta el "Showing ..." default */
     #pubsBase .idxPager nav[role="navigation"] p.text-sm{
       display:none !important;
     }
 
-    /* Contenedor de botones */
     #pubsBase .idxPager nav[role="navigation"] span.relative.z-0{
       display:inline-flex !important;
       gap:10px !important;
@@ -195,7 +253,6 @@
       box-shadow: none !important;
     }
 
-    /* Botones */
     #pubsBase .idxPager nav[role="navigation"] a,
     #pubsBase .idxPager nav[role="navigation"] span[aria-current="page"] span{
       display:inline-flex !important;
@@ -220,7 +277,6 @@
       border-color: rgba(15,23,42,.12) !important;
     }
 
-    /* Activo verde pastel */
     #pubsBase .idxPager nav[role="navigation"] span[aria-current="page"] span{
       background: rgba(16,185,129,.14) !important;
       color: #047857 !important;
@@ -228,7 +284,6 @@
       box-shadow: 0 14px 28px rgba(16,185,129,.14) !important;
     }
 
-    /* Disabled */
     #pubsBase .idxPager nav[role="navigation"] span[aria-disabled="true"] span{
       opacity: .45 !important;
       cursor: not-allowed !important;
@@ -237,16 +292,14 @@
       background: rgba(255,255,255,.55) !important;
     }
 
-    /* ✅ Quita el tooltip "Previous/Next" en flechas (muchos navegadores lo sacan del title) */
     #pubsBase .idxPager nav[role="navigation"] a[rel="prev"],
     #pubsBase .idxPager nav[role="navigation"] a[rel="next"]{
-      title: none !important; /* (no todos lo respetan, pero ayuda) */
+      title: none !important; 
     }
 
-    /* ✅ Evita que exista title en hover usando CSS (y adicionalmente lo limpiamos por JS abajo) */
     #pubsBase .idxPager nav[role="navigation"] a[rel="prev"] span,
     #pubsBase .idxPager nav[role="navigation"] a[rel="next"] span{
-      font-size:0 !important; /* por si trae texto oculto */
+      font-size:0 !important;
     }
 
     @media (max-width: 640px){
@@ -293,15 +346,30 @@
         $pinnedCount = ($pinned ?? collect())->count();
       @endphp
 
+      <div class="docFilterBar">
+        <div class="docFilterTitle">Filtrar documentos</div>
+        <div class="subNav" style="margin:0;">
+          <button type="button" class="subBtn active" id="doc-filter-all" onclick="setDocFilter('all')">
+            <span class="dot all"></span> Todos
+          </button>
+          <button type="button" class="subBtn" id="doc-filter-compra" onclick="setDocFilter('compra')">
+            <span class="dot mint"></span> Compras
+          </button>
+          <button type="button" class="subBtn" id="doc-filter-venta" onclick="setDocFilter('venta')">
+            <span class="dot blue"></span> Ventas
+          </button>
+        </div>
+      </div>
+
       @if($pinnedCount)
-        <h6 style="font-size:12px; font-weight:900; color:var(--muted); margin-bottom:12px; letter-spacing:1px; text-transform:uppercase;">
+        <h6 id="pinnedTitle" style="font-size:12px; font-weight:900; color:var(--muted); margin-bottom:12px; letter-spacing:1px; text-transform:uppercase;">
           Fijados
         </h6>
 
-        <div class="grid" style="margin-bottom: 24px;">
+        <div class="grid" id="pinnedGrid" style="margin-bottom: 24px;">
           @foreach($pinned as $p)
             @php $meta = $getMeta($p); @endphp
-            <a href="{{ route('publications.show', $p) }}" class="fileCard">
+            <a href="{{ route('publications.show', $p) }}" class="fileCard docFilterItem" data-doc-type="{{ strtolower($p->category ?? $p->type ?? $p->document_type ?? '') }}">
               <div class="pin-tag">FIJADO</div>
               <div class="fc-top">
                 <span class="fc-badge" style="background:{{ $meta['bg'] }}; color:{{ $meta['color'] }}">{{ $meta['icon'] }}</span>
@@ -325,14 +393,14 @@
         </div>
       @endif
 
-      <h6 style="font-size:12px; font-weight:900; color:var(--muted); margin-bottom:12px; letter-spacing:1px; text-transform:uppercase;">
+      <h6 id="latestTitle" style="font-size:12px; font-weight:900; color:var(--muted); margin-bottom:12px; letter-spacing:1px; text-transform:uppercase;">
         Recientes
       </h6>
 
-      <div class="grid">
+      <div class="grid" id="latestGrid">
         @forelse($latest as $p)
           @php $meta = $getMeta($p); @endphp
-          <a href="{{ route('publications.show', $p) }}" class="fileCard">
+          <a href="{{ route('publications.show', $p) }}" class="fileCard docFilterItem" data-doc-type="{{ strtolower($p->category ?? $p->type ?? $p->document_type ?? '') }}">
             <div class="fc-top">
               <span class="fc-badge" style="background:{{ $meta['bg'] }}; color:{{ $meta['color'] }}">{{ $meta['icon'] }}</span>
             </div>
@@ -358,7 +426,10 @@
         @endforelse
       </div>
 
-      {{-- ✅ Paginación: sin "Previous/Next" y sin tooltip "Previous/Next" en flechas --}}
+      <div id="docFilterEmpty" class="docEmptyState d-none">
+        No hay documentos para este filtro en esta página.
+      </div>
+
       @if(method_exists($latest, 'firstItem') && $latest->total())
         <div class="idxPager">
           <div class="idxInfo">
@@ -371,17 +442,17 @@
       @endif
     </div>
 
-    {{-- TAB 2 (NO TOCADO) --}}
+    {{-- TAB 2 (ESTADÍSTICAS) --}}
     <div id="tab-stats-content" class="d-none">
       <div class="subNav">
         <button type="button" class="subBtn active" id="sub-compare" onclick="setStatsMode('compare')">
-          Comparativo <span class="chip">2 series</span>
+          <span class="dot all"></span> Comparativo
         </button>
         <button type="button" class="subBtn" id="sub-compra" onclick="setStatsMode('compra')">
-          Compras <span class="chip mint">compra</span>
+          <span class="dot mint"></span> Compras
         </button>
         <button type="button" class="subBtn" id="sub-venta" onclick="setStatsMode('venta')">
-          Ventas <span class="chip blue">venta</span>
+          <span class="dot blue"></span> Ventas
         </button>
       </div>
 
@@ -452,7 +523,57 @@
   </div>
 
 <script>
-  // ✅ Limpia tooltip/textos "Previous/Next" en flechas (lo ponen como title/aria-label)
+  var docFilterMode = 'all';
+
+  function normalizeDocType(v){
+    v = String(v || '').toLowerCase().trim();
+
+    if(v === 'compras' || v === 'purchase' || v === 'purchases') return 'compra';
+    if(v === 'ventas' || v === 'sale' || v === 'sales') return 'venta';
+
+    return v;
+  }
+
+  function setActiveDocFilter(mode){
+    ['all','compra','venta'].forEach(function(m){
+      var el = document.getElementById('doc-filter-' + m);
+      if(!el) return;
+      if(m === mode) el.classList.add('active'); else el.classList.remove('active');
+    });
+  }
+
+  function setDocFilter(mode){
+    docFilterMode = mode || 'all';
+    setActiveDocFilter(docFilterMode);
+
+    var items = document.querySelectorAll('#pubsBase .docFilterItem');
+    var visibleTotal = 0;
+    var visiblePinned = 0;
+    var visibleLatest = 0;
+
+    items.forEach(function(item){
+      var type = normalizeDocType(item.getAttribute('data-doc-type'));
+      var show = (docFilterMode === 'all') || (type === docFilterMode);
+
+      if(show){
+        item.classList.remove('d-none');
+        visibleTotal++;
+        if(item.closest('#pinnedGrid')) visiblePinned++;
+        if(item.closest('#latestGrid')) visibleLatest++;
+      } else {
+        item.classList.add('d-none');
+      }
+    });
+
+    var pinnedTitle = document.getElementById('pinnedTitle');
+    var latestTitle = document.getElementById('latestTitle');
+    var empty = document.getElementById('docFilterEmpty');
+
+    if(pinnedTitle) pinnedTitle.classList.toggle('d-none', visiblePinned === 0 && docFilterMode !== 'all');
+    if(latestTitle) latestTitle.classList.toggle('d-none', visibleLatest === 0 && docFilterMode !== 'all');
+    if(empty) empty.classList.toggle('d-none', visibleTotal !== 0);
+  }
+
   document.addEventListener('DOMContentLoaded', function(){
     try{
       var nav = document.querySelector('#pubsBase .idxPager nav[role="navigation"]');
@@ -463,9 +584,10 @@
         });
       }
     }catch(e){}
+
+    setDocFilter(docFilterMode);
   });
 
-  // ✅ Data desde backend
   var DATA = {
     totals: {
       compra: @json($totalSpentCompra ?? 0),

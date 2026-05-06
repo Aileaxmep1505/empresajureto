@@ -10,18 +10,26 @@ class UserActivity extends Model
         'user_id',
         'company_id',
         'document_id',
+
         'action',
+        'module',
+        'screen',
+        'description',
+
         'route',
         'path',
         'method',
         'status_code',
+
         'meta',
+
         'ip',
         'user_agent',
         'session_id',
         'request_id',
         'duration_ms',
         'referer',
+
         'previous_hash',
         'current_hash',
     ];

@@ -7,6 +7,7 @@ use App\Models\AgendaEvent;
 use App\Models\Company;
 use App\Models\Publication;
 use App\Models\PurchaseDocument;
+use App\Models\UserActivity;
 use App\Services\Accounting\AccountStateService;
 use App\Services\Publications\PublicationPurchaseAiService;
 use Carbon\Carbon;
@@ -16,6 +17,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 
 class PublicationController extends Controller
 {
@@ -69,6 +71,83 @@ class PublicationController extends Controller
 
         $result = $this->svc->storeFromRequest($request);
 
+        $createdPublicationIds = array_values(array_filter(array_map(
+            'intval',
+            (array) (
+                $result['created_publication_ids']
+                ?? $result['publication_ids']
+                ?? []
+            )
+        )));
+
+        $createdPurchaseDocumentIds = array_values(array_filter(array_map(
+            'intval',
+            (array) (
+                $result['created_purchase_document_ids']
+                ?? $result['purchase_document_ids']
+                ?? []
+            )
+        )));
+
+        $singlePublicationId = (int) (
+            $result['publication_id']
+            ?? $result['id']
+            ?? ($createdPublicationIds[0] ?? 0)
+        );
+
+        $uploadedFilesMeta = [];
+
+        foreach ((array) $request->file('files', []) as $file) {
+            if ($file) {
+                $uploadedFilesMeta[] = [
+                    'original_name' => $file->getClientOriginalName(),
+                    'mime_type' => $file->getClientMimeType(),
+                    'extension' => $file->getClientOriginalExtension(),
+                    'size' => $file->getSize(),
+                ];
+            }
+        }
+
+        if ($request->hasFile('file')) {
+            $file = $request->file('file');
+
+            $uploadedFilesMeta[] = [
+                'original_name' => $file->getClientOriginalName(),
+                'mime_type' => $file->getClientMimeType(),
+                'extension' => $file->getClientOriginalExtension(),
+                'size' => $file->getSize(),
+            ];
+        }
+
+        $this->auditActivity(
+            action: 'publication_uploaded',
+            companyId: $request->filled('company_id') ? (int) $request->input('company_id') : null,
+            documentId: null,
+            meta: [
+                'event' => 'upload',
+                'message' => 'Publicación subida correctamente',
+
+                'category' => $category,
+                'title' => $request->input('title'),
+                'description' => $request->input('description'),
+
+                'publication_id' => $singlePublicationId ?: null,
+                'publication_ids' => $createdPublicationIds,
+
+                'purchase_document_ids' => $createdPurchaseDocumentIds,
+
+                'files' => $uploadedFilesMeta,
+
+                'redirect_route' => $result['redirect_route'] ?? null,
+                'redirect_params' => $result['redirect_params'] ?? null,
+                'service_message' => $result['message'] ?? null,
+
+                'uploaded_by_id' => Auth::id(),
+                'uploaded_by_name' => Auth::user()?->name,
+                'uploaded_by_email' => Auth::user()?->email,
+            ]
+        );
+
         if ($category === 'venta') {
             try {
                 $this->syncReturnedSaleDocuments((array) $result);
@@ -110,20 +189,105 @@ class PublicationController extends Controller
                 ->keyBy('source_id');
         }
 
+        $this->auditActivity(
+            action: 'publication_viewed',
+            companyId: $publication->company_id ?? null,
+            documentId: null,
+            meta: [
+                'event' => 'view',
+                'message' => 'Publicación visualizada',
+
+                'publication_id' => $publication->id,
+                'publication_title' => $publication->title ?? null,
+                'publication_category' => $publication->category ?? null,
+                'file_path' => $publication->file_path ?? null,
+                'original_name' => $publication->original_name ?? null,
+
+                'purchase_document_ids' => $purchaseDocs->pluck('id')->values()->all(),
+
+                'viewed_by_id' => Auth::id(),
+                'viewed_by_name' => Auth::user()?->name,
+                'viewed_by_email' => Auth::user()?->email,
+            ]
+        );
+
         return view('publications.show', compact('publication', 'purchaseDocs', 'linkedReceivables'));
     }
 
     public function download(Publication $publication)
     {
         if (!Storage::disk('public')->exists($publication->file_path)) {
+            $this->auditActivity(
+                action: 'publication_download_failed',
+                companyId: $publication->company_id ?? null,
+                documentId: null,
+                meta: [
+                    'event' => 'download_failed',
+                    'message' => 'Intento de descarga fallido porque el archivo no existe',
+
+                    'publication_id' => $publication->id,
+                    'publication_title' => $publication->title ?? null,
+                    'publication_category' => $publication->category ?? null,
+                    'file_path' => $publication->file_path ?? null,
+                    'original_name' => $publication->original_name ?? null,
+
+                    'downloaded_by_id' => Auth::id(),
+                    'downloaded_by_name' => Auth::user()?->name,
+                    'downloaded_by_email' => Auth::user()?->email,
+                ],
+                statusCode: 404
+            );
+
             abort(404);
         }
+
+        $this->auditActivity(
+            action: 'publication_downloaded',
+            companyId: $publication->company_id ?? null,
+            documentId: null,
+            meta: [
+                'event' => 'download',
+                'message' => 'Publicación descargada',
+
+                'publication_id' => $publication->id,
+                'publication_title' => $publication->title ?? null,
+                'publication_category' => $publication->category ?? null,
+                'file_path' => $publication->file_path ?? null,
+                'original_name' => $publication->original_name ?? null,
+
+                'downloaded_by_id' => Auth::id(),
+                'downloaded_by_name' => Auth::user()?->name,
+                'downloaded_by_email' => Auth::user()?->email,
+            ]
+        );
 
         return Storage::disk('public')->download($publication->file_path, $publication->original_name);
     }
 
     public function destroy(Publication $publication)
     {
+        $this->auditActivity(
+            action: 'publication_deleted',
+            companyId: $publication->company_id ?? null,
+            documentId: null,
+            meta: [
+                'event' => 'delete',
+                'message' => 'Publicación eliminada',
+
+                'publication_id' => $publication->id,
+                'publication_title' => $publication->title ?? null,
+                'publication_description' => $publication->description ?? null,
+                'publication_category' => $publication->category ?? null,
+
+                'file_path' => $publication->file_path ?? null,
+                'original_name' => $publication->original_name ?? null,
+
+                'deleted_by_id' => Auth::id(),
+                'deleted_by_name' => Auth::user()?->name,
+                'deleted_by_email' => Auth::user()?->email,
+            ]
+        );
+
         if ($publication->file_path && Storage::disk('public')->exists($publication->file_path)) {
             Storage::disk('public')->delete($publication->file_path);
         }
@@ -155,6 +319,30 @@ class PublicationController extends Controller
                 'errors'    => $validator->errors()->toArray(),
             ]);
 
+            $this->auditActivity(
+                action: 'publication_ai_extract_validation_failed',
+                companyId: $request->filled('company_id') ? (int) $request->input('company_id') : null,
+                documentId: null,
+                meta: [
+                    'event' => 'ai_extract_validation_failed',
+                    'message' => 'Falló la validación del archivo para extracción IA',
+
+                    'category' => (string) $request->input('category', 'compra'),
+
+                    'file_name' => $file?->getClientOriginalName(),
+                    'mime_type' => $file?->getClientMimeType(),
+                    'extension' => $file?->getClientOriginalExtension(),
+                    'size' => $file?->getSize(),
+
+                    'errors' => $validator->errors()->toArray(),
+
+                    'attempted_by_id' => Auth::id(),
+                    'attempted_by_name' => Auth::user()?->name,
+                    'attempted_by_email' => Auth::user()?->email,
+                ],
+                statusCode: 422
+            );
+
             return response()->json([
                 'error'   => $validator->errors()->first() ?: 'No se pudo validar el archivo.',
                 'errors'  => $validator->errors(),
@@ -165,6 +353,23 @@ class PublicationController extends Controller
         $file = $request->file('file');
 
         if (!$file) {
+            $this->auditActivity(
+                action: 'publication_ai_extract_no_file',
+                companyId: $request->filled('company_id') ? (int) $request->input('company_id') : null,
+                documentId: null,
+                meta: [
+                    'event' => 'ai_extract_no_file',
+                    'message' => 'No se recibió archivo para extracción IA',
+
+                    'category' => (string) $request->input('category', 'compra'),
+
+                    'attempted_by_id' => Auth::id(),
+                    'attempted_by_name' => Auth::user()?->name,
+                    'attempted_by_email' => Auth::user()?->email,
+                ],
+                statusCode: 422
+            );
+
             return response()->json(['error' => 'No se recibió archivo.'], 422);
         }
 
@@ -205,6 +410,38 @@ class PublicationController extends Controller
                 'warnings'           => $warnings,
             ];
 
+            $this->auditActivity(
+                action: 'publication_ai_extracted',
+                companyId: $request->filled('company_id') ? (int) $request->input('company_id') : null,
+                documentId: null,
+                meta: [
+                    'event' => 'ai_extract',
+                    'message' => 'Extracción IA completada',
+
+                    'category' => (string) $request->input('category', 'compra'),
+
+                    'file_name' => $file->getClientOriginalName(),
+                    'mime_type' => $file->getClientMimeType(),
+                    'extension' => $file->getClientOriginalExtension(),
+                    'size' => $file->getSize(),
+
+                    'engine' => 'azure_document_intelligence',
+
+                    'supplier_name' => $doc['supplier_name'] ?? null,
+                    'operation_datetime' => $doc['document_datetime'] ?? null,
+                    'subtotal' => $doc['subtotal'] ?? 0,
+                    'tax' => $doc['tax'] ?? 0,
+                    'total' => $doc['total'] ?? 0,
+                    'items_count' => (int) ($stats['items_count'] ?? count($items)),
+                    'confidence' => data_get($notes, 'confidence', null),
+                    'warnings' => $warnings,
+
+                    'extracted_by_id' => Auth::id(),
+                    'extracted_by_name' => Auth::user()?->name,
+                    'extracted_by_email' => Auth::user()?->email,
+                ]
+            );
+
             return response()->json([
                 'ok'       => true,
                 'engine'   => 'azure_document_intelligence',
@@ -225,6 +462,30 @@ class PublicationController extends Controller
                 'size'      => $file?->getSize(),
                 'error'     => $e->getMessage(),
             ]);
+
+            $this->auditActivity(
+                action: 'publication_ai_extract_failed',
+                companyId: $request->filled('company_id') ? (int) $request->input('company_id') : null,
+                documentId: null,
+                meta: [
+                    'event' => 'ai_extract_failed',
+                    'message' => 'Falló la extracción IA',
+
+                    'category' => (string) $request->input('category', 'compra'),
+
+                    'file_name' => $file->getClientOriginalName(),
+                    'mime_type' => $file?->getClientMimeType(),
+                    'extension' => $file?->getClientOriginalExtension(),
+                    'size' => $file?->getSize(),
+
+                    'error' => $e->getMessage(),
+
+                    'attempted_by_id' => Auth::id(),
+                    'attempted_by_name' => Auth::user()?->name,
+                    'attempted_by_email' => Auth::user()?->email,
+                ],
+                statusCode: 500
+            );
 
             return response()->json([
                 'error' => 'No se pudo analizar el PDF con Azure Document Intelligence. Reintenta o usa captura manual.',
@@ -306,6 +567,39 @@ class PublicationController extends Controller
                 $receivable = $this->syncReceivableFromPurchaseDocument($doc);
             }
 
+            $aiMeta = is_array($doc->ai_meta) ? $doc->ai_meta : [];
+            $accounting = (array) data_get($aiMeta, 'accounting', []);
+
+            $this->auditActivity(
+                action: 'purchase_document_created_from_ai',
+                companyId: $request->filled('company_id')
+                    ? (int) $request->input('company_id')
+                    : ((int) ($accounting['company_id'] ?? 0) ?: null),
+                documentId: null,
+                meta: [
+                    'event' => 'ai_save',
+                    'message' => 'Documento guardado desde extracción IA',
+
+                    'category' => $category,
+
+                    'publication_id' => $publicationId,
+                    'purchase_document_id' => $doc->id,
+                    'account_receivable_id' => $receivable?->id,
+
+                    'supplier_name' => $doc->supplier_name ?? null,
+                    'document_type' => $doc->document_type ?? null,
+                    'document_datetime' => $doc->document_datetime ?? null,
+                    'subtotal' => $doc->subtotal ?? null,
+                    'tax' => $doc->tax ?? null,
+                    'total' => $doc->total ?? null,
+                    'currency' => $doc->currency ?? null,
+
+                    'saved_by_id' => Auth::id(),
+                    'saved_by_name' => Auth::user()?->name,
+                    'saved_by_email' => Auth::user()?->email,
+                ]
+            );
+
             return response()->json([
                 'ok' => true,
                 'purchase_document_id' => $doc->id,
@@ -317,7 +611,96 @@ class PublicationController extends Controller
                 'error'          => $e->getMessage(),
             ]);
 
+            $this->auditActivity(
+                action: 'purchase_document_ai_save_failed',
+                companyId: $request->filled('company_id') ? (int) $request->input('company_id') : null,
+                documentId: null,
+                meta: [
+                    'event' => 'ai_save_failed',
+                    'message' => 'No se pudo guardar el documento desde extracción IA',
+
+                    'category' => $category,
+                    'publication_id' => $publicationId,
+
+                    'error' => $e->getMessage(),
+
+                    'attempted_by_id' => Auth::id(),
+                    'attempted_by_name' => Auth::user()?->name,
+                    'attempted_by_email' => Auth::user()?->email,
+                ],
+                statusCode: 500
+            );
+
             return response()->json(['error' => 'No se pudo guardar.'], 500);
+        }
+    }
+
+    private function auditActivity(
+        string $action,
+        ?int $companyId = null,
+        ?int $documentId = null,
+        array $meta = [],
+        ?int $statusCode = 200,
+        ?int $durationMs = null
+    ): void {
+        try {
+            $previousHash = UserActivity::query()
+                ->latest('id')
+                ->value('current_hash');
+
+            $createdAt = now();
+
+            $payload = [
+                'user_id' => Auth::id(),
+                'company_id' => $companyId,
+                'document_id' => $documentId,
+
+                'action' => $action,
+
+                'route' => optional(request()->route())->getName(),
+                'path' => request()->path(),
+                'method' => request()->method(),
+                'status_code' => $statusCode,
+
+                'meta' => array_merge([
+                    'auth_user_id' => Auth::id(),
+                    'auth_user_name' => Auth::user()?->name,
+                    'auth_user_email' => Auth::user()?->email,
+                ], $meta),
+
+                'ip' => request()->ip(),
+                'user_agent' => request()->userAgent(),
+                'session_id' => session()->getId(),
+                'request_id' => request()->headers->get('X-Request-ID') ?? (string) Str::uuid(),
+                'duration_ms' => $durationMs,
+                'referer' => request()->headers->get('referer'),
+
+                'previous_hash' => $previousHash,
+            ];
+
+            $payload['current_hash'] = hash('sha256', json_encode([
+                'previous_hash' => $previousHash,
+                'action' => $payload['action'],
+                'user_id' => $payload['user_id'],
+                'company_id' => $payload['company_id'],
+                'document_id' => $payload['document_id'],
+                'route' => $payload['route'],
+                'path' => $payload['path'],
+                'method' => $payload['method'],
+                'status_code' => $payload['status_code'],
+                'meta' => $payload['meta'],
+                'ip' => $payload['ip'],
+                'session_id' => $payload['session_id'],
+                'request_id' => $payload['request_id'],
+                'created_at' => $createdAt->toDateTimeString(),
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+
+            UserActivity::create($payload);
+        } catch (\Throwable $e) {
+            Log::warning('No se pudo guardar auditoría de actividad', [
+                'action' => $action,
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 
