@@ -41,8 +41,106 @@
 
 @push('styles')
 <link rel="stylesheet" href="{{ asset('css/piking-create.css') }}?v={{ $pickingCssVersion }}">
-@endpush
+<style>
+  /* =========================================
+   MODAL PREMIUM - DISTRIBUCIÓN POR FASES
+   ========================================= */
 
+.pkf-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.pkf-modal.is-open {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Fondo con efecto glassmorphism claro */
+.pkf-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+}
+
+/* Contenedor principal del modal */
+.pkf-modal-dialog {
+    position: relative;
+    width: 100%;
+    max-width: 650px;
+    max-height: 85vh; /* Limita el alto máximo al 85% de la pantalla */
+    display: flex;
+    flex-direction: column; /* Clave para el scroll interno */
+    background: #ffffff;
+    border-radius: 10px; /* Bordes menos redondos, más profesionales */
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    transform: translateY(20px) scale(0.98);
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pkf-modal.is-open .pkf-modal-dialog {
+    transform: translateY(0) scale(1);
+}
+
+/* Header fijo */
+.pkf-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px;
+    border-bottom: 1px solid #f1f5f9;
+    flex-shrink: 0; /* Evita que se encoja cuando el body crece */
+}
+
+/* Body con scroll automático */
+.pkf-modal-body {
+    padding: 24px;
+    overflow-y: auto; /* Activa el scroll vertical */
+    flex-grow: 1;     /* Toma el espacio restante */
+}
+
+/* Estilo de la barra de scroll (Scrollbar moderno y discreto) */
+.pkf-modal-body::-webkit-scrollbar {
+    width: 6px;
+}
+.pkf-modal-body::-webkit-scrollbar-track {
+    background: transparent;
+    margin-block: 4px; /* Separación superior e inferior del track */
+}
+.pkf-modal-body::-webkit-scrollbar-thumb {
+    background-color: #cbd5e1;
+    border-radius: 10px;
+}
+.pkf-modal-body::-webkit-scrollbar-thumb:hover {
+    background-color: #94a3b8;
+}
+
+/* Footer fijo */
+.pkf-modal-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 16px 24px;
+    background: #f8fafc;
+    border-top: 1px solid #f1f5f9;
+    border-radius: 0 0 10px 10px;
+    flex-shrink: 0; /* Evita que se encoja */
+}
+</style>
+@endpush
+@section('content_class', 'content--flush')
 @section('content')
 @if ($errors->any())
   <div style="max-width:1100px;margin:0 auto 16px auto;padding:14px 16px;border:1px solid #fecaca;background:#fef2f2;color:#b91c1c;border-radius:12px;">
