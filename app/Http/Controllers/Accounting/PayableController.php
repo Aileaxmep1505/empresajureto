@@ -4,45 +4,49 @@ namespace App\Http\Controllers\Accounting;
 
 use App\Http\Controllers\Controller;
 use App\Models\AccountPayable;
-use App\Models\AccountReceivable;
+use App\Models\AgendaEvent;
 use App\Models\Company;
-use App\Models\Publication;
+use App\Services\Accounting\AccountStateService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 
-class AlertsController extends Controller implements HasMiddleware
+class PayableController extends Controller implements HasMiddleware
 {
+    public function __construct(private AccountStateService $state)
+    {
+        //
+    }
+
     public static function middleware(): array
     {
-        return [new Middleware('auth')];
+        return [
+            new Middleware('auth'),
+        ];
     }
 
     public function index(Request $request)
     {
+        $companies = Company::orderBy('name')->get();
+
         $user = Auth::user();
         $email = $user?->email;
         $userId = $user?->id;
 
         $today = Carbon::today();
 
-        $companies = Company::orderBy('name')->get();
-        $companyId = $request->filled('company_id') ? (int) $request->company_id : null;
+        $q = AccountPayable::query()
+            ->with('company')
+            ->orderByDesc('due_date');
 
-        /*
-        |--------------------------------------------------------------------------
-        | Sincronizar publicaciones de tipo venta a cuentas por cobrar
-        |--------------------------------------------------------------------------
-        | Si una Publication es venta, debe existir como AccountReceivable
-        | para que pueda aparecer en alertas, vencimientos y cuentas por cobrar.
-        */
-        $this->syncVentaPublicationsToReceivables($companyId, $email, $userId);
-
-        $rx = AccountReceivable::query()->with('company');
-        $px = AccountPayable::query()->with('company');
+        if ($request->filled('company_id')) {
+            $q->where('company_id', (int) $request->company_id);
+        }
 
         /*
         |--------------------------------------------------------------------------
@@ -51,230 +55,459 @@ class AlertsController extends Controller implements HasMiddleware
         | Compatible con created_by guardado como email o como ID de usuario.
         */
         if ($userId || $email) {
-            $rx->where(function ($q) use ($userId, $email) {
+            $q->where(function ($w) use ($userId, $email) {
                 if ($userId) {
-                    $q->orWhere('created_by', $userId);
+                    $w->orWhere('created_by', $userId);
                 }
 
                 if ($email) {
-                    $q->orWhere('created_by', $email);
-                }
-            });
-
-            $px->where(function ($q) use ($userId, $email) {
-                if ($userId) {
-                    $q->orWhere('created_by', $userId);
-                }
-
-                if ($email) {
-                    $q->orWhere('created_by', $email);
+                    $w->orWhere('created_by', $email);
                 }
             });
         }
 
-        if ($companyId) {
-            $rx->where('company_id', $companyId);
-            $px->where('company_id', $companyId);
+        $scope = $request->get('scope');
+
+        if ($scope === 'open') {
+            $q->whereNotIn('status', ['pagado', 'cancelado']);
         }
 
-        $receivables = $rx->get();
-        $payables = $px->get();
+        if ($scope === 'urgent') {
+            $q->whereNotIn('status', ['pagado', 'cancelado'])
+              ->where(function ($w) use ($today) {
+                  $w->whereIn('status', ['urgente', 'atrasado'])
+                    ->orWhereDate('due_date', '<', $today);
+              });
+        }
 
-        $urgentPayments = $payables->filter(function ($p) use ($today) {
-            if (in_array($p->status, ['pagado', 'cancelado'], true)) {
-                return false;
-            }
+        if ($scope === 'overdue') {
+            $q->whereNotIn('status', ['pagado', 'cancelado'])
+              ->whereDate('due_date', '<', $today);
+        }
 
-            $due = $p->due_date ? Carbon::parse($p->due_date) : null;
+        if ($scope === 'upcoming') {
+            $q->whereNotIn('status', ['pagado', 'cancelado'])
+              ->whereDate('due_date', '>=', $today)
+              ->whereDate('due_date', '<=', $today->copy()->addDays(15));
+        }
 
-            if (!$due) {
-                return false;
-            }
+        if ($request->filled('status') && $request->status !== 'all') {
+            $q->where('status', $request->status);
+        }
 
-            return in_array($p->status, ['urgente', 'atrasado'], true) || $due->lt($today);
-        })->sortBy(fn($p) => $p->due_date)->values();
+        if ($request->filled('search')) {
+            $s = trim($request->search);
 
-        $overdueReceivables = $receivables->filter(function ($r) use ($today) {
-            if (in_array($r->status, ['cobrado', 'cancelado'], true)) {
-                return false;
-            }
+            $q->where(function ($w) use ($s) {
+                $w->where('title', 'like', "%{$s}%")
+                  ->orWhere('supplier_name', 'like', "%{$s}%")
+                  ->orWhere('folio', 'like', "%{$s}%")
+                  ->orWhere('description', 'like', "%{$s}%");
+            });
+        }
 
-            $due = $r->due_date ? Carbon::parse($r->due_date) : null;
+        $items = $q->paginate(20)->withQueryString();
 
-            return $due ? $due->lt($today) : false;
-        })->sortBy(fn($r) => $r->due_date)->values();
+        $all = (clone $q)->get();
 
-        return view('accounting.alerts', compact(
+        $totPending = $all
+            ->filter(fn ($p) => !in_array($p->status, ['pagado', 'cancelado'], true))
+            ->sum(fn ($p) => max((float) $p->amount - (float) $p->amount_paid, 0));
+
+        $totOverdue = $all
+            ->filter(function ($p) use ($today) {
+                if (in_array($p->status, ['pagado', 'cancelado'], true)) {
+                    return false;
+                }
+
+                $due = $p->due_date ? Carbon::parse($p->due_date) : null;
+
+                return $due ? $due->lt($today) : false;
+            })
+            ->sum(fn ($p) => max((float) $p->amount - (float) $p->amount_paid, 0));
+
+        return view('accounting.payables.index', compact(
+            'items',
             'companies',
-            'companyId',
-            'urgentPayments',
-            'overdueReceivables'
+            'totPending',
+            'totOverdue'
         ));
     }
 
-    private function syncVentaPublicationsToReceivables(?int $companyId, ?string $email, $userId): void
+    public function create(Request $request)
     {
-        if (!class_exists(Publication::class)) {
-            return;
+        $companies = Company::orderBy('name')->get();
+        $presetCompanyId = $request->get('company_id');
+
+        $item = new AccountPayable([
+            'issue_date' => now()->toDateString(),
+            'currency' => 'MXN',
+            'status' => 'pendiente',
+            'frequency' => 'unico',
+            'category' => 'otros',
+            'reminder_days_before' => 3,
+            'company_id' => $presetCompanyId,
+            'amount_paid' => 0,
+        ]);
+
+        return view('accounting.payables.create', compact('item', 'companies'));
+    }
+
+    public function store(Request $request)
+    {
+        $data = $this->validatePayable($request);
+        $data['created_by'] = Auth::user()?->email;
+
+        [$docs, $names] = $this->storeDocuments($request, 'accounting/payables');
+
+        if ($docs) {
+            $data['documents'] = $docs;
         }
 
-        $publicationModel = new Publication();
-        $publicationTable = $publicationModel->getTable();
-
-        $receivableModel = new AccountReceivable();
-        $receivableTable = $receivableModel->getTable();
-
-        if (!Schema::hasTable($publicationTable) || !Schema::hasTable($receivableTable)) {
-            return;
+        if ($names) {
+            $data['document_names'] = $names;
         }
 
-        $publicationColumns = Schema::getColumnListing($publicationTable);
-        $receivableColumns = Schema::getColumnListing($receivableTable);
-
-        /*
-        |--------------------------------------------------------------------------
-        | Detectar columna que indica si la publicación es venta
-        |--------------------------------------------------------------------------
-        */
-        $saleColumn = collect([
-            'type',
-            'publication_type',
-            'operation_type',
-            'operation',
-            'transaction_type',
-            'business_type',
-            'category',
-        ])->first(fn($column) => in_array($column, $publicationColumns, true));
-
-        if (!$saleColumn) {
-            return;
+        if ($request->hasFile('evidence')) {
+            $path = $request->file('evidence')->store('accounting/payables/evidence', 'public');
+            $data['evidence_url'] = Storage::disk('public')->url($path);
         }
 
-        $query = Publication::query()
-            ->whereIn($saleColumn, [
-                'venta',
-                'Venta',
-                'VENTA',
-                'sale',
-                'Sale',
-                'SALE',
-            ]);
+        $data = $this->filterToExistingColumns($data);
 
-        if ($companyId && in_array('company_id', $publicationColumns, true)) {
-            $query->where('company_id', $companyId);
+        $p = AccountPayable::create($data);
+
+        $this->state->recalc('payable', $p->id);
+
+        try {
+            $this->syncAgendaForPayable($p->fresh('company'));
+        } catch (\Throwable $e) {
+            Log::warning('No se pudo sincronizar agenda para payable '.$p->id.': '.$e->getMessage());
         }
 
-        if (($userId || $email) && in_array('created_by', $publicationColumns, true)) {
-            $query->where(function ($q) use ($userId, $email) {
-                if ($userId) {
-                    $q->orWhere('created_by', $userId);
-                }
+        return redirect()
+            ->route('accounting.payables.show', $p)
+            ->with('success', 'Cuenta por pagar creada y agregada a la agenda.');
+    }
 
-                if ($email) {
-                    $q->orWhere('created_by', $email);
-                }
-            });
+    public function show(AccountPayable $payable)
+    {
+        $this->assertOwner($payable);
+
+        $payable->load(['company', 'movements']);
+
+        return view('accounting.payables.show', ['item' => $payable]);
+    }
+
+    public function edit(AccountPayable $payable)
+    {
+        $this->assertOwner($payable);
+
+        $companies = Company::orderBy('name')->get();
+
+        return view('accounting.payables.edit', [
+            'item' => $payable,
+            'companies' => $companies,
+        ]);
+    }
+
+    public function update(Request $request, AccountPayable $payable)
+    {
+        $this->assertOwner($payable);
+
+        $data = $this->validatePayable($request);
+
+        $docs = is_array($payable->documents) ? $payable->documents : [];
+        $names = is_array($payable->document_names) ? $payable->document_names : [];
+
+        [$newDocs, $newNames] = $this->storeDocuments($request, 'accounting/payables');
+
+        if ($newDocs) {
+            $docs = array_merge($docs, $newDocs);
         }
 
-        $publications = $query->get();
+        if ($newNames) {
+            $names = array_merge($names, $newNames);
+        }
 
-        foreach ($publications as $publication) {
-            $reference = 'PUB-' . $publication->id;
+        $data['documents'] = $docs ?: null;
+        $data['document_names'] = $names ?: null;
 
-            $existsQuery = AccountReceivable::query();
+        if ($request->hasFile('evidence')) {
+            $path = $request->file('evidence')->store('accounting/payables/evidence', 'public');
+            $data['evidence_url'] = Storage::disk('public')->url($path);
+        }
 
-            $existsQuery->where(function ($q) use ($receivableColumns, $publication, $reference) {
-                if (in_array('publication_id', $receivableColumns, true)) {
-                    $q->orWhere('publication_id', $publication->id);
-                }
+        $data = $this->filterToExistingColumns($data);
 
-                if (in_array('reference', $receivableColumns, true)) {
-                    $q->orWhere('reference', $reference);
-                }
-            });
+        $payable->update($data);
 
-            $exists = $existsQuery->exists();
+        $this->state->recalc('payable', $payable->id);
 
-            if ($exists) {
+        try {
+            $this->syncAgendaForPayable($payable->fresh('company'));
+        } catch (\Throwable $e) {
+            Log::warning('No se pudo actualizar agenda para payable '.$payable->id.': '.$e->getMessage());
+        }
+
+        return redirect()
+            ->route('accounting.payables.show', $payable)
+            ->with('success', 'Cuenta por pagar actualizada y sincronizada con agenda.');
+    }
+
+    public function destroy(AccountPayable $payable)
+    {
+        $this->assertOwner($payable);
+
+        try {
+            $this->deleteAgendaForPayable($payable);
+        } catch (\Throwable $e) {
+            Log::warning('No se pudo eliminar agenda para payable '.$payable->id.': '.$e->getMessage());
+        }
+
+        $payable->delete();
+
+        return redirect()
+            ->route('accounting.payables.index')
+            ->with('success', 'Cuenta por pagar eliminada.');
+    }
+
+    private function validatePayable(Request $request): array
+    {
+        return $request->validate([
+            'company_id' => ['required', 'exists:companies,id'],
+
+            'title' => ['required', 'string', 'max:255'],
+            'supplier_name' => ['nullable', 'string', 'max:255'],
+            'supplier_id' => ['nullable', 'string', 'max:100'],
+            'folio' => ['nullable', 'string', 'max:100'],
+            'description' => ['nullable', 'string'],
+
+            'category' => ['required', 'in:impuestos,cuentas_por_pagar,servicios,nomina,seguros,retenciones,otros'],
+            'frequency' => ['required', 'in:unico,mensual,bimestral,trimestral,semestral,anual'],
+
+            'amount' => ['required', 'numeric', 'min:0'],
+            'amount_paid' => ['nullable', 'numeric', 'min:0'],
+            'currency' => ['required', 'in:MXN,USD,EUR'],
+
+            'issue_date' => ['nullable', 'date'],
+            'due_date' => ['required', 'date'],
+
+            'status' => ['required', 'in:pendiente,urgente,parcial,pagado,atrasado,cancelado'],
+
+            'payment_method' => ['nullable', 'in:transferencia,efectivo,tarjeta,cheque,otro'],
+            'bank_reference' => ['nullable', 'string', 'max:255'],
+
+            'retention_expiry' => ['nullable', 'date'],
+
+            'notes' => ['nullable', 'string'],
+            'reminder_days_before' => ['nullable', 'integer', 'min:0', 'max:365'],
+
+            'expense_id' => ['nullable', 'integer', 'min:1'],
+            'evidence_url' => ['nullable', 'string', 'max:1000'],
+
+            'documents' => ['nullable', 'array'],
+            'documents.*' => ['file', 'max:15360'],
+            'evidence' => ['nullable', 'file', 'max:10240'],
+        ]);
+    }
+
+    private function storeDocuments(Request $request, string $folder): array
+    {
+        if (!$request->hasFile('documents')) {
+            return [[], []];
+        }
+
+        $urls = [];
+        $names = [];
+
+        foreach ((array) $request->file('documents') as $file) {
+            if (!$file || !$file->isValid()) {
                 continue;
             }
 
-            $amount = $this->firstAvailableValue($publication, [
-                'amount',
-                'price',
-                'total',
-                'sale_price',
-                'selling_price',
-                'final_price',
-                'value',
-            ], 0);
+            $path = $file->store($folder, 'public');
 
-            if ((float) $amount <= 0) {
-                continue;
+            $urls[] = Storage::disk('public')->url($path);
+            $names[] = $file->getClientOriginalName();
+        }
+
+        return [$urls, $names];
+    }
+
+    private function filterToExistingColumns(array $data): array
+    {
+        $model = new AccountPayable();
+        $table = $model->getTable();
+        $columns = Schema::getColumnListing($table);
+
+        return array_filter(
+            $data,
+            fn ($key) => in_array($key, $columns, true),
+            ARRAY_FILTER_USE_KEY
+        );
+    }
+
+    private function assertOwner(AccountPayable $p): void
+    {
+        $user = Auth::user();
+        $email = $user?->email;
+        $userId = $user?->id;
+
+        if (!$p->created_by) {
+            return;
+        }
+
+        if (
+            $email &&
+            (string) $p->created_by === (string) $email
+        ) {
+            return;
+        }
+
+        if (
+            $userId &&
+            (string) $p->created_by === (string) $userId
+        ) {
+            return;
+        }
+
+        abort(403);
+    }
+
+    private function syncAgendaForPayable(AccountPayable $payable): void
+    {
+        $userId = Auth::id();
+
+        if (!$userId) {
+            return;
+        }
+
+        $event = $this->findAgendaEventForPayable($payable);
+
+        if (
+            empty($payable->due_date) ||
+            in_array((string) $payable->status, ['pagado', 'cancelado'], true)
+        ) {
+            if ($event) {
+                $event->delete();
             }
 
-            $receivable = new AccountReceivable();
+            return;
+        }
 
-            $payload = [
-                'publication_id' => $publication->id,
-                'company_id'    => $publication->company_id ?? null,
+        $startAt = Carbon::parse($payable->due_date, 'America/Mexico_City')->setTime(9, 0, 0);
 
-                'client_name'   => $this->firstAvailableValue($publication, [
-                    'client_name',
-                    'customer_name',
-                    'buyer_name',
-                    'contact_name',
-                    'name',
-                    'title',
-                ], 'Cliente / Venta'),
+        $title = 'Pago';
 
-                'title'         => $this->firstAvailableValue($publication, [
-                    'title',
-                    'name',
-                    'description',
-                ], 'Venta de publicación'),
+        if (!empty($payable->title)) {
+            $title .= ': '.$payable->title;
+        }
 
-                'description'   => $this->firstAvailableValue($publication, [
-                    'description',
-                    'details',
-                    'notes',
-                    'title',
-                    'name',
-                ], 'Venta generada desde publicación'),
+        if (!empty($payable->supplier_name)) {
+            $title .= ' · '.$payable->supplier_name;
+        }
 
-                'reference'     => $reference,
-                'amount'        => (float) $amount,
-                'amount_paid'   => 0,
-                'status'        => 'pendiente',
+        if (!empty($payable->folio)) {
+            $title .= ' · Folio '.$payable->folio;
+        }
 
-                'due_date'      => $this->firstAvailableValue($publication, [
-                    'due_date',
-                    'payment_due_date',
-                    'expires_at',
-                    'created_at',
-                ], now()->addDays(15)),
+        $categoryLabel = match ((string) $payable->category) {
+            'impuestos' => 'Impuestos',
+            'cuentas_por_pagar' => 'Cuentas por pagar',
+            'servicios' => 'Servicios',
+            'nomina' => 'Nómina',
+            'seguros' => 'Seguros',
+            'retenciones' => 'Retenciones',
+            default => 'Otros',
+        };
 
-                'created_by'    => $publication->created_by ?? $email ?? $userId,
-            ];
+        $frequencyLabel = match ((string) $payable->frequency) {
+            'mensual' => 'Mensual',
+            'bimestral' => 'Bimestral',
+            'trimestral' => 'Trimestral',
+            'semestral' => 'Semestral',
+            'anual' => 'Anual',
+            default => 'Único',
+        };
 
-            foreach ($payload as $column => $value) {
-                if (in_array($column, $receivableColumns, true)) {
-                    $receivable->{$column} = $value;
-                }
-            }
+        $companyName = $payable->relationLoaded('company')
+            ? ($payable->company?->name ?? '—')
+            : (Company::query()->whereKey($payable->company_id)->value('name') ?? '—');
 
-            $receivable->save();
+        $marker = $this->agendaMarkerForPayable($payable->id);
+
+        $descriptionParts = array_filter([
+            'Evento generado automáticamente desde Cuentas por Pagar.',
+            'ID pago: '.$payable->id,
+            'Compañía: '.$companyName,
+            !empty($payable->supplier_name) ? 'Proveedor: '.$payable->supplier_name : null,
+            !empty($payable->folio) ? 'Folio: '.$payable->folio : null,
+            'Categoría: '.$categoryLabel,
+            'Frecuencia: '.$frequencyLabel,
+            'Monto: $'.number_format((float) $payable->amount, 2).' '.($payable->currency ?: 'MXN'),
+            'Vencimiento: '.$startAt->format('d/m/Y H:i'),
+            !empty($payable->bank_reference) ? 'Referencia bancaria: '.$payable->bank_reference : null,
+            !empty($payable->description) ? 'Descripción: '.$payable->description : null,
+            !empty($payable->notes) ? 'Notas: '.$payable->notes : null,
+            $marker,
+        ]);
+
+        $data = [
+            'title' => mb_substr($title, 0, 180),
+            'description' => mb_substr(implode("\n", $descriptionParts), 0, 2000),
+            'start_at' => $startAt->format('Y-m-d H:i:s'),
+            'timezone' => 'America/Mexico_City',
+            'repeat_rule' => $this->mapPayableFrequencyToAgendaRule((string) $payable->frequency),
+            'remind_offset_minutes' => max(((int) ($payable->reminder_days_before ?? 3)) * 1440, 1),
+            'user_ids' => [$userId],
+            'send_email' => true,
+            'send_whatsapp' => true,
+        ];
+
+        if ($event) {
+            $event->fill($data);
+        } else {
+            $event = new AgendaEvent($data);
+        }
+
+        $event->computeNextReminder();
+        $event->save();
+    }
+
+    private function deleteAgendaForPayable(AccountPayable $payable): void
+    {
+        $event = $this->findAgendaEventForPayable($payable);
+
+        if ($event) {
+            $event->delete();
         }
     }
 
-    private function firstAvailableValue($model, array $fields, $default = null)
+    private function findAgendaEventForPayable(AccountPayable $payable): ?AgendaEvent
     {
-        foreach ($fields as $field) {
-            if (isset($model->{$field}) && $model->{$field} !== '') {
-                return $model->{$field};
-            }
-        }
+        $marker = $this->agendaMarkerForPayable($payable->id);
 
-        return $default;
+        return AgendaEvent::query()
+            ->where('description', 'like', '%'.$marker.'%')
+            ->latest('id')
+            ->first();
+    }
+
+    private function agendaMarkerForPayable(int $payableId): string
+    {
+        return '[AUTO_PAYABLE_ID:'.$payableId.']';
+    }
+
+    private function mapPayableFrequencyToAgendaRule(string $frequency): string
+    {
+        return match ($frequency) {
+            'mensual' => 'monthly',
+            'bimestral' => 'monthly',
+            'trimestral' => 'monthly',
+            'semestral' => 'monthly',
+            'anual' => 'yearly',
+            default => 'none',
+        };
     }
 }
