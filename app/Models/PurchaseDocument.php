@@ -7,10 +7,18 @@ use Illuminate\Database\Eloquent\Model;
 class PurchaseDocument extends Model
 {
     protected $fillable = [
-        'publication_id','created_by','source_kind',
-        'category', // <--- NUEVO CAMPO
-        'document_type','supplier_name','currency',
-        'document_datetime','subtotal','tax','total','ai_meta',
+        'publication_id',
+        'created_by',
+        'source_kind',
+        'category',
+        'document_type',
+        'supplier_name',
+        'currency',
+        'document_datetime',
+        'subtotal',
+        'tax',
+        'total',
+        'ai_meta',
     ];
 
     protected $casts = [
@@ -21,8 +29,13 @@ class PurchaseDocument extends Model
         'total' => 'decimal:2',
     ];
 
+    public function publication()
+    {
+        return $this->belongsTo(Publication::class);
+    }
+
     public function items()
     {
-        return $this->hasMany(PurchaseItem::class);
+        return $this->hasMany(PurchaseItem::class, 'purchase_document_id');
     }
 }

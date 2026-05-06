@@ -13,6 +13,7 @@ use App\Services\Publications\PublicationPurchaseAiService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
@@ -133,7 +134,6 @@ class PublicationController extends Controller
 
                 'publication_id' => $singlePublicationId ?: null,
                 'publication_ids' => $createdPublicationIds,
-
                 'purchase_document_ids' => $createdPurchaseDocumentIds,
 
                 'files' => $uploadedFilesMeta,
@@ -266,37 +266,160 @@ class PublicationController extends Controller
 
     public function destroy(Publication $publication)
     {
+        $publicationMeta = [
+            'publication_id' => $publication->id,
+            'publication_title' => $publication->title ?? null,
+            'publication_description' => $publication->description ?? null,
+            'publication_category' => $publication->category ?? null,
+            'file_path' => $publication->file_path ?? null,
+            'original_name' => $publication->original_name ?? null,
+        ];
+
+        $purchaseDocuments = PurchaseDocument::query()
+            ->where('publication_id', $publication->id)
+            ->with('items')
+            ->get();
+
+        $purchaseDocumentIds = $purchaseDocuments
+            ->pluck('id')
+            ->values()
+            ->all();
+
+        $purchaseItemIds = $purchaseDocuments
+            ->flatMap(fn ($doc) => $doc->items->pluck('id'))
+            ->values()
+            ->all();
+
+        $receivableIds = [];
+
+        if (!empty($purchaseDocumentIds)) {
+            $receivableIds = AccountReceivable::query()
+                ->where('source_type', PurchaseDocument::class)
+                ->whereIn('source_id', $purchaseDocumentIds)
+                ->pluck('id')
+                ->values()
+                ->all();
+        }
+
         $this->auditActivity(
-            action: 'publication_deleted',
+            action: 'publication_delete_started',
             companyId: $publication->company_id ?? null,
             documentId: null,
-            meta: [
-                'event' => 'delete',
-                'message' => 'Publicación eliminada',
+            meta: array_merge($publicationMeta, [
+                'event' => 'delete_started',
+                'message' => 'Inicio de eliminación de publicación y datos generados por IA',
 
-                'publication_id' => $publication->id,
-                'publication_title' => $publication->title ?? null,
-                'publication_description' => $publication->description ?? null,
-                'publication_category' => $publication->category ?? null,
-
-                'file_path' => $publication->file_path ?? null,
-                'original_name' => $publication->original_name ?? null,
+                'purchase_document_ids' => $purchaseDocumentIds,
+                'purchase_item_ids' => $purchaseItemIds,
+                'account_receivable_ids' => $receivableIds,
 
                 'deleted_by_id' => Auth::id(),
                 'deleted_by_name' => Auth::user()?->name,
                 'deleted_by_email' => Auth::user()?->email,
-            ]
+            ])
         );
 
-        if ($publication->file_path && Storage::disk('public')->exists($publication->file_path)) {
-            Storage::disk('public')->delete($publication->file_path);
+        try {
+            DB::transaction(function () use (
+                $publication,
+                $publicationMeta,
+                $purchaseDocuments,
+                $purchaseDocumentIds,
+                $purchaseItemIds,
+                $receivableIds
+            ) {
+                foreach ($receivableIds as $receivableId) {
+                    $marker = '[AUTO_RECEIVABLE_ID:' . $receivableId . ']';
+
+                    AgendaEvent::query()
+                        ->where('description', 'like', '%' . $marker . '%')
+                        ->delete();
+                }
+
+                if (!empty($purchaseDocumentIds)) {
+                    AccountReceivable::query()
+                        ->where('source_type', PurchaseDocument::class)
+                        ->whereIn('source_id', $purchaseDocumentIds)
+                        ->delete();
+                }
+
+                foreach ($purchaseDocuments as $purchaseDocument) {
+                    if (method_exists($purchaseDocument, 'items')) {
+                        $purchaseDocument->items()->delete();
+                    }
+                }
+
+                if (!empty($purchaseDocumentIds)) {
+                    PurchaseDocument::query()
+                        ->whereIn('id', $purchaseDocumentIds)
+                        ->delete();
+                }
+
+                if ($publication->file_path && Storage::disk('public')->exists($publication->file_path)) {
+                    Storage::disk('public')->delete($publication->file_path);
+                }
+
+                $publication->delete();
+
+                $this->auditActivity(
+                    action: 'publication_deleted',
+                    companyId: $publication->company_id ?? null,
+                    documentId: null,
+                    meta: array_merge($publicationMeta, [
+                        'event' => 'delete',
+                        'message' => 'Publicación eliminada junto con datos generados por IA',
+
+                        'deleted_ai_data' => true,
+
+                        'deleted_purchase_document_ids' => $purchaseDocumentIds,
+                        'deleted_purchase_item_ids' => $purchaseItemIds,
+                        'deleted_account_receivable_ids' => $receivableIds,
+                        'deleted_agenda_receivable_ids' => $receivableIds,
+
+                        'deleted_by_id' => Auth::id(),
+                        'deleted_by_name' => Auth::user()?->name,
+                        'deleted_by_email' => Auth::user()?->email,
+                    ])
+                );
+            });
+
+            return redirect()
+                ->route('publications.index')
+                ->with('ok', 'Publicación eliminada junto con la información generada por IA.');
+        } catch (\Throwable $e) {
+            Log::error('No se pudo eliminar publicación con datos IA', [
+                'publication_id' => $publication->id,
+                'purchase_document_ids' => $purchaseDocumentIds,
+                'purchase_item_ids' => $purchaseItemIds,
+                'account_receivable_ids' => $receivableIds,
+                'error' => $e->getMessage(),
+            ]);
+
+            $this->auditActivity(
+                action: 'publication_delete_failed',
+                companyId: $publication->company_id ?? null,
+                documentId: null,
+                meta: array_merge($publicationMeta, [
+                    'event' => 'delete_failed',
+                    'message' => 'No se pudo eliminar la publicación y sus datos generados por IA',
+
+                    'purchase_document_ids' => $purchaseDocumentIds,
+                    'purchase_item_ids' => $purchaseItemIds,
+                    'account_receivable_ids' => $receivableIds,
+
+                    'error' => $e->getMessage(),
+
+                    'attempted_by_id' => Auth::id(),
+                    'attempted_by_name' => Auth::user()?->name,
+                    'attempted_by_email' => Auth::user()?->email,
+                ]),
+                statusCode: 500
+            );
+
+            return redirect()
+                ->back()
+                ->with('error', 'No se pudo eliminar la publicación completa. Revisa los logs.');
         }
-
-        $publication->delete();
-
-        return redirect()
-            ->route('publications.index')
-            ->with('ok', 'Publicación eliminada.');
     }
 
     public function aiExtractFromUpload(Request $request)
