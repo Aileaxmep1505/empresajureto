@@ -69,7 +69,7 @@
 <div class="ship-wrap fade-in-up">
     <header class="ship-head">
         <div class="ship-head-left">
-            <a href="{{ $homeUrl }}" class="ship-btn ship-btn-icon ship-btn-ghost">
+            <a href="{{ $homeUrl }}" class="ship-btn-icon ship-btn-ghost">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="m15 18-6-6 6-6"/>
                 </svg>
@@ -93,7 +93,7 @@
     </header>
 
     <div class="ship-kpi-bento">
-        <div class="ship-kpi ship-kpi-1 stagger-1">
+        <div class="ship-card ship-kpi stagger-1">
             <div class="ship-kpi-header">
                 <span class="ship-kpi-label">Volumen Total</span>
                 <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
@@ -103,10 +103,10 @@
                 </svg>
             </div>
             <div class="ship-kpi-value">{{ number_format((int) ($stats['total'] ?? 0)) }}</div>
-            <div class="ship-kpi-trend text-indigo">+12% este mes</div>
+            <div class="ship-kpi-trend text-blue">+12% este mes</div>
         </div>
 
-        <div class="ship-kpi ship-kpi-2 stagger-2">
+        <div class="ship-card ship-kpi stagger-2">
             <div class="ship-kpi-header">
                 <span class="ship-kpi-label">En Bahía de Carga</span>
                 <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
@@ -116,10 +116,10 @@
                 </svg>
             </div>
             <div class="ship-kpi-value">{{ number_format((int) ($stats['loading'] ?? 0)) }}</div>
-            <div class="ship-kpi-trend text-cyan">Unidades activas</div>
+            <div class="ship-kpi-trend text-blue">Unidades activas</div>
         </div>
 
-        <div class="ship-kpi ship-kpi-3 stagger-3">
+        <div class="ship-card ship-kpi stagger-3">
             <div class="ship-kpi-header">
                 <span class="ship-kpi-label">Cierres Parciales</span>
                 <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
@@ -128,10 +128,10 @@
                 </svg>
             </div>
             <div class="ship-kpi-value">{{ number_format((int) ($stats['loaded_partial'] ?? 0)) }}</div>
-            <div class="ship-kpi-trend alert-trend text-amber">Atención requerida</div>
+            <div class="ship-kpi-trend text-danger">Atención requerida</div>
         </div>
 
-        <div class="ship-kpi ship-kpi-4 stagger-4">
+        <div class="ship-card ship-kpi stagger-4">
             <div class="ship-kpi-header">
                 <span class="ship-kpi-label">Despachos Exitosos</span>
                 <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
@@ -140,7 +140,7 @@
                 </svg>
             </div>
             <div class="ship-kpi-value">{{ number_format((int) ($stats['dispatched'] ?? 0)) }}</div>
-            <div class="ship-kpi-trend success-trend text-emerald">Completados hoy</div>
+            <div class="ship-kpi-trend text-success">Completados hoy</div>
         </div>
     </div>
 
@@ -170,7 +170,7 @@
                 <option value="cancelled" @selected(($filters['status'] ?? '') === 'cancelled')>Cancelado</option>
             </select>
 
-            <button class="ship-btn ship-btn-vibrant" type="submit">Aplicar</button>
+            <button class="ship-btn" type="submit">Aplicar</button>
 
             @if(array_filter($filters ?? []))
                 <a href="{{ route('admin.wms.shipping.index') }}" class="ship-btn ship-btn-ghost">Limpiar</a>
@@ -240,18 +240,18 @@
 
                             <tr class="stagger-row" style="animation-delay: {{ $index * 50 }}ms">
                                 <td>
-                                    <div class="cell-primary font-mono text-cyan">{{ $row->shipment_number }}</div>
+                                    <div class="cell-primary text-blue font-mono">{{ $row->shipment_number }}</div>
                                     <div class="cell-secondary">ID: {{ $row->id }}</div>
                                 </td>
 
                                 <td>
-                                    <div class="cell-primary text-indigo">Ped: {{ $row->order_number ?: '---' }}</div>
+                                    <div class="cell-primary">Ped: {{ $row->order_number ?: '---' }}</div>
                                     <div class="cell-secondary">Pick: {{ $row->task_number ?: 'N/A' }}</div>
                                 </td>
 
                                 <td>
                                     <div class="cell-primary">{{ $row->vehicle_name ?: 'Sin vehículo' }} ({{ $row->vehicle_plate ?: 'S/P' }})</div>
-                                    <div class="cell-secondary text-muted">Cond: {{ $row->driver_name ?: 'Sin asignar' }}</div>
+                                    <div class="cell-secondary">Cond: {{ $row->driver_name ?: 'Sin asignar' }}</div>
                                 </td>
 
                                 <td>
@@ -259,7 +259,7 @@
                                         <div class="progress-fill" style="width: {{ $qtyPct }}%"></div>
                                     </div>
                                     <div class="progress-labels">
-                                        <span class="pct text-indigo">{{ $qtyPct }}% Unds.</span>
+                                        <span class="pct text-blue">{{ $qtyPct }}% Unds.</span>
                                         <span class="unds text-muted">({{ number_format((int) $row->loaded_qty) }}/{{ number_format((int) $row->expected_qty) }})</span>
                                     </div>
                                 </td>
@@ -284,11 +284,14 @@
                                         </svg>
                                     </button>
 
-                                    <a href="{{ route('admin.wms.shipping.scanner', $row->id) }}" class="ship-btn-icon ship-btn-vibrant" title="Ir al scanner">
+                                    <a href="{{ route('admin.wms.shipping.scanner', $row->id) }}" class="ship-btn-icon ship-btn" title="Ir al scanner">
                                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
                                             <path d="M22 6l-10 7L2 6"/>
                                         </svg>
+                                    </a>
+                                    <a href="{{ route('admin.wms.shipping.pdf', $row->id) }}" class="ship-btn ship-btn-outline" target="_blank">
+                                        Descargar PDF
                                     </a>
                                 </td>
                             </tr>
@@ -319,7 +322,7 @@
 <aside class="ship-drawer" id="shipDrawer" aria-hidden="true">
     <div class="drawer-header">
         <div class="drawer-header-info">
-            <span class="drawer-id font-mono text-cyan" id="drawerShipmentId"></span>
+            <span class="drawer-id font-mono text-blue" id="drawerShipmentId"></span>
             <h2 class="drawer-title" id="drawerTitle">Cargando operación...</h2>
             <p class="drawer-sub" id="drawerSubtitle">---</p>
 
@@ -343,62 +346,74 @@
 </aside>
 
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap');
+
 :root {
-    --foreground: #09090b;
-    --background: #fafafa;
-    --primary: #18181b;
-    --border: #e4e4e7;
-    --input: #e4e4e7;
-    --muted: #f4f4f5;
-    --muted-foreground: #71717a;
+    --bg: #f9fafb;
+    --card: #ffffff;
+    --ink: #333333;
+    --ink-dark: #111111;
+    --muted: #888888;
+    --line: #ebebeb;
+    --blue: #007aff;
+    --blue-soft: #e6f0ff;
+    --success: #15803d;
+    --success-soft: #e6ffe6;
+    --danger: #ff4a4a;
+    --danger-soft: #ffebeb;
 
-    --vibrant-indigo: #6366f1;
-    --vibrant-cyan: #22d3ee;
-    --vibrant-amber: #f59e0b;
-    --vibrant-emerald: #10b981;
-    --vibrant-crimson: #ef4444;
-
-    --radius-lg: 1rem;
-    --radius-md: 0.75rem;
-    --radius-sm: 0.5rem;
-    --radius-pill: 99px;
-
-    --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+    --font-sans: 'Quicksand', sans-serif;
     --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
 
-    --shadow-md: 0 10px 30px -10px rgba(0,0,0,0.1);
-    --shadow-lg: 0 20px 40px -15px rgba(0,0,0,0.15);
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-pill: 999px;
+
+    --shadow-soft: 0 4px 12px rgba(0,0,0,0.02);
+    --shadow-hover: 0 8px 24px rgba(0,0,0,0.06);
 
     --transition-smooth: cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-spring: cubic-bezier(0.175, 0.885, 0.32, 1.15);
 }
 
 body {
     font-family: var(--font-sans);
-    color: var(--foreground);
-    background-color: var(--background);
+    color: var(--ink);
+    background-color: var(--bg);
     -webkit-font-smoothing: antialiased;
+    margin: 0;
+}
+
+h1, h2, h3, h4, h5, h6, .ship-title, .drawer-title {
+    color: var(--ink-dark);
 }
 
 .font-mono {
     font-family: var(--font-mono);
     font-size: 0.85rem;
-    letter-spacing: -0.01rem;
 }
 
 .text-right { text-align: right; }
-.text-muted { color: var(--muted-foreground); }
+.text-muted { color: var(--muted); }
 .mt-2 { margin-top: 0.5rem; }
 .mt-3 { margin-top: 0.75rem; }
 .mt-4 { margin-top: 1rem; }
 
+/* Utilidades de texto generadas para la lógica JS */
+.text-blue { color: var(--blue); }
+.text-danger { color: var(--danger); }
+.text-success { color: var(--success); }
+.text-amber { color: #f59e0b; }
+.text-emerald { color: var(--success); }
+.text-indigo { color: var(--blue); }
+
 .ship-wrap {
     max-width: 1400px;
     margin: 0 auto;
-    padding: 2rem;
+    padding: 3rem 2rem;
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 2rem;
 }
 
 .ship-head {
@@ -410,78 +425,77 @@ body {
 .ship-head-left {
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: 1.5rem;
 }
 
 .ship-title {
     font-size: 2rem;
-    font-weight: 800;
-    letter-spacing: -0.05rem;
-    line-height: 1.1;
+    font-weight: 700;
     margin: 0;
+    letter-spacing: -0.02em;
 }
 
 .ship-sub {
-    font-size: 0.875rem;
-    color: var(--muted-foreground);
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--muted);
     margin: 0.25rem 0 0 0;
 }
 
 .ship-head-actions {
     display: flex;
-    gap: 0.5rem;
+    gap: 0.75rem;
 }
 
 .ship-kpi-bento {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1.5rem;
+}
+
+.ship-card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-soft);
+    overflow: hidden;
+    transition: all 0.3s var(--transition-smooth);
 }
 
 .ship-kpi {
-    background: #fff;
-    padding: 1.5rem;
-    border-radius: var(--radius-lg);
-    border: 1px solid var(--border);
-    box-shadow: var(--shadow-md);
-    transition: transform 0.2s, box-shadow 0.2s;
+    padding: 1.75rem;
 }
 
 .ship-kpi:hover {
-    transform: translateY(-4px);
-    box-shadow: var(--shadow-lg);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-hover);
 }
 
 .ship-kpi-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 0.5rem;
-    color: var(--muted-foreground);
+    margin-bottom: 0.75rem;
+    color: var(--muted);
 }
 
 .ship-kpi-label {
-    font-size: 0.875rem;
+    font-size: 1rem;
     font-weight: 600;
 }
 
 .ship-kpi-value {
-    font-size: 2.25rem;
-    font-weight: 800;
-    letter-spacing: -0.06rem;
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--ink-dark);
     line-height: 1;
 }
 
 .ship-kpi-trend {
-    font-size: 0.75rem;
+    font-size: 0.875rem;
     font-weight: 600;
-    margin-top: 0.5rem;
+    margin-top: 0.75rem;
 }
-
-.text-indigo { color: var(--vibrant-indigo); }
-.text-cyan { color: var(--vibrant-cyan); }
-.text-amber { color: var(--vibrant-amber); }
-.text-emerald { color: var(--vibrant-emerald); }
 
 .ship-toolbar {
     display: flex;
@@ -494,55 +508,57 @@ body {
 .ship-toolbar-search {
     position: relative;
     flex: 1;
-    min-width: 300px;
+    min-width: 320px;
 }
 
 .search-icon {
     position: absolute;
-    left: 0.875rem;
+    left: 1rem;
     top: 50%;
     transform: translateY(-50%);
-    color: var(--muted-foreground);
+    color: var(--muted);
     pointer-events: none;
 }
 
 .search-input {
     padding-left: 2.75rem !important;
     width: 100%;
-    max-width: 400px;
+    max-width: 450px;
 }
 
 .ship-toolbar-filters {
     display: flex;
-    gap: 0.5rem;
+    gap: 0.75rem;
     align-items: center;
 }
 
 .ship-input {
-    height: 2.5rem;
+    height: 2.75rem;
     padding: 0 1rem;
-    font-size: 0.875rem;
+    font-size: 0.9375rem;
+    font-weight: 500;
     font-family: var(--font-sans);
-    background: #fff;
-    border: 1px solid var(--input);
+    background: var(--card);
+    border: 1px solid var(--line);
     border-radius: var(--radius-sm);
-    color: var(--foreground);
-    transition: border-color 0.15s;
+    color: var(--ink);
+    transition: all 0.2s;
     outline: none;
 }
 
 .ship-input:focus {
-    border-color: var(--vibrant-indigo);
-    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px var(--blue-soft);
 }
 
 .select-input {
     appearance: none;
-    padding-right: 2rem;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    padding-right: 2.5rem;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 0.75rem center;
     background-size: 1em;
+    cursor: pointer;
 }
 
 .ship-btn,
@@ -552,68 +568,60 @@ body {
     justify-content: center;
     gap: 0.5rem;
     white-space: nowrap;
-    height: 2.5rem;
-    font-size: 0.875rem;
+    height: 2.75rem;
+    font-size: 0.9375rem;
     font-weight: 600;
     font-family: var(--font-sans);
     border-radius: var(--radius-sm);
     border: none;
     cursor: pointer;
-    transition: all 0.15s var(--transition-smooth);
-}
-
-.ship-btn { padding: 0 1.25rem; }
-
-.ship-btn:active,
-.ship-btn-icon:active {
-    transform: scale(0.96);
+    transition: transform 0.2s var(--transition-smooth), background 0.2s, box-shadow 0.2s;
 }
 
 .ship-btn {
-    background: var(--primary);
+    padding: 0 1.5rem;
+    background: var(--blue);
     color: #fff;
 }
 
 .ship-btn:hover {
-    background: #27272a;
+    background: #006ae6;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 122, 255, 0.2);
 }
 
-.ship-btn-vibrant {
-    background: var(--vibrant-indigo);
-    color: #fff;
-}
-
-.ship-btn-vibrant:hover {
-    background: #4f46e5;
+.ship-btn:active,
+.ship-btn-icon:active {
+    transform: scale(0.98);
 }
 
 .ship-btn-ghost {
     background: transparent;
-    color: var(--foreground);
+    color: var(--muted);
 }
 
 .ship-btn-ghost:hover {
-    background: var(--muted);
+    background: #f9fafb;
+    color: var(--ink);
+    transform: none;
+    box-shadow: none;
+}
+
+.ship-btn-outline {
+    background: var(--card);
+    border: 1px solid var(--blue);
+    color: var(--blue);
+}
+
+.ship-btn-outline:hover {
+    background: var(--blue-soft);
+    transform: translateY(-1px);
 }
 
 .ship-btn-icon {
     padding: 0;
-    width: 2.5rem;
+    width: 2.75rem;
     flex-shrink: 0;
-}
-
-.ship-btn-sm {
-    height: 2.25rem;
-    padding: 0 1rem;
-    font-size: 0.8125rem;
-}
-
-.ship-card {
-    background: #fff;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    box-shadow: var(--shadow-md);
-    overflow: hidden;
 }
 
 .ship-table-container {
@@ -628,25 +636,25 @@ body {
 }
 
 .ship-table th {
-    font-size: 0.75rem;
+    font-size: 0.8125rem;
     font-weight: 700;
-    color: var(--muted-foreground);
+    color: var(--muted);
     text-transform: uppercase;
     letter-spacing: 0.05rem;
-    padding: 1rem;
-    border-bottom: 1px solid var(--border);
-    background: var(--background);
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--line);
+    background: var(--card);
 }
 
 .ship-table td {
-    padding: 1.25rem 1rem;
-    border-bottom: 1px solid var(--border);
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--line);
     vertical-align: middle;
-    transition: background 0.15s;
+    transition: background 0.2s;
 }
 
 .ship-table tbody tr:hover td {
-    background: var(--muted);
+    background: var(--bg);
 }
 
 .ship-table tbody tr:last-child td {
@@ -654,39 +662,39 @@ body {
 }
 
 .cell-primary {
-    font-size: 0.9375rem;
+    font-size: 1rem;
     font-weight: 600;
-    color: var(--foreground);
+    color: var(--ink-dark);
 }
 
 .cell-secondary {
-    font-size: 0.8125rem;
-    color: var(--muted-foreground);
-    margin-top: 0.125rem;
+    font-size: 0.875rem;
+    color: var(--muted);
+    margin-top: 0.25rem;
 }
 
 .progress-bar {
-    height: 5px;
+    height: 6px;
     width: 100%;
-    max-width: 180px;
-    background: var(--muted);
-    border-radius: 99px;
+    max-width: 200px;
+    background: var(--line);
+    border-radius: var(--radius-pill);
     overflow: hidden;
-    margin-bottom: 0.375rem;
+    margin-bottom: 0.5rem;
 }
 
 .progress-fill {
     height: 100%;
-    background: linear-gradient(90deg, var(--vibrant-indigo), var(--vibrant-cyan));
+    background: var(--blue);
+    border-radius: var(--radius-pill);
     transition: width 0.8s var(--transition-smooth);
 }
 
 .progress-labels {
     display: flex;
     gap: 0.5rem;
-    font-size: 0.75rem;
+    font-size: 0.8125rem;
     font-weight: 600;
-    font-family: var(--font-mono);
 }
 
 .ship-status {
@@ -694,25 +702,25 @@ body {
     align-items: center;
     justify-content: center;
     height: 1.75rem;
-    padding: 0 0.875rem;
+    padding: 0 1rem;
     border-radius: var(--radius-pill);
-    font-size: 0.75rem;
+    font-size: 0.8125rem;
     font-weight: 700;
-    color: #fff;
 }
 
 .ship-status-sm {
     height: 1.5rem;
-    padding: 0 0.625rem;
-    font-size: 0.6875rem;
+    padding: 0 0.75rem;
+    font-size: 0.75rem;
 }
 
-.is-draft { background: var(--vibrant-crimson); }
-.is-loading { background: var(--vibrant-amber); }
-.is-complete { background: var(--vibrant-emerald); }
-.is-dispatched { background: var(--vibrant-indigo); }
-.is-partial { background: #f97316; }
-.is-cancelled { background: var(--vibrant-crimson); }
+/* Badges Minimalistas */
+.is-draft { background: var(--blue-soft); color: var(--blue); }
+.is-loading { background: var(--blue-soft); color: var(--blue); }
+.is-complete { background: var(--success-soft); color: var(--success); }
+.is-dispatched { background: var(--success-soft); color: var(--success); }
+.is-partial { background: var(--danger-soft); color: var(--danger); }
+.is-cancelled { background: var(--danger-soft); color: var(--danger); }
 
 .actions-column {
     display: flex;
@@ -721,39 +729,39 @@ body {
 }
 
 .ship-pagination {
-    padding: 1rem;
-    border-top: 1px solid var(--border);
-    background: #fff;
+    padding: 1.5rem;
+    border-top: 1px solid var(--line);
+    background: var(--card);
 }
 
 .ship-empty-state {
-    padding: 5rem 2rem;
+    padding: 6rem 2rem;
     text-align: center;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    color: var(--muted-foreground);
+    color: var(--muted);
 }
 
 .ship-empty-state h3 {
-    font-size: 1.25rem;
+    font-size: 1.5rem;
     font-weight: 700;
-    color: var(--foreground);
-    margin: 1rem 0 0.5rem 0;
+    color: var(--ink-dark);
+    margin: 1.25rem 0 0.5rem 0;
 }
 
 .ship-empty-state p {
-    font-size: 0.875rem;
+    font-size: 1rem;
+    font-weight: 500;
     margin: 0;
-    max-width: 320px;
 }
 
 .ship-drawer-backdrop {
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.25);
-    backdrop-filter: blur(4px);
+    background: rgba(0,0,0,0.15);
+    backdrop-filter: blur(2px);
     z-index: 50;
     opacity: 0;
     pointer-events: none;
@@ -771,13 +779,13 @@ body {
     right: 0;
     bottom: 0;
     width: 100%;
-    max-width: 620px;
-    background: #fff;
-    border-left: 1px solid var(--border);
-    box-shadow: -20px 0 60px rgba(0,0,0,0.1);
+    max-width: 640px;
+    background: var(--card);
+    border-left: 1px solid var(--line);
+    box-shadow: -10px 0 40px rgba(0,0,0,0.05);
     z-index: 100;
     transform: translateX(100%);
-    transition: transform 0.4s var(--transition-spring);
+    transition: transform 0.4s var(--transition-smooth);
     display: flex;
     flex-direction: column;
 }
@@ -787,37 +795,37 @@ body {
 }
 
 .drawer-header {
-    padding: 1.5rem;
-    border-bottom: 1px solid var(--border);
+    padding: 2rem;
+    border-bottom: 1px solid var(--line);
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    background: rgba(255,255,255,0.85);
-    backdrop-filter: blur(6px);
+    align-items: flex-start;
+    background: rgba(255,255,255,0.95);
     position: sticky;
     top: 0;
     z-index: 10;
-    gap: 1rem;
+    gap: 1.5rem;
 }
 
 .drawer-id {
-    font-size: 0.75rem;
+    font-size: 0.8125rem;
     font-weight: 700;
-    margin-bottom: 0.25rem;
+    margin-bottom: 0.5rem;
     display: block;
 }
 
 .drawer-title {
-    font-size: 1.5rem;
-    font-weight: 800;
+    font-size: 1.75rem;
+    font-weight: 700;
     margin: 0;
-    letter-spacing: -0.04rem;
+    letter-spacing: -0.02em;
 }
 
 .drawer-sub {
-    font-size: 0.875rem;
-    color: var(--muted-foreground);
-    margin: 0.25rem 0 0 0;
+    font-size: 1rem;
+    color: var(--muted);
+    font-weight: 500;
+    margin: 0.5rem 0 0 0;
 }
 
 .drawer-actions {
@@ -830,24 +838,24 @@ body {
 .drawer-body {
     flex: 1;
     overflow-y: auto;
-    padding: 1.5rem;
+    padding: 2rem;
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 2rem;
 }
 
 .drawer-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 1rem;
+    gap: 1.5rem;
 }
 
 .drawer-card {
-    border: 1px solid var(--border);
+    border: 1px solid var(--line);
     border-radius: var(--radius-md);
-    padding: 1.25rem;
-    background: #fff;
-    box-shadow: var(--shadow-md);
+    padding: 1.5rem;
+    background: var(--card);
+    box-shadow: var(--shadow-soft);
 }
 
 .full-span {
@@ -855,11 +863,11 @@ body {
 }
 
 .card-title {
-    font-size: 0.8125rem;
+    font-size: 0.875rem;
     font-weight: 700;
     text-transform: uppercase;
-    color: var(--muted-foreground);
-    margin: 0 0 1rem 0;
+    color: var(--muted);
+    margin: 0 0 1.25rem 0;
     letter-spacing: 0.05rem;
     display: flex;
     align-items: center;
@@ -869,16 +877,16 @@ body {
 .data-list {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 1rem;
 }
 
 .data-item {
     display: flex;
     justify-content: space-between;
     gap: 1rem;
-    font-size: 0.875rem;
-    border-bottom: 1px solid var(--muted);
-    padding-bottom: 0.5rem;
+    font-size: 0.9375rem;
+    border-bottom: 1px solid var(--bg);
+    padding-bottom: 0.75rem;
 }
 
 .data-item:last-child {
@@ -887,27 +895,27 @@ body {
 }
 
 .data-item .label {
-    font-weight: 500;
-    color: var(--muted-foreground);
+    font-weight: 600;
+    color: var(--muted);
 }
 
 .data-item .value {
-    font-weight: 600;
+    font-weight: 700;
     text-align: right;
-    color: var(--foreground);
+    color: var(--ink);
 }
 
 .drawer-kpi-group {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 1rem;
 }
 
 .mini-kpi {
-    background: var(--muted);
-    padding: 0.75rem;
+    background: var(--bg);
+    padding: 1.25rem;
     border-radius: var(--radius-sm);
-    border: 1px solid var(--border);
+    border: 1px solid var(--line);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -915,36 +923,35 @@ body {
 }
 
 .mini-kpi .label {
-    font-size: 0.75rem;
-    color: var(--muted-foreground);
-    font-weight: 600;
+    font-size: 0.875rem;
+    color: var(--muted);
+    font-weight: 700;
 }
 
 .mini-kpi .value {
-    font-size: 1.25rem;
-    font-weight: 800;
-    font-family: var(--font-mono);
-    color: var(--foreground);
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--ink-dark);
 }
 
 .timeline {
     position: relative;
-    padding-left: 1.25rem;
+    padding-left: 1.5rem;
 }
 
 .timeline::before {
     content: '';
     position: absolute;
-    left: 0.25rem;
+    left: 0.35rem;
     top: 0;
     bottom: 0;
     width: 2px;
-    background: var(--border);
+    background: var(--line);
 }
 
 .timeline-item {
     position: relative;
-    margin-bottom: 1.25rem;
+    margin-bottom: 1.5rem;
 }
 
 .timeline-item:last-child {
@@ -954,34 +961,34 @@ body {
 .timeline-item::before {
     content: '';
     position: absolute;
-    left: -1.3rem;
-    top: 0.2rem;
-    width: 0.65rem;
-    height: 0.65rem;
+    left: -1.5rem;
+    top: 0.25rem;
+    width: 0.75rem;
+    height: 0.75rem;
     border-radius: 50%;
-    background: #fff;
-    border: 2px solid var(--vibrant-indigo);
+    background: var(--card);
+    border: 2px solid var(--blue);
 }
 
 .timeline-title {
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: var(--foreground);
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--ink);
 }
 
 .timeline-date {
-    font-size: 0.75rem;
-    color: var(--muted-foreground);
+    font-size: 0.875rem;
+    color: var(--muted);
     font-family: var(--font-mono);
-    margin-top: 0.125rem;
+    margin-top: 0.25rem;
 }
 
 .line-card {
-    border: 1px solid var(--border);
+    border: 1px solid var(--line);
     border-radius: var(--radius-sm);
-    padding: 1rem;
-    margin-bottom: 0.75rem;
-    background: var(--muted);
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+    background: var(--bg);
 }
 
 .line-card:last-child {
@@ -991,61 +998,61 @@ body {
 .line-card-header {
     display: flex;
     justify-content: space-between;
-    gap: 0.75rem;
-    margin-bottom: 0.5rem;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
 }
 
 .line-title {
-    font-size: 0.875rem;
+    font-size: 1rem;
     font-weight: 700;
-    color: var(--foreground);
+    color: var(--ink-dark);
 }
 
 .line-sku {
-    font-size: 0.75rem;
-    color: var(--muted-foreground);
+    font-size: 0.875rem;
+    color: var(--muted);
     font-family: var(--font-mono);
 }
 
 .line-metrics {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 0.5rem;
-    margin-top: 0.75rem;
+    gap: 0.75rem;
+    margin-top: 1rem;
 }
 
 .line-metric {
-    background: #fff;
-    border: 1px solid var(--border);
-    border-radius: 0.25rem;
-    padding: 0.5rem;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 0.75rem;
     text-align: center;
 }
 
 .line-metric .lbl {
-    font-size: 0.625rem;
+    font-size: 0.75rem;
     text-transform: uppercase;
-    color: var(--muted-foreground);
+    color: var(--muted);
     font-weight: 700;
     letter-spacing: 0.02rem;
 }
 
 .line-metric .val {
-    font-size: 0.875rem;
+    font-size: 1rem;
     font-weight: 700;
     font-family: var(--font-mono);
-    margin-top: 0.125rem;
-    color: var(--foreground);
+    margin-top: 0.25rem;
+    color: var(--ink-dark);
 }
 
 .signature-box {
-    height: 120px;
-    border: 1px dashed var(--border);
+    height: 140px;
+    border: 1px dashed var(--line);
     border-radius: var(--radius-sm);
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #fff;
+    background: var(--bg);
     overflow: hidden;
 }
 
@@ -1055,43 +1062,30 @@ body {
     object-fit: contain;
 }
 
-.note-box {
-    font-size: 0.875rem;
-    color: var(--foreground);
-    background: var(--muted);
-    padding: 1rem;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--border);
-    min-height: 120px;
-}
-
 .ship-empty-mini {
-    padding: 1rem;
-    border: 1px dashed var(--border);
+    padding: 1.5rem;
+    border: 1px dashed var(--line);
     border-radius: var(--radius-sm);
-    background: #fff;
-    color: var(--muted-foreground);
-    font-size: 0.875rem;
+    background: var(--bg);
+    color: var(--muted);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    text-align: center;
 }
 
 body.has-drawer-open {
     overflow: hidden;
 }
 
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-
 @keyframes slideUpFade {
-    from { opacity: 0; transform: translateY(10px); }
+    from { opacity: 0; transform: translateY(15px); }
     to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes pulse {
-    0% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.2); }
-    70% { box-shadow: 0 0 0 6px rgba(99, 102, 241, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+    0% { box-shadow: 0 0 0 0 rgba(0, 122, 255, 0.2); }
+    70% { box-shadow: 0 0 0 6px rgba(0, 122, 255, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(0, 122, 255, 0); }
 }
 
 @keyframes spin {
@@ -1099,8 +1093,8 @@ body.has-drawer-open {
     to { transform: rotate(360deg); }
 }
 
-.fade-in-up { animation: slideUpFade 0.4s ease-out forwards; }
-.stagger-row { opacity: 0; animation: slideUpFade 0.35s var(--transition-smooth) forwards; }
+.fade-in-up { animation: slideUpFade 0.5s ease-out forwards; }
+.stagger-row { opacity: 0; animation: slideUpFade 0.4s var(--transition-smooth) forwards; }
 .ship-btn-pulse { animation: pulse 2s infinite; }
 .ship-head-actions button:hover svg { animation: spin 1s linear infinite; }
 
@@ -1110,15 +1104,15 @@ body.has-drawer-open {
 .stagger-4 { animation-delay: 200ms; }
 
 @media (max-width: 1024px) {
-    .ship-wrap { padding: 1.5rem; }
+    .ship-wrap { padding: 2rem 1.5rem; }
     .ship-kpi-bento { grid-template-columns: 1fr 1fr; }
     .drawer-grid { grid-template-columns: 1fr; }
     .ship-title { font-size: 1.75rem; }
 }
 
 @media (max-width: 640px) {
-    .ship-wrap { padding: 1rem; }
-    .ship-head { flex-direction: column; align-items: stretch; gap: 1rem; }
+    .ship-wrap { padding: 1.5rem 1rem; }
+    .ship-head { flex-direction: column; align-items: stretch; gap: 1.5rem; }
     .ship-kpi-bento { grid-template-columns: 1fr; }
     .ship-toolbar { flex-direction: column; align-items: stretch; }
     .ship-toolbar-search { min-width: 100%; }
@@ -1221,7 +1215,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!data) return;
 
         drawerContent.style.opacity = '0';
-        drawerContent.style.transform = 'translateY(8px)';
+        drawerContent.style.transform = 'translateY(12px)';
 
         els.kicker.textContent = data.shipment_number || ('EMB-' + data.id);
         els.title.textContent = 'Embarque ' + (data.shipment_number || data.id);
@@ -1255,11 +1249,11 @@ document.addEventListener('DOMContentLoaded', function () {
             <div class="drawer-kpi-group">
                 <div class="mini-kpi">
                     <span class="label">Piezas validadas</span>
-                    <span class="value text-emerald">${Number(data.loaded_qty || 0)}/${Number(data.expected_qty || 0)}</span>
+                    <span class="value text-success">${Number(data.loaded_qty || 0)}/${Number(data.expected_qty || 0)}</span>
                 </div>
                 <div class="mini-kpi">
                     <span class="label">Cajas totales</span>
-                    <span class="value text-indigo">${Number(data.loaded_boxes || 0)}/${Number(data.expected_boxes || 0)}</span>
+                    <span class="value text-blue">${Number(data.loaded_boxes || 0)}/${Number(data.expected_boxes || 0)}</span>
                 </div>
                 <div class="mini-kpi">
                     <span class="label">Líneas procesadas</span>
@@ -1267,7 +1261,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 </div>
                 <div class="mini-kpi">
                     <span class="label">Piezas faltantes</span>
-                    <span class="value text-amber">${missingQty}</span>
+                    <span class="value text-danger">${missingQty}</span>
                 </div>
                 <div class="mini-kpi">
                     <span class="label">Avance operación</span>
@@ -1370,7 +1364,7 @@ document.addEventListener('DOMContentLoaded', function () {
         `;
 
         requestAnimationFrame(function () {
-            drawerContent.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+            drawerContent.style.transition = 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
             drawerContent.style.opacity = '1';
             drawerContent.style.transform = 'translateY(0)';
         });

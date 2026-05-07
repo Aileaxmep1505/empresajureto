@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('title', 'WMS · Scanner de embarque')
-
+@section('content_class', 'content--flush')
 @section('content')
 @php
     $indexUrl        = route('admin.wms.shipping.index');

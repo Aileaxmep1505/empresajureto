@@ -2062,3 +2062,6 @@ Route::post('/propuestas-comerciales/{propuestaComercial}/cliente/email', [Propu
     Route::get('/publications/{publication}/download', [PublicationController::class, 'download'])->name('publications.download');
     Route::delete('/publications/{publication}', [PublicationController::class, 'destroy'])->name('publications.destroy');
 });
+
+Route::get('/admin/wms/shipping/{shipment}/pdf', [\App\Http\Controllers\Admin\WmsShippingController::class, 'exportDispatchPdf'])
+    ->name('admin.wms.shipping.pdf');

@@ -20,6 +20,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Throwable;
 
 class WmsShippingController extends Controller implements HasMiddleware
@@ -1487,4 +1488,80 @@ class WmsShippingController extends Controller implements HasMiddleware
             default => 'pending',
         };
     }
+    public function exportDispatchPdf(WmsShipment $shipment)
+{
+    $shipment->loadMissing([
+        'pickWave:id',
+        'warehouse:id,name,code',
+        'operator:id,name',
+        'lines',
+        'scans',
+    ]);
+
+    $meta = $this->decodeShipmentMeta($shipment->meta ?? []);
+
+    $delivererName = trim((string) (
+        $meta['delivery_user_name']
+        ?? $shipment->signed_by_name
+        ?? $shipment->driver_name
+        ?? 'Sin especificar'
+    ));
+
+    $assignedTo = trim((string) (
+        optional($shipment->operator)->name
+        ?? $meta['assigned_to_name']
+        ?? $meta['operator_name']
+        ?? 'Sin asignar'
+    ));
+
+    $warehouseLabel = trim((string) (optional($shipment->warehouse)->name ?? ''));
+    $warehouseCode  = trim((string) (optional($shipment->warehouse)->code ?? ''));
+
+    if ($warehouseLabel !== '' && $warehouseCode !== '') {
+        $warehouseLabel .= ' (' . $warehouseCode . ')';
+    } elseif ($warehouseLabel === '' && $warehouseCode !== '') {
+        $warehouseLabel = $warehouseCode;
+    }
+
+    $deliverySignature = (string) (
+        $shipment->signature_data
+        ?? ($meta['delivery_signature'] ?? '')
+    );
+
+    $receiverSignature = (string) (
+        $meta['receiver_signature']
+        ?? $meta['assigned_signature']
+        ?? ''
+    );
+
+    $pdf = Pdf::loadView('admin.wms.pdf.shipping-dispatch', [
+        'shipment'          => $shipment,
+        'meta'              => $meta,
+        'delivererName'     => $delivererName,
+        'assignedTo'        => $assignedTo,
+        'warehouseLabel'    => $warehouseLabel ?: 'Sin almacén',
+        'deliverySignature' => $deliverySignature,
+        'receiverSignature' => $receiverSignature,
+    ])->setPaper('a4', 'portrait');
+
+    $filename = 'salida-' . ($shipment->shipment_number ?: 'embarque-' . $shipment->id) . '.pdf';
+
+    return $pdf->download($filename);
+}
+
+protected function decodeShipmentMeta($meta): array
+{
+    if (is_array($meta)) {
+        return $meta;
+    }
+
+    if (is_string($meta) && trim($meta) !== '') {
+        $decoded = json_decode($meta, true);
+        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+            return $decoded;
+        }
+    }
+
+    return [];
+}
 }
