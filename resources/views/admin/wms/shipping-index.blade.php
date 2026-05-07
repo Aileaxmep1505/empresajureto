@@ -66,8 +66,8 @@
     $drawerDetails = [];
 @endphp
 
-<div class="ship-wrap fade-in-up">
-    <header class="ship-head">
+<div class="ship-wrap">
+    <header class="ship-head animate-slide-up" style="animation-delay: 0.05s;">
         <div class="ship-head-left">
             <a href="{{ $homeUrl }}" class="ship-btn-icon ship-btn-ghost">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -77,13 +77,13 @@
 
             <div>
                 <h1 class="ship-title">Control de Embarques</h1>
-                <p class="ship-sub">Panel de gestión logística avanzada para validación y despacho.</p>
+                <p class="ship-sub">Gestión logística y validación de salida</p>
             </div>
         </div>
 
         <div class="ship-head-actions">
-            <button class="ship-btn ship-btn-pulse" onclick="window.location.reload()">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin-icon">
+            <button class="ship-btn ship-btn-outline ship-btn-pulse" onclick="window.location.reload()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin-icon">
                     <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/>
                     <path d="M21 3v5h-5"/>
                 </svg>
@@ -93,7 +93,7 @@
     </header>
 
     <div class="ship-kpi-bento">
-        <div class="ship-card ship-kpi stagger-1">
+        <div class="ship-card ship-kpi animate-slide-up" style="animation-delay: 0.1s;">
             <div class="ship-kpi-header">
                 <span class="ship-kpi-label">Volumen Total</span>
                 <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
@@ -106,7 +106,7 @@
             <div class="ship-kpi-trend text-blue">+12% este mes</div>
         </div>
 
-        <div class="ship-card ship-kpi stagger-2">
+        <div class="ship-card ship-kpi animate-slide-up" style="animation-delay: 0.15s;">
             <div class="ship-kpi-header">
                 <span class="ship-kpi-label">En Bahía de Carga</span>
                 <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
@@ -119,7 +119,7 @@
             <div class="ship-kpi-trend text-blue">Unidades activas</div>
         </div>
 
-        <div class="ship-card ship-kpi stagger-3">
+        <div class="ship-card ship-kpi animate-slide-up" style="animation-delay: 0.2s;">
             <div class="ship-kpi-header">
                 <span class="ship-kpi-label">Cierres Parciales</span>
                 <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
@@ -131,7 +131,7 @@
             <div class="ship-kpi-trend text-danger">Atención requerida</div>
         </div>
 
-        <div class="ship-card ship-kpi stagger-4">
+        <div class="ship-card ship-kpi animate-slide-up" style="animation-delay: 0.25s;">
             <div class="ship-kpi-header">
                 <span class="ship-kpi-label">Despachos Exitosos</span>
                 <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
@@ -144,9 +144,9 @@
         </div>
     </div>
 
-    <form method="GET" action="{{ route('admin.wms.shipping.index') }}" class="ship-toolbar">
+    <form method="GET" action="{{ route('admin.wms.shipping.index') }}" class="ship-toolbar animate-slide-up" style="animation-delay: 0.3s;">
         <div class="ship-toolbar-search">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="search-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="search-icon">
                 <circle cx="11" cy="11" r="8"/>
                 <path d="m21 21-4.3-4.3"/>
             </svg>
@@ -155,7 +155,7 @@
                 name="s"
                 class="ship-input search-input"
                 value="{{ $filters['s'] ?? '' }}"
-                placeholder="Buscar por ID, pedido, picking o matrícula..."
+                placeholder="Buscar ID, pedido o matrícula..."
             >
         </div>
 
@@ -170,7 +170,7 @@
                 <option value="cancelled" @selected(($filters['status'] ?? '') === 'cancelled')>Cancelado</option>
             </select>
 
-            <button class="ship-btn" type="submit">Aplicar</button>
+            <button class="ship-btn ship-btn-primary" type="submit">Aplicar</button>
 
             @if(array_filter($filters ?? []))
                 <a href="{{ route('admin.wms.shipping.index') }}" class="ship-btn ship-btn-ghost">Limpiar</a>
@@ -178,7 +178,7 @@
         </div>
     </form>
 
-    <div class="ship-card">
+    <div class="ship-card animate-slide-up" style="animation-delay: 0.35s;">
         @if($shipments->count() > 0)
             <div class="ship-table-container">
                 <table class="ship-table">
@@ -238,7 +238,7 @@
                                 ];
                             @endphp
 
-                            <tr class="stagger-row" style="animation-delay: {{ $index * 50 }}ms">
+                            <tr class="animate-row" style="animation-delay: {{ 0.4 + ($index * 0.05) }}s">
                                 <td>
                                     <div class="cell-primary text-blue font-mono">{{ $row->shipment_number }}</div>
                                     <div class="cell-secondary">ID: {{ $row->id }}</div>
@@ -250,7 +250,7 @@
                                 </td>
 
                                 <td>
-                                    <div class="cell-primary">{{ $row->vehicle_name ?: 'Sin vehículo' }} ({{ $row->vehicle_plate ?: 'S/P' }})</div>
+                                    <div class="cell-primary">{{ $row->vehicle_name ?: 'Sin vehículo' }} <span class="font-mono text-muted">({{ $row->vehicle_plate ?: 'S/P' }})</span></div>
                                     <div class="cell-secondary">Cond: {{ $row->driver_name ?: 'Sin asignar' }}</div>
                                 </td>
 
@@ -259,7 +259,7 @@
                                         <div class="progress-fill" style="width: {{ $qtyPct }}%"></div>
                                     </div>
                                     <div class="progress-labels">
-                                        <span class="pct text-blue">{{ $qtyPct }}% Unds.</span>
+                                        <span class="pct text-blue">{{ $qtyPct }}%</span>
                                         <span class="unds text-muted">({{ number_format((int) $row->loaded_qty) }}/{{ number_format((int) $row->expected_qty) }})</span>
                                     </div>
                                 </td>
@@ -277,21 +277,25 @@
                                         data-shipment-id="{{ $row->id }}"
                                         title="Ver detalle"
                                     >
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <circle cx="12" cy="12" r="10"/>
                                             <path d="M12 16v-4"/>
                                             <path d="M12 8h.01"/>
                                         </svg>
                                     </button>
 
-                                    <a href="{{ route('admin.wms.shipping.scanner', $row->id) }}" class="ship-btn-icon ship-btn" title="Ir al scanner">
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <a href="{{ route('admin.wms.shipping.scanner', $row->id) }}" class="ship-btn-icon ship-btn-ghost text-blue" title="Ir al scanner">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
                                             <path d="M22 6l-10 7L2 6"/>
                                         </svg>
                                     </a>
-                                    <a href="{{ route('admin.wms.shipping.pdf', $row->id) }}" class="ship-btn ship-btn-outline" target="_blank">
-                                        Descargar PDF
+                                    <a href="{{ route('admin.wms.shipping.pdf', $row->id) }}" class="ship-btn ship-btn-ghost" target="_blank" title="Descargar PDF">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                            <polyline points="7 10 12 15 17 10"/>
+                                            <line x1="12" y1="15" x2="12" y2="3"/>
+                                        </svg>
                                     </a>
                                 </td>
                             </tr>
@@ -305,7 +309,7 @@
             </div>
         @else
             <div class="ship-empty-state">
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                     <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/>
                     <path d="m3.3 7 8.7 5 8.7-5"/>
                     <path d="M12 22V12"/>
@@ -326,12 +330,12 @@
             <h2 class="drawer-title" id="drawerTitle">Cargando operación...</h2>
             <p class="drawer-sub" id="drawerSubtitle">---</p>
 
-            <div id="drawerStatusBadge" class="mt-2"></div>
+            <div id="drawerStatusBadge" class="mt-3"></div>
             <p id="drawerStatusHelp" class="drawer-sub mt-2">---</p>
         </div>
 
         <div class="drawer-actions">
-            <a href="#" id="drawerScannerLink" class="ship-btn ship-btn-pulse">Ir al Scanner</a>
+            <a href="#" id="drawerScannerLink" class="ship-btn ship-btn-primary ship-btn-pulse">Ir al Scanner</a>
             <button type="button" class="ship-btn-icon ship-btn-ghost" id="shipDrawerClose">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M18 6 6 18M6 6l12 12"/>
@@ -349,31 +353,34 @@
 @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap');
 
 :root {
-    --bg: #f9fafb;
+    --bg: #fdfdfd; /* Blanco un poco más cálido/limpio */
     --card: #ffffff;
     --ink: #333333;
     --ink-dark: #111111;
-    --muted: #888888;
-    --line: #ebebeb;
-    --blue: #007aff;
-    --blue-soft: #e6f0ff;
-    --success: #15803d;
-    --success-soft: #e6ffe6;
-    --danger: #ff4a4a;
-    --danger-soft: #ffebeb;
-
-    --font-sans: 'Quicksand', sans-serif;
-    --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+    --muted: #8e8e93; /* Gris estilo Apple */
+    --line: #e5e5ea; /* Borde sutil */
+    --blue: #007aff; /* iOS Blue */
+    --blue-soft: #e5f1ff;
+    --success: #34c759; /* iOS Green */
+    --success-soft: #eaf9ed;
+    --danger: #ff3b30; /* iOS Red */
+    --danger-soft: #ffeceb;
+    --amber: #ff9500; /* iOS Orange */
+    
+    --font-sans: 'Quicksand', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
 
     --radius-sm: 8px;
-    --radius-md: 12px;
-    --radius-lg: 16px;
+    --radius-md: 16px;
+    --radius-lg: 20px;
     --radius-pill: 999px;
 
-    --shadow-soft: 0 4px 12px rgba(0,0,0,0.02);
-    --shadow-hover: 0 8px 24px rgba(0,0,0,0.06);
+    --shadow-soft: 0 4px 20px rgba(0,0,0,0.03);
+    --shadow-hover: 0 8px 30px rgba(0,0,0,0.06);
 
-    --transition-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+    /* Animación elástica / natural */
+    --spring: cubic-bezier(0.175, 0.885, 0.32, 1.1);
+    --ease-out: cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 body {
@@ -391,29 +398,47 @@ h1, h2, h3, h4, h5, h6, .ship-title, .drawer-title {
 .font-mono {
     font-family: var(--font-mono);
     font-size: 0.85rem;
+    letter-spacing: -0.02em;
 }
 
 .text-right { text-align: right; }
 .text-muted { color: var(--muted); }
+.text-blue { color: var(--blue); }
+.text-danger { color: var(--danger); }
+.text-success { color: var(--success); }
+.text-amber { color: var(--amber); }
 .mt-2 { margin-top: 0.5rem; }
 .mt-3 { margin-top: 0.75rem; }
 .mt-4 { margin-top: 1rem; }
 
-/* Utilidades de texto generadas para la lógica JS */
-.text-blue { color: var(--blue); }
-.text-danger { color: var(--danger); }
-.text-success { color: var(--success); }
-.text-amber { color: #f59e0b; }
-.text-emerald { color: var(--success); }
-.text-indigo { color: var(--blue); }
-
 .ship-wrap {
-    max-width: 1400px;
+    max-width: 1440px;
     margin: 0 auto;
     padding: 3rem 2rem;
     display: flex;
     flex-direction: column;
-    gap: 2rem;
+    gap: 2.5rem;
+}
+
+/* Animaciones de entrada fluidas */
+@keyframes slideUpFade {
+    0% { opacity: 0; transform: translateY(30px) scale(0.98); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes slideRowIn {
+    0% { opacity: 0; transform: translateX(-10px); }
+    100% { opacity: 1; transform: translateX(0); }
+}
+
+.animate-slide-up {
+    opacity: 0;
+    animation: slideUpFade 0.7s var(--spring) forwards;
+}
+
+.animate-row {
+    opacity: 0;
+    animation: slideRowIn 0.5s var(--ease-out) forwards;
 }
 
 .ship-head {
@@ -425,14 +450,14 @@ h1, h2, h3, h4, h5, h6, .ship-title, .drawer-title {
 .ship-head-left {
     display: flex;
     align-items: center;
-    gap: 1.5rem;
+    gap: 1.25rem;
 }
 
 .ship-title {
-    font-size: 2rem;
+    font-size: 2.25rem;
     font-weight: 700;
     margin: 0;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.03em;
 }
 
 .ship-sub {
@@ -442,15 +467,10 @@ h1, h2, h3, h4, h5, h6, .ship-title, .drawer-title {
     margin: 0.25rem 0 0 0;
 }
 
-.ship-head-actions {
-    display: flex;
-    gap: 0.75rem;
-}
-
 .ship-kpi-bento {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    gap: 1.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1.25rem;
 }
 
 .ship-card {
@@ -459,15 +479,15 @@ h1, h2, h3, h4, h5, h6, .ship-title, .drawer-title {
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-soft);
     overflow: hidden;
-    transition: all 0.3s var(--transition-smooth);
+    transition: transform 0.3s var(--ease-out), box-shadow 0.3s var(--ease-out);
 }
 
 .ship-kpi {
-    padding: 1.75rem;
+    padding: 1.5rem;
 }
 
 .ship-kpi:hover {
-    transform: translateY(-2px);
+    transform: translateY(-4px);
     box-shadow: var(--shadow-hover);
 }
 
@@ -475,12 +495,12 @@ h1, h2, h3, h4, h5, h6, .ship-title, .drawer-title {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 0.75rem;
+    margin-bottom: 1rem;
     color: var(--muted);
 }
 
 .ship-kpi-label {
-    font-size: 1rem;
+    font-size: 0.9375rem;
     font-weight: 600;
 }
 
@@ -489,10 +509,11 @@ h1, h2, h3, h4, h5, h6, .ship-title, .drawer-title {
     font-weight: 700;
     color: var(--ink-dark);
     line-height: 1;
+    letter-spacing: -0.04em;
 }
 
 .ship-kpi-trend {
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
     font-weight: 600;
     margin-top: 0.75rem;
 }
@@ -508,12 +529,12 @@ h1, h2, h3, h4, h5, h6, .ship-title, .drawer-title {
 .ship-toolbar-search {
     position: relative;
     flex: 1;
-    min-width: 320px;
+    min-width: 280px;
 }
 
 .search-icon {
     position: absolute;
-    left: 1rem;
+    left: 1.25rem;
     top: 50%;
     transform: translateY(-50%);
     color: var(--muted);
@@ -521,32 +542,35 @@ h1, h2, h3, h4, h5, h6, .ship-title, .drawer-title {
 }
 
 .search-input {
-    padding-left: 2.75rem !important;
+    padding-left: 3rem !important;
     width: 100%;
-    max-width: 450px;
+    max-width: 400px;
+    border-radius: var(--radius-pill) !important;
 }
 
 .ship-toolbar-filters {
     display: flex;
-    gap: 0.75rem;
+    gap: 0.5rem;
     align-items: center;
+    flex-wrap: wrap;
 }
 
 .ship-input {
     height: 2.75rem;
-    padding: 0 1rem;
+    padding: 0 1.25rem;
     font-size: 0.9375rem;
     font-weight: 500;
     font-family: var(--font-sans);
-    background: var(--card);
+    background: var(--bg);
     border: 1px solid var(--line);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-pill);
     color: var(--ink);
-    transition: all 0.2s;
+    transition: all 0.2s var(--ease-out);
     outline: none;
 }
 
 .ship-input:focus {
+    background: var(--card);
     border-color: var(--blue);
     box-shadow: 0 0 0 3px var(--blue-soft);
 }
@@ -554,13 +578,13 @@ h1, h2, h3, h4, h5, h6, .ship-title, .drawer-title {
 .select-input {
     appearance: none;
     padding-right: 2.5rem;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238e8e93' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
-    background-position: right 0.75rem center;
-    background-size: 1em;
+    background-position: right 1rem center;
     cursor: pointer;
 }
 
+/* BOTONES MINIMALISTAS */
 .ship-btn,
 .ship-btn-icon {
     display: inline-flex;
@@ -572,67 +596,76 @@ h1, h2, h3, h4, h5, h6, .ship-title, .drawer-title {
     font-size: 0.9375rem;
     font-weight: 600;
     font-family: var(--font-sans);
-    border-radius: var(--radius-sm);
-    border: none;
+    border-radius: var(--radius-pill); /* Píldora por defecto */
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--ink);
     cursor: pointer;
-    transition: transform 0.2s var(--transition-smooth), background 0.2s, box-shadow 0.2s;
+    transition: all 0.2s var(--ease-out);
 }
 
 .ship-btn {
     padding: 0 1.5rem;
-    background: var(--blue);
-    color: #fff;
-}
-
-.ship-btn:hover {
-    background: #006ae6;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 122, 255, 0.2);
 }
 
 .ship-btn:active,
 .ship-btn-icon:active {
-    transform: scale(0.98);
+    transform: scale(0.96); /* Efecto de presión */
 }
 
+/* Primario */
+.ship-btn-primary {
+    background: var(--blue);
+    color: #fff;
+    box-shadow: 0 2px 10px rgba(0, 122, 255, 0.2);
+}
+
+.ship-btn-primary:hover {
+    background: #0066d6;
+    box-shadow: 0 4px 15px rgba(0, 122, 255, 0.3);
+    transform: translateY(-1px);
+}
+
+/* Ghost (Transparente) */
 .ship-btn-ghost {
-    background: transparent;
     color: var(--muted);
 }
 
 .ship-btn-ghost:hover {
-    background: #f9fafb;
-    color: var(--ink);
-    transform: none;
-    box-shadow: none;
+    background: var(--line);
+    color: var(--ink-dark);
 }
 
+/* Outline */
 .ship-btn-outline {
+    border-color: var(--line);
     background: var(--card);
-    border: 1px solid var(--blue);
-    color: var(--blue);
 }
 
 .ship-btn-outline:hover {
-    background: var(--blue-soft);
-    transform: translateY(-1px);
+    border-color: var(--muted);
+    background: var(--bg);
 }
 
+/* Iconos */
 .ship-btn-icon {
     padding: 0;
     width: 2.75rem;
     flex-shrink: 0;
+    border-radius: 50%; /* Iconos circulares */
 }
 
 .ship-table-container {
     width: 100%;
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch; /* Scroll suave en iOS */
 }
 
 .ship-table {
     width: 100%;
     border-collapse: collapse;
     text-align: left;
+    white-space: nowrap; /* Evita que las columnas se aplasten en móvil */
 }
 
 .ship-table th {
@@ -640,21 +673,21 @@ h1, h2, h3, h4, h5, h6, .ship-title, .drawer-title {
     font-weight: 700;
     color: var(--muted);
     text-transform: uppercase;
-    letter-spacing: 0.05rem;
+    letter-spacing: 0.04em;
     padding: 1.25rem 1.5rem;
     border-bottom: 1px solid var(--line);
     background: var(--card);
 }
 
 .ship-table td {
-    padding: 1.5rem;
-    border-bottom: 1px solid var(--line);
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--bg);
     vertical-align: middle;
     transition: background 0.2s;
 }
 
 .ship-table tbody tr:hover td {
-    background: var(--bg);
+    background: #fdfdfd;
 }
 
 .ship-table tbody tr:last-child td {
@@ -662,21 +695,21 @@ h1, h2, h3, h4, h5, h6, .ship-title, .drawer-title {
 }
 
 .cell-primary {
-    font-size: 1rem;
+    font-size: 0.9375rem;
     font-weight: 600;
     color: var(--ink-dark);
 }
 
 .cell-secondary {
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
     color: var(--muted);
     margin-top: 0.25rem;
 }
 
 .progress-bar {
-    height: 6px;
+    height: 4px;
     width: 100%;
-    max-width: 200px;
+    min-width: 120px;
     background: var(--line);
     border-radius: var(--radius-pill);
     overflow: hidden;
@@ -687,44 +720,39 @@ h1, h2, h3, h4, h5, h6, .ship-title, .drawer-title {
     height: 100%;
     background: var(--blue);
     border-radius: var(--radius-pill);
-    transition: width 0.8s var(--transition-smooth);
+    transition: width 1s var(--spring);
 }
 
 .progress-labels {
     display: flex;
     gap: 0.5rem;
-    font-size: 0.8125rem;
+    font-size: 0.75rem;
     font-weight: 600;
 }
 
+/* Badges minimalistas */
 .ship-status {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    height: 1.75rem;
-    padding: 0 1rem;
-    border-radius: var(--radius-pill);
-    font-size: 0.8125rem;
-    font-weight: 700;
-}
-
-.ship-status-sm {
     height: 1.5rem;
     padding: 0 0.75rem;
+    border-radius: var(--radius-sm);
     font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
 }
 
-/* Badges Minimalistas */
-.is-draft { background: var(--blue-soft); color: var(--blue); }
+.is-draft { background: var(--bg); color: var(--muted); border: 1px solid var(--line); }
 .is-loading { background: var(--blue-soft); color: var(--blue); }
 .is-complete { background: var(--success-soft); color: var(--success); }
-.is-dispatched { background: var(--success-soft); color: var(--success); }
+.is-dispatched { background: var(--success); color: #fff; }
 .is-partial { background: var(--danger-soft); color: var(--danger); }
-.is-cancelled { background: var(--danger-soft); color: var(--danger); }
+.is-cancelled { background: var(--bg); color: var(--danger); border: 1px solid var(--danger-soft); }
 
 .actions-column {
     display: flex;
-    gap: 0.5rem;
+    gap: 0.25rem;
     justify-content: flex-end;
 }
 
@@ -745,27 +773,21 @@ h1, h2, h3, h4, h5, h6, .ship-title, .drawer-title {
 }
 
 .ship-empty-state h3 {
-    font-size: 1.5rem;
+    font-size: 1.25rem;
     font-weight: 700;
     color: var(--ink-dark);
-    margin: 1.25rem 0 0.5rem 0;
-}
-
-.ship-empty-state p {
-    font-size: 1rem;
-    font-weight: 500;
-    margin: 0;
+    margin: 1rem 0 0.5rem 0;
 }
 
 .ship-drawer-backdrop {
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.15);
-    backdrop-filter: blur(2px);
+    background: rgba(0,0,0,0.2);
+    backdrop-filter: blur(4px);
     z-index: 50;
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.3s var(--transition-smooth);
+    transition: opacity 0.4s var(--ease-out);
 }
 
 .ship-drawer-backdrop.is-open {
@@ -779,13 +801,13 @@ h1, h2, h3, h4, h5, h6, .ship-title, .drawer-title {
     right: 0;
     bottom: 0;
     width: 100%;
-    max-width: 640px;
+    max-width: 500px; /* Un poco más delgado para verse premium */
     background: var(--card);
     border-left: 1px solid var(--line);
-    box-shadow: -10px 0 40px rgba(0,0,0,0.05);
+    box-shadow: -20px 0 60px rgba(0,0,0,0.08);
     z-index: 100;
     transform: translateX(100%);
-    transition: transform 0.4s var(--transition-smooth);
+    transition: transform 0.5s var(--spring);
     display: flex;
     flex-direction: column;
 }
@@ -800,7 +822,8 @@ h1, h2, h3, h4, h5, h6, .ship-title, .drawer-title {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    background: rgba(255,255,255,0.95);
+    background: rgba(255,255,255,0.8);
+    backdrop-filter: blur(12px);
     position: sticky;
     top: 0;
     z-index: 10;
@@ -810,22 +833,22 @@ h1, h2, h3, h4, h5, h6, .ship-title, .drawer-title {
 .drawer-id {
     font-size: 0.8125rem;
     font-weight: 700;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.25rem;
     display: block;
 }
 
 .drawer-title {
-    font-size: 1.75rem;
+    font-size: 1.5rem;
     font-weight: 700;
     margin: 0;
     letter-spacing: -0.02em;
 }
 
 .drawer-sub {
-    font-size: 1rem;
+    font-size: 0.9375rem;
     color: var(--muted);
     font-weight: 500;
-    margin: 0.5rem 0 0 0;
+    margin: 0.25rem 0 0 0;
 }
 
 .drawer-actions {
@@ -846,7 +869,7 @@ h1, h2, h3, h4, h5, h6, .ship-title, .drawer-title {
 
 .drawer-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr; /* Columna simple en drawer por defecto */
     gap: 1.5rem;
 }
 
@@ -858,17 +881,13 @@ h1, h2, h3, h4, h5, h6, .ship-title, .drawer-title {
     box-shadow: var(--shadow-soft);
 }
 
-.full-span {
-    grid-column: 1 / -1;
-}
-
 .card-title {
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
     font-weight: 700;
     text-transform: uppercase;
     color: var(--muted);
-    margin: 0 0 1.25rem 0;
-    letter-spacing: 0.05rem;
+    margin: 0 0 1rem 0;
+    letter-spacing: 0.05em;
     display: flex;
     align-items: center;
     gap: 0.5rem;
@@ -877,7 +896,7 @@ h1, h2, h3, h4, h5, h6, .ship-title, .drawer-title {
 .data-list {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.75rem;
 }
 
 .data-item {
@@ -895,54 +914,55 @@ h1, h2, h3, h4, h5, h6, .ship-title, .drawer-title {
 }
 
 .data-item .label {
-    font-weight: 600;
+    font-weight: 500;
     color: var(--muted);
 }
 
 .data-item .value {
-    font-weight: 700;
+    font-weight: 600;
     text-align: right;
     color: var(--ink);
 }
 
 .drawer-kpi-group {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: 1rem;
 }
 
 .mini-kpi {
     background: var(--bg);
-    padding: 1.25rem;
+    padding: 1rem;
     border-radius: var(--radius-sm);
-    border: 1px solid var(--line);
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 1rem;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.25rem;
 }
 
 .mini-kpi .label {
-    font-size: 0.875rem;
+    font-size: 0.75rem;
     color: var(--muted);
-    font-weight: 700;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
 }
 
 .mini-kpi .value {
-    font-size: 1.5rem;
+    font-size: 1.25rem;
     font-weight: 700;
     color: var(--ink-dark);
 }
 
 .timeline {
     position: relative;
-    padding-left: 1.5rem;
+    padding-left: 1.25rem;
 }
 
 .timeline::before {
     content: '';
     position: absolute;
-    left: 0.35rem;
+    left: 0.25rem;
     top: 0;
     bottom: 0;
     width: 2px;
@@ -951,7 +971,7 @@ h1, h2, h3, h4, h5, h6, .ship-title, .drawer-title {
 
 .timeline-item {
     position: relative;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1.25rem;
 }
 
 .timeline-item:last-child {
@@ -961,99 +981,87 @@ h1, h2, h3, h4, h5, h6, .ship-title, .drawer-title {
 .timeline-item::before {
     content: '';
     position: absolute;
-    left: -1.5rem;
+    left: -1.35rem;
     top: 0.25rem;
-    width: 0.75rem;
-    height: 0.75rem;
+    width: 0.5rem;
+    height: 0.5rem;
     border-radius: 50%;
     background: var(--card);
     border: 2px solid var(--blue);
 }
 
 .timeline-title {
-    font-size: 1rem;
-    font-weight: 700;
+    font-size: 0.9375rem;
+    font-weight: 600;
     color: var(--ink);
 }
 
 .timeline-date {
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
     color: var(--muted);
     font-family: var(--font-mono);
-    margin-top: 0.25rem;
+    margin-top: 0.125rem;
 }
 
 .line-card {
     border: 1px solid var(--line);
     border-radius: var(--radius-sm);
-    padding: 1.25rem;
-    margin-bottom: 1rem;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
     background: var(--bg);
-}
-
-.line-card:last-child {
-    margin-bottom: 0;
 }
 
 .line-card-header {
     display: flex;
     justify-content: space-between;
-    gap: 1rem;
-    margin-bottom: 0.75rem;
+    gap: 0.5rem;
 }
 
 .line-title {
-    font-size: 1rem;
+    font-size: 0.9375rem;
     font-weight: 700;
     color: var(--ink-dark);
 }
 
 .line-sku {
-    font-size: 0.875rem;
+    font-size: 0.75rem;
     color: var(--muted);
     font-family: var(--font-mono);
+    margin-top: 0.25rem;
 }
 
 .line-metrics {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.75rem;
-    margin-top: 1rem;
+    display: flex;
+    gap: 1.5rem;
+    margin-top: 0.75rem;
+    font-size: 0.8125rem;
 }
 
 .line-metric {
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    padding: 0.75rem;
-    text-align: center;
+    display: flex;
+    gap: 0.25rem;
+    align-items: center;
 }
 
 .line-metric .lbl {
-    font-size: 0.75rem;
-    text-transform: uppercase;
     color: var(--muted);
-    font-weight: 700;
-    letter-spacing: 0.02rem;
+    font-weight: 600;
 }
 
 .line-metric .val {
-    font-size: 1rem;
     font-weight: 700;
     font-family: var(--font-mono);
-    margin-top: 0.25rem;
     color: var(--ink-dark);
 }
 
 .signature-box {
-    height: 140px;
+    height: 120px;
     border: 1px dashed var(--line);
     border-radius: var(--radius-sm);
     display: flex;
     align-items: center;
     justify-content: center;
     background: var(--bg);
-    overflow: hidden;
 }
 
 .signature-box img {
@@ -1063,23 +1071,18 @@ h1, h2, h3, h4, h5, h6, .ship-title, .drawer-title {
 }
 
 .ship-empty-mini {
-    padding: 1.5rem;
+    padding: 1rem;
     border: 1px dashed var(--line);
     border-radius: var(--radius-sm);
     background: var(--bg);
     color: var(--muted);
-    font-size: 0.9375rem;
-    font-weight: 600;
+    font-size: 0.875rem;
+    font-weight: 500;
     text-align: center;
 }
 
 body.has-drawer-open {
     overflow: hidden;
-}
-
-@keyframes slideUpFade {
-    from { opacity: 0; transform: translateY(15px); }
-    to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes pulse {
@@ -1093,32 +1096,77 @@ body.has-drawer-open {
     to { transform: rotate(360deg); }
 }
 
-.fade-in-up { animation: slideUpFade 0.5s ease-out forwards; }
-.stagger-row { opacity: 0; animation: slideUpFade 0.4s var(--transition-smooth) forwards; }
 .ship-btn-pulse { animation: pulse 2s infinite; }
 .ship-head-actions button:hover svg { animation: spin 1s linear infinite; }
 
-.stagger-1 { animation-delay: 50ms; }
-.stagger-2 { animation-delay: 100ms; }
-.stagger-3 { animation-delay: 150ms; }
-.stagger-4 { animation-delay: 200ms; }
-
+/* REGLAS RESPONSIVAS */
 @media (max-width: 1024px) {
-    .ship-wrap { padding: 2rem 1.5rem; }
-    .ship-kpi-bento { grid-template-columns: 1fr 1fr; }
-    .drawer-grid { grid-template-columns: 1fr; }
+    .ship-wrap { padding: 2rem 1.5rem; gap: 1.5rem; }
     .ship-title { font-size: 1.75rem; }
+    .ship-kpi-bento { grid-template-columns: 1fr 1fr; }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 768px) {
     .ship-wrap { padding: 1.5rem 1rem; }
-    .ship-head { flex-direction: column; align-items: stretch; gap: 1.5rem; }
+    
+    .ship-head {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1.25rem;
+    }
+    
+    .ship-head-actions {
+        width: 100%;
+    }
+    
+    .ship-head-actions .ship-btn {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .ship-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .ship-toolbar-search {
+        min-width: 100%;
+    }
+    
+    .search-input {
+        max-width: 100%;
+    }
+    
+    .ship-toolbar-filters {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .ship-toolbar-filters select,
+    .ship-toolbar-filters button,
+    .ship-toolbar-filters a {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .drawer-header {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .drawer-actions {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .drawer-actions .ship-btn {
+        flex: 1;
+    }
+}
+
+@media (max-width: 480px) {
     .ship-kpi-bento { grid-template-columns: 1fr; }
-    .ship-toolbar { flex-direction: column; align-items: stretch; }
-    .ship-toolbar-search { min-width: 100%; }
-    .actions-column { flex-direction: column; align-items: flex-end; }
-    .drawer-header { flex-direction: column; align-items: stretch; }
-    .drawer-actions { justify-content: space-between; }
+    .drawer-kpi-group { grid-template-columns: 1fr; }
 }
 </style>
 
@@ -1214,8 +1262,9 @@ document.addEventListener('DOMContentLoaded', function () {
         const data = shipmentDetails[id];
         if (!data) return;
 
+        // Reset animación contenido
         drawerContent.style.opacity = '0';
-        drawerContent.style.transform = 'translateY(12px)';
+        drawerContent.style.transform = 'translateY(15px)';
 
         els.kicker.textContent = data.shipment_number || ('EMB-' + data.id);
         els.title.textContent = 'Embarque ' + (data.shipment_number || data.id);
@@ -1256,48 +1305,30 @@ document.addEventListener('DOMContentLoaded', function () {
                     <span class="value text-blue">${Number(data.loaded_boxes || 0)}/${Number(data.expected_boxes || 0)}</span>
                 </div>
                 <div class="mini-kpi">
-                    <span class="label">Líneas procesadas</span>
-                    <span class="value">${Number(data.scanned_lines || 0)}/${Number(data.expected_lines || 0)}</span>
-                </div>
-                <div class="mini-kpi">
                     <span class="label">Piezas faltantes</span>
-                    <span class="value text-danger">${missingQty}</span>
+                    <span class="value text-amber">${missingQty}</span>
                 </div>
                 <div class="mini-kpi">
-                    <span class="label">Avance operación</span>
+                    <span class="label">Avance</span>
                     <span class="value">${progress}%</span>
                 </div>
             </div>
 
             <div class="drawer-card">
-                <h3 class="card-title">
-                    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                    </svg>
-                    Información general
-                </h3>
-
-                <div class="data-list mt-3">
+                <h3 class="card-title">Información general</h3>
+                <div class="data-list">
                     <div class="data-item"><span class="label">Vehículo</span><span class="value">${escapeHtml(data.vehicle_name || 'Sin unidad')}</span></div>
                     <div class="data-item"><span class="label">Matrícula</span><span class="value font-mono">${escapeHtml(data.vehicle_plate || '---')}</span></div>
                     <div class="data-item"><span class="label">Responsable</span><span class="value">${escapeHtml(data.driver_name || 'Sin chofer')}</span></div>
                     <div class="data-item"><span class="label">Teléfono</span><span class="value">${escapeHtml(data.driver_phone || '---')}</span></div>
-                    <div class="data-item"><span class="label">Ruta operativa</span><span class="value">${escapeHtml(data.route_name || '---')}</span></div>
-                    <div class="data-item"><span class="label">Picking task</span><span class="value">${escapeHtml(data.task_number || 'N/A')}</span></div>
-                    <div class="data-item"><span class="label">Pedido ref.</span><span class="value">${escapeHtml(data.order_number || '---')}</span></div>
+                    <div class="data-item"><span class="label">Ruta</span><span class="value">${escapeHtml(data.route_name || '---')}</span></div>
+                    <div class="data-item"><span class="label">Pedido</span><span class="value">${escapeHtml(data.order_number || '---')}</span></div>
                 </div>
             </div>
 
             <div class="drawer-card">
-                <h3 class="card-title">
-                    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="10"/>
-                        <path d="M12 8v4l3 3"/>
-                    </svg>
-                    Trazabilidad
-                </h3>
-
-                <div class="timeline mt-3">
+                <h3 class="card-title">Trazabilidad</h3>
+                <div class="timeline">
                     ${data.created_at ? `<div class="timeline-item"><div class="timeline-title">Creación</div><div class="timeline-date">${formatDate(data.created_at)}</div></div>` : ''}
                     ${data.closed_at ? `<div class="timeline-item"><div class="timeline-title">Cierre de validación</div><div class="timeline-date">${formatDate(data.closed_at)}</div></div>` : ''}
                     ${data.dispatched_at ? `<div class="timeline-item"><div class="timeline-title">Salida confirmada</div><div class="timeline-date">${formatDate(data.dispatched_at)}</div></div>` : ''}
@@ -1306,30 +1337,21 @@ document.addEventListener('DOMContentLoaded', function () {
             </div>
 
             <div class="drawer-card">
-                <h3 class="card-title">
-                    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                    </svg>
-                    Registros de firma digital
-                </h3>
-
-                <div class="data-list mt-3">
-                    <div class="data-item"><span class="label">Responsable</span><span class="value">${escapeHtml(data.signed_by_name || 'Sin capturar')}</span></div>
-                    <div class="data-item"><span class="label">Rol</span><span class="value text-muted">${escapeHtml(data.signed_by_role || '---')}</span></div>
+                <h3 class="card-title">Firma digital</h3>
+                <div class="data-list mb-3" style="margin-bottom: 1rem;">
+                    <div class="data-item"><span class="label">Firmante</span><span class="value">${escapeHtml(data.signed_by_name || 'Sin capturar')}</span></div>
                 </div>
-
-                <div class="signature-box mt-3">
+                <div class="signature-box">
                     ${data.signature_data
                         ? `<img src="${data.signature_data}" alt="Firma digital">`
-                        : '<span class="text-muted">Firma digital no disponible</span>'
+                        : '<span class="text-muted">No disponible</span>'
                     }
                 </div>
             </div>
 
             <div class="drawer-card full-span">
                 <h3 class="card-title">Líneas de embarque</h3>
-
-                <div class="mt-4">
+                <div class="mt-2">
                     ${
                         Array.isArray(data.lines) && data.lines.length
                             ? data.lines.map(function (l) {
@@ -1341,18 +1363,10 @@ document.addEventListener('DOMContentLoaded', function () {
                                                 ${escapeHtml(statusLabel(l.status || 'draft'))}
                                             </span>
                                         </div>
-
                                         <div class="line-sku">SKU: ${escapeHtml(l.product_sku || l.sku || '---')}</div>
-
                                         <div class="line-metrics">
-                                            <div class="line-metric">
-                                                <div class="lbl">Unds.</div>
-                                                <div class="val">${Number(l.loaded_qty || 0)} / ${Number(l.expected_qty || 0)}</div>
-                                            </div>
-                                            <div class="line-metric">
-                                                <div class="lbl">Cajas</div>
-                                                <div class="val">${Number(l.loaded_boxes || 0)} / ${Number(l.expected_boxes || 0)}</div>
-                                            </div>
+                                            <div class="line-metric"><span class="lbl">Unds.</span><span class="val">${Number(l.loaded_qty || 0)}/${Number(l.expected_qty || 0)}</span></div>
+                                            <div class="line-metric"><span class="lbl">Cajas</span><span class="val">${Number(l.loaded_boxes || 0)}/${Number(l.expected_boxes || 0)}</span></div>
                                         </div>
                                     </div>
                                 `;
@@ -1364,7 +1378,7 @@ document.addEventListener('DOMContentLoaded', function () {
         `;
 
         requestAnimationFrame(function () {
-            drawerContent.style.transition = 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
+            drawerContent.style.transition = 'all 0.6s var(--spring)';
             drawerContent.style.opacity = '1';
             drawerContent.style.transform = 'translateY(0)';
         });
