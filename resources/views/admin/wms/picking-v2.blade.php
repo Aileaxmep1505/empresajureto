@@ -117,6 +117,7 @@
 
     <div class="pk-filter">
       <select id="statusFilter" class="pk-select">
+        <option value="active" selected>Pendientes primero</option>
         <option value="all">Todos los estados</option>
         <option value="pending">Pendiente</option>
         <option value="in_progress">En proceso</option>
@@ -970,6 +971,7 @@
   const scannerUrl = @json($scannerUrl);
   const shippingIndexUrl = @json($shippingIndexUrl);
   const shippingCreateBase = @json(url('/admin/wms/shipping/from-picking'));
+  const generatedShipmentsStorageKey = 'wms:picking:v2:generated-shipment-task-ids';
 
   let tasks = Array.isArray(rawTasks) ? rawTasks : [];
   const fastFlowBatches = Array.isArray(rawFastFlowBatches) ? rawFastFlowBatches : [];
@@ -1040,6 +1042,39 @@
   function asNumber(value){
     const n = Number(value || 0);
     return Number.isFinite(n) ? n : 0;
+  }
+
+
+  function getGeneratedShipmentIds(){
+    try {
+      const value = window.localStorage.getItem(generatedShipmentsStorageKey);
+      const parsed = value ? JSON.parse(value) : [];
+      return new Set(Array.isArray(parsed) ? parsed.map(id => String(id)) : []);
+    } catch (e) {
+      return new Set();
+    }
+  }
+
+  function markGeneratedShipment(taskId){
+    if(!taskId) return;
+
+    const ids = getGeneratedShipmentIds();
+    ids.add(String(taskId));
+
+    try {
+      window.localStorage.setItem(generatedShipmentsStorageKey, JSON.stringify(Array.from(ids)));
+    } catch (e) {}
+
+    tasks = tasks.map(task => Number(task?.id) === Number(taskId)
+      ? { ...task, shipment_generated: true, has_shipment: true }
+      : task
+    );
+
+    if(selectedTask && Number(selectedTask?.id) === Number(taskId)){
+      selectedTask = { ...selectedTask, shipment_generated: true, has_shipment: true };
+    }
+
+    document.dispatchEvent(new CustomEvent('picking:shipment-generated', { detail: { taskId } }));
   }
 
   function openModal(modal){
@@ -1137,6 +1172,9 @@
   }
 
   function taskHasGeneratedShipment(task){
+    const localGeneratedIds = getGeneratedShipmentIds();
+    if(task?.id && localGeneratedIds.has(String(task.id))) return true;
+
     const status = String(task?.status || '').toLowerCase();
     const shipmentStatus = String(task?.shipment_status || task?.shipping_status || task?.shipment?.status || task?.shipping?.status || '').toLowerCase();
 
@@ -1231,20 +1269,31 @@
         throw new Error('La respuesta del servidor no fue válida.');
       }
 
+      const shipmentId = data?.shipment?.id || data?.shipping?.id || data?.shipment_id || data?.shipping_id || data?.id || null;
+
       if (!response.ok) {
-        if (data.shipment && data.shipment.id) {
-          window.location.href = `/admin/wms/shipping/${data.shipment.id}/scanner`;
+        if (shipmentId) {
+          markGeneratedShipment(pickWaveId);
+          renderTasks();
+          closeModal(detailModal);
+          window.location.href = `/admin/wms/shipping/${shipmentId}/scanner`;
           return;
         }
 
         throw new Error(data.message || 'No se pudo generar el embarque.');
       }
 
-      if (!data.shipment || !data.shipment.id) {
-        throw new Error('Se generó el embarque pero no llegó el ID de respuesta.');
+      markGeneratedShipment(pickWaveId);
+      renderTasks();
+      closeModal(detailModal);
+
+      if (shipmentId) {
+        window.location.href = `/admin/wms/shipping/${shipmentId}/scanner`;
+        return;
       }
 
-      window.location.href = `/admin/wms/shipping/${data.shipment.id}/scanner`;
+      alert('Embarque generado. La tarea se quitó de pendientes porque ya no requiere acción.');
+      window.location.href = shippingIndexUrl || '/admin/wms/shipping';
     } catch (error) {
       alert(error.message || 'Ocurrió un error al generar el embarque.');
     }
@@ -1315,7 +1364,16 @@
     const q = normalize(searchInput?.value || '');
     const st = statusFilter?.value || 'all';
 
+    const statusOrder = {
+      pending: 1,
+      in_progress: 2,
+      completed: 3,
+      cancelled: 4
+    };
+
     const filtered = tasks.filter(task => {
+      if (taskHasGeneratedShipment(task)) return false;
+
       const items = getTaskItems(task);
 
       const matchesSearch =
@@ -1330,9 +1388,19 @@
           normalize(item?.batch_code).includes(q)
         );
 
-      const matchesStatus = st === 'all' || String(task?.status || 'pending') === st;
+      const taskStatus = String(task?.status || 'pending');
+      const matchesStatus = st === 'active'
+        ? taskStatus !== 'cancelled'
+        : (st === 'all' || taskStatus === st);
 
       return matchesSearch && matchesStatus;
+    }).sort((a, b) => {
+      const aStatus = String(a?.status || 'pending');
+      const bStatus = String(b?.status || 'pending');
+      const byStatus = (statusOrder[aStatus] || 99) - (statusOrder[bStatus] || 99);
+      if (byStatus !== 0) return byStatus;
+
+      return Number(b?.id || 0) - Number(a?.id || 0);
     });
 
     if(!filtered.length){
@@ -1625,6 +1693,8 @@
     const btnCreateShipment = document.getElementById('btnCreateShipment');
     if(btnCreateShipment){
       btnCreateShipment.onclick = function(){
+        btnCreateShipment.disabled = true;
+        btnCreateShipment.textContent = 'Generando...';
         createShipmentFromPicking(selectedTask?.id);
       };
     }
@@ -1659,6 +1729,8 @@
         e.stopPropagation();
         const taskId = Number(shipBtn.dataset.taskId || 0);
         if (taskId) {
+          shipBtn.disabled = true;
+          shipBtn.textContent = 'Generando...';
           createShipmentFromPicking(taskId);
         }
         return;
@@ -1697,7 +1769,49 @@
     });
   }
 
+  async function refreshTasksFromServer(){
+    try {
+      const response = await fetch(window.location.href, {
+        method: 'GET',
+        headers: {
+          'Accept': 'text/html,application/xhtml+xml',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        cache: 'no-store'
+      });
+
+      if(!response.ok) return;
+
+      const html = await response.text();
+      const match = html.match(/const\s+rawTasks\s*=\s*(.*?);\s*const\s+rawFastFlowBatches/s);
+      if(!match || !match[1]) return;
+
+      const parsedTasks = JSON.parse(match[1]);
+      if(!Array.isArray(parsedTasks)) return;
+
+      tasks = parsedTasks.map(ensureTaskShape).map(task => {
+        const localGeneratedIds = getGeneratedShipmentIds();
+        return task?.id && localGeneratedIds.has(String(task.id))
+          ? { ...task, shipment_generated: true, has_shipment: true }
+          : task;
+      });
+
+      renderTasks();
+    } catch (e) {}
+  }
+
+  document.addEventListener('picking:shipment-generated', renderTasks);
+
+  window.addEventListener('storage', function(e){
+    if(e.key === generatedShipmentsStorageKey) renderTasks();
+  });
+
+  document.addEventListener('visibilitychange', function(){
+    if(!document.hidden) refreshTasksFromServer();
+  });
+
   renderTasks();
+  setInterval(refreshTasksFromServer, 7000);
 })();
 </script>
 @endpush
