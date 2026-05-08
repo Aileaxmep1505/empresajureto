@@ -535,6 +535,39 @@
     grid-template-columns: 1fr;
   }
 }
+
+
+.sold-line-box {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--blue-soft);
+  background: #f8fbff;
+  border-radius: 12px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+.sold-line-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.sold-line-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+.sold-line-tag-danger { background: var(--danger-soft); color: var(--danger); }
+.sold-line-tag-blue { background: var(--blue-soft); color: var(--blue); }
+.sold-line-tag-success { background: var(--success-soft); color: var(--success); }
+
 </style>
 
 <div class="reception-screen">
@@ -628,32 +661,94 @@
           <table class="table-clean">
             <thead>
               <tr>
-                <th style="width:25%;">SKU</th>
+                <th style="width:22%;">SKU</th>
                 <th>Descripción</th>
-                <th style="width:15%;">Lote</th>
+                <th style="width:14%;">Lote</th>
                 <th style="width:10%; text-align:center;">Cant.</th>
-                <th style="width:15%;">Estado</th>
+                <th style="width:18%;">Estado</th>
               </tr>
             </thead>
             <tbody>
               @forelse($reception->lines as $product)
                 @php
+                  $lineMeta = $product->meta ?? [];
+                  if (is_string($lineMeta)) {
+                    $decodedMeta = json_decode($lineMeta, true);
+                    $lineMeta = is_array($decodedMeta) ? $decodedMeta : [];
+                  }
+
+                  $isSoldLine = filter_var($product->no_inventory ?? false, FILTER_VALIDATE_BOOLEAN)
+                    || filter_var($product->is_virtual_sold ?? false, FILTER_VALIDATE_BOOLEAN)
+                    || filter_var(data_get($lineMeta, 'no_inventory'), FILTER_VALIDATE_BOOLEAN)
+                    || filter_var(data_get($lineMeta, 'is_virtual_sold'), FILTER_VALIDATE_BOOLEAN)
+                    || strtolower((string)($product->condition ?? '')) === 'vendido'
+                    || strtolower((string)($product->source_type ?? data_get($lineMeta, 'source_type', ''))) === 'virtual_sold';
+
                   $conditionClass = match($product->condition ?? '') {
                     'bueno' => 'badge-success',
                     'dañado' => 'badge-danger',
                     'parcial' => 'badge-warning',
+                    'vendido' => 'badge-danger',
                     default => 'badge-info',
                   };
+
+                  $taskNumber = $product->task_number ?? data_get($lineMeta, 'task_number');
+                  $orderNumber = $product->order_number ?? data_get($lineMeta, 'order_number');
+                  $stagingCode = $product->staging_location_code ?? data_get($lineMeta, 'staging_location_code') ?? optional($product->location)->code;
+                  $flowMode = $product->virtual_flow_mode ?? data_get($lineMeta, 'virtual_flow_mode');
+                  $splitRole = data_get($lineMeta, 'split_role');
+                  $splitFromVirtualSold = filter_var(data_get($lineMeta, 'split_from_virtual_sold'), FILTER_VALIDATE_BOOLEAN);
                 @endphp
                 <tr>
                   <td style="color: var(--muted); font-family: monospace;">{{ $product->sku ?: '—' }}</td>
-                  <td>{{ $product->description ?: ($product->name ?: '—') }}</td>
+                  <td>
+                    <div>{{ $product->description ?: ($product->name ?: '—') }}</div>
+
+                    @if($isSoldLine)
+                      <div class="sold-line-box">
+                        <strong style="color:#111111;">Producto vendido / no inventariar</strong><br>
+                        Este producto se recibió para una venta específica. No debe regresar a stock disponible.
+                        <div class="sold-line-tags">
+                          <span class="sold-line-tag sold-line-tag-danger">Vendido</span>
+                          <span class="sold-line-tag sold-line-tag-blue">No inventariar</span>
+                          @if($orderNumber)
+                            <span class="sold-line-tag sold-line-tag-blue">Orden: {{ $orderNumber }}</span>
+                          @endif
+                          @if($taskNumber)
+                            <span class="sold-line-tag sold-line-tag-blue">Picking: {{ $taskNumber }}</span>
+                          @endif
+                          @if($stagingCode)
+                            <span class="sold-line-tag sold-line-tag-success">Dejado en: {{ $stagingCode }}</span>
+                          @endif
+                        </div>
+                      </div>
+                    @elseif($splitFromVirtualSold)
+                      <div class="sold-line-box" style="background:#f9fafb;border-color:var(--line);">
+                        <strong style="color:#111111;">Excedente inventariable</strong><br>
+                        Esta cantidad llegó junto con una recepción vendida, pero excede lo ya vendido/recolectado. Esta parte sí entra a inventario.
+                        <div class="sold-line-tags">
+                          <span class="sold-line-tag sold-line-tag-success">Inventariable</span>
+                          @if($orderNumber)
+                            <span class="sold-line-tag sold-line-tag-blue">Orden origen: {{ $orderNumber }}</span>
+                          @endif
+                          @if($taskNumber)
+                            <span class="sold-line-tag sold-line-tag-blue">Picking origen: {{ $taskNumber }}</span>
+                          @endif
+                        </div>
+                      </div>
+                    @endif
+                  </td>
                   <td>{{ $product->lot ?: '-' }}</td>
                   <td style="text-align:center;">{{ $product->quantity }}</td>
                   <td>
                     <span class="badge {{ $conditionClass }}">
-                      {{ ucfirst($product->condition ?: 'Revisión') }}
+                      {{ $isSoldLine ? 'Vendido' : ucfirst($product->condition ?: 'Revisión') }}
                     </span>
+                    @if($isSoldLine && $flowMode)
+                      <div style="margin-top:6px;color:var(--muted);font-size:11px;font-weight:700;">
+                        {{ $flowMode === 'staging_before_shipping' ? 'Traído a almacén/staging' : $flowMode }}
+                      </div>
+                    @endif
                   </td>
                 </tr>
               @empty

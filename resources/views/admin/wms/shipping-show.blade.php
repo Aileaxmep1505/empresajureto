@@ -142,6 +142,10 @@
                         @php
                             $linePct = max(0, min(100, (int) round(((int) ($line['loaded_qty'] ?? 0) / max(1, (int) ($line['expected_qty'] ?? 0))) * 100)));
                             $lineStatus = (string) ($line['status'] ?? 'pending');
+                            $lineMeta = is_array($line['meta'] ?? null) ? $line['meta'] : [];
+                            $isVirtualLine = !empty($lineMeta['is_virtual']) || (($lineMeta['source_type'] ?? '') === 'virtual') || !empty($lineMeta['requires_pickup']);
+                            $virtualMode = (string) ($lineMeta['virtual_flow_mode'] ?? '');
+                            $virtualAutoLoaded = !empty($lineMeta['virtual_auto_loaded_to_shipment']) || ($isVirtualLine && (($lineMeta['virtual_requires_shipping_scan'] ?? true) === false));
                         @endphp
 
                         <div class="shipd-line">
@@ -153,7 +157,18 @@
                                         @if(!empty($line['batch_code'])) · Lote {{ $line['batch_code'] }} @endif
                                         @if(!empty($line['location_code'])) · Ubicación {{ $line['location_code'] }} @endif
                                         @if(!empty($line['staging_location_code'])) · Staging {{ $line['staging_location_code'] }} @endif
+                                        @if($isVirtualLine) · VENDIDO / NO INVENTARIAR @endif
                                     </div>
+                                    @if($isVirtualLine)
+                                        <div class="shipd-tags" style="margin-top:10px;">
+                                            <span>Virtual</span>
+                                            <span>{{ $virtualMode === 'direct_to_delivery' ? 'Entrega directa' : 'Staging antes de embarque' }}</span>
+                                            <span>{{ $virtualAutoLoaded ? 'Auto cargado' : 'Escaneo requerido' }}</span>
+                                            @if(!empty($lineMeta['pickup_status']))
+                                                <span>Recolección: {{ $lineMeta['pickup_status'] }}</span>
+                                            @endif
+                                        </div>
+                                    @endif
                                 </div>
 
                                 <span class="shipd-line-badge {{ $lineStatus }}">
@@ -166,6 +181,7 @@
                                 <div><span>Cajas</span><strong>{{ number_format((int) ($line['loaded_boxes'] ?? 0)) }} / {{ number_format((int) ($line['expected_boxes'] ?? 0)) }}</strong></div>
                                 <div><span>Faltante</span><strong>{{ number_format((int) ($line['missing_qty'] ?? 0)) }}</strong></div>
                                 <div><span>Fast Flow</span><strong>{{ !empty($line['is_fastflow']) ? 'Sí' : 'No' }}</strong></div>
+                                <div><span>Virtual</span><strong>{{ $isVirtualLine ? ($virtualAutoLoaded ? 'Directo' : 'Staging') : 'No' }}</strong></div>
                             </div>
 
                             <div class="shipd-progress shipd-progress-lg">

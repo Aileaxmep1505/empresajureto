@@ -4,6 +4,10 @@
 @section('titulo', 'Nueva recepción')
 
 @section('content')
+@php
+  $virtualContext = $virtualContext ?? [];
+  $isVirtualSoldReception = (bool) data_get($virtualContext, 'enabled', false);
+@endphp
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
 
@@ -721,6 +725,68 @@ body {
   color: #666666;
 }
 
+.big-sold-alert {
+  display: none;
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--danger-soft);
+  color: var(--danger);
+  border: 1px solid rgba(255,74,74,.16);
+}
+
+.big-sold-alert.is-visible {
+  display: block;
+}
+
+.big-sold-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  margin-bottom: 7px;
+}
+
+.big-sold-text {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.big-sold-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.big-sold-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  background: #fff;
+  color: var(--danger);
+  border: 1px solid rgba(255,74,74,.18);
+}
+
+.big-sold-chip.is-blue {
+  background: var(--blue-soft);
+  color: var(--blue);
+  border-color: rgba(0,122,255,.14);
+}
+
+.big-sold-chip.is-green {
+  background: var(--success-soft);
+  color: var(--success);
+  border-color: rgba(21,128,61,.14);
+}
+
 .detail-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -754,6 +820,85 @@ body {
   .lote-input { flex: 1; }
   .big-screen-modal { flex-direction: column; }
 }
+
+
+/* PRODUCTO VIRTUAL VENDIDO / NO INVENTARIAR */
+.sold-flow-card {
+  border-color: var(--blue-soft) !important;
+  background: #f8fbff !important;
+}
+.sold-flow-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid var(--blue-soft);
+  background: #ffffff;
+}
+.sold-flow-icon {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  color: var(--blue);
+  background: var(--blue-soft);
+}
+.sold-flow-title {
+  margin: 0;
+  color: #111111;
+  font-size: 15px;
+  font-weight: 700;
+}
+.sold-flow-sub {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+  font-weight: 600;
+}
+.sold-flow-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.sold-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+}
+.sold-tag-blue { background: var(--blue-soft); color: var(--blue); }
+.sold-tag-danger { background: var(--danger-soft); color: var(--danger); }
+.sold-tag-success { background: var(--success-soft); color: var(--success); }
+.product-row.is-sold-flow {
+  border-color: var(--blue-soft) !important;
+  background: #fbfdff !important;
+}
+.product-row.is-sold-flow .product-icon-box {
+  background: var(--blue-soft) !important;
+  color: var(--blue) !important;
+}
+.sold-row-note {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--blue-soft);
+  background: #ffffff;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
 </style>
 
 <script>
@@ -783,6 +928,42 @@ window.WMS_LOCATIONS = @json(
             <li>{{ $error }}</li>
           @endforeach
         </ul>
+      </div>
+    </div>
+  @endif
+
+
+
+  @if($isVirtualSoldReception)
+    <div class="card sold-flow-card">
+      <div class="card-body">
+        <div class="sold-flow-banner">
+          <div class="sold-flow-icon">
+            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>
+          </div>
+          <div>
+            <h2 class="sold-flow-title">Recepción de producto vendido / virtual</h2>
+            <p class="sold-flow-sub">
+              Esta recepción es para producto que ya pertenece a una orden/picking. Debe dejarse en la ubicación indicada para embarque,
+              pero <strong>no debe ingresar a inventario disponible</strong>.
+            </p>
+            <div class="sold-flow-tags">
+              <span class="sold-tag sold-tag-danger">Vendido / No inventariar</span>
+              @if((int) data_get($virtualContext, 'sold_quantity', data_get($virtualContext, 'virtual_sold_quantity', 0)) > 0)
+                <span class="sold-tag sold-tag-success">Vendido: {{ number_format((int) data_get($virtualContext, 'sold_quantity', data_get($virtualContext, 'virtual_sold_quantity', 0))) }} uds</span>
+              @endif
+              @if(data_get($virtualContext, 'task_number'))
+                <span class="sold-tag sold-tag-blue">Picking: {{ data_get($virtualContext, 'task_number') }}</span>
+              @endif
+              @if(data_get($virtualContext, 'order_number'))
+                <span class="sold-tag sold-tag-blue">Orden: {{ data_get($virtualContext, 'order_number') }}</span>
+              @endif
+              @if(data_get($virtualContext, 'staging_location_code'))
+                <span class="sold-tag sold-tag-success">Dejar en: {{ data_get($virtualContext, 'staging_location_code') }}</span>
+              @endif
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   @endif
@@ -869,6 +1050,15 @@ window.WMS_LOCATIONS = @json(
         <span id="bs_location_text">Buscando ubicación...</span>
       </div>
 
+      <div id="bs_sold_alert" class="big-sold-alert" aria-live="polite">
+        <div class="big-sold-title">
+          <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v12"></path></svg>
+          Vendido / No inventariar
+        </div>
+        <div class="big-sold-text" id="bs_sold_text">Producto asignado a una venta.</div>
+        <div class="big-sold-tags" id="bs_sold_tags"></div>
+      </div>
+
       <h2 id="bs_name" style="margin: 0 0 8px; font-size: 24px; color: #111111; font-weight: 700; line-height: 1.2;">-</h2>
       <p id="bs_desc" style="margin: 0 0 24px; color: var(--muted); font-size: 14px; line-height: 1.5;">-</p>
 
@@ -922,6 +1112,7 @@ window.WMS_LOCATIONS = @json(
 <script>
 (() => {
   const csrfToken = @json(csrf_token());
+  const virtualReceptionContext = @json($virtualContext ?? []);
   let lineIndex = 0;
   let currentPendingProduct = null;
   let bigScreenTimeout = null;
@@ -974,6 +1165,90 @@ window.WMS_LOCATIONS = @json(
     })[m]);
   }
 
+  function truthy(value) {
+    if (value === true || value === 1) return true;
+    const v = String(value ?? '').trim().toLowerCase();
+    return ['1', 'true', 'yes', 'si', 'sí', 'on'].includes(v);
+  }
+
+  function isVirtualSoldReception() {
+    return truthy(virtualReceptionContext?.enabled)
+      || truthy(virtualReceptionContext?.is_virtual_sold)
+      || truthy(virtualReceptionContext?.no_inventory)
+      || String(virtualReceptionContext?.source_type || '').toLowerCase() === 'virtual_sold';
+  }
+
+  function virtualValue(key, fallback = '') {
+    return virtualReceptionContext && Object.prototype.hasOwnProperty.call(virtualReceptionContext, key)
+      ? (virtualReceptionContext[key] ?? fallback)
+      : fallback;
+  }
+
+  function virtualSoldQuantity() {
+    const qty = Number(virtualValue('sold_quantity', virtualValue('virtual_sold_quantity', 0))) || 0;
+    return Math.max(0, qty);
+  }
+
+
+  function buildSoldContextText(product = null) {
+    const orderNumber = virtualValue('order_number', '');
+    const taskNumber = virtualValue('task_number', '');
+    const shipmentNumber = virtualValue('shipment_number', '');
+    const location = virtualValue('staging_location_code', '');
+
+    const parts = [];
+    if (orderNumber) parts.push(`Orden: ${orderNumber}`);
+    if (taskNumber) parts.push(`Picking: ${taskNumber}`);
+    if (shipmentNumber) parts.push(`Embarque: ${shipmentNumber}`);
+    if (location) parts.push(`Dejar en: ${location}`);
+
+    const base = parts.length ? parts.join(' · ') : 'Producto vendido para una orden específica.';
+    const sku = product?.sku || product?.meli_gtin || product?.gtin || '';
+
+    return sku ? `${base} · SKU: ${sku}` : base;
+  }
+
+  function renderSoldAlertInBigScreen(product = null) {
+    const alert = document.getElementById('bs_sold_alert');
+    const text = document.getElementById('bs_sold_text');
+    const tags = document.getElementById('bs_sold_tags');
+
+    if (!alert || !text || !tags) return;
+
+    const soldFlow = isVirtualSoldReception();
+    alert.classList.toggle('is-visible', soldFlow);
+
+    if (!soldFlow) {
+      text.textContent = '';
+      tags.innerHTML = '';
+      return;
+    }
+
+    text.textContent = buildSoldContextText(product);
+
+    const chips = [
+      '<span class="big-sold-chip">No sumar a inventario</span>'
+    ];
+
+    if (virtualSoldQuantity() > 0) {
+      chips.push(`<span class="big-sold-chip is-green">Vendido ${virtualSoldQuantity()} uds</span>`);
+    }
+
+    if (virtualValue('order_number', '')) {
+      chips.push(`<span class="big-sold-chip is-blue">Orden ${escapeHtml(virtualValue('order_number', ''))}</span>`);
+    }
+
+    if (virtualValue('task_number', '')) {
+      chips.push(`<span class="big-sold-chip is-blue">Picking ${escapeHtml(virtualValue('task_number', ''))}</span>`);
+    }
+
+    if (virtualValue('staging_location_code', '')) {
+      chips.push(`<span class="big-sold-chip is-green">Dejar en ${escapeHtml(virtualValue('staging_location_code', ''))}</span>`);
+    }
+
+    tags.innerHTML = chips.join('');
+  }
+
   function debounce(fn, wait = 250) {
     let t;
     return (...args) => {
@@ -1010,7 +1285,10 @@ window.WMS_LOCATIONS = @json(
     const locContainer = document.getElementById('bs_location_container');
     const locText = document.getElementById('bs_location_text');
 
-    if (product.recommended && product.recommended.code) {
+    if (isVirtualSoldReception() && virtualValue('staging_location_code', '')) {
+      locContainer.className = 'big-location-badge loc-found';
+      locText.textContent = `Dejar vendido en: ${virtualValue('staging_location_code', '')}`;
+    } else if (product.recommended && product.recommended.code) {
       locContainer.className = 'big-location-badge loc-found';
       locText.textContent = `Ubicación sugerida: ${product.recommended.code}`;
     } else {
@@ -1018,11 +1296,14 @@ window.WMS_LOCATIONS = @json(
       locText.textContent = 'Sin ubicación sugerida';
     }
 
+    renderSoldAlertInBigScreen(product);
+
     bigScreenModal.classList.add('is-open');
 
     let timeLeft = 3;
     const updateBtnText = () => {
-      confirmBigScreenBtn.innerHTML = `Agregar (Enter) <span style="opacity:0.7; font-size:13px; margin-left:8px;">Auto en ${timeLeft}s</span>`;
+      const label = isVirtualSoldReception() ? 'Agregar vendido (Enter)' : 'Agregar (Enter)';
+      confirmBigScreenBtn.innerHTML = `${label} <span style="opacity:0.7; font-size:13px; margin-left:8px;">Auto en ${timeLeft}s</span>`;
     };
 
     updateBtnText();
@@ -1238,7 +1519,7 @@ window.WMS_LOCATIONS = @json(
 
     if (!exists) {
       const div = document.createElement('div');
-      div.className = 'product-row';
+      div.className = 'product-row' + (isVirtualSoldReception() ? ' is-sold-flow' : '');
       div.dataset.sku = product.sku || '';
 
       const allLocations = Array.isArray(product.all_locations) && product.all_locations.length
@@ -1264,6 +1545,31 @@ window.WMS_LOCATIONS = @json(
         `)
       ].join('');
 
+      const soldFlow = isVirtualSoldReception();
+      const soldHiddenFields = soldFlow ? `
+          <input type="hidden" name="lines[${lineIndex}][source_type]" value="virtual_sold">
+          <input type="hidden" name="lines[${lineIndex}][is_virtual_sold]" value="1">
+          <input type="hidden" name="lines[${lineIndex}][no_inventory]" value="1">
+          <input type="hidden" name="lines[${lineIndex}][virtual_flow_mode]" value="${escapeHtml(virtualValue('virtual_flow_mode', 'staging_before_shipping'))}">
+          <input type="hidden" name="lines[${lineIndex}][pick_wave_id]" value="${escapeHtml(virtualValue('pick_wave_id', ''))}">
+          <input type="hidden" name="lines[${lineIndex}][task_number]" value="${escapeHtml(virtualValue('task_number', ''))}">
+          <input type="hidden" name="lines[${lineIndex}][order_number]" value="${escapeHtml(virtualValue('order_number', ''))}">
+          <input type="hidden" name="lines[${lineIndex}][fulfillment_group_id]" value="${escapeHtml(virtualValue('fulfillment_group_id', ''))}">
+          <input type="hidden" name="lines[${lineIndex}][shipment_id]" value="${escapeHtml(virtualValue('shipment_id', ''))}">
+          <input type="hidden" name="lines[${lineIndex}][shipment_number]" value="${escapeHtml(virtualValue('shipment_number', ''))}">
+          <input type="hidden" name="lines[${lineIndex}][staging_location_code]" value="${escapeHtml(virtualValue('staging_location_code', ''))}">
+          <input type="hidden" name="lines[${lineIndex}][sold_label]" value="${escapeHtml(virtualValue('sold_label', 'VENDIDO / NO INVENTARIAR'))}">
+          <input type="hidden" name="lines[${lineIndex}][sold_quantity]" value="${escapeHtml(virtualSoldQuantity())}">
+          <input type="hidden" name="lines[${lineIndex}][virtual_sold_quantity]" value="${escapeHtml(virtualSoldQuantity())}">
+          <input type="hidden" name="lines[${lineIndex}][virtual_pick_line_id]" value="${escapeHtml(virtualValue('virtual_pick_line_id', virtualValue('line_id', '')))}">
+        ` : '';
+      const soldBadge = soldFlow ? `<span style="font-size:11px; font-weight:800; color:var(--danger); background:var(--danger-soft); padding:4px 8px; border-radius:999px; margin-left:8px;">VENDIDO / NO INVENTARIAR</span>` : '';
+      const soldNote = soldFlow ? `
+        <div class="sold-row-note">
+          Producto vendido para ${escapeHtml(virtualValue('order_number', 'orden asignada'))} · Picking ${escapeHtml(virtualValue('task_number', 'asignado'))}.<br>
+          Cantidad vendida validada: ${virtualSoldQuantity() > 0 ? virtualSoldQuantity() : 'la capturada'} uds. Si recibes más, el excedente se separa automáticamente y sí entra a inventario.
+        </div>` : '';
+
       div.innerHTML = `
         <div class="product-icon-box">
           <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1276,9 +1582,10 @@ window.WMS_LOCATIONS = @json(
           <input type="hidden" class="js-line-location-id" name="lines[${lineIndex}][location_id]" value="${product.recommended?.location_id ?? ''}">
           <input type="hidden" name="lines[${lineIndex}][sku]" value="${escapeHtml(product.sku)}">
           <input type="hidden" name="lines[${lineIndex}][description]" value="${escapeHtml(product.name)}">
+          ${soldHiddenFields}
 
           <strong style="display:flex; align-items:center; color:#111111; font-size:14px; flex-wrap:wrap;">
-            ${escapeHtml(product.name)} ${locationText}
+            ${escapeHtml(product.name)} ${locationText} ${soldBadge}
           </strong>
           <span style="display:block; color:var(--muted); font-size:12px; margin-top:2px;">
             SKU: ${escapeHtml(product.sku)} ${extraInfoStr}
@@ -1286,25 +1593,27 @@ window.WMS_LOCATIONS = @json(
 
           <div style="margin-top:10px; max-width:220px;">
             <label style="display:block; font-size:11px; font-weight:700; color:var(--muted); margin-bottom:6px;">
-              Ubicación
+              ${soldFlow ? 'Dónde dejarlo (vendido)' : 'Ubicación'}
             </label>
             <select class="form-select js-line-location-select" style="min-height:38px; height:38px; font-size:13px; padding:6px 10px;">
               ${locationOptions}
             </select>
           </div>
+          ${soldNote}
         </div>
 
         <input type="text" name="lines[${lineIndex}][lot]" class="lote-input" placeholder="Lote / Serie">
 
-        <select name="lines[${lineIndex}][condition]" class="status-select js-status-change" data-val="bueno">
-          <option value="bueno">Bueno</option>
+        <select name="lines[${lineIndex}][condition]" class="status-select js-status-change" data-val="${soldFlow ? 'vendido' : 'bueno'}">
+          ${soldFlow ? '<option value="vendido" selected>Vendido</option>' : ''}
+          <option value="bueno" ${soldFlow ? '' : 'selected'}>Bueno</option>
           <option value="dañado">Dañado</option>
           <option value="revision">Revisión</option>
         </select>
 
         <div class="qty-control">
           <button type="button" class="qty-btn js-qty-minus">-</button>
-          <input type="number" name="lines[${lineIndex}][quantity]" class="qty-input" value="1" min="1">
+          <input type="number" name="lines[${lineIndex}][quantity]" class="qty-input" value="${soldFlow && virtualSoldQuantity() > 0 ? virtualSoldQuantity() : 1}" min="1">
           <button type="button" class="qty-btn js-qty-plus">+</button>
         </div>
 
@@ -1329,7 +1638,7 @@ window.WMS_LOCATIONS = @json(
     }
 
     updateFooters();
-    showToast('Añadido a recepción', `Se registró: ${product.name}`, 'success');
+    showToast('Añadido a recepción', isVirtualSoldReception() ? `Se registró como vendido/no inventariar: ${product.name}` : `Se registró: ${product.name}`, 'success');
     globalInput.value = '';
     globalInput.focus();
   }

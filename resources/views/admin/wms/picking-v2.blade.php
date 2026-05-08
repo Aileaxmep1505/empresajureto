@@ -923,6 +923,17 @@
   .pk-item-chip-fast { background: var(--success-soft); color: var(--success); }
   .pk-item-chip-batch { background: var(--blue-soft); color: var(--blue); }
   .pk-item-chip-stage { background: #f9fafb; color: var(--muted); border: 1px solid var(--line); }
+  .pk-item-chip-virtual { background: var(--blue-soft); color: var(--blue); }
+  .pk-item-chip-pending { background: var(--danger-soft); color: var(--danger); }
+  .pk-item-chip-ok { background: var(--success-soft); color: var(--success); }
+  .pk-card-ops {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+  }
 
   .pk-detail-actions {
     display: flex;
@@ -971,6 +982,8 @@
   const scannerUrl = @json($scannerUrl);
   const shippingIndexUrl = @json($shippingIndexUrl);
   const shippingCreateBase = @json(url('/admin/wms/shipping/from-picking'));
+  const shippingScannerBase = @json(url('/admin/wms/shipping'));
+  const virtualPickupsUrl = @json(Route::has('admin.wms.virtual-pickups.index') ? route('admin.wms.virtual-pickups.index') : url('/admin/wms/virtual-pickups'));
   const generatedShipmentsStorageKey = 'wms:picking:v2:generated-shipment-task-ids';
 
   let tasks = Array.isArray(rawTasks) ? rawTasks : [];
@@ -1042,6 +1055,24 @@
   function asNumber(value){
     const n = Number(value || 0);
     return Number.isFinite(n) ? n : 0;
+  }
+
+  function boolish(value){
+    if (value === true || value === 1) return true;
+    const v = String(value ?? '').trim().toLowerCase();
+    return ['1', 'true', 'yes', 'si', 'sí', 'on'].includes(v);
+  }
+
+  function cleanStatus(value){
+    return normalize(value || '').replace(/\s+/g, '_');
+  }
+
+  function safeCssEscape(value){
+    if (window.CSS && typeof window.CSS.escape === 'function') {
+      return window.CSS.escape(String(value));
+    }
+
+    return String(value).replace(/[^a-zA-Z0-9_-]/g, '\\$&');
   }
 
 
@@ -1139,28 +1170,201 @@
     return [{ phase: 1, title: 'Entrega 1', scheduled_for: null, notes: '' }];
   }
 
+  function isVirtualItem(item){
+    const source = normalize(item?.source_type || item?.origin_type || item?.type);
+    const status = cleanStatus(item?.pickup_status || item?.virtual_status || '');
+    const location = normalize(item?.location_code || item?.location || item?.from_location);
+    const staging = normalize(item?.staging_location_code || item?.destination || item?.to_location);
+
+    return source === 'virtual'
+      || source === 'recoleccion_virtual'
+      || source === 'recolección_virtual'
+      || boolish(item?.is_virtual)
+      || boolish(item?.requires_pickup)
+      || boolish(item?.virtual)
+      || location === 'recolectar'
+      || location === 'recoleccion'
+      || status === 'pending'
+      || status === 'partial'
+      || status === 'collected'
+      || status === 'not_collected'
+      || status === 'staged'
+      || status === 'ready_to_ship'
+      || (staging === 'picking' && (boolish(item?.requires_pickup) || source === 'virtual'));
+  }
+
+  function isPhysicalItem(item){
+    return !isVirtualItem(item);
+  }
+
+  function getPhysicalItems(task){
+    return getTaskItems(task).filter(isPhysicalItem);
+  }
+
+  function getVirtualItems(task){
+    return getTaskItems(task).filter(isVirtualItem);
+  }
+
+  function getVirtualStatus(item){
+    return cleanStatus(item?.pickup_status || item?.virtual_status || 'pending');
+  }
+
+  function getVirtualFlowMode(item){
+    const mode = cleanStatus(item?.virtual_flow_mode || item?.pickup_flow_mode || 'staging_before_shipping');
+    return mode === 'direct_to_delivery' ? 'direct_to_delivery' : 'staging_before_shipping';
+  }
+
+  function isVirtualDirectToDelivery(item){
+    return getVirtualFlowMode(item) === 'direct_to_delivery'
+      || boolish(item?.virtual_auto_loaded_to_shipment)
+      || boolish(item?.auto_loaded_to_shipment);
+  }
+
+  function isVirtualStagingBeforeShipping(item){
+    return !isVirtualDirectToDelivery(item);
+  }
+
+  function getVirtualCollectedQty(item){
+    const required = asNumber(item?.quantity_required);
+    const explicit = asNumber(item?.quantity_collected);
+    const picked = asNumber(item?.quantity_picked);
+    const staged = asNumber(item?.quantity_staged);
+    const status = getVirtualStatus(item);
+
+    if (explicit > 0) return explicit;
+    if (['staged', 'ready_to_ship', 'collected'].includes(status)) return required;
+    if (picked > 0) return picked;
+    if (staged > 0) return staged;
+    return 0;
+  }
+
+  function isVirtualCollected(item){
+    const required = asNumber(item?.quantity_required);
+    const status = getVirtualStatus(item);
+    const collected = getVirtualCollectedQty(item);
+
+    return ['collected', 'staged', 'ready_to_ship'].includes(status)
+      || (required > 0 && collected >= required);
+  }
+
+  function isVirtualStaged(item){
+    const required = asNumber(item?.quantity_required);
+    const status = getVirtualStatus(item);
+    const stagedQty = asNumber(item?.quantity_staged);
+
+    return ['staged', 'ready_to_ship'].includes(status)
+      || boolish(item?.staged)
+      || (required > 0 && stagedQty >= required);
+  }
+
+  function isVirtualReadyForShipping(item){
+    if (isVirtualDirectToDelivery(item)) {
+      return isVirtualCollected(item);
+    }
+
+    return isVirtualStaged(item);
+  }
+
+  function virtualFlowLabel(item){
+    return isVirtualDirectToDelivery(item)
+      ? 'Entrega directa con recolector'
+      : 'Traer a almacén / staging';
+  }
+
+  function hasVirtualItems(task){
+    return getVirtualItems(task).length > 0;
+  }
+
+  function hasPhysicalItems(task){
+    return getPhysicalItems(task).length > 0;
+  }
+
+  function hasPendingVirtualPickup(task){
+    const virtualItems = getVirtualItems(task);
+    return virtualItems.length > 0 && virtualItems.some(item => !isVirtualCollected(item));
+  }
+
+  function hasPendingVirtualStaging(task){
+    const virtualItems = getVirtualItems(task);
+    return virtualItems.length > 0 && virtualItems.some(item => isVirtualStagingBeforeShipping(item) && isVirtualCollected(item) && !isVirtualStaged(item));
+  }
+
+  function needsVirtualAction(task){
+    const virtualItems = getVirtualItems(task);
+    return virtualItems.length > 0 && virtualItems.some(item => !isVirtualReadyForShipping(item));
+  }
+
+  function isPhysicalCollectDone(task){
+    const items = getPhysicalItems(task);
+    if(!items.length) return true;
+    return items.every(item => asNumber(item?.quantity_picked) >= asNumber(item?.quantity_required));
+  }
+
+  function isPhysicalStageDone(task){
+    const items = getPhysicalItems(task);
+    if(!items.length) return true;
+    return items.every(item => asNumber(item?.quantity_staged) >= asNumber(item?.quantity_required));
+  }
+
+  function isVirtualFlowDone(task){
+    const items = getVirtualItems(task);
+    if(!items.length) return true;
+    return items.every(isVirtualReadyForShipping);
+  }
+
   function getRequiredQty(task){
     return getTaskItems(task).reduce((sum, i) => sum + asNumber(i?.quantity_required), 0);
   }
 
   function getPickedQty(task){
-    return getTaskItems(task).reduce((sum, i) => sum + asNumber(i?.quantity_picked), 0);
+    return getTaskItems(task).reduce((sum, i) => {
+      return sum + (isVirtualItem(i) ? getVirtualCollectedQty(i) : asNumber(i?.quantity_picked));
+    }, 0);
   }
 
   function getStagedQty(task){
-    return getTaskItems(task).reduce((sum, i) => sum + asNumber(i?.quantity_staged), 0);
+    return getTaskItems(task).reduce((sum, i) => {
+      if(isVirtualItem(i)){
+        return sum + (isVirtualReadyForShipping(i) ? asNumber(i?.quantity_required) : 0);
+      }
+      return sum + asNumber(i?.quantity_staged);
+    }, 0);
+  }
+
+  function getPhysicalRequiredQty(task){
+    return getPhysicalItems(task).reduce((sum, i) => sum + asNumber(i?.quantity_required), 0);
+  }
+
+  function getPhysicalStagedQty(task){
+    return getPhysicalItems(task).reduce((sum, i) => sum + asNumber(i?.quantity_staged), 0);
+  }
+
+  function getVirtualRequiredQty(task){
+    return getVirtualItems(task).reduce((sum, i) => sum + asNumber(i?.quantity_required), 0);
+  }
+
+  function getVirtualCollectedTotal(task){
+    return getVirtualItems(task).reduce((sum, i) => sum + getVirtualCollectedQty(i), 0);
   }
 
   function getCollectProgress(task){
     const req = getRequiredQty(task);
     const qty = getPickedQty(task);
-    return req > 0 ? Math.round((qty / req) * 100) : 0;
+    return req > 0 ? Math.min(100, Math.round((qty / req) * 100)) : 0;
   }
 
   function getStageProgress(task){
     const req = getRequiredQty(task);
     const qty = getStagedQty(task);
-    return req > 0 ? Math.round((qty / req) * 100) : 0;
+    return req > 0 ? Math.min(100, Math.round((qty / req) * 100)) : 0;
+  }
+
+  function getVirtualPickupUrl(task){
+    const pending = getVirtualItems(task).find(item => !isVirtualReadyForShipping(item)) || getVirtualItems(task)[0] || null;
+    const lineId = pending?.line_id || pending?.id || pending?.uid || '';
+    const base = `${virtualPickupsUrl}/${encodeURIComponent(task?.id || '')}`;
+
+    return lineId ? `${base}?line_id=${encodeURIComponent(lineId)}` : base;
   }
 
   function getAssignedDisplay(task){
@@ -1208,31 +1412,65 @@
   function isTaskReadyForShipping(task){
     if (taskHasGeneratedShipment(task)) return false;
 
-    const status = String(task?.status || '');
-    if (status !== 'completed') return false;
-
     const items = getTaskItems(task);
     if (!items.length) return false;
 
-    return items.some(item => {
-      const required = asNumber(item?.quantity_required);
-      const staged = asNumber(item?.quantity_staged);
-      const stagedFlag = Boolean(item?.staged);
-      const stageBoxes = ensureArray(item?.staged_boxes);
-      const stageAllocs = ensureArray(item?.stage_box_allocations);
-
-      return stagedFlag || staged > 0 || stageBoxes.length > 0 || stageAllocs.length > 0 || (required > 0 && staged >= required);
-    });
+    return isPhysicalStageDone(task) && isVirtualFlowDone(task);
   }
 
   function shippingReadyText(task){
-    if (taskHasGeneratedShipment(task)) {
-      return 'Todo entregado';
+    if (taskHasGeneratedShipment(task)) return 'Embarque generado';
+    if (hasPendingVirtualPickup(task)) return 'Pendiente de recolección virtual';
+    if (hasPendingVirtualStaging(task)) return 'Pendiente dejar virtual en staging / recepción';
+    if (!isPhysicalCollectDone(task)) return 'Pendiente de picking escáner';
+    if (!isPhysicalStageDone(task)) return 'Pendiente de área de picking';
+    return isTaskReadyForShipping(task) ? 'Listo para abrir embarque' : 'Completa la tarea para embarcar';
+  }
+
+  function shipmentScannerUrlFromId(shipmentId){
+    return `${shippingScannerBase}/${encodeURIComponent(shipmentId)}/scanner`;
+  }
+
+  function findShipmentUrlInText(text){
+    const body = String(text || '');
+    const scannerMatch = body.match(/\/admin\/wms\/shipping\/(\d+)\/scanner/);
+    if(scannerMatch && scannerMatch[1]) return shipmentScannerUrlFromId(scannerMatch[1]);
+
+    const idMatch = body.match(/"(?:shipment_id|shipping_id|id)"\s*:\s*(\d+)/);
+    if(idMatch && idMatch[1]) return shipmentScannerUrlFromId(idMatch[1]);
+
+    return '';
+  }
+
+  function shipmentUrlFromPayload(data, fallbackText = '', responseUrl = ''){
+    const explicitUrl = data?.scanner_url
+      || data?.shipment_scanner_url
+      || data?.shipping_scanner_url
+      || data?.redirect_url
+      || data?.url
+      || data?.shipment?.scanner_url
+      || data?.shipping?.scanner_url
+      || '';
+
+    if(explicitUrl) return explicitUrl;
+
+    const shipmentId = data?.shipment?.id
+      || data?.shipping?.id
+      || data?.shipment_id
+      || data?.shipping_id
+      || data?.id
+      || null;
+
+    if(shipmentId) return shipmentScannerUrlFromId(shipmentId);
+
+    const fromText = findShipmentUrlInText(fallbackText);
+    if(fromText) return fromText;
+
+    if(responseUrl && /\/admin\/wms\/shipping\/\d+\/scanner/.test(responseUrl)) {
+      return responseUrl;
     }
 
-    return isTaskReadyForShipping(task)
-      ? 'Listo para subir a unidad'
-      : 'Completa y ubica la tarea para embarcar';
+    return '';
   }
 
   async function createShipmentFromPicking(pickWaveId){
@@ -1246,7 +1484,7 @@
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
+          'Accept': 'application/json, text/html, */*',
           'X-CSRF-TOKEN': csrf,
           'X-Requested-With': 'XMLHttpRequest'
         },
@@ -1266,36 +1504,29 @@
       try {
         data = text ? JSON.parse(text) : {};
       } catch (e) {
-        throw new Error('La respuesta del servidor no fue válida.');
+        data = {};
       }
 
-      const shipmentId = data?.shipment?.id || data?.shipping?.id || data?.shipment_id || data?.shipping_id || data?.id || null;
+      const scannerUrl = shipmentUrlFromPayload(data, text, response.url);
 
-      if (!response.ok) {
-        if (shipmentId) {
-          markGeneratedShipment(pickWaveId);
-          renderTasks();
-          closeModal(detailModal);
-          window.location.href = `/admin/wms/shipping/${shipmentId}/scanner`;
-          return;
-        }
-
+      if (!response.ok && !scannerUrl) {
         throw new Error(data.message || 'No se pudo generar el embarque.');
       }
 
       markGeneratedShipment(pickWaveId);
-      renderTasks();
+      renderTasks({ soft: true });
       closeModal(detailModal);
 
-      if (shipmentId) {
-        window.location.href = `/admin/wms/shipping/${shipmentId}/scanner`;
+      if (scannerUrl) {
+        window.location.href = scannerUrl;
         return;
       }
 
-      alert('Embarque generado. La tarea se quitó de pendientes porque ya no requiere acción.');
       window.location.href = shippingIndexUrl || '/admin/wms/shipping';
     } catch (error) {
       alert(error.message || 'Ocurrió un error al generar el embarque.');
+      renderTasks({ soft: true });
+      if(selectedTask) renderDetail(selectedTask);
     }
   }
 
@@ -1358,9 +1589,23 @@
     }
   }
 
-  function renderTasks(){
-    if(!taskGrid) return;
+  let firstTaskRender = true;
 
+  function taskSearchMatches(task, q){
+    const items = getTaskItems(task);
+    return normalize(task?.task_number).includes(q) ||
+      normalize(task?.order_number).includes(q) ||
+      normalize(getAssignedDisplay(task)).includes(q) ||
+      items.some(item =>
+        normalize(item?.product_name).includes(q) ||
+        normalize(item?.product_sku).includes(q) ||
+        normalize(item?.brand).includes(q) ||
+        normalize(item?.model).includes(q) ||
+        normalize(item?.batch_code).includes(q)
+      );
+  }
+
+  function getFilteredTasks(){
     const q = normalize(searchInput?.value || '');
     const st = statusFilter?.value || 'all';
 
@@ -1371,30 +1616,20 @@
       cancelled: 4
     };
 
-    const filtered = tasks.filter(task => {
+    return tasks.filter(task => {
       if (taskHasGeneratedShipment(task)) return false;
-
-      const items = getTaskItems(task);
-
-      const matchesSearch =
-        normalize(task?.task_number).includes(q) ||
-        normalize(task?.order_number).includes(q) ||
-        normalize(getAssignedDisplay(task)).includes(q) ||
-        items.some(item =>
-          normalize(item?.product_name).includes(q) ||
-          normalize(item?.product_sku).includes(q) ||
-          normalize(item?.brand).includes(q) ||
-          normalize(item?.model).includes(q) ||
-          normalize(item?.batch_code).includes(q)
-        );
 
       const taskStatus = String(task?.status || 'pending');
       const matchesStatus = st === 'active'
         ? taskStatus !== 'cancelled'
         : (st === 'all' || taskStatus === st);
 
-      return matchesSearch && matchesStatus;
+      return taskSearchMatches(task, q) && matchesStatus;
     }).sort((a, b) => {
+      const aReady = isTaskReadyForShipping(a) ? 1 : 0;
+      const bReady = isTaskReadyForShipping(b) ? 1 : 0;
+      if (aReady !== bReady) return bReady - aReady;
+
       const aStatus = String(a?.status || 'pending');
       const bStatus = String(b?.status || 'pending');
       const byStatus = (statusOrder[aStatus] || 99) - (statusOrder[bStatus] || 99);
@@ -1402,104 +1637,148 @@
 
       return Number(b?.id || 0) - Number(a?.id || 0);
     });
+  }
+
+  function renderTaskOperations(task, canShip, shipmentDone){
+    if (shipmentDone) {
+      return `
+        <div class="pk-card-ops">
+          <button type="button" class="pk-btn pk-btn-secondary pk-btn-sm" disabled>Todo entregado</button>
+        </div>
+        <div class="pk-ship-note is-ready">${shippingReadyText(task)}</div>
+      `;
+    }
+
+    const actions = [];
+
+    if (needsVirtualAction(task)) {
+      actions.push(`<a href="${getVirtualPickupUrl(task)}" class="pk-btn pk-btn-primary pk-btn-sm" data-action="virtual" data-task-id="${esc(task?.id)}">Recolección virtual</a>`);
+    }
+
+    if (hasPhysicalItems(task) && !isPhysicalStageDone(task)) {
+      actions.push(`<a href="${scannerUrl}?task_id=${encodeURIComponent(task?.id || '')}" class="pk-btn pk-btn-secondary pk-btn-sm" data-action="scanner" data-task-id="${esc(task?.id)}">Picking escáner</a>`);
+    }
+
+    if (canShip) {
+      actions.push(`<button type="button" class="pk-btn pk-btn-primary pk-btn-sm pk-task-ship-btn" data-action="ship" data-task-id="${esc(task?.id)}">Generar / abrir embarque</button>`);
+    }
+
+    if (!actions.length) {
+      actions.push(`<button type="button" class="pk-btn pk-btn-disabled pk-btn-sm" disabled>Generar embarque</button>`);
+    }
+
+    return `
+      <div class="pk-card-ops">${actions.join('')}</div>
+      <div class="pk-ship-note ${canShip ? 'is-ready' : ''}">${shippingReadyText(task)}</div>
+    `;
+  }
+
+  function renderTaskCard(task, index, animate = true){
+    const progress = getCollectProgress(task);
+    const ff = getTaskFastFlowSummary(task);
+    const assignedDisplay = getAssignedDisplay(task);
+    const stageProgress = getStageProgress(task);
+    const canShip = isTaskReadyForShipping(task);
+    const shipmentDone = taskHasGeneratedShipment(task);
+    const virtualCount = getVirtualItems(task).length;
+    const physicalCount = getPhysicalItems(task).length;
+    const delay = animate ? 0.1 + Math.min(index * 0.05, 0.5) : 0;
+    const animationClass = animate ? 'pk-animate-up' : '';
+
+    return `
+      <article class="pk-card ${animationClass}" style="${animate ? `animation-delay: ${delay}s;` : 'opacity:1;'}" data-task-id="${esc(task?.id)}">
+        <div class="pk-card-top">
+          <div>
+            <h3 class="pk-card-title">${esc(task?.task_number || 'Tarea sin folio')}</h3>
+            ${task?.order_number ? `<div class="pk-card-order">Orden: ${esc(task.order_number)}</div>` : ''}
+            ${Number(task?.total_phases || 1) > 1
+              ? `<div class="pk-card-phase"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> ${Number(task?.total_phases || 1)} entregas ligadas</div>`
+              : `<div class="pk-card-phase"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> Entrega única</div>`}
+            ${ff.lots ? `<div class="pk-card-fast">Fast Flow: ${ff.lots} lote(s) · ${ff.boxes} caja(s)</div>` : ``}
+            ${virtualCount ? `<div class="pk-card-fast" style="color:var(--blue);">Virtual: ${virtualCount} línea(s) · ${getVirtualCollectedTotal(task)}/${getVirtualRequiredQty(task)} uds</div>` : ``}
+          </div>
+
+          <span class="pk-badge ${priorityClass[task?.priority] || priorityClass.normal}">
+            ${priorityLabel[task?.priority] || 'Normal'}
+          </span>
+        </div>
+
+        <div class="pk-status-row">
+          <span class="pk-status ${statusClass[task?.status] || statusClass.pending}">
+            ${statusIcon(task?.status)}
+            ${statusLabel[task?.status] || 'Pendiente'}
+          </span>
+          ${assignedDisplay ? `<span class="pk-assigned">${esc(assignedDisplay)}</span>` : ''}
+        </div>
+
+        <div class="pk-progress-row" style="margin-top:0">
+          <span>Recolección</span>
+          <b>${progress}%</b>
+        </div>
+        <div class="pk-progress-bar">
+          <div class="pk-progress-fill" style="width:${progress}%"></div>
+        </div>
+
+        <div class="pk-progress-row" style="margin-top:12px">
+          <span>Área de picking</span>
+          <b>${stageProgress}%</b>
+        </div>
+        <div class="pk-progress-bar">
+          <div class="pk-progress-fill bg-success" style="width:${stageProgress}%"></div>
+        </div>
+
+        <div class="pk-progress-row">
+          <span>${getTaskItems(task).length} producto(s)${physicalCount ? ` · ${physicalCount} scanner` : ''}${virtualCount ? ` · ${virtualCount} virtual` : ''}</span>
+          <b>${getStagedQty(task)} / ${getRequiredQty(task)} ubicados</b>
+        </div>
+
+        ${renderTaskOperations(task, canShip, shipmentDone)}
+      </article>
+    `;
+  }
+
+  function renderTasks(options = {}){
+    if(!taskGrid) return;
+
+    const animate = firstTaskRender && !options.soft;
+    const filtered = getFilteredTasks();
 
     if(!filtered.length){
-      taskGrid.innerHTML = `
-        <div class="pk-empty-state pk-animate-up">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+      const emptyHtml = `
+        <div class="pk-empty-state pk-animate-up" data-empty-state="1">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12"/></svg>
           <p>No se encontraron tareas con estos filtros.</p>
         </div>`;
+
+      if(taskGrid.innerHTML.trim() !== emptyHtml.trim()) taskGrid.innerHTML = emptyHtml;
+      firstTaskRender = false;
       applyFastFlowFilter();
       return;
     }
 
-    taskGrid.innerHTML = filtered.map((task, index) => {
-      const progress = getCollectProgress(task);
-      const ff = getTaskFastFlowSummary(task);
-      const assignedDisplay = getAssignedDisplay(task);
-      const stageProgress = getStageProgress(task);
-      const canShip = isTaskReadyForShipping(task);
-      const shipmentDone = taskHasGeneratedShipment(task);
+    const nextIds = filtered.map(task => String(task?.id || ''));
+    const currentCards = Array.from(taskGrid.querySelectorAll('.pk-card[data-task-id]'));
+    const currentIds = currentCards.map(card => String(card.dataset.taskId || ''));
 
-      // Calculo de retraso de animacion dinamico y suave (maximo 0.5s extra)
-      const delay = 0.1 + Math.min(index * 0.05, 0.5);
+    if(taskGrid.querySelector('[data-empty-state]')) taskGrid.innerHTML = '';
 
-      return `
-        <article class="pk-card pk-animate-up" style="animation-delay: ${delay}s;" data-task-id="${esc(task?.id)}">
-          <div class="pk-card-top">
-            <div>
-              <h3 class="pk-card-title">${esc(task?.task_number || 'Tarea sin folio')}</h3>
-              ${task?.order_number ? `<div class="pk-card-order">Orden: ${esc(task.order_number)}</div>` : ''}
-              ${Number(task?.total_phases || 1) > 1
-                ? `<div class="pk-card-phase"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> ${Number(task?.total_phases || 1)} entregas ligadas</div>`
-                : `<div class="pk-card-phase"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> Entrega única</div>`}
-              ${ff.lots ? `<div class="pk-card-fast">Fast Flow: ${ff.lots} lote(s) · ${ff.boxes} caja(s)</div>` : ``}
-            </div>
+    if(firstTaskRender || currentIds.join('|') !== nextIds.join('|')){
+      taskGrid.innerHTML = filtered.map((task, index) => renderTaskCard(task, index, animate)).join('');
+    } else {
+      filtered.forEach((task, index) => {
+        const card = taskGrid.querySelector(`.pk-card[data-task-id="${safeCssEscape(String(task?.id || ''))}"]`);
+        if(!card) return;
+        const nextHtml = renderTaskCard(task, index, false);
+        if(card.outerHTML !== nextHtml){
+          card.outerHTML = nextHtml;
+        }
+      });
+    }
 
-            <span class="pk-badge ${priorityClass[task?.priority] || priorityClass.normal}">
-              ${priorityLabel[task?.priority] || 'Normal'}
-            </span>
-          </div>
-
-          <div class="pk-status-row">
-            <span class="pk-status ${statusClass[task?.status] || statusClass.pending}">
-              ${statusIcon(task?.status)}
-              ${statusLabel[task?.status] || 'Pendiente'}
-            </span>
-            ${assignedDisplay ? `<span class="pk-assigned">${esc(assignedDisplay)}</span>` : ''}
-          </div>
-
-          <div class="pk-progress-row" style="margin-top:0">
-            <span>Recolección</span>
-            <b>${progress}%</b>
-          </div>
-          <div class="pk-progress-bar">
-            <div class="pk-progress-fill" style="width:${progress}%"></div>
-          </div>
-
-          <div class="pk-progress-row" style="margin-top:12px">
-            <span>Área de picking</span>
-            <b>${stageProgress}%</b>
-          </div>
-          <div class="pk-progress-bar">
-            <div class="pk-progress-fill bg-success" style="width:${stageProgress}%"></div>
-          </div>
-
-          <div class="pk-progress-row">
-            <span>${getTaskItems(task).length} producto(s)</span>
-            <b>${getStagedQty(task)} / ${getRequiredQty(task)} ubicados</b>
-          </div>
-
-          <div class="pk-ship-row">
-            ${
-              shipmentDone
-                ? `
-                  <button type="button" class="pk-btn pk-btn-secondary pk-btn-sm" disabled>
-                    Todo entregado
-                  </button>
-                  <div class="pk-ship-note is-ready">${shippingReadyText(task)}</div>
-                `
-                : canShip
-                  ? `
-                    <button type="button" class="pk-btn pk-btn-primary pk-btn-sm pk-task-ship-btn" data-action="ship" data-task-id="${esc(task?.id)}">
-                      Generar embarque
-                    </button>
-                    <div class="pk-ship-note is-ready">${shippingReadyText(task)}</div>
-                  `
-                  : `
-                    <button type="button" class="pk-btn pk-btn-disabled pk-btn-sm" disabled>
-                      Generar embarque
-                    </button>
-                    <div class="pk-ship-note">${shippingReadyText(task)}</div>
-                  `
-            }
-          </div>
-        </article>
-      `;
-    }).join('');
-
+    firstTaskRender = false;
     applyFastFlowFilter();
   }
+
 
   async function patchTask(id, payload){
     const response = await fetch(`${updateUrlBase}/${id}`, {
@@ -1534,7 +1813,7 @@
       selectedTask = updatedTask;
     }
 
-    renderTasks();
+    renderTasks({ soft: true });
 
     if(selectedTask){
       renderDetail(selectedTask);
@@ -1547,18 +1826,31 @@
 
   function buildItemMeta(item){
     const parts = [];
+    const virtual = isVirtualItem(item);
 
     if(item?.product_sku) parts.push(`<span class="text-blue">SKU: ${esc(item.product_sku)}</span>`);
     parts.push(`Ubicación: <b>${esc(item?.location_code || 'N/A')}</b>`);
     parts.push(`Requerido: <b>${Number(item?.quantity_required || 0)} uds</b>`);
-    parts.push(`Recolectado: <b>${Number(item?.quantity_picked || 0)} uds</b>`);
-    parts.push(`Ubicado: <b>${Number(item?.quantity_staged || 0)} uds</b>`);
+
+    if(virtual){
+      parts.push(`Virtual recolectado: <b>${getVirtualCollectedQty(item)} uds</b>`);
+      parts.push(`Estado virtual: <b>${esc(getVirtualStatus(item) || 'pending')}</b>`);
+      parts.push(`Flujo: <b>${esc(virtualFlowLabel(item))}</b>`);
+      if(item?.virtual_sold_label) parts.push(`<b>${esc(item.virtual_sold_label)}</b>`);
+      if(item?.virtual_order_number || selectedTask?.order_number) parts.push(`Orden: <b>${esc(item.virtual_order_number || selectedTask?.order_number || 'N/A')}</b>`);
+      if(item?.virtual_pick_wave_number || selectedTask?.task_number) parts.push(`Picking: <b>${esc(item.virtual_pick_wave_number || selectedTask?.task_number || 'N/A')}</b>`);
+      if(item?.staging_location_code && isVirtualStagingBeforeShipping(item)) parts.push(`Dónde dejar: <b>${esc(item.staging_location_code)}</b>`);
+    } else {
+      parts.push(`Recolectado: <b>${Number(item?.quantity_picked || 0)} uds</b>`);
+      parts.push(`Ubicado: <b>${Number(item?.quantity_staged || 0)} uds</b>`);
+    }
 
     if(item?.brand) parts.push(esc(item.brand));
     if(item?.model) parts.push(esc(item.model));
 
     return parts.join(' <span class="pk-dot">·</span> ');
   }
+
 
   function renderDetail(task){
     if(!task || !detailContent || !detailTitle || !detailModal) return;
@@ -1574,6 +1866,34 @@
     const stageProgress = getStageProgress(selectedTask);
     const canShip = isTaskReadyForShipping(selectedTask);
     const shipmentDone = taskHasGeneratedShipment(selectedTask);
+    const hasVirtual = hasVirtualItems(selectedTask);
+    const hasPhysical = hasPhysicalItems(selectedTask);
+
+    const detailActions = [];
+
+    if (shipmentDone) {
+      detailActions.push(`<button type="button" class="pk-btn pk-btn-secondary" disabled>Todo entregado</button>`);
+    } else {
+      if (needsVirtualAction(selectedTask)) {
+        detailActions.push(`<a href="${getVirtualPickupUrl(selectedTask)}" class="pk-btn pk-btn-primary">Recolección virtual</a>`);
+      }
+
+      if (hasPhysical && !isPhysicalStageDone(selectedTask)) {
+        detailActions.push(`<a href="${scannerUrl}?task_id=${encodeURIComponent(selectedTask?.id || '')}" class="pk-btn pk-btn-secondary">Ir a picking escáner</a>`);
+      }
+
+      if (canShip) {
+        detailActions.push(`<button type="button" class="pk-btn pk-btn-primary" id="btnCreateShipment">Generar / abrir embarque</button>`);
+      } else {
+        detailActions.push(`<button type="button" class="pk-btn pk-btn-disabled" disabled>Generar embarque</button>`);
+      }
+    }
+
+    detailActions.push(`<a href="${shippingIndexUrl}" class="pk-btn pk-btn-ghost">Ir a embarques</a>`);
+
+    if (selectedTask?.status !== 'completed' && selectedTask?.status !== 'cancelled') {
+      detailActions.push(`<button type="button" class="pk-btn pk-btn-danger" id="btnCancelTask">Cancelar tarea</button>`);
+    }
 
     detailContent.innerHTML = `
       <div class="pk-detail-head">
@@ -1582,6 +1902,8 @@
           <p>Orden de Compra/Venta: <b>${esc(selectedTask?.order_number || 'N/A')}</b></p>
           <p>Total de Entregas: <b>${Number(selectedTask?.total_phases || deliveries.length || 1)}</b></p>
           <p>Estatus: <b>${esc(statusLabel[selectedTask?.status] || 'Pendiente')}</b></p>
+          <p>Picking físico: <b>${getPhysicalStagedQty(selectedTask)} / ${getPhysicalRequiredQty(selectedTask)} ubicado(s)</b></p>
+          <p>Recolección virtual: <b>${getVirtualCollectedTotal(selectedTask)} / ${getVirtualRequiredQty(selectedTask)} recolectado(s)</b></p>
           <p>Embarque: <b>${esc(shippingReadyText(selectedTask))}</b></p>
         </div>
         <span class="pk-badge ${priorityClass[selectedTask?.priority] || priorityClass.normal}">
@@ -1621,8 +1943,14 @@
             ${
               phaseItems.length
                 ? phaseItems.map((item) => {
+                    const virtual = isVirtualItem(item);
                     const fastChips = `
                       ${item?.is_fastflow ? `<span class="pk-item-chip pk-item-chip-fast">FAST FLOW</span>` : ''}
+                      ${virtual ? `<span class="pk-item-chip pk-item-chip-virtual">Virtual</span>` : ''}
+                      ${virtual && !isVirtualCollected(item) ? `<span class="pk-item-chip pk-item-chip-pending">Recolectar</span>` : ''}
+                      ${virtual && isVirtualDirectToDelivery(item) ? `<span class="pk-item-chip pk-item-chip-ok">Entrega directa</span>` : ''}
+                      ${virtual && isVirtualStagingBeforeShipping(item) ? `<span class="pk-item-chip pk-item-chip-stage">Debe pasar recepción</span>` : ''}
+                      ${virtual && isVirtualStaged(item) ? `<span class="pk-item-chip pk-item-chip-ok">Staging listo</span>` : ''}
                       ${item?.batch_code ? `<span class="pk-item-chip pk-item-chip-batch">Lote ${esc(item.batch_code)}</span>` : ''}
                       ${item?.staging_location_code ? `<span class="pk-item-chip pk-item-chip-stage">Área ${esc(item.staging_location_code)}</span>` : ''}
                     `;
@@ -1648,23 +1976,7 @@
       }).join('')}
 
       <div class="pk-detail-actions">
-        ${
-          shipmentDone
-            ? `<button type="button" class="pk-btn pk-btn-secondary" disabled>Todo entregado</button>`
-            : canShip
-              ? `<button type="button" class="pk-btn pk-btn-primary" id="btnCreateShipment">Generar embarque</button>`
-              : `<button type="button" class="pk-btn pk-btn-disabled" disabled>Generar embarque</button>`
-        }
-
-        <a href="${shippingIndexUrl}" class="pk-btn pk-btn-ghost">Ir a embarques</a>
-
-        ${
-          selectedTask?.status !== 'completed' && selectedTask?.status !== 'cancelled'
-            ? `<button type="button" class="pk-btn pk-btn-danger" id="btnCancelTask">Cancelar tarea</button>`
-            : ''
-        }
-
-        <a href="${scannerUrl}?task_id=${encodeURIComponent(selectedTask?.id || '')}" class="pk-btn pk-btn-secondary">Ir a picking escáner</a>
+        ${detailActions.join('')}
       </div>
     `;
 
@@ -1694,11 +2006,12 @@
     if(btnCreateShipment){
       btnCreateShipment.onclick = function(){
         btnCreateShipment.disabled = true;
-        btnCreateShipment.textContent = 'Generando...';
+        btnCreateShipment.textContent = 'Abriendo embarque...';
         createShipmentFromPicking(selectedTask?.id);
       };
     }
   }
+
 
   document.querySelectorAll('[data-close]').forEach(btn => {
     btn.addEventListener('click', function(){
@@ -1730,7 +2043,7 @@
         const taskId = Number(shipBtn.dataset.taskId || 0);
         if (taskId) {
           shipBtn.disabled = true;
-          shipBtn.textContent = 'Generando...';
+          shipBtn.textContent = 'Abriendo embarque...';
           createShipmentFromPicking(taskId);
         }
         return;
@@ -1796,14 +2109,14 @@
           : task;
       });
 
-      renderTasks();
+      renderTasks({ soft: true });
     } catch (e) {}
   }
 
-  document.addEventListener('picking:shipment-generated', renderTasks);
+  document.addEventListener('picking:shipment-generated', () => renderTasks({ soft: true }));
 
   window.addEventListener('storage', function(e){
-    if(e.key === generatedShipmentsStorageKey) renderTasks();
+    if(e.key === generatedShipmentsStorageKey) renderTasks({ soft: true });
   });
 
   document.addEventListener('visibilitychange', function(){

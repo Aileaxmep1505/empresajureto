@@ -2065,3 +2065,22 @@ Route::post('/propuestas-comerciales/{propuestaComercial}/cliente/email', [Propu
 
 Route::get('/admin/wms/shipping/{shipment}/pdf', [\App\Http\Controllers\Admin\WmsShippingController::class, 'exportDispatchPdf'])
     ->name('admin.wms.shipping.pdf');
+
+
+use App\Http\Controllers\Admin\WmsVirtualPickupBoardController;
+
+// Mantén tus rutas existentes de picking. Solo agrega estas si no existen.
+Route::get('/admin/wms/virtual-pickups', [WmsVirtualPickupBoardController::class, 'index'])
+    ->name('admin.wms.virtual-pickups.index');
+
+Route::get('/admin/wms/virtual-pickups/data', [WmsVirtualPickupBoardController::class, 'data'])
+    ->name('admin.wms.virtual-pickups.data');
+
+Route::get('/admin/wms/virtual-pickups/{pickWave}', [WmsVirtualPickupBoardController::class, 'show'])
+    ->name('admin.wms.virtual-pickups.show');
+
+Route::post('/admin/wms/virtual-pickups/{pickWave}/checklist', [WmsVirtualPickupBoardController::class, 'saveChecklist'])
+    ->name('admin.wms.virtual-pickups.checklist');
+
+Route::get('/admin/wms/virtual-pickups/{pickWave}/pdf', [WmsVirtualPickupBoardController::class, 'pdf'])
+    ->name('admin.wms.virtual-pickups.pdf');

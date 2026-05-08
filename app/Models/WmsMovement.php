@@ -8,7 +8,24 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class WmsMovement extends Model
 {
-    protected $fillable = ['warehouse_id','user_id','type','note'];
+    protected $fillable = [
+        'warehouse_id',
+        'user_id',
+        'type',
+        'note',
+        'reference',
+        'meta',
+        'authorized_name',
+        'authorized_role',
+        'delivered_name',
+        'received_name',
+    ];
+
+    protected $casts = [
+        'warehouse_id' => 'integer',
+        'user_id' => 'integer',
+        'meta' => 'array',
+    ];
 
     public function lines(): HasMany
     {
@@ -23,5 +40,15 @@ class WmsMovement extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function isVirtualPickup(): bool
+    {
+        $type = strtolower((string) $this->type);
+
+        return in_array($type, [
+            'virtual_pickup_collected',
+            'virtual_pickup_staged',
+        ], true);
     }
 }

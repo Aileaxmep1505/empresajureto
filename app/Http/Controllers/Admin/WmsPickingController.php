@@ -67,7 +67,16 @@ class WmsPickingController extends Controller implements HasMiddleware
             'delivery_phase'        => data_get($item, 'delivery_phase'),
             'phase'                 => data_get($item, 'phase'),
             'is_fastflow'           => data_get($item, 'is_fastflow'),
+            'source_type'           => data_get($item, 'source_type'),
+            'is_virtual'            => data_get($item, 'is_virtual'),
+            'requires_pickup'       => data_get($item, 'requires_pickup'),
+            'pickup_status'         => data_get($item, 'pickup_status'),
             'available_stock'       => data_get($item, 'available_stock'),
+            'source_type'           => data_get($item, 'source_type'),
+            'is_virtual'            => data_get($item, 'is_virtual'),
+            'requires_pickup'       => data_get($item, 'requires_pickup'),
+            'pickup_status'         => data_get($item, 'pickup_status'),
+            'fulfillment_group_id'  => data_get($item, 'fulfillment_group_id'),
             'units_per_box'         => data_get($item, 'units_per_box'),
             'total_boxes'           => data_get($item, 'total_boxes'),
             'available_boxes_count' => data_get($item, 'available_boxes_count'),
@@ -282,8 +291,21 @@ class WmsPickingController extends Controller implements HasMiddleware
                 'completed_at'     => $data['completed_at'] ?? $current['completed_at'],
                 'total_phases'     => (int) ($data['total_phases'] ?? $current['total_phases']),
                 'deliveries'       => $data['deliveries'] ?? $current['deliveries'],
-                'items'            => $data['items'] ?? $current['items'],
+                'items'            => array_key_exists('items', $data)
+                    ? $this->mergeIncomingItemsPreservingVirtuals($current['items'] ?? [], $data['items'] ?? [])
+                    : $current['items'],
             ];
+
+            /**
+             * Importante para scanner:
+             * el scanner solo recibe/actualiza líneas físicas. Si esas líneas físicas
+             * quedan completas, el frontend puede mandar status=completed, pero la tarea
+             * NO debe cerrarse si todavía existen líneas virtuales pendientes.
+             */
+            if (($payload['status'] ?? '') === 'completed' && !$this->areAllItemsReadyForCompletion($payload['items'] ?? [])) {
+                $payload['status'] = 'in_progress';
+                $payload['completed_at'] = null;
+            }
 
             if ($payload['status'] === 'in_progress' && empty($payload['started_at'])) {
                 $payload['started_at'] = now()->toDateTimeString();
@@ -424,6 +446,7 @@ class WmsPickingController extends Controller implements HasMiddleware
 
             'items'                               => [$isUpdate ? 'nullable' : 'required', 'array', 'min:1'],
             'items.*.line_id'                     => ['nullable', 'string', 'max:120'],
+            'items.*.fulfillment_group_id'        => ['nullable', 'string', 'max:120'],
             'items.*.product_id'                  => ['nullable'],
             'items.*.product_name'                => ['nullable', 'string', 'max:255'],
             'items.*.product_sku'                 => ['nullable', 'string', 'max:255'],
@@ -440,6 +463,20 @@ class WmsPickingController extends Controller implements HasMiddleware
             'items.*.brand'                       => ['nullable', 'string', 'max:255'],
             'items.*.model'                       => ['nullable', 'string', 'max:255'],
             'items.*.is_fastflow'                 => ['nullable'],
+            'items.*.source_type'                 => ['nullable', 'string', 'max:40'],
+            'items.*.is_virtual'                  => ['nullable'],
+            'items.*.requires_pickup'             => ['nullable'],
+            'items.*.pickup_status'               => ['nullable', 'string', 'max:40'],
+            'items.*.pickup_origin_name'          => ['nullable', 'string', 'max:180'],
+            'items.*.pickup_notes'                => ['nullable', 'string', 'max:1000'],
+            'items.*.virtual_flow_mode'           => ['nullable', 'string', 'max:60'],
+            'items.*.virtual_auto_loaded_to_shipment' => ['nullable'],
+            'items.*.virtual_requires_shipping_scan'  => ['nullable'],
+            'items.*.virtual_sold_label'          => ['nullable', 'string', 'max:160'],
+            'items.*.virtual_order_number'        => ['nullable', 'string', 'max:160'],
+            'items.*.virtual_pick_wave_number'    => ['nullable', 'string', 'max:160'],
+            'items.*.pickup_collected_at'         => ['nullable'],
+            'items.*.pickup_staged_at'            => ['nullable'],
             'items.*.available_stock'             => ['nullable', 'integer', 'min:0'],
             'items.*.product_barcode'             => ['nullable', 'string', 'max:255'],
             'items.*.product_code'                => ['nullable', 'string', 'max:255'],
@@ -524,8 +561,9 @@ class WmsPickingController extends Controller implements HasMiddleware
             $phase = (int) ($row['delivery_phase'] ?? $row['phase'] ?? 1);
             $phase = min(max(1, $phase), max(1, $totalPhases));
 
-            $normalized = $this->normalizeSingleItem([
+            $base = [
                 'line_id'                  => $row['line_id'] ?? (string) Str::uuid(),
+                'fulfillment_group_id'     => $row['fulfillment_group_id'] ?? (string) Str::uuid(),
                 'product_id'               => $row['product_id'] ?? null,
                 'product_sku'              => $row['product_sku'] ?? '',
                 'product_name'             => $row['product_name'] ?? '',
@@ -544,6 +582,23 @@ class WmsPickingController extends Controller implements HasMiddleware
                 'brand'                    => $row['brand'] ?? '',
                 'model'                    => $row['model'] ?? '',
                 'is_fastflow'              => $row['is_fastflow'] ?? false,
+
+                // Producto virtual / recolección externa
+                'source_type'              => $row['source_type'] ?? '',
+                'is_virtual'               => $row['is_virtual'] ?? false,
+                'requires_pickup'          => $row['requires_pickup'] ?? false,
+                'pickup_status'            => $row['pickup_status'] ?? '',
+                'pickup_origin_name'       => $row['pickup_origin_name'] ?? '',
+                'pickup_notes'             => $row['pickup_notes'] ?? '',
+                'pickup_collected_at'      => $row['pickup_collected_at'] ?? null,
+                'pickup_staged_at'         => $row['pickup_staged_at'] ?? null,
+                'virtual_flow_mode'        => $row['virtual_flow_mode'] ?? '',
+                'virtual_auto_loaded_to_shipment' => $row['virtual_auto_loaded_to_shipment'] ?? false,
+                'virtual_requires_shipping_scan'  => $row['virtual_requires_shipping_scan'] ?? true,
+                'virtual_sold_label'       => $row['virtual_sold_label'] ?? '',
+                'virtual_order_number'     => $row['virtual_order_number'] ?? '',
+                'virtual_pick_wave_number' => $row['virtual_pick_wave_number'] ?? '',
+
                 'available_stock'          => $row['available_stock'] ?? 0,
                 'staging_location_code'    => $row['staging_location_code'] ?? '',
                 'collected_at'             => $row['collected_at'] ?? null,
@@ -559,7 +614,78 @@ class WmsPickingController extends Controller implements HasMiddleware
                 'staged_boxes'             => $row['staged_boxes'] ?? [],
                 'box_allocations'          => $row['box_allocations'] ?? [],
                 'stage_box_allocations'    => $row['stage_box_allocations'] ?? [],
-            ]);
+            ];
+
+            $required = max(1, (int) ($base['quantity_required'] ?? 1));
+            $availableStock = max(0, (int) ($base['available_stock'] ?? 0));
+            $isVirtual = $this->isVirtualItem($base);
+
+            /**
+             * Si el usuario pide más de lo disponible, aquí mismo se divide:
+             * - lo disponible queda como línea física / Fast Flow,
+             * - el excedente queda como línea virtual pendiente de recolección.
+             * Ejemplo: stock 4 y pide 8 => 4 físico + 4 virtual.
+             */
+            if (!$isVirtual && $required > $availableStock) {
+                $physicalQty = min($required, $availableStock);
+                $virtualQty = $required - $physicalQty;
+
+                if ($physicalQty > 0) {
+                    $physicalRow = $base;
+                    $physicalRow['quantity_required'] = $physicalQty;
+                    $physicalRow['requested_quantity'] = $required;
+                    $physicalRow['source_type'] = $this->isFastFlowItem($physicalRow) ? 'fastflow' : 'warehouse';
+                    $physicalRow['is_virtual'] = false;
+                    $physicalRow['requires_pickup'] = false;
+                    $physicalRow['pickup_status'] = '';
+                    $physicalRow['pickup_origin_name'] = '';
+                    $physicalRow['pickup_notes'] = '';
+                    $physicalRow['pickup_collected_at'] = null;
+                    $physicalRow['pickup_staged_at'] = null;
+
+                    $normalized = $this->normalizeSingleItem($physicalRow);
+
+                    if ($normalized['product_name'] !== '' || $normalized['product_sku'] !== '') {
+                        $final[] = $normalized;
+                    }
+                }
+
+                if ($virtualQty > 0) {
+                    $virtualRow = $base;
+                    $virtualRow['line_id'] = (string) Str::uuid();
+                    $virtualRow['quantity_required'] = $virtualQty;
+                    $virtualRow['requested_quantity'] = $required;
+                    $virtualRow['quantity_picked'] = 0;
+                    $virtualRow['quantity_staged'] = 0;
+                    $virtualRow['picked'] = false;
+                    $virtualRow['staged'] = false;
+                    $virtualRow['location_code'] = 'RECOLECTAR';
+                    $virtualRow['batch_code'] = '';
+                    $virtualRow['is_fastflow'] = false;
+                    $virtualRow['source_type'] = 'virtual';
+                    $virtualRow['is_virtual'] = true;
+                    $virtualRow['requires_pickup'] = true;
+                    $virtualRow['pickup_status'] = 'pending';
+                    $virtualRow['virtual_flow_mode'] = $virtualRow['virtual_flow_mode'] ?: 'staging_before_shipping';
+                    $virtualRow['virtual_auto_loaded_to_shipment'] = false;
+                    $virtualRow['virtual_requires_shipping_scan'] = true;
+                    $virtualRow['virtual_sold_label'] = $virtualRow['virtual_sold_label'] ?: 'VENDIDO / NO INVENTARIAR';
+                    $virtualRow['virtual_order_number'] = $virtualRow['virtual_order_number'] ?? '';
+                    $virtualRow['virtual_pick_wave_number'] = $virtualRow['virtual_pick_wave_number'] ?? '';
+                    $virtualRow['staging_location_code'] = $virtualRow['staging_location_code'] ?: 'PICKING';
+                    $virtualRow['available_stock'] = 0;
+
+                    $normalized = $this->normalizeSingleItem($virtualRow);
+
+                    if ($normalized['product_name'] !== '' || $normalized['product_sku'] !== '') {
+                        $final[] = $normalized;
+                    }
+                }
+
+                continue;
+            }
+
+            $normalized = $this->normalizeSingleItem($base);
 
             if ($normalized['product_name'] !== '' || $normalized['product_sku'] !== '') {
                 $final[] = $normalized;
@@ -985,17 +1111,47 @@ class WmsPickingController extends Controller implements HasMiddleware
         $model    = (string) ($item['model'] ?? $item['model_name'] ?? '');
         $phase    = max(1, (int) ($item['delivery_phase'] ?? $item['phase'] ?? 1));
 
-        $isFastFlow = filter_var(($item['is_fastflow'] ?? false), FILTER_VALIDATE_BOOLEAN);
+        $sourceType = strtolower(trim((string) ($item['source_type'] ?? '')));
+        $isVirtual = $sourceType === 'virtual'
+            || filter_var(($item['is_virtual'] ?? false), FILTER_VALIDATE_BOOLEAN)
+            || filter_var(($item['requires_pickup'] ?? false), FILTER_VALIDATE_BOOLEAN);
+
+        $isFastFlow = !$isVirtual && filter_var(($item['is_fastflow'] ?? false), FILTER_VALIDATE_BOOLEAN);
         $locationCode = (string) ($item['location_code'] ?? '');
         $batchCode = strtoupper(trim((string) ($item['batch_code'] ?? '')));
 
-        if ($isFastFlow || strtoupper($locationCode) === 'FAST FLOW' || ($batchCode !== '' && str_starts_with($batchCode, 'FF-'))) {
+        if (!$isVirtual && ($isFastFlow || strtoupper($locationCode) === 'FAST FLOW' || ($batchCode !== '' && str_starts_with($batchCode, 'FF-')))) {
             $isFastFlow = true;
             $locationCode = 'FAST FLOW';
+            $sourceType = 'fastflow';
         }
+
+        if ($isVirtual) {
+            $isFastFlow = false;
+            $sourceType = 'virtual';
+            $locationCode = 'RECOLECTAR';
+            $batchCode = '';
+        }
+
+        if ($sourceType === '') {
+            $sourceType = $isFastFlow ? 'fastflow' : 'warehouse';
+        }
+
+        if (!$isVirtual && !$isFastFlow && trim($locationCode) === '') {
+            $locationCode = 'ALMACEN';
+        }
+
+        $virtualFlowMode = strtolower(trim((string) ($item['virtual_flow_mode'] ?? '')));
+        if (!in_array($virtualFlowMode, ['direct_to_delivery', 'staging_before_shipping'], true)) {
+            $virtualFlowMode = 'staging_before_shipping';
+        }
+
+        $virtualAutoLoaded = $isVirtual && $virtualFlowMode === 'direct_to_delivery';
+        $virtualRequiresShippingScan = $isVirtual && $virtualFlowMode !== 'direct_to_delivery';
 
         $normalized = [
             'line_id'               => (string) ($item['line_id'] ?? (string) Str::uuid()),
+            'fulfillment_group_id'  => (string) ($item['fulfillment_group_id'] ?? $item['line_id'] ?? (string) Str::uuid()),
             'product_id'            => $item['product_id'] ?? null,
             'product_sku'           => strtoupper((string) ($item['product_sku'] ?? '')),
             'product_name'          => (string) ($item['product_name'] ?? 'Producto'),
@@ -1017,8 +1173,33 @@ class WmsPickingController extends Controller implements HasMiddleware
             'model'                 => $model,
             'requested_quantity'    => max(1, (int) ($item['requested_quantity'] ?? $required)),
             'available_stock'       => max(0, (int) ($item['available_stock'] ?? 0)),
+
+            'source_type'           => $sourceType,
             'is_fastflow'           => $isFastFlow,
-            'staging_location_code' => (string) ($item['staging_location_code'] ?? ''),
+            'is_virtual'            => $isVirtual,
+            'requires_pickup'       => $isVirtual,
+            'pickup_status'         => $isVirtual
+                ? (string) ($item['pickup_status'] ?? 'pending')
+                : (string) ($item['pickup_status'] ?? ''),
+            'pickup_origin_name'    => $isVirtual ? (string) ($item['pickup_origin_name'] ?? '') : '',
+            'pickup_notes'          => $isVirtual ? (string) ($item['pickup_notes'] ?? '') : '',
+            'pickup_collected_at'   => $this->normalizeDateString($item['pickup_collected_at'] ?? null),
+            'pickup_staged_at'      => $this->normalizeDateString($item['pickup_staged_at'] ?? null),
+            'virtual_flow_mode'     => $isVirtual ? $virtualFlowMode : '',
+            'virtual_auto_loaded_to_shipment' => $isVirtual
+                ? filter_var(($item['virtual_auto_loaded_to_shipment'] ?? $virtualAutoLoaded), FILTER_VALIDATE_BOOLEAN)
+                : false,
+            'virtual_requires_shipping_scan' => $isVirtual
+                ? filter_var(($item['virtual_requires_shipping_scan'] ?? $virtualRequiresShippingScan), FILTER_VALIDATE_BOOLEAN)
+                : false,
+            'virtual_sold_label'    => $isVirtual ? (string) ($item['virtual_sold_label'] ?? 'VENDIDO / NO INVENTARIAR') : '',
+            'virtual_order_number'  => $isVirtual ? (string) ($item['virtual_order_number'] ?? '') : '',
+            'virtual_pick_wave_number' => $isVirtual ? (string) ($item['virtual_pick_wave_number'] ?? '') : '',
+
+            'staging_location_code' => $isVirtual
+                ? (string) ($item['staging_location_code'] ?? 'PICKING')
+                : (string) ($item['staging_location_code'] ?? ''),
+
             'collected_at'          => $this->normalizeDateString($item['collected_at'] ?? null),
             'staged_at'             => $this->normalizeDateString($item['staged_at'] ?? null),
             'units_per_box'         => max(0, (int) ($item['units_per_box'] ?? 0)),
@@ -1036,6 +1217,18 @@ class WmsPickingController extends Controller implements HasMiddleware
 
         if ($normalized['is_fastflow']) {
             $normalized = $this->hydrateFastFlowItem($normalized);
+            $normalized['source_type'] = 'fastflow';
+            $normalized['is_virtual'] = false;
+            $normalized['requires_pickup'] = false;
+            $normalized['pickup_status'] = '';
+            $normalized['pickup_origin_name'] = '';
+            $normalized['pickup_notes'] = '';
+            $normalized['virtual_flow_mode'] = '';
+            $normalized['virtual_auto_loaded_to_shipment'] = false;
+            $normalized['virtual_requires_shipping_scan'] = false;
+            $normalized['virtual_sold_label'] = '';
+            $normalized['virtual_order_number'] = '';
+            $normalized['virtual_pick_wave_number'] = '';
         }
 
         return $normalized;
@@ -1187,6 +1380,19 @@ class WmsPickingController extends Controller implements HasMiddleware
                     'item'         => $this->itemLogContext($item),
                 ]);
 
+                if ($this->isVirtualItem($item)) {
+                    $allocations[$lineId] = [
+                        'kind' => 'virtual',
+                        'product_id' => data_get($item, 'product_id'),
+                        'entries' => [],
+                        'qty' => max(1, (int) data_get($item, 'quantity_required', 1)),
+                        'source_type' => 'virtual',
+                        'does_not_touch_stock' => true,
+                    ];
+
+                    continue;
+                }
+
                 if ($this->isFastFlowItem($item)) {
                     $allocations[$lineId] = $this->reserveFastFlowItem($item);
                 } else {
@@ -1223,6 +1429,10 @@ class WmsPickingController extends Controller implements HasMiddleware
                 foreach ((array) data_get($allocation, 'entries', []) as $entry) {
                     $qty = (int) data_get($entry, 'qty', 0);
                     if ($qty <= 0) {
+                        continue;
+                    }
+
+                    if ((string) data_get($entry, 'type') === 'catalog_stock') {
                         continue;
                     }
 
@@ -1291,6 +1501,11 @@ class WmsPickingController extends Controller implements HasMiddleware
                 foreach ((array) data_get($allocation, 'entries', []) as $entry) {
                     $qty = (int) data_get($entry, 'qty', 0);
                     if ($qty <= 0) {
+                        continue;
+                    }
+
+                    if ((string) data_get($entry, 'type') === 'catalog_stock') {
+                        $lineConsumed += $qty;
                         continue;
                     }
 
@@ -1480,8 +1695,36 @@ class WmsPickingController extends Controller implements HasMiddleware
         ]);
 
         if ($rows->isEmpty()) {
+            if (Schema::hasColumn('catalog_items', 'stock')) {
+                $catalogItem = CatalogItem::query()
+                    ->whereKey($productId)
+                    ->lockForUpdate()
+                    ->first(['id', 'stock']);
+
+                $catalogStock = max(0, (int) ($catalogItem->stock ?? 0));
+
+                if ($catalogItem && $catalogStock >= $required) {
+                    $result = [
+                        'kind' => 'catalog_stock',
+                        'product_id' => $productId,
+                        'entries' => [[
+                            'type' => 'catalog_stock',
+                            'catalog_item_id' => (int) $productId,
+                            'qty' => $required,
+                        ]],
+                        'qty' => $required,
+                        'source_type' => 'warehouse',
+                        'location_code' => $locationCode !== '' ? $locationCode : 'ALMACEN',
+                    ];
+
+                    $this->logPicking('reserveInventoryItem.catalog_stock_fallback', $result);
+
+                    return $result;
+                }
+            }
+
             throw ValidationException::withMessages([
-                'items' => "No se encontró inventario para {$productName}. Verifica que exista una fila en {$this->inventoryTable()} con catalog_item_id {$productId}.",
+                'items' => "No se encontró inventario para {$productName}. Verifica que exista una fila en {$this->inventoryTable()} con catalog_item_id {$productId}, o que catalog_items.stock tenga existencias suficientes.",
             ]);
         }
 
@@ -1769,8 +2012,21 @@ class WmsPickingController extends Controller implements HasMiddleware
         return 'available';
     }
 
+    protected function isVirtualItem(array $item): bool
+    {
+        $sourceType = strtolower(trim((string) ($item['source_type'] ?? '')));
+
+        return $sourceType === 'virtual'
+            || filter_var(($item['is_virtual'] ?? false), FILTER_VALIDATE_BOOLEAN)
+            || filter_var(($item['requires_pickup'] ?? false), FILTER_VALIDATE_BOOLEAN);
+    }
+
     protected function isFastFlowItem(array $item): bool
     {
+        if ($this->isVirtualItem($item)) {
+            return false;
+        }
+
         $flag = filter_var(($item['is_fastflow'] ?? false), FILTER_VALIDATE_BOOLEAN);
         $locationCode = strtoupper(trim((string) ($item['location_code'] ?? '')));
         $batchCode = strtoupper(trim((string) ($item['batch_code'] ?? '')));
@@ -1937,13 +2193,249 @@ class WmsPickingController extends Controller implements HasMiddleware
         return $value;
     }
 
+    protected function ensurePhysicalSplitForScanner(PickWave $task): void
+    {
+        $bag = $this->pickWaveBag($task);
+        $items = collect(is_array($bag['items'] ?? null) ? $bag['items'] : [])
+            ->map(fn ($item) => is_array($item) ? $this->normalizeSingleItem($item) : null)
+            ->filter()
+            ->values()
+            ->all();
+
+        if (empty($items)) {
+            return;
+        }
+
+        if ((bool) data_get($bag, 'stock_consumed', false) === true) {
+            return;
+        }
+
+        $changed = false;
+        $nextItems = [];
+
+        foreach ($items as $item) {
+            if (!$this->isVirtualItem($item)) {
+                $nextItems[] = $item;
+                continue;
+            }
+
+            $required = max(1, (int) data_get($item, 'quantity_required', 1));
+            $groupId = (string) data_get($item, 'fulfillment_group_id', data_get($item, 'line_id', ''));
+            $productId = data_get($item, 'product_id');
+            $sku = strtoupper(trim((string) data_get($item, 'product_sku', '')));
+
+            $alreadyHasPhysicalSibling = collect($items)->contains(function ($candidate) use ($item, $groupId, $productId, $sku) {
+                if ($this->isVirtualItem($candidate)) {
+                    return false;
+                }
+
+                $candidateGroup = (string) data_get($candidate, 'fulfillment_group_id', '');
+                $candidateProductId = data_get($candidate, 'product_id');
+                $candidateSku = strtoupper(trim((string) data_get($candidate, 'product_sku', '')));
+
+                if ($groupId !== '' && $candidateGroup !== '' && $candidateGroup === $groupId) {
+                    return true;
+                }
+
+                if ($productId && $candidateProductId && (string) $productId === (string) $candidateProductId) {
+                    return true;
+                }
+
+                return $sku !== '' && $candidateSku !== '' && $sku === $candidateSku;
+            });
+
+            if ($alreadyHasPhysicalSibling) {
+                $nextItems[] = $item;
+                continue;
+            }
+
+            $availablePhysical = $this->availablePhysicalStockForItem($item);
+            $physicalQty = min($required, $availablePhysical);
+
+            if ($physicalQty <= 0) {
+                $nextItems[] = $item;
+                continue;
+            }
+
+            $virtualQty = max(0, $required - $physicalQty);
+            $fulfillmentGroupId = $groupId !== '' ? $groupId : (string) Str::uuid();
+
+            $physicalRow = $item;
+            $physicalRow['line_id'] = (string) Str::uuid();
+            $physicalRow['fulfillment_group_id'] = $fulfillmentGroupId;
+            $physicalRow['quantity_required'] = $physicalQty;
+            $physicalRow['quantity_picked'] = 0;
+            $physicalRow['quantity_staged'] = 0;
+            $physicalRow['picked'] = false;
+            $physicalRow['staged'] = false;
+            $physicalRow['source_type'] = 'warehouse';
+            $physicalRow['is_virtual'] = false;
+            $physicalRow['requires_pickup'] = false;
+            $physicalRow['pickup_status'] = '';
+            $physicalRow['pickup_origin_name'] = '';
+            $physicalRow['pickup_notes'] = '';
+            $physicalRow['pickup_collected_at'] = null;
+            $physicalRow['pickup_staged_at'] = null;
+            $physicalRow['location_code'] = $this->bestPhysicalLocationCodeForItem($item) ?: (string) data_get($item, 'location_code', '');
+            $physicalRow['staging_location_code'] = '';
+            $physicalRow['available_stock'] = $availablePhysical;
+
+            $nextItems[] = $this->normalizeSingleItem($physicalRow);
+
+            if ($virtualQty > 0) {
+                $virtualRow = $item;
+                $virtualRow['fulfillment_group_id'] = $fulfillmentGroupId;
+                $virtualRow['quantity_required'] = $virtualQty;
+                $virtualRow['quantity_picked'] = 0;
+                $virtualRow['quantity_staged'] = 0;
+                $virtualRow['picked'] = false;
+                $virtualRow['staged'] = false;
+                $virtualRow['source_type'] = 'virtual';
+                $virtualRow['is_virtual'] = true;
+                $virtualRow['requires_pickup'] = true;
+                $virtualRow['pickup_status'] = (string) data_get($virtualRow, 'pickup_status', 'pending') ?: 'pending';
+                $virtualRow['virtual_flow_mode'] = (string) data_get($virtualRow, 'virtual_flow_mode', 'staging_before_shipping') ?: 'staging_before_shipping';
+                $virtualRow['virtual_auto_loaded_to_shipment'] = false;
+                $virtualRow['virtual_requires_shipping_scan'] = true;
+                $virtualRow['virtual_sold_label'] = (string) data_get($virtualRow, 'virtual_sold_label', 'VENDIDO / NO INVENTARIAR') ?: 'VENDIDO / NO INVENTARIAR';
+                $virtualRow['location_code'] = 'RECOLECTAR';
+                $virtualRow['staging_location_code'] = (string) data_get($virtualRow, 'staging_location_code', 'PICKING') ?: 'PICKING';
+                $virtualRow['available_stock'] = 0;
+                $nextItems[] = $this->normalizeSingleItem($virtualRow);
+            }
+
+            $changed = true;
+        }
+
+        if (!$changed) {
+            return;
+        }
+
+        DB::transaction(function () use ($task, $bag, $nextItems) {
+            $task = PickWave::query()->whereKey($task->id)->lockForUpdate()->first();
+
+            if (!$task) {
+                return;
+            }
+
+            $freshBag = $this->pickWaveBag($task);
+            $freshBag['items'] = array_values($nextItems);
+            $freshBag['stock_reserved'] = false;
+            $freshBag['reservation_allocations'] = [];
+
+            $payload = [
+                'warehouse_id' => $freshBag['warehouse_id'] ?? ($bag['warehouse_id'] ?? null),
+                'task_number' => $freshBag['task_number'] ?? ($bag['task_number'] ?? ('PICK-' . $task->id)),
+                'order_number' => $freshBag['order_number'] ?? ($bag['order_number'] ?? ''),
+                'assigned_user_id' => $freshBag['assigned_user_id'] ?? ($bag['assigned_user_id'] ?? null),
+                'assigned_to' => $freshBag['assigned_to'] ?? ($bag['assigned_to'] ?? ''),
+                'priority' => $freshBag['priority'] ?? ($bag['priority'] ?? 'normal'),
+                'notes' => $freshBag['notes'] ?? ($bag['notes'] ?? ''),
+                'status' => $freshBag['status'] ?? ($bag['status'] ?? 'pending'),
+                'started_at' => $freshBag['started_at'] ?? ($bag['started_at'] ?? null),
+                'completed_at' => $freshBag['completed_at'] ?? ($bag['completed_at'] ?? null),
+                'total_phases' => max(1, (int) ($freshBag['total_phases'] ?? $bag['total_phases'] ?? 1)),
+                'deliveries' => $freshBag['deliveries'] ?? ($bag['deliveries'] ?? []),
+                'items' => array_values($nextItems),
+            ];
+
+            $this->persistTask($task, $payload);
+            $task->refresh();
+            $this->reserveStockForTask($task);
+        });
+    }
+
+    protected function availablePhysicalStockForItem(array $item): int
+    {
+        $productId = data_get($item, 'product_id');
+        $sku = strtoupper(trim((string) data_get($item, 'product_sku', '')));
+
+        if (!$productId && $sku !== '') {
+            $catalogItem = CatalogItem::query()->whereRaw('UPPER(sku) = ?', [$sku])->first(['id']);
+            $productId = $catalogItem?->id;
+        }
+
+        if (!$productId) {
+            return 0;
+        }
+
+        $hasReservedQty = $this->hasInventoryReservedQty();
+
+        $stock = (int) Inventory::query()
+            ->where('catalog_item_id', $productId)
+            ->get()
+            ->sum(function ($row) use ($hasReservedQty) {
+                $qty = (int) ($row->qty ?? 0);
+                $reserved = $hasReservedQty ? (int) ($row->reserved_qty ?? 0) : 0;
+                return max(0, $qty - $reserved);
+            });
+
+        if ($stock <= 0 && Schema::hasColumn('catalog_items', 'stock')) {
+            $catalogItem = CatalogItem::query()->find($productId, ['id', 'stock']);
+            $stock = max(0, (int) ($catalogItem->stock ?? 0));
+        }
+
+        return max(0, $stock);
+    }
+
+    protected function bestPhysicalLocationCodeForItem(array $item): string
+    {
+        $productId = data_get($item, 'product_id');
+        $sku = strtoupper(trim((string) data_get($item, 'product_sku', '')));
+
+        if (!$productId && $sku !== '') {
+            $catalogItem = CatalogItem::query()->whereRaw('UPPER(sku) = ?', [$sku])->first(['id']);
+            $productId = $catalogItem?->id;
+        }
+
+        if (!$productId) {
+            return '';
+        }
+
+        $hasReservedQty = $this->hasInventoryReservedQty();
+
+        $row = Inventory::query()
+            ->with('location:id,code')
+            ->where('catalog_item_id', $productId)
+            ->get()
+            ->sortByDesc(function ($row) use ($hasReservedQty) {
+                $qty = (int) ($row->qty ?? 0);
+                $reserved = $hasReservedQty ? (int) ($row->reserved_qty ?? 0) : 0;
+                return max(0, $qty - $reserved);
+            })
+            ->first();
+
+        return strtoupper(trim((string) optional(optional($row)->location)->code));
+    }
+
     public function scannerV2(Request $request)
     {
         $taskId = (int) $request->get('task_id');
 
         $tasks = PickWave::query()
             ->get()
-            ->map(fn ($task) => $this->normalizeTask($task))
+            ->map(function ($task) {
+                /**
+                 * Reparación segura para tareas anteriores:
+                 * si una tarea quedó guardada como 100% virtual, pero todavía hay stock físico,
+                 * la dividimos aquí en:
+                 * - línea física para scanner
+                 * - línea virtual para recolección externa
+                 */
+                $this->ensurePhysicalSplitForScanner($task);
+
+                $normalized = $this->normalizeTask($task->fresh());
+
+                // Las líneas virtuales NO pasan por el scanner de almacén.
+                // Se gestionan en Recolecciones Virtuales.
+                $normalized['items'] = collect($normalized['items'] ?? [])
+                    ->reject(fn ($item) => $this->isVirtualItem(is_array($item) ? $item : []))
+                    ->values()
+                    ->all();
+
+                return $normalized;
+            })
+            ->filter(fn ($task) => !empty($task['items']))
             ->sortBy(function ($task) {
                 return match ((string) ($task['status'] ?? 'pending')) {
                     'in_progress' => 1,
@@ -1989,6 +2481,200 @@ class WmsPickingController extends Controller implements HasMiddleware
             'selectedTaskId' => $taskId ?: null,
             'operatorName'   => auth()->user()?->name ?? 'Operador',
         ]);
+    }
+
+    protected function mergeIncomingItemsPreservingVirtuals(array $currentItems, array $incomingItems): array
+    {
+        $currentItems = collect($currentItems)
+            ->filter(fn ($item) => is_array($item))
+            ->map(fn ($item) => $this->normalizeSingleItem($item))
+            ->values();
+
+        $incomingItems = collect($incomingItems)
+            ->filter(fn ($item) => is_array($item))
+            ->map(fn ($item) => $this->normalizeSingleItem($item))
+            ->values();
+
+        /**
+         * El scanner solo manda físicos porque scannerV2 oculta virtuales.
+         * Aquí conservamos los virtuales actuales para que no se borren.
+         */
+        $currentVirtuals = $currentItems
+            ->filter(fn ($item) => $this->isVirtualItem($item))
+            ->values();
+
+        $incomingLineIds = $incomingItems
+            ->pluck('line_id')
+            ->filter()
+            ->map(fn ($id) => (string) $id)
+            ->values()
+            ->all();
+
+        $incomingPhysicals = $incomingItems
+            ->reject(fn ($item) => $this->isVirtualItem($item))
+            ->values();
+
+        /**
+         * Si por alguna razón el frontend mandara también virtuales, respetamos
+         * los virtuales entrantes y no duplicamos los actuales.
+         */
+        $incomingVirtuals = $incomingItems
+            ->filter(fn ($item) => $this->isVirtualItem($item))
+            ->values();
+
+        $virtualsToKeep = $incomingVirtuals->isNotEmpty()
+            ? $incomingVirtuals
+            : $currentVirtuals->reject(function ($item) use ($incomingLineIds) {
+                $lineId = (string) ($item['line_id'] ?? '');
+                return $lineId !== '' && in_array($lineId, $incomingLineIds, true);
+            })->values();
+
+        $merged = $incomingPhysicals
+            ->merge($virtualsToKeep)
+            ->values()
+            ->all();
+
+        /**
+         * Reparación de seguridad:
+         * si una tarea vieja ya perdió su línea virtual, pero el físico conserva
+         * requested_quantity mayor a quantity_required, recreamos el excedente virtual.
+         */
+        $merged = $this->restoreMissingVirtualSiblings($merged);
+
+        return array_values($merged);
+    }
+
+    protected function restoreMissingVirtualSiblings(array $items): array
+    {
+        $items = collect($items)
+            ->filter(fn ($item) => is_array($item))
+            ->map(fn ($item) => $this->normalizeSingleItem($item))
+            ->values();
+
+        $result = [];
+
+        foreach ($items as $item) {
+            $result[] = $item;
+
+            if ($this->isVirtualItem($item)) {
+                continue;
+            }
+
+            $requestedQty = max(0, (int) ($item['requested_quantity'] ?? 0));
+            $physicalQty = max(0, (int) ($item['quantity_required'] ?? 0));
+
+            if ($requestedQty <= 0 || $requestedQty <= $physicalQty) {
+                continue;
+            }
+
+            $groupId = (string) ($item['fulfillment_group_id'] ?? '');
+
+            $alreadyHasVirtual = $items->contains(function ($candidate) use ($groupId, $item) {
+                if (!$this->isVirtualItem($candidate)) {
+                    return false;
+                }
+
+                $candidateGroupId = (string) ($candidate['fulfillment_group_id'] ?? '');
+
+                if ($groupId !== '' && $candidateGroupId !== '' && $candidateGroupId === $groupId) {
+                    return true;
+                }
+
+                $candidateProductId = (string) ($candidate['product_id'] ?? '');
+                $itemProductId = (string) ($item['product_id'] ?? '');
+
+                if ($candidateProductId !== '' && $itemProductId !== '' && $candidateProductId === $itemProductId) {
+                    return true;
+                }
+
+                $candidateSku = strtoupper(trim((string) ($candidate['product_sku'] ?? '')));
+                $itemSku = strtoupper(trim((string) ($item['product_sku'] ?? '')));
+
+                return $candidateSku !== '' && $itemSku !== '' && $candidateSku === $itemSku;
+            });
+
+            if ($alreadyHasVirtual) {
+                continue;
+            }
+
+            $virtualQty = $requestedQty - $physicalQty;
+
+            if ($virtualQty <= 0) {
+                continue;
+            }
+
+            $virtualItem = $item;
+            $virtualItem['line_id'] = (string) Str::uuid();
+            $virtualItem['fulfillment_group_id'] = $groupId !== ''
+                ? $groupId
+                : (string) Str::uuid();
+            $virtualItem['quantity_required'] = $virtualQty;
+            $virtualItem['quantity_picked'] = 0;
+            $virtualItem['quantity_staged'] = 0;
+            $virtualItem['picked'] = false;
+            $virtualItem['staged'] = false;
+            $virtualItem['location_code'] = 'RECOLECTAR';
+            $virtualItem['batch_code'] = '';
+            $virtualItem['source_type'] = 'virtual';
+            $virtualItem['is_fastflow'] = false;
+            $virtualItem['is_virtual'] = true;
+            $virtualItem['requires_pickup'] = true;
+            $virtualItem['pickup_status'] = 'pending';
+            $virtualItem['pickup_origin_name'] = $virtualItem['pickup_origin_name'] ?? '';
+            $virtualItem['pickup_notes'] = $virtualItem['pickup_notes'] ?? '';
+            $virtualItem['virtual_flow_mode'] = $virtualItem['virtual_flow_mode'] ?? 'staging_before_shipping';
+            $virtualItem['virtual_auto_loaded_to_shipment'] = false;
+            $virtualItem['virtual_requires_shipping_scan'] = true;
+            $virtualItem['virtual_sold_label'] = $virtualItem['virtual_sold_label'] ?? 'VENDIDO / NO INVENTARIAR';
+            $virtualItem['virtual_order_number'] = $virtualItem['virtual_order_number'] ?? '';
+            $virtualItem['virtual_pick_wave_number'] = $virtualItem['virtual_pick_wave_number'] ?? '';
+            $virtualItem['pickup_collected_at'] = null;
+            $virtualItem['pickup_staged_at'] = null;
+            $virtualItem['staging_location_code'] = 'PICKING';
+            $virtualItem['available_stock'] = 0;
+
+            $result[] = $this->normalizeSingleItem($virtualItem);
+        }
+
+        return array_values($result);
+    }
+
+    protected function areAllItemsReadyForCompletion(array $items): bool
+    {
+        $items = collect($items)
+            ->filter(fn ($item) => is_array($item))
+            ->map(fn ($item) => $this->normalizeSingleItem($item))
+            ->values();
+
+        if ($items->isEmpty()) {
+            return false;
+        }
+
+        return $items->every(function ($item) {
+            $required = max(1, (int) ($item['quantity_required'] ?? 1));
+
+            if ($this->isVirtualItem($item)) {
+                $status = strtolower(trim((string) ($item['pickup_status'] ?? 'pending')));
+                $flowMode = strtolower(trim((string) ($item['virtual_flow_mode'] ?? 'staging_before_shipping')));
+                $collectedQty = max(
+                    (int) ($item['quantity_collected'] ?? 0),
+                    (int) ($item['quantity_picked'] ?? 0)
+                );
+                $stagedQty = (int) ($item['quantity_staged'] ?? 0);
+
+                if ($flowMode === 'direct_to_delivery') {
+                    return in_array($status, ['collected', 'ready_to_ship', 'staged'], true)
+                        || $collectedQty >= $required
+                        || filter_var(($item['picked'] ?? false), FILTER_VALIDATE_BOOLEAN);
+                }
+
+                return in_array($status, ['staged', 'ready_to_ship'], true)
+                    || filter_var(($item['staged'] ?? false), FILTER_VALIDATE_BOOLEAN)
+                    || $stagedQty >= $required;
+            }
+
+            return (int) ($item['quantity_staged'] ?? 0) >= $required;
+        });
     }
 
     protected function readStatusValue($value): string

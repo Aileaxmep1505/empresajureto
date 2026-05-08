@@ -72,10 +72,13 @@ class WmsReceptionController extends Controller
         ]);
     }
 
-    public function create()
+    public function create(Request $request)
     {
+        $virtualContext = $this->virtualReceptionContextFromRequest($request);
+
         return view('admin.wms.receptions.create', [
             'folio' => $this->generateFolio(),
+            'virtualContext' => $virtualContext,
             'locations' => Location::query()
                 ->orderBy('code')
                 ->get(['id', 'code']),
@@ -98,6 +101,18 @@ class WmsReceptionController extends Controller
             'lines.*.quantity'         => ['required', 'integer', 'min:1'],
             'lines.*.lot'              => ['nullable', 'string', 'max:120'],
             'lines.*.condition'        => ['required', 'string', 'max:50'],
+            'lines.*.source_type'       => ['nullable', 'string', 'max:80'],
+            'lines.*.is_virtual_sold'   => ['nullable'],
+            'lines.*.no_inventory'      => ['nullable'],
+            'lines.*.virtual_flow_mode' => ['nullable', 'string', 'max:80'],
+            'lines.*.pick_wave_id'      => ['nullable'],
+            'lines.*.task_number'       => ['nullable', 'string', 'max:120'],
+            'lines.*.order_number'      => ['nullable', 'string', 'max:120'],
+            'lines.*.fulfillment_group_id' => ['nullable', 'string', 'max:160'],
+            'lines.*.shipment_id'       => ['nullable'],
+            'lines.*.shipment_number'   => ['nullable', 'string', 'max:120'],
+            'lines.*.staging_location_code' => ['nullable', 'string', 'max:120'],
+            'lines.*.sold_label'        => ['nullable', 'string', 'max:255'],
         ]);
 
         $deliverer = null;
@@ -117,24 +132,118 @@ class WmsReceptionController extends Controller
             ]);
         }
 
-        $lines = collect($data['lines'])
+        $rawLines = collect($data['lines'])
             ->map(function ($line) {
+                $isVirtualSold = $this->truthy($line['is_virtual_sold'] ?? false)
+                    || $this->truthy($line['no_inventory'] ?? false)
+                    || strtolower(trim((string) ($line['source_type'] ?? ''))) === 'virtual_sold';
+
+                $taskNumber = trim((string) ($line['task_number'] ?? ''));
+                $orderNumber = trim((string) ($line['order_number'] ?? ''));
+                $fulfillmentGroupId = trim((string) ($line['fulfillment_group_id'] ?? ''));
+                $flowMode = trim((string) ($line['virtual_flow_mode'] ?? ''));
+                $stagingCode = trim((string) ($line['staging_location_code'] ?? ''));
+                $soldQuantity = max(0, (int) ($line['sold_quantity'] ?? $line['virtual_sold_quantity'] ?? 0));
+
                 return [
                     'catalog_item_id' => (int) $line['catalog_item_id'],
                     'location_id'     => !empty($line['location_id']) ? (int) $line['location_id'] : null,
                     'sku'             => trim((string) ($line['sku'] ?? '')) ?: null,
                     'description'     => trim((string) ($line['description'] ?? '')),
                     'quantity'        => max(1, (int) ($line['quantity'] ?? 1)),
-                    'lot'             => trim((string) ($line['lot'] ?? '')) ?: null,
-                    'condition'       => trim((string) ($line['condition'] ?? 'revision')) ?: 'revision',
+                    'lot'             => trim((string) ($line['lot'] ?? '')) ?: ($isVirtualSold ? trim(implode(' · ', array_filter([$taskNumber, $orderNumber]))) : null),
+                    'condition'       => $isVirtualSold ? 'vendido' : (trim((string) ($line['condition'] ?? 'revision')) ?: 'revision'),
+                    'source_type'     => $isVirtualSold ? 'virtual_sold' : trim((string) ($line['source_type'] ?? '')),
+                    'is_virtual_sold' => $isVirtualSold,
+                    'no_inventory'    => $isVirtualSold,
+                    'virtual_flow_mode' => $flowMode ?: ($isVirtualSold ? 'staging_before_shipping' : ''),
+                    'pick_wave_id'    => !empty($line['pick_wave_id']) ? (int) $line['pick_wave_id'] : null,
+                    'task_number'     => $taskNumber,
+                    'order_number'    => $orderNumber,
+                    'fulfillment_group_id' => $fulfillmentGroupId,
+                    'virtual_pick_line_id' => trim((string) ($line['virtual_pick_line_id'] ?? $line['line_id'] ?? '')),
+                    'shipment_id'     => !empty($line['shipment_id']) ? (int) $line['shipment_id'] : null,
+                    'shipment_number' => trim((string) ($line['shipment_number'] ?? '')),
+                    'staging_location_code' => $stagingCode,
+                    'sold_label'      => trim((string) ($line['sold_label'] ?? '')),
+                    'sold_quantity'   => $soldQuantity,
+                    'split_role'      => null,
+                    'split_from_virtual_sold' => false,
                 ];
             })
             ->filter(fn ($line) => $line['catalog_item_id'] > 0 && $line['description'] !== '')
             ->values();
 
+        $lines = collect();
+
+        foreach ($rawLines as $line) {
+            if (!$line['is_virtual_sold']) {
+                $lines->push($line);
+                continue;
+            }
+
+            /**
+             * Regla del nuevo flujo:
+             * La parte vendida/no inventariar solo puede ser la cantidad ya recolectada
+             * en Recolección Virtual. Si en Recepciones llegan más piezas, el excedente
+             * sí entra como recepción normal e inventariable.
+             * Ejemplo: llegan 7, virtual recolectado/vendido = 4 =>
+             * - 4 vendido / no inventariar
+             * - 3 normal para ubicar e inventariar
+             */
+            $soldLimit = max(0, (int) ($line['sold_quantity'] ?? 0));
+            if ($soldLimit <= 0) {
+                $soldLimit = (int) $line['quantity'];
+            }
+
+            $soldQty = min((int) $line['quantity'], $soldLimit);
+            $inventoryQty = max(0, (int) $line['quantity'] - $soldQty);
+
+            if ($soldQty > 0) {
+                $soldLine = $line;
+                $soldLine['quantity'] = $soldQty;
+                $soldLine['condition'] = 'vendido';
+                $soldLine['source_type'] = 'virtual_sold';
+                $soldLine['is_virtual_sold'] = true;
+                $soldLine['no_inventory'] = true;
+                $soldLine['split_role'] = 'sold_no_inventory';
+                $soldLine['sold_quantity'] = $soldLimit;
+                $lines->push($soldLine);
+            }
+
+            if ($inventoryQty > 0) {
+                $inventoryLine = $line;
+                $inventoryLine['quantity'] = $inventoryQty;
+                $inventoryLine['condition'] = trim((string) ($line['condition'] ?? 'bueno')) ?: 'bueno';
+                if ($inventoryLine['condition'] === 'vendido') {
+                    $inventoryLine['condition'] = 'bueno';
+                }
+                $inventoryLine['source_type'] = '';
+                $inventoryLine['is_virtual_sold'] = false;
+                $inventoryLine['no_inventory'] = false;
+                $inventoryLine['virtual_flow_mode'] = '';
+                $inventoryLine['sold_label'] = '';
+                $inventoryLine['split_role'] = 'inventory_excess';
+                $inventoryLine['split_from_virtual_sold'] = true;
+                $lines->push($inventoryLine);
+            }
+        }
+
+        $lines = $lines->values();
+
         if ($lines->isEmpty()) {
             throw ValidationException::withMessages([
                 'lines' => 'Debes agregar al menos un producto válido.',
+            ]);
+        }
+
+        $missingSoldLocation = $lines->first(function ($line) {
+            return !empty($line['no_inventory']) && empty($line['location_id']);
+        });
+
+        if ($missingSoldLocation) {
+            throw ValidationException::withMessages([
+                'lines' => 'Los productos virtuales vendidos deben indicar dónde se dejaron en almacén/staging.',
             ]);
         }
 
@@ -189,7 +298,29 @@ class WmsReceptionController extends Controller
                     ]);
                 }
 
-                $reception->lines()->create([
+                $lineMeta = [
+                    'source_type' => $line['source_type'] ?: null,
+                    'is_virtual_sold' => (bool) $line['is_virtual_sold'],
+                    'no_inventory' => (bool) $line['no_inventory'],
+                    'virtual_flow_mode' => $line['virtual_flow_mode'] ?: null,
+                    'pick_wave_id' => $line['pick_wave_id'],
+                    'task_number' => $line['task_number'] ?: null,
+                    'order_number' => $line['order_number'] ?: null,
+                    'fulfillment_group_id' => $line['fulfillment_group_id'] ?: null,
+                    'shipment_id' => $line['shipment_id'],
+                    'shipment_number' => $line['shipment_number'] ?: null,
+                    'staging_location_code' => $line['staging_location_code'] ?: optional($location)->code,
+                    'sold_label' => $line['sold_label'] ?: ($line['no_inventory'] ? 'VENDIDO / NO INVENTARIAR' : null),
+                    'does_not_touch_stock' => (bool) $line['no_inventory'],
+                    'sold_quantity_limit' => (int) ($line['sold_quantity'] ?? 0),
+                    'split_role' => $line['split_role'] ?? null,
+                    'split_from_virtual_sold' => (bool) ($line['split_from_virtual_sold'] ?? false),
+                    'virtual_pick_line_id' => $line['virtual_pick_line_id'] ?: null,
+                    'received_for_order' => $line['order_number'] ?: null,
+                    'received_for_picking' => $line['task_number'] ?: null,
+                ];
+
+                $payload = [
                     'catalog_item_id' => $line['catalog_item_id'],
                     'location_id'     => $locationId,
                     'sku'             => $line['sku'] ?: ($item->sku ?? null),
@@ -199,7 +330,21 @@ class WmsReceptionController extends Controller
                     'lot'             => $line['lot'],
                     'condition'       => $line['condition'],
                     'is_new_product'  => false,
-                ]);
+                    'source_type'     => $line['source_type'] ?: null,
+                    'is_virtual_sold' => (bool) $line['is_virtual_sold'],
+                    'no_inventory'    => (bool) $line['no_inventory'],
+                    'virtual_flow_mode' => $line['virtual_flow_mode'] ?: null,
+                    'pick_wave_id'    => $line['pick_wave_id'],
+                    'task_number'     => $line['task_number'] ?: null,
+                    'order_number'    => $line['order_number'] ?: null,
+                    'fulfillment_group_id' => $line['fulfillment_group_id'] ?: null,
+                    'shipment_id'     => $line['shipment_id'],
+                    'shipment_number' => $line['shipment_number'] ?: null,
+                    'staging_location_code' => $line['staging_location_code'] ?: optional($location)->code,
+                    'meta'            => $lineMeta,
+                ];
+
+                $reception->lines()->create($this->filterColumns('wms_reception_lines', $payload));
             }
 
             return $reception;
@@ -679,6 +824,10 @@ class WmsReceptionController extends Controller
                 ->keyBy('id');
 
             foreach ($lines as $line) {
+                if ($this->lineDoesNotEnterInventory($line)) {
+                    continue;
+                }
+
                 $item = $catalogItems[$line->catalog_item_id] ?? null;
 
                 if (!$item) {
@@ -744,6 +893,82 @@ class WmsReceptionController extends Controller
             $reception->status = 'firmado';
             $reception->save();
         });
+    }
+
+    protected function virtualReceptionContextFromRequest(Request $request): array
+    {
+        $isVirtualSold = $this->truthy($request->get('is_virtual_sold'))
+            || $this->truthy($request->get('no_inventory'))
+            || strtolower(trim((string) $request->get('source_type'))) === 'virtual_sold'
+            || strtolower(trim((string) $request->get('virtual_flow_mode'))) === 'staging_before_shipping';
+
+        return [
+            'enabled' => $isVirtualSold,
+            'source_type' => $isVirtualSold ? 'virtual_sold' : (string) $request->get('source_type', ''),
+            'is_virtual_sold' => $isVirtualSold,
+            'no_inventory' => $isVirtualSold,
+            'virtual_flow_mode' => (string) $request->get('virtual_flow_mode', $isVirtualSold ? 'staging_before_shipping' : ''),
+            'pick_wave_id' => $request->get('pick_wave_id'),
+            'task_number' => (string) $request->get('task_number', ''),
+            'order_number' => (string) $request->get('order_number', ''),
+            'fulfillment_group_id' => (string) $request->get('fulfillment_group_id', ''),
+            'shipment_id' => $request->get('shipment_id'),
+            'shipment_number' => (string) $request->get('shipment_number', ''),
+            'staging_location_code' => (string) $request->get('staging_location_code', ''),
+            'sold_label' => (string) $request->get('sold_label', $isVirtualSold ? 'VENDIDO / NO INVENTARIAR' : ''),
+            'sold_quantity' => max(0, (int) $request->get('sold_quantity', $request->get('virtual_sold_quantity', $request->get('quantity_collected', 0)))),
+            'virtual_sold_quantity' => max(0, (int) $request->get('virtual_sold_quantity', $request->get('sold_quantity', $request->get('quantity_collected', 0)))),
+            'virtual_pick_line_id' => (string) $request->get('line_id', $request->get('virtual_pick_line_id', '')),
+            'catalog_item_id' => $request->get('catalog_item_id'),
+            'product_sku' => (string) $request->get('product_sku', $request->get('sku', '')),
+            'product_name' => (string) $request->get('product_name', ''),
+        ];
+    }
+
+    protected function truthy($value): bool
+    {
+        if ($value === true || $value === 1) {
+            return true;
+        }
+
+        return in_array(strtolower(trim((string) $value)), ['1', 'true', 'yes', 'si', 'sí', 'on'], true);
+    }
+
+    protected function filterColumns(string $table, array $payload): array
+    {
+        return collect($payload)
+            ->filter(fn ($value, $column) => Schema::hasColumn($table, (string) $column))
+            ->all();
+    }
+
+    protected function lineMeta($line): array
+    {
+        $meta = $line->meta ?? [];
+
+        if (is_array($meta)) {
+            return $meta;
+        }
+
+        if (is_string($meta) && trim($meta) !== '') {
+            $decoded = json_decode($meta, true);
+            if (is_array($decoded)) {
+                return $decoded;
+            }
+        }
+
+        return [];
+    }
+
+    protected function lineDoesNotEnterInventory($line): bool
+    {
+        $meta = $this->lineMeta($line);
+
+        return $this->truthy($line->no_inventory ?? false)
+            || $this->truthy($line->is_virtual_sold ?? false)
+            || $this->truthy($meta['no_inventory'] ?? false)
+            || $this->truthy($meta['is_virtual_sold'] ?? false)
+            || strtolower(trim((string) ($line->condition ?? ''))) === 'vendido'
+            || strtolower(trim((string) ($line->source_type ?? $meta['source_type'] ?? ''))) === 'virtual_sold';
     }
 
     protected function resolveSuggestedLocationId(CatalogItem $item, ?int $preferredLocationId = null, ?int $warehouseId = 1): ?int

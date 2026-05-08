@@ -1144,7 +1144,6 @@ TXT;
             ->filter()
             ->values();
     }
-
     private function manualMovementRows(int $warehouseId, ?string $from, ?string $to): Collection
     {
         if (!Schema::hasTable('wms_movements') || !Schema::hasTable('wms_movement_lines')) {
@@ -1203,12 +1202,52 @@ TXT;
                 return null;
             }
 
+            $movementMeta = $this->arrayMeta($movement->meta ?? null);
+            $lineMeta = $this->arrayMeta($line->meta ?? null);
+
             $item = $itemMap[(int) ($line->catalog_item_id ?? 0)] ?? null;
             $location = $locationMap[(int) ($line->location_id ?? 0)] ?? null;
             $user = $userMap[(int) ($movement->user_id ?? 0)] ?? null;
             $type = strtolower((string) ($movement->type ?? 'manual'));
             $when = $movement->created_at;
             $qty = (int) ($line->{$lineQtyColumn} ?? 0);
+
+            $productName = optional($item)->name
+                ?: (string) ($lineMeta['product_name'] ?? data_get($lineMeta, 'source_item.product_name') ?? data_get($lineMeta, 'source_item.name') ?? 'Producto');
+
+            $sku = optional($item)->sku
+                ?: (string) ($lineMeta['sku'] ?? data_get($lineMeta, 'source_item.product_sku') ?? data_get($lineMeta, 'source_item.sku') ?? '');
+
+            $reference = (string) (
+                $movement->reference
+                ?? $movementMeta['task_number']
+                ?? $movementMeta['order_number']
+                ?? ('WMS-' . $movement->id)
+            );
+
+            $fromLocation = null;
+            $toLocation = null;
+            $locationCode = optional($location)->code;
+
+            if (in_array($type, ['out', 'exit', 'salida'], true)) {
+                $fromLocation = $locationCode;
+            }
+
+            if (in_array($type, ['in', 'entry', 'entrada'], true)) {
+                $toLocation = $locationCode;
+            }
+
+            if ($type === 'virtual_pickup_collected') {
+                $fromLocation = (string) ($lineMeta['pickup_origin_name'] ?? $movementMeta['pickup_origin_name'] ?? 'EXTERNO');
+                $toLocation = (string) ($lineMeta['location_code'] ?? 'RECOLECTAR');
+                $locationCode = $toLocation;
+            }
+
+            if ($type === 'virtual_pickup_staged') {
+                $fromLocation = (string) ($lineMeta['location_code'] ?? 'RECOLECTAR');
+                $toLocation = (string) ($lineMeta['staging_location_code'] ?? 'PICKING');
+                $locationCode = $toLocation;
+            }
 
             return [
                 'event_id' => 'wms-line-' . $line->id,
@@ -1221,23 +1260,29 @@ TXT;
                 'user_id' => $movement->user_id,
                 'user_name' => optional($user)->name,
                 'item_id' => (int) ($line->catalog_item_id ?? 0),
-                'name' => optional($item)->name,
-                'sku' => optional($item)->sku,
+                'name' => $productName,
+                'sku' => $sku,
                 'gtin' => optional($item)->meli_gtin,
                 'qty' => $qty,
-                'from_location' => in_array($type, ['out', 'exit', 'salida'], true) ? optional($location)->code : null,
-                'to_location' => in_array($type, ['in', 'entry', 'entrada'], true) ? optional($location)->code : null,
-                'location' => optional($location)->code,
+                'from_location' => $fromLocation,
+                'to_location' => $toLocation,
+                'location' => $locationCode,
                 'stock_before' => (int) ($line->stock_before ?? 0),
                 'stock_after' => (int) ($line->stock_after ?? 0),
                 'inv_before' => (int) ($line->inv_before ?? 0),
                 'inv_after' => (int) ($line->inv_after ?? 0),
                 'note' => (string) ($movement->note ?? ''),
-                'reference' => 'WMS-' . $movement->id,
-                'meta' => [
-                    'movement_id' => $movement->id,
-                    'movement_line_id' => $line->id,
-                ],
+                'reference' => $reference,
+                'meta' => array_merge(
+                    $movementMeta,
+                    $lineMeta,
+                    [
+                        'movement_id' => $movement->id,
+                        'movement_line_id' => $line->id,
+                        'source_type' => $line->source_type ?? ($lineMeta['source_type'] ?? null),
+                        'line_uid' => $line->line_uid ?? null,
+                    ]
+                ),
             ];
         })->filter()->values();
     }
@@ -2012,7 +2057,6 @@ TXT;
 
         return null;
     }
-
     private function normalizeMovementGroup(?string $type): string
     {
         $type = strtolower(trim((string) $type));
@@ -2022,7 +2066,7 @@ TXT;
             in_array($type, ['out', 'exit', 'salida', 'salidas', 'fast_out', 'fast_out_partial', 'manual_out', 'pick_out', 'pick_complete', 'picking_out'], true) => 'exit',
             in_array($type, ['transfer', 'transferencia', 'traspaso'], true) => 'transfer',
             in_array($type, ['adjust', 'ajuste', 'inventory_adjustment', 'cycle_count', 'conteo'], true) => 'adjustment',
-            str_contains($type, 'pick') => 'picking',
+            str_contains($type, 'pick') || str_contains($type, 'virtual_pickup') => 'picking',
             default => 'other',
         };
     }

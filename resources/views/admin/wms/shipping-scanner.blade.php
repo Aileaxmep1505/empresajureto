@@ -1164,6 +1164,39 @@ document.addEventListener('DOMContentLoaded', function () {
         return Math.max(0, Math.min(100, val));
     }
 
+    function lineMeta(line) {
+        return line && typeof line.meta === 'object' && line.meta !== null ? line.meta : {};
+    }
+
+    function isVirtualLine(line) {
+        const meta = lineMeta(line);
+        const source = String(meta.source_type || '').toLowerCase().trim();
+        return source === 'virtual' || meta.is_virtual === true || meta.requires_pickup === true;
+    }
+
+    function virtualFlowMode(line) {
+        const meta = lineMeta(line);
+        return String(meta.virtual_flow_mode || '').toLowerCase().trim() || 'warehouse';
+    }
+
+    function virtualRequiresShippingScan(line) {
+        const meta = lineMeta(line);
+        if (!isVirtualLine(line)) return true;
+        if (virtualFlowMode(line) === 'direct_to_delivery') return false;
+        return meta.virtual_requires_shipping_scan !== false;
+    }
+
+    function virtualBadgeHtml(line) {
+        if (!isVirtualLine(line)) return '';
+        const mode = virtualFlowMode(line);
+        const autoLoaded = !virtualRequiresShippingScan(line);
+        const label = autoLoaded
+            ? 'Virtual · Entrega directa · Auto cargado'
+            : 'Virtual · Staging · Escaneo requerido';
+        const sold = '<span class="ss-badge complete" style="margin-left:6px;">Vendido / no inventariar</span>';
+        return `<span class="ss-badge ${autoLoaded ? 'complete' : 'pending'}">${escapeHtml(label)}</span>${sold}`;
+    }
+
     function applyUserPhone(force = false) {
         const option = deliveryUserSelect.options[deliveryUserSelect.selectedIndex];
         const phone = option ? String(option.dataset.phone || '').trim() : '';
@@ -1274,7 +1307,10 @@ document.addEventListener('DOMContentLoaded', function () {
                                         <div class="ss-line-sub">
                                             SKU ${escapeHtml(line.product_sku || '—')}
                                             ${line.location_code ? ' · ' + escapeHtml(line.location_code) : ''}
+                                            ${isVirtualLine(line) ? ' · ' + escapeHtml(lineMeta(line).sold_label || 'VENDIDO / NO INVENTARIAR') : ''}
+                                            ${isVirtualLine(line) && line.staging_location_code ? ' · Dejar/recoger en ' + escapeHtml(line.staging_location_code) : ''}
                                         </div>
+                                        ${virtualBadgeHtml(line) ? `<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">${virtualBadgeHtml(line)}</div>` : ''}
                                     </div>
                                     <span class="ss-badge ${escapeHtml(line.status || 'pending')}">
                                         ${escapeHtml((line.status || 'pending').replace('_', ' '))}
@@ -1283,7 +1319,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
                                 <div class="ss-line-stats">
                                     <div class="ss-line-stat">
-                                        <span>Piezas</span>
+                                        <span>${isVirtualLine(line) && !virtualRequiresShippingScan(line) ? 'Piezas auto cargadas' : 'Piezas'}</span>
                                         <span class="val">${Number(line.loaded_qty || 0).toLocaleString()} / ${Number(line.expected_qty || 0).toLocaleString()}</span>
                                     </div>
                                     <div class="ss-line-stat">

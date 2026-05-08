@@ -138,6 +138,21 @@ class WmsShippingController extends Controller implements HasMiddleware
 
         $task = $this->normalizePickWave($pickWave);
 
+        $pendingVirtual = collect($task['items'] ?? [])->first(function ($item) {
+            return $this->isVirtualItem($item) && !$this->isVirtualReadyForShipping($item);
+        });
+
+        if ($pendingVirtual) {
+            $mode = $this->virtualFlowMode($pendingVirtual);
+            $message = $mode === 'direct_to_delivery'
+                ? 'No puedes generar embarque: hay producto virtual de entrega directa pendiente de recolectar.'
+                : 'No puedes generar embarque: hay producto virtual pendiente de recolectar o dejar en staging/recepción.';
+
+            throw ValidationException::withMessages([
+                'pickWave' => $message,
+            ]);
+        }
+
         if (empty($task['items'])) {
             throw ValidationException::withMessages([
                 'pickWave' => 'La tarea de picking no contiene líneas.',
@@ -814,6 +829,11 @@ class WmsShippingController extends Controller implements HasMiddleware
 
     protected function buildShipmentLinePayload(array $item): array
     {
+        $isVirtual = $this->isVirtualItem($item);
+        $virtualMode = $isVirtual ? $this->virtualFlowMode($item) : 'warehouse';
+        $requiresShippingScan = $isVirtual ? $this->virtualRequiresShippingScan($item) : true;
+        $autoLoaded = $isVirtual && !$requiresShippingScan;
+
         $expectedAllocations = $this->normalizeBoxAllocations(
             $item['stage_box_allocations'] ?? $item['box_allocations'] ?? []
         );
@@ -826,12 +846,29 @@ class WmsShippingController extends Controller implements HasMiddleware
             );
         }
 
-        $expectedQty = max(0, (int) ($item['quantity_staged'] ?? 0));
-        if ($expectedQty <= 0) {
-            $expectedQty = max(0, (int) ($item['quantity_picked'] ?? 0));
+        if ($autoLoaded) {
+            $expectedAllocations = [];
+            $expectedBoxLabels = [];
         }
-        if ($expectedQty <= 0) {
-            $expectedQty = max(0, (int) ($item['quantity_required'] ?? 0));
+
+        if ($isVirtual) {
+            $required = max(0, (int) ($item['quantity_required'] ?? 0));
+            $collected = max(0, (int) ($item['quantity_collected'] ?? $item['quantity_picked'] ?? 0));
+            $staged = max(0, (int) ($item['quantity_staged'] ?? 0));
+
+            if ($virtualMode === 'direct_to_delivery') {
+                $expectedQty = $collected > 0 ? $collected : $required;
+            } else {
+                $expectedQty = $staged > 0 ? $staged : $required;
+            }
+        } else {
+            $expectedQty = max(0, (int) ($item['quantity_staged'] ?? 0));
+            if ($expectedQty <= 0) {
+                $expectedQty = max(0, (int) ($item['quantity_picked'] ?? 0));
+            }
+            if ($expectedQty <= 0) {
+                $expectedQty = max(0, (int) ($item['quantity_required'] ?? 0));
+            }
         }
 
         $allocationQty = collect($expectedAllocations)->sum(fn ($row) => max(0, (int) ($row['pieces'] ?? 0)));
@@ -840,6 +877,12 @@ class WmsShippingController extends Controller implements HasMiddleware
         }
 
         $phase = max(1, (int) ($item['delivery_phase'] ?? $item['phase'] ?? 1));
+
+        $loadedQty = $autoLoaded ? $expectedQty : 0;
+        $missingQty = max(0, $expectedQty - $loadedQty);
+        $loadedBoxes = 0;
+        $missingBoxes = count($expectedBoxLabels);
+        $status = $autoLoaded ? 'complete' : 'pending';
 
         return [
             'pick_line_id' => (string) ($item['line_id'] ?? (string) Str::uuid()),
@@ -853,22 +896,29 @@ class WmsShippingController extends Controller implements HasMiddleware
             'phase' => $phase,
 
             'expected_qty' => $expectedQty,
-            'loaded_qty' => 0,
-            'missing_qty' => $expectedQty,
+            'loaded_qty' => $loadedQty,
+            'missing_qty' => $missingQty,
             'extra_qty' => 0,
 
             'expected_boxes' => count($expectedBoxLabels),
-            'loaded_boxes' => 0,
-            'missing_boxes' => count($expectedBoxLabels),
+            'loaded_boxes' => $loadedBoxes,
+            'missing_boxes' => $missingBoxes,
 
-            'status' => 'pending',
+            'status' => $status,
             'reason_code' => null,
             'reason_note' => null,
 
             'expected_boxes_json' => array_values($expectedBoxLabels),
             'loaded_boxes_json' => [],
             'expected_allocations_json' => array_values($expectedAllocations),
-            'loaded_allocations_json' => [],
+            'loaded_allocations_json' => $autoLoaded ? [[
+                'label' => 'VIRTUAL-DIRECT-' . (string) ($item['line_id'] ?? Str::uuid()),
+                'pieces' => $loadedQty,
+                'scanned_at' => now()->toDateTimeString(),
+                'user_id' => auth()->id(),
+                'type' => 'virtual_direct_to_delivery',
+                'auto_loaded' => true,
+            ]] : [],
 
             'meta' => [
                 'product_barcode' => strtoupper((string) ($item['product_barcode'] ?? '')),
@@ -877,9 +927,97 @@ class WmsShippingController extends Controller implements HasMiddleware
                 'model' => (string) ($item['model'] ?? $item['model_name'] ?? ''),
                 'description' => (string) ($item['description'] ?? ''),
                 'units_per_box' => max(0, (int) ($item['units_per_box'] ?? 0)),
+                'source_type' => (string) ($item['source_type'] ?? ''),
+                'is_virtual' => $isVirtual,
+                'requires_pickup' => (bool) ($item['requires_pickup'] ?? false),
+                'pickup_status' => (string) ($item['pickup_status'] ?? ''),
+                'pickup_origin_name' => (string) ($item['pickup_origin_name'] ?? ''),
+                'pickup_notes' => (string) ($item['pickup_notes'] ?? ''),
+                'pickup_collected_at' => $item['pickup_collected_at'] ?? null,
+                'pickup_staged_at' => $item['pickup_staged_at'] ?? null,
+                'staging_location_code' => (string) ($item['staging_location_code'] ?? ''),
+                'virtual_flow_mode' => $virtualMode,
+                'virtual_auto_loaded_to_shipment' => $autoLoaded,
+                'virtual_requires_shipping_scan' => $requiresShippingScan,
+                'virtual_sold_for_order' => true,
+                'sold_label' => $isVirtual ? 'VENDIDO / NO INVENTARIAR' : '',
+                'fulfillment_group_id' => (string) ($item['fulfillment_group_id'] ?? ''),
                 'source_item' => $item,
             ],
         ];
+    }
+
+    protected function isVirtualItem(array $item): bool
+    {
+        $sourceType = strtolower(trim((string) ($item['source_type'] ?? '')));
+
+        return $sourceType === 'virtual'
+            || filter_var(($item['is_virtual'] ?? false), FILTER_VALIDATE_BOOLEAN)
+            || filter_var(($item['requires_pickup'] ?? false), FILTER_VALIDATE_BOOLEAN);
+    }
+
+    protected function virtualFlowMode(array $item): string
+    {
+        $mode = strtolower(trim((string) (
+            $item['virtual_flow_mode']
+            ?? $item['flow_mode']
+            ?? data_get($item, 'meta.virtual_flow_mode')
+            ?? ''
+        )));
+
+        if (in_array($mode, ['direct_to_delivery', 'direct', 'delivery_direct', 'entrega_directa'], true)) {
+            return 'direct_to_delivery';
+        }
+
+        if (in_array($mode, ['staging_before_shipping', 'staging', 'warehouse_staging', 'recepcion', 'recepción'], true)) {
+            return 'staging_before_shipping';
+        }
+
+        $status = strtolower(trim((string) ($item['pickup_status'] ?? 'pending')));
+        $autoLoaded = filter_var(($item['virtual_auto_loaded_to_shipment'] ?? false), FILTER_VALIDATE_BOOLEAN);
+        $requiresScan = filter_var(($item['virtual_requires_shipping_scan'] ?? true), FILTER_VALIDATE_BOOLEAN);
+
+        if ($autoLoaded || (!$requiresScan && in_array($status, ['collected', 'ready_to_ship'], true))) {
+            return 'direct_to_delivery';
+        }
+
+        return 'staging_before_shipping';
+    }
+
+    protected function virtualRequiresShippingScan(array $item): bool
+    {
+        if (!$this->isVirtualItem($item)) {
+            return true;
+        }
+
+        $mode = $this->virtualFlowMode($item);
+
+        if ($mode === 'direct_to_delivery') {
+            return false;
+        }
+
+        return true;
+    }
+
+    protected function isVirtualReadyForShipping(array $item): bool
+    {
+        if (!$this->isVirtualItem($item)) {
+            return true;
+        }
+
+        $required = max(1, (int) ($item['quantity_required'] ?? 1));
+        $collected = max(0, (int) ($item['quantity_collected'] ?? $item['quantity_picked'] ?? 0));
+        $staged = max(0, (int) ($item['quantity_staged'] ?? 0));
+        $status = strtolower(trim((string) ($item['pickup_status'] ?? 'pending')));
+        $mode = $this->virtualFlowMode($item);
+
+        if ($mode === 'direct_to_delivery') {
+            return in_array($status, ['collected', 'ready_to_ship', 'staged'], true)
+                && $collected >= $required;
+        }
+
+        return in_array($status, ['staged', 'ready_to_ship'], true)
+            && ($staged >= $required || trim((string) ($item['staging_location_code'] ?? '')) !== '');
     }
 
     protected function startLoadingIfNeeded(WmsShipment $shipment): void
@@ -1290,6 +1428,22 @@ class WmsShippingController extends Controller implements HasMiddleware
             $locationCode = 'FAST FLOW';
         }
 
+        $isVirtual = filter_var(($item['is_virtual'] ?? false), FILTER_VALIDATE_BOOLEAN)
+            || filter_var(($item['requires_pickup'] ?? false), FILTER_VALIDATE_BOOLEAN)
+            || strtolower(trim((string) ($item['source_type'] ?? ''))) === 'virtual';
+
+        $sourceType = strtolower(trim((string) ($item['source_type'] ?? '')));
+        if ($isVirtual) {
+            $sourceType = 'virtual';
+            if ($locationCode === '') {
+                $locationCode = 'RECOLECTAR';
+            }
+        } elseif ($isFastFlow) {
+            $sourceType = 'fastflow';
+        } elseif ($sourceType === '') {
+            $sourceType = 'warehouse';
+        }
+
         return [
             'line_id' => (string) ($item['line_id'] ?? (string) Str::uuid()),
             'product_id' => $item['product_id'] ?? null,
@@ -1314,7 +1468,22 @@ class WmsShippingController extends Controller implements HasMiddleware
             'requested_quantity' => max(1, (int) ($item['requested_quantity'] ?? $required)),
             'available_stock' => max(0, (int) ($item['available_stock'] ?? 0)),
             'is_fastflow' => $isFastFlow,
-            'staging_location_code' => (string) ($item['staging_location_code'] ?? ''),
+            'source_type' => $sourceType,
+            'is_virtual' => $isVirtual,
+            'requires_pickup' => filter_var(($item['requires_pickup'] ?? $isVirtual), FILTER_VALIDATE_BOOLEAN),
+            'pickup_status' => (string) ($item['pickup_status'] ?? ($isVirtual ? 'pending' : '')),
+            'pickup_origin_name' => (string) ($item['pickup_origin_name'] ?? ''),
+            'pickup_notes' => (string) ($item['pickup_notes'] ?? ''),
+            'pickup_collected_at' => $this->normalizeDateString($item['pickup_collected_at'] ?? null),
+            'pickup_staged_at' => $this->normalizeDateString($item['pickup_staged_at'] ?? null),
+            'virtual_flow_mode' => $isVirtual
+                ? (string) ($item['virtual_flow_mode'] ?? $item['flow_mode'] ?? 'staging_before_shipping')
+                : '',
+            'virtual_auto_loaded_to_shipment' => filter_var(($item['virtual_auto_loaded_to_shipment'] ?? false), FILTER_VALIDATE_BOOLEAN),
+            'virtual_requires_shipping_scan' => $isVirtual
+                ? filter_var(($item['virtual_requires_shipping_scan'] ?? true), FILTER_VALIDATE_BOOLEAN)
+                : true,
+            'staging_location_code' => (string) ($item['staging_location_code'] ?? ($isVirtual ? 'PICKING' : '')),
             'collected_at' => $this->normalizeDateString($item['collected_at'] ?? null),
             'staged_at' => $this->normalizeDateString($item['staged_at'] ?? null),
             'units_per_box' => max(0, (int) ($item['units_per_box'] ?? 0)),

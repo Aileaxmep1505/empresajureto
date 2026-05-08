@@ -506,6 +506,9 @@
   let scanAutoTimer = null;
   let lastToastKey = '';
   let lastToastAt = 0;
+  let lastSubmittedScanKey = '';
+  let lastSubmittedScanAt = 0;
+  let persistQueue = Promise.resolve();
 
   function esc(str){
     return String(str ?? '').replace(/[&<>"']/g, m => ({
@@ -880,27 +883,114 @@
     return match ? normalize(match[1]) : null;
   }
 
+  function productIdentifiers(product){
+    return uniqueLabels([
+      product?.sku,
+      product?.barcode,
+      product?.code
+    ]);
+  }
+
+  function itemIdentifiers(item){
+    return uniqueLabels([
+      item?.product_sku,
+      item?.product_barcode,
+      item?.product_code,
+      item?.sku,
+      item?.barcode,
+      item?.code
+    ]);
+  }
+
   function findProductByScan(barcode){
     const code = normalize(barcode);
 
+    if(!code) return null;
+
+    // Scanner estricto: no se hace match por nombre para evitar falsos positivos.
     return products.find(p =>
       normalize(p.barcode) === code ||
       normalize(p.sku) === code ||
-      normalize(p.code) === code ||
-      normalize(p.name) === code
-    );
+      normalize(p.code) === code
+    ) || null;
+  }
+
+  function getTaskItemIndexesByScan(barcode){
+    const code = normalize(barcode);
+
+    if(!code || !selectedTask) return [];
+
+    const items = selectedTask.items || [];
+
+    // 1) Primero buscar directo en las líneas de esta tarea.
+    // Así si una línea tiene SKU 7501493009356, se toma esa línea antes que cualquier dato del catálogo.
+    const directMatches = items
+      .map((item, index) => itemIdentifiers(item).includes(code) ? index : null)
+      .filter(index => index !== null);
+
+    if(directMatches.length){
+      return directMatches;
+    }
+
+    // 2) Fallback: buscar en catálogo por SKU/barcode/code exacto y cruzar por product_id.
+    const product = findProductByScan(code);
+
+    if(!product) return [];
+
+    const productId = String(product?.id ?? '');
+    const productCodes = productIdentifiers(product);
+
+    return items
+      .map((item, index) => {
+        const itemProductId = String(item?.product_id ?? item?.catalog_item_id ?? '');
+        const sameProductId = productId !== '' && itemProductId !== '' && itemProductId === productId;
+        const sameCode = itemIdentifiers(item).some(value => productCodes.includes(value));
+
+        return sameProductId || sameCode ? index : null;
+      })
+      .filter(index => index !== null);
+  }
+
+  function findBestTaskItemIndexByScan(barcode, mode = 'collect'){
+    const indexes = getTaskItemIndexesByScan(barcode);
+
+    if(!indexes.length) return -1;
+
+    if(mode === 'collect'){
+      const pendingCollect = indexes.find(index => {
+        const item = selectedTask.items[index];
+        return asNumber(item.quantity_picked) < asNumber(item.quantity_required);
+      });
+
+      return pendingCollect ?? indexes[0];
+    }
+
+    if(mode === 'stage'){
+      const pendingStage = indexes.find(index => {
+        const item = selectedTask.items[index];
+        return asNumber(item.quantity_staged) < asNumber(item.quantity_required)
+          && asNumber(item.quantity_picked) > asNumber(item.quantity_staged);
+      });
+
+      return pendingStage ?? indexes[0];
+    }
+
+    return indexes[0];
   }
 
   function findTaskItemIndexByProduct(product){
-    const s = normalize(product?.sku);
-    const b = normalize(product?.barcode);
-    const c = normalize(product?.code);
+    if(!selectedTask || !product) return -1;
 
-    return (selectedTask.items || []).findIndex(i =>
-      normalize(i.product_sku) === s ||
-      normalize(i.product_barcode) === b ||
-      normalize(i.product_code) === c
-    );
+    const productId = String(product?.id ?? '');
+    const productCodes = productIdentifiers(product);
+
+    return (selectedTask.items || []).findIndex(item => {
+      const itemProductId = String(item?.product_id ?? item?.catalog_item_id ?? '');
+      const sameProductId = productId !== '' && itemProductId !== '' && itemProductId === productId;
+      const sameCode = itemIdentifiers(item).some(value => productCodes.includes(value));
+
+      return sameProductId || sameCode;
+    });
   }
 
   function getFastFlowPickedBoxes(item){
@@ -1028,6 +1118,7 @@
 
   async function patchTask(id, payload, options = {}){
     const shouldRender = options.render !== false;
+    const skipLocal = options.skipLocal === true;
 
     const res = await fetch(`${updateUrlBase}/${id}`, {
       method: 'PATCH',
@@ -1054,15 +1145,47 @@
     }
 
     const updatedTask = ensureTaskShape(data.task);
-    tasks = tasks.map(t => Number(t.id) === Number(id) ? updatedTask : t);
-    selectedTask = updatedTask;
 
-    renderTaskList();
-    if(shouldRender){
-      renderPanel();
+    if(!skipLocal){
+      tasks = tasks.map(t => Number(t.id) === Number(id) ? updatedTask : t);
+      selectedTask = updatedTask;
+
+      renderTaskList();
+      if(shouldRender){
+        renderPanel();
+      }
     }
 
     return updatedTask;
+  }
+
+  function applyLocalTaskPatch(payload){
+    if(!selectedTask) return;
+
+    const nextTask = ensureTaskShape({
+      ...selectedTask,
+      ...payload,
+      items: payload.items ? cloneTaskItems(payload.items) : cloneTaskItems(selectedTask.items || [])
+    });
+
+    selectedTask = nextTask;
+    tasks = tasks.map(t => Number(t.id) === Number(nextTask.id) ? nextTask : t);
+    renderTaskList();
+  }
+
+  function queueTaskPersist(id, payload){
+    const safePayload = JSON.parse(JSON.stringify(payload));
+
+    persistQueue = persistQueue
+      .then(() => patchTask(id, safePayload, { render: false, skipLocal: true }))
+      .catch(error => {
+        addHistory({
+          type: 'error',
+          message: 'No se pudo guardar el último escaneo: ' + (error?.message || 'Error desconocido')
+        });
+      });
+
+    return persistQueue;
   }
 
   function renderTaskList(){
@@ -1364,6 +1487,19 @@
       return;
     }
 
+    const scanKey = `${currentMode}|${barcode}`;
+    const now = Date.now();
+
+    // Evita doble procesamiento cuando el lector manda input + Enter casi al mismo tiempo.
+    if(scanKey === lastSubmittedScanKey && (now - lastSubmittedScanAt) < 180){
+      scanInput.value = '';
+      scanInput.focus();
+      return;
+    }
+
+    lastSubmittedScanKey = scanKey;
+    lastSubmittedScanAt = now;
+
     scanBusy = true;
 
     try{
@@ -1432,14 +1568,12 @@
         if(!currentValue) return;
 
         const looksLikeFastFlow = /^FF-\d{6}-\d{3}-C\d{3,}$/i.test(currentValue);
-        const looksLikeShortCode = currentValue.length >= 3;
+        const looksLikeNumericBarcode = /^\d{8,20}$/.test(currentValue);
+        const exactTaskMatch = getTaskItemIndexesByScan(currentValue).length > 0;
 
-        if(looksLikeFastFlow){
-          submitCurrentScan();
-          return;
-        }
-
-        if(looksLikeShortCode){
+        // Instantáneo, pero solo con códigos completos.
+        // Códigos cortos alfanuméricos como NIMH se procesan con Enter para evitar falsos positivos.
+        if(looksLikeFastFlow || (looksLikeNumericBarcode && exactTaskMatch)){
           scanAutoTimer = setTimeout(async () => {
             const latestFixedValue = normalizeScanInputValue(scanInput.value || '');
             if(scanInput.value !== latestFixedValue){
@@ -1450,7 +1584,7 @@
             if(!freshValue) return;
 
             await submitCurrentScan();
-          }, 45);
+          }, 25);
         }
       });
 
@@ -1691,11 +1825,17 @@
 
       const allPicked = items.every(i => asNumber(i.quantity_picked) >= asNumber(i.quantity_required));
 
-      await patchTask(selectedTask.id, {
+      applyLocalTaskPatch({
         items,
         status: 'in_progress',
         completed_at: null
-      }, { render: false });
+      });
+
+      queueTaskPersist(selectedTask.id, {
+        items,
+        status: 'in_progress',
+        completed_at: null
+      });
 
       addHistory({
         type: 'success',
@@ -1714,17 +1854,15 @@
       return;
     }
 
-    const product = findProductByScan(barcode);
-    if(!product){
-      addHistory({ type: 'error', message: 'Código no encontrado.', sku: barcode });
-      return;
-    }
-
     const items = cloneTaskItems(selectedTask.items);
-    const idx = findTaskItemIndexByProduct(product);
+    const idx = findBestTaskItemIndexByScan(barcode, 'collect');
 
     if(idx === -1){
-      addHistory({ type: 'error', message: 'Ese producto no pertenece a esta tarea.', sku: product.sku || barcode });
+      addHistory({
+        type: 'error',
+        message: 'Ese código no pertenece a los productos físicos de esta tarea.',
+        sku: barcode
+      });
       return;
     }
 
@@ -1733,7 +1871,7 @@
     const pck = asNumber(item.quantity_picked);
 
     if(pck >= req){
-      addHistory({ type: 'warning', message: 'Ese producto ya alcanzó la cantidad requerida.', sku: product.sku });
+      addHistory({ type: 'warning', message: 'Ese producto ya alcanzó la cantidad requerida.', sku: item.product_sku || barcode });
       return;
     }
 
@@ -1744,11 +1882,17 @@
 
     const allPicked = items.every(i => asNumber(i.quantity_picked) >= asNumber(i.quantity_required));
 
-    await patchTask(selectedTask.id, {
+    applyLocalTaskPatch({
       items,
       status: 'in_progress',
       completed_at: null
-    }, { render: false });
+    });
+
+    queueTaskPersist(selectedTask.id, {
+      items,
+      status: 'in_progress',
+      completed_at: null
+    });
 
     addHistory({
       type: 'success',
@@ -1864,11 +2008,17 @@
 
       const allStaged = items.every(i => asNumber(i.quantity_staged) >= asNumber(i.quantity_required));
 
-      await patchTask(selectedTask.id, {
+      applyLocalTaskPatch({
         items,
         status: allStaged ? 'completed' : 'in_progress',
         completed_at: allStaged ? new Date().toISOString() : null
-      }, { render: false });
+      });
+
+      queueTaskPersist(selectedTask.id, {
+        items,
+        status: allStaged ? 'completed' : 'in_progress',
+        completed_at: allStaged ? new Date().toISOString() : null
+      });
 
       addHistory({
         type: 'success',
@@ -1886,17 +2036,15 @@
       return;
     }
 
-    const product = findProductByScan(barcode);
-    if(!product){
-      addHistory({ type: 'error', message: 'Código no encontrado.', sku: barcode });
-      return;
-    }
-
     const items = cloneTaskItems(selectedTask.items);
-    const idx = findTaskItemIndexByProduct(product);
+    const idx = findBestTaskItemIndexByScan(barcode, 'stage');
 
     if(idx === -1){
-      addHistory({ type: 'error', message: 'Ese producto no pertenece a esta tarea.', sku: product.sku || barcode });
+      addHistory({
+        type: 'error',
+        message: 'Ese código no pertenece a los productos recolectados de esta tarea.',
+        sku: barcode
+      });
       return;
     }
 
@@ -1906,12 +2054,12 @@
     const stg = asNumber(item.quantity_staged);
 
     if(pck <= stg){
-      addHistory({ type: 'warning', message: 'No hay unidades recolectadas disponibles para ubicar.', sku: product.sku });
+      addHistory({ type: 'warning', message: 'No hay unidades recolectadas disponibles para ubicar.', sku: item.product_sku || barcode });
       return;
     }
 
     if(stg >= req){
-      addHistory({ type: 'warning', message: 'Ese producto ya quedó completamente ubicado.', sku: product.sku });
+      addHistory({ type: 'warning', message: 'Ese producto ya quedó completamente ubicado.', sku: item.product_sku || barcode });
       return;
     }
 
@@ -1923,11 +2071,17 @@
 
     const allStaged = items.every(i => asNumber(i.quantity_staged) >= asNumber(i.quantity_required));
 
-    await patchTask(selectedTask.id, {
+    applyLocalTaskPatch({
       items,
       status: allStaged ? 'completed' : 'in_progress',
       completed_at: allStaged ? new Date().toISOString() : null
-    }, { render: false });
+    });
+
+    queueTaskPersist(selectedTask.id, {
+      items,
+      status: allStaged ? 'completed' : 'in_progress',
+      completed_at: allStaged ? new Date().toISOString() : null
+    });
 
     addHistory({
       type: 'success',

@@ -27,6 +27,11 @@
       'stock'         => (int) data_get($p, 'stock', data_get($p, 'current_stock', data_get($p, 'existencia', data_get($p, 'qty', 0)))),
       'available_stock' => (int) data_get($p, 'available_stock', data_get($p, 'stock', data_get($p, 'current_stock', data_get($p, 'existencia', data_get($p, 'qty', 0))))),
       'is_fastflow'   => (bool) data_get($p, 'is_fastflow', false),
+      'source_type'   => (string) data_get($p, 'source_type', 'warehouse'),
+      'is_virtual'    => (bool) data_get($p, 'is_virtual', false),
+      'requires_pickup' => (bool) data_get($p, 'requires_pickup', false),
+      'pickup_origin_name' => (string) data_get($p, 'pickup_origin_name', ''),
+      'pickup_notes' => (string) data_get($p, 'pickup_notes', ''),
   ])->values();
 
   $fastFlowCards = collect($recentBatches ?? [])->map(fn($b) => [
@@ -138,6 +143,81 @@
     border-radius: 0 0 10px 10px;
     flex-shrink: 0; /* Evita que se encoja */
 }
+
+
+  /* =========================================
+   PRODUCTO VIRTUAL / RECOLECCION EXTERNA
+   ========================================= */
+  .pkf-virtual-panel {
+    margin-top: 14px;
+    padding: 14px;
+    border: 1px solid #e6f0ff;
+    background: #f8fbff;
+    border-radius: 14px;
+  }
+
+  .pkf-virtual-toggle {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .pkf-virtual-toggle input {
+    width: 18px;
+    height: 18px;
+    margin-top: 2px;
+    accent-color: #007aff;
+  }
+
+  .pkf-virtual-title {
+    display: block;
+    color: #111111;
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .pkf-virtual-sub {
+    display: block;
+    margin-top: 3px;
+    color: #888888;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.35;
+  }
+
+  .pkf-virtual-fields {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+    gap: 12px;
+    margin-top: 14px;
+  }
+
+  .pkf-virtual-badge {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    padding: 5px 9px;
+    border-radius: 999px;
+    background: #e6f0ff;
+    color: #007aff;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .02em;
+  }
+
+  .pkf-item-tag-virtual {
+    background: #e6f0ff !important;
+    color: #007aff !important;
+  }
+
+  @media (max-width: 760px) {
+    .pkf-virtual-fields {
+      grid-template-columns: 1fr;
+    }
+  }
+
 </style>
 @endpush
 @section('content_class', 'content--flush')
@@ -376,6 +456,28 @@
           <div class="pkf-ribbon-item"><span class="pkf-ribbon-label">Ubicación</span> <span class="pkf-ribbon-val" id="previewLocationText">—</span></div>
           <div class="pkf-ribbon-item pkf-ribbon-desc"><span class="pkf-ribbon-val pkf-text-muted" id="previewDescriptionText">Esperando selección...</span></div>
         </div>
+
+        <div class="pkf-virtual-panel" id="virtualPickupPanel">
+          <label class="pkf-virtual-toggle" for="virtualPickupToggle">
+            <input type="checkbox" id="virtualPickupToggle">
+            <span>
+              <span class="pkf-virtual-title">Producto virtual / recolección externa</span>
+              <span class="pkf-virtual-sub">Actívalo cuando el producto no está en almacén y primero se debe recolectar afuera. No afecta stock; queda auditado como virtual.</span>
+            </span>
+          </label>
+
+          <div class="pkf-virtual-fields" id="virtualPickupFields" style="display:none;">
+            <div class="pkf-field">
+              <label for="virtualOriginInput">Origen de recolección</label>
+              <input type="text" id="virtualOriginInput" placeholder="Proveedor / cliente / punto externo">
+            </div>
+
+            <div class="pkf-field">
+              <label for="virtualNotesInput">Notas de recolección</label>
+              <input type="text" id="virtualNotesInput" placeholder="Instrucciones para recolectar antes de entregar">
+            </div>
+          </div>
+        </div>
       </div>
 
       @if($fastFlowCards->count())
@@ -593,6 +695,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const pLoc = document.getElementById('previewLocationText');
   const pDesc = document.getElementById('previewDescriptionText');
 
+  const virtualPickupToggle = document.getElementById('virtualPickupToggle');
+  const virtualPickupFields = document.getElementById('virtualPickupFields');
+  const virtualOriginInput = document.getElementById('virtualOriginInput');
+  const virtualNotesInput = document.getElementById('virtualNotesInput');
+
   const fastFlowInspector = document.getElementById('fastFlowInspector');
   const fastFlowEmpty = document.getElementById('fastFlowEmpty');
   const fastFlowContent = document.getElementById('fastFlowContent');
@@ -644,6 +751,36 @@ document.addEventListener('DOMContentLoaded', () => {
     const total = getTotalPhases();
     const value = Math.max(1, Number(phaseInput.value) || 1);
     return value > total ? total : value;
+  };
+
+  const isVirtualMode = () => Boolean(virtualPickupToggle?.checked);
+
+  const syncVirtualUi = () => {
+    const enabled = isVirtualMode();
+
+    if (virtualPickupFields) {
+      virtualPickupFields.style.display = enabled ? '' : 'none';
+    }
+
+    if (enabled) {
+      selectedProductFastFlowInput.value = '0';
+      selectedFastFlowBatchInput.value = '';
+      clearFastFlowInspector();
+      locInput.value = 'RECOLECTAR';
+      pLoc.textContent = 'RECOLECTAR';
+      qtyInput.disabled = false;
+      qtyInput.removeAttribute('max');
+      if ((Number(qtyInput.value) || 0) < 1) qtyInput.value = 1;
+    } else if (selectedProduct) {
+      const availableStock = getAvailableStock(selectedProduct);
+      qtyInput.max = availableStock > 0 ? availableStock : 1;
+      qtyInput.disabled = availableStock <= 0;
+      if (availableStock > 0 && (Number(qtyInput.value) || 0) < 1) qtyInput.value = 1;
+      if (!locInput.value || locInput.value === 'RECOLECTAR') locInput.value = selectedProduct.location_code || '';
+      pLoc.textContent = locInput.value || selectedProduct.location_code || '—';
+    }
+
+    renderProductOptions(searchInput.value || '');
   };
 
   const clampStepperValue = (input) => {
@@ -720,6 +857,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const getAvailableStock = (product) => {
     if (!product) return 0;
+
+    if (isVirtualMode()) return 999999;
 
     const card = selectedFastFlowCard && (
       normalize(selectedFastFlowCard.sku) === normalize(product.sku) ||
@@ -843,20 +982,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
       updatePreview(product);
 
-      if (options.fastflow || product.is_fastflow) {
+      if (isVirtualMode()) {
+        locInput.value = 'RECOLECTAR';
+        pLoc.textContent = 'RECOLECTAR';
+      } else if (options.fastflow || product.is_fastflow) {
         locInput.value = 'FAST FLOW';
         pLoc.textContent = 'FAST FLOW';
       } else if (!locInput.value) {
         locInput.value = product.location_code || '';
+        pLoc.textContent = locInput.value || product.location_code || '—';
       }
 
-      qtyInput.max = availableStock > 0 ? availableStock : 1;
-      qtyInput.value = availableStock > 0 ? 1 : 0;
-      qtyInput.disabled = availableStock <= 0;
+      /**
+       * No limitamos la cantidad al stock.
+       * Ejemplo: si hay 4 en stock y pides 8, se crearán 2 líneas:
+       * - 4 almacén / fastflow
+       * - 4 virtual / recolectar
+       */
+      qtyInput.removeAttribute('max');
+      qtyInput.disabled = false;
+      qtyInput.value = Math.max(1, Number(qtyInput.value) || 1);
 
-      if (options.fastflowCard) {
+      if (!isVirtualMode() && options.fastflowCard) {
         renderFastFlowInspector(options.fastflowCard, product);
-      } else {
+      } else if (!isVirtualMode()) {
         const card = matchFastFlowByProduct(product);
         if (card) {
           renderFastFlowInspector(card, product);
@@ -870,7 +1019,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
       productSelect.classList.remove('has-value');
       productSelectPlaceholder.textContent = 'Buscar producto...';
-      qtyInput.max = 1;
+      qtyInput.removeAttribute('max');
       qtyInput.value = 1;
       qtyInput.disabled = false;
       resetPreview();
@@ -882,6 +1031,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const setFastFlowSelection = (card) => {
     if (!card) return;
+
+    if (virtualPickupToggle) {
+      virtualPickupToggle.checked = false;
+      if (virtualPickupFields) virtualPickupFields.style.display = 'none';
+    }
 
     const matchedProduct = findCatalogProductByFastFlow(card);
     const fallbackProduct = {
@@ -967,10 +1121,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const fastFlowMatch = matchFastFlowByProduct(p);
       const availableStock = getAvailableStock(p);
-      const isOutOfStock = availableStock <= 0;
+      const isVirtual = isVirtualMode();
+      const isOutOfStock = !isVirtual && availableStock <= 0;
 
       return `
-        <div class="pkf-product-option ${index === highlightedIndex ? 'is-active' : ''} ${isOutOfStock ? 'is-disabled' : ''}" data-index="${index}">
+        <div class="pkf-product-option ${index === highlightedIndex ? 'is-active' : ''}" data-index="${index}">
           <div class="pkf-product-thumb">${thumb}</div>
 
           <div class="pkf-product-main">
@@ -988,10 +1143,12 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
 
           <div class="pkf-product-side">
-            ${fastFlowMatch || p.is_fastflow ? `<span class="pkf-product-badge pkf-product-badge-fastflow">Fast Flow</span>` : ''}
+            ${isVirtual ? `<span class="pkf-product-badge pkf-virtual-badge">Virtual</span>` : ''}
+            ${!isVirtual && (fastFlowMatch || p.is_fastflow) ? `<span class="pkf-product-badge pkf-product-badge-fastflow">Fast Flow</span>` : ''}
             <span class="pkf-product-badge ${isOutOfStock ? 'pkf-product-badge-stock-empty' : ''}">
-              Stock: ${esc(availableStock)}
+              ${isVirtual ? 'Recolectar externo' : `Stock: ${esc(availableStock)}`}
             </span>
+            ${isOutOfStock ? `<span class="pkf-product-badge pkf-virtual-badge">Excedente será virtual</span>` : ''}
           </div>
         </div>
       `;
@@ -1001,9 +1158,6 @@ document.addEventListener('DOMContentLoaded', () => {
       option.addEventListener('click', () => {
         const index = Number(option.dataset.index);
         const product = filteredProducts[index];
-        const availableStock = getAvailableStock(product);
-
-        if (availableStock <= 0) return;
 
         const fastFlowMatch = matchFastFlowByProduct(product);
         setSelectedProduct(product, {
@@ -1045,19 +1199,29 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="pkf-item-meta">
           <span class="pkf-item-tag pkf-item-tag-phase">Fase ${esc(data.phase)}</span>
           <span class="pkf-item-tag">${esc(data.loc || 'Sin ubicación')}</span>
+          ${data.is_virtual ? `<span class="pkf-item-tag pkf-item-tag-virtual">VIRTUAL · RECOLECTAR</span>` : ''}
           ${data.is_fastflow ? `<span class="pkf-item-tag pkf-item-tag-fastflow">FAST FLOW</span>` : ''}
           ${data.batch_code ? `<span class="pkf-item-tag">Batch ${esc(data.batch_code)}</span>` : ''}
         </div>
 
         <input type="hidden" name="items[${idx}][line_id]" value="${esc(lineId)}">
+        <input type="hidden" name="items[${idx}][fulfillment_group_id]" value="${esc(data.fulfillment_group_id || lineId)}">
         <input type="hidden" name="items[${idx}][product_id]" value="${esc(data.id || '')}">
         <input type="hidden" name="items[${idx}][product_name]" value="${esc(data.name)}">
         <input type="hidden" name="items[${idx}][product_sku]" value="${esc(data.sku)}">
         <input type="hidden" name="items[${idx}][is_fastflow]" value="${data.is_fastflow ? 1 : 0}">
+        <input type="hidden" name="items[${idx}][source_type]" value="${esc(data.source_type || (data.is_virtual ? 'virtual' : (data.is_fastflow ? 'fastflow' : 'warehouse')))}">
+        <input type="hidden" name="items[${idx}][is_virtual]" value="${data.is_virtual ? 1 : 0}">
+        <input type="hidden" name="items[${idx}][requires_pickup]" value="${data.requires_pickup ? 1 : 0}">
+        <input type="hidden" name="items[${idx}][pickup_status]" value="${esc(data.pickup_status || '')}">
+        <input type="hidden" name="items[${idx}][pickup_origin_name]" value="${esc(data.pickup_origin_name || '')}">
+        <input type="hidden" name="items[${idx}][pickup_notes]" value="${esc(data.pickup_notes || '')}">
+        <input type="hidden" name="items[${idx}][staging_location_code]" value="${esc(data.staging_location_code || '')}">
         <input type="hidden" name="items[${idx}][phase]" value="${Number(data.phase) || 1}">
         <input type="hidden" name="items[${idx}][batch_code]" value="${esc(data.batch_code || '')}">
         <input type="hidden" name="items[${idx}][available_stock]" value="${Number(data.available_stock || 0)}">
         <input type="hidden" name="items[${idx}][quantity_picked]" value="0">
+        <input type="hidden" name="items[${idx}][quantity_staged]" value="0">
       </div>
 
       <input class="pkf-invisible-input" type="number" min="1" name="items[${idx}][quantity_required]" value="${Number(data.qty) || 1}" title="Cantidad">
@@ -1095,24 +1259,72 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const addProductRowsByAllocation = (product, allocations) => {
+    let remainingPhysical = Math.max(0, Number(product.warehouse_qty ?? product.available_stock ?? 0) || 0);
+    const fulfillmentGroupId = product.fulfillment_group_id || makeLineId();
+
     allocations
       .filter(a => Number(a.qty) > 0)
       .forEach(a => {
-        createItemRow({
-          id: product.id,
-          line_id: makeLineId(),
-          name: product.name,
-          sku: product.sku,
-          loc: product.loc,
-          qty: Number(a.qty),
-          phase: Number(a.phase),
-          brand: product.brand || '',
-          model: product.model || '',
-          desc: product.desc || '',
-          batch_code: product.batch_code || '',
-          available_stock: Number(product.available_stock || 0),
-          is_fastflow: !!product.is_fastflow
-        });
+        const requestedQty = Number(a.qty) || 0;
+
+        if (requestedQty <= 0) return;
+
+        const physicalQty = product.is_virtual ? 0 : Math.min(requestedQty, remainingPhysical);
+        const virtualQty = requestedQty - physicalQty;
+
+        if (physicalQty > 0) {
+          createItemRow({
+            id: product.id,
+            line_id: makeLineId(),
+            fulfillment_group_id: fulfillmentGroupId,
+            name: product.name,
+            sku: product.sku,
+            loc: product.is_fastflow ? 'FAST FLOW' : (product.loc || 'ALMACEN'),
+            qty: physicalQty,
+            phase: Number(a.phase),
+            brand: product.brand || '',
+            model: product.model || '',
+            desc: product.desc || '',
+            batch_code: product.batch_code || '',
+            available_stock: Number(product.available_stock || 0),
+            is_fastflow: !!product.is_fastflow,
+            source_type: product.is_fastflow ? 'fastflow' : 'warehouse',
+            is_virtual: false,
+            requires_pickup: false,
+            pickup_status: '',
+            pickup_origin_name: '',
+            pickup_notes: '',
+            staging_location_code: ''
+          });
+
+          remainingPhysical -= physicalQty;
+        }
+
+        if (virtualQty > 0) {
+          createItemRow({
+            id: product.id,
+            line_id: makeLineId(),
+            fulfillment_group_id: fulfillmentGroupId,
+            name: product.name,
+            sku: product.sku,
+            loc: 'RECOLECTAR',
+            qty: virtualQty,
+            phase: Number(a.phase),
+            brand: product.brand || '',
+            model: product.model || '',
+            desc: product.desc || '',
+            batch_code: '',
+            available_stock: 0,
+            is_fastflow: false,
+            source_type: 'virtual',
+            is_virtual: true,
+            requires_pickup: true,
+            pickup_status: 'pending',
+            pickup_origin_name: virtualOriginInput?.value?.trim() || product.pickup_origin_name || '',
+            pickup_notes: virtualNotesInput?.value?.trim() || product.pickup_notes || '',
+            staging_location_code: 'PICKING'
+          });
+        }
       });
   };
 
@@ -1213,6 +1425,7 @@ document.addEventListener('DOMContentLoaded', () => {
       SKU: ${esc(product.sku || 'N/A')} · Cantidad total: <strong>${esc(product.qty)}</strong> · Ubicación: <strong>${esc(product.loc || 'Sin ubicación')}</strong> · Stock disponible: <strong>${esc(product.available_stock ?? 0)}</strong>
       ${product.batch_code ? ` · Batch: <strong>${esc(product.batch_code)}</strong>` : ''}
       ${product.is_fastflow ? ` · <strong>FAST FLOW</strong>` : ''}
+      ${product.is_virtual ? ` · <strong>VIRTUAL / RECOLECTAR EXTERNO</strong>` : ''}
     `;
 
     renderPhaseOptions(totalPhases, initialPhase);
@@ -1258,24 +1471,18 @@ document.addEventListener('DOMContentLoaded', () => {
   const buildPendingProduct = () => {
     if (!selectedProduct) return null;
 
-    const availableStock = selectedFastFlowCard
-      ? Math.max(0, Number(selectedFastFlowCard.available_units) || 0)
-      : getAvailableStock(selectedProduct);
+    const forcedVirtual = isVirtualMode();
 
-    if (availableStock <= 0) {
-      alert('Este producto no tiene stock disponible.');
-      return null;
-    }
+    const availableStock = forcedVirtual
+      ? 0
+      : (selectedFastFlowCard
+        ? Math.max(0, Number(selectedFastFlowCard.available_units) || 0)
+        : getAvailableStock(selectedProduct));
 
     let qty = Math.max(1, Number(qtyInput.value) || 1);
 
-    if (qty > availableStock) {
-      qty = availableStock;
-      qtyInput.value = availableStock;
-    }
-
-    const isFastFlow = selectedProductFastFlowInput.value === '1' || !!selectedProduct.is_fastflow;
-    const location = isFastFlow ? 'FAST FLOW' : (locInput.value.trim() || selectedProduct.location_code || '');
+    const isFastFlow = !forcedVirtual && (selectedProductFastFlowInput.value === '1' || !!selectedProduct.is_fastflow);
+    const location = forcedVirtual ? 'RECOLECTAR' : (isFastFlow ? 'FAST FLOW' : (locInput.value.trim() || selectedProduct.location_code || ''));
 
     return {
       id: selectedProduct.id,
@@ -1283,32 +1490,37 @@ document.addEventListener('DOMContentLoaded', () => {
       sku: selectedProduct.sku,
       loc: location,
       qty,
+      requested_qty: qty,
+      warehouse_qty: forcedVirtual ? 0 : Math.min(qty, availableStock),
+      virtual_qty: forcedVirtual ? qty : Math.max(0, qty - availableStock),
       brand: selectedProduct.brand || '',
       model: selectedProduct.model || '',
       desc: selectedProduct.description || '',
-      batch_code: selectedFastFlowCard?.batch_code || '',
+      batch_code: forcedVirtual ? '' : (selectedFastFlowCard?.batch_code || ''),
       is_fastflow: isFastFlow,
+      source_type: forcedVirtual ? 'virtual' : (isFastFlow ? 'fastflow' : 'warehouse'),
+      is_virtual: forcedVirtual,
+      requires_pickup: forcedVirtual,
+      pickup_status: forcedVirtual ? 'pending' : '',
+      pickup_origin_name: forcedVirtual ? (virtualOriginInput?.value?.trim() || '') : '',
+      pickup_notes: forcedVirtual ? (virtualNotesInput?.value?.trim() || '') : '',
+      staging_location_code: forcedVirtual ? 'PICKING' : '',
       available_stock: availableStock
     };
   };
 
   const clearAfterAdd = () => {
     qtyInput.value = 1;
+    if (virtualPickupToggle) virtualPickupToggle.checked = false;
+    if (virtualOriginInput) virtualOriginInput.value = '';
+    if (virtualNotesInput) virtualNotesInput.value = '';
+    if (virtualPickupFields) virtualPickupFields.style.display = 'none';
     clearSelectedProduct();
   };
 
   const handleAdd = () => {
     if (!selectedProduct) {
       openDropdown();
-      return;
-    }
-
-    const availableStock = selectedFastFlowCard
-      ? Math.max(0, Number(selectedFastFlowCard.available_units) || 0)
-      : getAvailableStock(selectedProduct);
-
-    if (availableStock <= 0) {
-      alert('Este producto no tiene stock disponible.');
       return;
     }
 
@@ -1386,6 +1598,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   syncPhaseLimits();
 
+  if (virtualPickupToggle) {
+    virtualPickupToggle.addEventListener('change', syncVirtualUi);
+  }
+
   productSelectTrigger.addEventListener('click', () => {
     if (productSelect.classList.contains('is-open')) closeDropdown();
     else openDropdown();
@@ -1416,11 +1632,8 @@ document.addEventListener('DOMContentLoaded', () => {
       e.preventDefault();
       const index = highlightedIndex >= 0 ? highlightedIndex : 0;
       const product = filteredProducts[index];
-      const availableStock = getAvailableStock(product);
-
-      if (availableStock <= 0) return;
-
       const fastFlowMatch = matchFastFlowByProduct(product);
+
       setSelectedProduct(product, {
         fastflow: !!fastFlowMatch,
         fastflowCard: fastFlowMatch || null
@@ -1433,16 +1646,11 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   qtyInput.addEventListener('input', () => {
-    if (!selectedProduct) return;
-
-    const availableStock = selectedFastFlowCard
-      ? Math.max(0, Number(selectedFastFlowCard.available_units) || 0)
-      : getAvailableStock(selectedProduct);
-
     let value = Number(qtyInput.value) || 1;
 
-    if (value < 1) value = 1;
-    if (value > availableStock) value = availableStock;
+    if (value < 1) {
+      value = 1;
+    }
 
     qtyInput.value = value;
   });
@@ -1592,14 +1800,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     if (product) {
-      const availableStock = getAvailableStock(product);
-      if (availableStock > 0) {
-        const fastFlowMatch = matchFastFlowByProduct(product);
-        setSelectedProduct(product, {
-          fastflow: !!fastFlowMatch,
-          fastflowCard: fastFlowMatch || null
-        });
-      }
+      const fastFlowMatch = matchFastFlowByProduct(product);
+      setSelectedProduct(product, {
+        fastflow: !!fastFlowMatch,
+        fastflowCard: fastFlowMatch || null
+      });
     }
   }
 });
