@@ -51,9 +51,53 @@ class WmsAnalyticsController extends Controller implements HasMiddleware
         ]);
     }
 
+    public function dashboard(Request $request)
+    {
+        $data = $this->buildAnalyticsData($request);
+
+        $warehouseId = (int) ($data['warehouseId'] ?? 0);
+
+        $warehouseName = 'Almacén principal';
+
+        if ($warehouseId > 0) {
+            $warehouse = Warehouse::query()->find($warehouseId, ['id', 'name', 'code']);
+
+            if ($warehouse) {
+                $warehouseName = (string) ($warehouse->name ?: $warehouse->code ?: 'Almacén principal');
+            }
+        } else {
+            $warehouse = Warehouse::query()->orderBy('name')->first(['id', 'name', 'code']);
+
+            if ($warehouse) {
+                $warehouseName = (string) ($warehouse->name ?: $warehouse->code ?: 'Almacén principal');
+            }
+        }
+
+        return view('admin.wms.home', array_merge($data, [
+            'warehouseName' => $warehouseName,
+
+            /*
+            |--------------------------------------------------------------------------
+            | Dashboard principal basado en catalog_items
+            |--------------------------------------------------------------------------
+            | Ya no se enfoca en "productos" como concepto genérico.
+            | Ahora el KPI principal toma como base real la tabla catalog_items.
+            */
+            'catalogItemsCount' => (int) ($data['catalogItemsCount'] ?? $data['productsCount'] ?? 0),
+            'catalogItemsUnits' => (int) ($data['catalogItemsUnits'] ?? $data['productsUnits'] ?? $data['totalStock'] ?? 0),
+
+            'shipmentCount' => 0,
+            'draftShipmentCount' => 0,
+            'loadingShipmentCount' => 0,
+            'partialShipmentCount' => 0,
+            'dispatchedShipmentCount' => 0,
+        ]));
+    }
+
     public function activityData(Request $request)
     {
         $period = (int) $request->get('period', 30);
+
         if (!in_array($period, [7, 30, 90, 180, 365], true)) {
             $period = 30;
         }
@@ -144,6 +188,7 @@ class WmsAnalyticsController extends Controller implements HasMiddleware
 
         $apiKey = (string) config('services.openai.api_key');
         $baseUrl = rtrim((string) config('services.openai.base_url', 'https://api.openai.com'), '/');
+
         $models = array_values(array_filter(array_merge(
             [(string) config('services.openai.primary', 'gpt-5-2025-08-07')],
             (array) config('services.openai.fallbacks', [])
@@ -239,9 +284,11 @@ TXT;
         ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
 
         $headers = [];
+
         if (config('services.openai.org_id')) {
             $headers['OpenAI-Organization'] = config('services.openai.org_id');
         }
+
         if (config('services.openai.project_id')) {
             $headers['OpenAI-Project'] = config('services.openai.project_id');
         }
@@ -325,6 +372,7 @@ TXT;
         ]);
 
         $analytics = $this->buildAnalyticsData($request);
+
         $rows = $this->filteredAuditRowsFromRequest($request)
             ->take(600)
             ->map(function ($row) {
@@ -365,6 +413,7 @@ TXT;
     private function buildAnalyticsData(Request $request): array
     {
         $period = (int) $request->get('period', 30);
+
         if (!in_array($period, [7, 30, 90, 180, 365], true)) {
             $period = 30;
         }
@@ -385,28 +434,44 @@ TXT;
         $locationIds = $this->warehouseLocationIds($warehouseId, $hasLocationWarehouse);
 
         $catalogSelect = ['id', 'name', 'sku'];
+
         if ($hasCatalogMeliGtin) {
             $catalogSelect[] = 'meli_gtin';
         }
+
         if ($hasCatalogStock) {
             $catalogSelect[] = 'stock';
         }
+
         if ($hasCatalogMinStock) {
             $catalogSelect[] = 'stock_min';
         }
+
         if ($hasCatalogMaxStock) {
             $catalogSelect[] = 'stock_max';
         }
+
         if ($hasCatalogCategory) {
             $catalogSelect[] = 'category';
         }
 
         $products = CatalogItem::query()->get($catalogSelect);
-        $productsCount = (int) CatalogItem::query()->count();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Base real del catálogo WMS
+        |--------------------------------------------------------------------------
+        | El dashboard principal debe hablar de catalog_items, no de productos
+        | genéricos. Se mantiene productsCount como compatibilidad.
+        */
+        $catalogItemsCount = (int) CatalogItem::query()->count();
+        $productsCount = $catalogItemsCount;
+
         $providersCount = (int) Provider::query()->count();
         $clientsCount = (int) Client::query()->count();
 
         $locationsQuery = Location::query();
+
         if ($warehouseId > 0 && $hasLocationWarehouse) {
             $locationsQuery->where('warehouse_id', $warehouseId);
         }
@@ -414,6 +479,7 @@ TXT;
         $totalLocations = (int) $locationsQuery->count();
 
         $usedLocations = 0;
+
         if ($hasInventoryQty) {
             $usedLocations = (int) Inventory::query()
                 ->where('qty', '>', 0)
@@ -428,6 +494,7 @@ TXT;
             : 0;
 
         $warehouseStockByItem = collect();
+
         if ($warehouseId > 0 && $locationIds->isNotEmpty() && $hasInventoryQty) {
             $warehouseStockByItem = Inventory::query()
                 ->selectRaw('catalog_item_id, SUM(qty) as total_qty')
@@ -437,6 +504,7 @@ TXT;
         }
 
         $totalStock = 0;
+
         if ($warehouseId > 0 && $warehouseStockByItem->isNotEmpty()) {
             $totalStock = (int) $warehouseStockByItem->sum();
         } elseif ($hasCatalogStock) {
@@ -444,6 +512,9 @@ TXT;
         } elseif ($hasInventoryQty) {
             $totalStock = (int) Inventory::query()->sum('qty');
         }
+
+        $catalogItemsUnits = $totalStock;
+        $productsUnits = $catalogItemsUnits;
 
         $lowStockCount = 0;
         $lowStockProducts = collect();
@@ -479,6 +550,7 @@ TXT;
                     ->count();
 
                 $selectCols = ['id', 'name', 'sku', 'stock', 'stock_min'];
+
                 if ($hasCatalogMaxStock) {
                     $selectCols[] = 'stock_max';
                 }
@@ -513,6 +585,7 @@ TXT;
         $completedOrders = (int) $pickingsSummary['completed'];
 
         $categoryChartData = collect();
+
         foreach ($products as $product) {
             $category = $hasCatalogCategory ? trim((string) ($product->category ?? '')) : '';
             $category = $category !== '' ? $category : 'Sin categoría';
@@ -581,6 +654,7 @@ TXT;
         ];
 
         $trendData = [];
+
         for ($i = 6; $i >= 0; $i--) {
             $day = now()->subDays($i);
             $dayString = $day->toDateString();
@@ -720,6 +794,7 @@ TXT;
             $fastFlowAvailableUnits = (int) $activeRows->sum(function ($row) use ($hasQuickBoxCurrentUnits, $hasQuickBoxReservedUnits) {
                 $current = $hasQuickBoxCurrentUnits ? (int) ($row->current_units ?? 0) : 0;
                 $reserved = $hasQuickBoxReservedUnits ? (int) ($row->reserved_units ?? 0) : 0;
+
                 return max(0, $current - $reserved);
             });
 
@@ -748,6 +823,7 @@ TXT;
                 ->filter(fn ($row) => !empty($row['when']) && str_starts_with((string) $row['when'], $today))
                 ->filter(function ($row) {
                     $type = strtolower((string) ($row['type'] ?? ''));
+
                     return in_array($type, ['fast_out', 'fast_out_partial'], true);
                 })
                 ->sum('qty');
@@ -778,6 +854,7 @@ TXT;
                             if (!$hasQuickBoxStatus) {
                                 return true;
                             }
+
                             return in_array((string) ($row->status ?? ''), ['available', 'partial'], true);
                         });
 
@@ -791,6 +868,7 @@ TXT;
                             'available_units' => (int) $availableRows->sum(function ($row) use ($hasQuickBoxCurrentUnits, $hasQuickBoxReservedUnits) {
                                 $current = $hasQuickBoxCurrentUnits ? (int) ($row->current_units ?? 0) : 0;
                                 $reserved = $hasQuickBoxReservedUnits ? (int) ($row->reserved_units ?? 0) : 0;
+
                                 return max(0, $current - $reserved);
                             }),
                             'status' => $availableRows->count() > 0 ? 'activo' : 'cerrado',
@@ -829,9 +907,9 @@ TXT;
 
         $kpis = [
             [
-                'title' => 'Total Stock',
-                'value' => number_format($totalStock),
-                'subtitle' => 'unidades en almacén',
+                'title' => 'Catalog Items',
+                'value' => number_format($catalogItemsCount),
+                'subtitle' => number_format($catalogItemsUnits) . ' unidades registradas',
                 'icon' => 'package',
                 'color' => 'blue',
             ],
@@ -852,7 +930,7 @@ TXT;
             [
                 'title' => 'Stock Bajo',
                 'value' => number_format($lowStockCount),
-                'subtitle' => 'productos con alerta',
+                'subtitle' => 'catalog items con alerta',
                 'icon' => 'alert',
                 'color' => 'amber',
             ],
@@ -896,8 +974,16 @@ TXT;
             'lowStockCount' => $lowStockCount,
             'lowStockProducts' => $lowStockProducts instanceof Collection ? $lowStockProducts->values()->all() : $lowStockProducts,
 
-            'productsCount' => $productsCount,
-            'productsUnits' => $totalStock,
+            'catalogItemsCount' => $catalogItemsCount,
+            'catalogItemsUnits' => $catalogItemsUnits,
+
+            /*
+            |--------------------------------------------------------------------------
+            | Compatibilidad con vistas antiguas
+            |--------------------------------------------------------------------------
+            */
+            'productsCount' => $catalogItemsCount,
+            'productsUnits' => $catalogItemsUnits,
 
             'locationsCount' => $totalLocations,
             'availableLocations' => $availableLocations,
@@ -926,7 +1012,7 @@ TXT;
             'transferQty' => $transferQty,
             'adjustQty' => $adjustQty,
 
-            'totalStock' => $totalStock,
+            'totalStock' => $catalogItemsUnits,
             'totalEntries' => $totalEntries,
             'totalExits' => $totalExits,
             'pendingOrders' => $pendingOrders,
@@ -935,35 +1021,6 @@ TXT;
             'usedLocations' => $usedLocations,
             'occupancyRate' => $occupancyRate,
         ];
-    }
-
-    public function dashboard(Request $request)
-    {
-        $data = $this->buildAnalyticsData($request);
-
-        $warehouseId = (int) ($data['warehouseId'] ?? 0);
-
-        $warehouseName = 'Almacén principal';
-        if ($warehouseId > 0) {
-            $warehouse = Warehouse::query()->find($warehouseId, ['id', 'name', 'code']);
-            if ($warehouse) {
-                $warehouseName = (string) ($warehouse->name ?: $warehouse->code ?: 'Almacén principal');
-            }
-        } else {
-            $warehouse = Warehouse::query()->orderBy('name')->first(['id', 'name', 'code']);
-            if ($warehouse) {
-                $warehouseName = (string) ($warehouse->name ?: $warehouse->code ?: 'Almacén principal');
-            }
-        }
-
-        return view('admin.wms.home', array_merge($data, [
-            'warehouseName' => $warehouseName,
-            'shipmentCount' => 0,
-            'draftShipmentCount' => 0,
-            'loadingShipmentCount' => 0,
-            'partialShipmentCount' => 0,
-            'dispatchedShipmentCount' => 0,
-        ]));
     }
 
     private function buildUnifiedAuditTimeline(int $warehouseId, ?string $from = null, ?string $to = null, string $q = ''): Collection
@@ -1106,6 +1163,7 @@ TXT;
                 $user = $hasCreatedBy ? ($userMap[(int) ($reception->created_by ?? 0)] ?? null) : null;
 
                 $when = $reception->reception_date ?? $reception->created_at;
+
                 if (!$when instanceof Carbon && !empty($when)) {
                     $when = Carbon::parse($when);
                 }
@@ -1144,6 +1202,7 @@ TXT;
             ->filter()
             ->values();
     }
+
     private function manualMovementRows(int $warehouseId, ?string $from, ?string $to): Collection
     {
         if (!Schema::hasTable('wms_movements') || !Schema::hasTable('wms_movement_lines')) {
@@ -1151,6 +1210,7 @@ TXT;
         }
 
         $lineQtyColumn = $this->wmsMovementLineQtyColumn();
+
         if (!$lineQtyColumn) {
             return collect();
         }
@@ -1163,6 +1223,7 @@ TXT;
             ->limit(2000);
 
         $movements = $movementsQuery->get();
+
         if ($movements->isEmpty()) {
             return collect();
         }
@@ -1198,6 +1259,7 @@ TXT;
 
         return $lines->map(function ($line) use ($movementMap, $itemMap, $locationMap, $userMap, $lineQtyColumn) {
             $movement = $movementMap[$line->movement_id] ?? null;
+
             if (!$movement) {
                 return null;
             }
@@ -1294,6 +1356,7 @@ TXT;
         }
 
         $qtyColumn = $this->inventoryMovementQtyColumn();
+
         if (!$qtyColumn) {
             return collect();
         }
@@ -1308,6 +1371,7 @@ TXT;
                     if (Schema::hasColumn('inventory_movements', 'from_location_id')) {
                         $qq->orWhereIn('from_location_id', $locationIds);
                     }
+
                     if (Schema::hasColumn('inventory_movements', 'to_location_id')) {
                         $qq->orWhereIn('to_location_id', $locationIds);
                     }
@@ -1317,6 +1381,7 @@ TXT;
             ->limit(5000);
 
         $movements = $query->get();
+
         if ($movements->isEmpty()) {
             return collect();
         }
@@ -1406,6 +1471,7 @@ TXT;
             ->limit(1000);
 
         $tasks = $query->get();
+
         if ($tasks->isEmpty()) {
             return collect();
         }
@@ -1433,6 +1499,7 @@ TXT;
             );
 
             $items = collect(is_array($bag['items'] ?? null) ? $bag['items'] : []);
+
             $requestedQty = (int) $items->sum(function ($item) {
                 return (int) ($item['quantity_required'] ?? $item['qty'] ?? 0);
             });
@@ -1494,6 +1561,7 @@ TXT;
             }
 
             $startedAt = $this->safeCarbon($bag['started_at'] ?? ($cols['started_at'] ? ($task->{$cols['started_at']} ?? null) : null));
+
             if ($startedAt) {
                 $rows->push([
                     'event_id' => 'pick-started-' . $task->id,
@@ -1524,6 +1592,7 @@ TXT;
             }
 
             $completedAt = $this->safeCarbon($bag['completed_at'] ?? ($cols['completed_at'] ? ($task->{$cols['completed_at']} ?? null) : null));
+
             if ($completedAt) {
                 $rows->push([
                     'event_id' => 'pick-completed-' . $task->id,
@@ -1586,6 +1655,7 @@ TXT;
 
         foreach ($tasks as $task) {
             $bag = $this->pickWaveBag($task);
+
             $status = $this->normalizePickStatus(
                 $bag['status']
                 ?? ($cols['status'] ? ($task->{$cols['status']} ?? null) : null)
@@ -1605,6 +1675,7 @@ TXT;
     private function filteredAuditRowsFromRequest(Request $request): Collection
     {
         $period = (int) $request->get('period', 30);
+
         if (!in_array($period, [7, 30, 90, 180, 365], true)) {
             $period = 30;
         }
@@ -1666,6 +1737,8 @@ TXT;
 
         return [
             'analytics_snapshot' => [
+                'catalog_items_count' => (int) ($analytics['catalogItemsCount'] ?? 0),
+                'catalog_items_units' => (int) ($analytics['catalogItemsUnits'] ?? 0),
                 'total_stock' => (int) ($analytics['totalStock'] ?? 0),
                 'total_entries' => (int) ($analytics['totalEntries'] ?? 0),
                 'total_exits' => (int) ($analytics['totalExits'] ?? 0),
@@ -1710,6 +1783,7 @@ TXT;
         }
 
         $period = (int) $request->get('period', 30);
+
         if (!in_array($period, [7, 30, 90, 180, 365], true)) {
             $period = 30;
         }
@@ -1753,6 +1827,7 @@ TXT;
             }
 
             $items = collect(is_array($bag['items'] ?? null) ? $bag['items'] : []);
+
             $requestedQty = (int) $items->sum(function ($item) {
                 return (int) ($item['quantity_required'] ?? $item['qty'] ?? 0);
             });
@@ -1823,6 +1898,7 @@ TXT;
             }
 
             $lastTaskAt = $grouped[$name]['last_task_at'];
+
             if (!$lastTaskAt || (($row['created_at'] ?? '') > $lastTaskAt)) {
                 $grouped[$name]['last_task_at'] = $row['created_at'];
             }
@@ -1837,6 +1913,7 @@ TXT;
                 if ((int) $a['requested_qty'] === (int) $b['requested_qty']) {
                     return (int) $b['tasks_count'] <=> (int) $a['tasks_count'];
                 }
+
                 return (int) $b['requested_qty'] <=> (int) $a['requested_qty'];
             })
             ->values()
@@ -1865,6 +1942,7 @@ TXT;
                 if ((int) $a['events_count'] === (int) $b['events_count']) {
                     return (int) $b['total_qty'] <=> (int) $a['total_qty'];
                 }
+
                 return (int) $b['events_count'] <=> (int) $a['events_count'];
             })
             ->values()
@@ -1877,6 +1955,7 @@ TXT;
         return $rows
             ->filter(function ($row) use ($from, $toExclusive) {
                 $when = $this->safeCarbon($row['when'] ?? null);
+
                 return $when && $when->gte($from) && $when->lt($toExclusive);
             })
             ->values();
@@ -1892,6 +1971,7 @@ TXT;
                 $id = (int) ($row['item_id'] ?? 0);
                 $name = trim((string) ($row['name'] ?? 'Producto'));
                 $sku = trim((string) ($row['sku'] ?? ''));
+
                 return $id > 0 ? 'id:' . $id : mb_strtolower($name . '|' . $sku);
             })
             ->map(function ($group) {
@@ -1910,6 +1990,7 @@ TXT;
                 if ((int) $a['qty'] === (int) $b['qty']) {
                     return (int) $b['movements'] <=> (int) $a['movements'];
                 }
+
                 return (int) $b['qty'] <=> (int) $a['qty'];
             })
             ->values()
@@ -1920,6 +2001,7 @@ TXT;
     private function applyAuditQueryFilter(Collection $rows, string $q): Collection
     {
         $q = mb_strtolower(trim($q));
+
         if ($q === '') {
             return $rows;
         }
@@ -1977,6 +2059,7 @@ TXT;
 
         if ($cols['json']) {
             $decoded = $this->decodePossibleJsonValue($task->{$cols['json']} ?? null);
+
             if (is_array($decoded)) {
                 $bag = $decoded;
             }
@@ -1984,6 +2067,7 @@ TXT;
 
         if ($cols['items'] && empty($bag['items'])) {
             $decodedItems = $this->decodePossibleJsonValue($task->{$cols['items']} ?? null);
+
             if (is_array($decodedItems)) {
                 $bag['items'] = $decodedItems;
             }
@@ -1991,6 +2075,7 @@ TXT;
 
         if ($cols['deliveries'] && empty($bag['deliveries'])) {
             $decodedDeliveries = $this->decodePossibleJsonValue($task->{$cols['deliveries']} ?? null);
+
             if (is_array($decodedDeliveries)) {
                 $bag['deliveries'] = $decodedDeliveries;
             }
@@ -2057,6 +2142,7 @@ TXT;
 
         return null;
     }
+
     private function normalizeMovementGroup(?string $type): string
     {
         $type = strtolower(trim((string) $type));
@@ -2105,6 +2191,7 @@ TXT;
 
         if (is_string($value) && $value !== '') {
             $decoded = json_decode($value, true);
+
             if (json_last_error() === JSON_ERROR_NONE) {
                 return $decoded;
             }
@@ -2121,6 +2208,7 @@ TXT;
 
         if (is_string($value) && $value !== '') {
             $decoded = json_decode($value, true);
+
             if (is_array($decoded)) {
                 return $decoded;
             }
@@ -2170,12 +2258,14 @@ TXT;
         $rawText = trim($rawText);
 
         $decoded = json_decode($rawText, true);
+
         if (is_array($decoded)) {
             return $decoded;
         }
 
         if (preg_match('/\{.*\}/s', $rawText, $m)) {
             $decoded = json_decode($m[0], true);
+
             if (is_array($decoded)) {
                 return $decoded;
             }
@@ -2238,6 +2328,7 @@ TXT;
             ->filter(fn ($row) => is_array($row))
             ->map(function ($row) {
                 $priority = strtolower(trim((string) ($row['priority'] ?? 'media')));
+
                 if (!in_array($priority, ['alta', 'media', 'baja'], true)) {
                     $priority = 'media';
                 }
@@ -2258,6 +2349,7 @@ TXT;
             ->all();
 
         $riskLevel = strtolower(trim((string) ($data['risk_level'] ?? 'informativo')));
+
         if (!in_array($riskLevel, ['alto', 'medio', 'bajo', 'informativo'], true)) {
             $riskLevel = 'informativo';
         }
