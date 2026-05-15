@@ -197,6 +197,12 @@
                             @php
                                 $qtyPct = $progressPct($row->loaded_qty, $row->expected_qty);
                                 $status = (string) $row->status;
+                                $missingQty = (int) ($row->missing_qty ?? max(0, ((int) ($row->expected_qty ?? 0) - (int) ($row->loaded_qty ?? 0))));
+                                $missingBoxes = (int) ($row->missing_boxes ?? max(0, ((int) ($row->expected_boxes ?? 0) - (int) ($row->loaded_boxes ?? 0))));
+                                $canOpenScanner = !in_array($status, ['loaded_complete', 'dispatched', 'cancelled'], true)
+                                    || $status === 'loaded_partial'
+                                    || $missingQty > 0
+                                    || $missingBoxes > 0;
 
                                 $lines = $toArray($row->lines ?? ($row->items ?? []));
                                 $scans = $toArray($row->scans ?? []);
@@ -216,10 +222,10 @@
                                     'route_name' => (string) ($row->route_name ?? ''),
                                     'loaded_qty' => (int) ($row->loaded_qty ?? 0),
                                     'expected_qty' => (int) ($row->expected_qty ?? 0),
-                                    'missing_qty' => (int) ($row->missing_qty ?? max(0, ((int) ($row->expected_qty ?? 0) - (int) ($row->loaded_qty ?? 0)))),
+                                    'missing_qty' => $missingQty,
                                     'loaded_boxes' => (int) ($row->loaded_boxes ?? 0),
                                     'expected_boxes' => (int) ($row->expected_boxes ?? 0),
-                                    'missing_boxes' => (int) ($row->missing_boxes ?? max(0, ((int) ($row->expected_boxes ?? 0) - (int) ($row->loaded_boxes ?? 0)))),
+                                    'missing_boxes' => $missingBoxes,
                                     'scanned_lines' => (int) ($row->scanned_lines ?? 0),
                                     'expected_lines' => (int) ($row->expected_lines ?? count($lines)),
                                     'signed_by_name' => (string) ($row->signed_by_name ?? ''),
@@ -232,6 +238,7 @@
                                     'dispatched_at' => (string) ($row->dispatched_at ?? ''),
                                     'cancelled_at' => (string) ($row->cancelled_at ?? ''),
                                     'scanner_url' => route('admin.wms.shipping.scanner', $row->id),
+                                    'can_open_scanner' => $canOpenScanner,
                                     'lines' => $lines,
                                     'scans' => $scans,
                                     'meta' => $meta,
@@ -284,12 +291,20 @@
                                         </svg>
                                     </button>
 
-                                    <a href="{{ route('admin.wms.shipping.scanner', $row->id) }}" class="ship-btn-icon ship-btn-ghost text-blue" title="Ir al scanner">
-                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-                                            <path d="M22 6l-10 7L2 6"/>
-                                        </svg>
-                                    </a>
+                                    @if($canOpenScanner)
+                                        <a href="{{ route('admin.wms.shipping.scanner', $row->id) }}" class="ship-btn-icon ship-btn-ghost text-blue" title="Ir al scanner">
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                                                <path d="M22 6l-10 7L2 6"/>
+                                            </svg>
+                                        </a>
+                                    @else
+                                        <span class="ship-btn-icon ship-btn-ghost is-disabled" title="Scanner cerrado / salida completada">
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <path d="M20 6L9 17l-5-5"/>
+                                            </svg>
+                                        </span>
+                                    @endif
                                     <a href="{{ route('admin.wms.shipping.pdf', $row->id) }}" class="ship-btn ship-btn-ghost" target="_blank" title="Descargar PDF">
                                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -747,6 +762,52 @@ h1, h2, h3, h4, h5, h6, .ship-title, .drawer-title {
 .is-loading { background: var(--blue-soft); color: var(--blue); }
 .is-complete { background: var(--success-soft); color: var(--success); }
 .is-dispatched { background: var(--success); color: #fff; }
+
+.ship-toast {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    z-index: 9999;
+    min-width: 280px;
+    max-width: 420px;
+    padding: 16px 18px;
+    border-radius: var(--radius-md);
+    background: var(--card);
+    border: 1px solid var(--line);
+    box-shadow: 0 18px 48px rgba(0,0,0,0.12);
+    color: var(--ink);
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    opacity: 0;
+    transform: translateY(-12px);
+    pointer-events: none;
+    transition: opacity .25s var(--ease-out), transform .25s var(--ease-out);
+}
+
+.ship-toast.is-show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.ship-toast-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background: var(--success);
+    box-shadow: 0 0 0 5px var(--success-soft);
+    flex: 0 0 auto;
+}
+
+.ship-btn-icon.is-disabled,
+.ship-btn.is-disabled {
+    opacity: .45;
+    cursor: not-allowed;
+    pointer-events: none;
+    filter: grayscale(1);
+}
+
 .is-partial { background: var(--danger-soft); color: var(--danger); }
 .is-cancelled { background: var(--bg); color: var(--danger); border: 1px solid var(--danger-soft); }
 
@@ -1174,6 +1235,20 @@ body.has-drawer-open {
 document.addEventListener('DOMContentLoaded', function () {
     const shipmentDetails = @json($drawerDetails, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
+    function showShipToast(message, type = 'success') {
+        const toast = document.createElement('div');
+        toast.className = 'ship-toast';
+        toast.innerHTML = `<span class="ship-toast-dot"></span><span>${escapeHtml(message)}</span>`;
+        document.body.appendChild(toast);
+
+        requestAnimationFrame(() => toast.classList.add('is-show'));
+
+        setTimeout(() => {
+            toast.classList.remove('is-show');
+            setTimeout(() => toast.remove(), 280);
+        }, 4200);
+    }
+
     const drawer = document.getElementById('shipDrawer');
     const backdrop = document.getElementById('shipDrawerBackdrop');
     const closeBtn = document.getElementById('shipDrawerClose');
@@ -1199,6 +1274,41 @@ document.addEventListener('DOMContentLoaded', function () {
             }[m];
         });
     }
+
+
+    (function bootDispatchToast(){
+        let payload = null;
+
+        try {
+            const stored = window.sessionStorage.getItem('wms_shipping_toast');
+            if (stored) {
+                payload = JSON.parse(stored);
+                window.sessionStorage.removeItem('wms_shipping_toast');
+            }
+        } catch (e) {}
+
+        const params = new URLSearchParams(window.location.search);
+        if (!payload && params.get('toast') === 'dispatch_approved') {
+            const shipmentNumber = params.get('shipment') || '';
+            payload = {
+                type: 'success',
+                message: shipmentNumber
+                    ? `Salida ${shipmentNumber} aprobada correctamente.`
+                    : 'Salida aprobada correctamente.'
+            };
+        }
+
+        if (params.has('toast')) {
+            params.delete('toast');
+            params.delete('shipment');
+            const cleanUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+            window.history.replaceState({}, document.title, cleanUrl);
+        }
+
+        if (payload && payload.message) {
+            showShipToast(payload.message, payload.type || 'success');
+        }
+    })();
 
     function formatDate(v) {
         if (!v) return '—';
@@ -1269,7 +1379,19 @@ document.addEventListener('DOMContentLoaded', function () {
         els.kicker.textContent = data.shipment_number || ('EMB-' + data.id);
         els.title.textContent = 'Embarque ' + (data.shipment_number || data.id);
         els.subtitle.textContent = 'ID Operativo: ' + data.id + ' • Picking: ' + (data.task_number || 'N/A');
-        els.scannerLink.href = data.scanner_url || '#';
+
+        if (els.scannerLink) {
+            if (data.can_open_scanner) {
+                els.scannerLink.href = data.scanner_url || '#';
+                els.scannerLink.style.display = 'inline-flex';
+                els.scannerLink.classList.remove('is-disabled');
+                els.scannerLink.textContent = 'Ir al Scanner';
+            } else {
+                els.scannerLink.href = '#';
+                els.scannerLink.style.display = 'none';
+                els.scannerLink.classList.add('is-disabled');
+            }
+        }
 
         if (els.statusBadge) {
             els.statusBadge.innerHTML = `

@@ -1054,6 +1054,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const csrf = @json(csrf_token());
     let shipment = @json($shipment);
     const routeCreateBaseUrl = @json($routeCreateUrl);
+    const indexUrl = @json($indexUrl);
 
     const scanUrl = @json($scanUrl);
     const assignUrl = @json($assignUrl);
@@ -1747,6 +1748,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         dispatchBtn.disabled = true;
+        dispatchBtn.textContent = 'Aprobando salida...';
+        let redirectingToIndex = false;
 
         try {
             const response = await postJson(dispatchUrl, {
@@ -1760,11 +1763,30 @@ document.addEventListener('DOMContentLoaded', function () {
                 renderAll(response.shipment);
             }
 
-            toast('Salida de unidad aprobada.', 'success');
+            const shipmentNumber = response?.shipment?.shipment_number || shipment?.shipment_number || '';
+
+            try {
+                window.sessionStorage.setItem('wms_shipping_toast', JSON.stringify({
+                    type: 'success',
+                    message: shipmentNumber
+                        ? `Salida ${shipmentNumber} aprobada correctamente.`
+                        : 'Salida aprobada correctamente.'
+                }));
+            } catch (e) {}
+
+            const target = new URL(indexUrl, window.location.origin);
+            target.searchParams.set('toast', 'dispatch_approved');
+            if (shipmentNumber) target.searchParams.set('shipment', shipmentNumber);
+
+            redirectingToIndex = true;
+            window.location.href = target.toString();
         } catch (error) {
             await swalInfo('Error', error.message || 'No se pudo aprobar la salida.', 'error');
         } finally {
-            dispatchBtn.disabled = false;
+            if (!redirectingToIndex) {
+                dispatchBtn.disabled = false;
+                dispatchBtn.textContent = 'Aprobar salida de unidad';
+            }
         }
     }
 
