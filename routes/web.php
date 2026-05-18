@@ -103,7 +103,11 @@ use App\Http\Controllers\Projects\ProjectBoardController;
 use App\Http\Controllers\Admin\CategoryProductController;
 use App\Http\Controllers\Admin\WmsReceptionController;
 use App\Http\Controllers\AzureTestController;
+Route::get('/admin/catalog/analytics', [\App\Http\Controllers\Admin\CatalogItemController::class, 'analytics'])
+    ->name('admin.catalog.analytics');
 
+Route::get('/admin/catalog/analytics/pdf', [\App\Http\Controllers\Admin\CatalogItemController::class, 'analyticsPdf'])
+    ->name('admin.catalog.analytics.pdf');
 /*
 |--------------------------------------------------------------------------
 | AUTH

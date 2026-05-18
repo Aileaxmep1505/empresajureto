@@ -164,11 +164,11 @@
         $fastFlowCount = count($fastFlowItems);
     }
 
-    $productsUrl = $productsUrl ?? $routeFirst([
-        'admin.wms.products.index',
-        'wms.products.index',
-        'products.index',
-    ]);
+$productsUrl = $productsUrl ?? (
+    Route::has('admin.catalog.index')
+        ? route('admin.catalog.index')
+        : url('/admin/catalog')
+);
 
     $locationsUrl = $locationsUrl ?? $routeFirst([
         'admin.wms.locations.index',

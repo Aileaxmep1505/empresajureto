@@ -1,9 +1,10 @@
 {{-- ✅ PÉGALO COMPLETO  
    - Desktop: TODO igual.
    - Móvil:
-      - El BUSCADOR se queda ARRIBA (visible como ahora).
-      - SOLO los filtros (tabs + destacados + limpiar + nuevo) se van al Bottom Sheet.
+      - El BUSCADOR se queda ARRIBA.
+      - SOLO los filtros se van al Bottom Sheet.
       - La tabla en móvil se vuelve cards apiladas.
+      - Ahora muestra stock, stock mínimo, stock máximo y marca stock crítico.
 --}}
 @extends('layouts.app')
 @section('title','Productos Web')
@@ -33,7 +34,6 @@
   .wrap{max-width:1200px; margin-inline:auto; padding:0 14px}
   .card{background:var(--surface); border:1px solid var(--line); border-radius:var(--r); box-shadow:var(--shadow);}
 
-  /* ===== Header ===== */
   .head{
     display:flex; gap:14px; align-items:flex-start;
     justify-content:space-between; flex-wrap:wrap;
@@ -49,7 +49,6 @@
     flex-wrap:wrap;
   }
 
-  /* ===== Botón pastel ===== */
   .btn{
     display:inline-flex; align-items:center; justify-content:center; gap:10px;
     border:1px solid transparent;
@@ -73,10 +72,23 @@
   }
   .btn:active{ transform:translateY(0); box-shadow:0 10px 22px rgba(15,23,42,.06); }
   .btn-sm{ padding:8px 10px; border-radius:12px; font-size:.92rem; }
+  .btn-ghost{
+    background:#f9fafb;
+    border-color:#e5e7eb;
+    color:#4b5563;
+    box-shadow:none;
+  }
+  .btn-ghost:hover{ background:#f3f4f6; }
+  .btn-soft{
+    background:#f9fafb;
+    border-color:#e5e7eb;
+    color:#111827;
+  }
+  .btn-soft:hover{ background:#ffffff; }
+
   .ico{ width:18px; height:18px; display:inline-block; }
   .ico svg{ width:18px; height:18px; display:block; }
 
-  /* Tooltip (hover) */
   .tt{ position:relative; display:inline-flex; }
   .tt .tt-bubble{
     position:absolute; left:50%; bottom:calc(100% + 10px);
@@ -97,7 +109,6 @@
   .tt:hover .tt-bubble{ opacity:1; transform:translateX(-50%) translateY(-2px); }
   @media (hover:none){ .tt .tt-bubble{ display:none !important; } }
 
-  /* icon buttons */
   .iconbtn-wrap{ display:inline-flex; position:relative; }
   .iconbtn{
     width:38px; height:38px;
@@ -113,7 +124,6 @@
   .iconbtn:hover{ transform:translateY(-1px); background:#fff; box-shadow:0 12px 24px rgba(15,23,42,.08); }
   .iconbtn svg{ width:18px; height:18px; }
 
-  /* ===== Filtros (search + tabs + chip + limpiar) ===== */
   .filters{
     margin-top:12px;
     padding:12px;
@@ -128,7 +138,6 @@
   }
   .filters-row{display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap;}
 
-  /* ✅ Buscador se queda SIEMPRE visible */
   .search{
     display:flex; align-items:center; gap:10px;
     flex:1; min-width:0; width:min(100%, 560px);
@@ -147,7 +156,6 @@
   .search .sico{ color:#94a3b8; width:22px; display:grid; place-items:center; }
   .search input{border:0; outline:0; background:transparent; width:100%; color:var(--ink); font-weight:500;}
 
-  /* tools (esto es lo que mandaremos a sheet en móvil) */
   .filter-tools{ display:inline-flex; gap:12px; align-items:center; flex-wrap:wrap; }
 
   .tabs{
@@ -182,7 +190,6 @@
   .chip:hover{ transform: translateY(-1px); box-shadow:0 14px 22px rgba(15,23,42,.06); background:#fff; }
   .chip input{ width:16px; height:16px; accent-color: var(--acc); }
 
-  /* ===== Table Desktop ===== */
   .table-wrap{ margin-top:12px; overflow:auto; border-radius:14px; border:1px solid var(--line); }
   table{ width:100%; border-collapse:collapse; font-size:.95rem; background:#fff }
   th, td{ padding:12px 12px; border-bottom:1px solid var(--line); vertical-align:middle; }
@@ -216,12 +223,54 @@
   .price{ font-weight:900; color:var(--ink); }
   .sale{ color:#16a34a; font-weight:900; }
   .muted-sm{ color:var(--muted); font-size:.85rem; }
+
+  .stock-pill{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    padding:7px 10px;
+    border-radius:999px;
+    border:1px solid rgba(232,238,246,.95);
+    background:#ffffff;
+    color:#334155;
+    font-weight:900;
+    white-space:nowrap;
+  }
+  .stock-pill .dot{
+    width:8px;
+    height:8px;
+    border-radius:999px;
+    background:#22c55e;
+  }
+  .stock-pill.is-critical{
+    background:#ffebeb;
+    color:#b91c1c;
+    border-color:rgba(255,74,74,.24);
+  }
+  .stock-pill.is-critical .dot{ background:#ff4a4a; }
+  .stock-pill.is-empty{
+    background:#f8fafc;
+    color:#64748b;
+  }
+  .stock-pill.is-empty .dot{ background:#94a3b8; }
+  .stock-meta{
+    margin-top:6px;
+    font-size:.78rem;
+    color:var(--muted);
+    font-weight:800;
+    white-space:nowrap;
+  }
+  .stock-critical-badge{ margin-top:6px; }
+  tr.is-critical-row td{
+    background:linear-gradient(90deg, rgba(255,235,235,.72), #ffffff 42%) !important;
+  }
+
   .actions{ display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
 
   .foot{display:flex; align-items:center; justify-content:space-between; gap:12px; margin:16px 4px; flex-wrap:wrap;}
 
-  /* ===== MODAL STOCK ===== */
-  .stock-modal{
+  .stock-modal,
+  .dl-modal{
     position:fixed;
     inset:0;
     display:flex;
@@ -232,47 +281,57 @@
     opacity:0;
     transition:opacity .18s ease;
   }
-  .stock-modal.is-open{
+  .dl-modal{ z-index:1150; }
+  .stock-modal.is-open,
+  .dl-modal.is-open{
     pointer-events:auto;
     opacity:1;
   }
-  .stock-modal__overlay{
+  .stock-modal__overlay,
+  .dl-modal__overlay{
     position:absolute;
     inset:0;
     background:rgba(15,23,42,.45);
     backdrop-filter:blur(4px);
   }
-  .stock-modal__card{
+  .stock-modal__card,
+  .dl-modal__card{
     position:relative;
     z-index:1;
     width:100%;
-    max-width:360px;
+    max-width:380px;
     background:#ffffff;
     border-radius:18px;
     box-shadow:0 24px 70px rgba(15,23,42,.45);
     border:1px solid rgba(226,232,240,.9);
     padding:18px 18px 16px;
   }
-  .stock-modal__head{
+  .stock-modal__card{ max-width:360px; }
+
+  .stock-modal__head,
+  .dl-modal__head{
     display:flex;
     align-items:flex-start;
     justify-content:space-between;
     gap:10px;
     margin-bottom:10px;
   }
-  .stock-modal__title{
+  .stock-modal__title,
+  .dl-modal__title{
     margin:0;
     font-size:15px;
     font-weight:900;
     letter-spacing:-.01em;
     color:var(--ink);
   }
-  .stock-modal__subtitle{
+  .stock-modal__subtitle,
+  .dl-modal__subtitle{
     margin:4px 0 0;
     font-size:.85rem;
     color:var(--muted);
   }
-  .stock-modal__close{
+  .stock-modal__close,
+  .dl-modal__close{
     width:32px;
     height:32px;
     border-radius:12px;
@@ -283,11 +342,10 @@
     cursor:pointer;
     box-shadow:0 8px 20px rgba(15,23,42,.12);
   }
-  .stock-modal__close svg{ width:16px; height:16px; }
+  .stock-modal__close svg,
+  .dl-modal__close svg{ width:16px; height:16px; }
 
-  .stock-modal__body{
-    margin-top:8px;
-  }
+  .stock-modal__body{ margin-top:8px; }
   .stock-field-label{
     font-size:.78rem;
     font-weight:800;
@@ -320,109 +378,24 @@
     gap:8px;
     margin-top:16px;
   }
-  .btn-ghost{
-    background:#f9fafb;
-    border-color:#e5e7eb;
-    color:#4b5563;
-    box-shadow:none;
-  }
-  .btn-ghost:hover{
-    background:#f3f4f6;
-  }
 
-  /* ===== MODAL DESCARGA ===== */
-  .dl-modal{
-    position:fixed;
-    inset:0;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    z-index:1150;
-    pointer-events:none;
-    opacity:0;
-    transition:opacity .18s ease;
-  }
-  .dl-modal.is-open{
-    pointer-events:auto;
-    opacity:1;
-  }
-  .dl-modal__overlay{
-    position:absolute;
-    inset:0;
-    background:rgba(15,23,42,.45);
-    backdrop-filter:blur(4px);
-  }
-  .dl-modal__card{
-    position:relative;
-    z-index:1;
-    width:100%;
-    max-width:380px;
-    background:#ffffff;
-    border-radius:18px;
-    box-shadow:0 24px 70px rgba(15,23,42,.45);
-    border:1px solid rgba(226,232,240,.9);
-    padding:18px 18px 16px;
-  }
-  .dl-modal__head{
-    display:flex;
-    align-items:flex-start;
-    justify-content:space-between;
-    gap:10px;
-    margin-bottom:10px;
-  }
-  .dl-modal__title{
-    margin:0;
-    font-size:15px;
-    font-weight:900;
-    letter-spacing:-.01em;
-    color:var(--ink);
-  }
-  .dl-modal__subtitle{
-    margin:4px 0 0;
-    font-size:.85rem;
-    color:var(--muted);
-  }
-  .dl-modal__close{
-    width:32px;
-    height:32px;
-    border-radius:12px;
-    border:1px solid var(--line);
-    background:#fff;
-    display:grid;
-    place-items:center;
-    cursor:pointer;
-    box-shadow:0 8px 20px rgba(15,23,42,.12);
-  }
-  .dl-modal__close svg{ width:16px; height:16px; }
   .dl-modal__body{
     margin-top:8px;
     display:grid;
     gap:10px;
   }
-  .btn-soft{
-    background:#f9fafb;
-    border-color:#e5e7eb;
-    color:#111827;
-  }
-  .btn-soft:hover{
-    background:#ffffff;
-  }
 
-  /* ===== Mobile: search visible, tools -> sheet, table -> cards ===== */
   @media (max-width: 760px){
     .wrap{ padding:0 10px; }
     body{ padding-bottom: 86px; }
 
-    /* ocultamos SOLO los tools, el search se queda */
     .filter-tools{ display:none !important; }
 
-    /* Desktop Nuevo y Descargar fuera */
     .head .tt-new,
     .head .tt-download{
       display:none !important;
     }
 
-    /* table to cards */
     .table-wrap{ border:0; background:transparent; overflow:visible; box-shadow:none; }
     table, thead, tbody, th, td, tr{ display:block; }
     thead{ display:none; }
@@ -437,6 +410,7 @@
       margin:12px 0;
     }
     tbody td{ border:0; padding:0; background:transparent !important; }
+    .stock-mobile-space{ margin-top:10px; }
 
     td.img-cell{ width:auto !important; max-width:none !important; margin-bottom:10px; }
     .thumbbox{ width:74px; height:74px; border-radius:16px; }
@@ -450,7 +424,6 @@
     }
   }
 
-  /* ===== FAB + Sheet (móvil) ===== */
   .fab{
     position:fixed; right:16px; bottom:18px;
     width:58px; height:58px; border-radius:999px;
@@ -525,7 +498,6 @@
 
   @media (max-width: 760px){ .fab{ display:grid; } }
 
-  /* ===== SweetAlert2: estilo minimalista ===== */
   .swal2-popup.sa-popup{
     border-radius:18px;
     padding:24px 24px 20px;
@@ -567,19 +539,14 @@
     color:#fff;
     border:0;
   }
-  .swal2-confirm.sa-confirm:hover{
-    filter:brightness(1.05);
-  }
+  .swal2-confirm.sa-confirm:hover{ filter:brightness(1.05); }
   .swal2-cancel.sa-cancel{
     background:#f9fafb;
     color:#4b5563;
     border:1px solid #e5e7eb;
   }
-  .swal2-cancel.sa-cancel:hover{
-    background:#f3f4f6;
-  }
+  .swal2-cancel.sa-cancel:hover{ background:#f3f4f6; }
 
-  /* Toasts */
   .swal2-popup.sa-toast{
     border-radius:999px;
     padding:10px 14px;
@@ -605,7 +572,6 @@
     color:#fecaca;
   }
 
-  /* ===== Pagination (sin Tailwind) ===== */
   .pagi{
     display:flex;
     align-items:center;
@@ -663,7 +629,6 @@
     display:block;
   }
 
-  /* Mobile: centrado y un poquito más compacto */
   @media (max-width: 760px){
     .pagi{ justify-content:center; }
     .pagi .page{ height:44px; min-width:44px; border-radius:16px; }
@@ -682,8 +647,23 @@
       <p class="muted subtxt">Gestiona el catálogo público y sincroniza con Mercado Libre con acciones rápidas.</p>
     </div>
 
-    {{-- Desktop: Nuevo + Descargar --}}
     <div class="head-actions">
+      <div class="tt tt-download">
+        <span class="tt-bubble">Ver resumen profesional del inventario</span>
+        <a href="{{ route('admin.catalog.analytics') }}" class="btn btn-sm">
+          <span class="ico">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 19V5"/>
+              <path d="M4 19h16"/>
+              <path d="M8 16V9"/>
+              <path d="M13 16V6"/>
+              <path d="M18 16v-4"/>
+            </svg>
+          </span>
+          Analíticas
+        </a>
+      </div>
+
       <div class="tt tt-download">
         <span class="tt-bubble">Descargar listado (Excel o PDF)</span>
         <button type="button" class="btn btn-sm" id="downloadOpenBtn">
@@ -710,9 +690,6 @@
     </div>
   </div>
 
-  {{-- El mensaje ahora se mostrará como toast (SweetAlert) desde JS --}}
-
-  {{-- ✅ El buscador se queda aquí siempre --}}
   <div class="filters">
     <form id="filtersForm" method="GET" action="{{ route('admin.catalog.index') }}" class="filters-row">
       <div class="tt" style="flex:1; min-width:0;">
@@ -727,7 +704,6 @@
         </div>
       </div>
 
-      {{-- ✅ SOLO estos tools se van al sheet en móvil --}}
       <div class="filter-tools">
         <div class="tt">
           <span class="tt-bubble">Filtrar por estado</span>
@@ -773,6 +749,7 @@
           <th class="img-cell">Img</th>
           <th>Producto</th>
           <th>Precio</th>
+          <th>Stock</th>
           <th>Estado</th>
           <th>Destacado</th>
           <th>Publicado</th>
@@ -783,14 +760,19 @@
       <tbody>
         @forelse($items as $it)
           @php
-            // 👉 SOLO usamos las fotos internas (photo_1, photo_2, photo_3)
             $imgPath = $it->photo_1 ?: ($it->photo_2 ?: $it->photo_3);
             $imgUrl  = $imgPath
               ? \Illuminate\Support\Facades\Storage::url($imgPath)
               : asset('images/placeholder.png');
+
+            $stockActual = (float)($it->stock ?? 0);
+            $stockMinimo = $it->stock_min !== null ? (float)$it->stock_min : null;
+            $stockMaximo = $it->stock_max !== null ? (float)$it->stock_max : null;
+            $stockCritico = $stockMinimo !== null && $stockActual <= $stockMinimo;
+            $sinStock = $stockActual <= 0;
           @endphp
 
-          <tr>
+          <tr class="{{ $stockCritico ? 'is-critical-row' : '' }}">
             <td class="img-cell">
               <div class="thumbbox">
                 <img
@@ -821,17 +803,24 @@
                   @else
                     <span class="badge b-draft"><span class="dot"></span>Borrador</span>
                   @endif
+
                   @if($it->is_featured)
                     <span class="badge" style="background:rgba(52,211,153,.16);border-color:rgba(52,211,153,.28);color:#065f46;">
                       <span class="dot" style="background:#22c55e"></span>Destacado
+                    </span>
+                  @endif
+
+                  @if($stockCritico)
+                    <span class="badge" style="background:#ffebeb;border-color:rgba(255,74,74,.24);color:#ff4a4a;">
+                      <span class="dot" style="background:#ff4a4a"></span>Stock crítico
                     </span>
                   @endif
                 </div>
 
                 @if(!empty($it->meli_last_error))
                   <details style="margin-top:8px;">
-                    <summary style="cursor:pointer; font-weight:800; color:#b91c1c;">Ver error de Mercado Libre</summary>
-                    <div style="margin-top:8px; font-size:.9rem; color:#7f1d1d; white-space:normal; max-width:740px;">
+                    <summary class="muted-sm" style="cursor:pointer;color:#b91c1c;font-weight:800;">Error Mercado Libre</summary>
+                    <div class="muted-sm" style="margin-top:6px;color:#7f1d1d; white-space:normal; max-width:740px;">
                       {{ $it->meli_last_error }}
                     </div>
                   </details>
@@ -845,6 +834,26 @@
                 <div class="muted-sm" style="text-decoration:line-through;">${{ number_format($it->price,2) }}</div>
               @else
                 <div class="price">${{ number_format($it->price,2) }}</div>
+              @endif
+            </td>
+
+            <td class="stock-mobile-space">
+              <span class="stock-pill {{ $stockCritico ? 'is-critical' : '' }} {{ $sinStock ? 'is-empty' : '' }}">
+                <span class="dot"></span>
+                {{ number_format($stockActual, 0) }} pzas
+              </span>
+
+              <div class="stock-meta">
+                Mín: {{ $stockMinimo !== null ? number_format($stockMinimo, 0) : '—' }}
+                · Máx: {{ $stockMaximo !== null ? number_format($stockMaximo, 0) : '—' }}
+              </div>
+
+              @if($stockCritico)
+                <div class="stock-critical-badge">
+                  <span class="badge" style="background:#ffebeb;border-color:rgba(255,74,74,.24);color:#ff4a4a;">
+                    <span class="dot" style="background:#ff4a4a"></span>Stock crítico
+                  </span>
+                </div>
               @endif
             </td>
 
@@ -874,7 +883,6 @@
 
             <td style="text-align:right;">
               <div class="actions">
-                {{-- 👁️ Ver ficha / preview --}}
                 <span class="tt iconbtn-wrap">
                   <span class="tt-bubble">Vista Previa</span>
                   <a class="iconbtn" href="{{ route('catalog.preview', $it) }}" target="_blank">
@@ -885,7 +893,6 @@
                   </a>
                 </span>
 
-                {{-- 🧮 Stock (abre modal) --}}
                 <span class="tt iconbtn-wrap">
                   <span class="tt-bubble">Actualizar stock</span>
                   <button type="button"
@@ -909,7 +916,6 @@
                   </a>
                 </span>
 
-                {{-- Publicar / Ocultar --}}
                 <span class="tt iconbtn-wrap">
                   <span class="tt-bubble">{{ $it->status == 1 ? 'Ocultar' : 'Publicar' }}</span>
                   <form method="POST"
@@ -933,7 +939,6 @@
                   </form>
                 </span>
 
-                {{-- ML publicar/actualizar --}}
                 <span class="tt iconbtn-wrap">
                   <span class="tt-bubble">ML: Publicar/Actualizar</span>
                   <form method="POST"
@@ -996,7 +1001,6 @@
                   </span>
                 @endif
 
-                {{-- Eliminar --}}
                 <span class="tt iconbtn-wrap">
                   <span class="tt-bubble">Eliminar</span>
                   <form method="POST"
@@ -1020,7 +1024,7 @@
           </tr>
         @empty
           <tr>
-            <td colspan="7" class="muted" style="text-align:center; padding:28px;">
+            <td colspan="8" class="muted" style="text-align:center; padding:28px;">
               No hay productos que coincidan con el filtro.
             </td>
           </tr>
@@ -1035,7 +1039,6 @@
     </div>
     <div>
       @php
-        // ✅ Preserva querystring (s, status, featured_only, etc.)
         $items->appends(request()->query());
         $links = $items->toArray()['links'] ?? [];
       @endphp
@@ -1052,7 +1055,6 @@
             $disabled = is_null($url) && !$active && !$isDots;
           @endphp
 
-          {{-- Prev --}}
           @if($isPrev)
             <a class="page {{ $disabled ? 'is-disabled' : '' }}"
                href="{{ $url ?: 'javascript:void(0)' }}"
@@ -1061,8 +1063,6 @@
                 <path d="M15 18l-6-6 6-6"/>
               </svg>
             </a>
-
-          {{-- Next --}}
           @elseif($isNext)
             <a class="page {{ $disabled ? 'is-disabled' : '' }}"
                href="{{ $url ?: 'javascript:void(0)' }}"
@@ -1071,12 +1071,8 @@
                 <path d="M9 6l6 6-6 6"/>
               </svg>
             </a>
-
-          {{-- Dots --}}
           @elseif($isDots)
             <span class="page is-ellipsis" aria-hidden="true">…</span>
-
-          {{-- Page number --}}
           @else
             <a class="page {{ $active ? 'is-active' : '' }} {{ $url ? '' : 'is-disabled' }}"
                href="{{ $url ?: 'javascript:void(0)' }}"
@@ -1090,7 +1086,6 @@
   </div>
 </div>
 
-{{-- ✅ MODAL STOCK --}}
 <div id="stockModal" class="stock-modal">
   <div class="stock-modal__overlay"></div>
   <div class="stock-modal__card">
@@ -1132,7 +1127,6 @@
   </div>
 </div>
 
-{{-- ✅ MODAL DESCARGA (desktop) --}}
 <div id="downloadModal" class="dl-modal">
   <div class="dl-modal__overlay"></div>
   <div class="dl-modal__card">
@@ -1159,6 +1153,20 @@
         Excel (.xlsx)
       </a>
 
+      <a href="{{ route('admin.catalog.analytics.pdf', request()->query()) }}"
+         class="btn btn-soft">
+        <span class="ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 19V5"/>
+            <path d="M4 19h16"/>
+            <path d="M8 16V9"/>
+            <path d="M13 16V6"/>
+            <path d="M18 16v-4"/>
+          </svg>
+        </span>
+        PDF profesional de analíticas
+      </a>
+
       <a href="{{ route('admin.catalog.export.pdf', request()->query()) }}"
          class="btn btn-soft">
         <span class="ico">
@@ -1166,13 +1174,12 @@
             <path d="M6 2h9l5 5v15H6z"/><path d="M15 2v5h5"/><path d="M9 13h3"/><path d="M9 17h6"/>
           </svg>
         </span>
-        PDF
+        PDF listado simple
       </a>
     </div>
   </div>
 </div>
 
-{{-- ✅ FAB (móvil) abre Bottom Sheet SOLO filtros --}}
 <button class="fab" id="fabOpen" type="button" aria-label="Abrir filtros">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
     <path d="M12 5v14M5 12h14"/>
@@ -1192,9 +1199,7 @@
     </button>
   </div>
 
-  {{-- ✅ En el sheet NO va el buscador (se queda arriba), solo estado + destacados + limpiar + nuevo + descargas --}}
   <form id="sheetForm" method="GET" action="{{ route('admin.catalog.index') }}" class="sf">
-    {{-- preserva el search que ya está arriba --}}
     <input type="hidden" name="s" id="sMirror" value="{{ request('s') }}">
 
     <div class="tabs" role="tablist" aria-label="Estado (móvil)">
@@ -1231,7 +1236,19 @@
       </a>
     @endif
 
-    {{-- Descargas en bottom sheet (móvil) --}}
+    <a href="{{ route('admin.catalog.analytics') }}" class="btn btn-soft">
+      <span class="ico">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M4 19V5"/>
+          <path d="M4 19h16"/>
+          <path d="M8 16V9"/>
+          <path d="M13 16V6"/>
+          <path d="M18 16v-4"/>
+        </svg>
+      </span>
+      Ver analíticas
+    </a>
+
     <div class="sheet-section-label">Descargar listado</div>
 
     <a href="{{ route('admin.catalog.export.excel', request()->query()) }}"
@@ -1244,6 +1261,20 @@
       Excel (.xlsx)
     </a>
 
+    <a href="{{ route('admin.catalog.analytics.pdf', request()->query()) }}"
+       class="btn btn-soft">
+      <span class="ico">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M4 19V5"/>
+          <path d="M4 19h16"/>
+          <path d="M8 16V9"/>
+          <path d="M13 16V6"/>
+          <path d="M18 16v-4"/>
+        </svg>
+      </span>
+      PDF profesional de analíticas
+    </a>
+
     <a href="{{ route('admin.catalog.export.pdf', request()->query()) }}"
        class="btn btn-soft">
       <span class="ico">
@@ -1251,14 +1282,13 @@
           <path d="M6 2h9l5 5v15H6z"/><path d="M15 2v5h5"/><path d="M9 13h3"/><path d="M9 17h6"/>
         </svg>
       </span>
-      PDF
+      PDF listado simple
     </a>
   </form>
 </div>
 @endsection
 
 @push('scripts')
-{{-- SweetAlert2 CDN --}}
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
@@ -1268,7 +1298,6 @@
   }
   function isMobile(){ return window.matchMedia('(max-width: 760px)').matches; }
 
-  // ===== Desktop main form =====
   const form = document.getElementById('filtersForm');
   const sInput = document.getElementById('sInput');
   const statusInput = document.getElementById('statusInput');
@@ -1277,7 +1306,6 @@
 
   const submitDebounced = debounce(()=> form?.submit(), 450);
 
-  // buscar: se queda en el form principal (visible siempre)
   sInput?.addEventListener('input', submitDebounced);
 
   tabs.forEach(btn=>{
@@ -1290,7 +1318,6 @@
   });
   featured?.addEventListener('change', ()=> form?.submit());
 
-  // ===== Bottom Sheet (móvil) =====
   const root = document.documentElement;
   const fab = document.getElementById('fabOpen');
   const sheet = document.getElementById('sheet');
@@ -1315,7 +1342,6 @@
   document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') closeSheet(); });
   window.addEventListener('resize', ()=>{ if(!isMobile()) closeSheet(); });
 
-  // sheet logic: solo status + destacados (mantiene el search actual)
   const sheetForm = document.getElementById('sheetForm');
   const sMirror = document.getElementById('sMirror');
   const statusSheet = document.getElementById('statusSheet');
@@ -1344,7 +1370,6 @@
     sheetForm?.submit();
   });
 
-  // ===== MODAL STOCK =====
   const stockModal = document.getElementById('stockModal');
   const stockOverlay = stockModal?.querySelector('.stock-modal__overlay');
   const stockCloseBtn = document.getElementById('stockCloseBtn');
@@ -1379,7 +1404,6 @@
   stockCloseBtn?.addEventListener('click', closeStockModal);
   stockCancelBtn?.addEventListener('click', closeStockModal);
 
-  // ===== MODAL DESCARGA (desktop) =====
   const dlModal = document.getElementById('downloadModal');
   const dlOverlay = dlModal?.querySelector('.dl-modal__overlay');
   const dlOpenBtn = document.getElementById('downloadOpenBtn');
@@ -1404,13 +1428,11 @@
     }
   });
 
-  // ===== SweetAlert confirm genérico =====
   const saForms = document.querySelectorAll('form.js-sa-confirm');
   saForms.forEach(formEl=>{
     formEl.addEventListener('submit', function(e){
       e.preventDefault();
       if(!window.Swal){
-        // fallback si no cargó SweetAlert
         return formEl.submit();
       }
       const title = formEl.dataset.saTitle || '¿Estás seguro?';
@@ -1441,7 +1463,6 @@
     });
   });
 
-  // ===== Toasts de confirmación (session) =====
   @if(session('ok'))
     if(window.Swal){
       Swal.fire({

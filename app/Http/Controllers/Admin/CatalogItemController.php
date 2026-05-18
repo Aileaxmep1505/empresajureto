@@ -28,6 +28,8 @@ use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use App\Services\AmazonSpApiListingService;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class CatalogItemController extends Controller implements HasMiddleware
 {
@@ -1158,7 +1160,296 @@ TXT;
 
         return back()->with('ok', $res['message'] ?? 'No se pudo activar en Amazon.');
     }
+public function analytics(Request $request)
+{
+    $data = $this->buildCatalogAnalyticsData($request);
 
+    return view('admin.catalog.analytics', $data);
+}
+
+public function analyticsPdf(Request $request)
+{
+    $data = $this->buildCatalogAnalyticsData($request);
+
+    $pdf = Pdf::loadView('admin.catalog.analytics_pdf', $data)
+        ->setPaper('a4', 'landscape');
+
+    return $pdf->download('reporte-inventario-jureto-' . now()->format('Y-m-d-H-i') . '.pdf');
+}
+
+private function buildCatalogAnalyticsData(Request $request): array
+{
+    $q = CatalogItem::query()->with(['categoryProduct', 'primaryLocation']);
+
+    $s = trim((string) $request->get('s', ''));
+    if ($s !== '') {
+        $q->where(function ($qq) use ($s) {
+            $qq->where('name', 'like', "%{$s}%")
+               ->orWhere('sku', 'like', "%{$s}%")
+               ->orWhere('slug', 'like', "%{$s}%");
+        });
+    }
+
+    if ($request->filled('status')) {
+        $q->where('status', (int) $request->integer('status'));
+    }
+
+    if ($request->boolean('featured_only')) {
+        $q->where('is_featured', true);
+    }
+
+    $items = $q->orderByDesc('id')->get();
+
+    $effectivePrice = function ($it): float {
+        if ($it->sale_price !== null && (float) $it->sale_price > 0) {
+            return (float) $it->sale_price;
+        }
+
+        return (float) ($it->price ?? 0);
+    };
+
+    $stockValue = function ($it) use ($effectivePrice): float {
+        return max(0, (float) ($it->stock ?? 0)) * $effectivePrice($it);
+    };
+
+    $totalProducts = $items->count();
+    $totalStock = (float) $items->sum(fn ($it) => max(0, (float) ($it->stock ?? 0)));
+    $totalMoney = (float) $items->sum(fn ($it) => $stockValue($it));
+
+    $published = $items->where('status', 1)->count();
+    $draft = $items->where('status', 0)->count();
+    $hidden = $items->where('status', 2)->count();
+    $featured = $items->where('is_featured', true)->count();
+
+    $meliPublished = $items->filter(fn ($it) => !empty($it->meli_item_id))->count();
+    $meliPending = max(0, $totalProducts - $meliPublished);
+
+    $criticalItems = $items->filter(function ($it) {
+        $stock = (float) ($it->stock ?? 0);
+        $min = $it->stock_min;
+
+        return $min !== null && $min !== '' && $stock <= (float) $min;
+    })->sortBy(fn ($it) => (float) ($it->stock ?? 0))->values();
+
+    $noStockItems = $items->filter(fn ($it) => (float) ($it->stock ?? 0) <= 0)->values();
+
+    $topStock = $items
+        ->sortByDesc(fn ($it) => (float) ($it->stock ?? 0))
+        ->take(10)
+        ->values();
+
+    $lowStock = $items
+        ->filter(fn ($it) => (float) ($it->stock ?? 0) > 0)
+        ->sortBy(fn ($it) => (float) ($it->stock ?? 0))
+        ->take(10)
+        ->values();
+
+    $expensiveItems = $items
+        ->sortByDesc(fn ($it) => $effectivePrice($it))
+        ->take(10)
+        ->values();
+
+    $cheapItems = $items
+        ->filter(fn ($it) => $effectivePrice($it) > 0)
+        ->sortBy(fn ($it) => $effectivePrice($it))
+        ->take(10)
+        ->values();
+
+    $categoryStats = $items
+        ->groupBy(fn ($it) => $it->categoryProduct?->full_path ?: 'Sin categoría')
+        ->map(function ($group, $category) use ($stockValue) {
+            return [
+                'category' => $category,
+                'count' => $group->count(),
+                'stock' => (float) $group->sum(fn ($it) => max(0, (float) ($it->stock ?? 0))),
+                'value' => (float) $group->sum(fn ($it) => $stockValue($it)),
+            ];
+        })
+        ->sortByDesc('stock')
+        ->take(10)
+        ->values();
+
+    $movementStats = $this->getCatalogMovementStats($items->pluck('id')->all());
+
+    $topMovements = collect();
+    $fastMoving = collect();
+    $movementSource = $movementStats['source'];
+
+    if ($movementStats['rows']->isNotEmpty()) {
+        $itemsById = $items->keyBy('id');
+
+        $topMovements = $movementStats['rows']
+            ->sortByDesc('total_movements')
+            ->take(10)
+            ->map(function ($row) use ($itemsById) {
+                $it = $itemsById->get($row['item_id']);
+
+                return [
+                    'item' => $it,
+                    'total_movements' => $row['total_movements'],
+                    'outgoing' => $row['outgoing'],
+                    'incoming' => $row['incoming'],
+                ];
+            })
+            ->filter(fn ($row) => $row['item'])
+            ->values();
+
+        $fastMoving = $movementStats['rows']
+            ->sortByDesc('outgoing')
+            ->take(10)
+            ->map(function ($row) use ($itemsById) {
+                $it = $itemsById->get($row['item_id']);
+
+                return [
+                    'item' => $it,
+                    'total_movements' => $row['total_movements'],
+                    'outgoing' => $row['outgoing'],
+                    'incoming' => $row['incoming'],
+                ];
+            })
+            ->filter(fn ($row) => $row['item'])
+            ->values();
+    }
+
+    if ($fastMoving->isEmpty()) {
+        $fastMoving = $criticalItems
+            ->take(10)
+            ->map(function ($it) {
+                return [
+                    'item' => $it,
+                    'total_movements' => null,
+                    'outgoing' => null,
+                    'incoming' => null,
+                ];
+            })
+            ->values();
+
+        $movementSource = null;
+    }
+
+    return [
+        'items' => $items,
+        'filters' => [
+            's' => $s,
+            'status' => $request->get('status'),
+            'featured_only' => $request->boolean('featured_only'),
+        ],
+        'summary' => [
+            'total_products' => $totalProducts,
+            'total_stock' => $totalStock,
+            'total_money' => $totalMoney,
+            'published' => $published,
+            'draft' => $draft,
+            'hidden' => $hidden,
+            'featured' => $featured,
+            'meli_published' => $meliPublished,
+            'meli_pending' => $meliPending,
+            'critical' => $criticalItems->count(),
+            'no_stock' => $noStockItems->count(),
+        ],
+        'criticalItems' => $criticalItems->take(12),
+        'noStockItems' => $noStockItems->take(12),
+        'topStock' => $topStock,
+        'lowStock' => $lowStock,
+        'expensiveItems' => $expensiveItems,
+        'cheapItems' => $cheapItems,
+        'categoryStats' => $categoryStats,
+        'topMovements' => $topMovements,
+        'fastMoving' => $fastMoving,
+        'movementSource' => $movementSource,
+        'effectivePrice' => $effectivePrice,
+        'stockValue' => $stockValue,
+    ];
+}
+
+private function getCatalogMovementStats(array $itemIds): array
+{
+    $itemIds = array_values(array_filter(array_map('intval', $itemIds)));
+
+    if (empty($itemIds)) {
+        return [
+            'source' => null,
+            'rows' => collect(),
+        ];
+    }
+
+    $candidates = [
+        [
+            'table' => 'catalog_stock_movements',
+            'item_columns' => ['catalog_item_id', 'item_id'],
+            'qty_columns' => ['quantity', 'qty', 'amount'],
+        ],
+        [
+            'table' => 'stock_movements',
+            'item_columns' => ['catalog_item_id', 'item_id'],
+            'qty_columns' => ['quantity', 'qty', 'amount'],
+        ],
+        [
+            'table' => 'inventory_movements',
+            'item_columns' => ['catalog_item_id', 'item_id'],
+            'qty_columns' => ['quantity', 'qty', 'amount'],
+        ],
+        [
+            'table' => 'wms_stock_movements',
+            'item_columns' => ['catalog_item_id', 'item_id'],
+            'qty_columns' => ['quantity', 'qty', 'amount'],
+        ],
+        [
+            'table' => 'wms_inventory_movements',
+            'item_columns' => ['catalog_item_id', 'item_id'],
+            'qty_columns' => ['quantity', 'qty', 'amount'],
+        ],
+    ];
+
+    foreach ($candidates as $candidate) {
+        $table = $candidate['table'];
+
+        if (!Schema::hasTable($table)) {
+            continue;
+        }
+
+        $itemColumn = collect($candidate['item_columns'])->first(fn ($column) => Schema::hasColumn($table, $column));
+        $qtyColumn = collect($candidate['qty_columns'])->first(fn ($column) => Schema::hasColumn($table, $column));
+
+        if (!$itemColumn || !$qtyColumn) {
+            continue;
+        }
+
+        try {
+            $rows = DB::table($table)
+                ->selectRaw("
+                    {$itemColumn} as item_id,
+                    SUM(ABS(COALESCE({$qtyColumn}, 0))) as total_movements,
+                    SUM(CASE WHEN COALESCE({$qtyColumn}, 0) < 0 THEN ABS(COALESCE({$qtyColumn}, 0)) ELSE 0 END) as outgoing,
+                    SUM(CASE WHEN COALESCE({$qtyColumn}, 0) > 0 THEN COALESCE({$qtyColumn}, 0) ELSE 0 END) as incoming
+                ")
+                ->whereIn($itemColumn, $itemIds)
+                ->groupBy($itemColumn)
+                ->get()
+                ->map(fn ($row) => [
+                    'item_id' => (int) $row->item_id,
+                    'total_movements' => (float) $row->total_movements,
+                    'outgoing' => (float) $row->outgoing,
+                    'incoming' => (float) $row->incoming,
+                ]);
+
+            return [
+                'source' => $table,
+                'rows' => $rows,
+            ];
+        } catch (\Throwable $e) {
+            Log::warning('Catalog analytics: no se pudieron leer movimientos', [
+                'table' => $table,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    return [
+        'source' => null,
+        'rows' => collect(),
+    ];
+}
     private function getCategoryOptions()
     {
         return CategoryProduct::query()
