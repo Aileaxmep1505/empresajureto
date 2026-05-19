@@ -301,9 +301,11 @@
       transform:translateY(-1px);
       box-shadow:0 8px 14px rgba(47,109,246,.08);
     }
-.content.content--flush {
-  padding: 0;
-}
+
+    .content.content--flush {
+      padding: 0;
+    }
+
     .side-nav{
       position:relative;
       z-index:1;
@@ -671,14 +673,8 @@
       background:linear-gradient(180deg, #fbfcff, #f7f9ff);
     }
 
-    .notif__list::-webkit-scrollbar{
-      width:7px;
-    }
-
-    .notif__list::-webkit-scrollbar-thumb{
-      background:rgba(148,163,184,.38);
-      border-radius:999px;
-    }
+    .notif__list::-webkit-scrollbar{ width:7px; }
+    .notif__list::-webkit-scrollbar-thumb{ background:rgba(148,163,184,.38); border-radius:999px; }
 
     .notif__empty{
       padding:18px 14px;
@@ -702,375 +698,81 @@
       padding-right:38px;
     }
 
-    .notif__item:last-child{
-      margin-bottom:0;
-    }
+    .notif__item:last-child{ margin-bottom:0; }
+    .notif__item:hover{ transform:translateY(-1px); border-color:rgba(239,68,68,.18); box-shadow:0 12px 22px rgba(15,23,42,.07); }
+    .notif__item.is-unread{ background:linear-gradient(180deg, #fffefe, #fff4f5); border-color:rgba(239,68,68,.18); box-shadow:0 10px 22px rgba(239,68,68,.06); }
+    .notif__item.is-unread::before{ content:""; position:absolute; left:0; top:10px; bottom:10px; width:4px; border-radius:999px; background:linear-gradient(180deg, #ef4444, #dc2626); }
+    .notif__item.is-read{ opacity:.92; }
 
-    .notif__item:hover{
-      transform:translateY(-1px);
-      border-color:rgba(239,68,68,.18);
-      box-shadow:0 12px 22px rgba(15,23,42,.07);
-    }
+    .notif__icon{ width:34px; height:34px; border-radius:11px; display:grid; place-items:center; background:linear-gradient(180deg, #fff0f0, #ffe4e6); color:#b91c1c; border:1px solid rgba(239,68,68,.14); box-shadow:inset 0 1px 0 rgba(255,255,255,.65); margin-top:1px; }
+    .notif__item.warn .notif__icon{ background:linear-gradient(180deg, #fff8e8, #fff2cf); color:#9a6700; border-color:rgba(245,158,11,.14); }
+    .notif__item.error .notif__icon{ background:linear-gradient(180deg, #fff0f0, #ffe1e1); color:#b42318; border-color:rgba(239,68,68,.14); }
 
-    .notif__item.is-unread{
-      background:linear-gradient(180deg, #fffefe, #fff4f5);
-      border-color:rgba(239,68,68,.18);
-      box-shadow:0 10px 22px rgba(239,68,68,.06);
-    }
+    .notif__content{ min-width:0; }
+    .notif__text{ color:#991b1b; font-size:.92rem; font-weight:700; line-height:1.22; margin-bottom:3px; word-break:break-word; padding-right:4px; }
+    .notif__msg{ color:#7f1d1d; font-size:.84rem; line-height:1.28; word-break:break-word; }
+    .notif__item.is-read .notif__text{ color:#334155; }
+    .notif__item.is-read .notif__msg{ color:#6b7280; }
+    .notif__meta{ display:flex; align-items:center; flex-wrap:wrap; gap:7px; margin-top:8px; }
+    .notif__time{ color:#7c8798; font-size:.8rem; font-weight:700; }
+    .notif__sep{ color:#b2bccb; font-size:.8rem; }
 
-    .notif__item.is-unread::before{
-      content:"";
-      position:absolute;
-      left:0;
-      top:10px;
-      bottom:10px;
-      width:4px;
-      border-radius:999px;
-      background:linear-gradient(180deg, #ef4444, #dc2626);
-    }
+    .pill{ padding:4px 8px; border-radius:999px; font-size:.66rem; font-weight:700; align-self:flex-start; border:1px solid transparent; line-height:1; }
+    .pill--info{ background:#fee2e2; color:#b91c1c; border-color:rgba(239,68,68,.16); }
+    .pill--warn{ background:#fff3d4; color:#956100; border-color:rgba(245,158,11,.16); }
+    .pill--error{ background:#fee5e5; color:#b42318; border-color:rgba(239,68,68,.14); }
 
-    .notif__item.is-read{
-      opacity:.92;
-    }
+    .notif__item-close{ position:absolute; top:10px; right:10px; width:23px; height:23px; border-radius:999px; border:none; background:transparent; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:14px; color:#dc2626; transition:background .16s ease,color .16s ease,transform .08s ease, box-shadow .16s ease; }
+    .notif__item-close:hover{ background:rgba(239,68,68,.12); color:#b91c1c; box-shadow:0 6px 14px rgba(239,68,68,.14); }
+    .notif__item-close:active{ transform:scale(.94); }
 
-    .notif__icon{
-      width:34px;
-      height:34px;
-      border-radius:11px;
-      display:grid;
-      place-items:center;
-      background:linear-gradient(180deg, #fff0f0, #ffe4e6);
-      color:#b91c1c;
-      border:1px solid rgba(239,68,68,.14);
-      box-shadow:inset 0 1px 0 rgba(255,255,255,.65);
-      margin-top:1px;
-    }
+    .notif__footer{ padding:8px 10px 10px; border-top:1px solid rgba(219,228,242,.92); background:linear-gradient(180deg, #ffffff, #f9fbff); }
+    .notif__link{ display:flex; align-items:center; justify-content:center; gap:8px; width:100%; padding:10px 12px; text-decoration:none; color:#b91c1c; border-radius:14px; border:1px solid rgba(239,68,68,.14); font-weight:700; font-size:.88rem; text-align:center; background:linear-gradient(180deg, #fff4f5, #ffecee); cursor:pointer; transition:transform .12s ease, box-shadow .18s ease, filter .18s ease, color .18s ease; }
+    .notif__link:hover{ transform:translateY(-1px); box-shadow:0 10px 18px rgba(239,68,68,.10); filter:brightness(1.01); color:#991b1b; }
 
-    .notif__item.warn .notif__icon{
-      background:linear-gradient(180deg, #fff8e8, #fff2cf);
-      color:#9a6700;
-      border-color:rgba(245,158,11,.14);
-    }
-
-    .notif__item.error .notif__icon{
-      background:linear-gradient(180deg, #fff0f0, #ffe1e1);
-      color:#b42318;
-      border-color:rgba(239,68,68,.14);
-    }
-
-    .notif__content{
-      min-width:0;
-    }
-
-    .notif__text{
-      color:#991b1b;
-      font-size:.92rem;
-      font-weight:700;
-      line-height:1.22;
-      margin-bottom:3px;
-      word-break:break-word;
-      padding-right:4px;
-    }
-
-    .notif__msg{
-      color:#7f1d1d;
-      font-size:.84rem;
-      line-height:1.28;
-      word-break:break-word;
-    }
-
-    .notif__item.is-read .notif__text{
-      color:#334155;
-    }
-
-    .notif__item.is-read .notif__msg{
-      color:#6b7280;
-    }
-
-    .notif__meta{
-      display:flex;
-      align-items:center;
-      flex-wrap:wrap;
-      gap:7px;
-      margin-top:8px;
-    }
-
-    .notif__time{
-      color:#7c8798;
-      font-size:.8rem;
-      font-weight:700;
-    }
-
-    .notif__sep{
-      color:#b2bccb;
-      font-size:.8rem;
-    }
-
-    .pill{
-      padding:4px 8px;
-      border-radius:999px;
-      font-size:.66rem;
-      font-weight:700;
-      align-self:flex-start;
-      border:1px solid transparent;
-      line-height:1;
-    }
-
-    .pill--info{
-      background:#fee2e2;
-      color:#b91c1c;
-      border-color:rgba(239,68,68,.16);
-    }
-
-    .pill--warn{
-      background:#fff3d4;
-      color:#956100;
-      border-color:rgba(245,158,11,.16);
-    }
-
-    .pill--error{
-      background:#fee5e5;
-      color:#b42318;
-      border-color:rgba(239,68,68,.14);
-    }
-
-    .notif__item-close{
-      position:absolute;
-      top:10px;
-      right:10px;
-      width:23px;
-      height:23px;
-      border-radius:999px;
-      border:none;
-      background:transparent;
-      cursor:pointer;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      font-size:14px;
-      color:#dc2626;
-      transition:background .16s ease,color .16s ease,transform .08s ease, box-shadow .16s ease;
-    }
-
-    .notif__item-close:hover{
-      background:rgba(239,68,68,.12);
-      color:#b91c1c;
-      box-shadow:0 6px 14px rgba(239,68,68,.14);
-    }
-
-    .notif__item-close:active{
-      transform:scale(.94);
-    }
-
-    .notif__footer{
-      padding:8px 10px 10px;
-      border-top:1px solid rgba(219,228,242,.92);
-      background:linear-gradient(180deg, #ffffff, #f9fbff);
-    }
-
-    .notif__link{
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      gap:8px;
-      width:100%;
-      padding:10px 12px;
-      text-decoration:none;
-      color:#b91c1c;
-      border-radius:14px;
-      border:1px solid rgba(239,68,68,.14);
-      font-weight:700;
-      font-size:.88rem;
-      text-align:center;
-      background:linear-gradient(180deg, #fff4f5, #ffecee);
-      cursor:pointer;
-      transition:transform .12s ease, box-shadow .18s ease, filter .18s ease, color .18s ease;
-    }
-
-    .notif__link:hover{
-      transform:translateY(-1px);
-      box-shadow:0 10px 18px rgba(239,68,68,.10);
-      filter:brightness(1.01);
-      color:#991b1b;
-    }
-
-    .content{
-      padding:18px;
-      min-height:calc(100vh - var(--topbar-h));
-      background:transparent;
-    }
-
-    .no-anim *{
-      transition:none !important;
-      animation:none !important;
-    }
+    .content{ padding:18px; min-height:calc(100vh - var(--topbar-h)); background:transparent; }
+    .no-anim *{ transition:none !important; animation:none !important; }
 
     @media (max-width: 991.98px){
-      :root{
-        --topbar-h:56px;
-        --sidebar-w:300px;
-      }
-
-      .topbar{
-        padding:8px 12px;
-      }
-
-      .topbar__title{
-        font-size:1rem;
-      }
-
-      .content{
-        padding:15px;
-      }
-
-      .notif__panel{
-        width:340px;
-      }
+      :root{ --topbar-h:56px; --sidebar-w:300px; }
+      .topbar{ padding:8px 12px; }
+      .topbar__title{ font-size:1rem; }
+      .content{ padding:15px; }
+      .notif__panel{ width:340px; }
     }
 
     @media (max-width: 767.98px){
-      :root{
-        --topbar-h:54px;
-        --sidebar-w:88vw;
-      }
-
-      .sidebar{
-        max-width:88vw;
-      }
-
-      .sidebar__head{
-        padding:12px 12px 11px;
-      }
-
-      .avatar{
-        width:42px;
-        height:42px;
-        border-radius:14px;
-      }
-
-      .user__name{
-        font-size:.92rem;
-      }
-
-      .user__mail{
-        font-size:.81rem;
-      }
-
-      .topbar{
-        gap:8px;
-        padding:8px 10px;
-      }
-
-      .icon-btn{
-        width:36px;
-        height:36px;
-        border-radius:12px;
-      }
-
-      .topbar__title{
-        font-size:.96rem;
-      }
-
-      .topbar__right{
-        gap:8px;
-      }
-
-      .avatar--sm{
-        width:34px;
-        height:34px;
-      }
-
-      .dot{
-        min-width:22px;
-        height:22px;
-        font-size:.64rem;
-        padding:0 6px;
-      }
-
-      .notif__panel{
-        position:fixed;
-        left:8px;
-        right:8px;
-        top:62px;
-        width:auto;
-        max-width:none;
-        border-radius:18px;
-      }
-
-      .notif__head{
-        padding:12px 12px 10px;
-      }
-
-      .notif__title{
-        font-size:.95rem;
-      }
-
-      .notif__subtitle{
-        font-size:.8rem;
-      }
-
-      .notif__list{
-        max-height:min(58vh, 450px);
-        padding:8px;
-      }
-
-      .notif__item{
-        grid-template-columns:38px 1fr;
-        gap:9px;
-        padding:10px;
-        padding-right:34px;
-        border-radius:15px;
-      }
-
-      .notif__icon{
-        width:32px;
-        height:32px;
-        border-radius:10px;
-      }
-
-      .notif__text{
-        font-size:.88rem;
-      }
-
-      .notif__msg{
-        font-size:.8rem;
-      }
-
-      .notif__time{
-        font-size:.77rem;
-      }
-
-      .nav__link > span,
-      .nav__sublink > span,
-      .side-nav .nav__group > summary > span{
-        font-size:.93rem;
-      }
-
-      .btn-logout{
-        border-radius:16px;
-        padding:11px 12px;
-      }
-
-      .content{
-        padding:12px;
-      }
+      :root{ --topbar-h:54px; --sidebar-w:88vw; }
+      .sidebar{ max-width:88vw; }
+      .sidebar__head{ padding:12px 12px 11px; }
+      .avatar{ width:42px; height:42px; border-radius:14px; }
+      .user__name{ font-size:.92rem; }
+      .user__mail{ font-size:.81rem; }
+      .topbar{ gap:8px; padding:8px 10px; }
+      .icon-btn{ width:36px; height:36px; border-radius:12px; }
+      .topbar__title{ font-size:.96rem; }
+      .topbar__right{ gap:8px; }
+      .avatar--sm{ width:34px; height:34px; }
+      .dot{ min-width:22px; height:22px; font-size:.64rem; padding:0 6px; }
+      .notif__panel{ position:fixed; left:8px; right:8px; top:62px; width:auto; max-width:none; border-radius:18px; }
+      .notif__head{ padding:12px 12px 10px; }
+      .notif__title{ font-size:.95rem; }
+      .notif__subtitle{ font-size:.8rem; }
+      .notif__list{ max-height:min(58vh, 450px); padding:8px; }
+      .notif__item{ grid-template-columns:38px 1fr; gap:9px; padding:10px; padding-right:34px; border-radius:15px; }
+      .notif__icon{ width:32px; height:32px; border-radius:10px; }
+      .notif__text{ font-size:.88rem; }
+      .notif__msg{ font-size:.8rem; }
+      .notif__time{ font-size:.77rem; }
+      .nav__link > span, .nav__sublink > span, .side-nav .nav__group > summary > span{ font-size:.93rem; }
+      .btn-logout{ border-radius:16px; padding:11px 12px; }
+      .content{ padding:12px; }
     }
 
     @media (max-width: 420px){
-      .topbar__title{
-        max-width:130px;
-      }
-
-      .notif__panel{
-        left:6px;
-        right:6px;
-        top:60px;
-      }
-
-      .sidebar__close{
-        width:34px;
-        height:34px;
-      }
+      .topbar__title{ max-width:130px; }
+      .notif__panel{ left:6px; right:6px; top:60px; }
+      .sidebar__close{ width:34px; height:34px; }
     }
   </style>
 </head>
@@ -1087,6 +789,10 @@
           $isAdmin   = $u && method_exists($u,'hasRole') ? $u->hasRole('admin') : false;
           $isManager = $u && method_exists($u,'hasRole') ? $u->hasRole('manager') : false;
           $restrictManager = $isManager && !$isAdmin;
+
+          // ✅ IDs con acceso a Estados Financieros
+          $financialUserIds = [2, 12, 18];
+          $canSeeFinancial  = $u && in_array($u->id, $financialUserIds);
 
           $baseAvatar = null;
           if ($u && !empty($u->avatar_url)) { $baseAvatar = $u->avatar_url; }
@@ -1127,7 +833,6 @@
           } else {
               $notifReadAllUrl = url('/notifications/read-all');
           }
-
           if (\Illuminate\Support\Facades\Route::has('notifications.read-one')) {
               $notifReadOneUrl = route('notifications.read-one', ['notification' => '__ID__']);
           } else {
@@ -1150,7 +855,6 @@
         <div class="user__meta">
           <div class="user__name">{{ $nm }}</div>
           <div class="user__mail">{{ $u?->email ?? 'correo@dominio.com' }}</div>
-
           @if($u && method_exists($u,'getRoleNames'))
             <div class="user__roles">
               @foreach($u->getRoleNames() as $r)
@@ -1186,9 +890,7 @@
           <div class="nav__submenu">
             <a href="{{ route('profile.show') }}" class="nav__sublink {{ request()->routeIs('profile.show') ? 'is-active':'' }}">
               <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9">
-                <path d="M4 7h16"></path>
-                <path d="M4 12h11"></path>
-                <path d="M4 17h8"></path>
+                <path d="M4 7h16"></path><path d="M4 12h11"></path><path d="M4 17h8"></path>
               </svg>
               <span>Ver perfil</span>
             </a>
@@ -1197,10 +899,7 @@
 
         <a href="{{ route('partcontable.index') }}" class="nav__link {{ request()->routeIs('partcontable.*') ? 'is-active':'' }}">
           <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-            <path d="M4 19h16"></path>
-            <path d="M7 16V8"></path>
-            <path d="M12 16V5"></path>
-            <path d="M17 16v-4"></path>
+            <path d="M4 19h16"></path><path d="M7 16V8"></path><path d="M12 16V5"></path><path d="M17 16v-4"></path>
           </svg>
           <span>Part. contable</span>
         </a>
@@ -1208,56 +907,66 @@
         <a href="{{ route('alta.docs.index') }}" class="nav__link {{ request()->routeIs('alta.docs.*') ? 'is-active':'' }}">
           <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
             <path d="M8 3h6l5 5v11a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"></path>
-            <path d="M14 3v5h5"></path>
-            <path d="M9 13h6"></path>
-            <path d="M9 17h4"></path>
+            <path d="M14 3v5h5"></path><path d="M9 13h6"></path><path d="M9 17h4"></path>
           </svg>
           <span>Documentación de altas</span>
         </a>
+
+        {{-- ✅ Propuestas Comerciales — visible para TODOS incluyendo manager --}}
+        <a href="{{ route('propuestas-comerciales.index') }}" class="nav__link {{ request()->routeIs('propuestas-comerciales.*') ? 'is-active':'' }}">
+          <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
+            <path d="M9 12h6"></path><path d="M9 16h6"></path>
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <path d="M14 2v6h6"></path>
+          </svg>
+          <span>Propuestas comerciales</span>
+        </a>
+
+        {{-- ✅ Estados Financieros — solo users 2, 12, 18 --}}
+        @if($canSeeFinancial)
+          <a href="{{ route('financial.index') }}" class="nav__link {{ request()->routeIs('financial.*') ? 'is-active':'' }}">
+            <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
+              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+            </svg>
+            <span>Estados Financieros</span>
+          </a>
+        @endif
 
       @else
 
       <a href="{{ route('dashboard') }}" class="nav__link {{ request()->routeIs('dashboard') ? 'is-active':'' }}">
         <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-          <path d="M4 13.5 12 5l8 8.5"></path>
-          <path d="M7 11.5V20h10v-8.5"></path>
+          <path d="M4 13.5 12 5l8 8.5"></path><path d="M7 11.5V20h10v-8.5"></path>
         </svg>
         <span>Dashboard</span>
       </a>
 
       <a href="{{ route('profile.show') }}" class="nav__link {{ request()->routeIs('profile.show') ? 'is-active':'' }}">
         <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-          <circle cx="12" cy="8" r="4"></circle>
-          <path d="M5 20a7 7 0 0 1 14 0"></path>
+          <circle cx="12" cy="8" r="4"></circle><path d="M5 20a7 7 0 0 1 14 0"></path>
         </svg>
         <span>Mi Perfil</span>
       </a>
 
       <a href="{{ route('products.index') }}" class="nav__link {{ request()->routeIs('products.index') || request()->routeIs('products.show') ? 'is-active':'' }}">
         <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-          <path d="M12 3 4 7l8 4 8-4-8-4Z"></path>
-          <path d="M4 7v10l8 4 8-4V7"></path>
-          <path d="M12 11v10"></path>
+          <path d="M12 3 4 7l8 4 8-4-8-4Z"></path><path d="M4 7v10l8 4 8-4V7"></path><path d="M12 11v10"></path>
         </svg>
         <span>Catálogo</span>
       </a>
 
       <a href="{{ route('providers.index') }}" class="nav__link {{ request()->routeIs('providers.*') ? 'is-active':'' }}">
         <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-          <path d="M3 10h18"></path>
-          <path d="M5 10V6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4"></path>
-          <path d="M6 10v8a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-8"></path>
-          <path d="M10 14h4"></path>
+          <path d="M3 10h18"></path><path d="M5 10V6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4"></path>
+          <path d="M6 10v8a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-8"></path><path d="M10 14h4"></path>
         </svg>
         <span>Proveedores</span>
       </a>
 
       <a href="{{ route('clients.index') }}" class="nav__link {{ request()->routeIs('clients.*') ? 'is-active':'' }}">
         <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-          <circle cx="9" cy="8" r="3.5"></circle>
-          <path d="M3.5 19a5.5 5.5 0 0 1 11 0"></path>
-          <path d="M16 8a3 3 0 0 1 0 6"></path>
-          <path d="M18.5 19a5 5 0 0 0-2.5-4.33"></path>
+          <circle cx="9" cy="8" r="3.5"></circle><path d="M3.5 19a5.5 5.5 0 0 1 11 0"></path>
+          <path d="M16 8a3 3 0 0 1 0 6"></path><path d="M18.5 19a5 5 0 0 0-2.5-4.33"></path>
         </svg>
         <span>Clientes</span>
       </a>
@@ -1266,36 +975,22 @@
         <summary class="{{ request()->routeIs('cotizaciones.*') ? 'is-active':'' }}">
           <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
             <path d="M7 3h10l4 4v14H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"></path>
-            <path d="M17 3v4h4"></path>
-            <path d="M9 11h8"></path>
-            <path d="M9 15h8"></path>
+            <path d="M17 3v4h4"></path><path d="M9 11h8"></path><path d="M9 15h8"></path>
           </svg>
           <span>Cotizaciones</span>
-          <svg class="nav__chev" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2">
-            <path d="M9 6l6 6-6 6"/>
-          </svg>
+          <svg class="nav__chev" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
         </summary>
         <div class="nav__submenu">
           <a href="{{ route('cotizaciones.index') }}" class="nav__sublink {{ request()->routeIs('cotizaciones.index') || request()->routeIs('cotizaciones.show') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9">
-              <path d="M5 7h14"></path>
-              <path d="M5 12h14"></path>
-              <path d="M5 17h9"></path>
-            </svg>
+            <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9"><path d="M5 7h14"></path><path d="M5 12h14"></path><path d="M5 17h9"></path></svg>
             <span>Listado</span>
           </a>
           <a href="{{ route('cotizaciones.create') }}" class="nav__sublink {{ request()->routeIs('cotizaciones.create') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9">
-              <path d="M12 5v14"></path>
-              <path d="M5 12h14"></path>
-            </svg>
+            <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
             <span>Nueva</span>
           </a>
           <a href="{{ route('cotizaciones.auto.form') }}" class="nav__sublink {{ request()->routeIs('cotizaciones.auto.*') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9">
-              <path d="M7 7h8a4 4 0 0 1 0 8H9"></path>
-              <path d="m7 11-3 3 3 3"></path>
-            </svg>
+            <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9"><path d="M7 7h8a4 4 0 0 1 0 8H9"></path><path d="m7 11-3 3 3 3"></path></svg>
             <span>Auto (asistida)</span>
           </a>
         </div>
@@ -1303,9 +998,7 @@
 
       <a href="{{ route('ventas.index') }}" class="nav__link {{ request()->routeIs('ventas.*') ? 'is-active':'' }}">
         <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-          <path d="M6 6h15l-2 8H8L6 4H3"></path>
-          <circle cx="9" cy="19" r="1.6"></circle>
-          <circle cx="18" cy="19" r="1.6"></circle>
+          <path d="M6 6h15l-2 8H8L6 4H3"></path><circle cx="9" cy="19" r="1.6"></circle><circle cx="18" cy="19" r="1.6"></circle>
         </svg>
         <span>Ventas</span>
       </a>
@@ -1313,9 +1006,7 @@
       <a href="{{ route('manual_invoices.index') }}" class="nav__link {{ request()->routeIs('manual_invoices.index') || request()->routeIs('manual_invoices.show') ? 'is-active':'' }}">
         <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
           <path d="M8 3h8l4 4v14H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"></path>
-          <path d="M16 3v4h4"></path>
-          <path d="M9 12h6"></path>
-          <path d="M9 16h6"></path>
+          <path d="M16 3v4h4"></path><path d="M9 12h6"></path><path d="M9 16h6"></path>
         </svg>
         <span>Facturas</span>
       </a>
@@ -1323,9 +1014,7 @@
       <a href="{{ route('tech-sheets.index') }}" class="nav__link {{ request()->routeIs('tech-sheets.index') || request()->routeIs('tech-sheets.show') ? 'is-active':'' }}">
         <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
           <rect x="5" y="3" width="14" height="18" rx="2"></rect>
-          <path d="M9 8h6"></path>
-          <path d="M9 12h6"></path>
-          <path d="M9 16h4"></path>
+          <path d="M9 8h6"></path><path d="M9 12h6"></path><path d="M9 16h4"></path>
         </svg>
         <span>Fichas técnicas</span>
       </a>
@@ -1333,19 +1022,14 @@
       <a href="{{ route('publications.index') }}" class="nav__link {{ request()->routeIs('publications.index') || request()->routeIs('publications.show') ? 'is-active':'' }}">
         <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
           <path d="M5 6.5A2.5 2.5 0 0 1 7.5 4H20v14H7.5A2.5 2.5 0 0 0 5 20.5z"></path>
-          <path d="M5 6v14"></path>
-          <path d="M9 8h7"></path>
-          <path d="M9 12h7"></path>
+          <path d="M5 6v14"></path><path d="M9 8h7"></path><path d="M9 12h7"></path>
         </svg>
         <span>Compras y Ventas</span>
       </a>
 
       <a href="{{ route('partcontable.index') }}" class="nav__link {{ request()->routeIs('partcontable.*') ? 'is-active':'' }}">
         <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-          <path d="M4 19h16"></path>
-          <path d="M7 16V8"></path>
-          <path d="M12 16V5"></path>
-          <path d="M17 16v-4"></path>
+          <path d="M4 19h16"></path><path d="M7 16V8"></path><path d="M12 16V5"></path><path d="M17 16v-4"></path>
         </svg>
         <span>Part. contable</span>
       </a>
@@ -1360,22 +1044,17 @@
 
       <a href="{{ route('expenses.index') }}" class="nav__link {{ request()->routeIs('expenses.*') ? 'is-active':'' }}">
         <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-          <path d="M6 4h10"></path>
-          <path d="M5 8h14"></path>
-          <path d="M7 12h10"></path>
-          <path d="M9 16h6"></path>
-          <path d="M17 4v12"></path>
+          <path d="M6 4h10"></path><path d="M5 8h14"></path><path d="M7 12h10"></path>
+          <path d="M9 16h6"></path><path d="M17 4v12"></path>
         </svg>
         <span>Gastos</span>
       </a>
 
       <a href="{{ route('vehicles.index') }}" class="nav__link {{ request()->routeIs('vehicles.*') ? 'is-active':'' }}">
         <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-          <path d="M5 15l2-5h10l2 5"></path>
-          <path d="M4 15h16v3a2 2 0 0 1-2 2h-1"></path>
+          <path d="M5 15l2-5h10l2 5"></path><path d="M4 15h16v3a2 2 0 0 1-2 2h-1"></path>
           <path d="M5 20H4a2 2 0 0 1-2-2v-3"></path>
-          <circle cx="7" cy="18" r="2"></circle>
-          <circle cx="17" cy="18" r="2"></circle>
+          <circle cx="7" cy="18" r="2"></circle><circle cx="17" cy="18" r="2"></circle>
         </svg>
         <span>Vehículos</span>
       </a>
@@ -1383,97 +1062,44 @@
       <a href="{{ route('alta.docs.index') }}" class="nav__link {{ request()->routeIs('alta.docs.*') ? 'is-active':'' }}">
         <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
           <path d="M8 3h6l5 5v11a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"></path>
-          <path d="M14 3v5h5"></path>
-          <path d="M9 13h6"></path>
-          <path d="M9 17h4"></path>
+          <path d="M14 3v5h5"></path><path d="M9 13h6"></path><path d="M9 17h4"></path>
         </svg>
         <span>Documentación de altas</span>
       </a>
 
       <details class="nav__group"
-        {{ request()->routeIs('licitaciones.*')
-            || request()->routeIs('licitaciones-ai.*')
-            || request()->routeIs('admin.licitacion-pdfs.*')
-            || request()->routeIs('admin.licitacion-propuestas.*')
-            ? 'open' : '' }}>
-        <summary class="{{ request()->routeIs('licitaciones.*')
-                          || request()->routeIs('licitaciones-ai.*')
-                          || request()->routeIs('admin.licitacion-pdfs.*')
-                          || request()->routeIs('admin.licitacion-propuestas.*')
-                          ? 'is-active':'' }}">
+        {{ request()->routeIs('licitaciones.*') || request()->routeIs('licitaciones-ai.*') || request()->routeIs('admin.licitacion-pdfs.*') || request()->routeIs('admin.licitacion-propuestas.*') ? 'open' : '' }}>
+        <summary class="{{ request()->routeIs('licitaciones.*') || request()->routeIs('licitaciones-ai.*') || request()->routeIs('admin.licitacion-pdfs.*') || request()->routeIs('admin.licitacion-propuestas.*') ? 'is-active':'' }}">
           <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
             <path d="M8 3h8l4 4v14H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"></path>
-            <path d="M16 3v4h4"></path>
-            <path d="M9 11h7"></path>
-            <path d="M9 15h5"></path>
+            <path d="M16 3v4h4"></path><path d="M9 11h7"></path><path d="M9 15h5"></path>
           </svg>
           <span>Licitaciones</span>
-          <svg class="nav__chev" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2">
-            <path d="M9 6l6 6-6 6"/>
-          </svg>
+          <svg class="nav__chev" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
         </summary>
-
         <div class="nav__submenu">
-          <a href="{{ route('licitaciones.index') }}"
-             class="nav__sublink {{ request()->routeIs('licitaciones.index') || request()->routeIs('licitaciones.show') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9">
-              <path d="M5 7h14"></path>
-              <path d="M5 12h14"></path>
-              <path d="M5 17h9"></path>
-            </svg>
+          <a href="{{ route('licitaciones.index') }}" class="nav__sublink {{ request()->routeIs('licitaciones.index') || request()->routeIs('licitaciones.show') ? 'is-active':'' }}">
+            <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9"><path d="M5 7h14"></path><path d="M5 12h14"></path><path d="M5 17h9"></path></svg>
             <span>Listado</span>
           </a>
-
-          <a href="{{ route('licitaciones.create.step1') }}"
-             class="nav__sublink {{ request()->routeIs('licitaciones.create.step1') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9">
-              <path d="M12 5v14"></path>
-              <path d="M5 12h14"></path>
-            </svg>
+          <a href="{{ route('licitaciones.create.step1') }}" class="nav__sublink {{ request()->routeIs('licitaciones.create.step1') ? 'is-active':'' }}">
+            <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
             <span>Nueva licitación</span>
           </a>
-
-          <a href="{{ route('licitaciones-ai.index') }}"
-             class="nav__sublink {{ request()->routeIs('licitaciones-ai.index') || request()->routeIs('licitaciones-ai.show') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9">
-              <rect x="4" y="4" width="16" height="10" rx="2"></rect>
-              <path d="M9 18h6"></path>
-              <path d="M12 14v4"></path>
-            </svg>
+          <a href="{{ route('licitaciones-ai.index') }}" class="nav__sublink {{ request()->routeIs('licitaciones-ai.index') || request()->routeIs('licitaciones-ai.show') ? 'is-active':'' }}">
+            <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9"><rect x="4" y="4" width="16" height="10" rx="2"></rect><path d="M9 18h6"></path><path d="M12 14v4"></path></svg>
             <span>Licitaciones IA</span>
           </a>
-
-          <a href="{{ route('licitaciones-ai.tabla-global') }}"
-             class="nav__sublink {{ request()->routeIs('licitaciones-ai.tabla-global') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9">
-              <rect x="3" y="4" width="18" height="16" rx="2"></rect>
-              <path d="M9 4v16"></path>
-              <path d="M15 4v16"></path>
-              <path d="M3 10h18"></path>
-              <path d="M3 16h18"></path>
-            </svg>
+          <a href="{{ route('licitaciones-ai.tabla-global') }}" class="nav__sublink {{ request()->routeIs('licitaciones-ai.tabla-global') ? 'is-active':'' }}">
+            <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M9 4v16"></path><path d="M15 4v16"></path><path d="M3 10h18"></path><path d="M3 16h18"></path></svg>
             <span>Tabla global IA</span>
           </a>
-
-          <a href="{{ route('admin.licitacion-pdfs.index') }}"
-             class="nav__sublink {{ request()->routeIs('admin.licitacion-pdfs.*') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9">
-              <path d="M8 3h8l4 4v14H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"></path>
-              <path d="M16 3v4h4"></path>
-              <path d="M9 12h6"></path>
-              <path d="M9 16h4"></path>
-            </svg>
+          <a href="{{ route('admin.licitacion-pdfs.index') }}" class="nav__sublink {{ request()->routeIs('admin.licitacion-pdfs.*') ? 'is-active':'' }}">
+            <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9"><path d="M8 3h8l4 4v14H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"></path><path d="M16 3v4h4"></path><path d="M9 12h6"></path><path d="M9 16h4"></path></svg>
             <span>PDFs de requisiciones</span>
           </a>
-
-          <a href="{{ route('admin.licitacion-propuestas.index') }}"
-             class="nav__sublink {{ request()->routeIs('admin.licitacion-propuestas.*') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9">
-              <path d="M4 19h16"></path>
-              <path d="M7 16V10"></path>
-              <path d="M12 16V6"></path>
-              <path d="M17 16v-3"></path>
-            </svg>
+          <a href="{{ route('admin.licitacion-propuestas.index') }}" class="nav__sublink {{ request()->routeIs('admin.licitacion-propuestas.*') ? 'is-active':'' }}">
+            <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9"><path d="M4 19h16"></path><path d="M7 16V10"></path><path d="M12 16V6"></path><path d="M17 16v-3"></path></svg>
             <span>Propuestas / comparativas</span>
           </a>
         </div>
@@ -1481,10 +1107,7 @@
 
       <a href="{{ route('agenda.calendar') }}" class="nav__link {{ request()->routeIs('agenda.*') ? 'is-active':'' }}">
         <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-          <rect x="3" y="5" width="18" height="16" rx="2"></rect>
-          <path d="M8 3v4"></path>
-          <path d="M16 3v4"></path>
-          <path d="M3 10h18"></path>
+          <rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M8 3v4"></path><path d="M16 3v4"></path><path d="M3 10h18"></path>
         </svg>
         <span>Agenda</span>
       </a>
@@ -1493,32 +1116,19 @@
         <summary class="{{ request()->routeIs('tickets.*') ? 'is-active':'' }}">
           <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
             <path d="M8 4h8l3 3v10a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3V7l3-3z"></path>
-            <path d="M9 11h6"></path>
-            <path d="M9 15h4"></path>
+            <path d="M9 11h6"></path><path d="M9 15h4"></path>
           </svg>
           <span>Tickets</span>
-          <svg class="nav__chev" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2">
-            <path d="M9 6l6 6-6 6"/>
-          </svg>
+          <svg class="nav__chev" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
         </summary>
-
         <div class="nav__submenu">
-          <a href="{{ route('tickets.index') }}"
-             class="nav__sublink {{ request()->routeIs('tickets.index') || request()->routeIs('tickets.show') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9">
-              <path d="M5 7h14"></path>
-              <path d="M5 12h14"></path>
-              <path d="M5 17h8"></path>
-            </svg>
+          <a href="{{ route('tickets.index') }}" class="nav__sublink {{ request()->routeIs('tickets.index') || request()->routeIs('tickets.show') ? 'is-active':'' }}">
+            <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9"><path d="M5 7h14"></path><path d="M5 12h14"></path><path d="M5 17h8"></path></svg>
             <span>Lista de tickets</span>
           </a>
           @if(\Illuminate\Support\Facades\Route::has('tickets.my'))
-            <a href="{{ route('tickets.my') }}"
-               class="nav__sublink {{ request()->routeIs('tickets.my') ? 'is-active':'' }}">
-              <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9">
-                <circle cx="12" cy="8" r="3.5"></circle>
-                <path d="M5 19a7 7 0 0 1 14 0"></path>
-              </svg>
+            <a href="{{ route('tickets.my') }}" class="nav__sublink {{ request()->routeIs('tickets.my') ? 'is-active':'' }}">
+              <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 19a7 7 0 0 1 14 0"></path></svg>
               <span>Mis tickets</span>
             </a>
           @endif
@@ -1527,20 +1137,15 @@
 
       <a href="{{ route('routes.index') }}" class="nav__link {{ request()->routeIs('routes.index') || request()->routeIs('routes.show') ? 'is-active':'' }}">
         <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-          <circle cx="6" cy="6" r="2"></circle>
-          <circle cx="18" cy="8" r="2"></circle>
-          <circle cx="9" cy="18" r="2"></circle>
-          <path d="M8 7.2 16 8"></path>
-          <path d="M17 9.8 10 16.2"></path>
+          <circle cx="6" cy="6" r="2"></circle><circle cx="18" cy="8" r="2"></circle><circle cx="9" cy="18" r="2"></circle>
+          <path d="M8 7.2 16 8"></path><path d="M17 9.8 10 16.2"></path>
         </svg>
         <span>Logística</span>
       </a>
 
       <a href="{{ route('admin.catalog.index') }}" class="nav__link {{ request()->routeIs('admin.catalog.*') ? 'is-active':'' }}">
         <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-          <path d="M12 3 4 7l8 4 8-4-8-4Z"></path>
-          <path d="M4 7v10l8 4 8-4V7"></path>
-          <path d="M12 11v10"></path>
+          <path d="M12 3 4 7l8 4 8-4-8-4Z"></path><path d="M4 7v10l8 4 8-4V7"></path><path d="M12 11v10"></path>
         </svg>
         <span>Productos</span>
       </a>
@@ -1548,18 +1153,14 @@
       <a href="{{ route('admin.wms.home') }}" class="nav__link {{ request()->routeIs('admin.wms.home') ? 'is-active':'' }}">
         <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
           <path d="M4 10 12 4l8 6v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-9z"></path>
-          <path d="M9 13h6"></path>
-          <path d="M9 17h6"></path>
+          <path d="M9 13h6"></path><path d="M9 17h6"></path>
         </svg>
         <span>Almacén</span>
       </a>
 
       <a href="{{ route('accounting.dashboard') }}" class="nav__link {{ request()->routeIs('accounting.dashboard') ? 'is-active':'' }}">
         <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-          <path d="M4 19h16"></path>
-          <path d="M7 16V10"></path>
-          <path d="M12 16V5"></path>
-          <path d="M17 16v-7"></path>
+          <path d="M4 19h16"></path><path d="M7 16V10"></path><path d="M12 16V5"></path><path d="M17 16v-7"></path>
         </svg>
         <span>Contabilidad</span>
       </a>
@@ -1580,26 +1181,17 @@
             <path d="M12 16h.01"></path>
           </svg>
           <span>Help Desk</span>
-          <svg class="nav__chev" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2">
-            <path d="M9 6l6 6-6 6"/>
-          </svg>
+          <svg class="nav__chev" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
         </summary>
         <div class="nav__submenu">
           <a href="{{ route('admin.help.index') }}" class="nav__sublink {{ request()->routeIs('admin.help.index') || request()->routeIs('admin.help.show') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9">
-              <path d="M5 7h14"></path>
-              <path d="M5 12h14"></path>
-              <path d="M5 17h9"></path>
-            </svg>
+            <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9"><path d="M5 7h14"></path><path d="M5 12h14"></path><path d="M5 17h9"></path></svg>
             <span>Tickets de usuarios</span>
           </a>
           <form action="{{ route('admin.help.sync') }}" method="POST" class="nav__sublink" style="padding:0; border:none; min-height:auto; background:transparent;">
             @csrf
             <button type="submit" class="nav__sublink" style="width:100%; text-align:left; background:transparent; border:none; cursor:pointer;">
-              <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9">
-                <path d="M20 11a8 8 0 1 1-2.34-5.66"></path>
-                <path d="M20 4v6h-6"></path>
-              </svg>
+              <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9"><path d="M20 11a8 8 0 1 1-2.34-5.66"></path><path d="M20 4v6h-6"></path></svg>
               <span>Reindexar conocimiento</span>
             </button>
           </form>
@@ -1608,52 +1200,55 @@
 
       <a href="{{ route('mail.index') }}" class="nav__link {{ request()->routeIs('mail.index') ? 'is-active':'' }}">
         <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-          <rect x="3" y="5" width="18" height="14" rx="2"></rect>
-          <path d="m4 7 8 6 8-6"></path>
+          <rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m4 7 8 6 8-6"></path>
         </svg>
         <span>Correo</span>
       </a>
 
       <a href="{{ route('panel.landing.index') }}" class="nav__link {{ request()->routeIs('panel.landing.*') ? 'is-active':'' }}">
         <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-          <path d="M4 12h16"></path>
-          <path d="M12 4v16"></path>
-          <path d="M5.5 5.5c4 3 9 3 13 0"></path>
-          <path d="M5.5 18.5c4-3 9-3 13 0"></path>
+          <path d="M4 12h16"></path><path d="M12 4v16"></path>
+          <path d="M5.5 5.5c4 3 9 3 13 0"></path><path d="M5.5 18.5c4-3 9-3 13 0"></path>
         </svg>
         <span>Landing (Inicio web)</span>
       </a>
+
+      {{-- ✅ Propuestas Comerciales — visible para TODOS --}}
+      <a href="{{ route('propuestas-comerciales.index') }}" class="nav__link {{ request()->routeIs('propuestas-comerciales.*') ? 'is-active':'' }}">
+        <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
+          <path d="M9 12h6"></path><path d="M9 16h6"></path>
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <path d="M14 2v6h6"></path>
+        </svg>
+        <span>Propuestas comerciales</span>
+      </a>
+
+      {{-- ✅ Estados Financieros — solo users 2, 12, 18 --}}
+      @if($canSeeFinancial)
+        <a href="{{ route('financial.index') }}" class="nav__link {{ request()->routeIs('financial.*') ? 'is-active':'' }}">
+          <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
+            <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+          </svg>
+          <span>Estados Financieros</span>
+        </a>
+      @endif
 
       <details class="nav__group" {{ request()->routeIs('admin.users.*') || request()->routeIs('admin.catalog.*') || request()->routeIs('admin.orders.*') ? 'open' : '' }}>
         <summary class="{{ request()->routeIs('admin.users.*') || request()->routeIs('admin.catalog.*') || request()->routeIs('admin.orders.*') ? 'is-active':'' }}">
           <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
             <path d="M4 20v-1a5 5 0 0 1 5-5h2a5 5 0 0 1 5 5v1"></path>
-            <circle cx="10" cy="8" r="3.5"></circle>
-            <path d="M18 8v6"></path>
-            <path d="M15 11h6"></path>
+            <circle cx="10" cy="8" r="3.5"></circle><path d="M18 8v6"></path><path d="M15 11h6"></path>
           </svg>
           <span>Administración</span>
-          <svg class="nav__chev" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2">
-            <path d="M9 6l6 6-6 6"/>
-          </svg>
+          <svg class="nav__chev" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
         </summary>
         <div class="nav__submenu">
           <a href="{{ route('admin.users.index') }}" class="nav__sublink {{ request()->routeIs('admin.users.*') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9">
-              <circle cx="9" cy="8" r="3.5"></circle>
-              <path d="M4 19a5 5 0 0 1 10 0"></path>
-              <path d="M17 8v6"></path>
-              <path d="M14 11h6"></path>
-            </svg>
+            <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9"><circle cx="9" cy="8" r="3.5"></circle><path d="M4 19a5 5 0 0 1 10 0"></path><path d="M17 8v6"></path><path d="M14 11h6"></path></svg>
             <span>Usuarios</span>
           </a>
-
           <a href="{{ route('admin.orders.index') }}" class="nav__sublink {{ request()->routeIs('admin.orders.*') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9">
-              <path d="M6 6h15l-2 8H8L6 4H3"></path>
-              <circle cx="9" cy="19" r="1.6"></circle>
-              <circle cx="18" cy="19" r="1.6"></circle>
-            </svg>
+            <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9"><path d="M6 6h15l-2 8H8L6 4H3"></path><circle cx="9" cy="19" r="1.6"></circle><circle cx="18" cy="19" r="1.6"></circle></svg>
             <span>Pedidos web</span>
           </a>
         </div>
@@ -1667,8 +1262,7 @@
       <button type="submit" class="btn-logout">
         <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
           <path d="M10 21H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-          <path d="M15 16l5-4-5-4"></path>
-          <path d="M20 12H9"></path>
+          <path d="M15 16l5-4-5-4"></path><path d="M20 12H9"></path>
         </svg>
         <span>Cerrar sesión</span>
       </button>
@@ -1681,9 +1275,7 @@
     <header class="topbar">
       <button id="btnSidebar" class="icon-btn" aria-label="Abrir menú">
         <svg viewBox="0 0 24 24" width="21" height="21" stroke="currentColor" fill="none" stroke-width="2">
-          <path d="M4 7h16"></path>
-          <path d="M4 12h16"></path>
-          <path d="M4 17h16"></path>
+          <path d="M4 7h16"></path><path d="M4 12h16"></path><path d="M4 17h16"></path>
         </svg>
       </button>
 
@@ -1711,7 +1303,6 @@
                 </div>
                 <div class="notif__subtitle"><span id="notifCountText">Cargando…</span></div>
               </div>
-
               <button type="button" id="btnMarkAllTop" class="notif__markall">Marcar leídas</button>
             </div>
 
@@ -1739,9 +1330,9 @@
       </div>
     </header>
 
-   <main id="content" class="content @yield('content_class')">
-  @yield('content')
-</main>
+    <main id="content" class="content @yield('content_class')">
+      @yield('content')
+    </main>
   </div>
 
   @stack('scripts')
@@ -1781,21 +1372,10 @@
         sidebar.setAttribute('aria-hidden', sidebarOpen ? 'false' : 'true');
       };
 
-      const openSidebar = () => {
-        if (!sidebar || sidebarOpen) return;
-        sidebarOpen = true;
-        sidebar.classList.add('is-open');
-        applyOverlay();
-      };
+      const openSidebar = () => { if (!sidebar || sidebarOpen) return; sidebarOpen = true; sidebar.classList.add('is-open'); applyOverlay(); };
+      const closeSidebar = () => { if (!sidebar || !sidebarOpen) return; sidebarOpen = false; sidebar.classList.remove('is-open'); applyOverlay(); };
 
-      const closeSidebar = () => {
-        if (!sidebar || !sidebarOpen) return;
-        sidebarOpen = false;
-        sidebar.classList.remove('is-open');
-        applyOverlay();
-      };
-
-      if (btnOpen) btnOpen.addEventListener('click', openSidebar);
+      if (btnOpen)  btnOpen.addEventListener('click', openSidebar);
       if (btnClose) btnClose.addEventListener('click', closeSidebar);
       if (backdrop) backdrop.addEventListener('click', closeSidebar);
 
@@ -1803,329 +1383,109 @@
         sidebarNav.addEventListener('click', (e) => {
           const summary = e.target.closest('summary');
           if (summary) return;
-
           const link = e.target.closest('a');
           if (!link) return;
-
           const href = link.getAttribute('href') || '';
           const keep = link.hasAttribute('data-keep-open');
           const isAnchorOnly = href.startsWith('#') || href === '' || href.startsWith('javascript');
-
           if (!keep && !isAnchorOnly) closeSidebar();
         });
       }
 
-      function buildPayloadKey(payload){
-        if (!payload || !Array.isArray(payload.items)) return '';
-        return payload.items.map(n => n.id + (n.read_at ? '1' : '0')).join('|') + '|' + (payload.unread || 0);
-      }
-
-      function escapeHtml(value){
-        return String(value ?? '')
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;')
-          .replace(/"/g, '&quot;')
-          .replace(/'/g, '&#039;');
-      }
+      function buildPayloadKey(payload){ if (!payload || !Array.isArray(payload.items)) return ''; return payload.items.map(n => n.id + (n.read_at ? '1' : '0')).join('|') + '|' + (payload.unread || 0); }
+      function escapeHtml(value){ return String(value ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
 
       function getNotifIcon(level){
-        if (level === 'warn'){
-          return `
-            <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" fill="none" stroke-width="2">
-              <path d="M12 4 3 20h18L12 4z"></path>
-              <path d="M12 10v4"></path>
-              <path d="M12 17h.01"></path>
-            </svg>
-          `;
-        }
-
-        if (level === 'error'){
-          return `
-            <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" fill="none" stroke-width="2">
-              <circle cx="12" cy="12" r="9"></circle>
-              <path d="M15 9 9 15"></path>
-              <path d="m9 9 6 6"></path>
-            </svg>
-          `;
-        }
-
-        return `
-          <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" fill="none" stroke-width="2">
-            <rect x="5" y="4" width="14" height="16" rx="2"></rect>
-            <path d="M8 8h8"></path>
-            <path d="M8 12h8"></path>
-          </svg>
-        `;
+        if (level === 'warn') return `<svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" fill="none" stroke-width="2"><path d="M12 4 3 20h18L12 4z"></path><path d="M12 10v4"></path><path d="M12 17h.01"></path></svg>`;
+        if (level === 'error') return `<svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" fill="none" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M15 9 9 15"></path><path d="m9 9 6 6"></path></svg>`;
+        return `<svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" fill="none" stroke-width="2"><rect x="5" y="4" width="14" height="16" rx="2"></rect><path d="M8 8h8"></path><path d="M8 12h8"></path></svg>`;
       }
 
       function updateNotifCounter(unread){
-        if (notifBadge){
-          if (unread > 0){
-            notifBadge.style.display = '';
-            notifBadge.textContent = unread > 99 ? '99+' : unread;
-          } else {
-            notifBadge.style.display = 'none';
-            notifBadge.textContent = '';
-          }
-        }
-
-        if (notifCountText){
-          if (unread > 0){
-            notifCountText.textContent = `${unread} nueva${unread === 1 ? '' : 's'}`;
-          } else {
-            notifCountText.textContent = 'Sin notificaciones nuevas';
-          }
-        }
+        if (notifBadge){ if (unread > 0){ notifBadge.style.display=''; notifBadge.textContent=unread>99?'99+':unread; } else { notifBadge.style.display='none'; notifBadge.textContent=''; } }
+        if (notifCountText){ notifCountText.textContent = unread > 0 ? `${unread} nueva${unread===1?'':'s'}` : 'Sin notificaciones nuevas'; }
       }
 
-      function renderEmptyNotifications(){
-        notifList.innerHTML = '';
-        const empty = document.createElement('div');
-        empty.className = 'notif__empty';
-        empty.textContent = 'No tienes notificaciones.';
-        notifList.appendChild(empty);
-      }
+      function renderEmptyNotifications(){ notifList.innerHTML=''; const e=document.createElement('div'); e.className='notif__empty'; e.textContent='No tienes notificaciones.'; notifList.appendChild(e); }
 
       function removeNotificationFromView(itemEl){
         if (!itemEl) return;
-
-        itemEl.style.opacity = '0';
-        itemEl.style.transform = 'translateY(-6px) scale(.98)';
-
-        setTimeout(() => {
-          itemEl.remove();
-
-          const remainingUnread = notifList.querySelectorAll('.notif__item.is-unread').length;
-          updateNotifCounter(remainingUnread);
-
-          if (!notifList.querySelector('.notif__item')) {
-            renderEmptyNotifications();
-          }
-        }, 180);
+        itemEl.style.opacity='0'; itemEl.style.transform='translateY(-6px) scale(.98)';
+        setTimeout(()=>{ itemEl.remove(); const r=notifList.querySelectorAll('.notif__item.is-unread').length; updateNotifCounter(r); if (!notifList.querySelector('.notif__item')) renderEmptyNotifications(); }, 180);
       }
 
       function renderNotifItems(payload){
         if (!notifList) return;
-
         const items = Array.isArray(payload?.items) ? payload.items : [];
-        const unread = Number(payload?.unread || 0);
-
-        updateNotifCounter(unread);
-
-        notifList.innerHTML = '';
-
-        if (!items.length){
-          renderEmptyNotifications();
-          return;
-        }
-
+        updateNotifCounter(Number(payload?.unread || 0));
+        notifList.innerHTML='';
+        if (!items.length){ renderEmptyNotifications(); return; }
         items.forEach(n => {
-          const level = n.status || 'info';
-
-          let pillClass = 'pill--info';
-          let pillText  = 'Nueva';
-
-          if (level === 'warn'){
-            pillClass = 'pill--warn';
-            pillText = 'Aviso';
-          } else if (level === 'error'){
-            pillClass = 'pill--error';
-            pillText = 'Alerta';
-          }
-
-          const item = document.createElement('div');
-          item.className = `notif__item ${n.read_at ? 'is-read' : 'is-unread'} ${level}`;
-          item.dataset.id = n.id;
-          item.dataset.read = n.read_at ? '1' : '0';
-          if (n.url) item.dataset.url = n.url;
-
-          item.innerHTML = `
-            <div class="notif__icon">${getNotifIcon(level)}</div>
-            <div class="notif__content">
-              <div class="notif__text">${escapeHtml(n.title || 'Notificación')}</div>
-              <div class="notif__msg">${escapeHtml(n.message || '')}</div>
-              <div class="notif__meta">
-                <span class="pill ${pillClass}">${pillText}</span>
-                <span class="notif__sep">•</span>
-                <span class="notif__time">${escapeHtml(n.time || '')}</span>
-              </div>
-            </div>
-            <button type="button" class="notif__item-close" aria-label="Quitar notificación" data-id="${escapeHtml(n.id)}">&times;</button>
-          `;
-
+          const level=n.status||'info';
+          const pillClass=level==='warn'?'pill--warn':level==='error'?'pill--error':'pill--info';
+          const pillText=level==='warn'?'Aviso':level==='error'?'Alerta':'Nueva';
+          const item=document.createElement('div');
+          item.className=`notif__item ${n.read_at?'is-read':'is-unread'} ${level}`;
+          item.dataset.id=n.id; item.dataset.read=n.read_at?'1':'0';
+          if (n.url) item.dataset.url=n.url;
+          item.innerHTML=`<div class="notif__icon">${getNotifIcon(level)}</div><div class="notif__content"><div class="notif__text">${escapeHtml(n.title||'Notificación')}</div><div class="notif__msg">${escapeHtml(n.message||'')}</div><div class="notif__meta"><span class="pill ${pillClass}">${pillText}</span><span class="notif__sep">•</span><span class="notif__time">${escapeHtml(n.time||'')}</span></div></div><button type="button" class="notif__item-close" aria-label="Quitar notificación" data-id="${escapeHtml(n.id)}">&times;</button>`;
           notifList.appendChild(item);
         });
       }
 
       async function loadNotifications(){
         if (!NOTIF_FEED_URL || !notifList) return;
-
-        if (!notifLoaded){
-          notifList.innerHTML = '<div class="notif__empty">Cargando…</div>';
-        }
-
+        if (!notifLoaded) notifList.innerHTML='<div class="notif__empty">Cargando…</div>';
         try{
-          const res = await fetch(NOTIF_FEED_URL, {
-            headers:{ 'Accept':'application/json' }
-          });
-
-          const json = await res.json();
-
-          if (!res.ok){
-            throw new Error(json.message || 'Error al cargar notificaciones');
-          }
-
-          const key = buildPayloadKey(json);
-          if (key !== lastPayloadKey){
-            lastPayloadKey = key;
-            renderNotifItems(json);
-          } else {
-            updateNotifCounter(Number(json?.unread || 0));
-          }
-
-          notifLoaded = true;
-        }catch(e){
-          console.error(e);
-          notifList.innerHTML = '<div class="notif__empty">No se pudieron cargar las notificaciones.</div>';
-          if (notifCountText) notifCountText.textContent = 'No se pudieron cargar';
-        }
+          const res=await fetch(NOTIF_FEED_URL,{headers:{'Accept':'application/json'}});
+          const json=await res.json();
+          if (!res.ok) throw new Error(json.message||'Error');
+          const key=buildPayloadKey(json);
+          if (key!==lastPayloadKey){ lastPayloadKey=key; renderNotifItems(json); } else { updateNotifCounter(Number(json?.unread||0)); }
+          notifLoaded=true;
+        }catch(e){ console.error(e); notifList.innerHTML='<div class="notif__empty">No se pudieron cargar las notificaciones.</div>'; if(notifCountText)notifCountText.textContent='No se pudieron cargar'; }
       }
 
       async function markAllNotifications(){
         if (!NOTIF_READALL_URL || !csrf) return;
-
-        try{
-          await fetch(NOTIF_READALL_URL, {
-            method:'POST',
-            headers:{
-              'X-CSRF-TOKEN': csrf,
-              'Accept':'application/json'
-            }
-          });
-
-          const rows = [...notifList.querySelectorAll('.notif__item.is-unread')];
-          rows.forEach(row => removeNotificationFromView(row));
-          updateNotifCounter(0);
-
-          await loadNotifications();
-        }catch(e){
-          console.error(e);
-        }
+        try{ await fetch(NOTIF_READALL_URL,{method:'POST',headers:{'X-CSRF-TOKEN':csrf,'Accept':'application/json'}}); const rows=[...notifList.querySelectorAll('.notif__item.is-unread')]; rows.forEach(r=>removeNotificationFromView(r)); updateNotifCounter(0); await loadNotifications(); }catch(e){ console.error(e); }
       }
 
-      async function markOneNotification(id, itemEl, removeFromView = false){
+      async function markOneNotification(id, itemEl, removeFromView=false){
         if (!NOTIF_READONE_URL || !csrf || !id) return;
-
         try{
-          const url = NOTIF_READONE_URL.replace('__ID__', encodeURIComponent(id));
-          await fetch(url, {
-            method:'POST',
-            headers:{
-              'X-CSRF-TOKEN': csrf,
-              'Accept':'application/json'
-            }
-          });
-
-          if (removeFromView && itemEl){
-            removeNotificationFromView(itemEl);
-            return;
-          }
-
-          if (itemEl){
-            itemEl.classList.remove('is-unread');
-            itemEl.classList.add('is-read');
-            itemEl.dataset.read = '1';
-          }
-
+          const url=NOTIF_READONE_URL.replace('__ID__',encodeURIComponent(id));
+          await fetch(url,{method:'POST',headers:{'X-CSRF-TOKEN':csrf,'Accept':'application/json'}});
+          if (removeFromView && itemEl){ removeNotificationFromView(itemEl); return; }
+          if (itemEl){ itemEl.classList.remove('is-unread'); itemEl.classList.add('is-read'); itemEl.dataset.read='1'; }
           await loadNotifications();
-        }catch(e){
-          console.error(e);
-        }
+        }catch(e){ console.error(e); }
       }
 
-      function openNotifPanel(){
-        if (!notifPane || !notifBtn) return;
-        notifPane.classList.add('is-open');
-        notifPane.setAttribute('aria-hidden','false');
-        notifBtn.setAttribute('aria-expanded','true');
-        loadNotifications();
-      }
+      function openNotifPanel(){ if (!notifPane||!notifBtn) return; notifPane.classList.add('is-open'); notifPane.setAttribute('aria-hidden','false'); notifBtn.setAttribute('aria-expanded','true'); loadNotifications(); }
+      function closeNotifPanel(){ if (!notifPane||!notifBtn) return; notifPane.classList.remove('is-open'); notifPane.setAttribute('aria-hidden','true'); notifBtn.setAttribute('aria-expanded','false'); }
 
-      function closeNotifPanel(){
-        if (!notifPane || !notifBtn) return;
-        notifPane.classList.remove('is-open');
-        notifPane.setAttribute('aria-hidden','true');
-        notifBtn.setAttribute('aria-expanded','false');
-      }
-
-      if (notifBtn){
-        notifBtn.addEventListener('click', function(e){
-          e.stopPropagation();
-          if (!notifPane) return;
-          const isOpen = notifPane.classList.contains('is-open');
-          isOpen ? closeNotifPanel() : openNotifPanel();
-        });
-      }
-
-      if (notifMarkAll){
-        notifMarkAll.addEventListener('click', function(e){
-          e.preventDefault();
-          markAllNotifications();
-        });
-      }
-
-      if (notifMarkAllTop){
-        notifMarkAllTop.addEventListener('click', function(e){
-          e.preventDefault();
-          markAllNotifications();
-        });
-      }
+      if (notifBtn) notifBtn.addEventListener('click',function(e){ e.stopPropagation(); if(!notifPane)return; notifPane.classList.contains('is-open')?closeNotifPanel():openNotifPanel(); });
+      if (notifMarkAll) notifMarkAll.addEventListener('click',function(e){ e.preventDefault(); markAllNotifications(); });
+      if (notifMarkAllTop) notifMarkAllTop.addEventListener('click',function(e){ e.preventDefault(); markAllNotifications(); });
 
       if (notifList){
-        notifList.addEventListener('click', function(e){
-          const closeBtn = e.target.closest('.notif__item-close');
-          if (closeBtn){
-            const id = closeBtn.getAttribute('data-id');
-            const itemEl = closeBtn.closest('.notif__item');
-            if (id) markOneNotification(id, itemEl, true);
-            e.stopPropagation();
-            return;
-          }
-
-          const row = e.target.closest('.notif__item');
+        notifList.addEventListener('click',function(e){
+          const closeBtn=e.target.closest('.notif__item-close');
+          if (closeBtn){ const id=closeBtn.getAttribute('data-id'); const itemEl=closeBtn.closest('.notif__item'); if(id)markOneNotification(id,itemEl,true); e.stopPropagation(); return; }
+          const row=e.target.closest('.notif__item');
           if (!row) return;
-
-          const id = row.dataset.id;
-          const url = row.dataset.url || '';
+          const id=row.dataset.id; const url=row.dataset.url||'';
           if (!url) return;
-
           e.preventDefault();
-          (async () => {
-            if (id) await markOneNotification(id, row, false);
-            window.location.href = url;
-          })();
+          (async()=>{ if(id)await markOneNotification(id,row,false); window.location.href=url; })();
         });
       }
 
-      document.addEventListener('click', function(e){
-        if (!notifPane || !notifBtn) return;
-        if (!notifPane.contains(e.target) && !notifBtn.contains(e.target)){
-          closeNotifPanel();
-        }
-      });
+      document.addEventListener('click',function(e){ if(!notifPane||!notifBtn)return; if(!notifPane.contains(e.target)&&!notifBtn.contains(e.target))closeNotifPanel(); });
+      window.addEventListener('keydown',function(e){ if(e.key==='Escape'){ closeNotifPanel(); closeSidebar(); } });
 
-      window.addEventListener('keydown', function(e){
-        if (e.key === 'Escape'){
-          closeNotifPanel();
-          closeSidebar();
-        }
-      });
-
-      if (NOTIF_FEED_URL){
-        loadNotifications();
-        setInterval(loadNotifications, 10000);
-      }
+      if (NOTIF_FEED_URL){ loadNotifications(); setInterval(loadNotifications,10000); }
     })();
   </script>
 </body>
