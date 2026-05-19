@@ -2088,3 +2088,17 @@ Route::post('/admin/wms/virtual-pickups/{pickWave}/checklist', [WmsVirtualPickup
 
 Route::get('/admin/wms/virtual-pickups/{pickWave}/pdf', [WmsVirtualPickupBoardController::class, 'pdf'])
     ->name('admin.wms.virtual-pickups.pdf');
+
+use App\Http\Controllers\FinancialStatementsController;
+use App\Http\Middleware\FinancialAccess;
+ 
+Route::middleware(['auth', FinancialAccess::class])
+    ->prefix('financiero')
+    ->name('financial.')
+    ->group(function () {
+        Route::get('/',                          [FinancialStatementsController::class, 'index'])    ->name('index');
+        Route::post('/',                         [FinancialStatementsController::class, 'store'])    ->name('store');
+        Route::get('/{statement}/preview',       [FinancialStatementsController::class, 'preview'])  ->name('preview');
+        Route::get('/{statement}/descargar',     [FinancialStatementsController::class, 'download']) ->name('download');
+        Route::delete('/{statement}',            [FinancialStatementsController::class, 'destroy'])  ->name('destroy');
+    });
