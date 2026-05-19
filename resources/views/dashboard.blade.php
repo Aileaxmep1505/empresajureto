@@ -32,7 +32,9 @@
         --dm-name-4:#06b6d4;
       }
 
-
+      *{
+        box-sizing:border-box;
+      }
 
       html,body{
         margin:0;

@@ -417,6 +417,38 @@
   $savePct = ($sale && $price>0) ? max(1, round(100 - (($sale/$price)*100))) : null;
   $monthly = $final > 0 ? round($final/4, 2) : 0; 
 
+  // =========================
+  // Unidad de medida + contenido por unidad (solo texto nuevo)
+  // =========================
+  $unitKey = strtolower(trim((string)($item->unit_measure ?? 'pieza')));
+  $contentQty = (int)($item->content_quantity ?? 1);
+  if ($contentQty < 1) { $contentQty = 1; }
+  $contentUnitKey = strtolower(trim((string)($item->content_unit_measure ?? 'pieza')));
+
+  $unitLabels = [
+    'pieza'   => ['sing' => 'pieza',   'plur' => 'pzas'],
+    'caja'    => ['sing' => 'caja',    'plur' => 'cajas'],
+    'paquete' => ['sing' => 'paquete', 'plur' => 'paquetes'],
+    'rollo'   => ['sing' => 'rollo',   'plur' => 'rollos'],
+    'juego'   => ['sing' => 'juego',   'plur' => 'juegos'],
+    'kit'     => ['sing' => 'kit',     'plur' => 'kits'],
+    'bolsa'   => ['sing' => 'bolsa',   'plur' => 'bolsas'],
+    'par'     => ['sing' => 'par',     'plur' => 'pares'],
+    'set'     => ['sing' => 'set',     'plur' => 'sets'],
+    'display' => ['sing' => 'display', 'plur' => 'displays'],
+    'docena'  => ['sing' => 'docena',  'plur' => 'docenas'],
+    'metro'   => ['sing' => 'metro',   'plur' => 'metros'],
+    'litro'   => ['sing' => 'litro',   'plur' => 'litros'],
+  ];
+
+  $unitSing = $unitLabels[$unitKey]['sing'] ?? ($unitKey !== '' ? $unitKey : 'pieza');
+  $contentUnitSing = $unitLabels[$contentUnitKey]['sing'] ?? ($contentUnitKey !== '' ? $contentUnitKey : 'pieza');
+  $contentUnitPlur = $unitLabels[$contentUnitKey]['plur'] ?? ($contentUnitSing . 's');
+
+  $presentationText = ($unitKey !== 'pieza')
+    ? (ucfirst($unitSing) . ' con ' . $contentQty . ' ' . ($contentQty === 1 ? $contentUnitSing : $contentUnitPlur))
+    : null;
+
   $imgUrl = function($raw){
     if(!$raw || !is_string($raw) || trim($raw)==='') return null;
     $raw = trim($raw);
@@ -543,7 +575,7 @@
           <h1>{{ $item->name }}</h1>
           
           <div class="vendor">
-            Vendido por <b>Jureto</b>
+            Vendido por <b>Jureto</b>@if(!empty($presentationText)) · {{ $presentationText }}@endif
           </div>
 
           <div class="rating">

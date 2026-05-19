@@ -21,6 +21,16 @@ class CatalogItem extends Model
         'stock',
         'stock_min',
         'stock_max',
+
+        // Unidad principal de venta / inventario
+        // Ejemplo: pieza, caja, paquete, rollo
+        'unit_measure',
+
+        // Contenido interno de la unidad
+        // Ejemplo: caja con 30 piezas, paquete con 3 piezas, rollo con 50 metros
+        'content_quantity',
+        'content_unit_measure',
+
         'status',
         'excerpt',
         'description',
@@ -68,16 +78,19 @@ class CatalogItem extends Model
     ];
 
     protected $casts = [
-        'price'               => 'decimal:2',
-        'sale_price'          => 'decimal:2',
-        'stock'               => 'integer',
-        'stock_min'           => 'integer',
-        'stock_max'           => 'integer',
-        'primary_location_id' => 'integer',
-        'is_featured'         => 'boolean',
-        'published_at'        => 'datetime',
-        'meli_synced_at'      => 'datetime',
-        'amazon_synced_at'    => 'datetime',
+        'price'                 => 'decimal:2',
+        'sale_price'            => 'decimal:2',
+        'stock'                 => 'integer',
+        'stock_min'             => 'integer',
+        'stock_max'             => 'integer',
+        'unit_measure'          => 'string',
+        'content_quantity'      => 'integer',
+        'content_unit_measure'  => 'string',
+        'primary_location_id'   => 'integer',
+        'is_featured'           => 'boolean',
+        'published_at'          => 'datetime',
+        'meli_synced_at'        => 'datetime',
+        'amazon_synced_at'      => 'datetime',
     ];
 
     public function getRouteKeyName()
@@ -177,6 +190,80 @@ class CatalogItem extends Model
 
         $all = config('catalog.product_categories', []);
         return $all[$this->category_key] ?? $this->category_key;
+    }
+
+    public function unitMeasureLabel(): string
+    {
+        $labels = [
+            'pieza'   => 'Pieza',
+            'caja'    => 'Caja',
+            'paquete' => 'Paquete',
+            'rollo'   => 'Rollo',
+            'juego'   => 'Juego',
+            'kit'     => 'Kit',
+            'bolsa'   => 'Bolsa',
+            'par'     => 'Par',
+            'set'     => 'Set',
+            'display' => 'Display',
+            'docena'  => 'Docena',
+            'metro'   => 'Metro',
+            'litro'   => 'Litro',
+        ];
+
+        $unit = strtolower(trim((string) ($this->unit_measure ?? 'pieza')));
+
+        return $labels[$unit] ?? ucfirst($unit ?: 'pieza');
+    }
+
+    public function contentUnitMeasureLabel(): string
+    {
+        $labels = [
+            'pieza'   => 'Pieza',
+            'caja'    => 'Caja',
+            'paquete' => 'Paquete',
+            'rollo'   => 'Rollo',
+            'juego'   => 'Juego',
+            'kit'     => 'Kit',
+            'bolsa'   => 'Bolsa',
+            'par'     => 'Par',
+            'set'     => 'Set',
+            'display' => 'Display',
+            'docena'  => 'Docena',
+            'metro'   => 'Metro',
+            'litro'   => 'Litro',
+        ];
+
+        $unit = strtolower(trim((string) ($this->content_unit_measure ?? 'pieza')));
+
+        return $labels[$unit] ?? ucfirst($unit ?: 'pieza');
+    }
+
+    public function presentationContentLabel(): string
+    {
+        $unitMeasure = strtolower(trim((string) ($this->unit_measure ?? 'pieza')));
+
+        if ($unitMeasure === 'pieza') {
+            return '1 Pieza';
+        }
+
+        $qty = (int) ($this->content_quantity ?? 1);
+
+        if ($qty < 1) {
+            $qty = 1;
+        }
+
+        return $qty . ' ' . $this->contentUnitMeasureLabel();
+    }
+
+    public function fullUnitPresentationLabel(): string
+    {
+        $unitLabel = $this->unitMeasureLabel();
+
+        if (strtolower((string) ($this->unit_measure ?? 'pieza')) === 'pieza') {
+            return $unitLabel;
+        }
+
+        return $unitLabel . ' con ' . $this->presentationContentLabel();
     }
 
     public function amazonSku(): ?string

@@ -100,8 +100,11 @@ class CatalogItemController extends Controller implements HasMiddleware
         $rows[] = [
             'ID',
             'SKU',
+            'GTIN/EAN',
             'Nombre',
             'Categoría',
+            'Unidad de medida',
+            'Contenido por unidad',
             'Ubicación principal',
             'Precio',
             'Precio oferta',
@@ -127,8 +130,10 @@ class CatalogItemController extends Controller implements HasMiddleware
             $rows[] = [
                 $it->id,
                 $it->sku,
+                $it->meli_gtin,
                 $it->name,
                 $it->categoryProduct?->full_path ?? '',
+                ($it->unit_measure ?? 'pieza') . ((($it->unit_measure ?? 'pieza') !== 'pieza') ? ' con ' . (string)($it->content_quantity ?? 1) . ' ' . (string)($it->content_unit_measure ?? 'pieza') : ''),
                 $it->primaryLocation?->code ?? $it->primaryLocation?->name ?? '',
                 (float) $it->price,
                 $it->sale_price !== null ? (float) $it->sale_price : '',
@@ -302,8 +307,11 @@ class CatalogItemController extends Controller implements HasMiddleware
         $html .= '<table><thead><tr>';
         $html .= '<th>ID</th>';
         $html .= '<th>SKU</th>';
+        $html .= '<th>GTIN/EAN</th>';
         $html .= '<th>Nombre</th>';
         $html .= '<th>Categoría</th>';
+        $html .= '<th>U.M.</th>';
+        $html .= '<th>Contenido</th>';
         $html .= '<th>Ubicación</th>';
         $html .= '<th>Precio</th>';
         $html .= '<th>Oferta</th>';
@@ -328,8 +336,11 @@ class CatalogItemController extends Controller implements HasMiddleware
             $html .= '<tr>';
             $html .= '<td>' . htmlspecialchars((string) $it->id) . '</td>';
             $html .= '<td>' . htmlspecialchars((string) ($it->sku ?? '')) . '</td>';
+            $html .= '<td>' . htmlspecialchars((string) ($it->meli_gtin ?? '')) . '</td>';
             $html .= '<td>' . htmlspecialchars((string) $it->name) . '</td>';
             $html .= '<td>' . htmlspecialchars((string) ($it->categoryProduct?->full_path ?? '')) . '</td>';
+            $html .= '<td>' . htmlspecialchars((string) ($it->unit_measure ?? 'pieza')) . '</td>';
+            $html .= '<td>' . htmlspecialchars((string) ((($it->unit_measure ?? 'pieza') !== 'pieza') ? (($it->content_quantity ?? 1) . ' ' . ($it->content_unit_measure ?? 'pieza')) : '1 pieza')) . '</td>';
             $html .= '<td>' . htmlspecialchars((string) ($it->primaryLocation?->code ?? $it->primaryLocation?->name ?? '')) . '</td>';
             $html .= '<td>$' . number_format((float) $it->price, 2) . '</td>';
             $html .= '<td>' . ($it->sale_price !== null ? '$' . number_format((float) $it->sale_price, 2) : '—') . '</td>';
@@ -345,7 +356,7 @@ class CatalogItemController extends Controller implements HasMiddleware
         }
 
         if ($items->isEmpty()) {
-            $html .= '<tr><td colspan="15" class="muted" style="text-align:center;padding:14px 6px;">';
+            $html .= '<tr><td colspan="18" class="muted" style="text-align:center;padding:14px 6px;">';
             $html .= 'No hay productos que coincidan con el filtro.';
             $html .= '</td></tr>';
         }
@@ -372,18 +383,27 @@ class CatalogItemController extends Controller implements HasMiddleware
             'input' => $request->all(),
         ]);
 
+        $skuOrGtin = trim((string) ($request->input('sku') ?: $request->input('meli_gtin') ?: ''));
+        $request->merge([
+            'sku'       => $skuOrGtin,
+            'meli_gtin' => $skuOrGtin,
+        ]);
+
         $data = $request->validate([
             'name'                => ['required', 'string', 'max:255'],
             'slug'                => ['nullable', 'string', 'max:255'],
-            'sku'                 => ['nullable', 'string', 'max:120'],
+            'sku'                 => ['required', 'string', 'max:120'],
             'price'               => ['required', 'numeric', 'min:0'],
             'sale_price'          => ['nullable', 'numeric', 'min:0'],
-            'stock'               => ['nullable', 'integer', 'min:0'],
-            'stock_min'           => ['nullable', 'integer', 'min:0'],
-            'stock_max'           => ['nullable', 'integer', 'min:0'],
+            'stock'               => ['required', 'integer', 'min:0'],
+            'stock_min'           => ['required', 'integer', 'min:0'],
+            'stock_max'           => ['required', 'integer', 'min:0'],
+            'unit_measure'        => ['required', 'string', 'in:pieza,caja,paquete,rollo,juego,kit,bolsa,par,set,display,docena,metro,litro'],
+            'content_quantity'     => ['nullable', 'integer', 'min:1'],
+            'content_unit_measure' => ['nullable', 'string', 'in:pieza,caja,paquete,rollo,juego,kit,bolsa,par,set,display,docena,metro,litro'],
             'status'              => ['required', 'integer', 'in:0,1,2'],
             'is_featured'         => ['nullable', 'boolean'],
-            'category_product_id' => ['nullable', 'integer', 'exists:category_products,id'],
+            'category_product_id' => ['required', 'integer', 'exists:category_products,id'],
             'primary_location_id' => ['nullable', 'integer', 'exists:locations,id'],
 
             'use_internal'        => ['nullable', 'boolean'],
@@ -392,23 +412,39 @@ class CatalogItemController extends Controller implements HasMiddleware
 
             'brand_name'          => ['nullable', 'string', 'max:120'],
             'model_name'          => ['nullable', 'string', 'max:120'],
-            'meli_gtin'           => ['nullable', 'string', 'max:50'],
+            'meli_gtin'           => ['required', 'string', 'max:120'],
 
             'excerpt'             => ['nullable', 'string'],
             'description'         => ['nullable', 'string'],
             'published_at'        => ['nullable', 'date'],
+        ], [
+            'sku.required'                 => 'El SKU interno / código GTIN es obligatorio.',
+            'meli_gtin.required'           => 'El SKU interno / código GTIN es obligatorio.',
+            'stock.required'               => 'El stock es obligatorio.',
+            'stock_min.required'           => 'El stock mínimo es obligatorio.',
+            'stock_max.required'           => 'El stock máximo es obligatorio.',
+            'unit_measure.required'        => 'La unidad de medida es obligatoria.',
+            'content_quantity.min'         => 'El contenido por unidad debe ser mínimo 1.',
+            'category_product_id.required' => 'La categoría es obligatoria.',
         ]);
 
-        if (
-            isset($data['stock_min'], $data['stock_max']) &&
-            $data['stock_min'] !== null &&
-            $data['stock_max'] !== null &&
-            (int) $data['stock_max'] < (int) $data['stock_min']
-        ) {
+        if ((int) $data['stock_max'] < (int) $data['stock_min']) {
             throw ValidationException::withMessages([
                 'stock_max' => 'El stock máximo no puede ser menor al stock mínimo.',
             ]);
         }
+
+        $unitMeasure = strtolower(trim((string) ($data['unit_measure'] ?? 'pieza')));
+        if ($unitMeasure === 'pieza') {
+            $data['content_quantity'] = 1;
+            $data['content_unit_measure'] = 'pieza';
+        } else {
+            $data['content_quantity'] = max(1, (int) ($data['content_quantity'] ?? 1));
+            $data['content_unit_measure'] = strtolower(trim((string) ($data['content_unit_measure'] ?? 'pieza')));
+        }
+
+        $data['sku']       = trim((string) $data['sku']);
+        $data['meli_gtin'] = $data['sku'];
 
         Log::info('CatalogItem@store: datos validados', [
             'data' => $data,
@@ -430,9 +466,12 @@ class CatalogItemController extends Controller implements HasMiddleware
         $data['slug'] = $slug;
 
         $data['is_featured']  = (bool) ($data['is_featured'] ?? false);
-        $data['stock']        = $data['stock'] ?? 0;
-        $data['stock_min']    = $data['stock_min'] ?? null;
-        $data['stock_max']    = $data['stock_max'] ?? null;
+        $data['stock']        = (int) $data['stock'];
+        $data['stock_min']    = (int) $data['stock_min'];
+        $data['stock_max']    = (int) $data['stock_max'];
+        $data['unit_measure'] = strtolower(trim((string) $data['unit_measure']));
+        $data['content_quantity'] = (int) ($data['content_quantity'] ?? 1);
+        $data['content_unit_measure'] = strtolower(trim((string) ($data['content_unit_measure'] ?? 'pieza')));
         $data['category_key'] = null;
 
         if (!$request->boolean('use_internal')) {
@@ -441,13 +480,18 @@ class CatalogItemController extends Controller implements HasMiddleware
         }
 
         try {
-            $item = CatalogItem::create($data);
+            $item = new CatalogItem();
+            $item->forceFill($data);
+            $item->save();
 
             Log::info('CatalogItem@store: item creado en BD', [
                 'item_id'             => $item->id,
                 'slug'                => $item->slug,
                 'category_product_id' => $item->category_product_id ?? null,
                 'primary_location_id' => $item->primary_location_id ?? null,
+                'unit_measure'        => $item->unit_measure ?? null,
+                'content_quantity'     => $item->content_quantity ?? null,
+                'content_unit_measure' => $item->content_unit_measure ?? null,
             ]);
         } catch (\Throwable $e) {
             Log::error('CatalogItem@store: ERROR al crear item', [
@@ -506,18 +550,27 @@ class CatalogItemController extends Controller implements HasMiddleware
             'input'   => $request->all(),
         ]);
 
+        $skuOrGtin = trim((string) ($request->input('sku') ?: $request->input('meli_gtin') ?: ''));
+        $request->merge([
+            'sku'       => $skuOrGtin,
+            'meli_gtin' => $skuOrGtin,
+        ]);
+
         $data = $request->validate([
             'name'                => ['required', 'string', 'max:255'],
             'slug'                => ['nullable', 'string', 'max:255'],
-            'sku'                 => ['nullable', 'string', 'max:120'],
+            'sku'                 => ['required', 'string', 'max:120'],
             'price'               => ['required', 'numeric', 'min:0'],
             'sale_price'          => ['nullable', 'numeric', 'min:0'],
-            'stock'               => ['nullable', 'integer', 'min:0'],
-            'stock_min'           => ['nullable', 'integer', 'min:0'],
-            'stock_max'           => ['nullable', 'integer', 'min:0'],
+            'stock'               => ['required', 'integer', 'min:0'],
+            'stock_min'           => ['required', 'integer', 'min:0'],
+            'stock_max'           => ['required', 'integer', 'min:0'],
+            'unit_measure'        => ['required', 'string', 'in:pieza,caja,paquete,rollo,juego,kit,bolsa,par,set,display,docena,metro,litro'],
+            'content_quantity'     => ['nullable', 'integer', 'min:1'],
+            'content_unit_measure' => ['nullable', 'string', 'in:pieza,caja,paquete,rollo,juego,kit,bolsa,par,set,display,docena,metro,litro'],
             'status'              => ['required', 'integer', 'in:0,1,2'],
             'is_featured'         => ['nullable', 'boolean'],
-            'category_product_id' => ['nullable', 'integer', 'exists:category_products,id'],
+            'category_product_id' => ['required', 'integer', 'exists:category_products,id'],
             'primary_location_id' => ['nullable', 'integer', 'exists:locations,id'],
 
             'use_internal'        => ['nullable', 'boolean'],
@@ -526,22 +579,38 @@ class CatalogItemController extends Controller implements HasMiddleware
 
             'brand_name'          => ['nullable', 'string', 'max:120'],
             'model_name'          => ['nullable', 'string', 'max:120'],
-            'meli_gtin'           => ['nullable', 'string', 'max:50'],
+            'meli_gtin'           => ['required', 'string', 'max:120'],
             'excerpt'             => ['nullable', 'string'],
             'description'         => ['nullable', 'string'],
             'published_at'        => ['nullable', 'date'],
+        ], [
+            'sku.required'                 => 'El SKU interno / código GTIN es obligatorio.',
+            'meli_gtin.required'           => 'El SKU interno / código GTIN es obligatorio.',
+            'stock.required'               => 'El stock es obligatorio.',
+            'stock_min.required'           => 'El stock mínimo es obligatorio.',
+            'stock_max.required'           => 'El stock máximo es obligatorio.',
+            'unit_measure.required'        => 'La unidad de medida es obligatoria.',
+            'content_quantity.min'         => 'El contenido por unidad debe ser mínimo 1.',
+            'category_product_id.required' => 'La categoría es obligatoria.',
         ]);
 
-        if (
-            isset($data['stock_min'], $data['stock_max']) &&
-            $data['stock_min'] !== null &&
-            $data['stock_max'] !== null &&
-            (int) $data['stock_max'] < (int) $data['stock_min']
-        ) {
+        if ((int) $data['stock_max'] < (int) $data['stock_min']) {
             throw ValidationException::withMessages([
                 'stock_max' => 'El stock máximo no puede ser menor al stock mínimo.',
             ]);
         }
+
+        $unitMeasure = strtolower(trim((string) ($data['unit_measure'] ?? 'pieza')));
+        if ($unitMeasure === 'pieza') {
+            $data['content_quantity'] = 1;
+            $data['content_unit_measure'] = 'pieza';
+        } else {
+            $data['content_quantity'] = max(1, (int) ($data['content_quantity'] ?? 1));
+            $data['content_unit_measure'] = strtolower(trim((string) ($data['content_unit_measure'] ?? 'pieza')));
+        }
+
+        $data['sku']       = trim((string) $data['sku']);
+        $data['meli_gtin'] = $data['sku'];
 
         Log::info('CatalogItem@update: datos validados', [
             'item_id' => $catalogItem->id,
@@ -568,9 +637,12 @@ class CatalogItemController extends Controller implements HasMiddleware
 
         $data['slug']         = $slug;
         $data['is_featured']  = (bool) ($data['is_featured'] ?? false);
-        $data['stock']        = $data['stock'] ?? 0;
-        $data['stock_min']    = $data['stock_min'] ?? null;
-        $data['stock_max']    = $data['stock_max'] ?? null;
+        $data['stock']        = (int) $data['stock'];
+        $data['stock_min']    = (int) $data['stock_min'];
+        $data['stock_max']    = (int) $data['stock_max'];
+        $data['unit_measure'] = strtolower(trim((string) $data['unit_measure']));
+        $data['content_quantity'] = (int) ($data['content_quantity'] ?? 1);
+        $data['content_unit_measure'] = strtolower(trim((string) ($data['content_unit_measure'] ?? 'pieza')));
         $data['category_key'] = null;
 
         if (!$request->boolean('use_internal')) {
@@ -579,13 +651,17 @@ class CatalogItemController extends Controller implements HasMiddleware
         }
 
         try {
-            $catalogItem->update($data);
+            $catalogItem->forceFill($data);
+            $catalogItem->save();
 
             Log::info('CatalogItem@update: item actualizado en BD', [
                 'item_id'             => $catalogItem->id,
                 'slug'                => $catalogItem->slug,
                 'category_product_id' => $catalogItem->category_product_id ?? null,
                 'primary_location_id' => $catalogItem->primary_location_id ?? null,
+                'unit_measure'        => $catalogItem->unit_measure ?? null,
+                'content_quantity'     => $catalogItem->content_quantity ?? null,
+                'content_unit_measure' => $catalogItem->content_unit_measure ?? null,
             ]);
         } catch (\Throwable $e) {
             Log::error('CatalogItem@update: ERROR al actualizar item', [

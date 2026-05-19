@@ -18,6 +18,9 @@
 
   $currentCategoryId = old('category_product_id', $item->category_product_id ?? '');
   $currentLocationId = old('primary_location_id', $item->primary_location_id ?? '');
+  $currentUnitMeasure = old('unit_measure', $item->unit_measure ?? 'pieza');
+  $currentContentQuantity = old('content_quantity', $item->content_quantity ?? 1);
+  $currentContentUnitMeasure = old('content_unit_measure', $item->content_unit_measure ?? 'pieza');
 
   $currentCategory = null;
   if ($currentCategoryId) {
@@ -912,20 +915,93 @@
               </div>
 
               <div class="form-group m-0">
-                <label class="form-label"><span>Stock</span> <span class="ai-badge hidden">IA</span></label>
-                <input name="stock" type="number" step="1" min="0" class="form-input text-lg font-bold" value="{{ old('stock', $item->stock ?? 0) }}">
+                <label class="form-label"><span>Stock <span class="req">*</span></span> <span class="ai-badge hidden">IA</span></label>
+                <input name="stock" type="number" step="1" min="0" class="form-input text-lg font-bold" required value="{{ old('stock', $item->stock ?? 0) }}">
               </div>
             </div>
 
             <div class="grid grid-2 mb-4">
               <div class="form-group m-0">
-                <label class="form-label">Stock mínimo</label>
-                <input name="stock_min" type="number" step="1" min="0" class="form-input" placeholder="Ej. 5" value="{{ old('stock_min', $item->stock_min ?? '') }}">
+                <label class="form-label">Stock mínimo <span class="req">*</span></label>
+                <input name="stock_min" type="number" step="1" min="0" class="form-input" required placeholder="Ej. 5" value="{{ old('stock_min', $item->stock_min ?? '') }}">
               </div>
 
               <div class="form-group m-0">
-                <label class="form-label">Stock máximo</label>
-                <input name="stock_max" type="number" step="1" min="0" class="form-input" placeholder="Ej. 100" value="{{ old('stock_max', $item->stock_max ?? '') }}">
+                <label class="form-label">Stock máximo <span class="req">*</span></label>
+                <input name="stock_max" type="number" step="1" min="0" class="form-input" required placeholder="Ej. 100" value="{{ old('stock_max', $item->stock_max ?? '') }}">
+              </div>
+            </div>
+
+
+
+            <div class="form-group mb-4">
+              <label class="form-label">Unidad de medida <span class="req">*</span></label>
+              <select name="unit_measure" class="form-select" required>
+                @foreach([
+                  'pieza' => 'Pieza',
+                  'caja' => 'Caja',
+                  'paquete' => 'Paquete',
+                  'rollo' => 'Rollo',
+                  'juego' => 'Juego',
+                  'kit' => 'Kit',
+                  'bolsa' => 'Bolsa',
+                  'par' => 'Par',
+                  'set' => 'Set',
+                  'display' => 'Display',
+                  'docena' => 'Docena',
+                  'metro' => 'Metro',
+                  'litro' => 'Litro',
+                ] as $value => $label)
+                  <option value="{{ $value }}" @selected($currentUnitMeasure === $value)>{{ $label }}</option>
+                @endforeach
+              </select>
+              <span class="hint" style="display:block; margin-top:8px;">
+                Define cómo se maneja el producto en inventario y venta: pieza, caja, paquete, rollo, etc.
+              </span>
+            </div>
+
+            <div class="grid grid-2 mb-4" id="contentFieldsWrap">
+              <div class="form-group m-0">
+                <label class="form-label">Contenido por unidad</label>
+                <input
+                  id="contentQuantityField"
+                  name="content_quantity"
+                  type="number"
+                  step="1"
+                  min="1"
+                  class="form-input"
+                  placeholder="Ej. 30"
+                  value="{{ $currentContentQuantity }}"
+                >
+                <span class="hint" style="display:block; margin-top:8px;">
+                  Ejemplo: caja con 30 piezas, paquete con 3 piezas o rollo con 50 metros.
+                </span>
+              </div>
+
+              <div class="form-group m-0">
+                <label class="form-label">Unidad contenida</label>
+                <select id="contentUnitMeasureField" name="content_unit_measure" class="form-select">
+                  @foreach([
+                    'pieza' => 'Pieza',
+                    'caja' => 'Caja',
+                    'paquete' => 'Paquete',
+                    'rollo' => 'Rollo',
+                    'juego' => 'Juego',
+                    'kit' => 'Kit',
+                    'bolsa' => 'Bolsa',
+                    'par' => 'Par',
+                    'set' => 'Set',
+                    'display' => 'Display',
+                    'docena' => 'Docena',
+                    'metro' => 'Metro',
+                    'litro' => 'Litro',
+                  ] as $value => $label)
+                    <option value="{{ $value }}" @selected($currentContentUnitMeasure === $value)>{{ $label }}</option>
+                  @endforeach
+                </select>
+                <span class="hint" style="display:block; margin-top:8px;">
+                  Qué contiene esa unidad de venta.
+                </span>
               </div>
             </div>
 
@@ -939,11 +1015,11 @@
 
             <div class="form-group mb-6">
               <div class="flex items-center justify-between mb-2">
-                <label class="form-label m-0">Categoría</label>
+                <label class="form-label m-0">Categoría <span class="req">*</span></label>
                 <button type="button" class="btn-text" id="openCategoryPicker">Elegir categoría</button>
               </div>
 
-              <input type="hidden" name="category_product_id" id="category_product_id" value="{{ $currentCategoryId }}">
+              <input type="hidden" name="category_product_id" id="category_product_id" required value="{{ $currentCategoryId }}">
 
               <button type="button" class="category-display" id="selectedCategoryDisplay">
                 <div class="category-display__main">
@@ -994,8 +1070,9 @@
             <h3 class="section-heading">Identificadores</h3>
 
             <div class="form-group mb-5">
-              <label class="form-label">SKU Interno</label>
-              <input name="sku" class="form-input text-sm uppercase" placeholder="Ej. JUR-001" value="{{ old('sku', $item->sku ?? '') }}">
+              <label class="form-label">SKU Interno / Código GTIN <span class="req">*</span></label>
+              <input id="skuField" name="sku" class="form-input text-sm uppercase" required placeholder="Ej. 7501035910107" value="{{ old('sku', $item->sku ?? '') }}">
+              <span class="hint" style="display:block; margin-top:8px;">Si capturas este campo, se copiará automáticamente al código GTIN/EAN.</span>
             </div>
 
             <div class="grid grid-2 gap-4 mb-5">
@@ -1010,8 +1087,9 @@
             </div>
 
             <div class="form-group m-0">
-              <label class="form-label"><span>Código (GTIN/EAN)</span> <span class="ai-badge hidden">IA</span></label>
-              <input name="meli_gtin" class="form-input" style="letter-spacing: 1px;" placeholder="Ej. 7501035910107" value="{{ old('meli_gtin', $item->meli_gtin ?? '') }}">
+              <label class="form-label"><span>Código (GTIN/EAN) <span class="req">*</span></span> <span class="ai-badge hidden">IA</span></label>
+              <input id="gtinField" name="meli_gtin" class="form-input" required style="letter-spacing: 1px;" placeholder="Ej. 7501035910107" value="{{ old('meli_gtin', $item->meli_gtin ?? '') }}">
+              <span class="hint" style="display:block; margin-top:8px;">Este valor se sincroniza con SKU Interno para que ambos sean el mismo código.</span>
             </div>
           </div>
         </div>
@@ -1114,6 +1192,79 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
+
+
+  function syncContentFields() {
+    const unitMeasure = document.querySelector('[name="unit_measure"]');
+    const contentWrap = document.getElementById('contentFieldsWrap');
+    const contentQuantity = document.getElementById('contentQuantityField');
+    const contentUnit = document.getElementById('contentUnitMeasureField');
+
+    if (!unitMeasure || !contentWrap || !contentQuantity || !contentUnit) return;
+
+    const value = String(unitMeasure.value || 'pieza').toLowerCase();
+
+    if (value === 'pieza') {
+      contentQuantity.value = 1;
+      contentUnit.value = 'pieza';
+      contentQuantity.setAttribute('readonly', 'readonly');
+      contentUnit.setAttribute('disabled', 'disabled');
+      contentWrap.style.opacity = '0.55';
+    } else {
+      contentQuantity.removeAttribute('readonly');
+      contentUnit.removeAttribute('disabled');
+      contentWrap.style.opacity = '1';
+
+      if (!contentQuantity.value || Number(contentQuantity.value) < 1) {
+        contentQuantity.value = 1;
+      }
+
+      if (!contentUnit.value) {
+        contentUnit.value = 'pieza';
+      }
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const unitMeasure = document.querySelector('[name="unit_measure"]');
+    const form = document.getElementById('catalogItemForm');
+    const contentUnit = document.getElementById('contentUnitMeasureField');
+
+    unitMeasure?.addEventListener('change', syncContentFields);
+    syncContentFields();
+
+    form?.addEventListener('submit', () => {
+      contentUnit?.removeAttribute('disabled');
+    });
+  });
+
+
+
+  function syncSkuAndGtinFields() {
+    const sku = document.getElementById('skuField') || document.querySelector('[name="sku"]');
+    const gtin = document.getElementById('gtinField') || document.querySelector('[name="meli_gtin"]');
+    if (!sku || !gtin) return;
+
+    let syncing = false;
+    const copyValue = (from, to) => {
+      if (syncing) return;
+      syncing = true;
+      to.value = String(from.value || '').trim();
+      syncing = false;
+    };
+
+    sku.addEventListener('input', () => copyValue(sku, gtin));
+    gtin.addEventListener('input', () => copyValue(gtin, sku));
+
+    const initial = String(sku.value || gtin.value || '').trim();
+    if (initial) {
+      sku.value = initial;
+      gtin.value = initial;
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', syncSkuAndGtinFields);
+
   const UI = {
     toast: Swal.mixin({
       toast: true, position: 'bottom-center', showConfirmButton: false, timer: 4500,
@@ -1353,11 +1504,36 @@
     setVal('model_name', model);
     setVal('excerpt', desc ? desc.slice(0, 160) : '');
 
-    const gtin = it.gtin || it.ean || it.upc || it.barcode || it.codigo_barras || '';
+    const gtin = it.gtin || it.ean || it.upc || it.barcode || it.codigo_barras || it.sku || '';
     setVal('meli_gtin', gtin);
+    if (gtin) setVal('sku', gtin);
 
     const qty = it.quantity ?? it.qty ?? it.cantidad ?? null;
     setVal('stock', qty);
+
+    const unitRaw = String(it.unit || it.unit_measure || it.unidad || '').toLowerCase().trim();
+    const unitMap = {
+      'pz': 'pieza',
+      'pza': 'pieza',
+      'pieza': 'pieza',
+      'piezas': 'pieza',
+      'caja': 'caja',
+      'cajas': 'caja',
+      'paquete': 'paquete',
+      'paquetes': 'paquete',
+      'rollo': 'rollo',
+      'rollos': 'rollo',
+      'juego': 'juego',
+      'kit': 'kit',
+      'bolsa': 'bolsa',
+      'par': 'par',
+      'set': 'set',
+      'display': 'display',
+      'docena': 'docena',
+      'metro': 'metro',
+      'litro': 'litro'
+    };
+    setVal('unit_measure', unitMap[unitRaw] || 'pieza');
 
     const extra = ex || extractedCache || {};
     let longDesc = '';

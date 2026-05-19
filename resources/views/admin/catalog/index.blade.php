@@ -637,7 +637,39 @@
 @endpush
 
 @section('content')
-@php $st = (string)request('status',''); @endphp
+@php
+  $st = (string) request('status', '');
+
+  $unitLabel = function ($item) {
+      if (!$item) {
+          return 'Pieza';
+      }
+
+      if (method_exists($item, 'unitMeasureLabel')) {
+          return $item->unitMeasureLabel();
+      }
+
+      $unit = strtolower(trim((string) ($item->unit_measure ?? 'pieza')));
+
+      $labels = [
+          'pieza'   => 'Pieza',
+          'caja'    => 'Caja',
+          'paquete' => 'Paquete',
+          'rollo'   => 'Rollo',
+          'juego'   => 'Juego',
+          'kit'     => 'Kit',
+          'bolsa'   => 'Bolsa',
+          'par'     => 'Par',
+          'set'     => 'Set',
+          'display' => 'Display',
+          'docena'  => 'Docena',
+          'metro'   => 'Metro',
+          'litro'   => 'Litro',
+      ];
+
+      return $labels[$unit] ?? ucfirst($unit ?: 'pieza');
+  };
+@endphp
 
 <div class="wrap">
 
@@ -770,6 +802,7 @@
             $stockMaximo = $it->stock_max !== null ? (float)$it->stock_max : null;
             $stockCritico = $stockMinimo !== null && $stockActual <= $stockMinimo;
             $sinStock = $stockActual <= 0;
+            $stockUnit = $unitLabel($it);
           @endphp
 
           <tr class="{{ $stockCritico ? 'is-critical-row' : '' }}">
@@ -840,12 +873,12 @@
             <td class="stock-mobile-space">
               <span class="stock-pill {{ $stockCritico ? 'is-critical' : '' }} {{ $sinStock ? 'is-empty' : '' }}">
                 <span class="dot"></span>
-                {{ number_format($stockActual, 0) }} pzas
+                {{ number_format($stockActual, 0) }} {{ $stockUnit }}
               </span>
 
               <div class="stock-meta">
-                Mín: {{ $stockMinimo !== null ? number_format($stockMinimo, 0) : '—' }}
-                · Máx: {{ $stockMaximo !== null ? number_format($stockMaximo, 0) : '—' }}
+                Mín: {{ $stockMinimo !== null ? number_format($stockMinimo, 0) . ' ' . $stockUnit : '—' }}
+                · Máx: {{ $stockMaximo !== null ? number_format($stockMaximo, 0) . ' ' . $stockUnit : '—' }}
               </div>
 
               @if($stockCritico)

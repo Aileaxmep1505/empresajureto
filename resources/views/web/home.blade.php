@@ -460,12 +460,20 @@
       line-height:1.4;
       color:#666666;
       font-weight:400;
-      margin:0 0 8px;
+      margin:0 0 4px;
       display:-webkit-box;
       -webkit-line-clamp:2;
       -webkit-box-orient:vertical;
       overflow:hidden;
       min-height:39px;
+    }
+
+    /* NUEVO ESTILO DE PRESENTACIÓN */
+    .nelo-shop .ns-presentation {
+      font-size: 12px;
+      color: var(--ns-blue-text);
+      font-weight: 600;
+      margin-bottom: 8px;
     }
 
     .nelo-shop .ns-rating{
@@ -537,6 +545,41 @@
   </style>
 
   @php
+    // ========================================================
+    // FUNCIONES PARA ARMAR TEXTO DE PRESENTACIÓN Y UTILIDADES
+    // ========================================================
+    $unitLabels = [
+      'pieza'   => ['sing' => 'pieza',   'plur' => 'piezas'],
+      'caja'    => ['sing' => 'caja',    'plur' => 'cajas'],
+      'paquete' => ['sing' => 'paquete', 'plur' => 'paquetes'],
+      'rollo'   => ['sing' => 'rollo',   'plur' => 'rollos'],
+      'juego'   => ['sing' => 'juego',   'plur' => 'juegos'],
+      'kit'     => ['sing' => 'kit',     'plur' => 'kits'],
+      'bolsa'   => ['sing' => 'bolsa',   'plur' => 'bolsas'],
+      'par'     => ['sing' => 'par',     'plur' => 'pares'],
+      'set'     => ['sing' => 'set',     'plur' => 'sets'],
+      'display' => ['sing' => 'display', 'plur' => 'displays'],
+      'docena'  => ['sing' => 'docena',  'plur' => 'docenas'],
+      'metro'   => ['sing' => 'metro',   'plur' => 'metros'],
+      'litro'   => ['sing' => 'litro',   'plur' => 'litros'],
+    ];
+
+    $getPresentation = function($product) use ($unitLabels) {
+      $unitKey = strtolower(trim((string)($product->unit_measure ?? 'pieza')));
+      $contentQty = (int)($product->content_quantity ?? 1);
+      if ($contentQty < 1) { $contentQty = 1; }
+      $contentUnitKey = strtolower(trim((string)($product->content_unit_measure ?? 'pieza')));
+
+      $unitSing = $unitLabels[$unitKey]['sing'] ?? ($unitKey !== '' ? $unitKey : 'pieza');
+      $contentUnitSing = $unitLabels[$contentUnitKey]['sing'] ?? ($contentUnitKey !== '' ? $contentUnitKey : 'pieza');
+      $contentUnitPlur = $unitLabels[$contentUnitKey]['plur'] ?? ($contentUnitSing . 's');
+
+      if ($unitKey !== 'pieza') {
+        return ucfirst($unitSing) . ' con ' . $contentQty . ' ' . ($contentQty === 1 ? $contentUnitSing : $contentUnitPlur);
+      }
+      return '1 Pieza';
+    };
+
     $catalogProducts = \App\Models\CatalogItem::with('category')
       ->published()
       ->ordered()
@@ -630,6 +673,7 @@
                       $img = $pickPhotoUrl($p);
                       $hasSale = !is_null($p->sale_price) && (float)$p->sale_price > 0 && (float)$p->sale_price < (float)$p->price;
                       $discount = $discountPct($p);
+                      $presentation = $getPresentation($p); // <-- SE ARMA EL TEXTO AQUÍ
 
                       $ratingCount = 0;
                       if (isset($p->reviews_count) && (int)$p->reviews_count > 0) {
@@ -669,6 +713,9 @@
                       </div>
 
                       <h3 class="ns-name">{{ $p->name }}</h3>
+                      
+                      {{-- SE IMPRIME EL TEXTO DE PRESENTACIÓN --}}
+                      <div class="ns-presentation">{{ $presentation }}</div>
 
                       <div class="ns-rating">
                         <span class="ns-stars" aria-hidden="true">

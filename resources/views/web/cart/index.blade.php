@@ -1,9 +1,47 @@
+{{-- resources/views/web/cart.blade.php --}}
 @extends('layouts.web')
 @section('title','Carrito')
 
 @section('content')
 @php
   use Illuminate\Support\Str;
+
+  // ========================================================
+  // FUNCIONES PARA ARMAR TEXTO DE PRESENTACIÓN
+  // ========================================================
+  $unitLabels = [
+    'pieza'   => ['sing' => 'pieza',   'plur' => 'piezas'],
+    'caja'    => ['sing' => 'caja',    'plur' => 'cajas'],
+    'paquete' => ['sing' => 'paquete', 'plur' => 'paquetes'],
+    'rollo'   => ['sing' => 'rollo',   'plur' => 'rollos'],
+    'juego'   => ['sing' => 'juego',   'plur' => 'juegos'],
+    'kit'     => ['sing' => 'kit',     'plur' => 'kits'],
+    'bolsa'   => ['sing' => 'bolsa',   'plur' => 'bolsas'],
+    'par'     => ['sing' => 'par',     'plur' => 'pares'],
+    'set'     => ['sing' => 'set',     'plur' => 'sets'],
+    'display' => ['sing' => 'display', 'plur' => 'displays'],
+    'docena'  => ['sing' => 'docena',  'plur' => 'docenas'],
+    'metro'   => ['sing' => 'metro',   'plur' => 'metros'],
+    'litro'   => ['sing' => 'litro',   'plur' => 'litros'],
+  ];
+
+  $getPresentation = function($product) use ($unitLabels) {
+    if (!$product) return ''; // Por si el producto fue borrado de la BD
+
+    $unitKey = strtolower(trim((string)($product->unit_measure ?? 'pieza')));
+    $contentQty = (int)($product->content_quantity ?? 1);
+    if ($contentQty < 1) { $contentQty = 1; }
+    $contentUnitKey = strtolower(trim((string)($product->content_unit_measure ?? 'pieza')));
+
+    $unitSing = $unitLabels[$unitKey]['sing'] ?? ($unitKey !== '' ? $unitKey : 'pieza');
+    $contentUnitSing = $unitLabels[$contentUnitKey]['sing'] ?? ($contentUnitKey !== '' ? $contentUnitKey : 'pieza');
+    $contentUnitPlur = $unitLabels[$contentUnitKey]['plur'] ?? ($contentUnitSing . 's');
+
+    if ($unitKey !== 'pieza') {
+      return ucfirst($unitSing) . ' con ' . $contentQty . ' ' . ($contentQty === 1 ? $contentUnitSing : $contentUnitPlur);
+    }
+    return '1 Pieza';
+  };
 
   $FREE_SHIP = (float) env('FREE_SHIPPING_THRESHOLD', 5000);
 
@@ -24,9 +62,6 @@
    *   catalog/photos/xxxx.jpg
    * -> URL pública:
    *   asset('storage/catalog/photos/xxxx.jpg')
-   *
-   * Esto funciona aunque el proyecto esté en subcarpeta.
-   * Requiere: php artisan storage:link
    */
   $resolveImg = function($raw){
     if(!$raw || !is_string($raw) || trim($raw)==='') return asset('images/placeholder.png');
@@ -43,7 +78,7 @@
     // Tu caso: catalog/photos/...
     if (Str::startsWith($raw, 'catalog/'))  return asset('storage/' . ltrim($raw, '/'));
 
-    // Fallback: tratarlo como ruta del storage
+    // Fallback
     return asset('storage/' . ltrim($raw, '/'));
   };
 @endphp
@@ -217,6 +252,14 @@
   }
   #cart .prod-name:hover{ color: var(--blue); }
   #cart .sku{ color: var(--muted); font-weight:500; margin-top:4px; font-size:12px; }
+
+  /* NUEVO ESTILO DE PRESENTACIÓN PARA EL CARRITO */
+  #cart .cart-presentation {
+    font-size: 12px;
+    color: var(--blue);
+    font-weight: 600;
+    margin-top: 4px;
+  }
 
   /* Qty */
   #cart .qty{
@@ -407,6 +450,10 @@
                 @php
                   $imgRaw = $row['image'] ?? null;
                   $img = $resolveImg($imgRaw);
+                  
+                  // BÚSQUEDA DEL PRODUCTO REAL EN LA BASE DE DATOS
+                  $realProduct = \App\Models\CatalogItem::find($row['id']);
+                  $presentation = $getPresentation($realProduct); 
                 @endphp
                 <tr data-id="{{ $row['id'] }}">
                   <td data-label="Producto">
@@ -419,6 +466,9 @@
                       <div>
                         <a class="prod-name" href="{{ route('web.catalog.show', $row['slug'] ?? '') }}">{{ $row['name'] }}</a>
                         <div class="sku">SKU: {{ !empty($row['sku']) ? $row['sku'] : '—' }}</div>
+                        
+                        {{-- AQUÍ SE IMPRIME LA PRESENTACIÓN REAL --}}
+                        <div class="cart-presentation">{{ $presentation }}</div>
 
                         @if($DEBUG_CART_IMAGES)
                           <small class="img-debug">

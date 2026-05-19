@@ -1,3 +1,4 @@
+{{-- resources/views/web/favoritos.blade.php --}}
 @extends('layouts.web')
 @section('title','Mis Favoritos')
 
@@ -83,10 +84,19 @@
 
   #favwrap .body{padding:12px 12px 14px}
   #favwrap .name{
-    font-weight:800;font-size:15px;line-height:1.25;margin:4px 0 10px;color:var(--ink);
+    font-weight:800;font-size:15px;line-height:1.25;margin:4px 0 6px;color:var(--ink);
     transition:color .18s ease;
     display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
   }
+
+  /* NUEVO: ESTILO PARA LA PRESENTACIÓN */
+  #favwrap .fav-presentation {
+    font-size: 12px;
+    color: #1677ff; /* Azul para mantener consistencia con otras vistas */
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+
   #favwrap .row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
   #favwrap .price{font-weight:900;font-size:15px;color:#0f172a}
 
@@ -133,6 +143,43 @@
 </style>
 
 @php
+  // ========================================================
+  // FUNCIONES PARA ARMAR TEXTO DE PRESENTACIÓN
+  // ========================================================
+  $unitLabels = [
+    'pieza'   => ['sing' => 'pieza',   'plur' => 'piezas'],
+    'caja'    => ['sing' => 'caja',    'plur' => 'cajas'],
+    'paquete' => ['sing' => 'paquete', 'plur' => 'paquetes'],
+    'rollo'   => ['sing' => 'rollo',   'plur' => 'rollos'],
+    'juego'   => ['sing' => 'juego',   'plur' => 'juegos'],
+    'kit'     => ['sing' => 'kit',     'plur' => 'kits'],
+    'bolsa'   => ['sing' => 'bolsa',   'plur' => 'bolsas'],
+    'par'     => ['sing' => 'par',     'plur' => 'pares'],
+    'set'     => ['sing' => 'set',     'plur' => 'sets'],
+    'display' => ['sing' => 'display', 'plur' => 'displays'],
+    'docena'  => ['sing' => 'docena',  'plur' => 'docenas'],
+    'metro'   => ['sing' => 'metro',   'plur' => 'metros'],
+    'litro'   => ['sing' => 'litro',   'plur' => 'litros'],
+  ];
+
+  $getPresentation = function($product) use ($unitLabels) {
+    if (!$product) return '';
+
+    $unitKey = strtolower(trim((string)($product->unit_measure ?? 'pieza')));
+    $contentQty = (int)($product->content_quantity ?? 1);
+    if ($contentQty < 1) { $contentQty = 1; }
+    $contentUnitKey = strtolower(trim((string)($product->content_unit_measure ?? 'pieza')));
+
+    $unitSing = $unitLabels[$unitKey]['sing'] ?? ($unitKey !== '' ? $unitKey : 'pieza');
+    $contentUnitSing = $unitLabels[$contentUnitKey]['sing'] ?? ($contentUnitKey !== '' ? $contentUnitKey : 'pieza');
+    $contentUnitPlur = $unitLabels[$contentUnitKey]['plur'] ?? ($contentUnitSing . 's');
+
+    if ($unitKey !== 'pieza') {
+      return ucfirst($unitSing) . ' con ' . $contentQty . ' ' . ($contentQty === 1 ? $contentUnitSing : $contentUnitPlur);
+    }
+    return '1 Pieza';
+  };
+
   // === helper: convierte photo_1/2/3 a URL usable ===
   $imgUrl = function($raw){
     if(!$raw || !is_string($raw) || trim($raw)==='') return null;
@@ -175,10 +222,11 @@
             $productUrl = \Illuminate\Support\Facades\Route::has('web.catalog.show')
               ? route('web.catalog.show', $item)
               : (\Illuminate\Support\Facades\Route::has('web.producto.show')
-                  ? route('web.producto.show', $item->slug ?? $item->id)
-                  : url('/catalogo/'.($item->slug ?? $item->id)));
+                 ? route('web.producto.show', $item->slug ?? $item->id)
+                 : url('/catalogo/'.($item->slug ?? $item->id)));
 
             $thumb = $pickPhotoUrl($item);
+            $presentation = $getPresentation($item); // <-- SE ARMA EL TEXTO AQUÍ
           @endphp
 
           <article class="card" id="fav-card-{{ $item->id }}">
@@ -203,6 +251,9 @@
 
             <div class="body">
               <a href="{{ $productUrl }}" class="name">{{ $item->name }}</a>
+              
+              {{-- SE IMPRIME EL TEXTO DE PRESENTACIÓN --}}
+              <div class="fav-presentation">{{ $presentation }}</div>
 
               <div class="row">
                 <div class="price">${{ number_format($item->sale_price ?? $item->price ?? 0, 2) }} MXN</div>

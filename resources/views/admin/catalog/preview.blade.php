@@ -45,7 +45,6 @@
 
     $statusTone = $stock > 0 && $item->status === 1 ? 'ok' : 'warn';
 
-    // CORREGIDO
     $minStock = $item->stock_min ?? null;
     $maxStock = $item->stock_max ?? null;
 
@@ -57,7 +56,6 @@
             ?: (string)($item->primaryLocation->name ?? '')
         );
     }
-
     if (!$primaryLocationLabel && !empty($item->primary_location_id)) {
         $primaryLocationLabel = 'Ubicación #' . $item->primary_location_id;
     }
@@ -71,6 +69,53 @@
     $labelPdfQr        = route('catalog.qr.label', $item);
     $labelPdfBarcode   = route('catalog.barcode.label', $item);
     $publicUrl         = route('catalog.preview', $item);
+
+    // =========================
+    // ✅ NUEVO: usar tus campos reales
+    // unit_measure / content_quantity / content_unit_measure
+    // =========================
+    $unitKey = strtolower(trim((string)($item->unit_measure ?? 'pieza')));
+    $contentQty = (int)($item->content_quantity ?? 1);
+    if ($contentQty < 1) $contentQty = 1;
+
+    $contentUnitKey = strtolower(trim((string)($item->content_unit_measure ?? 'pieza')));
+
+    $unitLabels = [
+      'pieza'   => ['sing' => 'pieza',   'plur' => 'pzas'],
+      'caja'    => ['sing' => 'caja',    'plur' => 'cajas'],
+      'paquete' => ['sing' => 'paquete', 'plur' => 'paquetes'],
+      'rollo'   => ['sing' => 'rollo',   'plur' => 'rollos'],
+      'juego'   => ['sing' => 'juego',   'plur' => 'juegos'],
+      'kit'     => ['sing' => 'kit',     'plur' => 'kits'],
+      'bolsa'   => ['sing' => 'bolsa',   'plur' => 'bolsas'],
+      'par'     => ['sing' => 'par',     'plur' => 'pares'],
+      'set'     => ['sing' => 'set',     'plur' => 'sets'],
+      'display' => ['sing' => 'display', 'plur' => 'displays'],
+      'docena'  => ['sing' => 'docena',  'plur' => 'docenas'],
+      'metro'   => ['sing' => 'metro',   'plur' => 'metros'],
+      'litro'   => ['sing' => 'litro',   'plur' => 'litros'],
+    ];
+
+    $unitSing = $unitLabels[$unitKey]['sing'] ?? ($unitKey !== '' ? $unitKey : 'pieza');
+    $unitPlur = $unitLabels[$unitKey]['plur'] ?? ($unitSing . 's');
+
+    $contentUnitSing = $unitLabels[$contentUnitKey]['sing'] ?? ($contentUnitKey !== '' ? $contentUnitKey : 'pieza');
+    $contentUnitPlur = $unitLabels[$contentUnitKey]['plur'] ?? ($contentUnitSing . 's');
+
+    // Stock con unidad
+    $stockWithUnit = number_format($stock, 0) . ' ' . ($stock === 1 ? $unitSing : $unitPlur);
+
+    $minStockWithUnit = ($minStock === null || $minStock === '')
+      ? '—'
+      : (number_format((float)$minStock, 0) . ' ' . (((float)$minStock) == 1.0 ? $unitSing : $unitPlur));
+
+    $maxStockWithUnit = ($maxStock === null || $maxStock === '')
+      ? '—'
+      : (number_format((float)$maxStock, 0) . ' ' . (((float)$maxStock) == 1.0 ? $unitSing : $unitPlur));
+
+    // ✅ Contenido por unidad (para la card UNID. POR CAJA / PAQUETE / etc)
+    // Si unit_measure = pieza, NO se usa (y ni se muestra la card).
+    $contentWithUnit = $contentQty . ' ' . ($contentQty === 1 ? $contentUnitSing : $contentUnitPlur);
   @endphp
 
   <style>
@@ -658,13 +703,15 @@
                 <span>Stock actual</span>
               </div>
               <div class="ps-pick-main">
-                {{ $stock }} unidades
+                {{ $stockWithUnit }}
               </div>
               <div class="ps-pick-sub">
-                Min: {{ $minStock ?? '—' }} | Máx: {{ $maxStock ?? '—' }}
+                Min: {{ $minStockWithUnit }} | Máx: {{ $maxStockWithUnit }}
               </div>
             </article>
 
+            {{-- ✅ SOLO mostrar “UNID. POR CAJA” si NO es pieza --}}
+            @if($unitKey !== 'pieza')
             <article class="ps-pick-card">
               <div class="ps-pick-head">
                 <div class="ps-pick-ico">
@@ -677,12 +724,13 @@
                 <span>Unid. por caja</span>
               </div>
               <div class="ps-pick-main">
-                {{ $item->units_per_box ?? '—' }}
+                {{ $contentWithUnit }}
               </div>
               <div class="ps-pick-sub">
                 Piezas por empaque.
               </div>
             </article>
+            @endif
 
             <article class="ps-pick-card">
               <div class="ps-pick-head">
@@ -726,15 +774,18 @@
               <div class="ps-spec-value">{{ $gtin !== '' ? $gtin : '—' }}</div>
             </div>
 
+            {{-- ❌ NO mostrar Stock mínimo / máximo aquí (porque ya sale arriba en la card de Stock) --}}
+            @if(false)
             <div class="ps-spec-row">
               <div class="ps-spec-label">Stock mínimo</div>
-              <div class="ps-spec-value">{{ $minStock ?? '—' }}</div>
+              <div class="ps-spec-value">{{ $minStockWithUnit }}</div>
             </div>
 
             <div class="ps-spec-row">
               <div class="ps-spec-label">Stock máximo</div>
-              <div class="ps-spec-value">{{ $maxStock ?? '—' }}</div>
+              <div class="ps-spec-value">{{ $maxStockWithUnit }}</div>
             </div>
+            @endif
 
             @if(trim((string)$item->excerpt) !== '')
               <div class="ps-spec-row">

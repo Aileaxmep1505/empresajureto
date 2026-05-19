@@ -10,6 +10,41 @@
 @php
   use Illuminate\Support\Str;
 
+  // ========================================================
+  // FUNCIONES PARA ARMAR TEXTO DE PRESENTACIÓN
+  // ========================================================
+  $unitLabels = [
+    'pieza'   => ['sing' => 'pieza',   'plur' => 'piezas'],
+    'caja'    => ['sing' => 'caja',    'plur' => 'cajas'],
+    'paquete' => ['sing' => 'paquete', 'plur' => 'paquetes'],
+    'rollo'   => ['sing' => 'rollo',   'plur' => 'rollos'],
+    'juego'   => ['sing' => 'juego',   'plur' => 'juegos'],
+    'kit'     => ['sing' => 'kit',     'plur' => 'kits'],
+    'bolsa'   => ['sing' => 'bolsa',   'plur' => 'bolsas'],
+    'par'     => ['sing' => 'par',     'plur' => 'pares'],
+    'set'     => ['sing' => 'set',     'plur' => 'sets'],
+    'display' => ['sing' => 'display', 'plur' => 'displays'],
+    'docena'  => ['sing' => 'docena',  'plur' => 'docenas'],
+    'metro'   => ['sing' => 'metro',   'plur' => 'metros'],
+    'litro'   => ['sing' => 'litro',   'plur' => 'litros'],
+  ];
+
+  $getPresentation = function($product) use ($unitLabels) {
+    $unitKey = strtolower(trim((string)($product->unit_measure ?? 'pieza')));
+    $contentQty = (int)($product->content_quantity ?? 1);
+    if ($contentQty < 1) { $contentQty = 1; }
+    $contentUnitKey = strtolower(trim((string)($product->content_unit_measure ?? 'pieza')));
+
+    $unitSing = $unitLabels[$unitKey]['sing'] ?? ($unitKey !== '' ? $unitKey : 'pieza');
+    $contentUnitSing = $unitLabels[$contentUnitKey]['sing'] ?? ($contentUnitKey !== '' ? $contentUnitKey : 'pieza');
+    $contentUnitPlur = $unitLabels[$contentUnitKey]['plur'] ?? ($contentUnitSing . 's');
+
+    if ($unitKey !== 'pieza') {
+      return ucfirst($unitSing) . ' con ' . $contentQty . ' ' . ($contentQty === 1 ? $contentUnitSing : $contentUnitPlur);
+    }
+    return '1 Pieza';
+  };
+
   $brandCol  = \Schema::hasColumn('catalog_items','brand') ? 'brand'
              : (\Schema::hasColumn('catalog_items','marca') ? 'marca' : null);
   $hasColor  = \Schema::hasColumn('catalog_items','color');
@@ -241,6 +276,7 @@
                 $img = $pickPhotoUrl($p);
                 $off = $pct($p);
                 $showUrl = route('web.catalog.show', $p);
+                $presentation = $getPresentation($p); // <-- SE ARMA EL TEXTO AQUÍ
               @endphp
 
               <article class="ofr-card nelo-offer-card">
@@ -271,6 +307,9 @@
                   </div>
 
                   <h3 class="nelo-offer-name">{{ $p->name }}</h3>
+                  
+                  {{-- SE IMPRIME EL TEXTO DE PRESENTACIÓN --}}
+                  <div class="nelo-offer-presentation">{{ $presentation }}</div>
 
                   <div class="nelo-offer-rating">
                     <span class="nelo-offer-stars" aria-hidden="true">
@@ -527,12 +566,20 @@
     line-height:1.4;
     color:#666666;
     font-weight:400;
-    margin:0 0 10px;
+    margin:0 0 4px; /* Ajustado el margen para dar espacio al texto de presentación */
     display:-webkit-box;
     -webkit-line-clamp:2;
     -webkit-box-orient:vertical;
     overflow:hidden;
     min-height:39px;
+  }
+
+  /* NUEVO: ESTILO PARA LA PRESENTACIÓN */
+  #ofr .nelo-offer-presentation {
+    font-size: 12px;
+    color: #1677ff;
+    font-weight: 600;
+    margin-bottom: 8px;
   }
 
   #ofr .nelo-offer-rating{
