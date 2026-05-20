@@ -47,16 +47,12 @@ class PartContableController extends Controller
         ]);
     }
 
-    private function emptyPaginator(Request $request, int $perPage = 12): LengthAwarePaginator
+    /**
+     * ✅ Devuelve una colección vacía (ya no se pagina)
+     */
+    private function emptyDocuments()
     {
-        $page = (int) $request->get('page', 1);
-
-        $p = new LengthAwarePaginator([], 0, $perPage, $page, [
-            'path'  => $request->url(),
-            'query' => $request->query(),
-        ]);
-
-        return $p->appends($request->query());
+        return collect();
     }
 
     /**
@@ -165,6 +161,7 @@ class PartContableController extends Controller
 
     // ============================================================
     // ✅ Vista de empresa con documentos filtrados (PIDE PIN ANTES)
+    //    SIN PAGINACIÓN: devuelve TODOS los documentos
     // ============================================================
     public function showCompany(Request $request, Company $company)
     {
@@ -184,7 +181,7 @@ class PartContableController extends Controller
                 'company'           => $company,
                 'sections'          => $sections,
                 'section'           => null,
-                'documents'         => $this->emptyPaginator($request, 12),
+                'documents'         => $this->emptyDocuments(),
                 'subtypes'          => collect(),
                 'year'              => $request->get('year'),
                 'month'             => $request->get('month'),
@@ -232,7 +229,8 @@ class PartContableController extends Controller
         if ($year)  $query->whereYear('date', $year);
         if ($month) $query->whereMonth('date', $month);
 
-        $documents = $query->orderByDesc('date')->orderByDesc('id')->paginate(12)->appends($request->query());
+        // ✅ SIN PAGINACIÓN: trae TODOS los documentos
+        $documents = $query->orderByDesc('date')->orderByDesc('id')->get();
         $subtypes  = $sectionSubtypes->values();
 
         return view('partcontable.company', [
@@ -465,139 +463,140 @@ class PartContableController extends Controller
         if (str_starts_with($mime, 'video/')) return 'video';
         return 'documento';
     }
-public function uploadFicticio(Request $request, Document $document)
-{
-    // ✅ cargar relaciones para validar keys
-    $document->loadMissing(['section', 'subtype']);
 
-    $allowedSectionKeys = ['declaracion_anual', 'declaracion_mensual'];
-    $allowedSubtypeKeys = [
-        'acuse_anual','pago_anual','declaracion_anual',
-        'acuse_mensual','pago_mensual','declaracion_mensual',
-    ];
+    public function uploadFicticio(Request $request, Document $document)
+    {
+        // ✅ cargar relaciones para validar keys
+        $document->loadMissing(['section', 'subtype']);
 
-    $sectionKey = optional($document->section)->key;
-    $subKey     = optional($document->subtype)->key;
+        $allowedSectionKeys = ['declaracion_anual', 'declaracion_mensual'];
+        $allowedSubtypeKeys = [
+            'acuse_anual','pago_anual','declaracion_anual',
+            'acuse_mensual','pago_mensual','declaracion_mensual',
+        ];
 
-    if (!in_array($sectionKey, $allowedSectionKeys, true) || !in_array($subKey, $allowedSubtypeKeys, true)) {
-        $msg = 'Este documento no admite ficticio.';
-        return $request->expectsJson()
-            ? response()->json(['ok'=>false,'message'=>$msg], 422)
-            : back()->with('warning', $msg);
-    }
+        $sectionKey = optional($document->section)->key;
+        $subKey     = optional($document->subtype)->key;
 
-    // ✅ Validación tolerante (SIEMPRE deja PDF real)
-    $allowedExt = ['pdf','jpg','jpeg','png','webp','gif','svg','mp4','mov','doc','docx','xls','xlsx'];
+        if (!in_array($sectionKey, $allowedSectionKeys, true) || !in_array($subKey, $allowedSubtypeKeys, true)) {
+            $msg = 'Este documento no admite ficticio.';
+            return $request->expectsJson()
+                ? response()->json(['ok'=>false,'message'=>$msg], 422)
+                : back()->with('warning', $msg);
+        }
 
-    $allowedMimes = [
-        // PDF
-        'application/pdf',
-        // imágenes
-        'image/jpeg','image/png','image/webp','image/gif','image/svg+xml',
-        // videos
-        'video/mp4','video/quicktime',
-        // Office
-        'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'application/vnd.ms-excel',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        // algunos servidores mandan octet-stream aunque sea válido
-        'application/octet-stream',
-    ];
+        // ✅ Validación tolerante (SIEMPRE deja PDF real)
+        $allowedExt = ['pdf','jpg','jpeg','png','webp','gif','svg','mp4','mov','doc','docx','xls','xlsx'];
 
-    $request->validate([
-        'file' => [
-            'required',
-            'file',
-            'max:51200', // 50MB
-            function ($attribute, $value, $fail) use ($allowedExt, $allowedMimes) {
-                /** @var \Illuminate\Http\UploadedFile $value */
-                $origName   = (string) $value->getClientOriginalName();
-                $origExt    = strtolower($value->getClientOriginalExtension() ?: pathinfo($origName, PATHINFO_EXTENSION));
-                $clientMime = (string) ($value->getClientMimeType() ?: '');
-                $realMime   = (string) ($value->getMimeType() ?: '');
-                $guessExt   = strtolower((string) ($value->guessExtension() ?: ''));
+        $allowedMimes = [
+            // PDF
+            'application/pdf',
+            // imágenes
+            'image/jpeg','image/png','image/webp','image/gif','image/svg+xml',
+            // videos
+            'video/mp4','video/quicktime',
+            // Office
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/vnd.ms-excel',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            // algunos servidores mandan octet-stream aunque sea válido
+            'application/octet-stream',
+        ];
 
-                // ✅ acepta si coincide por extensión OR por mime OR por guessExtension
-                $okByExt   = $origExt !== '' && in_array($origExt, $allowedExt, true);
-                $okByMime  = ($clientMime !== '' && in_array($clientMime, $allowedMimes, true))
-                          || ($realMime !== ''   && in_array($realMime,   $allowedMimes, true));
-                $okByGuess = $guessExt !== '' && in_array($guessExt, $allowedExt, true);
+        $request->validate([
+            'file' => [
+                'required',
+                'file',
+                'max:51200', // 50MB
+                function ($attribute, $value, $fail) use ($allowedExt, $allowedMimes) {
+                    /** @var \Illuminate\Http\UploadedFile $value */
+                    $origName   = (string) $value->getClientOriginalName();
+                    $origExt    = strtolower($value->getClientOriginalExtension() ?: pathinfo($origName, PATHINFO_EXTENSION));
+                    $clientMime = (string) ($value->getClientMimeType() ?: '');
+                    $realMime   = (string) ($value->getMimeType() ?: '');
+                    $guessExt   = strtolower((string) ($value->guessExtension() ?: ''));
 
-                // ✅ caso especial: si el mime es application/pdf aunque venga raro, lo aceptamos
-                $okPdf = ($origExt === 'pdf') || ($clientMime === 'application/pdf') || ($realMime === 'application/pdf') || ($guessExt === 'pdf');
+                    // ✅ acepta si coincide por extensión OR por mime OR por guessExtension
+                    $okByExt   = $origExt !== '' && in_array($origExt, $allowedExt, true);
+                    $okByMime  = ($clientMime !== '' && in_array($clientMime, $allowedMimes, true))
+                              || ($realMime !== ''   && in_array($realMime,   $allowedMimes, true));
+                    $okByGuess = $guessExt !== '' && in_array($guessExt, $allowedExt, true);
 
-                if (!($okByExt || $okByMime || $okByGuess || $okPdf)) {
-                    $fail('Formato no permitido. Sube PDF, imagen, video u Office.');
-                }
-            },
-        ],
-    ], [
-        'file.required' => 'Selecciona un archivo.',
-        'file.file'     => 'El archivo no es válido.',
-        'file.max'      => 'El archivo excede el tamaño permitido (50MB).',
-    ]);
+                    // ✅ caso especial: si el mime es application/pdf aunque venga raro, lo aceptamos
+                    $okPdf = ($origExt === 'pdf') || ($clientMime === 'application/pdf') || ($realMime === 'application/pdf') || ($guessExt === 'pdf');
 
-    $file = $request->file('file');
-
-    // ✅ Debug útil (déjalo mientras pruebas)
-    \Log::info('Ficticio upload debug', [
-        'document_id' => $document->id,
-        'name'        => $file->getClientOriginalName(),
-        'client_ext'  => $file->getClientOriginalExtension(),
-        'guess_ext'   => $file->guessExtension(),
-        'client_mime' => $file->getClientMimeType(),
-        'real_mime'   => $file->getMimeType(),
-        'size'        => $file->getSize(),
-    ]);
-
-    $originalName = $file->getClientOriginalName();
-    $ext = strtolower($file->getClientOriginalExtension() ?: pathinfo($originalName, PATHINFO_EXTENSION));
-
-    // ✅ Para PDF, fuerza mime consistente
-    $mime = $file->getClientMimeType() ?: ($file->getMimeType() ?: 'application/octet-stream');
-    if ($ext === 'pdf') $mime = 'application/pdf';
-
-    $d = $document->date ? \Carbon\Carbon::parse($document->date) : now();
-    $year  = $d->year;
-    $month = $d->month;
-
-    $subdir = "partcontable/{$document->company_id}/{$sectionKey}/{$year}/{$month}/ficticios";
-    $slug   = Str::slug(pathinfo($originalName, PATHINFO_FILENAME)) ?: 'archivo';
-    $name   = "{$slug}_ficticio_" . time() . "_" . uniqid() . ".{$ext}";
-
-    $storedPath = $file->storeAs($subdir, $name, 'public');
-
-    // borra ficticio anterior
-    if ($document->ficticio_file_path && Storage::disk('public')->exists($document->ficticio_file_path)) {
-        Storage::disk('public')->delete($document->ficticio_file_path);
-    }
-
-    $document->update([
-        'ficticio_file_path'    => $storedPath,
-        'ficticio_filename'     => $originalName,
-        'ficticio_mime_type'    => $mime,
-        'ficticio_uploaded_by'  => auth()->id(),
-    ]);
-
-    $this->logActivity($request, 'pc_upload_ficticio', $document->company_id, $document->id, [
-        'ficticio_path' => $storedPath,
-        'mime'          => $mime,
-        'section_key'   => $sectionKey,
-        'subtype_key'   => $subKey,
-    ]);
-
-    if ($request->expectsJson()) {
-        return response()->json([
-            'ok'           => true,
-            'message'      => 'Ficticio subido.',
-            'ficticio_url' => Storage::disk('public')->url($storedPath),
-            'download_url' => route('partcontable.documents.ficticio.download', $document),
+                    if (!($okByExt || $okByMime || $okByGuess || $okPdf)) {
+                        $fail('Formato no permitido. Sube PDF, imagen, video u Office.');
+                    }
+                },
+            ],
+        ], [
+            'file.required' => 'Selecciona un archivo.',
+            'file.file'     => 'El archivo no es válido.',
+            'file.max'      => 'El archivo excede el tamaño permitido (50MB).',
         ]);
-    }
 
-    return back()->with('success', 'Ficticio subido.');
-}
+        $file = $request->file('file');
+
+        // ✅ Debug útil (déjalo mientras pruebas)
+        \Log::info('Ficticio upload debug', [
+            'document_id' => $document->id,
+            'name'        => $file->getClientOriginalName(),
+            'client_ext'  => $file->getClientOriginalExtension(),
+            'guess_ext'   => $file->guessExtension(),
+            'client_mime' => $file->getClientMimeType(),
+            'real_mime'   => $file->getMimeType(),
+            'size'        => $file->getSize(),
+        ]);
+
+        $originalName = $file->getClientOriginalName();
+        $ext = strtolower($file->getClientOriginalExtension() ?: pathinfo($originalName, PATHINFO_EXTENSION));
+
+        // ✅ Para PDF, fuerza mime consistente
+        $mime = $file->getClientMimeType() ?: ($file->getMimeType() ?: 'application/octet-stream');
+        if ($ext === 'pdf') $mime = 'application/pdf';
+
+        $d = $document->date ? \Carbon\Carbon::parse($document->date) : now();
+        $year  = $d->year;
+        $month = $d->month;
+
+        $subdir = "partcontable/{$document->company_id}/{$sectionKey}/{$year}/{$month}/ficticios";
+        $slug   = Str::slug(pathinfo($originalName, PATHINFO_FILENAME)) ?: 'archivo';
+        $name   = "{$slug}_ficticio_" . time() . "_" . uniqid() . ".{$ext}";
+
+        $storedPath = $file->storeAs($subdir, $name, 'public');
+
+        // borra ficticio anterior
+        if ($document->ficticio_file_path && Storage::disk('public')->exists($document->ficticio_file_path)) {
+            Storage::disk('public')->delete($document->ficticio_file_path);
+        }
+
+        $document->update([
+            'ficticio_file_path'    => $storedPath,
+            'ficticio_filename'     => $originalName,
+            'ficticio_mime_type'    => $mime,
+            'ficticio_uploaded_by'  => auth()->id(),
+        ]);
+
+        $this->logActivity($request, 'pc_upload_ficticio', $document->company_id, $document->id, [
+            'ficticio_path' => $storedPath,
+            'mime'          => $mime,
+            'section_key'   => $sectionKey,
+            'subtype_key'   => $subKey,
+        ]);
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'ok'           => true,
+                'message'      => 'Ficticio subido.',
+                'ficticio_url' => Storage::disk('public')->url($storedPath),
+                'download_url' => route('partcontable.documents.ficticio.download', $document),
+            ]);
+        }
+
+        return back()->with('success', 'Ficticio subido.');
+    }
 
     // ===============================
     // ✅ DESCARGAR FICTICIO

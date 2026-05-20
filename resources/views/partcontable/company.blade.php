@@ -257,18 +257,28 @@
   .toggle-btn.active { background: var(--blue); color: #fff; }
   .toggle-btn:hover:not(.active) { background: var(--blue-soft); color: var(--blue); }
 
+  /* ── GRID ── */
   .doc-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     gap: 16px;
+    /* IMPORTANTE: NO crear stacking context aquí para que el tooltip pueda salir */
   }
+
   .doc-card {
     background: var(--card); border: 1px solid var(--line); border-radius: 16px;
     padding: 0; box-shadow: 0 4px 12px rgba(0,0,0,.02);
     transition: transform .22s ease, box-shadow .22s ease, border-color .22s;
-    display: flex; flex-direction: column; cursor: pointer; position: relative; overflow: visible;
+    display: flex; flex-direction: column; cursor: pointer;
+    position: relative; overflow: visible;
+    z-index: 1; /* ✅ base, para poder elevar en hover */
   }
-  .doc-card:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(0,0,0,.08); border-color: #d0d0d0; }
+  .doc-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 32px rgba(0,0,0,.08);
+    border-color: #d0d0d0;
+    z-index: 999; /* ✅ FIX: la card hovered queda por encima de TODAS las demás */
+  }
   .doc-card:active { transform: scale(.99); }
   .doc-card .card__link { position: absolute; inset: 0; z-index: 1; border-radius: 16px; }
 
@@ -276,15 +286,18 @@
   .doc-card .pdf-hover-preview {
     position: absolute; bottom: calc(100% + 12px); left: 50%;
     transform: translateX(-50%) scale(0.92);
-    width: 240px; height: 170px;
+    width: 260px; height: 190px;
     background: #fff; border: 1px solid var(--line);
     border-radius: 12px; overflow: hidden;
-    box-shadow: 0 16px 48px rgba(0,0,0,.18);
+    box-shadow: 0 20px 60px rgba(0,0,0,.22);
     opacity: 0; pointer-events: none;
     transition: opacity .2s ease, transform .2s ease;
-    z-index: 50;
+    z-index: 9999; /* ✅ sube por encima de cualquier cosa */
   }
-  .doc-card:hover .pdf-hover-preview { opacity: 1; transform: translateX(-50%) scale(1); }
+  .doc-card:hover .pdf-hover-preview {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
   .pdf-hover-preview iframe,
   .pdf-hover-preview img,
   .pdf-hover-preview video {
@@ -1255,11 +1268,13 @@
     if (fs && fs.textContent.trim()) showToast(fs.textContent.trim(), 'success');
     if (fw && fw.textContent.trim()) showToast(fw.textContent.trim(), 'error');
 
+    // ════ WELCOME BANNER (auto-hide 5s + close persistente) ════
     const welcome  = document.getElementById('pcWelcome');
     const closeBtn = document.getElementById('pcWelcomeClose');
     if (welcome) {
       const key = welcome.getAttribute('data-close-key') || 'pc_welcome_closed_global';
       if (localStorage.getItem(key) === '1') welcome.style.display = 'none';
+
       const dismissWelcome = (persist = false) => {
         if (welcome.style.display === 'none') return;
         if (persist) localStorage.setItem(key, '1');
@@ -1268,8 +1283,10 @@
         welcome.style.transform = 'translateY(-8px)';
         setTimeout(() => { welcome.style.display = 'none'; }, 450);
       };
+
       if (closeBtn) closeBtn.addEventListener('click', () => dismissWelcome(true));
-      setTimeout(() => dismissWelcome(false), 20000);
+      // ✅ Auto-ocultar a los 5 segundos
+      setTimeout(() => dismissWelcome(false), 5000);
     }
 
     initHoverPreviews();
