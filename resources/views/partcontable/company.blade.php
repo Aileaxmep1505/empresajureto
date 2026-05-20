@@ -131,7 +131,6 @@
     min-height: 100vh;
   }
 
-  /* ── Animaciones ── */
   @keyframes fadeUp { from { opacity:0; transform:translateY(20px);} to { opacity:1; transform:translateY(0);} }
   @keyframes backdropIn { from { background:rgba(0,0,0,0); backdrop-filter:blur(0);} to { background:rgba(0,0,0,.6); backdrop-filter:blur(12px);} }
   @keyframes modalSlideUp { from { opacity:0; transform:translateY(28px) scale(.97);} to { opacity:1; transform:translateY(0) scale(1);} }
@@ -146,15 +145,8 @@
   .d2 { animation-delay: .13s; }
   .d3 { animation-delay: .20s; }
 
-  /* ── Wrap ── */
-  .pc-wrap {
-    width: 100%;
-    max-width: 100%;
-    margin: 0;
-    padding: 32px 40px 80px;
-  }
+  .pc-wrap { width: 100%; max-width: 100%; margin: 0; padding: 32px 40px 80px; }
 
-  /* ── Header ── */
   .pc-header { display: flex; flex-direction: column; gap: 14px; margin-bottom: 28px; padding-bottom: 24px; border-bottom: 1px solid var(--line); }
   .pc-header-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
   .pc-header-top .pc-eyebrow { margin: 0; }
@@ -177,7 +169,6 @@
   .pc-counter strong { color: var(--blue); }
   .pc-header-actions { display: flex; gap: 10px; flex-shrink: 0; flex-wrap: wrap; }
 
-  /* ── Botones ── */
   .btn {
     display: inline-flex; align-items: center; gap: 8px;
     padding: 11px 22px; border-radius: 999px;
@@ -196,7 +187,6 @@
   .btn-danger-solid { background: var(--danger); color: #fff; box-shadow: 0 4px 14px rgba(255,74,74,.2); }
   .btn-danger-solid:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(255,74,74,.3); }
 
-  /* ── Welcome ── */
   .pc-welcome {
     display: flex; align-items: center; justify-content: space-between;
     background: linear-gradient(135deg, var(--blue-soft) 0%, #f0f7ff 100%);
@@ -214,10 +204,8 @@
   }
   .pc-welcome-close:hover { background: #fff; color: var(--ink); }
 
-  /* ── Flash ── */
   .pc-flash { padding: 12px 16px; border-radius: var(--r); margin-bottom: 14px; font-size: .9rem; font-weight: 600; display: none; }
 
-  /* ── Tabs principales ── */
   .pc-tabs {
     display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px;
     padding: 6px; background: var(--card); border: 1px solid var(--line);
@@ -231,7 +219,6 @@
   .pc-tab-item:hover { color: var(--ink); background: var(--bg); }
   .pc-tab-item.active { background: var(--blue); color: #fff; box-shadow: 0 4px 12px rgba(0,122,255,.22); }
 
-  /* ── Subtabs ── */
   .pc-subtabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; padding-bottom: 4px; overflow-x: auto; }
   .pc-subtab-item {
     padding: 7px 14px; border-radius: 999px; font-size: .8rem; font-weight: 600;
@@ -241,7 +228,6 @@
   .pc-subtab-item:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-soft); }
   .pc-subtab-item.active { background: var(--blue-soft); color: var(--blue); border-color: #b6d6ff; box-shadow: 0 2px 8px rgba(0,122,255,.08); }
 
-  /* ── Toolbar ── */
   .toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 22px; }
   .toolbar-search { flex: 1 1 220px; position: relative; min-width: 180px; }
   .toolbar-search svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; stroke: var(--muted); fill: none; stroke-width: 2; stroke-linecap: round; }
@@ -271,7 +257,6 @@
   .toggle-btn.active { background: var(--blue); color: #fff; }
   .toggle-btn:hover:not(.active) { background: var(--blue-soft); color: var(--blue); }
 
-  /* ── GRID VIEW ── */
   .doc-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -287,7 +272,7 @@
   .doc-card:active { transform: scale(.99); }
   .doc-card .card__link { position: absolute; inset: 0; z-index: 1; border-radius: 16px; }
 
-  /* ── Hover preview tooltip (estilo Estados Financieros) ── */
+  /* ── Hover preview tooltip ── */
   .doc-card .pdf-hover-preview {
     position: absolute; bottom: calc(100% + 12px); left: 50%;
     transform: translateX(-50%) scale(0.92);
@@ -315,7 +300,6 @@
     transform: translateX(-50%) rotate(45deg);
   }
 
-  /* ── Badge "Nuevo" ── */
   .badge-new {
     position: absolute; top: -8px; right: 14px;
     background: var(--blue); color: #fff;
@@ -409,7 +393,6 @@
   .btn-icon.is-downloading .pc-ic-default { display: none; }
   .btn-icon.is-downloading .pc-ic-spin    { display: inline-flex; animation: pcSpin .85s linear infinite; }
 
-  /* ── LIST VIEW ── */
   .doc-list { display: none; flex-direction: column; gap: 8px; }
   .doc-list-item {
     background: var(--card); border: 1px solid var(--line); border-radius: 12px;
@@ -439,7 +422,6 @@
   .list-date    { font-size: .75rem; color: var(--muted); white-space: nowrap; }
   .list-actions { display: flex; gap: 6px; flex-shrink: 0; z-index: 3; position: relative; }
 
-  /* ── Empty / no results ── */
   .empty-state { text-align: center; padding: 80px 24px; border: 1.5px dashed var(--line); border-radius: 16px; background: var(--card); }
   .empty-icon-wrap { width: 52px; height: 52px; border-radius: 14px; background: var(--blue-soft); margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; }
   .empty-icon-wrap svg { width: 24px; height: 24px; stroke: var(--blue); fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
@@ -448,7 +430,6 @@
 
   .no-results-local { display: none; text-align: center; padding: 48px 24px; color: var(--muted); font-weight: 600; }
 
-  /* ── Modals ── */
   .modal-overlay { display: none; position: fixed; inset: 0; z-index: 200; align-items: center; justify-content: center; padding: 20px; }
   .modal-overlay.open { display: flex; }
   .modal-backdrop { position: fixed; inset: 0; z-index: 0; background: rgba(0,0,0,.6); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); animation: backdropIn .3s ease both; }
@@ -510,7 +491,6 @@
   .confirm-docname { font-size: .9rem; font-weight: 700; color: var(--danger); margin-bottom: 22px; background: var(--danger-soft); padding: 8px 14px; border-radius: 8px; display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .confirm-actions { display: flex; gap: 10px; justify-content: center; }
 
-  /* ── Toast ── */
   .toast-container { position: fixed; bottom: 28px; right: 28px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
   .toast {
     display: flex; align-items: center; gap: 12px;
@@ -533,26 +513,19 @@
   .toast-close svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; }
   .toast-progress { position: absolute; bottom: 0; left: 0; height: 3px; background: var(--blue); border-radius: 0 0 14px 14px; animation: progressBar 4s linear forwards; }
 
-  /* ── Responsive ── */
   @media (max-width: 1100px) {
     .pc-wrap { padding: 28px 24px 70px; }
   }
-
   @media (max-width: 900px) {
     .doc-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
   }
-
   @media (max-width: 768px) {
     .pc-wrap { padding: 18px 14px 60px; }
-
     .pc-header-main { flex-direction: column; align-items: stretch; gap: 14px; }
     .pc-header-actions { width: 100%; }
     .pc-header-actions .btn { flex: 1; justify-content: center; }
-
     .pc-back-link { padding: 6px 12px; font-size: .78rem; }
-
     .pc-title { font-size: 1.7rem; }
-
     .form-grid { grid-template-columns: 1fr; }
     .modal-upload { padding: 28px 18px; max-width: 100%; }
     .doc-grid { grid-template-columns: 1fr; }
@@ -563,11 +536,8 @@
     .toast { min-width: unset; max-width: 100%; }
     .list-date { display: none; }
     .list-title { max-width: 180px; }
-
-    /* En móvil ocultamos hover preview porque no hay hover real */
     .doc-card .pdf-hover-preview { display: none; }
   }
-
   @media (max-width: 480px) {
     .pc-wrap { padding: 16px 12px 60px; }
     .pc-header-actions .btn { font-size: .82rem; padding: 10px 14px; }
@@ -580,7 +550,6 @@
 @section('content')
 <div class="pc-wrap">
 
-  {{-- Header --}}
   <header class="pc-header au">
     <div class="pc-header-top">
       <p class="pc-eyebrow">Parte Contable · Empresa</p>
@@ -610,7 +579,6 @@
     </div>
   </header>
 
-  {{-- Welcome --}}
   @if(!empty($welcomeData))
     <div class="pc-welcome" id="pcWelcome" data-close-key="{{ $welcomeCloseKey }}">
       <div>
@@ -623,11 +591,9 @@
     </div>
   @endif
 
-  {{-- Flashes ocultos --}}
   @if(session('success'))<div class="pc-flash" id="pcFlashSuccess">{{ session('success') }}</div>@endif
   @if(session('warning'))<div class="pc-flash" id="pcFlashWarning">{{ session('warning') }}</div>@endif
 
-  {{-- Tabs principales --}}
   <nav class="pc-tabs au d1" aria-label="Secciones principales">
     @foreach($pcTabs as $key => $conf)
       @php
@@ -641,7 +607,6 @@
     @endforeach
   </nav>
 
-  {{-- Subtabs --}}
   <nav class="pc-subtabs au d1" aria-label="Subtipo de documentos">
     @foreach($currentSubtabs as $subKey => $label)
       @php
@@ -655,7 +620,6 @@
     @endforeach
   </nav>
 
-  {{-- Toolbar local --}}
   <div class="toolbar au d2">
     <div class="toolbar-search">
       <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
@@ -678,7 +642,6 @@
     </div>
   </div>
 
-  {{-- Contenido --}}
   @if($documents->isEmpty())
     <div class="empty-state au d3">
       <div class="empty-icon-wrap">
@@ -700,7 +663,6 @@
       No se encontraron documentos para "<span id="searchTerm"></span>"
     </div>
 
-    {{-- Grid view --}}
     <div class="doc-grid au d3" id="docGrid" data-grid>
       @foreach($documents as $doc)
         @php
@@ -764,23 +726,25 @@
                  data-date="{{ $dateTs }}"
                  data-has-ficticio="{{ $hasFicticio ? '1' : '0' }}">
 
-          {{-- Click overlay --}}
           <a class="card__link"
              href="{{ $previewUrlRaw }}"
              target="_blank" rel="noopener"
              aria-label="Vista previa de {{ $doc->title }}"></a>
 
-          {{-- Badge nuevo --}}
           @if($isNew)<span class="badge-new">Nuevo</span>@endif
 
-          {{-- Hover preview tooltip (lazy load) --}}
-          <div class="pdf-hover-preview" data-kind="{{ $kind }}" data-preview-url="{{ $previewUrlRaw }}" data-display-url="{{ $displayUrl }}">
+          {{-- Hover preview tooltip (usa archivo directo, NO la vista Blade) --}}
+          <div class="pdf-hover-preview" data-kind="{{ $kind }}">
             @if($isImage && $displayUrl)
               <img data-src="{{ $displayUrl }}" alt="preview" loading="lazy">
             @elseif($isVideo && $displayUrl)
               <video data-src="{{ $displayUrl }}" muted preload="none"></video>
+            @elseif($isPdf && $displayUrl)
+              <iframe data-src="{{ $displayUrl }}#toolbar=0&navpanes=0&scrollbar=0&view=FitH" loading="lazy" title="preview"></iframe>
+            @elseif($displayUrl)
+              <iframe data-src="{{ $displayUrl }}" loading="lazy" title="preview"></iframe>
             @else
-              <iframe data-src="{{ $previewUrlRaw }}" loading="lazy" title="preview"></iframe>
+              <div style="display:flex;align-items:center;justify-content:center;height:100%;width:100%;color:#888;font-size:.78rem;font-weight:600;text-align:center;padding:12px;">Sin vista previa disponible</div>
             @endif
           </div>
 
@@ -894,7 +858,6 @@
       @endforeach
     </div>
 
-    {{-- List view --}}
     <div class="doc-list au d3" data-list>
       @foreach($documents as $doc)
         @php
@@ -1000,11 +963,8 @@
       @endforeach
     </div>
   @endif
-
-  {{-- Sin paginación --}}
 </div>
 
-{{-- ══ MODAL: UPLOAD ══ --}}
 <div class="modal-overlay" id="pcUploadModal" aria-hidden="true" role="dialog">
   <div class="modal-backdrop" data-action="close"></div>
   <div class="modal-content-wrap">
@@ -1054,7 +1014,6 @@
   </div>
 </div>
 
-{{-- ══ MODAL: CONFIRM DELETE ══ --}}
 <div class="modal-overlay" id="confirm-modal">
   <div class="modal-backdrop" onclick="closeConfirmDelete()"></div>
   <div class="modal-content-wrap">
@@ -1073,7 +1032,6 @@
   </div>
 </div>
 
-{{-- Toast host --}}
 <div class="toast-container" id="toastContainer"></div>
 @endsection
 
@@ -1084,7 +1042,6 @@
   if (window.__pcCompanyBound) return;
   window.__pcCompanyBound = true;
 
-  // ════════════ TOAST ════════════
   function showToast(message, type = 'success') {
     const container = document.getElementById('toastContainer');
     if (!container) return;
@@ -1115,7 +1072,6 @@
   }
   window.dismissToast = dismissToast;
 
-  // ════════════ VIEW GRID/LIST ════════════
   let currentView = localStorage.getItem('pc_company_view') || 'grid';
   window.setView = function(v) {
     currentView = v;
@@ -1126,7 +1082,6 @@
     document.getElementById('btnList')?.classList.toggle('active', v === 'list');
   };
 
-  // ════════════ SEARCH + SORT ════════════
   function getKey(el){ return (el.dataset.title || '') + ' ' + (el.dataset.type || ''); }
 
   function applySearchAndSort() {
@@ -1172,12 +1127,10 @@
     }
   }
 
-  // ════════════ HOVER PREVIEW (lazy load) ════════════
   function initHoverPreviews() {
     document.querySelectorAll('.pdf-hover-preview').forEach(preview => {
       const card = preview.closest('.doc-card');
       if (!card) return;
-
       const media = preview.querySelector('iframe, img, video');
       if (!media) return;
 
@@ -1186,7 +1139,6 @@
         if (loaded) return;
         const src = media.dataset.src;
         if (!src) { loaded = true; return; }
-
         if (media.tagName === 'VIDEO') {
           const source = document.createElement('source');
           source.src = src;
@@ -1200,7 +1152,6 @@
     });
   }
 
-  // ════════════ DOWNLOAD ANIMATED ════════════
   function parseFilenameFromContentDisposition(cd){
     if(!cd) return null;
     try{
@@ -1242,7 +1193,6 @@
     }
   }
 
-  // ════════════ DELETE CONFIRM ════════════
   let pendingDeleteForm = null;
   function openConfirmDelete(form, title){
     pendingDeleteForm = form;
@@ -1283,10 +1233,7 @@
         applySearchAndSort();
       } else {
         let msg = 'No se pudo eliminar el documento.';
-        try {
-          const json = await res.json();
-          if (json && json.message) msg = json.message;
-        } catch(_) {}
+        try { const json = await res.json(); if (json && json.message) msg = json.message; } catch(_) {}
         showToast(msg, 'error');
       }
     }catch(e){
@@ -1294,7 +1241,6 @@
     }
   }
 
-  // ════════════ INIT ════════════
   document.addEventListener('DOMContentLoaded', function(){
     setView(currentView);
 
@@ -1309,13 +1255,11 @@
     if (fs && fs.textContent.trim()) showToast(fs.textContent.trim(), 'success');
     if (fw && fw.textContent.trim()) showToast(fw.textContent.trim(), 'error');
 
-    // ════ WELCOME BANNER (auto-hide 20s + close persistente) ════
     const welcome  = document.getElementById('pcWelcome');
     const closeBtn = document.getElementById('pcWelcomeClose');
     if (welcome) {
       const key = welcome.getAttribute('data-close-key') || 'pc_welcome_closed_global';
       if (localStorage.getItem(key) === '1') welcome.style.display = 'none';
-
       const dismissWelcome = (persist = false) => {
         if (welcome.style.display === 'none') return;
         if (persist) localStorage.setItem(key, '1');
@@ -1324,12 +1268,10 @@
         welcome.style.transform = 'translateY(-8px)';
         setTimeout(() => { welcome.style.display = 'none'; }, 450);
       };
-
       if (closeBtn) closeBtn.addEventListener('click', () => dismissWelcome(true));
       setTimeout(() => dismissWelcome(false), 20000);
     }
 
-    // Hover previews (lazy load)
     initHoverPreviews();
 
     document.querySelectorAll('.pc-delete-form-inline').forEach(function(form){
