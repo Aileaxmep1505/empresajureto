@@ -6,9 +6,6 @@
   use Illuminate\Support\Str;
   use Illuminate\Support\Facades\Storage;
 
-  // ============================
-  //   Configuración de tabs UI
-  // ============================
   $pcTabs = [
     'declaracion_anual' => [
       'label'   => 'Declaración Anual',
@@ -69,15 +66,12 @@
   $userName          = auth()->user()->name ?? 'Usuario';
   $welcomeCloseKey   = "pc_welcome_closed_{$company->id}";
 
-  // ===========================================
-  //  Acceso restringido a Estados Financieros
-  // ===========================================
+  // Acceso restringido a Estados Financieros
   $financialUserIds = [2, 12, 18];
   $canSeeFinancial  = auth()->check() && in_array((int) auth()->id(), $financialUserIds, true);
 
   if (!$canSeeFinancial) {
     unset($pcTabs['estados_financieros']);
-
     if ($currentSectionKey === 'estados_financieros') {
       $currentSectionKey = 'declaracion_anual';
       $currentSubtabs    = $pcTabs[$currentSectionKey]['subtabs'];
@@ -262,7 +256,6 @@
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     gap: 16px;
-    /* IMPORTANTE: NO crear stacking context aquí para que el tooltip pueda salir */
   }
 
   .doc-card {
@@ -271,13 +264,13 @@
     transition: transform .22s ease, box-shadow .22s ease, border-color .22s;
     display: flex; flex-direction: column; cursor: pointer;
     position: relative; overflow: visible;
-    z-index: 1; /* ✅ base, para poder elevar en hover */
+    z-index: 1;
   }
   .doc-card:hover {
     transform: translateY(-3px);
     box-shadow: 0 12px 32px rgba(0,0,0,.08);
     border-color: #d0d0d0;
-    z-index: 999; /* ✅ FIX: la card hovered queda por encima de TODAS las demás */
+    z-index: 999;
   }
   .doc-card:active { transform: scale(.99); }
   .doc-card .card__link { position: absolute; inset: 0; z-index: 1; border-radius: 16px; }
@@ -292,7 +285,7 @@
     box-shadow: 0 20px 60px rgba(0,0,0,.22);
     opacity: 0; pointer-events: none;
     transition: opacity .2s ease, transform .2s ease;
-    z-index: 9999; /* ✅ sube por encima de cualquier cosa */
+    z-index: 9999;
   }
   .doc-card:hover .pdf-hover-preview {
     opacity: 1;
@@ -746,7 +739,6 @@
 
           @if($isNew)<span class="badge-new">Nuevo</span>@endif
 
-          {{-- Hover preview tooltip (usa archivo directo, NO la vista Blade) --}}
           <div class="pdf-hover-preview" data-kind="{{ $kind }}">
             @if($isImage && $displayUrl)
               <img data-src="{{ $displayUrl }}" alt="preview" loading="lazy">
@@ -1268,7 +1260,7 @@
     if (fs && fs.textContent.trim()) showToast(fs.textContent.trim(), 'success');
     if (fw && fw.textContent.trim()) showToast(fw.textContent.trim(), 'error');
 
-    // ════ WELCOME BANNER (auto-hide 5s + close persistente) ════
+    // Welcome banner: auto-hide 5s + close persistente
     const welcome  = document.getElementById('pcWelcome');
     const closeBtn = document.getElementById('pcWelcomeClose');
     if (welcome) {
@@ -1285,7 +1277,6 @@
       };
 
       if (closeBtn) closeBtn.addEventListener('click', () => dismissWelcome(true));
-      // ✅ Auto-ocultar a los 5 segundos
       setTimeout(() => dismissWelcome(false), 5000);
     }
 
@@ -1317,6 +1308,31 @@
         e.stopPropagation();
       }
     }, true);
+
+    // ✅ Click en cualquier parte de la card → abre preview en nueva pestaña
+    function bindCardClickToPreview(selector) {
+      document.querySelectorAll(selector).forEach(card => {
+        card.addEventListener('click', (e) => {
+          // Si fue en acciones, botones, forms o links internos → no navegar
+          if (e.target.closest(
+            '.doc-actions, .list-actions, .card-top-actions, ' +
+            '.pc-delete-form-inline, .btn-icon, button, a:not(.card__link)'
+          )) return;
+
+          // Si el click fue directo sobre el card__link, dejar comportamiento nativo
+          if (e.target.closest('.card__link')) return;
+
+          // Buscar el link de preview y abrirlo
+          const link = card.querySelector('.card__link');
+          if (link && link.href) {
+            window.open(link.href, '_blank', 'noopener');
+          }
+        });
+      });
+    }
+
+    bindCardClickToPreview('.doc-card');
+    bindCardClickToPreview('.doc-list-item');
 
     const uploadModal = document.getElementById('pcUploadModal');
     document.getElementById('pcModalCancel')?.addEventListener('click', () => uploadModal?.classList.remove('open'));
