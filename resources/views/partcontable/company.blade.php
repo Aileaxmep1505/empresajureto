@@ -78,7 +78,6 @@
   if (!$canSeeFinancial) {
     unset($pcTabs['estados_financieros']);
 
-    // Si llegó por URL directa, redirige a Declaración Anual
     if ($currentSectionKey === 'estados_financieros') {
       $currentSectionKey = 'declaracion_anual';
       $currentSubtabs    = $pcTabs[$currentSectionKey]['subtabs'];
@@ -93,7 +92,8 @@
     'acuse_mensual','pago_mensual','declaracion_mensual',
   ];
 
-  $docsCount = method_exists($documents, 'total') ? $documents->total() : $documents->count();
+  $docsCount    = method_exists($documents, 'total') ? $documents->total() : $documents->count();
+  $sevenDaysAgo = now()->subDays(7);
 @endphp
 
 @push('styles')
@@ -146,7 +146,7 @@
   .d2 { animation-delay: .13s; }
   .d3 { animation-delay: .20s; }
 
-  /* ── Wrap (full width en desktop) ── */
+  /* ── Wrap ── */
   .pc-wrap {
     width: 100%;
     max-width: 100%;
@@ -155,24 +155,9 @@
   }
 
   /* ── Header ── */
-  .pc-header {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    margin-bottom: 28px;
-    padding-bottom: 24px;
-    border-bottom: 1px solid var(--line);
-  }
-
-  .pc-header-top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    flex-wrap: wrap;
-  }
+  .pc-header { display: flex; flex-direction: column; gap: 14px; margin-bottom: 28px; padding-bottom: 24px; border-bottom: 1px solid var(--line); }
+  .pc-header-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
   .pc-header-top .pc-eyebrow { margin: 0; }
-
   .pc-back-link {
     display: inline-flex; align-items: center; gap: 6px;
     font-size: .82rem; font-weight: 600; color: var(--muted);
@@ -183,15 +168,8 @@
   }
   .pc-back-link:hover { color: var(--blue); border-color: var(--blue); background: var(--blue-soft); transform: translateX(-2px); }
 
-  .pc-header-main {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 24px;
-    flex-wrap: wrap;
-  }
+  .pc-header-main { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
   .pc-header-main > div:first-child { min-width: 0; flex: 1 1 480px; }
-
   .pc-eyebrow { font-size: .72rem; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; color: var(--blue); }
   .pc-title   { font-size: clamp(1.7rem, 3.2vw, 2.6rem); font-weight: 700; letter-spacing: -0.03em; color: var(--ink); line-height: 1.1; margin: 0; }
   .pc-subtitle{ margin-top: 8px; color: var(--muted); font-size: .92rem; max-width: 640px; line-height: 1.5; }
@@ -237,10 +215,7 @@
   .pc-welcome-close:hover { background: #fff; color: var(--ink); }
 
   /* ── Flash ── */
-  .pc-flash {
-    padding: 12px 16px; border-radius: var(--r); margin-bottom: 14px;
-    font-size: .9rem; font-weight: 600; display: none;
-  }
+  .pc-flash { padding: 12px 16px; border-radius: var(--r); margin-bottom: 14px; font-size: .9rem; font-weight: 600; display: none; }
 
   /* ── Tabs principales ── */
   .pc-tabs {
@@ -257,10 +232,7 @@
   .pc-tab-item.active { background: var(--blue); color: #fff; box-shadow: 0 4px 12px rgba(0,122,255,.22); }
 
   /* ── Subtabs ── */
-  .pc-subtabs {
-    display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px;
-    padding-bottom: 4px; overflow-x: auto;
-  }
+  .pc-subtabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; padding-bottom: 4px; overflow-x: auto; }
   .pc-subtab-item {
     padding: 7px 14px; border-radius: 999px; font-size: .8rem; font-weight: 600;
     color: var(--ink2); background: var(--card); border: 1px solid var(--line);
@@ -314,6 +286,45 @@
   .doc-card:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(0,0,0,.08); border-color: #d0d0d0; }
   .doc-card:active { transform: scale(.99); }
   .doc-card .card__link { position: absolute; inset: 0; z-index: 1; border-radius: 16px; }
+
+  /* ── Hover preview tooltip (estilo Estados Financieros) ── */
+  .doc-card .pdf-hover-preview {
+    position: absolute; bottom: calc(100% + 12px); left: 50%;
+    transform: translateX(-50%) scale(0.92);
+    width: 240px; height: 170px;
+    background: #fff; border: 1px solid var(--line);
+    border-radius: 12px; overflow: hidden;
+    box-shadow: 0 16px 48px rgba(0,0,0,.18);
+    opacity: 0; pointer-events: none;
+    transition: opacity .2s ease, transform .2s ease;
+    z-index: 50;
+  }
+  .doc-card:hover .pdf-hover-preview { opacity: 1; transform: translateX(-50%) scale(1); }
+  .pdf-hover-preview iframe,
+  .pdf-hover-preview img,
+  .pdf-hover-preview video {
+    width: 100%; height: 100%; border: none; object-fit: cover;
+    pointer-events: none; display: block;
+    background: #f3f4f6;
+  }
+  .pdf-hover-preview::after {
+    content: '';
+    position: absolute; bottom: -7px; left: 50%;
+    width: 14px; height: 14px; background: #fff;
+    border-right: 1px solid var(--line); border-bottom: 1px solid var(--line);
+    transform: translateX(-50%) rotate(45deg);
+  }
+
+  /* ── Badge "Nuevo" ── */
+  .badge-new {
+    position: absolute; top: -8px; right: 14px;
+    background: var(--blue); color: #fff;
+    font-size: .62rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    padding: 3px 9px; border-radius: 999px;
+    animation: badgePulse 2s ease infinite;
+    box-shadow: 0 2px 8px rgba(0,122,255,.35);
+    z-index: 4;
+  }
 
   .doc-card-body { padding: 22px 22px 0; flex: 1; display: flex; flex-direction: column; gap: 12px; position: relative; z-index: 2; pointer-events: none; }
   .doc-card-body * { pointer-events: auto; }
@@ -437,18 +448,6 @@
 
   .no-results-local { display: none; text-align: center; padding: 48px 24px; color: var(--muted); font-weight: 600; }
 
-  /* ── Pagination ── */
-  .pc-pagination { margin-top: 22px; }
-  .pc-pagination nav { display: flex; justify-content: center; }
-  .pc-pagination .pagination, .pc-pagination ul { display: flex; gap: 4px; list-style: none; padding: 0; }
-  .pc-pagination a, .pc-pagination span {
-    padding: 8px 12px; border-radius: 8px; font-size: .85rem; font-weight: 600;
-    color: var(--ink2); background: var(--card); border: 1px solid var(--line); text-decoration: none;
-    transition: all .18s;
-  }
-  .pc-pagination a:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-soft); }
-  .pc-pagination .active span, .pc-pagination .active a { background: var(--blue); color: #fff; border-color: var(--blue); }
-
   /* ── Modals ── */
   .modal-overlay { display: none; position: fixed; inset: 0; z-index: 200; align-items: center; justify-content: center; padding: 20px; }
   .modal-overlay.open { display: flex; }
@@ -493,7 +492,6 @@
   .btn-submit:hover  { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(0,122,255,.3); }
   .btn-submit:active { transform: scale(.98); }
 
-  /* Confirm Modal */
   .modal-confirm {
     background: var(--card); border: 1px solid var(--line); border-radius: 20px;
     width: 100%; max-width: 420px; padding: 36px 32px; position: relative;
@@ -565,6 +563,9 @@
     .toast { min-width: unset; max-width: 100%; }
     .list-date { display: none; }
     .list-title { max-width: 180px; }
+
+    /* En móvil ocultamos hover preview porque no hay hover real */
+    .doc-card .pdf-hover-preview { display: none; }
   }
 
   @media (max-width: 480px) {
@@ -581,7 +582,6 @@
 
   {{-- Header --}}
   <header class="pc-header au">
-    {{-- Fila superior: eyebrow a la izquierda · Volver a la derecha --}}
     <div class="pc-header-top">
       <p class="pc-eyebrow">Parte Contable · Empresa</p>
       <a href="{{ route('partcontable.index') }}" class="pc-back-link">
@@ -590,7 +590,6 @@
       </a>
     </div>
 
-    {{-- Fila principal: título + meta a la izq · acciones a la der --}}
     <div class="pc-header-main">
       <div>
         <h1 class="pc-title">{{ $company->name }}</h1>
@@ -624,7 +623,7 @@
     </div>
   @endif
 
-  {{-- Flashes ocultos (se muestran como toasts) --}}
+  {{-- Flashes ocultos --}}
   @if(session('success'))<div class="pc-flash" id="pcFlashSuccess">{{ session('success') }}</div>@endif
   @if(session('warning'))<div class="pc-flash" id="pcFlashWarning">{{ session('warning') }}</div>@endif
 
@@ -656,7 +655,7 @@
     @endforeach
   </nav>
 
-  {{-- Toolbar local: search + sort + toggle --}}
+  {{-- Toolbar local --}}
   <div class="toolbar au d2">
     <div class="toolbar-search">
       <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
@@ -724,12 +723,15 @@
               ? $doc->url : ($doc->url ?? '');
           }
 
+          $createdAt = $doc->created_at;
           $dateLabel = $doc->date
             ? \Carbon\Carbon::parse($doc->date)->format('d M Y')
-            : \Carbon\Carbon::parse($doc->created_at)->format('d M Y');
+            : ($createdAt ? \Carbon\Carbon::parse($createdAt)->format('d M Y') : '—');
           $dateTs = $doc->date
             ? \Carbon\Carbon::parse($doc->date)->timestamp
-            : \Carbon\Carbon::parse($doc->created_at)->timestamp;
+            : ($createdAt ? \Carbon\Carbon::parse($createdAt)->timestamp : 0);
+
+          $isNew = $createdAt && \Carbon\Carbon::parse($createdAt)->gt($sevenDaysAgo);
 
           $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
           $isImage = $mime ? Str::startsWith($mime, 'image/') : in_array($ext, ['jpg','jpeg','png','gif','webp','svg'], true);
@@ -746,6 +748,7 @@
 
           $returnUrl  = request()->fullUrl();
           $previewUrl = route('partcontable.documents.preview', $doc) . '?open_ficticio=1&return=' . urlencode($returnUrl);
+          $previewUrlRaw = route('partcontable.documents.preview', $doc);
 
           $fExt = strtolower(pathinfo($doc->ficticio_file_path ?? '', PATHINFO_EXTENSION));
           if (!$fExt) $fExt = ($ext ?: 'pdf');
@@ -760,10 +763,26 @@
                  data-type="{{ $kind }}"
                  data-date="{{ $dateTs }}"
                  data-has-ficticio="{{ $hasFicticio ? '1' : '0' }}">
+
+          {{-- Click overlay --}}
           <a class="card__link"
-             href="{{ route('partcontable.documents.preview', $doc) }}"
+             href="{{ $previewUrlRaw }}"
              target="_blank" rel="noopener"
              aria-label="Vista previa de {{ $doc->title }}"></a>
+
+          {{-- Badge nuevo --}}
+          @if($isNew)<span class="badge-new">Nuevo</span>@endif
+
+          {{-- Hover preview tooltip (lazy load) --}}
+          <div class="pdf-hover-preview" data-kind="{{ $kind }}" data-preview-url="{{ $previewUrlRaw }}" data-display-url="{{ $displayUrl }}">
+            @if($isImage && $displayUrl)
+              <img data-src="{{ $displayUrl }}" alt="preview" loading="lazy">
+            @elseif($isVideo && $displayUrl)
+              <video data-src="{{ $displayUrl }}" muted preload="none"></video>
+            @else
+              <iframe data-src="{{ $previewUrlRaw }}" loading="lazy" title="preview"></iframe>
+            @endif
+          </div>
 
           <div class="doc-card-body">
             <div class="card-top">
@@ -897,12 +916,15 @@
           $iconClass = $isPdf ? '' : 'is-'.$kind;
 
           $hasFicticio = !empty($doc->ficticio_file_path);
+          $createdAt = $doc->created_at;
           $dateLabel = $doc->date
             ? \Carbon\Carbon::parse($doc->date)->format('d M Y')
-            : \Carbon\Carbon::parse($doc->created_at)->format('d M Y');
+            : ($createdAt ? \Carbon\Carbon::parse($createdAt)->format('d M Y') : '—');
           $dateTs = $doc->date
             ? \Carbon\Carbon::parse($doc->date)->timestamp
-            : \Carbon\Carbon::parse($doc->created_at)->timestamp;
+            : ($createdAt ? \Carbon\Carbon::parse($createdAt)->timestamp : 0);
+
+          $isNew = $createdAt && \Carbon\Carbon::parse($createdAt)->gt($sevenDaysAgo);
 
           $fExt = strtolower(pathinfo($doc->ficticio_file_path ?? '', PATHINFO_EXTENSION));
           if (!$fExt) $fExt = ($ext ?: 'pdf');
@@ -924,6 +946,7 @@
           </div>
           <div class="list-info">
             <span class="list-title" title="{{ $doc->title }}">{{ $doc->title }}</span>
+            @if($isNew)<span class="list-pill" style="background:#e6f0ff;color:#007aff;">Nuevo</span>@endif
             <span class="list-pill">{{ strtoupper($ext ?: 'FILE') }}</span>
             @if($hasFicticio)
               <span class="list-pill" style="background:var(--warning-soft);color:var(--warning);">Ficticio</span>
@@ -978,9 +1001,7 @@
     </div>
   @endif
 
-  <div class="pc-pagination">
-    {{ $documents->withQueryString()->links() }}
-  </div>
+  {{-- Sin paginación --}}
 </div>
 
 {{-- ══ MODAL: UPLOAD ══ --}}
@@ -1151,6 +1172,34 @@
     }
   }
 
+  // ════════════ HOVER PREVIEW (lazy load) ════════════
+  function initHoverPreviews() {
+    document.querySelectorAll('.pdf-hover-preview').forEach(preview => {
+      const card = preview.closest('.doc-card');
+      if (!card) return;
+
+      const media = preview.querySelector('iframe, img, video');
+      if (!media) return;
+
+      let loaded = false;
+      card.addEventListener('mouseenter', () => {
+        if (loaded) return;
+        const src = media.dataset.src;
+        if (!src) { loaded = true; return; }
+
+        if (media.tagName === 'VIDEO') {
+          const source = document.createElement('source');
+          source.src = src;
+          media.appendChild(source);
+          media.load();
+        } else {
+          media.src = src;
+        }
+        loaded = true;
+      });
+    });
+  }
+
   // ════════════ DOWNLOAD ANIMATED ════════════
   function parseFilenameFromContentDisposition(cd){
     if(!cd) return null;
@@ -1277,10 +1326,11 @@
       };
 
       if (closeBtn) closeBtn.addEventListener('click', () => dismissWelcome(true));
-
-      // Auto-ocultar a los 20 segundos (sin marcar como cerrado permanentemente)
       setTimeout(() => dismissWelcome(false), 20000);
     }
+
+    // Hover previews (lazy load)
+    initHoverPreviews();
 
     document.querySelectorAll('.pc-delete-form-inline').forEach(function(form){
       form.addEventListener('submit', function(ev){
