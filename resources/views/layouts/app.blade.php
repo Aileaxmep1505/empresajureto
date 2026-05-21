@@ -790,9 +790,9 @@
           $isManager = $u && method_exists($u,'hasRole') ? $u->hasRole('manager') : false;
           $restrictManager = $isManager && !$isAdmin;
 
-          // ✅ IDs con acceso a Estados Financieros
-          $financialUserIds = [2, 12, 18];
-          $canSeeFinancial  = $u && in_array($u->id, $financialUserIds);
+          // ✅ IDs con acceso a Bitácora de Parte Contable
+          $bitacoraUserIds = [2, 18];
+          $canSeeBitacora  = $u && in_array($u->id, $bitacoraUserIds);
 
           $baseAvatar = null;
           if ($u && !empty($u->avatar_url)) { $baseAvatar = $u->avatar_url; }
@@ -897,7 +897,7 @@
           </div>
         </details>
 
-        <a href="{{ route('partcontable.index') }}" class="nav__link {{ request()->routeIs('partcontable.*') ? 'is-active':'' }}">
+        <a href="{{ route('partcontable.index') }}" class="nav__link {{ request()->routeIs('partcontable.index') || request()->routeIs('partcontable.company') ? 'is-active':'' }}">
           <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
             <path d="M4 19h16"></path><path d="M7 16V8"></path><path d="M12 16V5"></path><path d="M17 16v-4"></path>
           </svg>
@@ -922,13 +922,14 @@
           <span>Propuestas comerciales</span>
         </a>
 
-        {{-- ✅ Estados Financieros — solo users 2, 12, 18 --}}
-        @if($canSeeFinancial)
-          <a href="{{ route('financial.index') }}" class="nav__link {{ request()->routeIs('financial.*') ? 'is-active':'' }}">
+        {{-- ✅ Bitácora — solo users 2 y 18 --}}
+        @if($canSeeBitacora)
+          <a href="{{ route('partcontable.activity.all') }}" class="nav__link {{ request()->routeIs('partcontable.activity.*') ? 'is-active':'' }}">
             <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+              <circle cx="12" cy="12" r="9"></circle>
+              <path d="M12 7v5l3 3"></path>
             </svg>
-            <span>Estados Financieros</span>
+            <span>Bitácora</span>
           </a>
         @endif
 
@@ -1027,7 +1028,7 @@
         <span>Compras y Ventas</span>
       </a>
 
-      <a href="{{ route('partcontable.index') }}" class="nav__link {{ request()->routeIs('partcontable.*') ? 'is-active':'' }}">
+      <a href="{{ route('partcontable.index') }}" class="nav__link {{ request()->routeIs('partcontable.index') || request()->routeIs('partcontable.company') ? 'is-active':'' }}">
         <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
           <path d="M4 19h16"></path><path d="M7 16V8"></path><path d="M12 16V5"></path><path d="M17 16v-4"></path>
         </svg>
@@ -1223,13 +1224,14 @@
         <span>Propuestas comerciales</span>
       </a>
 
-      {{-- ✅ Estados Financieros — solo users 2, 12, 18 --}}
-      @if($canSeeFinancial)
-        <a href="{{ route('financial.index') }}" class="nav__link {{ request()->routeIs('financial.*') ? 'is-active':'' }}">
+      {{-- ✅ Bitácora — solo users 2 y 18 --}}
+      @if($canSeeBitacora)
+        <a href="{{ route('partcontable.activity.all') }}" class="nav__link {{ request()->routeIs('partcontable.activity.*') ? 'is-active':'' }}">
           <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-            <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+            <circle cx="12" cy="12" r="9"></circle>
+            <path d="M12 7v5l3 3"></path>
           </svg>
-          <span>Estados Financieros</span>
+          <span>Bitácora</span>
         </a>
       @endif
 

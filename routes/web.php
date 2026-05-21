@@ -1883,9 +1883,7 @@ Route::get('/accounting/reports', [ReportsController::class, 'index'])
 
 
 
-Route::middleware(['auth'])->group(function () {
-    Route::get('/projects', [ProjectBoardController::class, 'index'])->name('projects.index');
-});
+
 
 Route::middleware(['auth'])->group(function () {
     Route::post('/admin/catalog/categories/store', [CategoryProductController::class, 'store'])
@@ -2102,3 +2100,14 @@ Route::middleware(['auth', FinancialAccess::class])
         Route::get('/{statement}/descargar',     [FinancialStatementsController::class, 'download']) ->name('download');
         Route::delete('/{statement}',            [FinancialStatementsController::class, 'destroy'])  ->name('destroy');
     });
+
+
+
+Route::middleware(['auth'])->prefix('projects')->name('projects.')->group(function () {
+    Route::get('/',                  [ProjectBoardController::class, 'index'])->name('index');
+    Route::post('/',                 [ProjectBoardController::class, 'store'])->name('store');
+    Route::get('/{project}',         [ProjectBoardController::class, 'show'])->name('show');
+    Route::post('/{project}/chat',   [ProjectBoardController::class, 'chat'])->name('chat');
+    Route::post('/{project}/draft',  [ProjectBoardController::class, 'saveDraft'])->name('draft');
+    Route::delete('/{project}/chat', [ProjectBoardController::class, 'resetChat'])->name('chat.reset');
+});
