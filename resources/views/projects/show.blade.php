@@ -74,23 +74,25 @@
   .pjd-chat-send:hover { transform: scale(1.05); }
   .pjd-chat-send:disabled { opacity: .5; cursor: not-allowed; }
 
-  /* ── Tablas en chat ── */
+  /* ── Tablas en chat (idénticas al screenshot) ── */
   .pjd-chat-table-wrap { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-top: 4px; max-width: 100%; overflow-x: auto; }
-  .pjd-chat-table-actions { display: flex; gap: 8px; justify-content: flex-end; margin-bottom: 10px; flex-wrap: wrap; }
-  .pjd-chat-table-btn { background: var(--bg); border: 1px solid var(--line); padding: 5px 12px; border-radius: 999px; font-family: inherit; font-size: .78rem; font-weight: 700; color: var(--ink2); cursor: pointer; transition: all .15s; display: inline-flex; align-items: center; gap: 4px; }
+  .pjd-chat-table-actions { display: flex; gap: 8px; justify-content: flex-end; margin-bottom: 12px; flex-wrap: wrap; }
+  .pjd-chat-table-btn { background: var(--bg); border: 1px solid var(--line); padding: 6px 14px; border-radius: 999px; font-family: inherit; font-size: .8rem; font-weight: 700; color: var(--ink2); cursor: pointer; transition: all .15s; display: inline-flex; align-items: center; gap: 5px; }
   .pjd-chat-table-btn:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-soft); }
-  .pjd-chat-table { width: 100%; border-collapse: collapse; font-size: .88rem; }
-  .pjd-chat-table th { background: #f5f7fb; color: var(--ink); font-weight: 700; text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); white-space: normal; }
-  .pjd-chat-table td { padding: 10px 12px; border-bottom: 1px solid var(--line); color: var(--ink2); vertical-align: top; }
+  .pjd-chat-table-btn.is-primary { background: var(--blue); color: #fff; border-color: var(--blue); }
+  .pjd-chat-table-btn.is-primary:hover { filter: brightness(1.05); color: #fff; background: var(--blue); }
+  .pjd-chat-table { width: 100%; border-collapse: collapse; font-size: .92rem; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .pjd-chat-table th { background: #f3f4f6; color: var(--ink); font-weight: 700; text-align: left; padding: 14px 16px; border-bottom: 1px solid var(--line); vertical-align: top; line-height: 1.4; }
+  .pjd-chat-table td { padding: 14px 16px; border-bottom: 1px solid var(--line); color: var(--ink); vertical-align: top; line-height: 1.55; font-weight: 500; }
   .pjd-chat-table tr:last-child td { border-bottom: none; }
-  .pjd-chat-table tr:nth-child(even) td { background: #fafbff; }
+  .pjd-chat-table th + th, .pjd-chat-table td + td { border-left: 1px solid var(--line); }
 
   /* ── Panel derecho ── */
   .pjd-pane { padding: 18px 22px; display: none; }
   .pjd-pane.is-active { display: block; }
   .pjd-pane-title { font-size: 1.05rem; font-weight: 700; color: var(--ink); margin: 0 0 4px; padding-right: 36px; }
 
-  /* Cards de Ficha / Resumen */
+  /* Cards Ficha / Resumen */
   .pjd-card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; margin-bottom: 14px; overflow: hidden; }
   .pjd-card-head { padding: 12px 16px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; user-select: none; background: #fafbff; }
   .pjd-card-head h3 { margin: 0; font-size: .98rem; font-weight: 700; color: var(--ink); display: inline-flex; align-items: center; gap: 6px; }
@@ -149,7 +151,6 @@
   .pjd-checklist-link { color: var(--blue); font-weight: 700; font-size: .82rem; text-decoration: none; padding: 6px 10px; border-radius: 8px; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; background: transparent; border: none; }
   .pjd-checklist-link:hover { background: var(--blue-soft); }
 
-  /* Contadores */
   .pjd-counters { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
   @media (max-width: 900px) { .pjd-counters { grid-template-columns: repeat(2, 1fr); } }
   .pjd-counter { padding: 10px 12px; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); }
@@ -171,7 +172,6 @@
   .pjd-counter.is-review .pjd-counter-top { color: var(--blue); }
   .pjd-counter.is-total { background: linear-gradient(180deg, var(--blue-soft), #f0f7ff); border-color: #c7dcfd; }
 
-  /* Toolbar checklist */
   .pjd-cl-toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
   .pjd-cl-search { flex: 1; min-width: 220px; position: relative; }
   .pjd-cl-search input { width: 100%; padding: 8px 14px 8px 36px; border: 1px solid var(--line); border-radius: 999px; font-family: inherit; font-size: .88rem; outline: none; background: #fff; }
@@ -183,7 +183,6 @@
   .pjd-cl-btn.is-primary:hover { filter: brightness(1.05); box-shadow: 0 6px 14px rgba(0,122,255,.22); }
   .pjd-cl-btn svg { width: 13px; height: 13px; }
 
-  /* Tabla checklist */
   .pjd-cl-table-wrap { overflow-x: auto; }
   .pjd-cl-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: .86rem; background: #fff; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); min-width: 900px; }
   .pjd-cl-table thead th { background: #fafbff; padding: 10px 12px; font-weight: 700; color: var(--muted); text-align: left; font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; border-bottom: 1px solid var(--line); white-space: nowrap; }
@@ -243,6 +242,9 @@
   .pjd-draft-btn { background: transparent; border: none; padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: .85rem; font-weight: 700; color: var(--ink2); }
   .pjd-draft-btn:hover { background: var(--card); }
   .pjd-draft-editor { width: 100%; min-height: 500px; padding: 16px; border: 1px solid var(--line); border-top: none; border-radius: 0 0 12px 12px; background: #fff; font-family: inherit; font-size: .95rem; outline: none; resize: vertical; }
+  .pjd-draft-editor table { border-collapse: collapse; width: 100%; margin: 14px 0; }
+  .pjd-draft-editor th, .pjd-draft-editor td { border: 1px solid #e5e7eb; padding: 10px 12px; text-align: left; }
+  .pjd-draft-editor th { background: #f3f4f6; font-weight: 700; }
 
   .pjd-reporte-empty { background: #fff; border: 1.5px dashed var(--line); border-radius: 14px; padding: 60px 30px; text-align: center; min-height: 360px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; }
   .pjd-reporte-empty p { margin: 0; font-size: 1rem; color: var(--muted); font-weight: 600; }
@@ -258,7 +260,6 @@
   .pjd-reporte-content th, .pjd-reporte-content td { padding: 8px 12px; border: 1px solid var(--line); text-align: left; }
   .pjd-reporte-content th { background: var(--bg); font-weight: 700; }
 
-  /* Documentos */
   .pjd-doc { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); margin-bottom: 8px; }
   .pjd-doc-icon { width: 34px; height: 40px; border-radius: 6px; background: var(--danger-soft); border: 1px solid #fecaca; display: grid; place-items: center; color: var(--danger); font-size: .65rem; font-weight: 700; flex-shrink: 0; }
   .pjd-doc-meta { flex: 1; min-width: 0; }
@@ -277,6 +278,12 @@
   .pjd-loading-dots span:nth-child(2) { animation-delay: .15s; }
   .pjd-loading-dots span:nth-child(3) { animation-delay: .3s; }
   @keyframes pjdBounce { 0%,80%,100% { transform: scale(.6); opacity: .4; } 40% { transform: scale(1); opacity: 1; } }
+
+  /* Toast */
+  .pjd-toast { position: fixed; bottom: 24px; right: 24px; background: var(--ink); color: #fff; padding: 12px 18px; border-radius: 10px; font-size: .88rem; font-weight: 600; z-index: 9999; box-shadow: 0 10px 30px rgba(0,0,0,.2); animation: pjdToastIn .25s ease both; }
+  .pjd-toast.is-success { background: var(--success); }
+  .pjd-toast.is-error { background: var(--danger); }
+  @keyframes pjdToastIn { from { opacity:0; transform: translateY(20px); } to { opacity:1; transform: translateY(0); } }
 </style>
 @endpush
 
@@ -364,7 +371,7 @@
 
   <div class="pjd-body">
 
-    {{-- ============ COLUMNA IZQUIERDA: CHAT ============ --}}
+    {{-- COLUMNA IZQUIERDA: CHAT --}}
     <div class="pjd-left">
       <div class="pjd-chat-head">
         <button type="button" class="pjd-chat-reset" id="pjdChatReset" title="Reiniciar chat">
@@ -406,10 +413,9 @@
       </form>
     </div>
 
-    {{-- ============ COLUMNA DERECHA: PANEL DINÁMICO ============ --}}
+    {{-- COLUMNA DERECHA: PANEL --}}
     <div class="pjd-right">
 
-      {{-- INICIO --}}
       <div class="pjd-pane" data-pane="inicio">
         <div class="pjd-inicio-card">
           <h4>Estado del proyecto</h4>
@@ -425,7 +431,6 @@
         @endif
       </div>
 
-      {{-- FICHA --}}
       <div class="pjd-pane is-active" data-pane="ficha">
         <div class="pjd-card is-open">
           <div class="pjd-card-head js-card-toggle">
@@ -480,7 +485,6 @@
         </div>
       </div>
 
-      {{-- RESUMEN EJECUTIVO --}}
       <div class="pjd-pane" data-pane="resumen">
         <div class="pjd-card is-open">
           <div class="pjd-card-head js-card-toggle">
@@ -502,10 +506,8 @@
         </div>
       </div>
 
-      {{-- ════════════ CHECKLIST ════════════ --}}
       <div class="pjd-pane" data-pane="checklist">
         <div class="pjd-checklist-wrap">
-
           <div class="pjd-checklist-head">
             <div class="pjd-checklist-title">{{ $project->name }} <span class="star">⭐</span></div>
             <div class="pjd-checklist-head-actions">
@@ -597,7 +599,6 @@
         </div>
       </div>
 
-      {{-- ════════════ BORRADOR / REPORTE ════════════ --}}
       <div class="pjd-pane" data-pane="borrador">
         <h3 class="pjd-pane-title">{{ $project->name }}</h3>
 
@@ -653,7 +654,6 @@
         </div>
       </div>
 
-      {{-- DOCUMENTOS --}}
       <div class="pjd-pane" data-pane="documentos">
         <h3 class="pjd-pane-title">Documentos del proyecto</h3>
         @forelse($project->documents as $doc)
@@ -676,7 +676,6 @@
   </div>
 </div>
 
-{{-- Popovers --}}
 <div class="pjd-cl-popover" id="pjdClCumpPop">
   <button data-set-cumplimiento="-"><span class="dot" style="background:#ccc"></span> Sin revisar</button>
   <button data-set-cumplimiento="Cumple"><span class="dot" style="background:var(--success)"></span> Cumple</button>
@@ -690,7 +689,6 @@
   <button data-set-status="Aprobado"><span class="dot" style="background:var(--success)"></span> Aprobado</button>
 </div>
 
-{{-- Modal cita --}}
 <div class="pjd-cita-modal" id="pjdCitaModal" aria-hidden="true">
   <div class="pjd-cita-modal-backdrop" id="pjdCitaBackdrop"></div>
   <div class="pjd-cita-modal-card">
@@ -715,6 +713,8 @@
 @endsection
 
 @push('scripts')
+{{-- SheetJS para generar Excel real (.xlsx) --}}
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
 (function(){
   'use strict';
@@ -731,6 +731,16 @@
 
   function escapeHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
+  // ============ TOAST ============
+  function showToast(msg, type) {
+    const t = document.createElement('div');
+    t.className = 'pjd-toast' + (type === 'success' ? ' is-success' : type === 'error' ? ' is-error' : '');
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity .3s'; }, 2200);
+    setTimeout(() => t.remove(), 2600);
+  }
+
   // ============ TABS ============
   const tabs = document.querySelectorAll('.pjd-tab');
   const panes = document.querySelectorAll('.pjd-pane');
@@ -741,12 +751,11 @@
   tabs.forEach(t => t.addEventListener('click', () => activateTab(t.dataset.tab)));
   activateTab('ficha');
 
-  // Cards
   document.querySelectorAll('.js-card-toggle').forEach(head => {
     head.addEventListener('click', () => head.closest('.pjd-card').classList.toggle('is-open'));
   });
 
-  // ============ CHAT con detección de TABLAS ============
+  // ============ CHAT con TABLAS ============
   const chatForm = document.getElementById('pjdChatForm');
   const chatInput = document.getElementById('pjdChatInput');
   const chatSend = document.getElementById('pjdChatSend');
@@ -756,7 +765,6 @@
   function scrollChatToBottom() { chatList.scrollTop = chatList.scrollHeight; }
   scrollChatToBottom();
 
-  // Parser de markdown table
   function extractMarkdownTable(text) {
     const lines = text.split('\n');
     let start = -1, end = -1;
@@ -793,19 +801,96 @@
     return `<table class="pjd-chat-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
   }
 
-  async function copyTableToClipboard(data) {
-    const tsv = [data.headers.join('\t'), ...data.rows.map(r => r.join('\t'))].join('\n');
-    try { await navigator.clipboard.writeText(tsv); alert('Tabla copiada al portapapeles'); }
-    catch (e) { const ta = document.createElement('textarea'); ta.value = tsv; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); alert('Tabla copiada'); }
+  // HTML con estilos inline (para portapapeles y borrador)
+  function buildTableHtmlInline(data) {
+    let html = '<table style="width:100%;border-collapse:collapse;margin:14px 0;border:1px solid #e5e7eb;font-family:Quicksand,Arial,sans-serif">';
+    html += '<thead><tr>';
+    data.headers.forEach(h => {
+      html += `<th style="background:#f3f4f6;color:#111;padding:14px 16px;border:1px solid #e5e7eb;text-align:left;font-weight:700;font-size:14px">${escapeHtml(h)}</th>`;
+    });
+    html += '</tr></thead><tbody>';
+    data.rows.forEach(r => {
+      html += '<tr>';
+      r.forEach(c => {
+        html += `<td style="padding:14px 16px;border:1px solid #e5e7eb;vertical-align:top;color:#333;line-height:1.55;font-size:14px">${escapeHtml(c).replace(/\n/g, '<br>')}</td>`;
+      });
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    return html;
   }
 
+  // Copiar al portapapeles (HTML rico + texto plano)
+  async function copyTableToClipboard(data) {
+    const tsv = [data.headers.join('\t'), ...data.rows.map(r => r.join('\t'))].join('\n');
+    const html = buildTableHtmlInline(data);
+
+    try {
+      if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            'text/html':  new Blob([html], { type: 'text/html'  }),
+            'text/plain': new Blob([tsv],  { type: 'text/plain' }),
+          }),
+        ]);
+        showToast('✓ Tabla copiada (pégala donde quieras)', 'success');
+        return;
+      }
+    } catch (_) {}
+
+    try {
+      await navigator.clipboard.writeText(tsv);
+      showToast('✓ Tabla copiada como texto', 'success');
+    } catch (e) {
+      const ta = document.createElement('textarea');
+      ta.value = tsv; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+      showToast('✓ Tabla copiada', 'success');
+    }
+  }
+
+  // Pasar tabla directamente al editor del borrador
+  function copyTableToBorrador(data) {
+    const editor = document.getElementById('pjdDraftEditor');
+    if (!editor) { showToast('No se encontró el borrador', 'error'); return; }
+
+    const html = buildTableHtmlInline(data) + '<p><br></p>';
+    editor.innerHTML += html;
+
+    document.querySelector('.pjd-tab[data-tab="borrador"]')?.click();
+    document.querySelector('.pjd-borrador-tab[data-section="borrador"]')?.click();
+
+    setTimeout(() => {
+      document.getElementById('pjdSaveDraft')?.click();
+    }, 200);
+
+    showToast('✓ Tabla agregada al borrador', 'success');
+  }
+
+  // Descargar como XLSX REAL usando SheetJS
   function downloadTableAsExcel(data) {
-    const csv = [data.headers, ...data.rows].map(row => row.map(c => `"${(c+'').replace(/"/g,'""')}"`).join(',')).join('\n');
-    const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = `tabla-${PROJECT_SLUG}-${Date.now()}.csv`;
-    document.body.appendChild(a); a.click(); a.remove();
-    URL.revokeObjectURL(url);
+    if (typeof XLSX === 'undefined') {
+      showToast('La librería de Excel no se cargó. Recarga la página.', 'error');
+      return;
+    }
+
+    const aoa = [data.headers, ...data.rows];
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+    ws['!cols'] = data.headers.map((h, i) => {
+      let max = (h || '').toString().length;
+      data.rows.forEach(r => {
+        const len = (r[i] || '').toString().length;
+        if (len > max) max = len;
+      });
+      return { wch: Math.min(Math.max(max + 2, 14), 70) };
+    });
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Tabla');
+
+    const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    XLSX.writeFile(wb, `tabla-${PROJECT_SLUG}-${ts}.xlsx`);
+    showToast('✓ Excel descargado', 'success');
   }
 
   function appendMsg(role, content, time = '') {
@@ -831,7 +916,8 @@
         <div class="pjd-chat-table-wrap">
           <div class="pjd-chat-table-actions">
             <button type="button" class="pjd-chat-table-btn js-copy-table">📋 Copiar tabla</button>
-            <button type="button" class="pjd-chat-table-btn js-download-excel">⬇ Descargar Excel</button>
+            <button type="button" class="pjd-chat-table-btn js-copy-to-draft">📝 Pasar al borrador</button>
+            <button type="button" class="pjd-chat-table-btn is-primary js-download-excel">⬇ Descargar Excel</button>
           </div>
           ${tableHtml}
         </div>
@@ -846,6 +932,7 @@
 
     if (tableData) {
       wrap.querySelector('.js-copy-table')?.addEventListener('click', () => copyTableToClipboard(tableData));
+      wrap.querySelector('.js-copy-to-draft')?.addEventListener('click', () => copyTableToBorrador(tableData));
       wrap.querySelector('.js-download-excel')?.addEventListener('click', () => downloadTableAsExcel(tableData));
     }
 
@@ -853,15 +940,13 @@
     return wrap;
   }
 
-  // Re-renderizar mensajes assistant que vinieron del server (por si traían tabla markdown)
+  // Re-renderizar mensajes históricos con tabla
   document.querySelectorAll('.pjd-msg.is-assistant .pjd-msg-body[data-raw]').forEach(el => {
     const raw = el.getAttribute('data-raw') || '';
     const tableData = extractMarkdownTable(raw);
     if (!tableData) return;
 
     const container = el.parentElement;
-    const time = container.querySelector('.pjd-msg-meta')?.textContent.split('·')[1]?.trim() || '';
-    // construir nuevo body
     const tableHtml = renderTableHtml(tableData);
     const textBefore = tableData.before ? `<div class="pjd-msg-body" style="margin-bottom:8px">${escapeHtml(tableData.before).replace(/\n/g,'<br>')}</div>` : '';
     const textAfter  = tableData.after  ? `<div class="pjd-msg-body" style="margin-top:8px">${escapeHtml(tableData.after).replace(/\n/g,'<br>')}</div>` : '';
@@ -870,13 +955,15 @@
       <div class="pjd-chat-table-wrap">
         <div class="pjd-chat-table-actions">
           <button type="button" class="pjd-chat-table-btn js-copy-table">📋 Copiar tabla</button>
-          <button type="button" class="pjd-chat-table-btn js-download-excel">⬇ Descargar Excel</button>
+          <button type="button" class="pjd-chat-table-btn js-copy-to-draft">📝 Pasar al borrador</button>
+          <button type="button" class="pjd-chat-table-btn is-primary js-download-excel">⬇ Descargar Excel</button>
         </div>
         ${tableHtml}
       </div>
       ${textAfter}
     `;
     container.querySelector('.js-copy-table')?.addEventListener('click', () => copyTableToClipboard(tableData));
+    container.querySelector('.js-copy-to-draft')?.addEventListener('click', () => copyTableToBorrador(tableData));
     container.querySelector('.js-download-excel')?.addEventListener('click', () => downloadTableAsExcel(tableData));
   });
 
@@ -1069,8 +1156,11 @@
     location.reload();
   });
 
+  // Descargar checklist como XLSX real
   document.getElementById('pjdClDownload')?.addEventListener('click', () => {
-    const rows = [['Requisito','Formato','Categoría','Aplicabilidad','Obligatorio','Cumplimiento','Status']];
+    if (typeof XLSX === 'undefined') { showToast('Excel no disponible', 'error'); return; }
+    const headers = ['Requisito','Formato','Categoría','Aplicabilidad','Obligatorio','Cumplimiento','Status','Prioridad'];
+    const rows = [];
     clBody.querySelectorAll('tr[data-row]').forEach(r => {
       const cells = r.querySelectorAll('td');
       rows.push([
@@ -1081,13 +1171,19 @@
         cells[5]?.textContent.trim() || '',
         r.dataset.cumplimiento || '-',
         r.dataset.status || 'Pendiente',
+        r.dataset.prioridad || 'Media',
       ]);
     });
-    const csv = rows.map(r => r.map(c => `"${(c+'').replace(/"/g,'""')}"`).join(',')).join('\n');
-    const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = `checklist-${PROJECT_SLUG}.csv`;
-    a.click(); URL.revokeObjectURL(url);
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    ws['!cols'] = headers.map((h, i) => {
+      let max = h.length;
+      rows.forEach(r => { const len = (r[i] || '').toString().length; if (len > max) max = len; });
+      return { wch: Math.min(Math.max(max + 2, 14), 70) };
+    });
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Checklist');
+    XLSX.writeFile(wb, `checklist-${PROJECT_SLUG}.xlsx`);
+    showToast('✓ Checklist descargado', 'success');
   });
 
   // ============ BORRADOR / REPORTE ============
@@ -1115,7 +1211,7 @@
   });
 
   document.getElementById('pjdDownloadDraft')?.addEventListener('click', () => {
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${PROJECT_NAME}</title><style>body{font-family:Quicksand,sans-serif;max-width:800px;margin:30px auto;padding:20px;line-height:1.6;}</style></head><body>${draftEditor.innerHTML}</body></html>`;
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${PROJECT_NAME}</title><style>body{font-family:Quicksand,Arial,sans-serif;max-width:850px;margin:30px auto;padding:20px;line-height:1.6;}table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e5e7eb;padding:10px 12px;text-align:left}th{background:#f3f4f6;font-weight:700}</style></head><body>${draftEditor.innerHTML}</body></html>`;
     const blob = new Blob([html], { type: 'text/html;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url; a.download = `borrador-${PROJECT_SLUG}.html`; a.click();
@@ -1151,7 +1247,7 @@
 
   document.getElementById('pjdReporteDownload')?.addEventListener('click', () => {
     const content = document.getElementById('pjdReporteContent').innerHTML;
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Reporte - ${PROJECT_NAME}</title><style>body{font-family:Quicksand,sans-serif;max-width:850px;margin:30px auto;padding:30px;line-height:1.7;}table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #ebebeb;padding:8px 12px;text-align:left}th{background:#fafbff}h1,h2,h3{color:#111}</style></head><body>${content}</body></html>`;
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Reporte - ${PROJECT_NAME}</title><style>body{font-family:Quicksand,Arial,sans-serif;max-width:850px;margin:30px auto;padding:30px;line-height:1.7;}table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #ebebeb;padding:8px 12px;text-align:left}th{background:#fafbff}h1,h2,h3{color:#111}</style></head><body>${content}</body></html>`;
     const blob = new Blob([html], { type: 'text/html;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url; a.download = `reporte-${PROJECT_SLUG}.html`; a.click();
