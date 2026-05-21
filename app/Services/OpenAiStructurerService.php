@@ -8,27 +8,25 @@ use Illuminate\Support\Facades\Log;
 class OpenAiStructurerService
 {
     protected string $apiKey;
-    protected string $model;
+    protected string $primaryModel;
+    protected array $fallbackModels;
 
     public function __construct()
     {
         $this->apiKey = (string) env('OPENAI_API_KEY', '');
-        $this->model  = (string) env('OPENAI_MODEL', 'gpt-4o-mini');
+
+        // Soporta el patrón nuevo (PRIMARY/FALLBACK) y cae al viejo (OPENAI_MODEL)
+        $this->primaryModel = (string) env('OPENAI_PRIMARY_MODEL', env('OPENAI_MODEL', 'gpt-4o'));
+
+        $rawFallbacks = (string) env('OPENAI_FALLBACK_MODELS', '');
+        $this->fallbackModels = array_values(array_filter(array_map('trim', explode(',', $rawFallbacks))));
     }
 
     /**
-     * Estructura el texto completo de la licitación en JSON con:
-     *  - ficha: datos clave
-     *  - fechas_clave: eventos importantes
-     *  - resumen_ejecutivo: preguntas/respuestas
-     *  - partidas: array de items
+     * Estructura el texto de licitación en JSON (ficha, fechas, resumen ejecutivo, partidas, checklist)
      */
     public function structureProject(string $rawText): array
     {
-        if (!$this->apiKey) {
-            throw new \Exception('Falta OPENAI_API_KEY en .env');
-        }
-
         $compact = mb_substr($rawText, 0, 60000);
 
         $systemPrompt = 'Eres un asistente que extrae información de licitaciones públicas mexicanas. Responde ÚNICAMENTE JSON válido, sin markdown.';
@@ -73,51 +71,30 @@ Reglas:
 - No inventes datos
 - Las fechas en formato dd/mm/aaaa cuando sea posible
 - En resumen_ejecutivo, responde cada pregunta basándote SOLO en el texto
-- Las partidas son los items/productos/servicios solicitados
 
 Texto de la licitación:
 $compact
 PROMPT;
 
-        $response = Http::timeout(180)
-            ->withHeaders([
-                'Authorization' => 'Bearer ' . $this->apiKey,
-                'Content-Type'  => 'application/json',
-            ])
-            ->post('https://api.openai.com/v1/chat/completions', [
-                'model' => $this->model,
-                'messages' => [
-                    ['role' => 'system', 'content' => $systemPrompt],
-                    ['role' => 'user',   'content' => $userPrompt],
-                ],
-                'temperature' => 0.1,
-                'response_format' => ['type' => 'json_object'],
-            ]);
+        $messages = [
+            ['role' => 'system', 'content' => $systemPrompt],
+            ['role' => 'user',   'content' => $userPrompt],
+        ];
 
-        if (!$response->successful()) {
-            Log::error('OpenAI structurer error', ['body' => $response->body()]);
-            throw new \Exception('Error de OpenAI: ' . $response->body());
+        $result = $this->tryModels($messages, expectJson: true);
+
+        if (!is_array($result)) {
+            throw new \Exception('OpenAI no devolvió JSON estructurado');
         }
 
-        $content = $response->json('choices.0.message.content') ?? '';
-
-        $parsed = json_decode($content, true);
-        if (!is_array($parsed)) {
-            throw new \Exception('OpenAI devolvió JSON inválido');
-        }
-
-        return $parsed;
+        return $result;
     }
 
     /**
-     * Chat libre sobre la licitación (para tab "Análisis de Bases")
+     * Chat libre sobre la licitación (tab "Análisis de Bases")
      */
     public function chat(string $rawText, array $history, string $userMessage): string
     {
-        if (!$this->apiKey) {
-            throw new \Exception('Falta OPENAI_API_KEY en .env');
-        }
-
         $compact = mb_substr($rawText, 0, 60000);
 
         $messages = [
@@ -133,21 +110,108 @@ PROMPT;
 
         $messages[] = ['role' => 'user', 'content' => $userMessage];
 
-        $response = Http::timeout(120)
+        $result = $this->tryModels($messages, expectJson: false);
+
+        return is_string($result) ? $result : 'Sin respuesta';
+    }
+
+    /**
+     * Intenta el modelo primario y va cayendo a los fallbacks si falla.
+     */
+    protected function tryModels(array $messages, bool $expectJson): mixed
+    {
+        if (!$this->apiKey) {
+            throw new \Exception('Falta OPENAI_API_KEY en .env');
+        }
+
+        $modelsToTry = array_unique(array_merge([$this->primaryModel], $this->fallbackModels));
+        $lastError = null;
+
+        foreach ($modelsToTry as $model) {
+            try {
+                Log::info("OpenAI: probando modelo {$model}");
+                return $this->callOpenAI($model, $messages, $expectJson);
+            } catch (\Throwable $e) {
+                $msg = $e->getMessage();
+                Log::warning("OpenAI falló con modelo {$model}: {$msg}");
+                $lastError = $e;
+
+                // Si el error NO es del modelo (es de auth, red, etc.) no intentes más
+                $modelRelated = str_contains($msg, 'model_not_found')
+                    || str_contains($msg, 'does not have access')
+                    || str_contains($msg, 'invalid_request_error')
+                    || str_contains($msg, 'not supported')
+                    || str_contains($msg, 'Unsupported');
+
+                if (!$modelRelated) {
+                    throw $e;
+                }
+            }
+        }
+
+        throw $lastError ?? new \Exception('Todos los modelos OpenAI fallaron');
+    }
+
+    /**
+     * Llamada cruda a OpenAI con manejo de diferencias entre modelos viejos (gpt-4, gpt-3.5)
+     * y modelos nuevos (gpt-5, o1) que NO soportan temperature ni response_format.
+     */
+    protected function callOpenAI(string $model, array $messages, bool $expectJson): mixed
+    {
+        $isReasoningOrGpt5 = str_starts_with($model, 'gpt-5')
+            || str_starts_with($model, 'o1')
+            || str_starts_with($model, 'o3');
+
+        $payload = [
+            'model'    => $model,
+            'messages' => $messages,
+        ];
+
+        // Modelos viejos: soportan temperature y response_format JSON mode
+        if (!$isReasoningOrGpt5) {
+            $payload['temperature'] = 0.1;
+            if ($expectJson) {
+                $payload['response_format'] = ['type' => 'json_object'];
+            }
+        }
+
+        $response = Http::timeout(180)
             ->withHeaders([
                 'Authorization' => 'Bearer ' . $this->apiKey,
                 'Content-Type'  => 'application/json',
             ])
-            ->post('https://api.openai.com/v1/chat/completions', [
-                'model' => $this->model,
-                'messages' => $messages,
-                'temperature' => 0.2,
-            ]);
+            ->post('https://api.openai.com/v1/chat/completions', $payload);
 
         if (!$response->successful()) {
-            throw new \Exception('Error de OpenAI: ' . $response->body());
+            $body = $response->body();
+            Log::error('OpenAI call falló', ['model' => $model, 'body' => $body]);
+            throw new \Exception($body);
         }
 
-        return $response->json('choices.0.message.content') ?? 'Sin respuesta';
+        $content = $response->json('choices.0.message.content') ?? '';
+
+        if (!$expectJson) {
+            return $content;
+        }
+
+        // Limpiar bloques markdown si vienen (GPT-5 a veces los mete)
+        $clean = trim($content);
+        $clean = preg_replace('/^```(?:json)?\s*/i', '', $clean);
+        $clean = preg_replace('/\s*```$/', '', $clean);
+
+        $parsed = json_decode($clean, true);
+
+        if (!is_array($parsed)) {
+            // intentar extraer el primer bloque {...} si vino con texto alrededor
+            if (preg_match('/\{.*\}/s', $clean, $m)) {
+                $parsed = json_decode($m[0], true);
+            }
+        }
+
+        if (!is_array($parsed)) {
+            throw new \Exception("Modelo {$model} devolvió JSON inválido: " . mb_substr($content, 0, 300));
+        }
+
+        return $parsed;
     }
 }
