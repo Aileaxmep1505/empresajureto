@@ -101,15 +101,140 @@
   .pjd-card-body { padding: 6px 16px 14px; display: none; }
   .pjd-card.is-open .pjd-card-body { display: block; }
 
-  .pjd-field { padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .pjd-field { padding: 10px 0; border-bottom: 1px solid var(--line); position: relative; }
   .pjd-field:last-child { border-bottom: none; }
   .pjd-field-label { font-size: .78rem; font-weight: 700; color: var(--muted); background: var(--bg); padding: 4px 10px; border-radius: 6px; display: inline-block; margin-bottom: 6px; }
   .pjd-field-value { font-size: .92rem; color: var(--ink); font-weight: 600; line-height: 1.5; padding: 2px 4px; }
 
-  .pjd-qa { padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .pjd-qa { padding: 10px 0; border-bottom: 1px solid var(--line); position: relative; }
   .pjd-qa:last-child { border-bottom: none; }
   .pjd-qa-q { font-size: .85rem; font-weight: 700; color: var(--muted); background: var(--bg); padding: 6px 12px; border-radius: 8px; margin-bottom: 8px; display: inline-block; }
   .pjd-qa-a { font-size: .92rem; color: var(--ink); font-weight: 600; line-height: 1.5; padding: 0 6px; }
+
+  /* ── Citas (click en Ficha/Resumen) ── */
+  .pjd-field.has-cita,
+  .pjd-qa.has-cita {
+    cursor: pointer;
+    padding-right: 100px;
+    transition: background .15s ease;
+    border-radius: 8px;
+  }
+  .pjd-field.has-cita:hover,
+  .pjd-qa.has-cita:hover {
+    background: linear-gradient(to right, transparent, #f0f7ff 35%);
+  }
+  .pjd-cita-badge {
+    position: absolute;
+    top: 50%;
+    right: 6px;
+    transform: translateY(-50%);
+    font-size: .68rem;
+    font-weight: 700;
+    color: var(--blue);
+    background: var(--blue-soft);
+    padding: 5px 12px;
+    border-radius: 999px;
+    border: 1px solid #c7dcfd;
+    opacity: 0;
+    transition: opacity .18s, transform .18s;
+    pointer-events: none;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .pjd-field.has-cita:hover .pjd-cita-badge,
+  .pjd-qa.has-cita:hover .pjd-cita-badge {
+    opacity: 1;
+    transform: translateY(-50%) scale(1.02);
+  }
+
+  /* Modal de cita */
+  .pjd-cita-modal {
+    display: none;
+    position: fixed; inset: 0; z-index: 250;
+    align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .pjd-cita-modal.is-open { display: flex; }
+  .pjd-cita-modal-backdrop {
+    position: absolute; inset: 0;
+    background: rgba(0,0,0,.5);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+  .pjd-cita-modal-card {
+    position: relative; z-index: 1;
+    background: #fff;
+    border-radius: 16px;
+    max-width: 600px; width: 100%;
+    box-shadow: 0 24px 64px rgba(0,0,0,.22);
+    overflow: hidden;
+    animation: pjdCitaSlideUp .25s cubic-bezier(.22,1,.36,1) both;
+  }
+  @keyframes pjdCitaSlideUp {
+    from { opacity:0; transform: translateY(20px) scale(.97); }
+    to   { opacity:1; transform: translateY(0) scale(1); }
+  }
+  .pjd-cita-modal-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 22px;
+    border-bottom: 1px solid var(--line);
+    background: linear-gradient(180deg, #fafbff, #fff);
+  }
+  .pjd-cita-modal-head h4 {
+    margin: 0; font-size: 1.05rem; font-weight: 700; color: var(--ink);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .pjd-cita-modal-head h4::before {
+    content: "📄"; font-size: 1.1rem;
+  }
+  .pjd-cita-close {
+    border: none; background: var(--bg); width: 30px; height: 30px;
+    border-radius: 8px; cursor: pointer; color: var(--muted);
+    font-size: 14px; line-height: 1; transition: all .15s;
+  }
+  .pjd-cita-close:hover { background: var(--blue-soft); color: var(--blue); }
+  .pjd-cita-modal-body { padding: 22px; }
+  .pjd-cita-quote {
+    border-left: 4px solid var(--blue);
+    background: #f8faff;
+    padding: 14px 16px;
+    border-radius: 8px;
+    font-size: .95rem;
+    line-height: 1.55;
+    color: var(--ink);
+    margin-bottom: 16px;
+    white-space: pre-wrap;
+    max-height: 320px; overflow-y: auto;
+  }
+  .pjd-cita-source {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    padding: 12px 14px;
+    background: #f8fafc;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+  }
+  .pjd-cita-source-label { font-size: .82rem; color: var(--muted); font-weight: 600; }
+  .pjd-cita-source-file { font-size: .92rem; font-weight: 700; color: var(--ink); }
+  .pjd-cita-source-page { font-size: .82rem; color: var(--muted); }
+  .pjd-cita-modal-footer {
+    display: flex; gap: 10px; justify-content: flex-end;
+    padding: 14px 22px;
+    border-top: 1px solid var(--line);
+    background: #fafbff;
+  }
+  .pjd-cita-btn {
+    padding: 8px 18px; border-radius: 999px;
+    font-family: inherit; font-weight: 700; font-size: .85rem;
+    border: none; cursor: pointer; text-decoration: none;
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: all .15s;
+  }
+  .pjd-cita-btn-primary { background: var(--blue); color: #fff; }
+  .pjd-cita-btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 14px rgba(0,122,255,.25); }
+  .pjd-cita-btn-ghost { background: transparent; color: var(--ink2); border: 1px solid var(--line); }
+  .pjd-cita-btn-ghost:hover { background: var(--bg); }
 
   /* Checklist */
   .pjd-check-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 12px; margin-bottom: 6px; background: var(--card); cursor: pointer; }
@@ -143,6 +268,13 @@
   .pjd-loading-dots span:nth-child(2) { animation-delay: .15s; }
   .pjd-loading-dots span:nth-child(3) { animation-delay: .3s; }
   @keyframes pjdBounce { 0%,80%,100% { transform: scale(.6); opacity: .4; } 40% { transform: scale(1); opacity: 1; } }
+
+  @media (max-width: 600px) {
+    .pjd-field.has-cita,
+    .pjd-qa.has-cita { padding-right: 70px; }
+    .pjd-cita-badge { font-size: .62rem; padding: 4px 9px; }
+    .pjd-cita-modal-card { border-radius: 14px; }
+  }
 </style>
 @endpush
 
@@ -153,6 +285,7 @@
   $fechas = $sd['fechas_clave'] ?? [];
   $resumenEjec = $sd['resumen_ejecutivo'] ?? [];
   $partidas = $sd['partidas'] ?? [];
+  $citas = $sd['citas'] ?? [];
   $checklist = $project->checklist ?? [];
   $statusClass = match($project->status) {
       'ready' => 'is-ready',
@@ -166,6 +299,17 @@
       'error' => 'Error',
       'partial' => 'Parcial',
       default => $project->status,
+  };
+
+  // Helper para generar el payload de cita
+  $citaPayload = function ($citas, $key) {
+      $c = $citas[$key] ?? null;
+      if (!is_array($c) || empty($c['cita'])) return null;
+      return htmlspecialchars(json_encode([
+          'cita'   => $c['cita'] ?? '',
+          'fuente' => $c['fuente'] ?? '',
+          'pagina' => $c['pagina'] ?? null,
+      ], JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8');
   };
 @endphp
 
@@ -292,17 +436,21 @@
           <div class="pjd-card-body">
             @php
               $fichaRows = [
-                'Número de licitación'             => $ficha['numero_licitacion'] ?? null,
-                'Tipo de evento'                   => $ficha['tipo_evento'] ?? null,
-                'Organismo'                        => $ficha['organismo'] ?? null,
-                '¿Cuál es el objeto de la licitación?' => $ficha['objeto_licitacion'] ?? null,
-                '¿Cuál es el medio de participación?'  => $ficha['medio_participacion'] ?? null,
+                ['key'=>'ficha.numero_licitacion',     'label'=>'Número de licitación',                  'val'=>$ficha['numero_licitacion'] ?? null],
+                ['key'=>'ficha.tipo_evento',           'label'=>'Tipo de evento',                         'val'=>$ficha['tipo_evento'] ?? null],
+                ['key'=>'ficha.organismo',             'label'=>'Organismo',                              'val'=>$ficha['organismo'] ?? null],
+                ['key'=>'ficha.objeto_licitacion',     'label'=>'¿Cuál es el objeto de la licitación?',   'val'=>$ficha['objeto_licitacion'] ?? null],
+                ['key'=>'ficha.medio_participacion',   'label'=>'¿Cuál es el medio de participación?',    'val'=>$ficha['medio_participacion'] ?? null],
               ];
             @endphp
-            @foreach($fichaRows as $label => $value)
-              <div class="pjd-field">
-                <div class="pjd-field-label">{{ $label }}</div>
-                <div class="pjd-field-value">{{ $value ?: 'No se encontró información' }}</div>
+            @foreach($fichaRows as $row)
+              @php $payload = $citaPayload($citas, $row['key']); @endphp
+              <div class="pjd-field {{ $payload ? 'has-cita' : '' }}" @if($payload) data-cita="{{ $payload }}" @endif>
+                <div class="pjd-field-label">{{ $row['label'] }}</div>
+                <div class="pjd-field-value">{{ $row['val'] ?: 'No se encontró información' }}</div>
+                @if($payload)
+                  <div class="pjd-cita-badge">📄 Ver cita</div>
+                @endif
               </div>
             @endforeach
           </div>
@@ -316,17 +464,21 @@
           <div class="pjd-card-body">
             @php
               $fechasRows = [
-                'Fecha de publicación'              => $fechas['fecha_publicacion'] ?? null,
-                'Junta de aclaraciones'             => $fechas['junta_aclaraciones'] ?? null,
-                'Presentación y apertura de proposiciones' => $fechas['presentacion_apertura'] ?? null,
-                'Fallo'                              => $fechas['fallo'] ?? null,
-                'Vigencia del contrato'              => $fechas['vigencia_contrato'] ?? null,
+                ['key'=>'fechas_clave.fecha_publicacion',       'label'=>'Fecha de publicación',                          'val'=>$fechas['fecha_publicacion'] ?? null],
+                ['key'=>'fechas_clave.junta_aclaraciones',      'label'=>'Junta de aclaraciones',                         'val'=>$fechas['junta_aclaraciones'] ?? null],
+                ['key'=>'fechas_clave.presentacion_apertura',   'label'=>'Presentación y apertura de proposiciones',      'val'=>$fechas['presentacion_apertura'] ?? null],
+                ['key'=>'fechas_clave.fallo',                   'label'=>'Fallo',                                          'val'=>$fechas['fallo'] ?? null],
+                ['key'=>'fechas_clave.vigencia_contrato',       'label'=>'Vigencia del contrato',                          'val'=>$fechas['vigencia_contrato'] ?? null],
               ];
             @endphp
-            @foreach($fechasRows as $label => $value)
-              <div class="pjd-field">
-                <div class="pjd-field-label">{{ $label }}</div>
-                <div class="pjd-field-value">{{ $value ?: 'No se encontró información' }}</div>
+            @foreach($fechasRows as $row)
+              @php $payload = $citaPayload($citas, $row['key']); @endphp
+              <div class="pjd-field {{ $payload ? 'has-cita' : '' }}" @if($payload) data-cita="{{ $payload }}" @endif>
+                <div class="pjd-field-label">{{ $row['label'] }}</div>
+                <div class="pjd-field-value">{{ $row['val'] ?: 'No se encontró información' }}</div>
+                @if($payload)
+                  <div class="pjd-cita-badge">📄 Ver cita</div>
+                @endif
               </div>
             @endforeach
           </div>
@@ -341,10 +493,14 @@
             <div class="pjd-card-chev">▾</div>
           </div>
           <div class="pjd-card-body">
-            @forelse($resumenEjec as $qa)
-              <div class="pjd-qa">
+            @forelse($resumenEjec as $idx => $qa)
+              @php $payload = $citaPayload($citas, "resumen_ejecutivo.{$idx}"); @endphp
+              <div class="pjd-qa {{ $payload ? 'has-cita' : '' }}" @if($payload) data-cita="{{ $payload }}" @endif>
                 <div class="pjd-qa-q">{{ $qa['pregunta'] ?? '' }}</div>
                 <div class="pjd-qa-a">{{ $qa['respuesta'] ?? 'No se encontró información' }}</div>
+                @if($payload)
+                  <div class="pjd-cita-badge">📄 Ver cita</div>
+                @endif
               </div>
             @empty
               <p style="color:var(--muted);font-size:.9rem;padding:8px;">Sin información disponible.</p>
@@ -410,6 +566,31 @@
     </div>
   </div>
 </div>
+
+{{-- ══ MODAL DE CITA ══ --}}
+<div class="pjd-cita-modal" id="pjdCitaModal" aria-hidden="true">
+  <div class="pjd-cita-modal-backdrop" id="pjdCitaBackdrop"></div>
+  <div class="pjd-cita-modal-card">
+    <div class="pjd-cita-modal-head">
+      <h4>Cita del documento</h4>
+      <button type="button" class="pjd-cita-close" id="pjdCitaClose" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="pjd-cita-modal-body">
+      <div class="pjd-cita-quote" id="pjdCitaQuote">—</div>
+      <div class="pjd-cita-source">
+        <span class="pjd-cita-source-label">Fuente:</span>
+        <span id="pjdCitaSource" class="pjd-cita-source-file">—</span>
+        <span id="pjdCitaPage" class="pjd-cita-source-page"></span>
+      </div>
+    </div>
+    <div class="pjd-cita-modal-footer">
+      <a href="#" id="pjdCitaOpenDoc" class="pjd-cita-btn pjd-cita-btn-primary" target="_blank" rel="noopener" style="display:none;">
+        Ver documento
+      </a>
+      <button type="button" class="pjd-cita-btn pjd-cita-btn-ghost" id="pjdCitaCloseBtn">Cerrar</button>
+    </div>
+  </div>
+</div>
 @endsection
 
 @push('scripts')
@@ -422,6 +603,9 @@
   const CHAT_RESET_URL  = @json(route('projects.chat.reset', $project));
   const DRAFT_URL       = @json(route('projects.draft', $project));
   const CSRF            = '{{ csrf_token() }}';
+
+  // Mapa filename → URL pública (para botón "Ver documento" de las citas)
+  const PROJECT_DOCS = @json($project->documents->mapWithKeys(fn($d) => [$d->filename => \Illuminate\Support\Facades\Storage::disk('public')->url($d->file_path)]));
 
   // ============ TABS ============
   const tabs = document.querySelectorAll('.pjd-tab');
@@ -538,7 +722,6 @@
   });
 
   // ============ CHECKLIST ============
-  // (Solo UI por ahora — guardar requiere endpoint adicional)
   document.querySelectorAll('#pjdChecklistContainer input[type=checkbox]').forEach(cb => {
     cb.addEventListener('change', () => {
       cb.closest('.pjd-check-item').classList.toggle('is-done', cb.checked);
@@ -569,6 +752,64 @@
       saveBtn.disabled = false;
       saveBtn.textContent = 'Guardar';
     }
+  });
+
+  // ============ CITAS (Ficha + Resumen Ejecutivo) ============
+  const citaModal     = document.getElementById('pjdCitaModal');
+  const citaBackdrop  = document.getElementById('pjdCitaBackdrop');
+  const citaQuote     = document.getElementById('pjdCitaQuote');
+  const citaSource    = document.getElementById('pjdCitaSource');
+  const citaPage      = document.getElementById('pjdCitaPage');
+  const citaOpenDoc   = document.getElementById('pjdCitaOpenDoc');
+  const citaClose     = document.getElementById('pjdCitaClose');
+  const citaCloseBtn  = document.getElementById('pjdCitaCloseBtn');
+
+  function openCita(payload) {
+    if (!payload) return;
+    let data;
+    try {
+      data = typeof payload === 'string' ? JSON.parse(payload) : payload;
+    } catch (e) {
+      console.error('Cita payload inválido', e);
+      return;
+    }
+
+    citaQuote.textContent = data.cita || 'Sin cita disponible';
+    citaSource.textContent = data.fuente || '—';
+    citaPage.textContent = data.pagina ? ` · Página ${data.pagina}` : '';
+
+    const url = data.fuente ? PROJECT_DOCS[data.fuente] : null;
+    if (url) {
+      citaOpenDoc.href = url;
+      citaOpenDoc.style.display = '';
+    } else {
+      citaOpenDoc.style.display = 'none';
+    }
+
+    citaModal.classList.add('is-open');
+    citaModal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeCita() {
+    citaModal.classList.remove('is-open');
+    citaModal.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+  }
+
+  document.addEventListener('click', (e) => {
+    const el = e.target.closest('[data-cita]');
+    if (el) {
+      const payload = el.getAttribute('data-cita');
+      openCita(payload);
+    }
+  });
+
+  citaClose?.addEventListener('click', closeCita);
+  citaCloseBtn?.addEventListener('click', closeCita);
+  citaBackdrop?.addEventListener('click', closeCita);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && citaModal.classList.contains('is-open')) closeCita();
   });
 
 })();
