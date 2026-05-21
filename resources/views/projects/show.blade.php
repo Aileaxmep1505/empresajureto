@@ -234,9 +234,9 @@
         @forelse($project->chatMessages as $m)
           <div class="pjd-msg {{ $m->role === 'user' ? 'is-user' : 'is-assistant' }}">
             @if($m->role === 'assistant')
-              <div class="pjd-msg-avatar">m</div>
+              <div class="pjd-msg-avatar">j</div>
               <div>
-                <div class="pjd-msg-meta">monico · {{ $m->created_at->format('H:i') }}</div>
+                <div class="pjd-msg-meta">jureto · {{ $m->created_at->format('H:i') }}</div>
                 <div class="pjd-msg-body">{!! nl2br(e($m->content)) !!}</div>
               </div>
             @else
@@ -245,9 +245,9 @@
           </div>
         @empty
           <div class="pjd-msg is-assistant">
-            <div class="pjd-msg-avatar">m</div>
+            <div class="pjd-msg-avatar">j</div>
             <div>
-              <div class="pjd-msg-meta">monico</div>
+              <div class="pjd-msg-meta">jureto</div>
               <div class="pjd-msg-body">Hola, soy tu asistente para esta licitación. Pregúntame lo que quieras saber sobre los documentos que subiste.</div>
             </div>
           </div>
@@ -463,9 +463,9 @@
       wrap.innerHTML = `<div class="pjd-msg-body">${escapeHtml(content)}</div>`;
     } else {
       wrap.innerHTML = `
-        <div class="pjd-msg-avatar">m</div>
+        <div class="pjd-msg-avatar">j</div>
         <div>
-          <div class="pjd-msg-meta">monico${time ? ' · ' + time : ''}</div>
+          <div class="pjd-msg-meta">jureto${time ? ' · ' + time : ''}</div>
           <div class="pjd-msg-body">${escapeHtml(content).replace(/\n/g, '<br>')}</div>
         </div>
       `;
@@ -480,9 +480,9 @@
     wrap.className = 'pjd-msg is-assistant';
     wrap.id = 'pjdLoadingMsg';
     wrap.innerHTML = `
-      <div class="pjd-msg-avatar">m</div>
+      <div class="pjd-msg-avatar">j</div>
       <div>
-        <div class="pjd-msg-meta">monico</div>
+        <div class="pjd-msg-meta">jureto</div>
         <div class="pjd-msg-body"><span class="pjd-loading-dots"><span></span><span></span><span></span></span></div>
       </div>
     `;
