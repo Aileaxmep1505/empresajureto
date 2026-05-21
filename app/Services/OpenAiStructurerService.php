@@ -93,27 +93,44 @@ PROMPT;
     /**
      * Chat libre sobre la licitación (tab "Análisis de Bases")
      */
-    public function chat(string $rawText, array $history, string $userMessage): string
-    {
-        $compact = mb_substr($rawText, 0, 60000);
+  public function chat(string $rawText, array $history, string $userMessage): string
+{
+    $compact = mb_substr($rawText, 0, 60000);
 
-        $messages = [
-            [
-                'role' => 'system',
-                'content' => "Eres un asistente experto en licitaciones públicas. Responde SOLO basándote en el siguiente documento. Si no encuentras información, dilo claramente.\n\nDOCUMENTO:\n$compact",
-            ],
-        ];
+    $systemContent = <<<SYS
+Eres un asistente experto en licitaciones publicas mexicanas. Responde SOLO basandote en el documento provisto. Si no encuentras informacion, dilo claramente.
 
-        foreach ($history as $h) {
-            $messages[] = ['role' => $h['role'], 'content' => $h['content']];
-        }
+FORMATO DE RESPUESTA:
+- Cuando la pregunta pida COMPARAR, LISTAR, RESUMIR varios items, o cuando los datos sean naturalmente tabulares (archivos, partidas, fechas, requisitos, etc.) responde con UNA TABLA EN MARKDOWN.
+- Ejemplo de tabla:
 
-        $messages[] = ['role' => 'user', 'content' => $userMessage];
+| Columna 1 | Columna 2 | Columna 3 |
+| --- | --- | --- |
+| valor 1 | valor 2 | valor 3 |
+| valor 4 | valor 5 | valor 6 |
 
-        $result = $this->tryModels($messages, expectJson: false);
+- Si la pregunta pide algo conciso (un dato puntual, un si/no, una explicacion corta), responde en texto natural sin tabla.
+- Si necesitas listar pasos o requisitos cortos, usa bullets con "-".
+- NO uses code blocks (```), solo markdown plano.
 
-        return is_string($result) ? $result : 'Sin respuesta';
+DOCUMENTO:
+$compact
+SYS;
+
+    $messages = [
+        ['role' => 'system', 'content' => $systemContent],
+    ];
+
+    foreach ($history as $h) {
+        $messages[] = ['role' => $h['role'], 'content' => $h['content']];
     }
+
+    $messages[] = ['role' => 'user', 'content' => $userMessage];
+
+    $result = $this->tryModels($messages, expectJson: false);
+
+    return is_string($result) ? $result : 'Sin respuesta';
+}
 
     /**
      * Intenta el modelo primario y va cayendo a los fallbacks si falla.

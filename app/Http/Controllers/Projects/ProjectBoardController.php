@@ -299,4 +299,97 @@ class ProjectBoardController extends Controller
             $project->update(['status' => 'partial', 'error_message' => $e->getMessage()]);
         }
     }
+    /**
+ * Actualizar items del checklist o regenerarlo con IA
+ */
+public function updateChecklist(Request $request, Project $project)
+{
+    // Regenerar con IA
+    if ($request->boolean('regenerate')) {
+        $project->loadMissing('documents');
+        $combined = $project->documents()
+            ->where('status', 'done')
+            ->pluck('extracted_text')->filter()
+            ->implode("\n\n--- DOCUMENTO ---\n\n");
+
+        if (!$combined) {
+            return response()->json(['ok'=>false,'message'=>'Sin texto extraído.'], 422);
+        }
+
+        try {
+            $structured = app(\App\Services\OpenAiStructurerService::class)->structureProject($combined);
+            $project->update([
+                'structured_data' => array_merge($project->structured_data ?? [], $structured),
+                'checklist' => $structured['checklist_sugerido'] ?? [],
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json(['ok'=>false,'message'=>$e->getMessage()], 500);
+        }
+
+        return response()->json(['ok'=>true]);
+    }
+
+    // Actualizar items (cumplimiento/status)
+    $items = json_decode($request->input('items', '[]'), true) ?: [];
+    $current = $project->checklist ?: [];
+
+    foreach ($items as $upd) {
+        $i = (int) ($upd['idx'] ?? -1);
+        if (!isset($current[$i])) continue;
+        if (isset($upd['cumplimiento'])) $current[$i]['cumplimiento'] = $upd['cumplimiento'];
+        if (isset($upd['status']))       $current[$i]['status']       = $upd['status'];
+        if (isset($upd['prioridad']))    $current[$i]['prioridad']    = $upd['prioridad'];
+    }
+
+    $project->update(['checklist' => $current]);
+    return response()->json(['ok'=>true]);
+}
+
+/**
+ * Generar el reporte ejecutivo con IA
+ */
+public function generateReport(Request $request, Project $project)
+{
+    $project->loadMissing('documents');
+    $combined = $project->documents()
+        ->where('status','done')
+        ->pluck('extracted_text')->filter()
+        ->implode("\n\n--- DOCUMENTO ---\n\n");
+
+    if (!$combined) {
+        return response()->json(['ok'=>false,'message'=>'Sin texto extraído del proyecto.'], 422);
+    }
+
+    $contexto = mb_substr($combined, 0, 50000);
+    $sd = $project->structured_data ?? [];
+    $resumen = json_encode($sd, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+
+    try {
+        $svc = app(\App\Services\OpenAiStructurerService::class);
+        // Usamos chat() para flexibilidad — devuelve HTML
+        $reply = $svc->chat(
+            $contexto,
+            [],
+            "Genera un REPORTE EJECUTIVO profesional en HTML válido (sin <html> ni <body>, solo el contenido). " .
+            "Incluye:\n" .
+            "- <h1>Reporte ejecutivo: {$project->name}</h1>\n" .
+            "- Sección 'Resumen general' con un párrafo introductorio\n" .
+            "- Sección 'Datos clave' con tabla HTML (Concepto / Valor)\n" .
+            "- Sección 'Fechas importantes' con tabla HTML\n" .
+            "- Sección 'Documentación requerida' como lista <ul>\n" .
+            "- Sección 'Riesgos y recomendaciones' con párrafos\n" .
+            "- Sección 'Conclusión' con un párrafo final\n" .
+            "Usa <h2>, <h3>, <p>, <table>, <ul>, <strong>. NO uses markdown ni ```html```.\n\n" .
+            "Datos estructurados ya extraídos:\n{$resumen}"
+        );
+        // Limpiar code fences si vienen
+        $reply = preg_replace('/^```(?:html)?\s*/i', '', trim($reply));
+        $reply = preg_replace('/\s*```$/', '', $reply);
+
+        $project->update(['report_content' => $reply]);
+        return response()->json(['ok'=>true, 'html'=>$reply]);
+    } catch (\Throwable $e) {
+        return response()->json(['ok'=>false,'message'=>$e->getMessage()], 500);
+    }
+}
 }

@@ -2111,3 +2111,6 @@ Route::middleware(['auth'])->prefix('projects')->name('projects.')->group(functi
     Route::post('/{project}/draft',  [ProjectBoardController::class, 'saveDraft'])->name('draft');
     Route::delete('/{project}/chat', [ProjectBoardController::class, 'resetChat'])->name('chat.reset');
 });
+
+Route::post('/{project}/checklist', [ProjectBoardController::class, 'updateChecklist'])->name('checklist');
+Route::post('/{project}/report',    [ProjectBoardController::class, 'generateReport'])->name('report');
