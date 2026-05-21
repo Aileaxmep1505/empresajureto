@@ -2110,7 +2110,8 @@ Route::middleware(['auth'])->prefix('projects')->name('projects.')->group(functi
     Route::post('/{project}/chat',   [ProjectBoardController::class, 'chat'])->name('chat');
     Route::post('/{project}/draft',  [ProjectBoardController::class, 'saveDraft'])->name('draft');
     Route::delete('/{project}/chat', [ProjectBoardController::class, 'resetChat'])->name('chat.reset');
-});
 
-Route::post('/{project}/checklist', [ProjectBoardController::class, 'updateChecklist'])->name('checklist');
-Route::post('/{project}/report',    [ProjectBoardController::class, 'generateReport'])->name('report');
+    // ✅ NUEVAS — agrégalas
+    Route::post('/{project}/checklist', [ProjectBoardController::class, 'updateChecklist'])->name('checklist');
+    Route::post('/{project}/report',    [ProjectBoardController::class, 'generateReport'])->name('report');
+});
