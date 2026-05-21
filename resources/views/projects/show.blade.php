@@ -1,1293 +1,1232 @@
 @extends('layouts.app')
-@section('title', $project->name)
 
 @push('styles')
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap');
+/* ============= LAYOUT GENERAL ============= */
+.pjd-wrap{font-family:Quicksand,Arial,sans-serif;color:#0f172a;max-width:1700px;margin:0 auto;padding:14px 18px 60px}
+.pjd-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.pjd-title{font-size:22px;font-weight:700;margin:0;color:#0f172a}
+.pjd-sub{color:#64748b;font-size:13px;margin-top:2px}
+.pjd-back{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid #e5e7eb;padding:8px 12px;border-radius:8px;color:#1e3a5f;text-decoration:none;font-weight:600;font-size:13px}
+.pjd-back:hover{background:#f1f5f9}
 
-  :root {
-    --bg:           #f9fafb;
-    --card:         #ffffff;
-    --ink:          #111;
-    --ink2:         #333;
-    --muted:        #888;
-    --line:         #ebebeb;
-    --blue:         #007aff;
-    --blue-soft:    #e6f0ff;
-    --success:      #15803d;
-    --success-soft: #e6ffe6;
-    --danger:       #ef4444;
-    --danger-soft:  #ffebeb;
-    --warning:      #b45309;
-    --warning-soft: #fef9c3;
-    --orange:       #ea580c;
-    --orange-soft:  #ffedd5;
-  }
+.pjd-tabs{display:flex;gap:4px;border-bottom:1px solid #e5e7eb;margin-bottom:18px;overflow-x:auto}
+.pjd-tab{background:transparent;border:none;padding:10px 16px;font-size:13px;font-weight:600;color:#64748b;cursor:pointer;border-bottom:2px solid transparent;font-family:inherit;white-space:nowrap}
+.pjd-tab:hover{color:#1e3a5f}
+.pjd-tab.is-active{color:#1e3a5f;border-bottom-color:#1e3a5f}
 
-  body { font-family: 'Quicksand', sans-serif; background: var(--bg); color: var(--ink2); }
+.pjd-grid{display:grid;grid-template-columns:380px 1fr;gap:18px;align-items:flex-start}
+@media (max-width: 1100px){.pjd-grid{grid-template-columns:1fr}}
 
-  .pjd-wrap { width: 100%; max-width: 100%; margin: 0; padding: 0; min-height: calc(100vh - 60px); display: flex; flex-direction: column; }
+.pjd-pane{display:none}
+.pjd-pane.is-active{display:block}
 
-  /* ── Topbar ── */
-  .pjd-topbar { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; padding: 12px 24px; background: #fff; border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 10; }
-  .pjd-back { color: var(--muted); text-decoration: none; font-size: 1.1rem; padding: 4px 8px; border-radius: 8px; transition: all .15s; }
-  .pjd-back:hover { background: var(--bg); color: var(--blue); }
-  .pjd-title { font-weight: 700; color: var(--ink); font-size: .98rem; display: flex; align-items: center; gap: 6px; }
-  .pjd-status-pill { padding: 2px 8px; border-radius: 999px; font-size: .68rem; font-weight: 700; background: var(--blue-soft); color: var(--blue); margin-left: 6px; }
-  .pjd-status-pill.is-ready { background: var(--success-soft); color: var(--success); }
-  .pjd-status-pill.is-processing { background: var(--warning-soft); color: var(--warning); }
-  .pjd-status-pill.is-error { background: var(--danger-soft); color: var(--danger); }
+/* ============= CHAT ============= */
+.pjd-chat{background:#fff;border:1px solid #e5e7eb;border-radius:12px;display:flex;flex-direction:column;height:calc(100vh - 200px);min-height:520px;position:sticky;top:14px}
+.pjd-chat-head{padding:12px 14px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center}
+.pjd-chat-title{font-weight:700;font-size:14px;color:#0f172a;display:flex;align-items:center;gap:6px}
+.pjd-chat-reset{background:transparent;border:none;color:#64748b;cursor:pointer;font-size:12px;padding:4px 8px;border-radius:6px}
+.pjd-chat-reset:hover{background:#f1f5f9;color:#dc2626}
+.pjd-chat-body{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
+.pjd-msg{padding:10px 12px;border-radius:10px;font-size:13px;max-width:100%;line-height:1.5}
+.pjd-msg.user{background:#1e3a5f;color:#fff;align-self:flex-end;max-width:85%}
+.pjd-msg.assistant{background:#f8fafc;color:#0f172a;align-self:flex-start;width:100%;border:1px solid #e5e7eb}
+.pjd-msg p{margin:0 0 8px 0}.pjd-msg p:last-child{margin:0}
+.pjd-msg ul,.pjd-msg ol{margin:6px 0 6px 18px}
+.pjd-msg code{background:#e2e8f0;padding:1px 6px;border-radius:4px;font-size:12px}
+.pjd-msg-actions{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.pjd-msg-actions button{background:#fff;border:1px solid #cbd5e1;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;color:#1e3a5f;cursor:pointer;display:inline-flex;align-items:center;gap:4px;font-family:inherit}
+.pjd-msg-actions button:hover{background:#f0f9ff;border-color:#1e3a5f}
+.pjd-chat-foot{padding:10px 12px;border-top:1px solid #f1f5f9;display:flex;gap:8px}
+.pjd-chat-input{flex:1;border:1px solid #e5e7eb;border-radius:8px;padding:8px 10px;font-size:13px;resize:none;font-family:inherit;min-height:38px;max-height:120px}
+.pjd-chat-input:focus{outline:none;border-color:#1e3a5f;box-shadow:0 0 0 3px rgba(30,58,95,.1)}
+.pjd-chat-send{background:#1e3a5f;color:#fff;border:none;border-radius:8px;padding:0 16px;cursor:pointer;font-weight:600;font-size:13px}
+.pjd-chat-send:disabled{opacity:.5;cursor:not-allowed}
 
-  .pjd-tabs { display: flex; gap: 4px; flex: 1; flex-wrap: wrap; }
-  .pjd-tab { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 999px; border: none; background: transparent; font-family: inherit; font-size: .88rem; font-weight: 600; color: var(--ink2); cursor: pointer; transition: all .18s; }
-  .pjd-tab:hover { background: var(--bg); color: var(--blue); }
-  .pjd-tab.is-active { background: var(--blue); color: #fff; }
-  .pjd-tab svg { width: 16px; height: 16px; }
+/* ============= TARJETAS Y CAMPOS ============= */
+.pjd-card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:18px;margin-bottom:14px}
+.pjd-card-title{font-size:15px;font-weight:700;color:#0f172a;margin:0 0 14px 0;display:flex;align-items:center;gap:8px}
+.pjd-fields{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width: 720px){.pjd-fields{grid-template-columns:1fr}}
+.pjd-field{padding:10px 12px;background:#fafbfc;border:1px solid #f1f5f9;border-radius:8px;cursor:pointer;transition:.15s}
+.pjd-field:hover{background:#f0f9ff;border-color:#bae6fd}
+.pjd-field-lbl{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
+.pjd-field-val{font-size:14px;color:#0f172a}
+.pjd-field-empty{color:#94a3b8;font-style:italic;font-size:13px}
+.pjd-field.has-citation::after{content:'';display:inline-block;width:6px;height:6px;background:#1e3a5f;border-radius:50%;margin-left:6px;vertical-align:middle}
 
-  .pjd-view-doc { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: .85rem; font-weight: 600; text-decoration: none; padding: 6px 10px; border-radius: 8px; }
-  .pjd-view-doc:hover { background: var(--bg); color: var(--blue); }
+/* ============= MODAL DE CITAS ============= */
+.pjd-modal{position:fixed;inset:0;background:rgba(15,23,42,.55);display:none;align-items:center;justify-content:center;z-index:9999;padding:18px}
+.pjd-modal.is-open{display:flex}
+.pjd-modal-box{background:#fff;border-radius:14px;max-width:760px;width:100%;max-height:88vh;display:flex;flex-direction:column;overflow:hidden}
+.pjd-modal-head{padding:14px 18px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center}
+.pjd-modal-title{font-size:15px;font-weight:700;color:#0f172a;margin:0}
+.pjd-modal-close{background:transparent;border:none;font-size:20px;cursor:pointer;color:#64748b;line-height:1;padding:4px 8px}
+.pjd-modal-body{padding:18px;overflow-y:auto;flex:1}
+.pjd-cite-block{margin-bottom:14px;padding:12px 14px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px}
+.pjd-cite-src{font-size:12px;font-weight:700;color:#1e3a5f;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center}
+.pjd-cite-page{background:#1e3a5f;color:#fff;padding:2px 8px;border-radius:999px;font-size:11px}
+.pjd-cite-text{font-size:13px;color:#0f172a;line-height:1.5;font-style:italic;border-left:3px solid #1e3a5f;padding-left:10px;background:#fff;padding:8px 10px;border-radius:4px}
 
-  /* ── Layout 2 columnas ── */
-  .pjd-body { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 0; min-height: 0; }
-  @media (max-width: 1100px) { .pjd-body { grid-template-columns: 1fr; } }
-  .pjd-left { display: flex; flex-direction: column; border-right: 1px solid var(--line); background: #fff; min-height: 0; }
-  .pjd-right { display: flex; flex-direction: column; background: var(--bg); min-height: 0; overflow: auto; }
+/* ============= BORRADOR / REPORTE ============= */
+.pjd-sub-tabs{display:flex;gap:6px;margin-bottom:12px}
+.pjd-sub-tab{background:#fff;border:1px solid #e5e7eb;padding:8px 14px;font-size:13px;font-weight:600;color:#64748b;cursor:pointer;border-radius:8px;font-family:inherit}
+.pjd-sub-tab.is-active{background:#1e3a5f;color:#fff;border-color:#1e3a5f}
+.pjd-sub-pane{display:none}.pjd-sub-pane.is-active{display:block}
 
-  /* ── CHAT ── */
-  .pjd-chat-head { padding: 10px 18px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: flex-end; }
-  .pjd-chat-reset { background: var(--bg); border: 1px solid var(--line); padding: 5px 12px; border-radius: 999px; font-size: .8rem; font-weight: 600; color: var(--ink2); cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all .18s; }
-  .pjd-chat-reset:hover { background: var(--blue-soft); color: var(--blue); border-color: var(--blue); }
-  .pjd-chat-list { flex: 1; padding: 18px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
-  .pjd-msg { max-width: 90%; }
-  .pjd-msg.is-user { align-self: flex-end; max-width: 80%; }
-  .pjd-msg.is-assistant { align-self: flex-start; display: flex; gap: 10px; }
-  .pjd-msg-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--ink); color: #fff; display: grid; place-items: center; font-weight: 700; font-size: .8rem; flex-shrink: 0; }
-  .pjd-msg-body { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px 14px; font-size: .92rem; line-height: 1.5; }
-  .pjd-msg.is-user .pjd-msg-body { background: var(--bg); border-color: var(--line); }
-  .pjd-msg-meta { font-size: .72rem; color: var(--muted); margin-bottom: 3px; font-weight: 700; }
-  .pjd-msg.is-assistant .pjd-msg-meta { display: flex; align-items: center; gap: 6px; }
+.pjd-editor-tools{display:flex;gap:6px;background:#fff;border:1px solid #e5e7eb;border-radius:8px 8px 0 0;padding:6px;flex-wrap:wrap;border-bottom:none}
+.pjd-editor-tools button{background:transparent;border:none;padding:6px 8px;cursor:pointer;border-radius:4px;color:#475569;font-weight:600;font-size:13px;min-width:30px}
+.pjd-editor-tools button:hover{background:#f1f5f9;color:#1e3a5f}
+.pjd-editor{background:#fff;border:1px solid #e5e7eb;border-radius:0 0 8px 8px;padding:18px;min-height:420px;font-size:14px;line-height:1.6;outline:none}
+.pjd-editor table{border-collapse:collapse;margin:10px 0;width:100%}
+.pjd-editor table th,.pjd-editor table td{border:1px solid #e5e7eb;padding:6px 10px;font-size:13px}
+.pjd-editor table th{background:#f8fafc;font-weight:700}
+.pjd-save-bar{display:flex;justify-content:flex-end;gap:8px;margin-top:10px;flex-wrap:wrap}
+.pjd-btn{display:inline-flex;align-items:center;gap:6px;background:#1e3a5f;color:#fff;border:none;padding:9px 16px;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;font-family:inherit}
+.pjd-btn:hover{background:#162d49}
+.pjd-btn.ghost{background:#fff;color:#1e3a5f;border:1px solid #cbd5e1}
+.pjd-btn.ghost:hover{background:#f0f9ff}
+.pjd-btn:disabled{opacity:.6;cursor:not-allowed}
+.pjd-report-empty{text-align:center;padding:60px 20px;color:#64748b}
+.pjd-report-empty svg{opacity:.4;margin-bottom:14px}
 
-  .pjd-chat-input { padding: 14px 18px; border-top: 1px solid var(--line); background: #fff; display: flex; align-items: center; gap: 10px; }
-  .pjd-chat-input input { flex: 1; border: 1px solid var(--line); border-radius: 999px; padding: 10px 16px; font-family: inherit; font-size: .92rem; outline: none; transition: border-color .2s; }
-  .pjd-chat-input input:focus { border-color: var(--blue); }
-  .pjd-chat-send { width: 38px; height: 38px; border-radius: 50%; background: var(--ink); color: #fff; border: none; cursor: pointer; display: grid; place-items: center; transition: transform .12s; }
-  .pjd-chat-send:hover { transform: scale(1.05); }
-  .pjd-chat-send:disabled { opacity: .5; cursor: not-allowed; }
+/* ============= DOCUMENTOS ============= */
+.pjd-docs{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.pjd-doc{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:8px}
+.pjd-doc-name{font-size:13px;font-weight:600;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pjd-doc-meta{font-size:11px;color:#64748b}
+.pjd-doc-actions{display:flex;gap:6px;margin-top:auto}
+.pjd-doc-actions a{flex:1;text-align:center;background:#1e3a5f;color:#fff;padding:6px 8px;border-radius:6px;font-size:12px;text-decoration:none;font-weight:600}
 
-  /* ── Tablas en chat (idénticas al screenshot) ── */
-  .pjd-chat-table-wrap { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-top: 4px; max-width: 100%; overflow-x: auto; }
-  .pjd-chat-table-actions { display: flex; gap: 8px; justify-content: flex-end; margin-bottom: 12px; flex-wrap: wrap; }
-  .pjd-chat-table-btn { background: var(--bg); border: 1px solid var(--line); padding: 6px 14px; border-radius: 999px; font-family: inherit; font-size: .8rem; font-weight: 700; color: var(--ink2); cursor: pointer; transition: all .15s; display: inline-flex; align-items: center; gap: 5px; }
-  .pjd-chat-table-btn:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-soft); }
-  .pjd-chat-table-btn.is-primary { background: var(--blue); color: #fff; border-color: var(--blue); }
-  .pjd-chat-table-btn.is-primary:hover { filter: brightness(1.05); color: #fff; background: var(--blue); }
-  .pjd-chat-table { width: 100%; border-collapse: collapse; font-size: .92rem; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
-  .pjd-chat-table th { background: #f3f4f6; color: var(--ink); font-weight: 700; text-align: left; padding: 14px 16px; border-bottom: 1px solid var(--line); vertical-align: top; line-height: 1.4; }
-  .pjd-chat-table td { padding: 14px 16px; border-bottom: 1px solid var(--line); color: var(--ink); vertical-align: top; line-height: 1.55; font-weight: 500; }
-  .pjd-chat-table tr:last-child td { border-bottom: none; }
-  .pjd-chat-table th + th, .pjd-chat-table td + td { border-left: 1px solid var(--line); }
+/* ====== CHECKLIST PRO ====== */
+.chk-counters{display:grid;grid-template-columns:repeat(8,1fr);gap:10px;margin-bottom:14px}
+.chk-counter{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:10px 8px;text-align:center;cursor:pointer;transition:.15s}
+.chk-counter:hover{border-color:#cbd5e1;box-shadow:0 2px 8px rgba(15,23,42,.06)}
+.chk-counter.is-active{border-color:#1e3a5f;box-shadow:0 0 0 2px rgba(30,58,95,.12)}
+.chk-num{display:block;font-size:22px;font-weight:700;color:#0f172a;line-height:1}
+.chk-lbl{display:block;font-size:11px;color:#64748b;margin-top:4px;font-weight:600;text-transform:uppercase;letter-spacing:.3px}
+.chk-c-red .chk-num{color:#dc2626}.chk-c-yellow .chk-num{color:#d97706}
+.chk-c-green .chk-num,.chk-c-green2 .chk-num{color:#16a34a}
+.chk-c-gray .chk-num{color:#64748b}.chk-c-blue .chk-num{color:#2563eb}
+.chk-c-total{background:#1e3a5f;color:#fff}
+.chk-c-total .chk-num,.chk-c-total .chk-lbl{color:#fff}
 
-  /* ── Panel derecho ── */
-  .pjd-pane { padding: 18px 22px; display: none; }
-  .pjd-pane.is-active { display: block; }
-  .pjd-pane-title { font-size: 1.05rem; font-weight: 700; color: var(--ink); margin: 0 0 4px; padding-right: 36px; }
+.chk-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+.chk-toolbar-left,.chk-toolbar-right{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.chk-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:8px;font-size:13px;font-weight:600;font-family:Quicksand,Arial,sans-serif;cursor:pointer;border:1px solid #e5e7eb;background:#fff;color:#334155;transition:.15s}
+.chk-btn:hover{background:#f8fafc;border-color:#cbd5e1}
+.chk-btn-primary{background:#1e3a5f;color:#fff;border-color:#1e3a5f}
+.chk-btn-primary:hover{background:#162d49;color:#fff}
+.chk-btn-ghost{background:#fff}
+.chk-btn-add{background:#fff;border:1.5px dashed #cbd5e1;color:#1e3a5f;width:100%;justify-content:center;padding:12px}
+.chk-btn-add:hover{background:#f0f9ff;border-color:#1e3a5f}
+.chk-export-size{font-weight:400;color:#94a3b8;font-size:12px}
 
-  /* Cards Ficha / Resumen */
-  .pjd-card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; margin-bottom: 14px; overflow: hidden; }
-  .pjd-card-head { padding: 12px 16px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; user-select: none; background: #fafbff; }
-  .pjd-card-head h3 { margin: 0; font-size: .98rem; font-weight: 700; color: var(--ink); display: inline-flex; align-items: center; gap: 6px; }
-  .pjd-card-head h3 .sparkle { color: var(--blue); }
-  .pjd-card-chev { width: 22px; height: 22px; display: grid; place-items: center; color: var(--muted); transition: transform .2s; }
-  .pjd-card.is-open .pjd-card-chev { transform: rotate(180deg); }
-  .pjd-card-body { padding: 6px 16px 14px; display: none; }
-  .pjd-card.is-open .pjd-card-body { display: block; }
+.chk-search{position:relative;display:flex;align-items:center}
+.chk-search svg{position:absolute;left:10px;color:#94a3b8}
+.chk-search input{padding:8px 12px 8px 32px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;width:220px;font-family:Quicksand,Arial,sans-serif;background:#fff}
+.chk-search input:focus{outline:none;border-color:#1e3a5f;box-shadow:0 0 0 3px rgba(30,58,95,.1)}
 
-  .pjd-field { padding: 10px 0; border-bottom: 1px solid var(--line); position: relative; }
-  .pjd-field:last-child { border-bottom: none; }
-  .pjd-field-label { font-size: .78rem; font-weight: 700; color: var(--muted); background: var(--bg); padding: 4px 10px; border-radius: 6px; display: inline-block; margin-bottom: 6px; }
-  .pjd-field-value { font-size: .92rem; color: var(--ink); font-weight: 600; line-height: 1.5; padding: 2px 4px; }
+.chk-dropdown{position:relative}
+.chk-dropdown-panel{position:absolute;top:calc(100% + 6px);right:0;background:#fff;border:1px solid #e5e7eb;border-radius:10px;box-shadow:0 10px 30px rgba(15,23,42,.12);padding:14px;min-width:220px;z-index:50;display:none}
+.chk-dropdown-panel.is-open{display:block}
+.chk-filtros-panel{display:none;grid-template-columns:1fr 1fr 1fr;gap:18px;min-width:540px}
+.chk-filtros-panel.is-open{display:grid}
+.chk-filter-group-title{font-size:12px;font-weight:700;color:#0f172a;margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px}
+.chk-filter-opt{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13px;color:#334155;cursor:pointer}
+.chk-filter-opt input{accent-color:#1e3a5f}
+.chk-filter-badge{background:#1e3a5f;color:#fff;border-radius:999px;padding:1px 7px;font-size:11px;margin-left:4px}
 
-  .pjd-qa { padding: 10px 0; border-bottom: 1px solid var(--line); position: relative; }
-  .pjd-qa:last-child { border-bottom: none; }
-  .pjd-qa-q { font-size: .85rem; font-weight: 700; color: var(--muted); background: var(--bg); padding: 6px 12px; border-radius: 8px; margin-bottom: 8px; display: inline-block; }
-  .pjd-qa-a { font-size: .92rem; color: var(--ink); font-weight: 600; line-height: 1.5; padding: 0 6px; }
+.chk-table-wrap{background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;margin-bottom:12px}
+.chk-table{width:100%;border-collapse:collapse;font-size:13px;font-family:Quicksand,Arial,sans-serif}
+.chk-table thead th{background:#f8fafc;text-align:left;padding:10px 12px;font-weight:700;color:#475569;border-bottom:1px solid #e5e7eb;font-size:12px;text-transform:uppercase;letter-spacing:.3px}
+.chk-table tbody td{padding:12px;border-bottom:1px solid #f1f5f9;vertical-align:middle;color:#0f172a}
+.chk-table tbody tr.chk-row{cursor:pointer;transition:.1s}
+.chk-table tbody tr.chk-row:hover{background:#fafbfc}
+.chk-table tbody tr.chk-row.is-expanded{background:#f8fafc}
+.chk-th-chev,.chk-td-chev{width:36px;text-align:center}
+.chk-th-check,.chk-td-check{width:36px;text-align:center}
+.chk-chev{display:inline-flex;width:22px;height:22px;align-items:center;justify-content:center;border-radius:6px;color:#64748b;transition:.15s}
+.chk-row.is-expanded .chk-chev{transform:rotate(90deg);background:#e0e7ff;color:#1e3a5f}
 
-  /* Citas */
-  .pjd-field.has-cita, .pjd-qa.has-cita { cursor: pointer; padding-right: 100px; transition: background .15s ease; border-radius: 8px; }
-  .pjd-field.has-cita:hover, .pjd-qa.has-cita:hover { background: linear-gradient(to right, transparent, #f0f7ff 35%); }
-  .pjd-cita-badge { position: absolute; top: 50%; right: 6px; transform: translateY(-50%); font-size: .68rem; font-weight: 700; color: var(--blue); background: var(--blue-soft); padding: 5px 12px; border-radius: 999px; border: 1px solid #c7dcfd; opacity: 0; transition: opacity .18s, transform .18s; pointer-events: none; white-space: nowrap; }
-  .pjd-field.has-cita:hover .pjd-cita-badge, .pjd-qa.has-cita:hover .pjd-cita-badge { opacity: 1; transform: translateY(-50%) scale(1.02); }
+.chk-pill{display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;border:1px solid transparent}
+.chk-pill-sin{background:#f1f5f9;color:#475569;border-color:#e2e8f0}
+.chk-pill-cumple{background:#dcfce7;color:#166534;border-color:#86efac}
+.chk-pill-parcial{background:#fef3c7;color:#92400e;border-color:#fcd34d}
+.chk-pill-nocumple{background:#fee2e2;color:#991b1b;border-color:#fca5a5}
+.chk-pill-pendiente{background:#f1f5f9;color:#475569;border-color:#e2e8f0}
+.chk-pill-revision{background:#dbeafe;color:#1e40af;border-color:#93c5fd}
+.chk-pill-aprobado{background:#dcfce7;color:#166534;border-color:#86efac}
+.chk-pill-obligatorio{background:#fee2e2;color:#991b1b;border-color:#fca5a5}
+.chk-pill-opcional{background:#f1f5f9;color:#475569;border-color:#e2e8f0}
 
-  /* Modal cita */
-  .pjd-cita-modal { display: none; position: fixed; inset: 0; z-index: 250; align-items: center; justify-content: center; padding: 20px; }
-  .pjd-cita-modal.is-open { display: flex; }
-  .pjd-cita-modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.5); backdrop-filter: blur(8px); }
-  .pjd-cita-modal-card { position: relative; z-index: 1; background: #fff; border-radius: 16px; max-width: 600px; width: 100%; box-shadow: 0 24px 64px rgba(0,0,0,.22); overflow: hidden; animation: pjdCitaSlideUp .25s cubic-bezier(.22,1,.36,1) both; }
-  @keyframes pjdCitaSlideUp { from { opacity:0; transform: translateY(20px) scale(.97); } to { opacity:1; transform: translateY(0) scale(1); } }
-  .pjd-cita-modal-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 22px; border-bottom: 1px solid var(--line); background: linear-gradient(180deg, #fafbff, #fff); }
-  .pjd-cita-modal-head h4 { margin: 0; font-size: 1.05rem; font-weight: 700; color: var(--ink); display: flex; align-items: center; gap: 8px; }
-  .pjd-cita-modal-head h4::before { content: "📄"; }
-  .pjd-cita-close { border: none; background: var(--bg); width: 30px; height: 30px; border-radius: 8px; cursor: pointer; color: var(--muted); font-size: 14px; line-height: 1; transition: all .15s; }
-  .pjd-cita-close:hover { background: var(--blue-soft); color: var(--blue); }
-  .pjd-cita-modal-body { padding: 22px; }
-  .pjd-cita-quote { border-left: 4px solid var(--blue); background: #f8faff; padding: 14px 16px; border-radius: 8px; font-size: .95rem; line-height: 1.55; color: var(--ink); margin-bottom: 16px; white-space: pre-wrap; max-height: 320px; overflow-y: auto; }
-  .pjd-cita-source { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 12px 14px; background: #f8fafc; border-radius: 10px; border: 1px solid var(--line); }
-  .pjd-cita-source-label { font-size: .82rem; color: var(--muted); font-weight: 600; }
-  .pjd-cita-source-file { font-size: .92rem; font-weight: 700; color: var(--ink); }
-  .pjd-cita-source-page { font-size: .82rem; color: var(--muted); }
-  .pjd-cita-modal-footer { display: flex; gap: 10px; justify-content: flex-end; padding: 14px 22px; border-top: 1px solid var(--line); background: #fafbff; }
-  .pjd-cita-btn { padding: 8px 18px; border-radius: 999px; font-family: inherit; font-weight: 700; font-size: .85rem; border: none; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: all .15s; }
-  .pjd-cita-btn-primary { background: var(--blue); color: #fff; }
-  .pjd-cita-btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 14px rgba(0,122,255,.25); }
-  .pjd-cita-btn-ghost { background: transparent; color: var(--ink2); border: 1px solid var(--line); }
-  .pjd-cita-btn-ghost:hover { background: var(--bg); }
+.chk-cum-select,.chk-st-select{border:1px solid #e5e7eb;border-radius:6px;padding:4px 8px;font-size:12px;background:#fff;font-family:Quicksand,Arial,sans-serif;cursor:pointer}
 
-  /* ════════════ CHECKLIST AVANZADO ════════════ */
-  .pjd-checklist-wrap { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
-  .pjd-checklist-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
-  .pjd-checklist-title { font-size: 1.05rem; font-weight: 700; color: var(--ink); display: inline-flex; align-items: center; gap: 8px; }
-  .pjd-checklist-title .star { color: var(--blue); }
-  .pjd-checklist-head-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  .pjd-checklist-link { color: var(--blue); font-weight: 700; font-size: .82rem; text-decoration: none; padding: 6px 10px; border-radius: 8px; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; background: transparent; border: none; }
-  .pjd-checklist-link:hover { background: var(--blue-soft); }
+.chk-detail-row td{padding:0!important;background:#f8fafc;border-bottom:1px solid #e5e7eb}
+.chk-detail{padding:20px 24px;display:grid;grid-template-columns:1fr 1fr;gap:24px}
+.chk-detail-block{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:14px 16px}
+.chk-detail-block.chk-full{grid-column:1/-1}
+.chk-detail-label{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px}
+.chk-detail-text{font-size:14px;color:#0f172a;line-height:1.55;user-select:text}
+.chk-detail-text mark{background:#fef08a;padding:1px 2px;border-radius:2px}
+.chk-detail-meta{font-size:12px;color:#64748b;margin-top:6px}
+.chk-detail-meta strong{color:#0f172a}
 
-  .pjd-counters { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
-  @media (max-width: 900px) { .pjd-counters { grid-template-columns: repeat(2, 1fr); } }
-  .pjd-counter { padding: 10px 12px; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); }
-  .pjd-counter-top { display: flex; align-items: center; gap: 6px; font-size: .8rem; font-weight: 700; color: var(--ink2); }
-  .pjd-counter-num { font-size: 1rem; font-weight: 700; color: var(--ink); }
-  .pjd-counter-pct { margin-left: auto; font-size: .72rem; font-weight: 700; color: var(--muted); }
-  .pjd-counter-bar { height: 4px; background: var(--line); border-radius: 999px; overflow: hidden; margin-top: 6px; }
-  .pjd-counter-bar-fill { height: 100%; background: var(--muted); border-radius: 999px; transition: width .3s; }
-  .pjd-counter.is-pending .pjd-counter-bar-fill { background: var(--warning); }
-  .pjd-counter.is-cumple .pjd-counter-bar-fill { background: var(--success); }
-  .pjd-counter.is-parcial .pjd-counter-bar-fill { background: var(--warning); }
-  .pjd-counter.is-nocumple .pjd-counter-bar-fill { background: var(--danger); }
-  .pjd-counter.is-review .pjd-counter-bar-fill { background: var(--blue); }
-  .pjd-counter.is-approved .pjd-counter-bar-fill { background: var(--success); }
-  .pjd-counter.is-pending .pjd-counter-top { color: var(--warning); }
-  .pjd-counter.is-cumple .pjd-counter-top, .pjd-counter.is-approved .pjd-counter-top { color: var(--success); }
-  .pjd-counter.is-parcial .pjd-counter-top { color: var(--orange); }
-  .pjd-counter.is-nocumple .pjd-counter-top { color: var(--danger); }
-  .pjd-counter.is-review .pjd-counter-top { color: var(--blue); }
-  .pjd-counter.is-total { background: linear-gradient(180deg, var(--blue-soft), #f0f7ff); border-color: #c7dcfd; }
+.chk-prio-group{display:inline-flex;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden}
+.chk-prio-btn{padding:6px 14px;border:none;background:#fff;font-size:12px;font-weight:700;color:#64748b;cursor:pointer;font-family:Quicksand,Arial,sans-serif;border-right:1px solid #e5e7eb}
+.chk-prio-btn:last-child{border-right:none}
+.chk-prio-btn:hover{background:#f8fafc}
+.chk-prio-btn.is-active[data-prio="alta"]{background:#fee2e2;color:#991b1b}
+.chk-prio-btn.is-active[data-prio="media"]{background:#fef3c7;color:#92400e}
+.chk-prio-btn.is-active[data-prio="baja"]{background:#dcfce7;color:#166534}
 
-  .pjd-cl-toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
-  .pjd-cl-search { flex: 1; min-width: 220px; position: relative; }
-  .pjd-cl-search input { width: 100%; padding: 8px 14px 8px 36px; border: 1px solid var(--line); border-radius: 999px; font-family: inherit; font-size: .88rem; outline: none; background: #fff; }
-  .pjd-cl-search input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-soft); }
-  .pjd-cl-search svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; stroke: var(--muted); }
-  .pjd-cl-btn { padding: 7px 14px; border: 1px solid var(--line); background: #fff; border-radius: 999px; font-family: inherit; font-size: .85rem; font-weight: 700; color: var(--ink2); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all .15s; }
-  .pjd-cl-btn:hover { border-color: var(--blue); color: var(--blue); }
-  .pjd-cl-btn.is-primary { background: var(--blue); color: #fff; border-color: var(--blue); }
-  .pjd-cl-btn.is-primary:hover { filter: brightness(1.05); box-shadow: 0 6px 14px rgba(0,122,255,.22); }
-  .pjd-cl-btn svg { width: 13px; height: 13px; }
+.chk-date-input,.chk-select{width:100%;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;font-family:Quicksand,Arial,sans-serif;background:#fff;color:#0f172a}
+.chk-date-input:focus,.chk-select:focus{outline:none;border-color:#1e3a5f;box-shadow:0 0 0 3px rgba(30,58,95,.1)}
 
-  .pjd-cl-table-wrap { overflow-x: auto; }
-  .pjd-cl-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: .86rem; background: #fff; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); min-width: 900px; }
-  .pjd-cl-table thead th { background: #fafbff; padding: 10px 12px; font-weight: 700; color: var(--muted); text-align: left; font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; border-bottom: 1px solid var(--line); white-space: nowrap; }
-  .pjd-cl-table tbody td { padding: 10px 12px; border-bottom: 1px solid var(--line); color: var(--ink2); vertical-align: middle; }
-  .pjd-cl-table tbody tr:last-child td { border-bottom: none; }
-  .pjd-cl-table tbody tr:hover { background: #fafbff; }
-  .pjd-cl-table tbody tr.is-expanded { background: #f5f7fb; }
+.chk-notes{display:flex;flex-direction:column;gap:6px}
+.chk-notes-head{display:flex;justify-content:space-between;align-items:center}
+.chk-notes-empty{color:#94a3b8;font-size:13px;font-style:italic}
+.chk-notes-text{font-size:13px;color:#0f172a;background:#fafbfc;padding:8px 10px;border-radius:6px;border:1px solid #f1f5f9;white-space:pre-wrap}
+.chk-notes-edit{width:100%;min-height:80px;padding:8px 10px;border:1px solid #e5e7eb;border-radius:6px;font-size:13px;font-family:Quicksand,Arial,sans-serif;resize:vertical}
+.chk-icon-btn{background:transparent;border:none;color:#1e3a5f;cursor:pointer;padding:4px;border-radius:4px;display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;font-family:Quicksand,Arial,sans-serif}
+.chk-icon-btn:hover{background:#e0e7ff}
 
-  .pjd-cl-row-toggle { background: transparent; border: none; cursor: pointer; padding: 2px; color: var(--muted); display: inline-flex; align-items: center; }
-  .pjd-cl-row-toggle svg { width: 13px; height: 13px; transition: transform .2s; }
-  tr.is-expanded .pjd-cl-row-toggle svg { transform: rotate(90deg); }
+.chk-attachments{display:flex;flex-direction:column;gap:8px}
+.chk-att-list{display:flex;flex-direction:column;gap:6px}
+.chk-att-item{display:flex;align-items:center;gap:8px;padding:8px 10px;background:#fafbfc;border:1px solid #f1f5f9;border-radius:6px;font-size:13px}
+.chk-att-item a{color:#1e3a5f;text-decoration:none;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chk-att-item a:hover{text-decoration:underline}
+.chk-att-rm{background:transparent;border:none;color:#dc2626;cursor:pointer;padding:2px}
+.chk-detail-actions{grid-column:1/-1;display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
+.chk-footer{margin-top:12px}
+.chk-empty{padding:40px;text-align:center;color:#64748b;background:#fff;border-radius:12px}
 
-  .pjd-cl-requisito { display: flex; align-items: center; gap: 8px; max-width: 380px; }
-  .pjd-cl-requisito-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; color: var(--ink); }
-
-  .pjd-cl-detail { background: #f8faff; padding: 14px 18px; font-size: .85rem; color: var(--ink2); }
-  .pjd-cl-detail strong { color: var(--ink); }
-  .pjd-cl-detail-row { margin-bottom: 6px; }
-
-  .pjd-cl-cumple-dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--line); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; background: transparent; padding: 0; }
-  .pjd-cl-cumple-dot.is-cumple { background: var(--success); border-color: var(--success); }
-  .pjd-cl-cumple-dot.is-parcial { background: var(--warning); border-color: var(--warning); }
-  .pjd-cl-cumple-dot.is-nocumple { background: var(--danger); border-color: var(--danger); }
-
-  .pjd-cl-status { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; font-size: .8rem; cursor: pointer; padding: 4px 8px; border-radius: 999px; }
-  .pjd-cl-status.is-pendiente { color: var(--warning); background: var(--warning-soft); }
-  .pjd-cl-status.is-revision { color: var(--blue); background: var(--blue-soft); }
-  .pjd-cl-status.is-aprobado { color: var(--success); background: var(--success-soft); }
-
-  .pjd-cl-options { background: var(--blue-soft); border: 1px solid #c7dcfd; color: var(--blue); width: 28px; height: 22px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; padding: 0; font-weight: 700; }
-  .pjd-cl-options:hover { background: #d8e7ff; }
-
-  .pjd-cl-popover { position: fixed; z-index: 200; background: #fff; border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 12px 32px rgba(0,0,0,.12); padding: 6px; display: none; min-width: 160px; }
-  .pjd-cl-popover.is-open { display: block; }
-  .pjd-cl-popover button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 10px; border: none; background: transparent; cursor: pointer; font-family: inherit; font-size: .85rem; text-align: left; border-radius: 6px; color: var(--ink2); }
-  .pjd-cl-popover button:hover { background: var(--bg); }
-  .pjd-cl-popover button .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
-
-  .pjd-cl-no-results { text-align: center; padding: 30px; color: var(--muted); font-size: .9rem; }
-
-  .pjd-cl-add { margin-top: 10px; padding: 14px; border: 1.5px dashed #c7dcfd; border-radius: 12px; text-align: center; color: var(--blue); font-weight: 700; cursor: pointer; background: transparent; width: 100%; font-family: inherit; font-size: .9rem; transition: all .15s; }
-  .pjd-cl-add:hover { background: var(--blue-soft); }
-
-  /* ════════════ BORRADOR / REPORTE ════════════ */
-  .pjd-borrador-tabs { display: flex; gap: 6px; align-items: center; background: var(--bg); padding: 4px; border-radius: 999px; border: 1px solid var(--line); margin-bottom: 16px; width: fit-content; }
-  .pjd-borrador-tab { display: inline-flex; align-items: center; gap: 6px; padding: 7px 16px; border-radius: 999px; border: none; background: transparent; font-family: inherit; font-size: .85rem; font-weight: 700; color: var(--ink2); cursor: pointer; transition: all .15s; }
-  .pjd-borrador-tab:hover { color: var(--blue); }
-  .pjd-borrador-tab.is-active { background: var(--blue); color: #fff; }
-  .pjd-borrador-tab svg { width: 14px; height: 14px; }
-
-  .pjd-borrador-actions { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
-
-  .pjd-borrador-section { display: none; }
-  .pjd-borrador-section.is-active { display: block; }
-
-  .pjd-draft-toolbar { background: #f5f7fb; border: 1px solid var(--line); border-radius: 12px 12px 0 0; padding: 8px; display: flex; gap: 4px; flex-wrap: wrap; }
-  .pjd-draft-btn { background: transparent; border: none; padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: .85rem; font-weight: 700; color: var(--ink2); }
-  .pjd-draft-btn:hover { background: var(--card); }
-  .pjd-draft-editor { width: 100%; min-height: 500px; padding: 16px; border: 1px solid var(--line); border-top: none; border-radius: 0 0 12px 12px; background: #fff; font-family: inherit; font-size: .95rem; outline: none; resize: vertical; }
-  .pjd-draft-editor table { border-collapse: collapse; width: 100%; margin: 14px 0; }
-  .pjd-draft-editor th, .pjd-draft-editor td { border: 1px solid #e5e7eb; padding: 10px 12px; text-align: left; }
-  .pjd-draft-editor th { background: #f3f4f6; font-weight: 700; }
-
-  .pjd-reporte-empty { background: #fff; border: 1.5px dashed var(--line); border-radius: 14px; padding: 60px 30px; text-align: center; min-height: 360px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; }
-  .pjd-reporte-empty p { margin: 0; font-size: 1rem; color: var(--muted); font-weight: 600; }
-  .pjd-reporte-btn { background: var(--blue); color: #fff; padding: 12px 28px; border-radius: 999px; border: none; font-family: inherit; font-weight: 700; font-size: .92rem; cursor: pointer; box-shadow: 0 6px 14px rgba(0,122,255,.22); transition: all .15s; display: inline-flex; align-items: center; gap: 8px; }
-  .pjd-reporte-btn:hover { transform: translateY(-1px); box-shadow: 0 10px 22px rgba(0,122,255,.28); }
-  .pjd-reporte-btn:disabled { opacity: .6; cursor: not-allowed; }
-  .pjd-reporte-content { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 30px 36px; min-height: 480px; font-size: .95rem; line-height: 1.7; color: var(--ink2); }
-  .pjd-reporte-content h1, .pjd-reporte-content h2, .pjd-reporte-content h3 { color: var(--ink); margin: 18px 0 10px; }
-  .pjd-reporte-content h1 { font-size: 1.6rem; }
-  .pjd-reporte-content h2 { font-size: 1.25rem; }
-  .pjd-reporte-content h3 { font-size: 1.05rem; }
-  .pjd-reporte-content table { width: 100%; border-collapse: collapse; margin: 14px 0; }
-  .pjd-reporte-content th, .pjd-reporte-content td { padding: 8px 12px; border: 1px solid var(--line); text-align: left; }
-  .pjd-reporte-content th { background: var(--bg); font-weight: 700; }
-
-  .pjd-doc { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); margin-bottom: 8px; }
-  .pjd-doc-icon { width: 34px; height: 40px; border-radius: 6px; background: var(--danger-soft); border: 1px solid #fecaca; display: grid; place-items: center; color: var(--danger); font-size: .65rem; font-weight: 700; flex-shrink: 0; }
-  .pjd-doc-meta { flex: 1; min-width: 0; }
-  .pjd-doc-name { font-size: .92rem; font-weight: 700; color: var(--ink); }
-  .pjd-doc-sub { font-size: .78rem; color: var(--muted); margin-top: 2px; }
-  .pjd-doc-actions { display: flex; gap: 6px; }
-  .pjd-doc-link { padding: 6px 10px; border-radius: 8px; background: var(--bg); color: var(--ink2); font-weight: 600; font-size: .8rem; text-decoration: none; border: 1px solid var(--line); }
-  .pjd-doc-link:hover { color: var(--blue); border-color: var(--blue); }
-
-  .pjd-inicio-card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; margin-bottom: 14px; }
-  .pjd-inicio-card h4 { margin: 0 0 8px; font-size: .9rem; font-weight: 700; color: var(--ink); }
-  .pjd-inicio-card p { margin: 0; font-size: .88rem; color: var(--muted); }
-
-  .pjd-loading-dots { display: inline-flex; gap: 4px; }
-  .pjd-loading-dots span { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); animation: pjdBounce 1.2s infinite ease-in-out; }
-  .pjd-loading-dots span:nth-child(2) { animation-delay: .15s; }
-  .pjd-loading-dots span:nth-child(3) { animation-delay: .3s; }
-  @keyframes pjdBounce { 0%,80%,100% { transform: scale(.6); opacity: .4; } 40% { transform: scale(1); opacity: 1; } }
-
-  /* Toast */
-  .pjd-toast { position: fixed; bottom: 24px; right: 24px; background: var(--ink); color: #fff; padding: 12px 18px; border-radius: 10px; font-size: .88rem; font-weight: 600; z-index: 9999; box-shadow: 0 10px 30px rgba(0,0,0,.2); animation: pjdToastIn .25s ease both; }
-  .pjd-toast.is-success { background: var(--success); }
-  .pjd-toast.is-error { background: var(--danger); }
-  @keyframes pjdToastIn { from { opacity:0; transform: translateY(20px); } to { opacity:1; transform: translateY(0); } }
+@media (max-width: 980px){
+  .chk-counters{grid-template-columns:repeat(4,1fr)}
+  .chk-detail{grid-template-columns:1fr}
+  .chk-filtros-panel{grid-template-columns:1fr;min-width:240px}
+  .chk-toolbar-left,.chk-toolbar-right{width:100%}
+  .chk-search input{width:100%}
+}
 </style>
 @endpush
 
 @section('content')
-@php
-  use Illuminate\Support\Str;
-
-  $sd = $project->structured_data ?? [];
-  $ficha = $sd['ficha'] ?? [];
-  $fechas = $sd['fechas_clave'] ?? [];
-  $resumenEjec = $sd['resumen_ejecutivo'] ?? [];
-  $partidas = $sd['partidas'] ?? [];
-  $citas = $sd['citas'] ?? [];
-  $checklistRaw = $project->checklist ?: ($sd['checklist_sugerido'] ?? []);
-
-  $checklist = collect($checklistRaw)->map(function ($it, $i) {
-      if (!is_array($it)) return null;
-      return [
-          'id'            => $it['id'] ?? ('item-'.$i),
-          'requisito'     => $it['requisito'] ?? $it['item'] ?? $it['text'] ?? 'Sin nombre',
-          'descripcion'   => $it['descripcion'] ?? '',
-          'formato'       => $it['formato'] ?? 'No aplica',
-          'categoria'     => $it['categoria'] ?? 'Legal-Administrativo',
-          'aplicabilidad' => $it['aplicabilidad'] ?? 'Único',
-          'obligatorio'   => $it['obligatorio'] ?? 'Sí',
-          'cumplimiento'  => $it['cumplimiento'] ?? '-',
-          'status'        => $it['status'] ?? 'Pendiente',
-          'prioridad'     => $it['prioridad'] ?? 'Media',
-          'fuente'        => $it['fuente'] ?? '',
-          'pagina'        => $it['pagina'] ?? null,
-      ];
-  })->filter()->values()->all();
-
-  $statusClass = match($project->status) {
-      'ready' => 'is-ready',
-      'processing' => 'is-processing',
-      'error','partial' => 'is-error',
-      default => '',
-  };
-  $statusLabel = match($project->status) {
-      'ready' => 'Listo',
-      'processing' => 'Procesando…',
-      'error' => 'Error',
-      'partial' => 'Parcial',
-      default => $project->status,
-  };
-
-  $citaPayload = function ($citas, $key) {
-      $c = $citas[$key] ?? null;
-      if (!is_array($c) || empty($c['cita'])) return null;
-      return htmlspecialchars(json_encode([
-          'cita'   => $c['cita'] ?? '',
-          'fuente' => $c['fuente'] ?? '',
-          'pagina' => $c['pagina'] ?? null,
-      ], JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8');
-  };
-@endphp
-
 <div class="pjd-wrap">
 
-  <div class="pjd-topbar">
-    <a href="{{ route('projects.index') }}" class="pjd-back" title="Volver">←</a>
-    <div class="pjd-title">
-      {{ $project->name }}
-      <span class="pjd-status-pill {{ $statusClass }}">{{ $statusLabel }}</span>
+  {{-- ===== HEADER ===== --}}
+  <div class="pjd-head">
+    <div>
+      <h1 class="pjd-title">{{ $project->name }}</h1>
+      <div class="pjd-sub">Creado {{ $project->created_at?->format('d/m/Y') }} · {{ count($documents ?? []) }} documento(s)</div>
     </div>
-
-    <div class="pjd-tabs" id="pjdTabs">
-      <button class="pjd-tab" data-tab="analisis"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 9h6M9 13h6M9 17h3"/></svg> Análisis de Bases</button>
-      <button class="pjd-tab" data-tab="inicio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11l9-8 9 8M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></svg> Inicio</button>
-      <button class="pjd-tab is-active" data-tab="ficha"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg> Ficha</button>
-      <button class="pjd-tab" data-tab="resumen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6"/></svg> Resumen Ejecutivo</button>
-      <button class="pjd-tab" data-tab="checklist"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> Checklist</button>
-      <button class="pjd-tab" data-tab="borrador"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg> Borrador</button>
-      <button class="pjd-tab" data-tab="documentos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg> Documentos ({{ $project->documents->count() }})</button>
-
-      @if($project->documents->isNotEmpty())
-        <a href="{{ Storage::disk('public')->url($project->documents->first()->file_path) }}" target="_blank" class="pjd-view-doc">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-          Ver documento
-        </a>
-      @endif
-    </div>
+    <a href="{{ route('projects.index') }}" class="pjd-back">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+      Volver a proyectos
+    </a>
   </div>
 
-  <div class="pjd-body">
+  {{-- ===== TABS ===== --}}
+  <div class="pjd-tabs">
+    <button class="pjd-tab is-active" data-tab="analisis">Análisis de Bases</button>
+    <button class="pjd-tab" data-tab="inicio">Inicio</button>
+    <button class="pjd-tab" data-tab="ficha">Ficha</button>
+    <button class="pjd-tab" data-tab="resumen">Resumen Ejecutivo</button>
+    <button class="pjd-tab" data-tab="checklist">Checklist</button>
+    <button class="pjd-tab" data-tab="borrador">Borrador</button>
+    <button class="pjd-tab" data-tab="documentos">Documentos</button>
+  </div>
 
-    {{-- COLUMNA IZQUIERDA: CHAT --}}
-    <div class="pjd-left">
+  <div class="pjd-grid">
+    {{-- ===== COLUMNA IZQUIERDA: CHAT ===== --}}
+    <div class="pjd-chat">
       <div class="pjd-chat-head">
-        <button type="button" class="pjd-chat-reset" id="pjdChatReset" title="Reiniciar chat">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/></svg>
-          Reiniciar
-        </button>
+        <div class="pjd-chat-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+          Asistente del proyecto
+        </div>
+        <button type="button" class="pjd-chat-reset" id="pjdChatReset">Limpiar</button>
       </div>
-
-      <div class="pjd-chat-list" id="pjdChatList">
-        @forelse($project->chatMessages as $m)
-          <div class="pjd-msg {{ $m->role === 'user' ? 'is-user' : 'is-assistant' }}">
-            @if($m->role === 'assistant')
-              <div class="pjd-msg-avatar">j</div>
-              <div style="flex:1;min-width:0;">
-                <div class="pjd-msg-meta">jureto · {{ $m->created_at->format('H:i') }}</div>
-                <div class="pjd-msg-body" data-raw="{{ $m->content }}">{!! nl2br(e($m->content)) !!}</div>
-              </div>
-            @else
-              <div class="pjd-msg-body">{{ $m->content }}</div>
-            @endif
-          </div>
+      <div class="pjd-chat-body" id="pjdChatBody">
+        @forelse(($messages ?? []) as $m)
+          <div class="pjd-msg {{ $m->role === 'user' ? 'user' : 'assistant' }}">{!! nl2br(e($m->content)) !!}</div>
         @empty
-          <div class="pjd-msg is-assistant">
-            <div class="pjd-msg-avatar">j</div>
-            <div>
-              <div class="pjd-msg-meta">jureto</div>
-              <div class="pjd-msg-body">Hola, soy tu asistente. Pregúntame cosas como "resúmeme los archivos" o "lista las fechas clave" y te las paso en tabla.</div>
-            </div>
+          <div class="pjd-msg assistant">
+            Hola 👋 Soy tu asistente para este proyecto. Pregúntame sobre las bases, requisitos, fechas, garantías, partidas, etc.
           </div>
         @endforelse
       </div>
-
-      <form class="pjd-chat-input" id="pjdChatForm" autocomplete="off">
-        @csrf
-        <input type="text" name="message" id="pjdChatInput" placeholder="Pregunta a jureto (Shift+Enter para salto de línea)">
-        <button type="submit" class="pjd-chat-send" id="pjdChatSend" aria-label="Enviar">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
-        </button>
-      </form>
+      <div class="pjd-chat-foot">
+        <textarea class="pjd-chat-input" id="pjdChatInput" placeholder="Escribe tu pregunta..." rows="1"></textarea>
+        <button class="pjd-chat-send" id="pjdChatSend">Enviar</button>
+      </div>
     </div>
 
-    {{-- COLUMNA DERECHA: PANEL --}}
-    <div class="pjd-right">
+    {{-- ===== COLUMNA DERECHA: PANES ===== --}}
+    <div>
 
-      <div class="pjd-pane" data-pane="inicio">
-        <div class="pjd-inicio-card">
-          <h4>Estado del proyecto</h4>
-          <p>Status: <strong>{{ $statusLabel }}</strong></p>
-          <p>Documentos: <strong>{{ $project->documents->count() }}</strong></p>
-          <p>Creado: <strong>{{ $project->created_at->format('d M Y H:i') }}</strong></p>
+      {{-- ANÁLISIS DE BASES --}}
+      <div class="pjd-pane is-active" data-pane="analisis">
+        <div class="pjd-card">
+          <h3 class="pjd-card-title">Análisis general</h3>
+          @php $resumen = data_get($project->structured_data, 'resumen_ejecutivo'); @endphp
+          @if($resumen && is_string($resumen))
+            <div style="line-height:1.6;color:#334155">{!! nl2br(e($resumen)) !!}</div>
+          @elseif(is_array($resumen))
+            @foreach($resumen as $k => $v)
+              <div style="margin-bottom:10px"><strong style="color:#1e3a5f">{{ ucfirst(str_replace('_',' ',$k)) }}:</strong> {{ is_array($v) ? json_encode($v, JSON_UNESCAPED_UNICODE) : $v }}</div>
+            @endforeach
+          @else
+            <div style="color:#94a3b8">No hay análisis disponible. Sube documentos para que se genere automáticamente.</div>
+          @endif
         </div>
-        @if($project->status === 'error' && $project->error_message)
-          <div class="pjd-inicio-card" style="border-color:#fecaca;background:#fff5f5;">
-            <h4 style="color:var(--danger)">Error de procesamiento</h4>
-            <p>{{ $project->error_message }}</p>
+      </div>
+
+      {{-- INICIO --}}
+      <div class="pjd-pane" data-pane="inicio">
+        <div class="pjd-card">
+          <h3 class="pjd-card-title">Datos iniciales</h3>
+          @php $inicio = data_get($project->structured_data, 'ficha', []); @endphp
+          <div class="pjd-fields">
+            @foreach(['numero_procedimiento'=>'Núm. Procedimiento','convocante'=>'Convocante','tipo_procedimiento'=>'Tipo','caracter'=>'Carácter','objeto'=>'Objeto','origen_recursos'=>'Origen de Recursos'] as $k => $lbl)
+              <div class="pjd-field {{ data_get($project->structured_data, 'citas.'.$k) ? 'has-citation' : '' }}" data-cite-key="{{ $k }}">
+                <div class="pjd-field-lbl">{{ $lbl }}</div>
+                <div class="pjd-field-val">
+                  @if(!empty($inicio[$k])) {{ $inicio[$k] }} @else <span class="pjd-field-empty">—</span> @endif
+                </div>
+              </div>
+            @endforeach
+          </div>
+        </div>
+      </div>
+
+      {{-- FICHA --}}
+      <div class="pjd-pane" data-pane="ficha">
+        <div class="pjd-card">
+          <h3 class="pjd-card-title">Ficha técnica</h3>
+          @php $ficha = data_get($project->structured_data, 'ficha', []); @endphp
+          <div class="pjd-fields">
+            @foreach($ficha as $k => $v)
+              <div class="pjd-field {{ data_get($project->structured_data, 'citas.'.$k) ? 'has-citation' : '' }}" data-cite-key="{{ $k }}">
+                <div class="pjd-field-lbl">{{ ucfirst(str_replace('_',' ',$k)) }}</div>
+                <div class="pjd-field-val">{{ is_array($v) ? json_encode($v, JSON_UNESCAPED_UNICODE) : ($v ?: '—') }}</div>
+              </div>
+            @endforeach
+          </div>
+        </div>
+
+        @php $fechas = data_get($project->structured_data, 'fechas_clave', []); @endphp
+        @if(!empty($fechas))
+          <div class="pjd-card">
+            <h3 class="pjd-card-title">Fechas clave</h3>
+            <div class="pjd-fields">
+              @foreach($fechas as $k => $v)
+                <div class="pjd-field {{ data_get($project->structured_data, 'citas.fecha_'.$k) ? 'has-citation' : '' }}" data-cite-key="fecha_{{ $k }}">
+                  <div class="pjd-field-lbl">{{ ucfirst(str_replace('_',' ',$k)) }}</div>
+                  <div class="pjd-field-val">{{ is_array($v) ? json_encode($v, JSON_UNESCAPED_UNICODE) : ($v ?: '—') }}</div>
+                </div>
+              @endforeach
+            </div>
           </div>
         @endif
       </div>
 
-      <div class="pjd-pane is-active" data-pane="ficha">
-        <div class="pjd-card is-open">
-          <div class="pjd-card-head js-card-toggle">
-            <h3>Ficha de Resumen <span class="sparkle">✨</span></h3>
-            <div class="pjd-card-chev">▾</div>
-          </div>
-          <div class="pjd-card-body">
-            @php
-              $fichaRows = [
-                ['key'=>'ficha.numero_licitacion',     'label'=>'Número de licitación',                  'val'=>$ficha['numero_licitacion'] ?? null],
-                ['key'=>'ficha.tipo_evento',           'label'=>'Tipo de evento',                         'val'=>$ficha['tipo_evento'] ?? null],
-                ['key'=>'ficha.organismo',             'label'=>'Organismo',                              'val'=>$ficha['organismo'] ?? null],
-                ['key'=>'ficha.objeto_licitacion',     'label'=>'¿Cuál es el objeto de la licitación?',   'val'=>$ficha['objeto_licitacion'] ?? null],
-                ['key'=>'ficha.medio_participacion',   'label'=>'¿Cuál es el medio de participación?',    'val'=>$ficha['medio_participacion'] ?? null],
-              ];
-            @endphp
-            @foreach($fichaRows as $row)
-              @php $payload = $citaPayload($citas, $row['key']); @endphp
-              <div class="pjd-field {{ $payload ? 'has-cita' : '' }}" @if($payload) data-cita="{{ $payload }}" @endif>
-                <div class="pjd-field-label">{{ $row['label'] }}</div>
-                <div class="pjd-field-value">{{ $row['val'] ?: 'No se encontró información' }}</div>
-                @if($payload)<div class="pjd-cita-badge">📄 Ver cita</div>@endif
-              </div>
-            @endforeach
-          </div>
-        </div>
-
-        <div class="pjd-card is-open">
-          <div class="pjd-card-head js-card-toggle">
-            <h3>Fechas Clave <span class="sparkle">✨</span></h3>
-            <div class="pjd-card-chev">▾</div>
-          </div>
-          <div class="pjd-card-body">
-            @php
-              $fechasRows = [
-                ['key'=>'fechas_clave.fecha_publicacion',     'label'=>'Fecha de publicación',                       'val'=>$fechas['fecha_publicacion'] ?? null],
-                ['key'=>'fechas_clave.junta_aclaraciones',    'label'=>'Junta de aclaraciones',                      'val'=>$fechas['junta_aclaraciones'] ?? null],
-                ['key'=>'fechas_clave.presentacion_apertura', 'label'=>'Presentación y apertura de proposiciones',   'val'=>$fechas['presentacion_apertura'] ?? null],
-                ['key'=>'fechas_clave.fallo',                 'label'=>'Fallo',                                       'val'=>$fechas['fallo'] ?? null],
-                ['key'=>'fechas_clave.vigencia_contrato',     'label'=>'Vigencia del contrato',                       'val'=>$fechas['vigencia_contrato'] ?? null],
-              ];
-            @endphp
-            @foreach($fechasRows as $row)
-              @php $payload = $citaPayload($citas, $row['key']); @endphp
-              <div class="pjd-field {{ $payload ? 'has-cita' : '' }}" @if($payload) data-cita="{{ $payload }}" @endif>
-                <div class="pjd-field-label">{{ $row['label'] }}</div>
-                <div class="pjd-field-value">{{ $row['val'] ?: 'No se encontró información' }}</div>
-                @if($payload)<div class="pjd-cita-badge">📄 Ver cita</div>@endif
-              </div>
-            @endforeach
-          </div>
-        </div>
-      </div>
-
+      {{-- RESUMEN EJECUTIVO --}}
       <div class="pjd-pane" data-pane="resumen">
-        <div class="pjd-card is-open">
-          <div class="pjd-card-head js-card-toggle">
-            <h3>Resumen Ejecutivo <span class="sparkle">✨</span></h3>
-            <div class="pjd-card-chev">▾</div>
-          </div>
-          <div class="pjd-card-body">
-            @forelse($resumenEjec as $idx => $qa)
-              @php $payload = $citaPayload($citas, "resumen_ejecutivo.{$idx}"); @endphp
-              <div class="pjd-qa {{ $payload ? 'has-cita' : '' }}" @if($payload) data-cita="{{ $payload }}" @endif>
-                <div class="pjd-qa-q">{{ $qa['pregunta'] ?? '' }}</div>
-                <div class="pjd-qa-a">{{ $qa['respuesta'] ?? 'No se encontró información' }}</div>
-                @if($payload)<div class="pjd-cita-badge">📄 Ver cita</div>@endif
-              </div>
-            @empty
-              <p style="color:var(--muted);font-size:.9rem;padding:8px;">Sin información disponible.</p>
-            @endforelse
-          </div>
+        <div class="pjd-card">
+          <h3 class="pjd-card-title">Resumen ejecutivo</h3>
+          @php $re = data_get($project->structured_data, 'resumen_ejecutivo', []); @endphp
+          @if(is_array($re))
+            <div class="pjd-fields">
+              @foreach($re as $k => $v)
+                <div class="pjd-field {{ data_get($project->structured_data, 'citas.re_'.$k) ? 'has-citation' : '' }}" data-cite-key="re_{{ $k }}">
+                  <div class="pjd-field-lbl">{{ ucfirst(str_replace('_',' ',$k)) }}</div>
+                  <div class="pjd-field-val">{{ is_array($v) ? json_encode($v, JSON_UNESCAPED_UNICODE) : ($v ?: '—') }}</div>
+                </div>
+              @endforeach
+            </div>
+          @else
+            <div style="line-height:1.6">{{ $re }}</div>
+          @endif
         </div>
       </div>
 
+      {{-- CHECKLIST PRO --}}
       <div class="pjd-pane" data-pane="checklist">
-        <div class="pjd-checklist-wrap">
-          <div class="pjd-checklist-head">
-            <div class="pjd-checklist-title">{{ $project->name }} <span class="star">⭐</span></div>
-            <div class="pjd-checklist-head-actions">
-              <button type="button" class="pjd-checklist-link" id="pjdClDownload">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                Descargar lista
-              </button>
-            </div>
-          </div>
+        {{-- CONTADORES --}}
+        <div class="chk-counters">
+          <div class="chk-counter" data-counter="sin_revisar"><span class="chk-num" id="chkCntSinRevisar">0</span><span class="chk-lbl">Sin revisar</span></div>
+          <div class="chk-counter chk-c-red" data-counter="no_cumple"><span class="chk-num" id="chkCntNoCumple">0</span><span class="chk-lbl">No Cumple</span></div>
+          <div class="chk-counter chk-c-yellow" data-counter="parcial"><span class="chk-num" id="chkCntParcial">0</span><span class="chk-lbl">Parcial</span></div>
+          <div class="chk-counter chk-c-green" data-counter="cumple"><span class="chk-num" id="chkCntCumple">0</span><span class="chk-lbl">Cumple</span></div>
+          <div class="chk-counter chk-c-gray" data-counter="pendiente"><span class="chk-num" id="chkCntPendiente">0</span><span class="chk-lbl">Pendiente</span></div>
+          <div class="chk-counter chk-c-blue" data-counter="en_revision"><span class="chk-num" id="chkCntEnRevision">0</span><span class="chk-lbl">En revisión</span></div>
+          <div class="chk-counter chk-c-green2" data-counter="aprobado"><span class="chk-num" id="chkCntAprobado">0</span><span class="chk-lbl">Aprobado</span></div>
+          <div class="chk-counter chk-c-total" data-counter="total"><span class="chk-num" id="chkCntTotal">0</span><span class="chk-lbl">Total</span></div>
+        </div>
 
-          <div class="pjd-counters" id="pjdClCounters">
-            <div class="pjd-counter is-pending"><div class="pjd-counter-top"><span class="pjd-counter-num" data-counter="sin_revisar">0</span> Sin revisar <span class="pjd-counter-pct" data-pct="sin_revisar">0%</span></div><div class="pjd-counter-bar"><div class="pjd-counter-bar-fill" data-bar="sin_revisar" style="width:0%"></div></div></div>
-            <div class="pjd-counter is-nocumple"><div class="pjd-counter-top"><span class="pjd-counter-num" data-counter="no_cumple">0</span> No Cumple <span class="pjd-counter-pct" data-pct="no_cumple">0%</span></div><div class="pjd-counter-bar"><div class="pjd-counter-bar-fill" data-bar="no_cumple" style="width:0%"></div></div></div>
-            <div class="pjd-counter is-parcial"><div class="pjd-counter-top"><span class="pjd-counter-num" data-counter="parcial">0</span> Parcial <span class="pjd-counter-pct" data-pct="parcial">0%</span></div><div class="pjd-counter-bar"><div class="pjd-counter-bar-fill" data-bar="parcial" style="width:0%"></div></div></div>
-            <div class="pjd-counter is-cumple"><div class="pjd-counter-top"><span class="pjd-counter-num" data-counter="cumple">0</span> Cumple <span class="pjd-counter-pct" data-pct="cumple">0%</span></div><div class="pjd-counter-bar"><div class="pjd-counter-bar-fill" data-bar="cumple" style="width:0%"></div></div></div>
-            <div class="pjd-counter is-pending"><div class="pjd-counter-top"><span class="pjd-counter-num" data-counter="pendiente">0</span> Pendiente <span class="pjd-counter-pct" data-pct="pendiente">0%</span></div><div class="pjd-counter-bar"><div class="pjd-counter-bar-fill" data-bar="pendiente" style="width:0%"></div></div></div>
-            <div class="pjd-counter is-review"><div class="pjd-counter-top"><span class="pjd-counter-num" data-counter="revision">0</span> En revisión <span class="pjd-counter-pct" data-pct="revision">0%</span></div><div class="pjd-counter-bar"><div class="pjd-counter-bar-fill" data-bar="revision" style="width:0%"></div></div></div>
-            <div class="pjd-counter is-approved"><div class="pjd-counter-top"><span class="pjd-counter-num" data-counter="aprobado">0</span> Aprobado <span class="pjd-counter-pct" data-pct="aprobado">0%</span></div><div class="pjd-counter-bar"><div class="pjd-counter-bar-fill" data-bar="aprobado" style="width:0%"></div></div></div>
-            <div class="pjd-counter is-total"><div class="pjd-counter-top"><span class="pjd-counter-num" id="pjdClTotalNum">0</span> Total</div></div>
-          </div>
-
-          <div class="pjd-cl-toolbar">
-            <div class="pjd-cl-search">
-              <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-              <input type="text" id="pjdClSearch" placeholder="Buscar por requisito, formato o descripción...">
-            </div>
-            <button type="button" class="pjd-cl-btn is-primary" id="pjdClReanalisis">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
-              Reanálisis
+        {{-- TOOLBAR --}}
+        <div class="chk-toolbar">
+          <div class="chk-toolbar-left">
+            <button type="button" class="chk-btn chk-btn-ghost" id="chkBtnDescargar">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Descargar lista
+            </button>
+            <button type="button" class="chk-btn chk-btn-ghost" id="chkBtnExportar">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Exportar <span id="chkExportCount">0</span> <span class="chk-export-size" id="chkExportSize">archivos (0 B)</span>
             </button>
           </div>
+          <div class="chk-toolbar-right">
+            <div class="chk-search">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" id="chkSearch" placeholder="Buscar en checklist...">
+            </div>
+            <button type="button" class="chk-btn chk-btn-primary" id="chkBtnReanalisis" title="Volver a analizar el checklist">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/><path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"/></svg>
+              Reanálisis
+            </button>
 
-          <div class="pjd-cl-table-wrap">
-            <table class="pjd-cl-table" id="pjdClTable">
-              <thead>
-                <tr>
-                  <th style="width:38px"></th>
-                  <th>Requisito</th>
-                  <th>Formato</th>
-                  <th>Categoría</th>
-                  <th>Aplicabilidad</th>
-                  <th style="text-align:center">Oblig.</th>
-                  <th style="text-align:center">Cumpl.</th>
-                  <th>Status</th>
-                  <th style="width:50px;text-align:center">Opc.</th>
-                </tr>
-              </thead>
-              <tbody id="pjdClBody">
-                @forelse($checklist as $idx => $it)
-                  <tr data-row="{{ $idx }}" data-cumplimiento="{{ $it['cumplimiento'] }}" data-status="{{ $it['status'] }}" data-prioridad="{{ $it['prioridad'] }}">
-                    <td><button type="button" class="pjd-cl-row-toggle" data-toggle="{{ $idx }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></button></td>
-                    <td><div class="pjd-cl-requisito"><span class="pjd-cl-requisito-text" title="{{ $it['requisito'] }}">{{ $it['requisito'] }}</span></div></td>
-                    <td>{{ $it['formato'] }}</td>
-                    <td>{{ Str::limit($it['categoria'], 22) }}</td>
-                    <td>{{ $it['aplicabilidad'] }}</td>
-                    <td style="text-align:center;color:var(--success);font-weight:700">{{ $it['obligatorio'] }}</td>
-                    <td style="text-align:center">
-                      @php
-                        $cumpClass = match($it['cumplimiento']) { 'Cumple'=>'is-cumple','Parcial'=>'is-parcial','No Cumple'=>'is-nocumple', default=>'' };
-                      @endphp
-                      <button type="button" class="pjd-cl-cumple-dot {{ $cumpClass }}" data-cumplimiento-toggle="{{ $idx }}" title="Cambiar cumplimiento"></button>
-                    </td>
-                    <td>
-                      @php
-                        $statClass = match($it['status']) { 'En revisión'=>'is-revision','Aprobado'=>'is-aprobado', default=>'is-pendiente' };
-                        $statIcon = match($it['status']) { 'En revisión'=>'🔵','Aprobado'=>'🟢', default=>'🕐' };
-                      @endphp
-                      <span class="pjd-cl-status {{ $statClass }}" data-status-toggle="{{ $idx }}">{{ $statIcon }} {{ $it['status'] }}</span>
-                    </td>
-                    <td style="text-align:center"><button type="button" class="pjd-cl-options">···</button></td>
-                  </tr>
-                  <tr class="pjd-cl-detail-row" data-detail="{{ $idx }}" style="display:none;">
-                    <td colspan="9" style="padding:0">
-                      <div class="pjd-cl-detail">
-                        @if($it['descripcion'])<div class="pjd-cl-detail-row"><strong>Descripción:</strong> {{ $it['descripcion'] }}</div>@endif
-                        @if($it['fuente'])<div class="pjd-cl-detail-row"><strong>Fuente:</strong> {{ $it['fuente'] }}{{ $it['pagina'] ? ' · Página '.$it['pagina'] : '' }}</div>@endif
-                        <div class="pjd-cl-detail-row"><strong>Prioridad:</strong> {{ $it['prioridad'] }}</div>
-                      </div>
-                    </td>
-                  </tr>
-                @empty
-                  <tr><td colspan="9" class="pjd-cl-no-results">Sin items en el checklist. Da clic en <strong>Reanálisis</strong> para generar uno.</td></tr>
-                @endforelse
-              </tbody>
-            </table>
+            <div class="chk-dropdown">
+              <button type="button" class="chk-btn chk-btn-ghost" id="chkBtnFiltros">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                Filtros <span class="chk-filter-badge" id="chkFiltrosBadge" style="display:none">0</span>
+              </button>
+              <div class="chk-dropdown-panel chk-filtros-panel" id="chkFiltrosPanel">
+                <div>
+                  <div class="chk-filter-group-title">Cumplimiento</div>
+                  <label class="chk-filter-opt"><input type="checkbox" class="chk-flt" data-group="cumplimiento" value="__all__" checked> <span>Todos</span></label>
+                  <label class="chk-filter-opt"><input type="checkbox" class="chk-flt" data-group="cumplimiento" value="sin_revisar"> <span>Sin revisar</span></label>
+                  <label class="chk-filter-opt"><input type="checkbox" class="chk-flt" data-group="cumplimiento" value="cumple"> <span>Cumple</span></label>
+                  <label class="chk-filter-opt"><input type="checkbox" class="chk-flt" data-group="cumplimiento" value="parcial"> <span>Parcial</span></label>
+                  <label class="chk-filter-opt"><input type="checkbox" class="chk-flt" data-group="cumplimiento" value="no_cumple"> <span>No Cumple</span></label>
+                </div>
+                <div>
+                  <div class="chk-filter-group-title">Status</div>
+                  <label class="chk-filter-opt"><input type="checkbox" class="chk-flt" data-group="status" value="__all__" checked> <span>Todos</span></label>
+                  <label class="chk-filter-opt"><input type="checkbox" class="chk-flt" data-group="status" value="pendiente"> <span>Pendiente</span></label>
+                  <label class="chk-filter-opt"><input type="checkbox" class="chk-flt" data-group="status" value="en_revision"> <span>En revisión</span></label>
+                  <label class="chk-filter-opt"><input type="checkbox" class="chk-flt" data-group="status" value="aprobado"> <span>Aprobado</span></label>
+                </div>
+                <div>
+                  <div class="chk-filter-group-title">Prioridad</div>
+                  <label class="chk-filter-opt"><input type="checkbox" class="chk-flt" data-group="prioridad" value="__all__" checked> <span>Todas</span></label>
+                  <label class="chk-filter-opt"><input type="checkbox" class="chk-flt" data-group="prioridad" value="alta"> <span>Alta</span></label>
+                  <label class="chk-filter-opt"><input type="checkbox" class="chk-flt" data-group="prioridad" value="media"> <span>Media</span></label>
+                  <label class="chk-filter-opt"><input type="checkbox" class="chk-flt" data-group="prioridad" value="baja"> <span>Baja</span></label>
+                </div>
+              </div>
+            </div>
+
+            <div class="chk-dropdown">
+              <button type="button" class="chk-btn chk-btn-ghost" id="chkBtnColumnas">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+                Columnas
+              </button>
+              <div class="chk-dropdown-panel chk-cols-panel" id="chkColsPanel">
+                <label class="chk-filter-opt"><input type="checkbox" class="chk-col-tgl" data-col="requisito" checked> <span>Requisito</span></label>
+                <label class="chk-filter-opt"><input type="checkbox" class="chk-col-tgl" data-col="formato" checked> <span>Formato</span></label>
+                <label class="chk-filter-opt"><input type="checkbox" class="chk-col-tgl" data-col="categoria" checked> <span>Categoría</span></label>
+                <label class="chk-filter-opt"><input type="checkbox" class="chk-col-tgl" data-col="aplicabilidad" checked> <span>Aplicabilidad</span></label>
+                <label class="chk-filter-opt"><input type="checkbox" class="chk-col-tgl" data-col="obligatorio" checked> <span>Obligatorio</span></label>
+                <label class="chk-filter-opt"><input type="checkbox" class="chk-col-tgl" data-col="cumplimiento" checked> <span>Cumplimiento</span></label>
+                <label class="chk-filter-opt"><input type="checkbox" class="chk-col-tgl" data-col="status" checked> <span>Status</span></label>
+              </div>
+            </div>
           </div>
+        </div>
 
-          <button type="button" class="pjd-cl-add" id="pjdClAddBtn">+ Agregar nuevo requisito</button>
+        {{-- TABLA --}}
+        <div class="chk-table-wrap">
+          <table class="chk-table" id="chkTable">
+            <thead>
+              <tr>
+                <th class="chk-th-chev"></th>
+                <th class="chk-th-check"><input type="checkbox" id="chkSelectAll"></th>
+                <th data-col="requisito">Requisito</th>
+                <th data-col="formato">Formato</th>
+                <th data-col="categoria">Categoría</th>
+                <th data-col="aplicabilidad">Aplicabilidad</th>
+                <th data-col="obligatorio">Obligatorio</th>
+                <th data-col="cumplimiento">Cumplimiento</th>
+                <th data-col="status">Status</th>
+              </tr>
+            </thead>
+            <tbody id="chkTbody"></tbody>
+          </table>
+          <div class="chk-empty" id="chkEmpty" style="display:none">
+            <p>No hay requisitos en el checklist todavía.</p>
+          </div>
+        </div>
+
+        <div class="chk-footer">
+          <button type="button" class="chk-btn chk-btn-add" id="chkBtnAdd">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Agregar nuevo requisito
+          </button>
         </div>
       </div>
 
+      {{-- BORRADOR / REPORTE --}}
       <div class="pjd-pane" data-pane="borrador">
-        <h3 class="pjd-pane-title">{{ $project->name }}</h3>
-
-        <div class="pjd-borrador-tabs">
-          <button type="button" class="pjd-borrador-tab is-active" data-section="borrador">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
-            Borrador
-          </button>
-          <button type="button" class="pjd-borrador-tab" data-section="reporte">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-            Reporte
-          </button>
+        <div class="pjd-sub-tabs">
+          <button class="pjd-sub-tab is-active" data-sub="draft">Borrador</button>
+          <button class="pjd-sub-tab" data-sub="report">Reporte</button>
         </div>
 
-        <div class="pjd-borrador-section is-active" data-section-pane="borrador">
-          <div class="pjd-borrador-actions">
-            <button type="button" class="pjd-cl-btn" id="pjdSaveDraft">💾 Guardar</button>
-            <button type="button" class="pjd-cl-btn" id="pjdDownloadDraft">⬇ Descargar HTML</button>
-            <span style="color:var(--muted);font-size:.78rem;" id="pjdDraftStatus"></span>
+        <div class="pjd-sub-pane is-active" data-sub-pane="draft">
+          <div class="pjd-editor-tools">
+            <button data-cmd="bold" title="Negrita"><b>B</b></button>
+            <button data-cmd="italic" title="Itálica"><i>I</i></button>
+            <button data-cmd="underline" title="Subrayado"><u>U</u></button>
+            <button data-cmd="insertUnorderedList" title="Lista">•</button>
+            <button data-cmd="insertOrderedList" title="Lista numerada">1.</button>
+            <button data-cmd="formatBlock" data-val="H2" title="Título">H2</button>
+            <button data-cmd="formatBlock" data-val="H3" title="Subtítulo">H3</button>
+            <button data-cmd="formatBlock" data-val="P" title="Párrafo">¶</button>
           </div>
-          <div class="pjd-draft-toolbar">
-            <button type="button" class="pjd-draft-btn" onclick="document.execCommand('bold')"><b>B</b></button>
-            <button type="button" class="pjd-draft-btn" onclick="document.execCommand('italic')"><i>I</i></button>
-            <button type="button" class="pjd-draft-btn" onclick="document.execCommand('underline')"><u>U</u></button>
-            <button type="button" class="pjd-draft-btn" onclick="document.execCommand('formatBlock', false, 'H1')">H1</button>
-            <button type="button" class="pjd-draft-btn" onclick="document.execCommand('formatBlock', false, 'H2')">H2</button>
-            <button type="button" class="pjd-draft-btn" onclick="document.execCommand('formatBlock', false, 'H3')">H3</button>
-            <button type="button" class="pjd-draft-btn" onclick="document.execCommand('insertUnorderedList')">• Lista</button>
-            <button type="button" class="pjd-draft-btn" onclick="document.execCommand('insertOrderedList')">1. Lista</button>
+          <div class="pjd-editor" id="pjdEditor" contenteditable="true">{!! $project->draft_content ?: '<p>Comienza a escribir tu borrador aquí. Puedes pegar tablas desde el chat o desde Excel.</p>' !!}</div>
+          <div class="pjd-save-bar">
+            <button class="pjd-btn ghost" id="pjdDraftDownload">Descargar .docx</button>
+            <button class="pjd-btn" id="pjdDraftSave">Guardar borrador</button>
           </div>
-          <div id="pjdDraftEditor" class="pjd-draft-editor" contenteditable="true">{!! $project->draft_content ?? '' !!}</div>
         </div>
 
-        <div class="pjd-borrador-section" data-section-pane="reporte">
-          <div class="pjd-borrador-actions" id="pjdReporteActions" style="display:none;">
-            <button type="button" class="pjd-cl-btn is-primary" id="pjdReporteRegen">✨ Regenerar</button>
-            <button type="button" class="pjd-cl-btn" id="pjdReporteDownload">⬇ Descargar HTML</button>
-          </div>
-
-          @if(empty($project->report_content ?? null))
-            <div class="pjd-reporte-empty" id="pjdReporteEmpty">
-              <p>Deja que jureto haga el trabajo pesado y genera el reporte final.</p>
-              <button type="button" class="pjd-reporte-btn" id="pjdReporteGen">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15 8.5 22 9.3 17 14 18.3 21 12 17.8 5.7 21 7 14 2 9.3 9 8.5 12 2"/></svg>
-                Generar Reporte
-              </button>
+        <div class="pjd-sub-pane" data-sub-pane="report">
+          @if(!empty($project->report_content))
+            <div class="pjd-card" id="pjdReportContent">{!! $project->report_content !!}</div>
+            <div class="pjd-save-bar">
+              <button class="pjd-btn ghost" id="pjdReportDownload">Descargar reporte</button>
+              <button class="pjd-btn" id="pjdReportRegen">Regenerar reporte</button>
+            </div>
+          @else
+            <div class="pjd-report-empty" id="pjdReportEmpty">
+              <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              <p>Aún no se ha generado un reporte para este proyecto.</p>
+              <button class="pjd-btn" id="pjdReportGen">Generar reporte</button>
             </div>
           @endif
-
-          <div class="pjd-reporte-content" id="pjdReporteContent" style="{{ empty($project->report_content) ? 'display:none;' : '' }}">
-            {!! $project->report_content ?? '' !!}
-          </div>
         </div>
       </div>
 
+      {{-- DOCUMENTOS --}}
       <div class="pjd-pane" data-pane="documentos">
-        <h3 class="pjd-pane-title">Documentos del proyecto</h3>
-        @forelse($project->documents as $doc)
-          <div class="pjd-doc">
-            <div class="pjd-doc-icon">{{ strtoupper(pathinfo($doc->filename, PATHINFO_EXTENSION) ?: 'FILE') }}</div>
-            <div class="pjd-doc-meta">
-              <div class="pjd-doc-name">{{ $doc->filename }}</div>
-              <div class="pjd-doc-sub">{{ number_format(($doc->file_size ?? 0) / 1024, 1) }} KB · Status: <strong>{{ $doc->status }}</strong></div>
+        <div class="pjd-docs">
+          @forelse(($documents ?? []) as $d)
+            <div class="pjd-doc">
+              <div class="pjd-doc-name">📄 {{ $d->filename }}</div>
+              <div class="pjd-doc-meta">{{ strtoupper(pathinfo($d->filename, PATHINFO_EXTENSION)) }} · {{ number_format(($d->file_size ?? 0)/1024,1) }} KB</div>
+              <div class="pjd-doc-actions">
+                <a href="{{ asset('storage/'.$d->file_path) }}" target="_blank">Abrir</a>
+              </div>
             </div>
-            <div class="pjd-doc-actions">
-              <a href="{{ Storage::disk('public')->url($doc->file_path) }}" target="_blank" class="pjd-doc-link">Ver</a>
-            </div>
-          </div>
-        @empty
-          <p style="color:var(--muted);font-size:.9rem;">Este proyecto no tiene documentos.</p>
-        @endforelse
+          @empty
+            <div style="color:#94a3b8;padding:20px">No hay documentos adjuntos.</div>
+          @endforelse
+        </div>
       </div>
 
     </div>
   </div>
 </div>
 
-<div class="pjd-cl-popover" id="pjdClCumpPop">
-  <button data-set-cumplimiento="-"><span class="dot" style="background:#ccc"></span> Sin revisar</button>
-  <button data-set-cumplimiento="Cumple"><span class="dot" style="background:var(--success)"></span> Cumple</button>
-  <button data-set-cumplimiento="Parcial"><span class="dot" style="background:var(--warning)"></span> Parcial</button>
-  <button data-set-cumplimiento="No Cumple"><span class="dot" style="background:var(--danger)"></span> No Cumple</button>
-</div>
-
-<div class="pjd-cl-popover" id="pjdClStatusPop">
-  <button data-set-status="Pendiente"><span class="dot" style="background:var(--warning)"></span> Pendiente</button>
-  <button data-set-status="En revisión"><span class="dot" style="background:var(--blue)"></span> En revisión</button>
-  <button data-set-status="Aprobado"><span class="dot" style="background:var(--success)"></span> Aprobado</button>
-</div>
-
-<div class="pjd-cita-modal" id="pjdCitaModal" aria-hidden="true">
-  <div class="pjd-cita-modal-backdrop" id="pjdCitaBackdrop"></div>
-  <div class="pjd-cita-modal-card">
-    <div class="pjd-cita-modal-head">
-      <h4>Cita del documento</h4>
-      <button type="button" class="pjd-cita-close" id="pjdCitaClose">✕</button>
+{{-- ===== MODAL DE CITAS ===== --}}
+<div class="pjd-modal" id="pjdCiteModal">
+  <div class="pjd-modal-box">
+    <div class="pjd-modal-head">
+      <h3 class="pjd-modal-title" id="pjdCiteTitle">Fuente</h3>
+      <button class="pjd-modal-close" id="pjdCiteClose">×</button>
     </div>
-    <div class="pjd-cita-modal-body">
-      <div class="pjd-cita-quote" id="pjdCitaQuote">—</div>
-      <div class="pjd-cita-source">
-        <span class="pjd-cita-source-label">Fuente:</span>
-        <span id="pjdCitaSource" class="pjd-cita-source-file">—</span>
-        <span id="pjdCitaPage" class="pjd-cita-source-page"></span>
-      </div>
-    </div>
-    <div class="pjd-cita-modal-footer">
-      <a href="#" id="pjdCitaOpenDoc" class="pjd-cita-btn pjd-cita-btn-primary" target="_blank" style="display:none;">Ver documento</a>
-      <button type="button" class="pjd-cita-btn pjd-cita-btn-ghost" id="pjdCitaCloseBtn">Cerrar</button>
-    </div>
+    <div class="pjd-modal-body" id="pjdCiteBody"></div>
   </div>
 </div>
+
 @endsection
 
 @push('scripts')
-{{-- SheetJS para generar Excel real (.xlsx) --}}
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
-(function(){
-  'use strict';
-
-  const PROJECT_SLUG    = @json($project->slug);
-  const PROJECT_NAME    = @json($project->name);
-  const CHAT_URL        = @json(route('projects.chat', $project));
-  const CHAT_RESET_URL  = @json(route('projects.chat.reset', $project));
-  const DRAFT_URL       = @json(route('projects.draft', $project));
-  const CHECKLIST_URL   = @json(route('projects.checklist', $project));
-  const REPORT_URL      = @json(route('projects.report', $project));
-  const CSRF            = '{{ csrf_token() }}';
-  const PROJECT_DOCS    = @json($project->documents->mapWithKeys(fn($d) => [$d->filename => \Illuminate\Support\Facades\Storage::disk('public')->url($d->file_path)]));
-
-  function escapeHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-
-  // ============ TOAST ============
-  function showToast(msg, type) {
-    const t = document.createElement('div');
-    t.className = 'pjd-toast' + (type === 'success' ? ' is-success' : type === 'error' ? ' is-error' : '');
-    t.textContent = msg;
-    document.body.appendChild(t);
-    setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity .3s'; }, 2200);
-    setTimeout(() => t.remove(), 2600);
+window.PROJECT_DATA = {
+  id: @json($project->id),
+  citas: @json(data_get($project->structured_data, 'citas', new \stdClass)),
+  csrf: '{{ csrf_token() }}',
+  routes: {
+    chat:        '{{ route('projects.chat', $project) }}',
+    chatReset:   '{{ route('projects.chat.reset', $project) }}',
+    draft:       '{{ route('projects.draft', $project) }}',
+    checklist:   '{{ route('projects.checklist', $project) }}',
+    report:      '{{ route('projects.report', $project) }}',
+    chkAttach:   '{{ url('projects/'.$project->id.'/checklist/attach') }}',
+    chkReanalyze:'{{ url('projects/'.$project->id.'/checklist/reanalyze') }}'
   }
+};
+window.PROJECT_USERS = @json($users ?? []);
+window.PROJECT_CHECKLIST = @json($project->checklist ?? []);
+</script>
 
-  // ============ TABS ============
-  const tabs = document.querySelectorAll('.pjd-tab');
-  const panes = document.querySelectorAll('.pjd-pane');
-  function activateTab(name) {
-    tabs.forEach(t => t.classList.toggle('is-active', t.dataset.tab === name));
-    panes.forEach(p => p.classList.toggle('is-active', p.dataset.pane === name));
-  }
-  tabs.forEach(t => t.addEventListener('click', () => activateTab(t.dataset.tab)));
-  activateTab('ficha');
-
-  document.querySelectorAll('.js-card-toggle').forEach(head => {
-    head.addEventListener('click', () => head.closest('.pjd-card').classList.toggle('is-open'));
+<script>
+/* ============= TABS ============= */
+document.querySelectorAll('.pjd-tab').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    document.querySelectorAll('.pjd-tab').forEach(t=>t.classList.remove('is-active'));
+    document.querySelectorAll('.pjd-pane').forEach(p=>p.classList.remove('is-active'));
+    tab.classList.add('is-active');
+    document.querySelector(`.pjd-pane[data-pane="${tab.dataset.tab}"]`).classList.add('is-active');
   });
+});
+document.querySelectorAll('.pjd-sub-tab').forEach(t=>{
+  t.addEventListener('click',()=>{
+    document.querySelectorAll('.pjd-sub-tab').forEach(x=>x.classList.remove('is-active'));
+    document.querySelectorAll('.pjd-sub-pane').forEach(x=>x.classList.remove('is-active'));
+    t.classList.add('is-active');
+    document.querySelector(`.pjd-sub-pane[data-sub-pane="${t.dataset.sub}"]`).classList.add('is-active');
+  });
+});
 
-  // ============ CHAT con TABLAS ============
-  const chatForm = document.getElementById('pjdChatForm');
-  const chatInput = document.getElementById('pjdChatInput');
-  const chatSend = document.getElementById('pjdChatSend');
-  const chatList = document.getElementById('pjdChatList');
-  const chatReset = document.getElementById('pjdChatReset');
+/* ============= EDITOR TOOLS ============= */
+document.querySelectorAll('.pjd-editor-tools button').forEach(b=>{
+  b.addEventListener('click',()=>{
+    if(b.dataset.cmd==='formatBlock') document.execCommand('formatBlock',false,b.dataset.val);
+    else document.execCommand(b.dataset.cmd,false,null);
+  });
+});
 
-  function scrollChatToBottom() { chatList.scrollTop = chatList.scrollHeight; }
-  scrollChatToBottom();
+/* ============= MODAL DE CITAS ============= */
+const citeModal = document.getElementById('pjdCiteModal');
+const citeTitle = document.getElementById('pjdCiteTitle');
+const citeBody  = document.getElementById('pjdCiteBody');
+document.getElementById('pjdCiteClose').onclick = ()=> citeModal.classList.remove('is-open');
+citeModal.addEventListener('click',e=>{ if(e.target===citeModal) citeModal.classList.remove('is-open'); });
 
-  function extractMarkdownTable(text) {
-    const lines = text.split('\n');
-    let start = -1, end = -1;
-    for (let i = 0; i < lines.length; i++) {
-      const l = lines[i].trim();
-      if (l.startsWith('|') && l.endsWith('|') && lines[i+1] && /^\|[\s:|\-]+\|$/.test(lines[i+1].trim())) {
-        start = i;
-        for (let j = i + 2; j < lines.length; j++) {
-          const lj = lines[j].trim();
-          if (lj.startsWith('|') && lj.endsWith('|')) end = j;
-          else break;
-        }
-        break;
+document.querySelectorAll('.pjd-field[data-cite-key]').forEach(f=>{
+  f.addEventListener('click',()=>{
+    const key = f.dataset.citeKey;
+    const cites = (window.PROJECT_DATA.citas || {})[key];
+    const lbl = f.querySelector('.pjd-field-lbl').textContent.trim();
+    citeTitle.textContent = 'Fuente: '+lbl;
+    if(!cites || (Array.isArray(cites) && !cites.length)){
+      citeBody.innerHTML = '<div style="color:#94a3b8;padding:14px">Este campo no tiene referencia registrada. La extracción automática no encontró el origen específico.</div>';
+    } else {
+      const arr = Array.isArray(cites) ? cites : [cites];
+      citeBody.innerHTML = arr.map(c => `
+        <div class="pjd-cite-block">
+          <div class="pjd-cite-src">
+            <span>📄 ${c.documento || c.source || 'Documento'}</span>
+            ${c.pagina ? `<span class="pjd-cite-page">Pág. ${c.pagina}</span>` : ''}
+          </div>
+          <div class="pjd-cite-text">"${(c.texto || c.quote || c.cita || '').replace(/[<>]/g,'')}"</div>
+        </div>`).join('');
+    }
+    citeModal.classList.add('is-open');
+  });
+});
+
+/* ============= CHAT ============= */
+const chatBody  = document.getElementById('pjdChatBody');
+const chatInput = document.getElementById('pjdChatInput');
+const chatSend  = document.getElementById('pjdChatSend');
+const chatReset = document.getElementById('pjdChatReset');
+
+function escHtml(s){return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+function parseMarkdownTables(text){
+  // Devuelve un array de bloques: {type:'text'|'table', data:...}
+  const lines = text.split('\n');
+  const blocks = [];
+  let buf = []; let i = 0;
+  while(i < lines.length){
+    // Detectar tabla: línea con | seguida de línea separadora con ---
+    if(lines[i] && /\|/.test(lines[i]) && lines[i+1] && /^\s*\|?[\s\-\|:]+\|?\s*$/.test(lines[i+1])){
+      if(buf.length){ blocks.push({type:'text', data:buf.join('\n')}); buf=[]; }
+      const headers = lines[i].split('|').map(s=>s.trim()).filter(s=>s.length);
+      i += 2;
+      const rows = [];
+      while(i < lines.length && /\|/.test(lines[i])){
+        rows.push(lines[i].split('|').map(s=>s.trim()).filter((s,idx,arr)=>!(idx===0&&!s)&&!(idx===arr.length-1&&!s)));
+        i++;
       }
+      blocks.push({type:'table', data:{headers, rows}});
+    } else {
+      buf.push(lines[i]); i++;
     }
-    if (start === -1 || end === -1 || end <= start + 1) return null;
-    const parseRow = (line) => line.trim().replace(/^\||\|$/g, '').split('|').map(c => c.trim());
-    const headers = parseRow(lines[start]);
-    const rows = [];
-    for (let i = start + 2; i <= end; i++) {
-      const r = parseRow(lines[i]);
-      if (r.length) rows.push(r);
+  }
+  if(buf.length) blocks.push({type:'text', data:buf.join('\n')});
+  return blocks;
+}
+
+function buildTableHtmlInline(t){
+  let html = '<table style="width:100%;border-collapse:collapse;margin:14px 0;border:1px solid #e5e7eb;font-family:Quicksand,Arial,sans-serif">';
+  html += '<thead><tr>';
+  t.headers.forEach(h=> html += `<th style="background:#1e3a5f;color:#fff;padding:8px 10px;text-align:left;font-size:12px;border:1px solid #1e3a5f">${escHtml(h)}</th>`);
+  html += '</tr></thead><tbody>';
+  t.rows.forEach((r,ri)=>{
+    const bg = ri%2 ? '#ffffff' : '#f8fafc';
+    html += `<tr style="background:${bg}">`;
+    r.forEach(c=> html += `<td style="padding:8px 10px;border:1px solid #e5e7eb;font-size:12px;color:#0f172a">${escHtml(c)}</td>`);
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  return html;
+}
+
+function renderAssistantMessage(text){
+  const wrap = document.createElement('div');
+  wrap.className = 'pjd-msg assistant';
+  const blocks = parseMarkdownTables(text);
+  let html = '';
+  blocks.forEach((b,idx)=>{
+    if(b.type==='text'){
+      html += `<div>${escHtml(b.data).replace(/\n/g,'<br>')}</div>`;
+    } else {
+      const tableHtml = buildTableHtmlInline(b.data);
+      html += `<div data-table-block="${idx}">${tableHtml}
+        <div class="pjd-msg-actions">
+          <button data-act="copy-table" data-idx="${idx}">📋 Copiar tabla</button>
+          <button data-act="to-draft"   data-idx="${idx}">📝 Pasar al borrador</button>
+          <button data-act="xlsx"       data-idx="${idx}">📊 Descargar Excel</button>
+        </div>
+      </div>`;
     }
-    return {
-      headers, rows,
-      before: lines.slice(0, start).join('\n').trim(),
-      after: lines.slice(end + 1).join('\n').trim(),
-    };
-  }
+  });
+  wrap.innerHTML = html;
+  wrap._blocks = blocks;
+  chatBody.appendChild(wrap);
+  chatBody.scrollTop = chatBody.scrollHeight;
+  return wrap;
+}
 
-  function renderTableHtml(data) {
-    const head = '<tr>' + data.headers.map(h => `<th>${escapeHtml(h)}</th>`).join('') + '</tr>';
-    const body = data.rows.map(r => '<tr>' + r.map(c => `<td>${escapeHtml(c).replace(/\n/g,'<br>')}</td>`).join('') + '</tr>').join('');
-    return `<table class="pjd-chat-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
-  }
+chatBody.addEventListener('click', async (e)=>{
+  const btn = e.target.closest('[data-act]');
+  if(!btn) return;
+  const idx = parseInt(btn.dataset.idx,10);
+  const wrap = btn.closest('.pjd-msg');
+  const block = wrap._blocks?.[idx];
+  if(!block || block.type!=='table') return;
+  const tableHtml = buildTableHtmlInline(block.data);
 
-  // HTML con estilos inline (para portapapeles y borrador)
-  function buildTableHtmlInline(data) {
-    let html = '<table style="width:100%;border-collapse:collapse;margin:14px 0;border:1px solid #e5e7eb;font-family:Quicksand,Arial,sans-serif">';
-    html += '<thead><tr>';
-    data.headers.forEach(h => {
-      html += `<th style="background:#f3f4f6;color:#111;padding:14px 16px;border:1px solid #e5e7eb;text-align:left;font-weight:700;font-size:14px">${escapeHtml(h)}</th>`;
-    });
-    html += '</tr></thead><tbody>';
-    data.rows.forEach(r => {
-      html += '<tr>';
-      r.forEach(c => {
-        html += `<td style="padding:14px 16px;border:1px solid #e5e7eb;vertical-align:top;color:#333;line-height:1.55;font-size:14px">${escapeHtml(c).replace(/\n/g, '<br>')}</td>`;
+  if(btn.dataset.act==='copy-table'){
+    try{
+      const item = new ClipboardItem({
+        'text/html': new Blob([tableHtml],{type:'text/html'}),
+        'text/plain': new Blob([block.data.headers.join('\t')+'\n'+block.data.rows.map(r=>r.join('\t')).join('\n')],{type:'text/plain'})
       });
-      html += '</tr>';
-    });
-    html += '</tbody></table>';
-    return html;
+      await navigator.clipboard.write([item]);
+      btn.textContent='✅ Copiada'; setTimeout(()=>btn.textContent='📋 Copiar tabla',1500);
+    }catch(err){ alert('No se pudo copiar la tabla'); }
   }
-
-  // Copiar al portapapeles (HTML rico + texto plano)
-  async function copyTableToClipboard(data) {
-    const tsv = [data.headers.join('\t'), ...data.rows.map(r => r.join('\t'))].join('\n');
-    const html = buildTableHtmlInline(data);
-
-    try {
-      if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
-        await navigator.clipboard.write([
-          new ClipboardItem({
-            'text/html':  new Blob([html], { type: 'text/html'  }),
-            'text/plain': new Blob([tsv],  { type: 'text/plain' }),
-          }),
-        ]);
-        showToast('✓ Tabla copiada (pégala donde quieras)', 'success');
-        return;
-      }
-    } catch (_) {}
-
-    try {
-      await navigator.clipboard.writeText(tsv);
-      showToast('✓ Tabla copiada como texto', 'success');
-    } catch (e) {
-      const ta = document.createElement('textarea');
-      ta.value = tsv; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
-      showToast('✓ Tabla copiada', 'success');
-    }
+  if(btn.dataset.act==='to-draft'){
+    const ed = document.getElementById('pjdEditor');
+    ed.innerHTML += tableHtml;
+    document.querySelector('.pjd-tab[data-tab="borrador"]').click();
   }
-
-  // Pasar tabla directamente al editor del borrador
-  function copyTableToBorrador(data) {
-    const editor = document.getElementById('pjdDraftEditor');
-    if (!editor) { showToast('No se encontró el borrador', 'error'); return; }
-
-    const html = buildTableHtmlInline(data) + '<p><br></p>';
-    editor.innerHTML += html;
-
-    document.querySelector('.pjd-tab[data-tab="borrador"]')?.click();
-    document.querySelector('.pjd-borrador-tab[data-section="borrador"]')?.click();
-
-    setTimeout(() => {
-      document.getElementById('pjdSaveDraft')?.click();
-    }, 200);
-
-    showToast('✓ Tabla agregada al borrador', 'success');
-  }
-
-  // Descargar como XLSX REAL usando SheetJS
-  function downloadTableAsExcel(data) {
-    if (typeof XLSX === 'undefined') {
-      showToast('La librería de Excel no se cargó. Recarga la página.', 'error');
-      return;
-    }
-
-    const aoa = [data.headers, ...data.rows];
-    const ws = XLSX.utils.aoa_to_sheet(aoa);
-
-    ws['!cols'] = data.headers.map((h, i) => {
-      let max = (h || '').toString().length;
-      data.rows.forEach(r => {
-        const len = (r[i] || '').toString().length;
-        if (len > max) max = len;
-      });
-      return { wch: Math.min(Math.max(max + 2, 14), 70) };
-    });
-
+  if(btn.dataset.act==='xlsx'){
+    const ws = XLSX.utils.aoa_to_sheet([block.data.headers, ...block.data.rows]);
+    ws['!cols'] = block.data.headers.map((h,ci)=>({wch:Math.max(h.length, ...block.data.rows.map(r=>(r[ci]||'').length))+2}));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Tabla');
+    XLSX.writeFile(wb, 'tabla.xlsx');
+  }
+});
 
-    const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
-    XLSX.writeFile(wb, `tabla-${PROJECT_SLUG}-${ts}.xlsx`);
-    showToast('✓ Excel descargado', 'success');
+// Re-renderizar mensajes existentes que contengan tablas
+document.querySelectorAll('.pjd-msg.assistant').forEach(m=>{
+  const txt = m.textContent;
+  if(/\|/.test(txt) && /\|\s*\n\s*\|?[\s\-\|:]+/.test(txt)){
+    const blocks = parseMarkdownTables(txt);
+    if(blocks.some(b=>b.type==='table')){
+      m.innerHTML = '';
+      m._blocks = blocks;
+      blocks.forEach((b,idx)=>{
+        if(b.type==='text') m.insertAdjacentHTML('beforeend', `<div>${escHtml(b.data).replace(/\n/g,'<br>')}</div>`);
+        else m.insertAdjacentHTML('beforeend', `<div data-table-block="${idx}">${buildTableHtmlInline(b.data)}
+          <div class="pjd-msg-actions">
+            <button data-act="copy-table" data-idx="${idx}">📋 Copiar tabla</button>
+            <button data-act="to-draft"   data-idx="${idx}">📝 Pasar al borrador</button>
+            <button data-act="xlsx"       data-idx="${idx}">📊 Descargar Excel</button>
+          </div></div>`);
+      });
+    }
+  }
+});
+
+chatSend.addEventListener('click', sendChat);
+chatInput.addEventListener('keydown', e=>{
+  if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendChat(); }
+});
+
+async function sendChat(){
+  const text = chatInput.value.trim();
+  if(!text) return;
+  chatInput.value=''; chatSend.disabled=true;
+  const userDiv = document.createElement('div');
+  userDiv.className='pjd-msg user';
+  userDiv.textContent = text;
+  chatBody.appendChild(userDiv);
+  chatBody.scrollTop = chatBody.scrollHeight;
+  const typing = document.createElement('div');
+  typing.className='pjd-msg assistant';
+  typing.textContent='Pensando…';
+  chatBody.appendChild(typing);
+  try{
+    const r = await fetch(PROJECT_DATA.routes.chat,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-CSRF-TOKEN':PROJECT_DATA.csrf,'Accept':'application/json'},
+      body: JSON.stringify({message:text})
+    });
+    const j = await r.json();
+    typing.remove();
+    renderAssistantMessage(j.reply || j.error || 'Sin respuesta.');
+  }catch(e){
+    typing.remove();
+    renderAssistantMessage('Error al contactar al asistente.');
+  }
+  chatSend.disabled=false;
+}
+
+chatReset.addEventListener('click', async ()=>{
+  if(!confirm('¿Borrar todo el historial del chat?')) return;
+  await fetch(PROJECT_DATA.routes.chatReset,{method:'DELETE',headers:{'X-CSRF-TOKEN':PROJECT_DATA.csrf}});
+  chatBody.innerHTML = '<div class="pjd-msg assistant">Hola 👋 ¿En qué te ayudo?</div>';
+});
+
+/* ============= BORRADOR ============= */
+document.getElementById('pjdDraftSave').addEventListener('click', async ()=>{
+  const btn = document.getElementById('pjdDraftSave');
+  btn.disabled = true; btn.textContent='Guardando...';
+  await fetch(PROJECT_DATA.routes.draft,{
+    method:'POST',
+    headers:{'Content-Type':'application/json','X-CSRF-TOKEN':PROJECT_DATA.csrf},
+    body: JSON.stringify({draft: document.getElementById('pjdEditor').innerHTML})
+  });
+  btn.textContent='✅ Guardado'; setTimeout(()=>{btn.textContent='Guardar borrador';btn.disabled=false;},1200);
+});
+document.getElementById('pjdDraftDownload').addEventListener('click',()=>{
+  const html = '<html><head><meta charset="utf-8"></head><body>'+document.getElementById('pjdEditor').innerHTML+'</body></html>';
+  const blob = new Blob([html],{type:'application/msword'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download='borrador.doc'; a.click();
+});
+
+/* ============= REPORTE ============= */
+async function generateReport(){
+  const empty = document.getElementById('pjdReportEmpty');
+  if(empty) empty.innerHTML = '<p style="color:#1e3a5f">Generando reporte… esto puede tomar 30–60 segundos.</p>';
+  const r = await fetch(PROJECT_DATA.routes.report,{method:'POST',headers:{'X-CSRF-TOKEN':PROJECT_DATA.csrf,'Accept':'application/json'}});
+  const j = await r.json();
+  if(j?.html){
+    document.querySelector('.pjd-sub-pane[data-sub-pane="report"]').innerHTML =
+      `<div class="pjd-card" id="pjdReportContent">${j.html}</div>
+       <div class="pjd-save-bar">
+         <button class="pjd-btn ghost" id="pjdReportDownload">Descargar reporte</button>
+         <button class="pjd-btn" id="pjdReportRegen">Regenerar reporte</button>
+       </div>`;
+    bindReportButtons();
+  } else if(empty){
+    empty.innerHTML = '<p style="color:#dc2626">No se pudo generar el reporte.</p>';
+  }
+}
+function bindReportButtons(){
+  const dl = document.getElementById('pjdReportDownload');
+  const rg = document.getElementById('pjdReportRegen');
+  if(dl) dl.addEventListener('click',()=>{
+    const html='<html><head><meta charset="utf-8"></head><body>'+document.getElementById('pjdReportContent').innerHTML+'</body></html>';
+    const blob=new Blob([html],{type:'application/msword'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='reporte.doc'; a.click();
+  });
+  if(rg) rg.addEventListener('click',generateReport);
+}
+const reportGenBtn = document.getElementById('pjdReportGen');
+if(reportGenBtn) reportGenBtn.addEventListener('click', generateReport);
+bindReportButtons();
+
+/* ============= CHECKLIST PRO ============= */
+(function(){
+  const PROJECT_ID = PROJECT_DATA.id;
+  const CSRF = PROJECT_DATA.csrf;
+  const USERS = window.PROJECT_USERS || [];
+  let CHECKLIST = window.PROJECT_CHECKLIST || [];
+  let FILTERS = {cumplimiento:new Set(), status:new Set(), prioridad:new Set()};
+  let SEARCH = '';
+  let EXPANDED = new Set();
+  let SELECTED = new Set();
+
+  function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+  function uid(){return 'r'+Math.random().toString(36).slice(2,9);}
+  function fmtBytes(b){if(!b)return '0 B';const k=1024,s=['B','KB','MB','GB'];const i=Math.floor(Math.log(b)/Math.log(k));return (b/Math.pow(k,i)).toFixed(1)+' '+s[i];}
+  function ensureIds(){ CHECKLIST.forEach(it=>{ if(!it._id) it._id=uid(); if(!it.adjuntos) it.adjuntos=[]; }); }
+
+  function updateCounters(){
+    const c={sin_revisar:0,no_cumple:0,parcial:0,cumple:0,pendiente:0,en_revision:0,aprobado:0,total:CHECKLIST.length};
+    CHECKLIST.forEach(it=>{
+      const cu=(it.cumplimiento||'sin_revisar').toLowerCase();
+      const st=(it.status||'pendiente').toLowerCase();
+      if(c[cu]!==undefined) c[cu]++;
+      if(c[st]!==undefined) c[st]++;
+    });
+    document.getElementById('chkCntSinRevisar').textContent=c.sin_revisar;
+    document.getElementById('chkCntNoCumple').textContent=c.no_cumple;
+    document.getElementById('chkCntParcial').textContent=c.parcial;
+    document.getElementById('chkCntCumple').textContent=c.cumple;
+    document.getElementById('chkCntPendiente').textContent=c.pendiente;
+    document.getElementById('chkCntEnRevision').textContent=c.en_revision;
+    document.getElementById('chkCntAprobado').textContent=c.aprobado;
+    document.getElementById('chkCntTotal').textContent=c.total;
   }
 
-  function appendMsg(role, content, time = '') {
-    const wrap = document.createElement('div');
-    wrap.className = `pjd-msg ${role === 'user' ? 'is-user' : 'is-assistant'}`;
-
-    if (role === 'user') {
-      wrap.innerHTML = `<div class="pjd-msg-body">${escapeHtml(content)}</div>`;
-      chatList.appendChild(wrap);
-      scrollChatToBottom();
-      return wrap;
+  function passesFilters(it){
+    if(SEARCH){
+      const blob=[it.requisito,it.descripcion,it.formato,it.categoria,it.fuente].join(' ').toLowerCase();
+      if(!blob.includes(SEARCH)) return false;
     }
+    function gOk(g, val){
+      if(!FILTERS[g].size || FILTERS[g].has('__all__')) return true;
+      return FILTERS[g].has((val||'').toLowerCase());
+    }
+    return gOk('cumplimiento', it.cumplimiento||'sin_revisar')
+        && gOk('status', it.status||'pendiente')
+        && gOk('prioridad', it.prioridad||'');
+  }
 
-    const tableData = extractMarkdownTable(content);
-    let bodyHtml;
+  function pillObl(v){
+    return v?`<span class="chk-pill chk-pill-obligatorio">Obligatorio</span>`:`<span class="chk-pill chk-pill-opcional">Opcional</span>`;
+  }
 
-    if (tableData) {
-      const tableHtml = renderTableHtml(tableData);
-      const textBefore = tableData.before ? `<div class="pjd-msg-body" style="margin-bottom:8px">${escapeHtml(tableData.before).replace(/\n/g,'<br>')}</div>` : '';
-      const textAfter  = tableData.after  ? `<div class="pjd-msg-body" style="margin-top:8px">${escapeHtml(tableData.after).replace(/\n/g,'<br>')}</div>` : '';
-      bodyHtml = `
-        ${textBefore}
-        <div class="pjd-chat-table-wrap">
-          <div class="pjd-chat-table-actions">
-            <button type="button" class="pjd-chat-table-btn js-copy-table">📋 Copiar tabla</button>
-            <button type="button" class="pjd-chat-table-btn js-copy-to-draft">📝 Pasar al borrador</button>
-            <button type="button" class="pjd-chat-table-btn is-primary js-download-excel">⬇ Descargar Excel</button>
+  function renderDetail(it){
+    const userOpts = ['<option value="">Sin asignar</option>'].concat(
+      USERS.map(u=>`<option value="${u.id}" ${String(it.responsable_id||'')==String(u.id)?'selected':''}>${esc(u.name)}</option>`)
+    ).join('');
+    const userOptsRev = ['<option value="">Sin asignar</option>'].concat(
+      USERS.map(u=>`<option value="${u.id}" ${String(it.revisor_id||'')==String(u.id)?'selected':''}>${esc(u.name)}</option>`)
+    ).join('');
+
+    const notes = it.notas
+      ? `<div class="chk-notes-text" data-role="notes-view">${esc(it.notas)}</div>`
+      : `<div class="chk-notes-empty" data-role="notes-view">No hay notas agregadas.</div>`;
+
+    const adj = (it.adjuntos||[]).map((a,i)=>`
+      <div class="chk-att-item">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+        <a href="${esc(a.url||'#')}" target="_blank">${esc(a.name||'archivo')}</a>
+        <span style="color:#94a3b8;font-size:11px">${fmtBytes(a.size||0)}</span>
+        <button class="chk-att-rm" data-rm-att="${i}" title="Quitar">×</button>
+      </div>`).join('');
+
+    return `
+    <tr class="chk-detail-row" data-detail-of="${it._id}">
+      <td colspan="9">
+        <div class="chk-detail">
+          <div class="chk-detail-block chk-full">
+            <div class="chk-detail-label">Descripción</div>
+            <div class="chk-detail-text">${esc(it.descripcion||it.requisito||'')}</div>
+            ${it.fuente?`<div class="chk-detail-meta"><strong>Fuente:</strong> ${esc(it.fuente)}${it.pagina?` · <strong>Página de extracción:</strong> ${esc(String(it.pagina))}`:''}</div>`:''}
           </div>
-          ${tableHtml}
+          <div class="chk-detail-block">
+            <div class="chk-detail-label">Prioridad</div>
+            <div class="chk-prio-group">
+              <button type="button" class="chk-prio-btn ${it.prioridad==='alta'?'is-active':''}" data-prio="alta">Alta</button>
+              <button type="button" class="chk-prio-btn ${it.prioridad==='media'?'is-active':''}" data-prio="media">Media</button>
+              <button type="button" class="chk-prio-btn ${it.prioridad==='baja'?'is-active':''}" data-prio="baja">Baja</button>
+            </div>
+          </div>
+          <div class="chk-detail-block">
+            <div class="chk-detail-label">Fecha límite</div>
+            <input type="date" class="chk-date-input" data-fld="fecha_limite" value="${esc(it.fecha_limite||'')}">
+          </div>
+          <div class="chk-detail-block">
+            <div class="chk-detail-label">Responsable</div>
+            <select class="chk-select" data-fld="responsable_id">${userOpts}</select>
+          </div>
+          <div class="chk-detail-block">
+            <div class="chk-detail-label">Revisor</div>
+            <select class="chk-select" data-fld="revisor_id">${userOptsRev}</select>
+          </div>
+          <div class="chk-detail-block chk-full">
+            <div class="chk-notes-head">
+              <div class="chk-detail-label" style="margin:0">Notas</div>
+              <button type="button" class="chk-icon-btn" data-act="edit-notes">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+                ${it.notas?'Editar':'Agregar'}
+              </button>
+            </div>
+            ${notes}
+          </div>
+          <div class="chk-detail-block chk-full">
+            <div class="chk-notes-head">
+              <div class="chk-detail-label" style="margin:0">Documentos Adjuntos</div>
+              <label class="chk-icon-btn">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                Adjuntar
+                <input type="file" data-act="attach" multiple style="display:none">
+              </label>
+            </div>
+            <div class="chk-att-list">${adj||'<div class="chk-notes-empty">No hay documentos adjuntos.</div>'}</div>
+          </div>
+          <div class="chk-detail-actions">
+            <button type="button" class="chk-btn chk-btn-ghost" data-act="delete-item" style="color:#dc2626;border-color:#fca5a5">Eliminar requisito</button>
+            <button type="button" class="chk-btn chk-btn-primary" data-act="save-item">Guardar cambios</button>
+          </div>
         </div>
-        ${textAfter}
-      `;
-    } else {
-      bodyHtml = `<div class="pjd-msg-body">${escapeHtml(content).replace(/\n/g, '<br>')}</div>`;
-    }
-
-    wrap.innerHTML = `<div class="pjd-msg-avatar">j</div><div style="flex:1;min-width:0;"><div class="pjd-msg-meta">jureto${time ? ' · ' + time : ''}</div>${bodyHtml}</div>`;
-    chatList.appendChild(wrap);
-
-    if (tableData) {
-      wrap.querySelector('.js-copy-table')?.addEventListener('click', () => copyTableToClipboard(tableData));
-      wrap.querySelector('.js-copy-to-draft')?.addEventListener('click', () => copyTableToBorrador(tableData));
-      wrap.querySelector('.js-download-excel')?.addEventListener('click', () => downloadTableAsExcel(tableData));
-    }
-
-    scrollChatToBottom();
-    return wrap;
+      </td>
+    </tr>`;
   }
 
-  // Re-renderizar mensajes históricos con tabla
-  document.querySelectorAll('.pjd-msg.is-assistant .pjd-msg-body[data-raw]').forEach(el => {
-    const raw = el.getAttribute('data-raw') || '';
-    const tableData = extractMarkdownTable(raw);
-    if (!tableData) return;
-
-    const container = el.parentElement;
-    const tableHtml = renderTableHtml(tableData);
-    const textBefore = tableData.before ? `<div class="pjd-msg-body" style="margin-bottom:8px">${escapeHtml(tableData.before).replace(/\n/g,'<br>')}</div>` : '';
-    const textAfter  = tableData.after  ? `<div class="pjd-msg-body" style="margin-top:8px">${escapeHtml(tableData.after).replace(/\n/g,'<br>')}</div>` : '';
-    el.outerHTML = `
-      ${textBefore}
-      <div class="pjd-chat-table-wrap">
-        <div class="pjd-chat-table-actions">
-          <button type="button" class="pjd-chat-table-btn js-copy-table">📋 Copiar tabla</button>
-          <button type="button" class="pjd-chat-table-btn js-copy-to-draft">📝 Pasar al borrador</button>
-          <button type="button" class="pjd-chat-table-btn is-primary js-download-excel">⬇ Descargar Excel</button>
-        </div>
-        ${tableHtml}
-      </div>
-      ${textAfter}
-    `;
-    container.querySelector('.js-copy-table')?.addEventListener('click', () => copyTableToClipboard(tableData));
-    container.querySelector('.js-copy-to-draft')?.addEventListener('click', () => copyTableToBorrador(tableData));
-    container.querySelector('.js-download-excel')?.addEventListener('click', () => downloadTableAsExcel(tableData));
-  });
-
-  function appendLoading() {
-    const wrap = document.createElement('div');
-    wrap.className = 'pjd-msg is-assistant';
-    wrap.id = 'pjdLoadingMsg';
-    wrap.innerHTML = `<div class="pjd-msg-avatar">j</div><div><div class="pjd-msg-meta">jureto</div><div class="pjd-msg-body"><span class="pjd-loading-dots"><span></span><span></span><span></span></span></div></div>`;
-    chatList.appendChild(wrap);
-    scrollChatToBottom();
+  function render(){
+    ensureIds();
+    updateCounters();
+    const tb=document.getElementById('chkTbody');
+    const rows=CHECKLIST.filter(passesFilters);
+    if(!rows.length){ tb.innerHTML=''; document.getElementById('chkEmpty').style.display='block'; return; }
+    document.getElementById('chkEmpty').style.display='none';
+    tb.innerHTML = rows.map(it=>{
+      const expanded = EXPANDED.has(it._id);
+      const sel = SELECTED.has(it._id);
+      const main = `
+        <tr class="chk-row ${expanded?'is-expanded':''}" data-id="${it._id}">
+          <td class="chk-td-chev"><span class="chk-chev"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></span></td>
+          <td class="chk-td-check"><input type="checkbox" class="chk-row-sel" ${sel?'checked':''}></td>
+          <td data-col="requisito"><strong>${esc(it.requisito||'')}</strong></td>
+          <td data-col="formato">${esc(it.formato||'—')}</td>
+          <td data-col="categoria">${esc(it.categoria||'—')}</td>
+          <td data-col="aplicabilidad">${esc(it.aplicabilidad||'—')}</td>
+          <td data-col="obligatorio">${pillObl(!!it.obligatorio)}</td>
+          <td data-col="cumplimiento">
+            <select class="chk-cum-select" data-fld="cumplimiento" data-id="${it._id}" onclick="event.stopPropagation()">
+              <option value="sin_revisar" ${(!it.cumplimiento||it.cumplimiento==='sin_revisar')?'selected':''}>Sin revisar</option>
+              <option value="cumple" ${it.cumplimiento==='cumple'?'selected':''}>Cumple</option>
+              <option value="parcial" ${it.cumplimiento==='parcial'?'selected':''}>Parcial</option>
+              <option value="no_cumple" ${it.cumplimiento==='no_cumple'?'selected':''}>No Cumple</option>
+            </select>
+          </td>
+          <td data-col="status">
+            <select class="chk-st-select" data-fld="status" data-id="${it._id}" onclick="event.stopPropagation()">
+              <option value="pendiente" ${(!it.status||it.status==='pendiente')?'selected':''}>Pendiente</option>
+              <option value="en_revision" ${it.status==='en_revision'?'selected':''}>En revisión</option>
+              <option value="aprobado" ${it.status==='aprobado'?'selected':''}>Aprobado</option>
+            </select>
+          </td>
+        </tr>`;
+      return main + (expanded ? renderDetail(it) : '');
+    }).join('');
+    applyColumnsVisibility();
   }
 
-  chatForm?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const msg = chatInput.value.trim();
-    if (!msg) return;
-    chatInput.value = '';
-    chatSend.disabled = true;
-    appendMsg('user', msg);
-    appendLoading();
-    try {
-      const fd = new FormData(); fd.append('_token', CSRF); fd.append('message', msg);
-      const res = await fetch(CHAT_URL, { method:'POST', headers:{'Accept':'application/json'}, body: fd, credentials:'same-origin' });
-      const json = await res.json();
-      document.getElementById('pjdLoadingMsg')?.remove();
-      if (json.ok && json.assistant_message) appendMsg('assistant', json.assistant_message.content, json.assistant_message.time);
-      else appendMsg('assistant', json.message || 'Hubo un error.');
-    } catch (err) {
-      document.getElementById('pjdLoadingMsg')?.remove();
-      appendMsg('assistant', 'Error de red.');
-    } finally { chatSend.disabled = false; chatInput.focus(); }
-  });
-
-  chatReset?.addEventListener('click', async () => {
-    if (!confirm('¿Borrar todo el historial?')) return;
-    try {
-      await fetch(CHAT_RESET_URL, { method:'DELETE', headers:{'X-CSRF-TOKEN': CSRF, 'Accept':'application/json'} });
-      chatList.innerHTML = '';
-      appendMsg('assistant', 'Hola, soy tu asistente. Pregúntame cosas como "resúmeme los archivos" y te las paso en tabla.');
-    } catch (_) {}
-  });
-
-  // ============ CHECKLIST ============
-  const clBody = document.getElementById('pjdClBody');
-  const clSearch = document.getElementById('pjdClSearch');
-  const cumpPop = document.getElementById('pjdClCumpPop');
-  const statPop = document.getElementById('pjdClStatusPop');
-  let activeCumpRow = null, activeStatusRow = null;
-
-  function updateCounters() {
-    const rows = clBody.querySelectorAll('tr[data-row]');
-    const total = rows.length;
-    const counts = { sin_revisar:0, no_cumple:0, parcial:0, cumple:0, pendiente:0, revision:0, aprobado:0 };
-    rows.forEach(r => {
-      const c = r.dataset.cumplimiento, s = r.dataset.status;
-      if (c === 'Cumple') counts.cumple++;
-      else if (c === 'Parcial') counts.parcial++;
-      else if (c === 'No Cumple') counts.no_cumple++;
-      else counts.sin_revisar++;
-      if (s === 'En revisión') counts.revision++;
-      else if (s === 'Aprobado') counts.aprobado++;
-      else counts.pendiente++;
-    });
-    document.getElementById('pjdClTotalNum').textContent = total;
-    Object.keys(counts).forEach(k => {
-      const numEl = document.querySelector(`[data-counter="${k}"]`);
-      const pctEl = document.querySelector(`[data-pct="${k}"]`);
-      const barEl = document.querySelector(`[data-bar="${k}"]`);
-      const pct = total > 0 ? Math.round((counts[k] / total) * 100) : 0;
-      if (numEl) numEl.textContent = counts[k];
-      if (pctEl) pctEl.textContent = pct + '%';
-      if (barEl) barEl.style.width = pct + '%';
+  function applyColumnsVisibility(){
+    document.querySelectorAll('.chk-col-tgl').forEach(cb=>{
+      const col=cb.dataset.col;
+      const visible=cb.checked;
+      document.querySelectorAll(`#chkTable [data-col="${col}"]`).forEach(el=>{ el.style.display = visible?'':'none'; });
     });
   }
-  updateCounters();
 
-  clBody?.addEventListener('click', (e) => {
-    const tBtn = e.target.closest('[data-toggle]');
-    if (tBtn) {
-      const idx = tBtn.dataset.toggle;
-      const tr = clBody.querySelector(`tr[data-row="${idx}"]`);
-      const detail = clBody.querySelector(`tr[data-detail="${idx}"]`);
-      if (tr && detail) { const open = tr.classList.toggle('is-expanded'); detail.style.display = open ? '' : 'none'; }
+  async function saveChecklist(){
+    try{
+      const payload = CHECKLIST.map(it=>{ const {_id,...rest}=it; return {_id,...rest}; });
+      await fetch(PROJECT_DATA.routes.checklist,{
+        method:'POST',
+        headers:{'Content-Type':'application/json','X-CSRF-TOKEN':CSRF,'Accept':'application/json'},
+        body:JSON.stringify({checklist: payload})
+      });
+    }catch(e){console.warn('No se pudo guardar checklist',e);}
+  }
+
+  document.getElementById('chkSearch').addEventListener('input',e=>{SEARCH=e.target.value.trim().toLowerCase();render();});
+
+  document.querySelectorAll('.chk-counter').forEach(c=>{
+    c.addEventListener('click',()=>{
+      const cnt=c.dataset.counter;
+      ['cumplimiento','status','prioridad'].forEach(g=>FILTERS[g].clear());
+      if(['sin_revisar','cumple','parcial','no_cumple'].includes(cnt)) FILTERS.cumplimiento.add(cnt);
+      else if(['pendiente','en_revision','aprobado'].includes(cnt)) FILTERS.status.add(cnt);
+      document.querySelectorAll('.chk-counter').forEach(x=>x.classList.remove('is-active'));
+      if(cnt!=='total') c.classList.add('is-active');
+      document.querySelectorAll('.chk-flt').forEach(cb=>{
+        const g=cb.dataset.group;
+        cb.checked = cb.value==='__all__' ? !FILTERS[g].size : FILTERS[g].has(cb.value);
+      });
+      updateFilterBadge();
+      render();
+    });
+  });
+
+  function updateFilterBadge(){
+    const total=FILTERS.cumplimiento.size+FILTERS.status.size+FILTERS.prioridad.size;
+    const b=document.getElementById('chkFiltrosBadge');
+    if(total){b.style.display='inline-block';b.textContent=total;} else b.style.display='none';
+  }
+
+  document.getElementById('chkBtnFiltros').addEventListener('click',e=>{
+    e.stopPropagation();
+    document.getElementById('chkColsPanel').classList.remove('is-open');
+    document.getElementById('chkFiltrosPanel').classList.toggle('is-open');
+  });
+  document.getElementById('chkBtnColumnas').addEventListener('click',e=>{
+    e.stopPropagation();
+    document.getElementById('chkFiltrosPanel').classList.remove('is-open');
+    document.getElementById('chkColsPanel').classList.toggle('is-open');
+  });
+  document.addEventListener('click',e=>{
+    if(!e.target.closest('.chk-dropdown')){
+      document.getElementById('chkFiltrosPanel').classList.remove('is-open');
+      document.getElementById('chkColsPanel').classList.remove('is-open');
+    }
+  });
+
+  document.querySelectorAll('.chk-flt').forEach(cb=>{
+    cb.addEventListener('change',()=>{
+      const g=cb.dataset.group;
+      if(cb.value==='__all__'){
+        FILTERS[g].clear();
+        document.querySelectorAll(`.chk-flt[data-group="${g}"]`).forEach(x=>{x.checked=x.value==='__all__';});
+      } else {
+        if(cb.checked) FILTERS[g].add(cb.value); else FILTERS[g].delete(cb.value);
+        const allCb=document.querySelector(`.chk-flt[data-group="${g}"][value="__all__"]`);
+        if(allCb) allCb.checked=!FILTERS[g].size;
+      }
+      updateFilterBadge();
+      render();
+    });
+  });
+
+  document.querySelectorAll('.chk-col-tgl').forEach(cb=> cb.addEventListener('change',applyColumnsVisibility));
+
+  document.getElementById('chkSelectAll').addEventListener('change',e=>{
+    const v=e.target.checked;
+    document.querySelectorAll('.chk-row-sel').forEach(cb=>{
+      cb.checked=v;
+      const id=cb.closest('tr').dataset.id;
+      if(v) SELECTED.add(id); else SELECTED.delete(id);
+    });
+    updateExportCount();
+  });
+
+  function updateExportCount(){
+    let bytes=0;
+    SELECTED.forEach(id=>{
+      const it=CHECKLIST.find(x=>x._id===id);
+      (it?.adjuntos||[]).forEach(a=>bytes+=(a.size||0));
+    });
+    document.getElementById('chkExportCount').textContent=SELECTED.size;
+    document.getElementById('chkExportSize').textContent=`archivos (${fmtBytes(bytes)})`;
+  }
+
+  document.getElementById('chkTbody').addEventListener('click',async function(e){
+    const row = e.target.closest('tr.chk-row');
+    if(row && !e.target.closest('select,input,button,.chk-td-check')){
+      const id=row.dataset.id;
+      if(EXPANDED.has(id)) EXPANDED.delete(id); else EXPANDED.add(id);
+      render();
       return;
     }
-    const cumpBtn = e.target.closest('[data-cumplimiento-toggle]');
-    if (cumpBtn) {
-      activeCumpRow = cumpBtn.dataset.cumplimientoToggle;
-      const rect = cumpBtn.getBoundingClientRect();
-      cumpPop.style.top = (rect.bottom + window.scrollY + 6) + 'px';
-      cumpPop.style.left = rect.left + 'px';
-      cumpPop.classList.add('is-open');
-      statPop.classList.remove('is-open');
-      e.stopPropagation();
+    const detail = e.target.closest('tr.chk-detail-row');
+    if(!detail) return;
+    const id = detail.dataset.detailOf;
+    const it = CHECKLIST.find(x=>x._id===id);
+    if(!it) return;
+
+    const prio = e.target.closest('.chk-prio-btn');
+    if(prio){
+      const p = prio.dataset.prio;
+      it.prioridad = (it.prioridad===p)?'':p;
+      render();
+      saveChecklist();
       return;
     }
-    const statBtn = e.target.closest('[data-status-toggle]');
-    if (statBtn) {
-      activeStatusRow = statBtn.dataset.statusToggle;
-      const rect = statBtn.getBoundingClientRect();
-      statPop.style.top = (rect.bottom + window.scrollY + 6) + 'px';
-      statPop.style.left = rect.left + 'px';
-      statPop.classList.add('is-open');
-      cumpPop.classList.remove('is-open');
-      e.stopPropagation();
+
+    const act = e.target.closest('[data-act]')?.dataset.act;
+    if(act==='edit-notes'){
+      const view = detail.querySelector('[data-role="notes-view"]');
+      view.outerHTML = `<textarea class="chk-notes-edit" data-role="notes-edit">${esc(it.notas||'')}</textarea>`;
+    }
+    if(act==='save-item'){
+      const fl = detail.querySelector('[data-fld="fecha_limite"]'); if(fl) it.fecha_limite=fl.value;
+      const rp = detail.querySelector('[data-fld="responsable_id"]'); if(rp) it.responsable_id=rp.value||null;
+      const rv = detail.querySelector('[data-fld="revisor_id"]'); if(rv) it.revisor_id=rv.value||null;
+      const nt = detail.querySelector('[data-role="notes-edit"]'); if(nt) it.notas=nt.value;
+      await saveChecklist();
+      EXPANDED.delete(id);
+      render();
+    }
+    if(act==='delete-item'){
+      if(!confirm('¿Eliminar este requisito?')) return;
+      CHECKLIST = CHECKLIST.filter(x=>x._id!==id);
+      EXPANDED.delete(id);
+      await saveChecklist();
+      render();
+    }
+    const rmi = e.target.closest('[data-rm-att]');
+    if(rmi){
+      const idx = parseInt(rmi.dataset.rmAtt,10);
+      it.adjuntos.splice(idx,1);
+      render();
+      saveChecklist();
     }
   });
 
-  cumpPop?.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-set-cumplimiento]');
-    if (!btn || activeCumpRow === null) return;
-    const val = btn.dataset.setCumplimiento;
-    const row = clBody.querySelector(`tr[data-row="${activeCumpRow}"]`);
-    const dot = row?.querySelector('.pjd-cl-cumple-dot');
-    if (!row || !dot) return;
-    row.dataset.cumplimiento = val;
-    dot.className = 'pjd-cl-cumple-dot';
-    if (val === 'Cumple') dot.classList.add('is-cumple');
-    else if (val === 'Parcial') dot.classList.add('is-parcial');
-    else if (val === 'No Cumple') dot.classList.add('is-nocumple');
-    cumpPop.classList.remove('is-open');
-    updateCounters();
+  document.getElementById('chkTbody').addEventListener('change',function(e){
+    if(e.target.classList.contains('chk-row-sel')){
+      const id=e.target.closest('tr').dataset.id;
+      if(e.target.checked) SELECTED.add(id); else SELECTED.delete(id);
+      updateExportCount();
+      return;
+    }
+    const fld = e.target.dataset?.fld;
+    if(fld==='cumplimiento'||fld==='status'){
+      const id = e.target.dataset.id;
+      const it = CHECKLIST.find(x=>x._id===id);
+      if(it){ it[fld] = e.target.value; updateCounters(); saveChecklist(); }
+    }
+    if(e.target.dataset?.act==='attach'){
+      const detail = e.target.closest('tr.chk-detail-row');
+      const id = detail?.dataset.detailOf;
+      const it = CHECKLIST.find(x=>x._id===id);
+      if(!it || !e.target.files?.length) return;
+      const fd = new FormData();
+      Array.from(e.target.files).forEach(f=>fd.append('files[]',f));
+      fd.append('item_id', id);
+      fd.append('_token', CSRF);
+      fetch(PROJECT_DATA.routes.chkAttach,{method:'POST',body:fd,headers:{'X-CSRF-TOKEN':CSRF}})
+        .then(r=>r.json()).then(json=>{
+          if(json?.adjuntos){ it.adjuntos = (it.adjuntos||[]).concat(json.adjuntos); render(); saveChecklist(); }
+        }).catch(()=>{
+          Array.from(e.target.files).forEach(f=>it.adjuntos.push({name:f.name,size:f.size}));
+          render();
+        });
+    }
+  });
+
+  document.getElementById('chkBtnAdd').addEventListener('click',()=>{
+    const req = prompt('Nombre del nuevo requisito:');
+    if(!req) return;
+    const it = {_id:uid(),requisito:req,descripcion:'',formato:'',categoria:'',aplicabilidad:'',obligatorio:false,cumplimiento:'sin_revisar',status:'pendiente',prioridad:'',adjuntos:[]};
+    CHECKLIST.push(it);
+    EXPANDED.add(it._id);
     saveChecklist();
+    render();
   });
 
-  statPop?.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-set-status]');
-    if (!btn || activeStatusRow === null) return;
-    const val = btn.dataset.setStatus;
-    const row = clBody.querySelector(`tr[data-row="${activeStatusRow}"]`);
-    const pill = row?.querySelector('.pjd-cl-status');
-    if (!row || !pill) return;
-    row.dataset.status = val;
-    pill.className = 'pjd-cl-status';
-    const icons = {'Pendiente':'🕐','En revisión':'🔵','Aprobado':'🟢'};
-    const cls = {'Pendiente':'is-pendiente','En revisión':'is-revision','Aprobado':'is-aprobado'};
-    pill.classList.add(cls[val]);
-    pill.textContent = (icons[val] || '🕐') + ' ' + val;
-    statPop.classList.remove('is-open');
-    updateCounters();
-    saveChecklist();
-  });
-
-  document.addEventListener('click', (e) => {
-    if (!e.target.closest('[data-cumplimiento-toggle]') && !e.target.closest('#pjdClCumpPop')) cumpPop?.classList.remove('is-open');
-    if (!e.target.closest('[data-status-toggle]') && !e.target.closest('#pjdClStatusPop')) statPop?.classList.remove('is-open');
-  });
-
-  clSearch?.addEventListener('input', () => {
-    const q = clSearch.value.trim().toLowerCase();
-    clBody.querySelectorAll('tr[data-row]').forEach(r => {
-      const text = r.textContent.toLowerCase();
-      const match = !q || text.includes(q);
-      r.style.display = match ? '' : 'none';
-      const detail = clBody.querySelector(`tr[data-detail="${r.dataset.row}"]`);
-      if (detail && !match) detail.style.display = 'none';
-    });
-  });
-
-  async function saveChecklist() {
-    const rows = Array.from(clBody.querySelectorAll('tr[data-row]')).map(r => ({
-      idx: r.dataset.row,
-      cumplimiento: r.dataset.cumplimiento,
-      status: r.dataset.status,
-      prioridad: r.dataset.prioridad,
-    }));
-    try {
-      const fd = new FormData(); fd.append('_token', CSRF); fd.append('items', JSON.stringify(rows));
-      await fetch(CHECKLIST_URL, { method:'POST', headers:{'Accept':'application/json'}, body: fd, credentials:'same-origin' });
-    } catch (_) {}
-  }
-
-  document.getElementById('pjdClReanalisis')?.addEventListener('click', async () => {
-    if (!confirm('Esto regenerará TODO el checklist con IA. ¿Continuar?')) return;
-    const btn = document.getElementById('pjdClReanalisis');
-    const original = btn.innerHTML;
-    btn.disabled = true; btn.innerHTML = '⏳ Generando…';
-    try {
-      const fd = new FormData(); fd.append('_token', CSRF); fd.append('regenerate', '1');
-      const res = await fetch(CHECKLIST_URL, { method:'POST', headers:{'Accept':'application/json'}, body: fd, credentials:'same-origin' });
-      if (res.ok) location.reload();
-      else alert('Error al regenerar');
-    } catch (e) { alert('Error de red'); }
-    finally { btn.disabled = false; btn.innerHTML = original; }
-  });
-
-  document.getElementById('pjdClAddBtn')?.addEventListener('click', () => {
-    const name = prompt('Nombre del requisito:');
-    if (!name) return;
-    location.reload();
-  });
-
-  // Descargar checklist como XLSX real
-  document.getElementById('pjdClDownload')?.addEventListener('click', () => {
-    if (typeof XLSX === 'undefined') { showToast('Excel no disponible', 'error'); return; }
-    const headers = ['Requisito','Formato','Categoría','Aplicabilidad','Obligatorio','Cumplimiento','Status','Prioridad'];
-    const rows = [];
-    clBody.querySelectorAll('tr[data-row]').forEach(r => {
-      const cells = r.querySelectorAll('td');
-      rows.push([
-        cells[1]?.textContent.trim() || '',
-        cells[2]?.textContent.trim() || '',
-        cells[3]?.textContent.trim() || '',
-        cells[4]?.textContent.trim() || '',
-        cells[5]?.textContent.trim() || '',
-        r.dataset.cumplimiento || '-',
-        r.dataset.status || 'Pendiente',
-        r.dataset.prioridad || 'Media',
-      ]);
-    });
-    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-    ws['!cols'] = headers.map((h, i) => {
-      let max = h.length;
-      rows.forEach(r => { const len = (r[i] || '').toString().length; if (len > max) max = len; });
-      return { wch: Math.min(Math.max(max + 2, 14), 70) };
-    });
+  document.getElementById('chkBtnDescargar').addEventListener('click',()=>{
+    const headers=['Requisito','Formato','Categoría','Aplicabilidad','Obligatorio','Cumplimiento','Status','Prioridad','Fecha límite','Notas'];
+    const data = CHECKLIST.map(it=>[it.requisito,it.formato,it.categoria,it.aplicabilidad,it.obligatorio?'Sí':'No',it.cumplimiento,it.status,it.prioridad,it.fecha_limite,it.notas]);
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Checklist');
-    XLSX.writeFile(wb, `checklist-${PROJECT_SLUG}.xlsx`);
-    showToast('✓ Checklist descargado', 'success');
+    XLSX.writeFile(wb, 'checklist.xlsx');
   });
 
-  // ============ BORRADOR / REPORTE ============
-  const borradorTabs = document.querySelectorAll('.pjd-borrador-tab');
-  const borradorSections = document.querySelectorAll('[data-section-pane]');
-  borradorTabs.forEach(t => t.addEventListener('click', () => {
-    const sec = t.dataset.section;
-    borradorTabs.forEach(x => x.classList.toggle('is-active', x.dataset.section === sec));
-    borradorSections.forEach(s => s.classList.toggle('is-active', s.dataset.sectionPane === sec));
-  }));
-
-  const draftEditor = document.getElementById('pjdDraftEditor');
-  const saveBtn = document.getElementById('pjdSaveDraft');
-  const draftStatus = document.getElementById('pjdDraftStatus');
-
-  saveBtn?.addEventListener('click', async () => {
-    const fd = new FormData(); fd.append('_token', CSRF); fd.append('draft_content', draftEditor.innerHTML);
-    saveBtn.disabled = true; saveBtn.textContent = 'Guardando…';
-    try {
-      const res = await fetch(DRAFT_URL, { method:'POST', headers:{'Accept':'application/json'}, body: fd, credentials:'same-origin' });
-      if (res.ok) draftStatus.textContent = '✓ Guardado ' + new Date().toLocaleTimeString();
-      else draftStatus.textContent = 'Error';
-    } catch (e) { draftStatus.textContent = 'Error de red'; }
-    finally { saveBtn.disabled = false; saveBtn.textContent = '💾 Guardar'; }
+  document.getElementById('chkBtnReanalisis').addEventListener('click',async()=>{
+    if(!confirm('¿Volver a generar el checklist con IA? Se reemplazará el actual.')) return;
+    const btn = document.getElementById('chkBtnReanalisis');
+    btn.disabled=true; const old = btn.innerHTML; btn.innerHTML = 'Reanalizando…';
+    try{
+      const r=await fetch(PROJECT_DATA.routes.chkReanalyze,{method:'POST',headers:{'X-CSRF-TOKEN':CSRF,'Accept':'application/json'}});
+      const j=await r.json();
+      if(j?.checklist){ CHECKLIST=j.checklist; ensureIds(); render(); }
+      else alert(j?.error || 'No se pudo reanalizar.');
+    }catch(e){alert('Error al reanalizar.');}
+    btn.disabled=false; btn.innerHTML = old;
   });
 
-  document.getElementById('pjdDownloadDraft')?.addEventListener('click', () => {
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${PROJECT_NAME}</title><style>body{font-family:Quicksand,Arial,sans-serif;max-width:850px;margin:30px auto;padding:20px;line-height:1.6;}table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e5e7eb;padding:10px 12px;text-align:left}th{background:#f3f4f6;font-weight:700}</style></head><body>${draftEditor.innerHTML}</body></html>`;
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = `borrador-${PROJECT_SLUG}.html`; a.click();
-    URL.revokeObjectURL(url);
-  });
-
-  async function generateReport() {
-    const btn = document.getElementById('pjdReporteGen') || document.getElementById('pjdReporteRegen');
-    const empty = document.getElementById('pjdReporteEmpty');
-    const content = document.getElementById('pjdReporteContent');
-    const actions = document.getElementById('pjdReporteActions');
-    if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Generando reporte…'; }
-    try {
-      const fd = new FormData(); fd.append('_token', CSRF);
-      const res = await fetch(REPORT_URL, { method:'POST', headers:{'Accept':'application/json'}, body: fd, credentials:'same-origin' });
-      const json = await res.json();
-      if (json.ok && json.html) {
-        if (empty) empty.style.display = 'none';
-        content.innerHTML = json.html;
-        content.style.display = '';
-        if (actions) actions.style.display = '';
-      } else { alert(json.message || 'Error al generar reporte'); }
-    } catch (e) { alert('Error de red'); }
-    finally {
-      if (btn) {
-        btn.disabled = false;
-        btn.innerHTML = btn.id === 'pjdReporteGen' ? '✨ Generar Reporte' : '✨ Regenerar';
-      }
-    }
-  }
-  document.getElementById('pjdReporteGen')?.addEventListener('click', generateReport);
-  document.getElementById('pjdReporteRegen')?.addEventListener('click', () => { if (confirm('¿Regenerar el reporte?')) generateReport(); });
-
-  document.getElementById('pjdReporteDownload')?.addEventListener('click', () => {
-    const content = document.getElementById('pjdReporteContent').innerHTML;
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Reporte - ${PROJECT_NAME}</title><style>body{font-family:Quicksand,Arial,sans-serif;max-width:850px;margin:30px auto;padding:30px;line-height:1.7;}table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #ebebeb;padding:8px 12px;text-align:left}th{background:#fafbff}h1,h2,h3{color:#111}</style></head><body>${content}</body></html>`;
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = `reporte-${PROJECT_SLUG}.html`; a.click();
-    URL.revokeObjectURL(url);
-  });
-
-  @if(!empty($project->report_content ?? null))
-    document.getElementById('pjdReporteActions').style.display = '';
-  @endif
-
-  // ============ CITAS ============
-  const citaModal = document.getElementById('pjdCitaModal');
-  const citaBackdrop = document.getElementById('pjdCitaBackdrop');
-  const citaQuote = document.getElementById('pjdCitaQuote');
-  const citaSource = document.getElementById('pjdCitaSource');
-  const citaPage = document.getElementById('pjdCitaPage');
-  const citaOpenDoc = document.getElementById('pjdCitaOpenDoc');
-
-  function openCita(payload) {
-    if (!payload) return;
-    let data;
-    try { data = typeof payload === 'string' ? JSON.parse(payload) : payload; } catch (e) { return; }
-    citaQuote.textContent = data.cita || '—';
-    citaSource.textContent = data.fuente || '—';
-    citaPage.textContent = data.pagina ? ` · Página ${data.pagina}` : '';
-    const url = data.fuente ? PROJECT_DOCS[data.fuente] : null;
-    if (url) { citaOpenDoc.href = url; citaOpenDoc.style.display = ''; }
-    else citaOpenDoc.style.display = 'none';
-    citaModal.classList.add('is-open');
-  }
-  function closeCita() { citaModal.classList.remove('is-open'); }
-  document.addEventListener('click', (e) => {
-    const el = e.target.closest('[data-cita]');
-    if (el) openCita(el.getAttribute('data-cita'));
-  });
-  document.getElementById('pjdCitaClose')?.addEventListener('click', closeCita);
-  document.getElementById('pjdCitaCloseBtn')?.addEventListener('click', closeCita);
-  citaBackdrop?.addEventListener('click', closeCita);
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeCita(); });
-
+  ensureIds();
+  render();
 })();
 </script>
 @endpush

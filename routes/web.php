@@ -2115,3 +2115,5 @@ Route::middleware(['auth'])->prefix('projects')->name('projects.')->group(functi
     Route::post('/{project}/checklist', [ProjectBoardController::class, 'updateChecklist'])->name('checklist');
     Route::post('/{project}/report',    [ProjectBoardController::class, 'generateReport'])->name('report');
 });
+Route::post('/{project}/checklist/attach',    [ProjectBoardController::class, 'attachChecklist'])->name('checklist.attach');
+Route::post('/{project}/checklist/reanalyze', [ProjectBoardController::class, 'reanalyzeChecklist'])->name('checklist.reanalyze');
