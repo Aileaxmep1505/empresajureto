@@ -27,99 +27,103 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
-   /*
-|--------------------------------------------------------------------------
-| OpenAI
-|--------------------------------------------------------------------------
-*/
-'openai' => [
+    /*
+    |--------------------------------------------------------------------------
+    | OpenAI
+    |--------------------------------------------------------------------------
+    */
+    'openai' => [
+
+        /*
+        |--------------------------------------------------------------------------
+        | Credenciales
+        |--------------------------------------------------------------------------
+        */
+        'api_key' => env('OPENAI_API_KEY'),
+
+        // Base URL SIEMPRE sin /v1
+        'base_url' => rtrim(env('OPENAI_BASE_URL', 'https://api.openai.com'), '/'),
+
+        // Compatibilidad legacy (solo si algún código viejo lo usa)
+        'base_uri' => rtrim(env('OPENAI_API_BASE', 'https://api.openai.com/v1'), '/'),
+
+        // Opcionales (solo si usas múltiples orgs/proyectos)
+        'org_id'     => env('OPENAI_ORG_ID'),
+        'project_id' => env('OPENAI_PROJECT_ID'),
+
+        /*
+        |--------------------------------------------------------------------------
+        | Modelos
+        |--------------------------------------------------------------------------
+        */
+
+        // Modelo principal
+        'primary' => env('OPENAI_PRIMARY_MODEL', 'gpt-5-2025-08-07'),
+
+        // Fallbacks automáticos
+        'fallbacks' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', env(
+                'OPENAI_FALLBACK_MODELS',
+                'gpt-4.1,gpt-5-chat-latest,gpt-4o'
+            ))
+        ))),
+
+        // Compatibilidad legacy
+        'model' => env('OPENAI_PRIMARY_MODEL', 'gpt-5-2025-08-07'),
+
+        // Modelo barato para reparación de JSON inválido
+        'json_repair_model' => env('OPENAI_JSON_REPAIR_MODEL', 'gpt-4o-mini'),
+
+        /*
+        |--------------------------------------------------------------------------
+        | Timeouts y Reintentos
+        |--------------------------------------------------------------------------
+        */
+        'timeout' => (int) env('OPENAI_TIMEOUT', 300),
+        'connect_timeout' => (int) env('OPENAI_CONNECT_TIMEOUT', 30),
+        'max_retries_per_model' => (int) env('OPENAI_RETRIES_PER_MODEL', 3),
+        'retry_base_delay_ms' => (int) env('OPENAI_RETRY_BASE_MS', 400),
+        'max_total_attempts' => (int) env('OPENAI_MAX_TOTAL_ATTEMPTS', 8),
+
+        /*
+        |--------------------------------------------------------------------------
+        | Embeddings
+        |--------------------------------------------------------------------------
+        */
+        'embed_model' => env('OPENAI_EMBED_MODEL', 'text-embedding-3-large'),
+    ],
 
     /*
     |--------------------------------------------------------------------------
-    | Credenciales
+    | Python AI
     |--------------------------------------------------------------------------
+    |
+    | IMPORTANTE:
+    | Tu DocumentAiController usa:
+    | config('services.python_ai.bin')
+    | config('services.python_ai.script')
+    |
     */
-    'api_key' => env('OPENAI_API_KEY'),
-
-    // Base URL SIEMPRE sin /v1
-    'base_url' => rtrim(env('OPENAI_BASE_URL', 'https://api.openai.com'), '/'),
-
-    // Compatibilidad legacy (solo si algún código viejo lo usa)
-    'base_uri' => rtrim(env('OPENAI_API_BASE', 'https://api.openai.com/v1'), '/'),
-
-    // Opcionales (solo si usas múltiples orgs/proyectos)
-    'org_id'     => env('OPENAI_ORG_ID'),
-    'project_id' => env('OPENAI_PROJECT_ID'),
+    'python_ai' => [
+        'bin' => env('PYTHON_BIN', '/usr/bin/python3'),
+        'script' => env('PYTHON_SCRIPT'),
+        'azure_purchase_pdf_extract_script' => env('AZURE_PURCHASE_PDF_EXTRACT_SCRIPT'),
+        'azure_licitacion_pdf_extract_script' => env('AZURE_LICITACION_PDF_EXTRACT_SCRIPT'),
+    ],
 
     /*
     |--------------------------------------------------------------------------
-    | Modelos (Configuración MÁXIMA PRECISIÓN para extracción de documentos)
+    | Azure Document Intelligence
     |--------------------------------------------------------------------------
     */
+    'azure_document_intelligence' => [
+        'endpoint' => env('AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT'),
+        'key' => env('AZURE_DOCUMENT_INTELLIGENCE_KEY'),
+        'api_version' => env('AZURE_DOCUMENT_INTELLIGENCE_API_VERSION', '2024-11-30'),
+        'timeout' => (int) env('AZURE_DOCUMENT_INTELLIGENCE_TIMEOUT', 300),
+    ],
 
-    // 🥇 Modelo principal (máxima exactitud para PDFs/facturas)
-    'primary' => env('OPENAI_PRIMARY_MODEL', 'gpt-5-2025-08-07'),
-
-    // 🥈 Fallbacks automáticos (en orden de prioridad)
-    'fallbacks' => array_values(array_filter(array_map(
-        'trim',
-        explode(',', env(
-            'OPENAI_FALLBACK_MODELS',
-            'gpt-4.1,gpt-5-chat-latest,gpt-4o'
-        ))
-    ))),
-
-    // Compatibilidad legacy
-    'model' => env('OPENAI_PRIMARY_MODEL', 'gpt-5-2025-08-07'),
-
-    // Modelo barato para reparación de JSON inválido
-    'json_repair_model' => env('OPENAI_JSON_REPAIR_MODEL', 'gpt-5-mini'),
-
-    /*
-    |--------------------------------------------------------------------------
-    | Timeouts y Reintentos (importante para PDFs grandes/multi-hoja)
-    |--------------------------------------------------------------------------
-    */
-
-    // Tiempo máximo total de espera (segundos)
-    'timeout' => (int) env('OPENAI_TIMEOUT', 300),
-
-    // Tiempo máximo de conexión
-    'connect_timeout' => (int) env('OPENAI_CONNECT_TIMEOUT', 30),
-
-    // Reintentos por modelo antes de pasar al siguiente fallback
-    'max_retries_per_model' => (int) env('OPENAI_RETRIES_PER_MODEL', 3),
-
-    // Delay base entre reintentos (ms)
-    'retry_base_delay_ms' => (int) env('OPENAI_RETRY_BASE_MS', 400),
-
-    // Máximo total de intentos combinando todos los modelos
-    'max_total_attempts' => (int) env('OPENAI_MAX_TOTAL_ATTEMPTS', 8),
-    'json_repair_model'  => env('OPENAI_JSON_REPAIR_MODEL', 'gpt-4o-mini'),
-
-    /*
-    |--------------------------------------------------------------------------
-    | Embeddings
-    |--------------------------------------------------------------------------
-    */
-    'embed_model' => env('OPENAI_EMBED_MODEL', 'text-embedding-3-large'),
-],
-
-'python' => [
-    'bin' => env('PYTHON_BIN', 'python3'),
-    'script' => env('PYTHON_SCRIPT'),
-    'azure_purchase_pdf_extract_script' => env('AZURE_PURCHASE_PDF_EXTRACT_SCRIPT'),
-],
-'azure_document_intelligence' => [
-    'endpoint' => env('AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT'),
-    'key' => env('AZURE_DOCUMENT_INTELLIGENCE_KEY'),
-    'api_version' => env('AZURE_DOCUMENT_INTELLIGENCE_API_VERSION', '2024-11-30'),
-    'timeout' => env('AZURE_DOCUMENT_INTELLIGENCE_TIMEOUT', 300),
-],
-
-'python' => [
-    'bin' => env('PYTHON_BIN', 'python3'),
-],
     /*
     |--------------------------------------------------------------------------
     | Slack
@@ -134,22 +138,24 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Facturapi (CFDI 4.0)
+    | Facturapi - Sitio web
     |--------------------------------------------------------------------------
     */
-
-    // === FACTURACIÓN: Sitio web (checkout) ===
     'facturaapi_web' => [
         'key'      => env('FACTURAAPI_WEB_KEY'),
         'base_uri' => rtrim(env('FACTURAAPI_WEB_BASE_URI', 'https://www.facturapi.io/v2'), '/'),
 
         'serie'  => env('FACT_WEB_SERIE', 'F'),
-        'metodo' => env('FACT_WEB_METODO_PAGO', 'PUE'), // payment_method
-        'forma'  => env('FACT_WEB_FORMA_PAGO', '04'),   // payment_form
-        'uso'    => env('FACT_WEB_USO_CFDI', 'G03'),    // use
+        'metodo' => env('FACT_WEB_METODO_PAGO', 'PUE'),
+        'forma'  => env('FACT_WEB_FORMA_PAGO', '04'),
+        'uso'    => env('FACT_WEB_USO_CFDI', 'G03'),
     ],
 
-    // === FACTURACIÓN: Sistema interno (backoffice) ===
+    /*
+    |--------------------------------------------------------------------------
+    | Facturapi - Sistema interno
+    |--------------------------------------------------------------------------
+    */
     'facturaapi_internal' => [
         'key'      => env('FACTURAAPI_INT_KEY'),
         'base_uri' => rtrim(env('FACTURAAPI_INT_BASE_URI', 'https://www.facturapi.io/v2'), '/'),
@@ -169,18 +175,11 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Facturapi - Alias legacy (para código viejo)
+    | Facturapi - Alias legacy
     |--------------------------------------------------------------------------
-    |
-    | Esto evita que reviente código que busca config('services.facturapi.key')
-    | o variables FACTURAPI_KEY / FACTURAAPI_KEY.
-    |
-    | Por defecto lo amarramos al BACKOFFICE (INT).
-    |
     */
     'facturapi' => [
-        // Si existe una key legacy, úsala; si no, usa la interna.
-        'key'      => env('FACTURAPI_KEY')
+        'key' => env('FACTURAPI_KEY')
             ?: env('FACTURAAPI_KEY')
             ?: env('FACTURAAPI_INT_KEY'),
 
@@ -200,7 +199,6 @@ return [
         'secret'         => env('STRIPE_SECRET'),
         'webhook_secret' => env('STRIPE_WEBHOOK_SECRET', null),
 
-        // NO usar url() aquí. Usa solo ENV:
         'success_url' => env('STRIPE_SUCCESS_URL'),
         'cancel_url'  => env('STRIPE_CANCEL_URL'),
     ],
@@ -220,24 +218,49 @@ return [
         'free_ship' => (float) env('FREE_SHIPPING_THRESHOLD', 5000.00),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Copomex
+    |--------------------------------------------------------------------------
+    */
     'copomex' => [
         'token' => env('COPOMEX_TOKEN'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | OSRM
+    |--------------------------------------------------------------------------
+    */
     'osrm' => [
         'base' => env('OSRM_BASE_URL', 'http://localhost:5000'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Traffic
+    |--------------------------------------------------------------------------
+    */
     'traffic' => [
         'provider' => env('TRAFFIC_PROVIDER', null),
         'api_key'  => env('TRAFFIC_API_KEY', null),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | AI legacy
+    |--------------------------------------------------------------------------
+    */
     'ai' => [
         'enabled' => filter_var(env('AI_ENABLED', false), FILTER_VALIDATE_BOOL),
         'model'   => env('AI_MODEL', 'gpt-4o-mini'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Mercado Libre
+    |--------------------------------------------------------------------------
+    */
     'meli' => [
         'client_id'     => env('MELI_CLIENT_ID'),
         'client_secret' => env('MELI_CLIENT_SECRET'),
@@ -245,6 +268,11 @@ return [
         'sandbox'       => filter_var(env('MELI_SANDBOX', true), FILTER_VALIDATE_BOOL),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | WhatsApp
+    |--------------------------------------------------------------------------
+    */
     'whatsapp' => [
         'version'         => env('WHATSAPP_API_VERSION', 'v21.0'),
         'phone_id'        => env('WHATSAPP_PHONE_NUMBER_ID'),
@@ -252,30 +280,35 @@ return [
         'template_agenda' => env('WHATSAPP_TEMPLATE_AGENDA', 'agenda_recordatorio'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | iLovePDF
+    |--------------------------------------------------------------------------
+    */
     'ilovepdf' => [
         'public_key' => env('ILOVEPDF_PUBLIC_KEY'),
         'secret_key' => env('ILOVEPDF_SECRET_KEY'),
         'region'     => env('ILOVEPDF_REGION', 'us'),
         'timeout'    => (int) env('ILOVEPDF_TIMEOUT', 180),
     ],
-'amazon_spapi' => [
-        // Login With Amazon (SP-API)
+
+    /*
+    |--------------------------------------------------------------------------
+    | Amazon SP-API
+    |--------------------------------------------------------------------------
+    */
+    'amazon_spapi' => [
         'lwa_client_id'     => env('AMAZON_LWA_CLIENT_ID'),
         'lwa_client_secret' => env('AMAZON_LWA_CLIENT_SECRET'),
         'lwa_refresh_token' => env('AMAZON_LWA_REFRESH_TOKEN'),
 
-        // AWS (firmado)
         'aws_access_key'    => env('AWS_ACCESS_KEY_ID'),
         'aws_secret_key'    => env('AWS_SECRET_ACCESS_KEY'),
         'aws_region'        => env('AWS_DEFAULT_REGION', 'us-east-1'),
 
-        // IAM Role para asumir (STS AssumeRole)
         'role_arn'          => env('AMAZON_SPAPI_ROLE_ARN', env('SPAPI_ROLE_ARN')),
-
-        // Seller / Merchant ID (lo que te faltaba)
         'seller_id'         => env('SPAPI_SELLER_ID'),
 
-        // Endpoint + Marketplace
         'endpoint'          => env('SPAPI_ENDPOINT', 'https://sellingpartnerapi-na.amazon.com'),
         'marketplace_id'    => env('SPAPI_MARKETPLACE_ID', 'A1AM78C64UM0Y8'),
     ],
