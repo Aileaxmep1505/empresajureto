@@ -6,27 +6,69 @@ use App\Http\Controllers\Controller;
 use App\Models\Project;
 use App\Models\ProjectDocument;
 use App\Models\ProjectChatMessage;
-use App\Models\User;
 use App\Services\PythonProjectProcessor;
 use App\Services\OpenAiStructurerService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class ProjectBoardController extends Controller
 {
     /* ============================================================
-     |  INDEX
+     |  Columnas Kanban por defecto
      * ============================================================ */
-    public function index()
+    private function defaultColumns(): array
+    {
+        return [
+            ['id' => 'backlog',     'name' => 'Backlog',       'color' => 'gray'],
+            ['id' => 'en_analisis', 'name' => 'En Análisis',   'color' => 'blue'],
+            ['id' => 'propuesta',   'name' => 'En Propuesta',  'color' => 'orange'],
+            ['id' => 'enviadas',    'name' => 'Enviadas',      'color' => 'purple'],
+            ['id' => 'ganadas',     'name' => 'Ganadas',       'color' => 'green'],
+            ['id' => 'perdidas',    'name' => 'Perdidas',      'color' => 'red'],
+        ];
+    }
+
+    /* ============================================================
+     |  INDEX  (vista Kanban + listado)
+     * ============================================================ */
+    public function index(Request $request)
     {
         $projects = Project::where('user_id', Auth::id())
             ->latest()
             ->get();
 
-        return view('projects.index', compact('projects'));
+        // Construir columnas con su conteo y sus proyectos
+        $validIds = array_column($this->defaultColumns(), 'id');
+
+        $columns = collect($this->defaultColumns())->map(function ($c) use ($projects) {
+            $items = $projects->filter(function ($p) use ($c) {
+                $col = $p->column_id ?: 'backlog';
+                return $col === $c['id'];
+            })->values();
+
+            $c['count']    = $items->count();
+            $c['projects'] = $items;
+            return $c;
+        })->all();
+
+        // Si hay proyectos en una columna no listada, los empujamos a Backlog
+        $huerfanos = $projects->reject(fn ($p) => in_array($p->column_id ?: 'backlog', $validIds))->values();
+        if ($huerfanos->count()) {
+            $columns = array_map(function ($c) use ($huerfanos) {
+                if ($c['id'] === 'backlog') {
+                    $c['projects'] = $c['projects']->concat($huerfanos)->values();
+                    $c['count']    = $c['projects']->count();
+                }
+                return $c;
+            }, $columns);
+        }
+
+        $openColumns = session('projects.open_columns', ['backlog', 'en_analisis', 'propuesta']);
+        $viewMode    = session('projects.view_mode', 'board');
+
+        return view('projects.index', compact('projects', 'columns', 'openColumns', 'viewMode'));
     }
 
     /* ============================================================
@@ -35,49 +77,46 @@ class ProjectBoardController extends Controller
     public function store(Request $request, PythonProjectProcessor $processor)
     {
         $request->validate([
-            'name'      => 'required|string|max:255',
-            'files'     => 'required|array|min:1|max:9',
-            'files.*'   => 'file|mimes:pdf,docx,doc|max:25600', // 25 MB
+            'name'    => 'required|string|max:255',
+            'files'   => 'required|array|min:1|max:9',
+            'files.*' => 'file|mimes:pdf,docx,doc|max:25600',
         ]);
 
         $project = Project::create([
-            'name'        => $request->name,
-            'slug'        => Str::slug($request->name).'-'.Str::random(6),
-            'user_id'     => Auth::id(),
-            'status'      => 'procesando',
-            'priority'    => $request->priority ?? 'media',
-            'color'       => $request->color    ?? '#1e3a5f',
+            'name'      => $request->name,
+            'slug'      => Str::slug($request->name) . '-' . Str::random(6),
+            'user_id'   => Auth::id(),
+            'status'    => 'processing',
+            'column_id' => $request->column_id ?? 'en_analisis',
+            'priority'  => $request->priority  ?? 'media',
+            'color'     => $request->color     ?? '#1e3a5f',
         ]);
 
-        // Guardar documentos
         $paths = [];
         foreach ($request->file('files') as $file) {
             $stored = $file->store("projects/{$project->id}/source", 'public');
-            $doc = ProjectDocument::create([
-                'project_id'  => $project->id,
-                'filename'    => $file->getClientOriginalName(),
-                'file_path'   => $stored,
-                'mime_type'   => $file->getMimeType(),
-                'file_size'   => $file->getSize(),
-                'status'      => 'pendiente',
+            ProjectDocument::create([
+                'project_id' => $project->id,
+                'filename'   => $file->getClientOriginalName(),
+                'file_path'  => $stored,
+                'mime_type'  => $file->getMimeType(),
+                'file_size'  => $file->getSize(),
+                'status'     => 'pendiente',
             ]);
-            $paths[] = storage_path('app/public/'.$stored);
+            $paths[] = storage_path('app/public/' . $stored);
         }
 
-        // Procesar con Python
         try {
             $result = $processor->process($project, $paths);
             $project->structured_data = $result['structured_data'] ?? null;
             $project->checklist       = data_get($result, 'structured_data.checklist_sugerido', []);
-            $project->status          = 'listo';
+            $project->status          = 'ready';
             $project->save();
 
-            // Marcar documentos como procesados
             ProjectDocument::where('project_id', $project->id)
                 ->update(['status' => 'procesado', 'processed_at' => now()]);
-
         } catch (\Throwable $e) {
-            Log::error('Project processing failed', ['project'=>$project->id,'error'=>$e->getMessage()]);
+            Log::error('Project processing failed', ['project' => $project->id, 'error' => $e->getMessage()]);
             $project->status        = 'error';
             $project->error_message = $e->getMessage();
             $project->save();
@@ -99,13 +138,10 @@ class ProjectBoardController extends Controller
     {
         abort_if($project->user_id !== Auth::id() && Auth::id() !== 1, 403);
 
-        $documents = ProjectDocument::where('project_id', $project->id)->get();
-        $messages  = ProjectChatMessage::where('project_id', $project->id)
-                        ->orderBy('id')
-                        ->get();
-        $users     = User::orderBy('name')->get(['id','name']);
+        // Carga eager de las relaciones que usa tu blade
+        $project->load(['documents', 'chatMessages']);
 
-        return view('projects.show', compact('project','documents','messages','users'));
+        return view('projects.show', compact('project'));
     }
 
     /* ============================================================
@@ -122,37 +158,46 @@ class ProjectBoardController extends Controller
             'content'    => $request->message,
         ]);
 
-        // Construir contexto: estructura del proyecto + últimas N interacciones
         $history = ProjectChatMessage::where('project_id', $project->id)
-            ->orderBy('id','desc')->take(12)->get()->reverse()->values();
+            ->orderBy('id', 'desc')->take(12)->get()->reverse()->values();
 
         $systemContext = "Eres un asistente experto en licitaciones públicas mexicanas. "
             . "Estás analizando el proyecto: \"{$project->name}\".\n\n"
             . "Datos estructurados del proyecto (JSON):\n"
-            . json_encode($project->structured_data, JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT) . "\n\n"
+            . json_encode($project->structured_data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) . "\n\n"
             . "Cuando la respuesta sea comparativa, listada o tabular, devuélvela en formato de tabla Markdown "
             . "(con encabezado y separador `|---|`). Usa lenguaje claro y profesional.";
 
-        $messages = [['role'=>'system','content'=>$systemContext]];
+        $messages = [['role' => 'system', 'content' => $systemContext]];
         foreach ($history as $m) {
-            $messages[] = ['role'=>$m->role, 'content'=>$m->content];
+            $messages[] = ['role' => $m->role, 'content' => $m->content];
         }
 
         try {
             $reply = $ai->chat($messages);
         } catch (\Throwable $e) {
-            Log::error('Chat error', ['err'=>$e->getMessage()]);
-            $reply = 'Lo siento, hubo un error al procesar tu pregunta: '.$e->getMessage();
+            Log::error('Chat error', ['err' => $e->getMessage()]);
+            return response()->json([
+                'ok'      => false,
+                'message' => 'Lo siento, hubo un error al procesar tu pregunta: ' . $e->getMessage(),
+            ], 500);
         }
 
-        ProjectChatMessage::create([
+        $assistant = ProjectChatMessage::create([
             'project_id' => $project->id,
             'user_id'    => Auth::id(),
             'role'       => 'assistant',
             'content'    => $reply,
         ]);
 
-        return response()->json(['reply' => $reply]);
+        // Formato que espera tu blade: { ok, assistant_message: { content, time } }
+        return response()->json([
+            'ok' => true,
+            'assistant_message' => [
+                'content' => $assistant->content,
+                'time'    => $assistant->created_at->format('H:i'),
+            ],
+        ]);
     }
 
     public function resetChat(Project $project)
@@ -166,20 +211,57 @@ class ProjectBoardController extends Controller
      * ============================================================ */
     public function saveDraft(Request $request, Project $project)
     {
-        $request->validate(['draft' => 'nullable|string']);
-        $project->draft_content = $request->draft;
+        // Tu blade manda `draft_content`; aceptamos también `draft` por compat
+        $content = $request->input('draft_content', $request->input('draft'));
+        $request->merge(['draft_content' => $content]);
+        $request->validate(['draft_content' => 'nullable|string']);
+
+        $project->draft_content = $content;
         $project->save();
         return response()->json(['ok' => true]);
     }
 
     /* ============================================================
      |  CHECKLIST
+     |   - Tu blade manda:
+     |       items=JSON [{idx,cumplimiento,status,prioridad}, ...]   → patch parcial
+     |       regenerate=1                                             → reanalisis IA
+     |   - También aceptamos `checklist` array completo (compat)
      * ============================================================ */
-    public function updateChecklist(Request $request, Project $project)
+    public function updateChecklist(Request $request, Project $project, PythonProjectProcessor $processor)
     {
-        $request->validate(['checklist' => 'present|array']);
-        $project->checklist = $request->checklist;
-        $project->save();
+        // (1) Regenerar todo con IA
+        if ($request->boolean('regenerate')) {
+            return $this->reanalyzeChecklist($project, $processor);
+        }
+
+        // (2) Updates parciales por índice
+        if ($request->filled('items')) {
+            $updates = json_decode($request->input('items'), true) ?: [];
+            $current = $project->checklist ?? [];
+
+            foreach ($updates as $u) {
+                $idx = $u['idx'] ?? null;
+                if ($idx === null || !isset($current[$idx])) continue;
+
+                foreach (['cumplimiento', 'status', 'prioridad'] as $k) {
+                    if (array_key_exists($k, $u)) {
+                        $current[$idx][$k] = $u[$k];
+                    }
+                }
+            }
+            $project->checklist = array_values($current);
+            $project->save();
+            return response()->json(['ok' => true]);
+        }
+
+        // (3) Reemplazo completo (compat)
+        if ($request->has('checklist')) {
+            $project->checklist = $request->input('checklist');
+            $project->save();
+            return response()->json(['ok' => true]);
+        }
+
         return response()->json(['ok' => true]);
     }
 
@@ -197,7 +279,7 @@ class ProjectBoardController extends Controller
             $saved[] = [
                 'name' => $file->getClientOriginalName(),
                 'size' => $file->getSize(),
-                'url'  => asset('storage/'.$path),
+                'url'  => asset('storage/' . $path),
                 'path' => $path,
                 'mime' => $file->getMimeType(),
             ];
@@ -210,23 +292,24 @@ class ProjectBoardController extends Controller
         try {
             $paths = ProjectDocument::where('project_id', $project->id)
                 ->get()
-                ->map(fn($d) => storage_path('app/public/'.$d->file_path))
-                ->filter(fn($p) => file_exists($p))
+                ->map(fn ($d) => storage_path('app/public/' . $d->file_path))
+                ->filter(fn ($p) => file_exists($p))
                 ->values()
                 ->all();
 
             if (empty($paths)) {
-                return response()->json(['error' => 'No hay documentos para reanalizar.'], 422);
+                return response()->json(['ok' => false, 'error' => 'No hay documentos para reanalizar.'], 422);
             }
 
             $result = $processor->process($project, $paths);
             $newChk = data_get($result, 'structured_data.checklist_sugerido', []);
 
-            // Mezclar: conservar adjuntos/notas/responsables del antiguo cuando coincida requisito
-            $old = collect($project->checklist ?? [])->keyBy(function($it){
+            // Conservar lo que ya hubo capturado el usuario cuando el requisito coincide
+            $old = collect($project->checklist ?? [])->keyBy(function ($it) {
                 return strtolower(trim($it['requisito'] ?? ''));
             });
-            $merged = collect($newChk)->map(function($item) use ($old){
+
+            $merged = collect($newChk)->map(function ($item) use ($old) {
                 $key = strtolower(trim($item['requisito'] ?? ''));
                 if ($old->has($key)) {
                     $prev = $old->get($key);
@@ -247,10 +330,10 @@ class ProjectBoardController extends Controller
             }
             $project->save();
 
-            return response()->json(['checklist' => $merged]);
+            return response()->json(['ok' => true, 'checklist' => $merged]);
         } catch (\Throwable $e) {
-            Log::error('Reanalyze checklist failed', ['err'=>$e->getMessage()]);
-            return response()->json(['error' => $e->getMessage()], 500);
+            Log::error('Reanalyze checklist failed', ['err' => $e->getMessage()]);
+            return response()->json(['ok' => false, 'error' => $e->getMessage()], 500);
         }
     }
 
@@ -260,8 +343,8 @@ class ProjectBoardController extends Controller
     public function generateReport(Project $project, OpenAiStructurerService $ai)
     {
         try {
-            $context = json_encode($project->structured_data, JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT);
-            $checklist = json_encode($project->checklist, JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT);
+            $context   = json_encode($project->structured_data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+            $checklist = json_encode($project->checklist,       JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
 
             $prompt = "Eres un consultor experto en licitaciones públicas mexicanas. "
                 . "Genera un REPORTE EJECUTIVO COMPLETO en HTML para el proyecto: \"{$project->name}\".\n\n"
@@ -277,25 +360,25 @@ class ProjectBoardController extends Controller
                 . "<h2>5. Estado de cumplimiento del checklist</h2> (usa <table> con conteos)\n"
                 . "<h2>6. Riesgos detectados</h2>\n"
                 . "<h2>7. Recomendaciones</h2>\n"
-                . "Aplica estilos inline en <table> (border-collapse, padding, border #e5e7eb, encabezado azul #1e3a5f con texto blanco).";
+                . "Aplica estilos inline en <table> (border-collapse, padding, border #e5e7eb, encabezado #f3f4f6).";
 
             $messages = [
-                ['role'=>'system','content'=>'Eres un generador de reportes HTML profesionales.'],
-                ['role'=>'user','content'=>$prompt],
+                ['role' => 'system', 'content' => 'Eres un generador de reportes HTML profesionales.'],
+                ['role' => 'user',   'content' => $prompt],
             ];
 
             $html = $ai->chat($messages);
-            // Limpieza por si vienen fences
-            $html = preg_replace('/^```html\s*/i','', trim($html));
-            $html = preg_replace('/```$/','', trim($html));
+            $html = preg_replace('/^```html\s*/i', '', trim($html));
+            $html = preg_replace('/```$/', '', trim($html));
 
             $project->report_content = $html;
             $project->save();
 
-            return response()->json(['html' => $html]);
+            // Formato que espera tu blade: { ok, html }
+            return response()->json(['ok' => true, 'html' => $html]);
         } catch (\Throwable $e) {
-            Log::error('Report generation failed', ['err'=>$e->getMessage()]);
-            return response()->json(['error' => $e->getMessage()], 500);
+            Log::error('Report generation failed', ['err' => $e->getMessage()]);
+            return response()->json(['ok' => false, 'message' => $e->getMessage()], 500);
         }
     }
 }
