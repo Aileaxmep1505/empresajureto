@@ -110,7 +110,7 @@ class PublicationPurchaseAiService
         ];
     }
 
-public function saveRules(): array
+    public function saveRules(): array
     {
         return [
             'publication_id' => ['nullable', 'integer'],
@@ -690,23 +690,9 @@ public function saveRules(): array
 
         $process->setTimeout((int) $cfg['timeout']);
 
-        /*
-         * IMPORTANTE EN HOSTING COMPARTIDO:
-         * Cuando Laravel ejecuta Python desde PHP/FPM, no siempre carga el mismo HOME
-         * ni los paquetes instalados con --user. Por eso forzamos PYTHONPATH hacia:
-         * /home/u106036310/.local/lib/python3.9/site-packages
-         */
         $pythonUserHome = '/home/u106036310';
         $pythonUserSite = $pythonUserHome . '/.local/lib/python3.9/site-packages';
 
-        /*
-         * python-ai/
-         *   app/
-         *     services/
-         *       azure_purchase_pdf_extract.py
-         *
-         * dirname($scriptPath, 3) apunta a la raíz de python-ai.
-         */
         $process->setWorkingDirectory(dirname($scriptPath, 3));
 
         $process->setEnv([
@@ -714,7 +700,6 @@ public function saveRules(): array
             'AZURE_DOCUMENT_INTELLIGENCE_KEY' => (string) $cfg['key'],
             'AZURE_DOCUMENT_INTELLIGENCE_API_VERSION' => (string) $cfg['api_version'],
 
-            // ── OpenAI: el script Python lee estas dos para estructurar lo que Azure devolvió ──
             'OPENAI_API_KEY' => (string) (
                 config('services.openai.api_key')
                 ?: env('OPENAI_API_KEY')
@@ -724,7 +709,6 @@ public function saveRules(): array
                 env('OPENAI_MODEL')
                 ?: 'gpt-4o'
             ),
-            // ── FIN OpenAI ──
 
             'HOME' => $pythonUserHome,
             'USER' => 'u106036310',
@@ -770,7 +754,7 @@ public function saveRules(): array
         return $data;
     }
 
-private function openAiConfig(): array
+    private function openAiConfig(): array
     {
         $baseUrl = rtrim((string) (
             config('services.openai.base_url')
@@ -924,7 +908,7 @@ private function openAiConfig(): array
         return $kind === 'pdf' || $ext === 'pdf';
     }
 
-private function prepareFileForAi(string $absolutePath, string $originalName): array
+    private function prepareFileForAi(string $absolutePath, string $originalName): array
     {
         $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION) ?: pathinfo($absolutePath, PATHINFO_EXTENSION));
         $mime = $this->guessMimeType($absolutePath, $ext);
@@ -1588,7 +1572,7 @@ JSON ÚNICAMENTE:
 Reglas:
 - JSON únicamente, sin markdown.
 - unit_price y line_total: número si se ve; si no se ve, null (NO 0).
-- NO devuelvas filas “fantasma”.
+- NO devuelvas filas "fantasma".
 TXT;
     }
 
@@ -1865,8 +1849,18 @@ TXT;
                 continue;
             }
 
-            if ($this->looksLikeTaxLine($raw) || $this->looksLikeTaxLine($name)) {
-                continue;
+            $aiMeta = is_array($it['ai_meta'] ?? null) ? $it['ai_meta'] : [];
+            $source = (string)($aiMeta['source'] ?? '');
+            $isFromOpenAi = str_starts_with($source, 'azure_document_intelligence_openai');
+            $isFromAzure  = str_starts_with($source, 'azure_document_intelligence');
+
+            // Confiamos en OpenAI: ya filtró líneas de impuesto en el prompt.
+            // Para fuentes legacy/desconocidas mantenemos el filtro defensivo, pero
+            // con word boundaries para no eliminar productos como "ADHESIVA".
+            if (!$isFromOpenAi) {
+                if ($this->looksLikeTaxLine($raw) || $this->looksLikeTaxLine($name)) {
+                    continue;
+                }
             }
 
             $qty = $this->toQty($it['qty'] ?? 1);
@@ -1876,10 +1870,6 @@ TXT;
 
             $uP = (is_null($unitPrice) || $unitPrice === '') ? null : $this->toMoney($unitPrice, 4);
             $lT = (is_null($lineTotal) || $lineTotal === '') ? null : $this->toMoney($lineTotal, 2);
-
-            $aiMeta = is_array($it['ai_meta'] ?? null) ? $it['ai_meta'] : [];
-            $source = (string)($aiMeta['source'] ?? '');
-            $isAzureDocumentIntelligence = str_starts_with($source, 'azure_document_intelligence');
 
             if (($uP === null || $uP <= 0) || ($lT === null || $lT <= 0)) {
                 $vals = $this->moneyValuesFromText($raw);
@@ -1898,11 +1888,15 @@ TXT;
             $hasUP = (!is_null($uP) && $uP > 0);
             $hasLT = (!is_null($lT) && $lT > 0);
 
-            if (!$hasUP && !$hasLT && !$isAzureDocumentIntelligence) {
+            // Si la fuente es Azure/OpenAI, confiamos en el item aunque venga sin importes.
+            // Para fuentes legacy, descartamos si no hay precio ni total.
+            if (!$hasUP && !$hasLT && !$isFromAzure) {
                 continue;
             }
 
-            if ($hasUP && $hasLT && !$isAzureDocumentIntelligence) {
+            // Validación qty * uP vs lT solo para fuentes legacy
+            // (la IA ya reconcilia la matemática en el prompt).
+            if ($hasUP && $hasLT && !$isFromAzure) {
                 $calc = round($qty * $uP, 2);
                 $diff = abs($calc - $lT);
                 $tol = max(1.00, $lT * 0.02);
@@ -1967,7 +1961,7 @@ TXT;
         return $out;
     }
 
-private function topItems(array $items, int $limit = 8): array
+    private function topItems(array $items, int $limit = 8): array
     {
         $agg = [];
         foreach ($items as $it) {
@@ -2030,10 +2024,22 @@ private function topItems(array $items, int $limit = 8): array
         return $vals;
     }
 
-private function looksLikeTaxLine(?string $raw): bool
+    /**
+     * Detecta si una línea es de impuesto / IVA / ISR / IEPS, usando word boundaries
+     * para NO confundirse con palabras como "adhesiva", "atractivo", "taxonomia", etc.
+     */
+    private function looksLikeTaxLine(?string $raw): bool
     {
         $raw = mb_strtolower((string)$raw);
-        return str_contains($raw, 'iva') || str_contains($raw, 'impuesto') || str_contains($raw, 'tax');
+
+        if ($raw === '') {
+            return false;
+        }
+
+        return (bool) preg_match(
+            '/\b(iva|isr|ieps|impuesto|impuestos|tax|retencion|retenci[oó]n|traslado|trasladado)\b/u',
+            $raw
+        );
     }
 
     private function toMoney($val, int $decimals = 2): float
@@ -2084,7 +2090,7 @@ private function looksLikeTaxLine(?string $raw): bool
 
         $textExt = ['txt', 'csv', 'tsv', 'json', 'xml', 'html', 'htm', 'md', 'log'];
         $docExt = ['doc', 'docx', 'odt', 'rtf'];
-        $xlsExt = ['xls', 'xlsm', 'ods'];
+        $xlsExt = ['xls', 'xlsx', 'xlsm', 'ods'];
 
         if (str_starts_with($mime, 'text/') || in_array($ext, $textExt, true)) return 'text';
         if (in_array($ext, $docExt, true)) return 'doc';
