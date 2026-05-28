@@ -8,6 +8,10 @@
 
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@300..700&display=swap"/>
 
+    {{-- GSAP + ScrollTrigger (síncrono para evitar flicker) --}}
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+
     <style>
       :root{
         --dm-bg:#f4f7fc;
@@ -45,6 +49,16 @@
         color:var(--dm-text);
       }
 
+      /* Estado inicial: oculta los elementos animados antes de que GSAP corra para evitar flicker */
+      body.pre-anim .menu-date,
+      body.pre-anim .menu-title,
+      body.pre-anim .menu-sub,
+      body.pre-anim .menu-search,
+      body.pre-anim .menu-section-title,
+      body.pre-anim .menu-card{
+        opacity:0;
+      }
+
       .menu-page{
         position:relative;
         width:100%;
@@ -73,6 +87,7 @@
         pointer-events:none;
         filter:blur(10px);
         opacity:.75;
+        will-change:transform;
       }
 
       .menu-glow.g1{
@@ -320,13 +335,11 @@
         overflow:hidden;
         isolation:isolate;
         outline:none;
+        will-change:transform;
         transition:
-          transform .18s cubic-bezier(.2,.8,.2,1),
-          box-shadow .18s cubic-bezier(.2,.8,.2,1),
+          box-shadow .28s cubic-bezier(.2,.8,.2,1),
           border-color .14s ease,
-          color .14s ease,
           background .14s ease;
-        animation:menuCardIn .25s cubic-bezier(.25,.46,.45,.94) both;
         width:100%;
       }
 
@@ -360,7 +373,6 @@
 
       .menu-card:hover,
       .menu-card:focus-visible{
-        transform:translateY(-4px);
         box-shadow:var(--dm-shadow-hover);
         border-color:rgb(24, 119, 242);
       }
@@ -396,10 +408,10 @@
         justify-content:center;
         background:linear-gradient(180deg, #edf3ff 0%, #dfeaff 100%);
         color:var(--dm-blue);
+        will-change:transform;
         transition:
           color .34s ease,
           background .34s ease,
-          transform .28s ease,
           box-shadow .28s ease;
       }
 
@@ -408,6 +420,7 @@
         font-size:15px;
         line-height:1.3;
         font-weight:500;
+        will-change:transform;
         transition:color .34s ease;
       }
 
@@ -420,7 +433,6 @@
       .menu-card:focus-visible .menu-icon{
         background:rgba(255,255,255,.12);
         color:#ffffff;
-        transform:scale(1.08);
         box-shadow:inset 0 0 0 1px rgba(255,255,255,.18);
       }
 
@@ -476,9 +488,15 @@
         -webkit-font-smoothing:antialiased;
       }
 
-      @keyframes menuCardIn{
-        from{ opacity:0; transform:translateY(12px); }
-        to{ opacity:1; transform:translateY(0); }
+      @media (prefers-reduced-motion: reduce){
+        body.pre-anim .menu-date,
+        body.pre-anim .menu-title,
+        body.pre-anim .menu-sub,
+        body.pre-anim .menu-search,
+        body.pre-anim .menu-section-title,
+        body.pre-anim .menu-card{
+          opacity:1;
+        }
       }
 
       @media (min-width:1200px){
@@ -707,7 +725,7 @@
       }
     </style>
 </head>
-<body>
+<body class="pre-anim">
 @php
     $userName = auth()->user()->name ?? 'Usuario';
     $firstName = explode(' ', trim($userName))[0] ?? 'Usuario';
@@ -771,8 +789,6 @@
         }
     } else {
         $finanzasVentas = array_values(array_filter([
-            $makeItem('Cotizaciones', 'calculate', 'cotizaciones.index'),
-            $makeItem('Ventas', 'shopping_cart', 'ventas.index'),
             $makeItem('Facturas', 'receipt_long', 'manual_invoices.index'),
             $makeItem('Compras y Ventas', 'article', 'publications.index'),
             $makeItem('Part. contable', 'monitoring', 'partcontable.index'),
@@ -819,7 +835,6 @@
             $makeItem('Contabilidad', 'monitoring', 'accounting.dashboard', null, 'Nuevo'),
             $makeItem('Documentación', 'folder_open', null, url('/confidential/vault/6')),
             $makeItem('Documentación de altas', 'folder_managed', 'alta.docs.index'),
-            $makeItem('Landing', 'language', 'panel.landing.index'),
             $makeItem('Usuarios', 'manage_accounts', 'admin.users.index'),
             $makeItem('Pedidos web', 'shopping_bag', 'admin.orders.index'),
         ]));
@@ -879,7 +894,6 @@
                                 class="menu-card js-menu-item"
                                 data-label="{{ \Illuminate\Support\Str::lower($item['label']) }}"
                                 data-section="{{ \Illuminate\Support\Str::lower($section['title']) }}"
-                                style="animation-delay: {{ $anim * 0.025 }}s;"
                                 title="{{ $item['label'] }}"
                             >
                                 @if(!empty($item['badge']))
@@ -907,6 +921,9 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    // ─────────────────────────────────────────────────────────
+    // BÚSQUEDA
+    // ─────────────────────────────────────────────────────────
     const input = document.getElementById('menuSearch');
     const clear = document.getElementById('menuSearchClear');
     const items = Array.from(document.querySelectorAll('.js-menu-item'));
@@ -915,11 +932,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function setGridState(grid, count) {
         if (!grid) return;
-
         grid.classList.remove('is-single', 'is-double', 'is-triple', 'is-quad');
-
         if (window.innerWidth < 1200) return;
-
         if (count === 1) grid.classList.add('is-single');
         else if (count === 2) grid.classList.add('is-double');
         else if (count === 3) grid.classList.add('is-triple');
@@ -936,7 +950,6 @@ document.addEventListener('DOMContentLoaded', function () {
             const label = item.dataset.label || '';
             const section = item.dataset.section || '';
             const match = !term || label.includes(term) || section.includes(term);
-
             item.style.display = match ? '' : 'none';
             if (match) visible++;
         });
@@ -944,25 +957,192 @@ document.addEventListener('DOMContentLoaded', function () {
         sections.forEach((section) => {
             const visibleItems = Array.from(section.querySelectorAll('.js-menu-item')).filter(item => item.style.display !== 'none');
             const grid = section.querySelector('.js-menu-grid');
-
             section.style.display = visibleItems.length ? '' : 'none';
             setGridState(grid, visibleItems.length);
         });
 
         empty.classList.toggle('show', visible === 0);
+
+        if (window.ScrollTrigger) {
+            ScrollTrigger.refresh();
+        }
     }
 
     input.addEventListener('input', applyFilter);
-
     clear.addEventListener('click', function () {
         input.value = '';
         input.focus();
         applyFilter();
     });
-
     window.addEventListener('resize', applyFilter);
-
     applyFilter();
+
+    // ─────────────────────────────────────────────────────────
+    // GSAP + ScrollTrigger
+    // ─────────────────────────────────────────────────────────
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (typeof gsap === 'undefined' || reduceMotion) {
+        // Sin GSAP o usuario prefiere menos movimiento: solo muestra todo
+        document.body.classList.remove('pre-anim');
+        return;
+    }
+
+    gsap.registerPlugin(ScrollTrigger);
+
+    // 1. Entrada del hero (fade + slide)
+    const heroTl = gsap.timeline({
+        onStart: () => document.body.classList.remove('pre-anim'),
+    });
+
+    heroTl
+        .from('.menu-date', { opacity: 0, y: -20, duration: 0.7, ease: 'power3.out' })
+        .from('.menu-title', { opacity: 0, y: 30, duration: 0.9, ease: 'power3.out' }, '-=0.4')
+        .from('.menu-sub', { opacity: 0, y: 20, duration: 0.7, ease: 'power3.out' }, '-=0.55')
+        .from('.menu-search', { opacity: 0, scale: 0.96, duration: 0.7, ease: 'power3.out' }, '-=0.45');
+
+    // 2. Parallax del fondo (glows) en scroll
+    gsap.to('.menu-glow.g1', {
+        y: 140,
+        x: -50,
+        scale: 1.1,
+        ease: 'none',
+        scrollTrigger: {
+            trigger: '.menu-page',
+            start: 'top top',
+            end: 'bottom top',
+            scrub: 1,
+        }
+    });
+
+    gsap.to('.menu-glow.g2', {
+        y: -100,
+        x: 60,
+        scale: 0.95,
+        ease: 'none',
+        scrollTrigger: {
+            trigger: '.menu-page',
+            start: 'top top',
+            end: 'bottom top',
+            scrub: 1,
+        }
+    });
+
+    // 3. Entrada de cada sección al hacer scroll
+    sections.forEach((section, i) => {
+        const title = section.querySelector('.menu-section-title');
+        const cards = section.querySelectorAll('.menu-card');
+
+        if (title) {
+            gsap.from(title, {
+                opacity: 0,
+                x: -40,
+                duration: 0.7,
+                ease: 'power3.out',
+                scrollTrigger: {
+                    trigger: section,
+                    start: 'top 90%',
+                    toggleActions: 'play none none none',
+                }
+            });
+        }
+
+        if (cards.length) {
+            gsap.from(cards, {
+                opacity: 0,
+                y: 60,
+                scale: 0.9,
+                duration: 0.75,
+                stagger: 0.06,
+                ease: 'power3.out',
+                scrollTrigger: {
+                    trigger: section,
+                    start: 'top 88%',
+                    toggleActions: 'play none none none',
+                }
+            });
+        }
+    });
+
+    // 4. Hover suave + parallax interno de cada tarjeta
+    items.forEach((card) => {
+        const icon = card.querySelector('.menu-icon');
+        const label = card.querySelector('.menu-label');
+        if (!icon) return;
+
+        // quickTo para el parallax (mucho más performant que tweens normales)
+        const iconX = gsap.quickTo(icon, 'x', { duration: 0.5, ease: 'power2.out' });
+        const iconY = gsap.quickTo(icon, 'y', { duration: 0.5, ease: 'power2.out' });
+        const labelX = label ? gsap.quickTo(label, 'x', { duration: 0.6, ease: 'power2.out' }) : null;
+        const labelY = label ? gsap.quickTo(label, 'y', { duration: 0.6, ease: 'power2.out' }) : null;
+
+        card.addEventListener('mouseenter', () => {
+            gsap.to(card, {
+                scale: 1.045,
+                y: -10,
+                duration: 0.5,
+                ease: 'power3.out',
+                overwrite: 'auto',
+            });
+            gsap.to(icon, {
+                scale: 1.14,
+                duration: 0.6,
+                ease: 'back.out(2)',
+                overwrite: 'auto',
+            });
+        });
+
+        card.addEventListener('mousemove', (e) => {
+            const rect = card.getBoundingClientRect();
+            const relX = (e.clientX - rect.left - rect.width / 2) / rect.width;
+            const relY = (e.clientY - rect.top - rect.height / 2) / rect.height;
+
+            iconX(relX * 22);
+            iconY(relY * 22);
+            if (labelX && labelY) {
+                labelX(relX * 8);
+                labelY(relY * 4);
+            }
+        });
+
+        card.addEventListener('mouseleave', () => {
+            gsap.to(card, {
+                scale: 1,
+                y: 0,
+                duration: 0.6,
+                ease: 'power3.out',
+                overwrite: 'auto',
+            });
+            gsap.to(icon, {
+                scale: 1,
+                x: 0,
+                y: 0,
+                duration: 0.6,
+                ease: 'power3.out',
+                overwrite: 'auto',
+            });
+            if (label) {
+                gsap.to(label, {
+                    x: 0,
+                    y: 0,
+                    duration: 0.6,
+                    ease: 'power3.out',
+                    overwrite: 'auto',
+                });
+            }
+        });
+
+        // Soporte de teclado: foco también expande
+        card.addEventListener('focus', () => {
+            gsap.to(card, { scale: 1.04, y: -8, duration: 0.45, ease: 'power3.out', overwrite: 'auto' });
+            gsap.to(icon, { scale: 1.12, duration: 0.5, ease: 'back.out(2)', overwrite: 'auto' });
+        });
+
+        card.addEventListener('blur', () => {
+            gsap.to(card, { scale: 1, y: 0, duration: 0.5, ease: 'power3.out', overwrite: 'auto' });
+            gsap.to(icon, { scale: 1, x: 0, y: 0, duration: 0.5, ease: 'power3.out', overwrite: 'auto' });
+        });
+    });
 });
 </script>
 </body>

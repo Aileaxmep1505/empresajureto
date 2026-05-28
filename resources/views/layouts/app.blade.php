@@ -972,37 +972,6 @@
         <span>Clientes</span>
       </a>
 
-      <details class="nav__group" {{ request()->routeIs('cotizaciones.*') ? 'open' : '' }}>
-        <summary class="{{ request()->routeIs('cotizaciones.*') ? 'is-active':'' }}">
-          <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-            <path d="M7 3h10l4 4v14H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"></path>
-            <path d="M17 3v4h4"></path><path d="M9 11h8"></path><path d="M9 15h8"></path>
-          </svg>
-          <span>Cotizaciones</span>
-          <svg class="nav__chev" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
-        </summary>
-        <div class="nav__submenu">
-          <a href="{{ route('cotizaciones.index') }}" class="nav__sublink {{ request()->routeIs('cotizaciones.index') || request()->routeIs('cotizaciones.show') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9"><path d="M5 7h14"></path><path d="M5 12h14"></path><path d="M5 17h9"></path></svg>
-            <span>Listado</span>
-          </a>
-          <a href="{{ route('cotizaciones.create') }}" class="nav__sublink {{ request()->routeIs('cotizaciones.create') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
-            <span>Nueva</span>
-          </a>
-          <a href="{{ route('cotizaciones.auto.form') }}" class="nav__sublink {{ request()->routeIs('cotizaciones.auto.*') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9"><path d="M7 7h8a4 4 0 0 1 0 8H9"></path><path d="m7 11-3 3 3 3"></path></svg>
-            <span>Auto (asistida)</span>
-          </a>
-        </div>
-      </details>
-
-      <a href="{{ route('ventas.index') }}" class="nav__link {{ request()->routeIs('ventas.*') ? 'is-active':'' }}">
-        <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-          <path d="M6 6h15l-2 8H8L6 4H3"></path><circle cx="9" cy="19" r="1.6"></circle><circle cx="18" cy="19" r="1.6"></circle>
-        </svg>
-        <span>Ventas</span>
-      </a>
 
       <a href="{{ route('manual_invoices.index') }}" class="nav__link {{ request()->routeIs('manual_invoices.index') || request()->routeIs('manual_invoices.show') ? 'is-active':'' }}">
         <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
@@ -1206,13 +1175,6 @@
         <span>Correo</span>
       </a>
 
-      <a href="{{ route('panel.landing.index') }}" class="nav__link {{ request()->routeIs('panel.landing.*') ? 'is-active':'' }}">
-        <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-          <path d="M4 12h16"></path><path d="M12 4v16"></path>
-          <path d="M5.5 5.5c4 3 9 3 13 0"></path><path d="M5.5 18.5c4-3 9-3 13 0"></path>
-        </svg>
-        <span>Landing (Inicio web)</span>
-      </a>
 
       {{-- ✅ Propuestas Comerciales — visible para TODOS --}}
       <a href="{{ route('propuestas-comerciales.index') }}" class="nav__link {{ request()->routeIs('propuestas-comerciales.*') ? 'is-active':'' }}">
