@@ -39,7 +39,6 @@ class ProjectBoardController extends Controller
             ->latest()
             ->get();
 
-        // Construir columnas con su conteo y sus proyectos
         $validIds = array_column($this->defaultColumns(), 'id');
 
         $columns = collect($this->defaultColumns())->map(function ($c) use ($projects) {
@@ -53,7 +52,6 @@ class ProjectBoardController extends Controller
             return $c;
         })->all();
 
-        // Si hay proyectos en una columna no listada, los empujamos a Backlog
         $huerfanos = $projects->reject(fn ($p) => in_array($p->column_id ?: 'backlog', $validIds))->values();
         if ($huerfanos->count()) {
             $columns = array_map(function ($c) use ($huerfanos) {
@@ -73,6 +71,7 @@ class ProjectBoardController extends Controller
 
     /* ============================================================
      |  STORE  (crea proyecto + sube docs + dispara extracción)
+     |     Al terminar redirige a projects.show  →  ahora es el DASHBOARD
      * ============================================================ */
     public function store(Request $request, PythonProjectProcessor $processor)
     {
@@ -124,24 +123,43 @@ class ProjectBoardController extends Controller
 
         if ($request->wantsJson()) {
             return response()->json([
-                'redirect' => route('projects.show', $project),
-                'project'  => $project,
+                'ok'           => true,
+                'redirect'     => route('projects.show', $project),
+                'redirect_url' => route('projects.show', $project),
+                'project'      => $project,
             ]);
         }
         return redirect()->route('projects.show', $project);
     }
 
     /* ============================================================
-     |  SHOW
+     |  SHOW   →  DASHBOARD (vista principal del proyecto)
+     |   - Pipeline (Análisis → Revisión → Resultado)
+     |   - Módulo sugerido + monico insights
+     |   - Notas, Tareas, Resumen de Documentos, Info General
+     |   - Ficha Técnica resumida + Fechas Clave
      * ============================================================ */
     public function show(Project $project)
     {
         abort_if($project->user_id !== Auth::id() && Auth::id() !== 1, 403);
 
-        // Carga eager de las relaciones que usa tu blade
+        $project->load(['documents', 'user']);
+
+        return view('projects.dashboard', compact('project'));
+    }
+
+    /* ============================================================
+     |  ANALISIS   →  Vista con CHAT + TABS
+     |   (Ficha / Resumen Ejecutivo / Checklist / Borrador / Documentos)
+     |   Se abre desde el card "Análisis de Bases" del dashboard.
+     * ============================================================ */
+    public function analisis(Project $project)
+    {
+        abort_if($project->user_id !== Auth::id() && Auth::id() !== 1, 403);
+
         $project->load(['documents', 'chatMessages']);
 
-        return view('projects.show', compact('project'));
+        return view('projects.analisis', compact('project'));
     }
 
     /* ============================================================
@@ -190,7 +208,6 @@ class ProjectBoardController extends Controller
             'content'    => $reply,
         ]);
 
-        // Formato que espera tu blade: { ok, assistant_message: { content, time } }
         return response()->json([
             'ok' => true,
             'assistant_message' => [
@@ -211,7 +228,6 @@ class ProjectBoardController extends Controller
      * ============================================================ */
     public function saveDraft(Request $request, Project $project)
     {
-        // Tu blade manda `draft_content`; aceptamos también `draft` por compat
         $content = $request->input('draft_content', $request->input('draft'));
         $request->merge(['draft_content' => $content]);
         $request->validate(['draft_content' => 'nullable|string']);
@@ -304,7 +320,6 @@ class ProjectBoardController extends Controller
             $result = $processor->process($project, $paths);
             $newChk = data_get($result, 'structured_data.checklist_sugerido', []);
 
-            // Conservar lo que ya hubo capturado el usuario cuando el requisito coincide
             $old = collect($project->checklist ?? [])->keyBy(function ($it) {
                 return strtolower(trim($it['requisito'] ?? ''));
             });
@@ -374,7 +389,6 @@ class ProjectBoardController extends Controller
             $project->report_content = $html;
             $project->save();
 
-            // Formato que espera tu blade: { ok, html }
             return response()->json(['ok' => true, 'html' => $html]);
         } catch (\Throwable $e) {
             Log::error('Report generation failed', ['err' => $e->getMessage()]);

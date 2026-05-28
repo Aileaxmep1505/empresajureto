@@ -714,6 +714,18 @@ public function saveRules(): array
             'AZURE_DOCUMENT_INTELLIGENCE_KEY' => (string) $cfg['key'],
             'AZURE_DOCUMENT_INTELLIGENCE_API_VERSION' => (string) $cfg['api_version'],
 
+            // ── OpenAI: el script Python lee estas dos para estructurar lo que Azure devolvió ──
+            'OPENAI_API_KEY' => (string) (
+                config('services.openai.api_key')
+                ?: env('OPENAI_API_KEY')
+                ?: ''
+            ),
+            'OPENAI_MODEL' => (string) (
+                env('OPENAI_MODEL')
+                ?: 'gpt-4o'
+            ),
+            // ── FIN OpenAI ──
+
             'HOME' => $pythonUserHome,
             'USER' => 'u106036310',
             'LOGNAME' => 'u106036310',
@@ -2072,7 +2084,7 @@ private function looksLikeTaxLine(?string $raw): bool
 
         $textExt = ['txt', 'csv', 'tsv', 'json', 'xml', 'html', 'htm', 'md', 'log'];
         $docExt = ['doc', 'docx', 'odt', 'rtf'];
-        $xlsExt = ['xls', 'xlsx', 'xlsm', 'ods'];
+        $xlsExt = ['xls', 'xlsm', 'ods'];
 
         if (str_starts_with($mime, 'text/') || in_array($ext, $textExt, true)) return 'text';
         if (in_array($ext, $docExt, true)) return 'doc';

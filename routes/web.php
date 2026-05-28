@@ -2101,19 +2101,22 @@ Route::middleware(['auth', FinancialAccess::class])
         Route::delete('/{statement}',            [FinancialStatementsController::class, 'destroy'])  ->name('destroy');
     });
 
-
-
 Route::middleware(['auth'])->prefix('projects')->name('projects.')->group(function () {
-    Route::get('/',                  [ProjectBoardController::class, 'index'])->name('index');
-    Route::post('/',                 [ProjectBoardController::class, 'store'])->name('store');
-    Route::get('/{project}',         [ProjectBoardController::class, 'show'])->name('show');
-    Route::post('/{project}/chat',   [ProjectBoardController::class, 'chat'])->name('chat');
-    Route::post('/{project}/draft',  [ProjectBoardController::class, 'saveDraft'])->name('draft');
-    Route::delete('/{project}/chat', [ProjectBoardController::class, 'resetChat'])->name('chat.reset');
+    Route::get('/',                              [ProjectBoardController::class, 'index'])->name('index');
+    Route::post('/',                             [ProjectBoardController::class, 'store'])->name('store');
 
-    // ✅ NUEVAS — agrégalas
-    Route::post('/{project}/checklist', [ProjectBoardController::class, 'updateChecklist'])->name('checklist');
-    Route::post('/{project}/report',    [ProjectBoardController::class, 'generateReport'])->name('report');
+    // ⬇ NUEVO: el show ahora es el dashboard
+    Route::get('/{project}',                     [ProjectBoardController::class, 'show'])->name('show');
+
+    // ⬇ NUEVO: el "Análisis de Bases" (vista con chat + tabs)
+    Route::get('/{project}/analisis',            [ProjectBoardController::class, 'analisis'])->name('analisis');
+
+    // ── Rutas que ya usan tu analisis.blade.php (antes show.blade.php) ──
+    Route::post('/{project}/chat',               [ProjectBoardController::class, 'chat'])->name('chat');
+    Route::delete('/{project}/chat',             [ProjectBoardController::class, 'resetChat'])->name('chat.reset');
+    Route::post('/{project}/draft',              [ProjectBoardController::class, 'saveDraft'])->name('draft');
+    Route::post('/{project}/checklist',          [ProjectBoardController::class, 'updateChecklist'])->name('checklist');
+    Route::post('/{project}/checklist/attach',   [ProjectBoardController::class, 'attachChecklist'])->name('checklist.attach');
+    Route::post('/{project}/checklist/reanalyze',[ProjectBoardController::class, 'reanalyzeChecklist'])->name('checklist.reanalyze');
+    Route::post('/{project}/report',             [ProjectBoardController::class, 'generateReport'])->name('report');
 });
-Route::post('/{project}/checklist/attach',    [ProjectBoardController::class, 'attachChecklist'])->name('checklist.attach');
-Route::post('/{project}/checklist/reanalyze', [ProjectBoardController::class, 'reanalyzeChecklist'])->name('checklist.reanalyze');

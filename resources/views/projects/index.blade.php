@@ -3,6 +3,18 @@
 @section('title', 'Proyectos')
 <link rel="stylesheet" href="{{ asset('css/proyecto.css') }}?v={{ time() }}">
 
+@push('styles')
+<style>
+  /* Hacer toda la card/row clicable */
+  .js-project-row[data-href]{ cursor:pointer; transition: transform .12s ease, box-shadow .12s ease; }
+  .js-project-row[data-href]:hover{ transform: translateY(-1px); box-shadow: 0 6px 18px rgba(15,23,42,.08); }
+  /* No mostrar el cursor pointer encima de controles internos */
+  .js-project-row a, .js-project-row button, .js-project-row label, .js-project-row input { cursor: auto; }
+  .js-project-row .pj-drag-btn, .js-project-row .pj-icon-btn, .js-project-row .pj-dots-btn,
+  .js-project-row .pj-star-btn, .js-project-row .pj-tag-add, .js-project-row .pj-label-pill-menu { cursor: pointer; }
+</style>
+@endpush
+
 @php
     $currentView = request('view', 'cards');
 
@@ -265,6 +277,7 @@
                                             $label = $project['labels'][0] ?? null;
                                             $projectId = $column['id'].'-'.$index;
                                             $projectSlug = $project['slug'] ?? null;
+                                            $projectHref = $projectSlug ? route('projects.show', $projectSlug) : null;
                                         @endphp
 
                                         <div class="pj-item-row js-project-row"
@@ -272,7 +285,8 @@
                                              data-column-id="{{ $column['id'] }}"
                                              data-project-id="{{ $projectId }}"
                                              data-project-slug="{{ $projectSlug }}"
-                                             data-project-name="{{ $project['name'] }}">
+                                             data-project-name="{{ $project['name'] }}"
+                                             @if($projectHref) data-href="{{ $projectHref }}" @endif>
                                             <div class="pj-col pj-col-project">
                                                 <label class="pj-row-check">
                                                     <input type="checkbox" class="js-project-check" data-column-id="{{ $column['id'] }}" data-project-id="{{ $projectId }}" data-project-name="{{ $project['name'] }}">
@@ -372,6 +386,7 @@
                                                 $label = $project['labels'][0] ?? null;
                                                 $projectId = $column['id'].'-card-'.$index;
                                                 $projectSlug = $project['slug'] ?? null;
+                                                $projectHref = $projectSlug ? route('projects.show', $projectSlug) : null;
                                             @endphp
 
                                             <div class="pj-card js-project-row"
@@ -379,7 +394,8 @@
                                                  data-column-id="{{ $column['id'] }}"
                                                  data-project-id="{{ $projectId }}"
                                                  data-project-slug="{{ $projectSlug }}"
-                                                 data-project-name="{{ $project['name'] }}">
+                                                 data-project-name="{{ $project['name'] }}"
+                                                 @if($projectHref) data-href="{{ $projectHref }}" @endif>
                                                 <div class="pj-card-top">
                                                     <div class="pj-card-main">
                                                         <label class="pj-check">
@@ -670,6 +686,30 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!e.target.closest('.pj-pop-wrap')) document.querySelectorAll('.pj-popover').forEach(p => p.classList.remove('is-open'));
     });
 
+    // ============ NAVEGAR AL DASHBOARD AL HACER CLIC EN CUALQUIER PARTE DE LA CARD/FILA ============
+    document.addEventListener('click', function (e) {
+        const row = e.target.closest('.js-project-row[data-href]');
+        if (!row) return;
+
+        // Ignorar si el clic fue sobre un control interactivo / popover / drag handle
+        if (e.target.closest(
+            'input, label, button, a, select, textarea, [role="button"], ' +
+            '.js-open-label-pop, .js-open-tag-menu, .js-open-project-menu, ' +
+            '.js-drag-handle, .pj-drag-btn, .pj-star-btn, .pj-icon-btn, ' +
+            '.pj-label-pill, .pj-label-pill-menu, .pj-tag-add, ' +
+            '#pjLabelPopover, #pjTagMenu, #pjProjectMenu, .pj-popover, .pj-bulkbar'
+        )) return;
+
+        const href = row.dataset.href;
+        if (!href) return;
+
+        if (e.metaKey || e.ctrlKey || e.button === 1) {
+            window.open(href, '_blank');
+        } else {
+            window.location.href = href;
+        }
+    });
+
     // ============ MODAL CREATE ============
     const modalBackdrop = document.getElementById('projectModalBackdrop');
     const openProjectModal = document.getElementById('openProjectModal');
@@ -776,7 +816,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 const json = await res.json();
 
-                if (!res.ok || !json.ok) {
+                if (!res.ok || !(json.ok || json.redirect || json.redirect_url)) {
                     if (uploadStatus) {
                         uploadStatus.style.background = '#fee2e2';
                         uploadStatus.style.borderColor = '#fecaca';
@@ -793,7 +833,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     uploadStatus.textContent = '¡Listo! Abriendo el proyecto…';
                 }
 
-                setTimeout(() => { window.location.href = json.redirect_url; }, 600);
+                const target = json.redirect_url || json.redirect;
+                setTimeout(() => { window.location.href = target; }, 600);
             } catch (err) {
                 console.error(err);
                 if (uploadStatus) {
