@@ -2031,3 +2031,177 @@ function exportExtractedTablesToWord() {
           <thead>
             <tr>${thead}</tr>
           </thead>
+Continúo con la segunda mitad del archivo. Pega esto justo después del bloque que se cortó (a partir de <table> en exportExtractedTablesToWord, completa así):
+
+        <table>
+          <thead>
+            <tr>${thead}</tr>
+          </thead>
+          <tbody>
+            ${tbody || `<tr><td colspan="${Math.max(columns.length, 1)}">Sin filas extraídas.</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }).join('');
+
+  const wordContent = `
+    <!DOCTYPE html>
+    <html xmlns:o="urn:schemas-microsoft-com:office:office"
+          xmlns:w="urn:schemas-microsoft-com:office:word"
+          xmlns="http://www.w3.org/TR/REC-html40">
+    <head>
+      <meta charset="UTF-8">
+      <title>${escapeHtml(title)}</title>
+
+      <style>
+        @page WordSection1 {
+          size: 11in 8.5in;
+          mso-page-orientation: landscape;
+          margin: 0.35in 0.35in 0.35in 0.35in;
+        }
+
+        div.WordSection1 {
+          page: WordSection1;
+        }
+
+        body {
+          font-family: Arial, sans-serif;
+          color: #333333;
+          background: #ffffff;
+          margin: 0;
+        }
+
+        h1 {
+          color: #111111;
+          font-size: 18pt;
+          margin: 0 0 4pt;
+          font-weight: 700;
+        }
+
+        h2 {
+          color: #111111;
+          font-size: 11pt;
+          margin: 14pt 0 4pt;
+          font-weight: 700;
+        }
+
+        .meta,
+        .table-meta {
+          color: #666666;
+          font-size: 8pt;
+          margin-bottom: 8pt;
+        }
+
+        .table-block {
+          margin-top: 12pt;
+          page-break-inside: avoid;
+        }
+
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          table-layout: fixed;
+          font-size: 7pt;
+          margin-bottom: 12pt;
+        }
+
+        th {
+          background: #f3f4f6;
+          color: #111111;
+          font-weight: 700;
+          border: 1px solid #d9d9d9;
+          padding: 4pt;
+          text-align: left;
+          vertical-align: top;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+        }
+
+        td {
+          border: 1px solid #e5e5e5;
+          padding: 3pt 4pt;
+          vertical-align: top;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+        }
+
+        tr:nth-child(even) td {
+          background: #fafafa;
+        }
+      </style>
+    </head>
+
+    <body>
+      <div class="WordSection1">
+        <h1>${escapeHtml(title)}</h1>
+
+        <div class="meta">
+          Folio: ${escapeHtml(folio)} · Generado: ${escapeHtml(generatedAt)} · Exportación basada en tabla extraída del PDF
+        </div>
+
+        ${tablesHtml || '<p>No se encontraron tablas para exportar.</p>'}
+      </div>
+    </body>
+    </html>
+  `;
+
+  downloadBlob(
+    wordContent,
+    getQuoteFileName('doc'),
+    'application/msword;charset=utf-8'
+  );
+}
+
+  document.getElementById('btnSuggestAll').addEventListener('click', suggestAll);
+  document.getElementById('btnOpenAddItem').addEventListener('click', openAddItemModal);
+  document.getElementById('btnSaveGlobalMargin').addEventListener('click', () => saveGlobalMargin(false));
+  document.getElementById('btnApplyGlobalMargin').addEventListener('click', () => saveGlobalMargin(true));
+  document.getElementById('btnExportExcel')?.addEventListener('click', exportExtractedTablesToExcel);
+  document.getElementById('btnExportWord')?.addEventListener('click', exportExtractedTablesToWord);
+
+  document.getElementById('manualQueryInput').addEventListener('input', () => {
+    manualLastQuery = '';
+    scheduleManualSearch(420);
+  });
+
+  document.getElementById('manualQueryInput').addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      manualLastQuery = '';
+      scheduleManualSearch(10);
+    }
+  });
+
+  document.getElementById('manualTabCatalog').addEventListener('click', () => {
+    manualTab = 'catalog';
+    manualLastQuery = '';
+    document.getElementById('manualTabCatalog').classList.add('active');
+    document.getElementById('manualTabInternet').classList.remove('active');
+    scheduleManualSearch(10);
+  });
+
+  document.getElementById('manualTabInternet').addEventListener('click', () => {
+    manualTab = 'internet';
+    manualLastQuery = '';
+    document.getElementById('manualTabInternet').classList.add('active');
+    document.getElementById('manualTabCatalog').classList.remove('active');
+    scheduleManualSearch(10);
+  });
+
+  // 🔹 Buscador en vivo del modal de fichas técnicas
+  document.getElementById('techQueryInput').addEventListener('input', () => {
+    clearTimeout(window.__techTimer);
+    window.__techTimer = setTimeout(loadTechSheets, 350);
+  });
+
+  document.querySelectorAll('.filter-summary').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentFilter = btn.dataset.filter || 'all';
+      renderItems();
+    });
+  });
+
+  renderItems();
+</script>
+@endsection
