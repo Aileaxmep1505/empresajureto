@@ -2,7 +2,7 @@
 @section('content_class', 'content--flush')
 @section('content')
 
-  @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap');
+
     <link rel="stylesheet" href="{{ asset('css/cotizacion.css') }}?v={{ time() }}">
 
 @php
