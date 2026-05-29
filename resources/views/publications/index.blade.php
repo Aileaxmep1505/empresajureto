@@ -200,6 +200,42 @@
     #pubsBase .kpiSmall{ margin-top:10px; color:var(--muted); font-weight:900; font-size:12px; display:flex; gap:10px; flex-wrap:wrap; }
     #pubsBase .kpiSmall span{ display:inline-flex; align-items:center; gap:8px; }
     #pubsBase .mutedBox{ background: rgba(248,250,252,.65); border:1px dashed rgba(15,23,42,.14); border-radius: 16px; padding: 14px 16px; color: rgba(15,23,42,.65); font-weight: 900; font-size: 12px; margin-top:14px; }
+    
+    /* =========================
+       ESTILOS PARA LA PAGINACIÓN DE LARAVEL
+    ========================= */
+    #pubsBase .idxPager { margin-top: 24px; }
+    #pubsBase .idxPager [role="navigation"] {
+        display: flex; justify-content: space-between; align-items: center; gap: 20px; flex-wrap: wrap;
+    }
+    #pubsBase .idxPager [role="navigation"] > div:first-of-type { display: none; }
+    @media (max-width: 640px) {
+        #pubsBase .idxPager [role="navigation"] > div:first-of-type { display: flex; width: 100%; justify-content: space-between; }
+        #pubsBase .idxPager [role="navigation"] > div:last-of-type { display: none; }
+    }
+    #pubsBase .idxPager p.text-sm { margin: 0; color: var(--muted); font-size: 13px; font-weight: 600; }
+    #pubsBase .idxPager p.text-sm span { font-weight: 900; color: var(--ink); }
+    #pubsBase .idxPager .relative.z-0.inline-flex {
+        display: inline-flex; align-items: center; border: 1px solid var(--line);
+        border-radius: 12px; overflow: hidden; background: #ffffff; box-shadow: 0 4px 15px rgba(2,6,23,0.04);
+    }
+    #pubsBase .idxPager .relative.z-0.inline-flex > * > span,
+    #pubsBase .idxPager .relative.z-0.inline-flex > a {
+        display: inline-flex; align-items: center; justify-content: center;
+        padding: 8px 14px; font-size: 13px; font-weight: 800; color: var(--muted);
+        background: transparent; border-right: 1px solid var(--line); text-decoration: none;
+        transition: 0.2s; min-width: 42px; line-height: 1;
+    }
+    #pubsBase .idxPager .relative.z-0.inline-flex > *:last-child > span,
+    #pubsBase .idxPager .relative.z-0.inline-flex > a:last-child { border-right: none; }
+    #pubsBase .idxPager .relative.z-0.inline-flex > a:hover { background: #f8fafc; color: #3b82f6; }
+    #pubsBase .idxPager .relative.z-0.inline-flex [aria-current="page"] > span {
+        background: #3b82f6; color: #ffffff; border-color: #3b82f6;
+    }
+    #pubsBase .idxPager .relative.z-0.inline-flex [aria-disabled="true"] > span {
+        color: #cbd5e1; background: #f1f5f9; cursor: not-allowed;
+    }
+    #pubsBase .idxPager svg { width: 18px; height: 18px; }
   </style>
 
   <div class="bg">
@@ -391,7 +427,7 @@
       </div>
 
       @if(method_exists($latest, 'firstItem') && $latest->total())
-        <div class="idxPager" style="margin-top:18px;">
+        <div class="idxPager">
           {{ $latest->onEachSide(1)->links() }}
         </div>
       @endif
