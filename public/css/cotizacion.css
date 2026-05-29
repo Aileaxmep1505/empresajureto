@@ -1,5 +1,39 @@
   @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap');
+/* ===================== MUESTRAS / FICHAS (nuevo) ===================== */
 
+/* Textarea de la ficha (la clase .input fija 42px de alto) */
+.jureto-quote-page textarea.input {
+  height: auto;
+  min-height: 86px;
+  padding: 10px 12px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+/* Input de archivo dentro de los modales */
+.jureto-quote-page input[type="file"].input {
+  height: auto;
+  padding: 9px 12px;
+  font-size: 13px;
+  color: #5b6470;
+}
+
+/* Etiqueta "Ficha vinculada" en el meta de la partida */
+.jureto-quote-page .item-meta .tech-linked {
+  color: var(--success, #15803d);
+  font-weight: 700;
+}
+
+/* Resultados de muestras: separación y números legibles */
+.jureto-quote-page #samplesResults .result-card { margin-bottom: 10px; }
+.jureto-quote-page #samplesResults .result-meta strong { color: #111; }
+
+/* Resultados de fichas: que el botón Vincular no se aplaste */
+.jureto-quote-page #techResults .modal-result { margin-bottom: 10px; }
+.jureto-quote-page #techResults .modal-result > button { flex: 0 0 auto; }
+
+/* Asegura que los nuevos botones de la fila de acciones respiren */
+.jureto-quote-page .item-details .action-row { gap: 9px; flex-wrap: wrap; }
   .jureto-quote-page {
     --bg: #ffffff;
     --card: #ffffff;
