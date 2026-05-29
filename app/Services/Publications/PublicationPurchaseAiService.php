@@ -136,49 +136,68 @@ public function buildIndexData(?Request $request = null): array
     $request = $request ?? request();
     Carbon::setLocale('es');
 
-    // ---------- 1) Leer filtros ----------
+    // ---------- 1) Leer filtros (soporta arreglos) ----------
     $from = null;
     $to   = null;
-    try { if ($request->filled('from')) $from = Carbon::parse($request->get('from'))->startOfDay(); } catch (\Throwable $e) { $from = null; }
-    try { if ($request->filled('to'))   $to   = Carbon::parse($request->get('to'))->endOfDay();   } catch (\Throwable $e) { $to = null; }
+    try { if ($request->filled('from')) $from = Carbon::parse(is_array($request->get('from')) ? null : $request->get('from'))->startOfDay(); } catch (\Throwable $e) { $from = null; }
+    try { if ($request->filled('to'))   $to   = Carbon::parse(is_array($request->get('to')) ? null : $request->get('to'))->endOfDay(); } catch (\Throwable $e) { $to = null; }
 
-    $cat      = in_array($request->get('cat'), ['compra', 'venta'], true) ? $request->get('cat') : null;
-    $supplier = trim((string) $request->get('supplier', ''));
-    $product  = trim((string) $request->get('product', ''));
+    // cat[] -> arreglo de categorías válidas
+    $rawCat = $request->get('cat', []);
+    $rawCat = is_array($rawCat) ? $rawCat : [$rawCat];
+    $cats   = array_values(array_intersect(array_map('strval', $rawCat), ['compra', 'venta']));
+
+    // supplier[] -> arreglo de proveedores
+    $rawSup    = $request->get('supplier', []);
+    $rawSup    = is_array($rawSup) ? $rawSup : [$rawSup];
+    $suppliers = array_values(array_filter(array_map(fn ($v) => trim((string) $v), $rawSup), fn ($v) => $v !== ''));
+
+    // product (texto simple)
+    $rawProd    = $request->get('product', '');
+    $product    = is_array($rawProd) ? '' : trim((string) $rawProd);
     $hasProduct = $product !== '';
 
+    // ¿Hay algún filtro activo? -> si sí, NO paginar
+    $hasAnyFilter = (bool) ($from || $to || !empty($cats) || !empty($suppliers) || $hasProduct);
+
     // ---------- 2) Builders reutilizables ----------
-    $applyDocFilters = function ($q) use ($from, $to, $cat, $supplier) {
-        if ($cat) $q->where('category', $cat);
-        else      $q->whereIn('category', ['compra', 'venta']);
+    $applyDocFilters = function ($q) use ($from, $to, $cats, $suppliers) {
+        if (!empty($cats)) $q->whereIn('category', $cats);
+        else               $q->whereIn('category', ['compra', 'venta']);
         if ($from) $q->whereRaw("COALESCE(document_datetime, created_at) >= ?", [$from]);
         if ($to)   $q->whereRaw("COALESCE(document_datetime, created_at) <= ?", [$to]);
-        if ($supplier !== '') $q->where('supplier_name', 'like', "%{$supplier}%");
+        if (!empty($suppliers)) $q->whereIn('supplier_name', $suppliers);
         return $q;
     };
     $docBase = fn () => $applyDocFilters(PurchaseDocument::query());
 
-    $itemBase = function () use ($from, $to, $cat, $supplier, $product) {
+    $itemBase = function () use ($from, $to, $cats, $suppliers, $product) {
         $q = PurchaseItem::query()
             ->join('purchase_documents', 'purchase_items.purchase_document_id', '=', 'purchase_documents.id');
-        if ($cat) $q->where('purchase_documents.category', $cat);
-        else      $q->whereIn('purchase_documents.category', ['compra', 'venta']);
+        if (!empty($cats)) $q->whereIn('purchase_documents.category', $cats);
+        else               $q->whereIn('purchase_documents.category', ['compra', 'venta']);
         if ($from) $q->whereRaw("COALESCE(purchase_documents.document_datetime, purchase_documents.created_at) >= ?", [$from]);
         if ($to)   $q->whereRaw("COALESCE(purchase_documents.document_datetime, purchase_documents.created_at) <= ?", [$to]);
-        if ($supplier !== '') $q->where('purchase_documents.supplier_name', 'like', "%{$supplier}%");
-        if ($product  !== '') $q->where('purchase_items.item_name', 'like', "%{$product}%");
+        if (!empty($suppliers)) $q->whereIn('purchase_documents.supplier_name', $suppliers);
+        if ($product !== '')    $q->where('purchase_items.item_name', 'like', "%{$product}%");
         return $q;
     };
 
     // ---------- 3) Documentos (tab "Mis Documentos") ----------
-    $pubFilter = function ($q) use ($from, $to, $cat) {
-        if ($cat)  $q->where('category', $cat);
+    $pubFilter = function ($q) use ($from, $to, $cats) {
+        if (!empty($cats)) $q->whereIn('category', $cats);
         if ($from) $q->where('created_at', '>=', $from);
         if ($to)   $q->where('created_at', '<=', $to);
         return $q;
     };
+
     $pinned = $pubFilter(Publication::query()->where('pinned', true))->latest('created_at')->get();
-    $latest = $pubFilter(Publication::query()->where('pinned', false))->latest('created_at')->paginate(12)->withQueryString();
+
+    // Si hay filtros activos -> mostrar TODO sin paginar. Si no -> paginar con número mayor (48).
+    $latestQuery = $pubFilter(Publication::query()->where('pinned', false))->latest('created_at');
+    $latest = $hasAnyFilter
+        ? $latestQuery->get()
+        : $latestQuery->paginate(48)->withQueryString();
 
     // ---------- 4) Totales ----------
     if ($hasProduct) {
@@ -332,10 +351,10 @@ public function buildIndexData(?Request $request = null): array
     }
     $topSuppliers = $topSuppliersCompra;
 
-    // ---------- 10) Opciones de proveedor (para el <select>) ----------
+    // ---------- 10) Opciones de proveedor (para los checkboxes) ----------
     $supplierOptions = PurchaseDocument::query()
         ->whereNotNull('supplier_name')->where('supplier_name', '!=', '')
-        ->when($cat, fn ($q) => $q->where('category', $cat))
+        ->when(!empty($cats), fn ($q) => $q->whereIn('category', $cats))
         ->select('supplier_name')->distinct()->orderBy('supplier_name')->limit(1000)
         ->pluck('supplier_name')->all();
 
@@ -356,20 +375,20 @@ public function buildIndexData(?Request $request = null): array
     $filters = [
         'from'     => $from ? $from->toDateString() : '',
         'to'       => $to ? $to->toDateString() : '',
-        'cat'      => $cat ?? '',
-        'supplier' => $supplier,
+        'cat'      => $cats,       // arreglo
+        'supplier' => $suppliers,  // arreglo
         'product'  => $product,
     ];
 
     $reportMeta = [
-        'period_label'    => $periodLabel,
-        'generated_at'    => now()->translatedFormat('d M Y, H:i'),
-        'cat'             => $cat ?? 'ambos',
-        'supplier'        => $supplier ?: '—',
-        'product'         => $product ?: '—',
-        'doc_count_compra'=> $docCountCompra,
-        'doc_count_venta' => $docCountVenta,
-        'has_filters'     => (bool) ($from || $to || $cat || $supplier !== '' || $product !== ''),
+        'period_label'     => $periodLabel,
+        'generated_at'     => now()->translatedFormat('d M Y, H:i'),
+        'cat'              => !empty($cats) ? implode(', ', $cats) : 'ambos',
+        'supplier'         => !empty($suppliers) ? implode(', ', $suppliers) : '—',
+        'product'          => $product ?: '—',
+        'doc_count_compra' => $docCountCompra,
+        'doc_count_venta'  => $docCountVenta,
+        'has_filters'      => $hasAnyFilter,
     ];
 
     return compact(
