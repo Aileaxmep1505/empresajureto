@@ -1621,7 +1621,7 @@ Route::get ('/catalog/{catalogItem}/amazon/view',    [CatalogItemController::cla
 // IA: analiza archivo (PDF/imagen) y devuelve items + resumen (no guarda)
 Route::post('/publications/ai/extract', [PublicationController::class, 'aiExtractFromUpload'])
     ->name('publications.ai.extract');
-
+Route::get('/publications/reporte-pdf', [PublicationController::class, 'reportPdf'])->name('publications.report.pdf');
 // IA: opcional guardar resultado (después de analizar)
 Route::post('/publications/ai/save', [PublicationController::class, 'aiSaveExtracted'])
     ->name('publications.ai.save');
@@ -2139,3 +2139,48 @@ Route::post('/propuesta-comercial-items/{item}/ajax/tech-sheets/create', [Propue
 
 Route::post('/propuesta-comercial-fichas/{sheet}/update', [PropuestaComercialExtrasController::class, 'updateTechSheet'])
     ->name('propuesta-comercial-fichas.update');
+    use App\Http\Controllers\PropuestaFalloController;
+use App\Http\Controllers\AdjudicacionController;
+use App\Http\Controllers\RemisionController;
+
+// ===== ACTA DE FALLO (ligado a la cotización) =====
+Route::get('/propuestas-comerciales/{propuestaComercial}/fallo', [PropuestaFalloController::class, 'show'])
+    ->name('propuestas-comerciales.fallo.show');
+Route::post('/propuestas-comerciales/{propuestaComercial}/fallo/acta', [PropuestaFalloController::class, 'uploadActa'])
+    ->name('propuestas-comerciales.fallo.upload');
+
+Route::post('/propuesta-fallos/{fallo}/header', [PropuestaFalloController::class, 'updateHeader'])
+    ->name('propuesta-fallos.header');
+Route::post('/propuesta-fallos/{fallo}/seed-partidas', [PropuestaFalloController::class, 'seedPartidas'])
+    ->name('propuesta-fallos.seed');
+Route::post('/propuesta-fallos/{fallo}/partidas', [PropuestaFalloController::class, 'storePartida'])
+    ->name('propuesta-fallos.partidas.store');
+Route::post('/propuesta-fallos/{fallo}/convertir', [PropuestaFalloController::class, 'convertToAdjudicacion'])
+    ->name('propuesta-fallos.convertir');
+
+Route::put('/propuesta-fallo-partidas/{partida}', [PropuestaFalloController::class, 'updatePartida'])
+    ->name('propuesta-fallo-partidas.update');
+Route::delete('/propuesta-fallo-partidas/{partida}', [PropuestaFalloController::class, 'destroyPartida'])
+    ->name('propuesta-fallo-partidas.destroy');
+Route::post('/propuesta-fallo-partidas/{partida}/ofertas', [PropuestaFalloController::class, 'storeOferta'])
+    ->name('propuesta-fallo-partidas.ofertas.store');
+
+Route::put('/propuesta-fallo-ofertas/{oferta}', [PropuestaFalloController::class, 'updateOferta'])
+    ->name('propuesta-fallo-ofertas.update');
+Route::delete('/propuesta-fallo-ofertas/{oferta}', [PropuestaFalloController::class, 'destroyOferta'])
+    ->name('propuesta-fallo-ofertas.destroy');
+
+// ===== ADJUDICACIONES =====
+Route::get('/adjudicaciones', [AdjudicacionController::class, 'index'])->name('adjudicaciones.index');
+Route::get('/adjudicaciones/{adjudicacion}', [AdjudicacionController::class, 'show'])->name('adjudicaciones.show');
+Route::put('/adjudicaciones/{adjudicacion}', [AdjudicacionController::class, 'update'])->name('adjudicaciones.update');
+Route::delete('/adjudicaciones/{adjudicacion}', [AdjudicacionController::class, 'destroy'])->name('adjudicaciones.destroy');
+
+// ===== REMISIONES =====
+Route::post('/adjudicaciones/{adjudicacion}/remisiones', [RemisionController::class, 'store'])->name('remisiones.store');
+Route::get('/remisiones/{remision}', [RemisionController::class, 'show'])->name('remisiones.show');
+Route::put('/remisiones/{remision}', [RemisionController::class, 'update'])->name('remisiones.update');
+Route::delete('/remisiones/{remision}', [RemisionController::class, 'destroy'])->name('remisiones.destroy');
+Route::get('/remisiones/{remision}/pdf', [RemisionController::class, 'pdf'])->name('remisiones.pdf');
+Route::post('/propuesta-fallos/{fallo}/ocr', [PropuestaFalloController::class, 'runOcr'])
+    ->name('propuesta-fallos.ocr');

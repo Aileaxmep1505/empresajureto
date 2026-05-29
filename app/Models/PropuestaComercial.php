@@ -45,4 +45,13 @@ class PropuestaComercial extends Model
     {
         return $this->belongsTo(DocumentAiRun::class, 'document_ai_run_id');
     }
+        public function fallo()
+    {
+        return $this->hasOne(PropuestaFallo::class, 'propuesta_comercial_id');
+    }
+
+    public function adjudicaciones()
+    {
+        return $this->hasMany(Adjudicacion::class, 'propuesta_comercial_id');
+    }
 }

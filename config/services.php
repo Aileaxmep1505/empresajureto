@@ -110,6 +110,7 @@ return [
         'script' => env('PYTHON_SCRIPT'),
         'azure_purchase_pdf_extract_script' => env('AZURE_PURCHASE_PDF_EXTRACT_SCRIPT'),
         'azure_licitacion_pdf_extract_script' => env('AZURE_LICITACION_PDF_EXTRACT_SCRIPT'),
+         'acta_script' => env('PYTHON_AI_ACTA_SCRIPT', base_path('python/acta_fallo_cli.py')),
     ],
 
     /*

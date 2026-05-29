@@ -8,10 +8,8 @@
 @php
   use Carbon\Carbon;
 
-  // ✅ Fechas en español (meses + diffForHumans)
   Carbon::setLocale('es');
 
-  // ✅ Ultra-safe: sin match()
   $getMeta = function($p){
     $ext = strtolower($p->extension ?: 'file');
 
@@ -23,7 +21,6 @@
     return ['icon'=>'FILE','color'=>'#64748b', 'bg'=>'#f8fafc'];
   };
 
-  // ✅ No closures dentro de @json()
   $tableRows = ($allPurchases ?? collect())->map(function($i){
     return [
       'category'          => $i->category,
@@ -74,93 +71,108 @@
     #pubsBase .tabBtn { background:transparent; border:none; font-size:14px; font-weight:700; color:var(--muted); padding:12px 20px; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-2px; transition:.2s; border-radius:10px 10px 0 0; }
     #pubsBase .tabBtn.active { color:#3b82f6; border-bottom-color:#3b82f6; }
 
-    /* =========================
-       Filtros Minimalistas Premium
-    ========================= */
     #pubsBase .subNav {
-      display: inline-flex;
-      gap: 4px;
-      flex-wrap: wrap;
-      background: rgba(241, 245, 249, 0.6);
-      
-      border: 1px solid rgba(255, 255, 255, 0.8);
-      padding: 5px; 
-      border-radius: 999px;
-      box-shadow: inset 0 2px 4px rgba(15, 23, 42, 0.02);
-      margin: 0 0 18px 0;
-      width: fit-content;
+      display: inline-flex; gap: 4px; flex-wrap: wrap; background: rgba(241, 245, 249, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.8); padding: 5px; border-radius: 999px;
+      box-shadow: inset 0 2px 4px rgba(15, 23, 42, 0.02); margin: 0 0 18px 0; width: fit-content;
     }
+    #pubsBase .subBtn { border: none; background: transparent; color: rgba(15, 23, 42, 0.55); font-weight: 600; font-size: 13px; padding: 8px 18px; border-radius: 999px; cursor: pointer; transition: all 0.3s; display: inline-flex; align-items: center; gap: 8px; }
+    #pubsBase .subBtn:hover { color: rgba(15, 23, 42, 0.9); }
+    #pubsBase .subBtn.active { background: #ffffff; color: #0f172a; font-weight: 700; box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08); }
 
-    #pubsBase .subBtn {
-      border: none; 
-      background: transparent; 
-      color: rgba(15, 23, 42, 0.55);
-      font-weight: 600; 
-      font-size: 13px; 
-      padding: 8px 18px;
-      border-radius: 999px;
-      cursor: pointer; 
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      display: inline-flex; 
-      align-items: center; 
-      gap: 8px;
-    }
-
-    #pubsBase .subBtn:hover { 
-      color: rgba(15, 23, 42, 0.9); 
-    }
-
-    #pubsBase .subBtn.active { 
-      background: #ffffff; 
-      color: #0f172a; 
-      font-weight: 700;
-      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.04); 
-    }
-
-    #pubsBase .dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      display: inline-block;
-      box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1);
-    }
+    #pubsBase .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1); }
     #pubsBase .dot.all { background: #cbd5e1; }
     #pubsBase .dot.mint { background: #10b981; }
     #pubsBase .dot.blue { background: #3b82f6; }
-    /* ========================= */
 
-    #pubsBase .docFilterBar{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:12px;
-      flex-wrap:wrap;
-      margin: 0 0 18px 0;
-    }
-    #pubsBase .docFilterTitle{
-      color:var(--muted);
-      font-size:12px;
-      font-weight:900;
-      letter-spacing:.08em;
-      text-transform:uppercase;
-    }
-    #pubsBase .docEmptyState{
-      padding:40px;
-      text-align:center;
-      color:var(--muted);
-      font-weight:900;
-      background: rgba(255,255,255,.65);
-      border:1px dashed rgba(15,23,42,.14);
-      border-radius:18px;
+    /* =========================
+       BARRA DE HERRAMIENTAS Y DROPDOWNS (ALINEADA A LA DERECHA)
+    ========================= */
+    .tb-toolbar {
+      display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 12px; margin-bottom: 24px;
     }
 
-    #pubsBase .chip{
-      font-size:10px; font-weight:900; padding:2px 8px; border-radius:999px;
-      border:1px solid rgba(15,23,42,.08); background: rgba(255,255,255,.7); color: rgba(15,23,42,.65);
+    .dd-wrap { position: relative; }
+    
+    .tb-btn {
+      display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 16px;
+      background: #ffffff; border: 1px solid #d1d5db; border-radius: 8px;
+      color: #6b7280; font-size: 14px; font-weight: 500; cursor: pointer; transition: 0.2s;
+      text-decoration: none;
     }
+    .tb-btn:hover { background: #f9fafb; color: #374151; }
+    .dd-wrap.active .tb-btn { border-color: #9ca3af; background: #f3f4f6; }
+    .tb-btn svg { width: 18px; height: 18px; stroke-width: 2; }
+    .tb-btn.icon-only { padding: 0 10px; }
+
+    /* Estilos Botones de Exportación / PDF */
+    .tb-btn-pdf { color: #e11d48; border-color: #fecdd3; background: #fff1f2; }
+    .tb-btn-pdf:hover { background: #ffe4e6; color: #be123c; border-color: #fda4af; }
+
+    .tb-btn-download { color: #047857; border-color: #a7f3d0; background: #ecfdf5; }
+    .tb-btn-download:hover { background: #d1fae5; color: #065f46; border-color: #6ee7b7; }
+
+    /* Estructura Menús Dropdown (Alineado a la derecha para no salirse de pantalla) */
+    .dd-menu {
+      position: absolute; top: calc(100% + 8px); right: 0; background: #ffffff; border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(2,6,23,0.12), 0 0 0 1px rgba(15,23,42,0.06); width: 340px; z-index: 100;
+      opacity: 0; visibility: hidden; transform: translateY(-8px); transition: all .2s cubic-bezier(.22,1,.36,1); padding: 18px;
+    }
+    .dd-wrap.active .dd-menu { opacity: 1; visibility: visible; transform: none; }
+
+    /* Títulos de sección estilo imagen */
+    .dd-section-title {
+      font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase;
+      letter-spacing: 0.05em; margin-bottom: 10px; margin-top: 18px;
+    }
+    .dd-section-title:first-child { margin-top: 0; }
+
+    /* Buscador limpio */
+    .dd-search-box { position: relative; margin-bottom: 8px; }
+    .dd-search-box svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #9ca3af; width: 16px; height: 16px; stroke-width: 2; }
+    .dd-search {
+      width: 100%; height: 40px; border: 1px solid #d1d5db; border-radius: 8px; padding: 0 12px 0 36px;
+      font-size: 14px; outline: none; transition: .2s; color:#374151;
+    }
+    .dd-search::placeholder { color: #9ca3af; }
+    .dd-search:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+
+    /* Listas y Checkboxes */
+    .dd-list { max-height: 180px; overflow-y: auto; padding-right: 4px; display: flex; flex-direction: column; gap: 2px; }
+    .dd-list::-webkit-scrollbar { width: 4px; }
+    .dd-list::-webkit-scrollbar-track { background: transparent; }
+    .dd-list::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+
+    .dd-item { 
+      display: flex; justify-content: space-between; align-items: center; 
+      padding: 10px 8px; cursor: pointer; border-radius: 6px; transition: .15s; 
+      border-bottom: 1px solid #f3f4f6;
+    }
+    .dd-item:last-child { border-bottom: none; }
+    .dd-item:hover { background: #f9fafb; }
+    .dd-item span { font-size: 14px; color: #374151; font-weight: 400; }
+    
+    .dd-item input[type="checkbox"] { 
+      width: 18px; height: 18px; accent-color: #2563eb; cursor: pointer; 
+      border: 1px solid #d1d5db; border-radius: 4px; margin: 0;
+    }
+
+    /* Fechas */
+    .flex-dates { display: flex; gap: 10px; align-items: center; }
+    .flex-dates input[type="date"] {
+      width: 100%; height: 40px; border: 1px solid #d1d5db; border-radius: 8px; 
+      padding: 0 12px; font-size: 14px; outline: none; background: #fff; cursor: pointer;
+      color: #374151;
+    }
+    .flex-dates input[type="date"]:focus { border-color: #3b82f6; }
+    
+    /* Resto de componentes */
+    #pubsBase .docFilterBar{ display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin: 0 0 18px 0; }
+    #pubsBase .docFilterTitle{ color:var(--muted); font-size:12px; font-weight:900; letter-spacing:.08em; text-transform:uppercase; }
+    #pubsBase .docEmptyState{ padding:40px; text-align:center; color:var(--muted); font-weight:900; background: rgba(255,255,255,.65); border:1px dashed rgba(15,23,42,.14); border-radius:18px; }
+    #pubsBase .chip{ font-size:10px; font-weight:900; padding:2px 8px; border-radius:999px; border:1px solid rgba(15,23,42,.08); background: rgba(255,255,255,.7); color: rgba(15,23,42,.65); }
     #pubsBase .chip.blue{ background: rgba(59,130,246,.10); color:#1d4ed8; border-color: rgba(59,130,246,.22); }
     #pubsBase .chip.mint{ background: rgba(16,185,129,.10); color:#047857; border-color: rgba(16,185,129,.22); }
-
     #pubsBase .grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:20px; }
     #pubsBase a.fileCard { text-decoration:none; display:flex; flex-direction:column; background: rgba(255,255,255,0.8); border: 1px solid var(--line); border-radius:16px; overflow:hidden; transition:.2s; position:relative; height:100%; box-shadow: var(--shadow2); backdrop-filter: blur(10px); }
     #pubsBase a.fileCard:hover { transform: translateY(-3px); box-shadow: 0 15px 35px rgba(0,0,0,0.08); border-color: #cbd5e1; background: rgba(255,255,255,0.95); }
@@ -173,146 +185,21 @@
     #pubsBase .fc-title { font-size:14px; font-weight:800; color:var(--ink); margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block; }
     #pubsBase .fc-date { font-size:11px; color:var(--muted); display:block; }
     #pubsBase .pin-tag { position:absolute; top:10px; right:10px; background:#fef3c7; color:#d97706; font-size:10px; padding:2px 6px; border-radius:4px; font-weight:900; z-index:2; }
-
     .btn-upload { background:#3b82f6; color:white; padding:10px 20px; border-radius:12px; text-decoration:none; font-size:13px; font-weight:800; display:inline-flex; align-items:center; gap:8px; transition:.2s; box-shadow: 0 4px 15px rgba(59,130,246, 0.3); }
     .btn-upload:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(59,130,246, 0.4); color:white; }
-
     .dashGrid { display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:20px; margin-bottom:18px; }
     .statCard { background: rgba(255,255,255,0.95); border:1px solid var(--line); border-radius:18px; padding:24px; box-shadow: var(--shadow2); }
-
     .table-responsive { overflow-x:auto; background: rgba(255,255,255,0.95); border-radius:18px; border: 1px solid var(--line); box-shadow: var(--shadow2); }
     .table-clean { width:100%; border-collapse:collapse; min-width: 760px; }
     .table-clean th { text-align:left; padding:15px 20px; background:#f8fafc; color:var(--muted); font-size:11px; font-weight:900; text-transform:uppercase; letter-spacing:.5px; border-bottom: 1px solid var(--line); }
     .table-clean td { padding:14px 20px; border-bottom: 1px solid var(--line); color:var(--ink); font-size:13px; }
     .table-clean tr:last-child td { border-bottom:none; }
     .table-clean tr:hover { background:#f1f5f9; }
-
     .d-none { display:none !important; }
-
     #pubsBase .kpiBig{ font-size:36px; font-weight:900; color:var(--ink); margin-top:5px; }
     #pubsBase .kpiSmall{ margin-top:10px; color:var(--muted); font-weight:900; font-size:12px; display:flex; gap:10px; flex-wrap:wrap; }
     #pubsBase .kpiSmall span{ display:inline-flex; align-items:center; gap:8px; }
-    #pubsBase .mutedBox{
-      background: rgba(248,250,252,.65);
-      border:1px dashed rgba(15,23,42,.14);
-      border-radius: 16px;
-      padding: 14px 16px;
-      color: rgba(15,23,42,.65);
-      font-weight: 900;
-      font-size: 12px;
-      margin-top:14px;
-    }
-
-    /* =========================
-       SOLO INDEX: paginación PRO (sin Previous/Next) y sin tooltip "Previous/Next"
-    ========================= */
-    #pubsBase .idxPager{
-      margin-top: 18px;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      flex-wrap:wrap;
-      padding: 12px 14px;
-      border-radius: 18px;
-      border: 1px solid rgba(15,23,42,.08);
-      background: rgba(255,255,255,.70);
-      box-shadow: 0 10px 30px rgba(2,6,23,.05);
-    }
-    #pubsBase .idxPager .idxInfo{
-      font-weight:900;
-      color: rgba(15,23,42,.55);
-      font-size: 12px;
-      letter-spacing: .01em;
-      padding: 4px 2px;
-      white-space: nowrap;
-    }
-    #pubsBase .idxPager nav[role="navigation"]{ margin:0 !important; }
-
-    #pubsBase .idxPager nav[role="navigation"] > div:first-child{
-      display:none !important;
-    }
-    #pubsBase .idxPager nav[role="navigation"] > div:last-child{
-      display:flex !important;
-      align-items:center !important;
-      justify-content:flex-end !important;
-      gap:10px !important;
-      width:auto !important;
-    }
-
-    #pubsBase .idxPager nav[role="navigation"] p.text-sm{
-      display:none !important;
-    }
-
-    #pubsBase .idxPager nav[role="navigation"] span.relative.z-0{
-      display:inline-flex !important;
-      gap:10px !important;
-      align-items:center !important;
-      padding: 0 !important;
-      background: transparent !important;
-      box-shadow: none !important;
-    }
-
-    #pubsBase .idxPager nav[role="navigation"] a,
-    #pubsBase .idxPager nav[role="navigation"] span[aria-current="page"] span{
-      display:inline-flex !important;
-      align-items:center !important;
-      justify-content:center !important;
-      min-width: 42px !important;
-      height: 40px !important;
-      padding: 0 14px !important;
-      border-radius: 14px !important;
-      font-weight: 900 !important;
-      font-size: 13px !important;
-      text-decoration: none !important;
-      border: 1px solid rgba(15,23,42,.08) !important;
-      background: rgba(255,255,255,.75) !important;
-      color: rgba(15,23,42,.78) !important;
-      box-shadow: 0 10px 22px rgba(2,6,23,.06) !important;
-      transition: .15s !important;
-    }
-    #pubsBase .idxPager nav[role="navigation"] a:hover{
-      transform: translateY(-1px) !important;
-      background: rgba(255,255,255,.95) !important;
-      border-color: rgba(15,23,42,.12) !important;
-    }
-
-    #pubsBase .idxPager nav[role="navigation"] span[aria-current="page"] span{
-      background: rgba(16,185,129,.14) !important;
-      color: #047857 !important;
-      border-color: rgba(16,185,129,.22) !important;
-      box-shadow: 0 14px 28px rgba(16,185,129,.14) !important;
-    }
-
-    #pubsBase .idxPager nav[role="navigation"] span[aria-disabled="true"] span{
-      opacity: .45 !important;
-      cursor: not-allowed !important;
-      transform:none !important;
-      box-shadow:none !important;
-      background: rgba(255,255,255,.55) !important;
-    }
-
-    #pubsBase .idxPager nav[role="navigation"] a[rel="prev"],
-    #pubsBase .idxPager nav[role="navigation"] a[rel="next"]{
-      title: none !important; 
-    }
-
-    #pubsBase .idxPager nav[role="navigation"] a[rel="prev"] span,
-    #pubsBase .idxPager nav[role="navigation"] a[rel="next"] span{
-      font-size:0 !important;
-    }
-
-    @media (max-width: 640px){
-      #pubsBase .idxPager{ padding: 10px 10px; }
-      #pubsBase .idxPager .idxInfo{ width: 100%; }
-      #pubsBase .idxPager nav[role="navigation"] > div:last-child{ width:100% !important; justify-content:flex-start !important; }
-      #pubsBase .idxPager nav[role="navigation"] a,
-      #pubsBase .idxPager nav[role="navigation"] span[aria-current="page"] span{
-        min-width: 40px !important;
-        height: 38px !important;
-        border-radius: 13px !important;
-      }
-    }
+    #pubsBase .mutedBox{ background: rgba(248,250,252,.65); border:1px dashed rgba(15,23,42,.14); border-radius: 16px; padding: 14px 16px; color: rgba(15,23,42,.65); font-weight: 900; font-size: 12px; margin-top:14px; }
   </style>
 
   <div class="bg">
@@ -329,8 +216,81 @@
       @endauth
     </div>
 
+    {{-- ===== BARRA DE HERRAMIENTAS ALINEADA TOTALMENTE A LA DERECHA ===== --}}
+    <form method="GET" action="{{ route('publications.index') }}" id="filterForm" class="tb-toolbar">
+      
+      <div class="dd-wrap">
+        <button type="button" class="tb-btn dd-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+          </svg>
+          Filtros
+        </button>
+        <div class="dd-menu">
+          
+          <div class="dd-section-title">RANGO DE FECHAS</div>
+          <div class="flex-dates">
+            <input type="date" name="from" value="{{ is_array($filters['from'] ?? null) ? '' : ($filters['from'] ?? '') }}" onchange="this.form.submit()">
+            <input type="date" name="to" value="{{ is_array($filters['to'] ?? null) ? '' : ($filters['to'] ?? '') }}" onchange="this.form.submit()">
+          </div>
+
+          <div class="dd-section-title">TIPO DE DOCUMENTO</div>
+          <div class="dd-list" style="max-height: none;">
+            <label class="dd-item">
+              <span>Compras</span>
+              <input type="checkbox" name="cat[]" value="compra" onchange="this.form.submit()" {{ in_array('compra', (array)($filters['cat'] ?? [])) ? 'checked' : '' }}>
+            </label>
+            <label class="dd-item">
+              <span>Ventas</span>
+              <input type="checkbox" name="cat[]" value="venta" onchange="this.form.submit()" {{ in_array('venta', (array)($filters['cat'] ?? [])) ? 'checked' : '' }}>
+            </label>
+          </div>
+
+          <div class="dd-section-title">PROVEEDOR / ASIGNADO</div>
+          <div class="dd-search-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <input type="text" class="dd-search" placeholder="Buscar proveedor..." onkeyup="filterDDList(this)">
+          </div>
+          <div class="dd-list" style="max-height: 140px;">
+            @foreach(($supplierOptions ?? []) as $s)
+              <label class="dd-item">
+                <span>{{ $s }}</span>
+                <input type="checkbox" name="supplier[]" value="{{ $s }}" onchange="this.form.submit()" {{ in_array($s, (array)($filters['supplier'] ?? [])) ? 'checked' : '' }}>
+              </label>
+            @endforeach
+          </div>
+          
+          <div class="dd-section-title">PRODUCTO / CONCEPTO</div>
+          <div class="dd-search-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <input type="text" class="dd-search" placeholder="Buscar producto..." onkeyup="filterDDList(this)">
+          </div>
+          <div class="dd-list" style="max-height: 140px;">
+              </div>
+
+        </div>
+      </div>
+        
+      <a href="{{ route('publications.index') }}" class="tb-btn icon-only" title="Limpiar todos los filtros">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M13 3H2l8 9.46V19l4 2v-8.54l.25-.3" />
+          <line x1="17" y1="8" x2="22" y2="3" />
+          <line x1="22" y1="8" x2="17" y2="3" />
+        </svg>
+      </a>
+
+
+      <a href="{{ route('publications.report.pdf', request()->query()) }}" class="tb-btn tb-btn-pdf" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 18 15 15"/>
+        </svg>
+        PDF
+      </a>
+
+    </form>
+
     @if(session('ok'))
-      <div class="alert alert-success" style="border-radius:12px; border:none; background:rgba(16,185,129,0.1); color:#065f46;">
+      <div class="alert alert-success" style="border-radius:12px; border:none; background:rgba(16,185,129,0.1); color:#065f46; margin-bottom: 20px;">
         {{ session('ok') }}
       </div>
     @endif
@@ -431,13 +391,8 @@
       </div>
 
       @if(method_exists($latest, 'firstItem') && $latest->total())
-        <div class="idxPager">
-          <div class="idxInfo">
-            Mostrando {{ $latest->firstItem() }}–{{ $latest->lastItem() }} de {{ $latest->total() }} registros
-          </div>
-          <div class="idxLinks">
-            {{ $latest->onEachSide(1)->links() }}
-          </div>
+        <div class="idxPager" style="margin-top:18px;">
+          {{ $latest->onEachSide(1)->links() }}
         </div>
       @endif
     </div>
@@ -523,14 +478,46 @@
   </div>
 
 <script>
+  /* =========================
+     LOGICA JS AUTO-SUBMIT Y DROPDOWNS
+     ========================= */
+  
+  // Abrir y cerrar dropdowns
+  document.addEventListener('click', function(e) {
+    const btn = e.target.closest('.dd-btn');
+    if (btn) {
+      e.preventDefault();
+      const wrap = btn.closest('.dd-wrap');
+      const isActive = wrap.classList.contains('active');
+      document.querySelectorAll('.dd-wrap').forEach(w => w.classList.remove('active'));
+      if (!isActive) wrap.classList.add('active');
+      return;
+    }
+    // Cerrar si hace click fuera de los dropdowns
+    if (!e.target.closest('.dd-wrap')) {
+      document.querySelectorAll('.dd-wrap').forEach(w => w.classList.remove('active'));
+    }
+  });
+
+  // Buscador interno en tiempo real para las listas
+  function filterDDList(input) {
+    const term = input.value.toLowerCase();
+    const items = input.closest('.dd-menu').querySelectorAll('.dd-item');
+    items.forEach(item => {
+      const text = item.querySelector('span').textContent.toLowerCase();
+      item.style.display = text.includes(term) ? 'flex' : 'none';
+    });
+  }
+
+  /* =========================
+     LOGICA ORIGINAL EXISTENTE
+     ========================= */
   var docFilterMode = 'all';
 
   function normalizeDocType(v){
     v = String(v || '').toLowerCase().trim();
-
     if(v === 'compras' || v === 'purchase' || v === 'purchases') return 'compra';
     if(v === 'ventas' || v === 'sale' || v === 'sales') return 'venta';
-
     return v;
   }
 
@@ -575,16 +562,6 @@
   }
 
   document.addEventListener('DOMContentLoaded', function(){
-    try{
-      var nav = document.querySelector('#pubsBase .idxPager nav[role="navigation"]');
-      if(nav){
-        nav.querySelectorAll('a[rel="prev"], a[rel="next"]').forEach(function(a){
-          a.removeAttribute('title');
-          a.setAttribute('aria-label', 'Página');
-        });
-      }
-    }catch(e){}
-
     setDocFilter(docFilterMode);
   });
 
@@ -634,19 +611,13 @@
 
   function esc(s){
     s = String(s == null ? '' : s);
-    return s
-      .replace(/&/g,'&amp;')
-      .replace(/</g,'&lt;')
-      .replace(/>/g,'&gt;')
-      .replace(/"/g,'&quot;')
-      .replace(/'/g,'&#039;');
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
   }
 
   function toNum(v){
     if(v == null) return 0;
     if(typeof v === 'number') return isFinite(v) ? v : 0;
-    var s = String(v).trim();
-    s = s.replace(/[^0-9.\-]/g,'');
+    var s = String(v).trim().replace(/[^0-9.\-]/g,'');
     var n = Number(s);
     return isFinite(n) ? n : 0;
   }
@@ -655,15 +626,12 @@
 
   function seriesFrom(labels, raw){
     labels = Array.isArray(labels) ? labels : [];
-
     if(Array.isArray(raw) && (raw.length === 0 || typeof raw[0] === 'number' || typeof raw[0] === 'string')){
       return labels.map(function(_, i){ return toNum(raw[i]); });
     }
-
     if(raw && typeof raw === 'object' && !Array.isArray(raw)){
       return labels.map(function(l){ return toNum(raw[l]); });
     }
-
     if(Array.isArray(raw) && raw.length && typeof raw[0] === 'object'){
       var map = {};
       raw.forEach(function(r){
@@ -673,7 +641,6 @@
       });
       return labels.map(function(l){ return toNum(map[String(l)]); });
     }
-
     return labels.map(function(){ return 0; });
   }
 
@@ -695,17 +662,13 @@
   function ensureChartsVisibleInit(){
     if(typeof ApexCharts === 'undefined'){
       console.error('ApexCharts no cargó');
-      document.getElementById('chartMonthly').innerHTML =
-        '<div style="text-align:center; padding:50px; color:#ef4444; font-weight:900;">ApexCharts no cargó</div>';
       return;
     }
-
     if(!chartsInitialized){
       chartsInitialized = true;
       setStatsMode(statsMode, true);
       return;
     }
-
     setStatsMode(statsMode, false);
     setTimeout(function(){
       try{ if(chartMonthly) chartMonthly.resize(); }catch(e){}
@@ -726,7 +689,6 @@
     var compra = toNum(DATA.totals.compra);
     var venta  = toNum(DATA.totals.venta);
     var all    = toNum(DATA.totals.all);
-
     document.getElementById('kpiCompra').textContent = money(compra);
     document.getElementById('kpiVenta').textContent  = money(venta);
 
@@ -745,324 +707,128 @@
   function setInsight(mode){
     var compra = toNum(DATA.totals.compra);
     var venta  = toNum(DATA.totals.venta);
-
     var gap = compra - venta;
     var recovery = (compra > 0) ? (venta/compra)*100 : 0;
-
     var chipEl = document.getElementById('insChip');
     var l1 = document.getElementById('insLine1');
     var l2 = document.getElementById('insLine2');
-
     if(!chipEl || !l1 || !l2) return;
 
     if(mode === 'compra'){
-      chipEl.className = 'chip mint';
-      chipEl.textContent = 'compras';
+      chipEl.className = 'chip mint'; chipEl.textContent = 'compras';
       l1.textContent = 'Compras acumuladas: ' + money(compra) + '.';
       l2.textContent = 'Meta de ventas para recuperar: ' + money(compra) + '.';
       return;
     }
-
     if(mode === 'venta'){
-      chipEl.className = 'chip blue';
-      chipEl.textContent = 'ventas';
+      chipEl.className = 'chip blue'; chipEl.textContent = 'ventas';
       l1.textContent = 'Ventas acumuladas: ' + money(venta) + '.';
       l2.textContent = 'Equivalen al ' + recovery.toFixed(1) + '% de compras (ventas / compras).';
       return;
     }
-
     if(gap > 0.01){
-      chipEl.className = 'chip';
-      chipEl.textContent = 'gap';
+      chipEl.className = 'chip'; chipEl.textContent = 'gap';
       l1.textContent = 'Te faltan ' + money(gap) + ' en ventas para igualar compras.';
       l2.textContent = 'Recuperación: ' + recovery.toFixed(1) + '% (ventas / compras).';
     } else if(gap < -0.01){
-      chipEl.className = 'chip blue';
-      chipEl.textContent = 'arriba';
+      chipEl.className = 'chip blue'; chipEl.textContent = 'arriba';
       l1.textContent = 'Vas arriba por ' + money(Math.abs(gap)) + ' (ventas sobre compras).';
       l2.textContent = 'Relación: ' + recovery.toFixed(1) + '% (ventas / compras).';
     } else {
-      chipEl.className = 'chip mint';
-      chipEl.textContent = 'equilibrio';
+      chipEl.className = 'chip mint'; chipEl.textContent = 'equilibrio';
       l1.textContent = 'Balance equilibrado: ventas ≈ compras.';
       l2.textContent = 'Mantén el ritmo para sostener el equilibrio.';
     }
   }
 
-  function baseY(){
-    return {
-      yaxis: {
-        labels: {
-          formatter: function(val){ return "$" + Number(val||0).toLocaleString('es-MX'); },
-          style: { colors: '#0f172a', fontWeight: 900 }
-        }
-      },
-      tooltip: { y: { formatter: function(val){ return "$" + Number(val||0).toLocaleString('es-MX'); } } }
-    };
-  }
-
-  function barDataLabels(){
-    return {
-      dataLabels: {
-        enabled: true,
-        offsetY: -8,
-        style: { fontSize: '11px', fontWeight: 900, colors: ['#0f172a'] },
-        background: { enabled: false },
-        dropShadow: { enabled: false }
-      }
-    };
-  }
-
-  function xaxisDates(labels){
-    return {
-      xaxis: {
-        categories: labels,
-        labels: {
-          rotate: -45,
-          rotateAlways: true,
-          hideOverlappingLabels: true,
-          trim: true,
-          style: { colors: '#0f172a', fontWeight: 900 }
-        }
-      }
-    };
-  }
+  function baseY(){ return { yaxis: { labels: { formatter: function(val){ return "$" + Number(val||0).toLocaleString('es-MX'); }, style: { colors: '#0f172a', fontWeight: 900 } } }, tooltip: { y: { formatter: function(val){ return "$" + Number(val||0).toLocaleString('es-MX'); } } } }; }
+  function barDataLabels(){ return { dataLabels: { enabled: true, offsetY: -8, style: { fontSize: '11px', fontWeight: 900, colors: ['#0f172a'] }, background: { enabled: false }, dropShadow: { enabled: false } } }; }
+  function xaxisDates(labels){ return { xaxis: { categories: labels, labels: { rotate: -45, rotateAlways: true, hideOverlappingLabels: true, trim: true, style: { colors: '#0f172a', fontWeight: 900 } } } }; }
 
   function buildMonthlyOptions(mode){
     var labels = Array.isArray(DATA.monthly.labels) ? DATA.monthly.labels : [];
     var compra = seriesFrom(labels, DATA.monthly.compra);
     var venta  = seriesFrom(labels, DATA.monthly.venta);
+    var common = Object.assign({ chart: { type: 'area', height: 250, toolbar: { show: false }, fontFamily: 'inherit' }, fill: { type: 'gradient', gradient: { shadeIntensity:1, opacityFrom:0.35, opacityTo:0.04, stops:[0,100]} }, stroke: { curve: 'smooth', width: 2 } }, baseY(), xaxisDates(labels));
 
-    var common = Object.assign({
-      chart: { type: 'area', height: 250, toolbar: { show: false }, fontFamily: 'inherit' },
-      fill: { type: 'gradient', gradient: { shadeIntensity:1, opacityFrom:0.35, opacityTo:0.04, stops:[0,100]} },
-      stroke: { curve: 'smooth', width: 2 }
-    }, baseY(), xaxisDates(labels));
-
-    if(mode === 'compare'){
-      return Object.assign({
-        series: [
-          { name: 'Compras', data: compra },
-          { name: 'Ventas',  data: venta  }
-        ],
-        colors: ['#10b981', '#3b82f6']
-      }, common);
-    }
-
-    var name = (mode === 'compra') ? 'Compras' : 'Ventas';
-    var data = (mode === 'compra') ? compra : venta;
-    var color = (mode === 'compra') ? '#10b981' : '#3b82f6';
-
-    return Object.assign({
-      series: [{ name: name, data: data }],
-      colors: [color]
-    }, common);
+    if(mode === 'compare'){ return Object.assign({ series: [{ name: 'Compras', data: compra }, { name: 'Ventas', data: venta }], colors: ['#10b981', '#3b82f6'] }, common); }
+    return Object.assign({ series: [{ name: (mode === 'compra' ? 'Compras' : 'Ventas'), data: (mode === 'compra' ? compra : venta) }], colors: [(mode === 'compra' ? '#10b981' : '#3b82f6')] }, common);
   }
 
   function buildDailyOptions(mode){
     var labels = Array.isArray(DATA.daily.labels) ? DATA.daily.labels : [];
     var compra = seriesFrom(labels, DATA.daily.compra);
     var venta  = seriesFrom(labels, DATA.daily.venta);
+    var common = Object.assign({ chart: { type: 'bar', height: 250, toolbar: { show: false }, fontFamily: 'inherit' }, plotOptions: { bar: { borderRadius: 4, columnWidth: '55%', dataLabels: { position: 'top' } } } }, baseY(), barDataLabels(), xaxisDates(labels));
 
-    var common = Object.assign({
-      chart: { type: 'bar', height: 250, toolbar: { show: false }, fontFamily: 'inherit' },
-      plotOptions: { bar: { borderRadius: 4, columnWidth: '55%', dataLabels: { position: 'top' } } }
-    }, baseY(), barDataLabels(), xaxisDates(labels));
-
-    if(mode === 'compare'){
-      return Object.assign({
-        series: [
-          { name: 'Compras', data: compra },
-          { name: 'Ventas',  data: venta  }
-        ],
-        colors: ['#10b981', '#3b82f6']
-      }, common);
-    }
-
-    var name = (mode === 'compra') ? 'Compras' : 'Ventas';
-    var data = (mode === 'compra') ? compra : venta;
-    var color = (mode === 'compra') ? '#10b981' : '#3b82f6';
-
-    return Object.assign({
-      series: [{ name: name, data: data }],
-      colors: [color]
-    }, common);
+    if(mode === 'compare'){ return Object.assign({ series: [{ name: 'Compras', data: compra }, { name: 'Ventas', data: venta }], colors: ['#10b981', '#3b82f6'] }, common); }
+    return Object.assign({ series: [{ name: (mode === 'compra' ? 'Compras' : 'Ventas'), data: (mode === 'compra' ? compra : venta) }], colors: [(mode === 'compra' ? '#10b981' : '#3b82f6')] }, common);
   }
 
   function buildProductsOptions(mode){
     if(mode === 'compare') mode = 'compra';
-
     var data = (mode === 'venta') ? (DATA.products.venta || []) : (DATA.products.compra || []);
     var color = (mode === 'venta') ? '#3b82f6' : '#10b981';
-
-    return {
-      series: [{ name: (mode === 'venta') ? 'Total Vendido' : 'Total Comprado', data: data }],
-      chart: { type: 'bar', height: 320, toolbar: { show: false }, fontFamily: 'inherit' },
-      colors: [color],
-      plotOptions: { bar: { horizontal: true, borderRadius: 4, barHeight: '70%' } },
-      xaxis: {
-        labels: {
-          formatter: function(val){ return "$" + Number(val||0).toLocaleString('es-MX'); },
-          style: { colors:'#0f172a', fontWeight:900 }
-        }
-      },
-      yaxis: { labels: { maxWidth: 220, style: { fontSize: '11px', fontWeight: 900, colors:'#0f172a' } } },
-      tooltip: { y: { formatter: function(val){ return "$" + Number(val||0).toLocaleString('es-MX'); } } },
-      dataLabels: { enabled: false }
-    };
+    return { series: [{ name: (mode === 'venta') ? 'Total Vendido' : 'Total Comprado', data: data }], chart: { type: 'bar', height: 320, toolbar: { show: false }, fontFamily: 'inherit' }, colors: [color], plotOptions: { bar: { horizontal: true, borderRadius: 4, barHeight: '70%' } }, xaxis: { labels: { formatter: function(val){ return "$" + Number(val||0).toLocaleString('es-MX'); }, style: { colors:'#0f172a', fontWeight:900 } } }, yaxis: { labels: { maxWidth: 220, style: { fontSize: '11px', fontWeight: 900, colors:'#0f172a' } } }, tooltip: { y: { formatter: function(val){ return "$" + Number(val||0).toLocaleString('es-MX'); } } }, dataLabels: { enabled: false } };
   }
 
   function anyNonZero(arr){
     if(!Array.isArray(arr)) return false;
-    for(var i=0;i<arr.length;i++){ if(toNum(arr[i]) !== 0) return true; }
-    return false;
+    for(var i=0;i<arr.length;i++){ if(toNum(arr[i]) !== 0) return true; } return false;
   }
 
   function renderOrUpdateCharts(mode, forceRender){
-    var elM = document.querySelector("#chartMonthly");
-    var elD = document.querySelector("#chartDaily");
-    var elP = document.querySelector("#chartProducts");
+    var elM = document.querySelector("#chartMonthly"), elD = document.querySelector("#chartDaily"), elP = document.querySelector("#chartProducts");
+    var labelsM = Array.isArray(DATA.monthly.labels) ? DATA.monthly.labels : [], labelsD = Array.isArray(DATA.daily.labels) ? DATA.daily.labels : [];
+    var mCompra = seriesFrom(labelsM, DATA.monthly.compra), mVenta  = seriesFrom(labelsM, DATA.monthly.venta);
+    var dCompra = seriesFrom(labelsD, DATA.daily.compra), dVenta  = seriesFrom(labelsD, DATA.daily.venta);
 
-    var labelsM = Array.isArray(DATA.monthly.labels) ? DATA.monthly.labels : [];
-    var labelsD = Array.isArray(DATA.daily.labels) ? DATA.daily.labels : [];
+    if(!labelsM.length || (!anyNonZero(mCompra) && !anyNonZero(mVenta))){ elM.innerHTML = '<div style="text-align:center; padding:50px; color:#94a3b8; font-weight:900;">Sin datos</div>'; }
+    else { var o1 = buildMonthlyOptions(mode); if(chartMonthly) chartMonthly.updateOptions(o1, true, true); else if(forceRender){ chartMonthly = new ApexCharts(elM, o1); chartMonthly.render(); } }
 
-    var mCompra = seriesFrom(labelsM, DATA.monthly.compra);
-    var mVenta  = seriesFrom(labelsM, DATA.monthly.venta);
-    var dCompra = seriesFrom(labelsD, DATA.daily.compra);
-    var dVenta  = seriesFrom(labelsD, DATA.daily.venta);
-
-    if(!labelsM.length || (!anyNonZero(mCompra) && !anyNonZero(mVenta))){
-      elM.innerHTML = '<div style="text-align:center; padding:50px; color:#94a3b8; font-weight:900;">Sin datos</div>';
-    } else {
-      var o1 = buildMonthlyOptions(mode);
-      if(chartMonthly) chartMonthly.updateOptions(o1, true, true);
-      else if(forceRender){ chartMonthly = new ApexCharts(elM, o1); chartMonthly.render(); }
-    }
-
-    if(!labelsD.length || (!anyNonZero(dCompra) && !anyNonZero(dVenta))){
-      elD.innerHTML = '<div style="text-align:center; padding:50px; color:#94a3b8; font-weight:900;">Sin datos</div>';
-    } else {
-      var o2 = buildDailyOptions(mode);
-      if(chartDaily) chartDaily.updateOptions(o2, true, true);
-      else if(forceRender){ chartDaily = new ApexCharts(elD, o2); chartDaily.render(); }
-    }
+    if(!labelsD.length || (!anyNonZero(dCompra) && !anyNonZero(dVenta))){ elD.innerHTML = '<div style="text-align:center; padding:50px; color:#94a3b8; font-weight:900;">Sin datos</div>'; }
+    else { var o2 = buildDailyOptions(mode); if(chartDaily) chartDaily.updateOptions(o2, true, true); else if(forceRender){ chartDaily = new ApexCharts(elD, o2); chartDaily.render(); } }
 
     var prodArr = (mode === 'venta') ? (DATA.products.venta || []) : (DATA.products.compra || []);
-    if(!Array.isArray(prodArr) || !prodArr.length){
-      elP.innerHTML = '<div style="text-align:center; padding:50px; color:#94a3b8; font-weight:900;">Sin datos</div>';
-    } else {
-      var o3 = buildProductsOptions(mode);
-      if(chartProducts) chartProducts.updateOptions(o3, true, true);
-      else if(forceRender){ chartProducts = new ApexCharts(elP, o3); chartProducts.render(); }
-    }
-
-    setTimeout(function(){
-      try{ if(chartMonthly) chartMonthly.resize(); }catch(e){}
-      try{ if(chartDaily) chartDaily.resize(); }catch(e){}
-      try{ if(chartProducts) chartProducts.resize(); }catch(e){}
-    }, 60);
+    if(!Array.isArray(prodArr) || !prodArr.length){ elP.innerHTML = '<div style="text-align:center; padding:50px; color:#94a3b8; font-weight:900;">Sin datos</div>'; }
+    else { var o3 = buildProductsOptions(mode); if(chartProducts) chartProducts.updateOptions(o3, true, true); else if(forceRender){ chartProducts = new ApexCharts(elP, o3); chartProducts.render(); } }
   }
 
   function renderTable(mode){
-    var tbody = document.getElementById('rowsTbody');
-    var title = document.getElementById('tableTitle');
+    var tbody = document.getElementById('rowsTbody'), title = document.getElementById('tableTitle');
     if(!tbody) return;
-
     var rows = Array.isArray(DATA.table) ? DATA.table.slice() : [];
+    if(mode === 'compra'){ title.textContent = 'Desglose Reciente (Compras)'; rows = rows.filter(function(r){ return String(r.category || '') === 'compra'; }); }
+    else if(mode === 'venta'){ title.textContent = 'Desglose Reciente (Ventas)'; rows = rows.filter(function(r){ return String(r.category || '') === 'venta'; }); }
+    else { title.textContent = 'Desglose Reciente (Compras + Ventas)'; }
 
-    if(mode === 'compra'){
-      title.textContent = 'Desglose Reciente (Compras)';
-      rows = rows.filter(function(r){ return String(r.category || '') === 'compra'; });
-    } else if(mode === 'venta'){
-      title.textContent = 'Desglose Reciente (Ventas)';
-      rows = rows.filter(function(r){ return String(r.category || '') === 'venta'; });
-    } else {
-      title.textContent = 'Desglose Reciente (Compras + Ventas)';
-    }
-
-    if(!rows.length){
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:20px; color:#94a3b8;">No hay registros.</td></tr>';
-      return;
-    }
-
+    if(!rows.length){ tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:20px; color:#94a3b8;">No hay registros.</td></tr>'; return; }
     tbody.innerHTML = rows.slice(0, 120).map(function(r){
-      var cat = String(r.category || '');
-      var chip = (cat === 'venta')
-        ? '<span class="chip blue">venta</span>'
-        : '<span class="chip mint">compra</span>';
-
-      var name = (r.item_name || r.item_raw || '-');
-      return ''
-        + '<tr>'
-        + '<td>' + chip + '</td>'
-        + '<td>' + esc(fmtDate(r.document_datetime)) + '</td>'
-        + '<td style="font-weight:900;">' + esc(name).slice(0, 80) + '</td>'
-        + '<td>' + esc(r.supplier_name || '-').slice(0, 28) + '</td>'
-        + '<td>' + money(r.unit_price) + '</td>'
-        + '<td>' + Number(r.qty || 0).toLocaleString('es-MX') + '</td>'
-        + '<td style="font-weight:900;">' + money(r.line_total) + '</td>'
-        + '</tr>';
+      var chip = (String(r.category || '') === 'venta') ? '<span class="chip blue">venta</span>' : '<span class="chip mint">compra</span>';
+      return '<tr><td>' + chip + '</td><td>' + esc(fmtDate(r.document_datetime)) + '</td><td style="font-weight:900;">' + esc((r.item_name || r.item_raw || '-')).slice(0, 80) + '</td><td>' + esc(r.supplier_name || '-').slice(0, 28) + '</td><td>' + money(r.unit_price) + '</td><td>' + Number(r.qty || 0).toLocaleString('es-MX') + '</td><td style="font-weight:900;">' + money(r.line_total) + '</td></tr>';
     }).join('');
   }
 
   function renderSuppliers(mode){
     var wrap = document.getElementById('suppliersWrap');
     if(!wrap) return;
-
     function card(title, chipClass, chipText, arr){
-      var html = ''
-        + '<div class="statCard" style="padding:14px 16px; flex:1; min-width:260px;">'
-        + '<div style="display:flex; justify-content:space-between; align-items:center;">'
-        + '<div style="font-weight:900; color:var(--ink);">' + title + '</div>'
-        + '<span class="chip ' + chipClass + '">' + chipText + '</span>'
-        + '</div>'
-        + '<div style="margin-top:10px; display:flex; flex-direction:column; gap:10px;">';
-
-      if(!arr || !arr.length){
-        html += '<div style="color:#94a3b8; font-weight:900; padding:6px 0;">Sin datos</div>';
-      } else {
-        arr.slice(0,5).forEach(function(s){
-          html += ''
-            + '<div style="display:flex; justify-content:space-between; gap:10px; align-items:center;">'
-            + '<div style="font-weight:900; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + esc(s.supplier_name || '-') + '</div>'
-            + '<div style="font-weight:900; color:rgba(15,23,42,.75);">' + money(s.total_amount) + '</div>'
-            + '</div>';
-        });
-      }
-
-      html += '</div></div>';
-      return html;
+      var html = '<div class="statCard" style="padding:14px 16px; flex:1; min-width:260px;"><div style="display:flex; justify-content:space-between; align-items:center;"><div style="font-weight:900; color:var(--ink);">' + title + '</div><span class="chip ' + chipClass + '">' + chipText + '</span></div><div style="margin-top:10px; display:flex; flex-direction:column; gap:10px;">';
+      if(!arr || !arr.length){ html += '<div style="color:#94a3b8; font-weight:900; padding:6px 0;">Sin datos</div>'; }
+      else { arr.slice(0,5).forEach(function(s){ html += '<div style="display:flex; justify-content:space-between; gap:10px; align-items:center;"><div style="font-weight:900; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + esc(s.supplier_name || '-') + '</div><div style="font-weight:900; color:rgba(15,23,42,.75);">' + money(s.total_amount) + '</div></div>'; }); }
+      return html + '</div></div>';
     }
-
-    if(mode === 'compare'){
-      wrap.innerHTML =
-        card('Top Proveedores (Compras)', 'mint', 'compra', DATA.suppliers.compra || []) +
-        card('Top Clientes (Ventas)',  'blue', 'venta',  DATA.suppliers.venta  || []);
-      return;
-    }
-
-    var arr = (mode === 'venta') ? (DATA.suppliers.venta || []) : (DATA.suppliers.compra || []);
-    wrap.innerHTML = card('Top Proveedores (' + (mode === 'venta' ? 'Ventas' : 'Compras') + ')', (mode === 'venta' ? 'blue' : 'mint'), mode, arr);
+    if(mode === 'compare'){ wrap.innerHTML = card('Top Proveedores (Compras)', 'mint', 'compra', DATA.suppliers.compra || []) + card('Top Clientes (Ventas)', 'blue', 'venta',  DATA.suppliers.venta  || []); return; }
+    wrap.innerHTML = card('Top Proveedores (' + (mode === 'venta' ? 'Ventas' : 'Compras') + ')', (mode === 'venta' ? 'blue' : 'mint'), mode, (mode === 'venta' ? DATA.suppliers.venta : DATA.suppliers.compra));
   }
 
   function setStatsMode(mode, forceRender){
-    statsMode = mode;
-    setActiveSub(mode);
-    setKpi(mode);
-    setInsight(mode);
-
-    var statsVisible = !document.getElementById('tab-stats-content').classList.contains('d-none');
-    if(statsVisible){
-      renderOrUpdateCharts(mode, !!forceRender);
-    }
-
-    renderTable(mode);
-    renderSuppliers(mode);
+    statsMode = mode; setActiveSub(mode); setKpi(mode); setInsight(mode);
+    if(!document.getElementById('tab-stats-content').classList.contains('d-none')){ renderOrUpdateCharts(mode, !!forceRender); }
+    renderTable(mode); renderSuppliers(mode);
   }
 
-  document.addEventListener('DOMContentLoaded', function(){
-    setStatsMode('compare', false);
-  });
+  document.addEventListener('DOMContentLoaded', function(){ setStatsMode('compare', false); });
 </script>
 
 </div>

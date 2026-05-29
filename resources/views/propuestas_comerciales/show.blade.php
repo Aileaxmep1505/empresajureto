@@ -238,7 +238,17 @@
           </span>
           <span>Word PDF</span>
         </button>
-
+        <a href="{{ route('propuestas-comerciales.fallo.show', $propuestaComercial) }}" class="btn btn-warning">
+          <span class="btn-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3v18"></path>
+              <path d="M5 7l7-4 7 4"></path>
+              <path d="M5 7l-2 6a4 4 0 0 0 8 0L9 7"></path>
+              <path d="M19 7l-2 6a4 4 0 0 0 8 0l-2-6"></path>
+            </svg>
+          </span>
+          <span>Acta de fallo</span>
+        </a>
         <a href="{{ route('propuestas-comerciales.cliente.show', $propuestaComercial) }}" class="btn btn-primary">
           <span class="btn-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

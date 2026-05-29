@@ -27,12 +27,22 @@ class PublicationController extends Controller
         protected AccountStateService $state
     ) {}
 
-    public function index()
-    {
-        $data = $this->svc->buildIndexData();
+public function index(Request $request)
+{
+    $data = $this->svc->buildIndexData($request);
 
-        return view('publications.index', $data);
-    }
+    return view('publications.index', $data);
+}
+
+public function reportPdf(Request $request)
+{
+    $data = $this->svc->buildIndexData($request);
+
+    $pdf = Pdf::loadView('publications.report-pdf', $data)
+        ->setPaper('a4', 'portrait');
+
+    return $pdf->download('reporte-rem-fac-' . now()->format('Y-m-d-H-i') . '.pdf');
+}
 
     public function create()
     {

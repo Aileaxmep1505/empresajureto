@@ -131,177 +131,273 @@ class PublicationPurchaseAiService
             'tags.*'         => ['string', 'max:50'],
         ];
     }
+public function buildIndexData(?Request $request = null): array
+{
+    $request = $request ?? request();
+    Carbon::setLocale('es');
 
-    public function buildIndexData(): array
-    {
-        $pinned = Publication::query()->where('pinned', true)->latest('created_at')->get();
-        $latest = Publication::query()->where('pinned', false)->latest('created_at')->paginate(12);
+    // ---------- 1) Leer filtros ----------
+    $from = null;
+    $to   = null;
+    try { if ($request->filled('from')) $from = Carbon::parse($request->get('from'))->startOfDay(); } catch (\Throwable $e) { $from = null; }
+    try { if ($request->filled('to'))   $to   = Carbon::parse($request->get('to'))->endOfDay();   } catch (\Throwable $e) { $to = null; }
 
-        $totalSpentCompra = (float) PurchaseDocument::where('category', 'compra')->sum('total');
-        $totalSpentVenta  = (float) PurchaseDocument::where('category', 'venta')->sum('total');
-        $totalSpent       = (float) PurchaseDocument::sum('total');
+    $cat      = in_array($request->get('cat'), ['compra', 'venta'], true) ? $request->get('cat') : null;
+    $supplier = trim((string) $request->get('supplier', ''));
+    $product  = trim((string) $request->get('product', ''));
+    $hasProduct = $product !== '';
 
-        $endDay   = now()->endOfDay();
-        $startDay = now()->subDays(29)->startOfDay();
+    // ---------- 2) Builders reutilizables ----------
+    $applyDocFilters = function ($q) use ($from, $to, $cat, $supplier) {
+        if ($cat) $q->where('category', $cat);
+        else      $q->whereIn('category', ['compra', 'venta']);
+        if ($from) $q->whereRaw("COALESCE(document_datetime, created_at) >= ?", [$from]);
+        if ($to)   $q->whereRaw("COALESCE(document_datetime, created_at) <= ?", [$to]);
+        if ($supplier !== '') $q->where('supplier_name', 'like', "%{$supplier}%");
+        return $q;
+    };
+    $docBase = fn () => $applyDocFilters(PurchaseDocument::query());
 
-        $months = [];
-        $mCursor = now()->startOfMonth()->subMonths(11);
-        for ($i=0; $i<12; $i++) {
-            $months[] = $mCursor->format('Y-m');
-            $mCursor->addMonth();
-        }
+    $itemBase = function () use ($from, $to, $cat, $supplier, $product) {
+        $q = PurchaseItem::query()
+            ->join('purchase_documents', 'purchase_items.purchase_document_id', '=', 'purchase_documents.id');
+        if ($cat) $q->where('purchase_documents.category', $cat);
+        else      $q->whereIn('purchase_documents.category', ['compra', 'venta']);
+        if ($from) $q->whereRaw("COALESCE(purchase_documents.document_datetime, purchase_documents.created_at) >= ?", [$from]);
+        if ($to)   $q->whereRaw("COALESCE(purchase_documents.document_datetime, purchase_documents.created_at) <= ?", [$to]);
+        if ($supplier !== '') $q->where('purchase_documents.supplier_name', 'like', "%{$supplier}%");
+        if ($product  !== '') $q->where('purchase_items.item_name', 'like', "%{$product}%");
+        return $q;
+    };
 
-        $chartLabels = [];
-        foreach ($months as $m) {
-            try {
-                $dt = Carbon::createFromFormat('Y-m', $m);
-                $chartLabels[] = $dt->translatedFormat('M Y');
-            } catch (\Exception $e) {
-                $chartLabels[] = $m;
-            }
-        }
+    // ---------- 3) Documentos (tab "Mis Documentos") ----------
+    $pubFilter = function ($q) use ($from, $to, $cat) {
+        if ($cat)  $q->where('category', $cat);
+        if ($from) $q->where('created_at', '>=', $from);
+        if ($to)   $q->where('created_at', '<=', $to);
+        return $q;
+    };
+    $pinned = $pubFilter(Publication::query()->where('pinned', true))->latest('created_at')->get();
+    $latest = $pubFilter(Publication::query()->where('pinned', false))->latest('created_at')->paginate(12)->withQueryString();
 
-        $monthlyRaw = PurchaseDocument::selectRaw("
-                category,
-                DATE_FORMAT(COALESCE(document_datetime, created_at), '%Y-%m') as month_id,
-                SUM(total) as total
-            ")
-            ->whereIn('category', ['compra', 'venta'])
-            ->whereRaw("COALESCE(document_datetime, created_at) >= ?", [now()->startOfMonth()->subMonths(11)->startOfDay()])
-            ->groupBy('category', 'month_id')
-            ->orderBy('month_id', 'asc')
-            ->get();
+    // ---------- 4) Totales ----------
+    if ($hasProduct) {
+        $totalSpentCompra = (float) $itemBase()->where('purchase_documents.category', 'compra')->sum('purchase_items.line_total');
+        $totalSpentVenta  = (float) $itemBase()->where('purchase_documents.category', 'venta')->sum('purchase_items.line_total');
+    } else {
+        $totalSpentCompra = (float) $docBase()->where('category', 'compra')->sum('total');
+        $totalSpentVenta  = (float) $docBase()->where('category', 'venta')->sum('total');
+    }
+    $totalSpent = $totalSpentCompra + $totalSpentVenta;
 
-        $monthlyCompra = array_fill(0, count($months), 0.0);
-        $monthlyVenta  = array_fill(0, count($months), 0.0);
-        $monthIndex    = array_flip($months);
+    // ---------- 5) Tendencia mensual ----------
+    $monthStart = $from ? $from->copy()->startOfMonth() : now()->startOfMonth()->subMonths(11);
+    $monthEnd   = $to   ? $to->copy()->startOfMonth()   : now()->startOfMonth();
 
-        foreach ($monthlyRaw as $row) {
-            $idx = $monthIndex[$row->month_id] ?? null;
-            if ($idx === null) continue;
-            if ($row->category === 'compra') $monthlyCompra[$idx] = (float) $row->total;
-            if ($row->category === 'venta')  $monthlyVenta[$idx]  = (float) $row->total;
-        }
+    $months = [];
+    $mCursor = $monthStart->copy();
+    $guard = 0;
+    while ($mCursor->lte($monthEnd) && $guard < 60) {
+        $months[] = $mCursor->format('Y-m');
+        $mCursor->addMonth();
+        $guard++;
+    }
+    if (empty($months)) $months[] = now()->format('Y-m');
 
-        $chartValues = $monthlyCompra;
-
-        $days = [];
-        $dCursor = $startDay->copy();
-        for ($i=0; $i<30; $i++) {
-            $days[] = $dCursor->toDateString();
-            $dCursor->addDay();
-        }
-
-        $dailyLabels = collect($days)->map(fn ($d) => Carbon::parse($d)->format('d/m'))->values()->all();
-
-        $dailyRaw = PurchaseDocument::selectRaw("
-                category,
-                DATE(COALESCE(document_datetime, created_at)) as day,
-                SUM(total) as total
-            ")
-            ->whereIn('category', ['compra', 'venta'])
-            ->whereRaw("COALESCE(document_datetime, created_at) >= ?", [$startDay])
-            ->whereRaw("COALESCE(document_datetime, created_at) <= ?", [$endDay])
-            ->groupBy('category', 'day')
-            ->orderBy('day', 'asc')
-            ->get();
-
-        $dailyCompra = array_fill(0, count($days), 0.0);
-        $dailyVenta  = array_fill(0, count($days), 0.0);
-        $dayIndex    = array_flip($days);
-
-        foreach ($dailyRaw as $row) {
-            $key = is_string($row->day) ? $row->day : (string)$row->day;
-            $idx = $dayIndex[$key] ?? null;
-            if ($idx === null) continue;
-            if ($row->category === 'compra') $dailyCompra[$idx] = (float) $row->total;
-            if ($row->category === 'venta')  $dailyVenta[$idx]  = (float) $row->total;
-        }
-
-        $dailyValues = collect($dailyCompra);
-
-        $topProductsCompra = PurchaseItem::selectRaw("purchase_documents.category, purchase_items.item_name, SUM(purchase_items.line_total) as total_spent")
-            ->join('purchase_documents', 'purchase_items.purchase_document_id', '=', 'purchase_documents.id')
-            ->where('purchase_documents.category', 'compra')
-            ->whereNotNull('purchase_items.item_name')
-            ->where('purchase_items.item_name', '!=', '')
-            ->groupBy('purchase_documents.category', 'purchase_items.item_name')
-            ->orderByDesc('total_spent')
-            ->limit(10)
-            ->get();
-
-        $topProductsVenta = PurchaseItem::selectRaw("purchase_documents.category, purchase_items.item_name, SUM(purchase_items.line_total) as total_spent")
-            ->join('purchase_documents', 'purchase_items.purchase_document_id', '=', 'purchase_documents.id')
-            ->where('purchase_documents.category', 'venta')
-            ->whereNotNull('purchase_items.item_name')
-            ->where('purchase_items.item_name', '!=', '')
-            ->groupBy('purchase_documents.category', 'purchase_items.item_name')
-            ->orderByDesc('total_spent')
-            ->limit(10)
-            ->get();
-
-        $prodChartDataCompra = $topProductsCompra->map(fn ($item) => ['x' => Str::limit($item->item_name, 25), 'y' => (float) $item->total_spent])->values()->all();
-        $prodChartDataVenta  = $topProductsVenta->map(fn ($item) => ['x' => Str::limit($item->item_name, 25), 'y' => (float) $item->total_spent])->values()->all();
-
-        $prodChartData = $prodChartDataCompra;
-
-        $allPurchases = PurchaseItem::select(
-                'purchase_items.*',
-                'purchase_documents.document_datetime',
-                'purchase_documents.created_at as doc_created_at',
-                'purchase_documents.supplier_name',
-                'purchase_documents.category'
-            )
-            ->join('purchase_documents', 'purchase_items.purchase_document_id', '=', 'purchase_documents.id')
-            ->whereIn('purchase_documents.category', ['compra', 'venta'])
-            ->orderByRaw("COALESCE(purchase_documents.document_datetime, purchase_documents.created_at) DESC")
-            ->limit(200)
-            ->get();
-
-        $topSuppliersCompra = PurchaseDocument::selectRaw("supplier_name, COUNT(*) as count, SUM(total) as total_amount")
-            ->where('category', 'compra')
-            ->whereNotNull('supplier_name')
-            ->where('supplier_name', '!=', '')
-            ->groupBy('supplier_name')
-            ->orderByDesc('total_amount')
-            ->limit(5)
-            ->get();
-
-        $topSuppliersVenta = PurchaseDocument::selectRaw("supplier_name, COUNT(*) as count, SUM(total) as total_amount")
-            ->where('category', 'venta')
-            ->whereNotNull('supplier_name')
-            ->where('supplier_name', '!=', '')
-            ->groupBy('supplier_name')
-            ->orderByDesc('total_amount')
-            ->limit(5)
-            ->get();
-
-        $topSuppliers = $topSuppliersCompra;
-
-        return compact(
-            'pinned',
-            'latest',
-            'totalSpent',
-            'totalSpentCompra',
-            'totalSpentVenta',
-            'chartLabels',
-            'chartValues',
-            'monthlyCompra',
-            'monthlyVenta',
-            'dailyLabels',
-            'dailyValues',
-            'dailyCompra',
-            'dailyVenta',
-            'prodChartData',
-            'prodChartDataCompra',
-            'prodChartDataVenta',
-            'allPurchases',
-            'topSuppliers',
-            'topSuppliersCompra',
-            'topSuppliersVenta'
-        );
+    $chartLabels = [];
+    foreach ($months as $m) {
+        try { $chartLabels[] = Carbon::createFromFormat('Y-m', $m)->translatedFormat('M Y'); }
+        catch (\Exception $e) { $chartLabels[] = $m; }
     }
 
+    if ($hasProduct) {
+        $monthlyRaw = $itemBase()
+            ->selectRaw("purchase_documents.category, DATE_FORMAT(COALESCE(purchase_documents.document_datetime, purchase_documents.created_at), '%Y-%m') as month_id, SUM(purchase_items.line_total) as total")
+            ->groupBy('purchase_documents.category', 'month_id')
+            ->get();
+    } else {
+        $monthlyRaw = $docBase()
+            ->selectRaw("category, DATE_FORMAT(COALESCE(document_datetime, created_at), '%Y-%m') as month_id, SUM(total) as total")
+            ->groupBy('category', 'month_id')
+            ->get();
+    }
+
+    $monthlyCompra = array_fill(0, count($months), 0.0);
+    $monthlyVenta  = array_fill(0, count($months), 0.0);
+    $monthIndex    = array_flip($months);
+    foreach ($monthlyRaw as $row) {
+        $idx = $monthIndex[$row->month_id] ?? null;
+        if ($idx === null) continue;
+        if ($row->category === 'compra') $monthlyCompra[$idx] = (float) $row->total;
+        if ($row->category === 'venta')  $monthlyVenta[$idx]  = (float) $row->total;
+    }
+    $chartValues = $monthlyCompra;
+
+    // ---------- 6) Movimiento diario (rango o últimos 30 días, máx. 92) ----------
+    $dailyEnd   = $to   ? $to->copy()->endOfDay()     : now()->endOfDay();
+    $dailyStart = $from ? $from->copy()->startOfDay() : now()->copy()->subDays(29)->startOfDay();
+    $maxDays = 92;
+    if ($dailyStart->diffInDays($dailyEnd) + 1 > $maxDays) {
+        $dailyStart = $dailyEnd->copy()->subDays($maxDays - 1)->startOfDay();
+    }
+
+    $days = [];
+    $dCursor = $dailyStart->copy();
+    $guard = 0;
+    while ($dCursor->lte($dailyEnd) && $guard < ($maxDays + 1)) {
+        $days[] = $dCursor->toDateString();
+        $dCursor->addDay();
+        $guard++;
+    }
+    if (empty($days)) $days[] = now()->toDateString();
+
+    $dailyLabels = collect($days)->map(fn ($d) => Carbon::parse($d)->format('d/m'))->values()->all();
+
+    if ($hasProduct) {
+        $dailyRaw = $itemBase()
+            ->selectRaw("purchase_documents.category, DATE(COALESCE(purchase_documents.document_datetime, purchase_documents.created_at)) as day, SUM(purchase_items.line_total) as total")
+            ->whereRaw("COALESCE(purchase_documents.document_datetime, purchase_documents.created_at) >= ?", [$dailyStart])
+            ->whereRaw("COALESCE(purchase_documents.document_datetime, purchase_documents.created_at) <= ?", [$dailyEnd])
+            ->groupBy('purchase_documents.category', 'day')
+            ->get();
+    } else {
+        $dailyRaw = $docBase()
+            ->selectRaw("category, DATE(COALESCE(document_datetime, created_at)) as day, SUM(total) as total")
+            ->whereRaw("COALESCE(document_datetime, created_at) >= ?", [$dailyStart])
+            ->whereRaw("COALESCE(document_datetime, created_at) <= ?", [$dailyEnd])
+            ->groupBy('category', 'day')
+            ->get();
+    }
+
+    $dailyCompra = array_fill(0, count($days), 0.0);
+    $dailyVenta  = array_fill(0, count($days), 0.0);
+    $dayIndex    = array_flip($days);
+    foreach ($dailyRaw as $row) {
+        $key = is_string($row->day) ? $row->day : (string) $row->day;
+        $idx = $dayIndex[$key] ?? null;
+        if ($idx === null) continue;
+        if ($row->category === 'compra') $dailyCompra[$idx] = (float) $row->total;
+        if ($row->category === 'venta')  $dailyVenta[$idx]  = (float) $row->total;
+    }
+    $dailyValues = collect($dailyCompra);
+
+    // ---------- 7) Top productos ----------
+    $topProductsCompra = $itemBase()
+        ->where('purchase_documents.category', 'compra')
+        ->whereNotNull('purchase_items.item_name')->where('purchase_items.item_name', '!=', '')
+        ->selectRaw("purchase_items.item_name, SUM(purchase_items.line_total) as total_spent")
+        ->groupBy('purchase_items.item_name')->orderByDesc('total_spent')->limit(10)->get();
+
+    $topProductsVenta = $itemBase()
+        ->where('purchase_documents.category', 'venta')
+        ->whereNotNull('purchase_items.item_name')->where('purchase_items.item_name', '!=', '')
+        ->selectRaw("purchase_items.item_name, SUM(purchase_items.line_total) as total_spent")
+        ->groupBy('purchase_items.item_name')->orderByDesc('total_spent')->limit(10)->get();
+
+    $prodChartDataCompra = $topProductsCompra->map(fn ($i) => ['x' => Str::limit($i->item_name, 25), 'y' => (float) $i->total_spent])->values()->all();
+    $prodChartDataVenta  = $topProductsVenta->map(fn ($i) => ['x' => Str::limit($i->item_name, 25), 'y' => (float) $i->total_spent])->values()->all();
+    $prodChartData = $prodChartDataCompra;
+
+    // ---------- 8) Desglose (tabla) ----------
+    $allPurchases = $itemBase()
+        ->select(
+            'purchase_items.*',
+            'purchase_documents.document_datetime',
+            'purchase_documents.created_at as doc_created_at',
+            'purchase_documents.supplier_name',
+            'purchase_documents.category'
+        )
+        ->orderByRaw("COALESCE(purchase_documents.document_datetime, purchase_documents.created_at) DESC")
+        ->limit(200)->get();
+
+    // ---------- 9) Top proveedores ----------
+    if ($hasProduct) {
+        $topSuppliersCompra = $itemBase()->where('purchase_documents.category', 'compra')
+            ->whereNotNull('purchase_documents.supplier_name')->where('purchase_documents.supplier_name', '!=', '')
+            ->selectRaw("purchase_documents.supplier_name, COUNT(DISTINCT purchase_documents.id) as count, SUM(purchase_items.line_total) as total_amount")
+            ->groupBy('purchase_documents.supplier_name')->orderByDesc('total_amount')->limit(5)->get();
+        $topSuppliersVenta = $itemBase()->where('purchase_documents.category', 'venta')
+            ->whereNotNull('purchase_documents.supplier_name')->where('purchase_documents.supplier_name', '!=', '')
+            ->selectRaw("purchase_documents.supplier_name, COUNT(DISTINCT purchase_documents.id) as count, SUM(purchase_items.line_total) as total_amount")
+            ->groupBy('purchase_documents.supplier_name')->orderByDesc('total_amount')->limit(5)->get();
+    } else {
+        $topSuppliersCompra = $docBase()->where('category', 'compra')
+            ->whereNotNull('supplier_name')->where('supplier_name', '!=', '')
+            ->selectRaw("supplier_name, COUNT(*) as count, SUM(total) as total_amount")
+            ->groupBy('supplier_name')->orderByDesc('total_amount')->limit(5)->get();
+        $topSuppliersVenta = $docBase()->where('category', 'venta')
+            ->whereNotNull('supplier_name')->where('supplier_name', '!=', '')
+            ->selectRaw("supplier_name, COUNT(*) as count, SUM(total) as total_amount")
+            ->groupBy('supplier_name')->orderByDesc('total_amount')->limit(5)->get();
+    }
+    $topSuppliers = $topSuppliersCompra;
+
+    // ---------- 10) Opciones de proveedor (para el <select>) ----------
+    $supplierOptions = PurchaseDocument::query()
+        ->whereNotNull('supplier_name')->where('supplier_name', '!=', '')
+        ->when($cat, fn ($q) => $q->where('category', $cat))
+        ->select('supplier_name')->distinct()->orderBy('supplier_name')->limit(1000)
+        ->pluck('supplier_name')->all();
+
+    // ---------- 11) Metadatos para el PDF ----------
+    if ($hasProduct) {
+        $docCountCompra = (int) $itemBase()->where('purchase_documents.category', 'compra')->distinct()->count('purchase_documents.id');
+        $docCountVenta  = (int) $itemBase()->where('purchase_documents.category', 'venta')->distinct()->count('purchase_documents.id');
+    } else {
+        $docCountCompra = (int) $docBase()->where('category', 'compra')->count();
+        $docCountVenta  = (int) $docBase()->where('category', 'venta')->count();
+    }
+
+    if ($from && $to)       $periodLabel = $from->translatedFormat('d M Y') . ' — ' . $to->translatedFormat('d M Y');
+    elseif ($from)          $periodLabel = 'Desde ' . $from->translatedFormat('d M Y');
+    elseif ($to)            $periodLabel = 'Hasta ' . $to->translatedFormat('d M Y');
+    else                    $periodLabel = 'Histórico completo';
+
+    $filters = [
+        'from'     => $from ? $from->toDateString() : '',
+        'to'       => $to ? $to->toDateString() : '',
+        'cat'      => $cat ?? '',
+        'supplier' => $supplier,
+        'product'  => $product,
+    ];
+
+    $reportMeta = [
+        'period_label'    => $periodLabel,
+        'generated_at'    => now()->translatedFormat('d M Y, H:i'),
+        'cat'             => $cat ?? 'ambos',
+        'supplier'        => $supplier ?: '—',
+        'product'         => $product ?: '—',
+        'doc_count_compra'=> $docCountCompra,
+        'doc_count_venta' => $docCountVenta,
+        'has_filters'     => (bool) ($from || $to || $cat || $supplier !== '' || $product !== ''),
+    ];
+
+    return compact(
+        'pinned',
+        'latest',
+        'totalSpent',
+        'totalSpentCompra',
+        'totalSpentVenta',
+        'chartLabels',
+        'chartValues',
+        'monthlyCompra',
+        'monthlyVenta',
+        'dailyLabels',
+        'dailyValues',
+        'dailyCompra',
+        'dailyVenta',
+        'prodChartData',
+        'prodChartDataCompra',
+        'prodChartDataVenta',
+        'allPurchases',
+        'topSuppliers',
+        'topSuppliersCompra',
+        'topSuppliersVenta',
+        'filters',
+        'supplierOptions',
+        'reportMeta'
+    );
+}
     public function storeFromRequest(Request $request): array
     {
         $files = $request->file('files', []);
