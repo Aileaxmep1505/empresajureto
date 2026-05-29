@@ -112,7 +112,7 @@
     .tb-btn-download { color: #047857; border-color: #a7f3d0; background: #ecfdf5; }
     .tb-btn-download:hover { background: #d1fae5; color: #065f46; border-color: #6ee7b7; }
 
-    /* Estructura Menús Dropdown (Alineado a la derecha para no salirse de pantalla) */
+    /* Estructura Menús Dropdown */
     .dd-menu {
       position: absolute; top: calc(100% + 8px); right: 0; background: #ffffff; border-radius: 12px;
       box-shadow: 0 10px 40px rgba(2,6,23,0.12), 0 0 0 1px rgba(15,23,42,0.06); width: 340px; z-index: 100;
@@ -202,40 +202,20 @@
     #pubsBase .mutedBox{ background: rgba(248,250,252,.65); border:1px dashed rgba(15,23,42,.14); border-radius: 16px; padding: 14px 16px; color: rgba(15,23,42,.65); font-weight: 900; font-size: 12px; margin-top:14px; }
     
     /* =========================
-       ESTILOS PARA LA PAGINACIÓN DE LARAVEL
+       PAGINACIÓN MINIMALISTA Y PROFESIONAL
     ========================= */
-    #pubsBase .idxPager { margin-top: 24px; }
-    #pubsBase .idxPager [role="navigation"] {
-        display: flex; justify-content: space-between; align-items: center; gap: 20px; flex-wrap: wrap;
-    }
-    #pubsBase .idxPager [role="navigation"] > div:first-of-type { display: none; }
-    @media (max-width: 640px) {
-        #pubsBase .idxPager [role="navigation"] > div:first-of-type { display: flex; width: 100%; justify-content: space-between; }
-        #pubsBase .idxPager [role="navigation"] > div:last-of-type { display: none; }
-    }
-    #pubsBase .idxPager p.text-sm { margin: 0; color: var(--muted); font-size: 13px; font-weight: 600; }
+    #pubsBase .idxPager { margin-top: 30px; display: flex; justify-content: center; }
+    #pubsBase .idxPager [role="navigation"] { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; }
+    #pubsBase .idxPager p.text-sm { color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: 0.5px; margin: 0; }
     #pubsBase .idxPager p.text-sm span { font-weight: 900; color: var(--ink); }
-    #pubsBase .idxPager .relative.z-0.inline-flex {
-        display: inline-flex; align-items: center; border: 1px solid var(--line);
-        border-radius: 12px; overflow: hidden; background: #ffffff; box-shadow: 0 4px 15px rgba(2,6,23,0.04);
-    }
+    #pubsBase .idxPager [role="navigation"] > div:first-of-type { display: none; }
+    #pubsBase .idxPager .relative.z-0.inline-flex { display: inline-flex; align-items: center; gap: 4px; background: transparent; box-shadow: none; border: none; }
     #pubsBase .idxPager .relative.z-0.inline-flex > * > span,
-    #pubsBase .idxPager .relative.z-0.inline-flex > a {
-        display: inline-flex; align-items: center; justify-content: center;
-        padding: 8px 14px; font-size: 13px; font-weight: 800; color: var(--muted);
-        background: transparent; border-right: 1px solid var(--line); text-decoration: none;
-        transition: 0.2s; min-width: 42px; line-height: 1;
-    }
-    #pubsBase .idxPager .relative.z-0.inline-flex > *:last-child > span,
-    #pubsBase .idxPager .relative.z-0.inline-flex > a:last-child { border-right: none; }
-    #pubsBase .idxPager .relative.z-0.inline-flex > a:hover { background: #f8fafc; color: #3b82f6; }
-    #pubsBase .idxPager .relative.z-0.inline-flex [aria-current="page"] > span {
-        background: #3b82f6; color: #ffffff; border-color: #3b82f6;
-    }
-    #pubsBase .idxPager .relative.z-0.inline-flex [aria-disabled="true"] > span {
-        color: #cbd5e1; background: #f1f5f9; cursor: not-allowed;
-    }
-    #pubsBase .idxPager svg { width: 18px; height: 18px; }
+    #pubsBase .idxPager .relative.z-0.inline-flex > a { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; padding: 0; font-size: 13px; font-weight: 700; color: var(--muted); background: transparent; border: none; border-radius: 50%; text-decoration: none; transition: all 0.2s ease; }
+    #pubsBase .idxPager .relative.z-0.inline-flex > a:hover { background: rgba(15,23,42, 0.04); color: var(--ink); transform: translateY(-1px); }
+    #pubsBase .idxPager .relative.z-0.inline-flex [aria-current="page"] > span { background: var(--ink); color: #ffffff; box-shadow: 0 4px 12px rgba(15,23,42,0.2); }
+    #pubsBase .idxPager .relative.z-0.inline-flex [aria-disabled="true"] > span { color: rgba(15,23,42, 0.15); background: transparent; cursor: not-allowed; }
+    #pubsBase .idxPager svg { width: 16px; height: 16px; stroke-width: 2.5; }
   </style>
 
   <div class="bg">
@@ -591,10 +571,15 @@
     var pinnedTitle = document.getElementById('pinnedTitle');
     var latestTitle = document.getElementById('latestTitle');
     var empty = document.getElementById('docFilterEmpty');
+    var pager = document.querySelector('.idxPager');
 
     if(pinnedTitle) pinnedTitle.classList.toggle('d-none', visiblePinned === 0 && docFilterMode !== 'all');
     if(latestTitle) latestTitle.classList.toggle('d-none', visibleLatest === 0 && docFilterMode !== 'all');
     if(empty) empty.classList.toggle('d-none', visibleTotal !== 0);
+    
+    if(pager) {
+        pager.style.display = (docFilterMode === 'all') ? 'flex' : 'none';
+    }
   }
 
   document.addEventListener('DOMContentLoaded', function(){
