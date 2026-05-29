@@ -1,0 +1,841 @@
+
+
+  .jureto-quote-page {
+    --bg: #ffffff;
+    --card: #ffffff;
+    --ink: #171717;
+    --muted: #737373;
+    --line: #ececec;
+    --blue: #007aff;
+    --blue-soft: #eef6ff;
+    --success: #15803d;
+    --success-soft: #ecfdf3;
+    --danger: #dc2626;
+    --danger-soft: #fef2f2;
+    --warning: #a16207;
+    --warning-soft: #fff7d6;
+
+    min-height: 100vh;
+    width: 100%;
+    background: #ffffff;
+    color: var(--ink);
+    font-family: 'Quicksand', sans-serif;
+    padding: 24px 0 48px;
+  }
+
+  .jureto-quote-page,
+  .jureto-quote-page * {
+    box-sizing: border-box;
+  }
+
+  .jureto-quote-page a,
+  .jureto-quote-page button,
+  .jureto-quote-page input,
+  .jureto-quote-page textarea {
+    font-family: 'Quicksand', sans-serif;
+  }
+
+  .jureto-quote-page .quote-wrap {
+    width: min(96vw, 1560px);
+    margin: 0 auto;
+  }
+
+  .jureto-quote-page .back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #6b7280;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 18px;
+    transition: .18s ease;
+  }
+
+  .jureto-quote-page .back-link:hover {
+    color: var(--blue);
+  }
+
+  .jureto-quote-page .topbar,
+  .jureto-quote-page .actions,
+  .jureto-quote-page .topbar-main {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background-image: none !important;
+    box-shadow: none !important;
+    position: static !important;
+  }
+
+  .jureto-quote-page .topbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 16px;
+    align-items: center;
+    position: static;
+    margin-bottom: 18px;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .jureto-quote-page .topbar-main {
+    min-width: 0;
+    max-width: 1120px;
+    position: static;
+  }
+
+  .jureto-quote-page .quote-code {
+    font-size: 11px;
+    color: #8a8a8a;
+    font-weight: 700;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .jureto-quote-page .quote-title {
+    margin: 0;
+    color: #111827;
+    font-size: clamp(16px, 1.7vw, 24px);
+    line-height: 1.22;
+    font-weight: 700;
+    letter-spacing: -.03em;
+    max-width: 100%;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+
+  .jureto-quote-page .quote-subtitle {
+    margin: 8px 0 0;
+    color: #8b8b8b;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .jureto-quote-page .actions {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    align-items: center;
+    justify-content: flex-end;
+    width: auto;
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+    position: static;
+    top: auto;
+  }
+
+  .jureto-quote-page .btn {
+    appearance: none;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    min-height: 40px;
+    padding: 0 14px;
+    background: transparent;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+    transition: .18s ease;
+    white-space: nowrap;
+  }
+
+  .jureto-quote-page .btn:active {
+    transform: scale(.985);
+  }
+
+  .jureto-quote-page .btn-icon {
+    width: 16px;
+    height: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 18px;
+  }
+
+  .jureto-quote-page .btn-icon svg {
+    width: 16px;
+    height: 16px;
+    stroke: currentColor;
+  }
+
+  .jureto-quote-page .btn-primary {
+    background: var(--blue);
+    border-color: var(--blue);
+    color: #fff;
+    box-shadow: none;
+  }
+
+  .jureto-quote-page .btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: none;
+  }
+
+  .jureto-quote-page .btn-ghost {
+    background: #fff;
+    border-color: var(--line);
+    color: #5b6470;
+  }
+
+  .jureto-quote-page .btn-ghost:hover {
+    background: #fafafa;
+    border-color: #dddddd;
+  }
+
+  .jureto-quote-page .btn-soft {
+    background: var(--blue-soft);
+    color: var(--blue);
+  }
+
+  .jureto-quote-page .btn-soft:hover {
+    background: #e4f0ff;
+  }
+
+  .jureto-quote-page .btn-outline {
+    background: #fff;
+    border-color: rgba(0,122,255,.35);
+    color: var(--blue);
+  }
+
+  .jureto-quote-page .btn-outline:hover {
+    background: var(--blue-soft);
+  }
+
+  .jureto-quote-page .btn-export-excel {
+    color: var(--success);
+    background: #fff;
+    border-color: rgba(21,128,61,.28);
+  }
+
+  .jureto-quote-page .btn-export-excel:hover {
+    background: var(--success-soft);
+  }
+
+  .jureto-quote-page .btn-export-word {
+    color: var(--blue);
+    background: #fff;
+    border-color: rgba(0,122,255,.28);
+  }
+
+  .jureto-quote-page .btn-export-word:hover {
+    background: var(--blue-soft);
+  }
+
+  .jureto-quote-page .btn-success {
+    color: var(--success);
+    background: #fff;
+    border-color: rgba(21,128,61,.28);
+  }
+
+  .jureto-quote-page .btn-success:hover {
+    background: var(--success-soft);
+  }
+
+  .jureto-quote-page .btn-danger {
+    color: var(--danger);
+    background: #fff;
+    border-color: rgba(220,38,38,.24);
+  }
+
+  .jureto-quote-page .btn-danger:hover {
+    background: var(--danger-soft);
+  }
+
+  .jureto-quote-page .btn-warning {
+    color: var(--warning);
+    background: #fff;
+    border-color: rgba(161,98,7,.28);
+  }
+
+  .jureto-quote-page .btn-warning:hover {
+    background: var(--warning-soft);
+  }
+
+  .jureto-quote-page .btn-small {
+    min-height: 34px;
+    padding: 0 11px;
+    font-size: 12px;
+    border-radius: 10px;
+  }
+
+  .jureto-quote-page .btn[disabled] {
+    opacity: .55;
+    cursor: not-allowed;
+  }
+
+  .jureto-quote-page .notice {
+    display: none;
+    align-items: center;
+    gap: 12px;
+    border-radius: 14px;
+    border: 1px solid #fde68a;
+    background: #fffbeb;
+    color: #945d00;
+    padding: 15px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 18px;
+  }
+
+  .jureto-quote-page .notice.show {
+    display: flex;
+  }
+
+  .jureto-quote-page .notice-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: #d4a214;
+    flex: 0 0 auto;
+  }
+
+  .jureto-quote-page .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 26px;
+  }
+
+  .jureto-quote-page .summary-cell {
+    appearance: none;
+    border: 1px solid var(--line);
+    min-width: 0;
+    background: #fff;
+    text-align: center;
+    padding: 16px 12px 14px;
+    cursor: pointer;
+    transition: .2s ease;
+    position: relative;
+    border-radius: 16px;
+    box-shadow: 0 4px 14px rgba(0,0,0,.025);
+  }
+
+  .jureto-quote-page .summary-cell:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 22px rgba(0,0,0,.04);
+    border-color: rgba(0,122,255,.18);
+  }
+
+  .jureto-quote-page .summary-cell.active {
+    background: var(--blue);
+    border-color: var(--blue);
+    box-shadow: 0 12px 24px rgba(0,122,255,.16);
+  }
+
+  .jureto-quote-page .summary-cell.active .summary-value,
+  .jureto-quote-page .summary-cell.active .summary-label {
+    color: #fff !important;
+  }
+
+  .jureto-quote-page .summary-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: #111;
+  }
+
+  .jureto-quote-page .summary-label {
+    margin-top: 8px;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .jureto-quote-page .text-success { color: var(--success); }
+  .jureto-quote-page .text-danger { color: var(--danger); }
+  .jureto-quote-page .text-blue { color: var(--blue); }
+
+  .jureto-quote-page .global-margin {
+    display: flex;
+    justify-content: flex-end;
+    align-items: end;
+    gap: 10px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+
+  .jureto-quote-page .global-margin label,
+  .jureto-quote-page .field label {
+    display: block;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .11em;
+    margin-bottom: 7px;
+  }
+
+  .jureto-quote-page .input {
+    width: 100%;
+    height: 42px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 0 12px;
+    outline: none;
+    font-weight: 600;
+    color: #111;
+    background: #fff;
+    transition: .2s ease;
+  }
+
+  .jureto-quote-page .input:focus {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px var(--blue-soft);
+  }
+
+  .jureto-quote-page .items-list {
+    display: grid;
+    gap: 12px;
+  }
+
+  .jureto-quote-page .item-card {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--line);
+    border-radius: 14px;
+    overflow: hidden;
+    transition: .2s ease;
+    box-shadow: 0 4px 14px rgba(0,0,0,.02);
+  }
+
+  .jureto-quote-page .item-card:hover {
+    box-shadow: 0 12px 28px rgba(0,0,0,.035);
+    transform: translateY(-1px);
+  }
+
+  .jureto-quote-page .item-card.dragging {
+    opacity: .55;
+    transform: scale(.995);
+  }
+
+  .jureto-quote-page .item-card.status-exact { border-left-color: #22c55e; }
+  .jureto-quote-page .item-card.status-similar { border-left-color: var(--blue); }
+  .jureto-quote-page .item-card.status-not_found { border-left-color: var(--danger); }
+
+  .jureto-quote-page .item-main {
+    display: grid;
+    grid-template-columns: 28px 34px minmax(0, 1fr) auto auto auto;
+    align-items: center;
+    gap: 14px;
+    padding: 18px 22px;
+    cursor: pointer;
+  }
+
+  .jureto-quote-page .drag-handle {
+    width: 26px;
+    height: 32px;
+    border: 0;
+    background: transparent;
+    cursor: grab;
+    color: #999;
+    font-size: 17px;
+    line-height: 1;
+  }
+
+  .jureto-quote-page .drag-handle:active { cursor: grabbing; }
+
+  .jureto-quote-page .item-index {
+    color: #777;
+    font-size: 12px;
+    font-weight: 700;
+    text-align: center;
+  }
+
+  .jureto-quote-page .item-name {
+    margin: 0;
+    color: #111;
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.35;
+  }
+
+  .jureto-quote-page .item-meta {
+    color: var(--muted);
+    font-size: 13px;
+    margin-top: 6px;
+    font-weight: 500;
+  }
+
+  .jureto-quote-page .badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 6px 13px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .jureto-quote-page .badge-success { background: var(--success-soft); color: var(--success); }
+  .jureto-quote-page .badge-danger { background: var(--danger-soft); color: var(--danger); }
+  .jureto-quote-page .badge-info { background: var(--blue-soft); color: var(--blue); }
+  .jureto-quote-page .badge-warning { background: var(--warning-soft); color: var(--warning); }
+  .jureto-quote-page .badge-muted { background: #f3f4f6; color: #777; }
+
+  .jureto-quote-page .money-row {
+    display: flex;
+    gap: 18px;
+    font-size: 13px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .jureto-quote-page .money-row strong {
+    color: #111;
+    font-weight: 700;
+  }
+
+  .jureto-quote-page .chevron {
+    color: var(--muted);
+    transition: .2s ease;
+  }
+
+  .jureto-quote-page .item-card.open .chevron {
+    transform: rotate(180deg);
+  }
+
+  .jureto-quote-page .item-details {
+    display: none;
+    border-top: 1px solid var(--line);
+    background: #fafafa;
+    padding: 24px 26px 28px;
+  }
+
+  .jureto-quote-page .item-card.open .item-details {
+    display: block;
+  }
+
+  .jureto-quote-page .section { margin-bottom: 22px; }
+  .jureto-quote-page .section:last-child { margin-bottom: 0; }
+
+  .jureto-quote-page .section-title {
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .jureto-quote-page .result-card,
+  .jureto-quote-page .external-box {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 10px;
+  }
+
+  .jureto-quote-page .result-title {
+    color: #111;
+    font-size: 14px;
+    line-height: 1.4;
+    font-weight: 700;
+  }
+
+  .jureto-quote-page .result-meta {
+    color: var(--muted);
+    font-size: 13px;
+    margin-top: 6px;
+    line-height: 1.6;
+  }
+
+  .jureto-quote-page .warning-line {
+    color: var(--warning);
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-top: 8px;
+  }
+
+  .jureto-quote-page .action-row {
+    display: flex;
+    gap: 9px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .jureto-quote-page .edit-form {
+    display: none;
+    grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1.4fr 1.6fr;
+    gap: 12px;
+    margin-top: 22px;
+  }
+
+  .jureto-quote-page .edit-form.show { display: grid; }
+
+  .jureto-quote-page .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(0,0,0,.16);
+    backdrop-filter: blur(6px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+  }
+
+  .jureto-quote-page .modal-backdrop.show { display: flex; }
+
+  .jureto-quote-page .modal {
+    width: min(820px, 100%);
+    max-height: 86vh;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 24px 80px rgba(0,0,0,.12);
+  }
+
+  .jureto-quote-page .modal-head {
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    align-items: flex-start;
+  }
+
+  .jureto-quote-page .modal-title {
+    margin: 0;
+    color: #111;
+    font-size: 17px;
+    font-weight: 700;
+  }
+
+  .jureto-quote-page .modal-subtitle {
+    margin: 5px 0 0;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  .jureto-quote-page .modal-body {
+    padding: 18px 22px 22px;
+    overflow-y: auto;
+    max-height: 68vh;
+  }
+
+  .jureto-quote-page .modal-tabs {
+    display: flex;
+    gap: 8px;
+    margin: 14px 0;
+  }
+
+  .jureto-quote-page .tab-btn {
+    border: 1px solid transparent;
+    background: #f3f4f6;
+    color: #777;
+    border-radius: 14px;
+    padding: 12px 16px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: .2s ease;
+  }
+
+  .jureto-quote-page .tab-btn.active {
+    background: var(--blue);
+    color: #fff;
+  }
+
+  .jureto-quote-page .modal-result {
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 14px;
+    display: flex;
+    gap: 14px;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 10px;
+  }
+
+  .jureto-quote-page .loader {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(0,122,255,.25);
+    border-top-color: var(--blue);
+    border-radius: 999px;
+    animation: juretoSpin .8s linear infinite;
+  }
+
+  @keyframes juretoSpin {
+    to { transform: rotate(360deg); }
+  }
+
+  .jureto-quote-page .process-box {
+    display: none;
+    border: 1px solid var(--line);
+    background: #fff;
+    border-radius: 16px;
+    padding: 16px 18px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 12px rgba(0,0,0,.02);
+  }
+
+  .jureto-quote-page .process-box.show { display: block; }
+
+  .jureto-quote-page .process-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+
+  .jureto-quote-page .process-title {
+    font-size: 14px;
+    font-weight: 800;
+    color: #111;
+  }
+
+  .jureto-quote-page .process-text {
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.5;
+  }
+
+  .jureto-quote-page .process-bar {
+    height: 10px;
+    background: #eef2f7;
+    border-radius: 999px;
+    overflow: hidden;
+    margin-top: 12px;
+  }
+
+  .jureto-quote-page .process-fill {
+    height: 100%;
+    width: 0%;
+    background: var(--blue);
+    border-radius: 999px;
+    transition: width .25s ease;
+  }
+
+  .jureto-quote-page .process-box.error {
+    border-color: rgba(220,38,38,.28);
+    background: var(--danger-soft);
+  }
+
+  .jureto-quote-page .process-box.error .process-title {
+    color: var(--danger);
+  }
+
+  .jureto-quote-page .process-box.success {
+    border-color: rgba(21,128,61,.22);
+    background: var(--success-soft);
+  }
+
+  .jureto-quote-page .process-box.success .process-title {
+    color: var(--success);
+  }
+
+  .jureto-quote-page .process-errors {
+    display: none;
+    margin-top: 12px;
+    max-height: 180px;
+    overflow: auto;
+    border-radius: 12px;
+    background: rgba(255,255,255,.75);
+    padding: 10px 12px;
+    color: var(--danger);
+    font-size: 12px;
+    line-height: 1.5;
+    font-weight: 600;
+  }
+
+  .jureto-quote-page .process-errors.show {
+    display: block;
+  }
+
+  @media (max-width: 1300px) {
+    .jureto-quote-page .summary-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 1100px) {
+    .jureto-quote-page .topbar {
+      grid-template-columns: 1fr;
+    }
+
+    .jureto-quote-page .actions {
+      width: 100%;
+      flex: 1 1 auto;
+      flex-direction: row;
+      flex-wrap: wrap;
+      justify-content: flex-start;
+      gap: 8px;
+    }
+
+    .jureto-quote-page .item-main {
+      grid-template-columns: 28px 30px minmax(0,1fr) auto;
+    }
+
+    .jureto-quote-page .money-row {
+      grid-column: 3 / -1;
+      flex-wrap: wrap;
+    }
+
+    .jureto-quote-page .edit-form {
+      grid-template-columns: repeat(2, minmax(0,1fr));
+    }
+  }
+
+  @media (max-width: 760px) {
+    .jureto-quote-page {
+      padding: 18px 0 40px;
+    }
+
+    .jureto-quote-page .quote-wrap {
+      width: calc(100vw - 20px);
+    }
+
+    .jureto-quote-page .quote-title {
+      font-size: 18px;
+      line-height: 1.26;
+    }
+
+    .jureto-quote-page .actions {
+      flex-direction: row;
+      justify-content: flex-start;
+    }
+
+    .jureto-quote-page .summary-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .jureto-quote-page .item-main {
+      padding: 16px;
+      gap: 10px;
+    }
+
+    .jureto-quote-page .money-row {
+      grid-column: 1 / -1;
+    }
+
+    .jureto-quote-page .item-details {
+      padding: 18px 16px;
+    }
+
+    .jureto-quote-page .edit-form {
+      grid-template-columns: 1fr;
+    }
+
+    .jureto-quote-page .btn {
+      width: auto;
+    }
+
+    .jureto-quote-page .modal-result {
+      flex-direction: column;
+    }
+  }

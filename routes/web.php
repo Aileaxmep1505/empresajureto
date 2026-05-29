@@ -2120,3 +2120,22 @@ Route::middleware(['auth'])->prefix('projects')->name('projects.')->group(functi
     Route::post('/{project}/checklist/reanalyze',[ProjectBoardController::class, 'reanalyzeChecklist'])->name('checklist.reanalyze');
     Route::post('/{project}/report',             [ProjectBoardController::class, 'generateReport'])->name('report');
 });
+
+use App\Http\Controllers\PropuestaComercialExtrasController;
+
+// MUESTRAS (análisis de almacén)
+Route::get('/propuesta-comercial-items/{item}/ajax/samples', [PropuestaComercialExtrasController::class, 'itemSamples'])
+    ->name('propuesta-comercial-items.ajax.samples');
+
+// FICHAS TÉCNICAS
+Route::get('/propuesta-comercial-items/{item}/ajax/tech-sheets', [PropuestaComercialExtrasController::class, 'techSheetsList'])
+    ->name('propuesta-comercial-items.ajax.tech-sheets');
+
+Route::post('/propuesta-comercial-items/{item}/ajax/tech-sheets/link', [PropuestaComercialExtrasController::class, 'linkTechSheet'])
+    ->name('propuesta-comercial-items.ajax.tech-sheets.link');
+
+Route::post('/propuesta-comercial-items/{item}/ajax/tech-sheets/create', [PropuestaComercialExtrasController::class, 'createTechSheet'])
+    ->name('propuesta-comercial-items.ajax.tech-sheets.create');
+
+Route::post('/propuesta-comercial-fichas/{sheet}/update', [PropuestaComercialExtrasController::class, 'updateTechSheet'])
+    ->name('propuesta-comercial-fichas.update');
