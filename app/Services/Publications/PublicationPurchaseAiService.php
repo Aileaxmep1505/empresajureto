@@ -157,7 +157,6 @@ public function buildIndexData(?Request $request = null): array
     $product    = is_array($rawProd) ? '' : trim((string) $rawProd);
     $hasProduct = $product !== '';
 
-    // ¿Hay algún filtro activo? -> si sí, NO paginar
     $hasAnyFilter = (bool) ($from || $to || !empty($cats) || !empty($suppliers) || $hasProduct);
 
     // ---------- 2) Builders reutilizables ----------
@@ -184,16 +183,38 @@ public function buildIndexData(?Request $request = null): array
     };
 
     // ---------- 3) Documentos (tab "Mis Documentos") ----------
-    $pubFilter = function ($q) use ($from, $to, $cats) {
+    // IMPORTANTE: las publicaciones no tienen supplier_name/producto.
+    // Por eso, si filtras por proveedor o producto, se filtran por sus purchase_documents relacionados.
+    $pubFilter = function ($q) use ($from, $to, $cats, $suppliers, $product) {
         if (!empty($cats)) $q->whereIn('category', $cats);
         if ($from) $q->where('created_at', '>=', $from);
         if ($to)   $q->where('created_at', '<=', $to);
+
+        if (!empty($suppliers) || $product !== '') {
+            $q->whereIn('id', function ($sub) use ($suppliers, $product) {
+                $sub->from('purchase_documents')
+                    ->select('purchase_documents.publication_id')
+                    ->whereNotNull('purchase_documents.publication_id');
+
+                if (!empty($suppliers)) {
+                    $sub->whereIn('purchase_documents.supplier_name', $suppliers);
+                }
+
+                if ($product !== '') {
+                    $sub->whereExists(function ($pi) use ($product) {
+                        $pi->from('purchase_items')
+                           ->whereColumn('purchase_items.purchase_document_id', 'purchase_documents.id')
+                           ->where('purchase_items.item_name', 'like', "%{$product}%");
+                    });
+                }
+            });
+        }
         return $q;
     };
 
     $pinned = $pubFilter(Publication::query()->where('pinned', true))->latest('created_at')->get();
 
-    // Si hay filtros activos -> mostrar TODO sin paginar. Si no -> paginar con número mayor (48).
+    // Si hay filtros activos -> mostrar TODO sin paginar. Si no -> paginar (48 por página).
     $latestQuery = $pubFilter(Publication::query()->where('pinned', false))->latest('created_at');
     $latest = $hasAnyFilter
         ? $latestQuery->get()
@@ -375,8 +396,8 @@ public function buildIndexData(?Request $request = null): array
     $filters = [
         'from'     => $from ? $from->toDateString() : '',
         'to'       => $to ? $to->toDateString() : '',
-        'cat'      => $cats,       // arreglo
-        'supplier' => $suppliers,  // arreglo
+        'cat'      => $cats,
+        'supplier' => $suppliers,
         'product'  => $product,
     ];
 
