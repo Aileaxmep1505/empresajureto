@@ -38,7 +38,7 @@ public function reportPdf(Request $request)
 {
     $data = $this->svc->buildIndexData($request);
 
-    $pdf = Pdf::loadView('publications.report-pdf', $data)
+    $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('publications.report-pdf', $data)
         ->setPaper('a4', 'portrait');
 
     return $pdf->download('reporte-rem-fac-' . now()->format('Y-m-d-H-i') . '.pdf');
