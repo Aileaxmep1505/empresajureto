@@ -46,7 +46,7 @@
               'manual_external_link' => data_get($item->meta, 'external_link'),
               'manual_catalog_product_name' => data_get($item->meta, 'catalog_product_name_manual'),
 
-              // 🔹 PASO 7: ficha técnica vinculada
+              // 🔹 ficha técnica vinculada
               'tech_sheet_id' => data_get($item->meta, 'tech_sheet_id'),
               'tech_sheet_name' => data_get($item->meta, 'tech_sheet_name'),
 
@@ -583,6 +583,26 @@
     return newItems;
   }
 
+  // 🔹 Reglas de "decisión tomada"
+  function isManualExternalChosen(item) {
+    return !!(item.manual_external_link || item.manual_external_supplier);
+  }
+
+  function isCatalogAccepted(item) {
+    return item.ui_status === 'accepted_item';
+  }
+
+  function getSelectedCatalogProduct(item) {
+    const selMatch = (item.matches || []).find(m => m.seleccionado);
+    if (selMatch && selMatch.product) {
+      return { product: selMatch.product, score: Number(selMatch.score || 0) };
+    }
+    if (item.producto_seleccionado) {
+      return { product: item.producto_seleccionado, score: Number(item.match_score || 0) };
+    }
+    return null;
+  }
+
   function showProcessBox(type, title, text, done = 0, total = 0, errors = []) {
     const box = document.getElementById('processBox');
     const titleEl = document.getElementById('processTitle');
@@ -748,6 +768,34 @@
   }
 
   function renderCatalogSection(item) {
+    // 🔹 Si se eligió una referencia externa/manual, ocultamos las coincidencias de catálogo
+    if (isManualExternalChosen(item)) {
+      return '';
+    }
+
+    // 🔹 Si ya se aceptó la partida, mostrar SOLO el producto seleccionado
+    if (isCatalogAccepted(item)) {
+      const sel = getSelectedCatalogProduct(item);
+      if (sel) {
+        const p = sel.product;
+        return `
+          <div class="section">
+            <div class="section-title">Producto seleccionado (catálogo)</div>
+            <div class="result-card" style="border-color:rgba(21,128,61,.35);">
+              <div class="result-title">
+                ${escapeHtml(p.name || 'Producto')}
+                <span class="badge badge-success">Aceptado</span>
+              </div>
+              <div class="result-meta">
+                SKU: ${escapeHtml(p.sku || '—')} · ${escapeHtml(p.brand || '—')} · Stock: ${p.stock ?? '—'}${sel.score ? ' · ' + sel.score.toFixed(0) + '%' : ''}
+              </div>
+            </div>
+          </div>
+        `;
+      }
+      // aceptado pero sin producto: dejamos ver sugerencias para que elija
+    }
+
     if (!item.matches?.length && !item.producto_seleccionado) {
       return `
         <div class="section">
@@ -802,7 +850,7 @@
     return `
       <div class="section">
         <div class="external-box">
-          <div class="section-title">Referencia externa / manual</div>
+          <div class="section-title">Referencia seleccionada (proveedor externo)</div>
           <div class="result-title">
             ${escapeHtml(item.manual_external_supplier || item.manual_catalog_product_name || 'Proveedor externo')}
             ${item.costo_unitario ? ' · ' + money(item.costo_unitario) : ''}
@@ -814,13 +862,18 @@
             </div>
           ` : ''}
 
-          <div class="warning-line">ⓘ Precio estimado — validar antes de aprobar</div>
+          <div class="warning-line">ⓘ Se ocultaron las demás coincidencias de catálogo e internet. Precio estimado — validar antes de aprobar.</div>
         </div>
       </div>
     `;
   }
 
   function renderExternalSection(item) {
+    // 🔹 Si ya hay decisión (catálogo aceptado o referencia externa elegida), no mostramos más opciones
+    if (isCatalogAccepted(item) || isManualExternalChosen(item)) {
+      return '';
+    }
+
     if (!item.external_matches?.length) {
       if (item.status_key === 'not_found') {
         return `
@@ -855,7 +908,7 @@
     `;
   }
 
-  // 🔹 PASO 7: sección de la ficha técnica vinculada
+  // 🔹 Ficha técnica vinculada + preview embebido
   function renderTechSheetLinked(item) {
     if (!item.tech_sheet_id) return '';
 
@@ -867,12 +920,35 @@
         <div class="result-card">
           <div class="result-title">📄 ${escapeHtml(item.tech_sheet_name || 'Ficha técnica')}</div>
           <div class="action-row" style="margin-top:10px;">
-            <a class="btn btn-outline btn-small" target="_blank" rel="noopener noreferrer" href="${pdfUrl}">↗ Ver PDF</a>
+            <button class="btn btn-soft btn-small" type="button" onclick="toggleTechPreview(${item.id}, '${pdfUrl}')">👁 Ver ficha seleccionada</button>
+            <a class="btn btn-outline btn-small" target="_blank" rel="noopener noreferrer" href="${pdfUrl}">↗ Abrir en pestaña</a>
             <button class="btn btn-ghost btn-small" type="button" onclick="openTechSheetsModal(${item.id})">Cambiar / editar</button>
           </div>
+          <div id="tech-preview-${item.id}" class="tech-preview" style="display:none; margin-top:12px;"></div>
         </div>
       </div>
     `;
+  }
+
+  function toggleTechPreview(itemId, pdfUrl) {
+    const box = document.getElementById(`tech-preview-${itemId}`);
+    if (!box) return;
+
+    const isHidden = box.style.display === 'none' || box.style.display === '';
+
+    if (isHidden) {
+      box.innerHTML = `
+        <iframe
+          src="${pdfUrl}"
+          title="Ficha técnica"
+          style="width:100%; height:560px; border:1px solid #ececec; border-radius:12px; background:#fff;"></iframe>
+      `;
+      box.style.display = 'block';
+      box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } else {
+      box.style.display = 'none';
+      box.innerHTML = '';
+    }
   }
 
   function renderActions(item) {
@@ -1670,7 +1746,7 @@
       }
 
       techShowList();
-      document.getElementById('techQueryInput').value = (data.sheet && data.sheet.product_name) || '';
+            document.getElementById('techQueryInput').value = (data.sheet && data.sheet.product_name) || '';
       renderItems();
 
       const card = document.querySelector(`.jureto-quote-page .item-card[data-id="${techItemId}"]`);
@@ -1997,161 +2073,78 @@
     );
   }
 
-function exportExtractedTablesToWord() {
-  const title = @json($exportTitle);
-  const folio = @json($exportFolio);
-  const generatedAt = new Date().toLocaleString('es-MX');
-  const tables = getExportTables();
+  function exportExtractedTablesToWord() {
+    const title = exportTitle;
+    const folio = exportFolio;
+    const generatedAt = new Date().toLocaleString('es-MX');
+    const tables = getExportTables();
 
-  const tablesHtml = tables.map((table, tableIndex) => {
-    const columns = Array.isArray(table.columns) ? table.columns : [];
-    const rows = Array.isArray(table.rows) ? table.rows : [];
+    const tablesHtml = tables.map((table, tableIndex) => {
+      const columns = Array.isArray(table.columns) ? table.columns : [];
+      const rows = Array.isArray(table.rows) ? table.rows : [];
 
-    const thead = columns.map(column => `
-      <th>${escapeHtml(column)}</th>
-    `).join('');
+      const thead = columns.map(column => `<th>${escapeHtml(column)}</th>`).join('');
 
-    const tbody = rows.map(row => `
-      <tr>
-        ${columns.map(column => `
-          <td>${escapeHtml(row?.[column] ?? '')}</td>
-        `).join('')}
-      </tr>
-    `).join('');
+      const tbody = rows.map(row => `
+        <tr>${columns.map(column => `<td>${escapeHtml(row?.[column] ?? '')}</td>`).join('')}</tr>
+      `).join('');
 
-    return `
-      <div class="table-block">
-        <h2>${escapeHtml(table.title || ('Tabla extraída ' + (tableIndex + 1)))}</h2>
-
-        <div class="table-meta">
-          Fuente: ${escapeHtml(table.source || 'PDF')} · Filas: ${rows.length} · Columnas: ${columns.length}
+      return `
+        <div class="table-block">
+          <h2>${escapeHtml(table.title || ('Tabla extraída ' + (tableIndex + 1)))}</h2>
+          <div class="table-meta">
+            Fuente: ${escapeHtml(table.source || 'PDF')} · Filas: ${rows.length} · Columnas: ${columns.length}
+          </div>
+          <table>
+            <thead><tr>${thead}</tr></thead>
+            <tbody>
+              ${tbody || `<tr><td colspan="${Math.max(columns.length, 1)}">Sin filas extraídas.</td></tr>`}
+            </tbody>
+          </table>
         </div>
+      `;
+    }).join('');
 
-        <table>
-          <thead>
-            <tr>${thead}</tr>
-          </thead>
-Continúo con la segunda mitad del archivo. Pega esto justo después del bloque que se cortó (a partir de <table> en exportExtractedTablesToWord, completa así):
-
-        <table>
-          <thead>
-            <tr>${thead}</tr>
-          </thead>
-          <tbody>
-            ${tbody || `<tr><td colspan="${Math.max(columns.length, 1)}">Sin filas extraídas.</td></tr>`}
-          </tbody>
-        </table>
-      </div>
+    const wordContent = `
+      <!DOCTYPE html>
+      <html xmlns:o="urn:schemas-microsoft-com:office:office"
+            xmlns:w="urn:schemas-microsoft-com:office:word"
+            xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta charset="UTF-8">
+        <title>${escapeHtml(title)}</title>
+        <style>
+          @page WordSection1 { size: 11in 8.5in; mso-page-orientation: landscape; margin: 0.35in; }
+          div.WordSection1 { page: WordSection1; }
+          body { font-family: Arial, sans-serif; color: #333; background: #fff; margin: 0; }
+          h1 { color: #111; font-size: 18pt; margin: 0 0 4pt; font-weight: 700; }
+          h2 { color: #111; font-size: 11pt; margin: 14pt 0 4pt; font-weight: 700; }
+          .meta, .table-meta { color: #666; font-size: 8pt; margin-bottom: 8pt; }
+          .table-block { margin-top: 12pt; page-break-inside: avoid; }
+          table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 7pt; margin-bottom: 12pt; }
+          th { background: #f3f4f6; color: #111; font-weight: 700; border: 1px solid #d9d9d9; padding: 4pt; text-align: left; vertical-align: top; word-wrap: break-word; }
+          td { border: 1px solid #e5e5e5; padding: 3pt 4pt; vertical-align: top; word-wrap: break-word; }
+          tr:nth-child(even) td { background: #fafafa; }
+        </style>
+      </head>
+      <body>
+        <div class="WordSection1">
+          <h1>${escapeHtml(title)}</h1>
+          <div class="meta">
+            Folio: ${escapeHtml(folio)} · Generado: ${escapeHtml(generatedAt)} · Exportación basada en tabla extraída del PDF
+          </div>
+          ${tablesHtml || '<p>No se encontraron tablas para exportar.</p>'}
+        </div>
+      </body>
+      </html>
     `;
-  }).join('');
 
-  const wordContent = `
-    <!DOCTYPE html>
-    <html xmlns:o="urn:schemas-microsoft-com:office:office"
-          xmlns:w="urn:schemas-microsoft-com:office:word"
-          xmlns="http://www.w3.org/TR/REC-html40">
-    <head>
-      <meta charset="UTF-8">
-      <title>${escapeHtml(title)}</title>
-
-      <style>
-        @page WordSection1 {
-          size: 11in 8.5in;
-          mso-page-orientation: landscape;
-          margin: 0.35in 0.35in 0.35in 0.35in;
-        }
-
-        div.WordSection1 {
-          page: WordSection1;
-        }
-
-        body {
-          font-family: Arial, sans-serif;
-          color: #333333;
-          background: #ffffff;
-          margin: 0;
-        }
-
-        h1 {
-          color: #111111;
-          font-size: 18pt;
-          margin: 0 0 4pt;
-          font-weight: 700;
-        }
-
-        h2 {
-          color: #111111;
-          font-size: 11pt;
-          margin: 14pt 0 4pt;
-          font-weight: 700;
-        }
-
-        .meta,
-        .table-meta {
-          color: #666666;
-          font-size: 8pt;
-          margin-bottom: 8pt;
-        }
-
-        .table-block {
-          margin-top: 12pt;
-          page-break-inside: avoid;
-        }
-
-        table {
-          width: 100%;
-          border-collapse: collapse;
-          table-layout: fixed;
-          font-size: 7pt;
-          margin-bottom: 12pt;
-        }
-
-        th {
-          background: #f3f4f6;
-          color: #111111;
-          font-weight: 700;
-          border: 1px solid #d9d9d9;
-          padding: 4pt;
-          text-align: left;
-          vertical-align: top;
-          word-wrap: break-word;
-          overflow-wrap: break-word;
-        }
-
-        td {
-          border: 1px solid #e5e5e5;
-          padding: 3pt 4pt;
-          vertical-align: top;
-          word-wrap: break-word;
-          overflow-wrap: break-word;
-        }
-
-        tr:nth-child(even) td {
-          background: #fafafa;
-        }
-      </style>
-    </head>
-
-    <body>
-      <div class="WordSection1">
-        <h1>${escapeHtml(title)}</h1>
-
-        <div class="meta">
-          Folio: ${escapeHtml(folio)} · Generado: ${escapeHtml(generatedAt)} · Exportación basada en tabla extraída del PDF
-        </div>
-
-        ${tablesHtml || '<p>No se encontraron tablas para exportar.</p>'}
-      </div>
-    </body>
-    </html>
-  `;
-
-  downloadBlob(
-    wordContent,
-    getQuoteFileName('doc'),
-    'application/msword;charset=utf-8'
-  );
-}
+    downloadBlob(
+      wordContent,
+      getQuoteFileName('doc'),
+      'application/msword;charset=utf-8'
+    );
+  }
 
   document.getElementById('btnSuggestAll').addEventListener('click', suggestAll);
   document.getElementById('btnOpenAddItem').addEventListener('click', openAddItemModal);
@@ -2189,7 +2182,6 @@ Continúo con la segunda mitad del archivo. Pega esto justo después del bloque 
     scheduleManualSearch(10);
   });
 
-  // 🔹 Buscador en vivo del modal de fichas técnicas
   document.getElementById('techQueryInput').addEventListener('input', () => {
     clearTimeout(window.__techTimer);
     window.__techTimer = setTimeout(loadTechSheets, 350);
