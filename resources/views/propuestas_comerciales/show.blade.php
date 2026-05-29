@@ -45,6 +45,11 @@
               'manual_external_supplier' => data_get($item->meta, 'external_supplier'),
               'manual_external_link' => data_get($item->meta, 'external_link'),
               'manual_catalog_product_name' => data_get($item->meta, 'catalog_product_name_manual'),
+
+              // 🔹 PASO 7: ficha técnica vinculada
+              'tech_sheet_id' => data_get($item->meta, 'tech_sheet_id'),
+              'tech_sheet_name' => data_get($item->meta, 'tech_sheet_name'),
+
               'producto_seleccionado' => $item->productoSeleccionado ? [
                   'id' => $item->productoSeleccionado->id,
                   'name' => $item->productoSeleccionado->name,
@@ -399,6 +404,67 @@
       </div>
     </div>
   </div>
+
+  <!-- ===================== MODAL MUESTRAS (almacén) ===================== -->
+  <div class="modal-backdrop" id="samplesModal">
+    <div class="modal">
+      <div class="modal-head">
+        <div>
+          <h2 class="modal-title">Muestras · Análisis de almacén</h2>
+          <p class="modal-subtitle" id="samplesSubtitle">Producto</p>
+        </div>
+        <button class="btn btn-ghost btn-small" type="button" onclick="closeSamplesModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div id="samplesStatus" class="result-meta" style="margin-bottom:12px;">Buscando en catálogo...</div>
+        <div id="samplesResults"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== MODAL FICHAS TÉCNICAS ===================== -->
+  <div class="modal-backdrop" id="techSheetsModal">
+    <div class="modal">
+      <div class="modal-head">
+        <div>
+          <h2 class="modal-title">Fichas técnicas</h2>
+          <p class="modal-subtitle" id="techSubtitle">Producto</p>
+        </div>
+        <button class="btn btn-ghost btn-small" type="button" onclick="closeTechSheetsModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-tabs">
+          <button class="tab-btn active" type="button" id="techTabList" onclick="techShowList()">Vincular existente</button>
+          <button class="tab-btn" type="button" id="techTabForm" onclick="techShowCreate()">Crear nueva</button>
+        </div>
+
+        <div id="techListPane">
+          <input class="input" id="techQueryInput" placeholder="Buscar ficha por nombre, marca, modelo..." style="margin-bottom:12px;">
+          <div id="techStatus" class="result-meta" style="margin-bottom:12px;"></div>
+          <div id="techResults"></div>
+        </div>
+
+        <div id="techFormPane" style="display:none;">
+          <form id="techForm" onsubmit="submitTechSheet(event)" style="display:grid; gap:12px;">
+            <input type="hidden" name="tech_sheet_id" id="techFormId" value="">
+            <div class="field"><label>Nombre del producto *</label><input class="input" name="product_name" required></div>
+            <div style="display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px;">
+              <div class="field"><label>Marca</label><input class="input" name="brand"></div>
+              <div class="field"><label>Modelo</label><input class="input" name="model"></div>
+              <div class="field"><label>Referencia</label><input class="input" name="reference"></div>
+              <div class="field"><label>Partida</label><input class="input" name="partida_number"></div>
+            </div>
+            <div class="field"><label>Descripción</label><textarea class="input" name="user_description" rows="3" style="height:auto; padding:10px 12px;"></textarea></div>
+            <div class="field"><label>Imagen (opcional)</label><input class="input" type="file" name="image" accept="image/*" style="padding:8px;"></div>
+            <div class="action-row">
+              <button class="btn btn-primary btn-small" type="submit">Guardar ficha</button>
+              <button class="btn btn-ghost btn-small" type="button" onclick="techShowList()">Cancelar</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -414,6 +480,14 @@
     globalMargin: @json(route('propuestas-comerciales.ajax.global-margin', $propuestaComercial)),
     storeItem: @json(route('propuestas-comerciales.ajax.items.store', $propuestaComercial)),
     selectMatch: @json(url('/propuesta-comercial-items/__ID__/ajax/select-match/__MATCH__')),
+
+    // 🔹 Muestras + Fichas
+    itemSamples: @json(url('/propuesta-comercial-items/__ID__/ajax/samples')),
+    techSheetsList: @json(url('/propuesta-comercial-items/__ID__/ajax/tech-sheets')),
+    linkTechSheet: @json(url('/propuesta-comercial-items/__ID__/ajax/tech-sheets/link')),
+    createTechSheet: @json(url('/propuesta-comercial-items/__ID__/ajax/tech-sheets/create')),
+    updateTechSheet: @json(url('/propuesta-comercial-fichas/__ID__/update')),
+    techSheetPdf: @json(url('/tech-sheets/__ID__/pdf')),
   };
 
   let items = @json($itemsPayload);
@@ -429,6 +503,12 @@
   let manualCatalogResults = [];
   let manualInternetResults = [];
   let isSuggestingAll = false;
+
+  // 🔹 Muestras + Fichas
+  let samplesItemId = null;
+  let techItemId = null;
+  let techSheetsCache = [];
+  let currentLinkedSheetId = null;
 
   function money(n) {
     n = Number(n || 0);
@@ -483,6 +563,24 @@
 
   function urlFor(template, id) {
     return template.replace('__ID__', id);
+  }
+
+  // 🔹 Conserva la ficha vinculada cuando el server reemplaza el item (no la incluye en su payload)
+  function mergeTechSheetMeta(newItems) {
+    if (!Array.isArray(newItems)) return newItems;
+
+    const map = {};
+    items.forEach(i => { map[i.id] = i; });
+
+    newItems.forEach(ni => {
+      const prev = map[ni.id];
+      if (prev) {
+        if (ni.tech_sheet_id === undefined) ni.tech_sheet_id = prev.tech_sheet_id ?? null;
+        if (ni.tech_sheet_name === undefined) ni.tech_sheet_name = prev.tech_sheet_name ?? null;
+      }
+    });
+
+    return newItems;
   }
 
   function showProcessBox(type, title, text, done = 0, total = 0, errors = []) {
@@ -625,6 +723,7 @@
             <div class="item-meta">
               ${qty} ${escapeHtml(item.unidad_solicitada || 'pz')}
               ${item.producto_seleccionado?.brand ? ' · ' + escapeHtml(item.producto_seleccionado.brand) : ''}
+              ${item.tech_sheet_id ? ' · <span style="color:var(--success); font-weight:700;">📄 Ficha vinculada</span>' : ''}
             </div>
           </div>
           <span class="badge ${badge.cls}">${badge.text}</span>
@@ -640,6 +739,7 @@
           ${renderCatalogSection(item)}
           ${renderManualExternal(item)}
           ${renderExternalSection(item)}
+          ${renderTechSheetLinked(item)}
           ${renderActions(item)}
           ${renderEditForm(item)}
         </div>
@@ -755,6 +855,26 @@
     `;
   }
 
+  // 🔹 PASO 7: sección de la ficha técnica vinculada
+  function renderTechSheetLinked(item) {
+    if (!item.tech_sheet_id) return '';
+
+    const pdfUrl = urlFor(routes.techSheetPdf, item.tech_sheet_id);
+
+    return `
+      <div class="section">
+        <div class="section-title">Ficha técnica vinculada</div>
+        <div class="result-card">
+          <div class="result-title">📄 ${escapeHtml(item.tech_sheet_name || 'Ficha técnica')}</div>
+          <div class="action-row" style="margin-top:10px;">
+            <a class="btn btn-outline btn-small" target="_blank" rel="noopener noreferrer" href="${pdfUrl}">↗ Ver PDF</a>
+            <button class="btn btn-ghost btn-small" type="button" onclick="openTechSheetsModal(${item.id})">Cambiar / editar</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   function renderActions(item) {
     return `
       <div class="section">
@@ -765,6 +885,8 @@
           <button class="btn btn-warning btn-small" type="button" onclick="setItemStatus(${item.id}, 'manual_review')">◎ Revisión</button>
           <button class="btn btn-soft btn-small" type="button" onclick="suggestItem(${item.id})">◎ Buscar coincidencias</button>
           <button class="btn btn-ghost btn-small" type="button" onclick="openManualModal(${item.id})">⌕ Buscar manualmente</button>
+          <button class="btn btn-soft btn-small" type="button" onclick="openSamplesModal(${item.id})">📦 Muestras</button>
+          <button class="btn btn-outline btn-small" type="button" onclick="openTechSheetsModal(${item.id})">📄 Ficha técnica</button>
         </div>
       </div>
     `;
@@ -818,7 +940,12 @@
 
   function updateItemInState(item) {
     const idx = items.findIndex(i => i.id === item.id);
-    if (idx >= 0) items[idx] = item;
+    if (idx >= 0) {
+      const prev = items[idx] || {};
+      if (item.tech_sheet_id === undefined) item.tech_sheet_id = prev.tech_sheet_id ?? null;
+      if (item.tech_sheet_name === undefined) item.tech_sheet_name = prev.tech_sheet_name ?? null;
+      items[idx] = item;
+    }
   }
 
   function toggleItem(id) {
@@ -1053,7 +1180,7 @@
         })
       });
 
-      items = data.items || items;
+      items = mergeTechSheetMeta(data.items) || items;
       summary = data.summary || summary;
       renderItems();
     } catch (e) {
@@ -1291,12 +1418,265 @@
         body: JSON.stringify(payload)
       });
 
-      items = data.items || items;
+      items = mergeTechSheetMeta(data.items) || items;
       summary = data.summary || summary;
 
       closeAddItemModal();
       form.reset();
       renderItems();
+    } catch (e) {
+      showInlineError(e.message);
+    } finally {
+      submit.disabled = false;
+      submit.innerHTML = old;
+    }
+  }
+
+  /* ===================== MUESTRAS (almacén) ===================== */
+  function closeSamplesModal() {
+    document.getElementById('samplesModal').classList.remove('show');
+  }
+
+  async function openSamplesModal(id) {
+    samplesItemId = id;
+    const item = items.find(i => i.id === id);
+
+    document.getElementById('samplesSubtitle').textContent = item?.descripcion_original || 'Producto';
+    document.getElementById('samplesResults').innerHTML = '';
+    document.getElementById('samplesStatus').innerHTML = '<span class="loader"></span> Buscando en catálogo y almacén...';
+    document.getElementById('samplesModal').classList.add('show');
+
+    try {
+      const data = await ajax(urlFor(routes.itemSamples, id), { method: 'GET' });
+      renderSamples(data);
+    } catch (e) {
+      document.getElementById('samplesStatus').textContent = e.message;
+    }
+  }
+
+  function renderSamples(data) {
+    const needed = Number(data.needed_qty || 0);
+    const cands = data.candidates || [];
+
+    document.getElementById('samplesStatus').textContent =
+      `Cantidad solicitada: ${needed} · ${cands.length} coincidencias en catálogo`;
+
+    const box = document.getElementById('samplesResults');
+
+    if (!cands.length) {
+      box.innerHTML = '<p class="result-meta">No se encontraron productos similares en el catálogo interno.</p>';
+      return;
+    }
+
+    box.innerHTML = cands.map(c => {
+      const locs = (c.locations || [])
+        .map(l => `${escapeHtml(l.location)}: ${l.qty}${l.reserved ? ' (apartado ' + l.reserved + ')' : ''}`)
+        .join(' · ');
+
+      const buyBadge = c.to_buy > 0
+        ? `<span class="badge badge-danger">Comprar ${c.to_buy}</span>`
+        : `<span class="badge badge-success">Stock suficiente</span>`;
+
+      return `
+        <div class="result-card">
+          <div class="result-title">${escapeHtml(c.name)} ${buyBadge}</div>
+          <div class="result-meta">
+            SKU: ${escapeHtml(c.sku || '—')} · ${escapeHtml(c.unit || '')} · Similitud ${Number(c.similarity_pct || 0).toFixed(0)}%
+          </div>
+          <div class="result-meta">
+            <strong>En almacén:</strong> ${c.net_available} ·
+            <strong>Apartado:</strong> ${c.reserved} ·
+            <strong>Necesario:</strong> ${needed} ·
+            <strong>Faltan:</strong> ${c.to_buy}
+          </div>
+          ${locs
+            ? `<div class="result-meta">Ubicaciones: ${locs}</div>`
+            : `<div class="result-meta">Sin inventario por ubicación (se usó stock general: ${c.stock_field}).</div>`}
+        </div>
+      `;
+    }).join('');
+  }
+
+  /* ===================== FICHAS TÉCNICAS ===================== */
+  function closeTechSheetsModal() {
+    document.getElementById('techSheetsModal').classList.remove('show');
+  }
+
+  function techShowList() {
+    document.getElementById('techListPane').style.display = '';
+    document.getElementById('techFormPane').style.display = 'none';
+    document.getElementById('techTabList').classList.add('active');
+    document.getElementById('techTabForm').classList.remove('active');
+  }
+
+  function techShowCreate(sheet = null) {
+    document.getElementById('techListPane').style.display = 'none';
+    document.getElementById('techFormPane').style.display = '';
+    document.getElementById('techTabList').classList.remove('active');
+    document.getElementById('techTabForm').classList.add('active');
+
+    const form = document.getElementById('techForm');
+    form.reset();
+    document.getElementById('techFormId').value = sheet?.id || '';
+
+    if (sheet) {
+      form.product_name.value = sheet.product_name || '';
+      form.brand.value = sheet.brand || '';
+      form.model.value = sheet.model || '';
+      form.reference.value = sheet.reference || '';
+      form.partida_number.value = sheet.partida_number || '';
+    } else {
+      const item = items.find(i => i.id === techItemId);
+      form.product_name.value = item?.descripcion_original || '';
+    }
+  }
+
+  function openTechSheetsModal(id) {
+    techItemId = id;
+    const item = items.find(i => i.id === id);
+
+    document.getElementById('techSubtitle').textContent = item?.descripcion_original || 'Producto';
+    document.getElementById('techQueryInput').value = item?.descripcion_original || '';
+    document.getElementById('techSheetsModal').classList.add('show');
+
+    techShowList();
+    loadTechSheets();
+  }
+
+  async function loadTechSheets() {
+    const q = document.getElementById('techQueryInput').value.trim();
+    document.getElementById('techStatus').innerHTML = '<span class="loader"></span> Buscando fichas...';
+
+    try {
+      const params = new URLSearchParams({ q });
+      const data = await ajax(urlFor(routes.techSheetsList, techItemId) + '?' + params.toString(), { method: 'GET' });
+      renderTechSheets(data);
+    } catch (e) {
+      document.getElementById('techStatus').textContent = e.message;
+    }
+  }
+
+  function renderTechSheets(data) {
+    techSheetsCache = data.sheets || [];
+    currentLinkedSheetId = data.linked_id || null;
+
+    document.getElementById('techStatus').textContent = `${techSheetsCache.length} fichas encontradas`;
+    const box = document.getElementById('techResults');
+
+    if (!techSheetsCache.length) {
+      box.innerHTML = '<p class="result-meta">No hay fichas. Crea una nueva en la pestaña de arriba.</p>';
+      return;
+    }
+
+    box.innerHTML = techSheetsCache.map((s, i) => `
+      <div class="modal-result">
+        <div style="min-width:0;">
+          <div class="result-title">
+            ${escapeHtml(s.product_name)}
+            ${s.id === currentLinkedSheetId ? '<span class="badge badge-success">Vinculada</span>' : ''}
+          </div>
+          <div class="result-meta">
+            ${escapeHtml(s.brand || '—')}
+            ${s.model ? '· ' + escapeHtml(s.model) : ''}
+            ${s.reference ? '· Ref ' + escapeHtml(s.reference) : ''}
+          </div>
+          <div class="action-row" style="margin-top:8px;">
+            <a class="btn btn-outline btn-small" target="_blank" rel="noopener noreferrer" href="${s.urls.pdf}">↗ PDF</a>
+            ${s.urls.public ? `<a class="btn btn-ghost btn-small" target="_blank" rel="noopener noreferrer" href="${s.urls.public}">Ficha pública</a>` : ''}
+            <button class="btn btn-ghost btn-small" type="button" onclick="techEditInline(${i})">✎ Editar</button>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-small" type="button" onclick="linkTechSheet(${s.id})">
+          ${s.id === currentLinkedSheetId ? 'Quitar' : 'Vincular'}
+        </button>
+      </div>
+    `).join('');
+  }
+
+  function techEditInline(index) {
+    techShowCreate(techSheetsCache[index]);
+  }
+
+  async function linkTechSheet(sheetId) {
+    const unlink = sheetId === currentLinkedSheetId;
+
+    try {
+      const data = await ajax(urlFor(routes.linkTechSheet, techItemId), {
+        method: 'POST',
+        body: JSON.stringify({ tech_sheet_id: unlink ? null : sheetId })
+      });
+
+      const idx = items.findIndex(i => i.id === techItemId);
+      if (idx >= 0) {
+        if (unlink) {
+          items[idx].tech_sheet_id = null;
+          items[idx].tech_sheet_name = null;
+        } else {
+          const s = techSheetsCache.find(x => x.id === sheetId);
+          items[idx].tech_sheet_id = sheetId;
+          items[idx].tech_sheet_name = s ? s.product_name : items[idx].tech_sheet_name;
+        }
+      }
+
+      renderItems();
+
+      const card = document.querySelector(`.jureto-quote-page .item-card[data-id="${techItemId}"]`);
+      if (card) card.classList.add('open');
+
+      loadTechSheets();
+    } catch (e) {
+      showInlineError(e.message);
+    }
+  }
+
+  async function submitTechSheet(event) {
+    event.preventDefault();
+
+    const form = event.target;
+    const fd = new FormData(form);
+    const id = document.getElementById('techFormId').value;
+
+    const url = id
+      ? routes.updateTechSheet.replace('__ID__', id)
+      : urlFor(routes.createTechSheet, techItemId);
+
+    const submit = form.querySelector('button[type="submit"]');
+    const old = submit.innerHTML;
+    submit.disabled = true;
+    submit.innerHTML = '<span class="loader"></span> Guardando...';
+
+    try {
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: { 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json' },
+        body: fd
+      });
+
+      const text = await resp.text();
+      let data = null;
+      try { data = JSON.parse(text); } catch (_) {}
+
+      if (!resp.ok || !data || data.ok === false) {
+        throw new Error((data && data.message) || ('Error al guardar la ficha. ' + text.slice(0, 200)));
+      }
+
+      // Al crear, el backend la vincula automáticamente a la partida actual
+      if (!id) {
+        const idx = items.findIndex(i => i.id === techItemId);
+        if (idx >= 0 && data.sheet) {
+          items[idx].tech_sheet_id = data.sheet.id;
+          items[idx].tech_sheet_name = data.sheet.product_name;
+        }
+      }
+
+      techShowList();
+      document.getElementById('techQueryInput').value = (data.sheet && data.sheet.product_name) || '';
+      renderItems();
+
+      const card = document.querySelector(`.jureto-quote-page .item-card[data-id="${techItemId}"]`);
+      if (card) card.classList.add('open');
+
+      loadTechSheets();
     } catch (e) {
       showInlineError(e.message);
     } finally {
@@ -1367,7 +1747,7 @@
         body: JSON.stringify({ items: ids })
       });
 
-      items = data.items || items;
+      items = mergeTechSheetMeta(data.items) || items;
       summary = data.summary || summary;
       renderItems();
     } catch (e) {
@@ -1651,165 +2031,3 @@ function exportExtractedTablesToWord() {
           <thead>
             <tr>${thead}</tr>
           </thead>
-          <tbody>
-            ${tbody || `<tr><td colspan="${Math.max(columns.length, 1)}">Sin filas extraídas.</td></tr>`}
-          </tbody>
-        </table>
-      </div>
-    `;
-  }).join('');
-
-  const wordContent = `
-    <!DOCTYPE html>
-    <html xmlns:o="urn:schemas-microsoft-com:office:office"
-          xmlns:w="urn:schemas-microsoft-com:office:word"
-          xmlns="http://www.w3.org/TR/REC-html40">
-    <head>
-      <meta charset="UTF-8">
-      <title>${escapeHtml(title)}</title>
-
-      <style>
-        @page WordSection1 {
-          size: 11in 8.5in;
-          mso-page-orientation: landscape;
-          margin: 0.35in 0.35in 0.35in 0.35in;
-        }
-
-        div.WordSection1 {
-          page: WordSection1;
-        }
-
-        body {
-          font-family: Arial, sans-serif;
-          color: #333333;
-          background: #ffffff;
-          margin: 0;
-        }
-
-        h1 {
-          color: #111111;
-          font-size: 18pt;
-          margin: 0 0 4pt;
-          font-weight: 700;
-        }
-
-        h2 {
-          color: #111111;
-          font-size: 11pt;
-          margin: 14pt 0 4pt;
-          font-weight: 700;
-        }
-
-        .meta,
-        .table-meta {
-          color: #666666;
-          font-size: 8pt;
-          margin-bottom: 8pt;
-        }
-
-        .table-block {
-          margin-top: 12pt;
-          page-break-inside: avoid;
-        }
-
-        table {
-          width: 100%;
-          border-collapse: collapse;
-          table-layout: fixed;
-          font-size: 7pt;
-          margin-bottom: 12pt;
-        }
-
-        th {
-          background: #f3f4f6;
-          color: #111111;
-          font-weight: 700;
-          border: 1px solid #d9d9d9;
-          padding: 4pt;
-          text-align: left;
-          vertical-align: top;
-          word-wrap: break-word;
-          overflow-wrap: break-word;
-        }
-
-        td {
-          border: 1px solid #e5e5e5;
-          padding: 3pt 4pt;
-          vertical-align: top;
-          word-wrap: break-word;
-          overflow-wrap: break-word;
-        }
-
-        tr:nth-child(even) td {
-          background: #fafafa;
-        }
-      </style>
-    </head>
-
-    <body>
-      <div class="WordSection1">
-        <h1>${escapeHtml(title)}</h1>
-
-        <div class="meta">
-          Folio: ${escapeHtml(folio)} · Generado: ${escapeHtml(generatedAt)} · Exportación basada en tabla extraída del PDF
-        </div>
-
-        ${tablesHtml || '<p>No se encontraron tablas para exportar.</p>'}
-      </div>
-    </body>
-    </html>
-  `;
-
-  downloadBlob(
-    wordContent,
-    getQuoteFileName('doc'),
-    'application/msword;charset=utf-8'
-  );
-}
-
-  document.getElementById('btnSuggestAll').addEventListener('click', suggestAll);
-  document.getElementById('btnOpenAddItem').addEventListener('click', openAddItemModal);
-  document.getElementById('btnSaveGlobalMargin').addEventListener('click', () => saveGlobalMargin(false));
-  document.getElementById('btnApplyGlobalMargin').addEventListener('click', () => saveGlobalMargin(true));
-  document.getElementById('btnExportExcel')?.addEventListener('click', exportExtractedTablesToExcel);
-  document.getElementById('btnExportWord')?.addEventListener('click', exportExtractedTablesToWord);
-
-  document.getElementById('manualQueryInput').addEventListener('input', () => {
-    manualLastQuery = '';
-    scheduleManualSearch(420);
-  });
-
-  document.getElementById('manualQueryInput').addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') {
-      event.preventDefault();
-      manualLastQuery = '';
-      scheduleManualSearch(10);
-    }
-  });
-
-  document.getElementById('manualTabCatalog').addEventListener('click', () => {
-    manualTab = 'catalog';
-    manualLastQuery = '';
-    document.getElementById('manualTabCatalog').classList.add('active');
-    document.getElementById('manualTabInternet').classList.remove('active');
-    scheduleManualSearch(10);
-  });
-
-  document.getElementById('manualTabInternet').addEventListener('click', () => {
-    manualTab = 'internet';
-    manualLastQuery = '';
-    document.getElementById('manualTabInternet').classList.add('active');
-    document.getElementById('manualTabCatalog').classList.remove('active');
-    scheduleManualSearch(10);
-  });
-
-  document.querySelectorAll('.filter-summary').forEach(btn => {
-    btn.addEventListener('click', () => {
-      currentFilter = btn.dataset.filter || 'all';
-      renderItems();
-    });
-  });
-
-  renderItems();
-</script>
-@endsection
