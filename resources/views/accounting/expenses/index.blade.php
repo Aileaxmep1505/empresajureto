@@ -78,6 +78,25 @@
   }
   #expensesPage .btn-outline-soft:hover{ background:#f8fafc; border-color: #cbd5e1; box-shadow:0 8px 20px rgba(15,23,42,.05); transform:translateY(-1px); color: #0f172a; }
 
+  /* ✅ DROPDOWN DE FILTROS (estilo tomado de Rem y Fac, encapsulado) */
+  #expensesPage .ex-filter-wrap{ position:relative; }
+  #expensesPage .ex-filter-menu{
+    position:absolute; top:calc(100% + 10px); right:0;
+    background:#fff; border-radius:18px;
+    box-shadow:0 20px 50px rgba(2,6,23,.18), 0 0 0 1px var(--border);
+    width:380px; max-width:92vw; max-height:78vh; overflow:auto; z-index:1200;
+    opacity:0; visibility:hidden; transform:translateY(-8px);
+    transition:all .2s cubic-bezier(.22,1,.36,1); padding:20px;
+  }
+  #expensesPage .ex-filter-wrap.open .ex-filter-menu{ opacity:1; visibility:visible; transform:none; }
+  #expensesPage .ex-filter-title{ font-size:11px; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; margin:18px 0 8px; }
+  #expensesPage .ex-filter-title:first-child{ margin-top:0; }
+  #expensesPage .ex-filter-menu .form-control,
+  #expensesPage .ex-filter-menu .form-select{ padding:.6rem .8rem; border-radius:12px; }
+  @media (max-width: 575.98px){
+    #expensesPage .ex-filter-menu{ position:fixed; top:auto; bottom:12px; left:12px; right:12px; width:auto; max-width:none; }
+  }
+
   /* Tarjetas */
   #expensesPage .card{ 
     border:1px solid var(--border); 
@@ -240,13 +259,64 @@
             </div>
           </div>
 
-          <div class="d-none d-md-flex gap-2">
-            <a class="btn btn-pastel-green px-4" href="{{ route('expenses.create') }}">
+          <div class="d-flex gap-2 flex-wrap align-items-start">
+            <a class="btn btn-pastel-green px-4 d-none d-md-inline-flex" href="{{ route('expenses.create') }}">
               <i class="bi bi-plus-lg me-2"></i> Nuevo gasto
             </a>
-            <button class="btn btn-pastel-blue px-4" type="button" id="btnRefresh">
+            <button class="btn btn-pastel-blue px-4 d-none d-md-inline-flex" type="button" id="btnRefresh">
               <i class="bi bi-arrow-clockwise me-2"></i> Actualizar
             </button>
+
+            {{-- ✅ FILTROS COMO DROPDOWN --}}
+            <div class="ex-filter-wrap" id="filterWrap">
+              <button class="btn btn-outline-soft px-4" type="button" id="btnFilterToggle">
+                <i class="bi bi-funnel-fill me-2"></i> Filtros
+              </button>
+              <div class="ex-filter-menu" id="filterMenu">
+                <div class="ex-filter-title">Rango de fechas</div>
+                <div class="row g-2">
+                  <div class="col-6"><input id="from" type="date" class="form-control"></div>
+                  <div class="col-6"><input id="to" type="date" class="form-control"></div>
+                </div>
+
+                <div class="ex-filter-title">Búsqueda global</div>
+                <div class="input-group" style="border-radius:12px;">
+                  <span class="input-group-text bg-white border-end-0 text-muted" style="border-radius:12px 0 0 12px; border-color:var(--border);">
+                    <i class="bi bi-search"></i>
+                  </span>
+                  <input id="q" class="form-control border-start-0 ps-0" placeholder="Concepto, detalle..." style="border-radius:0 12px 12px 0; background:#fff;">
+                </div>
+
+                <div class="ex-filter-title">Categoría</div>
+                <select id="cat" class="form-select">
+                  <option value="">Todas las categorías</option>
+                  @foreach($categories as $c)
+                    <option value="{{ $c->id }}">{{ $c->name }}</option>
+                  @endforeach
+                </select>
+
+                <div class="ex-filter-title">Vehículo</div>
+                <select id="veh" class="form-select">
+                  <option value="">Todos los vehículos</option>
+                  @foreach($vehicles as $v)
+                    <option value="{{ $v->id }}">{{ $v->plate_label ?? ($v->plate ?? $v->placas ?? ('#'.$v->id)) }}</option>
+                  @endforeach
+                </select>
+
+                <div class="ex-filter-title">Estatus</div>
+                <select id="status" class="form-select">
+                  <option value="">Todos los estatus</option>
+                  <option value="paid">Pagado</option>
+                  <option value="pending">Pendiente</option>
+                  <option value="canceled">Cancelado</option>
+                </select>
+
+                <div class="d-flex gap-2 mt-4">
+                  <button class="btn btn-outline-soft flex-fill" type="button" id="btnClear"><i class="bi bi-eraser-fill me-2"></i> Limpiar</button>
+                  <button class="btn btn-pastel-blue flex-fill" type="button" id="btnApply"><i class="bi bi-funnel-fill me-2"></i> Aplicar</button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -254,9 +324,6 @@
           <div class="tabs-pills" role="tablist" aria-label="Secciones">
             <button class="tab-pill active" data-bs-toggle="tab" data-bs-target="#pane-dash" type="button" role="tab" aria-controls="pane-dash" aria-selected="true">
               <i class="bi bi-grid-1x2-fill"></i> Resumen
-            </button>
-            <button class="tab-pill" data-bs-toggle="tab" data-bs-target="#pane-filters" type="button" role="tab" aria-controls="pane-filters" aria-selected="false">
-              <i class="bi bi-funnel-fill"></i> Filtros
             </button>
             <button class="tab-pill" data-bs-toggle="tab" data-bs-target="#pane-list" type="button" role="tab" aria-controls="pane-list" aria-selected="false">
               <i class="bi bi-list-columns-reverse"></i> Movimientos
@@ -271,7 +338,6 @@
           <div class="d-flex gap-2">
             <select id="mobileTab" class="form-select flex-grow-1">
               <option value="#pane-dash" selected>📊 Resumen</option>
-              <option value="#pane-filters">🔎 Filtros</option>
               <option value="#pane-list">🧾 Movimientos</option>
             </select>
             <button class="btn btn-pastel-blue" type="button" id="btnRefreshM"><i class="bi bi-arrow-clockwise"></i></button>
@@ -403,64 +469,6 @@
               <button class="btn btn-outline-soft btn-sm px-3" id="prevPage" type="button"><i class="bi bi-chevron-left"></i> Anterior</button>
               <div id="pageInfo" class="small fw-bold text-muted">Página 1</div>
               <button class="btn btn-outline-soft btn-sm px-3" id="nextPage" type="button">Siguiente <i class="bi bi-chevron-right"></i></button>
-            </div>
-          </div>
-        </div>
-
-        {{-- TAB FILTROS --}}
-        <div class="tab-pane fade" id="pane-filters" role="tabpanel" tabindex="0">
-          <div class="card animate-fade-in">
-            <div class="card-body p-4">
-              <div class="row g-4">
-                <div class="col-12 col-md-3">
-                  <label class="form-label">Fecha Pago (Desde)</label>
-                  <input id="from" type="date" class="form-control">
-                </div>
-                <div class="col-12 col-md-3">
-                  <label class="form-label">Fecha Pago (Hasta)</label>
-                  <input id="to" type="date" class="form-control">
-                </div>
-                <div class="col-12 col-md-6">
-                  <label class="form-label">Búsqueda Global</label>
-                  <div class="input-group" style="box-shadow: 0 2px 5px rgba(0,0,0,0.02); border-radius: 14px;">
-                    <span class="input-group-text bg-white border-end-0 text-muted" style="border-radius:14px 0 0 14px; border-color:var(--border);">
-                      <i class="bi bi-search"></i>
-                    </span>
-                    <input id="q" class="form-control border-start-0 ps-0" placeholder="Buscar por concepto, detalle..." style="border-radius:0 14px 14px 0; background: #fff;">
-                  </div>
-                </div>
-                <div class="col-12 col-md-4">
-                  <label class="form-label">Categoría</label>
-                  <select id="cat" class="form-select">
-                    <option value="">Todas las categorías</option>
-                    @foreach($categories as $c)
-                      <option value="{{ $c->id }}">{{ $c->name }}</option>
-                    @endforeach
-                  </select>
-                </div>
-                <div class="col-12 col-md-4">
-                  <label class="form-label">Vehículo</label>
-                  <select id="veh" class="form-select">
-                    <option value="">Todos los vehículos</option>
-                    @foreach($vehicles as $v)
-                      <option value="{{ $v->id }}">{{ $v->plate_label ?? ($v->plate ?? $v->placas ?? ('#'.$v->id)) }}</option>
-                    @endforeach
-                  </select>
-                </div>
-                <div class="col-12 col-md-4">
-                  <label class="form-label">Estatus</label>
-                  <select id="status" class="form-select">
-                    <option value="">Todos los estatus</option>
-                    <option value="paid">Pagado</option>
-                    <option value="pending">Pendiente</option>
-                    <option value="canceled">Cancelado</option>
-                  </select>
-                </div>
-                <div class="col-12 d-flex justify-content-end gap-3 mt-5">
-                  <button class="btn btn-outline-soft px-4" type="button" id="btnClear"><i class="bi bi-eraser-fill me-2"></i> Limpiar</button>
-                  <button class="btn btn-pastel-blue px-5" type="button" id="btnApply"><i class="bi bi-funnel-fill me-2"></i> Aplicar Filtros</button>
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -662,6 +670,11 @@
   }
   function num(v){ if (v == null || v === '') return 0; if (typeof v === 'number') return v; const n = parseFloat(String(v).replace(/[^0-9.\-]+/g, '')); return Number.isFinite(n) ? n : 0; }
 
+  // ✅ Ordena por ID descendente (para que NO se revuelvan)
+  function sortRowsById(rows){
+    return (Array.isArray(rows) ? rows : []).slice().sort((a,b)=> Number(b.id||0) - Number(a.id||0));
+  }
+
   // Charts
   Chart.defaults.font.family = "'Inter', 'Segoe UI', system-ui, sans-serif";
   Chart.defaults.color = '#64748b';
@@ -762,17 +775,17 @@
       if(!/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) continue;
 
       const dt = new Date(rawDate + 'T00:00:00');
-      if (dt < minDate) continue; // Descartar lo que no cabe en el filtro visual
+      if (dt < minDate) continue;
 
       let key, label;
       if (group === 'month') {
-        key   = rawDate.slice(0,7); // YYYY-MM
+        key   = rawDate.slice(0,7);
         label = new Date(dt.getFullYear(), dt.getMonth(), 1)
                   .toLocaleDateString('es-MX', {month:'short', year:'numeric'});
       } else if (group === 'week') {
         const ws = startOfWeek(dt);
         const we = new Date(ws); we.setDate(ws.getDate() + 6);
-        key   = ymd(ws); // agrupa por el LUNES de esa semana
+        key   = ymd(ws);
         label = `${ws.toLocaleDateString('es-MX',{day:'2-digit',month:'short'})} - ${we.toLocaleDateString('es-MX',{day:'2-digit',month:'short'})}`;
       } else {
         key   = rawDate;
@@ -804,7 +817,6 @@
       if(res.ok){ const json = await res.json().catch(()=>null); rawData = Array.isArray(json) ? json : (Array.isArray(json?.data) ? json.data : []); }
     }
 
-    // ✅ Si no hay API_CHART (o vino vacío) pedimos TODOS los registros, no solo la página actual
     if(!rawData.length){
       try{
         const url = API_LIST + '?' + params({page:1, per_page:1000}).toString();
@@ -814,7 +826,6 @@
       }catch(_){ rawData = state.rows; }
     }
 
-    // Aplicar el filtro estricto local de fechas / agrupación
     const rows = buildLocalChartRows(rawData);
     state.lastChartRows = rows;
 
@@ -834,7 +845,6 @@
     const when = fmtDate(e.expense_date); 
     badges.push(`<span class="tag soft bg-light border"><i class="bi bi-calendar-event text-primary"></i> ${esc(when)}</span>`);
     
-    // ✅ STATUS (case insensitive)
     const st = String(e.status || '').toLowerCase();
     const isPaid = st === 'paid' || st === 'pagado';
     if (e.status) badges.push(`<span class="tag border"><i class="bi bi-circle-fill small me-1 ${isPaid?'text-success':(st==='pending'?'text-warning':'text-secondary')}"></i> ${esc(isPaid?'Pagado':statusLabel(e.status))}</span>`);
@@ -859,7 +869,6 @@
       body.innerHTML = mime.includes('pdf') ? `<iframe src="${esc(e.evidence_url)}" style="width:100%; height:400px; border:none; border-radius:12px"></iframe>` : (mime.includes('image') ? `<img src="${esc(e.evidence_url)}" class="img-fluid rounded-4 shadow-sm">` : 'No previsualizable.');
     }
 
-    // ✅ PDF / Recibo (solo usa elementos que existen en el HTML)
     const rcDown = $('rcDownload');
     if(rcDown){
       if(e.pdf_url){ rcDown.classList.remove('d-none'); rcDown.href = e.pdf_url; }
@@ -886,7 +895,6 @@
       const desc = (e.description || '').trim();
       const amount = money(e.amount, e.currency);
       
-      // ✅ Estatus gris vs verde
       const st = String(e.status || '').toLowerCase();
       const isPaid = st === 'paid' || st === 'pagado';
       const statusClass = isPaid ? 'text-success' : 'text-secondary';
@@ -926,12 +934,10 @@
         const date = fmtDate(e.expense_date);
         const pdf = e.pdf_url ? `<a target="_blank" class="btn btn-sm btn-light border rounded-circle" href="${esc(e.pdf_url)}"><i class="bi bi-file-earmark-pdf text-danger"></i></a>` : '-';
         
-        // ✅ CONCEPTO + DESCRIPCIÓN 
         const concept = e.concept || 'Gasto no detallado';
         const desc = (e.description || '').trim();
         const detailHtml = desc ? `<div class="fw-bold text-dark">${esc(concept)}</div><div class="small text-muted mt-1 text-wrap" style="max-width:250px; line-height:1.2;">${esc(desc)}</div>` : `<div class="fw-bold text-dark">${esc(concept)}</div>`;
 
-        // ✅ STATUS
         const st = String(e.status || '').toLowerCase();
         const isPaid = st === 'paid' || st === 'pagado';
         const statusClass = isPaid ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-light text-dark border';
@@ -964,7 +970,6 @@
       dMap.set(d,(dMap.get(d)||0)+a); cMap.set(c,(cMap.get(c)||0)+a);
     });
     
-    // ✅ Filas que se ajustan: el nombre baja de línea y el monto NO se sale
     const renderTop = (map, el) => {
       if(!$(el)) return;
       const items = [...map.entries()].sort((a,b)=>b[1]-a[1]).slice(0,5);
@@ -987,7 +992,9 @@
     $('grid').innerHTML = `<div class="empty"><div class="spinner-border text-primary" role="status"></div><div class="mt-2 fw-bold text-muted">Sincronizando...</div></div>`;
     const res = await fetch(API_LIST + '?' + params().toString(), {headers:{'Accept':'application/json'}});
     const data = await res.json().catch(()=>null); if(!data) return;
-    state.rows = data.data || []; state.page = data.meta?.page || 1; state.last_page = data.meta?.last_page || 1; state.total = data.meta?.total || 0;
+    // ✅ Ordenamos por ID (de mayor a menor) para que no se revuelvan
+    state.rows = sortRowsById(data.data || []);
+    state.page = data.meta?.page || 1; state.last_page = data.meta?.last_page || 1; state.total = data.meta?.total || 0;
     $('pageNow').textContent = state.page; $('pageLast').textContent = state.last_page; $('totalAll').textContent = state.total;
     renderCards(); renderTable(data); buildInsightsFromRows(state.rows);
   }
@@ -995,29 +1002,48 @@
   async function refreshAll(){ try{ await Promise.all([loadList(), loadChart(), loadMetrics()]); } catch(e){ toast('danger', 'Error de sincronización.'); } }
 
   const syncTabs = (t) => document.querySelectorAll('.tab-pill').forEach(b => b.classList.toggle('active', b.dataset.bsTarget === t));
-  
+
+  /* ====== Dropdown de filtros ====== */
+  const filterWrap = $('filterWrap');
+  $('btnFilterToggle')?.addEventListener('click', (e)=>{ e.stopPropagation(); filterWrap?.classList.toggle('open'); });
+  $('filterMenu')?.addEventListener('click', (e)=> e.stopPropagation());
+  document.addEventListener('click', (e)=>{ if(filterWrap && !e.target.closest('#filterWrap')) filterWrap.classList.remove('open'); });
+  document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') filterWrap?.classList.remove('open'); });
+
   $('btnRefresh')?.addEventListener('click', ()=>{ state.page=1; refreshAll(); });
   $('btnRefreshM')?.addEventListener('click', ()=>{ state.page=1; refreshAll(); });
-  $('btnApply')?.addEventListener('click', ()=>{ state.page=1; refreshAll(); new bootstrap.Tab($('[data-bs-target="#pane-dash"]')).show(); syncTabs('#pane-dash'); toast('success', 'Filtros aplicados.'); });
-  $('btnClear')?.addEventListener('click', ()=>{ ['from','to','q','cat','veh','status'].forEach(id=>$(id).value=''); state.page=1; refreshAll(); toast('info', 'Filtros restaurados.'); });
+  $('btnApply')?.addEventListener('click', ()=>{ state.page=1; refreshAll(); filterWrap?.classList.remove('open'); toast('success', 'Filtros aplicados.'); });
+  $('btnClear')?.addEventListener('click', ()=>{ ['from','to','q','cat','veh','status'].forEach(id=>{ if($(id)) $(id).value=''; }); state.page=1; refreshAll(); toast('info', 'Filtros restaurados.'); });
   
-  // ✅ CLICK EN LA GRÁFICA OBLIGA A ACTUALIZAR (Día / Sem / Mes)
-  document.querySelectorAll('[data-chart-group]').forEach(btn=>btn.addEventListener('click', ()=>{
-    document.querySelectorAll('[data-chart-group]').forEach(b=>b.classList.toggle('active', b===btn));
-    state.chart_group = btn.dataset.chartGroup; 
-    loadChart(); // Re-procesa y agrupa localmente
-  }));
+    // ✅ CLICK EN LA GRÁFICA OBLIGA A ACTUALIZAR (Día / Sem / Mes)
+    document.querySelectorAll('[data-chart-group]').forEach(btn=>btn.addEventListener('click', ()=>{
+      document.querySelectorAll('[data-chart-group]').forEach(b=>b.classList.toggle('active', b===btn));
+      state.chart_group = btn.dataset.chartGroup;
+      loadChart();
+    }));
 
-  ['perPage', 'mobileTab'].forEach(id => $(id)?.addEventListener('change', (e)=>{ if(id==='perPage'){ state.per_page=Number(e.target.value); state.page=1; refreshAll(); } if(id==='mobileTab'){ const t = e.target.value; new bootstrap.Tab($(`[data-bs-target="${t}"]`)).show(); syncTabs(t); } }));
-  ['btnPrev', 'prevPage'].forEach(id=>$(id)?.addEventListener('click', ()=>{ if(state.page>1){ state.page--; refreshAll(); } }));
-  ['btnNext', 'nextPage'].forEach(id=>$(id)?.addEventListener('click', ()=>{ if(state.page<state.last_page){ state.page++; refreshAll(); } }));
-  document.querySelectorAll('.tab-pill').forEach(btn=>btn.addEventListener('click', ()=>syncTabs(btn.dataset.bsTarget)));
-  
-  // ✅ AUTO-ACTUALIZACIÓN DESACTIVADA: ya no se borra/recarga todo cada 30s.
-  // Solo se actualiza al cargar la página o al pulsar "Actualizar".
-  if(state.timer) clearInterval(state.timer);
+    ['perPage','mobileTab'].forEach(id => $(id)?.addEventListener('change', (e)=>{
+      if(id==='perPage'){ state.per_page = Number(e.target.value); state.page = 1; refreshAll(); }
+      if(id==='mobileTab'){
+        const t = e.target.value;
+        new bootstrap.Tab($(`[data-bs-target="${t}"]`)).show();
+        syncTabs(t);
+      }
+    }));
 
-  refreshAll();
-})();
+    ['btnPrev','prevPage'].forEach(id=>$(id)?.addEventListener('click', ()=>{
+      if(state.page>1){ state.page--; refreshAll(); }
+    }));
+    ['btnNext','nextPage'].forEach(id=>$(id)?.addEventListener('click', ()=>{
+      if(state.page<state.last_page){ state.page++; refreshAll(); }
+    }));
+
+    document.querySelectorAll('.tab-pill').forEach(btn=>btn.addEventListener('click', ()=>syncTabs(btn.dataset.bsTarget)));
+
+    // ✅ AUTO-ACTUALIZACIÓN DESACTIVADA (ya no borra los datos solos)
+    if(state.timer) clearInterval(state.timer);
+
+    refreshAll();
+  })();
 </script>
 @endsection
