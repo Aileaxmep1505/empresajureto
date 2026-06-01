@@ -988,26 +988,18 @@
     $('pieHint').innerHTML = `Analizando <span class="text-dark fw-bold">${money(values.reduce((a,b)=>a+b,0))}</span> en total.`;
   }
 
-   async function loadList(){
+  // ✅ Trae TODO, ordena por ID y pagina por ID del lado del cliente
+  async function loadList(){
     try{
-      // 1) Traemos TODO (no solo una página) para poder ordenar por ID de verdad
-      const params = new URLSearchParams();
-      params.set('per_page', 1000);
-      params.set('page', 1);
-      if(state.from)   params.set('from', state.from);
-      if(state.to)     params.set('to', state.to);
-      if(state.q)      params.set('q', state.q);
-      if(state.cat)    params.set('category', state.cat);
-      if(state.veh)    params.set('vehicle_id', state.veh);
-      if(state.status) params.set('status', state.status);
+      const url = API_LIST + '?' + params({page:1, per_page:1000}).toString();
+      const res = await fetch(url, { headers: { 'Accept':'application/json' } });
+      if(!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json().catch(()=>({}));
 
-      const res  = await fetch(`${API_LIST}?${params.toString()}`, { headers: { 'Accept':'application/json' } });
-      const data = await res.json();
-
-      // 2) Ordenamos por ID descendente (62, 61, 60... sin brincar ni revolver)
+      // 1) Ordenar por ID descendente (sin brincar ni revolver)
       const all = sortRowsById(data.data || []);
 
-      // 3) Paginamos por ID del lado del cliente
+      // 2) Paginar por ID del lado del cliente
       state.total     = all.length;
       state.last_page = Math.max(1, Math.ceil(all.length / state.per_page));
       if(state.page > state.last_page) state.page = state.last_page;
@@ -1016,11 +1008,19 @@
       const start = (state.page - 1) * state.per_page;
       state.rows  = all.slice(start, start + state.per_page);
 
-      renderTable();
-      renderPagination();
+      // 3) Render (tabla + cards) y panel de insights con TODOS los filtrados
+      renderTable({ meta: { page: state.page, last_page: state.last_page, total: state.total } });
+      renderCards();
+      buildInsightsFromRows(all);
+
+      if($('pageNow'))  $('pageNow').textContent  = String(state.page);
+      if($('pageLast')) $('pageLast').textContent = String(state.last_page);
+      if($('totalAll')) $('totalAll').textContent = String(state.total);
+
+      warn(false);
     }catch(err){
       console.error('loadList error', err);
-      toast('error','No se pudo cargar la lista.');
+      warn(true, 'No se pudo cargar la lista.');
     }
   }
 
@@ -1040,35 +1040,35 @@
   $('btnApply')?.addEventListener('click', ()=>{ state.page=1; refreshAll(); filterWrap?.classList.remove('open'); toast('success', 'Filtros aplicados.'); });
   $('btnClear')?.addEventListener('click', ()=>{ ['from','to','q','cat','veh','status'].forEach(id=>{ if($(id)) $(id).value=''; }); state.page=1; refreshAll(); toast('info', 'Filtros restaurados.'); });
   
-    // ✅ CLICK EN LA GRÁFICA OBLIGA A ACTUALIZAR (Día / Sem / Mes)
-    document.querySelectorAll('[data-chart-group]').forEach(btn=>btn.addEventListener('click', ()=>{
-      document.querySelectorAll('[data-chart-group]').forEach(b=>b.classList.toggle('active', b===btn));
-      state.chart_group = btn.dataset.chartGroup;
-      loadChart();
-    }));
+  // ✅ CLICK EN LA GRÁFICA OBLIGA A ACTUALIZAR (Día / Sem / Mes)
+  document.querySelectorAll('[data-chart-group]').forEach(btn=>btn.addEventListener('click', ()=>{
+    document.querySelectorAll('[data-chart-group]').forEach(b=>b.classList.toggle('active', b===btn));
+    state.chart_group = btn.dataset.chartGroup;
+    loadChart();
+  }));
 
-    ['perPage','mobileTab'].forEach(id => $(id)?.addEventListener('change', (e)=>{
-      if(id==='perPage'){ state.per_page = Number(e.target.value); state.page = 1; refreshAll(); }
-      if(id==='mobileTab'){
-        const t = e.target.value;
-        new bootstrap.Tab($(`[data-bs-target="${t}"]`)).show();
-        syncTabs(t);
-      }
-    }));
+  ['perPage','mobileTab'].forEach(id => $(id)?.addEventListener('change', (e)=>{
+    if(id==='perPage'){ state.per_page = Number(e.target.value); state.page = 1; refreshAll(); }
+    if(id==='mobileTab'){
+      const t = e.target.value;
+      new bootstrap.Tab($(`[data-bs-target="${t}"]`)).show();
+      syncTabs(t);
+    }
+  }));
 
-    ['btnPrev','prevPage'].forEach(id=>$(id)?.addEventListener('click', ()=>{
-      if(state.page>1){ state.page--; refreshAll(); }
-    }));
-    ['btnNext','nextPage'].forEach(id=>$(id)?.addEventListener('click', ()=>{
-      if(state.page<state.last_page){ state.page++; refreshAll(); }
-    }));
+  ['btnPrev','prevPage'].forEach(id=>$(id)?.addEventListener('click', ()=>{
+    if(state.page>1){ state.page--; refreshAll(); }
+  }));
+  ['btnNext','nextPage'].forEach(id=>$(id)?.addEventListener('click', ()=>{
+    if(state.page<state.last_page){ state.page++; refreshAll(); }
+  }));
 
-    document.querySelectorAll('.tab-pill').forEach(btn=>btn.addEventListener('click', ()=>syncTabs(btn.dataset.bsTarget)));
+  document.querySelectorAll('.tab-pill').forEach(btn=>btn.addEventListener('click', ()=>syncTabs(btn.dataset.bsTarget)));
 
-    // ✅ AUTO-ACTUALIZACIÓN DESACTIVADA (ya no borra los datos solos)
-    if(state.timer) clearInterval(state.timer);
+  // ✅ AUTO-ACTUALIZACIÓN DESACTIVADA (ya no borra los datos solos)
+  if(state.timer) clearInterval(state.timer);
 
-    refreshAll();
-  })();
+  refreshAll();
+})();
 </script>
 @endsection
