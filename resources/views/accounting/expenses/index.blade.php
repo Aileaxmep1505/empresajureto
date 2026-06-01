@@ -988,15 +988,40 @@
     $('pieHint').innerHTML = `Analizando <span class="text-dark fw-bold">${money(values.reduce((a,b)=>a+b,0))}</span> en total.`;
   }
 
-  async function loadList(){
-    $('grid').innerHTML = `<div class="empty"><div class="spinner-border text-primary" role="status"></div><div class="mt-2 fw-bold text-muted">Sincronizando...</div></div>`;
-    const res = await fetch(API_LIST + '?' + params().toString(), {headers:{'Accept':'application/json'}});
-    const data = await res.json().catch(()=>null); if(!data) return;
-    // ✅ Ordenamos por ID (de mayor a menor) para que no se revuelvan
-    state.rows = sortRowsById(data.data || []);
-    state.page = data.meta?.page || 1; state.last_page = data.meta?.last_page || 1; state.total = data.meta?.total || 0;
-    $('pageNow').textContent = state.page; $('pageLast').textContent = state.last_page; $('totalAll').textContent = state.total;
-    renderCards(); renderTable(data); buildInsightsFromRows(state.rows);
+   async function loadList(){
+    try{
+      // 1) Traemos TODO (no solo una página) para poder ordenar por ID de verdad
+      const params = new URLSearchParams();
+      params.set('per_page', 1000);
+      params.set('page', 1);
+      if(state.from)   params.set('from', state.from);
+      if(state.to)     params.set('to', state.to);
+      if(state.q)      params.set('q', state.q);
+      if(state.cat)    params.set('category', state.cat);
+      if(state.veh)    params.set('vehicle_id', state.veh);
+      if(state.status) params.set('status', state.status);
+
+      const res  = await fetch(`${API_LIST}?${params.toString()}`, { headers: { 'Accept':'application/json' } });
+      const data = await res.json();
+
+      // 2) Ordenamos por ID descendente (62, 61, 60... sin brincar ni revolver)
+      const all = sortRowsById(data.data || []);
+
+      // 3) Paginamos por ID del lado del cliente
+      state.total     = all.length;
+      state.last_page = Math.max(1, Math.ceil(all.length / state.per_page));
+      if(state.page > state.last_page) state.page = state.last_page;
+      if(state.page < 1) state.page = 1;
+
+      const start = (state.page - 1) * state.per_page;
+      state.rows  = all.slice(start, start + state.per_page);
+
+      renderTable();
+      renderPagination();
+    }catch(err){
+      console.error('loadList error', err);
+      toast('error','No se pudo cargar la lista.');
+    }
   }
 
   async function refreshAll(){ try{ await Promise.all([loadList(), loadChart(), loadMetrics()]); } catch(e){ toast('danger', 'Error de sincronización.'); } }
