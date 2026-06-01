@@ -712,42 +712,58 @@
     if(state.lastChartRows) setTrend7FromChartRows(state.lastChartRows, currency); return data;
   }
 
-  // ✅ SOLUCIÓN AL BUG DE LA GRÁFICA "NO CAMBIA": Procesamiento de datos estricto local
+  // ===== Helpers de fecha para agrupación =====
+  function ymd(d){
+    const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${day}`;
+  }
+  function startOfWeek(d){
+    const x = new Date(d);
+    const dow = x.getDay() || 7;        // 1=Lun ... 7=Dom
+    x.setDate(x.getDate() - dow + 1);   // mover al lunes
+    x.setHours(0,0,0,0);
+    return x;
+  }
+
+  // ✅ Agrupación correcta por Día / Semana / Mes
   function buildLocalChartRows(src){
     const group = state.chart_group || 'day';
     const map = new Map();
     const now = new Date(); now.setHours(0,0,0,0);
-    
+
     let minDate = new Date(now);
     if (group === 'week') {
-      const dayOfWeek = now.getDay() || 7; // 1=Lunes, 7=Domingo
-      minDate.setDate(now.getDate() - dayOfWeek + 1); // Forzar que sea SÓLO esta semana
-      if($('chartRangeHint')) $('chartRangeHint').textContent = 'Mostrando: Solo esta semana (Lun - Dom)';
+      minDate = startOfWeek(now);
+      minDate.setDate(minDate.getDate() - 7 * 7); // últimas 8 semanas
+      if($('chartRangeHint')) $('chartRangeHint').textContent = 'Mostrando: Últimas 8 semanas';
     } else if (group === 'month') {
-      minDate.setMonth(now.getMonth() - 6); minDate.setDate(1);
-      if($('chartRangeHint')) $('chartRangeHint').textContent = 'Mostrando: Últimos 6 meses';
+      minDate.setMonth(now.getMonth() - 11); minDate.setDate(1); // últimos 12 meses
+      if($('chartRangeHint')) $('chartRangeHint').textContent = 'Mostrando: Últimos 12 meses';
     } else {
-      minDate.setDate(now.getDate() - 14);
+      minDate.setDate(now.getDate() - 14); // últimos 14 días
       if($('chartRangeHint')) $('chartRangeHint').textContent = 'Mostrando: Últimos 14 días';
     }
 
     for(const e of src){
-      const rawDate = String(e.expense_date || '').slice(0,10); 
+      const rawDate = String(e.expense_date || '').slice(0,10);
       if(!/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) continue;
 
       const dt = new Date(rawDate + 'T00:00:00');
       if (dt < minDate) continue; // Descartar lo que no cabe en el filtro visual
 
-      let key = rawDate;
-      let label = dt.toLocaleDateString('es-MX', {day:'2-digit', month:'short'});
-
+      let key, label;
       if (group === 'month') {
-        key = rawDate.slice(0,7);
-        label = new Date(dt.getFullYear(), dt.getMonth(), 1).toLocaleDateString('es-MX', {month:'short', year:'numeric'});
+        key   = rawDate.slice(0,7); // YYYY-MM
+        label = new Date(dt.getFullYear(), dt.getMonth(), 1)
+                  .toLocaleDateString('es-MX', {month:'short', year:'numeric'});
       } else if (group === 'week') {
-        key = rawDate; // Mantenemos el orden por día
-        const days = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
-        label = days[dt.getDay()];
+        const ws = startOfWeek(dt);
+        const we = new Date(ws); we.setDate(ws.getDate() + 6);
+        key   = ymd(ws); // agrupa por el LUNES de esa semana
+        label = `${ws.toLocaleDateString('es-MX',{day:'2-digit',month:'short'})} - ${we.toLocaleDateString('es-MX',{day:'2-digit',month:'short'})}`;
+      } else {
+        key   = rawDate;
+        label = dt.toLocaleDateString('es-MX', {day:'2-digit', month:'short'});
       }
 
       const st = String(e.status || '').toLowerCase();
@@ -755,9 +771,9 @@
       const isCanceled = st === 'canceled' || st === 'cancelled' || st === 'cancelado';
       const amt = num(e.amount);
 
-      if(!map.has(key)) map.set(key, {date:key, label:label, paid:0, pending:0, canceled:0});
+      if(!map.has(key)) map.set(key, {date:key, label, paid:0, pending:0, canceled:0});
       const row = map.get(key);
-      
+
       if(isCanceled) row.canceled += amt;
       else if(!isPaid) row.pending += amt;
       else row.paid += amt;
@@ -768,19 +784,27 @@
   async function loadChart(){
     if(!chart) return;
     let rawData = [];
-    
+
     if(API_CHART){
       const url = API_CHART + '?' + params({page:null, per_page:null}).toString();
       const res = await fetch(url, {headers:{'Accept':'application/json'}});
       if(res.ok){ const json = await res.json().catch(()=>null); rawData = Array.isArray(json) ? json : (Array.isArray(json?.data) ? json.data : []); }
     }
-    
-    if(!rawData.length) rawData = state.rows; // Si falla el API, usamos los datos de la tabla
 
-    // Aplicar el filtro estricto local de fechas
+    // ✅ Si no hay API_CHART (o vino vacío) pedimos TODOS los registros, no solo la página actual
+    if(!rawData.length){
+      try{
+        const url = API_LIST + '?' + params({page:1, per_page:1000}).toString();
+        const res = await fetch(url, {headers:{'Accept':'application/json'}});
+        const json = await res.json().catch(()=>null);
+        rawData = (json && Array.isArray(json.data)) ? json.data : state.rows;
+      }catch(_){ rawData = state.rows; }
+    }
+
+    // Aplicar el filtro estricto local de fechas / agrupación
     const rows = buildLocalChartRows(rawData);
     state.lastChartRows = rows;
-    
+
     chart.data.labels = rows.map(r => r.label);
     chart.data.datasets[0].data = rows.map(r => r.paid);
     chart.data.datasets[1].data = rows.map(r => r.pending);
@@ -797,7 +821,7 @@
     const when = fmtDate(e.expense_date); 
     badges.push(`<span class="tag soft bg-light border"><i class="bi bi-calendar-event text-primary"></i> ${esc(when)}</span>`);
     
-    // ✅ STATUS SOLUCIONADO (case insensitive)
+    // ✅ STATUS (case insensitive)
     const st = String(e.status || '').toLowerCase();
     const isPaid = st === 'paid' || st === 'pagado';
     if (e.status) badges.push(`<span class="tag border"><i class="bi bi-circle-fill small me-1 ${isPaid?'text-success':(st==='pending'?'text-warning':'text-secondary')}"></i> ${esc(isPaid?'Pagado':statusLabel(e.status))}</span>`);
@@ -822,8 +846,13 @@
       body.innerHTML = mime.includes('pdf') ? `<iframe src="${esc(e.evidence_url)}" style="width:100%; height:400px; border:none; border-radius:12px"></iframe>` : (mime.includes('image') ? `<img src="${esc(e.evidence_url)}" class="img-fluid rounded-4 shadow-sm">` : 'No previsualizable.');
     }
 
-    $('rcSection').classList.toggle('d-none', !e.pdf_url); $('rcDownload').classList.toggle('d-none', !e.pdf_url);
-    if(e.pdf_url){ $('rcDownload').href = e.pdf_url; $('rcBody').innerHTML = `<i class="bi bi-check-circle-fill text-success me-2"></i> Documento PDF adjunto y validado.`; }
+    // ✅ PDF / Recibo (solo usa elementos que existen en el HTML)
+    const rcDown = $('rcDownload');
+    if(rcDown){
+      if(e.pdf_url){ rcDown.classList.remove('d-none'); rcDown.href = e.pdf_url; }
+      else { rcDown.classList.add('d-none'); rcDown.removeAttribute('href'); }
+    }
+
     modal.show();
   }
 
@@ -844,7 +873,7 @@
       const desc = (e.description || '').trim();
       const amount = money(e.amount, e.currency);
       
-      // ✅ Estatus gris vs verde (solucionado)
+      // ✅ Estatus gris vs verde
       const st = String(e.status || '').toLowerCase();
       const isPaid = st === 'paid' || st === 'pagado';
       const statusClass = isPaid ? 'text-success' : 'text-secondary';
@@ -889,7 +918,7 @@
         const desc = (e.description || '').trim();
         const detailHtml = desc ? `<div class="fw-bold text-dark">${esc(concept)}</div><div class="small text-muted mt-1 text-wrap" style="max-width:250px; line-height:1.2;">${esc(desc)}</div>` : `<div class="fw-bold text-dark">${esc(concept)}</div>`;
 
-        // ✅ STATUS SOLUCIONADO
+        // ✅ STATUS
         const st = String(e.status || '').toLowerCase();
         const isPaid = st === 'paid' || st === 'pagado';
         const statusClass = isPaid ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-light text-dark border';
@@ -948,14 +977,15 @@
   const syncTabs = (t) => document.querySelectorAll('.tab-pill').forEach(b => b.classList.toggle('active', b.dataset.bsTarget === t));
   
   $('btnRefresh')?.addEventListener('click', ()=>{ state.page=1; refreshAll(); });
+  $('btnRefreshM')?.addEventListener('click', ()=>{ state.page=1; refreshAll(); });
   $('btnApply')?.addEventListener('click', ()=>{ state.page=1; refreshAll(); new bootstrap.Tab($('[data-bs-target="#pane-dash"]')).show(); syncTabs('#pane-dash'); toast('success', 'Filtros aplicados.'); });
   $('btnClear')?.addEventListener('click', ()=>{ ['from','to','q','cat','veh','status'].forEach(id=>$(id).value=''); state.page=1; refreshAll(); toast('info', 'Filtros restaurados.'); });
   
-  // ✅ CLICK EN LA GRÁFICA OBLIGA A ACTUALIZAR
+  // ✅ CLICK EN LA GRÁFICA OBLIGA A ACTUALIZAR (Día / Sem / Mes)
   document.querySelectorAll('[data-chart-group]').forEach(btn=>btn.addEventListener('click', ()=>{
     document.querySelectorAll('[data-chart-group]').forEach(b=>b.classList.toggle('active', b===btn));
     state.chart_group = btn.dataset.chartGroup; 
-    loadChart(); // Llama directamente al forzado local
+    loadChart(); // Re-procesa y agrupa localmente
   }));
 
   ['perPage', 'mobileTab'].forEach(id => $(id)?.addEventListener('change', (e)=>{ if(id==='perPage'){ state.per_page=Number(e.target.value); state.page=1; refreshAll(); } if(id==='mobileTab'){ const t = e.target.value; new bootstrap.Tab($(`[data-bs-target="${t}"]`)).show(); syncTabs(t); } }));

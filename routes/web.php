@@ -2184,3 +2184,52 @@ Route::delete('/remisiones/{remision}', [RemisionController::class, 'destroy'])-
 Route::get('/remisiones/{remision}/pdf', [RemisionController::class, 'pdf'])->name('remisiones.pdf');
 Route::post('/propuesta-fallos/{fallo}/ocr', [PropuestaFalloController::class, 'runOcr'])
     ->name('propuesta-fallos.ocr');
+
+use App\Http\Controllers\InventoryController;
+use App\Http\Controllers\InventoryCategoryController;
+use App\Http\Controllers\InventoryAssignmentController;
+
+Route::middleware(['auth'])->prefix('internal-assets')->name('assets.')->group(function () {
+
+    // Dashboard / index
+    Route::get('/', [InventoryController::class, 'index'])->name('index');
+
+    // Tablero (board)
+    Route::get('/board', [InventoryController::class, 'board'])->name('board');
+
+    // CRUD de artículos
+    Route::get('/create', [InventoryController::class, 'create'])->name('create');
+    Route::post('/', [InventoryController::class, 'store'])->name('store');
+    Route::get('/{item}/edit', [InventoryController::class, 'edit'])->name('edit');
+    Route::put('/{item}', [InventoryController::class, 'update'])->name('update');
+    Route::delete('/{item}', [InventoryController::class, 'destroy'])->name('destroy');
+
+    // Asignación rápida (método assign del InventoryController)
+    Route::post('/assign', [InventoryController::class, 'assign'])->name('assign');
+
+    // PDF de resguardo por usuario
+    Route::get('/user/{userId}/pdf', [InventoryController::class, 'userPdf'])->name('user.pdf');
+
+    // Categorías
+    Route::post('/categories', [InventoryCategoryController::class, 'store'])->name('categories.store');
+
+    // Asignaciones (InventoryAssignmentController)
+    Route::prefix('assignments')->name('assignments.')->group(function () {
+        Route::get('/', [InventoryAssignmentController::class, 'index'])->name('index');
+        Route::post('/', [InventoryAssignmentController::class, 'store'])->name('store');
+        Route::get('/{assignment}/pdf', [InventoryAssignmentController::class, 'pdf'])->name('pdf');
+        Route::post('/{assignment}/return', [InventoryAssignmentController::class, 'returnAsset'])->name('return');
+    });
+    Route::post('/save', [InventoryController::class, 'save'])->name('save');
+Route::post('/{item}/stock-move', [InventoryController::class, 'stockMove'])->name('stock-move');
+
+});
+use App\Http\Controllers\MaintenanceController;
+
+Route::middleware(['auth'])->prefix('maintenance')->name('maintenance.')->group(function () {
+    Route::get('/', [MaintenanceController::class, 'index'])->name('index');
+    Route::post('/', [MaintenanceController::class, 'store'])->name('store');
+    Route::put('/{maintenance}', [MaintenanceController::class, 'update'])->name('update');
+    Route::put('/{maintenance}/complete', [MaintenanceController::class, 'complete'])->name('complete');
+    Route::delete('/{maintenance}', [MaintenanceController::class, 'destroy'])->name('destroy');
+});
