@@ -159,6 +159,19 @@
   
   #expensesPage .empty{ padding:60px 20px; text-align:center; color:var(--muted); font-weight: 600; background: rgba(255,255,255,.6); border: 2px dashed var(--border); border-radius: 20px; }
 
+  /* ✅ Top Detalles / Conceptos: que el texto baje de línea y el monto no se salga */
+  #expensesPage .top-row{
+    display:flex; justify-content:space-between; align-items:flex-start; gap:12px;
+    padding:8px; border-radius:12px; overflow:hidden;
+  }
+  #expensesPage .top-row:hover{ background:#eef2ff; }
+  #expensesPage .top-row .top-name{
+    flex:1 1 auto; min-width:0; word-break:break-word; line-height:1.35; font-weight:700; color:#0f172a;
+  }
+  #expensesPage .top-row .top-amount{
+    flex:0 0 auto; white-space:nowrap; font-weight:900; color:var(--pblue-700); text-align:right;
+  }
+
   /* Charts */
   #expensesPage #chart{ width:100%; height:340px; }
   #expensesPage #pieChart{ width:100%; height:330px; }
@@ -250,7 +263,7 @@
             </button>
           </div>
           <div class="d-flex align-items-center gap-2 text-muted small fw-bold">
-            <i class="bi bi-activity text-success"></i> Sincronización activa
+            <i class="bi bi-activity text-success"></i> Datos cargados
           </div>
         </div>
 
@@ -339,20 +352,20 @@
               <span class="fs-5"><i class="bi bi-pie-chart-fill me-2 text-primary"></i>Distribución de impacto</span>
             </div>
             <div class="card-body p-4">
-              <div class="row g-4 align-items-center">
+              <div class="row g-4 align-items-start">
                 <div class="col-12 col-lg-6">
                   <div style="position:relative;height:330px"><canvas id="pieChart"></canvas></div>
                   <div class="small text-center text-muted mt-3 fw-bold" id="pieHint">—</div>
                 </div>
                 <div class="col-12 col-lg-6">
-                  <div class="bg-light p-4 rounded-4 border">
+                  <div class="bg-light p-4 rounded-4 border" style="overflow:hidden;">
                     <div class="fw-bold mb-3 text-uppercase text-muted" style="font-size: 0.8rem; letter-spacing: 0.05em;">Top Detalles</div>
-                    <div id="topDetails" class="d-grid gap-3">
+                    <div id="topDetails" class="d-grid gap-2">
                       <div class="skeleton" style="height:20px"></div><div class="skeleton" style="height:20px;width:85%"></div>
                     </div>
                     <hr class="my-4 border-secondary opacity-25">
                     <div class="fw-bold mb-3 text-uppercase text-muted" style="font-size: 0.8rem; letter-spacing: 0.05em;">Top Conceptos</div>
-                    <div id="topConcepts" class="d-grid gap-3">
+                    <div id="topConcepts" class="d-grid gap-2">
                       <div class="skeleton" style="height:20px"></div><div class="skeleton" style="height:20px;width:80%"></div>
                     </div>
                   </div>
@@ -942,7 +955,7 @@
   }
 
   function buildInsightsFromRows(rows){
-    if(!rows.length){ if(pie) { pie.data.labels=[]; pie.data.datasets[0].data=[]; pie.update(); } $('topDetails').innerHTML = '<div class="text-muted small">Sin datos</div>'; return; }
+    if(!rows.length){ if(pie) { pie.data.labels=[]; pie.data.datasets[0].data=[]; pie.update(); } $('topDetails').innerHTML = '<div class="text-muted small">Sin datos</div>'; $('topConcepts').innerHTML = '<div class="text-muted small">Sin datos</div>'; return; }
     const dMap = new Map(); const cMap = new Map();
     rows.forEach(e=>{ 
       const a=Number(e.amount||0); 
@@ -951,9 +964,16 @@
       dMap.set(d,(dMap.get(d)||0)+a); cMap.set(c,(cMap.get(c)||0)+a);
     });
     
+    // ✅ Filas que se ajustan: el nombre baja de línea y el monto NO se sale
     const renderTop = (map, el) => {
       if(!$(el)) return;
-      $(el).innerHTML = [...map.entries()].sort((a,b)=>b[1]-a[1]).slice(0,5).map(([n,s], i) => `<div class="d-flex justify-content-between align-items-center p-2 rounded-3 hover-bg animate-fade-in" style="animation-delay: ${i*0.1}s"><div class="text-truncate fw-bold text-dark" style="max-width: 60%;"><i class="bi bi-dot text-primary"></i> ${esc(n)}</div><div class="fw-black text-primary">${esc(money(s))}</div></div>`).join('');
+      const items = [...map.entries()].sort((a,b)=>b[1]-a[1]).slice(0,5);
+      if(!items.length){ $(el).innerHTML = '<div class="text-muted small">Sin datos</div>'; return; }
+      $(el).innerHTML = items.map(([n,s], i) => `
+        <div class="top-row animate-fade-in" style="animation-delay:${i*0.08}s">
+          <div class="top-name"><i class="bi bi-dot text-primary"></i> ${esc(n)}</div>
+          <div class="top-amount">${esc(money(s))}</div>
+        </div>`).join('');
     };
     renderTop(dMap, 'topDetails'); renderTop(cMap, 'topConcepts');
 
@@ -993,7 +1013,9 @@
   ['btnNext', 'nextPage'].forEach(id=>$(id)?.addEventListener('click', ()=>{ if(state.page<state.last_page){ state.page++; refreshAll(); } }));
   document.querySelectorAll('.tab-pill').forEach(btn=>btn.addEventListener('click', ()=>syncTabs(btn.dataset.bsTarget)));
   
-  if(state.timer) clearInterval(state.timer); state.timer = setInterval(()=>refreshAll(), 30000);
+  // ✅ AUTO-ACTUALIZACIÓN DESACTIVADA: ya no se borra/recarga todo cada 30s.
+  // Solo se actualiza al cargar la página o al pulsar "Actualizar".
+  if(state.timer) clearInterval(state.timer);
 
   refreshAll();
 })();

@@ -112,9 +112,10 @@
   .mnt-list{ margin-bottom:24px; }
   .mnt-item{ display:flex; justify-content:space-between; gap:8px; padding:8px 0; border-bottom:1px solid var(--line); font-size:13px; }
   .mnt-item:last-child{ border-bottom:none; }
-  .drawer-actions{ display:flex; flex-direction:column; gap:10px; padding-top:24px; border-top:1px solid var(--line); }
-  .drawer-row{ display:flex; gap:10px; }
-  .btn-outline{ flex:1; background:var(--card); border:1px solid var(--blue); color:var(--blue); font-weight:600; border-radius:8px; height:44px; display:flex; align-items:center; justify-content:center; gap:8px; text-decoration:none; transition:all .2s; cursor:pointer; }
+  .drawer-actions{ display:flex; flex-direction:column; gap:12px; padding-top:24px; border-top:1px solid var(--line); }
+  .drawer-row{ display:flex; gap:12px; width:100%; }
+  
+  .btn-outline{ flex:1; background:var(--card); border:1px solid var(--blue); color:var(--blue); font-weight:600; border-radius:8px; height:44px; display:flex; align-items:center; justify-content:center; gap:8px; text-decoration:none; transition:all .2s; cursor:pointer; width:100%; }
   @media (hover:hover){ .btn-outline:hover{ background:var(--blue-soft); } }
   .btn-ghost{ flex:0 0 44px; background:transparent; border:1px solid var(--line); color:var(--muted); border-radius:8px; height:44px; display:grid; place-items:center; transition:all .2s; cursor:pointer; }
   @media (hover:hover){ .btn-ghost:hover{ background:var(--bg); color:var(--ink); } }
@@ -147,8 +148,6 @@
   .na-btn-cancel{ border:1px solid var(--line); background:transparent; color:var(--text); font-weight:600; font-size:14px; border-radius:8px; padding:0 20px; height:44px; cursor:pointer; transition:background .2s; }
   .na-btn-cancel:hover{ background:var(--bg); }
   .field-error{ color:var(--danger); font-size:12px; margin:-10px 0 14px; }
-
-  .sig-pad{ width:100%; height:140px; border:1px solid var(--line); border-radius:8px; background:#fff; touch-action:none; margin-bottom:8px; }
 
   /* Toasts */
   .toast-wrap{ position:fixed; top:20px; right:20px; z-index:2000; display:flex; flex-direction:column; gap:10px; }
@@ -240,12 +239,6 @@
     </div>
   </div>
 
-  @php
-    $renderCard = function($item, $isConsumable) {
-        return null; // placeholder, usamos loops abajo
-    };
-  @endphp
-
   <div class="tab-panel" id="panel-activo_fijo">
     @if($fixedAssets->isEmpty())
       <div class="empty-state"><i class="bi bi-laptop" style="font-size:32px;display:block;margin-bottom:12px;"></i>No hay activos fijos registrados.</div>
@@ -278,7 +271,7 @@
                data-unit="{{ $item->unit }}" data-stock="{{ (int)$item->stock }}" data-stock-min="0" data-stock-max="0"
                data-photo="{{ $item->photo ? asset('storage/'.$item->photo) : '' }}"
                data-delete-url="{{ route('assets.destroy', $item->id) }}"
-               data-assign-url="{{ route('assets.assignments.store') }}"
+               data-assign-url="{{ url('/assets/asignar', $item->id) }}" {{-- URL ajustada para redirigir a una vista --}}
                data-qr-text="{{ route('assets.board').'?item='.$item->id }}"
                data-tag="{{ $tag }}" data-is-consumable="0"
                data-maintenances='@json($mnts)'
@@ -449,8 +442,7 @@
             </div>
             <div class="row">
               <div class="col-md-6"><label class="na-label">Almacenamiento</label><input type="text" name="storage" class="na-input" value="{{ old('storage') }}"></div>
-              <div class="col-md-6"><label class="na-label">SO</label><input type="text" name="operating_system" class="
-                            <div class="col-md-6"><label class="na-label">SO</label><input type="text" name="operating_system" class="na-input" value="{{ old('operating_system') }}"></div>
+              <div class="col-md-6"><label class="na-label">SO</label><input type="text" name="operating_system" class="na-input" value="{{ old('operating_system') }}"></div>
             </div>
             <label class="na-label">MAC Address</label><input type="text" name="mac_address" class="na-input" value="{{ old('mac_address') }}">
           </div>
@@ -549,37 +541,6 @@
   </div>
 </div>
 
-{{-- Asignar activo --}}
-<div class="modal fade" id="assignModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <form method="POST" action="" id="assignForm">
-        @csrf
-        <input type="hidden" name="inventory_item_id" id="assignItemId">
-        <input type="hidden" name="quantity" value="1">
-        <input type="hidden" name="signature" id="assignSignature">
-        <div class="na-head"><h5>Asignar activo</h5><button type="button" class="na-close" data-bs-dismiss="modal"><i class="bi bi-x"></i></button></div>
-        <div class="na-body">
-          <label class="na-label">Asignar a <span class="req">*</span></label>
-          <select name="user_id" class="custom-select-target" required>
-            <option value="">Selecciona un usuario</option>
-            @foreach($users as $u)<option value="{{ $u->id }}">{{ $u->name }}</option>@endforeach
-          </select>
-          <label class="na-label">Notas</label>
-          <textarea name="notes" class="na-textarea" placeholder="Observaciones de la entrega..."></textarea>
-          <label class="na-label">Firma de quien recibe <span class="req">*</span></label>
-          <canvas id="sigPad" class="sig-pad"></canvas>
-          <button type="button" class="na-btn-cancel" id="sigClear" style="height:36px;padding:0 14px;">Limpiar firma</button>
-        </div>
-        <div class="na-foot">
-          <button type="button" class="na-btn-cancel" data-bs-dismiss="modal">Cancelar</button>
-          <button type="submit" class="na-btn-save">Generar responsiva</button>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
-
 {{-- Movimiento de stock --}}
 <div class="modal fade" id="stockMoveModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-sm">
@@ -662,7 +623,7 @@
         <button type="button" class="btn-outline" id="drawerEditBtn"><i class="bi bi-pencil"></i> Editar</button>
         <button type="button" class="btn-ghost" id="drawerQrBtn" data-bs-toggle="modal" data-bs-target="#qrModal"><i class="bi bi-qr-code"></i></button>
       </div>
-      <button type="button" class="btn-outline d-none-force" id="drawerAssignBtn"><i class="bi bi-person-check"></i> Asignar</button>
+      <a href="#" class="btn-outline d-none-force" id="drawerAssignBtn"><i class="bi bi-person-check"></i> Asignar</a>
       <button type="button" class="btn-outline d-none-force" id="drawerStockBtn"><i class="bi bi-arrow-left-right"></i> Movimiento de stock</button>
       <a href="{{ route('maintenance.index') }}" class="btn-outline d-none-force" id="drawerMntBtn"><i class="bi bi-tools"></i> Programar mantenimiento</a>
       <button type="button" class="btn-danger-ghost" id="drawerDeleteBtn"><i class="bi bi-trash"></i></button>
@@ -859,6 +820,10 @@ function fillDrawer(card){
   } else {
     fixedGrid.classList.remove('d-none-force'); stockBox.classList.add('d-none-force');
     qrBtn.classList.remove('d-none-force'); assignBtn.classList.remove('d-none-force');
+    
+    // Le asignamos el href al botón (anchor) del drawer tomando el valor guardado en la card
+    assignBtn.href = d.assignUrl;
+    
     stockBtn.classList.add('d-none-force'); mntBtn.classList.remove('d-none-force');
     let mnts=[]; try{ mnts=JSON.parse(d.maintenances||'[]'); }catch(e){}
     if(mnts.length){
@@ -883,13 +848,6 @@ document.getElementById('drawerDeleteBtn').addEventListener('click',()=>{
 });
 document.getElementById('confirmDeleteBtn').addEventListener('click',()=>document.getElementById('deleteForm').submit());
 
-document.getElementById('drawerAssignBtn').addEventListener('click',()=>{
-  if(!currentCard) return;
-  document.getElementById('assignForm').action=currentCard.dataset.assignUrl;
-  document.getElementById('assignItemId').value=currentCard.dataset.id;
-  document.getElementById('assignSignature').value='';
-  bootstrap.Modal.getOrCreateInstance(document.getElementById('assignModal')).show();
-});
 document.getElementById('drawerStockBtn').addEventListener('click',()=>{
   if(!currentCard) return;
   document.getElementById('stockMoveForm').action=currentCard.dataset.stockUrl;
@@ -994,23 +952,6 @@ async function createCategory(){
 }
 document.getElementById('saveCategoryBtn').addEventListener('click',createCategory);
 document.getElementById('newCategoryInput').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); createCategory(); } });
-
-/* ============ Firma (canvas) ============ */
-const sigCanvas=document.getElementById('sigPad');
-let sigCtx=null,sigDrawing=false,sigInk=false;
-function initSig(){ if(!sigCanvas) return; const r=sigCanvas.getBoundingClientRect(); sigCanvas.width=r.width; sigCanvas.height=r.height; sigCtx=sigCanvas.getContext('2d'); sigCtx.lineWidth=2; sigCtx.lineCap='round'; sigCtx.strokeStyle='#111'; }
-function sigPos(e){ const r=sigCanvas.getBoundingClientRect(); const t=e.touches?e.touches[0]:e; return {x:t.clientX-r.left,y:t.clientY-r.top}; }
-function sigStart(e){ sigDrawing=true; sigInk=true; const p=sigPos(e); sigCtx.beginPath(); sigCtx.moveTo(p.x,p.y); e.preventDefault(); }
-function sigMove(e){ if(!sigDrawing) return; const p=sigPos(e); sigCtx.lineTo(p.x,p.y); sigCtx.stroke(); e.preventDefault(); }
-function sigEnd(){ if(!sigDrawing) return; sigDrawing=false; document.getElementById('assignSignature').value=sigCanvas.toDataURL('image/png'); }
-function clearSig(){ if(sigCtx) sigCtx.clearRect(0,0,sigCanvas.width,sigCanvas.height); sigInk=false; document.getElementById('assignSignature').value=''; }
-if(sigCanvas){
-  document.getElementById('assignModal').addEventListener('shown.bs.modal',()=>{ initSig(); clearSig(); });
-  sigCanvas.addEventListener('mousedown',sigStart); sigCanvas.addEventListener('mousemove',sigMove); window.addEventListener('mouseup',sigEnd);
-  sigCanvas.addEventListener('touchstart',sigStart); sigCanvas.addEventListener('touchmove',sigMove); sigCanvas.addEventListener('touchend',sigEnd);
-  document.getElementById('sigClear').addEventListener('click',clearSig);
-  document.getElementById('assignForm').addEventListener('submit',e=>{ if(!sigInk){ e.preventDefault(); toast('Falta la firma','bad'); } });
-}
 
 /* ============ Etiquetas QR ============ */
 function printQrLabel(){
