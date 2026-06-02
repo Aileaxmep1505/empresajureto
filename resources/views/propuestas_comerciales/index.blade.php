@@ -743,6 +743,141 @@
   }
   .jureto-dashboard-page .pager-meta strong { color: var(--ink); font-weight: 700; }
 
+  /* ---------- Modal de eliminación ---------- */
+  .jureto-dashboard-page .jureto-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    visibility: hidden;
+    pointer-events: none;
+    transition: visibility 0s linear .32s; /* mantiene visible durante la animación de cierre */
+  }
+  .jureto-dashboard-page .jureto-modal.is-open {
+    visibility: visible;
+    pointer-events: auto;
+    transition: visibility 0s;
+  }
+  .jureto-dashboard-page .jureto-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(17, 19, 24, .28);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    opacity: 0;
+    transition: opacity .3s var(--ease-out);
+  }
+  .jureto-dashboard-page .jureto-modal.is-open .jureto-modal-backdrop { opacity: 1; }
+  .jureto-dashboard-page .jureto-modal-card {
+    position: relative;
+    width: 100%;
+    max-width: 420px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    padding: 28px 28px 22px;
+    box-shadow: 0 30px 80px rgba(20,20,40,.25);
+    transform: translateY(14px) scale(.96);
+    opacity: 0;
+    transition: transform .32s var(--ease-out), opacity .26s var(--ease-out);
+  }
+  .jureto-dashboard-page .jureto-modal.is-open .jureto-modal-card {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  .jureto-dashboard-page .jureto-modal-title {
+    margin: 0 0 12px;
+    font-size: 21px;
+    font-weight: 700;
+    letter-spacing: -.02em;
+    color: #0d0d0d;
+  }
+  .jureto-dashboard-page .jureto-modal-desc {
+    margin: 0 0 24px;
+    color: var(--ink-soft);
+    font-size: 15px;
+    line-height: 1.6;
+    font-weight: 500;
+  }
+  .jureto-dashboard-page .jureto-modal-desc strong { color: #0d0d0d; font-weight: 700; }
+  .jureto-dashboard-page .jureto-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+  .jureto-dashboard-page .jureto-modal-btn {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 46px;
+    padding: 0 22px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    font-family: 'Quicksand', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform .18s var(--ease-out), background .2s ease, color .2s ease, box-shadow .2s ease, border-color .2s ease;
+  }
+  .jureto-dashboard-page .jureto-modal-btn svg { width: 17px; height: 17px; }
+  .jureto-dashboard-page .jureto-modal-btn:active { transform: scale(.96); }
+  .jureto-dashboard-page .jureto-modal-btn.cancel {
+    background: var(--card);
+    border-color: var(--line);
+    color: var(--ink-soft);
+  }
+  .jureto-dashboard-page .jureto-modal-btn.confirm {
+    background: var(--danger);
+    color: #fff;
+    box-shadow: 0 10px 24px rgba(229,72,77,.28);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .jureto-dashboard-page .jureto-modal-btn.cancel:hover { border-color: #d6d8dd; color: #111; }
+    .jureto-dashboard-page .jureto-modal-btn.confirm:hover {
+      background: #d83a3f;
+      transform: translateY(-1px);
+      box-shadow: 0 16px 32px rgba(229,72,77,.34);
+    }
+  }
+
+  /* ---------- Toast ---------- */
+  .jureto-dashboard-page .jureto-toast {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    z-index: 1100;
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    max-width: min(92vw, 380px);
+    padding: 14px 18px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: 0 18px 44px rgba(20,20,40,.16);
+    color: var(--ink);
+    font-size: 14.5px;
+    font-weight: 600;
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity .3s var(--ease-out), transform .3s var(--ease-out);
+  }
+  .jureto-dashboard-page .jureto-toast.is-visible { opacity: 1; transform: translateY(0); }
+  .jureto-dashboard-page .jureto-toast-ico {
+    flex: none;
+    width: 30px; height: 30px;
+    border-radius: 9px;
+    display: grid; place-items: center;
+    background: var(--success-soft);
+    color: var(--success);
+  }
+  .jureto-dashboard-page .jureto-toast-ico svg { width: 17px; height: 17px; }
+  .jureto-dashboard-page .jureto-toast-msg { line-height: 1.4; }
+
   /* ---------- Responsive ---------- */
   @media (max-width: 1100px) {
     .jureto-dashboard-page .dash-wrap { width: 94vw; }
@@ -774,6 +909,7 @@
     .jureto-dashboard-page .pagination-wrap { justify-content: center; }
     .jureto-dashboard-page .pager-btn .lbl { display: none; }
     .jureto-dashboard-page .pager-btn { padding: 0 12px; }
+    .jureto-dashboard-page .jureto-toast { left: 16px; right: 16px; bottom: 16px; max-width: none; }
   }
 
   /* ---------- Reduced motion ---------- */
@@ -782,6 +918,9 @@
     .jureto-dashboard-page .chart-line { animation: none; stroke-dashoffset: 0; }
     .jureto-dashboard-page .chart-dot { animation: none; opacity: 1; }
     .jureto-dashboard-page .dist-fill { transition: none; }
+    .jureto-dashboard-page .jureto-modal-backdrop,
+    .jureto-dashboard-page .jureto-modal-card,
+    .jureto-dashboard-page .jureto-toast { transition-duration: .01ms; }
     .jureto-dashboard-page * { scroll-behavior: auto; }
   }
 </style>
@@ -1144,11 +1283,12 @@
               <span class="quote-arrow">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
               </span>
-              <form action="{{ $destroyRoute($proposal) }}" method="POST" class="quote-del-form"
-                    onsubmit="return confirm('¿Eliminar esta cotización? Esta acción no se puede deshacer.');">
+              <form action="{{ $destroyRoute($proposal) }}" method="POST" class="quote-del-form">
                 @csrf
                 @method('DELETE')
-                <button type="submit" class="quote-del-btn" aria-label="Eliminar cotización" title="Eliminar">
+                <button type="button" class="quote-del-btn"
+                        data-name="{{ $proposalFolio($proposal) }}"
+                        aria-label="Eliminar cotización" title="Eliminar">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
                 </button>
               </form>
@@ -1269,8 +1409,37 @@
       </nav>
     @endif
 
+  </div>{{-- /.dash-wrap --}}
+
+  {{-- Modal de eliminación --}}
+  <div class="jureto-modal" id="juretoDeleteModal" aria-hidden="true">
+    <div class="jureto-modal-backdrop" data-close></div>
+    <div class="jureto-modal-card" role="dialog" aria-modal="true" aria-labelledby="juretoModalTitle" aria-describedby="juretoModalDesc">
+      <h3 class="jureto-modal-title" id="juretoModalTitle">¿Eliminar cotización?</h3>
+      <p class="jureto-modal-desc" id="juretoModalDesc">
+        Esto eliminará <strong id="juretoModalName">esta cotización</strong>. Esta acción no se puede deshacer.
+      </p>
+      <div class="jureto-modal-actions">
+        <button type="button" class="jureto-modal-btn cancel" data-close>Cancelar</button>
+        <button type="button" class="jureto-modal-btn confirm" id="juretoModalConfirm">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          Eliminar
+        </button>
+      </div>
+    </div>
   </div>
-</div>
+
+  {{-- Toast de confirmación --}}
+  @if(session('status'))
+    <div class="jureto-toast" id="juretoToast" role="status">
+      <span class="jureto-toast-ico">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </span>
+      <span class="jureto-toast-msg">{{ session('status') }}</span>
+    </div>
+  @endif
+
+</div>{{-- /.jureto-dashboard-page --}}
 
 <script>
 (function () {
@@ -1285,29 +1454,86 @@
     });
   });
 
-  if (reduce) return;
-
   // Animated counters for numeric KPIs
-  function animateCount(el) {
-    var target = parseFloat(el.getAttribute('data-count')) || 0;
-    var suffix = el.getAttribute('data-suffix') || '';
-    var dur = 900, start = performance.now();
-    function tick(now) {
-      var p = Math.min((now - start) / dur, 1);
-      var eased = 1 - Math.pow(1 - p, 3); // ease-out cubic
-      el.textContent = Math.round(target * eased).toLocaleString('es-MX') + suffix;
-      if (p < 1) requestAnimationFrame(tick);
+  if (!reduce) {
+    function animateCount(el) {
+      var target = parseFloat(el.getAttribute('data-count')) || 0;
+      var suffix = el.getAttribute('data-suffix') || '';
+      var dur = 900, start = performance.now();
+      function tick(now) {
+        var p = Math.min((now - start) / dur, 1);
+        var eased = 1 - Math.pow(1 - p, 3); // ease-out cubic
+        el.textContent = Math.round(target * eased).toLocaleString('es-MX') + suffix;
+        if (p < 1) requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
     }
-    requestAnimationFrame(tick);
+
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) { animateCount(e.target); observer.unobserve(e.target); }
+      });
+    }, { threshold: 0.4 });
+
+    page.querySelectorAll('[data-count]').forEach(function (el) { observer.observe(el); });
   }
 
-  var observer = new IntersectionObserver(function (entries) {
-    entries.forEach(function (e) {
-      if (e.isIntersecting) { animateCount(e.target); observer.unobserve(e.target); }
-    });
-  }, { threshold: 0.4 });
+  // ----- Modal de eliminación -----
+  var modal      = document.getElementById('juretoDeleteModal');
+  var nameEl     = document.getElementById('juretoModalName');
+  var confirmBtn = document.getElementById('juretoModalConfirm');
+  var pendingForm = null;
+  var lastFocus   = null;
 
-  page.querySelectorAll('[data-count]').forEach(function (el) { observer.observe(el); });
+  function openModal(form, name) {
+    pendingForm = form;
+    if (nameEl) nameEl.textContent = name || 'esta cotización';
+    lastFocus = document.activeElement;
+    modal.classList.add('is-open');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+    setTimeout(function () { confirmBtn && confirmBtn.focus(); }, 60);
+  }
+
+  function closeModal() {
+    modal.classList.remove('is-open');
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+    pendingForm = null;
+    if (lastFocus && lastFocus.focus) lastFocus.focus();
+  }
+
+  page.querySelectorAll('.quote-del-btn').forEach(function (btn) {
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      openModal(btn.closest('form'), btn.getAttribute('data-name'));
+    });
+  });
+
+  if (modal) {
+    modal.querySelectorAll('[data-close]').forEach(function (el) {
+      el.addEventListener('click', closeModal);
+    });
+  }
+
+  if (confirmBtn) {
+    confirmBtn.addEventListener('click', function () {
+      if (pendingForm) pendingForm.submit();
+    });
+  }
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && modal && modal.classList.contains('is-open')) closeModal();
+  });
+
+  // ----- Toast -----
+  var toast = document.getElementById('juretoToast');
+  if (toast) {
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () { toast.classList.add('is-visible'); });
+    });
+    setTimeout(function () { toast.classList.remove('is-visible'); }, 4200);
+  }
 })();
 </script>
 @endsection
