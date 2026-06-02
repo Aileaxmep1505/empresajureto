@@ -10,9 +10,11 @@
 
 <style>
   :root{
-    --bg:#f9fafb; --card:#fff; --ink:#111; --text:#333; --muted:#888; --line:#ebebeb;
-    --blue:#007aff; --blue-soft:#e6f0ff; --success:#15803d; --success-soft:#e6ffe6;
-    --danger:#ff4a4a; --danger-soft:#ffebeb; --warning:#d97706; --warning-soft:#fef3c7;
+    --bg:#f9fafb; --card:#fff; --ink:#111; --text:#374151; --muted:#9ca3af; --line:#e5e7eb;
+    --blue:#2563eb; --blue-soft:#eff6ff; --blue-border:#bfdbfe;
+    --success:#15803d; --success-soft:#e6ffe6;
+    --danger:#dc2626; --danger-soft:#fef2f2; --danger-border:#fecaca;
+    --warning:#d97706; --warning-soft:#fef3c7;
     --ease-out:cubic-bezier(0.23,1,0.32,1); --ease-in-out:cubic-bezier(0.77,0,0.175,1);
   }
   html,body{ background:var(--bg); color:var(--text); font-family:'Quicksand',sans-serif; font-weight:500; overflow-x:hidden; }
@@ -47,11 +49,11 @@
   .search-box input, .na-input, .na-textarea{ width:100%; padding:0 16px; padding-left:48px; height:44px; border-radius:8px; border:1px solid var(--line); background:var(--card); font-size:14px; font-family:'Quicksand',sans-serif; color:var(--text); transition:border-color .2s var(--ease-out),box-shadow .2s var(--ease-out); }
   .na-input, .na-textarea{ padding-left:16px; margin-bottom:16px; }
   .na-textarea{ min-height:100px; padding-top:12px; resize:vertical; }
-  .search-box input:focus, .na-input:focus, .na-textarea:focus{ outline:none; border-color:var(--blue); box-shadow:0 0 0 3px var(--blue-soft); }
+  .search-box input:focus, .na-input:focus, .na-textarea:focus{ outline:none; border-color:var(--blue); box-shadow:0 0 0 3px rgba(37, 99, 235, 0.15); }
 
   .custom-select-wrapper{ position:relative; width:100%; font-family:'Quicksand',sans-serif; }
   .custom-select-trigger{ display:flex; align-items:center; justify-content:space-between; height:44px; padding:0 16px; background:var(--card); border:1px solid var(--line); border-radius:8px; font-size:14px; color:var(--text); cursor:pointer; transition:all .2s var(--ease-out); }
-  .custom-select-trigger:focus, .custom-select-trigger.open{ border-color:var(--blue); box-shadow:0 0 0 3px var(--blue-soft); outline:none; }
+  .custom-select-trigger:focus, .custom-select-trigger.open{ border-color:var(--blue); box-shadow:0 0 0 3px rgba(37, 99, 235, 0.15); outline:none; }
   .custom-select-trigger .chevron{ transition:transform .2s var(--ease-out); color:var(--muted); }
   .custom-select-trigger.open .chevron{ transform:rotate(180deg); }
   .custom-select-panel{ position:absolute; top:calc(100% + 4px); left:0; right:0; background:var(--card); border:1px solid var(--line); border-radius:8px; box-shadow:0 4px 20px rgba(0,0,0,.06); opacity:0; visibility:hidden; transform:translateY(-6px); transition:all .2s var(--ease-out); z-index:100; max-height:250px; overflow-y:auto; transform-origin:top; }
@@ -112,15 +114,40 @@
   .mnt-list{ margin-bottom:24px; }
   .mnt-item{ display:flex; justify-content:space-between; gap:8px; padding:8px 0; border-bottom:1px solid var(--line); font-size:13px; }
   .mnt-item:last-child{ border-bottom:none; }
-  .drawer-actions{ display:flex; flex-direction:column; gap:12px; padding-top:24px; border-top:1px solid var(--line); }
-  .drawer-row{ display:flex; gap:12px; width:100%; }
-  
-  .btn-outline{ flex:1; background:var(--card); border:1px solid var(--blue); color:var(--blue); font-weight:600; border-radius:8px; height:44px; display:flex; align-items:center; justify-content:center; gap:8px; text-decoration:none; transition:all .2s; cursor:pointer; width:100%; }
-  @media (hover:hover){ .btn-outline:hover{ background:var(--blue-soft); } }
-  .btn-ghost{ flex:0 0 44px; background:transparent; border:1px solid var(--line); color:var(--muted); border-radius:8px; height:44px; display:grid; place-items:center; transition:all .2s; cursor:pointer; }
-  @media (hover:hover){ .btn-ghost:hover{ background:var(--bg); color:var(--ink); } }
-  .btn-danger-ghost{ background:transparent; border:1px solid var(--danger-soft); color:var(--danger); border-radius:8px; height:44px; width:100%; display:grid; place-items:center; transition:all .2s; cursor:pointer; }
-  @media (hover:hover){ .btn-danger-ghost:hover{ background:var(--danger-soft); } }
+
+  /* --- Botones Estilo Imagen (Drawer) --- */
+  .drawer-actions { display:flex; flex-direction:column; gap:12px; padding-top:24px; border-top:1px solid var(--line); }
+  .drawer-row { display:flex; gap:10px; width:100%; }
+
+  .btn-action-primary {
+    flex: 1; display:flex; align-items:center; justify-content:center; gap:8px; height:44px;
+    background: var(--blue); color: #fff; font-weight: 600; font-size: 14px; border: none; border-radius: 8px;
+    text-decoration: none; cursor: pointer; transition: all .2s; box-shadow: 0 2px 6px rgba(37,99,235,.2);
+  }
+  .btn-action-primary i { font-size: 16px; }
+  @media (hover:hover) { .btn-action-primary:hover { background: #1d4ed8; color: #fff; transform: translateY(-1px); } }
+
+  .btn-action-secondary {
+    flex: 1; display:flex; align-items:center; justify-content:center; gap:8px; height:44px;
+    background: #fff; color: #374151; font-weight: 600; font-size: 14px; border: 1px solid #d1d5db; border-radius: 8px;
+    text-decoration: none; cursor: pointer; transition: all .2s; box-shadow: 0 1px 2px rgba(0,0,0,.04);
+  }
+  .btn-action-secondary i { font-size: 16px; color: #6b7280; transition: color .2s; }
+  @media (hover:hover) { 
+    .btn-action-secondary:hover { background: #f9fafb; border-color: #9ca3af; transform: translateY(-1px); }
+    .btn-action-secondary:hover i { color: #374151; }
+  }
+
+  .btn-action-icon {
+    flex: 0 0 44px; width: 44px; height: 44px; display:flex; align-items:center; justify-content:center;
+    background: #fff; color: #6b7280; border: 1px solid #d1d5db; border-radius: 8px;
+    cursor: pointer; transition: all .2s; box-shadow: 0 1px 2px rgba(0,0,0,.04); font-size: 18px;
+  }
+  @media (hover:hover) { .btn-action-icon:hover { background: #f9fafb; border-color: #9ca3af; color: #111; transform: translateY(-1px); } }
+
+  .btn-action-icon.danger i { color: #dc2626; }
+  @media (hover:hover) { .btn-action-icon.danger:hover { background: #fef2f2; border-color: #fca5a5; } }
+  /* --------------------------------------- */
 
   .modal-content{ border:none; border-radius:16px; box-shadow:0 12px 40px rgba(0,0,0,.08); }
   .na-head{ display:flex; align-items:center; justify-content:space-between; padding:24px 24px 12px; }
@@ -271,7 +298,7 @@
                data-unit="{{ $item->unit }}" data-stock="{{ (int)$item->stock }}" data-stock-min="0" data-stock-max="0"
                data-photo="{{ $item->photo ? asset('storage/'.$item->photo) : '' }}"
                data-delete-url="{{ route('assets.destroy', $item->id) }}"
-               data-assign-url="{{ url('/assets/asignar', $item->id) }}" {{-- URL ajustada para redirigir a una vista --}}
+               data-assign-url="{{ url('/assets/asignar', $item->id) }}"
                data-qr-text="{{ route('assets.board').'?item='.$item->id }}"
                data-tag="{{ $tag }}" data-is-consumable="0"
                data-maintenances='@json($mnts)'
@@ -619,14 +646,39 @@
     </div>
 
     <div class="drawer-actions">
+      
+      @if(auth()->check() && auth()->user()->hasRole('admin'))
       <div class="drawer-row">
-        <button type="button" class="btn-outline" id="drawerEditBtn"><i class="bi bi-pencil"></i> Editar</button>
-        <button type="button" class="btn-ghost" id="drawerQrBtn" data-bs-toggle="modal" data-bs-target="#qrModal"><i class="bi bi-qr-code"></i></button>
+        <a href="#" class="btn-action-primary d-none-force" id="drawerAssignBtn">
+          <i class="bi bi-person-plus"></i> Asignar
+        </a>
+        
+        <button type="button" class="btn-action-secondary" id="drawerEditBtn">
+          <i class="bi bi-pencil"></i> Editar
+        </button>
+
+        <button type="button" class="btn-action-icon danger" id="drawerDeleteBtn">
+          <i class="bi bi-trash"></i>
+        </button>
       </div>
-      <a href="#" class="btn-outline d-none-force" id="drawerAssignBtn"><i class="bi bi-person-check"></i> Asignar</a>
-      <button type="button" class="btn-outline d-none-force" id="drawerStockBtn"><i class="bi bi-arrow-left-right"></i> Movimiento de stock</button>
-      <a href="{{ route('maintenance.index') }}" class="btn-outline d-none-force" id="drawerMntBtn"><i class="bi bi-tools"></i> Programar mantenimiento</a>
-      <button type="button" class="btn-danger-ghost" id="drawerDeleteBtn"><i class="bi bi-trash"></i></button>
+      @endif
+
+      <div class="drawer-row">
+        @if(auth()->check() && auth()->user()->hasRole('admin'))
+        <a href="{{ route('maintenance.index') }}" class="btn-action-secondary d-none-force" id="drawerMntBtn">
+          <i class="bi bi-tools"></i> Mantenimiento
+        </a>
+
+        <button type="button" class="btn-action-secondary d-none-force" id="drawerStockBtn">
+          <i class="bi bi-arrow-left-right"></i> Movimiento de stock
+        </button>
+        @endif
+
+        <button type="button" class="btn-action-icon d-none-force" id="drawerQrBtn" data-bs-toggle="modal" data-bs-target="#qrModal" title="Código QR">
+          <i class="bi bi-qr-code"></i>
+        </button>
+      </div>
+
     </div>
   </div>
 </div>
@@ -808,8 +860,12 @@ function fillDrawer(card){
 
   if(isCons){
     fixedGrid.classList.add('d-none-force'); stockBox.classList.remove('d-none-force');
-    qrBtn.classList.add('d-none-force'); assignBtn.classList.add('d-none-force');
-    stockBtn.classList.remove('d-none-force'); mntBtn.classList.add('d-none-force'); mntWrap.classList.add('d-none-force');
+    if(qrBtn) qrBtn.classList.add('d-none-force'); 
+    if(assignBtn) assignBtn.classList.add('d-none-force');
+    if(stockBtn) stockBtn.classList.remove('d-none-force'); 
+    if(mntBtn) mntBtn.classList.add('d-none-force'); 
+    if(mntWrap) mntWrap.classList.add('d-none-force');
+    
     const stock=Number(d.stock),min=Number(d.stockMin),max=Number(d.stockMax);
     document.getElementById('drawerStockNow').textContent=stock;
     document.getElementById('drawerStockMax').textContent=max;
@@ -819,36 +875,44 @@ function fillDrawer(card){
     document.getElementById('drawerStockWarning').classList.toggle('d-none-force',stock>min);
   } else {
     fixedGrid.classList.remove('d-none-force'); stockBox.classList.add('d-none-force');
-    qrBtn.classList.remove('d-none-force'); assignBtn.classList.remove('d-none-force');
+    if(qrBtn) qrBtn.classList.remove('d-none-force'); 
+    if(assignBtn) {
+        assignBtn.classList.remove('d-none-force');
+        assignBtn.href = d.assignUrl;
+    }
+    if(stockBtn) stockBtn.classList.add('d-none-force'); 
+    if(mntBtn) mntBtn.classList.remove('d-none-force');
     
-    // Le asignamos el href al botón (anchor) del drawer tomando el valor guardado en la card
-    assignBtn.href = d.assignUrl;
-    
-    stockBtn.classList.add('d-none-force'); mntBtn.classList.remove('d-none-force');
     let mnts=[]; try{ mnts=JSON.parse(d.maintenances||'[]'); }catch(e){}
     if(mnts.length){
-      mntWrap.classList.remove('d-none-force');
+      if(mntWrap) mntWrap.classList.remove('d-none-force');
       document.getElementById('drawerMntList').innerHTML=mnts.map(m=>`<div class="mnt-item"><span>${m.date||''} · ${m.type||''}</span><span>${m.status||''}</span></div>`).join('');
-    } else mntWrap.classList.add('d-none-force');
-    const box=document.getElementById('qrCodeBox'); box.innerHTML='';
-    new QRCode(box,{text:d.qrText||('item:'+d.id),width:128,height:128,correctLevel:QRCode.CorrectLevel.H});
-    document.getElementById('qrName').textContent=d.name;
-    document.getElementById('qrSerial').textContent='S/N: '+(d.serial||d.tag||'—');
-    document.getElementById('qrModalTitle').textContent='Etiqueta — '+d.name;
+    } else {
+      if(mntWrap) mntWrap.classList.add('d-none-force');
+    }
+    
+    const box=document.getElementById('qrCodeBox');
+    if(box) {
+      box.innerHTML='';
+      new QRCode(box,{text:d.qrText||('item:'+d.id),width:128,height:128,correctLevel:QRCode.CorrectLevel.H});
+    }
+    const qrName=document.getElementById('qrName'); if(qrName) qrName.textContent=d.name;
+    const qrSerial=document.getElementById('qrSerial'); if(qrSerial) qrSerial.textContent='S/N: '+(d.serial||d.tag||'—');
+    const qrModalTitle=document.getElementById('qrModalTitle'); if(qrModalTitle) qrModalTitle.textContent='Etiqueta — '+d.name;
   }
   openDrawer();
 }
 
-/* ============ Acciones del drawer ============ */
-document.getElementById('drawerEditBtn').addEventListener('click',()=>{ if(currentCard) openEditModal(currentCard); });
-document.getElementById('drawerDeleteBtn').addEventListener('click',()=>{
+/* ============ Acciones del drawer (protegidas en JS por si no existen) ============ */
+document.getElementById('drawerEditBtn')?.addEventListener('click',()=>{ if(currentCard) openEditModal(currentCard); });
+document.getElementById('drawerDeleteBtn')?.addEventListener('click',()=>{
   if(!currentCard) return;
   document.getElementById('deleteForm').action=currentCard.dataset.deleteUrl;
   bootstrap.Modal.getOrCreateInstance(document.getElementById('confirmModal')).show();
 });
-document.getElementById('confirmDeleteBtn').addEventListener('click',()=>document.getElementById('deleteForm').submit());
+document.getElementById('confirmDeleteBtn')?.addEventListener('click',()=>document.getElementById('deleteForm').submit());
 
-document.getElementById('drawerStockBtn').addEventListener('click',()=>{
+document.getElementById('drawerStockBtn')?.addEventListener('click',()=>{
   if(!currentCard) return;
   document.getElementById('stockMoveForm').action=currentCard.dataset.stockUrl;
   bootstrap.Modal.getOrCreateInstance(document.getElementById('stockMoveModal')).show();
