@@ -85,7 +85,17 @@ class PropuestaComercialController extends Controller
     {
         return view('propuestas_comerciales.create');
     }
+    public function destroy(PropuestaComercial $propuestaComercial)
+    {
+        DB::transaction(function () use ($propuestaComercial) {
+            $propuestaComercial->items()->delete();
+            $propuestaComercial->delete();
+        });
 
+        return redirect()
+            ->route('propuestas-comerciales.index')
+            ->with('status', 'Cotización eliminada correctamente.');
+    }
     /**
      * Normaliza descripción y unidad para evitar crashes por:
      *  - IA que cruza los campos (devuelve descripción larga como "unidad")

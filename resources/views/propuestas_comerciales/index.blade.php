@@ -406,7 +406,7 @@
   }
   .jureto-dashboard-page .quote-head {
     display: grid;
-    grid-template-columns: minmax(190px, 230px) minmax(0, 1fr) 130px 120px 32px;
+    grid-template-columns: minmax(190px, 230px) minmax(0, 1fr) 130px 120px 84px;
     gap: 18px;
     padding: 14px 30px;
     background: #fafbfc;
@@ -422,13 +422,13 @@
   .jureto-dashboard-page .quote-head span:nth-child(3) { text-align: left; }
 
   .jureto-dashboard-page .quote-row {
+    position: relative;
     display: grid;
-    grid-template-columns: minmax(190px, 230px) minmax(0, 1fr) 130px 120px 32px;
+    grid-template-columns: minmax(190px, 230px) minmax(0, 1fr) 130px 120px 84px;
     align-items: center;
     gap: 18px;
     min-height: 78px;
     padding: 14px 30px;
-    text-decoration: none;
     color: inherit;
     border-bottom: 1px solid var(--line-soft);
     transition: background .18s ease;
@@ -436,6 +436,15 @@
   .jureto-dashboard-page .quote-row:last-child { border-bottom: 0; }
   @media (hover: hover) and (pointer: fine) {
     .jureto-dashboard-page .quote-row:hover { background: #fafbff; }
+  }
+
+  /* Stretched link makes the whole row navigable without wrapping the buttons */
+  .jureto-dashboard-page .quote-row-link {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: inherit;
+    text-decoration: none;
   }
 
   .jureto-dashboard-page .quote-id { display: flex; align-items: center; gap: 13px; }
@@ -520,6 +529,14 @@
   }
   .jureto-dashboard-page .quote-margin svg { width: 12px; height: 12px; }
   .jureto-dashboard-page .quote-margin.neg { color: var(--danger); }
+
+  /* ---------- Row actions (arrow + delete) ---------- */
+  .jureto-dashboard-page .quote-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+  }
   .jureto-dashboard-page .quote-arrow {
     color: #c2c5cc;
     display: grid; place-items: center;
@@ -528,6 +545,36 @@
   .jureto-dashboard-page .quote-arrow svg { width: 18px; height: 18px; }
   @media (hover: hover) and (pointer: fine) {
     .jureto-dashboard-page .quote-row:hover .quote-arrow { color: var(--blue); transform: translateX(4px); }
+  }
+
+  .jureto-dashboard-page .quote-del-form {
+    position: relative;
+    z-index: 2; /* sits above the stretched link so it stays clickable */
+    display: inline-flex;
+  }
+  .jureto-dashboard-page .quote-del-btn {
+    appearance: none;
+    width: 34px; height: 34px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: transparent;
+    color: #c2c5cc;
+    display: grid; place-items: center;
+    cursor: pointer;
+    transition: background .18s ease, color .18s ease, border-color .18s ease, transform .18s var(--ease-out);
+  }
+  .jureto-dashboard-page .quote-del-btn svg { width: 17px; height: 17px; }
+  .jureto-dashboard-page .quote-del-btn:active { transform: scale(.9); }
+  @media (hover: hover) and (pointer: fine) {
+    .jureto-dashboard-page .quote-del-btn:hover {
+      background: var(--danger-soft);
+      color: var(--danger);
+      border-color: #f7d4d5;
+    }
+  }
+  .jureto-dashboard-page .quote-del-btn:focus-visible {
+    outline: 2px solid var(--danger);
+    outline-offset: 2px;
   }
 
   /* ---------- Empty state ---------- */
@@ -601,7 +648,100 @@
     margin-top: 4px;
   }
 
-  .jureto-dashboard-page .pagination-wrap { margin-top: 28px; }
+  /* ---------- Pagination (custom, minimal) ---------- */
+  .jureto-dashboard-page .pagination-wrap {
+    margin-top: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    flex-wrap: wrap;
+  }
+  .jureto-dashboard-page .pager {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .jureto-dashboard-page .pager-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 40px;
+    padding: 0 16px;
+    border-radius: 12px;
+    border: 1px solid var(--line);
+    background: var(--card);
+    color: var(--ink-soft);
+    font-family: 'Quicksand', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    text-decoration: none;
+    box-shadow: 0 2px 6px rgba(0,0,0,.03);
+    transition: transform .18s var(--ease-out), border-color .2s ease, color .2s ease, box-shadow .2s ease;
+  }
+  .jureto-dashboard-page .pager-btn svg { width: 16px; height: 16px; }
+  @media (hover: hover) and (pointer: fine) {
+    .jureto-dashboard-page .pager-btn:not(.is-disabled):hover {
+      border-color: #d6d8dd;
+      color: #111;
+      transform: translateY(-1px);
+      box-shadow: 0 8px 18px rgba(20,20,40,.06);
+    }
+  }
+  .jureto-dashboard-page .pager-btn.is-disabled {
+    opacity: .45;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+  .jureto-dashboard-page .pager-nums {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin: 0 4px;
+  }
+  .jureto-dashboard-page .pager-num {
+    min-width: 40px;
+    height: 40px;
+    padding: 0 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 11px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--ink-soft);
+    font-family: 'Quicksand', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    text-decoration: none;
+    font-variant-numeric: tabular-nums;
+    transition: background .18s ease, color .18s ease, transform .18s var(--ease-out);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .jureto-dashboard-page .pager-num:not(.is-active):hover {
+      background: var(--blue-soft);
+      color: var(--blue);
+    }
+  }
+  .jureto-dashboard-page .pager-num.is-active {
+    background: var(--blue);
+    border-color: var(--blue);
+    color: #fff;
+    box-shadow: 0 8px 18px rgba(0,122,255,.22);
+    cursor: default;
+  }
+  .jureto-dashboard-page .pager-dots {
+    color: var(--muted);
+    padding: 0 4px;
+    font-weight: 700;
+  }
+  .jureto-dashboard-page .pager-meta {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .jureto-dashboard-page .pager-meta strong { color: var(--ink); font-weight: 700; }
 
   /* ---------- Responsive ---------- */
   @media (max-width: 1100px) {
@@ -614,7 +754,7 @@
     }
     .jureto-dashboard-page .quote-main { grid-column: 1 / -1; padding-left: 53px; }
     .jureto-dashboard-page .quote-money { grid-column: 2 / 3; }
-    .jureto-dashboard-page .quote-arrow { grid-column: 3 / 4; }
+    .jureto-dashboard-page .quote-actions { grid-column: 3 / 4; }
   }
 
   @media (max-width: 720px) {
@@ -628,9 +768,12 @@
     .jureto-dashboard-page .quote-row { grid-template-columns: 1fr auto; padding: 16px 18px; }
     .jureto-dashboard-page .quote-main { padding-left: 0; }
     .jureto-dashboard-page .quote-money { grid-column: 1 / 2; }
-    .jureto-dashboard-page .quote-arrow { grid-column: 2 / 3; grid-row: 1 / 4; align-self: center; }
+    .jureto-dashboard-page .quote-actions { grid-column: 2 / 3; grid-row: 1 / 4; align-self: center; }
     .jureto-dashboard-page .foot-metrics { grid-template-columns: 1fr; }
     .jureto-dashboard-page .panel { padding: 20px; }
+    .jureto-dashboard-page .pagination-wrap { justify-content: center; }
+    .jureto-dashboard-page .pager-btn .lbl { display: none; }
+    .jureto-dashboard-page .pager-btn { padding: 0 12px; }
   }
 
   /* ---------- Reduced motion ---------- */
@@ -807,8 +950,9 @@
       return mb_strtoupper($a . $b);
   };
 
-  $showRoute   = fn($p) => route('propuestas-comerciales.show', $p);
-  $createRoute = route('propuestas-comerciales.create');
+  $showRoute    = fn($p) => route('propuestas-comerciales.show', $p);
+  $destroyRoute = fn($p) => route('propuestas-comerciales.destroy', $p);
+  $createRoute  = route('propuestas-comerciales.create');
 @endphp
 
 <div class="jureto-dashboard-page">
@@ -965,7 +1109,10 @@
             $status = $proposal->status ?? 'draft';
           @endphp
 
-          <a href="{{ $showRoute($proposal) }}" class="quote-row">
+          <div class="quote-row">
+            {{-- Enlace que cubre toda la fila para abrir la cotización --}}
+            <a href="{{ $showRoute($proposal) }}" class="quote-row-link" aria-label="Ver {{ $proposalFolio($proposal) }}"></a>
+
             <div class="quote-id">
               <span class="avatar">{{ $initials($proposalFolio($proposal)) }}</span>
               <div>
@@ -993,10 +1140,20 @@
               </div>
             </div>
 
-            <div class="quote-arrow">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            <div class="quote-actions">
+              <span class="quote-arrow">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+              </span>
+              <form action="{{ $destroyRoute($proposal) }}" method="POST" class="quote-del-form"
+                    onsubmit="return confirm('¿Eliminar esta cotización? Esta acción no se puede deshacer.');">
+                @csrf
+                @method('DELETE')
+                <button type="submit" class="quote-del-btn" aria-label="Eliminar cotización" title="Eliminar">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                </button>
+              </form>
             </div>
-          </a>
+          </div>
         @endforeach
       </div>
     @else
@@ -1046,8 +1203,70 @@
       </div>
     </div>
 
-    @if($isPaginator)
-      <div class="pagination-wrap">{{ $proposalsSource->links() }}</div>
+    {{-- Pagination (minimalista, personalizada) --}}
+    @if($isPaginator && $proposalsSource->lastPage() > 1)
+      @php
+        $last  = $proposalsSource->lastPage();
+        $cur   = $proposalsSource->currentPage();
+        $win   = 1; // páginas a cada lado de la actual
+        $start = max(1, $cur - $win);
+        $end   = min($last, $cur + $win);
+      @endphp
+      <nav class="pagination-wrap reveal" style="animation-delay:560ms" aria-label="Paginación de cotizaciones">
+        <div class="pager">
+          {{-- Anterior --}}
+          @if($proposalsSource->onFirstPage())
+            <span class="pager-btn is-disabled" aria-disabled="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+              <span class="lbl">Anterior</span>
+            </span>
+          @else
+            <a class="pager-btn" href="{{ $proposalsSource->previousPageUrl() }}" rel="prev">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+              <span class="lbl">Anterior</span>
+            </a>
+          @endif
+
+          {{-- Números --}}
+          <div class="pager-nums">
+            @if($start > 1)
+              <a class="pager-num" href="{{ $proposalsSource->url(1) }}">1</a>
+              @if($start > 2)<span class="pager-dots">…</span>@endif
+            @endif
+
+            @for($page = $start; $page <= $end; $page++)
+              @if($page == $cur)
+                <span class="pager-num is-active" aria-current="page">{{ $page }}</span>
+              @else
+                <a class="pager-num" href="{{ $proposalsSource->url($page) }}">{{ $page }}</a>
+              @endif
+            @endfor
+
+            @if($end < $last)
+              @if($end < $last - 1)<span class="pager-dots">…</span>@endif
+              <a class="pager-num" href="{{ $proposalsSource->url($last) }}">{{ $last }}</a>
+            @endif
+          </div>
+
+          {{-- Siguiente --}}
+          @if($proposalsSource->hasMorePages())
+            <a class="pager-btn" href="{{ $proposalsSource->nextPageUrl() }}" rel="next">
+              <span class="lbl">Siguiente</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </a>
+          @else
+            <span class="pager-btn is-disabled" aria-disabled="true">
+              <span class="lbl">Siguiente</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </span>
+          @endif
+        </div>
+
+        <p class="pager-meta">
+          Mostrando <strong>{{ $proposalsSource->firstItem() }}</strong>–<strong>{{ $proposalsSource->lastItem() }}</strong>
+          de <strong>{{ $proposalsSource->total() }}</strong>
+        </p>
+      </nav>
     @endif
 
   </div>

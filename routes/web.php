@@ -2241,3 +2241,5 @@ Route::middleware(['auth'])->prefix('maintenance')->name('maintenance.')->group(
     Route::put('/{maintenance}/complete', [MaintenanceController::class, 'complete'])->name('complete');
     Route::delete('/{maintenance}', [MaintenanceController::class, 'destroy'])->name('destroy');
 });
+Route::delete('/propuestas-comerciales/{propuestaComercial}', [PropuestaComercialController::class, 'destroy'])
+    ->name('propuestas-comerciales.destroy');
