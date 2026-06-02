@@ -115,6 +115,32 @@
   .mnt-item{ display:flex; justify-content:space-between; gap:8px; padding:8px 0; border-bottom:1px solid var(--line); font-size:13px; }
   .mnt-item:last-child{ border-bottom:none; }
 
+  /* ===== Sección de Asignación / Devolución (drawer) ===== */
+  .asg-box{ background:var(--bg); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:20px; }
+  .asg-box .asg-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:12px; }
+  .asg-box .asg-head .t{ font-size:12px; font-weight:700; text-transform:uppercase; color:var(--ink); letter-spacing:.03em; }
+  .asg-status{ display:inline-flex; align-items:center; gap:4px; border-radius:6px; padding:3px 8px; font-size:11px; font-weight:700; text-transform:uppercase; }
+  .asg-status.activa{ color:var(--blue); background:var(--blue-soft); }
+  .asg-status.devuelto{ color:var(--success); background:var(--success-soft); }
+  .asg-status.otro{ color:var(--warning); background:var(--warning-soft); }
+  .asg-row{ display:flex; justify-content:space-between; gap:12px; padding:7px 0; border-bottom:1px solid var(--line); font-size:13px; }
+  .asg-row:last-child{ border-bottom:none; }
+  .asg-row .k{ color:var(--muted); font-weight:600; flex:0 0 auto; }
+  .asg-row .v{ color:var(--text); font-weight:600; text-align:right; word-break:break-word; }
+  .asg-pill{ display:inline-flex; align-items:center; gap:4px; border-radius:999px; padding:2px 10px; font-size:11px; font-weight:700; }
+  .asg-pill.si{ color:var(--success); background:var(--success-soft); }
+  .asg-pill.no{ color:var(--danger); background:var(--danger-soft); }
+  .asg-pill.na{ color:var(--muted); background:#f3f4f6; }
+  .asg-chk{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .asg-imgs{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:10px; }
+  .asg-imgs a{ display:block; border-radius:8px; overflow:hidden; border:1px solid var(--line); aspect-ratio:1/1; background:var(--card); }
+  .asg-imgs img{ width:100%; height:100%; object-fit:cover; transition:transform .2s var(--ease-out); }
+  @media (hover:hover){ .asg-imgs a:hover img{ transform:scale(1.05); } }
+  .asg-sign{ margin-top:10px; }
+  .asg-sign img{ width:100%; max-height:120px; object-fit:contain; background:#fff; border:1px solid var(--line); border-radius:8px; padding:6px; }
+  .asg-empty{ color:var(--muted); font-size:13px; padding:4px 0; }
+  .asg-sub{ font-size:11px; font-weight:700; text-transform:uppercase; color:var(--muted); margin:14px 0 6px; }
+
   /* --- Botones Estilo Imagen (Drawer) --- */
   .drawer-actions { display:flex; flex-direction:column; gap:12px; padding-top:24px; border-top:1px solid var(--line); }
   .drawer-row { display:flex; gap:10px; width:100%; }
@@ -194,6 +220,7 @@
   $consumables = $consumables ?? collect();
   $fixedCount = $fixedCount ?? $fixedAssets->count();
   $consumableCount = $consumableCount ?? $consumables->count();
+  $assignmentsByItem = $assignmentsByItem ?? collect();
 
   function statusBadgeClass($status){
       return match($status){
@@ -211,6 +238,48 @@
           default => 'Disponible'
       };
   }
+
+  function buildAssignmentData($asg){
+      if (!$asg) return null;
+
+      $rImgs = $asg->return_images;
+      $rImgs = is_string($rImgs) ? (json_decode($rImgs, true) ?: []) : ($rImgs ?? []);
+      $rImgUrls = array_values(array_map(function($p){
+          return \Illuminate\Support\Str::startsWith($p, ['http','/storage']) ? $p : asset('storage/'.$p);
+      }, $rImgs ?: []));
+
+      $rChk = $asg->return_checklist;
+      $rChk = is_string($rChk) ? (json_decode($rChk, true) ?: []) : ($rChk ?? []);
+      $dChk = $asg->delivery_checklist;
+      $dChk = is_string($dChk) ? (json_decode($dChk, true) ?: []) : ($dChk ?? []);
+
+      $sig = $asg->signature_image ?? null;
+      if (!$sig && !empty($asg->signature)) { $sig = $asg->signature; }
+      if ($sig && !\Illuminate\Support\Str::startsWith($sig, ['data:','http','/storage'])) { $sig = asset('storage/'.$sig); }
+
+      return [
+          'id'              => $asg->id,
+          'status'          => strtolower((string)($asg->status ?? 'activa')),
+          'folio'           => $asg->folio ?? '',
+          'userName'        => optional($asg->user)->name ?? 'Sin responsable',
+          'userEmail'       => optional($asg->user)->email ?? '',
+          'assignedAt'      => $asg->assigned_at ? \Carbon\Carbon::parse($asg->assigned_at)->format('d/m/Y H:i') : '',
+          'quantity'        => $asg->quantity ?? 1,
+          'deliveredBy'     => optional($asg->deliveredBy)->name ?? '',
+          'receivedBy'      => optional($asg->receivedBy)->name ?? '',
+          'signedAt'        => $asg->signed_at ? \Carbon\Carbon::parse($asg->signed_at)->format('d/m/Y H:i') : '',
+          'signerName'      => $asg->signer_name ?? '',
+          'signatureImage'  => $sig ?: '',
+          'deliveryChecklist'=> $dChk ?: (object)[],
+          'returnedAt'      => $asg->returned_at ? \Carbon\Carbon::parse($asg->returned_at)->format('d/m/Y H:i') : '',
+          'returnCondition' => $asg->return_condition ?? '',
+          'returnReason'    => $asg->return_reason ?? '',
+          'returnDetails'   => $asg->return_details ?? '',
+          'returnChecklist' => $rChk ?: (object)[],
+          'returnImages'    => $rImgUrls,
+          'pdfUrl'          => \Illuminate\Support\Facades\Route::has('assets.assignments.pdf') ? route('assets.assignments.pdf', $asg->id) : null,
+      ];
+  }
 @endphp
 
 <div class="inventory-page">
@@ -223,7 +292,6 @@
       </div>
     </div>
     <div class="head-actions">
-      <a href="{{ route('maintenance.index') }}" class="btn-soft"><i class="bi bi-tools"></i><span>Mantenimiento</span></a>
       <button type="button" class="btn-soft" id="btnExport"><i class="bi bi-filetype-csv"></i><span>Exportar</span></button>
       <button type="button" class="btn-soft" id="btnPrintLabels"><i class="bi bi-printer"></i><span>Etiquetas</span></button>
       <button type="button" class="btn-new" id="btnNew"><i class="bi bi-plus-lg"></i><span>Nuevo Registro</span></button>
@@ -280,6 +348,7 @@
               'type'=>ucfirst($m->type),
               'status'=>$m->status,
             ])->values();
+            $asgData = buildAssignmentData($assignmentsByItem->get($item->id));
           @endphp
           <div class="asset-card js-item-card reveal-item"
                data-tab="activo_fijo" data-id="{{ $item->id }}" data-name="{{ $item->name }}"
@@ -298,10 +367,11 @@
                data-unit="{{ $item->unit }}" data-stock="{{ (int)$item->stock }}" data-stock-min="0" data-stock-max="0"
                data-photo="{{ $item->photo ? asset('storage/'.$item->photo) : '' }}"
                data-delete-url="{{ route('assets.destroy', $item->id) }}"
-               data-assign-url="{{ url('/assets/asignar', $item->id) }}"
+               data-assign-url="{{ url('/internal-assets/assignments') }}"
                data-qr-text="{{ route('assets.board').'?item='.$item->id }}"
                data-tag="{{ $tag }}" data-is-consumable="0"
                data-maintenances='@json($mnts)'
+               data-assignment='@json($asgData)'
                data-search="{{ strtolower(trim(($item->name).' '.($item->brand).' '.($item->model).' '.($item->serial_number))) }}"
                data-sort-name="{{ strtolower($item->name) }}">
             <div class="asset-media">
@@ -645,6 +715,9 @@
       <div class="mnt-list" id="drawerMntList"></div>
     </div>
 
+    {{-- ===== Sección de Asignación / Devolución ===== --}}
+    <div id="drawerAssignmentSection"></div>
+
     <div class="drawer-actions">
       
       @if(auth()->check() && auth()->user()->hasRole('admin'))
@@ -839,6 +912,95 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeDrawer(); });
 
 document.querySelectorAll('.js-item-card').forEach(card=>card.addEventListener('click',()=>fillDrawer(card)));
 
+/* ============ Render de Asignación / Devolución ============ */
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+const RETURN_CHK_LABELS={
+  enciende:'Enciende', sin_contrasena:'Sin contraseña', rayones:'Sin rayones',
+  completo:'Completo', funcional:'Funcional', limpio:'Limpio'
+};
+
+function asgRow(k,v){ return `<div class="asg-row"><span class="k">${esc(k)}</span><span class="v">${v}</span></div>`; }
+function renderChecklist(obj){
+  if(!obj || typeof obj!=='object') return '';
+  const keys=Object.keys(obj); if(!keys.length) return '';
+  return `<div class="asg-chk">${keys.map(k=>{
+    const label=RETURN_CHK_LABELS[k]||k.replace(/_/g,' ');
+    const v=obj[k];
+    const cls=(v===true||v==='1'||v===1)?'si':((v===false||v==='0'||v===0)?'no':'na');
+    return `<span class="asg-pill ${cls}">${esc(label)}</span>`;
+  }).join('')}</div>`;
+}
+
+function renderAssignment(card){
+  const wrap=document.getElementById('drawerAssignmentSection');
+  if(!wrap) return;
+  let a=null;
+  try{ a=JSON.parse(card.dataset.assignment||'null'); }catch(e){ a=null; }
+
+  if(!a){
+    wrap.innerHTML=`
+      <div class="drawer-section-title">Asignación</div>
+      <div class="asg-box"><div class="asg-empty"><i class="bi bi-info-circle"></i> Este activo no tiene asignaciones registradas.</div></div>`;
+    return;
+  }
+
+  const st=(a.status||'').toLowerCase();
+  const isReturned = st==='devuelto' || st==='devuelta' || !!a.returnedAt;
+  const stClass = isReturned ? 'devuelto' : ((st==='activa'||st==='asignado'||st==='asignada') ? 'activa' : 'otro');
+  const stLabel = isReturned ? 'Devuelto' : ((st==='activa'||st==='asignado'||st==='asignada') ? 'Activa' : (a.status||'—'));
+
+  /* ---- Bloque Asignación ---- */
+  let html = `<div class="drawer-section-title">Asignación</div><div class="asg-box">`;
+  html += `<div class="asg-head"><span class="t"><i class="bi bi-person-badge"></i> Datos de entrega</span><span class="asg-status ${stClass}">${esc(stLabel)}</span></div>`;
+  if(a.folio)        html += asgRow('Folio', esc(a.folio));
+  html += asgRow('Asignado a', esc(a.userName||'—'));
+  if(a.userEmail)    html += asgRow('Correo', esc(a.userEmail));
+  if(a.assignedAt)   html += asgRow('Fecha de asignación', esc(a.assignedAt));
+  html += asgRow('Cantidad', esc(a.quantity||1));
+  if(a.deliveredBy)  html += asgRow('Quién entrega', esc(a.deliveredBy));
+  if(a.receivedBy)   html += asgRow('Quién recibe', esc(a.receivedBy));
+  if(a.signerName)   html += asgRow('Firmado por', esc(a.signerName));
+  if(a.signedAt)     html += asgRow('Fecha de firma', esc(a.signedAt));
+
+  const dChk = renderChecklist(a.deliveryChecklist);
+  if(dChk){ html += `<div class="asg-sub">Checklist de entrega</div>${dChk}`; }
+
+  if(a.signatureImage){
+    html += `<div class="asg-sub">Firma</div><div class="asg-sign"><img src="${esc(a.signatureImage)}" alt="Firma"></div>`;
+  }
+  html += `</div>`;
+
+  /* ---- Bloque Devolución ---- */
+  if(isReturned){
+    html += `<div class="drawer-section-title">Devolución</div><div class="asg-box">`;
+    html += `<div class="asg-head"><span class="t"><i class="bi bi-box-arrow-in-left"></i> Datos de devolución</span></div>`;
+    if(a.returnedAt)      html += asgRow('Fecha de devolución', esc(a.returnedAt));
+    if(a.returnCondition) html += asgRow('Condición', esc(a.returnCondition));
+    if(a.returnReason)    html += asgRow('Motivo', esc(a.returnReason));
+    if(a.returnDetails)   html += asgRow('Detalles', esc(a.returnDetails));
+
+    const rChk = renderChecklist(a.returnChecklist);
+    if(rChk){ html += `<div class="asg-sub">Checklist de devolución</div>${rChk}`; }
+
+    if(Array.isArray(a.returnImages) && a.returnImages.length){
+      html += `<div class="asg-sub">Evidencia fotográfica</div><div class="asg-imgs">`;
+      a.returnImages.forEach(src=>{
+        html += `<a href="${esc(src)}" target="_blank" rel="noopener"><img src="${esc(src)}" alt="Evidencia" loading="lazy"></a>`;
+      });
+      html += `</div>`;
+    }
+    html += `</div>`;
+  }
+
+  /* ---- Botón PDF ---- */
+  if(a.pdfUrl){
+    html += `<a href="${esc(a.pdfUrl)}" target="_blank" rel="noopener" class="btn-action-secondary" style="margin-bottom:8px;"><i class="bi bi-file-earmark-pdf"></i> Ver acta / PDF</a>`;
+  }
+
+  wrap.innerHTML=html;
+}
+
 function fillDrawer(card){
   currentCard=card; const d=card.dataset; const isCons=d.isConsumable==='1';
   document.getElementById('itemDrawerLabel').textContent=d.name||'Detalle';
@@ -857,6 +1019,7 @@ function fillDrawer(card){
   const fixedGrid=document.getElementById('fixedInfoGrid'), stockBox=document.getElementById('consumableStockBox');
   const qrBtn=document.getElementById('drawerQrBtn'), assignBtn=document.getElementById('drawerAssignBtn');
   const stockBtn=document.getElementById('drawerStockBtn'), mntBtn=document.getElementById('drawerMntBtn'), mntWrap=document.getElementById('drawerMntWrap');
+  const asgSection=document.getElementById('drawerAssignmentSection');
 
   if(isCons){
     fixedGrid.classList.add('d-none-force'); stockBox.classList.remove('d-none-force');
@@ -865,6 +1028,7 @@ function fillDrawer(card){
     if(stockBtn) stockBtn.classList.remove('d-none-force'); 
     if(mntBtn) mntBtn.classList.add('d-none-force'); 
     if(mntWrap) mntWrap.classList.add('d-none-force');
+    if(asgSection) asgSection.innerHTML='';
     
     const stock=Number(d.stock),min=Number(d.stockMin),max=Number(d.stockMax);
     document.getElementById('drawerStockNow').textContent=stock;
@@ -890,6 +1054,8 @@ function fillDrawer(card){
     } else {
       if(mntWrap) mntWrap.classList.add('d-none-force');
     }
+
+    renderAssignment(card);
     
     const box=document.getElementById('qrCodeBox');
     if(box) {

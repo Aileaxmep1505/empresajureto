@@ -1127,6 +1127,14 @@
         </svg>
         <span>Almacén</span>
       </a>
+      <a href="{{ url('/internal-assets') }}" class="nav__link {{ request()->is('internal-assets*') || request()->routeIs('assets.board') ? 'is-active':'' }}">
+  <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
+    <rect x="3" y="4" width="18" height="6" rx="1.5"></rect>
+    <rect x="3" y="14" width="18" height="6" rx="1.5"></rect>
+    <path d="M7 7h.01"></path><path d="M7 17h.01"></path>
+  </svg>
+  <span>Activos e Inventario</span>
+</a>
 
       <a href="{{ route('accounting.dashboard') }}" class="nav__link {{ request()->routeIs('accounting.dashboard') ? 'is-active':'' }}">
         <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">

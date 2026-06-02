@@ -2184,7 +2184,6 @@ Route::delete('/remisiones/{remision}', [RemisionController::class, 'destroy'])-
 Route::get('/remisiones/{remision}/pdf', [RemisionController::class, 'pdf'])->name('remisiones.pdf');
 Route::post('/propuesta-fallos/{fallo}/ocr', [PropuestaFalloController::class, 'runOcr'])
     ->name('propuesta-fallos.ocr');
-
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\InventoryCategoryController;
 use App\Http\Controllers\InventoryAssignmentController;
@@ -2219,11 +2218,20 @@ Route::middleware(['auth'])->prefix('internal-assets')->name('assets.')->group(f
         Route::post('/', [InventoryAssignmentController::class, 'store'])->name('store');
         Route::get('/{assignment}/pdf', [InventoryAssignmentController::class, 'pdf'])->name('pdf');
         Route::post('/{assignment}/return', [InventoryAssignmentController::class, 'returnAsset'])->name('return');
+        Route::get('/{assignment}/sign-status', [InventoryAssignmentController::class, 'signStatus'])->name('sign-status'); // ✅ polling en tiempo real
     });
+
     Route::post('/save', [InventoryController::class, 'save'])->name('save');
-Route::post('/{item}/stock-move', [InventoryController::class, 'stockMove'])->name('stock-move');
+    Route::post('/{item}/stock-move', [InventoryController::class, 'stockMove'])->name('stock-move');
 
 });
+
+// ✅ Firma pública por token (SIN login) — el responsable firma desde su celular
+Route::prefix('firmar')->name('assignments.public.')->group(function () {
+    Route::get('/{token}',  [InventoryAssignmentController::class, 'signShow'])->name('show');
+    Route::post('/{token}', [InventoryAssignmentController::class, 'signStore'])->name('store');
+});
+
 use App\Http\Controllers\MaintenanceController;
 
 Route::middleware(['auth'])->prefix('maintenance')->name('maintenance.')->group(function () {

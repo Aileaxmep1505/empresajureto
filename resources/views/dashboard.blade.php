@@ -800,6 +800,7 @@
             $makeItem('Catálogo', 'view_in_ar', 'products.index'),
             $makeItem('Fichas técnicas', 'list_alt', 'tech-sheets.index'),
             $makeItem('Almacén', 'warehouse', 'admin.wms.home'),
+            $makeItem('Activos e Inventario', 'inventory_2', null, url('/internal-assets')),
         ]));
 
         $operaciones = array_values(array_filter([

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\InventoryItem;
 use App\Models\InventoryCategory;
 use App\Models\InventoryAssignment;
+use App\Models\StockMovement;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -126,7 +127,6 @@ class InventoryController extends Controller
 
             'photo' => 'nullable|image|max:4096',
 
-            // Campos extra
             'internal_code' => 'nullable|string|max:255',
             'department' => 'nullable|string|max:255',
             'supplier' => 'nullable|string|max:255',
@@ -197,7 +197,6 @@ class InventoryController extends Controller
             'photo' => 'nullable|image|max:4096',
             'remove_photo' => 'nullable|boolean',
 
-            // Campos extra
             'internal_code' => 'nullable|string|max:255',
             'department' => 'nullable|string|max:255',
             'supplier' => 'nullable|string|max:255',
@@ -294,124 +293,134 @@ class InventoryController extends Controller
     }
 
     public function board()
-{
-    $items = InventoryItem::with(['category', 'maintenances'])
-        ->orderByDesc('id')
-        ->get();
+    {
+        $items = InventoryItem::with(['category', 'maintenances'])
+            ->orderByDesc('id')
+            ->get();
 
-    $fixedAssets = $items->where('type', 'activo_fijo')->values();
-    $consumables = $items->where('type', 'consumible')->values();
+        $fixedAssets = $items->where('type', 'activo_fijo')->values();
+        $consumables = $items->where('type', 'consumible')->values();
 
-    $categories = InventoryCategory::orderBy('name')->get();
-    $users = User::orderBy('name')->get();
+        $categories = InventoryCategory::orderBy('name')->get();
+        $users = User::orderBy('name')->get();
 
-    return view('inventory.board', [
-        'items' => $items,
-        'fixedAssets' => $fixedAssets,
-        'consumables' => $consumables,
-        'categories' => $categories,
-        'users' => $users,
-        'fixedCount' => $fixedAssets->count(),
-        'consumableCount' => $consumables->count(),
-    ]);
-}
+        // Última asignación (con relaciones) por artículo, para el drawer.
+        $assignmentsByItem = InventoryAssignment::with(['user', 'deliveredBy', 'receivedBy'])
+            ->whereIn('inventory_item_id', $items->pluck('id'))
+            ->orderByDesc('assigned_at')
+            ->get()
+            ->groupBy('inventory_item_id')
+            ->map(fn($group) => $group->first());
 
-public function save(Request $request)
-{
-    $id = $request->input('item_id');
-    $item = $id ? InventoryItem::findOrFail($id) : null;
-
-    $data = $request->validate([
-        'inventory_category_id' => 'required|exists:inventory_categories,id',
-        'type' => 'required|in:activo_fijo,consumible',
-        'name' => 'required|string|max:255',
-        'unit' => 'nullable|string|max:50',
-        'stock' => 'required|integer|min:0',
-        'location' => 'nullable|string|max:255',
-        'notes' => 'nullable|string',
-        'asset_status' => 'nullable|in:disponible,asignado,en_reparacion,dado_de_baja',
-        'condition' => 'nullable|in:nuevo,bueno,regular,malo',
-        'brand' => 'nullable|string|max:255',
-        'model' => 'nullable|string|max:255',
-        'serial_number' => 'nullable|string|max:255|unique:inventory_items,serial_number' . ($id ? ',' . $id : ''),
-        'internal_code' => 'nullable|string|max:255|unique:inventory_items,internal_code' . ($id ? ',' . $id : ''),
-        'stock_min' => 'nullable|integer|min:0',
-        'stock_max' => 'nullable|integer|min:0',
-        'photo' => 'nullable|image|max:4096',
-        'remove_photo' => 'nullable|boolean',
-        'department' => 'nullable|string|max:255',
-        'supplier' => 'nullable|string|max:255',
-        'purchase_date' => 'nullable|date',
-        'purchase_cost' => 'nullable|numeric|min:0',
-        'warranty_until' => 'nullable|date',
-        'processor' => 'nullable|string|max:255',
-        'ram' => 'nullable|string|max:255',
-        'storage' => 'nullable|string|max:255',
-        'operating_system' => 'nullable|string|max:255',
-        'mac_address' => 'nullable|string|max:255',
-    ], [], ['serial_number' => 'número de serie', 'internal_code' => 'código interno']);
-
-    if ($data['type'] === 'activo_fijo') {
-        $data['stock_min'] = 0;
-        $data['stock_max'] = 0;
-        if (empty($data['asset_status'])) $data['asset_status'] = 'disponible';
-    } else {
-        $data['asset_status'] = null;
-        $data['condition'] = null;
-        $data['brand'] = null;
-        $data['model'] = null;
-        $data['serial_number'] = null;
-        $data['stock_min'] = (int)($data['stock_min'] ?? 0);
-        $data['stock_max'] = (int)($data['stock_max'] ?? 0);
+        return view('inventory.board', [
+            'items' => $items,
+            'fixedAssets' => $fixedAssets,
+            'consumables' => $consumables,
+            'categories' => $categories,
+            'users' => $users,
+            'fixedCount' => $fixedAssets->count(),
+            'consumableCount' => $consumables->count(),
+            'assignmentsByItem' => $assignmentsByItem,
+        ]);
     }
 
-    if ($item && $request->boolean('remove_photo') && $item->photo) {
-        Storage::disk('public')->delete($item->photo);
-        $data['photo'] = null;
+    public function save(Request $request)
+    {
+        $id = $request->input('item_id');
+        $item = $id ? InventoryItem::findOrFail($id) : null;
+
+        $data = $request->validate([
+            'inventory_category_id' => 'required|exists:inventory_categories,id',
+            'type' => 'required|in:activo_fijo,consumible',
+            'name' => 'required|string|max:255',
+            'unit' => 'nullable|string|max:50',
+            'stock' => 'required|integer|min:0',
+            'location' => 'nullable|string|max:255',
+            'notes' => 'nullable|string',
+            'asset_status' => 'nullable|in:disponible,asignado,en_reparacion,dado_de_baja',
+            'condition' => 'nullable|in:nuevo,bueno,regular,malo',
+            'brand' => 'nullable|string|max:255',
+            'model' => 'nullable|string|max:255',
+            'serial_number' => 'nullable|string|max:255|unique:inventory_items,serial_number' . ($id ? ',' . $id : ''),
+            'internal_code' => 'nullable|string|max:255|unique:inventory_items,internal_code' . ($id ? ',' . $id : ''),
+            'stock_min' => 'nullable|integer|min:0',
+            'stock_max' => 'nullable|integer|min:0',
+            'photo' => 'nullable|image|max:4096',
+            'remove_photo' => 'nullable|boolean',
+            'department' => 'nullable|string|max:255',
+            'supplier' => 'nullable|string|max:255',
+            'purchase_date' => 'nullable|date',
+            'purchase_cost' => 'nullable|numeric|min:0',
+            'warranty_until' => 'nullable|date',
+            'processor' => 'nullable|string|max:255',
+            'ram' => 'nullable|string|max:255',
+            'storage' => 'nullable|string|max:255',
+            'operating_system' => 'nullable|string|max:255',
+            'mac_address' => 'nullable|string|max:255',
+        ], [], ['serial_number' => 'número de serie', 'internal_code' => 'código interno']);
+
+        if ($data['type'] === 'activo_fijo') {
+            $data['stock_min'] = 0;
+            $data['stock_max'] = 0;
+            if (empty($data['asset_status'])) $data['asset_status'] = 'disponible';
+        } else {
+            $data['asset_status'] = null;
+            $data['condition'] = null;
+            $data['brand'] = null;
+            $data['model'] = null;
+            $data['serial_number'] = null;
+            $data['stock_min'] = (int)($data['stock_min'] ?? 0);
+            $data['stock_max'] = (int)($data['stock_max'] ?? 0);
+        }
+
+        if ($item && $request->boolean('remove_photo') && $item->photo) {
+            Storage::disk('public')->delete($item->photo);
+            $data['photo'] = null;
+        }
+        if ($request->hasFile('photo')) {
+            if ($item && $item->photo) Storage::disk('public')->delete($item->photo);
+            $data['photo'] = $request->file('photo')->store('inventory', 'public');
+        }
+        unset($data['remove_photo']);
+
+        if ($item) {
+            $item->update($data);
+            $msg = 'Artículo actualizado.';
+        } else {
+            InventoryItem::create($data);
+            $msg = 'Artículo creado.';
+        }
+
+        return redirect()->route('assets.board')->with('ok', $msg);
     }
-    if ($request->hasFile('photo')) {
-        if ($item && $item->photo) Storage::disk('public')->delete($item->photo);
-        $data['photo'] = $request->file('photo')->store('inventory', 'public');
+
+    public function stockMove(Request $request, InventoryItem $item)
+    {
+        $data = $request->validate([
+            'movement_type' => 'required|in:entrada,salida',
+            'quantity' => 'required|integer|min:1',
+            'reason' => 'nullable|string|max:255',
+        ]);
+
+        if ($data['movement_type'] === 'salida' && (int)$item->stock < (int)$data['quantity']) {
+            return back()->with('bad', 'Stock insuficiente para la salida.');
+        }
+
+        $data['movement_type'] === 'entrada'
+            ? $item->increment('stock', $data['quantity'])
+            : $item->decrement('stock', $data['quantity']);
+
+        StockMovement::create([
+            'inventory_item_id' => $item->id,
+            'user_id' => auth()->id(),
+            'movement_type' => $data['movement_type'],
+            'quantity' => $data['quantity'],
+            'reason' => $data['reason'] ?? null,
+        ]);
+
+        return redirect()->route('assets.board')->with('ok', 'Movimiento de stock registrado.');
     }
-    unset($data['remove_photo']);
 
-    if ($item) {
-        $item->update($data);
-        $msg = 'Artículo actualizado.';
-    } else {
-        InventoryItem::create($data);
-        $msg = 'Artículo creado.';
-    }
-
-    return redirect()->route('assets.board')->with('ok', $msg);
-}
-
-public function stockMove(Request $request, InventoryItem $item)
-{
-    $data = $request->validate([
-        'movement_type' => 'required|in:entrada,salida',
-        'quantity' => 'required|integer|min:1',
-        'reason' => 'nullable|string|max:255',
-    ]);
-
-    if ($data['movement_type'] === 'salida' && (int)$item->stock < (int)$data['quantity']) {
-        return back()->with('bad', 'Stock insuficiente para la salida.');
-    }
-
-    $data['movement_type'] === 'entrada'
-        ? $item->increment('stock', $data['quantity'])
-        : $item->decrement('stock', $data['quantity']);
-
-    StockMovement::create([
-        'inventory_item_id' => $item->id,
-        'user_id' => auth()->id(),
-        'movement_type' => $data['movement_type'],
-        'quantity' => $data['quantity'],
-        'reason' => $data['reason'] ?? null,
-    ]);
-
-    return redirect()->route('assets.board')->with('ok', 'Movimiento de stock registrado.');
-}
     public function userPdf($userId)
     {
         $user = User::findOrFail($userId);
