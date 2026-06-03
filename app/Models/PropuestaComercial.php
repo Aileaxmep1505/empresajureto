@@ -54,4 +54,10 @@ class PropuestaComercial extends Model
     {
         return $this->hasMany(Adjudicacion::class, 'propuesta_comercial_id');
     }
+    public function aclaracionPreguntas()
+{
+    return $this->hasMany(\App\Models\PropuestaAclaracionPregunta::class)
+        ->orderBy('sort')
+        ->orderBy('id');
+}
 }

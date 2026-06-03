@@ -2,14 +2,294 @@
 @section('content_class', 'content--flush')
 @section('content')
 
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f8fafc;
+    --card: #ffffff;
+    --input-bg: #ffffff;
+    --ink-dark: #0f172a;
+    --ink: #334155;
+    --muted: #64748b;
+    --muted-light: #94a3b8;
+    --line: #e2e8f0;
+    --blue: #007aff;
+    --blue-hover: #005bb5;
+    --blue-soft: #eff6ff;
+    --success: #4d823b; 
+    --success-soft: #f0fdf4;
+    --danger: #ef4444;
+    --danger-soft: #fef2f2;
+    --warning: #c74a14;
+    --warning-hover: #a3390c;
+    --warning-soft: #fff7ed;
+    
+    --font-family: 'Quicksand', sans-serif;
+    --radius-card: 12px;
+    --radius-modal: 16px; 
+    --radius-input: 8px;
+    --radius-btn: 8px;
+  }
 
-    <link rel="stylesheet" href="{{ asset('css/cotizacion.css') }}?v={{ time() }}">
+  /* Base & Typography */
+  .jureto-quote-page { font-family: var(--font-family); background-color: var(--bg); color: var(--ink); min-height: 100vh; padding: 32px 24px; }
+  .jureto-quote-page * { box-sizing: border-box; }
+  .quote-wrap { max-width: 1100px; margin: 0 auto; }
+  .jureto-quote-page h1, .jureto-quote-page h2, .jureto-quote-page h3 { color: var(--ink-dark); font-weight: 700; margin: 0; }
+  .jureto-quote-page a { text-decoration: none; }
+
+  /* Topbar Moderno */
+  .back-link { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-weight: 600; font-size: 14px; margin-bottom: 24px; transition: color 0.2s; }
+  .back-link:hover { color: var(--ink-dark); }
+  .topbar-modern { display: flex; flex-direction: column; margin-bottom: 32px; }
+  .quote-code { font-size: 13px; font-weight: 700; color: var(--muted); letter-spacing: 0.5px; margin-bottom: 8px; text-transform: uppercase; }
+    /* Back link + folio en la misma línea */
+  .quote-topline { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .quote-topline .back-link { margin-bottom: 0; }
+  .quote-topline .quote-code { margin-bottom: 0; }
+  .topline-divider { width: 1px; height: 16px; background: var(--line); flex-shrink: 0; }
+  .quote-title { font-size: 28px; margin-bottom: 8px; color: var(--ink-dark); }
+  .quote-subtitle { font-size: 14px; color: var(--muted); margin: 0 0 24px 0; font-weight: 500; }
+   .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .actions-group { display: inline-flex; gap: 8px; align-items: center; }
+  .actions-divider { width: 1px; height: 22px; background: var(--line); margin: 0 4px; flex-shrink: 0; }
+  .actions-spacer { flex: 1 1 auto; }
+  @media (max-width: 720px) {
+    .actions-spacer { display: none; }
+    .actions-divider { display: none; }
+  }
+
+  /* Buttons */
+  .btn {
+    font-family: var(--font-family); font-weight: 600; height: 40px; padding: 0 16px;
+    border-radius: var(--radius-btn); border: 1px solid transparent; cursor: pointer; 
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; 
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+  }
+  .btn:hover { transform: translateY(-2px); }
+  .btn:active { transform: scale(0.96) translateY(0); transition: transform 0.1s ease; }
+  .btn-icon svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  .btn-primary { background: var(--blue); color: #fff; box-shadow: 0 4px 12px rgba(0, 122, 255, 0.15); }
+  .btn-primary:hover { background: var(--blue-hover); box-shadow: 0 6px 16px rgba(0, 122, 255, 0.25); }
+  .btn-ghost { background: transparent; color: var(--muted); }
+  .btn-ghost:hover { background: #f1f5f9; color: var(--ink-dark); }
+  .btn-outline { background: var(--card); color: var(--ink-dark); border-color: var(--line); box-shadow: 0 1px 2px rgba(0,0,0,0.02); }
+  .btn-outline:hover { border-color: var(--muted-light); box-shadow: 0 4px 8px rgba(0,0,0,0.04); }
+  .btn-rust { background: var(--warning); color: #fff; box-shadow: 0 4px 12px rgba(199, 74, 20, 0.15); }
+  .btn-rust:hover { background: var(--warning-hover); box-shadow: 0 6px 16px rgba(199, 74, 20, 0.25); }
+  .btn-success { background: var(--success); color: #fff; }
+  .btn-danger { background: transparent; color: var(--danger); }
+  .btn-danger:hover { background: var(--danger-soft); }
+  .btn-small { height: 32px; padding: 0 12px; font-size: 13px; }
+
+  /* Dropdown & Kebab Menu */
+  .action-cell { position: relative; display: flex; align-items: center; gap: 8px; }
+  .btn-kebab { width: 36px; height: 36px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; color: var(--ink-dark); }
+  .btn-kebab:hover { border-color: var(--muted-light); background: #f8fafc; transform: translateY(-1px); }
+  .dropdown-menu { position: absolute; right: 0; top: calc(100% + 4px); background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-card); box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); min-width: 220px; z-index: 50; display: none; flex-direction: column; padding: 8px 0; }
+  .dropdown-menu.show { display: flex; animation: fadeIn 0.2s ease; }
+  .dropdown-item { padding: 10px 16px; font-size: 14px; font-family: var(--font-family); color: var(--ink); font-weight: 500; display: flex; align-items: center; gap: 10px; cursor: pointer; background: transparent; border: none; width: 100%; text-align: left; transition: background 0.15s; }
+  .dropdown-item:hover { background: #f8fafc; color: var(--blue); }
+  .dropdown-item.text-danger:hover { color: var(--danger); background: var(--danger-soft); }
+   .dropdown-divider { height: 1px; background: var(--line); margin: 6px 0; }
+     /* Tamaño de iconos (los SVG centralizados no traen width/height) */
+  .dropdown-item svg { width: 18px; height: 18px; flex-shrink: 0; }
+  .btn svg { width: 16px; height: 16px; flex-shrink: 0; }
+  .result-title svg { width: 18px; height: 18px; flex-shrink: 0; }
+
+  /* Inputs & Forms */
+  .input { font-family: var(--font-family); font-weight: 500; font-size: 14px; height: 40px; padding: 0 14px; background: var(--input-bg); border: 1px solid var(--line); border-radius: var(--radius-input); color: var(--ink); width: 100%; transition: all 0.2s ease; }
+  textarea.input { height: auto; padding-top: 12px; padding-bottom: 12px; resize: vertical; }
+  .input::placeholder { color: var(--muted-light); }
+  .input:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-soft); }
+  .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; width: 100%; }
+  .field label { font-size: 13px; font-weight: 700; color: var(--ink-dark); }
+
+  /* Item Cards */
+  .item-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-card); box-shadow: 0 2px 8px rgba(0,0,0,0.02); transition: transform 0.3s ease, box-shadow 0.3s ease; margin-bottom: 16px; overflow: visible; }
+  .item-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.06); }
+  .item-main { padding: 20px 24px; display: grid; grid-template-columns: 16px 32px 1fr auto auto auto 24px; gap: 16px; align-items: center; cursor: pointer; }
+  .drag-handle { background: transparent; border: none; color: var(--muted-light); cursor: grab; padding: 0; display: flex; align-items: center; justify-content: center; }
+  .item-index { font-weight: 700; color: var(--muted-light); font-size: 14px; text-align: center; }
+  .item-name { font-size: 16px; margin-bottom: 4px; }
+  .item-meta { font-size: 13px; color: var(--muted); font-weight: 500; display: flex; gap: 6px; align-items: center;}
+  .money-row { display: flex; gap: 24px; font-size: 13px; color: var(--muted); }
+  .money-row strong { color: var(--ink-dark); display: block; font-size: 14px; margin-top: 2px; }
+  .chevron { color: var(--muted-light); display: flex; align-items: center; justify-content: center; transition: transform 0.3s ease; }
+  .item-card.open .chevron { transform: rotate(180deg); }
+  .item-details { display: none; padding: 24px; border-top: 1px solid var(--line); background: var(--card); animation: fadeIn 0.3s ease; }
+  .item-card.open .item-details { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* Inner Tabs (Fiel a la captura Nelo) */
+  .item-tabs-container { display: flex; flex-wrap: wrap; background: #f1f5f9; border-radius: 10px; padding: 4px; margin-bottom: 24px; width: max-content; max-width: 100%; }
+  .item-tab-btn { padding: 8px 16px; font-size: 14px; font-weight: 600; color: #64748b; border-radius: 6px; cursor: pointer; border: none; background: transparent; font-family: var(--font-family); transition: all 0.2s; }
+  .item-tab-btn.active { background: #ffffff; color: #0f172a; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+  .item-tab-pane { display: none; }
+  .item-tab-pane.active { display: block; animation: fadeIn 0.3s ease; }
+
+  /* Result Cards */
+  .result-card, .external-box { background: var(--card); padding: 16px 20px; margin-bottom: 16px; border: 1px solid var(--line); border-radius: var(--radius-input); }
+  .result-title { font-weight: 700; color: var(--ink-dark); font-size: 16px; display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .result-meta { font-size: 13px; color: var(--muted); font-weight: 500; }
+
+  /* Badges */
+  .badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+  .badge-success { background: var(--success-soft); color: var(--success); }
+  .badge-danger { background: var(--danger-soft); color: var(--danger); }
+  .badge-info { background: #e2e8f0; color: var(--ink-dark); } 
+  .badge-blue { background: var(--blue-soft); color: var(--blue); }
+  .badge-warning { background: var(--warning-soft); color: var(--warning); }
+
+  /* Summaries */
+  .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px; margin-bottom: 32px; }
+  .summary-cell { padding: 24px 16px; text-align: center; cursor: pointer; border: 1px solid var(--line); background: var(--card); border-radius: var(--radius-card); transition: all 0.2s; }
+  .summary-cell:hover, .summary-cell.active { border-color: var(--blue); box-shadow: 0 4px 12px rgba(0, 122, 255, 0.08); }
+  .summary-value { font-size: 24px; font-weight: 700; color: var(--ink-dark); }
+  .summary-label { font-size: 13px; color: var(--muted); margin-top: 6px; font-weight: 600; }
+
+  /* ===== Margen Global (Colapsable / Botón desplegable) ===== */
+  .global-margin-wrap { margin-bottom: 32px; }
+  .global-margin-toggle {
+    font-family: var(--font-family);
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    width: 100%; max-width: 480px; padding: 16px 20px; text-align: left;
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-card);
+    cursor: pointer; transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease;
+  }
+  .global-margin-toggle:hover { border-color: var(--muted-light); box-shadow: 0 4px 12px rgba(0,0,0,0.05); transform: translateY(-1px); }
+  .global-margin-toggle:active { transform: translateY(0); }
+  .gm-toggle-left { display: flex; align-items: center; gap: 14px; }
+  .gm-toggle-icon { width: 38px; height: 38px; border-radius: 10px; background: var(--blue-soft); color: var(--blue); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .gm-toggle-icon svg { width: 18px; height: 18px; }
+  .gm-toggle-text { display: flex; flex-direction: column; gap: 2px; }
+  .gm-toggle-title { font-weight: 700; color: var(--ink-dark); font-size: 15px; }
+  .gm-toggle-sub { font-size: 12px; color: var(--muted); font-weight: 500; }
+  .gm-toggle-chevron { color: var(--muted-light); display: flex; align-items: center; transition: transform .3s ease; }
+  .global-margin-wrap.open .gm-toggle-chevron { transform: rotate(180deg); }
+  .global-margin-wrap.open .global-margin-toggle {
+    border-color: var(--blue);
+    border-bottom-left-radius: 0; border-bottom-right-radius: 0;
+  }
+
+  .global-margin-panel { max-width: 480px; overflow: hidden; max-height: 0; opacity: 0; transition: max-height .35s ease, opacity .3s ease; }
+  .global-margin-wrap.open .global-margin-panel { max-height: 400px; opacity: 1; }
+
+  .global-margin { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 16px; padding: 20px 24px; background: var(--card); border: 1px solid var(--blue); border-top: none; border-radius: 0 0 var(--radius-card) var(--radius-card); }
+  .global-margin .field { margin-bottom: 0; width: auto; }
+  .global-margin .field label { font-size: 14px; margin-bottom: 4px; }
+  .global-margin .input { width: 120px; }
+
+  /* Modal Base */
+  .modal-backdrop { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45); backdrop-filter: blur(4px); z-index: 1050; display: none; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s ease; padding: 20px; }
+  .modal-backdrop.show { display: flex; opacity: 1; }
+  .modal { background: var(--card); border-radius: var(--radius-modal); width: 100%; max-width: 560px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); transform: scale(0.95) translateY(15px); transition: transform 0.3s ease; display: flex; flex-direction: column; max-height: calc(100vh - 40px); }
+  .modal-backdrop.show .modal { transform: scale(1) translateY(0); }
+  .modal-head { padding: 20px 24px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: flex-start; flex-shrink:0; }
+  .modal-title { font-size: 18px; margin-bottom: 4px; }
+  .modal-subtitle { font-size: 14px; color: var(--muted); margin: 0; font-weight: 500; }
+  .modal-body { padding: 24px; overflow-y: auto; }
+  .modal-tabs { display: flex; gap: 24px; border-bottom: 1px solid var(--line); margin-bottom: 24px; }
+  .tab-btn { padding: 12px 0; font-weight: 700; color: var(--muted); border: none; background: transparent; border-bottom: 2px solid transparent; cursor: pointer; font-family: var(--font-family); font-size: 14px; transition: color 0.2s; }
+  .tab-btn.active { color: var(--blue); border-bottom-color: var(--blue); }
+  .modal-result { display: flex; justify-content: space-between; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--line); }
+  .modal-result:last-child { border-bottom: none; }
+
+  /* Nuevo Toast Progress (Flotante) */
+  .toast-process {
+    position: fixed; bottom: 24px; right: 24px; width: 360px; background: var(--card);
+    border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    z-index: 9999; transform: translateY(150%); transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .toast-process.show { transform: translateY(0); }
+  .toast-bar-container { height: 4px; background: var(--line); width: 100%; }
+  .toast-bar-fill { height: 100%; background: var(--blue); width: 0%; transition: width 0.3s ease; }
+  .toast-header { padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; background: var(--card); cursor: pointer; user-select: none; }
+  .toast-header:hover { background: #f8fafc; }
+  .toast-header-right { display: flex; align-items: center; gap: 8px; }
+  .toast-title { font-weight: 700; font-size: 14px; color: var(--ink-dark); }
+  .toast-subtitle { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .toast-error-badge { background: var(--danger-soft); color: var(--danger); font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; display: none; align-items: center; white-space: nowrap; }
+  .toast-process.has-errors .toast-error-badge { display: inline-flex; }
+  .toast-chevron { color: var(--muted); display: flex; align-items: center; transition: transform 0.3s ease; }
+  .toast-process.expanded .toast-chevron { transform: rotate(180deg); }
+  .toast-body { padding: 0 20px 16px; display: none; max-height: 250px; overflow-y: auto; border-top: 1px solid var(--line); }
+  .toast-process.expanded .toast-body { display: block; padding-top: 16px; }
+  .toast-error-list { font-size: 12px; color: var(--danger); display: flex; flex-direction: column; gap: 8px; }
+  .toast-error-item { background: var(--danger-soft); padding: 8px 12px; border-radius: 6px; line-height: 1.4; border-left: 3px solid var(--danger); }
+  
+  /* Utilities */
+  .action-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .row { display: flex; flex-wrap: wrap; margin-left: -8px; margin-right: -8px; }
+  .col, .col-12, .col-6, .col-4, .col-3 { padding-left: 8px; padding-right: 8px; }
+  .col-12 { width: 100%; } .col-6 { width: 50%; } .col-4 { width: 33.333333%; } .col-3 { width: 25%; }
+  .d-flex { display: flex; } .align-items-center { align-items: center; } .mb-0 { margin-bottom: 0 !important; } .mb-2 { margin-bottom: 8px !important; } .mt-2 { margin-top: 8px !important; } .mt-3 { margin-top: 16px !important; }
+
+  /* Notice */
+    /* Notice (pill minimalista) */
+  .notice { background: var(--warning-soft); color: var(--warning); padding: 8px 14px; border-radius: 999px; display: none; align-items: center; gap: 8px; margin-bottom: 20px; font-weight: 600; font-size: 12.5px; border: 1px solid rgba(199, 74, 20, 0.12); width: max-content; max-width: 100%; }
+  .notice.show { display: inline-flex; }
+  .notice-dot { width: 6px; height: 6px; background: var(--warning); border-radius: 50%; flex-shrink: 0; }
+  .text-blue { color: var(--blue); } .text-success { color: var(--success); } .text-danger { color: var(--danger); }
+  
+  .loader { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: #fff; animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 10px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted-light); }
+    /* Botones solo icono (Excel / Word) */
+  .btn-square { width: 40px; height: 40px; padding: 0; }
+  .actions .btn-square svg { width: 22px; height: 22px; }
+    /* ===== Tooltip pro (reutilizable con class="has-tip" data-tip="...") ===== */
+  .has-tip { position: relative; }
+  .has-tip::after {
+    content: attr(data-tip);
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: 50%;
+    transform: translateX(-50%) translateY(4px);
+    background: var(--ink-dark);
+    color: #fff;
+    font-family: var(--font-family);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .2px;
+    padding: 7px 11px;
+    border-radius: 8px;
+    white-space: nowrap;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.22);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .18s ease, transform .18s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 200;
+  }
+  .has-tip::before {
+    content: "";
+    position: absolute;
+    bottom: calc(100% + 4px);
+    left: 50%;
+    transform: translateX(-50%) translateY(4px);
+    border: 6px solid transparent;
+    border-top-color: var(--ink-dark);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .18s ease, transform .18s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 200;
+  }
+  .has-tip:hover::after,
+  .has-tip:hover::before { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
 
 @php
   $propuestaComercial->loadMissing([
       'items.matches.product',
       'items.externalMatches',
       'items.productoSeleccionado',
+      'items.aclaracionPreguntas',
   ]);
 
   $itemsPayload = $propuestaComercial->items
@@ -44,29 +324,48 @@
               'item_margin_pct' => (float) data_get($item->meta, 'item_margin_pct', $propuestaComercial->porcentaje_utilidad ?: 25),
               'manual_external_supplier' => data_get($item->meta, 'external_supplier'),
               'manual_external_link' => data_get($item->meta, 'external_link'),
-              'manual_catalog_product_name' => data_get($item->meta, 'catalog_product_name_manual'),
-
-              // 🔹 ficha técnica vinculada
+              'modelo' => data_get($item->meta, 'modelo'), // Nuevo campo de modelo
+              'catalog_product_name_manual' => data_get($item->meta, 'catalog_product_name_manual'),
               'tech_sheet_id' => data_get($item->meta, 'tech_sheet_id'),
               'tech_sheet_name' => data_get($item->meta, 'tech_sheet_name'),
-
+              'clarification_questions' => $item->relationLoaded('aclaracionPreguntas')
+                  ? $item->aclaracionPreguntas->sortBy('sort')->values()->map(function ($pregunta) {
+                      return [
+                          'id' => $pregunta->id,
+                          'texto_usuario' => $pregunta->texto_usuario,
+                          'pregunta_generada' => $pregunta->pregunta_generada,
+                          'question' => $pregunta->pregunta_generada,
+                          'producto_solicitado' => $pregunta->producto_solicitado,
+                          'producto_sugerido' => $pregunta->producto_sugerido,
+                          'sku_sugerido' => $pregunta->sku_sugerido,
+                          'marca_sugerida' => $pregunta->marca_sugerida,
+                          'precio_sugerido' => (float) $pregunta->precio_sugerido,
+                          'justificacion' => $pregunta->justificacion,
+                          'catalog_candidate' => [
+                              'name' => $pregunta->producto_sugerido,
+                              'sku' => $pregunta->sku_sugerido,
+                              'brand' => $pregunta->marca_sugerida,
+                              'price' => (float) $pregunta->precio_sugerido,
+                          ],
+                      ];
+                  })->all()
+                  : data_get($item->meta, 'clarification_questions', []),
               'producto_seleccionado' => $item->productoSeleccionado ? [
                   'id' => $item->productoSeleccionado->id,
                   'name' => $item->productoSeleccionado->name,
                   'sku' => $item->productoSeleccionado->sku,
                   'brand' => $item->productoSeleccionado->brand,
                   'stock' => $item->productoSeleccionado->stock ?? 0,
+                  'cost' => (float) ($item->productoSeleccionado->cost ?? $item->productoSeleccionado->costo ?? 0),
+                  'price' => (float) ($item->productoSeleccionado->price ?? $item->productoSeleccionado->precio ?? 0),
               ] : null,
               'matches' => $item->matches->sortBy('rank')->values()->map(function ($match) {
                   $p = $match->product;
-
                   return [
                       'id' => $match->id,
                       'rank' => $match->rank,
                       'score' => (float) $match->score,
                       'seleccionado' => (bool) $match->seleccionado,
-                      'unidad_coincide' => (bool) $match->unidad_coincide,
-                      'motivo' => $match->motivo,
                       'product' => $p ? [
                           'id' => $p->id,
                           'name' => $p->name,
@@ -81,12 +380,10 @@
               'external_matches' => $item->externalMatches->sortBy('rank')->values()->map(function ($external) {
                   return [
                       'id' => $external->id,
-                      'rank' => $external->rank,
                       'source' => $external->source,
                       'title' => $external->title,
                       'seller' => $external->seller,
                       'price' => (float) $external->price,
-                      'currency' => $external->currency,
                       'url' => $external->url,
                       'score' => (float) $external->score,
                   ];
@@ -110,10 +407,10 @@
       'total_items' => $itemsPayload->count(),
   ];
 
-
   $exportFolio = $propuestaComercial->folio ?: ('TEOA' . str_pad((string) $propuestaComercial->id, 8, '0', STR_PAD_LEFT));
   $exportTitle = $propuestaComercial->titulo ?: ('COT-' . strtoupper(substr(md5($propuestaComercial->id . $propuestaComercial->created_at), 0, 8)));
 
+  // Payloads reales para exportar tablas extraidas del PDF. Si no hay payloads, JS usa fallback con las partidas normalizadas.
   $decodeExportValue = function ($value) {
       if ($value instanceof \Illuminate\Support\Collection) {
           return $value->toArray();
@@ -172,166 +469,126 @@
 
 <div class="jureto-quote-page">
   <div class="quote-wrap">
-    <a href="{{ route('propuestas-comerciales.index') }}" class="back-link">
-      <span>←</span>
-      <span>Volver</span>
-    </a>
-
-    <div class="topbar">
-      <div class="topbar-main">
-        <div class="quote-code">
-          {{ $propuestaComercial->folio ?: ('TEOA' . str_pad((string) $propuestaComercial->id, 8, '0', STR_PAD_LEFT)) }}
-        </div>
-
-        <h1 class="quote-title">
-          {{ $propuestaComercial->titulo ?: ('COT-' . strtoupper(substr(md5($propuestaComercial->id . $propuestaComercial->created_at), 0, 8))) }}
-        </h1>
-
-        <p class="quote-subtitle">
-          <span id="itemsCountText">{{ $summaryPayload['total_items'] }}</span> partidas analizadas por IA · Exportación desde PDF
-        </p>
+        <div class="topbar-modern">
+      <div class="quote-topline">
+        <a href="{{ route('propuestas-comerciales.index') }}" class="back-link">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+          <span>Volver a propuestas</span>
+        </a>
+        <span class="topline-divider"></span>
+        <span class="quote-code">{{ $exportFolio }}</span>
       </div>
+      <h1 class="quote-title">{{ $exportTitle }}</h1>
+      <p class="quote-subtitle"><span id="itemsCountText">{{ $summaryPayload['total_items'] }}</span> partidas analizadas por IA · Exportación estructurada</p>
 
-      <div class="actions">
+         <div class="actions">
         <button class="btn btn-ghost" type="button" id="btnOpenAddItem">
-          <span class="btn-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 5v14"></path>
-              <path d="M5 12h14"></path>
-            </svg>
-          </span>
+          <span class="btn-icon"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></span>
           <span>Agregar</span>
         </button>
-
         <button class="btn btn-outline" type="button" id="btnSuggestAll">
-          <span class="btn-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="11" cy="11" r="7"></circle>
-              <path d="M21 21l-4.35-4.35"></path>
-              <path d="M11 8v6"></path>
-              <path d="M8 11h6"></path>
-            </svg>
-          </span>
-          <span>Buscar coincidencias</span>
+          <span class="btn-icon"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"></circle><circle cx="18" cy="18" r="2.5"></circle><path d="M8 8l8 8"></path></svg><circle cx="9" cy="12" r="6"></circle><circle cx="15" cy="12" r="6"></circle></svg></span>
+          <span>Hacer Match</span>
         </button>
+        <span class="actions-divider"></span>
 
-        <button class="btn btn-export-excel" type="button" id="btnExportExcel">
-          <span class="btn-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-              <path d="M14 2v6h6"></path>
-              <path d="M8 13h8"></path>
-              <path d="M8 17h8"></path>
+              <div class="actions-group">
+          <button class="btn btn-outline btn-square has-tip" type="button" id="btnExportExcel" data-tip="Exportar a Excel" aria-label="Exportar a Excel">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" fill="#fff" stroke="#1D6F42" stroke-width="1.5" stroke-linejoin="round"/>
+              <path d="M14 2v6h6" stroke="#1D6F42" stroke-width="1.5" stroke-linejoin="round"/>
+              <path d="M9 12.5l4.5 6M13.5 12.5l-4.5 6" stroke="#1D6F42" stroke-width="1.7" stroke-linecap="round"/>
             </svg>
-          </span>
-          <span>Excel PDF</span>
-        </button>
-
-        <button class="btn btn-export-word" type="button" id="btnExportWord">
-          <span class="btn-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-              <path d="M14 2v6h6"></path>
-              <path d="M8 13h8"></path>
-              <path d="M8 17h6"></path>
+          </button>
+          <button class="btn btn-outline btn-square has-tip" type="button" id="btnExportWord" data-tip="Exportar a Word" aria-label="Exportar a Word">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" fill="#fff" stroke="#2B579A" stroke-width="1.5" stroke-linejoin="round"/>
+              <path d="M14 2v6h6" stroke="#2B579A" stroke-width="1.5" stroke-linejoin="round"/>
+              <path d="M8.3 12.5l1.3 6 1.4-4.2 1.4 4.2 1.3-6" stroke="#2B579A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
-          </span>
-          <span>Word PDF</span>
-        </button>
-        <a href="{{ route('propuestas-comerciales.fallo.show', $propuestaComercial) }}" class="btn btn-warning">
-          <span class="btn-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 3v18"></path>
-              <path d="M5 7l7-4 7 4"></path>
-              <path d="M5 7l-2 6a4 4 0 0 0 8 0L9 7"></path>
-              <path d="M19 7l-2 6a4 4 0 0 0 8 0l-2-6"></path>
+          </button>
+          <button class="btn btn-outline btn-square has-tip" type="button" id="btnExportClarificationsPdf" data-tip="PDF junta de aclaraciones" aria-label="PDF junta de aclaraciones">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" fill="#fff" stroke="#007aff" stroke-width="1.5" stroke-linejoin="round"/>
+              <path d="M14 2v6h6" stroke="#007aff" stroke-width="1.5" stroke-linejoin="round"/>
+              <path d="M9 12h6M9 16h4" stroke="#007aff" stroke-width="1.7" stroke-linecap="round"/>
+              <circle cx="17" cy="17" r="3" fill="#e6f0ff" stroke="#007aff" stroke-width="1.4"/>
+              <path d="M17 15.8v1.8" stroke="#007aff" stroke-width="1.5" stroke-linecap="round"/>
             </svg>
-          </span>
-          <span>Acta de fallo</span>
-        </a>
-        <a href="{{ route('propuestas-comerciales.cliente.show', $propuestaComercial) }}" class="btn btn-primary">
-          <span class="btn-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M20 6L9 17l-5-5"></path>
-            </svg>
-          </span>
-          <span>Aprobar</span>
-        </a>
-      </div>
-    </div>
-
-    <div id="noticeBox" class="notice">
-      <span class="notice-dot"></span>
-      <span>
-        <strong id="noticeCount">0 partidas</strong> no encontradas en catálogo — usa “Buscar en internet” para encontrar alternativas.
-      </span>
-    </div>
-
-    <div id="processBox" class="process-box">
-      <div class="process-head">
-        <div>
-          <div class="process-title" id="processTitle">Procesando coincidencias...</div>
-          <div class="process-text" id="processText">Preparando partidas.</div>
+          </button>
         </div>
 
-        <span class="badge badge-info" id="processCount">0/0</span>
-      </div>
+        <span class="actions-spacer"></span>
 
-      <div class="process-bar">
-        <div class="process-fill" id="processFill"></div>
+        <a href="{{ route('propuestas-comerciales.fallo.show', $propuestaComercial) }}" class="btn btn-rust">Acta de fallo</a>
+        <a href="{{ route('propuestas-comerciales.cliente.show', $propuestaComercial) }}" class="btn btn-primary">Aprobar</a>
       </div>
-
-      <div id="processErrors" class="process-errors"></div>
     </div>
+
+
 
     <div class="summary-grid" id="summaryFilters">
-      <button class="summary-cell filter-summary active" type="button" data-filter="all">
-        <div class="summary-value text-blue" id="sumAll">0</div>
-        <div class="summary-label">Todos</div>
-      </button>
-
-      <button class="summary-cell filter-summary" type="button" data-filter="exact">
-        <div class="summary-value text-success" id="sumExact">0</div>
-        <div class="summary-label">Exactos</div>
-      </button>
-
-      <button class="summary-cell filter-summary" type="button" data-filter="similar">
-        <div class="summary-value text-blue" id="sumSimilar">0</div>
-        <div class="summary-label">Similares</div>
-      </button>
-
-      <button class="summary-cell filter-summary" type="button" data-filter="not_found">
-        <div class="summary-value text-danger" id="sumNotFound">0</div>
-        <div class="summary-label">No encontrados</div>
-      </button>
-
-      <button class="summary-cell filter-summary" type="button" data-filter="priced">
-        <div class="summary-value" id="sumSale">$0</div>
-        <div class="summary-label">Subtotal venta</div>
-      </button>
-
-      <button class="summary-cell filter-summary" type="button" data-filter="profit">
-        <div class="summary-value text-success" id="sumProfit">$0</div>
-        <div class="summary-label">Utilidad</div>
-      </button>
-
-      <button class="summary-cell filter-summary" type="button" data-filter="margin">
-        <div class="summary-value" id="sumMargin">0%</div>
-        <div class="summary-label">Margen</div>
-      </button>
+      <button class="summary-cell filter-summary active" type="button" data-filter="all"><div class="summary-value text-blue" id="sumAll">0</div><div class="summary-label">Todos</div></button>
+      <button class="summary-cell filter-summary" type="button" data-filter="exact"><div class="summary-value text-success" id="sumExact">0</div><div class="summary-label">Exactos</div></button>
+      <button class="summary-cell filter-summary" type="button" data-filter="similar"><div class="summary-value text-blue" id="sumSimilar">0</div><div class="summary-label">Similares</div></button>
+      <button class="summary-cell filter-summary" type="button" data-filter="not_found"><div class="summary-value text-danger" id="sumNotFound">0</div><div class="summary-label">No encontrados</div></button>
+      <button class="summary-cell filter-summary" type="button" data-filter="priced"><div class="summary-value" id="sumSale">$0</div><div class="summary-label">Subtotal venta</div></button>
+      <button class="summary-cell filter-summary" type="button" data-filter="profit"><div class="summary-value text-success" id="sumProfit">$0</div><div class="summary-label">Utilidad</div></button>
+      <button class="summary-cell filter-summary" type="button" data-filter="margin"><div class="summary-value" id="sumMargin">0%</div><div class="summary-label">Margen</div></button>
     </div>
 
-    <div class="global-margin">
-      <div>
-        <label>Margen global %</label>
-        <input class="input" id="globalMarginInput" type="number" step="0.01" value="{{ $propuestaComercial->porcentaje_utilidad ?: 25 }}" style="width:150px;">
-      </div>
+    {{-- ===== Margen global como botón desplegable (colapsable) ===== --}}
+    <div class="global-margin-wrap" id="globalMarginWrap">
+      <button class="global-margin-toggle" type="button" id="btnToggleGlobalMargin" aria-expanded="false" aria-controls="globalMarginPanel">
+        <span class="gm-toggle-left">
+          <span class="gm-toggle-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="5" x2="5" y2="19"></line><circle cx="6.5" cy="6.5" r="2.5"></circle><circle cx="17.5" cy="17.5" r="2.5"></circle></svg>
+          </span>
+          <span class="gm-toggle-text">
+            <span class="gm-toggle-title">Margen global</span>
+            <span class="gm-toggle-sub">Define el porcentaje de utilidad de la cotización</span>
+          </span>
+        </span>
+        <span class="gm-toggle-chevron">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </span>
+      </button>
 
-      <button class="btn btn-ghost" type="button" id="btnSaveGlobalMargin">Guardar margen global</button>
-      <button class="btn btn-outline" type="button" id="btnApplyGlobalMargin">Aplicar a partidas</button>
+      <div class="global-margin-panel" id="globalMarginPanel">
+        <div class="global-margin">
+          <div class="field">
+            <label>Margen global %</label>
+            <input class="input" id="globalMarginInput" type="number" step="0.01" value="{{ $propuestaComercial->porcentaje_utilidad ?: 25 }}">
+          </div>
+          <button class="btn btn-ghost" type="button" id="btnSaveGlobalMargin">Guardar margen</button>
+          <button class="btn btn-outline" type="button" id="btnApplyGlobalMargin">Aplicar a todas</button>
+        </div>
+      </div>
+    </div>
+    {{-- Aviso compacto, pegado a la lista de partidas --}}
+    <div id="noticeBox" class="notice">
+      <span class="notice-dot"></span>
+      <span><strong id="noticeCount">0 partidas</strong> no encontradas en catálogo — usa "Buscar manualmente" para encontrar alternativas.</span>
     </div>
 
     <div class="items-list" id="itemsList"></div>
+  </div>
+
+  <div id="toastProcess" class="toast-process">
+    <div class="toast-bar-container"><div id="toastFill" class="toast-bar-fill"></div></div>
+    <div class="toast-header" onclick="document.getElementById('toastProcess').classList.toggle('expanded')">
+      <div>
+        <div id="toastTitle" class="toast-title">Procesando...</div>
+        <div id="toastText" class="toast-subtitle">0/0 completados</div>
+      </div>
+      <div class="toast-header-right">
+        <span class="toast-error-badge" id="toastErrorBadge"></span>
+        <span class="toast-chevron"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg></span>
+      </div>
+    </div>
+    <div class="toast-body">
+      <div id="toastErrors" class="toast-error-list"></div>
+    </div>
   </div>
 
   <div class="modal-backdrop" id="manualModal">
@@ -339,28 +596,20 @@
       <div class="modal-head">
         <div>
           <h2 class="modal-title">Búsqueda manual</h2>
-          <p class="modal-subtitle" id="manualSubtitle">Busca por nombre, SKU, marca, color, unidad o descripción.</p>
+          <p class="modal-subtitle" id="manualSubtitle">Busca por nombre, SKU, marca, color o descripción.</p>
         </div>
-
-        <button class="btn btn-ghost btn-small" type="button" onclick="closeManualModal()">×</button>
+        <button class="btn btn-ghost btn-small" type="button" onclick="closeManualModal()"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
       </div>
-
       <div class="modal-body">
-        <div style="position:relative;">
-          <input class="input" id="manualQueryInput" placeholder="Buscar producto..." autocomplete="off" style="padding-left:38px; padding-right:38px;">
-          <span style="position:absolute; left:14px; top:50%; transform:translateY(-50%); color:#888;">⌕</span>
-          <button type="button" onclick="clearManualSearch()" style="position:absolute; right:10px; top:50%; transform:translateY(-50%); border:0; background:transparent; color:#888; cursor:pointer; font-size:18px;">×</button>
+        <div style="position:relative; margin-bottom: 24px;">
+          <input class="input" id="manualQueryInput" placeholder="Buscar producto..." autocomplete="off">
+          <button type="button" onclick="clearManualSearch()" style="position:absolute; right:12px; top:50%; transform:translateY(-50%); border:0; background:transparent; color:var(--muted); cursor:pointer; display:flex; align-items:center;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
         </div>
-
         <div class="modal-tabs">
           <button class="tab-btn active" type="button" id="manualTabCatalog">Catálogo interno</button>
           <button class="tab-btn" type="button" id="manualTabInternet">Internet</button>
         </div>
-
-        <div id="manualSearchStatus" class="result-meta" style="margin-bottom:12px;">
-          Escribe para buscar automáticamente.
-        </div>
-
+        <div id="manualSearchStatus" class="result-meta" style="margin-bottom:16px;">Escribe para buscar automáticamente.</div>
         <div id="manualResults"></div>
       </div>
     </div>
@@ -371,43 +620,21 @@
       <div class="modal-head">
         <div>
           <h2 class="modal-title">Agregar nueva partida</h2>
-          <p class="modal-subtitle">Crea un nuevo producto solicitado y calcula costo, precio y subtotal.</p>
+          <p class="modal-subtitle">Crea un nuevo producto solicitado manualmente.</p>
         </div>
-
-        <button class="btn btn-ghost btn-small" type="button" onclick="closeAddItemModal()">×</button>
+        <button class="btn btn-ghost btn-small" type="button" onclick="closeAddItemModal()"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
       </div>
-
       <div class="modal-body">
-        <form id="addItemForm" onsubmit="storeNewItem(event)" style="display:grid; gap:14px;">
-          <div class="field">
-            <label>Producto solicitado</label>
-            <input class="input" name="descripcion_original" placeholder="Ej. 100 paquetes de hojas blancas tamaño carta" required>
+        <form id="addItemForm" onsubmit="storeNewItem(event)">
+          <div class="row">
+            <div class="col-12"><div class="field"><label>Producto solicitado</label><input class="input" name="descripcion_original" placeholder="Ej. 100 paquetes de gasas" required></div></div>
+            <div class="col-6"><div class="field"><label>Cantidad</label><input class="input" type="number" step="0.01" name="cantidad_cotizada" value="1" required></div></div>
+            <div class="col-6"><div class="field"><label>Unidad</label><input class="input" name="unidad_solicitada" value="pz"></div></div>
+            <div class="col-6"><div class="field"><label>Costo unit.</label><input class="input" type="number" step="0.01" name="costo_unitario" value="0"></div></div>
+            <div class="col-6"><div class="field"><label>Margen %</label><input class="input" type="number" step="0.01" name="porcentaje_utilidad" value="{{ $propuestaComercial->porcentaje_utilidad ?: 25 }}"></div></div>
           </div>
-
-          <div style="display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap:12px;">
-            <div class="field">
-              <label>Cantidad</label>
-              <input class="input" type="number" step="0.01" name="cantidad_cotizada" value="1" required>
-            </div>
-
-            <div class="field">
-              <label>Unidad</label>
-              <input class="input" name="unidad_solicitada" value="pz">
-            </div>
-
-            <div class="field">
-              <label>Costo unit.</label>
-              <input class="input" type="number" step="0.01" name="costo_unitario" value="0">
-            </div>
-
-            <div class="field">
-              <label>Margen %</label>
-              <input class="input" type="number" step="0.01" name="porcentaje_utilidad" value="{{ $propuestaComercial->porcentaje_utilidad ?: 25 }}">
-            </div>
-          </div>
-
-          <div class="action-row">
-            <button class="btn btn-primary" type="submit">＋ Agregar partida</button>
+          <div class="action-row mt-3">
+            <button class="btn btn-primary" type="submit">Agregar partida</button>
             <button class="btn btn-ghost" type="button" onclick="closeAddItemModal()">Cancelar</button>
           </div>
         </form>
@@ -415,24 +642,22 @@
     </div>
   </div>
 
-  <!-- ===================== MODAL MUESTRAS (almacén) ===================== -->
   <div class="modal-backdrop" id="samplesModal">
     <div class="modal">
       <div class="modal-head">
         <div>
-          <h2 class="modal-title">Muestras · Análisis de almacén</h2>
+          <h2 class="modal-title">Análisis de almacén</h2>
           <p class="modal-subtitle" id="samplesSubtitle">Producto</p>
         </div>
-        <button class="btn btn-ghost btn-small" type="button" onclick="closeSamplesModal()">×</button>
+        <button class="btn btn-ghost btn-small" type="button" onclick="closeSamplesModal()"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
       </div>
       <div class="modal-body">
-        <div id="samplesStatus" class="result-meta" style="margin-bottom:12px;">Buscando en catálogo...</div>
+        <div id="samplesStatus" class="result-meta" style="margin-bottom:16px;">Buscando en catálogo...</div>
         <div id="samplesResults"></div>
       </div>
     </div>
   </div>
 
-  <!-- ===================== MODAL FICHAS TÉCNICAS ===================== -->
   <div class="modal-backdrop" id="techSheetsModal">
     <div class="modal">
       <div class="modal-head">
@@ -440,46 +665,96 @@
           <h2 class="modal-title">Fichas técnicas</h2>
           <p class="modal-subtitle" id="techSubtitle">Producto</p>
         </div>
-        <button class="btn btn-ghost btn-small" type="button" onclick="closeTechSheetsModal()">×</button>
+        <button class="btn btn-ghost btn-small" type="button" onclick="closeTechSheetsModal()"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
       </div>
-      <div class="modal-body">
-        <div class="modal-tabs">
+      <div class="modal-body" style="padding-top:0;">
+        <div class="modal-tabs" style="margin-top:20px;">
           <button class="tab-btn active" type="button" id="techTabList" onclick="techShowList()">Vincular existente</button>
           <button class="tab-btn" type="button" id="techTabForm" onclick="techShowCreate()">Crear nueva</button>
         </div>
-
+        
         <div id="techListPane">
-          <input class="input" id="techQueryInput" placeholder="Buscar ficha por nombre, marca, modelo..." style="margin-bottom:12px;">
-          <div id="techStatus" class="result-meta" style="margin-bottom:12px;"></div>
+          <input class="input" id="techQueryInput" placeholder="Buscar ficha por nombre, marca..." style="margin-bottom:16px;">
+          <div id="techStatus" class="result-meta" style="margin-bottom:16px;"></div>
           <div id="techResults"></div>
         </div>
 
         <div id="techFormPane" style="display:none;">
-          <form id="techForm" onsubmit="submitTechSheet(event)" style="display:grid; gap:12px;">
+          <form id="techForm" onsubmit="submitTechSheet(event)">
             <input type="hidden" name="tech_sheet_id" id="techFormId" value="">
-            <div class="field"><label>Nombre del producto *</label><input class="input" name="product_name" required></div>
-            <div style="display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px;">
-              <div class="field"><label>Marca</label><input class="input" name="brand"></div>
-              <div class="field"><label>Modelo</label><input class="input" name="model"></div>
-              <div class="field"><label>Referencia</label><input class="input" name="reference"></div>
-              <div class="field"><label>Partida</label><input class="input" name="partida_number"></div>
+            <div class="row">
+              <div class="col-12"><div class="field"><label>Nombre del producto *</label><input class="input" name="product_name" required></div></div>
+              <div class="col-6"><div class="field"><label>Marca</label><input class="input" name="brand"></div></div>
+              <div class="col-6"><div class="field"><label>Modelo</label><input class="input" name="model"></div></div>
+              <div class="col-6"><div class="field"><label>Referencia</label><input class="input" name="reference"></div></div>
+              <div class="col-6"><div class="field"><label>Partida</label><input class="input" name="partida_number"></div></div>
+              <div class="col-12"><div class="field"><label>Descripción</label><textarea class="input" name="user_description" rows="3"></textarea></div></div>
+              <div class="col-12"><div class="field"><label>Imagen (opcional)</label><input class="input" type="file" name="image" accept="image/*" style="padding:8px; border:1px solid var(--line); background:transparent;"></div></div>
             </div>
-            <div class="field"><label>Descripción</label><textarea class="input" name="user_description" rows="3" style="height:auto; padding:10px 12px;"></textarea></div>
-            <div class="field"><label>Imagen (opcional)</label><input class="input" type="file" name="image" accept="image/*" style="padding:8px;"></div>
-            <div class="action-row">
-              <button class="btn btn-primary btn-small" type="submit">Guardar ficha</button>
-              <button class="btn btn-ghost btn-small" type="button" onclick="techShowList()">Cancelar</button>
+            <div class="action-row mt-3">
+              <button class="btn btn-primary" type="submit">Guardar ficha</button>
+              <button class="btn btn-ghost" type="button" onclick="techShowList()">Cancelar</button>
             </div>
           </form>
         </div>
       </div>
     </div>
   </div>
+
+
+  <div class="modal-backdrop" id="clarificationModal">
+    <div class="modal">
+      <div class="modal-head">
+        <div>
+          <h2 class="modal-title">Pregunta para junta de aclaraciones</h2>
+          <p class="modal-subtitle" id="clarificationSubtitle">Redacta una duda técnica o solicita autorización para ofertar alternativa.</p>
+        </div>
+        <button class="btn btn-ghost btn-small" type="button" onclick="closeClarificationModal()"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+      </div>
+      <div class="modal-body">
+        <div class="field">
+          <label>Idea de la pregunta</label>
+          <textarea class="input" id="clarificationIdeaInput" rows="4" placeholder="Ej. No existe lapicero de aceite color negro permanente con las características exactas. ¿Podemos ofertar equivalente de nuestro catálogo?"></textarea>
+        </div>
+
+        <div class="field">
+          <label>Pregunta estructurada</label>
+          <textarea class="input" id="clarificationQuestionInput" rows="7" placeholder="Aquí aparecerá la pregunta formal para gobierno."></textarea>
+        </div>
+
+        <div id="clarificationCandidateBox" class="result-card" style="display:none;"></div>
+        <div id="clarificationStatus" class="result-meta" style="margin-bottom:16px;">Escribe una idea y genera la redacción profesional.</div>
+
+        <div class="action-row">
+          <button class="btn btn-outline" type="button" id="btnGenerateClarification">Generar con IA</button>
+          <button class="btn btn-primary" type="button" id="btnSaveClarification">Guardar pregunta</button>
+          <button class="btn btn-ghost" type="button" onclick="closeClarificationModal()">Cancelar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script>
   const csrfToken = @json(csrf_token());
 
+  // SVGs Centralizados
+  const svgs = {
+    edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>',
+    search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>',
+    box: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>',
+    file: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>',
+    question: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2.2-3 4"></path><path d="M12 17h.01"></path></svg>',
+    target: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>',
+    x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>',
+    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>',
+    dots: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="6" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="18" cy="12" r="1.5" fill="currentColor"/></svg>',
+    drag: '<svg width="12" height="20" viewBox="0 0 12 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="4" cy="6" r="1.5" fill="currentColor"/><circle cx="8" cy="6" r="1.5" fill="currentColor"/><circle cx="4" cy="10" r="1.5" fill="currentColor"/><circle cx="8" cy="10" r="1.5" fill="currentColor"/><circle cx="4" cy="14" r="1.5" fill="currentColor"/><circle cx="8" cy="14" r="1.5" fill="currentColor"/></svg>',
+    chevron: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>',
+    external: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>',
+    doc_linked: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--success)"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>'
+  };
   const routes = {
     suggestAll: @json(route('propuestas-comerciales.ajax.suggest-all', $propuestaComercial)),
     suggestItem: @json(url('/propuesta-comercial-items/__ID__/ajax/suggest')),
@@ -490,14 +765,16 @@
     globalMargin: @json(route('propuestas-comerciales.ajax.global-margin', $propuestaComercial)),
     storeItem: @json(route('propuestas-comerciales.ajax.items.store', $propuestaComercial)),
     selectMatch: @json(url('/propuesta-comercial-items/__ID__/ajax/select-match/__MATCH__')),
-
-    // 🔹 Muestras + Fichas
     itemSamples: @json(url('/propuesta-comercial-items/__ID__/ajax/samples')),
     techSheetsList: @json(url('/propuesta-comercial-items/__ID__/ajax/tech-sheets')),
     linkTechSheet: @json(url('/propuesta-comercial-items/__ID__/ajax/tech-sheets/link')),
     createTechSheet: @json(url('/propuesta-comercial-items/__ID__/ajax/tech-sheets/create')),
     updateTechSheet: @json(url('/propuesta-comercial-fichas/__ID__/update')),
     techSheetPdf: @json(url('/tech-sheets/__ID__/pdf')),
+    clarificationSuggest: @json(url('/propuesta-comercial-items/__ID__/ajax/clarification/suggest')),
+    clarificationSave: @json(url('/propuesta-comercial-items/__ID__/ajax/clarification/save')),
+    clarificationDelete: @json(url('/propuesta-comercial-items/__ID__/ajax/clarification/__QUESTION__/delete')),
+    clarificationsPdf: @json(route('propuestas-comerciales.clarifications.pdf', $propuestaComercial)),
   };
 
   let items = @json($itemsPayload);
@@ -513,185 +790,102 @@
   let manualCatalogResults = [];
   let manualInternetResults = [];
   let isSuggestingAll = false;
-
-  // 🔹 Muestras + Fichas
   let samplesItemId = null;
   let techItemId = null;
   let techSheetsCache = [];
   let currentLinkedSheetId = null;
+  let clarificationItemId = null;
+  let clarificationLastCandidate = null;
 
-  function money(n) {
-    n = Number(n || 0);
-    return n.toLocaleString('es-MX', {
-      style: 'currency',
-      currency: 'MXN',
-      maximumFractionDigits: 0
-    });
-  }
-
-  function escapeHtml(value) {
-    return String(value ?? '')
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;')
-      .replaceAll("'", '&#039;');
-  }
+  function money(n) { return Number(n || 0).toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 2 }); }
+  function escapeHtml(value) { return String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;'); }
 
   async function ajax(url, options = {}) {
     const response = await fetch(url, {
       ...options,
-      headers: {
-        'X-CSRF-TOKEN': csrfToken,
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        ...(options.headers || {})
-      }
+      headers: { 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json', 'Content-Type': 'application/json', ...(options.headers || {}) }
     });
-
     const rawText = await response.text();
     let data = null;
-
-    try {
-      data = rawText ? JSON.parse(rawText) : null;
-    } catch (error) {
-      data = null;
-    }
-
-    if (!response.ok || !data || data.ok === false) {
-      let message = data?.message || 'Error procesando la solicitud.';
-
-      if (!data && rawText) {
-        message += ' Respuesta del servidor: ' + String(rawText).slice(0, 300);
-      }
-
-      throw new Error(message);
-    }
-
+    try { data = rawText ? JSON.parse(rawText) : null; } catch (error) {}
+    if (!response.ok || !data || data.ok === false) throw new Error(data?.message || 'Error procesando la solicitud.');
     return data;
   }
 
-  function urlFor(template, id) {
-    return template.replace('__ID__', id);
-  }
+  function urlFor(template, id) { return template.replace('__ID__', id); }
 
-  // 🔹 Conserva la ficha vinculada cuando el server reemplaza el item (no la incluye en su payload)
   function mergeTechSheetMeta(newItems) {
     if (!Array.isArray(newItems)) return newItems;
-
-    const map = {};
-    items.forEach(i => { map[i.id] = i; });
-
+    const map = {}; items.forEach(i => { map[i.id] = i; });
     newItems.forEach(ni => {
       const prev = map[ni.id];
       if (prev) {
         if (ni.tech_sheet_id === undefined) ni.tech_sheet_id = prev.tech_sheet_id ?? null;
         if (ni.tech_sheet_name === undefined) ni.tech_sheet_name = prev.tech_sheet_name ?? null;
+        if (ni.clarification_questions === undefined) ni.clarification_questions = prev.clarification_questions ?? [];
       }
     });
-
     return newItems;
   }
 
-  // 🔹 Reglas de "decisión tomada"
-  function isManualExternalChosen(item) {
-    return !!(item.manual_external_link || item.manual_external_supplier);
-  }
-
-  function isCatalogAccepted(item) {
-    return item.ui_status === 'accepted_item';
-  }
+  function isManualExternalChosen(item) { return !!item.manual_external_link; }
+  function isCatalogAccepted(item) { return item.ui_status === 'accepted_item'; }
 
   function getSelectedCatalogProduct(item) {
     const selMatch = (item.matches || []).find(m => m.seleccionado);
-    if (selMatch && selMatch.product) {
-      return { product: selMatch.product, score: Number(selMatch.score || 0) };
-    }
-    if (item.producto_seleccionado) {
-      return { product: item.producto_seleccionado, score: Number(item.match_score || 0) };
-    }
+    if (selMatch && selMatch.product) return { product: selMatch.product, score: Number(selMatch.score || 0) };
+    if (item.producto_seleccionado) return { product: item.producto_seleccionado, score: Number(item.match_score || 0) };
     return null;
   }
 
-  function showProcessBox(type, title, text, done = 0, total = 0, errors = []) {
-    const box = document.getElementById('processBox');
-    const titleEl = document.getElementById('processTitle');
-    const textEl = document.getElementById('processText');
-    const countEl = document.getElementById('processCount');
-    const fillEl = document.getElementById('processFill');
-    const errorsEl = document.getElementById('processErrors');
-
-    if (!box || !titleEl || !textEl || !countEl || !fillEl || !errorsEl) {
-      return;
-    }
-
-    box.className = 'process-box show' + (type ? ' ' + type : '');
-    titleEl.textContent = title;
-    textEl.textContent = text;
-    countEl.textContent = `${done}/${total}`;
-
+  // --- Funciones para el Nuevo Toast de Progreso ---
+  function showToast(title, text, done, total, errors = []) {
+    const toast = document.getElementById('toastProcess');
+    toast.classList.add('show');
+    document.getElementById('toastTitle').textContent = title;
+    document.getElementById('toastText').textContent = `${text} (${done}/${total})`;
     const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-    fillEl.style.width = pct + '%';
-
+    document.getElementById('toastFill').style.width = pct + '%';
+    
+    const errorsEl = document.getElementById('toastErrors');
+    const badge = document.getElementById('toastErrorBadge');
     if (errors.length) {
-      errorsEl.classList.add('show');
-      errorsEl.innerHTML = errors
-        .slice(0, 30)
-        .map(error => `<div>• ${escapeHtml(error)}</div>`)
-        .join('');
-
-      if (errors.length > 30) {
-        errorsEl.innerHTML += `<div>• Y ${errors.length - 30} errores más...</div>`;
-      }
+      errorsEl.innerHTML = errors.map(e => `<div class="toast-error-item">${escapeHtml(e)}</div>`).join('');
+      // NO se auto-expande: el panel de errores SOLO se abre cuando el usuario hace clic en el encabezado.
+      // Solo mostramos una etiqueta indicando que hay errores disponibles.
+      toast.classList.add('has-errors');
+      if (badge) badge.textContent = errors.length + (errors.length === 1 ? ' error' : ' errores');
     } else {
-      errorsEl.classList.remove('show');
       errorsEl.innerHTML = '';
+      toast.classList.remove('has-errors');
+      if (badge) badge.textContent = '';
     }
+  }
+
+  function hideToast() {
+    const toast = document.getElementById('toastProcess');
+    toast.classList.remove('show', 'expanded', 'has-errors');
+    const badge = document.getElementById('toastErrorBadge');
+    if (badge) badge.textContent = '';
+    setTimeout(() => { document.getElementById('toastErrors').innerHTML = ''; }, 400);
   }
 
   function showInlineError(message) {
-    showProcessBox(
-      'error',
-      'No se pudo completar la acción',
-      message || 'Ocurrió un error procesando la solicitud.',
-      1,
-      1,
-      []
-    );
-
-    const box = document.getElementById('processBox');
-    if (box) {
-      box.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-  }
-
-  function hideProcessBox() {
-    const box = document.getElementById('processBox');
-    if (box) {
-      box.classList.remove('show');
-    }
+    showToast('Error', 'No se pudo completar la acción.', 1, 1, [message || 'Ocurrió un error.']);
+    setTimeout(hideToast, 6000);
   }
 
   function statusLabel(item) {
     if (item.ui_status === 'accepted_item') return { text: 'Aceptado', cls: 'badge-success' };
     if (item.ui_status === 'manual_review') return { text: 'Revisión', cls: 'badge-warning' };
     if (item.ui_status === 'rejected_item') return { text: 'Rechazado', cls: 'badge-danger' };
-
-    if (item.status_key === 'exact') return { text: 'Coincidencia exacta', cls: 'badge-success' };
+    if (item.status_key === 'exact') return { text: 'Exacto', cls: 'badge-success' };
     if (item.status_key === 'similar') return { text: 'Similar', cls: 'badge-info' };
-
     return { text: 'No encontrado', cls: 'badge-danger' };
-  }
-
-  function statusCardClass(item) {
-    if (item.status_key === 'exact') return 'status-exact';
-    if (item.status_key === 'similar') return 'status-similar';
-    return 'status-not_found';
   }
 
   function renderSummary() {
     const total = summary.total_items || items.length;
-
     document.getElementById('sumAll').textContent = total;
     document.getElementById('sumExact').textContent = summary.exact || 0;
     document.getElementById('sumSimilar').textContent = summary.similar || 0;
@@ -700,27 +894,15 @@
     document.getElementById('sumProfit').textContent = money(summary.profit);
     document.getElementById('sumMargin').textContent = `${summary.margin || 0}%`;
     document.getElementById('itemsCountText').textContent = total;
-
-    document.querySelectorAll('.filter-summary').forEach((btn) => {
-      btn.classList.toggle('active', btn.dataset.filter === currentFilter);
-    });
-
+    document.querySelectorAll('.filter-summary').forEach(btn => btn.classList.toggle('active', btn.dataset.filter === currentFilter));
     const notice = document.getElementById('noticeBox');
-    const count = Number(summary.not_found || 0);
-
-    if (count > 0) {
-      document.getElementById('noticeCount').textContent = `${count} partidas`;
-      notice.classList.add('show');
-    } else {
-      notice.classList.remove('show');
-    }
+    if ((summary.not_found || 0) > 0) { document.getElementById('noticeCount').textContent = `${summary.not_found} partidas`; notice.classList.add('show'); } 
+    else { notice.classList.remove('show'); }
   }
 
   function renderItems() {
     renderSummary();
-
     const list = document.getElementById('itemsList');
-
     const filtered = items.filter(item => {
       if (currentFilter === 'all') return true;
       if (currentFilter === 'exact') return item.status_key === 'exact';
@@ -731,7 +913,6 @@
       if (currentFilter === 'margin') return Number(item.item_margin_pct || 0) > 0;
       return true;
     });
-
     list.innerHTML = filtered.map((item, idx) => renderItemCard(item, idx)).join('');
     bindDragEvents();
   }
@@ -742,97 +923,133 @@
     const cost = Number(item.costo_unitario || 0);
     const price = Number(item.precio_unitario || 0);
     const subtotal = Number(item.subtotal || price * qty);
+    const hasPrices = cost > 0 || price > 0 || subtotal > 0;
+
+    const moneyRowHtml = hasPrices ? `
+      <div class="money-row">
+        ${cost > 0 ? `<span>Costo <strong>${money(cost)}</strong></span>` : ''}
+        ${price > 0 ? `<span>Precio <strong>${money(price)}</strong></span>` : ''}
+        ${subtotal > 0 ? `<span>Subtotal <strong>${money(subtotal)}</strong></span>` : ''}
+      </div>
+    ` : '';
 
     return `
-      <div class="item-card ${statusCardClass(item)}" data-id="${item.id}" draggable="${currentFilter === 'all' ? 'true' : 'false'}">
+      <div class="item-card" data-id="${item.id}" draggable="${currentFilter === 'all' ? 'true' : 'false'}">
         <div class="item-main" onclick="toggleItem(${item.id})">
-          <button class="drag-handle" type="button" title="Mover posición" onclick="event.stopPropagation()">⠿</button>
+          <button class="drag-handle" type="button" title="Mover posición" onclick="event.stopPropagation()">
+            ${svgs.drag}
+          </button>
           <div class="item-index">${idx + 1}</div>
           <div>
             <h3 class="item-name">${escapeHtml(item.descripcion_original || 'Producto sin descripción')}</h3>
             <div class="item-meta">
               ${qty} ${escapeHtml(item.unidad_solicitada || 'pz')}
               ${item.producto_seleccionado?.brand ? ' · ' + escapeHtml(item.producto_seleccionado.brand) : ''}
-              ${item.tech_sheet_id ? ' · <span style="color:var(--success); font-weight:700;">📄 Ficha vinculada</span>' : ''}
+              ${item.tech_sheet_id ? ` · ${svgs.doc_linked} <span style="color:var(--success); font-weight:700;">Ficha</span>` : ''}
             </div>
           </div>
           <span class="badge ${badge.cls}">${badge.text}</span>
-          <div class="money-row">
-            <span>Costo <strong>${money(cost)}</strong></span>
-            <span>Precio <strong>${money(price)}</strong></span>
-            <span>Subtotal <strong>${money(subtotal)}</strong></span>
+
+          ${moneyRowHtml}
+          
+          <div class="action-cell" onclick="event.stopPropagation()">
+            <div class="dropdown-menu" id="dropdown-${item.id}">
+              <button class="dropdown-item" onclick="suggestItem(${item.id}, this); toggleDropdown(event, ${item.id});">${svgs.target} Hacer match</button>
+              <button class="dropdown-item" onclick="openManualModal(${item.id}); toggleDropdown(event, ${item.id});">${svgs.search} Buscar manualmente</button>
+              <button class="dropdown-item" onclick="openManualModal(${item.id}, 'internet'); toggleDropdown(event, ${item.id});">${svgs.external} Buscar en internet</button>
+              <button class="dropdown-item" onclick="openClarificationModal(${item.id}); toggleDropdown(event, ${item.id});">${svgs.question} Pregunta</button>
+              <button class="dropdown-item" onclick="openTechSheetsModal(${item.id}); toggleDropdown(event, ${item.id});">${svgs.file} Ficha técnica</button>
+              <button class="dropdown-item" onclick="openSamplesModal(${item.id}); toggleDropdown(event, ${item.id});">${svgs.box} Muestras / stock</button>
+              <div class="dropdown-divider"></div>
+              <button class="dropdown-item" onclick="setItemStatus(${item.id}, 'accepted_item'); toggleDropdown(event, ${item.id});">${svgs.check} Aceptar partida</button>
+              <button class="dropdown-item" onclick="setItemStatus(${item.id}, 'manual_review'); toggleDropdown(event, ${item.id});">${svgs.target} Marcar en revisión</button>
+              <button class="dropdown-item text-danger" onclick="setItemStatus(${item.id}, 'rejected_item'); toggleDropdown(event, ${item.id});">${svgs.x} Rechazar partida</button>
+            </div>
+            <button class="btn-kebab" onclick="toggleDropdown(event, ${item.id})">${svgs.dots}</button>
           </div>
-          <div class="chevron">⌄</div>
+
+          <div class="chevron">
+            ${svgs.chevron}
+          </div>
         </div>
 
-        <div class="item-details">
-          ${renderCatalogSection(item)}
-          ${renderManualExternal(item)}
-          ${renderExternalSection(item)}
-          ${renderTechSheetLinked(item)}
-          ${renderActions(item)}
-          ${renderEditForm(item)}
+        <div class="item-details" id="item-details-${item.id}" onclick="event.stopPropagation()">
+          <div class="item-tabs-container">
+            <button class="item-tab-btn active" id="tab-${item.id}-catalog" onclick="switchTab(${item.id}, 'catalog')">Catálogo</button>
+            <button class="item-tab-btn" id="tab-${item.id}-internet" onclick="switchTab(${item.id}, 'internet')">Internet</button>
+            <button class="item-tab-btn" id="tab-${item.id}-tech" onclick="switchTab(${item.id}, 'tech')">Ficha técnica</button>
+            <button class="item-tab-btn" id="tab-${item.id}-questions" onclick="switchTab(${item.id}, 'questions')">Preguntas</button>
+            <button class="item-tab-btn" id="tab-${item.id}-edit" onclick="switchTab(${item.id}, 'edit')">Editar</button>
+          </div>
+
+          <div class="item-tab-pane active" id="pane-${item.id}-catalog">${renderCatalogSection(item)}</div>
+          <div class="item-tab-pane" id="pane-${item.id}-internet">${renderExternalSection(item)}</div>
+          <div class="item-tab-pane" id="pane-${item.id}-tech">${renderTechSheetLinked(item)}</div>
+          <div class="item-tab-pane" id="pane-${item.id}-questions">${renderClarificationSection(item)}</div>
+          <div class="item-tab-pane" id="pane-${item.id}-edit">${renderEditForm(item)}</div>
         </div>
       </div>
     `;
   }
 
   function renderCatalogSection(item) {
-    // 🔹 Si se eligió una referencia externa/manual, ocultamos las coincidencias de catálogo
-    if (isManualExternalChosen(item)) {
-      return '';
+    const qty = Number(item.cantidad_cotizada || item.cantidad_maxima || item.cantidad_minima || 1);
+
+    function productCost(product) {
+      const itemCost = Number(item.costo_unitario || 0);
+      const productCost = Number(product?.cost || 0);
+      return itemCost > 0 ? itemCost : productCost;
     }
 
-    // 🔹 Si ya se aceptó la partida, mostrar SOLO el producto seleccionado
-    if (isCatalogAccepted(item)) {
-      const sel = getSelectedCatalogProduct(item);
-      if (sel) {
-        const p = sel.product;
-        return `
-          <div class="section">
-            <div class="section-title">Producto seleccionado (catálogo)</div>
-            <div class="result-card" style="border-color:rgba(21,128,61,.35);">
-              <div class="result-title">
-                ${escapeHtml(p.name || 'Producto')}
-                <span class="badge badge-success">Aceptado</span>
-              </div>
-              <div class="result-meta">
-                SKU: ${escapeHtml(p.sku || '—')} · ${escapeHtml(p.brand || '—')} · Stock: ${p.stock ?? '—'}${sel.score ? ' · ' + sel.score.toFixed(0) + '%' : ''}
-              </div>
-            </div>
-          </div>
-        `;
-      }
-      // aceptado pero sin producto: dejamos ver sugerencias para que elija
+    function productPrice(product) {
+      const itemPrice = Number(item.precio_unitario || 0);
+      const productPrice = Number(product?.price || 0);
+      return itemPrice > 0 ? itemPrice : productPrice;
     }
 
-    if (!item.matches?.length && !item.producto_seleccionado) {
-      return `
-        <div class="section">
-          <div class="section-title">Coincidencia en catálogo</div>
-          <div class="result-title">N/A</div>
-          <div class="result-meta">SKU: N/A · N/A · Stock: 0</div>
-        </div>
-      `;
+    function productSubtotal(product) {
+      const itemSubtotal = Number(item.subtotal || 0);
+      if (itemSubtotal > 0) return itemSubtotal;
+
+      const price = productPrice(product);
+      return price * qty;
     }
 
     if (item.matches?.length) {
       return `
-        <div class="section">
-          <div class="section-title">Coincidencias en catálogo</div>
-          ${item.matches.map((match, i) => {
-            const p = match.product || {};
+        <div>
+          ${item.matches.map((m, i) => {
+            const isSelected = !!m.seleccionado;
+            const p = m.product || {};
+            const cost = isSelected ? productCost(p) : Number(p.cost || 0);
+            const price = isSelected ? productPrice(p) : Number(p.price || 0);
+            const subtotal = isSelected ? productSubtotal(p) : price * qty;
+
             return `
-              <div class="result-card">
-                <div class="result-title">${escapeHtml(p.name || 'Producto sin nombre')}</div>
-                <div class="result-meta">
-                  SKU: ${escapeHtml(p.sku || '—')} · ${escapeHtml(p.brand || '—')} · Stock: ${p.stock ?? '—'} · ${Number(match.score || 0).toFixed(0)}%
+              <div class="result-card" ${isSelected ? 'style="border-color:var(--success);"' : ''}>
+                <div class="d-flex align-items-center mb-2">
+                  <div class="result-title mb-0" style="margin-right:12px;">
+                    ${escapeHtml(p.name || 'Producto sin nombre')}
+                  </div>
+                  ${isSelected ? '<span class="badge badge-success">Aceptado</span>' : `<span class="badge badge-info">${Number(m.score || 0).toFixed(0)}%</span>`}
                 </div>
-                <div class="action-row" style="margin-top:12px;">
-                  <button class="btn btn-outline btn-small" type="button" onclick="selectMatch(${item.id}, ${match.id})">
-                    ✓ Usar esta
-                  </button>
-                  ${i === 0 ? '<span class="badge badge-info">Principal</span>' : ''}
+
+                <div class="result-meta mb-2">
+                  SKU: ${escapeHtml(p.sku || '—')} · ${escapeHtml(p.brand || '—')} · Stock: ${p.stock ?? '—'} · ${Number(m.score || 0).toFixed(0)}%
+                </div>
+
+                <div class="result-meta mt-2">
+                  Costo <strong>${money(cost)}</strong> ·
+                  Precio <strong>${money(price)}</strong> ·
+                  Subtotal <strong>${money(subtotal)}</strong>
+                </div>
+
+                <div class="action-row mt-3">
+                  ${isSelected
+                    ? '<span class="badge badge-success">Producto seleccionado</span>'
+                    : `<button class="btn btn-success btn-small" type="button" onclick="selectMatch(${item.id}, ${m.id})">${svgs.check} Usar esta</button>`
+                  }
+                  ${i === 0 ? '<span class="badge badge-blue">Principal</span>' : ''}
                 </div>
               </div>
             `;
@@ -841,101 +1058,125 @@
       `;
     }
 
-    return `
-      <div class="section">
-        <div class="section-title">Coincidencia en catálogo</div>
-        <div class="result-title">${escapeHtml(item.producto_seleccionado?.name || 'N/A')}</div>
-        <div class="result-meta">
-          SKU: ${escapeHtml(item.producto_seleccionado?.sku || 'N/A')} · ${escapeHtml(item.producto_seleccionado?.brand || 'N/A')} · Stock: ${item.producto_seleccionado?.stock || 0}
-        </div>
-      </div>
-    `;
-  }
+    if (item.producto_seleccionado) {
+      const p = item.producto_seleccionado;
+      const cost = productCost(p);
+      const price = productPrice(p);
+      const subtotal = productSubtotal(p);
 
-  function renderManualExternal(item) {
-    if (!item.manual_external_supplier && !item.manual_external_link && !item.manual_catalog_product_name) {
-      return '';
+      return `
+        <div class="result-card" style="border-color:var(--success);">
+          <div class="d-flex align-items-center mb-2">
+            <div class="result-title mb-0" style="margin-right:12px;">
+              ${escapeHtml(p.name || 'Producto seleccionado')}
+            </div>
+            <span class="badge badge-success">Aceptado</span>
+          </div>
+
+          <div class="result-meta">
+            SKU: ${escapeHtml(p.sku || '—')} · ${escapeHtml(p.brand || '—')} · Stock: ${p.stock ?? '—'}${item.match_score ? ' · ' + Number(item.match_score || 0).toFixed(0) + '%' : ''}
+          </div>
+
+          <div class="result-meta mt-2">
+            Costo <strong>${money(cost)}</strong> ·
+            Precio <strong>${money(price)}</strong> ·
+            Subtotal <strong>${money(subtotal)}</strong>
+          </div>
+        </div>
+      `;
     }
 
     return `
-      <div class="section">
-        <div class="external-box">
-          <div class="section-title">Referencia seleccionada (proveedor externo)</div>
-          <div class="result-title">
-            ${escapeHtml(item.manual_external_supplier || item.manual_catalog_product_name || 'Proveedor externo')}
-            ${item.costo_unitario ? ' · ' + money(item.costo_unitario) : ''}
-          </div>
-
-          ${item.manual_external_link ? `
-            <div style="margin-top:10px;">
-              <a href="${escapeHtml(item.manual_external_link)}" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-small">↗ Ver referencia</a>
-            </div>
-          ` : ''}
-
-          <div class="warning-line">ⓘ Se ocultaron las demás coincidencias de catálogo e internet. Precio estimado — validar antes de aprobar.</div>
+      <div class="result-card">
+        <div class="result-title">Sin matches en catálogo</div>
+        <div class="result-meta">No hay coincidencias guardadas todavía. Puedes ejecutar “Hacer match” o buscar manualmente.</div>
+        <div class="action-row mt-3">
+          <button class="btn btn-outline btn-small" type="button" onclick="suggestItem(${item.id}, this)">${svgs.target} Hacer match</button>
+          <button class="btn btn-ghost btn-small" type="button" onclick="openManualModal(${item.id})">${svgs.search} Buscar manualmente</button>
         </div>
       </div>
     `;
   }
 
   function renderExternalSection(item) {
-    // 🔹 Si ya hay decisión (catálogo aceptado o referencia externa elegida), no mostramos más opciones
-    if (isCatalogAccepted(item) || isManualExternalChosen(item)) {
-      return '';
+    let html = '';
+
+    if (item.manual_external_supplier || item.manual_external_link || item.manual_catalog_product_name || item.catalog_product_name_manual) {
+      html += `
+        <div class="external-box">
+          <div class="result-title">
+            ${escapeHtml(item.manual_external_supplier || item.manual_catalog_product_name || item.catalog_product_name_manual || 'Referencia manual')}
+            <span class="badge badge-warning">Manual</span>
+          </div>
+          <div class="result-meta mt-2">Costo estimado: <strong>${money(item.costo_unitario)}</strong></div>
+          ${item.manual_external_link ? `
+            <div class="action-row mt-3">
+              <a href="${escapeHtml(item.manual_external_link)}" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-small">${svgs.external} Ver enlace</a>
+            </div>
+          ` : ''}
+        </div>
+      `;
     }
 
-    if (!item.external_matches?.length) {
-      if (item.status_key === 'not_found') {
-        return `
-          <div class="section">
-            <div class="warning-line">ⓘ Producto no disponible en catálogo interno.</div>
-            <div class="warning-line">ⓘ Se sugiere adquisición con proveedor externo.</div>
-          </div>
-        `;
-      }
-
-      return '';
+    if (item.external_matches?.length) {
+      html += `
+        <div>
+          ${item.external_matches.map(e => `
+            <div class="external-box">
+              <div class="result-title">${escapeHtml(e.title || 'Referencia externa')}</div>
+              <div class="result-meta mb-2">
+                ${escapeHtml(e.source || 'Internet')}
+                ${e.seller ? ' · ' + escapeHtml(e.seller) : ''}
+                · Score ${Number(e.score || 0).toFixed(0)}%
+              </div>
+              <div class="result-meta mt-2">${e.price ? `<strong>${money(e.price)}</strong>` : 'Precio por validar'}</div>
+              <div class="action-row mt-3">
+                ${e.url ? `<a class="btn btn-outline btn-small" href="${escapeHtml(e.url)}" target="_blank" rel="noopener noreferrer">${svgs.external} Ver enlace</a>` : ''}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
     }
 
-    return `
-      <div class="section">
-        <div class="section-title">Opciones de internet</div>
-        ${item.external_matches.map(external => `
-          <div class="external-box">
-            <div class="result-title">${escapeHtml(external.title)}</div>
-            <div class="result-meta">
-              ${escapeHtml(external.source || 'Internet')}
-              ${external.seller ? ' · ' + escapeHtml(external.seller) : ''}
-              · Score ${Number(external.score || 0).toFixed(0)}%
-            </div>
-
-            <div style="margin-top:10px;">
-              <a class="btn btn-outline btn-small" href="${escapeHtml(external.url)}" target="_blank" rel="noopener noreferrer">↗ Ver referencia</a>
-            </div>
+    if (!html) {
+      html = `
+        <div class="result-card">
+          <div class="result-title">Sin opciones de internet</div>
+          <div class="result-meta">No hay referencias externas guardadas todavía. Puedes buscarlas desde la búsqueda manual en la pestaña Internet.</div>
+          <div class="action-row mt-3">
+            <button class="btn btn-outline btn-small" type="button" onclick="openManualModal(${item.id}, 'internet')">${svgs.search} Buscar en internet</button>
           </div>
-        `).join('')}
-      </div>
-    `;
+        </div>
+      `;
+    }
+
+    return html;
   }
 
-  // 🔹 Ficha técnica vinculada + preview embebido
   function renderTechSheetLinked(item) {
-    if (!item.tech_sheet_id) return '';
+    if (!item.tech_sheet_id) {
+      return `
+        <div class="result-card">
+          <div class="result-title">${svgs.file} Sin ficha técnica vinculada</div>
+          <div class="result-meta">Vincula una ficha existente o crea una nueva para esta partida.</div>
+          <div class="action-row mt-3">
+            <button class="btn btn-outline btn-small" type="button" onclick="openTechSheetsModal(${item.id})">${svgs.file} Vincular ficha</button>
+          </div>
+        </div>
+      `;
+    }
 
     const pdfUrl = urlFor(routes.techSheetPdf, item.tech_sheet_id);
-
     return `
-      <div class="section">
-        <div class="section-title">Ficha técnica vinculada</div>
-        <div class="result-card">
-          <div class="result-title">📄 ${escapeHtml(item.tech_sheet_name || 'Ficha técnica')}</div>
-          <div class="action-row" style="margin-top:10px;">
-            <button class="btn btn-soft btn-small" type="button" onclick="toggleTechPreview(${item.id}, '${pdfUrl}')">👁 Ver ficha seleccionada</button>
-            <a class="btn btn-outline btn-small" target="_blank" rel="noopener noreferrer" href="${pdfUrl}">↗ Abrir en pestaña</a>
-            <button class="btn btn-ghost btn-small" type="button" onclick="openTechSheetsModal(${item.id})">Cambiar / editar</button>
-          </div>
-          <div id="tech-preview-${item.id}" class="tech-preview" style="display:none; margin-top:12px;"></div>
+      <div class="result-card">
+        <div class="result-title">${svgs.file} ${escapeHtml(item.tech_sheet_name || 'Ficha técnica')}</div>
+        <div class="action-row mt-3">
+          <button class="btn btn-outline btn-small" type="button" onclick="toggleTechPreview(${item.id}, ${JSON.stringify(pdfUrl).replaceAll('"', '&quot;')})">Ver ficha</button>
+          <a class="btn btn-outline btn-small" target="_blank" rel="noopener noreferrer" href="${escapeHtml(pdfUrl)}">${svgs.external} Abrir PDF</a>
+          <button class="btn btn-ghost btn-small" type="button" onclick="openTechSheetsModal(${item.id})">Cambiar</button>
         </div>
+        <div id="tech-preview-${item.id}" class="tech-preview" style="display:none; margin-top:12px;"></div>
       </div>
     `;
   }
@@ -949,9 +1190,9 @@
     if (isHidden) {
       box.innerHTML = `
         <iframe
-          src="${pdfUrl}"
+          src="${escapeHtml(pdfUrl)}"
           title="Ficha técnica"
-          style="width:100%; height:560px; border:1px solid #ececec; border-radius:12px; background:#fff;"></iframe>
+          style="width:100%; height:560px; border:1px solid var(--line); border-radius:var(--radius-card); background:#fff;"></iframe>
       `;
       box.style.display = 'block';
       box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -961,18 +1202,97 @@
     }
   }
 
-  function renderActions(item) {
+
+  function getClarificationText(q) {
+    if (!q) return '';
+
+    if (typeof q === 'string') {
+      return q;
+    }
+
+    return q.pregunta_generada ||
+      q.question ||
+      q.generated_question ||
+      q.text ||
+      q.pregunta ||
+      '';
+  }
+
+  function getClarificationCandidate(q) {
+    if (!q || typeof q !== 'object') return null;
+
+    if (q.catalog_candidate && typeof q.catalog_candidate === 'object') {
+      return q.catalog_candidate;
+    }
+
+    if (q.producto_sugerido || q.sku_sugerido || q.marca_sugerida) {
+      return {
+        name: q.producto_sugerido || '',
+        sku: q.sku_sugerido || '',
+        brand: q.marca_sugerida || '',
+        price: q.precio_sugerido || null
+      };
+    }
+
+    return null;
+  }
+
+  function renderClarificationSection(item) {
+    const questions = Array.isArray(item.clarification_questions) ? item.clarification_questions : [];
+
+    const questionsHtml = questions.length ? questions.map((q, index) => {
+      const questionText = getClarificationText(q);
+      const candidate = getClarificationCandidate(q);
+
+      return `
+        <div class="result-card">
+          <div class="result-title">
+            ${svgs.question} Pregunta ${index + 1}
+            <span class="badge badge-blue">Junta de aclaraciones</span>
+          </div>
+
+          <div class="result-meta" style="white-space:pre-wrap; line-height:1.55; color:var(--ink);">
+            ${escapeHtml(questionText)}
+          </div>
+
+          ${candidate?.name ? `
+            <div class="result-meta mt-2">
+              Alternativa sugerida:
+              <strong>${escapeHtml(candidate.name)}</strong>
+              ${candidate.sku ? ' · SKU ' + escapeHtml(candidate.sku) : ''}
+              ${candidate.brand ? ' · ' + escapeHtml(candidate.brand) : ''}
+              ${candidate.price ? ' · Precio ' + money(candidate.price) : ''}
+            </div>
+          ` : ''}
+
+          <div class="action-row mt-3">
+            <button class="btn btn-ghost btn-small" type="button" onclick="deleteClarificationQuestion(${item.id}, '${escapeHtml(q.id || '')}')">
+              Eliminar
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('') : `
+      <div class="result-card">
+        <div class="result-title">Sin preguntas guardadas</div>
+        <div class="result-meta">
+          Agrega una pregunta individual para esta partida. Al final podrás descargar el PDF de junta de aclaraciones con todas las preguntas.
+        </div>
+      </div>
+    `;
+
     return `
-      <div class="section">
-        <div class="action-row">
-          <button class="btn btn-ghost btn-small" type="button" onclick="toggleEdit(${item.id})">✎ Editar</button>
-          <button class="btn btn-success btn-small" type="button" onclick="setItemStatus(${item.id}, 'accepted_item')">✓ Aceptar</button>
-          <button class="btn btn-danger btn-small" type="button" onclick="setItemStatus(${item.id}, 'rejected_item')">× Rechazar</button>
-          <button class="btn btn-warning btn-small" type="button" onclick="setItemStatus(${item.id}, 'manual_review')">◎ Revisión</button>
-          <button class="btn btn-soft btn-small" type="button" onclick="suggestItem(${item.id})">◎ Buscar coincidencias</button>
-          <button class="btn btn-ghost btn-small" type="button" onclick="openManualModal(${item.id})">⌕ Buscar manualmente</button>
-          <button class="btn btn-soft btn-small" type="button" onclick="openSamplesModal(${item.id})">📦 Muestras</button>
-          <button class="btn btn-outline btn-small" type="button" onclick="openTechSheetsModal(${item.id})">📄 Ficha técnica</button>
+      <div>
+        ${questionsHtml}
+
+        <div class="action-row mt-3">
+          <button class="btn btn-outline btn-small" type="button" onclick="openClarificationModal(${item.id})">
+            ${svgs.question} Nueva pregunta
+          </button>
+
+          <button class="btn btn-primary btn-small" type="button" onclick="openClarificationsPdf()">
+            ${svgs.file} PDF junta de aclaraciones
+          </button>
         </div>
       </div>
     `;
@@ -980,72 +1300,64 @@
 
   function renderEditForm(item) {
     return `
-      <form class="edit-form" id="edit-form-${item.id}" onsubmit="saveItem(event, ${item.id})">
-        <div class="field">
-          <label>Producto</label>
-          <input class="input" name="descripcion_original" value="${escapeHtml(item.descripcion_original || '')}">
+      <form class="edit-form show" id="edit-form-${item.id}" onsubmit="saveItem(event, ${item.id})" style="border:none; padding:0; background:transparent; margin:0;">
+        <div class="row">
+          <div class="col-12 col-md-6 field"><label>Producto</label><input class="input" name="descripcion_original" value="${escapeHtml(item.descripcion_original || '')}"></div>
+          <div class="col-6 col-md-2 field"><label>Cant.</label><input class="input" type="number" step="0.01" name="cantidad_cotizada" value="${Number(item.cantidad_cotizada || 1)}"></div>
+          <div class="col-6 col-md-2 field"><label>Unidad</label><input class="input" name="unidad_solicitada" value="${escapeHtml(item.unidad_solicitada || '')}"></div>
+          <div class="col-6 col-md-2 field"><label>Costo unit.</label><input class="input" type="number" step="0.01" name="costo_unitario" value="${Number(item.costo_unitario || 0)}"></div>
+          <div class="col-6 col-md-3 field"><label>Margen %</label><input class="input" type="number" step="0.01" name="porcentaje_utilidad" value="${Number(item.item_margin_pct || 25)}"></div>
+          <div class="col-6 col-md-4 field"><label>Marca</label><input class="input" name="external_supplier" value="${escapeHtml(item.manual_external_supplier || '')}"></div>
+          <div class="col-6 col-md-5 field"><label>Modelo</label><input class="input" name="modelo" value="${escapeHtml(item.modelo || '')}"></div>
+          <div class="col-12 col-md-12 field"><label>Enlace externo</label><input class="input" name="external_link" value="${escapeHtml(item.manual_external_link || '')}"></div>
         </div>
-
-        <div class="field">
-          <label>Cantidad</label>
-          <input class="input" type="number" step="0.01" name="cantidad_cotizada" value="${Number(item.cantidad_cotizada || 1)}">
+        <div class="action-row mt-3">
+          <button class="btn btn-primary btn-small" type="submit">Guardar cambios</button>
         </div>
-
-        <div class="field">
-          <label>Unidad</label>
-          <input class="input" name="unidad_solicitada" value="${escapeHtml(item.unidad_solicitada || '')}">
-        </div>
-
-        <div class="field">
-          <label>Costo unit.</label>
-          <input class="input" type="number" step="0.01" name="costo_unitario" value="${Number(item.costo_unitario || 0)}">
-        </div>
-
-        <div class="field">
-          <label>Margen %</label>
-          <input class="input" type="number" step="0.01" name="porcentaje_utilidad" value="${Number(item.item_margin_pct || 25)}">
-        </div>
-
-        <div class="field">
-          <label>Proveedor</label>
-          <input class="input" name="external_supplier" value="${escapeHtml(item.manual_external_supplier || '')}">
-        </div>
-
-        <div class="field">
-          <label>Link ref.</label>
-          <input class="input" name="external_link" value="${escapeHtml(item.manual_external_link || '')}">
-        </div>
-
-        <div class="action-row" style="grid-column:1/-1;">
-          <button class="btn btn-primary btn-small" type="submit">✓ Guardar</button>
-          <button class="btn btn-ghost btn-small" type="button" onclick="toggleEdit(${item.id})">Cancelar</button>
-        </div>
-      </form>
-    `;
+      </form>`;
   }
 
+  // --- Interaction Logic ---
+  function toggleItem(id, forceOpen = false) {
+    const card = document.querySelector(`.item-card[data-id="${id}"]`);
+    if(card) {
+      if(forceOpen) card.classList.add('open');
+      else card.classList.toggle('open');
+    }
+  }
+
+  function switchTab(itemId, tabName) {
+    document.querySelectorAll(`#item-details-${itemId} .item-tab-pane`).forEach(el => el.classList.remove('active'));
+    document.querySelectorAll(`#item-details-${itemId} .item-tab-btn`).forEach(el => el.classList.remove('active'));
+    document.getElementById(`pane-${itemId}-${tabName}`)?.classList.add('active');
+    document.getElementById(`tab-${itemId}-${tabName}`)?.classList.add('active');
+  }
+
+  function toggleDropdown(event, itemId) {
+    event.stopPropagation();
+    const target = document.getElementById(`dropdown-${itemId}`);
+    const isShowing = target.classList.contains('show');
+    document.querySelectorAll('.dropdown-menu.show').forEach(m => m.classList.remove('show'));
+    if(!isShowing) target.classList.add('show');
+  }
+
+  document.addEventListener('click', () => {
+    document.querySelectorAll('.dropdown-menu.show').forEach(m => m.classList.remove('show'));
+  });
+
+  // --- API / State Management ---
   function updateItemInState(item) {
     const idx = items.findIndex(i => i.id === item.id);
     if (idx >= 0) {
       const prev = items[idx] || {};
       if (item.tech_sheet_id === undefined) item.tech_sheet_id = prev.tech_sheet_id ?? null;
       if (item.tech_sheet_name === undefined) item.tech_sheet_name = prev.tech_sheet_name ?? null;
+      if (item.clarification_questions === undefined) item.clarification_questions = prev.clarification_questions ?? [];
       items[idx] = item;
     }
   }
 
-  function toggleItem(id) {
-    const card = document.querySelector(`.jureto-quote-page .item-card[data-id="${id}"]`);
-    if (card) card.classList.toggle('open');
-  }
-
-  function toggleEdit(id) {
-    const form = document.getElementById(`edit-form-${id}`);
-    if (form) form.classList.toggle('show');
-  }
-
-  async function suggestItem(id) {
-    const button = event?.target;
+  async function suggestItem(id, button = null) {
     const old = button?.innerHTML;
 
     if (button) {
@@ -1058,9 +1370,8 @@
       updateItemInState(data.item);
       summary = data.summary || summary;
       renderItems();
-
-      const card = document.querySelector(`.jureto-quote-page .item-card[data-id="${id}"]`);
-      if (card) card.classList.add('open');
+      toggleItem(id, true);
+      switchTab(id, 'catalog');
     } catch (e) {
       showInlineError(e.message);
     } finally {
@@ -1073,17 +1384,17 @@
 
   async function selectMatch(itemId, matchId) {
     try {
-      const url = routes.selectMatch
-        .replace('__ID__', itemId)
-        .replace('__MATCH__', matchId);
+      const data = await ajax(routes.selectMatch.replace('__ID__', itemId).replace('__MATCH__', matchId), {
+        method: 'POST',
+        body: '{}'
+      });
 
-      const data = await ajax(url, { method: 'POST', body: '{}' });
       updateItemInState(data.item);
       summary = data.summary || summary;
-      renderItems();
 
-      const card = document.querySelector(`.jureto-quote-page .item-card[data-id="${itemId}"]`);
-      if (card) card.classList.add('open');
+      renderItems();
+      toggleItem(itemId, true);
+      switchTab(itemId, 'catalog');
     } catch (e) {
       showInlineError(e.message);
     }
@@ -1091,190 +1402,79 @@
 
   async function setItemStatus(id, status) {
     try {
-      const data = await ajax(urlFor(routes.updateStatus, id), {
-        method: 'POST',
-        body: JSON.stringify({ ui_status: status })
-      });
-
-      updateItemInState(data.item);
-      summary = data.summary || summary;
-      renderItems();
-
-      const card = document.querySelector(`.jureto-quote-page .item-card[data-id="${id}"]`);
-      if (card) card.classList.add('open');
-    } catch (e) {
-      showInlineError(e.message);
-    }
+      const data = await ajax(urlFor(routes.updateStatus, id), { method: 'POST', body: JSON.stringify({ ui_status: status }) });
+      updateItemInState(data.item); summary = data.summary || summary; renderItems(); toggleItem(id, true);
+    } catch (e) { showInlineError(e.message); }
   }
 
   async function saveItem(event, id) {
     event.preventDefault();
-
-    const form = event.target;
-    const payload = Object.fromEntries(new FormData(form).entries());
-
+    const payload = Object.fromEntries(new FormData(event.target).entries());
     try {
-      const data = await ajax(urlFor(routes.updateItem, id), {
-        method: 'POST',
-        body: JSON.stringify(payload)
-      });
-
-      updateItemInState(data.item);
-      summary = data.summary || summary;
-      renderItems();
-
-      const card = document.querySelector(`.jureto-quote-page .item-card[data-id="${id}"]`);
-      if (card) card.classList.add('open');
-    } catch (e) {
-      showInlineError(e.message);
-    }
+      const data = await ajax(urlFor(routes.updateItem, id), { method: 'POST', body: JSON.stringify(payload) });
+      updateItemInState(data.item); summary = data.summary || summary; renderItems(); toggleItem(id, true); switchTab(id, 'edit');
+      showToast('Guardado', 'Los cambios se han guardado exitosamente.', 1, 1);
+      setTimeout(hideToast, 3000);
+    } catch (e) { showInlineError(e.message); }
   }
 
   async function suggestAll() {
     if (isSuggestingAll) return;
-
-    const button = document.getElementById('btnSuggestAll');
-    const old = button.innerHTML;
     const pendingItems = items.filter(item => item.status_key !== 'exact');
-
     if (!pendingItems.length) {
-      showProcessBox(
-        'success',
-        'No hay partidas pendientes',
-        'Todas las partidas ya tienen coincidencia exacta o ya fueron procesadas.',
-        items.length,
-        items.length,
-        []
-      );
-
-      setTimeout(hideProcessBox, 3500);
-      return;
+      showToast('Todo Exacto', 'Todas las partidas ya tienen coincidencia exacta.', 1, 1);
+      setTimeout(hideToast, 3500); return;
     }
-
     isSuggestingAll = true;
-    button.disabled = true;
-    button.innerHTML = '<span class="loader"></span> Procesando...';
-
-    const total = pendingItems.length;
-    let done = 0;
-    let success = 0;
-    const errors = [];
-    const concurrency = 4;
-    let cursor = 0;
-
-    showProcessBox(
-      '',
-      'Buscando coincidencias por lotes',
-      `Procesando ${total} partidas sin saturar el servidor...`,
-      done,
-      total,
-      errors
-    );
-
-    const box = document.getElementById('processBox');
-    if (box) {
-      box.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-
+    showToast('Buscando coincidencias', `Procesando ${pendingItems.length} partidas...`, 0, pendingItems.length, []);
+    
+    let done = 0, success = 0, errors = [], cursor = 0;
     async function worker() {
       while (cursor < pendingItems.length) {
-        const currentIndex = cursor++;
-        const item = pendingItems[currentIndex];
-
+        const item = pendingItems[cursor++];
         try {
-          const data = await ajax(urlFor(routes.suggestItem, item.id), {
-            method: 'POST',
-            body: '{}'
-          });
-
-          if (data.item) {
-            updateItemInState(data.item);
+          const data = await ajax(urlFor(routes.suggestItem, item.id), { method: 'POST', body: '{}' });
+          if (data.item) updateItemInState(data.item); if (data.summary) summary = data.summary; success++;
+        } catch (error) { 
+          // SOLUCIÓN AL ERROR GIGANTE DE SQL
+          let cleanMsg = error.message || 'Error desconocido';
+          if (cleanMsg.includes('SQLSTATE')) {
+             if (cleanMsg.includes('Data too long')) cleanMsg = 'Nombre o descripción de referencia demasiado largo (truncado).';
+             else cleanMsg = 'Error en base de datos. Partida omitida.';
           }
-
-          if (data.summary) {
-            summary = data.summary;
-          }
-
-          success++;
-        } catch (error) {
-          errors.push(
-            `Partida #${item.sort || currentIndex + 1}: ${error.message || 'No se pudo procesar.'}`
-          );
-        } finally {
+          if (cleanMsg.length > 100) cleanMsg = cleanMsg.substring(0, 100) + '...';
+          errors.push(`Partida #${item.sort || cursor}: ${cleanMsg}`); 
+        }
+        finally {
           done++;
-
-          showProcessBox(
-            errors.length ? 'error' : '',
-            'Buscando coincidencias por lotes',
-            `Procesadas ${done} de ${total}. Correctas: ${success}. Errores: ${errors.length}.`,
-            done,
-            total,
-            errors
-          );
-
-          if (done % 5 === 0 || done === total) {
-            renderItems();
-          }
+          showToast(errors.length ? 'Proceso con errores' : 'Buscando coincidencias', `Listas ${done} de ${pendingItems.length}.`, done, pendingItems.length, errors);
+          if (done % 5 === 0 || done === pendingItems.length) renderItems();
         }
       }
     }
-
-    try {
-      await Promise.all(
-        Array.from({ length: Math.min(concurrency, pendingItems.length) }, () => worker())
-      );
-
-      renderItems();
-
-      if (errors.length) {
-        showProcessBox(
-          'error',
-          'Proceso terminado con algunos errores',
-          `Se procesaron ${success} partidas correctamente y ${errors.length} fallaron. Puedes volver a intentar; se saltarán las exactas.`,
-          done,
-          total,
-          errors
-        );
-      } else {
-        showProcessBox(
-          'success',
-          'Coincidencias completadas',
-          `Se procesaron ${success} partidas correctamente.`,
-          done,
-          total,
-          []
-        );
-
-        setTimeout(hideProcessBox, 3500);
-      }
-    } finally {
-      isSuggestingAll = false;
-      button.disabled = false;
-      button.innerHTML = old;
-    }
+    try { await Promise.all(Array.from({ length: 4 }, worker)); } finally { isSuggestingAll = false; setTimeout(() => { if(!errors.length) hideToast(); }, 4000); }
   }
 
   async function saveGlobalMargin(applyToItems) {
     const margin = document.getElementById('globalMarginInput').value;
-
     try {
-      const data = await ajax(routes.globalMargin, {
-        method: 'POST',
-        body: JSON.stringify({
-          porcentaje_utilidad: margin,
-          apply_to_items: applyToItems
-        })
-      });
-
-      items = mergeTechSheetMeta(data.items) || items;
-      summary = data.summary || summary;
-      renderItems();
-    } catch (e) {
-      showInlineError(e.message);
-    }
+      const data = await ajax(routes.globalMargin, { method: 'POST', body: JSON.stringify({ porcentaje_utilidad: margin, apply_to_items: applyToItems }) });
+      items = mergeTechSheetMeta(data.items) || items; summary = data.summary || summary; renderItems();
+      showToast('Margen Guardado', 'El margen global ha sido actualizado.', 1, 1);
+      setTimeout(hideToast, 3000);
+    } catch (e) { showInlineError(e.message); }
   }
 
-  function openManualModal(id) {
+  // --- Margen global colapsable (botón desplegable) ---
+  function toggleGlobalMargin() {
+    const wrap = document.getElementById('globalMarginWrap');
+    const btn = document.getElementById('btnToggleGlobalMargin');
+    const isOpen = wrap.classList.toggle('open');
+    if (btn) btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  }
+
+  // --- Modals Búsqueda Manual ---
+  function openManualModal(id, preferredTab = 'catalog') {
     manualItemId = id;
     const item = items.find(i => i.id === id);
 
@@ -1284,9 +1484,9 @@
     document.getElementById('manualSearchStatus').textContent = 'Buscando coincidencias...';
     document.getElementById('manualModal').classList.add('show');
 
-    manualTab = 'catalog';
-    document.getElementById('manualTabCatalog').classList.add('active');
-    document.getElementById('manualTabInternet').classList.remove('active');
+    manualTab = preferredTab === 'internet' ? 'internet' : 'catalog';
+    document.getElementById('manualTabCatalog').classList.toggle('active', manualTab === 'catalog');
+    document.getElementById('manualTabInternet').classList.toggle('active', manualTab === 'internet');
 
     manualLastQuery = '';
     scheduleManualSearch(250);
@@ -1297,6 +1497,7 @@
   }
 
   function clearManualSearch() {
+    manualLastQuery = '';
     document.getElementById('manualQueryInput').value = '';
     document.getElementById('manualResults').innerHTML = '';
     document.getElementById('manualSearchStatus').textContent = 'Escribe para buscar automáticamente.';
@@ -1304,7 +1505,7 @@
 
   function scheduleManualSearch(delay = 420) {
     clearTimeout(manualSearchTimer);
-    manualSearchTimer = setTimeout(() => runManualSearchLive(), delay);
+    manualSearchTimer = setTimeout(runManualSearchLive, delay);
   }
 
   async function runManualSearchLive() {
@@ -1365,24 +1566,22 @@
     box.innerHTML = products.map((p, index) => `
       <div class="modal-result">
         <div style="min-width:0;">
-          <div class="result-title">${escapeHtml(p.name)}</div>
+          <div class="result-title mb-2">${escapeHtml(p.name)}</div>
           <div class="result-meta">
             SKU: ${escapeHtml(p.sku || '—')}
             · ${escapeHtml(p.brand || '—')}
             · Stock: ${p.stock ?? 0}
             · ${Number(p.similarity_pct || 0).toFixed(0)}%
           </div>
-          <div class="result-meta">
+          <div class="result-meta mt-2">
             ${p.unit ? `<strong>Unidad:</strong> ${escapeHtml(p.unit)} · ` : ''}
             ${p.color ? `<strong>Color:</strong> ${escapeHtml(p.color)} · ` : ''}
             ${p.category ? `<strong>Categoría:</strong> ${escapeHtml(p.category)} · ` : ''}
-            Costo ${money(p.cost)} · Precio ${money(p.price)}
+            Costo <strong>${money(p.cost)}</strong> · Precio <strong>${money(p.price)}</strong>
           </div>
         </div>
 
-        <button class="btn btn-primary btn-small" type="button" onclick="useManualCatalog(${index})">
-          Usar
-        </button>
+        <button class="btn btn-outline btn-small" type="button" onclick="useManualCatalog(${index})">Usar</button>
       </div>
     `).join('');
   }
@@ -1398,19 +1597,17 @@
     box.innerHTML = results.map((r, index) => `
       <div class="modal-result">
         <div style="min-width:0;">
-          <div class="result-title">${escapeHtml(r.title)}</div>
+          <div class="result-title mb-2">${escapeHtml(r.title)}</div>
           <div class="result-meta">
             ${escapeHtml(r.source || 'Internet')}
-            ${r.seller ? '· ' + escapeHtml(r.seller) : ''}
+            ${r.seller ? ' · ' + escapeHtml(r.seller) : ''}
             · Score ${Number(r.score || 0).toFixed(0)}%
           </div>
-          <div class="result-meta">${r.price ? money(r.price) : 'Precio por validar'}</div>
-          ${r.url ? `<a class="btn btn-outline btn-small" target="_blank" rel="noopener noreferrer" href="${escapeHtml(r.url)}">↗ Ver referencia</a>` : ''}
+          <div class="result-meta mt-2">${r.price ? `<strong>${money(r.price)}</strong>` : 'Precio por validar'}</div>
+          ${r.url ? `<div class="mt-2"><a class="btn btn-outline btn-small" target="_blank" rel="noopener noreferrer" href="${escapeHtml(r.url)}">${svgs.external} Ver referencia</a></div>` : ''}
         </div>
 
-        <button class="btn btn-primary btn-small" type="button" onclick="useManualInternet(${index})">
-          Usar
-        </button>
+        <button class="btn btn-outline btn-small" type="button" onclick="useManualInternet(${index})">Usar</button>
       </div>
     `).join('');
   }
@@ -1439,9 +1636,8 @@
       summary = data.summary || summary;
       closeManualModal();
       renderItems();
-
-      const card = document.querySelector(`.jureto-quote-page .item-card[data-id="${manualItemId}"]`);
-      if (card) card.classList.add('open');
+      toggleItem(manualItemId, true);
+      switchTab(manualItemId, 'catalog');
     } catch (e) {
       showInlineError(e.message);
     }
@@ -1471,54 +1667,26 @@
       summary = data.summary || summary;
       closeManualModal();
       renderItems();
-
-      const card = document.querySelector(`.jureto-quote-page .item-card[data-id="${manualItemId}"]`);
-      if (card) card.classList.add('open');
+      toggleItem(manualItemId, true);
+      switchTab(manualItemId, 'internet');
     } catch (e) {
       showInlineError(e.message);
     }
   }
 
-  function openAddItemModal() {
-    document.getElementById('addItemModal').classList.add('show');
-  }
-
-  function closeAddItemModal() {
-    document.getElementById('addItemModal').classList.remove('show');
-  }
+  // --- Modal Agregar Partida ---
+  function openAddItemModal() { document.getElementById('addItemModal').classList.add('show'); }
+  function closeAddItemModal() { document.getElementById('addItemModal').classList.remove('show'); }
 
   async function storeNewItem(event) {
     event.preventDefault();
-
-    const form = event.target;
-    const payload = Object.fromEntries(new FormData(form).entries());
-    const submit = form.querySelector('button[type="submit"]');
-    const old = submit.innerHTML;
-
-    submit.disabled = true;
-    submit.innerHTML = '<span class="loader"></span> Agregando...';
-
     try {
-      const data = await ajax(routes.storeItem, {
-        method: 'POST',
-        body: JSON.stringify(payload)
-      });
-
-      items = mergeTechSheetMeta(data.items) || items;
-      summary = data.summary || summary;
-
-      closeAddItemModal();
-      form.reset();
-      renderItems();
-    } catch (e) {
-      showInlineError(e.message);
-    } finally {
-      submit.disabled = false;
-      submit.innerHTML = old;
-    }
+      const data = await ajax(routes.storeItem, { method: 'POST', body: JSON.stringify(Object.fromEntries(new FormData(event.target).entries())) });
+      items = mergeTechSheetMeta(data.items) || items; summary = data.summary || summary; closeAddItemModal(); event.target.reset(); renderItems();
+    } catch (e) { showInlineError(e.message); }
   }
 
-  /* ===================== MUESTRAS (almacén) ===================== */
+  // --- Modal Muestras ---
   function closeSamplesModal() {
     document.getElementById('samplesModal').classList.remove('show');
   }
@@ -1569,21 +1737,21 @@
           <div class="result-meta">
             SKU: ${escapeHtml(c.sku || '—')} · ${escapeHtml(c.unit || '')} · Similitud ${Number(c.similarity_pct || 0).toFixed(0)}%
           </div>
-          <div class="result-meta">
+          <div class="result-meta mt-2">
             <strong>En almacén:</strong> ${c.net_available} ·
             <strong>Apartado:</strong> ${c.reserved} ·
             <strong>Necesario:</strong> ${needed} ·
             <strong>Faltan:</strong> ${c.to_buy}
           </div>
           ${locs
-            ? `<div class="result-meta">Ubicaciones: ${locs}</div>`
-            : `<div class="result-meta">Sin inventario por ubicación (se usó stock general: ${c.stock_field}).</div>`}
+            ? `<div class="result-meta mt-2">Ubicaciones: ${locs}</div>`
+            : `<div class="result-meta mt-2">Sin inventario por ubicación (se usó stock general: ${c.stock_field}).</div>`}
         </div>
       `;
     }).join('');
   }
 
-  /* ===================== FICHAS TÉCNICAS ===================== */
+  // --- Modal Fichas Técnicas ---
   function closeTechSheetsModal() {
     document.getElementById('techSheetsModal').classList.remove('show');
   }
@@ -1657,24 +1825,22 @@
     box.innerHTML = techSheetsCache.map((s, i) => `
       <div class="modal-result">
         <div style="min-width:0;">
-          <div class="result-title">
+          <div class="result-title mb-2">
             ${escapeHtml(s.product_name)}
             ${s.id === currentLinkedSheetId ? '<span class="badge badge-success">Vinculada</span>' : ''}
           </div>
           <div class="result-meta">
             ${escapeHtml(s.brand || '—')}
-            ${s.model ? '· ' + escapeHtml(s.model) : ''}
-            ${s.reference ? '· Ref ' + escapeHtml(s.reference) : ''}
+            ${s.model ? ' · ' + escapeHtml(s.model) : ''}
+            ${s.reference ? ' · Ref ' + escapeHtml(s.reference) : ''}
           </div>
-          <div class="action-row" style="margin-top:8px;">
-            <a class="btn btn-outline btn-small" target="_blank" rel="noopener noreferrer" href="${s.urls.pdf}">↗ PDF</a>
-            ${s.urls.public ? `<a class="btn btn-ghost btn-small" target="_blank" rel="noopener noreferrer" href="${s.urls.public}">Ficha pública</a>` : ''}
-            <button class="btn btn-ghost btn-small" type="button" onclick="techEditInline(${i})">✎ Editar</button>
+          <div class="action-row mt-2">
+            ${s.urls?.pdf ? `<a class="btn btn-outline btn-small" target="_blank" rel="noopener noreferrer" href="${escapeHtml(s.urls.pdf)}">${svgs.external} PDF</a>` : ''}
+            ${s.urls?.public ? `<a class="btn btn-ghost btn-small" target="_blank" rel="noopener noreferrer" href="${escapeHtml(s.urls.public)}">Ficha pública</a>` : ''}
+            <button class="btn btn-ghost btn-small" type="button" onclick="techEditInline(${i})">${svgs.edit} Editar</button>
           </div>
         </div>
-        <button class="btn btn-primary btn-small" type="button" onclick="linkTechSheet(${s.id})">
-          ${s.id === currentLinkedSheetId ? 'Quitar' : 'Vincular'}
-        </button>
+        <button class="btn btn-outline btn-small" type="button" onclick="linkTechSheet(${s.id})">${s.id === currentLinkedSheetId ? 'Quitar' : 'Vincular'}</button>
       </div>
     `).join('');
   }
@@ -1687,7 +1853,7 @@
     const unlink = sheetId === currentLinkedSheetId;
 
     try {
-      const data = await ajax(urlFor(routes.linkTechSheet, techItemId), {
+      await ajax(urlFor(routes.linkTechSheet, techItemId), {
         method: 'POST',
         body: JSON.stringify({ tech_sheet_id: unlink ? null : sheetId })
       });
@@ -1698,17 +1864,15 @@
           items[idx].tech_sheet_id = null;
           items[idx].tech_sheet_name = null;
         } else {
-          const s = techSheetsCache.find(x => x.id === sheetId);
+          const s = techSheetsCache.find(x => Number(x.id) === Number(sheetId));
           items[idx].tech_sheet_id = sheetId;
           items[idx].tech_sheet_name = s ? s.product_name : items[idx].tech_sheet_name;
         }
       }
 
       renderItems();
-
-      const card = document.querySelector(`.jureto-quote-page .item-card[data-id="${techItemId}"]`);
-      if (card) card.classList.add('open');
-
+      toggleItem(techItemId, true);
+      switchTab(techItemId, 'tech');
       loadTechSheets();
     } catch (e) {
       showInlineError(e.message);
@@ -1721,20 +1885,20 @@
     const form = event.target;
     const fd = new FormData(form);
     const id = document.getElementById('techFormId').value;
-
-    const url = id
-      ? routes.updateTechSheet.replace('__ID__', id)
-      : urlFor(routes.createTechSheet, techItemId);
-
+    const url = id ? routes.updateTechSheet.replace('__ID__', id) : urlFor(routes.createTechSheet, techItemId);
     const submit = form.querySelector('button[type="submit"]');
     const old = submit.innerHTML;
+
     submit.disabled = true;
     submit.innerHTML = '<span class="loader"></span> Guardando...';
 
     try {
       const resp = await fetch(url, {
         method: 'POST',
-        headers: { 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json' },
+        headers: {
+          'X-CSRF-TOKEN': csrfToken,
+          'Accept': 'application/json'
+        },
         body: fd
       });
 
@@ -1746,7 +1910,6 @@
         throw new Error((data && data.message) || ('Error al guardar la ficha. ' + text.slice(0, 200)));
       }
 
-      // Al crear, el backend la vincula automáticamente a la partida actual
       if (!id) {
         const idx = items.findIndex(i => i.id === techItemId);
         if (idx >= 0 && data.sheet) {
@@ -1755,13 +1918,16 @@
         }
       }
 
+      if (id && data.sheet) {
+        const idx = items.findIndex(i => Number(i.tech_sheet_id) === Number(data.sheet.id));
+        if (idx >= 0) items[idx].tech_sheet_name = data.sheet.product_name;
+      }
+
       techShowList();
-            document.getElementById('techQueryInput').value = (data.sheet && data.sheet.product_name) || '';
+      document.getElementById('techQueryInput').value = (data.sheet && data.sheet.product_name) || '';
       renderItems();
-
-      const card = document.querySelector(`.jureto-quote-page .item-card[data-id="${techItemId}"]`);
-      if (card) card.classList.add('open');
-
+      toggleItem(techItemId, true);
+      switchTab(techItemId, 'tech');
       loadTechSheets();
     } catch (e) {
       showInlineError(e.message);
@@ -1771,88 +1937,251 @@
     }
   }
 
-  function bindDragEvents() {
-    document.querySelectorAll('.jureto-quote-page .item-card').forEach(card => {
-      card.addEventListener('dragstart', () => {
-        if (currentFilter !== 'all') return;
-        card.classList.add('dragging');
-      });
 
-      card.addEventListener('dragend', () => {
-        if (currentFilter !== 'all') return;
-        card.classList.remove('dragging');
-        saveOrder();
-      });
+  // --- Preguntas para junta de aclaraciones ---
+  function openClarificationModal(id) {
+    clarificationItemId = id;
+    clarificationLastCandidate = null;
+    window.currentClarificationQuestion = null;
 
-      card.addEventListener('dragover', (e) => {
-        if (currentFilter !== 'all') return;
+    const item = items.find(i => Number(i.id) === Number(id));
 
-        e.preventDefault();
-
-        const list = document.getElementById('itemsList');
-        const dragging = document.querySelector('.jureto-quote-page .dragging');
-        const after = getDragAfterElement(list, e.clientY);
-
-        if (!dragging) return;
-
-        if (after == null) {
-          list.appendChild(dragging);
-        } else {
-          list.insertBefore(dragging, after);
-        }
-      });
-    });
+    document.getElementById('clarificationSubtitle').textContent = item?.descripcion_original || 'Producto';
+    document.getElementById('clarificationIdeaInput').value = '';
+    document.getElementById('clarificationQuestionInput').value = '';
+    document.getElementById('clarificationCandidateBox').style.display = 'none';
+    document.getElementById('clarificationCandidateBox').innerHTML = '';
+    document.getElementById('clarificationStatus').textContent = 'Escribe una idea y genera la redacción profesional.';
+    document.getElementById('clarificationModal').classList.add('show');
   }
 
-  function getDragAfterElement(container, y) {
-    const draggableElements = [...container.querySelectorAll('.item-card:not(.dragging)')];
-
-    return draggableElements.reduce((closest, child) => {
-      const box = child.getBoundingClientRect();
-      const offset = y - box.top - box.height / 2;
-
-      if (offset < 0 && offset > closest.offset) {
-        return { offset, element: child };
-      }
-
-      return closest;
-    }, { offset: Number.NEGATIVE_INFINITY }).element;
+  function closeClarificationModal() {
+    document.getElementById('clarificationModal').classList.remove('show');
   }
 
-  async function saveOrder() {
-    if (currentFilter !== 'all') return;
+  function normalizeClarificationResponse(data) {
+    const questionPayload = data?.question || data?.pregunta || data || {};
 
-    const ids = [...document.querySelectorAll('#itemsList .item-card')]
-      .map(card => Number(card.dataset.id));
+    const generatedText =
+      (typeof questionPayload === 'string' ? questionPayload : '') ||
+      questionPayload.pregunta_generada ||
+      questionPayload.generated_question ||
+      questionPayload.question ||
+      questionPayload.text ||
+      questionPayload.pregunta ||
+      data?.pregunta_generada ||
+      data?.generated_question ||
+      '';
 
-    if (!ids.length) return;
+    const candidate =
+      questionPayload.catalog_candidate ||
+      data?.catalog_candidate ||
+      (
+        questionPayload.producto_sugerido ||
+        questionPayload.sku_sugerido ||
+        questionPayload.marca_sugerida
+          ? {
+              name: questionPayload.producto_sugerido || '',
+              sku: questionPayload.sku_sugerido || '',
+              brand: questionPayload.marca_sugerida || '',
+              price: questionPayload.precio_sugerido || null
+            }
+          : null
+      );
+
+    return {
+      raw: questionPayload,
+      generatedText,
+      candidate
+    };
+  }
+
+  async function generateClarificationQuestion() {
+    if (!clarificationItemId) return;
+
+    const ideaInput = document.getElementById('clarificationIdeaInput');
+    const questionInput = document.getElementById('clarificationQuestionInput');
+    const status = document.getElementById('clarificationStatus');
+    const btn = document.getElementById('btnGenerateClarification');
+
+    const idea = ideaInput.value.trim();
+
+    if (!idea) {
+      status.textContent = 'Escribe primero la idea de la pregunta.';
+      return;
+    }
+
+    const old = btn.innerHTML;
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loader"></span> Generando...';
+    status.textContent = 'La IA está estructurando la pregunta y revisando posibles alternativas.';
 
     try {
-      const data = await ajax(routes.reorder, {
+      const data = await ajax(urlFor(routes.clarificationSuggest, clarificationItemId), {
         method: 'POST',
-        body: JSON.stringify({ items: ids })
+        body: JSON.stringify({
+          texto_usuario: idea,
+          idea: idea,
+          buscar_catalogo: true,
+          buscar_internet: true,
+          internet: true
+        })
       });
 
-      items = mergeTechSheetMeta(data.items) || items;
-      summary = data.summary || summary;
+      const normalized = normalizeClarificationResponse(data);
+
+      questionInput.value = normalized.generatedText || 'No se pudo generar la pregunta.';
+      clarificationLastCandidate = normalized.candidate || null;
+      window.currentClarificationQuestion = normalized.raw || {};
+
+      const box = document.getElementById('clarificationCandidateBox');
+
+      if (clarificationLastCandidate?.name) {
+        box.style.display = '';
+        box.innerHTML = `
+          <div class="result-title">Alternativa sugerida de catálogo</div>
+
+          <div class="result-meta">
+            <strong>${escapeHtml(clarificationLastCandidate.name)}</strong>
+            ${clarificationLastCandidate.sku ? ' · SKU ' + escapeHtml(clarificationLastCandidate.sku) : ''}
+            ${clarificationLastCandidate.brand ? ' · ' + escapeHtml(clarificationLastCandidate.brand) : ''}
+            ${clarificationLastCandidate.stock !== undefined ? ' · Stock ' + escapeHtml(clarificationLastCandidate.stock) : ''}
+            ${clarificationLastCandidate.price ? ' · Precio ' + money(clarificationLastCandidate.price) : ''}
+          </div>
+        `;
+      } else {
+        box.style.display = 'none';
+        box.innerHTML = '';
+      }
+
+      status.textContent = 'Pregunta generada. Revísala y guárdala para incluirla en el PDF.';
+    } catch (e) {
+      status.textContent = e.message || 'No se pudo generar la pregunta.';
+      showInlineError(e.message);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = old;
+    }
+  }
+
+  async function saveClarificationQuestion() {
+    if (!clarificationItemId) return;
+
+    const questionInput = document.getElementById('clarificationQuestionInput');
+    const ideaInput = document.getElementById('clarificationIdeaInput');
+    const status = document.getElementById('clarificationStatus');
+    const btn = document.getElementById('btnSaveClarification');
+
+    const preguntaGenerada = questionInput.value.trim();
+    const idea = ideaInput.value.trim();
+
+    if (!preguntaGenerada) {
+      status.textContent = 'Primero genera o escribe una pregunta.';
+      return;
+    }
+
+    const current = window.currentClarificationQuestion || {};
+    const candidate = clarificationLastCandidate || current.catalog_candidate || {};
+
+    const old = btn.innerHTML;
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loader"></span> Guardando...';
+
+    try {
+      const data = await ajax(urlFor(routes.clarificationSave, clarificationItemId), {
+        method: 'POST',
+        body: JSON.stringify({
+          texto_usuario: idea,
+          original_idea: idea,
+
+          pregunta_generada: preguntaGenerada,
+          question: preguntaGenerada,
+
+          producto_sugerido: current.producto_sugerido || candidate.name || null,
+          sku_sugerido: current.sku_sugerido || candidate.sku || null,
+          marca_sugerida: current.marca_sugerida || candidate.brand || null,
+          precio_sugerido: current.precio_sugerido || candidate.price || null,
+          justificacion: current.justificacion || null,
+
+          catalog_candidate: candidate || null
+        })
+      });
+
+      if (data.item) {
+        updateItemInState(data.item);
+      } else if (data.question) {
+        const idx = items.findIndex(i => Number(i.id) === Number(clarificationItemId));
+
+        if (idx >= 0) {
+          if (!Array.isArray(items[idx].clarification_questions)) {
+            items[idx].clarification_questions = [];
+          }
+
+          items[idx].clarification_questions.push(data.question);
+        }
+      }
+
       renderItems();
+      closeClarificationModal();
+      toggleItem(clarificationItemId, true);
+      switchTab(clarificationItemId, 'questions');
+
+      showToast('Pregunta guardada', 'Se agregó a la junta de aclaraciones.', 1, 1);
+      setTimeout(hideToast, 3000);
+    } catch (e) {
+      status.textContent = e.message || 'No se pudo guardar la pregunta.';
+      showInlineError(e.message);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = old;
+    }
+  }
+
+  async function deleteClarificationQuestion(itemId, questionId) {
+    if (!questionId) return;
+    if (!confirm('¿Eliminar esta pregunta?')) return;
+
+    try {
+      const url = routes.clarificationDelete
+        .replace('__ID__', itemId)
+        .replace('__QUESTION__', encodeURIComponent(questionId));
+
+      const data = await ajax(url, {
+        method: 'DELETE',
+        body: '{}'
+      });
+
+      if (data.item) {
+        updateItemInState(data.item);
+      } else {
+        const idx = items.findIndex(i => Number(i.id) === Number(itemId));
+
+        if (idx >= 0 && Array.isArray(items[idx].clarification_questions)) {
+          items[idx].clarification_questions = items[idx].clarification_questions.filter(q => String(q.id) !== String(questionId));
+        }
+      }
+
+      renderItems();
+      toggleItem(itemId, true);
+      switchTab(itemId, 'questions');
     } catch (e) {
       showInlineError(e.message);
     }
   }
 
+  function openClarificationsPdf() {
+    window.open(routes.clarificationsPdf, '_blank');
+  }
 
+  // --- Exportación a PDF/Excel/Word ---
   function getQuoteFileName(extension) {
-    const safeFolio = String(exportFolio || 'cotizacion')
-      .replace(/[^\w\-]+/g, '_')
-      .replace(/_+/g, '_');
-
+    const safeFolio = String(exportFolio || 'cotizacion').replace(/[^\w\-]+/g, '_').replace(/_+/g, '_');
     return `${safeFolio}_tabla_extraida_pdf.${extension}`;
   }
 
-  function isPlainObject(value) {
-    return value && typeof value === 'object' && !Array.isArray(value);
-  }
+  function isPlainObject(value) { return value && typeof value === 'object' && !Array.isArray(value); }
 
   function normalizeCell(value) {
     if (value === null || value === undefined) return '';
@@ -1862,44 +2191,25 @@
 
   function normalizeRows(rows) {
     if (!Array.isArray(rows) || rows.length === 0) return null;
-
     if (isPlainObject(rows[0])) {
       const columns = [];
       rows.forEach(row => {
         if (!isPlainObject(row)) return;
-        Object.keys(row).forEach(key => {
-          if (!columns.includes(key)) columns.push(key);
-        });
+        Object.keys(row).forEach(key => { if (!columns.includes(key)) columns.push(key); });
       });
-
       if (!columns.length) return null;
-
-      return {
-        columns,
-        rows: rows.filter(isPlainObject).map(row => {
-          const out = {};
-          columns.forEach(column => out[column] = normalizeCell(row[column]));
-          return out;
-        })
-      };
+      return { columns, rows: rows.filter(isPlainObject).map(row => {
+          const out = {}; columns.forEach(column => out[column] = normalizeCell(row[column])); return out;
+      })};
     }
-
     if (Array.isArray(rows[0])) {
       const max = rows.reduce((acc, row) => Array.isArray(row) ? Math.max(acc, row.length) : acc, 0);
       if (!max) return null;
-
       const columns = Array.from({ length: max }, (_, index) => `Columna ${index + 1}`);
-
-      return {
-        columns,
-        rows: rows.filter(Array.isArray).map(row => {
-          const out = {};
-          columns.forEach((column, index) => out[column] = normalizeCell(row[index]));
-          return out;
-        })
-      };
+      return { columns, rows: rows.filter(Array.isArray).map(row => {
+          const out = {}; columns.forEach((column, index) => out[column] = normalizeCell(row[index])); return out;
+      })};
     }
-
     return null;
   }
 
@@ -1909,103 +2219,51 @@
 
     function walk(value, path = '') {
       if (!value || typeof value !== 'object') return;
-
       if (Array.isArray(value)) {
         const normalized = normalizeRows(value);
-
-        if (normalized && normalized.rows.length) {
-          tables.push({
-            title: path || 'Tabla extraída',
-            source,
-            columns: normalized.columns,
-            rows: normalized.rows
-          });
-        }
-
-        value.forEach((child, index) => walk(child, `${path} ${index + 1}`.trim()));
-        return;
+        if (normalized && normalized.rows.length) { tables.push({ title: path || 'Tabla extraída', source, columns: normalized.columns, rows: normalized.rows }); }
+        value.forEach((child, index) => walk(child, `${path} ${index + 1}`.trim())); return;
       }
-
       tableKeys.forEach(key => {
         if (!Object.prototype.hasOwnProperty.call(value, key)) return;
-
         const candidate = value[key];
-
         if (candidate && typeof candidate === 'object') {
           if (isPlainObject(candidate) && Array.isArray(candidate.columns) && Array.isArray(candidate.rows)) {
             const rows = candidate.rows.map(row => {
-              if (Array.isArray(row)) {
-                const out = {};
-                candidate.columns.forEach((column, index) => out[column] = normalizeCell(row[index]));
-                return out;
-              }
-
-              if (isPlainObject(row)) return row;
-              return null;
+              if (Array.isArray(row)) { const out = {}; candidate.columns.forEach((column, index) => out[column] = normalizeCell(row[index])); return out; }
+              if (isPlainObject(row)) return row; return null;
             }).filter(Boolean);
-
             const normalized = normalizeRows(rows);
-
-            if (normalized) {
-              tables.push({
-                title: key,
-                source,
-                columns: normalized.columns,
-                rows: normalized.rows
-              });
-            }
+            if (normalized) tables.push({ title: key, source, columns: normalized.columns, rows: normalized.rows });
           } else {
             const normalized = normalizeRows(candidate);
-
-            if (normalized) {
-              tables.push({
-                title: key,
-                source,
-                columns: normalized.columns,
-                rows: normalized.rows
-              });
-            }
+            if (normalized) tables.push({ title: key, source, columns: normalized.columns, rows: normalized.rows });
           }
         }
       });
-
       Object.entries(value).forEach(([key, child]) => walk(child, key));
     }
-
     walk(payload, source);
 
     const seen = new Set();
-
     return tables.filter(table => {
       const signature = JSON.stringify(table.columns) + JSON.stringify(table.rows.slice(0, 5));
-      if (seen.has(signature)) return false;
-      seen.add(signature);
-      return true;
+      if (seen.has(signature)) return false; seen.add(signature); return true;
     });
   }
 
   function getExportTables() {
     const tables = [];
-
-    Object.entries(rawExportPayloads || {}).forEach(([source, payload]) => {
-      collectExtractedTables(payload, source).forEach(table => tables.push(table));
-    });
-
+    Object.entries(rawExportPayloads || {}).forEach(([source, payload]) => { collectExtractedTables(payload, source).forEach(table => tables.push(table)); });
     if (tables.length) return tables;
-
     return [{
-      title: 'Partidas normalizadas',
-      source: 'fallback_items',
+      title: 'Partidas normalizadas', source: 'fallback_items',
       columns: ['descripcion_original', 'unidad_solicitada', 'cantidad_minima', 'cantidad_maxima', 'cantidad_cotizada', 'costo_unitario', 'precio_unitario', 'subtotal'],
       rows: items.map(item => ({
-        descripcion_original: item.descripcion_original || '',
-        unidad_solicitada: item.unidad_solicitada || '',
-        cantidad_minima: item.cantidad_minima || '',
-        cantidad_maxima: item.cantidad_maxima || '',
-        cantidad_cotizada: item.cantidad_cotizada || '',
-        costo_unitario: item.costo_unitario || '',
-        precio_unitario: item.precio_unitario || '',
-        subtotal: item.subtotal || ''
+        descripcion_original: item.descripcion_original || '', unidad_solicitada: item.unidad_solicitada || '',
+        cantidad_minima: item.cantidad_minima || '', cantidad_maxima: item.cantidad_maxima || '',
+        cantidad_cotizada: item.cantidad_cotizada || '', costo_unitario: item.costo_unitario || '',
+        precio_unitario: item.precio_unitario || '', subtotal: item.subtotal || ''
       }))
     }];
   }
@@ -2013,197 +2271,154 @@
   function buildExtractedTablesHtml() {
     const generatedAt = new Date().toLocaleString('es-MX');
     const tables = getExportTables();
-
     const tablesHtml = tables.map((table, tableIndex) => {
       const columns = Array.isArray(table.columns) ? table.columns : [];
       const rows = Array.isArray(table.rows) ? table.rows : [];
       const thead = columns.map(column => `<th>${escapeHtml(column)}</th>`).join('');
       const tbody = rows.map(row => `<tr>${columns.map(column => `<td>${escapeHtml(row?.[column] ?? '')}</td>`).join('')}</tr>`).join('');
-
       return `
         <div class="table-block">
           <h2>${escapeHtml(table.title || ('Tabla extraída ' + (tableIndex + 1)))}</h2>
           <div class="table-meta">Fuente: ${escapeHtml(table.source || 'PDF')} · Filas: ${rows.length} · Columnas: ${columns.length}</div>
-          <table>
-            <thead><tr>${thead}</tr></thead>
-            <tbody>${tbody || `<tr><td colspan="${Math.max(columns.length, 1)}">Sin filas extraídas.</td></tr>`}</tbody>
-          </table>
-        </div>
-      `;
+          <table><thead><tr>${thead}</tr></thead><tbody>${tbody || `<tr><td colspan="${Math.max(columns.length, 1)}">Sin filas extraídas.</td></tr>`}</tbody></table>
+        </div>`;
     }).join('');
 
     return `
-      <!DOCTYPE html>
-      <html lang="es">
-      <head>
-        <meta charset="UTF-8">
-        <title>${escapeHtml(exportTitle)}</title>
+      <!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>${escapeHtml(exportTitle)}</title>
         <style>
           body { font-family: Arial, sans-serif; color: #333333; background: #ffffff; margin: 24px; }
-          h1 { color: #111111; font-size: 22px; margin: 0 0 6px; }
-          h2 { color: #111111; font-size: 16px; margin: 22px 0 6px; }
+          h1 { color: #111111; font-size: 22px; margin: 0 0 6px; } h2 { color: #111111; font-size: 16px; margin: 22px 0 6px; }
           .meta, .table-meta { color: #666666; font-size: 12px; margin-bottom: 12px; }
           .table-block { margin-top: 18px; page-break-inside: avoid; }
           table { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 18px; }
           th { background: #f9fafb; color: #111111; font-weight: 700; border: 1px solid #ebebeb; padding: 8px; text-align: left; vertical-align: top; }
-          td { border: 1px solid #ebebeb; padding: 7px; vertical-align: top; }
-          tr:nth-child(even) td { background: #fcfcfc; }
+          td { border: 1px solid #ebebeb; padding: 7px; vertical-align: top; } tr:nth-child(even) td { background: #fcfcfc; }
         </style>
-      </head>
-      <body>
+      </head><body>
         <h1>${escapeHtml(exportTitle)}</h1>
         <div class="meta">Folio: ${escapeHtml(exportFolio)} · Generado: ${escapeHtml(generatedAt)} · Exportación basada en tabla extraída del PDF</div>
         ${tablesHtml || '<p>No se encontraron tablas para exportar.</p>'}
-      </body>
-      </html>
-    `;
+      </body></html>`;
   }
 
   function downloadBlob(content, fileName, mimeType) {
     const blob = new Blob([content], { type: mimeType });
     const url = URL.createObjectURL(blob);
-
     const a = document.createElement('a');
+
     a.href = url;
     a.download = fileName;
+    a.style.display = 'none';
+
     document.body.appendChild(a);
     a.click();
-
     document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   function exportExtractedTablesToExcel() {
     const html = buildExtractedTablesHtml();
-
-    downloadBlob(
-      `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body>${html}</body></html>`,
-      getQuoteFileName('xls'),
-      'application/vnd.ms-excel;charset=utf-8'
-    );
+    downloadBlob(html, getQuoteFileName('xls'), 'application/vnd.ms-excel;charset=utf-8');
   }
 
   function exportExtractedTablesToWord() {
-    const title = exportTitle;
-    const folio = exportFolio;
-    const generatedAt = new Date().toLocaleString('es-MX');
+    const title = exportTitle; const folio = exportFolio; const generatedAt = new Date().toLocaleString('es-MX');
     const tables = getExportTables();
-
     const tablesHtml = tables.map((table, tableIndex) => {
       const columns = Array.isArray(table.columns) ? table.columns : [];
       const rows = Array.isArray(table.rows) ? table.rows : [];
-
       const thead = columns.map(column => `<th>${escapeHtml(column)}</th>`).join('');
-
-      const tbody = rows.map(row => `
-        <tr>${columns.map(column => `<td>${escapeHtml(row?.[column] ?? '')}</td>`).join('')}</tr>
-      `).join('');
-
+      const tbody = rows.map(row => `<tr>${columns.map(column => `<td>${escapeHtml(row?.[column] ?? '')}</td>`).join('')}</tr>`).join('');
       return `
         <div class="table-block">
           <h2>${escapeHtml(table.title || ('Tabla extraída ' + (tableIndex + 1)))}</h2>
-          <div class="table-meta">
-            Fuente: ${escapeHtml(table.source || 'PDF')} · Filas: ${rows.length} · Columnas: ${columns.length}
-          </div>
-          <table>
-            <thead><tr>${thead}</tr></thead>
-            <tbody>
-              ${tbody || `<tr><td colspan="${Math.max(columns.length, 1)}">Sin filas extraídas.</td></tr>`}
-            </tbody>
-          </table>
-        </div>
-      `;
+          <div class="table-meta">Fuente: ${escapeHtml(table.source || 'PDF')} · Filas: ${rows.length} · Columnas: ${columns.length}</div>
+          <table><thead><tr>${thead}</tr></thead><tbody>${tbody || `<tr><td colspan="${Math.max(columns.length, 1)}">Sin filas extraídas.</td></tr>`}</tbody></table>
+        </div>`;
     }).join('');
 
     const wordContent = `
-      <!DOCTYPE html>
-      <html xmlns:o="urn:schemas-microsoft-com:office:office"
-            xmlns:w="urn:schemas-microsoft-com:office:word"
-            xmlns="http://www.w3.org/TR/REC-html40">
-      <head>
-        <meta charset="UTF-8">
-        <title>${escapeHtml(title)}</title>
+      <!DOCTYPE html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+      <head><meta charset="UTF-8"><title>${escapeHtml(title)}</title>
         <style>
           @page WordSection1 { size: 11in 8.5in; mso-page-orientation: landscape; margin: 0.35in; }
           div.WordSection1 { page: WordSection1; }
           body { font-family: Arial, sans-serif; color: #333; background: #fff; margin: 0; }
-          h1 { color: #111; font-size: 18pt; margin: 0 0 4pt; font-weight: 700; }
-          h2 { color: #111; font-size: 11pt; margin: 14pt 0 4pt; font-weight: 700; }
+          h1 { color: #111; font-size: 18pt; margin: 0 0 4pt; font-weight: 700; } h2 { color: #111; font-size: 11pt; margin: 14pt 0 4pt; font-weight: 700; }
           .meta, .table-meta { color: #666; font-size: 8pt; margin-bottom: 8pt; }
           .table-block { margin-top: 12pt; page-break-inside: avoid; }
           table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 7pt; margin-bottom: 12pt; }
           th { background: #f3f4f6; color: #111; font-weight: 700; border: 1px solid #d9d9d9; padding: 4pt; text-align: left; vertical-align: top; word-wrap: break-word; }
-          td { border: 1px solid #e5e5e5; padding: 3pt 4pt; vertical-align: top; word-wrap: break-word; }
-          tr:nth-child(even) td { background: #fafafa; }
+          td { border: 1px solid #e5e5e5; padding: 3pt 4pt; vertical-align: top; word-wrap: break-word; } tr:nth-child(even) td { background: #fafafa; }
         </style>
-      </head>
-      <body>
+      </head><body>
         <div class="WordSection1">
           <h1>${escapeHtml(title)}</h1>
-          <div class="meta">
-            Folio: ${escapeHtml(folio)} · Generado: ${escapeHtml(generatedAt)} · Exportación basada en tabla extraída del PDF
-          </div>
+          <div class="meta">Folio: ${escapeHtml(folio)} · Generado: ${escapeHtml(generatedAt)} · Exportación basada en tabla extraída del PDF</div>
           ${tablesHtml || '<p>No se encontraron tablas para exportar.</p>'}
         </div>
-      </body>
-      </html>
-    `;
-
-    downloadBlob(
-      wordContent,
-      getQuoteFileName('doc'),
-      'application/msword;charset=utf-8'
-    );
+      </body></html>`;
+    downloadBlob(wordContent, getQuoteFileName('doc'), 'application/msword;charset=utf-8');
   }
+
+  // --- Drag and Drop Logic ---
+  function bindDragEvents() {
+    document.querySelectorAll('.jureto-quote-page .item-card').forEach(card => {
+      card.addEventListener('dragstart', () => { if (currentFilter !== 'all') return; card.classList.add('dragging'); });
+      card.addEventListener('dragend', () => { if (currentFilter !== 'all') return; card.classList.remove('dragging'); saveOrder(); });
+      card.addEventListener('dragover', (e) => {
+        if (currentFilter !== 'all') return;
+        e.preventDefault();
+        const list = document.getElementById('itemsList');
+        const dragging = document.querySelector('.jureto-quote-page .dragging');
+        const after = getDragAfterElement(list, e.clientY);
+        if (!dragging) return;
+        if (after == null) list.appendChild(dragging); else list.insertBefore(dragging, after);
+      });
+    });
+  }
+
+  function getDragAfterElement(container, y) {
+    const draggableElements = [...container.querySelectorAll('.item-card:not(.dragging)')];
+    return draggableElements.reduce((closest, child) => {
+      const box = child.getBoundingClientRect(); const offset = y - box.top - box.height / 2;
+      if (offset < 0 && offset > closest.offset) return { offset, element: child };
+      return closest;
+    }, { offset: Number.NEGATIVE_INFINITY }).element;
+  }
+
+  async function saveOrder() {
+    if (currentFilter !== 'all') return;
+    const ids = [...document.querySelectorAll('#itemsList .item-card')].map(card => Number(card.dataset.id));
+    if (!ids.length) return;
+    try {
+      const data = await ajax(routes.reorder, { method: 'POST', body: JSON.stringify({ items: ids }) });
+      items = mergeTechSheetMeta(data.items) || items; summary = data.summary || summary; renderItems();
+    } catch (e) { showInlineError(e.message); }
+  }
+
+  // --- Bindings & Listeners ---
+  document.querySelectorAll('.filter-summary').forEach(btn => btn.addEventListener('click', () => { currentFilter = btn.dataset.filter || 'all'; renderItems(); }));
+  document.getElementById('manualTabCatalog').addEventListener('click', () => { manualTab = 'catalog'; manualLastQuery = ''; document.getElementById('manualTabCatalog').classList.add('active'); document.getElementById('manualTabInternet').classList.remove('active'); scheduleManualSearch(10); });
+  document.getElementById('manualTabInternet').addEventListener('click', () => { manualTab = 'internet'; manualLastQuery = ''; document.getElementById('manualTabInternet').classList.add('active'); document.getElementById('manualTabCatalog').classList.remove('active'); scheduleManualSearch(10); });
+  
+  document.getElementById('manualQueryInput').addEventListener('input', () => { manualLastQuery = ''; scheduleManualSearch(420); });
+  document.getElementById('manualQueryInput').addEventListener('keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); manualLastQuery = ''; scheduleManualSearch(10); } });
+  document.getElementById('techQueryInput').addEventListener('input', () => { clearTimeout(window.__techTimer); window.__techTimer = setTimeout(loadTechSheets, 350); });
 
   document.getElementById('btnSuggestAll').addEventListener('click', suggestAll);
   document.getElementById('btnOpenAddItem').addEventListener('click', openAddItemModal);
+  document.getElementById('btnToggleGlobalMargin').addEventListener('click', toggleGlobalMargin);
   document.getElementById('btnSaveGlobalMargin').addEventListener('click', () => saveGlobalMargin(false));
   document.getElementById('btnApplyGlobalMargin').addEventListener('click', () => saveGlobalMargin(true));
   document.getElementById('btnExportExcel')?.addEventListener('click', exportExtractedTablesToExcel);
   document.getElementById('btnExportWord')?.addEventListener('click', exportExtractedTablesToWord);
+  document.getElementById('btnExportClarificationsPdf')?.addEventListener('click', openClarificationsPdf);
+  document.getElementById('btnGenerateClarification')?.addEventListener('click', generateClarificationQuestion);
+  document.getElementById('btnSaveClarification')?.addEventListener('click', saveClarificationQuestion);
 
-  document.getElementById('manualQueryInput').addEventListener('input', () => {
-    manualLastQuery = '';
-    scheduleManualSearch(420);
-  });
-
-  document.getElementById('manualQueryInput').addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') {
-      event.preventDefault();
-      manualLastQuery = '';
-      scheduleManualSearch(10);
-    }
-  });
-
-  document.getElementById('manualTabCatalog').addEventListener('click', () => {
-    manualTab = 'catalog';
-    manualLastQuery = '';
-    document.getElementById('manualTabCatalog').classList.add('active');
-    document.getElementById('manualTabInternet').classList.remove('active');
-    scheduleManualSearch(10);
-  });
-
-  document.getElementById('manualTabInternet').addEventListener('click', () => {
-    manualTab = 'internet';
-    manualLastQuery = '';
-    document.getElementById('manualTabInternet').classList.add('active');
-    document.getElementById('manualTabCatalog').classList.remove('active');
-    scheduleManualSearch(10);
-  });
-
-  document.getElementById('techQueryInput').addEventListener('input', () => {
-    clearTimeout(window.__techTimer);
-    window.__techTimer = setTimeout(loadTechSheets, 350);
-  });
-
-  document.querySelectorAll('.filter-summary').forEach(btn => {
-    btn.addEventListener('click', () => {
-      currentFilter = btn.dataset.filter || 'all';
-      renderItems();
-    });
-  });
-
-  renderItems();
+  document.addEventListener('DOMContentLoaded', () => { renderItems(); });
 </script>
 @endsection

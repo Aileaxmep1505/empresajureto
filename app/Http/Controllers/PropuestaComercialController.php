@@ -49,6 +49,7 @@ class PropuestaComercialController extends Controller
 
         if ($request->filled('q')) {
             $q = trim((string) $request->q);
+
             $query->where(function ($sub) use ($q) {
                 $sub->where('titulo', 'like', "%{$q}%")
                     ->orWhere('cliente', 'like', "%{$q}%")
@@ -85,6 +86,7 @@ class PropuestaComercialController extends Controller
     {
         return view('propuestas_comerciales.create');
     }
+
     public function destroy(PropuestaComercial $propuestaComercial)
     {
         DB::transaction(function () use ($propuestaComercial) {
@@ -96,43 +98,40 @@ class PropuestaComercialController extends Controller
             ->route('propuestas-comerciales.index')
             ->with('status', 'Cotización eliminada correctamente.');
     }
+
     /**
      * Normaliza descripción y unidad para evitar crashes por:
-     *  - IA que cruza los campos (devuelve descripción larga como "unidad")
-     *  - Columnas truncadas en BD
+     * - IA que cruza los campos.
+     * - IA que devuelve descripción larga como unidad.
+     * - Columnas truncadas en BD.
      *
      * Devuelve [descripcion, unidad].
      */
     private function normalizarDescripcionUnidad(?string $descripcion, ?string $unidad): array
     {
         $descripcion = trim((string) $descripcion);
-        $unidad      = trim((string) $unidad);
+        $unidad = trim((string) $unidad);
 
         $descLen = mb_strlen($descripcion);
-        $uniLen  = mb_strlen($unidad);
+        $uniLen = mb_strlen($unidad);
 
-        // Caso 1: "unidad" viene MUY larga → seguro es la descripción
-        // Caso 2: descripcion es una unidad común (PIEZA, KG, etc) y unidad es texto largo → invertidos
-        $unidadParcceDescripcion =
+        $unidadPareceDescripcion =
             $uniLen > self::UNIDAD_MAX_LEN
             || (
                 in_array(mb_strtoupper($descripcion), self::UNIDADES_COMUNES, true)
                 && $uniLen > $descLen
             );
 
-        if ($unidadParcceDescripcion) {
+        if ($unidadPareceDescripcion) {
             [$descripcion, $unidad] = [$unidad, $descripcion];
         }
 
-        // Truncamos la unidad al largo máximo de la columna (no rompe el insert)
         $unidad = mb_substr($unidad, 0, self::UNIDAD_MAX_LEN);
 
-        // Fallback si quedó vacío
         if ($unidad === '') {
             $unidad = 'PIEZA';
         }
 
-        // Si la descripción quedó vacía, ponemos placeholder
         if ($descripcion === '') {
             $descripcion = 'Sin descripción';
         }
@@ -143,18 +142,18 @@ class PropuestaComercialController extends Controller
     public function storeFromRunManual(Request $request)
     {
         $data = $request->validate([
-            'document_ai_run_id'   => ['required', 'integer', 'exists:document_ai_runs,id'],
-            'titulo'               => ['nullable', 'string', 'max:255'],
-            'cliente'              => ['nullable', 'string', 'max:255'],
-            'folio'                => ['nullable', 'string', 'max:255'],
-            'porcentaje_utilidad'  => ['nullable', 'numeric', 'min:0'],
+            'document_ai_run_id' => ['required', 'integer', 'exists:document_ai_runs,id'],
+            'titulo' => ['nullable', 'string', 'max:255'],
+            'cliente' => ['nullable', 'string', 'max:255'],
+            'folio' => ['nullable', 'string', 'max:255'],
+            'porcentaje_utilidad' => ['nullable', 'numeric', 'min:0'],
             'porcentaje_descuento' => ['nullable', 'numeric', 'min:0'],
-            'porcentaje_impuesto'  => ['nullable', 'numeric', 'min:0'],
+            'porcentaje_impuesto' => ['nullable', 'numeric', 'min:0'],
         ]);
 
         $run = DocumentAiRun::findOrFail($data['document_ai_run_id']);
 
-        $structured  = is_array($run->structured_json) ? $run->structured_json : [];
+        $structured = is_array($run->structured_json) ? $run->structured_json : [];
         $itemsResult = is_array($run->items_json) ? $run->items_json : [];
 
         $items = $itemsResult['items']
@@ -166,7 +165,10 @@ class PropuestaComercialController extends Controller
             $message = 'Este análisis no tiene partidas válidas. Verifica que el PDF ya terminó de procesarse correctamente.';
 
             if ($request->expectsJson() || $request->ajax()) {
-                return response()->json(['ok' => false, 'message' => $message], 422);
+                return response()->json([
+                    'ok' => false,
+                    'message' => $message,
+                ], 422);
             }
 
             return back()->with('error', $message);
@@ -176,44 +178,50 @@ class PropuestaComercialController extends Controller
 
         DB::transaction(function () use ($data, $run, $structured, $items, &$propuesta) {
             $propuesta = PropuestaComercial::create([
-                'licitacion_pdf_id'   => $run->licitacion_pdf_id,
-                'document_ai_run_id'  => $run->id,
+                'licitacion_pdf_id' => $run->licitacion_pdf_id,
+                'document_ai_run_id' => $run->id,
 
                 'titulo' => $data['titulo']
-                    ?: ($structured['objeto']
+                    ?: (
+                        $structured['objeto']
                         ?? $structured['titulo']
-                        ?? ('Propuesta comercial #' . $run->id)),
+                        ?? ('Propuesta comercial #' . $run->id)
+                    ),
 
                 'folio' => $data['folio']
-                    ?: ($structured['numero_procedimiento']
+                    ?: (
+                        $structured['numero_procedimiento']
                         ?? $structured['folio']
-                        ?? null),
+                        ?? null
+                    ),
 
                 'cliente' => $data['cliente']
-                    ?: ($structured['dependencia']
+                    ?: (
+                        $structured['dependencia']
                         ?? $structured['cliente']
                         ?? $structured['razon_social']
-                        ?? null),
+                        ?? null
+                    ),
 
-                'porcentaje_utilidad'  => $data['porcentaje_utilidad'] ?? 0,
+                'porcentaje_utilidad' => $data['porcentaje_utilidad'] ?? 0,
                 'porcentaje_descuento' => $data['porcentaje_descuento'] ?? 0,
-                'porcentaje_impuesto'  => $data['porcentaje_impuesto'] ?? 16,
+                'porcentaje_impuesto' => $data['porcentaje_impuesto'] ?? 16,
 
-                'subtotal'        => 0,
+                'subtotal' => 0,
                 'descuento_total' => 0,
-                'impuesto_total'  => 0,
-                'total'           => 0,
-                'status'          => 'draft',
+                'impuesto_total' => 0,
+                'total' => 0,
+                'status' => 'draft',
 
                 'meta' => [
-                    'tipo_procedimiento'  => $structured['tipo_procedimiento'] ?? null,
-                    'moneda'              => $structured['moneda'] ?? null,
-                    'anexos'              => $structured['anexos'] ?? [],
-                    'fechas_clave'        => $structured['fechas_clave'] ?? [],
-                    'penalizaciones'      => $structured['penalizaciones'] ?? [],
-                    'resumen'             => $structured['resumen'] ?? null,
-                    'fuentes'             => $structured['fuentes'] ?? [],
-                    'items_count'         => count($items),
+                    'tipo_procedimiento' => $structured['tipo_procedimiento'] ?? null,
+                    'moneda' => $structured['moneda'] ?? null,
+                    'anexos' => $structured['anexos'] ?? [],
+                    'fechas_clave' => $structured['fechas_clave'] ?? [],
+                    'penalizaciones' => $structured['penalizaciones'] ?? [],
+                    'resumen' => $structured['resumen'] ?? null,
+                    'fuentes' => $structured['fuentes'] ?? [],
+                    'items_count' => count($items),
                     'created_from_run_id' => $run->id,
                 ],
             ]);
@@ -223,7 +231,6 @@ class PropuestaComercialController extends Controller
             foreach ($items as $row) {
                 $sort++;
 
-                // 🔹 Extraemos los campos crudos de la IA
                 $descripcionRaw = $row['descripcion']
                     ?? $row['description']
                     ?? $row['producto']
@@ -236,7 +243,6 @@ class PropuestaComercialController extends Controller
                     ?? $row['unidad_solicitada']
                     ?? null;
 
-                // 🔹 Aplicamos normalización defensiva (corrige cruces de la IA y trunca)
                 [$descripcion, $unidad] = $this->normalizarDescripcionUnidad($descripcionRaw, $unidadRaw);
 
                 $cantidadMinima = $row['cantidad_minima']
@@ -256,33 +262,33 @@ class PropuestaComercialController extends Controller
 
                 PropuestaComercialItem::create([
                     'propuesta_comercial_id' => $propuesta->id,
-                    'sort'                   => $sort,
-                    'partida_numero'         => $row['partida'] ?? $row['partida_numero'] ?? $sort,
-                    'subpartida_numero'      => $row['subpartida'] ?? $row['subpartida_numero'] ?? null,
+                    'sort' => $sort,
+                    'partida_numero' => $row['partida'] ?? $row['partida_numero'] ?? $sort,
+                    'subpartida_numero' => $row['subpartida'] ?? $row['subpartida_numero'] ?? null,
 
-                    'descripcion_original'   => $descripcion,
-                    'unidad_solicitada'      => $unidad,
+                    'descripcion_original' => $descripcion,
+                    'unidad_solicitada' => $unidad,
 
-                    'cantidad_minima'        => $cantidadMinima,
-                    'cantidad_maxima'        => $cantidadMaxima,
-                    'cantidad_cotizada'      => $cantidadCotizada,
+                    'cantidad_minima' => $cantidadMinima,
+                    'cantidad_maxima' => $cantidadMaxima,
+                    'cantidad_cotizada' => $cantidadCotizada,
 
                     'producto_seleccionado_id' => null,
-                    'match_score'              => null,
+                    'match_score' => null,
 
-                    'costo_unitario'  => null,
+                    'costo_unitario' => null,
                     'precio_unitario' => null,
-                    'subtotal'        => 0,
+                    'subtotal' => 0,
 
                     'status' => 'pending',
 
                     'meta' => [
-                        'presentar_muestra'   => $row['presentar_muestra'] ?? null,
+                        'presentar_muestra' => $row['presentar_muestra'] ?? null,
                         'created_from_run_id' => $run->id,
-                        // ⚠️ Guardamos el raw original para auditoría/debug
-                        'raw'                 => $row,
-                        // 📌 Marcamos si tuvimos que invertir los campos
-                        'campos_corregidos'   => (mb_strtoupper(trim((string) $descripcionRaw)) !== mb_strtoupper($descripcion)),
+                        'raw' => $row,
+                        'campos_corregidos' => (
+                            mb_strtoupper(trim((string) $descripcionRaw)) !== mb_strtoupper($descripcion)
+                        ),
                     ],
                 ]);
             }
@@ -294,10 +300,10 @@ class PropuestaComercialController extends Controller
 
         if ($request->expectsJson() || $request->ajax()) {
             return response()->json([
-                'ok'           => true,
+                'ok' => true,
                 'propuesta_id' => $propuesta->id,
                 'redirect_url' => $redirectUrl,
-                'message'      => 'Propuesta comercial creada correctamente con partidas completas.',
+                'message' => 'Propuesta comercial creada correctamente con partidas completas.',
             ]);
         }
 
@@ -312,6 +318,11 @@ class PropuestaComercialController extends Controller
             'items.matches.product',
             'items.externalMatches',
             'items.productoSeleccionado',
+
+            // Relaciones para preguntas de junta de aclaraciones
+            'items.aclaracionPreguntas',
+            'aclaracionPreguntas.item',
+
             'aiRun',
         ]);
 
@@ -321,15 +332,15 @@ class PropuestaComercialController extends Controller
     public function updatePricing(Request $request, PropuestaComercial $propuestaComercial)
     {
         $data = $request->validate([
-            'porcentaje_utilidad'  => ['required', 'numeric', 'min:0'],
+            'porcentaje_utilidad' => ['required', 'numeric', 'min:0'],
             'porcentaje_descuento' => ['nullable', 'numeric', 'min:0'],
-            'porcentaje_impuesto'  => ['nullable', 'numeric', 'min:0'],
+            'porcentaje_impuesto' => ['nullable', 'numeric', 'min:0'],
         ]);
 
         $propuestaComercial->update([
-            'porcentaje_utilidad'  => $data['porcentaje_utilidad'],
+            'porcentaje_utilidad' => $data['porcentaje_utilidad'],
             'porcentaje_descuento' => $data['porcentaje_descuento'] ?? 0,
-            'porcentaje_impuesto'  => $data['porcentaje_impuesto'] ?? 16,
+            'porcentaje_impuesto' => $data['porcentaje_impuesto'] ?? 16,
         ]);
 
         $this->recalculateTotals($propuestaComercial);
@@ -355,11 +366,11 @@ class PropuestaComercialController extends Controller
             : $propuestaComercial->status;
 
         $propuestaComercial->update([
-            'subtotal'        => round($subtotal, 2),
+            'subtotal' => round($subtotal, 2),
             'descuento_total' => $descuentoTotal,
-            'impuesto_total'  => $impuestoTotal,
-            'total'           => $total,
-            'status'          => $status,
+            'impuesto_total' => $impuestoTotal,
+            'total' => $total,
+            'status' => $status,
         ]);
     }
 }

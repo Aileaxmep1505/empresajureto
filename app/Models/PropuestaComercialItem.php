@@ -57,4 +57,10 @@ class PropuestaComercialItem extends Model
 {
     return $this->hasMany(\App\Models\PropuestaComercialExternalMatch::class);
 }
+public function aclaracionPreguntas()
+{
+    return $this->hasMany(\App\Models\PropuestaAclaracionPregunta::class, 'propuesta_comercial_item_id')
+        ->orderBy('sort')
+        ->orderBy('id');
+}
 }

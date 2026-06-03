@@ -2243,3 +2243,30 @@ Route::middleware(['auth'])->prefix('maintenance')->name('maintenance.')->group(
 });
 Route::delete('/propuestas-comerciales/{propuestaComercial}', [PropuestaComercialController::class, 'destroy'])
     ->name('propuestas-comerciales.destroy');
+
+    use App\Http\Controllers\PropuestaAclaracionPreguntaController;
+    Route::get('/propuestas-comerciales/{propuestaComercial}/aclaraciones/preguntas', [PropuestaAclaracionPreguntaController::class, 'index'])
+    ->name('propuestas-comerciales.aclaraciones.preguntas.index');
+
+Route::post('/propuesta-comercial-items/{item}/aclaraciones/preguntas', [PropuestaAclaracionPreguntaController::class, 'store'])
+    ->name('propuesta-comercial-items.aclaraciones.preguntas.store');
+
+Route::post('/aclaraciones/preguntas/{pregunta}', [PropuestaAclaracionPreguntaController::class, 'update'])
+    ->name('aclaraciones.preguntas.update');
+
+Route::delete('/aclaraciones/preguntas/{pregunta}', [PropuestaAclaracionPreguntaController::class, 'destroy'])
+    ->name('aclaraciones.preguntas.destroy');
+
+Route::get('/propuestas-comerciales/{propuestaComercial}/aclaraciones/pdf', [PropuestaAclaracionPreguntaController::class, 'pdf'])
+    ->name('propuestas-comerciales.aclaraciones.pdf');
+    Route::get('/propuestas-comerciales/{propuestaComercial}/clarifications/pdf', [PropuestaAclaracionPreguntaController::class, 'pdf'])
+    ->name('propuestas-comerciales.clarifications.pdf');
+
+Route::post('/propuesta-comercial-items/{item}/ajax/clarification/suggest', [PropuestaAclaracionPreguntaController::class, 'suggest'])
+    ->name('propuesta-comercial-items.clarification.suggest');
+
+Route::post('/propuesta-comercial-items/{item}/ajax/clarification/save', [PropuestaAclaracionPreguntaController::class, 'save'])
+    ->name('propuesta-comercial-items.clarification.save');
+
+Route::delete('/propuesta-comercial-items/{item}/ajax/clarification/{question}/delete', [PropuestaAclaracionPreguntaController::class, 'delete'])
+    ->name('propuesta-comercial-items.clarification.delete');
