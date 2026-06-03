@@ -2,326 +2,8 @@
 @section('content_class', 'content--flush')
 @section('content')
 
-<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
-<style>
-  :root {
-    --bg: #f4f5f7;
-    --card: #ffffff;
-    --input-bg: #f9fafb;
-    --ink-dark: #0f172a;
-    --ink: #334155;
-    --muted: #64748b;
-    --muted-light: #94a3b8;
-    --line: #e2e8f0;
-    --blue: #007aff;
-    --blue-soft: #eff6ff;
-    --success: #15803d;
-    --success-soft: #f0fdf4;
-    --danger: #ef4444;
-    --danger-soft: #fef2f2;
-    --warning: #c2410c;
-    --warning-soft: #fff7ed;
-    
-    --font-family: 'Quicksand', sans-serif;
-    --radius-card: 12px;
-    --radius-modal: 12px; 
-    --radius-input: 8px;
-    --radius-btn: 8px;
-  }
 
-  /* Base & Typography */
-  .jureto-quote-page {
-    font-family: var(--font-family);
-    background-color: var(--bg);
-    color: var(--ink);
-    min-height: 100vh;
-    padding: 32px 24px;
-  }
-  .jureto-quote-page * {
-    box-sizing: border-box;
-  }
-  .quote-wrap {
-    max-width: 1100px;
-    margin: 0 auto;
-  }
-  h1, h2, h3, .quote-title {
-    color: var(--ink-dark);
-    font-weight: 700;
-    margin: 0;
-  }
-  a { text-decoration: none; }
-
-  /* Topbar & Header */
-  .back-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--muted);
-    font-weight: 600;
-    font-size: 14px;
-    margin-bottom: 24px;
-    transition: color 0.2s;
-  }
-  .back-link:hover { color: var(--ink-dark); }
-  .topbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 32px;
-    flex-wrap: wrap;
-    gap: 24px;
-  }
-  .quote-code {
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--muted);
-    letter-spacing: 0.5px;
-    margin-bottom: 8px;
-  }
-  .quote-title {
-    font-size: 28px;
-    margin-bottom: 8px;
-  }
-  .quote-subtitle {
-    font-size: 14px;
-    color: var(--muted);
-    margin: 0;
-    font-weight: 500;
-  }
-  .actions {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-  }
-
-  /* Buttons */
-  .btn {
-    font-family: var(--font-family);
-    font-weight: 700;
-    height: 42px;
-    padding: 0 16px;
-    border-radius: var(--radius-btn);
-    border: none;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    font-size: 14px;
-    transition: all 0.2s ease;
-  }
-  .btn:hover { transform: translateY(-1px); }
-  .btn:active { transform: scale(0.98); }
-  
-  .btn-primary { background: var(--blue); color: #fff; box-shadow: 0 2px 8px rgba(0, 122, 255, 0.2); }
-  .btn-primary:hover { box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3); }
-  
-  .btn-ghost { background: transparent; color: var(--muted); }
-  .btn-ghost:hover { background: var(--input-bg); color: var(--ink-dark); }
-  
-  .btn-outline { background: transparent; color: var(--ink); border: 1px solid var(--line); }
-  .btn-outline:hover { background: var(--input-bg); }
-  
-  .btn-success { background: var(--success); color: #fff; }
-  .btn-danger { background: var(--danger); color: #fff; }
-  .btn-warning { background: var(--warning); color: #fff; }
-  .btn-soft { background: var(--blue-soft); color: var(--blue); }
-  .btn-small { height: 32px; padding: 0 12px; font-size: 13px; }
-  
-  .btn-icon svg { width: 16px; height: 16px; stroke: currentColor; }
-
-  /* Inputs */
-  .input {
-    font-family: var(--font-family);
-    font-weight: 500;
-    font-size: 14px;
-    height: 42px;
-    padding: 0 14px;
-    background: var(--input-bg);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-input);
-    color: var(--ink);
-    width: 100%;
-    transition: all 0.2s ease;
-  }
-  textarea.input { height: auto; padding-top: 12px; padding-bottom: 12px; resize: vertical; }
-  .input::placeholder { color: var(--muted-light); }
-  .input:focus { outline: none; border-color: var(--blue); background: var(--card); box-shadow: 0 0 0 3px var(--blue-soft); }
-
-  /* Cards & Sections */
-  .item-card, .process-box, .summary-cell, .notice, .global-margin, .result-card, .external-box {
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-card);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.02);
-    transition: transform 0.25s ease, box-shadow 0.25s ease;
-  }
-  
-  .item-card { margin-bottom: 16px; overflow: hidden; }
-  .item-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.04); }
-  
-  .item-main {
-    padding: 24px;
-    display: grid;
-    grid-template-columns: 24px 32px 1fr auto auto 24px;
-    gap: 16px;
-    align-items: center;
-    cursor: pointer;
-  }
-  .drag-handle { background: transparent; border: none; color: var(--muted-light); cursor: grab; font-size: 16px; padding: 0; display: flex; align-items: center; justify-content: center; }
-  .item-index { font-weight: 700; color: var(--muted-light); font-size: 14px; text-align: center; }
-  .item-name { font-size: 16px; margin-bottom: 4px; }
-  .item-meta { font-size: 13px; color: var(--muted); font-weight: 500; }
-  
-  .money-row { display: flex; gap: 24px; font-size: 13px; color: var(--muted); }
-  .money-row strong { color: var(--ink-dark); display: block; font-size: 14px; margin-top: 2px; }
-  .chevron { color: var(--muted-light); font-size: 18px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
-  
-  .item-details { display: none; padding: 24px; border-top: 1px solid var(--line); background: var(--input-bg); }
-  .item-card.open .item-details { display: block; }
-  
-  /* Badges */
-  .badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 6px 12px;
-    border-radius: 999px;
-    font-size: 12px;
-    font-weight: 700;
-  }
-  .badge-success { background: var(--success-soft); color: var(--success); }
-  .badge-danger { background: var(--danger-soft); color: var(--danger); }
-  .badge-info { background: var(--blue-soft); color: var(--blue); }
-  .badge-warning { background: var(--warning-soft); color: var(--warning); }
-
-  /* Summaries */
-  .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px; margin-bottom: 32px; }
-  .summary-cell { padding: 24px 16px; text-align: center; cursor: pointer; border: 1px solid var(--line); }
-  .summary-cell:hover, .summary-cell.active { transform: translateY(-2px); border-color: var(--blue); box-shadow: 0 4px 12px rgba(0, 122, 255, 0.08); }
-  .summary-value { font-size: 24px; font-weight: 700; color: var(--ink-dark); }
-  .summary-label { font-size: 13px; color: var(--muted); margin-top: 6px; font-weight: 600; }
-  .text-blue { color: var(--blue); }
-  .text-success { color: var(--success); }
-  .text-danger { color: var(--danger); }
-
-  /* Modals (Strict Premium Rules) */
-  .modal-backdrop {
-    position: fixed;
-    inset: 0;
-    background: rgba(15, 23, 42, 0.45);
-    backdrop-filter: blur(4px);
-    z-index: 1050;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-  }
-  .modal-backdrop.show { display: flex; opacity: 1; }
-  .modal {
-    background: var(--card);
-    border-radius: var(--radius-modal);
-    width: 100%;
-    max-width: 540px; /* Ancho estándar/delgado */
-    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
-    transform: scale(0.95) translateY(15px);
-    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    display: flex;
-    flex-direction: column;
-    max-height: 85vh;
-  }
-  .modal-backdrop.show .modal { transform: scale(1) translateY(0); }
-  
-  .modal-head {
-    padding: 24px;
-    border-bottom: 1px solid var(--line);
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-  }
-  .modal-title { font-size: 18px; margin-bottom: 4px; }
-  .modal-subtitle { font-size: 14px; color: var(--muted); margin: 0; font-weight: 500; }
-  
-  /* Modal Content & Body Scroll Rules */
-  .modal-content {
-    background: transparent;
-    border: none;
-    box-shadow: none;
-  }
-  .modal-body { padding: 24px; }
-  .pb-5 { padding-bottom: 3rem !important; }
-  
-  /* Scrollbar Personalizado */
-  .overflow-y-auto { overflow-y: auto !important; }
-  ::-webkit-scrollbar { width: 6px; height: 6px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 10px; }
-  ::-webkit-scrollbar-thumb:hover { background: var(--muted-light); }
-
-  /* Misc UI Components */
-  .notice { background: var(--warning-soft); color: var(--warning); border-color: rgba(194, 65, 12, 0.2); padding: 16px 24px; display: none; align-items: center; gap: 12px; margin-bottom: 24px; font-weight: 600; font-size: 14px; }
-  .notice.show { display: flex; }
-  .notice-dot { width: 8px; height: 8px; background: var(--warning); border-radius: 50%; }
-  
-  .global-margin { display: flex; align-items: flex-end; gap: 16px; margin-bottom: 24px; padding: 24px; }
-  
-  .field { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; width: 100%; }
-  .field label { font-size: 13px; font-weight: 700; color: var(--ink); }
-  
-  .action-row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
-  
-  .section { margin-bottom: 32px; }
-  .section-title { font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--muted-light); letter-spacing: 0.5px; margin-bottom: 16px; }
-  
-  .result-card, .external-box { padding: 20px; margin-bottom: 16px; }
-  .result-title { font-weight: 700; color: var(--ink-dark); font-size: 15px; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
-  .result-meta { font-size: 13px; color: var(--muted); font-weight: 500; line-height: 1.5; }
-  
-  .modal-tabs { display: flex; gap: 16px; border-bottom: 1px solid var(--line); margin-bottom: 24px; }
-  .tab-btn { background: transparent; border: none; padding: 12px 4px; font-family: var(--font-family); font-weight: 700; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; }
-  .tab-btn.active { color: var(--blue); border-bottom-color: var(--blue); }
-  
-  .modal-result { display: flex; justify-content: space-between; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--line); }
-  .modal-result:last-child { border-bottom: none; }
-  
-  .edit-form { display: none; padding: 24px; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-card); margin-top: 16px; }
-  .edit-form.show { display: block; }
-  
-  /* Bootstrap Grid System Equivalent para layouts (Row / Col) */
-  .row { display: flex; flex-wrap: wrap; margin-left: -8px; margin-right: -8px; }
-  .col, .col-12, .col-6, .col-4, .col-3 { padding-left: 8px; padding-right: 8px; }
-  .col-12 { width: 100%; }
-  .col-6 { width: 50%; }
-  .col-4 { width: 33.333333%; }
-  .col-3 { width: 25%; }
-  
-  /* Process Box */
-  .process-box { padding: 24px; margin-bottom: 24px; display: none; }
-  .process-box.show { display: block; }
-  .process-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-  .process-title { font-weight: 700; color: var(--ink-dark); }
-  .process-text { font-size: 13px; color: var(--muted); margin-top: 4px; }
-  .process-bar { height: 6px; background: var(--line); border-radius: 999px; overflow: hidden; }
-  .process-fill { height: 100%; background: var(--blue); width: 0%; transition: width 0.3s ease; }
-  .process-errors { margin-top: 16px; font-size: 13px; color: var(--danger); display: none; }
-  .process-errors.show { display: block; }
-  
-  .loader { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: #fff; animation: spin 1s ease-in-out infinite; }
-  .btn-ghost .loader, .btn-outline .loader { border-color: rgba(0,0,0,0.1); border-top-color: var(--muted); }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  /* Regla 6: Custom Animated Select Visuals */
-  .native-select-hidden { display: none !important; }
-  .custom-select-wrapper { position: relative; width: 100%; font-family: var(--font-family); }
-  .custom-select-trigger { display: flex; justify-content: space-between; align-items: center; height: 42px; padding: 0 14px; background: var(--input-bg); border: 1px solid var(--line); border-radius: var(--radius-input); color: var(--ink); font-weight: 500; font-size: 14px; cursor: pointer; transition: all 0.2s ease; }
-  .custom-select-trigger:hover { border-color: var(--muted-light); }
-  .custom-select-trigger.open { border-color: var(--blue); background: var(--card); box-shadow: 0 0 0 3px var(--blue-soft); }
-  .custom-select-options { position: absolute; top: 100%; left: 0; right: 0; margin-top: 4px; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-input); box-shadow: 0 8px 24px rgba(0,0,0,0.1); overflow-y: auto; max-height: 220px; z-index: 100; transform-origin: top; transform: scaleY(0.9); opacity: 0; transition: all 0.25s ease; pointer-events: none; }
-  .custom-select-wrapper.open .custom-select-options { transform: scaleY(1); opacity: 1; pointer-events: auto; }
-  .custom-select-option { padding: 12px 14px; cursor: pointer; transition: background 0.15s ease; color: var(--ink); font-weight: 500; font-size: 14px; }
-  .custom-select-option:hover { background: var(--input-bg); color: var(--blue); }
-  .custom-select-option.selected { background: var(--blue-soft); color: var(--blue); font-weight: 700; }
-</style>
+    <link rel="stylesheet" href="{{ asset('css/cotizacion.css') }}?v={{ time() }}">
 
 @php
   $propuestaComercial->loadMissing([
@@ -364,6 +46,7 @@
               'manual_external_link' => data_get($item->meta, 'external_link'),
               'manual_catalog_product_name' => data_get($item->meta, 'catalog_product_name_manual'),
 
+              // 🔹 ficha técnica vinculada
               'tech_sheet_id' => data_get($item->meta, 'tech_sheet_id'),
               'tech_sheet_name' => data_get($item->meta, 'tech_sheet_name'),
 
@@ -376,6 +59,7 @@
               ] : null,
               'matches' => $item->matches->sortBy('rank')->values()->map(function ($match) {
                   $p = $match->product;
+
                   return [
                       'id' => $match->id,
                       'rank' => $match->rank,
@@ -426,17 +110,28 @@
       'total_items' => $itemsPayload->count(),
   ];
 
+
   $exportFolio = $propuestaComercial->folio ?: ('TEOA' . str_pad((string) $propuestaComercial->id, 8, '0', STR_PAD_LEFT));
   $exportTitle = $propuestaComercial->titulo ?: ('COT-' . strtoupper(substr(md5($propuestaComercial->id . $propuestaComercial->created_at), 0, 8)));
 
   $decodeExportValue = function ($value) {
-      if ($value instanceof \Illuminate\Support\Collection) return $value->toArray();
-      if (is_array($value)) return $value;
-      if (is_object($value)) return json_decode(json_encode($value), true) ?: [];
+      if ($value instanceof \Illuminate\Support\Collection) {
+          return $value->toArray();
+      }
+
+      if (is_array($value)) {
+          return $value;
+      }
+
+      if (is_object($value)) {
+          return json_decode(json_encode($value), true) ?: [];
+      }
+
       if (is_string($value) && trim($value) !== '') {
           $decoded = json_decode($value, true);
           return json_last_error() === JSON_ERROR_NONE ? $decoded : [];
       }
+
       return [];
   };
 
@@ -445,22 +140,31 @@
 
   foreach ($fieldsForExport as $field) {
       $decoded = $decodeExportValue(data_get($propuestaComercial, $field));
-      if (!empty($decoded)) $rawExportPayloads['propuesta_' . $field] = $decoded;
+      if (!empty($decoded)) {
+          $rawExportPayloads['propuesta_' . $field] = $decoded;
+      }
   }
 
   foreach ($propuestaComercial->getRelations() as $relationName => $relationValue) {
-      if (!$relationValue) continue;
+      if (!$relationValue) {
+          continue;
+      }
+
       if ($relationValue instanceof \Illuminate\Support\Collection) {
           foreach ($relationValue as $index => $relatedModel) {
               foreach ($fieldsForExport as $field) {
                   $decoded = $decodeExportValue(data_get($relatedModel, $field));
-                  if (!empty($decoded)) $rawExportPayloads[$relationName . '_' . $index . '_' . $field] = $decoded;
+                  if (!empty($decoded)) {
+                      $rawExportPayloads[$relationName . '_' . $index . '_' . $field] = $decoded;
+                  }
               }
           }
       } else {
           foreach ($fieldsForExport as $field) {
               $decoded = $decodeExportValue(data_get($relationValue, $field));
-              if (!empty($decoded)) $rawExportPayloads[$relationName . '_' . $field] = $decoded;
+              if (!empty($decoded)) {
+                  $rawExportPayloads[$relationName . '_' . $field] = $decoded;
+              }
           }
       }
   }
@@ -470,45 +174,97 @@
   <div class="quote-wrap">
     <a href="{{ route('propuestas-comerciales.index') }}" class="back-link">
       <span>←</span>
-      <span>Volver a propuestas</span>
+      <span>Volver</span>
     </a>
 
     <div class="topbar">
-      <div>
-        <div class="quote-code">{{ $exportFolio }}</div>
-        <h1 class="quote-title">{{ $exportTitle }}</h1>
-        <p class="quote-subtitle"><span id="itemsCountText">{{ $summaryPayload['total_items'] }}</span> partidas analizadas por IA · Exportación estructurada</p>
+      <div class="topbar-main">
+        <div class="quote-code">
+          {{ $propuestaComercial->folio ?: ('TEOA' . str_pad((string) $propuestaComercial->id, 8, '0', STR_PAD_LEFT)) }}
+        </div>
+
+        <h1 class="quote-title">
+          {{ $propuestaComercial->titulo ?: ('COT-' . strtoupper(substr(md5($propuestaComercial->id . $propuestaComercial->created_at), 0, 8))) }}
+        </h1>
+
+        <p class="quote-subtitle">
+          <span id="itemsCountText">{{ $summaryPayload['total_items'] }}</span> partidas analizadas por IA · Exportación desde PDF
+        </p>
       </div>
 
       <div class="actions">
         <button class="btn btn-ghost" type="button" id="btnOpenAddItem">
-          <span class="btn-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg></span>
+          <span class="btn-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 5v14"></path>
+              <path d="M5 12h14"></path>
+            </svg>
+          </span>
           <span>Agregar</span>
         </button>
 
         <button class="btn btn-outline" type="button" id="btnSuggestAll">
-          <span class="btn-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4.35-4.35"></path><path d="M11 8v6"></path><path d="M8 11h6"></path></svg></span>
+          <span class="btn-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="7"></circle>
+              <path d="M21 21l-4.35-4.35"></path>
+              <path d="M11 8v6"></path>
+              <path d="M8 11h6"></path>
+            </svg>
+          </span>
           <span>Buscar coincidencias</span>
         </button>
 
-        <button class="btn btn-outline" type="button" id="btnExportExcel">
-          <span class="btn-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path><path d="M8 13h8"></path><path d="M8 17h8"></path></svg></span>
-          <span>Excel</span>
+        <button class="btn btn-export-excel" type="button" id="btnExportExcel">
+          <span class="btn-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <path d="M14 2v6h6"></path>
+              <path d="M8 13h8"></path>
+              <path d="M8 17h8"></path>
+            </svg>
+          </span>
+          <span>Excel PDF</span>
         </button>
 
-        <button class="btn btn-outline" type="button" id="btnExportWord">
-          <span class="btn-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path><path d="M8 13h8"></path><path d="M8 17h6"></path></svg></span>
-          <span>Word</span>
+        <button class="btn btn-export-word" type="button" id="btnExportWord">
+          <span class="btn-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <path d="M14 2v6h6"></path>
+              <path d="M8 13h8"></path>
+              <path d="M8 17h6"></path>
+            </svg>
+          </span>
+          <span>Word PDF</span>
         </button>
-
-        <a href="{{ route('propuestas-comerciales.fallo.show', $propuestaComercial) }}" class="btn btn-warning">Acta de fallo</a>
-        <a href="{{ route('propuestas-comerciales.cliente.show', $propuestaComercial) }}" class="btn btn-primary">Aprobar</a>
+        <a href="{{ route('propuestas-comerciales.fallo.show', $propuestaComercial) }}" class="btn btn-warning">
+          <span class="btn-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3v18"></path>
+              <path d="M5 7l7-4 7 4"></path>
+              <path d="M5 7l-2 6a4 4 0 0 0 8 0L9 7"></path>
+              <path d="M19 7l-2 6a4 4 0 0 0 8 0l-2-6"></path>
+            </svg>
+          </span>
+          <span>Acta de fallo</span>
+        </a>
+        <a href="{{ route('propuestas-comerciales.cliente.show', $propuestaComercial) }}" class="btn btn-primary">
+          <span class="btn-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 6L9 17l-5-5"></path>
+            </svg>
+          </span>
+          <span>Aprobar</span>
+        </a>
       </div>
     </div>
 
     <div id="noticeBox" class="notice">
       <span class="notice-dot"></span>
-      <span><strong id="noticeCount">0 partidas</strong> no encontradas en catálogo — usa "Buscar manualmente" para encontrar alternativas.</span>
+      <span>
+        <strong id="noticeCount">0 partidas</strong> no encontradas en catálogo — usa “Buscar en internet” para encontrar alternativas.
+      </span>
     </div>
 
     <div id="processBox" class="process-box">
@@ -517,11 +273,14 @@
           <div class="process-title" id="processTitle">Procesando coincidencias...</div>
           <div class="process-text" id="processText">Preparando partidas.</div>
         </div>
+
         <span class="badge badge-info" id="processCount">0/0</span>
       </div>
+
       <div class="process-bar">
         <div class="process-fill" id="processFill"></div>
       </div>
+
       <div id="processErrors" class="process-errors"></div>
     </div>
 
@@ -530,26 +289,32 @@
         <div class="summary-value text-blue" id="sumAll">0</div>
         <div class="summary-label">Todos</div>
       </button>
+
       <button class="summary-cell filter-summary" type="button" data-filter="exact">
         <div class="summary-value text-success" id="sumExact">0</div>
         <div class="summary-label">Exactos</div>
       </button>
+
       <button class="summary-cell filter-summary" type="button" data-filter="similar">
         <div class="summary-value text-blue" id="sumSimilar">0</div>
         <div class="summary-label">Similares</div>
       </button>
+
       <button class="summary-cell filter-summary" type="button" data-filter="not_found">
         <div class="summary-value text-danger" id="sumNotFound">0</div>
         <div class="summary-label">No encontrados</div>
       </button>
+
       <button class="summary-cell filter-summary" type="button" data-filter="priced">
         <div class="summary-value" id="sumSale">$0</div>
         <div class="summary-label">Subtotal venta</div>
       </button>
+
       <button class="summary-cell filter-summary" type="button" data-filter="profit">
         <div class="summary-value text-success" id="sumProfit">$0</div>
         <div class="summary-label">Utilidad</div>
       </button>
+
       <button class="summary-cell filter-summary" type="button" data-filter="margin">
         <div class="summary-value" id="sumMargin">0%</div>
         <div class="summary-label">Margen</div>
@@ -557,12 +322,13 @@
     </div>
 
     <div class="global-margin">
-      <div class="field" style="margin: 0; width: auto;">
+      <div>
         <label>Margen global %</label>
-        <input class="input" id="globalMarginInput" type="number" step="0.01" value="{{ $propuestaComercial->porcentaje_utilidad ?: 25 }}" style="width:160px;">
+        <input class="input" id="globalMarginInput" type="number" step="0.01" value="{{ $propuestaComercial->porcentaje_utilidad ?: 25 }}" style="width:150px;">
       </div>
-      <button class="btn btn-ghost" type="button" id="btnSaveGlobalMargin">Guardar margen</button>
-      <button class="btn btn-outline" type="button" id="btnApplyGlobalMargin">Aplicar a todas</button>
+
+      <button class="btn btn-ghost" type="button" id="btnSaveGlobalMargin">Guardar margen global</button>
+      <button class="btn btn-outline" type="button" id="btnApplyGlobalMargin">Aplicar a partidas</button>
     </div>
 
     <div class="items-list" id="itemsList"></div>
@@ -573,25 +339,29 @@
       <div class="modal-head">
         <div>
           <h2 class="modal-title">Búsqueda manual</h2>
-          <p class="modal-subtitle" id="manualSubtitle">Busca por nombre, SKU, marca, color o descripción.</p>
+          <p class="modal-subtitle" id="manualSubtitle">Busca por nombre, SKU, marca, color, unidad o descripción.</p>
         </div>
-        <button class="btn btn-ghost btn-small" type="button" onclick="closeManualModal()">✕</button>
+
+        <button class="btn btn-ghost btn-small" type="button" onclick="closeManualModal()">×</button>
       </div>
-      <div class="modal-content d-flex flex-column h-100">
-        <div class="modal-body pb-5 overflow-y-auto">
-          <div style="position:relative; margin-bottom: 24px;">
-            <input class="input" id="manualQueryInput" placeholder="Buscar producto..." autocomplete="off">
-            <button type="button" onclick="clearManualSearch()" style="position:absolute; right:12px; top:50%; transform:translateY(-50%); border:0; background:transparent; color:var(--muted); cursor:pointer; font-weight:700;">✕</button>
-          </div>
 
-          <div class="modal-tabs">
-            <button class="tab-btn active" type="button" id="manualTabCatalog">Catálogo interno</button>
-            <button class="tab-btn" type="button" id="manualTabInternet">Internet</button>
-          </div>
-
-          <div id="manualSearchStatus" class="result-meta" style="margin-bottom:16px;">Escribe para buscar automáticamente.</div>
-          <div id="manualResults"></div>
+      <div class="modal-body">
+        <div style="position:relative;">
+          <input class="input" id="manualQueryInput" placeholder="Buscar producto..." autocomplete="off" style="padding-left:38px; padding-right:38px;">
+          <span style="position:absolute; left:14px; top:50%; transform:translateY(-50%); color:#888;">⌕</span>
+          <button type="button" onclick="clearManualSearch()" style="position:absolute; right:10px; top:50%; transform:translateY(-50%); border:0; background:transparent; color:#888; cursor:pointer; font-size:18px;">×</button>
         </div>
+
+        <div class="modal-tabs">
+          <button class="tab-btn active" type="button" id="manualTabCatalog">Catálogo interno</button>
+          <button class="tab-btn" type="button" id="manualTabInternet">Internet</button>
+        </div>
+
+        <div id="manualSearchStatus" class="result-meta" style="margin-bottom:12px;">
+          Escribe para buscar automáticamente.
+        </div>
+
+        <div id="manualResults"></div>
       </div>
     </div>
   </div>
@@ -601,71 +371,68 @@
       <div class="modal-head">
         <div>
           <h2 class="modal-title">Agregar nueva partida</h2>
-          <p class="modal-subtitle">Crea un nuevo producto solicitado manualmente.</p>
+          <p class="modal-subtitle">Crea un nuevo producto solicitado y calcula costo, precio y subtotal.</p>
         </div>
-        <button class="btn btn-ghost btn-small" type="button" onclick="closeAddItemModal()">✕</button>
+
+        <button class="btn btn-ghost btn-small" type="button" onclick="closeAddItemModal()">×</button>
       </div>
-      <form id="addItemForm" onsubmit="storeNewItem(event)" class="modal-content d-flex flex-column h-100">
-        <div class="modal-body pb-5 overflow-y-auto">
-          <div class="row">
-            <div class="col-12">
-              <div class="field">
-                <label>Producto solicitado</label>
-                <input class="input" name="descripcion_original" placeholder="Ej. 100 paquetes de gasas" required>
-              </div>
+
+      <div class="modal-body">
+        <form id="addItemForm" onsubmit="storeNewItem(event)" style="display:grid; gap:14px;">
+          <div class="field">
+            <label>Producto solicitado</label>
+            <input class="input" name="descripcion_original" placeholder="Ej. 100 paquetes de hojas blancas tamaño carta" required>
+          </div>
+
+          <div style="display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap:12px;">
+            <div class="field">
+              <label>Cantidad</label>
+              <input class="input" type="number" step="0.01" name="cantidad_cotizada" value="1" required>
             </div>
-            <div class="col-6">
-              <div class="field">
-                <label>Cantidad</label>
-                <input class="input" type="number" step="0.01" name="cantidad_cotizada" value="1" required>
-              </div>
+
+            <div class="field">
+              <label>Unidad</label>
+              <input class="input" name="unidad_solicitada" value="pz">
             </div>
-            <div class="col-6">
-              <div class="field">
-                <label>Unidad</label>
-                <input class="input" name="unidad_solicitada" value="pz">
-              </div>
+
+            <div class="field">
+              <label>Costo unit.</label>
+              <input class="input" type="number" step="0.01" name="costo_unitario" value="0">
             </div>
-            <div class="col-6">
-              <div class="field">
-                <label>Costo unit.</label>
-                <input class="input" type="number" step="0.01" name="costo_unitario" value="0">
-              </div>
-            </div>
-            <div class="col-6">
-              <div class="field">
-                <label>Margen %</label>
-                <input class="input" type="number" step="0.01" name="porcentaje_utilidad" value="{{ $propuestaComercial->porcentaje_utilidad ?: 25 }}">
-              </div>
+
+            <div class="field">
+              <label>Margen %</label>
+              <input class="input" type="number" step="0.01" name="porcentaje_utilidad" value="{{ $propuestaComercial->porcentaje_utilidad ?: 25 }}">
             </div>
           </div>
-          <div class="action-row mt-4">
-            <button class="btn btn-primary" type="submit">Agregar partida</button>
+
+          <div class="action-row">
+            <button class="btn btn-primary" type="submit">＋ Agregar partida</button>
             <button class="btn btn-ghost" type="button" onclick="closeAddItemModal()">Cancelar</button>
           </div>
-        </div>
-      </form>
+        </form>
+      </div>
     </div>
   </div>
 
+  <!-- ===================== MODAL MUESTRAS (almacén) ===================== -->
   <div class="modal-backdrop" id="samplesModal">
     <div class="modal">
       <div class="modal-head">
         <div>
-          <h2 class="modal-title">Análisis de almacén</h2>
+          <h2 class="modal-title">Muestras · Análisis de almacén</h2>
           <p class="modal-subtitle" id="samplesSubtitle">Producto</p>
         </div>
-        <button class="btn btn-ghost btn-small" type="button" onclick="closeSamplesModal()">✕</button>
+        <button class="btn btn-ghost btn-small" type="button" onclick="closeSamplesModal()">×</button>
       </div>
-      <div class="modal-content d-flex flex-column h-100">
-        <div class="modal-body pb-5 overflow-y-auto">
-          <div id="samplesStatus" class="result-meta" style="margin-bottom:16px;">Buscando en catálogo...</div>
-          <div id="samplesResults"></div>
-        </div>
+      <div class="modal-body">
+        <div id="samplesStatus" class="result-meta" style="margin-bottom:12px;">Buscando en catálogo...</div>
+        <div id="samplesResults"></div>
       </div>
     </div>
   </div>
 
+  <!-- ===================== MODAL FICHAS TÉCNICAS ===================== -->
   <div class="modal-backdrop" id="techSheetsModal">
     <div class="modal">
       <div class="modal-head">
@@ -673,53 +440,37 @@
           <h2 class="modal-title">Fichas técnicas</h2>
           <p class="modal-subtitle" id="techSubtitle">Producto</p>
         </div>
-        <button class="btn btn-ghost btn-small" type="button" onclick="closeTechSheetsModal()">✕</button>
+        <button class="btn btn-ghost btn-small" type="button" onclick="closeTechSheetsModal()">×</button>
       </div>
-      <div class="modal-content d-flex flex-column h-100">
-        <div class="modal-body pb-5 overflow-y-auto">
-          <div class="modal-tabs">
-            <button class="tab-btn active" type="button" id="techTabList" onclick="techShowList()">Vincular existente</button>
-            <button class="tab-btn" type="button" id="techTabForm" onclick="techShowCreate()">Crear nueva</button>
-          </div>
+      <div class="modal-body">
+        <div class="modal-tabs">
+          <button class="tab-btn active" type="button" id="techTabList" onclick="techShowList()">Vincular existente</button>
+          <button class="tab-btn" type="button" id="techTabForm" onclick="techShowCreate()">Crear nueva</button>
+        </div>
 
-          <div id="techListPane">
-            <input class="input" id="techQueryInput" placeholder="Buscar ficha por nombre, marca..." style="margin-bottom:16px;">
-            <div id="techStatus" class="result-meta" style="margin-bottom:16px;"></div>
-            <div id="techResults"></div>
-          </div>
+        <div id="techListPane">
+          <input class="input" id="techQueryInput" placeholder="Buscar ficha por nombre, marca, modelo..." style="margin-bottom:12px;">
+          <div id="techStatus" class="result-meta" style="margin-bottom:12px;"></div>
+          <div id="techResults"></div>
+        </div>
 
-          <div id="techFormPane" style="display:none;">
-            <form id="techForm" onsubmit="submitTechSheet(event)">
-              <input type="hidden" name="tech_sheet_id" id="techFormId" value="">
-              <div class="row">
-                <div class="col-12">
-                  <div class="field"><label>Nombre del producto *</label><input class="input" name="product_name" required></div>
-                </div>
-                <div class="col-6">
-                  <div class="field"><label>Marca</label><input class="input" name="brand"></div>
-                </div>
-                <div class="col-6">
-                  <div class="field"><label>Modelo</label><input class="input" name="model"></div>
-                </div>
-                <div class="col-6">
-                  <div class="field"><label>Referencia</label><input class="input" name="reference"></div>
-                </div>
-                <div class="col-6">
-                  <div class="field"><label>Partida</label><input class="input" name="partida_number"></div>
-                </div>
-                <div class="col-12">
-                  <div class="field"><label>Descripción</label><textarea class="input" name="user_description" rows="3"></textarea></div>
-                </div>
-                <div class="col-12">
-                  <div class="field"><label>Imagen (opcional)</label><input class="input" type="file" name="image" accept="image/*" style="padding:8px;"></div>
-                </div>
-              </div>
-              <div class="action-row">
-                <button class="btn btn-primary" type="submit">Guardar ficha</button>
-                <button class="btn btn-ghost" type="button" onclick="techShowList()">Cancelar</button>
-              </div>
-            </form>
-          </div>
+        <div id="techFormPane" style="display:none;">
+          <form id="techForm" onsubmit="submitTechSheet(event)" style="display:grid; gap:12px;">
+            <input type="hidden" name="tech_sheet_id" id="techFormId" value="">
+            <div class="field"><label>Nombre del producto *</label><input class="input" name="product_name" required></div>
+            <div style="display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px;">
+              <div class="field"><label>Marca</label><input class="input" name="brand"></div>
+              <div class="field"><label>Modelo</label><input class="input" name="model"></div>
+              <div class="field"><label>Referencia</label><input class="input" name="reference"></div>
+              <div class="field"><label>Partida</label><input class="input" name="partida_number"></div>
+            </div>
+            <div class="field"><label>Descripción</label><textarea class="input" name="user_description" rows="3" style="height:auto; padding:10px 12px;"></textarea></div>
+            <div class="field"><label>Imagen (opcional)</label><input class="input" type="file" name="image" accept="image/*" style="padding:8px;"></div>
+            <div class="action-row">
+              <button class="btn btn-primary btn-small" type="submit">Guardar ficha</button>
+              <button class="btn btn-ghost btn-small" type="button" onclick="techShowList()">Cancelar</button>
+            </div>
+          </form>
         </div>
       </div>
     </div>
@@ -740,6 +491,7 @@
     storeItem: @json(route('propuestas-comerciales.ajax.items.store', $propuestaComercial)),
     selectMatch: @json(url('/propuesta-comercial-items/__ID__/ajax/select-match/__MATCH__')),
 
+    // 🔹 Muestras + Fichas
     itemSamples: @json(url('/propuesta-comercial-items/__ID__/ajax/samples')),
     techSheetsList: @json(url('/propuesta-comercial-items/__ID__/ajax/tech-sheets')),
     linkTechSheet: @json(url('/propuesta-comercial-items/__ID__/ajax/tech-sheets/link')),
@@ -762,39 +514,74 @@
   let manualInternetResults = [];
   let isSuggestingAll = false;
 
+  // 🔹 Muestras + Fichas
   let samplesItemId = null;
   let techItemId = null;
   let techSheetsCache = [];
   let currentLinkedSheetId = null;
 
   function money(n) {
-    return Number(n || 0).toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 });
+    n = Number(n || 0);
+    return n.toLocaleString('es-MX', {
+      style: 'currency',
+      currency: 'MXN',
+      maximumFractionDigits: 0
+    });
   }
 
   function escapeHtml(value) {
-    return String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
+    return String(value ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#039;');
   }
 
   async function ajax(url, options = {}) {
     const response = await fetch(url, {
       ...options,
-      headers: { 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json', 'Content-Type': 'application/json', ...(options.headers || {}) }
+      headers: {
+        'X-CSRF-TOKEN': csrfToken,
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        ...(options.headers || {})
+      }
     });
+
     const rawText = await response.text();
     let data = null;
-    try { data = rawText ? JSON.parse(rawText) : null; } catch (error) {}
-    if (!response.ok || !data || data.ok === false) {
-      throw new Error(data?.message || 'Error procesando la solicitud.');
+
+    try {
+      data = rawText ? JSON.parse(rawText) : null;
+    } catch (error) {
+      data = null;
     }
+
+    if (!response.ok || !data || data.ok === false) {
+      let message = data?.message || 'Error procesando la solicitud.';
+
+      if (!data && rawText) {
+        message += ' Respuesta del servidor: ' + String(rawText).slice(0, 300);
+      }
+
+      throw new Error(message);
+    }
+
     return data;
   }
 
-  function urlFor(template, id) { return template.replace('__ID__', id); }
+  function urlFor(template, id) {
+    return template.replace('__ID__', id);
+  }
 
+  // 🔹 Conserva la ficha vinculada cuando el server reemplaza el item (no la incluye en su payload)
   function mergeTechSheetMeta(newItems) {
     if (!Array.isArray(newItems)) return newItems;
+
     const map = {};
     items.forEach(i => { map[i.id] = i; });
+
     newItems.forEach(ni => {
       const prev = map[ni.id];
       if (prev) {
@@ -802,32 +589,60 @@
         if (ni.tech_sheet_name === undefined) ni.tech_sheet_name = prev.tech_sheet_name ?? null;
       }
     });
+
     return newItems;
   }
 
-  function isManualExternalChosen(item) { return !!(item.manual_external_link || item.manual_external_supplier); }
-  function isCatalogAccepted(item) { return item.ui_status === 'accepted_item'; }
+  // 🔹 Reglas de "decisión tomada"
+  function isManualExternalChosen(item) {
+    return !!(item.manual_external_link || item.manual_external_supplier);
+  }
+
+  function isCatalogAccepted(item) {
+    return item.ui_status === 'accepted_item';
+  }
 
   function getSelectedCatalogProduct(item) {
     const selMatch = (item.matches || []).find(m => m.seleccionado);
-    if (selMatch && selMatch.product) return { product: selMatch.product, score: Number(selMatch.score || 0) };
-    if (item.producto_seleccionado) return { product: item.producto_seleccionado, score: Number(item.match_score || 0) };
+    if (selMatch && selMatch.product) {
+      return { product: selMatch.product, score: Number(selMatch.score || 0) };
+    }
+    if (item.producto_seleccionado) {
+      return { product: item.producto_seleccionado, score: Number(item.match_score || 0) };
+    }
     return null;
   }
 
   function showProcessBox(type, title, text, done = 0, total = 0, errors = []) {
     const box = document.getElementById('processBox');
-    if (!box) return;
-    box.className = 'process-box show' + (type ? ' ' + type : '');
-    document.getElementById('processTitle').textContent = title;
-    document.getElementById('processText').textContent = text;
-    document.getElementById('processCount').textContent = `${done}/${total}`;
-    document.getElementById('processFill').style.width = (total > 0 ? Math.round((done / total) * 100) : 0) + '%';
+    const titleEl = document.getElementById('processTitle');
+    const textEl = document.getElementById('processText');
+    const countEl = document.getElementById('processCount');
+    const fillEl = document.getElementById('processFill');
     const errorsEl = document.getElementById('processErrors');
+
+    if (!box || !titleEl || !textEl || !countEl || !fillEl || !errorsEl) {
+      return;
+    }
+
+    box.className = 'process-box show' + (type ? ' ' + type : '');
+    titleEl.textContent = title;
+    textEl.textContent = text;
+    countEl.textContent = `${done}/${total}`;
+
+    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    fillEl.style.width = pct + '%';
+
     if (errors.length) {
       errorsEl.classList.add('show');
-      errorsEl.innerHTML = errors.slice(0, 30).map(e => `<div>• ${escapeHtml(e)}</div>`).join('');
-      if (errors.length > 30) errorsEl.innerHTML += `<div>• Y ${errors.length - 30} errores más...</div>`;
+      errorsEl.innerHTML = errors
+        .slice(0, 30)
+        .map(error => `<div>• ${escapeHtml(error)}</div>`)
+        .join('');
+
+      if (errors.length > 30) {
+        errorsEl.innerHTML += `<div>• Y ${errors.length - 30} errores más...</div>`;
+      }
     } else {
       errorsEl.classList.remove('show');
       errorsEl.innerHTML = '';
@@ -835,23 +650,48 @@
   }
 
   function showInlineError(message) {
-    showProcessBox('error', 'Error', message || 'Ocurrió un error procesando la solicitud.', 1, 1, []);
-    document.getElementById('processBox')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    showProcessBox(
+      'error',
+      'No se pudo completar la acción',
+      message || 'Ocurrió un error procesando la solicitud.',
+      1,
+      1,
+      []
+    );
+
+    const box = document.getElementById('processBox');
+    if (box) {
+      box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
   }
 
-  function hideProcessBox() { document.getElementById('processBox')?.classList.remove('show'); }
+  function hideProcessBox() {
+    const box = document.getElementById('processBox');
+    if (box) {
+      box.classList.remove('show');
+    }
+  }
 
   function statusLabel(item) {
     if (item.ui_status === 'accepted_item') return { text: 'Aceptado', cls: 'badge-success' };
     if (item.ui_status === 'manual_review') return { text: 'Revisión', cls: 'badge-warning' };
     if (item.ui_status === 'rejected_item') return { text: 'Rechazado', cls: 'badge-danger' };
-    if (item.status_key === 'exact') return { text: 'Exacto', cls: 'badge-success' };
+
+    if (item.status_key === 'exact') return { text: 'Coincidencia exacta', cls: 'badge-success' };
     if (item.status_key === 'similar') return { text: 'Similar', cls: 'badge-info' };
+
     return { text: 'No encontrado', cls: 'badge-danger' };
+  }
+
+  function statusCardClass(item) {
+    if (item.status_key === 'exact') return 'status-exact';
+    if (item.status_key === 'similar') return 'status-similar';
+    return 'status-not_found';
   }
 
   function renderSummary() {
     const total = summary.total_items || items.length;
+
     document.getElementById('sumAll').textContent = total;
     document.getElementById('sumExact').textContent = summary.exact || 0;
     document.getElementById('sumSimilar').textContent = summary.similar || 0;
@@ -861,11 +701,15 @@
     document.getElementById('sumMargin').textContent = `${summary.margin || 0}%`;
     document.getElementById('itemsCountText').textContent = total;
 
-    document.querySelectorAll('.filter-summary').forEach((btn) => btn.classList.toggle('active', btn.dataset.filter === currentFilter));
-    
+    document.querySelectorAll('.filter-summary').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.filter === currentFilter);
+    });
+
     const notice = document.getElementById('noticeBox');
-    if ((summary.not_found || 0) > 0) {
-      document.getElementById('noticeCount').textContent = `${summary.not_found} partidas`;
+    const count = Number(summary.not_found || 0);
+
+    if (count > 0) {
+      document.getElementById('noticeCount').textContent = `${count} partidas`;
       notice.classList.add('show');
     } else {
       notice.classList.remove('show');
@@ -874,7 +718,9 @@
 
   function renderItems() {
     renderSummary();
+
     const list = document.getElementById('itemsList');
+
     const filtered = items.filter(item => {
       if (currentFilter === 'all') return true;
       if (currentFilter === 'exact') return item.status_key === 'exact';
@@ -885,10 +731,9 @@
       if (currentFilter === 'margin') return Number(item.item_margin_pct || 0) > 0;
       return true;
     });
+
     list.innerHTML = filtered.map((item, idx) => renderItemCard(item, idx)).join('');
     bindDragEvents();
-    // Rule 6 Initialization
-    initCustomSelects();
   }
 
   function renderItemCard(item, idx) {
@@ -899,7 +744,7 @@
     const subtotal = Number(item.subtotal || price * qty);
 
     return `
-      <div class="item-card" data-id="${item.id}" draggable="${currentFilter === 'all' ? 'true' : 'false'}">
+      <div class="item-card ${statusCardClass(item)}" data-id="${item.id}" draggable="${currentFilter === 'all' ? 'true' : 'false'}">
         <div class="item-main" onclick="toggleItem(${item.id})">
           <button class="drag-handle" type="button" title="Mover posición" onclick="event.stopPropagation()">⠿</button>
           <div class="item-index">${idx + 1}</div>
@@ -908,7 +753,7 @@
             <div class="item-meta">
               ${qty} ${escapeHtml(item.unidad_solicitada || 'pz')}
               ${item.producto_seleccionado?.brand ? ' · ' + escapeHtml(item.producto_seleccionado.brand) : ''}
-              ${item.tech_sheet_id ? ' · <span style="color:var(--success); font-weight:700;">📄 Ficha</span>' : ''}
+              ${item.tech_sheet_id ? ' · <span style="color:var(--success); font-weight:700;">📄 Ficha vinculada</span>' : ''}
             </div>
           </div>
           <span class="badge ${badge.cls}">${badge.text}</span>
@@ -919,6 +764,7 @@
           </div>
           <div class="chevron">⌄</div>
         </div>
+
         <div class="item-details">
           ${renderCatalogSection(item)}
           ${renderManualExternal(item)}
@@ -932,77 +778,187 @@
   }
 
   function renderCatalogSection(item) {
-    if (isManualExternalChosen(item)) return '';
+    // 🔹 Si se eligió una referencia externa/manual, ocultamos las coincidencias de catálogo
+    if (isManualExternalChosen(item)) {
+      return '';
+    }
+
+    // 🔹 Si ya se aceptó la partida, mostrar SOLO el producto seleccionado
     if (isCatalogAccepted(item)) {
       const sel = getSelectedCatalogProduct(item);
-      if (sel) return `
-        <div class="section">
-          <div class="section-title">Catálogo (Seleccionado)</div>
-          <div class="result-card" style="border-color:var(--success);">
-            <div class="result-title">${escapeHtml(sel.product.name)} <span class="badge badge-success">Aceptado</span></div>
-            <div class="result-meta">SKU: ${escapeHtml(sel.product.sku || '—')} · Stock: ${sel.product.stock ?? '—'}</div>
-          </div>
-        </div>`;
-    }
-    if (!item.matches?.length && !item.producto_seleccionado) return `<div class="section"><div class="section-title">Catálogo</div><div class="result-meta">N/A</div></div>`;
-    if (item.matches?.length) return `
-      <div class="section">
-        <div class="section-title">Coincidencias en catálogo</div>
-        ${item.matches.map((m, i) => `
-          <div class="result-card">
-            <div class="result-title">${escapeHtml(m.product?.name || '—')}</div>
-            <div class="result-meta">SKU: ${escapeHtml(m.product?.sku || '—')} · Stock: ${m.product?.stock ?? '—'} · ${Number(m.score || 0).toFixed(0)}%</div>
-            <div class="action-row mt-2">
-              <button class="btn btn-outline btn-small" type="button" onclick="selectMatch(${item.id}, ${m.id})">Usar esta</button>
+      if (sel) {
+        const p = sel.product;
+        return `
+          <div class="section">
+            <div class="section-title">Producto seleccionado (catálogo)</div>
+            <div class="result-card" style="border-color:rgba(21,128,61,.35);">
+              <div class="result-title">
+                ${escapeHtml(p.name || 'Producto')}
+                <span class="badge badge-success">Aceptado</span>
+              </div>
+              <div class="result-meta">
+                SKU: ${escapeHtml(p.sku || '—')} · ${escapeHtml(p.brand || '—')} · Stock: ${p.stock ?? '—'}${sel.score ? ' · ' + sel.score.toFixed(0) + '%' : ''}
+              </div>
             </div>
           </div>
-        `).join('')}
-      </div>`;
-    return `<div class="section"><div class="section-title">Catálogo</div><div class="result-title">${escapeHtml(item.producto_seleccionado?.name)}</div></div>`;
+        `;
+      }
+      // aceptado pero sin producto: dejamos ver sugerencias para que elija
+    }
+
+    if (!item.matches?.length && !item.producto_seleccionado) {
+      return `
+        <div class="section">
+          <div class="section-title">Coincidencia en catálogo</div>
+          <div class="result-title">N/A</div>
+          <div class="result-meta">SKU: N/A · N/A · Stock: 0</div>
+        </div>
+      `;
+    }
+
+    if (item.matches?.length) {
+      return `
+        <div class="section">
+          <div class="section-title">Coincidencias en catálogo</div>
+          ${item.matches.map((match, i) => {
+            const p = match.product || {};
+            return `
+              <div class="result-card">
+                <div class="result-title">${escapeHtml(p.name || 'Producto sin nombre')}</div>
+                <div class="result-meta">
+                  SKU: ${escapeHtml(p.sku || '—')} · ${escapeHtml(p.brand || '—')} · Stock: ${p.stock ?? '—'} · ${Number(match.score || 0).toFixed(0)}%
+                </div>
+                <div class="action-row" style="margin-top:12px;">
+                  <button class="btn btn-outline btn-small" type="button" onclick="selectMatch(${item.id}, ${match.id})">
+                    ✓ Usar esta
+                  </button>
+                  ${i === 0 ? '<span class="badge badge-info">Principal</span>' : ''}
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+    }
+
+    return `
+      <div class="section">
+        <div class="section-title">Coincidencia en catálogo</div>
+        <div class="result-title">${escapeHtml(item.producto_seleccionado?.name || 'N/A')}</div>
+        <div class="result-meta">
+          SKU: ${escapeHtml(item.producto_seleccionado?.sku || 'N/A')} · ${escapeHtml(item.producto_seleccionado?.brand || 'N/A')} · Stock: ${item.producto_seleccionado?.stock || 0}
+        </div>
+      </div>
+    `;
   }
 
   function renderManualExternal(item) {
-    if (!item.manual_external_supplier && !item.manual_external_link && !item.manual_catalog_product_name) return '';
+    if (!item.manual_external_supplier && !item.manual_external_link && !item.manual_catalog_product_name) {
+      return '';
+    }
+
     return `
       <div class="section">
         <div class="external-box">
-          <div class="section-title">Referencia externa</div>
-          <div class="result-title">${escapeHtml(item.manual_external_supplier || item.manual_catalog_product_name || 'Proveedor')}</div>
-          ${item.manual_external_link ? `<div class="mt-2"><a href="${escapeHtml(item.manual_external_link)}" target="_blank" class="btn btn-outline btn-small">↗ Enlace</a></div>` : ''}
+          <div class="section-title">Referencia seleccionada (proveedor externo)</div>
+          <div class="result-title">
+            ${escapeHtml(item.manual_external_supplier || item.manual_catalog_product_name || 'Proveedor externo')}
+            ${item.costo_unitario ? ' · ' + money(item.costo_unitario) : ''}
+          </div>
+
+          ${item.manual_external_link ? `
+            <div style="margin-top:10px;">
+              <a href="${escapeHtml(item.manual_external_link)}" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-small">↗ Ver referencia</a>
+            </div>
+          ` : ''}
+
+          <div class="warning-line">ⓘ Se ocultaron las demás coincidencias de catálogo e internet. Precio estimado — validar antes de aprobar.</div>
         </div>
-      </div>`;
+      </div>
+    `;
   }
 
   function renderExternalSection(item) {
-    if (isCatalogAccepted(item) || isManualExternalChosen(item)) return '';
-    if (!item.external_matches?.length) return item.status_key === 'not_found' ? '<div class="section"><div class="result-meta">Sin opciones en internet.</div></div>' : '';
+    // 🔹 Si ya hay decisión (catálogo aceptado o referencia externa elegida), no mostramos más opciones
+    if (isCatalogAccepted(item) || isManualExternalChosen(item)) {
+      return '';
+    }
+
+    if (!item.external_matches?.length) {
+      if (item.status_key === 'not_found') {
+        return `
+          <div class="section">
+            <div class="warning-line">ⓘ Producto no disponible en catálogo interno.</div>
+            <div class="warning-line">ⓘ Se sugiere adquisición con proveedor externo.</div>
+          </div>
+        `;
+      }
+
+      return '';
+    }
+
     return `
       <div class="section">
-        <div class="section-title">Internet</div>
-        ${item.external_matches.map(e => `
+        <div class="section-title">Opciones de internet</div>
+        ${item.external_matches.map(external => `
           <div class="external-box">
-            <div class="result-title">${escapeHtml(e.title)}</div>
-            <div class="result-meta">${escapeHtml(e.source || 'Internet')} · Score ${Number(e.score || 0).toFixed(0)}%</div>
-            <div class="mt-2"><a class="btn btn-outline btn-small" href="${escapeHtml(e.url)}" target="_blank">↗ Enlace</a></div>
+            <div class="result-title">${escapeHtml(external.title)}</div>
+            <div class="result-meta">
+              ${escapeHtml(external.source || 'Internet')}
+              ${external.seller ? ' · ' + escapeHtml(external.seller) : ''}
+              · Score ${Number(external.score || 0).toFixed(0)}%
+            </div>
+
+            <div style="margin-top:10px;">
+              <a class="btn btn-outline btn-small" href="${escapeHtml(external.url)}" target="_blank" rel="noopener noreferrer">↗ Ver referencia</a>
+            </div>
           </div>
         `).join('')}
-      </div>`;
+      </div>
+    `;
   }
 
+  // 🔹 Ficha técnica vinculada + preview embebido
   function renderTechSheetLinked(item) {
     if (!item.tech_sheet_id) return '';
+
     const pdfUrl = urlFor(routes.techSheetPdf, item.tech_sheet_id);
+
     return `
       <div class="section">
-        <div class="section-title">Ficha técnica</div>
+        <div class="section-title">Ficha técnica vinculada</div>
         <div class="result-card">
-          <div class="result-title">📄 ${escapeHtml(item.tech_sheet_name || 'Ficha')}</div>
-          <div class="action-row">
-            <a class="btn btn-outline btn-small" target="_blank" href="${pdfUrl}">↗ Abrir</a>
-            <button class="btn btn-ghost btn-small" type="button" onclick="openTechSheetsModal(${item.id})">Cambiar</button>
+          <div class="result-title">📄 ${escapeHtml(item.tech_sheet_name || 'Ficha técnica')}</div>
+          <div class="action-row" style="margin-top:10px;">
+            <button class="btn btn-soft btn-small" type="button" onclick="toggleTechPreview(${item.id}, '${pdfUrl}')">👁 Ver ficha seleccionada</button>
+            <a class="btn btn-outline btn-small" target="_blank" rel="noopener noreferrer" href="${pdfUrl}">↗ Abrir en pestaña</a>
+            <button class="btn btn-ghost btn-small" type="button" onclick="openTechSheetsModal(${item.id})">Cambiar / editar</button>
           </div>
+          <div id="tech-preview-${item.id}" class="tech-preview" style="display:none; margin-top:12px;"></div>
         </div>
-      </div>`;
+      </div>
+    `;
+  }
+
+  function toggleTechPreview(itemId, pdfUrl) {
+    const box = document.getElementById(`tech-preview-${itemId}`);
+    if (!box) return;
+
+    const isHidden = box.style.display === 'none' || box.style.display === '';
+
+    if (isHidden) {
+      box.innerHTML = `
+        <iframe
+          src="${pdfUrl}"
+          title="Ficha técnica"
+          style="width:100%; height:560px; border:1px solid #ececec; border-radius:12px; background:#fff;"></iframe>
+      `;
+      box.style.display = 'block';
+      box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } else {
+      box.style.display = 'none';
+      box.innerHTML = '';
+    }
   }
 
   function renderActions(item) {
@@ -1011,32 +967,61 @@
         <div class="action-row">
           <button class="btn btn-ghost btn-small" type="button" onclick="toggleEdit(${item.id})">✎ Editar</button>
           <button class="btn btn-success btn-small" type="button" onclick="setItemStatus(${item.id}, 'accepted_item')">✓ Aceptar</button>
-          <button class="btn btn-warning btn-small" type="button" onclick="setItemStatus(${item.id}, 'manual_review')">◎ Revisar</button>
-          <button class="btn btn-danger btn-small" type="button" onclick="setItemStatus(${item.id}, 'rejected_item')">✕ Rechazar</button>
-          <button class="btn btn-soft btn-small" type="button" onclick="suggestItem(${item.id})">◎ Auto buscar</button>
-          <button class="btn btn-ghost btn-small" type="button" onclick="openManualModal(${item.id})">⌕ Buscar</button>
+          <button class="btn btn-danger btn-small" type="button" onclick="setItemStatus(${item.id}, 'rejected_item')">× Rechazar</button>
+          <button class="btn btn-warning btn-small" type="button" onclick="setItemStatus(${item.id}, 'manual_review')">◎ Revisión</button>
+          <button class="btn btn-soft btn-small" type="button" onclick="suggestItem(${item.id})">◎ Buscar coincidencias</button>
+          <button class="btn btn-ghost btn-small" type="button" onclick="openManualModal(${item.id})">⌕ Buscar manualmente</button>
           <button class="btn btn-soft btn-small" type="button" onclick="openSamplesModal(${item.id})">📦 Muestras</button>
-          <button class="btn btn-outline btn-small" type="button" onclick="openTechSheetsModal(${item.id})">📄 Fichas</button>
+          <button class="btn btn-outline btn-small" type="button" onclick="openTechSheetsModal(${item.id})">📄 Ficha técnica</button>
         </div>
-      </div>`;
+      </div>
+    `;
   }
 
   function renderEditForm(item) {
     return `
       <form class="edit-form" id="edit-form-${item.id}" onsubmit="saveItem(event, ${item.id})">
-        <div class="row">
-          <div class="col-12 col-md-6 field"><label>Producto</label><input class="input" name="descripcion_original" value="${escapeHtml(item.descripcion_original || '')}"></div>
-          <div class="col-6 col-md-2 field"><label>Cant.</label><input class="input" type="number" step="0.01" name="cantidad_cotizada" value="${Number(item.cantidad_cotizada || 1)}"></div>
-          <div class="col-6 col-md-2 field"><label>Unidad</label><input class="input" name="unidad_solicitada" value="${escapeHtml(item.unidad_solicitada || '')}"></div>
-          <div class="col-6 col-md-2 field"><label>Margen</label><input class="input" type="number" step="0.01" name="porcentaje_utilidad" value="${Number(item.item_margin_pct || 25)}"></div>
-          <div class="col-6 col-md-6 field"><label>Proveedor</label><input class="input" name="external_supplier" value="${escapeHtml(item.manual_external_supplier || '')}"></div>
-          <div class="col-6 col-md-6 field"><label>Enlace</label><input class="input" name="external_link" value="${escapeHtml(item.manual_external_link || '')}"></div>
+        <div class="field">
+          <label>Producto</label>
+          <input class="input" name="descripcion_original" value="${escapeHtml(item.descripcion_original || '')}">
         </div>
-        <div class="action-row mt-3">
-          <button class="btn btn-primary btn-small" type="submit">Guardar</button>
+
+        <div class="field">
+          <label>Cantidad</label>
+          <input class="input" type="number" step="0.01" name="cantidad_cotizada" value="${Number(item.cantidad_cotizada || 1)}">
+        </div>
+
+        <div class="field">
+          <label>Unidad</label>
+          <input class="input" name="unidad_solicitada" value="${escapeHtml(item.unidad_solicitada || '')}">
+        </div>
+
+        <div class="field">
+          <label>Costo unit.</label>
+          <input class="input" type="number" step="0.01" name="costo_unitario" value="${Number(item.costo_unitario || 0)}">
+        </div>
+
+        <div class="field">
+          <label>Margen %</label>
+          <input class="input" type="number" step="0.01" name="porcentaje_utilidad" value="${Number(item.item_margin_pct || 25)}">
+        </div>
+
+        <div class="field">
+          <label>Proveedor</label>
+          <input class="input" name="external_supplier" value="${escapeHtml(item.manual_external_supplier || '')}">
+        </div>
+
+        <div class="field">
+          <label>Link ref.</label>
+          <input class="input" name="external_link" value="${escapeHtml(item.manual_external_link || '')}">
+        </div>
+
+        <div class="action-row" style="grid-column:1/-1;">
+          <button class="btn btn-primary btn-small" type="submit">✓ Guardar</button>
           <button class="btn btn-ghost btn-small" type="button" onclick="toggleEdit(${item.id})">Cancelar</button>
         </div>
-      </form>`;
+      </form>
+    `;
   }
 
   function updateItemInState(item) {
@@ -1050,251 +1035,1175 @@
   }
 
   function toggleItem(id) {
-    document.querySelector(`.item-card[data-id="${id}"]`)?.classList.toggle('open');
+    const card = document.querySelector(`.jureto-quote-page .item-card[data-id="${id}"]`);
+    if (card) card.classList.toggle('open');
   }
 
   function toggleEdit(id) {
-    document.getElementById(`edit-form-${id}`)?.classList.toggle('show');
+    const form = document.getElementById(`edit-form-${id}`);
+    if (form) form.classList.toggle('show');
   }
 
   async function suggestItem(id) {
+    const button = event?.target;
+    const old = button?.innerHTML;
+
+    if (button) {
+      button.disabled = true;
+      button.innerHTML = '<span class="loader"></span> Buscando...';
+    }
+
     try {
       const data = await ajax(urlFor(routes.suggestItem, id), { method: 'POST', body: '{}' });
-      updateItemInState(data.item); summary = data.summary || summary; renderItems();
-      document.querySelector(`.item-card[data-id="${id}"]`)?.classList.add('open');
-    } catch (e) { showInlineError(e.message); }
+      updateItemInState(data.item);
+      summary = data.summary || summary;
+      renderItems();
+
+      const card = document.querySelector(`.jureto-quote-page .item-card[data-id="${id}"]`);
+      if (card) card.classList.add('open');
+    } catch (e) {
+      showInlineError(e.message);
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.innerHTML = old;
+      }
+    }
   }
 
   async function selectMatch(itemId, matchId) {
     try {
-      const data = await ajax(routes.selectMatch.replace('__ID__', itemId).replace('__MATCH__', matchId), { method: 'POST', body: '{}' });
-      updateItemInState(data.item); summary = data.summary || summary; renderItems();
-      document.querySelector(`.item-card[data-id="${itemId}"]`)?.classList.add('open');
-    } catch (e) { showInlineError(e.message); }
+      const url = routes.selectMatch
+        .replace('__ID__', itemId)
+        .replace('__MATCH__', matchId);
+
+      const data = await ajax(url, { method: 'POST', body: '{}' });
+      updateItemInState(data.item);
+      summary = data.summary || summary;
+      renderItems();
+
+      const card = document.querySelector(`.jureto-quote-page .item-card[data-id="${itemId}"]`);
+      if (card) card.classList.add('open');
+    } catch (e) {
+      showInlineError(e.message);
+    }
   }
 
   async function setItemStatus(id, status) {
     try {
-      const data = await ajax(urlFor(routes.updateStatus, id), { method: 'POST', body: JSON.stringify({ ui_status: status }) });
-      updateItemInState(data.item); summary = data.summary || summary; renderItems();
-      document.querySelector(`.item-card[data-id="${id}"]`)?.classList.add('open');
-    } catch (e) { showInlineError(e.message); }
+      const data = await ajax(urlFor(routes.updateStatus, id), {
+        method: 'POST',
+        body: JSON.stringify({ ui_status: status })
+      });
+
+      updateItemInState(data.item);
+      summary = data.summary || summary;
+      renderItems();
+
+      const card = document.querySelector(`.jureto-quote-page .item-card[data-id="${id}"]`);
+      if (card) card.classList.add('open');
+    } catch (e) {
+      showInlineError(e.message);
+    }
   }
 
   async function saveItem(event, id) {
     event.preventDefault();
-    const payload = Object.fromEntries(new FormData(event.target).entries());
+
+    const form = event.target;
+    const payload = Object.fromEntries(new FormData(form).entries());
+
     try {
-      const data = await ajax(urlFor(routes.updateItem, id), { method: 'POST', body: JSON.stringify(payload) });
-      updateItemInState(data.item); summary = data.summary || summary; renderItems();
-      document.querySelector(`.item-card[data-id="${id}"]`)?.classList.add('open');
-    } catch (e) { showInlineError(e.message); }
+      const data = await ajax(urlFor(routes.updateItem, id), {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+
+      updateItemInState(data.item);
+      summary = data.summary || summary;
+      renderItems();
+
+      const card = document.querySelector(`.jureto-quote-page .item-card[data-id="${id}"]`);
+      if (card) card.classList.add('open');
+    } catch (e) {
+      showInlineError(e.message);
+    }
   }
 
   async function suggestAll() {
     if (isSuggestingAll) return;
+
+    const button = document.getElementById('btnSuggestAll');
+    const old = button.innerHTML;
     const pendingItems = items.filter(item => item.status_key !== 'exact');
-    if (!pendingItems.length) return showProcessBox('success', 'Listo', 'Todo exacto', items.length, items.length, []);
-    
+
+    if (!pendingItems.length) {
+      showProcessBox(
+        'success',
+        'No hay partidas pendientes',
+        'Todas las partidas ya tienen coincidencia exacta o ya fueron procesadas.',
+        items.length,
+        items.length,
+        []
+      );
+
+      setTimeout(hideProcessBox, 3500);
+      return;
+    }
+
     isSuggestingAll = true;
-    showProcessBox('', 'Buscando', `Procesando ${pendingItems.length} partidas...`, 0, pendingItems.length, []);
-    
-    let done = 0, success = 0, errors = [], cursor = 0;
+    button.disabled = true;
+    button.innerHTML = '<span class="loader"></span> Procesando...';
+
+    const total = pendingItems.length;
+    let done = 0;
+    let success = 0;
+    const errors = [];
+    const concurrency = 4;
+    let cursor = 0;
+
+    showProcessBox(
+      '',
+      'Buscando coincidencias por lotes',
+      `Procesando ${total} partidas sin saturar el servidor...`,
+      done,
+      total,
+      errors
+    );
+
+    const box = document.getElementById('processBox');
+    if (box) {
+      box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
     async function worker() {
       while (cursor < pendingItems.length) {
-        const item = pendingItems[cursor++];
+        const currentIndex = cursor++;
+        const item = pendingItems[currentIndex];
+
         try {
-          const data = await ajax(urlFor(routes.suggestItem, item.id), { method: 'POST', body: '{}' });
-          if (data.item) updateItemInState(data.item);
-          if (data.summary) summary = data.summary;
+          const data = await ajax(urlFor(routes.suggestItem, item.id), {
+            method: 'POST',
+            body: '{}'
+          });
+
+          if (data.item) {
+            updateItemInState(data.item);
+          }
+
+          if (data.summary) {
+            summary = data.summary;
+          }
+
           success++;
-        } catch (error) { errors.push(`Partida #${item.sort || cursor}: ${error.message}`); }
-        finally {
+        } catch (error) {
+          errors.push(
+            `Partida #${item.sort || currentIndex + 1}: ${error.message || 'No se pudo procesar.'}`
+          );
+        } finally {
           done++;
-          showProcessBox(errors.length ? 'error' : '', 'Buscando', `Listas ${done}/${pendingItems.length}`, done, pendingItems.length, errors);
-          if (done % 5 === 0 || done === pendingItems.length) renderItems();
+
+          showProcessBox(
+            errors.length ? 'error' : '',
+            'Buscando coincidencias por lotes',
+            `Procesadas ${done} de ${total}. Correctas: ${success}. Errores: ${errors.length}.`,
+            done,
+            total,
+            errors
+          );
+
+          if (done % 5 === 0 || done === total) {
+            renderItems();
+          }
         }
       }
     }
-    
-    try { await Promise.all(Array.from({ length: 4 }, worker)); }
-    finally { isSuggestingAll = false; }
+
+    try {
+      await Promise.all(
+        Array.from({ length: Math.min(concurrency, pendingItems.length) }, () => worker())
+      );
+
+      renderItems();
+
+      if (errors.length) {
+        showProcessBox(
+          'error',
+          'Proceso terminado con algunos errores',
+          `Se procesaron ${success} partidas correctamente y ${errors.length} fallaron. Puedes volver a intentar; se saltarán las exactas.`,
+          done,
+          total,
+          errors
+        );
+      } else {
+        showProcessBox(
+          'success',
+          'Coincidencias completadas',
+          `Se procesaron ${success} partidas correctamente.`,
+          done,
+          total,
+          []
+        );
+
+        setTimeout(hideProcessBox, 3500);
+      }
+    } finally {
+      isSuggestingAll = false;
+      button.disabled = false;
+      button.innerHTML = old;
+    }
   }
 
   async function saveGlobalMargin(applyToItems) {
     const margin = document.getElementById('globalMarginInput').value;
+
     try {
-      const data = await ajax(routes.globalMargin, { method: 'POST', body: JSON.stringify({ porcentaje_utilidad: margin, apply_to_items: applyToItems }) });
-      items = mergeTechSheetMeta(data.items) || items; summary = data.summary || summary; renderItems();
-    } catch (e) { showInlineError(e.message); }
+      const data = await ajax(routes.globalMargin, {
+        method: 'POST',
+        body: JSON.stringify({
+          porcentaje_utilidad: margin,
+          apply_to_items: applyToItems
+        })
+      });
+
+      items = mergeTechSheetMeta(data.items) || items;
+      summary = data.summary || summary;
+      renderItems();
+    } catch (e) {
+      showInlineError(e.message);
+    }
   }
 
   function openManualModal(id) {
     manualItemId = id;
+    const item = items.find(i => i.id === id);
+
+    document.getElementById('manualSubtitle').textContent = item?.descripcion_original || 'Producto';
+    document.getElementById('manualQueryInput').value = item?.descripcion_original || '';
+    document.getElementById('manualResults').innerHTML = '';
+    document.getElementById('manualSearchStatus').textContent = 'Buscando coincidencias...';
     document.getElementById('manualModal').classList.add('show');
-    manualTab = 'catalog'; scheduleManualSearch(250);
+
+    manualTab = 'catalog';
+    document.getElementById('manualTabCatalog').classList.add('active');
+    document.getElementById('manualTabInternet').classList.remove('active');
+
+    manualLastQuery = '';
+    scheduleManualSearch(250);
   }
-  function closeManualModal() { document.getElementById('manualModal').classList.remove('show'); }
-  function clearManualSearch() { document.getElementById('manualQueryInput').value = ''; }
-  function scheduleManualSearch(delay = 420) { clearTimeout(manualSearchTimer); manualSearchTimer = setTimeout(runManualSearchLive, delay); }
+
+  function closeManualModal() {
+    document.getElementById('manualModal').classList.remove('show');
+  }
+
+  function clearManualSearch() {
+    document.getElementById('manualQueryInput').value = '';
+    document.getElementById('manualResults').innerHTML = '';
+    document.getElementById('manualSearchStatus').textContent = 'Escribe para buscar automáticamente.';
+  }
+
+  function scheduleManualSearch(delay = 420) {
+    clearTimeout(manualSearchTimer);
+    manualSearchTimer = setTimeout(() => runManualSearchLive(), delay);
+  }
 
   async function runManualSearchLive() {
     const q = document.getElementById('manualQueryInput').value.trim();
-    if (!q) return;
+    const resultsBox = document.getElementById('manualResults');
+    const statusBox = document.getElementById('manualSearchStatus');
+
+    if (!q) {
+      resultsBox.innerHTML = '';
+      statusBox.textContent = 'Escribe para buscar automáticamente.';
+      return;
+    }
+
+    const cacheKey = manualTab + '::' + q;
+    if (cacheKey === manualLastQuery) return;
+
+    manualLastQuery = cacheKey;
+    statusBox.innerHTML = '<span class="loader"></span> Buscando similitudes...';
+
     try {
-      const params = new URLSearchParams({ q, item_id: manualItemId, internet: manualTab === 'internet' ? '1' : '0' });
-      const data = await ajax(routes.manualSearch + '?' + params.toString(), { method: 'GET' });
-      if (manualTab === 'internet') { manualInternetResults = data.internet || []; renderManualInternet(manualInternetResults); }
-      else { manualCatalogResults = data.products || []; renderManualCatalog(manualCatalogResults); }
-    } catch (e) {}
+      const params = new URLSearchParams({
+        q,
+        item_id: manualItemId,
+        internet: manualTab === 'internet' ? '1' : '0'
+      });
+
+      const data = await ajax(routes.manualSearch + '?' + params.toString(), {
+        method: 'GET',
+        headers: {
+          'X-CSRF-TOKEN': csrfToken,
+          'Accept': 'application/json'
+        }
+      });
+
+      if (manualTab === 'internet') {
+        manualInternetResults = data.internet || [];
+        statusBox.textContent = `${manualInternetResults.length} referencias externas encontradas`;
+        renderManualInternet(manualInternetResults);
+      } else {
+        manualCatalogResults = data.products || [];
+        statusBox.textContent = `${manualCatalogResults.length} productos similares encontrados`;
+        renderManualCatalog(manualCatalogResults);
+      }
+    } catch (e) {
+      resultsBox.innerHTML = `<p class="result-meta">${escapeHtml(e.message)}</p>`;
+      statusBox.textContent = 'No se pudo completar la búsqueda.';
+    }
   }
 
   function renderManualCatalog(products) {
-    document.getElementById('manualResults').innerHTML = products.map((p, index) => `
+    const box = document.getElementById('manualResults');
+
+    if (!products.length) {
+      box.innerHTML = '<p class="result-meta">Sin resultados similares en catálogo.</p>';
+      return;
+    }
+
+    box.innerHTML = products.map((p, index) => `
       <div class="modal-result">
-        <div><div class="result-title">${escapeHtml(p.name)}</div><div class="result-meta">SKU: ${escapeHtml(p.sku)} · ${money(p.price)}</div></div>
-        <button class="btn btn-primary btn-small" type="button" onclick="useManualCatalog(${index})">Usar</button>
-      </div>`).join('');
-  }
+        <div style="min-width:0;">
+          <div class="result-title">${escapeHtml(p.name)}</div>
+          <div class="result-meta">
+            SKU: ${escapeHtml(p.sku || '—')}
+            · ${escapeHtml(p.brand || '—')}
+            · Stock: ${p.stock ?? 0}
+            · ${Number(p.similarity_pct || 0).toFixed(0)}%
+          </div>
+          <div class="result-meta">
+            ${p.unit ? `<strong>Unidad:</strong> ${escapeHtml(p.unit)} · ` : ''}
+            ${p.color ? `<strong>Color:</strong> ${escapeHtml(p.color)} · ` : ''}
+            ${p.category ? `<strong>Categoría:</strong> ${escapeHtml(p.category)} · ` : ''}
+            Costo ${money(p.cost)} · Precio ${money(p.price)}
+          </div>
+        </div>
 
-  function renderManualInternet(results) {
-    document.getElementById('manualResults').innerHTML = results.map((r, index) => `
-      <div class="modal-result">
-        <div><div class="result-title">${escapeHtml(r.title)}</div><div class="result-meta">${money(r.price)}</div></div>
-        <button class="btn btn-primary btn-small" type="button" onclick="useManualInternet(${index})">Usar</button>
-      </div>`).join('');
-  }
-
-  async function useManualCatalog(index) {
-    const p = manualCatalogResults[index]; if (!p) return;
-    try {
-      const data = await ajax(urlFor(routes.updateItem, manualItemId), { method: 'POST', body: JSON.stringify({ catalog_product_name: p.name, costo_unitario: p.cost || 0, external_supplier: p.brand || '', external_link: '' }) });
-      updateItemInState(data.item); closeManualModal(); renderItems();
-    } catch (e) { showInlineError(e.message); }
-  }
-
-  async function useManualInternet(index) {
-    const r = manualInternetResults[index]; if (!r) return;
-    try {
-      const data = await ajax(urlFor(routes.updateItem, manualItemId), { method: 'POST', body: JSON.stringify({ catalog_product_name: r.title, costo_unitario: r.price || 0, external_supplier: r.source || '', external_link: r.url || '' }) });
-      updateItemInState(data.item); closeManualModal(); renderItems();
-    } catch (e) { showInlineError(e.message); }
-  }
-
-  function openAddItemModal() { document.getElementById('addItemModal').classList.add('show'); }
-  function closeAddItemModal() { document.getElementById('addItemModal').classList.remove('show'); }
-
-  async function storeNewItem(event) {
-    event.preventDefault();
-    try {
-      const data = await ajax(routes.storeItem, { method: 'POST', body: JSON.stringify(Object.fromEntries(new FormData(event.target).entries())) });
-      items = mergeTechSheetMeta(data.items) || items; summary = data.summary || summary;
-      closeAddItemModal(); event.target.reset(); renderItems();
-    } catch (e) { showInlineError(e.message); }
-  }
-
-  function closeSamplesModal() { document.getElementById('samplesModal').classList.remove('show'); }
-  async function openSamplesModal(id) {
-    document.getElementById('samplesModal').classList.add('show');
-    try { renderSamples(await ajax(urlFor(routes.itemSamples, id), { method: 'GET' })); } catch (e) {}
-  }
-  function renderSamples(data) {
-    document.getElementById('samplesResults').innerHTML = (data.candidates || []).map(c => `
-      <div class="result-card"><div class="result-title">${escapeHtml(c.name)}</div><div class="result-meta">Stock: ${c.net_available}</div></div>
+        <button class="btn btn-primary btn-small" type="button" onclick="useManualCatalog(${index})">
+          Usar
+        </button>
+      </div>
     `).join('');
   }
 
-  function closeTechSheetsModal() { document.getElementById('techSheetsModal').classList.remove('show'); }
-  function techShowList() { document.getElementById('techListPane').style.display = ''; document.getElementById('techFormPane').style.display = 'none'; }
-  function techShowCreate() { document.getElementById('techListPane').style.display = 'none'; document.getElementById('techFormPane').style.display = ''; }
-  function openTechSheetsModal(id) {
-    techItemId = id; document.getElementById('techSheetsModal').classList.add('show'); techShowList(); loadTechSheets();
-  }
-  async function loadTechSheets() {
-    try { renderTechSheets(await ajax(urlFor(routes.techSheetsList, techItemId), { method: 'GET' })); } catch (e) {}
-  }
-  function renderTechSheets(data) {
-    techSheetsCache = data.sheets || []; currentLinkedSheetId = data.linked_id || null;
-    document.getElementById('techResults').innerHTML = techSheetsCache.map(s => `
+  function renderManualInternet(results) {
+    const box = document.getElementById('manualResults');
+
+    if (!results.length) {
+      box.innerHTML = '<p class="result-meta">Sin resultados de internet.</p>';
+      return;
+    }
+
+    box.innerHTML = results.map((r, index) => `
       <div class="modal-result">
-        <div><div class="result-title">${escapeHtml(s.product_name)}</div></div>
-        <button class="btn btn-primary btn-small" type="button" onclick="linkTechSheet(${s.id})">${s.id === currentLinkedSheetId ? 'Quitar' : 'Vincular'}</button>
-      </div>`).join('');
+        <div style="min-width:0;">
+          <div class="result-title">${escapeHtml(r.title)}</div>
+          <div class="result-meta">
+            ${escapeHtml(r.source || 'Internet')}
+            ${r.seller ? '· ' + escapeHtml(r.seller) : ''}
+            · Score ${Number(r.score || 0).toFixed(0)}%
+          </div>
+          <div class="result-meta">${r.price ? money(r.price) : 'Precio por validar'}</div>
+          ${r.url ? `<a class="btn btn-outline btn-small" target="_blank" rel="noopener noreferrer" href="${escapeHtml(r.url)}">↗ Ver referencia</a>` : ''}
+        </div>
+
+        <button class="btn btn-primary btn-small" type="button" onclick="useManualInternet(${index})">
+          Usar
+        </button>
+      </div>
+    `).join('');
   }
+
+  async function useManualCatalog(index) {
+    const product = manualCatalogResults[index];
+    if (!product) return;
+
+    const item = items.find(i => i.id === manualItemId);
+    const margin = Number(item?.item_margin_pct || 25);
+    const cost = Number(product.cost || 0);
+
+    try {
+      const data = await ajax(urlFor(routes.updateItem, manualItemId), {
+        method: 'POST',
+        body: JSON.stringify({
+          catalog_product_name: product.name,
+          costo_unitario: cost,
+          porcentaje_utilidad: margin,
+          external_supplier: product.brand || '',
+          external_link: ''
+        })
+      });
+
+      updateItemInState(data.item);
+      summary = data.summary || summary;
+      closeManualModal();
+      renderItems();
+
+      const card = document.querySelector(`.jureto-quote-page .item-card[data-id="${manualItemId}"]`);
+      if (card) card.classList.add('open');
+    } catch (e) {
+      showInlineError(e.message);
+    }
+  }
+
+  async function useManualInternet(index) {
+    const result = manualInternetResults[index];
+    if (!result) return;
+
+    const item = items.find(i => i.id === manualItemId);
+    const margin = Number(item?.item_margin_pct || 25);
+    const cost = Number(result.price || 0);
+
+    try {
+      const data = await ajax(urlFor(routes.updateItem, manualItemId), {
+        method: 'POST',
+        body: JSON.stringify({
+          catalog_product_name: result.title,
+          costo_unitario: cost,
+          porcentaje_utilidad: margin,
+          external_supplier: result.source || result.seller || 'Proveedor externo',
+          external_link: result.url || ''
+        })
+      });
+
+      updateItemInState(data.item);
+      summary = data.summary || summary;
+      closeManualModal();
+      renderItems();
+
+      const card = document.querySelector(`.jureto-quote-page .item-card[data-id="${manualItemId}"]`);
+      if (card) card.classList.add('open');
+    } catch (e) {
+      showInlineError(e.message);
+    }
+  }
+
+  function openAddItemModal() {
+    document.getElementById('addItemModal').classList.add('show');
+  }
+
+  function closeAddItemModal() {
+    document.getElementById('addItemModal').classList.remove('show');
+  }
+
+  async function storeNewItem(event) {
+    event.preventDefault();
+
+    const form = event.target;
+    const payload = Object.fromEntries(new FormData(form).entries());
+    const submit = form.querySelector('button[type="submit"]');
+    const old = submit.innerHTML;
+
+    submit.disabled = true;
+    submit.innerHTML = '<span class="loader"></span> Agregando...';
+
+    try {
+      const data = await ajax(routes.storeItem, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+
+      items = mergeTechSheetMeta(data.items) || items;
+      summary = data.summary || summary;
+
+      closeAddItemModal();
+      form.reset();
+      renderItems();
+    } catch (e) {
+      showInlineError(e.message);
+    } finally {
+      submit.disabled = false;
+      submit.innerHTML = old;
+    }
+  }
+
+  /* ===================== MUESTRAS (almacén) ===================== */
+  function closeSamplesModal() {
+    document.getElementById('samplesModal').classList.remove('show');
+  }
+
+  async function openSamplesModal(id) {
+    samplesItemId = id;
+    const item = items.find(i => i.id === id);
+
+    document.getElementById('samplesSubtitle').textContent = item?.descripcion_original || 'Producto';
+    document.getElementById('samplesResults').innerHTML = '';
+    document.getElementById('samplesStatus').innerHTML = '<span class="loader"></span> Buscando en catálogo y almacén...';
+    document.getElementById('samplesModal').classList.add('show');
+
+    try {
+      const data = await ajax(urlFor(routes.itemSamples, id), { method: 'GET' });
+      renderSamples(data);
+    } catch (e) {
+      document.getElementById('samplesStatus').textContent = e.message;
+    }
+  }
+
+  function renderSamples(data) {
+    const needed = Number(data.needed_qty || 0);
+    const cands = data.candidates || [];
+
+    document.getElementById('samplesStatus').textContent =
+      `Cantidad solicitada: ${needed} · ${cands.length} coincidencias en catálogo`;
+
+    const box = document.getElementById('samplesResults');
+
+    if (!cands.length) {
+      box.innerHTML = '<p class="result-meta">No se encontraron productos similares en el catálogo interno.</p>';
+      return;
+    }
+
+    box.innerHTML = cands.map(c => {
+      const locs = (c.locations || [])
+        .map(l => `${escapeHtml(l.location)}: ${l.qty}${l.reserved ? ' (apartado ' + l.reserved + ')' : ''}`)
+        .join(' · ');
+
+      const buyBadge = c.to_buy > 0
+        ? `<span class="badge badge-danger">Comprar ${c.to_buy}</span>`
+        : `<span class="badge badge-success">Stock suficiente</span>`;
+
+      return `
+        <div class="result-card">
+          <div class="result-title">${escapeHtml(c.name)} ${buyBadge}</div>
+          <div class="result-meta">
+            SKU: ${escapeHtml(c.sku || '—')} · ${escapeHtml(c.unit || '')} · Similitud ${Number(c.similarity_pct || 0).toFixed(0)}%
+          </div>
+          <div class="result-meta">
+            <strong>En almacén:</strong> ${c.net_available} ·
+            <strong>Apartado:</strong> ${c.reserved} ·
+            <strong>Necesario:</strong> ${needed} ·
+            <strong>Faltan:</strong> ${c.to_buy}
+          </div>
+          ${locs
+            ? `<div class="result-meta">Ubicaciones: ${locs}</div>`
+            : `<div class="result-meta">Sin inventario por ubicación (se usó stock general: ${c.stock_field}).</div>`}
+        </div>
+      `;
+    }).join('');
+  }
+
+  /* ===================== FICHAS TÉCNICAS ===================== */
+  function closeTechSheetsModal() {
+    document.getElementById('techSheetsModal').classList.remove('show');
+  }
+
+  function techShowList() {
+    document.getElementById('techListPane').style.display = '';
+    document.getElementById('techFormPane').style.display = 'none';
+    document.getElementById('techTabList').classList.add('active');
+    document.getElementById('techTabForm').classList.remove('active');
+  }
+
+  function techShowCreate(sheet = null) {
+    document.getElementById('techListPane').style.display = 'none';
+    document.getElementById('techFormPane').style.display = '';
+    document.getElementById('techTabList').classList.remove('active');
+    document.getElementById('techTabForm').classList.add('active');
+
+    const form = document.getElementById('techForm');
+    form.reset();
+    document.getElementById('techFormId').value = sheet?.id || '';
+
+    if (sheet) {
+      form.product_name.value = sheet.product_name || '';
+      form.brand.value = sheet.brand || '';
+      form.model.value = sheet.model || '';
+      form.reference.value = sheet.reference || '';
+      form.partida_number.value = sheet.partida_number || '';
+    } else {
+      const item = items.find(i => i.id === techItemId);
+      form.product_name.value = item?.descripcion_original || '';
+    }
+  }
+
+  function openTechSheetsModal(id) {
+    techItemId = id;
+    const item = items.find(i => i.id === id);
+
+    document.getElementById('techSubtitle').textContent = item?.descripcion_original || 'Producto';
+    document.getElementById('techQueryInput').value = item?.descripcion_original || '';
+    document.getElementById('techSheetsModal').classList.add('show');
+
+    techShowList();
+    loadTechSheets();
+  }
+
+  async function loadTechSheets() {
+    const q = document.getElementById('techQueryInput').value.trim();
+    document.getElementById('techStatus').innerHTML = '<span class="loader"></span> Buscando fichas...';
+
+    try {
+      const params = new URLSearchParams({ q });
+      const data = await ajax(urlFor(routes.techSheetsList, techItemId) + '?' + params.toString(), { method: 'GET' });
+      renderTechSheets(data);
+    } catch (e) {
+      document.getElementById('techStatus').textContent = e.message;
+    }
+  }
+
+  function renderTechSheets(data) {
+    techSheetsCache = data.sheets || [];
+    currentLinkedSheetId = data.linked_id || null;
+
+    document.getElementById('techStatus').textContent = `${techSheetsCache.length} fichas encontradas`;
+    const box = document.getElementById('techResults');
+
+    if (!techSheetsCache.length) {
+      box.innerHTML = '<p class="result-meta">No hay fichas. Crea una nueva en la pestaña de arriba.</p>';
+      return;
+    }
+
+    box.innerHTML = techSheetsCache.map((s, i) => `
+      <div class="modal-result">
+        <div style="min-width:0;">
+          <div class="result-title">
+            ${escapeHtml(s.product_name)}
+            ${s.id === currentLinkedSheetId ? '<span class="badge badge-success">Vinculada</span>' : ''}
+          </div>
+          <div class="result-meta">
+            ${escapeHtml(s.brand || '—')}
+            ${s.model ? '· ' + escapeHtml(s.model) : ''}
+            ${s.reference ? '· Ref ' + escapeHtml(s.reference) : ''}
+          </div>
+          <div class="action-row" style="margin-top:8px;">
+            <a class="btn btn-outline btn-small" target="_blank" rel="noopener noreferrer" href="${s.urls.pdf}">↗ PDF</a>
+            ${s.urls.public ? `<a class="btn btn-ghost btn-small" target="_blank" rel="noopener noreferrer" href="${s.urls.public}">Ficha pública</a>` : ''}
+            <button class="btn btn-ghost btn-small" type="button" onclick="techEditInline(${i})">✎ Editar</button>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-small" type="button" onclick="linkTechSheet(${s.id})">
+          ${s.id === currentLinkedSheetId ? 'Quitar' : 'Vincular'}
+        </button>
+      </div>
+    `).join('');
+  }
+
+  function techEditInline(index) {
+    techShowCreate(techSheetsCache[index]);
+  }
+
   async function linkTechSheet(sheetId) {
     const unlink = sheetId === currentLinkedSheetId;
+
     try {
-      await ajax(urlFor(routes.linkTechSheet, techItemId), { method: 'POST', body: JSON.stringify({ tech_sheet_id: unlink ? null : sheetId }) });
-      renderItems(); loadTechSheets();
-    } catch (e) { showInlineError(e.message); }
+      const data = await ajax(urlFor(routes.linkTechSheet, techItemId), {
+        method: 'POST',
+        body: JSON.stringify({ tech_sheet_id: unlink ? null : sheetId })
+      });
+
+      const idx = items.findIndex(i => i.id === techItemId);
+      if (idx >= 0) {
+        if (unlink) {
+          items[idx].tech_sheet_id = null;
+          items[idx].tech_sheet_name = null;
+        } else {
+          const s = techSheetsCache.find(x => x.id === sheetId);
+          items[idx].tech_sheet_id = sheetId;
+          items[idx].tech_sheet_name = s ? s.product_name : items[idx].tech_sheet_name;
+        }
+      }
+
+      renderItems();
+
+      const card = document.querySelector(`.jureto-quote-page .item-card[data-id="${techItemId}"]`);
+      if (card) card.classList.add('open');
+
+      loadTechSheets();
+    } catch (e) {
+      showInlineError(e.message);
+    }
   }
+
   async function submitTechSheet(event) {
     event.preventDefault();
+
+    const form = event.target;
+    const fd = new FormData(form);
+    const id = document.getElementById('techFormId').value;
+
+    const url = id
+      ? routes.updateTechSheet.replace('__ID__', id)
+      : urlFor(routes.createTechSheet, techItemId);
+
+    const submit = form.querySelector('button[type="submit"]');
+    const old = submit.innerHTML;
+    submit.disabled = true;
+    submit.innerHTML = '<span class="loader"></span> Guardando...';
+
     try {
-      await fetch(urlFor(routes.createTechSheet, techItemId), { method: 'POST', headers: { 'X-CSRF-TOKEN': csrfToken }, body: new FormData(event.target) });
-      techShowList(); renderItems(); loadTechSheets();
-    } catch (e) { showInlineError(e.message); }
-  }
-
-  function bindDragEvents() {} // Mantenido para lógica estructural, sin implementar completa por minimalismo
-
-  // Rule 6: Custom Animated Select System
-  function initCustomSelects() {
-    document.querySelectorAll('select:not(.native-select-hidden)').forEach(select => {
-      select.classList.add('native-select-hidden');
-      const wrapper = document.createElement('div');
-      wrapper.className = 'custom-select-wrapper';
-      const trigger = document.createElement('div');
-      trigger.className = 'custom-select-trigger';
-      trigger.innerHTML = `<span>${select.options[select.selectedIndex]?.text || 'Seleccionar'}</span> <span>⌄</span>`;
-      
-      const optionsContainer = document.createElement('div');
-      optionsContainer.className = 'custom-select-options';
-      
-      Array.from(select.options).forEach(option => {
-        const optDiv = document.createElement('div');
-        optDiv.className = 'custom-select-option';
-        optDiv.textContent = option.text;
-        if (option.selected) optDiv.classList.add('selected');
-        
-        optDiv.addEventListener('click', () => {
-          select.value = option.value;
-          select.dispatchEvent(new Event('change'));
-          trigger.querySelector('span').textContent = option.text;
-          wrapper.classList.remove('open');
-          optionsContainer.querySelectorAll('.custom-select-option').forEach(o => o.classList.remove('selected'));
-          optDiv.classList.add('selected');
-        });
-        optionsContainer.appendChild(optDiv);
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: { 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json' },
+        body: fd
       });
-      
-      trigger.addEventListener('click', () => {
-        const isOpen = wrapper.classList.contains('open');
-        document.querySelectorAll('.custom-select-wrapper').forEach(w => w.classList.remove('open'));
-        if (!isOpen) wrapper.classList.add('open');
-      });
-      
-      wrapper.appendChild(trigger); wrapper.appendChild(optionsContainer);
-      select.parentNode.insertBefore(wrapper, select);
-    });
 
-    document.addEventListener('click', (e) => {
-      if (!e.target.closest('.custom-select-wrapper')) {
-        document.querySelectorAll('.custom-select-wrapper').forEach(w => w.classList.remove('open'));
+      const text = await resp.text();
+      let data = null;
+      try { data = JSON.parse(text); } catch (_) {}
+
+      if (!resp.ok || !data || data.ok === false) {
+        throw new Error((data && data.message) || ('Error al guardar la ficha. ' + text.slice(0, 200)));
       }
+
+      // Al crear, el backend la vincula automáticamente a la partida actual
+      if (!id) {
+        const idx = items.findIndex(i => i.id === techItemId);
+        if (idx >= 0 && data.sheet) {
+          items[idx].tech_sheet_id = data.sheet.id;
+          items[idx].tech_sheet_name = data.sheet.product_name;
+        }
+      }
+
+      techShowList();
+            document.getElementById('techQueryInput').value = (data.sheet && data.sheet.product_name) || '';
+      renderItems();
+
+      const card = document.querySelector(`.jureto-quote-page .item-card[data-id="${techItemId}"]`);
+      if (card) card.classList.add('open');
+
+      loadTechSheets();
+    } catch (e) {
+      showInlineError(e.message);
+    } finally {
+      submit.disabled = false;
+      submit.innerHTML = old;
+    }
+  }
+
+  function bindDragEvents() {
+    document.querySelectorAll('.jureto-quote-page .item-card').forEach(card => {
+      card.addEventListener('dragstart', () => {
+        if (currentFilter !== 'all') return;
+        card.classList.add('dragging');
+      });
+
+      card.addEventListener('dragend', () => {
+        if (currentFilter !== 'all') return;
+        card.classList.remove('dragging');
+        saveOrder();
+      });
+
+      card.addEventListener('dragover', (e) => {
+        if (currentFilter !== 'all') return;
+
+        e.preventDefault();
+
+        const list = document.getElementById('itemsList');
+        const dragging = document.querySelector('.jureto-quote-page .dragging');
+        const after = getDragAfterElement(list, e.clientY);
+
+        if (!dragging) return;
+
+        if (after == null) {
+          list.appendChild(dragging);
+        } else {
+          list.insertBefore(dragging, after);
+        }
+      });
     });
   }
 
-  document.querySelectorAll('.filter-summary').forEach(btn => btn.addEventListener('click', () => { currentFilter = btn.dataset.filter || 'all'; renderItems(); }));
-  document.getElementById('manualTabCatalog').addEventListener('click', () => { manualTab = 'catalog'; scheduleManualSearch(10); });
-  document.getElementById('manualTabInternet').addEventListener('click', () => { manualTab = 'internet'; scheduleManualSearch(10); });
+  function getDragAfterElement(container, y) {
+    const draggableElements = [...container.querySelectorAll('.item-card:not(.dragging)')];
+
+    return draggableElements.reduce((closest, child) => {
+      const box = child.getBoundingClientRect();
+      const offset = y - box.top - box.height / 2;
+
+      if (offset < 0 && offset > closest.offset) {
+        return { offset, element: child };
+      }
+
+      return closest;
+    }, { offset: Number.NEGATIVE_INFINITY }).element;
+  }
+
+  async function saveOrder() {
+    if (currentFilter !== 'all') return;
+
+    const ids = [...document.querySelectorAll('#itemsList .item-card')]
+      .map(card => Number(card.dataset.id));
+
+    if (!ids.length) return;
+
+    try {
+      const data = await ajax(routes.reorder, {
+        method: 'POST',
+        body: JSON.stringify({ items: ids })
+      });
+
+      items = mergeTechSheetMeta(data.items) || items;
+      summary = data.summary || summary;
+      renderItems();
+    } catch (e) {
+      showInlineError(e.message);
+    }
+  }
+
+
+  function getQuoteFileName(extension) {
+    const safeFolio = String(exportFolio || 'cotizacion')
+      .replace(/[^\w\-]+/g, '_')
+      .replace(/_+/g, '_');
+
+    return `${safeFolio}_tabla_extraida_pdf.${extension}`;
+  }
+
+  function isPlainObject(value) {
+    return value && typeof value === 'object' && !Array.isArray(value);
+  }
+
+  function normalizeCell(value) {
+    if (value === null || value === undefined) return '';
+    if (typeof value === 'object') return JSON.stringify(value);
+    return String(value);
+  }
+
+  function normalizeRows(rows) {
+    if (!Array.isArray(rows) || rows.length === 0) return null;
+
+    if (isPlainObject(rows[0])) {
+      const columns = [];
+      rows.forEach(row => {
+        if (!isPlainObject(row)) return;
+        Object.keys(row).forEach(key => {
+          if (!columns.includes(key)) columns.push(key);
+        });
+      });
+
+      if (!columns.length) return null;
+
+      return {
+        columns,
+        rows: rows.filter(isPlainObject).map(row => {
+          const out = {};
+          columns.forEach(column => out[column] = normalizeCell(row[column]));
+          return out;
+        })
+      };
+    }
+
+    if (Array.isArray(rows[0])) {
+      const max = rows.reduce((acc, row) => Array.isArray(row) ? Math.max(acc, row.length) : acc, 0);
+      if (!max) return null;
+
+      const columns = Array.from({ length: max }, (_, index) => `Columna ${index + 1}`);
+
+      return {
+        columns,
+        rows: rows.filter(Array.isArray).map(row => {
+          const out = {};
+          columns.forEach((column, index) => out[column] = normalizeCell(row[index]));
+          return out;
+        })
+      };
+    }
+
+    return null;
+  }
+
+  function collectExtractedTables(payload, source = 'PDF') {
+    const tables = [];
+    const tableKeys = ['tables', 'tablas', 'table', 'tabla', 'rows', 'filas', 'items', 'partidas', 'line_items', 'extracted_items', 'raw_items', 'original_items', 'data'];
+
+    function walk(value, path = '') {
+      if (!value || typeof value !== 'object') return;
+
+      if (Array.isArray(value)) {
+        const normalized = normalizeRows(value);
+
+        if (normalized && normalized.rows.length) {
+          tables.push({
+            title: path || 'Tabla extraída',
+            source,
+            columns: normalized.columns,
+            rows: normalized.rows
+          });
+        }
+
+        value.forEach((child, index) => walk(child, `${path} ${index + 1}`.trim()));
+        return;
+      }
+
+      tableKeys.forEach(key => {
+        if (!Object.prototype.hasOwnProperty.call(value, key)) return;
+
+        const candidate = value[key];
+
+        if (candidate && typeof candidate === 'object') {
+          if (isPlainObject(candidate) && Array.isArray(candidate.columns) && Array.isArray(candidate.rows)) {
+            const rows = candidate.rows.map(row => {
+              if (Array.isArray(row)) {
+                const out = {};
+                candidate.columns.forEach((column, index) => out[column] = normalizeCell(row[index]));
+                return out;
+              }
+
+              if (isPlainObject(row)) return row;
+              return null;
+            }).filter(Boolean);
+
+            const normalized = normalizeRows(rows);
+
+            if (normalized) {
+              tables.push({
+                title: key,
+                source,
+                columns: normalized.columns,
+                rows: normalized.rows
+              });
+            }
+          } else {
+            const normalized = normalizeRows(candidate);
+
+            if (normalized) {
+              tables.push({
+                title: key,
+                source,
+                columns: normalized.columns,
+                rows: normalized.rows
+              });
+            }
+          }
+        }
+      });
+
+      Object.entries(value).forEach(([key, child]) => walk(child, key));
+    }
+
+    walk(payload, source);
+
+    const seen = new Set();
+
+    return tables.filter(table => {
+      const signature = JSON.stringify(table.columns) + JSON.stringify(table.rows.slice(0, 5));
+      if (seen.has(signature)) return false;
+      seen.add(signature);
+      return true;
+    });
+  }
+
+  function getExportTables() {
+    const tables = [];
+
+    Object.entries(rawExportPayloads || {}).forEach(([source, payload]) => {
+      collectExtractedTables(payload, source).forEach(table => tables.push(table));
+    });
+
+    if (tables.length) return tables;
+
+    return [{
+      title: 'Partidas normalizadas',
+      source: 'fallback_items',
+      columns: ['descripcion_original', 'unidad_solicitada', 'cantidad_minima', 'cantidad_maxima', 'cantidad_cotizada', 'costo_unitario', 'precio_unitario', 'subtotal'],
+      rows: items.map(item => ({
+        descripcion_original: item.descripcion_original || '',
+        unidad_solicitada: item.unidad_solicitada || '',
+        cantidad_minima: item.cantidad_minima || '',
+        cantidad_maxima: item.cantidad_maxima || '',
+        cantidad_cotizada: item.cantidad_cotizada || '',
+        costo_unitario: item.costo_unitario || '',
+        precio_unitario: item.precio_unitario || '',
+        subtotal: item.subtotal || ''
+      }))
+    }];
+  }
+
+  function buildExtractedTablesHtml() {
+    const generatedAt = new Date().toLocaleString('es-MX');
+    const tables = getExportTables();
+
+    const tablesHtml = tables.map((table, tableIndex) => {
+      const columns = Array.isArray(table.columns) ? table.columns : [];
+      const rows = Array.isArray(table.rows) ? table.rows : [];
+      const thead = columns.map(column => `<th>${escapeHtml(column)}</th>`).join('');
+      const tbody = rows.map(row => `<tr>${columns.map(column => `<td>${escapeHtml(row?.[column] ?? '')}</td>`).join('')}</tr>`).join('');
+
+      return `
+        <div class="table-block">
+          <h2>${escapeHtml(table.title || ('Tabla extraída ' + (tableIndex + 1)))}</h2>
+          <div class="table-meta">Fuente: ${escapeHtml(table.source || 'PDF')} · Filas: ${rows.length} · Columnas: ${columns.length}</div>
+          <table>
+            <thead><tr>${thead}</tr></thead>
+            <tbody>${tbody || `<tr><td colspan="${Math.max(columns.length, 1)}">Sin filas extraídas.</td></tr>`}</tbody>
+          </table>
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <!DOCTYPE html>
+      <html lang="es">
+      <head>
+        <meta charset="UTF-8">
+        <title>${escapeHtml(exportTitle)}</title>
+        <style>
+          body { font-family: Arial, sans-serif; color: #333333; background: #ffffff; margin: 24px; }
+          h1 { color: #111111; font-size: 22px; margin: 0 0 6px; }
+          h2 { color: #111111; font-size: 16px; margin: 22px 0 6px; }
+          .meta, .table-meta { color: #666666; font-size: 12px; margin-bottom: 12px; }
+          .table-block { margin-top: 18px; page-break-inside: avoid; }
+          table { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 18px; }
+          th { background: #f9fafb; color: #111111; font-weight: 700; border: 1px solid #ebebeb; padding: 8px; text-align: left; vertical-align: top; }
+          td { border: 1px solid #ebebeb; padding: 7px; vertical-align: top; }
+          tr:nth-child(even) td { background: #fcfcfc; }
+        </style>
+      </head>
+      <body>
+        <h1>${escapeHtml(exportTitle)}</h1>
+        <div class="meta">Folio: ${escapeHtml(exportFolio)} · Generado: ${escapeHtml(generatedAt)} · Exportación basada en tabla extraída del PDF</div>
+        ${tablesHtml || '<p>No se encontraron tablas para exportar.</p>'}
+      </body>
+      </html>
+    `;
+  }
+
+  function downloadBlob(content, fileName, mimeType) {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function exportExtractedTablesToExcel() {
+    const html = buildExtractedTablesHtml();
+
+    downloadBlob(
+      `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body>${html}</body></html>`,
+      getQuoteFileName('xls'),
+      'application/vnd.ms-excel;charset=utf-8'
+    );
+  }
+
+  function exportExtractedTablesToWord() {
+    const title = exportTitle;
+    const folio = exportFolio;
+    const generatedAt = new Date().toLocaleString('es-MX');
+    const tables = getExportTables();
+
+    const tablesHtml = tables.map((table, tableIndex) => {
+      const columns = Array.isArray(table.columns) ? table.columns : [];
+      const rows = Array.isArray(table.rows) ? table.rows : [];
+
+      const thead = columns.map(column => `<th>${escapeHtml(column)}</th>`).join('');
+
+      const tbody = rows.map(row => `
+        <tr>${columns.map(column => `<td>${escapeHtml(row?.[column] ?? '')}</td>`).join('')}</tr>
+      `).join('');
+
+      return `
+        <div class="table-block">
+          <h2>${escapeHtml(table.title || ('Tabla extraída ' + (tableIndex + 1)))}</h2>
+          <div class="table-meta">
+            Fuente: ${escapeHtml(table.source || 'PDF')} · Filas: ${rows.length} · Columnas: ${columns.length}
+          </div>
+          <table>
+            <thead><tr>${thead}</tr></thead>
+            <tbody>
+              ${tbody || `<tr><td colspan="${Math.max(columns.length, 1)}">Sin filas extraídas.</td></tr>`}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }).join('');
+
+    const wordContent = `
+      <!DOCTYPE html>
+      <html xmlns:o="urn:schemas-microsoft-com:office:office"
+            xmlns:w="urn:schemas-microsoft-com:office:word"
+            xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta charset="UTF-8">
+        <title>${escapeHtml(title)}</title>
+        <style>
+          @page WordSection1 { size: 11in 8.5in; mso-page-orientation: landscape; margin: 0.35in; }
+          div.WordSection1 { page: WordSection1; }
+          body { font-family: Arial, sans-serif; color: #333; background: #fff; margin: 0; }
+          h1 { color: #111; font-size: 18pt; margin: 0 0 4pt; font-weight: 700; }
+          h2 { color: #111; font-size: 11pt; margin: 14pt 0 4pt; font-weight: 700; }
+          .meta, .table-meta { color: #666; font-size: 8pt; margin-bottom: 8pt; }
+          .table-block { margin-top: 12pt; page-break-inside: avoid; }
+          table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 7pt; margin-bottom: 12pt; }
+          th { background: #f3f4f6; color: #111; font-weight: 700; border: 1px solid #d9d9d9; padding: 4pt; text-align: left; vertical-align: top; word-wrap: break-word; }
+          td { border: 1px solid #e5e5e5; padding: 3pt 4pt; vertical-align: top; word-wrap: break-word; }
+          tr:nth-child(even) td { background: #fafafa; }
+        </style>
+      </head>
+      <body>
+        <div class="WordSection1">
+          <h1>${escapeHtml(title)}</h1>
+          <div class="meta">
+            Folio: ${escapeHtml(folio)} · Generado: ${escapeHtml(generatedAt)} · Exportación basada en tabla extraída del PDF
+          </div>
+          ${tablesHtml || '<p>No se encontraron tablas para exportar.</p>'}
+        </div>
+      </body>
+      </html>
+    `;
+
+    downloadBlob(
+      wordContent,
+      getQuoteFileName('doc'),
+      'application/msword;charset=utf-8'
+    );
+  }
+
   document.getElementById('btnSuggestAll').addEventListener('click', suggestAll);
   document.getElementById('btnOpenAddItem').addEventListener('click', openAddItemModal);
   document.getElementById('btnSaveGlobalMargin').addEventListener('click', () => saveGlobalMargin(false));
   document.getElementById('btnApplyGlobalMargin').addEventListener('click', () => saveGlobalMargin(true));
+  document.getElementById('btnExportExcel')?.addEventListener('click', exportExtractedTablesToExcel);
+  document.getElementById('btnExportWord')?.addEventListener('click', exportExtractedTablesToWord);
 
-  document.addEventListener('DOMContentLoaded', () => {
-    renderItems();
+  document.getElementById('manualQueryInput').addEventListener('input', () => {
+    manualLastQuery = '';
+    scheduleManualSearch(420);
   });
+
+  document.getElementById('manualQueryInput').addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      manualLastQuery = '';
+      scheduleManualSearch(10);
+    }
+  });
+
+  document.getElementById('manualTabCatalog').addEventListener('click', () => {
+    manualTab = 'catalog';
+    manualLastQuery = '';
+    document.getElementById('manualTabCatalog').classList.add('active');
+    document.getElementById('manualTabInternet').classList.remove('active');
+    scheduleManualSearch(10);
+  });
+
+  document.getElementById('manualTabInternet').addEventListener('click', () => {
+    manualTab = 'internet';
+    manualLastQuery = '';
+    document.getElementById('manualTabInternet').classList.add('active');
+    document.getElementById('manualTabCatalog').classList.remove('active');
+    scheduleManualSearch(10);
+  });
+
+  document.getElementById('techQueryInput').addEventListener('input', () => {
+    clearTimeout(window.__techTimer);
+    window.__techTimer = setTimeout(loadTechSheets, 350);
+  });
+
+  document.querySelectorAll('.filter-summary').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentFilter = btn.dataset.filter || 'all';
+      renderItems();
+    });
+  });
+
+  renderItems();
 </script>
 @endsection
