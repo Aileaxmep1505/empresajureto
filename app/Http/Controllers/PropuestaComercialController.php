@@ -907,7 +907,8 @@ class PropuestaComercialController extends Controller
                 'id' => $item->productoSeleccionado->id,
                 'name' => $item->productoSeleccionado->name,
                 'sku' => $item->productoSeleccionado->sku,
-                'brand' => $item->productoSeleccionado->brand,
+                'brand' => data_get($meta, 'external_supplier') ?: $item->productoSeleccionado->brand,
+                'model' => data_get($meta, 'modelo') ?: ($item->productoSeleccionado->model ?? $item->productoSeleccionado->modelo ?? $item->productoSeleccionado->model_name ?? null),
                 'stock' => $item->productoSeleccionado->stock ?? 0,
                 'cost' => (float) ($item->productoSeleccionado->cost ?? $item->productoSeleccionado->costo ?? 0),
                 'price' => (float) ($item->productoSeleccionado->price ?? $item->productoSeleccionado->precio ?? 0),
@@ -924,6 +925,7 @@ class PropuestaComercialController extends Controller
                         'name' => $p->name,
                         'sku' => $p->sku,
                         'brand' => $p->brand,
+                        'model' => $p->model ?? $p->modelo ?? $p->model_name ?? null,
                         'stock' => $p->stock ?? 0,
                         'cost' => (float) ($p->cost ?? $p->costo ?? $p->purchase_price ?? 0),
                         'price' => (float) ($p->price ?? $p->precio ?? $p->sale_price ?? 0),
@@ -1019,6 +1021,34 @@ class PropuestaComercialController extends Controller
         ]);
     }
 
+    public function ajaxDeselectItem(PropuestaComercialItem $item)
+    {
+        $propuestaComercial = PropuestaComercial::findOrFail($item->propuesta_comercial_id);
+
+        DB::transaction(function () use ($item) {
+            if (method_exists($item, 'matches')) {
+                $item->matches()->update(['seleccionado' => false]);
+            }
+
+            $meta = $this->asMetaArray($item->meta ?? []);
+            $meta['ui_status'] = 'manual_review';
+
+            $item->producto_seleccionado_id = null;
+            $item->match_score = null;
+            $item->meta = $meta;
+            $item->save();
+        });
+
+        $this->recalculateTotals($propuestaComercial);
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Producto deseleccionado correctamente.',
+            'item' => $this->itemPayload($item->fresh()),
+            'summary' => $this->summaryPayload($propuestaComercial->fresh()),
+        ]);
+    }
+
     public function ajaxUpdateItem(Request $request, PropuestaComercialItem $item)
     {
         $data = $request->validate([
@@ -1028,8 +1058,10 @@ class PropuestaComercialController extends Controller
             'costo_unitario' => ['nullable', 'numeric', 'min:0'],
             'porcentaje_utilidad' => ['nullable', 'numeric', 'min:0'],
             'external_supplier' => ['nullable', 'string', 'max:255'],
+            'brand' => ['nullable', 'string', 'max:255'],
             'external_link' => ['nullable', 'string', 'max:2048'],
             'modelo' => ['nullable', 'string', 'max:255'],
+            'model' => ['nullable', 'string', 'max:255'],
             'catalog_product_name' => ['nullable', 'string', 'max:500'],
         ]);
 
@@ -1057,7 +1089,9 @@ class PropuestaComercialController extends Controller
 
         $meta['item_margin_pct'] = $margin;
 
-        if (array_key_exists('external_supplier', $data)) {
+        if (array_key_exists('brand', $data)) {
+            $meta['external_supplier'] = trim((string) $data['brand']);
+        } elseif (array_key_exists('external_supplier', $data)) {
             $meta['external_supplier'] = trim((string) $data['external_supplier']);
         }
 
@@ -1065,7 +1099,9 @@ class PropuestaComercialController extends Controller
             $meta['external_link'] = trim((string) $data['external_link']);
         }
 
-        if (array_key_exists('modelo', $data)) {
+        if (array_key_exists('model', $data)) {
+            $meta['modelo'] = trim((string) $data['model']);
+        } elseif (array_key_exists('modelo', $data)) {
             $meta['modelo'] = trim((string) $data['modelo']);
         }
 

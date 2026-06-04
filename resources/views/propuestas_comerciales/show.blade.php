@@ -87,7 +87,7 @@
   .action-cell { position: relative; display: flex; align-items: center; gap: 8px; }
   .btn-kebab { width: 36px; height: 36px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; color: var(--ink-dark); }
   .btn-kebab:hover { border-color: var(--muted-light); background: #f8fafc; transform: translateY(-1px); }
-  .dropdown-menu { position: absolute; right: 0; top: calc(100% + 4px); background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-card); box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); min-width: 220px; z-index: 50; display: none; flex-direction: column; padding: 8px 0; }
+  .dropdown-menu { position: absolute; right: 0; bottom: calc(100% + 8px); top: auto; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-card); box-shadow: 0 18px 45px -12px rgba(15,23,42,0.22); min-width: 220px; z-index: 5000; display: none; flex-direction: column; padding: 8px 0; }
   .dropdown-menu.show { display: flex; animation: fadeIn 0.2s ease; }
   .dropdown-item { padding: 10px 16px; font-size: 14px; font-family: var(--font-family); color: var(--ink); font-weight: 500; display: flex; align-items: center; gap: 10px; cursor: pointer; background: transparent; border: none; width: 100%; text-align: left; transition: background 0.15s; }
   .dropdown-item:hover { background: #f8fafc; color: var(--blue); }
@@ -133,8 +133,36 @@
 
   /* Result Cards */
   .result-card, .external-box { background: var(--card); padding: 16px 20px; margin-bottom: 16px; border: 1px solid var(--line); border-radius: var(--radius-input); }
+  .result-card { position: relative; max-width: 100%; overflow: hidden; }
+  .result-card.is-selected { padding-right: 64px; }
   .result-title { font-weight: 700; color: var(--ink-dark); font-size: 16px; display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
   .result-meta { font-size: 13px; color: var(--muted); font-weight: 500; }
+  .deselect-clean-btn {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--muted);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, .06);
+    transition: transform .18s ease, background .18s ease, color .18s ease, border-color .18s ease, box-shadow .18s ease;
+    z-index: 2;
+  }
+  .deselect-clean-btn:hover {
+    background: var(--danger-soft);
+    color: var(--danger);
+    border-color: rgba(239, 68, 68, .2);
+    transform: translateY(-1px);
+    box-shadow: 0 10px 22px rgba(239, 68, 68, .10);
+  }
+  .deselect-clean-btn svg { width: 16px; height: 16px; }
 
   /* Badges */
   .badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
@@ -588,7 +616,8 @@
                   'id' => $item->productoSeleccionado->id,
                   'name' => $item->productoSeleccionado->name,
                   'sku' => $item->productoSeleccionado->sku,
-                  'brand' => $item->productoSeleccionado->brand,
+                  'brand' => data_get($item->meta, 'external_supplier') ?: $item->productoSeleccionado->brand,
+                  'model' => data_get($item->meta, 'modelo') ?: ($item->productoSeleccionado->model ?? $item->productoSeleccionado->modelo ?? $item->productoSeleccionado->model_name ?? null),
                   'stock' => $item->productoSeleccionado->stock ?? 0,
                   'cost' => (float) ($item->productoSeleccionado->cost ?? $item->productoSeleccionado->costo ?? 0),
                   'price' => (float) ($item->productoSeleccionado->price ?? $item->productoSeleccionado->precio ?? 0),
@@ -605,6 +634,7 @@
                           'name' => $p->name,
                           'sku' => $p->sku,
                           'brand' => $p->brand,
+                          'model' => $p->model ?? $p->modelo ?? $p->model_name ?? null,
                           'stock' => $p->stock ?? 0,
                           'cost' => (float) ($p->cost ?? $p->costo ?? $p->purchase_price ?? 0),
                           'price' => (float) ($p->price ?? $p->precio ?? $p->sale_price ?? 0),
@@ -1023,6 +1053,7 @@
     updateItem: @json(url('/propuesta-comercial-items/__ID__/ajax/update')),
     updateStatus: @json(url('/propuesta-comercial-items/__ID__/ajax/status')),
     deleteItem: @json(url('/propuesta-comercial-items/__ID__/ajax/delete')),
+    deselectItem: @json(url('/propuesta-comercial-items/__ID__/ajax/deselect')),
     manualSearch: @json(route('propuestas-comerciales.ajax.manual-search', $propuestaComercial)),
     reorder: @json(route('propuestas-comerciales.ajax.reorder-items', $propuestaComercial)),
     globalMargin: @json(route('propuestas-comerciales.ajax.global-margin', $propuestaComercial)),
@@ -1254,7 +1285,7 @@
             <h3 class="item-name">${escapeHtml(item.descripcion_original || 'Producto sin descripción')}</h3>
             <div class="item-meta">
               ${qty} ${escapeHtml(item.unidad_solicitada || 'pz')}
-              ${item.producto_seleccionado?.brand ? ' · ' + escapeHtml(item.producto_seleccionado.brand) : ''}
+              ${(item.manual_external_supplier || item.producto_seleccionado?.brand) ? ' · ' + escapeHtml(item.manual_external_supplier || item.producto_seleccionado.brand) : ''}
               ${item.tech_sheet_id ? ` · ${svgs.doc_linked} <span style="color:var(--success); font-weight:700;">Ficha</span>` : ''}
             </div>
           </div>
@@ -1267,8 +1298,6 @@
               <button class="dropdown-item" onclick="suggestItem(${item.id}, this); toggleDropdown(event, ${item.id});">${svgs.target} Hacer match</button>
               <button class="dropdown-item" onclick="openManualModal(${item.id}); toggleDropdown(event, ${item.id});">${svgs.search} Buscar manualmente</button>
               <button class="dropdown-item" onclick="openManualModal(${item.id}, 'internet'); toggleDropdown(event, ${item.id});">${svgs.external} Buscar en internet</button>
-              <button class="dropdown-item" onclick="openClarificationModal(${item.id}); toggleDropdown(event, ${item.id});">${svgs.question} Pregunta</button>
-              <button class="dropdown-item" onclick="openTechSheetsModal(${item.id}); toggleDropdown(event, ${item.id});">${svgs.file} Ficha técnica</button>
               <button class="dropdown-item" onclick="openSamplesModal(${item.id}); toggleDropdown(event, ${item.id});">${svgs.box} Muestras / stock</button>
               <div class="dropdown-divider"></div>
               <button class="dropdown-item" onclick="setItemStatus(${item.id}, 'accepted_item'); toggleDropdown(event, ${item.id});">${svgs.check} Aceptar partida</button>
@@ -1338,7 +1367,8 @@
             const subtotal = isSelected ? productSubtotal(p) : price * qty;
 
             return `
-              <div class="result-card" ${isSelected ? 'style="border-color:var(--success);"' : ''}>
+              <div class="result-card ${isSelected ? 'is-selected' : ''}" ${isSelected ? 'style="border-color:var(--success);"' : ''}>
+                ${isSelected ? `<button class="deselect-clean-btn" type="button" title="Deseleccionar producto" aria-label="Deseleccionar producto" onclick="deselectItem(${item.id})">${svgs.x}</button>` : ''}
                 <div class="d-flex align-items-center mb-2">
                   <div class="result-title mb-0" style="margin-right:12px;">
                     ${escapeHtml(p.name || 'Producto sin nombre')}
@@ -1347,7 +1377,7 @@
                 </div>
 
                 <div class="result-meta mb-2">
-                  SKU: ${escapeHtml(p.sku || '—')} · ${escapeHtml(p.brand || '—')} · Stock: ${p.stock ?? '—'} · ${Number(m.score || 0).toFixed(0)}%
+                  SKU: ${escapeHtml(p.sku || '—')} · ${escapeHtml(item.manual_external_supplier || p.brand || '—')} · ${item.modelo ? 'Modelo: ' + escapeHtml(item.modelo) + ' · ' : ''}Stock: ${p.stock ?? '—'} · ${Number(m.score || 0).toFixed(0)}%
                 </div>
 
                 <div class="result-meta mt-2">
@@ -1377,7 +1407,8 @@
       const subtotal = productSubtotal(p);
 
       return `
-        <div class="result-card" style="border-color:var(--success);">
+        <div class="result-card is-selected" style="border-color:var(--success);">
+          <button class="deselect-clean-btn" type="button" title="Deseleccionar producto" aria-label="Deseleccionar producto" onclick="deselectItem(${item.id})">${svgs.x}</button>
           <div class="d-flex align-items-center mb-2">
             <div class="result-title mb-0" style="margin-right:12px;">
               ${escapeHtml(p.name || 'Producto seleccionado')}
@@ -1386,7 +1417,7 @@
           </div>
 
           <div class="result-meta">
-            SKU: ${escapeHtml(p.sku || '—')} · ${escapeHtml(p.brand || '—')} · Stock: ${p.stock ?? '—'}${item.match_score ? ' · ' + Number(item.match_score || 0).toFixed(0) + '%' : ''}
+            SKU: ${escapeHtml(p.sku || '—')} · ${escapeHtml(item.manual_external_supplier || p.brand || '—')} · ${item.modelo ? 'Modelo: ' + escapeHtml(item.modelo) + ' · ' : ''}Stock: ${p.stock ?? '—'}${item.match_score ? ' · ' + Number(item.match_score || 0).toFixed(0) + '%' : ''}
           </div>
 
           <div class="result-meta mt-2">
@@ -1619,8 +1650,8 @@
           <div class="col-6 col-md-2 field"><label>Unidad</label><input class="input" name="unidad_solicitada" value="${escapeHtml(item.unidad_solicitada || '')}"></div>
           <div class="col-6 col-md-2 field"><label>Costo unit.</label><input class="input" type="number" step="0.01" name="costo_unitario" value="${Number(item.costo_unitario || 0)}"></div>
           <div class="col-6 col-md-3 field"><label>Margen %</label><input class="input" type="number" step="0.01" name="porcentaje_utilidad" value="${Number(item.item_margin_pct || 25)}"></div>
-          <div class="col-6 col-md-4 field"><label>Marca</label><input class="input" name="external_supplier" value="${escapeHtml(item.manual_external_supplier || '')}"></div>
-          <div class="col-6 col-md-5 field"><label>Modelo</label><input class="input" name="modelo" value="${escapeHtml(item.modelo || '')}"></div>
+          <div class="col-6 col-md-4 field"><label>Marca</label><input class="input" name="brand" value="${escapeHtml(item.manual_external_supplier || item.producto_seleccionado?.brand || '')}"></div>
+          <div class="col-6 col-md-5 field"><label>Modelo</label><input class="input" name="model" value="${escapeHtml(item.modelo || item.producto_seleccionado?.model || '')}"></div>
           <div class="col-12 col-md-12 field"><label>Enlace externo</label><input class="input" name="external_link" value="${escapeHtml(item.manual_external_link || '')}"></div>
         </div>
         <div class="action-row mt-3">
@@ -1746,6 +1777,29 @@
     }
   }
 
+  async function deselectItem(itemId) {
+    try {
+      const data = await ajax(urlFor(routes.deselectItem, itemId), {
+        method: 'POST',
+        body: '{}'
+      });
+
+      updateItemInState(data.item);
+      summary = data.summary || summary;
+
+      keepScrollAfterRender(itemId, () => {
+        renderItems();
+        toggleItem(itemId, true);
+        switchTab(itemId, 'catalog');
+      });
+
+      showToast('Producto deseleccionado', 'La partida quedó lista para seleccionar otra referencia.', 1, 1);
+      setTimeout(hideToast, 3000);
+    } catch (e) {
+      showInlineError(e.message || 'No se pudo deseleccionar el producto.');
+    }
+  }
+
   async function setItemStatus(id, status) {
     try {
       const data = await ajax(urlFor(routes.updateStatus, id), { method: 'POST', body: JSON.stringify({ ui_status: status }) });
@@ -1856,6 +1910,8 @@
   async function saveItem(event, id) {
     event.preventDefault();
     const payload = Object.fromEntries(new FormData(event.target).entries());
+    if (payload.brand !== undefined) payload.external_supplier = payload.brand;
+    if (payload.model !== undefined) payload.modelo = payload.model;
     try {
       const data = await ajax(urlFor(routes.updateItem, id), { method: 'POST', body: JSON.stringify(payload) });
       updateItemInState(data.item); summary = data.summary || summary;
@@ -2080,7 +2136,8 @@
           catalog_product_name: product.name,
           costo_unitario: cost,
           porcentaje_utilidad: margin,
-          external_supplier: product.brand || '',
+          brand: product.brand || '',
+          model: product.model || '',
           external_link: ''
         })
       });
@@ -2317,8 +2374,8 @@
           catalog_product_name: product.name,
           costo_unitario: cost,
           porcentaje_utilidad: margin,
-          external_supplier: product.brand || '',
-          modelo: product.model || '',
+          brand: product.brand || '',
+          model: product.model || '',
           external_link: product.public_url || ''
         })
       });

@@ -2280,3 +2280,4 @@ Route::post('/propuesta-comercial-items/{item}/ajax/update', [\App\Http\Controll
 Route::get('/propuesta-comercial-items/{item}/ajax/samples', [\App\Http\Controllers\PropuestaComercialController::class, 'ajaxSamplesItem']);
 
 Route::delete('/propuesta-comercial-items/{item}/ajax/delete', [\App\Http\Controllers\PropuestaComercialController::class, 'ajaxDeleteItem']);
+Route::post('/propuesta-comercial-items/{item}/ajax/deselect', [\App\Http\Controllers\PropuestaComercialController::class, 'ajaxDeselectItem']);
