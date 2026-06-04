@@ -391,250 +391,672 @@ class PropuestaComercialController extends Controller
     }
 
 
-    public function ajaxSamplesItem(PropuestaComercialItem $item)
+    private function asMetaArray($meta): array
     {
-        $item->loadMissing('matches.product', 'productoSeleccionado');
+        if (is_array($meta)) {
+            return $meta;
+        }
 
-        $neededQty = (float) ($item->cantidad_cotizada ?: $item->cantidad_maxima ?: $item->cantidad_minima ?: 1);
-        $searchText = trim((string) $item->descripcion_original);
-        $searchWords = collect(preg_split('/\s+/u', mb_strtolower($searchText)))
-            ->filter(fn ($word) => mb_strlen($word) >= 3)
-            ->values()
-            ->all();
+        if (is_object($meta)) {
+            return json_decode(json_encode($meta), true) ?: [];
+        }
 
-        $candidates = [];
+        if (is_string($meta) && trim($meta) !== '') {
+            $decoded = json_decode($meta, true);
+            return json_last_error() === JSON_ERROR_NONE && is_array($decoded) ? $decoded : [];
+        }
 
-        if (Schema::hasTable('catalog_items')) {
-            $columns = Schema::getColumnListing('catalog_items');
+        return [];
+    }
 
-            $nameColumns = ['name', 'product_name', 'nombre', 'titulo', 'title', 'descripcion', 'description'];
-            $skuColumns = ['sku', 'codigo', 'code', 'clave', 'clave_producto', 'item_code', 'amazon_sku'];
-            $brandColumns = ['brand_name', 'brand', 'marca', 'fabricante', 'manufacturer'];
-            $modelColumns = ['model_name', 'model', 'modelo', 'reference', 'referencia', 'amazon_asin', 'meli_item_id'];
-            $categoryColumns = ['category_key', 'category', 'categoria', 'familia', 'linea', 'subcategoria'];
-            $unitColumns = ['unit_measure', 'unit', 'unidad', 'unidad_medida', 'uom'];
-            $imageColumns = [
-                'photo_1', 'photo_2', 'photo_3',
-                'image_url', 'imagen_url', 'photo_url', 'foto_url', 'thumbnail_url', 'picture_url',
-                'image', 'imagen', 'photo', 'foto', 'thumbnail'
-            ];
-            $stockColumns = ['net_available', 'available', 'stock', 'existencia', 'existencias', 'cantidad', 'qty', 'inventory'];
-            $reservedColumns = ['reserved', 'apartado', 'reservado', 'committed', 'comprometido'];
-            $costColumns = ['cost', 'costo', 'purchase_price', 'precio_compra', 'costo_unitario'];
-            $priceColumns = ['sale_price', 'price', 'precio', 'precio_venta', 'precio_unitario'];
-            $descriptionColumns = ['excerpt', 'description', 'descripcion', 'long_description', 'descripcion_larga', 'notes', 'notas'];
+    private function normalizeCatalogPhotoUrl($value): ?string
+    {
+        $value = trim((string) $value);
 
-            $pick = function ($row, array $possible) use ($columns) {
-                foreach ($possible as $column) {
-                    if (in_array($column, $columns, true) && isset($row->{$column}) && $row->{$column} !== null && $row->{$column} !== '') {
-                        return $row->{$column};
-                    }
-                }
+        if ($value === '') {
+            return null;
+        }
 
-                return null;
-            };
+        $value = str_replace('\\', '/', $value);
 
-            $pickAllPhotos = function ($row) use ($columns) {
-                $photos = [];
+        if (str_starts_with($value, 'http://') || str_starts_with($value, 'https://') || str_starts_with($value, 'data:image')) {
+            return $value;
+        }
 
-                foreach (['photo_1', 'photo_2', 'photo_3'] as $column) {
-                    if (in_array($column, $columns, true) && !empty($row->{$column})) {
-                        $photos[] = $row->{$column};
-                    }
-                }
+        if (str_starts_with($value, '/')) {
+            return $value;
+        }
 
-                return array_values(array_unique(array_filter($photos)));
-            };
+        $clean = ltrim($value, '/');
+        $clean = preg_replace('#^public/#', '', $clean);
+        $clean = preg_replace('#^storage/app/public/#', '', $clean);
+        $clean = preg_replace('#^app/public/#', '', $clean);
 
-            $normalizeImage = function ($value) {
-                $value = trim((string) $value);
+        $candidates = array_values(array_unique(array_filter([
+            $clean,
+            'catalog_items/' . basename($clean),
+            'products/' . basename($clean),
+            'images/' . basename($clean),
+            'uploads/' . basename($clean),
+        ])));
 
-                if ($value === '') {
-                    return null;
-                }
+        foreach ($candidates as $candidate) {
+            if (Storage::disk('public')->exists($candidate)) {
+                return Storage::url($candidate);
+            }
+        }
 
-                if (str_starts_with($value, 'http://') || str_starts_with($value, 'https://') || str_starts_with($value, 'data:image')) {
-                    return $value;
-                }
-
-                if (str_starts_with($value, '/')) {
-                    return $value;
-                }
-
-                $clean = ltrim($value, '/');
-                $clean = preg_replace('#^public/#', '', $clean);
-
-                if (str_starts_with($clean, 'storage/')) {
-                    return asset($clean);
-                }
-
-                if (Storage::disk('public')->exists($clean)) {
-                    return Storage::url($clean);
-                }
-
-                if (file_exists(public_path($clean))) {
-                    return asset($clean);
-                }
-
-                if (file_exists(public_path('storage/' . $clean))) {
-                    return asset('storage/' . $clean);
-                }
-
-                return asset('storage/' . $clean);
-            };
-
-            $query = DB::table('catalog_items');
-
-            if (in_array('deleted_at', $columns, true)) {
-                $query->whereNull('deleted_at');
+        foreach ($candidates as $candidate) {
+            if (file_exists(public_path($candidate))) {
+                return asset($candidate);
             }
 
-            $query->where(function ($sub) use ($searchWords, $columns, $nameColumns, $skuColumns, $brandColumns, $modelColumns, $categoryColumns) {
-                $searchable = array_values(array_intersect(array_merge($nameColumns, $skuColumns, $brandColumns, $modelColumns, $categoryColumns), $columns));
+            if (file_exists(public_path('storage/' . $candidate))) {
+                return asset('storage/' . $candidate);
+            }
+        }
 
-                if (empty($searchable) || empty($searchWords)) {
-                    return;
+        if (str_starts_with($clean, 'storage/')) {
+            return asset($clean);
+        }
+
+        return asset('storage/' . $clean);
+    }
+
+    private function splitSearchWords(string $text): array
+    {
+        $stopWords = [
+            'para', 'con', 'del', 'de', 'la', 'el', 'los', 'las', 'una', 'uno', 'unos', 'unas',
+            'color', 'caja', 'pieza', 'piezas', 'paquete', 'paquetes', 'marca', 'presentacion', 'presentación',
+            'solicitado', 'solicitada', 'tipo', 'modelo', 'medida', 'mediano', 'grande', 'chico', 'azul', 'rojo', 'negro', 'blanco'
+        ];
+
+        return collect(preg_split('/[^\pL\pN]+/u', mb_strtolower($text)))
+            ->map(fn ($word) => trim($word))
+            ->filter(fn ($word) => mb_strlen($word) >= 2 && !in_array($word, $stopWords, true))
+            ->unique()
+            ->take(12)
+            ->values()
+            ->all();
+    }
+
+    private function catalogColumns(): array
+    {
+        return Schema::hasTable('catalog_items') ? Schema::getColumnListing('catalog_items') : [];
+    }
+
+    private function pickCatalogValue($row, array $columns, array $possible)
+    {
+        foreach ($possible as $column) {
+            if (in_array($column, $columns, true) && isset($row->{$column}) && $row->{$column} !== null && $row->{$column} !== '') {
+                return $row->{$column};
+            }
+        }
+
+        return null;
+    }
+
+    private function productColumns(): array
+    {
+        return Schema::hasTable('products') ? Schema::getColumnListing('products') : [];
+    }
+
+    private function pickProductValue($row, array $columns, array $possible)
+    {
+        foreach ($possible as $column) {
+            if (in_array($column, $columns, true) && isset($row->{$column}) && $row->{$column} !== null && $row->{$column} !== '') {
+                return $row->{$column};
+            }
+        }
+
+        return null;
+    }
+
+    private function searchProductRows(string $queryText, int $limit = 60)
+    {
+        if (!Schema::hasTable('products')) {
+            return collect();
+        }
+
+        $columns = $this->productColumns();
+        $words = $this->splitSearchWords($queryText);
+        $fullQuery = trim($queryText);
+
+        $searchable = array_values(array_intersect([
+            'name', 'slug', 'sku', 'brand', 'brand_name', 'model', 'modelo', 'category', 'categoria',
+            'color', 'unit', 'unidad', 'description', 'descripcion', 'excerpt', 'short_description'
+        ], $columns));
+
+        $base = DB::table('products');
+
+        if (in_array('deleted_at', $columns, true)) {
+            $base->whereNull('deleted_at');
+        }
+
+        if ($fullQuery !== '' && !empty($searchable)) {
+            $base->where(function ($sub) use ($searchable, $words, $fullQuery) {
+                foreach ($searchable as $column) {
+                    $sub->orWhere($column, 'like', '%' . $fullQuery . '%');
                 }
 
-                foreach ($searchWords as $word) {
+                foreach ($words as $word) {
                     foreach ($searchable as $column) {
                         $sub->orWhere($column, 'like', '%' . $word . '%');
                     }
                 }
             });
+        }
 
-            $rows = $query->limit(120)->get();
+        $rows = $base->limit(250)->get();
 
-            if ($rows->isEmpty()) {
-                $fallback = DB::table('catalog_items');
+        if ($rows->isEmpty() && $fullQuery !== '') {
+            $fallback = DB::table('products');
 
-                if (in_array('deleted_at', $columns, true)) {
-                    $fallback->whereNull('deleted_at');
-                }
-
-                $rows = $fallback->limit(120)->get();
+            if (in_array('deleted_at', $columns, true)) {
+                $fallback->whereNull('deleted_at');
             }
 
-            $candidates = $rows->map(function ($row) use ($columns, $pick, $pickAllPhotos, $normalizeImage, $nameColumns, $skuColumns, $brandColumns, $modelColumns, $categoryColumns, $unitColumns, $imageColumns, $stockColumns, $reservedColumns, $costColumns, $priceColumns, $descriptionColumns, $neededQty, $searchText) {
-                $name = (string) ($pick($row, $nameColumns) ?: 'Producto sin nombre');
-                $sku = (string) ($pick($row, $skuColumns) ?: '');
-                $brand = (string) ($pick($row, $brandColumns) ?: '');
-                $model = (string) ($pick($row, $modelColumns) ?: '');
-                $category = (string) ($pick($row, $categoryColumns) ?: '');
-                $unit = (string) ($pick($row, $unitColumns) ?: 'pieza');
-                $rawPhotos = $pickAllPhotos($row);
-                $mainPhoto = $rawPhotos[0] ?? $pick($row, $imageColumns);
-                $imageUrl = $normalizeImage($mainPhoto);
-                $photoUrls = array_values(array_filter(array_map($normalizeImage, $rawPhotos)));
-                $stock = (float) ($pick($row, $stockColumns) ?: 0);
-                $reserved = (float) ($pick($row, $reservedColumns) ?: 0);
-                $cost = (float) ($pick($row, $costColumns) ?: 0);
-                $price = (float) ($pick($row, $priceColumns) ?: 0);
-                $description = (string) ($pick($row, $descriptionColumns) ?: '');
+            $rows = $fallback->limit(400)->get();
+        }
 
-                similar_text(mb_strtolower($searchText), mb_strtolower($name . ' ' . $sku . ' ' . $brand . ' ' . $model . ' ' . $category . ' ' . $description), $pct);
+        return $rows
+            ->map(function ($row) use ($columns, $queryText) {
+                return $this->productRowToCandidate($row, $columns, $queryText);
+            })
+            ->sortByDesc('similarity_pct')
+            ->take($limit)
+            ->values();
+    }
 
-                $netAvailable = max($stock - $reserved, 0);
-                $toBuy = max($neededQty - $netAvailable, 0);
+    private function productRowToCandidate($row, array $columns, string $searchText): array
+    {
+        $name = (string) ($this->pickProductValue($row, $columns, ['name', 'product_name', 'nombre', 'titulo', 'title']) ?: 'Producto sin nombre');
+        $sku = (string) ($this->pickProductValue($row, $columns, ['sku', 'codigo', 'code', 'clave']) ?: '');
+        $brand = (string) ($this->pickProductValue($row, $columns, ['brand', 'brand_name', 'marca']) ?: '');
+        $model = (string) ($this->pickProductValue($row, $columns, ['model', 'modelo', 'model_name']) ?: '');
+        $category = (string) ($this->pickProductValue($row, $columns, ['category', 'categoria', 'category_name', 'category_key']) ?: '');
+        $unit = (string) ($this->pickProductValue($row, $columns, ['unit', 'unidad', 'unit_measure', 'unidad_solicitada']) ?: 'pieza');
+        $color = (string) ($this->pickProductValue($row, $columns, ['color', 'colour']) ?: '');
+        $description = (string) ($this->pickProductValue($row, $columns, ['description', 'descripcion', 'excerpt', 'short_description']) ?: '');
+        $stock = (float) ($this->pickProductValue($row, $columns, ['stock', 'existencia', 'qty', 'available']) ?: 0);
+        $cost = (float) ($this->pickProductValue($row, $columns, ['cost', 'costo', 'purchase_price', 'precio_compra']) ?: 0);
+        $price = (float) ($this->pickProductValue($row, $columns, ['price', 'precio', 'sale_price', 'precio_venta']) ?: 0);
 
-                $hidden = ['id', 'created_at', 'updated_at', 'deleted_at', 'photo_1', 'photo_2', 'photo_3'];
-                $details = [];
+        $rawPhotos = [];
+        foreach ([
+            'photo_1', 'photo_2', 'photo_3', 'image', 'image_url', 'imagen', 'imagen_url',
+            'photo', 'photo_url', 'thumbnail', 'thumbnail_url', 'picture', 'picture_url'
+        ] as $photoColumn) {
+            if (in_array($photoColumn, $columns, true) && !empty($row->{$photoColumn})) {
+                $rawPhotos[] = $row->{$photoColumn};
+            }
+        }
 
-                foreach ($columns as $column) {
-                    if (in_array($column, $hidden, true)) {
-                        continue;
-                    }
+        $photoUrls = array_values(array_unique(array_filter(array_map(fn ($photo) => $this->normalizeCatalogPhotoUrl($photo), $rawPhotos))));
+        $imageUrl = $photoUrls[0] ?? null;
 
-                    $value = $row->{$column} ?? null;
+        $haystack = trim($name . ' ' . $sku . ' ' . $brand . ' ' . $model . ' ' . $category . ' ' . $color . ' ' . $description);
+        similar_text(mb_strtolower($searchText), mb_strtolower($haystack), $pct);
 
-                    if ($value === null || $value === '') {
-                        continue;
-                    }
+        $searchWords = $this->splitSearchWords($searchText);
+        if (!empty($searchWords)) {
+            $lowerHaystack = mb_strtolower($haystack);
+            $hits = collect($searchWords)->filter(fn ($word) => str_contains($lowerHaystack, $word))->count();
+            $tokenScore = ($hits / max(count($searchWords), 1)) * 100;
+            $pct = max($pct, $tokenScore);
+        }
 
-                    if (is_string($value) && mb_strlen($value) > 120) {
-                        $value = mb_substr($value, 0, 120) . '...';
-                    }
+        $hidden = ['id', 'created_at', 'updated_at', 'deleted_at'];
+        $details = [];
+        foreach ($columns as $column) {
+            if (in_array($column, $hidden, true)) {
+                continue;
+            }
 
-                    $details[] = [
-                        'label' => str_replace('_', ' ', mb_strtoupper($column)),
-                        'value' => (string) $value,
-                    ];
+            $value = $row->{$column} ?? null;
+            if ($value === null || $value === '') {
+                continue;
+            }
+
+            if (is_string($value) && mb_strlen($value) > 140) {
+                $value = mb_substr($value, 0, 140) . '...';
+            }
+
+            $details[] = [
+                'label' => str_replace('_', ' ', mb_strtoupper($column)),
+                'value' => (string) $value,
+            ];
+        }
+
+        return [
+            'id' => $row->id ?? null,
+            'source_table' => 'products',
+            'name' => $name,
+            'sku' => $sku,
+            'brand' => $brand,
+            'model' => $model,
+            'category' => $category,
+            'unit' => $unit,
+            'color' => $color,
+            'description' => $description,
+            'image_url' => $imageUrl,
+            'photo_urls' => $photoUrls,
+            'similarity_pct' => round($pct, 2),
+            'stock' => $stock,
+            'cost' => $cost,
+            'price' => $price,
+            'details' => $details,
+        ];
+    }
+
+    private function searchCatalogRows(string $queryText, int $limit = 60)
+    {
+        if (!Schema::hasTable('catalog_items')) {
+            return collect();
+        }
+
+        $columns = $this->catalogColumns();
+        $words = $this->splitSearchWords($queryText);
+        $fullQuery = trim($queryText);
+
+        $searchable = array_values(array_intersect([
+            'name', 'slug', 'sku', 'amazon_sku', 'amazon_asin', 'meli_item_id', 'meli_gtin',
+            'brand_name', 'model_name', 'category_key', 'excerpt', 'description',
+            'unit_measure', 'content_unit_measure'
+        ], $columns));
+
+        $base = DB::table('catalog_items');
+
+        if (in_array('deleted_at', $columns, true)) {
+            $base->whereNull('deleted_at');
+        }
+
+        if ($fullQuery !== '' && !empty($searchable)) {
+            $base->where(function ($sub) use ($searchable, $words, $fullQuery) {
+                foreach ($searchable as $column) {
+                    $sub->orWhere($column, 'like', '%' . $fullQuery . '%');
                 }
 
+                foreach ($words as $word) {
+                    foreach ($searchable as $column) {
+                        $sub->orWhere($column, 'like', '%' . $word . '%');
+                    }
+                }
+            });
+        }
+
+        $rows = $base->limit(250)->get();
+
+        if ($rows->isEmpty() && $fullQuery !== '') {
+            $fallback = DB::table('catalog_items');
+
+            if (in_array('deleted_at', $columns, true)) {
+                $fallback->whereNull('deleted_at');
+            }
+
+            $rows = $fallback->limit(400)->get();
+        }
+
+        return $rows
+            ->map(function ($row) use ($columns, $queryText) {
+                return $this->catalogRowToCandidate($row, $columns, $queryText);
+            })
+            ->sortByDesc('similarity_pct')
+            ->take($limit)
+            ->values();
+    }
+
+    private function catalogRowToCandidate($row, array $columns, string $searchText, float $neededQty = 0): array
+    {
+        $name = (string) ($this->pickCatalogValue($row, $columns, ['name', 'product_name', 'nombre', 'titulo', 'title']) ?: 'Producto sin nombre');
+        $sku = (string) ($this->pickCatalogValue($row, $columns, ['sku', 'amazon_sku', 'codigo', 'code', 'clave', 'meli_item_id']) ?: '');
+        $brand = (string) ($this->pickCatalogValue($row, $columns, ['brand_name', 'brand', 'marca']) ?: '');
+        $model = (string) ($this->pickCatalogValue($row, $columns, ['model_name', 'model', 'modelo', 'amazon_asin']) ?: '');
+        $category = (string) ($this->pickCatalogValue($row, $columns, ['category_key', 'category', 'categoria']) ?: '');
+        $unit = (string) ($this->pickCatalogValue($row, $columns, ['unit_measure', 'unit', 'unidad']) ?: 'pieza');
+        $description = (string) ($this->pickCatalogValue($row, $columns, ['excerpt', 'description', 'descripcion']) ?: '');
+        $stock = (float) ($this->pickCatalogValue($row, $columns, ['stock', 'net_available', 'available', 'existencia', 'qty']) ?: 0);
+        $reserved = (float) ($this->pickCatalogValue($row, $columns, ['reserved', 'apartado', 'reservado', 'committed']) ?: 0);
+        $cost = (float) ($this->pickCatalogValue($row, $columns, ['cost', 'costo', 'purchase_price', 'precio_compra']) ?: 0);
+        $price = (float) ($this->pickCatalogValue($row, $columns, ['sale_price', 'price', 'precio', 'precio_venta']) ?: 0);
+
+        $rawPhotos = [];
+        foreach (['photo_1', 'photo_2', 'photo_3'] as $photoColumn) {
+            if (in_array($photoColumn, $columns, true) && !empty($row->{$photoColumn})) {
+                $rawPhotos[] = $row->{$photoColumn};
+            }
+        }
+
+        foreach (['image_url', 'imagen_url', 'photo_url', 'thumbnail_url', 'picture_url'] as $photoColumn) {
+            if (in_array($photoColumn, $columns, true) && !empty($row->{$photoColumn})) {
+                $rawPhotos[] = $row->{$photoColumn};
+            }
+        }
+
+        $photoUrls = array_values(array_unique(array_filter(array_map(fn ($photo) => $this->normalizeCatalogPhotoUrl($photo), $rawPhotos))));
+        $imageUrl = $photoUrls[0] ?? null;
+
+        $haystack = trim($name . ' ' . $sku . ' ' . $brand . ' ' . $model . ' ' . $category . ' ' . $description);
+        similar_text(mb_strtolower($searchText), mb_strtolower($haystack), $pct);
+
+        $searchWords = $this->splitSearchWords($searchText);
+        if (!empty($searchWords)) {
+            $lowerHaystack = mb_strtolower($haystack);
+            $hits = collect($searchWords)->filter(fn ($word) => str_contains($lowerHaystack, $word))->count();
+            $tokenScore = ($hits / max(count($searchWords), 1)) * 100;
+            $pct = max($pct, $tokenScore);
+        }
+
+        $netAvailable = max($stock - $reserved, 0);
+        $toBuy = max($neededQty - $netAvailable, 0);
+
+        $hidden = ['id', 'created_at', 'updated_at', 'deleted_at', 'photo_1', 'photo_2', 'photo_3'];
+        $details = [];
+        foreach ($columns as $column) {
+            if (in_array($column, $hidden, true)) {
+                continue;
+            }
+
+            $value = $row->{$column} ?? null;
+            if ($value === null || $value === '') {
+                continue;
+            }
+
+            if (is_string($value) && mb_strlen($value) > 140) {
+                $value = mb_substr($value, 0, 140) . '...';
+            }
+
+            $details[] = [
+                'label' => str_replace('_', ' ', mb_strtoupper($column)),
+                'value' => (string) $value,
+            ];
+        }
+
+        return [
+            'id' => $row->id ?? null,
+            'source_table' => 'catalog_items',
+            'name' => $name,
+            'sku' => $sku,
+            'brand' => $brand,
+            'model' => $model,
+            'category' => $category,
+            'unit' => $unit,
+            'unit_measure' => $row->unit_measure ?? $unit,
+            'content_quantity' => $row->content_quantity ?? null,
+            'content_unit_measure' => $row->content_unit_measure ?? null,
+            'description' => $description,
+            'image_url' => $imageUrl,
+            'photo_urls' => $photoUrls,
+            'photo_1' => $photoUrls[0] ?? null,
+            'photo_2' => $photoUrls[1] ?? null,
+            'photo_3' => $photoUrls[2] ?? null,
+            'similarity_pct' => round($pct, 2),
+            'stock' => $stock,
+            'stock_field' => $stock,
+            'net_available' => $netAvailable,
+            'reserved' => $reserved,
+            'needed_qty' => $neededQty,
+            'to_buy' => $toBuy,
+            'cost' => $cost,
+            'price' => $price,
+            'locations' => [],
+            'location_summary' => '',
+            'details' => $details,
+            'public_url' => isset($row->slug) && $row->slug ? url('/catalogo/' . $row->slug) : null,
+        ];
+    }
+
+    private function itemPayload(PropuestaComercialItem $item): array
+    {
+        $item->loadMissing('matches.product', 'externalMatches', 'productoSeleccionado', 'aclaracionPreguntas');
+
+        $meta = $this->asMetaArray($item->meta ?? []);
+        $uiStatus = data_get($meta, 'ui_status', 'pending');
+        $humanAccepted = $uiStatus === 'accepted_item';
+        $selectedMatch = $humanAccepted ? $item->matches->firstWhere('seleccionado', true) : null;
+        $bestMatch = $item->matches->sortByDesc('score')->first();
+        $score = (float) ($item->match_score ?: optional($selectedMatch ?: $bestMatch)->score);
+
+        if ($humanAccepted && ($item->productoSeleccionado || $selectedMatch)) {
+            $statusKey = 'exact';
+        } elseif ($item->productoSeleccionado || $item->matches->count() || data_get($meta, 'catalog_product_name_manual')) {
+            $statusKey = 'similar';
+        } else {
+            $statusKey = 'not_found';
+        }
+
+        return [
+            'id' => $item->id,
+            'sort' => (int) $item->sort,
+            'descripcion_original' => $item->descripcion_original,
+            'unidad_solicitada' => $item->unidad_solicitada,
+            'cantidad_minima' => (float) $item->cantidad_minima,
+            'cantidad_maxima' => (float) $item->cantidad_maxima,
+            'cantidad_cotizada' => (float) ($item->cantidad_cotizada ?: 1),
+            'costo_unitario' => (float) $item->costo_unitario,
+            'precio_unitario' => (float) $item->precio_unitario,
+            'subtotal' => (float) $item->subtotal,
+            'match_score' => $score,
+            'status_key' => $statusKey,
+            'ui_status' => $uiStatus,
+            'item_margin_pct' => (float) data_get($meta, 'item_margin_pct', 25),
+            'manual_external_supplier' => data_get($meta, 'external_supplier'),
+            'manual_external_link' => data_get($meta, 'external_link'),
+            'modelo' => data_get($meta, 'modelo'),
+            'catalog_product_name_manual' => data_get($meta, 'catalog_product_name_manual'),
+            'tech_sheet_id' => data_get($meta, 'tech_sheet_id'),
+            'tech_sheet_name' => data_get($meta, 'tech_sheet_name'),
+            'clarification_questions' => $item->relationLoaded('aclaracionPreguntas')
+                ? $item->aclaracionPreguntas->sortBy('sort')->values()->all()
+                : data_get($meta, 'clarification_questions', []),
+            'producto_seleccionado' => ($humanAccepted && $item->productoSeleccionado) ? [
+                'id' => $item->productoSeleccionado->id,
+                'name' => $item->productoSeleccionado->name,
+                'sku' => $item->productoSeleccionado->sku,
+                'brand' => $item->productoSeleccionado->brand,
+                'stock' => $item->productoSeleccionado->stock ?? 0,
+                'cost' => (float) ($item->productoSeleccionado->cost ?? $item->productoSeleccionado->costo ?? 0),
+                'price' => (float) ($item->productoSeleccionado->price ?? $item->productoSeleccionado->precio ?? 0),
+            ] : null,
+            'matches' => $item->matches->sortBy('rank')->values()->map(function ($match) use ($humanAccepted) {
+                $p = $match->product;
                 return [
-                    'id' => $row->id ?? null,
-                    'name' => $name,
-                    'sku' => $sku,
-                    'brand' => $brand,
-                    'model' => $model,
-                    'category' => $category,
-                    'unit' => $unit,
-                    'unit_measure' => $row->unit_measure ?? $unit,
-                    'content_quantity' => $row->content_quantity ?? null,
-                    'content_unit_measure' => $row->content_unit_measure ?? null,
-                    'description' => $description,
-                    'image_url' => $imageUrl,
-                    'photo_urls' => $photoUrls,
-                    'photo_1' => isset($row->photo_1) ? $normalizeImage($row->photo_1) : null,
-                    'photo_2' => isset($row->photo_2) ? $normalizeImage($row->photo_2) : null,
-                    'photo_3' => isset($row->photo_3) ? $normalizeImage($row->photo_3) : null,
-                    'similarity_pct' => round($pct, 2),
-                    'stock_field' => $stock,
-                    'net_available' => $netAvailable,
-                    'reserved' => $reserved,
-                    'needed_qty' => $neededQty,
-                    'to_buy' => $toBuy,
-                    'cost' => $cost,
-                    'price' => $price,
-                    'locations' => [],
-                    'location_summary' => '',
-                    'details' => $details,
+                    'id' => $match->id,
+                    'rank' => $match->rank,
+                    'score' => (float) $match->score,
+                    'seleccionado' => $humanAccepted && (bool) $match->seleccionado,
+                    'product' => $p ? [
+                        'id' => $p->id,
+                        'name' => $p->name,
+                        'sku' => $p->sku,
+                        'brand' => $p->brand,
+                        'stock' => $p->stock ?? 0,
+                        'cost' => (float) ($p->cost ?? $p->costo ?? $p->purchase_price ?? 0),
+                        'price' => (float) ($p->price ?? $p->precio ?? $p->sale_price ?? 0),
+                    ] : null,
+                ];
+            })->all(),
+            'external_matches' => $item->externalMatches->sortBy('rank')->values()->map(function ($external) {
+                return [
+                    'id' => $external->id,
+                    'source' => $external->source,
+                    'title' => $external->title,
+                    'seller' => $external->seller,
+                    'price' => (float) $external->price,
+                    'url' => $external->url,
+                    'score' => (float) $external->score,
+                ];
+            })->all(),
+        ];
+    }
+
+    private function summaryPayload(PropuestaComercial $propuestaComercial): array
+    {
+        $propuestaComercial->load('items.matches');
+
+        $items = $propuestaComercial->items;
+        $subtotalSale = (float) $items->sum('subtotal');
+        $subtotalCost = (float) $items->sum(fn ($i) => ((float) $i->costo_unitario) * ((float) ($i->cantidad_cotizada ?: 0)));
+        $profit = $subtotalSale - $subtotalCost;
+        $margin = $subtotalCost > 0 ? round(($profit / $subtotalCost) * 100) : 0;
+
+        $payloads = $items->map(fn ($item) => $this->itemPayload($item));
+
+        return [
+            'exact' => $payloads->where('status_key', 'exact')->count(),
+            'similar' => $payloads->where('status_key', 'similar')->count(),
+            'not_found' => $payloads->where('status_key', 'not_found')->count(),
+            'subtotal_sale' => $subtotalSale,
+            'subtotal_cost' => $subtotalCost,
+            'profit' => $profit,
+            'margin' => $margin,
+            'total_items' => $items->count(),
+        ];
+    }
+
+    public function ajaxManualSearch(Request $request, PropuestaComercial $propuestaComercial)
+    {
+        $q = trim((string) $request->query('q', ''));
+        $internet = (bool) $request->boolean('internet');
+
+        if ($internet) {
+            return response()->json([
+                'ok' => true,
+                'internet' => [],
+                'products' => [],
+            ]);
+        }
+
+        // Busca en las dos fuentes internas:
+        // 1) catalog_items, que tiene photo_1/photo_2/photo_3
+        // 2) products, que era la tabla original de busqueda manual
+        $catalogProducts = $this->searchCatalogRows($q, 50);
+        $legacyProducts = $this->searchProductRows($q, 50);
+
+        $products = $catalogProducts
+            ->merge($legacyProducts)
+            ->sortByDesc('similarity_pct')
+            ->unique(function ($candidate) {
+                return ($candidate['source_table'] ?? 'unknown') . ':' . ($candidate['id'] ?? '') . ':' . ($candidate['sku'] ?? '');
+            })
+            ->take(50)
+            ->map(function ($candidate) {
+                return [
+                    'id' => $candidate['id'],
+                    'source_table' => $candidate['source_table'] ?? null,
+                    'name' => $candidate['name'],
+                    'sku' => $candidate['sku'],
+                    'brand' => $candidate['brand'],
+                    'model' => $candidate['model'] ?? '',
+                    'category' => $candidate['category'],
+                    'unit' => $candidate['unit'],
+                    'color' => $candidate['color'] ?? '',
+                    'stock' => $candidate['stock'],
+                    'cost' => $candidate['cost'],
+                    'price' => $candidate['price'],
+                    'similarity_pct' => $candidate['similarity_pct'],
+                    'image_url' => $candidate['image_url'] ?? null,
+                    'photo_urls' => $candidate['photo_urls'] ?? [],
+                    'description' => $candidate['description'] ?? '',
+                    'details' => $candidate['details'] ?? [],
                 ];
             })
-                ->sortByDesc('similarity_pct')
-                ->take(25)
-                ->values()
-                ->all();
-        } else {
-            $products = Product::query()
-                ->where(function ($q) use ($searchWords) {
-                    foreach ($searchWords as $word) {
-                        $q->orWhere('name', 'like', '%' . $word . '%')
-                            ->orWhere('sku', 'like', '%' . $word . '%')
-                            ->orWhere('brand', 'like', '%' . $word . '%');
-                    }
-                })
-                ->limit(25)
-                ->get();
+            ->values()
+            ->all();
 
-            $candidates = $products->map(function ($product) use ($neededQty, $searchText) {
-                similar_text(mb_strtolower($searchText), mb_strtolower((string) $product->name), $pct);
+        return response()->json([
+            'ok' => true,
+            'products' => $products,
+            'internet' => [],
+        ]);
+    }
 
-                $stock = (float) ($product->stock ?? 0);
-                $reserved = (float) ($product->reserved ?? 0);
-                $netAvailable = max($stock - $reserved, 0);
+    public function ajaxUpdateItem(Request $request, PropuestaComercialItem $item)
+    {
+        $data = $request->validate([
+            'descripcion_original' => ['nullable', 'string'],
+            'cantidad_cotizada' => ['nullable', 'numeric', 'min:0'],
+            'unidad_solicitada' => ['nullable', 'string', 'max:50'],
+            'costo_unitario' => ['nullable', 'numeric', 'min:0'],
+            'porcentaje_utilidad' => ['nullable', 'numeric', 'min:0'],
+            'external_supplier' => ['nullable', 'string', 'max:255'],
+            'external_link' => ['nullable', 'string', 'max:2048'],
+            'modelo' => ['nullable', 'string', 'max:255'],
+            'catalog_product_name' => ['nullable', 'string', 'max:500'],
+        ]);
 
-                return [
-                    'id' => $product->id,
-                    'name' => $product->name,
-                    'sku' => $product->sku,
-                    'brand' => $product->brand,
-                    'unit' => $product->unit ?? 'pieza',
-                    'description' => $product->description ?? '',
-                    'image_url' => $product->image_url ?? $product->photo_url ?? null,
-                    'similarity_pct' => round($pct, 2),
-                    'stock_field' => $stock,
-                    'net_available' => $netAvailable,
-                    'reserved' => $reserved,
-                    'needed_qty' => $neededQty,
-                    'to_buy' => max($neededQty - $netAvailable, 0),
-                    'cost' => (float) ($product->cost ?? $product->costo ?? 0),
-                    'price' => (float) ($product->price ?? $product->precio ?? 0),
-                    'locations' => [],
-                    'details' => [],
-                ];
-            })->sortByDesc('similarity_pct')->values()->all();
+        $meta = $this->asMetaArray($item->meta ?? []);
+
+        if (array_key_exists('descripcion_original', $data)) {
+            $item->descripcion_original = trim((string) $data['descripcion_original']);
         }
+
+        if (array_key_exists('cantidad_cotizada', $data)) {
+            $item->cantidad_cotizada = (float) $data['cantidad_cotizada'];
+        }
+
+        if (array_key_exists('unidad_solicitada', $data)) {
+            $item->unidad_solicitada = trim((string) $data['unidad_solicitada']) ?: 'PIEZA';
+        }
+
+        if (array_key_exists('costo_unitario', $data)) {
+            $item->costo_unitario = (float) $data['costo_unitario'];
+        }
+
+        $margin = array_key_exists('porcentaje_utilidad', $data)
+            ? (float) $data['porcentaje_utilidad']
+            : (float) data_get($meta, 'item_margin_pct', 25);
+
+        $meta['item_margin_pct'] = $margin;
+
+        if (array_key_exists('external_supplier', $data)) {
+            $meta['external_supplier'] = trim((string) $data['external_supplier']);
+        }
+
+        if (array_key_exists('external_link', $data)) {
+            $meta['external_link'] = trim((string) $data['external_link']);
+        }
+
+        if (array_key_exists('modelo', $data)) {
+            $meta['modelo'] = trim((string) $data['modelo']);
+        }
+
+        if (array_key_exists('catalog_product_name', $data)) {
+            $meta['catalog_product_name_manual'] = trim((string) $data['catalog_product_name']);
+        }
+
+        $qty = (float) ($item->cantidad_cotizada ?: $item->cantidad_maxima ?: $item->cantidad_minima ?: 1);
+        $cost = (float) ($item->costo_unitario ?: 0);
+        $price = $cost > 0 ? round($cost * (1 + ($margin / 100)), 2) : 0;
+
+        $item->precio_unitario = $price;
+        $item->subtotal = round($price * $qty, 2);
+        $item->meta = $meta;
+        $item->status = $price > 0 ? 'priced' : $item->status;
+        $item->save();
+
+        $propuestaComercial = PropuestaComercial::findOrFail($item->propuesta_comercial_id);
+        $this->recalculateTotals($propuestaComercial);
+
+        return response()->json([
+            'ok' => true,
+            'item' => $this->itemPayload($item->fresh()),
+            'summary' => $this->summaryPayload($propuestaComercial->fresh()),
+        ]);
+    }
+
+    public function ajaxSamplesItem(PropuestaComercialItem $item)
+    {
+        $neededQty = (float) ($item->cantidad_cotizada ?: $item->cantidad_maxima ?: $item->cantidad_minima ?: 1);
+        $searchText = trim((string) $item->descripcion_original);
+        $candidates = $this->searchCatalogRows($searchText, 30)
+            ->map(function ($candidate) use ($neededQty) {
+                $candidate['needed_qty'] = $neededQty;
+                $candidate['to_buy'] = max($neededQty - (float) ($candidate['net_available'] ?? 0), 0);
+                return $candidate;
+            })
+            ->values()
+            ->all();
 
         return response()->json([
             'ok' => true,
