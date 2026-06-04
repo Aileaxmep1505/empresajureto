@@ -927,23 +927,14 @@ class PropuestaComercialController extends Controller
             ]);
         }
 
-        // Busca en las dos fuentes internas:
-        // 1) catalog_items, que tiene photo_1/photo_2/photo_3
-        // 2) products, que era la tabla original de busqueda manual
-        $catalogProducts = $this->searchCatalogRows($q, 50);
-        $legacyProducts = $this->searchProductRows($q, 50);
-
-        $products = $catalogProducts
-            ->merge($legacyProducts)
-            ->sortByDesc('similarity_pct')
-            ->unique(function ($candidate) {
-                return ($candidate['source_table'] ?? 'unknown') . ':' . ($candidate['id'] ?? '') . ':' . ($candidate['sku'] ?? '');
-            })
-            ->take(50)
+        // IMPORTANTE:
+        // La busqueda manual debe buscar SOLO en la tabla `products`.
+        // `catalog_items` queda reservado para Muestras / stock.
+        $products = $this->searchProductRows($q, 50)
             ->map(function ($candidate) {
                 return [
                     'id' => $candidate['id'],
-                    'source_table' => $candidate['source_table'] ?? null,
+                    'source_table' => 'products',
                     'name' => $candidate['name'],
                     'sku' => $candidate['sku'],
                     'brand' => $candidate['brand'],
@@ -955,10 +946,13 @@ class PropuestaComercialController extends Controller
                     'cost' => $candidate['cost'],
                     'price' => $candidate['price'],
                     'similarity_pct' => $candidate['similarity_pct'],
-                    'image_url' => $candidate['image_url'] ?? null,
-                    'photo_urls' => $candidate['photo_urls'] ?? [],
                     'description' => $candidate['description'] ?? '',
                     'details' => $candidate['details'] ?? [],
+
+                    // No mandar imagenes a busqueda manual.
+                    // Las imagenes solo se usan en Muestras / stock.
+                    'image_url' => null,
+                    'photo_urls' => [],
                 ];
             })
             ->values()

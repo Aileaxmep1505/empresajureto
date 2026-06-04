@@ -1997,7 +1997,7 @@
         renderManualInternet(manualInternetResults);
       } else {
         manualCatalogResults = data.products || [];
-        statusBox.textContent = `${manualCatalogResults.length} productos similares encontrados`;
+        statusBox.textContent = `${manualCatalogResults.length} productos encontrados en products`;
         renderManualCatalog(manualCatalogResults);
       }
     } catch (e) {
@@ -2010,41 +2010,33 @@
     const box = document.getElementById('manualResults');
 
     if (!products.length) {
-      box.innerHTML = '<p class="result-meta">Sin resultados similares en catálogo.</p>';
+      box.innerHTML = '<p class="result-meta">Sin resultados similares en products.</p>';
       return;
     }
 
-    box.innerHTML = products.map((p, index) => {
-      const image = p.image_url || (Array.isArray(p.photo_urls) && p.photo_urls.length ? p.photo_urls[0] : '');
-      const imageHtml = image
-        ? `<div class="sample-image" style="width:72px;height:72px;flex:0 0 72px;"><img src="${escapeHtml(image)}" alt="${escapeHtml(p.name || 'Producto')}" loading="lazy" onerror="this.closest('.sample-image').innerHTML='Sin imagen';"></div>`
-        : `<div class="sample-image" style="width:72px;height:72px;flex:0 0 72px;">Sin imagen</div>`;
-
-      return `
-        <div class="modal-result" style="gap:14px; align-items:flex-start;">
-          ${imageHtml}
-          <div style="min-width:0; flex:1;">
-            <div class="result-title mb-2">${escapeHtml(p.name)}</div>
-            <div class="result-meta">
-              SKU: ${escapeHtml(p.sku || '—')}
-              ${p.brand ? ' · ' + escapeHtml(p.brand) : ''}
-              ${p.model ? ' · Modelo: ' + escapeHtml(p.model) : ''}
-              · Stock: ${Number(p.stock || 0).toLocaleString('es-MX')}
-              · ${Number(p.similarity_pct || 0).toFixed(0)}%
-            </div>
-            <div class="result-meta mt-2">
-              ${p.unit ? `<strong>Unidad:</strong> ${escapeHtml(p.unit)} · ` : ''}
-              ${p.color ? `<strong>Color:</strong> ${escapeHtml(p.color)} · ` : ''}
-              ${p.category ? `<strong>Categoría:</strong> ${escapeHtml(p.category)} · ` : ''}
-              Costo <strong>${formatPlainMoney(p.cost)}</strong> · Precio <strong>${formatPlainMoney(p.price)}</strong>
-            </div>
-            ${p.description ? `<div class="result-meta mt-2">${escapeHtml(p.description)}</div>` : ''}
+    box.innerHTML = products.map((p, index) => `
+      <div class="modal-result">
+        <div style="min-width:0;">
+          <div class="result-title mb-2">${escapeHtml(p.name)}</div>
+          <div class="result-meta">
+            SKU: ${escapeHtml(p.sku || '—')}
+            ${p.brand ? ' · ' + escapeHtml(p.brand) : ''}
+            ${p.model ? ' · Modelo: ' + escapeHtml(p.model) : ''}
+            · Stock: ${Number(p.stock || 0).toLocaleString('es-MX')}
+            · ${Number(p.similarity_pct || 0).toFixed(0)}%
           </div>
-
-          <button class="btn btn-outline btn-small" type="button" onclick="useManualCatalog(${index})">Usar</button>
+          <div class="result-meta mt-2">
+            ${p.unit ? `<strong>Unidad:</strong> ${escapeHtml(p.unit)} · ` : ''}
+            ${p.color ? `<strong>Color:</strong> ${escapeHtml(p.color)} · ` : ''}
+            ${p.category ? `<strong>Categoría:</strong> ${escapeHtml(p.category)} · ` : ''}
+            Costo <strong>${formatPlainMoney(p.cost)}</strong> · Precio <strong>${formatPlainMoney(p.price)}</strong>
+          </div>
+          ${p.description ? `<div class="result-meta mt-2">${escapeHtml(p.description)}</div>` : ''}
         </div>
-      `;
-    }).join('');
+
+        <button class="btn btn-outline btn-small" type="button" onclick="useManualCatalog(${index})">Usar</button>
+      </div>
+    `).join('');
   }
 
   function renderManualInternet(results) {
