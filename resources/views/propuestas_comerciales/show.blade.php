@@ -2014,27 +2014,37 @@
       return;
     }
 
-    box.innerHTML = products.map((p, index) => `
-      <div class="modal-result">
-        <div style="min-width:0;">
-          <div class="result-title mb-2">${escapeHtml(p.name)}</div>
-          <div class="result-meta">
-            SKU: ${escapeHtml(p.sku || '—')}
-            · ${escapeHtml(p.brand || '—')}
-            · Stock: ${p.stock ?? 0}
-            · ${Number(p.similarity_pct || 0).toFixed(0)}%
-          </div>
-          <div class="result-meta mt-2">
-            ${p.unit ? `<strong>Unidad:</strong> ${escapeHtml(p.unit)} · ` : ''}
-            ${p.color ? `<strong>Color:</strong> ${escapeHtml(p.color)} · ` : ''}
-            ${p.category ? `<strong>Categoría:</strong> ${escapeHtml(p.category)} · ` : ''}
-            Costo <strong>${money(p.cost)}</strong> · Precio <strong>${money(p.price)}</strong>
-          </div>
-        </div>
+    box.innerHTML = products.map((p, index) => {
+      const image = p.image_url || (Array.isArray(p.photo_urls) && p.photo_urls.length ? p.photo_urls[0] : '');
+      const imageHtml = image
+        ? `<div class="sample-image" style="width:72px;height:72px;flex:0 0 72px;"><img src="${escapeHtml(image)}" alt="${escapeHtml(p.name || 'Producto')}" loading="lazy" onerror="this.closest('.sample-image').innerHTML='Sin imagen';"></div>`
+        : `<div class="sample-image" style="width:72px;height:72px;flex:0 0 72px;">Sin imagen</div>`;
 
-        <button class="btn btn-outline btn-small" type="button" onclick="useManualCatalog(${index})">Usar</button>
-      </div>
-    `).join('');
+      return `
+        <div class="modal-result" style="gap:14px; align-items:flex-start;">
+          ${imageHtml}
+          <div style="min-width:0; flex:1;">
+            <div class="result-title mb-2">${escapeHtml(p.name)}</div>
+            <div class="result-meta">
+              SKU: ${escapeHtml(p.sku || '—')}
+              ${p.brand ? ' · ' + escapeHtml(p.brand) : ''}
+              ${p.model ? ' · Modelo: ' + escapeHtml(p.model) : ''}
+              · Stock: ${Number(p.stock || 0).toLocaleString('es-MX')}
+              · ${Number(p.similarity_pct || 0).toFixed(0)}%
+            </div>
+            <div class="result-meta mt-2">
+              ${p.unit ? `<strong>Unidad:</strong> ${escapeHtml(p.unit)} · ` : ''}
+              ${p.color ? `<strong>Color:</strong> ${escapeHtml(p.color)} · ` : ''}
+              ${p.category ? `<strong>Categoría:</strong> ${escapeHtml(p.category)} · ` : ''}
+              Costo <strong>${formatPlainMoney(p.cost)}</strong> · Precio <strong>${formatPlainMoney(p.price)}</strong>
+            </div>
+            ${p.description ? `<div class="result-meta mt-2">${escapeHtml(p.description)}</div>` : ''}
+          </div>
+
+          <button class="btn btn-outline btn-small" type="button" onclick="useManualCatalog(${index})">Usar</button>
+        </div>
+      `;
+    }).join('');
   }
 
   function renderManualInternet(results) {
@@ -2202,7 +2212,7 @@
   }
 
   function sampleImageHtml(c) {
-    const src = c.image_url || c.image || c.thumbnail_url || c.photo_url || c.picture_url || '';
+    const src = c.image_url || (Array.isArray(c.photo_urls) && c.photo_urls.length ? c.photo_urls[0] : '') || c.photo_1 || c.photo_2 || c.photo_3 || c.image || c.thumbnail_url || c.photo_url || c.picture_url || '';
 
     if (!src) {
       return '<div class="sample-image">Sin imagen</div>';
@@ -2237,7 +2247,7 @@
       return;
     }
 
-    box.innerHTML = cands.map(c => {
+    box.innerHTML = cands.map((c, index) => {
       const locs = (c.locations || [])
         .map(l => `${escapeHtml(l.location || 'Ubicación')}: ${Number(l.qty || 0).toLocaleString('es-MX')}${Number(l.reserved || 0) > 0 ? ' (apartado ' + Number(l.reserved || 0).toLocaleString('es-MX') + ')' : ''}`)
         .join(' · ');
@@ -2291,11 +2301,50 @@
               <div>Disponible: <strong>${Number(c.net_available || 0).toLocaleString('es-MX')}</strong></div>
               <div>Faltante: <strong>${Number(c.to_buy || 0).toLocaleString('es-MX')}</strong></div>
             </div>
+            <button class="btn btn-primary btn-small" type="button" onclick="useSampleCatalog(${index})">Usar</button>
             ${c.public_url ? `<a class="btn btn-outline btn-small" target="_blank" rel="noopener noreferrer" href="${escapeHtml(c.public_url)}">Ver producto</a>` : ''}
           </div>
         </div>
       `;
     }).join('');
+  }
+
+
+  async function useSampleCatalog(index) {
+    const product = samplesCache[index];
+    if (!product || !samplesItemId) return;
+
+    const item = items.find(i => Number(i.id) === Number(samplesItemId));
+    const margin = Number(item?.item_margin_pct || 25);
+    const cost = Number(product.cost || 0);
+
+    try {
+      const data = await ajax(urlFor(routes.updateItem, samplesItemId), {
+        method: 'POST',
+        body: JSON.stringify({
+          catalog_product_name: product.name,
+          costo_unitario: cost,
+          porcentaje_utilidad: margin,
+          external_supplier: product.brand || '',
+          modelo: product.model || '',
+          external_link: product.public_url || ''
+        })
+      });
+
+      updateItemInState(data.item);
+      summary = data.summary || summary;
+      closeSamplesModal();
+      keepScrollAfterRender(samplesItemId, () => {
+        renderItems();
+        toggleItem(samplesItemId, true);
+        switchTab(samplesItemId, 'edit');
+      });
+
+      showToast('Producto aplicado', 'La referencia se guardó en la partida. Revísala y acéptala manualmente cuando corresponda.', 1, 1);
+      setTimeout(hideToast, 3000);
+    } catch (e) {
+      showInlineError(e.message || 'No se pudo usar este producto.');
+    }
   }
 
   // --- Modal Fichas Técnicas ---

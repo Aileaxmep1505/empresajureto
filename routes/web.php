@@ -2272,3 +2272,11 @@ Route::delete('/propuesta-comercial-items/{item}/ajax/clarification/{question}/d
     ->name('propuesta-comercial-items.clarification.delete');
 Route::delete('/propuesta-comercial-items/{item}/ajax/delete', [\App\Http\Controllers\PropuestaComercialController::class, 'ajaxDeleteItem'])
     ->name('propuesta-comercial-items.ajax.delete');
+    Route::get('/propuestas-comerciales/{propuestaComercial}/ajax/manual-search', [\App\Http\Controllers\PropuestaComercialController::class, 'ajaxManualSearch'])
+    ->name('propuestas-comerciales.ajax.manual-search');
+
+Route::post('/propuesta-comercial-items/{item}/ajax/update', [\App\Http\Controllers\PropuestaComercialController::class, 'ajaxUpdateItem']);
+
+Route::get('/propuesta-comercial-items/{item}/ajax/samples', [\App\Http\Controllers\PropuestaComercialController::class, 'ajaxSamplesItem']);
+
+Route::delete('/propuesta-comercial-items/{item}/ajax/delete', [\App\Http\Controllers\PropuestaComercialController::class, 'ajaxDeleteItem']);
