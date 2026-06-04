@@ -1,27 +1,83 @@
 @extends('layouts.app')
 @section('content_class', 'content--flush')
 @section('content')
+@php
+  $company = [
+    'name' => 'JURETO S.A. DE C.V.',
+    'address' => 'BERNARDO VARA 25, COL. PILARES, C.P. 52179, METEPEC, ESTADO DE MEXICO.',
+    'phone' => '5541937243, 8135515784',
+    'email' => 'RTORT@JURETO.COM.MX',
+    'rfc' => 'JUR2002196K4',
+    'representative' => 'JUAN RENE TORT RODRIGUEZ',
+    'representative_role' => 'REPRESENTANTE LEGAL DE JURETO SA DE CV',
+  ];
+
+  $logoFile = public_path('images/logo-mail.png');
+  $logoExt = strtolower(pathinfo($logoFile, PATHINFO_EXTENSION));
+  $logoMime = match ($logoExt) {
+      'jpg', 'jpeg' => 'jpeg',
+      'svg' => 'svg+xml',
+      default => $logoExt ?: 'png',
+  };
+  $logoSrc = file_exists($logoFile)
+      ? 'data:image/' . $logoMime . ';base64,' . base64_encode(file_get_contents($logoFile))
+      : asset('images/logo-mail.png');
+
+  $quoteDate = $createdAt instanceof \Carbon\CarbonInterface ? $createdAt : \Carbon\Carbon::parse($createdAt);
+  $months = [
+    1 => 'ENERO',
+    2 => 'FEBRERO',
+    3 => 'MARZO',
+    4 => 'ABRIL',
+    5 => 'MAYO',
+    6 => 'JUNIO',
+    7 => 'JULIO',
+    8 => 'AGOSTO',
+    9 => 'SEPTIEMBRE',
+    10 => 'OCTUBRE',
+    11 => 'NOVIEMBRE',
+    12 => 'DICIEMBRE',
+  ];
+
+  $legalDateText = 'METEPEC ESTADO DE MEXICO A ' . $quoteDate->format('d') . ' DE ' . ($months[(int) $quoteDate->format('n')] ?? '') . ' DEL ' . $quoteDate->format('Y');
+
+  $integerPart = (int) floor((float) $total);
+  $cents = (int) round((((float) $total) - $integerPart) * 100);
+  if ($cents === 100) {
+    $integerPart++;
+    $cents = 0;
+  }
+
+  $currencyWord = $integerPart === 1 ? 'PESO' : 'PESOS';
+  $totalInWords = number_format($total, 2) . ' ' . $currencyWord . ' ' . str_pad($cents, 2, '0', STR_PAD_LEFT) . '/100 M.N.';
+
+  if (class_exists(\NumberFormatter::class)) {
+    $formatter = new \NumberFormatter('es_MX', \NumberFormatter::SPELLOUT);
+    $words = trim((string) $formatter->format($integerPart));
+    if ($words !== '') {
+      $totalInWords = mb_strtoupper($words, 'UTF-8') . ' ' . $currencyWord . ' ' . str_pad($cents, 2, '0', STR_PAD_LEFT) . '/100 M.N.';
+    }
+  }
+@endphp
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap');
 
   .client-quote-page {
     --bg: #f9fafb;
     --card: #ffffff;
-    --ink: #333333;
-    --muted: #888888;
-    --line: #ebebeb;
+    --ink: #1f1f1f;
+    --muted: #6b7280;
+    --line: #e5e7eb;
     --blue: #007aff;
     --blue-soft: #e6f0ff;
     --success: #15803d;
     --success-soft: #e6ffe6;
-    --danger: #ff4a4a;
-    --danger-soft: #ffebeb;
 
     min-height: 100vh;
     background: var(--bg);
     font-family: 'Quicksand', sans-serif;
     color: var(--ink);
-    padding: 36px 0 70px;
+    padding: 24px 0 70px;
   }
 
   .client-quote-page,
@@ -30,17 +86,16 @@
   }
 
   .client-quote-page .wrap {
-    width: 90vw;
-    max-width: 1500px;
+    width: min(1120px, calc(100vw - 32px));
     margin: 0 auto;
   }
 
-  .client-quote-page .topbar {
+  .client-quote-page .page-actions {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
-    gap: 24px;
-    margin-bottom: 30px;
+    gap: 14px;
+    margin-bottom: 22px;
   }
 
   .client-quote-page .back-link {
@@ -51,33 +106,16 @@
     font-size: 14px;
     font-weight: 700;
     text-decoration: none;
-    margin-bottom: 28px;
   }
 
   .client-quote-page .back-link:hover {
     color: var(--blue);
   }
 
-  .client-quote-page .title {
-    margin: 0;
-    color: #111;
-    font-size: 28px;
-    font-weight: 700;
-    letter-spacing: -.03em;
-  }
-
-  .client-quote-page .subtitle {
-    margin-top: 8px;
-    color: var(--muted);
-    font-size: 15px;
-    font-weight: 600;
-  }
-
   .client-quote-page .actions {
     display: flex;
     gap: 10px;
     flex-wrap: wrap;
-    padding-top: 54px;
     justify-content: flex-end;
   }
 
@@ -134,11 +172,12 @@
 
   .client-quote-page .document-card {
     width: min(780px, 100%);
+    margin: 0 auto;
     background: var(--card);
     border: 1px solid var(--line);
     border-radius: 18px;
     box-shadow: 0 4px 12px rgba(0,0,0,.02);
-    padding: 50px 46px;
+    padding: 46px 42px 54px;
   }
 
   .client-quote-page .document-head {
@@ -147,26 +186,22 @@
     justify-content: space-between;
     gap: 28px;
     border-bottom: 1px solid var(--line);
-    padding-bottom: 30px;
+    padding-bottom: 24px;
     margin-bottom: 28px;
   }
 
   .client-quote-page .brand {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 14px;
   }
 
-  .client-quote-page .brand-icon {
-    width: 38px;
-    height: 38px;
-    border-radius: 12px;
-    background: var(--blue);
-    color: #fff;
-    display: grid;
-    place-items: center;
-    font-weight: 700;
-    font-size: 20px;
+  .client-quote-page .brand-logo {
+    width: 74px;
+    height: auto;
+    display: block;
+    object-fit: contain;
+    flex: 0 0 auto;
   }
 
   .client-quote-page .brand-name {
@@ -181,8 +216,8 @@
   .client-quote-page .client-info {
     color: var(--muted);
     font-size: 10.5px;
-    line-height: 1.55;
-    font-weight: 500;
+    line-height: 1.6;
+    font-weight: 600;
   }
 
   .client-quote-page .quote-box {
@@ -222,7 +257,7 @@
   }
 
   .client-quote-page .client-block {
-    margin-bottom: 38px;
+    margin-bottom: 34px;
   }
 
   .client-quote-page table {
@@ -254,7 +289,7 @@
   }
 
   .client-quote-page .totals {
-    width: min(300px, 100%);
+    width: min(320px, 100%);
     margin-left: auto;
     margin-top: 26px;
   }
@@ -287,13 +322,85 @@
     font-size: 17px;
   }
 
-  .client-quote-page .footer-note {
+  .client-quote-page .legal-section {
+    margin-top: 34px;
     border-top: 1px solid var(--line);
-    margin-top: 42px;
-    padding-top: 20px;
-    color: var(--muted);
-    font-size: 11px;
-    line-height: 1.7;
+    padding-top: 24px;
+    color: #111;
+    page-break-inside: avoid;
+  }
+
+  .client-quote-page .amount-in-words {
+    font-size: 12px;
+    line-height: 1.5;
+    margin-bottom: 28px;
+    text-transform: uppercase;
+  }
+
+  .client-quote-page .legal-title {
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    text-decoration: underline;
+    margin: 0 0 16px;
+  }
+
+  .client-quote-page .legal-intro {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-bottom: 18px;
+    line-height: 1.5;
+  }
+
+  .client-quote-page .legal-list {
+    margin: 0;
+    padding-left: 0;
+    list-style: none;
+    font-size: 12px;
+    line-height: 1.45;
+    text-transform: uppercase;
+  }
+
+  .client-quote-page .legal-list li {
+    margin-bottom: 8px;
+  }
+
+  .client-quote-page .legal-date {
+    margin-top: 28px;
+    text-align: right;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    text-decoration: underline;
+  }
+
+  .client-quote-page .signature-block {
+    margin-top: 64px;
+    text-align: center;
+    page-break-inside: avoid;
+  }
+
+  .client-quote-page .signature-title {
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-bottom: 46px;
+  }
+
+  .client-quote-page .signature-space {
+    width: min(78%, 320px);
+    margin: 0 auto 10px;
+    border-bottom: 1px solid #111;
+    height: 48px;
+  }
+
+  .client-quote-page .signature-name,
+  .client-quote-page .signature-role {
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    line-height: 1.3;
   }
 
   .client-quote-page .modal-backdrop {
@@ -385,11 +492,16 @@
       padding: 0;
     }
 
-    .client-quote-page .topbar,
+    .client-quote-page .page-actions,
     .client-quote-page .actions,
     .client-quote-page .back-link,
     .client-quote-page .modal-backdrop {
       display: none !important;
+    }
+
+    @page {
+      size: letter;
+      margin: 12mm;
     }
 
     .client-quote-page .wrap {
@@ -401,17 +513,19 @@
       border: 0;
       box-shadow: none;
       width: 100%;
+      max-width: 780px;
+      margin: 0 auto;
       padding: 0;
     }
   }
 
   @media (max-width: 900px) {
-    .client-quote-page .topbar {
+    .client-quote-page .page-actions {
+      align-items: flex-start;
       flex-direction: column;
     }
 
     .client-quote-page .actions {
-      padding-top: 0;
       justify-content: flex-start;
     }
 
@@ -442,6 +556,11 @@
       width: 100%;
     }
 
+    .client-quote-page .brand {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
     .client-quote-page table {
       min-width: 620px;
     }
@@ -449,20 +568,19 @@
     .client-quote-page .table-scroll {
       overflow-x: auto;
     }
+
+    .client-quote-page .legal-date {
+      text-align: left;
+    }
   }
 </style>
 
 <div class="client-quote-page">
   <div class="wrap">
-    <a href="{{ route('propuestas-comerciales.show', $propuestaComercial) }}" class="back-link">
-      ← Regresar
-    </a>
-
-    <div class="topbar">
-      <div>
-        <h1 class="title">Cotización para el cliente</h1>
-        <div class="subtitle">{{ $folio }}</div>
-      </div>
+    <div class="page-actions">
+      <a href="{{ route('propuestas-comerciales.show', $propuestaComercial) }}" class="back-link">
+        ← Regresar
+      </a>
 
       <div class="actions">
         <button type="button" class="btn" onclick="window.print()">▣ Imprimir</button>
@@ -480,7 +598,7 @@
     <div class="document-card">
       <div class="document-head">
         <div class="brand">
-          <div class="brand-icon">✦</div>
+          <img src="{{ $logoSrc }}" alt="Logo Jureto" class="brand-logo">
           <div>
             <div class="brand-name">{{ $company['name'] }}</div>
             <div class="brand-info">
@@ -495,7 +613,7 @@
           <div class="quote-label">Cotización</div>
           <div class="quote-folio">{{ $folio }}</div>
           <div class="quote-info">
-            {{ $createdAt->format('d/m/Y') }}<br>
+            {{ $quoteDate->format('d/m/Y') }}<br>
             Vigencia: 15 días
           </div>
         </div>
@@ -564,9 +682,31 @@
         </div>
       </div>
 
-      <div class="footer-note">
-        Esta cotización tiene una vigencia de 15 días naturales a partir de su fecha de emisión.
-        Precios sujetos a disponibilidad y validación final. Gracias por considerar nuestra propuesta.
+      <div class="legal-section">
+        <div class="amount-in-words">
+          (TOTAL CON LETRA: {{ $totalInWords }})
+        </div>
+
+        <h3 class="legal-title">CONDICIONES DE LA PROPUESTA ECONÓMICA:</h3>
+
+        <div class="legal-intro">
+          EN CASO DE RESULTAR ADJUDICADOS, QUEDA ENTENDIDO Y ACEPTADO LO SIGUIENTE:
+        </div>
+
+        <ol class="legal-list">
+          <li>1.- LA VIGENCIA DE LOS PRECIOS PROPUESTOS SERÁ POR EL TIEMPO QUE DURE EL PROCEDIMIENTO DE INVITACIÓN A PARTIR DE LA PRESENTACIÓN DE LA PROPUESTA Y HASTA CONCLUIR LA ENTREGA TOTAL DE LOS BIENES EN TIEMPO Y FORMA.</li>
+          <li>2.- LOS PRECIOS SERÁN FIJOS E INCONDICIONADOS DURANTE LA VIGENCIA DEL CONTRATO QUE DE RESULTAR GANADOR ME SEA ASIGNADO.</li>
+          <li>3.- LOS GASTOS POR CONCEPTO DE TRASLADOS, FLETES, MANIOBRAS DE CARGA, DESCARGA, ACARREO, SEGUROS, U OTROS CONCEPTOS POR LA ENTREGA DE LOS BIENES, ASÍ COMO LA SOLVENTACIÓN DE LAS OBSERVACIONES REALIZADAS AL MOMENTO DE LA ENTREGA DE LOS BIENES, SERÁN A CARGO ÚNICA Y EXCLUSIVAMENTE DE NOSOTROS, RAZÓN POR LA CUAL NO EXIGIREMOS AL COLEGIO CONDICIONES ADICIONALES A LAS PROPUESTAS.</li>
+        </ol>
+
+        <div class="legal-date">{{ $legalDateText }}</div>
+
+        <div class="signature-block">
+          <div class="signature-title">BAJO PROTESTA DE DECIR VERDAD</div>
+          <div class="signature-space"></div>
+          <div class="signature-name">{{ $company['representative'] }}</div>
+          <div class="signature-role">{{ $company['representative_role'] }}</div>
+        </div>
       </div>
     </div>
   </div>

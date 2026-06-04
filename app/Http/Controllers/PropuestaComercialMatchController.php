@@ -153,16 +153,34 @@ class PropuestaComercialMatchController extends Controller
         }
 
         $queryNorm = $this->normalizeText($descripcion);
-        $allWords = $this->extractWords($queryNorm);
-        $coreWords = $allWords->take(6);
+        $queryTokens = $this->extractWords($queryNorm);
 
-        if ($allWords->isEmpty()) {
+        if ($queryTokens->isEmpty()) {
+            $queryTokens = collect(preg_split('/\s+/', $queryNorm))
+                ->map(fn ($t) => trim((string) $t))
+                ->filter(fn ($t) => $t !== '')
+                ->unique()
+                ->values();
+        }
+
+        if ($queryTokens->isEmpty()) {
             $this->resetItem($item);
             $this->generateExternalReferences($item, $descripcion, $unidad);
             return;
         }
 
-        $candidates = $this->findCatalogCandidates($descripcion, $allWords, $coreWords);
+        // ── EXPANSIÓN SEMÁNTICA POR IA ──
+        // La IA entiende que "bote de basura" = "cesto de basura" = "papelera", etc.
+        // Así el catálogo correcto SÍ llega a la búsqueda aunque tenga otro nombre.
+        $expansion = $this->aiService->expandSearchTerms($descripcion, $unidad);
+
+        $expansionTerms = collect($expansion['terminos'] ?? [])
+            ->map(fn ($t) => $this->normalizeText((string) $t))
+            ->filter(fn ($t) => $t !== '' && mb_strlen($t) >= 3)
+            ->unique()
+            ->values();
+
+        $candidates = $this->findCatalogCandidates($queryNorm, $queryTokens, $expansionTerms);
 
         if ($candidates->isEmpty()) {
             $this->resetItem($item);
@@ -173,10 +191,10 @@ class PropuestaComercialMatchController extends Controller
         $unidadNorm = $this->normalizeText($unidad);
 
         $ranked = $candidates
-            ->map(fn ($p) => $this->rankProduct($p, $queryNorm, $allWords, $coreWords, $unidadNorm))
-            ->filter(fn ($row) => $row['score'] > 0 && $row['core_matches'] > 0)
+            ->map(fn ($p) => $this->rankProduct($p, $queryNorm, $queryTokens, $expansionTerms, $unidadNorm))
+            ->filter(fn ($row) => $row['score'] > 0 && $row['relevant'])
             ->sortByDesc('score')
-            ->take(20)
+            ->take(25)
             ->values()
             ->all();
 
@@ -186,6 +204,7 @@ class PropuestaComercialMatchController extends Controller
             return;
         }
 
+        // La IA decide con sentido común (mismo tipo aunque cambie el nombre; rechaza tipos distintos).
         $aiApproved = $this->aiService->validateCandidates(
             descripcionOriginal: $descripcion,
             unidadSolicitada: $unidad,
@@ -215,8 +234,11 @@ class PropuestaComercialMatchController extends Controller
                 'meta' => [
                     'product_name' => $row['product']->name,
                     'sku' => $row['product']->sku,
-                    'lexico_score' => $row['score'],
+                    'lexico_score' => $row['score'] ?? null,
+                    'coverage' => $row['coverage'] ?? null,
                     'matched_tokens' => $row['matched_tokens'] ?? [],
+                    'missing_tokens' => $row['missing_tokens'] ?? [],
+                    'expansion_terms' => $expansionTerms->all(),
                 ],
             ]);
         }
@@ -249,8 +271,14 @@ class PropuestaComercialMatchController extends Controller
         $this->updateParentStatus($item);
     }
 
-    protected function findCatalogCandidates(string $descripcion, $allWords, $coreWords)
+    /**
+     * Recuperación amplia: frase completa + bigramas + tokens + SINÓNIMOS de la IA,
+     * sobre todas las columnas. Así el producto correcto llega aunque su nombre difiera.
+     */
+    protected function findCatalogCandidates(string $queryNorm, $queryTokens, $expansionTerms = null)
     {
+        $expansionTerms = $expansionTerms ?? collect();
+
         $table = (new Product())->getTable();
 
         $columns = collect([
@@ -272,25 +300,39 @@ class PropuestaComercialMatchController extends Controller
             return collect();
         }
 
+        $tokens = $queryTokens->values()->all();
+
+        $bigrams = [];
+        for ($i = 0; $i + 2 <= count($tokens); $i++) {
+            $bigrams[] = $tokens[$i] . ' ' . $tokens[$i + 1];
+        }
+
+        // Términos de la IA (pueden ser de una o varias palabras).
+        $expansion = $expansionTerms->filter(fn ($t) => $t !== '')->unique()->values()->all();
+
         return Product::query()
-            ->where(function ($q) use ($columns, $allWords, $coreWords, $descripcion) {
-                foreach ($coreWords as $word) {
-                    foreach ($columns as $column) {
-                        $q->orWhere($column, 'like', "%{$word}%");
-                    }
-                }
-
-                foreach ($allWords as $word) {
-                    foreach ($columns as $column) {
-                        $q->orWhere($column, 'like', "%{$word}%");
-                    }
-                }
-
+            ->where(function ($q) use ($columns, $tokens, $bigrams, $expansion, $queryNorm) {
                 foreach ($columns as $column) {
-                    $q->orWhere($column, 'like', '%' . $descripcion . '%');
+                    // Frase completa
+                    $q->orWhere($column, 'like', '%' . $queryNorm . '%');
+
+                    // Sinónimos / variantes de la IA (lo más importante para el recall semántico)
+                    foreach ($expansion as $term) {
+                        $q->orWhere($column, 'like', '%' . $term . '%');
+                    }
+
+                    // Bigramas
+                    foreach ($bigrams as $bigram) {
+                        $q->orWhere($column, 'like', '%' . $bigram . '%');
+                    }
+
+                    // Tokens individuales
+                    foreach ($tokens as $token) {
+                        $q->orWhere($column, 'like', '%' . $token . '%');
+                    }
                 }
             })
-            ->limit(350)
+            ->limit(450)
             ->get();
     }
 
@@ -339,12 +381,10 @@ class PropuestaComercialMatchController extends Controller
         $stopWords = collect([
             'con', 'sin', 'para', 'por', 'del', 'las', 'los', 'una', 'uno', 'unos', 'unas',
             'pieza', 'piezas', 'pza', 'pzas', 'caja', 'cajas', 'paquete', 'paquetes',
-            'presentacion', 'presentaciones', 'color', 'colores', 'tipo', 'diseno', 'diseño',
-            'estandar', 'standard', 'medida', 'medidas', 'marca', 'modelo', 'material',
-            'producto', 'productos', 'solicitado', 'solicitada', 'suministro', 'servicio',
-            'incluye', 'incluido', 'tamano', 'tamaño', 'grande', 'chico', 'mediano',
-            'capacidad', 'compacta', 'ligera', 'rigida', 'rigidas', 'base', 'alta', 'baja',
-            'rapido', 'rapida', 'cm', 'mm', 'kg', 'gr', 'gramos',
+            'presentacion', 'presentaciones',
+            'producto', 'productos', 'solicitado', 'solicitada', 'suministro',
+            'incluye', 'incluido',
+            'cm', 'mm', 'kg', 'gr', 'gramos',
         ]);
 
         return collect(preg_split('/\s+/', $text))
@@ -356,71 +396,130 @@ class PropuestaComercialMatchController extends Controller
             ->values();
     }
 
-    protected function rankProduct(Product $product, string $queryNorm, $allWords, $coreWords, string $unidadNorm): array
+    /**
+     * Ranking sobre la descripción completa + sinónimos de la IA.
+     * Un producto con nombre distinto pero del mismo tipo (vía sinónimo) sube en el ranking
+     * para que llegue a la validación final de la IA.
+     */
+    protected function rankProduct(Product $product, string $queryNorm, $queryTokens, $expansionTerms, string $unidadNorm): array
     {
+        $expansionTerms = $expansionTerms ?? collect();
+
         $name = $this->normalizeText((string) ($product->name ?? ''));
         $sku = $this->normalizeText((string) ($product->sku ?? ''));
         $supplierSku = $this->normalizeText((string) ($product->supplier_sku ?? ''));
         $category = $this->normalizeText((string) ($product->category ?? ''));
         $tags = $this->normalizeText((string) ($product->tags ?? ''));
         $brand = $this->normalizeText((string) ($product->brand ?? ''));
+        $model = $this->normalizeText((string) ($product->model ?? $product->modelo ?? ''));
         $description = $this->normalizeText((string) ($product->description ?? ''));
         $color = $this->normalizeText((string) ($product->color ?? ''));
         $unit = $this->normalizeText((string) ($product->unit ?? $product->unidad ?? ''));
 
-        $haystack = trim(implode(' ', array_filter([$name, $sku, $supplierSku, $brand, $category, $tags, $description, $color, $unit])));
-        $strong = trim(implode(' ', array_filter([$name, $category, $tags, $sku, $supplierSku])));
+        $haystack = trim(implode(' ', array_filter([
+            $name, $sku, $supplierSku, $brand, $model, $category, $tags, $description, $color, $unit,
+        ])));
 
-        $score = 0;
+        $fieldWeights = [
+            [$name, 24],
+            [$sku, 18],
+            [$supplierSku, 16],
+            [$category, 16],
+            [$tags, 15],
+            [$brand, 12],
+            [$model, 12],
+            [$description, 10],
+            [$color, 8],
+            [$unit, 6],
+        ];
+
+        $score = 0.0;
         $matched = [];
 
-        foreach ($allWords as $word) {
-            $ws = 0;
+        foreach ($queryTokens as $token) {
+            $best = 0;
 
-            if ($this->wordIn($name, $word)) $ws += 22;
-            if ($this->wordIn($sku, $word)) $ws += 20;
-            if ($this->wordIn($supplierSku, $word)) $ws += 20;
-            if ($this->wordIn($category, $word)) $ws += 15;
-            if ($this->wordIn($tags, $word)) $ws += 14;
-            if ($this->wordIn($brand, $word)) $ws += 8;
-            if ($this->wordIn($description, $word)) $ws += 6;
-            if ($this->wordIn($color, $word)) $ws += 6;
-            if ($this->wordIn($unit, $word)) $ws += 4;
+            foreach ($fieldWeights as [$field, $weight]) {
+                if ($field === '') {
+                    continue;
+                }
 
-            if ($ws > 0) {
-                $matched[] = $word;
-                $score += min($ws, 26);
+                if ($this->wordIn($field, $token)) {
+                    $best = max($best, $weight);
+                } elseif (str_contains($field, $token)) {
+                    $best = max($best, (int) round($weight * 0.5));
+                }
+            }
+
+            if ($best > 0) {
+                $matched[] = $token;
+                $score += $best;
             }
         }
 
-        $coreMatches = 0;
+        $matched = array_values(array_unique($matched));
+        $total = max($queryTokens->count(), 1);
+        $matchedCount = count($matched);
+        $coverage = $matchedCount / $total;
 
-        foreach ($coreWords as $word) {
-            if ($this->wordIn($strong, $word) || $this->wordIn($haystack, $word)) {
-                $coreMatches++;
-                $score += 15;
+        $score += $coverage * 70;
+
+        // ── Coincidencias por SINÓNIMO de la IA (mismo tipo, otro nombre) ──
+        $expansionMatched = [];
+
+        foreach ($expansionTerms as $term) {
+            if ($term === '') {
+                continue;
+            }
+
+            if (str_contains($term, ' ')) {
+                if ($this->phraseIn($haystack, $term)) {
+                    $expansionMatched[] = $term;
+                    $score += 22; // frase sinónima en el texto del producto
+                }
+            } elseif ($this->wordIn($haystack, $term)) {
+                $expansionMatched[] = $term;
+                $score += 14; // palabra sinónima
             }
         }
 
-        $firstTwo = $allWords->take(2)->implode(' ');
+        $expansionHit = count($expansionMatched) > 0;
 
-        if ($firstTwo !== '' && $this->phraseIn($name, $firstTwo)) {
-            $score += 80;
-        } elseif ($firstTwo !== '' && $this->phraseIn($strong, $firstTwo)) {
-            $score += 50;
+        // Frases / n-gramas de la descripción original.
+        $phraseHit = false;
+        $tokensArr = $queryTokens->values()->all();
+
+        for ($n = 3; $n >= 2; $n--) {
+            for ($i = 0; $i + $n <= count($tokensArr); $i++) {
+                $gram = trim(implode(' ', array_slice($tokensArr, $i, $n)));
+
+                if ($gram === '') {
+                    continue;
+                }
+
+                if ($this->phraseIn($name, $gram)) {
+                    $score += $n * 14;
+                    $phraseHit = true;
+                } elseif ($this->phraseIn($haystack, $gram)) {
+                    $score += $n * 8;
+                    $phraseHit = true;
+                }
+            }
         }
 
         if ($this->phraseIn($name, $queryNorm)) {
-            $score += 40;
+            $score += 60;
+            $phraseHit = true;
         } elseif ($this->phraseIn($haystack, $queryNorm)) {
-            $score += 20;
+            $score += 30;
+            $phraseHit = true;
         }
 
-        similar_text($queryNorm, $name, $ns);
-        similar_text($queryNorm, $haystack, $gs);
+        similar_text($queryNorm, $name, $simName);
+        similar_text($queryNorm, $haystack, $simAll);
 
-        $score += min((float) $ns * 0.3, 15);
-        $score += min((float) $gs * 0.1, 8);
+        $score += min((float) $simName * 0.25, 14);
+        $score += min((float) $simAll * 0.18, 12);
 
         $unidadCoincide = $unidadNorm !== '' && $this->wordIn($haystack, $unidadNorm);
 
@@ -428,14 +527,30 @@ class PropuestaComercialMatchController extends Controller
             $score += 5;
         }
 
+        // Relevante si: hay frase, hay sinónimo, o buena cobertura de la descripción.
+        $relevant = $phraseHit
+            || $expansionHit
+            || ($total <= 2 ? $matchedCount >= 1 : ($coverage >= 0.34 || $matchedCount >= 2));
+
+        $missing = $queryTokens
+            ->reject(fn ($t) => in_array($t, $matched, true))
+            ->values()
+            ->all();
+
         return [
             'product' => $product,
             'score' => round(max($score, 0), 2),
-            'core_matches' => $coreMatches,
+            'coverage' => round($coverage, 3),
+            'matched_count' => $matchedCount,
+            'core_matches' => $matchedCount,
+            'phrase_hit' => $phraseHit,
+            'expansion_hit' => $expansionHit,
+            'expansion_matched' => $expansionMatched,
+            'relevant' => $relevant,
             'unidad_coincide' => $unidadCoincide,
-            'matched_tokens' => array_values(array_unique($matched)),
-            'missing_tokens' => [],
-            'motivo' => 'Ranking léxico previo a IA',
+            'matched_tokens' => $matched,
+            'missing_tokens' => $missing,
+            'motivo' => 'Ranking por descripción + sinónimos (cobertura ' . round($coverage * 100) . '%)',
         ];
     }
 

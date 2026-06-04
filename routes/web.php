@@ -2270,3 +2270,5 @@ Route::post('/propuesta-comercial-items/{item}/ajax/clarification/save', [Propue
 
 Route::delete('/propuesta-comercial-items/{item}/ajax/clarification/{question}/delete', [PropuestaAclaracionPreguntaController::class, 'delete'])
     ->name('propuesta-comercial-items.clarification.delete');
+Route::delete('/propuesta-comercial-items/{item}/ajax/delete', [\App\Http\Controllers\PropuestaComercialController::class, 'ajaxDeleteItem'])
+    ->name('propuesta-comercial-items.ajax.delete');

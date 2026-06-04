@@ -26,7 +26,7 @@
     
     --font-family: 'Quicksand', sans-serif;
     --radius-card: 12px;
-    --radius-modal: 16px; 
+    --radius-modal: 12px; 
     --radius-input: 8px;
     --radius-btn: 8px;
   }
@@ -110,7 +110,9 @@
   .item-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-card); box-shadow: 0 2px 8px rgba(0,0,0,0.02); transition: transform 0.3s ease, box-shadow 0.3s ease; margin-bottom: 16px; overflow: visible; }
   .item-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.06); }
   .item-main { padding: 20px 24px; display: grid; grid-template-columns: 16px 32px 1fr auto auto auto 24px; gap: 16px; align-items: center; cursor: pointer; }
-  .drag-handle { background: transparent; border: none; color: var(--muted-light); cursor: grab; padding: 0; display: flex; align-items: center; justify-content: center; }
+  .drag-handle { background: transparent; border: none; color: var(--muted-light); cursor: grab; padding: 6px; display: flex; align-items: center; justify-content: center; touch-action: none; }
+  .drag-handle:active { cursor: grabbing; }
+  .item-card.dragging { opacity: .72; transform: scale(.995); box-shadow: 0 14px 34px rgba(15, 23, 42, .12); }
   .item-index { font-weight: 700; color: var(--muted-light); font-size: 14px; text-align: center; }
   .item-name { font-size: 16px; margin-bottom: 4px; }
   .item-meta { font-size: 13px; color: var(--muted); font-weight: 500; display: flex; gap: 6px; align-items: center;}
@@ -184,8 +186,69 @@
   /* Modal Base */
   .modal-backdrop { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45); backdrop-filter: blur(4px); z-index: 1050; display: none; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s ease; padding: 20px; }
   .modal-backdrop.show { display: flex; opacity: 1; }
-  .modal { background: var(--card); border-radius: var(--radius-modal); width: 100%; max-width: 560px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); transform: scale(0.95) translateY(15px); transition: transform 0.3s ease; display: flex; flex-direction: column; max-height: calc(100vh - 40px); }
+  .modal { background: var(--card); border-radius: 12px; width: 100%; max-width: 560px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); transform: scale(0.95) translateY(15px); transition: transform 0.3s ease; display: flex; flex-direction: column; max-height: calc(100vh - 40px); }
   .modal-backdrop.show .modal { transform: scale(1) translateY(0); }
+  .delete-confirm-backdrop {
+    background: rgba(15, 23, 42, 0.32);
+    backdrop-filter: blur(4px);
+    z-index: 1200;
+  }
+  .delete-confirm-modal {
+    width: min(520px, 100%);
+    max-width: 520px;
+    border-radius: 12px;
+    background: #ffffff;
+    color: var(--ink-dark);
+    box-shadow: 0 24px 80px rgba(15, 23, 42, 0.22);
+    padding: 28px;
+    transform: scale(0.96) translateY(12px);
+    transition: transform 0.24s ease;
+  }
+  .modal-backdrop.show .delete-confirm-modal { transform: scale(1) translateY(0); }
+  .delete-confirm-title {
+    font-size: 24px;
+    line-height: 1.25;
+    font-weight: 700;
+    margin: 0 0 16px;
+    color: #111827;
+  }
+  .delete-confirm-text {
+    font-size: 15px;
+    line-height: 1.55;
+    color: #475569;
+    margin: 0;
+  }
+  .delete-confirm-text strong {
+    color: #111827;
+    font-weight: 700;
+  }
+  .delete-confirm-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 28px;
+  }
+  .btn-modal-cancel {
+    min-width: 112px;
+    height: 44px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: #ffffff;
+    color: #111827;
+    font-weight: 700;
+  }
+  .btn-modal-cancel:hover { background: #f8fafc; transform: translateY(-1px); }
+  .btn-modal-delete {
+    min-width: 112px;
+    height: 44px;
+    border-radius: 999px;
+    border: 1px solid #ef4444;
+    background: #ef4444;
+    color: #ffffff;
+    font-weight: 700;
+    box-shadow: 0 8px 18px rgba(239, 68, 68, 0.18);
+  }
+  .btn-modal-delete:hover { background: #dc2626; transform: translateY(-1px); }
   .modal-head { padding: 20px 24px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: flex-start; flex-shrink:0; }
   .modal-title { font-size: 18px; margin-bottom: 4px; }
   .modal-subtitle { font-size: 14px; color: var(--muted); margin: 0; font-weight: 500; }
@@ -296,10 +359,15 @@
       ->sortBy('sort')
       ->values()
       ->map(function ($item) use ($propuestaComercial) {
-          $selectedMatch = $item->matches->firstWhere('seleccionado', true) ?: $item->matches->sortByDesc('score')->first();
-          $score = (float) ($item->match_score ?: optional($selectedMatch)->score);
+          // El match automatico solo debe sugerir candidatos.
+          // Una partida solo se considera aceptada/exacta cuando el usuario la acepta manualmente.
+          $uiStatus = data_get($item->meta, 'ui_status', 'pending');
+          $humanAccepted = $uiStatus === 'accepted_item';
+          $selectedMatch = $humanAccepted ? $item->matches->firstWhere('seleccionado', true) : null;
+          $bestMatch = $item->matches->sortByDesc('score')->first();
+          $score = (float) ($item->match_score ?: optional($selectedMatch ?: $bestMatch)->score);
 
-          if ($item->productoSeleccionado && $score >= 85) {
+          if ($humanAccepted && ($item->productoSeleccionado || $selectedMatch)) {
               $statusKey = 'exact';
           } elseif ($item->productoSeleccionado || $item->matches->count()) {
               $statusKey = 'similar';
@@ -320,7 +388,7 @@
               'subtotal' => (float) $item->subtotal,
               'match_score' => $score,
               'status_key' => $statusKey,
-              'ui_status' => data_get($item->meta, 'ui_status', 'pending'),
+              'ui_status' => $uiStatus,
               'item_margin_pct' => (float) data_get($item->meta, 'item_margin_pct', $propuestaComercial->porcentaje_utilidad ?: 25),
               'manual_external_supplier' => data_get($item->meta, 'external_supplier'),
               'manual_external_link' => data_get($item->meta, 'external_link'),
@@ -350,7 +418,7 @@
                       ];
                   })->all()
                   : data_get($item->meta, 'clarification_questions', []),
-              'producto_seleccionado' => $item->productoSeleccionado ? [
+              'producto_seleccionado' => ($humanAccepted && $item->productoSeleccionado) ? [
                   'id' => $item->productoSeleccionado->id,
                   'name' => $item->productoSeleccionado->name,
                   'sku' => $item->productoSeleccionado->sku,
@@ -359,13 +427,13 @@
                   'cost' => (float) ($item->productoSeleccionado->cost ?? $item->productoSeleccionado->costo ?? 0),
                   'price' => (float) ($item->productoSeleccionado->price ?? $item->productoSeleccionado->precio ?? 0),
               ] : null,
-              'matches' => $item->matches->sortBy('rank')->values()->map(function ($match) {
+              'matches' => $item->matches->sortBy('rank')->values()->map(function ($match) use ($humanAccepted) {
                   $p = $match->product;
                   return [
                       'id' => $match->id,
                       'rank' => $match->rank,
                       'score' => (float) $match->score,
-                      'seleccionado' => (bool) $match->seleccionado,
+                      'seleccionado' => $humanAccepted && (bool) $match->seleccionado,
                       'product' => $p ? [
                           'id' => $p->id,
                           'name' => $p->name,
@@ -514,6 +582,14 @@
               <path d="M9 12h6M9 16h4" stroke="#007aff" stroke-width="1.7" stroke-linecap="round"/>
               <circle cx="17" cy="17" r="3" fill="#e6f0ff" stroke="#007aff" stroke-width="1.4"/>
               <path d="M17 15.8v1.8" stroke="#007aff" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </button>
+          <button class="btn btn-outline btn-square has-tip" type="button" id="btnExportBrandsPdf" data-tip="PDF por marca" aria-label="PDF por marca">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" fill="#fff" stroke="#c74a14" stroke-width="1.5" stroke-linejoin="round"/>
+              <path d="M14 2v6h6" stroke="#c74a14" stroke-width="1.5" stroke-linejoin="round"/>
+              <path d="M8 13h8M8 17h8" stroke="#c74a14" stroke-width="1.6" stroke-linecap="round"/>
+              <path d="M8 9h3" stroke="#c74a14" stroke-width="1.6" stroke-linecap="round"/>
             </svg>
           </button>
         </div>
@@ -734,6 +810,21 @@
     </div>
   </div>
 
+
+  <div class="modal-backdrop delete-confirm-backdrop" id="deleteItemModal" onclick="handleDeleteModalBackdrop(event)">
+    <div class="delete-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="deleteItemModalTitle">
+      <h2 class="delete-confirm-title" id="deleteItemModalTitle">¿Eliminar partida?</h2>
+      <p class="delete-confirm-text">
+        Esto eliminará <strong id="deleteItemName">esta partida</strong> de la propuesta comercial.
+        Esta acción no se puede deshacer.
+      </p>
+      <div class="delete-confirm-actions">
+        <button class="btn btn-modal-cancel" type="button" onclick="closeDeleteItemModal()">Cancelar</button>
+        <button class="btn btn-modal-delete" type="button" id="btnConfirmDeleteItem" onclick="confirmDeleteItem()">Eliminar</button>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -749,6 +840,7 @@
     target: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>',
     x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>',
     check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>',
+    trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>',
     dots: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="6" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="18" cy="12" r="1.5" fill="currentColor"/></svg>',
     drag: '<svg width="12" height="20" viewBox="0 0 12 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="4" cy="6" r="1.5" fill="currentColor"/><circle cx="8" cy="6" r="1.5" fill="currentColor"/><circle cx="4" cy="10" r="1.5" fill="currentColor"/><circle cx="8" cy="10" r="1.5" fill="currentColor"/><circle cx="4" cy="14" r="1.5" fill="currentColor"/><circle cx="8" cy="14" r="1.5" fill="currentColor"/></svg>',
     chevron: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>',
@@ -760,6 +852,7 @@
     suggestItem: @json(url('/propuesta-comercial-items/__ID__/ajax/suggest')),
     updateItem: @json(url('/propuesta-comercial-items/__ID__/ajax/update')),
     updateStatus: @json(url('/propuesta-comercial-items/__ID__/ajax/status')),
+    deleteItem: @json(url('/propuesta-comercial-items/__ID__/ajax/delete')),
     manualSearch: @json(route('propuestas-comerciales.ajax.manual-search', $propuestaComercial)),
     reorder: @json(route('propuestas-comerciales.ajax.reorder-items', $propuestaComercial)),
     globalMargin: @json(route('propuestas-comerciales.ajax.global-margin', $propuestaComercial)),
@@ -796,9 +889,36 @@
   let currentLinkedSheetId = null;
   let clarificationItemId = null;
   let clarificationLastCandidate = null;
+  let pendingDeleteItemId = null;
 
   function money(n) { return Number(n || 0).toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 2 }); }
+  function moneyOrBlank(n) { return Number(n || 0) > 0 ? money(n) : ''; }
   function escapeHtml(value) { return String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;'); }
+
+  function normalizeMatchSelection(item) {
+    if (!item || typeof item !== 'object') return item;
+
+    const humanAccepted = item.ui_status === 'accepted_item';
+
+    if (!humanAccepted) {
+      if (Array.isArray(item.matches)) {
+        item.matches = item.matches.map(match => ({ ...match, seleccionado: false }));
+      }
+
+      item.producto_seleccionado = null;
+      item.status_key = (Array.isArray(item.matches) && item.matches.length) || item.manual_external_link || item.catalog_product_name_manual
+        ? 'similar'
+        : 'not_found';
+    }
+
+    return item;
+  }
+
+  function normalizeItemsPayload(payload) {
+    return Array.isArray(payload) ? payload.map(item => normalizeMatchSelection(item)) : payload;
+  }
+
+  items = normalizeItemsPayload(items) || [];
 
   async function ajax(url, options = {}) {
     const response = await fetch(url, {
@@ -825,7 +945,7 @@
         if (ni.clarification_questions === undefined) ni.clarification_questions = prev.clarification_questions ?? [];
       }
     });
-    return newItems;
+    return normalizeItemsPayload(newItems);
   }
 
   function isManualExternalChosen(item) { return !!item.manual_external_link; }
@@ -884,7 +1004,27 @@
     return { text: 'No encontrado', cls: 'badge-danger' };
   }
 
+  function recomputeSummaryFromItems() {
+    const subtotalSale = items.reduce((acc, item) => acc + Number(item.subtotal || 0), 0);
+    const subtotalCost = items.reduce((acc, item) => acc + (Number(item.costo_unitario || 0) * Number(item.cantidad_cotizada || 0)), 0);
+    const profit = subtotalSale - subtotalCost;
+    const margin = subtotalCost > 0 ? Math.round((profit / subtotalCost) * 100) : 0;
+
+    summary = {
+      ...summary,
+      exact: items.filter(item => item.status_key === 'exact').length,
+      similar: items.filter(item => item.status_key === 'similar').length,
+      not_found: items.filter(item => item.status_key === 'not_found').length,
+      subtotal_sale: subtotalSale,
+      subtotal_cost: subtotalCost,
+      profit,
+      margin,
+      total_items: items.length,
+    };
+  }
+
   function renderSummary() {
+    recomputeSummaryFromItems();
     const total = summary.total_items || items.length;
     document.getElementById('sumAll').textContent = total;
     document.getElementById('sumExact').textContent = summary.exact || 0;
@@ -934,9 +1074,9 @@
     ` : '';
 
     return `
-      <div class="item-card" data-id="${item.id}" draggable="${currentFilter === 'all' ? 'true' : 'false'}">
+      <div class="item-card" data-id="${item.id}" draggable="false">
         <div class="item-main" onclick="toggleItem(${item.id})">
-          <button class="drag-handle" type="button" title="Mover posición" onclick="event.stopPropagation()">
+          <button class="drag-handle" type="button" draggable="${currentFilter === 'all' ? 'true' : 'false'}" title="Mover posición" aria-label="Mover posición" onclick="event.stopPropagation()">
             ${svgs.drag}
           </button>
           <div class="item-index">${idx + 1}</div>
@@ -964,6 +1104,8 @@
               <button class="dropdown-item" onclick="setItemStatus(${item.id}, 'accepted_item'); toggleDropdown(event, ${item.id});">${svgs.check} Aceptar partida</button>
               <button class="dropdown-item" onclick="setItemStatus(${item.id}, 'manual_review'); toggleDropdown(event, ${item.id});">${svgs.target} Marcar en revisión</button>
               <button class="dropdown-item text-danger" onclick="setItemStatus(${item.id}, 'rejected_item'); toggleDropdown(event, ${item.id});">${svgs.x} Rechazar partida</button>
+              <div class="dropdown-divider"></div>
+              <button class="dropdown-item text-danger" onclick="deleteItem(${item.id}); toggleDropdown(event, ${item.id});">${svgs.trash} Eliminar partida</button>
             </div>
             <button class="btn-kebab" onclick="toggleDropdown(event, ${item.id})">${svgs.dots}</button>
           </div>
@@ -1347,6 +1489,7 @@
 
   // --- API / State Management ---
   function updateItemInState(item) {
+    item = normalizeMatchSelection(item);
     const idx = items.findIndex(i => i.id === item.id);
     if (idx >= 0) {
       const prev = items[idx] || {};
@@ -1355,6 +1498,30 @@
       if (item.clarification_questions === undefined) item.clarification_questions = prev.clarification_questions ?? [];
       items[idx] = item;
     }
+  }
+
+  function keepScrollAfterRender(anchorId, renderCallback) {
+    const anchor = anchorId ? document.querySelector(`.item-card[data-id="${anchorId}"]`) : null;
+    const anchorTop = anchor ? anchor.getBoundingClientRect().top : null;
+    const previousScroll = window.scrollY;
+
+    renderCallback();
+
+    if (anchor && anchorTop !== null) {
+      const nextAnchor = document.querySelector(`.item-card[data-id="${anchorId}"]`);
+
+      if (nextAnchor) {
+        const nextTop = nextAnchor.getBoundingClientRect().top;
+        window.scrollTo({
+          top: window.scrollY + nextTop - anchorTop,
+          left: 0,
+          behavior: 'auto'
+        });
+        return;
+      }
+    }
+
+    window.scrollTo({ top: previousScroll, left: 0, behavior: 'auto' });
   }
 
   async function suggestItem(id, button = null) {
@@ -1369,9 +1536,11 @@
       const data = await ajax(urlFor(routes.suggestItem, id), { method: 'POST', body: '{}' });
       updateItemInState(data.item);
       summary = data.summary || summary;
-      renderItems();
-      toggleItem(id, true);
-      switchTab(id, 'catalog');
+      keepScrollAfterRender(id, () => {
+        renderItems();
+        toggleItem(id, true);
+        switchTab(id, 'catalog');
+      });
     } catch (e) {
       showInlineError(e.message);
     } finally {
@@ -1389,12 +1558,19 @@
         body: '{}'
       });
 
-      updateItemInState(data.item);
-      summary = data.summary || summary;
+      const statusData = await ajax(urlFor(routes.updateStatus, itemId), {
+        method: 'POST',
+        body: JSON.stringify({ ui_status: 'accepted_item' })
+      });
 
-      renderItems();
-      toggleItem(itemId, true);
-      switchTab(itemId, 'catalog');
+      updateItemInState(statusData.item || data.item);
+      summary = statusData.summary || data.summary || summary;
+
+      keepScrollAfterRender(itemId, () => {
+        renderItems();
+        toggleItem(itemId, true);
+        switchTab(itemId, 'catalog');
+      });
     } catch (e) {
       showInlineError(e.message);
     }
@@ -1403,8 +1579,108 @@
   async function setItemStatus(id, status) {
     try {
       const data = await ajax(urlFor(routes.updateStatus, id), { method: 'POST', body: JSON.stringify({ ui_status: status }) });
-      updateItemInState(data.item); summary = data.summary || summary; renderItems(); toggleItem(id, true);
+      updateItemInState(data.item); summary = data.summary || summary;
+      keepScrollAfterRender(id, () => {
+        renderItems();
+        toggleItem(id, true);
+      });
     } catch (e) { showInlineError(e.message); }
+  }
+
+
+
+  function recalculateSummaryFromItems() {
+    const subtotalSale = items.reduce((acc, item) => acc + Number(item.subtotal || 0), 0);
+
+    const subtotalCost = items.reduce((acc, item) => {
+      const qty = Number(item.cantidad_cotizada || item.cantidad_maxima || item.cantidad_minima || 0);
+      const cost = Number(item.costo_unitario || 0);
+      return acc + (qty * cost);
+    }, 0);
+
+    const profit = subtotalSale - subtotalCost;
+    const margin = subtotalCost > 0 ? Math.round((profit / subtotalCost) * 100) : 0;
+
+    summary = {
+      exact: items.filter(item => item.status_key === 'exact').length,
+      similar: items.filter(item => item.status_key === 'similar').length,
+      not_found: items.filter(item => item.status_key === 'not_found').length,
+      subtotal_sale: subtotalSale,
+      subtotal_cost: subtotalCost,
+      profit,
+      margin,
+      total_items: items.length
+    };
+
+    return summary;
+  }
+
+  function openDeleteItemModal(id) {
+    pendingDeleteItemId = id;
+    const item = items.find(i => Number(i.id) === Number(id));
+    const name = item?.descripcion_original || 'esta partida';
+    const nameEl = document.getElementById('deleteItemName');
+    const modal = document.getElementById('deleteItemModal');
+
+    if (nameEl) nameEl.textContent = name;
+    if (modal) modal.classList.add('show');
+  }
+
+  function closeDeleteItemModal() {
+    const modal = document.getElementById('deleteItemModal');
+    if (modal) modal.classList.remove('show');
+    pendingDeleteItemId = null;
+  }
+
+  function handleDeleteModalBackdrop(event) {
+    if (event.target && event.target.id === 'deleteItemModal') {
+      closeDeleteItemModal();
+    }
+  }
+
+  function deleteItem(id) {
+    openDeleteItemModal(id);
+  }
+
+  async function confirmDeleteItem() {
+    const id = pendingDeleteItemId;
+    if (!id) return;
+
+    const button = document.getElementById('btnConfirmDeleteItem');
+    const old = button ? button.innerHTML : '';
+
+    if (button) {
+      button.disabled = true;
+      button.innerHTML = '<span class="loader"></span> Eliminando...';
+    }
+
+    try {
+      await ajax(urlFor(routes.deleteItem, id), {
+        method: 'DELETE',
+        body: '{}'
+      });
+
+      items = items.filter(i => Number(i.id) !== Number(id));
+
+      items = items.map((item, index) => ({
+        ...item,
+        sort: index + 1
+      }));
+
+      recalculateSummaryFromItems();
+      renderItems();
+      closeDeleteItemModal();
+
+      showToast('Partida eliminada', 'La partida se eliminó correctamente.', 1, 1);
+      setTimeout(hideToast, 3000);
+    } catch (e) {
+      showInlineError(e.message || 'No se pudo eliminar la partida.');
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.innerHTML = old;
+      }
+    }
   }
 
   async function saveItem(event, id) {
@@ -1412,7 +1688,12 @@
     const payload = Object.fromEntries(new FormData(event.target).entries());
     try {
       const data = await ajax(urlFor(routes.updateItem, id), { method: 'POST', body: JSON.stringify(payload) });
-      updateItemInState(data.item); summary = data.summary || summary; renderItems(); toggleItem(id, true); switchTab(id, 'edit');
+      updateItemInState(data.item); summary = data.summary || summary;
+      keepScrollAfterRender(id, () => {
+        renderItems();
+        toggleItem(id, true);
+        switchTab(id, 'edit');
+      });
       showToast('Guardado', 'Los cambios se han guardado exitosamente.', 1, 1);
       setTimeout(hideToast, 3000);
     } catch (e) { showInlineError(e.message); }
@@ -1420,9 +1701,9 @@
 
   async function suggestAll() {
     if (isSuggestingAll) return;
-    const pendingItems = items.filter(item => item.status_key !== 'exact');
+    const pendingItems = items.filter(item => !Array.isArray(item.matches) || item.matches.length === 0);
     if (!pendingItems.length) {
-      showToast('Todo Exacto', 'Todas las partidas ya tienen coincidencia exacta.', 1, 1);
+      showToast('Sugerencias listas', 'Todas las partidas ya tienen candidatos para revisión humana.', 1, 1);
       setTimeout(hideToast, 3500); return;
     }
     isSuggestingAll = true;
@@ -1635,9 +1916,11 @@
       updateItemInState(data.item);
       summary = data.summary || summary;
       closeManualModal();
-      renderItems();
-      toggleItem(manualItemId, true);
-      switchTab(manualItemId, 'catalog');
+      keepScrollAfterRender(manualItemId, () => {
+        renderItems();
+        toggleItem(manualItemId, true);
+        switchTab(manualItemId, 'catalog');
+      });
     } catch (e) {
       showInlineError(e.message);
     }
@@ -1666,9 +1949,11 @@
       updateItemInState(data.item);
       summary = data.summary || summary;
       closeManualModal();
-      renderItems();
-      toggleItem(manualItemId, true);
-      switchTab(manualItemId, 'internet');
+      keepScrollAfterRender(manualItemId, () => {
+        renderItems();
+        toggleItem(manualItemId, true);
+        switchTab(manualItemId, 'internet');
+      });
     } catch (e) {
       showInlineError(e.message);
     }
@@ -1870,9 +2155,11 @@
         }
       }
 
-      renderItems();
-      toggleItem(techItemId, true);
-      switchTab(techItemId, 'tech');
+      keepScrollAfterRender(techItemId, () => {
+        renderItems();
+        toggleItem(techItemId, true);
+        switchTab(techItemId, 'tech');
+      });
       loadTechSheets();
     } catch (e) {
       showInlineError(e.message);
@@ -1925,9 +2212,11 @@
 
       techShowList();
       document.getElementById('techQueryInput').value = (data.sheet && data.sheet.product_name) || '';
-      renderItems();
-      toggleItem(techItemId, true);
-      switchTab(techItemId, 'tech');
+      keepScrollAfterRender(techItemId, () => {
+        renderItems();
+        toggleItem(techItemId, true);
+        switchTab(techItemId, 'tech');
+      });
       loadTechSheets();
     } catch (e) {
       showInlineError(e.message);
@@ -2163,9 +2452,11 @@
         }
       }
 
-      renderItems();
-      toggleItem(itemId, true);
-      switchTab(itemId, 'questions');
+      keepScrollAfterRender(itemId, () => {
+        renderItems();
+        toggleItem(itemId, true);
+        switchTab(itemId, 'questions');
+      });
     } catch (e) {
       showInlineError(e.message);
     }
@@ -2363,19 +2654,247 @@
     downloadBlob(wordContent, getQuoteFileName('doc'), 'application/msword;charset=utf-8');
   }
 
+
+  function getItemBrand(item) {
+    const humanAccepted = item?.ui_status === 'accepted_item';
+    if (!humanAccepted) return 'SIN MARCA';
+
+    const selectedCatalog = getSelectedCatalogProduct(item);
+    const brand =
+      selectedCatalog?.product?.brand ||
+      item.producto_seleccionado?.brand ||
+      item.manual_external_supplier ||
+      'SIN MARCA';
+
+    return String(brand || 'SIN MARCA').trim().toUpperCase() || 'SIN MARCA';
+  }
+
+  function getItemDisplayNumber(item, fallbackIndex) {
+    return item.sort || item.number || item.numero || fallbackIndex + 1;
+  }
+
+  function getBrandGroupedItems() {
+    const sourceItems = [...items].sort((a, b) => Number(a.sort || 0) - Number(b.sort || 0));
+    const groups = new Map();
+
+    sourceItems.forEach((item, index) => {
+      const brand = getItemBrand(item);
+      if (!groups.has(brand)) {
+        groups.set(brand, {
+          brand,
+          items: [],
+          totalQuantity: 0,
+          totalCost: 0,
+          totalSale: 0,
+          totalSubtotal: 0
+        });
+      }
+
+      const qty = Number(item.cantidad_cotizada || item.cantidad_maxima || item.cantidad_minima || 1);
+      const cost = Number(item.costo_unitario || 0);
+      const price = Number(item.precio_unitario || 0);
+      const subtotal = Number(item.subtotal || (price * qty) || 0);
+      const selectedCatalog = getSelectedCatalogProduct(item);
+      const productName = selectedCatalog?.product?.name || item.catalog_product_name_manual || item.manual_catalog_product_name || '';
+
+      const group = groups.get(brand);
+      group.items.push({
+        number: getItemDisplayNumber(item, index),
+        requested: item.descripcion_original || '',
+        productName,
+        unit: item.unidad_solicitada || 'pz',
+        qty,
+        cost,
+        price,
+        subtotal,
+        status: statusLabel(item).text
+      });
+      group.totalQuantity += qty;
+      group.totalCost += cost * qty;
+      group.totalSale += price * qty;
+      group.totalSubtotal += subtotal;
+    });
+
+    return [...groups.values()].sort((a, b) => a.brand.localeCompare(b.brand, 'es'));
+  }
+
+  function buildBrandsPdfHtml() {
+    const generatedAt = new Date().toLocaleString('es-MX');
+    const groups = getBrandGroupedItems();
+    const grandTotal = groups.reduce((acc, group) => acc + Number(group.totalSubtotal || 0), 0);
+    const totalItems = groups.reduce((acc, group) => acc + group.items.length, 0);
+
+    const groupsHtml = groups.map(group => {
+      const rows = group.items.map(row => `
+        <tr>
+          <td class="center">${escapeHtml(row.number)}</td>
+          <td>${escapeHtml(row.requested)}</td>
+          <td>${escapeHtml(row.productName || '—')}</td>
+          <td class="center">${escapeHtml(row.unit)}</td>
+          <td class="right">${Number(row.qty || 0).toLocaleString('es-MX')}</td>
+          <td class="right">${moneyOrBlank(row.cost)}</td>
+          <td class="right">${moneyOrBlank(row.price)}</td>
+          <td class="right"><strong>${moneyOrBlank(row.subtotal)}</strong></td>
+          <td class="center">${escapeHtml(row.status)}</td>
+        </tr>
+      `).join('');
+
+      return `
+        <section class="brand-section">
+          <div class="brand-head">
+            <div>
+              <h2>${escapeHtml(group.brand)}</h2>
+              <div class="brand-meta">${group.items.length} partida${group.items.length === 1 ? '' : 's'} solicitada${group.items.length === 1 ? '' : 's'}</div>
+            </div>
+            <div class="brand-total">Total marca: <strong>${money(group.totalSubtotal)}</strong></div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th class="center">#</th>
+                <th>Producto solicitado</th>
+                <th>Producto / referencia</th>
+                <th class="center">Unidad</th>
+                <th class="right">Cantidad</th>
+                <th class="right">Costo</th>
+                <th class="right">Precio</th>
+                <th class="right">Subtotal</th>
+                <th class="center">Estado</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </section>
+      `;
+    }).join('');
+
+    return `
+      <!doctype html>
+      <html lang="es">
+      <head>
+        <meta charset="UTF-8">
+        <title>${escapeHtml(exportFolio)} - partidas por marca</title>
+        <style>
+          @page { size: letter landscape; margin: 10mm; }
+          * { box-sizing: border-box; }
+          body { font-family: Arial, Helvetica, sans-serif; color: #111; margin: 0; font-size: 10px; }
+          .header { display: flex; justify-content: space-between; gap: 18px; border-bottom: 2px solid #111; padding-bottom: 10px; margin-bottom: 14px; }
+          h1 { font-size: 18px; margin: 0 0 5px; }
+          .meta { color: #555; line-height: 1.45; }
+          .summary { text-align: right; line-height: 1.55; white-space: nowrap; }
+          .summary strong { font-size: 13px; }
+          .brand-section { page-break-inside: avoid; margin-bottom: 18px; }
+          .brand-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; background: #f3f4f6; border: 1px solid #d9d9d9; padding: 8px 10px; margin-bottom: 0; }
+          h2 { font-size: 14px; margin: 0 0 3px; text-transform: uppercase; }
+          .brand-meta { color: #666; font-size: 9px; }
+          .brand-total { font-size: 11px; white-space: nowrap; }
+          table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-bottom: 8px; }
+          th, td { border: 1px solid #d9d9d9; padding: 5px 6px; vertical-align: top; word-wrap: break-word; }
+          th { background: #fafafa; color: #111; font-weight: 700; font-size: 9px; }
+          td { font-size: 9px; }
+          .center { text-align: center; }
+          .right { text-align: right; }
+          tr:nth-child(even) td { background: #fcfcfc; }
+          .footer { margin-top: 14px; border-top: 1px solid #d9d9d9; padding-top: 8px; color: #555; font-size: 9px; }
+          @media print { .no-print { display: none !important; } body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div>
+            <h1>Partidas agrupadas por marca</h1>
+            <div class="meta">
+              <strong>${escapeHtml(exportTitle)}</strong><br>
+              Folio: ${escapeHtml(exportFolio)}<br>
+              Generado: ${escapeHtml(generatedAt)}
+            </div>
+          </div>
+          <div class="summary">
+            Marcas: <strong>${groups.length}</strong><br>
+            Partidas: <strong>${totalItems}</strong><br>
+            Total general: <strong>${money(grandTotal)}</strong>
+          </div>
+        </div>
+
+        ${groupsHtml || '<p>No hay partidas para agrupar.</p>'}
+
+        <div class="footer">
+          Este reporte agrupa las partidas actuales de la propuesta por marca detectada: producto seleccionado, marca manual/proveedor externo o coincidencia de catálogo. Las partidas sin marca quedan en SIN MARCA.
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  function exportBrandsGroupedPdf() {
+    const html = buildBrandsPdfHtml();
+    const printWindow = window.open('', '_blank');
+
+    if (!printWindow) {
+      downloadBlob(html, getQuoteFileName('partidas_por_marca.html'), 'text/html;charset=utf-8');
+      showToast('Archivo generado', 'Se descargó el reporte por marca en HTML. Ábrelo e imprime como PDF.', 1, 1);
+      setTimeout(hideToast, 4500);
+      return;
+    }
+
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+
+    setTimeout(() => {
+      printWindow.print();
+    }, 450);
+  }
+
   // --- Drag and Drop Logic ---
   function bindDragEvents() {
+    const list = document.getElementById('itemsList');
+
     document.querySelectorAll('.jureto-quote-page .item-card').forEach(card => {
-      card.addEventListener('dragstart', () => { if (currentFilter !== 'all') return; card.classList.add('dragging'); });
-      card.addEventListener('dragend', () => { if (currentFilter !== 'all') return; card.classList.remove('dragging'); saveOrder(); });
+      card.setAttribute('draggable', 'false');
+
       card.addEventListener('dragover', (e) => {
         if (currentFilter !== 'all') return;
-        e.preventDefault();
-        const list = document.getElementById('itemsList');
-        const dragging = document.querySelector('.jureto-quote-page .dragging');
-        const after = getDragAfterElement(list, e.clientY);
+
+        const dragging = document.querySelector('.jureto-quote-page .item-card.dragging');
         if (!dragging) return;
-        if (after == null) list.appendChild(dragging); else list.insertBefore(dragging, after);
+
+        e.preventDefault();
+
+        const after = getDragAfterElement(list, e.clientY);
+        if (after == null) list.appendChild(dragging);
+        else list.insertBefore(dragging, after);
+      });
+    });
+
+    document.querySelectorAll('.jureto-quote-page .drag-handle').forEach(handle => {
+      handle.addEventListener('mousedown', (event) => event.stopPropagation());
+      handle.addEventListener('click', (event) => event.stopPropagation());
+
+      handle.addEventListener('dragstart', (event) => {
+        if (currentFilter !== 'all') {
+          event.preventDefault();
+          return;
+        }
+
+        const card = handle.closest('.item-card');
+        if (!card) {
+          event.preventDefault();
+          return;
+        }
+
+        card.classList.add('dragging');
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', card.dataset.id || '');
+      });
+
+      handle.addEventListener('dragend', () => {
+        const card = handle.closest('.item-card');
+        const anchorId = card ? Number(card.dataset.id) : null;
+        if (card) card.classList.remove('dragging');
+        saveOrder(anchorId);
       });
     });
   }
@@ -2389,13 +2908,14 @@
     }, { offset: Number.NEGATIVE_INFINITY }).element;
   }
 
-  async function saveOrder() {
+  async function saveOrder(anchorId = null) {
     if (currentFilter !== 'all') return;
     const ids = [...document.querySelectorAll('#itemsList .item-card')].map(card => Number(card.dataset.id));
     if (!ids.length) return;
     try {
       const data = await ajax(routes.reorder, { method: 'POST', body: JSON.stringify({ items: ids }) });
-      items = mergeTechSheetMeta(data.items) || items; summary = data.summary || summary; renderItems();
+      items = mergeTechSheetMeta(data.items) || items; summary = data.summary || summary;
+      keepScrollAfterRender(anchorId || ids[0], () => renderItems());
     } catch (e) { showInlineError(e.message); }
   }
 
@@ -2416,6 +2936,7 @@
   document.getElementById('btnExportExcel')?.addEventListener('click', exportExtractedTablesToExcel);
   document.getElementById('btnExportWord')?.addEventListener('click', exportExtractedTablesToWord);
   document.getElementById('btnExportClarificationsPdf')?.addEventListener('click', openClarificationsPdf);
+  document.getElementById('btnExportBrandsPdf')?.addEventListener('click', exportBrandsGroupedPdf);
   document.getElementById('btnGenerateClarification')?.addEventListener('click', generateClarificationQuestion);
   document.getElementById('btnSaveClarification')?.addEventListener('click', saveClarificationQuestion);
 

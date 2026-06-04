@@ -348,6 +348,46 @@ class PropuestaComercialController extends Controller
         return back()->with('status', 'Parámetros de precios actualizados.');
     }
 
+
+    public function ajaxDeleteItem(PropuestaComercialItem $item)
+    {
+        $propuestaComercial = PropuestaComercial::findOrFail($item->propuesta_comercial_id);
+
+        DB::transaction(function () use ($item, $propuestaComercial) {
+            if (method_exists($item, 'matches')) {
+                $item->matches()->delete();
+            }
+
+            if (method_exists($item, 'externalMatches')) {
+                $item->externalMatches()->delete();
+            }
+
+            if (method_exists($item, 'aclaracionPreguntas')) {
+                $item->aclaracionPreguntas()->delete();
+            }
+
+            $item->delete();
+
+            $propuestaComercial->items()
+                ->orderBy('sort')
+                ->orderBy('id')
+                ->get()
+                ->values()
+                ->each(function ($partida, $index) {
+                    $partida->update([
+                        'sort' => $index + 1,
+                    ]);
+                });
+
+            $this->recalculateTotals($propuestaComercial->fresh());
+        });
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Partida eliminada correctamente.',
+        ]);
+    }
+
     protected function recalculateTotals(PropuestaComercial $propuestaComercial): void
     {
         $propuestaComercial->loadMissing('items');
