@@ -447,7 +447,19 @@
     text-decoration: none;
   }
 
-  .jureto-dashboard-page .quote-id { display: flex; align-items: center; gap: 13px; }
+  /* CORRECCIÓN: Prevención de desbordamiento de texto en flexbox */
+  .jureto-dashboard-page .quote-id { 
+    display: flex; 
+    align-items: center; 
+    gap: 13px; 
+    min-width: 0; 
+  }
+  
+  .jureto-dashboard-page .quote-id > div {
+    min-width: 0;
+    flex: 1;
+  }
+  
   .jureto-dashboard-page .avatar {
     flex: none;
     width: 40px; height: 40px;
@@ -464,18 +476,31 @@
     font-weight: 700;
     margin-bottom: 4px;
     line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .jureto-dashboard-page .quote-date {
     color: var(--muted);
     font-size: 12.5px;
     font-weight: 600;
   }
+
+  /* CORRECCIÓN: Prevención de desbordamiento en la columna principal */
+  .jureto-dashboard-page .quote-main {
+    min-width: 0;
+  }
+
   .jureto-dashboard-page .quote-code {
     color: #0d0d0d;
     font-size: 15px;
     font-weight: 600;
     margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
+  
   .jureto-dashboard-page .quote-note {
     color: var(--muted);
     font-size: 13px;
