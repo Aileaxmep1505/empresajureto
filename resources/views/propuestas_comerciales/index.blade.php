@@ -1142,7 +1142,7 @@
             </span>
           </div>
           <p class="stat-value num"
-             @if(!is_null($k['count'])) data-count="{{ $k['count'] }}" data-suffix="{{ $k['suffix'] ?? '' }}" @endif>
+              @if(!is_null($k['count'])) data-count="{{ $k['count'] }}" data-suffix="{{ $k['suffix'] ?? '' }}" @endif>
             {{ $k['value'] }}
           </p>
           <div class="stat-foot">
