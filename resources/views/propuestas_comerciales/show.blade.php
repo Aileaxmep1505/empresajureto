@@ -345,6 +345,172 @@
   }
   .has-tip:hover::after,
   .has-tip:hover::before { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+
+  /* ===== Muestras / stock estilo busqueda manual ===== */
+  .samples-modal {
+    max-width: 920px;
+  }
+
+  .samples-toolbar {
+    position: relative;
+    margin-bottom: 18px;
+  }
+
+  .samples-results {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .sample-card {
+    display: grid;
+    grid-template-columns: 96px 1fr auto;
+    gap: 16px;
+    align-items: flex-start;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px;
+  }
+
+  .sample-card:hover {
+    border-color: var(--muted-light);
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06);
+  }
+
+  .sample-image {
+    width: 96px;
+    height: 96px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: #f8fafc;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted-light);
+    font-size: 12px;
+    font-weight: 700;
+    text-align: center;
+  }
+
+  .sample-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+
+  .sample-title-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+
+  .sample-title {
+    color: var(--ink-dark);
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  .sample-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 8px 12px;
+    margin-top: 12px;
+  }
+
+  .sample-mini {
+    background: #f8fafc;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 8px 10px;
+  }
+
+  .sample-mini span {
+    display: block;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    margin-bottom: 3px;
+  }
+
+  .sample-mini strong {
+    color: var(--ink-dark);
+    font-size: 13px;
+  }
+
+  .sample-description {
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.45;
+    margin-top: 10px;
+  }
+
+  .sample-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+  }
+
+  .sample-tag {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    background: #f1f5f9;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+    padding: 4px 9px;
+  }
+
+  .sample-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-end;
+    min-width: 124px;
+  }
+
+  .sample-stock-box {
+    text-align: right;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .sample-stock-box strong {
+    color: var(--ink-dark);
+  }
+
+  @media (max-width: 760px) {
+    .sample-card {
+      grid-template-columns: 72px 1fr;
+    }
+
+    .sample-image {
+      width: 72px;
+      height: 72px;
+    }
+
+    .sample-actions {
+      grid-column: 1 / -1;
+      flex-direction: row;
+      justify-content: flex-start;
+      align-items: center;
+    }
+
+    .sample-stock-box {
+      text-align: left;
+    }
+  }
+
 </style>
 
 @php
@@ -719,7 +885,7 @@
   </div>
 
   <div class="modal-backdrop" id="samplesModal">
-    <div class="modal">
+    <div class="modal samples-modal">
       <div class="modal-head">
         <div>
           <h2 class="modal-title">Análisis de almacén</h2>
@@ -728,8 +894,12 @@
         <button class="btn btn-ghost btn-small" type="button" onclick="closeSamplesModal()"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
       </div>
       <div class="modal-body">
+        <div class="samples-toolbar">
+          <input class="input" id="samplesFilterInput" placeholder="Filtrar por nombre, SKU, marca, categoría o ubicación..." autocomplete="off" oninput="filterSamplesResults()">
+          <button type="button" onclick="clearSamplesFilter()" style="position:absolute; right:12px; top:50%; transform:translateY(-50%); border:0; background:transparent; color:var(--muted); cursor:pointer; display:flex; align-items:center;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+        </div>
         <div id="samplesStatus" class="result-meta" style="margin-bottom:16px;">Buscando en catálogo...</div>
-        <div id="samplesResults"></div>
+        <div id="samplesResults" class="samples-results"></div>
       </div>
     </div>
   </div>
@@ -1972,6 +2142,9 @@
   }
 
   // --- Modal Muestras ---
+  let samplesCache = [];
+  let samplesNeededQty = 0;
+
   function closeSamplesModal() {
     document.getElementById('samplesModal').classList.remove('show');
   }
@@ -1983,6 +2156,8 @@
     document.getElementById('samplesSubtitle').textContent = item?.descripcion_original || 'Producto';
     document.getElementById('samplesResults').innerHTML = '';
     document.getElementById('samplesStatus').innerHTML = '<span class="loader"></span> Buscando en catálogo y almacén...';
+    const filter = document.getElementById('samplesFilterInput');
+    if (filter) filter.value = '';
     document.getElementById('samplesModal').classList.add('show');
 
     try {
@@ -1993,13 +2168,68 @@
     }
   }
 
+  function clearSamplesFilter() {
+    const input = document.getElementById('samplesFilterInput');
+    if (input) input.value = '';
+    renderSamplesList(samplesCache);
+  }
+
+  function filterSamplesResults() {
+    const q = (document.getElementById('samplesFilterInput')?.value || '').trim().toLowerCase();
+    if (!q) {
+      renderSamplesList(samplesCache);
+      return;
+    }
+
+    const filtered = samplesCache.filter(c => {
+      const haystack = [
+        c.name,
+        c.sku,
+        c.brand,
+        c.model,
+        c.category,
+        c.unit,
+        c.description,
+        c.location_summary,
+        ...(c.locations || []).map(l => l.location),
+        ...(c.details || []).map(d => `${d.label} ${d.value}`)
+      ].join(' ').toLowerCase();
+
+      return haystack.includes(q);
+    });
+
+    renderSamplesList(filtered);
+  }
+
+  function sampleImageHtml(c) {
+    const src = c.image_url || c.image || c.thumbnail_url || c.photo_url || c.picture_url || '';
+
+    if (!src) {
+      return '<div class="sample-image">Sin imagen</div>';
+    }
+
+    return `
+      <div class="sample-image">
+        <img src="${escapeHtml(src)}" alt="${escapeHtml(c.name || 'Producto')}" loading="lazy" onerror="this.closest('.sample-image').innerHTML='Sin imagen';">
+      </div>
+    `;
+  }
+
+  function formatPlainMoney(n) {
+    return Number(n || 0) > 0 ? money(n) : '—';
+  }
+
   function renderSamples(data) {
-    const needed = Number(data.needed_qty || 0);
-    const cands = data.candidates || [];
+    samplesNeededQty = Number(data.needed_qty || 0);
+    samplesCache = Array.isArray(data.candidates) ? data.candidates : [];
 
     document.getElementById('samplesStatus').textContent =
-      `Cantidad solicitada: ${needed} · ${cands.length} coincidencias en catálogo`;
+      `Cantidad solicitada: ${samplesNeededQty.toLocaleString('es-MX')} · ${samplesCache.length} coincidencias en catálogo`;
 
+    renderSamplesList(samplesCache);
+  }
+
+  function renderSamplesList(cands) {
     const box = document.getElementById('samplesResults');
 
     if (!cands.length) {
@@ -2009,28 +2239,60 @@
 
     box.innerHTML = cands.map(c => {
       const locs = (c.locations || [])
-        .map(l => `${escapeHtml(l.location)}: ${l.qty}${l.reserved ? ' (apartado ' + l.reserved + ')' : ''}`)
+        .map(l => `${escapeHtml(l.location || 'Ubicación')}: ${Number(l.qty || 0).toLocaleString('es-MX')}${Number(l.reserved || 0) > 0 ? ' (apartado ' + Number(l.reserved || 0).toLocaleString('es-MX') + ')' : ''}`)
         .join(' · ');
 
-      const buyBadge = c.to_buy > 0
-        ? `<span class="badge badge-danger">Comprar ${c.to_buy}</span>`
+      const buyBadge = Number(c.to_buy || 0) > 0
+        ? `<span class="badge badge-danger">Comprar ${Number(c.to_buy || 0).toLocaleString('es-MX')}</span>`
         : `<span class="badge badge-success">Stock suficiente</span>`;
 
+      const details = Array.isArray(c.details) ? c.details.filter(d => d && d.value !== null && d.value !== undefined && String(d.value).trim() !== '') : [];
+      const detailTags = details.slice(0, 10).map(d => `<span class="sample-tag"><strong>${escapeHtml(d.label)}:</strong>&nbsp;${escapeHtml(d.value)}</span>`).join('');
+
       return `
-        <div class="result-card">
-          <div class="result-title">${escapeHtml(c.name)} ${buyBadge}</div>
-          <div class="result-meta">
-            SKU: ${escapeHtml(c.sku || '—')} · ${escapeHtml(c.unit || '')} · Similitud ${Number(c.similarity_pct || 0).toFixed(0)}%
+        <div class="sample-card">
+          ${sampleImageHtml(c)}
+
+          <div>
+            <div class="sample-title-row">
+              <div class="sample-title">${escapeHtml(c.name || 'Producto sin nombre')}</div>
+              ${buyBadge}
+              ${Number(c.similarity_pct || 0) > 0 ? `<span class="badge badge-info">Similitud ${Number(c.similarity_pct || 0).toFixed(0)}%</span>` : ''}
+            </div>
+
+            <div class="result-meta">
+              SKU: ${escapeHtml(c.sku || '—')}
+              ${c.brand ? ' · Marca: ' + escapeHtml(c.brand) : ''}
+              ${c.model ? ' · Modelo: ' + escapeHtml(c.model) : ''}
+              ${c.category ? ' · Categoría: ' + escapeHtml(c.category) : ''}
+              ${c.unit ? ' · Unidad: ' + escapeHtml(c.unit) : ''}
+            </div>
+
+            ${c.description ? `<div class="sample-description">${escapeHtml(c.description)}</div>` : ''}
+
+            <div class="sample-meta-grid">
+              <div class="sample-mini"><span>En almacén</span><strong>${Number(c.net_available || 0).toLocaleString('es-MX')}</strong></div>
+              <div class="sample-mini"><span>Apartado</span><strong>${Number(c.reserved || 0).toLocaleString('es-MX')}</strong></div>
+              <div class="sample-mini"><span>Necesario</span><strong>${samplesNeededQty.toLocaleString('es-MX')}</strong></div>
+              <div class="sample-mini"><span>Faltan</span><strong>${Number(c.to_buy || 0).toLocaleString('es-MX')}</strong></div>
+              <div class="sample-mini"><span>Costo</span><strong>${formatPlainMoney(c.cost)}</strong></div>
+              <div class="sample-mini"><span>Precio</span><strong>${formatPlainMoney(c.price)}</strong></div>
+            </div>
+
+            ${locs
+              ? `<div class="sample-description"><strong>Ubicaciones:</strong> ${locs}</div>`
+              : `<div class="sample-description">Sin inventario por ubicación${c.stock_field !== undefined ? ' (stock general: ' + Number(c.stock_field || 0).toLocaleString('es-MX') + ')' : ''}.</div>`}
+
+            ${detailTags ? `<div class="sample-tags">${detailTags}</div>` : ''}
           </div>
-          <div class="result-meta mt-2">
-            <strong>En almacén:</strong> ${c.net_available} ·
-            <strong>Apartado:</strong> ${c.reserved} ·
-            <strong>Necesario:</strong> ${needed} ·
-            <strong>Faltan:</strong> ${c.to_buy}
+
+          <div class="sample-actions">
+            <div class="sample-stock-box">
+              <div>Disponible: <strong>${Number(c.net_available || 0).toLocaleString('es-MX')}</strong></div>
+              <div>Faltante: <strong>${Number(c.to_buy || 0).toLocaleString('es-MX')}</strong></div>
+            </div>
+            ${c.public_url ? `<a class="btn btn-outline btn-small" target="_blank" rel="noopener noreferrer" href="${escapeHtml(c.public_url)}">Ver producto</a>` : ''}
           </div>
-          ${locs
-            ? `<div class="result-meta mt-2">Ubicaciones: ${locs}</div>`
-            : `<div class="result-meta mt-2">Sin inventario por ubicación (se usó stock general: ${c.stock_field}).</div>`}
         </div>
       `;
     }).join('');

@@ -8,6 +8,7 @@ use App\Models\PropuestaComercial;
 use App\Models\PropuestaComercialItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class PropuestaComercialController extends Controller
 {
@@ -385,6 +386,207 @@ class PropuestaComercialController extends Controller
         return response()->json([
             'ok' => true,
             'message' => 'Partida eliminada correctamente.',
+        ]);
+    }
+
+
+    public function ajaxSamplesItem(PropuestaComercialItem $item)
+    {
+        $item->loadMissing('matches.product', 'productoSeleccionado');
+
+        $neededQty = (float) ($item->cantidad_cotizada ?: $item->cantidad_maxima ?: $item->cantidad_minima ?: 1);
+        $searchText = trim((string) $item->descripcion_original);
+        $searchWords = collect(preg_split('/\s+/u', mb_strtolower($searchText)))
+            ->filter(fn ($word) => mb_strlen($word) >= 3)
+            ->values()
+            ->all();
+
+        $candidates = [];
+
+        if (Schema::hasTable('catalog_items')) {
+            $columns = Schema::getColumnListing('catalog_items');
+            $nameColumns = ['name', 'product_name', 'nombre', 'titulo', 'title', 'descripcion', 'description'];
+            $skuColumns = ['sku', 'codigo', 'code', 'clave', 'clave_producto', 'item_code'];
+            $brandColumns = ['brand', 'marca', 'fabricante', 'manufacturer'];
+            $modelColumns = ['model', 'modelo', 'reference', 'referencia'];
+            $categoryColumns = ['category', 'categoria', 'familia', 'linea', 'subcategoria'];
+            $unitColumns = ['unit', 'unidad', 'unidad_medida', 'uom'];
+            $imageColumns = ['image_url', 'imagen_url', 'photo_url', 'foto_url', 'thumbnail_url', 'picture_url', 'image', 'imagen', 'photo', 'foto', 'thumbnail'];
+            $stockColumns = ['net_available', 'available', 'stock', 'existencia', 'existencias', 'cantidad', 'qty', 'inventory'];
+            $reservedColumns = ['reserved', 'apartado', 'reservado', 'committed', 'comprometido'];
+            $costColumns = ['cost', 'costo', 'purchase_price', 'precio_compra', 'costo_unitario'];
+            $priceColumns = ['price', 'precio', 'sale_price', 'precio_venta', 'precio_unitario'];
+            $descriptionColumns = ['description', 'descripcion', 'long_description', 'descripcion_larga', 'notes', 'notas'];
+
+            $pick = function ($row, array $possible) use ($columns) {
+                foreach ($possible as $column) {
+                    if (in_array($column, $columns, true) && isset($row->{$column}) && $row->{$column} !== null && $row->{$column} !== '') {
+                        return $row->{$column};
+                    }
+                }
+
+                return null;
+            };
+
+            $normalizeImage = function ($value) {
+                $value = trim((string) $value);
+
+                if ($value === '') {
+                    return null;
+                }
+
+                if (str_starts_with($value, 'http://') || str_starts_with($value, 'https://') || str_starts_with($value, '/')) {
+                    return $value;
+                }
+
+                if (str_starts_with($value, 'storage/')) {
+                    return asset($value);
+                }
+
+                if (str_starts_with($value, 'catalog/') || str_starts_with($value, 'products/') || str_starts_with($value, 'images/')) {
+                    return asset('storage/' . $value);
+                }
+
+                return asset('storage/' . ltrim($value, '/'));
+            };
+
+            $query = DB::table('catalog_items');
+
+            $query->where(function ($sub) use ($searchWords, $columns, $nameColumns, $skuColumns, $brandColumns) {
+                $searchable = array_values(array_intersect(array_merge($nameColumns, $skuColumns, $brandColumns), $columns));
+
+                if (empty($searchable) || empty($searchWords)) {
+                    return;
+                }
+
+                foreach ($searchWords as $word) {
+                    foreach ($searchable as $column) {
+                        $sub->orWhere($column, 'like', '%' . $word . '%');
+                    }
+                }
+            });
+
+            $rows = $query->limit(80)->get();
+
+            if ($rows->isEmpty()) {
+                $rows = DB::table('catalog_items')->limit(80)->get();
+            }
+
+            $candidates = $rows->map(function ($row) use ($columns, $pick, $normalizeImage, $nameColumns, $skuColumns, $brandColumns, $modelColumns, $categoryColumns, $unitColumns, $imageColumns, $stockColumns, $reservedColumns, $costColumns, $priceColumns, $descriptionColumns, $neededQty, $searchText) {
+                $name = (string) ($pick($row, $nameColumns) ?: 'Producto sin nombre');
+                $sku = (string) ($pick($row, $skuColumns) ?: '');
+                $brand = (string) ($pick($row, $brandColumns) ?: '');
+                $model = (string) ($pick($row, $modelColumns) ?: '');
+                $category = (string) ($pick($row, $categoryColumns) ?: '');
+                $unit = (string) ($pick($row, $unitColumns) ?: '');
+                $imageUrl = $normalizeImage($pick($row, $imageColumns));
+                $stock = (float) ($pick($row, $stockColumns) ?: 0);
+                $reserved = (float) ($pick($row, $reservedColumns) ?: 0);
+                $cost = (float) ($pick($row, $costColumns) ?: 0);
+                $price = (float) ($pick($row, $priceColumns) ?: 0);
+                $description = (string) ($pick($row, $descriptionColumns) ?: '');
+
+                similar_text(mb_strtolower($searchText), mb_strtolower($name . ' ' . $sku . ' ' . $brand . ' ' . $model . ' ' . $description), $pct);
+
+                $netAvailable = max($stock - $reserved, 0);
+                $toBuy = max($neededQty - $netAvailable, 0);
+
+                $hidden = ['id', 'created_at', 'updated_at', 'deleted_at'];
+                $details = [];
+
+                foreach ($columns as $column) {
+                    if (in_array($column, $hidden, true)) {
+                        continue;
+                    }
+
+                    $value = $row->{$column} ?? null;
+
+                    if ($value === null || $value === '') {
+                        continue;
+                    }
+
+                    if (is_string($value) && mb_strlen($value) > 90) {
+                        $value = mb_substr($value, 0, 90) . '...';
+                    }
+
+                    $details[] = [
+                        'label' => str_replace('_', ' ', mb_strtoupper($column)),
+                        'value' => (string) $value,
+                    ];
+                }
+
+                return [
+                    'id' => $row->id ?? null,
+                    'name' => $name,
+                    'sku' => $sku,
+                    'brand' => $brand,
+                    'model' => $model,
+                    'category' => $category,
+                    'unit' => $unit,
+                    'description' => $description,
+                    'image_url' => $imageUrl,
+                    'similarity_pct' => round($pct, 2),
+                    'stock_field' => $stock,
+                    'net_available' => $netAvailable,
+                    'reserved' => $reserved,
+                    'needed_qty' => $neededQty,
+                    'to_buy' => $toBuy,
+                    'cost' => $cost,
+                    'price' => $price,
+                    'locations' => [],
+                    'location_summary' => '',
+                    'details' => $details,
+                ];
+            })
+                ->sortByDesc('similarity_pct')
+                ->take(25)
+                ->values()
+                ->all();
+        } else {
+            $products = Product::query()
+                ->where(function ($q) use ($searchWords) {
+                    foreach ($searchWords as $word) {
+                        $q->orWhere('name', 'like', '%' . $word . '%')
+                            ->orWhere('sku', 'like', '%' . $word . '%')
+                            ->orWhere('brand', 'like', '%' . $word . '%');
+                    }
+                })
+                ->limit(25)
+                ->get();
+
+            $candidates = $products->map(function ($product) use ($neededQty, $searchText) {
+                similar_text(mb_strtolower($searchText), mb_strtolower((string) $product->name), $pct);
+
+                $stock = (float) ($product->stock ?? 0);
+                $reserved = (float) ($product->reserved ?? 0);
+                $netAvailable = max($stock - $reserved, 0);
+
+                return [
+                    'id' => $product->id,
+                    'name' => $product->name,
+                    'sku' => $product->sku,
+                    'brand' => $product->brand,
+                    'unit' => $product->unit ?? 'pieza',
+                    'description' => $product->description ?? '',
+                    'image_url' => $product->image_url ?? $product->photo_url ?? null,
+                    'similarity_pct' => round($pct, 2),
+                    'stock_field' => $stock,
+                    'net_available' => $netAvailable,
+                    'reserved' => $reserved,
+                    'needed_qty' => $neededQty,
+                    'to_buy' => max($neededQty - $netAvailable, 0),
+                    'cost' => (float) ($product->cost ?? $product->costo ?? 0),
+                    'price' => (float) ($product->price ?? $product->precio ?? 0),
+                    'locations' => [],
+                    'details' => [],
+                ];
+            })->sortByDesc('similarity_pct')->values()->all();
+        }
+
+        return response()->json([
+            'ok' => true,
+            'needed_qty' => $neededQty,
+            'candidates' => $candidates,
         ]);
     }
 
