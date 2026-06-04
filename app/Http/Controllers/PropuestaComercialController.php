@@ -9,6 +9,7 @@ use App\Models\PropuestaComercialItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 
 class PropuestaComercialController extends Controller
 {
@@ -405,18 +406,23 @@ class PropuestaComercialController extends Controller
 
         if (Schema::hasTable('catalog_items')) {
             $columns = Schema::getColumnListing('catalog_items');
+
             $nameColumns = ['name', 'product_name', 'nombre', 'titulo', 'title', 'descripcion', 'description'];
-            $skuColumns = ['sku', 'codigo', 'code', 'clave', 'clave_producto', 'item_code'];
-            $brandColumns = ['brand', 'marca', 'fabricante', 'manufacturer'];
-            $modelColumns = ['model', 'modelo', 'reference', 'referencia'];
-            $categoryColumns = ['category', 'categoria', 'familia', 'linea', 'subcategoria'];
-            $unitColumns = ['unit', 'unidad', 'unidad_medida', 'uom'];
-            $imageColumns = ['image_url', 'imagen_url', 'photo_url', 'foto_url', 'thumbnail_url', 'picture_url', 'image', 'imagen', 'photo', 'foto', 'thumbnail'];
+            $skuColumns = ['sku', 'codigo', 'code', 'clave', 'clave_producto', 'item_code', 'amazon_sku'];
+            $brandColumns = ['brand_name', 'brand', 'marca', 'fabricante', 'manufacturer'];
+            $modelColumns = ['model_name', 'model', 'modelo', 'reference', 'referencia', 'amazon_asin', 'meli_item_id'];
+            $categoryColumns = ['category_key', 'category', 'categoria', 'familia', 'linea', 'subcategoria'];
+            $unitColumns = ['unit_measure', 'unit', 'unidad', 'unidad_medida', 'uom'];
+            $imageColumns = [
+                'photo_1', 'photo_2', 'photo_3',
+                'image_url', 'imagen_url', 'photo_url', 'foto_url', 'thumbnail_url', 'picture_url',
+                'image', 'imagen', 'photo', 'foto', 'thumbnail'
+            ];
             $stockColumns = ['net_available', 'available', 'stock', 'existencia', 'existencias', 'cantidad', 'qty', 'inventory'];
             $reservedColumns = ['reserved', 'apartado', 'reservado', 'committed', 'comprometido'];
             $costColumns = ['cost', 'costo', 'purchase_price', 'precio_compra', 'costo_unitario'];
-            $priceColumns = ['price', 'precio', 'sale_price', 'precio_venta', 'precio_unitario'];
-            $descriptionColumns = ['description', 'descripcion', 'long_description', 'descripcion_larga', 'notes', 'notas'];
+            $priceColumns = ['sale_price', 'price', 'precio', 'precio_venta', 'precio_unitario'];
+            $descriptionColumns = ['excerpt', 'description', 'descripcion', 'long_description', 'descripcion_larga', 'notes', 'notas'];
 
             $pick = function ($row, array $possible) use ($columns) {
                 foreach ($possible as $column) {
@@ -428,6 +434,18 @@ class PropuestaComercialController extends Controller
                 return null;
             };
 
+            $pickAllPhotos = function ($row) use ($columns) {
+                $photos = [];
+
+                foreach (['photo_1', 'photo_2', 'photo_3'] as $column) {
+                    if (in_array($column, $columns, true) && !empty($row->{$column})) {
+                        $photos[] = $row->{$column};
+                    }
+                }
+
+                return array_values(array_unique(array_filter($photos)));
+            };
+
             $normalizeImage = function ($value) {
                 $value = trim((string) $value);
 
@@ -435,25 +453,44 @@ class PropuestaComercialController extends Controller
                     return null;
                 }
 
-                if (str_starts_with($value, 'http://') || str_starts_with($value, 'https://') || str_starts_with($value, '/')) {
+                if (str_starts_with($value, 'http://') || str_starts_with($value, 'https://') || str_starts_with($value, 'data:image')) {
                     return $value;
                 }
 
-                if (str_starts_with($value, 'storage/')) {
-                    return asset($value);
+                if (str_starts_with($value, '/')) {
+                    return $value;
                 }
 
-                if (str_starts_with($value, 'catalog/') || str_starts_with($value, 'products/') || str_starts_with($value, 'images/')) {
-                    return asset('storage/' . $value);
+                $clean = ltrim($value, '/');
+                $clean = preg_replace('#^public/#', '', $clean);
+
+                if (str_starts_with($clean, 'storage/')) {
+                    return asset($clean);
                 }
 
-                return asset('storage/' . ltrim($value, '/'));
+                if (Storage::disk('public')->exists($clean)) {
+                    return Storage::url($clean);
+                }
+
+                if (file_exists(public_path($clean))) {
+                    return asset($clean);
+                }
+
+                if (file_exists(public_path('storage/' . $clean))) {
+                    return asset('storage/' . $clean);
+                }
+
+                return asset('storage/' . $clean);
             };
 
             $query = DB::table('catalog_items');
 
-            $query->where(function ($sub) use ($searchWords, $columns, $nameColumns, $skuColumns, $brandColumns) {
-                $searchable = array_values(array_intersect(array_merge($nameColumns, $skuColumns, $brandColumns), $columns));
+            if (in_array('deleted_at', $columns, true)) {
+                $query->whereNull('deleted_at');
+            }
+
+            $query->where(function ($sub) use ($searchWords, $columns, $nameColumns, $skuColumns, $brandColumns, $modelColumns, $categoryColumns) {
+                $searchable = array_values(array_intersect(array_merge($nameColumns, $skuColumns, $brandColumns, $modelColumns, $categoryColumns), $columns));
 
                 if (empty($searchable) || empty($searchWords)) {
                     return;
@@ -466,32 +503,41 @@ class PropuestaComercialController extends Controller
                 }
             });
 
-            $rows = $query->limit(80)->get();
+            $rows = $query->limit(120)->get();
 
             if ($rows->isEmpty()) {
-                $rows = DB::table('catalog_items')->limit(80)->get();
+                $fallback = DB::table('catalog_items');
+
+                if (in_array('deleted_at', $columns, true)) {
+                    $fallback->whereNull('deleted_at');
+                }
+
+                $rows = $fallback->limit(120)->get();
             }
 
-            $candidates = $rows->map(function ($row) use ($columns, $pick, $normalizeImage, $nameColumns, $skuColumns, $brandColumns, $modelColumns, $categoryColumns, $unitColumns, $imageColumns, $stockColumns, $reservedColumns, $costColumns, $priceColumns, $descriptionColumns, $neededQty, $searchText) {
+            $candidates = $rows->map(function ($row) use ($columns, $pick, $pickAllPhotos, $normalizeImage, $nameColumns, $skuColumns, $brandColumns, $modelColumns, $categoryColumns, $unitColumns, $imageColumns, $stockColumns, $reservedColumns, $costColumns, $priceColumns, $descriptionColumns, $neededQty, $searchText) {
                 $name = (string) ($pick($row, $nameColumns) ?: 'Producto sin nombre');
                 $sku = (string) ($pick($row, $skuColumns) ?: '');
                 $brand = (string) ($pick($row, $brandColumns) ?: '');
                 $model = (string) ($pick($row, $modelColumns) ?: '');
                 $category = (string) ($pick($row, $categoryColumns) ?: '');
-                $unit = (string) ($pick($row, $unitColumns) ?: '');
-                $imageUrl = $normalizeImage($pick($row, $imageColumns));
+                $unit = (string) ($pick($row, $unitColumns) ?: 'pieza');
+                $rawPhotos = $pickAllPhotos($row);
+                $mainPhoto = $rawPhotos[0] ?? $pick($row, $imageColumns);
+                $imageUrl = $normalizeImage($mainPhoto);
+                $photoUrls = array_values(array_filter(array_map($normalizeImage, $rawPhotos)));
                 $stock = (float) ($pick($row, $stockColumns) ?: 0);
                 $reserved = (float) ($pick($row, $reservedColumns) ?: 0);
                 $cost = (float) ($pick($row, $costColumns) ?: 0);
                 $price = (float) ($pick($row, $priceColumns) ?: 0);
                 $description = (string) ($pick($row, $descriptionColumns) ?: '');
 
-                similar_text(mb_strtolower($searchText), mb_strtolower($name . ' ' . $sku . ' ' . $brand . ' ' . $model . ' ' . $description), $pct);
+                similar_text(mb_strtolower($searchText), mb_strtolower($name . ' ' . $sku . ' ' . $brand . ' ' . $model . ' ' . $category . ' ' . $description), $pct);
 
                 $netAvailable = max($stock - $reserved, 0);
                 $toBuy = max($neededQty - $netAvailable, 0);
 
-                $hidden = ['id', 'created_at', 'updated_at', 'deleted_at'];
+                $hidden = ['id', 'created_at', 'updated_at', 'deleted_at', 'photo_1', 'photo_2', 'photo_3'];
                 $details = [];
 
                 foreach ($columns as $column) {
@@ -505,8 +551,8 @@ class PropuestaComercialController extends Controller
                         continue;
                     }
 
-                    if (is_string($value) && mb_strlen($value) > 90) {
-                        $value = mb_substr($value, 0, 90) . '...';
+                    if (is_string($value) && mb_strlen($value) > 120) {
+                        $value = mb_substr($value, 0, 120) . '...';
                     }
 
                     $details[] = [
@@ -523,8 +569,15 @@ class PropuestaComercialController extends Controller
                     'model' => $model,
                     'category' => $category,
                     'unit' => $unit,
+                    'unit_measure' => $row->unit_measure ?? $unit,
+                    'content_quantity' => $row->content_quantity ?? null,
+                    'content_unit_measure' => $row->content_unit_measure ?? null,
                     'description' => $description,
                     'image_url' => $imageUrl,
+                    'photo_urls' => $photoUrls,
+                    'photo_1' => isset($row->photo_1) ? $normalizeImage($row->photo_1) : null,
+                    'photo_2' => isset($row->photo_2) ? $normalizeImage($row->photo_2) : null,
+                    'photo_3' => isset($row->photo_3) ? $normalizeImage($row->photo_3) : null,
                     'similarity_pct' => round($pct, 2),
                     'stock_field' => $stock,
                     'net_available' => $netAvailable,
