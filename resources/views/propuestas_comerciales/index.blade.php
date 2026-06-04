@@ -404,9 +404,11 @@
     box-shadow: 0 4px 14px rgba(20,20,40,.03);
     margin-bottom: 32px;
   }
+  
+  /* NUEVO: Ensanchamos la primera columna (minmax a 250px en lugar de 190px) */
   .jureto-dashboard-page .quote-head {
     display: grid;
-    grid-template-columns: minmax(190px, 230px) minmax(0, 1fr) 130px 120px 84px;
+    grid-template-columns: minmax(260px, 1.4fr) minmax(0, 1fr) 130px 120px 84px;
     gap: 18px;
     padding: 14px 30px;
     background: #fafbfc;
@@ -421,10 +423,11 @@
   .jureto-dashboard-page .quote-head span:nth-child(3) { text-align: right; }
   .jureto-dashboard-page .quote-head span:nth-child(3) { text-align: left; }
 
+  /* NUEVO: Misma medida para las filas */
   .jureto-dashboard-page .quote-row {
     position: relative;
     display: grid;
-    grid-template-columns: minmax(190px, 230px) minmax(0, 1fr) 130px 120px 84px;
+    grid-template-columns: minmax(260px, 1.4fr) minmax(0, 1fr) 130px 120px 84px;
     align-items: center;
     gap: 18px;
     min-height: 78px;
@@ -447,7 +450,6 @@
     text-decoration: none;
   }
 
-  /* CORRECCIÓN: Prevención de desbordamiento de texto en flexbox */
   .jureto-dashboard-page .quote-id { 
     display: flex; 
     align-items: center; 
@@ -470,23 +472,24 @@
     font-size: 14px;
     font-weight: 700;
   }
+  
   .jureto-dashboard-page .quote-folio {
     color: #0d0d0d;
     font-size: 15px;
     font-weight: 700;
     margin-bottom: 4px;
-    line-height: 1.2;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    line-height: 1.3;
+    /* CORRECCIÓN: Permite que el texto fluya en varias líneas y rompa palabras largas seguidas */
+    word-break: break-word;
+    overflow-wrap: anywhere;
   }
+  
   .jureto-dashboard-page .quote-date {
     color: var(--muted);
     font-size: 12.5px;
     font-weight: 600;
   }
 
-  /* CORRECCIÓN: Prevención de desbordamiento en la columna principal */
   .jureto-dashboard-page .quote-main {
     min-width: 0;
   }
@@ -496,9 +499,8 @@
     font-size: 15px;
     font-weight: 600;
     margin-bottom: 4px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    word-break: break-word;
+    overflow-wrap: anywhere;
   }
   
   .jureto-dashboard-page .quote-note {
@@ -510,6 +512,7 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  
   .jureto-dashboard-page .badge {
     display: inline-flex;
     align-items: center;

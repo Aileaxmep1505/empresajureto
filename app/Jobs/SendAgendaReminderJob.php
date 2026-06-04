@@ -25,12 +25,7 @@ class SendAgendaReminderJob implements ShouldQueue
     public int $timeout = 120;
 
     /**
-     * Normaliza teléfono a México fijo (52 + 10 dígitos).
-     * Acepta:
-     *  - "2205381046" -> "522205381046"
-     *  - "+52 220 538 1046" -> "522205381046"
-     *  - "52 2205381046" -> "522205381046"
-     *  - Cualquier cosa rara -> intenta tomar últimos 10 y prefijar 52
+     * Normaliza teléfono a México (52 + 10 dígitos).
      */
     protected function normalizeMxPhone(?string $value): ?string
     {
@@ -93,8 +88,13 @@ class SendAgendaReminderJob implements ShouldQueue
             ->whereIn('id', $userIds)
             ->get(['id', 'name', 'email', 'phone']);
 
-        $fechaFormateada = $event->start_at
-            ? $event->start_at->setTimezone($tz)->format('d/m/Y H:i')
+        // {{3}} fecha y {{4}} hora por separado (igual que la plantilla)
+        $fecha = $event->start_at
+            ? $event->start_at->setTimezone($tz)->format('d/m/Y')
+            : '';
+
+        $hora = $event->start_at
+            ? $event->start_at->setTimezone($tz)->format('h:i a')
             : '';
 
         try {
@@ -148,11 +148,13 @@ class SendAgendaReminderJob implements ShouldQueue
 
             // ========= WHATSAPP (a muchos) =========
             if ($event->send_whatsapp) {
-                if (!class_exists(\App\Services\WhatsAppService::class)) {
+                $waClass = \App\Services\WhatsApp\WhatsAppService::class;
+
+                if (!class_exists($waClass)) {
                     Log::warning('WhatsAppService no disponible; omitiendo WA', ['event_id' => $event->id]);
                 } else {
-                    $wa = app(\App\Services\WhatsAppService::class);
-                    $templateName = config('services.whatsapp.template_agenda', 'agenda_recordatorio');
+                    $wa = app($waClass);
+                    $templateName = config('whatsapp.template_agenda', 'agenda_recordatorio');
 
                     foreach ($users as $u) {
                         $to = $this->normalizeMxPhone($u->phone);
@@ -168,25 +170,21 @@ class SendAgendaReminderJob implements ShouldQueue
 
                         try {
                             $params = [
-                                $u->name ?: 'Usuario',
-                                $event->title,
-                                $fechaFormateada,
-                                $tz,
+                                $u->name ?: 'Usuario',  // {{1}} nombre
+                                $event->title,          // {{2}} evento
+                                $fecha,                 // {{3}} fecha
+                                $hora,                  // {{4}} hora
                             ];
 
-                            if (method_exists($wa, 'sendTemplate')) {
-                                $resp = $wa->sendTemplate($to, $templateName, $params, 'es');
+                            $resp = $wa->sendTemplate($to, $templateName, $params, 'es_MX');
 
-                                Log::info('WhatsApp template response', [
-                                    'event_id' => $event->id,
-                                    'user_id'  => $u->id,
-                                    'phone'    => $to,
-                                    'raw_phone'=> $u->phone,
-                                    'response' => $resp,
-                                ]);
-                            } else {
-                                Log::warning('WhatsAppService::sendTemplate no existe', ['event_id' => $event->id]);
-                            }
+                            Log::info('WhatsApp template response', [
+                                'event_id' => $event->id,
+                                'user_id'  => $u->id,
+                                'phone'    => $to,
+                                'raw_phone'=> $u->phone,
+                                'response' => $resp,
+                            ]);
                         } catch (Throwable $waEx) {
                             Log::error('Error enviando WhatsApp (template)', [
                                 'event_id' => $event->id,
