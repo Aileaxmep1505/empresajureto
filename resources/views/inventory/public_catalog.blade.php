@@ -618,8 +618,27 @@
       return null;
     };
 
-    $assignedTo = $pick($assignment, ['assigned_to', 'assignee_name', 'recipient_name', 'received_by', 'employee_name', 'user.name'])
-      ?? $pick($item, ['assigned_to', 'assigned_user_name', 'assignedUser.name', 'responsible.name']);
+    // Igual que $pick pero descarta valores puramente numéricos (IDs no son nombres)
+    $pickName = function ($source, array $keys) {
+      if (!$source) return null;
+      foreach ($keys as $key) {
+        $value = data_get($source, $key);
+        if (!empty($value) && !is_numeric($value)) return $value;
+      }
+      return null;
+    };
+
+    $assignedTo = $pickName($assignment, ['user.name', 'assignee.name', 'employee.name', 'assignedUser.name', 'assignee_name', 'recipient_name', 'employee_name', 'received_by', 'signed_by', 'assigned_to'])
+      ?? $pickName($item, ['assigned_to', 'assigned_user_name', 'assignedUser.name', 'responsible.name']);
+
+    // Si solo tenemos un ID numérico, lo resolvemos contra el modelo User
+    if (!$assignedTo) {
+      $assignedId = $pick($assignment, ['assigned_to', 'user_id', 'assignee_id', 'employee_id'])
+        ?? $pick($item, ['assigned_to', 'assigned_user_id']);
+      if ($assignedId && is_numeric($assignedId) && class_exists(\App\Models\User::class)) {
+        $assignedTo = optional(\App\Models\User::find($assignedId))->name;
+      }
+    }
 
     $assignedAtRaw = $pick($assignment, ['assigned_at', 'assignment_date', 'created_at'])
       ?? $pick($item, ['assigned_at', 'assignment_date']);
@@ -629,9 +648,9 @@
     $aFolio     = $pick($assignment, ['folio', 'code', 'reference']);
     $aEmail     = $pick($assignment, ['email', 'assignee_email', 'recipient_email', 'user.email']);
     $aQty       = $pick($assignment, ['quantity', 'qty']);
-    $aDelivers  = $pick($assignment, ['delivered_by', 'who_delivers', 'deliverer_name']);
-    $aReceives  = $pick($assignment, ['received_by', 'who_receives', 'recipient_name']);
-    $aSignedBy  = $pick($assignment, ['signed_by', 'signer_name']);
+    $aDelivers  = $pickName($assignment, ['delivered_by', 'who_delivers', 'deliverer_name', 'deliverer.name']);
+    $aReceives  = $pickName($assignment, ['received_by', 'who_receives', 'recipient_name', 'receiver.name']);
+    $aSignedBy  = $pickName($assignment, ['signed_by', 'signer_name', 'signer.name']);
     $aSignedAtRaw = $pick($assignment, ['signed_at', 'signature_date']);
     $aSignedAt  = $aSignedAtRaw ? \Carbon\Carbon::parse($aSignedAtRaw)->format('d/m/Y H:i') : null;
 
