@@ -529,59 +529,84 @@ class PropuestaComercialController extends Controller
         }
 
         $columns = $this->productColumns();
-        $words = $this->splitSearchWords($queryText);
         $fullQuery = trim($queryText);
         $normalizedFullQuery = $this->normalizeSearchText($fullQuery);
+        $words = $this->splitSearchWords($queryText);
 
         $searchable = array_values(array_intersect([
             'name', 'product_name', 'nombre', 'title', 'titulo',
             'sku', 'supplier_sku', 'codigo', 'code', 'clave',
-            'brand', 'brand_name', 'marca',
-            'model', 'modelo', 'model_name',
-            'category', 'categoria', 'category_name', 'category_key',
+            'brand', 'brand_name', 'marca', 'marca_producto', 'manufacturer', 'fabricante',
+            'model', 'modelo', 'model_name', 'modelo_producto',
+            'category', 'categoria', 'category_name', 'category_key', 'family', 'familia',
             'color', 'unit', 'unidad', 'unit_measure',
             'description', 'descripcion', 'excerpt', 'short_description', 'notes', 'notas'
         ], $columns));
 
-        $base = DB::table('products');
+        $nameColumns = array_values(array_intersect([
+            'name', 'product_name', 'nombre', 'title', 'titulo', 'description', 'descripcion'
+        ], $columns));
 
-        if (in_array('deleted_at', $columns, true)) {
-            $base->whereNull('deleted_at');
-        }
+        $idRows = collect();
 
+        $baseQuery = function () use ($columns) {
+            $query = DB::table('products');
+            if (in_array('deleted_at', $columns, true)) {
+                $query->whereNull('deleted_at');
+            }
+            return $query;
+        };
+
+        // 1) Prioridad alta: frase completa en nombre/descripcion/SKU.
         if ($fullQuery !== '' && !empty($searchable)) {
-            $base->where(function ($sub) use ($searchable, $words, $fullQuery) {
+            $exact = $baseQuery();
+            $exact->where(function ($sub) use ($searchable, $fullQuery) {
                 foreach ($searchable as $column) {
                     $sub->orWhere($column, 'like', '%' . $fullQuery . '%');
                 }
+            });
+            $idRows = $idRows->merge($exact->limit(120)->get());
+        }
 
+        // 2) Prioridad media: todos los terminos importantes deben existir en campos de producto.
+        if (!empty($words) && !empty($nameColumns)) {
+            $allWords = $baseQuery();
+            $allWords->where(function ($query) use ($words, $nameColumns) {
+                foreach ($words as $word) {
+                    $query->where(function ($sub) use ($word, $nameColumns) {
+                        foreach ($nameColumns as $column) {
+                            $sub->orWhere($column, 'like', '%' . $word . '%');
+                        }
+                    });
+                }
+            });
+            $idRows = $idRows->merge($allWords->limit(180)->get());
+        }
+
+        // 3) Respaldo: coincidencia amplia por palabras. Sirve cuando el usuario escribe poco.
+        if (!empty($words) && !empty($searchable)) {
+            $broad = $baseQuery();
+            $broad->where(function ($sub) use ($searchable, $words) {
                 foreach ($words as $word) {
                     foreach ($searchable as $column) {
                         $sub->orWhere($column, 'like', '%' . $word . '%');
                     }
                 }
             });
+            $idRows = $idRows->merge($broad->limit(500)->get());
         }
 
-        $rows = $base->limit(500)->get();
-
-        // Fallback: si MySQL no encontró por LIKE, traemos una muestra para rankear en PHP.
-        // No mezclamos catalog_items aquí: búsqueda manual debe usar SOLO products.
-        if ($rows->isEmpty() && $fullQuery !== '') {
-            $fallback = DB::table('products');
-
-            if (in_array('deleted_at', $columns, true)) {
-                $fallback->whereNull('deleted_at');
-            }
-
-            $rows = $fallback->limit(800)->get();
+        // 4) Si aun no hay nada, trae muestra para rankear en PHP.
+        if ($idRows->isEmpty() && $fullQuery !== '') {
+            $idRows = $baseQuery()->limit(800)->get();
         }
 
-        return $rows
+        return $idRows
+            ->unique(fn ($row) => (string) ($row->id ?? spl_object_id($row)))
             ->map(function ($row) use ($columns, $queryText, $words, $normalizedFullQuery) {
                 return $this->productRowToCandidate($row, $columns, $queryText, $words, $normalizedFullQuery);
             })
-            ->filter(fn ($candidate) => (float) $candidate['similarity_pct'] > 0)
+            ->filter(fn ($candidate) => (float) $candidate['similarity_pct'] >= 30)
             ->sortByDesc('similarity_pct')
             ->take($limit)
             ->values();
@@ -591,9 +616,9 @@ class PropuestaComercialController extends Controller
     {
         $name = (string) ($this->pickProductValue($row, $columns, ['name', 'product_name', 'nombre', 'titulo', 'title']) ?: 'Producto sin nombre');
         $sku = (string) ($this->pickProductValue($row, $columns, ['sku', 'supplier_sku', 'codigo', 'code', 'clave']) ?: '');
-        $brand = (string) ($this->pickProductValue($row, $columns, ['brand', 'brand_name', 'marca']) ?: '');
-        $model = (string) ($this->pickProductValue($row, $columns, ['model', 'modelo', 'model_name']) ?: '');
-        $category = (string) ($this->pickProductValue($row, $columns, ['category', 'categoria', 'category_name', 'category_key']) ?: '');
+        $brand = (string) ($this->pickProductValue($row, $columns, ['brand', 'brand_name', 'marca', 'marca_producto', 'manufacturer', 'fabricante']) ?: '');
+        $model = (string) ($this->pickProductValue($row, $columns, ['model', 'modelo', 'model_name', 'modelo_producto']) ?: '');
+        $category = (string) ($this->pickProductValue($row, $columns, ['category', 'categoria', 'category_name', 'category_key', 'family', 'familia']) ?: '');
         $unit = (string) ($this->pickProductValue($row, $columns, ['unit', 'unidad', 'unit_measure', 'unidad_solicitada']) ?: 'pieza');
         $color = (string) ($this->pickProductValue($row, $columns, ['color', 'colour']) ?: '');
         $description = (string) ($this->pickProductValue($row, $columns, ['description', 'descripcion', 'excerpt', 'short_description', 'notes', 'notas']) ?: '');
@@ -603,6 +628,12 @@ class PropuestaComercialController extends Controller
 
         $normalizedFullQuery = $normalizedFullQuery ?? $this->normalizeSearchText($searchText);
         $searchWords = $searchWords ?? $this->splitSearchWords($searchText);
+        $words = collect($searchWords)
+            ->map(fn ($word) => $this->normalizeSearchText($word))
+            ->filter(fn ($word) => $word !== '')
+            ->unique()
+            ->values()
+            ->all();
 
         $nameText = $this->normalizeSearchText($name);
         $skuText = $this->normalizeSearchText($sku);
@@ -611,17 +642,26 @@ class PropuestaComercialController extends Controller
         $categoryText = $this->normalizeSearchText($category);
         $colorText = $this->normalizeSearchText($color);
         $descriptionText = $this->normalizeSearchText($description);
-        $haystack = trim($nameText . ' ' . $skuText . ' ' . $brandText . ' ' . $modelText . ' ' . $categoryText . ' ' . $colorText . ' ' . $descriptionText);
+        $primaryText = trim($nameText . ' ' . $skuText . ' ' . $brandText . ' ' . $modelText . ' ' . $categoryText . ' ' . $colorText);
+        $haystack = trim($primaryText . ' ' . $descriptionText);
 
         $score = 0.0;
+        $totalWords = max(count($words), 1);
+        $primaryHits = collect($words)->filter(fn ($word) => str_contains($primaryText, $word))->count();
+        $haystackHits = collect($words)->filter(fn ($word) => str_contains($haystack, $word))->count();
+        $missingWords = collect($words)->filter(fn ($word) => !str_contains($haystack, $word))->values()->all();
 
         if ($normalizedFullQuery !== '') {
             if ($nameText === $normalizedFullQuery || $skuText === $normalizedFullQuery) {
                 $score = max($score, 100);
             }
 
-            if (str_contains($nameText, $normalizedFullQuery)) {
-                $score = max($score, 96);
+            if (str_contains($nameText, $normalizedFullQuery) || str_contains($skuText, $normalizedFullQuery)) {
+                $score = max($score, 98);
+            }
+
+            if (str_contains($primaryText, $normalizedFullQuery)) {
+                $score = max($score, 94);
             }
 
             if (str_contains($haystack, $normalizedFullQuery)) {
@@ -629,34 +669,39 @@ class PropuestaComercialController extends Controller
             }
         }
 
-        if (!empty($searchWords)) {
-            $words = collect($searchWords)
-                ->map(fn ($word) => $this->normalizeSearchText($word))
-                ->filter(fn ($word) => $word !== '')
-                ->unique()
-                ->values()
-                ->all();
+        if (!empty($words)) {
+            $primaryRatio = $primaryHits / $totalWords;
+            $haystackRatio = $haystackHits / $totalWords;
 
-            $nameHits = collect($words)->filter(fn ($word) => str_contains($nameText, $word))->count();
-            $haystackHits = collect($words)->filter(fn ($word) => str_contains($haystack, $word))->count();
-            $totalWords = max(count($words), 1);
+            $score = max($score, $primaryRatio * 95, $haystackRatio * 70);
 
-            $nameTokenScore = ($nameHits / $totalWords) * 92;
-            $generalTokenScore = ($haystackHits / $totalWords) * 76;
-
-            $score = max($score, $nameTokenScore, $generalTokenScore);
-
-            if ($nameHits >= 2) {
-                $score += 8;
+            if ($primaryHits === $totalWords && $totalWords >= 2) {
+                $score = max($score, 93);
+            } elseif ($haystackHits === $totalWords && $totalWords >= 2) {
+                $score = max($score, 82);
             }
 
             if ($brandText !== '' && collect($words)->contains(fn ($word) => str_contains($brandText, $word))) {
-                $score += 4;
+                $score += 5;
+            }
+
+            // Evita falsos positivos como buscar "SOBRE PAPEL MANILA" y que aparezcan pinturas
+            // solo porque su descripcion contiene "sobre" y "papel".
+            if ($totalWords >= 2 && !empty($missingWords)) {
+                $score = min($score, 24);
+            }
+
+            if ($totalWords >= 3 && $primaryHits < 2) {
+                $score = min($score, 35);
             }
         }
 
-        similar_text($normalizedFullQuery, $haystack, $similarPct);
-        $score = max($score, min((float) $similarPct, 55));
+        if ($normalizedFullQuery !== '' && $score < 80) {
+            similar_text($normalizedFullQuery, $primaryText, $similarPrimaryPct);
+            similar_text($normalizedFullQuery, $haystack, $similarAllPct);
+            $score = max($score, min((float) $similarPrimaryPct, 70), min((float) $similarAllPct, 45));
+        }
+
         $score = min(round($score, 2), 100);
 
         $hidden = ['id', 'created_at', 'updated_at', 'deleted_at'];
@@ -692,7 +737,7 @@ class PropuestaComercialController extends Controller
             'unit' => $unit,
             'color' => $color,
             'description' => $description,
-            // Sin imágenes en búsqueda manual. Las imágenes quedan solo para Muestras / stock.
+            // Sin imagenes en busqueda manual. Las imagenes quedan solo para Muestras / stock.
             'image_url' => null,
             'photo_urls' => [],
             'similarity_pct' => $score,

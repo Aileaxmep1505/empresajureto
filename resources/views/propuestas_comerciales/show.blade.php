@@ -3021,9 +3021,9 @@
 
     const selectedCatalog = getSelectedCatalogProduct(item);
     const brand =
+      item.manual_external_supplier ||
       selectedCatalog?.product?.brand ||
       item.producto_seleccionado?.brand ||
-      item.manual_external_supplier ||
       'SIN MARCA';
 
     return String(brand || 'SIN MARCA').trim().toUpperCase() || 'SIN MARCA';
