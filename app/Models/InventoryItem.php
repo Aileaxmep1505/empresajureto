@@ -33,6 +33,8 @@ protected $fillable = [
     'mac_address',
     'notes',
     'photo',
+    'photo_2',
+'photo_3',
 ];
 
     public function category()
@@ -97,4 +99,5 @@ public function stockMovements()
 {
     return $this->hasMany(\App\Models\StockMovement::class);
 }
+
 }

@@ -189,8 +189,17 @@
   .na-label{ font-weight:600; font-size:13px; color:var(--text); margin-bottom:8px; display:block; }
   .na-label .req{ color:var(--danger); }
   .na-uploader{ display:flex; align-items:center; gap:16px; margin-bottom:16px; }
+  .na-photo-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:16px; }
+  .na-photo-card{ background:var(--bg); border:1px solid var(--line); border-radius:12px; padding:12px; }
+  .na-photo-card .na-uploader{ display:block; margin-bottom:0; }
+  .na-photo-card .na-drop{ width:100%; height:110px; margin-bottom:10px; }
+  .na-photo-card .na-upload-btn{ width:100%; text-align:center; justify-content:center; display:flex; }
   .na-drop{ width:80px; height:80px; border:1px dashed var(--muted); border-radius:12px; display:grid; place-items:center; color:var(--muted); font-size:24px; background:var(--bg); overflow:hidden; }
   .na-drop img{ width:100%; height:100%; object-fit:cover; }
+  .drawer-detail-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:24px; }
+  .drawer-detail-card{ background:var(--bg); border:1px solid var(--line); border-radius:10px; padding:12px; }
+  .drawer-detail-card .info-label{ margin-bottom:6px; }
+  @media (max-width:767.98px){ .na-photo-grid,.drawer-detail-grid{ grid-template-columns:1fr; } }
   .na-upload-btn{ border:1px solid var(--line); background:var(--card); color:var(--text); font-weight:600; font-size:13px; border-radius:8px; padding:8px 16px; cursor:pointer; transition:background .2s; }
   .na-upload-btn:hover{ background:var(--bg); }
   .na-remove-photo{ font-size:13px; color:var(--muted); margin-bottom:16px; display:none; align-items:center; gap:6px; }
@@ -366,9 +375,11 @@
                data-condition="{{ $item->condition }}" data-notes="{{ $item->notes }}"
                data-unit="{{ $item->unit }}" data-stock="{{ (int)$item->stock }}" data-stock-min="0" data-stock-max="0"
                data-photo="{{ $item->photo ? asset('storage/'.$item->photo) : '' }}"
+               data-photo-2="{{ !empty($item->photo_2) ? asset('storage/'.$item->photo_2) : '' }}"
+               data-photo-3="{{ !empty($item->photo_3) ? asset('storage/'.$item->photo_3) : '' }}"
                data-delete-url="{{ route('assets.destroy', $item->id) }}"
                data-assign-url="{{ url('/internal-assets/assignments') }}"
-               data-qr-text="{{ route('assets.board').'?item='.$item->id }}"
+               data-qr-text="{{ \Illuminate\Support\Facades\Route::has('assets.public-catalog') ? route('assets.public-catalog', $item->id) : route('assets.board').'?item='.$item->id }}"
                data-tag="{{ $tag }}" data-is-consumable="0"
                data-maintenances='@json($mnts)'
                data-assignment='@json($asgData)'
@@ -418,6 +429,8 @@
                data-notes="{{ $item->notes }}" data-unit="{{ $item->unit ?: 'piezas' }}"
                data-stock="{{ $stock }}" data-stock-min="{{ $min }}" data-stock-max="{{ $max }}"
                data-photo="{{ $item->photo ? asset('storage/'.$item->photo) : '' }}"
+               data-photo-2="{{ !empty($item->photo_2) ? asset('storage/'.$item->photo_2) : '' }}"
+               data-photo-3="{{ !empty($item->photo_3) ? asset('storage/'.$item->photo_3) : '' }}"
                data-delete-url="{{ route('assets.destroy', $item->id) }}"
                data-stock-url="{{ route('assets.stock-move', $item->id) }}"
                data-tag="ID-{{ $item->id }}" data-is-consumable="1"
@@ -469,11 +482,30 @@
         </div>
         <div class="na-body">
           <div class="na-panel active" data-na-panel="general">
-            <div class="na-uploader">
-              <div class="na-drop"><i class="bi bi-camera"></i></div>
-              <label class="na-upload-btn">Subir imagen<input type="file" name="photo" accept="image/*" hidden></label>
+            <label class="na-label">Fotos</label>
+            <div class="na-photo-grid">
+              <div class="na-photo-card">
+                <div class="na-uploader">
+                  <div class="na-drop" data-photo-drop="photo"><i class="bi bi-camera"></i></div>
+                  <label class="na-upload-btn">Foto principal<input type="file" name="photo" accept="image/*" hidden></label>
+                </div>
+                <label class="na-remove-photo" data-remove-wrap="photo"><input type="checkbox" name="remove_photo" value="1"> Quitar foto actual</label>
+              </div>
+              <div class="na-photo-card">
+                <div class="na-uploader">
+                  <div class="na-drop" data-photo-drop="photo_2"><i class="bi bi-camera"></i></div>
+                  <label class="na-upload-btn">Foto 2<input type="file" name="photo_2" accept="image/*" hidden></label>
+                </div>
+                <label class="na-remove-photo" data-remove-wrap="photo_2"><input type="checkbox" name="remove_photo_2" value="1"> Quitar foto 2</label>
+              </div>
+              <div class="na-photo-card">
+                <div class="na-uploader">
+                  <div class="na-drop" data-photo-drop="photo_3"><i class="bi bi-camera"></i></div>
+                  <label class="na-upload-btn">Foto 3<input type="file" name="photo_3" accept="image/*" hidden></label>
+                </div>
+                <label class="na-remove-photo" data-remove-wrap="photo_3"><input type="checkbox" name="remove_photo_3" value="1"> Quitar foto 3</label>
+              </div>
             </div>
-            <label class="na-remove-photo"><input type="checkbox" name="remove_photo" value="1"> Quitar foto actual</label>
             <label class="na-label">Nombre <span class="req">*</span></label>
             <input type="text" name="name" class="na-input" value="{{ old('name') }}" placeholder="Ej. Laptop Dell XPS 15" required>
             @error('name')<div class="field-error">{{ $message }}</div>@enderror
@@ -567,11 +599,30 @@
         </div>
         <div class="na-body">
           <div class="na-panel active" data-na-panel="general">
-            <div class="na-uploader">
-              <div class="na-drop"><i class="bi bi-camera"></i></div>
-              <label class="na-upload-btn">Subir imagen<input type="file" name="photo" accept="image/*" hidden></label>
+            <label class="na-label">Fotos</label>
+            <div class="na-photo-grid">
+              <div class="na-photo-card">
+                <div class="na-uploader">
+                  <div class="na-drop" data-photo-drop="photo"><i class="bi bi-camera"></i></div>
+                  <label class="na-upload-btn">Foto principal<input type="file" name="photo" accept="image/*" hidden></label>
+                </div>
+                <label class="na-remove-photo" data-remove-wrap="photo"><input type="checkbox" name="remove_photo" value="1"> Quitar foto actual</label>
+              </div>
+              <div class="na-photo-card">
+                <div class="na-uploader">
+                  <div class="na-drop" data-photo-drop="photo_2"><i class="bi bi-camera"></i></div>
+                  <label class="na-upload-btn">Foto 2<input type="file" name="photo_2" accept="image/*" hidden></label>
+                </div>
+                <label class="na-remove-photo" data-remove-wrap="photo_2"><input type="checkbox" name="remove_photo_2" value="1"> Quitar foto 2</label>
+              </div>
+              <div class="na-photo-card">
+                <div class="na-uploader">
+                  <div class="na-drop" data-photo-drop="photo_3"><i class="bi bi-camera"></i></div>
+                  <label class="na-upload-btn">Foto 3<input type="file" name="photo_3" accept="image/*" hidden></label>
+                </div>
+                <label class="na-remove-photo" data-remove-wrap="photo_3"><input type="checkbox" name="remove_photo_3" value="1"> Quitar foto 3</label>
+              </div>
             </div>
-            <label class="na-remove-photo"><input type="checkbox" name="remove_photo" value="1"> Quitar foto actual</label>
             <label class="na-label">Nombre <span class="req">*</span></label>
             <input type="text" name="name" class="na-input" value="{{ old('name') }}" required>
             @error('name')<div class="field-error">{{ $message }}</div>@enderror
@@ -695,10 +746,14 @@
       <span class="chip chip-cat" id="drawerCategoryChip">Categoría</span>
     </div>
     <div class="info-grid" id="fixedInfoGrid">
-      <div><div class="info-label">Marca</div><div class="info-value" id="drawerBrand">—</div></div>
-      <div><div class="info-label">Modelo</div><div class="info-value" id="drawerModel">—</div></div>
-      <div><div class="info-label">No. Serie</div><div class="info-value" id="drawerSerial">—</div></div>
-      <div><div class="info-label">Ubicación</div><div class="info-value" id="drawerLocation">—</div></div>
+      <div class="drawer-basic-field" data-key="brand"><div class="info-label">Marca</div><div class="info-value" id="drawerBrand">—</div></div>
+      <div class="drawer-basic-field" data-key="model"><div class="info-label">Modelo</div><div class="info-value" id="drawerModel">—</div></div>
+      <div class="drawer-basic-field" data-key="serial"><div class="info-label">No. Serie</div><div class="info-value" id="drawerSerial">—</div></div>
+      <div class="drawer-basic-field" data-key="location"><div class="info-label">Ubicación</div><div class="info-value" id="drawerLocation">—</div></div>
+    </div>
+    <div id="drawerExtraWrap" class="d-none-force">
+      <div class="drawer-section-title">Datos del registro</div>
+      <div class="drawer-detail-grid" id="drawerExtraGrid"></div>
     </div>
     <div id="consumableStockBox" class="d-none-force" style="background:var(--bg);border-radius:8px;padding:16px;margin-bottom:24px;">
       <div class="info-label" style="color:var(--ink);">Control de Stock</div>
@@ -1001,20 +1056,70 @@ function renderAssignment(card){
   wrap.innerHTML=html;
 }
 
+
+function formatMoney(v){
+  if(v===undefined || v===null || String(v).trim()==='') return '';
+  const n=Number(v);
+  if(Number.isNaN(n)) return String(v);
+  return n.toLocaleString('es-MX',{style:'currency',currency:'MXN'});
+}
+function conditionLabel(v){
+  const m={nuevo:'Nuevo',bueno:'Bueno',regular:'Regular',malo:'Malo'};
+  return m[v] || v || '';
+}
+function renderExtraDetails(d,isCons){
+  const wrap=document.getElementById('drawerExtraWrap');
+  const grid=document.getElementById('drawerExtraGrid');
+  if(!wrap || !grid) return;
+  const rows=[
+    ['Código interno', d.internalCode],
+    ['Departamento', d.department],
+    ['Proveedor', d.supplier],
+    ['Fecha de compra', d.purchaseDate],
+    ['Costo', formatMoney(d.purchaseCost)],
+    ['Garantía hasta', d.warrantyUntil],
+    ['Condición', conditionLabel(d.condition)],
+    ['Procesador', d.processor],
+    ['RAM', d.ram],
+    ['Almacenamiento', d.storage],
+    ['Sistema operativo', d.operatingSystem],
+    ['MAC Address', d.macAddress],
+    ['Unidad', d.unit]
+  ].filter(([k,v])=>String(v||'').trim()!=='' && !(isCons && ['Condición','Procesador','RAM','Almacenamiento','Sistema operativo','MAC Address'].includes(k)));
+  grid.innerHTML=rows.map(([k,v])=>`<div class="drawer-detail-card"><div class="info-label">${esc(k)}</div><div class="info-value">${esc(v)}</div></div>`).join('');
+  wrap.classList.toggle('d-none-force',rows.length===0);
+}
+
 function fillDrawer(card){
   currentCard=card; const d=card.dataset; const isCons=d.isConsumable==='1';
   document.getElementById('itemDrawerLabel').textContent=d.name||'Detalle';
-  document.getElementById('drawerImageWrap').innerHTML = d.photo
-    ? `<img src="${d.photo}" alt="">`
+  const drawerPhotos=[d.photo,d.photo2,d.photo3].filter(Boolean);
+  document.getElementById('drawerImageWrap').innerHTML = drawerPhotos.length
+    ? `<img src="${drawerPhotos[0]}" alt="">`
     : `<div class="ph"><i class="bi ${isCons?'bi-box-seam':'bi-laptop'}"></i></div>`;
   const sc=document.getElementById('drawerStatusChip'); sc.className=`chip ${d.statusClass||'state-disponible'}`; sc.textContent=d.statusLabel||'Disponible';
   document.getElementById('drawerTypeChip').textContent=d.typeLabel||'';
   document.getElementById('drawerCategoryChip').textContent=d.category||'';
-  document.getElementById('drawerBrand').textContent=d.brand||'—';
-  document.getElementById('drawerModel').textContent=d.model||'—';
-  document.getElementById('drawerSerial').textContent=d.serial||'—';
-  document.getElementById('drawerLocation').textContent=d.location||'—';
-  document.getElementById('drawerDescription').textContent=d.notes||'Sin descripción';
+
+  const setBasicField=(key,elId,value)=>{
+    const wrap=document.querySelector(`.drawer-basic-field[data-key="${key}"]`);
+    const el=document.getElementById(elId);
+    const has=String(value||'').trim()!=='';
+    if(el) el.textContent=has?value:'—';
+    if(wrap) wrap.classList.toggle('d-none-force',!has);
+  };
+  setBasicField('brand','drawerBrand',d.brand);
+  setBasicField('model','drawerModel',d.model);
+  setBasicField('serial','drawerSerial',d.serial);
+  setBasicField('location','drawerLocation',d.location);
+
+  const descWrap=document.getElementById('drawerDescription');
+  const descTitle=descWrap ? descWrap.previousElementSibling : null;
+  const hasDesc=String(d.notes||'').trim()!=='';
+  if(descWrap) { descWrap.textContent=d.notes||''; descWrap.classList.toggle('d-none-force',!hasDesc); }
+  if(descTitle) descTitle.classList.toggle('d-none-force',!hasDesc);
+
+  renderExtraDetails(d,isCons);
 
   const fixedGrid=document.getElementById('fixedInfoGrid'), stockBox=document.getElementById('consumableStockBox');
   const qrBtn=document.getElementById('drawerQrBtn'), assignBtn=document.getElementById('drawerAssignBtn');
@@ -1093,8 +1198,17 @@ function fillModalFields(modal,d){
   set('purchase_cost',d.purchaseCost); set('warranty_until',d.warrantyUntil); set('processor',d.processor); set('ram',d.ram);
   set('storage',d.storage); set('operating_system',d.operatingSystem); set('mac_address',d.macAddress); set('notes',d.notes);
   set('stock',d.stock); set('stock_min',d.stockMin); set('stock_max',d.stockMax); set('unit',d.unit);
-  const drop=modal.querySelector('.na-drop'); if(drop) drop.innerHTML = d.photo?`<img src="${d.photo}">`:'<i class="bi bi-camera"></i>';
-  const rm=modal.querySelector('.na-remove-photo'); if(rm){ rm.style.display=d.photo?'flex':'none'; const cb=rm.querySelector('input'); if(cb) cb.checked=false; }
+  ['photo','photo_2','photo_3'].forEach((field)=>{
+    const dataKey = field === 'photo' ? 'photo' : (field === 'photo_2' ? 'photo2' : 'photo3');
+    const url = d[dataKey] || '';
+    const drop = modal.querySelector(`[data-photo-drop="${field}"]`);
+    if(drop) drop.innerHTML = url ? `<img src="${url}">` : '<i class="bi bi-camera"></i>';
+    const rm = modal.querySelector(`[data-remove-wrap="${field}"]`);
+    if(rm){
+      rm.style.display = url ? 'flex' : 'none';
+      const cb = rm.querySelector('input'); if(cb) cb.checked=false;
+    }
+  });
 }
 function openEditModal(card){
   const d=card.dataset; const isCons=d.isConsumable==='1';
@@ -1115,9 +1229,9 @@ function clearForm(modal){
     ['stock','stock_min','stock_max'].forEach(n=>{ const e=modal.querySelector(`[name="${n}"]`); if(e) e.value=0; });
     const u=modal.querySelector('[name="unit"]'); if(u) u.value='piezas';
   }
-  const file=modal.querySelector('input[type="file"]'); if(file) file.value='';
-  const drop=modal.querySelector('.na-drop'); if(drop) drop.innerHTML='<i class="bi bi-camera"></i>';
-  const rm=modal.querySelector('.na-remove-photo'); if(rm) rm.style.display='none';
+  modal.querySelectorAll('input[type="file"]').forEach(file=>file.value='');
+  modal.querySelectorAll('.na-drop').forEach(drop=>drop.innerHTML='<i class="bi bi-camera"></i>');
+  modal.querySelectorAll('.na-remove-photo').forEach(rm=>{ rm.style.display='none'; const cb=rm.querySelector('input'); if(cb) cb.checked=false; });
   modal.querySelectorAll('.custom-select-target').forEach(s=>{ if(s._customSelect) s._customSelect.refresh(); });
 }
 
@@ -1125,8 +1239,12 @@ function clearForm(modal){
   const modal=document.getElementById(id); if(!modal) return;
   const tabs=modal.querySelectorAll('.na-tab'), ps=modal.querySelectorAll('.na-panel');
   tabs.forEach(t=>t.addEventListener('click',()=>{ tabs.forEach(x=>x.classList.toggle('active',x===t)); ps.forEach(p=>p.classList.toggle('active',p.dataset.naPanel===t.dataset.naTab)); }));
-  const photo=modal.querySelector('input[type="file"]'), drop=modal.querySelector('.na-drop');
-  if(photo&&drop) photo.addEventListener('change',()=>{ if(photo.files[0]){ const r=new FileReader(); r.onload=e=>drop.innerHTML=`<img src="${e.target.result}">`; r.readAsDataURL(photo.files[0]); } });
+  modal.querySelectorAll('input[type="file"]').forEach(photo=>{
+    photo.addEventListener('change',()=>{
+      const drop=modal.querySelector(`[data-photo-drop="${photo.name}"]`) || photo.closest('.na-uploader')?.querySelector('.na-drop');
+      if(photo.files[0] && drop){ const r=new FileReader(); r.onload=e=>drop.innerHTML=`<img src="${e.target.result}">`; r.readAsDataURL(photo.files[0]); }
+    });
+  });
   modal.addEventListener('hidden.bs.modal',()=>{
     if(modal.dataset.keepOpen==='1'){ modal.dataset.keepOpen=''; return; }
     clearForm(modal);

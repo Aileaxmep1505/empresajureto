@@ -173,11 +173,52 @@
   .badge-warning { background: var(--warning-soft); color: var(--warning); }
 
   /* Summaries */
-  .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px; margin-bottom: 32px; }
-  .summary-cell { padding: 24px 16px; text-align: center; cursor: pointer; border: 1px solid var(--line); background: var(--card); border-radius: var(--radius-card); transition: all 0.2s; }
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 16px;
+    margin-bottom: 32px;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+  }
+  .summary-cell {
+    min-width: 0;
+    padding: 24px 12px;
+    text-align: center;
+    cursor: pointer;
+    border: 1px solid var(--line);
+    background: var(--card);
+    border-radius: var(--radius-card);
+    transition: all 0.2s;
+    overflow: hidden;
+  }
   .summary-cell:hover, .summary-cell.active { border-color: var(--blue); box-shadow: 0 4px 12px rgba(0, 122, 255, 0.08); }
-  .summary-value { font-size: 24px; font-weight: 700; color: var(--ink-dark); }
+  .summary-value {
+    min-width: 0;
+    max-width: 100%;
+    font-size: clamp(20px, 2vw, 24px);
+    font-weight: 700;
+    color: var(--ink-dark);
+    line-height: 1.15;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
   .summary-label { font-size: 13px; color: var(--muted); margin-top: 6px; font-weight: 600; }
+
+  @media (max-width: 1180px) {
+    .summary-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  }
+
+  @media (max-width: 760px) {
+    .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .summary-cell { padding: 18px 10px; }
+  }
+
+  @media (max-width: 420px) {
+    .summary-grid { grid-template-columns: 1fr; }
+  }
 
   /* ===== Margen Global (Colapsable / Botón desplegable) ===== */
   .global-margin-wrap { margin-bottom: 32px; }
@@ -1196,10 +1237,25 @@
     setTimeout(hideToast, 6000);
   }
 
+  function hasClarificationQuestion(item) {
+    return Array.isArray(item?.clarification_questions) && item.clarification_questions.length > 0;
+  }
+
+  function itemHasNoPrice(item) {
+    return Number(item?.precio_unitario || 0) <= 0;
+  }
+
   function statusLabel(item) {
     if (item.ui_status === 'accepted_item') return { text: 'Aceptado', cls: 'badge-success' };
-    if (item.ui_status === 'manual_review') return { text: 'Revisión', cls: 'badge-warning' };
     if (item.ui_status === 'rejected_item') return { text: 'Rechazado', cls: 'badge-danger' };
+
+    // Si no tiene precio y ya se genero/guardo pregunta de aclaracion,
+    // mostrar Pregunta en lugar de Similar/Revisión.
+    if (itemHasNoPrice(item) && hasClarificationQuestion(item)) {
+      return { text: 'Pregunta', cls: 'badge-warning' };
+    }
+
+    if (item.ui_status === 'manual_review') return { text: 'Revisión', cls: 'badge-warning' };
     if (item.status_key === 'exact') return { text: 'Exacto', cls: 'badge-success' };
     if (item.status_key === 'similar') return { text: 'Similar', cls: 'badge-info' };
     return { text: 'No encontrado', cls: 'badge-danger' };

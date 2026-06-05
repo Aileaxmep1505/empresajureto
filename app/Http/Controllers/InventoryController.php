@@ -13,6 +13,111 @@ use Barryvdh\DomPDF\Facade\Pdf;
 
 class InventoryController extends Controller
 {
+    private array $photoFields = ['photo', 'photo_2', 'photo_3'];
+
+    private function validationRules(?int $id = null, bool $withRemove = false): array
+    {
+        $rules = [
+            'inventory_category_id' => 'required|exists:inventory_categories,id',
+            'type' => 'required|in:activo_fijo,consumible',
+            'name' => 'required|string|max:255',
+            'unit' => 'nullable|string|max:50',
+            'stock' => 'required|integer|min:0',
+            'location' => 'nullable|string|max:255',
+            'notes' => 'nullable|string',
+
+            'asset_status' => 'nullable|in:disponible,asignado,en_reparacion,dado_de_baja',
+            'condition' => 'nullable|in:nuevo,bueno,regular,malo',
+            'brand' => 'nullable|string|max:255',
+            'model' => 'nullable|string|max:255',
+            'serial_number' => 'nullable|string|max:255|unique:inventory_items,serial_number' . ($id ? ',' . $id : ''),
+            'internal_code' => 'nullable|string|max:255|unique:inventory_items,internal_code' . ($id ? ',' . $id : ''),
+
+            'stock_min' => 'nullable|integer|min:0',
+            'stock_max' => 'nullable|integer|min:0',
+
+            'photo' => 'nullable|image|max:4096',
+            'photo_2' => 'nullable|image|max:4096',
+            'photo_3' => 'nullable|image|max:4096',
+
+            'department' => 'nullable|string|max:255',
+            'supplier' => 'nullable|string|max:255',
+            'purchase_date' => 'nullable|date',
+            'purchase_cost' => 'nullable|numeric|min:0',
+            'warranty_until' => 'nullable|date',
+            'processor' => 'nullable|string|max:255',
+            'ram' => 'nullable|string|max:255',
+            'storage' => 'nullable|string|max:255',
+            'operating_system' => 'nullable|string|max:255',
+            'mac_address' => 'nullable|string|max:255',
+        ];
+
+        if ($withRemove) {
+            $rules['remove_photo'] = 'nullable|boolean';
+            $rules['remove_photo_2'] = 'nullable|boolean';
+            $rules['remove_photo_3'] = 'nullable|boolean';
+        }
+
+        return $rules;
+    }
+
+    private function normalizeItemData(array $data): array
+    {
+        if ($data['type'] === 'activo_fijo') {
+            $data['stock_min'] = 0;
+            $data['stock_max'] = 0;
+
+            if (empty($data['asset_status'])) {
+                $data['asset_status'] = 'disponible';
+            }
+        }
+
+        if ($data['type'] === 'consumible') {
+            $data['asset_status'] = null;
+            $data['condition'] = null;
+            $data['brand'] = null;
+            $data['model'] = null;
+            $data['serial_number'] = null;
+            $data['stock_min'] = (int)($data['stock_min'] ?? 0);
+            $data['stock_max'] = (int)($data['stock_max'] ?? 0);
+        }
+
+        return $data;
+    }
+
+    private function syncPhotos(Request $request, array $data, ?InventoryItem $item = null): array
+    {
+        foreach ($this->photoFields as $photoField) {
+            $removeField = 'remove_' . $photoField;
+
+            if ($item && $request->boolean($removeField) && $item->{$photoField}) {
+                Storage::disk('public')->delete($item->{$photoField});
+                $data[$photoField] = null;
+            }
+
+            if ($request->hasFile($photoField)) {
+                if ($item && $item->{$photoField}) {
+                    Storage::disk('public')->delete($item->{$photoField});
+                }
+
+                $data[$photoField] = $request->file($photoField)->store('inventory', 'public');
+            }
+
+            unset($data[$removeField]);
+        }
+
+        return $data;
+    }
+
+    private function deleteItemPhotos(InventoryItem $item): void
+    {
+        foreach ($this->photoFields as $photoField) {
+            if ($item->{$photoField}) {
+                Storage::disk('public')->delete($item->{$photoField});
+            }
+        }
+    }
+
     public function index()
     {
         $items = InventoryItem::with('category')
@@ -107,61 +212,13 @@ class InventoryController extends Controller
 
     public function store(Request $request)
     {
-        $data = $request->validate([
-            'inventory_category_id' => 'required|exists:inventory_categories,id',
-            'type' => 'required|in:activo_fijo,consumible',
-            'name' => 'required|string|max:255',
-            'unit' => 'nullable|string|max:50',
-            'stock' => 'required|integer|min:0',
-            'location' => 'nullable|string|max:255',
-            'notes' => 'nullable|string',
-
-            'asset_status' => 'nullable|in:disponible,asignado,en_reparacion,dado_de_baja',
-            'condition' => 'nullable|in:nuevo,bueno,regular,malo',
-            'brand' => 'nullable|string|max:255',
-            'model' => 'nullable|string|max:255',
-            'serial_number' => 'nullable|string|max:255',
-
-            'stock_min' => 'nullable|integer|min:0',
-            'stock_max' => 'nullable|integer|min:0',
-
-            'photo' => 'nullable|image|max:4096',
-
-            'internal_code' => 'nullable|string|max:255',
-            'department' => 'nullable|string|max:255',
-            'supplier' => 'nullable|string|max:255',
-            'purchase_date' => 'nullable|date',
-            'purchase_cost' => 'nullable|numeric|min:0',
-            'warranty_until' => 'nullable|date',
-            'processor' => 'nullable|string|max:255',
-            'ram' => 'nullable|string|max:255',
-            'storage' => 'nullable|string|max:255',
-            'operating_system' => 'nullable|string|max:255',
-            'mac_address' => 'nullable|string|max:255',
+        $data = $request->validate($this->validationRules(null, false), [], [
+            'serial_number' => 'número de serie',
+            'internal_code' => 'código interno',
         ]);
 
-        if ($data['type'] === 'activo_fijo') {
-            $data['stock_min'] = 0;
-            $data['stock_max'] = 0;
-
-            if (empty($data['asset_status'])) {
-                $data['asset_status'] = 'disponible';
-            }
-        }
-
-        if ($data['type'] === 'consumible') {
-            $data['asset_status'] = null;
-            $data['condition'] = null;
-            $data['brand'] = null;
-            $data['model'] = null;
-            $data['serial_number'] = null;
-            $data['stock_min'] = (int)($data['stock_min'] ?? 0);
-            $data['stock_max'] = (int)($data['stock_max'] ?? 0);
-        }
-
-        if ($request->hasFile('photo')) {
-            $data['photo'] = $request->file('photo')->store('inventory', 'public');
-        }
+        $data = $this->normalizeItemData($data);
+        $data = $this->syncPhotos($request, $data, null);
 
         InventoryItem::create($data);
 
@@ -176,71 +233,13 @@ class InventoryController extends Controller
 
     public function update(Request $request, InventoryItem $item)
     {
-        $data = $request->validate([
-            'inventory_category_id' => 'required|exists:inventory_categories,id',
-            'type' => 'required|in:activo_fijo,consumible',
-            'name' => 'required|string|max:255',
-            'unit' => 'nullable|string|max:50',
-            'stock' => 'required|integer|min:0',
-            'location' => 'nullable|string|max:255',
-            'notes' => 'nullable|string',
-
-            'asset_status' => 'nullable|in:disponible,asignado,en_reparacion,dado_de_baja',
-            'condition' => 'nullable|in:nuevo,bueno,regular,malo',
-            'brand' => 'nullable|string|max:255',
-            'model' => 'nullable|string|max:255',
-            'serial_number' => 'nullable|string|max:255',
-
-            'stock_min' => 'nullable|integer|min:0',
-            'stock_max' => 'nullable|integer|min:0',
-
-            'photo' => 'nullable|image|max:4096',
-            'remove_photo' => 'nullable|boolean',
-
-            'internal_code' => 'nullable|string|max:255',
-            'department' => 'nullable|string|max:255',
-            'supplier' => 'nullable|string|max:255',
-            'purchase_date' => 'nullable|date',
-            'purchase_cost' => 'nullable|numeric|min:0',
-            'warranty_until' => 'nullable|date',
-            'processor' => 'nullable|string|max:255',
-            'ram' => 'nullable|string|max:255',
-            'storage' => 'nullable|string|max:255',
-            'operating_system' => 'nullable|string|max:255',
-            'mac_address' => 'nullable|string|max:255',
+        $data = $request->validate($this->validationRules($item->id, true), [], [
+            'serial_number' => 'número de serie',
+            'internal_code' => 'código interno',
         ]);
 
-        if ($data['type'] === 'activo_fijo') {
-            $data['stock_min'] = 0;
-            $data['stock_max'] = 0;
-
-            if (empty($data['asset_status'])) {
-                $data['asset_status'] = 'disponible';
-            }
-        }
-
-        if ($data['type'] === 'consumible') {
-            $data['asset_status'] = null;
-            $data['condition'] = null;
-            $data['brand'] = null;
-            $data['model'] = null;
-            $data['serial_number'] = null;
-            $data['stock_min'] = (int)($data['stock_min'] ?? 0);
-            $data['stock_max'] = (int)($data['stock_max'] ?? 0);
-        }
-
-        if ($request->boolean('remove_photo') && $item->photo) {
-            Storage::disk('public')->delete($item->photo);
-            $data['photo'] = null;
-        }
-
-        if ($request->hasFile('photo')) {
-            if ($item->photo) {
-                Storage::disk('public')->delete($item->photo);
-            }
-
-            $data['photo'] = $request->file('photo')->store('inventory', 'public');
-        }
+        $data = $this->normalizeItemData($data);
+        $data = $this->syncPhotos($request, $data, $item);
 
         $item->update($data);
 
@@ -249,10 +248,7 @@ class InventoryController extends Controller
 
     public function destroy(InventoryItem $item)
     {
-        if ($item->photo) {
-            Storage::disk('public')->delete($item->photo);
-        }
-
+        $this->deleteItemPhotos($item);
         $item->delete();
 
         return back()->with('ok', 'Artículo eliminado.');
@@ -324,64 +320,27 @@ class InventoryController extends Controller
         ]);
     }
 
+    public function publicCatalog(InventoryItem $item)
+    {
+        $item->load(['category']);
+
+        return view('inventory.public_catalog', [
+            'item' => $item,
+        ]);
+    }
+
     public function save(Request $request)
     {
         $id = $request->input('item_id');
         $item = $id ? InventoryItem::findOrFail($id) : null;
 
-        $data = $request->validate([
-            'inventory_category_id' => 'required|exists:inventory_categories,id',
-            'type' => 'required|in:activo_fijo,consumible',
-            'name' => 'required|string|max:255',
-            'unit' => 'nullable|string|max:50',
-            'stock' => 'required|integer|min:0',
-            'location' => 'nullable|string|max:255',
-            'notes' => 'nullable|string',
-            'asset_status' => 'nullable|in:disponible,asignado,en_reparacion,dado_de_baja',
-            'condition' => 'nullable|in:nuevo,bueno,regular,malo',
-            'brand' => 'nullable|string|max:255',
-            'model' => 'nullable|string|max:255',
-            'serial_number' => 'nullable|string|max:255|unique:inventory_items,serial_number' . ($id ? ',' . $id : ''),
-            'internal_code' => 'nullable|string|max:255|unique:inventory_items,internal_code' . ($id ? ',' . $id : ''),
-            'stock_min' => 'nullable|integer|min:0',
-            'stock_max' => 'nullable|integer|min:0',
-            'photo' => 'nullable|image|max:4096',
-            'remove_photo' => 'nullable|boolean',
-            'department' => 'nullable|string|max:255',
-            'supplier' => 'nullable|string|max:255',
-            'purchase_date' => 'nullable|date',
-            'purchase_cost' => 'nullable|numeric|min:0',
-            'warranty_until' => 'nullable|date',
-            'processor' => 'nullable|string|max:255',
-            'ram' => 'nullable|string|max:255',
-            'storage' => 'nullable|string|max:255',
-            'operating_system' => 'nullable|string|max:255',
-            'mac_address' => 'nullable|string|max:255',
-        ], [], ['serial_number' => 'número de serie', 'internal_code' => 'código interno']);
+        $data = $request->validate($this->validationRules($item?->id, true), [], [
+            'serial_number' => 'número de serie',
+            'internal_code' => 'código interno',
+        ]);
 
-        if ($data['type'] === 'activo_fijo') {
-            $data['stock_min'] = 0;
-            $data['stock_max'] = 0;
-            if (empty($data['asset_status'])) $data['asset_status'] = 'disponible';
-        } else {
-            $data['asset_status'] = null;
-            $data['condition'] = null;
-            $data['brand'] = null;
-            $data['model'] = null;
-            $data['serial_number'] = null;
-            $data['stock_min'] = (int)($data['stock_min'] ?? 0);
-            $data['stock_max'] = (int)($data['stock_max'] ?? 0);
-        }
-
-        if ($item && $request->boolean('remove_photo') && $item->photo) {
-            Storage::disk('public')->delete($item->photo);
-            $data['photo'] = null;
-        }
-        if ($request->hasFile('photo')) {
-            if ($item && $item->photo) Storage::disk('public')->delete($item->photo);
-            $data['photo'] = $request->file('photo')->store('inventory', 'public');
-        }
-        unset($data['remove_photo']);
+        $data = $this->normalizeItemData($data);
+        $data = $this->syncPhotos($request, $data, $item);
 
         if ($item) {
             $item->update($data);

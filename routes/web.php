@@ -103,8 +103,16 @@ use App\Http\Controllers\Projects\ProjectBoardController;
 use App\Http\Controllers\Admin\CategoryProductController;
 use App\Http\Controllers\Admin\WmsReceptionController;
 use App\Http\Controllers\AzureTestController;
+use App\Http\Controllers\InventoryController;
+
+use App\Http\Controllers\InventoryCategoryController;
+use App\Http\Controllers\InventoryAssignmentController;
+
+
 Route::get('/admin/catalog/analytics', [\App\Http\Controllers\Admin\CatalogItemController::class, 'analytics'])
     ->name('admin.catalog.analytics');
+ Route::get('/catalogo/{item}', [InventoryController::class, 'publicCatalog'])
+    ->name('assets.public-catalog');
 
 Route::get('/admin/catalog/analytics/pdf', [\App\Http\Controllers\Admin\CatalogItemController::class, 'analyticsPdf'])
     ->name('admin.catalog.analytics.pdf');
@@ -2184,9 +2192,6 @@ Route::delete('/remisiones/{remision}', [RemisionController::class, 'destroy'])-
 Route::get('/remisiones/{remision}/pdf', [RemisionController::class, 'pdf'])->name('remisiones.pdf');
 Route::post('/propuesta-fallos/{fallo}/ocr', [PropuestaFalloController::class, 'runOcr'])
     ->name('propuesta-fallos.ocr');
-use App\Http\Controllers\InventoryController;
-use App\Http\Controllers\InventoryCategoryController;
-use App\Http\Controllers\InventoryAssignmentController;
 
 Route::middleware(['auth'])->prefix('internal-assets')->name('assets.')->group(function () {
 
@@ -2281,3 +2286,4 @@ Route::get('/propuesta-comercial-items/{item}/ajax/samples', [\App\Http\Controll
 
 Route::delete('/propuesta-comercial-items/{item}/ajax/delete', [\App\Http\Controllers\PropuestaComercialController::class, 'ajaxDeleteItem']);
 Route::post('/propuesta-comercial-items/{item}/ajax/deselect', [\App\Http\Controllers\PropuestaComercialController::class, 'ajaxDeselectItem']);
+
