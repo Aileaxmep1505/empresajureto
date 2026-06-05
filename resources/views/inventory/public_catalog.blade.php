@@ -901,9 +901,9 @@
       <h2>¿Tienes dudas sobre este {{ $isConsumible ? 'insumo' : 'activo' }}?</h2>
       <p>El equipo de JURETO S.A. DE C.V. puede ayudarte con la asignación, el resguardo o cualquier aclaración sobre el inventario.</p>
       <div class="closing-links">
-        <a href="mailto:contacto@jureto.com.mx"><i class="bi bi-envelope"></i> geovanni@jureto.com.mx</a>
+        <a href="mailto:geovanni@jureto.com.mx"><i class="bi bi-envelope"></i> geovanni@jureto.com.mx</a>
         <a href="tel:7224485191"><i class="bi bi-telephone"></i> 722 421 8441</a>
-        <a href="https://ai.jureto.com.mx" target="_blank" rel="noopener"><i class="bi bi-globe"></i> jureto.com.mx</a>
+        <a href="https://ai.jureto.com.mx" target="_blank" rel="noopener"><i class="bi bi-globe"></i> ai.jureto.com.mx</a>
       </div>
     </div>
   </section>
