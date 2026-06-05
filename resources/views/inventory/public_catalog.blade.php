@@ -826,18 +826,8 @@
               @if($item->internal_code)
                 <div class="ficha-item"><div class="f-label">Código interno</div><div class="f-value">{{ $item->internal_code }}</div></div>
               @endif
-              @if($item->serial_number)
-                <div class="ficha-item"><div class="f-label">No. serie</div><div class="f-value">{{ $item->serial_number }}</div></div>
-              @endif
-              @if($item->asset_status)
-                <div class="ficha-item"><div class="f-label">Estado</div><div class="f-value">{{ $statusLabel }}</div></div>
-              @endif
-              @if($isAssigned && $assignedTo)
-                <div class="ficha-item"><div class="f-label">Asignado a</div><div class="f-value">{{ $assignedTo }}</div></div>
-              @endif
-              @if($isAssigned && $assignedAt)
-                <div class="ficha-item"><div class="f-label">Fecha de asignación</div><div class="f-value">{{ $assignedAt }}</div></div>
-              @endif
+
+             
               @if($conditionLabel)
                 <div class="ficha-item"><div class="f-label">Condición</div><div class="f-value">{{ $conditionLabel }}</div></div>
               @endif
