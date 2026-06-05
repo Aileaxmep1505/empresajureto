@@ -312,80 +312,17 @@
     }
     .option-card.option-assigned .option-label { color: var(--blue); }
 
-    /* ---- Card de datos de entrega (asignación) ---- */
-    .entrega-card {
+    /* ---- Card contenedora de la ficha técnica (mismo borde que las option-cards) ---- */
+    .ficha-card {
       background: var(--card);
       border: 1px solid var(--line);
       border-radius: var(--radius-md);
-      padding: 20px 22px;
+      padding: 26px 24px;
       transition: border-color 0.2s ease, box-shadow 0.2s ease;
     }
-    .entrega-card:hover {
+    .ficha-card:hover {
       border-color: var(--blue);
       box-shadow: 0 0 0 1px var(--blue);
-    }
-    .entrega-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 6px;
-    }
-    .entrega-title {
-      display: flex;
-      align-items: center;
-      gap: 9px;
-      font-size: 14px;
-      font-weight: 700;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-      color: var(--ink-dark);
-    }
-    .entrega-badge {
-      background: var(--blue-soft);
-      color: var(--blue);
-      border-radius: 999px;
-      padding: 5px 13px;
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-    }
-    .entrega-row {
-      display: flex;
-      align-items: baseline;
-      justify-content: space-between;
-      gap: 16px;
-      padding: 13px 0;
-      border-bottom: 1px solid var(--line-soft);
-      font-size: 15px;
-    }
-    .entrega-row:last-of-type { border-bottom: none; }
-    .entrega-key { color: var(--muted-light); font-weight: 600; flex-shrink: 0; }
-    .entrega-val { color: var(--ink-dark); font-weight: 700; text-align: right; word-break: break-word; }
-
-    .firma-label {
-      color: var(--muted-light);
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      margin: 18px 0 10px;
-    }
-    .firma-box {
-      background: #fff;
-      border: 1px solid var(--line-soft);
-      border-radius: var(--radius-md);
-      padding: 14px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 120px;
-    }
-    .firma-box img {
-      max-width: 100%;
-      max-height: 160px;
-      object-fit: contain;
     }
     .option-main {
       display: flex;
@@ -643,21 +580,6 @@
     $assignedAtRaw = $pick($assignment, ['assigned_at', 'assignment_date', 'created_at'])
       ?? $pick($item, ['assigned_at', 'assignment_date']);
     $assignedAt = $assignedAtRaw ? \Carbon\Carbon::parse($assignedAtRaw)->format('d/m/Y H:i') : null;
-
-    // Detalles de entrega (para la sección Asignación)
-    $aFolio     = $pick($assignment, ['folio', 'code', 'reference']);
-    $aEmail     = $pick($assignment, ['email', 'assignee_email', 'recipient_email', 'user.email']);
-    $aQty       = $pick($assignment, ['quantity', 'qty']);
-    $aDelivers  = $pickName($assignment, ['delivered_by', 'who_delivers', 'deliverer_name', 'deliverer.name']);
-    $aReceives  = $pickName($assignment, ['received_by', 'who_receives', 'recipient_name', 'receiver.name']);
-    $aSignedBy  = $pickName($assignment, ['signed_by', 'signer_name', 'signer.name']);
-    $aSignedAtRaw = $pick($assignment, ['signed_at', 'signature_date']);
-    $aSignedAt  = $aSignedAtRaw ? \Carbon\Carbon::parse($aSignedAtRaw)->format('d/m/Y H:i') : null;
-
-    $aSignature = $pick($assignment, ['signature', 'signature_path', 'signature_image']);
-    if ($aSignature && !\Illuminate\Support\Str::startsWith($aSignature, ['data:', 'http', '/storage'])) {
-      $aSignature = asset('storage/'.$aSignature);
-    }
   @endphp
 
   {{-- ===== Local nav estilo Apple (aparece al hacer scroll) ===== --}}
@@ -804,37 +726,6 @@
           @endif
         </div>
 
-        {{-- Asignación: datos de entrega --}}
-        @if($isAssigned && $assignment)
-          <div class="select-section">
-            <h2 class="select-heading">Asignación. <span>Datos de entrega.</span></h2>
-
-            <div class="entrega-card">
-              <div class="entrega-head">
-                <div class="entrega-title"><i class="bi bi-person-vcard"></i> Datos de entrega</div>
-                <span class="entrega-badge">Activa</span>
-              </div>
-
-              @if($aFolio)<div class="entrega-row"><span class="entrega-key">Folio</span><span class="entrega-val">{{ $aFolio }}</span></div>@endif
-              @if($assignedTo)<div class="entrega-row"><span class="entrega-key">Asignado a</span><span class="entrega-val">{{ $assignedTo }}</span></div>@endif
-              @if($aEmail)<div class="entrega-row"><span class="entrega-key">Correo</span><span class="entrega-val">{{ $aEmail }}</span></div>@endif
-              @if($assignedAt)<div class="entrega-row"><span class="entrega-key">Fecha de asignación</span><span class="entrega-val">{{ $assignedAt }}</span></div>@endif
-              @if($aQty)<div class="entrega-row"><span class="entrega-key">Cantidad</span><span class="entrega-val">{{ $aQty }}</span></div>@endif
-              @if($aDelivers)<div class="entrega-row"><span class="entrega-key">Quién entrega</span><span class="entrega-val">{{ $aDelivers }}</span></div>@endif
-              @if($aReceives)<div class="entrega-row"><span class="entrega-key">Quién recibe</span><span class="entrega-val">{{ $aReceives }}</span></div>@endif
-              @if($aSignedBy)<div class="entrega-row"><span class="entrega-key">Firmado por</span><span class="entrega-val">{{ $aSignedBy }}</span></div>@endif
-              @if($aSignedAt)<div class="entrega-row"><span class="entrega-key">Fecha de firma</span><span class="entrega-val">{{ $aSignedAt }}</span></div>@endif
-
-              @if($aSignature)
-                <div class="firma-label">Firma</div>
-                <div class="firma-box">
-                  <img src="{{ $aSignature }}" alt="Firma de recepción">
-                </div>
-              @endif
-            </div>
-          </div>
-        @endif
-
         {{-- Ubicación --}}
         @if($item->location || $item->department)
           <div class="select-section">
@@ -915,6 +806,7 @@
         <div class="select-section">
           <h2 class="select-heading">Ficha técnica. <span>Especificaciones completas.</span></h2>
 
+          <div class="ficha-card">
           <div class="ficha-grid">
             @if($brand)
               <div class="ficha-item"><div class="f-label">Marca</div><div class="f-value">{{ $brand }}</div></div>
@@ -1005,6 +897,7 @@
             @if($item->notes)
               <div class="ficha-item full"><div class="f-label">Descripción</div><div class="f-value">{{ $item->notes }}</div></div>
             @endif
+          </div>
           </div>
         </div>
 
