@@ -826,8 +826,7 @@ public function buildIndexData(?Request $request = null): array
 
         $process->setTimeout((int) $cfg['timeout']);
 
-        $pythonUserHome = '/home/u106036310';
-        $pythonUserSite = $pythonUserHome . '/.local/lib/python3.9/site-packages';
+               $pythonUserHome = '/home/u106036310';
 
         $process->setWorkingDirectory(dirname($scriptPath, 3));
 
@@ -850,9 +849,10 @@ public function buildIndexData(?Request $request = null): array
             'USER' => 'u106036310',
             'LOGNAME' => 'u106036310',
 
-            'PATH' => $pythonUserHome . '/.local/bin:/usr/local/bin:/usr/bin:/bin',
-            'PYTHONPATH' => $pythonUserSite,
-            'PYTHONUSERBASE' => $pythonUserHome . '/.local',
+            // El venv (PYTHON_BIN en .env) resuelve sus propios paquetes.
+            // NO inyectar PYTHONPATH/PYTHONUSERBASE: forzarían el openai de
+            // python3.9 dentro del venv 3.11 y rompen pydantic_core.
+            'PATH' => $pythonUserHome . '/pyenv/bin:/usr/local/bin:/usr/bin:/bin',
         ]);
 
         $process->run();
