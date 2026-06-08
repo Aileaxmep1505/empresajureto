@@ -192,7 +192,7 @@ class ProjectBoardController extends Controller
         }
 
         try {
-            $reply = $ai->chat($messages);
+            $reply = $ai->chatRaw($messages);
         } catch (\Throwable $e) {
             Log::error('Chat error', ['err' => $e->getMessage()]);
             return response()->json([
@@ -382,7 +382,7 @@ class ProjectBoardController extends Controller
                 ['role' => 'user',   'content' => $prompt],
             ];
 
-            $html = $ai->chat($messages);
+            $html = $ai->chatRaw($messages);
             $html = preg_replace('/^```html\s*/i', '', trim($html));
             $html = preg_replace('/```$/', '', trim($html));
 

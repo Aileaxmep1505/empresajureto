@@ -91,13 +91,14 @@ PROMPT;
     }
 
     /**
-     * Chat libre sobre la licitación (tab "Análisis de Bases")
+     * Chat libre sobre la licitación (tab "Análisis de Bases").
+     * Construye internamente el system prompt a partir del texto del documento.
      */
-  public function chat(string $rawText, array $history, string $userMessage): string
-{
-    $compact = mb_substr($rawText, 0, 60000);
+    public function chat(string $rawText, array $history, string $userMessage): string
+    {
+        $compact = mb_substr($rawText, 0, 60000);
 
-    $systemContent = <<<SYS
+        $systemContent = <<<SYS
 Eres un asistente experto en licitaciones publicas mexicanas. Responde SOLO basandote en el documento provisto. Si no encuentras informacion, dilo claramente.
 
 FORMATO DE RESPUESTA:
@@ -117,20 +118,32 @@ DOCUMENTO:
 $compact
 SYS;
 
-    $messages = [
-        ['role' => 'system', 'content' => $systemContent],
-    ];
+        $messages = [
+            ['role' => 'system', 'content' => $systemContent],
+        ];
 
-    foreach ($history as $h) {
-        $messages[] = ['role' => $h['role'], 'content' => $h['content']];
+        foreach ($history as $h) {
+            $messages[] = ['role' => $h['role'], 'content' => $h['content']];
+        }
+
+        $messages[] = ['role' => 'user', 'content' => $userMessage];
+
+        $result = $this->tryModels($messages, expectJson: false);
+
+        return is_string($result) ? $result : 'Sin respuesta';
     }
 
-    $messages[] = ['role' => 'user', 'content' => $userMessage];
+    /**
+     * Chat con un array de mensajes YA construido por el llamador:
+     *   [['role' => 'system', 'content' => '...'], ['role' => 'user', 'content' => '...'], ...]
+     * Útil cuando el controlador arma su propio system prompt + historial.
+     */
+    public function chatRaw(array $messages): string
+    {
+        $result = $this->tryModels($messages, expectJson: false);
 
-    $result = $this->tryModels($messages, expectJson: false);
-
-    return is_string($result) ? $result : 'Sin respuesta';
-}
+        return is_string($result) ? $result : 'Sin respuesta';
+    }
 
     /**
      * Intenta el modelo primario y va cayendo a los fallbacks si falla.
