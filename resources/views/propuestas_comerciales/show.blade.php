@@ -3069,200 +3069,229 @@
       </body></html>`;
     downloadBlob(wordContent, getQuoteFileName('doc'), 'application/msword;charset=utf-8');
   }
+function cleanPdfText(value, fallback = '') {
+  const text = String(value ?? '').trim();
+  return text !== '' ? text : fallback;
+}
 
+function getItemBrand(item) {
+  const selectedCatalog = getSelectedCatalogProduct(item);
 
-  function getItemBrand(item) {
-    const humanAccepted = item?.ui_status === 'accepted_item';
-    if (!humanAccepted) return 'SIN MARCA';
+  const possibleBrand =
+    item.manual_external_supplier ||
+    item.external_supplier ||
+    item.brand ||
+    item.marca ||
+    item.producto_seleccionado?.brand ||
+    selectedCatalog?.product?.brand ||
+    item.matches?.find(m => m?.product?.brand)?.product?.brand ||
+    '';
 
-    const selectedCatalog = getSelectedCatalogProduct(item);
-    const brand =
-      item.manual_external_supplier ||
-      selectedCatalog?.product?.brand ||
-      item.producto_seleccionado?.brand ||
-      'SIN MARCA';
+  const brand = cleanPdfText(possibleBrand, 'SIN MARCA');
 
-    return String(brand || 'SIN MARCA').trim().toUpperCase() || 'SIN MARCA';
-  }
+  return brand.toUpperCase();
+}
 
-  function getItemDisplayNumber(item, fallbackIndex) {
-    return item.sort || item.number || item.numero || fallbackIndex + 1;
-  }
+function getItemReferenceName(item) {
+  const selectedCatalog = getSelectedCatalogProduct(item);
 
-  function getBrandGroupedItems() {
-    const sourceItems = [...items].sort((a, b) => Number(a.sort || 0) - Number(b.sort || 0));
-    const groups = new Map();
+  return cleanPdfText(
+    selectedCatalog?.product?.name ||
+    item.producto_seleccionado?.name ||
+    item.catalog_product_name_manual ||
+    item.manual_catalog_product_name ||
+    item.manual_external_supplier ||
+    item.external_supplier ||
+    '',
+    '—'
+  );
+}
 
-    sourceItems.forEach((item, index) => {
-      const brand = getItemBrand(item);
-      if (!groups.has(brand)) {
-        groups.set(brand, {
-          brand,
-          items: [],
-          totalQuantity: 0,
-          totalCost: 0,
-          totalSale: 0,
-          totalSubtotal: 0
-        });
-      }
+function getItemDisplayNumber(item, fallbackIndex) {
+  return item.sort || item.number || item.numero || fallbackIndex + 1;
+}
 
-      const qty = Number(item.cantidad_cotizada || item.cantidad_maxima || item.cantidad_minima || 1);
-      const cost = Number(item.costo_unitario || 0);
-      const price = Number(item.precio_unitario || 0);
-      const subtotal = Number(item.subtotal || (price * qty) || 0);
-      const selectedCatalog = getSelectedCatalogProduct(item);
-      const productName = selectedCatalog?.product?.name || item.catalog_product_name_manual || item.manual_catalog_product_name || '';
+function getBrandGroupedItems() {
+  const sourceItems = [...items].sort((a, b) => Number(a.sort || 0) - Number(b.sort || 0));
+  const groups = new Map();
 
-      const group = groups.get(brand);
-      group.items.push({
-        number: getItemDisplayNumber(item, index),
-        requested: item.descripcion_original || '',
-        productName,
-        unit: item.unidad_solicitada || 'pz',
-        qty,
-        cost,
-        price,
-        subtotal,
-        status: statusLabel(item).text
+  sourceItems.forEach((item, index) => {
+    const brand = getItemBrand(item);
+
+    if (!groups.has(brand)) {
+      groups.set(brand, {
+        brand,
+        items: [],
+        totalQuantity: 0,
+        totalCost: 0,
+        totalSale: 0,
+        totalSubtotal: 0
       });
-      group.totalQuantity += qty;
-      group.totalCost += cost * qty;
-      group.totalSale += price * qty;
-      group.totalSubtotal += subtotal;
-    });
-
-    return [...groups.values()].sort((a, b) => a.brand.localeCompare(b.brand, 'es'));
-  }
-
-  function buildBrandsPdfHtml() {
-    const generatedAt = new Date().toLocaleString('es-MX');
-    const groups = getBrandGroupedItems();
-    const grandTotal = groups.reduce((acc, group) => acc + Number(group.totalSubtotal || 0), 0);
-    const totalItems = groups.reduce((acc, group) => acc + group.items.length, 0);
-
-    const groupsHtml = groups.map(group => {
-      const rows = group.items.map(row => `
-        <tr>
-          <td class="center">${escapeHtml(row.number)}</td>
-          <td>${escapeHtml(row.requested)}</td>
-          <td>${escapeHtml(row.productName || '—')}</td>
-          <td class="center">${escapeHtml(row.unit)}</td>
-          <td class="right">${Number(row.qty || 0).toLocaleString('es-MX')}</td>
-          <td class="right">${moneyOrBlank(row.cost)}</td>
-          <td class="right">${moneyOrBlank(row.price)}</td>
-          <td class="right"><strong>${moneyOrBlank(row.subtotal)}</strong></td>
-          <td class="center">${escapeHtml(row.status)}</td>
-        </tr>
-      `).join('');
-
-      return `
-        <section class="brand-section">
-          <div class="brand-head">
-            <div>
-              <h2>${escapeHtml(group.brand)}</h2>
-              <div class="brand-meta">${group.items.length} partida${group.items.length === 1 ? '' : 's'} solicitada${group.items.length === 1 ? '' : 's'}</div>
-            </div>
-            <div class="brand-total">Total marca: <strong>${money(group.totalSubtotal)}</strong></div>
-          </div>
-
-          <table>
-            <thead>
-              <tr>
-                <th class="center">#</th>
-                <th>Producto solicitado</th>
-                <th>Producto / referencia</th>
-                <th class="center">Unidad</th>
-                <th class="right">Cantidad</th>
-                <th class="right">Costo</th>
-                <th class="right">Precio</th>
-                <th class="right">Subtotal</th>
-                <th class="center">Estado</th>
-              </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-          </table>
-        </section>
-      `;
-    }).join('');
-
-    return `
-      <!doctype html>
-      <html lang="es">
-      <head>
-        <meta charset="UTF-8">
-        <title>${escapeHtml(exportFolio)} - partidas por marca</title>
-        <style>
-          @page { size: letter landscape; margin: 10mm; }
-          * { box-sizing: border-box; }
-          body { font-family: Arial, Helvetica, sans-serif; color: #111; margin: 0; font-size: 10px; }
-          .header { display: flex; justify-content: space-between; gap: 18px; border-bottom: 2px solid #111; padding-bottom: 10px; margin-bottom: 14px; }
-          h1 { font-size: 18px; margin: 0 0 5px; }
-          .meta { color: #555; line-height: 1.45; }
-          .summary { text-align: right; line-height: 1.55; white-space: nowrap; }
-          .summary strong { font-size: 13px; }
-          .brand-section { page-break-inside: avoid; margin-bottom: 18px; }
-          .brand-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; background: #f3f4f6; border: 1px solid #d9d9d9; padding: 8px 10px; margin-bottom: 0; }
-          h2 { font-size: 14px; margin: 0 0 3px; text-transform: uppercase; }
-          .brand-meta { color: #666; font-size: 9px; }
-          .brand-total { font-size: 11px; white-space: nowrap; }
-          table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-bottom: 8px; }
-          th, td { border: 1px solid #d9d9d9; padding: 5px 6px; vertical-align: top; word-wrap: break-word; }
-          th { background: #fafafa; color: #111; font-weight: 700; font-size: 9px; }
-          td { font-size: 9px; }
-          .center { text-align: center; }
-          .right { text-align: right; }
-          tr:nth-child(even) td { background: #fcfcfc; }
-          .footer { margin-top: 14px; border-top: 1px solid #d9d9d9; padding-top: 8px; color: #555; font-size: 9px; }
-          @media print { .no-print { display: none !important; } body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <div>
-            <h1>Partidas agrupadas por marca</h1>
-            <div class="meta">
-              <strong>${escapeHtml(exportTitle)}</strong><br>
-              Folio: ${escapeHtml(exportFolio)}<br>
-              Generado: ${escapeHtml(generatedAt)}
-            </div>
-          </div>
-          <div class="summary">
-            Marcas: <strong>${groups.length}</strong><br>
-            Partidas: <strong>${totalItems}</strong><br>
-            Total general: <strong>${money(grandTotal)}</strong>
-          </div>
-        </div>
-
-        ${groupsHtml || '<p>No hay partidas para agrupar.</p>'}
-
-        <div class="footer">
-          Este reporte agrupa las partidas actuales de la propuesta por marca detectada: producto seleccionado, marca manual/proveedor externo o coincidencia de catálogo. Las partidas sin marca quedan en SIN MARCA.
-        </div>
-      </body>
-      </html>
-    `;
-  }
-
-  function exportBrandsGroupedPdf() {
-    const html = buildBrandsPdfHtml();
-    const printWindow = window.open('', '_blank');
-
-    if (!printWindow) {
-      downloadBlob(html, getQuoteFileName('partidas_por_marca.html'), 'text/html;charset=utf-8');
-      showToast('Archivo generado', 'Se descargó el reporte por marca en HTML. Ábrelo e imprime como PDF.', 1, 1);
-      setTimeout(hideToast, 4500);
-      return;
     }
 
-    printWindow.document.open();
-    printWindow.document.write(html);
-    printWindow.document.close();
-    printWindow.focus();
+    const qty = Number(item.cantidad_cotizada || item.cantidad_maxima || item.cantidad_minima || 1);
+    const cost = Number(item.costo_unitario || 0);
+    const price = Number(item.precio_unitario || 0);
+    const subtotal = Number(item.subtotal || (price * qty) || 0);
 
-    setTimeout(() => {
-      printWindow.print();
-    }, 450);
+    const group = groups.get(brand);
+
+    group.items.push({
+      number: getItemDisplayNumber(item, index),
+      requested: item.descripcion_original || '',
+      productName: getItemReferenceName(item),
+      unit: item.unidad_solicitada || 'pz',
+      qty,
+      cost,
+      price,
+      subtotal,
+      status: statusLabel(item).text
+    });
+
+    group.totalQuantity += qty;
+    group.totalCost += cost * qty;
+    group.totalSale += price * qty;
+    group.totalSubtotal += subtotal;
+  });
+
+  return [...groups.values()].sort((a, b) => {
+    if (a.brand === 'SIN MARCA') return 1;
+    if (b.brand === 'SIN MARCA') return -1;
+    return a.brand.localeCompare(b.brand, 'es');
+  });
+}
+
+function buildBrandsPdfHtml() {
+  const generatedAt = new Date().toLocaleString('es-MX');
+  const groups = getBrandGroupedItems();
+  const grandTotal = groups.reduce((acc, group) => acc + Number(group.totalSubtotal || 0), 0);
+  const totalItems = groups.reduce((acc, group) => acc + group.items.length, 0);
+
+  const groupsHtml = groups.map(group => {
+    const rows = group.items.map(row => `
+      <tr>
+        <td class="center">${escapeHtml(row.number)}</td>
+        <td>${escapeHtml(row.requested)}</td>
+        <td>${escapeHtml(row.productName || '—')}</td>
+        <td class="center">${escapeHtml(row.unit)}</td>
+        <td class="right">${Number(row.qty || 0).toLocaleString('es-MX')}</td>
+        <td class="right">${moneyOrBlank(row.cost)}</td>
+        <td class="right">${moneyOrBlank(row.price)}</td>
+        <td class="right"><strong>${moneyOrBlank(row.subtotal)}</strong></td>
+        <td class="center">${escapeHtml(row.status)}</td>
+      </tr>
+    `).join('');
+
+    return `
+      <section class="brand-section">
+        <div class="brand-head">
+          <div>
+            <h2>${escapeHtml(group.brand)}</h2>
+            <div class="brand-meta">${group.items.length} partida${group.items.length === 1 ? '' : 's'} solicitada${group.items.length === 1 ? '' : 's'}</div>
+          </div>
+          <div class="brand-total">Total marca: <strong>${money(group.totalSubtotal)}</strong></div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th class="center">#</th>
+              <th>Producto solicitado</th>
+              <th>Producto / referencia</th>
+              <th class="center">Unidad</th>
+              <th class="right">Cantidad</th>
+              <th class="right">Costo</th>
+              <th class="right">Precio</th>
+              <th class="right">Subtotal</th>
+              <th class="center">Estado</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </section>
+    `;
+  }).join('');
+
+  return `
+    <!doctype html>
+    <html lang="es">
+    <head>
+      <meta charset="UTF-8">
+      <title>${escapeHtml(exportFolio)} - partidas por marca</title>
+      <style>
+        @page { size: letter landscape; margin: 10mm; }
+        * { box-sizing: border-box; }
+        body { font-family: Arial, Helvetica, sans-serif; color: #111; margin: 0; font-size: 10px; }
+        .header { display: flex; justify-content: space-between; gap: 18px; border-bottom: 2px solid #111; padding-bottom: 10px; margin-bottom: 14px; }
+        h1 { font-size: 18px; margin: 0 0 5px; }
+        .meta { color: #555; line-height: 1.45; }
+        .summary { text-align: right; line-height: 1.55; white-space: nowrap; }
+        .summary strong { font-size: 13px; }
+        .brand-section { page-break-inside: avoid; margin-bottom: 18px; }
+        .brand-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; background: #f3f4f6; border: 1px solid #d9d9d9; padding: 8px 10px; margin-bottom: 0; }
+        h2 { font-size: 14px; margin: 0 0 3px; text-transform: uppercase; }
+        .brand-meta { color: #666; font-size: 9px; }
+        .brand-total { font-size: 11px; white-space: nowrap; }
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-bottom: 8px; }
+        th, td { border: 1px solid #d9d9d9; padding: 5px 6px; vertical-align: top; word-wrap: break-word; }
+        th { background: #fafafa; color: #111; font-weight: 700; font-size: 9px; }
+        td { font-size: 9px; }
+        .center { text-align: center; }
+        .right { text-align: right; }
+        tr:nth-child(even) td { background: #fcfcfc; }
+        .footer { margin-top: 14px; border-top: 1px solid #d9d9d9; padding-top: 8px; color: #555; font-size: 9px; }
+        @media print { .no-print { display: none !important; } body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <div>
+          <h1>Partidas agrupadas por marca</h1>
+          <div class="meta">
+            <strong>${escapeHtml(exportTitle)}</strong><br>
+            Folio: ${escapeHtml(exportFolio)}<br>
+            Generado: ${escapeHtml(generatedAt)}
+          </div>
+        </div>
+        <div class="summary">
+          Marcas: <strong>${groups.length}</strong><br>
+          Partidas: <strong>${totalItems}</strong><br>
+          Total general: <strong>${money(grandTotal)}</strong>
+        </div>
+      </div>
+
+      ${groupsHtml || '<p>No hay partidas para agrupar.</p>'}
+
+      <div class="footer">
+        Este reporte agrupa las partidas actuales de la propuesta por marca capturada manualmente,
+        marca del producto seleccionado o marca detectada en coincidencias de catálogo.
+        Las partidas sin marca quedan en SIN MARCA.
+      </div>
+    </body>
+    </html>
+  `;
+}
+
+function exportBrandsGroupedPdf() {
+  const html = buildBrandsPdfHtml();
+  const printWindow = window.open('', '_blank');
+
+  if (!printWindow) {
+    downloadBlob(html, getQuoteFileName('partidas_por_marca.html'), 'text/html;charset=utf-8');
+    showToast('Archivo generado', 'Se descargó el reporte por marca en HTML. Ábrelo e imprime como PDF.', 1, 1);
+    setTimeout(hideToast, 4500);
+    return;
   }
+
+  printWindow.document.open();
+  printWindow.document.write(html);
+  printWindow.document.close();
+  printWindow.focus();
+
+  setTimeout(() => {
+    printWindow.print();
+  }, 450);
+}
 
   // --- Drag and Drop Logic ---
   function bindDragEvents() {

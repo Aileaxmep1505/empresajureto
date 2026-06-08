@@ -2287,3 +2287,16 @@ Route::get('/propuesta-comercial-items/{item}/ajax/samples', [\App\Http\Controll
 Route::delete('/propuesta-comercial-items/{item}/ajax/delete', [\App\Http\Controllers\PropuestaComercialController::class, 'ajaxDeleteItem']);
 Route::post('/propuesta-comercial-items/{item}/ajax/deselect', [\App\Http\Controllers\PropuestaComercialController::class, 'ajaxDeselectItem']);
 
+
+
+Route::get('propuestas-comerciales/{propuestaComercial}/adjudicacion', [AdjudicacionController::class, 'create'])
+    ->name('propuestas-comerciales.adjudicacion.create');
+
+Route::post('propuestas-comerciales/{propuestaComercial}/adjudicacion', [AdjudicacionController::class, 'store'])
+    ->name('propuestas-comerciales.adjudicacion.store');
+
+Route::post('propuestas-comerciales/{propuestaComercial}/adjudicacion/analizar-perdida', [AdjudicacionController::class, 'analizarPerdida'])
+    ->name('propuestas-comerciales.adjudicacion.analizar-perdida');
+
+Route::get('adjudicaciones/{adjudicacion}', [AdjudicacionController::class, 'show'])
+    ->name('adjudicaciones.show');

@@ -159,6 +159,18 @@
     box-shadow: 0 16px 34px rgba(0,122,255,.22);
   }
 
+  .client-quote-page .btn-success {
+    background: var(--success);
+    border-color: var(--success);
+    color: #fff;
+    box-shadow: 0 10px 24px rgba(21,128,61,.15);
+  }
+
+  .client-quote-page .btn-success:hover {
+    background: #166534;
+    box-shadow: 0 16px 34px rgba(21,128,61,.22);
+  }
+
   .client-quote-page .alert-success {
     background: var(--success-soft);
     color: var(--success);
@@ -587,6 +599,9 @@
         <button type="button" class="btn" onclick="openEmailModal()">✉ Enviar por correo</button>
         <a href="{{ route('propuestas-comerciales.cliente.pdf', $propuestaComercial) }}" class="btn btn-primary">
           ↓ Descargar PDF
+        </a>
+        <a href="{{ route('propuestas-comerciales.adjudicacion.create', $propuestaComercial) }}" class="btn btn-success">
+          ⚖ Generar adjudicación
         </a>
       </div>
     </div>
