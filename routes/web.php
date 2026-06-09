@@ -2289,14 +2289,40 @@ Route::post('/propuesta-comercial-items/{item}/ajax/deselect', [\App\Http\Contro
 
 
 
+// Pantalla intermedia (marcar ganada/perdida)
 Route::get('propuestas-comerciales/{propuestaComercial}/adjudicacion', [AdjudicacionController::class, 'create'])
     ->name('propuestas-comerciales.adjudicacion.create');
 
-Route::post('propuestas-comerciales/{propuestaComercial}/adjudicacion', [AdjudicacionController::class, 'store'])
-    ->name('propuestas-comerciales.adjudicacion.store');
+// Autoguardado de UNA partida
+Route::post('propuestas-comerciales/{propuestaComercial}/adjudicacion/guardar-partida', [AdjudicacionController::class, 'guardarPartida'])
+    ->name('propuestas-comerciales.adjudicacion.guardar-partida');
 
+// Análisis de una partida perdida (diferencia + texto)
 Route::post('propuestas-comerciales/{propuestaComercial}/adjudicacion/analizar-perdida', [AdjudicacionController::class, 'analizarPerdida'])
     ->name('propuestas-comerciales.adjudicacion.analizar-perdida');
 
-Route::get('adjudicaciones/{adjudicacion}', [AdjudicacionController::class, 'show'])
-    ->name('adjudicaciones.show');
+// PDF formal del análisis
+Route::post('propuestas-comerciales/{propuestaComercial}/adjudicacion/analisis-pdf', [AdjudicacionController::class, 'analisisPdf'])
+    ->name('propuestas-comerciales.adjudicacion.analisis-pdf');
+
+// Pantalla de resultado (ganadas + antecedente)
+Route::get('resultados-adjudicacion/{resultado}', [AdjudicacionController::class, 'show'])
+    ->name('propuestas-comerciales.resultado.show');
+
+    Route::get('resultados-adjudicacion/{resultado}/remision', [AdjudicacionController::class, 'remisionPdf'])
+    ->name('propuestas-comerciales.resultado.remision');
+
+    use App\Http\Controllers\FacturacionController;
+
+Route::get('resultados-adjudicacion/{resultado}/facturar', [FacturacionController::class, 'form'])
+    ->name('propuestas-comerciales.resultado.facturar');
+
+Route::post('resultados-adjudicacion/{resultado}/facturar/prueba', [FacturacionController::class, 'prueba'])
+    ->name('propuestas-comerciales.resultado.facturar.prueba');
+    Route::post('resultados-adjudicacion/{resultado}/facturar/rebuscar-clave', [FacturacionController::class, 'rebuscarClave'])
+    ->name('propuestas-comerciales.resultado.facturar.rebuscar');
+
+   Route::post('resultados-adjudicacion/{resultado}/facturar/resolver', [FacturacionController::class, 'resolverProdservAjax'])
+    ->name('propuestas-comerciales.resultado.facturar.resolver');
+    Route::post('resultados-adjudicacion/{resultado}/facturar/buscar-clave', [FacturacionController::class, 'buscarClave'])
+    ->name('propuestas-comerciales.resultado.facturar.buscar');

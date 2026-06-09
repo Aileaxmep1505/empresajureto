@@ -8,7 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('adjudicaciones', function (Blueprint $table) {
+        Schema::dropIfExists('propuesta_resultado_items');
+        Schema::dropIfExists('propuesta_resultados');
+
+        Schema::create('propuesta_resultados', function (Blueprint $table) {
             $table->id();
             $table->foreignId('propuesta_comercial_id')
                 ->constrained('propuestas_comerciales')
@@ -22,19 +25,18 @@ return new class extends Migration
             $table->integer('ganadas_count')->default(0);
             $table->integer('perdidas_count')->default(0);
 
-            // Solo lo ganado (lo que se surte)
             $table->decimal('subtotal_ganadas', 14, 2)->default(0);
             $table->decimal('total_ganadas', 14, 2)->default(0);
 
-            $table->string('status')->default('generada'); // generada | en_proceso | surtida | cancelada
+            $table->string('status')->default('generada');
             $table->json('meta')->nullable();
             $table->timestamps();
         });
 
-        Schema::create('adjudicacion_items', function (Blueprint $table) {
+        Schema::create('propuesta_resultado_items', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('adjudicacion_id')
-                ->constrained('adjudicaciones')
+            $table->foreignId('propuesta_resultado_id')
+                ->constrained('propuesta_resultados')
                 ->cascadeOnDelete();
 
             $table->unsignedBigInteger('propuesta_comercial_item_id')->nullable();
@@ -47,16 +49,14 @@ return new class extends Migration
 
             $table->decimal('costo_unitario', 14, 2)->default(0);
             $table->decimal('precio_unitario', 14, 2)->default(0);
+            $table->decimal('precio_ofertado', 14, 2)->nullable();
             $table->decimal('subtotal', 14, 2)->default(0);
 
-            // ganada | perdida
-            $table->string('resultado')->default('ganada');
+            $table->string('resultado')->default('ganada'); // ganada | perdida
 
-            // Antecedente / análisis de las perdidas
             $table->text('motivo_perdida')->nullable();
             $table->string('proveedor_ganador')->nullable();
             $table->decimal('precio_ganador', 14, 2)->nullable();
-            $table->decimal('precio_ofertado', 14, 2)->nullable();
             $table->decimal('diferencia_monto', 14, 2)->nullable();
             $table->decimal('diferencia_pct', 8, 2)->nullable();
             $table->text('analisis_ia')->nullable();
@@ -64,13 +64,13 @@ return new class extends Migration
             $table->json('meta')->nullable();
             $table->timestamps();
 
-            $table->index(['adjudicacion_id', 'resultado']);
+            $table->index(['propuesta_resultado_id', 'resultado']);
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('adjudicacion_items');
-        Schema::dropIfExists('adjudicaciones');
+        Schema::dropIfExists('propuesta_resultado_items');
+        Schema::dropIfExists('propuesta_resultados');
     }
 };

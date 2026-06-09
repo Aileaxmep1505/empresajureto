@@ -13,16 +13,8 @@ use Illuminate\Support\Facades\Storage;
 
 class PropuestaComercialController extends Controller
 {
-    /**
-     * Largo máximo para "unidad_solicitada" (debe coincidir con tu VARCHAR de BD).
-     * Ajusta este número al tamaño real de tu columna.
-     */
     private const UNIDAD_MAX_LEN = 50;
 
-    /**
-     * Unidades de medida comunes (palabra única / muy corta).
-     * Ayuda a detectar cuando la IA cruzó descripción ↔ unidad.
-     */
     private const UNIDADES_COMUNES = [
         'PIEZA', 'PIEZAS', 'PZA', 'PZ', 'PZS',
         'CAJA', 'CAJAS',
@@ -101,14 +93,6 @@ class PropuestaComercialController extends Controller
             ->with('status', 'Cotización eliminada correctamente.');
     }
 
-    /**
-     * Normaliza descripción y unidad para evitar crashes por:
-     * - IA que cruza los campos.
-     * - IA que devuelve descripción larga como unidad.
-     * - Columnas truncadas en BD.
-     *
-     * Devuelve [descripcion, unidad].
-     */
     private function normalizarDescripcionUnidad(?string $descripcion, ?string $unidad): array
     {
         $descripcion = trim((string) $descripcion);
@@ -167,10 +151,7 @@ class PropuestaComercialController extends Controller
             $message = 'Este análisis no tiene partidas válidas. Verifica que el PDF ya terminó de procesarse correctamente.';
 
             if ($request->expectsJson() || $request->ajax()) {
-                return response()->json([
-                    'ok' => false,
-                    'message' => $message,
-                ], 422);
+                return response()->json(['ok' => false, 'message' => $message], 422);
             }
 
             return back()->with('error', $message);
@@ -184,26 +165,13 @@ class PropuestaComercialController extends Controller
                 'document_ai_run_id' => $run->id,
 
                 'titulo' => $data['titulo']
-                    ?: (
-                        $structured['objeto']
-                        ?? $structured['titulo']
-                        ?? ('Propuesta comercial #' . $run->id)
-                    ),
+                    ?: ($structured['objeto'] ?? $structured['titulo'] ?? ('Propuesta comercial #' . $run->id)),
 
                 'folio' => $data['folio']
-                    ?: (
-                        $structured['numero_procedimiento']
-                        ?? $structured['folio']
-                        ?? null
-                    ),
+                    ?: ($structured['numero_procedimiento'] ?? $structured['folio'] ?? null),
 
                 'cliente' => $data['cliente']
-                    ?: (
-                        $structured['dependencia']
-                        ?? $structured['cliente']
-                        ?? $structured['razon_social']
-                        ?? null
-                    ),
+                    ?: ($structured['dependencia'] ?? $structured['cliente'] ?? $structured['razon_social'] ?? null),
 
                 'porcentaje_utilidad' => $data['porcentaje_utilidad'] ?? 0,
                 'porcentaje_descuento' => $data['porcentaje_descuento'] ?? 0,
@@ -231,6 +199,14 @@ class PropuestaComercialController extends Controller
             $sort = 0;
 
             foreach ($items as $row) {
+                $partidaRaw = $row['partida'] ?? $row['partida_numero'] ?? null;
+                $subpartidaRaw = $row['subpartida'] ?? $row['subpartida_numero'] ?? null;
+
+                // Salta filas de SECCIÓN / encabezado (sin número de partida ni subpartida).
+                if (!is_numeric($partidaRaw) && !is_numeric($subpartidaRaw)) {
+                    continue;
+                }
+
                 $sort++;
 
                 $descripcionRaw = $row['descripcion']
@@ -247,33 +223,26 @@ class PropuestaComercialController extends Controller
 
                 [$descripcion, $unidad] = $this->normalizarDescripcionUnidad($descripcionRaw, $unidadRaw);
 
-                $cantidadMinima = $row['cantidad_minima']
-                    ?? $row['min_quantity']
-                    ?? $row['cantidad']
-                    ?? null;
+                $cantidadMinima = $row['cantidad_minima'] ?? $row['min_quantity'] ?? $row['cantidad'] ?? null;
+                $cantidadMaxima = $row['cantidad_maxima'] ?? $row['max_quantity'] ?? $row['cantidad'] ?? null;
+                $cantidadCotizada = $row['cantidad_cotizada'] ?? $cantidadMaxima ?? $cantidadMinima ?? 1;
 
-                $cantidadMaxima = $row['cantidad_maxima']
-                    ?? $row['max_quantity']
-                    ?? $row['cantidad']
-                    ?? null;
-
-                $cantidadCotizada = $row['cantidad_cotizada']
-                    ?? $cantidadMaxima
-                    ?? $cantidadMinima
-                    ?? 1;
+                // partida_numero: entero o consecutivo; subpartida_numero: entero o null (nunca texto).
+                $partidaNumero = is_numeric($partidaRaw) ? (int) $partidaRaw : $sort;
+                $subpartidaNumero = is_numeric($subpartidaRaw) ? (int) $subpartidaRaw : null;
 
                 PropuestaComercialItem::create([
                     'propuesta_comercial_id' => $propuesta->id,
                     'sort' => $sort,
-                    'partida_numero' => $row['partida'] ?? $row['partida_numero'] ?? $sort,
-                    'subpartida_numero' => $row['subpartida'] ?? $row['subpartida_numero'] ?? null,
+                    'partida_numero' => $partidaNumero,
+                    'subpartida_numero' => $subpartidaNumero,
 
                     'descripcion_original' => $descripcion,
                     'unidad_solicitada' => $unidad,
 
-                    'cantidad_minima' => $cantidadMinima,
-                    'cantidad_maxima' => $cantidadMaxima,
-                    'cantidad_cotizada' => $cantidadCotizada,
+                    'cantidad_minima' => is_numeric($cantidadMinima) ? $cantidadMinima : null,
+                    'cantidad_maxima' => is_numeric($cantidadMaxima) ? $cantidadMaxima : null,
+                    'cantidad_cotizada' => is_numeric($cantidadCotizada) ? $cantidadCotizada : 1,
 
                     'producto_seleccionado_id' => null,
                     'match_score' => null,
@@ -286,6 +255,7 @@ class PropuestaComercialController extends Controller
 
                     'meta' => [
                         'presentar_muestra' => $row['presentar_muestra'] ?? null,
+                        'subpartida_label' => $subpartidaRaw,
                         'created_from_run_id' => $run->id,
                         'raw' => $row,
                         'campos_corregidos' => (
@@ -294,11 +264,15 @@ class PropuestaComercialController extends Controller
                     ],
                 ]);
             }
+
+            // Ajusta el conteo real (sin filas de sección saltadas).
+            $meta = $propuesta->meta;
+            $meta['items_count'] = $sort;
+            $propuesta->meta = $meta;
+            $propuesta->save();
         });
 
-        $redirectUrl = route('propuestas-comerciales.show', [
-            'propuestaComercial' => $propuesta->id,
-        ]);
+        $redirectUrl = route('propuestas-comerciales.show', ['propuestaComercial' => $propuesta->id]);
 
         if ($request->expectsJson() || $request->ajax()) {
             return response()->json([
@@ -309,8 +283,7 @@ class PropuestaComercialController extends Controller
             ]);
         }
 
-        return redirect()
-            ->to($redirectUrl)
+        return redirect()->to($redirectUrl)
             ->with('status', 'Propuesta comercial creada correctamente con partidas completas.');
     }
 
@@ -320,11 +293,8 @@ class PropuestaComercialController extends Controller
             'items.matches.product',
             'items.externalMatches',
             'items.productoSeleccionado',
-
-            // Relaciones para preguntas de junta de aclaraciones
             'items.aclaracionPreguntas',
             'aclaracionPreguntas.item',
-
             'aiRun',
         ]);
 
@@ -349,7 +319,6 @@ class PropuestaComercialController extends Controller
 
         return back()->with('status', 'Parámetros de precios actualizados.');
     }
-
 
     public function ajaxDeleteItem(PropuestaComercialItem $item)
     {
@@ -376,9 +345,7 @@ class PropuestaComercialController extends Controller
                 ->get()
                 ->values()
                 ->each(function ($partida, $index) {
-                    $partida->update([
-                        'sort' => $index + 1,
-                    ]);
+                    $partida->update(['sort' => $index + 1]);
                 });
 
             $this->recalculateTotals($propuestaComercial->fresh());
@@ -389,7 +356,6 @@ class PropuestaComercialController extends Controller
             'message' => 'Partida eliminada correctamente.',
         ]);
     }
-
 
     private function asMetaArray($meta): array
     {
@@ -557,7 +523,6 @@ class PropuestaComercialController extends Controller
             return $query;
         };
 
-        // 1) Prioridad alta: frase completa en nombre/descripcion/SKU.
         if ($fullQuery !== '' && !empty($searchable)) {
             $exact = $baseQuery();
             $exact->where(function ($sub) use ($searchable, $fullQuery) {
@@ -568,7 +533,6 @@ class PropuestaComercialController extends Controller
             $idRows = $idRows->merge($exact->limit(120)->get());
         }
 
-        // 2) Prioridad media: todos los terminos importantes deben existir en campos de producto.
         if (!empty($words) && !empty($nameColumns)) {
             $allWords = $baseQuery();
             $allWords->where(function ($query) use ($words, $nameColumns) {
@@ -583,7 +547,6 @@ class PropuestaComercialController extends Controller
             $idRows = $idRows->merge($allWords->limit(180)->get());
         }
 
-        // 3) Respaldo: coincidencia amplia por palabras. Sirve cuando el usuario escribe poco.
         if (!empty($words) && !empty($searchable)) {
             $broad = $baseQuery();
             $broad->where(function ($sub) use ($searchable, $words) {
@@ -596,7 +559,6 @@ class PropuestaComercialController extends Controller
             $idRows = $idRows->merge($broad->limit(500)->get());
         }
 
-        // 4) Si aun no hay nada, trae muestra para rankear en PHP.
         if ($idRows->isEmpty() && $fullQuery !== '') {
             $idRows = $baseQuery()->limit(800)->get();
         }
@@ -655,15 +617,12 @@ class PropuestaComercialController extends Controller
             if ($nameText === $normalizedFullQuery || $skuText === $normalizedFullQuery) {
                 $score = max($score, 100);
             }
-
             if (str_contains($nameText, $normalizedFullQuery) || str_contains($skuText, $normalizedFullQuery)) {
                 $score = max($score, 98);
             }
-
             if (str_contains($primaryText, $normalizedFullQuery)) {
                 $score = max($score, 94);
             }
-
             if (str_contains($haystack, $normalizedFullQuery)) {
                 $score = max($score, 88);
             }
@@ -672,7 +631,6 @@ class PropuestaComercialController extends Controller
         if (!empty($words)) {
             $primaryRatio = $primaryHits / $totalWords;
             $haystackRatio = $haystackHits / $totalWords;
-
             $score = max($score, $primaryRatio * 95, $haystackRatio * 70);
 
             if ($primaryHits === $totalWords && $totalWords >= 2) {
@@ -685,8 +643,6 @@ class PropuestaComercialController extends Controller
                 $score += 5;
             }
 
-            // Evita falsos positivos como buscar "SOBRE PAPEL MANILA" y que aparezcan pinturas
-            // solo porque su descripcion contiene "sobre" y "papel".
             if ($totalWords >= 2 && !empty($missingWords)) {
                 $score = min($score, 24);
             }
@@ -710,16 +666,13 @@ class PropuestaComercialController extends Controller
             if (in_array($column, $hidden, true)) {
                 continue;
             }
-
             $value = $row->{$column} ?? null;
             if ($value === null || $value === '') {
                 continue;
             }
-
             if (is_string($value) && mb_strlen($value) > 140) {
                 $value = mb_substr($value, 0, 140) . '...';
             }
-
             $details[] = [
                 'label' => str_replace('_', ' ', mb_strtoupper($column)),
                 'value' => (string) $value,
@@ -737,7 +690,6 @@ class PropuestaComercialController extends Controller
             'unit' => $unit,
             'color' => $color,
             'description' => $description,
-            // Sin imagenes en busqueda manual. Las imagenes quedan solo para Muestras / stock.
             'image_url' => null,
             'photo_urls' => [],
             'similarity_pct' => $score,
@@ -775,7 +727,6 @@ class PropuestaComercialController extends Controller
                 foreach ($searchable as $column) {
                     $sub->orWhere($column, 'like', '%' . $fullQuery . '%');
                 }
-
                 foreach ($words as $word) {
                     foreach ($searchable as $column) {
                         $sub->orWhere($column, 'like', '%' . $word . '%');
@@ -788,11 +739,9 @@ class PropuestaComercialController extends Controller
 
         if ($rows->isEmpty() && $fullQuery !== '') {
             $fallback = DB::table('catalog_items');
-
             if (in_array('deleted_at', $columns, true)) {
                 $fallback->whereNull('deleted_at');
             }
-
             $rows = $fallback->limit(400)->get();
         }
 
@@ -825,7 +774,6 @@ class PropuestaComercialController extends Controller
                 $rawPhotos[] = $row->{$photoColumn};
             }
         }
-
         foreach (['image_url', 'imagen_url', 'photo_url', 'thumbnail_url', 'picture_url'] as $photoColumn) {
             if (in_array($photoColumn, $columns, true) && !empty($row->{$photoColumn})) {
                 $rawPhotos[] = $row->{$photoColumn};
@@ -855,16 +803,13 @@ class PropuestaComercialController extends Controller
             if (in_array($column, $hidden, true)) {
                 continue;
             }
-
             $value = $row->{$column} ?? null;
             if ($value === null || $value === '') {
                 continue;
             }
-
             if (is_string($value) && mb_strlen($value) > 140) {
                 $value = mb_substr($value, 0, 140) . '...';
             }
-
             $details[] = [
                 'label' => str_replace('_', ' ', mb_strtoupper($column)),
                 'value' => (string) $value,
@@ -1028,9 +973,6 @@ class PropuestaComercialController extends Controller
             ]);
         }
 
-        // IMPORTANTE:
-        // La busqueda manual debe buscar SOLO en la tabla `products`.
-        // `catalog_items` queda reservado para Muestras / stock.
         $products = $this->searchProductRows($q, 50)
             ->map(function ($candidate) {
                 return [
@@ -1049,9 +991,6 @@ class PropuestaComercialController extends Controller
                     'similarity_pct' => $candidate['similarity_pct'],
                     'description' => $candidate['description'] ?? '',
                     'details' => $candidate['details'] ?? [],
-
-                    // No mandar imagenes a busqueda manual.
-                    // Las imagenes solo se usan en Muestras / stock.
                     'image_url' => null,
                     'photo_urls' => [],
                 ];
