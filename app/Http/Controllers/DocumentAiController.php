@@ -11,7 +11,7 @@ use Throwable;
 
 class DocumentAiController extends Controller
 {
-    public function start(Request $request): JsonResponse
+    public function start(Request $request)
     {
         Log::info('DocumentAiController@start - inicio', [
             'has_file' => $request->hasFile('file'),
@@ -41,23 +41,61 @@ class DocumentAiController extends Controller
             'items_json' => null,
         ]);
 
+        $pythonBin = config('services.python_ai.bin');
+        $pythonScript = config('services.python_ai.script');
+
+        // Validaciones ANTES de responder (para avisar si está mal configurado).
+        $configError = null;
+
+        if (!$pythonBin || !file_exists($pythonBin)) {
+            $configError = 'No existe PYTHON_BIN: ' . $pythonBin;
+        } elseif (!$pythonScript || !file_exists($pythonScript)) {
+            $configError = 'No existe PYTHON_SCRIPT: ' . $pythonScript;
+        } elseif (!file_exists($fullPdfPath)) {
+            $configError = 'No existe el PDF: ' . $fullPdfPath;
+        }
+
+        if ($configError) {
+            Log::error('DocumentAiController@start - error de configuración', [
+                'run_id' => $run->id,
+                'message' => $configError,
+            ]);
+
+            $run->update(['status' => 'failed', 'error' => $configError]);
+
+            return response()->json([
+                'ok' => false,
+                'message' => 'Error procesando documento: ' . $configError,
+                'document_ai_run_id' => $run->id,
+            ], 500);
+        }
+
+        // 1) Responder YA al navegador con el run_id (evita el 504 Gateway Time-out).
+        $response = response()->json([
+            'ok' => true,
+            'document_ai_run_id' => $run->id,
+            'status' => 'processing',
+            'path' => $path,
+            'run' => [
+                'id' => $run->id,
+                'status' => 'processing',
+                'filename' => $run->filename,
+                'pages_per_chunk' => $run->pages_per_chunk,
+            ],
+        ]);
+
+        $response->send();
+
+        if (function_exists('fastcgi_finish_request')) {
+            fastcgi_finish_request();
+        }
+
+        // 2) El navegador ya recibió la respuesta; seguimos procesando en segundo plano.
+        @ignore_user_abort(true);
+        @set_time_limit(1200);
+
         try {
-            $pythonBin = config('services.python_ai.bin');
-            $pythonScript = config('services.python_ai.script');
-
-            if (!$pythonBin || !file_exists($pythonBin)) {
-                throw new \RuntimeException('No existe PYTHON_BIN: ' . $pythonBin);
-            }
-
-            if (!$pythonScript || !file_exists($pythonScript)) {
-                throw new \RuntimeException('No existe PYTHON_SCRIPT: ' . $pythonScript);
-            }
-
-            if (!file_exists($fullPdfPath)) {
-                throw new \RuntimeException('No existe el PDF: ' . $fullPdfPath);
-            }
-
-            Log::info('DocumentAiController@start - ejecutando python', [
+            Log::info('DocumentAiController@start - ejecutando python (background)', [
                 'run_id' => $run->id,
                 'python_bin' => $pythonBin,
                 'python_script' => $pythonScript,
@@ -116,42 +154,21 @@ class DocumentAiController extends Controller
                 'structured_json' => $decoded['structured_json'] ?? $decoded['structured'] ?? null,
                 'items_json' => $decoded['items_json'] ?? $decoded['items'] ?? null,
             ]);
-
-            $run->refresh();
-
-            return response()->json([
-                'ok' => true,
-                'document_ai_run_id' => $run->id,
-                'status' => $run->status,
-                'path' => $path,
-                'run' => [
-                    'id' => $run->id,
-                    'status' => $run->status,
-                    'filename' => $run->filename,
-                    'pages_per_chunk' => $run->pages_per_chunk,
-                ],
-            ]);
         } catch (Throwable $e) {
-            Log::error('DocumentAiController@start - error', [
-                'run_id' => $run->id ?? null,
+            Log::error('DocumentAiController@start - error (background)', [
+                'run_id' => $run->id,
                 'message' => $e->getMessage(),
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
             ]);
 
-            if (isset($run)) {
-                $run->update([
-                    'status' => 'failed',
-                    'error' => $e->getMessage(),
-                ]);
-            }
-
-            return response()->json([
-                'ok' => false,
-                'message' => 'Error procesando documento: ' . $e->getMessage(),
-                'document_ai_run_id' => $run->id ?? null,
-            ], 500);
+            $run->update([
+                'status' => 'failed',
+                'error' => $e->getMessage(),
+            ]);
         }
+
+        exit;
     }
 
     public function show(DocumentAiRun $run): JsonResponse
