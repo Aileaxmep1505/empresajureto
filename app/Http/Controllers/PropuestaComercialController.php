@@ -99,31 +99,29 @@ class PropuestaComercialController extends Controller
         $descripcion = trim((string) $descripcion);
         $unidad = trim((string) $unidad);
 
-        $descLen = mb_strlen($descripcion);
-        $uniLen = mb_strlen($unidad);
-
-        $unidadPareceDescripcion =
-            $uniLen > self::UNIDAD_MAX_LEN
-            || (
-                in_array(mb_strtoupper($descripcion), self::UNIDADES_COMUNES, true)
-                && $uniLen > $descLen
-            );
-
-        if ($unidadPareceDescripcion) {
-            [$descripcion, $unidad] = [$unidad, $descripcion];
+        /*
+         * La IA ya interpreta la unidad con sentido común.
+         * Aquí NO intentamos corregirla con listas duras.
+         *
+         * Ejemplos que deben respetarse:
+         * - PAQUETE CON 100 PIEZAS
+         * - CAJA CON 12 PIEZAS
+         * - BOLSA CON 50 PIEZAS
+         * - SERVICIO
+         * - PIEZA
+         */
+        if ($descripcion === '') {
+            $descripcion = 'Sin descripción';
         }
-
-        $unidad = mb_substr($unidad, 0, self::UNIDAD_MAX_LEN);
 
         if ($unidad === '') {
             $unidad = 'PIEZA';
         }
 
-        if ($descripcion === '') {
-            $descripcion = 'Sin descripción';
-        }
-
-        return [$descripcion, $unidad];
+        return [
+            $descripcion,
+            mb_substr($unidad, 0, 150),
+        ];
     }
 
     private function quitarAcentosBasico(string $texto): string
@@ -312,6 +310,75 @@ class PropuestaComercialController extends Controller
         return !$this->descripcionEsBasura($descripcionRaw);
     }
 
+
+    private function parsePartidaSubpartida($partidaRaw, $subpartidaRaw, int $sort): array
+    {
+        $partidaNumero = null;
+        $subpartidaNumero = null;
+
+        $partidaText = trim((string) $partidaRaw);
+        $subpartidaText = trim((string) $subpartidaRaw);
+
+        if (preg_match('/^(\d+)\.(\d+)$/', $partidaText, $m)) {
+            $partidaNumero = (int) $m[1];
+            $subpartidaNumero = (int) $m[2];
+        } elseif (is_numeric($partidaRaw)) {
+            $partidaNumero = (int) $partidaRaw;
+        }
+
+        if ($subpartidaNumero === null && $subpartidaText !== '') {
+            if (preg_match('/^(\d+)\.(\d+)$/', $subpartidaText, $m)) {
+                if ($partidaNumero === null) {
+                    $partidaNumero = (int) $m[1];
+                }
+
+                $subpartidaNumero = (int) $m[2];
+            } elseif (is_numeric($subpartidaRaw)) {
+                $subpartidaNumero = (int) $subpartidaRaw;
+            }
+        }
+
+        if ($partidaNumero === null) {
+            $partidaNumero = $sort;
+        }
+
+        return [$partidaNumero, $subpartidaNumero];
+    }
+
+    private function cantidadCotizadaPreferida(array $row)
+    {
+        /*
+         * Regla de negocio:
+         * Si existe cantidad mínima, SIEMPRE se cotiza con cantidad mínima.
+         * Si no existe, se usa cantidad_cotizada de la IA.
+         * Si no existe, se usa cantidad normal.
+         * Si no existe, se usa cantidad máxima.
+         * Si nada existe, 1.
+         */
+        $cantidadMinima = $row['cantidad_minima'] ?? $row['min_quantity'] ?? null;
+        $cantidadIa = $row['cantidad_cotizada'] ?? null;
+        $cantidadNormal = $row['cantidad'] ?? $row['quantity'] ?? null;
+        $cantidadMaxima = $row['cantidad_maxima'] ?? $row['max_quantity'] ?? null;
+
+        if (is_numeric($cantidadMinima)) {
+            return $cantidadMinima;
+        }
+
+        if (is_numeric($cantidadIa)) {
+            return $cantidadIa;
+        }
+
+        if (is_numeric($cantidadNormal)) {
+            return $cantidadNormal;
+        }
+
+        if (is_numeric($cantidadMaxima)) {
+            return $cantidadMaxima;
+        }
+
+        return 1;
+    }
+
     public function storeFromRunManual(Request $request)
     {
         $data = $request->validate([
@@ -441,12 +508,11 @@ class PropuestaComercialController extends Controller
 
                 $sort++;
 
-                $cantidadMinima = $row['cantidad_minima'] ?? $row['min_quantity'] ?? $row['cantidad'] ?? null;
-                $cantidadMaxima = $row['cantidad_maxima'] ?? $row['max_quantity'] ?? $row['cantidad'] ?? null;
-                $cantidadCotizada = $row['cantidad_cotizada'] ?? $cantidadMaxima ?? $cantidadMinima ?? 1;
+                $cantidadMinima = $row['cantidad_minima'] ?? $row['min_quantity'] ?? null;
+                $cantidadMaxima = $row['cantidad_maxima'] ?? $row['max_quantity'] ?? null;
+                $cantidadCotizada = $this->cantidadCotizadaPreferida($row);
 
-                $partidaNumero = is_numeric($partidaRaw) ? (int) $partidaRaw : $sort;
-                $subpartidaNumero = is_numeric($subpartidaRaw) ? (int) $subpartidaRaw : null;
+                [$partidaNumero, $subpartidaNumero] = $this->parsePartidaSubpartida($partidaRaw, $subpartidaRaw, $sort);
 
                 PropuestaComercialItem::create([
                     'propuesta_comercial_id' => $propuesta->id,
@@ -1330,7 +1396,7 @@ class PropuestaComercialController extends Controller
             $meta['catalog_product_name_manual'] = trim((string) $data['catalog_product_name']);
         }
 
-        $qty = (float) ($item->cantidad_cotizada ?: $item->cantidad_maxima ?: $item->cantidad_minima ?: 1);
+        $qty = (float) ($item->cantidad_cotizada ?: $item->cantidad_minima ?: $item->cantidad_maxima ?: 1);
         $cost = (float) ($item->costo_unitario ?: 0);
         $price = $cost > 0 ? round($cost * (1 + ($margin / 100)), 2) : 0;
 
@@ -1352,7 +1418,7 @@ class PropuestaComercialController extends Controller
 
     public function ajaxSamplesItem(PropuestaComercialItem $item)
     {
-        $neededQty = (float) ($item->cantidad_cotizada ?: $item->cantidad_maxima ?: $item->cantidad_minima ?: 1);
+        $neededQty = (float) ($item->cantidad_cotizada ?: $item->cantidad_minima ?: $item->cantidad_maxima ?: 1);
         $searchText = trim((string) $item->descripcion_original);
 
         $candidates = $this->searchCatalogRows($searchText, 30)
