@@ -99,24 +99,20 @@ class PropuestaComercialController extends Controller
         $descripcion = trim((string) $descripcion);
         $unidad = trim((string) $unidad);
 
-        /*
-         * La IA ya interpreta la unidad con sentido común.
-         * Aquí NO intentamos corregirla con listas duras.
-         *
-         * Ejemplos que deben respetarse:
-         * - PAQUETE CON 100 PIEZAS
-         * - CAJA CON 12 PIEZAS
-         * - BOLSA CON 50 PIEZAS
-         * - SERVICIO
-         * - PIEZA
-         */
         if ($descripcion === '') {
             $descripcion = 'Sin descripción';
         }
 
-        if ($unidad === '') {
-            $unidad = 'PIEZA';
-        }
+        /*
+         * La IA interpreta la unidad, pero esta red de seguridad limpia casos como:
+         * descripcion = Arillo metálico ... (caja/paquete 90 piezas)
+         * unidad = PIEZA
+         *
+         * Resultado:
+         * descripcion = Arillo metálico ...
+         * unidad = PAQUETE
+         */
+        [$descripcion, $unidad] = $this->extraerUnidadDesdeDescripcion($descripcion, $unidad);
 
         return [
             $descripcion,
