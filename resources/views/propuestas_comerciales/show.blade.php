@@ -123,6 +123,14 @@
   .item-details { display: none; padding: 24px; border-top: 1px solid var(--line); background: var(--card); animation: fadeIn 0.3s ease; }
   .item-card.open .item-details { display: block; }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes searchPopoverIn {
+    from { opacity: 0; transform: translateY(-10px) scale(.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  @keyframes searchProofIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
 
   /* Inner Tabs (Fiel a la captura Nelo) */
   .item-tabs-container { display: flex; flex-wrap: wrap; background: #f1f5f9; border-radius: 10px; padding: 4px; margin-bottom: 24px; width: max-content; max-width: 100%; }
@@ -218,6 +226,197 @@
 
   @media (max-width: 420px) {
     .summary-grid { grid-template-columns: 1fr; }
+  }
+
+
+  /* Search Popover - buscador discreto de partidas */
+  .quote-search-shell {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .quote-search-toggle {
+    position: relative;
+    transition: transform .24s cubic-bezier(0.22, 1, 0.36, 1), border-color .2s ease, background-color .2s ease, box-shadow .24s ease;
+  }
+
+  .quote-search-toggle.is-active {
+    color: var(--blue);
+    border-color: rgba(0, 122, 255, .30);
+    background: var(--blue-soft);
+    box-shadow: 0 8px 20px rgba(0, 122, 255, 0.10);
+  }
+
+  .quote-search-dot {
+    position: absolute;
+    top: 7px;
+    right: 7px;
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: var(--blue);
+    box-shadow: 0 0 0 3px #ffffff;
+    display: none;
+  }
+
+  .quote-search-toggle.is-active .quote-search-dot { display: block; }
+
+  .quote-search-popover {
+    position: absolute;
+    top: calc(100% + 10px);
+    left: 0;
+    width: min(440px, calc(100vw - 48px));
+    background: rgba(255,255,255,.985);
+    border: 1px solid rgba(226, 232, 240, .92);
+    border-radius: 18px;
+    box-shadow: 0 22px 60px rgba(15, 23, 42, 0.12);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    padding: 10px;
+    z-index: 4500;
+    display: none;
+    transform: translateY(-8px) scale(.985);
+    transform-origin: top left;
+    opacity: 0;
+    transition: opacity .24s cubic-bezier(0.22, 1, 0.36, 1), transform .28s cubic-bezier(0.22, 1, 0.36, 1), box-shadow .28s ease;
+  }
+
+  .quote-search-shell.open .quote-search-popover {
+    display: block;
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    box-shadow: 0 26px 70px rgba(15, 23, 42, 0.14);
+    animation: searchPopoverIn .28s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .quote-search-box {
+    position: relative;
+    min-width: 0;
+  }
+
+  .quote-search-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+
+  .quote-search-icon svg {
+    width: 17px;
+    height: 17px;
+  }
+
+  .quote-search-input {
+    height: 42px;
+    padding-left: 42px;
+    padding-right: 42px;
+    border-radius: 999px;
+    background: #ffffff;
+    box-shadow: none;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
+  .quote-search-input::-webkit-search-decoration,
+  .quote-search-input::-webkit-search-cancel-button,
+  .quote-search-input::-webkit-search-results-button,
+  .quote-search-input::-webkit-search-results-decoration {
+    -webkit-appearance: none;
+    appearance: none;
+    display: none;
+  }
+
+  .quote-search-input:focus {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px var(--blue-soft);
+  }
+
+  .quote-search-clear {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 32px;
+    height: 32px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    transition: background .18s ease, color .18s ease, transform .18s ease;
+  }
+
+  .quote-search-clear.show { display: inline-flex; }
+  .quote-search-clear:hover { background: #f9fafb; color: var(--ink-dark); }
+  .quote-search-clear:active { transform: translateY(-50%) scale(.96); }
+  .quote-search-clear svg { width: 15px; height: 15px; }
+
+  .quote-search-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+    padding: 8px 4px 0;
+  }
+
+  .quote-search-meta .badge {
+    background: var(--blue-soft);
+    color: var(--blue);
+    padding: 3px 9px;
+    font-size: 11px;
+  }
+
+  .search-mark {
+    background: #cfe3ff;
+    color: #0057c2;
+    padding: 1px 3px;
+    border-radius: 5px;
+    font-weight: 700;
+    box-shadow: inset 0 -1px 0 rgba(0, 122, 255, .18);
+  }
+
+  .item-search-proof { display: none; }
+
+  .empty-results-card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+    padding: 32px 24px;
+    text-align: center;
+    color: var(--muted);
+  }
+
+  .empty-results-card strong {
+    display: block;
+    color: var(--ink-dark);
+    font-size: 18px;
+    margin-bottom: 6px;
+  }
+
+  @media (max-width: 760px) {
+    .quote-search-shell { position: static; }
+    .quote-search-popover {
+      position: fixed;
+      left: 16px;
+      right: 16px;
+      top: auto;
+      bottom: 20px;
+      width: auto;
+      box-shadow: 0 18px 45px rgba(15, 23, 42, 0.16);
+    }
   }
 
   /* ===== Margen Global (Colapsable / Botón desplegable) ===== */
@@ -613,6 +812,13 @@
           return [
               'id' => $item->id,
               'sort' => (int) $item->sort,
+              'display_number' => data_get($item->meta, 'partida_number')
+                  ?: data_get($item->meta, 'numero_partida')
+                  ?: data_get($item->meta, 'partida')
+                  ?: ($item->partida_number ?? null)
+                  ?: ($item->numero_partida ?? null)
+                  ?: ($item->partida ?? null)
+                  ?: (int) $item->sort,
               'descripcion_original' => $item->descripcion_original,
               'unidad_solicitada' => $item->unidad_solicitada,
               'cantidad_minima' => (float) $item->cantidad_minima,
@@ -795,6 +1001,31 @@
           <span class="btn-icon"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"></circle><circle cx="18" cy="18" r="2.5"></circle><path d="M8 8l8 8"></path></svg><circle cx="9" cy="12" r="6"></circle><circle cx="15" cy="12" r="6"></circle></svg></span>
           <span>Hacer Match</span>
         </button>
+
+        <div class="quote-search-shell" id="quoteSearchShell">
+          <button class="btn btn-outline quote-search-toggle" type="button" id="btnToggleQuoteSearch" aria-expanded="false" aria-controls="quoteSearchPopover">
+            <span class="btn-icon"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></span>
+            <span>Buscar</span>
+            <span class="quote-search-dot" aria-hidden="true"></span>
+          </button>
+
+          <div class="quote-search-popover" id="quoteSearchPopover" role="search">
+            <div class="quote-search-box">
+              <span class="quote-search-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+              </span>
+              <input class="input quote-search-input" id="quoteSearchInput" type="search" placeholder="Buscar partida, SKU, marca o estado..." autocomplete="off">
+              <button class="quote-search-clear" type="button" id="btnClearQuoteSearch" aria-label="Limpiar búsqueda">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
+            </div>
+            <div class="quote-search-meta">
+              <span id="quoteSearchHint">Filtro discreto</span>
+              <span class="badge" id="quoteSearchCount">0 resultados</span>
+            </div>
+          </div>
+        </div>
+
         <span class="actions-divider"></span>
 
               <div class="actions-group">
@@ -1118,6 +1349,7 @@
   const exportFolio = @json($exportFolio);
   const exportTitle = @json($exportTitle);
   let currentFilter = 'all';
+  let itemsSearchQuery = '';
   let manualItemId = null;
   let manualTab = 'catalog';
   let manualSearchTimer = null;
@@ -1136,6 +1368,242 @@
   function money(n) { return Number(n || 0).toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 2 }); }
   function moneyOrBlank(n) { return Number(n || 0) > 0 ? money(n) : ''; }
   function escapeHtml(value) { return String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;'); }
+
+  function normalizeSearchText(value) {
+    return String(value ?? '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim();
+  }
+
+  function getSearchTerms(query = itemsSearchQuery) {
+    return [...new Set(normalizeSearchText(query).split(/\s+/).filter(Boolean))];
+  }
+
+  function escapeRegExp(value) {
+    return String(value ?? '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  function buildHighlightRegex(query = itemsSearchQuery) {
+    const terms = getSearchTerms(query).sort((a, b) => b.length - a.length);
+    return terms.length ? new RegExp(`(${terms.map(escapeRegExp).join('|')})`, 'ig') : null;
+  }
+
+  function highlightText(value, query = itemsSearchQuery) {
+    const text = String(value ?? '');
+    const regex = buildHighlightRegex(query);
+    const terms = getSearchTerms(query);
+
+    if (!regex || !terms.length) return escapeHtml(text);
+
+    const termSet = new Set(terms);
+    return text
+      .split(regex)
+      .map(part => termSet.has(normalizeSearchText(part))
+        ? `<mark class="search-mark">${escapeHtml(part)}</mark>`
+        : escapeHtml(part)
+      )
+      .join('');
+  }
+
+  function buildSearchExcerpt(value, query = itemsSearchQuery, maxLength = 96) {
+    const text = String(value ?? '').trim();
+    const terms = getSearchTerms(query);
+
+    if (!text) return '';
+    if (!terms.length) return escapeHtml(text);
+
+    const normalizedText = normalizeSearchText(text);
+    let matchIndex = -1;
+    let matchLength = 0;
+
+    terms.forEach(term => {
+      const idx = normalizedText.indexOf(term);
+      if (idx !== -1 && (matchIndex === -1 || idx < matchIndex)) {
+        matchIndex = idx;
+        matchLength = term.length;
+      }
+    });
+
+    if (matchIndex === -1) return highlightText(text, query);
+
+    const start = Math.max(0, matchIndex - Math.floor((maxLength - matchLength) / 2));
+    const end = Math.min(text.length, start + maxLength);
+    const prefix = start > 0 ? '…' : '';
+    const suffix = end < text.length ? '…' : '';
+
+    return `${prefix}${highlightText(text.slice(start, end), query)}${suffix}`;
+  }
+
+  function firstTruthyValue(values = []) {
+    return values.find(value => String(value ?? '').trim()) || '';
+  }
+
+  function getItemSearchReasons(item) {
+    const terms = getSearchTerms();
+    if (!terms.length) return [];
+
+    const selectedCatalog = getSelectedCatalogProduct(item);
+    const firstExternal = Array.isArray(item.external_matches) ? item.external_matches[0] : null;
+    const firstQuestion = Array.isArray(item.clarification_questions) ? item.clarification_questions[0] : null;
+
+    const reasons = [
+      { label: 'Descripción', value: item.descripcion_original },
+      {
+        label: 'Producto',
+        value: firstTruthyValue([
+          item.producto_seleccionado?.name,
+          selectedCatalog?.product?.name,
+          item.catalog_product_name_manual,
+          item.manual_catalog_product_name
+        ])
+      },
+      {
+        label: 'SKU',
+        value: firstTruthyValue([
+          item.producto_seleccionado?.sku,
+          selectedCatalog?.product?.sku,
+          ...(item.matches || []).map(match => match?.product?.sku)
+        ])
+      },
+      {
+        label: 'Marca',
+        value: firstTruthyValue([
+          item.manual_external_supplier,
+          item.external_supplier,
+          item.producto_seleccionado?.brand,
+          selectedCatalog?.product?.brand,
+          ...(item.matches || []).map(match => match?.product?.brand)
+        ])
+      },
+      {
+        label: 'Modelo',
+        value: firstTruthyValue([
+          item.modelo,
+          item.producto_seleccionado?.model,
+          selectedCatalog?.product?.model,
+          ...(item.matches || []).map(match => match?.product?.model)
+        ])
+      },
+      { label: 'Estado', value: statusLabel(item).text },
+      {
+        label: 'Internet',
+        value: firstExternal ? [firstExternal.title, firstExternal.seller, firstExternal.source].filter(Boolean).join(' · ') : ''
+      },
+      {
+        label: 'Pregunta',
+        value: firstQuestion ? [getClarificationText(firstQuestion), getClarificationCandidate(firstQuestion)?.name].filter(Boolean).join(' · ') : ''
+      }
+    ];
+
+    return reasons
+      .filter(reason => {
+        const normalizedValue = normalizeSearchText(reason.value);
+        return normalizedValue && terms.some(term => normalizedValue.includes(term));
+      })
+      .slice(0, 3);
+  }
+
+  function renderItemSearchReasons(item) {
+    return '';
+  }
+
+  function itemSearchHaystack(item) {
+    const selectedCatalog = getSelectedCatalogProduct(item);
+    const badge = statusLabel(item);
+    const parts = [
+      item.descripcion_original,
+      item.unidad_solicitada,
+      item.manual_external_supplier,
+      item.external_supplier,
+      item.manual_external_link,
+      item.catalog_product_name_manual,
+      item.manual_catalog_product_name,
+      item.modelo,
+      item.status_key,
+      item.ui_status,
+      badge.text,
+      item.producto_seleccionado?.name,
+      item.producto_seleccionado?.sku,
+      item.producto_seleccionado?.brand,
+      item.producto_seleccionado?.model,
+      selectedCatalog?.product?.name,
+      selectedCatalog?.product?.sku,
+      selectedCatalog?.product?.brand,
+      selectedCatalog?.product?.model,
+      ...(item.matches || []).flatMap(match => [
+        match?.product?.name,
+        match?.product?.sku,
+        match?.product?.brand,
+        match?.product?.model
+      ]),
+      ...(item.external_matches || []).flatMap(match => [
+        match?.title,
+        match?.source,
+        match?.seller,
+        match?.url
+      ]),
+      ...(item.clarification_questions || []).flatMap(question => [
+        getClarificationText(question),
+        getClarificationCandidate(question)?.name,
+        getClarificationCandidate(question)?.sku,
+        getClarificationCandidate(question)?.brand
+      ])
+    ];
+
+    return normalizeSearchText(parts.filter(Boolean).join(' '));
+  }
+
+  function itemMatchesSearch(item) {
+    const q = normalizeSearchText(itemsSearchQuery);
+    if (!q) return true;
+    return q.split(/\s+/).every(term => itemSearchHaystack(item).includes(term));
+  }
+
+  function renderSearchState(visibleCount = 0, baseCount = 0) {
+    const input = document.getElementById('quoteSearchInput');
+    const clear = document.getElementById('btnClearQuoteSearch');
+    const count = document.getElementById('quoteSearchCount');
+    const hint = document.getElementById('quoteSearchHint');
+    const toggle = document.getElementById('btnToggleQuoteSearch');
+    const hasQuery = normalizeSearchText(itemsSearchQuery).length > 0;
+
+    if (input && input.value !== itemsSearchQuery) input.value = itemsSearchQuery;
+    if (clear) clear.classList.toggle('show', hasQuery);
+    if (toggle) toggle.classList.toggle('is-active', hasQuery);
+    if (count) count.textContent = `${visibleCount} resultado${visibleCount === 1 ? '' : 's'}`;
+    if (hint) hint.textContent = hasQuery ? `de ${baseCount} partidas` : 'Filtro discreto';
+  }
+
+  function openQuoteSearch() {
+    const shell = document.getElementById('quoteSearchShell');
+    const toggle = document.getElementById('btnToggleQuoteSearch');
+    const input = document.getElementById('quoteSearchInput');
+
+    if (!shell) return;
+
+    shell.classList.add('open');
+    if (toggle) toggle.setAttribute('aria-expanded', 'true');
+    setTimeout(() => input?.focus(), 30);
+  }
+
+  function closeQuoteSearch() {
+    const shell = document.getElementById('quoteSearchShell');
+    const toggle = document.getElementById('btnToggleQuoteSearch');
+
+    if (!shell) return;
+
+    shell.classList.remove('open');
+    if (toggle) toggle.setAttribute('aria-expanded', 'false');
+  }
+
+  function toggleQuoteSearch() {
+    const shell = document.getElementById('quoteSearchShell');
+    if (!shell) return;
+    shell.classList.contains('open') ? closeQuoteSearch() : openQuoteSearch();
+  }
+
 
   function normalizeMatchSelection(item) {
     if (!item || typeof item !== 'object') return item;
@@ -1300,7 +1768,7 @@
   function renderItems() {
     renderSummary();
     const list = document.getElementById('itemsList');
-    const filtered = items.filter(item => {
+    const filteredBySummary = items.filter(item => {
       if (currentFilter === 'all') return true;
       if (currentFilter === 'exact') return item.status_key === 'exact';
       if (currentFilter === 'similar') return item.status_key === 'similar';
@@ -1310,7 +1778,13 @@
       if (currentFilter === 'margin') return Number(item.item_margin_pct || 0) > 0;
       return true;
     });
-    list.innerHTML = filtered.map((item, idx) => renderItemCard(item, idx)).join('');
+
+    const filtered = filteredBySummary.filter(itemMatchesSearch);
+    renderSearchState(filtered.length, filteredBySummary.length);
+
+    list.innerHTML = filtered.length
+      ? filtered.map((item, idx) => renderItemCard(item, idx)).join('')
+      : `<div class="empty-results-card"><strong>Sin resultados</strong><span>No encontramos partidas que coincidan con tu búsqueda.</span></div>`;
     bindDragEvents();
   }
 
@@ -1321,6 +1795,7 @@
     const price = Number(item.precio_unitario || 0);
     const subtotal = Number(item.subtotal || price * qty);
     const hasPrices = cost > 0 || price > 0 || subtotal > 0;
+    const brandText = item.manual_external_supplier || item.producto_seleccionado?.brand || '';
 
     const moneyRowHtml = hasPrices ? `
       <div class="money-row">
@@ -1333,19 +1808,19 @@
     return `
       <div class="item-card" data-id="${item.id}" draggable="false">
         <div class="item-main" onclick="toggleItem(${item.id})">
-          <button class="drag-handle" type="button" draggable="${currentFilter === 'all' ? 'true' : 'false'}" title="Mover posición" aria-label="Mover posición" onclick="event.stopPropagation()">
+          <button class="drag-handle" type="button" draggable="${currentFilter === 'all' && !normalizeSearchText(itemsSearchQuery) ? 'true' : 'false'}" title="Mover posición" aria-label="Mover posición" onclick="event.stopPropagation()">
             ${svgs.drag}
           </button>
-          <div class="item-index">${idx + 1}</div>
+          <div class="item-index">${getItemDisplayNumber(item, idx)}</div>
           <div>
-            <h3 class="item-name">${escapeHtml(item.descripcion_original || 'Producto sin descripción')}</h3>
+            <h3 class="item-name">${highlightText(item.descripcion_original || 'Producto sin descripción')}</h3>
             <div class="item-meta">
-              ${qty} ${escapeHtml(item.unidad_solicitada || 'pz')}
-              ${(item.manual_external_supplier || item.producto_seleccionado?.brand) ? ' · ' + escapeHtml(item.manual_external_supplier || item.producto_seleccionado.brand) : ''}
+              ${highlightText(`${qty} ${item.unidad_solicitada || 'pz'}`)}
+              ${brandText ? ' · ' + highlightText(brandText) : ''}
               ${item.tech_sheet_id ? ` · ${svgs.doc_linked} <span style="color:var(--success); font-weight:700;">Ficha</span>` : ''}
             </div>
           </div>
-          <span class="badge ${badge.cls}">${badge.text}</span>
+          <span class="badge ${badge.cls}">${highlightText(badge.text)}</span>
 
           ${moneyRowHtml}
           
@@ -3108,7 +3583,13 @@ function getItemReferenceName(item) {
 }
 
 function getItemDisplayNumber(item, fallbackIndex) {
-  return item.sort || item.number || item.numero || fallbackIndex + 1;
+  return item.display_number ||
+    item.partida_number ||
+    item.numero_partida ||
+    item.partida ||
+    item.original_sort ||
+    item.sort ||
+    fallbackIndex + 1;
 }
 
 function getBrandGroupedItems() {
@@ -3301,7 +3782,7 @@ function exportBrandsGroupedPdf() {
       card.setAttribute('draggable', 'false');
 
       card.addEventListener('dragover', (e) => {
-        if (currentFilter !== 'all') return;
+        if (currentFilter !== 'all' || normalizeSearchText(itemsSearchQuery)) return;
 
         const dragging = document.querySelector('.jureto-quote-page .item-card.dragging');
         if (!dragging) return;
@@ -3319,7 +3800,7 @@ function exportBrandsGroupedPdf() {
       handle.addEventListener('click', (event) => event.stopPropagation());
 
       handle.addEventListener('dragstart', (event) => {
-        if (currentFilter !== 'all') {
+        if (currentFilter !== 'all' || normalizeSearchText(itemsSearchQuery)) {
           event.preventDefault();
           return;
         }
@@ -3354,7 +3835,7 @@ function exportBrandsGroupedPdf() {
   }
 
   async function saveOrder(anchorId = null) {
-    if (currentFilter !== 'all') return;
+    if (currentFilter !== 'all' || normalizeSearchText(itemsSearchQuery)) return;
     const ids = [...document.querySelectorAll('#itemsList .item-card')].map(card => Number(card.dataset.id));
     if (!ids.length) return;
     try {
@@ -3364,8 +3845,36 @@ function exportBrandsGroupedPdf() {
     } catch (e) { showInlineError(e.message); }
   }
 
+  function clearQuoteSearch(closeAfterClear = false) {
+    itemsSearchQuery = '';
+    const input = document.getElementById('quoteSearchInput');
+    if (input) input.value = '';
+    renderItems();
+    if (closeAfterClear) closeQuoteSearch();
+    else setTimeout(() => input?.focus(), 20);
+  }
+
+  function updateQuoteSearch(value) {
+    itemsSearchQuery = value || '';
+    renderItems();
+  }
+
   // --- Bindings & Listeners ---
   document.querySelectorAll('.filter-summary').forEach(btn => btn.addEventListener('click', () => { currentFilter = btn.dataset.filter || 'all'; renderItems(); }));
+  document.getElementById('btnToggleQuoteSearch')?.addEventListener('click', (event) => { event.stopPropagation(); toggleQuoteSearch(); });
+  document.getElementById('quoteSearchPopover')?.addEventListener('click', (event) => event.stopPropagation());
+  document.getElementById('quoteSearchInput')?.addEventListener('input', (event) => updateQuoteSearch(event.target.value));
+  document.getElementById('quoteSearchInput')?.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      normalizeSearchText(itemsSearchQuery) ? clearQuoteSearch(true) : closeQuoteSearch();
+    }
+  });
+  document.getElementById('btnClearQuoteSearch')?.addEventListener('click', () => clearQuoteSearch(false));
+  document.addEventListener('click', (event) => {
+    const shell = document.getElementById('quoteSearchShell');
+    if (shell && !shell.contains(event.target)) closeQuoteSearch();
+  });
   document.getElementById('manualTabCatalog').addEventListener('click', () => { manualTab = 'catalog'; manualLastQuery = ''; document.getElementById('manualTabCatalog').classList.add('active'); document.getElementById('manualTabInternet').classList.remove('active'); scheduleManualSearch(10); });
   document.getElementById('manualTabInternet').addEventListener('click', () => { manualTab = 'internet'; manualLastQuery = ''; document.getElementById('manualTabInternet').classList.add('active'); document.getElementById('manualTabCatalog').classList.remove('active'); scheduleManualSearch(10); });
   

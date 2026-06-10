@@ -8,6 +8,7 @@ use App\Models\PropuestaComercial;
 use App\Models\PropuestaComercialItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
@@ -125,6 +126,192 @@ class PropuestaComercialController extends Controller
         return [$descripcion, $unidad];
     }
 
+    private function quitarAcentosBasico(string $texto): string
+    {
+        return strtr($texto, [
+            'á' => 'a',
+            'é' => 'e',
+            'í' => 'i',
+            'ó' => 'o',
+            'ú' => 'u',
+            'ü' => 'u',
+            'ñ' => 'n',
+            'Á' => 'A',
+            'É' => 'E',
+            'Í' => 'I',
+            'Ó' => 'O',
+            'Ú' => 'U',
+            'Ü' => 'U',
+            'Ñ' => 'N',
+        ]);
+    }
+
+    private function descripcionEsBasura(?string $descripcion): bool
+    {
+        $descripcion = trim((string) $descripcion);
+
+        if ($descripcion === '') {
+            return true;
+        }
+
+        $descripcionCheck = mb_strtolower($descripcion);
+        $descripcionCheck = preg_replace('/\s+/u', ' ', $descripcionCheck);
+        $descripcionCheck = trim($descripcionCheck);
+
+        $descripcionCheckSinAcentos = mb_strtolower($this->quitarAcentosBasico($descripcionCheck));
+        $descripcionCheckSinAcentos = preg_replace('/\s+/u', ' ', $descripcionCheckSinAcentos);
+        $descripcionCheckSinAcentos = trim($descripcionCheckSinAcentos);
+
+        $invalidDescriptions = [
+            'fecha',
+            'horario',
+            'domicilio',
+            'lugar',
+            'nombre',
+            'firma',
+            'firmas',
+            'partida',
+            'no.',
+            'no',
+            'numero',
+            'número',
+            'descripcion',
+            'descripción',
+            'concepto',
+            'cantidad',
+            'unidad',
+            'precio',
+            'precio unitario',
+            'costo unitario',
+            'costo unitario antes de iva',
+            'importe',
+            'subtotal',
+            'total',
+            'iva',
+            'anexo',
+            'clave',
+            'rfc',
+            'telefono',
+            'teléfono',
+            'correo',
+            'email',
+            'si',
+            'sí',
+            'no aplica',
+            'n/a',
+            'na',
+            'hoja',
+            'pagina',
+            'página',
+            'servicio',
+            'producto',
+            'bien',
+            'bienes',
+        ];
+
+        if (
+            in_array($descripcionCheck, $invalidDescriptions, true)
+            || in_array($descripcionCheckSinAcentos, $invalidDescriptions, true)
+        ) {
+            return true;
+        }
+
+        if (preg_match('/^\d+\s+de\s+\d+$/i', $descripcionCheck)) {
+            return true;
+        }
+
+        if (preg_match('/^hoja\s+\d+/i', $descripcionCheck)) {
+            return true;
+        }
+
+        if (preg_match('/^p[aá]gina\s+\d+/i', $descripcionCheck)) {
+            return true;
+        }
+
+        if (preg_match('/^[\d\s.,\/\-:]+$/', $descripcionCheck)) {
+            return true;
+        }
+
+        if (preg_match('/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$/', $descripcionCheck)) {
+            return true;
+        }
+
+        if (preg_match('/^\d{1,2}:\d{2}/', $descripcionCheck)) {
+            return true;
+        }
+
+        if (preg_match('/\b\d{1,2}:\d{2}\s*a\s*\d{1,2}:\d{2}\b/i', $descripcionCheck)) {
+            return true;
+        }
+
+        $palabrasInstitucionales = [
+            'convocante',
+            'dependencia',
+            'licitacion',
+            'licitación',
+            'procedimiento',
+            'junta de aclaraciones',
+            'presentacion de propuestas',
+            'presentación de propuestas',
+            'apertura de propuestas',
+            'acto de fallo',
+            'fallo',
+            'contrato',
+            'domicilio',
+            'direccion',
+            'dirección',
+            'servidor publico',
+            'servidor público',
+            'area contratante',
+            'área contratante',
+            'unidad compradora',
+            'compranet',
+            'bases',
+            'convocatoria',
+            'aclaraciones',
+            'representante legal',
+            'razon social',
+            'razón social',
+        ];
+
+        foreach ($palabrasInstitucionales as $palabra) {
+            if (
+                str_contains($descripcionCheck, $palabra)
+                || str_contains($descripcionCheckSinAcentos, $this->quitarAcentosBasico($palabra))
+            ) {
+                if (mb_strlen($descripcionCheck) < 160) {
+                    return true;
+                }
+            }
+        }
+
+        $letras = preg_match_all('/[\pL]/u', $descripcionCheck);
+
+        if ($letras < 8) {
+            return true;
+        }
+
+        $palabras = preg_split('/[^\pL\pN]+/u', $descripcionCheck, -1, PREG_SPLIT_NO_EMPTY);
+
+        if (count($palabras) < 2) {
+            return true;
+        }
+
+        return false;
+    }
+
+    private function filaTieneDescripcionValida(array $row): bool
+    {
+        $descripcionRaw = $row['descripcion']
+            ?? $row['description']
+            ?? $row['producto']
+            ?? $row['product']
+            ?? $row['nombre']
+            ?? null;
+
+        return !$this->descripcionEsBasura($descripcionRaw);
+    }
+
     public function storeFromRunManual(Request $request)
     {
         $data = $request->validate([
@@ -135,6 +322,10 @@ class PropuestaComercialController extends Controller
             'porcentaje_utilidad' => ['nullable', 'numeric', 'min:0'],
             'porcentaje_descuento' => ['nullable', 'numeric', 'min:0'],
             'porcentaje_impuesto' => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+        Log::info('Creando propuesta comercial desde DocumentAiRun', [
+            'document_ai_run_id' => $data['document_ai_run_id'],
         ]);
 
         $run = DocumentAiRun::findOrFail($data['document_ai_run_id']);
@@ -149,6 +340,27 @@ class PropuestaComercialController extends Controller
 
         if (empty($items)) {
             $message = 'Este análisis no tiene partidas válidas. Verifica que el PDF ya terminó de procesarse correctamente.';
+
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json(['ok' => false, 'message' => $message], 422);
+            }
+
+            return back()->with('error', $message);
+        }
+
+        $items = collect($items)
+            ->filter(fn ($row) => is_array($row))
+            ->filter(fn ($row) => $this->filaTieneDescripcionValida($row))
+            ->values()
+            ->all();
+
+        if (empty($items)) {
+            $message = 'El análisis solo devolvió encabezados, fechas, páginas o datos que no son productos. Revisa el extractor de partidas del PDF.';
+
+            Log::warning('DocumentAiRun sin partidas válidas después del filtro anti-basura', [
+                'document_ai_run_id' => $run->id,
+                'licitacion_pdf_id' => $run->licitacion_pdf_id,
+            ]);
 
             if ($request->expectsJson() || $request->ajax()) {
                 return response()->json(['ok' => false, 'message' => $message], 422);
@@ -202,13 +414,6 @@ class PropuestaComercialController extends Controller
                 $partidaRaw = $row['partida'] ?? $row['partida_numero'] ?? null;
                 $subpartidaRaw = $row['subpartida'] ?? $row['subpartida_numero'] ?? null;
 
-                // Salta filas de SECCIÓN / encabezado (sin número de partida ni subpartida).
-                if (!is_numeric($partidaRaw) && !is_numeric($subpartidaRaw)) {
-                    continue;
-                }
-
-                $sort++;
-
                 $descripcionRaw = $row['descripcion']
                     ?? $row['description']
                     ?? $row['producto']
@@ -223,11 +428,23 @@ class PropuestaComercialController extends Controller
 
                 [$descripcion, $unidad] = $this->normalizarDescripcionUnidad($descripcionRaw, $unidadRaw);
 
+                if ($this->descripcionEsBasura($descripcion)) {
+                    Log::warning('Partida omitida por descripción basura después de normalizar', [
+                        'document_ai_run_id' => $run->id,
+                        'descripcion_raw' => $descripcionRaw,
+                        'descripcion_normalizada' => $descripcion,
+                        'row' => $row,
+                    ]);
+
+                    continue;
+                }
+
+                $sort++;
+
                 $cantidadMinima = $row['cantidad_minima'] ?? $row['min_quantity'] ?? $row['cantidad'] ?? null;
                 $cantidadMaxima = $row['cantidad_maxima'] ?? $row['max_quantity'] ?? $row['cantidad'] ?? null;
                 $cantidadCotizada = $row['cantidad_cotizada'] ?? $cantidadMaxima ?? $cantidadMinima ?? 1;
 
-                // partida_numero: entero o consecutivo; subpartida_numero: entero o null (nunca texto).
                 $partidaNumero = is_numeric($partidaRaw) ? (int) $partidaRaw : $sort;
                 $subpartidaNumero = is_numeric($subpartidaRaw) ? (int) $subpartidaRaw : null;
 
@@ -265,7 +482,10 @@ class PropuestaComercialController extends Controller
                 ]);
             }
 
-            // Ajusta el conteo real (sin filas de sección saltadas).
+            if ($sort === 0) {
+                throw new \RuntimeException('No se creó ninguna partida válida después de filtrar el análisis.');
+            }
+
             $meta = $propuesta->meta;
             $meta['items_count'] = $sort;
             $propuesta->meta = $meta;
@@ -662,17 +882,22 @@ class PropuestaComercialController extends Controller
 
         $hidden = ['id', 'created_at', 'updated_at', 'deleted_at'];
         $details = [];
+
         foreach ($columns as $column) {
             if (in_array($column, $hidden, true)) {
                 continue;
             }
+
             $value = $row->{$column} ?? null;
+
             if ($value === null || $value === '') {
                 continue;
             }
+
             if (is_string($value) && mb_strlen($value) > 140) {
                 $value = mb_substr($value, 0, 140) . '...';
             }
+
             $details[] = [
                 'label' => str_replace('_', ' ', mb_strtoupper($column)),
                 'value' => (string) $value,
@@ -727,6 +952,7 @@ class PropuestaComercialController extends Controller
                 foreach ($searchable as $column) {
                     $sub->orWhere($column, 'like', '%' . $fullQuery . '%');
                 }
+
                 foreach ($words as $word) {
                     foreach ($searchable as $column) {
                         $sub->orWhere($column, 'like', '%' . $word . '%');
@@ -739,9 +965,11 @@ class PropuestaComercialController extends Controller
 
         if ($rows->isEmpty() && $fullQuery !== '') {
             $fallback = DB::table('catalog_items');
+
             if (in_array('deleted_at', $columns, true)) {
                 $fallback->whereNull('deleted_at');
             }
+
             $rows = $fallback->limit(400)->get();
         }
 
@@ -769,11 +997,13 @@ class PropuestaComercialController extends Controller
         $price = (float) ($this->pickCatalogValue($row, $columns, ['sale_price', 'price', 'precio', 'precio_venta']) ?: 0);
 
         $rawPhotos = [];
+
         foreach (['photo_1', 'photo_2', 'photo_3'] as $photoColumn) {
             if (in_array($photoColumn, $columns, true) && !empty($row->{$photoColumn})) {
                 $rawPhotos[] = $row->{$photoColumn};
             }
         }
+
         foreach (['image_url', 'imagen_url', 'photo_url', 'thumbnail_url', 'picture_url'] as $photoColumn) {
             if (in_array($photoColumn, $columns, true) && !empty($row->{$photoColumn})) {
                 $rawPhotos[] = $row->{$photoColumn};
@@ -787,6 +1017,7 @@ class PropuestaComercialController extends Controller
         similar_text(mb_strtolower($searchText), mb_strtolower($haystack), $pct);
 
         $searchWords = $this->splitSearchWords($searchText);
+
         if (!empty($searchWords)) {
             $lowerHaystack = mb_strtolower($haystack);
             $hits = collect($searchWords)->filter(fn ($word) => str_contains($lowerHaystack, $word))->count();
@@ -799,17 +1030,22 @@ class PropuestaComercialController extends Controller
 
         $hidden = ['id', 'created_at', 'updated_at', 'deleted_at', 'photo_1', 'photo_2', 'photo_3'];
         $details = [];
+
         foreach ($columns as $column) {
             if (in_array($column, $hidden, true)) {
                 continue;
             }
+
             $value = $row->{$column} ?? null;
+
             if ($value === null || $value === '') {
                 continue;
             }
+
             if (is_string($value) && mb_strlen($value) > 140) {
                 $value = mb_substr($value, 0, 140) . '...';
             }
+
             $details[] = [
                 'label' => str_replace('_', ' ', mb_strtoupper($column)),
                 'value' => (string) $value,
@@ -905,6 +1141,7 @@ class PropuestaComercialController extends Controller
             ] : null,
             'matches' => $item->matches->sortBy('rank')->values()->map(function ($match) use ($humanAccepted) {
                 $p = $match->product;
+
                 return [
                     'id' => $match->id,
                     'rank' => $match->rank,
@@ -1117,6 +1354,7 @@ class PropuestaComercialController extends Controller
     {
         $neededQty = (float) ($item->cantidad_cotizada ?: $item->cantidad_maxima ?: $item->cantidad_minima ?: 1);
         $searchText = trim((string) $item->descripcion_original);
+
         $candidates = $this->searchCatalogRows($searchText, 30)
             ->map(function ($candidate) use ($neededQty) {
                 $candidate['needed_qty'] = $neededQty;
