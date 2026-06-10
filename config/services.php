@@ -57,23 +57,26 @@ return [
         |--------------------------------------------------------------------------
         */
 
-        // Modelo principal
-        'primary' => env('OPENAI_PRIMARY_MODEL', 'gpt-5-2025-08-07'),
+        // Modelo principal (razonamiento de alto nivel)
+        'primary' => env('OPENAI_PRIMARY_MODEL', 'gpt-5.5'),
 
-        // Fallbacks automáticos
+        // Fallbacks automáticos (gpt-4.1/gpt-4o aceptan temperature y max_tokens sin quejarse)
         'fallbacks' => array_values(array_filter(array_map(
             'trim',
             explode(',', env(
                 'OPENAI_FALLBACK_MODELS',
-                'gpt-4.1,gpt-5-chat-latest,gpt-4o'
+                'gpt-5.4,gpt-4.1,gpt-4o'
             ))
         ))),
 
         // Compatibilidad legacy
-        'model' => env('OPENAI_PRIMARY_MODEL', 'gpt-5-2025-08-07'),
+        'model' => env('OPENAI_PRIMARY_MODEL', 'gpt-5.5'),
 
-        // Modelo barato para reparación de JSON inválido
-        'json_repair_model' => env('OPENAI_JSON_REPAIR_MODEL', 'gpt-4o-mini'),
+        // Modelo rápido para reparación / forzado de JSON inválido
+        'json_repair_model' => env('OPENAI_JSON_REPAIR_MODEL', 'gpt-5.4-mini'),
+
+        // Modelo para matching de catálogo (rápido + sentido común)
+        'match_model' => env('OPENAI_MATCH_MODEL', 'gpt-5.4-mini'),
 
         /*
         |--------------------------------------------------------------------------
@@ -82,9 +85,9 @@ return [
         */
         'timeout' => (int) env('OPENAI_TIMEOUT', 300),
         'connect_timeout' => (int) env('OPENAI_CONNECT_TIMEOUT', 30),
-        'max_retries_per_model' => (int) env('OPENAI_RETRIES_PER_MODEL', 3),
+        'max_retries_per_model' => (int) env('OPENAI_RETRIES_PER_MODEL', 2),
         'retry_base_delay_ms' => (int) env('OPENAI_RETRY_BASE_MS', 400),
-        'max_total_attempts' => (int) env('OPENAI_MAX_TOTAL_ATTEMPTS', 8),
+        'max_total_attempts' => (int) env('OPENAI_MAX_TOTAL_ATTEMPTS', 6),
 
         /*
         |--------------------------------------------------------------------------
@@ -254,7 +257,7 @@ return [
     */
     'ai' => [
         'enabled' => filter_var(env('AI_ENABLED', false), FILTER_VALIDATE_BOOL),
-        'model'   => env('AI_MODEL', 'gpt-4o-mini'),
+        'model'   => env('AI_MODEL', 'gpt-5.5'),
     ],
 
     /*

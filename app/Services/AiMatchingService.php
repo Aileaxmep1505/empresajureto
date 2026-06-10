@@ -18,7 +18,7 @@ class AiMatchingService
     {
         $this->apiKey  = config('services.openai.api_key');
         $this->baseUrl = rtrim(config('services.openai.base_url', 'https://api.openai.com'), '/');
-        $this->model   = config('services.openai.json_repair_model', 'gpt-4.1-nano-2025-04-14');
+        $this->model   = config('services.openai.match_model', 'gpt-5.1');
     }
 
     /**
@@ -346,20 +346,35 @@ USER;
     /**
      * Llama a OpenAI y devuelve el contenido limpio (sin fences markdown,
      * recortado al bloque JSON). Reutilizado por validación y expansión.
+     *
+     * Soporta dos familias:
+     *  - gpt-5.x (razonamiento): sin temperature, con max_completion_tokens + reasoning_effort.
+     *  - gpt-4.x: con temperature 0 y max_tokens.
      */
     protected function rawCompletion(array $messages, int $maxTokens = 3000): string
     {
+        $isGpt5 = str_starts_with($this->model, 'gpt-5');
+
+        $payload = [
+            'model'    => $this->model,
+            'messages' => $messages,
+        ];
+
+        if ($isGpt5) {
+            // Holgura para el razonamiento interno y esfuerzo bajo para que sea rápido.
+            $payload['max_completion_tokens'] = max($maxTokens * 2, 5000);
+            $payload['reasoning_effort'] = 'low';
+        } else {
+            $payload['temperature'] = 0;
+            $payload['max_tokens']  = $maxTokens;
+        }
+
         $response = Http::withHeaders([
             'Authorization' => 'Bearer ' . $this->apiKey,
             'Content-Type'  => 'application/json',
         ])
-        ->timeout(40)
-        ->post($this->baseUrl . '/v1/chat/completions', [
-            'model'       => $this->model,
-            'messages'    => $messages,
-            'max_tokens'  => $maxTokens,
-            'temperature' => 0,
-        ]);
+        ->timeout(60)
+        ->post($this->baseUrl . '/v1/chat/completions', $payload);
 
         if (! $response->successful()) {
             Log::warning('[AiMatchingService] OpenAI HTTP error', [

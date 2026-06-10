@@ -70,6 +70,15 @@ class DocumentAiController extends Controller
             ], 500);
         }
 
+        // Archivo de progreso REAL (lo escribe Python y lo lee show()).
+        $progressPath = storage_path('app/ai_progress/' . $run->id . '.json');
+        @mkdir(dirname($progressPath), 0775, true);
+        @file_put_contents($progressPath, json_encode([
+            'pct' => 3,
+            'etapa' => 'En cola',
+            'detalle' => 'Preparando análisis...',
+        ], JSON_UNESCAPED_UNICODE));
+
         // 1) Responder YA al navegador con el run_id (evita el 504 Gateway Time-out).
         $response = response()->json([
             'ok' => true,
@@ -100,6 +109,7 @@ class DocumentAiController extends Controller
                 'python_bin' => $pythonBin,
                 'python_script' => $pythonScript,
                 'pdf' => $fullPdfPath,
+                'progress' => $progressPath,
             ]);
 
             $process = new Process([
@@ -113,6 +123,8 @@ class DocumentAiController extends Controller
                 (string) $pagesPerChunk,
                 '--filename',
                 $run->filename,
+                '--progress-file',
+                $progressPath,
             ]);
 
             $process->setTimeout(1200);
@@ -154,6 +166,12 @@ class DocumentAiController extends Controller
                 'structured_json' => $decoded['structured_json'] ?? $decoded['structured'] ?? null,
                 'items_json' => $decoded['items_json'] ?? $decoded['items'] ?? null,
             ]);
+
+            @file_put_contents($progressPath, json_encode([
+                'pct' => 100,
+                'etapa' => 'Análisis completado',
+                'detalle' => 'Generando cotización...',
+            ], JSON_UNESCAPED_UNICODE));
         } catch (Throwable $e) {
             Log::error('DocumentAiController@start - error (background)', [
                 'run_id' => $run->id,
@@ -166,6 +184,12 @@ class DocumentAiController extends Controller
                 'status' => 'failed',
                 'error' => $e->getMessage(),
             ]);
+
+            @file_put_contents($progressPath, json_encode([
+                'pct' => 100,
+                'etapa' => 'Error',
+                'detalle' => $e->getMessage(),
+            ], JSON_UNESCAPED_UNICODE));
         }
 
         exit;
@@ -184,6 +208,7 @@ class DocumentAiController extends Controller
                     'pages_per_chunk' => $run->pages_per_chunk,
                     'status' => $run->status,
                     'error' => $run->error,
+                    'progress' => $this->leerProgreso($run->id),
                     'result_json' => $run->result_json,
                     'structured_json' => $run->structured_json,
                     'items_json' => $run->items_json,
@@ -202,5 +227,18 @@ class DocumentAiController extends Controller
                 'message' => 'Error devolviendo el run: ' . $e->getMessage(),
             ], 500);
         }
+    }
+
+    private function leerProgreso($runId): ?array
+    {
+        $path = storage_path('app/ai_progress/' . $runId . '.json');
+
+        if (!is_file($path)) {
+            return null;
+        }
+
+        $data = json_decode((string) file_get_contents($path), true);
+
+        return is_array($data) ? $data : null;
     }
 }

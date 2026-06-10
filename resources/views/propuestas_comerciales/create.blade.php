@@ -42,27 +42,12 @@
         animation: orbRotate 20s infinite alternate;
     }
 
-    .orb-blue {
-        background: #60a5fa;
-        top: -10%;
-        left: -10%;
-    }
-
-    .orb-purple {
-        background: #c084fc;
-        bottom: -10%;
-        right: -10%;
-        animation-delay: -5s;
-    }
+    .orb-blue { background: #60a5fa; top: -10%; left: -10%; }
+    .orb-purple { background: #c084fc; bottom: -10%; right: -10%; animation-delay: -5s; }
 
     @keyframes orbRotate {
-        from {
-            transform: translate(0, 0) scale(1);
-        }
-
-        to {
-            transform: translate(50px, 100px) scale(1.2);
-        }
+        from { transform: translate(0, 0) scale(1); }
+        to { transform: translate(50px, 100px) scale(1.2); }
     }
 
     .glass-container {
@@ -81,291 +66,108 @@
         transition: all 0.5s ease;
     }
 
-    .title {
-        font-size: 26px;
-        font-weight: 700;
-        color: var(--text-main);
-        margin-bottom: 12px;
-    }
-
-    .desc {
-        color: var(--text-muted);
-        font-size: 15px;
-        line-height: 1.6;
-        margin-bottom: 32px;
-    }
-
-    .upload-area {
-        transition: all 0.4s ease;
-    }
+    .title { font-size: 26px; font-weight: 700; color: var(--text-main); margin-bottom: 12px; }
+    .desc { color: var(--text-muted); font-size: 15px; line-height: 1.6; margin-bottom: 32px; }
+    .upload-area { transition: all 0.4s ease; }
 
     .icon-box {
-        width: 80px;
-        height: 80px;
-        background: white;
-        border-radius: 24px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin: 0 auto 24px;
-        box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05);
-        color: var(--primary);
-        animation: floatIcon 3s infinite ease-in-out;
+        width: 80px; height: 80px; background: white; border-radius: 24px;
+        display: flex; align-items: center; justify-content: center;
+        margin: 0 auto 24px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05);
+        color: var(--primary); animation: floatIcon 3s infinite ease-in-out;
     }
 
-    @keyframes floatIcon {
-        0%, 100% {
-            transform: translateY(0);
-        }
-
-        50% {
-            transform: translateY(-10px);
-        }
-    }
+    @keyframes floatIcon { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
 
     .file-btn {
-        background: var(--primary);
-        color: white;
-        padding: 16px 40px;
-        border-radius: 100px;
-        font-weight: 600;
-        font-size: 16px;
-        border: none;
-        cursor: pointer;
-        transition: all 0.3s;
-        box-shadow: 0 10px 20px rgba(0, 122, 255, 0.2);
-        display: inline-block;
+        background: var(--primary); color: white; padding: 16px 40px; border-radius: 100px;
+        font-weight: 600; font-size: 16px; border: none; cursor: pointer; transition: all 0.3s;
+        box-shadow: 0 10px 20px rgba(0, 122, 255, 0.2); display: inline-block;
     }
 
-    .file-btn:hover {
-        background: #0066d6;
-        transform: scale(1.05);
-        box-shadow: 0 15px 25px rgba(0, 122, 255, 0.3);
-    }
+    .file-btn:hover { background: #0066d6; transform: scale(1.05); box-shadow: 0 15px 25px rgba(0, 122, 255, 0.3); }
+    .file-btn.disabled { opacity: .6; cursor: not-allowed; pointer-events: none; }
 
-    .file-btn.disabled {
-        opacity: .6;
-        cursor: not-allowed;
-        pointer-events: none;
-    }
-
-    .ai-processing {
-        display: none;
-        opacity: 0;
-        transition: opacity 0.5s ease;
-    }
-
-    .ai-processing.active {
-        display: block;
-        opacity: 1;
-    }
+    .ai-processing { display: none; opacity: 0; transition: opacity 0.5s ease; }
+    .ai-processing.active { display: block; opacity: 1; }
 
     .ai-badge {
-        display: inline-block;
-        padding: 6px 16px;
-        background: var(--primary-light);
-        color: var(--primary);
-        border-radius: 100px;
-        font-size: 13px;
-        font-weight: 700;
-        margin-bottom: 16px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
+        display: inline-block; padding: 6px 16px; background: var(--primary-light);
+        color: var(--primary); border-radius: 100px; font-size: 13px; font-weight: 700;
+        margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.5px;
     }
 
-    .progress-section {
-        margin: 32px 0;
-    }
+    .progress-section { margin: 32px 0; }
 
     .meta-data {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 12px;
-        font-size: 14px;
-        font-weight: 700;
-        color: var(--text-main);
+        display: flex; justify-content: space-between; margin-bottom: 12px;
+        font-size: 14px; font-weight: 700; color: var(--text-main);
     }
 
-    .bar-track {
-        height: 12px;
-        background: #f1f5f9;
-        border-radius: 100px;
-        overflow: hidden;
-        position: relative;
-    }
+    .bar-track { height: 12px; background: #f1f5f9; border-radius: 100px; overflow: hidden; position: relative; }
 
     .bar-fill {
-        height: 100%;
-        width: 0%;
-        border-radius: 100px;
-        position: relative;
+        height: 100%; width: 0%; border-radius: 100px; position: relative;
         background: linear-gradient(90deg, #007AFF, #8B5CF6, #007AFF);
-        background-size: 200% 100%;
-        transition: width 0.35s ease;
+        background-size: 200% 100%; transition: width 0.35s ease;
     }
 
     .bar-fill::after {
-        content: "";
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
+        content: ""; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
         background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
         animation: shimmer 1.5s infinite;
     }
 
-    @keyframes shimmer {
-        0% {
-            transform: translateX(-100%);
-        }
+    @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
 
-        100% {
-            transform: translateX(100%);
-        }
-    }
-
-    .ai-message {
-        font-size: 16px;
-        color: var(--text-main);
-        font-weight: 500;
-        min-height: 24px;
-        transition: opacity 0.3s ease;
-    }
+    .ai-message { font-size: 16px; color: var(--text-main); font-weight: 500; min-height: 24px; transition: opacity 0.3s ease; }
 
     .timer-pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        background: #F3F4F6;
-        padding: 6px 16px;
-        border-radius: 100px;
-        color: var(--text-muted);
-        font-size: 13px;
-        margin-top: 24px;
+        display: inline-flex; align-items: center; gap: 6px; background: #F3F4F6;
+        padding: 6px 16px; border-radius: 100px; color: var(--text-muted); font-size: 13px; margin-top: 24px;
     }
 
     .status-card {
-        display: none;
-        margin-top: 26px;
-        border-radius: 18px;
-        padding: 16px;
-        text-align: left;
-        border: 1px solid transparent;
-        font-size: 14px;
-        line-height: 1.55;
+        display: none; margin-top: 26px; border-radius: 18px; padding: 16px; text-align: left;
+        border: 1px solid transparent; font-size: 14px; line-height: 1.55;
     }
 
-    .status-card.show {
-        display: block;
-    }
-
-    .status-card.error {
-        background: #fef2f2;
-        border-color: #fecaca;
-        color: #b91c1c;
-    }
-
-    .status-card.warning {
-        background: #fffbeb;
-        border-color: #fde68a;
-        color: #92400e;
-    }
-
-    .status-card-title {
-        display: block;
-        font-weight: 800;
-        margin-bottom: 5px;
-    }
-
-    .status-card-message {
-        display: block;
-        word-break: break-word;
-    }
+    .status-card.show { display: block; }
+    .status-card.error { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
+    .status-card.warning { background: #fffbeb; border-color: #fde68a; color: #92400e; }
+    .status-card-title { display: block; font-weight: 800; margin-bottom: 5px; }
+    .status-card-message { display: block; word-break: break-word; }
 
     .retry-btn {
-        margin-top: 14px;
-        border: 0;
-        background: #fff;
-        color: var(--primary);
-        border-radius: 12px;
-        padding: 10px 14px;
-        font-weight: 800;
-        cursor: pointer;
-        box-shadow: 0 6px 14px rgba(0,0,0,.04);
+        margin-top: 14px; border: 0; background: #fff; color: var(--primary); border-radius: 12px;
+        padding: 10px 14px; font-weight: 800; cursor: pointer; box-shadow: 0 6px 14px rgba(0,0,0,.04);
     }
 
-    .retry-btn:hover {
-        background: #f8fafc;
-    }
+    .retry-btn:hover { background: #f8fafc; }
 
-    .success-area {
-        display: none;
-        text-align: center;
-    }
+    .success-area { display: none; text-align: center; }
+    .success-area.active { display: block; animation: popIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
 
-    .success-area.active {
-        display: block;
-        animation: popIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-    }
-
-    @keyframes popIn {
-        0% {
-            opacity: 0;
-            transform: scale(0.8);
-        }
-
-        100% {
-            opacity: 1;
-            transform: scale(1);
-        }
-    }
+    @keyframes popIn { 0% { opacity: 0; transform: scale(0.8); } 100% { opacity: 1; transform: scale(1); } }
 
     .check-circle {
-        width: 90px;
-        height: 90px;
-        background: var(--success);
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin: 0 auto 24px;
+        width: 90px; height: 90px; background: var(--success); border-radius: 50%;
+        display: flex; align-items: center; justify-content: center; margin: 0 auto 24px;
         box-shadow: 0 15px 30px rgba(0, 166, 80, 0.3);
     }
 
     .check-circle svg {
-        width: 45px;
-        height: 45px;
-        color: white;
-        stroke-dasharray: 100;
-        stroke-dashoffset: 100;
+        width: 45px; height: 45px; color: white; stroke-dasharray: 100; stroke-dashoffset: 100;
         animation: drawCheck 0.6s ease forwards 0.3s;
     }
 
-    @keyframes drawCheck {
-        to {
-            stroke-dashoffset: 0;
-        }
-    }
-
-    .hidden {
-        display: none !important;
-    }
+    @keyframes drawCheck { to { stroke-dashoffset: 0; } }
+    .hidden { display: none !important; }
 
     @media (max-width: 640px) {
-        .glass-container {
-            padding: 32px 22px;
-            border-radius: 26px;
-        }
-
-        .title {
-            font-size: 23px;
-        }
-
-        .file-btn {
-            width: 100%;
-            padding: 15px 20px;
-        }
+        .glass-container { padding: 32px 22px; border-radius: 26px; }
+        .title { font-size: 23px; }
+        .file-btn { width: 100%; padding: 15px 20px; }
     }
 </style>
 
@@ -421,7 +223,6 @@
                     <circle cx="12" cy="12" r="10"></circle>
                     <polyline points="12 6 12 12 16 14"></polyline>
                 </svg>
-
                 <span id="elapsedTime">00:00</span>
             </div>
 
@@ -479,7 +280,6 @@
 
     function showErrorCard(card, title, message, showRetry = true) {
         card.className = 'status-card show error';
-
         card.innerHTML = `
             <span class="status-card-title">${escapeHtml(title)}</span>
             <span class="status-card-message">${escapeHtml(message)}</span>
@@ -489,7 +289,6 @@
 
     function showWarningCard(card, title, message, showRetry = true) {
         card.className = 'status-card show warning';
-
         card.innerHTML = `
             <span class="status-card-title">${escapeHtml(title)}</span>
             <span class="status-card-message">${escapeHtml(message)}</span>
@@ -497,10 +296,7 @@
         `;
     }
 
-    function hideCard(card) {
-        card.className = 'status-card';
-        card.innerHTML = '';
-    }
+    function hideCard(card) { card.className = 'status-card'; card.innerHTML = ''; }
 
     function escapeHtml(value) {
         return String(value ?? '')
@@ -513,7 +309,6 @@
 
     async function safeJson(response) {
         const text = await response.text();
-
         try {
             return JSON.parse(text);
         } catch (error) {
@@ -529,17 +324,11 @@
 
     function setProgress(percent, label = null, message = null) {
         const cleanPercent = Math.max(0, Math.min(100, Number(percent || 0)));
-
         barFill.style.width = cleanPercent + '%';
         percentLabel.innerText = Math.floor(cleanPercent) + '%';
-
-        if (label) {
-            aiActionStatus.innerText = label;
-        }
-
+        if (label) { aiActionStatus.innerText = label; }
         if (message) {
             dynamicMessage.style.opacity = '0';
-
             setTimeout(() => {
                 dynamicMessage.innerText = message;
                 dynamicMessage.style.opacity = '1';
@@ -550,39 +339,21 @@
     function startTimer() {
         seconds = 0;
         elapsedTime.innerText = '00:00';
-
-        if (timer) {
-            clearInterval(timer);
-        }
-
+        if (timer) { clearInterval(timer); }
         timer = setInterval(() => {
             seconds++;
-
             const m = Math.floor(seconds / 60).toString().padStart(2, '0');
             const s = (seconds % 60).toString().padStart(2, '0');
-
             elapsedTime.innerText = `${m}:${s}`;
         }, 1000);
     }
 
-    function stopTimer() {
-        if (timer) {
-            clearInterval(timer);
-            timer = null;
-        }
-    }
-
-    function clearPolling() {
-        if (pollingTimer) {
-            clearTimeout(pollingTimer);
-            pollingTimer = null;
-        }
-    }
+    function stopTimer() { if (timer) { clearInterval(timer); timer = null; } }
+    function clearPolling() { if (pollingTimer) { clearTimeout(pollingTimer); pollingTimer = null; } }
 
     function goToProcessingView() {
         uploadArea.style.opacity = '0';
         uploadArea.style.transform = 'translateY(-20px)';
-
         setTimeout(() => {
             uploadArea.classList.add('hidden');
             aiArea.classList.add('active');
@@ -593,74 +364,52 @@
     function resetUploadView() {
         clearPolling();
         stopTimer();
-
         currentRunId = null;
         latestRunPayload = null;
         isCreatingProposal = false;
-
         fileInput.value = '';
         selectFileBtn.classList.remove('disabled');
-
         hideCard(uploadStatusCard);
         hideCard(processingStatusCard);
         hideCard(successStatusCard);
-
         setProgress(0, 'Preparando...', 'Esperando documento...');
-
         aiArea.classList.remove('active');
         aiArea.classList.add('hidden');
         aiArea.style.opacity = '1';
-
         successArea.classList.remove('active');
         successArea.classList.add('hidden');
-
         uploadArea.classList.remove('hidden');
         uploadArea.style.opacity = '1';
         uploadArea.style.transform = 'translateY(0)';
     }
 
     fileInput.addEventListener('change', function () {
-        if (!this.files || !this.files.length) {
-            return;
-        }
-
+        if (!this.files || !this.files.length) { return; }
         const file = this.files[0];
-
         if (file.type !== 'application/pdf') {
             showErrorCard(uploadStatusCard, 'Archivo no válido', 'Selecciona un archivo PDF.', false);
             fileInput.value = '';
             return;
         }
-
         hideCard(uploadStatusCard);
         hideCard(processingStatusCard);
         hideCard(successStatusCard);
-
         startRealProcess(file);
     });
 
     async function startRealProcess(file) {
         clearPolling();
         stopTimer();
-
         currentRunId = null;
         latestRunPayload = null;
         isCreatingProposal = false;
-
         selectFileBtn.classList.add('disabled');
-
         goToProcessingView();
-
         setProgress(8, 'Subiendo...', 'Subiendo documento al servidor...');
 
         try {
             const formData = new FormData();
-
             formData.append('file', file);
-
-            /*
-             * Si tienes un expediente real, cambia este 1 por tu ID dinámico.
-             */
             formData.append('licitacion_pdf_id', '1');
             formData.append('pages_per_chunk', '5');
 
@@ -677,56 +426,36 @@
 
             if (!response.ok || !data.ok) {
                 let msg = data.message || 'No se pudo iniciar el análisis del documento.';
-
-                if (data.raw_text) {
-                    msg += ' | Respuesta: ' + String(data.raw_text).slice(0, 500);
-                }
-
+                if (data.raw_text) { msg += ' | Respuesta: ' + String(data.raw_text).slice(0, 500); }
                 throw new Error(msg);
             }
 
             currentRunId = data.document_ai_run_id;
-
-            setProgress(18, 'OCR iniciado', 'Documento recibido. Iniciando análisis inteligente...');
-
+            setProgress(12, 'En cola', 'Documento recibido. Iniciando análisis...');
             pollRun();
         } catch (error) {
             stopTimer();
             clearPolling();
-
             setProgress(100, 'Error', 'No se pudo iniciar el proceso.');
-
-            showErrorCard(
-                processingStatusCard,
-                'No se pudo procesar el PDF',
-                error.message || 'Ocurrió un error al enviar el archivo.',
-                true
-            );
+            showErrorCard(processingStatusCard, 'No se pudo procesar el PDF',
+                error.message || 'Ocurrió un error al enviar el archivo.', true);
         }
     }
 
     async function pollRun() {
-        if (!currentRunId || isCreatingProposal) {
-            return;
-        }
+        if (!currentRunId || isCreatingProposal) { return; }
 
         try {
             const response = await fetch(`${window.documentAiShowDebugBase}/${currentRunId}`, {
                 method: 'GET',
-                headers: {
-                    'Accept': 'application/json'
-                }
+                headers: { 'Accept': 'application/json' }
             });
 
             const data = await safeJson(response);
 
             if (!response.ok || !data.ok) {
                 let msg = data.message || 'No se pudo consultar el estado del análisis.';
-
-                if (data.raw_text) {
-                    msg += ' | Respuesta: ' + String(data.raw_text).slice(0, 500);
-                }
-
+                if (data.raw_text) { msg += ' | Respuesta: ' + String(data.raw_text).slice(0, 500); }
                 throw new Error(msg);
             }
 
@@ -735,36 +464,34 @@
             const run = data.run || {};
             const status = run.status || 'queued';
 
-            if (status === 'queued') {
-                setProgress(25, 'En cola', 'Preparando OCR...');
-                pollingTimer = setTimeout(pollRun, 7000);
-                return;
-            }
-
-            if (status === 'processing') {
-                setProgress(62, 'Analizando...', 'Extrayendo partidas, cantidades y especificaciones...');
-                pollingTimer = setTimeout(pollRun, 7000);
+            // ── PROGRESO REAL (escrito por el backend en cada etapa) ──
+            if (status === 'queued' || status === 'processing') {
+                const prog = run.progress;
+                if (prog && typeof prog.pct === 'number') {
+                    setProgress(
+                        Math.min(prog.pct, 97),
+                        prog.etapa || 'Analizando...',
+                        prog.detalle || ''
+                    );
+                } else {
+                    setProgress(10, 'En cola', 'Preparando análisis...');
+                }
+                pollingTimer = setTimeout(pollRun, 1500);
                 return;
             }
 
             if (status === 'completed') {
-                setProgress(88, 'Creando propuesta', 'Análisis completado. Creando propuesta comercial...');
+                setProgress(98, 'Creando propuesta', 'Análisis completado. Creando propuesta comercial...');
 
                 const itemsResult = run.items_json || {};
                 const items = Array.isArray(itemsResult.items) ? itemsResult.items : [];
 
                 if (!items.length) {
                     stopTimer();
-
-                    setProgress(100, 'Sin partidas', 'El OCR terminó, pero no se detectaron partidas.');
-
-                    showWarningCard(
-                        processingStatusCard,
-                        'No se pudo crear la propuesta',
-                        run.error || 'El análisis terminó, pero no se detectaron partidas válidas para cotizar. Revisa que el PDF contenga productos, servicios o conceptos claros.',
-                        true
-                    );
-
+                    setProgress(100, 'Sin partidas', 'El análisis terminó, pero no se detectaron partidas.');
+                    showWarningCard(processingStatusCard, 'No se pudo crear la propuesta',
+                        run.error || 'El análisis terminó, pero no se detectaron partidas válidas para cotizar. Revisa que el PDF contenga productos o servicios claros.',
+                        true);
                     return;
                 }
 
@@ -774,46 +501,30 @@
 
             if (status === 'failed') {
                 stopTimer();
-
                 setProgress(100, 'Falló', 'El análisis falló.');
-
-                showErrorCard(
-                    processingStatusCard,
-                    'El análisis falló',
-                    run.error || 'No se pudo completar el procesamiento del documento.',
-                    true
-                );
-
+                showErrorCard(processingStatusCard, 'El análisis falló',
+                    run.error || 'No se pudo completar el procesamiento del documento.', true);
                 return;
             }
 
             setProgress(45, 'Procesando...', `Estado actual: ${String(status).toUpperCase()}`);
-            pollingTimer = setTimeout(pollRun, 7000);
+            pollingTimer = setTimeout(pollRun, 1500);
         } catch (error) {
             stopTimer();
             clearPolling();
-
             setProgress(100, 'Error', 'No se pudo consultar el análisis.');
-
-            showErrorCard(
-                processingStatusCard,
-                'Error consultando el análisis',
-                error.message || 'Ocurrió un error consultando el estado del documento.',
-                true
-            );
+            showErrorCard(processingStatusCard, 'Error consultando el análisis',
+                error.message || 'Ocurrió un error consultando el estado del documento.', true);
         }
     }
 
     async function createProposalFromRun(run) {
-        if (isCreatingProposal) {
-            return;
-        }
-
+        if (isCreatingProposal) { return; }
         isCreatingProposal = true;
         clearPolling();
 
         try {
-            setProgress(92, 'Guardando...', 'Creando propuesta comercial...');
+            setProgress(99, 'Guardando...', 'Creando propuesta comercial...');
 
             const structured = run.structured_json || {};
 
@@ -841,11 +552,7 @@
 
             if (!response.ok || !data.ok) {
                 let msg = data.message || 'No se pudo crear la propuesta comercial.';
-
-                if (data.raw_text) {
-                    msg += ' | Respuesta: ' + String(data.raw_text).slice(0, 500);
-                }
-
+                if (data.raw_text) { msg += ' | Respuesta: ' + String(data.raw_text).slice(0, 500); }
                 throw new Error(msg);
             }
 
@@ -854,43 +561,27 @@
             }
 
             setProgress(100, 'Completado', '¡Completado!');
-
             stopTimer();
-
-            setTimeout(() => {
-                triggerSuccessState(data.redirect_url);
-            }, 900);
+            setTimeout(() => { triggerSuccessState(data.redirect_url); }, 900);
         } catch (error) {
             isCreatingProposal = false;
             stopTimer();
-
             setProgress(100, 'Error', 'No se pudo crear la propuesta.');
-
-            showErrorCard(
-                processingStatusCard,
-                'No se pudo crear la propuesta',
-                error.message || 'El análisis terminó, pero falló la creación de la propuesta comercial.',
-                true
-            );
+            showErrorCard(processingStatusCard, 'No se pudo crear la propuesta',
+                error.message || 'El análisis terminó, pero falló la creación de la propuesta comercial.', true);
         }
     }
 
     function triggerSuccessState(redirectUrl) {
         hideCard(processingStatusCard);
         hideCard(successStatusCard);
-
         aiArea.style.opacity = '0';
-
         setTimeout(() => {
             aiArea.classList.remove('active');
             aiArea.classList.add('hidden');
-
             successArea.classList.remove('hidden');
             successArea.classList.add('active');
-
-            setTimeout(() => {
-                window.location.href = redirectUrl;
-            }, 1800);
+            setTimeout(() => { window.location.href = redirectUrl; }, 1800);
         }, 400);
     }
 </script>
