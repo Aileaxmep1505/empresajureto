@@ -1309,7 +1309,16 @@
       </style>
       {{-- ===================== FIN DISEÑO ===================== --}}
 
-     
+      <div class="wrap">
+        <header>
+          <h2>Lo que <span class="grad">dicen de nosotros</span></h2>
+          <p class="lead">Comentarios reales de clientes que ya compran con Jureto.</p>
+          <div class="header-actions">
+           
+          </div>
+        </header>
+      </div>
+
       @php
         $items = $marqueeComments->unique('id')->values();
         $count = $items->count();
