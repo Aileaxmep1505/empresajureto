@@ -114,11 +114,32 @@
   .pjd-qa-q { font-size: .85rem; font-weight: 700; color: var(--muted); background: var(--bg); padding: 6px 12px; border-radius: 8px; margin-bottom: 8px; display: inline-block; }
   .pjd-qa-a { font-size: .92rem; color: var(--ink); font-weight: 600; line-height: 1.5; padding: 0 6px; }
 
-  /* Citas */
-  .pjd-field.has-cita, .pjd-qa.has-cita { cursor: pointer; padding-right: 100px; transition: background .15s ease; border-radius: 8px; }
-  .pjd-field.has-cita:hover, .pjd-qa.has-cita:hover { background: linear-gradient(to right, transparent, #f0f7ff 35%); }
-  .pjd-cita-badge { position: absolute; top: 50%; right: 6px; transform: translateY(-50%); font-size: .68rem; font-weight: 700; color: var(--blue); background: var(--blue-soft); padding: 5px 12px; border-radius: 999px; border: 1px solid #c7dcfd; opacity: 0; transition: opacity .18s, transform .18s; pointer-events: none; white-space: nowrap; }
-  .pjd-field.has-cita:hover .pjd-cita-badge, .pjd-qa.has-cita:hover .pjd-cita-badge { opacity: 1; transform: translateY(-50%) scale(1.02); }
+  /* Citas / fuente desplegable para ficha y resumen */
+  .pjd-field, .pjd-qa { transition: background .18s ease, box-shadow .18s ease; border-radius: 12px; }
+  .pjd-field.has-cita, .pjd-qa.has-cita, .pjd-field.has-no-cita, .pjd-qa.has-no-cita { cursor: pointer; padding-right: 112px; }
+  .pjd-field.has-cita:hover, .pjd-qa.has-cita:hover { background: #f8fbff; box-shadow: inset 3px 0 0 var(--blue); }
+  .pjd-field.has-no-cita:hover, .pjd-qa.has-no-cita:hover { background: #fbfbfb; }
+  .pjd-cita-badge { position: absolute; top: 14px; right: 8px; font-size: .68rem; font-weight: 700; color: var(--blue); background: var(--blue-soft); padding: 5px 12px; border-radius: 999px; border: 1px solid #c7dcfd; opacity: 0; transform: translateY(-2px); transition: opacity .18s, transform .18s; pointer-events: none; white-space: nowrap; }
+  .pjd-field.has-cita:hover .pjd-cita-badge, .pjd-qa.has-cita:hover .pjd-cita-badge { opacity: 1; transform: translateY(0); }
+  .pjd-cita-badge.is-muted { color: var(--muted); background: #f4f5f7; border-color: var(--line); }
+
+  .pjd-source-panel { display: none; padding: 12px 0 4px; }
+  .pjd-field.is-source-open .pjd-source-panel, .pjd-qa.is-source-open .pjd-source-panel { display: block; animation: pjdSourceIn .18s ease both; }
+  @keyframes pjdSourceIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+  .pjd-source-card { position: relative; border: 1px solid var(--line); border-left: 4px solid var(--blue); border-radius: 14px; background: #f8fbff; padding: 18px 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.02); }
+  .pjd-source-card.is-empty { border-left-color: var(--muted); background: #fafafa; }
+  .pjd-source-close { position: absolute; top: 12px; right: 12px; width: 28px; height: 28px; border: none; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; font-size: 1rem; display: grid; place-items: center; transition: all .15s ease; }
+  .pjd-source-close:hover { background: #fff; color: var(--ink); }
+  .pjd-source-title { margin: 0 32px 14px 0; font-size: .95rem; font-weight: 700; color: var(--ink); }
+  .pjd-source-quote { margin: 0 0 14px; padding-bottom: 14px; border-bottom: 1px solid var(--line); color: #4b5563; font-size: .96rem; line-height: 1.6; white-space: pre-wrap; }
+  .pjd-source-meta { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; color: #6b7280; font-size: .86rem; line-height: 1.5; }
+  .pjd-source-meta strong { color: #4b5563; font-weight: 700; }
+  .pjd-source-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+  .pjd-source-btn { border: 1px solid #b8d4ff; background: #fff; color: var(--blue); border-radius: 8px; padding: 8px 16px; font-family: inherit; font-size: .85rem; font-weight: 700; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: all .15s ease; }
+  .pjd-source-btn:hover { background: var(--blue-soft); transform: translateY(-1px); }
+  .pjd-source-btn:active { transform: scale(.98); }
+  .pjd-source-btn.is-ghost { border-color: var(--line); color: #555; background: transparent; }
+  .pjd-source-btn.is-ghost:hover { background: #fff; color: var(--ink); }
 
   /* Modal cita */
   .pjd-cita-modal { display: none; position: fixed; inset: 0; z-index: 250; align-items: center; justify-content: center; padding: 20px; }
@@ -485,11 +506,34 @@
               ];
             @endphp
             @foreach($fichaRows as $row)
-              @php $payload = $citaPayload($citas, $row['key']); @endphp
-              <div class="pjd-field {{ $payload ? 'has-cita' : '' }}" @if($payload) data-cita="{{ $payload }}" @endif>
+              @php
+                $payload = $citaPayload($citas, $row['key']);
+                $citaInfo = $citas[$row['key']] ?? null;
+                $fuente = is_array($citaInfo) ? ($citaInfo['fuente'] ?? null) : null;
+                $pagina = is_array($citaInfo) ? ($citaInfo['pagina'] ?? null) : null;
+                $citaTexto = is_array($citaInfo) ? ($citaInfo['cita'] ?? null) : null;
+                $docUrl = $fuente ? optional($project->documents->firstWhere('filename', $fuente))->url : null;
+              @endphp
+              <div class="pjd-field {{ $payload ? 'has-cita' : 'has-no-cita' }}" @if($payload) data-cita="{{ $payload }}" @endif>
                 <div class="pjd-field-label">{{ $row['label'] }}</div>
                 <div class="pjd-field-value">{{ $row['val'] ?: 'No se encontró información' }}</div>
-                @if($payload)<div class="pjd-cita-badge">📄 Ver cita</div>@endif
+                @if($payload)<div class="pjd-cita-badge">📄 Ver fuente</div>@endif
+                <div class="pjd-source-panel" hidden>
+                  <div class="pjd-source-card {{ $payload ? '' : 'is-empty' }}">
+                    <button type="button" class="pjd-source-close" aria-label="Cerrar fuente">✕</button>
+                    <div class="pjd-source-title">{{ $payload ? 'Cita del documento' : 'Fuente no registrada' }}</div>
+                    <div class="pjd-source-quote">{{ $citaTexto ?: 'No hay cita textual guardada para este dato. El valor puede venir del resumen estructurado, pero el backend/IA no guardó la evidencia específica en structured_data.citas para esta clave.' }}</div>
+                    <div class="pjd-source-meta">
+                      <strong>Fuente:</strong>
+                      <span>{{ $fuente ?: 'Sin archivo fuente registrado' }}</span>
+                      @if($pagina)<span> · Página {{ $pagina }}</span>@endif
+                    </div>
+                    <div class="pjd-source-actions">
+                      @if($payload)<button type="button" class="pjd-source-btn js-open-cita" data-cita="{{ $payload }}">Ver cita</button>@endif
+                      @if($docUrl)<a href="{{ $docUrl }}" target="_blank" class="pjd-source-btn is-ghost">Ver documento</a>@endif
+                    </div>
+                  </div>
+                </div>
               </div>
             @endforeach
           </div>
@@ -511,11 +555,34 @@
               ];
             @endphp
             @foreach($fechasRows as $row)
-              @php $payload = $citaPayload($citas, $row['key']); @endphp
-              <div class="pjd-field {{ $payload ? 'has-cita' : '' }}" @if($payload) data-cita="{{ $payload }}" @endif>
+              @php
+                $payload = $citaPayload($citas, $row['key']);
+                $citaInfo = $citas[$row['key']] ?? null;
+                $fuente = is_array($citaInfo) ? ($citaInfo['fuente'] ?? null) : null;
+                $pagina = is_array($citaInfo) ? ($citaInfo['pagina'] ?? null) : null;
+                $citaTexto = is_array($citaInfo) ? ($citaInfo['cita'] ?? null) : null;
+                $docUrl = $fuente ? optional($project->documents->firstWhere('filename', $fuente))->url : null;
+              @endphp
+              <div class="pjd-field {{ $payload ? 'has-cita' : 'has-no-cita' }}" @if($payload) data-cita="{{ $payload }}" @endif>
                 <div class="pjd-field-label">{{ $row['label'] }}</div>
                 <div class="pjd-field-value">{{ $row['val'] ?: 'No se encontró información' }}</div>
-                @if($payload)<div class="pjd-cita-badge">📄 Ver cita</div>@endif
+                @if($payload)<div class="pjd-cita-badge">📄 Ver fuente</div>@endif
+                <div class="pjd-source-panel" hidden>
+                  <div class="pjd-source-card {{ $payload ? '' : 'is-empty' }}">
+                    <button type="button" class="pjd-source-close" aria-label="Cerrar fuente">✕</button>
+                    <div class="pjd-source-title">{{ $payload ? 'Cita del documento' : 'Fuente no registrada' }}</div>
+                    <div class="pjd-source-quote">{{ $citaTexto ?: 'No hay cita textual guardada para este dato. El valor puede venir del resumen estructurado, pero el backend/IA no guardó la evidencia específica en structured_data.citas para esta clave.' }}</div>
+                    <div class="pjd-source-meta">
+                      <strong>Fuente:</strong>
+                      <span>{{ $fuente ?: 'Sin archivo fuente registrado' }}</span>
+                      @if($pagina)<span> · Página {{ $pagina }}</span>@endif
+                    </div>
+                    <div class="pjd-source-actions">
+                      @if($payload)<button type="button" class="pjd-source-btn js-open-cita" data-cita="{{ $payload }}">Ver cita</button>@endif
+                      @if($docUrl)<a href="{{ $docUrl }}" target="_blank" class="pjd-source-btn is-ghost">Ver documento</a>@endif
+                    </div>
+                  </div>
+                </div>
               </div>
             @endforeach
           </div>
@@ -530,11 +597,35 @@
           </div>
           <div class="pjd-card-body">
             @forelse($resumenEjec as $idx => $qa)
-              @php $payload = $citaPayload($citas, "resumen_ejecutivo.{$idx}"); @endphp
-              <div class="pjd-qa {{ $payload ? 'has-cita' : '' }}" @if($payload) data-cita="{{ $payload }}" @endif>
+              @php
+                $resumenKey = "resumen_ejecutivo.{$idx}";
+                $payload = $citaPayload($citas, $resumenKey);
+                $citaInfo = $citas[$resumenKey] ?? null;
+                $fuente = is_array($citaInfo) ? ($citaInfo['fuente'] ?? null) : null;
+                $pagina = is_array($citaInfo) ? ($citaInfo['pagina'] ?? null) : null;
+                $citaTexto = is_array($citaInfo) ? ($citaInfo['cita'] ?? null) : null;
+                $docUrl = $fuente ? optional($project->documents->firstWhere('filename', $fuente))->url : null;
+              @endphp
+              <div class="pjd-qa {{ $payload ? 'has-cita' : 'has-no-cita' }}" @if($payload) data-cita="{{ $payload }}" @endif>
                 <div class="pjd-qa-q">{{ $qa['pregunta'] ?? '' }}</div>
                 <div class="pjd-qa-a">{{ $qa['respuesta'] ?? 'No se encontró información' }}</div>
-                @if($payload)<div class="pjd-cita-badge">📄 Ver cita</div>@endif
+                @if($payload)<div class="pjd-cita-badge">📄 Ver fuente</div>@endif
+                <div class="pjd-source-panel" hidden>
+                  <div class="pjd-source-card {{ $payload ? '' : 'is-empty' }}">
+                    <button type="button" class="pjd-source-close" aria-label="Cerrar fuente">✕</button>
+                    <div class="pjd-source-title">{{ $payload ? 'Cita del documento' : 'Fuente no registrada' }}</div>
+                    <div class="pjd-source-quote">{{ $citaTexto ?: 'No hay cita textual guardada para esta respuesta. El valor puede venir del resumen ejecutivo generado, pero el backend/IA no guardó la evidencia específica en structured_data.citas para esta clave.' }}</div>
+                    <div class="pjd-source-meta">
+                      <strong>Fuente:</strong>
+                      <span>{{ $fuente ?: 'Sin archivo fuente registrado' }}</span>
+                      @if($pagina)<span> · Página {{ $pagina }}</span>@endif
+                    </div>
+                    <div class="pjd-source-actions">
+                      @if($payload)<button type="button" class="pjd-source-btn js-open-cita" data-cita="{{ $payload }}">Ver cita</button>@endif
+                      @if($docUrl)<a href="{{ $docUrl }}" target="_blank" class="pjd-source-btn is-ghost">Ver documento</a>@endif
+                    </div>
+                  </div>
+                </div>
               </div>
             @empty
               <p style="color:var(--muted);font-size:.9rem;padding:8px;">Sin información disponible.</p>
@@ -1394,9 +1485,46 @@
   }
   function closeCita() { citaModal.classList.remove('is-open'); }
   document.addEventListener('click', (e) => {
-    if (e.target.closest('#pjdClBody')) return;
-    const el = e.target.closest('[data-cita]');
-    if (el) openCita(el.getAttribute('data-cita'));
+    const openBtn = e.target.closest('.js-open-cita[data-cita]');
+    if (openBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      openCita(openBtn.getAttribute('data-cita'));
+      return;
+    }
+
+    const closeBtn = e.target.closest('.pjd-source-close');
+    if (closeBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const item = closeBtn.closest('.pjd-field, .pjd-qa');
+      item?.classList.remove('is-source-open');
+      const panel = item?.querySelector('.pjd-source-panel');
+      if (panel) panel.hidden = true;
+      return;
+    }
+
+    const sourceLink = e.target.closest('.pjd-source-btn');
+    if (sourceLink) return;
+
+    const sourceItem = e.target.closest('.pjd-field, .pjd-qa');
+    if (sourceItem && !e.target.closest('.js-card-toggle')) {
+      const panel = sourceItem.querySelector('.pjd-source-panel');
+      if (!panel) return;
+
+      const willOpen = !sourceItem.classList.contains('is-source-open');
+      sourceItem.closest('.pjd-card-body')?.querySelectorAll('.pjd-field.is-source-open, .pjd-qa.is-source-open').forEach(openItem => {
+        if (openItem !== sourceItem) {
+          openItem.classList.remove('is-source-open');
+          const openPanel = openItem.querySelector('.pjd-source-panel');
+          if (openPanel) openPanel.hidden = true;
+        }
+      });
+
+      sourceItem.classList.toggle('is-source-open', willOpen);
+      panel.hidden = !willOpen;
+      return;
+    }
   });
   document.getElementById('pjdCitaClose')?.addEventListener('click', closeCita);
   document.getElementById('pjdCitaCloseBtn')?.addEventListener('click', closeCita);
