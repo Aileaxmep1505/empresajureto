@@ -1154,6 +1154,155 @@
 
   @if(isset($marqueeComments) && $marqueeComments->count())
     <section id="home-cmt-marquee" style="margin-top:40px;">
+
+      {{-- ===================== DISEÑO NELO + APPLE ===================== --}}
+      <style>
+        #home-cmt-marquee{
+          /* 🎨 PALETA — cambia estos valores para otro color */
+          --cmt-bg-1:#fbfbfd;        /* fondo superior (gris Apple) */
+          --cmt-bg-2:#f5f5f7;        /* fondo inferior */
+          --cmt-card:#ffffff;
+          --cmt-border:#ededf2;
+          --cmt-ink:#1d1d1f;         /* texto principal (negro Apple) */
+          --cmt-sub:#6e6e73;         /* texto secundario */
+          --cmt-body:#3a3a3c;        /* cuerpo del comentario */
+          --cmt-accent:#0071e3;      /* azul Apple */
+          --cmt-accent-2:#00c2c7;    /* cian acento */
+          --cmt-pill-bg:#f0f4ff;
+          --cmt-pill-ink:#0071e3;
+          --cmt-speed:60s;           /* velocidad del carrusel */
+
+          position:relative;
+          width:100vw;
+          margin-left:calc(50% - 50vw);
+          margin-right:calc(50% - 50vw);
+          background:linear-gradient(180deg, var(--cmt-bg-1), var(--cmt-bg-2));
+          padding:72px 0 84px;
+          overflow:hidden;
+          font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", "Poppins", Roboto, sans-serif;
+          -webkit-font-smoothing:antialiased;
+        }
+
+        /* ---- Encabezado estilo Apple (centrado, grande, limpio) ---- */
+        #home-cmt-marquee .wrap{
+          max-width:760px; margin:0 auto 52px; padding:0 24px; text-align:center;
+        }
+        #home-cmt-marquee header h2{
+          margin:0 0 14px; font-weight:700; letter-spacing:-.02em;
+          color:var(--cmt-ink); font-size:clamp(30px,5vw,52px); line-height:1.08;
+        }
+        #home-cmt-marquee header h2 .grad{
+          background:linear-gradient(90deg, var(--cmt-accent), var(--cmt-accent-2));
+          -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+        }
+        #home-cmt-marquee header .lead{
+          margin:0 auto 26px; color:var(--cmt-sub);
+          font-size:clamp(16px,2.2vw,20px); line-height:1.5; max-width:600px; font-weight:400;
+        }
+        #home-cmt-marquee .header-actions{
+          display:flex; gap:12px; justify-content:center; align-items:center; flex-wrap:wrap;
+        }
+        #home-cmt-marquee .tagline{
+          display:inline-flex; align-items:center; gap:8px;
+          background:rgba(255,255,255,.7); backdrop-filter:blur(10px);
+          border:1px solid var(--cmt-border);
+          color:var(--cmt-ink); font-weight:500; font-size:13px;
+          padding:8px 15px; border-radius:999px;
+        }
+        #home-cmt-marquee .tagline .dot{
+          width:8px; height:8px; border-radius:50%; background:#34c759;
+          box-shadow:0 0 0 4px rgba(52,199,89,.16);
+        }
+        #home-cmt-marquee .btn-ghost{
+          display:inline-flex; align-items:center;
+          background:var(--cmt-accent); color:#fff !important;
+          font-weight:500; font-size:14px; text-decoration:none;
+          padding:10px 20px; border-radius:999px; border:0;
+          transition:transform .18s ease, box-shadow .18s ease, background .18s ease;
+          box-shadow:0 6px 18px rgba(0,113,227,.28);
+        }
+        #home-cmt-marquee .btn-ghost:hover{
+          background:#0077ed; transform:translateY(-1px);
+          box-shadow:0 8px 22px rgba(0,113,227,.34);
+        }
+
+        /* ---- Carrusel infinito (Nelo) ---- */
+        #home-cmt-marquee .rows{ display:flex; flex-direction:column; gap:24px; }
+        #home-cmt-marquee .row{ position:relative; overflow:hidden; }
+        #home-cmt-marquee .row .track{
+          display:flex; flex-wrap:nowrap; width:max-content; gap:20px; will-change:transform;
+        }
+        #home-cmt-marquee .row-1 .track{ animation:cmt-left var(--cmt-speed) linear infinite; }
+        #home-cmt-marquee .row-2 .track{ animation:cmt-right var(--cmt-speed) linear infinite; }
+        #home-cmt-marquee .row:hover .track{ animation-play-state:paused; }
+
+        @keyframes cmt-left  { from{transform:translateX(0)}     to{transform:translateX(-50%)} }
+        @keyframes cmt-right { from{transform:translateX(-50%)}  to{transform:translateX(0)} }
+
+        /* Difuminado lateral */
+        #home-cmt-marquee .row::before,
+        #home-cmt-marquee .row::after{
+          content:""; position:absolute; top:0; bottom:0; width:120px; z-index:3; pointer-events:none;
+        }
+        #home-cmt-marquee .row::before{ left:0;  background:linear-gradient(90deg, var(--cmt-bg-2), transparent); }
+        #home-cmt-marquee .row::after { right:0; background:linear-gradient(270deg, var(--cmt-bg-2), transparent); }
+
+        /* ---- Tarjetas estilo Apple (limpias, mucho aire) ---- */
+        #home-cmt-marquee .card{
+          flex:0 0 320px; width:320px;
+          background:var(--cmt-card);
+          border:1px solid var(--cmt-border);
+          border-radius:22px;
+          padding:24px;
+          display:flex; flex-direction:column; gap:16px;
+          box-shadow:0 2px 10px rgba(0,0,0,.03);
+          transition:transform .25s cubic-bezier(.2,.7,.2,1), box-shadow .25s ease;
+        }
+        #home-cmt-marquee .card:hover{
+          transform:translateY(-5px);
+          box-shadow:0 18px 40px rgba(0,0,0,.10);
+        }
+
+        #home-cmt-marquee .card-head{ display:flex; align-items:center; gap:12px; }
+        #home-cmt-marquee .avatar{
+          width:46px; height:46px; border-radius:50%;
+          display:flex; align-items:center; justify-content:center;
+          font-weight:600; font-size:15px; color:#fff; flex:0 0 auto; letter-spacing:.02em;
+        }
+        #home-cmt-marquee .avatar.c0{ background:linear-gradient(135deg,#0071e3,#42a5ff); }
+        #home-cmt-marquee .avatar.c1{ background:linear-gradient(135deg,#00c2c7,#34d2b4); }
+        #home-cmt-marquee .avatar.c2{ background:linear-gradient(135deg,#ff9f0a,#ff6b3d); }
+        #home-cmt-marquee .avatar.c3{ background:linear-gradient(135deg,#bf5af2,#ff4f9a); }
+
+        #home-cmt-marquee .meta .name{ font-weight:600; color:var(--cmt-ink); font-size:15px; line-height:1.2; }
+        #home-cmt-marquee .meta .user{ color:var(--cmt-sub); font-size:13px; margin-top:2px; }
+
+        #home-cmt-marquee .body{
+          color:var(--cmt-body); font-size:15px; line-height:1.6; letter-spacing:-.01em;
+          display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;
+        }
+
+        #home-cmt-marquee .pill{
+          display:inline-flex; align-items:center; gap:6px; align-self:flex-start;
+          background:var(--cmt-pill-bg); color:var(--cmt-pill-ink);
+          font-weight:500; font-size:12.5px;
+          padding:7px 13px; border-radius:999px;
+        }
+
+        @media (prefers-reduced-motion: reduce){
+          #home-cmt-marquee .row .track{ animation:none; }
+        }
+
+        @media (max-width:768px){
+          #home-cmt-marquee{ padding:52px 0 60px; }
+          #home-cmt-marquee .wrap{ margin-bottom:36px; }
+          #home-cmt-marquee .card{ flex-basis:280px; width:280px; padding:20px; border-radius:18px; }
+          #home-cmt-marquee .row::before,
+          #home-cmt-marquee .row::after{ width:56px; }
+        }
+      </style>
+      {{-- ===================== FIN DISEÑO ===================== --}}
+
       <div class="wrap">
         <header>
           <h2>Lo que <span class="grad">dicen de nosotros</span></h2>
