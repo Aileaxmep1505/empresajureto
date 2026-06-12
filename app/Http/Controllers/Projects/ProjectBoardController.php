@@ -71,28 +71,61 @@ class ProjectBoardController extends Controller
 
     /* ============================================================
      |  STORE  (crea proyecto + sube docs + dispara extracción)
-     |     Al terminar redirige a projects.show  →  ahora es el DASHBOARD
+     |   - Acepta el campo `documents[]` (lo que manda tu blade)
+     |   - También acepta `files[]` por compat
+     |   - Respeta `without_documents` para crear sin archivos
+     |   - Guarda start_date, color, favorite
      * ============================================================ */
     public function store(Request $request, PythonProjectProcessor $processor)
     {
-        $request->validate([
-            'name'    => 'required|string|max:255',
-            'files'   => 'required|array|min:1|max:9',
-            'files.*' => 'file|mimes:pdf,docx,doc|max:25600',
-        ]);
+        // Nombre real del campo de archivos en el request
+        $filesField = $request->hasFile('documents') ? 'documents'
+                    : ($request->hasFile('files')   ? 'files' : 'documents');
 
+        $skipFiles = $request->boolean('without_documents');
+
+        // Validación dinámica
+        $rules = [
+            'name'       => 'required|string|max:255',
+            'start_date' => 'nullable|date',
+            'color'      => 'nullable|string|max:20',
+            'favorite'   => 'nullable|boolean',
+        ];
+        if (!$skipFiles) {
+            $rules[$filesField]      = 'required|array|min:1|max:9';
+            $rules[$filesField.'.*'] = 'file|mimes:pdf,docx,doc|max:25600';
+        }
+        $request->validate($rules);
+
+        // Crear proyecto
         $project = Project::create([
-            'name'      => $request->name,
-            'slug'      => Str::slug($request->name) . '-' . Str::random(6),
-            'user_id'   => Auth::id(),
-            'status'    => 'processing',
-            'column_id' => $request->column_id ?? 'en_analisis',
-            'priority'  => $request->priority  ?? 'media',
-            'color'     => $request->color     ?? '#1e3a5f',
+            'name'       => $request->name,
+            'slug'       => Str::slug($request->name) . '-' . Str::random(6),
+            'user_id'    => Auth::id(),
+            'status'     => $skipFiles ? 'ready' : 'processing',
+            'column_id'  => $request->column_id ?? 'en_analisis',
+            'priority'   => $request->priority  ?? 'media',
+            'color'      => $request->color     ?? '#1e3a5f',
+            'start_date' => $request->start_date,
+            'favorite'   => $request->boolean('favorite'),
         ]);
 
+        // Si no hay archivos, terminar aquí
+        if ($skipFiles) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json([
+                    'ok'           => true,
+                    'redirect'     => route('projects.show', $project),
+                    'redirect_url' => route('projects.show', $project),
+                    'project'      => $project,
+                ]);
+            }
+            return redirect()->route('projects.show', $project);
+        }
+
+        // Guardar documentos físicamente
         $paths = [];
-        foreach ($request->file('files') as $file) {
+        foreach ($request->file($filesField, []) as $file) {
             $stored = $file->store("projects/{$project->id}/source", 'public');
             ProjectDocument::create([
                 'project_id' => $project->id,
@@ -105,6 +138,7 @@ class ProjectBoardController extends Controller
             $paths[] = storage_path('app/public/' . $stored);
         }
 
+        // Procesar con Python (Azure + OpenAI)
         try {
             $result = $processor->process($project, $paths);
             $project->structured_data = $result['structured_data'] ?? null;
@@ -121,7 +155,7 @@ class ProjectBoardController extends Controller
             $project->save();
         }
 
-        if ($request->wantsJson()) {
+        if ($request->wantsJson() || $request->ajax()) {
             return response()->json([
                 'ok'           => true,
                 'redirect'     => route('projects.show', $project),
@@ -134,10 +168,6 @@ class ProjectBoardController extends Controller
 
     /* ============================================================
      |  SHOW   →  DASHBOARD (vista principal del proyecto)
-     |   - Pipeline (Análisis → Revisión → Resultado)
-     |   - Módulo sugerido + monico insights
-     |   - Notas, Tareas, Resumen de Documentos, Info General
-     |   - Ficha Técnica resumida + Fechas Clave
      * ============================================================ */
     public function show(Project $project)
     {
@@ -150,8 +180,6 @@ class ProjectBoardController extends Controller
 
     /* ============================================================
      |  ANALISIS   →  Vista con CHAT + TABS
-     |   (Ficha / Resumen Ejecutivo / Checklist / Borrador / Documentos)
-     |   Se abre desde el card "Análisis de Bases" del dashboard.
      * ============================================================ */
     public function analisis(Project $project)
     {
@@ -239,19 +267,13 @@ class ProjectBoardController extends Controller
 
     /* ============================================================
      |  CHECKLIST
-     |   - Tu blade manda:
-     |       items=JSON [{idx,cumplimiento,status,prioridad}, ...]   → patch parcial
-     |       regenerate=1                                             → reanalisis IA
-     |   - También aceptamos `checklist` array completo (compat)
      * ============================================================ */
     public function updateChecklist(Request $request, Project $project, PythonProjectProcessor $processor)
     {
-        // (1) Regenerar todo con IA
         if ($request->boolean('regenerate')) {
             return $this->reanalyzeChecklist($project, $processor);
         }
 
-        // (2) Updates parciales por índice
         if ($request->filled('items')) {
             $updates = json_decode($request->input('items'), true) ?: [];
             $current = $project->checklist ?? [];
@@ -271,7 +293,6 @@ class ProjectBoardController extends Controller
             return response()->json(['ok' => true]);
         }
 
-        // (3) Reemplazo completo (compat)
         if ($request->has('checklist')) {
             $project->checklist = $request->input('checklist');
             $project->save();
