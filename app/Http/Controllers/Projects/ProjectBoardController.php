@@ -69,69 +69,94 @@ class ProjectBoardController extends Controller
         return view('projects.index', compact('projects', 'columns', 'openColumns', 'viewMode'));
     }
 
-    /* ============================================================
-     |  STORE  (crea proyecto + sube docs + dispara extracción)
-     |     Al terminar redirige a projects.show  →  ahora es el DASHBOARD
-     * ============================================================ */
-    public function store(Request $request, PythonProjectProcessor $processor)
-    {
-        $request->validate([
-            'name'    => 'required|string|max:255',
-            'files'   => 'required|array|min:1|max:9',
-            'files.*' => 'file|mimes:pdf,docx,doc|max:25600',
+   public function store(Request $request, PythonProjectProcessor $processor)
+{
+    $withoutDocuments = $request->boolean('without_documents');
+
+    $rules = [
+        'name'       => 'required|string|max:255',
+        'start_date' => 'nullable|date',
+        'color'      => 'nullable|string|max:30',
+        'favorite'   => 'nullable',
+        'column_id'  => 'nullable|integer',
+    ];
+
+    if (!$withoutDocuments) {
+        $rules['files'] = 'required|array|min:1|max:9';
+        $rules['files.*'] = 'file|mimes:pdf,docx,doc|max:25600';
+    } else {
+        $rules['files'] = 'nullable|array|max:9';
+        $rules['files.*'] = 'file|mimes:pdf,docx,doc|max:25600';
+    }
+
+    $request->validate($rules);
+
+    $project = Project::create([
+        'name'       => $request->name,
+        'slug'       => Str::slug($request->name) . '-' . Str::random(6),
+        'user_id'    => Auth::id(),
+        'status'     => $withoutDocuments ? 'ready' : 'processing',
+        'column_id'  => (int) ($request->column_id ?: 1),
+        'priority'   => $request->priority ?? 'media',
+        'color'      => $request->color ?? '#1e3a5f',
+        'start_date' => $request->start_date,
+        'favorite'   => $request->boolean('favorite'),
+    ]);
+
+    $paths = [];
+
+    foreach ($request->file('files', []) as $file) {
+        $stored = $file->store("projects/{$project->id}/source", 'public');
+
+        ProjectDocument::create([
+            'project_id' => $project->id,
+            'filename'   => $file->getClientOriginalName(),
+            'file_path'  => $stored,
+            'mime_type'  => $file->getMimeType(),
+            'file_size'  => $file->getSize(),
+            'status'     => 'pendiente',
         ]);
 
-        $project = Project::create([
-            'name'      => $request->name,
-            'slug'      => Str::slug($request->name) . '-' . Str::random(6),
-            'user_id'   => Auth::id(),
-            'status'    => 'processing',
-            'column_id' => $request->column_id ?? 'en_analisis',
-            'priority'  => $request->priority  ?? 'media',
-            'color'     => $request->color     ?? '#1e3a5f',
-        ]);
+        $paths[] = storage_path('app/public/' . $stored);
+    }
 
-        $paths = [];
-        foreach ($request->file('files') as $file) {
-            $stored = $file->store("projects/{$project->id}/source", 'public');
-            ProjectDocument::create([
-                'project_id' => $project->id,
-                'filename'   => $file->getClientOriginalName(),
-                'file_path'  => $stored,
-                'mime_type'  => $file->getMimeType(),
-                'file_size'  => $file->getSize(),
-                'status'     => 'pendiente',
-            ]);
-            $paths[] = storage_path('app/public/' . $stored);
-        }
-
+    if (!$withoutDocuments && !empty($paths)) {
         try {
             $result = $processor->process($project, $paths);
+
             $project->structured_data = $result['structured_data'] ?? null;
             $project->checklist       = data_get($result, 'structured_data.checklist_sugerido', []);
             $project->status          = 'ready';
             $project->save();
 
             ProjectDocument::where('project_id', $project->id)
-                ->update(['status' => 'procesado', 'processed_at' => now()]);
+                ->update([
+                    'status'       => 'procesado',
+                    'processed_at' => now(),
+                ]);
         } catch (\Throwable $e) {
-            Log::error('Project processing failed', ['project' => $project->id, 'error' => $e->getMessage()]);
+            Log::error('Project processing failed', [
+                'project' => $project->id,
+                'error'   => $e->getMessage(),
+            ]);
+
             $project->status        = 'error';
             $project->error_message = $e->getMessage();
             $project->save();
         }
-
-        if ($request->wantsJson()) {
-            return response()->json([
-                'ok'           => true,
-                'redirect'     => route('projects.show', $project),
-                'redirect_url' => route('projects.show', $project),
-                'project'      => $project,
-            ]);
-        }
-        return redirect()->route('projects.show', $project);
     }
 
+    if ($request->wantsJson()) {
+        return response()->json([
+            'ok'           => true,
+            'redirect'     => route('projects.show', $project),
+            'redirect_url' => route('projects.show', $project),
+            'project'      => $project,
+        ]);
+    }
+
+    return redirect()->route('projects.show', $project);
+}
     /* ============================================================
      |  SHOW   →  DASHBOARD (vista principal del proyecto)
      |   - Pipeline (Análisis → Revisión → Resultado)
