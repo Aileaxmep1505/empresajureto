@@ -1153,7 +1153,7 @@
   </script>
 
   @if(isset($marqueeComments) && $marqueeComments->count())
-    <section id="home-cmt-marquee" style="margin-top:40px;">
+    <section id="home-cmt-marquee">
 
       {{-- ===================== DISEÑO NELO + APPLE ===================== --}}
       <style>
@@ -1172,10 +1172,16 @@
           --cmt-pill-ink:#0071e3;
           --cmt-speed:60s;           /* velocidad del carrusel */
 
+          /* ===== FULL-BLEED ROBUSTO (no empuja) ===== */
           position:relative;
+          left:50%;
+          transform:translateX(-50%);
           width:100vw;
-          margin-left:calc(50% - 50vw);
-          margin-right:calc(50% - 50vw);
+          max-width:100vw;
+          margin-top:40px;
+          margin-left:0;
+          margin-right:0;
+
           background:linear-gradient(180deg, var(--cmt-bg-1), var(--cmt-bg-2));
           padding:72px 0 84px;
           overflow:hidden;
