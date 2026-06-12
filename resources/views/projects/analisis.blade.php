@@ -50,14 +50,16 @@
   /* ── Layout 2 columnas ── */
   .pjd-body { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 0; min-height: 0; }
   @media (max-width: 1100px) { .pjd-body { grid-template-columns: 1fr; } }
-  .pjd-left { display: flex; flex-direction: column; border-right: 1px solid var(--line); background: #fff; min-height: 0; }
+  .pjd-left { display: flex; flex-direction: column; border-right: 1px solid var(--line); background: #fff; min-height: 0; position: sticky; top: 57px; height: calc(100vh - 57px); align-self: start; }
+  @media (max-width: 1100px) { .pjd-left { position: static; height: auto; } }
   .pjd-right { display: flex; flex-direction: column; background: var(--bg); min-height: 0; overflow: auto; }
 
   /* ── CHAT ── */
   .pjd-chat-head { padding: 10px 18px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: flex-end; }
   .pjd-chat-reset { background: var(--bg); border: 1px solid var(--line); padding: 5px 12px; border-radius: 999px; font-size: .8rem; font-weight: 600; color: var(--ink2); cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all .18s; }
   .pjd-chat-reset:hover { background: var(--blue-soft); color: var(--blue); border-color: var(--blue); }
-  .pjd-chat-list { flex: 1; padding: 18px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+  .pjd-chat-list { flex: 1; min-height: 0; padding: 18px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; max-height: calc(100vh - 240px); scroll-behavior: smooth; overscroll-behavior: contain; }
+  @media (max-width: 1100px) { .pjd-chat-list { max-height: 60vh; } }
   .pjd-msg { max-width: 90%; }
   .pjd-msg.is-user { align-self: flex-end; max-width: 80%; }
   .pjd-msg.is-assistant { align-self: flex-start; display: flex; gap: 10px; }
@@ -198,9 +200,27 @@
   .pjd-cl-requisito { display: flex; align-items: center; gap: 8px; max-width: 380px; }
   .pjd-cl-requisito-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; color: var(--ink); }
 
-  .pjd-cl-detail { background: #f8faff; padding: 14px 18px; font-size: .85rem; color: var(--ink2); }
+  .pjd-cl-table tbody tr[data-row] { cursor: pointer; transition: background .18s ease, box-shadow .18s ease; }
+  .pjd-cl-table tbody tr[data-row]:hover { background: #f8faff; }
+  .pjd-cl-table tbody tr[data-row].is-expanded { background: #f8faff; box-shadow: inset 3px 0 0 var(--blue); }
+
+  .pjd-cl-detail { background: #fff; padding: 16px 18px 18px; font-size: .85rem; color: var(--ink2); border-top: 1px solid var(--line); animation: pjdSourceReveal .22s cubic-bezier(.22,1,.36,1) both; }
+  @keyframes pjdSourceReveal { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
   .pjd-cl-detail strong { color: var(--ink); }
-  .pjd-cl-detail-row { margin-bottom: 6px; }
+  .pjd-cl-detail-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(240px, .8fr); gap: 12px; align-items: stretch; }
+  @media (max-width: 900px) { .pjd-cl-detail-grid { grid-template-columns: 1fr; } }
+  .pjd-cl-detail-card { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+  .pjd-cl-detail-kicker { display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px; border-radius: 999px; background: var(--blue-soft); color: var(--blue); font-size: .72rem; font-weight: 700; margin-bottom: 8px; }
+  .pjd-cl-detail-row { margin-bottom: 8px; line-height: 1.55; }
+  .pjd-cl-detail-row:last-child { margin-bottom: 0; }
+  .pjd-cl-source-quote { margin-top: 8px; padding: 12px 14px; border-left: 3px solid var(--blue); background: #fff; border-radius: 10px; color: var(--ink); font-weight: 600; line-height: 1.55; white-space: pre-wrap; }
+  .pjd-cl-source-meta { display: flex; flex-direction: column; gap: 8px; }
+  .pjd-cl-source-pill { display: inline-flex; width: fit-content; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; font-weight: 700; font-size: .78rem; background: var(--blue-soft); color: var(--blue); border: 1px solid #c7dcfd; }
+  .pjd-cl-source-empty { color: var(--muted); font-weight: 600; }
+  .pjd-cl-source-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .pjd-cl-source-btn { border: 1px solid var(--blue); background: #fff; color: var(--blue); border-radius: 999px; padding: 7px 12px; font-family: inherit; font-size: .8rem; font-weight: 700; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: all .15s; }
+  .pjd-cl-source-btn:hover { background: var(--blue-soft); transform: translateY(-1px); }
+  .pjd-cl-source-btn:active { transform: scale(.98); }
 
   .pjd-cl-cumple-dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--line); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; background: transparent; padding: 0; }
   .pjd-cl-cumple-dot.is-cumple { background: var(--success); border-color: var(--success); }
@@ -314,6 +334,7 @@
           'prioridad'     => $it['prioridad'] ?? 'Media',
           'fuente'        => $it['fuente'] ?? '',
           'pagina'        => $it['pagina'] ?? null,
+          'cita'          => $it['cita'] ?? $it['evidencia'] ?? $it['fragmento'] ?? '',
       ];
   })->filter()->values()->all();
 
@@ -340,6 +361,19 @@
           'pagina' => $c['pagina'] ?? null,
       ], JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8');
   };
+
+  $checklistCitaPayload = function ($it) {
+      $hasSource = !empty($it['fuente']) || !empty($it['pagina']) || !empty($it['cita']) || !empty($it['descripcion']);
+      if (!$hasSource) return null;
+
+      return htmlspecialchars(json_encode([
+          'cita'        => $it['cita'] ?: ($it['descripcion'] ?? ''),
+          'fuente'      => $it['fuente'] ?? '',
+          'pagina'      => $it['pagina'] ?? null,
+          'requisito'   => $it['requisito'] ?? '',
+          'descripcion' => $it['descripcion'] ?? '',
+      ], JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8');
+  };
 @endphp
 
 <div class="pjd-wrap">
@@ -352,7 +386,6 @@
     </div>
 
     <div class="pjd-tabs" id="pjdTabs">
-      <button class="pjd-tab" data-tab="analisis"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 9h6M9 13h6M9 17h3"/></svg> Análisis de Bases</button>
       <button class="pjd-tab" data-tab="inicio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11l9-8 9 8M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></svg> Inicio</button>
       <button class="pjd-tab is-active" data-tab="ficha"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg> Ficha</button>
       <button class="pjd-tab" data-tab="resumen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6"/></svg> Resumen Ejecutivo</button>
@@ -557,8 +590,13 @@
               </thead>
               <tbody id="pjdClBody">
                 @forelse($checklist as $idx => $it)
-                  <tr data-row="{{ $idx }}" data-cumplimiento="{{ $it['cumplimiento'] }}" data-status="{{ $it['status'] }}" data-prioridad="{{ $it['prioridad'] }}">
-                    <td><button type="button" class="pjd-cl-row-toggle" data-toggle="{{ $idx }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></button></td>
+                  @php
+                    $clPayload = $checklistCitaPayload($it);
+                    $docMatch = !empty($it['fuente']) ? $project->documents->firstWhere('filename', $it['fuente']) : null;
+                    $docUrl = $docMatch ? $docMatch->url : null;
+                  @endphp
+                  <tr data-row="{{ $idx }}" data-cumplimiento="{{ $it['cumplimiento'] }}" data-status="{{ $it['status'] }}" data-prioridad="{{ $it['prioridad'] }}" @if($clPayload) data-cita="{{ $clPayload }}" @endif>
+                    <td><button type="button" class="pjd-cl-row-toggle" data-toggle="{{ $idx }}" title="Ver fuente y detalle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></button></td>
                     <td><div class="pjd-cl-requisito"><span class="pjd-cl-requisito-text" title="{{ $it['requisito'] }}">{{ $it['requisito'] }}</span></div></td>
                     <td>{{ $it['formato'] }}</td>
                     <td>{{ Str::limit($it['categoria'], 22) }}</td>
@@ -577,14 +615,53 @@
                       @endphp
                       <span class="pjd-cl-status {{ $statClass }}" data-status-toggle="{{ $idx }}">{{ $statIcon }} {{ $it['status'] }}</span>
                     </td>
-                    <td style="text-align:center"><button type="button" class="pjd-cl-options">···</button></td>
+                    <td style="text-align:center"><button type="button" class="pjd-cl-options" data-toggle="{{ $idx }}" title="Ver fuente">···</button></td>
                   </tr>
                   <tr class="pjd-cl-detail-row" data-detail="{{ $idx }}" style="display:none;">
                     <td colspan="9" style="padding:0">
                       <div class="pjd-cl-detail">
-                        @if($it['descripcion'])<div class="pjd-cl-detail-row"><strong>Descripción:</strong> {{ $it['descripcion'] }}</div>@endif
-                        @if($it['fuente'])<div class="pjd-cl-detail-row"><strong>Fuente:</strong> {{ $it['fuente'] }}{{ $it['pagina'] ? ' · Página '.$it['pagina'] : '' }}</div>@endif
-                        <div class="pjd-cl-detail-row"><strong>Prioridad:</strong> {{ $it['prioridad'] }}</div>
+                        <div class="pjd-cl-detail-grid">
+                          <div class="pjd-cl-detail-card">
+                            <div class="pjd-cl-detail-kicker">Detalle del requisito</div>
+                            <div class="pjd-cl-detail-row"><strong>Requisito:</strong> {{ $it['requisito'] }}</div>
+                            @if($it['descripcion'])
+                              <div class="pjd-cl-detail-row"><strong>Descripción:</strong> {{ $it['descripcion'] }}</div>
+                            @else
+                              <div class="pjd-cl-detail-row pjd-cl-source-empty">Sin descripción adicional.</div>
+                            @endif
+                            <div class="pjd-cl-detail-row"><strong>Prioridad:</strong> {{ $it['prioridad'] }}</div>
+                          </div>
+
+                          <div class="pjd-cl-detail-card">
+                            <div class="pjd-cl-detail-kicker">Fuente / evidencia</div>
+                            <div class="pjd-cl-source-meta">
+                              @if($it['fuente'])
+                                <div class="pjd-cl-detail-row"><strong>Archivo:</strong> {{ $it['fuente'] }}</div>
+                              @else
+                                <div class="pjd-cl-detail-row pjd-cl-source-empty">Sin archivo fuente registrado.</div>
+                              @endif
+
+                              @if($it['pagina'])
+                                <span class="pjd-cl-source-pill">Página {{ $it['pagina'] }}</span>
+                              @endif
+
+                              @if($it['cita'])
+                                <div class="pjd-cl-source-quote">{{ $it['cita'] }}</div>
+                              @elseif($it['descripcion'])
+                                <div class="pjd-cl-source-quote">{{ $it['descripcion'] }}</div>
+                              @endif
+
+                              <div class="pjd-cl-source-actions">
+                                @if($clPayload)
+                                  <button type="button" class="pjd-cl-source-btn" data-cita="{{ $clPayload }}">📄 Abrir cita</button>
+                                @endif
+                                @if($docUrl)
+                                  <a href="{{ $docUrl }}" target="_blank" class="pjd-cl-source-btn">Ver documento</a>
+                                @endif
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </td>
                   </tr>
@@ -1040,15 +1117,44 @@
   }
   updateCounters();
 
+  function toggleChecklistDetail(idx, forceOpen = null) {
+    const tr = clBody.querySelector(`tr[data-row="${idx}"]`);
+    const detail = clBody.querySelector(`tr[data-detail="${idx}"]`);
+    if (!tr || !detail) return;
+
+    const shouldOpen = forceOpen === null ? !tr.classList.contains('is-expanded') : !!forceOpen;
+    tr.classList.toggle('is-expanded', shouldOpen);
+    detail.style.display = shouldOpen ? '' : 'none';
+  }
+
   clBody?.addEventListener('click', (e) => {
     const tBtn = e.target.closest('[data-toggle]');
     if (tBtn) {
-      const idx = tBtn.dataset.toggle;
-      const tr = clBody.querySelector(`tr[data-row="${idx}"]`);
-      const detail = clBody.querySelector(`tr[data-detail="${idx}"]`);
-      if (tr && detail) { const open = tr.classList.toggle('is-expanded'); detail.style.display = open ? '' : 'none'; }
+      toggleChecklistDetail(tBtn.dataset.toggle);
+      e.stopPropagation();
       return;
     }
+
+    const sourceBtn = e.target.closest('.pjd-cl-source-btn[data-cita]');
+    if (sourceBtn) {
+      openCita(sourceBtn.getAttribute('data-cita'));
+      e.stopPropagation();
+      return;
+    }
+
+    const sourceLink = e.target.closest('a.pjd-cl-source-btn');
+    if (sourceLink) {
+      e.stopPropagation();
+      return;
+    }
+
+    const row = e.target.closest('tr[data-row]');
+    const clickedControl = e.target.closest('[data-cumplimiento-toggle], [data-status-toggle]');
+    if (row && !clickedControl) {
+      toggleChecklistDetail(row.dataset.row);
+      return;
+    }
+
     const cumpBtn = e.target.closest('[data-cumplimiento-toggle]');
     if (cumpBtn) {
       activeCumpRow = cumpBtn.dataset.cumplimientoToggle;
@@ -1119,7 +1225,10 @@
       const match = !q || text.includes(q);
       r.style.display = match ? '' : 'none';
       const detail = clBody.querySelector(`tr[data-detail="${r.dataset.row}"]`);
-      if (detail && !match) detail.style.display = 'none';
+      if (detail && !match) {
+        detail.style.display = 'none';
+        r.classList.remove('is-expanded');
+      }
     });
   });
 

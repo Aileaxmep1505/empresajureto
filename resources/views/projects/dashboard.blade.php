@@ -35,25 +35,46 @@
   .pdb-nav-tab.is-active { background: var(--blue); color: #fff; box-shadow: 0 6px 14px rgba(0,122,255,.25); }
   .pdb-nav-tab svg { width: 16px; height: 16px; }
 
-  /* ═══════ TOPBAR ESTADO + PIPELINE ═══════ */
-  .pdb-top { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 14px 22px; background: #fff; border: 1px solid var(--line); border-radius: 14px; margin-bottom: 16px; }
+  /* ═══════ HERO UNIFICADO: TOPBAR + MÓDULO/CHECKLIST ═══════ */
+  .pdb-hero { background: #fff; border: 1px solid var(--line); border-radius: 14px; margin-bottom: 16px; overflow: hidden; }
+  .pdb-hero-top { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 18px 22px; border-bottom: 1px solid var(--line); }
+  .pdb-hero-grid { display: grid; grid-template-columns: 1fr 1fr; }
+  .pdb-hero-col { padding: 20px 22px; min-width: 0; }
+  .pdb-hero-col + .pdb-hero-col { border-left: 1px solid var(--line); }
+  @media (max-width: 1000px) {
+    .pdb-hero-grid { grid-template-columns: 1fr; }
+    .pdb-hero-col + .pdb-hero-col { border-left: none; border-top: 1px solid var(--line); }
+  }
+
   .pdb-estado-label { font-size: .82rem; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
   .pdb-estado-label::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--success); display: inline-block; }
-  .pdb-estado-chip { padding: 6px 14px; border-radius: 999px; background: var(--blue-soft); color: var(--blue); font-weight: 700; font-size: .85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; border: 1px solid #c7dcfd; font-family: inherit; }
-  .pdb-estado-chip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--blue); }
-  .pdb-estado-chip::after { content: "⌄"; font-size: .9rem; margin-left: 2px; }
 
+  .pdb-estado-chip { padding: 6px 14px; border-radius: 999px; font-weight: 700; font-size: .85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-family: inherit; }
+  .pdb-estado-chip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .pdb-estado-chip::after { content: "⌄"; font-size: .9rem; margin-left: 2px; }
+  .pdb-estado-chip.tone-blue   { background: var(--blue-soft);    color: var(--blue);    border: 1px solid #c7dcfd; }
+  .pdb-estado-chip.tone-orange { background: var(--orange-soft);  color: var(--orange);  border: 1px solid #fed7aa; }
+  .pdb-estado-chip.tone-green  { background: var(--success-soft); color: var(--success); border: 1px solid #bbf7d0; }
+  .pdb-estado-chip.tone-red    { background: var(--danger-soft);  color: var(--danger);  border: 1px solid #fecaca; }
+
+  /* ─── Pipeline ─── */
   .pdb-pipeline { flex: 1; display: flex; align-items: center; justify-content: center; gap: 0; padding: 0 30px; min-width: 380px; }
   .pdb-step { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 80px; }
   .pdb-step-circle { width: 44px; height: 44px; border-radius: 50%; background: #f3f4f6; color: var(--muted); display: grid; place-items: center; border: 2px solid var(--line); transition: all .2s; }
   .pdb-step-circle svg { width: 20px; height: 20px; }
-  .pdb-step.is-active .pdb-step-circle { background: var(--blue); color: #fff; border-color: var(--blue); box-shadow: 0 6px 16px rgba(0,122,255,.25); }
-  .pdb-step.is-done .pdb-step-circle { background: var(--success); color: #fff; border-color: var(--success); }
   .pdb-step-label { font-size: .78rem; font-weight: 700; color: var(--muted); }
-  .pdb-step.is-active .pdb-step-label { color: var(--blue); }
-  .pdb-step.is-done .pdb-step-label { color: var(--success); }
-  .pdb-step-line { width: 80px; height: 2px; background: var(--line); margin-bottom: 22px; }
-  .pdb-step-line.is-done { background: var(--success); }
+
+  .pdb-step.is-on.tone-blue   .pdb-step-circle { background: var(--blue);   color: #fff; border-color: var(--blue);   box-shadow: 0 6px 16px rgba(0,122,255,.25); }
+  .pdb-step.is-on.tone-orange .pdb-step-circle { background: #f59e0b;       color: #fff; border-color: #f59e0b;       box-shadow: 0 6px 16px rgba(245,158,11,.25); }
+  .pdb-step.is-on.tone-green  .pdb-step-circle { background: #10b981;       color: #fff; border-color: #10b981;       box-shadow: 0 6px 16px rgba(16,185,129,.25); }
+  .pdb-step.is-on.tone-blue   .pdb-step-label  { color: var(--blue); }
+  .pdb-step.is-on.tone-orange .pdb-step-label  { color: #d97706; }
+  .pdb-step.is-on.tone-green  .pdb-step-label  { color: #059669; }
+  .pdb-step.is-ring .pdb-step-circle { box-shadow: 0 0 0 6px #d1fae5, 0 6px 16px rgba(16,185,129,.25); }
+
+  .pdb-step-line { width: 80px; height: 2px; background: var(--line); margin-bottom: 22px; transition: background .2s; }
+  .pdb-step-line.is-on.tone-blue  { background: var(--blue); }
+  .pdb-step-line.is-on.tone-green { background: #10b981; }
 
   .pdb-ask-monico { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: 999px; background: #fff; border: 1.5px solid #d8e7ff; color: var(--blue); font-weight: 700; font-size: .88rem; cursor: pointer; box-shadow: 0 4px 10px rgba(0,122,255,.08); font-family: inherit; }
   .pdb-ask-monico:hover { background: var(--blue-soft); border-color: var(--blue); }
@@ -92,6 +113,31 @@
   .pdb-module-desc { font-size: .8rem; color: var(--muted); margin-top: 2px; }
   .pdb-module-chev { color: var(--muted); font-size: 1.2rem; }
 
+  /* ═══════ CHECKLIST STATS ═══════ */
+  .pdb-chk-link { margin-left: auto; color: var(--muted); text-decoration: none; padding: 4px 6px; border-radius: 6px; }
+  .pdb-chk-link:hover { color: var(--blue); background: var(--bg); }
+  .pdb-chk-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 14px; }
+  .pdb-chk-head .badge-count { font-size: .82rem; color: var(--muted); font-weight: 600; }
+  .pdb-chk-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  @media (max-width: 700px) { .pdb-chk-grid { grid-template-columns: 1fr; } }
+  .pdb-chk-col { padding: 16px 18px; }
+  .pdb-chk-col + .pdb-chk-col { border-left: 1px solid var(--line); }
+  @media (max-width: 700px) { .pdb-chk-col + .pdb-chk-col { border-left: none; border-top: 1px solid var(--line); } }
+  .pdb-chk-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; font-size: .9rem; font-weight: 600; color: var(--ink2); }
+  .pdb-chk-row .num { font-weight: 700; min-width: 26px; }
+  .pdb-chk-row .lbl { flex: 1; }
+  .pdb-chk-row .pct { font-weight: 700; color: var(--blue); }
+  .pdb-chk-row.is-main { font-size: .98rem; color: var(--ink); }
+  .pdb-chk-row.is-main .num { font-weight: 700; }
+  .pdb-chk-row .num.c-gray   { color: var(--ink); }
+  .pdb-chk-row .num.c-red    { color: var(--danger); }
+  .pdb-chk-row .num.c-orange { color: var(--orange); }
+  .pdb-chk-row .num.c-green  { color: var(--success); }
+  .pdb-chk-bar { height: 5px; border-radius: 999px; background: #e5e7eb; margin: 4px 0 10px; overflow: hidden; }
+  .pdb-chk-bar i { display: block; height: 100%; background: #9ca3af; border-radius: 999px; }
+  .pdb-chk-total { display: flex; justify-content: space-between; align-items: center; padding: 12px 18px; border-top: 1px solid var(--line); font-size: .88rem; color: var(--muted); font-weight: 600; grid-column: 1 / -1; }
+  .pdb-chk-total strong { color: var(--ink); font-size: 1rem; }
+
   /* ═══════ INSIGHTS VACÍO ═══════ */
   .pdb-insights-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 240px; gap: 14px; text-align: center; padding: 20px; }
   .pdb-insights-empty p { margin: 0; font-size: .92rem; color: var(--muted); font-weight: 600; }
@@ -118,6 +164,17 @@
   .pdb-filter-btn:hover { background: var(--blue-soft); color: var(--blue); }
   .pdb-sort-btn { background: transparent; border: none; color: var(--muted); cursor: pointer; padding: 4px; border-radius: 6px; font-family: inherit; }
   .pdb-sort-btn:hover { background: var(--bg); color: var(--blue); }
+
+  /* ─── Nota individual ─── */
+  .pdb-note { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; }
+  .pdb-note-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .pdb-note-avatar { width: 32px; height: 32px; border-radius: 50%; background: #f3f4f6; color: var(--ink2); display: grid; place-items: center; font-weight: 700; font-size: .82rem; flex-shrink: 0; }
+  .pdb-note-author { font-weight: 700; color: var(--ink); font-size: .92rem; }
+  .pdb-note-date { font-size: .8rem; color: var(--muted); display: inline-flex; align-items: center; gap: 4px; }
+  .pdb-note-menu { margin-left: auto; background: transparent; border: none; color: var(--muted); cursor: pointer; padding: 4px 8px; border-radius: 6px; font-size: 1rem; }
+  .pdb-note-menu:hover { background: var(--bg); }
+  .pdb-note-body { font-size: .9rem; color: var(--ink2); font-weight: 600; }
+  .pdb-notes-scroll { max-height: 280px; overflow-y: auto; }
 
   /* ═══════ RESUMEN DOCUMENTOS (acordeón) ═══════ */
   .pdb-doc-group { margin-bottom: 8px; border-radius: 12px; overflow: hidden; }
@@ -191,11 +248,29 @@
 @section('content')
 @php
   $sd = $project->structured_data ?? [];
-  $ficha = $sd['ficha'] ?? [];
+  $ficha  = $sd['ficha'] ?? [];
   $fechas = $sd['fechas_clave'] ?? [];
+  $chk    = $sd['checklist'] ?? null;   // ['total','sin_revisar','no_cumple','parcial','cumple','pendiente','en_revision','aprobado']
   $docs   = $project->documents;
+  $notas  = $project->notes ?? collect();
+  $tareas = $project->tasks ?? collect();
+  $tareasPend = $tareas->where('completed', false)->count();
+  $tareasDone = $tareas->where('completed', true)->count();
 
-  // Clasificar documentos en grupos (heurística por nombre)
+  /* ── Estado del proyecto → controla chip, pipeline y módulo sugerido ── */
+  $statusRaw = mb_strtolower($project->status ?? 'analisis');
+  if (str_contains($statusRaw, 'no particip')) {
+      $estado = ['key' => 'no_participa', 'label' => 'No Participa', 'tone' => 'red', 'step' => 3];
+  } elseif (str_contains($statusRaw, 'particip')) {
+      $estado = ['key' => 'participa', 'label' => 'Participa', 'tone' => 'green', 'step' => 3];
+  } elseif (str_contains($statusRaw, 'revis')) {
+      $estado = ['key' => 'revision', 'label' => 'Revisión', 'tone' => 'orange', 'step' => 2];
+  } else {
+      $estado = ['key' => 'analisis', 'label' => 'Análisis de Bases', 'tone' => 'blue', 'step' => 1];
+  }
+  $cur = $estado['step'];
+
+  /* ── Clasificar documentos en grupos (heurística por nombre) ── */
   $bases    = $docs->filter(fn($d) => stripos($d->filename, 'bases') !== false || stripos($d->filename, 'convocatoria') !== false || stripos($d->filename, 'anexo') !== false || stripos($d->filename, 'licitacion') !== false)->values();
   $juntas   = $docs->filter(fn($d) => stripos($d->filename, 'junta') !== false || stripos($d->filename, 'aclaracion') !== false)->values();
   $regdocs  = $docs->diff($bases)->diff($juntas)->values();
@@ -214,6 +289,8 @@
           return ['', '—'];
       }
   };
+
+  $pct = fn($n, $t) => $t > 0 ? round($n / $t * 100) : 0;
 @endphp
 
 <div class="pdb-wrap">
@@ -223,7 +300,7 @@
     <a href="{{ route('projects.index') }}" class="pdb-nav-back" title="Volver">←</a>
     <div class="pdb-nav-name">{{ $project->name }}<span class="pdb-nav-name-dot"></span></div>
 
-    <button type="button" class="pdb-nav-pill">Análisis de Bases</button>
+    <button type="button" class="pdb-nav-pill">{{ $estado['label'] }}</button>
 
     <div class="pdb-nav-tabs">
       <a href="{{ route('projects.show', $project) }}" class="pdb-nav-tab is-active">
@@ -237,105 +314,142 @@
     </div>
   </div>
 
-  {{-- ════════ TOPBAR: ESTADO + PIPELINE + ASK MONICO ════════ --}}
-  <div class="pdb-top">
-    <span class="pdb-estado-label">Estado:</span>
-    <button type="button" class="pdb-estado-chip">Análisis de Bases</button>
+  {{-- ════════ HERO: ESTADO + PIPELINE + MÓDULO SUGERIDO + CHECKLIST/INSIGHTS ════════ --}}
+  <div class="pdb-hero">
 
-    <div class="pdb-pipeline">
-      <div class="pdb-step is-active">
-        <div class="pdb-step-circle">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6"/></svg>
+    <div class="pdb-hero-top">
+      <span class="pdb-estado-label">Estado:</span>
+      <button type="button" class="pdb-estado-chip tone-{{ $estado['tone'] }}">{{ $estado['label'] }}</button>
+
+      <div class="pdb-pipeline">
+        {{-- Paso 1: Análisis --}}
+        <div class="pdb-step tone-blue {{ $cur >= 1 ? 'is-on' : '' }}">
+          <div class="pdb-step-circle">
+            @if($cur > 1)
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            @else
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6"/></svg>
+            @endif
+          </div>
+          <div class="pdb-step-label">Análisis</div>
         </div>
-        <div class="pdb-step-label">Análisis</div>
-      </div>
-      <div class="pdb-step-line"></div>
-      <div class="pdb-step">
-        <div class="pdb-step-circle">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/></svg>
+
+        <div class="pdb-step-line tone-blue {{ $cur >= 2 ? 'is-on' : '' }}"></div>
+
+        {{-- Paso 2: Revisión --}}
+        <div class="pdb-step tone-orange {{ $cur >= 2 ? 'is-on' : '' }}">
+          <div class="pdb-step-circle">
+            @if($cur > 2)
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            @else
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/></svg>
+            @endif
+          </div>
+          <div class="pdb-step-label">Revisión</div>
         </div>
-        <div class="pdb-step-label">Revisión</div>
-      </div>
-      <div class="pdb-step-line"></div>
-      <div class="pdb-step">
-        <div class="pdb-step-circle">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+
+        <div class="pdb-step-line tone-green {{ $cur >= 3 ? 'is-on' : '' }}"></div>
+
+        {{-- Paso 3: Resultado / Participa --}}
+        <div class="pdb-step tone-green {{ $cur >= 3 ? 'is-on is-ring' : '' }}">
+          <div class="pdb-step-circle">
+            @if($cur >= 3)
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            @else
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            @endif
+          </div>
+          <div class="pdb-step-label">{{ $cur >= 3 ? $estado['label'] : 'Resultado' }}</div>
         </div>
-        <div class="pdb-step-label">Resultado</div>
       </div>
+
+      <button type="button" class="pdb-ask-monico"><span class="sparkle">✨</span> ask monico</button>
+      <button type="button" class="pdb-collapse-btn" title="Colapsar">⌃</button>
     </div>
 
-    <button type="button" class="pdb-ask-monico"><span class="sparkle">✨</span> ask monico</button>
-    <button type="button" class="pdb-collapse-btn" title="Colapsar">⌃</button>
-  </div>
+    <div class="pdb-hero-grid">
 
-  {{-- ════════ FILA 1: MÓDULO SUGERIDO + INSIGHTS ════════ --}}
-  <div class="pdb-grid">
+      {{-- ── Columna izquierda: Módulo sugerido ── --}}
+      <div class="pdb-hero-col">
+        <h3 class="pdb-card-title"><span class="ico is-violet">📚</span> Módulo sugerido</h3>
 
-    <div class="pdb-card">
-      <h3 class="pdb-card-title"><span class="ico is-violet">📚</span> Módulo sugerido</h3>
+        @php
+          $modulos = [
+            ['key' => 'analisis',  'name' => 'Análisis de Bases',     'desc' => 'Revisa y analiza las bases del proyecto',   'tone' => 'tone-green',  'route' => route('projects.analisis', $project),
+             'svg' => '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6"/>'],
+            ['key' => 'juntas',    'name' => 'Junta de Aclaraciones', 'desc' => 'Gestiona preguntas y aclaraciones',          'tone' => 'tone-orange', 'route' => '#',
+             'svg' => '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'],
+            ['key' => 'propuesta', 'name' => 'Armado de Propuesta',   'desc' => 'Construye la propuesta técnica/económica',   'tone' => 'tone-blue',   'route' => '#',
+             'svg' => '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>'],
+            ['key' => 'reporte',   'name' => 'Reporte',               'desc' => 'Genera el reporte final del proyecto',       'tone' => 'tone-violet', 'route' => '#',
+             'svg' => '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 17h6"/>'],
+            ['key' => 'tecnico',   'name' => 'Análisis Técnico',      'desc' => 'Revisión técnica especializada',             'tone' => 'tone-warn',   'route' => '#',
+             'svg' => '<path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>'],
+          ];
+          // El módulo sugerido depende del estado: participa → juntas; revisión → análisis; default → análisis
+          $sugerido = $estado['key'] === 'participa' ? 'juntas' : 'analisis';
+          usort($modulos, fn($a, $b) => ($a['key'] === $sugerido ? -1 : 1) <=> ($b['key'] === $sugerido ? -1 : 1));
+        @endphp
 
-      <a href="{{ route('projects.analisis', $project) }}" class="pdb-module is-current">
-        <div class="pdb-module-icon tone-green">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6"/></svg>
-        </div>
-        <div class="pdb-module-text">
-          <div class="pdb-module-name">Análisis de Bases</div>
-          <div class="pdb-module-desc">Revisa y analiza las bases del proyecto</div>
-        </div>
-        <div class="pdb-module-chev">›</div>
-      </a>
-
-      <div class="pdb-module is-disabled">
-        <div class="pdb-module-icon tone-gray">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        </div>
-        <div class="pdb-module-text">
-          <div class="pdb-module-name">Junta de Aclaraciones</div>
-          <div class="pdb-module-desc">Gestiona preguntas y respuestas</div>
-        </div>
-        <div class="pdb-module-chev">›</div>
+        @foreach($modulos as $m)
+          @php $isCur = $m['key'] === $sugerido; @endphp
+          <a href="{{ $isCur ? $m['route'] : '#' }}" class="pdb-module {{ $isCur ? 'is-current' : 'is-disabled' }}">
+            <div class="pdb-module-icon {{ $isCur ? $m['tone'] : 'tone-gray' }}">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">{!! $m['svg'] !!}</svg>
+            </div>
+            <div class="pdb-module-text">
+              <div class="pdb-module-name">{{ $m['name'] }}</div>
+              <div class="pdb-module-desc">{{ $m['desc'] }}</div>
+            </div>
+            <div class="pdb-module-chev">›</div>
+          </a>
+        @endforeach
       </div>
 
-      <div class="pdb-module is-disabled">
-        <div class="pdb-module-icon tone-gray">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
-        </div>
-        <div class="pdb-module-text">
-          <div class="pdb-module-name">Armado de Propuesta</div>
-          <div class="pdb-module-desc">Construye la propuesta técnica/económica</div>
-        </div>
-        <div class="pdb-module-chev">›</div>
-      </div>
+      {{-- ── Columna derecha: Checklist (si hay datos) o monico insights ── --}}
+      <div class="pdb-hero-col">
+        @if($chk && ($chk['total'] ?? 0) > 0)
+          @php
+            $t = $chk['total'];
+            $sinRevisar = $chk['sin_revisar'] ?? 0;
+            $noCumple   = $chk['no_cumple']   ?? 0;
+            $parcial    = $chk['parcial']     ?? 0;
+            $cumple     = $chk['cumple']      ?? 0;
+            $pendiente  = $chk['pendiente']   ?? 0;
+            $enRevision = $chk['en_revision'] ?? 0;
+            $aprobado   = $chk['aprobado']    ?? 0;
+          @endphp
+          <div class="pdb-chk-head">
+            <h3 class="pdb-card-title" style="margin:0;"><span class="ico is-success">✓</span> Checklist</h3>
+            <span class="badge-count">{{ $sinRevisar }} sin revisar</span>
+            <a href="{{ route('projects.analisis', $project) }}" class="pdb-chk-link" title="Ver checklist">↗</a>
+          </div>
 
-      <div class="pdb-module is-disabled">
-        <div class="pdb-module-icon tone-gray">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 17h6"/></svg>
-        </div>
-        <div class="pdb-module-text">
-          <div class="pdb-module-name">Reporte</div>
-          <div class="pdb-module-desc">Genera el reporte final del proyecto</div>
-        </div>
-        <div class="pdb-module-chev">›</div>
-      </div>
-
-      <div class="pdb-module is-disabled">
-        <div class="pdb-module-icon tone-gray">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
-        </div>
-        <div class="pdb-module-text">
-          <div class="pdb-module-name">Análisis Técnico</div>
-          <div class="pdb-module-desc">Revisión técnica especializada</div>
-        </div>
-        <div class="pdb-module-chev">›</div>
-      </div>
-    </div>
-
-    <div class="pdb-card">
-      <h3 class="pdb-card-title"><span class="ico is-violet">✨</span> monico insights</h3>
-      <div class="pdb-insights-empty">
-        <p>¿Quieres sugerencias para esta etapa?</p>
-        <button type="button" class="pdb-insights-btn"><span>✨</span> ask monico</button>
+          <div class="pdb-chk-grid">
+            <div class="pdb-chk-col">
+              <div class="pdb-chk-row is-main"><span class="num c-gray">{{ $t }}</span><span class="lbl">Revisión</span><span class="pct">100%</span></div>
+              <div class="pdb-chk-bar"><i style="width:{{ $pct($sinRevisar, $t) }}%"></i></div>
+              <div class="pdb-chk-row"><span class="num c-gray">{{ $sinRevisar }}</span><span class="lbl">Sin revisar</span><span class="pct">{{ $pct($sinRevisar, $t) }}%</span></div>
+              <div class="pdb-chk-row"><span class="num c-red">{{ $noCumple }}</span><span class="lbl">No Cumple</span><span class="pct">{{ $pct($noCumple, $t) }}%</span></div>
+              <div class="pdb-chk-row"><span class="num c-orange">{{ $parcial }}</span><span class="lbl">Parcial</span><span class="pct">{{ $pct($parcial, $t) }}%</span></div>
+              <div class="pdb-chk-row"><span class="num c-green">{{ $cumple }}</span><span class="lbl">Cumple</span><span class="pct">{{ $pct($cumple, $t) }}%</span></div>
+            </div>
+            <div class="pdb-chk-col">
+              <div class="pdb-chk-row is-main"><span class="num c-gray">{{ $t }}</span><span class="lbl">Aprobación</span><span class="pct">100%</span></div>
+              <div class="pdb-chk-bar"><i style="width:{{ $pct($pendiente, $t) }}%"></i></div>
+              <div class="pdb-chk-row"><span class="num c-gray">{{ $pendiente }}</span><span class="lbl">Pendiente</span><span class="pct">{{ $pct($pendiente, $t) }}%</span></div>
+              <div class="pdb-chk-row"><span class="num c-gray">{{ $enRevision }}</span><span class="lbl">En revisión</span><span class="pct">{{ $pct($enRevision, $t) }}%</span></div>
+              <div class="pdb-chk-row"><span class="num c-green">{{ $aprobado }}</span><span class="lbl">Aprobado</span><span class="pct">{{ $pct($aprobado, $t) }}%</span></div>
+            </div>
+            <div class="pdb-chk-total"><strong>{{ $t }}</strong><span>Total</span></div>
+          </div>
+        @else
+          <h3 class="pdb-card-title"><span class="ico is-violet">✨</span> monico insights</h3>
+          <div class="pdb-insights-empty">
+            <p>¿Quieres sugerencias para esta etapa?</p>
+            <button type="button" class="pdb-insights-btn"><span>✨</span> ask monico</button>
+          </div>
+        @endif
       </div>
     </div>
   </div>
@@ -348,15 +462,33 @@
           <span class="ico is-warning">📝</span>
           <div class="pdb-list-title-text">
             <span>Notas del Proyecto</span>
-            <span class="pdb-card-sub">0 notas</span>
+            <span class="pdb-card-sub">{{ $notas->count() }} {{ $notas->count() === 1 ? 'nota' : 'notas' }}</span>
           </div>
         </div>
       </div>
-      <div class="pdb-list-empty">
-        <div class="ico-empty">📄</div>
-        <div class="lbl">No hay notas aún</div>
-        <div class="sub">Agrega notas para registrar información importante</div>
-      </div>
+
+      @if($notas->count())
+        <div class="pdb-notes-scroll">
+          @foreach($notas as $nota)
+            <div class="pdb-note">
+              <div class="pdb-note-head">
+                <span class="pdb-note-avatar">{{ strtoupper(substr(optional($nota->user)->name ?? 'U', 0, 1)) }}</span>
+                <span class="pdb-note-author">{{ optional($nota->user)->name ?? 'Usuario' }}</span>
+                <span class="pdb-note-date">🕐 {{ $nota->created_at->format('j M Y') }}</span>
+                <button type="button" class="pdb-note-menu">⋮</button>
+              </div>
+              <div class="pdb-note-body">{{ $nota->content }}</div>
+            </div>
+          @endforeach
+        </div>
+      @else
+        <div class="pdb-list-empty">
+          <div class="ico-empty">📄</div>
+          <div class="lbl">No hay notas aún</div>
+          <div class="sub">Agrega notas para registrar información importante</div>
+        </div>
+      @endif
+
       <div class="pdb-list-input">
         <input type="text" placeholder="Agrega una nota y menciona a alguien con @…">
         <button class="add-btn">+</button>
@@ -369,13 +501,13 @@
           <span class="ico is-success">✓</span>
           <div class="pdb-list-title-text">
             <span>Tareas del Proyecto</span>
-            <span class="pdb-card-sub">0 pendientes · 0 completadas</span>
+            <span class="pdb-card-sub">{{ $tareasPend }} pendientes · {{ $tareasDone }} completadas</span>
           </div>
         </div>
         <div style="display:flex;gap:6px;align-items:center;">
           <button type="button" class="pdb-sort-btn" title="Ordenar A-Z">A↑</button>
           <button type="button" class="pdb-sort-btn" title="Ordenar Z-A">Z↓</button>
-          <button type="button" class="pdb-filter-btn">▽ Pendientes (0) ⌄</button>
+          <button type="button" class="pdb-filter-btn">▽ Pendientes ({{ $tareasPend }}) ⌄</button>
         </div>
       </div>
       <div class="pdb-list-empty">
@@ -396,7 +528,7 @@
     <div class="pdb-card">
       <h3 class="pdb-card-title"><span class="ico">🖼</span> Resumen de Documentos</h3>
 
-      {{-- Bases (abierto por defecto si hay archivos) --}}
+      {{-- Bases --}}
       <div class="pdb-doc-group tone-blue {{ $bases->count() ? 'is-open' : '' }}">
         <div class="pdb-doc-group-head js-doc-toggle">
           <div class="doc-ico">📄</div>
