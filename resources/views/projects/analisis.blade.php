@@ -377,9 +377,75 @@
       default => $project->status,
   };
 
-  $citaPayload = function ($citas, $key) {
-      $c = $citas[$key] ?? null;
-      if (!is_array($c) || empty($c['cita'])) return null;
+  $normalizaFuente = function ($text) {
+      $text = Str::ascii((string) $text);
+      $text = mb_strtolower($text, 'UTF-8');
+      $text = preg_replace('/[^a-z0-9]+/', ' ', $text);
+      return trim(preg_replace('/\s+/', ' ', $text));
+  };
+
+  $resolverCita = function ($citas, $key, $value = null, $label = null) use ($normalizaFuente) {
+      if (!is_array($citas) || empty($citas)) return null;
+
+      $tieneEvidencia = function ($c) {
+          return is_array($c) && (!empty($c['cita']) || !empty($c['fuente']) || !empty($c['pagina']));
+      };
+
+      if ($tieneEvidencia($citas[$key] ?? null)) {
+          return $citas[$key];
+      }
+
+      $keyBase = preg_replace('/^ficha\.|^fechas_clave\.|^resumen_ejecutivo\./', '', (string) $key);
+      $aliases = array_unique([
+          $key,
+          $keyBase,
+          str_replace('_', ' ', $keyBase),
+          str_replace('_', '.', $keyBase),
+          Str::snake((string) $label),
+          Str::slug((string) $label, '_'),
+      ]);
+
+      $aliasesNorm = array_filter(array_map($normalizaFuente, $aliases));
+
+      foreach ($citas as $citaKey => $citaData) {
+          if (!$tieneEvidencia($citaData)) continue;
+          $citaKeyNorm = $normalizaFuente($citaKey);
+          foreach ($aliasesNorm as $aliasNorm) {
+              if ($citaKeyNorm === $aliasNorm || str_ends_with($citaKeyNorm, ' '.$aliasNorm) || str_contains($citaKeyNorm, $aliasNorm)) {
+                  return $citaData;
+              }
+          }
+      }
+
+      $needle = $normalizaFuente(trim(($value ?? '').' '.($label ?? '')));
+      $words = array_values(array_unique(array_filter(explode(' ', $needle), fn($w) => mb_strlen($w) >= 4)));
+      if (count($words) < 2) return null;
+
+      $best = null;
+      $bestScore = 0;
+      foreach ($citas as $citaData) {
+          if (!$tieneEvidencia($citaData)) continue;
+          $haystack = $normalizaFuente(($citaData['cita'] ?? '').' '.($citaData['fuente'] ?? ''));
+          if (!$haystack) continue;
+
+          $score = 0;
+          foreach ($words as $w) {
+              if (str_contains($haystack, $w)) $score++;
+          }
+
+          if ($score > $bestScore) {
+              $bestScore = $score;
+              $best = $citaData;
+          }
+      }
+
+      $minScore = max(2, min(4, (int) ceil(count($words) * 0.30)));
+      return $bestScore >= $minScore ? $best : null;
+  };
+
+  $citaPayload = function ($citas, $key, $value = null, $label = null) use ($resolverCita) {
+      $c = $resolverCita($citas, $key, $value, $label);
+      if (!is_array($c) || (empty($c['cita']) && empty($c['fuente']) && empty($c['pagina']))) return null;
       return htmlspecialchars(json_encode([
           'cita'   => $c['cita'] ?? '',
           'fuente' => $c['fuente'] ?? '',
@@ -507,8 +573,8 @@
             @endphp
             @foreach($fichaRows as $row)
               @php
-                $payload = $citaPayload($citas, $row['key']);
-                $citaInfo = $citas[$row['key']] ?? null;
+                $payload = $citaPayload($citas, $row['key'], $row['val'] ?? null, $row['label'] ?? null);
+                $citaInfo = $resolverCita($citas, $row['key'], $row['val'] ?? null, $row['label'] ?? null);
                 $fuente = is_array($citaInfo) ? ($citaInfo['fuente'] ?? null) : null;
                 $pagina = is_array($citaInfo) ? ($citaInfo['pagina'] ?? null) : null;
                 $citaTexto = is_array($citaInfo) ? ($citaInfo['cita'] ?? null) : null;
@@ -522,7 +588,7 @@
                   <div class="pjd-source-card {{ $payload ? '' : 'is-empty' }}">
                     <button type="button" class="pjd-source-close" aria-label="Cerrar fuente">✕</button>
                     <div class="pjd-source-title">{{ $payload ? 'Cita del documento' : 'Fuente no registrada' }}</div>
-                    <div class="pjd-source-quote">{{ $citaTexto ?: 'No hay cita textual guardada para este dato. El valor puede venir del resumen estructurado, pero el backend/IA no guardó la evidencia específica en structured_data.citas para esta clave.' }}</div>
+                    <div class="pjd-source-quote">{{ $citaTexto ?: 'No hay cita textual guardada para este dato. Ya se intentó buscar por clave y por coincidencia del texto en structured_data.citas. Si sigue apareciendo así, el backend/IA no guardó evidencia específica para este valor.' }}</div>
                     <div class="pjd-source-meta">
                       <strong>Fuente:</strong>
                       <span>{{ $fuente ?: 'Sin archivo fuente registrado' }}</span>
@@ -556,8 +622,8 @@
             @endphp
             @foreach($fechasRows as $row)
               @php
-                $payload = $citaPayload($citas, $row['key']);
-                $citaInfo = $citas[$row['key']] ?? null;
+                $payload = $citaPayload($citas, $row['key'], $row['val'] ?? null, $row['label'] ?? null);
+                $citaInfo = $resolverCita($citas, $row['key'], $row['val'] ?? null, $row['label'] ?? null);
                 $fuente = is_array($citaInfo) ? ($citaInfo['fuente'] ?? null) : null;
                 $pagina = is_array($citaInfo) ? ($citaInfo['pagina'] ?? null) : null;
                 $citaTexto = is_array($citaInfo) ? ($citaInfo['cita'] ?? null) : null;
@@ -571,7 +637,7 @@
                   <div class="pjd-source-card {{ $payload ? '' : 'is-empty' }}">
                     <button type="button" class="pjd-source-close" aria-label="Cerrar fuente">✕</button>
                     <div class="pjd-source-title">{{ $payload ? 'Cita del documento' : 'Fuente no registrada' }}</div>
-                    <div class="pjd-source-quote">{{ $citaTexto ?: 'No hay cita textual guardada para este dato. El valor puede venir del resumen estructurado, pero el backend/IA no guardó la evidencia específica en structured_data.citas para esta clave.' }}</div>
+                    <div class="pjd-source-quote">{{ $citaTexto ?: 'No hay cita textual guardada para este dato. Ya se intentó buscar por clave y por coincidencia del texto en structured_data.citas. Si sigue apareciendo así, el backend/IA no guardó evidencia específica para este valor.' }}</div>
                     <div class="pjd-source-meta">
                       <strong>Fuente:</strong>
                       <span>{{ $fuente ?: 'Sin archivo fuente registrado' }}</span>
@@ -599,8 +665,10 @@
             @forelse($resumenEjec as $idx => $qa)
               @php
                 $resumenKey = "resumen_ejecutivo.{$idx}";
-                $payload = $citaPayload($citas, $resumenKey);
-                $citaInfo = $citas[$resumenKey] ?? null;
+                $respuestaResumen = $qa['respuesta'] ?? null;
+                $preguntaResumen = $qa['pregunta'] ?? null;
+                $payload = $citaPayload($citas, $resumenKey, $respuestaResumen, $preguntaResumen);
+                $citaInfo = $resolverCita($citas, $resumenKey, $respuestaResumen, $preguntaResumen);
                 $fuente = is_array($citaInfo) ? ($citaInfo['fuente'] ?? null) : null;
                 $pagina = is_array($citaInfo) ? ($citaInfo['pagina'] ?? null) : null;
                 $citaTexto = is_array($citaInfo) ? ($citaInfo['cita'] ?? null) : null;
@@ -614,7 +682,7 @@
                   <div class="pjd-source-card {{ $payload ? '' : 'is-empty' }}">
                     <button type="button" class="pjd-source-close" aria-label="Cerrar fuente">✕</button>
                     <div class="pjd-source-title">{{ $payload ? 'Cita del documento' : 'Fuente no registrada' }}</div>
-                    <div class="pjd-source-quote">{{ $citaTexto ?: 'No hay cita textual guardada para esta respuesta. El valor puede venir del resumen ejecutivo generado, pero el backend/IA no guardó la evidencia específica en structured_data.citas para esta clave.' }}</div>
+                    <div class="pjd-source-quote">{{ $citaTexto ?: 'No hay cita textual guardada para esta respuesta. Ya se intentó buscar por clave y por coincidencia del texto en structured_data.citas. Si sigue apareciendo así, el backend/IA no guardó evidencia específica para esta respuesta.' }}</div>
                     <div class="pjd-source-meta">
                       <strong>Fuente:</strong>
                       <span>{{ $fuente ?: 'Sin archivo fuente registrado' }}</span>
