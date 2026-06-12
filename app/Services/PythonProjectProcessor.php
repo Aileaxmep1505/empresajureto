@@ -18,7 +18,16 @@ class PythonProjectProcessor
     {
         $this->pythonBin = (string) env('PYTHON_BIN', '/usr/bin/python3');
 
-        // Usa exactamente la variable que ya tienes en tu .env
+        /*
+         |--------------------------------------------------------------------------
+         | Script Python de licitaciones
+         |--------------------------------------------------------------------------
+         |
+         | Usa tu variable actual del .env:
+         |
+         | AZURE_LICITACION_PDF_EXTRACT_SCRIPT=/home/u106036310/domains/jureto.com.mx/public_html/python-ai/app/services/azure_licitacion_pdf_extract.py
+         |
+         */
         $this->scriptPath = (string) env('AZURE_LICITACION_PDF_EXTRACT_SCRIPT', '');
 
         $this->timeoutSeconds = (int) env('PYTHONAI_TIMEOUT', 900);
@@ -26,7 +35,8 @@ class PythonProjectProcessor
     }
 
     /**
-     * Este es el método que llama tu controller:
+     * Método que llama tu controller:
+     *
      * $processor->process($project, $paths);
      */
     public function process(Project $project, array $absoluteFilePaths): array
@@ -43,15 +53,23 @@ class PythonProjectProcessor
         }
 
         return [
-            'structured_data' => $structured,
-            'documents' => $payload['documents'] ?? [],
+            'structured_data'   => $structured,
+            'documents'         => $payload['documents'] ?? [],
             'raw_text_combined' => $payload['raw_text_combined'] ?? null,
-            'raw' => $payload,
+            'raw'               => $payload,
         ];
     }
 
     /**
-     * Procesa N archivos con Azure + OpenAI vía el script Python.
+     * Procesa N archivos con Azure + OpenAI vía Python.
+     *
+     * Importante:
+     * Tu .env global puede seguir teniendo:
+     * OPENAI_PRIMARY_MODEL=gpt-5.5
+     * OPENAI_MODEL=gpt-5.4
+     *
+     * Pero SOLO para este proceso de licitación forzamos:
+     * gpt-5.4-mini
      */
     public function run(array $absoluteFilePaths, array $context = []): array
     {
@@ -63,25 +81,59 @@ class PythonProjectProcessor
         );
 
         Log::info('PythonProjectProcessor: ejecutando', [
-            'cmd' => $command,
+            'cmd'         => $command,
             'files_count' => count($absoluteFilePaths),
-            'context' => $context,
+            'context'     => $context,
+            'forced_model_for_licitacion' => 'gpt-5.4-mini',
         ]);
 
         $process = new Process($command);
         $process->setTimeout($this->timeoutSeconds);
         $process->setIdleTimeout($this->idleTimeoutSeconds);
 
+        /*
+         |--------------------------------------------------------------------------
+         | Variables de entorno para este proceso Python
+         |--------------------------------------------------------------------------
+         |
+         | Aquí no modificamos tu .env global.
+         | Solo le pasamos a ESTE script los modelos forzados.
+         |
+         */
         $process->setEnv([
             'PATH' => getenv('PATH') ?: '/usr/local/bin:/usr/bin:/bin',
+            'HOME' => getenv('HOME') ?: base_path(),
 
-            'OPENAI_API_KEY' => env('OPENAI_API_KEY'),
-            'OPENAI_PRIMARY_MODEL' => env('OPENAI_PRIMARY_MODEL', env('OPENAI_MODEL', 'gpt-5.4')),
-            'OPENAI_MODEL' => env('OPENAI_MODEL', env('OPENAI_PRIMARY_MODEL', 'gpt-5.4')),
-            'OPENAI_FALLBACK_MODELS' => env('OPENAI_FALLBACK_MODELS', 'gpt-5.5,gpt-5,gpt-4.1,gpt-4o'),
+            /*
+             | OpenAI
+             */
+            'OPENAI_BASE_URL' => env('OPENAI_BASE_URL', 'https://api.openai.com'),
+            'OPENAI_API_KEY'  => env('OPENAI_API_KEY'),
 
-            'AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT' => env('AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT'),
-            'AZURE_DOCUMENT_INTELLIGENCE_KEY' => env('AZURE_DOCUMENT_INTELLIGENCE_KEY'),
+            /*
+             | Modelo forzado SOLO para este extractor
+             */
+            'OPENAI_MODEL'             => 'gpt-5.4-mini',
+            'OPENAI_PRIMARY_MODEL'     => 'gpt-5.4-mini',
+            'OPENAI_FALLBACK_MODELS'   => 'gpt-5.4-mini',
+            'OPENAI_JSON_REPAIR_MODEL' => 'gpt-5.4-mini',
+            'OPENAI_MATCH_MODEL'       => 'gpt-5.4-mini',
+            'AI_MODEL'                 => 'gpt-5.4-mini',
+
+            /*
+             | OpenAI timeouts/reintentos
+             */
+            'OPENAI_TIMEOUT'            => env('OPENAI_TIMEOUT', 300),
+            'OPENAI_CONNECT_TIMEOUT'    => env('OPENAI_CONNECT_TIMEOUT', 30),
+            'OPENAI_RETRIES_PER_MODEL'  => env('OPENAI_RETRIES_PER_MODEL', 2),
+            'OPENAI_RETRY_BASE_MS'      => env('OPENAI_RETRY_BASE_MS', 400),
+            'OPENAI_MAX_TOTAL_ATTEMPTS' => env('OPENAI_MAX_TOTAL_ATTEMPTS', 6),
+
+            /*
+             | Azure Document Intelligence
+             */
+            'AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT'    => env('AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT'),
+            'AZURE_DOCUMENT_INTELLIGENCE_KEY'         => env('AZURE_DOCUMENT_INTELLIGENCE_KEY'),
             'AZURE_DOCUMENT_INTELLIGENCE_API_VERSION' => env('AZURE_DOCUMENT_INTELLIGENCE_API_VERSION', '2024-11-30'),
         ]);
 
@@ -111,7 +163,7 @@ class PythonProjectProcessor
 
         if ($stderr !== '') {
             Log::info('PythonProjectProcessor STDERR', [
-                'stderr' => mb_substr($stderr, 0, 4000),
+                'stderr'  => mb_substr($stderr, 0, 4000),
                 'context' => $context,
             ]);
         }
@@ -124,7 +176,7 @@ class PythonProjectProcessor
 
         if (!is_array($payload)) {
             Log::error('PythonProjectProcessor: JSON no parseable', [
-                'stdout' => mb_substr($stdout, 0, 2000),
+                'stdout'  => mb_substr($stdout, 0, 2000),
                 'context' => $context,
             ]);
 
@@ -137,13 +189,15 @@ class PythonProjectProcessor
                 'context' => $context,
             ]);
 
-            throw new \Exception('Python reportó error: ' . ($payload['error'] ?? $payload['message'] ?? 'desconocido'));
+            throw new \Exception(
+                'Python reportó error: ' . ($payload['error'] ?? $payload['message'] ?? 'desconocido')
+            );
         }
 
         if (!isset($payload['structured']) || !is_array($payload['structured'])) {
             Log::error('PythonProjectProcessor: falta structured', [
                 'payload_keys' => array_keys($payload),
-                'context' => $context,
+                'context'      => $context,
             ]);
 
             throw new \Exception('Python respondió ok=true, pero no devolvió structured.');
@@ -235,9 +289,9 @@ class PythonProjectProcessor
     {
         Log::error('PythonProjectProcessor falló', [
             'exit_code' => $process->getExitCode(),
-            'stderr' => mb_substr($process->getErrorOutput(), 0, 4000),
-            'stdout' => mb_substr($process->getOutput(), 0, 4000),
-            'context' => $context,
+            'stderr'    => mb_substr($process->getErrorOutput(), 0, 4000),
+            'stdout'    => mb_substr($process->getOutput(), 0, 4000),
+            'context'   => $context,
         ]);
     }
 }
