@@ -620,24 +620,77 @@
         : null;
     };
 
+    // ========================================================
+    // ARMADO DE FILAS — cada fila con productos DISTINTOS (sin repetir)
+    // ========================================================
     $productSections = collect();
+    $usedIds = [];
+
+    // Toma N productos de una colección, EXCLUYENDO los ya usados en filas anteriores
+    $take = function ($collection, $limit = 18) use (&$usedIds) {
+      $picked = $collection
+        ->reject(fn($p) => in_array($p->id, $usedIds))
+        ->take($limit)
+        ->values();
+      foreach ($picked as $p) { $usedIds[] = $p->id; }
+      return $picked;
+    };
 
     if ($catalogProducts->count()) {
-      $productSections->push([
-        'title' => 'Para ti',
-        'url'   => route('web.catalog.index'),
-        'items' => $catalogProducts->take(18)->values(),
-      ]);
 
-      $groupedCategories = $catalogProducts
-        ->groupBy(fn($p) => trim($p->category?->name ?? 'Otros'))
-        ->filter(fn($items, $name) => $items->count() > 0 && $name !== '');
-
-      foreach ($groupedCategories as $categoryName => $items) {
+      // 1) PARA TI → destacados (o lo mejor disponible si no hay destacados)
+      $featured = $catalogProducts->filter(fn($p) => (bool)($p->is_featured ?? false))->values();
+      $paraTi   = $take($featured->count() ? $featured : $catalogProducts, 18);
+      if ($paraTi->count()) {
         $productSections->push([
-          'title' => $categoryName,
-          'url'   => route('web.catalog.index', ['q' => $categoryName]),
-          'items' => $items->take(18)->values(),
+          'title' => 'Para ti',
+          'url'   => route('web.catalog.index'),
+          'items' => $paraTi,
+        ]);
+      }
+
+      // 2) OFERTAS → productos con descuento real (sin repetir los de arriba)
+      $ofertas = $take(
+        $catalogProducts->filter(fn($p) =>
+          !is_null($p->sale_price)
+          && (float)$p->sale_price > 0
+          && (float)$p->sale_price < (float)$p->price
+        )->values(),
+        18
+      );
+      if ($ofertas->count()) {
+        $productSections->push([
+          'title' => 'Ofertas',
+          'url'   => route('web.catalog.index', ['order' => 'price_asc']),
+          'items' => $ofertas,
+        ]);
+      }
+
+      // 3) POR CATEGORÍA → solo categorías reales, sin repetir productos
+      $grouped = $catalogProducts
+        ->filter(fn($p) => !empty($p->category?->name))
+        ->groupBy(fn($p) => trim($p->category->name));
+
+      foreach ($grouped as $categoryName => $items) {
+        $picked = $take($items->values(), 18);
+        if ($picked->count()) {
+          $productSections->push([
+            'title' => $categoryName,
+            'url'   => route('web.catalog.index', ['s' => $categoryName]),
+            'items' => $picked,
+          ]);
+        }
+      }
+
+      // 4) EL RESTO → se reparte en filas nuevas, cada una con productos DISTINTOS
+      $restTitles = ['Otros', 'Más productos', 'También te puede interesar', 'Explora más', 'Recomendados'];
+      foreach ($restTitles as $restTitle) {
+        $picked = $take($catalogProducts, 18);
+        if (!$picked->count()) break; // ya no quedan productos
+        $productSections->push([
+          'title' => $restTitle,
+          'url'   => route('web.catalog.index'),
+          'items' => $picked,
         ]);
       }
     }

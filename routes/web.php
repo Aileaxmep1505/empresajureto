@@ -111,7 +111,8 @@ use App\Http\Controllers\InventoryAssignmentController;
 
 Route::get('/admin/catalog/analytics', [\App\Http\Controllers\Admin\CatalogItemController::class, 'analytics'])
     ->name('admin.catalog.analytics');
- Route::get('/catalogo/{item}', [InventoryController::class, 'publicCatalog'])
+Route::get('/catalogo/{item}', [InventoryController::class, 'publicCatalog'])
+    ->whereNumber('item')
     ->name('assets.public-catalog');
 
 Route::get('/admin/catalog/analytics/pdf', [\App\Http\Controllers\Admin\CatalogItemController::class, 'analyticsPdf'])

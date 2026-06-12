@@ -507,10 +507,11 @@
   <section id="hero">
     <div class="container">
       <div class="topbar">
-        <a class="back" href="{{ route('web.catalog.index') }}">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-          Volver
-        </a>
+<a class="back" href="{{ route('web.catalog.index') }}"
+   onclick="if (document.referrer && history.length > 1) { event.preventDefault(); history.back(); }">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+  Volver
+</a>
       </div>
 
       <div class="grid">
