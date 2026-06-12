@@ -589,7 +589,7 @@
                 </div>
 
                 <div class="pj-upload-box" id="projectDropzone">
-                    <input type="file" name="documents[]" id="projectDocuments" class="pj-file-input" multiple accept=".pdf,.doc,.docx">
+                    <input type="file" name="files[]" id="projectDocuments" class="pj-file-input" multiple accept=".pdf,.doc,.docx">
                     <div class="pj-upload-icon-wrap">
                         <svg viewBox="0 0 24 24" fill="none" class="pj-upload-icon"><path d="M7 16a4 4 0 0 1-.3-7.99A5.5 5.5 0 0 1 17 6.5a4.5 4.5 0 0 1 1 8.89M12 21V10m0 0-4 4m4-4 4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
                     </div>
