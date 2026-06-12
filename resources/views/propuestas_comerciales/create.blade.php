@@ -5,23 +5,28 @@
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
 
     :root {
-        --primary: #007AFF;
-        --primary-light: #EBF5FF;
-        --accent: #8B5CF6;
-        --success: #00a650;
+        /* Paleta moderna y corporativa (estilo SaaS) */
+        --primary: #2563eb; /* Azul Royal */
+        --primary-light: #eff6ff;
+        --accent: #6366f1; /* Índigo */
+        --success: #10b981; /* Esmeralda */
         --danger: #ef4444;
-        --warning: #b45309;
-        --text-main: #1F2937;
-        --text-muted: #6B7280;
-        --glass-bg: rgba(255, 255, 255, 0.85);
-        --glass-border: rgba(255, 255, 255, 0.5);
+        --warning: #f59e0b;
+        --text-main: #0f172a; /* Slate 900 */
+        --text-muted: #64748b; /* Slate 500 */
+        --glass-bg: rgba(255, 255, 255, 0.75);
+        --glass-border: rgba(255, 255, 255, 0.6);
+    }
+
+    @property --btn-angle {
+        syntax: '<angle>';
+        initial-value: 0deg;
+        inherits: false;
     }
 
     .ai-wrapper {
         font-family: 'Plus Jakarta Sans', sans-serif;
-        background: #f8fafc;
-        background: radial-gradient(at 0% 0%, rgba(235, 245, 255, 1) 0, transparent 50%),
-                    radial-gradient(at 100% 100%, rgba(245, 243, 255, 1) 0, transparent 50%);
+        background: #f1f5f9; /* Fondo gris/azulado muy suave y profesional */
         min-height: 100vh;
         display: flex;
         align-items: center;
@@ -31,62 +36,88 @@
         padding: 24px;
     }
 
-    .orb {
+    #gridCanvas {
         position: absolute;
-        width: 500px;
-        height: 500px;
-        border-radius: 50%;
-        filter: blur(100px);
+        inset: 0;
         z-index: 0;
-        opacity: 0.4;
-        animation: orbRotate 20s infinite alternate;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
     }
 
-    .orb-blue { background: #60a5fa; top: -10%; left: -10%; }
-    .orb-purple { background: #c084fc; bottom: -10%; right: -10%; animation-delay: -5s; }
-
-    @keyframes orbRotate {
-        from { transform: translate(0, 0) scale(1); }
-        to { transform: translate(50px, 100px) scale(1.2); }
-    }
-
+    /* ============ Tarjeta ============ */
     .glass-container {
         position: relative;
         z-index: 10;
         width: 100%;
         max-width: 550px;
         background: var(--glass-bg);
-        backdrop-filter: blur(30px) saturate(150%);
-        -webkit-backdrop-filter: blur(30px) saturate(150%);
+        backdrop-filter: blur(24px) saturate(120%);
+        -webkit-backdrop-filter: blur(24px) saturate(120%);
         border: 1px solid var(--glass-border);
-        border-radius: 32px;
+        border-radius: 28px;
         padding: 48px;
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
+        box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(15, 23, 42, 0.02);
         text-align: center;
         transition: all 0.5s ease;
     }
 
-    .title { font-size: 26px; font-weight: 700; color: var(--text-main); margin-bottom: 12px; }
+    .title { font-size: 26px; font-weight: 700; color: var(--text-main); margin-bottom: 12px; letter-spacing: -0.02em; }
     .desc { color: var(--text-muted); font-size: 15px; line-height: 1.6; margin-bottom: 32px; }
     .upload-area { transition: all 0.4s ease; }
 
     .icon-box {
         width: 80px; height: 80px; background: white; border-radius: 24px;
         display: flex; align-items: center; justify-content: center;
-        margin: 0 auto 24px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05);
+        margin: 0 auto 24px; box-shadow: 0 10px 25px -5px rgba(37, 99, 235, 0.1);
         color: var(--primary); animation: floatIcon 3s infinite ease-in-out;
     }
 
-    @keyframes floatIcon { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+    @keyframes floatIcon { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
 
+    /* ============ Botón ============ */
     .file-btn {
-        background: var(--primary); color: white; padding: 16px 40px; border-radius: 100px;
-        font-weight: 600; font-size: 16px; border: none; cursor: pointer; transition: all 0.3s;
-        box-shadow: 0 10px 20px rgba(0, 122, 255, 0.2); display: inline-block;
+        position: relative;
+        background: var(--primary);
+        color: white;
+        padding: 16px 40px;
+        border-radius: 100px;
+        font-weight: 600;
+        font-size: 16px;
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s;
+        box-shadow: 0 10px 20px -5px rgba(37, 99, 235, 0.3);
+        display: inline-block;
+        isolation: isolate;
     }
 
-    .file-btn:hover { background: #0066d6; transform: scale(1.05); box-shadow: 0 15px 25px rgba(0, 122, 255, 0.3); }
+    /* Anillo delgado de gradiente más profesional */
+    .file-btn::before {
+        content: '';
+        position: absolute;
+        inset: -2px;
+        border-radius: 100px;
+        padding: 2px;
+        background: conic-gradient(from var(--btn-angle),
+            #2563eb, #38bdf8, #6366f1, #2563eb);
+        -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+        -webkit-mask-composite: xor;
+        mask-composite: exclude;
+        animation: btnSpin 3s linear infinite;
+        pointer-events: none;
+    }
+
+    @keyframes btnSpin {
+        to { --btn-angle: 360deg; }
+    }
+
+    .file-btn:hover { background: #1d4ed8; transform: translateY(-1px); box-shadow: 0 15px 25px -5px rgba(37, 99, 235, 0.4); }
     .file-btn.disabled { opacity: .6; cursor: not-allowed; pointer-events: none; }
+
+    @media (prefers-reduced-motion: reduce) {
+        .file-btn::before { animation: none; }
+    }
 
     .ai-processing { display: none; opacity: 0; transition: opacity 0.5s ease; }
     .ai-processing.active { display: block; opacity: 1; }
@@ -101,79 +132,78 @@
 
     .meta-data {
         display: flex; justify-content: space-between; margin-bottom: 12px;
-        font-size: 14px; font-weight: 700; color: var(--text-main);
+        font-size: 14px; font-weight: 600; color: var(--text-main);
     }
 
-    .bar-track { height: 12px; background: #f1f5f9; border-radius: 100px; overflow: hidden; position: relative; }
+    .bar-track { height: 10px; background: #e2e8f0; border-radius: 100px; overflow: hidden; position: relative; }
 
     .bar-fill {
         height: 100%; width: 0%; border-radius: 100px; position: relative;
-        background: linear-gradient(90deg, #007AFF, #8B5CF6, #007AFF);
-        background-size: 200% 100%; transition: width 0.35s ease;
+        background: linear-gradient(90deg, var(--primary), var(--accent), var(--primary));
+        background-size: 200% 100%; transition: width 0.4s ease;
     }
 
     .bar-fill::after {
         content: ""; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
         animation: shimmer 1.5s infinite;
     }
 
     @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
 
-    .ai-message { font-size: 16px; color: var(--text-main); font-weight: 500; min-height: 24px; transition: opacity 0.3s ease; }
+    .ai-message { font-size: 15px; color: var(--text-main); font-weight: 500; min-height: 24px; transition: opacity 0.3s ease; }
 
     .timer-pill {
-        display: inline-flex; align-items: center; gap: 6px; background: #F3F4F6;
-        padding: 6px 16px; border-radius: 100px; color: var(--text-muted); font-size: 13px; margin-top: 24px;
+        display: inline-flex; align-items: center; gap: 6px; background: #e2e8f0;
+        padding: 6px 16px; border-radius: 100px; color: var(--text-muted); font-size: 13px; margin-top: 24px; font-weight: 500;
     }
 
     .status-card {
-        display: none; margin-top: 26px; border-radius: 18px; padding: 16px; text-align: left;
+        display: none; margin-top: 26px; border-radius: 16px; padding: 16px; text-align: left;
         border: 1px solid transparent; font-size: 14px; line-height: 1.55;
     }
 
     .status-card.show { display: block; }
     .status-card.error { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
     .status-card.warning { background: #fffbeb; border-color: #fde68a; color: #92400e; }
-    .status-card-title { display: block; font-weight: 800; margin-bottom: 5px; }
+    .status-card-title { display: block; font-weight: 700; margin-bottom: 4px; }
     .status-card-message { display: block; word-break: break-word; }
 
     .retry-btn {
-        margin-top: 14px; border: 0; background: #fff; color: var(--primary); border-radius: 12px;
-        padding: 10px 14px; font-weight: 800; cursor: pointer; box-shadow: 0 6px 14px rgba(0,0,0,.04);
+        margin-top: 12px; border: 0; background: #fff; color: var(--primary); border-radius: 10px;
+        padding: 8px 14px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 6px -1px rgba(0,0,0,.05); transition: background 0.2s;
     }
 
     .retry-btn:hover { background: #f8fafc; }
 
     .success-area { display: none; text-align: center; }
-    .success-area.active { display: block; animation: popIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+    .success-area.active { display: block; animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
 
-    @keyframes popIn { 0% { opacity: 0; transform: scale(0.8); } 100% { opacity: 1; transform: scale(1); } }
+    @keyframes popIn { 0% { opacity: 0; transform: scale(0.9); } 100% { opacity: 1; transform: scale(1); } }
 
     .check-circle {
-        width: 90px; height: 90px; background: var(--success); border-radius: 50%;
+        width: 80px; height: 80px; background: var(--success); border-radius: 50%;
         display: flex; align-items: center; justify-content: center; margin: 0 auto 24px;
-        box-shadow: 0 15px 30px rgba(0, 166, 80, 0.3);
+        box-shadow: 0 15px 30px -5px rgba(16, 185, 129, 0.3);
     }
 
     .check-circle svg {
-        width: 45px; height: 45px; color: white; stroke-dasharray: 100; stroke-dashoffset: 100;
-        animation: drawCheck 0.6s ease forwards 0.3s;
+        width: 40px; height: 40px; color: white; stroke-dasharray: 100; stroke-dashoffset: 100;
+        animation: drawCheck 0.5s ease forwards 0.2s;
     }
 
     @keyframes drawCheck { to { stroke-dashoffset: 0; } }
     .hidden { display: none !important; }
 
     @media (max-width: 640px) {
-        .glass-container { padding: 32px 22px; border-radius: 26px; }
-        .title { font-size: 23px; }
+        .glass-container { padding: 32px 20px; border-radius: 24px; }
+        .title { font-size: 22px; }
         .file-btn { width: 100%; padding: 15px 20px; }
     }
 </style>
 
 <div class="ai-wrapper">
-    <div class="orb orb-blue"></div>
-    <div class="orb orb-purple"></div>
+    <canvas id="gridCanvas"></canvas>
 
     <div class="glass-container">
 
@@ -247,6 +277,187 @@
 
     </div>
 </div>
+
+<script>
+    /* ============================================================
+     * Cuadrícula viva: muy sutil y casi invisible en reposo.
+     * ============================================================ */
+    (function () {
+        const canvas = document.getElementById('gridCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const SPACING = 42;          // separación de la cuadrícula
+        const RIPPLE_SPEED = 220;    // px por segundo
+        const RIPPLE_WIDTH = 90;     // grosor de la onda
+        const RIPPLE_LIFE = 4.5;     // segundos de vida de cada onda
+        const RIPPLE_EVERY = 2.2;    // segundos entre gotas
+        const MAX_DISPLACE = 14;     // cuánto se deforma la cuadrícula
+        const HUE_SPEED = 18;        // grados de tono por segundo
+
+        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        let width = 0, height = 0, dpr = 1;
+        let cols = 0, rows = 0;
+        let ripples = [];
+        let lastRipple = 0;
+        let startTime = performance.now();
+
+        function resize() {
+            dpr = Math.min(window.devicePixelRatio || 1, 2);
+            width = canvas.offsetWidth;
+            height = canvas.offsetHeight;
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            cols = Math.ceil(width / SPACING) + 2;
+            rows = Math.ceil(height / SPACING) + 2;
+        }
+
+        function spawnRipple(x, y, t) {
+            ripples.push({ x, y, born: t });
+            if (ripples.length > 6) ripples.shift();
+        }
+
+        function waveAt(px, py, t) {
+            let dx = 0, dy = 0, energy = 0;
+
+            for (const r of ripples) {
+                const age = t - r.born;
+                if (age < 0 || age > RIPPLE_LIFE) continue;
+
+                const ddx = px - r.x;
+                const ddy = py - r.y;
+                const dist = Math.sqrt(ddx * ddx + ddy * ddy) || 1;
+
+                const front = age * RIPPLE_SPEED;
+                const gap = dist - front;
+                const fall = Math.exp(-(gap * gap) / (2 * RIPPLE_WIDTH * RIPPLE_WIDTH));
+                const decay = 1 - age / RIPPLE_LIFE;
+
+                const force = fall * decay;
+                if (force < 0.01) continue;
+
+                dx += (ddx / dist) * force * MAX_DISPLACE;
+                dy += (ddy / dist) * force * MAX_DISPLACE;
+                energy += force;
+            }
+
+            return { dx, dy, energy: Math.min(energy, 1) };
+        }
+
+        function draw(now) {
+            const t = (now - startTime) / 1000;
+            ctx.clearRect(0, 0, width, height);
+
+            if (t - lastRipple > RIPPLE_EVERY) {
+                spawnRipple(
+                    width * (0.15 + Math.random() * 0.7),
+                    height * (0.15 + Math.random() * 0.7),
+                    t
+                );
+                lastRipple = t;
+            }
+
+            const hue = (210 + t * HUE_SPEED) % 360; 
+
+            const cx = width / 2, cy = height / 2;
+            const maxR = Math.sqrt(cx * cx + cy * cy);
+
+            ctx.lineWidth = 1;
+
+            /* Líneas casi imperceptibles */
+            for (let j = 0; j <= rows; j++) {
+                ctx.beginPath();
+                for (let i = 0; i <= cols; i++) {
+                    const gx = i * SPACING;
+                    const gy = j * SPACING;
+                    const w = waveAt(gx, gy, t);
+                    const x = gx + w.dx;
+                    const y = gy + w.dy;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.strokeStyle = `rgba(148, 163, 184, 0.04)`; /* Slate muy tenue */
+                ctx.stroke();
+            }
+
+            for (let i = 0; i <= cols; i++) {
+                ctx.beginPath();
+                for (let j = 0; j <= rows; j++) {
+                    const gx = i * SPACING;
+                    const gy = j * SPACING;
+                    const w = waveAt(gx, gy, t);
+                    const x = gx + w.dx;
+                    const y = gy + w.dy;
+                    if (j === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.strokeStyle = `rgba(148, 163, 184, 0.04)`; /* Slate muy tenue */
+                ctx.stroke();
+            }
+
+            /* Puntos invisibles en reposo, brillan con la onda */
+            for (let i = 0; i <= cols; i++) {
+                for (let j = 0; j <= rows; j++) {
+                    const gx = i * SPACING;
+                    const gy = j * SPACING;
+                    const w = waveAt(gx, gy, t);
+
+                    // Si no hay energía, no gastamos recursos dibujando el punto
+                    if (w.energy < 0.01) continue; 
+
+                    const distC = Math.sqrt((gx - cx) ** 2 + (gy - cy) ** 2);
+                    const edgeFade = Math.max(0, 1 - distC / maxR);
+
+                    // La opacidad depende completamente de la energía de la gota
+                    const alpha = (w.energy * 0.85) * (0.35 + edgeFade * 0.65);
+                    const size = 1.2 + w.energy * 2.2;
+                    const dotHue = (hue + w.energy * 60) % 360;
+
+                    ctx.beginPath();
+                    ctx.arc(gx + w.dx, gy + w.dy, size, 0, Math.PI * 2);
+                    ctx.fillStyle = `hsla(${dotHue}, 85%, 55%, ${alpha})`;
+                    ctx.fill();
+                }
+            }
+
+            requestAnimationFrame(draw);
+        }
+
+        function drawStatic() {
+            ctx.clearRect(0, 0, width, height);
+            ctx.strokeStyle = 'rgba(148, 163, 184, 0.03)'; /* Casi invisible */
+            ctx.lineWidth = 1;
+
+            for (let j = 0; j <= rows; j++) {
+                ctx.beginPath();
+                ctx.moveTo(0, j * SPACING);
+                ctx.lineTo(width, j * SPACING);
+                ctx.stroke();
+            }
+
+            for (let i = 0; i <= cols; i++) {
+                ctx.beginPath();
+                ctx.moveTo(i * SPACING, 0);
+                ctx.lineTo(i * SPACING, height);
+                ctx.stroke();
+            }
+        }
+
+        resize();
+        window.addEventListener('resize', () => {
+            resize();
+            if (reducedMotion) drawStatic();
+        });
+
+        if (reducedMotion) {
+            drawStatic();
+        } else {
+            spawnRipple(width / 2, height / 2, 0.4); 
+            requestAnimationFrame(draw);
+        }
+    })();
+</script>
 
 <script>
     window.documentAiStartUrl = @json(route('document-ai.start'));

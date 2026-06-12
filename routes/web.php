@@ -2326,3 +2326,13 @@ Route::post('resultados-adjudicacion/{resultado}/facturar/prueba', [FacturacionC
     ->name('propuestas-comerciales.resultado.facturar.resolver');
     Route::post('resultados-adjudicacion/{resultado}/facturar/buscar-clave', [FacturacionController::class, 'buscarClave'])
     ->name('propuestas-comerciales.resultado.facturar.buscar');
+
+    use App\Http\Controllers\PropuestaPickingController;
+
+Route::get('propuestas-comerciales/resultados/{resultado}/picking/empate', [PropuestaPickingController::class, 'empate'])
+    ->name('propuestas-comerciales.resultado.picking.empate');
+
+Route::post('propuestas-comerciales/resultados/{resultado}/picking/buscar-producto', [PropuestaPickingController::class, 'buscarProducto'])
+    ->name('propuestas-comerciales.resultado.picking.buscar-producto');
+    Route::post('propuestas-comerciales/resultados/{resultado}/picking/crear', [PropuestaPickingController::class, 'crearPicking'])
+    ->name('propuestas-comerciales.resultado.picking.crear');

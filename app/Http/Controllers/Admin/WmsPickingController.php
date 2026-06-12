@@ -2965,4 +2965,59 @@ class WmsPickingController extends Controller implements HasMiddleware
 
         return $item;
     }
+        /** Crea un PickWave desde un payload ya armado (p. ej. desde una propuesta). */
+    public function createFromPayload(array $form): PickWave
+    {
+        $totalPhases = max(1, (int) ($form['total_phases'] ?? 1));
+
+        $items = $this->normalizeItems($form['items'] ?? [], $totalPhases);
+        $deliveries = $this->normalizeDeliveries($form['deliveries'] ?? [], $totalPhases);
+
+        if (empty($items)) {
+            throw ValidationException::withMessages([
+                'items' => 'No hay partidas válidas para surtir.',
+            ]);
+        }
+        if (empty($deliveries)) {
+            $deliveries = $this->normalizeDeliveries([], $totalPhases);
+        }
+
+        $warehouseId = $this->resolveWarehouseId(isset($form['warehouse_id']) ? (int) $form['warehouse_id'] : null);
+
+        $assignedUserId = !empty($form['assigned_user_id']) ? (int) $form['assigned_user_id'] : null;
+        $assignedTo = '';
+        if ($assignedUserId) {
+            $user = User::query()->find($assignedUserId);
+            $assignedTo = (string) ($user->name ?? '');
+        }
+
+        $payload = [
+            'warehouse_id'     => $warehouseId,
+            'task_number'      => trim((string) ($form['task_number'] ?? '')) !== ''
+                ? trim((string) $form['task_number'])
+                : $this->getNextTaskNumber(),
+            'order_number'     => trim((string) ($form['order_number'] ?? '')),
+            'assigned_user_id' => $assignedUserId,
+            'assigned_to'      => $assignedTo,
+            'priority'         => $form['priority'] ?? 'normal',
+            'notes'            => (string) ($form['notes'] ?? ''),
+            'status'           => 'pending',
+            'started_at'       => null,
+            'completed_at'     => null,
+            'total_phases'     => $totalPhases,
+            'deliveries'       => $deliveries,
+            'items'            => $items,
+        ];
+
+        $created = null;
+
+        DB::transaction(function () use ($payload, &$created) {
+            $pickWave = new PickWave();
+            $this->persistTask($pickWave, $payload);
+            $created = $pickWave;
+            $this->reserveStockForTask($pickWave);
+        });
+
+        return $created;
+    }
 }

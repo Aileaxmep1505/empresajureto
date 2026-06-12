@@ -15,6 +15,34 @@ class FacturacionController extends Controller
     private const CLAVE_PRODSERV_DEFAULT = '01010101';
     private const CLAVE_UNIDAD_DEFAULT = 'H87';
 
+    /** Catálogo corto de claves de unidad SAT que puede elegir la IA (enum) + su significado para el prompt. */
+    private const UNIDADES_SAT = [
+        'H87' => 'Pieza',
+        'EA'  => 'Elemento / unidad',
+        'XBX' => 'Caja',
+        'XPK' => 'Paquete',
+        'XBG' => 'Bolsa',
+        'KGM' => 'Kilogramo',
+        'GRM' => 'Gramo',
+        'LTR' => 'Litro',
+        'MLT' => 'Mililitro',
+        'MTR' => 'Metro',
+        'CMT' => 'Centímetro',
+        'E48' => 'Servicio',
+        'PR'  => 'Par',
+        'SET' => 'Juego / kit / set',
+        'RO'  => 'Rollo',
+        'XBO' => 'Botella',
+        'XFL' => 'Frasco',
+        'DZN' => 'Docena',
+        'TNE' => 'Tonelada',
+        'HUR' => 'Hora',
+        'DAY' => 'Día',
+        'XKT' => 'Kit',
+        'A9'  => 'Tarifa',
+        'ACT' => 'Actividad',
+    ];
+
     public function form(PropuestaResultado $resultado)
     {
         $ganadas = $this->ganadas($resultado);
@@ -25,7 +53,7 @@ class FacturacionController extends Controller
         return view('propuestas_comerciales.facturar', compact('resultado', 'ganadas', 'folio', 'cliente', 'ivaPct'));
     }
 
-    /** Solo arma las filas + clave de unidad (rápido). La ClaveProdServ se resuelve por AJAX. */
+    /** Solo arma las filas + clave de unidad tentativa (rápida). La IA refina ambas claves vía AJAX. */
     private function ganadas(PropuestaResultado $resultado): array
     {
         $resultado->loadMissing(['propuesta.items', 'items']);
@@ -46,7 +74,9 @@ class FacturacionController extends Controller
             $precio = (float) ((optional($s)->precio_ofertado) ?: $item->precio_unitario);
             $unidad = $item->unidad_solicitada ?: 'Pieza';
             $descripcion = $item->descripcion_original ?: 'Producto';
-            $cacheKey = $this->cacheKeyProd($descripcion);
+
+            $claveProd = (string) (Cache::get($this->cacheKeyProd($descripcion)) ?: '');
+            $claveUni = $this->claveUnidad($unidad);
 
             $rows[] = [
                 'num' => $item->partida_numero ?: ($index + 1),
@@ -55,31 +85,31 @@ class FacturacionController extends Controller
                 'cantidad' => $qty,
                 'precio' => $precio,
                 'importe' => round($qty * $precio, 2),
-                // Si ya está en caché, la mostramos; si no, vacío y la llena el AJAX.
-                'clave_prodserv' => (string) (Cache::get($cacheKey) ?: ''),
-                'clave_unidad' => $this->claveUnidad($unidad),
+                // Si ya está en caché la mostramos; si no, vacío y la llena el AJAX con IA.
+                'clave_prodserv' => $claveProd,
+                'nombre_prodserv' => $claveProd ? $this->nombreProdserv($claveProd) : '',
+                'clave_unidad' => $claveUni,
+                'nombre_unidad' => $this->nombreUnidad($claveUni),
             ];
         }
 
         return $rows;
     }
 
-    /** AJAX: resuelve la ClaveProdServ de un LOTE pequeño de descripciones. */
+    /** AJAX: resuelve ProdServ + Unidad de un LOTE pequeño de partidas con IA. */
     public function resolverProdservAjax(Request $request, PropuestaResultado $resultado)
     {
         $data = $request->validate([
-            'descripciones' => ['required', 'array', 'min:1', 'max:12'],
-            'descripciones.*' => ['required', 'string'],
+            'items' => ['required', 'array', 'min:1', 'max:12'],
+            'items.*.desc' => ['required', 'string'],
+            'items.*.unidad' => ['nullable', 'string', 'max:50'],
+            'force' => ['sometimes', 'boolean'],
         ]);
 
-        $map = $this->resolverProdservLote($data['descripciones']);
-
-        $claves = array_map(
-            fn ($d) => $map[$d] ?? self::CLAVE_PRODSERV_DEFAULT,
-            $data['descripciones']
-        );
-
-        return response()->json(['ok' => true, 'claves' => $claves]);
+        return response()->json([
+            'ok' => true,
+            'items' => $this->resolverClavesLote($data['items'], (bool) ($data['force'] ?? false)),
+        ]);
     }
 
     public function prueba(Request $request, PropuestaResultado $resultado)
@@ -151,57 +181,91 @@ class FacturacionController extends Controller
         ]);
     }
 
-    /** Pipeline: IA genera sinónimos → busca candidatos reales → IA elige. */
-    private function resolverProdservLote(array $descripciones): array
+    /**
+     * Pipeline por lote: IA genera sinónimos → busca candidatos reales en catálogo →
+     * IA elige ProdServ (de candidatos) + Unidad (de enum SAT) en UNA sola llamada.
+     * Devuelve un arreglo alineado por índice con clave + nombre de cada una.
+     */
+    private function resolverClavesLote(array $items, bool $force = false): array
     {
-        $result = [];
-        $pendientesDesc = [];
+        // Normaliza entrada
+        $items = array_values(array_map(fn ($it) => [
+            'desc' => trim((string) ($it['desc'] ?? '')),
+            'unidad' => trim((string) ($it['unidad'] ?? '')) ?: 'Pieza',
+        ], $items));
 
-        foreach (array_values(array_unique($descripciones)) as $desc) {
-            $cached = Cache::get($this->cacheKeyProd($desc));
-            if ($cached) {
-                $result[$desc] = $cached;
+        // 1) ProdServ desde caché; lo que falte (o todo, si force) va a "pendientes"
+        $prodservCache = [];
+        $pendIdx = [];
+        foreach ($items as $i => $it) {
+            if ($force) {
+                Cache::forget($this->cacheKeyProd($it['desc']));
+                $pendIdx[] = $i;
                 continue;
             }
-            $pendientesDesc[] = $desc;
-        }
-
-        if (empty($pendientesDesc)) {
-            return $result;
-        }
-
-        $terminos = $this->generarTerminosOpenAI($pendientesDesc);
-
-        $candPorDesc = [];
-        foreach ($pendientesDesc as $desc) {
-            $cands = $this->candidatosCatalogo($desc, $terminos[$desc] ?? [], 12);
-            if (empty($cands)) {
-                $result[$desc] = self::CLAVE_PRODSERV_DEFAULT;
+            $cached = Cache::get($this->cacheKeyProd($it['desc']));
+            if ($cached) {
+                $prodservCache[$i] = $cached;
             } else {
-                $candPorDesc[$desc] = $cands;
+                $pendIdx[] = $i;
             }
         }
 
-        if (!empty($candPorDesc)) {
-            $elegidas = $this->elegirLoteOpenAI($candPorDesc);
+        // 2) Términos (sinónimos) + candidatos del catálogo, solo para pendientes
+        $candPorIdx = [];
+        if (!empty($pendIdx)) {
+            $descsPend = [];
+            foreach ($pendIdx as $i) {
+                $descsPend[] = $items[$i]['desc'];
+            }
+            $terminos = $this->generarTerminosOpenAI(array_values(array_unique($descsPend)));
 
-            foreach ($candPorDesc as $desc => $cands) {
+            foreach ($pendIdx as $i) {
+                $desc = $items[$i]['desc'];
+                $cands = $this->candidatosCatalogo($desc, $terminos[$desc] ?? [], 12);
+                if (!empty($cands)) {
+                    $candPorIdx[$i] = $cands;
+                }
+            }
+        }
+
+        // 3) Una sola llamada: el modelo elige ProdServ (de candidatos) + Unidad (enum SAT) por partida.
+        $ai = $this->elegirClavesOpenAI($items, $candPorIdx);
+
+        // 4) Ensambla con validación + fallback + nombres oficiales
+        $out = [];
+        foreach ($items as $i => $it) {
+            // --- ProdServ ---
+            if (isset($prodservCache[$i])) {
+                $ps = $prodservCache[$i];
+            } else {
+                $cands = $candPorIdx[$i] ?? [];
                 $validas = array_column($cands, 'clave');
-                $clave = $elegidas[$desc] ?? null;
+                $ps = $ai[$i]['clave_prodserv'] ?? null;
 
-                if (!$clave || !in_array($clave, $validas, true)) {
-                    $clave = $validas[0] ?? self::CLAVE_PRODSERV_DEFAULT;
+                if (!$ps || !in_array($ps, $validas, true)) {
+                    $ps = $validas[0] ?? self::CLAVE_PRODSERV_DEFAULT;
                 }
-
-                if ($clave !== self::CLAVE_PRODSERV_DEFAULT) {
-                    Cache::put($this->cacheKeyProd($desc), $clave, now()->addDays(30));
+                if ($ps !== self::CLAVE_PRODSERV_DEFAULT) {
+                    Cache::put($this->cacheKeyProd($it['desc']), $ps, now()->addDays(30));
                 }
-
-                $result[$desc] = $clave;
             }
+
+            // --- Unidad ---
+            $u = $ai[$i]['clave_unidad'] ?? null;
+            if (!$u || !isset(self::UNIDADES_SAT[$u])) {
+                $u = $this->claveUnidad($it['unidad']); // respaldo: mapa + sat_clave_unidad
+            }
+
+            $out[$i] = [
+                'clave_prodserv' => $ps,
+                'nombre_prodserv' => $this->nombreProdserv($ps),
+                'clave_unidad' => $u,
+                'nombre_unidad' => $this->nombreUnidad($u),
+            ];
         }
 
-        return $result;
+        return array_values($out);
     }
 
     private function cacheKeyProd(string $desc): string
@@ -209,10 +273,83 @@ class FacturacionController extends Controller
         return 'prodserv:' . md5(mb_strtolower(trim($desc)));
     }
 
-    private function generarTerminosOpenAI(array $descs): array
+    /** Nombre oficial (descripción) de una ClaveProdServ del catálogo SAT. */
+    private function nombreProdserv(?string $clave): string
+    {
+        $clave = trim((string) $clave);
+        if ($clave === '' || !Schema::hasTable('sat_prodserv')) {
+            return '';
+        }
+        return (string) (DB::table('sat_prodserv')->where('clave', $clave)->value('descripcion') ?? '');
+    }
+
+    /** Nombre oficial de una clave de unidad SAT (catálogo corto interno o BD). */
+    private function nombreUnidad(?string $clave): string
+    {
+        $clave = trim((string) $clave);
+        if ($clave === '') {
+            return '';
+        }
+        if (isset(self::UNIDADES_SAT[$clave])) {
+            return self::UNIDADES_SAT[$clave];
+        }
+        if (Schema::hasTable('sat_clave_unidad')) {
+            $n = DB::table('sat_clave_unidad')->where('clave', $clave)->value('nombre');
+            if ($n) {
+                return (string) $n;
+            }
+        }
+        return '';
+    }
+
+    /** Llamada genérica a OpenAI con Structured Outputs (json_schema strict). Devuelve array o null. */
+    private function openaiChatJson(array $messages, array $schema, string $schemaName = 'respuesta'): ?array
     {
         $apiKey = env('OPENAI_API_KEY');
         if (!$apiKey) {
+            return null;
+        }
+
+        $effort = env('OPENAI_REASONING_EFFORT', 'low'); // pon vacío en .env para desactivar
+
+        $payload = [
+            'model' => env('OPENAI_MODEL', 'gpt-5.4-mini'),
+            'messages' => $messages,
+            'response_format' => [
+                'type' => 'json_schema',
+                'json_schema' => [
+                    'name' => $schemaName,
+                    'strict' => true,
+                    'schema' => $schema,
+                ],
+            ],
+        ];
+        if (!empty($effort)) {
+            $payload['reasoning_effort'] = $effort;
+        }
+
+        try {
+            $resp = Http::withToken($apiKey)->timeout(60)
+                ->post('https://api.openai.com/v1/chat/completions', $payload);
+
+            if ($resp->ok()) {
+                $content = (string) $resp->json('choices.0.message.content');
+                $json = json_decode($content, true);
+                return is_array($json) ? $json : null;
+            }
+
+            Log::error('OpenAI falló', ['status' => $resp->status(), 'body' => $resp->body()]);
+        } catch (\Throwable $e) {
+            Log::error('OpenAI excepción', ['msg' => $e->getMessage()]);
+        }
+
+        return null;
+    }
+
+    /** Para cada descripción, genera palabras clave/sinónimos para buscar en el catálogo SAT. */
+    private function generarTerminosOpenAI(array $descs): array
+    {
+        if (empty($descs)) {
             return [];
         }
 
@@ -222,60 +359,62 @@ class FacturacionController extends Controller
             $lista .= "{$n}. {$d}\n";
         }
 
-        try {
-            $resp = Http::withToken($apiKey)
-                ->timeout(45)
-                ->post('https://api.openai.com/v1/chat/completions', [
-                    'model' => env('OPENAI_MODEL', 'gpt-4o'),
-                    'response_format' => ['type' => 'json_object'],
-                    'messages' => [
-                        [
-                            'role' => 'system',
-                            'content' => 'Para CADA producto, da de 3 a 6 PALABRAS CLAVE en español (sustantivos genéricos y SINÓNIMOS) con las que el catálogo de Productos y Servicios del SAT podría nombrarlo. '
-                                . 'Piensa en cómo lo clasifica el SAT, no en la marca ni el material. '
-                                . 'Ejemplos: "arillo de plástico para engargolar" -> ["arillo","espiral","encuadernacion","engargolado"]; '
-                                . '"folder" -> ["folder","carpeta","archivo"]; "bolígrafo" -> ["boligrafo","pluma","lapicero"]. '
-                                . 'Responde SOLO JSON: {"items":[{"n":1,"terminos":["...","..."]}]}, con el mismo n de la lista.',
-                        ],
-                        [
-                            'role' => 'user',
-                            'content' => "Productos:\n" . $lista,
+        $schema = [
+            'type' => 'object',
+            'additionalProperties' => false,
+            'required' => ['items'],
+            'properties' => [
+                'items' => [
+                    'type' => 'array',
+                    'items' => [
+                        'type' => 'object',
+                        'additionalProperties' => false,
+                        'required' => ['n', 'terminos'],
+                        'properties' => [
+                            'n' => ['type' => 'integer'],
+                            'terminos' => ['type' => 'array', 'items' => ['type' => 'string']],
                         ],
                     ],
-                ]);
+                ],
+            ],
+        ];
 
-            if ($resp->ok()) {
-                $json = json_decode((string) $resp->json('choices.0.message.content'), true);
-                $items = $json['items'] ?? [];
-                $descsArr = array_values($descs);
-                $out = [];
+        $messages = [
+            [
+                'role' => 'system',
+                'content' => 'Para CADA producto da de 3 a 6 PALABRAS CLAVE en español (sustantivos genéricos y SINÓNIMOS) '
+                    . 'con las que el catálogo de Productos y Servicios del SAT podría nombrarlo. Piensa en cómo lo clasifica el SAT, '
+                    . 'no en la marca ni el material. Ejemplos: "arillo de plástico para engargolar" -> ["arillo","espiral","encuadernacion","engargolado"]; '
+                    . '"folder" -> ["folder","carpeta","archivo"]; "bolígrafo" -> ["boligrafo","pluma","lapicero"]. Conserva el mismo "n" de la lista.',
+            ],
+            ['role' => 'user', 'content' => "Productos:\n" . $lista],
+        ];
 
-                if (is_array($items)) {
-                    foreach ($items as $pos => $it) {
-                        $n = (int) ($it['n'] ?? ($pos + 1));
-                        $desc = $descsArr[$n - 1] ?? null;
-                        if ($desc !== null && !empty($it['terminos']) && is_array($it['terminos'])) {
-                            $terms = [];
-                            foreach ($it['terminos'] as $t) {
-                                $t = mb_strtolower(trim((string) $t));
-                                $t = str_replace(['á', 'é', 'í', 'ó', 'ú', 'ñ'], ['a', 'e', 'i', 'o', 'u', 'n'], $t);
-                                if (mb_strlen($t) >= 3) {
-                                    $terms[] = $t;
-                                }
-                            }
-                            $out[$desc] = array_values(array_unique($terms));
-                        }
-                    }
-                }
-                return $out;
-            }
-
-            Log::error('OpenAI términos falló', ['status' => $resp->status(), 'body' => $resp->body()]);
-        } catch (\Throwable $e) {
-            Log::error('OpenAI términos excepción', ['msg' => $e->getMessage()]);
+        $json = $this->openaiChatJson($messages, $schema, 'terminos');
+        if (!$json) {
+            return [];
         }
 
-        return [];
+        $descsArr = array_values($descs);
+        $out = [];
+        foreach (($json['items'] ?? []) as $pos => $it) {
+            $n = (int) ($it['n'] ?? ($pos + 1));
+            $desc = $descsArr[$n - 1] ?? null;
+            if ($desc === null || empty($it['terminos']) || !is_array($it['terminos'])) {
+                continue;
+            }
+            $terms = [];
+            foreach ($it['terminos'] as $t) {
+                $t = mb_strtolower(trim((string) $t));
+                $t = str_replace(['á', 'é', 'í', 'ó', 'ú', 'ñ'], ['a', 'e', 'i', 'o', 'u', 'n'], $t);
+                if (mb_strlen($t) >= 3) {
+                    $terms[] = $t;
+                }
+            }
+            $out[$desc] = array_values(array_unique($terms));
+        }
+
+        return $out;
     }
 
     private function candidatosCatalogo(string $descripcion, array $extra = [], int $limit = 12): array
@@ -343,82 +482,89 @@ class FacturacionController extends Controller
         return array_slice(array_values(array_unique($palabras)), 0, 6);
     }
 
-    private function elegirLoteOpenAI(array $pendientes): array
+    /** Una sola llamada: por partida elige clave_prodserv (de SUS candidatos) y clave_unidad (de UNIDADES_SAT). */
+    private function elegirClavesOpenAI(array $items, array $candPorIdx): array
     {
-        $descs = array_keys($pendientes);
-        $apiKey = env('OPENAI_API_KEY');
-
-        if (!$apiKey) {
-            $out = [];
-            foreach ($pendientes as $desc => $cands) {
-                $out[$desc] = $cands[0]['clave'] ?? self::CLAVE_PRODSERV_DEFAULT;
-            }
-            return $out;
+        $listaUnidades = '';
+        foreach (self::UNIDADES_SAT as $k => $v) {
+            $listaUnidades .= "  {$k} = {$v}\n";
         }
 
         $bloques = '';
-        $i = 0;
-        foreach ($pendientes as $desc => $cands) {
-            $i++;
-            $bloques .= "Producto {$i}: {$desc}\nCandidatos:\n";
-            foreach ($cands as $c) {
-                $bloques .= "  - {$c['clave']}: {$c['descripcion']}\n";
+        foreach ($items as $i => $it) {
+            $n = $i + 1;
+            $bloques .= "Producto {$n}\n";
+            $bloques .= "  Descripción: {$it['desc']}\n";
+            $bloques .= "  Unidad de venta (texto): {$it['unidad']}\n";
+            $cands = $candPorIdx[$i] ?? [];
+            if (!empty($cands)) {
+                $bloques .= "  Candidatos ProdServ:\n";
+                foreach ($cands as $c) {
+                    $bloques .= "    - {$c['clave']}: {$c['descripcion']}\n";
+                }
+            } else {
+                $bloques .= "  Candidatos ProdServ: (ninguno; deja clave_prodserv vacío)\n";
             }
             $bloques .= "\n";
         }
 
-        try {
-            $resp = Http::withToken($apiKey)
-                ->timeout(45)
-                ->post('https://api.openai.com/v1/chat/completions', [
-                    'model' => env('OPENAI_MODEL', 'gpt-4o'),
-                    'response_format' => ['type' => 'json_object'],
-                    'messages' => [
-                        [
-                            'role' => 'system',
-                            'content' => 'Eres experto en el catálogo de Productos y Servicios del SAT (CFDI 4.0). '
-                                . 'Para CADA producto, identifica el objeto real (un arillo/espiral para engargolar es material de ENCUADERNACIÓN; una aguja es material de costura; un bolígrafo es instrumento de escritura) '
-                                . 'y elige la clave que mejor le corresponde SOLO entre SUS PROPIOS candidatos. Ignora material, color, marca y adjetivos. '
-                                . 'Responde SOLO un JSON: {"items":[{"n":1,"clave_prodserv":"########"}]}, con "n" = número del producto. '
-                                . 'La clave DEBE ser una de las candidatas de ESE producto.',
-                        ],
-                        [
-                            'role' => 'user',
-                            'content' => "Lista de productos con sus candidatos (respeta el número):\n\n" . $bloques,
+        $schema = [
+            'type' => 'object',
+            'additionalProperties' => false,
+            'required' => ['items'],
+            'properties' => [
+                'items' => [
+                    'type' => 'array',
+                    'items' => [
+                        'type' => 'object',
+                        'additionalProperties' => false,
+                        'required' => ['n', 'clave_prodserv', 'clave_unidad'],
+                        'properties' => [
+                            'n' => ['type' => 'integer'],
+                            'clave_prodserv' => ['type' => 'string'],
+                            'clave_unidad' => ['type' => 'string', 'enum' => array_keys(self::UNIDADES_SAT)],
                         ],
                     ],
-                ]);
+                ],
+            ],
+        ];
 
-            if ($resp->ok()) {
-                $content = $resp->json('choices.0.message.content');
-                $json = json_decode((string) $content, true);
-                $items = $json['items'] ?? [];
+        $messages = [
+            [
+                'role' => 'system',
+                'content' => 'Eres experto en el catálogo de Productos y Servicios del SAT (CFDI 4.0). Para CADA producto haz DOS cosas:'
+                    . "\n1) clave_prodserv: identifica el OBJETO real (un arillo/espiral para engargolar es material de ENCUADERNACIÓN; "
+                    . 'una aguja es material de costura; un bolígrafo es instrumento de escritura) y elige la clave SOLO entre SUS PROPIOS candidatos. '
+                    . 'Ignora material, color, marca y adjetivos. Si no hay candidatos, deja clave_prodserv como "".'
+                    . "\n2) clave_unidad: elige la clave de unidad SAT que mejor corresponde al texto de la unidad de venta, "
+                    . "SOLO de esta lista:\n" . $listaUnidades
+                    . 'Devuelve "n" igual al número del producto. La clave_prodserv DEBE ser una de las candidatas de ESE producto.',
+            ],
+            ['role' => 'user', 'content' => "Partidas:\n\n" . $bloques],
+        ];
 
-                $out = [];
-                if (is_array($items)) {
-                    foreach ($items as $pos => $it) {
-                        $n = (int) ($it['n'] ?? ($pos + 1));
-                        $desc = $descs[$n - 1] ?? null;
-                        if ($desc !== null) {
-                            $out[$desc] = (string) ($it['clave_prodserv'] ?? '');
-                        }
-                    }
-                }
-                return $out;
-            }
-
-            Log::error('OpenAI elegir lote falló', ['status' => $resp->status(), 'body' => $resp->body()]);
-        } catch (\Throwable $e) {
-            Log::error('OpenAI elegir lote excepción', ['msg' => $e->getMessage()]);
+        $json = $this->openaiChatJson($messages, $schema, 'claves');
+        if (!$json) {
+            return [];
         }
 
         $out = [];
-        foreach ($pendientes as $desc => $cands) {
-            $out[$desc] = $cands[0]['clave'] ?? self::CLAVE_PRODSERV_DEFAULT;
+        foreach (($json['items'] ?? []) as $pos => $it) {
+            $n = (int) ($it['n'] ?? ($pos + 1));
+            $i = $n - 1;
+            if (!isset($items[$i])) {
+                continue;
+            }
+            $out[$i] = [
+                'clave_prodserv' => (string) ($it['clave_prodserv'] ?? ''),
+                'clave_unidad' => (string) ($it['clave_unidad'] ?? ''),
+            ];
         }
+
         return $out;
     }
 
+    /** Respaldo determinístico para la clave de unidad (si la IA falla o no hay API key). */
     private function claveUnidad(?string $unidad): string
     {
         $raw = trim((string) $unidad);
@@ -489,16 +635,104 @@ class FacturacionController extends Controller
             'unidad' => ['nullable', 'string', 'max:50'],
         ]);
 
-        $desc = $data['descripcion'];
-        $unidad = $data['unidad'] ?: 'Pieza';
+        $res = $this->resolverClavesLote([[
+            'desc' => $data['descripcion'],
+            'unidad' => $data['unidad'] ?? 'Pieza',
+        ]], true); // force = true
 
-        Cache::forget($this->cacheKeyProd($desc));
-        $map = $this->resolverProdservLote([$desc]);
+        $r = $res[0] ?? [];
 
         return response()->json([
             'ok' => true,
-            'clave_prodserv' => $map[$desc] ?? self::CLAVE_PRODSERV_DEFAULT,
-            'clave_unidad' => $this->claveUnidad($unidad),
+            'clave_prodserv' => $r['clave_prodserv'] ?? self::CLAVE_PRODSERV_DEFAULT,
+            'nombre_prodserv' => $r['nombre_prodserv'] ?? '',
+            'clave_unidad' => $r['clave_unidad'] ?? self::CLAVE_UNIDAD_DEFAULT,
+            'nombre_unidad' => $r['nombre_unidad'] ?? '',
         ]);
+    }
+
+    /** AJAX: búsqueda manual de clave (modal). Devuelve {ok, results:[{clave, texto}]}. */
+    public function buscarClave(Request $request, PropuestaResultado $resultado)
+    {
+        $data = $request->validate([
+            'tipo' => ['required', 'in:prodserv,unidad'],
+            'q' => ['required', 'string', 'min:1', 'max:120'],
+        ]);
+
+        $results = $data['tipo'] === 'unidad'
+            ? $this->buscarUnidad($data['q'])
+            : $this->buscarProdserv($data['q']);
+
+        return response()->json(['ok' => true, 'results' => $results]);
+    }
+
+    private function buscarProdserv(string $q): array
+    {
+        if (!Schema::hasTable('sat_prodserv')) {
+            return [];
+        }
+
+        $clean = mb_strtolower(trim($q));
+        $clean = str_replace(['á', 'é', 'í', 'ó', 'ú', 'ñ'], ['a', 'e', 'i', 'o', 'u', 'n'], $clean);
+        $words = array_values(array_filter(
+            preg_split('/[^a-z0-9]+/', $clean),
+            fn ($w) => mb_strlen($w) >= 3
+        ));
+        if (empty($words)) {
+            $words = [$clean];
+        }
+
+        $rows = DB::table('sat_prodserv')
+            ->select('clave', 'descripcion')
+            ->where(function ($qb) use ($words, $q) {
+                $qb->where('clave', 'like', trim($q) . '%');
+                foreach ($words as $w) {
+                    $qb->orWhere('descripcion', 'like', '%' . $w . '%')
+                       ->orWhere('palabras_similares', 'like', '%' . $w . '%');
+                }
+            })
+            ->limit(40)
+            ->get();
+
+        return $rows->map(fn ($r) => ['clave' => $r->clave, 'texto' => $r->descripcion])->all();
+    }
+
+    private function buscarUnidad(string $q): array
+    {
+        $clean = mb_strtolower(trim($q));
+        $clean = str_replace(['á', 'é', 'í', 'ó', 'ú', 'ñ'], ['a', 'e', 'i', 'o', 'u', 'n'], $clean);
+
+        $results = [];
+        $seen = [];
+
+        // 1) Catálogo corto interno (UNIDADES_SAT)
+        foreach (self::UNIDADES_SAT as $clave => $nombre) {
+            $h = mb_strtolower($nombre);
+            $h = str_replace(['á', 'é', 'í', 'ó', 'ú', 'ñ'], ['a', 'e', 'i', 'o', 'u', 'n'], $h);
+            if ($clean === '' || str_contains($h, $clean) || str_contains(mb_strtolower($clave), $clean)) {
+                $results[] = ['clave' => $clave, 'texto' => $nombre];
+                $seen[$clave] = true;
+            }
+        }
+
+        // 2) Catálogo completo SAT en BD (si existe la tabla)
+        if (Schema::hasTable('sat_clave_unidad') && $clean !== '') {
+            $rows = DB::table('sat_clave_unidad')
+                ->select('clave', 'nombre')
+                ->where('nombre', 'like', '%' . $clean . '%')
+                ->orWhere('clave', 'like', trim($q) . '%')
+                ->orderByRaw('CHAR_LENGTH(nombre) ASC')
+                ->limit(40)
+                ->get();
+
+            foreach ($rows as $r) {
+                if (!isset($seen[$r->clave])) {
+                    $results[] = ['clave' => $r->clave, 'texto' => $r->nombre];
+                    $seen[$r->clave] = true;
+                }
+            }
+        }
+
+        return array_slice($results, 0, 40);
     }
 }

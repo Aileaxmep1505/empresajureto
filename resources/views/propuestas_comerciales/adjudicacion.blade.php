@@ -1,92 +1,648 @@
 @extends('layouts.app')
 @section('content_class', 'content--flush')
 @section('content')
+@php
+  // Marca y modelo ofertado por partida (item_id => brand/model)
+  $propuestaComercial->loadMissing(['items.matches.product', 'items.productoSeleccionado']);
+  $ofertaInfo = $propuestaComercial->items->mapWithKeys(function ($item) {
+      $selectedMatch = $item->matches->firstWhere('seleccionado', true);
+      $selectedProduct = $item->productoSeleccionado ?: optional($selectedMatch)->product;
+
+      $brand = data_get($item->meta, 'external_supplier')
+          ?: data_get($item->meta, 'brand')
+          ?: data_get($item->meta, 'marca')
+          ?: data_get($selectedProduct, 'brand')
+          ?: data_get($selectedProduct, 'marca')
+          ?: '';
+
+      $model = data_get($item->meta, 'modelo')
+          ?: data_get($item->meta, 'model')
+          ?: data_get($selectedProduct, 'model')
+          ?: data_get($selectedProduct, 'modelo')
+          ?: data_get($selectedProduct, 'model_name')
+          ?: '';
+
+      return [$item->id => ['brand' => $brand, 'model' => $model]];
+  });
+@endphp
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
-  .adj-page { font-family:'Quicksand',sans-serif; background:#f8fafc; color:#334155; min-height:100vh; padding:32px 24px; }
-  .adj-page * { box-sizing:border-box; }
-  .adj-wrap { max-width:1000px; margin:0 auto; }
-  .adj-page h1 { color:#0f172a; font-size:26px; margin:0 0 6px; font-weight:700; }
-  .adj-sub { color:#64748b; font-size:14px; margin:0 0 24px; }
-  .back-link { display:inline-flex; align-items:center; gap:8px; color:#64748b; font-weight:600; font-size:14px; margin-bottom:18px; text-decoration:none; }
-  .adj-top { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap; }
-  .adj-bar { display:flex; gap:16px; flex-wrap:wrap; margin-bottom:24px; }
-  .adj-stat { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:16px 20px; min-width:150px; flex:1; }
-  .adj-stat .v { font-size:22px; font-weight:700; color:#0f172a; }
-  .adj-stat .l { font-size:12px; color:#64748b; font-weight:600; margin-top:4px; }
-  .adj-card { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:18px 20px; margin-bottom:14px; transition:border-color .2s; }
-  .adj-card.is-perdida { border-color:#fca5a5; background:#fef2f2; }
-  .adj-card.is-ganada { border-color:#86efac; }
-  .adj-head { display:grid; grid-template-columns:34px 1fr auto; gap:14px; align-items:center; }
-  .adj-num { font-weight:700; color:#94a3b8; text-align:center; }
-  .adj-name { font-size:15px; font-weight:700; color:#0f172a; }
-  .adj-meta { font-size:12.5px; color:#64748b; margin-top:3px; }
-  .save-status { font-weight:700; }
-  .save-status.saving { color:#0ea5e9; }
-  .save-status.saved { color:#16a34a; }
-  .save-status.error { color:#ef4444; }
-  .seg { display:inline-flex; background:#f1f5f9; border-radius:9px; padding:3px; }
-  .seg button { border:0; background:transparent; font-family:'Quicksand',sans-serif; font-weight:700; font-size:13px; color:#64748b; padding:7px 14px; border-radius:7px; cursor:pointer; transition:.15s; }
-  .seg button.on-win { background:#16a34a; color:#fff; }
-  .seg button.on-lose { background:#ef4444; color:#fff; }
-  .lose-box { display:none; margin-top:16px; padding-top:16px; border-top:1px dashed #fecaca; }
-  .adj-card.is-perdida .lose-box { display:block; }
-  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-  .field { display:flex; flex-direction:column; gap:5px; margin-bottom:12px; }
-  .field label { font-size:12px; font-weight:700; color:#0f172a; }
-  .input { font-family:'Quicksand',sans-serif; font-weight:500; font-size:14px; height:40px; padding:0 12px; background:#fff; border:1px solid #e2e8f0; border-radius:8px; color:#334155; width:100%; }
-  textarea.input { height:auto; padding:10px 12px; resize:vertical; }
-  .input:focus { outline:none; border-color:#007aff; box-shadow:0 0 0 3px #eff6ff; }
-  .diff-pill { display:inline-block; font-size:12.5px; font-weight:700; padding:5px 11px; border-radius:999px; margin-top:6px; }
-  .diff-up { background:#fef2f2; color:#ef4444; } .diff-down { background:#f0fdf4; color:#16a34a; }
-  .btn { font-family:'Quicksand',sans-serif; font-weight:600; height:40px; padding:0 16px; border-radius:8px; border:1px solid transparent; cursor:pointer; display:inline-flex; align-items:center; gap:8px; font-size:14px; text-decoration:none; }
-  .btn-primary { background:#007aff; color:#fff; } .btn-primary:hover { background:#005bb5; }
-  .btn-outline { background:#fff; color:#0f172a; border-color:#e2e8f0; } .btn-outline:hover { border-color:#94a3b8; }
-  .btn-dark { background:#0f172a; color:#fff; } .btn-dark:hover { background:#1e293b; }
-  .btn-success { background:#16a34a; color:#fff; } .btn-success:hover { background:#15803d; }
-  .btn-small { height:34px; padding:0 13px; font-size:13px; }
-  .adj-footer { position:sticky; bottom:0; background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:16px 20px; display:flex; justify-content:space-between; align-items:center; gap:16px; margin-top:20px; box-shadow:0 -6px 20px rgba(15,23,42,.05); flex-wrap:wrap; }
-  .loader { display:inline-block; width:14px; height:14px; border:2px solid rgba(255,255,255,.4); border-radius:50%; border-top-color:#fff; animation:spin 1s linear infinite; }
-  @keyframes spin { to { transform:rotate(360deg); } }
+  :root {
+    --bg: #f9fafb;          /* Fondo general de la página */
+    --card: #ffffff;        /* Fondo de contenedores */
+    --ink: #333333;         /* Texto principal */
+    --muted: #888888;       /* Texto secundario / gris */
+    --line: #ebebeb;        /* Bordes y separadores */
+    --blue: #007aff;        /* Color primario / botones */
+    --blue-soft: #e6f0ff;   /* Hover primario / badges */
+    --success: #15803d;     /* Verde éxito */
+    --success-soft: #e6ffe6;
+    --danger: #ff4a4a;      /* Rojo error / ofertas */
+    --danger-soft: #ffebeb;
+    --heading: #111111;     /* Títulos oscuros */
+  }
 
-  /* ===== Modal análisis completo ===== */
-  .modal-backdrop { position:fixed; inset:0; z-index:9999; display:none; align-items:center; justify-content:center; padding:20px; background:rgba(15,23,42,.45); backdrop-filter:blur(4px); }
-  .modal-backdrop.show { display:flex; }
-  .modal { width:min(880px,100%); max-height:calc(100vh - 40px); background:#fff; border-radius:14px; box-shadow:0 24px 80px rgba(15,23,42,.22); display:flex; flex-direction:column; overflow:hidden; }
-  .modal-head { padding:20px 24px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:flex-start; gap:16px; }
-  .modal-head h2 { margin:0; font-size:19px; color:#0f172a; font-weight:700; }
-  .modal-head p { margin:4px 0 0; font-size:13px; color:#64748b; }
-  .modal-close { border:0; background:transparent; cursor:pointer; color:#64748b; font-size:22px; line-height:1; padding:4px 8px; border-radius:8px; }
-  .modal-close:hover { background:#f1f5f9; color:#0f172a; }
-  .modal-body { padding:24px; overflow-y:auto; }
-  .modal-foot { padding:16px 24px; border-top:1px solid #e2e8f0; display:flex; justify-content:flex-end; gap:10px; flex-wrap:wrap; }
-  .rep-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:12px; margin-bottom:22px; }
-  .rep-stat { border:1px solid #e2e8f0; border-radius:10px; padding:14px; text-align:center; }
-  .rep-stat .v { font-size:20px; font-weight:700; color:#0f172a; }
-  .rep-stat .l { font-size:11px; font-weight:600; color:#64748b; margin-top:3px; text-transform:uppercase; letter-spacing:.04em; }
-  .rep-section { margin-bottom:24px; }
-  .rep-section h3 { font-size:15px; color:#0f172a; margin:0 0 10px; font-weight:700; }
-  .rep-text { font-size:13.5px; line-height:1.6; color:#334155; white-space:pre-wrap; }
-  .rep-lose { border:1px solid #fecaca; background:#fff; border-radius:10px; padding:14px 16px; margin-bottom:12px; }
-  .rep-lose .t { font-size:14px; font-weight:700; color:#0f172a; }
-  .rep-lose .m { font-size:12.5px; color:#64748b; margin-top:4px; }
-  .rep-lose .a { font-size:13px; color:#334155; margin-top:8px; line-height:1.5; white-space:pre-wrap; }
-  .rep-recos { list-style:none; margin:0; padding:0; }
-  .rep-recos li { position:relative; padding:10px 12px 10px 34px; border:1px solid #e2e8f0; border-radius:10px; margin-bottom:10px; font-size:13.5px; line-height:1.5; color:#334155; }
-  .rep-recos li::before { content:"✓"; position:absolute; left:12px; top:10px; color:#16a34a; font-weight:700; }
-  .rep-empty { color:#94a3b8; font-size:14px; }
+  /* ===== BASE & TYPOGRAPHY ===== */
+  .adj-page {
+    font-family: 'Quicksand', sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+    padding: 56px 24px;
+    font-weight: 500;
+  }
+  .adj-page * {
+    box-sizing: border-box;
+  }
+  .adj-wrap {
+    max-width: 1080px;
+    margin: 0 auto;
+  }
+  .adj-page h1 {
+    color: var(--heading);
+    font-size: 28px;
+    margin: 0 0 8px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+  .adj-sub {
+    color: var(--muted);
+    font-size: 15px;
+    margin: 0 0 36px;
+  }
+  .back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 28px;
+    text-decoration: none;
+    transition: color 0.2s ease;
+  }
+  .back-link:hover {
+    color: var(--heading);
+  }
+
+  /* ===== LAYOUT & STATS ===== */
+  .adj-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 36px;
+  }
+  .adj-bar {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 36px;
+  }
+  .adj-stat {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 28px;
+    min-width: 160px;
+    flex: 1;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .adj-stat:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.04);
+  }
+  .adj-stat .v {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--heading);
+  }
+  .adj-stat .l {
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 600;
+    margin-top: 6px;
+  }
+
+  /* ===== SEARCH (expandible) ===== */
+  .search-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .search-pill {
+    display: inline-flex;
+    align-items: center;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    height: 42px;
+    padding: 0 4px 0 0;
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
+  }
+  .search-pill.open {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px var(--blue-soft);
+  }
+  .search-toggle {
+    border: 0;
+    background: transparent;
+    width: 42px;
+    height: 40px;
+    border-radius: 999px;
+    cursor: pointer;
+    color: var(--muted);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s ease;
+    flex-shrink: 0;
+  }
+  .search-pill.open .search-toggle,
+  .search-toggle:hover { color: var(--blue); }
+  .search-input {
+    font-family: 'Quicksand', sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    border: 0;
+    background: transparent;
+    color: var(--ink);
+    width: 0;
+    padding: 0;
+    opacity: 0;
+    transition: width 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
+  }
+  .search-input::placeholder { color: var(--muted); }
+  .search-input:focus { outline: none; }
+  .search-pill.open .search-input {
+    width: 220px;
+    padding-right: 8px;
+    opacity: 1;
+  }
+  .search-clear {
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    color: var(--muted);
+    width: 0;
+    height: 32px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    overflow: hidden;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+  }
+  .search-pill.open .search-clear.show {
+    width: 32px;
+    opacity: 1;
+  }
+  .search-clear:hover { color: var(--danger); background: var(--bg); }
+  .search-count {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--blue);
+    background: var(--blue-soft);
+    padding: 4px 12px;
+    border-radius: 999px;
+    white-space: nowrap;
+    animation: fadeIn 0.25s ease;
+  }
+  .adj-card.search-hide { display: none; }
+  .search-empty {
+    display: none;
+    color: var(--muted);
+    font-size: 15px;
+    font-weight: 600;
+    padding: 32px;
+    text-align: center;
+    border: 1px dashed var(--line);
+    border-radius: 16px;
+    background: var(--card);
+    animation: fadeIn 0.25s ease;
+  }
+
+  /* ===== CARDS ===== */
+  .adj-card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 28px;
+    margin-bottom: 16px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+  .adj-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.04);
+  }
+  .adj-card.is-perdida {
+    border-color: rgba(255, 74, 74, 0.3);
+  }
+  .adj-card.is-ganada {
+    border-color: rgba(21, 128, 61, 0.3);
+  }
+
+  .adj-head {
+    display: grid;
+    grid-template-columns: 40px 1fr auto;
+    gap: 16px;
+    align-items: center;
+  }
+  .adj-num {
+    font-weight: 700;
+    color: var(--muted);
+    text-align: center;
+    font-size: 16px;
+  }
+  .adj-name {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--heading);
+    margin-bottom: 4px;
+  }
+  .adj-meta {
+    font-size: 13.5px;
+    color: var(--muted);
+  }
+  .adj-meta strong {
+    color: var(--ink);
+  }
+  .adj-oferta {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+  .adj-oferta strong { color: var(--ink); }
+  .adj-oferta .tag {
+    display: inline-block;
+    background: var(--blue-soft);
+    color: var(--blue);
+    font-weight: 700;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    margin-right: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  /* ===== BADGES & STATUS ===== */
+  .save-status {
+    font-weight: 700;
+    font-size: 12.5px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    margin-left: 8px;
+    display: inline-block;
+  }
+  .save-status.saving { background: var(--blue-soft); color: var(--blue); }
+  .save-status.saved { background: var(--success-soft); color: var(--success); }
+  .save-status.error { background: var(--danger-soft); color: var(--danger); }
+
+  .diff-pill {
+    display: inline-block;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 6px 12px;
+    border-radius: 999px;
+    margin-top: 8px;
+  }
+  .diff-up { background: var(--danger-soft); color: var(--danger); }
+  .diff-down { background: var(--success-soft); color: var(--success); }
+
+  /* ===== SEGMENTED CONTROL ===== */
+  .seg {
+    display: inline-flex;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 4px;
+  }
+  .seg button {
+    border: 0;
+    background: transparent;
+    font-family: 'Quicksand', sans-serif;
+    font-weight: 700;
+    font-size: 13.5px;
+    color: var(--muted);
+    padding: 8px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .seg button:hover:not(.on-win):not(.on-lose) {
+    background: var(--line);
+    color: var(--heading);
+  }
+  .seg button.on-win { background: var(--success); color: var(--card); }
+  .seg button.on-lose { background: var(--danger); color: var(--card); }
+
+  /* ===== FORMS & INPUTS ===== */
+  .lose-box {
+    display: none;
+    margin-top: 28px;
+    padding-top: 28px;
+    border-top: 1px solid var(--line);
+  }
+  .adj-card.is-perdida .lose-box {
+    display: block;
+    animation: fadeIn 0.3s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+
+  .grid2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .field label {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--heading);
+  }
+  .input {
+    font-family: 'Quicksand', sans-serif;
+    font-weight: 500;
+    font-size: 14.5px;
+    height: 42px;
+    padding: 0 14px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--ink);
+    width: 100%;
+    transition: all 0.2s ease;
+  }
+  .input::placeholder {
+    color: var(--muted);
+  }
+  textarea.input {
+    height: auto;
+    padding: 12px 14px;
+    resize: vertical;
+  }
+  .input:focus {
+    outline: none;
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px var(--blue-soft);
+  }
+
+  /* ===== BUTTONS ===== */
+  .btn {
+    font-family: 'Quicksand', sans-serif;
+    font-weight: 700;
+    height: 42px;
+    padding: 0 20px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 14.5px;
+    text-decoration: none;
+    transition: all 0.2s ease;
+  }
+  .btn:hover { transform: translateY(-1px); }
+  .btn:active { transform: scale(0.98); }
+
+  .btn-primary { background: var(--blue); color: #ffffff; }
+  .btn-primary:hover { box-shadow: 0 4px 12px rgba(0, 122, 255, 0.2); }
+
+  .btn-outline { background: var(--card); color: var(--blue); border-color: var(--blue); }
+  .btn-outline:hover { background: var(--blue-soft); }
+
+  .btn-dark { background: var(--heading); color: #ffffff; }
+  .btn-dark:hover { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); }
+
+  .btn-success { background: var(--success); color: #ffffff; }
+  .btn-success:hover { box-shadow: 0 4px 12px rgba(21, 128, 61, 0.2); }
+
+  .btn-ghost { background: transparent; color: #555555; }
+  .btn-ghost:hover { background: var(--bg); color: var(--heading); }
+
+  .btn-small { height: 36px; padding: 0 16px; font-size: 13.5px; }
+
+  /* ===== FOOTER ===== */
+  .adj-footer {
+    position: sticky;
+    bottom: 24px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 20px 28px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 24px;
+    margin-top: 48px;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.04);
+    flex-wrap: wrap;
+    z-index: 10;
+  }
+
+  .loader {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(0,122,255,0.2);
+    border-radius: 50%;
+    border-top-color: var(--blue);
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ===== PREMIUM MODALS ===== */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(17,17,17,0.35);
+    backdrop-filter: blur(4px);
+  }
+  .modal-backdrop.show { display: flex; }
+
+  .modal {
+    width: min(800px, 100%);
+    max-height: calc(100vh - 48px);
+    background: var(--card);
+    border-radius: 16px;
+    border: 1px solid var(--line);
+    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.12);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: modalEnter 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    opacity: 0;
+  }
+  @keyframes modalEnter {
+    0% { opacity: 0; transform: scale(0.95) translateY(15px); }
+    100% { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  .modal-head {
+    padding: 32px 36px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  .modal-head h2 { margin: 0; font-size: 22px; color: var(--heading); font-weight: 700; letter-spacing: -0.3px; }
+  .modal-head p { margin: 8px 0 0; font-size: 14.5px; color: var(--muted); }
+  .modal-close {
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 24px;
+    line-height: 1;
+    padding: 6px;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+  }
+  .modal-close:hover { background: var(--bg); color: var(--heading); }
+
+  .modal-body {
+    padding: 28px 36px;
+    overflow-y: auto !important;
+  }
+
+  /* Custom Scrollbar */
+  .modal-body::-webkit-scrollbar { width: 6px; }
+  .modal-body::-webkit-scrollbar-track { background: transparent; }
+  .modal-body::-webkit-scrollbar-thumb { background: var(--line); border-radius: 10px; }
+  .modal-body::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+  .modal-foot {
+    padding: 24px 36px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    flex-wrap: wrap;
+    background: var(--card);
+    border-top: 1px solid var(--line);
+  }
+
+  /* Modal content specifics (from JS rendering) */
+  .rep-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 16px;
+    margin-bottom: 36px;
+  }
+  .rep-stat {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    background: var(--card);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+  }
+  .rep-stat .v { font-size: 24px; font-weight: 700; color: var(--heading); }
+  .rep-stat .l { font-size: 12px; font-weight: 700; color: var(--muted); margin-top: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+
+  .rep-section { margin-bottom: 36px; }
+  .rep-section h3 { font-size: 17px; color: var(--heading); margin: 0 0 16px; font-weight: 700; }
+  .rep-text { font-size: 15px; line-height: 1.7; color: var(--ink); white-space: pre-wrap; }
+
+  .rep-lose {
+    border: 1px solid var(--line);
+    background: var(--card);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 16px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+  }
+  .rep-lose .t { font-size: 15px; font-weight: 700; color: var(--heading); }
+  .rep-lose .m { font-size: 13.5px; color: var(--muted); margin-top: 6px; }
+  .rep-lose .m strong { color: var(--ink); }
+  .rep-lose .a { font-size: 14px; color: var(--ink); margin-top: 12px; line-height: 1.6; white-space: pre-wrap; padding-top: 12px; border-top: 1px solid var(--line); }
+
+  .rep-recos { list-style: none; margin: 0; padding: 0; }
+  .rep-recos li {
+    position: relative;
+    padding: 16px 16px 16px 44px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    margin-bottom: 12px;
+    font-size: 14.5px;
+    line-height: 1.6;
+    color: var(--ink);
+    background: var(--card);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+  }
+  .rep-recos li::before {
+    content: "•";
+    position: absolute;
+    left: 20px;
+    top: 16px;
+    color: var(--success);
+    font-weight: 700;
+    font-size: 20px;
+    line-height: 1.3;
+  }
+  .rep-empty { color: var(--muted); font-size: 15px; font-weight: 600; padding: 28px; text-align: center; border: 1px dashed var(--line); border-radius: 12px; }
+
+  /* ===== RESPONSIVE ===== */
+  @media (max-width: 768px) {
+    .adj-page { padding: 28px 16px; }
+    .grid2 { grid-template-columns: 1fr; }
+    .adj-head { grid-template-columns: 1fr; gap: 8px; }
+    .adj-num { text-align: left; }
+    .adj-card, .adj-stat { padding: 20px; }
+    .adj-footer { flex-direction: column; align-items: stretch; text-align: center; padding: 16px; }
+    .adj-footer > div { justify-content: center; }
+    .search-wrap { width: 100%; flex-wrap: wrap; }
+    .search-pill.open .search-input { width: 150px; }
+    .modal-head, .modal-body, .modal-foot { padding-left: 20px; padding-right: 20px; }
+  }
 </style>
 
 <div class="adj-page">
   <div class="adj-wrap">
-    <a href="{{ route('propuestas-comerciales.cliente.show', $propuestaComercial) }}" class="back-link">← Volver a la cotización</a>
+    <a href="{{ route('propuestas-comerciales.cliente.show', $propuestaComercial) }}" class="back-link">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+      Volver a la cotización
+    </a>
 
     <div class="adj-top">
       <div>
         <h1>Generar adjudicación</h1>
         <p class="adj-sub">Folio {{ $folio }} · Cada partida se guarda sola al marcar Ganada/Perdida o al editar sus datos.</p>
       </div>
-      <button type="button" class="btn btn-outline" onclick="openReportModal()">📊 Ver análisis completo</button>
+      <div class="search-wrap">
+        <span class="search-count" id="searchCount" style="display:none;"></span>
+        <div class="search-pill" id="searchPill">
+          <button type="button" class="search-toggle" onclick="toggleSearch()" aria-label="Buscar partida">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          </button>
+          <input type="text" id="searchInput" class="search-input" placeholder="Buscar partida..." oninput="filterCards()" onkeydown="if(event.key==='Escape'){clearSearch(true);}">
+          <button type="button" class="search-clear" id="searchClear" onclick="clearSearch(false)" aria-label="Limpiar búsqueda">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+          </button>
+        </div>
+        <button type="button" class="btn btn-outline" onclick="openReportModal()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+          Ver análisis completo
+        </button>
+      </div>
     </div>
 
     <div class="adj-bar">
@@ -97,7 +653,11 @@
 
     <div id="adjList">
       @foreach($items as $i => $it)
-        @php $sv = $it['saved'] ?? null; $res0 = $sv['resultado'] ?? 'ganada'; @endphp
+        @php
+          $sv = $it['saved'] ?? null;
+          $res0 = $sv['resultado'] ?? 'ganada';
+          $oi = $ofertaInfo[$it['id']] ?? ['brand' => '', 'model' => ''];
+        @endphp
         <div class="adj-card {{ $res0 === 'perdida' ? 'is-perdida' : 'is-ganada' }}"
              data-row="{{ $i }}"
              data-qty="{{ $it['cantidad'] }}"
@@ -114,10 +674,17 @@
               <div class="adj-name">{{ $it['descripcion'] ?: 'Producto sin descripción' }}</div>
               <div class="adj-meta">
                 {{ rtrim(rtrim(number_format($it['cantidad'],2),'0'),'.') }} {{ $it['unidad'] }} ·
-                Tu precio ${{ number_format($it['precio_unitario'],2) }} ·
-                Subtotal ${{ number_format($it['subtotal'],2) }}
-                <span class="save-status {{ $sv ? 'saved' : '' }}">{{ $sv ? 'Guardado ✓' : '' }}</span>
+                Tu precio <strong>${{ number_format($it['precio_unitario'],2) }}</strong> ·
+                Subtotal <strong>${{ number_format($it['subtotal'],2) }}</strong>
+                <span class="save-status {{ $sv ? 'saved' : '' }}">{{ $sv ? 'Guardado' : '' }}</span>
               </div>
+              @if($oi['brand'] || $oi['model'])
+                <div class="adj-oferta">
+                  <span class="tag">Ofertado</span>
+                  Marca <strong>{{ $oi['brand'] ?: '—' }}</strong> ·
+                  Modelo <strong>{{ $oi['model'] ?: '—' }}</strong>
+                </div>
+              @endif
             </div>
             <div class="seg">
               <button type="button" class="seg-win {{ $res0 === 'ganada' ? 'on-win' : '' }}" onclick="setRes({{ $i }},'ganada')">Ganada</button>
@@ -144,9 +711,15 @@
               <label>Análisis (antecedente)</label>
               <textarea class="input f-analisis" rows="3" onchange="queueSave(this)" placeholder="Pulsa Analizar para generarlo automáticamente.">{{ $sv['analisis_ia'] ?? '' }}</textarea>
               <div><span class="diff-pill" style="display:none;"></span></div>
-              <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">
-                <button type="button" class="btn btn-outline btn-small" onclick="analizar({{ $i }}, this)">⚙ Analizar diferencia</button>
-                <button type="button" class="btn btn-success btn-small" onclick="savePartidaFromEl(this)">💾 Guardar partida</button>
+              <div style="margin-top:12px; display:flex; gap:12px; flex-wrap:wrap;">
+                <button type="button" class="btn btn-outline btn-small" onclick="analizar({{ $i }}, this)">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                  Analizar diferencia
+                </button>
+                <button type="button" class="btn btn-success btn-small" onclick="savePartidaFromEl(this)">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                  Guardar partida
+                </button>
               </div>
             </div>
           </div>
@@ -154,10 +727,12 @@
       @endforeach
     </div>
 
+    <div class="search-empty" id="searchEmpty">No se encontraron partidas con ese término de búsqueda.</div>
+
     <div class="adj-footer">
-      <div class="adj-meta">Todo se guarda automáticamente partida por partida. Las perdidas quedan como antecedente consultable.</div>
-      <div style="display:flex; gap:10px; flex-wrap:wrap;">
-        <button type="button" class="btn btn-outline" onclick="openReportModal()">📊 Análisis</button>
+      <div class="adj-meta" style="font-size: 14.5px; font-weight:600;">Todo se guarda automáticamente por partida. Las perdidas quedan como antecedente.</div>
+      <div style="display:flex; gap:12px; flex-wrap:wrap;">
+        <button type="button" class="btn btn-outline" onclick="openReportModal()">Análisis de resultados</button>
         <a id="btnVerResultado" class="btn btn-primary" href="#" onclick="return goResultado(event)">Ver resultado →</a>
       </div>
     </div>
@@ -168,15 +743,20 @@
     <div class="modal">
       <div class="modal-head">
         <div>
-          <h2>Análisis completo de la licitación</h2>
-          <p>Folio {{ $folio }} · Resumen, partidas no ganadas y plan para ganar la próxima vez.</p>
+          <h2>Análisis de la licitación</h2>
+          <p>Folio {{ $folio }} · Resumen, partidas no ganadas y plan de acción.</p>
         </div>
-        <button type="button" class="modal-close" onclick="closeReportModal()">✕</button>
+        <button type="button" class="modal-close" onclick="closeReportModal()">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
       </div>
       <div class="modal-body" id="reportBody"></div>
       <div class="modal-foot">
-        <button type="button" class="btn btn-outline" onclick="closeReportModal()">Cerrar</button>
-        <button type="button" class="btn btn-dark" onclick="downloadReportPdf()">↓ Descargar PDF</button>
+        <button type="button" class="btn btn-ghost" onclick="closeReportModal()" style="border-radius: 999px;">Cerrar</button>
+        <button type="button" class="btn btn-primary" onclick="downloadReportPdf()" style="border-radius: 999px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+          Descargar PDF
+        </button>
       </div>
     </div>
   </div>
@@ -187,7 +767,7 @@
   const analizarUrl = @json(route('propuestas-comerciales.adjudicacion.analizar-perdida', $propuestaComercial));
   const guardarPartidaUrl = @json(route('propuestas-comerciales.adjudicacion.guardar-partida', $propuestaComercial));
   const pdfUrl = @json(route('propuestas-comerciales.adjudicacion.analisis-pdf', $propuestaComercial));
-    const showUrlBase = @json(url('/resultados-adjudicacion'));
+  const showUrlBase = @json(url('/resultados-adjudicacion'));
   const reportFolio = @json($folio);
   const reportTitulo = @json($propuestaComercial->titulo ?? 'Adjudicación');
   let adjudicacionId = @json($adjudicacionId);
@@ -264,7 +844,7 @@
       document.getElementById('statPerdidas').textContent = data.counters.perdidas;
       document.getElementById('statSubtotal').textContent = money(data.counters.subtotal_ganadas);
 
-      status.textContent = 'Guardado ✓';
+      status.textContent = 'Guardado';
       status.className = 'save-status saved';
       updateResultLink();
     } catch (e) {
@@ -315,10 +895,9 @@
         const up = Number(data.diferencia_monto) > 0;
         pill.style.display = 'inline-block';
         pill.className = 'diff-pill ' + (up ? 'diff-up' : 'diff-down');
-        pill.textContent = (up ? '▲ ' : '▼ ') + money(Math.abs(data.diferencia_monto)) + ' (' + Math.abs(data.diferencia_pct).toFixed(2) + '%)';
+        pill.textContent = (up ? '(+) ' : '(-) ') + money(Math.abs(data.diferencia_monto)) + ' (' + Math.abs(data.diferencia_pct).toFixed(2) + '%)';
       } else { pill.style.display = 'none'; }
 
-      // Guarda automáticamente el análisis recién generado.
       savePartida(card);
     } catch (e) {
       alert(e.message);
@@ -431,8 +1010,8 @@
 
     const statsHtml = `
       <div class="rep-grid">
-        <div class="rep-stat"><div class="v" style="color:#16a34a;">${r.ganadas.length}</div><div class="l">Ganadas</div></div>
-        <div class="rep-stat"><div class="v" style="color:#ef4444;">${r.perdidas.length}</div><div class="l">Perdidas</div></div>
+        <div class="rep-stat"><div class="v" style="color:var(--success);">${r.ganadas.length}</div><div class="l">Ganadas</div></div>
+        <div class="rep-stat"><div class="v" style="color:var(--danger);">${r.perdidas.length}</div><div class="l">Perdidas</div></div>
         <div class="rep-stat"><div class="v">${pct(r.tasaExito)}</div><div class="l">Tasa de éxito</div></div>
         <div class="rep-stat"><div class="v">${money(r.subtotalGanadas)}</div><div class="l">Subtotal ganado</div></div>
         <div class="rep-stat"><div class="v">${money(r.montoPerdidoPotencial)}</div><div class="l">No ganado</div></div>
@@ -446,7 +1025,7 @@
               ${escapeHtml(String(p.qty))} ${escapeHtml(p.unit)} ·
               Tu precio <strong>${money(p.offered)}</strong> ·
               Ganador <strong>${p.ganador > 0 ? money(p.ganador) : '—'}</strong>
-              ${p.dif !== null ? ` · Diferencia <strong>${p.dif > 0 ? '▲' : '▼'} ${money(Math.abs(p.dif))} (${pct(Math.abs(p.difPct))})</strong>` : ''}
+              ${p.dif !== null ? ` · Diferencia <strong style="color: ${p.dif > 0 ? 'var(--danger)' : 'var(--success)'}">${p.dif > 0 ? '(+)' : '(-)'} ${money(Math.abs(p.dif))} (${pct(Math.abs(p.difPct))})</strong>` : ''}
               ${p.proveedor ? ` · Ganador: ${escapeHtml(p.proveedor)}` : ''}
             </div>
             ${p.motivo ? `<div class="a"><strong>Motivo:</strong> ${escapeHtml(p.motivo)}</div>` : ''}
@@ -476,10 +1055,12 @@
     const r = collectReport();
     document.getElementById('reportBody').innerHTML = renderReportHtml(r);
     document.getElementById('reportModal').classList.add('show');
+    document.body.style.overflow = 'hidden';
   }
 
   function closeReportModal() {
     document.getElementById('reportModal').classList.remove('show');
+    document.body.style.overflow = '';
   }
 
   document.getElementById('reportModal').addEventListener('click', e => {
@@ -524,6 +1105,77 @@
     form.submit();
     setTimeout(() => form.remove(), 1500);
   }
+
+  /* ===== Buscador expandible (filtrado dinámico con debounce) ===== */
+  let searchTimer = null;
+
+  function toggleSearch() {
+    const pill = document.getElementById('searchPill');
+    const input = document.getElementById('searchInput');
+    if (pill.classList.contains('open')) {
+      if (!input.value.trim()) {
+        pill.classList.remove('open');
+        input.blur();
+      } else {
+        input.focus();
+      }
+    } else {
+      pill.classList.add('open');
+      setTimeout(() => input.focus(), 200);
+    }
+  }
+
+  function clearSearch(collapse) {
+    const pill = document.getElementById('searchPill');
+    const input = document.getElementById('searchInput');
+    input.value = '';
+    applyFilter('');
+    document.getElementById('searchClear').classList.remove('show');
+    if (collapse) {
+      pill.classList.remove('open');
+      input.blur();
+    } else {
+      input.focus();
+    }
+  }
+
+  function filterCards() {
+    clearTimeout(searchTimer);
+    const q = document.getElementById('searchInput').value.trim().toLowerCase();
+    document.getElementById('searchClear').classList.toggle('show', q.length > 0);
+    searchTimer = setTimeout(() => applyFilter(q), 250);
+  }
+
+  function applyFilter(q) {
+    let visibles = 0, total = 0;
+    document.querySelectorAll('.adj-card').forEach(card => {
+      total++;
+      const num = (card.dataset.num || '').toLowerCase();
+      const desc = (card.dataset.desc || '').toLowerCase();
+      const match = !q || num.includes(q) || desc.includes(q);
+      card.classList.toggle('search-hide', !match);
+      if (match) visibles++;
+    });
+
+    document.getElementById('searchEmpty').style.display = (q && visibles === 0) ? 'block' : 'none';
+
+    const count = document.getElementById('searchCount');
+    if (q) {
+      count.textContent = `${visibles} de ${total}`;
+      count.style.display = 'inline-block';
+    } else {
+      count.style.display = 'none';
+    }
+  }
+
+  // Colapsar al hacer clic fuera (si el campo está vacío)
+  document.addEventListener('click', e => {
+    const pill = document.getElementById('searchPill');
+    const input = document.getElementById('searchInput');
+    if (pill.classList.contains('open') && !pill.contains(e.target) && !input.value.trim()) {
+      pill.classList.remove('open');
+    }
+  });
 
   recompute();
   updateResultLink();
