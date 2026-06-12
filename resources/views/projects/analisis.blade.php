@@ -191,6 +191,10 @@
   .pjd-cl-table tbody td { padding: 10px 12px; border-bottom: 1px solid var(--line); color: var(--ink2); vertical-align: middle; }
   .pjd-cl-table tbody tr:last-child td { border-bottom: none; }
   .pjd-cl-table tbody tr:hover { background: #fafbff; }
+
+  .pjd-cl-table tbody tr[data-row] { cursor: pointer; }
+  .pjd-cl-table tbody tr[data-row]:hover .pjd-cl-requisito-text { color: var(--blue); }
+  .pjd-cl-table tbody tr[data-row].is-expanded .pjd-cl-requisito-text { color: var(--blue); }
   .pjd-cl-table tbody tr.is-expanded { background: #f5f7fb; }
 
   .pjd-cl-row-toggle { background: transparent; border: none; cursor: pointer; padding: 2px; color: var(--muted); display: inline-flex; align-items: center; }
@@ -1152,6 +1156,7 @@
     const clickedControl = e.target.closest('[data-cumplimiento-toggle], [data-status-toggle]');
     if (row && !clickedControl) {
       toggleChecklistDetail(row.dataset.row);
+      e.stopPropagation();
       return;
     }
 
@@ -1389,6 +1394,7 @@
   }
   function closeCita() { citaModal.classList.remove('is-open'); }
   document.addEventListener('click', (e) => {
+    if (e.target.closest('#pjdClBody')) return;
     const el = e.target.closest('[data-cita]');
     if (el) openCita(el.getAttribute('data-cita'));
   });
