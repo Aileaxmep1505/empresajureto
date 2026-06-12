@@ -63,12 +63,11 @@ class PythonProjectProcessor
     /**
      * Procesa N archivos con Azure + OpenAI vía Python.
      *
-     * Importante:
-     * Tu .env global puede seguir teniendo:
+     * Tu .env global puede seguir usando:
      * OPENAI_PRIMARY_MODEL=gpt-5.5
      * OPENAI_MODEL=gpt-5.4
      *
-     * Pero SOLO para este proceso de licitación forzamos:
+     * Pero SOLO para este extractor de licitaciones se fuerza:
      * gpt-5.4-mini
      */
     public function run(array $absoluteFilePaths, array $context = []): array
@@ -93,11 +92,11 @@ class PythonProjectProcessor
 
         /*
          |--------------------------------------------------------------------------
-         | Variables de entorno para este proceso Python
+         | Variables de entorno SOLO para este proceso Python
          |--------------------------------------------------------------------------
          |
-         | Aquí no modificamos tu .env global.
-         | Solo le pasamos a ESTE script los modelos forzados.
+         | No modifica tu .env global.
+         | Solo sobreescribe modelos dentro de este proceso.
          |
          */
         $process->setEnv([
@@ -111,7 +110,7 @@ class PythonProjectProcessor
             'OPENAI_API_KEY'  => env('OPENAI_API_KEY'),
 
             /*
-             | Modelo forzado SOLO para este extractor
+             | Forzado SOLO para este extractor
              */
             'OPENAI_MODEL'             => 'gpt-5.4-mini',
             'OPENAI_PRIMARY_MODEL'     => 'gpt-5.4-mini',
