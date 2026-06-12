@@ -18,36 +18,16 @@ class PythonProjectProcessor
     {
         $this->pythonBin = (string) env('PYTHON_BIN', '/usr/bin/python3');
 
-        /*
-         |--------------------------------------------------------------------------
-         | Script Python
-         |--------------------------------------------------------------------------
-         |
-         | Respeta tu variable actual:
-         | AZURE_LICITACION_PDF_EXTRACT_SCRIPT
-         |
-         | Si no existe, intenta usar:
-         | scripts/process_licitacion.py
-         |
-         */
-        $this->scriptPath = (string) env(
-            'AZURE_LICITACION_PDF_EXTRACT_SCRIPT',
-            base_path('scripts/process_licitacion.py')
-        );
+        // Usa exactamente la variable que ya tienes en tu .env
+        $this->scriptPath = (string) env('AZURE_LICITACION_PDF_EXTRACT_SCRIPT', '');
 
         $this->timeoutSeconds = (int) env('PYTHONAI_TIMEOUT', 900);
         $this->idleTimeoutSeconds = (int) env('PYTHONAI_IDLE_TIMEOUT', 900);
     }
 
     /**
-     * Método que está llamando tu controller:
-     *
+     * Este es el método que llama tu controller:
      * $processor->process($project, $paths);
-     *
-     * Devuelve la estructura normalizada para que el controller pueda hacer:
-     *
-     * $project->structured_data = $result['structured_data'] ?? null;
-     * $project->checklist = data_get($result, 'structured_data.checklist_sugerido', []);
      */
     public function process(Project $project, array $absoluteFilePaths): array
     {
@@ -72,14 +52,6 @@ class PythonProjectProcessor
 
     /**
      * Procesa N archivos con Azure + OpenAI vía el script Python.
-     *
-     * Este método conserva compatibilidad con tu clase actual:
-     *
-     * $processor->run($paths);
-     *
-     * @param string[] $absoluteFilePaths
-     * @param array $context
-     * @return array
      */
     public function run(array $absoluteFilePaths, array $context = []): array
     {
@@ -97,36 +69,20 @@ class PythonProjectProcessor
         ]);
 
         $process = new Process($command);
-
         $process->setTimeout($this->timeoutSeconds);
         $process->setIdleTimeout($this->idleTimeoutSeconds);
 
-        /*
-         |--------------------------------------------------------------------------
-         | Variables de entorno para Python
-         |--------------------------------------------------------------------------
-         |
-         | En algunos hostings, el proceso Symfony no hereda bien todas las variables.
-         | Por eso se las pasamos explícitamente.
-         |
-         */
         $process->setEnv([
-            'PATH' => env('PATH', getenv('PATH') ?: '/usr/local/bin:/usr/bin:/bin'),
+            'PATH' => getenv('PATH') ?: '/usr/local/bin:/usr/bin:/bin',
 
             'OPENAI_API_KEY' => env('OPENAI_API_KEY'),
-            'OPENAI_PRIMARY_MODEL' => env('OPENAI_PRIMARY_MODEL', 'gpt-5.4'),
+            'OPENAI_PRIMARY_MODEL' => env('OPENAI_PRIMARY_MODEL', env('OPENAI_MODEL', 'gpt-5.4')),
             'OPENAI_MODEL' => env('OPENAI_MODEL', env('OPENAI_PRIMARY_MODEL', 'gpt-5.4')),
-            'OPENAI_FALLBACK_MODELS' => env(
-                'OPENAI_FALLBACK_MODELS',
-                'gpt-5.5,gpt-5,gpt-4.1,gpt-4o'
-            ),
+            'OPENAI_FALLBACK_MODELS' => env('OPENAI_FALLBACK_MODELS', 'gpt-5.5,gpt-5,gpt-4.1,gpt-4o'),
 
             'AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT' => env('AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT'),
             'AZURE_DOCUMENT_INTELLIGENCE_KEY' => env('AZURE_DOCUMENT_INTELLIGENCE_KEY'),
-            'AZURE_DOCUMENT_INTELLIGENCE_API_VERSION' => env(
-                'AZURE_DOCUMENT_INTELLIGENCE_API_VERSION',
-                '2024-11-30'
-            ),
+            'AZURE_DOCUMENT_INTELLIGENCE_API_VERSION' => env('AZURE_DOCUMENT_INTELLIGENCE_API_VERSION', '2024-11-30'),
         ]);
 
         try {
@@ -155,7 +111,7 @@ class PythonProjectProcessor
 
         if ($stderr !== '') {
             Log::info('PythonProjectProcessor STDERR', [
-                'stderr' => $stderr,
+                'stderr' => mb_substr($stderr, 0, 4000),
                 'context' => $context,
             ]);
         }
@@ -196,9 +152,6 @@ class PythonProjectProcessor
         return $payload;
     }
 
-    /**
-     * Alias por si en otra parte usas handle().
-     */
     public function handle(Project $project, array $absoluteFilePaths): array
     {
         return $this->process($project, $absoluteFilePaths);
@@ -206,6 +159,10 @@ class PythonProjectProcessor
 
     protected function validateBeforeRun(array $absoluteFilePaths): void
     {
+        if (!$this->pythonBin) {
+            throw new \Exception('Falta PYTHON_BIN en .env');
+        }
+
         if (!$this->scriptPath) {
             throw new \Exception('Falta AZURE_LICITACION_PDF_EXTRACT_SCRIPT en .env');
         }
@@ -253,14 +210,6 @@ class PythonProjectProcessor
             return $payload;
         }
 
-        /*
-         |--------------------------------------------------------------------------
-         | Fallback: última línea JSON
-         |--------------------------------------------------------------------------
-         |
-         | Por si el script imprime logs antes del JSON.
-         |
-         */
         $lines = array_reverse(array_filter(explode("\n", $stdout)));
 
         foreach ($lines as $line) {
@@ -271,11 +220,6 @@ class PythonProjectProcessor
             }
         }
 
-        /*
-         |--------------------------------------------------------------------------
-         | Fallback: buscar primer bloque JSON grande
-         |--------------------------------------------------------------------------
-         */
         if (preg_match('/\{.*\}/s', $stdout, $match)) {
             $try = json_decode($match[0], true);
 
