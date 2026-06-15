@@ -134,23 +134,105 @@
   .pjd-field.has-cita:hover .pjd-cita-badge, .pjd-qa.has-cita:hover .pjd-cita-badge { opacity: 1; transform: translateY(0); }
   .pjd-cita-badge.is-muted { color: var(--muted); background: #f4f5f7; border-color: var(--line); }
 
+  /* ════════════ CITA DEL DOCUMENTO (panel inline) — PRO ════════════ */
   .pjd-source-panel { display: none; padding: 12px 0 4px; }
-  .pjd-field.is-source-open .pjd-source-panel, .pjd-qa.is-source-open .pjd-source-panel { display: block; animation: pjdSourceIn .18s ease both; }
-  @keyframes pjdSourceIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
-  .pjd-source-card { position: relative; border: 1px solid var(--line); border-left: 4px solid var(--blue); border-radius: 14px; background: #f8fbff; padding: 18px 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.02); }
-  .pjd-source-card.is-empty { border-left-color: var(--muted); background: #fafafa; }
-  .pjd-source-close { position: absolute; top: 12px; right: 12px; width: 28px; height: 28px; border: none; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; font-size: 1rem; display: grid; place-items: center; transition: all .15s ease; }
-  .pjd-source-close:hover { background: #fff; color: var(--ink); }
-  .pjd-source-title { margin: 0 32px 14px 0; font-size: .95rem; font-weight: 700; color: var(--ink); }
-  .pjd-source-quote { margin: 0 0 14px; padding-bottom: 14px; border-bottom: 1px solid var(--line); color: #4b5563; font-size: .96rem; line-height: 1.6; white-space: pre-wrap; }
-  .pjd-source-meta { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; color: #6b7280; font-size: .86rem; line-height: 1.5; }
-  .pjd-source-meta strong { color: #4b5563; font-weight: 700; }
-  .pjd-source-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
-  .pjd-source-btn { border: 1px solid #b8d4ff; background: #fff; color: var(--blue); border-radius: 8px; padding: 8px 16px; font-family: inherit; font-size: .85rem; font-weight: 700; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: all .15s ease; }
-  .pjd-source-btn:hover { background: var(--blue-soft); transform: translateY(-1px); }
-  .pjd-source-btn:active { transform: scale(.98); }
-  .pjd-source-btn.is-ghost { border-color: var(--line); color: #555; background: transparent; }
-  .pjd-source-btn.is-ghost:hover { background: #fff; color: var(--ink); }
+  .pjd-field.is-source-open .pjd-source-panel, .pjd-qa.is-source-open .pjd-source-panel { display: block; animation: pjdSourceIn .22s cubic-bezier(.22,1,.36,1) both; }
+  @keyframes pjdSourceIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+
+  .pjd-source-card {
+    position: relative;
+    border: 1px solid #e6eef9;
+    border-radius: 16px;
+    background: linear-gradient(180deg, #fbfdff 0%, #ffffff 55%);
+    padding: 20px 22px 18px;
+    box-shadow: 0 10px 28px rgba(15, 40, 90, .07);
+    overflow: hidden;
+  }
+  .pjd-source-card::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+    background: linear-gradient(180deg, var(--blue), #5aa6ff);
+  }
+  .pjd-source-card.is-empty { box-shadow: none; background: #fafafa; border-color: #eee; }
+  .pjd-source-card.is-empty::before { background: #d6d6d6; }
+
+  .pjd-source-close {
+    position: absolute; top: 14px; right: 14px;
+    width: 30px; height: 30px; border: none; border-radius: 9px;
+    background: #f1f5fb; color: #94a0b2; cursor: pointer; font-size: .95rem;
+    display: grid; place-items: center; transition: all .15s ease;
+  }
+  .pjd-source-close:hover { background: #e6eefb; color: var(--blue); }
+
+  .pjd-source-title {
+    display: inline-flex; align-items: center; gap: 10px;
+    margin: 0 40px 16px 0; font-size: 1rem; font-weight: 700; color: var(--ink);
+  }
+  .pjd-source-title::before {
+    content: ""; width: 30px; height: 30px; border-radius: 9px; flex-shrink: 0;
+    background: var(--blue-soft) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23007aff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/%3E%3Cpath d='M14 2v6h6'/%3E%3Cpath d='M9 13h6M9 17h4'/%3E%3C/svg%3E") center / 16px no-repeat;
+  }
+  .pjd-source-card.is-empty .pjd-source-title::before { background-color: #eee; filter: grayscale(1) opacity(.6); }
+
+  .pjd-source-quote {
+    position: relative;
+    margin: 0 0 16px; padding: 15px 18px 15px 46px;
+    background: #f5f9ff; border: 1px solid #e8f0fc; border-radius: 13px;
+    color: #3a4658; font-size: .96rem; line-height: 1.65; font-style: italic;
+    white-space: pre-wrap;
+  }
+  .pjd-source-quote::before {
+    content: "\201C"; position: absolute; left: 14px; top: 4px;
+    font-size: 2.6rem; line-height: 1; color: #bcd6ff;
+    font-family: Georgia, 'Times New Roman', serif; font-style: normal;
+  }
+  .pjd-source-card.is-empty .pjd-source-quote { background: #f7f7f7; border-color: #ececec; color: #9aa0a8; }
+  .pjd-source-card.is-empty .pjd-source-quote::before { color: #d8d8d8; }
+
+  .pjd-source-meta {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+    font-size: .82rem; color: #6b7280;
+  }
+  .pjd-source-meta strong {
+    font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+    color: #9aa6b8;
+  }
+  .pjd-source-meta > span {
+    display: inline-flex; align-items: center; gap: 6px;
+    max-width: 100%; padding: 6px 11px; border-radius: 9px;
+    background: #f2f6fc; border: 1px solid #e4ecf7;
+    font-size: .8rem; font-weight: 600; color: #51607a;
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .pjd-source-meta > span::before {
+    content: ""; width: 13px; height: 13px; flex-shrink: 0;
+    background: center/contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2351607a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/%3E%3Cpath d='M14 2v6h6'/%3E%3C/svg%3E");
+  }
+
+  .pjd-source-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+  .pjd-source-btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    border: none; border-radius: 10px; padding: 10px 18px;
+    font-family: inherit; font-size: .86rem; font-weight: 700; cursor: pointer; text-decoration: none;
+    transition: all .16s ease;
+  }
+  .pjd-source-btn::before { content: ""; width: 15px; height: 15px; flex-shrink: 0; background: center/contain no-repeat; }
+  .pjd-source-btn:not(.is-ghost) {
+    background: linear-gradient(180deg, #1d8bff, var(--blue)); color: #fff;
+    box-shadow: 0 6px 16px rgba(0,122,255,.28);
+  }
+  .pjd-source-btn:not(.is-ghost):hover { transform: translateY(-1px); box-shadow: 0 10px 22px rgba(0,122,255,.34); }
+  .pjd-source-btn:not(.is-ghost):active { transform: translateY(0); }
+  .pjd-source-btn:not(.is-ghost)::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3C/svg%3E");
+  }
+  .pjd-source-btn.is-ghost {
+    background: #fff; color: var(--blue); border: 1px solid #cfe0fb;
+  }
+  .pjd-source-btn.is-ghost:hover { background: var(--blue-soft); border-color: var(--blue); }
+  .pjd-source-btn.is-ghost::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23007aff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6'/%3E%3Cpolyline points='15 3 21 3 21 9'/%3E%3Cline x1='10' y1='14' x2='21' y2='3'/%3E%3C/svg%3E");
+  }
 
   /* Modal cita (legacy, sin uso) */
   .pjd-cita-modal { display: none; position: fixed; inset: 0; z-index: 250; align-items: center; justify-content: center; padding: 20px; }
