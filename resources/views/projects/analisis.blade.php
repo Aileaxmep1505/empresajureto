@@ -1001,6 +1001,13 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 {{-- PDF.js para renderizar el PDF y resaltar la cita --}}
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+@php
+  $pjdDocsList = $project->documents->map(fn($d) => [
+    'filename' => $d->filename,
+    'stored'   => basename($d->file_path),
+    'url'      => \Illuminate\Support\Facades\Storage::disk('public')->url($d->file_path),
+  ])->values();
+@endphp
 <script>
 (function(){
   'use strict';
@@ -1013,11 +1020,7 @@
   const CHECKLIST_URL   = @json(route('projects.checklist', $project));
   const REPORT_URL      = @json(route('projects.report', $project));
   const CSRF            = '{{ csrf_token() }}';
-  const PROJECT_DOCS_LIST = @json($project->documents->map(fn($d) => [
-    'filename' => $d->filename,
-    'stored'   => basename($d->file_path),
-    'url'      => \Illuminate\Support\Facades\Storage::disk('public')->url($d->file_path),
-  ])->values());
+  const PROJECT_DOCS_LIST = @json($pjdDocsList);
 
   function escapeHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
