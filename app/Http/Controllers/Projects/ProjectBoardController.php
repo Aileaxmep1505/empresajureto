@@ -69,100 +69,100 @@ class ProjectBoardController extends Controller
         return view('projects.index', compact('projects', 'columns', 'openColumns', 'viewMode'));
     }
 
-   public function store(Request $request, PythonProjectProcessor $processor)
-{
-    $withoutDocuments = $request->boolean('without_documents');
+    /* ============================================================
+     |  STORE  (crea proyecto + sube docs + dispara extracción)
+     * ============================================================ */
+    public function store(Request $request, PythonProjectProcessor $processor)
+    {
+        $withoutDocuments = $request->boolean('without_documents');
 
-    $rules = [
-        'name'       => 'required|string|max:255',
-        'start_date' => 'nullable|date',
-        'color'      => 'nullable|string|max:30',
-        'favorite'   => 'nullable',
-        'column_id'  => 'nullable|integer',
-    ];
+        $rules = [
+            'name'       => 'required|string|max:255',
+            'start_date' => 'nullable|date',
+            'color'      => 'nullable|string|max:30',
+            'favorite'   => 'nullable',
+            'column_id'  => 'nullable|integer',
+        ];
 
-    if (!$withoutDocuments) {
-        $rules['files'] = 'required|array|min:1|max:9';
-        $rules['files.*'] = 'file|mimes:pdf,docx,doc|max:25600';
-    } else {
-        $rules['files'] = 'nullable|array|max:9';
-        $rules['files.*'] = 'file|mimes:pdf,docx,doc|max:25600';
-    }
+        if (!$withoutDocuments) {
+            $rules['files'] = 'required|array|min:1|max:9';
+            $rules['files.*'] = 'file|mimes:pdf,docx,doc|max:25600';
+        } else {
+            $rules['files'] = 'nullable|array|max:9';
+            $rules['files.*'] = 'file|mimes:pdf,docx,doc|max:25600';
+        }
 
-    $request->validate($rules);
+        $request->validate($rules);
 
-    $project = Project::create([
-        'name'       => $request->name,
-        'slug'       => Str::slug($request->name) . '-' . Str::random(6),
-        'user_id'    => Auth::id(),
-        'status'     => $withoutDocuments ? 'ready' : 'processing',
-        'column_id'  => (int) ($request->column_id ?: 1),
-        'priority'   => $request->priority ?? 'media',
-        'color'      => $request->color ?? '#1e3a5f',
-        'start_date' => $request->start_date,
-        'favorite'   => $request->boolean('favorite'),
-    ]);
-
-    $paths = [];
-
-    foreach ($request->file('files', []) as $file) {
-        $stored = $file->store("projects/{$project->id}/source", 'public');
-
-        ProjectDocument::create([
-            'project_id' => $project->id,
-            'filename'   => $file->getClientOriginalName(),
-            'file_path'  => $stored,
-            'mime_type'  => $file->getMimeType(),
-            'file_size'  => $file->getSize(),
-            'status'     => 'pendiente',
+        $project = Project::create([
+            'name'       => $request->name,
+            'slug'       => Str::slug($request->name) . '-' . Str::random(6),
+            'user_id'    => Auth::id(),
+            'status'     => $withoutDocuments ? 'ready' : 'processing',
+            'column_id'  => (int) ($request->column_id ?: 1),
+            'priority'   => $request->priority ?? 'media',
+            'color'      => $request->color ?? '#1e3a5f',
+            'start_date' => $request->start_date,
+            'favorite'   => $request->boolean('favorite'),
         ]);
 
-        $paths[] = storage_path('app/public/' . $stored);
-    }
+        $paths = [];
 
-    if (!$withoutDocuments && !empty($paths)) {
-        try {
-            $result = $processor->process($project, $paths);
+        foreach ($request->file('files', []) as $file) {
+            $stored = $file->store("projects/{$project->id}/source", 'public');
 
-            $project->structured_data = $result['structured_data'] ?? null;
-            $project->checklist       = data_get($result, 'structured_data.checklist_sugerido', []);
-            $project->status          = 'ready';
-            $project->save();
-
-            ProjectDocument::where('project_id', $project->id)
-                ->update([
-                    'status'       => 'procesado',
-                    'processed_at' => now(),
-                ]);
-        } catch (\Throwable $e) {
-            Log::error('Project processing failed', [
-                'project' => $project->id,
-                'error'   => $e->getMessage(),
+            ProjectDocument::create([
+                'project_id' => $project->id,
+                'filename'   => $file->getClientOriginalName(),
+                'file_path'  => $stored,
+                'mime_type'  => $file->getMimeType(),
+                'file_size'  => $file->getSize(),
+                'status'     => 'pendiente',
             ]);
 
-            $project->status        = 'error';
-            $project->error_message = $e->getMessage();
-            $project->save();
+            $paths[] = storage_path('app/public/' . $stored);
         }
+
+        if (!$withoutDocuments && !empty($paths)) {
+            try {
+                $result = $processor->process($project, $paths);
+
+                $project->structured_data = $result['structured_data'] ?? null;
+                $project->checklist       = data_get($result, 'structured_data.checklist_sugerido', []);
+                $project->status          = 'ready';
+                $project->save();
+
+                ProjectDocument::where('project_id', $project->id)
+                    ->update([
+                        'status'       => 'procesado',
+                        'processed_at' => now(),
+                    ]);
+            } catch (\Throwable $e) {
+                Log::error('Project processing failed', [
+                    'project' => $project->id,
+                    'error'   => $e->getMessage(),
+                ]);
+
+                $project->status        = 'error';
+                $project->error_message = $e->getMessage();
+                $project->save();
+            }
+        }
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'ok'           => true,
+                'redirect'     => route('projects.show', $project),
+                'redirect_url' => route('projects.show', $project),
+                'project'      => $project,
+            ]);
+        }
+
+        return redirect()->route('projects.show', $project);
     }
 
-    if ($request->wantsJson()) {
-        return response()->json([
-            'ok'           => true,
-            'redirect'     => route('projects.show', $project),
-            'redirect_url' => route('projects.show', $project),
-            'project'      => $project,
-        ]);
-    }
-
-    return redirect()->route('projects.show', $project);
-}
     /* ============================================================
      |  SHOW   →  DASHBOARD (vista principal del proyecto)
-     |   - Pipeline (Análisis → Revisión → Resultado)
-     |   - Módulo sugerido + monico insights
-     |   - Notas, Tareas, Resumen de Documentos, Info General
-     |   - Ficha Técnica resumida + Fechas Clave
      * ============================================================ */
     public function show(Project $project)
     {
@@ -175,8 +175,6 @@ class ProjectBoardController extends Controller
 
     /* ============================================================
      |  ANALISIS   →  Vista con CHAT + TABS
-     |   (Ficha / Resumen Ejecutivo / Checklist / Borrador / Documentos)
-     |   Se abre desde el card "Análisis de Bases" del dashboard.
      * ============================================================ */
     public function analisis(Project $project)
     {
@@ -189,6 +187,9 @@ class ProjectBoardController extends Controller
 
     /* ============================================================
      |  CHAT
+     |   - Prosa profesional por defecto
+     |   - Tablas SOLO cuando el usuario pide comparar/listar datos
+     |   - Sin emojis ni caracteres decorativos
      * ============================================================ */
     public function chat(Request $request, Project $project, OpenAiStructurerService $ai)
     {
@@ -208,8 +209,13 @@ class ProjectBoardController extends Controller
             . "Estás analizando el proyecto: \"{$project->name}\".\n\n"
             . "Datos estructurados del proyecto (JSON):\n"
             . json_encode($project->structured_data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) . "\n\n"
-            . "Cuando la respuesta sea comparativa, listada o tabular, devuélvela en formato de tabla Markdown "
-            . "(con encabezado y separador `|---|`). Usa lenguaje claro y profesional.";
+            . "FORMATO DE RESPUESTA (obligatorio):\n"
+            . "1. Responde de forma profesional y clara, como un consultor. Usa prosa redactada en parrafos cortos.\n"
+            . "2. Por defecto NO uses tablas. Para explicar procedimientos, consecuencias, recomendaciones o respuestas a preguntas, usa parrafos y, si ayuda, listas con vinetas '- ' o listas numeradas '1.'.\n"
+            . "3. Usa una TABLA en formato Markdown SOLO cuando el usuario pida explicitamente comparar o listar varios elementos por las mismas columnas (por ejemplo: comparar partidas, listar fechas con sus datos, o un cuadro de varios requisitos). Si la respuesta es una explicacion, NUNCA la pongas en tabla.\n"
+            . "4. Puedes resaltar conceptos clave con **negritas** y usar subtitulos con '## '.\n"
+            . "5. NO uses emojis ni iconos. NO uses caracteres decorativos. Manten un tono formal y limpio.\n"
+            . "6. Se conciso y directo, sin relleno. Cita datos concretos del documento cuando existan.";
 
         $messages = [['role' => 'system', 'content' => $systemContext]];
         foreach ($history as $m) {
