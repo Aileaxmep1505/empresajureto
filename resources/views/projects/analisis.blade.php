@@ -69,6 +69,19 @@
   .pjd-msg-meta { font-size: .72rem; color: var(--muted); margin-bottom: 3px; font-weight: 700; }
   .pjd-msg.is-assistant .pjd-msg-meta { display: flex; align-items: center; gap: 6px; }
 
+  /* ── Markdown dentro del chat ── */
+  .pjd-msg-body h3.pjd-md-h { margin: 12px 0 6px; font-size: 1rem; font-weight: 700; color: var(--ink); }
+  .pjd-msg-body h4.pjd-md-h { margin: 10px 0 4px; font-size: .92rem; font-weight: 700; color: var(--ink); }
+  .pjd-msg-body p.pjd-md-p { margin: 0 0 8px; }
+  .pjd-msg-body p.pjd-md-p:last-child { margin-bottom: 0; }
+  .pjd-msg-body ul.pjd-md-ul, .pjd-msg-body ol.pjd-md-ol { margin: 6px 0 8px; padding-left: 20px; }
+  .pjd-msg-body ul.pjd-md-ul li, .pjd-msg-body ol.pjd-md-ol li { margin: 3px 0; line-height: 1.5; }
+  .pjd-msg-body ul.pjd-md-ul { list-style: none; padding-left: 4px; }
+  .pjd-msg-body ul.pjd-md-ul li { position: relative; padding-left: 16px; }
+  .pjd-msg-body ul.pjd-md-ul li::before { content: ""; position: absolute; left: 2px; top: .55em; width: 5px; height: 5px; border-radius: 50%; background: var(--blue); }
+  .pjd-msg-body strong { color: var(--ink); font-weight: 700; }
+  .pjd-msg-body code.pjd-md-code { background: var(--bg); border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px; font-size: .85em; font-family: ui-monospace, Menlo, Consolas, monospace; }
+
   .pjd-chat-input { padding: 14px 18px; border-top: 1px solid var(--line); background: #fff; display: flex; align-items: center; gap: 10px; }
   .pjd-chat-input input { flex: 1; border: 1px solid var(--line); border-radius: 999px; padding: 10px 16px; font-family: inherit; font-size: .92rem; outline: none; transition: border-color .2s; }
   .pjd-chat-input input:focus { border-color: var(--blue); }
@@ -522,7 +535,7 @@
             <div class="pjd-msg-avatar">j</div>
             <div>
               <div class="pjd-msg-meta">jureto</div>
-              <div class="pjd-msg-body">Hola, soy tu asistente. Pregúntame cosas como "resúmeme los archivos" o "lista las fechas clave" y te las paso en tabla.</div>
+              <div class="pjd-msg-body">Hola, soy tu asistente del proyecto. Puedes pedirme un resumen de las bases, los requisitos clave, las fechas importantes o cualquier duda sobre la licitación.</div>
             </div>
           </div>
         @endforelse
@@ -971,6 +984,56 @@
 
   function escapeHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
+  // ============ RENDERIZADO MARKDOWN (profesional, sin caracteres sueltos) ============
+  function renderMarkdown(text) {
+    if (!text) return '';
+    let s = escapeHtml(text.trim());
+
+    // Marcadores en línea
+    s = s.replace(/`([^`]+)`/g, '<code class="pjd-md-code">$1</code>');
+    s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    s = s.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+    s = s.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>');
+
+    const lines = s.split('\n');
+    let html = '';
+    let listType = null; // 'ul' | 'ol'
+
+    const closeList = () => { if (listType) { html += `</${listType}>`; listType = null; } };
+
+    for (let raw of lines) {
+      const line = raw.trimEnd();
+      const t = line.trim();
+
+      if (t === '') { closeList(); continue; }
+
+      // Títulos
+      let m;
+      if ((m = t.match(/^###\s+(.*)$/))) { closeList(); html += `<h4 class="pjd-md-h">${m[1]}</h4>`; continue; }
+      if ((m = t.match(/^##\s+(.*)$/)))  { closeList(); html += `<h3 class="pjd-md-h">${m[1]}</h3>`; continue; }
+      if ((m = t.match(/^#\s+(.*)$/)))   { closeList(); html += `<h3 class="pjd-md-h">${m[1]}</h3>`; continue; }
+
+      // Viñetas
+      if ((m = t.match(/^[-•*]\s+(.*)$/))) {
+        if (listType !== 'ul') { closeList(); html += '<ul class="pjd-md-ul">'; listType = 'ul'; }
+        html += `<li>${m[1]}</li>`;
+        continue;
+      }
+      // Numeradas
+      if ((m = t.match(/^\d+[.)]\s+(.*)$/))) {
+        if (listType !== 'ol') { closeList(); html += '<ol class="pjd-md-ol">'; listType = 'ol'; }
+        html += `<li>${m[1]}</li>`;
+        continue;
+      }
+
+      // Párrafo normal
+      closeList();
+      html += `<p class="pjd-md-p">${t}</p>`;
+    }
+    closeList();
+    return html;
+  }
+
   // ============ TOAST ============
   function showToast(msg, type) {
     const t = document.createElement('div');
@@ -1149,8 +1212,8 @@
 
     if (tableData) {
       const tableHtml = renderTableHtml(tableData);
-      const textBefore = tableData.before ? `<div class="pjd-msg-body" style="margin-bottom:8px">${escapeHtml(tableData.before).replace(/\n/g,'<br>')}</div>` : '';
-      const textAfter  = tableData.after  ? `<div class="pjd-msg-body" style="margin-top:8px">${escapeHtml(tableData.after).replace(/\n/g,'<br>')}</div>` : '';
+      const textBefore = tableData.before ? `<div class="pjd-msg-body" style="margin-bottom:8px">${renderMarkdown(tableData.before)}</div>` : '';
+      const textAfter  = tableData.after  ? `<div class="pjd-msg-body" style="margin-top:8px">${renderMarkdown(tableData.after)}</div>` : '';
       bodyHtml = `
         ${textBefore}
         <div class="pjd-chat-table-wrap">
@@ -1164,7 +1227,7 @@
         ${textAfter}
       `;
     } else {
-      bodyHtml = `<div class="pjd-msg-body">${escapeHtml(content).replace(/\n/g, '<br>')}</div>`;
+      bodyHtml = `<div class="pjd-msg-body">${renderMarkdown(content)}</div>`;
     }
 
     wrap.innerHTML = `<div class="pjd-msg-avatar">j</div><div style="flex:1;min-width:0;"><div class="pjd-msg-meta">jureto${time ? ' · ' + time : ''}</div>${bodyHtml}</div>`;
@@ -1180,16 +1243,21 @@
     return wrap;
   }
 
-  // Re-renderizar mensajes históricos con tabla
+  // Re-renderizar mensajes históricos (tablas + markdown)
   document.querySelectorAll('.pjd-msg.is-assistant .pjd-msg-body[data-raw]').forEach(el => {
     const raw = el.getAttribute('data-raw') || '';
     const tableData = extractMarkdownTable(raw);
-    if (!tableData) return;
+
+    if (!tableData) {
+      // Sin tabla: render markdown profesional
+      el.innerHTML = renderMarkdown(raw);
+      return;
+    }
 
     const container = el.parentElement;
     const tableHtml = renderTableHtml(tableData);
-    const textBefore = tableData.before ? `<div class="pjd-msg-body" style="margin-bottom:8px">${escapeHtml(tableData.before).replace(/\n/g,'<br>')}</div>` : '';
-    const textAfter  = tableData.after  ? `<div class="pjd-msg-body" style="margin-top:8px">${escapeHtml(tableData.after).replace(/\n/g,'<br>')}</div>` : '';
+    const textBefore = tableData.before ? `<div class="pjd-msg-body" style="margin-bottom:8px">${renderMarkdown(tableData.before)}</div>` : '';
+    const textAfter  = tableData.after  ? `<div class="pjd-msg-body" style="margin-top:8px">${renderMarkdown(tableData.after)}</div>` : '';
     el.outerHTML = `
       ${textBefore}
       <div class="pjd-chat-table-wrap">
@@ -1242,7 +1310,7 @@
     try {
       await fetch(CHAT_RESET_URL, { method:'DELETE', headers:{'X-CSRF-TOKEN': CSRF, 'Accept':'application/json'} });
       chatList.innerHTML = '';
-      appendMsg('assistant', 'Hola, soy tu asistente. Pregúntame cosas como "resúmeme los archivos" y te las paso en tabla.');
+      appendMsg('assistant', 'Hola, soy tu asistente del proyecto. ¿En qué puedo ayudarte? Puedo resumir las bases, listar requisitos o aclararte cualquier punto de la licitación.');
     } catch (_) {}
   });
 
