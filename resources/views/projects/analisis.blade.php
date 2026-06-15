@@ -564,24 +564,24 @@
   $citaPayload = function ($citas, $key, $value = null, $label = null) use ($resolverCita) {
       $c = $resolverCita($citas, $key, $value, $label);
       if (!is_array($c) || (empty($c['cita']) && empty($c['fuente']) && empty($c['pagina']))) return null;
-      return htmlspecialchars(json_encode([
+      return json_encode([
           'cita'   => $c['cita'] ?? '',
           'fuente' => $c['fuente'] ?? '',
           'pagina' => $c['pagina'] ?? null,
-      ], JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8');
+      ], JSON_UNESCAPED_UNICODE);
   };
 
   $checklistCitaPayload = function ($it) {
       $hasSource = !empty($it['fuente']) || !empty($it['pagina']) || !empty($it['cita']) || !empty($it['descripcion']);
       if (!$hasSource) return null;
 
-      return htmlspecialchars(json_encode([
+      return json_encode([
           'cita'        => $it['cita'] ?: ($it['descripcion'] ?? ''),
           'fuente'      => $it['fuente'] ?? '',
           'pagina'      => $it['pagina'] ?? null,
           'requisito'   => $it['requisito'] ?? '',
           'descripcion' => $it['descripcion'] ?? '',
-      ], JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8');
+      ], JSON_UNESCAPED_UNICODE);
   };
 @endphp
 
