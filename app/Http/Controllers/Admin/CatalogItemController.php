@@ -58,6 +58,13 @@ class CatalogItemController extends Controller implements HasMiddleware
             $q->where('is_featured', true);
         }
 
+        // Filtro de muestras: por defecto el catálogo de venta NO muestra muestras.
+        if ($request->boolean('samples_only')) {
+            $q->where('is_sample', true);
+        } else {
+            $q->where('is_sample', false);
+        }
+
         $items = $q->orderByDesc('id')->paginate(20)->withQueryString();
 
         return view('admin.catalog.index', [
@@ -66,6 +73,7 @@ class CatalogItemController extends Controller implements HasMiddleware
                 's'             => $s,
                 'status'        => $request->get('status'),
                 'featured_only' => $request->boolean('featured_only'),
+                'samples_only'  => $request->boolean('samples_only'),
             ],
         ]);
     }
@@ -88,6 +96,12 @@ class CatalogItemController extends Controller implements HasMiddleware
 
         if ($request->boolean('featured_only')) {
             $q->where('is_featured', true);
+        }
+
+        if ($request->boolean('samples_only')) {
+            $q->where('is_sample', true);
+        } else {
+            $q->where('is_sample', false);
         }
 
         $items = $q->orderBy('id')->get();
@@ -113,6 +127,8 @@ class CatalogItemController extends Controller implements HasMiddleware
             'Stock máximo',
             'Estado',
             'Destacado',
+            'Muestra',
+            'Estado muestra',
             'Slug',
             'Publicado en',
             'ML ID',
@@ -142,6 +158,8 @@ class CatalogItemController extends Controller implements HasMiddleware
                 $it->stock_max,
                 $statusText,
                 $featuredText,
+                $it->is_sample ? 'Sí' : 'No',
+                $it->sampleStatusLabel() ?? '',
                 $it->slug,
                 $it->published_at ? $it->published_at->format('Y-m-d H:i') : '',
                 $it->meli_item_id ?? '',
@@ -240,6 +258,12 @@ class CatalogItemController extends Controller implements HasMiddleware
             $q->where('is_featured', true);
         }
 
+        if ($request->boolean('samples_only')) {
+            $q->where('is_sample', true);
+        } else {
+            $q->where('is_sample', false);
+        }
+
         $items = $q->orderBy('id')->get();
 
         $logoBase64 = null;
@@ -320,6 +344,8 @@ class CatalogItemController extends Controller implements HasMiddleware
         $html .= '<th>Stock máx.</th>';
         $html .= '<th>Estado</th>';
         $html .= '<th>Destacado</th>';
+        $html .= '<th>Muestra</th>';
+        $html .= '<th>Estado muestra</th>';
         $html .= '<th>Slug</th>';
         $html .= '<th>Publicado</th>';
         $html .= '<th>ML ID</th>';
@@ -349,6 +375,8 @@ class CatalogItemController extends Controller implements HasMiddleware
             $html .= '<td>' . htmlspecialchars((string) ($it->stock_max ?? '')) . '</td>';
             $html .= '<td>' . htmlspecialchars($statusText) . '</td>';
             $html .= '<td>' . htmlspecialchars($featuredText) . '</td>';
+            $html .= '<td>' . htmlspecialchars($it->is_sample ? 'Sí' : 'No') . '</td>';
+            $html .= '<td>' . htmlspecialchars((string) ($it->sampleStatusLabel() ?? '')) . '</td>';
             $html .= '<td>' . htmlspecialchars((string) $it->slug) . '</td>';
             $html .= '<td>' . ($it->published_at ? htmlspecialchars($it->published_at->format('Y-m-d H:i')) : '—') . '</td>';
             $html .= '<td>' . htmlspecialchars((string) ($it->meli_item_id ?? '')) . '</td>';
@@ -356,7 +384,7 @@ class CatalogItemController extends Controller implements HasMiddleware
         }
 
         if ($items->isEmpty()) {
-            $html .= '<tr><td colspan="18" class="muted" style="text-align:center;padding:14px 6px;">';
+            $html .= '<tr><td colspan="20" class="muted" style="text-align:center;padding:14px 6px;">';
             $html .= 'No hay productos que coincidan con el filtro.';
             $html .= '</td></tr>';
         }
@@ -417,6 +445,12 @@ class CatalogItemController extends Controller implements HasMiddleware
             'excerpt'             => ['nullable', 'string'],
             'description'         => ['nullable', 'string'],
             'published_at'        => ['nullable', 'date'],
+
+            // Muestras
+            'is_sample'           => ['nullable', 'boolean'],
+            'sample_status'       => ['nullable', 'string', 'in:guardada,prestada,regalada,danada'],
+            'sample_holder'       => ['nullable', 'string', 'max:255'],
+            'sample_out_at'       => ['nullable', 'date'],
         ], [
             'sku.required'                 => 'El SKU interno / código GTIN es obligatorio.',
             'meli_gtin.required'           => 'El SKU interno / código GTIN es obligatorio.',
@@ -477,6 +511,25 @@ class CatalogItemController extends Controller implements HasMiddleware
         if (!$request->boolean('use_internal')) {
             $data['brand_id']    = null;
             $data['category_id'] = null;
+        }
+
+        // Normalización de muestras (en alta no se ajusta stock; se toma el capturado)
+        $data['is_sample'] = (bool) ($data['is_sample'] ?? false);
+        if ($data['is_sample']) {
+            $status = (string) ($data['sample_status'] ?? 'guardada');
+            if (!array_key_exists($status, CatalogItem::SAMPLE_STATUSES)) {
+                $status = 'guardada';
+            }
+            $data['sample_status'] = $status;
+
+            if (!in_array($status, CatalogItem::SAMPLE_OUT_STATUSES, true)) {
+                $data['sample_holder'] = null;
+                $data['sample_out_at'] = null;
+            }
+        } else {
+            $data['sample_status'] = null;
+            $data['sample_holder'] = null;
+            $data['sample_out_at'] = null;
         }
 
         try {
@@ -583,6 +636,12 @@ class CatalogItemController extends Controller implements HasMiddleware
             'excerpt'             => ['nullable', 'string'],
             'description'         => ['nullable', 'string'],
             'published_at'        => ['nullable', 'date'],
+
+            // Muestras
+            'is_sample'           => ['nullable', 'boolean'],
+            'sample_status'       => ['nullable', 'string', 'in:guardada,prestada,regalada,danada'],
+            'sample_holder'       => ['nullable', 'string', 'max:255'],
+            'sample_out_at'       => ['nullable', 'date'],
         ], [
             'sku.required'                 => 'El SKU interno / código GTIN es obligatorio.',
             'meli_gtin.required'           => 'El SKU interno / código GTIN es obligatorio.',
@@ -648,6 +707,39 @@ class CatalogItemController extends Controller implements HasMiddleware
         if (!$request->boolean('use_internal')) {
             $data['brand_id']    = null;
             $data['category_id'] = null;
+        }
+
+        // Normalización de muestras
+        $data['is_sample'] = (bool) ($data['is_sample'] ?? false);
+        if ($data['is_sample']) {
+            $status = (string) ($data['sample_status'] ?? 'guardada');
+            if (!array_key_exists($status, CatalogItem::SAMPLE_STATUSES)) {
+                $status = 'guardada';
+            }
+            $data['sample_status'] = $status;
+
+            if (!in_array($status, CatalogItem::SAMPLE_OUT_STATUSES, true)) {
+                $data['sample_holder'] = null;
+                $data['sample_out_at'] = null;
+            }
+        } else {
+            $data['sample_status'] = null;
+            $data['sample_holder'] = null;
+            $data['sample_out_at'] = null;
+        }
+
+        // Ajuste automático de stock por cambio de estado de muestra.
+        // a "prestada"/"regalada" => salió 1 pieza (stock -1)
+        // de vuelta a "guardada"/"dañada" => regresó 1 pieza (stock +1)
+        if ($data['is_sample'] && $catalogItem->is_sample) {
+            $wasOut = in_array((string) $catalogItem->sample_status, CatalogItem::SAMPLE_OUT_STATUSES, true);
+            $isOut  = in_array((string) $data['sample_status'], CatalogItem::SAMPLE_OUT_STATUSES, true);
+
+            if (!$wasOut && $isOut) {
+                $data['stock'] = max(0, (int) $data['stock'] - 1);
+            } elseif ($wasOut && !$isOut) {
+                $data['stock'] = (int) $data['stock'] + 1;
+            }
         }
 
         try {
@@ -724,6 +816,10 @@ class CatalogItemController extends Controller implements HasMiddleware
 
     public function meliPublish(CatalogItem $catalogItem, MeliSyncService $svc)
     {
+        if ($catalogItem->is_sample) {
+            return back()->with('ok', 'Este producto es una muestra y no se publica en marketplaces.');
+        }
+
         $res = $svc->sync($catalogItem, [
             'activate'           => true,
             'update_description' => true,
@@ -760,6 +856,10 @@ class CatalogItemController extends Controller implements HasMiddleware
 
     public function meliActivate(CatalogItem $catalogItem, MeliSyncService $svc)
     {
+        if ($catalogItem->is_sample) {
+            return back()->with('ok', 'Este producto es una muestra y no se publica en marketplaces.');
+        }
+
         $res = $svc->activate($catalogItem);
 
         if ($res['ok']) {
@@ -1185,6 +1285,10 @@ TXT;
 
     public function amazonPublish(CatalogItem $catalogItem, AmazonSpApiListingService $svc)
     {
+        if ($catalogItem->is_sample) {
+            return back()->with('ok', 'Este producto es una muestra y no se publica en marketplaces.');
+        }
+
         $res = $svc->upsertBySku($catalogItem, []);
 
         if ($res['ok']) {
@@ -1226,6 +1330,10 @@ TXT;
 
     public function amazonActivate(CatalogItem $catalogItem, AmazonSpApiListingService $svc)
     {
+        if ($catalogItem->is_sample) {
+            return back()->with('ok', 'Este producto es una muestra y no se publica en marketplaces.');
+        }
+
         $res = $svc->upsertBySku($catalogItem, [
             'status' => 'active',
         ]);
@@ -1273,6 +1381,9 @@ private function buildCatalogAnalyticsData(Request $request): array
     if ($request->boolean('featured_only')) {
         $q->where('is_featured', true);
     }
+
+    // Los reportes de inventario no consideran muestras (no se venden).
+    $q->where('is_sample', false);
 
     $items = $q->orderByDesc('id')->get();
 

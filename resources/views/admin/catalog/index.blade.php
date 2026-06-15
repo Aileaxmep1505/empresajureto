@@ -5,6 +5,7 @@
       - SOLO los filtros se van al Bottom Sheet.
       - La tabla en móvil se vuelve cards apiladas.
       - Ahora muestra stock, stock mínimo, stock máximo y marca stock crítico.
+   - NUEVO: filtro "Muestras" (por defecto el catálogo NO muestra muestras).
 --}}
 @extends('layouts.app')
 @section('title','Productos Web')
@@ -219,6 +220,8 @@
   .b-draft .dot{ background:#94a3b8; }
   .b-hidden{ background:rgba(254,202,202,.26); border-color:rgba(254,202,202,.55); color:#991b1b; }
   .b-hidden .dot{ background:#ef4444; }
+  .b-sample{ background:#fef3c7; border-color:#fde68a; color:#92400e; }
+  .b-sample .dot{ background:#f59e0b; }
 
   .price{ font-weight:900; color:var(--ink); }
   .sale{ color:#16a34a; font-weight:900; }
@@ -669,14 +672,23 @@
 
       return $labels[$unit] ?? ucfirst($unit ?: 'pieza');
   };
+
+  $samplesOnly = request()->boolean('samples_only');
+  $hasFilters  = request()->hasAny(['s','status','featured_only','samples_only']);
 @endphp
 
 <div class="wrap">
 
   <div class="head">
     <div>
-      <h1 class="title">Inventario Jureto</h1>
-      <p class="muted subtxt">Gestiona el catálogo público y sincroniza con Mercado Libre con acciones rápidas.</p>
+      <h1 class="title">{{ $samplesOnly ? 'Muestras Jureto' : 'Inventario Jureto' }}</h1>
+      <p class="muted subtxt">
+        @if($samplesOnly)
+          Productos marcados como muestra (no se venden ni se publican en marketplaces).
+        @else
+          Gestiona el catálogo público y sincroniza con Mercado Libre con acciones rápidas.
+        @endif
+      </p>
     </div>
 
     <div class="head-actions">
@@ -755,7 +767,15 @@
           </label>
         </div>
 
-        @if(request()->hasAny(['s','status','featured_only']))
+        <div class="tt">
+          <span class="tt-bubble">Mostrar solo muestras (no se venden)</span>
+          <label class="chip">
+            <input id="samplesInput" type="checkbox" name="samples_only" value="1" @checked($samplesOnly)>
+            Muestras
+          </label>
+        </div>
+
+        @if($hasFilters)
           <div class="tt">
             <span class="tt-bubble">Quitar filtros</span>
             <a href="{{ route('admin.catalog.index') }}" class="btn btn-sm" style="padding:10px 12px;">
@@ -803,6 +823,9 @@
             $stockCritico = $stockMinimo !== null && $stockActual <= $stockMinimo;
             $sinStock = $stockActual <= 0;
             $stockUnit = $unitLabel($it);
+
+            $esMuestra = (bool)($it->is_sample ?? false);
+            $muestraLabel = ($esMuestra && method_exists($it, 'sampleStatusLabel')) ? $it->sampleStatusLabel() : null;
           @endphp
 
           <tr class="{{ $stockCritico ? 'is-critical-row' : '' }}">
@@ -835,6 +858,12 @@
                     <span class="badge b-hidden"><span class="dot"></span>Oculto</span>
                   @else
                     <span class="badge b-draft"><span class="dot"></span>Borrador</span>
+                  @endif
+
+                  @if($esMuestra)
+                    <span class="badge b-sample">
+                      <span class="dot"></span>Muestra{{ $muestraLabel ? ' · '.$muestraLabel : '' }}
+                    </span>
                   @endif
 
                   @if($it->is_featured)
@@ -972,67 +1001,69 @@
                   </form>
                 </span>
 
-                <span class="tt iconbtn-wrap">
-                  <span class="tt-bubble">ML: Publicar/Actualizar</span>
-                  <form method="POST"
-                        action="{{ route('admin.catalog.meli.publish', $it) }}"
-                        class="js-sa-confirm"
-                        data-sa-title="¿Enviar a Mercado Libre?"
-                        data-sa-text="Se publicará o actualizará el anuncio en Mercado Libre."
-                        data-sa-icon="info">
-                    @csrf
-                    <button class="iconbtn" type="submit">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M12 21V8"/><path d="M7 12l5-5 5 5"/><path d="M20 21H4"/>
-                      </svg>
-                    </button>
-                  </form>
-                </span>
-
-                @if($it->meli_item_id)
+                @unless($esMuestra)
                   <span class="tt iconbtn-wrap">
-                    <span class="tt-bubble">ML: Ver</span>
-                    <a class="iconbtn" href="{{ route('admin.catalog.meli.view', $it) }}">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M14 3h7v7"/><path d="M10 14L21 3"/><path d="M21 14v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6"/>
-                      </svg>
-                    </a>
-                  </span>
-
-                  <span class="tt iconbtn-wrap">
-                    <span class="tt-bubble">ML: Pausar</span>
+                    <span class="tt-bubble">ML: Publicar/Actualizar</span>
                     <form method="POST"
-                          action="{{ route('admin.catalog.meli.pause', $it) }}"
+                          action="{{ route('admin.catalog.meli.publish', $it) }}"
                           class="js-sa-confirm"
-                          data-sa-title="¿Pausar en Mercado Libre?"
-                          data-sa-text="El anuncio quedará pausado."
-                          data-sa-icon="warning">
+                          data-sa-title="¿Enviar a Mercado Libre?"
+                          data-sa-text="Se publicará o actualizará el anuncio en Mercado Libre."
+                          data-sa-icon="info">
                       @csrf
                       <button class="iconbtn" type="submit">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
+                          <path d="M12 21V8"/><path d="M7 12l5-5 5 5"/><path d="M20 21H4"/>
                         </svg>
                       </button>
                     </form>
                   </span>
 
-                  <span class="tt iconbtn-wrap">
-                    <span class="tt-bubble">ML: Activar</span>
-                    <form method="POST"
-                          action="{{ route('admin.catalog.meli.activate', $it) }}"
-                          class="js-sa-confirm"
-                          data-sa-title="¿Activar en Mercado Libre?"
-                          data-sa-text="El anuncio volverá a estar activo."
-                          data-sa-icon="success">
-                      @csrf
-                      <button class="iconbtn" type="submit">
+                  @if($it->meli_item_id)
+                    <span class="tt iconbtn-wrap">
+                      <span class="tt-bubble">ML: Ver</span>
+                      <a class="iconbtn" href="{{ route('admin.catalog.meli.view', $it) }}">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <polygon points="8 5 19 12 8 19 8 5"/>
+                          <path d="M14 3h7v7"/><path d="M10 14L21 3"/><path d="M21 14v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6"/>
                         </svg>
-                      </button>
-                    </form>
-                  </span>
-                @endif
+                      </a>
+                    </span>
+
+                    <span class="tt iconbtn-wrap">
+                      <span class="tt-bubble">ML: Pausar</span>
+                      <form method="POST"
+                            action="{{ route('admin.catalog.meli.pause', $it) }}"
+                            class="js-sa-confirm"
+                            data-sa-title="¿Pausar en Mercado Libre?"
+                            data-sa-text="El anuncio quedará pausado."
+                            data-sa-icon="warning">
+                        @csrf
+                        <button class="iconbtn" type="submit">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
+                          </svg>
+                        </button>
+                      </form>
+                    </span>
+
+                    <span class="tt iconbtn-wrap">
+                      <span class="tt-bubble">ML: Activar</span>
+                      <form method="POST"
+                            action="{{ route('admin.catalog.meli.activate', $it) }}"
+                            class="js-sa-confirm"
+                            data-sa-title="¿Activar en Mercado Libre?"
+                            data-sa-text="El anuncio volverá a estar activo."
+                            data-sa-icon="success">
+                        @csrf
+                        <button class="iconbtn" type="submit">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="8 5 19 12 8 19 8 5"/>
+                          </svg>
+                        </button>
+                      </form>
+                    </span>
+                  @endif
+                @endunless
 
                 <span class="tt iconbtn-wrap">
                   <span class="tt-bubble">Eliminar</span>
@@ -1058,7 +1089,7 @@
         @empty
           <tr>
             <td colspan="8" class="muted" style="text-align:center; padding:28px;">
-              No hay productos que coincidan con el filtro.
+              {{ $samplesOnly ? 'No hay muestras registradas.' : 'No hay productos que coincidan con el filtro.' }}
             </td>
           </tr>
         @endforelse
@@ -1249,6 +1280,11 @@
       Destacados
     </label>
 
+    <label class="chip">
+      <input id="samplesSheet" type="checkbox" name="samples_only" value="1" @checked($samplesOnly)>
+      Solo muestras
+    </label>
+
     <a href="{{ route('admin.catalog.create') }}" class="btn">
       <span class="ico">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1258,7 +1294,7 @@
       Nuevo producto
     </a>
 
-    @if(request()->hasAny(['s','status','featured_only']))
+    @if($hasFilters)
       <a href="{{ route('admin.catalog.index') }}" class="btn btn-sm" style="padding:12px 14px;">
         <span class="ico">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1336,6 +1372,7 @@
   const statusInput = document.getElementById('statusInput');
   const tabs = Array.from(document.querySelectorAll('#filtersForm .tab'));
   const featured = document.getElementById('featuredInput');
+  const samples = document.getElementById('samplesInput');
 
   const submitDebounced = debounce(()=> form?.submit(), 450);
 
@@ -1350,6 +1387,7 @@
     });
   });
   featured?.addEventListener('change', ()=> form?.submit());
+  samples?.addEventListener('change', ()=> form?.submit());
 
   const root = document.documentElement;
   const fab = document.getElementById('fabOpen');
@@ -1380,6 +1418,7 @@
   const statusSheet = document.getElementById('statusSheet');
   const tabSheet = Array.from(document.querySelectorAll('#sheetForm .tab'));
   const featuredSheet = document.getElementById('featuredSheet');
+  const samplesSheet = document.getElementById('samplesSheet');
 
   function syncSearchToSheet(){
     if(!sMirror || !sInput) return;
@@ -1399,6 +1438,11 @@
   });
 
   featuredSheet?.addEventListener('change', ()=>{
+    syncSearchToSheet();
+    sheetForm?.submit();
+  });
+
+  samplesSheet?.addEventListener('change', ()=>{
     syncSearchToSheet();
     sheetForm?.submit();
   });

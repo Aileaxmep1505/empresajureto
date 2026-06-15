@@ -22,6 +22,12 @@
   $currentContentQuantity = old('content_quantity', $item->content_quantity ?? 1);
   $currentContentUnitMeasure = old('content_unit_measure', $item->content_unit_measure ?? 'pieza');
 
+  // Muestras
+  $isSample = (bool) old('is_sample', $item->is_sample ?? false);
+  $currentSampleStatus = old('sample_status', $item->sample_status ?? 'guardada');
+  $currentSampleHolder = old('sample_holder', $item->sample_holder ?? '');
+  $currentSampleOutAt  = old('sample_out_at', (isset($item->sample_out_at) && $item->sample_out_at) ? $item->sample_out_at->format('Y-m-d') : '');
+
   $currentCategory = null;
   if ($currentCategoryId) {
       $currentCategory = $categories->firstWhere('id', (int) $currentCategoryId);
@@ -471,6 +477,10 @@
   .channel-logo.bg-dark { background:#232f3e; }
   .overlay-lock { position:absolute; inset:0; background:rgba(255,255,255,0.85); backdrop-filter:blur(4px); z-index:10; display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--ink); font-weight:800; }
   .overlay-lock svg { width:36px; height:36px; margin-bottom:12px; color:var(--muted); }
+
+  .sample-card { background:#fffbeb; border-color:#fde68a; }
+  .sample-toggle { display:flex; align-items:center; gap:10px; cursor:pointer; text-transform:none; justify-content:flex-start; }
+  .sample-toggle input { width:18px; height:18px; accent-color:var(--blue); }
 
   .animate-enter{opacity:0;animation:enterSlide .4s cubic-bezier(0.16,1,0.3,1) forwards;animation-delay:calc(var(--stagger) * .08s);}
   @keyframes enterSlide{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
@@ -1066,7 +1076,48 @@
             </div>
           </div>
 
-          <div class="card animate-enter" style="--stagger: 5;">
+          {{-- ====== MUESTRA ====== --}}
+          <div class="card sample-card animate-enter" style="--stagger: 5;">
+            <h3 class="section-heading">Muestra</h3>
+
+            <div class="form-group {{ $isSample ? '' : 'm-0' }}">
+              <label class="form-label sample-toggle">
+                <input type="hidden" name="is_sample" value="0">
+                <input type="checkbox" name="is_sample" id="isSampleCheck" value="1" @checked($isSample)>
+                Este producto es una muestra (no se vende)
+              </label>
+              <span class="hint" style="display:block; margin-top:8px;">
+                Las muestras no aparecen en el catálogo de venta ni se publican en Mercado Libre / Amazon.
+              </span>
+            </div>
+
+            <div id="sampleFieldsWrap" class="@if(!$isSample) hidden @endif">
+              <div class="form-group">
+                <label class="form-label">Estado de la muestra</label>
+                <select name="sample_status" id="sampleStatusField" class="form-select">
+                  @foreach(\App\Models\CatalogItem::SAMPLE_STATUSES as $value => $label)
+                    <option value="{{ $value }}" @selected($currentSampleStatus === $value)>{{ $label }}</option>
+                  @endforeach
+                </select>
+                <span class="hint" style="display:block; margin-top:8px;">
+                  Al pasar a <strong>Prestada</strong> o <strong>Regalada</strong>, el stock baja 1 automáticamente. Si la regresas a <strong>Guardada</strong>, vuelve a subir.
+                </span>
+              </div>
+
+              <div id="sampleHolderWrap" class="grid grid-2 m-0 @if(!in_array($currentSampleStatus, ['prestada','regalada'])) hidden @endif">
+                <div class="form-group m-0">
+                  <label class="form-label">Prestada / regalada a</label>
+                  <input type="text" name="sample_holder" class="form-input" placeholder="Cliente o persona" value="{{ $currentSampleHolder }}">
+                </div>
+                <div class="form-group m-0">
+                  <label class="form-label">Fecha de salida</label>
+                  <input type="date" name="sample_out_at" class="form-input" value="{{ $currentSampleOutAt }}">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card animate-enter" style="--stagger: 6;">
             <h3 class="section-heading">Identificadores</h3>
 
             <div class="form-group mb-5">
@@ -1236,6 +1287,28 @@
     form?.addEventListener('submit', () => {
       contentUnit?.removeAttribute('disabled');
     });
+  });
+
+
+  // ====== MUESTRA: mostrar/ocultar campos ======
+  document.addEventListener('DOMContentLoaded', () => {
+    const check = document.getElementById('isSampleCheck');
+    const wrap = document.getElementById('sampleFieldsWrap');
+    const statusSel = document.getElementById('sampleStatusField');
+    const holderWrap = document.getElementById('sampleHolderWrap');
+
+    const syncSample = () => {
+      if (!check || !wrap) return;
+      wrap.classList.toggle('hidden', !check.checked);
+      if (statusSel && holderWrap) {
+        const out = ['prestada', 'regalada'].includes(statusSel.value);
+        holderWrap.classList.toggle('hidden', !(check.checked && out));
+      }
+    };
+
+    check?.addEventListener('change', syncSample);
+    statusSel?.addEventListener('change', syncSample);
+    syncSample();
   });
 
 

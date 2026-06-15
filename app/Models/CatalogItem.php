@@ -53,6 +53,12 @@ class CatalogItem extends Model
         'is_featured',
         'published_at',
 
+        // Muestras (no se venden)
+        'is_sample',
+        'sample_status',
+        'sample_holder',
+        'sample_out_at',
+
         // Fotos
         'photo_1',
         'photo_2',
@@ -88,10 +94,23 @@ class CatalogItem extends Model
         'content_unit_measure'  => 'string',
         'primary_location_id'   => 'integer',
         'is_featured'           => 'boolean',
+        'is_sample'             => 'boolean',
+        'sample_out_at'         => 'date',
         'published_at'          => 'datetime',
         'meli_synced_at'        => 'datetime',
         'amazon_synced_at'      => 'datetime',
     ];
+
+    // ====== MUESTRAS ======
+    public const SAMPLE_STATUSES = [
+        'guardada' => 'Guardada',
+        'prestada' => 'Prestada',
+        'regalada' => 'Regalada',
+        'danada'   => 'Dañada',
+    ];
+
+    // Estados en los que la pieza salió físicamente del almacén
+    public const SAMPLE_OUT_STATUSES = ['prestada', 'regalada'];
 
     public function getRouteKeyName()
     {
@@ -110,6 +129,16 @@ class CatalogItem extends Model
     public function scopeFeatured($q)
     {
         return $q->where('is_featured', true);
+    }
+
+    public function scopeSamples($q)
+    {
+        return $q->where('is_sample', true);
+    }
+
+    public function scopeNotSamples($q)
+    {
+        return $q->where('is_sample', false);
     }
 
     public function scopeOrdered($q)
@@ -264,6 +293,23 @@ class CatalogItem extends Model
         }
 
         return $unitLabel . ' con ' . $this->presentationContentLabel();
+    }
+
+    // ====== MUESTRAS: helpers ======
+    public function sampleStatusLabel(): ?string
+    {
+        if (!$this->is_sample) {
+            return null;
+        }
+
+        $key = (string) ($this->sample_status ?: 'guardada');
+
+        return self::SAMPLE_STATUSES[$key] ?? ucfirst($key);
+    }
+
+    public function sampleIsOut(): bool
+    {
+        return in_array((string) $this->sample_status, self::SAMPLE_OUT_STATUSES, true);
     }
 
     public function amazonSku(): ?string
