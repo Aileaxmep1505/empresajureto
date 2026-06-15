@@ -89,7 +89,7 @@
   .pjd-chat-send:hover { transform: scale(1.05); }
   .pjd-chat-send:disabled { opacity: .5; cursor: not-allowed; }
 
-  /* ── Tablas en chat (idénticas al screenshot) ── */
+  /* ── Tablas en chat ── */
   .pjd-chat-table-wrap { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-top: 4px; max-width: 100%; overflow-x: auto; }
   .pjd-chat-table-actions { display: flex; gap: 8px; justify-content: flex-end; margin-bottom: 12px; flex-wrap: wrap; }
   .pjd-chat-table-btn { background: var(--bg); border: 1px solid var(--line); padding: 6px 14px; border-radius: 999px; font-family: inherit; font-size: .8rem; font-weight: 700; color: var(--ink2); cursor: pointer; transition: all .15s; display: inline-flex; align-items: center; gap: 5px; }
@@ -107,7 +107,6 @@
   .pjd-pane.is-active { display: block; }
   .pjd-pane-title { font-size: 1.05rem; font-weight: 700; color: var(--ink); margin: 0 0 4px; padding-right: 36px; }
 
-  /* Cards Ficha / Resumen */
   .pjd-card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; margin-bottom: 14px; overflow: hidden; }
   .pjd-card-head { padding: 12px 16px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; user-select: none; background: #fafbff; }
   .pjd-card-head h3 { margin: 0; font-size: .98rem; font-weight: 700; color: var(--ink); display: inline-flex; align-items: center; gap: 6px; }
@@ -127,7 +126,6 @@
   .pjd-qa-q { font-size: .85rem; font-weight: 700; color: var(--muted); background: var(--bg); padding: 6px 12px; border-radius: 8px; margin-bottom: 8px; display: inline-block; }
   .pjd-qa-a { font-size: .92rem; color: var(--ink); font-weight: 600; line-height: 1.5; padding: 0 6px; }
 
-  /* Citas / fuente desplegable para ficha y resumen */
   .pjd-field, .pjd-qa { transition: background .18s ease, box-shadow .18s ease; border-radius: 12px; }
   .pjd-field.has-cita, .pjd-qa.has-cita, .pjd-field.has-no-cita, .pjd-qa.has-no-cita { cursor: pointer; padding-right: 112px; }
   .pjd-field.has-cita:hover, .pjd-qa.has-cita:hover { background: #f8fbff; box-shadow: inset 3px 0 0 var(--blue); }
@@ -154,29 +152,55 @@
   .pjd-source-btn.is-ghost { border-color: var(--line); color: #555; background: transparent; }
   .pjd-source-btn.is-ghost:hover { background: #fff; color: var(--ink); }
 
-  /* Modal cita */
+  /* Modal cita (legacy, sin uso) */
   .pjd-cita-modal { display: none; position: fixed; inset: 0; z-index: 250; align-items: center; justify-content: center; padding: 20px; }
   .pjd-cita-modal.is-open { display: flex; }
   .pjd-cita-modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.5); backdrop-filter: blur(8px); }
-  .pjd-cita-modal-card { position: relative; z-index: 1; background: #fff; border-radius: 16px; max-width: 600px; width: 100%; box-shadow: 0 24px 64px rgba(0,0,0,.22); overflow: hidden; animation: pjdCitaSlideUp .25s cubic-bezier(.22,1,.36,1) both; }
-  @keyframes pjdCitaSlideUp { from { opacity:0; transform: translateY(20px) scale(.97); } to { opacity:1; transform: translateY(0) scale(1); } }
+  .pjd-cita-modal-card { position: relative; z-index: 1; background: #fff; border-radius: 16px; max-width: 600px; width: 100%; box-shadow: 0 24px 64px rgba(0,0,0,.22); overflow: hidden; }
   .pjd-cita-modal-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 22px; border-bottom: 1px solid var(--line); background: linear-gradient(180deg, #fafbff, #fff); }
-  .pjd-cita-modal-head h4 { margin: 0; font-size: 1.05rem; font-weight: 700; color: var(--ink); display: flex; align-items: center; gap: 8px; }
-  .pjd-cita-modal-head h4::before { content: "📄"; }
-  .pjd-cita-close { border: none; background: var(--bg); width: 30px; height: 30px; border-radius: 8px; cursor: pointer; color: var(--muted); font-size: 14px; line-height: 1; transition: all .15s; }
-  .pjd-cita-close:hover { background: var(--blue-soft); color: var(--blue); }
+  .pjd-cita-modal-head h4 { margin: 0; font-size: 1.05rem; font-weight: 700; color: var(--ink); }
+  .pjd-cita-close { border: none; background: var(--bg); width: 30px; height: 30px; border-radius: 8px; cursor: pointer; color: var(--muted); font-size: 14px; }
   .pjd-cita-modal-body { padding: 22px; }
-  .pjd-cita-quote { border-left: 4px solid var(--blue); background: #f8faff; padding: 14px 16px; border-radius: 8px; font-size: .95rem; line-height: 1.55; color: var(--ink); margin-bottom: 16px; white-space: pre-wrap; max-height: 320px; overflow-y: auto; }
+  .pjd-cita-quote { border-left: 4px solid var(--blue); background: #f8faff; padding: 14px 16px; border-radius: 8px; font-size: .95rem; color: var(--ink); margin-bottom: 16px; white-space: pre-wrap; }
   .pjd-cita-source { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 12px 14px; background: #f8fafc; border-radius: 10px; border: 1px solid var(--line); }
   .pjd-cita-source-label { font-size: .82rem; color: var(--muted); font-weight: 600; }
   .pjd-cita-source-file { font-size: .92rem; font-weight: 700; color: var(--ink); }
   .pjd-cita-source-page { font-size: .82rem; color: var(--muted); }
   .pjd-cita-modal-footer { display: flex; gap: 10px; justify-content: flex-end; padding: 14px 22px; border-top: 1px solid var(--line); background: #fafbff; }
-  .pjd-cita-btn { padding: 8px 18px; border-radius: 999px; font-family: inherit; font-weight: 700; font-size: .85rem; border: none; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: all .15s; }
+  .pjd-cita-btn { padding: 8px 18px; border-radius: 999px; font-family: inherit; font-weight: 700; font-size: .85rem; border: none; cursor: pointer; text-decoration: none; }
   .pjd-cita-btn-primary { background: var(--blue); color: #fff; }
-  .pjd-cita-btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 14px rgba(0,122,255,.25); }
   .pjd-cita-btn-ghost { background: transparent; color: var(--ink2); border: 1px solid var(--line); }
-  .pjd-cita-btn-ghost:hover { background: var(--bg); }
+
+  /* ════════════ DRAWER PDF (fuente con resaltado) ════════════ */
+  .pjd-doc-drawer { position: fixed; inset: 0; z-index: 400; display: none; }
+  .pjd-doc-drawer.is-open { display: block; }
+  .pjd-doc-drawer-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.42); backdrop-filter: blur(2px); animation: pjdFade .2s ease both; }
+  @keyframes pjdFade { from { opacity: 0; } to { opacity: 1; } }
+  .pjd-doc-drawer-panel { position: absolute; top: 0; left: 0; height: 100%; width: min(840px, 96vw); background: #f1f3f5; box-shadow: 6px 0 30px rgba(0,0,0,.2); display: flex; flex-direction: column; transform: translateX(-100%); transition: transform .3s cubic-bezier(.22,1,.36,1); }
+  .pjd-doc-drawer.is-open .pjd-doc-drawer-panel { transform: translateX(0); }
+  .pjd-doc-drawer-head { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--line); background: #fff; }
+  .pjd-doc-drawer-file { flex: 1; min-width: 0; display: inline-flex; align-items: center; gap: 8px; font-size: .86rem; font-weight: 700; color: var(--ink); padding: 7px 12px; background: #f8fafc; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pjd-doc-drawer-file::before { content: "📄"; }
+  .pjd-doc-drawer-toolbtn { border: 1px solid var(--line); background: #fff; color: var(--ink2); border-radius: 8px; padding: 7px 11px; font-family: inherit; font-size: .82rem; font-weight: 700; cursor: pointer; text-decoration: none; white-space: nowrap; }
+  .pjd-doc-drawer-toolbtn:hover { border-color: var(--blue); color: var(--blue); }
+  .pjd-doc-drawer-toolbtn.is-active { background: var(--blue); color: #fff; border-color: var(--blue); }
+  .pjd-doc-drawer-close { width: 34px; height: 34px; border: none; background: var(--bg); color: var(--muted); border-radius: 8px; cursor: pointer; font-size: 1rem; flex-shrink: 0; }
+  .pjd-doc-drawer-close:hover { background: var(--danger-soft); color: var(--danger); }
+  .pjd-doc-drawer-nav { display: flex; align-items: center; gap: 10px; padding: 8px 14px; background: #fff; border-bottom: 1px solid var(--line); }
+  .pjd-doc-drawer-nav button { border: 1px solid var(--line); background: #fff; border-radius: 8px; width: 32px; height: 32px; cursor: pointer; font-weight: 700; color: var(--ink2); font-size: 1.05rem; line-height: 1; }
+  .pjd-doc-drawer-nav button:hover { border-color: var(--blue); color: var(--blue); }
+  .pjd-doc-drawer-pageind { font-size: .82rem; font-weight: 700; color: var(--ink2); }
+  .pjd-pdf-scroll { flex: 1; min-height: 0; overflow: auto; background: #525659; padding: 16px; display: flex; flex-direction: column; align-items: center; }
+  .pjd-pdf-container { position: relative; }
+  .pjd-pdf-container canvas { display: block; box-shadow: 0 6px 24px rgba(0,0,0,.3); border-radius: 2px; }
+  .pjd-pdf-highlights { position: absolute; top: 0; left: 0; pointer-events: none; }
+  .pjd-pdf-hl { position: absolute; background: rgba(0,122,255,.30); border-radius: 2px; mix-blend-mode: multiply; box-shadow: 0 0 0 1px rgba(0,122,255,.4); }
+  .pjd-pdf-loading { color: #cfd2d6; font-weight: 600; padding: 50px 20px; text-align: center; }
+  .pjd-doc-drawer-quote { background: #fff; border-top: 1px solid var(--line); padding: 14px 16px; max-height: 34%; overflow: auto; }
+  .pjd-doc-drawer-quote[hidden] { display: none; }
+  .pjd-doc-drawer-quote-kicker { display: inline-flex; align-items: center; gap: 6px; font-size: .72rem; font-weight: 700; color: var(--blue); background: var(--blue-soft); border: 1px solid #c7dcfd; padding: 4px 10px; border-radius: 999px; margin-bottom: 10px; }
+  .pjd-doc-drawer-quote-text { font-size: .92rem; line-height: 1.6; color: var(--ink); border-left: 3px solid var(--blue); background: #f8fbff; padding: 12px 14px; border-radius: 10px; white-space: pre-wrap; }
+  .pjd-doc-drawer-quote-meta { margin-top: 8px; font-size: .8rem; color: var(--muted); font-weight: 600; }
 
   /* ════════════ CHECKLIST AVANZADO ════════════ */
   .pjd-checklist-wrap { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
@@ -337,7 +361,6 @@
   .pjd-loading-dots span:nth-child(3) { animation-delay: .3s; }
   @keyframes pjdBounce { 0%,80%,100% { transform: scale(.6); opacity: .4; } 40% { transform: scale(1); opacity: 1; } }
 
-  /* Toast */
   .pjd-toast { position: fixed; bottom: 24px; right: 24px; background: var(--ink); color: #fff; padding: 12px 18px; border-radius: 10px; font-size: .88rem; font-weight: 600; z-index: 9999; box-shadow: 0 10px 30px rgba(0,0,0,.2); animation: pjdToastIn .25s ease both; }
   .pjd-toast.is-success { background: var(--success); }
   .pjd-toast.is-error { background: var(--danger); }
@@ -942,32 +965,42 @@
   <button data-set-status="Aprobado"><span class="dot" style="background:var(--success)"></span> Aprobado</button>
 </div>
 
-<div class="pjd-cita-modal" id="pjdCitaModal" aria-hidden="true">
-  <div class="pjd-cita-modal-backdrop" id="pjdCitaBackdrop"></div>
-  <div class="pjd-cita-modal-card">
-    <div class="pjd-cita-modal-head">
-      <h4>Cita del documento</h4>
-      <button type="button" class="pjd-cita-close" id="pjdCitaClose">✕</button>
+{{-- DRAWER LATERAL: VISTA PREVIA DEL PDF CON RESALTADO --}}
+<div class="pjd-doc-drawer" id="pjdDocDrawer" aria-hidden="true">
+  <div class="pjd-doc-drawer-backdrop" data-drawer-close></div>
+  <div class="pjd-doc-drawer-panel">
+    <div class="pjd-doc-drawer-head">
+      <div class="pjd-doc-drawer-file" id="pjdDrawerFile">documento.pdf</div>
+      <button type="button" class="pjd-doc-drawer-toolbtn is-active" id="pjdDrawerTranscript">Transcripción</button>
+      <a href="#" target="_blank" class="pjd-doc-drawer-toolbtn" id="pjdDrawerOpen">Abrir</a>
+      <button type="button" class="pjd-doc-drawer-close" data-drawer-close aria-label="Cerrar">✕</button>
     </div>
-    <div class="pjd-cita-modal-body">
-      <div class="pjd-cita-quote" id="pjdCitaQuote">—</div>
-      <div class="pjd-cita-source">
-        <span class="pjd-cita-source-label">Fuente:</span>
-        <span id="pjdCitaSource" class="pjd-cita-source-file">—</span>
-        <span id="pjdCitaPage" class="pjd-cita-source-page"></span>
+    <div class="pjd-doc-drawer-nav">
+      <button type="button" id="pjdPdfPrev" title="Anterior">‹</button>
+      <span class="pjd-doc-drawer-pageind" id="pjdPdfPageInd">1 / 1</span>
+      <button type="button" id="pjdPdfNext" title="Siguiente">›</button>
+    </div>
+    <div class="pjd-pdf-scroll" id="pjdPdfScroll">
+      <div class="pjd-pdf-container" id="pjdPdfContainer">
+        <canvas id="pjdPdfCanvas"></canvas>
+        <div class="pjd-pdf-highlights" id="pjdPdfHighlights"></div>
       </div>
+      <div class="pjd-pdf-loading" id="pjdPdfLoading" style="display:none;">Cargando documento…</div>
     </div>
-    <div class="pjd-cita-modal-footer">
-      <a href="#" id="pjdCitaOpenDoc" class="pjd-cita-btn pjd-cita-btn-primary" target="_blank" style="display:none;">Ver documento</a>
-      <button type="button" class="pjd-cita-btn pjd-cita-btn-ghost" id="pjdCitaCloseBtn">Cerrar</button>
+    <div class="pjd-doc-drawer-quote" id="pjdDrawerQuote">
+      <div class="pjd-doc-drawer-quote-kicker">Transcripción de la cita</div>
+      <div class="pjd-doc-drawer-quote-text" id="pjdDrawerQuoteText">—</div>
+      <div class="pjd-doc-drawer-quote-meta" id="pjdDrawerQuoteMeta"></div>
     </div>
   </div>
 </div>
 @endsection
 
 @push('scripts')
-{{-- SheetJS para generar Excel real (.xlsx) --}}
+{{-- SheetJS para Excel real (.xlsx) --}}
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+{{-- PDF.js para renderizar el PDF y resaltar la cita --}}
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script>
 (function(){
   'use strict';
@@ -980,16 +1013,18 @@
   const CHECKLIST_URL   = @json(route('projects.checklist', $project));
   const REPORT_URL      = @json(route('projects.report', $project));
   const CSRF            = '{{ csrf_token() }}';
-  const PROJECT_DOCS    = @json($project->documents->mapWithKeys(fn($d) => [$d->filename => \Illuminate\Support\Facades\Storage::disk('public')->url($d->file_path)]));
+  const PROJECT_DOCS_LIST = @json($project->documents->map(fn($d) => [
+    'filename' => $d->filename,
+    'stored'   => basename($d->file_path),
+    'url'      => \Illuminate\Support\Facades\Storage::disk('public')->url($d->file_path),
+  ])->values());
 
   function escapeHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-  // ============ RENDERIZADO MARKDOWN (profesional, sin caracteres sueltos) ============
+  // ============ MARKDOWN (chat) ============
   function renderMarkdown(text) {
     if (!text) return '';
     let s = escapeHtml(text.trim());
-
-    // Marcadores en línea
     s = s.replace(/`([^`]+)`/g, '<code class="pjd-md-code">$1</code>');
     s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
     s = s.replace(/__([^_]+)__/g, '<strong>$1</strong>');
@@ -997,36 +1032,24 @@
 
     const lines = s.split('\n');
     let html = '';
-    let listType = null; // 'ul' | 'ol'
-
+    let listType = null;
     const closeList = () => { if (listType) { html += `</${listType}>`; listType = null; } };
 
     for (let raw of lines) {
-      const line = raw.trimEnd();
-      const t = line.trim();
-
+      const t = raw.trim();
       if (t === '') { closeList(); continue; }
-
-      // Títulos
       let m;
       if ((m = t.match(/^###\s+(.*)$/))) { closeList(); html += `<h4 class="pjd-md-h">${m[1]}</h4>`; continue; }
       if ((m = t.match(/^##\s+(.*)$/)))  { closeList(); html += `<h3 class="pjd-md-h">${m[1]}</h3>`; continue; }
       if ((m = t.match(/^#\s+(.*)$/)))   { closeList(); html += `<h3 class="pjd-md-h">${m[1]}</h3>`; continue; }
-
-      // Viñetas
       if ((m = t.match(/^[-•*]\s+(.*)$/))) {
         if (listType !== 'ul') { closeList(); html += '<ul class="pjd-md-ul">'; listType = 'ul'; }
-        html += `<li>${m[1]}</li>`;
-        continue;
+        html += `<li>${m[1]}</li>`; continue;
       }
-      // Numeradas
       if ((m = t.match(/^\d+[.)]\s+(.*)$/))) {
         if (listType !== 'ol') { closeList(); html += '<ol class="pjd-md-ol">'; listType = 'ol'; }
-        html += `<li>${m[1]}</li>`;
-        continue;
+        html += `<li>${m[1]}</li>`; continue;
       }
-
-      // Párrafo normal
       closeList();
       html += `<p class="pjd-md-p">${t}</p>`;
     }
@@ -1058,7 +1081,7 @@
     head.addEventListener('click', () => head.closest('.pjd-card').classList.toggle('is-open'));
   });
 
-  // ============ CHAT con TABLAS ============
+  // ============ CHAT ============
   const chatForm = document.getElementById('pjdChatForm');
   const chatInput = document.getElementById('pjdChatInput');
   const chatSend = document.getElementById('pjdChatSend');
@@ -1091,11 +1114,7 @@
       const r = parseRow(lines[i]);
       if (r.length) rows.push(r);
     }
-    return {
-      headers, rows,
-      before: lines.slice(0, start).join('\n').trim(),
-      after: lines.slice(end + 1).join('\n').trim(),
-    };
+    return { headers, rows, before: lines.slice(0, start).join('\n').trim(), after: lines.slice(end + 1).join('\n').trim() };
   }
 
   function renderTableHtml(data) {
@@ -1104,94 +1123,46 @@
     return `<table class="pjd-chat-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
   }
 
-  // HTML con estilos inline (para portapapeles y borrador)
   function buildTableHtmlInline(data) {
     let html = '<table style="width:100%;border-collapse:collapse;margin:14px 0;border:1px solid #e5e7eb;font-family:Quicksand,Arial,sans-serif">';
     html += '<thead><tr>';
-    data.headers.forEach(h => {
-      html += `<th style="background:#f3f4f6;color:#111;padding:14px 16px;border:1px solid #e5e7eb;text-align:left;font-weight:700;font-size:14px">${escapeHtml(h)}</th>`;
-    });
+    data.headers.forEach(h => { html += `<th style="background:#f3f4f6;color:#111;padding:14px 16px;border:1px solid #e5e7eb;text-align:left;font-weight:700;font-size:14px">${escapeHtml(h)}</th>`; });
     html += '</tr></thead><tbody>';
-    data.rows.forEach(r => {
-      html += '<tr>';
-      r.forEach(c => {
-        html += `<td style="padding:14px 16px;border:1px solid #e5e7eb;vertical-align:top;color:#333;line-height:1.55;font-size:14px">${escapeHtml(c).replace(/\n/g, '<br>')}</td>`;
-      });
-      html += '</tr>';
-    });
+    data.rows.forEach(r => { html += '<tr>'; r.forEach(c => { html += `<td style="padding:14px 16px;border:1px solid #e5e7eb;vertical-align:top;color:#333;line-height:1.55;font-size:14px">${escapeHtml(c).replace(/\n/g, '<br>')}</td>`; }); html += '</tr>'; });
     html += '</tbody></table>';
     return html;
   }
 
-  // Copiar al portapapeles (HTML rico + texto plano)
   async function copyTableToClipboard(data) {
     const tsv = [data.headers.join('\t'), ...data.rows.map(r => r.join('\t'))].join('\n');
     const html = buildTableHtmlInline(data);
-
     try {
       if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
-        await navigator.clipboard.write([
-          new ClipboardItem({
-            'text/html':  new Blob([html], { type: 'text/html'  }),
-            'text/plain': new Blob([tsv],  { type: 'text/plain' }),
-          }),
-        ]);
-        showToast('✓ Tabla copiada (pégala donde quieras)', 'success');
-        return;
+        await navigator.clipboard.write([ new ClipboardItem({ 'text/html': new Blob([html],{type:'text/html'}), 'text/plain': new Blob([tsv],{type:'text/plain'}) }) ]);
+        showToast('✓ Tabla copiada (pégala donde quieras)', 'success'); return;
       }
     } catch (_) {}
-
-    try {
-      await navigator.clipboard.writeText(tsv);
-      showToast('✓ Tabla copiada como texto', 'success');
-    } catch (e) {
-      const ta = document.createElement('textarea');
-      ta.value = tsv; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
-      showToast('✓ Tabla copiada', 'success');
-    }
+    try { await navigator.clipboard.writeText(tsv); showToast('✓ Tabla copiada como texto', 'success'); }
+    catch (e) { const ta = document.createElement('textarea'); ta.value = tsv; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); showToast('✓ Tabla copiada', 'success'); }
   }
 
-  // Pasar tabla directamente al editor del borrador
   function copyTableToBorrador(data) {
     const editor = document.getElementById('pjdDraftEditor');
     if (!editor) { showToast('No se encontró el borrador', 'error'); return; }
-
-    const html = buildTableHtmlInline(data) + '<p><br></p>';
-    editor.innerHTML += html;
-
+    editor.innerHTML += buildTableHtmlInline(data) + '<p><br></p>';
     document.querySelector('.pjd-tab[data-tab="borrador"]')?.click();
     document.querySelector('.pjd-borrador-tab[data-section="borrador"]')?.click();
-
-    setTimeout(() => {
-      document.getElementById('pjdSaveDraft')?.click();
-    }, 200);
-
+    setTimeout(() => { document.getElementById('pjdSaveDraft')?.click(); }, 200);
     showToast('✓ Tabla agregada al borrador', 'success');
   }
 
-  // Descargar como XLSX REAL usando SheetJS
   function downloadTableAsExcel(data) {
-    if (typeof XLSX === 'undefined') {
-      showToast('La librería de Excel no se cargó. Recarga la página.', 'error');
-      return;
-    }
-
-    const aoa = [data.headers, ...data.rows];
-    const ws = XLSX.utils.aoa_to_sheet(aoa);
-
-    ws['!cols'] = data.headers.map((h, i) => {
-      let max = (h || '').toString().length;
-      data.rows.forEach(r => {
-        const len = (r[i] || '').toString().length;
-        if (len > max) max = len;
-      });
-      return { wch: Math.min(Math.max(max + 2, 14), 70) };
-    });
-
+    if (typeof XLSX === 'undefined') { showToast('La librería de Excel no se cargó. Recarga la página.', 'error'); return; }
+    const ws = XLSX.utils.aoa_to_sheet([data.headers, ...data.rows]);
+    ws['!cols'] = data.headers.map((h, i) => { let max = (h||'').toString().length; data.rows.forEach(r => { const len = (r[i]||'').toString().length; if (len > max) max = len; }); return { wch: Math.min(Math.max(max + 2, 14), 70) }; });
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Tabla');
-
-    const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    const ts = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
     XLSX.writeFile(wb, `tabla-${PROJECT_SLUG}-${ts}.xlsx`);
     showToast('✓ Excel descargado', 'success');
   }
@@ -1199,77 +1170,38 @@
   function appendMsg(role, content, time = '') {
     const wrap = document.createElement('div');
     wrap.className = `pjd-msg ${role === 'user' ? 'is-user' : 'is-assistant'}`;
-
-    if (role === 'user') {
-      wrap.innerHTML = `<div class="pjd-msg-body">${escapeHtml(content)}</div>`;
-      chatList.appendChild(wrap);
-      scrollChatToBottom();
-      return wrap;
-    }
+    if (role === 'user') { wrap.innerHTML = `<div class="pjd-msg-body">${escapeHtml(content)}</div>`; chatList.appendChild(wrap); scrollChatToBottom(); return wrap; }
 
     const tableData = extractMarkdownTable(content);
     let bodyHtml;
-
     if (tableData) {
       const tableHtml = renderTableHtml(tableData);
       const textBefore = tableData.before ? `<div class="pjd-msg-body" style="margin-bottom:8px">${renderMarkdown(tableData.before)}</div>` : '';
       const textAfter  = tableData.after  ? `<div class="pjd-msg-body" style="margin-top:8px">${renderMarkdown(tableData.after)}</div>` : '';
-      bodyHtml = `
-        ${textBefore}
-        <div class="pjd-chat-table-wrap">
-          <div class="pjd-chat-table-actions">
-            <button type="button" class="pjd-chat-table-btn js-copy-table">📋 Copiar tabla</button>
-            <button type="button" class="pjd-chat-table-btn js-copy-to-draft">📝 Pasar al borrador</button>
-            <button type="button" class="pjd-chat-table-btn is-primary js-download-excel">⬇ Descargar Excel</button>
-          </div>
-          ${tableHtml}
-        </div>
-        ${textAfter}
-      `;
+      bodyHtml = `${textBefore}<div class="pjd-chat-table-wrap"><div class="pjd-chat-table-actions"><button type="button" class="pjd-chat-table-btn js-copy-table">📋 Copiar tabla</button><button type="button" class="pjd-chat-table-btn js-copy-to-draft">📝 Pasar al borrador</button><button type="button" class="pjd-chat-table-btn is-primary js-download-excel">⬇ Descargar Excel</button></div>${tableHtml}</div>${textAfter}`;
     } else {
       bodyHtml = `<div class="pjd-msg-body">${renderMarkdown(content)}</div>`;
     }
-
     wrap.innerHTML = `<div class="pjd-msg-avatar">j</div><div style="flex:1;min-width:0;"><div class="pjd-msg-meta">jureto${time ? ' · ' + time : ''}</div>${bodyHtml}</div>`;
     chatList.appendChild(wrap);
-
     if (tableData) {
       wrap.querySelector('.js-copy-table')?.addEventListener('click', () => copyTableToClipboard(tableData));
       wrap.querySelector('.js-copy-to-draft')?.addEventListener('click', () => copyTableToBorrador(tableData));
       wrap.querySelector('.js-download-excel')?.addEventListener('click', () => downloadTableAsExcel(tableData));
     }
-
     scrollChatToBottom();
     return wrap;
   }
 
-  // Re-renderizar mensajes históricos (tablas + markdown)
   document.querySelectorAll('.pjd-msg.is-assistant .pjd-msg-body[data-raw]').forEach(el => {
     const raw = el.getAttribute('data-raw') || '';
     const tableData = extractMarkdownTable(raw);
-
-    if (!tableData) {
-      // Sin tabla: render markdown profesional
-      el.innerHTML = renderMarkdown(raw);
-      return;
-    }
-
+    if (!tableData) { el.innerHTML = renderMarkdown(raw); return; }
     const container = el.parentElement;
     const tableHtml = renderTableHtml(tableData);
     const textBefore = tableData.before ? `<div class="pjd-msg-body" style="margin-bottom:8px">${renderMarkdown(tableData.before)}</div>` : '';
     const textAfter  = tableData.after  ? `<div class="pjd-msg-body" style="margin-top:8px">${renderMarkdown(tableData.after)}</div>` : '';
-    el.outerHTML = `
-      ${textBefore}
-      <div class="pjd-chat-table-wrap">
-        <div class="pjd-chat-table-actions">
-          <button type="button" class="pjd-chat-table-btn js-copy-table">📋 Copiar tabla</button>
-          <button type="button" class="pjd-chat-table-btn js-copy-to-draft">📝 Pasar al borrador</button>
-          <button type="button" class="pjd-chat-table-btn is-primary js-download-excel">⬇ Descargar Excel</button>
-        </div>
-        ${tableHtml}
-      </div>
-      ${textAfter}
-    `;
+    el.outerHTML = `${textBefore}<div class="pjd-chat-table-wrap"><div class="pjd-chat-table-actions"><button type="button" class="pjd-chat-table-btn js-copy-table">📋 Copiar tabla</button><button type="button" class="pjd-chat-table-btn js-copy-to-draft">📝 Pasar al borrador</button><button type="button" class="pjd-chat-table-btn is-primary js-download-excel">⬇ Descargar Excel</button></div>${tableHtml}</div>${textAfter}`;
     container.querySelector('.js-copy-table')?.addEventListener('click', () => copyTableToClipboard(tableData));
     container.querySelector('.js-copy-to-draft')?.addEventListener('click', () => copyTableToBorrador(tableData));
     container.querySelector('.js-download-excel')?.addEventListener('click', () => downloadTableAsExcel(tableData));
@@ -1277,21 +1209,16 @@
 
   function appendLoading() {
     const wrap = document.createElement('div');
-    wrap.className = 'pjd-msg is-assistant';
-    wrap.id = 'pjdLoadingMsg';
+    wrap.className = 'pjd-msg is-assistant'; wrap.id = 'pjdLoadingMsg';
     wrap.innerHTML = `<div class="pjd-msg-avatar">j</div><div><div class="pjd-msg-meta">jureto</div><div class="pjd-msg-body"><span class="pjd-loading-dots"><span></span><span></span><span></span></span></div></div>`;
-    chatList.appendChild(wrap);
-    scrollChatToBottom();
+    chatList.appendChild(wrap); scrollChatToBottom();
   }
 
   chatForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const msg = chatInput.value.trim();
-    if (!msg) return;
-    chatInput.value = '';
-    chatSend.disabled = true;
-    appendMsg('user', msg);
-    appendLoading();
+    const msg = chatInput.value.trim(); if (!msg) return;
+    chatInput.value = ''; chatSend.disabled = true;
+    appendMsg('user', msg); appendLoading();
     try {
       const fd = new FormData(); fd.append('_token', CSRF); fd.append('message', msg);
       const res = await fetch(CHAT_URL, { method:'POST', headers:{'Accept':'application/json'}, body: fd, credentials:'same-origin' });
@@ -1299,10 +1226,8 @@
       document.getElementById('pjdLoadingMsg')?.remove();
       if (json.ok && json.assistant_message) appendMsg('assistant', json.assistant_message.content, json.assistant_message.time);
       else appendMsg('assistant', json.message || 'Hubo un error.');
-    } catch (err) {
-      document.getElementById('pjdLoadingMsg')?.remove();
-      appendMsg('assistant', 'Error de red.');
-    } finally { chatSend.disabled = false; chatInput.focus(); }
+    } catch (err) { document.getElementById('pjdLoadingMsg')?.remove(); appendMsg('assistant', 'Error de red.'); }
+    finally { chatSend.disabled = false; chatInput.focus(); }
   });
 
   chatReset?.addEventListener('click', async () => {
@@ -1327,20 +1252,15 @@
     const counts = { sin_revisar:0, no_cumple:0, parcial:0, cumple:0, pendiente:0, revision:0, aprobado:0 };
     rows.forEach(r => {
       const c = r.dataset.cumplimiento, s = r.dataset.status;
-      if (c === 'Cumple') counts.cumple++;
-      else if (c === 'Parcial') counts.parcial++;
-      else if (c === 'No Cumple') counts.no_cumple++;
-      else counts.sin_revisar++;
-      if (s === 'En revisión') counts.revision++;
-      else if (s === 'Aprobado') counts.aprobado++;
-      else counts.pendiente++;
+      if (c === 'Cumple') counts.cumple++; else if (c === 'Parcial') counts.parcial++; else if (c === 'No Cumple') counts.no_cumple++; else counts.sin_revisar++;
+      if (s === 'En revisión') counts.revision++; else if (s === 'Aprobado') counts.aprobado++; else counts.pendiente++;
     });
     document.getElementById('pjdClTotalNum').textContent = total;
     Object.keys(counts).forEach(k => {
       const numEl = document.querySelector(`[data-counter="${k}"]`);
       const pctEl = document.querySelector(`[data-pct="${k}"]`);
       const barEl = document.querySelector(`[data-bar="${k}"]`);
-      const pct = total > 0 ? Math.round((counts[k] / total) * 100) : 0;
+      const pct = total > 0 ? Math.round((counts[k]/total)*100) : 0;
       if (numEl) numEl.textContent = counts[k];
       if (pctEl) pctEl.textContent = pct + '%';
       if (barEl) barEl.style.width = pct + '%';
@@ -1352,7 +1272,6 @@
     const tr = clBody.querySelector(`tr[data-row="${idx}"]`);
     const detail = clBody.querySelector(`tr[data-detail="${idx}"]`);
     if (!tr || !detail) return;
-
     const shouldOpen = forceOpen === null ? !tr.classList.contains('is-expanded') : !!forceOpen;
     tr.classList.toggle('is-expanded', shouldOpen);
     detail.style.display = shouldOpen ? '' : 'none';
@@ -1360,32 +1279,17 @@
 
   clBody?.addEventListener('click', (e) => {
     const tBtn = e.target.closest('[data-toggle]');
-    if (tBtn) {
-      toggleChecklistDetail(tBtn.dataset.toggle);
-      e.stopPropagation();
-      return;
-    }
+    if (tBtn) { toggleChecklistDetail(tBtn.dataset.toggle); e.stopPropagation(); return; }
 
     const sourceBtn = e.target.closest('.pjd-cl-source-btn[data-cita]');
-    if (sourceBtn) {
-      openCita(sourceBtn.getAttribute('data-cita'));
-      e.stopPropagation();
-      return;
-    }
+    if (sourceBtn) { openCita(sourceBtn.getAttribute('data-cita')); e.stopPropagation(); return; }
 
     const sourceLink = e.target.closest('a.pjd-cl-source-btn');
-    if (sourceLink) {
-      e.stopPropagation();
-      return;
-    }
+    if (sourceLink) { e.stopPropagation(); return; }
 
     const row = e.target.closest('tr[data-row]');
     const clickedControl = e.target.closest('[data-cumplimiento-toggle], [data-status-toggle]');
-    if (row && !clickedControl) {
-      toggleChecklistDetail(row.dataset.row);
-      e.stopPropagation();
-      return;
-    }
+    if (row && !clickedControl) { toggleChecklistDetail(row.dataset.row); e.stopPropagation(); return; }
 
     const cumpBtn = e.target.closest('[data-cumplimiento-toggle]');
     if (cumpBtn) {
@@ -1393,10 +1297,8 @@
       const rect = cumpBtn.getBoundingClientRect();
       cumpPop.style.top = (rect.bottom + window.scrollY + 6) + 'px';
       cumpPop.style.left = rect.left + 'px';
-      cumpPop.classList.add('is-open');
-      statPop.classList.remove('is-open');
-      e.stopPropagation();
-      return;
+      cumpPop.classList.add('is-open'); statPop.classList.remove('is-open');
+      e.stopPropagation(); return;
     }
     const statBtn = e.target.closest('[data-status-toggle]');
     if (statBtn) {
@@ -1404,8 +1306,7 @@
       const rect = statBtn.getBoundingClientRect();
       statPop.style.top = (rect.bottom + window.scrollY + 6) + 'px';
       statPop.style.left = rect.left + 'px';
-      statPop.classList.add('is-open');
-      cumpPop.classList.remove('is-open');
+      statPop.classList.add('is-open'); cumpPop.classList.remove('is-open');
       e.stopPropagation();
     }
   });
@@ -1419,12 +1320,8 @@
     if (!row || !dot) return;
     row.dataset.cumplimiento = val;
     dot.className = 'pjd-cl-cumple-dot';
-    if (val === 'Cumple') dot.classList.add('is-cumple');
-    else if (val === 'Parcial') dot.classList.add('is-parcial');
-    else if (val === 'No Cumple') dot.classList.add('is-nocumple');
-    cumpPop.classList.remove('is-open');
-    updateCounters();
-    saveChecklist();
+    if (val === 'Cumple') dot.classList.add('is-cumple'); else if (val === 'Parcial') dot.classList.add('is-parcial'); else if (val === 'No Cumple') dot.classList.add('is-nocumple');
+    cumpPop.classList.remove('is-open'); updateCounters(); saveChecklist();
   });
 
   statPop?.addEventListener('click', (e) => {
@@ -1438,11 +1335,8 @@
     pill.className = 'pjd-cl-status';
     const icons = {'Pendiente':'🕐','En revisión':'🔵','Aprobado':'🟢'};
     const cls = {'Pendiente':'is-pendiente','En revisión':'is-revision','Aprobado':'is-aprobado'};
-    pill.classList.add(cls[val]);
-    pill.textContent = (icons[val] || '🕐') + ' ' + val;
-    statPop.classList.remove('is-open');
-    updateCounters();
-    saveChecklist();
+    pill.classList.add(cls[val]); pill.textContent = (icons[val] || '🕐') + ' ' + val;
+    statPop.classList.remove('is-open'); updateCounters(); saveChecklist();
   });
 
   document.addEventListener('click', (e) => {
@@ -1457,74 +1351,37 @@
       const match = !q || text.includes(q);
       r.style.display = match ? '' : 'none';
       const detail = clBody.querySelector(`tr[data-detail="${r.dataset.row}"]`);
-      if (detail && !match) {
-        detail.style.display = 'none';
-        r.classList.remove('is-expanded');
-      }
+      if (detail && !match) { detail.style.display = 'none'; r.classList.remove('is-expanded'); }
     });
   });
 
   async function saveChecklist() {
-    const rows = Array.from(clBody.querySelectorAll('tr[data-row]')).map(r => ({
-      idx: r.dataset.row,
-      cumplimiento: r.dataset.cumplimiento,
-      status: r.dataset.status,
-      prioridad: r.dataset.prioridad,
-    }));
-    try {
-      const fd = new FormData(); fd.append('_token', CSRF); fd.append('items', JSON.stringify(rows));
-      await fetch(CHECKLIST_URL, { method:'POST', headers:{'Accept':'application/json'}, body: fd, credentials:'same-origin' });
-    } catch (_) {}
+    const rows = Array.from(clBody.querySelectorAll('tr[data-row]')).map(r => ({ idx: r.dataset.row, cumplimiento: r.dataset.cumplimiento, status: r.dataset.status, prioridad: r.dataset.prioridad }));
+    try { const fd = new FormData(); fd.append('_token', CSRF); fd.append('items', JSON.stringify(rows)); await fetch(CHECKLIST_URL, { method:'POST', headers:{'Accept':'application/json'}, body: fd, credentials:'same-origin' }); } catch (_) {}
   }
 
   document.getElementById('pjdClReanalisis')?.addEventListener('click', async () => {
     if (!confirm('Esto regenerará TODO el checklist con IA. ¿Continuar?')) return;
     const btn = document.getElementById('pjdClReanalisis');
-    const original = btn.innerHTML;
-    btn.disabled = true; btn.innerHTML = '⏳ Generando…';
-    try {
-      const fd = new FormData(); fd.append('_token', CSRF); fd.append('regenerate', '1');
-      const res = await fetch(CHECKLIST_URL, { method:'POST', headers:{'Accept':'application/json'}, body: fd, credentials:'same-origin' });
-      if (res.ok) location.reload();
-      else alert('Error al regenerar');
-    } catch (e) { alert('Error de red'); }
-    finally { btn.disabled = false; btn.innerHTML = original; }
+    const original = btn.innerHTML; btn.disabled = true; btn.innerHTML = '⏳ Generando…';
+    try { const fd = new FormData(); fd.append('_token', CSRF); fd.append('regenerate', '1'); const res = await fetch(CHECKLIST_URL, { method:'POST', headers:{'Accept':'application/json'}, body: fd, credentials:'same-origin' }); if (res.ok) location.reload(); else alert('Error al regenerar'); }
+    catch (e) { alert('Error de red'); } finally { btn.disabled = false; btn.innerHTML = original; }
   });
 
-  document.getElementById('pjdClAddBtn')?.addEventListener('click', () => {
-    const name = prompt('Nombre del requisito:');
-    if (!name) return;
-    location.reload();
-  });
+  document.getElementById('pjdClAddBtn')?.addEventListener('click', () => { const name = prompt('Nombre del requisito:'); if (!name) return; location.reload(); });
 
-  // Descargar checklist como XLSX real
   document.getElementById('pjdClDownload')?.addEventListener('click', () => {
     if (typeof XLSX === 'undefined') { showToast('Excel no disponible', 'error'); return; }
     const headers = ['Requisito','Formato','Categoría','Aplicabilidad','Obligatorio','Cumplimiento','Status','Prioridad'];
     const rows = [];
     clBody.querySelectorAll('tr[data-row]').forEach(r => {
       const cells = r.querySelectorAll('td');
-      rows.push([
-        cells[1]?.textContent.trim() || '',
-        cells[2]?.textContent.trim() || '',
-        cells[3]?.textContent.trim() || '',
-        cells[4]?.textContent.trim() || '',
-        cells[5]?.textContent.trim() || '',
-        r.dataset.cumplimiento || '-',
-        r.dataset.status || 'Pendiente',
-        r.dataset.prioridad || 'Media',
-      ]);
+      rows.push([ cells[1]?.textContent.trim() || '', cells[2]?.textContent.trim() || '', cells[3]?.textContent.trim() || '', cells[4]?.textContent.trim() || '', cells[5]?.textContent.trim() || '', r.dataset.cumplimiento || '-', r.dataset.status || 'Pendiente', r.dataset.prioridad || 'Media' ]);
     });
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-    ws['!cols'] = headers.map((h, i) => {
-      let max = h.length;
-      rows.forEach(r => { const len = (r[i] || '').toString().length; if (len > max) max = len; });
-      return { wch: Math.min(Math.max(max + 2, 14), 70) };
-    });
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Checklist');
-    XLSX.writeFile(wb, `checklist-${PROJECT_SLUG}.xlsx`);
-    showToast('✓ Checklist descargado', 'success');
+    ws['!cols'] = headers.map((h, i) => { let max = h.length; rows.forEach(r => { const len = (r[i]||'').toString().length; if (len > max) max = len; }); return { wch: Math.min(Math.max(max + 2, 14), 70) }; });
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Checklist');
+    XLSX.writeFile(wb, `checklist-${PROJECT_SLUG}.xlsx`); showToast('✓ Checklist descargado', 'success');
   });
 
   // ============ BORRADOR / REPORTE ============
@@ -1543,20 +1400,14 @@
   saveBtn?.addEventListener('click', async () => {
     const fd = new FormData(); fd.append('_token', CSRF); fd.append('draft_content', draftEditor.innerHTML);
     saveBtn.disabled = true; saveBtn.textContent = 'Guardando…';
-    try {
-      const res = await fetch(DRAFT_URL, { method:'POST', headers:{'Accept':'application/json'}, body: fd, credentials:'same-origin' });
-      if (res.ok) draftStatus.textContent = '✓ Guardado ' + new Date().toLocaleTimeString();
-      else draftStatus.textContent = 'Error';
-    } catch (e) { draftStatus.textContent = 'Error de red'; }
-    finally { saveBtn.disabled = false; saveBtn.textContent = '💾 Guardar'; }
+    try { const res = await fetch(DRAFT_URL, { method:'POST', headers:{'Accept':'application/json'}, body: fd, credentials:'same-origin' }); if (res.ok) draftStatus.textContent = '✓ Guardado ' + new Date().toLocaleTimeString(); else draftStatus.textContent = 'Error'; }
+    catch (e) { draftStatus.textContent = 'Error de red'; } finally { saveBtn.disabled = false; saveBtn.textContent = '💾 Guardar'; }
   });
 
   document.getElementById('pjdDownloadDraft')?.addEventListener('click', () => {
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${PROJECT_NAME}</title><style>body{font-family:Quicksand,Arial,sans-serif;max-width:850px;margin:30px auto;padding:20px;line-height:1.6;}table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e5e7eb;padding:10px 12px;text-align:left}th{background:#f3f4f6;font-weight:700}</style></head><body>${draftEditor.innerHTML}</body></html>`;
     const blob = new Blob([html], { type: 'text/html;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = `borrador-${PROJECT_SLUG}.html`; a.click();
-    URL.revokeObjectURL(url);
+    const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `borrador-${PROJECT_SLUG}.html`; a.click(); URL.revokeObjectURL(url);
   });
 
   async function generateReport() {
@@ -1569,19 +1420,10 @@
       const fd = new FormData(); fd.append('_token', CSRF);
       const res = await fetch(REPORT_URL, { method:'POST', headers:{'Accept':'application/json'}, body: fd, credentials:'same-origin' });
       const json = await res.json();
-      if (json.ok && json.html) {
-        if (empty) empty.style.display = 'none';
-        content.innerHTML = json.html;
-        content.style.display = '';
-        if (actions) actions.style.display = '';
-      } else { alert(json.message || 'Error al generar reporte'); }
+      if (json.ok && json.html) { if (empty) empty.style.display = 'none'; content.innerHTML = json.html; content.style.display = ''; if (actions) actions.style.display = ''; }
+      else { alert(json.message || 'Error al generar reporte'); }
     } catch (e) { alert('Error de red'); }
-    finally {
-      if (btn) {
-        btn.disabled = false;
-        btn.innerHTML = btn.id === 'pjdReporteGen' ? '✨ Generar Reporte' : '✨ Regenerar';
-      }
-    }
+    finally { if (btn) { btn.disabled = false; btn.innerHTML = btn.id === 'pjdReporteGen' ? '✨ Generar Reporte' : '✨ Regenerar'; } }
   }
   document.getElementById('pjdReporteGen')?.addEventListener('click', generateReport);
   document.getElementById('pjdReporteRegen')?.addEventListener('click', () => { if (confirm('¿Regenerar el reporte?')) generateReport(); });
@@ -1590,82 +1432,201 @@
     const content = document.getElementById('pjdReporteContent').innerHTML;
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Reporte - ${PROJECT_NAME}</title><style>body{font-family:Quicksand,Arial,sans-serif;max-width:850px;margin:30px auto;padding:30px;line-height:1.7;}table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #ebebeb;padding:8px 12px;text-align:left}th{background:#fafbff}h1,h2,h3{color:#111}</style></head><body>${content}</body></html>`;
     const blob = new Blob([html], { type: 'text/html;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = `reporte-${PROJECT_SLUG}.html`; a.click();
-    URL.revokeObjectURL(url);
+    const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `reporte-${PROJECT_SLUG}.html`; a.click(); URL.revokeObjectURL(url);
   });
 
   @if(!empty($project->report_content ?? null))
     document.getElementById('pjdReporteActions').style.display = '';
   @endif
 
-  // ============ CITAS ============
-  const citaModal = document.getElementById('pjdCitaModal');
-  const citaBackdrop = document.getElementById('pjdCitaBackdrop');
-  const citaQuote = document.getElementById('pjdCitaQuote');
-  const citaSource = document.getElementById('pjdCitaSource');
-  const citaPage = document.getElementById('pjdCitaPage');
-  const citaOpenDoc = document.getElementById('pjdCitaOpenDoc');
+  // ============ CITAS (drawer lateral con PDF.js + resaltado exacto) ============
+  const docDrawer    = document.getElementById('pjdDocDrawer');
+  const drawerFile   = document.getElementById('pjdDrawerFile');
+  const drawerOpen   = document.getElementById('pjdDrawerOpen');
+  const drawerQuote  = document.getElementById('pjdDrawerQuote');
+  const drawerQText  = document.getElementById('pjdDrawerQuoteText');
+  const drawerQMeta  = document.getElementById('pjdDrawerQuoteMeta');
+  const drawerTransBtn = document.getElementById('pjdDrawerTranscript');
+  const pdfScroll    = document.getElementById('pjdPdfScroll');
+  const pdfContainer = document.getElementById('pjdPdfContainer');
+  const pdfCanvas    = document.getElementById('pjdPdfCanvas');
+  const pdfHl        = document.getElementById('pjdPdfHighlights');
+  const pdfLoading   = document.getElementById('pjdPdfLoading');
+  const pdfPageInd   = document.getElementById('pjdPdfPageInd');
 
-  function openCita(payload) {
+  if (window.pdfjsLib) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+  }
+
+  const DOC_LOOKUP = {};
+  (PROJECT_DOCS_LIST || []).forEach(d => {
+    if (d.filename) DOC_LOOKUP[d.filename.toLowerCase()] = d;
+    if (d.stored)   DOC_LOOKUP[d.stored.toLowerCase()]   = d;
+  });
+  function resolveDoc(name) {
+    if (!name) return null;
+    const n = String(name).toLowerCase();
+    if (DOC_LOOKUP[n]) return DOC_LOOKUP[n];
+    const base = n.split('/').pop().split('\\').pop();
+    if (DOC_LOOKUP[base]) return DOC_LOOKUP[base];
+    return (PROJECT_DOCS_LIST || []).find(d => (d.filename && d.filename.toLowerCase().includes(base)) || (d.stored && base.includes(d.stored.toLowerCase()))) || null;
+  }
+
+  function normPdf(s){
+    return (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+  }
+
+  const PDF_STATE = { doc:null, url:null, page:1, total:1, quote:'', citaPage:1 };
+
+  async function renderPdfPage() {
+    if (!PDF_STATE.doc || !window.pdfjsLib) return;
+    const num = Math.min(Math.max(1, PDF_STATE.page), PDF_STATE.total);
+    PDF_STATE.page = num;
+    const page = await PDF_STATE.doc.getPage(num);
+    const cw = (pdfScroll.clientWidth || 760) - 34;
+    const base = page.getViewport({ scale: 1 });
+    const scale = Math.max(0.6, Math.min(2.4, cw / base.width));
+    const viewport = page.getViewport({ scale });
+
+    const ctx = pdfCanvas.getContext('2d');
+    pdfCanvas.width = viewport.width; pdfCanvas.height = viewport.height;
+    pdfCanvas.style.width = viewport.width + 'px'; pdfCanvas.style.height = viewport.height + 'px';
+    pdfHl.style.width = viewport.width + 'px'; pdfHl.style.height = viewport.height + 'px';
+    pdfHl.innerHTML = '';
+
+    await page.render({ canvasContext: ctx, viewport }).promise;
+
+    if (num === PDF_STATE.citaPage && PDF_STATE.quote) {
+      const tc = await page.getTextContent();
+      const Q = normPdf(PDF_STATE.quote);
+      let first = null;
+      if (Q && Q.length > 4) {
+        tc.items.forEach(item => {
+          const norm = normPdf(item.str);
+          if (norm.length < 4) return;
+          if (Q.includes(norm)) {
+            const t = pdfjsLib.Util.transform(viewport.transform, item.transform);
+            const fh = Math.hypot(t[2], t[3]);
+            const div = document.createElement('div');
+            div.className = 'pjd-pdf-hl';
+            div.style.left = t[4] + 'px';
+            div.style.top  = (t[5] - fh) + 'px';
+            div.style.width = (item.width * scale) + 'px';
+            div.style.height = (fh * 1.12) + 'px';
+            pdfHl.appendChild(div);
+            if (!first) first = div;
+          }
+        });
+      }
+      if (first) setTimeout(() => first.scrollIntoView({ block:'center', behavior:'smooth' }), 120);
+    }
+
+    pdfPageInd.textContent = num + ' / ' + PDF_STATE.total;
+  }
+
+  async function openCita(payload) {
     if (!payload) return;
     let data;
     try { data = typeof payload === 'string' ? JSON.parse(payload) : payload; } catch (e) { return; }
-    citaQuote.textContent = data.cita || '—';
-    citaSource.textContent = data.fuente || '—';
-    citaPage.textContent = data.pagina ? ` · Página ${data.pagina}` : '';
-    const url = data.fuente ? PROJECT_DOCS[data.fuente] : null;
-    if (url) { citaOpenDoc.href = url; citaOpenDoc.style.display = ''; }
-    else citaOpenDoc.style.display = 'none';
-    citaModal.classList.add('is-open');
+
+    const doc = resolveDoc(data.fuente);
+    const pageNum = data.pagina ? parseInt(String(data.pagina).match(/\d+/)?.[0] || '1', 10) : 1;
+
+    drawerFile.textContent = doc ? doc.filename : (data.fuente || 'Documento');
+    drawerQText.textContent = data.cita || 'No hay transcripción textual guardada para esta cita.';
+    drawerQMeta.innerHTML = (doc ? `<strong>Fuente:</strong> ${escapeHtml(doc.filename)}` : (data.fuente ? `<strong>Fuente:</strong> ${escapeHtml(data.fuente)}` : '')) + (data.pagina ? ` &middot; Página ${pageNum}` : '');
+
+    docDrawer.classList.add('is-open');
+    docDrawer.setAttribute('aria-hidden','false');
+    document.body.style.overflow = 'hidden';
+
+    if (doc) { drawerOpen.href = doc.url; drawerOpen.style.display = ''; } else { drawerOpen.style.display = 'none'; }
+
+    if (!doc || !window.pdfjsLib) {
+      pdfContainer.style.display = 'none';
+      pdfLoading.style.display = '';
+      pdfLoading.textContent = doc ? 'El visor PDF no se cargó. Usa el botón Abrir.' : 'No se encontró el archivo fuente.';
+      return;
+    }
+
+    pdfContainer.style.display = '';
+    pdfLoading.style.display = '';
+    pdfLoading.textContent = 'Cargando documento…';
+
+    try {
+      if (PDF_STATE.url !== doc.url) {
+        const task = pdfjsLib.getDocument(doc.url);
+        PDF_STATE.doc = await task.promise;
+        PDF_STATE.url = doc.url;
+        PDF_STATE.total = PDF_STATE.doc.numPages;
+      }
+      PDF_STATE.citaPage = Math.min(Math.max(1, pageNum), PDF_STATE.total);
+      PDF_STATE.page = PDF_STATE.citaPage;
+      PDF_STATE.quote = data.cita || '';
+      pdfLoading.style.display = 'none';
+      await renderPdfPage();
+    } catch (err) {
+      pdfContainer.style.display = 'none';
+      pdfLoading.style.display = '';
+      pdfLoading.textContent = 'No se pudo abrir el documento. Usa el botón Abrir.';
+    }
   }
-  function closeCita() { citaModal.classList.remove('is-open'); }
+
+  function closeCita() {
+    docDrawer.classList.remove('is-open');
+    docDrawer.setAttribute('aria-hidden','true');
+    document.body.style.overflow = '';
+  }
+
+  document.getElementById('pjdPdfPrev')?.addEventListener('click', () => { if (PDF_STATE.page > 1) { PDF_STATE.page--; renderPdfPage(); } });
+  document.getElementById('pjdPdfNext')?.addEventListener('click', () => { if (PDF_STATE.page < PDF_STATE.total) { PDF_STATE.page++; renderPdfPage(); } });
+  drawerTransBtn?.addEventListener('click', () => {
+    const hidden = drawerQuote.hasAttribute('hidden');
+    if (hidden) { drawerQuote.removeAttribute('hidden'); drawerTransBtn.classList.add('is-active'); }
+    else { drawerQuote.setAttribute('hidden',''); drawerTransBtn.classList.remove('is-active'); }
+  });
+  document.querySelectorAll('[data-drawer-close]').forEach(el => el.addEventListener('click', closeCita));
+
   document.addEventListener('click', (e) => {
-    const openBtn = e.target.closest('.js-open-cita[data-cita]');
-    if (openBtn) {
-      e.preventDefault();
-      e.stopPropagation();
+    const openBtn = e.target.closest('[data-cita]');
+    if (openBtn && e.target.closest('.js-open-cita, .pjd-source-btn, .pjd-cl-source-btn')) {
+      e.preventDefault(); e.stopPropagation();
       openCita(openBtn.getAttribute('data-cita'));
       return;
     }
 
     const closeBtn = e.target.closest('.pjd-source-close');
     if (closeBtn) {
-      e.preventDefault();
-      e.stopPropagation();
+      e.preventDefault(); e.stopPropagation();
       const item = closeBtn.closest('.pjd-field, .pjd-qa');
       item?.classList.remove('is-source-open');
-      const panel = item?.querySelector('.pjd-source-panel');
-      if (panel) panel.hidden = true;
+      const panel = item?.querySelector('.pjd-source-panel'); if (panel) panel.hidden = true;
       return;
     }
 
-    const sourceLink = e.target.closest('.pjd-source-btn');
-    if (sourceLink) return;
+    if (e.target.closest('.pjd-source-btn, .pjd-cl-source-btn')) return;
 
     const sourceItem = e.target.closest('.pjd-field, .pjd-qa');
     if (sourceItem && !e.target.closest('.js-card-toggle')) {
-      const panel = sourceItem.querySelector('.pjd-source-panel');
-      if (!panel) return;
-
+      const panel = sourceItem.querySelector('.pjd-source-panel'); if (!panel) return;
       const willOpen = !sourceItem.classList.contains('is-source-open');
-      sourceItem.closest('.pjd-card-body')?.querySelectorAll('.pjd-field.is-source-open, .pjd-qa.is-source-open').forEach(openItem => {
-        if (openItem !== sourceItem) {
-          openItem.classList.remove('is-source-open');
-          const openPanel = openItem.querySelector('.pjd-source-panel');
-          if (openPanel) openPanel.hidden = true;
-        }
+      sourceItem.closest('.pjd-card-body')?.querySelectorAll('.pjd-field.is-source-open, .pjd-qa.is-source-open').forEach(oi => {
+        if (oi !== sourceItem) { oi.classList.remove('is-source-open'); const op = oi.querySelector('.pjd-source-panel'); if (op) op.hidden = true; }
       });
-
       sourceItem.classList.toggle('is-source-open', willOpen);
       panel.hidden = !willOpen;
       return;
     }
   });
-  document.getElementById('pjdCitaClose')?.addEventListener('click', closeCita);
-  document.getElementById('pjdCitaCloseBtn')?.addEventListener('click', closeCita);
-  citaBackdrop?.addEventListener('click', closeCita);
+
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeCita(); });
+
+  let pdfResizeTimer = null;
+  window.addEventListener('resize', () => {
+    if (!docDrawer.classList.contains('is-open') || !PDF_STATE.doc) return;
+    clearTimeout(pdfResizeTimer);
+    pdfResizeTimer = setTimeout(() => renderPdfPage(), 200);
+  });
 
 })();
 </script>
