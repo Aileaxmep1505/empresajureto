@@ -468,6 +468,7 @@
           'id'            => $it['id'] ?? ('item-'.$i),
           'requisito'     => $it['requisito'] ?? $it['item'] ?? $it['text'] ?? 'Sin nombre',
           'descripcion'   => $it['descripcion'] ?? '',
+          'criterio_cumplimiento' => $it['criterio_cumplimiento'] ?? '',
           'formato'       => $it['formato'] ?? 'No aplica',
           'categoria'     => $it['categoria'] ?? 'Legal-Administrativo',
           'aplicabilidad' => $it['aplicabilidad'] ?? 'Único',
@@ -909,6 +910,12 @@
                               <div class="pjd-cl-detail-row"><strong>Descripción:</strong> {{ $it['descripcion'] }}</div>
                             @else
                               <div class="pjd-cl-detail-row pjd-cl-source-empty">Sin descripción adicional.</div>
+                            @endif
+                            @if(!empty($it['criterio_cumplimiento']))
+                              <div style="margin:10px 0;padding:12px 14px;border-left:3px solid var(--success);background:var(--success-soft);border-radius:10px;">
+                                <div style="font-size:.72rem;font-weight:700;color:var(--success);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;display:flex;align-items:center;gap:5px;">✓ Criterio para cumplir</div>
+                                <div style="font-size:.88rem;color:var(--ink);line-height:1.55;">{{ $it['criterio_cumplimiento'] }}</div>
+                              </div>
                             @endif
                             <div class="pjd-cl-detail-row"><strong>Prioridad:</strong> {{ $it['prioridad'] }}</div>
                           </div>
