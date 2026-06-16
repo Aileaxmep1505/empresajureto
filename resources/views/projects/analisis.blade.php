@@ -1408,23 +1408,153 @@
   }
 
   /* ════════════ BORRADOR / REPORTE ════════════ */
-  .pjd-borrador-tabs { display: flex; gap: 6px; align-items: center; background: var(--bg); padding: 4px; border-radius: 999px; border: 1px solid var(--line); margin-bottom: 16px; width: fit-content; }
-  .pjd-borrador-tab { display: inline-flex; align-items: center; gap: 6px; padding: 7px 16px; border-radius: 999px; border: none; background: transparent; font-family: inherit; font-size: .85rem; font-weight: 700; color: var(--ink2); cursor: pointer; transition: all .15s; }
-  .pjd-borrador-tab:hover { color: var(--blue); }
-  .pjd-borrador-tab.is-active { background: var(--blue); color: #fff; }
-  .pjd-borrador-tab svg { width: 14px; height: 14px; }
+  .pjd-editor-header { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin: 0 0 14px; }
+  .pjd-editor-header-left { display:flex; align-items:center; gap:8px; flex-wrap:wrap; min-width:0; }
+  .pjd-editor-header-right { display:flex; align-items:center; gap:6px; margin-left:auto; }
+  .pjd-editor-project { font-size: 1.05rem; line-height:1; font-weight: 700; color: #111111; letter-spacing: -.01em; }
+  .pjd-editor-mini { width: 28px; height: 28px; display:inline-flex; align-items:center; justify-content:center; border:none; background:transparent; color:#7c7c7c; border-radius:999px; cursor:pointer; transition: background .18s ease, color .18s ease, transform .18s ease; }
+  .pjd-editor-mini:hover { background:#f5f7fa; color:#111111; }
+  .pjd-editor-mini:active { transform:scale(.98); }
+  .pjd-editor-mini svg { width: 17px; height: 17px; }
+  .pjd-borrador-tabs { display:flex; align-items:center; gap:8px; margin-left:6px; }
+  .pjd-borrador-tab { min-height: 36px; display:inline-flex; align-items:center; gap:8px; padding: 0 15px; border-radius:999px; border:1px solid #d9dde5; background:#ffffff; font-family:inherit; font-size: .82rem; font-weight: 700; color:#666666; cursor:pointer; box-shadow:0 1px 2px rgba(15,23,42,.03); transition: all .18s ease; }
+  .pjd-borrador-tab:hover { border-color:#cfd5df; color:#111111; background:#fbfcfd; }
+  .pjd-borrador-tab.is-active { background:#0f6fff; border-color:#0f6fff; color:#ffffff; box-shadow:0 6px 18px rgba(15,111,255,.18); }
+  .pjd-borrador-tab svg { width: 15px; height: 15px; }
+  .pjd-editor-icon-btn { width: 32px; height: 32px; display:inline-flex; align-items:center; justify-content:center; border:none; background:transparent; color:#767676; border-radius:10px; cursor:pointer; transition: background .18s ease, color .18s ease, transform .18s ease; }
+  .pjd-editor-icon-btn:hover { background:#f5f7fa; color:#111111; }
+  .pjd-editor-icon-btn:active { transform:scale(.98); }
+  .pjd-editor-icon-btn svg { width: 18px; height: 18px; }
+  .pjd-borrador-actions { display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap:wrap; }
+  .pjd-borrador-actions .pjd-cl-btn { min-height:40px; padding:0 16px; border-radius:12px; }
+  .pjd-borrador-section { display:none; }
+  .pjd-borrador-section.is-active { display:block; }
+  .pjd-wrap.is-conversation-collapsed .pjd-body { grid-template-columns: 0 0 minmax(360px, 1fr); }
+  .pjd-wrap.is-conversation-collapsed .pjd-left,
+  .pjd-wrap.is-conversation-collapsed .pjd-resizer { opacity: 0; pointer-events: none; overflow: hidden; border: 0; }
+  .pjd-wrap.is-conversation-collapsed .pjd-right { border-left: 1px solid var(--line); }
 
-  .pjd-borrador-actions { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+  .pjd-draft-shell {
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: #fff;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0,0,0,.02);
+  }
 
-  .pjd-borrador-section { display: none; }
-  .pjd-borrador-section.is-active { display: block; }
+  .pjd-draft-toolbar {
+    background: #fbfcfe;
+    border-bottom: 1px solid var(--line);
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
 
-  .pjd-draft-toolbar { background: #f5f7fb; border: 1px solid var(--line); border-radius: 12px 12px 0 0; padding: 8px; display: flex; gap: 4px; flex-wrap: wrap; }
-  .pjd-draft-btn { background: transparent; border: none; padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: .85rem; font-weight: 700; color: var(--ink2); }
-  .pjd-draft-btn:hover { background: var(--card); }
-  .pjd-draft-editor { width: 100%; min-height: 500px; padding: 16px; border: 1px solid var(--line); border-top: none; border-radius: 0 0 12px 12px; background: #fff; font-family: inherit; font-size: .95rem; outline: none; resize: vertical; }
+  .pjd-draft-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding-right: 8px;
+    margin-right: 4px;
+    border-right: 1px solid #e4e7ec;
+  }
+
+  .pjd-draft-group:last-child { border-right: 0; margin-right: 0; padding-right: 0; }
+
+  .pjd-draft-btn,
+  .pjd-draft-select,
+  .pjd-draft-color {
+    min-width: 34px;
+    height: 34px;
+    border: 1px solid transparent;
+    background: transparent;
+    border-radius: 9px;
+    color: #111827;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    cursor: pointer;
+    font-family: 'Quicksand', sans-serif;
+    font-size: .86rem;
+    font-weight: 700;
+    transition: background .16s ease, border-color .16s ease, transform .16s ease;
+  }
+
+  .pjd-draft-btn svg {
+    width: 18px;
+    height: 18px;
+    stroke-width: 2.1;
+  }
+
+  .pjd-draft-btn:hover,
+  .pjd-draft-select:hover,
+  .pjd-draft-color:hover {
+    background: #f4f7fb;
+    border-color: #edf0f5;
+  }
+
+  .pjd-draft-btn:active { transform: scale(.97); }
+  .pjd-draft-btn.is-active { background: var(--blue-soft); color: var(--blue); border-color: #cfe0ff; }
+  .pjd-draft-btn.is-muted { color: var(--muted); }
+
+  .pjd-draft-select {
+    justify-content: flex-start;
+    min-width: 96px;
+    padding: 0 10px;
+    border-color: #edf0f5;
+    background: #fff;
+  }
+
+  .pjd-draft-select.is-small { min-width: 70px; }
+
+  .pjd-draft-color {
+    width: 34px;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .pjd-draft-color input {
+    width: 42px;
+    height: 42px;
+    border: 0;
+    padding: 0;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .pjd-draft-editor {
+    width: 100%;
+    min-height: 640px;
+    padding: 30px 38px;
+    border: 0;
+    background: #fff;
+    font-family: 'Quicksand', sans-serif;
+    font-size: 1rem;
+    line-height: 1.72;
+    color: var(--ink);
+    outline: none;
+    overflow: auto;
+  }
+
+  .pjd-draft-editor:empty:before {
+    content: 'Empieza a escribir tu borrador...';
+    color: #a0a7b2;
+  }
+
+  .pjd-draft-editor h1 { font-size: 2rem; line-height: 1.2; margin: 1rem 0 .6rem; color: #111; }
+  .pjd-draft-editor h2 { font-size: 1.55rem; line-height: 1.25; margin: .9rem 0 .55rem; color: #111; }
+  .pjd-draft-editor h3 { font-size: 1.25rem; line-height: 1.3; margin: .8rem 0 .45rem; color: #111; }
+  .pjd-draft-editor p { margin: .55rem 0; }
+  .pjd-draft-editor blockquote { margin: 14px 0; padding: 10px 14px; border-left: 3px solid var(--blue); background: #f8fbff; color: #344054; border-radius: 0 10px 10px 0; }
+  .pjd-draft-editor a { color: var(--blue); text-decoration: underline; }
+  .pjd-draft-editor img { max-width: 100%; border-radius: 12px; border: 1px solid var(--line); }
+  .pjd-draft-editor hr { border: 0; border-top: 1px solid var(--line); margin: 18px 0; }
   .pjd-draft-editor table { border-collapse: collapse; width: 100%; margin: 14px 0; }
-  .pjd-draft-editor th, .pjd-draft-editor td { border: 1px solid #e5e7eb; padding: 10px 12px; text-align: left; }
+  .pjd-draft-editor th,
+  .pjd-draft-editor td { border: 1px solid #e5e7eb; padding: 10px 12px; text-align: left; vertical-align: top; }
   .pjd-draft-editor th { background: #f3f4f6; font-weight: 700; }
 
   .pjd-reporte-empty { background: #fff; border: 1.5px dashed var(--line); border-radius: 14px; padding: 60px 30px; text-align: center; min-height: 360px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; }
@@ -1440,6 +1570,23 @@
   .pjd-reporte-content table { width: 100%; border-collapse: collapse; margin: 14px 0; }
   .pjd-reporte-content th, .pjd-reporte-content td { padding: 8px 12px; border: 1px solid var(--line); text-align: left; }
   .pjd-reporte-content th { background: var(--bg); font-weight: 700; }
+
+  .pjd-report-doc { max-width: 980px; margin: 0 auto; color: #333333; }
+  .pjd-report-title { margin: 0 0 22px !important; font-size: 1.38rem !important; letter-spacing: -.02em; color: #111111 !important; }
+  .pjd-report-section { padding: 0 0 24px; margin: 0 0 24px; border-bottom: 1px solid #ebebeb; }
+  .pjd-report-section:last-child { border-bottom: 0; margin-bottom: 0; padding-bottom: 0; }
+  .pjd-report-section h2 { margin: 0 0 18px !important; font-size: 1.08rem !important; color: #111111 !important; }
+  .pjd-report-grid { display: grid; gap: 16px; }
+  .pjd-report-item { padding: 0 0 12px; }
+  .pjd-report-label { display: block; margin: 0 0 7px; color: #111111; font-weight: 700; font-size: .94rem; }
+  .pjd-report-value { margin: 0; color: #333333; font-weight: 500; line-height: 1.65; white-space: pre-line; }
+  .pjd-report-empty { color: #888888; font-style: italic; }
+  .pjd-report-question { margin: 0 0 7px; color:#111111; font-weight:700; }
+  .pjd-report-answer { margin:0; color:#333333; line-height:1.65; }
+  .pjd-report-points { margin: 0; padding: 0; list-style: none; display:grid; gap: 10px; }
+  .pjd-report-points li { padding: 12px 14px; border: 1px solid #ebebeb; border-radius: 12px; background:#ffffff; }
+  .pjd-report-point-title { display:block; color:#111111; font-weight:700; margin-bottom:4px; }
+  .pjd-report-point-meta { color:#888888; font-size:.84rem; }
 
   .pjd-doc { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); margin-bottom: 8px; }
   .pjd-doc-icon { width: 34px; height: 40px; border-radius: 6px; background: var(--danger-soft); border: 1px solid #fecaca; display: grid; place-items: center; color: var(--danger); font-size: .65rem; font-weight: 700; flex-shrink: 0; }
@@ -1685,6 +1832,13 @@
     .pjd-cl-detail-link { margin-left: 0; }
   }
 
+
+  .pjd-report-editor-shell { margin-top: 10px; }
+  .pjd-report-editor { min-height: 760px; padding: 42px 48px; }
+  .pjd-report-editor .pjd-reporte-content { max-width: 100%; margin: 0; }
+  .pjd-report-editor .pjd-report-doc { max-width: 980px; margin: 0 auto; }
+  .pjd-report-editor:focus { outline: none; }
+
 </style>
 @endpush
 
@@ -1698,25 +1852,56 @@
   $resumenEjec = $sd['resumen_ejecutivo'] ?? [];
   $partidas = $sd['partidas'] ?? [];
   $citas = $sd['citas'] ?? [];
-  $checklistRaw = $project->checklist ?: ($sd['checklist_sugerido'] ?? []);
+  $checklistRaw = $project->relationLoaded('checklistItems') && $project->checklistItems->count()
+      ? $project->checklistItems->map(fn ($it) => method_exists($it, 'toChecklistArray') ? $it->toChecklistArray() : [
+          'id'                    => $it->id,
+          'requisito'             => $it->requirement,
+          'descripcion'           => $it->description,
+          'criterio_cumplimiento' => $it->compliance_criteria,
+          'formato'               => $it->format ?: 'No aplica',
+          'categoria'             => $it->category ?: 'Legal-Administrativo',
+          'aplicabilidad'         => $it->applicability ?: 'Único',
+          'obligatorio'           => $it->mandatory ? 'Sí' : 'No',
+          'cumplimiento'          => match($it->compliance_status) { 'cumple' => 'Cumple', 'parcial' => 'Parcial', 'no_cumple' => 'No Cumple', default => '-' },
+          'status'                => match($it->review_status) { 'en_revision' => 'En revisión', 'aprobado' => 'Aprobado', default => 'Pendiente' },
+          'prioridad'             => match($it->priority) { 'alta' => 'Alta', 'baja' => 'Baja', default => 'Media' },
+          'fecha_limite'          => optional($it->due_date)->format('Y-m-d'),
+          'responsable_id'        => $it->responsible_user_id,
+          'responsable'           => $it->responsible?->name ?: data_get($it->metadata, 'responsable_text', ''),
+          'revisor_id'            => $it->reviewer_user_id,
+          'revisor'               => $it->reviewer?->name ?: data_get($it->metadata, 'revisor_text', ''),
+          'fuente'                => $it->source_name,
+          'pagina'                => $it->source_page,
+          'cita'                  => $it->source_quote,
+          'notas'                 => $it->notes->map(fn($n) => ['id'=>$n->id,'body'=>$n->body,'user_name'=>$n->user?->name,'created_at'=>optional($n->created_at)->format('Y-m-d H:i:s')])->values()->all(),
+          'adjuntos'              => $it->attachments->map(fn($a) => ['id'=>$a->id,'name'=>$a->original_name,'url'=>$a->url,'mime'=>$a->mime_type,'size'=>$a->size,'uploaded_at'=>optional($a->created_at)->format('Y-m-d H:i:s')])->values()->all(),
+      ])->values()->all()
+      : ($project->checklist ?: ($sd['checklist_sugerido'] ?? []));
 
   $checklist = collect($checklistRaw)->map(function ($it, $i) {
       if (!is_array($it)) return null;
       return [
-          'id'            => $it['id'] ?? ('item-'.$i),
-          'requisito'     => $it['requisito'] ?? $it['item'] ?? $it['text'] ?? 'Sin nombre',
-          'descripcion'   => $it['descripcion'] ?? '',
+          'id'                    => $it['id'] ?? ('item-'.$i),
+          'requisito'             => $it['requisito'] ?? $it['item'] ?? $it['text'] ?? 'Sin nombre',
+          'descripcion'           => $it['descripcion'] ?? '',
           'criterio_cumplimiento' => $it['criterio_cumplimiento'] ?? '',
-          'formato'       => $it['formato'] ?? 'No aplica',
-          'categoria'     => $it['categoria'] ?? 'Legal-Administrativo',
-          'aplicabilidad' => $it['aplicabilidad'] ?? 'Único',
-          'obligatorio'   => $it['obligatorio'] ?? 'Sí',
-          'cumplimiento'  => $it['cumplimiento'] ?? '-',
-          'status'        => $it['status'] ?? 'Pendiente',
-          'prioridad'     => $it['prioridad'] ?? 'Media',
-          'fuente'        => $it['fuente'] ?? '',
-          'pagina'        => $it['pagina'] ?? null,
-          'cita'          => $it['cita'] ?? $it['evidencia'] ?? $it['fragmento'] ?? '',
+          'formato'               => $it['formato'] ?? 'No aplica',
+          'categoria'             => $it['categoria'] ?? 'Legal-Administrativo',
+          'aplicabilidad'         => $it['aplicabilidad'] ?? 'Único',
+          'obligatorio'           => $it['obligatorio'] ?? 'Sí',
+          'cumplimiento'          => $it['cumplimiento'] ?? '-',
+          'status'                => $it['status'] ?? 'Pendiente',
+          'prioridad'             => $it['prioridad'] ?? 'Media',
+          'fecha_limite'          => $it['fecha_limite'] ?? null,
+          'responsable'           => $it['responsable'] ?? '',
+          'responsable_id'        => $it['responsable_id'] ?? null,
+          'revisor'               => $it['revisor'] ?? '',
+          'revisor_id'            => $it['revisor_id'] ?? null,
+          'notas'                 => $it['notas'] ?? [],
+          'adjuntos'              => $it['adjuntos'] ?? [],
+          'fuente'                => $it['fuente'] ?? '',
+          'pagina'                => $it['pagina'] ?? null,
+          'cita'                  => $it['cita'] ?? $it['evidencia'] ?? $it['fragmento'] ?? '',
       ];
   })->filter()->values()->all();
 
@@ -1917,7 +2102,7 @@
       <div class="pjd-pane is-active" data-pane="ficha">
         <div class="pjd-card is-open">
           <div class="pjd-card-head js-card-toggle">
-            <h3>Ficha de Resumen <span class="sparkle">✨</span></h3>
+            <h3>Ficha de Resumen <span class="sparkle"></span></h3>
             <div class="pjd-card-chev">▾</div>
           </div>
           <div class="pjd-card-body">
@@ -1966,7 +2151,7 @@
 
         <div class="pjd-card is-open">
           <div class="pjd-card-head js-card-toggle">
-            <h3>Fechas Clave <span class="sparkle">✨</span></h3>
+            <h3>Fechas Clave <span class="sparkle"></span></h3>
             <div class="pjd-card-chev">▾</div>
           </div>
           <div class="pjd-card-body">
@@ -2017,7 +2202,7 @@
       <div class="pjd-pane" data-pane="resumen">
         <div class="pjd-card is-open">
           <div class="pjd-card-head js-card-toggle">
-            <h3>Resumen Ejecutivo <span class="sparkle">✨</span></h3>
+            <h3>Resumen Ejecutivo <span class="sparkle"></span></h3>
             <div class="pjd-card-chev">▾</div>
           </div>
           <div class="pjd-card-body">
@@ -2133,20 +2318,20 @@
 
           <div class="pjd-cl-menu" id="pjdClFiltersMenu" aria-hidden="true">
             <div class="pjd-cl-menu-title">Cumplimiento</div>
-            <button type="button" class="pjd-cl-menu-option is-active" data-filter-group="cumplimiento" data-filter-value="__all"><span class="pjd-cl-menu-left">Todos</span><span class="pjd-cl-menu-square">✓</span></button>
+            <button type="button" class="pjd-cl-menu-option is-active" data-filter-group="cumplimiento" data-filter-value="__all"><span class="pjd-cl-menu-left">Todos</span><span class="pjd-cl-menu-square"></span></button>
             <button type="button" class="pjd-cl-menu-option" data-filter-group="cumplimiento" data-filter-value="-"><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-dot" style="background:#9ca3af"></span>Sin revisar (-)</span><span class="pjd-cl-menu-square"></span></button>
             <button type="button" class="pjd-cl-menu-option" data-filter-group="cumplimiento" data-filter-value="Cumple"><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-dot" style="background:#22c55e"></span>Cumple</span><span class="pjd-cl-menu-square"></span></button>
             <button type="button" class="pjd-cl-menu-option" data-filter-group="cumplimiento" data-filter-value="Parcial"><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-dot" style="background:#eab308"></span>Parcial</span><span class="pjd-cl-menu-square"></span></button>
             <button type="button" class="pjd-cl-menu-option" data-filter-group="cumplimiento" data-filter-value="No Cumple"><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-dot" style="background:#ef4444"></span>No Cumple</span><span class="pjd-cl-menu-square"></span></button>
             <div class="pjd-cl-menu-sep"></div>
             <div class="pjd-cl-menu-title">Status</div>
-            <button type="button" class="pjd-cl-menu-option is-active" data-filter-group="status" data-filter-value="__all"><span class="pjd-cl-menu-left">Todos</span><span class="pjd-cl-menu-square">✓</span></button>
+            <button type="button" class="pjd-cl-menu-option is-active" data-filter-group="status" data-filter-value="__all"><span class="pjd-cl-menu-left">Todos</span><span class="pjd-cl-menu-square"></span></button>
             <button type="button" class="pjd-cl-menu-option" data-filter-group="status" data-filter-value="Pendiente"><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-dot" style="background:#f59e0b"></span>Pendiente</span><span class="pjd-cl-menu-square"></span></button>
             <button type="button" class="pjd-cl-menu-option" data-filter-group="status" data-filter-value="En revisión"><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-dot" style="background:#3b82f6"></span>En revisión</span><span class="pjd-cl-menu-square"></span></button>
             <button type="button" class="pjd-cl-menu-option" data-filter-group="status" data-filter-value="Aprobado"><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-dot" style="background:#22c55e"></span>Aprobado</span><span class="pjd-cl-menu-square"></span></button>
             <div class="pjd-cl-menu-sep"></div>
             <div class="pjd-cl-menu-title">Prioridad</div>
-            <button type="button" class="pjd-cl-menu-option is-active" data-filter-group="prioridad" data-filter-value="__all"><span class="pjd-cl-menu-left">Todas</span><span class="pjd-cl-menu-square">✓</span></button>
+            <button type="button" class="pjd-cl-menu-option is-active" data-filter-group="prioridad" data-filter-value="__all"><span class="pjd-cl-menu-left">Todas</span><span class="pjd-cl-menu-square"></span></button>
             <button type="button" class="pjd-cl-menu-option" data-filter-group="prioridad" data-filter-value="Alta"><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-dot" style="background:#ef4444"></span>Alta</span><span class="pjd-cl-menu-square"></span></button>
             <button type="button" class="pjd-cl-menu-option" data-filter-group="prioridad" data-filter-value="Media"><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-dot" style="background:#eab308"></span>Media</span><span class="pjd-cl-menu-square"></span></button>
             <button type="button" class="pjd-cl-menu-option" data-filter-group="prioridad" data-filter-value="Baja"><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-dot" style="background:#64748b"></span>Baja</span><span class="pjd-cl-menu-square"></span></button>
@@ -2154,14 +2339,14 @@
           </div>
 
           <div class="pjd-cl-menu" id="pjdClColumnsMenu" aria-hidden="true">
-            <button type="button" class="pjd-cl-menu-option is-disabled" disabled><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-check">✓</span>Requisito</span></button>
-            <button type="button" class="pjd-cl-menu-option is-active" data-column-toggle="formato"><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-check">✓</span>Formato</span></button>
-            <button type="button" class="pjd-cl-menu-option is-active" data-column-toggle="categoria"><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-check">✓</span>Categoría</span></button>
-            <button type="button" class="pjd-cl-menu-option is-active" data-column-toggle="aplicabilidad"><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-check">✓</span>Aplicación</span></button>
-            <button type="button" class="pjd-cl-menu-option is-active" data-column-toggle="obligatorio"><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-check">✓</span>Obligatorio</span></button>
-            <button type="button" class="pjd-cl-menu-option is-active" data-column-toggle="cumplimiento"><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-check">✓</span>Cumplimiento</span></button>
-            <button type="button" class="pjd-cl-menu-option is-active" data-column-toggle="status"><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-check">✓</span>Status</span></button>
-            <button type="button" class="pjd-cl-menu-option is-active" data-column-toggle="opciones"><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-check">✓</span>Opciones</span></button>
+            <button type="button" class="pjd-cl-menu-option is-disabled" disabled><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-check"></span>Requisito</span></button>
+            <button type="button" class="pjd-cl-menu-option is-active" data-column-toggle="formato"><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-check"></span>Formato</span></button>
+            <button type="button" class="pjd-cl-menu-option is-active" data-column-toggle="categoria"><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-check"></span>Categoría</span></button>
+            <button type="button" class="pjd-cl-menu-option is-active" data-column-toggle="aplicabilidad"><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-check"></span>Aplicación</span></button>
+            <button type="button" class="pjd-cl-menu-option is-active" data-column-toggle="obligatorio"><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-check"></span>Obligatorio</span></button>
+            <button type="button" class="pjd-cl-menu-option is-active" data-column-toggle="cumplimiento"><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-check"></span>Cumplimiento</span></button>
+            <button type="button" class="pjd-cl-menu-option is-active" data-column-toggle="status"><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-check"></span>Status</span></button>
+            <button type="button" class="pjd-cl-menu-option is-active" data-column-toggle="opciones"><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-check"></span>Opciones</span></button>
             <div class="pjd-cl-menu-actions"><button type="button" class="pjd-cl-menu-mini" id="pjdClShowAllColumns">Mostrar todo</button><button type="button" class="pjd-cl-menu-mini" id="pjdClCloseColumns">Cerrar</button></div>
           </div>
 
@@ -2187,8 +2372,8 @@
                     $docMatch = !empty($it['fuente']) ? $project->documents->firstWhere('filename', $it['fuente']) : null;
                     $docUrl = $docMatch ? $docMatch->url : null;
                   @endphp
-                  <tr data-row="{{ $idx }}" data-cumplimiento="{{ $it['cumplimiento'] }}" data-status="{{ $it['status'] }}" data-prioridad="{{ $it['prioridad'] }}" @if($clPayload) data-cita="{{ $clPayload }}" @endif>
-                    <td class="pjd-cl-check-cell"><button type="button" class="pjd-cl-row-toggle" data-toggle="{{ $idx }}" title="Ver fuente y detalle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></button></td>
+                  <tr data-row="{{ $it['id'] }}" data-legacy-index="{{ $idx }}" data-cumplimiento="{{ $it['cumplimiento'] }}" data-status="{{ $it['status'] }}" data-prioridad="{{ $it['prioridad'] }}" data-requisito="{{ e($it['requisito']) }}" data-formato="{{ e($it['formato']) }}" data-descripcion="{{ e($it['descripcion']) }}" data-fecha-limite="{{ $it['fecha_limite'] ?? '' }}" data-responsable="{{ e($it['responsable'] ?? '') }}" data-revisor="{{ e($it['revisor'] ?? '') }}" data-notas="{{ e(collect($it['notas'] ?? [])->map(fn($n) => is_array($n) ? ($n['body'] ?? '') : $n)->filter()->implode("\n")) }}" data-adjuntos='@json($it["adjuntos"] ?? [])' @if($clPayload) data-cita="{{ $clPayload }}" @endif>
+                    <td class="pjd-cl-check-cell"><button type="button" class="pjd-cl-row-toggle" data-toggle="{{ $it['id'] }}" title="Ver fuente y detalle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></button></td>
                     <td>
                       <div class="pjd-cl-requisito">
                         <svg class="pjd-cl-row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="7" x2="19" y2="7"/><line x1="5" y1="12" x2="19" y2="12"/><line x1="5" y1="17" x2="14" y2="17"/></svg>
@@ -2204,7 +2389,7 @@
                         $cumpClass = match($it['cumplimiento']) { 'Cumple'=>'is-cumple','Parcial'=>'is-parcial','No Cumple'=>'is-nocumple', default=>'' };
                         $cumpLabel = $it['cumplimiento'] ?: '-';
                       @endphp
-                      <button type="button" class="pjd-cl-cumplimiento-btn" data-cumplimiento-toggle="{{ $idx }}" title="Cambiar cumplimiento">
+                      <button type="button" class="pjd-cl-cumplimiento-btn" data-cumplimiento-toggle="{{ $it['id'] }}" title="Cambiar cumplimiento">
                         <span class="pjd-cl-cumple-dot {{ $cumpClass }}"></span>
                         <span class="pjd-cl-cumple-text {{ $cumpClass }}">{{ $cumpLabel }}</span>
                       </button>
@@ -2214,7 +2399,7 @@
                         $statClass = match($it['status']) { 'En revisión'=>'is-revision','Aprobado'=>'is-aprobado', default=>'is-pendiente' };
                         $statusValue = $it['status'] ?: 'Pendiente';
                       @endphp
-                      <button type="button" class="pjd-cl-status {{ $statClass }}" data-status-toggle="{{ $idx }}">
+                      <button type="button" class="pjd-cl-status {{ $statClass }}" data-status-toggle="{{ $it['id'] }}">
                         <span class="pjd-cl-status-icon">
                           @if($statusValue === 'Aprobado')
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 12l2.5 2.5L16 9"/></svg>
@@ -2227,9 +2412,9 @@
                         <span class="pjd-cl-status-text">{{ $statusValue }}</span>
                       </button>
                     </td>
-                    <td class="pjd-cl-cell-center" data-col="opciones"><button type="button" class="pjd-cl-options" data-options="{{ $idx }}" title="Opciones"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button></td>
+                    <td class="pjd-cl-cell-center" data-col="opciones"><button type="button" class="pjd-cl-options" data-options="{{ $it['id'] }}" title="Opciones"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button></td>
                   </tr>
-                  <tr class="pjd-cl-detail-row" data-detail="{{ $idx }}" style="display:none;">
+                  <tr class="pjd-cl-detail-row" data-detail="{{ $it['id'] }}" style="display:none;">
                     <td colspan="9" style="padding:0">
                       <div class="pjd-cl-detail">
                         <div class="pjd-cl-detail-panel">
@@ -2246,7 +2431,7 @@
                             <div class="pjd-cl-detail-controls">
                               <div class="pjd-cl-detail-control-row">
                                 <span class="pjd-cl-detail-label" style="margin:0;">Prioridad:</span>
-                                <div class="pjd-cl-priority-group" data-priority-group="{{ $idx }}">
+                                <div class="pjd-cl-priority-group" data-priority-group="{{ $it['id'] }}">
                                   <button type="button" class="pjd-cl-priority-btn {{ ($it['prioridad'] ?? 'Media') === 'Alta' ? 'is-active' : '' }}" data-priority-set="Alta">Alta</button>
                                   <button type="button" class="pjd-cl-priority-btn {{ ($it['prioridad'] ?? 'Media') === 'Media' ? 'is-active' : '' }}" data-priority-set="Media">Media</button>
                                   <button type="button" class="pjd-cl-priority-btn {{ ($it['prioridad'] ?? 'Media') === 'Baja' ? 'is-active' : '' }}" data-priority-set="Baja">Baja</button>
@@ -2257,14 +2442,14 @@
                                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
                                   Fecha límite:
                                 </span>
-                                <input type="date" class="pjd-cl-detail-date" data-detail-date="{{ $idx }}" value="{{ $it['fecha_limite'] ?? '' }}">
+                                <input type="date" class="pjd-cl-detail-date" data-detail-date="{{ $it['id'] }}" value="{{ $it['fecha_limite'] ?? '' }}">
                               </div>
                               <div class="pjd-cl-detail-control-row">
                                 <span class="pjd-cl-detail-label" style="margin:0;">
                                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>
                                   Responsable:
                                 </span>
-                                <select class="pjd-cl-detail-select" data-detail-responsable="{{ $idx }}">
+                                <select class="pjd-cl-detail-select" data-detail-responsable="{{ $it['id'] }}">
                                   <option>Sin asignar</option>
                                 </select>
                               </div>
@@ -2273,7 +2458,7 @@
                                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>
                                   Revisor:
                                 </span>
-                                <select class="pjd-cl-detail-select" data-detail-revisor="{{ $idx }}">
+                                <select class="pjd-cl-detail-select" data-detail-revisor="{{ $it['id'] }}">
                                   <option>Sin asignar</option>
                                 </select>
                               </div>
@@ -2283,7 +2468,7 @@
                           <div class="pjd-cl-detail-section">
                             <div class="pjd-cl-detail-control-row">
                               <span class="pjd-cl-detail-label" style="margin:0;">Notas:</span>
-                              <button type="button" class="pjd-cl-detail-link" data-detail-note="{{ $idx }}">
+                              <button type="button" class="pjd-cl-detail-link" data-detail-note="{{ $it['id'] }}">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
                                 Agregar
                               </button>
@@ -2297,7 +2482,7 @@
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
                                 Documentos Adjuntos:
                               </span>
-                              <button type="button" class="pjd-cl-detail-link" data-detail-attach="{{ $idx }}">
+                              <button type="button" class="pjd-cl-detail-link" data-detail-attach="{{ $it['id'] }}">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05 12 20.49a6 6 0 0 1-8.49-8.49l9.44-9.44a4 4 0 0 1 5.66 5.66L9.17 17.66a2 2 0 0 1-2.83-2.83l8.49-8.49"/></svg>
                                 Adjuntar
                               </button>
@@ -2342,59 +2527,111 @@
       </div>
 
       <div class="pjd-pane" data-pane="borrador">
-        <h3 class="pjd-pane-title">{{ $project->name }}</h3>
+        <div class="pjd-editor-header">
+          <div class="pjd-editor-header-left">
+            <div class="pjd-editor-project">{{ $project->name }}</div>
+            <button type="button" class="pjd-editor-mini" title="Editar nombre">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+            </button>
+            <button type="button" class="pjd-editor-mini" title="Favorito">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m12 17.3-6.18 3.7 1.64-7.03L2 9.24l7.19-.61L12 2l2.81 6.63 7.19.61-5.46 4.73 1.64 7.03z"/></svg>
+            </button>
 
-        <div class="pjd-borrador-tabs">
-          <button type="button" class="pjd-borrador-tab is-active" data-section="borrador">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
-            Borrador
-          </button>
-          <button type="button" class="pjd-borrador-tab" data-section="reporte">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-            Reporte
-          </button>
+            <div class="pjd-borrador-tabs">
+              <button type="button" class="pjd-borrador-tab is-active" data-section="borrador">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+                Borrador
+              </button>
+              <button type="button" class="pjd-borrador-tab" data-section="reporte">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                Reporte
+              </button>
+            </div>
+          </div>
+
+          <div class="pjd-editor-header-right">
+            <button type="button" class="pjd-editor-icon-btn" id="pjdDownloadDraft" title="Descargar Word">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+            </button>
+            <button type="button" class="pjd-editor-icon-btn" id="pjdBorradorExpand" title="Expandir editor">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 3H3v5"/><path d="M3 3l6 6"/><path d="M16 3h5v5"/><path d="m21 3-6 6"/><path d="M8 21H3v-5"/><path d="m3 21 6-6"/><path d="M16 21h5v-5"/><path d="m21 21-6-6"/></svg>
+            </button>
+          </div>
         </div>
 
         <div class="pjd-borrador-section is-active" data-section-pane="borrador">
           <div class="pjd-borrador-actions">
-            <button type="button" class="pjd-cl-btn" id="pjdSaveDraft">💾 Guardar</button>
-            <button type="button" class="pjd-cl-btn" id="pjdDownloadDraft">⬇ Descargar HTML</button>
-            <span style="color:var(--muted);font-size:.78rem;" id="pjdDraftStatus"></span>
+            <span style="color:var(--muted);font-size:.78rem;" id="pjdDraftStatus">Guardado automático</span>
           </div>
-          <div class="pjd-draft-toolbar">
-            <button type="button" class="pjd-draft-btn" onclick="document.execCommand('bold')"><b>B</b></button>
-            <button type="button" class="pjd-draft-btn" onclick="document.execCommand('italic')"><i>I</i></button>
-            <button type="button" class="pjd-draft-btn" onclick="document.execCommand('underline')"><u>U</u></button>
-            <button type="button" class="pjd-draft-btn" onclick="document.execCommand('formatBlock', false, 'H1')">H1</button>
-            <button type="button" class="pjd-draft-btn" onclick="document.execCommand('formatBlock', false, 'H2')">H2</button>
-            <button type="button" class="pjd-draft-btn" onclick="document.execCommand('formatBlock', false, 'H3')">H3</button>
-            <button type="button" class="pjd-draft-btn" onclick="document.execCommand('insertUnorderedList')">• Lista</button>
-            <button type="button" class="pjd-draft-btn" onclick="document.execCommand('insertOrderedList')">1. Lista</button>
-          </div>
-          <div id="pjdDraftEditor" class="pjd-draft-editor" contenteditable="true">{!! $project->draft_content ?? '' !!}</div>
-        </div>
+          <div class="pjd-draft-shell">
+            <div class="pjd-draft-toolbar" id="pjdDraftToolbar">
+              <div class="pjd-draft-group">
+                <button type="button" class="pjd-draft-btn" data-draft-cmd="undo" title="Deshacer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-2"/></svg></button>
+                <button type="button" class="pjd-draft-btn" data-draft-cmd="redo" title="Rehacer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h2"/></svg></button>
+              </div>
 
-        <div class="pjd-borrador-section" data-section-pane="reporte">
-          <div class="pjd-borrador-actions" id="pjdReporteActions" style="display:none;">
-            <button type="button" class="pjd-cl-btn is-primary" id="pjdReporteRegen">✨ Regenerar</button>
-            <button type="button" class="pjd-cl-btn" id="pjdReporteDownload">⬇ Descargar HTML</button>
-          </div>
+              <div class="pjd-draft-group">
+                <select class="pjd-draft-select" data-draft-block title="Estilo">
+                  <option value="P">Párrafo</option>
+                  <option value="H1">Título 1</option>
+                  <option value="H2">Título 2</option>
+                  <option value="H3">Título 3</option>
+                  <option value="BLOCKQUOTE">Cita</option>
+                </select>
+                <select class="pjd-draft-select" data-draft-font title="Fuente">
+                  <option value="Quicksand">Quicksand</option>
+                  <option value="Arial">Arial</option>
+                  <option value="Georgia">Georgia</option>
+                  <option value="Times New Roman">Times</option>
+                  <option value="Courier New">Courier</option>
+                </select>
+                <select class="pjd-draft-select is-small" data-draft-size title="Tamaño">
+                  <option value="2">12</option>
+                  <option value="3" selected>16</option>
+                  <option value="4">18</option>
+                  <option value="5">24</option>
+                  <option value="6">32</option>
+                  <option value="7">48</option>
+                </select>
+              </div>
 
-          @if(empty($project->report_content ?? null))
-            <div class="pjd-reporte-empty" id="pjdReporteEmpty">
-              <p>Deja que jureto haga el trabajo pesado y genera el reporte final.</p>
-              <button type="button" class="pjd-reporte-btn" id="pjdReporteGen">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15 8.5 22 9.3 17 14 18.3 21 12 17.8 5.7 21 7 14 2 9.3 9 8.5 12 2"/></svg>
-                Generar Reporte
-              </button>
+              <div class="pjd-draft-group">
+                <button type="button" class="pjd-draft-btn" data-draft-cmd="bold" title="Negrita"><b>B</b></button>
+                <button type="button" class="pjd-draft-btn" data-draft-cmd="italic" title="Cursiva"><i>I</i></button>
+                <button type="button" class="pjd-draft-btn" data-draft-cmd="underline" title="Subrayado"><u>U</u></button>
+                <button type="button" class="pjd-draft-btn" data-draft-cmd="strikeThrough" title="Tachado"><s>S</s></button>
+                <label class="pjd-draft-color" title="Color de texto"><input type="color" data-draft-color="foreColor" value="#111111"></label>
+                <label class="pjd-draft-color" title="Resaltado"><input type="color" data-draft-color="hiliteColor" value="#e6f0ff"></label>
+              </div>
+
+              <div class="pjd-draft-group">
+                <button type="button" class="pjd-draft-btn" data-draft-cmd="justifyLeft" title="Alinear izquierda"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 6h14M4 10h10M4 14h14M4 18h10"/></svg></button>
+                <button type="button" class="pjd-draft-btn" data-draft-cmd="justifyCenter" title="Centrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 6h14M8 10h8M5 14h14M8 18h8"/></svg></button>
+                <button type="button" class="pjd-draft-btn" data-draft-cmd="justifyRight" title="Alinear derecha"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 6h14M10 10h10M6 14h14M10 18h10"/></svg></button>
+                <button type="button" class="pjd-draft-btn" data-draft-cmd="justifyFull" title="Justificar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg></button>
+              </div>
+
+              <div class="pjd-draft-group">
+                <button type="button" class="pjd-draft-btn" data-draft-cmd="insertUnorderedList" title="Lista con viñetas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg></button>
+                <button type="button" class="pjd-draft-btn" data-draft-cmd="insertOrderedList" title="Lista numerada"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M10 6h10M10 12h10M10 18h10"/><path d="M4 6h1v4M3.8 10h2.4M4 14a1 1 0 1 1 2 0c0 .6-.8 1.1-2 2h2M4 19h2l-2 3h2"/></svg></button>
+                <button type="button" class="pjd-draft-btn" data-draft-cmd="outdent" title="Disminuir sangría"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 6H10M20 12H10M20 18H10"/><path d="m4 12 4-4v8z"/></svg></button>
+                <button type="button" class="pjd-draft-btn" data-draft-cmd="indent" title="Aumentar sangría"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 6H10M20 12H10M20 18H10"/><path d="m8 12-4-4v8z"/></svg></button>
+              </div>
+
+              <div class="pjd-draft-group">
+                <button type="button" class="pjd-draft-btn" data-draft-action="link" title="Insertar link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M10 13a5 5 0 0 0 7.1 0l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1"/><path d="M14 11a5 5 0 0 0-7.1 0l-2 2A5 5 0 0 0 12 20.1l1.1-1.1"/></svg></button>
+                <button type="button" class="pjd-draft-btn" data-draft-cmd="unlink" title="Quitar link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M15 7h2a5 5 0 0 1 0 10h-2"/><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="m8 12 8 0"/><path d="M3 3l18 18"/></svg></button>
+                <button type="button" class="pjd-draft-btn" data-draft-action="image" title="Insertar imagen por URL"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg></button>
+                <button type="button" class="pjd-draft-btn" data-draft-action="table" title="Insertar tabla"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16M15 4v16"/></svg></button>
+                <button type="button" class="pjd-draft-btn" data-draft-cmd="insertHorizontalRule" title="Separador"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 12h14"/></svg></button>
+                <button type="button" class="pjd-draft-btn" data-draft-cmd="removeFormat" title="Limpiar formato"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 7h10M10 7 6 19M14 19H6M13 13l6 6M19 13l-6 6"/></svg></button>
+              </div>
             </div>
-          @endif
-
-          <div class="pjd-reporte-content" id="pjdReporteContent" style="{{ empty($project->report_content) ? 'display:none;' : '' }}">
-            {!! $project->report_content ?? '' !!}
+            <div id="pjdDraftEditor" class="pjd-draft-editor" contenteditable="true">{!! $project->draft_content ?? '' !!}</div>
           </div>
         </div>
-      </div>
+
+        <div class="pjd-borrador-section" data-section-pane="reporte" style="display:none;"></div>
 
       <div class="pjd-pane" data-pane="documentos">
         <h3 class="pjd-pane-title">Documentos del proyecto</h3>
@@ -2702,11 +2939,11 @@
     try {
       if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
         await navigator.clipboard.write([ new ClipboardItem({ 'text/html': new Blob([html],{type:'text/html'}), 'text/plain': new Blob([tsv],{type:'text/plain'}) }) ]);
-        showToast('✓ Tabla copiada (pégala donde quieras)', 'success'); return;
+        showToast(' Tabla copiada (pégala donde quieras)', 'success'); return;
       }
     } catch (_) {}
-    try { await navigator.clipboard.writeText(tsv); showToast('✓ Tabla copiada como texto', 'success'); }
-    catch (e) { const ta = document.createElement('textarea'); ta.value = tsv; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); showToast('✓ Tabla copiada', 'success'); }
+    try { await navigator.clipboard.writeText(tsv); showToast(' Tabla copiada como texto', 'success'); }
+    catch (e) { const ta = document.createElement('textarea'); ta.value = tsv; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); showToast('Tabla copiada', 'success'); }
   }
 
   function copyTableToBorrador(data) {
@@ -2715,8 +2952,8 @@
     editor.innerHTML += buildTableHtmlInline(data) + '<p><br></p>';
     document.querySelector('.pjd-tab[data-tab="borrador"]')?.click();
     document.querySelector('.pjd-borrador-tab[data-section="borrador"]')?.click();
-    setTimeout(() => { document.getElementById('pjdSaveDraft')?.click(); }, 200);
-    showToast('✓ Tabla agregada al borrador', 'success');
+    setTimeout(() => { scheduleDraftAutoSave(true); }, 200);
+    showToast(' Tabla agregada al borrador', 'success');
   }
 
   function downloadTableAsExcel(data) {
@@ -2727,7 +2964,7 @@
     XLSX.utils.book_append_sheet(wb, ws, 'Tabla');
     const ts = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
     XLSX.writeFile(wb, `tabla-${PROJECT_SLUG}-${ts}.xlsx`);
-    showToast('✓ Excel descargado', 'success');
+    showToast(' Excel descargado', 'success');
   }
 
   function appendMsg(role, content, time = '') {
@@ -2741,7 +2978,7 @@
       const tableHtml = renderTableHtml(tableData);
       const textBefore = tableData.before ? `<div class="pjd-msg-body" style="margin-bottom:8px">${renderMarkdown(tableData.before)}</div>` : '';
       const textAfter  = tableData.after  ? `<div class="pjd-msg-body" style="margin-top:8px">${renderMarkdown(tableData.after)}</div>` : '';
-      bodyHtml = `${textBefore}<div class="pjd-chat-table-wrap"><div class="pjd-chat-table-actions"><button type="button" class="pjd-chat-table-btn js-copy-table">📋 Copiar tabla</button><button type="button" class="pjd-chat-table-btn js-copy-to-draft">📝 Pasar al borrador</button><button type="button" class="pjd-chat-table-btn is-primary js-download-excel">⬇ Descargar Excel</button></div>${tableHtml}</div>${textAfter}`;
+      bodyHtml = `${textBefore}<div class="pjd-chat-table-wrap"><div class="pjd-chat-table-actions"><button type="button" class="pjd-chat-table-btn js-copy-table">Copiar tabla</button><button type="button" class="pjd-chat-table-btn js-copy-to-draft">Pasar al borrador</button><button type="button" class="pjd-chat-table-btn is-primary js-download-excel">Descargar Excel</button></div>${tableHtml}</div>${textAfter}`;
     } else {
       bodyHtml = `<div class="pjd-msg-body">${renderMarkdown(content)}</div>`;
     }
@@ -2764,7 +3001,7 @@
     const tableHtml = renderTableHtml(tableData);
     const textBefore = tableData.before ? `<div class="pjd-msg-body" style="margin-bottom:8px">${renderMarkdown(tableData.before)}</div>` : '';
     const textAfter  = tableData.after  ? `<div class="pjd-msg-body" style="margin-top:8px">${renderMarkdown(tableData.after)}</div>` : '';
-    el.outerHTML = `${textBefore}<div class="pjd-chat-table-wrap"><div class="pjd-chat-table-actions"><button type="button" class="pjd-chat-table-btn js-copy-table">📋 Copiar tabla</button><button type="button" class="pjd-chat-table-btn js-copy-to-draft">📝 Pasar al borrador</button><button type="button" class="pjd-chat-table-btn is-primary js-download-excel">⬇ Descargar Excel</button></div>${tableHtml}</div>${textAfter}`;
+    el.outerHTML = `${textBefore}<div class="pjd-chat-table-wrap"><div class="pjd-chat-table-actions"><button type="button" class="pjd-chat-table-btn js-copy-table">Copiar tabla</button><button type="button" class="pjd-chat-table-btn js-copy-to-draft">Pasar al borrador</button><button type="button" class="pjd-chat-table-btn is-primary js-download-excel">Descargar Excel</button></div>${tableHtml}</div>${textAfter}`;
     container.querySelector('.js-copy-table')?.addEventListener('click', () => copyTableToClipboard(tableData));
     container.querySelector('.js-copy-to-draft')?.addEventListener('click', () => copyTableToBorrador(tableData));
     container.querySelector('.js-download-excel')?.addEventListener('click', () => downloadTableAsExcel(tableData));
@@ -2991,7 +3228,7 @@
       const active = !hidden.has(col);
       btn.classList.toggle('is-active', active);
       const check = btn.querySelector('.pjd-cl-menu-check');
-      if (check) check.textContent = active ? '✓' : '';
+      if (check) check.textContent = active ? '' : '';
     });
     if (clHiddenCount) {
       clHiddenCount.textContent = hidden.size;
@@ -3018,7 +3255,7 @@
       const active = selected.has(btn.dataset.filterValue);
       btn.classList.toggle('is-active', active);
       const sq = btn.querySelector('.pjd-cl-menu-square');
-      if (sq) sq.textContent = active ? '✓' : '';
+      if (sq) sq.textContent = active ? '' : '';
     });
   }
   function applyChecklistFilters() {
@@ -3096,7 +3333,7 @@
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob); const a = document.createElement('a');
     a.href = url; a.download = `checklist-${PROJECT_SLUG}.csv`; a.click(); URL.revokeObjectURL(url);
-    showToast('✓ CSV exportado', 'success');
+    showToast('CSV exportado', 'success');
   }
   function printChecklistPdf() {
     const rows = getChecklistExportRows(true);
@@ -3235,7 +3472,7 @@
   }
 
   function createChecklistDomItem({ id = '', requisito, formato, descripcion, categoria = '-', aplicabilidad = '-', obligatorio = '-', cumplimiento = '-', status = 'Pendiente', prioridad = 'Media', fecha_limite = '', responsable = '', revisor = '', notas = [], adjuntos = [] }, skipSave = false) {
-    const idx = nextChecklistRowId();
+    const idx = id || nextChecklistRowId();
     const safeReq = escapeHtml(requisito);
     const safeFormato = escapeHtml(formato || 'No aplica');
     const safeDesc = escapeHtml(descripcion || 'Sin descripción adicional.');
@@ -3301,13 +3538,13 @@
 
     if (action === 'duplicate') {
       try {
-        const json = await postChecklistBackend('duplicate', { idx: activeOptionsRow });
+        const json = await postChecklistBackend('duplicate', { id: activeOptionsRow, idx: activeOptionsRow });
         const item = json.item || { ...getChecklistRowData(row), requisito: `${getChecklistRowData(row).requisito} copia` };
         createChecklistDomItem(item, true);
         closeChecklistRowMenu();
         updateCounters();
         applyChecklistFilters();
-        showToast('✓ Requisito duplicado', 'success');
+        showToast('Requisito duplicado', 'success');
       } catch (err) {
         showToast(err.message || 'Error al duplicar', 'error');
       }
@@ -3317,13 +3554,13 @@
     if (action === 'delete') {
       if (!confirm('¿Eliminar este requisito?')) return;
       try {
-        await postChecklistBackend('delete', { idx: activeOptionsRow });
+        await postChecklistBackend('delete', { id: activeOptionsRow, idx: activeOptionsRow });
         detail?.remove();
         row.remove();
         closeChecklistRowMenu();
         updateCounters();
         applyChecklistFilters();
-        showToast('✓ Requisito eliminado', 'success');
+        showToast('Requisito eliminado', 'success');
       } catch (err) {
         showToast(err.message || 'Error al eliminar', 'error');
       }
@@ -3433,6 +3670,7 @@
     const rows = Array.from(clBody.querySelectorAll('tr[data-row]')).map(r => {
       const data = getChecklistRowData(r);
       return {
+        id: r.dataset.row,
         idx: r.dataset.row,
         requisito: data.requisito,
         descripcion: data.descripcion,
@@ -3455,7 +3693,7 @@
   document.getElementById('pjdClReanalisis')?.addEventListener('click', async () => {
     if (!confirm('Esto regenerará TODO el checklist con IA. ¿Continuar?')) return;
     const btn = document.getElementById('pjdClReanalisis');
-    const original = btn.innerHTML; btn.disabled = true; btn.innerHTML = '⏳ Generando…';
+    const original = btn.innerHTML; btn.disabled = true; btn.innerHTML = ' Generando…';
     try { const fd = new FormData(); fd.append('_token', CSRF); fd.append('regenerate', '1'); const res = await fetch(CHECKLIST_URL, { method:'POST', headers:{'Accept':'application/json'}, body: fd, credentials:'same-origin' }); if (res.ok) location.reload(); else alert('Error al regenerar'); }
     catch (e) { alert('Error de red'); } finally { btn.disabled = false; btn.innerHTML = original; }
   });
@@ -3490,12 +3728,12 @@
         const currentRow = clBody.querySelector(`tr[data-row="${editingChecklistRow}"]`);
         const currentData = getChecklistRowData(currentRow) || {};
         const payload = { ...currentData, ...item };
-        const json = await postChecklistBackend('update', { idx: editingChecklistRow, item: payload });
+        const json = await postChecklistBackend('update', { id: editingChecklistRow, idx: editingChecklistRow, item: payload });
         updateChecklistDomItem(editingChecklistRow, json.item || payload);
         closeChecklistAddForm();
         updateCounters();
         applyChecklistFilters();
-        showToast('✓ Requisito actualizado', 'success');
+        showToast('Requisito actualizado', 'success');
         return;
       }
 
@@ -3504,7 +3742,7 @@
       closeChecklistAddForm();
       updateCounters();
       applyChecklistFilters();
-      showToast('✓ Requisito agregado', 'success');
+      showToast('Requisito agregado', 'success');
     } catch (err) {
       showToast(err.message || 'Error al guardar requisito', 'error');
     } finally {
@@ -3521,7 +3759,7 @@
     ws['!cols'] = headers.map((h, i) => { let max = h.length; rows.forEach(r => { const len = (r[i]||'').toString().length; if (len > max) max = len; }); return { wch: Math.min(Math.max(max + 2, 14), 70) }; });
     const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Checklist');
     XLSX.writeFile(wb, `checklist-${PROJECT_SLUG}.xlsx`);
-    showToast('✓ Excel descargado', 'success');
+    showToast(' Excel descargado', 'success');
   }
   clDownloadMenu?.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-download-list]');
@@ -3544,10 +3782,31 @@
     if (input.matches('[data-detail-revisor]')) row.dataset.revisor = input.value || '';
 
     try {
-      await postChecklistBackend('update', { idx, item: getChecklistRowData(row) });
-      showToast('✓ Checklist guardado', 'success');
+      await postChecklistBackend('update', { id: idx, idx, item: getChecklistRowData(row) });
+      showToast(' Checklist guardado', 'success');
     } catch (err) {
       showToast(err.message || 'Error al guardar detalle', 'error');
+    }
+  });
+
+  clBody?.addEventListener('click', async (e) => {
+    const noteBtn = e.target.closest('[data-detail-note]');
+    if (!noteBtn) return;
+    e.preventDefault();
+    const idx = noteBtn.dataset.detailNote;
+    const row = clBody.querySelector(`tr[data-row="${idx}"]`);
+    if (!row) return;
+
+    const body = prompt('Agregar nota:');
+    if (!body || !body.trim()) return;
+
+    try {
+      const json = await postChecklistBackend('note', { id: idx, idx, body: body.trim() });
+      const notes = Array.isArray(json.item?.notas) ? json.item.notas : [];
+      row.dataset.notas = notes.map(n => typeof n === 'object' ? (n.body || '') : n).filter(Boolean).join('\n');
+      showToast('Nota agregada', 'success');
+    } catch (err) {
+      showToast(err.message || 'Error al agregar nota', 'error');
     }
   });
 
@@ -3566,6 +3825,7 @@
       if (!fileInput.files.length) return;
       const fd = new FormData();
       fd.append('_token', CSRF);
+      fd.append('id', idx);
       fd.append('idx', idx);
       Array.from(fileInput.files).forEach(file => fd.append('files[]', file));
 
@@ -3574,7 +3834,7 @@
         const json = await res.json();
         if (!res.ok || json.ok === false) throw new Error(json.message || 'No se pudo adjuntar el documento.');
         row.dataset.adjuntos = JSON.stringify(json.item?.adjuntos || json.adjuntos || []);
-        showToast('✓ Documento adjuntado', 'success');
+        showToast('Documento adjuntado', 'success');
       } catch (err) {
         showToast(err.message || 'Error al adjuntar', 'error');
       }
@@ -3586,57 +3846,256 @@
   // ============ BORRADOR / REPORTE ============
   const borradorTabs = document.querySelectorAll('.pjd-borrador-tab');
   const borradorSections = document.querySelectorAll('[data-section-pane]');
+  const draftDownloadBtn = document.getElementById('pjdDownloadDraft');
+  const draftExpandBtn = document.getElementById('pjdBorradorExpand');
+
   borradorTabs.forEach(t => t.addEventListener('click', () => {
     const sec = t.dataset.section;
     borradorTabs.forEach(x => x.classList.toggle('is-active', x.dataset.section === sec));
-    borradorSections.forEach(s => s.classList.toggle('is-active', s.dataset.sectionPane === sec));
+
+    // Borrador y Reporte usan el mismo editor y el mismo contenido.
+    // El tab Reporte solo solicita al backend generar/actualizar el reporte ejecutivo
+    // y lo inserta dentro del editor principal para poder editarlo en línea.
+    borradorSections.forEach(s => s.classList.toggle('is-active', s.dataset.sectionPane === 'borrador'));
+    if (draftDownloadBtn) draftDownloadBtn.style.display = 'inline-flex';
+
+    if (sec === 'reporte') {
+      generateReport();
+    }
   }));
 
-  const draftEditor = document.getElementById('pjdDraftEditor');
-  const saveBtn = document.getElementById('pjdSaveDraft');
-  const draftStatus = document.getElementById('pjdDraftStatus');
-
-  saveBtn?.addEventListener('click', async () => {
-    const fd = new FormData(); fd.append('_token', CSRF); fd.append('draft_content', draftEditor.innerHTML);
-    saveBtn.disabled = true; saveBtn.textContent = 'Guardando…';
-    try { const res = await fetch(DRAFT_URL, { method:'POST', headers:{'Accept':'application/json'}, body: fd, credentials:'same-origin' }); if (res.ok) draftStatus.textContent = '✓ Guardado ' + new Date().toLocaleTimeString(); else draftStatus.textContent = 'Error'; }
-    catch (e) { draftStatus.textContent = 'Error de red'; } finally { saveBtn.disabled = false; saveBtn.textContent = '💾 Guardar'; }
+  draftExpandBtn?.addEventListener('click', () => {
+    const wrap = document.querySelector('.pjd-wrap');
+    if (!wrap) return;
+    const expanded = wrap.classList.toggle('is-conversation-collapsed');
+    draftExpandBtn.setAttribute('title', expanded ? 'Mostrar conversación' : 'Ocultar conversación');
   });
 
+  const draftEditor = document.getElementById('pjdDraftEditor');
+  const draftToolbar = document.getElementById('pjdDraftToolbar');
+  const draftStatus = document.getElementById('pjdDraftStatus');
+  let draftSaveTimer = null;
+  let draftIsSaving = false;
+
+  function focusDraftEditor() {
+    draftEditor?.focus({ preventScroll: true });
+  }
+
+  function runDraftCommand(cmd, value = null) {
+    if (!draftEditor) return;
+    focusDraftEditor();
+    document.execCommand(cmd, false, value);
+    refreshDraftToolbarState();
+    scheduleDraftAutoSave();
+  }
+
+  function refreshDraftToolbarState() {
+    if (!draftToolbar) return;
+    ['bold', 'italic', 'underline', 'strikeThrough', 'insertUnorderedList', 'insertOrderedList'].forEach(cmd => {
+      draftToolbar.querySelectorAll(`[data-draft-cmd="${cmd}"]`).forEach(btn => {
+        try { btn.classList.toggle('is-active', document.queryCommandState(cmd)); } catch (e) {}
+      });
+    });
+  }
+
+  function insertDraftTable() {
+    const rows = Math.max(1, Math.min(20, parseInt(prompt('Filas de la tabla', '3') || '0', 10)));
+    const cols = Math.max(1, Math.min(12, parseInt(prompt('Columnas de la tabla', '3') || '0', 10)));
+    if (!rows || !cols) return;
+    let html = '<table><thead><tr>';
+    for (let c = 0; c < cols; c++) html += `<th>Encabezado ${c + 1}</th>`;
+    html += '</tr></thead><tbody>';
+    for (let r = 0; r < rows; r++) {
+      html += '<tr>';
+      for (let c = 0; c < cols; c++) html += '<td>&nbsp;</td>';
+      html += '</tr>';
+    }
+    html += '</tbody></table><p><br></p>';
+    runDraftCommand('insertHTML', html);
+  }
+
+  draftToolbar?.addEventListener('click', (e) => {
+    const cmdBtn = e.target.closest('[data-draft-cmd]');
+    const actionBtn = e.target.closest('[data-draft-action]');
+
+    if (cmdBtn) {
+      runDraftCommand(cmdBtn.dataset.draftCmd);
+      return;
+    }
+
+    if (!actionBtn) return;
+    const action = actionBtn.dataset.draftAction;
+
+    if (action === 'link') {
+      const url = prompt('Pega la URL del enlace');
+      if (url) runDraftCommand('createLink', url);
+    }
+
+    if (action === 'image') {
+      const url = prompt('Pega la URL de la imagen');
+      if (url) runDraftCommand('insertImage', url);
+    }
+
+    if (action === 'table') {
+      insertDraftTable();
+    }
+  });
+
+  draftToolbar?.querySelector('[data-draft-block]')?.addEventListener('change', (e) => {
+    const value = e.target.value;
+    if (value === 'BLOCKQUOTE') runDraftCommand('formatBlock', 'BLOCKQUOTE');
+    else runDraftCommand('formatBlock', value);
+  });
+
+  draftToolbar?.querySelector('[data-draft-font]')?.addEventListener('change', (e) => {
+    runDraftCommand('fontName', e.target.value);
+  });
+
+  draftToolbar?.querySelector('[data-draft-size]')?.addEventListener('change', (e) => {
+    runDraftCommand('fontSize', e.target.value);
+  });
+
+  draftToolbar?.querySelectorAll('[data-draft-color]').forEach(input => {
+    input.addEventListener('input', () => {
+      runDraftCommand(input.dataset.draftColor, input.value);
+    });
+  });
+
+
+  draftEditor?.addEventListener('keyup', refreshDraftToolbarState);
+  draftEditor?.addEventListener('mouseup', refreshDraftToolbarState);
+
+  async function saveDraftNow() {
+    if (!draftEditor || draftIsSaving) return;
+    draftIsSaving = true;
+    if (draftStatus) draftStatus.textContent = 'Guardando...';
+    const fd = new FormData();
+    fd.append('_token', CSRF);
+    fd.append('draft_content', draftEditor.innerHTML);
+    try {
+      const res = await fetch(DRAFT_URL, {
+        method: 'POST',
+        headers: { 'Accept': 'application/json' },
+        body: fd,
+        credentials: 'same-origin'
+      });
+      if (draftStatus) draftStatus.textContent = res.ok ? 'Guardado ' + new Date().toLocaleTimeString() : 'Error al guardar';
+    } catch (e) {
+      if (draftStatus) draftStatus.textContent = 'Error de red';
+    } finally {
+      draftIsSaving = false;
+    }
+  }
+
+  function scheduleDraftAutoSave(immediate = false) {
+    clearTimeout(draftSaveTimer);
+    if (immediate) { saveDraftNow(); return; }
+    if (draftStatus) draftStatus.textContent = 'Cambios pendientes...';
+    draftSaveTimer = setTimeout(saveDraftNow, 700);
+  }
+
+  draftEditor?.addEventListener('input', () => scheduleDraftAutoSave());
+  draftEditor?.addEventListener('paste', () => setTimeout(() => scheduleDraftAutoSave(), 80));
+  draftEditor?.addEventListener('blur', () => scheduleDraftAutoSave(true));
+
+  function buildWordDocumentHtml(title, bodyHtml) {
+    return `<!DOCTYPE html>
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="utf-8">
+<title>${title}</title>
+<!--[if gte mso 9]>
+<xml>
+  <w:WordDocument>
+    <w:View>Print</w:View>
+    <w:Zoom>100</w:Zoom>
+    <w:DoNotOptimizeForBrowser/>
+  </w:WordDocument>
+</xml>
+<![endif]-->
+<style>
+  @page WordSection1 { size: 8.5in 11.0in; margin: 0.75in 0.75in 0.75in 0.75in; }
+  div.WordSection1 { page: WordSection1; }
+  body { font-family: Arial, sans-serif; color: #111111; line-height: 1.55; }
+  h1 { font-size: 22pt; margin: 0 0 14pt; }
+  h2 { font-size: 18pt; margin: 14pt 0 8pt; }
+  h3 { font-size: 14pt; margin: 12pt 0 6pt; }
+  p { font-size: 11pt; margin: 0 0 8pt; }
+  table { border-collapse: collapse; width: 100%; margin: 12pt 0; }
+  th, td { border: 1px solid #d9d9d9; padding: 7pt 8pt; text-align: left; vertical-align: top; }
+  th { background: #f3f4f6; font-weight: 700; }
+  blockquote { border-left: 3px solid #007aff; margin: 10pt 0; padding: 6pt 12pt; color: #333333; }
+</style>
+</head>
+<body>
+<div class="WordSection1">${bodyHtml || '<p></p>'}</div>
+</body>
+</html>`;
+  }
+
+  function downloadWordDocument(filename, title, bodyHtml) {
+    const html = buildWordDocumentHtml(title, bodyHtml);
+    const blob = new Blob(['\ufeff', html], { type: 'application/msword;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
   document.getElementById('pjdDownloadDraft')?.addEventListener('click', () => {
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${PROJECT_NAME}</title><style>body{font-family:Quicksand,Arial,sans-serif;max-width:850px;margin:30px auto;padding:20px;line-height:1.6;}table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e5e7eb;padding:10px 12px;text-align:left}th{background:#f3f4f6;font-weight:700}</style></head><body>${draftEditor.innerHTML}</body></html>`;
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8;' });
-    const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `borrador-${PROJECT_SLUG}.html`; a.click(); URL.revokeObjectURL(url);
+    downloadWordDocument(`reporte-ejecutivo-${PROJECT_SLUG}.doc`, `Reporte Ejecutivo - ${PROJECT_NAME}`, draftEditor?.innerHTML || '');
   });
 
   async function generateReport() {
-    const btn = document.getElementById('pjdReporteGen') || document.getElementById('pjdReporteRegen');
-    const empty = document.getElementById('pjdReporteEmpty');
-    const content = document.getElementById('pjdReporteContent');
-    const actions = document.getElementById('pjdReporteActions');
-    if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Generando reporte…'; }
+    const reportTab = document.querySelector('.pjd-borrador-tab[data-section="reporte"]');
+    const originalLabel = reportTab ? reportTab.innerHTML : '';
+
+    if (!draftEditor) return;
+
+    if (reportTab) {
+      reportTab.disabled = true;
+      reportTab.classList.add('is-loading');
+    }
+
+    if (draftStatus) draftStatus.textContent = 'Generando reporte ejecutivo...';
+
     try {
-      const fd = new FormData(); fd.append('_token', CSRF);
-      const res = await fetch(REPORT_URL, { method:'POST', headers:{'Accept':'application/json'}, body: fd, credentials:'same-origin' });
+      const fd = new FormData();
+      fd.append('_token', CSRF);
+      fd.append('action', 'generate');
+
+      const res = await fetch(REPORT_URL, {
+        method: 'POST',
+        headers: { 'Accept': 'application/json' },
+        body: fd,
+        credentials: 'same-origin'
+      });
+
       const json = await res.json();
-      if (json.ok && json.html) { if (empty) empty.style.display = 'none'; content.innerHTML = json.html; content.style.display = ''; if (actions) actions.style.display = ''; }
-      else { alert(json.message || 'Error al generar reporte'); }
-    } catch (e) { alert('Error de red'); }
-    finally { if (btn) { btn.disabled = false; btn.innerHTML = btn.id === 'pjdReporteGen' ? '✨ Generar Reporte' : '✨ Regenerar'; } }
+
+      if (!res.ok || !json.ok || !json.html) {
+        throw new Error(json.message || 'Error al generar reporte');
+      }
+
+      draftEditor.innerHTML = json.html;
+      if (draftStatus) draftStatus.textContent = 'Reporte generado y guardado ' + new Date().toLocaleTimeString();
+      scheduleDraftAutoSave(true);
+      draftEditor.focus({ preventScroll: true });
+    } catch (e) {
+      if (draftStatus) draftStatus.textContent = e.message || 'Error de red';
+      alert(e.message || 'Error de red');
+    } finally {
+      if (reportTab) {
+        reportTab.disabled = false;
+        reportTab.innerHTML = originalLabel;
+        reportTab.classList.remove('is-loading');
+      }
+    }
   }
-  document.getElementById('pjdReporteGen')?.addEventListener('click', generateReport);
-  document.getElementById('pjdReporteRegen')?.addEventListener('click', () => { if (confirm('¿Regenerar el reporte?')) generateReport(); });
-
-  document.getElementById('pjdReporteDownload')?.addEventListener('click', () => {
-    const content = document.getElementById('pjdReporteContent').innerHTML;
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Reporte - ${PROJECT_NAME}</title><style>body{font-family:Quicksand,Arial,sans-serif;max-width:850px;margin:30px auto;padding:30px;line-height:1.7;}table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #ebebeb;padding:8px 12px;text-align:left}th{background:#fafbff}h1,h2,h3{color:#111}</style></head><body>${content}</body></html>`;
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8;' });
-    const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `reporte-${PROJECT_SLUG}.html`; a.click(); URL.revokeObjectURL(url);
-  });
-
-  @if(!empty($project->report_content ?? null))
-    document.getElementById('pjdReporteActions').style.display = '';
-  @endif
 
   // ============ CITAS (drawer lateral con PDF.js + resaltado exacto) ============
   const docDrawer    = document.getElementById('pjdDocDrawer');

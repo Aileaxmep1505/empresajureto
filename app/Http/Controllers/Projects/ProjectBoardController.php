@@ -279,13 +279,21 @@ class ProjectBoardController extends Controller
      * ============================================================ */
     public function saveDraft(Request $request, Project $project)
     {
+        abort_if($project->user_id !== Auth::id() && Auth::id() !== 1, 403);
+
         $content = $request->input('draft_content', $request->input('draft'));
         $request->merge(['draft_content' => $content]);
         $request->validate(['draft_content' => 'nullable|string']);
 
-        $project->draft_content = $content;
+        // Borrador y Reporte son el mismo documento editable.
+        $project->draft_content  = $content;
+        $project->report_content = $content;
         $project->save();
-        return response()->json(['ok' => true]);
+
+        return response()->json([
+            'ok' => true,
+            'saved_at' => now()->format('H:i:s'),
+        ]);
     }
 
     /* ============================================================
@@ -924,46 +932,288 @@ class ProjectBoardController extends Controller
     }
 
     /* ============================================================
-     |  REPORTE
+     |  REPORTE EJECUTIVO
+     |  - Backend genera el contenido
+     |  - Borrador y Reporte son un mismo documento editable
      * ============================================================ */
-    public function generateReport(Project $project, OpenAiStructurerService $ai)
+    private function projectChecklistReportArray(Project $project): array
     {
+        $this->ensureChecklistItemsExist($project);
+
+        $project->loadMissing([
+            'checklistItems.responsible',
+            'checklistItems.reviewer',
+            'checklistItems.notes.user',
+            'checklistItems.attachments',
+            'checklistItems.sourceDocument',
+        ]);
+
+        if ($project->checklistItems->isNotEmpty()) {
+            return $project->checklistItems
+                ->sortBy(['position', 'id'])
+                ->map(fn ($item) => $item->toChecklistArray())
+                ->values()
+                ->all();
+        }
+
+        $legacy = $project->checklist ?: data_get($project->structured_data ?? [], 'checklist_sugerido', []);
+        return is_array($legacy) ? array_values($legacy) : [];
+    }
+
+    private function reportValue(array $data, array $paths, ?string $fallback = null): ?string
+    {
+        foreach ($paths as $path) {
+            $value = data_get($data, $path);
+
+            if (is_array($value)) {
+                $value = collect($value)
+                    ->filter(fn ($v) => is_scalar($v) && trim((string) $v) !== '')
+                    ->implode(', ');
+            }
+
+            if (is_scalar($value) && trim((string) $value) !== '') {
+                return trim((string) $value);
+            }
+        }
+
+        return $fallback;
+    }
+
+    private function reportRowsHtml(array $rows): string
+    {
+        $html = '<div class="pjd-report-grid">';
+
+        foreach ($rows as $row) {
+            $label = e($row['label']);
+            $value = e($row['value'] ?: $row['empty']);
+            $emptyClass = empty($row['value']) ? ' pjd-report-empty' : '';
+
+            $html .= '<div class="pjd-report-item"><span class="pjd-report-label">' . $label . '</span><p class="pjd-report-value' . $emptyClass . '">' . $value . '</p></div>';
+        }
+
+        return $html . '</div>';
+    }
+
+    private function checklistCountersForReport(array $checklist): array
+    {
+        $counters = [
+            'total' => count($checklist),
+            'sin_revisar' => 0,
+            'cumple' => 0,
+            'parcial' => 0,
+            'no_cumple' => 0,
+            'pendiente' => 0,
+            'en_revision' => 0,
+            'aprobado' => 0,
+        ];
+
+        foreach ($checklist as $item) {
+            $cumplimiento = $item['cumplimiento'] ?? $item['cumplimiento_label'] ?? '-';
+            $status = $item['status'] ?? $item['status_label'] ?? 'Pendiente';
+
+            match ($cumplimiento) {
+                'Cumple' => $counters['cumple']++,
+                'Parcial' => $counters['parcial']++,
+                'No Cumple' => $counters['no_cumple']++,
+                default => $counters['sin_revisar']++,
+            };
+
+            match ($status) {
+                'En revisión' => $counters['en_revision']++,
+                'Aprobado' => $counters['aprobado']++,
+                default => $counters['pendiente']++,
+            };
+        }
+
+        return $counters;
+    }
+
+    private function buildExecutiveReportFallbackHtml(Project $project, array $checklist): string
+    {
+        $data = $project->structured_data ?? [];
+        $resumen = is_array(data_get($data, 'resumen_ejecutivo')) ? data_get($data, 'resumen_ejecutivo') : [];
+        $counters = $this->checklistCountersForReport($checklist);
+
+        $fichaRows = [
+            ['label' => 'Número de licitación', 'value' => $this->reportValue($data, ['ficha_general.numero_licitacion', 'numero_licitacion', 'licitacion.numero', 'procedimiento.numero']), 'empty' => 'En los documentos revisados, no se encontró información sobre el número de licitación.'],
+            ['label' => 'Tipo de evento', 'value' => $this->reportValue($data, ['ficha_general.tipo_evento', 'tipo_evento', 'procedimiento.tipo_evento', 'tipo_procedimiento']), 'empty' => 'No se encontró información sobre el tipo de evento.'],
+            ['label' => 'Organismo', 'value' => $this->reportValue($data, ['ficha_general.organismo', 'organismo', 'dependencia', 'convocante']), 'empty' => 'No se encontró información sobre el organismo convocante.'],
+            ['label' => '¿Cuál es el objeto de la licitación?', 'value' => $this->reportValue($data, ['ficha_general.objeto_licitacion', 'objeto_licitacion', 'objeto', 'procedimiento.objeto']), 'empty' => 'No se encontró información sobre objeto.'],
+            ['label' => '¿Cuál es el medio de participación?', 'value' => $this->reportValue($data, ['ficha_general.medio_participacion', 'medio_participacion', 'procedimiento.medio_participacion']), 'empty' => 'No se encontró información sobre el medio de participación.'],
+        ];
+
+        $fechaRows = [
+            ['label' => 'Fecha de publicación', 'value' => $this->reportValue($data, ['fechas_clave.fecha_publicacion', 'fecha_publicacion']), 'empty' => 'En los documentos revisados, no se encontró información sobre la fecha de publicación del resumen de la convocatoria.'],
+            ['label' => 'Junta de aclaraciones', 'value' => $this->reportValue($data, ['fechas_clave.junta_aclaraciones', 'junta_aclaraciones']), 'empty' => 'No se encontró información sobre junta de aclaraciones.'],
+            ['label' => 'Presentación y apertura de proposiciones', 'value' => $this->reportValue($data, ['fechas_clave.presentacion_apertura', 'presentacion_apertura', 'fecha_presentacion_apertura']), 'empty' => 'No se encontró información sobre la presentación y apertura de proposiciones.'],
+            ['label' => 'Fallo', 'value' => $this->reportValue($data, ['fechas_clave.fallo', 'fallo', 'fecha_fallo']), 'empty' => 'No se encontró información sobre la fecha de fallo.'],
+            ['label' => 'Vigencia del contrato', 'value' => $this->reportValue($data, ['fechas_clave.vigencia_contrato', 'vigencia_contrato', 'contrato.vigencia']), 'empty' => 'No se encontró información sobre la vigencia del contrato.'],
+        ];
+
+        $questions = collect($resumen)->map(function ($row) {
+            if (is_array($row)) {
+                return [
+                    'pregunta' => $row['pregunta'] ?? $row['question'] ?? null,
+                    'respuesta' => $row['respuesta'] ?? $row['answer'] ?? null,
+                ];
+            }
+
+            return null;
+        })->filter(fn ($row) => $row && (trim((string) $row['pregunta']) !== '' || trim((string) $row['respuesta']) !== ''))->values();
+
+        if ($questions->isEmpty()) {
+            $questions = collect([
+                ['pregunta' => '¿Cuánto tiempo tengo para implementar?', 'respuesta' => $this->reportValue($data, ['caracteristicas.tiempo_implementacion', 'tiempo_implementacion'], 'No se encontró información específica sobre el tiempo de implementación.')],
+                ['pregunta' => '¿Es necesario demostrar experiencia previa o acreditar experiencia?', 'respuesta' => $this->reportValue($data, ['caracteristicas.experiencia_previa', 'experiencia_previa'], 'No se encontró información específica sobre experiencia previa.')],
+                ['pregunta' => '¿Se mencionan penas convencionales, multas, deducciones u otras sanciones en caso de incumplimiento?', 'respuesta' => $this->reportValue($data, ['caracteristicas.sanciones', 'penas_convencionales'], 'No se encontró información suficiente sobre sanciones o penas convencionales.')],
+                ['pregunta' => '¿Cuál es el periodo de garantía a ofertar?', 'respuesta' => $this->reportValue($data, ['caracteristicas.garantia', 'periodo_garantia'], 'No se encontró información sobre el periodo de garantía.')],
+                ['pregunta' => '¿Cuál es el sistema de evaluación?', 'respuesta' => $this->reportValue($data, ['caracteristicas.sistema_evaluacion', 'sistema_evaluacion'], 'No se encontró información sobre el sistema de evaluación.')],
+                ['pregunta' => '¿Se requieren cartas de apoyo?', 'respuesta' => $this->reportValue($data, ['caracteristicas.cartas_apoyo', 'cartas_apoyo'], 'No se encontró información sobre cartas de apoyo.')],
+                ['pregunta' => '¿Se deben entregar muestras físicas?', 'respuesta' => $this->reportValue($data, ['caracteristicas.muestras_fisicas', 'muestras_fisicas'], 'No se encontró información sobre entrega de muestras físicas.')],
+                ['pregunta' => '¿Es necesario entregar documentación regulatoria?', 'respuesta' => $this->reportValue($data, ['caracteristicas.documentacion_regulatoria', 'documentacion_regulatoria'], 'No se encontró información sobre documentación regulatoria.')],
+                ['pregunta' => '¿Cómo se realiza la adjudicación?', 'respuesta' => $this->reportValue($data, ['caracteristicas.adjudicacion', 'forma_adjudicacion'], 'No se encontró información sobre la forma de adjudicación.')],
+            ]);
+        }
+
+        $criticalItems = collect($checklist)
+            ->filter(fn ($item) => !empty($item['requisito']))
+            ->take(12)
+            ->values();
+
+        $html = '<article class="pjd-report-doc">';
+        $html .= '<h1>Reporte ejecutivo: ' . e($project->name) . '</h1>';
+        $html .= '<section class="pjd-report-section"><h2>Ficha General</h2>' . $this->reportRowsHtml($fichaRows) . '</section>';
+        $html .= '<section class="pjd-report-section"><h2>Fechas Clave</h2>' . $this->reportRowsHtml($fechaRows) . '</section>';
+
+        $html .= '<section class="pjd-report-section"><h2>Características Generales</h2>';
+        foreach ($questions as $qa) {
+            $html .= '<p><strong>' . e($qa['pregunta']) . ':</strong> ' . e($qa['respuesta'] ?: 'No se encontró información.') . '</p>';
+        }
+        $html .= '</section>';
+
+        $html .= '<section class="pjd-report-section"><h2>Estado del checklist</h2>';
+        $html .= '<table style="width:100%;border-collapse:collapse;"><tbody>';
+        foreach ([
+            'Total' => $counters['total'],
+            'Cumple' => $counters['cumple'],
+            'Parcial' => $counters['parcial'],
+            'No cumple' => $counters['no_cumple'],
+            'Sin revisar' => $counters['sin_revisar'],
+        ] as $label => $value) {
+            $html .= '<tr><td style="border:1px solid #ebebeb;padding:8px;"><strong>' . e($label) . '</strong></td><td style="border:1px solid #ebebeb;padding:8px;">' . e((string) $value) . '</td></tr>';
+        }
+        $html .= '</tbody></table></section>';
+
+        $html .= '<section class="pjd-report-section"><h2>Puntos a Considerar</h2><ul>';
+        if ($criticalItems->isEmpty()) {
+            $html .= '<li>No se encontraron requisitos críticos registrados en el checklist.</li>';
+        } else {
+            foreach ($criticalItems as $item) {
+                $label = $item['requisito'] ?? 'Requisito';
+                $status = $item['cumplimiento'] ?? '-';
+                $priority = $item['prioridad'] ?? 'Media';
+                $html .= '<li><strong>' . e($label) . '</strong> - Cumplimiento: ' . e($status) . '. Prioridad: ' . e($priority) . '.</li>';
+            }
+        }
+        $html .= '</ul></section>';
+        $html .= '</article>';
+
+        return $html;
+    }
+
+    private function buildExecutiveReportPrompt(Project $project, array $checklist): string
+    {
+        $structured = json_encode($project->structured_data ?? [], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+        $checklistJson = json_encode($checklist, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+        $name = $project->name;
+
+        return <<<PROMPT
+Eres un consultor experto en licitaciones públicas mexicanas. Genera un REPORTE EJECUTIVO en HTML editable para el proyecto "{$name}".
+
+Usa únicamente la información disponible. Si un dato no existe, escribe una frase clara como: En los documentos revisados, no se encontró información sobre...
+
+Estructura obligatoria:
+<article class="pjd-report-doc">
+<h1>Reporte ejecutivo: {$name}</h1>
+<section><h2>Ficha General</h2> Número de licitación, Tipo de evento, Organismo, Objeto de la licitación y Medio de participación.</section>
+<section><h2>Fechas Clave</h2> Fecha de publicación, Junta de aclaraciones, Presentación y apertura de proposiciones, Fallo y Vigencia del contrato.</section>
+<section><h2>Características Generales</h2> Preguntas y respuestas ejecutivas sobre implementación, experiencia, sanciones, garantía, sistema de evaluación, cartas de apoyo, muestras, documentación regulatoria, entregas, subrogación, idioma, adjudicación y tratados.</section>
+<section><h2>Puntos a Considerar</h2> Lista concreta de riesgos, requisitos críticos y observaciones.</section>
+</article>
+
+No incluyas markdown ni bloques de código. No inventes datos. Mantén lenguaje profesional, claro y ejecutivo.
+
+=== DATOS ESTRUCTURADOS ===
+{$structured}
+
+=== CHECKLIST RELACIONAL ===
+{$checklistJson}
+PROMPT;
+    }
+
+    public function generateReport(Request $request, Project $project, OpenAiStructurerService $ai)
+    {
+        abort_if($project->user_id !== Auth::id() && Auth::id() !== 1, 403);
+
         try {
-            $context   = json_encode($project->structured_data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
-            $checklist = json_encode($project->checklist,       JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+            if ($request->input('action') === 'save') {
+                $content = $request->input('report_content', $request->input('draft_content', ''));
 
-            $prompt = "Eres un consultor experto en licitaciones públicas mexicanas. "
-                . "Genera un REPORTE EJECUTIVO COMPLETO en HTML para el proyecto: \"{$project->name}\".\n\n"
-                . "Usa SOLO los siguientes datos:\n\n"
-                . "=== DATOS ESTRUCTURADOS ===\n{$context}\n\n"
-                . "=== CHECKLIST ===\n{$checklist}\n\n"
-                . "Devuelve EXCLUSIVAMENTE HTML (sin ```html ni explicaciones). Estructura sugerida:\n"
-                . "<h1>Reporte ejecutivo: {NOMBRE}</h1>\n"
-                . "<h2>1. Resumen general</h2>\n"
-                . "<h2>2. Datos del procedimiento</h2> (usa <table>)\n"
-                . "<h2>3. Fechas clave</h2> (usa <table>)\n"
-                . "<h2>4. Requisitos críticos</h2> (usa <ul> o <table>)\n"
-                . "<h2>5. Estado de cumplimiento del checklist</h2> (usa <table> con conteos)\n"
-                . "<h2>6. Riesgos detectados</h2>\n"
-                . "<h2>7. Recomendaciones</h2>\n"
-                . "Aplica estilos inline en <table> (border-collapse, padding, border #e5e7eb, encabezado #f3f4f6).";
+                $project->report_content = $content;
+                $project->draft_content  = $content;
+                $project->save();
 
-            $messages = [
-                ['role' => 'system', 'content' => 'Eres un generador de reportes HTML profesionales.'],
-                ['role' => 'user',   'content' => $prompt],
-            ];
+                return response()->json([
+                    'ok' => true,
+                    'saved_at' => now()->format('H:i:s'),
+                ]);
+            }
 
-            $html = $ai->chatRaw($messages);
-            $html = preg_replace('/^```html\s*/i', '', trim($html));
-            $html = preg_replace('/```$/', '', trim($html));
+            $checklist = $this->projectChecklistReportArray($project);
+            $prompt = $this->buildExecutiveReportPrompt($project, $checklist);
+            $html = null;
+
+            try {
+                $messages = [
+                    ['role' => 'system', 'content' => 'Eres un generador de reportes ejecutivos HTML profesionales para licitaciones públicas mexicanas.'],
+                    ['role' => 'user', 'content' => $prompt],
+                ];
+
+                $html = trim((string) $ai->chatRaw($messages));
+                $html = preg_replace('/^```html\s*/i', '', $html);
+                $html = preg_replace('/^```\s*/', '', $html);
+                $html = preg_replace('/```$/', '', trim($html));
+            } catch (\Throwable $aiError) {
+                Log::warning('Report AI generation failed; using fallback report builder', [
+                    'project_id' => $project->id,
+                    'error' => $aiError->getMessage(),
+                ]);
+            }
+
+            if (!$html || trim(strip_tags($html)) === '') {
+                $html = $this->buildExecutiveReportFallbackHtml($project, $checklist);
+            }
 
             $project->report_content = $html;
+            $project->draft_content  = $html;
             $project->save();
 
-            return response()->json(['ok' => true, 'html' => $html]);
+            return response()->json([
+                'ok' => true,
+                'html' => $html,
+                'saved_at' => now()->format('H:i:s'),
+            ]);
         } catch (\Throwable $e) {
-            Log::error('Report generation failed', ['err' => $e->getMessage()]);
-            return response()->json(['ok' => false, 'message' => $e->getMessage()], 500);
+            Log::error('Report generation failed', [
+                'project_id' => $project->id,
+                'err' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'ok' => false,
+                'message' => $e->getMessage(),
+            ], 500);
         }
     }
+
 }
