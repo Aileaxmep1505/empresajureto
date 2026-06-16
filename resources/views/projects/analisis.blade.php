@@ -1614,6 +1614,33 @@
     return { items, concat, map };
   }
 
+  // Conjunto de palabras significativas de la cita (ignora conectores cortos).
+  function quoteWordSet(quote) {
+    const STOP = new Set(['para','como','esta','este','esto','estos','estas','sobre','entre','cuando','donde','todo','toda','todos','todas','cada','mas','segun','sera','seran','desde','hasta','pero','solo','tambien','dicha','dicho','dichos','dichas','sino','aquel','ello','ella','ellos','unos','unas','una','del','las','los','con','por','que']);
+    return new Set(normPdf(quote).split(' ').filter(w => w.length >= 4 && !STOP.has(w)));
+  }
+
+  // Encuentra el grupo de items mas denso en palabras de la cita (para citas parafraseadas).
+  function matchingCluster(items, quoteSet) {
+    if (!quoteSet || !quoteSet.size) return { idxs: [], score: 0 };
+    const matched = [];
+    items.forEach((it, idx) => {
+      const ws = normPdf(it.str).split(' ').filter(Boolean);
+      let c = 0; ws.forEach(w => { if (quoteSet.has(w)) c++; });
+      if (c > 0) matched.push({ idx, c });
+    });
+    if (!matched.length) return { idxs: [], score: 0 };
+
+    const groupScore = g => g.reduce((s, m) => s + m.c, 0);
+    let best = [], cur = [matched[0]];
+    for (let k = 1; k < matched.length; k++) {
+      if (matched[k].idx - cur[cur.length - 1].idx <= 6) cur.push(matched[k]);
+      else { if (groupScore(cur) > groupScore(best)) best = cur; cur = [matched[k]]; }
+    }
+    if (groupScore(cur) > groupScore(best)) best = cur;
+    return { idxs: best.map(m => m.idx), score: groupScore(best) };
+  }
+
   // Pinta el resaltado de la cita sobre la pagina renderizada. Devuelve el primer rect (para scroll).
   async function paintHighlights(page, viewport, scale) {
     pdfHl.innerHTML = '';
@@ -1622,13 +1649,22 @@
 
     const tc = await page.getTextContent();
     const { items, concat, map } = buildPageIndex(tc);
-    const span = findQuoteSpan(concat, quote);
-    if (!span) return null;
 
-    const idxs = new Set();
-    for (let i = span[0]; i < span[1] && i < map.length; i++) {
-      if (map[i] >= 0) idxs.add(map[i]);
+    // 1) match exacto / contiguo
+    let idxs = [];
+    const span = findQuoteSpan(concat, quote);
+    if (span) {
+      const set = new Set();
+      for (let i = span[0]; i < span[1] && i < map.length; i++) if (map[i] >= 0) set.add(map[i]);
+      idxs = [...set];
     }
+
+    // 2) fallback por palabras clave si el match exacto fue pobre (cita parafraseada)
+    if (idxs.length < 3) {
+      const cluster = matchingCluster(items, quoteWordSet(PDF_STATE.quote));
+      if (cluster.idxs.length > idxs.length) idxs = cluster.idxs;
+    }
+    if (!idxs.length) return null;
 
     let first = null, firstTop = Infinity;
     idxs.forEach(idx => {
@@ -1648,26 +1684,33 @@
     return first;
   }
 
-  // Si la pagina guardada no contiene la cita, la busca en todo el documento.
+  // Elige la pagina con la cita: prioriza match exacto, si no, la de mayor coincidencia de palabras.
   async function findQuotePage(quote, preferida) {
     const Q = normPdf(quote);
     if (!Q || Q.length < 4 || !PDF_STATE.doc) return preferida;
+    const qset = quoteWordSet(quote);
+    const minScore = Math.max(3, Math.ceil(qset.size * 0.4));
 
-    const tieneCita = async (p) => {
+    const scorePage = async (p) => {
       try {
         const page = await PDF_STATE.doc.getPage(p);
         const tc = await page.getTextContent();
-        const { concat } = buildPageIndex(tc);
-        return !!findQuoteSpan(concat, Q);
-      } catch (e) { return false; }
+        const { items, concat } = buildPageIndex(tc);
+        if (findQuoteSpan(concat, Q)) return 1e6; // el match exacto siempre gana
+        return matchingCluster(items, qset).score;
+      } catch (e) { return 0; }
     };
 
-    if (await tieneCita(preferida)) return preferida;
+    const prefScore = await scorePage(preferida);
+    if (prefScore >= minScore) return preferida;
+
+    let bestP = preferida, bestS = prefScore;
     for (let p = 1; p <= PDF_STATE.total; p++) {
       if (p === preferida) continue;
-      if (await tieneCita(p)) return p;
+      const sc = await scorePage(p);
+      if (sc > bestS) { bestS = sc; bestP = p; }
     }
-    return preferida;
+    return bestS >= minScore ? bestP : preferida;
   }
 
   const PDF_STATE = { doc:null, url:null, page:1, total:1, quote:'', citaPage:1 };
