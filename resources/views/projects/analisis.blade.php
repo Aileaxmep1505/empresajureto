@@ -1464,6 +1464,93 @@
   .pjd-toast.is-success { background: var(--success); }
   .pjd-toast.is-error { background: var(--danger); }
   @keyframes pjdToastIn { from { opacity:0; transform: translateY(20px); } to { opacity:1; transform: translateY(0); } }
+
+
+  /* ════════════ AJUSTES: POPOVER CUMPLIMIENTO / DESCARGAS / ACCIONES ════════════ */
+  .pjd-cl-popover {
+    min-width: 224px;
+    padding: 10px;
+    border-radius: 12px;
+    box-shadow: 0 14px 34px rgba(15,23,42,.12);
+  }
+  .pjd-cl-popover button {
+    gap: 12px;
+    padding: 10px 12px;
+    font-size: .95rem;
+    font-weight: 600;
+  }
+  .pjd-cl-popover button:hover { background: #f8fafc; }
+  .pjd-cl-choice-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .pjd-cl-choice-icon svg { width: 24px; height: 24px; }
+  .pjd-cl-choice-muted { color: #98a2b3; }
+  .pjd-cl-choice-success { color: #16a34a; }
+  .pjd-cl-choice-warning { color: #d49100; }
+  .pjd-cl-choice-danger { color: #ef4444; }
+  .pjd-cl-popover button[data-set-cumplimiento="Cumple"] { color: #16a34a; }
+  .pjd-cl-popover button[data-set-cumplimiento="Parcial"] { color: #d49100; }
+  .pjd-cl-popover button[data-set-cumplimiento="No Cumple"] { color: #ef4444; }
+
+  .pjd-cl-row-menu {
+    position: fixed;
+    z-index: 260;
+    display: none;
+    min-width: 218px;
+    padding: 8px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    box-shadow: 0 16px 42px rgba(15,23,42,.12);
+  }
+  .pjd-cl-row-menu.is-open { display: block; animation: pjdMenuIn .16s ease both; }
+  .pjd-cl-row-action {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border: none;
+    background: transparent;
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: .95rem;
+    font-weight: 600;
+    color: #111827;
+    cursor: pointer;
+    text-align: left;
+    transition: background .16s ease, color .16s ease;
+  }
+  .pjd-cl-row-action:hover { background: #f1f5fb; }
+  .pjd-cl-row-action svg { width: 20px; height: 20px; color: var(--blue); flex-shrink: 0; }
+  .pjd-cl-row-action.is-danger { color: #ef4444; }
+  .pjd-cl-row-action.is-danger svg { color: #ef4444; }
+
+  .pjd-cl-menu[data-variant="download"] { min-width: 210px; }
+  .pjd-cl-menu[data-variant="download"] .pjd-cl-menu-option {
+    font-size: .95rem;
+    padding: 11px 14px;
+  }
+
+  .pjd-cl-add-form.is-editing .pjd-cl-add-title::after {
+    content: 'Modo edición';
+    display: inline-flex;
+    margin-left: 10px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: var(--blue-soft);
+    color: var(--blue);
+    font-size: .72rem;
+    font-weight: 700;
+    vertical-align: middle;
+  }
+
 </style>
 @endpush
 
@@ -1855,7 +1942,7 @@
               </div>
             </div>
             <div class="pjd-checklist-links">
-              <button type="button" class="pjd-checklist-link" id="pjdClDownload">
+              <button type="button" class="pjd-checklist-link" id="pjdClDownload" aria-haspopup="true" aria-expanded="false">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 18 15 15"/></svg>
                 Descargar lista
               </button>
@@ -1903,6 +1990,11 @@
           <div class="pjd-cl-menu" id="pjdClExportMenu" aria-hidden="true">
             <button type="button" class="pjd-cl-menu-option" data-export="csv"><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-check"></span>Exportar CSV</span></button>
             <button type="button" class="pjd-cl-menu-option" data-export="pdf"><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-check"></span>Exportar PDF</span></button>
+          </div>
+
+          <div class="pjd-cl-menu" id="pjdClDownloadMenu" data-variant="download" aria-hidden="true">
+            <button type="button" class="pjd-cl-menu-option" data-download-list="excel"><span class="pjd-cl-menu-left">Descargar Excel</span></button>
+            <button type="button" class="pjd-cl-menu-option" data-download-list="pdf"><span class="pjd-cl-menu-left">Descargar PDF</span></button>
           </div>
 
           <div class="pjd-cl-menu" id="pjdClFiltersMenu" aria-hidden="true">
@@ -2001,7 +2093,7 @@
                         <span class="pjd-cl-status-text">{{ $statusValue }}</span>
                       </button>
                     </td>
-                    <td class="pjd-cl-cell-center" data-col="opciones"><button type="button" class="pjd-cl-options" data-toggle="{{ $idx }}" title="Ver fuente"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button></td>
+                    <td class="pjd-cl-cell-center" data-col="opciones"><button type="button" class="pjd-cl-options" data-options="{{ $idx }}" title="Opciones"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button></td>
                   </tr>
                   <tr class="pjd-cl-detail-row" data-detail="{{ $idx }}" style="display:none;">
                     <td colspan="9" style="padding:0">
@@ -2067,7 +2159,7 @@
           <button type="button" class="pjd-cl-add" id="pjdClAddBtn"><span>＋</span>Agregar nuevo requisito</button>
 
           <form class="pjd-cl-add-form" id="pjdClAddForm" autocomplete="off">
-            <h4 class="pjd-cl-add-title">Agregar nuevo requisito</h4>
+            <h4 class="pjd-cl-add-title" id="pjdClAddTitle">Agregar nuevo requisito</h4>
             <div class="pjd-cl-add-grid">
               <div class="pjd-cl-add-field">
                 <label for="pjdClNewReq">Requisito *</label>
@@ -2168,16 +2260,31 @@
 </div>
 
 <div class="pjd-cl-popover" id="pjdClCumpPop">
-  <button data-set-cumplimiento="-"><span class="dot" style="background:#ccc"></span> Sin revisar</button>
-  <button data-set-cumplimiento="Cumple"><span class="dot" style="background:var(--success)"></span> Cumple</button>
-  <button data-set-cumplimiento="Parcial"><span class="dot" style="background:var(--warning)"></span> Parcial</button>
-  <button data-set-cumplimiento="No Cumple"><span class="dot" style="background:var(--danger)"></span> No Cumple</button>
+  <button data-set-cumplimiento="-"><span class="pjd-cl-choice-icon pjd-cl-choice-muted"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg></span> Sin revisar</button>
+  <button data-set-cumplimiento="Cumple"><span class="pjd-cl-choice-icon pjd-cl-choice-success"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 12l2.6 2.6L16.5 9"/></svg></span> Cumple</button>
+  <button data-set-cumplimiento="Parcial"><span class="pjd-cl-choice-icon pjd-cl-choice-warning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 7v6"/><path d="M12 17h.01"/></svg></span> Parcial</button>
+  <button data-set-cumplimiento="No Cumple"><span class="pjd-cl-choice-icon pjd-cl-choice-danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6"/><path d="M9 9l6 6"/></svg></span> No Cumple</button>
 </div>
 
 <div class="pjd-cl-popover" id="pjdClStatusPop">
   <button data-set-status="Pendiente"><span class="dot" style="background:var(--warning)"></span> Pendiente</button>
   <button data-set-status="En revisión"><span class="dot" style="background:var(--blue)"></span> En revisión</button>
   <button data-set-status="Aprobado"><span class="dot" style="background:var(--success)"></span> Aprobado</button>
+</div>
+
+<div class="pjd-cl-row-menu" id="pjdClRowMenu" aria-hidden="true">
+  <button type="button" class="pjd-cl-row-action" data-row-action="edit">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+    Editar
+  </button>
+  <button type="button" class="pjd-cl-row-action" data-row-action="duplicate">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+    Duplicar
+  </button>
+  <button type="button" class="pjd-cl-row-action is-danger" data-row-action="delete">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+    Eliminar
+  </button>
 </div>
 
 {{-- DRAWER LATERAL: VISTA PREVIA DEL PDF CON RESALTADO --}}
@@ -2606,12 +2713,17 @@
   const clFiltersBtn = document.getElementById('pjdClFiltersBtn');
   const clColumnsBtn = document.getElementById('pjdClColumnsBtn');
   const clExportBtn = document.getElementById('pjdClExportBtn');
+  const clDownloadBtn = document.getElementById('pjdClDownload');
   const clFiltersMenu = document.getElementById('pjdClFiltersMenu');
   const clColumnsMenu = document.getElementById('pjdClColumnsMenu');
   const clExportMenu = document.getElementById('pjdClExportMenu');
+  const clDownloadMenu = document.getElementById('pjdClDownloadMenu');
+  const clRowMenu = document.getElementById('pjdClRowMenu');
   const clHiddenCount = document.getElementById('pjdClHiddenCount');
   const CL_COL_STORAGE = `pjd-checklist-columns-${PROJECT_SLUG}`;
   const clFilterState = { cumplimiento: new Set(['__all']), status: new Set(['__all']), prioridad: new Set(['__all']) };
+  let activeOptionsRow = null;
+  let editingChecklistRow = null;
 
   function positionChecklistMenu(btn, menu) {
     if (!btn || !menu) return;
@@ -2625,20 +2737,40 @@
     menu.style.left = left + 'px';
     menu.style.top = Math.min(rect.bottom + 8, window.innerHeight - 80) + 'px';
   }
+  function closeChecklistRowMenu() {
+    if (!clRowMenu) return;
+    clRowMenu.classList.remove('is-open');
+    clRowMenu.setAttribute('aria-hidden', 'true');
+    activeOptionsRow = null;
+  }
+  function positionChecklistRowMenu(btn, idx) {
+    if (!btn || !clRowMenu) return;
+    closeChecklistMenus();
+    activeOptionsRow = idx;
+    clRowMenu.classList.add('is-open');
+    clRowMenu.setAttribute('aria-hidden', 'false');
+    const rect = btn.getBoundingClientRect();
+    const menuWidth = clRowMenu.offsetWidth || 218;
+    const left = Math.max(12, Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 12));
+    clRowMenu.style.left = left + 'px';
+    clRowMenu.style.top = Math.min(rect.bottom + 6, window.innerHeight - 170) + 'px';
+  }
 
   function closeChecklistMenus(except = null) {
-    [clFiltersMenu, clColumnsMenu, clExportMenu].forEach(menu => {
+    [clFiltersMenu, clColumnsMenu, clExportMenu, clDownloadMenu].forEach(menu => {
       if (!menu || menu === except) return;
       menu.classList.remove('is-open');
       menu.setAttribute('aria-hidden', 'true');
     });
-    [clFiltersBtn, clColumnsBtn, clExportBtn].forEach(btn => btn?.setAttribute('aria-expanded', 'false'));
+    [clFiltersBtn, clColumnsBtn, clExportBtn, clDownloadBtn].forEach(btn => btn?.setAttribute('aria-expanded', 'false'));
+    closeChecklistRowMenu();
   }
 
   clFiltersBtn?.addEventListener('click', (e) => { e.stopPropagation(); positionChecklistMenu(clFiltersBtn, clFiltersMenu); });
   clColumnsBtn?.addEventListener('click', (e) => { e.stopPropagation(); positionChecklistMenu(clColumnsBtn, clColumnsMenu); });
   clExportBtn?.addEventListener('click', (e) => { e.stopPropagation(); positionChecklistMenu(clExportBtn, clExportMenu); });
-  [clFiltersMenu, clColumnsMenu, clExportMenu].forEach(menu => menu?.addEventListener('click', e => e.stopPropagation()));
+  clDownloadBtn?.addEventListener('click', (e) => { e.stopPropagation(); positionChecklistMenu(clDownloadBtn, clDownloadMenu); });
+  [clFiltersMenu, clColumnsMenu, clExportMenu, clDownloadMenu, clRowMenu].forEach(menu => menu?.addEventListener('click', e => e.stopPropagation()));
 
   function getHiddenColumns() {
     try { return new Set(JSON.parse(localStorage.getItem(CL_COL_STORAGE) || '[]')); }
@@ -2812,17 +2944,90 @@
   function closeChecklistAddForm() {
     document.getElementById('pjdClAddForm')?.classList.remove('is-open');
     clearChecklistAddForm();
+    setChecklistAddMode('add');
   }
-  function createChecklistDomItem({ requisito, formato, descripcion }) {
+  function setChecklistAddMode(mode, row = null) {
+    editingChecklistRow = mode === 'edit' && row ? row.dataset.row : null;
+    const form = document.getElementById('pjdClAddForm');
+    const title = document.getElementById('pjdClAddTitle');
+    const save = document.getElementById('pjdClAddSave');
+    form?.classList.toggle('is-editing', !!editingChecklistRow);
+    if (title) title.textContent = editingChecklistRow ? 'Editar requisito' : 'Agregar nuevo requisito';
+    if (save) save.textContent = editingChecklistRow ? 'Guardar cambios' : 'Guardar';
+  }
+  function getChecklistRowData(row) {
+    if (!row) return null;
+    const idx = row.dataset.row;
+    const detail = clBody.querySelector(`tr[data-detail="${idx}"]`);
+    let desc = row.dataset.descripcion || '';
+    if (!desc && detail) {
+      const rows = detail.querySelectorAll('.pjd-cl-detail-card:first-child .pjd-cl-detail-row');
+      rows.forEach(item => {
+        const txt = item.textContent.trim();
+        if (txt.startsWith('Descripción:')) desc = txt.replace(/^Descripción:\s*/, '').trim();
+      });
+    }
+    return {
+      requisito: row.dataset.requisito || row.querySelector('.pjd-cl-requisito-text')?.textContent.trim() || '',
+      formato: row.dataset.formato || row.querySelector('[data-col="formato"]')?.textContent.trim() || 'No aplica',
+      descripcion: desc && desc !== 'Sin descripción adicional.' ? desc : '',
+      categoria: row.querySelector('[data-col="categoria"]')?.textContent.trim() || '-',
+      aplicabilidad: row.querySelector('[data-col="aplicabilidad"]')?.textContent.trim() || '-',
+      obligatorio: row.querySelector('[data-col="obligatorio"]')?.textContent.trim() || '-',
+      cumplimiento: row.dataset.cumplimiento || '-',
+      status: row.dataset.status || 'Pendiente',
+      prioridad: row.dataset.prioridad || 'Media'
+    };
+  }
+  function openChecklistAddForm(mode = 'add', row = null) {
+    setChecklistAddMode(mode, row);
+    if (mode === 'edit' && row) {
+      const data = getChecklistRowData(row);
+      document.getElementById('pjdClNewReq').value = data.requisito || '';
+      document.getElementById('pjdClNewFormato').value = data.formato === '-' ? '' : (data.formato || '');
+      document.getElementById('pjdClNewDesc').value = data.descripcion || '';
+    } else {
+      clearChecklistAddForm();
+    }
+    const form = document.getElementById('pjdClAddForm');
+    form?.classList.add('is-open');
+    setTimeout(() => document.getElementById('pjdClNewReq')?.focus(), 80);
+  }
+  function updateChecklistDomItem(idx, { requisito, formato, descripcion }) {
+    const row = clBody.querySelector(`tr[data-row="${idx}"]`);
+    const detail = clBody.querySelector(`tr[data-detail="${idx}"]`);
+    if (!row) return;
+    const safeReq = escapeHtml(requisito);
+    const safeFormato = escapeHtml(formato || 'No aplica');
+    const safeDesc = escapeHtml(descripcion || 'Sin descripción adicional.');
+    row.dataset.requisito = requisito;
+    row.dataset.formato = formato || 'No aplica';
+    row.dataset.descripcion = descripcion || '';
+    const reqText = row.querySelector('.pjd-cl-requisito-text');
+    if (reqText) { reqText.textContent = requisito; reqText.title = requisito; }
+    const formatoCell = row.querySelector('[data-col="formato"]');
+    if (formatoCell) formatoCell.textContent = formato || 'No aplica';
+    if (detail) {
+      const card = detail.querySelector('.pjd-cl-detail-card:first-child');
+      if (card) {
+        const criterio = card.querySelector('[data-criterio-block]')?.outerHTML || '';
+        card.innerHTML = `<div class="pjd-cl-detail-kicker">Detalle del requisito</div><div class="pjd-cl-detail-row"><strong>Requisito:</strong> ${safeReq}</div><div class="pjd-cl-detail-row"><strong>Descripción:</strong> ${safeDesc}</div>${criterio}<div class="pjd-cl-detail-row"><strong>Prioridad:</strong> ${escapeHtml(row.dataset.prioridad || 'Media')}</div>`;
+      }
+    }
+  }
+  function createChecklistDomItem({ requisito, formato, descripcion, categoria = '-', aplicabilidad = '-', obligatorio = '-', cumplimiento = '-', status = 'Pendiente', prioridad = 'Media' }) {
     const idx = nextChecklistRowId();
     const safeReq = escapeHtml(requisito);
     const safeFormato = escapeHtml(formato || 'No aplica');
     const safeDesc = escapeHtml(descripcion || 'Sin descripción adicional.');
     const tr = document.createElement('tr');
     tr.dataset.row = idx;
-    tr.dataset.cumplimiento = '-';
-    tr.dataset.status = 'Pendiente';
-    tr.dataset.prioridad = 'Media';
+    tr.dataset.cumplimiento = cumplimiento || '-';
+    tr.dataset.status = status || 'Pendiente';
+    tr.dataset.prioridad = prioridad || 'Media';
+    tr.dataset.requisito = requisito;
+    tr.dataset.formato = formato || 'No aplica';
+    tr.dataset.descripcion = descripcion || '';
     tr.dataset.added = '1';
     tr.dataset.requisito = requisito;
     tr.dataset.formato = formato || 'No aplica';
@@ -2831,23 +3036,25 @@
       <td class="pjd-cl-check-cell"><button type="button" class="pjd-cl-row-toggle" data-toggle="${idx}" title="Ver fuente y detalle">${checklistChevronSvg()}</button></td>
       <td data-col="requisito"><div class="pjd-cl-requisito">${checklistRowIconSvg()}<span class="pjd-cl-requisito-text" title="${safeReq}">${safeReq}</span></div></td>
       <td class="pjd-cl-cell-muted" data-col="formato">${safeFormato}</td>
-      <td class="pjd-cl-cell-muted" data-col="categoria">-</td>
-      <td class="pjd-cl-cell-muted" data-col="aplicabilidad">-</td>
-      <td class="pjd-cl-cell-center" data-col="obligatorio">-</td>
+      <td class="pjd-cl-cell-muted" data-col="categoria">${escapeHtml(categoria || '-')}</td>
+      <td class="pjd-cl-cell-muted" data-col="aplicabilidad">${escapeHtml(aplicabilidad || '-')}</td>
+      <td class="pjd-cl-cell-center" data-col="obligatorio">${escapeHtml(obligatorio || '-')}</td>
       <td data-col="cumplimiento"><button type="button" class="pjd-cl-cumplimiento-btn" data-cumplimiento-toggle="${idx}" title="Cambiar cumplimiento"><span class="pjd-cl-cumple-dot"></span><span class="pjd-cl-cumple-text">-</span></button></td>
       <td data-col="status"><button type="button" class="pjd-cl-status is-pendiente" data-status-toggle="${idx}">${renderChecklistStatusMarkup('Pendiente')}</button></td>
-      <td class="pjd-cl-cell-center" data-col="opciones"><button type="button" class="pjd-cl-options" data-toggle="${idx}" title="Ver fuente">${checklistOptionsSvg()}</button></td>`;
+      <td class="pjd-cl-cell-center" data-col="opciones"><button type="button" class="pjd-cl-options" data-options="${idx}" title="Opciones">${checklistOptionsSvg()}</button></td>`;
 
     const detail = document.createElement('tr');
     detail.className = 'pjd-cl-detail-row';
     detail.dataset.detail = idx;
     detail.style.display = 'none';
-    detail.innerHTML = `<td colspan="9" style="padding:0"><div class="pjd-cl-detail"><div class="pjd-cl-detail-grid"><div class="pjd-cl-detail-card"><div class="pjd-cl-detail-kicker">Detalle del requisito</div><div class="pjd-cl-detail-row"><strong>Requisito:</strong> ${safeReq}</div><div class="pjd-cl-detail-row"><strong>Descripción:</strong> ${safeDesc}</div><div class="pjd-cl-detail-row"><strong>Prioridad:</strong> Media</div></div><div class="pjd-cl-detail-card"><div class="pjd-cl-detail-kicker">Fuente / evidencia</div><div class="pjd-cl-source-meta"><div class="pjd-cl-detail-row pjd-cl-source-empty">Sin archivo fuente registrado.</div></div></div></div></div></td>`;
+    detail.innerHTML = `<td colspan="9" style="padding:0"><div class="pjd-cl-detail"><div class="pjd-cl-detail-grid"><div class="pjd-cl-detail-card"><div class="pjd-cl-detail-kicker">Detalle del requisito</div><div class="pjd-cl-detail-row"><strong>Requisito:</strong> ${safeReq}</div><div class="pjd-cl-detail-row"><strong>Descripción:</strong> ${safeDesc}</div><div class="pjd-cl-detail-row"><strong>Prioridad:</strong> ${escapeHtml(prioridad || 'Media')}</div></div><div class="pjd-cl-detail-card"><div class="pjd-cl-detail-kicker">Fuente / evidencia</div><div class="pjd-cl-source-meta"><div class="pjd-cl-detail-row pjd-cl-source-empty">Sin archivo fuente registrado.</div></div></div></div></div></td>`;
 
     const empty = clBody.querySelector('.pjd-cl-no-results')?.closest('tr');
     if (empty) empty.remove();
     clBody.appendChild(tr);
     clBody.appendChild(detail);
+    applyChecklistCumplimiento(tr, cumplimiento || '-');
+    applyChecklistStatus(tr, status || 'Pendiente');
     applyChecklistColumns();
     updateCounters();
     applyChecklistFilters();
@@ -2856,7 +3063,41 @@
     saveChecklist();
   }
 
+  clRowMenu?.addEventListener('click', (e) => {
+    const actionBtn = e.target.closest('[data-row-action]');
+    if (!actionBtn || activeOptionsRow === null) return;
+    const action = actionBtn.dataset.rowAction;
+    const row = clBody.querySelector(`tr[data-row="${activeOptionsRow}"]`);
+    const detail = clBody.querySelector(`tr[data-detail="${activeOptionsRow}"]`);
+    if (!row) { closeChecklistRowMenu(); return; }
+    if (action === 'edit') {
+      openChecklistAddForm('edit', row);
+      closeChecklistRowMenu();
+      return;
+    }
+    if (action === 'duplicate') {
+      const data = getChecklistRowData(row);
+      createChecklistDomItem({ ...data, requisito: `${data.requisito} (copia)` });
+      closeChecklistRowMenu();
+      showToast('✓ Requisito duplicado', 'success');
+      return;
+    }
+    if (action === 'delete') {
+      if (!confirm('¿Eliminar este requisito?')) return;
+      detail?.remove();
+      row.remove();
+      closeChecklistRowMenu();
+      updateCounters();
+      applyChecklistFilters();
+      saveChecklist();
+      showToast('✓ Requisito eliminado', 'success');
+    }
+  });
+
   clBody?.addEventListener('click', (e) => {
+    const optBtn = e.target.closest('[data-options]');
+    if (optBtn) { positionChecklistRowMenu(optBtn, optBtn.dataset.options); e.stopPropagation(); return; }
+
     const tBtn = e.target.closest('[data-toggle]');
     if (tBtn) { toggleChecklistDetail(tBtn.dataset.toggle); e.stopPropagation(); return; }
 
@@ -2867,7 +3108,7 @@
     if (sourceLink) { e.stopPropagation(); return; }
 
     const row = e.target.closest('tr[data-row]');
-    const clickedControl = e.target.closest('[data-cumplimiento-toggle], [data-status-toggle]');
+    const clickedControl = e.target.closest('[data-cumplimiento-toggle], [data-status-toggle], [data-options]');
     if (row && !clickedControl) { toggleChecklistDetail(row.dataset.row); e.stopPropagation(); return; }
 
     const cumpBtn = e.target.closest('[data-cumplimiento-toggle]');
@@ -2913,24 +3154,27 @@
   document.addEventListener('click', (e) => {
     if (!e.target.closest('[data-cumplimiento-toggle]') && !e.target.closest('#pjdClCumpPop')) cumpPop?.classList.remove('is-open');
     if (!e.target.closest('[data-status-toggle]') && !e.target.closest('#pjdClStatusPop')) statPop?.classList.remove('is-open');
-    if (!e.target.closest('.pjd-cl-menu') && !e.target.closest('#pjdClFiltersBtn') && !e.target.closest('#pjdClColumnsBtn') && !e.target.closest('#pjdClExportBtn')) closeChecklistMenus();
+    if (!e.target.closest('.pjd-cl-menu') && !e.target.closest('.pjd-cl-row-menu') && !e.target.closest('#pjdClFiltersBtn') && !e.target.closest('#pjdClColumnsBtn') && !e.target.closest('#pjdClExportBtn') && !e.target.closest('#pjdClDownload')) closeChecklistMenus();
   });
 
   clSearch?.addEventListener('input', applyChecklistFilters);
 
   async function saveChecklist() {
-    const rows = Array.from(clBody.querySelectorAll('tr[data-row]')).map(r => ({
-      idx: r.dataset.row,
-      requisito: r.dataset.requisito || r.querySelector('.pjd-cl-requisito-text')?.textContent.trim() || '',
-      descripcion: r.dataset.descripcion || clBody.querySelector(`tr[data-detail="${r.dataset.row}"] .pjd-cl-detail-row:nth-child(3)`)?.textContent.replace(/^Descripción:\s*/,'').trim() || '',
-      formato: r.dataset.formato || r.querySelector('[data-col="formato"]')?.textContent.trim() || 'No aplica',
-      categoria: r.querySelector('[data-col="categoria"]')?.textContent.trim() || '-',
-      aplicabilidad: r.querySelector('[data-col="aplicabilidad"]')?.textContent.trim() || '-',
-      obligatorio: r.querySelector('[data-col="obligatorio"]')?.textContent.trim() || '-',
-      cumplimiento: r.dataset.cumplimiento,
-      status: r.dataset.status,
-      prioridad: r.dataset.prioridad || 'Media'
-    }));
+    const rows = Array.from(clBody.querySelectorAll('tr[data-row]')).map(r => {
+      const data = getChecklistRowData(r);
+      return {
+        idx: r.dataset.row,
+        requisito: data.requisito,
+        descripcion: data.descripcion,
+        formato: data.formato,
+        categoria: data.categoria,
+        aplicabilidad: data.aplicabilidad,
+        obligatorio: data.obligatorio,
+        cumplimiento: data.cumplimiento,
+        status: data.status,
+        prioridad: data.prioridad
+      };
+    });
     try { const fd = new FormData(); fd.append('_token', CSRF); fd.append('items', JSON.stringify(rows)); await fetch(CHECKLIST_URL, { method:'POST', headers:{'Accept':'application/json'}, body: fd, credentials:'same-origin' }); } catch (_) {}
   }
 
@@ -2942,11 +3186,7 @@
     catch (e) { alert('Error de red'); } finally { btn.disabled = false; btn.innerHTML = original; }
   });
 
-  document.getElementById('pjdClAddBtn')?.addEventListener('click', () => {
-    const form = document.getElementById('pjdClAddForm');
-    form?.classList.add('is-open');
-    setTimeout(() => document.getElementById('pjdClNewReq')?.focus(), 80);
-  });
+  document.getElementById('pjdClAddBtn')?.addEventListener('click', () => openChecklistAddForm('add'));
   document.getElementById('pjdClAddCancel')?.addEventListener('click', closeChecklistAddForm);
   document.getElementById('pjdClAddForm')?.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -2954,24 +3194,38 @@
     const formato = document.getElementById('pjdClNewFormato')?.value.trim() || 'No aplica';
     const descripcion = document.getElementById('pjdClNewDesc')?.value.trim() || '';
     if (!requisito) { document.getElementById('pjdClNewReq')?.focus(); return; }
+    if (editingChecklistRow !== null) {
+      updateChecklistDomItem(editingChecklistRow, { requisito, formato, descripcion });
+      closeChecklistAddForm();
+      updateCounters();
+      applyChecklistFilters();
+      saveChecklist();
+      showToast('✓ Requisito actualizado', 'success');
+      return;
+    }
     createChecklistDomItem({ requisito, formato, descripcion });
     closeChecklistAddForm();
     showToast('✓ Requisito agregado', 'success');
   });
 
-  document.getElementById('pjdClDownload')?.addEventListener('click', () => {
+  function downloadChecklistExcel() {
     if (typeof XLSX === 'undefined') { showToast('Excel no disponible', 'error'); return; }
     const headers = ['Requisito','Formato','Categoría','Aplicabilidad','Obligatorio','Cumplimiento','Status','Prioridad'];
-    const rows = [];
-    clBody.querySelectorAll('tr[data-row]').forEach(r => {
-      const cells = r.querySelectorAll('td');
-      rows.push([ cells[1]?.textContent.trim() || '', cells[2]?.textContent.trim() || '', cells[3]?.textContent.trim() || '', cells[4]?.textContent.trim() || '', cells[5]?.textContent.trim() || '', r.dataset.cumplimiento || '-', r.dataset.status || 'Pendiente', r.dataset.prioridad || 'Media' ]);
-    });
+    const rows = getChecklistExportRows(true).map(r => [r.requisito,r.formato,r.categoria,r.aplicabilidad,r.obligatorio,r.cumplimiento,r.status,r.prioridad]);
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
     ws['!cols'] = headers.map((h, i) => { let max = h.length; rows.forEach(r => { const len = (r[i]||'').toString().length; if (len > max) max = len; }); return { wch: Math.min(Math.max(max + 2, 14), 70) }; });
     const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Checklist');
-    XLSX.writeFile(wb, `checklist-${PROJECT_SLUG}.xlsx`); showToast('✓ Checklist descargado', 'success');
+    XLSX.writeFile(wb, `checklist-${PROJECT_SLUG}.xlsx`);
+    showToast('✓ Excel descargado', 'success');
+  }
+  clDownloadMenu?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-download-list]');
+    if (!btn) return;
+    closeChecklistMenus();
+    if (btn.dataset.downloadList === 'excel') downloadChecklistExcel();
+    if (btn.dataset.downloadList === 'pdf') printChecklistPdf();
   });
+
 
   // ============ BORRADOR / REPORTE ============
   const borradorTabs = document.querySelectorAll('.pjd-borrador-tab');
