@@ -47,18 +47,113 @@
   .pjd-view-doc { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: .85rem; font-weight: 600; text-decoration: none; padding: 6px 10px; border-radius: 8px; }
   .pjd-view-doc:hover { background: var(--bg); color: var(--blue); }
 
-  /* ── Layout 2 columnas ── */
-  .pjd-body { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 0; min-height: 0; }
-  @media (max-width: 1100px) { .pjd-body { grid-template-columns: 1fr; } }
-  .pjd-left { display: flex; flex-direction: column; border-right: 1px solid var(--line); background: #fff; min-height: 0; position: sticky; top: 57px; height: calc(100vh - 57px); align-self: start; }
-  @media (max-width: 1100px) { .pjd-left { position: static; height: auto; } }
-  .pjd-right { display: flex; flex-direction: column; background: var(--bg); min-height: 0; overflow: auto; }
+  /* ── Layout 2 columnas redimensionable ── */
+  .pjd-wrap { --pjd-left-width: 44%; }
+
+  .pjd-body {
+    flex: 1;
+    display: grid;
+    grid-template-columns: minmax(300px, var(--pjd-left-width)) 10px minmax(360px, 1fr);
+    gap: 0;
+    min-height: 0;
+    height: calc(100vh - 57px);
+    overflow: hidden;
+  }
+
+  .pjd-left {
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    min-width: 0;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .pjd-resizer {
+    position: relative;
+    width: 10px;
+    height: 100%;
+    background: #fff;
+    border-left: 1px solid var(--line);
+    border-right: 1px solid var(--line);
+    cursor: col-resize;
+    z-index: 30;
+    transition: background .18s ease, border-color .18s ease;
+    touch-action: none;
+  }
+
+  .pjd-resizer::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 18px;
+    height: 42px;
+    transform: translate(-50%, -50%);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: #fff;
+    box-shadow: 0 4px 12px rgba(0,0,0,.08);
+  }
+
+  .pjd-resizer::after {
+    content: "⋮";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: var(--muted);
+    font-size: 16px;
+    line-height: 1;
+    font-weight: 700;
+  }
+
+  .pjd-resizer:hover,
+  .pjd-resizer:focus-visible,
+  body.is-pjd-resizing .pjd-resizer {
+    background: var(--blue-soft);
+    border-color: #c7dcfd;
+    outline: none;
+  }
+
+  .pjd-resizer:hover::before,
+  .pjd-resizer:focus-visible::before,
+  body.is-pjd-resizing .pjd-resizer::before {
+    border-color: #c7dcfd;
+    box-shadow: 0 8px 22px rgba(0,122,255,.16);
+  }
+
+  body.is-pjd-resizing {
+    cursor: col-resize;
+    user-select: none;
+  }
+
+  .pjd-right {
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    min-width: 0;
+    min-height: 0;
+    height: 100%;
+    overflow: auto;
+  }
+
+  @media (max-width: 1100px) {
+    .pjd-body {
+      height: auto;
+      overflow: visible;
+      grid-template-columns: 1fr;
+    }
+    .pjd-left { height: auto; min-height: 520px; }
+    .pjd-resizer { display: none; }
+  }
 
   /* ── CHAT ── */
   .pjd-chat-head { padding: 10px 18px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: flex-end; }
   .pjd-chat-reset { background: var(--bg); border: 1px solid var(--line); padding: 5px 12px; border-radius: 999px; font-size: .8rem; font-weight: 600; color: var(--ink2); cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all .18s; }
   .pjd-chat-reset:hover { background: var(--blue-soft); color: var(--blue); border-color: var(--blue); }
-  .pjd-chat-list { flex: 1; min-height: 0; padding: 18px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; max-height: calc(100vh - 240px); scroll-behavior: smooth; overscroll-behavior: contain; }
+  .pjd-chat-list { flex: 1; min-height: 0; padding: 18px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; scroll-behavior: smooth; overscroll-behavior: contain; }
   @media (max-width: 1100px) { .pjd-chat-list { max-height: 60vh; } }
   .pjd-msg { max-width: 90%; }
   .pjd-msg.is-user { align-self: flex-end; max-width: 80%; }
@@ -285,110 +380,1032 @@
   .pjd-doc-drawer-quote-meta { margin-top: 8px; font-size: .8rem; color: var(--muted); font-weight: 600; }
 
   /* ════════════ CHECKLIST AVANZADO ════════════ */
-  .pjd-checklist-wrap { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
-  .pjd-checklist-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
-  .pjd-checklist-title { font-size: 1.05rem; font-weight: 700; color: var(--ink); display: inline-flex; align-items: center; gap: 8px; }
-  .pjd-checklist-title .star { color: var(--blue); }
-  .pjd-checklist-head-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  .pjd-checklist-link { color: var(--blue); font-weight: 700; font-size: .82rem; text-decoration: none; padding: 6px 10px; border-radius: 8px; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; background: transparent; border: none; }
-  .pjd-checklist-link:hover { background: var(--blue-soft); }
+  .pjd-checklist-wrap {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 22px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+  }
+  .pjd-checklist-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .pjd-checklist-title-block {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+  .pjd-checklist-title {
+    margin: 0;
+    font-size: 1.95rem;
+    line-height: 1;
+    font-weight: 700;
+    color: #111111;
+    letter-spacing: -.02em;
+  }
+  .pjd-checklist-title-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .pjd-checklist-icon {
+    width: 34px;
+    height: 34px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: #6b7280;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all .2s ease;
+    flex-shrink: 0;
+  }
+  .pjd-checklist-icon:hover {
+    background: #f9fafb;
+    border-color: var(--line);
+    color: #111111;
+    transform: translateY(-1px);
+  }
+  .pjd-checklist-icon svg { width: 18px; height: 18px; }
+  .pjd-checklist-links {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-left: auto;
+  }
+  .pjd-checklist-link {
+    color: var(--blue);
+    font-weight: 700;
+    font-size: .95rem;
+    text-decoration: none;
+    padding: 0;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    transition: opacity .2s ease, transform .2s ease;
+  }
+  .pjd-checklist-link:hover {
+    opacity: .85;
+    transform: translateY(-1px);
+  }
+  .pjd-checklist-link svg { width: 18px; height: 18px; }
 
-  .pjd-counters { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
-  @media (max-width: 900px) { .pjd-counters { grid-template-columns: repeat(2, 1fr); } }
-  .pjd-counter { padding: 10px 12px; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); }
-  .pjd-counter-top { display: flex; align-items: center; gap: 6px; font-size: .8rem; font-weight: 700; color: var(--ink2); }
-  .pjd-counter-num { font-size: 1rem; font-weight: 700; color: var(--ink); }
-  .pjd-counter-pct { margin-left: auto; font-size: .72rem; font-weight: 700; color: var(--muted); }
-  .pjd-counter-bar { height: 4px; background: var(--line); border-radius: 999px; overflow: hidden; margin-top: 6px; }
-  .pjd-counter-bar-fill { height: 100%; background: var(--muted); border-radius: 999px; transition: width .3s; }
-  .pjd-counter.is-pending .pjd-counter-bar-fill { background: var(--warning); }
-  .pjd-counter.is-cumple .pjd-counter-bar-fill { background: var(--success); }
-  .pjd-counter.is-parcial .pjd-counter-bar-fill { background: var(--warning); }
-  .pjd-counter.is-nocumple .pjd-counter-bar-fill { background: var(--danger); }
-  .pjd-counter.is-review .pjd-counter-bar-fill { background: var(--blue); }
-  .pjd-counter.is-approved .pjd-counter-bar-fill { background: var(--success); }
-  .pjd-counter.is-pending .pjd-counter-top { color: var(--warning); }
-  .pjd-counter.is-cumple .pjd-counter-top, .pjd-counter.is-approved .pjd-counter-top { color: var(--success); }
-  .pjd-counter.is-parcial .pjd-counter-top { color: var(--orange); }
-  .pjd-counter.is-nocumple .pjd-counter-top { color: var(--danger); }
-  .pjd-counter.is-review .pjd-counter-top { color: var(--blue); }
-  .pjd-counter.is-total { background: linear-gradient(180deg, var(--blue-soft), #f0f7ff); border-color: #c7dcfd; }
+  .pjd-cl-summary {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+  }
+  .pjd-counters {
+    flex: 1 1 760px;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(120px, 1fr));
+    gap: 18px 28px;
+    margin-bottom: 0;
+  }
+  @media (max-width: 1200px) {
+    .pjd-counters { grid-template-columns: repeat(2, minmax(140px, 1fr)); }
+  }
+  @media (max-width: 640px) {
+    .pjd-counters { grid-template-columns: 1fr; }
+  }
+  .pjd-counter {
+    padding: 0;
+    border: none;
+    background: transparent;
+    border-radius: 0;
+  }
+  .pjd-counter-top {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    font-size: .92rem;
+    font-weight: 600;
+    color: #556070;
+    line-height: 1.15;
+  }
+  .pjd-counter-num {
+    font-size: 1.55rem;
+    font-weight: 700;
+    color: #111111;
+  }
+  .pjd-counter-label {
+    min-width: 0;
+    color: #556070;
+  }
+  .pjd-counter-pct {
+    margin-left: auto;
+    font-size: .85rem;
+    font-weight: 700;
+    color: var(--blue);
+    white-space: nowrap;
+  }
+  .pjd-counter-bar {
+    height: 8px;
+    background: #e5e7eb;
+    border-radius: 999px;
+    overflow: hidden;
+    margin-top: 8px;
+  }
+  .pjd-counter-bar-fill { height: 100%; background: #9ca3af; border-radius: 999px; transition: width .3s; }
+  .pjd-counter.is-pending .pjd-counter-bar-fill,
+  .pjd-counter.is-parcial .pjd-counter-bar-fill { background: #f4b321; }
+  .pjd-counter.is-cumple .pjd-counter-bar-fill,
+  .pjd-counter.is-approved .pjd-counter-bar-fill { background: #22c55e; }
+  .pjd-counter.is-nocumple .pjd-counter-bar-fill { background: #ff4a4a; }
+  .pjd-counter.is-review .pjd-counter-bar-fill { background: #2563eb; }
+  .pjd-counter.is-pending .pjd-counter-top { color: #c28708; }
+  .pjd-counter.is-cumple .pjd-counter-top,
+  .pjd-counter.is-approved .pjd-counter-top { color: #15803d; }
+  .pjd-counter.is-parcial .pjd-counter-top { color: #c28708; }
+  .pjd-counter.is-nocumple .pjd-counter-top { color: #ff4a4a; }
+  .pjd-counter.is-review .pjd-counter-top { color: #2563eb; }
+  .pjd-counter.is-total {
+    align-self: center;
+    justify-self: start;
+    min-width: 112px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: #f7f7f8;
+    border: 1px solid #f0f0f0;
+  }
+  .pjd-counter.is-total .pjd-counter-top {
+    justify-content: center;
+    gap: 8px;
+    color: #4b5563;
+  }
+  .pjd-counter.is-total .pjd-counter-num {
+    font-size: 1.35rem;
+    color: #111111;
+  }
 
-  .pjd-cl-toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
-  .pjd-cl-search { flex: 1; min-width: 220px; position: relative; }
-  .pjd-cl-search input { width: 100%; padding: 8px 14px 8px 36px; border: 1px solid var(--line); border-radius: 999px; font-family: inherit; font-size: .88rem; outline: none; background: #fff; }
+  .pjd-cl-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .pjd-cl-search {
+    flex: 1 1 420px;
+    min-width: 280px;
+    position: relative;
+  }
+  .pjd-cl-search input {
+    width: 100%;
+    height: 46px;
+    padding: 0 16px 0 46px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    font-family: inherit;
+    font-size: .95rem;
+    outline: none;
+    background: #fff;
+    color: var(--ink);
+  }
   .pjd-cl-search input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-soft); }
-  .pjd-cl-search svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; stroke: var(--muted); }
-  .pjd-cl-btn { padding: 7px 14px; border: 1px solid var(--line); background: #fff; border-radius: 999px; font-family: inherit; font-size: .85rem; font-weight: 700; color: var(--ink2); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all .15s; }
-  .pjd-cl-btn:hover { border-color: var(--blue); color: var(--blue); }
-  .pjd-cl-btn.is-primary { background: var(--blue); color: #fff; border-color: var(--blue); }
-  .pjd-cl-btn.is-primary:hover { filter: brightness(1.05); box-shadow: 0 6px 14px rgba(0,122,255,.22); }
-  .pjd-cl-btn svg { width: 13px; height: 13px; }
+  .pjd-cl-search svg {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 18px;
+    height: 18px;
+    stroke: #9ca3af;
+  }
+  .pjd-cl-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-left: auto;
+  }
+  .pjd-cl-btn {
+    height: 46px;
+    padding: 0 18px;
+    border: 1px solid var(--line);
+    background: #fff;
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: .95rem;
+    font-weight: 700;
+    color: #111111;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all .18s ease;
+  }
+  .pjd-cl-btn:hover {
+    background: #f9fafb;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+  }
+  .pjd-cl-btn:active { transform: scale(0.98); }
+  .pjd-cl-btn.is-primary {
+    background: var(--blue);
+    color: #fff;
+    border-color: var(--blue);
+    box-shadow: 0 4px 12px rgba(0,122,255,.14);
+  }
+  .pjd-cl-btn.is-primary:hover {
+    background: #0a84ff;
+    box-shadow: 0 10px 20px rgba(0,122,255,.18);
+  }
+  .pjd-cl-btn svg { width: 18px; height: 18px; }
 
-  .pjd-cl-table-wrap { overflow-x: auto; }
-  .pjd-cl-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: .86rem; background: #fff; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); min-width: 900px; }
-  .pjd-cl-table thead th { background: #fafbff; padding: 10px 12px; font-weight: 700; color: var(--muted); text-align: left; font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; border-bottom: 1px solid var(--line); white-space: nowrap; }
-  .pjd-cl-table tbody td { padding: 10px 12px; border-bottom: 1px solid var(--line); color: var(--ink2); vertical-align: middle; }
+  .pjd-cl-table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: #fff;
+  }
+  .pjd-cl-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    min-width: 1120px;
+    background: #fff;
+  }
+  .pjd-cl-table thead th {
+    background: #fff;
+    padding: 16px 14px;
+    font-weight: 700;
+    color: #4b5563;
+    text-align: left;
+    font-size: .92rem;
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+    position: relative;
+  }
+  .pjd-cl-table thead th + th::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 18px;
+    bottom: 18px;
+    width: 1px;
+    background: var(--line);
+  }
+  .pjd-cl-table tbody td {
+    padding: 12px 14px;
+    border-bottom: 1px solid #f1f3f5;
+    color: #374151;
+    vertical-align: middle;
+    font-size: .95rem;
+    background: #fff;
+  }
   .pjd-cl-table tbody tr:last-child td { border-bottom: none; }
-  .pjd-cl-table tbody tr:hover { background: #fafbff; }
-
-  .pjd-cl-table tbody tr[data-row] { cursor: pointer; }
+  .pjd-cl-table tbody tr[data-row] { cursor: pointer; transition: background .18s ease; }
+  .pjd-cl-table tbody tr[data-row]:hover td { background: #fafcff; }
+  .pjd-cl-table tbody tr[data-row].is-expanded td { background: #f8fbff; }
   .pjd-cl-table tbody tr[data-row]:hover .pjd-cl-requisito-text { color: var(--blue); }
-  .pjd-cl-table tbody tr[data-row].is-expanded .pjd-cl-requisito-text { color: var(--blue); }
-  .pjd-cl-table tbody tr.is-expanded { background: #f5f7fb; }
 
-  .pjd-cl-row-toggle { background: transparent; border: none; cursor: pointer; padding: 2px; color: var(--muted); display: inline-flex; align-items: center; }
-  .pjd-cl-row-toggle svg { width: 13px; height: 13px; transition: transform .2s; }
-  tr.is-expanded .pjd-cl-row-toggle svg { transform: rotate(90deg); }
+  .pjd-cl-th-main,
+  .pjd-cl-th-compact {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .pjd-cl-th-handle {
+    color: #c0c7d1;
+    font-size: .85rem;
+    letter-spacing: 1px;
+    line-height: 1;
+  }
+  .pjd-cl-th-sort {
+    color: #a3acb9;
+    font-size: .88rem;
+    line-height: 1;
+  }
+  .pjd-cl-check-cell,
+  .pjd-cl-check-head { width: 44px; text-align: center; }
+  .pjd-cl-check-head::before { display: none !important; }
+  .pjd-cl-checkmark {
+    width: 22px;
+    height: 22px;
+    border-radius: 7px;
+    border: 1.5px solid #cfd6df;
+    background: #fff;
+    display: inline-block;
+  }
+  .pjd-cl-row-toggle {
+    width: 20px;
+    height: 20px;
+    border: none;
+    background: transparent;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #2563eb;
+    cursor: pointer;
+    transition: transform .18s ease;
+    padding: 0;
+  }
+  .pjd-cl-row-toggle svg { width: 16px; height: 16px; }
+  tr.is-expanded .pjd-cl-row-toggle { transform: rotate(90deg); }
 
-  .pjd-cl-requisito { display: flex; align-items: center; gap: 8px; max-width: 380px; }
-  .pjd-cl-requisito-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; color: var(--ink); }
+  .pjd-cl-requisito {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+  .pjd-cl-row-icon {
+    width: 18px;
+    height: 18px;
+    color: #2563eb;
+    flex-shrink: 0;
+  }
+  .pjd-cl-requisito-text {
+    display: inline-block;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 600;
+    color: #2f3947;
+  }
+  .pjd-cl-cell-muted { color: #4b5563; }
+  .pjd-cl-cell-strong { font-weight: 700; }
+  .pjd-cl-cell-success { color: #15803d; font-weight: 700; }
+  .pjd-cl-cell-center { text-align: center; }
 
-  .pjd-cl-table tbody tr[data-row] { cursor: pointer; transition: background .18s ease, box-shadow .18s ease; }
-  .pjd-cl-table tbody tr[data-row]:hover { background: #f8faff; }
-  .pjd-cl-table tbody tr[data-row].is-expanded { background: #f8faff; box-shadow: inset 3px 0 0 var(--blue); }
+  .pjd-cl-cumplimiento-btn {
+    border: none;
+    background: transparent;
+    padding: 0;
+    margin: 0;
+    font: inherit;
+    color: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+  }
+  .pjd-cl-cumplimiento-btn:focus-visible,
+  .pjd-cl-status:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--blue-soft);
+    border-radius: 8px;
+  }
+  .pjd-cl-cumple-dot {
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    border: 2px solid #a3acb9;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff;
+    padding: 0;
+    flex-shrink: 0;
+    transition: all .18s ease;
+    position: relative;
+  }
+  .pjd-cl-cumple-dot::after {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: transparent;
+  }
+  .pjd-cl-cumple-dot.is-cumple { border-color: #22c55e; }
+  .pjd-cl-cumple-dot.is-cumple::after { background: #22c55e; }
+  .pjd-cl-cumple-dot.is-parcial { border-color: #f4b321; }
+  .pjd-cl-cumple-dot.is-parcial::after { background: #f4b321; }
+  .pjd-cl-cumple-dot.is-nocumple { border-color: #ff4a4a; }
+  .pjd-cl-cumple-dot.is-nocumple::after { background: #ff4a4a; }
+  .pjd-cl-cumple-text {
+    font-weight: 600;
+    color: #4b5563;
+    min-width: 64px;
+    text-align: left;
+  }
+  .pjd-cl-cumple-text.is-cumple { color: #16a34a; }
+  .pjd-cl-cumple-text.is-parcial { color: #c28708; }
+  .pjd-cl-cumple-text.is-nocumple { color: #ef4444; }
 
-  .pjd-cl-detail { background: #fff; padding: 16px 18px 18px; font-size: .85rem; color: var(--ink2); border-top: 1px solid var(--line); animation: pjdSourceReveal .22s cubic-bezier(.22,1,.36,1) both; }
-  @keyframes pjdSourceReveal { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
-  .pjd-cl-detail strong { color: var(--ink); }
-  .pjd-cl-detail-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(240px, .8fr); gap: 12px; align-items: stretch; }
-  @media (max-width: 900px) { .pjd-cl-detail-grid { grid-template-columns: 1fr; } }
-  .pjd-cl-detail-card { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
-  .pjd-cl-detail-kicker { display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px; border-radius: 999px; background: var(--blue-soft); color: var(--blue); font-size: .72rem; font-weight: 700; margin-bottom: 8px; }
-  .pjd-cl-detail-row { margin-bottom: 8px; line-height: 1.55; }
+  .pjd-cl-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: .95rem;
+    cursor: pointer;
+    padding: 0;
+    border-radius: 999px;
+    background: transparent;
+    border: none;
+    color: #4b5563;
+  }
+  .pjd-cl-status-icon {
+    width: 22px;
+    height: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .pjd-cl-status svg { width: 22px; height: 22px; }
+  .pjd-cl-status.is-pendiente { color: #ea8a00; }
+  .pjd-cl-status.is-revision { color: #2563eb; }
+  .pjd-cl-status.is-aprobado { color: #16a34a; }
+
+  .pjd-cl-options {
+    background: transparent;
+    border: none;
+    color: #2563eb;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+  }
+  .pjd-cl-options:hover { background: #f3f7ff; }
+
+  .pjd-cl-detail {
+    padding: 20px 24px;
+    background: #fbfcfe;
+    border-top: 1px solid #eef2f7;
+  }
+  .pjd-cl-detail-grid {
+    display: grid;
+    grid-template-columns: minmax(280px, 1.2fr) minmax(260px, 1fr);
+    gap: 16px;
+  }
+  @media (max-width: 1024px) { .pjd-cl-detail-grid { grid-template-columns: 1fr; } }
+  .pjd-cl-detail-card {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 16px 18px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.02);
+  }
+  .pjd-cl-detail-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: var(--blue-soft);
+    color: var(--blue);
+    font-size: .74rem;
+    font-weight: 700;
+    margin-bottom: 10px;
+  }
+  .pjd-cl-detail-row { margin-bottom: 8px; line-height: 1.6; }
   .pjd-cl-detail-row:last-child { margin-bottom: 0; }
-  .pjd-cl-source-quote { margin-top: 8px; padding: 12px 14px; border-left: 3px solid var(--blue); background: #fff; border-radius: 10px; color: var(--ink); font-weight: 600; line-height: 1.55; white-space: pre-wrap; }
+  .pjd-cl-source-quote {
+    margin-top: 8px;
+    padding: 12px 14px;
+    border-left: 3px solid var(--blue);
+    background: #f8fbff;
+    border-radius: 10px;
+    color: var(--ink);
+    font-weight: 600;
+    line-height: 1.55;
+    white-space: pre-wrap;
+  }
   .pjd-cl-source-meta { display: flex; flex-direction: column; gap: 8px; }
-  .pjd-cl-source-pill { display: inline-flex; width: fit-content; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; font-weight: 700; font-size: .78rem; background: var(--blue-soft); color: var(--blue); border: 1px solid #c7dcfd; }
+  .pjd-cl-source-pill {
+    display: inline-flex;
+    width: fit-content;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: .78rem;
+    background: var(--blue-soft);
+    color: var(--blue);
+    border: 1px solid #c7dcfd;
+  }
   .pjd-cl-source-empty { color: var(--muted); font-weight: 600; }
   .pjd-cl-source-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
-  .pjd-cl-source-btn { border: 1px solid var(--blue); background: #fff; color: var(--blue); border-radius: 999px; padding: 7px 12px; font-family: inherit; font-size: .8rem; font-weight: 700; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: all .15s; }
+  .pjd-cl-source-btn {
+    border: 1px solid var(--blue);
+    background: #fff;
+    color: var(--blue);
+    border-radius: 10px;
+    padding: 8px 12px;
+    font-family: inherit;
+    font-size: .82rem;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all .15s;
+  }
   .pjd-cl-source-btn:hover { background: var(--blue-soft); transform: translateY(-1px); }
   .pjd-cl-source-btn:active { transform: scale(.98); }
 
-  .pjd-cl-cumple-dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--line); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; background: transparent; padding: 0; }
-  .pjd-cl-cumple-dot.is-cumple { background: var(--success); border-color: var(--success); }
-  .pjd-cl-cumple-dot.is-parcial { background: var(--warning); border-color: var(--warning); }
-  .pjd-cl-cumple-dot.is-nocumple { background: var(--danger); border-color: var(--danger); }
-
-  .pjd-cl-status { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; font-size: .8rem; cursor: pointer; padding: 4px 8px; border-radius: 999px; }
-  .pjd-cl-status.is-pendiente { color: var(--warning); background: var(--warning-soft); }
-  .pjd-cl-status.is-revision { color: var(--blue); background: var(--blue-soft); }
-  .pjd-cl-status.is-aprobado { color: var(--success); background: var(--success-soft); }
-
-  .pjd-cl-options { background: var(--blue-soft); border: 1px solid #c7dcfd; color: var(--blue); width: 28px; height: 22px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; padding: 0; font-weight: 700; }
-  .pjd-cl-options:hover { background: #d8e7ff; }
-
-  .pjd-cl-popover { position: fixed; z-index: 200; background: #fff; border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 12px 32px rgba(0,0,0,.12); padding: 6px; display: none; min-width: 160px; }
+  .pjd-cl-popover {
+    position: fixed;
+    z-index: 200;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    box-shadow: 0 16px 40px rgba(0,0,0,.10);
+    padding: 8px;
+    display: none;
+    min-width: 180px;
+  }
   .pjd-cl-popover.is-open { display: block; }
-  .pjd-cl-popover button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 10px; border: none; background: transparent; cursor: pointer; font-family: inherit; font-size: .85rem; text-align: left; border-radius: 6px; color: var(--ink2); }
+  .pjd-cl-popover button {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 12px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: .92rem;
+    text-align: left;
+    border-radius: 10px;
+    color: var(--ink2);
+  }
   .pjd-cl-popover button:hover { background: var(--bg); }
-  .pjd-cl-popover button .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .pjd-cl-popover button .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
 
-  .pjd-cl-no-results { text-align: center; padding: 30px; color: var(--muted); font-size: .9rem; }
+  .pjd-cl-no-results { text-align: center; padding: 36px; color: var(--muted); font-size: .95rem; }
 
-  .pjd-cl-add { margin-top: 10px; padding: 14px; border: 1.5px dashed #c7dcfd; border-radius: 12px; text-align: center; color: var(--blue); font-weight: 700; cursor: pointer; background: transparent; width: 100%; font-family: inherit; font-size: .9rem; transition: all .15s; }
-  .pjd-cl-add:hover { background: var(--blue-soft); }
+  .pjd-cl-add {
+    margin-top: 14px;
+    padding: 16px 14px;
+    border: 1.5px dashed #d5ddec;
+    border-radius: 12px;
+    text-align: center;
+    color: #41536a;
+    font-weight: 700;
+    cursor: pointer;
+    background: #fff;
+    width: 100%;
+    font-family: inherit;
+    font-size: 1rem;
+    transition: all .15s;
+  }
+  .pjd-cl-add:hover { background: #f9fbff; border-color: #bfd3ff; }
+  .pjd-cl-add span { color: var(--blue); margin-right: 8px; font-size: 1.1rem; }
+
+  /* ════════════ CHECKLIST COMPACTO ════════════ */
+  .pjd-checklist-wrap {
+    padding: 14px;
+    border-radius: 14px;
+  }
+  .pjd-checklist-head {
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .pjd-checklist-title-block {
+    gap: 8px;
+  }
+  .pjd-checklist-title {
+    font-size: 1.25rem;
+  }
+  .pjd-checklist-icon {
+    width: 28px;
+    height: 28px;
+  }
+  .pjd-checklist-icon svg {
+    width: 15px;
+    height: 15px;
+  }
+  .pjd-checklist-links {
+    gap: 12px;
+  }
+  .pjd-checklist-link {
+    font-size: .82rem;
+    gap: 6px;
+  }
+  .pjd-checklist-link svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  .pjd-cl-summary {
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .pjd-counters {
+    grid-template-columns: repeat(4, minmax(105px, 1fr));
+    gap: 10px 18px;
+  }
+  .pjd-counter-top {
+    gap: 6px;
+    font-size: .78rem;
+    line-height: 1.1;
+  }
+  .pjd-counter-num {
+    font-size: 1.05rem;
+  }
+  .pjd-counter-pct {
+    font-size: .72rem;
+  }
+  .pjd-counter-bar {
+    height: 6px;
+    margin-top: 5px;
+  }
+  .pjd-counter.is-total {
+    min-width: 82px;
+    padding: 7px 10px;
+    border-radius: 9px;
+  }
+  .pjd-counter.is-total .pjd-counter-num {
+    font-size: 1rem;
+  }
+
+  .pjd-cl-toolbar {
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .pjd-cl-search {
+    min-width: 240px;
+    flex-basis: 340px;
+  }
+  .pjd-cl-search input {
+    height: 38px;
+    padding-left: 38px;
+    border-radius: 10px;
+    font-size: .85rem;
+  }
+  .pjd-cl-search svg {
+    left: 13px;
+    width: 15px;
+    height: 15px;
+  }
+  .pjd-cl-actions {
+    gap: 8px;
+  }
+  .pjd-cl-btn {
+    height: 38px;
+    padding: 0 13px;
+    border-radius: 9px;
+    font-size: .84rem;
+    gap: 6px;
+  }
+  .pjd-cl-btn svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  .pjd-cl-table {
+    min-width: 1040px;
+  }
+  .pjd-cl-table thead th {
+    padding: 10px 10px;
+    font-size: .78rem;
+  }
+  .pjd-cl-table thead th + th::before {
+    top: 12px;
+    bottom: 12px;
+  }
+  .pjd-cl-table tbody td {
+    padding: 7px 10px;
+    font-size: .82rem;
+  }
+  .pjd-cl-th-main,
+  .pjd-cl-th-compact {
+    gap: 5px;
+  }
+  .pjd-cl-th-handle,
+  .pjd-cl-th-sort {
+    font-size: .72rem;
+  }
+  .pjd-cl-check-cell,
+  .pjd-cl-check-head {
+    width: 34px;
+  }
+  .pjd-cl-checkmark {
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+  }
+  .pjd-cl-row-toggle {
+    width: 18px;
+    height: 18px;
+  }
+  .pjd-cl-row-toggle svg {
+    width: 13px;
+    height: 13px;
+  }
+  .pjd-cl-requisito {
+    gap: 7px;
+  }
+  .pjd-cl-row-icon {
+    width: 15px;
+    height: 15px;
+  }
+  .pjd-cl-requisito-text {
+    font-size: .84rem;
+  }
+  .pjd-cl-cumplimiento-btn {
+    gap: 7px;
+  }
+  .pjd-cl-cumple-dot {
+    width: 18px;
+    height: 18px;
+    border-width: 1.8px;
+  }
+  .pjd-cl-cumple-dot::after {
+    width: 6px;
+    height: 6px;
+  }
+  .pjd-cl-cumple-text {
+    min-width: 48px;
+    font-size: .82rem;
+  }
+  .pjd-cl-status {
+    gap: 6px;
+    font-size: .82rem;
+  }
+  .pjd-cl-status-icon {
+    width: 18px;
+    height: 18px;
+  }
+  .pjd-cl-status svg {
+    width: 18px;
+    height: 18px;
+  }
+  .pjd-cl-options {
+    width: 24px;
+    height: 24px;
+  }
+  .pjd-cl-options svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .pjd-cl-detail {
+    padding: 12px 16px;
+  }
+  .pjd-cl-detail-grid {
+    gap: 10px;
+  }
+  .pjd-cl-detail-card {
+    padding: 12px 14px;
+    border-radius: 12px;
+  }
+  .pjd-cl-detail-kicker {
+    padding: 4px 8px;
+    font-size: .68rem;
+    margin-bottom: 7px;
+  }
+  .pjd-cl-detail-row,
+  .pjd-cl-source-quote {
+    font-size: .8rem;
+    line-height: 1.45;
+  }
+  .pjd-cl-source-quote {
+    padding: 9px 11px;
+  }
+  .pjd-cl-source-btn {
+    padding: 6px 10px;
+    font-size: .76rem;
+    border-radius: 8px;
+  }
+  .pjd-cl-add {
+    margin-top: 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    font-size: .88rem;
+  }
+  .pjd-cl-add-form {
+    display: none;
+    margin-top: 10px;
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+  }
+  .pjd-cl-add-form.is-open { display: block; animation: pjdMenuIn .16s ease both; }
+  .pjd-cl-add-title {
+    margin: 0 0 12px;
+    font-size: .95rem;
+    font-weight: 700;
+    color: #111111;
+  }
+  .pjd-cl-add-grid {
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) minmax(180px, .5fr);
+    gap: 10px;
+  }
+  .pjd-cl-add-field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+  .pjd-cl-add-field.is-full { grid-column: 1 / -1; }
+  .pjd-cl-add-field label {
+    font-size: .78rem;
+    font-weight: 700;
+    color: #374151;
+  }
+  .pjd-cl-add-field input,
+  .pjd-cl-add-field textarea {
+    width: 100%;
+    border: 1px solid #dfe5ee;
+    border-radius: 9px;
+    background: #fff;
+    color: #111827;
+    font-family: inherit;
+    font-size: .9rem;
+    font-weight: 600;
+    outline: none;
+    transition: border-color .18s ease, box-shadow .18s ease;
+  }
+  .pjd-cl-add-field input { height: 40px; padding: 0 12px; }
+  .pjd-cl-add-field textarea { min-height: 74px; padding: 10px 12px; resize: vertical; }
+  .pjd-cl-add-field input:focus,
+  .pjd-cl-add-field textarea:focus {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px var(--blue-soft);
+  }
+  .pjd-cl-add-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .pjd-cl-add-save,
+  .pjd-cl-add-cancel {
+    height: 38px;
+    padding: 0 14px;
+    border-radius: 9px;
+    font-family: inherit;
+    font-size: .86rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform .15s ease, background .15s ease, border-color .15s ease;
+  }
+  .pjd-cl-add-save {
+    border: none;
+    background: var(--blue);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(0,122,255,.14);
+  }
+  .pjd-cl-add-save:hover { background: #0a84ff; transform: translateY(-1px); }
+  .pjd-cl-add-save:active,
+  .pjd-cl-add-cancel:active { transform: scale(.98); }
+  .pjd-cl-add-cancel {
+    border: 1px solid var(--line);
+    background: #fff;
+    color: #111827;
+  }
+  .pjd-cl-add-cancel:hover { background: #f9fafb; }
+  @media (max-width: 720px) {
+    .pjd-cl-add-grid { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 1200px) {
+    .pjd-counters { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
+  }
+
+  /* ════════════ MENUS FUNCIONALES CHECKLIST ════════════ */
+  .pjd-cl-menu-wrap { position: relative; display: inline-flex; }
+  .pjd-cl-menu {
+    position: fixed;
+    top: 0;
+    right: auto;
+    z-index: 260;
+    width: 260px;
+    max-height: min(560px, 72vh);
+    overflow: auto;
+    display: none;
+    padding: 10px;
+    border: 1px solid #dfe5ee;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 14px 36px rgba(15,23,42,.12);
+  }
+  .pjd-cl-menu.is-open { display: block; animation: pjdMenuIn .16s ease both; }
+  @keyframes pjdMenuIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+  .pjd-cl-menu-title {
+    margin: 6px 8px 8px;
+    font-size: .88rem;
+    font-weight: 700;
+    color: #111;
+  }
+  .pjd-cl-menu-sep { height: 1px; background: #e5e7eb; margin: 8px; }
+  .pjd-cl-menu-option {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    font-family: inherit;
+    font-size: .88rem;
+    font-weight: 600;
+    color: #1f2937;
+    cursor: pointer;
+    text-align: left;
+  }
+  .pjd-cl-menu-option:hover { background: #f9fafb; }
+  .pjd-cl-menu-option.is-disabled { opacity: .45; cursor: not-allowed; }
+  .pjd-cl-menu-left { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
+  .pjd-cl-menu-check {
+    width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #111827;
+    flex-shrink: 0;
+  }
+  .pjd-cl-menu-square {
+    width: 20px;
+    height: 20px;
+    border: 1.8px solid var(--blue);
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    background: #fff;
+    flex-shrink: 0;
+  }
+  .pjd-cl-menu-option.is-active .pjd-cl-menu-square {
+    background: var(--blue);
+  }
+  .pjd-cl-menu-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    display: inline-block;
+    flex-shrink: 0;
+    background: #9ca3af;
+  }
+  .pjd-cl-menu-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 8px 4px;
+  }
+  .pjd-cl-menu-mini {
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: #fff;
+    color: #475569;
+    padding: 6px 10px;
+    font-family: inherit;
+    font-size: .76rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .pjd-cl-menu-mini:hover { background: #f9fafb; color: var(--blue); border-color: #cfe0fb; }
+  .pjd-cl-table [data-col].is-hidden-col { display: none !important; }
+  .pjd-cl-hidden-count {
+    display: none;
+    margin-left: 6px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: var(--blue-soft);
+    color: var(--blue);
+    font-size: .68rem;
+    font-weight: 700;
+  }
+  .pjd-cl-hidden-count.is-visible { display: inline-flex; }
+  .pjd-cl-no-filter-results td {
+    text-align: center;
+    padding: 24px 12px !important;
+    color: var(--muted) !important;
+    font-weight: 600;
+  }
+  @media print {
+    .pjd-topbar, .pjd-left, .pjd-resizer, .pjd-cl-toolbar, .pjd-checklist-links, .pjd-cl-add { display: none !important; }
+    .pjd-body { display: block !important; }
+    .pjd-right { overflow: visible !important; }
+    .pjd-pane { display: none !important; }
+    .pjd-pane[data-pane="checklist"] { display: block !important; }
+    .pjd-checklist-wrap { box-shadow: none !important; border: 0 !important; }
+  }
 
   /* ════════════ BORRADOR / REPORTE ════════════ */
   .pjd-borrador-tabs { display: flex; gap: 6px; align-items: center; background: var(--bg); padding: 4px; border-radius: 999px; border: 1px solid var(--line); margin-bottom: 16px; width: fit-content; }
@@ -447,558 +1464,6 @@
   .pjd-toast.is-success { background: var(--success); }
   .pjd-toast.is-error { background: var(--danger); }
   @keyframes pjdToastIn { from { opacity:0; transform: translateY(20px); } to { opacity:1; transform: translateY(0); } }
-
-
-  /* ═══════════════════════════════════════════════════════════════
-     AJUSTE PRO: PANEL EXPANDIBLE TIPO WORKSPACE / YOUTUBE
-     Mantiene la lógica Blade/PHP/JS intacta y mejora la expansión visual.
-  ═══════════════════════════════════════════════════════════════ */
-  *, *::before, *::after { box-sizing: border-box; }
-
-  html { scroll-behavior: smooth; }
-
-  body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--ink2);
-    -webkit-font-smoothing: antialiased;
-    text-rendering: geometricPrecision;
-  }
-
-  button, input, textarea, select, a { -webkit-tap-highlight-color: transparent; }
-
-  .pjd-wrap {
-    background:
-      radial-gradient(circle at top left, rgba(0,122,255,.035), transparent 28%),
-      var(--bg);
-  }
-
-  .pjd-topbar {
-    min-height: 64px;
-    padding: 12px clamp(16px, 2.2vw, 32px);
-    background: rgba(255,255,255,.92);
-    backdrop-filter: saturate(180%) blur(16px);
-    box-shadow: 0 1px 0 rgba(0,0,0,.03);
-  }
-
-  .pjd-back,
-  .pjd-view-doc,
-  .pjd-tab,
-  .pjd-chat-reset,
-  .pjd-chat-send,
-  .pjd-chat-table-btn,
-  .pjd-cl-btn,
-  .pjd-checklist-link,
-  .pjd-source-btn,
-  .pjd-cl-source-btn,
-  .pjd-reporte-btn,
-  .pjd-doc-link,
-  .pjd-borrador-tab,
-  .pjd-draft-btn,
-  .pjd-doc-drawer-toolbtn,
-  .pjd-doc-drawer-nav button,
-  .pjd-doc-drawer-close,
-  .pjd-source-close,
-  .pjd-cl-options,
-  .pjd-cl-add {
-    will-change: transform, box-shadow, background, color, border-color;
-  }
-
-  .pjd-back:active,
-  .pjd-view-doc:active,
-  .pjd-tab:active,
-  .pjd-chat-reset:active,
-  .pjd-chat-send:active,
-  .pjd-chat-table-btn:active,
-  .pjd-cl-btn:active,
-  .pjd-checklist-link:active,
-  .pjd-source-btn:active,
-  .pjd-cl-source-btn:active,
-  .pjd-reporte-btn:active,
-  .pjd-doc-link:active,
-  .pjd-borrador-tab:active,
-  .pjd-draft-btn:active,
-  .pjd-doc-drawer-toolbtn:active,
-  .pjd-doc-drawer-nav button:active,
-  .pjd-doc-drawer-close:active,
-  .pjd-source-close:active,
-  .pjd-cl-options:active,
-  .pjd-cl-add:active {
-    transform: scale(.98);
-  }
-
-  .pjd-body {
-    grid-template-columns: minmax(420px, .92fr) minmax(620px, 1.08fr);
-    background: var(--bg);
-  }
-
-  .pjd-left {
-    top: 64px;
-    height: calc(100vh - 64px);
-    border-right: 1px solid var(--line);
-    background: rgba(255,255,255,.92);
-  }
-
-  .pjd-right {
-    padding: clamp(14px, 2vw, 28px);
-    background: var(--bg);
-  }
-
-  .pjd-pane {
-    padding: 0;
-    max-width: 1160px;
-    width: 100%;
-    margin: 0 auto;
-  }
-
-  .pjd-card,
-  .pjd-checklist-wrap,
-  .pjd-inicio-card,
-  .pjd-reporte-content,
-  .pjd-reporte-empty,
-  .pjd-doc,
-  .pjd-chat-table-wrap {
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 16px;
-    box-shadow: 0 4px 12px rgba(0,0,0,.02);
-    transition: transform .22s cubic-bezier(.22,1,.36,1), box-shadow .22s ease, border-color .22s ease;
-  }
-
-  .pjd-card:hover,
-  .pjd-checklist-wrap:hover,
-  .pjd-inicio-card:hover,
-  .pjd-doc:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 12px 28px rgba(17,17,17,.045);
-    border-color: #e3e7ee;
-  }
-
-  .pjd-card {
-    overflow: hidden;
-    margin-bottom: 16px;
-  }
-
-  .pjd-card-head {
-    min-height: 58px;
-    padding: 16px 18px;
-    background: #fff;
-    border-bottom: 1px solid transparent;
-    position: relative;
-  }
-
-  .pjd-card.is-open .pjd-card-head { border-bottom-color: var(--line); }
-
-  .pjd-card-head:hover { background: #fcfdff; }
-
-  .pjd-card-head::after {
-    content: "";
-    position: absolute;
-    left: 18px;
-    right: 18px;
-    bottom: 0;
-    height: 1px;
-    background: var(--line);
-    opacity: 0;
-    transition: opacity .18s ease;
-  }
-
-  .pjd-card.is-open .pjd-card-head::after { opacity: 1; }
-
-  .pjd-card-head h3 {
-    font-size: .98rem;
-    letter-spacing: -.01em;
-  }
-
-  .pjd-card-chev {
-    width: 30px;
-    height: 30px;
-    border-radius: 999px;
-    background: var(--bg);
-    border: 1px solid var(--line);
-    color: var(--muted);
-    font-size: .95rem;
-  }
-
-  .pjd-card-head:hover .pjd-card-chev {
-    background: var(--blue-soft);
-    border-color: #c7dcfd;
-    color: var(--blue);
-  }
-
-  .pjd-card-body {
-    display: block;
-    padding: 0 18px;
-    max-height: 0;
-    opacity: 0;
-    overflow: hidden;
-    transform: translateY(-4px);
-    transition:
-      max-height .36s cubic-bezier(.22,1,.36,1),
-      opacity .22s ease,
-      transform .22s ease,
-      padding .22s ease;
-  }
-
-  .pjd-card.is-open .pjd-card-body {
-    max-height: 3200px;
-    opacity: 1;
-    transform: translateY(0);
-    padding: 10px 18px 18px;
-  }
-
-  .pjd-field,
-  .pjd-qa {
-    padding: 14px 12px;
-    margin: 2px 0;
-    border-bottom: 1px solid var(--line);
-    border-radius: 12px;
-  }
-
-  .pjd-field:last-child,
-  .pjd-qa:last-child { border-bottom: 0; }
-
-  .pjd-field-label,
-  .pjd-qa-q {
-    background: transparent;
-    color: var(--muted);
-    padding: 0;
-    margin-bottom: 7px;
-    letter-spacing: .01em;
-  }
-
-  .pjd-field-value,
-  .pjd-qa-a {
-    padding: 0;
-    color: var(--ink2);
-    font-weight: 600;
-  }
-
-  .pjd-field.has-cita,
-  .pjd-qa.has-cita,
-  .pjd-field.has-no-cita,
-  .pjd-qa.has-no-cita { padding-right: 128px; }
-
-  .pjd-field.has-cita:hover,
-  .pjd-qa.has-cita:hover,
-  .pjd-field.is-source-open,
-  .pjd-qa.is-source-open {
-    background: #f8fbff;
-    box-shadow: inset 3px 0 0 var(--blue);
-  }
-
-  .pjd-cita-badge {
-    top: 14px;
-    right: 12px;
-    opacity: 1;
-    transform: none;
-    background: var(--blue-soft);
-    border-color: #c7dcfd;
-  }
-
-  .pjd-source-panel {
-    padding: 0;
-    max-height: 0;
-    opacity: 0;
-    overflow: hidden;
-    display: block;
-    transition: max-height .36s cubic-bezier(.22,1,.36,1), opacity .22s ease, padding .22s ease;
-  }
-
-  .pjd-field.is-source-open .pjd-source-panel,
-  .pjd-qa.is-source-open .pjd-source-panel {
-    max-height: 1200px;
-    opacity: 1;
-    padding: 14px 0 2px;
-  }
-
-  .pjd-source-card {
-    background: var(--card);
-    border: 1px solid var(--line);
-    box-shadow: 0 4px 12px rgba(0,0,0,.02);
-  }
-
-  .pjd-source-card::before { background: var(--blue); }
-
-  .pjd-source-quote,
-  .pjd-doc-drawer-quote-text,
-  .pjd-cl-source-quote {
-    background: #f8fbff;
-    border-color: #dceaff;
-    color: var(--ink2);
-  }
-
-  .pjd-source-btn:not(.is-ghost),
-  .pjd-chat-table-btn.is-primary,
-  .pjd-cl-btn.is-primary,
-  .pjd-reporte-btn,
-  .pjd-borrador-tab.is-active,
-  .pjd-tab.is-active {
-    background: var(--blue);
-    color: #fff;
-    border-color: var(--blue);
-    box-shadow: 0 8px 18px rgba(0,122,255,.16);
-  }
-
-  .pjd-source-btn:not(.is-ghost):hover,
-  .pjd-chat-table-btn.is-primary:hover,
-  .pjd-cl-btn.is-primary:hover,
-  .pjd-reporte-btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 12px 24px rgba(0,122,255,.20);
-    filter: none;
-  }
-
-  .pjd-source-btn.is-ghost,
-  .pjd-cl-source-btn,
-  .pjd-doc-link {
-    background: #fff;
-    color: var(--blue);
-    border: 1px solid var(--blue);
-  }
-
-  .pjd-source-btn.is-ghost:hover,
-  .pjd-cl-source-btn:hover,
-  .pjd-doc-link:hover {
-    background: var(--blue-soft);
-    border-color: var(--blue);
-  }
-
-  input,
-  textarea,
-  select,
-  .pjd-draft-editor {
-    background: #fff;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    color: var(--ink2);
-  }
-
-  input:focus,
-  textarea:focus,
-  select:focus,
-  .pjd-draft-editor:focus,
-  .pjd-chat-input input:focus {
-    outline: none;
-    border-color: var(--blue);
-    box-shadow: 0 0 0 3px var(--blue-soft);
-  }
-
-  .pjd-chat-head,
-  .pjd-chat-input {
-    background: rgba(255,255,255,.96);
-  }
-
-  .pjd-chat-list {
-    padding: 22px;
-    max-height: calc(100vh - 248px);
-  }
-
-  .pjd-msg-avatar {
-    background: var(--blue);
-    box-shadow: 0 6px 16px rgba(0,122,255,.18);
-  }
-
-  .pjd-msg-body {
-    border-radius: 16px;
-    box-shadow: 0 4px 12px rgba(0,0,0,.02);
-  }
-
-  .pjd-msg.is-user .pjd-msg-body {
-    background: var(--blue);
-    color: #fff;
-    border-color: var(--blue);
-    box-shadow: 0 8px 18px rgba(0,122,255,.16);
-  }
-
-  .pjd-chat-send {
-    background: var(--blue);
-    box-shadow: 0 8px 18px rgba(0,122,255,.16);
-  }
-
-  .pjd-chat-send:hover { transform: translateY(-1px); }
-
-  .pjd-checklist-wrap { padding: 18px; }
-
-  .pjd-checklist-head {
-    padding: 2px 2px 16px;
-    border-bottom: 1px solid var(--line);
-  }
-
-  .pjd-checklist-title {
-    color: var(--ink);
-    letter-spacing: -.015em;
-  }
-
-  .pjd-counters {
-    margin: 18px 0;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-
-  .pjd-counter {
-    background: #fff;
-    border: 1px solid var(--line);
-    border-radius: 14px;
-    padding: 13px 14px;
-    box-shadow: 0 4px 12px rgba(0,0,0,.015);
-  }
-
-  .pjd-counter.is-total {
-    background: #fff;
-    border-color: #c7dcfd;
-    box-shadow: inset 0 0 0 1px var(--blue-soft);
-  }
-
-  .pjd-cl-toolbar {
-    background: #fff;
-    border: 1px solid var(--line);
-    border-radius: 14px;
-    padding: 10px;
-    margin-bottom: 14px;
-    box-shadow: 0 4px 12px rgba(0,0,0,.015);
-  }
-
-  .pjd-cl-search input {
-    border-radius: 999px;
-    min-height: 40px;
-  }
-
-  .pjd-cl-table-wrap {
-    border: 1px solid var(--line);
-    border-radius: 16px;
-    background: #fff;
-    overflow: auto;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.8);
-  }
-
-  .pjd-cl-table {
-    border: 0;
-    border-radius: 0;
-    min-width: 980px;
-  }
-
-  .pjd-cl-table thead th {
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    background: #fff;
-    color: var(--muted);
-    border-bottom: 1px solid var(--line);
-    padding: 14px 14px;
-  }
-
-  .pjd-cl-table tbody td {
-    padding: 14px;
-    background: #fff;
-  }
-
-  .pjd-cl-table tbody tr[data-row] {
-    transition: background .18s ease, box-shadow .18s ease, transform .18s ease;
-  }
-
-  .pjd-cl-table tbody tr[data-row]:hover td {
-    background: #fbfdff;
-  }
-
-  .pjd-cl-table tbody tr[data-row].is-expanded td {
-    background: #f8fbff;
-  }
-
-  .pjd-cl-detail {
-    padding: 18px;
-    background: #f8fbff;
-    border-top: 1px solid #dceaff;
-  }
-
-  .pjd-cl-detail-card {
-    background: #fff;
-    border: 1px solid var(--line);
-    border-radius: 16px;
-    box-shadow: 0 4px 12px rgba(0,0,0,.02);
-  }
-
-  .pjd-cl-status {
-    border: 1px solid transparent;
-  }
-
-  .pjd-cl-status.is-pendiente { color: var(--warning); background: var(--warning-soft); border-color: #fde68a; }
-  .pjd-cl-status.is-revision { color: var(--blue); background: var(--blue-soft); border-color: #c7dcfd; }
-  .pjd-cl-status.is-aprobado { color: var(--success); background: var(--success-soft); border-color: #bbf7d0; }
-
-  .pjd-cl-add {
-    margin-top: 14px;
-    min-height: 46px;
-    border-radius: 14px;
-    background: #fff;
-  }
-
-  .pjd-borrador-tabs {
-    background: #fff;
-    border-radius: 999px;
-    padding: 5px;
-    box-shadow: 0 4px 12px rgba(0,0,0,.02);
-  }
-
-  .pjd-draft-toolbar {
-    background: #fff;
-    border: 1px solid var(--line);
-    border-bottom: 0;
-    border-radius: 16px 16px 0 0;
-    padding: 10px;
-  }
-
-  .pjd-draft-editor {
-    border-radius: 0 0 16px 16px;
-    min-height: 540px;
-    line-height: 1.65;
-  }
-
-  .pjd-doc-drawer-backdrop {
-    background: rgba(17,24,39,.34);
-    backdrop-filter: blur(8px);
-  }
-
-  .pjd-doc-drawer-panel {
-    width: min(980px, 96vw);
-    background: var(--bg);
-    box-shadow: 18px 0 50px rgba(17,24,39,.18);
-  }
-
-  .pjd-doc-drawer-head,
-  .pjd-doc-drawer-nav,
-  .pjd-doc-drawer-quote { background: #fff; }
-
-  .pjd-pdf-scroll { background: #f3f4f6; }
-
-  .pjd-pdf-container canvas {
-    border-radius: 12px;
-    box-shadow: 0 14px 38px rgba(17,24,39,.16);
-  }
-
-  .pjd-pdf-hl {
-    background: rgba(0,122,255,.24);
-    box-shadow: 0 0 0 1px rgba(0,122,255,.45), 0 4px 12px rgba(0,122,255,.16);
-  }
-
-  @media (max-width: 1100px) {
-    .pjd-body { grid-template-columns: 1fr; }
-    .pjd-left { top: 0; height: auto; position: static; }
-    .pjd-right { padding: 16px; }
-    .pjd-counters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  }
-
-  @media (max-width: 720px) {
-    .pjd-topbar { gap: 10px; }
-    .pjd-tabs { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 4px; }
-    .pjd-tab { flex: 0 0 auto; }
-    .pjd-field.has-cita,
-    .pjd-qa.has-cita,
-    .pjd-field.has-no-cita,
-    .pjd-qa.has-no-cita { padding-right: 12px; }
-    .pjd-cita-badge { position: static; margin-top: 10px; width: fit-content; display: flex; }
-    .pjd-counters { grid-template-columns: 1fr; }
-  }
-
 </style>
 @endpush
 
@@ -1208,6 +1673,8 @@
       </form>
     </div>
 
+    <div class="pjd-resizer" id="pjdResizer" role="separator" aria-orientation="vertical" aria-label="Ajustar ancho del chat y del contenido" tabindex="0"></div>
+
     {{-- COLUMNA DERECHA: PANEL --}}
     <div class="pjd-right">
 
@@ -1376,50 +1843,115 @@
       <div class="pjd-pane" data-pane="checklist">
         <div class="pjd-checklist-wrap">
           <div class="pjd-checklist-head">
-            <div class="pjd-checklist-title">{{ $project->name }} <span class="star">⭐</span></div>
-            <div class="pjd-checklist-head-actions">
+            <div class="pjd-checklist-title-block">
+              <h3 class="pjd-checklist-title">{{ $project->name }}</h3>
+              <div class="pjd-checklist-title-actions">
+                <button type="button" class="pjd-checklist-icon" aria-label="Editar nombre">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5Z"/></svg>
+                </button>
+                <button type="button" class="pjd-checklist-icon" aria-label="Favorito">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m12 17.27 6.18 3.73-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="pjd-checklist-links">
               <button type="button" class="pjd-checklist-link" id="pjdClDownload">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 18 15 15"/></svg>
                 Descargar lista
+              </button>
+              <button type="button" class="pjd-checklist-link" id="pjdClExportBtn" aria-label="Exportar archivos">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 5 17 10"/><line x1="12" y1="5" x2="12" y2="17"/></svg>
+                Exportar 0 archivos (0 B)
               </button>
             </div>
           </div>
 
-          <div class="pjd-counters" id="pjdClCounters">
-            <div class="pjd-counter is-pending"><div class="pjd-counter-top"><span class="pjd-counter-num" data-counter="sin_revisar">0</span> Sin revisar <span class="pjd-counter-pct" data-pct="sin_revisar">0%</span></div><div class="pjd-counter-bar"><div class="pjd-counter-bar-fill" data-bar="sin_revisar" style="width:0%"></div></div></div>
-            <div class="pjd-counter is-nocumple"><div class="pjd-counter-top"><span class="pjd-counter-num" data-counter="no_cumple">0</span> No Cumple <span class="pjd-counter-pct" data-pct="no_cumple">0%</span></div><div class="pjd-counter-bar"><div class="pjd-counter-bar-fill" data-bar="no_cumple" style="width:0%"></div></div></div>
-            <div class="pjd-counter is-parcial"><div class="pjd-counter-top"><span class="pjd-counter-num" data-counter="parcial">0</span> Parcial <span class="pjd-counter-pct" data-pct="parcial">0%</span></div><div class="pjd-counter-bar"><div class="pjd-counter-bar-fill" data-bar="parcial" style="width:0%"></div></div></div>
-            <div class="pjd-counter is-cumple"><div class="pjd-counter-top"><span class="pjd-counter-num" data-counter="cumple">0</span> Cumple <span class="pjd-counter-pct" data-pct="cumple">0%</span></div><div class="pjd-counter-bar"><div class="pjd-counter-bar-fill" data-bar="cumple" style="width:0%"></div></div></div>
-            <div class="pjd-counter is-pending"><div class="pjd-counter-top"><span class="pjd-counter-num" data-counter="pendiente">0</span> Pendiente <span class="pjd-counter-pct" data-pct="pendiente">0%</span></div><div class="pjd-counter-bar"><div class="pjd-counter-bar-fill" data-bar="pendiente" style="width:0%"></div></div></div>
-            <div class="pjd-counter is-review"><div class="pjd-counter-top"><span class="pjd-counter-num" data-counter="revision">0</span> En revisión <span class="pjd-counter-pct" data-pct="revision">0%</span></div><div class="pjd-counter-bar"><div class="pjd-counter-bar-fill" data-bar="revision" style="width:0%"></div></div></div>
-            <div class="pjd-counter is-approved"><div class="pjd-counter-top"><span class="pjd-counter-num" data-counter="aprobado">0</span> Aprobado <span class="pjd-counter-pct" data-pct="aprobado">0%</span></div><div class="pjd-counter-bar"><div class="pjd-counter-bar-fill" data-bar="aprobado" style="width:0%"></div></div></div>
-            <div class="pjd-counter is-total"><div class="pjd-counter-top"><span class="pjd-counter-num" id="pjdClTotalNum">0</span> Total</div></div>
+          <div class="pjd-cl-summary">
+            <div class="pjd-counters" id="pjdClCounters">
+              <div class="pjd-counter"><div class="pjd-counter-top"><span class="pjd-counter-num" data-counter="sin_revisar">0</span><span class="pjd-counter-label">Sin revisar</span><span class="pjd-counter-pct" data-pct="sin_revisar">0%</span></div><div class="pjd-counter-bar"><div class="pjd-counter-bar-fill" data-bar="sin_revisar" style="width:0%"></div></div></div>
+              <div class="pjd-counter is-nocumple"><div class="pjd-counter-top"><span class="pjd-counter-num" data-counter="no_cumple">0</span><span class="pjd-counter-label">No Cumple</span><span class="pjd-counter-pct" data-pct="no_cumple">0%</span></div><div class="pjd-counter-bar"><div class="pjd-counter-bar-fill" data-bar="no_cumple" style="width:0%"></div></div></div>
+              <div class="pjd-counter is-parcial"><div class="pjd-counter-top"><span class="pjd-counter-num" data-counter="parcial">0</span><span class="pjd-counter-label">Parcial</span><span class="pjd-counter-pct" data-pct="parcial">0%</span></div><div class="pjd-counter-bar"><div class="pjd-counter-bar-fill" data-bar="parcial" style="width:0%"></div></div></div>
+              <div class="pjd-counter is-cumple"><div class="pjd-counter-top"><span class="pjd-counter-num" data-counter="cumple">0</span><span class="pjd-counter-label">Cumple</span><span class="pjd-counter-pct" data-pct="cumple">0%</span></div><div class="pjd-counter-bar"><div class="pjd-counter-bar-fill" data-bar="cumple" style="width:0%"></div></div></div>
+              <div class="pjd-counter is-pending"><div class="pjd-counter-top"><span class="pjd-counter-num" data-counter="pendiente">0</span><span class="pjd-counter-label">Pendiente</span><span class="pjd-counter-pct" data-pct="pendiente">0%</span></div><div class="pjd-counter-bar"><div class="pjd-counter-bar-fill" data-bar="pendiente" style="width:0%"></div></div></div>
+              <div class="pjd-counter is-review"><div class="pjd-counter-top"><span class="pjd-counter-num" data-counter="revision">0</span><span class="pjd-counter-label">En revisión</span><span class="pjd-counter-pct" data-pct="revision">0%</span></div><div class="pjd-counter-bar"><div class="pjd-counter-bar-fill" data-bar="revision" style="width:0%"></div></div></div>
+              <div class="pjd-counter is-approved"><div class="pjd-counter-top"><span class="pjd-counter-num" data-counter="aprobado">0</span><span class="pjd-counter-label">Aprobado</span><span class="pjd-counter-pct" data-pct="aprobado">0%</span></div><div class="pjd-counter-bar"><div class="pjd-counter-bar-fill" data-bar="aprobado" style="width:0%"></div></div></div>
+              <div class="pjd-counter is-total"><div class="pjd-counter-top"><span class="pjd-counter-num" id="pjdClTotalNum">0</span><span class="pjd-counter-label">Total</span></div></div>
+            </div>
           </div>
 
           <div class="pjd-cl-toolbar">
             <div class="pjd-cl-search">
-              <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
               <input type="text" id="pjdClSearch" placeholder="Buscar por requisito, formato o descripción...">
             </div>
-            <button type="button" class="pjd-cl-btn is-primary" id="pjdClReanalisis">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
-              Reanálisis
-            </button>
+            <div class="pjd-cl-actions">
+              <button type="button" class="pjd-cl-btn is-primary" id="pjdClReanalisis">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v4"/><path d="M12 17v4"/><path d="M4.93 4.93l2.83 2.83"/><path d="M16.24 16.24l2.83 2.83"/><path d="M3 12h4"/><path d="M17 12h4"/><path d="M4.93 19.07l2.83-2.83"/><path d="M16.24 7.76l2.83-2.83"/></svg>
+                Reanálisis
+              </button>
+              <div class="pjd-cl-menu-wrap"><button type="button" class="pjd-cl-btn" id="pjdClFiltersBtn" aria-label="Filtros" aria-haspopup="true" aria-expanded="false">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                Filtros
+              </button></div>
+              <div class="pjd-cl-menu-wrap"><button type="button" class="pjd-cl-btn" id="pjdClColumnsBtn" aria-label="Columnas" aria-haspopup="true" aria-expanded="false">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+                Columnas <span class="pjd-cl-hidden-count" id="pjdClHiddenCount">0</span>
+              </button></div>
+            </div>
+          </div>
+
+          <div class="pjd-cl-menu" id="pjdClExportMenu" aria-hidden="true">
+            <button type="button" class="pjd-cl-menu-option" data-export="csv"><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-check"></span>Exportar CSV</span></button>
+            <button type="button" class="pjd-cl-menu-option" data-export="pdf"><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-check"></span>Exportar PDF</span></button>
+          </div>
+
+          <div class="pjd-cl-menu" id="pjdClFiltersMenu" aria-hidden="true">
+            <div class="pjd-cl-menu-title">Cumplimiento</div>
+            <button type="button" class="pjd-cl-menu-option is-active" data-filter-group="cumplimiento" data-filter-value="__all"><span class="pjd-cl-menu-left">Todos</span><span class="pjd-cl-menu-square">✓</span></button>
+            <button type="button" class="pjd-cl-menu-option" data-filter-group="cumplimiento" data-filter-value="-"><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-dot" style="background:#9ca3af"></span>Sin revisar (-)</span><span class="pjd-cl-menu-square"></span></button>
+            <button type="button" class="pjd-cl-menu-option" data-filter-group="cumplimiento" data-filter-value="Cumple"><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-dot" style="background:#22c55e"></span>Cumple</span><span class="pjd-cl-menu-square"></span></button>
+            <button type="button" class="pjd-cl-menu-option" data-filter-group="cumplimiento" data-filter-value="Parcial"><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-dot" style="background:#eab308"></span>Parcial</span><span class="pjd-cl-menu-square"></span></button>
+            <button type="button" class="pjd-cl-menu-option" data-filter-group="cumplimiento" data-filter-value="No Cumple"><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-dot" style="background:#ef4444"></span>No Cumple</span><span class="pjd-cl-menu-square"></span></button>
+            <div class="pjd-cl-menu-sep"></div>
+            <div class="pjd-cl-menu-title">Status</div>
+            <button type="button" class="pjd-cl-menu-option is-active" data-filter-group="status" data-filter-value="__all"><span class="pjd-cl-menu-left">Todos</span><span class="pjd-cl-menu-square">✓</span></button>
+            <button type="button" class="pjd-cl-menu-option" data-filter-group="status" data-filter-value="Pendiente"><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-dot" style="background:#f59e0b"></span>Pendiente</span><span class="pjd-cl-menu-square"></span></button>
+            <button type="button" class="pjd-cl-menu-option" data-filter-group="status" data-filter-value="En revisión"><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-dot" style="background:#3b82f6"></span>En revisión</span><span class="pjd-cl-menu-square"></span></button>
+            <button type="button" class="pjd-cl-menu-option" data-filter-group="status" data-filter-value="Aprobado"><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-dot" style="background:#22c55e"></span>Aprobado</span><span class="pjd-cl-menu-square"></span></button>
+            <div class="pjd-cl-menu-sep"></div>
+            <div class="pjd-cl-menu-title">Prioridad</div>
+            <button type="button" class="pjd-cl-menu-option is-active" data-filter-group="prioridad" data-filter-value="__all"><span class="pjd-cl-menu-left">Todas</span><span class="pjd-cl-menu-square">✓</span></button>
+            <button type="button" class="pjd-cl-menu-option" data-filter-group="prioridad" data-filter-value="Alta"><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-dot" style="background:#ef4444"></span>Alta</span><span class="pjd-cl-menu-square"></span></button>
+            <button type="button" class="pjd-cl-menu-option" data-filter-group="prioridad" data-filter-value="Media"><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-dot" style="background:#eab308"></span>Media</span><span class="pjd-cl-menu-square"></span></button>
+            <button type="button" class="pjd-cl-menu-option" data-filter-group="prioridad" data-filter-value="Baja"><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-dot" style="background:#64748b"></span>Baja</span><span class="pjd-cl-menu-square"></span></button>
+            <div class="pjd-cl-menu-actions"><button type="button" class="pjd-cl-menu-mini" id="pjdClClearFilters">Limpiar</button><button type="button" class="pjd-cl-menu-mini" id="pjdClCloseFilters">Cerrar</button></div>
+          </div>
+
+          <div class="pjd-cl-menu" id="pjdClColumnsMenu" aria-hidden="true">
+            <button type="button" class="pjd-cl-menu-option is-disabled" disabled><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-check">✓</span>Requisito</span></button>
+            <button type="button" class="pjd-cl-menu-option is-active" data-column-toggle="formato"><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-check">✓</span>Formato</span></button>
+            <button type="button" class="pjd-cl-menu-option is-active" data-column-toggle="categoria"><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-check">✓</span>Categoría</span></button>
+            <button type="button" class="pjd-cl-menu-option is-active" data-column-toggle="aplicabilidad"><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-check">✓</span>Aplicación</span></button>
+            <button type="button" class="pjd-cl-menu-option is-active" data-column-toggle="obligatorio"><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-check">✓</span>Obligatorio</span></button>
+            <button type="button" class="pjd-cl-menu-option is-active" data-column-toggle="cumplimiento"><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-check">✓</span>Cumplimiento</span></button>
+            <button type="button" class="pjd-cl-menu-option is-active" data-column-toggle="status"><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-check">✓</span>Status</span></button>
+            <button type="button" class="pjd-cl-menu-option is-active" data-column-toggle="opciones"><span class="pjd-cl-menu-left"><span class="pjd-cl-menu-check">✓</span>Opciones</span></button>
+            <div class="pjd-cl-menu-actions"><button type="button" class="pjd-cl-menu-mini" id="pjdClShowAllColumns">Mostrar todo</button><button type="button" class="pjd-cl-menu-mini" id="pjdClCloseColumns">Cerrar</button></div>
           </div>
 
           <div class="pjd-cl-table-wrap">
             <table class="pjd-cl-table" id="pjdClTable">
               <thead>
                 <tr>
-                  <th style="width:38px"></th>
-                  <th>Requisito</th>
-                  <th>Formato</th>
-                  <th>Categoría</th>
-                  <th>Aplicabilidad</th>
-                  <th style="text-align:center">Oblig.</th>
-                  <th style="text-align:center">Cumpl.</th>
-                  <th>Status</th>
-                  <th style="width:50px;text-align:center">Opc.</th>
+                  <th class="pjd-cl-check-head"><span class="pjd-cl-checkmark" aria-hidden="true"></span></th>
+                  <th data-col="requisito"><span class="pjd-cl-th-main"><span class="pjd-cl-th-handle">⋮⋮</span><span>Requisito</span><span class="pjd-cl-th-sort">↕</span></span></th>
+                  <th data-col="formato"><span class="pjd-cl-th-compact"><span class="pjd-cl-th-handle">⋮⋮</span><span>Formato</span><span class="pjd-cl-th-sort">↕</span></span></th>
+                  <th data-col="categoria"><span class="pjd-cl-th-compact"><span class="pjd-cl-th-handle">⋮⋮</span><span>Categoría</span><span class="pjd-cl-th-sort">↕</span></span></th>
+                  <th data-col="aplicabilidad"><span class="pjd-cl-th-compact"><span class="pjd-cl-th-handle">⋮⋮</span><span>Aplic.</span><span class="pjd-cl-th-sort">↕</span></span></th>
+                  <th data-col="obligatorio"><span class="pjd-cl-th-compact"><span class="pjd-cl-th-handle">⋮⋮</span><span>Oblig.</span><span class="pjd-cl-th-sort">↕</span></span></th>
+                  <th data-col="cumplimiento"><span class="pjd-cl-th-compact"><span class="pjd-cl-th-handle">⋮⋮</span><span>Cumpl.</span><span class="pjd-cl-th-sort">↕</span></span></th>
+                  <th data-col="status"><span class="pjd-cl-th-compact"><span class="pjd-cl-th-handle">⋮⋮</span><span>Status</span><span class="pjd-cl-th-sort">↕</span></span></th>
+                  <th data-col="opciones"><span class="pjd-cl-th-compact"><span class="pjd-cl-th-handle">⋮⋮</span><span>Opc.</span></span></th>
                 </tr>
               </thead>
               <tbody id="pjdClBody">
@@ -1430,26 +1962,46 @@
                     $docUrl = $docMatch ? $docMatch->url : null;
                   @endphp
                   <tr data-row="{{ $idx }}" data-cumplimiento="{{ $it['cumplimiento'] }}" data-status="{{ $it['status'] }}" data-prioridad="{{ $it['prioridad'] }}" @if($clPayload) data-cita="{{ $clPayload }}" @endif>
-                    <td><button type="button" class="pjd-cl-row-toggle" data-toggle="{{ $idx }}" title="Ver fuente y detalle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></button></td>
-                    <td><div class="pjd-cl-requisito"><span class="pjd-cl-requisito-text" title="{{ $it['requisito'] }}">{{ $it['requisito'] }}</span></div></td>
-                    <td>{{ $it['formato'] }}</td>
-                    <td>{{ Str::limit($it['categoria'], 22) }}</td>
-                    <td>{{ $it['aplicabilidad'] }}</td>
-                    <td style="text-align:center;color:var(--success);font-weight:700">{{ $it['obligatorio'] }}</td>
-                    <td style="text-align:center">
+                    <td class="pjd-cl-check-cell"><button type="button" class="pjd-cl-row-toggle" data-toggle="{{ $idx }}" title="Ver fuente y detalle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></button></td>
+                    <td>
+                      <div class="pjd-cl-requisito">
+                        <svg class="pjd-cl-row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="7" x2="19" y2="7"/><line x1="5" y1="12" x2="19" y2="12"/><line x1="5" y1="17" x2="14" y2="17"/></svg>
+                        <span class="pjd-cl-requisito-text" title="{{ $it['requisito'] }}">{{ $it['requisito'] }}</span>
+                      </div>
+                    </td>
+                    <td class="pjd-cl-cell-muted" data-col="formato">{{ $it['formato'] }}</td>
+                    <td class="pjd-cl-cell-muted" data-col="categoria">{{ Str::limit($it['categoria'], 22) }}</td>
+                    <td class="pjd-cl-cell-muted" data-col="aplicabilidad">{{ $it['aplicabilidad'] }}</td>
+                    <td class="pjd-cl-cell-center pjd-cl-cell-success" data-col="obligatorio">{{ $it['obligatorio'] }}</td>
+                    <td data-col="cumplimiento">
                       @php
                         $cumpClass = match($it['cumplimiento']) { 'Cumple'=>'is-cumple','Parcial'=>'is-parcial','No Cumple'=>'is-nocumple', default=>'' };
+                        $cumpLabel = $it['cumplimiento'] ?: '-';
                       @endphp
-                      <button type="button" class="pjd-cl-cumple-dot {{ $cumpClass }}" data-cumplimiento-toggle="{{ $idx }}" title="Cambiar cumplimiento"></button>
+                      <button type="button" class="pjd-cl-cumplimiento-btn" data-cumplimiento-toggle="{{ $idx }}" title="Cambiar cumplimiento">
+                        <span class="pjd-cl-cumple-dot {{ $cumpClass }}"></span>
+                        <span class="pjd-cl-cumple-text {{ $cumpClass }}">{{ $cumpLabel }}</span>
+                      </button>
                     </td>
-                    <td>
+                    <td data-col="status">
                       @php
                         $statClass = match($it['status']) { 'En revisión'=>'is-revision','Aprobado'=>'is-aprobado', default=>'is-pendiente' };
-                        $statIcon = match($it['status']) { 'En revisión'=>'🔵','Aprobado'=>'🟢', default=>'🕐' };
+                        $statusValue = $it['status'] ?: 'Pendiente';
                       @endphp
-                      <span class="pjd-cl-status {{ $statClass }}" data-status-toggle="{{ $idx }}">{{ $statIcon }} {{ $it['status'] }}</span>
+                      <button type="button" class="pjd-cl-status {{ $statClass }}" data-status-toggle="{{ $idx }}">
+                        <span class="pjd-cl-status-icon">
+                          @if($statusValue === 'Aprobado')
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 12l2.5 2.5L16 9"/></svg>
+                          @elseif($statusValue === 'En revisión')
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                          @else
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                          @endif
+                        </span>
+                        <span class="pjd-cl-status-text">{{ $statusValue }}</span>
+                      </button>
                     </td>
-                    <td style="text-align:center"><button type="button" class="pjd-cl-options" data-toggle="{{ $idx }}" title="Ver fuente">···</button></td>
+                    <td class="pjd-cl-cell-center" data-col="opciones"><button type="button" class="pjd-cl-options" data-toggle="{{ $idx }}" title="Ver fuente"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button></td>
                   </tr>
                   <tr class="pjd-cl-detail-row" data-detail="{{ $idx }}" style="display:none;">
                     <td colspan="9" style="padding:0">
@@ -1512,7 +2064,29 @@
             </table>
           </div>
 
-          <button type="button" class="pjd-cl-add" id="pjdClAddBtn">+ Agregar nuevo requisito</button>
+          <button type="button" class="pjd-cl-add" id="pjdClAddBtn"><span>＋</span>Agregar nuevo requisito</button>
+
+          <form class="pjd-cl-add-form" id="pjdClAddForm" autocomplete="off">
+            <h4 class="pjd-cl-add-title">Agregar nuevo requisito</h4>
+            <div class="pjd-cl-add-grid">
+              <div class="pjd-cl-add-field">
+                <label for="pjdClNewReq">Requisito *</label>
+                <input type="text" id="pjdClNewReq" placeholder="Nombre del requisito" required>
+              </div>
+              <div class="pjd-cl-add-field">
+                <label for="pjdClNewFormato">Formato</label>
+                <input type="text" id="pjdClNewFormato" placeholder="Ej: Anexo 1, Documento 2, etc.">
+              </div>
+              <div class="pjd-cl-add-field is-full">
+                <label for="pjdClNewDesc">Descripción</label>
+                <textarea id="pjdClNewDesc" placeholder="Descripción del requisito"></textarea>
+              </div>
+            </div>
+            <div class="pjd-cl-add-actions">
+              <button type="submit" class="pjd-cl-add-save" id="pjdClAddSave">Guardar</button>
+              <button type="button" class="pjd-cl-add-cancel" id="pjdClAddCancel">Cancelar</button>
+            </div>
+          </form>
         </div>
       </div>
 
@@ -1721,19 +2295,85 @@
   tabs.forEach(t => t.addEventListener('click', () => activateTab(t.dataset.tab)));
   activateTab('ficha');
 
-  document.querySelectorAll('.js-card-toggle').forEach(head => {
-    const card = head.closest('.pjd-card');
-    head.setAttribute('role', 'button');
-    head.setAttribute('tabindex', '0');
-    head.setAttribute('aria-expanded', card?.classList.contains('is-open') ? 'true' : 'false');
-    const toggle = () => {
-      card?.classList.toggle('is-open');
-      head.setAttribute('aria-expanded', card?.classList.contains('is-open') ? 'true' : 'false');
+  // ============ SPLIT VIEW REDIMENSIONABLE (aplica a todas las pestañas) ============
+  const pjdWrap = document.querySelector('.pjd-wrap');
+  const pjdBody = document.querySelector('.pjd-body');
+  const pjdResizer = document.getElementById('pjdResizer');
+  const PJD_SPLIT_KEY = 'pjd:project-detail:left-width';
+
+  function clampSplit(px) {
+    const bodyRect = pjdBody.getBoundingClientRect();
+    const minLeft = 300;
+    const minRight = 360;
+    const maxLeft = Math.max(minLeft, bodyRect.width - minRight - 10);
+    return Math.min(Math.max(px, minLeft), maxLeft);
+  }
+
+  function setSplitWidth(px, persist = true) {
+    if (!pjdWrap || !pjdBody) return;
+    const bodyRect = pjdBody.getBoundingClientRect();
+    if (!bodyRect.width) return;
+    const safePx = clampSplit(px);
+    pjdWrap.style.setProperty('--pjd-left-width', safePx + 'px');
+    pjdResizer?.setAttribute('aria-valuenow', String(Math.round(safePx)));
+    if (persist) localStorage.setItem(PJD_SPLIT_KEY, String(Math.round(safePx)));
+  }
+
+  function restoreSplitWidth() {
+    if (!pjdBody || window.matchMedia('(max-width: 1100px)').matches) return;
+    const saved = parseInt(localStorage.getItem(PJD_SPLIT_KEY) || '', 10);
+    const bodyRect = pjdBody.getBoundingClientRect();
+    const fallback = bodyRect.width * 0.44;
+    setSplitWidth(Number.isFinite(saved) && saved > 0 ? saved : fallback, false);
+  }
+
+  restoreSplitWidth();
+  window.addEventListener('resize', () => {
+    if (window.matchMedia('(max-width: 1100px)').matches) return;
+    const current = parseInt(getComputedStyle(pjdWrap).getPropertyValue('--pjd-left-width'), 10);
+    setSplitWidth(Number.isFinite(current) ? current : pjdBody.getBoundingClientRect().width * 0.44, false);
+  });
+
+  pjdResizer?.addEventListener('pointerdown', (e) => {
+    if (window.matchMedia('(max-width: 1100px)').matches) return;
+    e.preventDefault();
+    pjdResizer.setPointerCapture(e.pointerId);
+    document.body.classList.add('is-pjd-resizing');
+
+    const onMove = (ev) => {
+      const bodyRect = pjdBody.getBoundingClientRect();
+      setSplitWidth(ev.clientX - bodyRect.left);
     };
-    head.addEventListener('click', toggle);
-    head.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
-    });
+
+    const onUp = () => {
+      document.body.classList.remove('is-pjd-resizing');
+      pjdResizer.removeEventListener('pointermove', onMove);
+      pjdResizer.removeEventListener('pointerup', onUp);
+      pjdResizer.removeEventListener('pointercancel', onUp);
+    };
+
+    pjdResizer.addEventListener('pointermove', onMove);
+    pjdResizer.addEventListener('pointerup', onUp);
+    pjdResizer.addEventListener('pointercancel', onUp);
+  });
+
+  pjdResizer?.addEventListener('dblclick', () => {
+    localStorage.removeItem(PJD_SPLIT_KEY);
+    setSplitWidth(pjdBody.getBoundingClientRect().width * 0.44);
+  });
+
+  pjdResizer?.addEventListener('keydown', (e) => {
+    if (!['ArrowLeft','ArrowRight','Home','End'].includes(e.key)) return;
+    e.preventDefault();
+    const bodyRect = pjdBody.getBoundingClientRect();
+    const current = parseInt(getComputedStyle(pjdWrap).getPropertyValue('--pjd-left-width'), 10) || bodyRect.width * 0.44;
+    if (e.key === 'Home') return setSplitWidth(300);
+    if (e.key === 'End') return setSplitWidth(bodyRect.width - 360 - 10);
+    setSplitWidth(current + (e.key === 'ArrowRight' ? 32 : -32));
+  });
+
+  document.querySelectorAll('.js-card-toggle').forEach(head => {
+    head.addEventListener('click', () => head.closest('.pjd-card').classList.toggle('is-open'));
   });
 
   // ============ CHAT ============
@@ -1921,7 +2561,224 @@
       if (barEl) barEl.style.width = pct + '%';
     });
   }
+
+  function renderChecklistStatusMarkup(val) {
+    const status = val || 'Pendiente';
+    const icon = status === 'Aprobado'
+      ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M8 12l2.5 2.5L16 9"></path></svg>'
+      : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>';
+    return `<span class="pjd-cl-status-icon">${icon}</span><span class="pjd-cl-status-text">${status}</span>`;
+  }
+
+  function applyChecklistCumplimiento(row, val) {
+    if (!row) return;
+    const dot = row.querySelector('.pjd-cl-cumple-dot');
+    const label = row.querySelector('.pjd-cl-cumple-text');
+    row.dataset.cumplimiento = val;
+    if (dot) {
+      dot.className = 'pjd-cl-cumple-dot';
+      if (val === 'Cumple') dot.classList.add('is-cumple');
+      else if (val === 'Parcial') dot.classList.add('is-parcial');
+      else if (val === 'No Cumple') dot.classList.add('is-nocumple');
+    }
+    if (label) {
+      label.className = 'pjd-cl-cumple-text';
+      label.textContent = val || '-';
+      if (val === 'Cumple') label.classList.add('is-cumple');
+      else if (val === 'Parcial') label.classList.add('is-parcial');
+      else if (val === 'No Cumple') label.classList.add('is-nocumple');
+    }
+  }
+
+  function applyChecklistStatus(row, val) {
+    if (!row) return;
+    const pill = row.querySelector('.pjd-cl-status');
+    if (!pill) return;
+    row.dataset.status = val;
+    pill.className = 'pjd-cl-status';
+    const cls = {'Pendiente':'is-pendiente','En revisión':'is-revision','Aprobado':'is-aprobado'};
+    pill.classList.add(cls[val] || 'is-pendiente');
+    pill.innerHTML = renderChecklistStatusMarkup(val);
+  }
+
   updateCounters();
+
+  const clFiltersBtn = document.getElementById('pjdClFiltersBtn');
+  const clColumnsBtn = document.getElementById('pjdClColumnsBtn');
+  const clExportBtn = document.getElementById('pjdClExportBtn');
+  const clFiltersMenu = document.getElementById('pjdClFiltersMenu');
+  const clColumnsMenu = document.getElementById('pjdClColumnsMenu');
+  const clExportMenu = document.getElementById('pjdClExportMenu');
+  const clHiddenCount = document.getElementById('pjdClHiddenCount');
+  const CL_COL_STORAGE = `pjd-checklist-columns-${PROJECT_SLUG}`;
+  const clFilterState = { cumplimiento: new Set(['__all']), status: new Set(['__all']), prioridad: new Set(['__all']) };
+
+  function positionChecklistMenu(btn, menu) {
+    if (!btn || !menu) return;
+    closeChecklistMenus(menu);
+    menu.classList.add('is-open');
+    menu.setAttribute('aria-hidden', 'false');
+    btn.setAttribute('aria-expanded', 'true');
+    const rect = btn.getBoundingClientRect();
+    const menuWidth = menu.offsetWidth || 260;
+    const left = Math.max(12, Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 12));
+    menu.style.left = left + 'px';
+    menu.style.top = Math.min(rect.bottom + 8, window.innerHeight - 80) + 'px';
+  }
+
+  function closeChecklistMenus(except = null) {
+    [clFiltersMenu, clColumnsMenu, clExportMenu].forEach(menu => {
+      if (!menu || menu === except) return;
+      menu.classList.remove('is-open');
+      menu.setAttribute('aria-hidden', 'true');
+    });
+    [clFiltersBtn, clColumnsBtn, clExportBtn].forEach(btn => btn?.setAttribute('aria-expanded', 'false'));
+  }
+
+  clFiltersBtn?.addEventListener('click', (e) => { e.stopPropagation(); positionChecklistMenu(clFiltersBtn, clFiltersMenu); });
+  clColumnsBtn?.addEventListener('click', (e) => { e.stopPropagation(); positionChecklistMenu(clColumnsBtn, clColumnsMenu); });
+  clExportBtn?.addEventListener('click', (e) => { e.stopPropagation(); positionChecklistMenu(clExportBtn, clExportMenu); });
+  [clFiltersMenu, clColumnsMenu, clExportMenu].forEach(menu => menu?.addEventListener('click', e => e.stopPropagation()));
+
+  function getHiddenColumns() {
+    try { return new Set(JSON.parse(localStorage.getItem(CL_COL_STORAGE) || '[]')); }
+    catch (_) { return new Set(); }
+  }
+  function setHiddenColumns(cols) {
+    localStorage.setItem(CL_COL_STORAGE, JSON.stringify([...cols]));
+  }
+  function applyChecklistColumns() {
+    const hidden = getHiddenColumns();
+    document.querySelectorAll('.pjd-cl-table [data-col]').forEach(el => {
+      el.classList.toggle('is-hidden-col', hidden.has(el.dataset.col));
+    });
+    document.querySelectorAll('[data-column-toggle]').forEach(btn => {
+      const col = btn.dataset.columnToggle;
+      const active = !hidden.has(col);
+      btn.classList.toggle('is-active', active);
+      const check = btn.querySelector('.pjd-cl-menu-check');
+      if (check) check.textContent = active ? '✓' : '';
+    });
+    if (clHiddenCount) {
+      clHiddenCount.textContent = hidden.size;
+      clHiddenCount.classList.toggle('is-visible', hidden.size > 0);
+    }
+  }
+
+  clColumnsMenu?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-column-toggle]');
+    if (!btn) return;
+    const col = btn.dataset.columnToggle;
+    const hidden = getHiddenColumns();
+    if (hidden.has(col)) hidden.delete(col); else hidden.add(col);
+    setHiddenColumns(hidden);
+    applyChecklistColumns();
+  });
+  document.getElementById('pjdClShowAllColumns')?.addEventListener('click', () => { setHiddenColumns(new Set()); applyChecklistColumns(); });
+  document.getElementById('pjdClCloseColumns')?.addEventListener('click', () => closeChecklistMenus());
+  applyChecklistColumns();
+
+  function updateFilterMenuChecks(group) {
+    const selected = clFilterState[group];
+    document.querySelectorAll(`[data-filter-group="${group}"]`).forEach(btn => {
+      const active = selected.has(btn.dataset.filterValue);
+      btn.classList.toggle('is-active', active);
+      const sq = btn.querySelector('.pjd-cl-menu-square');
+      if (sq) sq.textContent = active ? '✓' : '';
+    });
+  }
+  function applyChecklistFilters() {
+    const q = (clSearch?.value || '').trim().toLowerCase();
+    let visibleCount = 0;
+    clBody.querySelectorAll('tr[data-row]').forEach(r => {
+      const textMatch = !q || r.textContent.toLowerCase().includes(q);
+      const c = r.dataset.cumplimiento || '-';
+      const s = r.dataset.status || 'Pendiente';
+      const p = r.dataset.prioridad || 'Media';
+      const cMatch = clFilterState.cumplimiento.has('__all') || clFilterState.cumplimiento.has(c);
+      const sMatch = clFilterState.status.has('__all') || clFilterState.status.has(s);
+      const pMatch = clFilterState.prioridad.has('__all') || clFilterState.prioridad.has(p);
+      const match = textMatch && cMatch && sMatch && pMatch;
+      r.style.display = match ? '' : 'none';
+      if (match) visibleCount++;
+      const detail = clBody.querySelector(`tr[data-detail="${r.dataset.row}"]`);
+      if (detail && !match) { detail.style.display = 'none'; r.classList.remove('is-expanded'); }
+    });
+    let empty = document.getElementById('pjdClNoFilterResults');
+    if (!empty) {
+      empty = document.createElement('tr');
+      empty.id = 'pjdClNoFilterResults';
+      empty.className = 'pjd-cl-no-filter-results';
+      empty.innerHTML = '<td colspan="9">No hay requisitos que coincidan con los filtros.</td>';
+      clBody.appendChild(empty);
+    }
+    empty.style.display = visibleCount === 0 ? '' : 'none';
+  }
+
+  clFiltersMenu?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-filter-group]');
+    if (!btn) return;
+    const group = btn.dataset.filterGroup;
+    const value = btn.dataset.filterValue;
+    const selected = clFilterState[group];
+    if (value === '__all') {
+      selected.clear(); selected.add('__all');
+    } else {
+      selected.delete('__all');
+      if (selected.has(value)) selected.delete(value); else selected.add(value);
+      if (!selected.size) selected.add('__all');
+    }
+    updateFilterMenuChecks(group);
+    applyChecklistFilters();
+  });
+  document.getElementById('pjdClClearFilters')?.addEventListener('click', () => {
+    Object.keys(clFilterState).forEach(group => { clFilterState[group].clear(); clFilterState[group].add('__all'); updateFilterMenuChecks(group); });
+    if (clSearch) clSearch.value = '';
+    applyChecklistFilters();
+  });
+  document.getElementById('pjdClCloseFilters')?.addEventListener('click', () => closeChecklistMenus());
+
+  function getChecklistExportRows(onlyVisible = true) {
+    const rows = [];
+    clBody.querySelectorAll('tr[data-row]').forEach(r => {
+      if (onlyVisible && r.style.display === 'none') return;
+      rows.push({
+        requisito: r.querySelector('.pjd-cl-requisito-text')?.textContent.trim() || '',
+        formato: r.querySelector('[data-col="formato"]')?.textContent.trim() || '',
+        categoria: r.querySelector('[data-col="categoria"]')?.textContent.trim() || '',
+        aplicabilidad: r.querySelector('[data-col="aplicabilidad"]')?.textContent.trim() || '',
+        obligatorio: r.querySelector('[data-col="obligatorio"]')?.textContent.trim() || '',
+        cumplimiento: r.dataset.cumplimiento || '-',
+        status: r.dataset.status || 'Pendiente',
+        prioridad: r.dataset.prioridad || 'Media'
+      });
+    });
+    return rows;
+  }
+  function downloadChecklistCsv() {
+    const headers = ['Requisito','Formato','Categoría','Aplicabilidad','Obligatorio','Cumplimiento','Status','Prioridad'];
+    const rows = getChecklistExportRows(true).map(r => [r.requisito,r.formato,r.categoria,r.aplicabilidad,r.obligatorio,r.cumplimiento,r.status,r.prioridad]);
+    const csv = [headers, ...rows].map(row => row.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob); const a = document.createElement('a');
+    a.href = url; a.download = `checklist-${PROJECT_SLUG}.csv`; a.click(); URL.revokeObjectURL(url);
+    showToast('✓ CSV exportado', 'success');
+  }
+  function printChecklistPdf() {
+    const rows = getChecklistExportRows(true);
+    const htmlRows = rows.map(r => `<tr><td>${escapeHtml(r.requisito)}</td><td>${escapeHtml(r.formato)}</td><td>${escapeHtml(r.categoria)}</td><td>${escapeHtml(r.aplicabilidad)}</td><td>${escapeHtml(r.obligatorio)}</td><td>${escapeHtml(r.cumplimiento)}</td><td>${escapeHtml(r.status)}</td><td>${escapeHtml(r.prioridad)}</td></tr>`).join('');
+    const w = window.open('', '_blank');
+    if (!w) { window.print(); return; }
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Checklist - ${escapeHtml(PROJECT_NAME)}</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#111}h1{font-size:20px;margin:0 0 18px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #e5e7eb;padding:8px;text-align:left;vertical-align:top}th{background:#f9fafb}</style></head><body><h1>Checklist - ${escapeHtml(PROJECT_NAME)}</h1><table><thead><tr><th>Requisito</th><th>Formato</th><th>Categoría</th><th>Aplicabilidad</th><th>Oblig.</th><th>Cumpl.</th><th>Status</th><th>Prioridad</th></tr></thead><tbody>${htmlRows}</tbody></table></body></html>`);
+    w.document.close(); w.focus(); setTimeout(() => w.print(), 250);
+  }
+  clExportMenu?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-export]');
+    if (!btn) return;
+    closeChecklistMenus();
+    if (btn.dataset.export === 'csv') downloadChecklistCsv();
+    if (btn.dataset.export === 'pdf') printChecklistPdf();
+  });
 
   function toggleChecklistDetail(idx, forceOpen = null) {
     const tr = clBody.querySelector(`tr[data-row="${idx}"]`);
@@ -1930,6 +2787,73 @@
     const shouldOpen = forceOpen === null ? !tr.classList.contains('is-expanded') : !!forceOpen;
     tr.classList.toggle('is-expanded', shouldOpen);
     detail.style.display = shouldOpen ? '' : 'none';
+  }
+
+  function checklistRowIconSvg() {
+    return '<svg class="pjd-cl-row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="7" x2="19" y2="7"></line><line x1="5" y1="12" x2="19" y2="12"></line><line x1="5" y1="17" x2="14" y2="17"></line></svg>';
+  }
+  function checklistChevronSvg() {
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>';
+  }
+  function checklistOptionsSvg() {
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1.5"></circle><circle cx="12" cy="12" r="1.5"></circle><circle cx="19" cy="12" r="1.5"></circle></svg>';
+  }
+  function nextChecklistRowId() {
+    const nums = Array.from(clBody.querySelectorAll('tr[data-row]'))
+      .map(r => parseInt(r.dataset.row, 10))
+      .filter(n => Number.isFinite(n));
+    return nums.length ? String(Math.max(...nums) + 1) : '0';
+  }
+  function clearChecklistAddForm() {
+    document.getElementById('pjdClNewReq').value = '';
+    document.getElementById('pjdClNewFormato').value = '';
+    document.getElementById('pjdClNewDesc').value = '';
+  }
+  function closeChecklistAddForm() {
+    document.getElementById('pjdClAddForm')?.classList.remove('is-open');
+    clearChecklistAddForm();
+  }
+  function createChecklistDomItem({ requisito, formato, descripcion }) {
+    const idx = nextChecklistRowId();
+    const safeReq = escapeHtml(requisito);
+    const safeFormato = escapeHtml(formato || 'No aplica');
+    const safeDesc = escapeHtml(descripcion || 'Sin descripción adicional.');
+    const tr = document.createElement('tr');
+    tr.dataset.row = idx;
+    tr.dataset.cumplimiento = '-';
+    tr.dataset.status = 'Pendiente';
+    tr.dataset.prioridad = 'Media';
+    tr.dataset.added = '1';
+    tr.dataset.requisito = requisito;
+    tr.dataset.formato = formato || 'No aplica';
+    tr.dataset.descripcion = descripcion || '';
+    tr.innerHTML = `
+      <td class="pjd-cl-check-cell"><button type="button" class="pjd-cl-row-toggle" data-toggle="${idx}" title="Ver fuente y detalle">${checklistChevronSvg()}</button></td>
+      <td data-col="requisito"><div class="pjd-cl-requisito">${checklistRowIconSvg()}<span class="pjd-cl-requisito-text" title="${safeReq}">${safeReq}</span></div></td>
+      <td class="pjd-cl-cell-muted" data-col="formato">${safeFormato}</td>
+      <td class="pjd-cl-cell-muted" data-col="categoria">-</td>
+      <td class="pjd-cl-cell-muted" data-col="aplicabilidad">-</td>
+      <td class="pjd-cl-cell-center" data-col="obligatorio">-</td>
+      <td data-col="cumplimiento"><button type="button" class="pjd-cl-cumplimiento-btn" data-cumplimiento-toggle="${idx}" title="Cambiar cumplimiento"><span class="pjd-cl-cumple-dot"></span><span class="pjd-cl-cumple-text">-</span></button></td>
+      <td data-col="status"><button type="button" class="pjd-cl-status is-pendiente" data-status-toggle="${idx}">${renderChecklistStatusMarkup('Pendiente')}</button></td>
+      <td class="pjd-cl-cell-center" data-col="opciones"><button type="button" class="pjd-cl-options" data-toggle="${idx}" title="Ver fuente">${checklistOptionsSvg()}</button></td>`;
+
+    const detail = document.createElement('tr');
+    detail.className = 'pjd-cl-detail-row';
+    detail.dataset.detail = idx;
+    detail.style.display = 'none';
+    detail.innerHTML = `<td colspan="9" style="padding:0"><div class="pjd-cl-detail"><div class="pjd-cl-detail-grid"><div class="pjd-cl-detail-card"><div class="pjd-cl-detail-kicker">Detalle del requisito</div><div class="pjd-cl-detail-row"><strong>Requisito:</strong> ${safeReq}</div><div class="pjd-cl-detail-row"><strong>Descripción:</strong> ${safeDesc}</div><div class="pjd-cl-detail-row"><strong>Prioridad:</strong> Media</div></div><div class="pjd-cl-detail-card"><div class="pjd-cl-detail-kicker">Fuente / evidencia</div><div class="pjd-cl-source-meta"><div class="pjd-cl-detail-row pjd-cl-source-empty">Sin archivo fuente registrado.</div></div></div></div></div></td>`;
+
+    const empty = clBody.querySelector('.pjd-cl-no-results')?.closest('tr');
+    if (empty) empty.remove();
+    clBody.appendChild(tr);
+    clBody.appendChild(detail);
+    applyChecklistColumns();
+    updateCounters();
+    applyChecklistFilters();
+    toggleChecklistDetail(idx, true);
+    tr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    saveChecklist();
   }
 
   clBody?.addEventListener('click', (e) => {
@@ -1971,12 +2895,9 @@
     if (!btn || activeCumpRow === null) return;
     const val = btn.dataset.setCumplimiento;
     const row = clBody.querySelector(`tr[data-row="${activeCumpRow}"]`);
-    const dot = row?.querySelector('.pjd-cl-cumple-dot');
-    if (!row || !dot) return;
-    row.dataset.cumplimiento = val;
-    dot.className = 'pjd-cl-cumple-dot';
-    if (val === 'Cumple') dot.classList.add('is-cumple'); else if (val === 'Parcial') dot.classList.add('is-parcial'); else if (val === 'No Cumple') dot.classList.add('is-nocumple');
-    cumpPop.classList.remove('is-open'); updateCounters(); saveChecklist();
+    if (!row) return;
+    applyChecklistCumplimiento(row, val);
+    cumpPop.classList.remove('is-open'); updateCounters(); applyChecklistFilters(); saveChecklist();
   });
 
   statPop?.addEventListener('click', (e) => {
@@ -1984,34 +2905,32 @@
     if (!btn || activeStatusRow === null) return;
     const val = btn.dataset.setStatus;
     const row = clBody.querySelector(`tr[data-row="${activeStatusRow}"]`);
-    const pill = row?.querySelector('.pjd-cl-status');
-    if (!row || !pill) return;
-    row.dataset.status = val;
-    pill.className = 'pjd-cl-status';
-    const icons = {'Pendiente':'🕐','En revisión':'🔵','Aprobado':'🟢'};
-    const cls = {'Pendiente':'is-pendiente','En revisión':'is-revision','Aprobado':'is-aprobado'};
-    pill.classList.add(cls[val]); pill.textContent = (icons[val] || '🕐') + ' ' + val;
-    statPop.classList.remove('is-open'); updateCounters(); saveChecklist();
+    if (!row) return;
+    applyChecklistStatus(row, val);
+    statPop.classList.remove('is-open'); updateCounters(); applyChecklistFilters(); saveChecklist();
   });
 
   document.addEventListener('click', (e) => {
     if (!e.target.closest('[data-cumplimiento-toggle]') && !e.target.closest('#pjdClCumpPop')) cumpPop?.classList.remove('is-open');
     if (!e.target.closest('[data-status-toggle]') && !e.target.closest('#pjdClStatusPop')) statPop?.classList.remove('is-open');
+    if (!e.target.closest('.pjd-cl-menu') && !e.target.closest('#pjdClFiltersBtn') && !e.target.closest('#pjdClColumnsBtn') && !e.target.closest('#pjdClExportBtn')) closeChecklistMenus();
   });
 
-  clSearch?.addEventListener('input', () => {
-    const q = clSearch.value.trim().toLowerCase();
-    clBody.querySelectorAll('tr[data-row]').forEach(r => {
-      const text = r.textContent.toLowerCase();
-      const match = !q || text.includes(q);
-      r.style.display = match ? '' : 'none';
-      const detail = clBody.querySelector(`tr[data-detail="${r.dataset.row}"]`);
-      if (detail && !match) { detail.style.display = 'none'; r.classList.remove('is-expanded'); }
-    });
-  });
+  clSearch?.addEventListener('input', applyChecklistFilters);
 
   async function saveChecklist() {
-    const rows = Array.from(clBody.querySelectorAll('tr[data-row]')).map(r => ({ idx: r.dataset.row, cumplimiento: r.dataset.cumplimiento, status: r.dataset.status, prioridad: r.dataset.prioridad }));
+    const rows = Array.from(clBody.querySelectorAll('tr[data-row]')).map(r => ({
+      idx: r.dataset.row,
+      requisito: r.dataset.requisito || r.querySelector('.pjd-cl-requisito-text')?.textContent.trim() || '',
+      descripcion: r.dataset.descripcion || clBody.querySelector(`tr[data-detail="${r.dataset.row}"] .pjd-cl-detail-row:nth-child(3)`)?.textContent.replace(/^Descripción:\s*/,'').trim() || '',
+      formato: r.dataset.formato || r.querySelector('[data-col="formato"]')?.textContent.trim() || 'No aplica',
+      categoria: r.querySelector('[data-col="categoria"]')?.textContent.trim() || '-',
+      aplicabilidad: r.querySelector('[data-col="aplicabilidad"]')?.textContent.trim() || '-',
+      obligatorio: r.querySelector('[data-col="obligatorio"]')?.textContent.trim() || '-',
+      cumplimiento: r.dataset.cumplimiento,
+      status: r.dataset.status,
+      prioridad: r.dataset.prioridad || 'Media'
+    }));
     try { const fd = new FormData(); fd.append('_token', CSRF); fd.append('items', JSON.stringify(rows)); await fetch(CHECKLIST_URL, { method:'POST', headers:{'Accept':'application/json'}, body: fd, credentials:'same-origin' }); } catch (_) {}
   }
 
@@ -2023,7 +2942,22 @@
     catch (e) { alert('Error de red'); } finally { btn.disabled = false; btn.innerHTML = original; }
   });
 
-  document.getElementById('pjdClAddBtn')?.addEventListener('click', () => { const name = prompt('Nombre del requisito:'); if (!name) return; location.reload(); });
+  document.getElementById('pjdClAddBtn')?.addEventListener('click', () => {
+    const form = document.getElementById('pjdClAddForm');
+    form?.classList.add('is-open');
+    setTimeout(() => document.getElementById('pjdClNewReq')?.focus(), 80);
+  });
+  document.getElementById('pjdClAddCancel')?.addEventListener('click', closeChecklistAddForm);
+  document.getElementById('pjdClAddForm')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const requisito = document.getElementById('pjdClNewReq')?.value.trim() || '';
+    const formato = document.getElementById('pjdClNewFormato')?.value.trim() || 'No aplica';
+    const descripcion = document.getElementById('pjdClNewDesc')?.value.trim() || '';
+    if (!requisito) { document.getElementById('pjdClNewReq')?.focus(); return; }
+    createChecklistDomItem({ requisito, formato, descripcion });
+    closeChecklistAddForm();
+    showToast('✓ Requisito agregado', 'success');
+  });
 
   document.getElementById('pjdClDownload')?.addEventListener('click', () => {
     if (typeof XLSX === 'undefined') { showToast('Excel no disponible', 'error'); return; }
