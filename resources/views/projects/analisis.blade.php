@@ -1558,7 +1558,116 @@
   }
 
   function normPdf(s){
-    return (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+    return (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').replace(/\s+/g,' ').trim();
+  }
+
+  // Busca el rango (inicio,fin) de la cita dentro del texto concatenado de la pagina.
+  function findQuoteSpan(concat, quote) {
+    if (!concat || !quote || quote.length < 4) return null;
+    let s = concat.indexOf(quote);
+    if (s !== -1) return [s, s + quote.length];
+
+    const words = quote.split(' ').filter(Boolean);
+    if (words.length < 2) return null;
+
+    // recorta desde el final
+    for (let n = words.length - 1; n >= Math.min(3, words.length); n--) {
+      const sub = words.slice(0, n).join(' ');
+      s = concat.indexOf(sub);
+      if (s !== -1) return [s, s + sub.length];
+    }
+    // recorta desde el inicio
+    for (let i = 1; i <= words.length - 3; i++) {
+      const sub = words.slice(i).join(' ');
+      s = concat.indexOf(sub);
+      if (s !== -1) return [s, s + sub.length];
+    }
+    // bloque contiguo mas largo presente en la pagina
+    let best = null;
+    for (let i = 0; i < words.length - 1; i++) {
+      for (let j = words.length; j > i + 1; j--) {
+        const sub = words.slice(i, j).join(' ');
+        const pos = concat.indexOf(sub);
+        if (pos !== -1) {
+          if (!best || sub.length > best.len) best = { start: pos, end: pos + sub.length, len: sub.length };
+          break;
+        }
+      }
+    }
+    return best ? [best.start, best.end] : null;
+  }
+
+  // Concatena el texto de la pagina y mapea cada caracter al item que lo origina.
+  function buildPageIndex(tc) {
+    const items = [];
+    let concat = '';
+    const map = [];
+    tc.items.forEach(it => {
+      const norm = normPdf(it.str);
+      if (!norm) return;
+      const idx = items.length;
+      items.push(it);
+      if (concat.length) { concat += ' '; map.push(-1); }
+      for (let k = 0; k < norm.length; k++) map.push(idx);
+      concat += norm;
+    });
+    return { items, concat, map };
+  }
+
+  // Pinta el resaltado de la cita sobre la pagina renderizada. Devuelve el primer rect (para scroll).
+  async function paintHighlights(page, viewport, scale) {
+    pdfHl.innerHTML = '';
+    const quote = normPdf(PDF_STATE.quote);
+    if (!quote || quote.length < 4) return null;
+
+    const tc = await page.getTextContent();
+    const { items, concat, map } = buildPageIndex(tc);
+    const span = findQuoteSpan(concat, quote);
+    if (!span) return null;
+
+    const idxs = new Set();
+    for (let i = span[0]; i < span[1] && i < map.length; i++) {
+      if (map[i] >= 0) idxs.add(map[i]);
+    }
+
+    let first = null, firstTop = Infinity;
+    idxs.forEach(idx => {
+      const it = items[idx];
+      const t = pdfjsLib.Util.transform(viewport.transform, it.transform);
+      const fh = Math.hypot(t[2], t[3]);
+      const top = t[5] - fh;
+      const div = document.createElement('div');
+      div.className = 'pjd-pdf-hl';
+      div.style.left   = t[4] + 'px';
+      div.style.top    = top + 'px';
+      div.style.width  = ((it.width || 0) * scale) + 'px';
+      div.style.height = (fh * 1.2) + 'px';
+      pdfHl.appendChild(div);
+      if (top < firstTop) { firstTop = top; first = div; }
+    });
+    return first;
+  }
+
+  // Si la pagina guardada no contiene la cita, la busca en todo el documento.
+  async function findQuotePage(quote, preferida) {
+    const Q = normPdf(quote);
+    if (!Q || Q.length < 4 || !PDF_STATE.doc) return preferida;
+
+    const tieneCita = async (p) => {
+      try {
+        const page = await PDF_STATE.doc.getPage(p);
+        const tc = await page.getTextContent();
+        const { concat } = buildPageIndex(tc);
+        return !!findQuoteSpan(concat, Q);
+      } catch (e) { return false; }
+    };
+
+    if (await tieneCita(preferida)) return preferida;
+    for (let p = 1; p <= PDF_STATE.total; p++) {
+      if (p === preferida) continue;
+      if (await tieneCita(p)) return p;
+    }
+    return preferida;
   }
 
   const PDF_STATE = { doc:null, url:null, page:1, total:1, quote:'', citaPage:1 };
@@ -1582,27 +1691,7 @@
     await page.render({ canvasContext: ctx, viewport }).promise;
 
     if (num === PDF_STATE.citaPage && PDF_STATE.quote) {
-      const tc = await page.getTextContent();
-      const Q = normPdf(PDF_STATE.quote);
-      let first = null;
-      if (Q && Q.length > 4) {
-        tc.items.forEach(item => {
-          const norm = normPdf(item.str);
-          if (norm.length < 4) return;
-          if (Q.includes(norm)) {
-            const t = pdfjsLib.Util.transform(viewport.transform, item.transform);
-            const fh = Math.hypot(t[2], t[3]);
-            const div = document.createElement('div');
-            div.className = 'pjd-pdf-hl';
-            div.style.left = t[4] + 'px';
-            div.style.top  = (t[5] - fh) + 'px';
-            div.style.width = (item.width * scale) + 'px';
-            div.style.height = (fh * 1.12) + 'px';
-            pdfHl.appendChild(div);
-            if (!first) first = div;
-          }
-        });
-      }
+      const first = await paintHighlights(page, viewport, scale);
       if (first) setTimeout(() => first.scrollIntoView({ block:'center', behavior:'smooth' }), 120);
     }
 
@@ -1645,9 +1734,11 @@
         PDF_STATE.url = doc.url;
         PDF_STATE.total = PDF_STATE.doc.numPages;
       }
-      PDF_STATE.citaPage = Math.min(Math.max(1, pageNum), PDF_STATE.total);
-      PDF_STATE.page = PDF_STATE.citaPage;
       PDF_STATE.quote = data.cita || '';
+      const preferida = Math.min(Math.max(1, pageNum), PDF_STATE.total);
+      const target = await findQuotePage(PDF_STATE.quote, preferida);
+      PDF_STATE.citaPage = target;
+      PDF_STATE.page = target;
       pdfLoading.style.display = 'none';
       await renderPdfPage();
     } catch (err) {
