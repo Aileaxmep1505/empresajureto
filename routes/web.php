@@ -2354,3 +2354,10 @@ Route::middleware(['auth'])->group(function () {
         ->whereIn('format', ['csv', 'excel', 'pdf'])
         ->name('projects.checklist.export');
 });
+Route::middleware(['auth'])->group(function () {
+    Route::delete('/projects/{project}/documents/{document}', [ProjectBoardController::class, 'deleteDocument'])
+        ->name('projects.documents.delete');
+
+    Route::delete('/projects/{project}/checklist-attachments/{attachment}', [ProjectBoardController::class, 'deleteChecklistAttachment'])
+        ->name('projects.checklist.attachments.delete');
+});

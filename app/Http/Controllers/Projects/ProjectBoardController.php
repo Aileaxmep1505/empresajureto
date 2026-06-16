@@ -198,11 +198,182 @@ class ProjectBoardController extends Controller
             'checklistItems.responsible',
             'checklistItems.reviewer',
             'checklistItems.notes.user',
-            'checklistItems.attachments',
+            'checklistItems.attachments.user',
             'checklistItems.sourceDocument',
         ]);
 
-        return view('projects.analisis', compact('project'));
+        $documentLibrary = $this->projectDocumentLibrary($project);
+
+        return view('projects.analisis', compact('project', 'documentLibrary'));
+    }
+
+
+    private function humanFileSize(?int $bytes): string
+    {
+        $bytes = max(0, (int) $bytes);
+
+        if ($bytes >= 1073741824) {
+            return number_format($bytes / 1073741824, 2) . ' GB';
+        }
+
+        if ($bytes >= 1048576) {
+            return number_format($bytes / 1048576, 2) . ' MB';
+        }
+
+        if ($bytes >= 1024) {
+            return number_format($bytes / 1024, 1) . ' KB';
+        }
+
+        return $bytes . ' B';
+    }
+
+    private function documentPages(ProjectDocument $document): ?int
+    {
+        $raw = $document->extracted_raw ?? [];
+
+        foreach (['pages_count', 'page_count', 'num_pages', 'total_pages'] as $key) {
+            if (isset($raw[$key]) && is_numeric($raw[$key])) {
+                return (int) $raw[$key];
+            }
+        }
+
+        if (isset($raw['pages']) && is_array($raw['pages'])) {
+            return count($raw['pages']);
+        }
+
+        return null;
+    }
+
+    private function documentInsight(ProjectDocument $document): string
+    {
+        $raw = $document->extracted_raw ?? [];
+
+        foreach (['summary', 'resumen', 'descripcion', 'description'] as $key) {
+            if (!empty($raw[$key]) && is_string($raw[$key])) {
+                return Str::limit(trim($raw[$key]), 360);
+            }
+        }
+
+        $text = trim((string) ($document->extracted_text ?? ''));
+
+        if ($text !== '') {
+            $text = preg_replace('/\s+/', ' ', $text);
+            return Str::limit($text, 360);
+        }
+
+        if ($document->status === 'completed') {
+            return 'Documento procesado correctamente. La información extraída está disponible para ficha, checklist, borrador y reporte.';
+        }
+
+        return 'Documento registrado en el proyecto. Aún no hay información extraída disponible para mostrar.';
+    }
+
+    private function projectDocumentLibrary(Project $project)
+    {
+        $sourceDocuments = $project->documents->map(function (ProjectDocument $document) use ($project) {
+            $url = $document->file_path ? Storage::disk('public')->url($document->file_path) : null;
+            $extension = strtoupper(pathinfo($document->filename ?? '', PATHINFO_EXTENSION) ?: 'FILE');
+            $pages = $this->documentPages($document);
+
+            return [
+                'id'          => 'project-document-' . $document->id,
+                'source_type' => 'project_document',
+                'source_id'   => $document->id,
+                'filename'    => $document->filename,
+                'extension'   => $extension,
+                'badge'       => $extension,
+                'status'      => $document->status ?: 'pending',
+                'status_label'=> match ($document->status) {
+                    'completed', 'processed' => 'Completado',
+                    'processing' => 'Procesando',
+                    'failed', 'error' => 'Error',
+                    default => ucfirst((string) ($document->status ?: 'Pendiente')),
+                },
+                'size_label'  => $this->humanFileSize($document->file_size),
+                'date_label'  => optional($document->created_at)->format('d/m/Y'),
+                'pages_label' => $pages ? $pages . ' página(s)' : null,
+                'summary'     => $this->documentInsight($document),
+                'match_label' => 'Documento fuente del proyecto',
+                'requirement' => null,
+                'url'         => $url,
+                'download_url'=> $url,
+                'delete_url'  => url('/projects/' . $project->slug . '/documents/' . $document->id),
+                'can_delete'  => true,
+                'created_at'  => optional($document->created_at)->timestamp ?? 0,
+            ];
+        });
+
+        $checklistAttachments = $project->checklistItems->flatMap(function (ProjectChecklistItem $item) use ($project) {
+            return $item->attachments->map(function (ProjectChecklistAttachment $attachment) use ($item, $project) {
+                $url = $attachment->file_path ? Storage::disk('public')->url($attachment->file_path) : null;
+                $extension = strtoupper(pathinfo($attachment->original_name ?? '', PATHINFO_EXTENSION) ?: 'FILE');
+
+                return [
+                    'id'          => 'checklist-attachment-' . $attachment->id,
+                    'source_type' => 'checklist_attachment',
+                    'source_id'   => $attachment->id,
+                    'filename'    => $attachment->original_name,
+                    'extension'   => $extension,
+                    'badge'       => $extension,
+                    'status'      => 'completed',
+                    'status_label'=> 'Adjunto',
+                    'size_label'  => $this->humanFileSize($attachment->size),
+                    'date_label'  => optional($attachment->created_at)->format('d/m/Y'),
+                    'pages_label' => null,
+                    'summary'     => 'Evidencia adjunta al requisito: ' . Str::limit($item->requirement, 260),
+                    'match_label' => 'Checklist / Evidencia',
+                    'requirement' => $item->requirement,
+                    'url'         => $url,
+                    'download_url'=> $url,
+                    'delete_url'  => url('/projects/' . $project->slug . '/checklist-attachments/' . $attachment->id),
+                    'can_delete'  => true,
+                    'created_at'  => optional($attachment->created_at)->timestamp ?? 0,
+                ];
+            });
+        });
+
+        return $sourceDocuments
+            ->concat($checklistAttachments)
+            ->sortByDesc('created_at')
+            ->values();
+    }
+
+    public function deleteDocument(Request $request, Project $project, ProjectDocument $document)
+    {
+        abort_if($project->user_id !== Auth::id() && Auth::id() !== 1, 403);
+        abort_if((int) $document->project_id !== (int) $project->id, 404);
+
+        if ($document->file_path && Storage::disk('public')->exists($document->file_path)) {
+            Storage::disk('public')->delete($document->file_path);
+        }
+
+        $document->delete();
+
+        if ($request->expectsJson()) {
+            return response()->json(['ok' => true]);
+        }
+
+        return back()->with('success', 'Documento eliminado.');
+    }
+
+    public function deleteChecklistAttachment(Request $request, Project $project, ProjectChecklistAttachment $attachment)
+    {
+        abort_if($project->user_id !== Auth::id() && Auth::id() !== 1, 403);
+
+        $attachment->load('item');
+        abort_if(!$attachment->item || (int) $attachment->item->project_id !== (int) $project->id, 404);
+
+        if ($attachment->file_path && Storage::disk('public')->exists($attachment->file_path)) {
+            Storage::disk('public')->delete($attachment->file_path);
+        }
+
+        $attachment->delete();
+
+        if ($request->expectsJson()) {
+            return response()->json(['ok' => true]);
+        }
+
+        return back()->with('success', 'Evidencia eliminada.');
     }
 
     /* ============================================================

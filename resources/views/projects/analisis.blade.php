@@ -1588,14 +1588,59 @@
   .pjd-report-point-title { display:block; color:#111111; font-weight:700; margin-bottom:4px; }
   .pjd-report-point-meta { color:#888888; font-size:.84rem; }
 
-  .pjd-doc { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); margin-bottom: 8px; }
-  .pjd-doc-icon { width: 34px; height: 40px; border-radius: 6px; background: var(--danger-soft); border: 1px solid #fecaca; display: grid; place-items: center; color: var(--danger); font-size: .65rem; font-weight: 700; flex-shrink: 0; }
-  .pjd-doc-meta { flex: 1; min-width: 0; }
-  .pjd-doc-name { font-size: .92rem; font-weight: 700; color: var(--ink); }
-  .pjd-doc-sub { font-size: .78rem; color: var(--muted); margin-top: 2px; }
-  .pjd-doc-actions { display: flex; gap: 6px; }
-  .pjd-doc-link { padding: 6px 10px; border-radius: 8px; background: var(--bg); color: var(--ink2); font-weight: 600; font-size: .8rem; text-decoration: none; border: 1px solid var(--line); }
-  .pjd-doc-link:hover { color: var(--blue); border-color: var(--blue); }
+  .pjd-documents-card {
+    background:#ffffff;
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:22px;
+    box-shadow:0 4px 12px rgba(0,0,0,.02);
+  }
+  .pjd-documents-title { margin:0 0 18px; color:#111111; font-size:1.08rem; font-weight:700; }
+  .pjd-documents-search-row { display:flex; align-items:center; gap:14px; margin-bottom:18px; }
+  .pjd-documents-search { flex:1; min-width:0; height:46px; display:flex; align-items:center; gap:10px; border:1px solid #e2e5ea; border-radius:12px; padding:0 14px; background:#ffffff; transition:border-color .18s ease, box-shadow .18s ease; }
+  .pjd-documents-search:focus-within { border-color:var(--blue); box-shadow:0 0 0 3px var(--blue-soft); }
+  .pjd-documents-search svg { width:19px; height:19px; color:#777777; flex-shrink:0; }
+  .pjd-documents-search input { border:0; outline:0; width:100%; height:100%; font:inherit; font-size:.92rem; color:var(--ink); background:transparent; }
+  .pjd-documents-search input::placeholder { color:#a3a9b5; }
+  .pjd-documents-count { min-width:42px; height:42px; border-radius:999px; background:#f6f6f7; color:#555555; display:inline-flex; align-items:center; justify-content:center; font-weight:700; }
+  .pjd-doc-list { display:flex; flex-direction:column; gap:10px; }
+  .pjd-doc-empty { padding:34px; border:1px dashed #dfe3ea; border-radius:14px; color:var(--muted); text-align:center; font-weight:600; }
+  .pjd-doc-card { position:relative; border:1px solid #e2e2e2; border-radius:14px; background:#ffffff; padding:16px; transition:box-shadow .18s ease, transform .18s ease, border-color .18s ease; }
+  .pjd-doc-card:hover { transform:translateY(-1px); box-shadow:0 8px 18px rgba(15,23,42,.04); border-color:#dcdfe5; }
+  .pjd-doc-main { display:flex; align-items:center; gap:14px; min-width:0; }
+  .pjd-doc-file-icon { width:44px; height:44px; border-radius:10px; background:#e6f0ff; color:var(--blue); display:grid; place-items:center; flex-shrink:0; }
+  .pjd-doc-file-icon svg { width:23px; height:23px; }
+  .pjd-doc-content { flex:1; min-width:0; }
+  .pjd-doc-title-line { display:flex; align-items:center; gap:8px; flex-wrap:wrap; min-width:0; }
+  .pjd-doc-name { font-size:1rem; font-weight:700; color:#111111; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width: min(560px, 100%); }
+  .pjd-doc-badge { display:inline-flex; align-items:center; height:30px; padding:0 13px; border-radius:999px; font-size:.78rem; font-weight:700; }
+  .pjd-doc-badge.is-pdf { background:#ffebeb; color:#d91f1f; }
+  .pjd-doc-badge.is-file { background:#f2f4f7; color:#555555; }
+  .pjd-doc-status { background:#d6f9e7; color:#027a48; }
+  .pjd-doc-status.is-processing { background:#fff7db; color:#b45309; }
+  .pjd-doc-status.is-error { background:#ffebeb; color:#ff4a4a; }
+  .pjd-doc-sub { margin-top:5px; color:#666f7d; font-size:.86rem; font-weight:500; }
+  .pjd-doc-match { display:inline-flex; align-items:center; gap:6px; margin-top:8px; color:#6b7280; font-size:.78rem; font-weight:700; background:#f8fafc; border:1px solid #edf0f4; border-radius:999px; padding:5px 10px; }
+  .pjd-doc-actions { display:flex; align-items:center; gap:8px; margin-left:auto; }
+  .pjd-doc-icon-btn { width:34px; height:34px; display:inline-flex; align-items:center; justify-content:center; border:0; border-radius:999px; background:transparent; color:#111111; cursor:pointer; transition:background .18s ease, transform .18s ease; }
+  .pjd-doc-icon-btn:hover { background:#f6f7f9; }
+  .pjd-doc-icon-btn:active { transform:scale(.98); }
+  .pjd-doc-icon-btn svg { width:20px; height:20px; }
+  .pjd-doc-card.is-open .pjd-doc-toggle svg { transform:rotate(180deg); }
+  .pjd-doc-details { display:none; margin:14px 0 0 58px; padding-top:14px; border-top:1px solid #eceff3; }
+  .pjd-doc-card.is-open .pjd-doc-details { display:block; }
+  .pjd-doc-details h4 { margin:0 0 8px; font-size:.93rem; color:#111111; font-weight:700; }
+  .pjd-doc-details p { margin:0; color:#606a78; font-size:.9rem; line-height:1.45; max-width:900px; }
+  .pjd-doc-detail-meta { margin-top:10px; color:#888888; font-size:.78rem; font-weight:600; }
+  .pjd-doc-menu { position:absolute; right:22px; top:68px; min-width:230px; background:#ffffff; border:1px solid #e2e5ea; border-radius:12px; box-shadow:0 10px 28px rgba(15,23,42,.12); padding:8px; z-index:50; display:none; }
+  .pjd-doc-menu.is-open { display:block; }
+  .pjd-doc-menu a,
+  .pjd-doc-menu button { width:100%; display:flex; align-items:center; gap:10px; padding:10px 12px; border:none; background:transparent; border-radius:9px; color:#111827; font:inherit; font-size:.92rem; font-weight:600; text-decoration:none; cursor:pointer; text-align:left; }
+  .pjd-doc-menu a:hover,
+  .pjd-doc-menu button:hover { background:#f3f6fb; }
+  .pjd-doc-menu svg { width:18px; height:18px; flex-shrink:0; }
+  .pjd-doc-menu .is-danger { color:#e11d1d; }
+  .pjd-doc-menu .is-danger:hover { background:#fff1f1; }
 
   .pjd-inicio-card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; margin-bottom: 14px; }
   .pjd-inicio-card h4 { margin: 0 0 8px; font-size: .9rem; font-weight: 700; color: var(--ink); }
@@ -2633,22 +2678,95 @@
 
         <div class="pjd-borrador-section" data-section-pane="reporte" style="display:none;"></div>
 
+      @php
+        $docsForView = collect($documentLibrary ?? []);
+      @endphp
+
       <div class="pjd-pane" data-pane="documentos">
-        <h3 class="pjd-pane-title">Documentos del proyecto</h3>
-        @forelse($project->documents as $doc)
-          <div class="pjd-doc">
-            <div class="pjd-doc-icon">{{ strtoupper(pathinfo($doc->filename, PATHINFO_EXTENSION) ?: 'FILE') }}</div>
-            <div class="pjd-doc-meta">
-              <div class="pjd-doc-name">{{ $doc->filename }}</div>
-              <div class="pjd-doc-sub">{{ number_format(($doc->file_size ?? 0) / 1024, 1) }} KB · Status: <strong>{{ $doc->status }}</strong></div>
-            </div>
-            <div class="pjd-doc-actions">
-              <a href="{{ Storage::disk('public')->url($doc->file_path) }}" target="_blank" class="pjd-doc-link">Ver</a>
-            </div>
+        <div class="pjd-documents-card">
+          <h3 class="pjd-documents-title">Gestión de documentos</h3>
+
+          <div class="pjd-documents-search-row">
+            <label class="pjd-documents-search" for="pjdDocSearch">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+              <input type="search" id="pjdDocSearch" placeholder="Buscar documentos...">
+            </label>
+            <span class="pjd-documents-count" id="pjdDocCount">{{ $docsForView->count() }}</span>
           </div>
-        @empty
-          <p style="color:var(--muted);font-size:.9rem;">Este proyecto no tiene documentos.</p>
-        @endforelse
+
+          <div class="pjd-doc-list" id="pjdDocList">
+            @forelse($docsForView as $doc)
+              @php
+                $docName = $doc['filename'] ?? 'Documento';
+                $docExt = strtoupper($doc['extension'] ?? pathinfo($docName, PATHINFO_EXTENSION) ?: 'FILE');
+                $docUrl = $doc['url'] ?? '#';
+                $docDownload = $doc['download_url'] ?? $docUrl;
+                $docDelete = $doc['delete_url'] ?? null;
+                $docStatus = $doc['status'] ?? 'completed';
+                $docText = trim(($docName . ' ' . ($doc['summary'] ?? '') . ' ' . ($doc['match_label'] ?? '') . ' ' . ($doc['requirement'] ?? '')));
+              @endphp
+              <article class="pjd-doc-card" data-doc-card data-doc-url="{{ $docUrl }}" data-doc-name="{{ e($docName) }}" data-doc-text="{{ e(\Illuminate\Support\Str::lower($docText)) }}">
+                <div class="pjd-doc-main">
+                  <div class="pjd-doc-file-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7z"/><path d="M14 2v5h5"/><path d="M9 13h6"/><path d="M9 17h4"/></svg>
+                  </div>
+
+                  <div class="pjd-doc-content">
+                    <div class="pjd-doc-title-line">
+                      <span class="pjd-doc-name">{{ $docName }}</span>
+                      <span class="pjd-doc-badge {{ $docExt === 'PDF' ? 'is-pdf' : 'is-file' }}">{{ $docExt }}</span>
+                      <span class="pjd-doc-badge pjd-doc-status {{ in_array($docStatus, ['processing']) ? 'is-processing' : (in_array($docStatus, ['failed','error']) ? 'is-error' : '') }}">{{ $doc['status_label'] ?? 'Completado' }}</span>
+                    </div>
+                    <div class="pjd-doc-sub">
+                      {{ $doc['size_label'] ?? '0 B' }}
+                      @if(!empty($doc['date_label'])) · {{ $doc['date_label'] }} @endif
+                      @if(!empty($doc['pages_label'])) · {{ $doc['pages_label'] }} @endif
+                    </div>
+                    @if(!empty($doc['match_label']))
+                      <div class="pjd-doc-match">{{ $doc['match_label'] }}</div>
+                    @endif
+                  </div>
+
+                  <div class="pjd-doc-actions">
+                    <button type="button" class="pjd-doc-icon-btn pjd-doc-toggle" title="Ver información" data-doc-toggle>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+                    </button>
+                    <button type="button" class="pjd-doc-icon-btn" title="Opciones" data-doc-menu-btn>
+                      <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="pjd-doc-details">
+                  <h4>Información del documento</h4>
+                  <p>{{ $doc['summary'] ?? 'Sin descripción disponible.' }}</p>
+                  @if(!empty($doc['requirement']))
+                    <div class="pjd-doc-detail-meta">Relacionado con checklist: {{ $doc['requirement'] }}</div>
+                  @endif
+                </div>
+
+                <div class="pjd-doc-menu" data-doc-menu>
+                  <a href="{{ $docUrl }}" target="_blank" data-doc-preview>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+                    Vista previa
+                  </a>
+                  <a href="{{ $docDownload }}" download>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+                    Descargar
+                  </a>
+                  @if($docDelete)
+                    <button type="button" class="is-danger" data-doc-delete="{{ $docDelete }}">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="m19 6-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                      Eliminar
+                    </button>
+                  @endif
+                </div>
+              </article>
+            @empty
+              <div class="pjd-doc-empty">Este proyecto todavía no tiene documentos ni evidencias adjuntas.</div>
+            @endforelse
+          </div>
+        </div>
       </div>
 
     </div>
@@ -2720,10 +2838,10 @@
 {{-- PDF.js para renderizar el PDF y resaltar la cita --}}
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 @php
-  $pjdDocsList = $project->documents->map(fn($d) => [
-    'filename' => $d->filename,
-    'stored'   => basename($d->file_path),
-    'url'      => \Illuminate\Support\Facades\Storage::disk('public')->url($d->file_path),
+  $pjdDocsList = collect($documentLibrary ?? [])->map(fn($d) => [
+    'filename' => $d['filename'] ?? '',
+    'stored'   => basename($d['url'] ?? ''),
+    'url'      => $d['url'] ?? '',
   ])->values();
 @endphp
 <script>
@@ -4096,6 +4214,85 @@
       }
     }
   }
+
+  // ============ DOCUMENTOS DEL PROYECTO ============
+  const docSearch = document.getElementById('pjdDocSearch');
+  const docCount = document.getElementById('pjdDocCount');
+  const docCards = Array.from(document.querySelectorAll('[data-doc-card]'));
+
+  function closeDocMenus(except = null) {
+    document.querySelectorAll('[data-doc-menu].is-open').forEach(menu => {
+      if (menu !== except) menu.classList.remove('is-open');
+    });
+  }
+
+  function filterDocuments() {
+    const q = (docSearch?.value || '').trim().toLowerCase();
+    let visible = 0;
+
+    docCards.forEach(card => {
+      const text = card.dataset.docText || '';
+      const match = !q || text.includes(q);
+      card.style.display = match ? '' : 'none';
+      if (match) visible++;
+    });
+
+    if (docCount) docCount.textContent = visible;
+  }
+
+  docSearch?.addEventListener('input', filterDocuments);
+
+  document.addEventListener('click', async (e) => {
+    const toggle = e.target.closest('[data-doc-toggle]');
+    const menuBtn = e.target.closest('[data-doc-menu-btn]');
+    const deleteBtn = e.target.closest('[data-doc-delete]');
+
+    if (toggle) {
+      const card = toggle.closest('[data-doc-card]');
+      card?.classList.toggle('is-open');
+      return;
+    }
+
+    if (menuBtn) {
+      const card = menuBtn.closest('[data-doc-card]');
+      const menu = card?.querySelector('[data-doc-menu]');
+      if (!menu) return;
+      const isOpen = menu.classList.contains('is-open');
+      closeDocMenus(menu);
+      menu.classList.toggle('is-open', !isOpen);
+      return;
+    }
+
+    if (deleteBtn) {
+      e.preventDefault();
+      const card = deleteBtn.closest('[data-doc-card]');
+      if (!confirm('¿Eliminar este documento?')) return;
+
+      try {
+        const res = await fetch(deleteBtn.dataset.docDelete, {
+          method: 'DELETE',
+          headers: {
+            'X-CSRF-TOKEN': CSRF,
+            'Accept': 'application/json'
+          }
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || json.ok === false) throw new Error(json.message || 'No se pudo eliminar el documento');
+        card?.remove();
+        closeDocMenus();
+        filterDocuments();
+        showToast('Documento eliminado', 'success');
+      } catch (err) {
+        showToast(err.message || 'Error al eliminar documento', 'error');
+      }
+      return;
+    }
+
+    if (!e.target.closest('[data-doc-menu]')) {
+      closeDocMenus();
+    }
+  });
+
 
   // ============ CITAS (drawer lateral con PDF.js + resaltado exacto) ============
   const docDrawer    = document.getElementById('pjdDocDrawer');
