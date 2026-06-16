@@ -2337,3 +2337,20 @@ Route::post('propuestas-comerciales/resultados/{resultado}/picking/buscar-produc
     ->name('propuestas-comerciales.resultado.picking.buscar-producto');
     Route::post('propuestas-comerciales/resultados/{resultado}/picking/crear', [PropuestaPickingController::class, 'crearPicking'])
     ->name('propuestas-comerciales.resultado.picking.crear');
+
+
+
+Route::middleware(['auth'])->group(function () {
+    Route::get('/projects/{project}/analisis', [ProjectBoardController::class, 'analisis'])
+        ->name('projects.analisis');
+
+    Route::post('/projects/{project}/checklist', [ProjectBoardController::class, 'updateChecklist'])
+        ->name('projects.checklist');
+
+    Route::post('/projects/{project}/checklist/attach', [ProjectBoardController::class, 'attachChecklist'])
+        ->name('projects.checklist.attach');
+
+    Route::get('/projects/{project}/checklist/export/{format}', [ProjectBoardController::class, 'exportChecklist'])
+        ->whereIn('format', ['csv', 'excel', 'pdf'])
+        ->name('projects.checklist.export');
+});

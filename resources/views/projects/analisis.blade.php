@@ -1698,25 +1698,56 @@
   $resumenEjec = $sd['resumen_ejecutivo'] ?? [];
   $partidas = $sd['partidas'] ?? [];
   $citas = $sd['citas'] ?? [];
-  $checklistRaw = $project->checklist ?: ($sd['checklist_sugerido'] ?? []);
+  $checklistRaw = $project->relationLoaded('checklistItems') && $project->checklistItems->count()
+      ? $project->checklistItems->map(fn ($it) => method_exists($it, 'toChecklistArray') ? $it->toChecklistArray() : [
+          'id'                    => $it->id,
+          'requisito'             => $it->requirement,
+          'descripcion'           => $it->description,
+          'criterio_cumplimiento' => $it->compliance_criteria,
+          'formato'               => $it->format ?: 'No aplica',
+          'categoria'             => $it->category ?: 'Legal-Administrativo',
+          'aplicabilidad'         => $it->applicability ?: 'Único',
+          'obligatorio'           => $it->mandatory ? 'Sí' : 'No',
+          'cumplimiento'          => match($it->compliance_status) { 'cumple' => 'Cumple', 'parcial' => 'Parcial', 'no_cumple' => 'No Cumple', default => '-' },
+          'status'                => match($it->review_status) { 'en_revision' => 'En revisión', 'aprobado' => 'Aprobado', default => 'Pendiente' },
+          'prioridad'             => match($it->priority) { 'alta' => 'Alta', 'baja' => 'Baja', default => 'Media' },
+          'fecha_limite'          => optional($it->due_date)->format('Y-m-d'),
+          'responsable_id'        => $it->responsible_user_id,
+          'responsable'           => $it->responsible?->name ?: data_get($it->metadata, 'responsable_text', ''),
+          'revisor_id'            => $it->reviewer_user_id,
+          'revisor'               => $it->reviewer?->name ?: data_get($it->metadata, 'revisor_text', ''),
+          'fuente'                => $it->source_name,
+          'pagina'                => $it->source_page,
+          'cita'                  => $it->source_quote,
+          'notas'                 => $it->notes->map(fn($n) => ['id'=>$n->id,'body'=>$n->body,'user_name'=>$n->user?->name,'created_at'=>optional($n->created_at)->format('Y-m-d H:i:s')])->values()->all(),
+          'adjuntos'              => $it->attachments->map(fn($a) => ['id'=>$a->id,'name'=>$a->original_name,'url'=>$a->url,'mime'=>$a->mime_type,'size'=>$a->size,'uploaded_at'=>optional($a->created_at)->format('Y-m-d H:i:s')])->values()->all(),
+      ])->values()->all()
+      : ($project->checklist ?: ($sd['checklist_sugerido'] ?? []));
 
   $checklist = collect($checklistRaw)->map(function ($it, $i) {
       if (!is_array($it)) return null;
       return [
-          'id'            => $it['id'] ?? ('item-'.$i),
-          'requisito'     => $it['requisito'] ?? $it['item'] ?? $it['text'] ?? 'Sin nombre',
-          'descripcion'   => $it['descripcion'] ?? '',
+          'id'                    => $it['id'] ?? ('item-'.$i),
+          'requisito'             => $it['requisito'] ?? $it['item'] ?? $it['text'] ?? 'Sin nombre',
+          'descripcion'           => $it['descripcion'] ?? '',
           'criterio_cumplimiento' => $it['criterio_cumplimiento'] ?? '',
-          'formato'       => $it['formato'] ?? 'No aplica',
-          'categoria'     => $it['categoria'] ?? 'Legal-Administrativo',
-          'aplicabilidad' => $it['aplicabilidad'] ?? 'Único',
-          'obligatorio'   => $it['obligatorio'] ?? 'Sí',
-          'cumplimiento'  => $it['cumplimiento'] ?? '-',
-          'status'        => $it['status'] ?? 'Pendiente',
-          'prioridad'     => $it['prioridad'] ?? 'Media',
-          'fuente'        => $it['fuente'] ?? '',
-          'pagina'        => $it['pagina'] ?? null,
-          'cita'          => $it['cita'] ?? $it['evidencia'] ?? $it['fragmento'] ?? '',
+          'formato'               => $it['formato'] ?? 'No aplica',
+          'categoria'             => $it['categoria'] ?? 'Legal-Administrativo',
+          'aplicabilidad'         => $it['aplicabilidad'] ?? 'Único',
+          'obligatorio'           => $it['obligatorio'] ?? 'Sí',
+          'cumplimiento'          => $it['cumplimiento'] ?? '-',
+          'status'                => $it['status'] ?? 'Pendiente',
+          'prioridad'             => $it['prioridad'] ?? 'Media',
+          'fecha_limite'          => $it['fecha_limite'] ?? null,
+          'responsable'           => $it['responsable'] ?? '',
+          'responsable_id'        => $it['responsable_id'] ?? null,
+          'revisor'               => $it['revisor'] ?? '',
+          'revisor_id'            => $it['revisor_id'] ?? null,
+          'notas'                 => $it['notas'] ?? [],
+          'adjuntos'              => $it['adjuntos'] ?? [],
+          'fuente'                => $it['fuente'] ?? '',
+          'pagina'                => $it['pagina'] ?? null,
+          'cita'                  => $it['cita'] ?? $it['evidencia'] ?? $it['fragmento'] ?? '',
       ];
   })->filter()->values()->all();
 
@@ -2187,8 +2218,8 @@
                     $docMatch = !empty($it['fuente']) ? $project->documents->firstWhere('filename', $it['fuente']) : null;
                     $docUrl = $docMatch ? $docMatch->url : null;
                   @endphp
-                  <tr data-row="{{ $idx }}" data-cumplimiento="{{ $it['cumplimiento'] }}" data-status="{{ $it['status'] }}" data-prioridad="{{ $it['prioridad'] }}" @if($clPayload) data-cita="{{ $clPayload }}" @endif>
-                    <td class="pjd-cl-check-cell"><button type="button" class="pjd-cl-row-toggle" data-toggle="{{ $idx }}" title="Ver fuente y detalle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></button></td>
+                  <tr data-row="{{ $it['id'] }}" data-legacy-index="{{ $idx }}" data-cumplimiento="{{ $it['cumplimiento'] }}" data-status="{{ $it['status'] }}" data-prioridad="{{ $it['prioridad'] }}" data-requisito="{{ e($it['requisito']) }}" data-formato="{{ e($it['formato']) }}" data-descripcion="{{ e($it['descripcion']) }}" data-fecha-limite="{{ $it['fecha_limite'] ?? '' }}" data-responsable="{{ e($it['responsable'] ?? '') }}" data-revisor="{{ e($it['revisor'] ?? '') }}" data-notas="{{ e(collect($it['notas'] ?? [])->map(fn($n) => is_array($n) ? ($n['body'] ?? '') : $n)->filter()->implode("\n")) }}" data-adjuntos='@json($it["adjuntos"] ?? [])' @if($clPayload) data-cita="{{ $clPayload }}" @endif>
+                    <td class="pjd-cl-check-cell"><button type="button" class="pjd-cl-row-toggle" data-toggle="{{ $it['id'] }}" title="Ver fuente y detalle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></button></td>
                     <td>
                       <div class="pjd-cl-requisito">
                         <svg class="pjd-cl-row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="7" x2="19" y2="7"/><line x1="5" y1="12" x2="19" y2="12"/><line x1="5" y1="17" x2="14" y2="17"/></svg>
@@ -2204,7 +2235,7 @@
                         $cumpClass = match($it['cumplimiento']) { 'Cumple'=>'is-cumple','Parcial'=>'is-parcial','No Cumple'=>'is-nocumple', default=>'' };
                         $cumpLabel = $it['cumplimiento'] ?: '-';
                       @endphp
-                      <button type="button" class="pjd-cl-cumplimiento-btn" data-cumplimiento-toggle="{{ $idx }}" title="Cambiar cumplimiento">
+                      <button type="button" class="pjd-cl-cumplimiento-btn" data-cumplimiento-toggle="{{ $it['id'] }}" title="Cambiar cumplimiento">
                         <span class="pjd-cl-cumple-dot {{ $cumpClass }}"></span>
                         <span class="pjd-cl-cumple-text {{ $cumpClass }}">{{ $cumpLabel }}</span>
                       </button>
@@ -2214,7 +2245,7 @@
                         $statClass = match($it['status']) { 'En revisión'=>'is-revision','Aprobado'=>'is-aprobado', default=>'is-pendiente' };
                         $statusValue = $it['status'] ?: 'Pendiente';
                       @endphp
-                      <button type="button" class="pjd-cl-status {{ $statClass }}" data-status-toggle="{{ $idx }}">
+                      <button type="button" class="pjd-cl-status {{ $statClass }}" data-status-toggle="{{ $it['id'] }}">
                         <span class="pjd-cl-status-icon">
                           @if($statusValue === 'Aprobado')
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 12l2.5 2.5L16 9"/></svg>
@@ -2227,9 +2258,9 @@
                         <span class="pjd-cl-status-text">{{ $statusValue }}</span>
                       </button>
                     </td>
-                    <td class="pjd-cl-cell-center" data-col="opciones"><button type="button" class="pjd-cl-options" data-options="{{ $idx }}" title="Opciones"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button></td>
+                    <td class="pjd-cl-cell-center" data-col="opciones"><button type="button" class="pjd-cl-options" data-options="{{ $it['id'] }}" title="Opciones"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button></td>
                   </tr>
-                  <tr class="pjd-cl-detail-row" data-detail="{{ $idx }}" style="display:none;">
+                  <tr class="pjd-cl-detail-row" data-detail="{{ $it['id'] }}" style="display:none;">
                     <td colspan="9" style="padding:0">
                       <div class="pjd-cl-detail">
                         <div class="pjd-cl-detail-panel">
@@ -2246,7 +2277,7 @@
                             <div class="pjd-cl-detail-controls">
                               <div class="pjd-cl-detail-control-row">
                                 <span class="pjd-cl-detail-label" style="margin:0;">Prioridad:</span>
-                                <div class="pjd-cl-priority-group" data-priority-group="{{ $idx }}">
+                                <div class="pjd-cl-priority-group" data-priority-group="{{ $it['id'] }}">
                                   <button type="button" class="pjd-cl-priority-btn {{ ($it['prioridad'] ?? 'Media') === 'Alta' ? 'is-active' : '' }}" data-priority-set="Alta">Alta</button>
                                   <button type="button" class="pjd-cl-priority-btn {{ ($it['prioridad'] ?? 'Media') === 'Media' ? 'is-active' : '' }}" data-priority-set="Media">Media</button>
                                   <button type="button" class="pjd-cl-priority-btn {{ ($it['prioridad'] ?? 'Media') === 'Baja' ? 'is-active' : '' }}" data-priority-set="Baja">Baja</button>
@@ -2257,14 +2288,14 @@
                                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
                                   Fecha límite:
                                 </span>
-                                <input type="date" class="pjd-cl-detail-date" data-detail-date="{{ $idx }}" value="{{ $it['fecha_limite'] ?? '' }}">
+                                <input type="date" class="pjd-cl-detail-date" data-detail-date="{{ $it['id'] }}" value="{{ $it['fecha_limite'] ?? '' }}">
                               </div>
                               <div class="pjd-cl-detail-control-row">
                                 <span class="pjd-cl-detail-label" style="margin:0;">
                                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>
                                   Responsable:
                                 </span>
-                                <select class="pjd-cl-detail-select" data-detail-responsable="{{ $idx }}">
+                                <select class="pjd-cl-detail-select" data-detail-responsable="{{ $it['id'] }}">
                                   <option>Sin asignar</option>
                                 </select>
                               </div>
@@ -2273,7 +2304,7 @@
                                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>
                                   Revisor:
                                 </span>
-                                <select class="pjd-cl-detail-select" data-detail-revisor="{{ $idx }}">
+                                <select class="pjd-cl-detail-select" data-detail-revisor="{{ $it['id'] }}">
                                   <option>Sin asignar</option>
                                 </select>
                               </div>
@@ -2283,7 +2314,7 @@
                           <div class="pjd-cl-detail-section">
                             <div class="pjd-cl-detail-control-row">
                               <span class="pjd-cl-detail-label" style="margin:0;">Notas:</span>
-                              <button type="button" class="pjd-cl-detail-link" data-detail-note="{{ $idx }}">
+                              <button type="button" class="pjd-cl-detail-link" data-detail-note="{{ $it['id'] }}">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
                                 Agregar
                               </button>
@@ -2297,7 +2328,7 @@
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
                                 Documentos Adjuntos:
                               </span>
-                              <button type="button" class="pjd-cl-detail-link" data-detail-attach="{{ $idx }}">
+                              <button type="button" class="pjd-cl-detail-link" data-detail-attach="{{ $it['id'] }}">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05 12 20.49a6 6 0 0 1-8.49-8.49l9.44-9.44a4 4 0 0 1 5.66 5.66L9.17 17.66a2 2 0 0 1-2.83-2.83l8.49-8.49"/></svg>
                                 Adjuntar
                               </button>
@@ -2499,6 +2530,8 @@
   const CHAT_RESET_URL  = @json(route('projects.chat.reset', $project));
   const DRAFT_URL       = @json(route('projects.draft', $project));
   const CHECKLIST_URL   = @json(route('projects.checklist', $project));
+  const CHECKLIST_ATTACH_URL = @json(route('projects.checklist.attach', $project));
+  const CHECKLIST_EXPORT_BASE_URL = @json(url('/projects/' . $project->slug . '/checklist/export'));
   const REPORT_URL      = @json(route('projects.report', $project));
   const CSRF            = '{{ csrf_token() }}';
   const PROJECT_DOCS_LIST = @json($pjdDocsList);
@@ -2869,6 +2902,47 @@
 
   updateCounters();
 
+  async function postChecklistBackend(action, payload = {}) {
+    const fd = new FormData();
+    fd.append('_token', CSRF);
+    fd.append('action', action);
+
+    Object.entries(payload).forEach(([key, value]) => {
+      if (value === undefined || value === null) return;
+      if (key === 'item') fd.append('item', JSON.stringify(value));
+      else fd.append(key, value);
+    });
+
+    const res = await fetch(CHECKLIST_URL, {
+      method: 'POST',
+      headers: { 'Accept': 'application/json' },
+      body: fd,
+      credentials: 'same-origin'
+    });
+
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || json.ok === false) {
+      throw new Error(json.message || json.error || 'No se pudo guardar el checklist.');
+    }
+    return json;
+  }
+
+  function updateRowDatasetFromItem(row, item) {
+    if (!row || !item) return;
+    row.dataset.itemId = item.id || row.dataset.itemId || '';
+    row.dataset.requisito = item.requisito || '';
+    row.dataset.formato = item.formato || 'No aplica';
+    row.dataset.descripcion = item.descripcion || '';
+    row.dataset.cumplimiento = item.cumplimiento || '-';
+    row.dataset.status = item.status || 'Pendiente';
+    row.dataset.prioridad = item.prioridad || 'Media';
+    row.dataset.fechaLimite = item.fecha_limite || '';
+    row.dataset.responsable = item.responsable || '';
+    row.dataset.revisor = item.revisor || '';
+    row.dataset.notas = Array.isArray(item.notas) ? item.notas.join('\n') : (item.notas || '');
+    row.dataset.adjuntos = JSON.stringify(item.adjuntos || []);
+  }
+
   const clFiltersBtn = document.getElementById('pjdClFiltersBtn');
   const clColumnsBtn = document.getElementById('pjdClColumnsBtn');
   const clExportBtn = document.getElementById('pjdClExportBtn');
@@ -3132,7 +3206,12 @@
       obligatorio: row.querySelector('[data-col="obligatorio"]')?.textContent.trim() || '-',
       cumplimiento: row.dataset.cumplimiento || '-',
       status: row.dataset.status || 'Pendiente',
-      prioridad: row.dataset.prioridad || 'Media'
+      prioridad: row.dataset.prioridad || 'Media',
+      fecha_limite: row.dataset.fechaLimite || '',
+      responsable: row.dataset.responsable || '',
+      revisor: row.dataset.revisor || '',
+      notas: row.dataset.notas ? row.dataset.notas.split('\n').filter(Boolean) : [],
+      adjuntos: (() => { try { return JSON.parse(row.dataset.adjuntos || '[]'); } catch (_) { return []; } })()
     };
   }
   function openChecklistAddForm(mode = 'add', row = null) {
@@ -3149,41 +3228,63 @@
     form?.classList.add('is-open');
     setTimeout(() => document.getElementById('pjdClNewReq')?.focus(), 80);
   }
-  function updateChecklistDomItem(idx, { requisito, formato, descripcion }) {
+  function updateChecklistDomItem(idx, item) {
     const row = clBody.querySelector(`tr[data-row="${idx}"]`);
     const detail = clBody.querySelector(`tr[data-detail="${idx}"]`);
     if (!row) return;
-    const safeReq = escapeHtml(requisito);
-    const safeFormato = escapeHtml(formato || 'No aplica');
-    const safeDesc = escapeHtml(descripcion || 'Sin descripción adicional.');
-    row.dataset.requisito = requisito;
-    row.dataset.formato = formato || 'No aplica';
-    row.dataset.descripcion = descripcion || '';
+
+    const requisito = item.requisito || '';
+    const formato = item.formato || 'No aplica';
+    const descripcion = item.descripcion || '';
+    const categoria = item.categoria || row.querySelector('[data-col="categoria"]')?.textContent.trim() || '-';
+    const aplicabilidad = item.aplicabilidad || row.querySelector('[data-col="aplicabilidad"]')?.textContent.trim() || '-';
+    const obligatorio = item.obligatorio || row.querySelector('[data-col="obligatorio"]')?.textContent.trim() || '-';
+
+    updateRowDatasetFromItem(row, { ...getChecklistRowData(row), ...item, requisito, formato, descripcion });
+
     const reqText = row.querySelector('.pjd-cl-requisito-text');
     if (reqText) { reqText.textContent = requisito; reqText.title = requisito; }
     const formatoCell = row.querySelector('[data-col="formato"]');
-    if (formatoCell) formatoCell.textContent = formato || 'No aplica';
+    if (formatoCell) formatoCell.textContent = formato;
+    const categoriaCell = row.querySelector('[data-col="categoria"]');
+    if (categoriaCell) categoriaCell.textContent = categoria;
+    const aplicabilidadCell = row.querySelector('[data-col="aplicabilidad"]');
+    if (aplicabilidadCell) aplicabilidadCell.textContent = aplicabilidad;
+    const obligatorioCell = row.querySelector('[data-col="obligatorio"]');
+    if (obligatorioCell) obligatorioCell.textContent = obligatorio;
+
+    applyChecklistCumplimiento(row, item.cumplimiento || row.dataset.cumplimiento || '-');
+    applyChecklistStatus(row, item.status || row.dataset.status || 'Pendiente');
+
     if (detail) {
-      detail.innerHTML = checklistDetailHtml({ idx, descripcion: descripcion || '', prioridad: row.dataset.prioridad || 'Media' });
+      detail.innerHTML = checklistDetailHtml({
+        idx,
+        descripcion,
+        prioridad: item.prioridad || row.dataset.prioridad || 'Media'
+      });
     }
   }
-  function createChecklistDomItem({ requisito, formato, descripcion, categoria = '-', aplicabilidad = '-', obligatorio = '-', cumplimiento = '-', status = 'Pendiente', prioridad = 'Media' }) {
-    const idx = nextChecklistRowId();
+
+  function createChecklistDomItem({ id = '', requisito, formato, descripcion, categoria = '-', aplicabilidad = '-', obligatorio = '-', cumplimiento = '-', status = 'Pendiente', prioridad = 'Media', fecha_limite = '', responsable = '', revisor = '', notas = [], adjuntos = [] }, skipSave = false) {
+    const idx = id || nextChecklistRowId();
     const safeReq = escapeHtml(requisito);
     const safeFormato = escapeHtml(formato || 'No aplica');
     const safeDesc = escapeHtml(descripcion || 'Sin descripción adicional.');
     const tr = document.createElement('tr');
     tr.dataset.row = idx;
+    tr.dataset.itemId = id || '';
     tr.dataset.cumplimiento = cumplimiento || '-';
     tr.dataset.status = status || 'Pendiente';
     tr.dataset.prioridad = prioridad || 'Media';
     tr.dataset.requisito = requisito;
     tr.dataset.formato = formato || 'No aplica';
     tr.dataset.descripcion = descripcion || '';
+    tr.dataset.fechaLimite = fecha_limite || '';
+    tr.dataset.responsable = responsable || '';
+    tr.dataset.revisor = revisor || '';
+    tr.dataset.notas = Array.isArray(notas) ? notas.join('\n') : (notas || '');
+    tr.dataset.adjuntos = JSON.stringify(adjuntos || []);
     tr.dataset.added = '1';
-    tr.dataset.requisito = requisito;
-    tr.dataset.formato = formato || 'No aplica';
-    tr.dataset.descripcion = descripcion || '';
     tr.innerHTML = `
       <td class="pjd-cl-check-cell"><button type="button" class="pjd-cl-row-toggle" data-toggle="${idx}" title="Ver fuente y detalle">${checklistChevronSvg()}</button></td>
       <td data-col="requisito"><div class="pjd-cl-requisito">${checklistRowIconSvg()}<span class="pjd-cl-requisito-text" title="${safeReq}">${safeReq}</span></div></td>
@@ -3212,37 +3313,51 @@
     applyChecklistFilters();
     toggleChecklistDetail(idx, true);
     tr.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    saveChecklist();
+    if (!skipSave) saveChecklist();
   }
 
-  clRowMenu?.addEventListener('click', (e) => {
+  clRowMenu?.addEventListener('click', async (e) => {
     const actionBtn = e.target.closest('[data-row-action]');
     if (!actionBtn || activeOptionsRow === null) return;
     const action = actionBtn.dataset.rowAction;
     const row = clBody.querySelector(`tr[data-row="${activeOptionsRow}"]`);
     const detail = clBody.querySelector(`tr[data-detail="${activeOptionsRow}"]`);
     if (!row) { closeChecklistRowMenu(); return; }
+
     if (action === 'edit') {
       openChecklistAddForm('edit', row);
       closeChecklistRowMenu();
       return;
     }
+
     if (action === 'duplicate') {
-      const data = getChecklistRowData(row);
-      createChecklistDomItem({ ...data, requisito: `${data.requisito} (copia)` });
-      closeChecklistRowMenu();
-      showToast('✓ Requisito duplicado', 'success');
+      try {
+        const json = await postChecklistBackend('duplicate', { id: activeOptionsRow, idx: activeOptionsRow });
+        const item = json.item || { ...getChecklistRowData(row), requisito: `${getChecklistRowData(row).requisito} copia` };
+        createChecklistDomItem(item, true);
+        closeChecklistRowMenu();
+        updateCounters();
+        applyChecklistFilters();
+        showToast('✓ Requisito duplicado', 'success');
+      } catch (err) {
+        showToast(err.message || 'Error al duplicar', 'error');
+      }
       return;
     }
+
     if (action === 'delete') {
       if (!confirm('¿Eliminar este requisito?')) return;
-      detail?.remove();
-      row.remove();
-      closeChecklistRowMenu();
-      updateCounters();
-      applyChecklistFilters();
-      saveChecklist();
-      showToast('✓ Requisito eliminado', 'success');
+      try {
+        await postChecklistBackend('delete', { id: activeOptionsRow, idx: activeOptionsRow });
+        detail?.remove();
+        row.remove();
+        closeChecklistRowMenu();
+        updateCounters();
+        applyChecklistFilters();
+        showToast('✓ Requisito eliminado', 'success');
+      } catch (err) {
+        showToast(err.message || 'Error al eliminar', 'error');
+      }
     }
   });
 
@@ -3349,6 +3464,7 @@
     const rows = Array.from(clBody.querySelectorAll('tr[data-row]')).map(r => {
       const data = getChecklistRowData(r);
       return {
+        id: r.dataset.row,
         idx: r.dataset.row,
         requisito: data.requisito,
         descripcion: data.descripcion,
@@ -3358,7 +3474,11 @@
         obligatorio: data.obligatorio,
         cumplimiento: data.cumplimiento,
         status: data.status,
-        prioridad: data.prioridad
+        prioridad: data.prioridad,
+        fecha_limite: data.fecha_limite,
+        responsable: data.responsable,
+        revisor: data.revisor,
+        notas: data.notas
       };
     });
     try { const fd = new FormData(); fd.append('_token', CSRF); fd.append('items', JSON.stringify(rows)); await fetch(CHECKLIST_URL, { method:'POST', headers:{'Accept':'application/json'}, body: fd, credentials:'same-origin' }); } catch (_) {}
@@ -3374,25 +3494,56 @@
 
   document.getElementById('pjdClAddBtn')?.addEventListener('click', () => openChecklistAddForm('add'));
   document.getElementById('pjdClAddCancel')?.addEventListener('click', closeChecklistAddForm);
-  document.getElementById('pjdClAddForm')?.addEventListener('submit', (e) => {
+  document.getElementById('pjdClAddForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const requisito = document.getElementById('pjdClNewReq')?.value.trim() || '';
     const formato = document.getElementById('pjdClNewFormato')?.value.trim() || 'No aplica';
     const descripcion = document.getElementById('pjdClNewDesc')?.value.trim() || '';
     if (!requisito) { document.getElementById('pjdClNewReq')?.focus(); return; }
-    if (editingChecklistRow !== null) {
-      updateChecklistDomItem(editingChecklistRow, { requisito, formato, descripcion });
+
+    const item = {
+      requisito,
+      formato,
+      descripcion,
+      categoria: 'Legal-Administrativo',
+      aplicabilidad: 'Único',
+      obligatorio: 'Sí',
+      cumplimiento: '-',
+      status: 'Pendiente',
+      prioridad: 'Media'
+    };
+
+    const saveBtn = document.getElementById('pjdClAddSave');
+    const original = saveBtn?.textContent || 'Guardar';
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Guardando...'; }
+
+    try {
+      if (editingChecklistRow !== null) {
+        const currentRow = clBody.querySelector(`tr[data-row="${editingChecklistRow}"]`);
+        const currentData = getChecklistRowData(currentRow) || {};
+        const payload = { ...currentData, ...item };
+        const json = await postChecklistBackend('update', { id: editingChecklistRow, idx: editingChecklistRow, item: payload });
+        updateChecklistDomItem(editingChecklistRow, json.item || payload);
+        closeChecklistAddForm();
+        updateCounters();
+        applyChecklistFilters();
+        showToast('✓ Requisito actualizado', 'success');
+        return;
+      }
+
+      const json = await postChecklistBackend('create', { item });
+      createChecklistDomItem(json.item || item, true);
       closeChecklistAddForm();
       updateCounters();
       applyChecklistFilters();
-      saveChecklist();
-      showToast('✓ Requisito actualizado', 'success');
-      return;
+      showToast('✓ Requisito agregado', 'success');
+    } catch (err) {
+      showToast(err.message || 'Error al guardar requisito', 'error');
+    } finally {
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = original; }
     }
-    createChecklistDomItem({ requisito, formato, descripcion });
-    closeChecklistAddForm();
-    showToast('✓ Requisito agregado', 'success');
   });
+
 
   function downloadChecklistExcel() {
     if (typeof XLSX === 'undefined') { showToast('Excel no disponible', 'error'); return; }
@@ -3408,8 +3559,82 @@
     const btn = e.target.closest('[data-download-list]');
     if (!btn) return;
     closeChecklistMenus();
-    if (btn.dataset.downloadList === 'excel') downloadChecklistExcel();
-    if (btn.dataset.downloadList === 'pdf') printChecklistPdf();
+    if (btn.dataset.downloadList === 'excel') window.location.href = `${CHECKLIST_EXPORT_BASE_URL}/excel`;
+    if (btn.dataset.downloadList === 'pdf') window.location.href = `${CHECKLIST_EXPORT_BASE_URL}/pdf`;
+  });
+
+  clBody?.addEventListener('change', async (e) => {
+    const input = e.target.closest('[data-detail-date], [data-detail-responsable], [data-detail-revisor]');
+    if (!input) return;
+    const detail = input.closest('tr[data-detail]');
+    const idx = detail?.dataset.detail;
+    const row = idx ? clBody.querySelector(`tr[data-row="${idx}"]`) : null;
+    if (!row) return;
+
+    if (input.matches('[data-detail-date]')) row.dataset.fechaLimite = input.value || '';
+    if (input.matches('[data-detail-responsable]')) row.dataset.responsable = input.value || '';
+    if (input.matches('[data-detail-revisor]')) row.dataset.revisor = input.value || '';
+
+    try {
+      await postChecklistBackend('update', { id: idx, idx, item: getChecklistRowData(row) });
+      showToast('✓ Checklist guardado', 'success');
+    } catch (err) {
+      showToast(err.message || 'Error al guardar detalle', 'error');
+    }
+  });
+
+  clBody?.addEventListener('click', async (e) => {
+    const noteBtn = e.target.closest('[data-detail-note]');
+    if (!noteBtn) return;
+    e.preventDefault();
+    const idx = noteBtn.dataset.detailNote;
+    const row = clBody.querySelector(`tr[data-row="${idx}"]`);
+    if (!row) return;
+
+    const body = prompt('Agregar nota:');
+    if (!body || !body.trim()) return;
+
+    try {
+      const json = await postChecklistBackend('note', { id: idx, idx, body: body.trim() });
+      const notes = Array.isArray(json.item?.notas) ? json.item.notas : [];
+      row.dataset.notas = notes.map(n => typeof n === 'object' ? (n.body || '') : n).filter(Boolean).join('
+');
+      showToast('✓ Nota agregada', 'success');
+    } catch (err) {
+      showToast(err.message || 'Error al agregar nota', 'error');
+    }
+  });
+
+  clBody?.addEventListener('click', async (e) => {
+    const attachBtn = e.target.closest('[data-detail-attach]');
+    if (!attachBtn) return;
+    e.preventDefault();
+    const idx = attachBtn.dataset.detailAttach;
+    const row = clBody.querySelector(`tr[data-row="${idx}"]`);
+    if (!row) return;
+
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.multiple = true;
+    fileInput.onchange = async () => {
+      if (!fileInput.files.length) return;
+      const fd = new FormData();
+      fd.append('_token', CSRF);
+      fd.append('id', idx);
+      fd.append('idx', idx);
+      Array.from(fileInput.files).forEach(file => fd.append('files[]', file));
+
+      try {
+        const res = await fetch(CHECKLIST_ATTACH_URL, { method: 'POST', headers: { 'Accept': 'application/json' }, body: fd, credentials: 'same-origin' });
+        const json = await res.json();
+        if (!res.ok || json.ok === false) throw new Error(json.message || 'No se pudo adjuntar el documento.');
+        row.dataset.adjuntos = JSON.stringify(json.item?.adjuntos || json.adjuntos || []);
+        showToast('✓ Documento adjuntado', 'success');
+      } catch (err) {
+        showToast(err.message || 'Error al adjuntar', 'error');
+      }
+    };
+    fileInput.click();
   });
 
 
