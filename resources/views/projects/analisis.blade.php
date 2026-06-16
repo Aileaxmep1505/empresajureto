@@ -1698,56 +1698,25 @@
   $resumenEjec = $sd['resumen_ejecutivo'] ?? [];
   $partidas = $sd['partidas'] ?? [];
   $citas = $sd['citas'] ?? [];
-  $checklistRaw = $project->relationLoaded('checklistItems') && $project->checklistItems->count()
-      ? $project->checklistItems->map(fn ($it) => method_exists($it, 'toChecklistArray') ? $it->toChecklistArray() : [
-          'id'                    => $it->id,
-          'requisito'             => $it->requirement,
-          'descripcion'           => $it->description,
-          'criterio_cumplimiento' => $it->compliance_criteria,
-          'formato'               => $it->format ?: 'No aplica',
-          'categoria'             => $it->category ?: 'Legal-Administrativo',
-          'aplicabilidad'         => $it->applicability ?: 'Único',
-          'obligatorio'           => $it->mandatory ? 'Sí' : 'No',
-          'cumplimiento'          => match($it->compliance_status) { 'cumple' => 'Cumple', 'parcial' => 'Parcial', 'no_cumple' => 'No Cumple', default => '-' },
-          'status'                => match($it->review_status) { 'en_revision' => 'En revisión', 'aprobado' => 'Aprobado', default => 'Pendiente' },
-          'prioridad'             => match($it->priority) { 'alta' => 'Alta', 'baja' => 'Baja', default => 'Media' },
-          'fecha_limite'          => optional($it->due_date)->format('Y-m-d'),
-          'responsable_id'        => $it->responsible_user_id,
-          'responsable'           => $it->responsible?->name ?: data_get($it->metadata, 'responsable_text', ''),
-          'revisor_id'            => $it->reviewer_user_id,
-          'revisor'               => $it->reviewer?->name ?: data_get($it->metadata, 'revisor_text', ''),
-          'fuente'                => $it->source_name,
-          'pagina'                => $it->source_page,
-          'cita'                  => $it->source_quote,
-          'notas'                 => $it->notes->map(fn($n) => ['id'=>$n->id,'body'=>$n->body,'user_name'=>$n->user?->name,'created_at'=>optional($n->created_at)->format('Y-m-d H:i:s')])->values()->all(),
-          'adjuntos'              => $it->attachments->map(fn($a) => ['id'=>$a->id,'name'=>$a->original_name,'url'=>$a->url,'mime'=>$a->mime_type,'size'=>$a->size,'uploaded_at'=>optional($a->created_at)->format('Y-m-d H:i:s')])->values()->all(),
-      ])->values()->all()
-      : ($project->checklist ?: ($sd['checklist_sugerido'] ?? []));
+  $checklistRaw = $project->checklist ?: ($sd['checklist_sugerido'] ?? []);
 
   $checklist = collect($checklistRaw)->map(function ($it, $i) {
       if (!is_array($it)) return null;
       return [
-          'id'                    => $it['id'] ?? ('item-'.$i),
-          'requisito'             => $it['requisito'] ?? $it['item'] ?? $it['text'] ?? 'Sin nombre',
-          'descripcion'           => $it['descripcion'] ?? '',
+          'id'            => $it['id'] ?? ('item-'.$i),
+          'requisito'     => $it['requisito'] ?? $it['item'] ?? $it['text'] ?? 'Sin nombre',
+          'descripcion'   => $it['descripcion'] ?? '',
           'criterio_cumplimiento' => $it['criterio_cumplimiento'] ?? '',
-          'formato'               => $it['formato'] ?? 'No aplica',
-          'categoria'             => $it['categoria'] ?? 'Legal-Administrativo',
-          'aplicabilidad'         => $it['aplicabilidad'] ?? 'Único',
-          'obligatorio'           => $it['obligatorio'] ?? 'Sí',
-          'cumplimiento'          => $it['cumplimiento'] ?? '-',
-          'status'                => $it['status'] ?? 'Pendiente',
-          'prioridad'             => $it['prioridad'] ?? 'Media',
-          'fecha_limite'          => $it['fecha_limite'] ?? null,
-          'responsable'           => $it['responsable'] ?? '',
-          'responsable_id'        => $it['responsable_id'] ?? null,
-          'revisor'               => $it['revisor'] ?? '',
-          'revisor_id'            => $it['revisor_id'] ?? null,
-          'notas'                 => $it['notas'] ?? [],
-          'adjuntos'              => $it['adjuntos'] ?? [],
-          'fuente'                => $it['fuente'] ?? '',
-          'pagina'                => $it['pagina'] ?? null,
-          'cita'                  => $it['cita'] ?? $it['evidencia'] ?? $it['fragmento'] ?? '',
+          'formato'       => $it['formato'] ?? 'No aplica',
+          'categoria'     => $it['categoria'] ?? 'Legal-Administrativo',
+          'aplicabilidad' => $it['aplicabilidad'] ?? 'Único',
+          'obligatorio'   => $it['obligatorio'] ?? 'Sí',
+          'cumplimiento'  => $it['cumplimiento'] ?? '-',
+          'status'        => $it['status'] ?? 'Pendiente',
+          'prioridad'     => $it['prioridad'] ?? 'Media',
+          'fuente'        => $it['fuente'] ?? '',
+          'pagina'        => $it['pagina'] ?? null,
+          'cita'          => $it['cita'] ?? $it['evidencia'] ?? $it['fragmento'] ?? '',
       ];
   })->filter()->values()->all();
 
@@ -2218,8 +2187,8 @@
                     $docMatch = !empty($it['fuente']) ? $project->documents->firstWhere('filename', $it['fuente']) : null;
                     $docUrl = $docMatch ? $docMatch->url : null;
                   @endphp
-                  <tr data-row="{{ $it['id'] }}" data-legacy-index="{{ $idx }}" data-cumplimiento="{{ $it['cumplimiento'] }}" data-status="{{ $it['status'] }}" data-prioridad="{{ $it['prioridad'] }}" data-requisito="{{ e($it['requisito']) }}" data-formato="{{ e($it['formato']) }}" data-descripcion="{{ e($it['descripcion']) }}" data-fecha-limite="{{ $it['fecha_limite'] ?? '' }}" data-responsable="{{ e($it['responsable'] ?? '') }}" data-revisor="{{ e($it['revisor'] ?? '') }}" data-notas="{{ e(collect($it['notas'] ?? [])->map(fn($n) => is_array($n) ? ($n['body'] ?? '') : $n)->filter()->implode("\n")) }}" data-adjuntos='@json($it["adjuntos"] ?? [])' @if($clPayload) data-cita="{{ $clPayload }}" @endif>
-                    <td class="pjd-cl-check-cell"><button type="button" class="pjd-cl-row-toggle" data-toggle="{{ $it['id'] }}" title="Ver fuente y detalle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></button></td>
+                  <tr data-row="{{ $idx }}" data-cumplimiento="{{ $it['cumplimiento'] }}" data-status="{{ $it['status'] }}" data-prioridad="{{ $it['prioridad'] }}" @if($clPayload) data-cita="{{ $clPayload }}" @endif>
+                    <td class="pjd-cl-check-cell"><button type="button" class="pjd-cl-row-toggle" data-toggle="{{ $idx }}" title="Ver fuente y detalle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></button></td>
                     <td>
                       <div class="pjd-cl-requisito">
                         <svg class="pjd-cl-row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="7" x2="19" y2="7"/><line x1="5" y1="12" x2="19" y2="12"/><line x1="5" y1="17" x2="14" y2="17"/></svg>
@@ -2235,7 +2204,7 @@
                         $cumpClass = match($it['cumplimiento']) { 'Cumple'=>'is-cumple','Parcial'=>'is-parcial','No Cumple'=>'is-nocumple', default=>'' };
                         $cumpLabel = $it['cumplimiento'] ?: '-';
                       @endphp
-                      <button type="button" class="pjd-cl-cumplimiento-btn" data-cumplimiento-toggle="{{ $it['id'] }}" title="Cambiar cumplimiento">
+                      <button type="button" class="pjd-cl-cumplimiento-btn" data-cumplimiento-toggle="{{ $idx }}" title="Cambiar cumplimiento">
                         <span class="pjd-cl-cumple-dot {{ $cumpClass }}"></span>
                         <span class="pjd-cl-cumple-text {{ $cumpClass }}">{{ $cumpLabel }}</span>
                       </button>
@@ -2245,7 +2214,7 @@
                         $statClass = match($it['status']) { 'En revisión'=>'is-revision','Aprobado'=>'is-aprobado', default=>'is-pendiente' };
                         $statusValue = $it['status'] ?: 'Pendiente';
                       @endphp
-                      <button type="button" class="pjd-cl-status {{ $statClass }}" data-status-toggle="{{ $it['id'] }}">
+                      <button type="button" class="pjd-cl-status {{ $statClass }}" data-status-toggle="{{ $idx }}">
                         <span class="pjd-cl-status-icon">
                           @if($statusValue === 'Aprobado')
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 12l2.5 2.5L16 9"/></svg>
@@ -2258,9 +2227,9 @@
                         <span class="pjd-cl-status-text">{{ $statusValue }}</span>
                       </button>
                     </td>
-                    <td class="pjd-cl-cell-center" data-col="opciones"><button type="button" class="pjd-cl-options" data-options="{{ $it['id'] }}" title="Opciones"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button></td>
+                    <td class="pjd-cl-cell-center" data-col="opciones"><button type="button" class="pjd-cl-options" data-options="{{ $idx }}" title="Opciones"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button></td>
                   </tr>
-                  <tr class="pjd-cl-detail-row" data-detail="{{ $it['id'] }}" style="display:none;">
+                  <tr class="pjd-cl-detail-row" data-detail="{{ $idx }}" style="display:none;">
                     <td colspan="9" style="padding:0">
                       <div class="pjd-cl-detail">
                         <div class="pjd-cl-detail-panel">
@@ -2277,7 +2246,7 @@
                             <div class="pjd-cl-detail-controls">
                               <div class="pjd-cl-detail-control-row">
                                 <span class="pjd-cl-detail-label" style="margin:0;">Prioridad:</span>
-                                <div class="pjd-cl-priority-group" data-priority-group="{{ $it['id'] }}">
+                                <div class="pjd-cl-priority-group" data-priority-group="{{ $idx }}">
                                   <button type="button" class="pjd-cl-priority-btn {{ ($it['prioridad'] ?? 'Media') === 'Alta' ? 'is-active' : '' }}" data-priority-set="Alta">Alta</button>
                                   <button type="button" class="pjd-cl-priority-btn {{ ($it['prioridad'] ?? 'Media') === 'Media' ? 'is-active' : '' }}" data-priority-set="Media">Media</button>
                                   <button type="button" class="pjd-cl-priority-btn {{ ($it['prioridad'] ?? 'Media') === 'Baja' ? 'is-active' : '' }}" data-priority-set="Baja">Baja</button>
@@ -2288,14 +2257,14 @@
                                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
                                   Fecha límite:
                                 </span>
-                                <input type="date" class="pjd-cl-detail-date" data-detail-date="{{ $it['id'] }}" value="{{ $it['fecha_limite'] ?? '' }}">
+                                <input type="date" class="pjd-cl-detail-date" data-detail-date="{{ $idx }}" value="{{ $it['fecha_limite'] ?? '' }}">
                               </div>
                               <div class="pjd-cl-detail-control-row">
                                 <span class="pjd-cl-detail-label" style="margin:0;">
                                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>
                                   Responsable:
                                 </span>
-                                <select class="pjd-cl-detail-select" data-detail-responsable="{{ $it['id'] }}">
+                                <select class="pjd-cl-detail-select" data-detail-responsable="{{ $idx }}">
                                   <option>Sin asignar</option>
                                 </select>
                               </div>
@@ -2304,7 +2273,7 @@
                                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>
                                   Revisor:
                                 </span>
-                                <select class="pjd-cl-detail-select" data-detail-revisor="{{ $it['id'] }}">
+                                <select class="pjd-cl-detail-select" data-detail-revisor="{{ $idx }}">
                                   <option>Sin asignar</option>
                                 </select>
                               </div>
@@ -2314,7 +2283,7 @@
                           <div class="pjd-cl-detail-section">
                             <div class="pjd-cl-detail-control-row">
                               <span class="pjd-cl-detail-label" style="margin:0;">Notas:</span>
-                              <button type="button" class="pjd-cl-detail-link" data-detail-note="{{ $it['id'] }}">
+                              <button type="button" class="pjd-cl-detail-link" data-detail-note="{{ $idx }}">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
                                 Agregar
                               </button>
@@ -2328,7 +2297,7 @@
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
                                 Documentos Adjuntos:
                               </span>
-                              <button type="button" class="pjd-cl-detail-link" data-detail-attach="{{ $it['id'] }}">
+                              <button type="button" class="pjd-cl-detail-link" data-detail-attach="{{ $idx }}">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05 12 20.49a6 6 0 0 1-8.49-8.49l9.44-9.44a4 4 0 0 1 5.66 5.66L9.17 17.66a2 2 0 0 1-2.83-2.83l8.49-8.49"/></svg>
                                 Adjuntar
                               </button>
@@ -3266,7 +3235,7 @@
   }
 
   function createChecklistDomItem({ id = '', requisito, formato, descripcion, categoria = '-', aplicabilidad = '-', obligatorio = '-', cumplimiento = '-', status = 'Pendiente', prioridad = 'Media', fecha_limite = '', responsable = '', revisor = '', notas = [], adjuntos = [] }, skipSave = false) {
-    const idx = id || nextChecklistRowId();
+    const idx = nextChecklistRowId();
     const safeReq = escapeHtml(requisito);
     const safeFormato = escapeHtml(formato || 'No aplica');
     const safeDesc = escapeHtml(descripcion || 'Sin descripción adicional.');
@@ -3332,7 +3301,7 @@
 
     if (action === 'duplicate') {
       try {
-        const json = await postChecklistBackend('duplicate', { id: activeOptionsRow, idx: activeOptionsRow });
+        const json = await postChecklistBackend('duplicate', { idx: activeOptionsRow });
         const item = json.item || { ...getChecklistRowData(row), requisito: `${getChecklistRowData(row).requisito} copia` };
         createChecklistDomItem(item, true);
         closeChecklistRowMenu();
@@ -3348,7 +3317,7 @@
     if (action === 'delete') {
       if (!confirm('¿Eliminar este requisito?')) return;
       try {
-        await postChecklistBackend('delete', { id: activeOptionsRow, idx: activeOptionsRow });
+        await postChecklistBackend('delete', { idx: activeOptionsRow });
         detail?.remove();
         row.remove();
         closeChecklistRowMenu();
@@ -3464,7 +3433,6 @@
     const rows = Array.from(clBody.querySelectorAll('tr[data-row]')).map(r => {
       const data = getChecklistRowData(r);
       return {
-        id: r.dataset.row,
         idx: r.dataset.row,
         requisito: data.requisito,
         descripcion: data.descripcion,
@@ -3522,7 +3490,7 @@
         const currentRow = clBody.querySelector(`tr[data-row="${editingChecklistRow}"]`);
         const currentData = getChecklistRowData(currentRow) || {};
         const payload = { ...currentData, ...item };
-        const json = await postChecklistBackend('update', { id: editingChecklistRow, idx: editingChecklistRow, item: payload });
+        const json = await postChecklistBackend('update', { idx: editingChecklistRow, item: payload });
         updateChecklistDomItem(editingChecklistRow, json.item || payload);
         closeChecklistAddForm();
         updateCounters();
@@ -3576,32 +3544,10 @@
     if (input.matches('[data-detail-revisor]')) row.dataset.revisor = input.value || '';
 
     try {
-      await postChecklistBackend('update', { id: idx, idx, item: getChecklistRowData(row) });
+      await postChecklistBackend('update', { idx, item: getChecklistRowData(row) });
       showToast('✓ Checklist guardado', 'success');
     } catch (err) {
       showToast(err.message || 'Error al guardar detalle', 'error');
-    }
-  });
-
-  clBody?.addEventListener('click', async (e) => {
-    const noteBtn = e.target.closest('[data-detail-note]');
-    if (!noteBtn) return;
-    e.preventDefault();
-    const idx = noteBtn.dataset.detailNote;
-    const row = clBody.querySelector(`tr[data-row="${idx}"]`);
-    if (!row) return;
-
-    const body = prompt('Agregar nota:');
-    if (!body || !body.trim()) return;
-
-    try {
-      const json = await postChecklistBackend('note', { id: idx, idx, body: body.trim() });
-      const notes = Array.isArray(json.item?.notas) ? json.item.notas : [];
-      row.dataset.notas = notes.map(n => typeof n === 'object' ? (n.body || '') : n).filter(Boolean).join('
-');
-      showToast('✓ Nota agregada', 'success');
-    } catch (err) {
-      showToast(err.message || 'Error al agregar nota', 'error');
     }
   });
 
@@ -3620,7 +3566,6 @@
       if (!fileInput.files.length) return;
       const fd = new FormData();
       fd.append('_token', CSRF);
-      fd.append('id', idx);
       fd.append('idx', idx);
       Array.from(fileInput.files).forEach(file => fd.append('files[]', file));
 
