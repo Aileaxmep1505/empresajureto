@@ -1551,6 +1551,140 @@
     vertical-align: middle;
   }
 
+
+
+  /* Ajuste final: detalle tipo checklist workspace */
+  .pjd-cl-detail {
+    padding: 18px 26px 22px;
+    background: #f8fbff;
+    border-top: 1px solid #e8eef7;
+  }
+  .pjd-cl-detail-panel {
+    max-width: 1060px;
+    display: grid;
+    gap: 14px;
+    color: #344155;
+  }
+  .pjd-cl-detail-section {
+    padding-bottom: 14px;
+    border-bottom: 1px solid #dfe6ef;
+  }
+  .pjd-cl-detail-section:last-child { border-bottom: none; padding-bottom: 0; }
+  .pjd-cl-detail-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 8px;
+    font-size: .88rem;
+    font-weight: 700;
+    color: #3d4858;
+  }
+  .pjd-cl-detail-text {
+    margin: 0;
+    font-size: .9rem;
+    line-height: 1.45;
+    color: #1f2937;
+    white-space: pre-wrap;
+  }
+  .pjd-cl-detail-text.is-muted {
+    color: #6b7280;
+    font-style: italic;
+  }
+  .pjd-cl-detail-controls {
+    display: grid;
+    grid-template-columns: minmax(240px, 1fr) minmax(240px, .9fr);
+    gap: 18px 28px;
+    align-items: center;
+  }
+  .pjd-cl-detail-control-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+  .pjd-cl-priority-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .pjd-cl-priority-btn {
+    height: 34px;
+    min-width: 72px;
+    padding: 0 14px;
+    border: none;
+    border-radius: 8px;
+    background: #eef2f7;
+    color: #4b5563;
+    font-family: inherit;
+    font-weight: 700;
+    font-size: .88rem;
+    cursor: pointer;
+    transition: all .16s ease;
+  }
+  .pjd-cl-priority-btn:hover { background: #e7edf6; transform: translateY(-1px); }
+  .pjd-cl-priority-btn.is-active { background: var(--blue-soft); color: var(--blue); }
+  .pjd-cl-detail-date {
+    height: 40px;
+    min-width: 190px;
+    border: 1px solid #dfe5ee;
+    border-radius: 9px;
+    background: #fff;
+    color: #111827;
+    font-family: inherit;
+    font-size: .9rem;
+    font-weight: 600;
+    padding: 0 12px;
+    outline: none;
+  }
+  .pjd-cl-detail-select {
+    height: 40px;
+    width: min(360px, 100%);
+    border: 1px solid #dfe5ee;
+    border-radius: 9px;
+    background: #fff;
+    color: #111827;
+    font-family: inherit;
+    font-size: .9rem;
+    font-weight: 600;
+    padding: 0 12px;
+    outline: none;
+  }
+  .pjd-cl-detail-date:focus,
+  .pjd-cl-detail-select:focus {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px var(--blue-soft);
+  }
+  .pjd-cl-detail-link {
+    margin-left: auto;
+    border: none;
+    background: transparent;
+    color: var(--blue);
+    font-family: inherit;
+    font-weight: 700;
+    font-size: .9rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 8px;
+  }
+  .pjd-cl-detail-link:hover { background: var(--blue-soft); }
+  .pjd-cl-detail-link svg { width: 18px; height: 18px; }
+  .pjd-cl-detail-empty {
+    margin: 18px 0 0;
+    text-align: center;
+    color: #6b7280;
+    font-style: italic;
+    font-size: .88rem;
+  }
+  @media (max-width: 900px) {
+    .pjd-cl-detail-controls { grid-template-columns: 1fr; }
+    .pjd-cl-detail-control-row { flex-wrap: wrap; }
+    .pjd-cl-detail-link { margin-left: 0; }
+  }
+
 </style>
 @endpush
 
@@ -2098,52 +2232,77 @@
                   <tr class="pjd-cl-detail-row" data-detail="{{ $idx }}" style="display:none;">
                     <td colspan="9" style="padding:0">
                       <div class="pjd-cl-detail">
-                        <div class="pjd-cl-detail-grid">
-                          <div class="pjd-cl-detail-card">
-                            <div class="pjd-cl-detail-kicker">Detalle del requisito</div>
-                            <div class="pjd-cl-detail-row"><strong>Requisito:</strong> {{ $it['requisito'] }}</div>
+                        <div class="pjd-cl-detail-panel">
+                          <div class="pjd-cl-detail-section">
+                            <div class="pjd-cl-detail-label">Descripción:</div>
                             @if($it['descripcion'])
-                              <div class="pjd-cl-detail-row"><strong>Descripción:</strong> {{ $it['descripcion'] }}</div>
+                              <p class="pjd-cl-detail-text pjd-cl-detail-description">{{ $it['descripcion'] }}</p>
                             @else
-                              <div class="pjd-cl-detail-row pjd-cl-source-empty">Sin descripción adicional.</div>
+                              <p class="pjd-cl-detail-text is-muted pjd-cl-detail-description">Sin descripción adicional.</p>
                             @endif
-                            @if(!empty($it['criterio_cumplimiento']))
-                              <div style="margin:10px 0;padding:12px 14px;border-left:3px solid var(--success);background:var(--success-soft);border-radius:10px;">
-                                <div style="font-size:.72rem;font-weight:700;color:var(--success);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;display:flex;align-items:center;gap:5px;">✓ Criterio para cumplir</div>
-                                <div style="font-size:.88rem;color:var(--ink);line-height:1.55;">{{ $it['criterio_cumplimiento'] }}</div>
-                              </div>
-                            @endif
-                            <div class="pjd-cl-detail-row"><strong>Prioridad:</strong> {{ $it['prioridad'] }}</div>
                           </div>
 
-                          <div class="pjd-cl-detail-card">
-                            <div class="pjd-cl-detail-kicker">Fuente / evidencia</div>
-                            <div class="pjd-cl-source-meta">
-                              @if($it['fuente'])
-                                <div class="pjd-cl-detail-row"><strong>Archivo:</strong> {{ $it['fuente'] }}</div>
-                              @else
-                                <div class="pjd-cl-detail-row pjd-cl-source-empty">Sin archivo fuente registrado.</div>
-                              @endif
-
-                              @if($it['pagina'])
-                                <span class="pjd-cl-source-pill">Página {{ $it['pagina'] }}</span>
-                              @endif
-
-                              @if($it['cita'])
-                                <div class="pjd-cl-source-quote">{{ $it['cita'] }}</div>
-                              @elseif($it['descripcion'])
-                                <div class="pjd-cl-source-quote">{{ $it['descripcion'] }}</div>
-                              @endif
-
-                              <div class="pjd-cl-source-actions">
-                                @if($clPayload)
-                                  <button type="button" class="pjd-cl-source-btn" data-cita="{{ $clPayload }}">📄 Abrir cita</button>
-                                @endif
-                                @if($docUrl)
-                                  <a href="{{ $docUrl }}" target="_blank" class="pjd-cl-source-btn">Ver documento</a>
-                                @endif
+                          <div class="pjd-cl-detail-section">
+                            <div class="pjd-cl-detail-controls">
+                              <div class="pjd-cl-detail-control-row">
+                                <span class="pjd-cl-detail-label" style="margin:0;">Prioridad:</span>
+                                <div class="pjd-cl-priority-group" data-priority-group="{{ $idx }}">
+                                  <button type="button" class="pjd-cl-priority-btn {{ ($it['prioridad'] ?? 'Media') === 'Alta' ? 'is-active' : '' }}" data-priority-set="Alta">Alta</button>
+                                  <button type="button" class="pjd-cl-priority-btn {{ ($it['prioridad'] ?? 'Media') === 'Media' ? 'is-active' : '' }}" data-priority-set="Media">Media</button>
+                                  <button type="button" class="pjd-cl-priority-btn {{ ($it['prioridad'] ?? 'Media') === 'Baja' ? 'is-active' : '' }}" data-priority-set="Baja">Baja</button>
+                                </div>
+                              </div>
+                              <div class="pjd-cl-detail-control-row">
+                                <span class="pjd-cl-detail-label" style="margin:0;">
+                                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                                  Fecha límite:
+                                </span>
+                                <input type="date" class="pjd-cl-detail-date" data-detail-date="{{ $idx }}" value="{{ $it['fecha_limite'] ?? '' }}">
+                              </div>
+                              <div class="pjd-cl-detail-control-row">
+                                <span class="pjd-cl-detail-label" style="margin:0;">
+                                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>
+                                  Responsable:
+                                </span>
+                                <select class="pjd-cl-detail-select" data-detail-responsable="{{ $idx }}">
+                                  <option>Sin asignar</option>
+                                </select>
+                              </div>
+                              <div class="pjd-cl-detail-control-row">
+                                <span class="pjd-cl-detail-label" style="margin:0;">
+                                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>
+                                  Revisor:
+                                </span>
+                                <select class="pjd-cl-detail-select" data-detail-revisor="{{ $idx }}">
+                                  <option>Sin asignar</option>
+                                </select>
                               </div>
                             </div>
+                          </div>
+
+                          <div class="pjd-cl-detail-section">
+                            <div class="pjd-cl-detail-control-row">
+                              <span class="pjd-cl-detail-label" style="margin:0;">Notas:</span>
+                              <button type="button" class="pjd-cl-detail-link" data-detail-note="{{ $idx }}">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                                Agregar
+                              </button>
+                            </div>
+                            <p class="pjd-cl-detail-empty">No hay notas agregadas.</p>
+                          </div>
+
+                          <div class="pjd-cl-detail-section">
+                            <div class="pjd-cl-detail-control-row">
+                              <span class="pjd-cl-detail-label" style="margin:0;">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+                                Documentos Adjuntos:
+                              </span>
+                              <button type="button" class="pjd-cl-detail-link" data-detail-attach="{{ $idx }}">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05 12 20.49a6 6 0 0 1-8.49-8.49l9.44-9.44a4 4 0 0 1 5.66 5.66L9.17 17.66a2 2 0 0 1-2.83-2.83l8.49-8.49"/></svg>
+                                Adjuntar
+                              </button>
+                            </div>
+                            <p class="pjd-cl-detail-empty">No hay documentos adjuntos. Haz clic en "Adjuntar Documento" para agregar.</p>
                           </div>
                         </div>
                       </div>
@@ -2961,11 +3120,8 @@
     const detail = clBody.querySelector(`tr[data-detail="${idx}"]`);
     let desc = row.dataset.descripcion || '';
     if (!desc && detail) {
-      const rows = detail.querySelectorAll('.pjd-cl-detail-card:first-child .pjd-cl-detail-row');
-      rows.forEach(item => {
-        const txt = item.textContent.trim();
-        if (txt.startsWith('Descripción:')) desc = txt.replace(/^Descripción:\s*/, '').trim();
-      });
+      const descEl = detail.querySelector('.pjd-cl-detail-description');
+      if (descEl) desc = descEl.textContent.trim();
     }
     return {
       requisito: row.dataset.requisito || row.querySelector('.pjd-cl-requisito-text')?.textContent.trim() || '',
@@ -3008,11 +3164,7 @@
     const formatoCell = row.querySelector('[data-col="formato"]');
     if (formatoCell) formatoCell.textContent = formato || 'No aplica';
     if (detail) {
-      const card = detail.querySelector('.pjd-cl-detail-card:first-child');
-      if (card) {
-        const criterio = card.querySelector('[data-criterio-block]')?.outerHTML || '';
-        card.innerHTML = `<div class="pjd-cl-detail-kicker">Detalle del requisito</div><div class="pjd-cl-detail-row"><strong>Requisito:</strong> ${safeReq}</div><div class="pjd-cl-detail-row"><strong>Descripción:</strong> ${safeDesc}</div>${criterio}<div class="pjd-cl-detail-row"><strong>Prioridad:</strong> ${escapeHtml(row.dataset.prioridad || 'Media')}</div>`;
-      }
+      detail.innerHTML = checklistDetailHtml({ idx, descripcion: descripcion || '', prioridad: row.dataset.prioridad || 'Media' });
     }
   }
   function createChecklistDomItem({ requisito, formato, descripcion, categoria = '-', aplicabilidad = '-', obligatorio = '-', cumplimiento = '-', status = 'Pendiente', prioridad = 'Media' }) {
@@ -3047,7 +3199,7 @@
     detail.className = 'pjd-cl-detail-row';
     detail.dataset.detail = idx;
     detail.style.display = 'none';
-    detail.innerHTML = `<td colspan="9" style="padding:0"><div class="pjd-cl-detail"><div class="pjd-cl-detail-grid"><div class="pjd-cl-detail-card"><div class="pjd-cl-detail-kicker">Detalle del requisito</div><div class="pjd-cl-detail-row"><strong>Requisito:</strong> ${safeReq}</div><div class="pjd-cl-detail-row"><strong>Descripción:</strong> ${safeDesc}</div><div class="pjd-cl-detail-row"><strong>Prioridad:</strong> ${escapeHtml(prioridad || 'Media')}</div></div><div class="pjd-cl-detail-card"><div class="pjd-cl-detail-kicker">Fuente / evidencia</div><div class="pjd-cl-source-meta"><div class="pjd-cl-detail-row pjd-cl-source-empty">Sin archivo fuente registrado.</div></div></div></div></div></td>`;
+    detail.innerHTML = checklistDetailHtml({ idx, descripcion: descripcion || '', prioridad: prioridad || 'Media' });
 
     const empty = clBody.querySelector('.pjd-cl-no-results')?.closest('tr');
     if (empty) empty.remove();
@@ -3094,12 +3246,48 @@
     }
   });
 
+
+  function positionSmallChecklistPopover(pop, rect) {
+    if (!pop || !rect) return;
+    pop.classList.add('is-open');
+    const popWidth = pop.offsetWidth || 260;
+    const popHeight = pop.offsetHeight || 260;
+    const left = Math.max(12, Math.min(rect.left, window.innerWidth - popWidth - 12));
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const top = spaceBelow >= Math.min(popHeight, 220)
+      ? rect.bottom + 6
+      : Math.max(12, rect.top - popHeight - 6);
+    pop.style.left = left + 'px';
+    pop.style.top = Math.max(12, Math.min(top, window.innerHeight - popHeight - 12)) + 'px';
+  }
+
+  function checklistDetailHtml({ idx, descripcion = '', prioridad = 'Media' }) {
+    const safeDesc = escapeHtml(descripcion || 'Sin descripción adicional.');
+    const descClass = descripcion ? 'pjd-cl-detail-text pjd-cl-detail-description' : 'pjd-cl-detail-text is-muted pjd-cl-detail-description';
+    const p = prioridad || 'Media';
+    return `<td colspan="9" style="padding:0"><div class="pjd-cl-detail"><div class="pjd-cl-detail-panel"><div class="pjd-cl-detail-section"><div class="pjd-cl-detail-label">Descripción:</div><p class="${descClass}">${safeDesc}</p></div><div class="pjd-cl-detail-section"><div class="pjd-cl-detail-controls"><div class="pjd-cl-detail-control-row"><span class="pjd-cl-detail-label" style="margin:0;">Prioridad:</span><div class="pjd-cl-priority-group" data-priority-group="${idx}"><button type="button" class="pjd-cl-priority-btn ${p === 'Alta' ? 'is-active' : ''}" data-priority-set="Alta">Alta</button><button type="button" class="pjd-cl-priority-btn ${p === 'Media' ? 'is-active' : ''}" data-priority-set="Media">Media</button><button type="button" class="pjd-cl-priority-btn ${p === 'Baja' ? 'is-active' : ''}" data-priority-set="Baja">Baja</button></div></div><div class="pjd-cl-detail-control-row"><span class="pjd-cl-detail-label" style="margin:0;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg>Fecha límite:</span><input type="date" class="pjd-cl-detail-date" data-detail-date="${idx}"></div><div class="pjd-cl-detail-control-row"><span class="pjd-cl-detail-label" style="margin:0;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21a8 8 0 0 0-16 0"></path><circle cx="12" cy="7" r="4"></circle></svg>Responsable:</span><select class="pjd-cl-detail-select" data-detail-responsable="${idx}"><option>Sin asignar</option></select></div><div class="pjd-cl-detail-control-row"><span class="pjd-cl-detail-label" style="margin:0;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21a8 8 0 0 0-16 0"></path><circle cx="12" cy="7" r="4"></circle></svg>Revisor:</span><select class="pjd-cl-detail-select" data-detail-revisor="${idx}"><option>Sin asignar</option></select></div></div></div><div class="pjd-cl-detail-section"><div class="pjd-cl-detail-control-row"><span class="pjd-cl-detail-label" style="margin:0;">Notas:</span><button type="button" class="pjd-cl-detail-link" data-detail-note="${idx}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>Agregar</button></div><p class="pjd-cl-detail-empty">No hay notas agregadas.</p></div><div class="pjd-cl-detail-section"><div class="pjd-cl-detail-control-row"><span class="pjd-cl-detail-label" style="margin:0;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path></svg>Documentos Adjuntos:</span><button type="button" class="pjd-cl-detail-link" data-detail-attach="${idx}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05 12 20.49a6 6 0 0 1-8.49-8.49l9.44-9.44a4 4 0 0 1 5.66 5.66L9.17 17.66a2 2 0 0 1-2.83-2.83l8.49-8.49"></path></svg>Adjuntar</button></div><p class="pjd-cl-detail-empty">No hay documentos adjuntos. Haz clic en "Adjuntar Documento" para agregar.</p></div></div></div></td>`;
+  }
+
   clBody?.addEventListener('click', (e) => {
     const optBtn = e.target.closest('[data-options]');
     if (optBtn) { positionChecklistRowMenu(optBtn, optBtn.dataset.options); e.stopPropagation(); return; }
 
     const tBtn = e.target.closest('[data-toggle]');
     if (tBtn) { toggleChecklistDetail(tBtn.dataset.toggle); e.stopPropagation(); return; }
+
+    const priorityBtn = e.target.closest('[data-priority-set]');
+    if (priorityBtn) {
+      const detailRow = priorityBtn.closest('tr[data-detail]');
+      const idx = detailRow?.dataset.detail;
+      const row = idx ? clBody.querySelector(`tr[data-row="${idx}"]`) : null;
+      if (row) {
+        row.dataset.prioridad = priorityBtn.dataset.prioritySet;
+        detailRow.querySelectorAll('[data-priority-set]').forEach(btn => btn.classList.toggle('is-active', btn === priorityBtn));
+        saveChecklist();
+      }
+      e.stopPropagation();
+      return;
+    }
 
     const sourceBtn = e.target.closest('.pjd-cl-source-btn[data-cita]');
     if (sourceBtn) { openCita(sourceBtn.getAttribute('data-cita')); e.stopPropagation(); return; }
@@ -3115,8 +3303,7 @@
     if (cumpBtn) {
       activeCumpRow = cumpBtn.dataset.cumplimientoToggle;
       const rect = cumpBtn.getBoundingClientRect();
-      cumpPop.style.top = (rect.bottom + window.scrollY + 6) + 'px';
-      cumpPop.style.left = rect.left + 'px';
+      positionSmallChecklistPopover(cumpPop, rect);
       cumpPop.classList.add('is-open'); statPop.classList.remove('is-open');
       e.stopPropagation(); return;
     }
@@ -3124,8 +3311,7 @@
     if (statBtn) {
       activeStatusRow = statBtn.dataset.statusToggle;
       const rect = statBtn.getBoundingClientRect();
-      statPop.style.top = (rect.bottom + window.scrollY + 6) + 'px';
-      statPop.style.left = rect.left + 'px';
+      positionSmallChecklistPopover(statPop, rect);
       statPop.classList.add('is-open'); cumpPop.classList.remove('is-open');
       e.stopPropagation();
     }
