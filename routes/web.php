@@ -2110,26 +2110,6 @@ Route::middleware(['auth', FinancialAccess::class])
         Route::delete('/{statement}',            [FinancialStatementsController::class, 'destroy'])  ->name('destroy');
     });
 
-Route::middleware(['auth'])->prefix('projects')->name('projects.')->group(function () {
-    Route::get('/',                              [ProjectBoardController::class, 'index'])->name('index');
-    Route::post('/',                             [ProjectBoardController::class, 'store'])->name('store');
-
-    // ⬇ NUEVO: el show ahora es el dashboard
-    Route::get('/{project}',                     [ProjectBoardController::class, 'show'])->name('show');
-
-    // ⬇ NUEVO: el "Análisis de Bases" (vista con chat + tabs)
-    Route::get('/{project}/analisis',            [ProjectBoardController::class, 'analisis'])->name('analisis');
-
-    // ── Rutas que ya usan tu analisis.blade.php (antes show.blade.php) ──
-    Route::post('/{project}/chat',               [ProjectBoardController::class, 'chat'])->name('chat');
-    Route::delete('/{project}/chat',             [ProjectBoardController::class, 'resetChat'])->name('chat.reset');
-    Route::post('/{project}/draft',              [ProjectBoardController::class, 'saveDraft'])->name('draft');
-    Route::post('/{project}/checklist',          [ProjectBoardController::class, 'updateChecklist'])->name('checklist');
-    Route::post('/{project}/checklist/attach',   [ProjectBoardController::class, 'attachChecklist'])->name('checklist.attach');
-    Route::post('/{project}/checklist/reanalyze',[ProjectBoardController::class, 'reanalyzeChecklist'])->name('checklist.reanalyze');
-    Route::post('/{project}/report',             [ProjectBoardController::class, 'generateReport'])->name('report');
-});
-
 use App\Http\Controllers\PropuestaComercialExtrasController;
 
 // MUESTRAS (análisis de almacén)
@@ -2338,26 +2318,52 @@ Route::post('propuestas-comerciales/resultados/{resultado}/picking/buscar-produc
     Route::post('propuestas-comerciales/resultados/{resultado}/picking/crear', [PropuestaPickingController::class, 'crearPicking'])
     ->name('propuestas-comerciales.resultado.picking.crear');
 
+Route::middleware(['auth'])
+    ->prefix('projects')
+    ->name('projects.')
+    ->group(function () {
 
+        Route::get('/', [ProjectBoardController::class, 'index'])
+            ->name('index');
 
-Route::middleware(['auth'])->group(function () {
-    Route::get('/projects/{project}/analisis', [ProjectBoardController::class, 'analisis'])
-        ->name('projects.analisis');
+        Route::post('/', [ProjectBoardController::class, 'store'])
+            ->name('store');
 
-    Route::post('/projects/{project}/checklist', [ProjectBoardController::class, 'updateChecklist'])
-        ->name('projects.checklist');
+        Route::get('/{project}', [ProjectBoardController::class, 'show'])
+            ->name('show');
 
-    Route::post('/projects/{project}/checklist/attach', [ProjectBoardController::class, 'attachChecklist'])
-        ->name('projects.checklist.attach');
+        Route::get('/{project}/analisis', [ProjectBoardController::class, 'analisis'])
+            ->name('analisis');
 
-    Route::get('/projects/{project}/checklist/export/{format}', [ProjectBoardController::class, 'exportChecklist'])
-        ->whereIn('format', ['csv', 'excel', 'pdf'])
-        ->name('projects.checklist.export');
-});
-Route::middleware(['auth'])->group(function () {
-    Route::delete('/projects/{project}/documents/{document}', [ProjectBoardController::class, 'deleteDocument'])
-        ->name('projects.documents.delete');
+        Route::post('/{project}/chat', [ProjectBoardController::class, 'chat'])
+            ->name('chat');
 
-    Route::delete('/projects/{project}/checklist-attachments/{attachment}', [ProjectBoardController::class, 'deleteChecklistAttachment'])
-        ->name('projects.checklist.attachments.delete');
-});
+        Route::delete('/{project}/chat', [ProjectBoardController::class, 'resetChat'])
+            ->name('chat.reset');
+
+        Route::post('/{project}/draft', [ProjectBoardController::class, 'saveDraft'])
+            ->name('draft');
+
+        Route::post('/{project}/checklist', [ProjectBoardController::class, 'updateChecklist'])
+            ->name('checklist');
+
+        Route::post('/{project}/checklist/attach', [ProjectBoardController::class, 'attachChecklist'])
+            ->name('checklist.attach');
+
+        Route::post('/{project}/checklist/reanalyze', [ProjectBoardController::class, 'reanalyzeChecklist'])
+            ->name('checklist.reanalyze');
+
+        Route::get('/{project}/checklist/export/{format}', [ProjectBoardController::class, 'exportChecklist'])
+            ->whereIn('format', ['csv', 'excel', 'pdf'])
+            ->name('checklist.export');
+
+        Route::post('/{project}/report', [ProjectBoardController::class, 'generateReport'])
+            ->name('report');
+
+        Route::delete('/{project}/documents/{document}', [ProjectBoardController::class, 'destroyProjectDocument'])
+            ->name('documents.destroy');
+
+        Route::delete('/{project}/checklist/attachments/{attachment}', [ProjectBoardController::class, 'destroyChecklistAttachment'])
+            ->name('checklist.attachments.destroy');
+    });
+    

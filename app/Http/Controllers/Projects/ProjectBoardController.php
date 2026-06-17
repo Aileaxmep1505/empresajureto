@@ -184,29 +184,30 @@ class ProjectBoardController extends Controller
 
         return view('projects.dashboard', compact('project'));
     }
-
     /* ============================================================
-     |  ANALISIS   →  Vista con CHAT + TABS
+     |  ANALISIS   ->  Vista con CHAT + TABS
      * ============================================================ */
     public function analisis(Project $project)
     {
         abort_if($project->user_id !== Auth::id() && Auth::id() !== 1, 403);
 
-        $project->load(['documents', 'chatMessages']);
-        $this->ensureChecklistItemsExist($project);
         $project->load([
+            'documents',
+            'chatMessages',
+            'checklistItems.notes.user',
+            'checklistItems.attachments',
             'checklistItems.responsible',
             'checklistItems.reviewer',
-            'checklistItems.notes.user',
-            'checklistItems.attachments.user',
             'checklistItems.sourceDocument',
         ]);
 
         $documentLibrary = $this->projectDocumentLibrary($project);
 
-        return view('projects.analisis', compact('project', 'documentLibrary'));
+        return view('projects.analisis', [
+            'project' => $project,
+            'documentLibrary' => $documentLibrary,
+        ]);
     }
-
 
     private function humanFileSize(?int $bytes): string
     {
@@ -267,78 +268,130 @@ class ProjectBoardController extends Controller
 
         return 'Documento registrado en el proyecto. Aún no hay información extraída disponible para mostrar.';
     }
-
-    private function projectDocumentLibrary(Project $project)
+    private function projectDocumentLibrary(Project $project): array
     {
-        $sourceDocuments = $project->documents->map(function (ProjectDocument $document) use ($project) {
-            $url = $document->file_path ? Storage::disk('public')->url($document->file_path) : null;
-            $extension = strtoupper(pathinfo($document->filename ?? '', PATHINFO_EXTENSION) ?: 'FILE');
+        $project->loadMissing([
+            'documents',
+            'checklistItems.attachments',
+        ]);
+
+        $items = [];
+
+        foreach ($project->documents as $document) {
+            $raw = is_array($document->extracted_raw) ? $document->extracted_raw : [];
+
             $pages = $this->documentPages($document);
 
-            return [
-                'id'          => 'project-document-' . $document->id,
-                'source_type' => 'project_document',
-                'source_id'   => $document->id,
-                'filename'    => $document->filename,
-                'extension'   => $extension,
-                'badge'       => $extension,
-                'status'      => $document->status ?: 'pending',
-                'status_label'=> match ($document->status) {
-                    'completed', 'processed' => 'Completado',
-                    'processing' => 'Procesando',
-                    'failed', 'error' => 'Error',
-                    default => ucfirst((string) ($document->status ?: 'Pendiente')),
-                },
-                'size_label'  => $this->humanFileSize($document->file_size),
-                'date_label'  => optional($document->created_at)->format('d/m/Y'),
-                'pages_label' => $pages ? $pages . ' página(s)' : null,
-                'summary'     => $this->documentInsight($document),
-                'match_label' => 'Documento fuente del proyecto',
-                'requirement' => null,
-                'url'         => $url,
-                'download_url'=> $url,
-                'delete_url'  => url('/projects/' . $project->slug . '/documents/' . $document->id),
-                'can_delete'  => true,
-                'created_at'  => optional($document->created_at)->timestamp ?? 0,
+            $summary = $raw['summary']
+                ?? $raw['resumen']
+                ?? $raw['document_summary']
+                ?? $raw['descripcion']
+                ?? $raw['description']
+                ?? null;
+
+            if (!$summary && !empty($document->extracted_text)) {
+                $summary = Str::limit(trim(preg_replace('/\s+/', ' ', strip_tags((string) $document->extracted_text))), 260);
+            }
+
+            $extension = strtoupper(pathinfo((string) $document->filename, PATHINFO_EXTENSION) ?: 'DOC');
+            $url = $document->file_path ? Storage::disk('public')->url($document->file_path) : null;
+
+            $items[] = [
+                'id'           => 'source-' . $document->id,
+                'type'         => 'source',
+                'source_type'  => 'project_document',
+                'db_id'        => $document->id,
+                'source_id'    => $document->id,
+                'title'        => $document->filename ?: 'Documento sin nombre',
+                'filename'     => $document->filename ?: 'Documento sin nombre',
+                'extension'    => $extension,
+                'badge'        => $extension,
+                'mime_type'    => $document->mime_type,
+                'size'         => (int) ($document->file_size ?? 0),
+                'size_label'   => $this->humanFileSize((int) ($document->file_size ?? 0)),
+                'status'       => $document->status ?: 'completed',
+                'status_label' => $this->documentStatusLabel($document->status),
+                'status_class' => $this->documentStatusClass($document->status),
+                'date_label'   => optional($document->created_at)->format('d/m/Y'),
+                'pages'        => $pages,
+                'pages_label'  => $pages ? $pages . ' página(s)' : null,
+                'summary'      => $summary ?: 'Documento fuente cargado en el proyecto.',
+                'match_label'  => 'Documento fuente del proyecto',
+                'source'       => 'Documento del proyecto',
+                'related_to'   => null,
+                'requirement'  => null,
+                'url'          => $url,
+                'download_url' => $url,
+                'delete_url'   => route('projects.documents.destroy', [$project, $document->id]),
+                'can_delete'   => true,
+                'created_at'   => optional($document->created_at)->timestamp ?? 0,
             ];
-        });
+        }
 
-        $checklistAttachments = $project->checklistItems->flatMap(function (ProjectChecklistItem $item) use ($project) {
-            return $item->attachments->map(function (ProjectChecklistAttachment $attachment) use ($item, $project) {
+        foreach ($project->checklistItems as $checklistItem) {
+            foreach ($checklistItem->attachments as $attachment) {
+                $extension = strtoupper(pathinfo((string) $attachment->original_name, PATHINFO_EXTENSION) ?: 'FILE');
                 $url = $attachment->file_path ? Storage::disk('public')->url($attachment->file_path) : null;
-                $extension = strtoupper(pathinfo($attachment->original_name ?? '', PATHINFO_EXTENSION) ?: 'FILE');
 
-                return [
-                    'id'          => 'checklist-attachment-' . $attachment->id,
-                    'source_type' => 'checklist_attachment',
-                    'source_id'   => $attachment->id,
-                    'filename'    => $attachment->original_name,
-                    'extension'   => $extension,
-                    'badge'       => $extension,
-                    'status'      => 'completed',
-                    'status_label'=> 'Adjunto',
-                    'size_label'  => $this->humanFileSize($attachment->size),
-                    'date_label'  => optional($attachment->created_at)->format('d/m/Y'),
-                    'pages_label' => null,
-                    'summary'     => 'Evidencia adjunta al requisito: ' . Str::limit($item->requirement, 260),
-                    'match_label' => 'Checklist / Evidencia',
-                    'requirement' => $item->requirement,
-                    'url'         => $url,
-                    'download_url'=> $url,
-                    'delete_url'  => url('/projects/' . $project->slug . '/checklist-attachments/' . $attachment->id),
-                    'can_delete'  => true,
-                    'created_at'  => optional($attachment->created_at)->timestamp ?? 0,
+                $items[] = [
+                    'id'           => 'checklist-' . $attachment->id,
+                    'type'         => 'checklist_attachment',
+                    'source_type'  => 'checklist_attachment',
+                    'db_id'        => $attachment->id,
+                    'source_id'    => $attachment->id,
+                    'title'        => $attachment->original_name ?: 'Evidencia sin nombre',
+                    'filename'     => $attachment->original_name ?: 'Evidencia sin nombre',
+                    'extension'    => $extension,
+                    'badge'        => $extension,
+                    'mime_type'    => $attachment->mime_type,
+                    'size'         => (int) ($attachment->size ?? 0),
+                    'size_label'   => $this->humanFileSize((int) ($attachment->size ?? 0)),
+                    'status'       => 'completed',
+                    'status_label' => 'Completado',
+                    'status_class' => 'success',
+                    'date_label'   => optional($attachment->created_at)->format('d/m/Y'),
+                    'pages'        => null,
+                    'pages_label'  => null,
+                    'summary'      => 'Evidencia adjunta al requisito: ' . Str::limit((string) $checklistItem->requirement, 180),
+                    'match_label'  => 'Checklist / Evidencia',
+                    'source'       => 'Evidencia del checklist',
+                    'related_to'   => $checklistItem->requirement,
+                    'requirement'  => $checklistItem->requirement,
+                    'url'          => $url,
+                    'download_url' => $url,
+                    'delete_url'   => route('projects.checklist.attachments.destroy', [$project, $attachment->id]),
+                    'can_delete'   => true,
+                    'created_at'   => optional($attachment->created_at)->timestamp ?? 0,
                 ];
-            });
-        });
+            }
+        }
 
-        return $sourceDocuments
-            ->concat($checklistAttachments)
+        return collect($items)
             ->sortByDesc('created_at')
-            ->values();
+            ->values()
+            ->all();
     }
 
-    public function deleteDocument(Request $request, Project $project, ProjectDocument $document)
+    private function documentStatusLabel(?string $status): string
+    {
+        return match ($status) {
+            'completed', 'processed', 'done', 'ok', 'listo' => 'Completado',
+            'processing', 'pending', 'pendiente' => 'Procesando',
+            'failed', 'error' => 'Error',
+            default => 'Completado',
+        };
+    }
+
+    private function documentStatusClass(?string $status): string
+    {
+        return match ($status) {
+            'failed', 'error' => 'danger',
+            'processing', 'pending', 'pendiente' => 'info',
+            default => 'success',
+        };
+    }
+
+    public function destroyProjectDocument(Request $request, Project $project, ProjectDocument $document)
     {
         abort_if($project->user_id !== Auth::id() && Auth::id() !== 1, 403);
         abort_if((int) $document->project_id !== (int) $project->id, 404);
@@ -349,14 +402,18 @@ class ProjectBoardController extends Controller
 
         $document->delete();
 
-        if ($request->expectsJson()) {
-            return response()->json(['ok' => true]);
+        if ($request->expectsJson() || $request->wantsJson()) {
+            return response()->json([
+                'ok' => true,
+                'message' => 'Documento eliminado correctamente.',
+                'documents' => $this->projectDocumentLibrary($project->fresh()),
+            ]);
         }
 
         return back()->with('success', 'Documento eliminado.');
     }
 
-    public function deleteChecklistAttachment(Request $request, Project $project, ProjectChecklistAttachment $attachment)
+    public function destroyChecklistAttachment(Request $request, Project $project, ProjectChecklistAttachment $attachment)
     {
         abort_if($project->user_id !== Auth::id() && Auth::id() !== 1, 403);
 
@@ -369,11 +426,26 @@ class ProjectBoardController extends Controller
 
         $attachment->delete();
 
-        if ($request->expectsJson()) {
-            return response()->json(['ok' => true]);
+        if ($request->expectsJson() || $request->wantsJson()) {
+            return response()->json([
+                'ok' => true,
+                'message' => 'Evidencia eliminada correctamente.',
+                'documents' => $this->projectDocumentLibrary($project->fresh()),
+            ]);
         }
 
         return back()->with('success', 'Evidencia eliminada.');
+    }
+
+    // Aliases para compatibilidad con rutas anteriores.
+    public function deleteDocument(Request $request, Project $project, ProjectDocument $document)
+    {
+        return $this->destroyProjectDocument($request, $project, $document);
+    }
+
+    public function deleteChecklistAttachment(Request $request, Project $project, ProjectChecklistAttachment $attachment)
+    {
+        return $this->destroyChecklistAttachment($request, $project, $attachment);
     }
 
     /* ============================================================

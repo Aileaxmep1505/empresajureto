@@ -2677,6 +2677,7 @@
         </div>
 
         <div class="pjd-borrador-section" data-section-pane="reporte" style="display:none;"></div>
+      </div>
 
       @php
         $docsForView = collect($documentLibrary ?? []);
