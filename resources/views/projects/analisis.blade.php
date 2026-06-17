@@ -1,4 +1,5 @@
 @extends('layouts.app')
+@section('content_class', 'content--flush')
 @section('title', $project->name)
 
 @push('styles')
@@ -1939,6 +1940,64 @@
 
     .pjd-chat-list {
       max-height: none !important;
+    }
+  }
+
+
+  /* ════════════ AJUSTE FINAL: CHAT MAS COMPACTO ════════════ */
+  .pjd-body {
+    height: calc(100dvh - 128px) !important;
+    max-height: calc(100dvh - 128px) !important;
+  }
+
+  .pjd-chat-head {
+    padding: 7px 14px !important;
+    min-height: 42px !important;
+  }
+
+  .pjd-chat-reset {
+    padding: 4px 10px !important;
+    font-size: .76rem !important;
+  }
+
+  .pjd-chat-list {
+    padding: 14px !important;
+    gap: 10px !important;
+  }
+
+  .pjd-msg-avatar {
+    width: 25px !important;
+    height: 25px !important;
+    font-size: .74rem !important;
+  }
+
+  .pjd-msg-body {
+    padding: 9px 12px !important;
+    font-size: .88rem !important;
+    line-height: 1.45 !important;
+    border-radius: 13px !important;
+  }
+
+  .pjd-chat-input {
+    padding: 10px 14px !important;
+    gap: 8px !important;
+  }
+
+  .pjd-chat-input input {
+    padding: 8px 14px !important;
+    font-size: .88rem !important;
+  }
+
+  .pjd-chat-send {
+    width: 34px !important;
+    height: 34px !important;
+  }
+
+  @media (max-width: 1100px) {
+    .pjd-left {
+      height: min(58dvh, 560px) !important;
+      max-height: min(58dvh, 560px) !important;
+      min-height: 340px !important;
     }
   }
 </style>
