@@ -105,6 +105,7 @@ class ProjectBoardController extends Controller
             'slug'       => Str::slug($request->name) . '-' . Str::random(6),
             'user_id'    => Auth::id(),
             'status'     => $withoutDocuments ? 'ready' : 'processing',
+            'workflow_status' => 'analisis_bases',
             'column_id'  => (int) ($request->column_id ?: 1),
             'priority'   => $request->priority ?? 'media',
             'color'      => $request->color ?? '#1e3a5f',
@@ -180,7 +181,11 @@ class ProjectBoardController extends Controller
     {
         abort_if($project->user_id !== Auth::id() && Auth::id() !== 1, 403);
 
-        $project->load(['documents', 'user']);
+        $project->load([
+            'documents',
+            'user',
+            'checklistItems',
+        ]);
 
         return view('projects.dashboard', compact('project'));
     }
@@ -1457,6 +1462,60 @@ PROMPT;
                 'message' => $e->getMessage(),
             ], 500);
         }
+    }
+
+
+    /* ============================================================
+     |  WORKFLOW STATUS DEL PROYECTO
+     |  - No reemplaza status (processing/ready/error)
+     |  - Guarda la etapa comercial/operativa del proyecto
+     * ============================================================ */
+    private function workflowStatuses(): array
+    {
+        return [
+            'analisis_bases'     => ['label' => 'Análisis de Bases',     'color' => 'blue'],
+            'revision'           => ['label' => 'Revisión',              'color' => 'warning'],
+            'participa'          => ['label' => 'Participa',             'color' => 'success'],
+            'junta_aclaraciones' => ['label' => 'Junta de Aclaraciones', 'color' => 'success-soft'],
+            'armado_propuesta'   => ['label' => 'Armado de Propuesta',   'color' => 'success-soft'],
+            'entrega'            => ['label' => 'Entrega',               'color' => 'success-soft'],
+            'no_participa'       => ['label' => 'No participa',          'color' => 'danger'],
+            'ganado'             => ['label' => 'Ganado',                'color' => 'purple'],
+            'perdido'            => ['label' => 'Perdido',               'color' => 'gray'],
+            'desierta'           => ['label' => 'Desierta',              'color' => 'slate'],
+        ];
+    }
+
+    public function updateWorkflowStatus(Request $request, Project $project)
+    {
+        abort_if($project->user_id !== Auth::id() && Auth::id() !== 1, 403);
+
+        $allowed = array_keys($this->workflowStatuses());
+
+        $data = $request->validate([
+            'workflow_status' => ['required', 'string', 'in:' . implode(',', $allowed)],
+        ]);
+
+        $project->workflow_status = $data['workflow_status'];
+        $project->save();
+
+        $meta = $this->workflowStatuses()[$project->workflow_status] ?? $this->workflowStatuses()['analisis_bases'];
+
+        if ($request->expectsJson() || $request->wantsJson()) {
+            return response()->json([
+                'ok' => true,
+                'message' => 'Estado actualizado correctamente.',
+                'project' => [
+                    'id' => $project->id,
+                    'slug' => $project->slug,
+                    'workflow_status' => $project->workflow_status,
+                    'workflow_status_label' => $meta['label'],
+                    'workflow_status_color' => $meta['color'],
+                ],
+            ]);
+        }
+
+        return back()->with('success', 'Estado actualizado correctamente.');
     }
 
 }

@@ -24,6 +24,7 @@ class Project extends Model
         'favorite',
         'labels',
         'status',
+        'workflow_status',
         'structured_data',
         'error_message',
         'draft_content',

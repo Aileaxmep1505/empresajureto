@@ -2365,5 +2365,6 @@ Route::middleware(['auth'])
 
         Route::delete('/{project}/checklist/attachments/{attachment}', [ProjectBoardController::class, 'destroyChecklistAttachment'])
             ->name('checklist.attachments.destroy');
+            Route::post('/{project}/workflow-status', [ProjectBoardController::class, 'updateWorkflowStatus'])
+    ->name('workflow-status');
     });
-    

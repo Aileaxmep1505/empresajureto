@@ -56,6 +56,24 @@
   .pdb-estado-chip.tone-orange { background: var(--orange-soft);  color: var(--orange);  border: 1px solid #fed7aa; }
   .pdb-estado-chip.tone-green  { background: var(--success-soft); color: var(--success); border: 1px solid #bbf7d0; }
   .pdb-estado-chip.tone-red    { background: var(--danger-soft);  color: var(--danger);  border: 1px solid #fecaca; }
+  .pdb-estado-chip.tone-violet { background: var(--violet-soft);  color: var(--violet);  border: 1px solid #ddd6fe; }
+  .pdb-estado-chip.tone-gray   { background: #f3f4f6;             color: #64748b;       border: 1px solid #e5e7eb; }
+
+  .pdb-status-wrap { position: relative; display: inline-flex; align-items: center; }
+  .pdb-status-menu { position: absolute; top: calc(100% + 8px); left: 0; z-index: 80; width: 286px; padding: 8px; border: 1px solid var(--line); border-radius: 12px; background: #fff; box-shadow: 0 18px 46px rgba(15,23,42,.12); display: none; animation: pdbMenuIn .16s ease both; }
+  .pdb-status-wrap.is-open .pdb-status-menu { display: block; }
+  @keyframes pdbMenuIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+  .pdb-status-option { position: relative; width: 100%; display: flex; align-items: center; gap: 10px; border: 0; background: transparent; padding: 10px 12px; border-radius: 9px; font-family: inherit; font-size: .86rem; font-weight: 700; color: #202735; cursor: pointer; text-align: left; transition: background .16s ease, color .16s ease, transform .16s ease; }
+  .pdb-status-option:hover { background: #f7f9fc; transform: translateY(-1px); }
+  .pdb-status-option.is-active { background: var(--blue-soft); color: var(--blue); }
+  .pdb-status-option.is-child { padding-left: 34px; color: #6b7280; font-weight: 600; }
+  .pdb-status-option.is-child::before { content: ""; position: absolute; left: 21px; top: -8px; width: 1px; height: 28px; background: #bdf6dc; }
+  .pdb-status-dot { width: 8px; height: 8px; border-radius: 999px; flex-shrink: 0; background: var(--blue); }
+  .pdb-status-check { margin-left: auto; color: var(--blue); font-size: .82rem; opacity: 0; }
+  .pdb-status-option.is-active .pdb-status-check { opacity: 1; }
+  .pdb-status-saving { pointer-events: none; opacity: .72; }
+  .pdb-status-saving::after { content: ""; width: 11px; height: 11px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: pdbSpin .65s linear infinite; }
+  @keyframes pdbSpin { to { transform: rotate(360deg); } }
 
   /* ─── Pipeline ─── */
   .pdb-pipeline { flex: 1; display: flex; align-items: center; justify-content: center; gap: 0; padding: 0 30px; min-width: 380px; }
@@ -67,9 +85,15 @@
   .pdb-step.is-on.tone-blue   .pdb-step-circle { background: var(--blue);   color: #fff; border-color: var(--blue);   box-shadow: 0 6px 16px rgba(0,122,255,.25); }
   .pdb-step.is-on.tone-orange .pdb-step-circle { background: #f59e0b;       color: #fff; border-color: #f59e0b;       box-shadow: 0 6px 16px rgba(245,158,11,.25); }
   .pdb-step.is-on.tone-green  .pdb-step-circle { background: #10b981;       color: #fff; border-color: #10b981;       box-shadow: 0 6px 16px rgba(16,185,129,.25); }
+  .pdb-step.is-on.tone-red    .pdb-step-circle { background: var(--danger); color: #fff; border-color: var(--danger); box-shadow: 0 6px 16px rgba(239,68,68,.18); }
+  .pdb-step.is-on.tone-violet .pdb-step-circle { background: var(--violet); color: #fff; border-color: var(--violet); box-shadow: 0 6px 16px rgba(124,58,237,.18); }
+  .pdb-step.is-on.tone-gray   .pdb-step-circle { background: #64748b;       color: #fff; border-color: #64748b;       box-shadow: 0 6px 16px rgba(100,116,139,.18); }
   .pdb-step.is-on.tone-blue   .pdb-step-label  { color: var(--blue); }
   .pdb-step.is-on.tone-orange .pdb-step-label  { color: #d97706; }
   .pdb-step.is-on.tone-green  .pdb-step-label  { color: #059669; }
+  .pdb-step.is-on.tone-red    .pdb-step-label  { color: var(--danger); }
+  .pdb-step.is-on.tone-violet .pdb-step-label  { color: var(--violet); }
+  .pdb-step.is-on.tone-gray   .pdb-step-label  { color: #64748b; }
   .pdb-step.is-ring .pdb-step-circle { box-shadow: 0 0 0 6px #d1fae5, 0 6px 16px rgba(16,185,129,.25); }
 
   .pdb-step-line { width: 80px; height: 2px; background: var(--line); margin-bottom: 22px; transition: background .2s; }
@@ -250,25 +274,77 @@
   $sd = $project->structured_data ?? [];
   $ficha  = $sd['ficha'] ?? [];
   $fechas = $sd['fechas_clave'] ?? [];
-  $chk    = $sd['checklist'] ?? null;   // ['total','sin_revisar','no_cumple','parcial','cumple','pendiente','en_revision','aprobado']
   $docs   = $project->documents;
   $notas  = $project->notes ?? collect();
   $tareas = $project->tasks ?? collect();
   $tareasPend = $tareas->where('completed', false)->count();
   $tareasDone = $tareas->where('completed', true)->count();
 
-  /* ── Estado del proyecto → controla chip, pipeline y módulo sugerido ── */
-  $statusRaw = mb_strtolower($project->status ?? 'analisis');
-  if (str_contains($statusRaw, 'no particip')) {
-      $estado = ['key' => 'no_participa', 'label' => 'No Participa', 'tone' => 'red', 'step' => 3];
-  } elseif (str_contains($statusRaw, 'particip')) {
-      $estado = ['key' => 'participa', 'label' => 'Participa', 'tone' => 'green', 'step' => 3];
-  } elseif (str_contains($statusRaw, 'revis')) {
-      $estado = ['key' => 'revision', 'label' => 'Revisión', 'tone' => 'orange', 'step' => 2];
+  /*
+   |--------------------------------------------------------------------------
+   | Checklist ligado al Análisis
+   |--------------------------------------------------------------------------
+   | El dashboard ya NO depende solo de structured_data.checklist.
+   | Primero lee los requisitos reales guardados en project_checklist_items,
+   | que son los mismos que editas desde la vista de Análisis.
+   */
+  $project->loadMissing(['checklistItems']);
+  $checklistItemsDashboard = $project->checklistItems ?? collect();
+
+  if ($checklistItemsDashboard->count() > 0) {
+      $chk = [
+          'total'        => $checklistItemsDashboard->count(),
+          'sin_revisar'  => $checklistItemsDashboard->where('compliance_status', 'sin_revisar')->count(),
+          'no_cumple'    => $checklistItemsDashboard->where('compliance_status', 'no_cumple')->count(),
+          'parcial'      => $checklistItemsDashboard->where('compliance_status', 'parcial')->count(),
+          'cumple'       => $checklistItemsDashboard->where('compliance_status', 'cumple')->count(),
+          'pendiente'    => $checklistItemsDashboard->where('review_status', 'pendiente')->count(),
+          'en_revision'  => $checklistItemsDashboard->where('review_status', 'en_revision')->count(),
+          'aprobado'     => $checklistItemsDashboard->where('review_status', 'aprobado')->count(),
+      ];
   } else {
-      $estado = ['key' => 'analisis', 'label' => 'Análisis de Bases', 'tone' => 'blue', 'step' => 1];
+      $legacyChecklist = $project->checklist ?: data_get($sd, 'checklist_sugerido', []);
+      $legacyCollection = collect(is_array($legacyChecklist) ? $legacyChecklist : []);
+
+      $chk = ($sd['checklist'] ?? null) ?: [
+          'total'        => $legacyCollection->count(),
+          'sin_revisar'  => $legacyCollection->where('cumplimiento', '-')->count(),
+          'no_cumple'    => $legacyCollection->where('cumplimiento', 'No Cumple')->count(),
+          'parcial'      => $legacyCollection->where('cumplimiento', 'Parcial')->count(),
+          'cumple'       => $legacyCollection->where('cumplimiento', 'Cumple')->count(),
+          'pendiente'    => $legacyCollection->where('status', 'Pendiente')->count(),
+          'en_revision'  => $legacyCollection->where('status', 'En revisión')->count(),
+          'aprobado'     => $legacyCollection->where('status', 'Aprobado')->count(),
+      ];
   }
+
+  $checklistTotalDashboard = (int) ($chk['total'] ?? 0);
+  $hasChecklistDashboard = $checklistTotalDashboard > 0;
+
+  /* ── Estado del proyecto → controla chip, pipeline y módulo sugerido ──
+     IMPORTANTE: usamos workflow_status para NO mezclarlo con status
+     de procesamiento (ready, processing, error). */
+  $workflowOptions = [
+      'analisis_bases' => ['key' => 'analisis_bases', 'label' => 'Análisis de Bases', 'tone' => 'blue', 'step' => 1, 'dot' => '#3b82f6'],
+      'revision' => ['key' => 'revision', 'label' => 'Revisión', 'tone' => 'orange', 'step' => 2, 'dot' => '#f59e0b'],
+      'participa' => ['key' => 'participa', 'label' => 'Participa', 'tone' => 'green', 'step' => 3, 'dot' => '#10b981'],
+      'junta_aclaraciones' => ['key' => 'junta_aclaraciones', 'label' => 'Junta de Aclaraciones', 'tone' => 'green', 'step' => 3, 'dot' => '#10b981', 'child' => true],
+      'armado_propuesta' => ['key' => 'armado_propuesta', 'label' => 'Armado de Propuesta', 'tone' => 'green', 'step' => 3, 'dot' => '#10b981', 'child' => true],
+      'entrega' => ['key' => 'entrega', 'label' => 'Entrega', 'tone' => 'green', 'step' => 3, 'dot' => '#10b981', 'child' => true],
+      'no_participa' => ['key' => 'no_participa', 'label' => 'No participa', 'tone' => 'red', 'step' => 3, 'dot' => '#ef4444'],
+      'ganado' => ['key' => 'ganado', 'label' => 'Ganado', 'tone' => 'violet', 'step' => 3, 'dot' => '#8b5cf6'],
+      'perdido' => ['key' => 'perdido', 'label' => 'Perdido', 'tone' => 'gray', 'step' => 3, 'dot' => '#6b7280'],
+      'desierta' => ['key' => 'desierta', 'label' => 'Desierta', 'tone' => 'gray', 'step' => 3, 'dot' => '#64748b'],
+  ];
+
+  $workflowKey = $project->workflow_status ?: 'analisis_bases';
+  if (!isset($workflowOptions[$workflowKey])) {
+      $workflowKey = 'analisis_bases';
+  }
+
+  $estado = $workflowOptions[$workflowKey];
   $cur = $estado['step'];
+  $workflowUrl = route('projects.workflow-status', $project);
 
   /* ── Clasificar documentos en grupos (heurística por nombre) ── */
   $bases    = $docs->filter(fn($d) => stripos($d->filename, 'bases') !== false || stripos($d->filename, 'convocatoria') !== false || stripos($d->filename, 'anexo') !== false || stripos($d->filename, 'licitacion') !== false)->values();
@@ -300,7 +376,7 @@
     <a href="{{ route('projects.index') }}" class="pdb-nav-back" title="Volver">←</a>
     <div class="pdb-nav-name">{{ $project->name }}<span class="pdb-nav-name-dot"></span></div>
 
-    <button type="button" class="pdb-nav-pill">{{ $estado['label'] }}</button>
+    <button type="button" class="pdb-nav-pill" data-workflow-label>{{ $estado['label'] }}</button>
 
     <div class="pdb-nav-tabs">
       <a href="{{ route('projects.show', $project) }}" class="pdb-nav-tab is-active">
@@ -319,7 +395,26 @@
 
     <div class="pdb-hero-top">
       <span class="pdb-estado-label">Estado:</span>
-      <button type="button" class="pdb-estado-chip tone-{{ $estado['tone'] }}">{{ $estado['label'] }}</button>
+      <div class="pdb-status-wrap" id="pdbStatusWrap" data-workflow-url="{{ $workflowUrl }}" data-current-workflow="{{ $estado['key'] }}">
+        <button type="button" class="pdb-estado-chip tone-{{ $estado['tone'] }}" id="pdbStatusBtn" data-workflow-chip aria-haspopup="true" aria-expanded="false">
+          <span data-workflow-label>{{ $estado['label'] }}</span>
+        </button>
+
+        <div class="pdb-status-menu" id="pdbStatusMenu" aria-hidden="true">
+          @foreach($workflowOptions as $key => $option)
+            <button type="button"
+                    class="pdb-status-option {{ ($option['child'] ?? false) ? 'is-child' : '' }} {{ $estado['key'] === $key ? 'is-active' : '' }}"
+                    data-workflow-option="{{ $key }}"
+                    data-workflow-label-value="{{ $option['label'] }}"
+                    data-workflow-tone="{{ $option['tone'] }}"
+                    data-workflow-step="{{ $option['step'] }}">
+              <span class="pdb-status-dot" style="background: {{ $option['dot'] }}"></span>
+              <span>{{ $option['label'] }}</span>
+              <span class="pdb-status-check">✓</span>
+            </button>
+          @endforeach
+        </div>
+      </div>
 
       <div class="pdb-pipeline">
         {{-- Paso 1: Análisis --}}
@@ -351,7 +446,7 @@
         <div class="pdb-step-line tone-green {{ $cur >= 3 ? 'is-on' : '' }}"></div>
 
         {{-- Paso 3: Resultado / Participa --}}
-        <div class="pdb-step tone-green {{ $cur >= 3 ? 'is-on is-ring' : '' }}">
+        <div class="pdb-step tone-{{ $estado['tone'] }} {{ $cur >= 3 ? 'is-on is-ring' : '' }}" data-workflow-result-step>
           <div class="pdb-step-circle">
             @if($cur >= 3)
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
@@ -374,27 +469,43 @@
         <h3 class="pdb-card-title"><span class="ico is-violet">📚</span> Módulo sugerido</h3>
 
         @php
+          $analisisUrl = route('projects.analisis', $project);
+          $checklistUrl = route('projects.analisis', $project) . '#checklist';
+          $borradorUrl = route('projects.analisis', $project) . '#borrador';
+
           $modulos = [
-            ['key' => 'analisis',  'name' => 'Análisis de Bases',     'desc' => 'Revisa y analiza las bases del proyecto',   'tone' => 'tone-green',  'route' => route('projects.analisis', $project),
+            ['key' => 'analisis',  'name' => 'Análisis de Bases',     'desc' => 'Revisa y analiza las bases del proyecto',   'tone' => 'tone-green',  'route' => $analisisUrl, 'available' => true,
              'svg' => '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6"/>'],
-            ['key' => 'juntas',    'name' => 'Junta de Aclaraciones', 'desc' => 'Gestiona preguntas y aclaraciones',          'tone' => 'tone-orange', 'route' => '#',
+            ['key' => 'revision_checklist', 'name' => 'Revisión de Checklist', 'desc' => $hasChecklistDashboard ? ($checklistTotalDashboard . ' requisitos detectados desde Análisis') : 'Primero genera el checklist desde Análisis', 'tone' => 'tone-blue', 'route' => $checklistUrl, 'available' => $hasChecklistDashboard,
+             'svg' => '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>'],
+            ['key' => 'juntas',    'name' => 'Junta de Aclaraciones', 'desc' => 'Gestiona preguntas y aclaraciones',          'tone' => 'tone-orange', 'route' => '#', 'available' => in_array($estado['key'], ['participa','junta_aclaraciones','armado_propuesta','entrega','ganado']),
              'svg' => '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'],
-            ['key' => 'propuesta', 'name' => 'Armado de Propuesta',   'desc' => 'Construye la propuesta técnica/económica',   'tone' => 'tone-blue',   'route' => '#',
+            ['key' => 'propuesta', 'name' => 'Armado de Propuesta',   'desc' => 'Construye la propuesta técnica/económica',   'tone' => 'tone-blue',   'route' => $borradorUrl, 'available' => in_array($estado['key'], ['armado_propuesta','entrega','ganado']),
              'svg' => '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>'],
-            ['key' => 'reporte',   'name' => 'Reporte',               'desc' => 'Genera el reporte final del proyecto',       'tone' => 'tone-violet', 'route' => '#',
+            ['key' => 'reporte',   'name' => 'Reporte',               'desc' => 'Genera el reporte final del proyecto',       'tone' => 'tone-violet', 'route' => $borradorUrl, 'available' => $hasChecklistDashboard,
              'svg' => '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 17h6"/>'],
-            ['key' => 'tecnico',   'name' => 'Análisis Técnico',      'desc' => 'Revisión técnica especializada',             'tone' => 'tone-warn',   'route' => '#',
+            ['key' => 'tecnico',   'name' => 'Análisis Técnico',      'desc' => 'Revisión técnica especializada',             'tone' => 'tone-warn',   'route' => $analisisUrl, 'available' => $hasChecklistDashboard,
              'svg' => '<path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>'],
           ];
-          // El módulo sugerido depende del estado: participa → juntas; revisión → análisis; default → análisis
-          $sugerido = $estado['key'] === 'participa' ? 'juntas' : 'analisis';
+
+          // El módulo sugerido depende del estado y de si ya existe checklist real en Análisis.
+          $sugerido = match($estado['key']) {
+            'revision' => $hasChecklistDashboard ? 'revision_checklist' : 'analisis',
+            'participa', 'junta_aclaraciones' => 'juntas',
+            'armado_propuesta', 'entrega', 'ganado' => 'propuesta',
+            default => $hasChecklistDashboard ? 'revision_checklist' : 'analisis',
+          };
+
           usort($modulos, fn($a, $b) => ($a['key'] === $sugerido ? -1 : 1) <=> ($b['key'] === $sugerido ? -1 : 1));
         @endphp
 
         @foreach($modulos as $m)
-          @php $isCur = $m['key'] === $sugerido; @endphp
-          <a href="{{ $isCur ? $m['route'] : '#' }}" class="pdb-module {{ $isCur ? 'is-current' : 'is-disabled' }}">
-            <div class="pdb-module-icon {{ $isCur ? $m['tone'] : 'tone-gray' }}">
+          @php
+            $isCur = $m['key'] === $sugerido;
+            $isAvailable = (bool) ($m['available'] ?? false);
+          @endphp
+          <a href="{{ $isAvailable ? $m['route'] : '#' }}" class="pdb-module {{ $isCur ? 'is-current' : '' }} {{ !$isAvailable ? 'is-disabled' : '' }}">
+            <div class="pdb-module-icon {{ $isCur || $isAvailable ? $m['tone'] : 'tone-gray' }}">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">{!! $m['svg'] !!}</svg>
             </div>
             <div class="pdb-module-text">
@@ -408,9 +519,9 @@
 
       {{-- ── Columna derecha: Checklist (si hay datos) o monico insights ── --}}
       <div class="pdb-hero-col">
-        @if($chk && ($chk['total'] ?? 0) > 0)
+        @if($hasChecklistDashboard)
           @php
-            $t = $chk['total'];
+            $t = $checklistTotalDashboard;
             $sinRevisar = $chk['sin_revisar'] ?? 0;
             $noCumple   = $chk['no_cumple']   ?? 0;
             $parcial    = $chk['parcial']     ?? 0;
@@ -422,7 +533,7 @@
           <div class="pdb-chk-head">
             <h3 class="pdb-card-title" style="margin:0;"><span class="ico is-success">✓</span> Checklist</h3>
             <span class="badge-count">{{ $sinRevisar }} sin revisar</span>
-            <a href="{{ route('projects.analisis', $project) }}" class="pdb-chk-link" title="Ver checklist">↗</a>
+            <a href="{{ route('projects.analisis', $project) }}#checklist" class="pdb-chk-link" title="Ver checklist en Análisis">↗</a>
           </div>
 
           <div class="pdb-chk-grid">
@@ -710,11 +821,141 @@
 </div>
 
 <script>
-// Acordeón Resumen de Documentos
-document.querySelectorAll('.js-doc-toggle').forEach(head => {
-  head.addEventListener('click', () => {
-    head.closest('.pdb-doc-group').classList.toggle('is-open');
+(function () {
+  'use strict';
+
+  const CSRF_TOKEN = '{{ csrf_token() }}';
+
+  document.querySelectorAll('.js-doc-toggle').forEach(head => {
+    head.addEventListener('click', () => {
+      head.closest('.pdb-doc-group')?.classList.toggle('is-open');
+    });
   });
-});
+
+  const wrap = document.getElementById('pdbStatusWrap');
+  const btn = document.getElementById('pdbStatusBtn');
+  const menu = document.getElementById('pdbStatusMenu');
+  const chip = document.querySelector('[data-workflow-chip]');
+  const labels = document.querySelectorAll('[data-workflow-label]');
+  const resultStep = document.querySelector('[data-workflow-result-step]');
+
+  const workflowMeta = {
+    analisis_bases: { label: 'Análisis de Bases', tone: 'blue', step: 1 },
+    revision: { label: 'Revisión', tone: 'orange', step: 2 },
+    participa: { label: 'Participa', tone: 'green', step: 3 },
+    junta_aclaraciones: { label: 'Junta de Aclaraciones', tone: 'green', step: 3 },
+    armado_propuesta: { label: 'Armado de Propuesta', tone: 'green', step: 3 },
+    entrega: { label: 'Entrega', tone: 'green', step: 3 },
+    no_participa: { label: 'No participa', tone: 'red', step: 3 },
+    ganado: { label: 'Ganado', tone: 'violet', step: 3 },
+    perdido: { label: 'Perdido', tone: 'gray', step: 3 },
+    desierta: { label: 'Desierta', tone: 'gray', step: 3 },
+  };
+
+  function setMenuOpen(open) {
+    if (!wrap || !btn || !menu) return;
+    wrap.classList.toggle('is-open', open);
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    menu.setAttribute('aria-hidden', open ? 'false' : 'true');
+  }
+
+  function cleanToneClasses(el) {
+    if (!el) return;
+    ['tone-blue', 'tone-orange', 'tone-green', 'tone-red', 'tone-violet', 'tone-gray'].forEach(c => el.classList.remove(c));
+  }
+
+  function applyWorkflowVisual(key) {
+    const meta = workflowMeta[key] || workflowMeta.analisis_bases;
+    labels.forEach(el => { el.textContent = meta.label; });
+
+    cleanToneClasses(chip);
+    chip?.classList.add('tone-' + meta.tone);
+
+    document.querySelectorAll('[data-workflow-option]').forEach(option => {
+      option.classList.toggle('is-active', option.dataset.workflowOption === key);
+    });
+
+    document.querySelectorAll('.pdb-step').forEach((step, index) => {
+      const stepNumber = index + 1;
+      step.classList.toggle('is-on', meta.step >= stepNumber);
+      step.classList.toggle('is-ring', meta.step >= 3 && stepNumber === 3);
+    });
+
+    document.querySelectorAll('.pdb-step-line').forEach((line, index) => {
+      line.classList.toggle('is-on', meta.step >= index + 2);
+    });
+
+    if (resultStep) {
+      cleanToneClasses(resultStep);
+      resultStep.classList.add('tone-' + meta.tone);
+      const label = resultStep.querySelector('.pdb-step-label');
+      if (label) label.textContent = meta.step >= 3 ? meta.label : 'Resultado';
+    }
+
+    wrap?.setAttribute('data-current-workflow', key);
+  }
+
+  async function saveWorkflowStatus(key, optionBtn) {
+    if (!wrap || !chip) return;
+
+    const previous = wrap.getAttribute('data-current-workflow') || 'analisis_bases';
+    applyWorkflowVisual(key);
+    setMenuOpen(false);
+
+    chip.classList.add('pdb-status-saving');
+    optionBtn?.setAttribute('disabled', 'disabled');
+
+    try {
+      const response = await fetch(wrap.dataset.workflowUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-CSRF-TOKEN': CSRF_TOKEN,
+        },
+        body: JSON.stringify({ workflow_status: key }),
+      });
+
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok || payload.ok === false) {
+        throw new Error(payload.message || 'No se pudo actualizar el estado.');
+      }
+
+      applyWorkflowVisual(payload.workflow_status || key);
+    } catch (error) {
+      applyWorkflowVisual(previous);
+      alert(error.message || 'No se pudo actualizar el estado del proyecto.');
+    } finally {
+      chip.classList.remove('pdb-status-saving');
+      optionBtn?.removeAttribute('disabled');
+    }
+  }
+
+  btn?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    setMenuOpen(!wrap.classList.contains('is-open'));
+  });
+
+  document.querySelectorAll('[data-workflow-option]').forEach(option => {
+    option.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const key = option.dataset.workflowOption;
+      if (!key || key === wrap?.getAttribute('data-current-workflow')) {
+        setMenuOpen(false);
+        return;
+      }
+      saveWorkflowStatus(key, option);
+    });
+  });
+
+  document.addEventListener('click', (event) => {
+    if (!wrap?.contains(event.target)) setMenuOpen(false);
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') setMenuOpen(false);
+  });
+})();
 </script>
 @endsection

@@ -2000,6 +2000,385 @@
       min-height: 340px !important;
     }
   }
+
+
+  /* ════════════ CHAT INPUT PRO: BARRA LUMINOSA TIPO SKIPER ════════════ */
+  .pjd-chat-input {
+    position: relative !important;
+    margin: 10px 12px 12px !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    border: 1px solid rgba(0,122,255,.28) !important;
+    border-radius: 28px !important;
+    background: rgba(255,255,255,.92) !important;
+    box-shadow:
+      0 10px 28px rgba(15,23,42,.06),
+      0 0 0 4px rgba(0,122,255,.08) !important;
+    overflow: hidden !important;
+    isolation: isolate;
+    transition: border-color .22s ease, box-shadow .22s ease, transform .18s ease;
+  }
+
+  .pjd-chat-input::before {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    padding: 2px;
+    background:
+      conic-gradient(from var(--pjd-chat-angle, 180deg),
+        transparent 0deg,
+        transparent 92deg,
+        rgba(0,122,255,.16) 118deg,
+        rgba(0,122,255,.95) 150deg,
+        rgba(123,180,255,.72) 176deg,
+        transparent 218deg,
+        transparent 360deg);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+            mask-composite: exclude;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .pjd-chat-input::after {
+    content: "";
+    position: absolute;
+    left: 18px;
+    right: 68px;
+    bottom: 7px;
+    height: 1px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, transparent, rgba(0,122,255,.62), transparent);
+    opacity: 0;
+    transform: translateX(-35%);
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .pjd-chat-input:focus-within {
+    border-color: rgba(0,122,255,.52) !important;
+    box-shadow:
+      0 14px 32px rgba(15,23,42,.07),
+      0 0 0 5px rgba(0,122,255,.13) !important;
+  }
+
+  .pjd-chat-input:focus-within::before {
+    opacity: .55;
+    animation: pjdChatHaloIdle 4.8s linear infinite;
+  }
+
+  .pjd-chat-input.is-sending {
+    border-color: rgba(0,122,255,.72) !important;
+    transform: translateY(-1px);
+    box-shadow:
+      0 18px 42px rgba(15,23,42,.08),
+      0 0 0 6px rgba(0,122,255,.15),
+      0 0 34px rgba(0,122,255,.16) !important;
+  }
+
+  .pjd-chat-input.is-sending::before {
+    opacity: 1;
+    animation: pjdChatHaloSend .78s cubic-bezier(.22,1,.36,1) both;
+  }
+
+  .pjd-chat-input.is-sending::after {
+    animation: pjdChatLineSend .62s cubic-bezier(.22,1,.36,1) both;
+  }
+
+  .pjd-chat-input input {
+    position: relative !important;
+    z-index: 2;
+    height: 62px !important;
+    padding: 0 18px 0 34px !important;
+    border: 0 !important;
+    background: transparent !important;
+    color: #111111 !important;
+    font-size: 1.02rem !important;
+    font-weight: 500 !important;
+    letter-spacing: -.01em;
+    box-shadow: none !important;
+  }
+
+  .pjd-chat-input input::placeholder {
+    color: #7b7f87;
+    font-weight: 500;
+  }
+
+  .pjd-chat-input input:focus {
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .pjd-chat-send {
+    position: relative !important;
+    z-index: 3;
+    width: 48px !important;
+    height: 48px !important;
+    margin: 7px 8px 7px 0 !important;
+    border-radius: 999px !important;
+    background: #0b0b0d !important;
+    color: #ffffff !important;
+    box-shadow: 0 10px 24px rgba(0,0,0,.16) !important;
+    overflow: hidden;
+    transition: transform .18s ease, box-shadow .18s ease, background .18s ease !important;
+  }
+
+  .pjd-chat-send::before {
+    content: "";
+    position: absolute;
+    inset: -35%;
+    background: radial-gradient(circle, rgba(255,255,255,.34), transparent 58%);
+    opacity: 0;
+    transform: scale(.45);
+    pointer-events: none;
+  }
+
+  .pjd-chat-send:hover {
+    transform: translateY(-1px) scale(1.02) !important;
+    box-shadow: 0 14px 30px rgba(0,0,0,.20) !important;
+  }
+
+  .pjd-chat-send:active { transform: scale(.96) !important; }
+  .pjd-chat-send svg { width: 22px; height: 22px; transform: translateX(1px); }
+  .pjd-chat-input.is-sending .pjd-chat-send::before { animation: pjdSendRipple .55s ease-out both; }
+  .pjd-chat-input.is-sending .pjd-chat-send svg { animation: pjdSendIconLift .55s cubic-bezier(.22,1,.36,1) both; }
+
+  .pjd-chat-wave {
+    position: absolute;
+    left: 28px;
+    right: 68px;
+    top: 50%;
+    height: 2px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, transparent, rgba(0,122,255,.95), rgba(123,180,255,.8), transparent);
+    box-shadow: 0 0 18px rgba(0,122,255,.42);
+    opacity: 0;
+    transform: translateY(-50%) scaleX(.2);
+    transform-origin: left center;
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  .pjd-chat-input.is-sending .pjd-chat-wave { animation: pjdChatWaveUp .68s cubic-bezier(.16,1,.3,1) both; }
+
+  .pjd-msg {
+    will-change: transform, opacity;
+  }
+
+  .pjd-msg.is-user .pjd-msg-body {
+    background: #0ea5e9 !important;
+    color: #ffffff !important;
+    border-color: rgba(14,165,233,.22) !important;
+    box-shadow: 0 12px 26px rgba(14,165,233,.18) !important;
+  }
+
+  .pjd-msg.is-user.pjd-msg-enter { animation: pjdUserMsgIn .34s cubic-bezier(.22,1,.36,1) both; }
+  .pjd-msg.is-assistant.pjd-msg-enter { animation: pjdAssistantMsgIn .38s cubic-bezier(.22,1,.36,1) both; }
+  .pjd-msg.is-assistant.pjd-loading-enter { animation: pjdAssistantMsgIn .28s cubic-bezier(.22,1,.36,1) both; }
+
+  @keyframes pjdChatHaloIdle {
+    to { --pjd-chat-angle: 540deg; }
+  }
+
+  @keyframes pjdChatHaloSend {
+    0% { --pjd-chat-angle: 210deg; filter: brightness(1); }
+    48% { --pjd-chat-angle: 330deg; filter: brightness(1.2); }
+    100% { --pjd-chat-angle: 570deg; filter: brightness(1); }
+  }
+
+  @keyframes pjdChatLineSend {
+    0% { opacity: 0; transform: translateX(-44%); }
+    25% { opacity: .95; }
+    100% { opacity: 0; transform: translateX(54%); }
+  }
+
+  @keyframes pjdChatWaveUp {
+    0% { opacity: 0; transform: translateY(14px) scaleX(.08); }
+    20% { opacity: 1; transform: translateY(4px) scaleX(.88); }
+    68% { opacity: .92; transform: translateY(-32px) scaleX(.55); }
+    100% { opacity: 0; transform: translateY(-78px) scaleX(.08); }
+  }
+
+  @keyframes pjdSendRipple {
+    0% { opacity: 0; transform: scale(.42); }
+    30% { opacity: 1; }
+    100% { opacity: 0; transform: scale(1.25); }
+  }
+
+  @keyframes pjdSendIconLift {
+    0% { transform: translateX(1px) translateY(0) rotate(0); opacity: 1; }
+    45% { transform: translateX(6px) translateY(-5px) rotate(-8deg); opacity: .88; }
+    100% { transform: translateX(1px) translateY(0) rotate(0); opacity: 1; }
+  }
+
+  @keyframes pjdUserMsgIn {
+    0% { opacity: 0; transform: translateY(18px) scale(.96); filter: blur(4px); }
+    100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+  }
+
+  @keyframes pjdAssistantMsgIn {
+    0% { opacity: 0; transform: translateY(12px) scale(.985); filter: blur(3px); }
+    100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pjd-chat-input::before,
+    .pjd-chat-input::after,
+    .pjd-chat-wave,
+    .pjd-msg.is-user.pjd-msg-enter,
+    .pjd-msg.is-assistant.pjd-msg-enter,
+    .pjd-msg.is-assistant.pjd-loading-enter,
+    .pjd-chat-input.is-sending .pjd-chat-send::before,
+    .pjd-chat-input.is-sending .pjd-chat-send svg {
+      animation: none !important;
+    }
+  }
+
+  /* ════════════ UX MODALS / TOAST EXIT (ADITIVO, NO REEMPLAZA ESTILOS EXISTENTES) ════════════ */
+  .pjd-ui-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .pjd-ui-modal.is-open { display: flex; }
+  .pjd-ui-modal.is-closing { pointer-events: none; }
+  .pjd-ui-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(15,23,42,.42);
+    backdrop-filter: blur(8px);
+    animation: pjdModalFade .2s cubic-bezier(.23,1,.32,1) both;
+  }
+  .pjd-ui-modal.is-closing .pjd-ui-modal-backdrop { animation: pjdModalFadeOut .18s ease both; }
+  .pjd-ui-modal-card {
+    position: relative;
+    z-index: 1;
+    width: min(440px, 100%);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 16px 42px rgba(15,23,42,.12);
+    overflow: hidden;
+    animation: pjdModalCardIn .22s cubic-bezier(.23,1,.32,1) both;
+  }
+  .pjd-ui-modal.is-closing .pjd-ui-modal-card { animation: pjdModalCardOut .18s ease both; }
+  .pjd-ui-modal-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 18px 20px 12px;
+    background: linear-gradient(180deg, #fafbff, #fff);
+  }
+  .pjd-ui-modal-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    background: var(--blue-soft);
+    color: var(--blue);
+  }
+  .pjd-ui-modal-icon.is-danger { background: var(--danger-soft); color: var(--danger); }
+  .pjd-ui-modal-icon svg { width: 19px; height: 19px; }
+  .pjd-ui-modal-title {
+    margin: 0;
+    color: var(--ink);
+    font-size: 1.02rem;
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: -.01em;
+  }
+  .pjd-ui-modal-text {
+    margin: 5px 0 0;
+    color: var(--muted);
+    font-size: .88rem;
+    font-weight: 600;
+    line-height: 1.45;
+  }
+  .pjd-ui-modal-body { padding: 4px 20px 18px; }
+  .pjd-ui-modal-input {
+    width: 100%;
+    height: 42px;
+    border: 1px solid #dfe5ee;
+    border-radius: 10px;
+    background: #fff;
+    color: var(--ink);
+    font-family: inherit;
+    font-size: .92rem;
+    font-weight: 600;
+    outline: none;
+    padding: 0 12px;
+    transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+  }
+  .pjd-ui-modal-input:focus {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px var(--blue-soft);
+  }
+  .pjd-ui-modal-input:active { transform: scale(.995); }
+  .pjd-ui-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 14px 20px;
+    border-top: 1px solid var(--line);
+    background: #fafbff;
+  }
+  .pjd-ui-modal-btn {
+    height: 38px;
+    padding: 0 16px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--ink2);
+    font-family: inherit;
+    font-size: .86rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background .16s ease, border-color .16s ease, color .16s ease, transform .16s ease, box-shadow .16s ease;
+  }
+  .pjd-ui-modal-btn:hover { background: var(--bg); transform: translateY(-1px); }
+  .pjd-ui-modal-btn:active { transform: scale(.98); }
+  .pjd-ui-modal-btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--blue-soft);
+  }
+  .pjd-ui-modal-btn.is-primary {
+    background: var(--blue);
+    border-color: var(--blue);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(0,122,255,.14);
+  }
+  .pjd-ui-modal-btn.is-primary:hover { background: #0a84ff; }
+  .pjd-ui-modal-btn.is-danger {
+    background: var(--danger);
+    border-color: var(--danger);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(239,68,68,.16);
+  }
+  .pjd-ui-modal-btn.is-danger:hover { background: #dc2626; }
+  .pjd-toast.is-leaving { animation: pjdToastOut .22s ease both; }
+  @keyframes pjdModalFade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes pjdModalFadeOut { from { opacity: 1; } to { opacity: 0; } }
+  @keyframes pjdModalCardIn { from { opacity: 0; transform: translateY(8px) scale(.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
+  @keyframes pjdModalCardOut { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(8px) scale(.97); } }
+  @keyframes pjdToastOut { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(14px); } }
+  @media (prefers-reduced-motion: reduce) {
+    .pjd-ui-modal-backdrop,
+    .pjd-ui-modal-card,
+    .pjd-ui-modal.is-closing .pjd-ui-modal-backdrop,
+    .pjd-ui-modal.is-closing .pjd-ui-modal-card,
+    .pjd-toast.is-leaving {
+      animation: none !important;
+    }
+  }
+
 </style>
 @endpush
 
@@ -3019,10 +3398,99 @@
   function showToast(msg, type) {
     const t = document.createElement('div');
     t.className = 'pjd-toast' + (type === 'success' ? ' is-success' : type === 'error' ? ' is-error' : '');
-    t.textContent = msg;
+    t.textContent = String(msg || '').trim();
     document.body.appendChild(t);
-    setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity .3s'; }, 2200);
-    setTimeout(() => t.remove(), 2600);
+    setTimeout(() => t.classList.add('is-leaving'), 2200);
+    setTimeout(() => t.remove(), 2480);
+  }
+
+  // ============ MODALES NATIVOS REEMPLAZADOS ============
+  const PJD_MODAL_ICONS = {
+    info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>',
+    danger: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.3 4.3 2.8 17a2 2 0 0 0 1.7 3h15a2 2 0 0 0 1.7-3L13.7 4.3a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg>'
+  };
+
+  function pjdCloseUiModal(modal, value, resolve) {
+    modal.classList.add('is-closing');
+    window.setTimeout(() => {
+      modal.remove();
+      resolve(value);
+    }, 190);
+  }
+
+  function pjdConfirm(message, opts = {}) {
+    return new Promise((resolve) => {
+      const tone = opts.tone || 'info';
+      const modal = document.createElement('div');
+      modal.className = 'pjd-ui-modal';
+      modal.setAttribute('role', 'dialog');
+      modal.setAttribute('aria-modal', 'true');
+      modal.innerHTML = `
+        <div class="pjd-ui-modal-backdrop" data-modal-cancel></div>
+        <div class="pjd-ui-modal-card">
+          <div class="pjd-ui-modal-head">
+            <div class="pjd-ui-modal-icon ${tone === 'danger' ? 'is-danger' : ''}">${PJD_MODAL_ICONS[tone === 'danger' ? 'danger' : 'info']}</div>
+            <div>
+              <h3 class="pjd-ui-modal-title">${opts.title || 'Confirmar acción'}</h3>
+              <p class="pjd-ui-modal-text">${message}</p>
+            </div>
+          </div>
+          <div class="pjd-ui-modal-actions">
+            <button type="button" class="pjd-ui-modal-btn" data-modal-cancel>${opts.cancelText || 'Cancelar'}</button>
+            <button type="button" class="pjd-ui-modal-btn ${tone === 'danger' ? 'is-danger' : 'is-primary'}" data-modal-ok>${opts.okText || 'Continuar'}</button>
+          </div>
+        </div>`;
+      document.body.appendChild(modal);
+      requestAnimationFrame(() => modal.classList.add('is-open'));
+      const ok = modal.querySelector('[data-modal-ok]');
+      const cancel = modal.querySelectorAll('[data-modal-cancel]');
+      ok?.focus();
+      ok?.addEventListener('click', () => pjdCloseUiModal(modal, true, resolve));
+      cancel.forEach(el => el.addEventListener('click', () => pjdCloseUiModal(modal, false, resolve)));
+      modal.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') pjdCloseUiModal(modal, false, resolve);
+        if (e.key === 'Enter') pjdCloseUiModal(modal, true, resolve);
+      });
+    });
+  }
+
+  function pjdPrompt(label, defaultValue = '', opts = {}) {
+    return new Promise((resolve) => {
+      const modal = document.createElement('div');
+      modal.className = 'pjd-ui-modal';
+      modal.setAttribute('role', 'dialog');
+      modal.setAttribute('aria-modal', 'true');
+      modal.innerHTML = `
+        <div class="pjd-ui-modal-backdrop" data-modal-cancel></div>
+        <div class="pjd-ui-modal-card">
+          <div class="pjd-ui-modal-head">
+            <div class="pjd-ui-modal-icon">${PJD_MODAL_ICONS.info}</div>
+            <div>
+              <h3 class="pjd-ui-modal-title">${opts.title || label}</h3>
+              <p class="pjd-ui-modal-text">${opts.description || 'Completa el campo para continuar.'}</p>
+            </div>
+          </div>
+          <div class="pjd-ui-modal-body">
+            <input class="pjd-ui-modal-input" type="${opts.type || 'text'}" value="${String(defaultValue || '').replace(/"/g, '&quot;')}" placeholder="${opts.placeholder || ''}" ${opts.inputmode ? `inputmode="${opts.inputmode}"` : ''}>
+          </div>
+          <div class="pjd-ui-modal-actions">
+            <button type="button" class="pjd-ui-modal-btn" data-modal-cancel>${opts.cancelText || 'Cancelar'}</button>
+            <button type="button" class="pjd-ui-modal-btn is-primary" data-modal-ok>${opts.okText || 'Aceptar'}</button>
+          </div>
+        </div>`;
+      document.body.appendChild(modal);
+      requestAnimationFrame(() => modal.classList.add('is-open'));
+      const input = modal.querySelector('.pjd-ui-modal-input');
+      const ok = modal.querySelector('[data-modal-ok]');
+      const cancel = modal.querySelectorAll('[data-modal-cancel]');
+      setTimeout(() => { input?.focus(); input?.select(); }, 30);
+      ok?.addEventListener('click', () => pjdCloseUiModal(modal, input?.value ?? '', resolve));
+      cancel.forEach(el => el.addEventListener('click', () => pjdCloseUiModal(modal, null, resolve)));
+      modal.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') pjdCloseUiModal(modal, null, resolve);
+        if (e.key === 'Enter') pjdCloseUiModal(modal, input?.value ?? '', resolve);
+      });
+    });
   }
 
   // ============ TABS ============
@@ -3123,6 +3591,40 @@
   const chatList = document.getElementById('pjdChatList');
   const chatReset = document.getElementById('pjdChatReset');
 
+  function triggerChatSendFx() {
+    if (!chatForm) return;
+    chatForm.classList.remove('is-sending');
+    void chatForm.offsetWidth;
+    chatForm.classList.add('is-sending');
+    window.setTimeout(() => chatForm.classList.remove('is-sending'), 760);
+  }
+
+  function playChatSendSound() {
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return;
+      const ctx = new AudioContext();
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const filter = ctx.createBiquadFilter();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(620, now);
+      osc.frequency.exponentialRampToValueAtTime(980, now + .07);
+      filter.type = 'highpass';
+      filter.frequency.value = 420;
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.045, now + .012);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + .11);
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + .12);
+      window.setTimeout(() => ctx.close?.(), 180);
+    } catch (_) {}
+  }
+
   function scrollChatToBottom() { chatList.scrollTop = chatList.scrollHeight; }
   scrollChatToBottom();
 
@@ -3174,10 +3676,10 @@
     try {
       if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
         await navigator.clipboard.write([ new ClipboardItem({ 'text/html': new Blob([html],{type:'text/html'}), 'text/plain': new Blob([tsv],{type:'text/plain'}) }) ]);
-        showToast(' Tabla copiada (pégala donde quieras)', 'success'); return;
+        showToast('Tabla copiada (pégala donde quieras)', 'success'); return;
       }
     } catch (_) {}
-    try { await navigator.clipboard.writeText(tsv); showToast(' Tabla copiada como texto', 'success'); }
+    try { await navigator.clipboard.writeText(tsv); showToast('Tabla copiada como texto', 'success'); }
     catch (e) { const ta = document.createElement('textarea'); ta.value = tsv; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); showToast('Tabla copiada', 'success'); }
   }
 
@@ -3188,7 +3690,7 @@
     document.querySelector('.pjd-tab[data-tab="borrador"]')?.click();
     document.querySelector('.pjd-borrador-tab[data-section="borrador"]')?.click();
     setTimeout(() => { scheduleDraftAutoSave(true); }, 200);
-    showToast(' Tabla agregada al borrador', 'success');
+    showToast('Tabla agregada al borrador', 'success');
   }
 
   function downloadTableAsExcel(data) {
@@ -3199,12 +3701,12 @@
     XLSX.utils.book_append_sheet(wb, ws, 'Tabla');
     const ts = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
     XLSX.writeFile(wb, `tabla-${PROJECT_SLUG}-${ts}.xlsx`);
-    showToast(' Excel descargado', 'success');
+    showToast('Excel descargado', 'success');
   }
 
   function appendMsg(role, content, time = '') {
     const wrap = document.createElement('div');
-    wrap.className = `pjd-msg ${role === 'user' ? 'is-user' : 'is-assistant'}`;
+    wrap.className = `pjd-msg ${role === 'user' ? 'is-user' : 'is-assistant'} pjd-msg-enter`;
     if (role === 'user') { wrap.innerHTML = `<div class="pjd-msg-body">${escapeHtml(content)}</div>`; chatList.appendChild(wrap); scrollChatToBottom(); return wrap; }
 
     const tableData = extractMarkdownTable(content);
@@ -3244,7 +3746,7 @@
 
   function appendLoading() {
     const wrap = document.createElement('div');
-    wrap.className = 'pjd-msg is-assistant'; wrap.id = 'pjdLoadingMsg';
+    wrap.className = 'pjd-msg is-assistant pjd-loading-enter'; wrap.id = 'pjdLoadingMsg';
     wrap.innerHTML = `<div class="pjd-msg-avatar">j</div><div><div class="pjd-msg-meta">jureto</div><div class="pjd-msg-body"><span class="pjd-loading-dots"><span></span><span></span><span></span></span></div></div>`;
     chatList.appendChild(wrap); scrollChatToBottom();
   }
@@ -3252,6 +3754,8 @@
   chatForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const msg = chatInput.value.trim(); if (!msg) return;
+    triggerChatSendFx();
+    playChatSendSound();
     chatInput.value = ''; chatSend.disabled = true;
     appendMsg('user', msg); appendLoading();
     try {
@@ -3266,7 +3770,7 @@
   });
 
   chatReset?.addEventListener('click', async () => {
-    if (!confirm('¿Borrar todo el historial?')) return;
+    if (!await pjdConfirm('¿Borrar todo el historial?', { title: 'Reiniciar chat', okText: 'Reiniciar', tone: 'danger' })) return;
     try {
       await fetch(CHAT_RESET_URL, { method:'DELETE', headers:{'X-CSRF-TOKEN': CSRF, 'Accept':'application/json'} });
       chatList.innerHTML = '';
@@ -3787,7 +4291,7 @@
     }
 
     if (action === 'delete') {
-      if (!confirm('¿Eliminar este requisito?')) return;
+      if (!await pjdConfirm('¿Eliminar este requisito?', { title: 'Eliminar requisito', okText: 'Eliminar', tone: 'danger' })) return;
       try {
         await postChecklistBackend('delete', { id: activeOptionsRow, idx: activeOptionsRow });
         detail?.remove();
@@ -3926,7 +4430,7 @@
   }
 
   document.getElementById('pjdClReanalisis')?.addEventListener('click', async () => {
-    if (!confirm('Esto regenerará TODO el checklist con IA. ¿Continuar?')) return;
+    if (!await pjdConfirm('Esto regenerará TODO el checklist con IA. ¿Continuar?', { title: 'Regenerar checklist', okText: 'Regenerar', tone: 'danger' })) return;
     const btn = document.getElementById('pjdClReanalisis');
     const original = btn.innerHTML; btn.disabled = true; btn.innerHTML = ' Generando…';
     try { const fd = new FormData(); fd.append('_token', CSRF); fd.append('regenerate', '1'); const res = await fetch(CHECKLIST_URL, { method:'POST', headers:{'Accept':'application/json'}, body: fd, credentials:'same-origin' }); if (res.ok) location.reload(); else alert('Error al regenerar'); }
@@ -3994,7 +4498,7 @@
     ws['!cols'] = headers.map((h, i) => { let max = h.length; rows.forEach(r => { const len = (r[i]||'').toString().length; if (len > max) max = len; }); return { wch: Math.min(Math.max(max + 2, 14), 70) }; });
     const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Checklist');
     XLSX.writeFile(wb, `checklist-${PROJECT_SLUG}.xlsx`);
-    showToast(' Excel descargado', 'success');
+    showToast('Excel descargado', 'success');
   }
   clDownloadMenu?.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-download-list]');
@@ -4018,7 +4522,7 @@
 
     try {
       await postChecklistBackend('update', { id: idx, idx, item: getChecklistRowData(row) });
-      showToast(' Checklist guardado', 'success');
+      showToast('Checklist guardado', 'success');
     } catch (err) {
       showToast(err.message || 'Error al guardar detalle', 'error');
     }
@@ -4032,7 +4536,7 @@
     const row = clBody.querySelector(`tr[data-row="${idx}"]`);
     if (!row) return;
 
-    const body = prompt('Agregar nota:');
+    const body = await pjdPrompt('Agregar nota', '', { title: 'Agregar nota', placeholder: 'Escribe la nota…', okText: 'Agregar' });
     if (!body || !body.trim()) return;
 
     try {
@@ -4133,9 +4637,9 @@
     });
   }
 
-  function insertDraftTable() {
-    const rows = Math.max(1, Math.min(20, parseInt(prompt('Filas de la tabla', '3') || '0', 10)));
-    const cols = Math.max(1, Math.min(12, parseInt(prompt('Columnas de la tabla', '3') || '0', 10)));
+  async function insertDraftTable() {
+    const rows = Math.max(1, Math.min(20, parseInt(await pjdPrompt('Filas de la tabla', '3', { title: 'Filas de la tabla', type: 'number', inputmode: 'numeric' }) || '0', 10)));
+    const cols = Math.max(1, Math.min(12, parseInt(await pjdPrompt('Columnas de la tabla', '3', { title: 'Columnas de la tabla', type: 'number', inputmode: 'numeric' }) || '0', 10)));
     if (!rows || !cols) return;
     let html = '<table><thead><tr>';
     for (let c = 0; c < cols; c++) html += `<th>Encabezado ${c + 1}</th>`;
@@ -4149,7 +4653,7 @@
     runDraftCommand('insertHTML', html);
   }
 
-  draftToolbar?.addEventListener('click', (e) => {
+  draftToolbar?.addEventListener('click', async (e) => {
     const cmdBtn = e.target.closest('[data-draft-cmd]');
     const actionBtn = e.target.closest('[data-draft-action]');
 
@@ -4162,17 +4666,17 @@
     const action = actionBtn.dataset.draftAction;
 
     if (action === 'link') {
-      const url = prompt('Pega la URL del enlace');
+      const url = await pjdPrompt('Pega la URL del enlace', '', { title: 'Insertar enlace', placeholder: 'https://…' });
       if (url) runDraftCommand('createLink', url);
     }
 
     if (action === 'image') {
-      const url = prompt('Pega la URL de la imagen');
+      const url = await pjdPrompt('Pega la URL de la imagen', '', { title: 'Insertar imagen', placeholder: 'https://…' });
       if (url) runDraftCommand('insertImage', url);
     }
 
     if (action === 'table') {
-      insertDraftTable();
+      await insertDraftTable();
     }
   });
 
@@ -4383,7 +4887,7 @@
     if (deleteBtn) {
       e.preventDefault();
       const card = deleteBtn.closest('[data-doc-card]');
-      if (!confirm('¿Eliminar este documento?')) return;
+      if (!await pjdConfirm('¿Eliminar este documento?', { title: 'Eliminar documento', okText: 'Eliminar', tone: 'danger' })) return;
 
       try {
         const res = await fetch(deleteBtn.dataset.docDelete, {
