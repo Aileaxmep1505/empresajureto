@@ -1884,6 +1884,63 @@
   .pjd-report-editor .pjd-report-doc { max-width: 980px; margin: 0 auto; }
   .pjd-report-editor:focus { outline: none; }
 
+
+
+  /* ════════════ FIX SCROLL CHAT / CONTENIDO ════════════ */
+  .pjd-body {
+    height: calc(100dvh - 57px) !important;
+    max-height: calc(100dvh - 57px) !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    align-items: stretch !important;
+  }
+
+  .pjd-left,
+  .pjd-resizer,
+  .pjd-right {
+    height: 100% !important;
+    max-height: 100% !important;
+    min-height: 0 !important;
+  }
+
+  .pjd-left {
+    overflow: hidden !important;
+  }
+
+  .pjd-chat-head,
+  .pjd-chat-input {
+    flex: 0 0 auto !important;
+  }
+
+  .pjd-chat-list {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow-y: auto !important;
+  }
+
+  .pjd-right {
+    overflow: auto !important;
+  }
+
+  @media (max-width: 1100px) {
+    .pjd-body {
+      height: auto !important;
+      max-height: none !important;
+      overflow: visible !important;
+    }
+
+    .pjd-left {
+      height: min(72dvh, 680px) !important;
+      max-height: min(72dvh, 680px) !important;
+      min-height: 420px !important;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .pjd-chat-list {
+      max-height: none !important;
+    }
+  }
 </style>
 @endpush
 
