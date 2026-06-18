@@ -612,10 +612,73 @@
     transition: all .15s ease;
   }
 
-  .prv-edit-btn:hover {
+  .prv-edit-select,
+  .prv-edit-color,
+  .prv-edit-input-wrap {
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    background: #fff;
+    color: #475569;
+    font-family: inherit;
+    font-size: .82rem;
+    font-weight: 700;
+    transition: all .15s ease;
+  }
+
+  .prv-edit-select {
+    min-width: 112px;
+    padding: 0 9px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  .prv-edit-select.is-small { min-width: 74px; }
+
+  .prv-edit-color {
+    width: 34px;
+    justify-content: center;
+    overflow: hidden;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  .prv-edit-color input {
+    width: 42px;
+    height: 42px;
+    border: 0;
+    background: transparent;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  .prv-edit-input-wrap {
+    min-width: 150px;
+    padding: 0 10px;
+    gap: 7px;
+  }
+
+  .prv-edit-input-wrap input {
+    width: 100px;
+    border: 0;
+    outline: 0;
+    font: inherit;
+    color: var(--title);
+    background: transparent;
+  }
+
+  .prv-edit-btn:hover,
+  .prv-edit-select:hover,
+  .prv-edit-color:hover,
+  .prv-edit-input-wrap:hover {
     background: #f3f6fb;
     color: var(--title);
   }
+
+  .prv-edit-btn:active { transform: scale(.97); }
+  .prv-edit-btn.is-active { background: var(--blue-soft); color: var(--blue); border-color: #cfe0ff; }
 
   .prv-edit-btn svg { width: 17px; height: 17px; }
 
@@ -974,24 +1037,57 @@
       <button type="button" class="prv-edit-btn" data-cmd="undo" title="Deshacer">↶</button>
       <button type="button" class="prv-edit-btn" data-cmd="redo" title="Rehacer">↷</button>
       <span class="prv-edit-sep"></span>
+
+      <select class="prv-edit-select" data-block-select title="Estilo de texto">
+        <option value="P">Párrafo</option>
+        <option value="H1">Título 1</option>
+        <option value="H2">Título 2</option>
+        <option value="H3">Título 3</option>
+        <option value="BLOCKQUOTE">Cita</option>
+      </select>
+      <select class="prv-edit-select" data-font-select title="Fuente">
+        <option value="Quicksand">Quicksand</option>
+        <option value="Arial">Arial</option>
+        <option value="Georgia">Georgia</option>
+        <option value="Times New Roman">Times</option>
+        <option value="Courier New">Courier</option>
+      </select>
+      <select class="prv-edit-select is-small" data-size-select title="Tamaño">
+        <option value="2">12</option>
+        <option value="3" selected>16</option>
+        <option value="4">18</option>
+        <option value="5">24</option>
+        <option value="6">32</option>
+        <option value="7">48</option>
+      </select>
+      <span class="prv-edit-sep"></span>
+
       <button type="button" class="prv-edit-btn" data-cmd="bold" title="Negrita"><b>B</b></button>
       <button type="button" class="prv-edit-btn" data-cmd="italic" title="Cursiva"><i>I</i></button>
       <button type="button" class="prv-edit-btn" data-cmd="underline" title="Subrayado"><u>U</u></button>
+      <button type="button" class="prv-edit-btn" data-cmd="strikeThrough" title="Tachado"><s>S</s></button>
+      <label class="prv-edit-color" title="Color de texto"><input type="color" data-color-cmd="foreColor" value="#111111"></label>
+      <label class="prv-edit-color" title="Resaltado"><input type="color" data-color-cmd="hiliteColor" value="#e6f0ff"></label>
       <span class="prv-edit-sep"></span>
-      <button type="button" class="prv-edit-btn" data-block="H1">H1</button>
-      <button type="button" class="prv-edit-btn" data-block="H2">H2</button>
-      <button type="button" class="prv-edit-btn" data-block="H3">H3</button>
-      <span class="prv-edit-sep"></span>
-      <button type="button" class="prv-edit-btn" data-cmd="justifyLeft" title="Izquierda">☰</button>
-      <button type="button" class="prv-edit-btn" data-cmd="justifyCenter" title="Centro">≡</button>
-      <button type="button" class="prv-edit-btn" data-cmd="justifyRight" title="Derecha">☷</button>
+
+      <button type="button" class="prv-edit-btn" data-cmd="justifyLeft" title="Alinear izquierda">☰</button>
+      <button type="button" class="prv-edit-btn" data-cmd="justifyCenter" title="Centrar">≡</button>
+      <button type="button" class="prv-edit-btn" data-cmd="justifyRight" title="Alinear derecha">☷</button>
       <button type="button" class="prv-edit-btn" data-cmd="justifyFull" title="Justificar">▤</button>
       <span class="prv-edit-sep"></span>
-      <button type="button" class="prv-edit-btn" data-cmd="insertUnorderedList" title="Lista">•</button>
-      <button type="button" class="prv-edit-btn" data-cmd="insertOrderedList" title="Numerada">1.</button>
+
+      <button type="button" class="prv-edit-btn" data-cmd="insertUnorderedList" title="Lista con viñetas">•</button>
+      <button type="button" class="prv-edit-btn" data-cmd="insertOrderedList" title="Lista numerada">1.</button>
+      <button type="button" class="prv-edit-btn" data-cmd="outdent" title="Disminuir sangría">←</button>
+      <button type="button" class="prv-edit-btn" data-cmd="indent" title="Aumentar sangría">→</button>
       <span class="prv-edit-sep"></span>
-      <button type="button" class="prv-edit-btn" data-action="table" title="Tabla">▦</button>
+
+      <button type="button" class="prv-edit-btn" data-action="link" title="Insertar enlace">🔗</button>
+      <button type="button" class="prv-edit-btn" data-cmd="unlink" title="Quitar enlace">⛓</button>
+      <button type="button" class="prv-edit-btn" data-action="image" title="Insertar imagen por URL">▧</button>
+      <button type="button" class="prv-edit-btn" data-action="table" title="Insertar tabla">▦</button>
       <button type="button" class="prv-edit-btn" data-cmd="insertHorizontalRule" title="Separador">─</button>
+      <button type="button" class="prv-edit-btn" data-action="quoteBox" title="Bloque de observación">⚠</button>
       <button type="button" class="prv-edit-btn" data-cmd="removeFormat" title="Limpiar formato">⌫</button>
     </div>
 
@@ -1193,22 +1289,65 @@
       btn.addEventListener('click', () => setMode(btn.dataset.modalMode));
     });
 
-    document.getElementById('prvEditorToolbar')?.addEventListener('click', (event) => {
+    const execEditorCommand = (cmd, value = null) => {
+      canvas.focus();
+      document.execCommand(cmd, false, value);
+      canvas.focus();
+    };
+
+    const insertEditorHtml = (html) => {
+      canvas.focus();
+      document.execCommand('insertHTML', false, html);
+      canvas.focus();
+    };
+
+    const toolbar = document.getElementById('prvEditorToolbar');
+
+    toolbar?.addEventListener('click', (event) => {
       const btn = event.target.closest('button');
       if (!btn) return;
       event.preventDefault();
-      canvas.focus();
 
       if (btn.dataset.cmd) {
-        document.execCommand(btn.dataset.cmd, false, null);
+        execEditorCommand(btn.dataset.cmd);
       }
 
-      if (btn.dataset.block) {
-        document.execCommand('formatBlock', false, btn.dataset.block);
+      if (btn.dataset.action === 'link') {
+        const url = window.prompt('Pega la URL del enlace:');
+        if (url) execEditorCommand('createLink', url);
+      }
+
+      if (btn.dataset.action === 'image') {
+        const url = window.prompt('Pega la URL de la imagen:');
+        if (url) execEditorCommand('insertImage', url);
       }
 
       if (btn.dataset.action === 'table') {
-        document.execCommand('insertHTML', false, '<table><tbody><tr><th>Concepto</th><th>Detalle</th></tr><tr><td></td><td></td></tr></tbody></table>');
+        insertEditorHtml('<table><tbody><tr><th>Concepto</th><th>Detalle</th><th>Observación</th></tr><tr><td></td><td></td><td></td></tr><tr><td></td><td></td><td></td></tr></tbody></table>');
+      }
+
+      if (btn.dataset.action === 'quoteBox') {
+        insertEditorHtml('<blockquote><strong>Observación:</strong> Información pendiente de validar en los documentos revisados.</blockquote>');
+      }
+    });
+
+    toolbar?.addEventListener('change', (event) => {
+      const target = event.target;
+
+      if (target.matches('[data-block-select]')) {
+        execEditorCommand('formatBlock', target.value);
+      }
+
+      if (target.matches('[data-font-select]')) {
+        execEditorCommand('fontName', target.value);
+      }
+
+      if (target.matches('[data-size-select]')) {
+        execEditorCommand('fontSize', target.value);
+      }
+
+      if (target.matches('[data-color-cmd]')) {
+        execEditorCommand(target.dataset.colorCmd, target.value);
       }
     });
 

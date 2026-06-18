@@ -1,5 +1,6 @@
 @extends('layouts.app')
 
+@section('content_class', 'content--flush')
 @section('title', 'Proyectos')
 <link rel="stylesheet" href="{{ asset('css/proyecto.css') }}?v={{ time() }}">
 
@@ -12,6 +13,221 @@
   .js-project-row a, .js-project-row button, .js-project-row label, .js-project-row input { cursor: auto; }
   .js-project-row .pj-drag-btn, .js-project-row .pj-icon-btn, .js-project-row .pj-dots-btn,
   .js-project-row .pj-star-btn, .js-project-row .pj-tag-add, .js-project-row .pj-label-pill-menu { cursor: pointer; }
+  .js-project-row.is-saving-labels .pj-label-cell { opacity: .65; pointer-events: none; }
+
+
+  /* Ajuste puntual: toolbar compacto, fijo y en una sola fila */
+  .pj-page{
+    padding: 0 0 48px;
+    overflow-x: hidden;
+  }
+
+  .pj-page .pj-toolbar{
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    min-height: 58px;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    flex-wrap: nowrap;
+    overflow: visible;
+    white-space: nowrap;
+    background: #ffffff;
+    border-bottom: 1px solid #ebebeb;
+    box-shadow: 0 4px 12px rgba(0,0,0,.04);
+  }
+
+  .pj-page .pj-toolbar-left,
+  .pj-page .pj-toolbar-right{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+    min-width: 0;
+  }
+
+  .pj-page .pj-toolbar-left{
+    flex: 0 1 auto;
+  }
+
+  .pj-page .pj-toolbar-right{
+    flex: 0 0 auto;
+    margin-left: auto;
+    justify-content: flex-end;
+  }
+
+  .pj-page .pj-title{
+    flex: 0 0 auto;
+    margin: 0 6px 0 0;
+    font-size: .98rem;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .pj-page .pj-search-wrap{
+    flex: 0 0 320px;
+    width: 320px;
+    max-width: 320px;
+    min-width: 260px;
+    display: flex;
+    align-items: center;
+    margin: 0;
+  }
+
+  .pj-page .pj-search-box{
+    width: 100%;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    border-radius: 12px;
+  }
+
+  .pj-page .pj-search-box input{
+    height: 100%;
+    font-size: .88rem;
+  }
+
+  .pj-page .pj-btn{
+    height: 38px;
+    min-height: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 0 12px;
+    border-radius: 10px;
+    white-space: nowrap;
+    flex: 0 0 auto;
+    font-size: .88rem;
+  }
+
+  .pj-page .pj-btn-icon-only{
+    width: 38px;
+    min-width: 38px;
+    padding: 0;
+  }
+
+  .pj-page .pj-btn-create{
+    padding-inline: 14px;
+  }
+
+  .pj-page .pj-icon{
+    width: 17px;
+    height: 17px;
+    flex-shrink: 0;
+  }
+
+  .pj-page .pj-view-transition{
+    padding: 18px 22px 0;
+    overflow-x: auto;
+  }
+
+  .pj-page .pj-board{
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    width: max-content;
+    min-width: 100%;
+  }
+
+  .pj-page .pj-column.is-collapsed{
+    width: 54px;
+    min-width: 54px;
+  }
+
+  .pj-page .pj-column-collapsed-btn{
+    width: 54px;
+    min-height: 292px;
+    border-radius: 16px;
+    padding: 18px 0;
+  }
+
+  .pj-page .pj-column.is-open{
+    width: 330px;
+    min-width: 330px;
+  }
+
+  .pj-page .pj-column-open{
+    border-radius: 16px;
+  }
+
+  .pj-page .pj-column-header{
+    padding: 16px 14px;
+  }
+
+  .pj-page .pj-column-body{
+    padding: 12px 10px 18px;
+  }
+
+  .pj-page .pj-cards{
+    gap: 12px;
+  }
+
+  .pj-page .pj-card{
+    border-radius: 16px;
+    padding: 14px;
+  }
+
+  @media (max-width: 1550px){
+    .pj-page .pj-toolbar{
+      gap: 7px;
+      padding-inline: 10px;
+    }
+
+    .pj-page .pj-toolbar-left,
+    .pj-page .pj-toolbar-right{
+      gap: 7px;
+    }
+
+    .pj-page .pj-search-wrap{
+      flex-basis: 280px;
+      width: 280px;
+      max-width: 280px;
+      min-width: 220px;
+    }
+
+    .pj-page .pj-btn{
+      height: 36px;
+      min-height: 36px;
+      padding: 0 10px;
+      font-size: .84rem;
+    }
+
+    .pj-page .pj-btn-icon-only{
+      width: 36px;
+      min-width: 36px;
+    }
+  }
+
+  @media (max-width: 1200px){
+    .pj-page .pj-search-wrap{
+      flex-basis: 230px;
+      width: 230px;
+      max-width: 230px;
+      min-width: 200px;
+    }
+
+    .pj-page .pj-btn{
+      padding: 0 9px;
+      gap: 5px;
+    }
+  }
+
+
+  .pj-page .pj-drop-target {
+    outline: 2px dashed #007aff;
+    outline-offset: 4px;
+    border-radius: 16px;
+  }
+
+  .pj-page .is-saving-workflow {
+    opacity: .62;
+    pointer-events: none;
+    transition: opacity .16s ease;
+  }
 </style>
 @endpush
 
@@ -61,7 +277,7 @@
         <div class="pj-toolbar-left">
             <div class="pj-title">Proyectos</div>
 
-            <form class="pj-search-wrap" method="GET" action="{{ route('projects.index') }}">
+            <form class="pj-search-wrap" method="GET" action="{{ route('projects.index') }}" data-ajax-search>
                 <input type="hidden" name="view" value="{{ $currentView }}">
                 <div class="pj-search-box">
                     <svg viewBox="0 0 24 24" fill="none" class="pj-search-icon">
@@ -69,14 +285,13 @@
                     </svg>
                     <input type="text" name="q" placeholder="Buscar por nombre, asignado, tag..." value="{{ request('q') }}">
                 </div>
-                <button type="submit" class="pj-btn pj-btn-primary">Buscar</button>
             </form>
 
             <button type="button" class="pj-btn pj-btn-light pj-btn-create" id="openProjectModal">
                 <svg viewBox="0 0 24 24" fill="none" class="pj-icon">
                     <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
                 </svg>
-                Agregar Nuevo Proyecto
+               Nuevo Proyecto
             </button>
 
             <a href="{{ route('projects.index', array_merge(request()->except('view'), ['view' => 'cards'])) }}"
@@ -286,6 +501,8 @@
                                              data-project-id="{{ $projectId }}"
                                              data-project-slug="{{ $projectSlug }}"
                                              data-project-name="{{ $project['name'] }}"
+                                             @if($projectSlug) data-workflow-url="{{ route('projects.workflow-status', $projectSlug) }}" @endif
+                                             @if($projectSlug) data-labels-url="{{ route('projects.labels.update', $projectSlug) }}" @endif
                                              @if($projectHref) data-href="{{ $projectHref }}" @endif>
                                             <div class="pj-col pj-col-project">
                                                 <label class="pj-row-check">
@@ -305,14 +522,14 @@
                                             <div class="pj-col pj-col-label">
                                                 <div class="pj-label-cell">
                                                     <div class="pj-label-list js-label-list">
-                                                        @if($label)
+                                                        @foreach(collect($project['labels'] ?? [])->filter()->values() as $projectLabel)
                                                             <div class="pj-label-pill js-label-pill" data-color="#fee2e2" data-border="#fecaca" data-text="#ef4444">
-                                                                <span class="pj-label-pill-text">{{ $label }}</span>
+                                                                <span class="pj-label-pill-text">{{ $projectLabel }}</span>
                                                                 <button type="button" class="pj-label-pill-menu js-open-tag-menu" aria-label="Opciones etiqueta">
                                                                     <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h.01M12 12h.01M19 12h.01" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/></svg>
                                                                 </button>
                                                             </div>
-                                                        @endif
+                                                        @endforeach
                                                     </div>
                                                     <button type="button" class="pj-tag-add js-open-label-pop" data-project-id="{{ $projectId }}" data-project-name="{{ $project['name'] }}">+ Agregar</button>
                                                 </div>
@@ -395,6 +612,8 @@
                                                  data-project-id="{{ $projectId }}"
                                                  data-project-slug="{{ $projectSlug }}"
                                                  data-project-name="{{ $project['name'] }}"
+                                                 @if($projectSlug) data-workflow-url="{{ route('projects.workflow-status', $projectSlug) }}" @endif
+                                                 @if($projectSlug) data-labels-url="{{ route('projects.labels.update', $projectSlug) }}" @endif
                                                  @if($projectHref) data-href="{{ $projectHref }}" @endif>
                                                 <div class="pj-card-top">
                                                     <div class="pj-card-main">
@@ -626,6 +845,8 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}';
+    const CSRF_TOKEN = '{{ csrf_token() }}';
     const board = document.getElementById('projectBoard');
     if (board) {
         board.addEventListener('click', function (e) {
@@ -851,20 +1072,89 @@ document.addEventListener('DOMContentLoaded', function () {
 
     renderSelectedFiles();
 
+    // ============ BUSQUEDA EN TIEMPO REAL ============
+    const liveSearchForm = document.querySelector('[data-ajax-search]');
+    const liveSearchInput = liveSearchForm?.querySelector('input[name="q"]');
+    const viewTransition = document.querySelector('.pj-view-transition');
+    let liveSearchTimer = null;
+    let liveSearchController = null;
+
+    async function runLiveSearch() {
+        if (!liveSearchForm || !liveSearchInput || !viewTransition) return;
+
+        const url = new URL(liveSearchForm.action, window.location.origin);
+        const params = new URLSearchParams(new FormData(liveSearchForm));
+
+        if (!params.get('q')) params.delete('q');
+        params.forEach((value, key) => {
+            if (value === '') params.delete(key);
+        });
+
+        url.search = params.toString();
+
+        if (liveSearchController) liveSearchController.abort();
+        liveSearchController = new AbortController();
+
+        liveSearchInput.classList.add('is-searching');
+
+        try {
+            const response = await fetch(url.toString(), {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'text/html',
+                },
+                signal: liveSearchController.signal,
+                credentials: 'same-origin',
+            });
+
+            if (!response.ok) throw new Error('No se pudo buscar.');
+
+            const html = await response.text();
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            const nextView = doc.querySelector('.pj-view-transition');
+
+            if (!nextView) throw new Error('Respuesta inválida.');
+
+            viewTransition.innerHTML = nextView.innerHTML;
+            history.replaceState({}, '', url.toString());
+            closeLabelPopover();
+            closeTagMenu();
+            closeProjectMenu();
+            updateBulkbar();
+        } catch (error) {
+            if (error.name !== 'AbortError') console.error(error);
+        } finally {
+            liveSearchInput.classList.remove('is-searching');
+        }
+    }
+
+    liveSearchForm?.addEventListener('submit', function (event) {
+        event.preventDefault();
+        runLiveSearch();
+    });
+
+    liveSearchInput?.addEventListener('input', function () {
+        clearTimeout(liveSearchTimer);
+        liveSearchTimer = setTimeout(runLiveSearch, 280);
+    });
+
     // ============ BULKBAR ============
     const bulkbar = document.getElementById('pjBulkbar');
     const selectedCountEl = document.getElementById('pjSelectedCount');
     const clearSelectionBtn = document.getElementById('pjClearSelection');
-    const projectChecks = Array.from(document.querySelectorAll('.js-project-check'));
-    const columnChecks = Array.from(document.querySelectorAll('.js-select-column'));
-    const projectRows = Array.from(document.querySelectorAll('.js-project-row'));
+    function getProjectChecks() { return Array.from(document.querySelectorAll('.js-project-check')); }
+    function getColumnChecks() { return Array.from(document.querySelectorAll('.js-select-column')); }
+    function getProjectRows() { return Array.from(document.querySelectorAll('.js-project-row')); }
 
-    function getCheckedProjects() { return projectChecks.filter(c => c.checked); }
+    function getCheckedProjects() { return getProjectChecks().filter(c => c.checked); }
     function updateBulkbar() {
+        const projectChecks = getProjectChecks();
+        const columnChecks = getColumnChecks();
+        const projectRows = getProjectRows();
         const n = getCheckedProjects().length;
-        selectedCountEl.textContent = n;
-        bulkbar.classList.toggle('is-open', n > 0);
-        bulkbar.setAttribute('aria-hidden', n > 0 ? 'false' : 'true');
+        if (selectedCountEl) selectedCountEl.textContent = n;
+        bulkbar?.classList.toggle('is-open', n > 0);
+        bulkbar?.setAttribute('aria-hidden', n > 0 ? 'false' : 'true');
         projectRows.forEach(row => {
             const cb = document.querySelector(`.js-project-check[data-project-id="${row.dataset.projectId}"]`);
             if (cb) row.classList.toggle('is-selected', cb.checked);
@@ -879,15 +1169,24 @@ document.addEventListener('DOMContentLoaded', function () {
             else { master.checked = false; master.indeterminate = true; }
         });
     }
-    projectChecks.forEach(c => c.addEventListener('change', updateBulkbar));
-    columnChecks.forEach(m => m.addEventListener('change', function () {
-        const colId = this.dataset.columnId;
-        projectChecks.filter(c => c.dataset.columnId === colId).forEach(c => c.checked = this.checked);
+
+    document.addEventListener('change', function (event) {
+        const projectCheck = event.target.closest('.js-project-check');
+        if (projectCheck) { updateBulkbar(); return; }
+
+        const columnCheck = event.target.closest('.js-select-column');
+        if (!columnCheck) return;
+
+        const colId = columnCheck.dataset.columnId;
+        getProjectChecks()
+            .filter(c => c.dataset.columnId === colId)
+            .forEach(c => c.checked = columnCheck.checked);
         updateBulkbar();
-    }));
+    });
+
     if (clearSelectionBtn) clearSelectionBtn.addEventListener('click', () => {
-        projectChecks.forEach(c => c.checked = false);
-        columnChecks.forEach(c => { c.checked = false; c.indeterminate = false; });
+        getProjectChecks().forEach(c => c.checked = false);
+        getColumnChecks().forEach(c => { c.checked = false; c.indeterminate = false; });
         updateBulkbar();
     });
     updateBulkbar();
@@ -938,39 +1237,156 @@ document.addEventListener('DOMContentLoaded', function () {
         labelPopover.classList.remove('is-open');
         labelPopover.setAttribute('aria-hidden', 'true');
     }
-    function applyLabelToTarget(label) {
-        if (labelMode === 'bulk') {
-            getCheckedProjects().forEach(ch => {
-                const row = document.querySelector(`.js-project-row[data-project-id="${ch.dataset.projectId}"]`);
-                if (!row) return;
-                const list = row.querySelector('.js-label-list');
-                if (!list) return;
-                const already = Array.from(list.querySelectorAll('.pj-label-pill-text')).some(el => el.textContent.trim().toLowerCase() === label.toLowerCase());
-                if (!already) list.appendChild(createLabelPill(label));
-            });
-            return;
+    function normalizeLabelText(value) {
+        return String(value || '').replace(/\s+/g, ' ').trim();
+    }
+
+    function getRowLabels(row) {
+        if (!row) return [];
+        return Array.from(row.querySelectorAll('.pj-label-pill-text'))
+            .map(el => normalizeLabelText(el.textContent))
+            .filter(Boolean)
+            .filter((label, index, arr) => arr.findIndex(x => x.toLowerCase() === label.toLowerCase()) === index);
+    }
+
+    function getLabelsUrl(row) {
+        if (!row) return '';
+        if (row.dataset.labelsUrl) return row.dataset.labelsUrl;
+        if (row.dataset.projectSlug) return `/projects/${encodeURIComponent(row.dataset.projectSlug)}/labels`;
+        return '';
+    }
+
+    async function saveProjectLabels(row, labels) {
+        const url = getLabelsUrl(row);
+        if (!row || !url) {
+            throw new Error('No se encontró la ruta para guardar etiquetas del proyecto.');
         }
-        if (!activeLabelTarget) return;
-        const row = activeLabelTarget.closest('.js-project-row');
+
+        const cleanLabels = (labels || [])
+            .map(normalizeLabelText)
+            .filter(Boolean)
+            .filter((label, index, arr) => arr.findIndex(x => x.toLowerCase() === label.toLowerCase()) === index);
+
+        row.classList.add('is-saving-labels');
+
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': csrfToken,
+                },
+                body: JSON.stringify({ labels: cleanLabels }),
+                credentials: 'same-origin',
+            });
+
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok || payload.ok === false) {
+                throw new Error(payload.message || 'No se pudieron guardar las etiquetas.');
+            }
+
+            return { ok: true, labels: Array.isArray(payload.labels) ? payload.labels : cleanLabels };
+        } finally {
+            row.classList.remove('is-saving-labels');
+        }
+    }
+
+    function renderRowLabels(row, labels) {
         if (!row) return;
         const list = row.querySelector('.js-label-list');
         if (!list) return;
-        const already = Array.from(list.querySelectorAll('.pj-label-pill-text')).some(el => el.textContent.trim().toLowerCase() === label.toLowerCase());
-        if (!already) list.appendChild(createLabelPill(label));
+        list.innerHTML = '';
+        (labels || [])
+            .map(normalizeLabelText)
+            .filter(Boolean)
+            .forEach(label => list.appendChild(createLabelPill(label)));
     }
-    document.querySelectorAll('.js-open-label-pop').forEach(btn => btn.addEventListener('click', function (e) { e.stopPropagation(); openLabelPopover(this, 'single'); }));
+
+    function addLabelPillToRow(row, label) {
+        if (!row) return;
+        const list = row.querySelector('.js-label-list');
+        if (!list) return;
+
+        const clean = normalizeLabelText(label);
+        const already = Array.from(list.querySelectorAll('.pj-label-pill-text'))
+            .some(el => normalizeLabelText(el.textContent).toLowerCase() === clean.toLowerCase());
+
+        if (!already) list.appendChild(createLabelPill(clean));
+    }
+
+    async function applyLabelToTarget(label) {
+        const clean = normalizeLabelText(label);
+        if (!clean) return;
+
+        if (!availableLabels.some(item => item.name.toLowerCase() === clean.toLowerCase())) {
+            availableLabels.unshift({ name: clean });
+        }
+
+        if (labelMode === 'bulk') {
+            const checked = getCheckedProjects();
+
+            for (const ch of checked) {
+                const row = document.querySelector(`.js-project-row[data-project-id="${ch.dataset.projectId}"]`);
+                if (!row) continue;
+
+                const previousLabels = getRowLabels(row);
+                const nextLabels = previousLabels.some(item => item.toLowerCase() === clean.toLowerCase())
+                    ? previousLabels
+                    : [...previousLabels, clean];
+
+                addLabelPillToRow(row, clean);
+
+                try {
+                    const saved = await saveProjectLabels(row, nextLabels);
+                    renderRowLabels(row, saved.labels);
+                } catch (error) {
+                    renderRowLabels(row, previousLabels);
+                    alert(error.message || 'No se pudieron guardar las etiquetas.');
+                }
+            }
+
+            return;
+        }
+
+        if (!activeLabelTarget) return;
+        const row = activeLabelTarget.closest('.js-project-row');
+        if (!row) return;
+
+        const previousLabels = getRowLabels(row);
+        const nextLabels = previousLabels.some(item => item.toLowerCase() === clean.toLowerCase())
+            ? previousLabels
+            : [...previousLabels, clean];
+
+        addLabelPillToRow(row, clean);
+
+        try {
+            const saved = await saveProjectLabels(row, nextLabels);
+            renderRowLabels(row, saved.labels);
+        } catch (error) {
+            renderRowLabels(row, previousLabels);
+            alert(error.message || 'No se pudieron guardar las etiquetas.');
+        }
+    }
+
+    document.addEventListener('click', function (event) {
+        const openLabelBtn = event.target.closest('.js-open-label-pop');
+        if (!openLabelBtn) return;
+        event.stopPropagation();
+        openLabelPopover(openLabelBtn, 'single');
+    });
     if (bulkLabelsBtn) bulkLabelsBtn.addEventListener('click', function (e) { e.stopPropagation(); if (!getCheckedProjects().length) return; openLabelPopover(this, 'bulk'); });
     if (labelSearchInput) labelSearchInput.addEventListener('input', function () {
         const v = this.value.trim(); createLabelText.textContent = v || 'Etiqueta'; renderLabelOptions(v);
     });
-    if (createLabelBtn) createLabelBtn.addEventListener('click', function () {
+    if (createLabelBtn) createLabelBtn.addEventListener('click', async function () {
         const v = (labelSearchInput.value || '').trim(); if (!v) return;
-        if (!availableLabels.some(item => item.name.toLowerCase() === v.toLowerCase())) availableLabels.unshift({ name: v });
-        applyLabelToTarget(v); closeLabelPopover();
+        await applyLabelToTarget(v); closeLabelPopover();
     });
-    if (labelOptions) labelOptions.addEventListener('click', function (e) {
+    if (labelOptions) labelOptions.addEventListener('click', async function (e) {
         const opt = e.target.closest('.pj-label-option'); if (!opt) return;
-        applyLabelToTarget(opt.dataset.label); closeLabelPopover();
+        await applyLabelToTarget(opt.dataset.label); closeLabelPopover();
     });
 
     // ============ TAG MENU ============
@@ -991,7 +1407,20 @@ document.addEventListener('DOMContentLoaded', function () {
         activeTagPill.dataset.color = bg; activeTagPill.dataset.border = border; activeTagPill.dataset.text = text;
         activeTagPill.style.background = bg; activeTagPill.style.borderColor = border; activeTagPill.style.color = text;
     }));
-    if (deleteTagBtn) deleteTagBtn.addEventListener('click', () => { if (activeTagPill) activeTagPill.remove(); closeTagMenu(); });
+    if (deleteTagBtn) deleteTagBtn.addEventListener('click', async () => {
+        if (!activeTagPill) { closeTagMenu(); return; }
+        const row = activeTagPill.closest('.js-project-row');
+        const previousLabels = getRowLabels(row);
+        activeTagPill.remove();
+        try {
+            const saved = await saveProjectLabels(row, getRowLabels(row));
+            renderRowLabels(row, saved.labels);
+        } catch (error) {
+            renderRowLabels(row, previousLabels);
+            alert(error.message || 'No se pudieron guardar las etiquetas.');
+        }
+        closeTagMenu();
+    });
 
     // ============ PROJECT MENU ============
     const projectMenu = document.getElementById('pjProjectMenu');
@@ -1016,30 +1445,137 @@ document.addEventListener('DOMContentLoaded', function () {
         if (activeProjectAnchor && projectMenu.classList.contains('is-open')) placeFloating(projectMenu, activeProjectAnchor, 8);
     }, true);
 
-    // ============ DRAG & DROP ============
+    // ============ DRAG & DROP + ACTUALIZAR ESTADO ============
     let draggingEl = null;
-    function handleDragStart(e) { draggingEl = this; this.classList.add('is-dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', this.dataset.projectId || ''); }
-    function handleDragEnd() { this.classList.remove('is-dragging'); document.querySelectorAll('.pj-drop-target').forEach(el => el.classList.remove('pj-drop-target')); }
-    function handleDragOver(e) { e.preventDefault(); if (!draggingEl || draggingEl === this) return; this.classList.add('pj-drop-target'); e.dataTransfer.dropEffect = 'move'; }
-    function handleDragLeave() { this.classList.remove('pj-drop-target'); }
-    function handleDrop(e) {
-        e.preventDefault();
-        this.classList.remove('pj-drop-target');
-        if (!draggingEl || draggingEl === this) return;
-        const parent = this.parentNode; if (!parent) return;
-        const targetRect = this.getBoundingClientRect();
-        const after = (e.clientY - targetRect.top) > (targetRect.height / 2);
-        if (after) {
-            if (this.nextSibling) parent.insertBefore(draggingEl, this.nextSibling);
-            else parent.appendChild(draggingEl);
-        } else parent.insertBefore(draggingEl, this);
+    let draggingOriginalColumnId = null;
+
+    function getWorkflowFromDropTarget(target) {
+        const column = target.closest('.pj-column, .pj-group');
+        return column ? column.getAttribute('data-column-id') : null;
     }
+
+    function getDropContainer(target) {
+        return target.closest('.pj-cards, .pj-group-children, .pj-column-body');
+    }
+
+    async function updateProjectWorkflow(row, workflowStatus) {
+        if (!row || !workflowStatus || !row.dataset.workflowUrl) return true;
+
+        row.classList.add('is-saving-workflow');
+
+        try {
+            const response = await fetch(row.dataset.workflowUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': CSRF_TOKEN,
+                },
+                body: JSON.stringify({ workflow_status: workflowStatus }),
+            });
+
+            const payload = await response.json().catch(() => ({}));
+
+            if (!response.ok || payload.ok === false) {
+                throw new Error(payload.message || 'No se pudo actualizar el estado del proyecto.');
+            }
+
+            row.dataset.columnId = workflowStatus;
+            window.location.reload();
+            return true;
+        } catch (error) {
+            alert(error.message || 'No se pudo actualizar el estado del proyecto.');
+            window.location.reload();
+            return false;
+        } finally {
+            row.classList.remove('is-saving-workflow');
+        }
+    }
+
+    function moveDraggedElement(target, event) {
+        if (!draggingEl || !target) return null;
+
+        const container = getDropContainer(target);
+        if (!container) return null;
+
+        const targetRow = target.closest('.js-project-row');
+
+        if (targetRow && targetRow !== draggingEl && targetRow.parentNode === container) {
+            const targetRect = targetRow.getBoundingClientRect();
+            const after = (event.clientY - targetRect.top) > (targetRect.height / 2);
+
+            if (after) {
+                if (targetRow.nextSibling) container.insertBefore(draggingEl, targetRow.nextSibling);
+                else container.appendChild(draggingEl);
+            } else {
+                container.insertBefore(draggingEl, targetRow);
+            }
+        } else if (!targetRow) {
+            const cardsContainer = container.classList.contains('pj-column-body')
+                ? (container.querySelector('.pj-cards') || container)
+                : container;
+
+            cardsContainer.appendChild(draggingEl);
+        }
+
+        return container;
+    }
+
+    function handleDragStart(e) {
+        draggingEl = this;
+        draggingOriginalColumnId = this.dataset.columnId || getWorkflowFromDropTarget(this);
+        this.classList.add('is-dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', this.dataset.projectId || '');
+    }
+
+    function handleDragEnd() {
+        this.classList.remove('is-dragging');
+        document.querySelectorAll('.pj-drop-target').forEach(el => el.classList.remove('pj-drop-target'));
+    }
+
+    function handleDragOver(e) {
+        if (!draggingEl) return;
+        e.preventDefault();
+        e.currentTarget.classList.add('pj-drop-target');
+        e.dataTransfer.dropEffect = 'move';
+    }
+
+    function handleDragLeave(e) {
+        if (!e.currentTarget.contains(e.relatedTarget)) {
+            e.currentTarget.classList.remove('pj-drop-target');
+        }
+    }
+
+    async function handleDrop(e) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        document.querySelectorAll('.pj-drop-target').forEach(el => el.classList.remove('pj-drop-target'));
+        if (!draggingEl) return;
+
+        const targetWorkflow = getWorkflowFromDropTarget(e.currentTarget) || getWorkflowFromDropTarget(e.target);
+        const previousWorkflow = draggingOriginalColumnId;
+
+        moveDraggedElement(e.currentTarget, e);
+
+        if (targetWorkflow && targetWorkflow !== previousWorkflow) {
+            await updateProjectWorkflow(draggingEl, targetWorkflow);
+        }
+    }
+
     projectRows.forEach(row => {
         row.addEventListener('dragstart', handleDragStart);
         row.addEventListener('dragend', handleDragEnd);
         row.addEventListener('dragover', handleDragOver);
         row.addEventListener('dragleave', handleDragLeave);
         row.addEventListener('drop', handleDrop);
+    });
+
+    document.querySelectorAll('.pj-column, .pj-column-collapsed-btn, .pj-column-body, .pj-group-children').forEach(zone => {
+        zone.addEventListener('dragover', handleDragOver);
+        zone.addEventListener('dragleave', handleDragLeave);
+        zone.addEventListener('drop', handleDrop);
     });
 });
 </script>

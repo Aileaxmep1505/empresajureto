@@ -2371,4 +2371,10 @@ Route::middleware(['auth'])
     ->name('labels.update');
     Route::get('/{project}/reports', [ProjectBoardController::class, 'reports'])
     ->name('reports');
+    Route::post('/{project}/no-participa-reason', [ProjectBoardController::class, 'updateNoParticipaReason'])
+    ->name('no-participa.reason');
+    Route::post('/{project}/workflow-status', [ProjectBoardController::class, 'updateWorkflowStatus'])
+    ->name('workflow-status');
+  Route::post('/{project}/labels', [ProjectBoardController::class, 'updateLabels'])
+    ->name('labels.update');
     });

@@ -27,12 +27,48 @@ class ProjectBoardController extends Controller
     private function defaultColumns(): array
     {
         return [
-            ['id' => 'backlog',     'name' => 'Backlog',       'color' => 'gray'],
-            ['id' => 'en_analisis', 'name' => 'En Análisis',   'color' => 'blue'],
-            ['id' => 'propuesta',   'name' => 'En Propuesta',  'color' => 'orange'],
-            ['id' => 'enviadas',    'name' => 'Enviadas',      'color' => 'purple'],
-            ['id' => 'ganadas',     'name' => 'Ganadas',       'color' => 'green'],
-            ['id' => 'perdidas',    'name' => 'Perdidas',      'color' => 'red'],
+            [
+                'id' => 'analisis_bases',
+                'name' => 'Análisis de Bases',
+                'color' => 'blue',
+                'workflow_statuses' => ['analisis_bases'],
+            ],
+            [
+                'id' => 'revision',
+                'name' => 'Revisión',
+                'color' => 'orange',
+                'workflow_statuses' => ['revision'],
+            ],
+            [
+                'id' => 'participa',
+                'name' => 'Participa',
+                'color' => 'green',
+                'workflow_statuses' => ['participa', 'junta_aclaraciones', 'armado_propuesta', 'entrega'],
+            ],
+            [
+                'id' => 'no_participa',
+                'name' => 'No participa',
+                'color' => 'red',
+                'workflow_statuses' => ['no_participa'],
+            ],
+            [
+                'id' => 'ganado',
+                'name' => 'Ganado',
+                'color' => 'purple',
+                'workflow_statuses' => ['ganado'],
+            ],
+            [
+                'id' => 'perdido',
+                'name' => 'Perdido',
+                'color' => 'gray',
+                'workflow_statuses' => ['perdido'],
+            ],
+            [
+                'id' => 'desierta',
+                'name' => 'Desierta',
+                'color' => 'rose',
+                'workflow_statuses' => ['desierta'],
+            ],
         ];
     }
 
@@ -41,36 +77,65 @@ class ProjectBoardController extends Controller
      * ============================================================ */
     public function index(Request $request)
     {
+        $queryText = trim((string) $request->input('q', ''));
+
         $projects = Project::where('user_id', Auth::id())
+            ->when($queryText !== '', function ($query) use ($queryText) {
+                $query->where(function ($sub) use ($queryText) {
+                    $sub->where('name', 'like', "%{$queryText}%")
+                        ->orWhere('priority', 'like', "%{$queryText}%")
+                        ->orWhere('labels', 'like', "%{$queryText}%");
+                });
+            })
             ->latest()
             ->get();
 
-        $validIds = array_column($this->defaultColumns(), 'id');
+        $knownWorkflowStatuses = collect($this->defaultColumns())
+            ->flatMap(fn ($column) => $column['workflow_statuses'] ?? [$column['id']])
+            ->unique()
+            ->values()
+            ->all();
 
-        $columns = collect($this->defaultColumns())->map(function ($c) use ($projects) {
-            $items = $projects->filter(function ($p) use ($c) {
-                $col = $p->column_id ?: 'backlog';
-                return $col === $c['id'];
+        $columns = collect($this->defaultColumns())->map(function ($column) use ($projects) {
+            $statuses = $column['workflow_statuses'] ?? [$column['id']];
+
+            $items = $projects->filter(function ($project) use ($statuses) {
+                $workflowStatus = $project->workflow_status ?: 'analisis_bases';
+                return in_array($workflowStatus, $statuses, true);
             })->values();
 
-            $c['count']    = $items->count();
-            $c['projects'] = $items;
-            return $c;
+            $column['count'] = $items->count();
+            $column['projects'] = $items;
+
+            return $column;
         })->all();
 
-        $huerfanos = $projects->reject(fn ($p) => in_array($p->column_id ?: 'backlog', $validIds))->values();
-        if ($huerfanos->count()) {
-            $columns = array_map(function ($c) use ($huerfanos) {
-                if ($c['id'] === 'backlog') {
-                    $c['projects'] = $c['projects']->concat($huerfanos)->values();
-                    $c['count']    = $c['projects']->count();
+        $orphanProjects = $projects->reject(function ($project) use ($knownWorkflowStatuses) {
+            return in_array($project->workflow_status ?: 'analisis_bases', $knownWorkflowStatuses, true);
+        })->values();
+
+        if ($orphanProjects->count()) {
+            $columns = array_map(function ($column) use ($orphanProjects) {
+                if ($column['id'] === 'analisis_bases') {
+                    $column['projects'] = $column['projects']->concat($orphanProjects)->values();
+                    $column['count'] = $column['projects']->count();
                 }
-                return $c;
+
+                return $column;
             }, $columns);
         }
 
-        $openColumns = session('projects.open_columns', ['backlog', 'en_analisis', 'propuesta']);
-        $viewMode    = session('projects.view_mode', 'board');
+        $openColumns = session('projects.open_columns', [
+            'analisis_bases',
+            'revision',
+            'participa',
+            'no_participa',
+            'ganado',
+            'perdido',
+            'desierta',
+        ]);
+
+        $viewMode = session('projects.view_mode', 'board');
 
         return view('projects.index', compact('projects', 'columns', 'openColumns', 'viewMode'));
     }
@@ -1735,7 +1800,24 @@ PROMPT;
             'workflow_status' => ['required', 'string', 'in:' . implode(',', $allowed)],
         ]);
 
-        $project->workflow_status = $data['workflow_status'];
+        $newStatus = $data['workflow_status'];
+
+        $project->workflow_status = $newStatus;
+
+        /*
+        |--------------------------------------------------------------------------
+        | Reversión automática del dictamen de No participa
+        |--------------------------------------------------------------------------
+        | Si el usuario vuelve a elegir Revisión, Participa, Junta de Aclaraciones,
+        | Armado de Propuesta, Entrega, Ganado, Perdido o Desierta, se limpian los
+        | campos reales del dictamen anterior.
+        */
+        if ($newStatus !== 'no_participa') {
+            $project->no_participa_reason = null;
+            $project->no_participa_confirmed_at = null;
+            $project->no_participa_confirmed_by = null;
+        }
+
         $project->save();
 
         $meta = $this->workflowStatuses()[$project->workflow_status] ?? $this->workflowStatuses()['analisis_bases'];
@@ -1750,11 +1832,59 @@ PROMPT;
                     'workflow_status' => $project->workflow_status,
                     'workflow_status_label' => $meta['label'],
                     'workflow_status_color' => $meta['color'],
+                    'no_participa_reason' => $project->no_participa_reason,
+                    'no_participa_confirmed_at' => optional($project->no_participa_confirmed_at)->format('Y-m-d H:i:s'),
+                    'no_participa_confirmed_by' => $project->no_participa_confirmed_by,
                 ],
             ]);
         }
 
         return back()->with('success', 'Estado actualizado correctamente.');
     }
+
+    public function updateNoParticipaReason(Request $request, Project $project)
+    {
+        abort_if($project->user_id !== Auth::id() && Auth::id() !== 1, 403);
+
+        $data = $request->validate([
+            'reason' => ['required', 'string', 'max:10000'],
+            'confirmed' => ['nullable', 'boolean'],
+        ]);
+
+        $project->workflow_status = 'no_participa';
+        $project->no_participa_reason = trim((string) $data['reason']);
+
+        if ($request->boolean('confirmed')) {
+            $project->no_participa_confirmed_at = now();
+            $project->no_participa_confirmed_by = Auth::id();
+        } else {
+            $project->no_participa_confirmed_at = null;
+            $project->no_participa_confirmed_by = null;
+        }
+
+        $project->save();
+
+        $meta = $this->workflowStatuses()[$project->workflow_status] ?? $this->workflowStatuses()['no_participa'];
+
+        if ($request->expectsJson() || $request->wantsJson()) {
+            return response()->json([
+                'ok' => true,
+                'message' => 'Motivo guardado correctamente.',
+                'project' => [
+                    'id' => $project->id,
+                    'slug' => $project->slug,
+                    'workflow_status' => $project->workflow_status,
+                    'workflow_status_label' => $meta['label'],
+                    'workflow_status_color' => $meta['color'],
+                    'no_participa_reason' => $project->no_participa_reason,
+                    'no_participa_confirmed_at' => optional($project->no_participa_confirmed_at)->format('Y-m-d H:i:s'),
+                    'no_participa_confirmed_by' => $project->no_participa_confirmed_by,
+                ],
+            ]);
+        }
+
+        return back()->with('success', 'Motivo guardado correctamente.');
+    }
+
 
 }

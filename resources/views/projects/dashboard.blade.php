@@ -327,6 +327,226 @@
   .pdb-date-badge.is-near    { color: var(--warning); background: var(--warning-soft); }
   .pdb-date-badge.is-warning { color: var(--warning); background: var(--warning-soft); }
   .pdb-date-badge.is-future  { color: var(--success); background: var(--success-soft); }
+
+  /* ════════════ DICTAMEN NO PARTICIPA ════════════ */
+  .pdb-decline-panel {
+    min-height: 100%;
+  }
+  .pdb-decline-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .pdb-decline-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    color: #111111;
+    font-size: .98rem;
+    font-weight: 700;
+  }
+  .pdb-decline-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #777777;
+    text-decoration: none;
+    font-size: .78rem;
+    font-weight: 700;
+    border-radius: 999px;
+    padding: 6px 9px;
+    transition: all .18s ease;
+  }
+  .pdb-decline-link:hover { background: #f9fafb; color: var(--blue); }
+  .pdb-decline-badge {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    padding: 7px 13px;
+    border-radius: 999px;
+    background: var(--danger-soft);
+    color: var(--danger);
+    font-size: .78rem;
+    font-weight: 700;
+    margin-bottom: 14px;
+  }
+  .pdb-decline-label {
+    display: block;
+    margin: 0 0 6px;
+    font-size: .78rem;
+    font-weight: 700;
+    color: #333333;
+  }
+  .pdb-decline-field {
+    position: relative;
+  }
+  .pdb-decline-display {
+    width: 100%;
+    min-height: 80px;
+    border: 1px solid transparent;
+    border-radius: 14px;
+    background: #fbfbfc;
+    color: #555555;
+    font-family: inherit;
+    font-size: .92rem;
+    font-weight: 600;
+    line-height: 1.45;
+    padding: 16px 48px 16px 16px;
+    cursor: text;
+    transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+    white-space: pre-wrap;
+  }
+  .pdb-decline-display:hover {
+    background: #ffffff;
+    border-color: var(--line);
+  }
+  .pdb-decline-display:focus {
+    outline: none;
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px var(--blue-soft);
+    background: #ffffff;
+  }
+  .pdb-decline-display.is-placeholder {
+    color: #a3a3a3;
+    font-style: italic;
+  }
+  .pdb-decline-edit-icon {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 2;
+    width: 34px;
+    height: 34px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: #777777;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    transition: all .16s ease;
+  }
+  .pdb-decline-edit-icon:hover {
+    background: #f3f4f6;
+    color: var(--blue);
+    transform: translateY(-1px);
+  }
+  .pdb-decline-edit-icon svg {
+    width: 18px;
+    height: 18px;
+  }
+  .pdb-decline-textarea {
+    width: 100%;
+    min-height: 90px;
+    resize: vertical;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: #ffffff;
+    color: #111111;
+    font-family: inherit;
+    font-size: .88rem;
+    font-weight: 600;
+    line-height: 1.45;
+    padding: 12px 14px;
+    outline: none;
+    transition: border-color .18s ease, box-shadow .18s ease;
+  }
+  .pdb-decline-textarea:focus {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px var(--blue-soft);
+  }
+  .pdb-decline-panel.is-readonly .pdb-decline-textarea,
+  .pdb-decline-panel.is-readonly .pdb-decline-actions {
+    display: none !important;
+  }
+  .pdb-decline-panel.is-readonly .pdb-decline-display {
+    display: block !important;
+  }
+  .pdb-decline-panel.is-readonly .pdb-decline-edit-icon {
+    display: inline-flex !important;
+  }
+  .pdb-decline-panel.is-editing .pdb-decline-display,
+  .pdb-decline-panel.is-editing .pdb-decline-edit-icon {
+    display: none !important;
+  }
+  .pdb-decline-panel.is-editing .pdb-decline-textarea {
+    display: block !important;
+  }
+  .pdb-decline-panel.is-editing .pdb-decline-actions {
+    display: flex !important;
+  }
+  .pdb-decline-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+  }
+  .pdb-decline-btn {
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 0 13px;
+    border-radius: 9px;
+    border: 1px solid var(--line);
+    background: #ffffff;
+    color: #333333;
+    font-family: inherit;
+    font-size: .78rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all .16s ease;
+  }
+  .pdb-decline-btn:hover { background: #f9fafb; transform: translateY(-1px); }
+  .pdb-decline-btn:active { transform: scale(.98); }
+  .pdb-decline-btn.is-primary {
+    border-color: var(--blue);
+    background: var(--blue);
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(0,122,255,.14);
+  }
+  .pdb-decline-tip {
+    margin: 12px 0 0;
+    padding: 10px 12px;
+    border: 1px solid #cfe0fb;
+    border-radius: 10px;
+    background: var(--blue-soft);
+    color: #64748b;
+    font-size: .78rem;
+    font-weight: 600;
+  }
+  .pdb-decline-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+    color: #888888;
+    font-size: .74rem;
+    font-weight: 600;
+  }
+
+
+  /* Fix UX: Cancelar no debe convertir el dictamen a modo lectura */
+  .pdb-decline-panel .pdb-decline-read,
+  .pdb-decline-panel .pdb-decline-display,
+  .pdb-decline-panel .pdb-decline-edit-toggle {
+    display: none !important;
+  }
+  .pdb-decline-panel .pdb-decline-textarea {
+    display: block !important;
+  }
+  .pdb-decline-panel .pdb-decline-actions {
+    display: flex !important;
+  }
+
 </style>
 @endpush
 
@@ -407,6 +627,14 @@
   $cur = $estado['step'];
   $workflowUrl = route('projects.workflow-status', $project);
   $labelsUrl = url('/projects/' . $project->slug . '/labels');
+  $noParticipaUrl = url('/projects/' . $project->slug . '/no-participa-reason');
+  $noParticipaReason = $project->no_participa_reason ?? '';
+  $noParticipaConfirmedAt = $project->no_participa_confirmed_at
+      ? $project->no_participa_confirmed_at->format('d/m/Y H:i')
+      : null;
+  $noParticipaConfirmedBy = method_exists($project, 'noParticipaConfirmer')
+      ? optional($project->noParticipaConfirmer)->name
+      : null;
   $projectLabels = collect($project->labels ?? [])->filter()->values()->all();
   $commonLabels = collect(['*PRUEBA*', 'papeleria', 'urgente', 'licitación', 'revisión', 'documentación', 'alta prioridad'])->merge($projectLabels)->unique()->values()->all();
 
@@ -582,9 +810,48 @@
         @endforeach
       </div>
 
-      {{-- ── Columna derecha: Checklist (si hay datos) o monico insights ── --}}
+      {{-- ── Columna derecha: Dictamen / Checklist / monico insights ── --}}
       <div class="pdb-hero-col">
-        @if($hasChecklistDashboard)
+        @if($estado['key'] === 'no_participa')
+          <div class="pdb-decline-panel is-readonly" id="pdbDeclinePanel" data-decline-url="{{ $noParticipaUrl }}">
+            <div class="pdb-decline-head">
+              <h3 class="pdb-decline-title">
+                <span class="ico is-violet">📄</span>
+                Dictamen del Resultado
+              </h3>
+              <a href="{{ route('projects.analisis', $project) }}#checklist" class="pdb-decline-link">Ver checklist → ↗</a>
+            </div>
+
+            <div class="pdb-decline-badge">NO PARTICIPA</div>
+
+            <label class="pdb-decline-label" for="pdbDeclineReason">Motivo</label>
+            <div class="pdb-decline-field">
+              <button type="button" class="pdb-decline-edit-icon" id="pdbDeclineEdit" title="Editar motivo" aria-label="Editar motivo">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+              </button>
+              <div class="pdb-decline-display {{ trim((string) $noParticipaReason) === '' ? 'is-placeholder' : '' }}" id="pdbDeclineDisplay" tabindex="0">{{ trim((string) $noParticipaReason) !== '' ? $noParticipaReason : 'Clic para documentar...' }}</div>
+              <textarea class="pdb-decline-textarea" id="pdbDeclineReason" placeholder="¿Por qué no participamos?">{{ $noParticipaReason }}</textarea>
+            </div>
+
+            <div class="pdb-decline-actions" id="pdbDeclineActions">
+              <button type="button" class="pdb-decline-btn is-primary" id="pdbDeclineSave">✓ Guardar</button>
+              <button type="button" class="pdb-decline-btn" id="pdbDeclineCancel">× Cancelar</button>
+            </div>
+
+            <div class="pdb-decline-tip"><strong>tip:</strong> Documenta los motivos de la decisión.</div>
+
+            <div class="pdb-decline-footer">
+              <span>
+                @if($noParticipaConfirmedAt)
+                  Confirmado el {{ $noParticipaConfirmedAt }}@if($noParticipaConfirmedBy) por {{ $noParticipaConfirmedBy }}@endif
+                @else
+                  Siempre podrás actualizar después
+                @endif
+              </span>
+              <button type="button" class="pdb-decline-btn is-primary" id="pdbDeclineConfirm">✓ Confirmar</button>
+            </div>
+          </div>
+        @elseif($hasChecklistDashboard)
           @php
             $t = $checklistTotalDashboard;
             $sinRevisar = $chk['sin_revisar'] ?? 0;
@@ -1016,6 +1283,10 @@
       }
 
       applyWorkflowVisual(payload.workflow_status || key);
+      if (key === 'no_participa' || previous === 'no_participa') {
+        window.location.reload();
+        return;
+      }
     } catch (error) {
       applyWorkflowVisual(previous);
       alert(error.message || 'No se pudo actualizar el estado del proyecto.');
@@ -1049,6 +1320,169 @@
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') setMenuOpen(false);
   });
+
+  // ============ DICTAMEN NO PARTICIPA ============
+  const declinePanel = document.getElementById('pdbDeclinePanel');
+  const declineReason = document.getElementById('pdbDeclineReason');
+  const declineDisplay = document.getElementById('pdbDeclineDisplay');
+  const declineEdit = document.getElementById('pdbDeclineEdit');
+  const declineSave = document.getElementById('pdbDeclineSave');
+  const declineCancel = document.getElementById('pdbDeclineCancel');
+  const declineConfirm = document.getElementById('pdbDeclineConfirm');
+  const declineActions = document.getElementById('pdbDeclineActions') || declinePanel?.querySelector('.pdb-decline-actions');
+  let savedDeclineReason = declineReason ? declineReason.value.trim() : '';
+
+  function notifyDashboard(message, type = 'success') {
+    if (typeof showToast === 'function') {
+      showToast(message, type);
+      return;
+    }
+
+    const toast = document.createElement('div');
+    toast.className = 'pdb-local-toast';
+    toast.textContent = message;
+    toast.style.position = 'fixed';
+    toast.style.right = '22px';
+    toast.style.bottom = '22px';
+    toast.style.zIndex = '9999';
+    toast.style.padding = '13px 16px';
+    toast.style.borderRadius = '12px';
+    toast.style.background = '#ffffff';
+    toast.style.border = '1px solid #ebebeb';
+    toast.style.boxShadow = '0 18px 40px rgba(15,23,42,.12)';
+    toast.style.color = type === 'error' ? '#ff4a4a' : '#333333';
+    toast.style.fontWeight = '700';
+    toast.style.fontFamily = 'Quicksand, sans-serif';
+    document.body.appendChild(toast);
+    window.setTimeout(() => toast.remove(), 2200);
+  }
+
+  function forceDeclineMode(mode) {
+    if (!declinePanel) return;
+
+    const isEditing = mode === 'editing';
+    declinePanel.classList.toggle('is-editing', isEditing);
+    declinePanel.classList.toggle('is-readonly', !isEditing);
+
+    if (declineReason) {
+      declineReason.style.display = isEditing ? 'block' : 'none';
+    }
+
+    if (declineActions) {
+      declineActions.style.display = isEditing ? 'flex' : 'none';
+    }
+
+    if (declineDisplay) {
+      declineDisplay.style.display = isEditing ? 'none' : 'block';
+    }
+
+    if (declineEdit) {
+      declineEdit.style.display = isEditing ? 'none' : 'inline-flex';
+    }
+  }
+
+  function renderDeclineReadonly() {
+    if (!declinePanel || !declineDisplay) return;
+
+    const value = savedDeclineReason.trim();
+    declineDisplay.textContent = value || 'Clic para documentar...';
+    declineDisplay.classList.toggle('is-placeholder', value === '');
+    forceDeclineMode('readonly');
+  }
+
+  function enterDeclineEdit() {
+    if (!declinePanel || !declineReason) return;
+
+    declineReason.value = savedDeclineReason;
+    forceDeclineMode('editing');
+
+    window.setTimeout(() => {
+      declineReason.focus();
+      declineReason.setSelectionRange(declineReason.value.length, declineReason.value.length);
+    }, 30);
+  }
+
+  function setDeclineButtonsLoading(loading) {
+    [declineSave, declineConfirm, declineCancel].filter(Boolean).forEach(button => {
+      if (loading) {
+        button.disabled = true;
+        button.dataset.originalText = button.textContent;
+        if (button !== declineCancel) button.textContent = 'Guardando...';
+      } else {
+        button.disabled = false;
+        button.textContent = button.dataset.originalText || button.textContent;
+      }
+    });
+  }
+
+  async function saveDeclineReason(confirmed = false) {
+    if (!declinePanel || !declineReason) return;
+
+    setDeclineButtonsLoading(true);
+
+    try {
+      const reason = declineReason.value.trim();
+      const response = await fetch(declinePanel.dataset.declineUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-CSRF-TOKEN': CSRF_TOKEN,
+        },
+        body: JSON.stringify({ reason, confirmed: Boolean(confirmed) }),
+      });
+
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok || payload.ok === false) {
+        throw new Error(payload.message || 'No se pudo guardar el motivo.');
+      }
+
+      savedDeclineReason = String(payload.reason ?? reason).trim();
+      declineReason.value = savedDeclineReason;
+      renderDeclineReadonly();
+
+      notifyDashboard(confirmed ? 'Dictamen confirmado correctamente' : 'Motivo guardado correctamente', 'success');
+
+      if (confirmed) {
+        window.location.reload();
+        return;
+      }
+    } catch (error) {
+      notifyDashboard(error.message || 'No se pudo guardar el motivo.', 'error');
+    } finally {
+      setDeclineButtonsLoading(false);
+    }
+  }
+
+  declineSave?.addEventListener('click', () => saveDeclineReason(false));
+  declineConfirm?.addEventListener('click', () => saveDeclineReason(true));
+  declineEdit?.addEventListener('click', enterDeclineEdit);
+  declineDisplay?.addEventListener('click', enterDeclineEdit);
+  declineDisplay?.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      enterDeclineEdit();
+    }
+  });
+  declineCancel?.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (!declineReason) return;
+
+    const current = declineReason.value.trim();
+    declineReason.value = savedDeclineReason;
+    renderDeclineReadonly();
+
+    if (current !== savedDeclineReason) {
+      notifyDashboard(savedDeclineReason ? 'Cambios descartados. Se restauró el motivo guardado.' : 'Cambios descartados. El motivo quedó vacío.', 'success');
+    } else {
+      notifyDashboard('Edición cancelada.', 'success');
+    }
+  });
+
+  renderDeclineReadonly();
 
   // ============ ETIQUETAS DEL PROYECTO ============
   const tagsShell = document.getElementById('pdbTagsShell');
