@@ -189,6 +189,27 @@ class ProjectBoardController extends Controller
 
         return view('projects.dashboard', compact('project'));
     }
+
+    /* ============================================================
+     |  REPORTES   ->  Vista independiente de reportes
+     * ============================================================ */
+    public function reports(Project $project)
+    {
+        abort_if($project->user_id !== Auth::id() && Auth::id() !== 1, 403);
+
+        $project->load([
+            'documents',
+            'user',
+            'assignee',
+            'checklistItems.responsible',
+            'checklistItems.reviewer',
+            'checklistItems.notes.user',
+            'checklistItems.attachments',
+            'checklistItems.sourceDocument',
+        ]);
+
+        return view('projects.reports', compact('project'));
+    }
     /* ============================================================
      |  ANALISIS   ->  Vista con CHAT + TABS
      * ============================================================ */
@@ -1399,17 +1420,195 @@ No incluyas markdown ni bloques de código. No inventes datos. Mantén lenguaje 
 PROMPT;
     }
 
+    private function normalizeReportType(?string $type): string
+    {
+        return match ($type) {
+            'finance', 'finanzas', 'financial' => 'finance',
+            'logistics', 'logistica', 'logistica_operativa' => 'logistics',
+            'technical', 'soporte_tecnico', 'soporte', 'tecnico' => 'technical',
+            default => 'analysis',
+        };
+    }
+
+    private function reportTitleForType(string $type): string
+    {
+        return match ($type) {
+            'finance' => 'Reporte Financiero de la Licitación',
+            'logistics' => 'Reporte Logístico de la Licitación',
+            'technical' => 'Reporte Técnico de Soporte y Puesta en Marcha',
+            default => 'Reporte de análisis de bases',
+        };
+    }
+
+    private function storedProjectReports(Project $project): array
+    {
+        $data = $project->structured_data ?? [];
+        $reports = data_get($data, 'generated_reports', []);
+
+        return is_array($reports) ? $reports : [];
+    }
+
+    private function saveProjectReport(Project $project, string $type, string $html, ?string $title = null): void
+    {
+        $data = $project->structured_data ?? [];
+        if (!is_array($data)) {
+            $data = [];
+        }
+
+        $reports = data_get($data, 'generated_reports', []);
+        if (!is_array($reports)) {
+            $reports = [];
+        }
+
+        $reports[$type] = [
+            'title' => $title ?: $this->reportTitleForType($type),
+            'html' => $html,
+            'updated_at' => now()->toDateTimeString(),
+        ];
+
+        $data['generated_reports'] = $reports;
+        $project->structured_data = $data;
+
+        if ($type === 'analysis') {
+            $project->report_content = $html;
+            $project->draft_content  = $html;
+        }
+
+        $project->save();
+    }
+
+    private function buildSpecializedReportPrompt(Project $project, array $checklist, string $type): string
+    {
+        if ($type === 'analysis') {
+            return $this->buildExecutiveReportPrompt($project, $checklist);
+        }
+
+        $structured = json_encode($project->structured_data ?? [], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+        $checklistJson = json_encode($checklist, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+        $documentsJson = json_encode($project->documents->map(fn ($doc) => [
+            'filename' => $doc->filename,
+            'status' => $doc->status,
+            'extracted_text_preview' => Str::limit(trim(preg_replace('/\s+/', ' ', (string) $doc->extracted_text)), 2200),
+            'extracted_raw' => $doc->extracted_raw,
+        ])->values()->all(), JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+        $title = $this->reportTitleForType($type);
+        $projectName = $project->name;
+
+        $financialStructure = <<<'TXT'
+Estructura obligatoria para REPORTE FINANCIERO:
+<article class="jrt-report-doc">
+<h1>🧾 Reporte Financiero de la Licitación</h1>
+<section><h2>🔹 Resumen Ejecutivo</h2><p>Explica objetivo de la licitación, dependencia, forma y plazo de pago, facturación, garantías, penalizaciones y obligaciones financieras.</p></section>
+<section><h2>🗂️ Detalle por Categoría</h2>
+<h3>💵 Condiciones de pago</h3><ul><li><strong>💰 Plazo de pago establecido:</strong></li><li><strong>🧾 Modalidad de pago:</strong></li><li><strong>📅 Condiciones de entrega:</strong></li><li><strong>💳 Moneda y método de pago:</strong></li></ul>
+<h3>🧾 Facturación</h3><ul><li><strong>🏦 Requisitos de facturación:</strong></li><li><strong>🗓️ Tiempos de entrega y validación de facturas:</strong></li><li><strong>📋 Documentos complementarios exigidos:</strong></li><li><strong>⚙️ Procedimiento de revisión o autorización:</strong></li></ul>
+<h3>📑 Garantías, fianzas y seguros</h3><ul><li><strong>🛡️ Tipo de pólizas requeridas:</strong></li><li><strong>💵 Porcentajes o montos exigidos:</strong></li><li><strong>🗓️ Vigencia o plazo de cobertura:</strong></li><li><strong>📄 Condiciones para la liberación o devolución:</strong></li></ul>
+<h3>💳 Anticipos y retenciones</h3><ul><li><strong>💸 Porcentaje o monto del anticipo:</strong></li><li><strong>🧾 Requisitos para comprobar el uso del anticipo:</strong></li><li><strong>🔁 Devolución o cancelación de garantía:</strong></li><li><strong>⚠️ Retenciones aplicables:</strong></li></ul>
+<h3>📈 Requisitos financieros</h3><ul><li><strong>📊 Documentos solicitados:</strong></li><li><strong>🏦 Criterios de capacidad económica:</strong></li><li><strong>🧾 Formatos o declaraciones exigidas:</strong></li></ul>
+<h3>📊 Penalizaciones y deducciones</h3><ul><li><strong>⚠️ Multas por atraso o incumplimiento:</strong></li><li><strong>💰 Deducciones automáticas o ajustes:</strong></li><li><strong>🔒 Causales de rescisión o retención de pagos:</strong></li></ul>
+<h3>🏦 Cuentas bancarias y comprobaciones</h3><ul><li><strong>💳 Cuentas destino y mecanismos de pago:</strong></li><li><strong>🧾 Documentación de soporte:</strong></li><li><strong>📤 Validaciones o autorizaciones requeridas:</strong></li></ul>
+</section>
+<section><h2>📚 Fuente de información</h2><table><thead><tr><th>#</th><th>Documento</th><th>Sección / Numeral</th><th>Página</th><th>Descripción breve</th></tr></thead><tbody><tr><td>1</td><td></td><td></td><td></td><td></td></tr></tbody></table></section>
+<section><h2>🧩 Observaciones finales</h2><ul><li>⚠️ ...</li></ul></section>
+</article>
+TXT;
+
+        $logisticsStructure = <<<'TXT'
+Estructura obligatoria para REPORTE LOGÍSTICO:
+<article class="jrt-report-doc">
+<h1>🧾 Reporte Logístico de la Licitación</h1>
+<section><h2>🔹 Resumen Ejecutivo</h2><p>Explica objetivo, dependencia, entrega, almacenes, plazos, condiciones de recepción, embalaje, transporte, penalizaciones y riesgos logísticos.</p></section>
+<section><h2>🗂️ Detalle por Categoría</h2>
+<h3>📦 Entregas y recepción</h3><ul><li><strong>🏠 Lugar(es) de entrega:</strong></li><li><strong>⏰ Horarios o ventanas:</strong></li><li><strong>📋 Condiciones específicas:</strong></li><li><strong>🧾 Documentos requeridos en la entrega:</strong></li></ul>
+<h3>⏱️ Plazos y tiempos</h3><ul><li><strong>📅 Fechas límites o cronogramas:</strong></li></ul>
+<h3>🚚 Transporte y distribución</h3><ul><li><strong>🚛 Tipo de transporte solicitado:</strong></li><li><strong>🧴 Condiciones de embalaje y etiquetado:</strong></li><li><strong>⚠️ Penalizaciones o sanciones por retraso:</strong></li></ul>
+<h3>🏢 Almacenamiento y condiciones</h3><ul><li><strong>🌡️ Condiciones especiales:</strong></li><li><strong>🏗️ Infraestructura o espacios requeridos:</strong></li></ul>
+<h3>📄 Documentación logística</h3><ul><li><strong>📜 Remisiones, guías o manifiestos exigidos:</strong></li><li><strong>🖋️ Requisitos de firma o validación:</strong></li></ul>
+<h3>⚠️ Riesgos y penalizaciones</h3><ul><li><strong>💸 Sanciones económicas o administrativas:</strong></li><li><strong>🔄 Devoluciones o reemplazos:</strong></li><li><strong>🚨 Escenarios de incumplimiento logístico:</strong></li></ul>
+<h3>🤝 Coordinación y comunicación</h3><ul><li><strong>👥 Responsables de coordinación logística:</strong></li><li><strong>📞 Mecanismos de comunicación y validación:</strong></li><li><strong>📍 Puntos de contacto durante la entrega:</strong></li></ul>
+</section>
+<section><h2>📚 Fuente de información</h2><table><thead><tr><th>#</th><th>Documento</th><th>Sección / Numeral</th><th>Página</th><th>Descripción breve</th></tr></thead><tbody><tr><td>1</td><td></td><td></td><td></td><td></td></tr></tbody></table></section>
+<section><h2>🧩 Observaciones finales</h2><ul><li>⚠️ ...</li></ul></section>
+</article>
+TXT;
+
+        $technicalStructure = <<<'TXT'
+Estructura obligatoria para REPORTE TÉCNICO DE SOPORTE Y PUESTA EN MARCHA:
+<article class="jrt-report-doc">
+<h1>🧾 Reporte Técnico de Soporte y Puesta en Marcha</h1>
+<section><h2>🔹 Resumen Ejecutivo</h2><p>Explica instalación, mantenimiento, soporte, capacitación, servicio postventa, normativas técnicas y riesgos de cumplimiento.</p></section>
+<section><h2>🗂️ Detalle por Categoría</h2>
+<h3>⚙️ Instalación y puesta en marcha</h3><ul><li><strong>🏗️ Requisitos previos del sitio:</strong></li><li><strong>⚡ Conexiones o infraestructura necesaria:</strong></li><li><strong>🧾 Pruebas o verificaciones iniciales:</strong></li><li><strong>📅 Tiempo estimado de instalación:</strong></li></ul>
+<h3>🧩 Puesta a punto y validación técnica</h3><ul><li><strong>🧪 Pruebas funcionales y calibraciones:</strong></li><li><strong>📋 Protocolos o formatos exigidos:</strong></li><li><strong>🧠 Responsables técnicos designados:</strong></li><li><strong>🗓️ Fechas o hitos técnicos:</strong></li></ul>
+<h3>🧰 Mantenimiento preventivo</h3><ul><li><strong>🔁 Frecuencia o calendario:</strong></li><li><strong>⚙️ Alcance del servicio:</strong></li><li><strong>🧍‍♂️ Responsable:</strong></li><li><strong>🧾 Reportes o evidencias requeridas:</strong></li></ul>
+<h3>🛠️ Mantenimiento correctivo</h3><ul><li><strong>⏱️ Tiempo máximo de respuesta:</strong></li><li><strong>🧰 Tipo de soporte:</strong></li><li><strong>💸 Costos o cobertura de garantía:</strong></li><li><strong>⚠️ Penalizaciones por retraso o incumplimiento:</strong></li></ul>
+<h3>👩‍🏫 Capacitaciones</h3><ul><li><strong>🧠 Tipo de capacitación:</strong></li><li><strong>📍 Lugar o modalidad:</strong></li><li><strong>⏰ Duración:</strong></li><li><strong>🧾 Constancias o evaluaciones requeridas:</strong></li></ul>
+<h3>📞 Centro de soporte y atención al cliente</h3><ul><li><strong>☎️ Teléfonos o correos de contacto:</strong></li><li><strong>🕒 Horario de atención:</strong></li><li><strong>💬 Niveles de servicio (SLA):</strong></li><li><strong>🤝 Responsables o áreas de contacto:</strong></li></ul>
+<h3>📜 Documentación técnica</h3><ul><li><strong>📘 Manuales o guías de operación:</strong></li><li><strong>🧾 Certificados o reportes de calibración:</strong></li><li><strong>🗂️ Formatos de servicio o mantenimiento:</strong></li><li><strong>🧱 Entregables técnicos obligatorios:</strong></li></ul>
+</section>
+<section><h2>📚 Fuente de información</h2><table><thead><tr><th>#</th><th>Documento</th><th>Sección / Numeral</th><th>Página</th><th>Descripción breve</th></tr></thead><tbody><tr><td>1</td><td></td><td></td><td></td><td></td></tr></tbody></table></section>
+<section><h2>🧩 Observaciones finales</h2><ul><li>⚠️ ...</li></ul></section>
+<p>Este reporte compila la información necesaria para el seguimiento y cumplimiento adecuado de los requerimientos técnicos estipulados en la licitación.</p>
+</article>
+TXT;
+
+        $structure = match ($type) {
+            'finance' => $financialStructure,
+            'logistics' => $logisticsStructure,
+            'technical' => $technicalStructure,
+            default => $financialStructure,
+        };
+
+        return <<<PROMPT
+Eres un consultor experto en licitaciones públicas mexicanas. Genera el documento HTML editable titulado: {$title} para el proyecto "{$projectName}".
+
+REGLAS OBLIGATORIAS:
+1. Usa únicamente la información disponible en datos estructurados, checklist y textos/documentos del proyecto.
+2. No inventes datos. Cuando no exista información, escribe: ⚠️ Información no explícita en los documentos revisados.
+3. Respeta exactamente las secciones y categorías indicadas. No omitas categorías aunque falte información.
+4. Mantén el estilo ejecutivo, claro, profesional y útil para toma de decisiones.
+5. Devuelve SOLO HTML, sin markdown ni bloques de código.
+6. Incluye tabla de fuentes con documento, sección/numeral, página y descripción breve cuando puedas inferirlo; si no, deja claro que no se especifica.
+
+{$structure}
+
+=== DATOS ESTRUCTURADOS ===
+{$structured}
+
+=== CHECKLIST RELACIONAL ===
+{$checklistJson}
+
+=== DOCUMENTOS Y TEXTO EXTRAÍDO ===
+{$documentsJson}
+PROMPT;
+    }
+
+    private function buildSpecializedReportFallbackHtml(Project $project, string $type): string
+    {
+        $title = e($this->reportTitleForType($type));
+        $projectName = e($project->name);
+
+        $categoryHtml = match ($type) {
+            'finance' => '<h3>💵 Condiciones de pago</h3><ul><li><strong>💰 Plazo de pago establecido:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>🧾 Modalidad de pago:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>📅 Condiciones de entrega:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>💳 Moneda y método de pago:</strong> ⚠️ Información no explícita en los documentos revisados.</li></ul><h3>🧾 Facturación</h3><ul><li><strong>🏦 Requisitos de facturación:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>🗓️ Tiempos de entrega y validación de facturas:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>📋 Documentos complementarios exigidos:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>⚙️ Procedimiento de revisión o autorización:</strong> ⚠️ Información no explícita en los documentos revisados.</li></ul><h3>📑 Garantías, fianzas y seguros</h3><ul><li><strong>🛡️ Tipo de pólizas requeridas:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>💵 Porcentajes o montos exigidos:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>🗓️ Vigencia o plazo de cobertura:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>📄 Condiciones para liberación o devolución:</strong> ⚠️ Información no explícita en los documentos revisados.</li></ul><h3>💳 Anticipos y retenciones</h3><ul><li><strong>💸 Porcentaje o monto del anticipo:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>⚠️ Retenciones aplicables:</strong> ⚠️ Información no explícita en los documentos revisados.</li></ul><h3>📈 Requisitos financieros</h3><ul><li><strong>📊 Documentos solicitados:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>🏦 Criterios de capacidad económica:</strong> ⚠️ Información no explícita en los documentos revisados.</li></ul><h3>📊 Penalizaciones y deducciones</h3><ul><li><strong>⚠️ Multas por atraso o incumplimiento:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>💰 Deducciones automáticas o ajustes:</strong> ⚠️ Información no explícita en los documentos revisados.</li></ul><h3>🏦 Cuentas bancarias y comprobaciones</h3><ul><li><strong>💳 Cuentas destino y mecanismos de pago:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>🧾 Documentación de soporte:</strong> ⚠️ Información no explícita en los documentos revisados.</li></ul>',
+            'logistics' => '<h3>📦 Entregas y recepción</h3><ul><li><strong>🏠 Lugar(es) de entrega:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>⏰ Horarios o ventanas:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>📋 Condiciones específicas:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>🧾 Documentos requeridos en la entrega:</strong> ⚠️ Información no explícita en los documentos revisados.</li></ul><h3>⏱️ Plazos y tiempos</h3><ul><li><strong>📅 Fechas límites o cronogramas:</strong> ⚠️ Información no explícita en los documentos revisados.</li></ul><h3>🚚 Transporte y distribución</h3><ul><li><strong>🚛 Tipo de transporte solicitado:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>🧴 Condiciones de embalaje y etiquetado:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>⚠️ Penalizaciones o sanciones por retraso:</strong> ⚠️ Información no explícita en los documentos revisados.</li></ul><h3>🏢 Almacenamiento y condiciones</h3><ul><li><strong>🌡️ Condiciones especiales:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>🏗️ Infraestructura o espacios requeridos:</strong> ⚠️ Información no explícita en los documentos revisados.</li></ul><h3>📄 Documentación logística</h3><ul><li><strong>📜 Remisiones, guías o manifiestos exigidos:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>🖋️ Requisitos de firma o validación:</strong> ⚠️ Información no explícita en los documentos revisados.</li></ul><h3>⚠️ Riesgos y penalizaciones</h3><ul><li><strong>💸 Sanciones económicas o administrativas:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>🔄 Devoluciones o reemplazos:</strong> ⚠️ Información no explícita en los documentos revisados.</li></ul><h3>🤝 Coordinación y comunicación</h3><ul><li><strong>👥 Responsables de coordinación logística:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>📞 Mecanismos de comunicación y validación:</strong> ⚠️ Información no explícita en los documentos revisados.</li></ul>',
+            'technical' => '<h3>⚙️ Instalación y puesta en marcha</h3><ul><li><strong>🏗️ Requisitos previos del sitio:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>⚡ Conexiones o infraestructura necesaria:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>🧾 Pruebas o verificaciones iniciales:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>📅 Tiempo estimado de instalación:</strong> ⚠️ Información no explícita en los documentos revisados.</li></ul><h3>🧩 Puesta a punto y validación técnica</h3><ul><li><strong>🧪 Pruebas funcionales y calibraciones:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>📋 Protocolos o formatos exigidos:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>🧠 Responsables técnicos designados:</strong> ⚠️ Información no explícita en los documentos revisados.</li></ul><h3>🧰 Mantenimiento preventivo</h3><ul><li><strong>🔁 Frecuencia o calendario:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>⚙️ Alcance del servicio:</strong> ⚠️ Información no explícita en los documentos revisados.</li></ul><h3>🛠️ Mantenimiento correctivo</h3><ul><li><strong>⏱️ Tiempo máximo de respuesta:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>🧰 Tipo de soporte:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>⚠️ Penalizaciones por retraso o incumplimiento:</strong> ⚠️ Información no explícita en los documentos revisados.</li></ul><h3>👩‍🏫 Capacitaciones</h3><ul><li><strong>🧠 Tipo de capacitación:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>📍 Lugar o modalidad:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>⏰ Duración:</strong> ⚠️ Información no explícita en los documentos revisados.</li></ul><h3>📞 Centro de soporte y atención al cliente</h3><ul><li><strong>☎️ Teléfonos o correos de contacto:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>💬 Niveles de servicio (SLA):</strong> ⚠️ Información no explícita en los documentos revisados.</li></ul><h3>📜 Documentación técnica</h3><ul><li><strong>📘 Manuales o guías de operación:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>🧾 Certificados o reportes de calibración:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>🧱 Entregables técnicos obligatorios:</strong> ⚠️ Información no explícita en los documentos revisados.</li></ul>',
+            default => '',
+        };
+
+        return '<article class="jrt-report-doc"><h1>' . $title . '</h1><section><h2>🔹 Resumen Ejecutivo</h2><p>Reporte generado para el proyecto ' . $projectName . '. No se pudo completar el análisis automático, por lo que se muestra la estructura base para edición.</p></section><section><h2>🗂️ Detalle por Categoría</h2>' . $categoryHtml . '</section><section><h2>📚 Fuente de información</h2><table><thead><tr><th>#</th><th>Documento</th><th>Sección / Numeral</th><th>Página</th><th>Descripción breve</th></tr></thead><tbody><tr><td>1</td><td>Documentos del proyecto</td><td>Sin sección específica</td><td>—</td><td>Información pendiente de extracción o validación.</td></tr></tbody></table></section><section><h2>🧩 Observaciones finales</h2><ul><li>⚠️ Requiere validación manual de fuentes y numerales.</li><li>⚠️ Completar los datos marcados como no explícitos si se encuentran en anexos o contrato.</li></ul></section></article>';
+    }
+
     public function generateReport(Request $request, Project $project, OpenAiStructurerService $ai)
     {
         abort_if($project->user_id !== Auth::id() && Auth::id() !== 1, 403);
 
         try {
+            $type = $this->normalizeReportType($request->input('report_type', 'analysis'));
+            $title = $request->input('report_title') ?: $this->reportTitleForType($type);
+
             if ($request->input('action') === 'save') {
                 $content = $request->input('report_content', $request->input('draft_content', ''));
-
-                $project->report_content = $content;
-                $project->draft_content  = $content;
-                $project->save();
+                $this->saveProjectReport($project, $type, $content, $title);
 
                 return response()->json([
                     'ok' => true,
@@ -1417,13 +1616,14 @@ PROMPT;
                 ]);
             }
 
+            $project->loadMissing(['documents']);
             $checklist = $this->projectChecklistReportArray($project);
-            $prompt = $this->buildExecutiveReportPrompt($project, $checklist);
+            $prompt = $this->buildSpecializedReportPrompt($project, $checklist, $type);
             $html = null;
 
             try {
                 $messages = [
-                    ['role' => 'system', 'content' => 'Eres un generador de reportes ejecutivos HTML profesionales para licitaciones públicas mexicanas.'],
+                    ['role' => 'system', 'content' => 'Eres un generador de reportes HTML profesionales para licitaciones públicas mexicanas. Debes respetar exactamente la estructura solicitada para el tipo de reporte.'],
                     ['role' => 'user', 'content' => $prompt],
                 ];
 
@@ -1432,23 +1632,25 @@ PROMPT;
                 $html = preg_replace('/^```\s*/', '', $html);
                 $html = preg_replace('/```$/', '', trim($html));
             } catch (\Throwable $aiError) {
-                Log::warning('Report AI generation failed; using fallback report builder', [
+                Log::warning('Specialized report AI generation failed; using fallback report builder', [
                     'project_id' => $project->id,
+                    'report_type' => $type,
                     'error' => $aiError->getMessage(),
                 ]);
             }
 
             if (!$html || trim(strip_tags($html)) === '') {
-                $html = $this->buildExecutiveReportFallbackHtml($project, $checklist);
+                $html = $type === 'analysis'
+                    ? $this->buildExecutiveReportFallbackHtml($project, $checklist)
+                    : $this->buildSpecializedReportFallbackHtml($project, $type);
             }
 
-            $project->report_content = $html;
-            $project->draft_content  = $html;
-            $project->save();
+            $this->saveProjectReport($project, $type, $html, $title);
 
             return response()->json([
                 'ok' => true,
                 'html' => $html,
+                'report_type' => $type,
                 'saved_at' => now()->format('H:i:s'),
             ]);
         } catch (\Throwable $e) {

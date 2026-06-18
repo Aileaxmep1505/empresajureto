@@ -2369,4 +2369,6 @@ Route::middleware(['auth'])
     ->name('workflow-status');
     Route::post('/{project}/labels', [ProjectBoardController::class, 'updateLabels'])
     ->name('labels.update');
+    Route::get('/{project}/reports', [ProjectBoardController::class, 'reports'])
+    ->name('reports');
     });

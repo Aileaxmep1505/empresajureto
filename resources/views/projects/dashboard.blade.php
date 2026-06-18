@@ -447,7 +447,7 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></svg>
         Inicio
       </a>
-      <a href="#" class="pdb-nav-tab">
+      <a href="{{ route('projects.reports', $project) }}" class="pdb-nav-tab">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6"/></svg>
         Reportes
       </a>
@@ -536,6 +536,7 @@
           $analisisUrl = route('projects.analisis', $project);
           $checklistUrl = route('projects.analisis', $project) . '#checklist';
           $borradorUrl = route('projects.analisis', $project) . '#borrador';
+          $reportesUrl = route('projects.reports', $project);
 
           $modulos = [
             ['key' => 'analisis',  'name' => 'Análisis de Bases',     'desc' => 'Revisa y analiza las bases del proyecto',   'tone' => 'tone-green',  'route' => $analisisUrl, 'available' => true,
@@ -546,7 +547,7 @@
              'svg' => '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'],
             ['key' => 'propuesta', 'name' => 'Armado de Propuesta',   'desc' => 'Abre el checklist ligado desde Análisis para preparar la propuesta',   'tone' => 'tone-blue',   'route' => $checklistUrl, 'available' => $hasChecklistDashboard && in_array($estado['key'], ['armado_propuesta','entrega','ganado']),
              'svg' => '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>'],
-            ['key' => 'reporte',   'name' => 'Reporte',               'desc' => 'Genera el reporte final del proyecto',       'tone' => 'tone-violet', 'route' => $borradorUrl, 'available' => $hasChecklistDashboard,
+            ['key' => 'reporte',   'name' => 'Reporte',               'desc' => 'Abre la vista de reportes del proyecto',       'tone' => 'tone-violet', 'route' => $reportesUrl, 'available' => true,
              'svg' => '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 17h6"/>'],
             ['key' => 'tecnico',   'name' => 'Análisis Técnico',      'desc' => 'Revisión técnica especializada',             'tone' => 'tone-warn',   'route' => $analisisUrl, 'available' => $hasChecklistDashboard,
              'svg' => '<path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>'],

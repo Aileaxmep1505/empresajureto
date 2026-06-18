@@ -1434,6 +1434,9 @@
   .pjd-wrap.is-conversation-collapsed .pjd-left,
   .pjd-wrap.is-conversation-collapsed .pjd-resizer { opacity: 0; pointer-events: none; overflow: hidden; border: 0; }
   .pjd-wrap.is-conversation-collapsed .pjd-right { border-left: 1px solid var(--line); }
+  .pjd-wrap.is-checklist-wide .pjd-right { background: #ffffff; }
+  .pjd-wrap.is-checklist-wide .pjd-pane[data-pane="checklist"] { padding: 14px 18px 22px; }
+  .pjd-wrap.is-checklist-wide .pjd-checklist-wrap { min-height: calc(100dvh - 164px); }
 
   .pjd-draft-shell {
     border: 1px solid var(--line);
@@ -3496,48 +3499,54 @@
   // ============ TABS ============
   const tabs = document.querySelectorAll('.pjd-tab');
   const panes = document.querySelectorAll('.pjd-pane');
-
-  const PJD_TAB_ALIASES = {
-    '#inicio': 'inicio',
-    '#ficha': 'ficha',
-    '#resumen': 'resumen',
-    '#resumen-ejecutivo': 'resumen',
+  const PJD_WIDE_TABS = ['checklist'];
+  const PJD_HASH_TAB_MAP = {
     '#checklist': 'checklist',
     '#armado-propuesta': 'checklist',
     '#propuesta': 'checklist',
+    '#documentos': 'documentos',
     '#borrador': 'borrador',
     '#reporte': 'borrador',
-    '#documentos': 'documentos',
+    '#resumen': 'resumen',
+    '#ficha': 'ficha',
+    '#inicio': 'inicio'
   };
 
-  function normalizePjdTabHash(hash) {
-    const cleanHash = String(hash || '').trim().toLowerCase();
-    return PJD_TAB_ALIASES[cleanHash] || null;
+  function setConversationCollapsed(collapsed) {
+    const wrap = document.querySelector('.pjd-wrap');
+    if (!wrap) return;
+    wrap.classList.toggle('is-conversation-collapsed', collapsed);
+    wrap.classList.toggle('is-checklist-wide', collapsed);
   }
 
   function activateTab(name, opts = {}) {
-    const hasTab = Array.from(tabs).some(t => t.dataset.tab === name);
-    if (!hasTab) name = 'ficha';
+    const target = panes.length && document.querySelector(`.pjd-pane[data-pane="${name}"]`) ? name : 'ficha';
 
-    tabs.forEach(t => t.classList.toggle('is-active', t.dataset.tab === name));
-    panes.forEach(p => p.classList.toggle('is-active', p.dataset.pane === name));
+    tabs.forEach(t => t.classList.toggle('is-active', t.dataset.tab === target));
+    panes.forEach(p => p.classList.toggle('is-active', p.dataset.pane === target));
 
-    if (opts.updateHash && window.location.hash !== `#${name}`) {
-      history.replaceState(null, '', `${window.location.pathname}${window.location.search}#${name}`);
+    // Cuando se abre Checklist desde Dashboard, Armado de Propuesta o el tab directo,
+    // el panel derecho se expande y el chat se oculta para trabajar en pantalla amplia.
+    setConversationCollapsed(PJD_WIDE_TABS.includes(target));
+
+    if (opts.updateHash && window.location.hash !== `#${target}`) {
+      history.replaceState(null, '', `${window.location.pathname}${window.location.search}#${target}`);
     }
 
-    if (name === 'checklist') {
-      setTimeout(() => document.querySelector('[data-pane="checklist"]')?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 60);
+    if (target === 'borrador' && (window.location.hash === '#reporte')) {
+      document.querySelector('.pjd-borrador-tab[data-section="reporte"]')?.click();
     }
   }
 
-  function activateTabFromUrl() {
-    activateTab(normalizePjdTabHash(window.location.hash) || 'ficha');
+  function activateTabFromHash() {
+    const rawHash = (window.location.hash || '').toLowerCase();
+    const target = PJD_HASH_TAB_MAP[rawHash] || 'ficha';
+    activateTab(target, { updateHash: false });
   }
 
   tabs.forEach(t => t.addEventListener('click', () => activateTab(t.dataset.tab, { updateHash: true })));
-  window.addEventListener('hashchange', activateTabFromUrl);
-  activateTabFromUrl();
+  activateTabFromHash();
+  window.addEventListener('hashchange', activateTabFromHash);
 
   // ============ SPLIT VIEW REDIMENSIONABLE (aplica a todas las pestañas) ============
   const pjdWrap = document.querySelector('.pjd-wrap');
