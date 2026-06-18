@@ -1117,10 +1117,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
             viewTransition.innerHTML = nextView.innerHTML;
             history.replaceState({}, '', url.toString());
-            closeLabelPopover();
-            closeTagMenu();
-            closeProjectMenu();
-            updateBulkbar();
         } catch (error) {
             if (error.name !== 'AbortError') console.error(error);
         } finally {
@@ -1142,19 +1138,16 @@ document.addEventListener('DOMContentLoaded', function () {
     const bulkbar = document.getElementById('pjBulkbar');
     const selectedCountEl = document.getElementById('pjSelectedCount');
     const clearSelectionBtn = document.getElementById('pjClearSelection');
-    function getProjectChecks() { return Array.from(document.querySelectorAll('.js-project-check')); }
-    function getColumnChecks() { return Array.from(document.querySelectorAll('.js-select-column')); }
-    function getProjectRows() { return Array.from(document.querySelectorAll('.js-project-row')); }
+    const projectChecks = Array.from(document.querySelectorAll('.js-project-check'));
+    const columnChecks = Array.from(document.querySelectorAll('.js-select-column'));
+    const projectRows = Array.from(document.querySelectorAll('.js-project-row'));
 
-    function getCheckedProjects() { return getProjectChecks().filter(c => c.checked); }
+    function getCheckedProjects() { return projectChecks.filter(c => c.checked); }
     function updateBulkbar() {
-        const projectChecks = getProjectChecks();
-        const columnChecks = getColumnChecks();
-        const projectRows = getProjectRows();
         const n = getCheckedProjects().length;
-        if (selectedCountEl) selectedCountEl.textContent = n;
-        bulkbar?.classList.toggle('is-open', n > 0);
-        bulkbar?.setAttribute('aria-hidden', n > 0 ? 'false' : 'true');
+        selectedCountEl.textContent = n;
+        bulkbar.classList.toggle('is-open', n > 0);
+        bulkbar.setAttribute('aria-hidden', n > 0 ? 'false' : 'true');
         projectRows.forEach(row => {
             const cb = document.querySelector(`.js-project-check[data-project-id="${row.dataset.projectId}"]`);
             if (cb) row.classList.toggle('is-selected', cb.checked);
@@ -1169,24 +1162,15 @@ document.addEventListener('DOMContentLoaded', function () {
             else { master.checked = false; master.indeterminate = true; }
         });
     }
-
-    document.addEventListener('change', function (event) {
-        const projectCheck = event.target.closest('.js-project-check');
-        if (projectCheck) { updateBulkbar(); return; }
-
-        const columnCheck = event.target.closest('.js-select-column');
-        if (!columnCheck) return;
-
-        const colId = columnCheck.dataset.columnId;
-        getProjectChecks()
-            .filter(c => c.dataset.columnId === colId)
-            .forEach(c => c.checked = columnCheck.checked);
+    projectChecks.forEach(c => c.addEventListener('change', updateBulkbar));
+    columnChecks.forEach(m => m.addEventListener('change', function () {
+        const colId = this.dataset.columnId;
+        projectChecks.filter(c => c.dataset.columnId === colId).forEach(c => c.checked = this.checked);
         updateBulkbar();
-    });
-
+    }));
     if (clearSelectionBtn) clearSelectionBtn.addEventListener('click', () => {
-        getProjectChecks().forEach(c => c.checked = false);
-        getColumnChecks().forEach(c => { c.checked = false; c.indeterminate = false; });
+        projectChecks.forEach(c => c.checked = false);
+        columnChecks.forEach(c => { c.checked = false; c.indeterminate = false; });
         updateBulkbar();
     });
     updateBulkbar();
@@ -1249,18 +1233,8 @@ document.addEventListener('DOMContentLoaded', function () {
             .filter((label, index, arr) => arr.findIndex(x => x.toLowerCase() === label.toLowerCase()) === index);
     }
 
-    function getLabelsUrl(row) {
-        if (!row) return '';
-        if (row.dataset.labelsUrl) return row.dataset.labelsUrl;
-        if (row.dataset.projectSlug) return `/projects/${encodeURIComponent(row.dataset.projectSlug)}/labels`;
-        return '';
-    }
-
     async function saveProjectLabels(row, labels) {
-        const url = getLabelsUrl(row);
-        if (!row || !url) {
-            throw new Error('No se encontró la ruta para guardar etiquetas del proyecto.');
-        }
+        if (!row || !row.dataset.labelsUrl) return { ok: false, labels };
 
         const cleanLabels = (labels || [])
             .map(normalizeLabelText)
@@ -1270,7 +1244,7 @@ document.addEventListener('DOMContentLoaded', function () {
         row.classList.add('is-saving-labels');
 
         try {
-            const response = await fetch(url, {
+            const response = await fetch(row.dataset.labelsUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1291,17 +1265,6 @@ document.addEventListener('DOMContentLoaded', function () {
         } finally {
             row.classList.remove('is-saving-labels');
         }
-    }
-
-    function renderRowLabels(row, labels) {
-        if (!row) return;
-        const list = row.querySelector('.js-label-list');
-        if (!list) return;
-        list.innerHTML = '';
-        (labels || [])
-            .map(normalizeLabelText)
-            .filter(Boolean)
-            .forEach(label => list.appendChild(createLabelPill(label)));
     }
 
     function addLabelPillToRow(row, label) {
@@ -1339,10 +1302,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 addLabelPillToRow(row, clean);
 
                 try {
-                    const saved = await saveProjectLabels(row, nextLabels);
-                    renderRowLabels(row, saved.labels);
+                    await saveProjectLabels(row, nextLabels);
                 } catch (error) {
-                    renderRowLabels(row, previousLabels);
                     alert(error.message || 'No se pudieron guardar las etiquetas.');
                 }
             }
@@ -1362,20 +1323,13 @@ document.addEventListener('DOMContentLoaded', function () {
         addLabelPillToRow(row, clean);
 
         try {
-            const saved = await saveProjectLabels(row, nextLabels);
-            renderRowLabels(row, saved.labels);
+            await saveProjectLabels(row, nextLabels);
         } catch (error) {
-            renderRowLabels(row, previousLabels);
             alert(error.message || 'No se pudieron guardar las etiquetas.');
         }
     }
 
-    document.addEventListener('click', function (event) {
-        const openLabelBtn = event.target.closest('.js-open-label-pop');
-        if (!openLabelBtn) return;
-        event.stopPropagation();
-        openLabelPopover(openLabelBtn, 'single');
-    });
+    document.querySelectorAll('.js-open-label-pop').forEach(btn => btn.addEventListener('click', function (e) { e.stopPropagation(); openLabelPopover(this, 'single'); }));
     if (bulkLabelsBtn) bulkLabelsBtn.addEventListener('click', function (e) { e.stopPropagation(); if (!getCheckedProjects().length) return; openLabelPopover(this, 'bulk'); });
     if (labelSearchInput) labelSearchInput.addEventListener('input', function () {
         const v = this.value.trim(); createLabelText.textContent = v || 'Etiqueta'; renderLabelOptions(v);
@@ -1410,13 +1364,10 @@ document.addEventListener('DOMContentLoaded', function () {
     if (deleteTagBtn) deleteTagBtn.addEventListener('click', async () => {
         if (!activeTagPill) { closeTagMenu(); return; }
         const row = activeTagPill.closest('.js-project-row');
-        const previousLabels = getRowLabels(row);
         activeTagPill.remove();
         try {
-            const saved = await saveProjectLabels(row, getRowLabels(row));
-            renderRowLabels(row, saved.labels);
+            await saveProjectLabels(row, getRowLabels(row));
         } catch (error) {
-            renderRowLabels(row, previousLabels);
             alert(error.message || 'No se pudieron guardar las etiquetas.');
         }
         closeTagMenu();
