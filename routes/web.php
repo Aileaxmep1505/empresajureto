@@ -2367,4 +2367,6 @@ Route::middleware(['auth'])
             ->name('checklist.attachments.destroy');
             Route::post('/{project}/workflow-status', [ProjectBoardController::class, 'updateWorkflowStatus'])
     ->name('workflow-status');
+    Route::post('/{project}/labels', [ProjectBoardController::class, 'updateLabels'])
+    ->name('labels.update');
     });

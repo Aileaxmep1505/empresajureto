@@ -123,7 +123,8 @@
   .pdb-module { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 12px; cursor: pointer; transition: all .15s; text-decoration: none; color: inherit; margin-bottom: 8px; border: 1.5px solid transparent; }
   .pdb-module:hover { background: var(--bg); }
   .pdb-module.is-current { background: linear-gradient(180deg, #f0f9ff, #fff); border-color: #bae6fd; }
-  .pdb-module.is-disabled { opacity: .45; cursor: not-allowed; pointer-events: none; }
+  .pdb-module.is-disabled { opacity: .45; cursor: pointer; pointer-events: auto; }
+  .pdb-module.is-disabled:hover { opacity: .78; background: #f9fafb; border-color: var(--line); }
   .pdb-module-icon { width: 42px; height: 42px; border-radius: 10px; display: grid; place-items: center; flex-shrink: 0; }
   .pdb-module-icon.tone-green { background: var(--success-soft); color: var(--success); }
   .pdb-module-icon.tone-blue  { background: var(--blue-soft);    color: var(--blue);    }
@@ -237,10 +238,70 @@
   .pdb-info-val .ico-edit { color: var(--muted); cursor: pointer; font-size: .85rem; }
   .pdb-info-val .ico-edit:hover { color: var(--blue); }
   .pdb-avatar { width: 22px; height: 22px; border-radius: 50%; background: var(--blue); color: #fff; display: inline-grid; place-items: center; font-weight: 700; font-size: .72rem; }
-  .pdb-tags { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-  .pdb-tag-add { padding: 4px 12px; border: 1.5px dashed var(--line); border-radius: 999px; font-size: .78rem; font-weight: 600; color: var(--muted); cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-family: inherit; background: transparent; }
-  .pdb-tag-add:hover { color: var(--blue); border-color: var(--blue); }
-  .pdb-tag-add.is-filled { color: var(--blue); border-style: solid; border-color: var(--blue); background: var(--blue-soft); }
+  .pdb-tags-shell { position: relative; width: 100%; }
+  .pdb-tags { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
+  .pdb-tag-pill,
+  .pdb-tag-add {
+    min-height: 28px;
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: .78rem;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: inherit;
+    transition: all .16s ease;
+  }
+  .pdb-tag-pill { color: var(--blue); border: 1px solid #bdd6ff; background: var(--blue-soft); }
+  .pdb-tag-pill button { width: 17px; height: 17px; border: 0; border-radius: 999px; background: rgba(0,122,255,.10); color: var(--blue); cursor: pointer; display: grid; place-items: center; font-size: .8rem; line-height: 1; padding: 0; }
+  .pdb-tag-pill button:hover { background: rgba(0,122,255,.18); }
+  .pdb-tag-add { border: 1.5px dashed #b6b6b6; color: #777; cursor: pointer; background: transparent; }
+  .pdb-tag-add:hover { color: var(--blue); border-color: #a8ccff; background: #f8fbff; transform: translateY(-1px); }
+  .pdb-tags-popover {
+    position: absolute;
+    top: calc(100% + 10px);
+    left: 0;
+    z-index: 90;
+    width: min(410px, calc(100vw - 56px));
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 18px 46px rgba(15,23,42,.13);
+    display: none;
+    animation: pdbMenuIn .16s ease both;
+  }
+  .pdb-tags-shell.is-open .pdb-tags-popover { display: block; }
+  .pdb-tags-search { height: 48px; display: flex; align-items: center; gap: 10px; border: 1px solid #e2e5ea; border-radius: 12px; padding: 0 14px; background: #fff; transition: border-color .18s ease, box-shadow .18s ease; }
+  .pdb-tags-search:focus-within { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-soft); }
+  .pdb-tags-search svg { width: 18px; height: 18px; color: #777; flex-shrink: 0; }
+  .pdb-tags-search input { width: 100%; height: 100%; border: 0; outline: none; background: transparent; font: inherit; color: var(--ink); font-size: .92rem; font-weight: 600; }
+  .pdb-tags-sep { height: 1px; background: var(--line); margin: 12px 4px; }
+  .pdb-tags-title { margin: 0 2px 10px; font-size: .82rem; font-weight: 700; color: var(--muted); }
+  .pdb-common-tags { display: flex; gap: 8px; flex-wrap: wrap; }
+  .pdb-common-tag,
+  .pdb-tag-create {
+    border: 1px solid #d7e5ff;
+    background: #fff;
+    color: var(--blue);
+    border-radius: 999px;
+    min-height: 30px;
+    padding: 5px 12px;
+    font-family: inherit;
+    font-size: .82rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all .16s ease;
+  }
+  .pdb-common-tag:hover,
+  .pdb-tag-create:hover { background: var(--blue-soft); border-color: #a8ccff; transform: translateY(-1px); }
+  .pdb-common-tag.is-selected { background: var(--blue); border-color: var(--blue); color: #fff; }
+  .pdb-tag-create-row { display: none; align-items: center; gap: 10px; padding: 6px 4px 2px; color: var(--ink); font-size: .92rem; font-weight: 600; }
+  .pdb-tag-create-row.is-visible { display: flex; }
+  .pdb-tag-create-row .plus { color: var(--blue); font-size: 1.05rem; font-weight: 700; }
+  .pdb-tag-preview { display: inline-flex; align-items: center; min-height: 27px; padding: 3px 12px; border-radius: 999px; background: #fff7ed; color: #ea580c; border: 1px solid #fed7aa; font-weight: 700; }
+  .pdb-tags-saving { opacity: .6; pointer-events: none; }
 
   /* ═══════ FICHA TÉCNICA ═══════ */
   .pdb-field { padding: 12px 0; border-bottom: 1px solid var(--line); }
@@ -345,6 +406,9 @@
   $estado = $workflowOptions[$workflowKey];
   $cur = $estado['step'];
   $workflowUrl = route('projects.workflow-status', $project);
+  $labelsUrl = url('/projects/' . $project->slug . '/labels');
+  $projectLabels = collect($project->labels ?? [])->filter()->values()->all();
+  $commonLabels = collect(['*PRUEBA*', 'papeleria', 'urgente', 'licitación', 'revisión', 'documentación', 'alta prioridad'])->merge($projectLabels)->unique()->values()->all();
 
   /* ── Clasificar documentos en grupos (heurística por nombre) ── */
   $bases    = $docs->filter(fn($d) => stripos($d->filename, 'bases') !== false || stripos($d->filename, 'convocatoria') !== false || stripos($d->filename, 'anexo') !== false || stripos($d->filename, 'licitacion') !== false)->values();
@@ -478,9 +542,9 @@
              'svg' => '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6"/>'],
             ['key' => 'revision_checklist', 'name' => 'Revisión de Checklist', 'desc' => $hasChecklistDashboard ? ($checklistTotalDashboard . ' requisitos detectados desde Análisis') : 'Primero genera el checklist desde Análisis', 'tone' => 'tone-blue', 'route' => $checklistUrl, 'available' => $hasChecklistDashboard,
              'svg' => '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>'],
-            ['key' => 'juntas',    'name' => 'Junta de Aclaraciones', 'desc' => 'Gestiona preguntas y aclaraciones',          'tone' => 'tone-orange', 'route' => '#', 'available' => in_array($estado['key'], ['participa','junta_aclaraciones','armado_propuesta','entrega','ganado']),
+            ['key' => 'juntas',    'name' => 'Junta de Aclaraciones', 'desc' => 'Gestiona preguntas y aclaraciones',          'tone' => 'tone-orange', 'route' => $analisisUrl . '#resumen', 'available' => in_array($estado['key'], ['participa','junta_aclaraciones','armado_propuesta','entrega','ganado']),
              'svg' => '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'],
-            ['key' => 'propuesta', 'name' => 'Armado de Propuesta',   'desc' => 'Construye la propuesta técnica/económica',   'tone' => 'tone-blue',   'route' => $borradorUrl, 'available' => in_array($estado['key'], ['armado_propuesta','entrega','ganado']),
+            ['key' => 'propuesta', 'name' => 'Armado de Propuesta',   'desc' => 'Abre el checklist ligado desde Análisis para preparar la propuesta',   'tone' => 'tone-blue',   'route' => $checklistUrl, 'available' => $hasChecklistDashboard && in_array($estado['key'], ['armado_propuesta','entrega','ganado']),
              'svg' => '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>'],
             ['key' => 'reporte',   'name' => 'Reporte',               'desc' => 'Genera el reporte final del proyecto',       'tone' => 'tone-violet', 'route' => $borradorUrl, 'available' => $hasChecklistDashboard,
              'svg' => '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 17h6"/>'],
@@ -504,7 +568,7 @@
             $isCur = $m['key'] === $sugerido;
             $isAvailable = (bool) ($m['available'] ?? false);
           @endphp
-          <a href="{{ $isAvailable ? $m['route'] : '#' }}" class="pdb-module {{ $isCur ? 'is-current' : '' }} {{ !$isAvailable ? 'is-disabled' : '' }}">
+          <a href="{{ $m['route'] }}" class="pdb-module {{ $isCur ? 'is-current' : '' }} {{ !$isAvailable ? 'is-disabled' : '' }}" title="Abrir {{ $m['name'] }}">
             <div class="pdb-module-icon {{ $isCur || $isAvailable ? $m['tone'] : 'tone-gray' }}">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">{!! $m['svg'] !!}</svg>
             </div>
@@ -743,11 +807,39 @@
       </div>
       <div class="pdb-info-row" style="flex-direction:column;align-items:flex-start;gap:8px;">
         <span class="pdb-info-lbl">Etiquetas</span>
-        <div class="pdb-tags">
-          @foreach(($project->labels ?? []) as $tag)
-            <span class="pdb-tag-add is-filled">{{ $tag }}</span>
-          @endforeach
-          <button type="button" class="pdb-tag-add">+ Agregar</button>
+        <div class="pdb-tags-shell" id="pdbTagsShell" data-labels-url="{{ $labelsUrl }}" data-labels='@json($projectLabels)' data-common-labels='@json($commonLabels)'>
+          <div class="pdb-tags" id="pdbTagsList">
+            @forelse($projectLabels as $tag)
+              <span class="pdb-tag-pill" data-tag-pill="{{ e($tag) }}">{{ $tag }} <button type="button" data-remove-tag="{{ e($tag) }}" aria-label="Eliminar etiqueta {{ $tag }}">×</button></span>
+            @empty
+              <span style="color:var(--muted);font-size:.82rem;font-weight:600;" data-tags-empty>Sin etiquetas</span>
+            @endforelse
+            <button type="button" class="pdb-tag-add" id="pdbTagsToggle">+ Agregar</button>
+          </div>
+
+          <div class="pdb-tags-popover" id="pdbTagsPopover" aria-hidden="true">
+            <label class="pdb-tags-search" for="pdbTagsSearch">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+              <input type="text" id="pdbTagsSearch" placeholder="Buscar o crear etiqueta..." autocomplete="off">
+            </label>
+
+            <div class="pdb-tags-sep"></div>
+
+            <div class="pdb-tag-create-row" id="pdbTagCreateRow">
+              <span class="plus">+</span>
+              <button type="button" class="pdb-tag-create" id="pdbTagCreateBtn">Crear</button>
+              <span class="pdb-tag-preview" id="pdbTagPreview"></span>
+            </div>
+
+            <div id="pdbCommonTagsBlock">
+              <div class="pdb-tags-title">Etiquetas comunes:</div>
+              <div class="pdb-common-tags" id="pdbCommonTags">
+                @foreach($commonLabels as $tag)
+                  <button type="button" class="pdb-common-tag {{ in_array($tag, $projectLabels, true) ? 'is-selected' : '' }}" data-common-tag="{{ e($tag) }}">{{ $tag }}</button>
+                @endforeach
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -956,6 +1048,176 @@
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') setMenuOpen(false);
   });
+
+  // ============ ETIQUETAS DEL PROYECTO ============
+  const tagsShell = document.getElementById('pdbTagsShell');
+  const tagsToggle = document.getElementById('pdbTagsToggle');
+  const tagsList = document.getElementById('pdbTagsList');
+  const tagsPopover = document.getElementById('pdbTagsPopover');
+  const tagsSearch = document.getElementById('pdbTagsSearch');
+  const tagCreateRow = document.getElementById('pdbTagCreateRow');
+  const tagCreateBtn = document.getElementById('pdbTagCreateBtn');
+  const tagPreview = document.getElementById('pdbTagPreview');
+  const commonTags = document.getElementById('pdbCommonTags');
+
+  let currentLabels = [];
+  let commonLabels = [];
+
+  try { currentLabels = JSON.parse(tagsShell?.dataset.labels || '[]'); } catch (_) { currentLabels = []; }
+  try { commonLabels = JSON.parse(tagsShell?.dataset.commonLabels || '[]'); } catch (_) { commonLabels = []; }
+
+  function normalizeTag(tag) {
+    return String(tag || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function tagExists(tag) {
+    const needle = normalizeTag(tag).toLowerCase();
+    return currentLabels.some(t => normalizeTag(t).toLowerCase() === needle);
+  }
+
+  function setTagsOpen(open) {
+    if (!tagsShell || !tagsPopover) return;
+    tagsShell.classList.toggle('is-open', open);
+    tagsPopover.setAttribute('aria-hidden', open ? 'false' : 'true');
+    if (open) setTimeout(() => tagsSearch?.focus(), 30);
+  }
+
+  function renderTags() {
+    if (!tagsList || !tagsToggle) return;
+
+    tagsList.querySelectorAll('[data-tag-pill], [data-tags-empty]').forEach(el => el.remove());
+
+    if (!currentLabels.length) {
+      const empty = document.createElement('span');
+      empty.dataset.tagsEmpty = 'true';
+      empty.style.color = 'var(--muted)';
+      empty.style.fontSize = '.82rem';
+      empty.style.fontWeight = '600';
+      empty.textContent = 'Sin etiquetas';
+      tagsList.insertBefore(empty, tagsToggle);
+    } else {
+      currentLabels.forEach(tag => {
+        const pill = document.createElement('span');
+        pill.className = 'pdb-tag-pill';
+        pill.dataset.tagPill = tag;
+        pill.textContent = tag + ' ';
+
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.dataset.removeTag = tag;
+        remove.setAttribute('aria-label', 'Eliminar etiqueta ' + tag);
+        remove.textContent = '×';
+        pill.appendChild(remove);
+
+        tagsList.insertBefore(pill, tagsToggle);
+      });
+    }
+
+    commonTags?.querySelectorAll('[data-common-tag]').forEach(btn => {
+      btn.classList.toggle('is-selected', tagExists(btn.dataset.commonTag));
+    });
+  }
+
+  function updateCreateState() {
+    const value = normalizeTag(tagsSearch?.value || '');
+    if (!tagCreateRow || !tagPreview || !commonTags) return;
+
+    commonTags.querySelectorAll('[data-common-tag]').forEach(btn => {
+      const text = normalizeTag(btn.dataset.commonTag || btn.textContent || '');
+      const visible = !value || text.toLowerCase().includes(value.toLowerCase());
+      btn.style.display = visible ? '' : 'none';
+    });
+
+    const canCreate = value.length > 0 && !tagExists(value) && !commonLabels.some(t => normalizeTag(t).toLowerCase() === value.toLowerCase());
+    tagCreateRow.classList.toggle('is-visible', canCreate);
+    tagPreview.textContent = value;
+  }
+
+  async function saveLabels(nextLabels) {
+    if (!tagsShell?.dataset.labelsUrl) return;
+    tagsShell.classList.add('pdb-tags-saving');
+
+    try {
+      const response = await fetch(tagsShell.dataset.labelsUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-CSRF-TOKEN': CSRF_TOKEN,
+        },
+        body: JSON.stringify({ labels: nextLabels }),
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload.ok === false) {
+        throw new Error(payload.message || 'No se pudieron guardar las etiquetas.');
+      }
+
+      currentLabels = Array.isArray(payload.labels) ? payload.labels : nextLabels;
+      commonLabels = Array.from(new Set([...commonLabels, ...currentLabels]));
+      renderTags();
+      updateCreateState();
+    } catch (error) {
+      alert(error.message || 'No se pudieron guardar las etiquetas.');
+    } finally {
+      tagsShell.classList.remove('pdb-tags-saving');
+    }
+  }
+
+  function addTag(tag) {
+    const clean = normalizeTag(tag);
+    if (!clean || tagExists(clean)) return;
+    saveLabels([...currentLabels, clean]);
+    if (tagsSearch) tagsSearch.value = '';
+    setTagsOpen(false);
+  }
+
+  function removeTag(tag) {
+    const needle = normalizeTag(tag).toLowerCase();
+    saveLabels(currentLabels.filter(t => normalizeTag(t).toLowerCase() !== needle));
+  }
+
+  tagsToggle?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    setTagsOpen(!tagsShell.classList.contains('is-open'));
+    updateCreateState();
+  });
+
+  tagsSearch?.addEventListener('input', updateCreateState);
+  tagsSearch?.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      addTag(tagsSearch.value);
+    }
+  });
+
+  tagCreateBtn?.addEventListener('click', () => addTag(tagsSearch?.value || ''));
+
+  commonTags?.addEventListener('click', (event) => {
+    const btnTag = event.target.closest('[data-common-tag]');
+    if (!btnTag) return;
+    const tag = normalizeTag(btnTag.dataset.commonTag);
+    if (tagExists(tag)) removeTag(tag);
+    else addTag(tag);
+  });
+
+  tagsList?.addEventListener('click', (event) => {
+    const removeBtn = event.target.closest('[data-remove-tag]');
+    if (!removeBtn) return;
+    removeTag(removeBtn.dataset.removeTag);
+  });
+
+  document.addEventListener('click', (event) => {
+    if (!tagsShell?.contains(event.target)) setTagsOpen(false);
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') setTagsOpen(false);
+  });
+
+  renderTags();
+  updateCreateState();
+
 })();
 </script>
 @endsection

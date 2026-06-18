@@ -1465,6 +1465,43 @@ PROMPT;
     }
 
 
+
+
+    /* ============================================================
+     |  ETIQUETAS DEL PROYECTO
+     |  - Guarda labels como array JSON en projects.labels
+     * ============================================================ */
+    public function updateLabels(Request $request, Project $project)
+    {
+        abort_if($project->user_id !== Auth::id() && Auth::id() !== 1, 403);
+
+        $data = $request->validate([
+            'labels' => ['nullable', 'array', 'max:30'],
+            'labels.*' => ['nullable', 'string', 'max:50'],
+        ]);
+
+        $labels = collect($data['labels'] ?? [])
+            ->map(fn ($label) => trim(preg_replace('/\s+/', ' ', (string) $label)))
+            ->filter(fn ($label) => $label !== '')
+            ->unique(fn ($label) => mb_strtolower($label, 'UTF-8'))
+            ->take(30)
+            ->values()
+            ->all();
+
+        $project->labels = $labels;
+        $project->save();
+
+        if ($request->expectsJson() || $request->wantsJson()) {
+            return response()->json([
+                'ok' => true,
+                'message' => 'Etiquetas actualizadas correctamente.',
+                'labels' => $labels,
+            ]);
+        }
+
+        return back()->with('success', 'Etiquetas actualizadas correctamente.');
+    }
+
     /* ============================================================
      |  WORKFLOW STATUS DEL PROYECTO
      |  - No reemplaza status (processing/ready/error)

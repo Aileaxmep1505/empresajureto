@@ -3496,12 +3496,48 @@
   // ============ TABS ============
   const tabs = document.querySelectorAll('.pjd-tab');
   const panes = document.querySelectorAll('.pjd-pane');
-  function activateTab(name) {
+
+  const PJD_TAB_ALIASES = {
+    '#inicio': 'inicio',
+    '#ficha': 'ficha',
+    '#resumen': 'resumen',
+    '#resumen-ejecutivo': 'resumen',
+    '#checklist': 'checklist',
+    '#armado-propuesta': 'checklist',
+    '#propuesta': 'checklist',
+    '#borrador': 'borrador',
+    '#reporte': 'borrador',
+    '#documentos': 'documentos',
+  };
+
+  function normalizePjdTabHash(hash) {
+    const cleanHash = String(hash || '').trim().toLowerCase();
+    return PJD_TAB_ALIASES[cleanHash] || null;
+  }
+
+  function activateTab(name, opts = {}) {
+    const hasTab = Array.from(tabs).some(t => t.dataset.tab === name);
+    if (!hasTab) name = 'ficha';
+
     tabs.forEach(t => t.classList.toggle('is-active', t.dataset.tab === name));
     panes.forEach(p => p.classList.toggle('is-active', p.dataset.pane === name));
+
+    if (opts.updateHash && window.location.hash !== `#${name}`) {
+      history.replaceState(null, '', `${window.location.pathname}${window.location.search}#${name}`);
+    }
+
+    if (name === 'checklist') {
+      setTimeout(() => document.querySelector('[data-pane="checklist"]')?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 60);
+    }
   }
-  tabs.forEach(t => t.addEventListener('click', () => activateTab(t.dataset.tab)));
-  activateTab('ficha');
+
+  function activateTabFromUrl() {
+    activateTab(normalizePjdTabHash(window.location.hash) || 'ficha');
+  }
+
+  tabs.forEach(t => t.addEventListener('click', () => activateTab(t.dataset.tab, { updateHash: true })));
+  window.addEventListener('hashchange', activateTabFromUrl);
+  activateTabFromUrl();
 
   // ============ SPLIT VIEW REDIMENSIONABLE (aplica a todas las pestañas) ============
   const pjdWrap = document.querySelector('.pjd-wrap');
