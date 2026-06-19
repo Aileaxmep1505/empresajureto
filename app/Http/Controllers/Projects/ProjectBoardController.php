@@ -78,6 +78,7 @@ class ProjectBoardController extends Controller
     public function index(Request $request)
     {
         $queryText = trim((string) $request->input('q', ''));
+        $labelFilter = trim((string) $request->input('label', ''));
 
         $projects = Project::where('user_id', Auth::id())
             ->when($queryText !== '', function ($query) use ($queryText) {
@@ -87,8 +88,31 @@ class ProjectBoardController extends Controller
                         ->orWhere('labels', 'like', "%{$queryText}%");
                 });
             })
+            ->when($labelFilter !== '', function ($query) use ($labelFilter) {
+                $query->where('labels', 'like', '%"' . addcslashes($labelFilter, '%_\\') . '"%');
+            })
             ->latest()
             ->get();
+
+        // IMPORTANTE:
+        // Algunas filas antiguas pueden no tener slug.
+        // La vista usa el slug para construir las rutas AJAX de etiquetas, favorito y cambio de estado.
+        // Si no existe, aquí lo generamos una sola vez para evitar el error:
+        // "No se encontró la ruta para guardar etiquetas del proyecto."
+        $projects->each(function (Project $project) {
+            if (!blank($project->slug)) {
+                return;
+            }
+
+            $base = Str::slug($project->name ?: 'proyecto');
+            $base = $base !== '' ? $base : 'proyecto';
+
+            do {
+                $slug = $base . '-' . Str::lower(Str::random(6));
+            } while (Project::where('slug', $slug)->whereKeyNot($project->getKey())->exists());
+
+            $project->forceFill(['slug' => $slug])->saveQuietly();
+        });
 
         $knownWorkflowStatuses = collect($this->defaultColumns())
             ->flatMap(fn ($column) => $column['workflow_statuses'] ?? [$column['id']])
@@ -1745,6 +1769,10 @@ PROMPT;
         $data = $request->validate([
             'labels' => ['nullable', 'array', 'max:30'],
             'labels.*' => ['nullable', 'string', 'max:50'],
+            'label_styles' => ['nullable', 'array'],
+            'label_styles.*.bg' => ['nullable', 'string', 'max:30'],
+            'label_styles.*.border' => ['nullable', 'string', 'max:30'],
+            'label_styles.*.text' => ['nullable', 'string', 'max:30'],
         ]);
 
         $labels = collect($data['labels'] ?? [])
@@ -1755,7 +1783,26 @@ PROMPT;
             ->values()
             ->all();
 
+        $incomingStyles = collect($data['label_styles'] ?? []);
+        $existingStyles = collect($project->label_styles ?? []);
+
+        $labelStyles = collect($labels)->mapWithKeys(function ($label) use ($incomingStyles, $existingStyles) {
+            $lower = mb_strtolower($label, 'UTF-8');
+            $style = $incomingStyles->get($label)
+                ?? $incomingStyles->get($lower)
+                ?? $existingStyles->get($label)
+                ?? $existingStyles->get($lower)
+                ?? [];
+
+            return [$label => [
+                'bg' => $style['bg'] ?? '#ffebeb',
+                'border' => $style['border'] ?? '#ffcaca',
+                'text' => $style['text'] ?? '#ff4a4a',
+            ]];
+        })->all();
+
         $project->labels = $labels;
+        $project->label_styles = $labelStyles;
         $project->save();
 
         if ($request->expectsJson() || $request->wantsJson()) {
@@ -1763,10 +1810,36 @@ PROMPT;
                 'ok' => true,
                 'message' => 'Etiquetas actualizadas correctamente.',
                 'labels' => $labels,
+                'label_styles' => $labelStyles,
             ]);
         }
 
         return back()->with('success', 'Etiquetas actualizadas correctamente.');
+    }
+
+    /* ============================================================
+     |  FAVORITO DEL PROYECTO
+     * ============================================================ */
+    public function updateFavorite(Request $request, Project $project)
+    {
+        abort_if($project->user_id !== Auth::id() && Auth::id() !== 1, 403);
+
+        $data = $request->validate([
+            'favorite' => ['required', 'boolean'],
+        ]);
+
+        $project->favorite = (bool) $data['favorite'];
+        $project->save();
+
+        if ($request->expectsJson() || $request->wantsJson()) {
+            return response()->json([
+                'ok' => true,
+                'message' => 'Favorito actualizado correctamente.',
+                'favorite' => (bool) $project->favorite,
+            ]);
+        }
+
+        return back()->with('success', 'Favorito actualizado correctamente.');
     }
 
     /* ============================================================

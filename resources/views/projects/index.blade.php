@@ -14,6 +14,17 @@
   .js-project-row .pj-drag-btn, .js-project-row .pj-icon-btn, .js-project-row .pj-dots-btn,
   .js-project-row .pj-star-btn, .js-project-row .pj-tag-add, .js-project-row .pj-label-pill-menu { cursor: pointer; }
   .js-project-row.is-saving-labels .pj-label-cell { opacity: .65; pointer-events: none; }
+  .js-project-row.is-saving-favorite .pj-star-btn { opacity: .55; pointer-events: none; }
+  .pj-star-btn.is-active { color: #f59e0b; }
+  .pj-label-filter-pop { width: 280px; }
+  .pj-label-filter-empty { padding: 12px; color: #888; font-weight: 600; font-size: .9rem; }
+  .pj-label-filter-row { display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%; padding:10px 12px; border:0; background:transparent; border-radius:10px; color:#333; font-weight:700; cursor:pointer; }
+  .pj-label-filter-row:hover { background:#f9fafb; }
+  .pj-label-filter-row.is-active { background:#e6f0ff; color:#007aff; }
+  .pj-label-filter-dot { width:10px; height:10px; border-radius:999px; background:#ff4a4a; flex:0 0 auto; }
+  .pj-label-filter-name { flex:1; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .pj-label-filter-count { color:#888; font-size:.82rem; }
+  .js-project-row.is-hidden-by-label { display:none !important; }
 
 
   /* Ajuste puntual: toolbar compacto, fijo y en una sola fila */
@@ -407,10 +418,20 @@
                 </div>
             </div>
 
-            <button type="button" class="pj-btn pj-btn-light">
-                <svg viewBox="0 0 24 24" fill="none" class="pj-icon"><path d="M4 7h16l-5 6v5l-6-3v-2L4 7Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
-                Etiquetas
-            </button>
+            <div class="pj-pop-wrap">
+                <button type="button" class="pj-btn pj-btn-light js-toggle-pop" data-pop="label-filter-pop">
+                    <svg viewBox="0 0 24 24" fill="none" class="pj-icon"><path d="M4 7h16l-5 6v5l-6-3v-2L4 7Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+                    Etiquetas
+                </button>
+
+                <div class="pj-popover pj-label-filter-pop" id="label-filter-pop">
+                    <div class="pj-pop-head">
+                        <span>ETIQUETAS</span>
+                        <button type="button" class="pj-link-btn" id="pjClearLabelFilter">Limpiar</button>
+                    </div>
+                    <div id="pjLabelFilterOptions"></div>
+                </div>
+            </div>
 
             <button type="button" class="pj-btn pj-btn-primary pj-btn-icon-only" title="Carpetas">
                 <svg viewBox="0 0 24 24" fill="none" class="pj-icon"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
@@ -503,6 +524,7 @@
                                              data-project-name="{{ $project['name'] }}"
                                              @if($projectSlug) data-workflow-url="{{ route('projects.workflow-status', $projectSlug) }}" @endif
                                              @if($projectSlug) data-labels-url="{{ route('projects.labels.update', $projectSlug) }}" @endif
+                                             @if($projectSlug) data-favorite-url="{{ route('projects.favorite.update', $projectSlug) }}" @endif
                                              @if($projectHref) data-href="{{ $projectHref }}" @endif>
                                             <div class="pj-col pj-col-project">
                                                 <label class="pj-row-check">
@@ -523,7 +545,17 @@
                                                 <div class="pj-label-cell">
                                                     <div class="pj-label-list js-label-list">
                                                         @foreach(collect($project['labels'] ?? [])->filter()->values() as $projectLabel)
-                                                            <div class="pj-label-pill js-label-pill" data-color="#fee2e2" data-border="#fecaca" data-text="#ef4444">
+                                                            @php
+                                                                $projectLabelStyles = collect($project['label_styles'] ?? []);
+                                                                $projectLabelStyle = $projectLabelStyles->get($projectLabel)
+                                                                    ?? $projectLabelStyles->get(mb_strtolower($projectLabel, 'UTF-8'))
+                                                                    ?? ['bg' => '#ffebeb', 'border' => '#ffcaca', 'text' => '#ff4a4a'];
+                                                            @endphp
+                                                            <div class="pj-label-pill js-label-pill"
+                                                                 data-color="{{ $projectLabelStyle['bg'] ?? '#ffebeb' }}"
+                                                                 data-border="{{ $projectLabelStyle['border'] ?? '#ffcaca' }}"
+                                                                 data-text="{{ $projectLabelStyle['text'] ?? '#ff4a4a' }}"
+                                                                 style="background: {{ $projectLabelStyle['bg'] ?? '#ffebeb' }}; border-color: {{ $projectLabelStyle['border'] ?? '#ffcaca' }}; color: {{ $projectLabelStyle['text'] ?? '#ff4a4a' }};">
                                                                 <span class="pj-label-pill-text">{{ $projectLabel }}</span>
                                                                 <button type="button" class="pj-label-pill-menu js-open-tag-menu" aria-label="Opciones etiqueta">
                                                                     <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h.01M12 12h.01M19 12h.01" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/></svg>
@@ -539,8 +571,8 @@
                                             <div class="pj-col pj-col-date">{{ $project['start_date'] }}</div>
                                             <div class="pj-col pj-col-assigned">{{ $assignedName }}</div>
                                             <div class="pj-col pj-col-star">
-                                                <button type="button" class="pj-star-btn">
-                                                    <svg viewBox="0 0 24 24" fill="none" class="pj-icon"><path d="M12 3.8l2.57 5.2 5.74.83-4.15 4.05.98 5.72L12 16.88 6.86 19.6l.98-5.72L3.69 9.83l5.74-.83L12 3.8Z" stroke="currentColor" stroke-width="1.6" fill="{{ !empty($project['starred']) ? 'currentColor' : 'none' }}"/></svg>
+                                                <button type="button" class="pj-star-btn {{ !empty($project['starred']) || !empty($project['favorite']) ? 'is-active' : '' }}" aria-pressed="{{ !empty($project['starred']) || !empty($project['favorite']) ? 'true' : 'false' }}">
+                                                    <svg viewBox="0 0 24 24" fill="none" class="pj-icon"><path d="M12 3.8l2.57 5.2 5.74.83-4.15 4.05.98 5.72L12 16.88 6.86 19.6l.98-5.72L3.69 9.83l5.74-.83L12 3.8Z" stroke="currentColor" stroke-width="1.6" fill="{{ !empty($project['starred']) || !empty($project['favorite']) ? 'currentColor' : 'none' }}"/></svg>
                                                 </button>
                                             </div>
                                             <div class="pj-col pj-col-options">
@@ -614,6 +646,7 @@
                                                  data-project-name="{{ $project['name'] }}"
                                                  @if($projectSlug) data-workflow-url="{{ route('projects.workflow-status', $projectSlug) }}" @endif
                                                  @if($projectSlug) data-labels-url="{{ route('projects.labels.update', $projectSlug) }}" @endif
+                                                 @if($projectSlug) data-favorite-url="{{ route('projects.favorite.update', $projectSlug) }}" @endif
                                                  @if($projectHref) data-href="{{ $projectHref }}" @endif>
                                                 <div class="pj-card-top">
                                                     <div class="pj-card-main">
@@ -629,8 +662,8 @@
                                                         @endif
                                                     </div>
                                                     <div class="pj-card-actions">
-                                                        <button type="button" class="pj-icon-btn" title="Favorito">
-                                                            <svg viewBox="0 0 24 24" fill="none" class="pj-icon"><path d="M12 3.8l2.57 5.2 5.74.83-4.15 4.05.98 5.72L12 16.88 6.86 19.6l.98-5.72L3.69 9.83l5.74-.83L12 3.8Z" stroke="currentColor" stroke-width="1.6" fill="{{ !empty($project['starred']) ? 'currentColor' : 'none' }}"/></svg>
+                                                        <button type="button" class="pj-icon-btn pj-star-btn {{ !empty($project['starred']) || !empty($project['favorite']) ? 'is-active' : '' }}" title="Favorito" aria-pressed="{{ !empty($project['starred']) || !empty($project['favorite']) ? 'true' : 'false' }}">
+                                                            <svg viewBox="0 0 24 24" fill="none" class="pj-icon"><path d="M12 3.8l2.57 5.2 5.74.83-4.15 4.05.98 5.72L12 16.88 6.86 19.6l.98-5.72L3.69 9.83l5.74-.83L12 3.8Z" stroke="currentColor" stroke-width="1.6" fill="{{ !empty($project['starred']) || !empty($project['favorite']) ? 'currentColor' : 'none' }}"/></svg>
                                                         </button>
                                                         <button type="button" class="pj-icon-btn js-open-project-menu" title="Más">
                                                             <svg viewBox="0 0 24 24" fill="none" class="pj-icon"><path d="M12 5h.01M12 12h.01M12 19h.01" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/></svg>
@@ -644,14 +677,24 @@
                                                     <div class="pj-meta-row pj-meta-row-labels">
                                                         <div class="pj-meta-label">Etiquetas</div>
                                                         <div class="pj-label-list js-label-list">
-                                                            @if($label)
-                                                                <div class="pj-label-pill js-label-pill" data-color="#fee2e2" data-border="#fecaca" data-text="#ef4444">
-                                                                    <span class="pj-label-pill-text">{{ $label }}</span>
+                                                            @foreach(collect($project['labels'] ?? [])->filter()->values() as $projectLabel)
+                                                                @php
+                                                                    $projectLabelStyles = collect($project['label_styles'] ?? []);
+                                                                    $projectLabelStyle = $projectLabelStyles->get($projectLabel)
+                                                                        ?? $projectLabelStyles->get(mb_strtolower($projectLabel, 'UTF-8'))
+                                                                        ?? ['bg' => '#ffebeb', 'border' => '#ffcaca', 'text' => '#ff4a4a'];
+                                                                @endphp
+                                                                <div class="pj-label-pill js-label-pill"
+                                                                     data-color="{{ $projectLabelStyle['bg'] ?? '#ffebeb' }}"
+                                                                     data-border="{{ $projectLabelStyle['border'] ?? '#ffcaca' }}"
+                                                                     data-text="{{ $projectLabelStyle['text'] ?? '#ff4a4a' }}"
+                                                                     style="background: {{ $projectLabelStyle['bg'] ?? '#ffebeb' }}; border-color: {{ $projectLabelStyle['border'] ?? '#ffcaca' }}; color: {{ $projectLabelStyle['text'] ?? '#ff4a4a' }};">
+                                                                    <span class="pj-label-pill-text">{{ $projectLabel }}</span>
                                                                     <button type="button" class="pj-label-pill-menu js-open-tag-menu" aria-label="Opciones etiqueta">
                                                                         <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h.01M12 12h.01M19 12h.01" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/></svg>
                                                                     </button>
                                                                 </div>
-                                                            @endif
+                                                            @endforeach
                                                         </div>
                                                         <button type="button" class="pj-tag-add js-open-label-pop" data-project-id="{{ $projectId }}" data-project-name="{{ $project['name'] }}">+ Agregar</button>
                                                     </div>
@@ -1117,6 +1160,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
             viewTransition.innerHTML = nextView.innerHTML;
             history.replaceState({}, '', url.toString());
+            closeLabelPopover();
+            closeTagMenu();
+            closeProjectMenu();
+            updateBulkbar();
         } catch (error) {
             if (error.name !== 'AbortError') console.error(error);
         } finally {
@@ -1138,16 +1185,19 @@ document.addEventListener('DOMContentLoaded', function () {
     const bulkbar = document.getElementById('pjBulkbar');
     const selectedCountEl = document.getElementById('pjSelectedCount');
     const clearSelectionBtn = document.getElementById('pjClearSelection');
-    const projectChecks = Array.from(document.querySelectorAll('.js-project-check'));
-    const columnChecks = Array.from(document.querySelectorAll('.js-select-column'));
-    const projectRows = Array.from(document.querySelectorAll('.js-project-row'));
+    function getProjectChecks() { return Array.from(document.querySelectorAll('.js-project-check')); }
+    function getColumnChecks() { return Array.from(document.querySelectorAll('.js-select-column')); }
+    function getProjectRows() { return Array.from(document.querySelectorAll('.js-project-row')); }
 
-    function getCheckedProjects() { return projectChecks.filter(c => c.checked); }
+    function getCheckedProjects() { return getProjectChecks().filter(c => c.checked); }
     function updateBulkbar() {
+        const projectChecks = getProjectChecks();
+        const columnChecks = getColumnChecks();
+        const projectRows = getProjectRows();
         const n = getCheckedProjects().length;
-        selectedCountEl.textContent = n;
-        bulkbar.classList.toggle('is-open', n > 0);
-        bulkbar.setAttribute('aria-hidden', n > 0 ? 'false' : 'true');
+        if (selectedCountEl) selectedCountEl.textContent = n;
+        bulkbar?.classList.toggle('is-open', n > 0);
+        bulkbar?.setAttribute('aria-hidden', n > 0 ? 'false' : 'true');
         projectRows.forEach(row => {
             const cb = document.querySelector(`.js-project-check[data-project-id="${row.dataset.projectId}"]`);
             if (cb) row.classList.toggle('is-selected', cb.checked);
@@ -1162,15 +1212,24 @@ document.addEventListener('DOMContentLoaded', function () {
             else { master.checked = false; master.indeterminate = true; }
         });
     }
-    projectChecks.forEach(c => c.addEventListener('change', updateBulkbar));
-    columnChecks.forEach(m => m.addEventListener('change', function () {
-        const colId = this.dataset.columnId;
-        projectChecks.filter(c => c.dataset.columnId === colId).forEach(c => c.checked = this.checked);
+
+    document.addEventListener('change', function (event) {
+        const projectCheck = event.target.closest('.js-project-check');
+        if (projectCheck) { updateBulkbar(); return; }
+
+        const columnCheck = event.target.closest('.js-select-column');
+        if (!columnCheck) return;
+
+        const colId = columnCheck.dataset.columnId;
+        getProjectChecks()
+            .filter(c => c.dataset.columnId === colId)
+            .forEach(c => c.checked = columnCheck.checked);
         updateBulkbar();
-    }));
+    });
+
     if (clearSelectionBtn) clearSelectionBtn.addEventListener('click', () => {
-        projectChecks.forEach(c => c.checked = false);
-        columnChecks.forEach(c => { c.checked = false; c.indeterminate = false; });
+        getProjectChecks().forEach(c => c.checked = false);
+        getColumnChecks().forEach(c => { c.checked = false; c.indeterminate = false; });
         updateBulkbar();
     });
     updateBulkbar();
@@ -1189,7 +1248,14 @@ document.addEventListener('DOMContentLoaded', function () {
         { name: 'papeleria' }, { name: '*PRUEBA*' }, { name: 'urgente' }, { name: 'licitación' }, { name: 'base' }
     ];
 
-    function createLabelPill(label, colorSet = {bg:'#fee2e2', border:'#fecaca', text:'#ef4444'}) {
+    document.querySelectorAll('.pj-label-pill-text').forEach(el => {
+        const name = normalizeLabelText(el.textContent);
+        if (name && !availableLabels.some(item => item.name.toLowerCase() === name.toLowerCase())) {
+            availableLabels.push({ name });
+        }
+    });
+
+    function createLabelPill(label, colorSet = {bg:'#ffebeb', border:'#ffcaca', text:'#ff4a4a'}) {
         const wrap = document.createElement('div');
         wrap.className = 'pj-label-pill js-label-pill';
         wrap.dataset.color = colorSet.bg; wrap.dataset.border = colorSet.border; wrap.dataset.text = colorSet.text;
@@ -1233,8 +1299,33 @@ document.addEventListener('DOMContentLoaded', function () {
             .filter((label, index, arr) => arr.findIndex(x => x.toLowerCase() === label.toLowerCase()) === index);
     }
 
+    function getRowLabelStyles(row) {
+        const styles = {};
+        if (!row) return styles;
+        row.querySelectorAll('.js-label-pill').forEach(pill => {
+            const label = normalizeLabelText(pill.querySelector('.pj-label-pill-text')?.textContent || '');
+            if (!label) return;
+            styles[label] = {
+                bg: pill.dataset.color || pill.style.backgroundColor || '#ffebeb',
+                border: pill.dataset.border || pill.style.borderColor || '#ffcaca',
+                text: pill.dataset.text || pill.style.color || '#ff4a4a',
+            };
+        });
+        return styles;
+    }
+
+    function getLabelsUrl(row) {
+        if (!row) return '';
+        if (row.dataset.labelsUrl) return row.dataset.labelsUrl;
+        if (row.dataset.projectSlug) return `/projects/${encodeURIComponent(row.dataset.projectSlug)}/labels`;
+        return '';
+    }
+
     async function saveProjectLabels(row, labels) {
-        if (!row || !row.dataset.labelsUrl) return { ok: false, labels };
+        const url = getLabelsUrl(row);
+        if (!row || !url) {
+            throw new Error('No se encontró la ruta para guardar etiquetas del proyecto.');
+        }
 
         const cleanLabels = (labels || [])
             .map(normalizeLabelText)
@@ -1244,7 +1335,7 @@ document.addEventListener('DOMContentLoaded', function () {
         row.classList.add('is-saving-labels');
 
         try {
-            const response = await fetch(row.dataset.labelsUrl, {
+            const response = await fetch(url, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1252,7 +1343,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     'X-Requested-With': 'XMLHttpRequest',
                     'X-CSRF-TOKEN': csrfToken,
                 },
-                body: JSON.stringify({ labels: cleanLabels }),
+                body: JSON.stringify({ labels: cleanLabels, label_styles: getRowLabelStyles(row) }),
                 credentials: 'same-origin',
             });
 
@@ -1261,10 +1352,23 @@ document.addEventListener('DOMContentLoaded', function () {
                 throw new Error(payload.message || 'No se pudieron guardar las etiquetas.');
             }
 
-            return { ok: true, labels: Array.isArray(payload.labels) ? payload.labels : cleanLabels };
+            return { ok: true, labels: Array.isArray(payload.labels) ? payload.labels : cleanLabels, label_styles: payload.label_styles || getRowLabelStyles(row) };
         } finally {
             row.classList.remove('is-saving-labels');
         }
+    }
+
+    function renderRowLabels(row, labels, labelStyles = {}) {
+        if (!row) return;
+        const list = row.querySelector('.js-label-list');
+        if (!list) return;
+        list.innerHTML = '';
+        (labels || [])
+            .map(normalizeLabelText)
+            .filter(Boolean)
+            .forEach(label => list.appendChild(createLabelPill(label, labelStyles[label] || labelStyles[label.toLowerCase()] || undefined)));
+        if (typeof renderLabelFilterOptions === 'function') renderLabelFilterOptions();
+        if (activeLabelFilter) applyLabelFilter(activeLabelFilter);
     }
 
     function addLabelPillToRow(row, label) {
@@ -1302,8 +1406,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 addLabelPillToRow(row, clean);
 
                 try {
-                    await saveProjectLabels(row, nextLabels);
+                    const saved = await saveProjectLabels(row, nextLabels);
+                    renderRowLabels(row, saved.labels, saved.label_styles);
                 } catch (error) {
+                    renderRowLabels(row, previousLabels);
                     alert(error.message || 'No se pudieron guardar las etiquetas.');
                 }
             }
@@ -1323,13 +1429,20 @@ document.addEventListener('DOMContentLoaded', function () {
         addLabelPillToRow(row, clean);
 
         try {
-            await saveProjectLabels(row, nextLabels);
+            const saved = await saveProjectLabels(row, nextLabels);
+            renderRowLabels(row, saved.labels, saved.label_styles);
         } catch (error) {
+            renderRowLabels(row, previousLabels);
             alert(error.message || 'No se pudieron guardar las etiquetas.');
         }
     }
 
-    document.querySelectorAll('.js-open-label-pop').forEach(btn => btn.addEventListener('click', function (e) { e.stopPropagation(); openLabelPopover(this, 'single'); }));
+    document.addEventListener('click', function (event) {
+        const openLabelBtn = event.target.closest('.js-open-label-pop');
+        if (!openLabelBtn) return;
+        event.stopPropagation();
+        openLabelPopover(openLabelBtn, 'single');
+    });
     if (bulkLabelsBtn) bulkLabelsBtn.addEventListener('click', function (e) { e.stopPropagation(); if (!getCheckedProjects().length) return; openLabelPopover(this, 'bulk'); });
     if (labelSearchInput) labelSearchInput.addEventListener('input', function () {
         const v = this.value.trim(); createLabelText.textContent = v || 'Etiqueta'; renderLabelOptions(v);
@@ -1355,23 +1468,226 @@ document.addEventListener('DOMContentLoaded', function () {
         if (btn) { e.stopPropagation(); const pill = btn.closest('.js-label-pill'); if (!pill) return; openTagMenu(btn, pill); }
     });
     if (closeTagMenuBtn) closeTagMenuBtn.addEventListener('click', closeTagMenu);
-    document.querySelectorAll('.pj-color-dot').forEach(dot => dot.addEventListener('click', function () {
+    document.querySelectorAll('.pj-color-dot').forEach(dot => dot.addEventListener('click', async function () {
         if (!activeTagPill) return;
-        const bg = this.dataset.bg, border = this.dataset.border, text = this.dataset.text;
-        activeTagPill.dataset.color = bg; activeTagPill.dataset.border = border; activeTagPill.dataset.text = text;
-        activeTagPill.style.background = bg; activeTagPill.style.borderColor = border; activeTagPill.style.color = text;
-    }));
-    if (deleteTagBtn) deleteTagBtn.addEventListener('click', async () => {
-        if (!activeTagPill) { closeTagMenu(); return; }
         const row = activeTagPill.closest('.js-project-row');
-        activeTagPill.remove();
+        const previousLabels = getRowLabels(row);
+        const previousStyles = getRowLabelStyles(row);
+        const bg = this.dataset.bg, border = this.dataset.border, text = this.dataset.text;
+
+        activeTagPill.dataset.color = bg;
+        activeTagPill.dataset.border = border;
+        activeTagPill.dataset.text = text;
+        activeTagPill.style.background = bg;
+        activeTagPill.style.borderColor = border;
+        activeTagPill.style.color = text;
+
         try {
-            await saveProjectLabels(row, getRowLabels(row));
+            const saved = await saveProjectLabels(row, getRowLabels(row));
+            renderRowLabels(row, saved.labels, saved.label_styles);
         } catch (error) {
+            renderRowLabels(row, previousLabels, previousStyles);
+            alert(error.message || 'No se pudo guardar el color de la etiqueta.');
+        }
+    }));
+    if (deleteTagBtn) deleteTagBtn.addEventListener('click', async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        if (!activeTagPill) {
+            closeTagMenu();
+            return;
+        }
+
+        const row = activeTagPill.closest('.js-project-row');
+        if (!row) {
+            closeTagMenu();
+            return;
+        }
+
+        const deletedLabel = normalizeLabelText(activeTagPill.querySelector('.pj-label-pill-text')?.textContent || '');
+        const previousLabels = getRowLabels(row);
+        const previousStyles = getRowLabelStyles(row);
+
+        activeTagPill.remove();
+
+        try {
+            const saved = await saveProjectLabels(row, getRowLabels(row));
+
+            if (!clearLabelFilterIfNeeded(deletedLabel)) {
+                renderRowLabels(row, saved.labels, saved.label_styles);
+            } else {
+                renderRowLabels(row, saved.labels, saved.label_styles);
+                applyLabelFilter('');
+            }
+        } catch (error) {
+            renderRowLabels(row, previousLabels, previousStyles);
             alert(error.message || 'No se pudieron guardar las etiquetas.');
         }
+
         closeTagMenu();
     });
+
+
+    // ============ FAVORITOS ==========
+    function getFavoriteUrl(row) {
+        if (!row) return '';
+        if (row.dataset.favoriteUrl) return row.dataset.favoriteUrl;
+        if (row.dataset.projectSlug) return `/projects/${encodeURIComponent(row.dataset.projectSlug)}/favorite`;
+        return '';
+    }
+
+    async function saveProjectFavorite(row, favorite) {
+        const url = getFavoriteUrl(row);
+        if (!row || !url) throw new Error('No se encontró la ruta para guardar favorito.');
+
+        row.classList.add('is-saving-favorite');
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': csrfToken,
+                },
+                body: JSON.stringify({ favorite }),
+                credentials: 'same-origin',
+            });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok || payload.ok === false) throw new Error(payload.message || 'No se pudo guardar favorito.');
+            return !!payload.favorite;
+        } finally {
+            row.classList.remove('is-saving-favorite');
+        }
+    }
+
+    function paintFavoriteButton(button, favorite) {
+        if (!button) return;
+        button.classList.toggle('is-active', favorite);
+        button.setAttribute('aria-pressed', favorite ? 'true' : 'false');
+        const path = button.querySelector('svg path');
+        if (path) path.setAttribute('fill', favorite ? 'currentColor' : 'none');
+    }
+
+    document.addEventListener('click', async function (event) {
+        const btn = event.target.closest('.pj-star-btn');
+        if (!btn) return;
+        event.preventDefault();
+        event.stopPropagation();
+
+        const row = btn.closest('.js-project-row');
+        const current = btn.classList.contains('is-active');
+        const next = !current;
+        paintFavoriteButton(btn, next);
+
+        try {
+            const savedFavorite = await saveProjectFavorite(row, next);
+            paintFavoriteButton(btn, savedFavorite);
+        } catch (error) {
+            paintFavoriteButton(btn, current);
+            alert(error.message || 'No se pudo guardar favorito.');
+        }
+    });
+
+    // ============ FILTRO POR ETIQUETA ==========
+    const labelFilterOptions = document.getElementById('pjLabelFilterOptions');
+    const clearLabelFilterBtn = document.getElementById('pjClearLabelFilter');
+    let activeLabelFilter = '';
+
+    function getAllVisibleLabelsForFilter() {
+        const map = new Map();
+        document.querySelectorAll('.js-project-row').forEach(row => {
+            getRowLabels(row).forEach(label => {
+                const key = label.toLowerCase();
+                if (!map.has(key)) map.set(key, { name: label, count: 0 });
+                map.get(key).count += 1;
+            });
+        });
+        return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    function renderLabelFilterOptions() {
+        if (!labelFilterOptions) return;
+        const labels = getAllVisibleLabelsForFilter();
+        if (!labels.length) {
+            labelFilterOptions.innerHTML = '<div class="pj-label-filter-empty">Sin etiquetas</div>';
+            return;
+        }
+        labelFilterOptions.innerHTML = labels.map(item => `
+            <button type="button" class="pj-label-filter-row ${activeLabelFilter.toLowerCase() === item.name.toLowerCase() ? 'is-active' : ''}" data-label="${item.name.replace(/"/g, '&quot;')}">
+                <span class="pj-label-filter-dot"></span>
+                <span class="pj-label-filter-name">${item.name}</span>
+                <span class="pj-label-filter-count">${item.count}</span>
+            </button>
+        `).join('');
+    }
+
+    function updateColumnCountsAfterLabelFilter() {
+        document.querySelectorAll('.pj-column').forEach(column => {
+            const visibleRows = Array.from(column.querySelectorAll('.js-project-row'))
+                .filter(row => !row.classList.contains('is-hidden-by-label'));
+            const count = visibleRows.length;
+            const countEl = column.querySelector('.pj-column-count');
+            const collapsedCountEl = column.querySelector('.pj-collapsed-count');
+            if (countEl) countEl.textContent = `(${count})`;
+            if (collapsedCountEl) collapsedCountEl.textContent = `(${count})`;
+        });
+
+        document.querySelectorAll('.pj-group').forEach(group => {
+            const visibleRows = Array.from(group.querySelectorAll('.js-project-row'))
+                .filter(row => !row.classList.contains('is-hidden-by-label'));
+            const countEl = group.querySelector('.pj-group-count');
+            if (countEl) countEl.textContent = `(${visibleRows.length})`;
+        });
+    }
+
+    function applyLabelFilter(label) {
+        activeLabelFilter = normalizeLabelText(label);
+        document.querySelectorAll('.js-project-row').forEach(row => {
+            const labels = getRowLabels(row).map(item => item.toLowerCase());
+            const match = !activeLabelFilter || labels.includes(activeLabelFilter.toLowerCase());
+            row.classList.toggle('is-hidden-by-label', !match);
+        });
+
+        const url = new URL(window.location.href);
+        if (activeLabelFilter) url.searchParams.set('label', activeLabelFilter);
+        else url.searchParams.delete('label');
+        history.replaceState({}, '', url.toString());
+
+        updateColumnCountsAfterLabelFilter();
+        renderLabelFilterOptions();
+    }
+
+    function clearLabelFilterIfNeeded(labelName) {
+        const removedLabel = normalizeLabelText(labelName).toLowerCase();
+        const activeLabel = normalizeLabelText(activeLabelFilter).toLowerCase();
+
+        if (removedLabel && activeLabel && removedLabel === activeLabel) {
+            applyLabelFilter('');
+            return true;
+        }
+
+        return false;
+    }
+
+    if (labelFilterOptions) {
+        labelFilterOptions.addEventListener('click', function (event) {
+            const btn = event.target.closest('.pj-label-filter-row');
+            if (!btn) return;
+            applyLabelFilter(btn.dataset.label || '');
+        });
+        renderLabelFilterOptions();
+    }
+
+    const initialLabelFromUrl = new URL(window.location.href).searchParams.get('label') || '';
+    if (initialLabelFromUrl) applyLabelFilter(initialLabelFromUrl);
+
+    if (clearLabelFilterBtn) {
+        clearLabelFilterBtn.addEventListener('click', function () {
+            applyLabelFilter('');
+        });
+    }
 
     // ============ PROJECT MENU ============
     const projectMenu = document.getElementById('pjProjectMenu');
@@ -1401,28 +1717,61 @@ document.addEventListener('DOMContentLoaded', function () {
     let draggingOriginalColumnId = null;
 
     function getWorkflowFromDropTarget(target) {
+        if (!target) return null;
         const column = target.closest('.pj-column, .pj-group');
         return column ? column.getAttribute('data-column-id') : null;
     }
 
-    function getDropContainer(target) {
-        return target.closest('.pj-cards, .pj-group-children, .pj-column-body');
+    function getBestDropZone(target) {
+        if (!target) return null;
+        return target.closest('.js-project-row, .pj-cards, .pj-column-body, .pj-column, .pj-group-children, .pj-group');
+    }
+
+    function getDropContainerFromZone(zone) {
+        if (!zone) return null;
+
+        if (zone.classList.contains('js-project-row')) {
+            return zone.parentElement;
+        }
+
+        if (zone.classList.contains('pj-cards') || zone.classList.contains('pj-group-children')) {
+            return zone;
+        }
+
+        const cards = zone.querySelector('.pj-cards');
+        if (cards) return cards;
+
+        const groupChildren = zone.querySelector('.pj-group-children');
+        if (groupChildren) return groupChildren;
+
+        if (zone.classList.contains('pj-column-body')) return zone;
+
+        return null;
     }
 
     async function updateProjectWorkflow(row, workflowStatus) {
-        if (!row || !workflowStatus || !row.dataset.workflowUrl) return true;
+        if (!row || !workflowStatus) return false;
+
+        const url = row.dataset.workflowUrl;
+        if (!url) {
+            alert('No se encontró la ruta para actualizar el estado de este proyecto.');
+            window.location.reload();
+            return false;
+        }
 
         row.classList.add('is-saving-workflow');
 
         try {
-            const response = await fetch(row.dataset.workflowUrl, {
+            const response = await fetch(url, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
                     'X-CSRF-TOKEN': CSRF_TOKEN,
                 },
                 body: JSON.stringify({ workflow_status: workflowStatus }),
+                credentials: 'same-origin',
             });
 
             const payload = await response.json().catch(() => ({}));
@@ -1443,17 +1792,16 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    function moveDraggedElement(target, event) {
-        if (!draggingEl || !target) return null;
+    function moveDraggedElement(zone, event) {
+        if (!draggingEl || !zone) return null;
 
-        const container = getDropContainer(target);
+        const targetRow = zone.classList.contains('js-project-row') ? zone : event.target.closest('.js-project-row');
+        const container = getDropContainerFromZone(zone);
         if (!container) return null;
 
-        const targetRow = target.closest('.js-project-row');
-
-        if (targetRow && targetRow !== draggingEl && targetRow.parentNode === container) {
-            const targetRect = targetRow.getBoundingClientRect();
-            const after = (event.clientY - targetRect.top) > (targetRect.height / 2);
+        if (targetRow && targetRow !== draggingEl && targetRow.parentElement === container) {
+            const rect = targetRow.getBoundingClientRect();
+            const after = (event.clientY - rect.top) > (rect.height / 2);
 
             if (after) {
                 if (targetRow.nextSibling) container.insertBefore(draggingEl, targetRow.nextSibling);
@@ -1461,72 +1809,77 @@ document.addEventListener('DOMContentLoaded', function () {
             } else {
                 container.insertBefore(draggingEl, targetRow);
             }
-        } else if (!targetRow) {
-            const cardsContainer = container.classList.contains('pj-column-body')
-                ? (container.querySelector('.pj-cards') || container)
-                : container;
-
-            cardsContainer.appendChild(draggingEl);
+        } else {
+            container.appendChild(draggingEl);
         }
 
         return container;
     }
 
-    function handleDragStart(e) {
-        draggingEl = this;
-        draggingOriginalColumnId = this.dataset.columnId || getWorkflowFromDropTarget(this);
-        this.classList.add('is-dragging');
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', this.dataset.projectId || '');
-    }
+    document.addEventListener('dragstart', function (e) {
+        const row = e.target.closest('.js-project-row');
+        if (!row) return;
 
-    function handleDragEnd() {
-        this.classList.remove('is-dragging');
-        document.querySelectorAll('.pj-drop-target').forEach(el => el.classList.remove('pj-drop-target'));
-    }
+        draggingEl = row;
+        draggingOriginalColumnId = row.dataset.columnId || getWorkflowFromDropTarget(row);
+        row.classList.add('is-dragging');
 
-    function handleDragOver(e) {
-        if (!draggingEl) return;
-        e.preventDefault();
-        e.currentTarget.classList.add('pj-drop-target');
-        e.dataTransfer.dropEffect = 'move';
-    }
-
-    function handleDragLeave(e) {
-        if (!e.currentTarget.contains(e.relatedTarget)) {
-            e.currentTarget.classList.remove('pj-drop-target');
+        if (e.dataTransfer) {
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', row.dataset.projectId || row.dataset.projectSlug || 'project');
         }
-    }
+    });
 
-    async function handleDrop(e) {
+    document.addEventListener('dragend', function () {
+        if (draggingEl) draggingEl.classList.remove('is-dragging');
+        document.querySelectorAll('.pj-drop-target').forEach(el => el.classList.remove('pj-drop-target'));
+        draggingEl = null;
+        draggingOriginalColumnId = null;
+    });
+
+    document.addEventListener('dragover', function (e) {
+        if (!draggingEl) return;
+
+        const zone = getBestDropZone(e.target);
+        if (!zone) return;
+
+        const workflow = getWorkflowFromDropTarget(zone);
+        if (!workflow) return;
+
+        e.preventDefault();
+        zone.classList.add('pj-drop-target');
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+    });
+
+    document.addEventListener('dragleave', function (e) {
+        const zone = getBestDropZone(e.target);
+        if (!zone) return;
+
+        if (!zone.contains(e.relatedTarget)) {
+            zone.classList.remove('pj-drop-target');
+        }
+    });
+
+    document.addEventListener('drop', async function (e) {
+        if (!draggingEl) return;
+
+        const zone = getBestDropZone(e.target);
+        if (!zone) return;
+
+        const targetWorkflow = getWorkflowFromDropTarget(zone);
+        if (!targetWorkflow) return;
+
         e.preventDefault();
         e.stopPropagation();
 
         document.querySelectorAll('.pj-drop-target').forEach(el => el.classList.remove('pj-drop-target'));
-        if (!draggingEl) return;
 
-        const targetWorkflow = getWorkflowFromDropTarget(e.currentTarget) || getWorkflowFromDropTarget(e.target);
         const previousWorkflow = draggingOriginalColumnId;
+        moveDraggedElement(zone, e);
 
-        moveDraggedElement(e.currentTarget, e);
-
-        if (targetWorkflow && targetWorkflow !== previousWorkflow) {
+        if (targetWorkflow !== previousWorkflow) {
             await updateProjectWorkflow(draggingEl, targetWorkflow);
         }
-    }
-
-    projectRows.forEach(row => {
-        row.addEventListener('dragstart', handleDragStart);
-        row.addEventListener('dragend', handleDragEnd);
-        row.addEventListener('dragover', handleDragOver);
-        row.addEventListener('dragleave', handleDragLeave);
-        row.addEventListener('drop', handleDrop);
-    });
-
-    document.querySelectorAll('.pj-column, .pj-column-collapsed-btn, .pj-column-body, .pj-group-children').forEach(zone => {
-        zone.addEventListener('dragover', handleDragOver);
-        zone.addEventListener('dragleave', handleDragLeave);
-        zone.addEventListener('drop', handleDrop);
     });
 });
 </script>

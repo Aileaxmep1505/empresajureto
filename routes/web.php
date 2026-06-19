@@ -2377,4 +2377,8 @@ Route::middleware(['auth'])
     ->name('workflow-status');
   Route::post('/{project}/labels', [ProjectBoardController::class, 'updateLabels'])
     ->name('labels.update');
+ 
+
+Route::post('/{project}/favorite', [ProjectBoardController::class, 'updateFavorite'])
+    ->name('favorite.update');
     });

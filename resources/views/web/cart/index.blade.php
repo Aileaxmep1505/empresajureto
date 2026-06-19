@@ -1,5 +1,6 @@
 {{-- resources/views/web/cart.blade.php --}}
 @extends('layouts.web')
+
 @section('title','Carrito')
 
 @section('content')

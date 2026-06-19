@@ -23,11 +23,9 @@ class Project extends Model
         'start_date',
         'favorite',
         'labels',
+        'label_styles',
         'status',
         'workflow_status',
-        'no_participa_reason',
-        'no_participa_confirmed_at',
-        'no_participa_confirmed_by',
         'structured_data',
         'error_message',
         'draft_content',
@@ -40,14 +38,14 @@ class Project extends Model
     ];
 
     protected $casts = [
-        'start_date'                   => 'date',
-        'favorite'                     => 'boolean',
-        'labels'                       => 'array',
-        'structured_data'              => 'array',
-        'no_participa_confirmed_at'    => 'datetime',
+        'start_date'      => 'date',
+        'favorite'        => 'boolean',
+        'labels'          => 'array',
+        'label_styles'    => 'array',
+        'structured_data' => 'array',
 
         // Temporal / legacy.
-        'checklist'                    => 'array',
+        'checklist'       => 'array',
     ];
 
     /* ============================================================
@@ -62,11 +60,6 @@ class Project extends Model
     public function assignee(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_to');
-    }
-
-    public function noParticipaConfirmer(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'no_participa_confirmed_by');
     }
 
     public function documents(): HasMany
