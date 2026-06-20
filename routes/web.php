@@ -2328,12 +2328,55 @@ Route::middleware(['auth'])
 
         Route::post('/', [ProjectBoardController::class, 'store'])
             ->name('store');
+Route::get('/control', [ProjectBoardController::class, 'control'])
+    ->name('control');
+        /*
+        |--------------------------------------------------------------------------
+        | Acciones AJAX del tablero / index
+        |--------------------------------------------------------------------------
+        */
+
+        Route::post('/{project}/workflow-status', [ProjectBoardController::class, 'updateWorkflowStatus'])
+            ->name('workflow-status');
+
+        Route::post('/{project}/labels', [ProjectBoardController::class, 'updateLabels'])
+            ->name('labels.update');
+
+        Route::post('/{project}/favorite', [ProjectBoardController::class, 'updateFavorite'])
+            ->name('favorite.update');
+
+        Route::post('/{project}/priority', [ProjectBoardController::class, 'updatePriority'])
+            ->name('priority.update');
+
+        Route::post('/{project}/assignee', [ProjectBoardController::class, 'updateAssignee'])
+            ->name('assignee.update');
+
+        Route::patch('/{project}/quick-update', [ProjectBoardController::class, 'quickUpdate'])
+            ->name('quick-update');
+
+        Route::post('/{project}/archive', [ProjectBoardController::class, 'archive'])
+            ->name('archive');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Vistas del proyecto
+        |--------------------------------------------------------------------------
+        */
 
         Route::get('/{project}', [ProjectBoardController::class, 'show'])
             ->name('show');
 
         Route::get('/{project}/analisis', [ProjectBoardController::class, 'analisis'])
             ->name('analisis');
+
+        Route::get('/{project}/reports', [ProjectBoardController::class, 'reports'])
+            ->name('reports');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Chat / draft / checklist / reportes
+        |--------------------------------------------------------------------------
+        */
 
         Route::post('/{project}/chat', [ProjectBoardController::class, 'chat'])
             ->name('chat');
@@ -2360,25 +2403,23 @@ Route::middleware(['auth'])
         Route::post('/{project}/report', [ProjectBoardController::class, 'generateReport'])
             ->name('report');
 
+        Route::post('/{project}/no-participa-reason', [ProjectBoardController::class, 'updateNoParticipaReason'])
+            ->name('no-participa.reason');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Eliminaciones
+        |--------------------------------------------------------------------------
+        */
+
         Route::delete('/{project}/documents/{document}', [ProjectBoardController::class, 'destroyProjectDocument'])
             ->name('documents.destroy');
 
         Route::delete('/{project}/checklist/attachments/{attachment}', [ProjectBoardController::class, 'destroyChecklistAttachment'])
             ->name('checklist.attachments.destroy');
-            Route::post('/{project}/workflow-status', [ProjectBoardController::class, 'updateWorkflowStatus'])
-    ->name('workflow-status');
-    Route::post('/{project}/labels', [ProjectBoardController::class, 'updateLabels'])
-    ->name('labels.update');
-    Route::get('/{project}/reports', [ProjectBoardController::class, 'reports'])
-    ->name('reports');
-    Route::post('/{project}/no-participa-reason', [ProjectBoardController::class, 'updateNoParticipaReason'])
-    ->name('no-participa.reason');
-    Route::post('/{project}/workflow-status', [ProjectBoardController::class, 'updateWorkflowStatus'])
-    ->name('workflow-status');
-  Route::post('/{project}/labels', [ProjectBoardController::class, 'updateLabels'])
-    ->name('labels.update');
- 
 
-Route::post('/{project}/favorite', [ProjectBoardController::class, 'updateFavorite'])
-    ->name('favorite.update');
+        Route::delete('/{project}', [ProjectBoardController::class, 'destroy'])
+            ->name('destroy');
+            Route::post('/{project}/restore', [ProjectBoardController::class, 'restore'])
+    ->name('restore');
     });

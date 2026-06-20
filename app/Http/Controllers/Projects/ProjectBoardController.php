@@ -9,6 +9,7 @@ use App\Models\ProjectChatMessage;
 use App\Models\ProjectChecklistAttachment;
 use App\Models\ProjectChecklistItem;
 use App\Models\ProjectChecklistNote;
+use App\Models\User;
 use App\Services\PythonProjectProcessor;
 use App\Services\OpenAiStructurerService;
 use Illuminate\Http\Request;
@@ -16,6 +17,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 
@@ -79,8 +81,17 @@ class ProjectBoardController extends Controller
     {
         $queryText = trim((string) $request->input('q', ''));
         $labelFilter = trim((string) $request->input('label', ''));
+        $showArchived = $request->boolean('archived');
 
-        $projects = Project::where('user_id', Auth::id())
+        $projects = Project::with('assignee')
+            ->where('user_id', Auth::id())
+            ->when(Schema::hasColumn('projects', 'archived_at'), function ($query) use ($showArchived) {
+                if ($showArchived) {
+                    $query->whereNotNull('archived_at');
+                } else {
+                    $query->whereNull('archived_at');
+                }
+            })
             ->when($queryText !== '', function ($query) use ($queryText) {
                 $query->where(function ($sub) use ($queryText) {
                     $sub->where('name', 'like', "%{$queryText}%")
@@ -161,7 +172,33 @@ class ProjectBoardController extends Controller
 
         $viewMode = session('projects.view_mode', 'board');
 
-        return view('projects.index', compact('projects', 'columns', 'openColumns', 'viewMode'));
+        $assignableUsers = User::query()
+            ->select(['id', 'name', 'email', 'avatar_path', 'status'])
+            ->when(Schema::hasColumn('users', 'status'), function ($query) {
+                $query->where(function ($sub) {
+                    $sub->whereNull('status')
+                        ->orWhere('status', 'approved');
+                });
+            })
+            ->orderBy('name')
+            ->get()
+            ->map(function (User $user) {
+                $initial = Str::upper(Str::substr(trim((string) $user->name), 0, 1));
+                if ($initial === '') {
+                    $initial = Str::upper(Str::substr(trim((string) $user->email), 0, 1));
+                }
+
+                return [
+                    'id' => $user->id,
+                    'name' => $user->name ?: $user->email,
+                    'email' => $user->email,
+                    'initial' => $initial ?: 'U',
+                    'avatar_url' => $user->avatar_url,
+                ];
+            })
+            ->values();
+
+        return view('projects.index', compact('projects', 'columns', 'openColumns', 'viewMode', 'assignableUsers'));
     }
 
     /* ============================================================
@@ -1756,6 +1793,106 @@ PROMPT;
     }
 
 
+    /* ============================================================
+     |  ACCIONES RAPIDAS DEL PROYECTO DESDE EL MENU
+     |  - Cambiar nombre
+     |  - Cambiar color
+     |  - Archivar
+     |  - Eliminar
+     * ============================================================ */
+    public function quickUpdate(Request $request, Project $project)
+    {
+        abort_if($project->user_id !== Auth::id() && Auth::id() !== 1, 403);
+
+        $data = $request->validate([
+            'name'  => ['nullable', 'string', 'max:255'],
+            'color' => ['nullable', 'string', 'max:20'],
+        ]);
+
+        if (array_key_exists('name', $data)) {
+            $name = trim((string) $data['name']);
+
+            if ($name === '') {
+                return response()->json([
+                    'ok' => false,
+                    'message' => 'El nombre del proyecto no puede estar vacio.',
+                ], 422);
+            }
+
+            $project->name = $name;
+        }
+
+        if (array_key_exists('color', $data)) {
+            $color = trim((string) $data['color']);
+
+            if ($color !== '' && !preg_match('/^#[0-9a-fA-F]{6}$/', $color)) {
+                return response()->json([
+                    'ok' => false,
+                    'message' => 'El color seleccionado no es valido.',
+                ], 422);
+            }
+
+            if ($color !== '') {
+                $project->color = $color;
+            }
+        }
+
+        $project->save();
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Proyecto actualizado correctamente.',
+            'name' => $project->name,
+            'color' => $project->color,
+        ]);
+    }
+
+    public function archive(Project $project)
+    {
+        abort_if($project->user_id !== Auth::id() && Auth::id() !== 1, 403);
+
+        if (Schema::hasColumn('projects', 'archived_at')) {
+            $project->archived_at = now();
+            $project->save();
+        } else {
+            $project->status = 'archived';
+            $project->save();
+        }
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Proyecto archivado correctamente.',
+        ]);
+    }
+
+
+    public function restore(Project $project)
+    {
+        abort_if($project->user_id !== Auth::id() && Auth::id() !== 1, 403);
+
+        if (Schema::hasColumn('projects', 'archived_at')) {
+            $project->archived_at = null;
+            $project->save();
+        }
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Proyecto activado correctamente.',
+        ]);
+    }
+
+    public function destroy(Project $project)
+    {
+        abort_if($project->user_id !== Auth::id() && Auth::id() !== 1, 403);
+
+        $project->delete();
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Proyecto eliminado correctamente.',
+        ]);
+    }
+
 
 
     /* ============================================================
@@ -1840,6 +1977,96 @@ PROMPT;
         }
 
         return back()->with('success', 'Favorito actualizado correctamente.');
+    }
+
+
+    /* ============================================================
+     |  PRIORIDAD DEL PROYECTO
+     * ============================================================ */
+    public function updatePriority(Request $request, Project $project)
+    {
+        abort_if($project->user_id !== Auth::id() && Auth::id() !== 1, 403);
+
+        $data = $request->validate([
+            'priority' => ['required', 'string', 'in:alta,media,baja,normal,Alta,Media,Baja,Normal'],
+        ]);
+
+        $priority = strtolower(trim((string) $data['priority']));
+
+        $labels = [
+            'alta' => 'Alta',
+            'media' => 'Media',
+            'baja' => 'Baja',
+            'normal' => 'Normal',
+        ];
+
+        $project->priority = $labels[$priority] ?? 'Normal';
+        $project->save();
+
+        if ($request->expectsJson() || $request->wantsJson()) {
+            return response()->json([
+                'ok' => true,
+                'message' => 'Prioridad actualizada correctamente.',
+                'priority' => strtolower($project->priority),
+                'priority_label' => $project->priority,
+            ]);
+        }
+
+        return back()->with('success', 'Prioridad actualizada correctamente.');
+    }
+
+    /* ============================================================
+     |  ASIGNADO DEL PROYECTO
+     |  - Vinculado a tabla users mediante projects.assigned_to
+     * ============================================================ */
+    public function updateAssignee(Request $request, Project $project)
+    {
+        abort_if($project->user_id !== Auth::id() && Auth::id() !== 1, 403);
+
+        $data = $request->validate([
+            'assigned_user_id' => ['required', 'integer', 'exists:users,id'],
+        ]);
+
+        $user = User::query()->findOrFail((int) $data['assigned_user_id']);
+
+        $initial = Str::upper(Str::substr(trim((string) $user->name), 0, 1));
+        if ($initial === '') {
+            $initial = Str::upper(Str::substr(trim((string) $user->email), 0, 1));
+        }
+        $initial = $initial ?: 'U';
+
+        if (Schema::hasColumn('projects', 'assigned_to')) {
+            $project->assigned_to = $user->id;
+        }
+
+        // Campos legacy para que no se rompan vistas/reportes antiguos.
+        if (Schema::hasColumn('projects', 'assigned')) {
+            $project->assigned = $initial;
+        }
+
+        if (Schema::hasColumn('projects', 'assigned_name')) {
+            $project->assigned_name = $user->name;
+        }
+
+        if (Schema::hasColumn('projects', 'assigned_email')) {
+            $project->assigned_email = $user->email;
+        }
+
+        $project->save();
+
+        if ($request->expectsJson() || $request->wantsJson()) {
+            return response()->json([
+                'ok' => true,
+                'message' => 'Usuario asignado correctamente.',
+                'assigned_user_id' => $user->id,
+                'assigned' => $initial,
+                'assigned_name' => $user->name,
+                'assigned_email' => $user->email,
+                'avatar_url' => $user->avatar_url,
+            ]);
+        }
+
+        return back()->with('success', 'Usuario asignado correctamente.');
     }
 
     /* ============================================================
@@ -1957,6 +2184,205 @@ PROMPT;
         }
 
         return back()->with('success', 'Motivo guardado correctamente.');
+    }
+
+
+    /* ============================================================
+     |  CENTRO DE CONTROL  (resumen ejecutivo de proyectos)
+     * ============================================================ */
+    public function control(Request $request)
+    {
+        $period = (string) $request->input('period', 'all');
+        $assigneeId = (string) $request->input('assignee', 'all');
+        $label = trim((string) $request->input('label', ''));
+
+        $dateFrom = null;
+        $dateTo = null;
+
+        if ($period === '30') {
+            $dateFrom = now()->subDays(30)->startOfDay();
+        } elseif ($period === '90') {
+            $dateFrom = now()->subDays(90)->startOfDay();
+        } elseif ($period === 'year') {
+            $dateFrom = now()->startOfYear();
+        }
+
+        $baseQuery = Project::with('assignee')
+            ->where('user_id', Auth::id())
+            ->when(Schema::hasColumn('projects', 'archived_at'), function ($query) {
+                $query->whereNull('archived_at');
+            })
+            ->when($dateFrom, function ($query) use ($dateFrom) {
+                $query->where(function ($sub) use ($dateFrom) {
+                    if (Schema::hasColumn('projects', 'start_date')) {
+                        $sub->whereDate('start_date', '>=', $dateFrom->toDateString());
+                    }
+
+                    if (Schema::hasColumn('projects', 'created_at')) {
+                        $sub->orWhereDate('created_at', '>=', $dateFrom->toDateString());
+                    }
+                });
+            })
+            ->when($dateTo, function ($query) use ($dateTo) {
+                $query->whereDate('created_at', '<=', $dateTo->toDateString());
+            })
+            ->when($assigneeId !== '' && $assigneeId !== 'all', function ($query) use ($assigneeId) {
+                if (Schema::hasColumn('projects', 'assigned_to')) {
+                    $query->where('assigned_to', $assigneeId);
+                }
+            })
+            ->when($label !== '', function ($query) use ($label) {
+                $query->where('labels', 'like', '%"' . addcslashes($label, '%_\\') . '"%');
+            });
+
+        $projects = $baseQuery->latest()->get();
+
+        $columns = collect($this->defaultColumns());
+
+        $totalProjects = $projects->count();
+
+        $stageCards = $columns->map(function (array $column) use ($projects, $totalProjects) {
+            $statuses = $column['workflow_statuses'] ?? [$column['id']];
+
+            $count = $projects->filter(function (Project $project) use ($statuses, $column) {
+                $status = $project->workflow_status ?: 'analisis_bases';
+
+                if ($column['id'] === 'participa') {
+                    return in_array($status, ['participa', 'junta_aclaraciones', 'armado_propuesta', 'entrega'], true);
+                }
+
+                return in_array($status, $statuses, true);
+            })->count();
+
+            return [
+                'id' => $column['id'],
+                'name' => $column['name'],
+                'color' => $column['color'],
+                'count' => $count,
+                'percentage' => $totalProjects > 0 ? round(($count / $totalProjects) * 100, 1) : 0,
+            ];
+        })->values();
+
+        $distributionLabels = $stageCards->pluck('name')->values();
+        $distributionValues = $stageCards->pluck('count')->values();
+
+        $monthKeys = collect(range(5, 0))->map(fn ($i) => now()->subMonths($i)->format('Y-m'));
+        $monthLabels = $monthKeys->map(fn ($key) => \Carbon\Carbon::createFromFormat('Y-m', $key)->translatedFormat('M. y'))->values();
+
+        $evolutionSeries = $stageCards->map(function (array $stage) use ($projects, $monthKeys) {
+            $statuses = collect($this->defaultColumns())
+                ->firstWhere('id', $stage['id'])['workflow_statuses'] ?? [$stage['id']];
+
+            if ($stage['id'] === 'participa') {
+                $statuses = ['participa', 'junta_aclaraciones', 'armado_propuesta', 'entrega'];
+            }
+
+            $values = $monthKeys->map(function ($monthKey) use ($projects, $statuses) {
+                return $projects->filter(function (Project $project) use ($monthKey, $statuses) {
+                    $status = $project->workflow_status ?: 'analisis_bases';
+                    $date = $project->start_date ?? $project->created_at;
+
+                    if (!$date) {
+                        return false;
+                    }
+
+                    return in_array($status, $statuses, true)
+                        && optional($date)->format('Y-m') === $monthKey;
+                })->count();
+            })->values();
+
+            return [
+                'label' => $stage['name'],
+                'color' => $stage['color'],
+                'data' => $values,
+            ];
+        })->values();
+
+        $allLabels = $projects
+            ->flatMap(function (Project $project) {
+                $labels = $project->labels;
+
+                if (is_string($labels)) {
+                    $decoded = json_decode($labels, true);
+                    $labels = is_array($decoded) ? $decoded : [];
+                }
+
+                return collect($labels ?: [])->filter()->values();
+            })
+            ->countBy()
+            ->sortDesc()
+            ->take(8)
+            ->map(fn ($count, $name) => ['name' => $name, 'count' => $count])
+            ->values();
+
+        $users = User::query()
+            ->select('id', 'name', 'email', 'avatar_path')
+            ->orderBy('name')
+            ->get();
+
+        $recentProjects = $projects->take(8)->map(function (Project $project) {
+            return [
+                'name' => $project->name,
+                'slug' => $project->slug,
+                'assignee' => $project->assignee?->name,
+                'date' => optional($project->start_date ?? $project->created_at)->format('d/m/Y'),
+                'priority' => $project->priority ?: 'normal',
+                'favorite' => (bool) $project->favorite,
+            ];
+        })->values();
+
+        $upcomingEvents = $projects
+            ->filter(function (Project $project) {
+                return !empty($project->deadline_at) || !empty($project->start_date);
+            })
+            ->sortBy(function (Project $project) {
+                return $project->deadline_at ?? $project->start_date ?? $project->created_at;
+            })
+            ->take(6)
+            ->map(function (Project $project) {
+                $date = $project->deadline_at ?? $project->start_date ?? $project->created_at;
+
+                return [
+                    'day' => optional($date)->format('d'),
+                    'month' => optional($date)->translatedFormat('M'),
+                    'title' => $project->deadline_at ? 'Vencimiento' : 'Seguimiento',
+                    'project' => $project->name,
+                    'date' => optional($date)->format('d/m/Y'),
+                ];
+            })
+            ->values();
+
+        $notes = $projects
+            ->filter(fn (Project $project) => !blank($project->no_participa_reason))
+            ->take(6)
+            ->map(function (Project $project) {
+                return [
+                    'project' => $project->name,
+                    'slug' => $project->slug,
+                    'author' => $project->assignee?->name ?: 'Sistema',
+                    'initials' => Str::of($project->assignee?->name ?: 'S')->explode(' ')->filter()->take(2)->map(fn ($p) => Str::upper(Str::substr($p, 0, 1)))->implode(''),
+                    'body' => $project->no_participa_reason,
+                    'date' => optional($project->updated_at)->diffForHumans(),
+                ];
+            })
+            ->values();
+
+        return view('projects.control', [
+            'period' => $period,
+            'assigneeId' => $assigneeId,
+            'label' => $label,
+            'users' => $users,
+            'labels' => $allLabels,
+            'totalProjects' => $totalProjects,
+            'stageCards' => $stageCards,
+            'distributionLabels' => $distributionLabels,
+            'distributionValues' => $distributionValues,
+            'monthLabels' => $monthLabels,
+            'evolutionSeries' => $evolutionSeries,
+            'recentProjects' => $recentProjects,
+            'upcomingEvents' => $upcomingEvents,
+            'notes' => $notes,
+        ]);
     }
 
 
