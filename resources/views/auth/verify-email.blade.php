@@ -20,7 +20,7 @@
 
       <p style="color:#fff; opacity:.9; text-align:center">
         Te enviamos un enlace a tu correo. Si no lo ves, revisa spam.
-      </p>
+      </p>A
 
       <form method="POST" action="{{ route('verification.send') }}" class="form">
         @csrf
