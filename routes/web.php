@@ -2422,4 +2422,39 @@ Route::get('/control', [ProjectBoardController::class, 'control'])
             ->name('destroy');
             Route::post('/{project}/restore', [ProjectBoardController::class, 'restore'])
     ->name('restore');
+    
+Route::post('/{project}/notes', [ProjectBoardController::class, 'storeDashboardNote'])
+    ->name('notes.store');
+
+Route::patch('/{project}/notes/{note}', [ProjectBoardController::class, 'updateDashboardNote'])
+    ->name('notes.update');
+
+Route::post('/{project}/notes/{note}/convert-task', [ProjectBoardController::class, 'convertDashboardNoteToTask'])
+    ->name('notes.convert-task');
+
+Route::patch('/{project}/notes/{note}/pin', [ProjectBoardController::class, 'pinDashboardNote'])
+    ->name('notes.pin');
+
+Route::delete('/{project}/notes/{note}', [ProjectBoardController::class, 'destroyDashboardNote'])
+    ->name('notes.destroy');
+
+Route::post('/{project}/tasks', [ProjectBoardController::class, 'storeDashboardTask'])
+    ->name('tasks.store');
+
+Route::patch('/{project}/tasks/{task}', [ProjectBoardController::class, 'updateDashboardTask'])
+    ->name('tasks.update');
+
+Route::post('/{project}/tasks/{task}/convert-note', [ProjectBoardController::class, 'convertDashboardTaskToNote'])
+    ->name('tasks.convert-note');
+
+Route::patch('/{project}/tasks/{task}/pin', [ProjectBoardController::class, 'pinDashboardTask'])
+    ->name('tasks.pin');
+
+Route::patch('/{project}/tasks/{task}/archive', [ProjectBoardController::class, 'archiveDashboardTask'])
+    ->name('tasks.archive');
+
+Route::delete('/{project}/tasks/{task}', [ProjectBoardController::class, 'destroyDashboardTask'])
+    ->name('tasks.destroy');
+
+
     });

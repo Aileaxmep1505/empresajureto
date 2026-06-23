@@ -14,6 +14,7 @@ use App\Services\PythonProjectProcessor;
 use App\Services\OpenAiStructurerService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Storage;
@@ -313,7 +314,56 @@ class ProjectBoardController extends Controller
             'checklistItems',
         ]);
 
-        return view('projects.dashboard', compact('project'));
+        $notes = Schema::hasTable('project_notes')
+            ? DB::table('project_notes')
+                ->leftJoin('users', 'users.id', '=', 'project_notes.user_id')
+                ->where('project_notes.project_id', $project->id)
+                ->when(Schema::hasColumn('project_notes', 'archived_at'), fn ($query) => $query->whereNull('project_notes.archived_at'))
+                ->orderByDesc(Schema::hasColumn('project_notes', 'is_pinned') ? 'project_notes.is_pinned' : 'project_notes.created_at')
+                ->orderByDesc('project_notes.created_at')
+                ->select([
+                    'project_notes.id',
+                    'project_notes.content',
+                    'project_notes.created_at',
+                    'project_notes.updated_at',
+                    'project_notes.user_id',
+                    DB::raw(Schema::hasColumn('project_notes', 'is_pinned') ? 'project_notes.is_pinned as is_pinned' : '0 as is_pinned'),
+                    DB::raw('users.name as user_name'),
+                    DB::raw('users.email as user_email'),
+                ])
+                ->get()
+            : collect();
+
+        $tasks = Schema::hasTable('project_tasks')
+            ? DB::table('project_tasks')
+                ->leftJoin('users', 'users.id', '=', 'project_tasks.assigned_to')
+                ->where('project_tasks.project_id', $project->id)
+                ->when(Schema::hasColumn('project_tasks', 'archived_at'), fn ($query) => $query->whereNull('project_tasks.archived_at'))
+                ->orderByDesc(Schema::hasColumn('project_tasks', 'is_pinned') ? 'project_tasks.is_pinned' : 'project_tasks.created_at')
+                ->orderBy('project_tasks.completed')
+                ->orderByDesc('project_tasks.created_at')
+                ->select([
+                    'project_tasks.id',
+                    'project_tasks.title',
+                    'project_tasks.priority',
+                    'project_tasks.completed',
+                    'project_tasks.assigned_to',
+                    'project_tasks.due_date',
+                    'project_tasks.created_at',
+                    'project_tasks.updated_at',
+                    DB::raw(Schema::hasColumn('project_tasks', 'is_pinned') ? 'project_tasks.is_pinned as is_pinned' : '0 as is_pinned'),
+                    DB::raw('users.name as assigned_name'),
+                    DB::raw('users.email as assigned_email'),
+                ])
+                ->get()
+            : collect();
+
+        $dashboardUsers = User::query()
+            ->select('id', 'name', 'email')
+            ->orderBy('name')
+            ->get();
+
+        return view('projects.dashboard', compact('project', 'notes', 'tasks', 'dashboardUsers'));
     }
 
     /* ============================================================
@@ -2188,200 +2238,418 @@ PROMPT;
 
 
     /* ============================================================
-     |  CENTRO DE CONTROL  (resumen ejecutivo de proyectos)
+     |  DASHBOARD NOTES
      * ============================================================ */
-    public function control(Request $request)
+    public function storeDashboardNote(Request $request, Project $project)
     {
-        $period = (string) $request->input('period', 'all');
-        $assigneeId = (string) $request->input('assignee', 'all');
-        $label = trim((string) $request->input('label', ''));
+        abort_if($project->user_id !== Auth::id() && Auth::id() !== 1, 403);
 
-        $dateFrom = null;
-        $dateTo = null;
+        abort_unless(Schema::hasTable('project_notes'), 500, 'La tabla project_notes no existe. Ejecuta la migración.');
 
-        if ($period === '30') {
-            $dateFrom = now()->subDays(30)->startOfDay();
-        } elseif ($period === '90') {
-            $dateFrom = now()->subDays(90)->startOfDay();
-        } elseif ($period === 'year') {
-            $dateFrom = now()->startOfYear();
+        $data = $request->validate([
+            'content' => ['required', 'string', 'max:5000'],
+        ]);
+
+        $now = now();
+
+        $insert = [
+            'project_id' => $project->id,
+            'user_id' => Auth::id(),
+            'content' => trim((string) $data['content']),
+            'created_at' => $now,
+            'updated_at' => $now,
+        ];
+
+        if (Schema::hasColumn('project_notes', 'is_pinned')) {
+            $insert['is_pinned'] = false;
         }
 
-        $baseQuery = Project::with('assignee')
-            ->where('user_id', Auth::id())
-            ->when(Schema::hasColumn('projects', 'archived_at'), function ($query) {
-                $query->whereNull('archived_at');
-            })
-            ->when($dateFrom, function ($query) use ($dateFrom) {
-                $query->where(function ($sub) use ($dateFrom) {
-                    if (Schema::hasColumn('projects', 'start_date')) {
-                        $sub->whereDate('start_date', '>=', $dateFrom->toDateString());
-                    }
+        if (Schema::hasColumn('project_notes', 'archived_at')) {
+            $insert['archived_at'] = null;
+        }
 
-                    if (Schema::hasColumn('projects', 'created_at')) {
-                        $sub->orWhereDate('created_at', '>=', $dateFrom->toDateString());
-                    }
-                });
-            })
-            ->when($dateTo, function ($query) use ($dateTo) {
-                $query->whereDate('created_at', '<=', $dateTo->toDateString());
-            })
-            ->when($assigneeId !== '' && $assigneeId !== 'all', function ($query) use ($assigneeId) {
-                if (Schema::hasColumn('projects', 'assigned_to')) {
-                    $query->where('assigned_to', $assigneeId);
-                }
-            })
-            ->when($label !== '', function ($query) use ($label) {
-                $query->where('labels', 'like', '%"' . addcslashes($label, '%_\\') . '"%');
-            });
+        $id = DB::table('project_notes')->insertGetId($insert);
 
-        $projects = $baseQuery->latest()->get();
+        $user = Auth::user();
 
-        $columns = collect($this->defaultColumns());
+        return response()->json([
+            'ok' => true,
+            'message' => 'Nota agregada correctamente.',
+            'note' => [
+                'id' => $id,
+                'content' => trim((string) $data['content']),
+                'user_name' => $user?->name ?? 'Usuario',
+                'user_email' => $user?->email,
+                'date' => $now->format('j M Y'),
+                'update_url' => route('projects.notes.update', [$project, $id]),
+                'convert_url' => route('projects.notes.convert-task', [$project, $id]),
+                'pin_url' => route('projects.notes.pin', [$project, $id]),
+                'delete_url' => route('projects.notes.destroy', [$project, $id]),
+            ],
+        ]);
+    }
 
-        $totalProjects = $projects->count();
 
-        $stageCards = $columns->map(function (array $column) use ($projects, $totalProjects) {
-            $statuses = $column['workflow_statuses'] ?? [$column['id']];
+    public function updateDashboardNote(Request $request, Project $project, int $note)
+    {
+        abort_if($project->user_id !== Auth::id() && Auth::id() !== 1, 403);
+        abort_unless(Schema::hasTable('project_notes'), 500, 'La tabla project_notes no existe. Ejecuta la migración.');
 
-            $count = $projects->filter(function (Project $project) use ($statuses, $column) {
-                $status = $project->workflow_status ?: 'analisis_bases';
+        $data = $request->validate([
+            'content' => ['required', 'string', 'max:5000'],
+        ]);
 
-                if ($column['id'] === 'participa') {
-                    return in_array($status, ['participa', 'junta_aclaraciones', 'armado_propuesta', 'entrega'], true);
-                }
+        DB::table('project_notes')
+            ->where('project_id', $project->id)
+            ->where('id', $note)
+            ->update([
+                'content' => trim((string) $data['content']),
+                'updated_at' => now(),
+            ]);
 
-                return in_array($status, $statuses, true);
-            })->count();
+        return response()->json([
+            'ok' => true,
+            'message' => 'Nota actualizada correctamente.',
+            'note' => [
+                'id' => $note,
+                'content' => trim((string) $data['content']),
+            ],
+        ]);
+    }
 
-            return [
-                'id' => $column['id'],
-                'name' => $column['name'],
-                'color' => $column['color'],
-                'count' => $count,
-                'percentage' => $totalProjects > 0 ? round(($count / $totalProjects) * 100, 1) : 0,
-            ];
-        })->values();
+    public function pinDashboardNote(Project $project, int $note)
+    {
+        abort_if($project->user_id !== Auth::id() && Auth::id() !== 1, 403);
+        abort_unless(Schema::hasTable('project_notes'), 500, 'La tabla project_notes no existe. Ejecuta la migración.');
+        abort_unless(Schema::hasColumn('project_notes', 'is_pinned'), 500, 'Falta la columna is_pinned en project_notes.');
 
-        $distributionLabels = $stageCards->pluck('name')->values();
-        $distributionValues = $stageCards->pluck('count')->values();
+        $current = DB::table('project_notes')
+            ->where('project_id', $project->id)
+            ->where('id', $note)
+            ->value('is_pinned');
 
-        $monthKeys = collect(range(5, 0))->map(fn ($i) => now()->subMonths($i)->format('Y-m'));
-        $monthLabels = $monthKeys->map(fn ($key) => \Carbon\Carbon::createFromFormat('Y-m', $key)->translatedFormat('M. y'))->values();
+        $next = !$current;
 
-        $evolutionSeries = $stageCards->map(function (array $stage) use ($projects, $monthKeys) {
-            $statuses = collect($this->defaultColumns())
-                ->firstWhere('id', $stage['id'])['workflow_statuses'] ?? [$stage['id']];
+        DB::table('project_notes')
+            ->where('project_id', $project->id)
+            ->where('id', $note)
+            ->update([
+                'is_pinned' => $next,
+                'updated_at' => now(),
+            ]);
 
-            if ($stage['id'] === 'participa') {
-                $statuses = ['participa', 'junta_aclaraciones', 'armado_propuesta', 'entrega'];
+        return response()->json([
+            'ok' => true,
+            'is_pinned' => $next,
+            'message' => $next ? 'Nota fijada correctamente.' : 'Nota desfijada correctamente.',
+        ]);
+    }
+
+    public function convertDashboardNoteToTask(Project $project, int $note)
+    {
+        abort_if($project->user_id !== Auth::id() && Auth::id() !== 1, 403);
+        abort_unless(Schema::hasTable('project_notes') && Schema::hasTable('project_tasks'), 500, 'Faltan tablas de notas o tareas. Ejecuta la migración.');
+
+        $noteRow = DB::table('project_notes')
+            ->where('project_id', $project->id)
+            ->where('id', $note)
+            ->first();
+
+        abort_if(!$noteRow, 404, 'No se encontró la nota.');
+
+        $now = now();
+
+        $insert = [
+            'project_id' => $project->id,
+            'created_by' => Auth::id(),
+            'assigned_to' => Auth::id(),
+            'title' => Str::limit(trim((string) $noteRow->content), 500, ''),
+            'priority' => 'normal',
+            'completed' => false,
+            'due_date' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ];
+
+        if (Schema::hasColumn('project_tasks', 'is_pinned')) {
+            $insert['is_pinned'] = false;
+        }
+
+        if (Schema::hasColumn('project_tasks', 'archived_at')) {
+            $insert['archived_at'] = null;
+        }
+
+        $taskId = DB::table('project_tasks')->insertGetId($insert);
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Nota convertida en tarea.',
+            'task' => $this->dashboardTaskPayload($project, $taskId),
+        ]);
+    }
+
+
+    public function destroyDashboardNote(Project $project, int $note)
+    {
+        abort_if($project->user_id !== Auth::id() && Auth::id() !== 1, 403);
+
+        abort_unless(Schema::hasTable('project_notes'), 500, 'La tabla project_notes no existe. Ejecuta la migración.');
+
+        DB::table('project_notes')
+            ->where('project_id', $project->id)
+            ->where('id', $note)
+            ->delete();
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Nota eliminada correctamente.',
+        ]);
+    }
+
+    /* ============================================================
+     |  DASHBOARD TASKS
+     * ============================================================ */
+    private function dashboardTaskPayload(Project $project, int $taskId): array
+    {
+        $task = DB::table('project_tasks')
+            ->leftJoin('users', 'users.id', '=', 'project_tasks.assigned_to')
+            ->where('project_tasks.project_id', $project->id)
+            ->where('project_tasks.id', $taskId)
+            ->select([
+                'project_tasks.id',
+                'project_tasks.title',
+                'project_tasks.priority',
+                'project_tasks.completed',
+                'project_tasks.assigned_to',
+                'project_tasks.due_date',
+                'project_tasks.created_at',
+                'project_tasks.updated_at',
+                DB::raw('users.name as assigned_name'),
+                DB::raw('users.email as assigned_email'),
+            ])
+            ->first();
+
+        abort_if(!$task, 404, 'No se encontró la tarea.');
+
+        $dueDate = $task->due_date ? \Carbon\Carbon::parse($task->due_date) : null;
+
+        return [
+            'id' => $task->id,
+            'title' => $task->title,
+            'priority' => $task->priority ?: 'normal',
+            'completed' => (bool) $task->completed,
+            'assigned_to' => $task->assigned_to,
+            'assigned_name' => $task->assigned_name,
+            'due_date' => $task->due_date,
+            'due_date_label' => $dueDate ? $dueDate->format('d M') : 'Sin fecha',
+            'update_url' => route('projects.tasks.update', [$project, $task->id]),
+            'convert_url' => route('projects.tasks.convert-note', [$project, $task->id]),
+            'pin_url' => route('projects.tasks.pin', [$project, $task->id]),
+            'archive_url' => route('projects.tasks.archive', [$project, $task->id]),
+            'delete_url' => route('projects.tasks.destroy', [$project, $task->id]),
+        ];
+    }
+
+    public function storeDashboardTask(Request $request, Project $project)
+    {
+        abort_if($project->user_id !== Auth::id() && Auth::id() !== 1, 403);
+
+        abort_unless(Schema::hasTable('project_tasks'), 500, 'La tabla project_tasks no existe. Ejecuta la migración.');
+
+        $data = $request->validate([
+            'title' => ['required', 'string', 'max:500'],
+            'priority' => ['nullable', 'in:normal,baja,media,alta'],
+            'assigned_to' => ['nullable', 'integer', 'exists:users,id'],
+            'due_date' => ['nullable', 'date'],
+        ]);
+
+        $now = now();
+
+        $insert = [
+            'project_id' => $project->id,
+            'created_by' => Auth::id(),
+            'assigned_to' => $data['assigned_to'] ?? null,
+            'title' => trim((string) $data['title']),
+            'priority' => $data['priority'] ?? 'normal',
+            'completed' => false,
+            'due_date' => $data['due_date'] ?? null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ];
+
+        if (Schema::hasColumn('project_tasks', 'is_pinned')) {
+            $insert['is_pinned'] = false;
+        }
+
+        if (Schema::hasColumn('project_tasks', 'archived_at')) {
+            $insert['archived_at'] = null;
+        }
+
+        $id = DB::table('project_tasks')->insertGetId($insert);
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Tarea agregada correctamente.',
+            'task' => $this->dashboardTaskPayload($project, $id),
+        ]);
+    }
+
+    public function updateDashboardTask(Request $request, Project $project, int $task)
+    {
+        abort_if($project->user_id !== Auth::id() && Auth::id() !== 1, 403);
+
+        abort_unless(Schema::hasTable('project_tasks'), 500, 'La tabla project_tasks no existe. Ejecuta la migración.');
+
+        $data = $request->validate([
+            'title' => ['sometimes', 'required', 'string', 'max:500'],
+            'priority' => ['sometimes', 'nullable', 'in:normal,baja,media,alta'],
+            'assigned_to' => ['sometimes', 'nullable', 'integer', 'exists:users,id'],
+            'due_date' => ['sometimes', 'nullable', 'date'],
+            'completed' => ['sometimes', 'boolean'],
+        ]);
+
+        $update = [];
+
+        foreach (['title', 'priority', 'assigned_to', 'due_date', 'completed'] as $field) {
+            if (array_key_exists($field, $data)) {
+                $update[$field] = $field === 'title' ? trim((string) $data[$field]) : $data[$field];
             }
+        }
 
-            $values = $monthKeys->map(function ($monthKey) use ($projects, $statuses) {
-                return $projects->filter(function (Project $project) use ($monthKey, $statuses) {
-                    $status = $project->workflow_status ?: 'analisis_bases';
-                    $date = $project->start_date ?? $project->created_at;
+        $update['updated_at'] = now();
 
-                    if (!$date) {
-                        return false;
-                    }
+        DB::table('project_tasks')
+            ->where('project_id', $project->id)
+            ->where('id', $task)
+            ->update($update);
 
-                    return in_array($status, $statuses, true)
-                        && optional($date)->format('Y-m') === $monthKey;
-                })->count();
-            })->values();
+        return response()->json([
+            'ok' => true,
+            'message' => 'Tarea actualizada correctamente.',
+            'task' => $this->dashboardTaskPayload($project, $task),
+        ]);
+    }
 
-            return [
-                'label' => $stage['name'],
-                'color' => $stage['color'],
-                'data' => $values,
-            ];
-        })->values();
 
-        $allLabels = $projects
-            ->flatMap(function (Project $project) {
-                $labels = $project->labels;
+    public function pinDashboardTask(Project $project, int $task)
+    {
+        abort_if($project->user_id !== Auth::id() && Auth::id() !== 1, 403);
+        abort_unless(Schema::hasTable('project_tasks'), 500, 'La tabla project_tasks no existe. Ejecuta la migración.');
+        abort_unless(Schema::hasColumn('project_tasks', 'is_pinned'), 500, 'Falta la columna is_pinned en project_tasks.');
 
-                if (is_string($labels)) {
-                    $decoded = json_decode($labels, true);
-                    $labels = is_array($decoded) ? $decoded : [];
-                }
+        $current = DB::table('project_tasks')
+            ->where('project_id', $project->id)
+            ->where('id', $task)
+            ->value('is_pinned');
 
-                return collect($labels ?: [])->filter()->values();
-            })
-            ->countBy()
-            ->sortDesc()
-            ->take(8)
-            ->map(fn ($count, $name) => ['name' => $name, 'count' => $count])
-            ->values();
+        $next = !$current;
 
-        $users = User::query()
-            ->select('id', 'name', 'email', 'avatar_path')
-            ->orderBy('name')
-            ->get();
+        DB::table('project_tasks')
+            ->where('project_id', $project->id)
+            ->where('id', $task)
+            ->update([
+                'is_pinned' => $next,
+                'updated_at' => now(),
+            ]);
 
-        $recentProjects = $projects->take(8)->map(function (Project $project) {
-            return [
-                'name' => $project->name,
-                'slug' => $project->slug,
-                'assignee' => $project->assignee?->name,
-                'date' => optional($project->start_date ?? $project->created_at)->format('d/m/Y'),
-                'priority' => $project->priority ?: 'normal',
-                'favorite' => (bool) $project->favorite,
-            ];
-        })->values();
+        return response()->json([
+            'ok' => true,
+            'is_pinned' => $next,
+            'message' => $next ? 'Tarea fijada correctamente.' : 'Tarea desfijada correctamente.',
+        ]);
+    }
 
-        $upcomingEvents = $projects
-            ->filter(function (Project $project) {
-                return !empty($project->deadline_at) || !empty($project->start_date);
-            })
-            ->sortBy(function (Project $project) {
-                return $project->deadline_at ?? $project->start_date ?? $project->created_at;
-            })
-            ->take(6)
-            ->map(function (Project $project) {
-                $date = $project->deadline_at ?? $project->start_date ?? $project->created_at;
+    public function archiveDashboardTask(Project $project, int $task)
+    {
+        abort_if($project->user_id !== Auth::id() && Auth::id() !== 1, 403);
+        abort_unless(Schema::hasTable('project_tasks'), 500, 'La tabla project_tasks no existe. Ejecuta la migración.');
 
-                return [
-                    'day' => optional($date)->format('d'),
-                    'month' => optional($date)->translatedFormat('M'),
-                    'title' => $project->deadline_at ? 'Vencimiento' : 'Seguimiento',
-                    'project' => $project->name,
-                    'date' => optional($date)->format('d/m/Y'),
-                ];
-            })
-            ->values();
+        if (Schema::hasColumn('project_tasks', 'archived_at')) {
+            DB::table('project_tasks')
+                ->where('project_id', $project->id)
+                ->where('id', $task)
+                ->update([
+                    'archived_at' => now(),
+                    'updated_at' => now(),
+                ]);
+        } else {
+            DB::table('project_tasks')
+                ->where('project_id', $project->id)
+                ->where('id', $task)
+                ->delete();
+        }
 
-        $notes = $projects
-            ->filter(fn (Project $project) => !blank($project->no_participa_reason))
-            ->take(6)
-            ->map(function (Project $project) {
-                return [
-                    'project' => $project->name,
-                    'slug' => $project->slug,
-                    'author' => $project->assignee?->name ?: 'Sistema',
-                    'initials' => Str::of($project->assignee?->name ?: 'S')->explode(' ')->filter()->take(2)->map(fn ($p) => Str::upper(Str::substr($p, 0, 1)))->implode(''),
-                    'body' => $project->no_participa_reason,
-                    'date' => optional($project->updated_at)->diffForHumans(),
-                ];
-            })
-            ->values();
+        return response()->json([
+            'ok' => true,
+            'message' => 'Tarea archivada correctamente.',
+        ]);
+    }
 
-        return view('projects.control', [
-            'period' => $period,
-            'assigneeId' => $assigneeId,
-            'label' => $label,
-            'users' => $users,
-            'labels' => $allLabels,
-            'totalProjects' => $totalProjects,
-            'stageCards' => $stageCards,
-            'distributionLabels' => $distributionLabels,
-            'distributionValues' => $distributionValues,
-            'monthLabels' => $monthLabels,
-            'evolutionSeries' => $evolutionSeries,
-            'recentProjects' => $recentProjects,
-            'upcomingEvents' => $upcomingEvents,
-            'notes' => $notes,
+    public function convertDashboardTaskToNote(Project $project, int $task)
+    {
+        abort_if($project->user_id !== Auth::id() && Auth::id() !== 1, 403);
+        abort_unless(Schema::hasTable('project_notes') && Schema::hasTable('project_tasks'), 500, 'Faltan tablas de notas o tareas. Ejecuta la migración.');
+
+        $taskRow = DB::table('project_tasks')
+            ->where('project_id', $project->id)
+            ->where('id', $task)
+            ->first();
+
+        abort_if(!$taskRow, 404, 'No se encontró la tarea.');
+
+        $now = now();
+
+        $insert = [
+            'project_id' => $project->id,
+            'user_id' => Auth::id(),
+            'content' => trim((string) $taskRow->title),
+            'created_at' => $now,
+            'updated_at' => $now,
+        ];
+
+        if (Schema::hasColumn('project_notes', 'is_pinned')) {
+            $insert['is_pinned'] = false;
+        }
+
+        if (Schema::hasColumn('project_notes', 'archived_at')) {
+            $insert['archived_at'] = null;
+        }
+
+        $noteId = DB::table('project_notes')->insertGetId($insert);
+        $user = Auth::user();
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Tarea convertida en nota.',
+            'note' => [
+                'id' => $noteId,
+                'content' => trim((string) $taskRow->title),
+                'user_name' => $user?->name ?? 'Usuario',
+                'user_email' => $user?->email,
+                'date' => $now->format('j M Y'),
+                'update_url' => route('projects.notes.update', [$project, $noteId]),
+                'convert_url' => route('projects.notes.convert-task', [$project, $noteId]),
+                'pin_url' => route('projects.notes.pin', [$project, $noteId]),
+                'delete_url' => route('projects.notes.destroy', [$project, $noteId]),
+            ],
+        ]);
+    }
+
+
+    public function destroyDashboardTask(Project $project, int $task)
+    {
+        abort_if($project->user_id !== Auth::id() && Auth::id() !== 1, 403);
+
+        abort_unless(Schema::hasTable('project_tasks'), 500, 'La tabla project_tasks no existe. Ejecuta la migración.');
+
+        DB::table('project_tasks')
+            ->where('project_id', $project->id)
+            ->where('id', $task)
+            ->delete();
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Tarea eliminada correctamente.',
         ]);
     }
 

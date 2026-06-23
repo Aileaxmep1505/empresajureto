@@ -7,22 +7,38 @@
   @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap');
 
   :root {
-    --bg:           #f9fafb;
-    --card:         #ffffff;
-    --ink:          #111;
-    --ink2:         #333;
-    --muted:        #888;
-    --line:         #ebebeb;
-    --blue:         #007aff;
-    --blue-soft:    #e6f0ff;
-    --success:      #15803d;
-    --success-soft: #e6ffe6;
-    --danger:       #ef4444;
-    --danger-soft:  #ffebeb;
-    --warning:      #b45309;
-    --warning-soft: #fef9c3;
-    --orange:       #ea580c;
-    --orange-soft:  #ffedd5;
+    --pjd-blue: #007aff;
+    --pjd-ink: #1c2024;
+    --pjd-ink-soft: #5b6470;
+    --pjd-border: #e6e9ee;
+    --pjd-surface: #ffffff;
+    --pjd-bg: #f6f8fb;
+    --pjd-pending: #b8860b;
+    --pjd-pending-bg: #fff8e8;
+    --pjd-ok: #1a7f5a;
+    --pjd-ok-bg: #e9f7f0;
+    --pjd-danger: #c0392b;
+    --pjd-danger-bg: #fdecea;
+    --pjd-ease: cubic-bezier(0.23, 1, 0.32, 1);
+    --pjd-dur-press: 120ms;
+    --pjd-dur-ui: 200ms;
+
+    --bg: var(--pjd-bg);
+    --card: var(--pjd-surface);
+    --ink: var(--pjd-ink);
+    --ink2: var(--pjd-ink);
+    --muted: var(--pjd-ink-soft);
+    --line: var(--pjd-border);
+    --blue: var(--pjd-blue);
+    --blue-soft: #e6f0ff;
+    --success: var(--pjd-ok);
+    --success-soft: var(--pjd-ok-bg);
+    --danger: var(--pjd-danger);
+    --danger-soft: var(--pjd-danger-bg);
+    --warning: var(--pjd-pending);
+    --warning-soft: var(--pjd-pending-bg);
+    --orange: #ea580c;
+    --orange-soft: #ffedd5;
   }
 
   body { font-family: 'Quicksand', sans-serif; background: var(--bg); color: var(--ink2); }
@@ -31,7 +47,7 @@
 
   /* ── Topbar ── */
   .pjd-topbar { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; padding: 12px 24px; background: #fff; border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 10; }
-  .pjd-back { color: var(--muted); text-decoration: none; font-size: 1.1rem; padding: 4px 8px; border-radius: 8px; transition: all .15s; }
+  .pjd-back { color: var(--muted); text-decoration: none; font-size: 1.1rem; padding: 4px 8px; border-radius: 8px; transition-property: background, border-color, color, opacity, transform, box-shadow; transition-duration: .15s; transition-timing-function: var(--pjd-ease); }
   .pjd-back:hover { background: var(--bg); color: var(--blue); }
   .pjd-title { font-weight: 700; color: var(--ink); font-size: .98rem; display: flex; align-items: center; gap: 6px; }
   .pjd-status-pill { padding: 2px 8px; border-radius: 999px; font-size: .68rem; font-weight: 700; background: var(--blue-soft); color: var(--blue); margin-left: 6px; }
@@ -40,7 +56,7 @@
   .pjd-status-pill.is-error { background: var(--danger-soft); color: var(--danger); }
 
   .pjd-tabs { display: flex; gap: 4px; flex: 1; flex-wrap: wrap; }
-  .pjd-tab { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 999px; border: none; background: transparent; font-family: inherit; font-size: .88rem; font-weight: 600; color: var(--ink2); cursor: pointer; transition: all .18s; }
+  .pjd-tab { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 999px; border: none; background: transparent; font-family: inherit; font-size: .88rem; font-weight: 600; color: var(--ink2); cursor: pointer; transition-property: background, border-color, color, opacity, transform, box-shadow; transition-duration: .18s; transition-timing-function: var(--pjd-ease); }
   .pjd-tab:hover { background: var(--bg); color: var(--blue); }
   .pjd-tab.is-active { background: var(--blue); color: #fff; }
   .pjd-tab svg { width: 16px; height: 16px; }
@@ -152,7 +168,7 @@
 
   /* ── CHAT ── */
   .pjd-chat-head { padding: 10px 18px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: flex-end; }
-  .pjd-chat-reset { background: var(--bg); border: 1px solid var(--line); padding: 5px 12px; border-radius: 999px; font-size: .8rem; font-weight: 600; color: var(--ink2); cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all .18s; }
+  .pjd-chat-reset { background: var(--bg); border: 1px solid var(--line); padding: 5px 12px; border-radius: 999px; font-size: .8rem; font-weight: 600; color: var(--ink2); cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition-property: background, border-color, color, opacity, transform, box-shadow; transition-duration: .18s; transition-timing-function: var(--pjd-ease); }
   .pjd-chat-reset:hover { background: var(--blue-soft); color: var(--blue); border-color: var(--blue); }
   .pjd-chat-list { flex: 1; min-height: 0; padding: 18px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; scroll-behavior: smooth; overscroll-behavior: contain; }
   @media (max-width: 1100px) { .pjd-chat-list { max-height: 60vh; } }
@@ -188,7 +204,7 @@
   /* ── Tablas en chat ── */
   .pjd-chat-table-wrap { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-top: 4px; max-width: 100%; overflow-x: auto; }
   .pjd-chat-table-actions { display: flex; gap: 8px; justify-content: flex-end; margin-bottom: 12px; flex-wrap: wrap; }
-  .pjd-chat-table-btn { background: var(--bg); border: 1px solid var(--line); padding: 6px 14px; border-radius: 999px; font-family: inherit; font-size: .8rem; font-weight: 700; color: var(--ink2); cursor: pointer; transition: all .15s; display: inline-flex; align-items: center; gap: 5px; }
+  .pjd-chat-table-btn { background: var(--bg); border: 1px solid var(--line); padding: 6px 14px; border-radius: 999px; font-family: inherit; font-size: .8rem; font-weight: 700; color: var(--ink2); cursor: pointer; transition-property: background, border-color, color, opacity, transform, box-shadow; transition-duration: .15s; transition-timing-function: var(--pjd-ease); display: inline-flex; align-items: center; gap: 5px; }
   .pjd-chat-table-btn:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-soft); }
   .pjd-chat-table-btn.is-primary { background: var(--blue); color: #fff; border-color: var(--blue); }
   .pjd-chat-table-btn.is-primary:hover { filter: brightness(1.05); color: #fff; background: var(--blue); }
@@ -255,7 +271,7 @@
     position: absolute; top: 14px; right: 14px;
     width: 30px; height: 30px; border: none; border-radius: 9px;
     background: #f1f5fb; color: #94a0b2; cursor: pointer; font-size: .95rem;
-    display: grid; place-items: center; transition: all .15s ease;
+    display: grid; place-items: center; transition-property: background, border-color, color, opacity, transform, box-shadow; transition-duration: .15s ease; transition-timing-function: var(--pjd-ease);
   }
   .pjd-source-close:hover { background: #e6eefb; color: var(--blue); }
 
@@ -310,7 +326,7 @@
     display: inline-flex; align-items: center; gap: 7px;
     border: none; border-radius: 10px; padding: 10px 18px;
     font-family: inherit; font-size: .86rem; font-weight: 700; cursor: pointer; text-decoration: none;
-    transition: all .16s ease;
+    transition-property: background, border-color, color, opacity, transform, box-shadow; transition-duration: .16s ease; transition-timing-function: var(--pjd-ease);
   }
   .pjd-source-btn::before { content: ""; width: 15px; height: 15px; flex-shrink: 0; background: center/contain no-repeat; }
   .pjd-source-btn:not(.is-ghost) {
@@ -339,7 +355,7 @@
   .pjd-cita-modal-head h4 { margin: 0; font-size: 1.05rem; font-weight: 700; color: var(--ink); }
   .pjd-cita-close { border: none; background: var(--bg); width: 30px; height: 30px; border-radius: 8px; cursor: pointer; color: var(--muted); font-size: 14px; }
   .pjd-cita-modal-body { padding: 22px; }
-  .pjd-cita-quote { border-left: 4px solid var(--blue); background: #f8faff; padding: 14px 16px; border-radius: 8px; font-size: .95rem; color: var(--ink); margin-bottom: 16px; white-space: pre-wrap; }
+  .pjd-cita-quote { border: 1px solid var(--pjd-border); background: #f8faff; padding: 14px 16px; border-radius: 8px; font-size: .95rem; color: var(--ink); margin-bottom: 16px; white-space: pre-wrap; }
   .pjd-cita-source { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 12px 14px; background: #f8fafc; border-radius: 10px; border: 1px solid var(--line); }
   .pjd-cita-source-label { font-size: .82rem; color: var(--muted); font-weight: 600; }
   .pjd-cita-source-file { font-size: .92rem; font-weight: 700; color: var(--ink); }
@@ -377,7 +393,7 @@
   .pjd-doc-drawer-quote { background: #fff; border-top: 1px solid var(--line); padding: 14px 16px; max-height: 34%; overflow: auto; }
   .pjd-doc-drawer-quote[hidden] { display: none; }
   .pjd-doc-drawer-quote-kicker { display: inline-flex; align-items: center; gap: 6px; font-size: .72rem; font-weight: 700; color: var(--blue); background: var(--blue-soft); border: 1px solid #c7dcfd; padding: 4px 10px; border-radius: 999px; margin-bottom: 10px; }
-  .pjd-doc-drawer-quote-text { font-size: .92rem; line-height: 1.6; color: var(--ink); border-left: 3px solid var(--blue); background: #f8fbff; padding: 12px 14px; border-radius: 10px; white-space: pre-wrap; }
+  .pjd-doc-drawer-quote-text { font-size: .92rem; line-height: 1.6; color: var(--ink); border: 1px solid var(--pjd-border); background: #f8fbff; padding: 12px 14px; border-radius: 10px; white-space: pre-wrap; }
   .pjd-doc-drawer-quote-meta { margin-top: 8px; font-size: .8rem; color: var(--muted); font-weight: 600; }
 
   /* ════════════ CHECKLIST AVANZADO ════════════ */
@@ -426,7 +442,7 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: all .2s ease;
+    transition-property: background, border-color, color, opacity, transform, box-shadow; transition-duration: .2s ease; transition-timing-function: var(--pjd-ease);
     flex-shrink: 0;
   }
   .pjd-checklist-icon:hover {
@@ -611,7 +627,7 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    transition: all .18s ease;
+    transition-property: background, border-color, color, opacity, transform, box-shadow; transition-duration: .18s ease; transition-timing-function: var(--pjd-ease);
   }
   .pjd-cl-btn:hover {
     background: #f9fafb;
@@ -779,7 +795,7 @@
     background: #fff;
     padding: 0;
     flex-shrink: 0;
-    transition: all .18s ease;
+    transition-property: background, border-color, color, opacity, transform, box-shadow; transition-duration: .18s ease; transition-timing-function: var(--pjd-ease);
     position: relative;
   }
   .pjd-cl-cumple-dot::after {
@@ -881,7 +897,7 @@
   .pjd-cl-source-quote {
     margin-top: 8px;
     padding: 12px 14px;
-    border-left: 3px solid var(--blue);
+    border: 1px solid var(--pjd-border);
     background: #f8fbff;
     border-radius: 10px;
     color: var(--ink);
@@ -919,7 +935,7 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    transition: all .15s;
+    transition-property: background, border-color, color, opacity, transform, box-shadow; transition-duration: .15s; transition-timing-function: var(--pjd-ease);
   }
   .pjd-cl-source-btn:hover { background: var(--blue-soft); transform: translateY(-1px); }
   .pjd-cl-source-btn:active { transform: scale(.98); }
@@ -969,7 +985,7 @@
     width: 100%;
     font-family: inherit;
     font-size: 1rem;
-    transition: all .15s;
+    transition-property: background, border-color, color, opacity, transform, box-shadow; transition-duration: .15s; transition-timing-function: var(--pjd-ease);
   }
   .pjd-cl-add:hover { background: #f9fbff; border-color: #bfd3ff; }
   .pjd-cl-add span { color: var(--blue); margin-right: 8px; font-size: 1.1rem; }
@@ -1418,7 +1434,7 @@
   .pjd-editor-mini:active { transform:scale(.98); }
   .pjd-editor-mini svg { width: 17px; height: 17px; }
   .pjd-borrador-tabs { display:flex; align-items:center; gap:8px; margin-left:6px; }
-  .pjd-borrador-tab { min-height: 36px; display:inline-flex; align-items:center; gap:8px; padding: 0 15px; border-radius:999px; border:1px solid #d9dde5; background:#ffffff; font-family:inherit; font-size: .82rem; font-weight: 700; color:#666666; cursor:pointer; box-shadow:0 1px 2px rgba(15,23,42,.03); transition: all .18s ease; }
+  .pjd-borrador-tab { min-height: 36px; display:inline-flex; align-items:center; gap:8px; padding: 0 15px; border-radius:999px; border:1px solid #d9dde5; background:#ffffff; font-family:inherit; font-size: .82rem; font-weight: 700; color:#666666; cursor:pointer; box-shadow:0 1px 2px rgba(15,23,42,.03); transition-property: background, border-color, color, opacity, transform, box-shadow; transition-duration: .18s ease; transition-timing-function: var(--pjd-ease); }
   .pjd-borrador-tab:hover { border-color:#cfd5df; color:#111111; background:#fbfcfd; }
   .pjd-borrador-tab.is-active { background:#0f6fff; border-color:#0f6fff; color:#ffffff; box-shadow:0 6px 18px rgba(15,111,255,.18); }
   .pjd-borrador-tab svg { width: 15px; height: 15px; }
@@ -1434,9 +1450,6 @@
   .pjd-wrap.is-conversation-collapsed .pjd-left,
   .pjd-wrap.is-conversation-collapsed .pjd-resizer { opacity: 0; pointer-events: none; overflow: hidden; border: 0; }
   .pjd-wrap.is-conversation-collapsed .pjd-right { border-left: 1px solid var(--line); }
-  .pjd-wrap.is-checklist-wide .pjd-right { background: #ffffff; }
-  .pjd-wrap.is-checklist-wide .pjd-pane[data-pane="checklist"] { padding: 14px 18px 22px; }
-  .pjd-wrap.is-checklist-wide .pjd-checklist-wrap { min-height: calc(100dvh - 164px); }
 
   .pjd-draft-shell {
     border: 1px solid var(--line);
@@ -1552,7 +1565,7 @@
   .pjd-draft-editor h2 { font-size: 1.55rem; line-height: 1.25; margin: .9rem 0 .55rem; color: #111; }
   .pjd-draft-editor h3 { font-size: 1.25rem; line-height: 1.3; margin: .8rem 0 .45rem; color: #111; }
   .pjd-draft-editor p { margin: .55rem 0; }
-  .pjd-draft-editor blockquote { margin: 14px 0; padding: 10px 14px; border-left: 3px solid var(--blue); background: #f8fbff; color: #344054; border-radius: 0 10px 10px 0; }
+  .pjd-draft-editor blockquote { margin: 14px 0; padding: 10px 14px; border: 1px solid var(--pjd-border); background: #f8fbff; color: #344054; border-radius: 0 10px 10px 0; }
   .pjd-draft-editor a { color: var(--blue); text-decoration: underline; }
   .pjd-draft-editor img { max-width: 100%; border-radius: 12px; border: 1px solid var(--line); }
   .pjd-draft-editor hr { border: 0; border-top: 1px solid var(--line); margin: 18px 0; }
@@ -1563,7 +1576,7 @@
 
   .pjd-reporte-empty { background: #fff; border: 1.5px dashed var(--line); border-radius: 14px; padding: 60px 30px; text-align: center; min-height: 360px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; }
   .pjd-reporte-empty p { margin: 0; font-size: 1rem; color: var(--muted); font-weight: 600; }
-  .pjd-reporte-btn { background: var(--blue); color: #fff; padding: 12px 28px; border-radius: 999px; border: none; font-family: inherit; font-weight: 700; font-size: .92rem; cursor: pointer; box-shadow: 0 6px 14px rgba(0,122,255,.22); transition: all .15s; display: inline-flex; align-items: center; gap: 8px; }
+  .pjd-reporte-btn { background: var(--blue); color: #fff; padding: 12px 28px; border-radius: 999px; border: none; font-family: inherit; font-weight: 700; font-size: .92rem; cursor: pointer; box-shadow: 0 6px 14px rgba(0,122,255,.22); transition-property: background, border-color, color, opacity, transform, box-shadow; transition-duration: .15s; transition-timing-function: var(--pjd-ease); display: inline-flex; align-items: center; gap: 8px; }
   .pjd-reporte-btn:hover { transform: translateY(-1px); box-shadow: 0 10px 22px rgba(0,122,255,.28); }
   .pjd-reporte-btn:disabled { opacity: .6; cursor: not-allowed; }
   .pjd-reporte-content { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 30px 36px; min-height: 480px; font-size: .95rem; line-height: 1.7; color: var(--ink2); }
@@ -1651,7 +1664,7 @@
   .pjd-inicio-card p { margin: 0; font-size: .88rem; color: var(--muted); }
 
   .pjd-loading-dots { display: inline-flex; gap: 4px; }
-  .pjd-loading-dots span { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); animation: pjdBounce 1.2s infinite ease-in-out; }
+  .pjd-loading-dots span { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); animation: pjdBounce 1.2s infinite var(--pjd-ease); }
   .pjd-loading-dots span:nth-child(2) { animation-delay: .15s; }
   .pjd-loading-dots span:nth-child(3) { animation-delay: .3s; }
   @keyframes pjdBounce { 0%,80%,100% { transform: scale(.6); opacity: .4; } 40% { transform: scale(1); opacity: 1; } }
@@ -1816,7 +1829,7 @@
     font-weight: 700;
     font-size: .88rem;
     cursor: pointer;
-    transition: all .16s ease;
+    transition-property: background, border-color, color, opacity, transform, box-shadow; transition-duration: .16s ease; transition-timing-function: var(--pjd-ease);
   }
   .pjd-cl-priority-btn:hover { background: #e7edf6; transform: translateY(-1px); }
   .pjd-cl-priority-btn.is-active { background: var(--blue-soft); color: var(--blue); }
@@ -2382,6 +2395,254 @@
     }
   }
 
+
+
+  /* ===== ENCLAII PATCH UI/UX ANALISIS ===== */
+  .pjd-wrap {
+    color: var(--pjd-ink) !important;
+    background: var(--pjd-bg) !important;
+  }
+
+  .pjd-pane {
+    transition: none !important;
+  }
+
+  .pjd-tab,
+  .pjd-chat-send,
+  .pjd-chat-reset,
+  .pjd-chat-table-btn,
+  .pjd-borrador-tab,
+  .pjd-reporte-btn,
+  .pjd-cl-add-btn,
+  .pjd-cl-export-btn,
+  .pjd-cl-action-btn,
+  .pjd-cl-detail-link,
+  .pjd-doc-action,
+  .pjd-source-btn,
+  .pjd-chat-send {
+    transition-property: background, border-color, color, opacity, transform, box-shadow !important;
+    transition-duration: var(--pjd-dur-ui) !important;
+    transition-timing-function: var(--pjd-ease) !important;
+  }
+
+  .pjd-tab:active,
+  .pjd-chat-send:active,
+  .pjd-chat-reset:active,
+  .pjd-chat-table-btn:active,
+  .pjd-borrador-tab:active,
+  .pjd-reporte-btn:active,
+  .pjd-cl-add-btn:active,
+  .pjd-cl-export-btn:active,
+  .pjd-cl-action-btn:active,
+  .pjd-cl-detail-link:active,
+  .pjd-doc-action:active,
+  .pjd-source-btn:active {
+    transform: scale(.97) !important;
+    transition-duration: var(--pjd-dur-press) !important;
+  }
+
+  .pjd-field-label,
+  .pjd-card-sub,
+  .pjd-md-p,
+  .pjd-msg-body,
+  .pjd-cl-muted,
+  .pjd-cl-detail-empty,
+  .pjd-date-sub,
+  .pjd-doc-meta,
+  .pjd-source-meta,
+  .pjd-source-quote {
+    color: var(--pjd-ink-soft) !important;
+  }
+
+  .pjd-field-value,
+  .pjd-pane-title,
+  .pjd-card-head h3,
+  .pjd-title,
+  .pjd-msg-body strong,
+  .pjd-cl-title,
+  .pjd-cl-name,
+  .pjd-doc-title {
+    color: var(--pjd-ink) !important;
+  }
+
+  .pjd-card,
+  .pjd-msg-body,
+  .pjd-chat-table-wrap,
+  .pjd-source-card,
+  .pjd-doc-drawer-quote-text,
+  .pjd-cita-quote {
+    border: 1px solid var(--pjd-border) !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,.02) !important;
+  }
+
+  .pjd-card-head {
+    background: #fbfcfe !important;
+    border-bottom: 1px solid var(--pjd-border) !important;
+  }
+
+  .pjd-field {
+    border-bottom: 1px solid var(--pjd-border) !important;
+    padding: 10px 0 !important;
+  }
+
+  .pjd-field-value:empty::after,
+  .pjd-field-value.is-empty::after {
+    content: "Sin dato";
+    color: var(--pjd-ink-soft);
+  }
+
+  .pjd-ai-notice {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border: 1px solid var(--pjd-border);
+    border-radius: 12px;
+    background: var(--pjd-bg);
+    color: var(--pjd-ink-soft);
+    padding: 12px 14px;
+    margin: 10px 0 12px;
+    font-size: .86rem;
+    font-weight: 600;
+  }
+
+  .pjd-svg {
+    width: 16px;
+    height: 16px;
+    display: block;
+    flex-shrink: 0;
+  }
+
+  .pjd-cita-badge {
+    color: var(--pjd-blue) !important;
+    background: #e6f0ff !important;
+    border: 1px solid #cfe1ff !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+  }
+
+  .pjd-status-pill.is-processing,
+  .pjd-doc-status.is-pending,
+  .pjd-cl-badge.is-pending,
+  .pjd-cl-status.is-pending,
+  .pjd-badge.is-pending {
+    color: var(--pjd-pending) !important;
+    background: var(--pjd-pending-bg) !important;
+    border-color: #f1dca5 !important;
+  }
+
+  .pjd-status-pill.is-ready,
+  .pjd-doc-status.is-ready,
+  .pjd-doc-status.is-completed,
+  .pjd-cl-badge.is-ok,
+  .pjd-cl-status.is-ok {
+    color: var(--pjd-ok) !important;
+    background: var(--pjd-ok-bg) !important;
+    border-color: #bfe8d5 !important;
+  }
+
+  .pjd-status-pill.is-error,
+  .pjd-doc-status.is-error,
+  .pjd-cl-badge.is-danger,
+  .pjd-cl-status.is-danger {
+    color: var(--pjd-danger) !important;
+    background: var(--pjd-danger-bg) !important;
+    border-color: #f3c3bc !important;
+  }
+
+  .pjd-chat-input input,
+  .pjd-cl-detail-date,
+  .pjd-cl-detail-select,
+  .pjd-draft-title-input,
+  .pjd-doc-search-input,
+  .pjd-cl-filter,
+  .pjd-control {
+    min-height: 42px !important;
+    border: 1px solid var(--pjd-border) !important;
+    border-radius: 10px !important;
+    background: var(--pjd-surface) !important;
+    color: var(--pjd-ink) !important;
+    font-weight: 600 !important;
+  }
+
+  .pjd-chat-input input:focus,
+  .pjd-cl-detail-date:focus,
+  .pjd-cl-detail-select:focus,
+  .pjd-draft-title-input:focus,
+  .pjd-doc-search-input:focus,
+  .pjd-cl-filter:focus,
+  .pjd-control:focus {
+    border-color: var(--pjd-blue) !important;
+    box-shadow: 0 0 0 3px #e6f0ff !important;
+    outline: none !important;
+  }
+
+  .pjd-cl-detail-controls {
+    display: grid !important;
+    gap: 10px !important;
+  }
+
+  .pjd-cl-detail-control-row {
+    display: grid !important;
+    grid-template-columns: 160px minmax(0, 1fr) !important;
+    gap: 10px !important;
+    align-items: center !important;
+  }
+
+  .pjd-step-check,
+  .pjd-step-circle svg {
+    transition-property: opacity !important;
+    transition-duration: var(--pjd-dur-ui) !important;
+    transition-timing-function: var(--pjd-ease) !important;
+  }
+
+  @media (hover:hover) and (pointer:fine) {
+    .pjd-tab:hover,
+    .pjd-chat-reset:hover,
+    .pjd-chat-table-btn:hover,
+    .pjd-borrador-tab:hover,
+    .pjd-source-btn:hover,
+    .pjd-doc-action:hover,
+    .pjd-cl-action-btn:hover {
+      background: var(--pjd-bg) !important;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pjd-tab,
+    .pjd-chat-send,
+    .pjd-chat-reset,
+    .pjd-chat-table-btn,
+    .pjd-borrador-tab,
+    .pjd-reporte-btn,
+    .pjd-cl-add-btn,
+    .pjd-cl-export-btn,
+    .pjd-cl-action-btn,
+    .pjd-cl-detail-link,
+    .pjd-doc-action,
+    .pjd-source-btn,
+    .pjd-step-check,
+    .pjd-step-circle svg {
+      transition-duration: 0ms !important;
+      animation-duration: 0ms !important;
+    }
+
+    .pjd-tab:active,
+    .pjd-chat-send:active,
+    .pjd-chat-reset:active,
+    .pjd-chat-table-btn:active,
+    .pjd-borrador-tab:active,
+    .pjd-reporte-btn:active,
+    .pjd-cl-add-btn:active,
+    .pjd-cl-export-btn:active,
+    .pjd-cl-action-btn:active,
+    .pjd-cl-detail-link:active,
+    .pjd-doc-action:active,
+    .pjd-source-btn:active {
+      transform: none !important;
+    }
+  }
+
 </style>
 @endpush
 
@@ -2395,6 +2656,184 @@
   $resumenEjec = $sd['resumen_ejecutivo'] ?? [];
   $partidas = $sd['partidas'] ?? [];
   $citas = $sd['citas'] ?? [];
+
+  /*
+   |--------------------------------------------------------------------------
+   | Fallback inteligente de Ficha de Resumen
+   |--------------------------------------------------------------------------
+   | Cuando la IA no llena structured_data.ficha, la vista intenta recuperar
+   | datos desde extracted_text / extracted_raw de los documentos ya procesados.
+   | Esto evita mostrar "Sin dato" cuando el texto sí existe en la convocatoria.
+   */
+  $__pjdFlat = null;
+  $__pjdFlat = function ($value) use (&$__pjdFlat) {
+      if (is_null($value)) {
+          return '';
+      }
+
+      if (is_scalar($value)) {
+          return (string) $value;
+      }
+
+      if (is_object($value)) {
+          $value = (array) $value;
+      }
+
+      if (is_array($value)) {
+          return collect($value)
+              ->map(fn ($item) => $__pjdFlat($item))
+              ->filter(fn ($item) => trim((string) $item) !== '')
+              ->implode(' ');
+      }
+
+      return '';
+  };
+
+  $__pjdDocParts = [];
+
+  foreach (($project->documents ?? collect()) as $__doc) {
+      $__pjdDocParts[] = $__doc->filename ?? '';
+
+      if (!empty($__doc->extracted_text)) {
+          $__pjdDocParts[] = $__doc->extracted_text;
+      }
+
+      $__raw = $__doc->extracted_raw ?? null;
+
+      if (is_string($__raw)) {
+          $__decoded = json_decode($__raw, true);
+          $__raw = json_last_error() === JSON_ERROR_NONE ? $__decoded : $__raw;
+      }
+
+      $__pjdDocParts[] = $__pjdFlat($__raw);
+  }
+
+  foreach (collect($documentLibrary ?? []) as $__docItem) {
+      $__pjdDocParts[] = $__docItem['summary'] ?? '';
+      $__pjdDocParts[] = $__docItem['title'] ?? '';
+      $__pjdDocParts[] = $__docItem['filename'] ?? '';
+  }
+
+  $__pjdDocText = trim(preg_replace('/\s+/u', ' ', strip_tags(collect($__pjdDocParts)->filter()->implode(' '))));
+
+  $__pjdClean = function ($value) {
+      return trim(preg_replace('/\s+/u', ' ', strip_tags((string) $value)));
+  };
+
+  $__pjdMissing = function ($value) use ($__pjdClean) {
+      $clean = Str::lower($__pjdClean($value));
+
+      return $clean === ''
+          || in_array($clean, [
+              '-',
+              '—',
+              'sin dato',
+              'no se encontro informacion',
+              'no se encontró información',
+              'no se encontro información',
+              'no se encontró informacion',
+              'no se encontró información expresa',
+          ], true);
+  };
+
+  $__pjdFirstMatch = function (array $patterns, int $limit = 260) use ($__pjdDocText, $__pjdClean) {
+      foreach ($patterns as $pattern) {
+          if (preg_match($pattern, $__pjdDocText, $match)) {
+              $value = $__pjdClean($match[1] ?? $match[0] ?? '');
+              $value = trim($value, " \t\n\r\0\x0B:-–—.");
+
+              if ($value !== '') {
+                  return Str::limit($value, $limit, '');
+              }
+          }
+      }
+
+      return null;
+  };
+
+  $__pjdPutFicha = function ($key, $value) use (&$ficha, $__pjdMissing, $__pjdClean) {
+      if ($__pjdMissing($ficha[$key] ?? null) && !$__pjdMissing($value)) {
+          $ficha[$key] = $__pjdClean($value);
+      }
+  };
+
+  if ($__pjdDocText !== '') {
+      $__numeroLicitacion = $__pjdFirstMatch([
+          '~(?:n[uú]mero\s+de\s+licitaci[oó]n|no\.?\s*(?:de\s*)?(?:licitaci[oó]n|procedimiento)|procedimiento\s*(?:no\.?|n[uú]m\.?)|expediente)\s*[:#]?\s*([A-Z0-9][A-Z0-9\/\-.]{4,})~iu',
+          '~\b((?:IA|LA|LPN|LPI|AA|AD)[\-\/]?[A-Z0-9\-\/\.]{5,})\b~iu',
+      ], 80);
+
+      $__tipoEvento = null;
+      $__tipoNeedles = [
+          'Invitación a cuando menos tres personas',
+          'Licitación Pública Nacional',
+          'Licitación Pública Internacional',
+          'Licitación Pública',
+          'Adjudicación Directa',
+      ];
+
+      foreach ($__tipoNeedles as $__needle) {
+          if (Str::contains(Str::lower($__pjdDocText), Str::lower($__needle))) {
+              $__tipoEvento = $__needle;
+              break;
+          }
+      }
+
+      $__organismo = $__pjdFirstMatch([
+          '~(Consejo\s+Nacional\s+de\s+Fomento\s+Educativo)~iu',
+          '~\b(CONAFE)\b~iu',
+          '~(Secretar[ií]a\s+de\s+Educaci[oó]n\s+P[uú]blica)~iu',
+          '~(Secretar[ií]a\s+de\s+Marina)~iu',
+          '~(Instituto\s+[A-ZÁÉÍÓÚÑ][A-Za-zÁÉÍÓÚÜÑáéíóúüñ\s]{8,120})~u',
+      ], 160);
+
+      if (Str::upper((string) $__organismo) === 'CONAFE') {
+          $__organismo = 'Consejo Nacional de Fomento Educativo';
+      }
+
+      $__objeto = $__pjdFirstMatch([
+          '~objeto\s+(?:de\s+)?(?:la\s+)?(?:licitaci[oó]n|contrataci[oó]n|procedimiento)\s*[:\-\n]\s*([^.;]{12,260})~iu',
+          '~(adquisici[oó]n\s+de\s+(?:materiales|bienes|servicios|[úu]tiles)[^.;]{5,220})~iu',
+          '~(contrataci[oó]n\s+de\s+(?:servicios|bienes|materiales)[^.;]{5,220})~iu',
+          '~(servicio\s+de\s+[^.;]{10,220})~iu',
+      ], 260);
+
+      $__medioParticipacion = null;
+
+      if (preg_match('~\b(electr[oó]nic[ao]|CompraNet)\b~iu', $__pjdDocText)) {
+          $__medioParticipacion = 'Electrónica';
+      } elseif (preg_match('~\bpresencial\b~iu', $__pjdDocText)) {
+          $__medioParticipacion = 'Presencial';
+      } elseif ($__tipoEvento) {
+          $__medioParticipacion = $__tipoEvento;
+      }
+
+      $__monedaPago = null;
+
+      if (preg_match('~moneda\s+nacional\s*\(([^)]+)\)~iu', $__pjdDocText, $__m)) {
+          $__monedaPago = 'Moneda nacional (' . $__pjdClean($__m[1]) . ')';
+      } elseif (preg_match('~\bpesos\s+mexicanos\b~iu', $__pjdDocText)) {
+          $__monedaPago = 'Pesos mexicanos';
+      } elseif (preg_match('~\bmoneda\s+nacional\b~iu', $__pjdDocText)) {
+          $__monedaPago = 'Moneda nacional';
+      }
+
+      $__condicionesPago = $__pjdFirstMatch([
+          '~CONDICIONES\s+Y\s+FORMAS\s+DE\s+PAGO\s*(.+?)(?=\s+(?:\d+\.\s+[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ\s]{6,}|P[aá]gina\s+\d+|$))~isu',
+          '~(?:forma|condiciones)\s+de\s+pago\s*[:\-\n]\s*(.+?)(?=\s+(?:\d+\.\s+[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ\s]{6,}|P[aá]gina\s+\d+|$))~isu',
+          '~(el\s+pago\s+correspondiente\s+se\s+realizar[aá]\s+.+?)(?=\s+(?:\d+\.\s+[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ\s]{6,}|P[aá]gina\s+\d+|$))~isu',
+      ], 520);
+
+      $__pjdPutFicha('numero_licitacion', $__numeroLicitacion);
+      $__pjdPutFicha('tipo_evento', $__tipoEvento);
+      $__pjdPutFicha('organismo', $__organismo);
+      $__pjdPutFicha('objeto_licitacion', $__objeto);
+      $__pjdPutFicha('objeto', $__objeto);
+      $__pjdPutFicha('medio_participacion', $__medioParticipacion);
+      $__pjdPutFicha('moneda_pago', $__monedaPago);
+      $__pjdPutFicha('condiciones_pago', $__condicionesPago);
+  }
+
   $checklistRaw = $project->relationLoaded('checklistItems') && $project->checklistItems->count()
       ? $project->checklistItems->map(fn ($it) => method_exists($it, 'toChecklistArray') ? $it->toChecklistArray() : [
           'id'                    => $it->id,
@@ -2654,8 +3093,10 @@
                 ['key'=>'ficha.numero_licitacion',     'label'=>'Número de licitación',                  'val'=>$ficha['numero_licitacion'] ?? null],
                 ['key'=>'ficha.tipo_evento',           'label'=>'Tipo de evento',                         'val'=>$ficha['tipo_evento'] ?? null],
                 ['key'=>'ficha.organismo',             'label'=>'Organismo',                              'val'=>$ficha['organismo'] ?? null],
-                ['key'=>'ficha.objeto_licitacion',     'label'=>'¿Cuál es el objeto de la licitación?',   'val'=>$ficha['objeto_licitacion'] ?? null],
+                ['key'=>'ficha.objeto_licitacion',     'label'=>'¿Cuál es el objeto de la licitación?',   'val'=>$ficha['objeto_licitacion'] ?? $ficha['objeto'] ?? null],
                 ['key'=>'ficha.medio_participacion',   'label'=>'¿Cuál es el medio de participación?',    'val'=>$ficha['medio_participacion'] ?? null],
+                ['key'=>'ficha.moneda_pago',           'label'=>'¿En qué moneda se realizará el pago?',   'val'=>$ficha['moneda_pago'] ?? null],
+                ['key'=>'ficha.condiciones_pago',      'label'=>'Condiciones y forma de pago',            'val'=>$ficha['condiciones_pago'] ?? null],
               ];
             @endphp
             @foreach($fichaRows as $row)
@@ -2669,8 +3110,8 @@
               @endphp
               <div class="pjd-field {{ $payload ? 'has-cita' : 'has-no-cita' }}" @if($payload) data-cita="{{ $payload }}" @endif>
                 <div class="pjd-field-label">{{ $row['label'] }}</div>
-                <div class="pjd-field-value">{{ $row['val'] ?: 'No se encontró información' }}</div>
-                @if($payload)<div class="pjd-cita-badge">📄 Ver fuente</div>@endif
+                <div class="pjd-field-value">{{ $row['val'] ?: 'Sin dato' }}</div>
+                @if($payload)<div class="pjd-cita-badge"><svg class="pjd-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg> Ver fuente</div>@endif
                 <div class="pjd-source-panel" hidden>
                   <div class="pjd-source-card {{ $payload ? '' : 'is-empty' }}">
                     <button type="button" class="pjd-source-close" aria-label="Cerrar fuente">✕</button>
@@ -2707,6 +3148,16 @@
                 ['key'=>'fechas_clave.vigencia_contrato',     'label'=>'Vigencia del contrato',                       'val'=>$fechas['vigencia_contrato'] ?? null],
               ];
             @endphp
+            @php
+              $fechasSinDato = collect($fechasRows)->every(fn($r) => blank($r['val'] ?? null));
+            @endphp
+            @if($fechasSinDato)
+              <div class="pjd-ai-notice">
+                <svg class="pjd-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>
+                <span>Este documento aún no contiene fechas detectadas.</span>
+              </div>
+            @endif
+
             @foreach($fechasRows as $row)
               @php
                 $payload = $citaPayload($citas, $row['key'], $row['val'] ?? null, $row['label'] ?? null);
@@ -2718,8 +3169,8 @@
               @endphp
               <div class="pjd-field {{ $payload ? 'has-cita' : 'has-no-cita' }}" @if($payload) data-cita="{{ $payload }}" @endif>
                 <div class="pjd-field-label">{{ $row['label'] }}</div>
-                <div class="pjd-field-value">{{ $row['val'] ?: 'No se encontró información' }}</div>
-                @if($payload)<div class="pjd-cita-badge">📄 Ver fuente</div>@endif
+                <div class="pjd-field-value">{{ $row['val'] ?: 'Sin dato' }}</div>
+                @if($payload)<div class="pjd-cita-badge"><svg class="pjd-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg> Ver fuente</div>@endif
                 <div class="pjd-source-panel" hidden>
                   <div class="pjd-source-card {{ $payload ? '' : 'is-empty' }}">
                     <button type="button" class="pjd-source-close" aria-label="Cerrar fuente">✕</button>
@@ -2764,7 +3215,7 @@
               <div class="pjd-qa {{ $payload ? 'has-cita' : 'has-no-cita' }}" @if($payload) data-cita="{{ $payload }}" @endif>
                 <div class="pjd-qa-q">{{ $qa['pregunta'] ?? '' }}</div>
                 <div class="pjd-qa-a">{{ $qa['respuesta'] ?? 'No se encontró información' }}</div>
-                @if($payload)<div class="pjd-cita-badge">📄 Ver fuente</div>@endif
+                @if($payload)<div class="pjd-cita-badge"><svg class="pjd-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg> Ver fuente</div>@endif
                 <div class="pjd-source-panel" hidden>
                   <div class="pjd-source-card {{ $payload ? '' : 'is-empty' }}">
                     <button type="button" class="pjd-source-close" aria-label="Cerrar fuente">✕</button>
@@ -3499,54 +3950,48 @@
   // ============ TABS ============
   const tabs = document.querySelectorAll('.pjd-tab');
   const panes = document.querySelectorAll('.pjd-pane');
-  const PJD_WIDE_TABS = ['checklist'];
-  const PJD_HASH_TAB_MAP = {
+
+  const PJD_TAB_ALIASES = {
+    '#inicio': 'inicio',
+    '#ficha': 'ficha',
+    '#resumen': 'resumen',
+    '#resumen-ejecutivo': 'resumen',
     '#checklist': 'checklist',
     '#armado-propuesta': 'checklist',
     '#propuesta': 'checklist',
-    '#documentos': 'documentos',
     '#borrador': 'borrador',
     '#reporte': 'borrador',
-    '#resumen': 'resumen',
-    '#ficha': 'ficha',
-    '#inicio': 'inicio'
+    '#documentos': 'documentos',
   };
 
-  function setConversationCollapsed(collapsed) {
-    const wrap = document.querySelector('.pjd-wrap');
-    if (!wrap) return;
-    wrap.classList.toggle('is-conversation-collapsed', collapsed);
-    wrap.classList.toggle('is-checklist-wide', collapsed);
+  function normalizePjdTabHash(hash) {
+    const cleanHash = String(hash || '').trim().toLowerCase();
+    return PJD_TAB_ALIASES[cleanHash] || null;
   }
 
   function activateTab(name, opts = {}) {
-    const target = panes.length && document.querySelector(`.pjd-pane[data-pane="${name}"]`) ? name : 'ficha';
+    const hasTab = Array.from(tabs).some(t => t.dataset.tab === name);
+    if (!hasTab) name = 'ficha';
 
-    tabs.forEach(t => t.classList.toggle('is-active', t.dataset.tab === target));
-    panes.forEach(p => p.classList.toggle('is-active', p.dataset.pane === target));
+    tabs.forEach(t => t.classList.toggle('is-active', t.dataset.tab === name));
+    panes.forEach(p => p.classList.toggle('is-active', p.dataset.pane === name));
 
-    // Cuando se abre Checklist desde Dashboard, Armado de Propuesta o el tab directo,
-    // el panel derecho se expande y el chat se oculta para trabajar en pantalla amplia.
-    setConversationCollapsed(PJD_WIDE_TABS.includes(target));
-
-    if (opts.updateHash && window.location.hash !== `#${target}`) {
-      history.replaceState(null, '', `${window.location.pathname}${window.location.search}#${target}`);
+    if (opts.updateHash && window.location.hash !== `#${name}`) {
+      history.replaceState(null, '', `${window.location.pathname}${window.location.search}#${name}`);
     }
 
-    if (target === 'borrador' && (window.location.hash === '#reporte')) {
-      document.querySelector('.pjd-borrador-tab[data-section="reporte"]')?.click();
+    if (name === 'checklist') {
+      setTimeout(() => document.querySelector('[data-pane="checklist"]')?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 60);
     }
   }
 
-  function activateTabFromHash() {
-    const rawHash = (window.location.hash || '').toLowerCase();
-    const target = PJD_HASH_TAB_MAP[rawHash] || 'ficha';
-    activateTab(target, { updateHash: false });
+  function activateTabFromUrl() {
+    activateTab(normalizePjdTabHash(window.location.hash) || 'ficha');
   }
 
   tabs.forEach(t => t.addEventListener('click', () => activateTab(t.dataset.tab, { updateHash: true })));
-  activateTabFromHash();
-  window.addEventListener('hashchange', activateTabFromHash);
+  window.addEventListener('hashchange', activateTabFromUrl);
+  activateTabFromUrl();
 
   // ============ SPLIT VIEW REDIMENSIONABLE (aplica a todas las pestañas) ============
   const pjdWrap = document.querySelector('.pjd-wrap');
@@ -4808,7 +5253,7 @@
   table { border-collapse: collapse; width: 100%; margin: 12pt 0; }
   th, td { border: 1px solid #d9d9d9; padding: 7pt 8pt; text-align: left; vertical-align: top; }
   th { background: #f3f4f6; font-weight: 700; }
-  blockquote { border-left: 3px solid #007aff; margin: 10pt 0; padding: 6pt 12pt; color: #333333; }
+  blockquote { border: 1px solid #e6e9ee; margin: 10pt 0; padding: 6pt 12pt; color: #333333; }
 </style>
 </head>
 <body>
