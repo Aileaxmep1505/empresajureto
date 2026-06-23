@@ -2643,6 +2643,103 @@
     }
   }
 
+
+
+  /* ACCIONES FICHA: rebuscar IA + descargar Word */
+  .pjd-card-head.pjd-ficha-head {
+    cursor: default !important;
+    gap: 12px !important;
+  }
+
+  .pjd-ficha-head-main {
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .pjd-ficha-actions {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .pjd-ficha-action-form {
+    margin: 0;
+    padding: 0;
+    display: inline-flex;
+  }
+
+  .pjd-ficha-action {
+    min-height: 34px;
+    border: 1px solid var(--pjd-border, #e6e9ee);
+    border-radius: 999px;
+    background: #fff;
+    color: var(--pjd-ink, #1c2024);
+    padding: 0 12px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    transition-property: background, border-color, color, transform, opacity;
+    transition-duration: var(--pjd-dur-ui, 200ms);
+    transition-timing-function: var(--pjd-ease, cubic-bezier(0.23, 1, 0.32, 1));
+  }
+
+  .pjd-ficha-action svg {
+    width: 15px;
+    height: 15px;
+    display: block;
+  }
+
+  .pjd-ficha-action.is-primary {
+    border-color: #b7d4ff;
+    background: #f4f8ff;
+    color: var(--pjd-blue, #007aff);
+  }
+
+  .pjd-ficha-action:active {
+    transform: scale(.97);
+    transition-duration: var(--pjd-dur-press, 120ms);
+  }
+
+  .pjd-ficha-action.is-loading {
+    opacity: .72;
+    pointer-events: none;
+  }
+
+  @media (hover:hover) and (pointer:fine) {
+    .pjd-ficha-action:hover {
+      border-color: var(--pjd-blue, #007aff);
+      background: #f8fbff;
+      color: var(--pjd-blue, #007aff);
+    }
+  }
+
+  @media (max-width: 760px) {
+    .pjd-card-head.pjd-ficha-head {
+      align-items: flex-start !important;
+      flex-direction: column;
+    }
+
+    .pjd-ficha-actions {
+      width: 100%;
+      margin-left: 0;
+    }
+
+    .pjd-ficha-action,
+    .pjd-ficha-action-form {
+      flex: 1 1 auto;
+    }
+  }
+
 </style>
 @endpush
 
@@ -3083,9 +3180,26 @@
 
       <div class="pjd-pane is-active" data-pane="ficha">
         <div class="pjd-card is-open">
-          <div class="pjd-card-head js-card-toggle">
-            <h3>Ficha de Resumen <span class="sparkle"></span></h3>
-            <div class="pjd-card-chev">▾</div>
+          <div class="pjd-card-head pjd-ficha-head">
+            <div class="pjd-ficha-head-main js-card-toggle">
+              <h3>Ficha de Resumen <span class="sparkle"></span></h3>
+              <div class="pjd-card-chev">▾</div>
+            </div>
+
+            <div class="pjd-ficha-actions" onclick="event.stopPropagation();">
+              <form method="POST" action="{{ route('projects.ficha.reanalyze', $project) }}" class="pjd-ficha-action-form js-ficha-rebuscar-form">
+                @csrf
+                <button type="submit" class="pjd-ficha-action is-primary js-ficha-rebuscar-btn">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+                  Rebuscar IA
+                </button>
+              </form>
+
+              <a href="{{ route('projects.ficha.word', $project) }}" class="pjd-ficha-action">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></svg>
+                Descargar Word
+              </a>
+            </div>
           </div>
           <div class="pjd-card-body">
             @php
@@ -5729,5 +5843,15 @@
   });
 
 })();
+
+
+  document.querySelectorAll('.js-ficha-rebuscar-form').forEach(form => {
+    form.addEventListener('submit', () => {
+      const btn = form.querySelector('.js-ficha-rebuscar-btn');
+      if (!btn) return;
+      btn.classList.add('is-loading');
+      btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg> Rebuscando...';
+    });
+  });
 </script>
 @endpush

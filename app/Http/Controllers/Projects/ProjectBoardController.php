@@ -2654,4 +2654,271 @@ PROMPT;
     }
 
 
+    /* ============================================================
+     |  FICHA DE RESUMEN
+     |  - Rebuscar IA en documentos
+     |  - Descargar Word con ficha + fechas
+     * ============================================================ */
+    public function reanalyzeFicha(Request $request, Project $project, PythonProjectProcessor $processor)
+    {
+        abort_if($project->user_id !== Auth::id() && Auth::id() !== 1, 403);
+
+        try {
+            $project->loadMissing('documents');
+
+            $paths = $project->documents
+                ->map(fn ($document) => $document->file_path ? storage_path('app/public/' . $document->file_path) : null)
+                ->filter(fn ($path) => $path && file_exists($path))
+                ->values()
+                ->all();
+
+            if (empty($paths)) {
+                $message = 'No hay documentos disponibles para rebuscar la ficha.';
+
+                if ($request->expectsJson() || $request->wantsJson()) {
+                    return response()->json(['ok' => false, 'message' => $message], 422);
+                }
+
+                return back()->with('error', $message);
+            }
+
+            $result = $processor->process($project, $paths);
+            $structured = $result['structured_data'] ?? [];
+
+            if (is_array($structured) && !empty($structured)) {
+                $current = is_array($project->structured_data) ? $project->structured_data : [];
+                $project->structured_data = array_replace_recursive($current, $structured);
+            }
+
+            $newChecklist = data_get($structured, 'checklist_sugerido', []);
+            if (is_array($newChecklist) && !empty($newChecklist)) {
+                $project->checklist = $newChecklist;
+            }
+
+            $project->status = 'ready';
+            $project->error_message = null;
+            $project->save();
+
+            if (is_array($newChecklist) && !empty($newChecklist)) {
+                $this->syncChecklistItemsFromArray($project, $newChecklist, true);
+            }
+
+            ProjectDocument::where('project_id', $project->id)
+                ->whereIn('file_path', $project->documents->pluck('file_path')->filter()->values()->all())
+                ->update([
+                    'status' => 'procesado',
+                    'processed_at' => now(),
+                ]);
+
+            if ($request->expectsJson() || $request->wantsJson()) {
+                return response()->json([
+                    'ok' => true,
+                    'message' => 'Ficha rebuscada correctamente.',
+                    'structured_data' => $project->fresh()->structured_data,
+                ]);
+            }
+
+            return redirect()
+                ->route('projects.analisis', $project)
+                ->withFragment('ficha')
+                ->with('success', 'Ficha rebuscada correctamente.');
+        } catch (\Throwable $e) {
+            Log::error('Reanalyze ficha failed', [
+                'project_id' => $project->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            if ($request->expectsJson() || $request->wantsJson()) {
+                return response()->json(['ok' => false, 'message' => $e->getMessage()], 500);
+            }
+
+            return back()->with('error', 'No se pudo rebuscar la ficha: ' . $e->getMessage());
+        }
+    }
+
+    private function fichaWordValue(array $data, array $paths, string $fallback = 'No se encontró información'): string
+    {
+        foreach ($paths as $path) {
+            $value = data_get($data, $path);
+
+            if (is_array($value)) {
+                $value = collect($value)
+                    ->filter(fn ($item) => is_scalar($item) && trim((string) $item) !== '')
+                    ->implode(', ');
+            }
+
+            if (is_scalar($value) && trim((string) $value) !== '') {
+                return trim((string) $value);
+            }
+        }
+
+        return $fallback;
+    }
+
+    private function fichaWordRowsHtml(array $rows): string
+    {
+        $html = '<table class="jrt-ficha-table"><tbody>';
+
+        foreach ($rows as $row) {
+            $html .= '<tr>';
+            $html .= '<th>' . e($row['label']) . '</th>';
+            $html .= '<td>' . nl2br(e($row['value'])) . '</td>';
+            $html .= '</tr>';
+        }
+
+        return $html . '</tbody></table>';
+    }
+
+    public function downloadFichaWord(Project $project)
+    {
+        abort_if($project->user_id !== Auth::id() && Auth::id() !== 1, 403);
+
+        $project->loadMissing('documents');
+
+        $data = is_array($project->structured_data) ? $project->structured_data : [];
+
+        $fichaRows = [
+            [
+                'label' => 'Número de licitación',
+                'value' => $this->fichaWordValue($data, [
+                    'ficha.numero_licitacion',
+                    'ficha_general.numero_licitacion',
+                    'numero_licitacion',
+                    'licitacion.numero',
+                    'procedimiento.numero',
+                ], 'En los documentos revisados, no se encontró información sobre el número de licitación.'),
+            ],
+            [
+                'label' => 'Tipo de evento',
+                'value' => $this->fichaWordValue($data, [
+                    'ficha.tipo_evento',
+                    'ficha_general.tipo_evento',
+                    'tipo_evento',
+                    'procedimiento.tipo_evento',
+                    'tipo_procedimiento',
+                ]),
+            ],
+            [
+                'label' => 'Organismo',
+                'value' => $this->fichaWordValue($data, [
+                    'ficha.organismo',
+                    'ficha_general.organismo',
+                    'organismo',
+                    'dependencia',
+                    'convocante',
+                ]),
+            ],
+            [
+                'label' => '¿Cuál es el objeto de la licitación?',
+                'value' => $this->fichaWordValue($data, [
+                    'ficha.objeto_licitacion',
+                    'ficha.objeto',
+                    'ficha_general.objeto_licitacion',
+                    'objeto_licitacion',
+                    'objeto',
+                    'procedimiento.objeto',
+                ], 'No se encontró información sobre objeto'),
+            ],
+            [
+                'label' => '¿Cuál es el medio de participación?',
+                'value' => $this->fichaWordValue($data, [
+                    'ficha.medio_participacion',
+                    'ficha_general.medio_participacion',
+                    'medio_participacion',
+                    'procedimiento.medio_participacion',
+                ]),
+            ],
+            [
+                'label' => '¿En qué moneda se realizará el pago?',
+                'value' => $this->fichaWordValue($data, [
+                    'ficha.moneda_pago',
+                    'ficha.moneda',
+                    'ficha_general.moneda_pago',
+                    'moneda_pago',
+                    'condiciones_pago.moneda',
+                    'pago.moneda',
+                ], 'Sin dato'),
+            ],
+            [
+                'label' => 'Condiciones y forma de pago',
+                'value' => $this->fichaWordValue($data, [
+                    'ficha.condiciones_pago',
+                    'ficha.forma_pago',
+                    'ficha_general.condiciones_pago',
+                    'condiciones_pago',
+                    'forma_pago',
+                    'pago.condiciones',
+                    'pago.forma_pago',
+                ], 'Sin dato'),
+            ],
+        ];
+
+        $fechaRows = [
+            [
+                'label' => 'Fecha de publicación',
+                'value' => $this->fichaWordValue($data, [
+                    'fechas_clave.fecha_publicacion',
+                    'fecha_publicacion',
+                ], 'En los documentos revisados, no se encontró información sobre la fecha de publicación del resumen de la convocatoria.'),
+            ],
+            [
+                'label' => 'Junta de aclaraciones',
+                'value' => $this->fichaWordValue($data, [
+                    'fechas_clave.junta_aclaraciones',
+                    'junta_aclaraciones',
+                ]),
+            ],
+            [
+                'label' => 'Presentación y apertura de proposiciones',
+                'value' => $this->fichaWordValue($data, [
+                    'fechas_clave.presentacion_apertura',
+                    'fechas_clave.presentacion_y_apertura',
+                    'presentacion_apertura',
+                    'fecha_presentacion_apertura',
+                ]),
+            ],
+            [
+                'label' => 'Fallo',
+                'value' => $this->fichaWordValue($data, [
+                    'fechas_clave.fallo',
+                    'fallo',
+                    'fecha_fallo',
+                ]),
+            ],
+            [
+                'label' => 'Vigencia del contrato',
+                'value' => $this->fichaWordValue($data, [
+                    'fechas_clave.vigencia_contrato',
+                    'vigencia_contrato',
+                    'contrato.vigencia',
+                ]),
+            ],
+        ];
+
+        $created = optional($project->created_at)->format('d/m/Y, H:i:s');
+        $filename = 'ficha-' . Str::slug($project->name ?: 'proyecto') . '-' . now()->format('Ymd-His') . '.doc';
+
+        $html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Ficha</title>';
+        $html .= '<style>';
+        $html .= 'body{font-family:Arial,Helvetica,sans-serif;color:#111;font-size:12pt;line-height:1.35;}';
+        $html .= 'h1{font-size:20pt;margin:0 0 8px;} h2{font-size:15pt;margin:22px 0 8px;}';
+        $html .= '.jrt-meta{margin:0 0 18px;color:#444;}';
+        $html .= '.jrt-ficha-table{width:100%;border-collapse:collapse;margin-bottom:14px;}';
+        $html .= '.jrt-ficha-table th{width:32%;text-align:left;vertical-align:top;background:#f3f6fb;border:1px solid #d9dee7;padding:8px;font-weight:bold;}';
+        $html .= '.jrt-ficha-table td{vertical-align:top;border:1px solid #d9dee7;padding:8px;}';
+        $html .= '</style></head><body>';
+        $html .= '<h1>FICHA</h1>';
+        $html .= '<p class="jrt-meta"><strong>Proyecto:</strong> ' . e($project->name) . '<br><strong>Creado:</strong> ' . e($created) . '</p>';
+        $html .= '<h2>Ficha de Resumen</h2>' . $this->fichaWordRowsHtml($fichaRows);
+        $html .= '<h2>Fechas Clave</h2>' . $this->fichaWordRowsHtml($fechaRows);
+        $html .= '</body></html>';
+
+        return Response::make($html, 200, [
+            'Content-Type' => 'application/vnd.ms-word; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Cache-Control' => 'no-store, no-cache',
+        ]);
+    }
+
+
 }

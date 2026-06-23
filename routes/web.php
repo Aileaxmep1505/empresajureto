@@ -2455,6 +2455,11 @@ Route::patch('/{project}/tasks/{task}/archive', [ProjectBoardController::class, 
 
 Route::delete('/{project}/tasks/{task}', [ProjectBoardController::class, 'destroyDashboardTask'])
     ->name('tasks.destroy');
+Route::post('/{project}/ficha/reanalyze', [ProjectBoardController::class, 'reanalyzeFicha'])
+    ->name('ficha.reanalyze');
+
+Route::get('/{project}/ficha/word', [ProjectBoardController::class, 'downloadFichaWord'])
+    ->name('ficha.word');
 
 
     });
