@@ -2663,77 +2663,99 @@ PROMPT;
     {
         abort_if($project->user_id !== Auth::id() && Auth::id() !== 1, 403);
 
-        try {
-            $project->loadMissing('documents');
+        $project->loadMissing('documents');
 
-            $paths = $project->documents
-                ->map(fn ($document) => $document->file_path ? storage_path('app/public/' . $document->file_path) : null)
-                ->filter(fn ($path) => $path && file_exists($path))
-                ->values()
-                ->all();
+        $paths = $project->documents
+            ->map(fn ($document) => $document->file_path ? storage_path('app/public/' . $document->file_path) : null)
+            ->filter(fn ($path) => $path && file_exists($path))
+            ->values()
+            ->all();
 
-            if (empty($paths)) {
-                $message = 'No hay documentos disponibles para rebuscar la ficha.';
+        if (empty($paths)) {
+            $message = 'No hay documentos disponibles para rebuscar la ficha.';
 
-                if ($request->expectsJson() || $request->wantsJson()) {
-                    return response()->json(['ok' => false, 'message' => $message], 422);
+            if ($request->expectsJson() || $request->wantsJson()) {
+                return response()->json(['ok' => false, 'message' => $message], 422);
+            }
+
+            return back()->with('error', $message);
+        }
+
+        $project->status = 'processing';
+        $project->error_message = null;
+        $project->save();
+
+        $projectId = (int) $project->id;
+        $documentPaths = $paths;
+
+        dispatch(function () use ($projectId, $documentPaths) {
+            @set_time_limit(0);
+            @ini_set('memory_limit', '1024M');
+
+            try {
+                $project = Project::with('documents')->find($projectId);
+
+                if (!$project) {
+                    return;
                 }
 
-                return back()->with('error', $message);
-            }
+                $processor = app(PythonProjectProcessor::class);
+                $result = $processor->process($project, $documentPaths);
+                $structured = $result['structured_data'] ?? [];
 
-            $result = $processor->process($project, $paths);
-            $structured = $result['structured_data'] ?? [];
+                if (is_array($structured) && !empty($structured)) {
+                    $current = is_array($project->structured_data) ? $project->structured_data : [];
+                    $project->structured_data = array_replace_recursive($current, $structured);
+                }
 
-            if (is_array($structured) && !empty($structured)) {
-                $current = is_array($project->structured_data) ? $project->structured_data : [];
-                $project->structured_data = array_replace_recursive($current, $structured);
-            }
+                $newChecklist = data_get($structured, 'checklist_sugerido', []);
 
-            $newChecklist = data_get($structured, 'checklist_sugerido', []);
-            if (is_array($newChecklist) && !empty($newChecklist)) {
-                $project->checklist = $newChecklist;
-            }
+                if (is_array($newChecklist) && !empty($newChecklist)) {
+                    $project->checklist = $newChecklist;
+                }
 
-            $project->status = 'ready';
-            $project->error_message = null;
-            $project->save();
+                $project->status = 'ready';
+                $project->error_message = null;
+                $project->save();
 
-            if (is_array($newChecklist) && !empty($newChecklist)) {
-                $this->syncChecklistItemsFromArray($project, $newChecklist, true);
-            }
+                if (is_array($newChecklist) && !empty($newChecklist)) {
+                    app(self::class)->syncChecklistItemsFromArray($project, $newChecklist, true);
+                }
 
-            ProjectDocument::where('project_id', $project->id)
-                ->whereIn('file_path', $project->documents->pluck('file_path')->filter()->values()->all())
-                ->update([
-                    'status' => 'procesado',
-                    'processed_at' => now(),
+                ProjectDocument::where('project_id', $project->id)
+                    ->whereIn('file_path', $project->documents->pluck('file_path')->filter()->values()->all())
+                    ->update([
+                        'status' => 'procesado',
+                        'processed_at' => now(),
+                    ]);
+            } catch (\Throwable $e) {
+                Log::error('Reanalyze ficha background failed', [
+                    'project_id' => $projectId,
+                    'error' => $e->getMessage(),
                 ]);
 
-            if ($request->expectsJson() || $request->wantsJson()) {
-                return response()->json([
-                    'ok' => true,
-                    'message' => 'Ficha rebuscada correctamente.',
-                    'structured_data' => $project->fresh()->structured_data,
-                ]);
+                if ($project = Project::find($projectId)) {
+                    $project->status = 'error';
+                    $project->error_message = $e->getMessage();
+                    $project->save();
+                }
             }
+        })->afterResponse();
 
-            return redirect()
-                ->route('projects.analisis', $project)
-                ->withFragment('ficha')
-                ->with('success', 'Ficha rebuscada correctamente.');
-        } catch (\Throwable $e) {
-            Log::error('Reanalyze ficha failed', [
-                'project_id' => $project->id,
-                'error' => $e->getMessage(),
+        $message = 'La ficha se está rebuscando en segundo plano. Recarga la vista en unos segundos.';
+
+        if ($request->expectsJson() || $request->wantsJson()) {
+            return response()->json([
+                'ok' => true,
+                'queued' => true,
+                'message' => $message,
             ]);
-
-            if ($request->expectsJson() || $request->wantsJson()) {
-                return response()->json(['ok' => false, 'message' => $e->getMessage()], 500);
-            }
-
-            return back()->with('error', 'No se pudo rebuscar la ficha: ' . $e->getMessage());
         }
+
+        return redirect()
+            ->route('projects.analisis', $project)
+            ->withFragment('ficha')
+            ->with('success', $message);
     }
 
     private function fichaWordValue(array $data, array $paths, string $fallback = 'No se encontró información'): string
