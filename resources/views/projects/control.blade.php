@@ -1,5 +1,5 @@
 @extends('layouts.app')
-
+@section('content_class', 'content--flush')
 @section('title', 'Dashboard')
 
 @push('styles')
@@ -375,11 +375,162 @@
     .cc-main-grid { grid-template-columns: 1fr; }
     .cc-progress-grid { grid-template-columns: 1fr; }
   }
+
+
+  /* --- Sidebar lateral compacto (partials/projects/control-sidebar) --- */
+  .cc-page.has-control-sidebar {
+    padding-left: 104px !important;
+  }
+
+  :root {
+    --cc-global-header-height: 64px;
+  }
+
+  .cc-side-nav {
+    position: fixed;
+    top: var(--cc-global-header-height);
+    left: 0;
+    z-index: 70;
+    width: 72px;
+    height: calc(100vh - var(--cc-global-header-height));
+    background: #ffffff;
+    border-right: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 14px 10px;
+    box-shadow: 4px 0 18px rgba(15, 23, 42, .03);
+  }
+
+  .cc-side-nav__toggle,
+  .cc-side-nav__link {
+    width: 40px;
+    height: 40px;
+    border: 0;
+    border-radius: 12px;
+    background: transparent;
+    color: #3f3f46;
+    display: grid;
+    place-items: center;
+    text-decoration: none;
+    cursor: pointer;
+    position: relative;
+    transition: background .18s ease, color .18s ease, transform .18s ease, box-shadow .18s ease;
+  }
+
+  .cc-side-nav__toggle:active,
+  .cc-side-nav__link:active {
+    transform: scale(.96);
+  }
+
+  .cc-side-nav__link svg,
+  .cc-side-nav__toggle svg {
+    width: 23px;
+    height: 23px;
+    display: block;
+  }
+
+  .cc-side-nav__link.is-active {
+    background: var(--blue);
+    color: #ffffff;
+    box-shadow: 0 10px 22px rgba(26, 115, 232, .22);
+  }
+
+  .cc-side-nav__link.is-orange {
+    color: #f97316;
+  }
+
+  .cc-side-nav__link.is-orange.is-active {
+    background: #fff7ed;
+    color: #f97316;
+    box-shadow: none;
+    border: 1px solid #fed7aa;
+  }
+
+  .cc-side-nav__group {
+    width: 100%;
+    display: grid;
+    justify-items: center;
+    gap: 12px;
+  }
+
+  .cc-side-nav__top {
+    margin-bottom: 18px;
+  }
+
+  .cc-side-nav__main {
+    margin-top: 6px;
+  }
+
+  .cc-side-nav__separator {
+    width: 38px;
+    height: 1px;
+    background: var(--line);
+    margin: 14px 0;
+  }
+
+  .cc-side-nav__tooltip {
+    position: absolute;
+    left: calc(100% + 10px);
+    top: 50%;
+    transform: translateY(-50%) translateX(-4px);
+    opacity: 0;
+    pointer-events: none;
+    white-space: nowrap;
+    padding: 7px 9px;
+    border-radius: 9px;
+    background: #111827;
+    color: #ffffff;
+    font-size: .76rem;
+    font-weight: 700;
+    box-shadow: 0 10px 25px rgba(15, 23, 42, .18);
+    transition: opacity .16s ease, transform .16s ease;
+  }
+
+  @media (hover:hover) and (pointer:fine) {
+    .cc-side-nav__link:hover,
+    .cc-side-nav__toggle:hover {
+      background: #f3f4f6;
+      color: var(--blue);
+    }
+
+    .cc-side-nav__link.is-active:hover {
+      background: var(--blue);
+      color: #ffffff;
+    }
+
+    .cc-side-nav__link:hover .cc-side-nav__tooltip,
+    .cc-side-nav__toggle:hover .cc-side-nav__tooltip {
+      opacity: 1;
+      transform: translateY(-50%) translateX(0);
+    }
+  }
+
+  @media (max-width: 900px) {
+    .cc-side-nav {
+      display: none;
+    }
+
+    .cc-page.has-control-sidebar {
+      padding-left: 16px !important;
+    }
+  }
+
+
+
+  /* Sidebar debajo del header global */
+  .cc-side-nav {
+    top: var(--cc-global-header-height) !important;
+    height: calc(100vh - var(--cc-global-header-height)) !important;
+  }
+
 </style>
 @endpush
 
 @section('content')
-<div class="cc-page">
+@include('projects.partials.control-sidebar')
+
+<div class="cc-page has-control-sidebar">
     <header class="cc-header">
         <div>
             <div class="cc-title-row">
