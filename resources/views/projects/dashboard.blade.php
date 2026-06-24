@@ -3341,7 +3341,7 @@
         </div>
       </div>
 
-      <button type="button" class="pdb-ask-monico"><span class="sparkle"><svg class="pdb-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9L19 15Z"/></svg></span> ask monico</button>
+      <button type="button" class="pdb-ask-monico"><span class="sparkle"><svg class="pdb-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9L19 15Z"/></svg></span> ask sam</button>
       <button type="button" class="pdb-collapse-btn" title="Colapsar">⌃</button>
     </div>
 
@@ -3533,7 +3533,7 @@
             </div>
           </div>
         @else
-          <h3 class="pdb-card-title"><span class="ico is-violet"><svg class="pdb-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9L19 15Z"/></svg></span> monico insights</h3>
+          <h3 class="pdb-card-title"><span class="ico is-violet"><svg class="pdb-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9L19 15Z"/></svg></span> sam insights</h3>
           <div class="pdb-insights-empty">
             <p>Acciones sugeridas:</p>
             <div class="pdb-insight-actions">
@@ -4075,7 +4075,7 @@
       </svg>
     </span>
     <div class="pdb-monico-head-title"><span id="pdbMonicoTitle">Resumen Ejecutivo</span></div>
-    <span class="pdb-monico-by">por monico</span>
+    <span class="pdb-monico-by">por sam</span>
     <div class="pdb-monico-head-actions">
       <button type="button" class="pdb-monico-icon-btn" id="pdbMonicoCollapse" title="Colapsar">
         <svg class="pdb-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m18 15-6-6-6 6"/></svg>

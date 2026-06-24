@@ -3132,7 +3132,7 @@
             @if($m->role === 'assistant')
               <div class="pjd-msg-avatar">j</div>
               <div style="flex:1;min-width:0;">
-                <div class="pjd-msg-meta">jureto · {{ $m->created_at->format('H:i') }}</div>
+                <div class="pjd-msg-meta">sam · {{ $m->created_at->format('H:i') }}</div>
                 <div class="pjd-msg-body" data-raw="{{ $m->content }}">{!! nl2br(e($m->content)) !!}</div>
               </div>
             @else
@@ -3143,7 +3143,7 @@
           <div class="pjd-msg is-assistant">
             <div class="pjd-msg-avatar">j</div>
             <div>
-              <div class="pjd-msg-meta">jureto</div>
+              <div class="pjd-msg-meta">sam</div>
               <div class="pjd-msg-body">Hola, soy tu asistente del proyecto. Puedes pedirme un resumen de las bases, los requisitos clave, las fechas importantes o cualquier duda sobre la licitación.</div>
             </div>
           </div>
@@ -3152,7 +3152,7 @@
 
       <form class="pjd-chat-input" id="pjdChatForm" autocomplete="off">
         @csrf
-        <input type="text" name="message" id="pjdChatInput" placeholder="Pregunta a jureto (Shift+Enter para salto de línea)">
+        <input type="text" name="message" id="pjdChatInput" placeholder="Pregunta a sam (Shift+Enter para salto de línea)">
         <button type="submit" class="pjd-chat-send" id="pjdChatSend" aria-label="Enviar">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
         </button>
@@ -4330,7 +4330,7 @@
     } else {
       bodyHtml = `<div class="pjd-msg-body">${renderMarkdown(content)}</div>`;
     }
-    wrap.innerHTML = `<div class="pjd-msg-avatar">j</div><div style="flex:1;min-width:0;"><div class="pjd-msg-meta">jureto${time ? ' · ' + time : ''}</div>${bodyHtml}</div>`;
+    wrap.innerHTML = `<div class="pjd-msg-avatar">j</div><div style="flex:1;min-width:0;"><div class="pjd-msg-meta">sam${time ? ' · ' + time : ''}</div>${bodyHtml}</div>`;
     chatList.appendChild(wrap);
     if (tableData) {
       wrap.querySelector('.js-copy-table')?.addEventListener('click', () => copyTableToClipboard(tableData));
@@ -4358,7 +4358,7 @@
   function appendLoading() {
     const wrap = document.createElement('div');
     wrap.className = 'pjd-msg is-assistant pjd-loading-enter'; wrap.id = 'pjdLoadingMsg';
-    wrap.innerHTML = `<div class="pjd-msg-avatar">j</div><div><div class="pjd-msg-meta">jureto</div><div class="pjd-msg-body"><span class="pjd-loading-dots"><span></span><span></span><span></span></span></div></div>`;
+    wrap.innerHTML = `<div class="pjd-msg-avatar">j</div><div><div class="pjd-msg-meta">sam</div><div class="pjd-msg-body"><span class="pjd-loading-dots"><span></span><span></span><span></span></span></div></div>`;
     chatList.appendChild(wrap); scrollChatToBottom();
   }
 
