@@ -819,9 +819,7 @@
         ]));
 
         $licitaciones = array_values(array_filter([
-            $makeItem('Licitaciones', 'gavel', 'licitaciones.index'),
-            $makeItem('Nueva licitación', 'post_add', 'licitaciones.create.step1'),
-            $makeItem('Licitaciones IA', 'neurology', 'licitaciones-ai.index'),
+            $makeItem('Licitaciones', 'gavel', 'projects.control', null, 'Nuevo'),
             $makeItem('Tabla global IA', 'table_chart', 'licitaciones-ai.tabla-global'),
             $makeItem('PDFs / Bases', 'attach_file', 'admin.licitacion-pdfs.index'),
             $makeItem('Propuestas / comparativas', 'query_stats', 'admin.licitacion-propuestas.index'),

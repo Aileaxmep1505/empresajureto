@@ -16,7 +16,7 @@
     --violet: #7c3aed; --violet-soft: #ede9fe;
   }
 
-  body { font-family: 'Quicksand', sans-serif; background: var(--bg); color: var(--ink2); }
+  body { font-family: 'Quicksand', sans-serif; background: #ffffff; color: var(--ink2); }
 
   .pdb-wrap { max-width: 1700px; margin: 0 auto; padding: 16px 24px 60px; }
 

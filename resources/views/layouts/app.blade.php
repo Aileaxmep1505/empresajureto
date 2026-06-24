@@ -1037,43 +1037,6 @@
         <span>Documentación de altas</span>
       </a>
 
-      <details class="nav__group"
-        {{ request()->routeIs('licitaciones.*') || request()->routeIs('licitaciones-ai.*') || request()->routeIs('admin.licitacion-pdfs.*') || request()->routeIs('admin.licitacion-propuestas.*') ? 'open' : '' }}>
-        <summary class="{{ request()->routeIs('licitaciones.*') || request()->routeIs('licitaciones-ai.*') || request()->routeIs('admin.licitacion-pdfs.*') || request()->routeIs('admin.licitacion-propuestas.*') ? 'is-active':'' }}">
-          <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-            <path d="M8 3h8l4 4v14H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"></path>
-            <path d="M16 3v4h4"></path><path d="M9 11h7"></path><path d="M9 15h5"></path>
-          </svg>
-          <span>Licitaciones</span>
-          <svg class="nav__chev" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
-        </summary>
-        <div class="nav__submenu">
-          <a href="{{ route('licitaciones.index') }}" class="nav__sublink {{ request()->routeIs('licitaciones.index') || request()->routeIs('licitaciones.show') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9"><path d="M5 7h14"></path><path d="M5 12h14"></path><path d="M5 17h9"></path></svg>
-            <span>Listado</span>
-          </a>
-          <a href="{{ route('licitaciones.create.step1') }}" class="nav__sublink {{ request()->routeIs('licitaciones.create.step1') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
-            <span>Nueva licitación</span>
-          </a>
-          <a href="{{ route('licitaciones-ai.index') }}" class="nav__sublink {{ request()->routeIs('licitaciones-ai.index') || request()->routeIs('licitaciones-ai.show') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9"><rect x="4" y="4" width="16" height="10" rx="2"></rect><path d="M9 18h6"></path><path d="M12 14v4"></path></svg>
-            <span>Licitaciones IA</span>
-          </a>
-          <a href="{{ route('licitaciones-ai.tabla-global') }}" class="nav__sublink {{ request()->routeIs('licitaciones-ai.tabla-global') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M9 4v16"></path><path d="M15 4v16"></path><path d="M3 10h18"></path><path d="M3 16h18"></path></svg>
-            <span>Tabla global IA</span>
-          </a>
-          <a href="{{ route('admin.licitacion-pdfs.index') }}" class="nav__sublink {{ request()->routeIs('admin.licitacion-pdfs.*') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9"><path d="M8 3h8l4 4v14H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"></path><path d="M16 3v4h4"></path><path d="M9 12h6"></path><path d="M9 16h4"></path></svg>
-            <span>PDFs de requisiciones</span>
-          </a>
-          <a href="{{ route('admin.licitacion-propuestas.index') }}" class="nav__sublink {{ request()->routeIs('admin.licitacion-propuestas.*') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9"><path d="M4 19h16"></path><path d="M7 16V10"></path><path d="M12 16V6"></path><path d="M17 16v-3"></path></svg>
-            <span>Propuestas / comparativas</span>
-          </a>
-        </div>
-      </details>
 
       <a href="{{ route('agenda.calendar') }}" class="nav__link {{ request()->routeIs('agenda.*') ? 'is-active':'' }}">
         <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
@@ -1142,7 +1105,16 @@
         </svg>
         <span>Contabilidad</span>
       </a>
-
+<a href="{{ route('projects.control') }}" class="nav__link {{ request()->routeIs('projects.control') ? 'is-active':'' }}">
+  <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7z"></path>
+    <path d="M14 2v5h5"></path>
+    <path d="M8 12h8"></path>
+    <path d="M8 16h5"></path>
+    <path d="M9 8h1"></path>
+  </svg>
+  <span>Licitaciones</span>
+</a>
       <a href="{{ route('admin.whatsapp.conversations') }}" class="nav__link {{ request()->routeIs('admin.whatsapp.conversations') ? 'is-active':'' }}">
         <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
           <path d="M12 4a8 8 0 0 0-6.9 12l-1.1 4 4.1-1A8 8 0 1 0 12 4z"></path>

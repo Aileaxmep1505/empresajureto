@@ -28,7 +28,7 @@
 
   body {
     font-family: 'Quicksand', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background: var(--bg);
+    background: #ffffff;
     color: var(--ink);
   }
 
@@ -37,7 +37,7 @@
   .jo-page {
     min-height: calc(100vh - 64px);
     padding: 24px 32px 48px;
-    background: var(--bg);
+     background: #ffffff;
   }
 
   .jo-shell {
@@ -783,7 +783,7 @@
         <div class="jo-actions">
           <button type="button" class="jo-btn is-ask-monico" id="joAskMonico">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg>
-            ask monico
+            ask sam 
           </button>
           <button type="submit" class="jo-btn is-primary">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>

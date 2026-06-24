@@ -24,7 +24,7 @@
   /* --- Base --- */
   .cc-page {
     min-height: 100vh;
-    background: var(--bg);
+    background: #ffffff;
     color: var(--ink);
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     padding: 32px;

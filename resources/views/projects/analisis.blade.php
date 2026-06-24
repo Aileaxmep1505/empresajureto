@@ -41,7 +41,7 @@
     --orange-soft: #ffedd5;
   }
 
-  body { font-family: 'Quicksand', sans-serif; background: var(--bg); color: var(--ink2); }
+  body { font-family: 'Quicksand', sans-serif; background: #ffffff; color: var(--ink2); }
 
   .pjd-wrap { width: 100%; max-width: 100%; margin: 0; padding: 0; min-height: calc(100vh - 60px); display: flex; flex-direction: column; }
 
