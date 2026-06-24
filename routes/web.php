@@ -2330,6 +2330,7 @@ Route::middleware(['auth'])
             ->name('store');
 Route::get('/control', [ProjectBoardController::class, 'control'])
     ->name('control');
+  Route::get('/search', [ProjectBoardController::class, 'search'])->name('search');
         /*
         |--------------------------------------------------------------------------
         | Acciones AJAX del tablero / index

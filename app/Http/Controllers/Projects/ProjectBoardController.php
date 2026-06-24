@@ -3268,5 +3268,246 @@ PROMPT;
             'Content-Disposition' => 'attachment; filename="centro-de-control.html"',
         ]);
     }
+   
+/**
+ * Buscador de oportunidades con datos reales.
+ * 1) Si existe una tabla de procedimientos/licitaciones, usa esa tabla.
+ * 2) Si no existe, usa los proyectos reales del usuario como fuente base.
+ */
+public function search(Request $request)
+{
+    $parseDate = function ($value) {
+        $value = trim((string) $value);
+
+        if ($value === '') {
+            return null;
+        }
+
+        foreach (['Y-m-d', 'd/m/Y', 'd-m-Y', 'm/d/Y'] as $format) {
+            try {
+                return Carbon::createFromFormat($format, $value)->format('Y-m-d');
+            } catch (\Throwable $e) {
+                // Intenta el siguiente formato.
+            }
+        }
+
+        try {
+            return Carbon::parse($value)->format('Y-m-d');
+        } catch (\Throwable $e) {
+            return null;
+        }
+    };
+
+    $normalizeAmount = function ($value) {
+        if (is_null($value) || $value === '') {
+            return 0.0;
+        }
+
+        if (is_numeric($value)) {
+            return (float) $value;
+        }
+
+        $clean = preg_replace('/[^0-9.\-]/', '', (string) $value);
+        return is_numeric($clean) ? (float) $clean : 0.0;
+    };
+
+    $table = collect([
+        'procurement_procedures',
+        'licitaciones',
+        'procedures',
+        'opportunities',
+        'compranet_procedures',
+        'search_opportunities',
+    ])->first(fn ($name) => Schema::hasTable($name));
+
+    if (!$table) {
+        $base = Project::query()
+            ->where('user_id', Auth::id())
+            ->when(Schema::hasColumn('projects', 'archived_at'), fn ($query) => $query->whereNull('archived_at'));
+
+        if ($request->filled('q')) {
+            $term = trim((string) $request->query('q'));
+            $base->where(function ($query) use ($term) {
+                $query->where('name', 'like', "%{$term}%")
+                    ->orWhere('slug', 'like', "%{$term}%");
+            });
+        }
+
+        if ($request->filled('status')) {
+            $status = Str::lower((string) $request->query('status'));
+            $workflow = match (true) {
+                Str::contains($status, 'adjud') => 'ganado',
+                Str::contains($status, 'desiert') => 'desierta',
+                Str::contains($status, 'perdid') => 'perdido',
+                Str::contains($status, 'no participa') => 'no_participa',
+                default => null,
+            };
+
+            if ($workflow) {
+                $base->where('workflow_status', $workflow);
+            }
+        }
+
+        $projectPaginator = (clone $base)
+            ->latest('updated_at')
+            ->paginate(20)
+            ->withQueryString();
+
+        $projectItems = $projectPaginator->getCollection()->map(function ($project) use ($normalizeAmount) {
+            $ficha = data_get($project->structured_data ?? [], 'ficha', []);
+            $workflowStatus = $project->workflow_status ?? $project->status ?? '';
+
+            $status = match ($workflowStatus) {
+                'ganado' => 'ADJUDICADO',
+                'perdido' => 'PERDIDO',
+                'desierta' => 'DESIERTO',
+                'no_participa' => 'NO PARTICIPA',
+                'participa', 'junta_aclaraciones', 'armado_propuesta', 'entrega' => 'VIGENTE',
+                default => 'VIGENTE',
+            };
+
+            return [
+                'title' => $project->name,
+                'code' => data_get($ficha, 'numero_licitacion') ?: $project->slug,
+                'status' => $status,
+                'dependency' => data_get($ficha, 'organismo') ?: data_get($ficha, 'dependencia') ?: '—',
+                'state' => data_get($ficha, 'entidad_federativa') ?: data_get($ficha, 'estado') ?: '—',
+                'published_at' => data_get($ficha, 'fecha_publicacion') ?: optional($project->created_at)->toDateString(),
+                'amount' => $normalizeAmount(data_get($ficha, 'importe_asociado') ?: data_get($ficha, 'importe') ?: data_get($ficha, 'monto') ?: 0),
+            ];
+        });
+
+        $projectPaginator->setCollection($projectItems);
+
+        $allItems = (clone $base)->get()->map(function ($project) use ($normalizeAmount) {
+            $ficha = data_get($project->structured_data ?? [], 'ficha', []);
+            $workflowStatus = $project->workflow_status ?? $project->status ?? '';
+
+            return [
+                'status' => match ($workflowStatus) {
+                    'ganado' => 'ADJUDICADO',
+                    'desierta' => 'DESIERTO',
+                    'perdido' => 'PERDIDO',
+                    'no_participa' => 'NO PARTICIPA',
+                    default => 'VIGENTE',
+                },
+                'dependency' => data_get($ficha, 'organismo') ?: data_get($ficha, 'dependencia') ?: '—',
+                'state' => data_get($ficha, 'entidad_federativa') ?: data_get($ficha, 'estado') ?: '—',
+                'amount' => $normalizeAmount(data_get($ficha, 'importe_asociado') ?: data_get($ficha, 'importe') ?: data_get($ficha, 'monto') ?: 0),
+            ];
+        });
+
+        return view('projects.search', [
+            'procedures' => $projectPaginator,
+            'stats' => [
+                'total_procedures' => $projectPaginator->total(),
+                'awarded_procedures' => $allItems->filter(fn ($item) => Str::contains(Str::lower($item['status']), 'adjud'))->count(),
+                'active_procedures' => $allItems->filter(fn ($item) => Str::contains(Str::lower($item['status']), 'vigente'))->count(),
+                'total_amount' => $allItems->sum('amount'),
+                'distinct_dependencies' => $allItems->pluck('dependency')->filter(fn ($value) => filled($value) && $value !== '—')->unique()->count(),
+            ],
+            'topDependencies' => $allItems
+                ->filter(fn ($item) => filled($item['dependency']) && $item['dependency'] !== '—')
+                ->groupBy('dependency')
+                ->map(fn ($rows, $name) => [
+                    'name' => $name,
+                    'count' => $rows->count(),
+                    'amount' => $rows->sum('amount'),
+                ])
+                ->sortByDesc('amount')
+                ->take(8)
+                ->values(),
+            'statusOptions' => $allItems->pluck('status')->filter()->unique()->sort()->values(),
+            'dependencyOptions' => $allItems->pluck('dependency')->filter(fn ($value) => filled($value) && $value !== '—')->unique()->sort()->values(),
+            'stateOptions' => $allItems->pluck('state')->filter(fn ($value) => filled($value) && $value !== '—')->unique()->sort()->values(),
+        ]);
+    }
+
+    $columns = Schema::getColumnListing($table);
+    $has = fn ($column) => in_array($column, $columns, true);
+    $pick = fn (array $names, ?string $fallback = null) => collect($names)->first(fn ($name) => $has($name)) ?: $fallback;
+
+    $titleCol = $pick(['title', 'name', 'procedure', 'procedimiento', 'object', 'objeto', 'descripcion'], 'id');
+    $codeCol = $pick(['code', 'procedure_number', 'folio', 'numero_procedimiento', 'numero_licitacion', 'expediente'], 'id');
+    $statusCol = $pick(['status', 'estatus', 'estado'], 'id');
+    $dependencyCol = $pick(['dependency', 'dependencia', 'organismo', 'unidad_compradora'], 'id');
+    $stateCol = $pick(['state', 'entidad_federativa', 'estado_entidad', 'entidad'], 'id');
+    $dateCol = $pick(['published_at', 'fecha_publicacion', 'publication_date', 'created_at'], 'id');
+    $amountCol = $pick(['amount', 'importe_asociado', 'importe', 'total_amount', 'monto'], null);
+
+    $wrap = fn ($column) => '`' . str_replace('`', '``', $column) . '`';
+    $amountExpression = $amountCol ? 'CAST(REPLACE(REPLACE(REPLACE(' . $wrap($amountCol) . ', "$", ""), ",", ""), " ", "") AS DECIMAL(20,2))' : '0';
+
+    $query = DB::table($table);
+
+    if ($request->filled('q')) {
+        $term = trim((string) $request->query('q'));
+        $query->where(function ($sub) use ($term, $titleCol, $codeCol, $dependencyCol) {
+            $sub->where($titleCol, 'like', "%{$term}%")
+                ->orWhere($codeCol, 'like', "%{$term}%")
+                ->orWhere($dependencyCol, 'like', "%{$term}%");
+        });
+    }
+
+    if ($request->filled('status')) {
+        $query->where($statusCol, $request->query('status'));
+    }
+
+    if ($request->filled('dependency')) {
+        $query->where($dependencyCol, $request->query('dependency'));
+    }
+
+    if ($request->filled('state')) {
+        $query->where($stateCol, $request->query('state'));
+    }
+
+    $from = $parseDate($request->query('from', $request->query('date_from')));
+    $to = $parseDate($request->query('to', $request->query('date_to')));
+
+    if ($from && $dateCol !== 'id') {
+        $query->whereDate($dateCol, '>=', $from);
+    }
+
+    if ($to && $dateCol !== 'id') {
+        $query->whereDate($dateCol, '<=', $to);
+    }
+
+    $filtered = clone $query;
+
+    $procedures = (clone $query)
+        ->selectRaw($wrap($titleCol) . ' as title')
+        ->selectRaw($wrap($codeCol) . ' as code')
+        ->selectRaw($wrap($statusCol) . ' as status')
+        ->selectRaw($wrap($dependencyCol) . ' as dependency')
+        ->selectRaw($wrap($stateCol) . ' as state')
+        ->selectRaw($wrap($dateCol) . ' as published_at')
+        ->selectRaw($amountExpression . ' as amount')
+        ->when($dateCol !== 'id', fn ($q) => $q->orderByDesc($dateCol))
+        ->paginate(20)
+        ->withQueryString();
+
+    return view('projects.search', [
+        'procedures' => $procedures,
+        'stats' => [
+            'total_procedures' => (clone $filtered)->count(),
+            'awarded_procedures' => (clone $filtered)->where($statusCol, 'like', '%ADJUDIC%')->count(),
+            'active_procedures' => (clone $filtered)->where($statusCol, 'like', '%VIGENTE%')->count(),
+            'total_amount' => (float) (clone $filtered)->selectRaw('COALESCE(SUM(' . $amountExpression . '), 0) as aggregate')->value('aggregate'),
+            'distinct_dependencies' => (clone $filtered)->whereNotNull($dependencyCol)->distinct()->count($dependencyCol),
+        ],
+        'topDependencies' => (clone $filtered)
+            ->selectRaw($wrap($dependencyCol) . ' as name')
+            ->selectRaw('COUNT(*) as count')
+            ->selectRaw('COALESCE(SUM(' . $amountExpression . '), 0) as amount')
+            ->whereNotNull($dependencyCol)
+            ->groupBy($dependencyCol)
+            ->orderByDesc('amount')
+            ->limit(8)
+            ->get(),
+        'statusOptions' => DB::table($table)->select($statusCol)->distinct()->pluck($statusCol)->filter()->sort()->values(),
+        'dependencyOptions' => DB::table($table)->select($dependencyCol)->distinct()->pluck($dependencyCol)->filter()->sort()->values(),
+        'stateOptions' => DB::table($table)->select($stateCol)->distinct()->pluck($stateCol)->filter()->sort()->values(),
+    ]);
+}
 
 }

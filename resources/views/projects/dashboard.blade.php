@@ -1,5 +1,5 @@
 @extends('layouts.app')
-
+@section('content_class', 'content--flush')
 @section('title', $project->name)
 
 @push('styles')
