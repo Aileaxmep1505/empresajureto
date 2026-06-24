@@ -2460,6 +2460,7 @@ Route::post('/{project}/ficha/reanalyze', [ProjectBoardController::class, 'reana
 
 Route::get('/{project}/ficha/word', [ProjectBoardController::class, 'downloadFichaWord'])
     ->name('ficha.word');
-
+Route::get('/control/pdf', [ProjectBoardController::class, 'downloadControlPdf'])
+    ->name('control.pdf');
 
     });

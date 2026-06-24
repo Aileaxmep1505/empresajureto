@@ -2943,4 +2943,330 @@ PROMPT;
     }
 
 
+
+    public function control(Request $request)
+    {
+        $period = (string) $request->input('period', 'all');
+        $assigneeId = (string) $request->input('assignee', 'all');
+        $label = trim((string) $request->input('label', ''));
+
+        \Carbon\Carbon::setLocale('es');
+
+        $dateFrom = null;
+        $dateTo = null;
+
+        if (in_array($period, ['30', 'last_month'], true)) {
+            $dateFrom = now()->subMonth()->startOfDay();
+        } elseif ($period === 'previous_month') {
+            $dateFrom = now()->subMonthNoOverflow()->startOfMonth();
+            $dateTo = now()->subMonthNoOverflow()->endOfMonth();
+        } elseif (in_array($period, ['60', 'bimestre'], true)) {
+            $dateFrom = now()->subMonths(2)->startOfDay();
+        } elseif (in_array($period, ['90', 'trimestre'], true)) {
+            $dateFrom = now()->subMonths(3)->startOfDay();
+        } elseif ($period === 'semestre') {
+            $dateFrom = now()->subMonths(6)->startOfDay();
+        } elseif ($period === 'year') {
+            $dateFrom = now()->subYear()->startOfDay();
+        }
+
+        $baseQuery = Project::with('assignee')
+            ->where('user_id', Auth::id())
+            ->when(Schema::hasColumn('projects', 'archived_at'), function ($query) {
+                $query->whereNull('archived_at');
+            })
+            ->when($dateFrom, function ($query) use ($dateFrom) {
+                $query->where(function ($sub) use ($dateFrom) {
+                    if (Schema::hasColumn('projects', 'start_date')) {
+                        $sub->whereDate('start_date', '>=', $dateFrom->toDateString());
+                    }
+
+                    if (Schema::hasColumn('projects', 'created_at')) {
+                        $sub->orWhereDate('created_at', '>=', $dateFrom->toDateString());
+                    }
+                });
+            })
+            ->when($dateTo, function ($query) use ($dateTo) {
+                $query->whereDate('created_at', '<=', $dateTo->toDateString());
+            })
+            ->when($assigneeId !== '' && $assigneeId !== 'all', function ($query) use ($assigneeId) {
+                if (Schema::hasColumn('projects', 'assigned_to')) {
+                    $query->where('assigned_to', $assigneeId);
+                }
+            })
+            ->when($label !== '', function ($query) use ($label) {
+                $query->where('labels', 'like', '%"' . addcslashes($label, '%_\\') . '"%');
+            });
+
+        $projects = $baseQuery->latest()->get();
+
+        $columns = collect($this->defaultColumns());
+
+        $totalProjects = $projects->count();
+
+        $stageCards = $columns->map(function (array $column) use ($projects, $totalProjects) {
+            $statuses = $column['workflow_statuses'] ?? [$column['id']];
+
+            $count = $projects->filter(function (Project $project) use ($statuses, $column) {
+                $status = $project->workflow_status ?: 'analisis_bases';
+
+                if ($column['id'] === 'participa') {
+                    return in_array($status, ['participa', 'junta_aclaraciones', 'armado_propuesta', 'entrega'], true);
+                }
+
+                return in_array($status, $statuses, true);
+            })->count();
+
+            return [
+                'id' => $column['id'],
+                'name' => $column['name'],
+                'color' => $column['color'],
+                'count' => $count,
+                'percentage' => $totalProjects > 0 ? round(($count / $totalProjects) * 100, 1) : 0,
+            ];
+        })->values();
+
+        $distributionLabels = $stageCards->pluck('name')->values();
+        $distributionValues = $stageCards->pluck('count')->values();
+
+        $monthKeys = collect(range(5, 0))->map(fn ($i) => now()->subMonths($i)->format('Y-m'));
+        $monthLabels = $monthKeys->map(fn ($key) => \Carbon\Carbon::createFromFormat('Y-m', $key)->translatedFormat('M. y'))->values();
+
+        $evolutionSeries = $stageCards->map(function (array $stage) use ($projects, $monthKeys) {
+            $statuses = collect($this->defaultColumns())
+                ->firstWhere('id', $stage['id'])['workflow_statuses'] ?? [$stage['id']];
+
+            if ($stage['id'] === 'participa') {
+                $statuses = ['participa', 'junta_aclaraciones', 'armado_propuesta', 'entrega'];
+            }
+
+            $values = $monthKeys->map(function ($monthKey) use ($projects, $statuses) {
+                return $projects->filter(function (Project $project) use ($monthKey, $statuses) {
+                    $status = $project->workflow_status ?: 'analisis_bases';
+                    $date = $project->start_date ?? $project->created_at;
+
+                    if (!$date) {
+                        return false;
+                    }
+
+                    return in_array($status, $statuses, true)
+                        && optional($date)->format('Y-m') === $monthKey;
+                })->count();
+            })->values();
+
+            return [
+                'label' => $stage['name'],
+                'color' => $stage['color'],
+                'data' => $values,
+            ];
+        })->values();
+
+        $labelSourceProjects = Project::query()
+            ->where('user_id', Auth::id())
+            ->when(Schema::hasColumn('projects', 'archived_at'), function ($query) {
+                $query->whereNull('archived_at');
+            })
+            ->get(['id', 'labels']);
+
+        $allLabels = $labelSourceProjects
+            ->flatMap(function (Project $project) {
+                $labels = $project->labels;
+
+                if (is_string($labels)) {
+                    $decoded = json_decode($labels, true);
+                    $labels = is_array($decoded) ? $decoded : [];
+                }
+
+                return collect($labels ?: [])
+                    ->map(fn ($item) => trim((string) $item))
+                    ->filter(fn ($item) => $item !== '')
+                    ->values();
+            })
+            ->countBy()
+            ->sortDesc()
+            ->map(fn ($count, $name) => ['name' => $name, 'count' => $count])
+            ->values();
+
+        $users = User::query()
+            ->select('id', 'name', 'email', 'avatar_path')
+            ->orderBy('name')
+            ->get();
+
+        $recentProjects = $projects->take(8)->map(function (Project $project) {
+            return [
+                'name' => $project->name,
+                'slug' => $project->slug,
+                'assignee' => $project->assignee?->name,
+                'date' => optional($project->start_date ?? $project->created_at)->locale('es')->isoFormat('D MMM YYYY'),
+                'priority' => $project->priority ?: 'normal',
+                'favorite' => (bool) $project->favorite,
+            ];
+        })->values();
+
+        $upcomingEvents = $projects
+            ->filter(function (Project $project) {
+                return !empty($project->deadline_at) || !empty($project->start_date);
+            })
+            ->sortBy(function (Project $project) {
+                return $project->deadline_at ?? $project->start_date ?? $project->created_at;
+            })
+            ->take(6)
+            ->map(function (Project $project) {
+                $date = $project->deadline_at ?? $project->start_date ?? $project->created_at;
+
+                $eventDate = $date ? \Carbon\Carbon::parse($date)->locale('es') : null;
+
+                return [
+                    'day' => $eventDate?->format('d') ?? '—',
+                    'month' => $eventDate ? Str::upper($eventDate->isoFormat('MMM')) : '',
+                    'title' => $project->deadline_at ? 'Vencimiento' : 'Seguimiento',
+                    'project' => $project->name,
+                    'date' => $eventDate?->isoFormat('D [de] MMMM [de] YYYY') ?? 'Sin fecha',
+                    'due' => $eventDate ? $eventDate->diffForHumans(null, true) : 'Sin fecha',
+                ];
+            })
+            ->values();
+
+        $notes = $projects
+            ->filter(fn (Project $project) => !blank($project->no_participa_reason))
+            ->take(6)
+            ->map(function (Project $project) {
+                return [
+                    'project' => $project->name,
+                    'slug' => $project->slug,
+                    'author' => $project->assignee?->name ?: 'Sistema',
+                    'initials' => Str::of($project->assignee?->name ?: 'S')->explode(' ')->filter()->take(2)->map(fn ($p) => Str::upper(Str::substr($p, 0, 1)))->implode(''),
+                    'body' => $project->no_participa_reason,
+                    'date' => optional($project->updated_at)->locale('es')->diffForHumans(),
+                ];
+            })
+            ->values();
+
+        return view('projects.control', [
+            'period' => $period,
+            'assigneeId' => $assigneeId,
+            'label' => $label,
+            'users' => $users,
+            'labels' => $allLabels,
+            'totalProjects' => $totalProjects,
+            'stageCards' => $stageCards,
+            'distributionLabels' => $distributionLabels,
+            'distributionValues' => $distributionValues,
+            'monthLabels' => $monthLabels,
+            'evolutionSeries' => $evolutionSeries,
+            'recentProjects' => $recentProjects,
+            'upcomingEvents' => $upcomingEvents,
+            'notes' => $notes,
+            'currentDateLabel' => Str::ucfirst(now()->locale('es')->isoFormat('dddd, D [de] MMMM [de] YYYY, h:mm a')),
+        ]);
+    }
+
+
+
+    public function downloadControlPdf(Request $request)
+    {
+        $view = $this->control($request);
+        $data = method_exists($view, 'getData') ? $view->getData() : [];
+
+        $period = (string) ($data['period'] ?? $request->input('period', 'all'));
+        $assigneeId = (string) ($data['assigneeId'] ?? $request->input('assignee', 'all'));
+        $label = trim((string) ($data['label'] ?? $request->input('label', '')));
+
+        $periodLabels = [
+            'all' => 'Todos',
+            '30' => 'Último mes',
+            'last_month' => 'Último mes',
+            'previous_month' => 'Mes anterior',
+            '60' => 'Bimestre',
+            'bimestre' => 'Bimestre',
+            '90' => 'Trimestre',
+            'trimestre' => 'Trimestre',
+            'semestre' => 'Semestre',
+            'year' => 'Año',
+        ];
+
+        $totalProjects = (int) ($data['totalProjects'] ?? 0);
+        $stageCards = collect($data['stageCards'] ?? []);
+        $recentProjects = collect($data['recentProjects'] ?? []);
+        $upcomingEvents = collect($data['upcomingEvents'] ?? []);
+        $notes = collect($data['notes'] ?? []);
+        $currentDateLabel = (string) ($data['currentDateLabel'] ?? Str::ucfirst(now()->locale('es')->isoFormat('dddd, D [de] MMMM [de] YYYY, h:mm a')));
+
+        $stageRows = $stageCards->map(function ($stage) {
+            $name = e((string) ($stage['name'] ?? 'Etapa'));
+            $count = (int) ($stage['count'] ?? 0);
+            $percentage = (float) ($stage['percentage'] ?? 0);
+
+            return '<tr><td>' . $name . '</td><td class="num">' . $count . '</td><td class="num">' . $percentage . '%</td></tr>';
+        })->implode('');
+
+        $recentRows = $recentProjects->take(12)->map(function ($project) {
+            return '<tr>'
+                . '<td>' . e((string) ($project['name'] ?? 'Proyecto')) . '</td>'
+                . '<td>' . e((string) ($project['assignee'] ?? 'Sin asignar')) . '</td>'
+                . '<td>' . e((string) ($project['date'] ?? 'Sin fecha')) . '</td>'
+                . '</tr>';
+        })->implode('');
+
+        $eventRows = $upcomingEvents->take(12)->map(function ($event) {
+            return '<tr>'
+                . '<td>' . e((string) ($event['title'] ?? 'Evento')) . '</td>'
+                . '<td>' . e((string) ($event['project'] ?? 'Sin proyecto')) . '</td>'
+                . '<td>' . e((string) ($event['due'] ?? ($event['date'] ?? ($event['when'] ?? 'Sin fecha')))) . '</td>'
+                . '</tr>';
+        })->implode('');
+
+        $noteRows = $notes->take(12)->map(function ($note) {
+            return '<tr>'
+                . '<td>' . e((string) ($note['body'] ?? ($note['text'] ?? 'Sin nota'))) . '</td>'
+                . '<td>' . e((string) ($note['project'] ?? 'Sin proyecto')) . '</td>'
+                . '</tr>';
+        })->implode('');
+
+        $html = '<!doctype html><html lang="es"><head><meta charset="utf-8"><style>
+            @page { margin: 28px; }
+            body { font-family: DejaVu Sans, sans-serif; color:#1c2024; font-size:12px; line-height:1.45; }
+            .head { border-bottom:1px solid #e6e9ee; padding-bottom:14px; margin-bottom:18px; }
+            h1 { margin:0; font-size:22px; font-weight:700; }
+            h2 { margin:22px 0 10px; font-size:15px; }
+            .meta { color:#5b6470; margin-top:6px; }
+            .cards { display: table; width:100%; table-layout: fixed; margin: 12px 0 18px; }
+            .card { display: table-cell; border:1px solid #e6e9ee; border-radius:12px; padding:12px; }
+            .card + .card { margin-left:10px; }
+            .kpi { font-size:28px; font-weight:700; color:#007aff; }
+            .muted { color:#5b6470; }
+            table { width:100%; border-collapse:collapse; margin-bottom:14px; }
+            th { text-align:left; background:#f6f8fb; color:#5b6470; font-weight:700; }
+            th, td { border:1px solid #e6e9ee; padding:8px 10px; vertical-align:top; }
+            .num { text-align:right; }
+            .filter { display:inline-block; padding:4px 9px; border-radius:999px; background:#e6f0ff; color:#007aff; font-weight:700; margin-right:6px; }
+        </style></head><body>'
+            . '<div class="head">'
+            . '<h1>Centro de Control</h1>'
+            . '<div class="meta">Generado: ' . e($currentDateLabel) . '</div>'
+            . '<div class="meta"><span class="filter">Período: ' . e($periodLabels[$period] ?? $period) . '</span>'
+            . '<span class="filter">Etiqueta: ' . e($label !== '' ? $label : 'Todas') . '</span>'
+            . '<span class="filter">Asignado: ' . e($assigneeId !== 'all' ? $assigneeId : 'Todos') . '</span></div>'
+            . '</div>'
+            . '<div class="cards"><div class="card"><div class="muted">Total de proyectos</div><div class="kpi">' . $totalProjects . '</div></div></div>'
+            . '<h2>Distribución por etapa</h2><table><thead><tr><th>Etapa</th><th class="num">Proyectos</th><th class="num">Porcentaje</th></tr></thead><tbody>' . ($stageRows ?: '<tr><td colspan="3">Sin datos</td></tr>') . '</tbody></table>'
+            . '<h2>Proyectos recientes</h2><table><thead><tr><th>Proyecto</th><th>Asignado</th><th>Fecha</th></tr></thead><tbody>' . ($recentRows ?: '<tr><td colspan="3">Sin proyectos</td></tr>') . '</tbody></table>'
+            . '<h2>Eventos próximos</h2><table><thead><tr><th>Evento</th><th>Proyecto</th><th>Fecha</th></tr></thead><tbody>' . ($eventRows ?: '<tr><td colspan="3">Sin eventos</td></tr>') . '</tbody></table>'
+            . '<h2>Notas recientes</h2><table><thead><tr><th>Nota</th><th>Proyecto</th></tr></thead><tbody>' . ($noteRows ?: '<tr><td colspan="2">Sin notas</td></tr>') . '</tbody></table>'
+            . '</body></html>';
+
+        $filename = 'centro-de-control-' . now()->format('Y-m-d-His') . '.pdf';
+
+        if (class_exists(\Barryvdh\DomPDF\Facade\Pdf::class)) {
+            return \Barryvdh\DomPDF\Facade\Pdf::loadHTML($html)
+                ->setPaper('letter', 'portrait')
+                ->download($filename);
+        }
+
+        return Response::make($html, 200, [
+            'Content-Type' => 'text/html; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="centro-de-control.html"',
+        ]);
+    }
+
 }
