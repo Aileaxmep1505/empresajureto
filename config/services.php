@@ -316,5 +316,15 @@ return [
         'endpoint'          => env('SPAPI_ENDPOINT', 'https://sellingpartnerapi-na.amazon.com'),
         'marketplace_id'    => env('SPAPI_MARKETPLACE_ID', 'A1AM78C64UM0Y8'),
     ],
+'shopify' => [
+    'shop' => env('SHOPIFY_SHOP'),
+    'token' => env('SHOPIFY_ADMIN_TOKEN'),
+    'version' => env('SHOPIFY_API_VERSION', '2026-04'),
 
+    'client_id' => env('SHOPIFY_CLIENT_ID'),
+    'client_secret' => env('SHOPIFY_CLIENT_SECRET'),
+
+    'location_id' => env('SHOPIFY_LOCATION_ID'),
+    'webhook_secret' => env('SHOPIFY_WEBHOOK_SECRET'),
+],
 ];

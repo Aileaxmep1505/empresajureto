@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class PropuestaComercialController extends Controller
 {
@@ -1435,6 +1436,184 @@ class PropuestaComercialController extends Controller
             'needed_qty' => $neededQty,
             'candidates' => $candidates,
         ]);
+    }
+
+
+    public function exportClarificationsWord(PropuestaComercial $propuestaComercial)
+    {
+        $propuestaComercial->loadMissing(['items.aclaracionPreguntas']);
+
+        $folio = $propuestaComercial->folio ?: ('TEOA' . str_pad((string) $propuestaComercial->id, 8, '0', STR_PAD_LEFT));
+        $title = $propuestaComercial->titulo ?: ('COT-' . strtoupper(substr(md5($propuestaComercial->id . $propuestaComercial->created_at), 0, 8)));
+        $generatedAt = now()->format('d/m/Y H:i');
+
+        $questions = $propuestaComercial->items
+            ->sortBy('sort')
+            ->values()
+            ->flatMap(function ($item, $itemIndex) {
+                return $item->aclaracionPreguntas
+                    ->sortBy('sort')
+                    ->values()
+                    ->map(function ($question, $questionIndex) use ($item, $itemIndex) {
+                        return [
+                            'partida' => $item->sort ?: ($itemIndex + 1),
+                            'producto' => $item->descripcion_original,
+                            'pregunta_numero' => $questionIndex + 1,
+                            'pregunta' => $question->pregunta_generada ?: $question->texto_usuario,
+                            'producto_sugerido' => $question->producto_sugerido,
+                            'sku_sugerido' => $question->sku_sugerido,
+                            'marca_sugerida' => $question->marca_sugerida,
+                            'precio_sugerido' => $question->precio_sugerido,
+                            'justificacion' => $question->justificacion,
+                        ];
+                    });
+            })
+            ->values();
+
+        $e = fn ($value) => e((string) ($value ?? ''));
+
+        $rows = $questions->map(function ($q, $index) use ($e) {
+            $alternative = trim(implode(' · ', array_filter([
+                $q['producto_sugerido'] ? 'Producto: ' . $q['producto_sugerido'] : null,
+                $q['sku_sugerido'] ? 'SKU: ' . $q['sku_sugerido'] : null,
+                $q['marca_sugerida'] ? 'Marca: ' . $q['marca_sugerida'] : null,
+                $q['precio_sugerido'] ? 'Precio: $' . number_format((float) $q['precio_sugerido'], 2) : null,
+            ])));
+
+            return '<tr>'
+                . '<td class="center">' . ($index + 1) . '</td>'
+                . '<td class="center">' . $e($q['partida']) . '</td>'
+                . '<td>' . $e($q['producto']) . '</td>'
+                . '<td>' . nl2br($e($q['pregunta'])) . '</td>'
+                . '<td>' . ($alternative !== '' ? $e($alternative) : '—') . '</td>'
+                . '<td>' . ($q['justificacion'] ? nl2br($e($q['justificacion'])) : '—') . '</td>'
+                . '</tr>';
+        })->implode('');
+
+        if ($rows === '') {
+            $rows = '<tr><td colspan="6" class="empty">No hay preguntas guardadas para junta de aclaraciones.</td></tr>';
+        }
+
+        $html = '<!DOCTYPE html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="UTF-8"><title>' . $e($title) . '</title><style>
+            @page WordSection1 { size: 11in 8.5in; mso-page-orientation: landscape; margin: .45in; }
+            div.WordSection1 { page: WordSection1; }
+            body { font-family: Arial, Helvetica, sans-serif; color: #333333; margin: 0; }
+            h1 { color: #111111; font-size: 18pt; margin: 0 0 5pt; }
+            .meta { color: #666666; font-size: 9pt; margin-bottom: 14pt; line-height: 1.45; }
+            table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 8pt; }
+            th { background: #f9fafb; color: #111111; font-weight: 700; border: 1px solid #d9d9d9; padding: 5pt; text-align: left; vertical-align: top; }
+            td { border: 1px solid #ebebeb; padding: 5pt; vertical-align: top; word-wrap: break-word; }
+            .center { text-align: center; }
+            .empty { text-align: center; color: #888888; padding: 18pt; }
+        </style></head><body><div class="WordSection1">
+            <h1>Junta de aclaraciones</h1>
+            <div class="meta"><strong>' . $e($title) . '</strong><br>Folio: ' . $e($folio) . '<br>Generado: ' . $e($generatedAt) . '</div>
+            <table><thead><tr><th class="center">#</th><th class="center">Partida</th><th>Producto solicitado</th><th>Pregunta</th><th>Alternativa sugerida</th><th>Justificación</th></tr></thead><tbody>' . $rows . '</tbody></table>
+        </div></body></html>';
+
+        $safeFolio = preg_replace('/[^A-Za-z0-9_\-]+/', '_', $folio ?: 'junta_aclaraciones');
+
+        return response($html, 200, [
+            'Content-Type' => 'application/msword; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="' . $safeFolio . '_junta_aclaraciones.doc"',
+        ]);
+    }
+
+    public function exportBrandsPdf(PropuestaComercial $propuestaComercial)
+    {
+        $propuestaComercial->loadMissing(['items.matches.product', 'items.productoSeleccionado']);
+
+        $folio = $propuestaComercial->folio ?: ('TEOA' . str_pad((string) $propuestaComercial->id, 8, '0', STR_PAD_LEFT));
+        $title = $propuestaComercial->titulo ?: ('COT-' . strtoupper(substr(md5($propuestaComercial->id . $propuestaComercial->created_at), 0, 8)));
+        $generatedAt = now()->format('d/m/Y H:i');
+
+        $groups = $propuestaComercial->items
+            ->sortBy('sort')
+            ->values()
+            ->map(function ($item, $index) {
+                $meta = is_array($item->meta) ? $item->meta : (json_decode((string) $item->meta, true) ?: []);
+                $selectedMatch = $item->matches->firstWhere('seleccionado', true);
+                $selectedProduct = $item->productoSeleccionado ?: optional($selectedMatch)->product;
+                $brand = trim((string) (data_get($meta, 'external_supplier') ?: optional($selectedProduct)->brand ?: 'SIN MARCA'));
+                $qty = (float) ($item->cantidad_cotizada ?: $item->cantidad_maxima ?: $item->cantidad_minima ?: 1);
+                $price = (float) ($item->precio_unitario ?: 0);
+                $cost = (float) ($item->costo_unitario ?: 0);
+                $subtotal = (float) ($item->subtotal ?: ($price * $qty));
+
+                return [
+                    'brand' => mb_strtoupper($brand ?: 'SIN MARCA'),
+                    'number' => $item->sort ?: ($index + 1),
+                    'requested' => $item->descripcion_original,
+                    'product_name' => optional($selectedProduct)->name ?: data_get($meta, 'catalog_product_name_manual') ?: '',
+                    'unit' => $item->unidad_solicitada ?: 'pz',
+                    'qty' => $qty,
+                    'cost' => $cost,
+                    'price' => $price,
+                    'subtotal' => $subtotal,
+                    'status' => data_get($meta, 'ui_status') === 'accepted_item' ? 'Aceptado' : ($price > 0 ? 'Revisión' : 'No encontrado'),
+                ];
+            })
+            ->groupBy('brand')
+            ->sortKeys();
+
+        $e = fn ($value) => e((string) ($value ?? ''));
+        $money = fn ($value) => (float) $value > 0 ? '$' . number_format((float) $value, 2) : '';
+
+        $grandTotal = 0;
+        $totalItems = 0;
+
+        $sections = $groups->map(function ($rows, $brand) use ($e, $money, &$grandTotal, &$totalItems) {
+            $brandTotal = $rows->sum('subtotal');
+            $grandTotal += $brandTotal;
+            $totalItems += $rows->count();
+
+            $body = $rows->map(function ($row) use ($e, $money) {
+                return '<tr>'
+                    . '<td class="center">' . $e($row['number']) . '</td>'
+                    . '<td>' . $e($row['requested']) . '</td>'
+                    . '<td>' . $e($row['product_name'] ?: '—') . '</td>'
+                    . '<td class="center">' . $e($row['unit']) . '</td>'
+                    . '<td class="right">' . number_format((float) $row['qty'], 2) . '</td>'
+                    . '<td class="right">' . $money($row['cost']) . '</td>'
+                    . '<td class="right">' . $money($row['price']) . '</td>'
+                    . '<td class="right"><strong>' . $money($row['subtotal']) . '</strong></td>'
+                    . '<td class="center">' . $e($row['status']) . '</td>'
+                    . '</tr>';
+            })->implode('');
+
+            return '<section class="brand-section"><div class="brand-head"><div><h2>' . $e($brand) . '</h2><div class="brand-meta">' . $rows->count() . ' partida(s)</div></div><div class="brand-total">Total marca: <strong>' . $money($brandTotal) . '</strong></div></div><table><thead><tr><th class="center">#</th><th>Producto solicitado</th><th>Producto / referencia</th><th class="center">Unidad</th><th class="right">Cantidad</th><th class="right">Costo</th><th class="right">Precio</th><th class="right">Subtotal</th><th class="center">Estado</th></tr></thead><tbody>' . $body . '</tbody></table></section>';
+        })->implode('');
+
+        $html = '<!doctype html><html lang="es"><head><meta charset="UTF-8"><title>' . $e($folio) . ' - partidas por marca</title><style>
+            @page { size: letter landscape; margin: 10mm; }
+            * { box-sizing: border-box; }
+            body { font-family: Arial, Helvetica, sans-serif; color: #111; margin: 0; font-size: 10px; }
+            .header { display: table; width: 100%; border-bottom: 2px solid #111; padding-bottom: 10px; margin-bottom: 14px; }
+            .header-left { display: table-cell; width: 70%; vertical-align: top; }
+            .summary { display: table-cell; text-align: right; line-height: 1.55; white-space: nowrap; vertical-align: top; }
+            h1 { font-size: 18px; margin: 0 0 5px; }
+            h2 { font-size: 14px; margin: 0 0 3px; text-transform: uppercase; }
+            .meta { color: #555; line-height: 1.45; }
+            .brand-section { page-break-inside: avoid; margin-bottom: 18px; }
+            .brand-head { display: table; width: 100%; background: #f3f4f6; border: 1px solid #d9d9d9; padding: 8px 10px; }
+            .brand-head > div { display: table-cell; vertical-align: bottom; }
+            .brand-total { text-align: right; font-size: 11px; white-space: nowrap; }
+            .brand-meta { color: #666; font-size: 9px; }
+            table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-bottom: 8px; }
+            th, td { border: 1px solid #d9d9d9; padding: 5px 6px; vertical-align: top; word-wrap: break-word; }
+            th { background: #fafafa; color: #111; font-weight: 700; font-size: 9px; }
+            td { font-size: 9px; }
+            .center { text-align: center; }
+            .right { text-align: right; }
+            tr:nth-child(even) td { background: #fcfcfc; }
+            .footer { margin-top: 14px; border-top: 1px solid #d9d9d9; padding-top: 8px; color: #555; font-size: 9px; }
+        </style></head><body><div class="header"><div class="header-left"><h1>Partidas agrupadas por marca</h1><div class="meta"><strong>' . $e($title) . '</strong><br>Folio: ' . $e($folio) . '<br>Generado: ' . $e($generatedAt) . '</div></div><div class="summary">Marcas: <strong>' . $groups->count() . '</strong><br>Partidas: <strong>' . $totalItems . '</strong><br>Total general: <strong>' . $money($grandTotal) . '</strong></div></div>' . ($sections ?: '<p>No hay partidas para agrupar.</p>') . '<div class="footer">Este reporte se genera desde el controlador y no depende del HTML/JavaScript de la vista.</div></body></html>';
+
+        $safeFolio = preg_replace('/[^A-Za-z0-9_\-]+/', '_', $folio ?: 'partidas_por_marca');
+
+        return Pdf::loadHTML($html)
+            ->setPaper('letter', 'landscape')
+            ->download($safeFolio . '_partidas_por_marca.pdf');
     }
 
     protected function recalculateTotals(PropuestaComercial $propuestaComercial): void

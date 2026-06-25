@@ -2465,3 +2465,23 @@ Route::get('/control/pdf', [ProjectBoardController::class, 'downloadControlPdf']
     ->name('control.pdf');
 
     });
+
+    Route::get('/propuestas-comerciales/{propuestaComercial}/clarifications/word', [PropuestaComercialController::class, 'exportClarificationsWord'])
+    ->name('propuestas-comerciales.clarifications.word');
+
+Route::get('/propuestas-comerciales/{propuestaComercial}/brands/pdf', [PropuestaComercialController::class, 'exportBrandsPdf'])
+    ->name('propuestas-comerciales.brands.pdf');
+    Route::post('/admin/catalog/{item}/shopify/sync', [CatalogController::class, 'shopifySync'])
+    ->name('admin.catalog.shopify.sync');
+
+    use App\Http\Controllers\ShopifyWebhookController;
+
+Route::post('/webhooks/shopify/orders-paid', [ShopifyWebhookController::class, 'ordersPaid'])
+    ->name('webhooks.shopify.orders-paid');
+
+Route::post('/webhooks/shopify/orders-create', [ShopifyWebhookController::class, 'ordersCreate'])
+    ->name('webhooks.shopify.orders-create');
+
+
+Route::post('/admin/catalog/{item}/shopify/sync', [ShopifyWebhookController::class, 'syncCatalogItem'])
+    ->name('admin.catalog.shopify.sync');

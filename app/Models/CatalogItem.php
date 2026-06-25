@@ -81,6 +81,15 @@ class CatalogItem extends Model
         'amazon_synced_at',
         'amazon_last_error',
         'amazon_listing_response',
+
+        // Shopify / Admin API
+        'shopify_product_id',
+        'shopify_variant_id',
+        'shopify_inventory_item_id',
+        'shopify_location_id',
+        'shopify_synced_at',
+        'shopify_status',
+        'shopify_last_error',
     ];
 
     protected $casts = [
@@ -99,6 +108,7 @@ class CatalogItem extends Model
         'published_at'          => 'datetime',
         'meli_synced_at'        => 'datetime',
         'amazon_synced_at'      => 'datetime',
+        'shopify_synced_at'     => 'datetime',
     ];
 
     // ====== MUESTRAS ======
@@ -145,6 +155,16 @@ class CatalogItem extends Model
     {
         return $q->orderByDesc('published_at')
                  ->orderBy('name');
+    }
+
+    public function scopeSyncedToShopify($q)
+    {
+        return $q->whereNotNull('shopify_product_id');
+    }
+
+    public function scopeNotSyncedToShopify($q)
+    {
+        return $q->whereNull('shopify_product_id');
     }
 
     public function favoredBy()
@@ -205,6 +225,31 @@ class CatalogItem extends Model
         }
 
         return mb_substr($txt, 0, $limit - 3) . '...';
+    }
+
+    public function hasShopifyError(): bool
+    {
+        return !empty($this->shopify_last_error);
+    }
+
+    public function shortShopifyError(int $limit = 140): ?string
+    {
+        if (!$this->shopify_last_error) {
+            return null;
+        }
+
+        $txt = trim($this->shopify_last_error);
+
+        if (mb_strlen($txt) <= $limit) {
+            return $txt;
+        }
+
+        return mb_substr($txt, 0, $limit - 3) . '...';
+    }
+
+    public function isSyncedToShopify(): bool
+    {
+        return !empty($this->shopify_product_id);
     }
 
     public function getCategoryLabelAttribute(): ?string

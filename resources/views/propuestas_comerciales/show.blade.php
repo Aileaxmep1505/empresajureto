@@ -1026,7 +1026,7 @@
         <span class="actions-divider"></span>
 
               <div class="actions-group">
-          <button class="btn btn-outline btn-square has-tip" type="button" id="btnExportClarificationsPdf" data-tip="PDF junta de aclaraciones" aria-label="PDF junta de aclaraciones">
+          <button class="btn btn-outline btn-square has-tip" type="button" id="btnExportClarificationsWord" data-tip="Word junta de aclaraciones" aria-label="Word junta de aclaraciones">
             <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" fill="#fff" stroke="#007aff" stroke-width="1.5" stroke-linejoin="round"/>
               <path d="M14 2v6h6" stroke="#007aff" stroke-width="1.5" stroke-linejoin="round"/>
@@ -1322,7 +1322,8 @@
     clarificationSuggest: @json(url('/propuesta-comercial-items/__ID__/ajax/clarification/suggest')),
     clarificationSave: @json(url('/propuesta-comercial-items/__ID__/ajax/clarification/save')),
     clarificationDelete: @json(url('/propuesta-comercial-items/__ID__/ajax/clarification/__QUESTION__/delete')),
-    clarificationsPdf: @json(route('propuestas-comerciales.clarifications.pdf', $propuestaComercial)),
+    clarificationsWord: @json(route('propuestas-comerciales.clarifications.word', $propuestaComercial)),
+    brandsPdf: @json(route('propuestas-comerciales.brands.pdf', $propuestaComercial)),
   };
 
   let items = @json($itemsPayload);
@@ -2103,7 +2104,7 @@
       <div class="result-card">
         <div class="result-title">Sin preguntas guardadas</div>
         <div class="result-meta">
-          Agrega una pregunta individual para esta partida. Al final podrás descargar el PDF de junta de aclaraciones con todas las preguntas.
+          Agrega una pregunta individual para esta partida. Al final podrás descargar el Word de junta de aclaraciones con todas las preguntas.
         </div>
       </div>
     `;
@@ -2117,8 +2118,8 @@
             ${svgs.question} Nueva pregunta
           </button>
 
-          <button class="btn btn-primary btn-small" type="button" onclick="openClarificationsPdf()">
-            ${svgs.file} PDF junta de aclaraciones
+          <button class="btn btn-primary btn-small" type="button" onclick="openClarificationsWord()">
+            ${svgs.file} Word junta de aclaraciones
           </button>
         </div>
       </div>
@@ -3306,8 +3307,8 @@
     }
   }
 
-  function openClarificationsPdf() {
-    window.open(routes.clarificationsPdf, '_blank');
+  function openClarificationsWord() {
+    window.open(routes.clarificationsWord, '_blank');
   }
 
   // --- Exportación a PDF/Excel/Word ---
@@ -3672,24 +3673,7 @@
   }
 
   function exportBrandsGroupedPdf() {
-    const html = buildBrandsPdfHtml();
-    const printWindow = window.open('', '_blank');
-
-    if (!printWindow) {
-      downloadBlob(html, getQuoteFileName('partidas_por_marca.html'), 'text/html;charset=utf-8');
-      showToast('Archivo generado', 'Se descargó el reporte por marca en HTML. Ábrelo e imprime como PDF.', 1, 1);
-      setTimeout(hideToast, 4500);
-      return;
-    }
-
-    printWindow.document.open();
-    printWindow.document.write(html);
-    printWindow.document.close();
-    printWindow.focus();
-
-    setTimeout(() => {
-      printWindow.print();
-    }, 450);
+    window.open(routes.brandsPdf, '_blank');
   }
 
   // --- Drag and Drop Logic ---
@@ -3808,7 +3792,7 @@
   document.getElementById('btnToggleGlobalMargin').addEventListener('click', toggleGlobalMargin);
   document.getElementById('btnSaveGlobalMargin').addEventListener('click', () => saveGlobalMargin(false));
   document.getElementById('btnApplyGlobalMargin').addEventListener('click', () => saveGlobalMargin(true));
-  document.getElementById('btnExportClarificationsPdf')?.addEventListener('click', openClarificationsPdf);
+  document.getElementById('btnExportClarificationsWord')?.addEventListener('click', openClarificationsWord);
   document.getElementById('btnExportBrandsPdf')?.addEventListener('click', exportBrandsGroupedPdf);
   document.getElementById('btnGenerateClarification')?.addEventListener('click', generateClarificationQuestion);
   document.getElementById('btnSaveClarification')?.addEventListener('click', saveClarificationQuestion);

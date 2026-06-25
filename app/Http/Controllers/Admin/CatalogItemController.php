@@ -30,6 +30,8 @@ use PhpOffice\PhpSpreadsheet\Style\Fill;
 use App\Services\AmazonSpApiListingService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use App\Services\ShopifyService;
+use Illuminate\Http\RedirectResponse;
 
 class CatalogItemController extends Controller implements HasMiddleware
 {
@@ -1651,4 +1653,23 @@ private function getCatalogMovementStats(array $itemIds): array
             ->orderBy('name')
             ->get();
     }
+
+public function shopifySync(CatalogItem $item, ShopifyService $shopify): RedirectResponse
+{
+    try {
+        if ($item->is_sample) {
+            return back()->with('error', 'Las muestras no se sincronizan con Shopify.');
+        }
+
+        if (!$item->sku) {
+            return back()->with('error', 'El producto necesita SKU para sincronizarse con Shopify.');
+        }
+
+        $shopify->syncCatalogItem($item);
+
+        return back()->with('success', 'Producto sincronizado correctamente con Shopify.');
+    } catch (\Throwable $e) {
+        return back()->with('error', 'Error Shopify: ' . $e->getMessage());
+    }
+}
 }
