@@ -2495,3 +2495,4 @@ Route::middleware(['auth'])->prefix('admin/shopify')->name('admin.shopify.')->gr
     Route::get('/orders/{order}', [ShopifyOrderController::class, 'show'])
         ->name('orders.show');
 });
+

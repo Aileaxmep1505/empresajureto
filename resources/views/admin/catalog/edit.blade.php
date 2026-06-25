@@ -956,7 +956,7 @@
           @if($isEdit)
             <div class="card animate-enter" style="--stagger: 7;">
               <h3 class="section-heading mb-6">Sincronización Multicanal</h3>
-              <div class="grid grid-2 w-full">
+              <div class="grid grid-3 w-full">
                 <div class="integration-panel">
                   <div class="flex items-center justify-between mb-6">
                     <div class="flex items-center gap-4">
@@ -1021,6 +1021,105 @@
                     </div>
                   </div>
                 </div>
+                <div class="integration-panel relative">
+                  @if(!$hasSku || $item->is_sample)
+                    <div class="overlay-lock">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                      </svg>
+                      <p>{{ !$hasSku ? 'SKU Requerido' : 'Las muestras no se publican' }}</p>
+                    </div>
+                  @endif
+
+                  @php
+                    $shopifyProductNumericId = null;
+                    $shopifyAdminUrl = null;
+
+                    if (!empty($item->shopify_product_id)) {
+                        $shopifyProductNumericId = \Illuminate\Support\Str::afterLast((string) $item->shopify_product_id, '/');
+                    }
+
+                    if ($shopifyProductNumericId && config('services.shopify.shop')) {
+                        $shopifyAdminUrl = 'https://' . config('services.shopify.shop') . '/admin/products/' . $shopifyProductNumericId;
+                    }
+                  @endphp
+
+                  <div class="flex items-center justify-between mb-6">
+                    <div class="flex items-center gap-4">
+                      <div class="channel-logo" style="background:#95bf47;">
+                        <svg viewBox="0 0 64 64" style="width:34px;height:34px;" aria-hidden="true">
+                          <path fill="#ffffff" d="M45.8 18.8c-.1-.6-.6-.9-1-.9s-7.3-.5-7.3-.5-4.8-4.8-5.3-5.3c-.5-.5-1.5-.3-1.9-.2-.1 0-1 .3-2.4.8-1.4-4-3.9-7.7-8.3-7.7h-.4C18 3.4 16.4 2.7 15 2.7 4.4 2.7-.6 16.1-2.2 22.9c-4.2 1.3-7.2 2.2-7.6 2.4-2.4.8-2.5.8-2.8 3.1-.2 1.7-6.5 49.8-6.5 49.8L31.4 88l27.5-6.8S45.9 19.4 45.8 18.8ZM25.4 13.5c-1.1.3-2.3.7-3.6 1.1v-.8c0-2.4-.3-4.4-.9-6 2.2.3 3.7 2.8 4.5 5.7Zm-7.5-5.2c.7 1.7 1.1 4.1 1.1 7.2v.1c-2.4.7-5 1.6-7.6 2.4 1.5-5.7 4.3-8.5 6.5-9.7ZM14.7 5.6c.5 0 1 .2 1.4.5-3 1.4-6.2 5-7.5 12.8-2.1.7-4.2 1.3-6.1 1.9C4.4 14.6 8.7 5.6 14.7 5.6Z" transform="translate(14 -1) scale(.65)"/>
+                          <path fill="#ffffff" d="M37.5 29.2 34 39.8s-3.1-1.7-6.9-1.7c-5.6 0-5.9 3.5-5.9 4.4 0 4.8 12.6 6.7 12.6 18 0 8.9-5.6 14.6-13.2 14.6-9.1 0-13.8-5.7-13.8-5.7l2.4-8s4.8 4.1 8.9 4.1c2.7 0 3.8-2.1 3.8-3.7 0-6.3-10.3-6.6-10.3-16.9 0-8.7 6.2-17.1 18.8-17.1 4.9.1 7.1 1.4 7.1 1.4Z" transform="translate(14 -1) scale(.65)"/>
+                        </svg>
+                      </div>
+                      <div>
+                        <h4 class="m-0 font-bold text-base text-ink">Shopify</h4>
+
+                        @if(!empty($item->shopify_product_id) && empty($item->shopify_last_error))
+                          <span class="text-xs font-bold text-success">Sincronizado</span>
+                        @elseif(!empty($item->shopify_last_error))
+                          <span class="text-xs font-bold" style="color:var(--danger);">Con error</span>
+                        @else
+                          <span class="text-xs font-bold text-muted">Pendiente</span>
+                        @endif
+                      </div>
+                    </div>
+
+                    @if($shopifyAdminUrl)
+                      <a href="{{ $shopifyAdminUrl }}" target="_blank" class="btn-icon" aria-label="Abrir en Shopify">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                          <polyline points="15 3 21 3 21 9"></polyline>
+                          <line x1="10" y1="14" x2="21" y2="3"></line>
+                        </svg>
+                      </a>
+                    @else
+                      <span class="btn-icon" title="Aún no está subido a Shopify">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <circle cx="12" cy="12" r="10"></circle>
+                          <line x1="12" y1="8" x2="12" y2="12"></line>
+                          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                      </span>
+                    @endif
+                  </div>
+
+                  <div class="flex flex-col gap-2 mb-4" style="font-size:.82rem;color:var(--muted);font-weight:600;line-height:1.5;">
+                    @if(!empty($item->shopify_product_id))
+                      <div>
+                        <strong style="color:var(--ink);">Producto:</strong>
+                        {{ \Illuminate\Support\Str::limit((string) $item->shopify_product_id, 42) }}
+                      </div>
+                    @endif
+
+                    @if(!empty($item->shopify_synced_at))
+                      <div>
+                        <strong style="color:var(--ink);">Última sync:</strong>
+                        {{ \Illuminate\Support\Carbon::parse($item->shopify_synced_at)->format('d/m/Y H:i') }}
+                      </div>
+                    @endif
+
+                    @if(!empty($item->shopify_last_error))
+                      <div style="color:var(--danger);">
+                        <strong>Error:</strong>
+                        {{ \Illuminate\Support\Str::limit((string) $item->shopify_last_error, 90) }}
+                      </div>
+                    @endif
+                  </div>
+
+                  <div class="flex flex-wrap gap-2">
+                    <button
+                      type="submit"
+                      form="shopifySyncForm"
+                      class="btn-outline w-full justify-center flex-1"
+                      @disabled(!$hasSku || $item->is_sample)
+                    >
+                      {{ !empty($item->shopify_product_id) ? 'Actualizar Shopify' : 'Subir a Shopify' }}
+                    </button>
+                  </div>
+                </div>
+
               </div>
             </div>
           @endif
@@ -1310,6 +1409,10 @@
         @csrf
       </form>
       <form id="amazonActivateForm" method="POST" action="{{ route('admin.catalog.amazon.activate', $item) }}" style="display:none;">
+        @csrf
+      </form>
+
+      <form id="shopifySyncForm" method="POST" action="{{ route('admin.catalog.shopify.sync', $item) }}" style="display:none;">
         @csrf
       </form>
     @endif
