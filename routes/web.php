@@ -2485,3 +2485,13 @@ Route::post('/webhooks/shopify/orders-create', [ShopifyWebhookController::class,
 
 Route::post('/admin/catalog/{item}/shopify/sync', [ShopifyWebhookController::class, 'syncCatalogItem'])
     ->name('admin.catalog.shopify.sync');
+
+    use App\Http\Controllers\Admin\ShopifyOrderController;
+
+Route::middleware(['auth'])->prefix('admin/shopify')->name('admin.shopify.')->group(function () {
+    Route::get('/orders', [ShopifyOrderController::class, 'index'])
+        ->name('orders.index');
+
+    Route::get('/orders/{order}', [ShopifyOrderController::class, 'show'])
+        ->name('orders.show');
+});
