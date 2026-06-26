@@ -286,6 +286,9 @@
   .client-quote-page .btn-icon.pdf { color: #dc2626; }
   .client-quote-page .btn-icon.pdf:hover:not(.is-loading) { border-color: #dc2626; background: #fef2f2; }
 
+  .client-quote-page .btn-icon.word { color: #2563eb; }
+  .client-quote-page .btn-icon.word:hover:not(.is-loading) { border-color: #2563eb; background: #eff6ff; }
+
   /* --- ANIMACIÓN DE CARGA (SPINNER MINIMALISTA) --- */
   @keyframes spin-minimal {
     to { transform: rotate(360deg); }
@@ -516,8 +519,19 @@
           </button>
         </div>
 
+        <div data-tooltip="Descargar Word">
+          <a href="{{ route('propuestas-comerciales.cliente.word', $propuestaComercial) }}" class="btn-icon word" onclick="handleFileDownload(this)">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <path d="M8 12l1.3 5 1.7-5 1.7 5 1.3-5"></path>
+              <path d="M16 12h1"></path>
+            </svg>
+          </a>
+        </div>
+
         <div data-tooltip="Descargar PDF">
-          <a href="{{ route('propuestas-comerciales.cliente.pdf', $propuestaComercial) }}" class="btn-icon pdf" onclick="handlePdfDownload(this)">
+          <a href="{{ route('propuestas-comerciales.cliente.pdf', $propuestaComercial) }}" class="btn-icon pdf" onclick="handleFileDownload(this)">
             <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
               <polyline points="14 2 14 8 20 8"></polyline>
@@ -828,8 +842,8 @@
     }, 150);
   }
 
-  // --- LÓGICA DE ANIMACIÓN PDF ---
-  function handlePdfDownload(btn) {
+  // --- LÓGICA DE ANIMACIÓN PDF / WORD ---
+  function handleFileDownload(btn) {
     if (!btn) return;
     
     btn.classList.add('is-loading');
@@ -839,6 +853,10 @@
     }, 3000);
   }
 
+  function handlePdfDownload(btn) {
+    handleFileDownload(btn);
+  }
+
   function openEmailModal() {
     document.getElementById('emailModal').classList.add('show');
   }
@@ -846,6 +864,5 @@
   function closeEmailModal() {
     document.getElementById('emailModal').classList.remove('show');
   }
-</script>
 </script>
 @endsection

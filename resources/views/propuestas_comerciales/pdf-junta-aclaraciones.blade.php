@@ -49,13 +49,10 @@
       text-align: justify;
     }
 
-    .suggested {
-      margin-top: 10px;
-      font-size: 11px;
-      color: #333;
-      background: #f7f7f7;
-      padding: 8px;
-      border-radius: 6px;
+    .empty {
+      color: #555;
+      text-align: center;
+      margin-top: 30px;
     }
   </style>
 </head>
@@ -83,24 +80,11 @@
       @endif
 
       <div class="text">
-        {{ $pregunta->pregunta_generada }}
+        {{ $pregunta->pregunta_generada ?: $pregunta->texto_usuario }}
       </div>
-
-      @if($pregunta->producto_sugerido)
-        <div class="suggested">
-          Producto sugerido para aclaración:
-          <strong>{{ $pregunta->producto_sugerido }}</strong>
-          @if($pregunta->sku_sugerido)
-            · SKU: {{ $pregunta->sku_sugerido }}
-          @endif
-          @if($pregunta->marca_sugerida)
-            · Marca: {{ $pregunta->marca_sugerida }}
-          @endif
-        </div>
-      @endif
     </div>
   @empty
-    <p>No hay preguntas registradas para esta propuesta.</p>
+    <p class="empty">No hay preguntas registradas para esta propuesta.</p>
   @endforelse
 </body>
 </html>

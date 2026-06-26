@@ -3,6 +3,9 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\View;
+
+use App\Models\HomeBanner;
 
 use App\Services\FacturapiWebClient;
 use App\Services\FacturaApiInternalService;
@@ -49,6 +52,15 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        View::composer('web.home', function ($view) {
+            $homeBanners = HomeBanner::query()
+                ->where('is_active', true)
+                ->orderBy('position')
+                ->orderBy('sort_order')
+                ->orderByDesc('id')
+                ->get();
+
+            $view->with('homeBanners', $homeBanners);
+        });
     }
 }

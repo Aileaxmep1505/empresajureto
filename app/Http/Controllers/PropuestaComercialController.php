@@ -1439,6 +1439,314 @@ class PropuestaComercialController extends Controller
     }
 
 
+
+    private function clienteQuoteCompanyData(): array
+    {
+        return [
+            'name' => 'JURETO S.A. DE C.V.',
+            'address' => 'BERNARDO VARA 25, COL. PILARES, C.P. 52179, METEPEC, ESTADO DE MEXICO.',
+            'phone' => '5541937243, 8135515784',
+            'email' => 'RTORT@JURETO.COM.MX',
+            'rfc' => 'JUR2002196K4',
+            'representative' => 'JUAN RENE TORT RODRIGUEZ',
+            'representative_role' => 'REPRESENTANTE LEGAL DE JURETO SA DE CV',
+        ];
+    }
+
+    private function clienteQuoteLogoSrc(): string
+    {
+        $logoFile = public_path('images/logo-mail.png');
+
+        if (file_exists($logoFile)) {
+            $logoExt = strtolower(pathinfo($logoFile, PATHINFO_EXTENSION));
+            $logoMime = match ($logoExt) {
+                'jpg', 'jpeg' => 'jpeg',
+                'svg' => 'svg+xml',
+                default => $logoExt ?: 'png',
+            };
+
+            return 'data:image/' . $logoMime . ';base64,' . base64_encode(file_get_contents($logoFile));
+        }
+
+        return public_path('images/logo-mail.png');
+    }
+
+    private function clienteQuoteExportData(PropuestaComercial $propuestaComercial): array
+    {
+        $propuestaComercial->loadMissing([
+            'items.matches.product',
+            'items.productoSeleccionado',
+        ]);
+
+        $company = $this->clienteQuoteCompanyData();
+        $createdAt = $propuestaComercial->created_at ?: now();
+        $quoteDate = $createdAt instanceof \Carbon\CarbonInterface ? $createdAt : \Carbon\Carbon::parse($createdAt);
+        $folio = $propuestaComercial->folio ?: ('TEOA' . str_pad((string) $propuestaComercial->id, 8, '0', STR_PAD_LEFT));
+        $title = $propuestaComercial->titulo ?: 'Cotización';
+        $validityDays = (int) data_get($propuestaComercial->meta, 'validity_days', data_get($propuestaComercial->meta, 'vigencia_dias', 15));
+
+        $client = [
+            'name' => $propuestaComercial->cliente ?: data_get($propuestaComercial->meta, 'cliente_nombre', 'Cliente'),
+            'email' => data_get($propuestaComercial->meta, 'cliente_email', data_get($propuestaComercial->meta, 'email_cliente', '')),
+            'phone' => data_get($propuestaComercial->meta, 'cliente_phone', data_get($propuestaComercial->meta, 'telefono_cliente', '')),
+            'address' => data_get($propuestaComercial->meta, 'cliente_address', data_get($propuestaComercial->meta, 'direccion_cliente', '')),
+            'rfc' => data_get($propuestaComercial->meta, 'cliente_rfc', data_get($propuestaComercial->meta, 'rfc_cliente', '')),
+        ];
+
+        $items = $propuestaComercial->items
+            ->sortBy('sort')
+            ->values()
+            ->map(function ($item, $index) {
+                $meta = $this->asMetaArray($item->meta ?? []);
+                $selectedMatch = $item->matches->firstWhere('seleccionado', true);
+                $selectedProduct = $item->productoSeleccionado ?: optional($selectedMatch)->product;
+
+                $displayNumber = data_get($meta, 'partida_number')
+                    ?: data_get($meta, 'numero_partida')
+                    ?: data_get($meta, 'partida')
+                    ?: ($item->partida_number ?? null)
+                    ?: ($item->numero_partida ?? null)
+                    ?: ($item->partida ?? null)
+                    ?: ($item->sort ?? ($index + 1));
+
+                $brand = data_get($meta, 'external_supplier')
+                    ?: data_get($meta, 'brand')
+                    ?: data_get($meta, 'marca')
+                    ?: data_get($selectedProduct, 'brand')
+                    ?: data_get($selectedProduct, 'marca')
+                    ?: '';
+
+                $model = data_get($meta, 'modelo')
+                    ?: data_get($meta, 'model')
+                    ?: data_get($selectedProduct, 'model')
+                    ?: data_get($selectedProduct, 'modelo')
+                    ?: data_get($selectedProduct, 'model_name')
+                    ?: '';
+
+                $reference = data_get($meta, 'catalog_product_name_manual')
+                    ?: data_get($meta, 'manual_catalog_product_name')
+                    ?: data_get($selectedProduct, 'name')
+                    ?: data_get($meta, 'external_supplier')
+                    ?: '';
+
+                $qty = (float) ($item->cantidad_cotizada ?: $item->cantidad_maxima ?: $item->cantidad_minima ?: 0);
+                $price = (float) ($item->precio_unitario ?: 0);
+                $subtotal = (float) ($item->subtotal ?: ($price > 0 && $qty > 0 ? $price * $qty : 0));
+
+                return [
+                    'number' => $displayNumber,
+                    'quantity' => $qty,
+                    'unit' => $item->unidad_solicitada ?: '',
+                    'description' => $item->descripcion_original ?: '',
+                    'reference' => $reference,
+                    'brand' => $brand,
+                    'model' => $model,
+                    'price' => $price,
+                    'subtotal' => $subtotal,
+                ];
+            })
+            ->all();
+
+        $subtotal = (float) ($propuestaComercial->subtotal ?: collect($items)->sum('subtotal'));
+        $discount = (float) ($propuestaComercial->descuento_total ?: 0);
+        $taxPercent = (float) ($propuestaComercial->porcentaje_impuesto ?? 16);
+        $tax = (float) ($propuestaComercial->impuesto_total ?: max($subtotal - $discount, 0) * ($taxPercent / 100));
+        $total = (float) ($propuestaComercial->total ?: max($subtotal - $discount, 0) + $tax);
+
+        $months = [
+            1 => 'ENERO', 2 => 'FEBRERO', 3 => 'MARZO', 4 => 'ABRIL', 5 => 'MAYO', 6 => 'JUNIO',
+            7 => 'JULIO', 8 => 'AGOSTO', 9 => 'SEPTIEMBRE', 10 => 'OCTUBRE', 11 => 'NOVIEMBRE', 12 => 'DICIEMBRE',
+        ];
+
+        $legalDateText = 'METEPEC ESTADO DE MEXICO A ' . $quoteDate->format('d') . ' DE ' . ($months[(int) $quoteDate->format('n')] ?? '') . ' DEL ' . $quoteDate->format('Y');
+        $integerPart = (int) floor($total);
+        $cents = (int) round(($total - $integerPart) * 100);
+
+        if ($cents === 100) {
+            $integerPart++;
+            $cents = 0;
+        }
+
+        $currencyWord = $integerPart === 1 ? 'PESO' : 'PESOS';
+        $totalInWords = number_format($total, 2) . ' ' . $currencyWord . ' ' . str_pad((string) $cents, 2, '0', STR_PAD_LEFT) . '/100 M.N.';
+
+        if (class_exists(\NumberFormatter::class)) {
+            $formatter = new \NumberFormatter('es_MX', \NumberFormatter::SPELLOUT);
+            $words = trim((string) $formatter->format($integerPart));
+
+            if ($words !== '') {
+                $totalInWords = mb_strtoupper($words, 'UTF-8') . ' ' . $currencyWord . ' ' . str_pad((string) $cents, 2, '0', STR_PAD_LEFT) . '/100 M.N.';
+            }
+        }
+
+        return compact(
+            'propuestaComercial',
+            'company',
+            'client',
+            'createdAt',
+            'quoteDate',
+            'folio',
+            'title',
+            'validityDays',
+            'items',
+            'subtotal',
+            'discount',
+            'taxPercent',
+            'tax',
+            'total',
+            'legalDateText',
+            'totalInWords'
+        ) + [
+            'logoSrc' => $this->clienteQuoteLogoSrc(),
+        ];
+    }
+
+    private function clienteQuoteExportHtml(PropuestaComercial $propuestaComercial, string $mode = 'pdf'): string
+    {
+        $data = $this->clienteQuoteExportData($propuestaComercial);
+        $e = fn ($value) => e((string) ($value ?? ''));
+        $money = fn ($value) => '$' . number_format((float) $value, 2);
+        $qty = function ($value) {
+            $number = (float) $value;
+            return fmod($number, 1.0) === 0.0 ? number_format($number, 0) : number_format($number, 2);
+        };
+
+        $rows = collect($data['items'])->map(function ($item) use ($e, $money, $qty) {
+            return '<tr>'
+                . '<td class="center">' . $e($item['number']) . '</td>'
+                . '<td class="center">' . $e($qty($item['quantity'])) . '</td>'
+                . '<td class="center">' . $e($item['unit']) . '</td>'
+                . '<td>' . $e($item['description']) . '</td>'
+                . '<td>' . $e($item['brand'] ?: '—') . '</td>'
+                . '<td>' . $e($item['model'] ?: '—') . '</td>'
+                . '<td class="right">' . $money($item['price']) . '</td>'
+                . '<td class="right"><strong>' . $money($item['subtotal']) . '</strong></td>'
+                . '</tr>';
+        })->implode('');
+
+        if ($rows === '') {
+            $rows = '<tr><td colspan="8" class="empty">Sin partidas para mostrar.</td></tr>';
+        }
+
+        $discountRow = ((float) $data['discount'] > 0)
+            ? '<tr><td>Descuento</td><td class="right">-' . $money($data['discount']) . '</td></tr>'
+            : '';
+
+        $wordNamespaces = $mode === 'word'
+            ? ' xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"'
+            : '';
+
+        $pageCss = $mode === 'word'
+            ? '@page WordSection1 { size: 11in 8.5in; mso-page-orientation: landscape; margin: .45in; } div.WordSection1 { page: WordSection1; }'
+            : '@page { size: letter landscape; margin: 10mm; }';
+
+        return '<!doctype html><html lang="es"' . $wordNamespaces . '><head><meta charset="UTF-8"><title>' . $e($data['folio']) . '</title><style>' . $pageCss . '
+            * { box-sizing: border-box; }
+            body { margin: 0; background: #ffffff; color: #111827; font-family: DejaVu Sans, Arial, Helvetica, sans-serif; font-size: 10px; }
+            .sheet { width: 100%; background: #ffffff; }
+            .document-head { width: 100%; border-bottom: 1px solid #e5e7eb; padding-bottom: 20px; margin-bottom: 18px; display: table; }
+            .brand { display: table-cell; width: 58%; vertical-align: top; }
+            .quote-box { display: table-cell; width: 42%; vertical-align: top; text-align: right; }
+            .logo-cell { display: inline-block; vertical-align: top; width: 75px; padding-top: 4px; }
+            .logo { width: 62px; max-height: 42px; object-fit: contain; }
+            .company-cell { display: inline-block; vertical-align: top; width: 390px; }
+            .company-name { font-size: 17px; font-weight: 700; letter-spacing: .01em; margin: 0 0 8px; color: #111111; }
+            .company-info { font-size: 10px; line-height: 1.55; color: #475569; text-transform: uppercase; }
+            .quote-label { font-size: 9px; color: #64748b; letter-spacing: .18em; font-weight: 700; text-transform: uppercase; margin-bottom: 6px; }
+            .quote-title { font-size: 17px; color: #007aff; font-weight: 700; line-height: 1.25; margin-bottom: 8px; }
+            .quote-meta { font-size: 10px; color: #64748b; line-height: 1.65; }
+            .client-block { border: 1px solid #ebebeb; border-radius: 12px; padding: 13px 14px; margin-bottom: 16px; }
+            .section-label { font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: #888888; font-weight: 700; margin-bottom: 7px; }
+            .client-name { font-size: 13px; font-weight: 700; color: #111111; margin-bottom: 4px; }
+            .client-meta { color: #64748b; line-height: 1.5; }
+            table.items { width: 100%; border-collapse: collapse; table-layout: fixed; margin-bottom: 16px; }
+            .items th { background: #f9fafb; border: 1px solid #ebebeb; color: #111111; font-size: 8px; padding: 7px 6px; text-transform: uppercase; letter-spacing: .05em; }
+            .items td { border: 1px solid #ebebeb; padding: 7px 6px; vertical-align: top; font-size: 9px; line-height: 1.35; }
+            .items tr:nth-child(even) td { background: #fcfcfc; }
+            .center { text-align: center; }
+            .right { text-align: right; }
+            .totals { width: 260px; margin-left: auto; border: 1px solid #ebebeb; border-radius: 12px; overflow: hidden; margin-bottom: 18px; }
+            .totals table { width: 100%; border-collapse: collapse; }
+            .totals td { padding: 8px 10px; border-bottom: 1px solid #ebebeb; font-size: 10px; }
+            .totals tr:last-child td { border-bottom: none; }
+            .totals .final td { background: #e6f0ff; color: #007aff; font-size: 13px; font-weight: 700; }
+            .amount-in-words { font-size: 10px; line-height: 1.5; margin-bottom: 16px; text-transform: uppercase; }
+            .legal-title { font-size: 10px; margin: 0 0 8px; color: #111111; }
+            .legal-intro, .legal-list { font-size: 9px; line-height: 1.45; color: #374151; }
+            .legal-list { margin: 0 0 18px 0; padding-left: 0; list-style: none; }
+            .legal-list li { margin-bottom: 6px; }
+            .legal-date { text-align: right; font-weight: 700; margin: 14px 0 24px; font-size: 10px; }
+            .signature-block { text-align: center; width: 360px; margin: 0 auto; }
+            .signature-title { font-weight: 700; font-size: 10px; margin-bottom: 34px; }
+            .signature-space { border-top: 1px solid #111111; margin-bottom: 7px; }
+            .signature-name { font-weight: 700; font-size: 10px; }
+            .signature-role { font-size: 9px; color: #555555; margin-top: 3px; }
+            .empty { text-align: center; color: #888888; padding: 16px; }
+        </style></head><body><div class="WordSection1"><div class="sheet">
+            <div class="document-head">
+                <div class="brand">
+                    <div class="logo-cell"><img class="logo" src="' . $e($data['logoSrc']) . '" alt="Jureto"></div>
+                    <div class="company-cell">
+                        <div class="company-name">' . $e($data['company']['name']) . '</div>
+                        <div class="company-info">' . $e($data['company']['address']) . '<br>' . $e($data['company']['phone']) . ' · ' . $e($data['company']['email']) . '<br>RFC: ' . $e($data['company']['rfc']) . '</div>
+                    </div>
+                </div>
+                <div class="quote-box">
+                    <div class="quote-label">Cotización</div>
+                    <div class="quote-title">' . $e($data['title']) . '</div>
+                    <div class="quote-meta">' . $e($data['quoteDate']->format('d/m/Y')) . '<br>Vigencia: ' . $e($data['validityDays']) . ' días</div>
+                </div>
+            </div>
+
+            <div class="client-block">
+                <div class="section-label">Datos del cliente</div>
+                <div class="client-name">' . $e($data['client']['name']) . '</div>
+                <div class="client-meta">' . ($data['client']['rfc'] ? 'RFC: ' . $e($data['client']['rfc']) . '<br>' : '') . ($data['client']['email'] ? $e($data['client']['email']) . '<br>' : '') . ($data['client']['phone'] ? $e($data['client']['phone']) . '<br>' : '') . ($data['client']['address'] ? $e($data['client']['address']) : '') . '</div>
+            </div>
+
+            <table class="items">
+                <thead><tr><th style="width:42px;">#</th><th style="width:62px;">Cant.</th><th style="width:70px;">Unidad</th><th>Descripción</th><th style="width:120px;">Marca</th><th style="width:120px;">Modelo</th><th style="width:85px;">P. Unitario</th><th style="width:95px;">Subtotal</th></tr></thead>
+                <tbody>' . $rows . '</tbody>
+            </table>
+
+            <div class="totals"><table><tr><td>Subtotal</td><td class="right"><strong>' . $money($data['subtotal']) . '</strong></td></tr>' . $discountRow . '<tr><td>IVA (' . number_format((float) $data['taxPercent'], 0) . '%)</td><td class="right"><strong>' . $money($data['tax']) . '</strong></td></tr><tr class="final"><td>Total</td><td class="right">' . $money($data['total']) . '</td></tr></table></div>
+
+            <div class="amount-in-words">(TOTAL CON LETRA: ' . $e($data['totalInWords']) . ')</div>
+            <h3 class="legal-title">CONDICIONES DE LA PROPUESTA ECONÓMICA:</h3>
+            <div class="legal-intro">EN CASO DE RESULTAR ADJUDICADOS, QUEDA ENTENDIDO Y ACEPTADO LO SIGUIENTE:</div>
+            <ol class="legal-list">
+                <li>1.- LA VIGENCIA DE LOS PRECIOS PROPUESTOS SERÁ POR EL TIEMPO QUE DURE EL PROCEDIMIENTO DE INVITACIÓN A PARTIR DE LA PRESENTACIÓN DE LA PROPUESTA Y HASTA CONCLUIR LA ENTREGA TOTAL DE LOS BIENES EN TIEMPO Y FORMA.</li>
+                <li>2.- LOS PRECIOS SERÁN FIJOS E INCONDICIONADOS DURANTE LA VIGENCIA DEL CONTRATO QUE DE RESULTAR GANADOR ME SEA ASIGNADO.</li>
+                <li>3.- LOS GASTOS POR CONCEPTO DE TRASLADOS, FLETES, MANIOBRAS DE CARGA, DESCARGA, ACARREO, SEGUROS, U OTROS CONCEPTOS POR LA ENTREGA DE LOS BIENES, ASÍ COMO LA SOLVENTACIÓN DE LAS OBSERVACIONES REALIZADAS AL MOMENTO DE LA ENTREGA DE LOS BIENES, SERÁN A CARGO ÚNICA Y EXCLUSIVAMENTE DE NOSOTROS, RAZÓN POR LA CUAL NO EXIGIREMOS AL COLEGIO CONDICIONES ADICIONALES A LAS PROPUESTAS.</li>
+            </ol>
+            <div class="legal-date">' . $e($data['legalDateText']) . '</div>
+            <div class="signature-block"><div class="signature-title">BAJO PROTESTA DE DECIR VERDAD</div><div class="signature-space"></div><div class="signature-name">' . $e($data['company']['representative']) . '</div><div class="signature-role">' . $e($data['company']['representative_role']) . '</div></div>
+        </div></div></body></html>';
+    }
+
+    public function clientePdf(PropuestaComercial $propuestaComercial)
+    {
+        $folio = $propuestaComercial->folio ?: ('TEOA' . str_pad((string) $propuestaComercial->id, 8, '0', STR_PAD_LEFT));
+        $safeFolio = preg_replace('/[^A-Za-z0-9_\-]+/', '_', $folio ?: 'cotizacion');
+        $html = $this->clienteQuoteExportHtml($propuestaComercial, 'pdf');
+
+        return Pdf::loadHTML($html)
+            ->setPaper('letter', 'landscape')
+            ->download($safeFolio . '_cotizacion.pdf');
+    }
+
+    public function clienteWord(PropuestaComercial $propuestaComercial)
+    {
+        $folio = $propuestaComercial->folio ?: ('TEOA' . str_pad((string) $propuestaComercial->id, 8, '0', STR_PAD_LEFT));
+        $safeFolio = preg_replace('/[^A-Za-z0-9_\-]+/', '_', $folio ?: 'cotizacion');
+        $html = $this->clienteQuoteExportHtml($propuestaComercial, 'word');
+
+        return response("\xEF\xBB\xBF" . $html, 200, [
+            'Content-Type' => 'application/msword; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="' . $safeFolio . '_cotizacion.doc"',
+        ]);
+    }
+
     public function exportClarificationsWord(PropuestaComercial $propuestaComercial)
     {
         $propuestaComercial->loadMissing(['items.aclaracionPreguntas']);

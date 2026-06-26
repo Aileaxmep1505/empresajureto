@@ -2495,4 +2495,29 @@ Route::middleware(['auth'])->prefix('admin/shopify')->name('admin.shopify.')->gr
     Route::get('/orders/{order}', [ShopifyOrderController::class, 'show'])
         ->name('orders.show');
 });
+use App\Models\HomeBanner;
+use App\Http\Controllers\Admin\HomeBannerController;
 
+Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
+    Route::resource('home-banners', HomeBannerController::class)->except(['show']);
+});
+
+Route::get('/home-banners/live-version', function () {
+    $stats = HomeBanner::query()
+        ->selectRaw('COUNT(*) as total, SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active_total, MAX(updated_at) as latest_update')
+        ->first();
+
+    $version = sha1(implode('|', [
+        $stats->total ?? 0,
+        $stats->active_total ?? 0,
+        $stats->latest_update ?? '',
+    ]));
+
+    return response()->json([
+        'version' => $version,
+    ]);
+})->name('home-banners.live-version');
+
+
+Route::get('/propuestas-comerciales/{propuestaComercial}/cliente/word', [PropuestaComercialController::class, 'clienteWord'])
+    ->name('propuestas-comerciales.cliente.word');
