@@ -3163,7 +3163,7 @@
       if (clarificationLastCandidate?.name) {
         box.style.display = '';
         box.innerHTML = `
-          <div class="result-title">Alternativa sugerida de catálogo</div>
+          <div class="result-title">Referencia detectada</div>
 
           <div class="result-meta">
             <strong>${escapeHtml(clarificationLastCandidate.name)}</strong>
@@ -3178,7 +3178,7 @@
         box.innerHTML = '';
       }
 
-      status.textContent = 'Pregunta generada. Revísala y guárdala para incluirla en el PDF.';
+      status.textContent = 'Pregunta generada. Revísala y guárdala para incluirla en el Word.';
     } catch (e) {
       status.textContent = e.message || 'No se pudo generar la pregunta.';
       showInlineError(e.message);
