@@ -1443,8 +1443,12 @@ class PropuestaComercialController extends Controller
     {
         $propuestaComercial->loadMissing(['items.aclaracionPreguntas']);
 
-        $folio = $propuestaComercial->folio ?: ('TEOA' . str_pad((string) $propuestaComercial->id, 8, '0', STR_PAD_LEFT));
-        $title = $propuestaComercial->titulo ?: ('COT-' . strtoupper(substr(md5($propuestaComercial->id . $propuestaComercial->created_at), 0, 8)));
+        $folio = $propuestaComercial->folio
+            ?: ('TEOA' . str_pad((string) $propuestaComercial->id, 8, '0', STR_PAD_LEFT));
+
+        $title = $propuestaComercial->titulo
+            ?: ('COT-' . strtoupper(substr(md5($propuestaComercial->id . $propuestaComercial->created_at), 0, 8)));
+
         $generatedAt = now()->format('d/m/Y H:i');
 
         $questions = $propuestaComercial->items
@@ -1468,10 +1472,10 @@ class PropuestaComercialController extends Controller
 
         $rows = $questions->map(function ($q, $index) use ($e) {
             return '<tr>'
-                . '<td class="center col-num">' . ($index + 1) . '</td>'
-                . '<td class="center col-partida">' . $e($q['partida']) . '</td>'
-                . '<td class="col-producto">' . $e($q['producto']) . '</td>'
-                . '<td class="col-pregunta">' . nl2br($e($q['pregunta'])) . '</td>'
+                . '<td class="center tiny-cell">' . ($index + 1) . '</td>'
+                . '<td class="center tiny-cell">' . $e($q['partida']) . '</td>'
+                . '<td class="product-cell">' . nl2br($e($q['producto'])) . '</td>'
+                . '<td class="question-cell">' . nl2br($e($q['pregunta'])) . '</td>'
                 . '</tr>';
         })->implode('');
 
@@ -1480,42 +1484,143 @@ class PropuestaComercialController extends Controller
         }
 
         $html = '<!DOCTYPE html>
-<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<html xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:w="urn:schemas-microsoft-com:office:word"
+      xmlns="http://www.w3.org/TR/REC-html40">
 <head>
 <meta charset="UTF-8">
 <title>' . $e($title) . '</title>
+
 <style>
-@page WordSection1 { size: 11in 8.5in; mso-page-orientation: landscape; margin: .45in; }
-div.WordSection1 { page: WordSection1; }
-body { font-family: Arial, Helvetica, sans-serif; color: #333333; margin: 0; }
-h1 { color: #111111; font-size: 18pt; margin: 0 0 5pt; }
-.meta { color: #666666; font-size: 9pt; margin-bottom: 14pt; line-height: 1.45; }
-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 8pt; }
-th { background: #f9fafb; color: #111111; font-weight: 700; border: 1px solid #d9d9d9; padding: 5pt; text-align: left; vertical-align: top; }
-td { border: 1px solid #ebebeb; padding: 5pt; vertical-align: top; word-wrap: break-word; }
-.center { text-align: center; }
-.col-num { width: 24pt; }
-.col-partida { width: 50pt; }
-.col-producto { width: 230pt; }
-.col-pregunta { width: auto; }
-.empty { text-align: center; color: #888888; padding: 18pt; }
+    @page WordSection1 {
+        size: 11in 8.5in;
+        mso-page-orientation: landscape;
+        margin: .35in;
+    }
+
+    div.WordSection1 {
+        page: WordSection1;
+    }
+
+    body {
+        font-family: Arial, Helvetica, sans-serif;
+        color: #333333;
+        margin: 0;
+        font-size: 9pt;
+        line-height: 1.25;
+    }
+
+    h1 {
+        color: #111111;
+        font-size: 18pt;
+        margin: 0 0 5pt;
+        font-weight: 700;
+    }
+
+    .meta {
+        color: #666666;
+        font-size: 9pt;
+        margin-bottom: 14pt;
+        line-height: 1.35;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+        font-size: 8.5pt;
+    }
+
+    col.col-num {
+        width: 4%;
+    }
+
+    col.col-partida {
+        width: 6%;
+    }
+
+    col.col-producto {
+        width: 32%;
+    }
+
+    col.col-pregunta {
+        width: 58%;
+    }
+
+    th {
+        background: #f9fafb;
+        color: #111111;
+        font-weight: 700;
+        border: 1px solid #d9d9d9;
+        padding: 5pt;
+        text-align: left;
+        vertical-align: top;
+    }
+
+    td {
+        border: 1px solid #ebebeb;
+        padding: 5pt;
+        vertical-align: top;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .center {
+        text-align: center;
+    }
+
+    .tiny-cell {
+        font-size: 8pt;
+        white-space: nowrap;
+    }
+
+    .product-cell {
+        font-size: 8.5pt;
+        line-height: 1.25;
+    }
+
+    .question-cell {
+        font-size: 8.5pt;
+        line-height: 1.25;
+    }
+
+    .empty {
+        text-align: center;
+        color: #888888;
+        padding: 18pt;
+    }
 </style>
 </head>
+
 <body>
 <div class="WordSection1">
-<h1>Junta de aclaraciones</h1>
-<div class="meta"><strong>' . $e($title) . '</strong><br>Folio: ' . $e($folio) . '<br>Generado: ' . $e($generatedAt) . '</div>
-<table>
-<thead>
-<tr>
-<th class="center col-num">#</th>
-<th class="center col-partida">Partida</th>
-<th class="col-producto">Producto solicitado</th>
-<th class="col-pregunta">Pregunta</th>
-</tr>
-</thead>
-<tbody>' . $rows . '</tbody>
-</table>
+    <h1>Junta de aclaraciones</h1>
+
+    <div class="meta">
+        <strong>' . $e($title) . '</strong><br>
+        Folio: ' . $e($folio) . '<br>
+        Generado: ' . $e($generatedAt) . '
+    </div>
+
+    <table>
+        <colgroup>
+            <col class="col-num">
+            <col class="col-partida">
+            <col class="col-producto">
+            <col class="col-pregunta">
+        </colgroup>
+
+        <thead>
+            <tr>
+                <th class="center tiny-cell">#</th>
+                <th class="center tiny-cell">Partida</th>
+                <th>Producto solicitado</th>
+                <th>Pregunta</th>
+            </tr>
+        </thead>
+
+        <tbody>' . $rows . '</tbody>
+    </table>
 </div>
 </body>
 </html>';
