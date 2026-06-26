@@ -2070,7 +2070,6 @@
 
     const questionsHtml = questions.length ? questions.map((q, index) => {
       const questionText = getClarificationText(q);
-      const candidate = getClarificationCandidate(q);
 
       return `
         <div class="result-card">
@@ -2082,16 +2081,6 @@
           <div class="result-meta" style="white-space:pre-wrap; line-height:1.55; color:var(--ink);">
             ${escapeHtml(questionText)}
           </div>
-
-          ${candidate?.name ? `
-            <div class="result-meta mt-2">
-              Alternativa sugerida:
-              <strong>${escapeHtml(candidate.name)}</strong>
-              ${candidate.sku ? ' · SKU ' + escapeHtml(candidate.sku) : ''}
-              ${candidate.brand ? ' · ' + escapeHtml(candidate.brand) : ''}
-              ${candidate.price ? ' · Precio ' + money(candidate.price) : ''}
-            </div>
-          ` : ''}
 
           <div class="action-row mt-3">
             <button class="btn btn-ghost btn-small" type="button" onclick="deleteClarificationQuestion(${item.id}, '${escapeHtml(q.id || '')}')">
