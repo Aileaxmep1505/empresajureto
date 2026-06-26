@@ -1755,4 +1755,403 @@ class PropuestaComercialController extends Controller
             'status' => $status,
         ]);
     }
+    private function buildClienteExportHtml(PropuestaComercial $propuestaComercial): string
+{
+    $propuestaComercial->loadMissing([
+        'items.matches.product',
+        'items.productoSeleccionado',
+    ]);
+
+    $folio = $propuestaComercial->folio
+        ?: ('TEOA' . str_pad((string) $propuestaComercial->id, 8, '0', STR_PAD_LEFT));
+
+    $title = $propuestaComercial->titulo
+        ?: ('Propuesta comercial #' . $propuestaComercial->id);
+
+    $fecha = now()->format('d/m/Y');
+    $vigencia = data_get($propuestaComercial->meta, 'vigencia_dias', 15);
+
+    $subtotal = (float) $propuestaComercial->subtotal;
+    $descuento = (float) $propuestaComercial->descuento_total;
+    $iva = (float) $propuestaComercial->impuesto_total;
+    $total = (float) $propuestaComercial->total;
+
+    $money = fn ($value) => '$' . number_format((float) $value, 2);
+    $e = fn ($value) => e((string) ($value ?? ''));
+
+    $itemsRows = $propuestaComercial->items
+        ->sortBy('sort')
+        ->values()
+        ->map(function ($item, $index) use ($money, $e) {
+            $meta = is_array($item->meta)
+                ? $item->meta
+                : (json_decode((string) $item->meta, true) ?: []);
+
+            $selectedMatch = $item->matches->firstWhere('seleccionado', true);
+            $selectedProduct = $item->productoSeleccionado ?: optional($selectedMatch)->product;
+
+            $descripcion = optional($selectedProduct)->name
+                ?: data_get($meta, 'catalog_product_name_manual')
+                ?: $item->descripcion_original;
+
+            $marca = data_get($meta, 'external_supplier')
+                ?: optional($selectedProduct)->brand
+                ?: '';
+
+            $modelo = data_get($meta, 'modelo')
+                ?: optional($selectedProduct)->model
+                ?: optional($selectedProduct)->modelo
+                ?: '';
+
+            $cantidad = (float) ($item->cantidad_cotizada ?: $item->cantidad_minima ?: $item->cantidad_maxima ?: 1);
+            $unidad = $item->unidad_solicitada ?: 'PZA';
+            $precio = (float) $item->precio_unitario;
+            $importe = (float) ($item->subtotal ?: ($precio * $cantidad));
+
+            return '
+                <tr>
+                    <td class="td-center">' . ($index + 1) . '</td>
+                    <td>
+                        <strong>' . $e($descripcion) . '</strong>
+                        <div class="item-muted">' . $e($item->descripcion_original) . '</div>
+                        ' . ($marca ? '<div class="item-muted">Marca: ' . $e($marca) . '</div>' : '') . '
+                        ' . ($modelo ? '<div class="item-muted">Modelo: ' . $e($modelo) . '</div>' : '') . '
+                    </td>
+                    <td class="td-center">' . $e($unidad) . '</td>
+                    <td class="td-center">' . number_format($cantidad, 2) . '</td>
+                    <td class="td-right">' . $money($precio) . '</td>
+                    <td class="td-right"><strong>' . $money($importe) . '</strong></td>
+                </tr>
+            ';
+        })
+        ->implode('');
+
+    if ($itemsRows === '') {
+        $itemsRows = '
+            <tr>
+                <td colspan="6" class="empty">No hay partidas registradas.</td>
+            </tr>
+        ';
+    }
+
+    return '<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>' . $e($title) . '</title>
+<style>
+    @page {
+        size: letter;
+        margin: 16mm 14mm;
+    }
+
+    * {
+        box-sizing: border-box;
+    }
+
+    body {
+        font-family: DejaVu Sans, Arial, Helvetica, sans-serif;
+        color: #333333;
+        font-size: 11px;
+        line-height: 1.35;
+        margin: 0;
+        background: #ffffff;
+    }
+
+    .header {
+        width: 100%;
+        border-bottom: 1px solid #e5e5e5;
+        padding-bottom: 18px;
+        margin-bottom: 22px;
+    }
+
+    .header-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .header-left {
+        width: 58%;
+        vertical-align: top;
+    }
+
+    .header-right {
+        width: 42%;
+        vertical-align: top;
+        text-align: right;
+    }
+
+    .company-row {
+        display: table;
+        width: 100%;
+    }
+
+    .logo-box {
+        display: table-cell;
+        width: 72px;
+        vertical-align: top;
+    }
+
+    .logo-text {
+        color: #007aff;
+        font-weight: 700;
+        font-size: 12px;
+        line-height: 1;
+        border: 1px solid #e6f0ff;
+        border-radius: 8px;
+        padding: 8px 6px;
+        text-align: center;
+        width: 58px;
+    }
+
+    .company-info {
+        display: table-cell;
+        vertical-align: top;
+        padding-left: 6px;
+    }
+
+    .company-name {
+        color: #111111;
+        font-size: 17px;
+        font-weight: 700;
+        margin-bottom: 6px;
+        letter-spacing: .02em;
+    }
+
+    .company-data {
+        color: #475569;
+        font-size: 9.5px;
+        line-height: 1.55;
+        text-transform: uppercase;
+    }
+
+    .quote-kicker {
+        color: #64748b;
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: .14em;
+        text-transform: uppercase;
+        margin-bottom: 8px;
+    }
+
+    .quote-title {
+        color: #007aff;
+        font-size: 17px;
+        font-weight: 700;
+        line-height: 1.25;
+        margin-bottom: 8px;
+    }
+
+    .quote-date {
+        color: #64748b;
+        font-size: 10px;
+        line-height: 1.55;
+    }
+
+    table.items {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+        margin-top: 10px;
+    }
+
+    table.items th {
+        background: #f9fafb;
+        color: #111111;
+        border: 1px solid #ebebeb;
+        padding: 8px 7px;
+        font-size: 9.5px;
+        font-weight: 700;
+        text-align: left;
+        vertical-align: middle;
+    }
+
+    table.items td {
+        border: 1px solid #ebebeb;
+        padding: 8px 7px;
+        vertical-align: top;
+        font-size: 9.5px;
+        word-wrap: break-word;
+    }
+
+    .td-center {
+        text-align: center;
+    }
+
+    .td-right {
+        text-align: right;
+    }
+
+    .item-muted {
+        color: #64748b;
+        font-size: 8.5px;
+        margin-top: 3px;
+    }
+
+    .empty {
+        text-align: center;
+        color: #888888;
+        padding: 20px;
+    }
+
+    .totals-wrap {
+        width: 100%;
+        margin-top: 20px;
+    }
+
+    .totals {
+        width: 280px;
+        margin-left: auto;
+        border-collapse: collapse;
+    }
+
+    .totals td {
+        padding: 7px 8px;
+        border-bottom: 1px solid #ebebeb;
+        font-size: 10px;
+    }
+
+    .totals .label {
+        color: #64748b;
+        text-align: left;
+    }
+
+    .totals .value {
+        color: #111111;
+        text-align: right;
+        font-weight: 700;
+    }
+
+    .total-final td {
+        border-bottom: 0;
+        background: #f9fafb;
+        font-size: 12px;
+        font-weight: 700;
+    }
+
+    .footer-note {
+        margin-top: 24px;
+        padding-top: 12px;
+        border-top: 1px solid #ebebeb;
+        color: #64748b;
+        font-size: 9px;
+        line-height: 1.45;
+    }
+</style>
+</head>
+<body>
+
+<div class="header">
+    <table class="header-table">
+        <tr>
+            <td class="header-left">
+                <div class="company-row">
+                    <div class="logo-box">
+                        <div class="logo-text">JURETO</div>
+                    </div>
+
+                    <div class="company-info">
+                        <div class="company-name">JURETO S.A. DE C.V.</div>
+                        <div class="company-data">
+                            BERNARDO YARA 25, COL. PILARES, C.P. 52179, METEPEC, ESTADO DE MEXICO.<br>
+                            5541937243, 8135515784 · RTORT@JURETO.COM.MX<br>
+                            RFC: JUR2002196K4
+                        </div>
+                    </div>
+                </div>
+            </td>
+
+            <td class="header-right">
+                <div class="quote-kicker">Cotización</div>
+                <div class="quote-title">' . $e($title) . '</div>
+                <div class="quote-date">
+                    ' . $e($fecha) . '<br>
+                    Vigencia: ' . $e($vigencia) . ' días
+                </div>
+            </td>
+        </tr>
+    </table>
+</div>
+
+<table class="items">
+    <colgroup>
+        <col style="width: 5%;">
+        <col style="width: 45%;">
+        <col style="width: 10%;">
+        <col style="width: 10%;">
+        <col style="width: 15%;">
+        <col style="width: 15%;">
+    </colgroup>
+    <thead>
+        <tr>
+            <th class="td-center">#</th>
+            <th>Descripción</th>
+            <th class="td-center">Unidad</th>
+            <th class="td-center">Cantidad</th>
+            <th class="td-right">Precio unitario</th>
+            <th class="td-right">Importe</th>
+        </tr>
+    </thead>
+    <tbody>
+        ' . $itemsRows . '
+    </tbody>
+</table>
+
+<div class="totals-wrap">
+    <table class="totals">
+        <tr>
+            <td class="label">Subtotal</td>
+            <td class="value">' . $money($subtotal) . '</td>
+        </tr>
+        <tr>
+            <td class="label">Descuento</td>
+            <td class="value">' . $money($descuento) . '</td>
+        </tr>
+        <tr>
+            <td class="label">IVA</td>
+            <td class="value">' . $money($iva) . '</td>
+        </tr>
+        <tr class="total-final">
+            <td class="label">Total</td>
+            <td class="value">' . $money($total) . '</td>
+        </tr>
+    </table>
+</div>
+
+<div class="footer-note">
+    Precios expresados en moneda nacional. La presente cotización está sujeta a disponibilidad, validación técnica y vigencia indicada.
+</div>
+
+</body>
+</html>';
+}
+
+public function clientePdf(PropuestaComercial $propuestaComercial)
+{
+    $html = $this->buildClienteExportHtml($propuestaComercial);
+
+    $folio = $propuestaComercial->folio
+        ?: ('TEOA' . str_pad((string) $propuestaComercial->id, 8, '0', STR_PAD_LEFT));
+
+    $safeFolio = preg_replace('/[^A-Za-z0-9_\-]+/', '_', $folio ?: 'cotizacion');
+
+    return Pdf::loadHTML($html)
+        ->setPaper('letter', 'portrait')
+        ->download($safeFolio . '_cotizacion_cliente.pdf');
+}
+
+public function clienteWord(PropuestaComercial $propuestaComercial)
+{
+    $html = $this->buildClienteExportHtml($propuestaComercial);
+
+    $folio = $propuestaComercial->folio
+        ?: ('TEOA' . str_pad((string) $propuestaComercial->id, 8, '0', STR_PAD_LEFT));
+
+    $safeFolio = preg_replace('/[^A-Za-z0-9_\-]+/', '_', $folio ?: 'cotizacion');
+
+    return response($html, 200, [
+        'Content-Type' => 'application/msword; charset=UTF-8',
+        'Content-Disposition' => 'attachment; filename="' . $safeFolio . '_cotizacion_cliente.doc"',
+    ]);
+}
 }
