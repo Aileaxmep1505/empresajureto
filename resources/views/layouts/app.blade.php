@@ -132,9 +132,9 @@
       bottom:0;
       width:var(--sidebar-w);
       max-width:calc(100vw - 14px);
-      background:linear-gradient(180deg, rgba(255,255,255,.97), rgba(246,249,255,.98));
-      backdrop-filter:blur(14px);
-      -webkit-backdrop-filter:blur(14px);
+      background:#ffffff;
+      backdrop-filter:none;
+      -webkit-backdrop-filter:none;
       border-right:1px solid rgba(202,215,235,.72);
       transform:translateX(-105%);
       transition:transform .42s cubic-bezier(.16,1,.3,1);
@@ -197,7 +197,7 @@
       gap:12px;
       padding:14px 14px 12px;
       border-bottom:1px solid rgba(202,215,235,.65);
-      background:linear-gradient(180deg, rgba(255,255,255,.88), rgba(247,250,255,.94));
+      background:#ffffff;
     }
 
     .sidebar__close{
@@ -487,9 +487,9 @@
       align-items:center;
       gap:10px;
       padding:8px 14px;
-      background:rgba(244,247,255,.88);
-      backdrop-filter:blur(12px);
-      -webkit-backdrop-filter:blur(12px);
+      background:#ffffff;
+      backdrop-filter:none;
+      -webkit-backdrop-filter:none;
       border-bottom:1px solid rgba(202,215,235,.72);
       min-height:var(--topbar-h);
     }
@@ -506,7 +506,7 @@
     }
 
     .icon-btn{
-      background:rgba(255,255,255,.74);
+      background:#ffffff;
       border:1px solid rgba(202,215,235,.78);
       cursor:pointer;
       color:#243041;
@@ -522,8 +522,8 @@
         box-shadow .18s ease,
         border-color .18s ease;
       box-shadow:0 6px 16px rgba(15,23,42,.05);
-      backdrop-filter:blur(8px);
-      -webkit-backdrop-filter:blur(8px);
+      backdrop-filter:none;
+      -webkit-backdrop-filter:none;
       flex-shrink:0;
     }
 
@@ -774,6 +774,28 @@
       .notif__panel{ left:6px; right:6px; top:60px; }
       .sidebar__close{ width:34px; height:34px; }
     }
+
+    /* ✅ Ajuste final: header y menú en blanco puro */
+    .topbar{
+      background:#ffffff !important;
+      backdrop-filter:none !important;
+      -webkit-backdrop-filter:none !important;
+    }
+
+    .icon-btn,
+    #btnSidebar{
+      background:#ffffff !important;
+      backdrop-filter:none !important;
+      -webkit-backdrop-filter:none !important;
+    }
+
+    .sidebar,
+    .sidebar__head{
+      background:#ffffff !important;
+      backdrop-filter:none !important;
+      -webkit-backdrop-filter:none !important;
+    }
+
   </style>
 </head>
 
@@ -1177,8 +1199,8 @@
         </a>
       @endif
 
-      <details class="nav__group" {{ request()->routeIs('admin.users.*') || request()->routeIs('admin.catalog.*') || request()->routeIs('admin.orders.*') ? 'open' : '' }}>
-        <summary class="{{ request()->routeIs('admin.users.*') || request()->routeIs('admin.catalog.*') || request()->routeIs('admin.orders.*') ? 'is-active':'' }}">
+      <details class="nav__group">
+        <summary class="{{ request()->routeIs('admin.users.*') || request()->routeIs('admin.catalog.*') || request()->routeIs('admin.orders.*') || request()->routeIs('admin.home-banners.*') || request()->routeIs('admin.home-product-sections.*') || request()->routeIs('admin.category-products.*') ? 'is-active':'' }}">
           <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
             <path d="M4 20v-1a5 5 0 0 1 5-5h2a5 5 0 0 1 5 5v1"></path>
             <circle cx="10" cy="8" r="3.5"></circle><path d="M18 8v6"></path><path d="M15 11h6"></path>
@@ -1191,6 +1213,40 @@
             <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9"><circle cx="9" cy="8" r="3.5"></circle><path d="M4 19a5 5 0 0 1 10 0"></path><path d="M17 8v6"></path><path d="M14 11h6"></path></svg>
             <span>Usuarios</span>
           </a>
+
+          @if(\Illuminate\Support\Facades\Route::has('admin.home-banners.index'))
+            <a href="{{ route('admin.home-banners.index') }}" class="nav__sublink {{ request()->routeIs('admin.home-banners.*') ? 'is-active':'' }}">
+              <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9">
+                <rect x="4" y="5" width="16" height="14" rx="2"></rect>
+                <path d="M8 13l2.3-2.3a1 1 0 0 1 1.4 0L15 14"></path>
+                <path d="M14 12l1.3-1.3a1 1 0 0 1 1.4 0L20 14"></path>
+                <circle cx="8.5" cy="8.5" r="1"></circle>
+              </svg>
+              <span>Banners home</span>
+            </a>
+          @endif
+
+          @if(\Illuminate\Support\Facades\Route::has('admin.home-product-sections.index'))
+            <a href="{{ route('admin.home-product-sections.index') }}" class="nav__sublink {{ request()->routeIs('admin.home-product-sections.*') ? 'is-active':'' }}">
+              <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9">
+                <path d="M4 7h16"></path>
+                <path d="M4 12h16"></path>
+                <path d="M4 17h16"></path>
+                <path d="M8 7v10"></path>
+              </svg>
+              <span>Filas del home</span>
+            </a>
+          @endif
+
+          @if(\Illuminate\Support\Facades\Route::has('admin.category-products.index'))
+            <a href="{{ route('admin.category-products.index') }}" class="nav__sublink {{ request()->routeIs('admin.category-products.*') ? 'is-active':'' }}">
+              <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9">
+                <path d="M4 6h7l2 3h7v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6z"></path>
+                <path d="M8 13h8"></path>
+              </svg>
+              <span>Categorías web</span>
+            </a>
+          @endif
           <a href="{{ route('admin.orders.index') }}" class="nav__sublink {{ request()->routeIs('admin.orders.*') ? 'is-active':'' }}">
             <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9"><path d="M6 6h15l-2 8H8L6 4H3"></path><circle cx="9" cy="19" r="1.6"></circle><circle cx="18" cy="19" r="1.6"></circle></svg>
             <span>Pedidos web</span>

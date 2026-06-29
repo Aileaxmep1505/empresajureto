@@ -107,7 +107,9 @@ use App\Http\Controllers\InventoryController;
 
 use App\Http\Controllers\InventoryCategoryController;
 use App\Http\Controllers\InventoryAssignmentController;
-
+use App\Http\Controllers\Admin\HomeProductSectionController;
+use App\Models\HomeBanner;
+use App\Http\Controllers\Admin\HomeBannerController;
 
 Route::get('/admin/catalog/analytics', [\App\Http\Controllers\Admin\CatalogItemController::class, 'analytics'])
     ->name('admin.catalog.analytics');
@@ -295,6 +297,69 @@ Route::middleware('auth')->group(function () {
         Route::post('/',                [CommentController::class, 'store'])->name('store');
         Route::post('/{comment}/reply', [CommentController::class, 'reply'])->name('reply');
     });
+});
+
+Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
+
+    /*
+    |--------------------------------------------------------------------------
+    | Banners del home
+    |--------------------------------------------------------------------------
+    */
+    Route::resource('home-banners', HomeBannerController::class)
+        ->except(['show'])
+        ->names('home-banners');
+
+    /*
+    |--------------------------------------------------------------------------
+    | Filas de productos del home
+    |--------------------------------------------------------------------------
+    */
+    Route::resource('home-product-sections', HomeProductSectionController::class)
+        ->except(['show'])
+        ->names('home-product-sections');
+
+    /*
+    |--------------------------------------------------------------------------
+    | Categorías de productos web
+    |--------------------------------------------------------------------------
+    | Rutas manuales para evitar choques con las rutas JSON.
+    */
+    Route::get('/category-products', [CategoryProductController::class, 'index'])
+        ->name('category-products.index');
+
+    Route::get('/category-products/create', [CategoryProductController::class, 'create'])
+        ->name('category-products.create');
+
+    Route::post('/category-products', [CategoryProductController::class, 'store'])
+        ->name('category-products.store');
+
+    Route::get('/category-products/{categoryProduct}/edit', [CategoryProductController::class, 'edit'])
+        ->name('category-products.edit');
+
+    Route::put('/category-products/{categoryProduct}', [CategoryProductController::class, 'update'])
+        ->name('category-products.update');
+
+    Route::patch('/category-products/{categoryProduct}', [CategoryProductController::class, 'update'])
+        ->name('category-products.update.patch');
+
+    Route::delete('/category-products/{categoryProduct}', [CategoryProductController::class, 'destroy'])
+        ->name('category-products.destroy');
+
+    /*
+    |--------------------------------------------------------------------------
+    | API JSON de categorías para selectores dinámicos
+    |--------------------------------------------------------------------------
+    */
+    Route::get('/category-products-json/roots', [CategoryProductController::class, 'roots'])
+        ->name('category-products.roots');
+
+    Route::get('/category-products-json/{category}/children', [CategoryProductController::class, 'children'])
+        ->name('category-products.children');
+
+    Route::get('/category-products-json/{category}', [CategoryProductController::class, 'show'])
+        ->name('category-products.show-json');
+
 });
 
 /*
@@ -1905,12 +1970,6 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/admin/catalog/{catalogItem}', [CatalogItemController::class, 'update'])->name('admin.catalog.update');
 });
 
-Route::middleware(['web','auth'])->prefix('admin')->group(function () {
-  Route::get('category-products/roots', [CategoryProductController::class, 'roots']);
-  Route::get('category-products/{category}/children', [CategoryProductController::class, 'children']);
-  Route::get('category-products/{category}', [CategoryProductController::class, 'show']);
-  Route::post('category-products', [CategoryProductController::class, 'store']);
-});
 
 
 Route::middleware(['auth'])->prefix('admin/wms/receptions')->group(function () {
@@ -2495,12 +2554,8 @@ Route::middleware(['auth'])->prefix('admin/shopify')->name('admin.shopify.')->gr
     Route::get('/orders/{order}', [ShopifyOrderController::class, 'show'])
         ->name('orders.show');
 });
-use App\Models\HomeBanner;
-use App\Http\Controllers\Admin\HomeBannerController;
 
-Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
-    Route::resource('home-banners', HomeBannerController::class)->except(['show']);
-});
+
 
 Route::get('/home-banners/live-version', function () {
     $stats = HomeBanner::query()
@@ -2522,9 +2577,8 @@ Route::get('/home-banners/live-version', function () {
 Route::get('/propuestas-comerciales/{propuestaComercial}/cliente/word', [PropuestaComercialController::class, 'clienteWord'])
     ->name('propuestas-comerciales.cliente.word');
 
-    use App\Http\Controllers\Admin\HomeProductSectionController;
-Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
-    Route::resource('home-product-sections', HomeProductSectionController::class)
-        ->except(['show'])
-        ->names('home-product-sections');
-});
+
+
+
+Route::post('admin/category-products/reorder', [CategoryProductController::class, 'reorder'])
+    ->name('admin.category-products.reorder');
