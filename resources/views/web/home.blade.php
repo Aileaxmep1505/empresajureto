@@ -88,28 +88,40 @@
         display: grid;
         grid-template-columns: 2fr 1fr;
         gap: 20px;
+
+        /* FIX: altura controlada para que el slider lateral vertical no estire todo */
+        height: 380px;
         min-height: 380px;
+        max-height: 380px;
+        align-items: stretch;
       }
 
       .promo-main-slider,
       .promo-side-slider {
         width: 100%;
-        height: 100%;
+        height: 380px;
+        max-height: 380px;
         border-radius: 20px;
-      }
-
-      .promo-side-slider {
         overflow: hidden;
       }
 
+      .promo-main-slider .swiper-wrapper,
       .promo-side-slider .swiper-wrapper {
         height: 100%;
+      }
+
+      .promo-main-slider .swiper-slide,
+      .promo-side-slider .swiper-slide {
+        height: 100% !important;
+        overflow: hidden;
       }
 
       .promo-link-card {
         position: relative;
         overflow: hidden;
-        min-height: 380px;
+        width: 100%;
+        height: 100%;
+        min-height: 0;
         display: flex;
         text-decoration: none;
         color: #ffffff; 
@@ -205,6 +217,12 @@
         padding: 30px;
       }
 
+      .promo-main-slider .promo-link-card,
+      .promo-side-slider .promo-link-card {
+        height: 100%;
+        min-height: 0;
+      }
+
       .promo-main-slider .swiper-pagination {
         bottom: 20px !important;
         z-index: 10;
@@ -230,9 +248,24 @@
     @media (min-width: 768px) and (max-width: 980px) {
       .promo-grid {
         grid-template-columns: 1fr;
+        height: auto;
+        min-height: 0;
+        max-height: none;
       }
+
+      .promo-main-slider {
+        height: 340px;
+        max-height: 340px;
+      }
+
+      .promo-side-slider {
+        height: 260px;
+        max-height: 260px;
+      }
+
       .promo-side-banner {
-        min-height: 260px;
+        height: 100%;
+        min-height: 0;
       }
     }
   </style>
@@ -491,6 +524,9 @@
           slidesPerView: 1,
           loop: true,
           speed: 750,
+          autoHeight: false,
+          observer: true,
+          observeParents: true,
           autoplay: {
             delay: 10000,
             disableOnInteraction: false,
