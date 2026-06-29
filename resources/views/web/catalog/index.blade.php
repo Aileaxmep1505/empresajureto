@@ -236,8 +236,8 @@
     return asset('images/placeholder.png');
   };
 
-  $order = request('order', 'relevante');
-  $s     = request('s', '');
+  $order = request('order', $order ?? 'relevante');
+  $s     = $s ?? request('s', request('q', ''));
   $orderLabels = [
       'relevante'  => 'Más relevante',
       'price_asc'  => 'Menor precio',
@@ -252,7 +252,7 @@
   ];
   $cats = $categories ?? collect();
 
-  $activeCat   = request('category') ? $cats->firstWhere('id', (int)request('category')) : null;
+  $activeCat = $activeCategory ?? (request('category') ? $cats->firstWhere('id', (int) request('category')) : null);
 
   $headTitle = 'Todos los productos';
 

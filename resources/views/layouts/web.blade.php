@@ -1,7 +1,6 @@
 <!doctype html>
 <html lang="es">
 <head>
-  
   <meta charset="utf-8">
   <title>@yield('title','Jureto')</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -29,43 +28,47 @@
 
   <style>
     :root{
-      --ink:#0f172a; --muted:#475569; --line:#e5e9f2;
-      --pill:#b6332f; --pill-hover:#a02a27; --shadow:0 8px 24px rgba(2,8,23,.06);
+      --ink:#333333; --muted:#767676; --line:#ebebeb;
+      --pill:#0071df; --pill-hover:#005bb5; 
       --container:1180px;
-      --sheet-bg:#ffffff; --sheet-radius:20px; --sheet-shadow: 0 18px 60px rgba(2,8,23,.22);
+      --sheet-bg:#ffffff; --sheet-radius:20px; --sheet-shadow: none;
       --backdrop: rgba(15,23,42,.38);
-      --brand:#6ea8fe;
+      --brand:#0071df;
 
       --header-solid-bg:#ffffff;
-      --header-glass-bg: rgba(255,255,255,.42);
-      --header-glass-border: rgba(15,23,42,.05);
-      --header-transition: background-color .25s ease, backdrop-filter .25s ease, box-shadow .25s ease, border-color .25s ease;
+      --header-glass-bg: rgba(255,255,255,.9);
+      /* Se agregó box-shadow a la transición para que el sombreado sea suave */
+      --header-transition: background-color .25s ease, backdrop-filter .25s ease, box-shadow .25s ease;
 
-      --dd-bg: rgba(255,255,255,.92);
-      --dd-border: rgba(15,23,42,.08);
-      --dd-shadow: 0 26px 70px rgba(2,8,23,.18);
-      --dd-radius: 18px;
+      --dd-bg: rgba(255,255,255,.98);
+      --dd-border: #ebebeb;
+      --dd-shadow: 0 10px 25px rgba(0,0,0,.05);
+      --dd-radius: 12px;
     }
     *{ box-sizing:border-box }
     html,body{ margin:0; padding:0 }
-    body{ font-family: ui-sans-serif, system-ui, -apple-system; color:var(--ink); overflow-x:hidden }
+    
+    body{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; color:var(--ink); overflow-x:hidden; }
     html.sheet-open{ overflow:hidden; }
     .jrt-scroll-lock{ overflow:hidden; padding-right: var(--jrt-pr, 0px); }
 
+    /* Estado inicial: Hasta arriba, sin borde y sin sombra */
     header.header{
       position:sticky; top:0; left:0; right:0; width:100%;
       background:var(--header-solid-bg);
-      box-shadow:var(--shadow);
       z-index:90;
-      border-bottom:1px solid transparent;
+      border-bottom: none; 
+      box-shadow: none; 
       transition: var(--header-transition);
     }
+    
+    /* Estado con scroll: Solo sombreado, sin borde */
     header.header.header--glass{
       background:var(--header-glass-bg);
       backdrop-filter: saturate(120%) blur(8px);
       -webkit-backdrop-filter: saturate(120%) blur(8px);
-      border-bottom-color: var(--header-glass-border);
-      box-shadow: 0 10px 28px rgba(2,8,23,.10);
+      border-bottom: none;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.08); /* Aquí está el sombreado suave */
     }
 
     .wrap{ max-width:var(--container); margin:0 auto; padding:14px 20px }
@@ -80,34 +83,31 @@
     .brand:focus,
     .brand:focus-visible{
       outline: none !important;
-      box-shadow: none !important;
     }
 
     .nav-center{ display:flex; justify-content:center; align-items:center; gap:32px; }
     .nav-link{
       position:relative; text-decoration:none; color:var(--ink);
-      font-weight:700; padding:8px 4px; display:inline-flex; align-items:center;
+      font-weight:400; 
+      padding:8px 4px; display:inline-flex; align-items:center;
+      transition: color .2s ease;
     }
-    .nav-link::after{
-      content:""; position:absolute; left:0; right:0; bottom:-6px; height:3px; border-radius:3px;
-      background:transparent; transform:scaleX(0); transition:transform .18s ease, background .18s ease
+    .nav-link:hover, .nav-link.is-active {
+      color: var(--brand); 
     }
-    .nav-link:hover::after{ background:#000; transform:scaleX(1) }
-    .nav-link.is-active::after{ background:#000; transform:scaleX(1) }
 
     .nav-dd{ position:relative; display:inline-flex; align-items:center; }
     .nav-dd__trigger{
       background:transparent; border:0; cursor:pointer;
-      gap:8px;
+      gap:8px; font-weight:400; font-family: inherit; font-size: 1rem; color: var(--ink);
     }
     .nav-dd__trigger:focus-visible{
       outline:none;
-      box-shadow:0 0 0 3px rgba(59,130,246,.25);
-      border-radius:10px;
+      color: var(--brand);
     }
 
     .nav-dd__caret{
-      width:10px; height:10px; display:inline-block;
+      width:8px; height:8px; display:inline-block;
       border-right:2px solid currentColor;
       border-bottom:2px solid currentColor;
       transform: rotate(45deg);
@@ -133,20 +133,6 @@
       transform: translateY(10px) scale(.985);
       transform-origin: top left;
       transition: opacity .16s ease, transform .18s ease, visibility .16s ease;
-      backdrop-filter: blur(10px) saturate(120%);
-      -webkit-backdrop-filter: blur(10px) saturate(120%);
-    }
-
-    .nav-dd__menu::before{
-      content:"";
-      position:absolute;
-      top:-7px; left:34px;
-      width:14px; height:14px;
-      background:var(--dd-bg);
-      border-left:1px solid var(--dd-border);
-      border-top:1px solid var(--dd-border);
-      transform: rotate(45deg);
-      border-top-left-radius:4px;
     }
 
     .nav-dd__head{
@@ -157,48 +143,43 @@
       padding:8px 10px 10px;
     }
     .nav-dd__title{
-      font-weight:900;
+      font-weight:600;
       font-size:.98rem;
-      letter-spacing:.01em;
       margin:0;
     }
     .nav-dd__meta{
       font-size:.82rem;
-      color:#64748b;
+      color:var(--muted);
       margin-top:2px;
-      line-height:1.25;
     }
     .nav-dd__all{
       display:inline-flex;
       align-items:center;
       gap:8px;
       text-decoration:none;
-      font-weight:800;
+      font-weight:500;
       font-size:.9rem;
       color:#0f172a;
-      border:1px solid rgba(15,23,42,.10);
-      background:rgba(255,255,255,.65);
-      padding:8px 10px;
+      border:1px solid #ebebeb;
+      background:#f9f9f9;
+      padding:6px 12px;
       border-radius:999px;
-      transition: transform .12s ease, box-shadow .18s ease, background .18s ease;
+      transition: background .18s ease;
       white-space:nowrap;
     }
     .nav-dd__all:hover{
-      transform: translateY(-1px);
-      box-shadow:0 10px 22px rgba(2,8,23,.10);
       background:#fff;
     }
 
     .nav-dd__divider{
       height:1px;
-      background:rgba(15,23,42,.08);
+      background:var(--line);
       margin:2px 8px 10px;
     }
 
     .nav-dd__list{
       list-style:none;
-      padding:0;
-      margin:0;
+      padding:0; margin:0;
       display:grid;
       grid-template-columns: 1fr 1fr;
       gap:6px 10px;
@@ -206,39 +187,25 @@
     }
 
     .nav-dd__item a{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      padding:10px 10px;
-      border-radius:12px;
-      text-decoration:none;
-      color:var(--ink);
-      font-weight:750;
-      transition: background .14s ease, transform .12s ease;
-    }
-    .nav-dd__dot{
-      width:8px; height:8px;
-      border-radius:999px;
-      background:rgba(15,23,42,.18);
-      flex:0 0 8px;
+      display:flex; align-items:center; gap:10px;
+      padding:8px 10px;
+      border-radius:8px; text-decoration:none;
+      color:var(--ink); font-weight:400; font-size: 0.95rem;
+      transition: background .14s ease;
     }
     .nav-dd__item a:hover{
-      background:rgba(59,130,246,.06);
-      transform: translateY(-1px);
+      background:#f1f5f9;
+      color: var(--brand);
     }
 
     .nav-dd:hover .nav-dd__menu,
     .nav-dd:focus-within .nav-dd__menu,
     .nav-dd.open .nav-dd__menu{
-      opacity:1;
-      visibility:visible;
-      pointer-events:auto;
-      transform: translateY(0) scale(1);
+      opacity:1; visibility:visible; pointer-events:auto; transform: translateY(0) scale(1);
     }
     .nav-dd:hover .nav-dd__caret,
     .nav-dd.open .nav-dd__caret{
-      transform: rotate(225deg);
-      opacity:.95;
+      transform: rotate(225deg); opacity:.95;
     }
 
     @media (max-width: 980px){
@@ -248,35 +215,33 @@
     .right-tools{ display:flex; align-items:center; gap:12px; z-index:95 }
     .icon-btn{
       position:relative; display:inline-flex; align-items:center; justify-content:center;
-      width:36px; height:36px; border-radius:999px; border:1px solid #dfe6ee; background:#fff;
-      transition:transform .08s, box-shadow .2s;
+      width:36px; height:36px; border-radius:999px; border:none; background:transparent;
+      transition:background .2s; color: var(--ink);
     }
-    .icon-btn:hover{transform:translateY(-1px); box-shadow:0 6px 18px rgba(15,23,42,.08)}
-    .icon-btn svg{width:20px;height:20px; stroke:#111; fill:none; stroke-width:2}
+    .icon-btn:hover{ background: #f1f5f9; }
+    .icon-btn svg{width:22px;height:22px; stroke:currentColor; fill:none; stroke-width:1.5}
 
     .cart-badge{
-      position:absolute; top:-8px; right:-10px;
-      min-width:18px; height:18px; line-height:18px;
-      text-align:center; font-size:.72rem; background:#ef4444; color:#fff; border-radius:999px; padding:0 6px;
-      box-shadow:0 2px 8px rgba(239,68,68,.25);
+      position:absolute; top:-2px; right:-4px;
+      min-width:16px; height:16px; line-height:16px;
+      text-align:center; font-size:.65rem; background:#ff3b30; color:#fff; border-radius:999px; padding:0 4px;
     }
 
     .btn-pill{
-      appearance:none; border:0; border-radius:999px; padding:12px 24px; font-weight:700;
-      background:var(--pill); color:#fff; cursor:pointer; transition:background .2s, transform .1s;
+      appearance:none; border:0; border-radius:999px; padding:10px 20px; font-weight:500;
+      background:var(--pill); color:#fff; cursor:pointer; transition:background .2s;
       text-decoration:none !important;
       display:inline-flex; align-items:center; justify-content:center;
     }
     .btn-pill:hover{
-      background:var(--pill-hover); transform: translateY(-1px);
-      text-decoration:none !important;
+      background:var(--pill-hover);
     }
 
     .mobile-topbar{ display:none; align-items:center; justify-content:space-between; max-width:var(--container); margin:0 auto; padding:10px 16px }
     .m-brand{ display:flex; align-items:center; gap:8px; text-decoration:none; color:var(--ink) }
     .m-logo{ height:26px; width:auto; display:block }
-    .m-right{ display:flex; align-items:center; gap:10px }
-    .burger{ display:none; background:transparent; border:0; padding:6px }
+    .m-right{ display:flex; align-items:center; gap:6px }
+    .burger{ display:none; background:transparent; border:0; padding:6px; cursor: pointer; }
     .burger svg{ width:24px; height:24px }
 
     @media (max-width: 1180px){
@@ -289,86 +254,88 @@
       .burger{ display:inline-flex }
     }
 
-    .sheet-backdrop{ position:fixed; inset:0; background:rgba(15,23,42,.38); opacity:0; pointer-events:none; transition:opacity .2s ease; backdrop-filter: blur(2px); z-index:49 }
-    .sheet{ position:fixed; left:0; right:0; bottom:0; z-index:50; transform: translateY(100%); background:#fff; border-top-left-radius: 20px; border-top-right-radius: 20px; box-shadow: 0 18px 60px rgba(2,8,23,.22); transition: transform .26s ease; will-change: transform; touch-action: none }
+    .sheet-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,.3); opacity:0; pointer-events:none; transition:opacity .2s ease; z-index:49 }
+    .sheet{ position:fixed; left:0; right:0; bottom:0; z-index:50; transform: translateY(100%); background:#fff; border-top-left-radius: 20px; border-top-right-radius: 20px; box-shadow: 0 -4px 20px rgba(0,0,0,.05); transition: transform .26s ease; will-change: transform; touch-action: none }
     .sheet__drag{ display:flex; justify-content:center; padding-top:10px }
-    .sheet__handle{ width:48px; height:5px; border-radius:999px; background:#d1d5db }
+    .sheet__handle{ width:48px; height:5px; border-radius:999px; background:#e0e0e0 }
     .sheet__content{ padding:14px 18px 18px }
     .sheet__grid{ display:grid; gap:16px }
-    .sheet__nav a{ display:block; text-decoration:none; color:var(--ink); font-weight:800; font-size:1.05rem; padding:10px 6px; border-bottom:1px solid var(--line) }
-    .sheet__footer{ display:flex; align-items:center; justify-content:space-between; gap:12px }
-    .sheet__icons{ display:flex; align-items:center; gap:12px }
+    .sheet__nav a{ display:block; text-decoration:none; color:var(--ink); font-weight:500; font-size:1.05rem; padding:12px 6px; border-bottom:1px solid var(--line) }
+    .sheet__footer{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top: 10px; }
     .sheet-open .sheet{ transform: translateY(0) }
     .sheet-open .sheet-backdrop{ opacity:1; pointer-events:auto }
 
-    .ft{ background:#fff; border-top:1px solid #e9eef6; margin-top:30px }
-    .ft__wrap{ max-width:1180px; margin:0 auto; padding:24px 20px 36px; display:flex; flex-direction:column; align-items:center; }
+    .ft{ background:#fff; border-top:1px solid var(--line); margin-top:30px }
+    .ft__wrap{ max-width:1180px; margin:0 auto; padding:36px 20px; display:flex; flex-direction:column; align-items:center; }
     .ft__head{ width:100%; display:flex; flex-direction:column; align-items:center; text-align:center; gap:16px; }
-    .ft__brand{ display:flex; align-items:center; gap:12px; text-decoration:none; color:#0f172a }
+    .ft__brand{ display:flex; align-items:center; gap:12px; text-decoration:none; color:var(--ink) }
     .ft__logo{ height:38px; width:auto; display:block }
-    .ft__slogan{ font-size:.95rem; color:#6b7280; max-width:720px }
-    .ft__divider{ border:0; border-top:1px solid #e9eef6; margin:18px 0 12px }
+    .ft__slogan{ font-size:.95rem; color:var(--muted); max-width:720px; font-weight: 400; line-height: 1.5; }
+    .ft__divider{ border:0; border-top:1px solid var(--line); margin:24px 0; width: 100%; }
 
-    .ft__grid{ display:grid; gap:24px; grid-template-columns: repeat(4, minmax(220px,260px)); justify-content:center }
-    .ft__title{ background:transparent; border:0; padding:0; margin:0 0 10px 0; font-weight:800; color:#0f172a; font-size:1rem; display:flex; align-items:center; justify-content:space-between; width:100% }
-    .ft__chev{ width:16px; height:16px; border-right:2px solid #6b7280; border-bottom:2px solid #6b7280; transform: rotate(-45deg); opacity:0; transition:transform .2s, opacity .2s }
-    .ft__list{ list-style:none; padding:0; margin:0; display:grid; gap:10px }
-    .ft__list a{ color:#0f172a; text-decoration:none }
-    .ft__list a:hover{ text-decoration:underline }
-
-    .ft__payments{ display:flex; gap:18px; align-items:center; flex-wrap:wrap; border-top:1px solid #e9eef6; margin-top:22px; padding-top:16px; justify-content:center }
-    .ft__payments img{ height:26px; width:auto }
-    .ft__copy{ margin-top:16px; color:#6b7280 }
+    .ft__grid{ display:grid; gap:32px; grid-template-columns: repeat(4, minmax(200px, 1fr)); width: 100%; }
+    .ft__title{ background:transparent; border:0; padding:0; margin:0 0 16px 0; font-weight:600; color:var(--ink); font-size:1rem; display:flex; align-items:center; justify-content:space-between; width:100% }
+    .ft__chev{ width:12px; height:12px; border-right:2px solid var(--muted); border-bottom:2px solid var(--muted); transform: rotate(-45deg); display: none; }
+    .ft__list{ list-style:none; padding:0; margin:0; display:grid; gap:12px }
+    .ft__list a{ color:var(--muted); text-decoration:none; font-size: 0.95rem; }
+    .ft__list a:hover{ color: var(--brand); }
 
     @media (max-width: 980px){
-      .ft__wrap{ padding:22px 16px 28px; align-items:stretch }
+      .ft__wrap{ padding:32px 16px; align-items:flex-start }
       .ft__head{ align-items:flex-start; text-align:left }
-      .ft__grid{ grid-template-columns: 1fr; gap:0; border-top:1px solid #e9eef6; margin-top:10px }
-      .ft__col{ border-bottom:1px solid #e9eef6; padding:10px 0 }
-      .ft__title{ padding:12px 4px; cursor:pointer; }
-      .ft__chev{ opacity:1 }
+      .ft__grid{ grid-template-columns: 1fr; gap:0; }
+      .ft__col{ border-bottom:1px solid var(--line); padding:16px 0 }
+      .ft__title{ margin: 0; cursor:pointer; }
+      .ft__chev{ display: block; opacity:1; transition:transform .2s }
       .ft__col:not(.open) .ft__list{ display:none }
-      .ft__col.open .ft__list{ display:grid }
+      .ft__col.open .ft__list{ display:grid; margin-top: 16px; }
       .ft__col.open .ft__chev{ transform: rotate(45deg); }
-      .ft__logo{ height:28px; max-width:180px; margin:0 auto 8px; display:block }
+      .ft__logo{ max-width:140px; margin:0 0 16px; }
     }
 
     .searchbar-wrap{ position:relative; flex:1 1 720px; max-width:720px; z-index:100 }
     .searchbar{
-      display:flex; align-items:center; gap:10px;
-      background:#fff; border:1px solid var(--line); border-radius:999px;
-      padding:10px 14px; box-shadow:0 8px 22px rgba(2,8,23,.06);
-      transition: box-shadow .18s, border-color .18s;
+      display:flex; align-items:center; gap:8px;
+      background:#f1f5f9; 
+      border: none; 
+      border-radius:999px;
+      padding:6px 6px 6px 18px; 
+      transition: background .18s;
     }
-    .searchbar .s-ico{width:20px;height:20px;display:inline-flex}
-    .searchbar input{ flex:1; border:0; outline:0; background:transparent; font-size:1rem; color:var(--ink) }
-    .searchbar .vdiv{width:1px; height:22px; background:#d9e0ec}
-    .searchbar .chip{ display:inline-flex; align-items:center; justify-content:center; font-weight:800; font-size:.9rem; color:#2f4fb8; border:2px solid #2f4fb8; border-radius:999px; width:34px; height:34px; }
-    .searchbar:focus-within{ border-color:#c7d2fe; box-shadow:0 10px 28px rgba(59,130,246,.15) }
+    .searchbar .s-ico{ width:20px; height:20px; display:inline-flex; color: var(--muted); }
+    .searchbar input{ flex:1; border:0; outline:0; background:transparent; font-size:.95rem; color:var(--ink); font-family: inherit; font-weight: 400; }
+    .searchbar input::placeholder{ color: #9ca3af; }
+    
+    .searchbar .chip{ 
+      display:inline-flex; align-items:center; justify-content:center; 
+      font-weight:500; font-size:.85rem; color:#fff; background: var(--brand); 
+      border-radius:999px; width:34px; height:34px; cursor: pointer;
+    }
+    .searchbar:focus-within{ background: #e2e8f0; } 
 
     .sugg-backdrop{
-      position:fixed; inset:0; background:rgba(15,23,42,.38);
+      position:fixed; inset:0; background:rgba(0,0,0,.2);
       opacity:0; pointer-events:none; transition:opacity .18s; z-index:80;
     }
     .sugg-backdrop.is-open{ opacity:1; pointer-events:auto }
 
     #sugg{
-      position:absolute; top:calc(100% + 10px); left:0; right:0;
-      background:#fff; border:1px solid var(--line); border-radius:16px;
-      box-shadow:0 24px 60px rgba(2,8,23,.16); padding:8px; z-index:110;
+      position:absolute; top:calc(100% + 8px); left:0; right:0;
+      background:#fff; border:1px solid var(--line); border-radius:12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,.05); padding:8px; z-index:110;
       max-height:420px; overflow:auto;
-      opacity:0; transform: translateY(-6px); transition: opacity .16s ease, transform .16s ease;
+      opacity:0; transform: translateY(-4px); transition: opacity .16s ease, transform .16s ease;
     }
     #sugg.is-open{ opacity:1; transform: translateY(0) }
     #sugg[hidden]{ display:none !important }
-    #sugg .sugg-section{ padding:6px 8px 4px; color:#6b7280; font-size:.8rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em }
+    #sugg .sugg-section{ padding:8px 10px 4px; color:var(--muted); font-size:.75rem; font-weight:600; text-transform:uppercase; letter-spacing:.04em }
     #sugg .sugg-item{
       display:flex; gap:10px; align-items:center; padding:10px 12px;
-      border-radius:12px; text-decoration:none; color:var(--ink); cursor:pointer;
+      border-radius:8px; text-decoration:none; color:var(--ink); cursor:pointer; font-size: 0.95rem;
     }
-    #sugg .sugg-item:hover{ background:#f7f9fe }
+    #sugg .sugg-item:hover{ background:#f1f5f9 }
     #sugg .sugg-item[aria-selected="true"]{ background:#eef2ff }
-    #sugg .sugg-empty{ padding:12px; color:#6b7280; text-align:center }
+    #sugg .sugg-empty{ padding:12px; color:var(--muted); text-align:center; font-size: 0.95rem; }
 
     @media (max-width:980px){
       #sugg{
@@ -379,24 +346,104 @@
 
     .user-wrap{position:relative; z-index:100}
     .avatar-btn{
-      width:38px;height:38px;border-radius:999px;border:2px solid #dfe6ee;background:#eef2ff;
-      color:#2f3e7d; font-weight:900; display:inline-flex; align-items:center; justify-content:center;
-      cursor:pointer;
+      width:36px;height:36px;border-radius:999px;border:none;background:#f1f5f9;
+      color:var(--ink); font-weight:600; display:inline-flex; align-items:center; justify-content:center;
+      cursor:pointer; transition: background .2s;
     }
+    .avatar-btn:hover { background: #e2e8f0; }
     .user-menu{
-      position:absolute; right:0; top:48px; min-width:220px; background:#fff; border:1px solid var(--line);
-      border-radius:14px; box-shadow:0 18px 46px rgba(2,8,23,.18); padding:8px; display:none; z-index:105;
+      position:absolute; right:0; top:48px; min-width:200px; background:#fff; border:1px solid var(--line);
+      border-radius:12px; box-shadow: 0 4px 15px rgba(0,0,0,.05); padding:8px; display:none; z-index:105;
     }
     .user-menu.open{display:block}
     .user-menu a, .user-menu form button{
-      display:flex; align-items:center; gap:10px; width:100%; text-align:left;
-      background:#fff; border:0; padding:10px 10px; border-radius:10px; cursor:pointer;
-      color:var(--ink); text-decoration:none; font-weight:700;
+      display:flex; align-items:center; gap:10px; width:100%; text-align:left; font-family: inherit;
+      background:#fff; border:0; padding:10px 12px; border-radius:8px; cursor:pointer;
+      color:var(--ink); text-decoration:none; font-weight:500; font-size: 0.95rem;
     }
-    .user-menu a:hover, .user-menu form button:hover{background:#f7f9fe}
+    .user-menu a:hover, .user-menu form button:hover{background:#f1f5f9; color: var(--brand); }
   </style>
 </head>
 <body>
+
+@php
+  /*
+  |--------------------------------------------------------------------------
+  | Categorías reales para header, menú móvil y footer
+  |--------------------------------------------------------------------------
+  | Se toman primero desde category_products porque ahí están las categorías
+  | reales nuevas del catálogo. Solo muestra categorías activas con productos
+  | publicados. Si no encuentra, hace fallback a categories.
+  |
+  | Links:
+  | - category_products => /catalogo?category_product=ID
+  | - categories        => /catalogo?category=ID
+  */
+  $jrtHeaderCategories = collect();
+
+  try {
+      if (class_exists(\App\Models\CategoryProduct::class)) {
+          $jrtHeaderCategories = \App\Models\CategoryProduct::query()
+              ->active()
+              ->withPublishedProducts()
+              ->orderBy('sort_order')
+              ->orderBy('name')
+              ->limit(12)
+              ->get()
+              ->map(function ($category) {
+                  return (object) [
+                      'id' => $category->id,
+                      'name' => $category->name,
+                      'full_path' => $category->full_path,
+                      'type' => 'category_product',
+                  ];
+              });
+      }
+
+      if ($jrtHeaderCategories->isEmpty() && class_exists(\App\Models\Category::class)) {
+          $jrtCategoryQuery = \App\Models\Category::query()
+              ->withPublishedProducts();
+
+          if (method_exists(\App\Models\Category::class, 'scopePrimary')) {
+              $jrtCategoryQuery->primary();
+          } else {
+              $jrtCategoryQuery->orderBy('position')->orderBy('name');
+          }
+
+          $jrtHeaderCategories = $jrtCategoryQuery
+              ->limit(12)
+              ->get()
+              ->map(function ($category) {
+                  return (object) [
+                      'id' => $category->id,
+                      'name' => $category->name,
+                      'full_path' => $category->name,
+                      'type' => 'category',
+                  ];
+              });
+      }
+  } catch (\Throwable $e) {
+      $jrtHeaderCategories = collect();
+  }
+
+  $jrtFooterCategories = $jrtHeaderCategories->take(6);
+
+  $jrtCategoryUrl = function ($category) {
+      if (($category->type ?? 'category') === 'category_product') {
+          return route('web.catalog.index', ['category_product' => $category->id]);
+      }
+
+      return route('web.catalog.index', ['category' => $category->id]);
+  };
+
+  $jrtCategoryIsActive = function ($category) {
+      if (($category->type ?? 'category') === 'category_product') {
+          return (string) request('category_product') === (string) $category->id;
+      }
+
+      return (string) request('category') === (string) $category->id;
+  };
+@endphp
 
 <header class="header">
   <div class="mobile-topbar">
@@ -413,7 +460,7 @@
         <span class="cart-badge" data-cart-badge>{{ $cartCount }}</span>
       </a>
       <button class="burger" id="burger" aria-label="Abrir menú">
-        <svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18" stroke="#111" stroke-width="2" stroke-linecap="round"/></svg>
+        <svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
       </button>
     </div>
   </div>
@@ -438,7 +485,7 @@
       <div class="nav-dd" id="prodDD">
         <button
           type="button"
-          class="nav-link nav-dd__trigger {{ request()->is('categoria/*') ? 'is-active' : '' }}"
+          class="nav-link nav-dd__trigger {{ request()->routeIs('web.catalog.*') || request()->filled('category') || request()->is('categoria/*') ? 'is-active' : '' }}"
           id="prodTrigger"
           aria-haspopup="menu"
           aria-expanded="false"
@@ -450,9 +497,9 @@
           <div class="nav-dd__head">
             <div>
               <div class="nav-dd__title">Principales</div>
-              <div class="nav-dd__meta">Categorías recomendadas</div>
+              <div class="nav-dd__meta">Categorías reales del catálogo</div>
             </div>
-            <a class="nav-dd__all" href="{{ url('/categoria/productos-oficina') }}">
+            <a class="nav-dd__all" href="{{ route('web.catalog.index') }}">
               Ver todo
               <span aria-hidden="true" style="display:inline-block;transform:translateY(-1px)">→</span>
             </a>
@@ -461,31 +508,31 @@
           <div class="nav-dd__divider" aria-hidden="true"></div>
 
           <ul class="nav-dd__list">
-            <li class="nav-dd__item"><a href="{{ url('/categoria/papeleria') }}"><span class="nav-dd__dot"></span>Artículos de Papelería</a></li>
-            <li class="nav-dd__item"><a href="{{ url('/categoria/hojas') }}"><span class="nav-dd__dot"></span>Hojas para imprimir</a></li>
-            <li class="nav-dd__item"><a href="{{ url('/categoria/hardware') }}"><span class="nav-dd__dot"></span>Hardware</a></li>
-            <li class="nav-dd__item"><a href="{{ url('/categoria/laptops') }}"><span class="nav-dd__dot"></span>Computadoras Laptop</a></li>
-            <li class="nav-dd__item"><a href="{{ url('/categoria/oficina') }}"><span class="nav-dd__dot"></span>Equipo de Cómputo para Oficina</a></li>
-            <li class="nav-dd__item"><a href="{{ url('/categoria/desktop') }}"><span class="nav-dd__dot"></span>Computadoras de Escritorio</a></li>
-            <li class="nav-dd__item"><a href="{{ url('/categoria/monitores') }}"><span class="nav-dd__dot"></span>Monitores</a></li>
-            <li class="nav-dd__item"><a href="{{ url('/categoria/brother') }}"><span class="nav-dd__dot"></span>Impresoras Brother</a></li>
-            <li class="nav-dd__item"><a href="{{ url('/categoria/epson') }}"><span class="nav-dd__dot"></span>Impresoras Epson</a></li>
-            <li class="nav-dd__item"><a href="{{ url('/categoria/hp') }}"><span class="nav-dd__dot"></span>Tienda Oficial HP</a></li>
-            <li class="nav-dd__item"><a href="{{ url('/categoria/productos-oficina') }}"><span class="nav-dd__dot"></span>Productos para Oficina</a></li>
-            <li class="nav-dd__item"><a href="{{ url('/categoria/muebles') }}"><span class="nav-dd__dot"></span>Muebles para Oficina</a></li>
+            @forelse($jrtHeaderCategories as $headerCategory)
+              <li class="nav-dd__item">
+                <a
+                  href="{{ $jrtCategoryUrl($headerCategory) }}"
+                  class="{{ $jrtCategoryIsActive($headerCategory) ? 'is-active' : '' }}"
+                >
+                  {{ $headerCategory->name }}
+                </a>
+              </li>
+            @empty
+              <li class="nav-dd__item">
+                <a href="{{ route('web.catalog.index') }}">Todos los productos</a>
+              </li>
+            @endforelse
           </ul>
         </div>
       </div>
     </nav>
 
     <div class="searchbar-wrap" id="searchWrap">
-      <form class="searchbar" action="{{ route('search.index') }}" method="get" role="search" aria-label="Buscar" id="searchForm">
-        <span class="s-ico" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
-        </span>
-        <input type="search" name="q" id="qInput" value="{{ request('q') }}" placeholder="¿Qué quieres encontrar?" autocomplete="off" aria-autocomplete="list" aria-controls="sugg">
-        <div class="vdiv" aria-hidden="true"></div>
-        <span class="chip" title="Asistente">AI</span>
+      <form class="searchbar" action="{{ route('web.catalog.index') }}" method="get" role="search" aria-label="Buscar" id="searchForm">
+        <input type="search" name="s" id="qInput" value="{{ request('s', request('q')) }}" placeholder="¿Qué quieres encontrar?" autocomplete="off" aria-autocomplete="list" aria-controls="sugg" style="padding-left: 8px;">
+        <button type="submit" class="chip" title="Buscar" style="border:none;">
+            <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:#fff;fill:none;stroke-width:2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
+        </button>
       </form>
 
       <div class="sugg" id="sugg" hidden>
@@ -511,20 +558,20 @@
             {{ strtoupper($initial) }}
           </button>
           <div class="user-menu" id="userMenu" role="menu" aria-label="Menú de usuario">
-            <div style="padding:8px 10px 4px">
-              <div style="font-weight:900">{{ $user->name ?? 'Mi cuenta' }}</div>
-              <small>{{ $user->email }}</small>
+            <div style="padding:8px 10px 10px; border-bottom: 1px solid var(--line); margin-bottom: 4px;">
+              <div style="font-weight:600">{{ $user->name ?? 'Mi cuenta' }}</div>
+              <small style="color:var(--muted)">{{ $user->email }}</small>
             </div>
             <a href="{{ route('customer.profile') }}" role="menuitem">Mi cuenta</a>
             <a href="{{ url('/mi-cuenta#t-pedidos') }}" role="menuitem">Mis pedidos</a>
-            <form method="POST" action="{{ route('logout') }}" role="none">
+            <form method="POST" action="{{ route('logout') }}" role="none" style="margin:0;">
               @csrf
               <button type="submit" role="menuitem">Cerrar sesión</button>
             </form>
           </div>
         </div>
       @else
-        <a href="{{ route('login') }}" class="btn-pill">Ingresar</a>
+        <a href="{{ route('login') }}" class="btn-pill" style="background:transparent; color:var(--ink);">Regístrate</a>
       @endif
     </div>
   </div>
@@ -540,6 +587,14 @@
       <nav class="sheet__nav" aria-label="Menú móvil">
         <a href="{{ route('web.home') }}">Inicio</a>
         <a href="{{ route('web.ofertas') }}">Ofertas</a>
+        <a href="{{ route('web.catalog.index') }}">Todos los productos</a>
+
+        @foreach($jrtHeaderCategories->take(8) as $mobileCategory)
+          <a href="{{ $jrtCategoryUrl($mobileCategory) }}">
+            {{ $mobileCategory->name }}
+          </a>
+        @endforeach
+
         <a href="{{ route('web.ventas.index') }}">Ventas</a>
         <a href="{{ route('web.contacto') }}">Contacto</a>
         <a href="{{ route('favoritos.index') }}">Favoritos</a>
@@ -552,7 +607,7 @@
         @auth
           <a href="{{ route('customer.welcome') }}" class="btn-pill">Mi cuenta</a>
         @else
-          <a href="{{ route('login') }}" class="btn-pill">Ingresar</a>
+          <a href="{{ route('login') }}" class="btn-pill">Regístrate</a>
         @endauth
       </div>
     </div>
@@ -565,17 +620,11 @@
 
 <footer class="ft">
   <div class="ft__wrap">
-    <img src="{{ asset('images/logo-mail.png') }}" alt="Jureto" class="ft__logo">
-
     <div class="ft__head">
-      <div>
-        <a href="{{ route('web.home') }}" class="ft__brand" aria-label="Jureto inicio" style="gap:14px;">
-          <span class="ft__slogan">
-            Jureto es el aliado B2B para equipar oficinas y dependencias públicas con soluciones integrales:
-            papelería, cómputo, y muebles. Sin fricción, sin complicaciones.
-          </span>
-        </a>
-      </div>
+      <img src="{{ asset('images/logo-mail.png') }}" alt="Jureto" class="ft__logo">
+      <span class="ft__slogan">
+        Jureto es el aliado B2B para equipar oficinas y dependencias públicas con soluciones integrales: papelería, cómputo, y muebles. Sin fricción, sin complicaciones.
+      </span>
     </div>
 
     <hr class="ft__divider">
@@ -592,25 +641,22 @@
       <section class="ft__col">
         <button class="ft__title" type="button" data-acc>Principales <span class="ft__chev"></span></button>
         <ul class="ft__list">
-          <li><a href="{{ url('/categoria/papeleria') }}">Artículos de Papelería</a></li>
-          <li><a href="{{ url('/categoria/hojas') }}">Hojas para imprimir</a></li>
-          <li><a href="{{ url('/categoria/hardware') }}">Hardware</a></li>
-          <li><a href="{{ url('/categoria/laptops') }}">Computadoras Laptop</a></li>
-          <li><a href="{{ url('/categoria/oficina') }}">Equipo de Cómputo para Oficina</a></li>
-          <li><a href="{{ url('/categoria/desktop') }}">Computadoras de Escritorio</a></li>
-          <li><a href="{{ url('/categoria/monitores') }}">Monitores</a></li>
-          <li><a href="{{ url('/categoria/brother') }}">Impresoras Brother</a></li>
-          <li><a href="{{ url('/categoria/epson') }}">Impresoras Epson</a></li>
-          <li><a href="{{ url('/categoria/hp') }}">Tienda Oficial HP</a></li>
-          <li><a href="{{ url('/categoria/productos-oficina') }}">Productos para Oficina</a></li>
-          <li><a href="{{ url('/categoria/muebles') }}">Muebles para Oficina</a></li>
+          @forelse($jrtFooterCategories as $footerCategory)
+            <li>
+              <a href="{{ $jrtCategoryUrl($footerCategory) }}">
+                {{ $footerCategory->name }}
+              </a>
+            </li>
+          @empty
+            <li><a href="{{ route('web.catalog.index') }}">Todos los productos</a></li>
+          @endforelse
         </ul>
       </section>
 
       <section class="ft__col">
         <button class="ft__title" type="button" data-acc>Políticas <span class="ft__chev"></span></button>
         <ul class="ft__list">
-          <li><a href="{{ url('/envios-devoluciones-cancelaciones') }}">Envíos, devoluciones y cancelaciones</a></li>
+          <li><a href="{{ url('/envios-devoluciones-cancelaciones') }}">Envíos y devoluciones</a></li>
           <li><a href="{{ url('/terminos-y-condiciones') }}">Términos y Condiciones</a></li>
           <li><a href="{{ url('/aviso-de-privacidad') }}">Aviso de Privacidad</a></li>
         </ul>
@@ -623,7 +669,7 @@
           <li><a href="{{ url('/contacto') }}">Contacto</a></li>
           <li><a href="{{ url('/formas-de-pago') }}">Formas de Pago</a></li>
           <li><a href="{{ url('/formas-de-envio') }}">Formas de Envío</a></li>
-          <li><a href="{{ url('/garantias-y-devoluciones') }}">Garantías & devoluciones</a></li>
+          <li><a href="{{ url('/garantias-y-devoluciones') }}">Garantías</a></li>
         </ul>
       </section>
     </div>
@@ -726,7 +772,7 @@
     if(!input || !panel || !list || !wrap) return;
 
     let timer = null, savedScroll = 0;
-    const SUGG_URL = @json(route('search.suggest'));
+    const SUGG_URL = ''; /* @json(route('search.suggest')) */
 
     function scrollbarWidth(){ return window.innerWidth - document.documentElement.clientWidth; }
 
@@ -781,6 +827,7 @@
 
       timer = setTimeout(async ()=>{
         try{
+          if(!SUGG_URL) return;
           const url = new URL(SUGG_URL, window.location.origin);
           url.searchParams.set('term', q);
 
@@ -796,21 +843,21 @@
             html += `<div class="sugg-section">Búsquedas</div>`;
             html += terms.slice(0,6).map(t=>`
               <div class="sugg-item" role="option" tabindex="-1" data-term="${String(t).replace(/"/g,'&quot;')}">
-                <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:#111;fill:none;stroke-width:2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
+                <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:var(--muted);fill:none;stroke-width:2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
                 <span>${String(t).replace(/</g,'&lt;')}</span>
               </div>
             `).join('');
           }
 
-if(products.length){
-  html += `<div class="sugg-section">Productos</div>`;
-  html += products.slice(0,5).map(p=>`
-    <a class="sugg-item" role="option" tabindex="-1" href="${p.url}">
-      <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:#111;fill:none;stroke-width:2"><path d="M20 7H4"/><path d="M6 7v13a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7"/><path d="M9 7V5a3 3 0 0 1 6 0v2"/></svg>
-      <span>${String(p.name||'Producto').replace(/</g,'&lt;')}</span>
-    </a>
-  `).join('');
-}
+          if(products.length){
+            html += `<div class="sugg-section">Productos</div>`;
+            html += products.slice(0,5).map(p=>`
+              <a class="sugg-item" role="option" tabindex="-1" href="${p.url}">
+                <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:var(--muted);fill:none;stroke-width:2"><path d="M20 7H4"/><path d="M6 7v13a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7"/><path d="M9 7V5a3 3 0 0 1 6 0v2"/></svg>
+                <span>${String(p.name||'Producto').replace(/</g,'&lt;')}</span>
+              </a>
+            `).join('');
+          }
 
           if(!html){
             html = `<div class="sugg-empty">Sin sugerencias</div>`;

@@ -16,6 +16,7 @@ class CatalogController extends Controller
 
         $homeSection = null;
         $manualSectionProductIds = collect();
+        $activeCategory = null;
 
         /*
         |--------------------------------------------------------------------------
@@ -53,17 +54,44 @@ class CatalogController extends Controller
             }
         }
 
-        // Búsqueda
-        if ($s = trim((string) $request->get('s', ''))) {
+        /*
+        |--------------------------------------------------------------------------
+        | Búsqueda normal del catálogo
+        |--------------------------------------------------------------------------
+        | El header manda ?s=texto, pero también aceptamos ?q=texto por compatibilidad.
+        */
+        $s = trim((string) $request->get('s', $request->get('q', '')));
+
+        if ($s !== '') {
             $q->where(function ($qq) use ($s) {
                 $qq->where('name', 'like', "%{$s}%")
-                    ->orWhere('sku', 'like', "%{$s}%");
+                    ->orWhere('sku', 'like', "%{$s}%")
+                    ->orWhere('excerpt', 'like', "%{$s}%")
+                    ->orWhere('description', 'like', "%{$s}%");
             });
         }
 
-        // Categoría
-        if ($cat = $request->get('category')) {
-            $q->where('category_id', $cat);
+        /*
+        |--------------------------------------------------------------------------
+        | Categoría real del sistema
+        |--------------------------------------------------------------------------
+        | El header manda /catalogo?category=ID.
+        | También aceptamos slug por si alguna liga vieja manda category=papeleria.
+        */
+        if ($request->filled('category')) {
+            $categoryValue = $request->get('category');
+
+            $activeCategory = Category::query()
+                ->when(is_numeric($categoryValue), function ($query) use ($categoryValue) {
+                    $query->where('id', (int) $categoryValue);
+                }, function ($query) use ($categoryValue) {
+                    $query->where('slug', $categoryValue);
+                })
+                ->first();
+
+            if ($activeCategory) {
+                $q->where('category_id', $activeCategory->id);
+            }
         }
 
         // Disponibilidad (En stock)
@@ -71,7 +99,7 @@ class CatalogController extends Controller
             $q->where('stock', '>', 0);
         }
 
-        // Precio (usa precio final: sale_price si existe, si no price)
+        // Precio final: sale_price si existe y es mayor a 0, si no price.
         $priceExpr = "COALESCE(NULLIF(sale_price,0), price)";
 
         switch ($request->get('price')) {
@@ -93,18 +121,24 @@ class CatalogController extends Controller
         }
 
         // Orden
-        $order = $request->get('order', 'latest');
+        $order = $request->get('order', 'relevante');
 
         if ($order === 'price_asc') {
-            $q->orderBy('sale_price', 'asc')
-                ->orderBy('price', 'asc');
+            $q->orderByRaw("$priceExpr ASC");
         } elseif ($order === 'price_desc') {
-            $q->orderBy('sale_price', 'desc')
-                ->orderBy('price', 'desc');
+            $q->orderByRaw("$priceExpr DESC");
         } else {
             if ($homeSection && $homeSection->source_type === 'manual' && $manualSectionProductIds->count()) {
-                $ids = $manualSectionProductIds->implode(',');
-                $q->orderByRaw("FIELD(id, {$ids})");
+                $ids = $manualSectionProductIds
+                    ->map(fn ($id) => (int) $id)
+                    ->filter()
+                    ->implode(',');
+
+                if ($ids !== '') {
+                    $q->orderByRaw("FIELD(id, {$ids})");
+                } else {
+                    $q->ordered();
+                }
             } else {
                 $q->ordered();
             }
@@ -112,13 +146,18 @@ class CatalogController extends Controller
 
         $items = $q->paginate(12)->withQueryString();
 
-        // Categorías para el panel de filtros
-        $categories = Category::orderBy('name')->get();
+        // Categorías reales para el drawer de filtros y header del catálogo.
+        $categories = Category::query()
+            ->orderBy('name')
+            ->get();
 
         return view('web.catalog.index', compact(
             'items',
             'categories',
-            'homeSection'
+            'homeSection',
+            'activeCategory',
+            's',
+            'order'
         ));
     }
 

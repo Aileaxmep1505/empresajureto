@@ -10,7 +10,18 @@ class Category extends Model
     use HasFactory;
 
     protected $fillable = [
-        'name', 'slug', 'parent_id', 'is_primary', 'position', 'image_url', 'description'
+        'name',
+        'slug',
+        'parent_id',
+        'is_primary',
+        'position',
+        'image_url',
+        'description',
+    ];
+
+    protected $casts = [
+        'is_primary' => 'boolean',
+        'position' => 'integer',
     ];
 
     public function getRouteKeyName()
@@ -25,7 +36,9 @@ class Category extends Model
 
     public function children()
     {
-        return $this->hasMany(Category::class, 'parent_id')->orderBy('position');
+        return $this->hasMany(Category::class, 'parent_id')
+            ->orderBy('position')
+            ->orderBy('name');
     }
 
     public function items()
@@ -33,9 +46,35 @@ class Category extends Model
         return $this->hasMany(CatalogItem::class, 'category_id');
     }
 
-    /* Scopes */
-    public function scopePrimary($q)
+    public function catalogItems()
     {
-        return $q->where('is_primary', true)->orderBy('position');
+        return $this->hasMany(CatalogItem::class, 'category_id');
+    }
+
+    public function publishedItems()
+    {
+        return $this->hasMany(CatalogItem::class, 'category_id')
+            ->published();
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Scopes
+    |--------------------------------------------------------------------------
+    */
+
+    public function scopePrimary($query)
+    {
+        return $query
+            ->where('is_primary', true)
+            ->orderBy('position')
+            ->orderBy('name');
+    }
+
+    public function scopeWithPublishedProducts($query)
+    {
+        return $query->whereHas('catalogItems', function ($q) {
+            $q->published();
+        });
     }
 }

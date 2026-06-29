@@ -21,6 +21,7 @@ class CategoryProduct extends Model
 
     protected $casts = [
         'is_active' => 'boolean',
+        'sort_order' => 'integer',
     ];
 
     protected static function booted(): void
@@ -50,6 +51,7 @@ class CategoryProduct extends Model
 
         static::saved(function (CategoryProduct $category) {
             $category->refreshFullPath();
+
             foreach ($category->children as $child) {
                 $child->refreshFullPathRecursively();
             }
@@ -63,7 +65,9 @@ class CategoryProduct extends Model
 
     public function children()
     {
-        return $this->hasMany(CategoryProduct::class, 'parent_id')->orderBy('sort_order')->orderBy('name');
+        return $this->hasMany(CategoryProduct::class, 'parent_id')
+            ->orderBy('sort_order')
+            ->orderBy('name');
     }
 
     public function catalogItems()
@@ -71,10 +75,40 @@ class CategoryProduct extends Model
         return $this->hasMany(CatalogItem::class, 'category_product_id');
     }
 
+    public function publishedItems()
+    {
+        return $this->hasMany(CatalogItem::class, 'category_product_id')
+            ->published();
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Scopes
+    |--------------------------------------------------------------------------
+    */
+
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);
     }
+
+    public function scopeWithPublishedProducts(Builder $query): Builder
+    {
+        return $query->whereHas('catalogItems', function ($q) {
+            $q->published();
+        });
+    }
+
+    public function scopeRoot(Builder $query): Builder
+    {
+        return $query->whereNull('parent_id');
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Accessors
+    |--------------------------------------------------------------------------
+    */
 
     public function getBreadcrumbArrayAttribute(): array
     {
@@ -87,6 +121,7 @@ class CategoryProduct extends Model
                 'name' => $current->name,
                 'slug' => $current->slug,
             ]);
+
             $current = $current->parent;
         }
 
@@ -95,8 +130,16 @@ class CategoryProduct extends Model
 
     public function getDisplayPathAttribute(): string
     {
-        return collect($this->breadcrumb_array)->pluck('name')->implode(' > ');
+        return collect($this->breadcrumb_array)
+            ->pluck('name')
+            ->implode(' > ');
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Helpers
+    |--------------------------------------------------------------------------
+    */
 
     public function refreshFullPath(): void
     {
