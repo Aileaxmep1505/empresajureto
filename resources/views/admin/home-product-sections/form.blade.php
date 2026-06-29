@@ -728,35 +728,44 @@
                 @php
                   $selectedIds = collect(old('products', $selectedProducts));
 
+                  $rawPicture = method_exists($product, 'mainPicture')
+                      ? $product->mainPicture()
+                      : ($product->photo_1 ?: ($product->photo_2 ?: $product->photo_3));
+
                   $productImage = null;
 
-                  if (!empty($product->image_url)) {
-                      $productImage = $product->image_url;
-                  } elseif (!empty($product->primary_image_url)) {
-                      $productImage = $product->primary_image_url;
-                  } elseif (!empty($product->image_path)) {
-                      $productImage = asset('storage/' . $product->image_path);
-                  } elseif (!empty($product->main_image)) {
-                      $productImage = asset('storage/' . $product->main_image);
-                  } elseif (!empty($product->thumbnail)) {
-                      $productImage = asset('storage/' . $product->thumbnail);
+                  if (!empty($rawPicture)) {
+                      $rawPicture = trim((string) $rawPicture);
+
+                      if (\Illuminate\Support\Str::startsWith($rawPicture, ['http://', 'https://'])) {
+                          $productImage = $rawPicture;
+                      } elseif (\Illuminate\Support\Str::startsWith($rawPicture, ['/storage/'])) {
+                          $productImage = $rawPicture;
+                      } elseif (\Illuminate\Support\Str::startsWith($rawPicture, ['storage/'])) {
+                          $productImage = asset($rawPicture);
+                      } else {
+                          $productImage = asset('storage/' . ltrim($rawPicture, '/'));
+                      }
                   }
 
                   $price = $product->sale_price ?: $product->price;
                   $isSelected = $selectedIds->contains($product->id);
 
+                  $categoryName = $product->categoryProduct
+                      ? ($product->categoryProduct->full_path ?? $product->categoryProduct->name)
+                      : ($product->category ? $product->category->name : '');
+
                   $searchText = trim(implode(' ', [
                       $product->name,
                       $product->sku,
-                      optional($product->categoryProduct)->full_path,
-                      optional($product->categoryProduct)->name,
+                      $categoryName,
                   ]));
                 @endphp
 
                 <label
                   class="hp-product-card {{ $isSelected ? 'is-selected' : '' }}"
                   data-product-card
-                  data-search="{{ Str::lower($searchText) }}"
+                  data-search="{{ \Illuminate\Support\Str::lower($searchText) }}"
                 >
                   <input
                     type="checkbox"
@@ -777,10 +786,15 @@
                         alt="{{ $product->name }}"
                         class="hp-product-img"
                         loading="lazy"
+                        onerror="this.style.display='none'; this.closest('.hp-product-img-box').querySelector('.hp-product-img-placeholder-fallback').style.display='flex';"
                       >
+
+                      <div class="hp-product-img-placeholder hp-product-img-placeholder-fallback" style="display:none;">
+                        {{ \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr($product->name, 0, 1)) }}
+                      </div>
                     @else
                       <div class="hp-product-img-placeholder">
-                        {{ Str::upper(Str::substr($product->name, 0, 1)) }}
+                        {{ \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr($product->name, 0, 1)) }}
                       </div>
                     @endif
                   </div>
@@ -792,8 +806,9 @@
 
                     <div class="hp-product-meta">
                       SKU: {{ $product->sku ?? 'Sin SKU' }}
-                      @if($product->categoryProduct)
-                        · {{ $product->categoryProduct->full_path ?? $product->categoryProduct->name }}
+
+                      @if($categoryName)
+                        · {{ $categoryName }}
                       @endif
                     </div>
 
@@ -854,7 +869,6 @@
     const manualProductsField = document.getElementById('manualProductsField');
 
     const productSearch = document.getElementById('productSearch');
-    const productsGrid = document.getElementById('productsGrid');
     const productsEmpty = document.getElementById('productsEmpty');
     const selectedCounter = document.getElementById('selectedCounter');
     const selectVisibleBtn = document.getElementById('selectVisibleBtn');
