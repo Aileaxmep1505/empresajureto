@@ -30,7 +30,7 @@
   }
 
   .hp-form-shell {
-    max-width: 980px;
+    max-width: 1180px;
     margin: 0 auto;
   }
 
@@ -132,49 +132,272 @@
     accent-color: var(--blue);
   }
 
+  .hp-products-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin: 12px 0 14px;
+  }
+
+  .hp-products-search-wrap {
+    flex: 1;
+    position: relative;
+  }
+
+  .hp-products-search {
+    width: 100%;
+    background: #ffffff;
+    color: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 13px 16px 13px 42px;
+    font-family: 'Quicksand', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    outline: none;
+    transition: 0.2s ease;
+  }
+
+  .hp-products-search:focus {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px var(--blue-soft);
+  }
+
+  .hp-products-search-icon {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+    font-size: 15px;
+    pointer-events: none;
+  }
+
+  .hp-products-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .hp-mini-btn {
+    min-height: 40px;
+    padding: 0 15px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: #ffffff;
+    color: #555555;
+    font-family: 'Quicksand', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: 0.2s ease;
+    white-space: nowrap;
+  }
+
+  .hp-mini-btn:hover {
+    background: #f9fafb;
+    color: #111111;
+  }
+
+  .hp-mini-btn:active {
+    transform: scale(0.98);
+  }
+
+  .hp-selected-counter {
+    display: inline-flex;
+    align-items: center;
+    min-height: 32px;
+    padding: 0 12px;
+    border-radius: 999px;
+    background: var(--blue-soft);
+    color: var(--blue);
+    font-size: 13px;
+    font-weight: 700;
+  }
+
   .hp-products-box {
-    max-height: 420px;
+    max-height: 620px;
     overflow: auto;
     border: 1px solid var(--line);
-    border-radius: 14px;
+    border-radius: 16px;
     background: #ffffff;
+    padding: 16px;
   }
 
-  .hp-product-option {
+  .hp-products-grid {
     display: grid;
-    grid-template-columns: auto 1fr auto;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 14px;
-    border-bottom: 1px solid var(--line);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
   }
 
-  .hp-product-option:last-child {
-    border-bottom: 0;
+  .hp-product-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: #ffffff;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    user-select: none;
   }
 
-  .hp-product-option input {
-    width: 18px;
-    height: 18px;
+  .hp-product-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 22px rgba(0,0,0,0.04);
+  }
+
+  .hp-product-card.is-selected {
+    border-color: var(--blue);
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    box-shadow: 0 0 0 3px var(--blue-soft), 0 8px 22px rgba(0,122,255,0.08);
+  }
+
+  .hp-product-checkbox {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    width: 22px;
+    height: 22px;
+    z-index: 3;
     accent-color: var(--blue);
+    cursor: pointer;
+  }
+
+  .hp-product-selected-pill {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 3;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    min-height: 24px;
+    padding: 0 9px;
+    border-radius: 999px;
+    background: var(--blue);
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .hp-product-card.is-selected .hp-product-selected-pill {
+    display: inline-flex;
+  }
+
+  .hp-product-img-box {
+    width: 100%;
+    aspect-ratio: 1 / 0.78;
+    background: #f9fafb;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .hp-product-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    padding: 12px;
+    display: block;
+  }
+
+  .hp-product-img-placeholder {
+    width: 62px;
+    height: 62px;
+    border-radius: 18px;
+    background: #ffffff;
+    border: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    font-size: 22px;
+    font-weight: 700;
+  }
+
+  .hp-product-body {
+    padding: 13px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
   }
 
   .hp-product-name {
-    font-weight: 700;
     color: #111111;
     font-size: 14px;
+    font-weight: 700;
+    line-height: 1.25;
+    min-height: 36px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 
   .hp-product-meta {
-    margin-top: 3px;
     color: var(--muted);
     font-size: 12px;
+    font-weight: 500;
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .hp-product-footer {
+    margin-top: auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
   }
 
   .hp-product-price {
-    font-weight: 700;
     color: #111111;
+    font-size: 15px;
+    font-weight: 700;
     white-space: nowrap;
+  }
+
+  .hp-product-stock {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 8px;
+    border-radius: 999px;
+    background: var(--success-soft);
+    color: var(--success);
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .hp-product-stock.out {
+    background: var(--danger-soft);
+    color: var(--danger);
+  }
+
+  .hp-product-card.hp-hidden-by-search {
+    display: none;
+  }
+
+  .hp-products-empty {
+    display: none;
+    text-align: center;
+    padding: 38px 20px;
+    color: var(--muted);
+    font-weight: 600;
+  }
+
+  .hp-products-empty.is-visible {
+    display: block;
   }
 
   .hp-actions {
@@ -214,6 +437,7 @@
   .hp-btn-ghost {
     background: transparent;
     color: #555555;
+    border: 0;
   }
 
   .hp-btn-ghost:hover {
@@ -230,6 +454,12 @@
     display: none !important;
   }
 
+  @media (max-width: 1100px) {
+    .hp-products-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
   @media (max-width: 768px) {
     .hp-form-page {
       padding: 20px;
@@ -243,9 +473,30 @@
       grid-template-columns: 1fr;
     }
 
+    .hp-products-toolbar {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .hp-products-actions {
+      justify-content: space-between;
+      flex-wrap: wrap;
+    }
+
+    .hp-products-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
     .hp-actions {
       flex-direction: column-reverse;
       align-items: stretch;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .hp-products-grid {
+      grid-template-columns: 1fr;
     }
   }
 </style>
@@ -443,37 +694,132 @@
           <label class="hp-label">Productos participantes</label>
 
           <div class="hp-help">
-            Marca los productos que quieres mostrar cuando la fila sea manual. Se muestran en el orden en que aparecen aquí.
+            Busca y selecciona los productos que quieres mostrar en esta fila. Puedes dar clic en toda la tarjeta para marcarla.
+          </div>
+
+          <div class="hp-products-toolbar">
+            <div class="hp-products-search-wrap">
+              <span class="hp-products-search-icon">⌕</span>
+              <input
+                type="search"
+                id="productSearch"
+                class="hp-products-search"
+                placeholder="Buscar por nombre, SKU o categoría..."
+                autocomplete="off"
+              >
+            </div>
+
+            <div class="hp-products-actions">
+              <span class="hp-selected-counter" id="selectedCounter">0 seleccionados</span>
+
+              <button type="button" class="hp-mini-btn" id="selectVisibleBtn">
+                Seleccionar visibles
+              </button>
+
+              <button type="button" class="hp-mini-btn" id="clearSelectionBtn">
+                Limpiar
+              </button>
+            </div>
           </div>
 
           <div class="hp-products-box">
-            @foreach($products as $product)
-              <label class="hp-product-option">
-                <input
-                  type="checkbox"
-                  name="products[]"
-                  value="{{ $product->id }}"
-                  @checked(collect(old('products', $selectedProducts))->contains($product->id))
+            <div class="hp-products-grid" id="productsGrid">
+              @foreach($products as $product)
+                @php
+                  $selectedIds = collect(old('products', $selectedProducts));
+
+                  $productImage = null;
+
+                  if (!empty($product->image_url)) {
+                      $productImage = $product->image_url;
+                  } elseif (!empty($product->primary_image_url)) {
+                      $productImage = $product->primary_image_url;
+                  } elseif (!empty($product->image_path)) {
+                      $productImage = asset('storage/' . $product->image_path);
+                  } elseif (!empty($product->main_image)) {
+                      $productImage = asset('storage/' . $product->main_image);
+                  } elseif (!empty($product->thumbnail)) {
+                      $productImage = asset('storage/' . $product->thumbnail);
+                  }
+
+                  $price = $product->sale_price ?: $product->price;
+                  $isSelected = $selectedIds->contains($product->id);
+
+                  $searchText = trim(implode(' ', [
+                      $product->name,
+                      $product->sku,
+                      optional($product->categoryProduct)->full_path,
+                      optional($product->categoryProduct)->name,
+                  ]));
+                @endphp
+
+                <label
+                  class="hp-product-card {{ $isSelected ? 'is-selected' : '' }}"
+                  data-product-card
+                  data-search="{{ Str::lower($searchText) }}"
                 >
+                  <input
+                    type="checkbox"
+                    name="products[]"
+                    value="{{ $product->id }}"
+                    class="hp-product-checkbox"
+                    @checked($isSelected)
+                  >
 
-                <span>
-                  <span class="hp-product-name">
-                    {{ $product->name }}
+                  <span class="hp-product-selected-pill">
+                    Seleccionado
                   </span>
 
-                  <span class="hp-product-meta">
-                    SKU: {{ $product->sku ?? 'Sin SKU' }}
-                    @if($product->categoryProduct)
-                      · {{ $product->categoryProduct->full_path }}
+                  <div class="hp-product-img-box">
+                    @if($productImage)
+                      <img
+                        src="{{ $productImage }}"
+                        alt="{{ $product->name }}"
+                        class="hp-product-img"
+                        loading="lazy"
+                      >
+                    @else
+                      <div class="hp-product-img-placeholder">
+                        {{ Str::upper(Str::substr($product->name, 0, 1)) }}
+                      </div>
                     @endif
-                  </span>
-                </span>
+                  </div>
 
-                <span class="hp-product-price">
-                  ${{ number_format((float) ($product->sale_price ?: $product->price), 2) }}
-                </span>
-              </label>
-            @endforeach
+                  <div class="hp-product-body">
+                    <div class="hp-product-name">
+                      {{ $product->name }}
+                    </div>
+
+                    <div class="hp-product-meta">
+                      SKU: {{ $product->sku ?? 'Sin SKU' }}
+                      @if($product->categoryProduct)
+                        · {{ $product->categoryProduct->full_path ?? $product->categoryProduct->name }}
+                      @endif
+                    </div>
+
+                    <div class="hp-product-footer">
+                      <div class="hp-product-price">
+                        ${{ number_format((float) $price, 2) }}
+                      </div>
+
+                      @if((float) $product->stock > 0)
+                        <span class="hp-product-stock">
+                          Stock {{ (float) $product->stock }}
+                        </span>
+                      @else
+                        <span class="hp-product-stock out">
+                          Sin stock
+                        </span>
+                      @endif
+                    </div>
+                  </div>
+                </label>
+              @endforeach
+            </div>
+
+            <div class="hp-products-empty" id="productsEmpty">
+              No encontramos productos con esa búsqueda.
+            </div>
           </div>
 
           @error('products')
@@ -507,6 +853,25 @@
     const categoryField = document.getElementById('categoryField');
     const manualProductsField = document.getElementById('manualProductsField');
 
+    const productSearch = document.getElementById('productSearch');
+    const productsGrid = document.getElementById('productsGrid');
+    const productsEmpty = document.getElementById('productsEmpty');
+    const selectedCounter = document.getElementById('selectedCounter');
+    const selectVisibleBtn = document.getElementById('selectVisibleBtn');
+    const clearSelectionBtn = document.getElementById('clearSelectionBtn');
+
+    function normalizeText(value) {
+      return String(value || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim();
+    }
+
+    function getProductCards() {
+      return Array.from(document.querySelectorAll('[data-product-card]'));
+    }
+
     function syncFields() {
       const value = sourceType.value;
 
@@ -519,8 +884,97 @@
       }
     }
 
+    function syncCardState(card) {
+      const checkbox = card.querySelector('input[type="checkbox"]');
+
+      if (!checkbox) return;
+
+      if (checkbox.checked) {
+        card.classList.add('is-selected');
+      } else {
+        card.classList.remove('is-selected');
+      }
+    }
+
+    function updateSelectedCounter() {
+      const selected = getProductCards().filter(function (card) {
+        const checkbox = card.querySelector('input[type="checkbox"]');
+        return checkbox && checkbox.checked;
+      }).length;
+
+      selectedCounter.textContent = selected === 1
+        ? '1 seleccionado'
+        : selected + ' seleccionados';
+    }
+
+    function filterProducts() {
+      const term = normalizeText(productSearch.value);
+      let visibleCount = 0;
+
+      getProductCards().forEach(function (card) {
+        const haystack = normalizeText(card.dataset.search);
+
+        if (!term || haystack.includes(term)) {
+          card.classList.remove('hp-hidden-by-search');
+          visibleCount++;
+        } else {
+          card.classList.add('hp-hidden-by-search');
+        }
+      });
+
+      if (visibleCount === 0) {
+        productsEmpty.classList.add('is-visible');
+      } else {
+        productsEmpty.classList.remove('is-visible');
+      }
+    }
+
     sourceType.addEventListener('change', syncFields);
     syncFields();
+
+    getProductCards().forEach(function (card) {
+      const checkbox = card.querySelector('input[type="checkbox"]');
+
+      syncCardState(card);
+
+      checkbox.addEventListener('change', function () {
+        syncCardState(card);
+        updateSelectedCounter();
+      });
+    });
+
+    productSearch.addEventListener('input', filterProducts);
+
+    selectVisibleBtn.addEventListener('click', function () {
+      getProductCards().forEach(function (card) {
+        if (card.classList.contains('hp-hidden-by-search')) return;
+
+        const checkbox = card.querySelector('input[type="checkbox"]');
+
+        if (checkbox) {
+          checkbox.checked = true;
+          syncCardState(card);
+        }
+      });
+
+      updateSelectedCounter();
+    });
+
+    clearSelectionBtn.addEventListener('click', function () {
+      getProductCards().forEach(function (card) {
+        const checkbox = card.querySelector('input[type="checkbox"]');
+
+        if (checkbox) {
+          checkbox.checked = false;
+          syncCardState(card);
+        }
+      });
+
+      updateSelectedCounter();
+    });
+
+    filterProducts();
+    updateSelectedCounter();
   });
 </script>
 
