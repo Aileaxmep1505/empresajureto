@@ -253,7 +253,17 @@
   $cats = $categories ?? collect();
 
   $activeCat   = request('category') ? $cats->firstWhere('id', (int)request('category')) : null;
-  $headTitle   = $activeCat->name ?? ($s !== '' ? 'Resultados para "'.$s.'"' : 'Todos los productos');
+
+  $headTitle = 'Todos los productos';
+
+  if (isset($homeSection) && $homeSection) {
+      $headTitle = $homeSection->title;
+  } elseif ($activeCat) {
+      $headTitle = $activeCat->name;
+  } elseif ($s !== '') {
+      $headTitle = 'Resultados para "'.$s.'"';
+  }
+
   $totalItems  = method_exists($items, 'total') ? $items->total() : $items->count();
 @endphp
 
@@ -274,7 +284,14 @@
 
         <div class="panel" id="panelOrder">
           @foreach($orderLabels as $key => $label)
-            <a href="{{ route('web.catalog.index', array_filter(['s'=>$s,'order'=>$key,'category'=>request('category'),'price'=>request('price'),'stock'=>request('stock')])) }}"
+            <a href="{{ route('web.catalog.index', array_filter([
+                  's' => $s,
+                  'home_section' => request('home_section'),
+                  'order' => $key,
+                  'category' => request('category'),
+                  'price' => request('price'),
+                  'stock' => request('stock'),
+                ])) }}"
                class="{{ $order===$key ? 'active' : '' }}">
                {{ $label }}
                <svg class="check-icon" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
@@ -352,6 +369,7 @@
   <aside id="filterDrawer" aria-label="Filtros">
     <form method="GET" action="{{ route('web.catalog.index') }}">
       <input type="hidden" name="s" value="{{ $s }}">
+      <input type="hidden" name="home_section" value="{{ request('home_section') }}">
       <input type="hidden" name="order" value="{{ $order }}">
 
       <div class="drawer-head">

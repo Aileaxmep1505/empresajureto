@@ -683,11 +683,7 @@
         $items = collect($homeSection->home_products ?? collect())->filter()->values();
 
         if ($items->count()) {
-          $sectionUrl = route('web.catalog.index', ['s' => $homeSection->title]);
-
-          if (($homeSection->source_type ?? null) === 'category' && $homeSection->categoryProduct) {
-            $sectionUrl = route('web.catalog.index', ['s' => $homeSection->categoryProduct->name ?? $homeSection->title]);
-          }
+          $sectionUrl = route('web.catalog.index', ['home_section' => $homeSection->slug]);
 
           $productSections->push([
             'title' => $homeSection->title,
