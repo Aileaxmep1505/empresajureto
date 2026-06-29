@@ -56,7 +56,7 @@
     header.header{
       position:sticky; top:0; left:0; right:0; width:100%;
       background:var(--header-solid-bg);
-      z-index:90;
+      z-index:10000;
       border-bottom: none; 
       box-shadow: none; 
       transition: var(--header-transition);
@@ -96,7 +96,7 @@
       color: var(--brand); 
     }
 
-    .nav-dd{ position:relative; display:inline-flex; align-items:center; }
+    .nav-dd{ position:relative; display:inline-flex; align-items:center; z-index:10060; }
     .nav-dd__trigger{
       background:transparent; border:0; cursor:pointer;
       gap:8px; font-weight:400; font-family: inherit; font-size: 1rem; color: var(--ink);
@@ -126,7 +126,7 @@
       border-radius: var(--dd-radius);
       box-shadow: var(--dd-shadow);
       padding:12px;
-      z-index:130;
+      z-index:10070;
       opacity:0;
       visibility:hidden;
       pointer-events:none;
@@ -315,14 +315,14 @@
 
     .sugg-backdrop{
       position:fixed; inset:0; background:rgba(0,0,0,.2);
-      opacity:0; pointer-events:none; transition:opacity .18s; z-index:80;
+      opacity:0; pointer-events:none; transition:opacity .18s; z-index:8000;
     }
     .sugg-backdrop.is-open{ opacity:1; pointer-events:auto }
 
     #sugg{
       position:absolute; top:calc(100% + 8px); left:0; right:0;
       background:#fff; border:1px solid var(--line); border-radius:12px;
-      box-shadow: 0 4px 15px rgba(0,0,0,.05); padding:8px; z-index:110;
+      box-shadow: 0 4px 15px rgba(0,0,0,.05); padding:8px; z-index:8100;
       max-height:420px; overflow:auto;
       opacity:0; transform: translateY(-4px); transition: opacity .16s ease, transform .16s ease;
     }
@@ -336,6 +336,9 @@
     #sugg .sugg-item:hover{ background:#f1f5f9 }
     #sugg .sugg-item[aria-selected="true"]{ background:#eef2ff }
     #sugg .sugg-empty{ padding:12px; color:var(--muted); text-align:center; font-size: 0.95rem; }
+    #sugg .sugg-item strong{ font-weight:700; color:#111; }
+    #sugg .sugg-item small{ display:block; color:var(--muted); font-size:.78rem; margin-top:2px; }
+    #sugg .sugg-action{ background:#f8fbff; color:var(--brand); font-weight:700; }
 
     @media (max-width:980px){
       #sugg{
@@ -362,6 +365,33 @@
       color:var(--ink); text-decoration:none; font-weight:500; font-size: 0.95rem;
     }
     .user-menu a:hover, .user-menu form button:hover{background:#f1f5f9; color: var(--brand); }
+
+
+    /* FIX: el dropdown de Productos debe abrir aunque el buscador haya quedado activo */
+    header.header{
+      isolation:isolate;
+    }
+
+    #prodDD{
+      z-index:10060;
+    }
+
+    #prodDD .nav-dd__menu{
+      z-index:10070 !important;
+    }
+
+    #suggBackdrop{
+      z-index:8000 !important;
+    }
+
+    #sugg{
+      z-index:8100 !important;
+    }
+
+    .jrt-search-force-closed #sugg{
+      display:none !important;
+    }
+
   </style>
 </head>
 <body>
@@ -428,6 +458,20 @@
 
   $jrtFooterCategories = $jrtHeaderCategories->take(6);
 
+  $jrtHeaderSearchProducts = collect();
+
+  try {
+      if (class_exists(\App\Models\CatalogItem::class)) {
+          $jrtHeaderSearchProducts = \App\Models\CatalogItem::published()
+              ->with(['category', 'categoryProduct'])
+              ->ordered()
+              ->limit(40)
+              ->get();
+      }
+  } catch (\Throwable $e) {
+      $jrtHeaderSearchProducts = collect();
+  }
+
   $jrtCategoryUrl = function ($category) {
       if (($category->type ?? 'category') === 'category_product') {
           return route('web.catalog.index', ['category_product' => $category->id]);
@@ -443,7 +487,45 @@
 
       return (string) request('category') === (string) $category->id;
   };
+
+  $jrtHeaderSearchCategoriesPayload = $jrtHeaderCategories
+      ->map(function ($category) use ($jrtCategoryUrl) {
+          return [
+              'name' => $category->name,
+              'path' => $category->full_path ?? $category->name,
+              'url' => $jrtCategoryUrl($category),
+              'type' => $category->type ?? 'category',
+          ];
+      })
+      ->values();
+
+  $jrtHeaderSearchProductsPayload = $jrtHeaderSearchProducts
+      ->map(function ($product) {
+          $categoryName = '';
+
+          if ($product->categoryProduct) {
+              $categoryName = $product->categoryProduct->full_path ?? $product->categoryProduct->name;
+          } elseif ($product->category) {
+              $categoryName = $product->category->name;
+          }
+
+          return [
+              'name' => $product->name,
+              'sku' => $product->sku,
+              'category' => $categoryName,
+              'url' => route('web.catalog.show', $product),
+          ];
+      })
+      ->values();
 @endphp
+
+<script>
+  window.__JRT_HEADER_SEARCH__ = {
+    catalogUrl: @json(route('web.catalog.index')),
+    categories: @json($jrtHeaderSearchCategoriesPayload),
+    products: @json($jrtHeaderSearchProductsPayload),
+  };
+</script>
 
 <header class="header">
   <div class="mobile-topbar">
@@ -700,7 +782,65 @@
 
     function isDesktop(){ return window.matchMedia('(min-width:981px)').matches; }
 
+    function closeSearchUI(){
+      const panel = document.getElementById('sugg');
+      const list = document.getElementById('suggItems');
+      const input = document.getElementById('qInput');
+      const backdrop = document.getElementById('suggBackdrop');
+      const body = document.body;
+
+      document.documentElement.classList.add('jrt-search-force-closed');
+
+      if(panel){
+        panel.classList.remove('is-open');
+        panel.hidden = true;
+      }
+
+      if(list){
+        list.innerHTML = '';
+      }
+
+      if(input){
+        input.setAttribute('aria-expanded', 'false');
+        input.removeAttribute('aria-activedescendant');
+        input.blur();
+      }
+
+      if(backdrop){
+        backdrop.classList.remove('is-open');
+        backdrop.hidden = true;
+      }
+
+      body.classList.remove('jrt-scroll-lock');
+      body.style.removeProperty('--jrt-pr');
+
+      window.setTimeout(function(){
+        document.documentElement.classList.remove('jrt-search-force-closed');
+      }, 180);
+    }
+
+    function closeMobileSheet(){
+      const html = document.documentElement;
+      const sheetBackdrop = document.getElementById('sheet-backdrop');
+      const sheet = document.getElementById('sheet');
+
+      html.classList.remove('sheet-open');
+
+      if(sheetBackdrop){
+        sheetBackdrop.hidden = true;
+      }
+
+      if(sheet){
+        sheet.setAttribute('inert', '');
+      }
+    }
+
     function setOpen(open){
+      if(open){
+        closeSearchUI();
+        closeMobileSheet();
+      }
+
       dd.classList.toggle('open', open);
       btn.setAttribute('aria-expanded', open ? 'true' : 'false');
     }
@@ -708,7 +848,15 @@
     btn.addEventListener('click', (e)=>{
       if(!isDesktop()) return;
       e.preventDefault();
-      setOpen(!dd.classList.contains('open'));
+      e.stopPropagation();
+
+      const willOpen = !dd.classList.contains('open');
+      setOpen(willOpen);
+    });
+
+    dd.addEventListener('mouseenter', ()=>{
+      if(!isDesktop()) return;
+      closeSearchUI();
     });
 
     document.addEventListener('click', (e)=>{
@@ -769,12 +917,38 @@
     const backdrop = document.getElementById('suggBackdrop');
     const sheetBackdrop = document.getElementById('sheet-backdrop');
     const body = document.body;
-    if(!input || !panel || !list || !wrap) return;
 
-    let timer = null, savedScroll = 0;
-    const SUGG_URL = ''; /* @json(route('search.suggest')) */
+    if(!input || !panel || !list || !wrap || !form) return;
 
-    function scrollbarWidth(){ return window.innerWidth - document.documentElement.clientWidth; }
+    let savedScroll = 0;
+    const SEARCH_DATA = window.__JRT_HEADER_SEARCH__ || { catalogUrl: '/catalogo', categories: [], products: [] };
+
+    function normalizeText(value){
+      return String(value || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim();
+    }
+
+    function escapeHtml(value){
+      return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function catalogSearchUrl(term){
+      const url = new URL(SEARCH_DATA.catalogUrl || '/catalogo', window.location.origin);
+      url.searchParams.set('s', term);
+      return url.toString();
+    }
+
+    function scrollbarWidth(){
+      return window.innerWidth - document.documentElement.clientWidth;
+    }
 
     function lock(){
       if(body.classList.contains('jrt-scroll-lock')) return;
@@ -787,19 +961,35 @@
       if(!body.classList.contains('jrt-scroll-lock')) return;
       body.classList.remove('jrt-scroll-lock');
       body.style.removeProperty('--jrt-pr');
-      window.scrollTo(0, savedScroll||0);
+      window.scrollTo(0, savedScroll || 0);
+    }
+
+    function closeProductsDropdown(){
+      const dd = document.getElementById('prodDD');
+      const btn = document.getElementById('prodTrigger');
+
+      if(dd) dd.classList.remove('open');
+      if(btn) btn.setAttribute('aria-expanded', 'false');
     }
 
     function openUI(){
       const html = document.documentElement;
-      if (html.classList.contains('sheet-open')) {
+
+      closeProductsDropdown();
+
+      if(html.classList.contains('sheet-open')){
         html.classList.remove('sheet-open');
-        if (sheetBackdrop) sheetBackdrop.hidden = true;
+        if(sheetBackdrop) sheetBackdrop.hidden = true;
       }
+
       panel.hidden = false;
       panel.classList.add('is-open');
-      backdrop.hidden = false;
-      backdrop.classList.add('is-open');
+
+      if(backdrop){
+        backdrop.hidden = false;
+        backdrop.classList.add('is-open');
+      }
+
       input.setAttribute('aria-expanded','true');
       lock();
     }
@@ -810,9 +1000,75 @@
       list.innerHTML = '';
       input.setAttribute('aria-expanded','false');
       input.removeAttribute('aria-activedescendant');
-      backdrop.classList.remove('is-open');
-      backdrop.hidden = true;
+
+      if(backdrop){
+        backdrop.classList.remove('is-open');
+        backdrop.hidden = true;
+      }
+
       unlock();
+    }
+
+    function renderSuggestions(term){
+      const cleanTerm = normalizeText(term);
+
+      if(cleanTerm.length < 1){
+        closeUI();
+        return;
+      }
+
+      const categories = Array.isArray(SEARCH_DATA.categories) ? SEARCH_DATA.categories : [];
+      const products = Array.isArray(SEARCH_DATA.products) ? SEARCH_DATA.products : [];
+
+      const matchedCategories = categories.filter(function(category){
+        const haystack = normalizeText([category.name, category.path].join(' '));
+        return haystack.includes(cleanTerm);
+      }).slice(0, 6);
+
+      const matchedProducts = products.filter(function(product){
+        const haystack = normalizeText([product.name, product.sku, product.category].join(' '));
+        return haystack.includes(cleanTerm);
+      }).slice(0, 6);
+
+      let html = '';
+
+      html += `
+        <a class="sugg-item sugg-action" role="option" tabindex="-1" href="${catalogSearchUrl(term)}">
+          <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:var(--brand);fill:none;stroke-width:2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
+          <span>Buscar <strong>${escapeHtml(term)}</strong> en catálogo</span>
+        </a>
+      `;
+
+      if(matchedCategories.length){
+        html += `<div class="sugg-section">Categorías</div>`;
+        html += matchedCategories.map(function(category){
+          return `
+            <a class="sugg-item" role="option" tabindex="-1" href="${category.url}">
+              <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:var(--muted);fill:none;stroke-width:2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+              <span><strong>${escapeHtml(category.name)}</strong><small>${escapeHtml(category.path || 'Categoría')}</small></span>
+            </a>
+          `;
+        }).join('');
+      }
+
+      if(matchedProducts.length){
+        html += `<div class="sugg-section">Productos</div>`;
+        html += matchedProducts.map(function(product){
+          return `
+            <a class="sugg-item" role="option" tabindex="-1" href="${product.url}">
+              <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:var(--muted);fill:none;stroke-width:2"><path d="M20 7H4"/><path d="M6 7v13a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7"/><path d="M9 7V5a3 3 0 0 1 6 0v2"/></svg>
+              <span><strong>${escapeHtml(product.name || 'Producto')}</strong><small>${escapeHtml([product.sku, product.category].filter(Boolean).join(' · '))}</small></span>
+            </a>
+          `;
+        }).join('');
+      }
+
+      if(!matchedCategories.length && !matchedProducts.length){
+        html += `<div class="sugg-empty">No hay coincidencias rápidas. Presiona Enter o toca “Buscar” para ver resultados.</div>`;
+      }
+
+      list.innerHTML = html;
+      openUI();
     }
 
     input.setAttribute('role','combobox');
@@ -820,84 +1076,38 @@
     input.setAttribute('aria-expanded','false');
     input.setAttribute('aria-controls','sugg');
 
-    input.addEventListener('input', ()=>{
-      const q = input.value.trim();
-      if(timer) clearTimeout(timer);
-      if(q.length < 2){ closeUI(); return; }
-
-      timer = setTimeout(async ()=>{
-        try{
-          if(!SUGG_URL) return;
-          const url = new URL(SUGG_URL, window.location.origin);
-          url.searchParams.set('term', q);
-
-          const res = await fetch(url.toString(), { headers: { 'Accept':'application/json' } });
-          const data = await res.json().catch(()=> ({}));
-
-          const terms = Array.isArray(data.terms) ? data.terms : [];
-          const products = Array.isArray(data.products) ? data.products : [];
-
-          let html = '';
-
-          if(terms.length){
-            html += `<div class="sugg-section">Búsquedas</div>`;
-            html += terms.slice(0,6).map(t=>`
-              <div class="sugg-item" role="option" tabindex="-1" data-term="${String(t).replace(/"/g,'&quot;')}">
-                <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:var(--muted);fill:none;stroke-width:2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
-                <span>${String(t).replace(/</g,'&lt;')}</span>
-              </div>
-            `).join('');
-          }
-
-          if(products.length){
-            html += `<div class="sugg-section">Productos</div>`;
-            html += products.slice(0,5).map(p=>`
-              <a class="sugg-item" role="option" tabindex="-1" href="${p.url}">
-                <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:var(--muted);fill:none;stroke-width:2"><path d="M20 7H4"/><path d="M6 7v13a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7"/><path d="M9 7V5a3 3 0 0 1 6 0v2"/></svg>
-                <span>${String(p.name||'Producto').replace(/</g,'&lt;')}</span>
-              </a>
-            `).join('');
-          }
-
-          if(!html){
-            html = `<div class="sugg-empty">Sin sugerencias</div>`;
-          }
-
-          list.innerHTML = html;
-          openUI();
-        }catch(_){}
-      }, 180);
+    input.addEventListener('input', function(){
+      renderSuggestions(input.value.trim());
     });
 
-    input.addEventListener('focus', ()=>{
-      if(list.children.length){ openUI(); }
+    input.addEventListener('focus', function(){
+      if(input.value.trim().length >= 1){
+        renderSuggestions(input.value.trim());
+      }
     });
 
-    document.addEventListener('click', (e)=>{
+    form.addEventListener('submit', function(){
+      closeUI();
+    });
+
+    document.addEventListener('click', function(e){
       if(panel.hidden) return;
       if(!e.target.closest('#searchWrap') && !e.target.closest('#sugg')) closeUI();
     });
 
     backdrop?.addEventListener('click', closeUI);
 
-    document.addEventListener('keydown', (e)=>{
+    document.addEventListener('keydown', function(e){
       if(e.key === 'Escape'){
         closeUI();
         input.blur();
       }
     });
 
-    panel.addEventListener('click', (e)=>{
+    panel.addEventListener('click', function(e){
       const item = e.target.closest('.sugg-item');
       if(!item) return;
-
-      const term = item.getAttribute('data-term');
-      if(term){
-        input.value = term;
-        closeUI();
-        form.submit();
-        e.preventDefault();
-      }
+      closeUI();
     });
   })();
 
