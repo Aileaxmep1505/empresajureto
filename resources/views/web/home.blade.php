@@ -91,10 +91,19 @@
         min-height: 380px;
       }
 
-      .promo-main-slider {
+      .promo-main-slider,
+      .promo-side-slider {
         width: 100%;
         height: 100%;
         border-radius: 20px;
+      }
+
+      .promo-side-slider {
+        overflow: hidden;
+      }
+
+      .promo-side-slider .swiper-wrapper {
+        height: 100%;
       }
 
       .promo-link-card {
@@ -332,9 +341,9 @@
         ->where('position', 'main')
         ->values();
 
-    $sideBanner = $homeBanners
+    $sideBanners = $homeBanners
         ->where('position', 'side')
-        ->first();
+        ->values();
 
     $fallbackMainBanners = collect([
         [
@@ -357,17 +366,7 @@
     ];
 
     $renderMainBanners = $mainBanners->count() ? $mainBanners : $fallbackMainBanners;
-    $renderSideBanner = $sideBanner ?: $fallbackSideBanner;
-
-    $homeBannerLiveStats = \App\Models\HomeBanner::query()
-        ->selectRaw('COUNT(*) as total, SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active_total, MAX(updated_at) as latest_update')
-        ->first();
-
-    $homeBannerLiveVersion = sha1(implode('|', [
-        $homeBannerLiveStats->total ?? 0,
-        $homeBannerLiveStats->active_total ?? 0,
-        $homeBannerLiveStats->latest_update ?? '',
-    ]));
+    $renderSideBanners = $sideBanners->count() ? $sideBanners : collect([$fallbackSideBanner]);
   @endphp
 
   <div class="desktop-promo-hero">
@@ -421,37 +420,47 @@
         <div class="swiper-pagination"></div>
       </div>
 
-      <!-- BANNER LATERAL -->
-      @php
-        $sideImage = !empty($renderSideBanner->image_path) ? asset('storage/' . $renderSideBanner->image_path) : null;
-        $sideUrl = !empty($renderSideBanner->button_url) ? $renderSideBanner->button_url : '#';
-        $sideColor = !empty($renderSideBanner->background_color) ? $renderSideBanner->background_color : '#333333';
-      @endphp
+      <!-- BANNER LATERAL (SLIDER VERTICAL CADA 10 SEGUNDOS) -->
+      <div class="swiper promo-side-slider">
+        <div class="swiper-wrapper">
 
-      <a href="{{ $sideUrl }}" 
-         class="promo-link-card promo-side-banner {{ $sideImage ? 'has-image' : '' }}" 
-         style="--banner-color: {{ $sideColor }};">
-        
-        @if($sideImage)
-          <img src="{{ $sideImage }}" alt="{{ $renderSideBanner->title }}" class="promo-product-image" loading="eager">
-        @endif
+          @foreach($renderSideBanners as $sideBannerItem)
+            @php
+              $sideObject = is_array($sideBannerItem) ? (object) $sideBannerItem : $sideBannerItem;
 
-        <div class="promo-content">
-          @if(!empty($renderSideBanner->title))
-            <h3>{{ $renderSideBanner->title }}</h3>
-          @endif
+              $sideImage = !empty($sideObject->image_path) ? asset('storage/' . $sideObject->image_path) : null;
+              $sideUrl = !empty($sideObject->button_url) ? $sideObject->button_url : '#';
+              $sideColor = !empty($sideObject->background_color) ? $sideObject->background_color : '#333333';
+            @endphp
 
-          @if(!empty($renderSideBanner->description))
-            <p style="margin-bottom: 0;">{{ $renderSideBanner->description }}</p>
-          @endif
+            <a href="{{ $sideUrl }}"
+               class="swiper-slide promo-link-card promo-side-banner {{ $sideImage ? 'has-image' : '' }}"
+               style="--banner-color: {{ $sideColor }};">
 
-          @if(!empty($renderSideBanner->button_text))
-            <span class="promo-btn" style="margin-top: 15px;">
-              {{ $renderSideBanner->button_text }}
-            </span>
-          @endif
+              @if($sideImage)
+                <img src="{{ $sideImage }}" alt="{{ $sideObject->title }}" class="promo-product-image" loading="eager">
+              @endif
+
+              <div class="promo-content">
+                @if(!empty($sideObject->title))
+                  <h3>{{ $sideObject->title }}</h3>
+                @endif
+
+                @if(!empty($sideObject->description))
+                  <p style="margin-bottom: 0;">{{ $sideObject->description }}</p>
+                @endif
+
+                @if(!empty($sideObject->button_text))
+                  <span class="promo-btn" style="margin-top: 15px;">
+                    {{ $sideObject->button_text }}
+                  </span>
+                @endif
+              </div>
+            </a>
+          @endforeach
+
         </div>
-      </a>
+      </div>
 
     </div>
   </div>
@@ -475,49 +484,22 @@
           pagination: { el: '.promo-main-slider .swiper-pagination', clickable: true },
         });
       }
-      ensureAllPlaying();
 
-      // ====== ACTUALIZACIÓN AUTOMÁTICA DE BANNERS ======
-      // No cambia el diseño. Solo revisa si hubo cambios en banners y recarga la vista para mostrar la nueva imagen/texto.
-      const bannerLiveUrl = @json(route('home-banners.live-version'));
-      let currentBannerVersion = @json($homeBannerLiveVersion);
-      let isCheckingBannerVersion = false;
-
-      async function checkHomeBannerVersion() {
-        if (isCheckingBannerVersion || document.hidden) return;
-
-        isCheckingBannerVersion = true;
-
-        try {
-          const response = await fetch(`${bannerLiveUrl}?t=${Date.now()}`, {
-            headers: {
-              'Accept': 'application/json',
-              'X-Requested-With': 'XMLHttpRequest'
-            },
-            cache: 'no-store'
-          });
-
-          if (!response.ok) return;
-
-          const data = await response.json();
-
-          if (data.version && data.version !== currentBannerVersion) {
-            window.location.reload();
-          }
-        } catch (error) {
-          // Evita romper la página si falla la red.
-        } finally {
-          isCheckingBannerVersion = false;
-        }
-      }
-
-      if (document.querySelector('.desktop-promo-hero')) {
-        setInterval(checkHomeBannerVersion, 5000);
-        window.addEventListener('focus', checkHomeBannerVersion);
-        document.addEventListener('visibilitychange', function () {
-          if (!document.hidden) checkHomeBannerVersion();
+      if (document.querySelector('.promo-side-slider') && typeof Swiper !== 'undefined') {
+        new Swiper('.promo-side-slider', {
+          direction: 'vertical',
+          slidesPerView: 1,
+          loop: true,
+          speed: 750,
+          autoplay: {
+            delay: 10000,
+            disableOnInteraction: false,
+          },
+          allowTouchMove: false,
         });
       }
+
+      ensureAllPlaying();
     });
 
     function forcePlay(v){
@@ -643,15 +625,38 @@
       return '1 Pieza';
     };
 
-    $catalogProducts = \App\Models\CatalogItem::with('category')->published()->ordered()->take(120)->get();
-
     $pickPhotoUrl = function($p){
-      $candidates = [$p->photo_1 ?? null, $p->photo_2 ?? null, $p->photo_3 ?? null];
+      $candidates = [
+        $p->photo_1 ?? null,
+        $p->photo_2 ?? null,
+        $p->photo_3 ?? null,
+        $p->image_url ?? null,
+        $p->primary_image_url ?? null,
+        $p->image_path ?? null,
+        $p->main_image ?? null,
+        $p->thumbnail ?? null,
+      ];
+
       $raw = collect($candidates)->filter(fn($v) => is_string($v) && trim($v) !== '')->first();
-      if(!$raw){ return asset('images/placeholder.png'); }
+
+      if(!$raw){
+        return asset('images/placeholder.png');
+      }
+
       $raw = trim($raw);
-      if (\Illuminate\Support\Str::startsWith($raw, ['http://','https://'])) { return $raw; }
-      if (\Illuminate\Support\Str::startsWith($raw, ['storage/'])) { return asset($raw); }
+
+      if (\Illuminate\Support\Str::startsWith($raw, ['http://','https://'])) {
+        return $raw;
+      }
+
+      if (\Illuminate\Support\Str::startsWith($raw, ['/storage/'])) {
+        return asset(ltrim($raw, '/'));
+      }
+
+      if (\Illuminate\Support\Str::startsWith($raw, ['storage/'])) {
+        return asset($raw);
+      }
+
       return \Illuminate\Support\Facades\Storage::url($raw);
     };
 
@@ -662,33 +667,68 @@
     };
 
     $productSections = collect();
-    $usedIds = [];
 
-    $take = function ($collection, $limit = 18) use (&$usedIds) {
-      $picked = $collection->reject(fn($p) => in_array($p->id, $usedIds))->take($limit)->values();
-      foreach ($picked as $p) { $usedIds[] = $p->id; }
-      return $picked;
-    };
+    /*
+     |--------------------------------------------------------------------------
+     | Filas administrables del home
+     |--------------------------------------------------------------------------
+     | Si desde el admin creas filas como Mundial, Hot Sale, Buen Fin,
+     | Menos de 2000 pesos, etc., se pintan aquí automáticamente.
+     | Si todavía no existen filas administrables, se mantiene el fallback
+     | anterior con Para ti, Ofertas y categorías automáticas.
+     */
 
-    if ($catalogProducts->count()) {
-      $featured = $catalogProducts->filter(fn($p) => (bool)($p->is_featured ?? false))->values();
-      $paraTi   = $take($featured->count() ? $featured : $catalogProducts, 18);
-      if ($paraTi->count()) { $productSections->push(['title' => 'Para ti', 'url' => route('web.catalog.index'), 'items' => $paraTi]); }
+    if (isset($homeProductSections) && $homeProductSections->count()) {
+      foreach ($homeProductSections as $homeSection) {
+        $items = collect($homeSection->home_products ?? collect())->filter()->values();
 
-      $ofertas = $take($catalogProducts->filter(fn($p) => !is_null($p->sale_price) && (float)$p->sale_price > 0 && (float)$p->sale_price < (float)$p->price)->values(), 18);
-      if ($ofertas->count()) { $productSections->push(['title' => 'Ofertas', 'url' => route('web.catalog.index', ['order' => 'price_asc']), 'items' => $ofertas]); }
+        if ($items->count()) {
+          $sectionUrl = route('web.catalog.index', ['s' => $homeSection->title]);
 
-      $grouped = $catalogProducts->filter(fn($p) => !empty($p->category?->name))->groupBy(fn($p) => trim($p->category->name));
-      foreach ($grouped as $categoryName => $items) {
-        $picked = $take($items->values(), 18);
-        if ($picked->count()) { $productSections->push(['title' => $categoryName, 'url' => route('web.catalog.index', ['s' => $categoryName]), 'items' => $picked]); }
+          if (($homeSection->source_type ?? null) === 'category' && $homeSection->categoryProduct) {
+            $sectionUrl = route('web.catalog.index', ['s' => $homeSection->categoryProduct->name ?? $homeSection->title]);
+          }
+
+          $productSections->push([
+            'title' => $homeSection->title,
+            'subtitle' => $homeSection->subtitle ?? null,
+            'url' => $sectionUrl,
+            'items' => $items,
+          ]);
+        }
       }
+    }
 
-      $restTitles = ['Otros', 'Más productos', 'También te puede interesar', 'Explora más', 'Recomendados'];
-      foreach ($restTitles as $restTitle) {
-        $picked = $take($catalogProducts, 18);
-        if (!$picked->count()) break; 
-        $productSections->push(['title' => $restTitle, 'url' => route('web.catalog.index'), 'items' => $picked]);
+    if (!$productSections->count()) {
+      $catalogProducts = \App\Models\CatalogItem::with('category')->published()->ordered()->take(120)->get();
+      $usedIds = [];
+
+      $take = function ($collection, $limit = 18) use (&$usedIds) {
+        $picked = $collection->reject(fn($p) => in_array($p->id, $usedIds))->take($limit)->values();
+        foreach ($picked as $p) { $usedIds[] = $p->id; }
+        return $picked;
+      };
+
+      if ($catalogProducts->count()) {
+        $featured = $catalogProducts->filter(fn($p) => (bool)($p->is_featured ?? false))->values();
+        $paraTi   = $take($featured->count() ? $featured : $catalogProducts, 18);
+        if ($paraTi->count()) { $productSections->push(['title' => 'Para ti', 'subtitle' => null, 'url' => route('web.catalog.index'), 'items' => $paraTi]); }
+
+        $ofertas = $take($catalogProducts->filter(fn($p) => !is_null($p->sale_price) && (float)$p->sale_price > 0 && (float)$p->sale_price < (float)$p->price)->values(), 18);
+        if ($ofertas->count()) { $productSections->push(['title' => 'Ofertas', 'subtitle' => null, 'url' => route('web.catalog.index', ['order' => 'price_asc']), 'items' => $ofertas]); }
+
+        $grouped = $catalogProducts->filter(fn($p) => !empty($p->category?->name))->groupBy(fn($p) => trim($p->category->name));
+        foreach ($grouped as $categoryName => $items) {
+          $picked = $take($items->values(), 18);
+          if ($picked->count()) { $productSections->push(['title' => $categoryName, 'subtitle' => null, 'url' => route('web.catalog.index', ['s' => $categoryName]), 'items' => $picked]); }
+        }
+
+        $restTitles = ['Otros', 'Más productos', 'También te puede interesar', 'Explora más', 'Recomendados'];
+        foreach ($restTitles as $restTitle) {
+          $picked = $take($catalogProducts, 18);
+          if (!$picked->count()) break;
+          $productSections->push(['title' => $restTitle, 'subtitle' => null, 'url' => route('web.catalog.index'), 'items' => $picked]);
+        }
       }
     }
   @endphp
@@ -700,7 +740,12 @@
           @if(($section['items'] ?? collect())->count())
             <div class="ns-section">
               <div class="ns-head">
-                <h2 class="ns-title">{{ $section['title'] }}</h2>
+                <div>
+                  <h2 class="ns-title">{{ $section['title'] }}</h2>
+                  @if(!empty($section['subtitle']))
+                    <p style="margin: 6px 0 0; color: #888888; font-size: 15px; font-weight: 500;">{{ $section['subtitle'] }}</p>
+                  @endif
+                </div>
                 <a href="{{ $section['url'] }}" class="ns-more">
                   Ver Todo
                   <svg viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>

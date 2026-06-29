@@ -1,11 +1,8 @@
-{{-- ✅ PÉGALO COMPLETO  
-   - Desktop: TODO igual.
-   - Móvil:
-      - El BUSCADOR se queda ARRIBA.
-      - SOLO los filtros se van al Bottom Sheet.
-      - La tabla en móvil se vuelve cards apiladas.
-      - Ahora muestra stock, stock mínimo, stock máximo y marca stock crítico.
-   - NUEVO: filtro "Muestras" (por defecto el catálogo NO muestra muestras).
+{{-- ✅ PÉGALO COMPLETO
+   - Buscador: ya NO te corta al escribir. Debounce 800ms + el cursor vuelve solo al
+     final del texto después de recargar, así puedes seguir escribiendo.
+   - Muestras: filtro de 3 pestañas (Catálogo / Muestras / Todos). Por defecto NO se ven muestras.
+   - Las filas de muestra se ven con tinte ámbar y badge más claro (incluye quién la tiene).
 --}}
 @extends('layouts.app')
 @section('title','Productos Web')
@@ -177,6 +174,12 @@
   .tab:hover{ background:rgba(52,211,153,.10); transform: translateY(-1px); box-shadow:0 10px 18px rgba(15,23,42,.05); }
   .tab.is-active{ background:var(--acc-soft); color:var(--acc-ink); box-shadow:0 12px 22px rgba(52,211,153,.12); }
 
+  /* Pestañas de muestras: acento ámbar para distinguirlas del estado */
+  .tabs.tabs-samples .tab.is-active{
+    background:#fef3c7; color:#92400e; box-shadow:0 12px 22px rgba(245,158,11,.16);
+  }
+  .tabs.tabs-samples .tab:hover{ background:rgba(245,158,11,.12); }
+
   .chip{
     display:inline-flex; align-items:center; gap:10px;
     padding:10px 14px; border-radius:999px;
@@ -266,6 +269,10 @@
   .stock-critical-badge{ margin-top:6px; }
   tr.is-critical-row td{
     background:linear-gradient(90deg, rgba(255,235,235,.72), #ffffff 42%) !important;
+  }
+  /* Fila de muestra: tinte ámbar para reconocerla de un vistazo */
+  tr.is-sample-row td{
+    background:linear-gradient(90deg, rgba(254,243,199,.58), #ffffff 46%) !important;
   }
 
   .actions{ display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
@@ -411,6 +418,11 @@
       box-shadow:0 14px 30px rgba(15,23,42,.06);
       padding:12px;
       margin:12px 0;
+    }
+    /* En móvil resaltamos la card de muestra con borde ámbar */
+    tbody tr.is-sample-row{
+      border-color:#fde68a;
+      box-shadow:0 14px 30px rgba(245,158,11,.12);
     }
     tbody td{ border:0; padding:0; background:transparent !important; }
     .stock-mobile-space{ margin-top:10px; }
@@ -673,18 +685,29 @@
       return $labels[$unit] ?? ucfirst($unit ?: 'pieza');
   };
 
-  $samplesOnly = request()->boolean('samples_only');
-  $hasFilters  = request()->hasAny(['s','status','featured_only','samples_only']);
+  // Modo de muestras: '' = catálogo, 'only' = solo muestras, 'all' = todos
+  $samplesMode = (string) request('samples', '');
+  $samplesOnly = $samplesMode === 'only';
+  $hasFilters  = request()->hasAny(['s','status','featured_only','samples']);
+
+  // Título según el modo
+  $tituloLista = match ($samplesMode) {
+      'only' => 'Muestras Jureto',
+      'all'  => 'Inventario Jureto (todos)',
+      default => 'Inventario Jureto',
+  };
 @endphp
 
 <div class="wrap">
 
   <div class="head">
     <div>
-      <h1 class="title">{{ $samplesOnly ? 'Muestras Jureto' : 'Inventario Jureto' }}</h1>
+      <h1 class="title">{{ $tituloLista }}</h1>
       <p class="muted subtxt">
-        @if($samplesOnly)
+        @if($samplesMode === 'only')
           Productos marcados como muestra (no se venden ni se publican en marketplaces).
+        @elseif($samplesMode === 'all')
+          Catálogo de venta y muestras juntos. Las muestras aparecen resaltadas en ámbar.
         @else
           Gestiona el catálogo público y sincroniza con Mercado Libre con acciones rápidas.
         @endif
@@ -737,14 +760,14 @@
   <div class="filters">
     <form id="filtersForm" method="GET" action="{{ route('admin.catalog.index') }}" class="filters-row">
       <div class="tt" style="flex:1; min-width:0;">
-        <span class="tt-bubble">Buscar por nombre, SKU o slug</span>
+        <span class="tt-bubble">Buscar por nombre o SKU</span>
         <div class="search">
           <span class="sico">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
             </svg>
           </span>
-          <input id="sInput" type="search" name="s" placeholder="Buscar por nombre, SKU o slug…" value="{{ request('s') }}" autocomplete="off" />
+          <input id="sInput" type="search" name="s" placeholder="Buscar por nombre o SKU…" value="{{ request('s') }}" autocomplete="off" />
         </div>
       </div>
 
@@ -768,11 +791,12 @@
         </div>
 
         <div class="tt">
-          <span class="tt-bubble">Mostrar solo muestras (no se venden)</span>
-          <label class="chip">
-            <input id="samplesInput" type="checkbox" name="samples_only" value="1" @checked($samplesOnly)>
-            Muestras
-          </label>
+          <span class="tt-bubble">Catálogo, solo muestras o todos juntos</span>
+          <div class="tabs tabs-samples" role="tablist" aria-label="Muestras">
+            <button type="button" class="tab {{ $samplesMode==='' ? 'is-active' : '' }}" data-samples="">Catálogo</button>
+            <button type="button" class="tab {{ $samplesMode==='only' ? 'is-active' : '' }}" data-samples="only">Muestras</button>
+            <button type="button" class="tab {{ $samplesMode==='all' ? 'is-active' : '' }}" data-samples="all">Todos</button>
+          </div>
         </div>
 
         @if($hasFilters)
@@ -791,6 +815,7 @@
       </div>
 
       <input type="hidden" name="status" id="statusInput" value="{{ $st }}">
+      <input type="hidden" name="samples" id="samplesInput" value="{{ $samplesMode }}">
     </form>
   </div>
 
@@ -826,9 +851,13 @@
 
             $esMuestra = (bool)($it->is_sample ?? false);
             $muestraLabel = ($esMuestra && method_exists($it, 'sampleStatusLabel')) ? $it->sampleStatusLabel() : null;
+            $muestraHolder = $esMuestra ? trim((string)($it->sample_holder ?? '')) : '';
+
+            // Prioridad de color de fila: crítico > muestra
+            $rowClass = $stockCritico ? 'is-critical-row' : ($esMuestra ? 'is-sample-row' : '');
           @endphp
 
-          <tr class="{{ $stockCritico ? 'is-critical-row' : '' }}">
+          <tr class="{{ $rowClass }}">
             <td class="img-cell">
               <div class="thumbbox">
                 <img
@@ -852,18 +881,23 @@
                 </div>
 
                 <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:6px;">
+                  @if($esMuestra)
+                    <span class="badge b-sample">
+                      <span class="dot"></span>Muestra{{ $muestraLabel ? ' · '.$muestraLabel : '' }}
+                    </span>
+                    @if($muestraHolder !== '')
+                      <span class="badge" style="background:#fff7ed;border-color:#fed7aa;color:#9a3412;">
+                        <span class="dot" style="background:#fb923c"></span>Con: {{ $muestraHolder }}
+                      </span>
+                    @endif
+                  @endif
+
                   @if($it->status === 1)
                     <span class="badge b-live"><span class="dot"></span>Publicado</span>
                   @elseif($it->status === 2)
                     <span class="badge b-hidden"><span class="dot"></span>Oculto</span>
                   @else
                     <span class="badge b-draft"><span class="dot"></span>Borrador</span>
-                  @endif
-
-                  @if($esMuestra)
-                    <span class="badge b-sample">
-                      <span class="dot"></span>Muestra{{ $muestraLabel ? ' · '.$muestraLabel : '' }}
-                    </span>
                   @endif
 
                   @if($it->is_featured)
@@ -920,7 +954,9 @@
             </td>
 
             <td>
-              @if($it->status === 1)
+              @if($esMuestra)
+                <span class="badge b-sample"><span class="dot"></span>Muestra</span>
+              @elseif($it->status === 1)
                 <span class="badge b-live"><span class="dot"></span>Publicado</span>
               @elseif($it->status === 2)
                 <span class="badge b-hidden"><span class="dot"></span>Oculto</span>
@@ -1089,7 +1125,11 @@
         @empty
           <tr>
             <td colspan="8" class="muted" style="text-align:center; padding:28px;">
-              {{ $samplesOnly ? 'No hay muestras registradas.' : 'No hay productos que coincidan con el filtro.' }}
+              @if($samplesMode === 'only')
+                No hay muestras registradas.
+              @else
+                No hay productos que coincidan con el filtro.
+              @endif
             </td>
           </tr>
         @endforelse
@@ -1266,6 +1306,7 @@
   <form id="sheetForm" method="GET" action="{{ route('admin.catalog.index') }}" class="sf">
     <input type="hidden" name="s" id="sMirror" value="{{ request('s') }}">
 
+    <div class="sheet-section-label">Estado</div>
     <div class="tabs" role="tablist" aria-label="Estado (móvil)">
       <button type="button" class="tab {{ $st==='' ? 'is-active' : '' }}" data-status="">Todos</button>
       <button type="button" class="tab {{ $st==='1' ? 'is-active' : '' }}" data-status="1">Publicado</button>
@@ -1275,14 +1316,18 @@
 
     <input type="hidden" name="status" id="statusSheet" value="{{ $st }}">
 
+    <div class="sheet-section-label">Muestras</div>
+    <div class="tabs tabs-samples" role="tablist" aria-label="Muestras (móvil)">
+      <button type="button" class="tab {{ $samplesMode==='' ? 'is-active' : '' }}" data-samples-sheet="">Catálogo</button>
+      <button type="button" class="tab {{ $samplesMode==='only' ? 'is-active' : '' }}" data-samples-sheet="only">Muestras</button>
+      <button type="button" class="tab {{ $samplesMode==='all' ? 'is-active' : '' }}" data-samples-sheet="all">Todos</button>
+    </div>
+
+    <input type="hidden" name="samples" id="samplesSheetInput" value="{{ $samplesMode }}">
+
     <label class="chip">
       <input id="featuredSheet" type="checkbox" name="featured_only" value="1" @checked(request()->boolean('featured_only'))>
       Destacados
-    </label>
-
-    <label class="chip">
-      <input id="samplesSheet" type="checkbox" name="samples_only" value="1" @checked($samplesOnly)>
-      Solo muestras
     </label>
 
     <a href="{{ route('admin.catalog.create') }}" class="btn">
@@ -1370,13 +1415,29 @@
   const form = document.getElementById('filtersForm');
   const sInput = document.getElementById('sInput');
   const statusInput = document.getElementById('statusInput');
-  const tabs = Array.from(document.querySelectorAll('#filtersForm .tab'));
+  const tabs = Array.from(document.querySelectorAll('#filtersForm .tab[data-status]'));
   const featured = document.getElementById('featuredInput');
-  const samples = document.getElementById('samplesInput');
 
-  const submitDebounced = debounce(()=> form?.submit(), 450);
+  // Pestañas de muestras (desktop)
+  const samplesTabs = Array.from(document.querySelectorAll('#filtersForm [data-samples]'));
+  const samplesHidden = document.getElementById('samplesInput');
 
+  // --- BUSCADOR: no recargar tan rápido + devolver el foco después de recargar ---
+  // Subimos el debounce a 800ms para que no te corte mientras escribes.
+  const submitDebounced = debounce(()=> form?.submit(), 800);
   sInput?.addEventListener('input', submitDebounced);
+
+  // Al cargar, si hay texto en el buscador, le devolvemos el foco
+  // y ponemos el cursor al final para que puedas seguir escribiendo sin perder nada.
+  window.addEventListener('DOMContentLoaded', ()=>{
+    if(sInput && sInput.value){
+      sInput.focus();
+      const v = sInput.value;
+      // truco para mover el cursor al final del texto
+      sInput.value = '';
+      sInput.value = v;
+    }
+  });
 
   tabs.forEach(btn=>{
     btn.addEventListener('click', ()=>{
@@ -1386,8 +1447,17 @@
       form?.submit();
     });
   });
+
   featured?.addEventListener('change', ()=> form?.submit());
-  samples?.addEventListener('change', ()=> form?.submit());
+
+  samplesTabs.forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      samplesTabs.forEach(x=>x.classList.remove('is-active'));
+      btn.classList.add('is-active');
+      if(samplesHidden) samplesHidden.value = btn.dataset.samples ?? '';
+      form?.submit();
+    });
+  });
 
   const root = document.documentElement;
   const fab = document.getElementById('fabOpen');
@@ -1416,9 +1486,12 @@
   const sheetForm = document.getElementById('sheetForm');
   const sMirror = document.getElementById('sMirror');
   const statusSheet = document.getElementById('statusSheet');
-  const tabSheet = Array.from(document.querySelectorAll('#sheetForm .tab'));
+  const tabSheet = Array.from(document.querySelectorAll('#sheetForm .tab[data-status]'));
   const featuredSheet = document.getElementById('featuredSheet');
-  const samplesSheet = document.getElementById('samplesSheet');
+
+  // Pestañas de muestras (móvil)
+  const samplesSheetTabs = Array.from(document.querySelectorAll('#sheetForm [data-samples-sheet]'));
+  const samplesSheetHidden = document.getElementById('samplesSheetInput');
 
   function syncSearchToSheet(){
     if(!sMirror || !sInput) return;
@@ -1442,9 +1515,14 @@
     sheetForm?.submit();
   });
 
-  samplesSheet?.addEventListener('change', ()=>{
-    syncSearchToSheet();
-    sheetForm?.submit();
+  samplesSheetTabs.forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      samplesSheetTabs.forEach(x=>x.classList.remove('is-active'));
+      btn.classList.add('is-active');
+      if(samplesSheetHidden) samplesSheetHidden.value = btn.dataset.samplesSheet ?? '';
+      syncSearchToSheet();
+      sheetForm?.submit();
+    });
   });
 
   const stockModal = document.getElementById('stockModal');

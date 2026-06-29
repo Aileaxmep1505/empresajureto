@@ -2521,3 +2521,10 @@ Route::get('/home-banners/live-version', function () {
 
 Route::get('/propuestas-comerciales/{propuestaComercial}/cliente/word', [PropuestaComercialController::class, 'clienteWord'])
     ->name('propuestas-comerciales.cliente.word');
+
+    use App\Http\Controllers\Admin\HomeProductSectionController;
+Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
+    Route::resource('home-product-sections', HomeProductSectionController::class)
+        ->except(['show'])
+        ->names('home-product-sections');
+});
