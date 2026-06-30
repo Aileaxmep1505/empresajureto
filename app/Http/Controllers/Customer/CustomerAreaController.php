@@ -15,7 +15,7 @@ use App\Services\SkydropxProClient;
 class CustomerAreaController extends Controller
 {
     /**
-     * Perfil del cliente con tabs: resumen, pedidos, datos, facturación, facturas, direcciones.
+     * Perfil del cliente con tabs: resumen, pedidos, datos, facturaciÃƒÂ³n, facturas, direcciones.
      * GET /mi-cuenta
      */
     public function profile(Request $request)
@@ -29,7 +29,7 @@ class CustomerAreaController extends Controller
             ->with('items')
             ->latest('created_at');
 
-        // ✅ Mejor: si guardas user_id en orders, usa eso
+        // Ã¢Å“â€¦ Mejor: si guardas user_id en orders, usa eso
         if (!empty($user->id)) {
             $ordersQuery->where('user_id', $user->id);
         } else {
@@ -46,7 +46,7 @@ class CustomerAreaController extends Controller
 
         $orders = $ordersQuery->get();
 
-        // Perfiles de facturación del usuario
+        // Perfiles de facturaciÃƒÂ³n del usuario
         $billingProfiles = BillingProfile::where('user_id', $user->id)
             ->orderByDesc('is_default')
             ->get();
@@ -62,7 +62,7 @@ class CustomerAreaController extends Controller
             }
         }
 
-        // KPIs rápidos
+        // KPIs rÃƒÂ¡pidos
         $stats = [
             'orders_total'  => $orders->count(),
             'orders_open'   => $orders->filter(fn ($o) => strtolower((string) $o->status) !== 'cancelado')->count(),
@@ -87,7 +87,7 @@ class CustomerAreaController extends Controller
     }
 
     /**
-     * ✅ DETALLE DEL PEDIDO (CLIENTE)
+     * Ã¢Å“â€¦ DETALLE DEL PEDIDO (CLIENTE)
      * GET /mi-cuenta/pedidos/{order}
      */
     public function orderShow(Request $request, Order $order)
@@ -112,7 +112,7 @@ class CustomerAreaController extends Controller
         $st = strtolower((string)($order->shipment_status ?: $order->status));
         $progress = $this->progressFromStatus($st);
 
-        // Timeline básica
+        // Timeline bÃƒÂ¡sica
         $timeline = [];
         $push = function ($label, $time = null, $desc = null) use (&$timeline) {
             $timeline[] = ['label'=>$label,'time'=>$time,'desc'=>$desc];
@@ -129,15 +129,15 @@ class CustomerAreaController extends Controller
         }
 
         if (in_array($st, ['quoted'])) {
-            $push('Cotización de envío lista', null, 'Tu envío fue cotizado en SkydropX.');
+            $push('CotizaciÃƒÂ³n de envÃƒÂ­o lista', null, 'Tu envÃƒÂ­o fue cotizado en SkydropX.');
         }
 
         if (in_array($st, ['labeled'])) {
-            $push('Guía generada', null, $shipping['code'] ? ('Guía: '.$shipping['code']) : 'Guía lista.');
+            $push('GuÃƒÂ­a generada', null, $shipping['code'] ? ('GuÃƒÂ­a: '.$shipping['code']) : 'GuÃƒÂ­a lista.');
         }
 
         if (in_array($st, ['shipped','enviado','in_transit','out_for_delivery','en_reparto','delivered','entregado'])) {
-            $push('Enviado', null, $shipping['code'] ? ('Guía: '.$shipping['code']) : 'Tu pedido ya salió.');
+            $push('Enviado', null, $shipping['code'] ? ('GuÃƒÂ­a: '.$shipping['code']) : 'Tu pedido ya saliÃƒÂ³.');
         }
 
         if (in_array($st, ['delivered','entregado'])) {
@@ -152,7 +152,7 @@ class CustomerAreaController extends Controller
     }
 
     /**
-     * Reordenar: vuelve a agregar al carrito (en sesión) los ítems de un pedido.
+     * Reordenar: vuelve a agregar al carrito (en sesiÃƒÂ³n) los ÃƒÂ­tems de un pedido.
      * POST /mi-cuenta/pedidos/{order}/repetir
      */
     public function reorder(Order $order)
@@ -185,7 +185,7 @@ class CustomerAreaController extends Controller
     }
 
     /**
-     * Seguimiento real con Skydropx si hay guía; si no, fallback a timeline simple.
+     * Seguimiento real con Skydropx si hay guÃƒÂ­a; si no, fallback a timeline simple.
      * GET /mi-cuenta/pedidos/{order}/rastreo
      */
     public function tracking(Request $request, Order $order, SkydropxProClient $skydropx)
@@ -199,7 +199,65 @@ class CustomerAreaController extends Controller
         $code    = $order->shipping_code;
         $eta     = $order->shipping_eta;
 
-        // ✅ 1) Si hay guía, intenta tracking real en Skydropx
+        if (filter_var(env('ENVIA_TRACKING_TEST_MODE', false), FILTER_VALIDATE_BOOLEAN)) {
+            $status = $order->shipment_status ?: 'in_transit';
+            $progress = $this->progressFromStatus((string)$status);
+
+            $events = [
+                [
+                    'time' => optional($order->created_at)->toIso8601String(),
+                    'status' => 'Pedido creado',
+                    'location' => 'Tienda Jureto',
+                    'details' => 'Recibimos tu pedido correctamente.',
+                ],
+                [
+                    'time' => optional($order->created_at)->addMinutes(8)->toIso8601String(),
+                    'status' => 'Pago confirmado',
+                    'location' => 'Stripe',
+                    'details' => 'Pago recibido y validado.',
+                ],
+                [
+                    'time' => optional($order->created_at)->addMinutes(35)->toIso8601String(),
+                    'status' => 'Envio preparado',
+                    'location' => 'Almacen Jureto',
+                    'details' => 'Tu pedido esta siendo preparado para entrega.',
+                ],
+                [
+                    'time' => optional($order->created_at)->addHours(2)->toIso8601String(),
+                    'status' => 'Guia asignada en modo prueba',
+                    'location' => (string)($carrier ?: 'Envia.com'),
+                    'details' => $code ? ('Codigo de prueba: '.$code) : 'Codigo pendiente.',
+                ],
+                [
+                    'time' => optional($order->created_at)->addHours(6)->toIso8601String(),
+                    'status' => 'En transito',
+                    'location' => (string)($carrier ?: 'Paqueteria'),
+                    'details' => $service ? ('Servicio: '.$service) : 'Movimiento simulado de prueba.',
+                ],
+                [
+                    'time' => optional($order->created_at)->addHours(12)->toIso8601String(),
+                    'status' => 'Centro de distribucion',
+                    'location' => 'Ruta nacional',
+                    'details' => 'El paquete continua avanzando hacia destino.',
+                ],
+            ];
+
+            usort($events, fn($a,$b)=> strcmp((string)($b['time'] ?? ''), (string)($a['time'] ?? '')));
+
+            return response()->json([
+                'ok' => true,
+                'mode' => 'test',
+                'carrier' => $carrier ?: 'Envia.com',
+                'service' => $service,
+                'code' => $code,
+                'eta' => $eta,
+                'status' => $status,
+                'progress' => max($progress, 75),
+                'events' => $events,
+            ]);
+        }
+
+        // Ã¢Å“â€¦ 1) Si hay guÃƒÂ­a, intenta tracking real en Skydropx
         // OJO: para que esto funcione debes implementar trackingByCode() en SkydropxProClient
         if (!empty($code) && method_exists($skydropx, 'trackingByCode')) {
             try {
@@ -263,7 +321,7 @@ class CustomerAreaController extends Controller
             }
         }
 
-        // ✅ 2) Fallback
+        // Ã¢Å“â€¦ 2) Fallback
         [$status, $events, $progress] = $this->fallbackTimeline($order);
 
         return response()->json([
@@ -279,7 +337,7 @@ class CustomerAreaController extends Controller
     }
 
     /**
-     * Abre/descarga la guía del envío si tienes la URL guardada en el pedido.
+     * Abre/descarga la guÃƒÂ­a del envÃƒÂ­o si tienes la URL guardada en el pedido.
      * GET /mi-cuenta/pedidos/{order}/guia
      */
     public function label(Request $request, Order $order)
@@ -288,12 +346,12 @@ class CustomerAreaController extends Controller
             abort(403, 'No autorizado.');
         }
 
-        $labelUrl = $order->shipping_label_url ?? null;
+        $labelUrl = $order->shipping_label_url ?? $order->shipping_label_pdf_url ?? null;
         if ($labelUrl) {
             return redirect()->away($labelUrl);
         }
 
-        abort(404, 'Guía no disponible.');
+        abort(404, 'GuÃƒÂ­a no disponible.');
     }
 
     /* ===================== Helpers ===================== */
@@ -302,7 +360,7 @@ class CustomerAreaController extends Controller
     {
         $user = Auth::user();
 
-        // Si tu order guarda user_id, úsalo
+        // Si tu order guarda user_id, ÃƒÂºsalo
         if (!empty($order->user_id) && !empty($user->id)) {
             return (int)$order->user_id === (int)$user->id;
         }
@@ -331,9 +389,9 @@ class CustomerAreaController extends Controller
 
         if (in_array($st, ['paid','pagado'])) $push('Pago confirmado', null, null, 'Pago recibido');
         if (in_array($st, ['processing','procesando','preparando'])) $push('Preparando pedido');
-        if (in_array($st, ['quoted'])) $push('Cotización de envío lista');
-        if (in_array($st, ['labeled'])) $push('Guía generada', null, $order->shipping_name, $order->shipping_code ? 'Guía: '.$order->shipping_code : null);
-        if (in_array($st, ['shipped','enviado','in_transit'])) $push('En tránsito', null, $order->shipping_name, $order->shipping_service);
+        if (in_array($st, ['quoted'])) $push('CotizaciÃƒÂ³n de envÃƒÂ­o lista');
+        if (in_array($st, ['labeled'])) $push('GuÃƒÂ­a generada', null, $order->shipping_name, $order->shipping_code ? 'GuÃƒÂ­a: '.$order->shipping_code : null);
+        if (in_array($st, ['shipped','enviado','in_transit'])) $push('En trÃƒÂ¡nsito', null, $order->shipping_name, $order->shipping_service);
         if (in_array($st, ['out_for_delivery','en_reparto'])) $push('En reparto', null, $order->shipping_name);
         if (in_array($st, ['delivered','entregado'])) $push('Entregado', null, 'Destino');
         if (in_array($st, ['cancelled','canceled','cancelado'])) $push('Cancelado');

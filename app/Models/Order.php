@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Order extends Model
 {
+
     protected $table = 'orders';
 
     protected $fillable = [
@@ -24,7 +25,7 @@ class Order extends Model
         'status',
 
         'address_json',
-        'shipping_code',         // tracking / guía
+        'shipping_code',         // tracking / guÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­a
         'shipping_name',
         'shipping_service',
         'shipping_eta',
@@ -35,7 +36,7 @@ class Order extends Model
         'stripe_payment_intent',
         'invoice_id',
 
-        // ✅ Skydropx PRO
+        // ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ Skydropx PRO
         'skydropx_quotation_id',
         'skydropx_rate_id',
         'shipping_label_url',    // PDF
@@ -43,6 +44,7 @@ class Order extends Model
     ];
 
     protected $casts = [
+        'shipping_meta'          => 'array',
         'subtotal'              => 'float',
         'shipping_amount'       => 'float',
         'tax'                   => 'float',
@@ -86,7 +88,7 @@ class Order extends Model
         }
     }
 
-    /** Búsqueda idempotente por sesión de Stripe. */
+    /** BÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âºsqueda idempotente por sesiÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n de Stripe. */
     public static function findByStripeSession(?string $sid): ?self
     {
         if (!$sid) return null;

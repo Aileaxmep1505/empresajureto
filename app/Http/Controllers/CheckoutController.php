@@ -1,4 +1,4 @@
-<?php 
+<?php
 
 namespace App\Http\Controllers;
 
@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Mail; // <- IMPORTANTE
 use Illuminate\Validation\Rule;
 use Stripe\StripeClient;
+use App\Services\SkydropxService;
+use App\Services\EnviaComService;
 
 use App\Models\CatalogItem;
 use App\Models\BillingProfile;
@@ -26,19 +28,24 @@ use App\Services\FacturapiWebClient;
 class CheckoutController extends Controller
 {
     private StripeClient $stripe;
-    private FacturapiWebClient $facturapi;
-    protected float $threshold;
+private FacturapiWebClient $facturapi;
+private SkydropxService $skydropx;
+private EnviaComService $envia;
+protected float $threshold;
 
-    public function __construct(FacturapiWebClient $facturapi)
-    {
-        $secret = config('services.stripe.secret');
-        if (blank($secret)) {
-            throw new \RuntimeException('Falta STRIPE_SECRET en el .env o en config/services.php');
-        }
-        $this->stripe    = new StripeClient($secret);
-        $this->facturapi = $facturapi;
-        $this->threshold = (float) env('FREE_SHIPPING_THRESHOLD', 5000);
+public function __construct(FacturapiWebClient $facturapi, SkydropxService $skydropx, EnviaComService $envia)
+{
+    $secret = config('services.stripe.secret');
+    if (blank($secret)) {
+        throw new \RuntimeException('Falta STRIPE_SECRET en el .env o en config/services.php');
     }
+
+    $this->stripe    = new StripeClient($secret);
+    $this->facturapi = $facturapi;
+    $this->skydropx  = $skydropx;
+    $this->envia     = $envia;
+    $this->threshold = (float) env('FREE_SHIPPING_THRESHOLD', 5000);
+}
 
     /* ===========================================================
      * PASO 1: “Mi pedido”
@@ -337,60 +344,116 @@ class CheckoutController extends Controller
     /* ===========================================================
      * PASO 3: Envío
      * =========================================================== */
-    public function shipping(Request $req)
-    {
-        $cart = $this->getCartRows();
-        if (empty($cart)) {
-            return redirect()->route('web.cart.index')->with('ok','Tu carrito está vacío.');
-        }
-
-        $subtotal  = array_reduce($cart, fn($c,$r)=> $c + ($r['price']*$r['qty']), 0);
-        $threshold = $this->threshold;
-
-        $address = null;
-        if ($id = session('checkout.address_id')) {
-            $address = ShippingAddress::where('user_id', Auth::id())->find($id);
-        }
-
-        $all = session('shipping.options', []);
-        if (empty($all)) {
-            $all = [
-                ['code'=>'dhl-express',     'name'=>'DHL',     'service'=>'Express',  'eta'=>'2 a 5 días hábiles', 'price'=>329.57],
-                ['code'=>'fedex-ground',    'name'=>'FedEx',   'service'=>'Ground',   'eta'=>'2 a 4 días hábiles', 'price'=>289.99],
-                ['code'=>'estafeta-econo',  'name'=>'Estafeta','service'=>'Económico','eta'=>'3 a 6 días hábiles', 'price'=>249.00],
-            ];
-        }
-
-        $carriers = array_values(array_filter($all, fn($o) => (float)($o['price'] ?? 0) > 0));
-        session(['shipping.options_norm' => $carriers]);
-
-        if ($subtotal >= $threshold && !empty($carriers)) {
-            usort($carriers, fn($a,$b) => (float)$a['price'] <=> (float)$b['price']);
-            $best = $carriers[0];
-
-            session(['checkout.shipping' => [
-                'code'        => $best['code'],
-                'name'        => $best['name']    ?? ($best['carrier'] ?? 'Paquetería'),
-                'service'     => $best['service'] ?? null,
-                'eta'         => $best['eta']     ?? null,
-                'price'       => 0.0,
-                'store_pays'  => true,
-                'carrier_cost'=> (float)($best['price'] ?? 0),
-                'auto_applied'=> true,
-            ]]);
-
-            return redirect()
-                ->route('checkout.payment')
-                ->with('ok', 'Envío gratis aplicado (cubierto por la tienda con la paquetería más económica).');
-        }
-
-        $selected = session('checkout.shipping', [
-            'code'=>null,'price'=>0.0,'name'=>null,'eta'=>null,'service'=>null
-        ]);
-
-        return view('checkout.shipping', compact('cart','subtotal','address','carriers','selected'));
+   public function shipping(Request $req)
+{
+    $cart = $this->getCartRows();
+    if (empty($cart)) {
+        return redirect()->route('web.cart.index')->with('ok','Tu carrito está vacío.');
     }
 
+    $subtotal  = array_reduce($cart, fn($c,$r)=> $c + ($r['price']*$r['qty']), 0);
+    $threshold = $this->threshold;
+
+    $address = null;
+    if ($id = session('checkout.address_id')) {
+        $address = ShippingAddress::where('user_id', Auth::id())->find($id);
+    }
+
+    session()->forget(['shipping.options', 'shipping.options_norm', 'shipping.selected']);
+
+    $all = [];
+
+    if ($address) {
+        try {
+            $all = $this->envia->quote($address, $cart, $subtotal);
+        } catch (\Throwable $e) {
+            \Log::warning('Envia no disponible en checkout', [
+                'message' => $e->getMessage(),
+            ]);
+            $all = [];
+        }
+
+        if (empty($all)) {
+            try {
+                $all = $this->skydropx->quote([
+                    'postal_code'  => $address->postal_code,
+                    'state'        => $address->state,
+                    'municipality' => $address->municipality,
+                    'colony'       => $address->colony,
+                ], $cart);
+            } catch (\Throwable $e) {
+                \Log::warning('Skydropx no disponible en checkout', [
+                    'message' => $e->getMessage(),
+                ]);
+                $all = [];
+            }
+        }
+
+        session(['shipping.options' => $all]);
+    }
+
+    $carriers = array_values(array_filter($all, fn($o) => (float)($o['price'] ?? $o['amount'] ?? 0) > 0));
+
+    $carriers = array_map(function ($o) {
+        if (empty($o['code']) && !empty($o['id'])) {
+            $o['code'] = $o['id'];
+        }
+
+        if (empty($o['eta']) && !empty($o['days'])) {
+            $o['eta'] = $o['days'];
+        }
+
+        if (empty($o['price']) && !empty($o['amount'])) {
+            $o['price'] = $o['amount'];
+        }
+
+        if (empty($o['name'])) {
+            $o['name'] = $o['provider'] ?? $o['carrier'] ?? 'Envío estándar';
+        }
+
+        return $o;
+    }, $carriers);
+
+    session(['shipping.options_norm' => $carriers]);
+
+    if (count($carriers) === 1) {
+        $only = $carriers[0];
+
+        session(['checkout.shipping' => [
+            'code'    => $only['code'] ?? $only['id'] ?? 'manual_shipping',
+            'name'    => $only['name'] ?? $only['provider'] ?? 'Envío estándar',
+            'service' => $only['service'] ?? 'Tarifa por zona',
+            'eta'     => $only['eta'] ?? $only['days'] ?? $only['delivery_days'] ?? null,
+            'price'   => (float)($only['price'] ?? $only['amount'] ?? 0),
+        ]]);
+    }
+
+    if ($subtotal >= $threshold && !empty($carriers)) {
+        usort($carriers, fn($a,$b) => (float)$a['price'] <=> (float)$b['price']);
+        $best = $carriers[0];
+
+        session(['checkout.shipping' => [
+            'code'        => $best['code'],
+            'name'        => $best['name']    ?? ($best['carrier'] ?? 'Paquetería'),
+            'service'     => $best['service'] ?? null,
+            'eta'         => $best['eta']     ?? null,
+            'price'       => 0.0,
+            'store_pays'  => true,
+            'carrier_cost'=> (float)($best['price'] ?? 0),
+            'auto_applied'=> true,
+        ]]);
+
+        return redirect()
+            ->route('checkout.payment')
+            ->with('ok', 'Envío gratis aplicado (cubierto por la tienda con la paquetería más económica).');
+    }
+
+    $selected = session('checkout.shipping', [
+        'code'=>null,'price'=>0.0,'name'=>null,'eta'=>null,'service'=>null
+    ]);
+
+    return view('checkout.shipping', compact('cart','subtotal','address','carriers','selected'));
+}
     public function shippingSelect(Request $req)
     {
         $data = $req->validate([
@@ -401,18 +464,53 @@ class CheckoutController extends Controller
             'eta'     => 'nullable',
         ]);
 
+        $selectedCode = $data['code'];
+
         $norm = collect(session('shipping.options_norm', []));
-        $opt  = $norm->firstWhere('code', $data['code']);
+        $opt  = $norm->first(function ($o) use ($selectedCode) {
+            return ($o['code'] ?? null) === $selectedCode
+                || ($o['id'] ?? null) === $selectedCode;
+        });
 
         if (!$opt) {
             $all = collect(session('shipping.options', []));
-            $opt = $all->firstWhere('code', $data['code']);
+            $opt = $all->first(function ($o) use ($selectedCode) {
+                return ($o['code'] ?? null) === $selectedCode
+                    || ($o['id'] ?? null) === $selectedCode;
+            });
         }
 
         if (!$opt) {
-            return back()->withErrors(['code'=>'Opción de envío no válida o expirada.']);
+            $postedPrice = (float) str_replace(',', '', (string) $req->input('price', 0));
+
+            if ($selectedCode && $postedPrice > 0) {
+                $opt = [
+                    'code'    => $selectedCode,
+                    'name'    => $req->input('name') ?: 'Paquetería',
+                    'service' => $req->input('service') ?: null,
+                    'eta'     => $req->input('eta') ?: null,
+                    'price'   => $postedPrice,
+                ];
+            } else {
+                return back()->withErrors(['code'=>'Selecciona una opción de envío antes de continuar.']);
+            }
         }
 
+        if (empty($opt['code']) && !empty($opt['id'])) {
+            $opt['code'] = $opt['id'];
+        }
+
+        if (empty($opt['eta']) && !empty($opt['days'])) {
+            $opt['eta'] = $opt['days'];
+        }
+
+        if (empty($opt['price']) && !empty($opt['amount'])) {
+            $opt['price'] = $opt['amount'];
+        }
+
+        if (empty($opt['name'])) {
+            $opt['name'] = $opt['provider'] ?? $opt['carrier'] ?? 'Envío estándar';
+        }
         $cart = $this->getCartRows();
         $subtotal  = array_reduce($cart, fn($c,$r)=> $c + ($r['price']*$r['qty']), 0);
         $threshold = $this->threshold;
@@ -614,6 +712,14 @@ class CheckoutController extends Controller
             // 1) Confirmar pago en Stripe
             $session = $this->stripe->checkout->sessions->retrieve($sessionId);
             $paid    = ($session->payment_status ?? null) === 'paid';
+            $cartForOrder = $this->getCartRows();
+
+            Log::info('CHECKOUT SUCCESS DEBUG', [
+                'session_id' => $sessionId,
+                'payment_status' => $session->payment_status ?? null,
+                'cart_before_clear' => session('cart', []),
+            ]);
+
 
             // Datos base
             $user    = Auth::user();
@@ -621,7 +727,7 @@ class CheckoutController extends Controller
             $emailU  = $user?->email;
             $nameU   = $user?->name;
 
-            $cart    = $this->getCartRows();
+            $cart    = !empty($cartForOrder ?? []) ? $cartForOrder : $this->getCartRows();
             $subtotal = array_reduce($cart, fn($c,$r)=> $c + (($r['price'] ?? 0) * max(1,(int)($r['qty'] ?? 1))), 0.0);
 
             // Dirección
@@ -692,6 +798,54 @@ class CheckoutController extends Controller
                 $orderData
             );
 
+            // FORCE_ORDER_ITEMS_FROM_STRIPE
+            // Si el carrito de Laravel ya no existe al volver de Stripe, recuperar productos desde Stripe.
+            if (empty($cart)) {
+                $cart = (array) session('checkout.cart_snapshot', []);
+            }
+
+            if (empty($cart) && !empty($sessionId)) {
+                try {
+                    $lineItems = \Stripe\Checkout\Session::allLineItems($sessionId, ['limit' => 100]);
+                    $cart = [];
+
+                    foreach (($lineItems->data ?? []) as $li) {
+                        $qty = max(1, (int)($li->quantity ?? 1));
+
+                        $unitAmount = 0;
+                        if (isset($li->price) && isset($li->price->unit_amount)) {
+                            $unitAmount = ((int)$li->price->unit_amount) / 100;
+                        } elseif (isset($li->amount_subtotal) && $qty > 0) {
+                            $unitAmount = (((int)$li->amount_subtotal) / 100) / $qty;
+                        }
+
+                        $cart[] = [
+                            'id'    => null,
+                            'name'  => $li->description ?? 'Producto',
+                            'sku'   => null,
+                            'price' => round((float)$unitAmount, 2),
+                            'qty'   => $qty,
+                            'image' => null,
+                        ];
+                    }
+
+                    \Log::info('ORDER ITEMS recuperados desde Stripe line_items', [
+                        'session_id' => $sessionId,
+                        'count' => count($cart),
+                    ]);
+                } catch (\Throwable $e) {
+                    \Log::warning('No se pudieron recuperar line_items de Stripe para order_items', [
+                        'session_id' => $sessionId,
+                        'message' => $e->getMessage(),
+                    ]);
+                }
+            }
+
+            \Log::info('ORDER ITEMS antes de guardar', [
+                'session_id' => $sessionId,
+                'order_id' => $order->id ?? null,
+                'cart_count' => count($cart),
+            ]);
             // 3) Guardar items
             $order->items()->delete();
             foreach ($cart as $row) {
@@ -708,7 +862,8 @@ class CheckoutController extends Controller
                     'currency'        => 'MXN',
                     'tax_rate'        => 0.16,
                     'discount'        => 0,
-                    'meta'            => ['image' => $row['image'] ?? null],
+                    'image_url'       => $row['image'] ?? null,
+                    'meta'            => json_encode(['image' => $row['image'] ?? null], JSON_UNESCAPED_UNICODE),
                 ]);
             }
 
@@ -725,6 +880,21 @@ class CheckoutController extends Controller
                     'raw'      => $session->toArray(),
                 ]);
                 $order->markPaid();
+
+                // clear_cart_after_paid_order
+                Session::forget([
+                    'cart',
+                    'checkout.address_id',
+                    'checkout.address',
+                    'checkout.billing_profile_id',
+                    'checkout.invoice_required',
+                    'checkout.shipping',
+                    'shipping.options',
+                    'shipping.options_norm',
+                    'shipping.selected',
+                ]);
+
+                session()->save();
             }
 
             // 5) Timbrado (si aplica)
@@ -1110,5 +1280,82 @@ class CheckoutController extends Controller
         $u = trim($u);
 
         return $u !== '' ? $u : 'PUBLICO EN GENERAL';
+    }
+
+    private function fallbackShippingByPostalCode(?string $postalCode): array
+    {
+        $cp = preg_replace('/\D/', '', (string) $postalCode);
+
+        if (strlen($cp) !== 5) {
+            return [
+                'amount' => 199,
+                'days' => '3 a 7 días hábiles',
+                'zone' => 'Nacional',
+            ];
+        }
+
+        $n = (int) $cp;
+
+        // Toluca, Metepec, San Mateo Atenco, Lerma, Zinacantepec y zona cercana
+        if ($n >= 50000 && $n <= 52999) {
+            return [
+                'amount' => 129,
+                'days' => '1 a 3 días hábiles',
+                'zone' => 'Zona local',
+            ];
+        }
+
+        // CDMX
+        if ($n >= 1000 && $n <= 16999) {
+            return [
+                'amount' => 149,
+                'days' => '2 a 4 días hábiles',
+                'zone' => 'CDMX',
+            ];
+        }
+
+        // Estado de México extendido
+        if ($n >= 53000 && $n <= 57999) {
+            return [
+                'amount' => 159,
+                'days' => '2 a 5 días hábiles',
+                'zone' => 'Estado de México',
+            ];
+        }
+
+        // Zona centro cercana
+        if (($n >= 58000 && $n <= 62999) || ($n >= 76000 && $n <= 76999) || ($n >= 90000 && $n <= 90999)) {
+            return [
+                'amount' => 179,
+                'days' => '3 a 6 días hábiles',
+                'zone' => 'Zona centro',
+            ];
+        }
+
+        // Resto nacional
+        return [
+            'amount' => 199,
+            'days' => '3 a 7 días hábiles',
+            'zone' => 'Nacional',
+        ];
+    }
+
+    private function fallbackShippingOptionByPostalCode(?string $postalCode): array
+    {
+        $fallback = $this->fallbackShippingByPostalCode($postalCode);
+
+        return [
+            'id' => 'manual_cp_' . preg_replace('/\D/', '', (string) $postalCode),
+            'provider' => 'Envío estándar',
+            'name' => 'Envío estándar',
+            'carrier' => 'manual',
+            'service' => 'Tarifa por zona',
+            'amount' => $fallback['amount'],
+            'price' => $fallback['amount'],
+            'days' => $fallback['days'],
+            'delivery_days' => $fallback['days'],
+            'zone' => $fallback['zone'],
+            'fallback' => true,
+        ];
     }
 }

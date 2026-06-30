@@ -94,7 +94,7 @@
 
   #account .hr{ border:0; border-top:1px solid var(--line); margin:16px 0 }
 
-  /* ✅ Panels */
+  /* Panels */
   #account .tpanel{ display:none; }
   #account .tpanel.active{ display:block; }
 
@@ -158,7 +158,7 @@
           @php $initial = strtoupper(mb_substr(($user->name ?? $user->email),0,1,'UTF-8')); @endphp
           <div class="avatar">{{ $initial }}</div>
           <div>
-            <div style="font-weight:900">{{ $user->name ?? 'Mi cuenta' }}</div>
+            <div style="font-weight:900">{{ $user->name ?? '-' }}</div>
             <small style="color:var(--muted)">{{ $user->email }}</small>
           </div>
         </div>
@@ -167,7 +167,7 @@
           <a href="#t-resumen"      class="js-gotab {{ $activeTab==='resumen'?'active':'' }}"      data-tab="resumen">Resumen</a>
           <a href="#t-pedidos"      class="js-gotab {{ $activeTab==='pedidos'?'active':'' }}"      data-tab="pedidos">Mis pedidos</a>
           <a href="#t-datos"        class="js-gotab {{ $activeTab==='datos'?'active':'' }}"        data-tab="datos">Datos de cuenta</a>
-          <a href="#t-facturacion"  class="js-gotab {{ $activeTab==='facturacion'?'active':'' }}"  data-tab="facturacion">Datos de facturación</a>
+          <a href="#t-facturacion"  class="js-gotab {{ $activeTab==='facturacion'?'active':'' }}"  data-tab="facturacion">Datos de facturaci&oacute;n</a>
           <a href="#t-facturas"     class="js-gotab {{ $activeTab==='facturas'?'active':'' }}"     data-tab="facturas">Mis facturas</a>
           <a href="#t-direcciones"  class="js-gotab {{ $activeTab==='direcciones'?'active':'' }}"  data-tab="direcciones">Direcciones</a>
         </nav>
@@ -182,13 +182,13 @@
               <button class="tabbtn" data-target="t-resumen"      aria-selected="{{ $tab==='resumen'?'true':'false' }}">Resumen</button>
               <button class="tabbtn" data-target="t-pedidos"      aria-selected="{{ $tab==='pedidos'?'true':'false' }}">Pedidos</button>
               <button class="tabbtn" data-target="t-datos"        aria-selected="{{ $tab==='datos'?'true':'false' }}">Datos</button>
-              <button class="tabbtn" data-target="t-facturacion"  aria-selected="{{ $tab==='facturacion'?'true':'false' }}">Facturación</button>
+              <button class="tabbtn" data-target="t-facturacion"  aria-selected="{{ $tab==='facturacion'?'true':'false' }}">Facturaci&oacute;n</button>
               <button class="tabbtn" data-target="t-facturas"     aria-selected="{{ $tab==='facturas'?'true':'false' }}">Facturas</button>
               <button class="tabbtn" data-target="t-direcciones"  aria-selected="{{ $tab==='direcciones'?'true':'false' }}">Direcciones</button>
             </div>
 
             <form class="searchRow" method="get" action="{{ route('customer.profile') }}">
-              <span style="color:var(--muted);font-weight:700;">Año / Mes</span>
+              <span style="color:var(--muted);font-weight:700;">A&ntilde;o / Mes</span>
               <input type="month" name="ym" value="{{ $ym }}">
               @if($activeTab)<input type="hidden" name="tab" value="{{ $activeTab }}">@endif
               <button class="btn">Filtrar</button>
@@ -207,7 +207,7 @@
 
               <div class="hr"></div>
 
-              <h3 style="margin:8px 0 10px">Últimos pedidos</h3>
+              <h3 style="margin:8px 0 10px">&Uacute;ltimos pedidos</h3>
               @if($orders->count())
                 <table class="table">
                   <thead><tr><th>ID</th><th>No. pedido</th><th>Fecha</th><th>Estatus</th><th>Total</th><th></th></tr></thead>
@@ -216,26 +216,20 @@
                     <tr class="tr">
                       <td>{{ $o->id }}</td>
                       <td>
-                        @if(route_has('customer.orders.show'))
-                          <a class="btn btn-ghost" href="{{ route('customer.orders.show',$o) }}">
-                            #{{ str_pad($o->id,6,'0',STR_PAD_LEFT) }}
-                          </a>
-                        @else
-                          #{{ str_pad($o->id,6,'0',STR_PAD_LEFT) }}
-                        @endif
+
                       </td>
-                      <td>{{ $o->created_at?->format('d/m/Y') ?? '—' }}</td>
+                      <td>{{ $o->created_at?->format('d/m/Y') ?? '-' }}</td>
                       <td>
                         @php $st = strtolower((string)$o->status); @endphp
-                        <span class="status {{ $st==='cancelado'?'cancel':($st==='entregado'?'ok':'proc') }}">{{ ucfirst($o->status ?? '—') }}</span>
+                        <span class="status {{ $st==='cancelado'?'cancel':($st==='entregado'?'ok':'proc') }}">{{ ucfirst($o->status ?? '-') }}</span>
 
                         @if(!empty($o->shipping_code))
-                          <div class="pill" style="margin-top:6px">Guía: {{ $o->shipping_code }}</div>
+                          <div class="pill" style="margin-top:6px">Gu&iacute;a: {{ $o->shipping_code }}</div>
                         @endif
 
                         @if(!empty($o->shipping_name) || !empty($o->shipping_service))
                           <div class="pill" style="margin-top:6px">
-                            {{ $o->shipping_name ?? '' }}{{ $o->shipping_service ? ' — '.$o->shipping_service : '' }}
+                            {{ $o->shipping_name ?? '' }}{{ $o->shipping_service ? ' - '.$o->shipping_service : '' }}
                           </div>
                         @endif
 
@@ -245,26 +239,24 @@
                       </td>
                       <td>${{ number_format($o->total,2) }}</td>
                       <td style="text-align:right; display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap">
-                        @if(route_has('customer.orders.show'))
-                          <a class="btn btn-ghost" href="{{ route('customer.orders.show',$o) }}">Ver detalle</a>
-                        @endif
 
-                        @if(route_has('customer.orders.reorder'))
+
+                        @if(\Illuminate\Support\Facades\Route::has('customer.orders.reorder'))
                           <form action="{{ route('customer.orders.reorder',$o) }}" method="post" style="display:inline">@csrf
                             <button class="btn btn-brand">Agregar a carrito</button>
                           </form>
                         @endif
 
-                        @if(route_has('customer.orders.tracking'))
+                        @if(\Illuminate\Support\Facades\Route::has('customer.orders.tracking'))
                           <button class="btn js-track"
                                   data-url="{{ route('customer.orders.tracking',$o) }}"
-                                  data-label="{{ $o->shipping_label_url ?? '' }}">
+                                  data-label="{{ !empty($o->shipping_label_url) || !empty($o->shipping_label_pdf_url) ? route('customer.orders.label', $o) : '' }}">
                             Seguimiento
                           </button>
                         @endif
 
-                        @if(route_has('customer.orders.label') && !empty($o->shipping_label_url))
-                          <a class="btn btn-ghost" href="{{ route('customer.orders.label',$o) }}" target="_blank" rel="noopener">Guía PDF</a>
+                        @if(\Illuminate\Support\Facades\Route::has('customer.orders.label') && !empty($o->shipping_label_url))
+                          <a class="btn btn-ghost" href="{{ route('customer.orders.label',$o) }}" target="_blank" rel="noopener">Gu&iacute;a PDF</a>
                         @endif
                       </td>
                     </tr>
@@ -272,7 +264,7 @@
                   </tbody>
                 </table>
               @else
-                <div class="empty">Aún no tienes pedidos.</div>
+                <div class="empty">A&uacute;n no tienes pedidos.</div>
               @endif
             </div>
 
@@ -286,7 +278,7 @@
                     <tr class="tr">
                       <td>{{ $o->id }}</td>
                       <td>
-                        @if(route_has('customer.orders.show'))
+                        @if(\Illuminate\Support\Facades\Route::has('customer.orders.show'))
                           <a class="btn btn-ghost" href="{{ route('customer.orders.show',$o) }}">
                             #{{ str_pad($o->id,6,'0',STR_PAD_LEFT) }}
                           </a>
@@ -294,18 +286,18 @@
                           #{{ str_pad($o->id,6,'0',STR_PAD_LEFT) }}
                         @endif
                       </td>
-                      <td>{{ $o->created_at?->format('d/m/Y') ?? '—' }}</td>
+                      <td>{{ $o->created_at?->format('d/m/Y') ?? '-' }}</td>
                       <td>
                         @php $st = strtolower((string)$o->status); @endphp
-                        <span class="status {{ $st==='cancelado'?'cancel':($st==='entregado'?'ok':'proc') }}">{{ ucfirst($o->status ?? '—') }}</span>
+                        <span class="status {{ $st==='cancelado'?'cancel':($st==='entregado'?'ok':'proc') }}">{{ ucfirst($o->status ?? '-') }}</span>
 
                         @if(!empty($o->shipping_code))
-                          <div class="pill" style="margin-top:6px">Guía: {{ $o->shipping_code }}</div>
+                          <div class="pill" style="margin-top:6px">Gu&iacute;a: {{ $o->shipping_code }}</div>
                         @endif
 
                         @if(!empty($o->shipping_name) || !empty($o->shipping_service))
                           <div class="pill" style="margin-top:6px">
-                            {{ $o->shipping_name ?? '' }}{{ $o->shipping_service ? ' — '.$o->shipping_service : '' }}
+                            {{ $o->shipping_name ?? '' }}{{ $o->shipping_service ? ' - '.$o->shipping_service : '' }}
                           </div>
                         @endif
 
@@ -314,31 +306,31 @@
                         @endif
                       </td>
 
-                      <td><span class="pill">—</span></td>
+                      <td><span class="pill">-</span></td>
 
                       <td>${{ number_format($o->total,2) }}</td>
 
                       <td style="text-align:right; display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap">
-                        @if(route_has('customer.orders.show'))
+                        @if(\Illuminate\Support\Facades\Route::has('customer.orders.show'))
                           <a class="btn btn-ghost" href="{{ route('customer.orders.show',$o) }}">Ver detalle</a>
                         @endif
 
-                        @if(route_has('customer.orders.reorder'))
+                        @if(\Illuminate\Support\Facades\Route::has('customer.orders.reorder'))
                           <form action="{{ route('customer.orders.reorder',$o) }}" method="post" style="display:inline">@csrf
                             <button class="btn btn-brand">Agregar a carrito</button>
                           </form>
                         @endif
 
-                        @if(route_has('customer.orders.tracking'))
+                        @if(\Illuminate\Support\Facades\Route::has('customer.orders.tracking'))
                           <button class="btn js-track"
                                   data-url="{{ route('customer.orders.tracking',$o) }}"
-                                  data-label="{{ $o->shipping_label_url ?? '' }}">
+                                  data-label="{{ !empty($o->shipping_label_url) || !empty($o->shipping_label_pdf_url) ? route('customer.orders.label', $o) : '' }}">
                             Seguimiento
                           </button>
                         @endif
 
-                        @if(route_has('customer.orders.label') && !empty($o->shipping_label_url))
-                          <a class="btn btn-ghost" href="{{ route('customer.orders.label',$o) }}" target="_blank" rel="noopener">Guía PDF</a>
+                        @if(\Illuminate\Support\Facades\Route::has('customer.orders.label') && !empty($o->shipping_label_url))
+                          <a class="btn btn-ghost" href="{{ route('customer.orders.label',$o) }}" target="_blank" rel="noopener">Gu&iacute;a PDF</a>
                         @endif
                       </td>
                     </tr>
@@ -353,10 +345,10 @@
             {{-- ===== DATOS ===== --}}
             <div id="t-datos" class="tpanel {{ $tab==='datos'?'active':'' }}">
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-                <div class="kpi"><small>Nombre</small><strong>{{ $user->name ?? '—' }}</strong></div>
+                <div class="kpi"><small>Nombre</small><strong>{{ $user->name ?? '-' }}</strong></div>
                 <div class="kpi"><small>Correo</small><strong>{{ $user->email }}</strong></div>
-                <div class="kpi"><small>Registrado</small><strong>{{ $user->created_at?->format('d/m/Y') ?? '—' }}</strong></div>
-                <div class="kpi"><small>Último acceso</small><strong>{{ $user->last_login_at?->format('d/m/Y H:i') ?? '—' }}</strong></div>
+                <div class="kpi"><small>Registrado</small><strong>{{ $user->created_at?->format('d/m/Y') ?? '-' }}</strong></div>
+                <div class="kpi"><small>&Uacute;ltimo acceso</small><strong>{{ $user->last_login_at?->format('d/m/Y H:i') ?? '-' }}</strong></div>
               </div>
               <div style="margin-top:14px;display:flex;gap:8px">
                @if(\Illuminate\Support\Facades\Route::has('customer.welcome'))
@@ -366,7 +358,7 @@
               </div>
             </div>
 
-            {{-- ===== FACTURACIÓN ===== --}}
+            {{-- ===== FACTURACION ===== --}}
             <div id="t-facturacion" class="tpanel {{ $tab==='facturacion'?'active':'' }}">
               @if($billingProfiles->count())
                 @foreach($billingProfiles as $bp)
@@ -375,8 +367,8 @@
                       <div>
                         <div style="font-weight:900">{{ $bp->razon_social }}</div>
                         <div class="pill">RFC: {{ $bp->rfc }}</div>
-                        <div class="pill">Régimen: {{ $bp->regimen ?: '—' }}</div>
-                        <div class="pill">Uso CFDI: {{ $bp->uso_cfdi ?: '—' }}</div>
+                        <div class="pill">R&eacute;gimen: {{ $bp->regimen ?: '-' }}</div>
+                        <div class="pill">Uso CFDI: {{ $bp->uso_cfdi ?: '-' }}</div>
                         <div style="color:var(--muted);margin-top:6px">{{ $bp->direccion }} {{ $bp->colonia }} {{ $bp->estado }} C.P. {{ $bp->zip }}</div>
                       </div>
                       <div style="display:flex;align-items:center;gap:8px">
@@ -386,7 +378,7 @@
                   </div>
                 @endforeach
               @else
-                <div class="empty">Aún no tienes perfiles de facturación.</div>
+                <div class="empty">A&uacute;n no tienes perfiles de facturaci&oacute;n.</div>
               @endif
             </div>
 
@@ -398,25 +390,25 @@
                   <tbody>
                   @foreach($invoices as $f)
                     <tr class="tr">
-                      <td>{{ ($f->serie ?? 'A').'-'.($f->folio ?? $f->id) }}</td>
+                      <td>{{ ($f->serie ?? '-').'-'.($f->folio ?? $f->id) }}</td>
                       <td>{{ $f->fecha?->format('d/m/Y') ?? $f->created_at?->format('d/m/Y') }}</td>
                       <td>${{ number_format($f->total,2) }}</td>
                       <td style="display:flex;gap:8px">
-                        @if(route_has('customer.invoices.pdf')) <a class="btn btn-ghost" href="{{ route('customer.invoices.pdf',$f->id) }}">PDF</a> @endif
-                        @if(route_has('customer.invoices.xml')) <a class="btn btn-ghost" href="{{ route('customer.invoices.xml',$f->id) }}">XML</a> @endif
+                        @if(\Illuminate\Support\Facades\Route::has('customer.invoices.pdf')) <a class="btn btn-ghost" href="{{ route('customer.invoices.pdf',$f->id) }}">PDF</a> @endif
+                        @if(\Illuminate\Support\Facades\Route::has('customer.invoices.xml')) <a class="btn btn-ghost" href="{{ route('customer.invoices.xml',$f->id) }}">XML</a> @endif
                       </td>
                     </tr>
                   @endforeach
                   </tbody>
                 </table>
               @else
-                <div class="empty">Aquí aparecerán tus facturas emitidas.</div>
+                <div class="empty">Aqu&iacute; aparecer&aacute;n tus facturas emitidas.</div>
               @endif
             </div>
 
             {{-- ===== DIRECCIONES ===== --}}
             <div id="t-direcciones" class="tpanel {{ $tab==='direcciones'?'active':'' }}">
-              <div class="empty">Integra aquí tu listado de direcciones de envío si ya lo tienes en otra tabla.</div>
+              <div class="empty">Integra aqui tu listado de direcciones de envio si ya lo tienes en otra tabla.</div>
             </div>
           </div>
         </div>
@@ -429,20 +421,20 @@
     <div class="modal__backdrop"></div>
     <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="trkTitle">
       <div class="modal__head">
-        <div style="font-weight:900" id="trkTitle">Seguimiento del envío</div>
+        <div style="font-weight:900" id="trkTitle">Seguimiento del env&iacute;o</div>
         <button class="close" id="trkClose">Cerrar</button>
       </div>
       <div class="modal__body">
         <div class="trk-meta" id="trkMeta">
-          <span class="pill">Cargando…</span>
+          <span class="pill">Cargando...</span>
         </div>
 
-        {{-- ✅ Acciones dentro del modal --}}
+        {{-- Acciones dentro del modal --}}
         <div id="trkActions" style="display:flex; gap:8px; flex-wrap:wrap; margin:10px 0 12px;"></div>
 
         <div class="progress"><b id="trkProgress" style="width:0%"></b></div>
         <ul class="tl" id="trkList">
-          <li class="tl__item"><div class="h">Obteniendo eventos…</div><time>—</time></li>
+          <li class="tl__item"><div class="h">Obteniendo eventos...</div><time>-</time></li>
         </ul>
       </div>
     </div>
@@ -498,7 +490,7 @@
   document.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && modal.dataset.open==="1") closeModal(); });
 
   function escHtml(s){
-    return (s ?? '').toString().replace(/[&<>"']/g, m => ({
+    return (s ?? '-').toString().replace(/[&<>"']/g, m => ({
       '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'
     }[m]));
   }
@@ -510,7 +502,7 @@
     const pills = [];
     if(data.carrier) pills.push(`<span class="pill">Carrier: <b>${escHtml(data.carrier)}</b></span>`);
     if(data.service) pills.push(`<span class="pill">Servicio: <b>${escHtml(data.service)}</b></span>`);
-    if(data.code)    pills.push(`<span class="pill">Guía: <b>${escHtml(data.code)}</b></span>`);
+    if(data.code)    pills.push(`<span class="pill">Gu&iacute;a: <b>${escHtml(data.code)}</b></span>`);
     if(data.status)  pills.push(`<span class="pill">Estatus: <b>${escHtml((data.status||'').toString().toUpperCase())}</b></span>`);
     if(data.eta)     pills.push(`<span class="pill">ETA: <b>${escHtml(data.eta)}</b></span>`);
     meta.innerHTML = pills.join('');
@@ -521,7 +513,7 @@
       a.href = labelUrl;
       a.target = '_blank';
       a.rel = 'noopener';
-      a.textContent = 'Guía PDF';
+      a.textContent = 'Guia PDF';
       actions.appendChild(a);
     }
 
@@ -530,13 +522,13 @@
     list.innerHTML = '';
     const evs = Array.isArray(data.events) ? data.events : [];
     if(evs.length === 0){
-      list.innerHTML = '<li class="tl__item"><div class="h">Sin eventos todavía</div><time>—</time></li>';
+      list.innerHTML = '<li class="tl__item"><div class="h">Sin eventos todavia</div><time>-</time></li>';
       return;
     }
     evs.forEach(ev=>{
       const t = ev.time ? new Date(ev.time) : null;
-      const date = t ? t.toLocaleString() : '—';
-      const where = ev.location ? ` — <i>${escHtml(ev.location)}</i>` : '';
+      const date = t ? t.toLocaleString() : '-';
+      const where = ev.location ? ` - <i></i>` : '';
       const details = ev.details ? `<div style="color:var(--muted);margin-top:4px">${escHtml(ev.details)}</div>` : '';
       const item = document.createElement('li');
       item.className = 'tl__item';
@@ -553,9 +545,9 @@
       if(!url) return;
 
       openModal();
-      meta.innerHTML = '<span class="pill">Cargando…</span>';
+      meta.innerHTML = '<span class="pill">Cargando...</span>';
       actions.innerHTML = '';
-      list.innerHTML = '<li class="tl__item"><div class="h">Obteniendo eventos…</div><time>—</time></li>';
+      list.innerHTML = '<li class="tl__item"><div class="h">Obteniendo eventos...</div><time>-</time></li>';
       bar.style.width = '0%';
 
       try{
@@ -571,9 +563,3 @@
 })();
 </script>
 @endsection
-
-@php
-if (!function_exists('route_has')) {
-  function route_has($name) { try { return app('router')->has($name); } catch (\Throwable $e) { return false; } }
-}
-@endphp

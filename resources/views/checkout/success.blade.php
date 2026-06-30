@@ -465,3 +465,16 @@
 </script>
 @endpush
 @endsection
+{{-- force_clear_front_cart_after_payment --}}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  ['cart', 'checkout.cart', 'cart.items', 'cart_count', 'cart_totals', 'shopping_cart'].forEach(function (key) {
+    localStorage.removeItem(key);
+    sessionStorage.removeItem(key);
+  });
+
+  document.querySelectorAll('[data-cart-count], .cart-count, #cart-count, .cart-badge').forEach(function (el) {
+    el.textContent = '0';
+  });
+});
+</script>

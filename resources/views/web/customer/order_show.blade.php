@@ -71,7 +71,12 @@
 @media (max-width:560px){ #orderShow .kvs{ grid-template-columns:1fr; } }
 #orderShow .kv{ border:1px solid var(--line); border-radius:14px; padding:12px; background:#fbfdff; }
 #orderShow .kv small{ display:block; color:var(--muted); font-weight:800; }
-#orderShow .kv b{ display:block; margin-top:6px; font-weight:900; }
+#orderShow .kv b{ display:block; margin-top:6px; font-weight:900; overflow-wrap:anywhere; word-break:break-word; }
+#orderShow .ship-kvs{ grid-template-columns:1fr; }
+#orderShow .ship-pill{ max-width:100%; white-space:normal; overflow-wrap:anywhere; text-align:left; justify-content:flex-start; }
+@media (min-width:1200px){
+  #orderShow .ship-kvs{ grid-template-columns:1fr 1fr; }
+}
 
 #orderShow .progress{
   height:10px; border-radius:999px; background:#f1f5f9;
@@ -119,6 +124,111 @@
 }
 #orderShow .tl .h{ font-weight:900; }
 #orderShow .tl time{ display:block; margin-top:4px; color:var(--muted); font-weight:800; font-size:.9rem; }
+
+/* Modal flotante de seguimiento */
+#orderShow .trk-float{
+  position:fixed;
+  inset:0;
+  z-index:9999;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:18px;
+  background:rgba(15,23,42,.52);
+  backdrop-filter:blur(8px);
+}
+#orderShow .trk-float.is-open{ display:flex; }
+#orderShow .trk-box{
+  width:min(760px, 96vw);
+  max-height:88vh;
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:22px;
+  box-shadow:0 28px 80px rgba(2,8,23,.28);
+  overflow:hidden;
+}
+#orderShow .trk-head{
+  padding:16px 18px;
+  border-bottom:1px solid var(--line);
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  background:linear-gradient(180deg,#ffffff,#f8fbff);
+}
+#orderShow .trk-head h3{
+  margin:0;
+  font-size:18px;
+  font-weight:900;
+}
+#orderShow .trk-head p{
+  margin:4px 0 0;
+  color:var(--muted);
+  font-weight:800;
+}
+#orderShow .trk-close{
+  border:1px solid var(--line);
+  background:#fff;
+  border-radius:12px;
+  width:38px;
+  height:38px;
+  cursor:pointer;
+  font-weight:900;
+  box-shadow:0 8px 20px rgba(2,8,23,.06);
+}
+#orderShow .trk-body{
+  padding:16px 18px;
+  max-height:calc(88vh - 86px);
+  overflow-y:auto;
+}
+#orderShow .trk-meta{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin-bottom:14px;
+}
+#orderShow .trk-list{
+  list-style:none;
+  margin:0;
+  padding:0;
+  display:grid;
+  gap:12px;
+  position:relative;
+}
+#orderShow .trk-item{
+  border:1px solid var(--line);
+  border-radius:16px;
+  padding:13px 14px;
+  background:#fff;
+  box-shadow:0 8px 20px rgba(2,8,23,.04);
+}
+#orderShow .trk-item .h{
+  font-weight:900;
+}
+#orderShow .trk-item .d{
+  margin-top:4px;
+  color:var(--muted);
+  font-weight:750;
+  line-height:1.35;
+}
+#orderShow .trk-item time{
+  display:block;
+  margin-top:7px;
+  color:var(--muted);
+  font-weight:850;
+  font-size:.88rem;
+}
+#orderShow .trk-item:first-child{
+  border-color:#cbd5e1;
+  background:linear-gradient(180deg,#fff,#f8fbff);
+}
+#orderShow .tracking-live{ margin-top:14px; display:grid; gap:10px; }
+#orderShow .tracking-meta{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
+#orderShow .tracking-list{ list-style:none; padding:0; margin:0; display:grid; gap:10px; }
+#orderShow .tracking-item{ border:1px solid var(--line); border-radius:14px; padding:12px; background:#fff; }
+#orderShow .tracking-item .h{ font-weight:900; }
+#orderShow .tracking-item .d{ margin-top:4px; color:var(--muted); font-weight:700; }
+#orderShow .tracking-item time{ display:block; margin-top:6px; color:var(--muted); font-weight:800; font-size:.88rem; }
 #orderShow .tl .d{ margin-top:6px; color:var(--muted); font-weight:700; }
 
 #orderShow .addr{
@@ -128,6 +238,97 @@
 #orderShow .addr small{ display:block; color:var(--muted); font-weight:800; margin-bottom:6px; }
 
 #orderShow .muted{ color:var(--muted); font-weight:800; }
+</style>
+<style>
+/* Fallback global modal seguimiento */
+.trk-float{
+  position:fixed;
+  inset:0;
+  z-index:99999;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:18px;
+  background:rgba(15,23,42,.52);
+  backdrop-filter:blur(8px);
+}
+.trk-float.is-open{ display:flex; }
+.trk-box{
+  width:min(760px, 96vw);
+  max-height:88vh;
+  background:#fff;
+  border:1px solid #e8eef6;
+  border-radius:22px;
+  box-shadow:0 28px 80px rgba(2,8,23,.28);
+  overflow:hidden;
+}
+.trk-head{
+  padding:16px 18px;
+  border-bottom:1px solid #e8eef6;
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  background:linear-gradient(180deg,#ffffff,#f8fbff);
+}
+.trk-head h3{ margin:0; font-size:18px; font-weight:900; }
+.trk-head p{ margin:4px 0 0; color:#6b7280; font-weight:800; }
+.trk-close{
+  border:1px solid #e8eef6;
+  background:#fff;
+  border-radius:12px;
+  width:38px;
+  height:38px;
+  cursor:pointer;
+  font-weight:900;
+}
+.trk-body{
+  padding:16px 18px;
+  max-height:calc(88vh - 86px);
+  overflow-y:auto;
+}
+.trk-meta{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+.trk-meta .pill{
+  display:inline-flex;
+  align-items:center;
+  padding:8px 12px;
+  border-radius:999px;
+  border:1px solid #e8eef6;
+  background:#fff;
+  font-weight:900;
+}
+.trk-list{
+  list-style:none;
+  margin:0;
+  padding:0;
+  display:grid;
+  gap:12px;
+}
+.trk-item{
+  border:1px solid #e8eef6;
+  border-radius:16px;
+  padding:13px 14px;
+  background:#fff;
+  box-shadow:0 8px 20px rgba(2,8,23,.04);
+}
+.trk-item .h{ font-weight:900; }
+.trk-item .d{
+  margin-top:4px;
+  color:#6b7280;
+  font-weight:750;
+  line-height:1.35;
+}
+.trk-item time{
+  display:block;
+  margin-top:7px;
+  color:#6b7280;
+  font-weight:850;
+  font-size:.88rem;
+}
+.trk-item:first-child{
+  border-color:#cbd5e1;
+  background:linear-gradient(180deg,#fff,#f8fbff);
+}
 </style>
 
 <div id="orderShow">
@@ -153,20 +354,20 @@
       <div class="title">
         <h1>Pedido {{ $num }}</h1>
         <p>
-          Fecha: <b>{{ $order->created_at?->format('d/m/Y H:i') ?? '—' }}</b>
-          <span class="muted">·</span>
-          <span class="pill {{ $pill }}">{{ strtoupper($order->status ?? '—') }}</span>
+          Fecha: <b>{{ $order->created_at?->format('d/m/Y H:i') ?? '-' }}</b>
+          <span class="muted">-</span>
+          <span class="pill {{ $pill }}">{{ strtoupper($order->status ?? '-') }}</span>
         </p>
       </div>
       <div class="actions">
-        <a class="btn" href="{{ route('customer.profile', ['tab'=>'pedidos']) }}">← Volver</a>
+        <a class="btn" href="{{ route('customer.profile', ['tab'=>'pedidos']) }}">&larr; Volver</a>
 
-        @if(route_has('customer.orders.tracking'))
+        @if(\Illuminate\Support\Facades\Route::has('customer.orders.tracking'))
           <a class="btn" href="{{ route('customer.profile', ['tab'=>'pedidos']) }}#t-pedidos">Ver en pedidos</a>
         @endif
 
-        @if(!empty($order->shipping_label_url) && route_has('customer.orders.label'))
-          <a class="btn btn-brand" href="{{ route('customer.orders.label',$order) }}" target="_blank" rel="noopener">Guía PDF</a>
+        @if(!empty($order->shipping_label_url) && \Illuminate\Support\Facades\Route::has('customer.orders.label'))
+          <a class="btn btn-brand" href="{{ route('customer.orders.label',$order) }}" target="_blank" rel="noopener">Gu&iacute;a PDF</a>
         @endif
       </div>
     </div>
@@ -177,7 +378,7 @@
         <div class="head">
           <h2>Productos</h2>
           <span class="pill">
-            {{ $order->items->sum('qty') }} artículos
+            {{ $order->items->sum('qty') }} articulos
           </span>
         </div>
 
@@ -185,7 +386,7 @@
           <table class="items">
             <thead>
               <tr>
-                <th style="padding-left:10px">Artículo</th>
+                <th style="padding-left:10px">Articulo</th>
                 <th style="text-align:center">Cant</th>
                 <th style="text-align:right">Precio</th>
                 <th style="text-align:right;padding-right:10px">Importe</th>
@@ -203,12 +404,12 @@
                         @if($img)
                           <img src="{{ $img }}" alt="img">
                         @else
-                          <span class="muted">—</span>
+          <span class="muted">-</span>
                         @endif
                       </div>
                       <div>
                         <div class="name">{{ $it->name }}</div>
-                        <div class="sku">SKU: {{ $it->sku ?: '—' }}</div>
+                        <div class="sku">SKU: {{ $it->sku ?: '-' }}</div>
                       </div>
                     </div>
                   </td>
@@ -224,22 +425,22 @@
 
           <div style="margin-top:14px" class="kvs">
             <div class="kv">
-              <small>Método de pago</small>
+              <small>Metodo de pago</small>
               <b>Stripe (tarjeta)</b>
             </div>
             <div class="kv">
               <small>Stripe Session</small>
-              <b style="word-break:break-all">{{ $order->stripe_session_id ?: '—' }}</b>
+              <b style="word-break:break-all">{{ $order->stripe_session_id ?: '-' }}</b>
             </div>
           </div>
 
           @if(!empty($addrLine))
             <div style="margin-top:14px" class="addr">
-              <small>Dirección de entrega</small>
+              <small>Direccion de entrega</small>
               {{ $addrLine }}
               @if(!empty($addr['contact_name']) || !empty($addr['phone']))
                 <div class="muted" style="margin-top:8px">
-                  Recibe: {{ $addr['contact_name'] ?? '—' }} · Tel: {{ $addr['phone'] ?? '—' }}
+                  Recibe: {{ $addr['contact_name'] ?? '-' }} - Tel: {{ $addr['phone'] ?? '-' }}
                 </div>
               @endif
             </div>
@@ -247,7 +448,7 @@
         </div>
       </div>
 
-      {{-- ===== DER: Resumen + Envío + Timeline ===== --}}
+      {{-- ===== DER: Resumen + Envio + Timeline ===== --}}
       <aside style="display:grid; gap:16px;">
         <div class="card">
           <div class="head">
@@ -261,7 +462,7 @@
 
             <div style="margin-top:12px" class="totals">
               <div class="line"><span>Subtotal</span><b>{{ $fmt($order->subtotal) }}</b></div>
-              <div class="line"><span>Envío</span><b>{{ $fmt($order->shipping_amount) }}</b></div>
+              <div class="line"><span>Envio</span><b>{{ $fmt($order->shipping_amount) }}</b></div>
               <div class="line grand"><span>Total</span><b>{{ $fmt($order->total) }}</b></div>
             </div>
           </div>
@@ -269,70 +470,170 @@
 
         <div class="card">
           <div class="head">
-            <h2>Envío (SkydropX)</h2>
-            <span class="pill">
-              {{ $shipping['name'] ?: 'Paquetería' }}
-              {{ $shipping['service'] ? '· '.$shipping['service'] : '' }}
+            <h2>Envio (Envia.com)</h2>
+            <span class="pill ship-pill">
+              {{ $shipping['name'] ?: 'Paqueteria' }}
+              {{ $shipping['service'] ? ' - '.$shipping['service'] : '' }}
             </span>
+            @if(!empty($shipping['eta']))
+              <span class="pill ship-pill">Entrega estimada: {{ $shipping['eta'] }}</span>
+            @endif
           </div>
           <div class="body">
-            <div class="kvs">
+            <div class="kvs ship-kvs">
               <div class="kv">
-                <small>Guía</small>
-                <b>{{ $shipping['code'] ?: '—' }}</b>
+                <small>Guia</small>
+                <b>{{ $shipping['code'] ?: '-' }}</b>
               </div>
               <div class="kv">
-                <small>ETA</small>
-                <b>{{ $shipping['eta'] ?: '—' }}</b>
+                <small>Fecha estimada</small>
+                <b>{{ $shipping['eta'] ?: '-' }}</b>
               </div>
             </div>
 
             <div style="margin-top:12px" class="muted">
               @if($shipping['store_pays'])
-                Envío gratis aplicado (cubierto por la tienda).
+                Envio gratis aplicado (cubierto por la tienda).
               @else
-                Envío pagado por el cliente.
+                Envio pagado por el cliente.
               @endif
             </div>
 
-            @if(route_has('customer.orders.tracking'))
+            @if(\Illuminate\Support\Facades\Route::has('customer.orders.tracking'))
               <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap">
-                <a class="btn" href="{{ route('customer.profile', ['tab'=>'pedidos']) }}#t-pedidos">Ver seguimiento</a>
+                <a class="btn js-load-tracking" href="#" data-url="{{ route('customer.orders.tracking', $order) }}">Ver seguimiento</a>
               </div>
             @endif
           </div>
         </div>
 
-        <div class="card">
-          <div class="head">
-            <h2>Estado del pedido</h2>
-            <span class="pill {{ $pill }}">{{ strtoupper($order->status ?? '—') }}</span>
-          </div>
-          <div class="body">
-            <ul class="timeline">
-              @foreach($timeline as $t)
-                <li class="tl">
-                  <div class="h">{{ $t['label'] }}</div>
-                  <time>
-                    {{ $t['time'] instanceof \DateTimeInterface ? $t['time']->format('d/m/Y H:i') : ($t['time'] ?: '—') }}
-                  </time>
-                  @if(!empty($t['desc']))
-                    <div class="d">{{ $t['desc'] }}</div>
-                  @endif
-                </li>
-              @endforeach
-            </ul>
-          </div>
-        </div>
-      </aside>
+<div class="trk-float" id="trackingFloatModal" aria-hidden="true">
+  <div class="trk-box" role="dialog" aria-modal="true" aria-labelledby="trkFloatTitle">
+    <div class="trk-head">
+      <div>
+        <h3 id="trkFloatTitle">Seguimiento del pedido</h3>
+        <p>Movimientos y estado del envio</p>
+      </div>
+      <button type="button" class="trk-close" id="trackingFloatClose" aria-label="Cerrar">X</button>
+    </div>
+
+    <div class="trk-body">
+      <div class="trk-meta" id="trackingFloatMeta">
+        <span class="pill">Cargando...</span>
+      </div>
+
+      <ul class="trk-list" id="trackingFloatList">
+        <li class="trk-item">
+          <div class="h">Esperando informacion...</div>
+          <time>-</time>
+        </li>
+      </ul>
     </div>
   </div>
 </div>
 
+<script>
+(function(){
+  const modal = document.getElementById('trackingFloatModal');
+  const closeBtn = document.getElementById('trackingFloatClose');
+  const list = document.getElementById('trackingFloatList');
+  const meta = document.getElementById('trackingFloatMeta');
+  const btns = document.querySelectorAll('#orderShow .js-load-tracking');
+
+  function esc(v){
+    return String(v ?? '').replace(/[&<>"']/g, function(m){
+      return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'})[m];
+    });
+  }
+
+  function fmtDate(v){
+    if(!v) return '-';
+    const d = new Date(v);
+    if(isNaN(d.getTime())) return esc(v);
+    return d.toLocaleString('es-MX', { dateStyle:'medium', timeStyle:'short' });
+  }
+
+  function openModal(){
+    if(!modal) return;
+    modal.classList.add('is-open');
+    modal.setAttribute('aria-hidden','false');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeModal(){
+    if(!modal) return;
+    modal.classList.remove('is-open');
+    modal.setAttribute('aria-hidden','true');
+    document.body.style.overflow = '';
+  }
+
+  function render(data){
+    const events = Array.isArray(data.events) ? data.events : [];
+
+    const pills = [];
+    pills.push('<span class="pill">Paqueteria: ' + esc(data.carrier || 'Envia.com') + '</span>');
+    if(data.service) pills.push('<span class="pill">Servicio: ' + esc(data.service) + '</span>');
+    if(data.code) pills.push('<span class="pill">Guia: ' + esc(data.code) + '</span>');
+    if(data.eta) pills.push('<span class="pill">Entrega estimada: ' + esc(data.eta) + '</span>');
+    if(data.mode === 'test') pills.push('<span class="pill">Modo prueba</span>');
+
+    meta.innerHTML = pills.join('');
+
+    if(!events.length){
+      list.innerHTML = '<li class="trk-item"><div class="h">Sin movimientos todavia</div><div class="d">La paqueteria aun no reporta eventos.</div><time>-</time></li>';
+      return;
+    }
+
+    list.innerHTML = events.map(function(ev){
+      const loc = ev.location ? '<div class="d">Ubicacion: ' + esc(ev.location) + '</div>' : '';
+      const details = ev.details ? '<div class="d">' + esc(ev.details) + '</div>' : '';
+
+      return '<li class="trk-item">' +
+        '<div class="h">' + esc(ev.status || 'Movimiento') + '</div>' +
+        loc +
+        details +
+        '<time>' + fmtDate(ev.time) + '</time>' +
+      '</li>';
+    }).join('');
+  }
+
+  async function load(url){
+    meta.innerHTML = '<span class="pill">Cargando seguimiento...</span>';
+    list.innerHTML = '<li class="trk-item"><div class="h">Cargando linea del tiempo...</div><time>-</time></li>';
+
+    try{
+      const res = await fetch(url, { headers:{ 'Accept':'application/json' } });
+      const data = await res.json();
+      render(data);
+    }catch(e){
+      meta.innerHTML = '<span class="pill">Error</span>';
+      list.innerHTML = '<li class="trk-item"><div class="h">No se pudo cargar el seguimiento</div><div class="d">Intenta nuevamente.</div><time>-</time></li>';
+    }
+  }
+
+  btns.forEach(function(btn){
+    btn.addEventListener('click', function(e){
+      e.preventDefault();
+      const url = btn.getAttribute('data-url');
+      openModal();
+      if(url) load(url);
+    });
+  });
+
+  if(closeBtn){
+    closeBtn.addEventListener('click', closeModal);
+  }
+
+  if(modal){
+    modal.addEventListener('click', function(e){
+      if(e.target === modal) closeModal();
+    });
+  }
+
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape') closeModal();
+  });
+})();
+</script>
 @endsection
 
-@php
-if (!function_exists('route_has')) {
-  function route_has($name) { try { return app('router')->has($name); } catch (\Throwable $e) { return false; } }
-}
-@endphp

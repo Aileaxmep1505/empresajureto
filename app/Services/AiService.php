@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\AiKnowledgeEntry;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
@@ -9,12 +10,12 @@ use GuzzleHttp\Client as HttpClient;
 use GuzzleHttp\Exception\RequestException;
 
 /**
- * Servicio para responder como asesor humano de Jureto (papelería)
+ * Servicio para responder como asesor humano de Jureto (papelerÃƒÂ­a)
  * con prompting + historial. Incluye:
  * - Fallback de modelos y reintentos (429/5xx).
- * - Inyección de datos del cliente para saludar por nombre y pedir solo lo faltante.
+ * - InyecciÃƒÂ³n de datos del cliente para saludar por nombre y pedir solo lo faltante.
  * - Limpieza del bloque <AI_META> para que el usuario NUNCA lo vea.
- * - Mensaje humano dinámico cuando solo venga AI_META (recabar máximo 3 faltantes).
+ * - Mensaje humano dinÃƒÂ¡mico cuando solo venga AI_META (recabar mÃƒÂ¡ximo 3 faltantes).
  */
 class AiService
 {
@@ -24,7 +25,7 @@ class AiService
     /** @var string[] Modelos de respaldo */
     private array $fallbackModels;
 
-    /** @var \OpenAI\Client|null SDK oficial (openai-php/client) si está disponible */
+    /** @var \OpenAI\Client|null SDK oficial (openai-php/client) si estÃƒÂ¡ disponible */
     private ?\OpenAI\Client $sdk = null;
 
     /** @var HttpClient|null Cliente HTTP de respaldo */
@@ -43,7 +44,7 @@ class AiService
 
         $apiKey = $this->cfg['api_key'] ?? env('OPENAI_API_KEY');
 
-        // ===== SDK (si está instalado) =====
+        // ===== SDK (si estÃƒÂ¡ instalado) =====
         if (class_exists(\OpenAI::class) && $apiKey) {
             // Base URI para SDK DEBE incluir /v1
             $baseUri = rtrim($this->cfg['base_uri'] ?? 'https://api.openai.com/v1', '/');
@@ -63,7 +64,7 @@ class AiService
         }
 
         // ===== HTTP (Guzzle) de respaldo =====
-        // base_url sin /v1; construiremos las rutas según corresponda
+        // base_url sin /v1; construiremos las rutas segÃƒÂºn corresponda
         $baseUrl = rtrim($this->cfg['base_url'] ?? 'https://api.openai.com', '/');
 
         $headers = [
@@ -86,9 +87,9 @@ class AiService
     }
 
     /**
-     * Genera una respuesta como asesor de Jureto en español.
+     * Genera una respuesta como asesor de Jureto en espaÃƒÂ±ol.
      *
-     * @param string $lastUserMsg Último mensaje del usuario
+     * @param string $lastUserMsg ÃƒÅ¡ltimo mensaje del usuario
      * @param mixed  $ticket      HelpTicket (subject/category)
      * @param array  $history     [['role'=>'user'|'assistant','content'=>string], ...]
      * @param array  $customer    Datos conocidos del cliente (opcional)
@@ -101,11 +102,20 @@ class AiService
         $expected = $this->expectedFieldsForIntent($intent);
         [$known, $missing] = $this->splitKnownMissing($customer, $expected);
 
+        $knowledgeContext = $this->knowledgeContext($lastUserMsg, $intent);
         $system   = $this->buildSystemPrompt($ticket, $customer, $intent, $expected, $known, $missing);
         $fewShots = $this->fewShotExamples();
 
+        $knowledgeMessages = $knowledgeContext !== ''
+            ? [[
+                'role' => 'system',
+                'content' => "### Aprendizajes internos aprobados de Jureto\nUsa estos aprendizajes como prioridad cuando apliquen. No los menciones como base de conocimiento; responde normal al cliente.\n\n" . $knowledgeContext,
+            ]]
+            : [];
+
         $messages = array_merge(
             [['role' => 'system', 'content' => $system]],
+            $knowledgeMessages,
             $fewShots,
             $this->clampHistory($history, 18),
             [['role' => 'user', 'content' => $lastUserMsg]]
@@ -123,15 +133,15 @@ class AiService
         // 1) Siempre limpia AI_META para que el usuario NUNCA lo vea
         $clean = $this->stripMeta($text);
 
-        // 2) Si tras limpiar quedó vacío (la IA solo devolvió AI_META), generamos un mensaje humano pidiendo <=3 faltantes
+        // 2) Si tras limpiar quedÃƒÂ³ vacÃƒÂ­o (la IA solo devolviÃƒÂ³ AI_META), generamos un mensaje humano pidiendo <=3 faltantes
         if ($clean === '') {
             $clean = $this->composeFollowup($customer, $intent, $missing, $known);
         }
 
-        // 3) Si aún así está vacío, muestra un fallback amable
+        // 3) Si aÃƒÂºn asÃƒÂ­ estÃƒÂ¡ vacÃƒÂ­o, muestra un fallback amable
         if ($clean === '') {
-            $first = $customer['first_name'] ?: '¡Hola!';
-            $clean = "{$first}, gracias por contactarnos. ¿Podrías compartir un poco más de detalle para ayudarte mejor? 😊";
+            $first = $customer['first_name'] ?: 'Ã‚Â¡Hola!';
+            $clean = "{$first}, gracias por contactarnos. Ã‚Â¿PodrÃƒÂ­as compartir un poco mÃƒÂ¡s de detalle para ayudarte mejor? Ã°Å¸ËœÅ ";
         }
 
         return $clean;
@@ -155,19 +165,19 @@ class AiService
     }
 
     /**
-     * Genera un mensaje humano corto pidiendo hasta 3 faltantes, con saludo por nombre y acción según intento.
+     * Genera un mensaje humano corto pidiendo hasta 3 faltantes, con saludo por nombre y acciÃƒÂ³n segÃƒÂºn intento.
      */
     private function composeFollowup(array $customer, string $intent, array $missing, array $known): string
     {
         $first = $customer['first_name'] ?: ($customer['name'] ?: 'Hola');
         $accion = $this->intentActionDesc($intent); // ej: "generar tu factura", "validar tu pago"
-        $toAsk = $this->pickTopMissing($missing, $intent, 3);
+        $toAsk = $this->pickTopMissing($missing, $intent, 1);
 
         if (empty($toAsk)) return '';
 
         $bullets = array_map(fn($f) => '- ' . $this->humanLabel($f), $toAsk);
 
-        return "Hola, {$first}. Para {$accion}, ¿me apoyas con:\n" . implode("\n", $bullets);
+        return "Hola, {$first}. Para {$accion}, Ã‚Â¿me apoyas con:\n" . implode("\n", $bullets);
     }
 
     /**
@@ -177,28 +187,28 @@ class AiService
     {
         $map = [
             'name' => 'tu nombre completo',
-            'email' => 'tu correo electrónico',
-            'phone' => 'tu teléfono',
+            'email' => 'tu correo electrÃƒÂ³nico',
+            'phone' => 'tu telÃƒÂ©fono',
             'pedido' => 'el # de pedido',
             'rfc' => 'tu RFC',
-            'razon_social' => 'la Razón Social',
+            'razon_social' => 'la RazÃƒÂ³n Social',
             'uso_cfdi' => 'el Uso de CFDI (p. ej. G03)',
             'correo_factura' => 'el correo donde enviamos XML/PDF',
-            'cp' => 'tu código postal',
+            'cp' => 'tu cÃƒÂ³digo postal',
             'ciudad' => 'tu ciudad',
             'estado' => 'tu estado',
             'productos' => 'los productos (SKU/nombre)',
             'cantidades' => 'las cantidades',
-            'detalle_falta' => 'qué producto faltó',
+            'detalle_falta' => 'quÃƒÂ© producto faltÃƒÂ³',
             'evidencia' => 'una foto/video como evidencia',
             'prefiere' => 'si prefieres cambio o reembolso',
-            'fecha_recepcion' => 'la fecha de recepción',
+            'fecha_recepcion' => 'la fecha de recepciÃƒÂ³n',
             'estado_empaque' => 'el estado del empaque',
             'marca' => 'la marca del equipo',
             'modelo' => 'el modelo del equipo',
-            'descripcion_fallo' => 'una descripción del fallo',
-            'cuando_ocurre' => 'cuándo ocurre el fallo',
-            'metodo' => 'el método de pago',
+            'descripcion_fallo' => 'una descripciÃƒÂ³n del fallo',
+            'cuando_ocurre' => 'cuÃƒÂ¡ndo ocurre el fallo',
+            'metodo' => 'el mÃƒÂ©todo de pago',
             'monto' => 'el monto pagado',
             'fecha_hora' => 'la fecha y hora del pago',
             'comprobante' => 'el comprobante/captura del pago',
@@ -220,18 +230,18 @@ class AiService
     }
 
     /**
-     * Descripción corta de acción por intento.
+     * DescripciÃƒÂ³n corta de acciÃƒÂ³n por intento.
      */
     private function intentActionDesc(string $intent): string
     {
         return match ($intent) {
             'facturacion' => 'generar tu factura',
             'pago'        => 'validar tu pago',
-            'envio'       => 'revisar el estado de tu envío',
+            'envio'       => 'revisar el estado de tu envÃƒÂ­o',
             'pedido'      => 'revisar tu pedido',
-            'cotizacion'  => 'preparar tu cotización',
-            'garantia'    => 'gestionar tu garantía',
-            'devolucion'  => 'gestionar tu devolución',
+            'cotizacion'  => 'preparar tu cotizaciÃƒÂ³n',
+            'garantia'    => 'gestionar tu garantÃƒÂ­a',
+            'devolucion'  => 'gestionar tu devoluciÃƒÂ³n',
             'soporte'     => 'ayudarte con el soporte',
             'favoritos'   => 'gestionar tus favoritos',
             'cuenta'      => 'ayudarte con tu cuenta',
@@ -278,16 +288,19 @@ class AiService
                 'state'  => $shipping['state']  ?? null,
                 'cp'     => $shipping['cp']     ?? null,
             ],
-            'last_order'      => [
+            'last_order'      => $c['last_order'] ?? [
                 'id'   => Arr::get($c, 'last_order.id'),
                 'date' => Arr::get($c, 'last_order.date'),
             ],
+            'recent_orders'   => $c['recent_orders'] ?? [],
+            'cart'            => $c['cart'] ?? ['count' => 0, 'subtotal' => 0, 'items' => []],
+            'favorites'       => $c['favorites'] ?? ['count' => 0, 'items' => []],
             'preferences'     => $c['preferences'] ?? [],
         ];
     }
 
     /**
-     * Infere el intento (categoría) desde el ticket y/o mensaje del usuario.
+     * Infere el intento (categorÃƒÂ­a) desde el ticket y/o mensaje del usuario.
      */
     private function intentFromTicket($ticket, string $msg): string
     {
@@ -296,15 +309,15 @@ class AiService
 
         $pairs = [
             'facturacion' => ['factura', 'cfdi', 'xml', 'pdf', 'rfc', 'uso de cfdi', 'uso cfdi'],
-            'pedido'      => ['pedido', 'orden', 'fol', 'no me llegó', 'faltó', 'falta'],
-            'envio'       => ['envío', 'guía', 'rastreo', 'paquetería', 'dhl', 'fedex', 'skydropx'],
-            'cotizacion'  => ['cotiza', 'cotización', 'precio', 'cuánto', 'costo'],
-            'garantia'    => ['garantía', 'garantia'],
-            'devolucion'  => ['devolución', 'devolucion', 'reembolso', 'cambio'],
+            'pedido'      => ['pedido', 'orden', 'fol', 'no me llegÃƒÂ³', 'faltÃƒÂ³', 'falta'],
+            'envio'       => ['envÃƒÂ­o', 'guÃƒÂ­a', 'rastreo', 'paqueterÃƒÂ­a', 'dhl', 'fedex', 'skydropx'],
+            'cotizacion'  => ['cotiza', 'cotizaciÃƒÂ³n', 'precio', 'cuÃƒÂ¡nto', 'costo'],
+            'garantia'    => ['garantÃƒÂ­a', 'garantia'],
+            'devolucion'  => ['devoluciÃƒÂ³n', 'devolucion', 'reembolso', 'cambio'],
             'soporte'     => ['soporte', 'falla', 'no funciona', 'defecto'],
             'pago'        => ['pago', 'transferencia', 'comprobante', 'deposito', 'tarjeta'],
             'favoritos'   => ['favoritos', 'wishlist', 'lista de deseos'],
-            'cuenta'      => ['cuenta', 'acceso', 'contraseña', 'login'],
+            'cuenta'      => ['cuenta', 'acceso', 'contraseÃƒÂ±a', 'login'],
         ];
 
         foreach (array_keys($pairs) as $k) {
@@ -320,7 +333,7 @@ class AiService
     }
 
     /**
-     * Campos esperados según intento.
+     * Campos esperados segÃƒÂºn intento.
      */
     private function expectedFieldsForIntent(string $intent): array
     {
@@ -364,8 +377,8 @@ class AiService
             // Campos que no suelen estar en perfil:
             'pedido'            => fn() => $customer['last_order']['id'] ?? null,
             'correo_factura'    => fn() => $customer['email'] ?? null,
-            'productos'         => fn() => null,
-            'cantidades'        => fn() => null,
+            'productos'         => fn() => !empty($customer['last_order']['items'] ?? []) ? collect($customer['last_order']['items'])->pluck('name')->filter()->values()->all() : null,
+            'cantidades'        => fn() => !empty($customer['last_order']['items'] ?? []) ? collect($customer['last_order']['items'])->map(fn($i) => ($i['qty'] ?? null) ? (($i['name'] ?? 'Producto') . ' x' . $i['qty']) : null)->filter()->values()->all() : null,
             'detalle_falta'     => fn() => null,
             'evidencia'         => fn() => null,
             'prefiere'          => fn() => null, // cambio o reembolso
@@ -381,7 +394,7 @@ class AiService
             'comprobante'       => fn() => null,
             'producto_id'       => fn() => null,
             'problema_cuenta'   => fn() => null,
-            'factura'           => fn() => ($customer['preferences']['factura'] ?? null) ? 'sí' : null,
+            'factura'           => fn() => ($customer['preferences']['factura'] ?? null) ? 'sÃƒÂ­' : null,
         ];
 
         foreach ($expected as $field) {
@@ -397,7 +410,7 @@ class AiService
     }
 
     /**
-     * Prompt de sistema con identidad/voz/proceso y guía de recabado de datos.
+     * Prompt de sistema con identidad/voz/proceso y guÃƒÂ­a de recabado de datos.
      * Inyecta: cliente conocido, intento, campos esperados y faltantes.
      */
     private function buildSystemPrompt($ticket, array $customer, string $intent, array $expected, array $known, array $missing): string
@@ -415,10 +428,14 @@ class AiService
             'rfc'         => $customer['rfc'],
             'razon'       => $customer['razon_social'],
             'uso_cfdi'    => $customer['uso_cfdi'],
-            'billing'     => $customer['billing_address'],
-            'shipping'    => $customer['shipping_address'],
-            'last_order'  => $customer['last_order'],
-            'preferences' => $customer['preferences'],
+            'billing'          => $customer['billing_address'],
+            'shipping'         => $customer['shipping_address'],
+            'shipping_address' => $customer['shipping_address'],
+            'last_order'       => $customer['last_order'],
+            'recent_orders' => $customer['recent_orders'] ?? [],
+            'cart'          => $customer['cart'] ?? ['count' => 0, 'subtotal' => 0, 'items' => []],
+            'favorites'     => $customer['favorites'] ?? ['count' => 0, 'items' => []],
+            'preferences'   => $customer['preferences'],
         ];
 
         $knownJson    = json_encode($known, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -427,13 +444,13 @@ class AiService
         $custJson     = json_encode($customerCtx, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
         return <<<PROMPT
-Eres un asesor humano de **Jureto**, una empresa mexicana dedicada a la **venta de artículos de papelería** y relacionados (consumibles, oficina, escolares, impresión, etc.).
-Tu objetivo: **resolver el caso del cliente** y, si faltan datos, **recabarlos con preguntas concretas** y amables. Responde **siempre en español**.
+Eres un asesor humano de **Jureto**, una empresa mexicana dedicada a la **venta de artÃƒÂ­culos de papelerÃƒÂ­a** y relacionados (consumibles, oficina, escolares, impresiÃƒÂ³n, etc.).
+Tu objetivo: **resolver el caso del cliente usando primero la informaciÃƒÂ³n real disponible del sistema**. Responde con ayuda ÃƒÂºtil antes de pedir datos. Solo pregunta cuando el dato sea indispensable. Responde **siempre en espaÃƒÂ±ol**.
 
 ### Identidad y voz
 - Saluda por su nombre: **{$first}**.
-- Tono: cercano, profesional, claro. Párrafos cortos y bullets cuando ayuden.
-- No inventes información: si no hay dato, **pídelo**.
+- Tono: cercano, profesional, claro. PÃƒÂ¡rrafos cortos y bullets cuando ayuden.
+- No inventes informaciÃƒÂ³n. Si falta un dato, primero da orientaciÃƒÂ³n ÃƒÂºtil con lo disponible y solo pide el dato si es indispensable para avanzar.
 
 ### Contexto del ticket
 - Subject: "{$subject}"
@@ -449,19 +466,34 @@ Tu objetivo: **resolver el caso del cliente** y, si faltan datos, **recabarlos c
 ### Campos ya conocidos (puedes usarlos sin volver a pedirlos)
 {$knownJson}
 
-### Campos faltantes (pregunta solo por estos)
+### Campos faltantes internos (NO los preguntes todos; ÃƒÂºsalos solo como referencia)
 {$missingJson}
 
+### Reglas para usar datos reales del sistema
+- Antes de preguntar, revisa el contexto del cliente.
+- Si existe `last_order`, ÃƒÂºsalo para responder consultas sobre "mi pedido", "ÃƒÂºltimo pedido", pago, envÃƒÂ­o, guÃƒÂ­a, total, productos o estatus.
+- Si existe `recent_orders`, ÃƒÂºsalo para orientar al cliente cuando pregunte por pedidos en general.
+- Si existe `shipping_address`, NO pidas direcciÃƒÂ³n para consultas generales de envÃƒÂ­o; confirma o resume la direcciÃƒÂ³n disponible.
+- Si existen `payments` dentro de `last_order`, usa ese estado antes de pedir comprobante.
+- Si existen `items` dentro de `last_order`, usa esos productos antes de preguntar quÃƒÂ© comprÃƒÂ³.
+- No digas "no tengo acceso al sistema" si el contexto trae datos.
+- No modifiques nada: no canceles pedidos, no cambies direcciones, no hagas reembolsos, no marques pagos y no generes guÃƒÂ­as. Solo informa y orienta.
+- Si falta un dato indispensable, pide mÃƒÂ¡ximo 1 dato por mensaje y explica por quÃƒÂ© lo necesitas.
+- Si el cliente pregunta algo general, responde directamente sin pedir datos.
+- Si el cliente pregunta por su carrito, usa cart.items. Si cart.count es mayor que 0, lista productos con cantidad, precio y subtotal. No digas que no tienes acceso al carrito si cart.items trae datos.
+- Si cart.count es 0, dile que su carrito estÃƒÂ¡ vacÃƒÂ­o y sugiere agregar productos.
+- Si el cliente pregunta por favoritos, productos guardados o preferidos, usa avorites.items. Si avorites.count es mayor que 0, lista los productos favoritos con nombre, precio y SKU si existe. No digas que no tiene favoritos si avorites.items trae datos.
+- Si avorites.count es 0, dile que no tiene productos guardados en favoritos.
 ### Reglas
-1) Si faltan datos importantes, puedes responder **únicamente con el bloque <AI_META>** (sin texto visible).
+1) No respondas ÃƒÂºnicamente con <AI_META>. Siempre da una respuesta visible y ÃƒÂºtil al cliente.
 2) **Nunca** muestres ni expliques el contenido de <AI_META> al usuario final (el sistema lo filtra).
-3) Pide **máximo 3 datos** por turno, priorizando los más críticos para avanzar.
-4) Si el cliente ya dio el # de pedido, **úsalo**; si no, pídelo cuando sea pertinente (pedido/envío/factura).
-5) Propón **siguientes pasos** claros (qué harás tú y qué hará el cliente).
+3) Pide **mÃƒÂ¡ximo 1 dato** por turno, solo si es indispensable. Evita interrogatorios.
+4) Si el cliente ya dio el # de pedido, **ÃƒÂºsalo**; si no, pÃƒÂ­delo cuando sea pertinente (pedido/envÃƒÂ­o/factura).
+5) PropÃƒÂ³n **siguientes pasos** claros (quÃƒÂ© harÃƒÂ¡s tÃƒÂº y quÃƒÂ© harÃƒÂ¡ el cliente).
 
 ### Formato de salida
-- Redacta como humano en español.
-- **Al final**, si identificaste campos estructurados o faltantes, añade el bloque:
+- Redacta como humano en espaÃƒÂ±ol.
+- **Al final**, si identificaste campos estructurados o faltantes, puedes aÃƒÂ±adir el bloque:
 <AI_META>
 {
   "intento": "{$intent}",
@@ -476,39 +508,75 @@ PROMPT;
     /**
      * Ejemplos breves para guiar tono/flujo.
      */
+    private function knowledgeContext(string $message, string $intent): string
+    {
+        $text = mb_strtolower($message);
+        $tokens = collect(preg_split('/\s+/u', $text))
+            ->map(fn($w) => trim($w, ".,;:!?¿¡()[]{}\"'"))
+            ->filter(fn($w) => mb_strlen($w) >= 4)
+            ->unique()
+            ->take(12)
+            ->values()
+            ->all();
+
+        $query = AiKnowledgeEntry::query()
+            ->where('is_active', true)
+            ->where(function ($q) use ($intent, $tokens, $text) {
+                $q->where('category', $intent);
+
+                foreach ($tokens as $token) {
+                    $q->orWhere('question', 'like', '%' . $token . '%')
+                      ->orWhere('answer', 'like', '%' . $token . '%')
+                      ->orWhere('keywords', 'like', '%' . $token . '%');
+                }
+            })
+            ->latest()
+            ->limit(5)
+            ->get();
+
+        if ($query->isEmpty()) {
+            return '';
+        }
+
+        return $query->map(function ($item) {
+            return "- Categoria: " . ($item->category ?: 'general') . "\n"
+                . "  Pregunta/tema: " . trim((string) $item->question) . "\n"
+                . "  Respuesta aprobada: " . trim((string) $item->answer);
+        })->implode("\n\n");
+    }
     private function fewShotExamples(): array
     {
         return [
             [
                 'role' => 'user',
-                'content' => "Quiero factura, mi pedido no me llegó completo."
+                'content' => "Quiero factura, mi pedido no me llegÃƒÂ³ completo."
             ],
             [
                 'role' => 'assistant',
                 'content' =>
-                    "¡Hola! Gracias por escribirnos.\n\n" .
-                    "Para **facturar** y **revisar tu pedido**, ayúdame por favor con:\n" .
+                    "Ã‚Â¡Hola! Gracias por escribirnos.\n\n" .
+                    "Para **facturar** y **revisar tu pedido**, ayÃƒÂºdame por favor con:\n" .
                     "- # de pedido\n- RFC y Uso de CFDI (p. ej. G03)\n- Correo donde enviamos XML/PDF\n\n" .
                     "Si puedes, una foto del paquete recibido para validar el faltante. Con esto lo reviso y te confirmo el ajuste."
             ],
             [
                 'role' => 'user',
-                'content' => "Necesito cotización de 50 cuadernos profesionales y 30 paquetes de plumas, CP 44100."
+                'content' => "Necesito cotizaciÃƒÂ³n de 50 cuadernos profesionales y 30 paquetes de plumas, CP 44100."
             ],
             [
                 'role' => 'assistant',
                 'content' =>
-                    "Perfecto. Para afinar la **cotización**:\n" .
-                    "- ¿Cuadernos A4 u oficio? ¿Alguna marca preferida?\n" .
-                    "- Plumas: ¿azul/negro/rojo o surtido? ¿Punta fina o media?\n" .
-                    "¿Requieres factura CFDI?\n\n" .
-                    "Con eso preparo total con envío a 44100 y te lo comparto."
+                    "Perfecto. Para afinar la **cotizaciÃƒÂ³n**:\n" .
+                    "- Ã‚Â¿Cuadernos A4 u oficio? Ã‚Â¿Alguna marca preferida?\n" .
+                    "- Plumas: Ã‚Â¿azul/negro/rojo o surtido? Ã‚Â¿Punta fina o media?\n" .
+                    "Ã‚Â¿Requieres factura CFDI?\n\n" .
+                    "Con eso preparo total con envÃƒÂ­o a 44100 y te lo comparto."
             ],
         ];
     }
 
     /**
-     * Mantiene el historial razonable (últimos N turnos).
+     * Mantiene el historial razonable (ÃƒÂºltimos N turnos).
      */
     private function clampHistory(array $history, int $maxTurns): array
     {
@@ -567,7 +635,7 @@ PROMPT;
                             return $text;
                         }
 
-                        $lastError = 'Respuesta vacía del SDK';
+                        $lastError = 'Respuesta vacÃƒÂ­a del SDK';
                     } catch (\OpenAI\Exceptions\ErrorException $e) {
                         $status = $e->getCode();
                         $msg    = $e->getMessage();
@@ -588,7 +656,7 @@ PROMPT;
                         break;
                     } catch (\Throwable $t) {
                         $lastError = $t->getMessage();
-                        Log::error('[AiService][SDK] Excepción', ['model' => $model, 'msg' => $lastError]);
+                        Log::error('[AiService][SDK] ExcepciÃƒÂ³n', ['model' => $model, 'msg' => $lastError]);
                         break;
                     }
                 }
@@ -613,10 +681,10 @@ PROMPT;
                             }
                             return $text;
                         }
-                        $lastError = 'Respuesta vacía del API';
+                        $lastError = 'Respuesta vacÃƒÂ­a del API';
                     } else {
                         $lastError = "HTTP {$code}";
-                        Log::warning('[AiService][HTTP] Código no-2xx', ['model' => $model, 'code' => $code]);
+                        Log::warning('[AiService][HTTP] CÃƒÂ³digo no-2xx', ['model' => $model, 'code' => $code]);
                     }
                 } catch (RequestException $e) {
                     $resp   = $e->getResponse();
@@ -650,7 +718,7 @@ PROMPT;
                     break;
                 } catch (\Throwable $t) {
                     $lastError = $t->getMessage();
-                    Log::critical('[AiService][HTTP] Excepción', ['model' => $model, 'msg' => $lastError]);
+                    Log::critical('[AiService][HTTP] ExcepciÃƒÂ³n', ['model' => $model, 'msg' => $lastError]);
                     break;
                 }
             }

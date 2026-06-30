@@ -98,6 +98,11 @@ class ShippingController extends Controller
             'to_phone'       => (string) ($to['phone']        ?? '5555555555'),
         ];
 
+        // 3) Cotiza con proveedor configurado
+        if (env('SHIPPING_PROVIDER', 'skydropx') === 'fallback') {
+            return $this->fallbackResponse($subtotal);
+        }
+
         // 3) Cotiza en PRO (crea quotation + polling hasta is_completed:true)
         try {
             $waitSeconds = 8;
@@ -166,10 +171,94 @@ class ShippingController extends Controller
                 'zipTo'  => $zipTo,
                 'parcel' => $parcel,
             ]);
-            return response()->json(['ok' => false, 'error' => 'Error consultando Skydropx PRO'], 500);
+            $options = $this->fallbackShippingOptions($hasFree);
+
+            return response()->json([
+                'ok' => true,
+                'fallback' => true,
+                'error' => 'Proveedor de envios no disponible. Mostrando envio estandar.',
+                'free_shipping' => $hasFree,
+                'free_threshold' => $this->threshold,
+                'count' => count($options),
+                'options' => $options,
+            ]);
         }
     }
 
+
+    private function fallbackShippingOptions(bool $hasFree = false): array
+    {
+        $price = (float) env('SHIPPING_FALLBACK_PRICE', 149);
+        $name  = (string) env('SHIPPING_FALLBACK_NAME', 'Envio estandar');
+
+        $options = [[
+            'id'       => 'FALLBACK_STANDARD',
+            'carrier'  => 'Jureto',
+            'service'  => $name,
+            'price'    => $price,
+            'currency' => 'MXN',
+            'eta'      => 'Entrega estimada',
+        ]];
+
+        if ($hasFree) {
+            array_unshift($options, [
+                'id'       => 'FREE',
+                'carrier'  => 'Jureto',
+                'service'  => 'Envio gratis',
+                'price'    => 0.0,
+                'currency' => 'MXN',
+                'eta'      => null,
+            ]);
+        }
+
+        return $options;
+    }
+
+    private function fallbackOptions(float $subtotal = 0): array
+    {
+        $price = (float) env('SHIPPING_FALLBACK_PRICE', 149);
+        $name = (string) env('SHIPPING_FALLBACK_NAME', 'Envio estandar');
+        $hasFree = $subtotal >= $this->threshold;
+
+        $options = [];
+
+        if ($hasFree) {
+            $options[] = [
+                'id'       => 'FREE',
+                'carrier'  => 'Jureto',
+                'service'  => 'Envio gratis',
+                'price'    => 0.0,
+                'currency' => 'MXN',
+                'eta'      => null,
+            ];
+        }
+
+        $options[] = [
+            'id'       => 'FALLBACK_STANDARD',
+            'carrier'  => 'Jureto',
+            'service'  => $name,
+            'price'    => $hasFree ? 0.0 : $price,
+            'currency' => 'MXN',
+            'eta'      => 'Entrega estimada',
+        ];
+
+        return $options;
+    }
+
+    private function fallbackResponse(float $subtotal = 0)
+    {
+        $options = $this->fallbackOptions($subtotal);
+
+        return response()->json([
+            'ok'             => true,
+            'provider'       => 'fallback',
+            'free_shipping'  => $subtotal >= $this->threshold,
+            'free_threshold' => $this->threshold,
+            'is_completed'   => true,
+            'count'          => count($options),
+            'options'        => $options,
+        ]);
+    }
     /**
      * Guarda la selección de envío en sesión (o en tu orden).
      * Espera: option_id, option_label, price, currency (opcional), raw (opcional)

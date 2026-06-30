@@ -15,7 +15,7 @@
   $logoMap = [
     'dhl' => 'dhl.svg', 'fedex' => 'fedex.svg', 'ups' => 'ups.svg',
     'estafeta' => 'estafeta.svg', 'redpack' => 'redpack.svg', '99minutos' => '99minutos.svg',
-    'paquetexpress' => 'paquetexpress.svg', 'sendex' => 'sendex.svg', 'mexpost' => 'mexpost.svg',
+    'paquetexpress' => 'paquetexpress.svg', 'tresguerras' => 'tresguerras.svg', 'tres-guerras' => 'tresguerras.svg', 'sendex' => 'sendex.svg', 'mexpost' => 'mexpost.svg',
     'carssa' => 'carssa.svg', 'ivoy' => 'ivoy.svg', 'dypaq' => 'dypaq.svg',
   ];
 
@@ -127,6 +127,7 @@
     flex: 1; min-width: 220px; display: flex; align-items: center; gap: 8px;
     background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px;
   }
+  .search { display:none !important; }
   .search input { border: none; outline: none; width: 100%; font-family: inherit; font-size: 0.95rem; background: transparent; }
 
   /* Paqueterías */
@@ -228,16 +229,28 @@
                 @php
                   $name    = trim($c['name'] ?? ($c['carrier'] ?? 'Paquetería'));
                   $service = trim($c['service'] ?? '');
+                  $etaText = (string) ($c['eta'] ?? 'Entrega estimada');
+                  $etaText = str_replace(
+                    ['dÃƒÂ­a', 'dÃ­a', 'dÃƒÂ­as', 'dÃ­as', 'dias', 'dia'],
+                    ['día', 'día', 'días', 'días', 'días', 'día'],
+                    $etaText
+                  );
                   $price   = (float) ($c['price'] ?? 0);
                   $code    = (string) ($c['code'] ?? Str::slug($name.'-'.$service));
                   $slug    = Str::slug($c['carrier'] ?? $name);
                   $logo    = $logoMap[$slug] ?? 'generic-shipping.svg';
                   $checked = (($selected['code'] ?? null) === $code);
+                  $etaRaw = (string) ($c['eta'] ?? '');
+                  preg_match('/\d+/', $etaRaw, $etaMatch);
+                  $etaDays = isset($etaMatch[0]) ? (int) $etaMatch[0] : 999;
                 @endphp
                 <label class="carrier {{ $checked ? 'active' : '' }}" 
                        data-price="{{ $price }}" 
                        data-name="{{ Str::upper($name) }}"
                        data-service="{{ $service }}"
+                       data-eta="{{ $etaText ?? ($c['eta'] ?? '') }}"
+                       data-index="{{ $i }}"
+                       data-eta-days="{{ $etaDays }}"
                        @if($i >= $limitInitial) style="display:none" data-extra="true" @endif>
                   
                   @if($i === $minIdx) <span class="ribbon">Mejor Precio</span> @endif
@@ -248,7 +261,7 @@
 
                   <div>
                     <div class="car-title">{{ Str::upper($name) }} <span class="car-sub">{{ $service }}</span></div>
-                    <div class="car-sub">{{ $c['eta'] ?? 'Entrega estimada' }}</div>
+                    <div class="car-sub">{{ $etaText }}</div>
                   </div>
 
                   <div style="text-align: right;">
@@ -275,6 +288,8 @@
 
           <input type="hidden" name="price" id="ship-price" value="{{ $shipPrice }}">
           <input type="hidden" name="name" id="ship-name" value="{{ $selected['name'] ?? '' }}">
+          <input type="hidden" name="service" id="ship-service" value="{{ $selected['service'] ?? '' }}">
+          <input type="hidden" name="eta" id="ship-eta" value="{{ $selected['eta'] ?? '' }}">
 
           <div style="display:flex; gap:12px; justify-content:flex-end; margin-top: 32px;">
             <a class="btn btn-ghost" href="{{ route('web.cart.index') }}">Regresar</a>
@@ -308,18 +323,90 @@
   const totalEl = $('#sum-total');
   const btnCont = $('#btn-continue');
 
+  // Ordenar paqueterías
+  const carriersGrid = document.querySelector('.carriers-grid');
+  const carriersWrap = document.getElementById('carriers');
+  const sortButtons = Array.from(document.querySelectorAll('.seg button'));
+
+  function applyCarrierVisibleLimit() {
+    if (!carriersGrid || !carriersWrap) return;
+
+    const collapsed = carriersWrap.dataset.collapsed === 'true';
+    const visible = parseInt(carriersWrap.dataset.visible || '999', 10);
+    const cards = Array.from(carriersGrid.querySelectorAll('.carrier'));
+
+    cards.forEach((card, index) => {
+      if (collapsed && index >= visible) {
+        card.style.display = 'none';
+        card.dataset.extra = 'true';
+      } else {
+        card.style.display = 'grid';
+        if (index < visible) card.removeAttribute('data-extra');
+      }
+    });
+  }
+
+  function sortCarriersByMode(mode) {
+    if (!carriersGrid) return;
+
+    const cards = Array.from(carriersGrid.querySelectorAll('.carrier'));
+
+    cards.sort((a, b) => {
+      if (mode === 'cheap') {
+        return parseFloat(a.dataset.price || '999999') - parseFloat(b.dataset.price || '999999');
+      }
+
+      if (mode === 'fast') {
+        const etaA = parseInt(a.dataset.etaDays || '999', 10);
+        const etaB = parseInt(b.dataset.etaDays || '999', 10);
+
+        if (etaA !== etaB) return etaA - etaB;
+
+        return parseFloat(a.dataset.price || '999999') - parseFloat(b.dataset.price || '999999');
+      }
+
+      return parseInt(a.dataset.index || '0', 10) - parseInt(b.dataset.index || '0', 10);
+    });
+
+    cards.forEach(card => carriersGrid.appendChild(card));
+    applyCarrierVisibleLimit();
+  }
+
+  sortButtons.forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.preventDefault();
+
+      sortButtons.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      const text = btn.textContent.toLowerCase();
+
+      if (text.includes('barato')) {
+        sortCarriersByMode('cheap');
+      } else if (text.includes('rápido') || text.includes('rapido')) {
+        sortCarriersByMode('fast');
+      } else {
+        sortCarriersByMode('recommended');
+      }
+    });
+  });
   // Radio Change
   $$('input[name="code"]').forEach(r => {
     r.addEventListener('change', e => {
       const code = e.target.value;
       const price = parseFloat($(`[name="price_${code}"]`).value);
       const name = $(`[name="name_${code}"]`).value;
+      const card = e.target.closest('.carrier');
+      const service = card ? (card.dataset.service || '') : '';
+      const eta = card ? (card.dataset.eta || '') : '';
 
       $$('.carrier').forEach(c => c.classList.remove('active'));
-      e.target.closest('.carrier').classList.add('active');
+      card.classList.add('active');
 
       $('#ship-price').value = price;
       $('#ship-name').value = name;
+      $('#ship-service').value = service;
+      $('#ship-eta').value = eta;
 
       envioEl.textContent = price > 0 ? '$' + price.toFixed(2) : 'GRATIS';
       totalEl.textContent = '$' + (subtotal + price).toFixed(2);
@@ -346,3 +433,83 @@
 </script>
 @endpush
 @endsection
+<style>
+/* force_show_all_carriers_css */
+.carriers-grid .carrier {
+  display: grid !important;
+}
+#show-more-wrap,
+.show-more-wrap {
+  display: none !important;
+}
+</style>
+<style>
+  #carriers {
+    max-height: 520px;
+    overflow-y: auto;
+    padding-right: 8px;
+  }
+
+  @media (max-width: 768px) {
+    #carriers {
+      max-height: 430px;
+    }
+  }
+</style>
+
+<style>
+  #carriers + button,
+  #carriers ~ button,
+  .more-toggle,
+  .btn-more,
+  .show-more,
+  [data-more],
+  [data-toggle-more] {
+    display: none !important;
+  }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('button, a').forEach(function (el) {
+    const txt = (el.textContent || '').trim().toLowerCase();
+    if (txt.includes('ver m�s') || txt.includes('ver mas') || txt.includes('mostrar m�s') || txt.includes('mostrar mas')) {
+      el.remove();
+    }
+  });
+});
+</script>
+
+<style>
+  .more-toggle,
+  .more-btn,
+  .btn-more,
+  .show-more {
+    display: none !important;
+  }
+</style>
+
+<script>
+(function () {
+  function removeShowMoreButtons() {
+    document.querySelectorAll('button, a').forEach(function (el) {
+      const txt = (el.textContent || '').trim().toLowerCase();
+
+      if (
+        txt.includes('mostrar todas las opciones') ||
+        txt.includes('mostrar todas') ||
+        txt.includes('ver m�s') ||
+        txt.includes('ver mas') ||
+        txt.includes('mostrar m�s') ||
+        txt.includes('mostrar mas')
+      ) {
+        el.remove();
+      }
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', removeShowMoreButtons);
+  setTimeout(removeShowMoreButtons, 300);
+  setTimeout(removeShowMoreButtons, 1000);
+})();
+</script>

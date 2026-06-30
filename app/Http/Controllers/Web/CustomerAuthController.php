@@ -34,7 +34,7 @@ class CustomerAuthController extends Controller
         }
 
         return back()
-            ->withErrors(['email' => 'Credenciales inválidas'])
+            ->withErrors(['email' => 'Credenciales invÃ¡lidas'])
             ->onlyInput('email');
     }
 
@@ -63,9 +63,17 @@ class CustomerAuthController extends Controller
 
     public function logout(Request $request)
     {
+        $cart = $request->session()->get('cart', []);
+
         Auth::guard('customer')->logout();
+
         $request->session()->invalidate();
         $request->session()->regenerateToken();
+
+        if (!empty($cart)) {
+            $request->session()->put('cart', $cart);
+        }
+
         return redirect()->route('web.home');
     }
 
@@ -73,7 +81,7 @@ class CustomerAuthController extends Controller
     public function welcome()
     {
         $customer = Auth::guard('customer')->user();
-        $cart = session('cart', []); // si manejas carrito en sesión
+        $cart = session('cart', []); // si manejas carrito en sesiÃ³n
 
         return view('web.customer.welcome', compact('customer', 'cart'));
     }

@@ -7,12 +7,14 @@ use App\Models\CatalogItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class CartController extends Controller
 {
     /**
-     * Obtiene el carrito desde sesión.
+     * Obtiene el carrito desde sesiÃ³n.
      * Estructura: [id => ['id','name','price','qty','image','slug','sku']]
      */
     private function getCart(): array
@@ -20,7 +22,7 @@ class CartController extends Controller
         return session()->get('cart', []);
     }
 
-    /** Guarda el carrito en sesión. */
+    /** Guarda el carrito en sesiÃ³n. */
     private function saveCart(array $cart): void
     {
         session(['cart' => $cart]);
@@ -33,10 +35,10 @@ class CartController extends Controller
     }
 
     /**
-     * Convierte rutas tipo "catalog/photos/xxx.jpg" a URL pública.
+     * Convierte rutas tipo "catalog/photos/xxx.jpg" a URL pÃºblica.
      * IMPORTANTE: esto requiere `php artisan storage:link`
      *
-     * Usamos asset('storage/...') porque funciona aunque tu app esté en subcarpeta.
+     * Usamos asset('storage/...') porque funciona aunque tu app estÃ© en subcarpeta.
      */
     private function toPublicImageUrl(?string $path): ?string
     {
@@ -53,7 +55,7 @@ class CartController extends Controller
         // si viene como "storage/..."
         if (Str::startsWith($path, 'storage/')) return asset($path);
 
-        // tu caso común: "catalog/photos/..."
+        // tu caso comÃºn: "catalog/photos/..."
         if (Str::startsWith($path, 'catalog/')) {
             return asset('storage/' . ltrim($path, '/'));
         }
@@ -63,7 +65,7 @@ class CartController extends Controller
     }
 
     /**
-     * URL pública de la imagen principal (photo_1 preferida).
+     * URL pÃºblica de la imagen principal (photo_1 preferida).
      */
     private function primaryImageUrl(CatalogItem $item): ?string
     {
@@ -79,7 +81,7 @@ class CartController extends Controller
 
     /**
      * Totales del carrito.
-     * ✅ IMPORTANTE: NO se agrega IVA porque ya viene incluido en los precios.
+     * âœ… IMPORTANTE: NO se agrega IVA porque ya viene incluido en los precios.
      */
     private function totals(array $cart): array
     {
@@ -111,7 +113,7 @@ class CartController extends Controller
     {
         $data = $request->validate([
             'catalog_item_id' => ['required','integer','exists:catalog_items,id'],
-            'qty'             => ['nullable','integer','min:1','max:999'],
+            'qty'             => ['nullable','integer','min:1','max:99999'],
         ]);
 
         $item = CatalogItem::published()->findOrFail($data['catalog_item_id']);
@@ -131,7 +133,7 @@ class CartController extends Controller
         if (isset($cart[$item->id])) {
             $cart[$item->id]['qty'] += $qtyToAdd;
 
-            // refresca imagen si estaba vacía o venía como placeholder
+            // refresca imagen si estaba vacÃ­a o venÃ­a como placeholder
             if (empty($cart[$item->id]['image'])) {
                 $cart[$item->id]['image'] = $this->primaryImageUrl($item);
             }
@@ -142,7 +144,7 @@ class CartController extends Controller
                 'name'  => $item->name,
                 'price' => $this->unitPrice($item),
                 'qty'   => $qtyToAdd,
-                // ✅ FOTO PRINCIPAL (photo_1) -> URL pública
+                // âœ… FOTO PRINCIPAL (photo_1) -> URL pÃºblica
                 'image' => $this->primaryImageUrl($item),
                 'sku'   => $item->sku,
             ];
@@ -169,7 +171,7 @@ class CartController extends Controller
     {
         $data = $request->validate([
             'catalog_item_id' => ['required','integer'],
-            'qty'             => ['required','integer','min:1','max:999'],
+            'qty'             => ['required','integer','min:1','max:99999'],
         ]);
 
         $cart = $this->getCart();
@@ -202,7 +204,7 @@ class CartController extends Controller
         return back()->with('ok', 'Producto eliminado del carrito.');
     }
 
-    /** Vacía el carrito (AJAX-friendly). */
+    /** VacÃ­a el carrito (AJAX-friendly). */
     public function clear(Request $request)
     {
         $this->saveCart([]);
@@ -214,14 +216,14 @@ class CartController extends Controller
         return back()->with('ok', 'Carrito vaciado.');
     }
 
-    /** Previsualización de checkout. */
+    /** PrevisualizaciÃ³n de checkout. */
     public function checkoutPreview()
     {
         $cart   = $this->getCart();
         $totals = $this->totals($cart);
 
         if ($totals['count'] < 1) {
-            return redirect()->route('web.cart.index')->with('ok','Tu carrito está vacío.');
+            return redirect()->route('web.cart.index')->with('ok','Tu carrito estÃ¡ vacÃ­o.');
         }
 
         return view('web.cart.checkout', compact('cart','totals'));
