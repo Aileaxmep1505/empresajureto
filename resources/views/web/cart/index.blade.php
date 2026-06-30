@@ -453,8 +453,18 @@
                   $img = $resolveImg($imgRaw);
                   
                   // BÚSQUEDA DEL PRODUCTO REAL EN LA BASE DE DATOS
-                  $realProduct = \App\Models\CatalogItem::find($row['id']);
-                  $presentation = $getPresentation($realProduct); 
+                  $productId = $row['catalog_item_id'] ?? $row['id'] ?? null;
+                  $realProduct = $productId ? \App\Models\CatalogItem::find($productId) : null;
+                  $presentation = $getPresentation($realProduct);
+
+                  $cartProductParam = $row['slug']
+                      ?? ($realProduct->slug ?? null)
+                      ?? ($row['catalog_item_id'] ?? null)
+                      ?? ($row['id'] ?? null);
+
+                  $cartProductUrl = $cartProductParam
+                      ? route('web.catalog.show', ['catalogItem' => $cartProductParam])
+                      : null;
                 @endphp
                 <tr data-id="{{ $row['id'] }}">
                   <td data-label="Producto">
@@ -465,7 +475,11 @@
                            onload="console.log('IMG OK:', this.src)"
                            onerror="console.log('IMG FAIL:', this.src); this.onerror=null; this.src='{{ asset('images/placeholder.png') }}'">
                       <div>
-                        <a class="prod-name" href="{{ route('web.catalog.show', $row['slug'] ?? '') }}">{{ $row['name'] }}</a>
+                        @if($cartProductUrl)
+                          <a class="prod-name" href="{{ $cartProductUrl }}">{{ $row['name'] }}</a>
+                        @else
+                          <span class="prod-name">{{ $row['name'] }}</span>
+                        @endif
                         <div class="sku">SKU: {{ !empty($row['sku']) ? $row['sku'] : '—' }}</div>
                         
                         {{-- AQUÍ SE IMPRIME LA PRESENTACIÓN REAL --}}

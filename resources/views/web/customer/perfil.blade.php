@@ -2,146 +2,263 @@
 @section('title','Mi Cuenta')
 
 @section('content')
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet"/>
 
 <style>
   /* ====================== SCOPE: #account ====================== */
-  #account{
-    --ink:#0e1726; --muted:#6b7280; --line:#e8eef6;
-    --surface:#ffffff; --brand:#0f172a;
-    --ok:#16a34a; --warn:#eab308; --bad:#ef4444;
-    --radius:16px; --shadow:0 16px 40px rgba(2,8,23,.08);
-    --container:1200px;
-    font-family:'Plus Jakarta Sans',system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-    color:var(--ink);
-    position:relative;
-    z-index:1;
+  :root {
+    --bg: #f9fafb;
+    --card: #ffffff;
+    --ink: #333333;
+    --muted: #888888;
+    --line: #ebebeb;
+    --blue: #007aff;
+    --blue-soft: #e6f0ff;
+    --success: #15803d;
+    --success-soft: #e6ffe6;
+    --danger: #ff4a4a;
+    --danger-soft: #ffebeb;
   }
-  /* Fondo encapsulado (pantalla completa) */
-  #account .bg-grad{
-    position:fixed; inset:0; z-index:0; pointer-events:none;
-    background:
-      radial-gradient(900px 500px at 50% -200px, #eaf3ff 0%, rgba(234,243,255,0) 60%),
-      linear-gradient(180deg, #eef7ff 0%, #f1ffe0 28%, #f7fff1 100%);
-    background-attachment:fixed;
+
+  #account {
+    font-family: 'Quicksand', sans-serif;
+    color: var(--ink);
+    background-color: var(--bg);
+    min-height: 100vh;
+    padding-bottom: 60px;
   }
+
+  /* Reset básico */
+  #account * { box-sizing: border-box; }
+  #account h1, #account h2, #account h3 { color: #111111; font-weight: 700; margin: 0; }
+  #account a { text-decoration: none; }
 
   /* Hero */
-  #account .hero{
-    position:relative; z-index:1;
-    max-width:none; margin:0;
-    padding: clamp(28px, 5vw, 48px) 20px 8px;
-    background: linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,.35));
-    border-bottom:1px solid #edf2f7; backdrop-filter: blur(6px);
+  #account .hero {
+    background-color: var(--card);
+    border-bottom: 1px solid var(--line);
+    padding: 48px 24px 32px;
+    margin-bottom: 32px;
   }
-  #account .hero__inner{ max-width:var(--container); margin:0 auto; }
-  #account .hero h1{ font-weight:800; font-size:clamp(34px,4.2vw,56px); letter-spacing:-.02em; margin:0; }
-  #account .hero p{ margin:8px 0 0; color:var(--muted); font-size:clamp(14px,1.7vw,18px); }
+  #account .hero__inner {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  #account .hero h1 { font-size: clamp(28px, 4vw, 42px); margin-bottom: 8px; }
+  #account .hero p { color: var(--muted); font-size: clamp(15px, 1.5vw, 18px); font-weight: 500; margin: 0; }
 
   /* Layout */
-  #account .wrap{ max-width:var(--container); margin:0 auto; padding:12px 16px 36px; position:relative; z-index:1; }
-  #account .layout{ display:grid; grid-template-columns:280px 1fr; gap:22px }
-  @media (max-width:980px){ #account .layout{ grid-template-columns:1fr } }
+  #account .wrap { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+  #account .layout { display: grid; grid-template-columns: 280px 1fr; gap: 32px; }
+  @media (max-width: 980px) { #account .layout { grid-template-columns: 1fr; } }
 
   /* Cards */
-  #account .card{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow) }
-  #account .card-head{ padding:18px; border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap }
-  #account .card-body{ padding:18px }
-
-  /* Aside */
-  #account .aside{ position:sticky; top:84px }
-  #account .userbox{ display:flex; align-items:center; gap:12px; padding:16px }
-  #account .avatar{
-    width:44px; height:44px; border-radius:999px; display:grid; place-items:center;
-    background:#eef2ff; border:2px solid #dfe6ee; color:#2e3a7a; font-weight:900;
+  #account .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
   }
-  #account .menu{ padding:10px }
-  #account .menu a{
-    display:flex; align-items:center; gap:10px; padding:12px; border-radius:12px;
-    text-decoration:none; color:var(--ink); font-weight:700; border:1px solid transparent; transition:.15s ease;
+  #account .card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.06);
   }
-  #account .menu a:hover{ background:#f7fafb }
-  #account .menu a.active{ background:#f2f7ff; border-color:#dfeaff; box-shadow:inset 0 0 0 1px #e7efff }
-
-  /* Tabs */
-  #account .tabs{ display:flex; gap:8px; flex-wrap:wrap }
-  #account .tabbtn{
-    border:1px solid #e4eaf6; background:#fff; color:#0e1726; border-radius:999px;
-    padding:10px 16px; font-weight:800; cursor:pointer; box-shadow:0 6px 18px rgba(2,8,23,.04);
+  
+  /* Cabecera de la tarjeta principal (Filtro rediseñado) */
+  #account .card-head {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--line);
+    background-color: #fdfdfd;
+    border-radius: 16px 16px 0 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
   }
-  #account .tabbtn[aria-selected="true"]{ background:#0f172a; color:#fff; border-color:#0f172a }
-
-  /* Controls */
-  #account .searchRow{ display:flex; gap:12px; align-items:center; flex-wrap:wrap }
-  #account .searchRow input[type="month"]{
-    border:1px solid var(--line); border-radius:12px; padding:10px 12px; background:#fff; box-shadow:0 6px 18px rgba(2,8,23,.04);
+  
+  /* Filtro Enterprise */
+  #account .filter-group {
+    display: flex;
+    align-items: center;
+    gap: 16px;
   }
-  #account .btn{
-    appearance:none; border:1px solid var(--line); background:#fff; border-radius:12px;
-    padding:10px 14px; cursor:pointer; font-weight:800; box-shadow:0 6px 18px rgba(2,8,23,.05);
-    text-decoration:none; display:inline-flex; align-items:center; gap:8px;
+  #account .filter-group label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
   }
-  #account .btn:hover{ transform:translateY(-1px) }
-  #account .btn-brand{ background:#0f172a; color:#fff; border-color:#0f172a }
-  #account .btn-ghost{ background:#fff }
+  #account .filter-input-wrap {
+    display: flex;
+    align-items: center;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 4px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  #account .filter-input-wrap:focus-within {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px var(--blue-soft);
+  }
+  #account .filter-input-wrap input[type="month"] {
+    border: none;
+    background: transparent;
+    padding: 6px 12px;
+    font-family: 'Quicksand', sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--ink);
+    outline: none;
+  }
+  #account .filter-input-wrap .btn {
+    padding: 8px 16px;
+    font-size: 13px;
+    border-radius: 6px;
+    margin-left: 4px;
+  }
 
-  /* KPIs */
-  #account .kpis{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px }
-  @media (max-width:980px){ #account .kpis{ grid-template-columns:1fr 1fr } }
-  #account .kpi{ background:#fff; border:1px solid var(--line); border-radius:14px; padding:16px; box-shadow:0 6px 18px rgba(2,8,23,.04) }
-  #account .kpi small{ color:var(--muted) }
-  #account .kpi strong{ display:block; font-size:clamp(20px,2.5vw,24px); margin-top:6px }
+  #account .card-body { padding: 24px; }
 
-  #account .hr{ border:0; border-top:1px solid var(--line); margin:16px 0 }
+  /* Aside Menu */
+  #account .aside { position: sticky; top: 24px; display: flex; flex-direction: column; gap: 24px; }
+  #account .userbox { display: flex; align-items: center; gap: 16px; padding: 20px; }
+  #account .avatar {
+    width: 48px; height: 48px;
+    border-radius: 999px;
+    background: var(--blue-soft);
+    color: var(--blue);
+    font-weight: 700;
+    font-size: 18px;
+    display: grid;
+    place-items: center;
+  }
+  #account .menu { padding: 12px; display: flex; flex-direction: column; gap: 4px; }
+  #account .menu a {
+    display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+    border-radius: 8px; color: var(--ink); font-weight: 600; font-size: 15px;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+  #account .menu a:hover { background: var(--bg); }
+  #account .menu a.active { background: var(--blue-soft); color: var(--blue); }
 
-  /* ✅ Panels */
-  #account .tpanel{ display:none; }
-  #account .tpanel.active{ display:block; }
+  /* Buttons */
+  #account .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    font-family: 'Quicksand', sans-serif; font-weight: 600; font-size: 14px;
+    padding: 10px 18px; border-radius: 8px; cursor: pointer; text-decoration: none;
+    transition: transform 0.1s ease, background-color 0.2s ease;
+    border: 1px solid transparent; outline: none;
+  }
+  #account .btn:active { transform: scale(0.98) translateY(-1px); }
+  #account .btn-primary { background: var(--blue); color: #ffffff; }
+  #account .btn-primary:hover { background: #0062cc; }
+  #account .btn-ghost { background: transparent; color: #555555; }
+  #account .btn-ghost:hover { background: #f9fafb; }
+  #account .btn-outline { background: var(--card); border-color: var(--blue); color: var(--blue); }
+  #account .btn-outline:hover { background: var(--blue-soft); }
+
+  /* Badges */
+  #account .badge {
+    display: inline-flex; padding: 4px 10px; border-radius: 999px;
+    font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  #account .badge-success { background: var(--success-soft); color: var(--success); }
+  #account .badge-danger { background: var(--danger-soft); color: var(--danger); }
+  #account .badge-info { background: var(--blue-soft); color: var(--blue); }
+  #account .badge-muted { background: var(--bg); color: var(--muted); border: 1px solid var(--line); }
+
+  /* Datos / Profile info */
+  #account .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+  #account .kpi {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px;
+  }
+  #account .kpi small { color: var(--muted); font-size: 13px; font-weight: 600; text-transform: uppercase; }
+  #account .kpi strong { display: block; font-size: clamp(24px, 2vw, 28px); margin-top: 8px; color: #111111; }
+
+  /* Panels */
+  #account .tpanel { display: none; animation: fadeIn 0.3s ease; }
+  #account .tpanel.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 
   /* Table */
-  #account .table{ width:100%; border-collapse:separate; border-spacing:0 10px }
-  #account .table thead th{ color:var(--muted); font-weight:800; text-align:left; font-size:.92rem; padding:0 10px }
-  #account .tr{ background:#fff; border:1px solid var(--line); border-radius:14px; box-shadow:0 6px 18px rgba(2,8,23,.04) }
-  #account .tr td{ padding:14px 10px; vertical-align:middle }
-  #account .status{ display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border-radius:999px; border:1px solid var(--line); font-weight:800 }
-  #account .status.cancel{ color:#b91c1c; background:#fff5f5 }
-  #account .status.ok{ color:#065f46; background:#ecfdf5 }
-  #account .status.proc{ color:#1e3a8a; background:#eff6ff }
+  #account .table-wrap { overflow-x: auto; }
+  #account .table { width: 100%; border-collapse: separate; border-spacing: 0 12px; margin-top: -12px; }
+  #account .table thead th { color: var(--muted); font-weight: 700; text-align: left; font-size: 13px; padding: 0 20px; text-transform: uppercase; }
+  #account .tr { background: var(--card); border: 1px solid var(--line); border-radius: 12px; transition: transform 0.2s ease; }
+  #account .tr:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.02); }
+  #account .tr td { padding: 20px; vertical-align: middle; font-weight: 500; font-size: 15px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  #account .tr td:first-child { border-left: 1px solid var(--line); border-radius: 12px 0 0 12px; }
+  #account .tr td:last-child { border-right: 1px solid var(--line); border-radius: 0 12px 12px 0; text-align: right; }
 
-  #account .pill{ display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; border:1px solid var(--line); font-weight:800; font-size:.85rem }
-  #account .empty{ padding:24px; border:1px dashed var(--line); border-radius:14px; color:var(--muted); text-align:center; background:#fff }
+  #account .empty { padding: 48px 24px; border: 1px dashed var(--line); border-radius: 12px; color: var(--muted); text-align: center; font-weight: 500; background: var(--bg); }
 
   /* ===== Modal Seguimiento ===== */
-  #account .modal{ position:fixed; inset:0; z-index:9999; display:none; }
-  #account .modal[data-open="1"]{ display:block; }
-  #account .modal__backdrop{
-    position:absolute; inset:0; background:rgba(2,8,23,.45); backdrop-filter:blur(2px);
+  #account .modal { position: fixed; inset: 0; z-index: 9999; display: none; align-items: center; justify-content: center; }
+  #account .modal[data-open="1"] { display: flex; }
+  
+  #account .modal__backdrop { 
+    position: absolute; inset: 0; 
+    background: rgba(17, 17, 17, 0.4); backdrop-filter: blur(4px); 
+    animation: fadeInModal 0.3s ease;
   }
-  #account .modal__panel{
-    position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
-    width:min(760px, 92vw); background:#fff; border:1px solid var(--line); border-radius:18px; box-shadow:var(--shadow);
-    overflow:hidden;
-  }
-  #account .modal__head{ padding:16px 18px; border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; gap:10px }
-  #account .modal__body{ padding:16px 18px; max-height:min(70vh, 70dvh); overflow:auto }
-  #account .close{ appearance:none; border:1px solid var(--line); background:#fff; border-radius:10px; padding:8px 10px; font-weight:800; cursor:pointer }
 
-  /* Timeline */
-  #account .trk-meta{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px }
-  #account .trk-meta .pill{ background:#f8fafc }
-  #account .progress{
-    position:relative; height:10px; border-radius:999px; background:#f1f5f9; border:1px solid var(--line); overflow:hidden; margin:8px 0 16px;
+  #account .modal__panel {
+    position: relative; width: 100%; max-width: 560px; max-height: 85vh; 
+    background: var(--card); border-radius: 20px; 
+    box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+    display: flex; flex-direction: column; 
+    animation: slideUpModal 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   }
-  #account .progress b{ position:absolute; height:100%; left:0; top:0; width:0%; background:#0f172a }
-  #account .tl{ list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:10px }
-  #account .tl__item{ border:1px solid var(--line); border-radius:14px; padding:12px; background:#fff }
-  #account .tl__item .h{ font-weight:900 }
-  #account .tl__item time{ color:var(--muted); font-size:.9rem }
+
+  @keyframes fadeInModal { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes slideUpModal { from { transform: translateY(30px) scale(0.98); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
+
+  #account .modal__head { 
+    padding: 24px; border-bottom: 1px solid var(--line); 
+    display: flex; align-items: center; justify-content: space-between; 
+  }
+  #account .modal__head h3 { font-size: 20px; }
+  #account .close-btn {
+    background: var(--bg); color: var(--muted); border: none; width: 36px; height: 36px;
+    border-radius: 50%; font-size: 20px; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: background 0.2s, color 0.2s;
+  }
+  #account .close-btn:hover { background: var(--line); color: var(--ink); }
+
+  #account .modal__body { padding: 32px 24px; overflow-y: auto; }
+  
+  #account .trk-meta { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 24px; }
+  
+  #account .progress {
+    position: relative; height: 8px; border-radius: 999px; background: var(--bg); 
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.05); overflow: hidden; margin-bottom: 32px;
+  }
+  #account .progress b { 
+    position: absolute; height: 100%; left: 0; top: 0; width: 0%; 
+    background: var(--blue); border-radius: 999px; transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1); 
+  }
+  
+  /* Timeline */
+  #account .tl { list-style: none; padding: 0; margin: 0; position: relative; padding-left: 12px; }
+  #account .tl::before {
+    content: ''; position: absolute; left: 15px; top: 8px; bottom: 0; width: 2px; background: var(--line); z-index: 0;
+  }
+  #account .tl__item { position: relative; padding-left: 28px; margin-bottom: 24px; z-index: 1; }
+  #account .tl__item:last-child { margin-bottom: 0; }
+  #account .tl__item::before {
+    content: ''; position: absolute; left: -1.5px; top: 4px; width: 12px; height: 12px;
+    border-radius: 50%; background: var(--card); border: 2px solid var(--blue); z-index: 2;
+    box-shadow: 0 0 0 4px var(--card); 
+  }
+  #account .tl__item .h { font-weight: 700; color: #111111; font-size: 16px; margin-bottom: 2px; }
+  #account .tl__item time { color: var(--muted); font-size: 13px; font-weight: 500; display: block; }
 </style>
 
 <div id="account">
-  <div class="bg-grad" aria-hidden="true"></div>
-
   {{-- Hero --}}
   <section class="hero">
     <div class="hero__inner">
@@ -158,8 +275,8 @@
           @php $initial = strtoupper(mb_substr(($user->name ?? $user->email),0,1,'UTF-8')); @endphp
           <div class="avatar">{{ $initial }}</div>
           <div>
-            <div style="font-weight:900">{{ $user->name ?? 'Mi cuenta' }}</div>
-            <small style="color:var(--muted)">{{ $user->email }}</small>
+            <div style="font-weight:700; color: #111111;">{{ $user->name ?? 'Mi cuenta' }}</div>
+            <small style="color:var(--muted); font-weight: 500;">{{ $user->email }}</small>
           </div>
         </div>
 
@@ -177,247 +294,236 @@
       <section>
         <div class="card">
           <div class="card-head">
-            <div class="tabs" id="tabs">
-              @php $tab = $activeTab; @endphp
-              <button class="tabbtn" data-target="t-resumen"      aria-selected="{{ $tab==='resumen'?'true':'false' }}">Resumen</button>
-              <button class="tabbtn" data-target="t-pedidos"      aria-selected="{{ $tab==='pedidos'?'true':'false' }}">Pedidos</button>
-              <button class="tabbtn" data-target="t-datos"        aria-selected="{{ $tab==='datos'?'true':'false' }}">Datos</button>
-              <button class="tabbtn" data-target="t-facturacion"  aria-selected="{{ $tab==='facturacion'?'true':'false' }}">Facturación</button>
-              <button class="tabbtn" data-target="t-facturas"     aria-selected="{{ $tab==='facturas'?'true':'false' }}">Facturas</button>
-              <button class="tabbtn" data-target="t-direcciones"  aria-selected="{{ $tab==='direcciones'?'true':'false' }}">Direcciones</button>
-            </div>
-
-            <form class="searchRow" method="get" action="{{ route('customer.profile') }}">
-              <span style="color:var(--muted);font-weight:700;">Año / Mes</span>
-              <input type="month" name="ym" value="{{ $ym }}">
-              @if($activeTab)<input type="hidden" name="tab" value="{{ $activeTab }}">@endif
-              <button class="btn">Filtrar</button>
+            <h2 style="font-size: 18px;">Gestión de Panel</h2>
+            <form method="get" action="{{ route('customer.profile') }}">
+              <div class="filter-group">
+                <label for="ym-filter">Filtro por periodo</label>
+                <div class="filter-input-wrap">
+                  <input type="month" id="ym-filter" name="ym" value="{{ $ym }}">
+                  @if($activeTab)<input type="hidden" name="tab" value="{{ $activeTab }}">@endif
+                  <button type="submit" class="btn btn-primary">Aplicar</button>
+                </div>
+              </div>
             </form>
           </div>
 
           <div class="card-body">
             {{-- ===== RESUMEN ===== --}}
-            <div id="t-resumen" class="tpanel {{ $tab==='resumen'?'active':'' }}">
-              <div class="kpis">
-                <div class="kpi"><small>Pedidos totales</small><strong>{{ number_format($stats['orders_total']) }}</strong></div>
-                <div class="kpi"><small>Pedidos activos</small><strong>{{ number_format($stats['orders_open']) }}</strong></div>
-                <div class="kpi"><small>Pedidos cancelados</small><strong>{{ number_format($stats['orders_cancel']) }}</strong></div>
-                <div class="kpi"><small>Gasto acumulado</small><strong>${{ number_format($stats['spent_total'],2) }}</strong></div>
-              </div>
-
-              <div class="hr"></div>
-
-              <h3 style="margin:8px 0 10px">Últimos pedidos</h3>
+            <div id="t-resumen" class="tpanel {{ $activeTab==='resumen'?'active':'' }}">
+              
+              <h3 style="margin-bottom: 24px;">Últimos pedidos</h3>
               @if($orders->count())
-                <table class="table">
-                  <thead><tr><th>ID</th><th>No. pedido</th><th>Fecha</th><th>Estatus</th><th>Total</th><th></th></tr></thead>
-                  <tbody>
-                  @foreach($orders->take(5) as $o)
-                    <tr class="tr">
-                      <td>{{ $o->id }}</td>
-                      <td>
-                        @if(route_has('customer.orders.show'))
-                          <a class="btn btn-ghost" href="{{ route('customer.orders.show',$o) }}">
-                            #{{ str_pad($o->id,6,'0',STR_PAD_LEFT) }}
-                          </a>
-                        @else
-                          #{{ str_pad($o->id,6,'0',STR_PAD_LEFT) }}
-                        @endif
-                      </td>
-                      <td>{{ $o->created_at?->format('d/m/Y') ?? '—' }}</td>
-                      <td>
-                        @php $st = strtolower((string)$o->status); @endphp
-                        <span class="status {{ $st==='cancelado'?'cancel':($st==='entregado'?'ok':'proc') }}">{{ ucfirst($o->status ?? '—') }}</span>
+                <div class="table-wrap">
+                  <table class="table">
+                    <thead><tr><th>ID</th><th>No. pedido</th><th>Fecha</th><th>Estatus</th><th>Total</th><th></th></tr></thead>
+                    <tbody>
+                    @foreach($orders->take(5) as $o)
+                      <tr class="tr">
+                        <td style="color:var(--muted);">{{ $o->id }}</td>
+                        <td>
+                          @if(\Illuminate\Support\Facades\Route::has('customer.orders.show'))
+                            <a style="font-weight:700; color:var(--ink);" href="{{ route('customer.orders.show',$o) }}">
+                              #{{ str_pad($o->id,6,'0',STR_PAD_LEFT) }}
+                            </a>
+                          @else
+                            <span style="font-weight:700;">#{{ str_pad($o->id,6,'0',STR_PAD_LEFT) }}</span>
+                          @endif
+                        </td>
+                        <td>{{ $o->created_at?->format('d/m/Y') ?? '—' }}</td>
+                        <td>
+                          @php $st = strtolower((string)$o->status); @endphp
+                          <span class="badge {{ $st==='cancelado'?'badge-danger':($st==='entregado'?'badge-success':'badge-info') }}">
+                            {{ ucfirst($o->status ?? '—') }}
+                          </span>
 
-                        @if(!empty($o->shipping_code))
-                          <div class="pill" style="margin-top:6px">Guía: {{ $o->shipping_code }}</div>
-                        @endif
-
-                        @if(!empty($o->shipping_name) || !empty($o->shipping_service))
-                          <div class="pill" style="margin-top:6px">
-                            {{ $o->shipping_name ?? '' }}{{ $o->shipping_service ? ' — '.$o->shipping_service : '' }}
+                          @if(!empty($o->shipping_code))
+                            <div class="badge badge-muted" style="margin-top:8px; display:block; width:fit-content;">Guía: {{ $o->shipping_code }}</div>
+                          @endif
+                          @if(!empty($o->shipping_name) || !empty($o->shipping_service))
+                            <div class="badge badge-muted" style="margin-top:4px; display:block; width:fit-content;">
+                              {{ $o->shipping_name ?? '' }}{{ $o->shipping_service ? ' — '.$o->shipping_service : '' }}
+                            </div>
+                          @endif
+                          @if(!empty($o->shipping_eta))
+                            <div class="badge badge-muted" style="margin-top:4px; display:block; width:fit-content;">ETA: {{ $o->shipping_eta }}</div>
+                          @endif
+                        </td>
+                        <td style="font-weight: 700;">${{ number_format($o->total,2) }}</td>
+                        <td>
+                          <div style="display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap">
+                            @if(\Illuminate\Support\Facades\Route::has('customer.orders.show'))
+                              <a class="btn btn-ghost" href="{{ route('customer.orders.show',$o) }}">Ver detalle</a>
+                            @endif
+                            @if(\Illuminate\Support\Facades\Route::has('customer.orders.tracking'))
+                              <button class="btn btn-primary js-track"
+                                      data-url="{{ route('customer.orders.tracking',$o) }}"
+                                      data-label="{{ $o->shipping_label_url ?? '' }}">
+                                Seguimiento
+                              </button>
+                            @endif
+                            @if(\Illuminate\Support\Facades\Route::has('customer.orders.label') && !empty($o->shipping_label_url))
+                              <a class="btn btn-ghost" href="{{ route('customer.orders.label',$o) }}" target="_blank" rel="noopener">PDF</a>
+                            @endif
                           </div>
-                        @endif
-
-                        @if(!empty($o->shipping_eta))
-                          <div class="pill" style="margin-top:6px">ETA: {{ $o->shipping_eta }}</div>
-                        @endif
-                      </td>
-                      <td>${{ number_format($o->total,2) }}</td>
-                      <td style="text-align:right; display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap">
-                        @if(route_has('customer.orders.show'))
-                          <a class="btn btn-ghost" href="{{ route('customer.orders.show',$o) }}">Ver detalle</a>
-                        @endif
-
-                        @if(route_has('customer.orders.reorder'))
-                          <form action="{{ route('customer.orders.reorder',$o) }}" method="post" style="display:inline">@csrf
-                            <button class="btn btn-brand">Agregar a carrito</button>
-                          </form>
-                        @endif
-
-                        @if(route_has('customer.orders.tracking'))
-                          <button class="btn js-track"
-                                  data-url="{{ route('customer.orders.tracking',$o) }}"
-                                  data-label="{{ $o->shipping_label_url ?? '' }}">
-                            Seguimiento
-                          </button>
-                        @endif
-
-                        @if(route_has('customer.orders.label') && !empty($o->shipping_label_url))
-                          <a class="btn btn-ghost" href="{{ route('customer.orders.label',$o) }}" target="_blank" rel="noopener">Guía PDF</a>
-                        @endif
-                      </td>
-                    </tr>
-                  @endforeach
-                  </tbody>
-                </table>
+                        </td>
+                      </tr>
+                    @endforeach
+                    </tbody>
+                  </table>
+                </div>
               @else
                 <div class="empty">Aún no tienes pedidos.</div>
               @endif
             </div>
 
             {{-- ===== PEDIDOS ===== --}}
-            <div id="t-pedidos" class="tpanel {{ $tab==='pedidos'?'active':'' }}">
+            <div id="t-pedidos" class="tpanel {{ $activeTab==='pedidos'?'active':'' }}">
               @if($orders->count())
-                <table class="table">
-                  <thead><tr><th>ID</th><th>No. pedido</th><th>Fecha</th><th>Estatus</th><th>Factura</th><th>Total</th><th></th></tr></thead>
-                  <tbody>
-                  @foreach($orders as $o)
-                    <tr class="tr">
-                      <td>{{ $o->id }}</td>
-                      <td>
-                        @if(route_has('customer.orders.show'))
-                          <a class="btn btn-ghost" href="{{ route('customer.orders.show',$o) }}">
-                            #{{ str_pad($o->id,6,'0',STR_PAD_LEFT) }}
-                          </a>
-                        @else
-                          #{{ str_pad($o->id,6,'0',STR_PAD_LEFT) }}
-                        @endif
-                      </td>
-                      <td>{{ $o->created_at?->format('d/m/Y') ?? '—' }}</td>
-                      <td>
-                        @php $st = strtolower((string)$o->status); @endphp
-                        <span class="status {{ $st==='cancelado'?'cancel':($st==='entregado'?'ok':'proc') }}">{{ ucfirst($o->status ?? '—') }}</span>
-
-                        @if(!empty($o->shipping_code))
-                          <div class="pill" style="margin-top:6px">Guía: {{ $o->shipping_code }}</div>
-                        @endif
-
-                        @if(!empty($o->shipping_name) || !empty($o->shipping_service))
-                          <div class="pill" style="margin-top:6px">
-                            {{ $o->shipping_name ?? '' }}{{ $o->shipping_service ? ' — '.$o->shipping_service : '' }}
+                <div class="table-wrap">
+                  <table class="table">
+                    <thead><tr><th>ID</th><th>No. pedido</th><th>Fecha</th><th>Estatus</th><th>Factura</th><th>Total</th><th></th></tr></thead>
+                    <tbody>
+                    @foreach($orders as $o)
+                      <tr class="tr">
+                        <td style="color:var(--muted);">{{ $o->id }}</td>
+                        <td>
+                          @if(\Illuminate\Support\Facades\Route::has('customer.orders.show'))
+                            <a style="font-weight:700; color:var(--ink);" href="{{ route('customer.orders.show',$o) }}">
+                              #{{ str_pad($o->id,6,'0',STR_PAD_LEFT) }}
+                            </a>
+                          @else
+                            <span style="font-weight:700;">#{{ str_pad($o->id,6,'0',STR_PAD_LEFT) }}</span>
+                          @endif
+                        </td>
+                        <td>{{ $o->created_at?->format('d/m/Y') ?? '—' }}</td>
+                        <td>
+                          @php $st = strtolower((string)$o->status); @endphp
+                          <span class="badge {{ $st==='cancelado'?'badge-danger':($st==='entregado'?'badge-success':'badge-info') }}">
+                            {{ ucfirst($o->status ?? '—') }}
+                          </span>
+                          @if(!empty($o->shipping_code))
+                            <div class="badge badge-muted" style="margin-top:8px; display:block; width:fit-content;">Guía: {{ $o->shipping_code }}</div>
+                          @endif
+                          @if(!empty($o->shipping_name) || !empty($o->shipping_service))
+                            <div class="badge badge-muted" style="margin-top:4px; display:block; width:fit-content;">
+                              {{ $o->shipping_name ?? '' }}{{ $o->shipping_service ? ' — '.$o->shipping_service : '' }}
+                            </div>
+                          @endif
+                          @if(!empty($o->shipping_eta))
+                            <div class="badge badge-muted" style="margin-top:4px; display:block; width:fit-content;">ETA: {{ $o->shipping_eta }}</div>
+                          @endif
+                        </td>
+                        <td><span class="badge badge-muted">—</span></td>
+                        <td style="font-weight: 700;">${{ number_format($o->total,2) }}</td>
+                        <td>
+                          <div style="display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap">
+                            @if(\Illuminate\Support\Facades\Route::has('customer.orders.show'))
+                              <a class="btn btn-ghost" href="{{ route('customer.orders.show',$o) }}">Ver detalle</a>
+                            @endif
+                            @if(\Illuminate\Support\Facades\Route::has('customer.orders.tracking'))
+                              <button class="btn btn-primary js-track"
+                                      data-url="{{ route('customer.orders.tracking',$o) }}"
+                                      data-label="{{ $o->shipping_label_url ?? '' }}">
+                                Seguimiento
+                              </button>
+                            @endif
+                            @if(\Illuminate\Support\Facades\Route::has('customer.orders.label') && !empty($o->shipping_label_url))
+                              <a class="btn btn-ghost" href="{{ route('customer.orders.label',$o) }}" target="_blank" rel="noopener">PDF</a>
+                            @endif
                           </div>
-                        @endif
-
-                        @if(!empty($o->shipping_eta))
-                          <div class="pill" style="margin-top:6px">ETA: {{ $o->shipping_eta }}</div>
-                        @endif
-                      </td>
-
-                      <td><span class="pill">—</span></td>
-
-                      <td>${{ number_format($o->total,2) }}</td>
-
-                      <td style="text-align:right; display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap">
-                        @if(route_has('customer.orders.show'))
-                          <a class="btn btn-ghost" href="{{ route('customer.orders.show',$o) }}">Ver detalle</a>
-                        @endif
-
-                        @if(route_has('customer.orders.reorder'))
-                          <form action="{{ route('customer.orders.reorder',$o) }}" method="post" style="display:inline">@csrf
-                            <button class="btn btn-brand">Agregar a carrito</button>
-                          </form>
-                        @endif
-
-                        @if(route_has('customer.orders.tracking'))
-                          <button class="btn js-track"
-                                  data-url="{{ route('customer.orders.tracking',$o) }}"
-                                  data-label="{{ $o->shipping_label_url ?? '' }}">
-                            Seguimiento
-                          </button>
-                        @endif
-
-                        @if(route_has('customer.orders.label') && !empty($o->shipping_label_url))
-                          <a class="btn btn-ghost" href="{{ route('customer.orders.label',$o) }}" target="_blank" rel="noopener">Guía PDF</a>
-                        @endif
-                      </td>
-                    </tr>
-                  @endforeach
-                  </tbody>
-                </table>
+                        </td>
+                      </tr>
+                    @endforeach
+                    </tbody>
+                  </table>
+                </div>
               @else
                 <div class="empty">No hay pedidos para el filtro seleccionado.</div>
               @endif
             </div>
 
             {{-- ===== DATOS ===== --}}
-            <div id="t-datos" class="tpanel {{ $tab==='datos'?'active':'' }}">
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+            <div id="t-datos" class="tpanel {{ $activeTab==='datos'?'active':'' }}">
+              <div class="kpis">
                 <div class="kpi"><small>Nombre</small><strong>{{ $user->name ?? '—' }}</strong></div>
-                <div class="kpi"><small>Correo</small><strong>{{ $user->email }}</strong></div>
+                <div class="kpi"><small>Correo</small><strong style="font-size: 18px;">{{ $user->email }}</strong></div>
                 <div class="kpi"><small>Registrado</small><strong>{{ $user->created_at?->format('d/m/Y') ?? '—' }}</strong></div>
                 <div class="kpi"><small>Último acceso</small><strong>{{ $user->last_login_at?->format('d/m/Y H:i') ?? '—' }}</strong></div>
               </div>
-              <div style="margin-top:14px;display:flex;gap:8px">
-               @if(\Illuminate\Support\Facades\Route::has('customer.welcome'))
-  <a href="{{ route('customer.welcome') }}" class="btn btn-ghost">Inicio cliente</a>
-@endif
-
+              <div style="margin-top:24px; display:flex; gap:12px;">
+                @if(\Illuminate\Support\Facades\Route::has('customer.welcome'))
+                  <a href="{{ route('customer.welcome') }}" class="btn btn-outline">Ir al Inicio</a>
+                @endif
               </div>
             </div>
 
             {{-- ===== FACTURACIÓN ===== --}}
-            <div id="t-facturacion" class="tpanel {{ $tab==='facturacion'?'active':'' }}">
+            <div id="t-facturacion" class="tpanel {{ $activeTab==='facturacion'?'active':'' }}">
               @if($billingProfiles->count())
-                @foreach($billingProfiles as $bp)
-                  <div class="tr" style="padding:14px">
-                    <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap">
-                      <div>
-                        <div style="font-weight:900">{{ $bp->razon_social }}</div>
-                        <div class="pill">RFC: {{ $bp->rfc }}</div>
-                        <div class="pill">Régimen: {{ $bp->regimen ?: '—' }}</div>
-                        <div class="pill">Uso CFDI: {{ $bp->uso_cfdi ?: '—' }}</div>
-                        <div style="color:var(--muted);margin-top:6px">{{ $bp->direccion }} {{ $bp->colonia }} {{ $bp->estado }} C.P. {{ $bp->zip }}</div>
-                      </div>
-                      <div style="display:flex;align-items:center;gap:8px">
-                        @if($bp->is_default) <span class="pill" style="background:#ecfdf5;color:#065f46;border-color:#bbf7d0">Predeterminado</span> @endif
+                <div style="display:flex; flex-direction:column; gap:16px;">
+                  @foreach($billingProfiles as $bp)
+                    <div class="card" style="padding: 24px;">
+                      <div style="display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap">
+                        <div>
+                          <div style="font-weight:700; font-size:18px; margin-bottom:8px;">{{ $bp->razon_social }}</div>
+                          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+                            <span class="badge badge-muted">RFC: {{ $bp->rfc }}</span>
+                            <span class="badge badge-muted">Régimen: {{ $bp->regimen ?: '—' }}</span>
+                            <span class="badge badge-muted">Uso CFDI: {{ $bp->uso_cfdi ?: '—' }}</span>
+                          </div>
+                          <div style="color:var(--muted); font-size:14px; font-weight:500;">
+                            {{ $bp->direccion }} {{ $bp->colonia }}, {{ $bp->estado }} C.P. {{ $bp->zip }}
+                          </div>
+                        </div>
+                        <div>
+                          @if($bp->is_default) <span class="badge badge-success">Predeterminado</span> @endif
+                        </div>
                       </div>
                     </div>
-                  </div>
-                @endforeach
+                  @endforeach
+                </div>
               @else
                 <div class="empty">Aún no tienes perfiles de facturación.</div>
               @endif
             </div>
 
             {{-- ===== FACTURAS ===== --}}
-            <div id="t-facturas" class="tpanel {{ $tab==='facturas'?'active':'' }}">
+            <div id="t-facturas" class="tpanel {{ $activeTab==='facturas'?'active':'' }}">
               @if($invoices->count())
-                <table class="table">
-                  <thead><tr><th>Serie/Folio</th><th>Fecha</th><th>Total</th><th>Descargas</th></tr></thead>
-                  <tbody>
-                  @foreach($invoices as $f)
-                    <tr class="tr">
-                      <td>{{ ($f->serie ?? 'A').'-'.($f->folio ?? $f->id) }}</td>
-                      <td>{{ $f->fecha?->format('d/m/Y') ?? $f->created_at?->format('d/m/Y') }}</td>
-                      <td>${{ number_format($f->total,2) }}</td>
-                      <td style="display:flex;gap:8px">
-                        @if(route_has('customer.invoices.pdf')) <a class="btn btn-ghost" href="{{ route('customer.invoices.pdf',$f->id) }}">PDF</a> @endif
-                        @if(route_has('customer.invoices.xml')) <a class="btn btn-ghost" href="{{ route('customer.invoices.xml',$f->id) }}">XML</a> @endif
-                      </td>
-                    </tr>
-                  @endforeach
-                  </tbody>
-                </table>
+                <div class="table-wrap">
+                  <table class="table">
+                    <thead><tr><th>Serie/Folio</th><th>Fecha</th><th>Total</th><th>Descargas</th></tr></thead>
+                    <tbody>
+                    @foreach($invoices as $f)
+                      <tr class="tr">
+                        <td style="font-weight:700;">{{ ($f->serie ?? 'A').'-'.($f->folio ?? $f->id) }}</td>
+                        <td>{{ $f->fecha?->format('d/m/Y') ?? $f->created_at?->format('d/m/Y') }}</td>
+                        <td style="font-weight:700;">${{ number_format($f->total,2) }}</td>
+                        <td>
+                          <div style="display:flex; gap:8px; justify-content:flex-end;">
+                            @if(\Illuminate\Support\Facades\Route::has('customer.invoices.pdf')) 
+                              <a class="btn btn-outline" href="{{ route('customer.invoices.pdf',$f->id) }}">PDF</a> 
+                            @endif
+                            @if(\Illuminate\Support\Facades\Route::has('customer.invoices.xml')) 
+                              <a class="btn btn-ghost" href="{{ route('customer.invoices.xml',$f->id) }}">XML</a> 
+                            @endif
+                          </div>
+                        </td>
+                      </tr>
+                    @endforeach
+                    </tbody>
+                  </table>
+                </div>
               @else
                 <div class="empty">Aquí aparecerán tus facturas emitidas.</div>
               @endif
             </div>
 
             {{-- ===== DIRECCIONES ===== --}}
-            <div id="t-direcciones" class="tpanel {{ $tab==='direcciones'?'active':'' }}">
+            <div id="t-direcciones" class="tpanel {{ $activeTab==='direcciones'?'active':'' }}">
               <div class="empty">Integra aquí tu listado de direcciones de envío si ya lo tienes en otra tabla.</div>
             </div>
+
           </div>
         </div>
       </section>
@@ -429,18 +535,18 @@
     <div class="modal__backdrop"></div>
     <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="trkTitle">
       <div class="modal__head">
-        <div style="font-weight:900" id="trkTitle">Seguimiento del envío</div>
-        <button class="close" id="trkClose">Cerrar</button>
+        <h3 id="trkTitle">Seguimiento de envío</h3>
+        <button class="close-btn" id="trkClose" aria-label="Cerrar">&times;</button>
       </div>
       <div class="modal__body">
         <div class="trk-meta" id="trkMeta">
-          <span class="pill">Cargando…</span>
+          <span class="badge badge-muted">Cargando…</span>
         </div>
 
-        {{-- ✅ Acciones dentro del modal --}}
-        <div id="trkActions" style="display:flex; gap:8px; flex-wrap:wrap; margin:10px 0 12px;"></div>
+        <div id="trkActions" style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom: 24px;"></div>
 
         <div class="progress"><b id="trkProgress" style="width:0%"></b></div>
+        
         <ul class="tl" id="trkList">
           <li class="tl__item"><div class="h">Obteniendo eventos…</div><time>—</time></li>
         </ul>
@@ -454,14 +560,12 @@
   const root = document.getElementById('account');
   if(!root) return;
 
-  const tabBtns    = root.querySelectorAll('.tabbtn');
   const panels     = root.querySelectorAll('.tpanel');
   const asideLinks = root.querySelectorAll('.js-gotab');
-  const form       = root.querySelector('.card-head form.searchRow');
+  const form       = root.querySelector('.card-head form');
 
   function setActive(id){
     panels.forEach(p => p.classList.toggle('active', p.id === id));
-    tabBtns.forEach(b => b.setAttribute('aria-selected', b.dataset.target === id ? 'true' : 'false'));
     asideLinks.forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#'+id));
     if(form){
       let h = form.querySelector('input[name="tab"]');
@@ -471,7 +575,6 @@
     history.replaceState(null, '', '#'+id);
   }
 
-  tabBtns.forEach(b=> b.addEventListener('click', e=>{ e.preventDefault(); setActive(b.dataset.target); }));
   asideLinks.forEach(a=> a.addEventListener('click', e=>{
     e.preventDefault();
     const id=(a.getAttribute('href')||'').slice(1);
@@ -490,8 +593,16 @@
   const bar  = document.getElementById('trkProgress');
   const actions = document.getElementById('trkActions');
 
-  function openModal(){ modal.dataset.open = "1"; modal.setAttribute('aria-hidden','false'); }
-  function closeModal(){ modal.dataset.open = "0"; modal.setAttribute('aria-hidden','true'); }
+  function openModal(){ 
+    modal.dataset.open = "1"; 
+    modal.setAttribute('aria-hidden','false'); 
+    document.body.style.overflow = 'hidden'; 
+  }
+  function closeModal(){ 
+    modal.dataset.open = "0"; 
+    modal.setAttribute('aria-hidden','true'); 
+    document.body.style.overflow = '';
+  }
 
   closeBtn.addEventListener('click', closeModal);
   modal.querySelector('.modal__backdrop').addEventListener('click', closeModal);
@@ -507,25 +618,27 @@
     meta.innerHTML = '';
     actions.innerHTML = '';
 
-    const pills = [];
-    if(data.carrier) pills.push(`<span class="pill">Carrier: <b>${escHtml(data.carrier)}</b></span>`);
-    if(data.service) pills.push(`<span class="pill">Servicio: <b>${escHtml(data.service)}</b></span>`);
-    if(data.code)    pills.push(`<span class="pill">Guía: <b>${escHtml(data.code)}</b></span>`);
-    if(data.status)  pills.push(`<span class="pill">Estatus: <b>${escHtml((data.status||'').toString().toUpperCase())}</b></span>`);
-    if(data.eta)     pills.push(`<span class="pill">ETA: <b>${escHtml(data.eta)}</b></span>`);
-    meta.innerHTML = pills.join('');
+    const badges = [];
+    if(data.carrier) badges.push(`<span class="badge badge-muted">Carrier: ${escHtml(data.carrier)}</span>`);
+    if(data.service) badges.push(`<span class="badge badge-muted">Servicio: ${escHtml(data.service)}</span>`);
+    if(data.code)    badges.push(`<span class="badge badge-muted">Guía: ${escHtml(data.code)}</span>`);
+    if(data.status)  badges.push(`<span class="badge badge-info">Estatus: ${escHtml((data.status||'').toString().toUpperCase())}</span>`);
+    if(data.eta)     badges.push(`<span class="badge badge-muted">ETA: ${escHtml(data.eta)}</span>`);
+    meta.innerHTML = badges.join('');
 
     if(labelUrl){
       const a = document.createElement('a');
-      a.className = 'btn btn-ghost';
+      a.className = 'btn btn-outline';
       a.href = labelUrl;
       a.target = '_blank';
       a.rel = 'noopener';
-      a.textContent = 'Guía PDF';
+      a.textContent = 'Descargar Guía PDF';
       actions.appendChild(a);
     }
 
-    bar.style.width = (Number(data.progress||0)) + '%';
+    setTimeout(() => {
+      bar.style.width = (Number(data.progress||0)) + '%';
+    }, 100);
 
     list.innerHTML = '';
     const evs = Array.isArray(data.events) ? data.events : [];
@@ -537,7 +650,7 @@
       const t = ev.time ? new Date(ev.time) : null;
       const date = t ? t.toLocaleString() : '—';
       const where = ev.location ? ` — <i>${escHtml(ev.location)}</i>` : '';
-      const details = ev.details ? `<div style="color:var(--muted);margin-top:4px">${escHtml(ev.details)}</div>` : '';
+      const details = ev.details ? `<div style="color:var(--muted);margin-top:6px;font-size:14px;line-height:1.4;">${escHtml(ev.details)}</div>` : '';
       const item = document.createElement('li');
       item.className = 'tl__item';
       item.innerHTML = `<div class="h">${escHtml(ev.status || 'Evento')}</div><time>${escHtml(date)}${where}</time>${details}`;
@@ -553,7 +666,7 @@
       if(!url) return;
 
       openModal();
-      meta.innerHTML = '<span class="pill">Cargando…</span>';
+      meta.innerHTML = '<span class="badge badge-muted">Cargando…</span>';
       actions.innerHTML = '';
       list.innerHTML = '<li class="tl__item"><div class="h">Obteniendo eventos…</div><time>—</time></li>';
       bar.style.width = '0%';
@@ -562,18 +675,12 @@
         const res = await fetch(url, {headers:{'X-Requested-With':'XMLHttpRequest'}});
         const data = await res.json();
         if(data && data.ok) renderTracking(data, labelUrl);
-        else meta.innerHTML = '<span class="pill">No fue posible obtener el seguimiento</span>';
+        else meta.innerHTML = '<span class="badge badge-danger">No fue posible obtener el seguimiento</span>';
       }catch(err){
-        meta.innerHTML = '<span class="pill">Error al cargar seguimiento</span>';
+        meta.innerHTML = '<span class="badge badge-danger">Error al cargar seguimiento</span>';
       }
     });
   });
 })();
 </script>
 @endsection
-
-@php
-if (!function_exists('route_has')) {
-  function route_has($name) { try { return app('router')->has($name); } catch (\Throwable $e) { return false; } }
-}
-@endphp

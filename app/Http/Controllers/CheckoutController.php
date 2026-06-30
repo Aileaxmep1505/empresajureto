@@ -22,6 +22,7 @@ use App\Models\OrderItem;
 use App\Models\OrderPayment;
 
 use App\Services\FacturapiWebClient;
+use App\Services\EnviaComClient;
 
 class CheckoutController extends Controller
 {
@@ -341,10 +342,10 @@ class CheckoutController extends Controller
     {
         $cart = $this->getCartRows();
         if (empty($cart)) {
-            return redirect()->route('web.cart.index')->with('ok','Tu carrito está vacío.');
+            return redirect()->route('web.cart.index')->with('ok', 'Tu carrito está vacío.');
         }
 
-        $subtotal  = array_reduce($cart, fn($c,$r)=> $c + ($r['price']*$r['qty']), 0);
+        $subtotal  = array_reduce($cart, fn($c, $r) => $c + (($r['price'] ?? 0) * ($r['qty'] ?? 1)), 0);
         $threshold = $this->threshold;
 
         $address = null;
@@ -352,53 +353,78 @@ class CheckoutController extends Controller
             $address = ShippingAddress::where('user_id', Auth::id())->find($id);
         }
 
-        $all = session('shipping.options', []);
-        if (empty($all)) {
-            $all = [
-                ['code'=>'dhl-express',     'name'=>'DHL',     'service'=>'Express',  'eta'=>'2 a 5 días hábiles', 'price'=>329.57],
-                ['code'=>'fedex-ground',    'name'=>'FedEx',   'service'=>'Ground',   'eta'=>'2 a 4 días hábiles', 'price'=>289.99],
-                ['code'=>'estafeta-econo',  'name'=>'Estafeta','service'=>'Económico','eta'=>'3 a 6 días hábiles', 'price'=>249.00],
-            ];
+        if (!$address) {
+            return redirect()
+                ->route('checkout.start')
+                ->withErrors(['address' => 'Selecciona o agrega una dirección de envío antes de cotizar paqueterías.']);
         }
 
-        $carriers = array_values(array_filter($all, fn($o) => (float)($o['price'] ?? 0) > 0));
+        $carriers = $this->quoteEnviaCarriersForCheckout($address, $cart, $subtotal);
+
+        if (empty($carriers) && config('services.envia.debug')) {
+            Log::warning('Envia.com checkout sin tarifas', [
+                'debug' => session('shipping.envia_debug'),
+                'address' => $address?->toArray(),
+            ]);
+        }
+
+        session(['shipping.options' => $carriers]);
         session(['shipping.options_norm' => $carriers]);
 
         if ($subtotal >= $threshold && !empty($carriers)) {
-            usort($carriers, fn($a,$b) => (float)$a['price'] <=> (float)$b['price']);
-            $best = $carriers[0];
+            $paidOptions = array_values(array_filter($carriers, fn($o) => (float)($o['price'] ?? 0) > 0));
 
-            session(['checkout.shipping' => [
-                'code'        => $best['code'],
-                'name'        => $best['name']    ?? ($best['carrier'] ?? 'Paquetería'),
-                'service'     => $best['service'] ?? null,
-                'eta'         => $best['eta']     ?? null,
-                'price'       => 0.0,
-                'store_pays'  => true,
-                'carrier_cost'=> (float)($best['price'] ?? 0),
-                'auto_applied'=> true,
-            ]]);
+            if (!empty($paidOptions)) {
+                usort($paidOptions, fn($a, $b) => (float)$a['price'] <=> (float)$b['price']);
+                $best = $paidOptions[0];
 
-            return redirect()
-                ->route('checkout.payment')
-                ->with('ok', 'Envío gratis aplicado (cubierto por la tienda con la paquetería más económica).');
+                session(['checkout.shipping' => [
+                    'code'         => $best['code'],
+                    'id'           => $best['id'] ?? $best['code'],
+                    'provider'     => 'envia.com',
+                    'name'         => $best['name'] ?? ($best['carrier'] ?? 'Paquetería'),
+                    'carrier'      => $best['carrier'] ?? ($best['name'] ?? 'Paquetería'),
+                    'carrier_key'  => $best['carrier_key'] ?? $this->carrierKey($best['carrier'] ?? $best['name'] ?? ''),
+                    'service'      => $best['service'] ?? null,
+                    'eta'          => $best['eta'] ?? null,
+                    'logo_url'     => $best['logo_url'] ?? $this->carrierLogoUrl($best['carrier'] ?? $best['name'] ?? ''),
+                    'price'        => 0.0,
+                    'store_pays'   => true,
+                    'carrier_cost' => (float)($best['price'] ?? 0),
+                    'auto_applied' => true,
+                    'raw'          => $best['raw'] ?? null,
+                ]]);
+
+                return redirect()
+                    ->route('checkout.payment')
+                    ->with('ok', 'Envío gratis aplicado. La tienda cubrirá la paquetería más económica disponible.');
+            }
         }
 
         $selected = session('checkout.shipping', [
-            'code'=>null,'price'=>0.0,'name'=>null,'eta'=>null,'service'=>null
+            'code' => null,
+            'price' => 0.0,
+            'name' => null,
+            'eta' => null,
+            'service' => null,
+            'logo_url' => null,
         ]);
 
-        return view('checkout.shipping', compact('cart','subtotal','address','carriers','selected'));
+        return view('checkout.shipping', compact('cart', 'subtotal', 'address', 'carriers', 'selected'));
     }
 
     public function shippingSelect(Request $req)
     {
         $data = $req->validate([
-            'code'    => 'required|string',
-            'price'   => 'nullable',
-            'name'    => 'nullable',
-            'service' => 'nullable',
-            'eta'     => 'nullable',
+            'code'        => 'required|string',
+            'price'       => 'nullable',
+            'name'        => 'nullable',
+            'carrier'     => 'nullable',
+            'carrier_key' => 'nullable',
+            'service'     => 'nullable',
+            'eta'         => 'nullable',
+            'logo_url'    => 'nullable',
+            'raw'         => 'nullable',
         ]);
 
         $norm = collect(session('shipping.options_norm', []));
@@ -410,37 +436,396 @@ class CheckoutController extends Controller
         }
 
         if (!$opt) {
-            return back()->withErrors(['code'=>'Opción de envío no válida o expirada.']);
+            return back()->withErrors(['code' => 'Opción de envío no válida o expirada. Regresa a envío y vuelve a cotizar.']);
         }
 
         $cart = $this->getCartRows();
-        $subtotal  = array_reduce($cart, fn($c,$r)=> $c + ($r['price']*$r['qty']), 0);
+        $subtotal  = array_reduce($cart, fn($c, $r) => $c + (($r['price'] ?? 0) * ($r['qty'] ?? 1)), 0);
         $threshold = $this->threshold;
 
+        $carrierName = $opt['carrier'] ?? $opt['name'] ?? 'Paquetería';
+        $carrierKey  = $opt['carrier_key'] ?? $this->carrierKey($carrierName);
+
+        $payload = [
+            'code'         => $opt['code'],
+            'id'           => $opt['id'] ?? $opt['code'],
+            'provider'     => 'envia.com',
+            'name'         => $opt['name'] ?? $carrierName,
+            'carrier'      => $carrierName,
+            'carrier_key'  => $carrierKey,
+            'service'      => $opt['service'] ?? null,
+            'service_label'=> $opt['service_label'] ?? $opt['service_description'] ?? ($opt['service'] ?? null),
+            'eta'          => $opt['eta'] ?? null,
+            'logo_url'     => $opt['logo_url'] ?? $this->carrierLogoUrl($carrierName),
+            'raw'          => $opt['raw'] ?? null,
+        ];
+
         if ($subtotal >= $threshold) {
-            session(['checkout.shipping' => [
-                'code'        => $opt['code'],
-                'name'        => $opt['name']    ?? ($opt['carrier'] ?? 'Paquetería'),
-                'service'     => $opt['service'] ?? null,
-                'eta'         => $opt['eta']     ?? null,
-                'price'       => 0.0,
-                'store_pays'  => true,
-                'carrier_cost'=> (float)($opt['price'] ?? 0),
-                'auto_applied'=> false,
-            ]]);
+            session(['checkout.shipping' => array_merge($payload, [
+                'price'        => 0.0,
+                'store_pays'   => true,
+                'carrier_cost' => (float)($opt['price'] ?? 0),
+                'auto_applied' => false,
+            ])]);
         } else {
-            session(['checkout.shipping' => [
-                'code'    => $opt['code'],
-                'name'    => $opt['name']    ?? ($opt['carrier'] ?? 'Paquetería'),
-                'service' => $opt['service'] ?? null,
-                'eta'     => $opt['eta']     ?? null,
-                'price'   => (float)($opt['price'] ?? 0),
-            ]]);
+            session(['checkout.shipping' => array_merge($payload, [
+                'price' => (float)($opt['price'] ?? 0),
+            ])]);
         }
 
-        return $req->wantsJson()
-            ? response()->json(['ok'=>true])
-            : redirect()->route('checkout.payment');
+        /*
+         * IMPORTANTE:
+         * Esta ruta también se usa por formulario normal desde el navegador.
+         * No uses wantsJson(), porque algunos navegadores/devtools mandan Accept con json
+         * y entonces se queda mostrando el JSON en pantalla.
+         *
+         * Solo devolvemos JSON si realmente viene por AJAX/fetch.
+         */
+        if ($req->ajax() || $req->header('X-Requested-With') === 'XMLHttpRequest') {
+            return response()->json([
+                'ok' => true,
+                'shipping' => session('checkout.shipping'),
+            ]);
+        }
+
+        return redirect()->route('checkout.payment');
+    }
+
+    private function quoteEnviaCarriersForCheckout(ShippingAddress $address, array $cart, float $subtotal): array
+    {
+        /** @var EnviaComClient $envia */
+        $envia = app(EnviaComClient::class);
+
+        $origin = $this->enviaOriginAddress();
+        $destination = $this->enviaDestinationAddress($address);
+        $packages = [$this->enviaPackageFromCart($cart, $subtotal)];
+
+        $rates = [];
+        $debug = [
+            'attempted_carriers' => [],
+            'failed_carriers' => [],
+        ];
+
+        foreach ($this->enviaCarriersToQuote() as $carrier) {
+            $debug['attempted_carriers'][] = $carrier;
+
+            try {
+                $payload = $envia->quote($origin, $destination, $packages, [
+                    'type' => 1,
+                    'carrier' => $carrier,
+                ]);
+
+                foreach ($envia->normalizeRates($payload) as $rate) {
+                    if (empty($rate['carrier'])) {
+                        $rate['carrier'] = $carrier;
+                    }
+
+                    $rates[] = $rate;
+                }
+            } catch (\Throwable $e) {
+                $debug['failed_carriers'][$carrier] = $e->getMessage();
+
+                Log::info('Envia.com checkout carrier sin tarifa', [
+                    'carrier' => $carrier,
+                    'message' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        if (empty($rates)) {
+            try {
+                $payload = $envia->quote($origin, $destination, $packages, [
+                    'type' => 1,
+                    'carrier' => 'estafeta',
+                ]);
+
+                foreach ($envia->normalizeRates($payload) as $rate) {
+                    if (empty($rate['carrier'])) {
+                        $rate['carrier'] = 'estafeta';
+                    }
+
+                    $rates[] = $rate;
+                }
+            } catch (\Throwable $e) {
+                $debug['fallback_estafeta'] = $e->getMessage();
+            }
+        }
+
+        if (config('services.envia.debug')) {
+            session(['shipping.envia_debug' => $debug]);
+            Log::info('Envia.com checkout debug', $debug);
+        }
+
+        return collect($rates)
+            ->filter(fn($rate) => filled($rate['carrier'] ?? null) && filled($rate['service'] ?? null))
+            // IMPORTANTE: para e-commerce automático solo mostramos servicios domicilio a domicilio.
+            // Servicios "Ocurre" / branch-to-home como Paquetexpress ground_od piden sucursal y fallan en sandbox.
+            ->filter(fn($rate) => $this->isEnviaDoorToDoorRate($rate))
+            ->unique(function ($rate) {
+                return $this->carrierKey((string)($rate['carrier'] ?? '')) . '|' .
+                    \Illuminate\Support\Str::slug((string)($rate['service'] ?? '')) . '|' .
+                    number_format((float)($rate['total_price'] ?? 0), 2, '.', '');
+            })
+            ->map(fn($rate) => $this->enviaRateToCheckoutOption($rate))
+            ->sortBy('price')
+            ->values()
+            ->toArray();
+    }
+
+
+    /**
+     * Filtra servicios que requieren sucursal/origen tipo "Ocurre".
+     * Para checkout automático conviene solo domicilio a domicilio.
+     */
+    private function isEnviaDoorToDoorRate(array $rate): bool
+    {
+        $dropOff = (int)($rate['drop_off'] ?? data_get($rate, 'raw.dropOff', 0));
+        $service = strtolower((string)($rate['service'] ?? ''));
+        $description = strtolower((string)($rate['service_description'] ?? data_get($rate, 'raw.serviceDescription', '')));
+
+        if ($dropOff !== 0) {
+            return false;
+        }
+
+        if (str_contains($description, 'ocurre') || str_contains($service, '_od') || str_contains($service, '_do')) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private function enviaRateToCheckoutOption(array $rate): array
+    {
+        $carrier = (string)($rate['carrier'] ?? 'Paquetería');
+        $serviceCode = (string)($rate['service'] ?? 'Servicio');
+        $serviceLabel = (string)($rate['service_description'] ?? $serviceCode);
+        $carrierKey = $this->carrierKey($carrier);
+        $price = (float)($rate['total_price'] ?? 0);
+        $code = $carrierKey . '-' . \Illuminate\Support\Str::slug($serviceCode) . '-' . substr(md5(json_encode($rate)), 0, 8);
+
+        return [
+            'id'                  => $rate['id'] ?? $code,
+            'code'                => $code,
+            'provider'            => 'envia.com',
+            'carrier'             => $carrier,
+            'carrier_key'         => $carrierKey,
+            'name'                => $carrier,
+            // Código técnico para generar guía.
+            'service'             => $serviceCode,
+            // Texto visual para mostrar al cliente.
+            'service_label'       => $serviceLabel,
+            'service_description' => $serviceLabel,
+            'eta'                 => $this->normalizeEta($rate['delivery_estimate'] ?? null),
+            'price'               => $price,
+            'currency'            => (string)($rate['currency'] ?? 'MXN'),
+            'logo_url'            => $this->carrierLogoUrl($carrier),
+            'drop_off'            => (int)($rate['drop_off'] ?? data_get($rate, 'raw.dropOff', 0)),
+            'raw'                 => $rate['raw'] ?? $rate,
+        ];
+    }
+
+    private function enviaCarriersToQuote(): array
+    {
+        $configured = array_values(array_filter(array_map(
+            fn($name) => trim((string)$name),
+            explode(',', (string)env('ENVIA_FORCE_CARRIERS', ''))
+        )));
+
+        if (!empty($configured)) {
+            return $configured;
+        }
+
+        return [
+            'dhl',
+            'fedex',
+            'estafeta',
+            'ups',
+            'redpack',
+            'paquetexpress',
+            'sendex',
+            'carssa',
+            'ivoy',
+            '99minutos',
+            'jtexpress',
+            'ampm',
+            'scm',
+            'quiken',
+        ];
+    }
+
+    private function enviaOriginAddress(): array
+    {
+        return [
+            'name'       => config('services.envia.origin.name', 'Jureto'),
+            'company'    => config('services.envia.origin.company', 'Jureto'),
+            'email'      => config('services.envia.origin.email', 'ventas@jureto.com.mx'),
+            'phone'      => config('services.envia.origin.phone', '7220000000'),
+            'street'     => config('services.envia.origin.street', 'Calle origen'),
+            'number'     => config('services.envia.origin.number', 'S/N'),
+            'district'   => config('services.envia.origin.district', 'Centro'),
+            'city'       => config('services.envia.origin.city', 'Toluca'),
+            'state'      => $this->enviaStateCode((string)config('services.envia.origin.state', 'EM')),
+            'country'    => config('services.envia.origin.country', 'MX'),
+            'postalCode' => config('services.envia.origin.postal_code', '50000'),
+            'reference'  => config('services.envia.origin.reference', 'Bodega Jureto'),
+        ];
+    }
+
+    private function enviaDestinationAddress(ShippingAddress $address): array
+    {
+        return [
+            'name'       => (string)($address->contact_name ?: Auth::user()?->name ?: 'Cliente'),
+            'company'    => '',
+            'email'      => (string)(Auth::user()?->email ?? 'cliente@test.com'),
+            'phone'      => (string)($address->phone ?: '5555555555'),
+            'street'     => (string)($address->street ?: 'Domicilio de entrega'),
+            'number'     => (string)($address->ext_number ?: 'S/N'),
+            'district'   => (string)($address->colony ?: 'Centro'),
+            'city'       => (string)($address->municipality ?: $address->city ?: 'Toluca'),
+            'state'      => $this->enviaStateCode((string)($address->state ?: 'EM')),
+            'country'    => 'MX',
+            'postalCode' => (string)$address->postal_code,
+            'reference'  => '',
+        ];
+    }
+
+    private function enviaPackageFromCart(array $cart, float $subtotal): array
+    {
+        $weight = (float)config('services.envia.default_package.weight', env('ENVIA_PACKAGE_WEIGHT', 1));
+        $length = (float)config('services.envia.default_package.length', env('ENVIA_PACKAGE_LENGTH', 30));
+        $width  = (float)config('services.envia.default_package.width', env('ENVIA_PACKAGE_WIDTH', 25));
+        $height = (float)config('services.envia.default_package.height', env('ENVIA_PACKAGE_HEIGHT', 20));
+
+        return [
+            'content'       => 'Productos Jureto',
+            'amount'        => 1,
+            'type'          => 'box',
+            'weight'        => max(0.01, $weight),
+            'insurance'     => 0,
+            'declaredValue' => max(0, $subtotal),
+            'weightUnit'    => 'KG',
+            'lengthUnit'    => 'CM',
+            'dimensions'    => [
+                'length' => max(1, $length),
+                'width'  => max(1, $width),
+                'height' => max(1, $height),
+            ],
+        ];
+    }
+
+    private function enviaStateCode(string $state): string
+    {
+        $raw = trim($state);
+
+        if (strlen($raw) === 2) {
+            return strtoupper($raw);
+        }
+
+        $key = \Illuminate\Support\Str::slug(\Illuminate\Support\Str::ascii($raw));
+
+        $map = [
+            'aguascalientes' => 'AG',
+            'baja-california' => 'BC',
+            'baja-california-sur' => 'BS',
+            'campeche' => 'CM',
+            'chiapas' => 'CS',
+            'chihuahua' => 'CH',
+            'ciudad-de-mexico' => 'CX',
+            'cdmx' => 'CX',
+            'coahuila' => 'CO',
+            'coahuila-de-zaragoza' => 'CO',
+            'colima' => 'CL',
+            'durango' => 'DG',
+            'guanajuato' => 'GT',
+            'guerrero' => 'GR',
+            'hidalgo' => 'HG',
+            'jalisco' => 'JA',
+            'estado-de-mexico' => 'EM',
+            'mexico' => 'EM',
+            'edomex' => 'EM',
+            'michoacan' => 'MI',
+            'michoacan-de-ocampo' => 'MI',
+            'morelos' => 'MO',
+            'nayarit' => 'NA',
+            'nuevo-leon' => 'NL',
+            'oaxaca' => 'OA',
+            'puebla' => 'PU',
+            'queretaro' => 'QT',
+            'quintana-roo' => 'QR',
+            'san-luis-potosi' => 'SL',
+            'sinaloa' => 'SI',
+            'sonora' => 'SO',
+            'tabasco' => 'TB',
+            'tamaulipas' => 'TM',
+            'tlaxcala' => 'TL',
+            'veracruz' => 'VE',
+            'veracruz-de-ignacio-de-la-llave' => 'VE',
+            'yucatan' => 'YU',
+            'zacatecas' => 'ZA',
+        ];
+
+        return $map[$key] ?? strtoupper($raw);
+    }
+
+    private function carrierKey(string $carrier): string
+    {
+        $key = \Illuminate\Support\Str::slug(\Illuminate\Support\Str::ascii($carrier));
+
+        return match ($key) {
+            'federal-express' => 'fedex',
+            'mexico-redpack', 'redpack-mexico' => 'redpack',
+            'paquete-express' => 'paquetexpress',
+            '99-minutos', 'noventa-y-nueve-minutos', '99minutos' => '99minutos',
+            'j-t-express', 'jtexpress' => 'jtexpress',
+            default => $key ?: 'generic',
+        };
+    }
+
+    private function carrierLogoUrl(string $carrier): string
+    {
+        $key = $this->carrierKey($carrier);
+
+        foreach (['svg', 'png', 'webp', 'jpg'] as $ext) {
+            $relative = "images/carriers/{$key}.{$ext}";
+            if (file_exists(public_path($relative))) {
+                return asset($relative);
+            }
+        }
+
+        $domains = [
+            'dhl'            => 'dhl.com',
+            'fedex'          => 'fedex.com',
+            'estafeta'       => 'estafeta.com',
+            'ups'            => 'ups.com',
+            'redpack'        => 'redpack.com.mx',
+            'paquetexpress'  => 'paquetexpress.com.mx',
+            'sendex'         => 'sendex.mx',
+            'ivoy'           => 'ivoy.mx',
+            'carssa'         => 'carssa.com.mx',
+            '99minutos'      => '99minutos.com',
+            'jtexpress'      => 'jtexpress.mx',
+            'ampm'           => 'ampm.com.mx',
+            'scm'            => 'scm.com.mx',
+            'quiken'         => 'quiken.mx',
+        ];
+
+        return isset($domains[$key])
+            ? 'https://logo.clearbit.com/' . $domains[$key]
+            : asset('images/carriers/generic-shipping.svg');
+    }
+
+    private function normalizeEta($value): ?string
+    {
+        if (blank($value)) {
+            return null;
+        }
+
+        if (is_numeric($value)) {
+            $days = (int)$value;
+            return $days === 1 ? '1 día hábil' : "{$days} días hábiles";
+        }
+
+        return (string)$value;
     }
 
     /* ===========================================================
@@ -451,9 +836,21 @@ class CheckoutController extends Controller
         $cart = $this->getCartRows();
         if (empty($cart)) return redirect()->route('web.cart.index')->with('ok','Tu carrito está vacío.');
 
+        // Respaldo importante: Stripe regresa después del pago y a veces el carrito ya no está disponible.
+        session([
+            'checkout.cart_snapshot' => $cart,
+            'checkout.cart_snapshot_at' => now()->toDateTimeString(),
+        ]);
+
         $subtotal = array_reduce($cart, fn($c,$r)=> $c + ($r['price']*$r['qty']), 0);
 
-        $shipping = session('checkout.shipping', ['price'=>0,'name'=>null,'code'=>null,'eta'=>null,'service'=>null]);
+        $shipping = session('checkout.shipping');
+
+        if (empty($shipping)) {
+            $shipping = session('shipping', ['price'=>0,'name'=>null,'code'=>null,'eta'=>null,'service'=>null]);
+        }
+
+        $shipping = (array) $shipping;
         $total    = $subtotal + (float)($shipping['price'] ?? 0);
 
         $address = null;
@@ -533,6 +930,12 @@ class CheckoutController extends Controller
         try {
             $cart = $this->getCartRows();
             if (empty($cart)) return response()->json(['error' => 'Tu carrito está vacío.'], 400);
+
+            // Respaldo importante para que success pueda guardar partidas aunque el carrito se pierda.
+            session([
+                'checkout.cart_snapshot' => $cart,
+                'checkout.cart_snapshot_at' => now()->toDateTimeString(),
+            ]);
 
             $lineItems = [];
             $metadataItems = [];
@@ -621,7 +1024,13 @@ class CheckoutController extends Controller
             $emailU  = $user?->email;
             $nameU   = $user?->name;
 
-            $cart    = $this->getCartRows();
+            $cart = $this->getCartRows();
+
+            // Si al regresar de Stripe el carrito ya no está, usamos el respaldo guardado antes de pagar.
+            if (empty($cart)) {
+                $cart = (array) session('checkout.cart_snapshot', []);
+            }
+
             $subtotal = array_reduce($cart, fn($c,$r)=> $c + (($r['price'] ?? 0) * max(1,(int)($r['qty'] ?? 1))), 0.0);
 
             // Dirección
@@ -671,12 +1080,12 @@ class CheckoutController extends Controller
                 'shipping_amount'       => round($shipAmount, 2),
                 'total'                 => $total,
                 'currency'              => 'MXN',
-                'status'                => $paid ? 'paid' : 'pending',
+                'status'                => $paid ? 'pagado' : 'pendiente',
 
                 'address_json'          => $addressArr,
                 'shipping_code'         => $shipping['code']    ?? null,
                 'shipping_name'         => $shipping['name']    ?? ($shipping['carrier'] ?? null),
-                'shipping_service'      => $shipping['service'] ?? null,
+                'shipping_service'      => $shipping['service_label'] ?? ($shipping['service'] ?? null),
                 'shipping_eta'          => $shipping['eta']     ?? null,
                 'shipping_store_pays'   => $storePays,
                 'shipping_carrier_cost' => (float)($shipping['carrier_cost'] ?? 0),
@@ -693,24 +1102,43 @@ class CheckoutController extends Controller
             );
 
             // 3) Guardar items
-            $order->items()->delete();
-            foreach ($cart as $row) {
-                $qty   = max(1, (int)($row['qty'] ?? 1));
-                $price = (float)($row['price'] ?? 0);
-                OrderItem::create([
-                    'order_id'        => $order->id,
-                    'catalog_item_id' => $row['id'] ?? null,
-                    'name'            => $row['name'] ?? 'Producto',
-                    'sku'             => $row['sku'] ?? null,
-                    'price'           => round($price, 2),
-                    'qty'             => $qty,
-                    'amount'          => round($price * $qty, 2),
-                    'currency'        => 'MXN',
-                    'tax_rate'        => 0.16,
-                    'discount'        => 0,
-                    'meta'            => ['image' => $row['image'] ?? null],
-                ]);
+            // IMPORTANTE: se inserta con DB y solo columnas existentes para evitar errores
+            // como Unknown column unit_price / total en order_items.
+            if (!empty($cart)) {
+                try {
+                    if (method_exists($order, 'items')) {
+                        $order->items()->delete();
+                    } elseif (Schema::hasTable('order_items')) {
+                        DB::table('order_items')->where('order_id', $order->id)->delete();
+                    }
+                } catch (\Throwable $e) {
+                    if (Schema::hasTable('order_items')) {
+                        DB::table('order_items')->where('order_id', $order->id)->delete();
+                    }
+                }
+
+                foreach ($cart as $row) {
+                    $qty   = max(1, (int)($row['qty'] ?? 1));
+                    $price = (float)($row['price'] ?? 0);
+
+                    $this->createOrderItemSafe($order, [
+                        'catalog_item_id' => $row['id'] ?? ($row['catalog_item_id'] ?? null),
+                        'product_id'      => $row['product_id'] ?? ($row['id'] ?? null),
+                        'name'            => $row['name'] ?? 'Producto',
+                        'sku'             => $row['sku'] ?? null,
+                        'price'           => round($price, 2),
+                        'qty'             => $qty,
+                        'amount'          => round($price * $qty, 2),
+                        'currency'        => 'MXN',
+                        'tax_rate'        => 0.16,
+                        'discount'        => 0,
+                        'meta'            => ['image' => $row['image'] ?? null],
+                    ]);
+                }
             }
+
+            // Guardar información extendida de envío en la orden si existen las columnas.
+            $this->persistOrderShippingFields($order, $shipping, $shipAmount, $storePays);
 
             // 4) Registrar pago si está "paid"
             if ($paid) {
@@ -725,6 +1153,19 @@ class CheckoutController extends Controller
                     'raw'      => $session->toArray(),
                 ]);
                 $order->markPaid();
+
+                // Forzamos etiqueta en español para el portal.
+                if (Schema::hasColumn('orders', 'status')) {
+                    DB::table('orders')->where('id', $order->id)->update([
+                        'status' => 'pagado',
+                        'updated_at' => now(),
+                    ]);
+                    $order = $order->fresh();
+                }
+
+                // Crear guía/envío en Envia después de pago confirmado.
+                $this->createEnviaShipmentForOrder($order, $shipping, $addressArr);
+                $order = $order->fresh();
             }
 
             // 5) Timbrado (si aplica)
@@ -846,6 +1287,8 @@ class CheckoutController extends Controller
                 'checkout.billing_profile_id',
                 'checkout.invoice_required',
                 'checkout.shipping',
+                'checkout.cart_snapshot',
+                'checkout.cart_snapshot_at',
                 'shipping.options',
                 'shipping.options_norm',
             ]);
@@ -1111,4 +1554,376 @@ class CheckoutController extends Controller
 
         return $u !== '' ? $u : 'PUBLICO EN GENERAL';
     }
+    /**
+     * Guarda datos extendidos del envío seleccionado en la orden, sin depender de $fillable.
+     */
+    private function persistOrderShippingFields(Order $order, array $shipping, float $shipAmount, bool $storePays): void
+    {
+        try {
+            if (!Schema::hasTable('orders')) {
+                return;
+            }
+
+            $update = [];
+
+            $put = function (string $column, mixed $value) use (&$update) {
+                if ($value !== null && Schema::hasColumn('orders', $column)) {
+                    $update[$column] = $value;
+                }
+            };
+
+            $put('shipping_provider', $shipping['provider'] ?? 'envia.com');
+            $put('shipping_amount', round($shipAmount, 2));
+            $put('shipping_code', $shipping['code'] ?? null);
+            $put('shipping_rate_code', $shipping['selected_id'] ?? $shipping['code'] ?? null);
+            $put('shipping_name', $shipping['name'] ?? ($shipping['carrier'] ?? null));
+            $put('shipping_carrier', $shipping['carrier'] ?? null);
+            $put('shipping_service', $shipping['service'] ?? null);
+            $put('shipping_eta', $shipping['eta'] ?? null);
+            $put('shipping_logo_url', $shipping['logo_url'] ?? null);
+            $put('shipping_store_pays', $storePays);
+            $put('shipping_carrier_cost', (float)($shipping['carrier_cost'] ?? $shipAmount));
+            $put('shipping_raw', is_string($shipping['raw'] ?? null) ? $shipping['raw'] : json_encode($shipping['raw'] ?? $shipping, JSON_UNESCAPED_UNICODE));
+            $put('updated_at', now());
+
+            if (!empty($update)) {
+                DB::table('orders')->where('id', $order->id)->update($update);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('No se pudieron guardar campos extendidos de envío en orden', [
+                'order_id' => $order->id ?? null,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Crea la guía/envío en Envia.com después de que Stripe confirmó el pago.
+     * La cotización solo muestra precios; aquí ya se genera el pedido en Envia.
+     */
+    private function createEnviaShipmentForOrder(Order $order, array $shipping, ?array $addressArr = null): void
+    {
+        try {
+            if (!class_exists(EnviaComClient::class)) {
+                Log::warning('EnviaComClient no existe. No se puede crear guía.', ['order_id' => $order->id ?? null]);
+                return;
+            }
+
+            if (!$this->orderCanReceiveEnviaShipment($order)) {
+                return;
+            }
+
+            $carrier = strtolower(trim((string)($shipping['carrier_key'] ?? $shipping['carrier'] ?? $order->shipping_carrier ?? '')));
+            if ($carrier === '') {
+                Log::warning('Sin carrier para crear guía Envia.', ['order_id' => $order->id ?? null, 'shipping' => $shipping]);
+                return;
+            }
+
+            $service = $this->resolveEnviaServiceCode(
+                (string)($shipping['carrier_key'] ?? $shipping['carrier'] ?? $order->shipping_carrier ?? ''),
+                (string)($shipping['service'] ?? $order->shipping_service ?? ''),
+                $shipping['raw'] ?? ($order->shipping_raw ?? null)
+            );
+
+            $origin = $this->enviaOriginAddress();
+            $destination = $this->enviaDestinationFromOrder($order, $addressArr);
+            $packages = [$this->enviaPackageFromOrder($order)];
+
+            if (empty($destination['postalCode'])) {
+                Log::warning('Destino sin código postal. No se crea guía Envia.', [
+                    'order_id' => $order->id ?? null,
+                    'destination' => $destination,
+                ]);
+                return;
+            }
+
+            /** @var EnviaComClient $envia */
+            $envia = app(EnviaComClient::class);
+
+            if (!method_exists($envia, 'generate')) {
+                Log::warning('EnviaComClient no tiene método generate().', ['order_id' => $order->id ?? null]);
+                return;
+            }
+
+            $shipment = [
+                'type' => 1,
+                'carrier' => $carrier,
+                'service' => $service,
+                'reference' => 'ORDER-' . $order->id,
+                'comments' => 'Pedido JURETO #' . $order->id,
+            ];
+
+            $payload = $envia->generate($origin, $destination, $packages, $shipment);
+
+            $normalized = [];
+            if (method_exists($envia, 'normalizeGeneratedShipment')) {
+                $normalized = (array) $envia->normalizeGeneratedShipment($payload);
+            }
+
+            $trackingNumber = $normalized['tracking_number']
+                ?? $normalized['trackingNumber']
+                ?? data_get($payload, 'data.0.trackingNumber')
+                ?? data_get($payload, 'data.trackingNumber')
+                ?? data_get($payload, 'trackingNumber')
+                ?? data_get($payload, 'shipment.trackingNumber')
+                ?? data_get($payload, 'data.0.tracking_number')
+                ?? data_get($payload, 'data.tracking_number');
+
+            $trackingUrl = $normalized['tracking_url']
+                ?? $normalized['trackingUrl']
+                ?? data_get($payload, 'data.0.trackingUrl')
+                ?? data_get($payload, 'data.trackingUrl')
+                ?? data_get($payload, 'trackingUrl')
+                ?? data_get($payload, 'data.0.tracking_url')
+                ?? data_get($payload, 'data.tracking_url');
+
+            $labelUrl = $normalized['label_url']
+                ?? $normalized['labelUrl']
+                ?? data_get($payload, 'data.0.label')
+                ?? data_get($payload, 'data.label')
+                ?? data_get($payload, 'label')
+                ?? data_get($payload, 'data.0.labelUrl')
+                ?? data_get($payload, 'data.labelUrl')
+                ?? data_get($payload, 'labelUrl');
+
+            $update = [];
+            $put = function (string $column, mixed $value) use (&$update) {
+                if ($value !== null && Schema::hasColumn('orders', $column)) {
+                    $update[$column] = $value;
+                }
+            };
+
+            $put('shipping_status', $trackingNumber ? 'creado' : 'pendiente');
+            $put('tracking_number', $trackingNumber);
+            $put('shipping_tracking_number', $trackingNumber);
+            $put('guide_number', $trackingNumber);
+            $put('guia', $trackingNumber);
+            $put('tracking_url', $trackingUrl);
+            $put('shipping_tracking_url', $trackingUrl);
+            $put('label_url', $labelUrl);
+            $put('shipping_label_url', $labelUrl);
+            $put('envia_payload', json_encode($payload, JSON_UNESCAPED_UNICODE));
+            $put('updated_at', now());
+
+            if (!empty($update)) {
+                DB::table('orders')->where('id', $order->id)->update($update);
+            }
+
+            Log::info('Guía Envia creada o solicitada', [
+                'order_id' => $order->id,
+                'carrier' => $carrier,
+                'service' => $service,
+                'tracking_number' => $trackingNumber,
+                'label_url' => $labelUrl,
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('No se pudo crear guía Envia después del pago', [
+                'order_id' => $order->id ?? null,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    private function orderCanReceiveEnviaShipment(Order $order): bool
+    {
+        foreach (['tracking_number', 'shipping_tracking_number', 'guide_number', 'guia'] as $field) {
+            if (!empty($order->{$field})) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function enviaDestinationFromOrder(Order $order, ?array $addressArr = null): array
+    {
+        $address = $addressArr ?: (array)($order->address_json ?? []);
+
+        return [
+            'name' => $order->customer_name ?? $address['contact_name'] ?? auth()->user()?->name ?? 'Cliente',
+            'company' => $order->customer_name ?? $address['contact_name'] ?? 'Cliente',
+            'email' => $order->customer_email ?? auth()->user()?->email ?? 'cliente@jureto.com.mx',
+            'phone' => $address['phone'] ?? $order->customer_phone ?? '7220000000',
+            'street' => $address['street'] ?? '',
+            'number' => $address['ext_number'] ?? $address['number'] ?? 'S/N',
+            'district' => $address['colony'] ?? $address['district'] ?? '',
+            'city' => $address['municipality'] ?? $address['city'] ?? '',
+            'state' => $this->enviaStateCode($address['state'] ?? ''),
+            'country' => 'MX',
+            'postalCode' => $address['postal_code'] ?? $address['zip'] ?? '',
+            'reference' => trim(($address['references'] ?? '') . ' ' . ($address['between_street_1'] ?? '') . ' ' . ($address['between_street_2'] ?? '')),
+        ];
+    }
+
+    private function enviaPackageFromOrder(Order $order): array
+    {
+        return [
+            'content' => 'Productos JURETO',
+            'amount' => 1,
+            'type' => 'box',
+            'weight' => (float) env('ENVIA_PACKAGE_WEIGHT', 1),
+            'insurance' => 0,
+            'declaredValue' => (float)($order->total ?? 0),
+            'weightUnit' => 'KG',
+            'lengthUnit' => 'CM',
+            'dimensions' => [
+                'length' => (float) env('ENVIA_PACKAGE_LENGTH', 30),
+                'width' => (float) env('ENVIA_PACKAGE_WIDTH', 25),
+                'height' => (float) env('ENVIA_PACKAGE_HEIGHT', 20),
+            ],
+        ];
+    }
+
+    /**
+     * Inserta una partida de pedido usando solo columnas que existen en order_items.
+     * Evita errores como: Unknown column 'unit_price' o 'total'.
+     */
+    private function createOrderItemSafe(Order $order, array $data): void
+    {
+        if (!Schema::hasTable('order_items')) {
+            return;
+        }
+
+        $insert = ['order_id' => $order->id];
+
+        $this->putIfColumnTable($insert, 'catalog_item_id', $data['catalog_item_id'] ?? null, 'order_items');
+        $this->putIfColumnTable($insert, 'product_id', $data['product_id'] ?? null, 'order_items');
+        $this->putIfColumnTable($insert, 'name', $data['name'] ?? 'Producto', 'order_items');
+        $this->putIfColumnTable($insert, 'sku', $data['sku'] ?? null, 'order_items');
+        $this->putIfColumnTable($insert, 'qty', $data['qty'] ?? 1, 'order_items');
+        $this->putIfColumnTable($insert, 'quantity', $data['qty'] ?? 1, 'order_items');
+        $this->putIfColumnTable($insert, 'price', $data['price'] ?? 0, 'order_items');
+        $this->putIfColumnTable($insert, 'unit_price', $data['price'] ?? 0, 'order_items');
+        $this->putIfColumnTable($insert, 'amount', $data['amount'] ?? 0, 'order_items');
+        $this->putIfColumnTable($insert, 'total', $data['amount'] ?? 0, 'order_items');
+        $this->putIfColumnTable($insert, 'currency', $data['currency'] ?? 'MXN', 'order_items');
+        $this->putIfColumnTable($insert, 'tax_rate', $data['tax_rate'] ?? null, 'order_items');
+        $this->putIfColumnTable($insert, 'discount', $data['discount'] ?? 0, 'order_items');
+
+        $meta = $data['meta'] ?? [];
+        $this->putIfColumnTable($insert, 'meta', is_string($meta) ? $meta : json_encode($meta, JSON_UNESCAPED_UNICODE), 'order_items');
+
+        $this->putIfColumnTable($insert, 'created_at', now(), 'order_items');
+        $this->putIfColumnTable($insert, 'updated_at', now(), 'order_items');
+
+        DB::table('order_items')->insert($insert);
+    }
+
+    private function putIfColumnTable(array &$row, string $column, mixed $value, string $table): void
+    {
+        if ($value !== null && Schema::hasColumn($table, $column)) {
+            $row[$column] = $value;
+        }
+    }
+
+    /**
+     * Envia generate necesita el código del servicio, no la descripción.
+     * Ejemplo correcto: paquetexpress + ground_od
+     * Ejemplo incorrecto: paquetexpress + "Paquetexpress Ocurre - domicilio"
+     */
+    private function resolveEnviaServiceCode(string $carrier, string $service, mixed $raw = null): string
+    {
+        $carrierKey = strtolower(trim($carrier));
+        $serviceText = trim($service);
+
+        $rawArr = null;
+
+        if (is_string($raw) && $raw !== '') {
+            $decoded = json_decode(html_entity_decode($raw), true);
+            $rawArr = is_array($decoded) ? $decoded : null;
+        } elseif (is_array($raw)) {
+            $rawArr = $raw;
+        }
+
+        $rawService = data_get($rawArr, 'service');
+        if (is_string($rawService) && $rawService !== '') {
+            return $rawService;
+        }
+
+        if ($serviceText !== '' && preg_match('/^[a-z0-9_\\-]+$/i', $serviceText) && !str_contains($serviceText, ' ')) {
+            return strtolower($serviceText);
+        }
+
+        $s = strtolower($serviceText);
+
+        return match ($carrierKey) {
+            'ups' => str_contains($s, 'saver') ? 'saver' : strtolower($serviceText),
+
+            'paquetexpress' => match (true) {
+                str_contains($s, 'ocurre - domicilio') => 'ground_od',
+                str_contains($s, 'domicilio - ocurre') => 'ground_do',
+                str_contains($s, 'ocurre') && str_contains($s, 'domicilio') => 'ground_od',
+                str_contains($s, 'terrestre') || str_contains($s, 'ground') => 'ground',
+                default => 'ground',
+            },
+
+            'estafeta' => match (true) {
+                str_contains($s, 'siguiente') || str_contains($s, 'express') => 'express',
+                str_contains($s, 'metropolitano') || str_contains($s, 'local') => 'local',
+                str_contains($s, 'terrestre') || str_contains($s, 'ground') => 'ground',
+                default => 'ground',
+            },
+
+            'fedex' => str_contains($s, 'ground') || str_contains($s, 'econ') ? 'ground' : strtolower($serviceText),
+
+            'dhl' => match (true) {
+                str_contains($s, 'economy') || str_contains($s, 'ground') => 'ground_od',
+                default => strtolower($serviceText),
+            },
+
+            'scm' => str_contains($s, 'ground') ? 'ground' : strtolower($serviceText),
+
+            default => strtolower(str_replace(' ', '_', $serviceText)),
+        };
+    }
+
+    /**
+     * Extrae código de sucursal desde la tarifa cruda de Envia.
+     * Necesario para servicios como Paquetexpress ground_od.
+     */
+    private function resolveEnviaBranchCode(mixed $raw = null): ?string
+    {
+        $rawArr = null;
+
+        if (is_string($raw) && $raw !== '') {
+            $decoded = json_decode(html_entity_decode($raw), true);
+            $rawArr = is_array($decoded) ? $decoded : null;
+        } elseif (is_array($raw)) {
+            $rawArr = $raw;
+        }
+
+        if (!$rawArr) {
+            $envBranch = env('ENVIA_ORIGIN_BRANCH_CODE');
+            return $envBranch ? (string) $envBranch : null;
+        }
+
+        $direct = data_get($rawArr, 'originBranchCode')
+            ?? data_get($rawArr, 'origin_branch_code')
+            ?? data_get($rawArr, 'branchCode')
+            ?? data_get($rawArr, 'branch_code');
+
+        if ($direct) {
+            return (string) $direct;
+        }
+
+        $branches = data_get($rawArr, 'branches', []);
+
+        if (is_array($branches) && !empty($branches)) {
+            $first = $branches[0];
+
+            $code = data_get($first, 'branch_code')
+                ?? data_get($first, 'branchCode')
+                ?? data_get($first, 'branch_id')
+                ?? data_get($first, 'branchId');
+
+            if ($code) {
+                return (string) $code;
+            }
+        }
+
+        $envBranch = env('ENVIA_ORIGIN_BRANCH_CODE');
+
+        return $envBranch ? (string) $envBranch : null;
+    }
+
 }

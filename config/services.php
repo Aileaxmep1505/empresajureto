@@ -327,4 +327,48 @@ return [
     'location_id' => env('SHOPIFY_LOCATION_ID'),
     'webhook_secret' => env('SHOPIFY_WEBHOOK_SECRET'),
 ],
+
+
+'envia' => [
+    'mode' => env('ENVIA_MODE', 'sandbox'),
+    'token' => env('ENVIA_API_TOKEN'),
+    'base_url' => env('ENVIA_BASE_URL', env('ENVIA_MODE', 'sandbox') === 'production'
+        ? 'https://api.envia.com'
+        : 'https://api-test.envia.com'
+    ),
+    'queries_url' => env('ENVIA_QUERIES_URL', env('ENVIA_MODE', 'sandbox') === 'production'
+        ? 'https://queries.envia.com'
+        : 'https://queries-test.envia.com'
+    ),
+    'debug' => env('ENVIA_DEBUG', false),
+
+    /*
+     * Si está true, el controlador intenta cotizar carrier por carrier.
+     * Esto puede mostrar más opciones cuando Envia no regresa todo en una sola llamada.
+     */
+    'quote_all_carriers' => env('ENVIA_QUOTE_ALL_CARRIERS', true),
+
+    'origin' => [
+        'name' => env('ENVIA_ORIGIN_NAME', 'Jureto'),
+        'company' => env('ENVIA_ORIGIN_COMPANY', 'Jureto'),
+        'email' => env('ENVIA_ORIGIN_EMAIL', 'ventas@jureto.com.mx'),
+        'phone' => env('ENVIA_ORIGIN_PHONE', '7220000000'),
+        'street' => env('ENVIA_ORIGIN_STREET', 'Calle origen'),
+        'number' => env('ENVIA_ORIGIN_NUMBER', 'S/N'),
+        'district' => env('ENVIA_ORIGIN_DISTRICT', 'Centro'),
+        'city' => env('ENVIA_ORIGIN_CITY', 'Toluca'),
+        'state' => env('ENVIA_ORIGIN_STATE', 'EM'),
+        'country' => env('ENVIA_ORIGIN_COUNTRY', 'MX'),
+        'postal_code' => env('ENVIA_ORIGIN_POSTAL_CODE', '50000'),
+        'reference' => env('ENVIA_ORIGIN_REFERENCE', ''),
+    ],
+
+    'default_package' => [
+        'weight' => env('ENVIA_PACKAGE_WEIGHT', 1),
+        'length' => env('ENVIA_PACKAGE_LENGTH', 30),
+        'width' => env('ENVIA_PACKAGE_WIDTH', 25),
+        'height' => env('ENVIA_PACKAGE_HEIGHT', 20),
+    ],
+],
+
 ];

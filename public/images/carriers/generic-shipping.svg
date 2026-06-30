@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="220" height="90" viewBox="0 0 220 90">
+  <rect width="220" height="90" rx="18" fill="#ffffff"/>
+  <rect x="10" y="10" width="200" height="70" rx="14" fill="#f9fafb" stroke="#ebebeb"/>
+  <circle cx="38" cy="45" r="13" fill="#888888" opacity=".14"/>
+  <text x="62" y="53" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" fill="#111111">ENVIO</text>
+</svg>

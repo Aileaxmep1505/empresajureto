@@ -23,6 +23,10 @@
 
   <link href="{{ asset('css/app.css') }}" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+
 
   @stack('styles')
 
@@ -367,6 +371,18 @@
     .user-menu a:hover, .user-menu form button:hover{background:#f1f5f9; color: var(--brand); }
 
 
+
+    .jrt-help-history-item{ min-height:76px; }
+    .jrt-help-history-title{ max-width:260px; }
+    .jrt-help-history-sub{ color:#64748b; }
+    .jrt-help-msg strong{ font-weight:800; }
+    .jrt-help-msg ul,
+    .jrt-help-msg ol{ margin:10px 0 0; padding-left:20px; }
+    .jrt-help-msg li{ margin:5px 0; }
+    .jrt-help-msg p{ margin:0 0 8px; }
+    .jrt-help-msg p:last-child{ margin-bottom:0; }
+
+
     /* FIX: el dropdown de Productos debe abrir aunque el buscador haya quedado activo */
     header.header{
       isolation:isolate;
@@ -391,6 +407,598 @@
     .jrt-search-force-closed #sugg{
       display:none !important;
     }
+
+    /* ================= AISLAMIENTO SEGURO DEL DRAWER IA ================= */
+    #jrt-ai-root,
+    #jrt-ai-root *{
+      box-sizing:border-box;
+    }
+
+    #jrt-ai-root{
+      position:relative;
+      z-index:2200;
+      font-family:'Hanken Grotesk',sans-serif;
+      color:#0F172A;
+    }
+
+    #jrt-ai-root button,
+    #jrt-ai-root input{
+      font-family:'Hanken Grotesk',sans-serif;
+    }
+
+    /* ================= DRAWER DE AYUDA / ASISTENTE IA ================= */
+    .jrt-ai-overlay{
+      position:fixed;
+      inset:0;
+      z-index:2200;
+      background:rgba(15,23,42,.6);
+      backdrop-filter:blur(4px);
+      -webkit-backdrop-filter:blur(4px);
+      opacity:0;
+      visibility:hidden;
+      transition:opacity .25s ease, visibility .25s ease;
+    }
+
+    .jrt-ai-overlay.open{
+      opacity:1;
+      visibility:visible;
+    }
+
+    .jrt-ai-drawer{
+      position:fixed;
+      top:0;
+      right:-460px;
+      width:430px;
+      max-width:100vw;
+      height:100vh;
+      z-index:2201;
+      display:flex;
+      flex-direction:column;
+      background:#ffffff;
+      border-left:1px solid rgba(0,0,0,.06);
+      box-shadow:-20px 0 44px rgba(15,23,42,.05);
+      transition:right .28s cubic-bezier(.4,0,.2,1);
+      font-family:'Hanken Grotesk',sans-serif;
+      color:#0F172A;
+      -webkit-font-smoothing:antialiased;
+    }
+
+    .jrt-ai-drawer.open{
+      right:0;
+    }
+
+    .jrt-ai-drawer button,
+    .jrt-ai-drawer input{
+      font-family:'Hanken Grotesk',sans-serif;
+    }
+
+    .jrt-ai-head{
+      padding:20px 20px 16px;
+      border-bottom:1px solid rgba(0,0,0,.06);
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+      background:#ffffff;
+      flex:none;
+    }
+
+    .jrt-ai-head-left{
+      display:flex;
+      align-items:flex-start;
+      gap:12px;
+      min-width:0;
+    }
+
+    .jrt-ai-orb{
+      width:42px;
+      height:42px;
+      border-radius:50%;
+      display:grid;
+      place-items:center;
+      background:#EFF6FF;
+      color:#2563EB;
+      flex:none;
+      box-shadow:none;
+    }
+
+    .jrt-ai-orb svg{
+      width:24px;
+      height:24px;
+      display:block;
+    }
+
+    .jrt-ai-title{
+      font-family:'Sora',sans-serif;
+      font-size:15px;
+      line-height:1.25;
+      font-weight:700;
+      color:#0F172A;
+      margin:0;
+      letter-spacing:-.01em;
+    }
+
+    .jrt-ai-subtitle{
+      font-size:12px;
+      line-height:1.35;
+      color:#64748B;
+      margin-top:2px;
+      font-weight:500;
+      max-width:270px;
+    }
+
+    .jrt-ai-head-actions{
+      display:flex;
+      align-items:center;
+      gap:6px;
+      flex:none;
+    }
+
+    .jrt-ai-close{
+      width:34px;
+      height:34px;
+      border-radius:10px;
+      border:1px solid rgba(0,0,0,.06);
+      background:transparent;
+      display:grid;
+      place-items:center;
+      color:#64748B;
+      cursor:pointer;
+      transition:background-color .15s ease, color .15s ease, transform .15s ease;
+    }
+
+    .jrt-ai-close:hover{
+      background:#EFF6FF;
+      color:#0F172A;
+    }
+
+    .jrt-ai-close:active{
+      transform:scale(.94);
+    }
+
+    .jrt-ai-close svg{
+      width:20px;
+      height:20px;
+      display:block;
+    }
+
+    .jrt-ai-body{
+      flex:1;
+      display:flex;
+      flex-direction:column;
+      min-height:0;
+      background:#ffffff;
+    }
+
+    .jrt-ai-tabs{
+      display:flex;
+      gap:6px;
+      padding:12px 20px 8px;
+      border-bottom:1px solid rgba(0,0,0,.06);
+      background:#ffffff;
+      flex:none;
+    }
+
+    .jrt-ai-tab{
+      flex:1;
+      height:42px;
+      border-radius:999px;
+      border:0;
+      background:transparent;
+      color:#64748B;
+      font-size:14px;
+      font-weight:800;
+      cursor:pointer;
+      transition:all .15s ease;
+    }
+
+    .jrt-ai-tab.active{
+      background:#ffffff;
+      color:#0F172A;
+      box-shadow:0 8px 24px rgba(0,0,0,.08);
+    }
+
+    .jrt-ai-panel{
+      display:none;
+      flex:1;
+      min-height:0;
+      flex-direction:column;
+      background:#ffffff;
+    }
+
+    .jrt-ai-panel.active{
+      display:flex;
+    }
+
+    .jrt-ai-messages{
+      flex:1;
+      overflow-y:auto;
+      padding:20px;
+      display:flex;
+      flex-direction:column;
+      gap:14px;
+      min-height:0;
+      background:#ffffff;
+    }
+
+    .jrt-ai-msg{
+      max-width:80%;
+      padding:13px 18px;
+      line-height:1.5;
+      font-size:14px;
+      font-weight:500;
+      border:none;
+      opacity:0;
+      transform:translateY(10px) scale(.96);
+      animation:jrt-ai-pop .32s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+      white-space:normal;
+    }
+
+    @keyframes jrt-ai-pop{
+      to{
+        opacity:1;
+        transform:translateY(0) scale(1);
+      }
+    }
+
+    .jrt-ai-msg.assistant{
+      align-self:flex-start;
+      background:#1C9FF1;
+      color:#fff;
+      border-radius:24px 24px 24px 8px;
+      box-shadow:0 12px 24px -8px rgba(28,159,241,.55);
+    }
+
+    .jrt-ai-msg.user{
+      align-self:flex-end;
+      background:#fff;
+      color:#111827;
+      border-radius:24px 24px 8px 24px;
+      box-shadow:0 12px 26px -10px rgba(15,23,42,.18);
+    }
+
+    .jrt-ai-msg.user{
+      white-space:pre-wrap;
+    }
+
+    .jrt-ai-msg.advisor{
+      align-self:flex-start;
+      background:#15803d;
+      color:#fff;
+      border-radius:24px 24px 24px 8px;
+      box-shadow:0 12px 24px -8px rgba(21,128,61,.36);
+    }
+
+    .jrt-ai-msg.advisor::before{
+      content:'Asesor JURETO';
+      display:block;
+      font-size:11px;
+      font-weight:800;
+      opacity:.86;
+      margin-bottom:4px;
+      letter-spacing:.01em;
+    }
+
+    .jrt-ai-msg.assistant::before{
+      content:'IA JURETO';
+      display:block;
+      font-size:11px;
+      font-weight:800;
+      opacity:.86;
+      margin-bottom:4px;
+      letter-spacing:.01em;
+    }
+
+    .jrt-ai-msg strong,
+    .jrt-ai-msg b{
+      font-weight:800;
+    }
+
+    .jrt-ai-msg ul,
+    .jrt-ai-msg ol{
+      margin:8px 0 0;
+      padding-left:18px;
+    }
+
+    .jrt-ai-msg li{
+      margin:4px 0;
+    }
+
+    .jrt-ai-msg p{
+      margin:0 0 8px;
+    }
+
+    .jrt-ai-msg p:last-child{
+      margin-bottom:0;
+    }
+
+    .jrt-ai-msg a{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      margin-top:8px;
+      padding:9px 14px;
+      border-radius:999px;
+      background:rgba(255,255,255,.18);
+      border:1px solid rgba(255,255,255,.34);
+      color:#fff;
+      text-decoration:none;
+      font-weight:800;
+      transition:transform .16s ease, background .16s ease;
+    }
+
+    .jrt-ai-msg a:hover{
+      background:rgba(255,255,255,.26);
+      transform:translateY(-1px);
+      color:#fff;
+    }
+
+    .jrt-ai-msg.user a{
+      color:#007aff;
+      background:#e6f0ff;
+      border-color:#e6f0ff;
+    }
+
+    .jrt-ai-typing{
+      align-self:flex-start;
+      display:flex;
+      align-items:center;
+      gap:6px;
+      padding:16px 20px;
+      background:#1C9FF1;
+      border-radius:24px 24px 24px 8px;
+      box-shadow:0 12px 24px -8px rgba(28,159,241,.55);
+      opacity:0;
+      transform:translateY(10px) scale(.96);
+      animation:jrt-ai-pop .32s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+    }
+
+    .jrt-ai-typing-text{
+      width:auto !important;
+      height:auto !important;
+      border-radius:0 !important;
+      background:transparent !important;
+      animation:none !important;
+      color:rgba(255,255,255,.92);
+      font-size:13px;
+      font-weight:800;
+      letter-spacing:.01em;
+    }
+
+    .jrt-ai-typing-dots{
+      width:auto !important;
+      height:auto !important;
+      display:inline-flex;
+      align-items:center;
+      gap:5px;
+      border-radius:0 !important;
+      background:transparent !important;
+      animation:none !important;
+    }
+
+    .jrt-ai-typing-dots span{
+      width:7px;
+      height:7px;
+      border-radius:50%;
+      background:rgba(255,255,255,.9);
+      animation:jrt-ai-dot 1.2s infinite ease-in-out;
+    }
+
+    .jrt-ai-typing-dots span:nth-child(2){
+      animation-delay:.18s;
+    }
+
+    .jrt-ai-typing-dots span:nth-child(3){
+      animation-delay:.36s;
+    }
+
+    @keyframes jrt-ai-dot{
+      0%,60%,100%{
+        transform:translateY(0);
+        opacity:.5;
+      }
+      30%{
+        transform:translateY(-5px);
+        opacity:1;
+      }
+    }
+
+    .jrt-ai-suggestions{
+      padding:0 20px 16px;
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      background:#ffffff;
+      flex:none;
+    }
+
+    .jrt-ai-suggestions.is-hidden{
+      display:none;
+    }
+
+    .jrt-ai-chip{
+      padding:8px 14px;
+      border-radius:999px;
+      border:1px solid rgba(0,0,0,.06);
+      background:#ffffff;
+      color:#64748B;
+      font-size:12.5px;
+      font-weight:600;
+      cursor:pointer;
+      transition:all .15s ease;
+    }
+
+    .jrt-ai-chip:hover{
+      background:#EFF6FF;
+      color:#2563EB;
+      border-color:#2563EB;
+    }
+
+    .jrt-ai-form{
+      padding:10px 20px 24px;
+      background:transparent;
+      flex:none;
+    }
+
+    .jrt-ai-input-wrap{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      background:#ffffff;
+      border:none;
+      border-radius:999px;
+      padding:6px 8px;
+      box-shadow:0 8px 30px rgba(0,0,0,0.08);
+    }
+
+    .jrt-ai-btn-icon{
+      width:38px;
+      height:38px;
+      border-radius:14px;
+      background:#F3F4F6;
+      color:#4B5563;
+      border:none;
+      display:grid;
+      place-items:center;
+      flex:none;
+      cursor:pointer;
+      transition:all .15s ease;
+    }
+
+    .jrt-ai-btn-icon:hover{
+      background:#E5E7EB;
+      color:#111827;
+    }
+
+    .jrt-ai-btn-icon:active{
+      transform:scale(.95);
+    }
+
+    .jrt-ai-btn-icon svg{
+      width:22px;
+      height:22px;
+      display:block;
+    }
+
+    .jrt-ai-input{
+      flex:1;
+      background:transparent;
+      border:none;
+      color:#0F172A;
+      outline:none;
+      font:inherit;
+      font-size:14.5px;
+      padding:0 6px;
+      min-width:0;
+    }
+
+    .jrt-ai-input::placeholder{
+      color:#9CA3AF;
+    }
+
+    .jrt-ai-send .ico-up{
+      display:none;
+    }
+
+    .jrt-ai-input-wrap.has-text .jrt-ai-send .ico-back{
+      display:none;
+    }
+
+    .jrt-ai-input-wrap.has-text .jrt-ai-send .ico-up{
+      display:block;
+    }
+
+    .jrt-ai-input-wrap.has-text .jrt-ai-send{
+      background:#3B82F6;
+      color:#fff;
+    }
+
+    .jrt-ai-history-panel{
+      padding:14px 16px 20px;
+      overflow-y:auto;
+      background:#ffffff;
+    }
+
+    .jrt-ai-history-list{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+
+    .jrt-ai-history-empty{
+      padding:18px;
+      text-align:center;
+      color:#64748B;
+      font-size:13px;
+      font-weight:500;
+    }
+
+    .jrt-ai-history-item{
+      width:100%;
+      display:flex;
+      align-items:center;
+      gap:12px;
+      padding:12px 10px;
+      border-radius:16px;
+      background:transparent;
+      border:0;
+      text-align:left;
+      cursor:pointer;
+      transition:background .15s ease;
+    }
+
+    .jrt-ai-history-item:hover{
+      background:#EFF6FF;
+    }
+
+    .jrt-ai-history-logo{
+      width:42px;
+      height:42px;
+      border-radius:50%;
+      flex:none;
+      display:grid;
+      place-items:center;
+      background:#F3F4F6;
+      color:#3B82F6;
+    }
+
+    .jrt-ai-history-main{
+      min-width:0;
+      flex:1;
+    }
+
+    .jrt-ai-history-title{
+      color:#0F172A;
+      font-size:14px;
+      font-weight:700;
+      overflow:hidden;
+      white-space:nowrap;
+      text-overflow:ellipsis;
+      display:block;
+    }
+
+    .jrt-ai-history-status{
+      font-size:13px;
+      margin-top:2px;
+      color:#64748B;
+      display:block;
+    }
+
+    .jrt-ai-history-time{
+      font-size:13px;
+      color:#64748B;
+      white-space:nowrap;
+      align-self:flex-start;
+      margin-top:2px;
+    }
+
+    @media (max-width:640px){
+      .jrt-ai-drawer{
+        width:100%;
+        right:-100%;
+      }
+    }
+
 
   </style>
 </head>
@@ -626,9 +1234,9 @@
       <a class="icon-btn" href="{{ url('/favoritos') }}" title="Favoritos" aria-label="Favoritos">
         <svg viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 22l7.8-8.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
       </a>
-      <a class="icon-btn" href="{{ url('/ayuda') }}" title="Ayuda" aria-label="Ayuda">
+      <button type="button" class="icon-btn" id="jrtHelpOpen" title="Ayuda" aria-label="Abrir asistente de ayuda">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9 9a3 3 0 1 1 4.5 2.6c-.9.5-1.5 1.4-1.5 2.4v1"/><circle cx="12" cy="18" r="1"/></svg>
-      </a>
+      </button>
       <a class="icon-btn" href="{{ route('web.cart.index') }}" title="Carrito" aria-label="Carrito">
         <svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39A2 2 0 0 0 9.63 16h7.52a2 2 0 0 0 2-.79L23 12H6"/></svg>
         <span class="cart-badge" data-cart-badge>{{ $cartCount }}</span>
@@ -695,6 +1303,96 @@
     </div>
   </div>
 </section>
+
+<div id="jrt-ai-root">
+  <div class="jrt-ai-overlay" id="jrtAiOverlay"></div>
+
+  <aside class="jrt-ai-drawer" id="jrtAiDrawer" role="dialog" aria-modal="true" aria-label="Asistente IA">
+  <div class="jrt-ai-head">
+    <div class="jrt-ai-head-left">
+      <div class="jrt-ai-orb">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2a7 7 0 0 1 7 7c0 2.4-1.2 4.5-3 5.7V17a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-2.3C6.2 13.5 5 11.4 5 9a7 7 0 0 1 7-7z"/>
+        </svg>
+      </div>
+
+      <div>
+        <div class="jrt-ai-title">Asistente IA</div>
+        <div class="jrt-ai-subtitle">Ayuda para compras, pedidos, envíos, reportes y cotizaciones</div>
+      </div>
+    </div>
+
+    <div class="jrt-ai-head-actions">
+      <button class="jrt-ai-close" id="jrtAiResetBtn" type="button" aria-label="Reiniciar conversación" title="Reiniciar conversación">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="1 4 1 10 7 10"></polyline>
+          <path d="M3.5 15a9 9 0 1 0 .5-8L1 10"></path>
+        </svg>
+      </button>
+
+      <button class="jrt-ai-close" id="jrtAiDrawerClose" type="button" aria-label="Cerrar asistente">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="jrt-ai-body">
+    <div class="jrt-ai-tabs" role="tablist" aria-label="Asistente IA">
+      <button type="button" class="jrt-ai-tab active" id="jrtAiChatTab" role="tab" aria-selected="true">Chat</button>
+      <button type="button" class="jrt-ai-tab" id="jrtAiHistoryTab" role="tab" aria-selected="false">Historial</button>
+    </div>
+
+    <div class="jrt-ai-panel active" id="jrtAiChatPanel" role="tabpanel" aria-labelledby="jrtAiChatTab">
+      <div class="jrt-ai-messages" id="jrtAiMessages">
+        <div class="jrt-ai-msg assistant">
+          Hola, soy tu asistente de JURETO. Puedo ayudarte a buscar productos, agregarlos al carrito, revisar compras, pedidos cancelados, envíos atrasados, garantías, devoluciones y generar folios de reporte.
+        </div>
+      </div>
+
+      <div class="jrt-ai-suggestions" id="jrtAiSuggestions">
+        <button type="button" class="jrt-ai-chip" data-prompt="Ayúdame a encontrar un producto y agregarlo al carrito">Agregar producto</button>
+        <button type="button" class="jrt-ai-chip" data-prompt="Qué compras he realizado y cuáles están canceladas">Mis compras</button>
+        <button type="button" class="jrt-ai-chip" data-prompt="Tengo un envío atrasado y quiero generar un folio de reporte">Reporte de envío</button>
+        <button type="button" class="jrt-ai-chip" data-prompt="Quiero una cotización como empresa">Cotizar</button>
+      </div>
+
+      <form class="jrt-ai-form" id="jrtAiAssistantForm">
+        <div class="jrt-ai-input-wrap" id="jrtAiInputWrap">
+          <button type="button" class="jrt-ai-btn-icon" id="jrtAiAttachBtn" aria-label="Acción rápida">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+          </button>
+
+          <input type="text" class="jrt-ai-input" id="jrtAiInput" placeholder="Escribe tu mensaje" autocomplete="off">
+
+          <button class="jrt-ai-btn-icon jrt-ai-send" type="submit" aria-label="Enviar">
+            <svg class="ico-back" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="19" y1="12" x2="5" y2="12"></line>
+              <polyline points="12 19 5 12 12 5"></polyline>
+            </svg>
+
+            <svg class="ico-up" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="19" x2="12" y2="5"></line>
+              <polyline points="5 12 12 5 19 12"></polyline>
+            </svg>
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <div class="jrt-ai-panel jrt-ai-history-panel" id="jrtAiHistoryPanel" role="tabpanel" aria-labelledby="jrtAiHistoryTab">
+      <div class="jrt-ai-history-list" id="jrtAiHistoryList">
+        <div class="jrt-ai-history-empty">Aún no hay chats guardados.</div>
+      </div>
+    </div>
+  </div>
+</aside>
+</div>
 
 <main class="container" style="padding:28px 20px;">
   @yield('content')
@@ -1153,6 +1851,637 @@
       initFooterAccordion();
     }
   })();
+
+
+  (function(){
+    const openBtn = document.getElementById('jrtHelpOpen');
+    const overlay = document.getElementById('jrtAiOverlay');
+    const drawer = document.getElementById('jrtAiDrawer');
+    const closeBtn = document.getElementById('jrtAiDrawerClose');
+    const resetBtn = document.getElementById('jrtAiResetBtn');
+    const form = document.getElementById('jrtAiAssistantForm');
+    const input = document.getElementById('jrtAiInput');
+    const inputWrap = document.getElementById('jrtAiInputWrap');
+    const messages = document.getElementById('jrtAiMessages');
+    const suggestions = document.getElementById('jrtAiSuggestions');
+    const chatTab = document.getElementById('jrtAiChatTab');
+    const historyTab = document.getElementById('jrtAiHistoryTab');
+    const chatPanel = document.getElementById('jrtAiChatPanel');
+    const historyPanel = document.getElementById('jrtAiHistoryPanel');
+    const historyList = document.getElementById('jrtAiHistoryList');
+
+    if(!openBtn || !overlay || !drawer || !form || !input || !messages) return;
+
+    const CHAT_ENDPOINT = @json(route('web.assistant.chat'));
+    const CONVERSATIONS_ENDPOINT = @json(route('web.assistant.conversations'));
+    const NEW_CONVERSATION_ENDPOINT = @json(route('web.assistant.conversations.store'));
+    const SHOW_CONVERSATION_TEMPLATE = @json(url('/asistente-jureto/conversations/__ID__'));
+    const CSRF = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+    const welcomeText = 'Hola, soy tu asistente de JURETO. Puedo ayudarte a buscar productos, agregarlos al carrito, revisar compras, pedidos cancelados, envíos atrasados, garantías, devoluciones y generar folios de reporte.';
+
+    let activeConversationId = null;
+    let loadingConversation = false;
+    let hasLoadedOnOpen = false;
+    let advisorPollTimer = null;
+    let renderedMessageKeys = new Set();
+    let sendingMessage = false;
+
+    function lockScroll(lock){
+      document.documentElement.classList.toggle('jrt-scroll-lock', lock);
+    }
+
+    function openDrawer(){
+      overlay.classList.add('open');
+      drawer.classList.add('open');
+      openBtn.setAttribute('aria-expanded', 'true');
+      lockScroll(true);
+      showTab('chat');
+
+      if(!hasLoadedOnOpen){
+        hasLoadedOnOpen = true;
+        loadActiveConversation();
+      }
+
+      startAdvisorPolling();
+
+      setTimeout(function(){
+        input.focus();
+      }, 160);
+    }
+
+    function closeDrawer(){
+      overlay.classList.remove('open');
+      drawer.classList.remove('open');
+      openBtn.setAttribute('aria-expanded', 'false');
+      lockScroll(false);
+      stopAdvisorPolling();
+    }
+
+    function startAdvisorPolling(){
+      stopAdvisorPolling();
+
+      advisorPollTimer = setInterval(function(){
+        if(drawer.classList.contains('open') && activeConversationId){
+          loadConversation(activeConversationId, true);
+        }
+      }, 5000);
+    }
+
+    function stopAdvisorPolling(){
+      if(advisorPollTimer){
+        clearInterval(advisorPollTimer);
+        advisorPollTimer = null;
+      }
+    }
+
+    function showTab(tab){
+      const isHistory = tab === 'history';
+
+      chatTab.classList.toggle('active', !isHistory);
+      historyTab.classList.toggle('active', isHistory);
+      chatTab.setAttribute('aria-selected', String(!isHistory));
+      historyTab.setAttribute('aria-selected', String(isHistory));
+
+      chatPanel.classList.toggle('active', !isHistory);
+      historyPanel.classList.toggle('active', isHistory);
+
+      if(isHistory) renderHistory();
+    }
+
+    function sanitizeAssistantHtml(html){
+      const template = document.createElement('template');
+      template.innerHTML = String(html || '');
+
+      const allowedTags = ['STRONG', 'B', 'EM', 'I', 'UL', 'OL', 'LI', 'BR', 'P', 'SPAN', 'A'];
+
+      template.content.querySelectorAll('*').forEach(function(node){
+        if (!allowedTags.includes(node.tagName)) {
+          node.replaceWith(document.createTextNode(node.textContent || ''));
+          return;
+        }
+
+        Array.from(node.attributes).forEach(function(attr){
+          const name = String(attr.name || '').toLowerCase();
+
+          if(node.tagName === 'A' && name === 'href'){
+            const href = String(attr.value || '');
+
+            if(href.startsWith('http://') || href.startsWith('https://') || href.startsWith('/')){
+              node.setAttribute('target', '_self');
+              node.setAttribute('rel', 'noopener');
+              return;
+            }
+          }
+
+          if(node.tagName === 'A' && (name === 'target' || name === 'rel')){
+            return;
+          }
+
+          node.removeAttribute(attr.name);
+        });
+      });
+
+      return template.innerHTML;
+    }
+
+    function markdownToCleanHtml(text){
+      let value = String(text || '');
+
+      value = value
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<strong>$1</strong>')
+        .replace(/\n{2,}/g, '<br><br>')
+        .replace(/\n/g, '<br>');
+
+      return sanitizeAssistantHtml(value);
+    }
+
+    function escapeHtml(text){
+      return String(text || '')
+        .replace(/&/g,'&amp;')
+        .replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;')
+        .replace(/'/g,'&#039;');
+    }
+
+    function clearMessagesUI(){
+      messages.innerHTML = '';
+      renderedMessageKeys = new Set();
+    }
+
+    function normalizeMessageText(text){
+      return String(text || '').replace(/\s+/g, ' ').trim();
+    }
+
+    function messageKey(item){
+      if(item && item.id){
+        return 'id:' + String(item.id);
+      }
+
+      const role = item && item.role ? item.role : 'unknown';
+      const content = normalizeMessageText(item && item.content ? item.content : '');
+
+      return 'fp:' + role + ':' + content;
+    }
+
+    function messageFingerprint(item){
+      const role = item && item.role ? item.role : 'unknown';
+      const content = normalizeMessageText(item && item.content ? item.content : '');
+      return 'fp:' + role + ':' + content;
+    }
+
+    function sortedMessages(items){
+      return (Array.isArray(items) ? items : []).slice().sort(function(a, b){
+        const aId = Number(a && a.id ? a.id : 0);
+        const bId = Number(b && b.id ? b.id : 0);
+
+        if(aId && bId && aId !== bId){
+          return aId - bId;
+        }
+
+        const aTime = Date.parse((a && (a.created_at_raw || a.created_at || a.time)) || '') || 0;
+        const bTime = Date.parse((b && (b.created_at_raw || b.created_at || b.time)) || '') || 0;
+
+        if(aTime !== bTime){
+          return aTime - bTime;
+        }
+
+        return 0;
+      });
+    }
+
+    function scrollMessagesBottom(){
+      requestAnimationFrame(function(){
+        messages.scrollTop = messages.scrollHeight;
+      });
+    }
+
+    function hasSimilarLocalMessage(item){
+      const role = item && item.role ? item.role : 'unknown';
+      const content = normalizeMessageText(item && item.content ? item.content : '');
+
+      if(!content) return false;
+
+      return Array.from(renderedMessageKeys).some(function(key){
+        return key === 'fp:' + role + ':' + content;
+      });
+    }
+
+    function markMessageFingerprint(role, content){
+      renderedMessageKeys.add('fp:' + role + ':' + normalizeMessageText(content));
+    }
+
+    function isDuplicateIncoming(item){
+      const role = item && item.role ? item.role : 'unknown';
+      const content = item && item.content ? item.content : '';
+      const key = messageKey(item);
+
+      if(renderedMessageKeys.has(key)){
+        return true;
+      }
+
+      if(hasSimilarLocalMessage({ role: role, content: content })){
+        return true;
+      }
+
+      return false;
+    }
+
+    function setSuggestionsVisible(visible){
+      if(!suggestions) return;
+      suggestions.classList.toggle('is-hidden', !visible);
+      suggestions.style.display = visible ? '' : 'none';
+    }
+
+    function addMessage(role, text, key = null, autoscroll = true){
+      const cleanRole = role === 'advisor' ? 'advisor' : (role === 'user' ? 'user' : 'assistant');
+      const content = String(text || '');
+      const fallbackKey = 'fp:' + cleanRole + ':' + normalizeMessageText(content);
+      const finalKey = key || fallbackKey;
+
+      if(finalKey && renderedMessageKeys.has(finalKey)){
+        return null;
+      }
+
+      if(renderedMessageKeys.has(fallbackKey)){
+        return null;
+      }
+
+      const msg = document.createElement('div');
+      msg.className = 'jrt-ai-msg ' + cleanRole;
+      msg.dataset.messageKey = finalKey || fallbackKey;
+
+      if (cleanRole === 'assistant' || cleanRole === 'advisor') {
+        msg.innerHTML = markdownToCleanHtml(content);
+      } else {
+        msg.textContent = content;
+      }
+
+      messages.appendChild(msg);
+
+      if(finalKey){
+        renderedMessageKeys.add(finalKey);
+      }
+
+      renderedMessageKeys.add(fallbackKey);
+
+      if(autoscroll){
+        scrollMessagesBottom();
+      }
+
+      return msg;
+    }
+
+    function addTyping(){
+      const msg = document.createElement('div');
+      msg.className = 'jrt-ai-typing';
+      msg.innerHTML = '<span class="jrt-ai-typing-text">Jureto está escribiendo</span><span class="jrt-ai-typing-dots" aria-hidden="true"><span></span><span></span><span></span></span>';
+      msg.setAttribute('aria-label', 'Jureto está escribiendo');
+      messages.appendChild(msg);
+      messages.scrollTop = messages.scrollHeight;
+      return msg;
+    }
+
+    function renderWelcome(){
+      clearMessagesUI();
+      addMessage('assistant', welcomeText);
+      setSuggestionsVisible(true);
+    }
+
+    function renderConversationMessages(items, options = {}){
+      const appendOnly = Boolean(options.appendOnly);
+      const preserveScroll = Boolean(options.preserveScroll);
+      const previousScroll = messages.scrollTop;
+      const wasNearBottom = messages.scrollHeight - messages.scrollTop - messages.clientHeight < 120;
+      const orderedItems = sortedMessages(items);
+
+      if(!appendOnly){
+        clearMessagesUI();
+      }
+
+      if(!orderedItems.length){
+        if(!appendOnly){
+          addMessage('assistant', welcomeText);
+          setSuggestionsVisible(true);
+          scrollMessagesBottom();
+        }
+        return;
+      }
+
+      let appended = 0;
+
+      orderedItems.forEach(function(item){
+        const role = item.role === 'advisor' ? 'advisor' : (item.role === 'user' ? 'user' : (item.role === 'assistant' ? 'assistant' : 'assistant'));
+        const content = item.content || '';
+        const key = messageKey({
+          id: item.id,
+          role: role,
+          content: content
+        });
+
+        if(appendOnly && isDuplicateIncoming({
+          id: item.id,
+          role: role,
+          content: content
+        })){
+          return;
+        }
+
+        const added = addMessage(role, content, key, false);
+
+        if(added){
+          appended++;
+          markMessageFingerprint(role, content);
+        }
+      });
+
+      setSuggestionsVisible(false);
+
+      if(preserveScroll && !wasNearBottom){
+        messages.scrollTop = previousScroll;
+      } else if(appended > 0 || !appendOnly) {
+        scrollMessagesBottom();
+      }
+    }
+
+    function conversationUrl(id){
+      return SHOW_CONVERSATION_TEMPLATE.replace('__ID__', encodeURIComponent(id));
+    }
+
+    async function loadActiveConversation(){
+      if(loadingConversation) return;
+      loadingConversation = true;
+
+      try {
+        const response = await fetch(CONVERSATIONS_ENDPOINT, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+          }
+        });
+
+        const data = await response.json();
+        activeConversationId = data.active_conversation_id || null;
+
+        if(activeConversationId){
+          await loadConversation(activeConversationId);
+        } else {
+          renderWelcome();
+        }
+      } catch(error) {
+        renderWelcome();
+      } finally {
+        loadingConversation = false;
+      }
+    }
+
+    async function loadConversation(id, silent = false){
+      if(silent && sendingMessage){
+        return;
+      }
+
+      try {
+        const previousScroll = messages.scrollTop;
+        const wasNearBottom = messages.scrollHeight - messages.scrollTop - messages.clientHeight < 120;
+
+        const response = await fetch(conversationUrl(id), {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+          }
+        });
+
+        const data = await response.json();
+
+        if(!response.ok || !data.ok){
+          if(!silent) renderWelcome();
+          return;
+        }
+
+        activeConversationId = data.conversation?.id || id;
+
+        renderConversationMessages(data.messages || [], {
+          appendOnly: silent,
+          preserveScroll: silent
+        });
+
+        if(silent && !wasNearBottom){
+          messages.scrollTop = previousScroll;
+        }
+      } catch(error) {
+        if(!silent) renderWelcome();
+      }
+    }
+
+    async function createNewConversation(){
+      try {
+        const response = await fetch(NEW_CONVERSATION_ENDPOINT, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': CSRF,
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          body: JSON.stringify({})
+        });
+
+        const data = await response.json();
+
+        if(response.ok && data.ok && data.conversation){
+          activeConversationId = data.conversation.id;
+        } else {
+          activeConversationId = null;
+        }
+      } catch(error) {
+        activeConversationId = null;
+      }
+
+      renderWelcome();
+      setSuggestionsVisible(true);
+      input.value = '';
+      inputWrap?.classList.remove('has-text');
+      input.focus();
+    }
+
+    async function renderHistory(){
+      historyList.innerHTML = '<div class="jrt-ai-history-empty">Cargando conversaciones...</div>';
+
+      try {
+        const response = await fetch(CONVERSATIONS_ENDPOINT, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+          }
+        });
+
+        const data = await response.json();
+        const conversations = Array.isArray(data.items) ? data.items : [];
+
+        if(!conversations.length){
+          historyList.innerHTML = '<div class="jrt-ai-history-empty">Aún no hay chats guardados.</div>';
+          return;
+        }
+
+        historyList.innerHTML = conversations.map(function(item){
+          return `
+            <button type="button" class="jrt-ai-history-item" data-conversation-id="${escapeHtml(item.id)}">
+              <span class="jrt-ai-history-logo">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 2a7 7 0 0 1 7 7c0 2.4-1.2 4.5-3 5.7V17a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-2.3C6.2 13.5 5 11.4 5 9a7 7 0 0 1 7-7z"/>
+                </svg>
+              </span>
+
+              <span class="jrt-ai-history-main">
+                <span class="jrt-ai-history-title">${escapeHtml(item.title || 'Nueva conversación')}</span>
+                <span class="jrt-ai-history-status">${escapeHtml(item.handoff_status === 'waiting' ? 'Esperando asesor' : (item.handoff_status === 'active' ? 'Con asesor' : (item.status || 'Activo')))} · ${escapeHtml(String(item.messages_count || 0))} mensajes</span>
+              </span>
+
+              <span class="jrt-ai-history-time">${escapeHtml(item.time || '')}</span>
+            </button>
+          `;
+        }).join('');
+
+        historyList.querySelectorAll('.jrt-ai-history-item').forEach(function(btn){
+          btn.addEventListener('click', async function(){
+            const id = btn.getAttribute('data-conversation-id');
+            if(!id) return;
+
+            activeConversationId = id;
+            showTab('chat');
+            await loadConversation(id);
+            input.focus();
+          });
+        });
+      } catch(error) {
+        historyList.innerHTML = '<div class="jrt-ai-history-empty">No pude cargar el historial.</div>';
+      }
+    }
+
+    async function sendToAssistant(text){
+      if(sendingMessage) return;
+
+      sendingMessage = true;
+
+      const typing = addTyping();
+
+      try {
+        const response = await fetch(CHAT_ENDPOINT, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': CSRF,
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          body: JSON.stringify({
+            message: text,
+            conversation_id: activeConversationId
+          })
+        });
+
+        const data = await response.json();
+        typing.remove();
+
+        if(!response.ok || !data.ok){
+          addMessage('assistant', data.reply || 'No pude responder en este momento. Revisa la ruta del asistente o los logs de Laravel.');
+          return;
+        }
+
+        activeConversationId = data.conversation_id || data.conversation?.id || activeConversationId;
+
+        if (typeof data.cart_count !== 'undefined' && window.updateCartBadge) {
+          window.updateCartBadge(data.cart_count);
+        }
+
+        if(data.user_message){
+          markMessageFingerprint('user', data.user_message.content || text);
+          renderedMessageKeys.add(messageKey(data.user_message));
+        }
+
+        if(data.assistant_message && data.assistant_message.content){
+          addMessage('assistant', data.assistant_message.content, messageKey(data.assistant_message));
+        } else if(data.reply) {
+          addMessage('assistant', data.reply, data.message_id ? 'id:' + data.message_id : null);
+        } else if(data.handoff) {
+          addMessage('assistant', 'Tu mensaje quedó enviado al asesor. En cuanto responda, aparecerá aquí sin recargar la conversación.');
+        }
+      } catch (error) {
+        typing.remove();
+        addMessage('assistant', 'No pude conectar con el asistente. Revisa la ruta del asistente, la API key o los logs de Laravel.');
+      } finally {
+        sendingMessage = false;
+      }
+    }
+
+    openBtn.addEventListener('click', function(event){
+      event.preventDefault();
+      openDrawer();
+    });
+
+    closeBtn?.addEventListener('click', closeDrawer);
+    resetBtn?.addEventListener('click', createNewConversation);
+
+    overlay.addEventListener('click', function(event){
+      if(event.target === overlay) closeDrawer();
+    });
+
+    chatTab?.addEventListener('click', function(){
+      showTab('chat');
+    });
+
+    historyTab?.addEventListener('click', function(){
+      showTab('history');
+    });
+
+    document.addEventListener('keydown', function(event){
+      if(event.key === 'Escape' && drawer.classList.contains('open')) {
+        closeDrawer();
+      }
+    });
+
+    input.addEventListener('input', function(){
+      inputWrap?.classList.toggle('has-text', input.value.trim().length > 0);
+    });
+
+    suggestions?.querySelectorAll('[data-prompt]').forEach(function(chip){
+      chip.addEventListener('click', function(){
+        input.value = chip.getAttribute('data-prompt') || '';
+        inputWrap?.classList.add('has-text');
+
+        form.dispatchEvent(new Event('submit', {
+          cancelable:true,
+          bubbles:true
+        }));
+      });
+    });
+
+    form.addEventListener('submit', function(event){
+      event.preventDefault();
+
+      if(sendingMessage) return;
+
+      const text = input.value.trim();
+      if(!text) return;
+
+      const localKey = 'fp:user:' + normalizeMessageText(text);
+
+      addMessage('user', text, localKey);
+      markMessageFingerprint('user', text);
+
+      setSuggestionsVisible(false);
+      input.value = '';
+      inputWrap?.classList.remove('has-text');
+
+      sendToAssistant(text);
+    });
+  })();
+
 
   window.updateCartBadge = function(count){
     document.querySelectorAll('[data-cart-badge]').forEach(b=> b.textContent = String(count||0));

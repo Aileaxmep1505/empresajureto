@@ -4,11 +4,42 @@
 
 @section('content')
 @php
-  $cart      = is_array($cart ?? null) ? $cart : (array)session('cart', []);
-  $subtotal  = (float) ($subtotal ?? array_reduce($cart, fn($c,$r)=> $c + (($r['price']??0)*($r['qty']??1)), 0));
-  $ship      = $shipping ?? (array) session('checkout.shipping', ['price'=>0,'name'=>null,'eta'=>null,'code'=>null]);
+  $cart = is_array($cart ?? null) ? $cart : (array) session('cart', []);
+
+  $subtotal = (float) (
+      $subtotal
+      ?? array_reduce($cart, fn($c, $r) => $c + (($r['price'] ?? 0) * ($r['qty'] ?? 1)), 0)
+  );
+
+  /*
+  |--------------------------------------------------------------------------
+  | Envío seleccionado
+  |--------------------------------------------------------------------------
+  | El flujo viejo puede guardar en session('checkout.shipping').
+  | Algunas pruebas anteriores guardaban en session('shipping').
+  | Por eso esta vista soporta ambos, pero prioriza checkout.shipping.
+  */
+  $checkoutShipping = (array) session('checkout.shipping', []);
+  $legacyShipping = (array) session('shipping', []);
+  $incomingShipping = is_array($shipping ?? null) ? $shipping : [];
+
+  $ship = array_filter($incomingShipping)
+      ? $incomingShipping
+      : (array_filter($checkoutShipping) ? $checkoutShipping : $legacyShipping);
+
   $shipPrice = (float) ($ship['price'] ?? 0);
-  $total     = (float) ($total ?? ($subtotal + $shipPrice));
+  $shipName = $ship['name']
+      ?? $ship['carrier']
+      ?? $ship['label']
+      ?? 'Envío estándar';
+
+  $shipService = $ship['service'] ?? null;
+  $shipEta = $ship['eta'] ?? null;
+  $shipLogoUrl = $ship['logo_url'] ?? null;
+  $storePays = (bool) ($ship['store_pays'] ?? false);
+  $carrierCost = (float) ($ship['carrier_cost'] ?? $shipPrice);
+
+  $total = (float) ($total ?? ($subtotal + $shipPrice));
 @endphp
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -207,8 +238,13 @@
                 </svg>
                 <div>
                   <strong style="color: var(--blue); font-size: 1.05rem;">Resumen de Entrega</strong>
+                  @if($shipLogoUrl)
+                    <div style="margin-top:10px; width:92px; height:54px; border:1px solid var(--line); border-radius:12px; display:flex; align-items:center; justify-content:center; background:#fff;">
+                      <img class="pay-ship-logo" src="{{ $shipLogoUrl }}" alt="{{ $shipName }}" style="max-width:78px; max-height:36px; object-fit:contain;">
+                    </div>
+                  @endif
                   <div class="muted" style="margin-top: 4px; color: var(--ink); font-weight: 600;">
-                    {{ $ship['name'] ?? 'Envío estándar' }} {!! $ship['eta'] ? '· <span style="font-weight:500">'.$ship['eta'].'</span>' : '' !!}
+                    {{ $shipName }}@if($shipService) · <span style="font-weight:500">{{ $shipService }}</span>@endif @if($shipEta) · <span style="font-weight:500">{{ $shipEta }}</span>@endif
                   </div>
                   
                   @if($address)
@@ -227,7 +263,7 @@
               </div>
               
               <div style="font-weight:700; color: var(--blue); font-size: 1.05rem; white-space: nowrap;">
-                {{ $shipPrice>0 ? '$'.number_format($shipPrice,2) : 'GRATIS' }}
+                {{ $shipPrice > 0 ? '$'.number_format($shipPrice, 2) : 'GRATIS' }}
               </div>
             </div>
           </div>
@@ -269,7 +305,15 @@
         <h3 style="font-weight:700; margin:0 0 16px; font-size: 1.1rem;">Resumen de Orden</h3>
         
         <div class="sum-row"><span>Subtotal</span><span id="sum-subtotal" style="color:var(--ink);">${{ number_format($subtotal,2) }}</span></div>
-        <div class="sum-row"><span>Envío</span><span id="sum-envio" class="muted">{{ $shipPrice>0 ? '$'.number_format($shipPrice,2) : 'GRATIS' }}</span></div>
+        <div class="sum-row">
+          <span>Envío</span>
+          <span id="sum-envio" class="muted">{{ $shipPrice > 0 ? '$'.number_format($shipPrice, 2) : 'GRATIS' }}</span>
+        </div>
+        @if($storePays && $carrierCost > 0)
+          <div class="muted" style="font-size:.82rem; text-align:right; margin-top:-8px;">
+            Costo paquetería: ${{ number_format($carrierCost, 2) }} cubierto por tienda
+          </div>
+        @endif
         <hr class="line">
         <div class="sum-row total"><span>Total</span><span id="sum-total">${{ number_format($total,2) }}</span></div>
         <div class="muted" style="font-size: 0.85rem; margin-top: 8px; text-align: right;">Precios incluyen IVA</div>

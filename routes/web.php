@@ -110,6 +110,7 @@ use App\Http\Controllers\InventoryAssignmentController;
 use App\Http\Controllers\Admin\HomeProductSectionController;
 use App\Models\HomeBanner;
 use App\Http\Controllers\Admin\HomeBannerController;
+use App\Http\Controllers\Web\WebAssistantController;
 
 Route::get('/admin/catalog/analytics', [\App\Http\Controllers\Admin\CatalogItemController::class, 'analytics'])
     ->name('admin.catalog.analytics');
@@ -2582,3 +2583,87 @@ Route::get('/propuestas-comerciales/{propuestaComercial}/cliente/word', [Propues
 
 Route::post('admin/category-products/reorder', [CategoryProductController::class, 'reorder'])
     ->name('admin.category-products.reorder');
+
+
+Route::prefix('asistente-jureto')->name('web.assistant.')->group(function () {
+    Route::post('/chat', [WebAssistantController::class, 'chat'])
+        ->name('chat');
+
+    Route::get('/conversations', [WebAssistantController::class, 'conversations'])
+        ->name('conversations');
+
+    Route::post('/conversations', [WebAssistantController::class, 'createConversation'])
+        ->name('conversations.store');
+
+    Route::get('/conversations/{conversation}', [WebAssistantController::class, 'show'])
+        ->name('conversations.show');
+
+    Route::delete('/conversations/{conversation}', [WebAssistantController::class, 'destroy'])
+        ->name('conversations.destroy');
+});
+
+Route::middleware(['auth'])
+    ->prefix('admin/web-assistant')
+    ->name('admin.web-assistant.')
+    ->group(function () {
+        Route::get('/', [WebAssistantAdvisorController::class, 'index'])
+            ->name('index');
+
+        Route::get('/conversations/{conversation}', [WebAssistantAdvisorController::class, 'show'])
+            ->name('show');
+
+        Route::post('/conversations/{conversation}/take', [WebAssistantAdvisorController::class, 'take'])
+            ->name('take');
+
+        Route::post('/conversations/{conversation}/reply', [WebAssistantAdvisorController::class, 'reply'])
+            ->name('reply');
+
+        Route::post('/conversations/{conversation}/close', [WebAssistantAdvisorController::class, 'close'])
+            ->name('close');
+    });
+
+    Route::middleware(['web'])->group(function () {
+    Route::post('/checkout/shipping/options', [ShippingController::class, 'options'])
+        ->name('checkout.shipping.options');
+
+    Route::get('/checkout/shipping/carriers', [ShippingController::class, 'carriers'])
+        ->name('checkout.shipping.carriers');
+
+    Route::post('/checkout/shipping/select', [ShippingController::class, 'select'])
+        ->name('checkout.shipping.select');
+
+    Route::post('/checkout/shipping/generate-guide', [ShippingController::class, 'generateGuide'])
+        ->name('checkout.shipping.generate-guide');
+
+    Route::middleware(['auth'])->group(function () {
+        Route::get('/mi-cuenta/envios', [ShippingController::class, 'myShipments'])
+            ->name('customer.shipments.index');
+
+        Route::get('/mi-cuenta/envios/{shipment}', [ShippingController::class, 'showShipment'])
+            ->name('customer.shipments.show');
+
+        Route::post('/mi-cuenta/envios/{shipment}/actualizar', [ShippingController::class, 'refreshStatus'])
+            ->name('customer.shipments.refresh');
+    });
+});
+
+use App\Http\Controllers\Customer\CustomerOrdersController;
+
+
+
+Route::middleware(['auth'])->prefix('mi-cuenta')->name('customer.')->group(function () {
+    Route::get('/pedidos/{order}', [CustomerOrdersController::class, 'show'])
+        ->name('orders.show');
+
+    Route::post('/pedidos/{order}/reordenar', [CustomerOrdersController::class, 'reorder'])
+        ->name('orders.reorder');
+
+    Route::get('/pedidos/{order}/seguimiento', [CustomerOrdersController::class, 'tracking'])
+        ->name('orders.tracking');
+
+    Route::get('/pedidos/{order}/guia', [CustomerOrdersController::class, 'label'])
+        ->name('orders.label');
+
+    Route::post('/pedidos/{order}/sincronizar-envia', [CustomerOrdersController::class, 'syncEnvia'])
+        ->name('orders.syncEnvia');
+});
