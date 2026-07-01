@@ -48,13 +48,13 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
 }
 
     /* ===========================================================
-     * PASO 1: “Mi pedido”
+     * PASO 1: ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œMi pedidoÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â
      * =========================================================== */
     public function start(Request $request)
     {
         $cart = $this->getCartRows();
         if (empty($cart)) {
-            return redirect()->route('web.cart.index')->with('ok', 'Tu carrito está vacío.');
+            return redirect()->route('web.cart.index')->with('ok', 'Tu carrito estÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ vacÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­o.');
         }
 
         $subtotal = array_reduce($cart, fn($c,$r)=> $c + (($r['price'] ?? 0) * ($r['qty'] ?? 1)), 0);
@@ -67,7 +67,7 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
 
         $user = Auth::user();
 
-        // Dirección seleccionada (si ya existe en sesión)
+        // DirecciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n seleccionada (si ya existe en sesiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n)
         $address = null;
         if ($id = session('checkout.address_id')) {
             $address = ShippingAddress::where('user_id', $user->id)->find($id);
@@ -88,10 +88,10 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
     }
 
     /* ===========================================================
-     * PASO 2: FACTURACIÓN — Listado + Modal (RFC -> Formulario)
+     * PASO 2: FACTURACIÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“N ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â Listado + Modal (RFC -> Formulario)
      * =========================================================== */
 
-    /** Página/step con listado (la UI abre el modal en 2 pasos). */
+    /** PÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡gina/step con listado (la UI abre el modal en 2 pasos). */
     public function invoice()
     {
         $user = Auth::user();
@@ -112,19 +112,19 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
         ]);
     }
 
-    /** POST (AJAX): validar RFC – Paso 1 del modal. */
+    /** POST (AJAX): validar RFC ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ Paso 1 del modal. */
     public function invoiceValidateRFC(Request $request)
     {
         $rfc = strtoupper(trim((string)$request->input('rfc')));
-        $pattern = '/^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$/i';
+        $pattern = '/^[A-ZÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¹Ã…â€œ&]{3,4}\d{6}[A-Z0-9]{3}$/i';
         if (!preg_match($pattern, $rfc) && !in_array($rfc, ['XAXX010101000','XEXX010101000'], true)) {
-            return response()->json(['ok'=>false,'message'=>'RFC inválido. Verifica tu constancia.'], 422);
+            return response()->json(['ok'=>false,'message'=>'RFC invÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡lido. Verifica tu constancia.'], 422);
         }
         $tipo = strlen($rfc) === 12 ? 'PM' : 'PF';
         return response()->json(['ok'=>true,'rfc'=>$rfc,'tipo'=>$tipo]);
     }
 
-    /** POST (AJAX o clásico): guardar perfil – Paso 2 del modal. */
+    /** POST (AJAX o clÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡sico): guardar perfil ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ Paso 2 del modal. */
     public function invoiceStore(Request $request)
     {
         $user = Auth::user();
@@ -134,7 +134,7 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
         }
 
         $data = $request->validate([
-            'rfc'       => ['required','string','max:13','regex:/^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$/i'],
+            'rfc'       => ['required','string','max:13','regex:/^[A-ZÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¹Ã…â€œ&]{3,4}\d{6}[A-Z0-9]{3}$/i'],
             'razon'     => ['required','string','max:190'],
             'uso_cfdi'  => ['required', Rule::in(array_keys($this->usoCfdiOptions()))],
             'regimen'   => ['required', Rule::in(array_keys($this->regimenOptions()))],
@@ -146,9 +146,9 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
             'colonia'   => ['nullable','string','max:120'],
             'estado'    => ['nullable','string','max:120'],
         ], [], [
-            'razon'   => 'razón social',
-            'cp'      => 'código postal',
-            'regimen' => 'régimen fiscal',
+            'razon'   => 'razÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n social',
+            'cp'      => 'cÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³digo postal',
+            'regimen' => 'rÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©gimen fiscal',
             'uso_cfdi'=> 'uso de CFDI',
         ]);
 
@@ -182,10 +182,10 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
             ]);
         }
 
-        return redirect()->route('checkout.shipping')->with('ok', 'Datos de facturación guardados.');
+        return redirect()->route('checkout.shipping')->with('ok', 'Datos de facturaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n guardados.');
     }
 
-    /** POST: seleccionar perfil existente y seguir al envío. */
+    /** POST: seleccionar perfil existente y seguir al envÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­o. */
     public function invoiceSelect(Request $request)
     {
         $request->validate(['id'=>'required|integer']);
@@ -209,7 +209,7 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
         return back()->with('ok','Perfil eliminado.');
     }
 
-    /** Saltar facturación solo para ESTA compra (bandera de sesión). */
+    /** Saltar facturaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n solo para ESTA compra (bandera de sesiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n). */
     public function invoiceSkip(Request $request)
     {
         session(['checkout.invoice_required' => false]);
@@ -217,7 +217,7 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
     }
 
     /* ===========================================================
-     * DIRECCIÓN: guardar desde el modal (AJAX)
+     * DIRECCIÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“N: guardar desde el modal (AJAX)
      * =========================================================== */
     public function addressStore(Request $req)
     {
@@ -275,7 +275,7 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
     }
 
     /* ===========================================================
-     * Seleccionar dirección guardada (AJAX)
+     * Seleccionar direcciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n guardada (AJAX)
      * =========================================================== */
     public function addressSelect(Request $request)
     {
@@ -283,7 +283,7 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
 
         $addr = ShippingAddress::where('user_id', Auth::id())->find($data['id']);
         if (!$addr) {
-            return response()->json(['ok'=>false,'error'=>'Dirección no encontrada'], 404);
+            return response()->json(['ok'=>false,'error'=>'DirecciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n no encontrada'], 404);
         }
 
         session([
@@ -317,7 +317,7 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
     {
         $cp = trim((string)$req->query('cp'));
         if ($cp === '' || !preg_match('/^\d{5}$/', $cp)) {
-            return response()->json(['error' => 'CP inválido'], 422);
+            return response()->json(['error' => 'CP invÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡lido'], 422);
         }
 
         $token = config('services.copomex.token');
@@ -342,13 +342,13 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
     }
 
     /* ===========================================================
-     * PASO 3: Envío
+     * PASO 3: EnvÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­o
      * =========================================================== */
    public function shipping(Request $req)
 {
     $cart = $this->getCartRows();
     if (empty($cart)) {
-        return redirect()->route('web.cart.index')->with('ok','Tu carrito está vacío.');
+        return redirect()->route('web.cart.index')->with('ok','Tu carrito estÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ vacÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­o.');
     }
 
     $subtotal  = array_reduce($cart, fn($c,$r)=> $c + ($r['price']*$r['qty']), 0);
@@ -408,7 +408,7 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
         }
 
         if (empty($o['name'])) {
-            $o['name'] = $o['provider'] ?? $o['carrier'] ?? 'Envío estándar';
+            $o['name'] = $o['provider'] ?? $o['carrier'] ?? 'EnvÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­o estÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ndar';
         }
 
         return $o;
@@ -421,7 +421,7 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
 
         session(['checkout.shipping' => [
             'code'    => $only['code'] ?? $only['id'] ?? 'manual_shipping',
-            'name'    => $only['name'] ?? $only['provider'] ?? 'Envío estándar',
+            'name'    => $only['name'] ?? $only['provider'] ?? 'EnvÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­o estÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ndar',
             'service' => $only['service'] ?? 'Tarifa por zona',
             'eta'     => $only['eta'] ?? $only['days'] ?? $only['delivery_days'] ?? null,
             'price'   => (float)($only['price'] ?? $only['amount'] ?? 0),
@@ -434,7 +434,7 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
 
         session(['checkout.shipping' => [
             'code'        => $best['code'],
-            'name'        => $best['name']    ?? ($best['carrier'] ?? 'Paquetería'),
+            'name'        => $best['name']    ?? ($best['carrier'] ?? 'PaqueterÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­a'),
             'service'     => $best['service'] ?? null,
             'eta'         => $best['eta']     ?? null,
             'price'       => 0.0,
@@ -445,7 +445,7 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
 
         return redirect()
             ->route('checkout.payment')
-            ->with('ok', 'Envío gratis aplicado (cubierto por la tienda con la paquetería más económica).');
+            ->with('ok', 'EnvÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­o gratis aplicado (cubierto por la tienda con la paqueterÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­a mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡s econÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³mica).');
     }
 
     $selected = session('checkout.shipping', [
@@ -486,13 +486,13 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
             if ($selectedCode && $postedPrice > 0) {
                 $opt = [
                     'code'    => $selectedCode,
-                    'name'    => $req->input('name') ?: 'Paquetería',
+                    'name'    => $req->input('name') ?: 'PaqueterÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­a',
                     'service' => $req->input('service') ?: null,
                     'eta'     => $req->input('eta') ?: null,
                     'price'   => $postedPrice,
                 ];
             } else {
-                return back()->withErrors(['code'=>'Selecciona una opción de envío antes de continuar.']);
+                return back()->withErrors(['code'=>'Selecciona una opciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n de envÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­o antes de continuar.']);
             }
         }
 
@@ -509,7 +509,7 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
         }
 
         if (empty($opt['name'])) {
-            $opt['name'] = $opt['provider'] ?? $opt['carrier'] ?? 'Envío estándar';
+            $opt['name'] = $opt['provider'] ?? $opt['carrier'] ?? 'EnvÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­o estÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ndar';
         }
         $cart = $this->getCartRows();
         $subtotal  = array_reduce($cart, fn($c,$r)=> $c + ($r['price']*$r['qty']), 0);
@@ -518,7 +518,7 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
         if ($subtotal >= $threshold) {
             session(['checkout.shipping' => [
                 'code'        => $opt['code'],
-                'name'        => $opt['name']    ?? ($opt['carrier'] ?? 'Paquetería'),
+                'name'        => $opt['name']    ?? ($opt['carrier'] ?? 'PaqueterÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­a'),
                 'service'     => $opt['service'] ?? null,
                 'eta'         => $opt['eta']     ?? null,
                 'price'       => 0.0,
@@ -529,7 +529,7 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
         } else {
             session(['checkout.shipping' => [
                 'code'    => $opt['code'],
-                'name'    => $opt['name']    ?? ($opt['carrier'] ?? 'Paquetería'),
+                'name'    => $opt['name']    ?? ($opt['carrier'] ?? 'PaqueterÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­a'),
                 'service' => $opt['service'] ?? null,
                 'eta'     => $opt['eta']     ?? null,
                 'price'   => (float)($opt['price'] ?? 0),
@@ -547,7 +547,7 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
     public function payment(Request $req)
     {
         $cart = $this->getCartRows();
-        if (empty($cart)) return redirect()->route('web.cart.index')->with('ok','Tu carrito está vacío.');
+        if (empty($cart)) return redirect()->route('web.cart.index')->with('ok','Tu carrito estÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ vacÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­o.');
 
         $subtotal = array_reduce($cart, fn($c,$r)=> $c + ($r['price']*$r['qty']), 0);
 
@@ -563,7 +563,7 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
     }
 
     /* ===========================================================
-     * Stripe: Buy now / Carrito (con envío en Stripe)
+     * Stripe: Buy now / Carrito (con envÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­o en Stripe)
      * =========================================================== */
     public function checkoutItem(Request $req, $item)
     {
@@ -571,7 +571,7 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
             $model = CatalogItem::query()->findOrFail($item);
             $qty   = max(1, (int)$req->input('qty', 1));
             $price = $model->sale_price ?? $model->price ?? 0;
-            if ($price <= 0) return response()->json(['error' => 'Precio inválido.'], 400);
+            if ($price <= 0) return response()->json(['error' => 'Precio invÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡lido.'], 400);
 
             $email = Auth::user()->email ?? null;
             $uid   = Auth::id();
@@ -601,7 +601,7 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
                         'unit_amount' => (int)round($price * 100),
                         'product_data'=> [
                             'name'        => $model->name,
-                            'description' => 'SKU: ' . ($model->sku ?? '—'),
+                            'description' => 'SKU: ' . ($model->sku ?? 'ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â'),
                             'images'      => array_filter([$model->image_url]),
                         ],
                     ],
@@ -622,7 +622,7 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
             return response()->json(['error' => 'Producto no encontrado.'], 404);
         } catch (\Throwable $e) {
             Log::error('Stripe checkoutItem error: ' . $e->getMessage(), ['file' => $e->getFile(), 'line' => $e->getLine()]);
-            return response()->json(['error' => 'No se pudo crear la sesión de pago.'], 500);
+            return response()->json(['error' => 'No se pudo crear la sesiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n de pago.'], 500);
         }
     }
 
@@ -630,7 +630,7 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
     {
         try {
             $cart = $this->getCartRows();
-            if (empty($cart)) return response()->json(['error' => 'Tu carrito está vacío.'], 400);
+            if (empty($cart)) return response()->json(['error' => 'Tu carrito estÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ vacÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­o.'], 400);
 
             $lineItems = [];
             $metadataItems = [];
@@ -646,7 +646,7 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
                         'unit_amount' => (int)round($price * 100),
                         'product_data'=> [
                             'name'        => $row['name'] ?? 'Producto',
-                            'description' => 'SKU: ' . ($row['sku'] ?? '—'),
+                            'description' => 'SKU: ' . ($row['sku'] ?? 'ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â'),
                             'images'      => array_filter([$row['image'] ?? null]),
                         ],
                     ],
@@ -690,12 +690,12 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
             return response()->json(['url' => $session->url], 200);
         } catch (\Throwable $e) {
             Log::error('Stripe checkoutCart error: ' . $e->getMessage(), ['file' => $e->getFile(), 'line' => $e->getLine()]);
-            return response()->json(['error' => 'No se pudo crear la sesión de pago del carrito.'], 500);
+            return response()->json(['error' => 'No se pudo crear la sesiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n de pago del carrito.'], 500);
         }
     }
 
     /* ===========================================================
-     * SUCCESS: confirma pago, guarda ORDEN+PARTIDAS+PAGO, timbra y envía correos
+     * SUCCESS: confirma pago, guarda ORDEN+PARTIDAS+PAGO, timbra y envÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­a correos
      * =========================================================== */
     public function success(Request $req)
     {
@@ -730,7 +730,7 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
             $cart    = !empty($cartForOrder ?? []) ? $cartForOrder : $this->getCartRows();
             $subtotal = array_reduce($cart, fn($c,$r)=> $c + (($r['price'] ?? 0) * max(1,(int)($r['qty'] ?? 1))), 0.0);
 
-            // Dirección
+            // DirecciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n
             $addressArr = session('checkout.address');
             if (!$addressArr && ($aid = session('checkout.address_id'))) {
                 if ($addr = \App\Models\ShippingAddress::where('user_id', $uid)->find($aid)) {
@@ -752,13 +752,13 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
                 }
             }
 
-            // Envío
+            // EnvÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­o
             $shipping   = (array) session('checkout.shipping', []);
             $storePays  = (bool) ($shipping['store_pays'] ?? false);
             $shipAmount = $storePays ? 0.0 : (float) ($shipping['price'] ?? 0.0);
             $total      = round($subtotal + $shipAmount, 2);
 
-            // Facturación
+            // FacturaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n
             $profile = null;
             if ($pid = session('checkout.billing_profile_id')) {
                 $profile = BillingProfile::where('user_id', $uid)->find($pid);
@@ -867,7 +867,7 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
                 ]);
             }
 
-            // 4) Registrar pago si está "paid"
+            // 4) Registrar pago si estÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ "paid"
             if ($paid) {
                 $amountPaid = $session->amount_total ? ((int)$session->amount_total) / 100 : $total;
                 OrderPayment::create([
@@ -946,7 +946,7 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
                 if ($shipAmount > 0 && !$storePays) {
                     $items[] = [
                         'product'  => [
-                            'description'  => 'Envío',
+                            'description'  => 'EnvÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­o',
                             'product_key'  => '78101800',
                             'unit_key'     => 'E48',
                             'price'        => round($shipAmount, 2),
@@ -975,7 +975,7 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
                 if (!empty($invoice['id'])) {
                     $this->facturapi->sendInvoiceEmail($invoice['id']);
                     session(['checkout.invoice' => $invoice]);
-                    Session::flash('ok', '¡Pago recibido! Tu factura fue timbrada y enviada a tu correo.');
+                    Session::flash('ok', 'ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡Pago recibido! Tu factura fue timbrada y enviada a tu correo.');
                 }
             } else {
                 Session::flash('ok', 'Pago confirmado.');
@@ -994,7 +994,7 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
                 if (!empty($order->customer_email)) {
                     Mail::send('emails.orders.receipt', $vars, function ($m) use ($order) {
                         $m->to($order->customer_email, $order->customer_name)
-                          ->subject('Tu compra #'.$order->id.' — '.config('app.name'));
+                          ->subject('Tu compra #'.$order->id.' ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â '.config('app.name'));
                     });
                 }
 
@@ -1002,13 +1002,13 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
                 $adminEmail = 'alex.perea1212@gmail.com';
                 Mail::send('emails.orders.receipt', $vars + ['isAdmin' => true], function ($m) use ($order, $adminEmail) {
                     $m->to($adminEmail)
-                      ->subject('Nueva venta #'.$order->id.' — '.config('app.name'));
+                      ->subject('Nueva venta #'.$order->id.' ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â '.config('app.name'));
                 });
             } catch (\Throwable $mailE) {
                 Log::warning('Order mail error: '.$mailE->getMessage(), ['order_id' => $order->id ?? null]);
             }
 
-            // 7) Limpiar sesión
+            // 7) Limpiar sesiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n
             Session::forget([
                 'cart',
                 'checkout.address_id',
@@ -1024,11 +1024,334 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
             Log::error('Checkout success error: '.$e->getMessage(), ['session_id'=>$sessionId]);
             Session::flash('error',
                 'Pago realizado. Hubo un problema al registrar la orden o generar la factura. '.
-                'Si necesitas el CFDI de este pago, contáctanos.');
+                'Si necesitas el CFDI de este pago, contÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ctanos.');
         }
 
-        // IMPORTANTÍSIMO: pasar $order a la vista para que muestre partidas y totales.
+        // IMPORTANTÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂSIMO: pasar $order a la vista para que muestre partidas y totales.
         return view('checkout.success', compact('sessionId', 'invoice', 'order'));
+    }
+
+
+    public function paypalCreate(Request $req)
+    {
+        \Log::info('PAYPAL DEBUG create entered', [
+            'user_id' => auth()->id(),
+            'cart' => session('cart'),
+            'success_url' => env('PAYPAL_SUCCESS_URL'),
+            'cancel_url' => env('PAYPAL_CANCEL_URL'),
+        ]);
+
+        try {
+            $cart = $this->getCartRows();
+
+            if (empty($cart)) {
+                return response()->json(['error' => 'Tu carrito esta vacio.'], 400);
+            }
+
+            $subtotal = array_reduce($cart, fn($total, $row) => $total + ((float)($row['price'] ?? 0) * max(1, (int)($row['qty'] ?? 1))), 0);
+            $shipping = session('checkout.shipping', ['price' => 0]);
+            $shippingAmount = (float)($shipping['price'] ?? 0);
+            $total = round($subtotal + $shippingAmount, 2);
+
+            if ($total <= 0) {
+                return response()->json(['error' => 'Total invalido para PayPal.'], 400);
+            }
+
+            session([
+                'checkout.paypal_cart_snapshot' => $cart,
+                'checkout.paypal_shipping_snapshot' => $shipping,
+            ]);
+
+            $token = $this->paypalAccessToken();
+            $base = $this->paypalBaseUrl();
+
+            $payload = [
+                'intent' => 'CAPTURE',
+                'purchase_units' => [[
+                    'reference_id' => 'cart_' . (auth()->id() ?? 'guest') . '_' . time(),
+                    'amount' => [
+                        'currency_code' => 'MXN',
+                        'value' => number_format($total, 2, '.', ''),
+                        'breakdown' => [
+                            'item_total' => [
+                                'currency_code' => 'MXN',
+                                'value' => number_format(round($subtotal, 2), 2, '.', ''),
+                            ],
+                            'shipping' => [
+                                'currency_code' => 'MXN',
+                                'value' => number_format(round($shippingAmount, 2), 2, '.', ''),
+                            ],
+                        ],
+                    ],
+                ]],
+                'application_context' => [
+                    'brand_name' => config('app.name', 'Jureto'),
+                    'locale' => 'es-MX',
+                    'shipping_preference' => 'NO_SHIPPING',
+                    'user_action' => 'PAY_NOW',
+                    'return_url' => env('PAYPAL_SUCCESS_URL', route('checkout.paypal.success')),
+                    'cancel_url' => env('PAYPAL_CANCEL_URL', route('checkout.paypal.cancel')),
+                ],
+            ];
+
+            $response = \Illuminate\Support\Facades\Http::withToken($token)
+                ->acceptJson()
+                ->asJson()
+                ->post($base . '/v2/checkout/orders', $payload);
+
+            if (!$response->successful()) {
+                \Log::error('PayPal create order error', [
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ]);
+
+                return response()->json(['error' => 'No se pudo crear la orden de PayPal.'], 500);
+            }
+
+            $json = $response->json();
+            $approveUrl = collect($json['links'] ?? [])->firstWhere('rel', 'approve')['href'] ?? null;
+
+            if (!$approveUrl) {
+                return response()->json(['error' => 'PayPal no regreso URL de aprobacion.'], 500);
+            }
+
+            \Log::info('PAYPAL DEBUG create success', [
+                'paypal_order_id' => $json['id'] ?? null,
+                'approve_url' => $approveUrl,
+            ]);
+
+            session(['checkout.paypal_order_id' => $json['id'] ?? null]);
+
+            return response()->json(['url' => $approveUrl]);
+        } catch (\Throwable $e) {
+            \Log::error('PayPal create checkout error: ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+
+            return response()->json(['error' => 'No se pudo iniciar PayPal.'], 500);
+        }
+    }
+
+    public function paypalSuccess(Request $req)
+    {
+        \Log::info('PAYPAL DEBUG success entered', [
+            'query' => $req->query(),
+            'session_paypal_order_id' => session('checkout.paypal_order_id'),
+            'cart_snapshot' => session('checkout.paypal_cart_snapshot'),
+        ]);
+
+        $paypalOrderId = (string) ($req->query('token') ?: session('checkout.paypal_order_id'));
+        $invoice = null;
+        $order = null;
+
+        if (!$paypalOrderId) {
+            return redirect()->route('web.cart.index')->with('ok', 'No se recibio la orden de PayPal.');
+        }
+
+        try {
+            $token = $this->paypalAccessToken();
+            $base = $this->paypalBaseUrl();
+
+            $captureResponse = \Illuminate\Support\Facades\Http::withToken($token)
+                ->acceptJson()
+                ->withBody('{}', 'application/json')
+                ->post($base . '/v2/checkout/orders/' . $paypalOrderId . '/capture');
+
+            if (!$captureResponse->successful()) {
+                \Log::error('PayPal capture error', [
+                    'paypal_order_id' => $paypalOrderId,
+                    'status' => $captureResponse->status(),
+                    'body' => $captureResponse->body(),
+                ]);
+
+                return redirect()->route('checkout.payment')->with('error', 'PayPal no pudo confirmar el pago.');
+            }
+
+            $capture = $captureResponse->json();
+            $status = $capture['status'] ?? null;
+
+            \Log::info('PAYPAL DEBUG capture response', [
+                'paypal_order_id' => $paypalOrderId,
+                'status' => $status,
+                'capture_id' => data_get($capture, 'purchase_units.0.payments.captures.0.id'),
+            ]);
+
+            if ($status !== 'COMPLETED') {
+                return redirect()->route('checkout.payment')->with('error', 'El pago de PayPal no aparece completado.');
+            }
+
+            $cart = session('checkout.paypal_cart_snapshot', session('cart', []));
+            $shipping = session('checkout.paypal_shipping_snapshot', session('checkout.shipping', ['price' => 0]));
+            $subtotal = array_reduce($cart, fn($total, $row) => $total + ((float)($row['price'] ?? 0) * max(1, (int)($row['qty'] ?? 1))), 0);
+            $shippingAmount = (float)($shipping['price'] ?? 0);
+            $total = round($subtotal + $shippingAmount, 2);
+
+            $captureId = data_get($capture, 'purchase_units.0.payments.captures.0.id');
+
+            $orderData = [];
+            $put = function ($column, $value) use (&$orderData) {
+                if (\Illuminate\Support\Facades\Schema::hasColumn('orders', $column)) {
+                    $orderData[$column] = $value;
+                }
+            };
+
+            $checkoutAddress = session('checkout.address', []);
+            $user = auth()->user();
+
+            $customerName = trim((string) (
+                $checkoutAddress['name']
+                ?? $checkoutAddress['full_name']
+                ?? $checkoutAddress['customer_name']
+                ?? $user?->name
+                ?? 'Cliente PayPal'
+            ));
+
+            $customerEmail = trim((string) (
+                $checkoutAddress['email']
+                ?? $checkoutAddress['customer_email']
+                ?? $user?->email
+                ?? 'sandbox-paypal@jureto.local'
+            ));
+
+            $customerPhone = trim((string) (
+                $checkoutAddress['phone']
+                ?? $checkoutAddress['customer_phone']
+                ?? $checkoutAddress['telefono']
+                ?? ''
+            ));
+
+            $customerAddress = trim((string) (
+                $checkoutAddress['address']
+                ?? $checkoutAddress['street']
+                ?? $checkoutAddress['calle']
+                ?? ''
+            ));
+
+            $put('customer_name', $customerName ?: 'Cliente PayPal');
+            $put('customer_email', $customerEmail ?: 'sandbox-paypal@jureto.local');
+            $put('customer_phone', $customerPhone);
+            $put('customer_address', $customerAddress);
+
+            $put('user_id', auth()->id());
+            $put('status', 'paid');
+            $put('subtotal', round($subtotal, 2));
+            $put('shipping_amount', round($shippingAmount, 2));
+            $put('total', $total);
+            $put('currency', 'MXN');
+            $put('shipping_code', $shipping['code'] ?? null);
+            $put('shipping_name', $shipping['name'] ?? null);
+            $put('shipping_service', $shipping['service'] ?? null);
+            $put('shipping_eta', $shipping['eta'] ?? null);
+            $put('shipping_store_pays', $shipping['store_pays'] ?? false);
+            $put('shipping_carrier_cost', (float)($shipping['carrier_cost'] ?? 0));
+
+            if (\Illuminate\Support\Facades\Schema::hasColumn('orders', 'paypal_order_id')) {
+                $order = \App\Models\Order::updateOrCreate(
+                    ['paypal_order_id' => $paypalOrderId],
+                    array_merge($orderData, ['paypal_capture_id' => $captureId])
+                );
+            } else {
+                $order = \App\Models\Order::create($orderData);
+            }
+
+            if ($order) {
+                $order->items()->delete();
+
+                foreach ($cart as $row) {
+                    $qty = max(1, (int)($row['qty'] ?? 1));
+                    $price = (float)($row['price'] ?? 0);
+
+                    \App\Models\OrderItem::create([
+                        'order_id' => $order->id,
+                        'catalog_item_id' => $row['id'] ?? null,
+                        'name' => $row['name'] ?? 'Producto',
+                        'sku' => $row['sku'] ?? null,
+                        'qty' => $qty,
+                        'unit_price' => $price,
+                        'total' => round($price * $qty, 2),
+                    ]);
+                }
+
+                \App\Models\OrderPayment::updateOrCreate(
+                    ['order_id' => $order->id, 'provider' => 'paypal'],
+                    [
+                        'amount' => $total,
+                        'currency' => 'MXN',
+                        'method' => 'paypal',
+                        'status' => 'paid',
+                        'raw' => $capture,
+                    ]
+                );
+
+                \Log::info('PAYPAL DEBUG order saved', [
+                    'order_id' => $order->id ?? null,
+                    'payment_exists' => \App\Models\OrderPayment::where('order_id', $order->id ?? 0)->where('provider', 'paypal')->exists(),
+                ]);
+
+                if (method_exists($order, 'markPaid')) {
+                    $order->markPaid();
+                }
+            }
+
+            \Illuminate\Support\Facades\Session::forget([
+                'cart',
+                'checkout.address_id',
+                'checkout.address',
+                'checkout.billing_profile_id',
+                'checkout.invoice_required',
+                'checkout.shipping',
+                'checkout.paypal_cart_snapshot',
+                'checkout.paypal_shipping_snapshot',
+                'checkout.paypal_order_id',
+            ]);
+
+            $sessionId = $paypalOrderId;
+
+            return view('checkout.success', compact('sessionId', 'invoice', 'order'));
+        } catch (\Throwable $e) {
+            \Log::error('PayPal success error: ' . $e->getMessage(), [
+                'paypal_order_id' => $paypalOrderId,
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+
+            return redirect()->route('checkout.payment')->with('error', 'Pago aprobado, pero hubo problema al registrar la orden.');
+        }
+    }
+
+    public function paypalCancel()
+    {
+        return redirect()->route('web.cart.index')->with('ok', 'Pago con PayPal cancelado.');
+    }
+
+    private function paypalBaseUrl(): string
+    {
+        return env('PAYPAL_MODE', 'sandbox') === 'live'
+            ? 'https://api-m.paypal.com'
+            : 'https://api-m.sandbox.paypal.com';
+    }
+
+    private function paypalAccessToken(): string
+    {
+        $clientId = env('PAYPAL_CLIENT_ID');
+        $secret = env('PAYPAL_CLIENT_SECRET');
+
+        if (!$clientId || !$secret) {
+            throw new \RuntimeException('Faltan credenciales PAYPAL_CLIENT_ID o PAYPAL_CLIENT_SECRET.');
+        }
+
+        $response = \Illuminate\Support\Facades\Http::withBasicAuth($clientId, $secret)
+            ->asForm()
+            ->post($this->paypalBaseUrl() . '/v1/oauth2/token', [
+                'grant_type' => 'client_credentials',
+            ]);
+
+        if (!$response->successful()) {
+            throw new \RuntimeException('No se pudo obtener token PayPal: ' . $response->body());
+        }
+
+        return (string) $response->json('access_token');
     }
 
     public function cancel()
@@ -1037,7 +1360,7 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
     }
 
     /* ===========================================================
-     * DESCARGAS/RE-ENVÍO DE CFDI (para la página de éxito)
+     * DESCARGAS/RE-ENVÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂO DE CFDI (para la pÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡gina de ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©xito)
      * =========================================================== */
     public function invoicePdf(Request $req, string $invoiceId)
     {
@@ -1093,7 +1416,7 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
     private function usoCfdiOptions(): array
     {
         return [
-            'G01'=>'Adquisición de mercancías',
+            'G01'=>'AdquisiciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n de mercancÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­as',
             'G02'=>'Devoluciones, descuentos o bonificaciones',
             'G03'=>'Gastos en general',
             'I01'=>'Construcciones',
@@ -1101,21 +1424,21 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
             'I03'=>'Equipo de transporte',
             'I04'=>'Equipo de computo y accesorios',
             'I05'=>'Dados, troqueles, moldes, matrices y herramental',
-            'I06'=>'Comunicaciones telefónicas',
+            'I06'=>'Comunicaciones telefÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³nicas',
             'I07'=>'Comunicaciones satelitales',
             'I08'=>'Otra maquinaria y equipo',
-            'D01'=>'Honorarios médicos, dentales y gastos hospitalarios',
-            'D02'=>'Gastos médicos por incapacidad o discapacidad',
+            'D01'=>'Honorarios mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©dicos, dentales y gastos hospitalarios',
+            'D02'=>'Gastos mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©dicos por incapacidad o discapacidad',
             'D03'=>'Gastos funerales',
             'D04'=>'Donativos',
-            'D05'=>'Intereses reales por créditos hipotecarios (casa habitación)',
+            'D05'=>'Intereses reales por crÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©ditos hipotecarios (casa habitaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n)',
             'D06'=>'Aportaciones voluntarias al SAR',
-            'D07'=>'Primas por seguros de gastos médicos',
-            'D08'=>'Gastos de transportación escolar obligatoria',
-            'D09'=>'Depósitos para el ahorro, planes de pensiones',
+            'D07'=>'Primas por seguros de gastos mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©dicos',
+            'D08'=>'Gastos de transportaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n escolar obligatoria',
+            'D09'=>'DepÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³sitos para el ahorro, planes de pensiones',
             'D10'=>'Pagos por servicios educativos (colegiaturas)',
             'CP01'=>'Pagos',
-            'CN01'=>'Nómina',
+            'CN01'=>'NÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³mina',
             'S01' =>'Sin efectos fiscales',
         ];
     }
@@ -1126,14 +1449,14 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
             '601'=>'General de Ley Personas Morales',
             '603'=>'Personas Morales con Fines no Lucrativos',
             '606'=>'Arrendamiento',
-            '612'=>'Personas Físicas con Actividades Empresariales y Profesionales',
-            '620'=>'Sociedades Cooperativas de Producción que optan por diferir sus ingresos',
-            '621'=>'Incorporación Fiscal',
-            '622'=>'Actividades Agrícolas, Ganaderas, Silvícolas y Pesqueras',
+            '612'=>'Personas FÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­sicas con Actividades Empresariales y Profesionales',
+            '620'=>'Sociedades Cooperativas de ProducciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n que optan por diferir sus ingresos',
+            '621'=>'IncorporaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n Fiscal',
+            '622'=>'Actividades AgrÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­colas, Ganaderas, SilvÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­colas y Pesqueras',
             '623'=>'Opcional para Grupos de Sociedades',
             '624'=>'Coordinados',
-            '625'=>'Régimen de las Actividades Empresariales con ingresos a través de Plataformas Tecnológicas',
-            '626'=>'Régimen Simplificado de Confianza',
+            '625'=>'RÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©gimen de las Actividades Empresariales con ingresos a travÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©s de Plataformas TecnolÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³gicas',
+            '626'=>'RÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©gimen Simplificado de Confianza',
         ];
     }
 
@@ -1193,12 +1516,12 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
         return $rows;
     }
 
-    // ===== Helpers de régimen fiscal vs tipo de RFC =====
+    // ===== Helpers de rÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©gimen fiscal vs tipo de RFC =====
     private function pmRegimens(): array { return ['601','603','620','622','623','624','626']; }
     private function pfRegimens(): array { return ['605','606','607','608','610','612','614','615','616','621','625','626']; }
 
     /**
-     * Convierte la selección de envío (guardada en sesión) en shipping_options para Stripe Checkout.
+     * Convierte la selecciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n de envÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­o (guardada en sesiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n) en shipping_options para Stripe Checkout.
      */
     private function buildStripeShippingOptions(): array
     {
@@ -1210,8 +1533,8 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
         $amount = (int) round(max(0, (float) ($s['price'] ?? 0)) * 100);
 
         $display = ($amount === 0)
-            ? 'Envío gratis'
-            : trim(($s['name'] ?? 'Envío') . (isset($s['service']) && $s['service'] ? ' — ' . $s['service'] : ''));
+            ? 'EnvÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­o gratis'
+            : trim(($s['name'] ?? 'EnvÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­o') . (isset($s['service']) && $s['service'] ? ' ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ' . $s['service'] : ''));
 
         $rate = [
             'shipping_rate_data' => [
@@ -1234,7 +1557,7 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
     }
 
     /**
-     * Corrige/normaliza el tax_system (régimen) con base en el RFC.
+     * Corrige/normaliza el tax_system (rÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©gimen) con base en el RFC.
      */
     private function normalizeTaxSystemForRfc(string $rfc, ?string $regimen): string {
         $rfc = strtoupper(trim($rfc));
@@ -1249,7 +1572,7 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
     }
 
     /**
-     * Normaliza la razón social SOLO para timbrar (no toca BD)
+     * Normaliza la razÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n social SOLO para timbrar (no toca BD)
      */
     private function satLegalName(string $rawName, string $taxId): string
     {
@@ -1261,11 +1584,11 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
         $u = mb_strtoupper(trim($rawName), 'UTF-8');
 
         $map = [
-            'Á'=>'A','É'=>'E','Í'=>'I','Ó'=>'O','Ú'=>'U','Ä'=>'A','Ë'=>'E','Ï'=>'I','Ö'=>'O','Ü'=>'U',
-            'á'=>'A','é'=>'E','í'=>'I','ó'=>'O','ú'=>'U','ä'=>'A','ë'=>'E','ï'=>'I','ö'=>'O','ü'=>'U'
+            'ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â'=>'A','ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â°'=>'E','ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â'=>'I','ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“'=>'O','ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡'=>'U','ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¾'=>'A','ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¹'=>'E','ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â'=>'I','ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ'=>'O','ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ'=>'U',
+            'ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡'=>'A','ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©'=>'E','ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­'=>'I','ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³'=>'O','ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âº'=>'U','ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤'=>'A','ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â«'=>'E','ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¯'=>'I','ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¶'=>'O','ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼'=>'U'
         ];
         $u = strtr($u, $map);
-        $u = preg_replace('/[^A-Z0-9Ñ&\s]/u', ' ', $u);
+        $u = preg_replace('/[^A-Z0-9ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¹Ã…â€œ&\s]/u', ' ', $u);
 
         $patterns = [
             '~\bS\.?\s*A\.?\s*P\.?\s*I\.?B?\.?\s*(DE)?\s*C\.?\s*V\.?\b~u',
@@ -1289,7 +1612,7 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
         if (strlen($cp) !== 5) {
             return [
                 'amount' => 199,
-                'days' => '3 a 7 días hábiles',
+                'days' => '3 a 7 dÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­as hÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡biles',
                 'zone' => 'Nacional',
             ];
         }
@@ -1300,7 +1623,7 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
         if ($n >= 50000 && $n <= 52999) {
             return [
                 'amount' => 129,
-                'days' => '1 a 3 días hábiles',
+                'days' => '1 a 3 dÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­as hÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡biles',
                 'zone' => 'Zona local',
             ];
         }
@@ -1309,17 +1632,17 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
         if ($n >= 1000 && $n <= 16999) {
             return [
                 'amount' => 149,
-                'days' => '2 a 4 días hábiles',
+                'days' => '2 a 4 dÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­as hÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡biles',
                 'zone' => 'CDMX',
             ];
         }
 
-        // Estado de México extendido
+        // Estado de MÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©xico extendido
         if ($n >= 53000 && $n <= 57999) {
             return [
                 'amount' => 159,
-                'days' => '2 a 5 días hábiles',
-                'zone' => 'Estado de México',
+                'days' => '2 a 5 dÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­as hÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡biles',
+                'zone' => 'Estado de MÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©xico',
             ];
         }
 
@@ -1327,7 +1650,7 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
         if (($n >= 58000 && $n <= 62999) || ($n >= 76000 && $n <= 76999) || ($n >= 90000 && $n <= 90999)) {
             return [
                 'amount' => 179,
-                'days' => '3 a 6 días hábiles',
+                'days' => '3 a 6 dÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­as hÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡biles',
                 'zone' => 'Zona centro',
             ];
         }
@@ -1335,7 +1658,7 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
         // Resto nacional
         return [
             'amount' => 199,
-            'days' => '3 a 7 días hábiles',
+            'days' => '3 a 7 dÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­as hÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡biles',
             'zone' => 'Nacional',
         ];
     }
@@ -1346,8 +1669,8 @@ public function __construct(FacturapiWebClient $facturapi, SkydropxService $skyd
 
         return [
             'id' => 'manual_cp_' . preg_replace('/\D/', '', (string) $postalCode),
-            'provider' => 'Envío estándar',
-            'name' => 'Envío estándar',
+            'provider' => 'EnvÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­o estÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ndar',
+            'name' => 'EnvÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­o estÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ndar',
             'carrier' => 'manual',
             'service' => 'Tarifa por zona',
             'amount' => $fallback['amount'],

@@ -248,6 +248,19 @@
               <div class="muted" style="margin-top: 6px; font-size: 0.95rem;">Serás redirigido a la pasarela segura de Stripe.</div>
             </div>
           </label>
+
+          <label class="pay-opt" id="opt-paypal" style="margin-top:12px;">
+            <input type="radio" name="pay_method" value="paypal">
+            <div style="flex:1">
+              <div style="display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap: wrap;">
+                <div style="font-weight:700; font-size: 1.05rem; color: var(--ink);">PayPal</div>
+                <div class="muted" style="display:flex; gap:8px; align-items:center; font-size: 0.85rem; font-weight: 700;">
+                  <span>PayPal Sandbox</span>
+                </div>
+              </div>
+              <div class="muted" style="margin-top: 6px; font-size: 0.95rem;">Seras redirigido a PayPal para aprobar el pago.</div>
+            </div>
+          </label>
         </div>
 
         <div id="pay-msg" class="text-error" style="display:none; text-align: right;"></div>
@@ -317,7 +330,10 @@
     $('#pay-msg').style.display = 'none'; // Oculta mensajes de error previos
 
     try{
-      const res = await fetch('{{ route('checkout.cart') }}', {
+      const method = document.querySelector('input[name="pay_method"]:checked')?.value || 'card';
+      const endpoint = method === 'paypal' ? '{{ route('checkout.paypal.create') }}' : '{{ route('checkout.cart') }}';
+
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'X-CSRF-TOKEN': csrf,
@@ -336,7 +352,7 @@
       const data = await res.json().catch(()=>({}));
       if(!data?.url) throw new Error('No se recibió URL de Stripe.');
 
-      window.location.href = data.url; // redirige a Stripe Checkout
+      window.location.href = data.url; // redirige a la pasarela elegida
     }catch(err){
       console.error(err);
       showMsg('No se pudo iniciar el pago seguro. Intenta de nuevo.');
