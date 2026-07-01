@@ -371,7 +371,7 @@ class CheckoutController extends Controller
         session(['shipping.options' => $carriers]);
         session(['shipping.options_norm' => $carriers]);
 
-        if ($subtotal >= $threshold && !empty($carriers)) {
+        if ($subtotal >= $threshold && $threshold > 0 && !empty($carriers)) {
             $paidOptions = array_values(array_filter($carriers, fn($o) => (float)($o['price'] ?? 0) > 0));
 
             if (!empty($paidOptions)) {
@@ -460,18 +460,37 @@ class CheckoutController extends Controller
             'raw'          => $opt['raw'] ?? null,
         ];
 
-        if ($subtotal >= $threshold) {
-            session(['checkout.shipping' => array_merge($payload, [
+        $selectedShipping = null;
+
+        if ($subtotal >= $threshold && $threshold > 0) {
+            $selectedShipping = array_merge($payload, [
                 'price'        => 0.0,
                 'store_pays'   => true,
                 'carrier_cost' => (float)($opt['price'] ?? 0),
                 'auto_applied' => false,
-            ])]);
+            ]);
         } else {
-            session(['checkout.shipping' => array_merge($payload, [
-                'price' => (float)($opt['price'] ?? 0),
-            ])]);
+            $selectedShipping = array_merge($payload, [
+                'price'        => (float)($opt['price'] ?? 0),
+                'store_pays'   => false,
+                'carrier_cost' => (float)($opt['price'] ?? 0),
+                'auto_applied' => false,
+            ]);
         }
+
+        session([
+            'checkout.shipping' => $selectedShipping,
+            'shipping' => $selectedShipping,
+        ]);
+        session()->save();
+
+        Log::info('Checkout shipping selected and saved', [
+            'code' => $selectedShipping['code'] ?? null,
+            'carrier' => $selectedShipping['carrier'] ?? null,
+            'service' => $selectedShipping['service'] ?? null,
+            'price' => $selectedShipping['price'] ?? null,
+            'session_has_checkout_shipping' => session()->has('checkout.shipping'),
+        ]);
 
         /*
          * IMPORTANTE:
@@ -847,7 +866,18 @@ class CheckoutController extends Controller
         $shipping = session('checkout.shipping');
 
         if (empty($shipping)) {
-            $shipping = session('shipping', ['price'=>0,'name'=>null,'code'=>null,'eta'=>null,'service'=>null]);
+            $shipping = session('shipping');
+        }
+
+        if (empty($shipping) || !is_array($shipping) || empty($shipping['code'])) {
+            Log::warning('Checkout payment sin envío seleccionado', [
+                'checkout_shipping' => session('checkout.shipping'),
+                'legacy_shipping' => session('shipping'),
+            ]);
+
+            return redirect()
+                ->route('checkout.shipping')
+                ->withErrors(['shipping' => 'Selecciona una opción de envío antes de continuar al pago.']);
         }
 
         $shipping = (array) $shipping;
@@ -1301,7 +1331,7 @@ class CheckoutController extends Controller
         }
 
         // IMPORTANTÍSIMO: pasar $order a la vista para que muestre partidas y totales.
-        return view('checkout.success', compact('sessionId', 'invoice', 'order'));
+        return view('checkout.success', compact('sessionId', 'invoice', 'order', 'cart'));
     }
 
     public function cancel()
@@ -1789,13 +1819,25 @@ class CheckoutController extends Controller
         $this->putIfColumnTable($insert, 'catalog_item_id', $data['catalog_item_id'] ?? null, 'order_items');
         $this->putIfColumnTable($insert, 'product_id', $data['product_id'] ?? null, 'order_items');
         $this->putIfColumnTable($insert, 'name', $data['name'] ?? 'Producto', 'order_items');
+        $this->putIfColumnTable($insert, 'product_name', $data['name'] ?? 'Producto', 'order_items');
+        $this->putIfColumnTable($insert, 'item_name', $data['name'] ?? 'Producto', 'order_items');
+        $this->putIfColumnTable($insert, 'title', $data['name'] ?? 'Producto', 'order_items');
+        $this->putIfColumnTable($insert, 'description', $data['name'] ?? 'Producto', 'order_items');
         $this->putIfColumnTable($insert, 'sku', $data['sku'] ?? null, 'order_items');
         $this->putIfColumnTable($insert, 'qty', $data['qty'] ?? 1, 'order_items');
         $this->putIfColumnTable($insert, 'quantity', $data['qty'] ?? 1, 'order_items');
+        $this->putIfColumnTable($insert, 'cantidad', $data['qty'] ?? 1, 'order_items');
         $this->putIfColumnTable($insert, 'price', $data['price'] ?? 0, 'order_items');
         $this->putIfColumnTable($insert, 'unit_price', $data['price'] ?? 0, 'order_items');
+        $this->putIfColumnTable($insert, 'unit_amount', $data['price'] ?? 0, 'order_items');
+        $this->putIfColumnTable($insert, 'precio', $data['price'] ?? 0, 'order_items');
         $this->putIfColumnTable($insert, 'amount', $data['amount'] ?? 0, 'order_items');
         $this->putIfColumnTable($insert, 'total', $data['amount'] ?? 0, 'order_items');
+        $this->putIfColumnTable($insert, 'line_total', $data['amount'] ?? 0, 'order_items');
+        $this->putIfColumnTable($insert, 'subtotal', $data['amount'] ?? 0, 'order_items');
+        $this->putIfColumnTable($insert, 'image', data_get($data, 'meta.image'), 'order_items');
+        $this->putIfColumnTable($insert, 'image_url', data_get($data, 'meta.image'), 'order_items');
+        $this->putIfColumnTable($insert, 'thumbnail', data_get($data, 'meta.image'), 'order_items');
         $this->putIfColumnTable($insert, 'currency', $data['currency'] ?? 'MXN', 'order_items');
         $this->putIfColumnTable($insert, 'tax_rate', $data['tax_rate'] ?? null, 'order_items');
         $this->putIfColumnTable($insert, 'discount', $data['discount'] ?? 0, 'order_items');

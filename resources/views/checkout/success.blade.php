@@ -5,6 +5,7 @@
 @section('content')
 @php
   use App\Models\Venta;
+  use App\Models\CatalogItem;
 
   /** =========================
    * 1) RESOLVER ORIGEN DE DATOS
@@ -18,12 +19,121 @@
 
   /*
   |--------------------------------------------------------------------------
+  | Helpers internos de esta vista
+  |--------------------------------------------------------------------------
+  | Esta vista debe mostrar artículos aunque la sesión ya se haya limpiado.
+  | Por eso intenta leer en este orden:
+  | 1) $order->items / order_items
+  | 2) $cart enviado desde el controlador success()
+  | 3) session('checkout.cart_snapshot')
+  | 4) session('cart')
+  */
+  $normalizeCheckoutItem = function ($row) {
+      $rowArr = is_array($row) ? $row : (array) $row;
+
+      $metaRaw = $rowArr['meta'] ?? null;
+      $meta = [];
+      if (is_array($metaRaw)) {
+          $meta = $metaRaw;
+      } elseif (is_string($metaRaw) && $metaRaw !== '') {
+          $decoded = json_decode($metaRaw, true);
+          $meta = is_array($decoded) ? $decoded : [];
+      }
+
+      /*
+       * Buscar producto real si la partida solo trae ID.
+       * Esto ayuda cuando order_items guarda product_id/catalog_item_id,
+       * pero no guarda nombre, imagen o precio.
+       */
+      $catalogId = $rowArr['catalog_item_id']
+          ?? $rowArr['product_id']
+          ?? $rowArr['item_id']
+          ?? data_get($rowArr, 'item.id')
+          ?? null;
+
+      $catalog = null;
+      if ($catalogId) {
+          try {
+              $catalog = CatalogItem::find($catalogId);
+          } catch (\Throwable $e) {
+              $catalog = null;
+          }
+      }
+
+      $name = $rowArr['name']
+          ?? $rowArr['product_name']
+          ?? $rowArr['description']
+          ?? $rowArr['item_name']
+          ?? $rowArr['title']
+          ?? data_get($rowArr, 'item.name')
+          ?? ($catalog->name ?? null)
+          ?? 'Producto';
+
+      $qty = (int) (
+          $rowArr['qty']
+          ?? $rowArr['quantity']
+          ?? $rowArr['cantidad']
+          ?? 1
+      );
+      $qty = max(1, $qty);
+
+      $price = (float) (
+          $rowArr['price']
+          ?? $rowArr['unit_price']
+          ?? $rowArr['unit_amount']
+          ?? $rowArr['precio']
+          ?? data_get($rowArr, 'item.price')
+          ?? data_get($rowArr, 'item.sale_price')
+          ?? ($catalog ? ($catalog->sale_price ?? $catalog->price ?? 0) : 0)
+      );
+
+      $amount = (float) (
+          $rowArr['amount']
+          ?? $rowArr['total']
+          ?? $rowArr['line_total']
+          ?? $rowArr['subtotal']
+          ?? ($price * $qty)
+      );
+
+      if ($price <= 0 && $amount > 0 && $qty > 0) {
+          $price = round($amount / $qty, 2);
+      }
+
+      if ($amount <= 0 && $price > 0) {
+          $amount = round($price * $qty, 2);
+      }
+
+      $image = $rowArr['image']
+          ?? $rowArr['image_url']
+          ?? $rowArr['thumbnail']
+          ?? data_get($meta, 'image')
+          ?? data_get($meta, 'image_url')
+          ?? data_get($rowArr, 'item.image_url')
+          ?? ($catalog->image_url ?? null)
+          ?? ($catalog->image ?? null)
+          ?? null;
+
+      return (object) [
+          'catalog_item_id' => $catalogId,
+          'name' => $name,
+          'qty' => $qty,
+          'price' => $price,
+          'amount' => $amount,
+          'meta' => ['image' => $image],
+      ];
+  };
+
+  $itemsFromArray = function ($rows) use ($normalizeCheckoutItem) {
+      return collect((array) $rows)
+          ->filter(fn ($row) => is_array($row) || is_object($row))
+          ->map(fn ($row) => $normalizeCheckoutItem($row))
+          ->values();
+  };
+
+  /*
+  |--------------------------------------------------------------------------
   | Envío seleccionado
   |--------------------------------------------------------------------------
-  | Soporta el flujo actual:
-  | - session('checkout.shipping')  => flujo correcto del checkout
-  | - session('shipping')           => fallback de pruebas anteriores
-  | - $shipping                     => si el controlador manda variable
   */
   $checkoutShipping = (array) session('checkout.shipping', []);
   $legacyShipping = (array) session('shipping', []);
@@ -38,18 +148,107 @@
       ?? $sessionShipping['carrier']
       ?? $sessionShipping['label']
       ?? null;
-  $sessionShipSrv = $sessionShipping['service'] ?? null;
+  $sessionShipSrv = $sessionShipping['service_label']
+      ?? $sessionShipping['service_description']
+      ?? $sessionShipping['service']
+      ?? null;
   $sessionShipEta = $sessionShipping['eta'] ?? null;
   $sessionShipLogo = $sessionShipping['logo_url'] ?? null;
   $storePays = (bool) ($sessionShipping['store_pays'] ?? false);
   $carrierCost = (float) ($sessionShipping['carrier_cost'] ?? $sessionShipPrice);
 
+  /*
+  |--------------------------------------------------------------------------
+  | Artículos enviados por el controlador
+  |--------------------------------------------------------------------------
+  */
+  $incomingCart = isset($cart) && is_array($cart) ? $cart : [];
+  $snapshotCart = (array) session('checkout.cart_snapshot', []);
+  $sessionCart = (array) session('cart', []);
+
   // --------- Cuando VIENE ORDEN ----------
   if ($hasOrder) {
-      $itemsCol = $order->relationLoaded('items') ? $order->items : $order->items()->get();
-      $items = collect($itemsCol ?? []);
+      $items = collect();
+
+      try {
+          if (method_exists($order, 'items')) {
+              $itemsCol = $order->relationLoaded('items') ? $order->items : $order->items()->get();
+              $items = $itemsFromArray($itemsCol ?? []);
+          }
+      } catch (\Throwable $e) {
+          $items = collect();
+      }
+
+      /*
+       * Fallback directo a DB:
+       * Si la relación del modelo no leyó las partidas, buscamos manualmente en order_items.
+       */
+      if ($items->isEmpty()) {
+          try {
+              if (\Illuminate\Support\Facades\Schema::hasTable('order_items')) {
+                  $dbItems = \Illuminate\Support\Facades\DB::table('order_items')
+                      ->where('order_id', $order->id)
+                      ->get();
+
+                  $items = $itemsFromArray($dbItems ?? []);
+              }
+          } catch (\Throwable $e) {
+              $items = collect();
+          }
+      }
+
+      /*
+       * Fallback de pantalla:
+       * Si por alguna razón la orden todavía no tiene partidas guardadas,
+       * usamos el carrito que el controlador envía antes de limpiar la sesión.
+       */
+      if ($items->isEmpty() && !empty($incomingCart)) {
+          $items = $itemsFromArray($incomingCart);
+      }
+
+      if ($items->isEmpty() && !empty($snapshotCart)) {
+          $items = $itemsFromArray($snapshotCart);
+      }
+
+      if ($items->isEmpty() && !empty($sessionCart)) {
+          $items = $itemsFromArray($sessionCart);
+      }
+
+      /*
+       * Si la tabla order_items trae una partida genérica en ceros
+       * pero todavía tenemos el carrito entrante/snapshot, usamos ese carrito.
+       * Esto corrige el caso visual: Producto x1 $0.00.
+       */
+      $itemsLookEmpty = $items->count()
+          && (float) $items->sum('amount') <= 0
+          && $items->filter(fn ($i) => ($i->name ?? 'Producto') !== 'Producto')->isEmpty();
+
+      if ($itemsLookEmpty && !empty($incomingCart)) {
+          $items = $itemsFromArray($incomingCart);
+      } elseif ($itemsLookEmpty && !empty($snapshotCart)) {
+          $items = $itemsFromArray($snapshotCart);
+      } elseif ($itemsLookEmpty && !empty($sessionCart)) {
+          $items = $itemsFromArray($sessionCart);
+      }
 
       $subtotal = (float) ($order->subtotal ?? 0);
+
+      if ($subtotal <= 0 && $items->count()) {
+          $subtotal = (float) $items->sum('amount');
+      }
+
+      /*
+       * Último respaldo:
+       * Si solo tenemos una partida pero vino en ceros, usamos el subtotal real de la orden
+       * para que no se muestre $0.00.
+       */
+      if ($subtotal > 0 && $items->count() === 1 && (float) $items->sum('amount') <= 0) {
+          $only = $items->first();
+          $qty = max(1, (int)($only->qty ?? 1));
+          $only->amount = round($subtotal, 2);
+          $only->price = round($subtotal / $qty, 2);
+          $items = collect([$only]);
+      }
 
       /*
        * Si la orden todavía no guardó el envío pero la sesión sí lo trae,
@@ -87,15 +286,15 @@
           ($addrArr['postal_code'] ?? '')
       );
   }
-  // --------- Fallback: usar SESIÓN ----------
+  // --------- Fallback: usar CARRITO / SESIÓN ----------
   else {
-      $cart = (array) session('cart', []);
+      $cart = !empty($incomingCart)
+          ? $incomingCart
+          : (!empty($snapshotCart) ? $snapshotCart : $sessionCart);
 
-      $subtotal = array_reduce(
-          $cart,
-          fn($c, $r) => $c + (float)($r['price'] ?? 0) * max(1, (int)($r['qty'] ?? 1)),
-          0
-      );
+      $items = $itemsFromArray($cart);
+
+      $subtotal = (float) $items->sum('amount');
 
       $shipAmount = $sessionShipPrice;
       $total = $subtotal + $shipAmount;
@@ -114,16 +313,6 @@
           ($addr['state'] ?? '') . ' CP ' .
           ($addr['postal_code'] ?? '')
       );
-
-      $items = collect(array_map(function($r){
-          return (object)[
-              'name' => $r['name'] ?? 'Producto',
-              'qty' => (int) max(1, (int)($r['qty'] ?? 1)),
-              'price' => (float) ($r['price'] ?? 0),
-              'amount' => (float) ($r['price'] ?? 0) * max(1, (int)($r['qty'] ?? 1)),
-              'meta' => ['image' => $r['image'] ?? null],
-          ];
-      }, $cart));
   }
 
   /** =========================
@@ -415,7 +604,14 @@
             @endforeach
           </div>
         @else
-          <p class="muted">No pudimos leer los artículos de esta orden (posiblemente la sesión ya expiró).</p>
+          <div class="sx-item" style="grid-template-columns:1fr;">
+            <div>
+              <div style="font-weight:600; color: var(--ink);">Pedido registrado correctamente</div>
+              <div class="muted" style="font-size: 0.92rem; margin-top: 4px;">
+                No encontramos el detalle de partidas en la sesión, pero tu orden quedó guardada y el total pagado se muestra abajo.
+              </div>
+            </div>
+          </div>
         @endif
 
         {{-- Totales --}}

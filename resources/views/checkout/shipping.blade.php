@@ -579,6 +579,7 @@
     try {
       const response = await fetch(form.action, {
         method: 'POST',
+        credentials: 'same-origin',
         headers: {
           'Accept': 'application/json',
           'X-Requested-With': 'XMLHttpRequest'

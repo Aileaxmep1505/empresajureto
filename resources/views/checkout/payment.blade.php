@@ -13,33 +13,55 @@
 
   /*
   |--------------------------------------------------------------------------
-  | Envío seleccionado
+  | Envío seleccionado real
   |--------------------------------------------------------------------------
-  | El flujo viejo puede guardar en session('checkout.shipping').
-  | Algunas pruebas anteriores guardaban en session('shipping').
-  | Por eso esta vista soporta ambos, pero prioriza checkout.shipping.
+  | No usamos fallback "gratis" si no hay envío. Primero usamos lo que manda el
+  | controlador y luego la sesión. Así evitamos que se pinte GRATIS por error.
   */
+  $incomingShipping = is_array($shipping ?? null) ? $shipping : [];
   $checkoutShipping = (array) session('checkout.shipping', []);
   $legacyShipping = (array) session('shipping', []);
-  $incomingShipping = is_array($shipping ?? null) ? $shipping : [];
 
-  $ship = array_filter($incomingShipping)
-      ? $incomingShipping
-      : (array_filter($checkoutShipping) ? $checkoutShipping : $legacyShipping);
+  $hasIncoming = !empty($incomingShipping['code'])
+      || !empty($incomingShipping['id'])
+      || !empty($incomingShipping['carrier'])
+      || !empty($incomingShipping['name'])
+      || array_key_exists('price', $incomingShipping);
+
+  $hasCheckout = !empty($checkoutShipping['code'])
+      || !empty($checkoutShipping['id'])
+      || !empty($checkoutShipping['carrier'])
+      || !empty($checkoutShipping['name'])
+      || array_key_exists('price', $checkoutShipping);
+
+  $hasLegacy = !empty($legacyShipping['code'])
+      || !empty($legacyShipping['id'])
+      || !empty($legacyShipping['carrier'])
+      || !empty($legacyShipping['name'])
+      || array_key_exists('price', $legacyShipping);
+
+  $ship = $hasIncoming ? $incomingShipping : ($hasCheckout ? $checkoutShipping : ($hasLegacy ? $legacyShipping : []));
+
+  $hasShipping = !empty($ship);
 
   $shipPrice = (float) ($ship['price'] ?? 0);
   $shipName = $ship['name']
       ?? $ship['carrier']
       ?? $ship['label']
-      ?? 'Envío estándar';
+      ?? null;
 
-  $shipService = $ship['service'] ?? null;
+  $shipService = $ship['service_label']
+      ?? $ship['service_description']
+      ?? $ship['service']
+      ?? null;
+
   $shipEta = $ship['eta'] ?? null;
   $shipLogoUrl = $ship['logo_url'] ?? null;
   $storePays = (bool) ($ship['store_pays'] ?? false);
   $carrierCost = (float) ($ship['carrier_cost'] ?? $shipPrice);
 
   $total = (float) ($total ?? ($subtotal + $shipPrice));
+  $hasPaypal = \Illuminate\Support\Facades\Route::has('checkout.paypal.create');
 @endphp
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -244,7 +266,7 @@
                     </div>
                   @endif
                   <div class="muted" style="margin-top: 4px; color: var(--ink); font-weight: 600;">
-                    {{ $shipName }}@if($shipService) · <span style="font-weight:500">{{ $shipService }}</span>@endif @if($shipEta) · <span style="font-weight:500">{{ $shipEta }}</span>@endif
+                    {{ $shipName ?: 'Envío seleccionado' }}@if($shipService) · <span style="font-weight:500">{{ $shipService }}</span>@endif @if($shipEta) · <span style="font-weight:500">{{ $shipEta }}</span>@endif
                   </div>
                   
                   @if($address)
@@ -263,15 +285,16 @@
               </div>
               
               <div style="font-weight:700; color: var(--blue); font-size: 1.05rem; white-space: nowrap;">
-                {{ $shipPrice > 0 ? '$'.number_format($shipPrice, 2) : 'GRATIS' }}
+                {{ $hasShipping ? ($shipPrice > 0 ? '$'.number_format($shipPrice, 2) : 'GRATIS') : 'Sin envío' }}
               </div>
             </div>
           </div>
         </div>
 
-        {{-- Opción: Tarjeta (Stripe Checkout) --}}
+        {{-- Métodos de pago --}}
         <div>
           <h3 style="font-weight:700; font-size: 1.1rem; margin-bottom: 12px;">Selecciona tu método</h3>
+
           <label class="pay-opt selected" id="opt-card">
             <input type="radio" name="pay_method" value="card" checked>
             <div style="flex:1">
@@ -284,6 +307,23 @@
               <div class="muted" style="margin-top: 6px; font-size: 0.95rem;">Serás redirigido a la pasarela segura de Stripe.</div>
             </div>
           </label>
+
+          @if($hasPaypal)
+            <label class="pay-opt" id="opt-paypal" style="margin-top:12px;">
+              <input type="radio" name="pay_method" value="paypal">
+              <div style="flex:1">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap: wrap;">
+                  <div style="font-weight:700; font-size: 1.05rem; color: var(--ink);">PayPal</div>
+                  <div class="muted" style="font-size: 0.85rem; font-weight: 700;">PAYPAL</div>
+                </div>
+                <div class="muted" style="margin-top: 6px; font-size: 0.95rem;">Paga con tu cuenta PayPal de forma segura.</div>
+              </div>
+            </label>
+
+            <form id="paypal-form" action="{{ route('checkout.paypal.create') }}" method="POST" style="display:none;">
+              @csrf
+            </form>
+          @endif
         </div>
 
         <div id="pay-msg" class="text-error" style="display:none; text-align: right;"></div>
@@ -291,7 +331,7 @@
         {{-- Botón pagar --}}
         <div style="display:flex; gap:16px; justify-content:flex-end; border-top: 1px solid var(--line); padding-top: 24px; margin-top: 8px;">
           <a class="btn btn-ghost" href="{{ route('web.cart.index') }}" style="border: none;">Cancelar</a>
-          <button class="btn btn-primary" id="btn-pay" style="padding: 12px 32px; font-size: 1.05rem;">
+          <button class="btn btn-primary" id="btn-pay" style="padding: 12px 32px; font-size: 1.05rem;" @disabled(!$hasShipping)>
             Pagar ${{ number_format($total,2) }}
           </button>
         </div>
@@ -307,7 +347,7 @@
         <div class="sum-row"><span>Subtotal</span><span id="sum-subtotal" style="color:var(--ink);">${{ number_format($subtotal,2) }}</span></div>
         <div class="sum-row">
           <span>Envío</span>
-          <span id="sum-envio" class="muted">{{ $shipPrice > 0 ? '$'.number_format($shipPrice, 2) : 'GRATIS' }}</span>
+          <span id="sum-envio" class="muted">{{ $hasShipping ? ($shipPrice > 0 ? '$'.number_format($shipPrice, 2) : 'GRATIS') : 'Sin envío' }}</span>
         </div>
         @if($storePays && $carrierCost > 0)
           <div class="muted" style="font-size:.82rem; text-align:right; margin-top:-8px;">
@@ -352,13 +392,42 @@
     el.style.display = 'block';
   }
 
-  // Pagar con Stripe Checkout (crea sesión del carrito en tu backend)
+  const hasShipping = @json($hasShipping);
+
+  document.querySelectorAll('input[name="pay_method"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      document.querySelectorAll('.pay-opt').forEach(el => el.classList.remove('selected'));
+      radio.closest('.pay-opt')?.classList.add('selected');
+    });
+  });
+
+  // Pagar con Stripe Checkout o PayPal según selección.
   $('#btn-pay')?.addEventListener('click', async ()=>{
+    if(!hasShipping){
+      showMsg('Selecciona una opción de envío antes de pagar.');
+      return;
+    }
+
+    const method = document.querySelector('input[name="pay_method"]:checked')?.value || 'card';
+
+    if(method === 'paypal'){
+      const form = $('#paypal-form');
+      if(!form){
+        showMsg('PayPal todavía no está configurado.');
+        return;
+      }
+
+      $('#btn-pay').disabled = true;
+      $('#btn-pay').textContent = 'Redirigiendo a PayPal...';
+      form.submit();
+      return;
+    }
+
     const btn = $('#btn-pay');
     btn.disabled = true;
     const original = btn.textContent;
     btn.textContent = 'Procesando pago...';
-    $('#pay-msg').style.display = 'none'; // Oculta mensajes de error previos
+    $('#pay-msg').style.display = 'none';
 
     try{
       const res = await fetch('{{ route('checkout.cart') }}', {
@@ -368,22 +437,26 @@
           'Accept': 'application/json',
           'Content-Type': 'application/json'
         },
-        // No hace falta enviar nada: el backend usa el carrito en sesión
         body: JSON.stringify({ _source: 'payment.blade' })
       });
 
+      const data = await res.json().catch(()=>({}));
+
       if(!res.ok){
-        const txt = await res.text();
-        throw new Error(txt || 'Error al crear la sesión de pago.');
+        if(data?.redirect){
+          window.location.href = data.redirect;
+          return;
+        }
+
+        throw new Error(data?.error || 'Error al crear la sesión de pago.');
       }
 
-      const data = await res.json().catch(()=>({}));
       if(!data?.url) throw new Error('No se recibió URL de Stripe.');
 
-      window.location.href = data.url; // redirige a Stripe Checkout
+      window.location.href = data.url;
     }catch(err){
       console.error(err);
-      showMsg('No se pudo iniciar el pago seguro. Intenta de nuevo.');
+      showMsg(err?.message || 'No se pudo iniciar el pago seguro. Intenta de nuevo.');
       btn.disabled = false;
       btn.textContent = original;
     }
