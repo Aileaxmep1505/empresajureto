@@ -111,6 +111,7 @@ use App\Http\Controllers\Admin\HomeProductSectionController;
 use App\Models\HomeBanner;
 use App\Http\Controllers\Admin\HomeBannerController;
 use App\Http\Controllers\Web\WebAssistantController;
+use App\Http\Controllers\Admin\WebAssistantAdvisorController;
 
 Route::get('/admin/catalog/analytics', [\App\Http\Controllers\Admin\CatalogItemController::class, 'analytics'])
     ->name('admin.catalog.analytics');
@@ -324,7 +325,12 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     |--------------------------------------------------------------------------
     | Categorías de productos web
     |--------------------------------------------------------------------------
-    | Rutas manuales para evitar choques con las rutas JSON.
+    | Vistas admin + API JSON para el selector dinámico del catálogo.
+    |
+    | IMPORTANTE:
+    | - Las rutas JSON usan /category-products-json para NO chocar con edit/update.
+    | - La ruta show-json apunta a showJson(), no a show().
+    | - Reorder queda aquí dentro para evitar rutas sueltas duplicadas al final.
     */
     Route::get('/category-products', [CategoryProductController::class, 'index'])
         ->name('category-products.index');
@@ -347,6 +353,9 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     Route::delete('/category-products/{categoryProduct}', [CategoryProductController::class, 'destroy'])
         ->name('category-products.destroy');
 
+    Route::post('/category-products/reorder', [CategoryProductController::class, 'reorder'])
+        ->name('category-products.reorder');
+
     /*
     |--------------------------------------------------------------------------
     | API JSON de categorías para selectores dinámicos
@@ -358,7 +367,7 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     Route::get('/category-products-json/{category}/children', [CategoryProductController::class, 'children'])
         ->name('category-products.children');
 
-    Route::get('/category-products-json/{category}', [CategoryProductController::class, 'show'])
+    Route::get('/category-products-json/{category}', [CategoryProductController::class, 'showJson'])
         ->name('category-products.show-json');
 
 });
@@ -2581,10 +2590,6 @@ Route::get('/propuestas-comerciales/{propuestaComercial}/cliente/word', [Propues
 
 
 
-Route::post('admin/category-products/reorder', [CategoryProductController::class, 'reorder'])
-    ->name('admin.category-products.reorder');
-
-
 Route::prefix('asistente-jureto')->name('web.assistant.')->group(function () {
     Route::post('/chat', [WebAssistantController::class, 'chat'])
         ->name('chat');
@@ -2621,49 +2626,3 @@ Route::middleware(['auth'])
         Route::post('/conversations/{conversation}/close', [WebAssistantAdvisorController::class, 'close'])
             ->name('close');
     });
-
-    Route::middleware(['web'])->group(function () {
-    Route::post('/checkout/shipping/options', [ShippingController::class, 'options'])
-        ->name('checkout.shipping.options');
-
-    Route::get('/checkout/shipping/carriers', [ShippingController::class, 'carriers'])
-        ->name('checkout.shipping.carriers');
-
-    Route::post('/checkout/shipping/select', [ShippingController::class, 'select'])
-        ->name('checkout.shipping.select');
-
-    Route::post('/checkout/shipping/generate-guide', [ShippingController::class, 'generateGuide'])
-        ->name('checkout.shipping.generate-guide');
-
-    Route::middleware(['auth'])->group(function () {
-        Route::get('/mi-cuenta/envios', [ShippingController::class, 'myShipments'])
-            ->name('customer.shipments.index');
-
-        Route::get('/mi-cuenta/envios/{shipment}', [ShippingController::class, 'showShipment'])
-            ->name('customer.shipments.show');
-
-        Route::post('/mi-cuenta/envios/{shipment}/actualizar', [ShippingController::class, 'refreshStatus'])
-            ->name('customer.shipments.refresh');
-    });
-});
-
-use App\Http\Controllers\Customer\CustomerOrdersController;
-
-
-
-Route::middleware(['auth'])->prefix('mi-cuenta')->name('customer.')->group(function () {
-    Route::get('/pedidos/{order}', [CustomerOrdersController::class, 'show'])
-        ->name('orders.show');
-
-    Route::post('/pedidos/{order}/reordenar', [CustomerOrdersController::class, 'reorder'])
-        ->name('orders.reorder');
-
-    Route::get('/pedidos/{order}/seguimiento', [CustomerOrdersController::class, 'tracking'])
-        ->name('orders.tracking');
-
-    Route::get('/pedidos/{order}/guia', [CustomerOrdersController::class, 'label'])
-        ->name('orders.label');
-
-    Route::post('/pedidos/{order}/sincronizar-envia', [CustomerOrdersController::class, 'syncEnvia'])
-        ->name('orders.syncEnvia');
-});

@@ -7,9 +7,9 @@ use App\Models\CategoryProduct;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
-use Illuminate\Support\Facades\DB;
 
 class CategoryProductController extends Controller implements HasMiddleware
 {
@@ -20,21 +20,10 @@ class CategoryProductController extends Controller implements HasMiddleware
         ];
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | VISTAS ADMIN
-    |--------------------------------------------------------------------------
-    */
-
     public function index(Request $request)
     {
         $search = trim((string) $request->get('s', ''));
 
-        /*
-        |--------------------------------------------------------------------------
-        | Categorías para listado rápido
-        |--------------------------------------------------------------------------
-        */
         $categories = CategoryProduct::query()
             ->with(['parent'])
             ->withCount(['catalogItems', 'children'])
@@ -51,13 +40,6 @@ class CategoryProductController extends Controller implements HasMiddleware
             ->paginate(40)
             ->withQueryString();
 
-        /*
-        |--------------------------------------------------------------------------
-        | Categorías para mapa visual completo
-        |--------------------------------------------------------------------------
-        | Aquí NO paginamos, porque el flujo debe mostrar:
-        | Categoría > subcategoría > sub-subcategoría > ... hasta el último nivel.
-        */
         $treeCategories = CategoryProduct::query()
             ->with(['parent'])
             ->withCount(['catalogItems', 'children'])
@@ -66,14 +48,6 @@ class CategoryProductController extends Controller implements HasMiddleware
             ->orderBy('name')
             ->get();
 
-        /*
-        |--------------------------------------------------------------------------
-        | Cuando hay búsqueda, mostramos el camino completo:
-        | - coincidencias
-        | - sus padres/ancestros
-        | - sus hijos/descendientes
-        |--------------------------------------------------------------------------
-        */
         if ($search !== '') {
             $normalizedSearch = mb_strtolower($search);
 
@@ -127,40 +101,66 @@ class CategoryProductController extends Controller implements HasMiddleware
     public function edit(CategoryProduct $categoryProduct)
     {
         $category = $categoryProduct;
-
         $parentCategories = $this->parentCategories($category->id);
 
         return view('admin.category-products.form', compact('category', 'parentCategories'));
+    }
+
+    public function store(Request $request)
+    {
+        $data = $this->validateCategory($request);
+
+        $data['slug'] = $this->makeSlug($data['slug'] ?? null, $data['name']);
+        $data['is_active'] = $request->boolean('is_active', true);
+        $data['sort_order'] = $data['sort_order'] ?? 0;
+        $data['parent_id'] = $data['parent_id'] ?? null;
+
+        $category = CategoryProduct::create($data);
+
+        if (method_exists($category, 'refreshFullPath')) {
+            $category->refreshFullPath();
+        }
+
+        $category->refresh();
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'ok' => true,
+                'item' => $this->mapNode($category, true),
+                'breadcrumb' => $this->breadcrumbArray($category),
+                'message' => 'Categoría creada correctamente.',
+            ]);
+        }
+
+        return redirect()
+            ->route('admin.category-products.index')
+            ->with('success', 'Categoría creada correctamente.');
     }
 
     public function update(Request $request, CategoryProduct $categoryProduct)
     {
         $data = $this->validateCategory($request, $categoryProduct->id);
 
-        if (blank($data['slug'] ?? null)) {
-            $data['slug'] = Str::slug($data['name']);
-        } else {
-            $data['slug'] = Str::slug($data['slug']);
-        }
-
-        if (blank($data['slug'])) {
-            $data['slug'] = 'categoria';
-        }
-
+        $data['slug'] = $this->makeSlug($data['slug'] ?? null, $data['name']);
         $data['is_active'] = $request->boolean('is_active');
         $data['sort_order'] = $data['sort_order'] ?? 0;
         $data['parent_id'] = $data['parent_id'] ?? null;
 
         $categoryProduct->update($data);
-        $categoryProduct->refreshFullPathRecursively();
 
-        if ($request->expectsJson()) {
-            $categoryProduct->refresh();
+        if (method_exists($categoryProduct, 'refreshFullPathRecursively')) {
+            $categoryProduct->refreshFullPathRecursively();
+        } elseif (method_exists($categoryProduct, 'refreshFullPath')) {
+            $categoryProduct->refreshFullPath();
+        }
 
+        $categoryProduct->refresh();
+
+        if ($request->expectsJson() || $request->ajax()) {
             return response()->json([
                 'ok' => true,
                 'item' => $this->mapNode($categoryProduct, true),
-                'breadcrumb' => $categoryProduct->breadcrumb_array,
+                'breadcrumb' => $this->breadcrumbArray($categoryProduct),
                 'message' => 'Categoría actualizada correctamente.',
             ]);
         }
@@ -173,38 +173,16 @@ class CategoryProductController extends Controller implements HasMiddleware
     public function destroy(Request $request, CategoryProduct $categoryProduct)
     {
         if ($categoryProduct->children()->exists()) {
-            $message = 'No puedes eliminar esta categoría porque tiene subcategorías.';
-
-            if ($request->expectsJson()) {
-                return response()->json([
-                    'ok' => false,
-                    'message' => $message,
-                ], 422);
-            }
-
-            return redirect()
-                ->route('admin.category-products.index')
-                ->with('error', $message);
+            return $this->errorResponse($request, 'No puedes eliminar esta categoría porque tiene subcategorías.');
         }
 
         if ($categoryProduct->catalogItems()->exists()) {
-            $message = 'No puedes eliminar esta categoría porque tiene productos asignados.';
-
-            if ($request->expectsJson()) {
-                return response()->json([
-                    'ok' => false,
-                    'message' => $message,
-                ], 422);
-            }
-
-            return redirect()
-                ->route('admin.category-products.index')
-                ->with('error', $message);
+            return $this->errorResponse($request, 'No puedes eliminar esta categoría porque tiene productos asignados.');
         }
 
         $categoryProduct->delete();
 
-        if ($request->expectsJson()) {
+        if ($request->expectsJson() || $request->ajax()) {
             return response()->json([
                 'ok' => true,
                 'message' => 'Categoría eliminada correctamente.',
@@ -216,16 +194,10 @@ class CategoryProductController extends Controller implements HasMiddleware
             ->with('success', 'Categoría eliminada correctamente.');
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | API JSON EXISTENTE
-    |--------------------------------------------------------------------------
-    */
-
     public function roots()
     {
         $items = CategoryProduct::query()
-            ->active()
+            ->where('is_active', true)
             ->whereNull('parent_id')
             ->orderBy('sort_order')
             ->orderBy('name')
@@ -241,70 +213,91 @@ class CategoryProductController extends Controller implements HasMiddleware
     {
         $category->load([
             'parent',
-            'children' => fn ($q) => $q->active()->orderBy('sort_order')->orderBy('name'),
+            'children' => fn ($q) => $q
+                ->where('is_active', true)
+                ->orderBy('sort_order')
+                ->orderBy('name'),
         ]);
 
         return response()->json([
             'ok' => true,
             'current' => $this->mapNode($category, true),
             'items' => $category->children->map(fn ($item) => $this->mapNode($item))->values(),
-            'breadcrumb' => $category->breadcrumb_array,
+            'breadcrumb' => $this->breadcrumbArray($category),
         ]);
     }
 
-    public function show(CategoryProduct $category)
+    public function showJson(CategoryProduct $category)
     {
         $category->load('parent', 'children');
 
         return response()->json([
             'ok' => true,
             'item' => $this->mapNode($category, true),
-            'breadcrumb' => $category->breadcrumb_array,
+            'breadcrumb' => $this->breadcrumbArray($category),
         ]);
     }
 
-    public function store(Request $request)
+    public function reorder(Request $request)
     {
-        $data = $this->validateCategory($request);
+        $data = $request->validate([
+            'category_id' => ['required', 'integer', 'exists:category_products,id'],
+            'parent_id' => ['nullable', 'integer', 'exists:category_products,id'],
+            'order' => ['required', 'array'],
+            'order.*' => ['required', 'integer', 'exists:category_products,id'],
+        ]);
 
-        if (blank($data['slug'] ?? null)) {
-            $data['slug'] = Str::slug($data['name']);
-        } else {
-            $data['slug'] = Str::slug($data['slug']);
-        }
+        $categoryId = (int) $data['category_id'];
+        $parentId = !empty($data['parent_id']) ? (int) $data['parent_id'] : null;
 
-        if (blank($data['slug'])) {
-            $data['slug'] = 'categoria';
-        }
+        $orderIds = collect($data['order'])
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
 
-        $data['is_active'] = $request->boolean('is_active', true);
-        $data['sort_order'] = $data['sort_order'] ?? 0;
-        $data['parent_id'] = $data['parent_id'] ?? null;
-
-        $category = CategoryProduct::create($data);
-        $category->refreshFullPath();
-
-        $category->refresh();
-
-        if ($request->expectsJson()) {
+        if ($parentId && $parentId === $categoryId) {
             return response()->json([
-                'ok' => true,
-                'item' => $this->mapNode($category, true),
-                'breadcrumb' => $category->breadcrumb_array,
-                'message' => 'Categoría creada correctamente.',
-            ]);
+                'ok' => false,
+                'message' => 'Una categoría no puede ser padre de sí misma.',
+            ], 422);
         }
 
-        return redirect()
-            ->route('admin.category-products.index')
-            ->with('success', 'Categoría creada correctamente.');
-    }
+        if ($parentId && $this->isDescendantOf($parentId, $categoryId)) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'No puedes mover una categoría dentro de una de sus propias subcategorías.',
+            ], 422);
+        }
 
-    /*
-    |--------------------------------------------------------------------------
-    | VALIDACIONES Y HELPERS
-    |--------------------------------------------------------------------------
-    */
+        DB::transaction(function () use ($categoryId, $parentId, $orderIds) {
+            $category = CategoryProduct::query()->findOrFail($categoryId);
+            $category->parent_id = $parentId;
+            $category->save();
+
+            foreach ($orderIds as $index => $id) {
+                CategoryProduct::query()
+                    ->where('id', $id)
+                    ->update([
+                        'parent_id' => $parentId,
+                        'sort_order' => $index + 1,
+                    ]);
+            }
+
+            $category->refresh();
+
+            if (method_exists($category, 'refreshFullPathRecursively')) {
+                $category->refreshFullPathRecursively();
+            } elseif (method_exists($category, 'refreshFullPath')) {
+                $category->refreshFullPath();
+            }
+        });
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Jerarquía actualizada correctamente.',
+        ]);
+    }
 
     private function validateCategory(Request $request, ?int $ignoreId = null): array
     {
@@ -332,42 +325,27 @@ class CategoryProductController extends Controller implements HasMiddleware
                     }
                 },
             ],
-            'name' => [
-                'required',
-                'string',
-                'max:255',
-            ],
-            'slug' => [
-                'nullable',
-                'string',
-                'max:255',
-                Rule::unique('category_products', 'slug')->ignore($ignoreId),
-            ],
-            'sort_order' => [
-                'nullable',
-                'integer',
-                'min:0',
-            ],
-            'is_active' => [
-                'nullable',
-                'boolean',
-            ],
+            'name' => ['required', 'string', 'max:255'],
+            'slug' => ['nullable', 'string', 'max:255', Rule::unique('category_products', 'slug')->ignore($ignoreId)],
+            'sort_order' => ['nullable', 'integer', 'min:0'],
+            'is_active' => ['nullable', 'boolean'],
         ], [
             'name.required' => 'El nombre es obligatorio.',
-            'name.max' => 'El nombre no puede superar los 255 caracteres.',
             'slug.unique' => 'Este slug ya está en uso.',
             'parent_id.exists' => 'La categoría padre seleccionada no existe.',
-            'sort_order.integer' => 'El orden debe ser un número.',
-            'sort_order.min' => 'El orden no puede ser negativo.',
         ]);
+    }
+
+    private function makeSlug(?string $slug, string $name): string
+    {
+        $finalSlug = blank($slug) ? Str::slug($name) : Str::slug($slug);
+        return blank($finalSlug) ? 'categoria' : $finalSlug;
     }
 
     private function parentCategories(?int $excludeId = null)
     {
         return CategoryProduct::query()
-            ->when($excludeId, function ($query) use ($excludeId) {
-                $query->where('id', '!=', $excludeId);
-            })
+            ->when($excludeId, fn ($query) => $query->where('id', '!=', $excludeId))
             ->orderBy('full_path')
             ->orderBy('name')
             ->get();
@@ -376,13 +354,14 @@ class CategoryProductController extends Controller implements HasMiddleware
     private function mapNode(CategoryProduct $item, bool $withMeta = false): array
     {
         $childrenCount = $item->children()->count();
+        $fullPath = $item->full_path ?: $this->buildFullPath($item);
 
         $data = [
             'id' => $item->id,
             'name' => $item->name,
             'slug' => $item->slug,
             'parent_id' => $item->parent_id,
-            'full_path' => $item->full_path,
+            'full_path' => $fullPath,
             'sort_order' => $item->sort_order,
             'is_active' => (bool) $item->is_active,
             'has_children' => $childrenCount > 0,
@@ -390,11 +369,46 @@ class CategoryProductController extends Controller implements HasMiddleware
         ];
 
         if ($withMeta) {
-            $data['breadcrumb'] = $item->breadcrumb_array;
-            $data['display_path'] = $item->display_path;
+            $data['breadcrumb'] = $this->breadcrumbArray($item);
+            $data['display_path'] = $fullPath;
         }
 
         return $data;
+    }
+
+    private function breadcrumbArray(CategoryProduct $category): array
+    {
+        if (isset($category->breadcrumb_array) && is_array($category->breadcrumb_array)) {
+            return $category->breadcrumb_array;
+        }
+
+        $items = collect();
+        $current = $category;
+
+        while ($current) {
+            $items->prepend([
+                'id' => $current->id,
+                'name' => $current->name,
+                'slug' => $current->slug,
+            ]);
+
+            $current = $current->parent;
+        }
+
+        return $items->values()->all();
+    }
+
+    private function buildFullPath(CategoryProduct $category): string
+    {
+        $names = collect();
+        $current = $category;
+
+        while ($current) {
+            $names->prepend($current->name);
+            $current = $current->parent;
+        }
+
+        return $names->implode(' / ');
     }
 
     private function collectCategoryFamilyIds($categories, int $categoryId, $visibleIds): void
@@ -407,11 +421,6 @@ class CategoryProductController extends Controller implements HasMiddleware
 
         $visibleIds->push($category->id);
 
-        /*
-        |--------------------------------------------------------------------------
-        | Ancestros
-        |--------------------------------------------------------------------------
-        */
         $parentId = $category->parent_id;
 
         while ($parentId) {
@@ -425,108 +434,12 @@ class CategoryProductController extends Controller implements HasMiddleware
             $parentId = $parent->parent_id;
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Descendientes
-        |--------------------------------------------------------------------------
-        */
         $children = $categories->where('parent_id', $category->id);
 
         foreach ($children as $child) {
             $visibleIds->push($child->id);
             $this->collectCategoryFamilyIds($categories, (int) $child->id, $visibleIds);
         }
-    }
-    public function reorder(Request $request)
-    {
-        $data = $request->validate([
-            'category_id' => [
-                'required',
-                'integer',
-                'exists:category_products,id',
-            ],
-            'parent_id' => [
-                'nullable',
-                'integer',
-                'exists:category_products,id',
-            ],
-            'order' => [
-                'required',
-                'array',
-            ],
-            'order.*' => [
-                'required',
-                'integer',
-                'exists:category_products,id',
-            ],
-        ], [
-            'category_id.required' => 'No se recibió la categoría que quieres mover.',
-            'category_id.exists' => 'La categoría que intentas mover ya no existe.',
-            'parent_id.exists' => 'La categoría padre seleccionada ya no existe.',
-            'order.required' => 'No se recibió el nuevo orden.',
-            'order.*.exists' => 'Una de las categorías del orden ya no existe.',
-        ]);
-
-        $categoryId = (int) $data['category_id'];
-        $parentId = $data['parent_id'] ? (int) $data['parent_id'] : null;
-        $orderIds = collect($data['order'])
-            ->filter()
-            ->map(fn ($id) => (int) $id)
-            ->unique()
-            ->values();
-
-        if ($parentId && $parentId === $categoryId) {
-            return response()->json([
-                'ok' => false,
-                'message' => 'Una categoría no puede ser padre de sí misma.',
-            ], 422);
-        }
-
-        if ($parentId && $this->isDescendantOf($parentId, $categoryId)) {
-            return response()->json([
-                'ok' => false,
-                'message' => 'No puedes mover una categoría dentro de una de sus propias subcategorías.',
-            ], 422);
-        }
-
-        DB::transaction(function () use ($categoryId, $parentId, $orderIds) {
-            $category = CategoryProduct::query()->findOrFail($categoryId);
-
-            $category->parent_id = $parentId;
-            $category->save();
-
-            foreach ($orderIds as $index => $id) {
-                CategoryProduct::query()
-                    ->where('id', $id)
-                    ->update([
-                        'parent_id' => $parentId,
-                        'sort_order' => $index + 1,
-                    ]);
-            }
-
-            /*
-            |--------------------------------------------------------------------------
-            | Recalcular rutas completas
-            |--------------------------------------------------------------------------
-            | Cuando una categoría cambia de padre, su full_path y el de todos sus hijos
-            | debe actualizarse para que el árbol y el buscador queden correctos.
-            */
-            $category->refresh();
-            $category->refreshFullPathRecursively();
-
-            foreach ($orderIds as $id) {
-                $sibling = CategoryProduct::query()->find($id);
-
-                if ($sibling) {
-                    $sibling->refreshFullPathRecursively();
-                }
-            }
-        });
-
-        return response()->json([
-            'ok' => true,
-            'message' => 'Jerarquía actualizada correctamente.',
-        ]);
     }
 
     private function isDescendantOf(int $possibleDescendantId, int $ancestorId): bool
@@ -544,5 +457,19 @@ class CategoryProductController extends Controller implements HasMiddleware
         }
 
         return false;
+    }
+
+    private function errorResponse(Request $request, string $message)
+    {
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'ok' => false,
+                'message' => $message,
+            ], 422);
+        }
+
+        return redirect()
+            ->route('admin.category-products.index')
+            ->with('error', $message);
     }
 }

@@ -182,6 +182,10 @@ class WebAssistantController extends Controller
             return $this->handleProductLinkIntent($conversation);
         }
 
+        if ($this->isOrderTrackingIntent($clean)) {
+            return $this->handleOrderTrackingIntent($request, $message);
+        }
+
         if ($this->isOrderSummaryIntent($clean)) {
             return $this->handleOrderSummaryIntent($request, $message);
         }
@@ -465,6 +469,195 @@ class WebAssistantController extends Controller
         $meta = (array) ($conversation->meta ?? $conversation->metadata ?? []);
 
         return max(1, (int) ($meta['last_product_candidate_qty'] ?? 1));
+    }
+
+
+    private function isOrderTrackingIntent(string $clean): bool
+    {
+        if (!preg_match('/\b(pedido|orden|compra|folio)\b/', $clean)) {
+            return false;
+        }
+
+        if ($this->extractExplicitOrderNumber($clean)) {
+            return true;
+        }
+
+        return preg_match('/\b(cuando llega|cuando va a llegar|llegar|llega|entrega|entregado|rastreo|rastrear|seguimiento|guia|guía|paqueteria|paquetería|envio|envío|donde esta|dónde está)\b/', $clean) === 1;
+    }
+
+    private function handleOrderTrackingIntent(Request $request, string $message): array
+    {
+        $explicitOrder = $this->extractExplicitOrderNumber($message);
+
+        if (!$explicitOrder) {
+            return [
+                'action' => 'order_tracking_needs_folio',
+                'reply' => '<p>Claro, puedo revisar el seguimiento de tu pedido. Escríbeme el <strong>número de pedido</strong>, por ejemplo: <strong>pedido 1</strong> o <strong>¿cuándo llega mi pedido 1?</strong>.</p>',
+            ];
+        }
+
+        $order = $this->findSpecificOrderForActor($request, $explicitOrder);
+
+        if (!$order) {
+            return [
+                'action' => 'order_tracking_not_found',
+                'reply' => '<p>No encontré el <strong>pedido #' . e((string) $explicitOrder) . '</strong> asociado a tu cuenta.</p><p>Revisa el número de pedido o dime el correo usado en la compra.</p>',
+            ];
+        }
+
+        $status = $order['estatus'] ?: 'Sin estatus';
+        $folio = $order['folio'] ?: ('Pedido #' . $order['id']);
+        $total = is_numeric($order['total']) ? '$' . number_format((float) $order['total'], 2) . ' MXN' : 'No disponible';
+        $fecha = $order['fecha'] ? Carbon::parse($order['fecha'])->format('d/m/Y H:i') : 'No disponible';
+        $carrier = $order['paqueteria'] ?: 'Pendiente';
+        $service = $order['servicio'] ?: 'Pendiente';
+        $guia = $order['guia'] ?: null;
+        $trackingUrl = $order['tracking_url'] ?? null;
+        $labelUrl = $order['label_url'] ?? null;
+        $shippingStatus = $order['shipping_status'] ?: null;
+
+        $html = '<p>Revisé tu <strong>' . e($folio) . '</strong>:</p>';
+        $html .= '<ul>';
+        $html .= '<li>Estatus: <strong>' . e($this->humanOrderStatus($status)) . '</strong></li>';
+        $html .= '<li>Total: <strong>' . e($total) . '</strong></li>';
+        $html .= '<li>Fecha: <strong>' . e($fecha) . '</strong></li>';
+        $html .= '<li>Paquetería: <strong>' . e($carrier) . '</strong></li>';
+        $html .= '<li>Servicio: <strong>' . e($service) . '</strong></li>';
+
+        if ($shippingStatus) {
+            $html .= '<li>Estado de envío: <strong>' . e($this->humanOrderStatus($shippingStatus)) . '</strong></li>';
+        }
+
+        if ($guia) {
+            $html .= '<li>Guía: <strong>' . e($guia) . '</strong></li>';
+        } else {
+            $html .= '<li>Guía: <strong>Pendiente</strong></li>';
+        }
+
+        if (!empty($order['items'])) {
+            $html .= '<li>Productos: <strong>' . e(collect($order['items'])->take(4)->map(function ($item) {
+                return ($item['cantidad'] ?? 1) . ' x ' . ($item['nombre'] ?? 'Producto');
+            })->implode(', ')) . '</strong></li>';
+        }
+
+        $html .= '</ul>';
+
+        if ($guia && $trackingUrl) {
+            $html .= '<p>Ya tiene guía generada. Puedes rastrearlo aquí:<br><a href="' . e($trackingUrl) . '" target="_blank" rel="noopener">Ver seguimiento</a></p>';
+        } elseif ($guia) {
+            $html .= '<p>Ya tiene guía generada. La paquetería actualizará el rastreo cuando reciba el paquete.</p>';
+        } else {
+            $html .= '<p>Tu pedido está registrado, pero todavía no tiene guía generada. Si ya pasó mucho tiempo, puedo ayudarte a levantar un reporte de seguimiento.</p>';
+        }
+
+        if ($labelUrl) {
+            $html .= '<p><a href="' . e($labelUrl) . '" target="_blank" rel="noopener">Ver etiqueta</a></p>';
+        }
+
+        return [
+            'action' => 'order_tracking',
+            'reply' => $html,
+        ];
+    }
+
+    private function extractExplicitOrderNumber(string $message): ?string
+    {
+        $text = $this->cleanText($message);
+
+        if (preg_match('/\b(?:pedido|orden|compra|folio)\s*#?\s*([a-z0-9\-]{1,40})\b/i', $text, $match)) {
+            return strtoupper(trim($match[1]));
+        }
+
+        if (preg_match('/#\s*([0-9]{1,20})\b/', $message, $match)) {
+            return trim($match[1]);
+        }
+
+        return null;
+    }
+
+    private function findSpecificOrderForActor(Request $request, string $folio): ?array
+    {
+        $user = Auth::user();
+        $possibleEmail = $this->extractPossibleEmail($request->input('message', '')) ?: $user?->email;
+        $possibleTables = ['orders', 'web_orders', 'customer_orders', 'shop_orders', 'customer_sales', 'sales'];
+
+        foreach ($possibleTables as $table) {
+            if (!Schema::hasTable($table)) {
+                continue;
+            }
+
+            $query = DB::table($table);
+            $hasFolioColumn = false;
+
+            $query->where(function ($q) use ($table, $folio, &$hasFolioColumn) {
+                foreach (['id', 'folio', 'order_number', 'number', 'reference', 'referencia', 'uuid', 'paypal_order_id', 'stripe_session_id'] as $field) {
+                    if (Schema::hasColumn($table, $field)) {
+                        $q->orWhere($field, $folio);
+                        $hasFolioColumn = true;
+                    }
+                }
+            });
+
+            if (!$hasFolioColumn) {
+                continue;
+            }
+
+            $order = $query->first();
+
+            if (!$order) {
+                continue;
+            }
+
+            if (!$this->orderBelongsToActor($table, $order, $user, $possibleEmail)) {
+                continue;
+            }
+
+            return $this->orderPayload($table, $order);
+        }
+
+        return null;
+    }
+
+    private function orderBelongsToActor(string $table, object $order, $user, ?string $email): bool
+    {
+        if (!$user && !$email) {
+            return false;
+        }
+
+        if ($user) {
+            foreach (['user_id', 'customer_id', 'client_id', 'cliente_id', 'buyer_id', 'created_by', 'account_id'] as $field) {
+                if (Schema::hasColumn($table, $field) && isset($order->{$field}) && (int) $order->{$field} === (int) $user->id) {
+                    return true;
+                }
+            }
+        }
+
+        if ($email) {
+            foreach (['email', 'customer_email', 'billing_email', 'shipping_email', 'client_email', 'correo', 'correo_cliente'] as $field) {
+                if (Schema::hasColumn($table, $field) && isset($order->{$field}) && strtolower((string) $order->{$field}) === strtolower((string) $email)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private function humanOrderStatus(?string $status): string
+    {
+        $key = $this->cleanText((string) $status);
+
+        return match ($key) {
+            'paid', 'pagado' => 'pagado',
+            'pending', 'pendiente' => 'pendiente',
+            'processing', 'procesando' => 'en proceso',
+            'completed', 'completado' => 'completado',
+            'cancelled', 'canceled', 'cancelado' => 'cancelado',
+            'creado', 'created' => 'guía creada',
+            'transit', 'en transito', 'en tránsito' => 'en tránsito',
+            'delivered', 'entregado' => 'entregado',
+            default => $status ?: 'procesando',
+        };
     }
 
     private function isOrderSummaryIntent(string $clean): bool
@@ -981,8 +1174,12 @@ PROMPT;
             'estatus' => $order->status ?? $order->estado ?? $order->payment_status ?? null,
             'total' => $order->total ?? $order->grand_total ?? $order->amount ?? null,
             'fecha' => $order->created_at ?? null,
-            'guia' => $order->tracking_number ?? $order->tracking ?? $order->guia ?? null,
-            'paqueteria' => $order->shipping_carrier ?? $order->carrier ?? $order->paqueteria ?? null,
+            'guia' => $order->tracking_number ?? $order->shipping_tracking_number ?? $order->guide_number ?? $order->tracking ?? $order->guia ?? null,
+            'tracking_url' => $order->tracking_url ?? $order->shipping_tracking_url ?? null,
+            'label_url' => $order->label_url ?? $order->shipping_label_url ?? null,
+            'shipping_status' => $order->shipping_status ?? null,
+            'paqueteria' => $order->shipping_carrier ?? $order->shipping_name ?? $order->carrier ?? $order->paqueteria ?? null,
+            'servicio' => $order->shipping_service ?? $order->service ?? null,
             'email' => $order->email ?? $order->customer_email ?? null,
             'items' => $this->orderItemsPayload($id),
         ];

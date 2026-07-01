@@ -1780,10 +1780,10 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     const api = {
-      roots: '{{ url('/admin/category-products/roots') }}',
-      children: '{{ url('/admin/category-products') }}/:id/children',
-      show: '{{ url('/admin/category-products') }}/:id',
-      store: '{{ url('/admin/category-products') }}',
+      roots: @json(route('admin.category-products.roots')),
+      children: @json(route('admin.category-products.children', ['category' => '__ID__'])),
+      show: @json(route('admin.category-products.show-json', ['category' => '__ID__'])),
+      store: @json(route('admin.category-products.store')),
     };
 
     const openBtn = document.getElementById('openCategoryPicker');
@@ -1823,8 +1823,8 @@
     let levels = [];
     let selectedFinal = null;
 
-    function childrenUrl(id) { return api.children.replace(':id', id); }
-    function showUrl(id) { return api.show.replace(':id', id); }
+    function childrenUrl(id) { return api.children.replace('__ID__', id); }
+    function showUrl(id) { return api.show.replace('__ID__', id); }
 
     function openModal(el) { el.classList.add('show'); document.body.style.overflow = 'hidden'; }
     function closeModal(el) { el.classList.remove('show'); if (!modal.classList.contains('show') && !createModal.classList.contains('show')) document.body.style.overflow = ''; }

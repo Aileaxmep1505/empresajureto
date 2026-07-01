@@ -712,33 +712,6 @@
       margin-bottom:0;
     }
 
-    .jrt-ai-msg a{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      margin-top:8px;
-      padding:9px 14px;
-      border-radius:999px;
-      background:rgba(255,255,255,.18);
-      border:1px solid rgba(255,255,255,.34);
-      color:#fff;
-      text-decoration:none;
-      font-weight:800;
-      transition:transform .16s ease, background .16s ease;
-    }
-
-    .jrt-ai-msg a:hover{
-      background:rgba(255,255,255,.26);
-      transform:translateY(-1px);
-      color:#fff;
-    }
-
-    .jrt-ai-msg.user a{
-      color:#007aff;
-      background:#e6f0ff;
-      border-color:#e6f0ff;
-    }
-
     .jrt-ai-typing{
       align-self:flex-start;
       display:flex;
@@ -1953,7 +1926,7 @@
       const template = document.createElement('template');
       template.innerHTML = String(html || '');
 
-      const allowedTags = ['STRONG', 'B', 'EM', 'I', 'UL', 'OL', 'LI', 'BR', 'P', 'SPAN', 'A'];
+      const allowedTags = ['STRONG', 'B', 'EM', 'I', 'UL', 'OL', 'LI', 'BR', 'P', 'SPAN'];
 
       template.content.querySelectorAll('*').forEach(function(node){
         if (!allowedTags.includes(node.tagName)) {
@@ -1962,22 +1935,6 @@
         }
 
         Array.from(node.attributes).forEach(function(attr){
-          const name = String(attr.name || '').toLowerCase();
-
-          if(node.tagName === 'A' && name === 'href'){
-            const href = String(attr.value || '');
-
-            if(href.startsWith('http://') || href.startsWith('https://') || href.startsWith('/')){
-              node.setAttribute('target', '_self');
-              node.setAttribute('rel', 'noopener');
-              return;
-            }
-          }
-
-          if(node.tagName === 'A' && (name === 'target' || name === 'rel')){
-            return;
-          }
-
           node.removeAttribute(attr.name);
         });
       });
@@ -2132,6 +2089,17 @@
       }
 
       return msg;
+    }
+
+    function ensureUserMessageVisible(text){
+      const clean = normalizeMessageText(text);
+      if(!clean) return;
+
+      const fingerprint = 'fp:user:' + clean;
+
+      if(!renderedMessageKeys.has(fingerprint)){
+        addMessage('user', text, fingerprint);
+      }
     }
 
     function addTyping(){
@@ -2368,6 +2336,10 @@
 
       sendingMessage = true;
 
+      // Garantía visual: aunque el submit no haya pintado la burbuja por cualquier motivo,
+      // siempre mostramos el mensaje del usuario antes de esperar la respuesta.
+      ensureUserMessageVisible(text);
+
       const typing = addTyping();
 
       try {
@@ -2400,8 +2372,11 @@
         }
 
         if(data.user_message){
+          ensureUserMessageVisible(data.user_message.content || text);
           markMessageFingerprint('user', data.user_message.content || text);
           renderedMessageKeys.add(messageKey(data.user_message));
+        } else {
+          ensureUserMessageVisible(text);
         }
 
         if(data.assistant_message && data.assistant_message.content){
@@ -2471,7 +2446,8 @@
 
       const localKey = 'fp:user:' + normalizeMessageText(text);
 
-      addMessage('user', text, localKey);
+      // Pintar mensaje del usuario inmediatamente, antes del fetch.
+      ensureUserMessageVisible(text);
       markMessageFingerprint('user', text);
 
       setSuggestionsVisible(false);
